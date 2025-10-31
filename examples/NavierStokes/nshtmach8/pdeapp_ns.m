@@ -13,7 +13,7 @@ pde.modelfile = "pdemodel_ns";    % name of a file defining the PDE model
 
 % Choose computing platform and set number of processors
 pde.platform = "cpu";         % choose this option if NVIDIA GPUs are available
-pde.mpiprocs = 1;              % number of MPI processors
+pde.mpiprocs = 3;              % number of MPI processors
 pde.hybrid = 1;
 pde.porder = 4;          % polynomial degree
 pde.gencode = 1;
@@ -103,13 +103,13 @@ figure(2); clf; scaplot(mesh, (Tref/Tinf)*eulereval(sol, 't',gam,Minf),[]);
 % p  = (gam-1)*(u(:,4,:) - 0.5*(u(:,2,:).*uv + u(:,3,:).*vv));
 % T = p./((gam-1)*r);
 
-% [hfx, hfy, Tx, Ty, kappa] = heatflux(sol(:,1:4,:), sol(:,5:12,:), pde.physicsparam);
-% figure(3); clf; scaplot(mesh, hfx);
-% figure(4); clf; scaplot(mesh, hfy);
-% 
-% figure(5); clf; scaplot(mesh, Tx);
-% figure(6); clf; scaplot(mesh, Ty);
-% figure(7); clf; scaplot(mesh, kappa);
+[hfx, hfy, Tx, Ty, kappa] = heatflux(sol(:,1:4,:), sol(:,5:12,:), pde.physicsparam);
+figure(3); clf; scaplot(mesh, hfx);
+figure(4); clf; scaplot(mesh, hfy);
+
+figure(5); clf; scaplot(mesh, Tx);
+figure(6); clf; scaplot(mesh, Ty);
+figure(7); clf; scaplot(mesh, kappa);
 % 
 % fileID = fopen(pde.buildpath + "/dataout/out_uhat_np0.bin",'r');
 % UH = fread(fileID,'double');

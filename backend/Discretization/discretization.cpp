@@ -700,7 +700,7 @@ void CDiscretization::evalAVfield(dstype* avField, Int backend)
         nsend = common.elemsendpts[n]*bsz;
         if (nsend>0) {
             MPI_Isend(&tmp.buffsend[psend], nsend, MPI_DOUBLE, neighbor, 0,
-                   MPI_COMM_WORLD, &common.requests[request_counter]);
+                   EXASIM_COMM_WORLD, &common.requests[request_counter]);
             psend += nsend;
             request_counter += 1;
         }
@@ -713,7 +713,7 @@ void CDiscretization::evalAVfield(dstype* avField, Int backend)
         nrecv = common.elemrecvpts[n]*bsz;
         if (nrecv>0) {
             MPI_Irecv(&tmp.buffrecv[precv], nrecv, MPI_DOUBLE, neighbor, 0,
-                   MPI_COMM_WORLD, &common.requests[request_counter]);
+                   EXASIM_COMM_WORLD, &common.requests[request_counter]);
             precv += nrecv;
             request_counter += 1;
         }
@@ -758,7 +758,7 @@ void CDiscretization::evalOutput(dstype* output, Int backend)
         nsend = common.elemsendpts[n]*bsz;
         if (nsend>0) {
             MPI_Isend(&tmp.buffsend[psend], nsend, MPI_DOUBLE, neighbor, 0,
-                   MPI_COMM_WORLD, &common.requests[request_counter]);
+                   EXASIM_COMM_WORLD, &common.requests[request_counter]);
             psend += nsend;
             request_counter += 1;
         }
@@ -771,7 +771,7 @@ void CDiscretization::evalOutput(dstype* output, Int backend)
         nrecv = common.elemrecvpts[n]*bsz;
         if (nrecv>0) {
             MPI_Irecv(&tmp.buffrecv[precv], nrecv, MPI_DOUBLE, neighbor, 0,
-                   MPI_COMM_WORLD, &common.requests[request_counter]);
+                   EXASIM_COMM_WORLD, &common.requests[request_counter]);
             precv += nrecv;
             request_counter += 1;
         }

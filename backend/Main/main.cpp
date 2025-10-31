@@ -105,6 +105,7 @@
 
 #ifdef HAVE_MPI
 #include <mpi.h>
+MPI_Comm EXASIM_COMM_WORLD = MPI_COMM_WORLD;
 #endif
 
 #ifdef HAVE_TEXT2CODE
@@ -147,13 +148,13 @@ int main(int argc, char** argv)
     MPI_Init(&argc, &argv);
 
     // Get the number of processes    
-    MPI_Comm_size(MPI_COMM_WORLD, &mpiprocs);
+    MPI_Comm_size(EXASIM_COMM_WORLD, &mpiprocs);
 
     // Get the rank of the process
-    MPI_Comm_rank(MPI_COMM_WORLD, &mpirank);
+    MPI_Comm_rank(EXASIM_COMM_WORLD, &mpirank);
    
     MPI_Comm shmcomm;
-    MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0,
+    MPI_Comm_split_type(EXASIM_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0,
                     MPI_INFO_NULL, &shmcomm);
     
     MPI_Comm_rank(shmcomm, &shmrank);

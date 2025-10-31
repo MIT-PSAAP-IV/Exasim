@@ -44,6 +44,10 @@
 #ifndef __PBLAS_H__
 #define __PBLAS_H__
 
+#ifdef HAVE_MPI
+extern MPI_Comm EXASIM_COMM_WORLD;
+#endif
+
 static void cpuNode2Gauss(dstype *ug, dstype *un, dstype *shapt, Int ng, Int np, Int nn)
 {    
 #ifdef USE_FLOAT        
@@ -310,9 +314,9 @@ static void PDOT(cublasHandle_t handle, Int m, dstype* x, Int incx, dstype* y, I
     
 #ifdef HAVE_MPI        
 #ifdef USE_FLOAT        
-    MPI_Allreduce(&local_dot, global_dot, 1, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&local_dot, global_dot, 1, MPI_FLOAT, MPI_SUM, EXASIM_COMM_WORLD);
 #else        
-    MPI_Allreduce(&local_dot, global_dot, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&local_dot, global_dot, 1, MPI_DOUBLE, MPI_SUM, EXASIM_COMM_WORLD);
 #endif         
 #else    
     //ArrayCopy(global_dot, local_dot, 1, backend);
@@ -562,9 +566,9 @@ static void PGEMTV(cublasHandle_t handle, Int m, Int n, dstype *alpha, dstype* A
     hipDeviceSynchronize();
 #endif        
 #ifdef USE_FLOAT         
-    MPI_Allreduce(ylocal, y, n, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(ylocal, y, n, MPI_FLOAT, MPI_SUM, EXASIM_COMM_WORLD);
 #else            
-    MPI_Allreduce(ylocal, y, n, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(ylocal, y, n, MPI_DOUBLE, MPI_SUM, EXASIM_COMM_WORLD);
 #endif    
 #else
     ArrayCopy(y, ylocal, n);
@@ -603,9 +607,9 @@ static void PGEMTV(cublasHandle_t handle, Int m, Int n, dstype *alpha, dstype* A
 //     
 // #ifdef  HAVE_MPI          
 // #ifdef USE_FLOAT         
-//     MPI_Allreduce(ylocal, y, n, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
+//     MPI_Allreduce(ylocal, y, n, MPI_FLOAT, MPI_SUM, EXASIM_COMM_WORLD);
 // #else            
-//     MPI_Allreduce(ylocal, y, n, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+//     MPI_Allreduce(ylocal, y, n, MPI_DOUBLE, MPI_SUM, EXASIM_COMM_WORLD);
 // #endif    
 // #else
 //     ArrayCopy(y, ylocal, n);
@@ -683,9 +687,9 @@ static void PGEMTM(cublasHandle_t handle, Int m, Int n, Int k, dstype *alpha, ds
     hipDeviceSynchronize();
 #endif            
 #ifdef USE_FLOAT         
-    MPI_Allreduce(Clocal, C, p, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(Clocal, C, p, MPI_FLOAT, MPI_SUM, EXASIM_COMM_WORLD);
 #else            
-    MPI_Allreduce(Clocal, C, p, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(Clocal, C, p, MPI_DOUBLE, MPI_SUM, EXASIM_COMM_WORLD);
 #endif    
 #else
     ArrayCopy(C, Clocal, p);

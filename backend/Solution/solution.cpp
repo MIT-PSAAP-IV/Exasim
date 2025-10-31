@@ -52,6 +52,10 @@
 #include <sys/time.h>
 #endif
 
+#ifdef HAVE_MPI
+extern MPI_Comm EXASIM_COMM_WORLD;
+#endif
+
 void CSolution::SteadyProblem(ofstream &out, Int backend) 
 {   
     INIT_TIMING;        
@@ -108,7 +112,7 @@ void CSolution::SteadyProblem(ofstream &out, Int backend)
                 nsend = disc.common.elemsendpts[n]*bsz;
                 if (nsend>0) {
                     MPI_Isend(&disc.tmp.buffsend[psend], nsend, MPI_DOUBLE, neighbor, 0,
-                        MPI_COMM_WORLD, &disc.common.requests[request_counter]);
+                        EXASIM_COMM_WORLD, &disc.common.requests[request_counter]);
                     psend += nsend;
                     request_counter += 1;
                 }
@@ -120,7 +124,7 @@ void CSolution::SteadyProblem(ofstream &out, Int backend)
                 nrecv = disc.common.elemrecvpts[n]*bsz;
                 if (nrecv>0) {
                     MPI_Irecv(&disc.tmp.buffrecv[precv], nrecv, MPI_DOUBLE, neighbor, 0,
-                        MPI_COMM_WORLD, &disc.common.requests[request_counter]);
+                        EXASIM_COMM_WORLD, &disc.common.requests[request_counter]);
                     precv += nrecv;
                     request_counter += 1;
                 }
