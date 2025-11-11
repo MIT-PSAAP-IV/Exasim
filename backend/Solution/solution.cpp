@@ -81,13 +81,22 @@ void CSolution::SteadyProblem(ofstream &out, Int backend)
     // calculate AV field
     if (disc.common.ncAV>0 && disc.common.frozenAVflag > 0) {
         // START_TIMING;
-        // compute AV field at sys.u and store it in sol.odg
-        //disc.evalAVfield(disc.sol.odg, solv.sys.u, backend);
-        disc.evalAVfield(disc.sol.odg, backend);
+
+        Int nco = disc.common.nco;
+        Int ncAV = disc.common.ncAV;
+        Int npe = disc.common.npe;
+        Int ne = disc.common.ne;            
+        
+        // store AV field 
+        dstype *avField = &disc.res.Rq[0];
+        dstype *utm = &disc.res.Rq[npe*ncAV*ne];
+
+        // evaluate AV field
+        disc.evalAVfield(avField, backend);
 
         for (Int iav = 0; iav<disc.common.AVsmoothingIter; iav++){
             // printf("Solution AV smoothing iter: %i\n", iav);
-            disc.DG2CG2(disc.sol.odg, disc.sol.odg, solv.sys.x, disc.common.nco, disc.common.nco, disc.common.ncAV, backend);
+            disc.DG2CG2(avField, avField, utm, disc.common.ncAV, disc.common.ncAV, disc.common.ncAV, backend);
 
 #ifdef  HAVE_MPI    
             Int bsz = disc.common.npe*disc.common.ncAV;
@@ -96,7 +105,7 @@ void CSolution::SteadyProblem(ofstream &out, Int backend)
 
             //for (n=0; n<disc.common.nelemsend; n++)
             //    ArrayCopy(&disc.tmp.buffsend[bsz*n], &disc.sol.odg[nudg*disc.common.elemsend[n]], bsz, backend);
-            GetArrayAtIndex(disc.tmp.buffsend, disc.sol.odg, disc.mesh.elemsendodg, bsz*disc.common.nelemsend);
+            GetArrayAtIndex(disc.tmp.buffsend, avField, disc.mesh.elemsendodg, bsz*disc.common.nelemsend);
 
 #ifdef HAVE_CUDA
             cudaDeviceSynchronize();
@@ -133,12 +142,15 @@ void CSolution::SteadyProblem(ofstream &out, Int backend)
             MPI_Waitall(request_counter, disc.common.requests, disc.common.statuses);
             //for (n=0; n<disc.common.nelemrecv; n++)
             //   ArrayCopy(&disc.sol.odg[nudg*disc.common.elemrecv[n]], &disc.tmp.buffrecv[bsz*n], bsz, backend);
-            PutArrayAtIndex(disc.sol.odg, disc.tmp.buffrecv, disc.mesh.elemrecvodg, bsz*disc.common.nelemrecv);
+            PutArrayAtIndex(avField, disc.tmp.buffrecv, disc.mesh.elemrecvodg, bsz*disc.common.nelemrecv);
 #endif
     //    END_TIMING_DISC(98);    
         }
 
+        // insert avField into odg
+        ArrayInsert(disc.sol.odg, avField, npe, nco, ne, 0, npe, nco-ncAV, nco, 0, ne);          
     }
+
     if (disc.common.nco>0) {
         for (Int j=0; j<disc.common.nbe; j++) {
             Int e1 = disc.common.eblks[3*j]-1;
@@ -526,12 +538,18 @@ void CSolution::SaveSolutions(Int backend)
     else 
         if (((disc.common.currentstep+1) % disc.common.saveSolFreq) == 0) save = true;             
 
-    if (save == true) {
-        if (disc.common.saveSolOpt==0) 
-            writearray(outsol, solv.sys.u, disc.common.ndof1, backend);    
+    if (save == true) {        
+        if (disc.common.saveSolOpt==0) {
+            if (disc.common.spatialScheme > 0) {
+                ArrayExtract(disc.res.Rq, disc.sol.udg, disc.common.npe, disc.common.nc, disc.common.ne1, 0, disc.common.npe, 0, disc.common.ncu, 0, disc.common.ne1);                                                  
+                writearray(outsol, disc.res.Rq, disc.common.ndof1, backend);    
+            }
+            else
+                writearray(outsol, solv.sys.u, disc.common.ndof1, backend);    
+        }
         else
             writearray(outsol, disc.sol.udg, disc.common.ndofudg1, backend);    
-
+        
         if (disc.common.ncw>0)
             writearray(outwdg, disc.sol.wdg, disc.common.ndofw1, backend);
 
@@ -543,6 +561,8 @@ void CSolution::SaveSolutions(Int backend)
             writearray2file(fn1, disc.sol.udgavg, disc.common.ndofudg1+1, backend);
         }        
     }
+
+    
 
    // if (disc.common.tdep==1) { 
    //      if (((disc.common.currentstep+1) % disc.common.saveSolFreq) == 0)             
