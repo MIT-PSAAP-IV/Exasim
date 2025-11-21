@@ -78,6 +78,10 @@ typedef long Int;
 typedef int Int; 
 #endif
 
+#ifdef HAVE_MPI
+extern MPI_Comm EXASIM_COMM_WORLD;
+#endif
+
 #ifndef HAVE_CUDA    
 #ifdef HAVE_HIP    
 #define cublasHandle_t hipblasHandle_t
