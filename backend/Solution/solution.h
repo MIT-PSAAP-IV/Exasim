@@ -57,13 +57,14 @@ void open_and_write(std::ofstream& ofs,
     writearray(ofs, a, 3);
 }
 
+template <typename Model = DefaultModel>
 class CSolution {
 private:
 public:
-    CDiscretization disc;  // spatial discretization class
-    CPreconditioner prec;  // precondtioner class 
-    CSolver solv;          // linear and nonlinear solvers
-    CVisualization vis;    // visualization class
+    CDiscretization<Model> disc;  // spatial discretization class
+    CPreconditioner<Model> prec;  // precondtioner class 
+    CSolver<Model> solv;          // linear and nonlinear solvers
+    CVisualization<Model> vis;    // visualization class
     ofstream outsol;       // storing solutions
     ofstream outwdg;  
     ofstream outuhat;  
@@ -75,8 +76,8 @@ public:
     ofstream outqoi;
     
     // constructor 
-    CSolution(string filein, string fileout, Int mpiprocs, Int mpirank, Int fileoffset, Int omprank, Int backend)   
-       : disc(filein, fileout, mpiprocs, mpirank, fileoffset, omprank, backend),
+    CSolution(string filein, string fileout, string exasimpath, Int mpiprocs, Int mpirank, Int fileoffset, Int omprank, Int backend)   
+       : disc(filein, fileout, exasimpath, mpiprocs, mpirank, fileoffset, omprank, backend),
          prec(disc, backend), solv(disc, backend), vis(disc, backend) 
     {   
         int ncx = disc.common.ncx;                            
@@ -215,7 +216,9 @@ public:
     // save output in binary files
     void SaveOutputCG(Int backend);   
 
-    Int PTCsolver(ofstream &out, Int backend);
+  Int PTCsolver(ofstream &out, Int backend);
+
+
     Int NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int backend);       
 };
 
