@@ -12,6 +12,7 @@
 *.asv
 .gitignore~
 .DS_Store
+.vscode/
 docs/
 *.aux
 *.log

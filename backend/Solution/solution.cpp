@@ -52,8 +52,7 @@
 #include <sys/time.h>
 #endif
 
-template <typename Model>
-Int CSolution<Model>::PTCsolver(ofstream &out, Int backend)       
+Int CSolution::PTCsolver(ofstream &out, Int backend)       
 {
     Int N = disc.common.ndof1;     
     Int it = 0, maxit = disc.common.nonlinearSolverMaxIter;  
@@ -121,8 +120,8 @@ Int CSolution<Model>::PTCsolver(ofstream &out, Int backend)
         
     return it;
 }
-template <typename Model>
-Int CSolution<Model>::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int backend)       
+
+Int CSolution::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int backend)       
 {
     Int it = 0, maxit = disc.common.nonlinearSolverMaxIter;  
     dstype nrmr, nrm0, tol;
@@ -241,8 +240,7 @@ Int CSolution<Model>::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int 
     return it;
 }
 
-template <typename Model>
-void CSolution<Model>::SteadyProblem(ofstream &out, Int backend) 
+void CSolution::SteadyProblem(ofstream &out, Int backend) 
 {   
     INIT_TIMING;        
 #ifdef TIMING    
@@ -376,8 +374,7 @@ void CSolution<Model>::SteadyProblem(ofstream &out, Int backend)
     if (disc.common.spatialScheme==0) {
       this->PTCsolver(out, backend);           
     }
-    else if (disc.common.spatialScheme==1) {
-      
+    else if (disc.common.spatialScheme==1) {      
       this->NewtonSolver(out, disc.common.ndofuhat, disc.common.spatialScheme, backend);           
     }
     else
@@ -392,8 +389,7 @@ void CSolution<Model>::SteadyProblem(ofstream &out, Int backend)
 #endif    
 }
 
-template <typename Model>
-void CSolution<Model>::InitSolution(Int backend) 
+void CSolution::InitSolution(Int backend) 
 {    
 //     // compute the geometry quantities
 //     disc.compGeometry(backend);
@@ -447,8 +443,7 @@ void CSolution<Model>::InitSolution(Int backend)
     }    
 }
 
-template <typename Model>
-void CSolution<Model>::DIRK(ofstream &out, Int backend)
+void CSolution::DIRK(ofstream &out, Int backend)
 {    
     INIT_TIMING;        
     
@@ -541,8 +536,7 @@ void CSolution<Model>::DIRK(ofstream &out, Int backend)
     }           
 }
 
-template <typename Model>
-void CSolution<Model>::SteadyProblem_PTC(ofstream &out, Int backend) {
+void CSolution::SteadyProblem_PTC(ofstream &out, Int backend) {
 
     // initial time
     double time = disc.common.time;           
@@ -698,8 +692,7 @@ void CSolution<Model>::SteadyProblem_PTC(ofstream &out, Int backend) {
     }
 }
 
-template <typename Model>
-void CSolution<Model>::SolveProblem(ofstream &out, Int backend) 
+void CSolution::SolveProblem(ofstream &out, Int backend) 
 {          
     this->InitSolution(backend); 
         
@@ -722,8 +715,7 @@ void CSolution<Model>::SolveProblem(ofstream &out, Int backend)
     }        
 }
 
-template <typename Model>
-void CSolution<Model>::SaveSolutions(Int backend) 
+void CSolution::SaveSolutions(Int backend) 
 {
     bool save = false;
     if (disc.common.tdep==0) save = true;
@@ -753,9 +745,25 @@ void CSolution<Model>::SaveSolutions(Int backend)
             writearray2file(fn1, disc.sol.udgavg, disc.common.ndofudg1+1, backend);
         }        
     }
+   
+   if (disc.common.tdep==1) { 
+        if (((disc.common.currentstep+1) % disc.common.saveRestart) == 0)             
+        {        
+            string filename = disc.common.fileout + "udg_t" + NumberToString(disc.common.currentstep+disc.common.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";     
+            writearray2file(filename, disc.sol.udg, disc.common.ndofudg1, backend);
 
+            if (disc.common.ncw>0) {
+                string fn = disc.common.fileout + "_wdg_t" + NumberToString(disc.common.currentstep+disc.common.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";                    
+                writearray2file(fn, solv.sys.wtmp, disc.common.ndofw1, backend);
+            }                        
+
+            if (disc.common.spatialScheme==1) {
+                string fn2 = disc.common.fileout + "_uhat_t" + NumberToString(disc.common.currentstep+disc.common.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";                    
+                writearray2file(fn2, disc.sol.uh, disc.common.ndofuhat, backend);        
+            }
+        }    
+   }
     
-
    // if (disc.common.tdep==1) { 
    //      if (((disc.common.currentstep+1) % disc.common.saveSolFreq) == 0)             
    //      {        
@@ -800,20 +808,19 @@ void CSolution<Model>::SaveSolutions(Int backend)
    // }    
 }
 
-template <typename Model>
-void CSolution<Model>::ReadSolutions(Int backend) 
+void CSolution::ReadSolutions(Int backend) 
 {
    if (disc.common.tdep==1) { 
-        if (((disc.common.currentstep+1) % disc.common.saveSolFreq) == 0)             
+        if (((disc.common.currentstep+1) % disc.common.saveRestart) == 0)             
         {        
             string filename = disc.common.fileout + "udg_t" + NumberToString(disc.common.currentstep+disc.common.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";     
-            if (disc.common.saveSolOpt==0) {
-                readarrayfromfile(filename, &solv.sys.u, disc.common.ndof1, backend);
-                // insert u into udg
-                ArrayInsert(disc.sol.udg, solv.sys.u, disc.common.npe, disc.common.nc, 
-                 disc.common.ne, 0, disc.common.npe, 0, disc.common.ncu, 0, disc.common.ne1);  
-            }
-            else
+            // if (disc.common.saveSolOpt==0) {
+            //     readarrayfromfile(filename, &disc.res.Rq, disc.common.ndof1, backend);
+            //     // insert u into udg
+            //     ArrayInsert(disc.sol.udg, disc.res.Rq, disc.common.npe, disc.common.nc, 
+            //      disc.common.ne, 0, disc.common.npe, 0, disc.common.ncu, 0, disc.common.ne1);  
+            // }
+            // else
                 readarrayfromfile(filename, &disc.sol.udg, disc.common.ndofudg1, backend);        
             
             if (disc.common.ncw>0) {
@@ -850,7 +857,7 @@ void CSolution<Model>::ReadSolutions(Int backend)
    }    
 }
  
-template <typename Model>
+
 void CSolution::SaveParaview(Int backend, std::string fname_modifier, bool force_tdep_write) 
 {
     // Decide whether we should write a file on this step
@@ -895,15 +902,15 @@ void CSolution::SaveParaview(Int backend, std::string fname_modifier, bool force
        if (ncw > 0) GetElemNodes(wdg, disc.sol.wdg, npe, ncw, 0, ncw, 0, ne);
     
        if (nsca > 0) {        
-            VisScalarsDriver<Model>(f, xdg, udg, vdg, wdg, disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common, npe, 0, ne, backend);                                 
+            VisScalarsDriver(f, xdg, udg, vdg, wdg, disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common, npe, 0, ne, backend);                                 
             VisDG2CG(vis.scafields, f, disc.mesh.cgent2dgent, disc.mesh.colent2elem, disc.mesh.rowent2elem, ne, ncg, ndg, 1, 1, nsca);
        }    
        if (nvec > 0) {        
-            VisVectorsDriver<Model>(f, xdg, udg, vdg, wdg, disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common, npe, 0, ne, backend);                                 
+            VisVectorsDriver(f, xdg, udg, vdg, wdg, disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common, npe, 0, ne, backend);                                 
             VisDG2CG(vis.vecfields, f, disc.mesh.cgent2dgent, disc.mesh.colent2elem, disc.mesh.rowent2elem, ne, ncg, ndg, 3, ncx, nvec);
        }
        if (nten > 0) {        
-            VisTensorsDriver<Model>(f, xdg, udg, vdg, wdg, disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common, npe, 0, ne, backend);                                 
+            VisTensorsDriver(f, xdg, udg, vdg, wdg, disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common, npe, 0, ne, backend);                                 
             VisDG2CG(vis.tenfields, f, disc.mesh.cgent2dgent, disc.mesh.colent2elem, disc.mesh.rowent2elem, ne, ncg, ndg, vis.ntc, vis.ntc, nvec);
        }
 
@@ -921,11 +928,10 @@ void CSolution::SaveParaview(Int backend, std::string fname_modifier, bool force
    }
 }
 
-template <typename Model>
-void CSolution<Model>::SaveQoI(Int backend) 
+void CSolution::SaveQoI(Int backend) 
 {
-    if (disc.common.nvqoi > 0) qoiElement<Model>(disc.sol, disc.res, disc.app, disc.master, disc.mesh, disc.tmp, disc.common);
-    if (disc.common.nsurf > 0) qoiFace<Model>(disc.sol, disc.res, disc.app, disc.master, disc.mesh, disc.tmp, disc.common);
+    if (disc.common.nvqoi > 0) qoiElement(disc.sol, disc.res, disc.app, disc.master, disc.mesh, disc.tmp, disc.common);
+    if (disc.common.nsurf > 0) qoiFace(disc.sol, disc.res, disc.app, disc.master, disc.mesh, disc.tmp, disc.common);
 
     if (disc.common.mpiRank==0 && (disc.common.nvqoi > 0 || disc.common.nsurf > 0)) {
         if (disc.common.tdep==1) 
@@ -939,8 +945,7 @@ void CSolution<Model>::SaveQoI(Int backend)
     }
 }
 
-template <typename Model>
-void CSolution<Model>::SaveOutputDG(Int backend) 
+void CSolution::SaveOutputDG(Int backend) 
 {
    if (disc.common.tdep==1) { 
         if (((disc.common.currentstep+1) % disc.common.saveSolFreq) == 0)             
@@ -957,8 +962,7 @@ void CSolution<Model>::SaveOutputDG(Int backend)
    }    
 }
 
-template <typename Model>
-void CSolution<Model>::SaveOutputCG(Int backend) 
+void CSolution::SaveOutputCG(Int backend) 
 {
    if (disc.common.tdep==1) { 
         if (((disc.common.currentstep+1) % disc.common.saveSolFreq) == 0)             
@@ -985,8 +989,7 @@ void CSolution<Model>::SaveOutputCG(Int backend)
    }    
 }        
 
-template <typename Model>
-void CSolution<Model>::SaveSolutionsOnBoundary(Int backend) 
+void CSolution::SaveSolutionsOnBoundary(Int backend) 
 {   
     if ( disc.common.saveSolBouFreq>0 ) {
         if (((disc.common.currentstep+1) % disc.common.saveSolBouFreq) == 0)             
@@ -1018,8 +1021,7 @@ void CSolution<Model>::SaveSolutionsOnBoundary(Int backend)
     }
 }
 
-template <typename Model>
-void CSolution<Model>::SaveNodesOnBoundary(Int backend) 
+void CSolution::SaveNodesOnBoundary(Int backend) 
 {   
     if ( disc.common.saveSolBouFreq>0 ) {
         for (Int j=0; j<disc.common.nbf; j++) {
