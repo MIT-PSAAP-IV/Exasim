@@ -263,7 +263,7 @@ void writemesh(const PDE& pde,
     std::cout << "Finished writing mesh to " + filename << std::endl;
 }
 
-#ifdef HAVE_METIS
+//#ifdef HAVE_METIS
 void partitionMesh(std::vector<int>& epart, std::vector<int>& npart, std::vector<int>& eind, 
          int ne, int np, int nve, int nvf, int nparts) 
 { 
@@ -292,7 +292,7 @@ void partitionMesh(std::vector<int>& epart, std::vector<int>& npart, std::vector
         std::cout << "Finished partitioning mesh using METIS" << std::endl;
     }    
 }
-#endif
+//#endif
 
 void writeBinaryFiles(PDE& pde, Mesh& mesh, const Master& master, const ParsedSpec& spec) 
 {
@@ -329,14 +329,10 @@ void writeBinaryFiles(PDE& pde, Mesh& mesh, const Master& master, const ParsedSp
         if (pde.mpiprocs>1) {
         
             if ((pde.partitionfile == "") || (mesh.elem2cpu.size() == 0)) {
-#ifdef HAVE_METIS          
                 vector<int> node2cpu;
                 partitionMesh(mesh.elem2cpu, node2cpu, mesh.t, mesh.ne, mesh.np, mesh.nve, mesh.nvf, pde.mpiprocs);
                 node2cpu.resize(0);
                 for (int i=0; i<mesh.ne; i++) mesh.elem2cpu[i] += 1;        
-#else
-                error("mpiprocs > 1 requires a mesh partition array. \nPlease include the required mesh partition array in a binary file\nand set partitionfile to the name of the file.");      
-#endif                  
             }
 
             for (int i=0; i<mesh.ne; i++) mesh.elem2cpu[i] -= 1;                    
