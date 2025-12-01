@@ -41,7 +41,9 @@ jobs:
             -D WITH_TEXT2CODE=OFF \
             -D WITH_ASSUME_GENERATOR=ON \
             ../install
-
+      - name: Check repo
+        working-directory: .
+        run: git status
       - name: Build Exasim
         working-directory: build
         run: cmake --build .
