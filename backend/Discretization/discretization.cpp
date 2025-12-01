@@ -56,8 +56,15 @@
 
 #ifdef HAVE_TEXT2CODE
 #include "../Model/ModelDrivers.cpp"
+#include "../Model/modeltemplate.hpp"
 #else
+#ifdef ASSUME_GENERATOR
 #include "../Model/KokkosDrivers.cpp"
+#include "../Model/modeltemplate.hpp"
+#else
+#include "../Model/ModelDrivers.cpp"
+#include "../Model/modeltemplate.hpp"
+#endif
 #endif
 
 #include "../Model/modeltemplate.hpp"

@@ -1,7 +1,6 @@
 #include "modeltemplate.hpp"
-#include "libpdemodel.hpp"
-#include "modeltemplate.hpp"
-#include "libpdemodel.hpp"
+
+
 
 // ======================================================
 // Volume flux / source (no derivatives, non-HDG)

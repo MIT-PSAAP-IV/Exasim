@@ -28,6 +28,7 @@
 #ifndef __WEQUATION
 #define __WEQUATION
 
+template <typename Model>
 void wEquation(dstype *wdg, dstype *xdg, dstype *udg, dstype *odg, dstype *wsrc, 
       dstype *tempg, appstruct &app, commonstruct &common, Int ng, Int backend)
 {        
@@ -58,7 +59,8 @@ void wEquation(dstype *wdg, dstype *xdg, dstype *udg, dstype *odg, dstype *wsrc,
           // ->  (alpha * dtfactor + beta) w - alpha * wsrc - sourcew(u,q,w) = 0              
 
           // calculate the source term Sourcew(xdg, udg, odg, wdg)
-          HdgSourcewonly(s, s_wdg, xdg, udg, odg, wdg, uinf, physicsparam, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);            
+	  typename Model::HdgSourcewonlyFn srcwonly{};
+          srcwonly(s, s_wdg, xdg, udg, odg, wdg, uinf, physicsparam, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
           
           // alpha*dirkd/dt + beta
           dstype scalar = common.dae_alpha*common.dtfactor + common.dae_beta;
@@ -99,6 +101,7 @@ void wEquation(dstype *wdg, dstype *xdg, dstype *udg, dstype *odg, dstype *wsrc,
     }            
 }
 
+template <typename Model>
 void wEquation(dstype *wdg, dstype *wdg_udg, dstype *xdg, dstype *udg, dstype *odg, dstype *wsrc, 
        dstype *tempg, appstruct &app, commonstruct &common, Int ng, Int backend)
 {        
@@ -130,7 +133,8 @@ void wEquation(dstype *wdg, dstype *wdg_udg, dstype *xdg, dstype *udg, dstype *o
           // ->  (alpha * dtfactor + beta) w - alpha * wsrc - sourcew(u,q,w) = 0              
 
           // calculate the source term Sourcew(xdg, udg, odg, wdg)
-          HdgSourcewonly(s, s_wdg, xdg, udg, odg, wdg, uinf, physicsparam, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);            
+	  typename Model::HdgSourcewonlyFn srcwonly{};
+          srcwonly(s, s_wdg, xdg, udg, odg, wdg, uinf, physicsparam, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);            
           
           // alpha*dirkd/dt + beta
           dstype scalar = common.dae_alpha*common.dtfactor + common.dae_beta;
@@ -167,8 +171,9 @@ void wEquation(dstype *wdg, dstype *wdg_udg, dstype *xdg, dstype *udg, dstype *o
           // check convergence
           dstype nrm = NORM(common.cublasHandle, ng*ncw, s, backend);
           if (nrm < 1e-8) {     
-            // wdg_udg is actually s_udg 
-            HdgSourcew(s, wdg_udg, s_wdg, xdg, udg, odg, wdg, uinf, physicsparam, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);            
+            // wdg_udg is actually s_udg
+	    typename Model::HdgSourcewFn sourcew{};
+            sourcew(s, wdg_udg, s_wdg, xdg, udg, odg, wdg, uinf, physicsparam, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);            
             
             // fix bug here
             // compute jacobian matrix = (alpha * dtfactor + beta) - s_wdg
@@ -204,6 +209,7 @@ void wEquation(dstype *wdg, dstype *wdg_udg, dstype *xdg, dstype *udg, dstype *o
     }            
 }
 
+template <typename Model>
 void GetW(dstype *w, solstruct &sol, tempstruct &tmp, appstruct &app, commonstruct &common, Int backend)
 {
   for (Int j=0; j<common.nbe; j++) {         
@@ -225,7 +231,7 @@ void GetW(dstype *w, solstruct &sol, tempstruct &tmp, appstruct &app, commonstru
       GetElemNodes(udg, sol.udg, common.npe, nc, 0, nc, e1, e2);
       GetElemNodes(odg, sol.odg, common.npe, nco, 0, nco, e1, e2);
       GetElemNodes(sdg, sol.wsrc, common.npe, ncw, 0, ncw, e1, e2);
-      wEquation(wdg, xdg, udg, odg, sdg, tmp.tempg, app, common, ng, common.backend);
+      wEquation<Model>(wdg, xdg, udg, odg, sdg, tmp.tempg, app, common, ng, common.backend);
       PutElemNodes(w, wdg, common.npe, ncw, 0, ncw, e1, e2);
   }   
 }

@@ -185,7 +185,7 @@ Int CSolution<Model>::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int 
           }          
                     
           if (disc.common.ncq > 0) hdgGetQ(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common, backend);          
-          if (disc.common.ncw > 0) GetW(disc.sol.wdg, disc.sol, disc.tmp, disc.app, disc.common, backend);
+          if (disc.common.ncw > 0) GetW<Model>(disc.sol.wdg, disc.sol, disc.tmp, disc.app, disc.common, backend);
                               
           nrm0 = nrmr; // original norm          
           // compute the updated residual norm |[Ru; Rh]|
@@ -219,7 +219,7 @@ Int CSolution<Model>::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int 
             ArrayCopy(disc.sol.uh, solv.sys.u, N);
             UpdateUDG(disc.sol.udg, solv.sys.v, -solv.sys.alpha, disc.common.npe, disc.common.nc, disc.common.ne1, 0, disc.common.npe, 0, disc.common.ncu, 0, disc.common.ne1);                    
             if (disc.common.ncq > 0) hdgGetQ(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common, backend);          
-            if (disc.common.ncw > 0) GetW(disc.sol.wdg, disc.sol, disc.tmp, disc.app, disc.common, backend);
+            if (disc.common.ncw > 0) GetW<Model>(disc.sol.wdg, disc.sol, disc.tmp, disc.app, disc.common, backend);
             disc.hdgAssembleResidual(solv.sys.b, backend);
             nrmr = PNORM(disc.common.cublasHandle, N, disc.common.ndofuhatinterface, solv.sys.b, backend); 
             nrmr += PNORM(disc.common.cublasHandle, disc.common.npe*disc.common.ncu*disc.common.ne1, disc.res.Ru, backend);                       
@@ -591,7 +591,7 @@ void CSolution<Model>::SteadyProblem_PTC(ofstream &out, Int backend) {
             this->SteadyProblem(out, backend);                             
 
             // update solution 
-            UpdateSolution(disc.sol, solv.sys, disc.app, disc.res, disc.tmp, disc.common, backend);
+            UpdateSolution<Model>(disc.sol, solv.sys, disc.app, disc.res, disc.tmp, disc.common, backend);
             
             // TODO: input wprev
             disc.evalMonitor(disc.tmp.tempn,  disc.sol.udg, disc.sol.wdg, disc.common.nc, backend);
@@ -851,7 +851,7 @@ void CSolution<Model>::ReadSolutions(Int backend)
 }
  
 template <typename Model>
-void CSolution::SaveParaview(Int backend, std::string fname_modifier, bool force_tdep_write) 
+void CSolution<Model>::SaveParaview(Int backend, std::string fname_modifier, bool force_tdep_write) 
 {
     // Decide whether we should write a file on this step
     bool writeSolution = false;

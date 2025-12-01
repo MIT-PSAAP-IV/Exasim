@@ -110,7 +110,7 @@ void uEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, masterst
         Node2Gauss(handle, wsrc, tmp.tempn, master.shapegt, nge, npe, ne*ncw, backend);        
         
         // solve the w equation to get wg and wg_uq
-        wEquation(wg, wg_uq, xg, uqg, og, wsrc, tmp.tempn, app, common, nga, backend);                
+        wEquation<Model>(wg, wg_uq, xg, uqg, og, wsrc, tmp.tempn, app, common, nga, backend);                
 //         print2darray(uqg, nga, nc);
 //         print2darray(wg, 1, nga);
 //         print2darray(wg_uq, nga, nc);        
@@ -274,7 +274,7 @@ void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &app, mast
         ArrayCopy(tmp.tempn, uhg, nga*ncu);
             
         // solve the w equation to get wg and wg_uq
-        wEquation(wdg, wdg_uq, xg, tmp.tempn, odg, wsrc, &tmp.tempn[nga*nc], app, common, nga, backend);
+        wEquation<Model>(wdg, wdg_uq, xg, tmp.tempn, odg, wsrc, &tmp.tempn[nga*nc], app, common, nga, backend);
                 
 //         print2darray(wdg, ngf*nfe, ncw, nga, ncw);
 //         error("here");
@@ -379,7 +379,7 @@ void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &app, mast
           // replace u with uhat 
           ArrayCopy(res.K, uhb, ngb*ncu);
         
-          wEquation(wgb, wgb_uq, xgb, res.K, ogb, wsb, &res.K[ngb*nc], app, common, ngb, backend);          
+          wEquation<Model>(wgb, wgb_uq, xgb, res.K, ogb, wsb, &res.K[ngb*nc], app, common, ngb, backend);          
           
           // wEquation(wgb, wgb_uq, xgb, ugb, ogb, wsb, Rb, app, common, ngb, backend);
         }
@@ -491,7 +491,7 @@ void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &app, mast
           // replace u with uhat 
           ArrayCopy(temp1, uhb, ngb*ncu);
         
-          wEquation(wgb, wgb_uq, xgb, temp1, ogb, wsb, temp2, app, common, ngb, backend);                    
+          wEquation<Model>(wgb, wgb_uq, xgb, temp1, ogb, wsb, temp2, app, common, ngb, backend);                    
         }                
                 
         // intialize fhb, fhb_uq, fhb_w, fhb_uh to zero 
@@ -837,7 +837,7 @@ void RuEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, masters
         Node2Gauss(handle, wsrcg, tmp.tempn, master.shapegt, nge, npe, ne*ncw, backend);        
 
         // solve the w equation to get wg 
-        wEquation(wg, xg, uqg, og, wsrcg, tmp.tempn, app, common, nga, backend); // fix bug here        
+        wEquation<Model>(wg, xg, uqg, og, wsrcg, tmp.tempn, app, common, nga, backend); // fix bug here        
 //         print2darray(wg, 1, 10);
 //         print2darray(uqg, 1, 10);        
 //         //exp(w) - sym(1.0) - u*u
@@ -947,7 +947,7 @@ void RuEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &app, mas
         ArrayCopy(tmp.tempn, uhg, nga*ncu);
           
         // solve the w equation to get wg 
-        wEquation(wdg, xg, tmp.tempn, odg, wsrcg, &tmp.tempn[nga*nc], app, common, nga, backend);                
+        wEquation<Model>(wdg, xg, tmp.tempn, odg, wsrcg, &tmp.tempn[nga*nc], app, common, nga, backend);                
         
         // solve the w equation to get wg 
         // wEquation(wdg, xg, udg, odg, wsrcg, tmp.tempn, app, common, nga, backend);                
@@ -993,7 +993,7 @@ void RuEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &app, mas
           // replace u with uhat 
           ArrayCopy(Rb, uhb, ngb*ncu);
           
-          wEquation(wgb, xgb, Rb, ogb, wsb, &Rb[ngb*nc], app, common, ngb, backend);          
+          wEquation<Model>(wgb, xgb, Rb, ogb, wsb, &Rb[ngb*nc], app, common, ngb, backend);          
           //wEquation(wgb, xgb, ugb, ogb, wsb, Rb, app, common, ngb, backend);
         }
         
@@ -1058,7 +1058,7 @@ void RuEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &app, mas
           // replace u with uhat 
           ArrayCopy(Rb, uhb, ngb*ncu);
           
-          wEquation(wgb, xgb, &tmp.tempn[npf*nfe*ne*ncu], ogb, wsb, &Rb[ngb*nc], app, common, ngb, backend);          
+          wEquation<Model>(wgb, xgb, &tmp.tempn[npf*nfe*ne*ncu], ogb, wsb, &Rb[ngb*nc], app, common, ngb, backend);          
           //wEquation(wgb, xgb, ugb, ogb, wsb, Rb, app, common, ngb, backend);
         }
         
