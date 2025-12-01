@@ -851,7 +851,7 @@ void CSolution<Model>::ReadSolutions(Int backend)
 }
  
 template <typename Model>
-void CSolution::SaveParaview(Int backend, std::string fname_modifier, bool force_tdep_write) 
+void CSolution<Model>::SaveParaview(Int backend, std::string fname_modifier, bool force_tdep_write) 
 {
     // Decide whether we should write a file on this step
     bool writeSolution = false;
