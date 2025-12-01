@@ -25,6 +25,7 @@ file(GLOB MAIN_LIB_HEADER ${EXASIM_MAIN_DIR}/libexasim.h)
 # ---- Option: build EXASIM variants that link text2code-generated libs ----
 option(WITH_TEXT2CODE "Build extra EXASIM executables that link text2code-generated dynamic libraries" OFF)
 option(WITH_ASSUME_GENERATOR "Assume exasim does not need a generator" OFF)
+option(WITH_EXASIM_MAIN "Do build exasim main." ON)
 
 
 
@@ -114,18 +115,22 @@ function(add_exasim_variant variant_name)
     # --------------------
     # Main executable
     # --------------------
-    add_executable(${exe_target} ${MAIN_SOURCES})
-    target_link_directories(${exe_target} PRIVATE ${Model_LIB_DIR})
-    if(mpi_def)
-        target_compile_definitions(${exe_target} PRIVATE ${mpi_def})
+    if (WITH_EXASIM_MAIN)
+        add_executable(${exe_target} ${MAIN_SOURCES})
+	target_link_directories(${exe_target} PRIVATE ${Model_LIB_DIR})
+	if(mpi_def)
+		target_compile_definitions(${exe_target} PRIVATE ${mpi_def})
+   	 endif()
+   	 target_compile_options(${exe_target} PRIVATE ${common_compile_opts})
+    	 target_link_libraries(${exe_target}
+		PRIVATE
+            	Kokkos::kokkos
+            	${lapackblas_libraries}
+            	${EXASIM_EXTRA_LIBS}
+    		)
     endif()
-    target_compile_options(${exe_target} PRIVATE ${common_compile_opts})
-    target_link_libraries(${exe_target}
-        PRIVATE
-            Kokkos::kokkos
-            ${lapackblas_libraries}
-            ${EXASIM_EXTRA_LIBS}
-    )
+    
+    
 
     # --------------------
     # Shared library
@@ -232,6 +237,7 @@ function(add_exasim_gpu_variant variant_name)
     )
 
     # ---- main EXASIM executable ----
+    if (WITH_EXASIM_MAIN)
     add_executable(${exe_target} ${MAIN_SOURCES})
     target_link_directories(${exe_target} PRIVATE ${Model_LIB_DIR})
 
@@ -249,6 +255,7 @@ function(add_exasim_gpu_variant variant_name)
         ${lapackblas_libraries}
         ${GPU_EXTRA_LIBS}
     )
+    endif()
 
     # ---- optional text2code variant ----
     if(GPU_WITH_TEXT2CODE)
