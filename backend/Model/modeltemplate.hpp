@@ -1,9 +1,8 @@
+#pragma once
 #include <type_traits>
-#include "libpdemodel.hpp"
-#pragma once
-#pragma once
 
-#include <type_traits>
+
+#ifdef ASSUME_GENERATOR
 #include "libpdemodel.hpp"
 
 struct DefaultModel {
@@ -612,3 +611,522 @@ struct DefaultModel {
     }
   };
 };
+
+#else
+
+
+struct DefaultModel {
+
+  // ---------------------------
+  // Volume flux / source (no HDG)
+  // ---------------------------
+
+  struct FluxFn {
+    void operator()(dstype* f, const dstype* xdg, const dstype* udg,
+                    const dstype* odg, const dstype* wdg,
+                    const dstype* uinf, const dstype* param,
+                    dstype time, Int modelnumber, Int ng,
+                    Int nc, Int ncu, Int nd, Int ncx, Int nco, Int ncw) const
+    {
+
+    }
+  };
+
+  struct SourceFn {
+    void operator()(dstype* f, const dstype* xdg, const dstype* udg,
+                    const dstype* odg, const dstype* wdg,
+                    const dstype* uinf, const dstype* param,
+                    dstype time, Int modelnumber, Int ng,
+                    Int nc, Int ncu, Int nd, Int ncx, Int nco, Int ncw) const
+    {
+
+    }
+  };
+
+  struct SourcewFn {
+    void operator()(dstype* f, const dstype* xdg, const dstype* udg,
+                    const dstype* odg, const dstype* wdg,
+                    const dstype* uinf, const dstype* param,
+                    dstype time, Int modelnumber, Int ng,
+                    Int nc, Int ncu, Int nd, Int ncx, Int nco, Int ncw,
+                    Int nce, Int npe, Int ne) const
+    {
+
+    }
+  };
+
+  struct AvfieldFn {
+    void operator()(dstype* f, const dstype* xdg, const dstype* udg,
+                    const dstype* odg, const dstype* wdg,
+                    const dstype* uinf, const dstype* param,
+                    dstype time, Int modelnumber, Int ng,
+                    Int nc, Int ncu, Int nd, Int ncx, Int nco, Int ncw,
+                    Int nce, Int npe, Int ne) const
+    {
+
+    }
+  };
+
+  struct EoSFn {
+    void operator()(dstype* f, const dstype* xdg, const dstype* udg,
+                    const dstype* odg, const dstype* wdg,
+                    const dstype* uinf, const dstype* param,
+                    dstype time, Int modelnumber, Int ng,
+                    Int nc, Int ncu, Int nd, Int ncx, Int nco, Int ncw,
+                    Int nce, Int npe, Int ne) const
+    {
+
+    }
+  };
+
+  struct EoSduFn {
+    void operator()(dstype* f, const dstype* xdg, const dstype* udg,
+                    const dstype* odg, const dstype* wdg,
+                    const dstype* uinf, const dstype* param,
+                    dstype time, Int modelnumber, Int ng,
+                    Int nc, Int ncu, Int nd, Int ncx, Int nco, Int ncw,
+                    Int nce, Int npe, Int ne) const
+    {
+
+    }
+  };
+
+  struct EoSdwFn {
+    void operator()(dstype* f, const dstype* xdg, const dstype* udg,
+                    const dstype* odg, const dstype* wdg,
+                    const dstype* uinf, const dstype* param,
+                    dstype time, Int modelnumber, Int ng,
+                    Int nc, Int ncu, Int nd, Int ncx, Int nco, Int ncw,
+                    Int nce, Int npe, Int ne) const
+    {
+
+    }
+  };
+
+  struct TdfuncFn {
+    void operator()(dstype* f, const dstype* xdg, const dstype* udg,
+                    const dstype* odg, const dstype* wdg,
+                    const dstype* uinf, const dstype* param,
+                    dstype time, Int modelnumber, Int ng,
+                    Int nc, Int ncu, Int nd, Int ncx, Int nco, Int ncw) const
+    {
+
+    }
+  };
+
+  // ---------------------------
+  // Output / monitor
+  // ---------------------------
+
+  struct OutputFn {
+    void operator()(dstype* f, const dstype* xdg, const dstype* udg,
+                    const dstype* odg, const dstype* wdg,
+                    const dstype* uinf, const dstype* param,
+                    dstype time, Int modelnumber, Int ng,
+                    Int nc, Int ncu, Int nd, Int ncx, Int nco, Int ncw,
+                    Int nce, Int npe, Int ne) const
+    {
+
+    }
+  };
+
+  struct MonitorFn {
+    void operator()(dstype* f, const dstype* xdg, const dstype* udg,
+                    const dstype* odg, const dstype* wdg,
+                    const dstype* uinf, const dstype* param,
+                    dstype time, Int modelnumber, Int ng,
+                    Int ncSol, Int ncu, Int nd, Int ncx, Int nco, Int ncw,
+                    Int ncm, Int npe, Int ne) const
+    {
+      // note: ncSol is nc_sol argument in MonitorDriver
+
+    }
+  };
+
+  // ---------------------------
+  // Boundary / interface (non-HDG)
+  // ---------------------------
+
+  struct FhatFn {
+    void operator()(dstype* f, const dstype* xdg,
+                    const dstype* udg1, const dstype* udg2,
+                    const dstype* odg1, const dstype* odg2,
+                    const dstype* wdg1, const dstype* wdg2,
+                    const dstype* uhg, const dstype* nlg,
+                    const dstype* tau, const dstype* uinf,
+                    const dstype* param, dstype time,
+                    Int modelnumber, Int ng,
+                    Int nc, Int ncu, Int nd,
+                    Int ncx, Int nco, Int ncw) const
+    {
+
+    }
+  };
+
+  struct FbouFn {
+    void operator()(dstype* f, const dstype* xdg,
+                    const dstype* udg, const dstype* odg,
+                    const dstype* wdg, const dstype* uhg,
+                    const dstype* nlg, const dstype* tau,
+                    const dstype* uinf, const dstype* param,
+                    dstype time, Int modelnumber, Int ib, Int ng,
+                    Int nc, Int ncu, Int nd,
+                    Int ncx, Int nco, Int ncw) const
+    {
+
+    }
+  };
+
+  struct UbouFn {
+    void operator()(dstype* f, const dstype* xdg,
+                    const dstype* udg, const dstype* odg,
+                    const dstype* wdg, const dstype* uhg,
+                    const dstype* nlg, const dstype* tau,
+                    const dstype* uinf, const dstype* param,
+                    dstype time, Int modelnumber, Int ib, Int ng,
+                    Int nc, Int ncu, Int nd,
+                    Int ncx, Int nco, Int ncw) const
+    {
+
+    }
+  };
+
+  struct UhatFn {
+    void operator()(dstype* f, const dstype* xdg,
+                    const dstype* udg1, const dstype* udg2,
+                    const dstype* odg1, const dstype* odg2,
+                    const dstype* wdg1, const dstype* wdg2,
+                    const dstype* uhg, const dstype* nlg,
+                    const dstype* tau, const dstype* uinf,
+                    const dstype* param, dstype time,
+                    Int modelnumber, Int ng,
+                    Int nc, Int ncu, Int nd,
+                    Int ncx, Int nco, Int ncw) const
+    {
+
+    }
+  };
+
+  struct StabFn {
+    void operator()(dstype* f, const dstype* xdg,
+                    const dstype* udg1, const dstype* udg2,
+                    const dstype* odg1, const dstype* odg2,
+                    const dstype* wdg1, const dstype* wdg2,
+                    const dstype* uhg, const dstype* nlg,
+                    const dstype* tau, const dstype* uinf,
+                    const dstype* param, dstype time,
+                    Int modelnumber, Int ng,
+                    Int nc, Int ncu, Int nd,
+                    Int ncx, Int nco, Int ncw) const
+    {
+
+    }
+  };
+
+  // ---------------------------
+  // Init (Kokkos)
+  // ---------------------------
+
+  struct InitodgFn {
+    void operator()(dstype* f, const dstype* xdg,
+                    const dstype* uinf, const dstype* param,
+                    Int modelnumber, Int ng,
+                    Int ncx, Int nce, Int npe, Int ne) const
+    {
+
+    }
+  };
+
+  struct InitqFn {
+    void operator()(dstype* f, const dstype* xdg,
+                    const dstype* uinf, const dstype* param,
+                    Int modelnumber, Int ng,
+                    Int ncx, Int nce, Int npe, Int ne) const
+    {
+
+    }
+  };
+
+  struct InituFn {
+    void operator()(dstype* f, const dstype* xdg,
+                    const dstype* uinf, const dstype* param,
+                    Int modelnumber, Int ng,
+                    Int ncx, Int nce, Int npe, Int ne) const
+    {
+
+    }
+  };
+
+  struct InitudgFn {
+    void operator()(dstype* f, const dstype* xdg,
+                    const dstype* uinf, const dstype* param,
+                    Int modelnumber, Int ng,
+                    Int ncx, Int nce, Int npe, Int ne) const
+    {
+
+    }
+  };
+
+  struct InitwdgFn {
+    void operator()(dstype* f, const dstype* xdg,
+                    const dstype* uinf, const dstype* param,
+                    Int modelnumber, Int ng,
+                    Int ncx, Int nce, Int npe, Int ne) const
+    {
+
+    }
+  };
+
+  // ---------------------------
+  // Init (CPU)
+  // ---------------------------
+
+  struct CpuInitodgFn {
+    void operator()(dstype* f, const dstype* xdg,
+                    const dstype* uinf, const dstype* param,
+                    Int modelnumber, Int ng,
+                    Int ncx, Int nce, Int npe, Int ne) const
+    {
+
+    }
+  };
+
+  struct CpuInitqFn {
+    void operator()(dstype* f, const dstype* xdg,
+                    const dstype* uinf, const dstype* param,
+                    Int modelnumber, Int ng,
+                    Int ncx, Int nce, Int npe, Int ne) const
+    {
+
+    }
+  };
+
+  struct CpuInituFn {
+    void operator()(dstype* f, const dstype* xdg,
+                    const dstype* uinf, const dstype* param,
+                    Int modelnumber, Int ng,
+                    Int ncx, Int nce, Int npe, Int ne) const
+    {
+
+    }
+  };
+
+  struct CpuInitudgFn {
+    void operator()(dstype* f, const dstype* xdg,
+                    const dstype* uinf, const dstype* param,
+                    Int modelnumber, Int ng,
+                    Int ncx, Int nce, Int npe, Int ne) const
+    {
+
+    }
+  };
+
+  struct CpuInitwdgFn {
+    void operator()(dstype* f, const dstype* xdg,
+                    const dstype* uinf, const dstype* param,
+                    Int modelnumber, Int ng,
+                    Int ncx, Int nce, Int npe, Int ne) const
+    {
+
+    }
+  };
+
+  // ---------------------------
+  // HDG volume/source/etc.
+  // ---------------------------
+
+  struct HdgFluxFn {
+    void operator()(dstype* f, dstype* f_udg, dstype* f_wdg,
+                    const dstype* xdg, const dstype* udg,
+                    const dstype* odg, const dstype* wdg,
+                    const dstype* uinf, const dstype* param,
+                    dstype time, Int modelnumber, Int ng,
+                    Int nc, Int ncu, Int nd,
+                    Int ncx, Int nco, Int ncw) const
+    {
+ 
+    }
+  };
+
+  struct HdgSourceFn {
+    void operator()(dstype* f, dstype* f_udg, dstype* f_wdg,
+                    const dstype* xdg, const dstype* udg,
+                    const dstype* odg, const dstype* wdg,
+                    const dstype* uinf, const dstype* param,
+                    dstype time, Int modelnumber, Int ng,
+                    Int nc, Int ncu, Int nd,
+                    Int ncx, Int nco, Int ncw) const
+    {
+
+    }
+  };
+
+  struct HdgSourcewFn {
+    void operator()(dstype* f, dstype* f_udg, dstype* f_wdg,
+                    const dstype* xdg, const dstype* udg,
+                    const dstype* odg, const dstype* wdg,
+                    const dstype* uinf, const dstype* param,
+                    dstype time, Int modelnumber, Int ng,
+                    Int nc, Int ncu, Int nd,
+                    Int ncx, Int nco, Int ncw) const
+    {
+      
+    }
+  };
+
+  struct HdgSourcewonlyFn {
+    void operator()(dstype* f, dstype* f_wdg,
+                    const dstype* xdg, const dstype* udg,
+                    const dstype* odg, const dstype* wdg,
+                    const dstype* uinf, const dstype* param,
+                    dstype time, Int modelnumber, Int ng,
+                    Int nc, Int ncu, Int nd,
+                    Int ncx, Int nco, Int ncw) const
+    {
+
+    }
+  };
+
+  struct HdgEoSFn {
+    void operator()(dstype* f, dstype* f_udg, dstype* f_wdg,
+                    const dstype* xdg, const dstype* udg,
+                    const dstype* odg, const dstype* wdg,
+                    const dstype* uinf, const dstype* param,
+                    dstype time, Int modelnumber, Int ng,
+                    Int nc, Int ncu, Int nd,
+                    Int ncx, Int nco, Int ncw) const
+    {
+
+    }
+  };
+
+  struct HdgFbouFn {
+    void operator()(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
+                    const dstype* xdg, const dstype* udg,
+                    const dstype* odg, const dstype* wdg,
+                    const dstype* uhg, const dstype* nlg,
+                    const dstype* tau, const dstype* uinf,
+                    const dstype* param, dstype time,
+                    Int modelnumber, Int ib, Int ng,
+                    Int nc, Int ncu, Int nd,
+                    Int ncx, Int nco, Int ncw) const
+    {
+
+    }
+  };
+
+  struct HdgFbouonlyFn {
+    void operator()(dstype* f, const dstype* xdg,
+                    const dstype* udg, const dstype* odg,
+                    const dstype* wdg, const dstype* uhg,
+                    const dstype* nlg, const dstype* tau,
+                    const dstype* uinf, const dstype* param,
+                    dstype time, Int modelnumber, Int ib, Int ng,
+                    Int nc, Int ncu, Int nd,
+                    Int ncx, Int nco, Int ncw) const
+    {
+
+    }
+  };
+
+  struct HdgFintFn {
+    void operator()(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
+                    const dstype* xdg, const dstype* udg,
+                    const dstype* odg, const dstype* wdg,
+                    const dstype* uhg, const dstype* nlg,
+                    const dstype* tau, const dstype* uinf,
+                    const dstype* param, dstype time,
+                    Int modelnumber, Int ib, Int ng,
+                    Int nc, Int ncu, Int nd,
+                    Int ncx, Int nco, Int ncw) const
+    {
+      
+    }
+  };
+
+  struct HdgFintonlyFn {
+    void operator()(dstype* f, const dstype* xdg,
+                    const dstype* udg, const dstype* odg,
+                    const dstype* wdg, const dstype* uhg,
+                    const dstype* nlg, const dstype* tau,
+                    const dstype* uinf, const dstype* param,
+                    dstype time, Int modelnumber, Int ib, Int ng,
+                    Int nc, Int ncu, Int nd,
+                    Int ncx, Int nco, Int ncw) const
+    {
+
+    }
+  };
+
+  // ---------------------------
+  // Visualization & QoI
+  // ---------------------------
+
+  struct VisScalarsFn {
+    void operator()(dstype* f, const dstype* xdg,
+                    const dstype* udg, const dstype* odg,
+                    const dstype* wdg,
+                    const dstype* uinf, const dstype* param,
+                    dstype time, Int modelnumber, Int ng,
+                    Int nc, Int ncu, Int nd,
+                    Int ncx, Int nco, Int ncw) const
+    {
+
+    }
+  };
+
+  struct VisVectorsFn {
+    void operator()(dstype* f, const dstype* xdg,
+                    const dstype* udg, const dstype* odg,
+                    const dstype* wdg,
+                    const dstype* uinf, const dstype* param,
+                    dstype time, Int modelnumber, Int ng,
+                    Int nc, Int ncu, Int nd,
+                    Int ncx, Int nco, Int ncw) const
+    {
+     
+    }
+  };
+
+  struct VisTensorsFn {
+    void operator()(dstype* f, const dstype* xdg,
+                    const dstype* udg, const dstype* odg,
+                    const dstype* wdg,
+                    const dstype* uinf, const dstype* param,
+                    dstype time, Int modelnumber, Int ng,
+                    Int nc, Int ncu, Int nd,
+                    Int ncx, Int nco, Int ncw) const
+    {
+     
+    }
+  };
+
+  struct QoIvolumeFn {
+    void operator()(dstype* f, const dstype* xdg,
+                    const dstype* udg, const dstype* odg,
+                    const dstype* wdg,
+                    const dstype* uinf, const dstype* param,
+                    dstype time, Int modelnumber, Int ng,
+                    Int nc, Int ncu, Int nd,
+                    Int ncx, Int nco, Int ncw) const
+    {
+ 
+    }
+  };
+
+  struct QoIboundaryFn {
+    void operator()(dstype* f, const dstype* xdg,
+                    const dstype* udg, const dstype* odg,
+                    const dstype* wdg, const dstype* uhg,
+                    const dstype* nlg, const dstype* tau,
+                    const dstype* uinf, const dstype* param,
+                    dstype time, Int modelnumber, Int ib, Int ng,
+                    Int nc, Int ncu, Int nd,
+                    Int ncx, Int nco, Int ncw) const
+    {
+     
+    }
+  };
+};
+
+#endif

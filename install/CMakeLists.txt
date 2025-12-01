@@ -26,7 +26,10 @@ file(GLOB MAIN_LIB_HEADER ${EXASIM_MAIN_DIR}/libexasim.h)
 option(WITH_TEXT2CODE "Build extra EXASIM executables that link text2code-generated dynamic libraries" OFF)
 option(WITH_ASSUME_GENERATOR "Assume exasim does not need a generator" OFF)
 option(WITH_EXASIM_MAIN "Do build exasim main." ON)
-
+if (WITH_ASSUME_GENERATOR)
+else()
+add_definitions(-DASSUME_GENERATOR)
+endif()
 
 
 # logical names for text2code-produced shared libs (lib<name>.so/.dylib/.dll)
