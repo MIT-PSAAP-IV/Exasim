@@ -1102,15 +1102,15 @@ void readParMeshFromFile(const std::string& filename, Mesh& mesh, MPI_Comm comm)
     std::string ext = getFileExtension(filename);
 
     if (ext == "bin") {
-        readMeshFromBinaryFile(filename, mesh, comm);
+        readParMeshFromBinaryFile(filename, mesh, comm);
     } else if (ext == "txt") {
-        readMeshFromTextFile(filename, mesh, comm);
+        readParMeshFromTextFile(filename, mesh, comm);
     } else if (ext == "msh") {
-        readMeshFromGmshFile(filename, mesh, comm);
+        readParMeshFromGmshFile(filename, mesh, comm);
     } else if (ext == "vtk") {
-        readMeshFromVTKFile(filename, mesh, comm);
+        readParMeshFromVTKFile(filename, mesh, comm);
     } else if (ext == "vtu") {
-        readMeshFromVTUFile(filename, mesh, comm);
+        readParMeshFromVTUFile(filename, mesh, comm);
     } else {
         error("Unsupported mesh file format: " + ext);        
     }
