@@ -40,6 +40,7 @@ jobs:
             -D EXASIM_HIP=OFF \
             -D WITH_TEXT2CODE=OFF \
             -D WITH_ASSUME_GENERATOR=ON \
+            -D WITH_EXASIM_MAIN=OFF \
             ../install
       - name: Build Exasim
         working-directory: build
