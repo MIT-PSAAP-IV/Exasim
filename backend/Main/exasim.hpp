@@ -264,8 +264,12 @@ int premain(int argc, char** argv)
               << std::endl;
 
 #endif
-    
-  Kokkos::initialize(argc, argv);
+
+    const bool kokkos_already_init = Kokkos::is_initialized();
+    if (!kokkos_already_init) {
+        Kokkos::initialize(argc, argv);
+    }
+
   {        
 
     string filein[10]; 
@@ -566,7 +570,10 @@ int premain(int argc, char** argv)
     delete[] pdemodel; // Delete the array of pointers
     delete[] out; // Delete the array of ofstream objects    
   }
-  Kokkos::finalize();  
+ // Guard finalize as well: only finalize if *we* initialized
+    if (!kokkos_already_init && Kokkos::is_initialized()) {
+        Kokkos::finalize();
+    }
   
 #ifdef HAVE_MPI
   MPI_Finalize();
