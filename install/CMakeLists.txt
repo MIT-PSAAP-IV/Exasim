@@ -299,52 +299,42 @@ function(add_exasim_gpu_variant variant_name)
         )
     endif()
 endfunction()
-
-# Header/source-only INTERFACE variant.
-#
-# Any target that links against exasim::<variant_name> will:
-#  - see the exasim headers
-#  - compile libexasim.cpp into itself
-#  - get Kokkos + BLAS/LAPACK + EXTRA_LIBS
-
-function(add_exasim_interface_variant variant_name)
-  set(options USE_MPI)
-  set(oneValueArgs)
+function(add_exasim_header_interface target_name)
   set(multiValueArgs EXTRA_LIBS)
-  cmake_parse_arguments(INT "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+  cmake_parse_arguments(HDR "" "" "${multiValueArgs}" ${ARGN})
 
-  add_library(${variant_name} INTERFACE)
-  add_library(exasim::${variant_name} ALIAS ${variant_name})
+  add_library(${target_name} INTERFACE)
 
-  # Compile options propagated
-  set(common_compile_opts -std=c++17 -w -ffast-math -O3 -DNDEBUG)
-  target_compile_options(${variant_name} INTERFACE ${common_compile_opts})
+  # IMPORTANT:
+  # - We name the real target `cpuheader`
+  # - We DO NOT rely on an alias for export; instead we export it and add a namespace.
+  #   After install, the imported name will be exasim::cpuheader.
+  #   (No need to create an alias exasim::cpuheader in the build tree, but you can if you want.)
+  # add_library(exasim::${target_name} ALIAS ${target_name})  # optional, build-only convenience
 
-  # Optional MPI define
-  if(INT_USE_MPI)
-    target_compile_definitions(${variant_name} INTERFACE _MPI)
-  endif()
+  # Gentle: only standard, let user choose -O/-ffast-math, etc.
+  target_compile_features(${target_name} INTERFACE cxx_std_17)
 
-  # Public include dirs: backend/Main in build + install trees
-  target_include_directories(${variant_name}
+  # DO NOT add _CUDA/_HIP/_MPI/_TEXT2CODE here.
+  # ASSUME_GENERATOR + TEXT2CODE-off is enforced by exasim_header_config.hpp.
+
+  target_include_directories(${target_name}
     INTERFACE
-      $<BUILD_INTERFACE:${EXASIM_BACKEND_DIR}/Main>
-      $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/exasim/backend/Main>
+      # Build tree: backend root so "exasim/Main/..." works
+      $<BUILD_INTERFACE:${EXASIM_BACKEND_DIR}>
+      # Install tree: include root so "exasim/Main/..." works
+      $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   )
 
-  # If you want “source-only” (consumers compile libexasim.cpp), keep this:
-  target_sources(${variant_name}
+  target_sources(${target_name}
     INTERFACE
+      # Build tree: libexasim.cpp in backend/Main
       $<BUILD_INTERFACE:${LIB_SOURCES}>
-      $<INSTALL_INTERFACE:${CMAKE_INSTALL_DATADIR}/exasim/src/libexasim.cpp>
+      # Install tree: the same file installed under include/exasim/Main
+
   )
 
-  target_link_libraries(${variant_name}
-    INTERFACE
-      Kokkos::kokkos
-      ${lapackblas_libraries}
-      ${INT_EXTRA_LIBS}
-  )
+
 endfunction()
 
 
@@ -440,7 +430,7 @@ else()
     # NEW: header/source-only variant, serial (no MPI)
 
   if(EXASIM_INTERFACE_VARIANT)
-      add_exasim_interface_variant(cpuheader
+      add_exasim_header_interface(cpuheader
         EXTRA_LIBS          # nothing extra for serial
       )
     endif()
@@ -456,20 +446,26 @@ else()
         EXTRA_LIBS    ${MPI_LIBRARIES}
         ${cpu_t2c_args}
       )
-      if(EXASIM_INTERFACE_VARIANT)
-        add_exasim_interface_variant(cpuheadermpi
-          USE_MPI
-          EXTRA_LIBS ${MPI_LIBRARIES}
-        )
-      endif()
     else()
       message("MPI library is not found")
     endif()
   endif()
 endif()
 
+configure_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/exasim_header_config.hpp.in
+  ${CMAKE_CURRENT_BINARY_DIR}/exasim_header_config.hpp
+  @ONLY
+)
+
 
 # ------------------------------ Install header only libs ------------------------------
+
+install(
+  FILES ${CMAKE_CURRENT_BINARY_DIR}/exasim_header_config.hpp
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/exasim
+)
+
 install(
   DIRECTORY ${EXASIM_BACKEND_DIR}/
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/exasim
@@ -487,7 +483,6 @@ if(EXASIM_INTERFACE_VARIANT)
     TARGETS cpuheader
     EXPORT exasimTargets
   )
-  # install(TARGETS cpuheadermpi EXPORT exasimTargets)
 endif()
 
 set(EXASIM_INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/exasim)
@@ -516,3 +511,5 @@ install(
   NAMESPACE exasim::
   DESTINATION ${EXASIM_INSTALL_CONFIGDIR}
 )
+
+

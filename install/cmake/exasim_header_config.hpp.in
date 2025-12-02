@@ -1,0 +1,8 @@
+#pragma once
+#define EXASIM_HEADER_ONLY 1
+#ifndef ASSUME_GENERATOR
+#undef ASSUME_GENERATOR
+#endif
+#ifdef _TEXT2CODE
+#undef _TEXT2CODE
+#endif
