@@ -10,7 +10,9 @@ if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
   set(CMAKE_CUDA_ARCHITECTURES 70)
 endif()
 
-project(exasim LANGUAGES CXX)
+project(exasim VERSION 1.0.0 LANGUAGES CXX)
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 
 get_filename_component(EXASIM_DIR ${CMAKE_CURRENT_SOURCE_DIR}/.. ABSOLUTE)
 
@@ -26,6 +28,12 @@ file(GLOB MAIN_LIB_HEADER ${EXASIM_MAIN_DIR}/libexasim.h)
 option(WITH_TEXT2CODE "Build extra EXASIM executables that link text2code-generated dynamic libraries" OFF)
 option(WITH_ASSUME_GENERATOR "Assume exasim does not need a generator" OFF)
 option(WITH_EXASIM_MAIN "Do build exasim main." ON)
+
+
+option(EXASIM_INTERFACE_VARIANT
+  "Build an additional header/source-only INTERFACE variant of exasim"
+  ON)
+
 if (WITH_ASSUME_GENERATOR)
 else()
 add_definitions(-DASSUME_GENERATOR)
@@ -290,6 +298,69 @@ function(add_exasim_gpu_variant variant_name)
     endif()
 endfunction()
 
+# Header/source-only INTERFACE variant.
+#
+# Any target that links against exasim::<variant_name> will:
+#  - see the exasim headers
+#  - compile libexasim.cpp into itself
+#  - get Kokkos + BLAS/LAPACK + EXTRA_LIBS
+function(add_exasim_interface_variant variant_name)
+  set(options USE_MPI)
+  set(oneValueArgs)
+  set(multiValueArgs EXTRA_LIBS)
+  cmake_parse_arguments(INT "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+  set(interface_target    "${variant_name}")
+  set(interface_namespace "exasim::${variant_name}")
+
+  add_library(${interface_target} INTERFACE)
+  add_library(${interface_namespace} ALIAS ${interface_target})
+
+  # Compile options propagated to consumers
+  set(common_compile_opts
+      -std=c++17
+      -w
+      -ffast-math
+      -O3
+      -DNDEBUG
+  )
+  target_compile_options(${interface_target} INTERFACE ${common_compile_opts})
+
+  # Optional MPI define
+  set(defs)
+  if(INT_USE_MPI)
+    list(APPEND defs _MPI)
+  endif()
+  if(defs)
+    target_compile_definitions(${interface_target} INTERFACE ${defs})
+  endif()
+
+  # Headers visible to consumers
+  target_include_directories(${interface_target}
+    INTERFACE
+      $<BUILD_INTERFACE:${EXASIM_MAIN_DIR}>
+      $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/exasim>
+  )
+
+  # Implementation sources that consumers will compile
+  target_sources(${interface_target}
+    INTERFACE
+      # build tree path
+      $<BUILD_INTERFACE:${LIB_SOURCES}>
+      # install tree path – we’ll install libexasim.cpp here
+      $<INSTALL_INTERFACE:${CMAKE_INSTALL_DATADIR}/exasim/src/libexasim.cpp>
+  )
+
+  # Link dependencies propagated to consumers
+  target_link_libraries(${interface_target}
+    INTERFACE
+      Kokkos::kokkos
+      ${lapackblas_libraries}
+      ${INT_EXTRA_LIBS}
+  )
+endfunction()
+
+
 
 
 # ----------------------------- CUDA branch ------------------------------
@@ -380,6 +451,13 @@ else()
       EXTRA_LIBS          # no extra libs beyond Kokkos + lapackblas
       ${cpu_t2c_args}
     )
+    # NEW: header/source-only variant, serial (no MPI)
+
+  if(EXASIM_INTERFACE_VARIANT)
+      add_exasim_interface_variant(cpuheader
+        EXTRA_LIBS          # nothing extra for serial
+      )
+    endif()
   endif()
 
   if(EXASIM_MPI)
@@ -392,8 +470,64 @@ else()
         EXTRA_LIBS    ${MPI_LIBRARIES}
         ${cpu_t2c_args}
       )
+      if(EXASIM_INTERFACE_VARIANT)
+        add_exasim_interface_variant(cpuheadermpi
+          USE_MPI
+          EXTRA_LIBS ${MPI_LIBRARIES}
+        )
+      endif()
     else()
       message("MPI library is not found")
     endif()
   endif()
 endif()
+
+
+# ------------------------------ Install header only libs ------------------------------
+install(
+  DIRECTORY ${EXASIM_MAIN_DIR}/
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/exasim
+  FILES_MATCHING
+    PATTERN "*.h"
+    PATTERN "*.hpp"
+)
+install(
+  FILES ${LIB_SOURCES}
+  DESTINATION ${CMAKE_INSTALL_DATADIR}/exasim/src
+)
+
+# Only install the interface variant(s) if they were built
+if(EXASIM_INTERFACE_VARIANT)
+  install(
+    TARGETS cpuheader
+    EXPORT exasimTargets
+  )
+  # install(TARGETS cpuheadermpi EXPORT exasimTargets)
+endif()
+
+set(EXASIM_INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/exasim)
+
+configure_package_config_file(
+  ${CMAKE_CURRENT_LIST_DIR}/cmake/exasimConfig.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/exasimConfig.cmake
+  INSTALL_DESTINATION ${EXASIM_INSTALL_CONFIGDIR}
+)
+
+write_basic_package_version_file(
+  ${CMAKE_CURRENT_BINARY_DIR}/exasimConfigVersion.cmake
+  VERSION ${PROJECT_VERSION}
+  COMPATIBILITY SameMajorVersion
+)
+
+install(
+  FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/exasimConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/exasimConfigVersion.cmake
+  DESTINATION ${EXASIM_INSTALL_CONFIGDIR}
+)
+
+install(
+  EXPORT exasimTargets
+  NAMESPACE exasim::
+  DESTINATION ${EXASIM_INSTALL_CONFIGDIR}
+)
