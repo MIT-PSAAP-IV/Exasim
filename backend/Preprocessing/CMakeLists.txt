@@ -22,7 +22,7 @@ set(EXASIM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../"
     CACHE PATH "Path to Exasim root")
 
 # Put executables directly under Exasim/build at build time
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${EXASIM_ROOT}/build")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${EXASIM_ROOT}/backend/Preprocessing")
 
 # Optionally auto-run the test executable after build
 option(TEST_RUN_AFTER_BUILD "Run 'test' automatically after build" ON)

@@ -62,6 +62,8 @@ struct DMD {
     std::vector<int> elemrecvpts;           // number of elements received from each neighbor
     std::vector<int> elempartpts;           // partition sizes: [interior, interface, exterior]
     std::vector<int> intepartpts;           // optional: [interior, interface1, interface2, exterior]
+    std::vector<int> nbinfo;                // neighboring information 
+    int numneigh;                           // number of neighbors 
 //     std::vector<int> inte;                  // processor ID for each element in the partition
 //     std::vector<int> intl;                  // processor ID for each element in the partition
 };

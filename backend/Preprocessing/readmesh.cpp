@@ -66,7 +66,7 @@ struct Mesh {
     
     // For each local element e, elemGlobalID[e] is its global element index
     std::vector<int> elemGlobalID;
-    std::vector<int> nodeGlobalID;  // [np]  global node IDs
+    std::vector<int> nodeGlobalID;  // [np]  global node IDs    
 
     vector<int> f, f2t, t2t, t2f, t2lf, inte, intl, localfaces;    
     std::vector<double> xdg, udg, vdg, wdg, uhat;

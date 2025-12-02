@@ -1016,7 +1016,7 @@ int permindex(vector<int>& permind, const double* plocfc, int npf, int dim, int 
     return ncols_out;
 }
 
-Master initializeMaster(PDE& pde, Mesh& mesh)
+Master initializeMaster(PDE& pde, Mesh& mesh, int rank=0)
 {    
     Master master;
     
@@ -1140,7 +1140,7 @@ Master initializeMaster(PDE& pde, Mesh& mesh)
     localbasis(master.phielem.data(), master.phiface.data(), master.xpe.data(), master.xpf.data(), master.nd, master.elemtype, master.npe, master.npf);    
     master.npermind = permindex(master.permind, master.xpf.data(), master.npf, master.nd, master.elemtype);              
     
-    std::cout << "Finished initializing Master.\n";
+    if (rank == 0) std::cout << "Finished initializing Master.\n";
            
     return master;
 }

@@ -156,8 +156,7 @@ void partitionMeshParMETIS(std::vector<idx_t>       &epart_local,
     }
 
     if (rank == 0) {
-        std::cout << "Finished partitioning mesh using ParMETIS (edgecut = "
-                  << edgecut << ")" << std::endl;
+        std::cout << "Finished partitioning mesh using ParMETIS (edgecut = " << edgecut << ")" << std::endl;
     }
 }
 
@@ -486,6 +485,10 @@ void migrateMeshWithParMETIS(const Mesh& mesh_in,
             mesh_out.t[j + e * nve] = lnode;
         }
     }
+
+    if (rank == 0) {
+        std::cout << "Finished migrating Mesh after ParMETIS (ne_local_out = " << ne_local_out << ")" << std::endl;
+    }  
 }
 
 // // ---- Build e2e: for each element 'e' and local face 'lf', write neighbor element id or -1 ----
@@ -546,8 +549,18 @@ void mke2e_global(int* e2e,                 // [ne * nfe], output GLOBAL neighbo
                     const int* e2n,         // [ne * nne], local node IDs
                     const int* local_faces, // [nfe * nnf]
                     const int* elemGlobalID,// [ne]        global element IDs
-                    int ne, int nne, int nnf, int nfe)
+                    int ne, int nne, int nnf, int nfe, int rank)
 {
+    
+    // printf("%d %d %d %d %d\n", rank, ne, nne, nnf, nfe);
+    // if (rank==0) {
+    //   print2iarray(local_faces, nnf, nfe);
+    //   print2iarray(e2n, nne, ne);
+    //   print2iarray(elemGlobalID, 1, ne);
+    // }
+    // MPI_Barrier(MPI_COMM_WORLD);
+    // error("here");
+
     // 1. Build local neighbor connectivity
     std::vector<int> e2e_local(ne * nfe);
     mke2e_hash(e2e_local.data(), e2n, local_faces, ne, nne, nnf, nfe);
@@ -563,6 +576,10 @@ void mke2e_global(int* e2e,                 // [ne * nfe], output GLOBAL neighbo
             }
         }
     }
+
+    if (rank == 0) {
+        std::cout << "Finished making element-to-element connectivities on each subdomain" << std::endl;
+    }    
 }
 
 // After mke2e_global: fill remote neighbors (across MPI ranks) in e2e.
@@ -849,20 +866,9 @@ void mke2e_fill_first_neighbors(int*       e2e,
         }
     }
 
-    // // ------------------------------------------------------------------
-    // // 5. Export nbinfo as raw array
-    // // ------------------------------------------------------------------
-    // nbinfoSize = static_cast<int>(nbinfoVec.size() / 6); // number of records
-    // if (nbinfoSize > 0) {
-    //     nbinfo = static_cast<int*>(std::malloc(nbinfoVec.size() * sizeof(int)));
-    //     if (!nbinfo) {
-    //         error("mke2e_fill_remote_neighbors: malloc failed for nbinfo");
-    //     }
-    //     std::memcpy(nbinfo, nbinfoVec.data(),
-    //                 nbinfoVec.size() * sizeof(int));
-    // } else {
-    //     nbinfo = nullptr;
-    // }
+    if (rank == 0) {
+        std::cout << "Finished making first-neighbor connectivities between subdomains" << std::endl;
+    }    
 }
 
 struct ElementClassification {
@@ -894,7 +900,7 @@ void classifyElementsWithE2EAndNbinfo(const int* e2e,       // [mesh.ne * nfe], 
                                       int        ne_local,
                                       const int* nbinfo,    // may be nullptr if no remote faces
                                       int        nbinfoSize,
-                                      ElementClassification& out)
+                                      ElementClassification& out, int rank)
 {
     out.interiorLocal.clear();
     out.boundaryLocal.clear();
@@ -999,6 +1005,10 @@ void classifyElementsWithE2EAndNbinfo(const int* e2e,       // [mesh.ne * nfe], 
             out.interiorGlobal.push_back(g);
         }
     }
+
+    if (rank == 0) {
+        std::cout << "Finished classifying elements on each subdomain" << std::endl;
+    }      
 }
 
 
@@ -1639,7 +1649,7 @@ void updateOuterElements(ElementClassification& cls,
                                    nfe, comm);
 }
 
-void buildElempartFromClassification(const ElementClassification& cls, DMD& dmd)
+void buildElempartFromClassification(const ElementClassification& cls, DMD& dmd, int rank)
 {
     // -------------------------------------------------------------
     // 1. Clear previous data
@@ -1707,6 +1717,10 @@ void buildElempartFromClassification(const ElementClassification& cls, DMD& dmd)
         dmd.intepartpts[2] = nInterface;
         dmd.intepartpts[3] = nExterior;
     }
+
+    if (rank == 0) {
+        std::cout << "Finished partitioning elements on each subdomain" << std::endl;
+    }        
 }
 
 
@@ -1769,6 +1783,10 @@ void buildElem2CpuFromClassification(const ElementClassification& cls,
 
     // Final consistency check
     assert(pos == elempartSize);
+
+    if (rank == 0) {
+        std::cout << "Finished building Elem2Rank on each subdomain" << std::endl;
+    }          
 }
 
 void buildElemRecv(DMD& dmd, MPI_Comm comm)
@@ -1866,6 +1884,10 @@ void buildElemRecv(DMD& dmd, MPI_Comm comm)
         dmd.elemrecvpts.push_back(countForOwner);
     }
 
+    if (rank == 0) {
+        std::cout << "Finished building ElemRecv on each subdomain" << std::endl;
+    }        
+  
     // At this point:
     //   - dmd.elemrecv is sorted by owner; each row = [owner, recv_local_idx, globalID]
     //   - dmd.nbsd[i] is neighbor rank i
@@ -2024,6 +2046,10 @@ void buildElemsend(const Mesh& mesh, DMD&  dmd, MPI_Comm comm)
             dmd.elemsendpts[nbr] += 1;
         }
     }
+
+    if (rank == 0) {
+        std::cout << "Finished building ElemSend on each subdomain" << std::endl;
+    }          
 }
 
 

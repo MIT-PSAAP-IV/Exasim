@@ -44,12 +44,11 @@ int main(int argc, char** argv)
         error("Error: Input file does not exist.\n");        
     }          
            
-    InputParams params = parseInputFile(argv[1]);                           
-    PDE pde = initializePDE(params);    
+    InputParams params = parseInputFile(argv[1], rank);                           
+    PDE pde = initializePDE(params, rank);    
      
     ParsedSpec spec = TextParser::parseFile(make_path(pde.datapath, pde.modelfile));        
-    spec.exasimpath = pde.exasimpath;
-    
+    spec.exasimpath = pde.exasimpath;    
 
     if (size == 1) {
       Mesh mesh = initializeMesh(params, pde);        
@@ -107,18 +106,19 @@ int main(int argc, char** argv)
       pde.ncq = pde.nc - pde.ncu;
       pde.nch  = pde.ncu;                    
 
-      Master master = initializeMaster(pde, mesh);    
+      Master master = initializeMaster(pde, mesh, rank);    
       
       if (rank==0) {
         writepde(pde, make_path(pde.datainpath, "app.bin"));
         writemaster(master, make_path(pde.datainpath, "master.bin"));    
       }
+      MPI_Barrier(MPI_COMM_WORLD);
 
       std::vector<idx_t> elmdist = buildElmdistFromLocalCount(mesh.ne, MPI_COMM_WORLD);
 
       std::vector<idx_t>  epart_local;
       partitionMeshParMETIS(epart_local, mesh.t, elmdist, mesh.nve, mesh.nvf, size, MPI_COMM_WORLD);
-      
+            
       Mesh mesh_in;
       mesh_in.nd = mesh.nd;
       mesh_in.nve = mesh.nve;
@@ -131,24 +131,26 @@ int main(int argc, char** argv)
 
       migrateMeshWithParMETIS(mesh_in, epart_local, mesh, MPI_COMM_WORLD);      
 
+      mesh.localfaces.resize(mesh.nvf * mesh.nfe);           
+      getelemface(mesh.localfaces.data(), mesh.dim, mesh.elemtype);    
+
       mesh.t2t.resize(mesh.nfe*mesh.ne);
       mke2e_global(mesh.t2t.data(), mesh.t.data(), mesh.localfaces.data(), 
-                   mesh.elemGlobalID.data(), mesh.ne, mesh.nve, mesh.nvf, mesh.nfe);
+                   mesh.elemGlobalID.data(), mesh.ne, mesh.nve, mesh.nvf, mesh.nfe, rank);      
+      DMD dmd;
 
-      vector<int> nbinfo;
       mke2e_fill_first_neighbors(mesh.t2t.data(), mesh.t.data(), mesh.localfaces.data(),
                  mesh.elemGlobalID.data(), mesh.nodeGlobalID.data(), mesh.ne, mesh.nve, 
-                mesh.nvf, mesh.nfe, MPI_COMM_WORLD, nbinfo);
+                mesh.nvf, mesh.nfe, MPI_COMM_WORLD, dmd.nbinfo);
 
-      int nbinfoSize = static_cast<int>(nbinfo.size() / 6); 
+      dmd.numneigh = static_cast<int>(dmd.nbinfo.size() / 6); 
+
       ElementClassification elemclass;      
       classifyElementsWithE2EAndNbinfo(mesh.t2t.data(), mesh.elemGlobalID.data(), mesh.nfe, 
-                                       mesh.ne, nbinfo.data(), nbinfoSize, elemclass);
-
-      DMD dmd;
-      buildElempartFromClassification(elemclass, dmd);
+                                       mesh.ne, dmd.nbinfo.data(), dmd.numneigh, elemclass, rank);
+      
+      buildElempartFromClassification(elemclass, dmd, rank);
       buildElem2CpuFromClassification(elemclass, dmd, MPI_COMM_WORLD);      
-      buildElemRecv(dmd, MPI_COMM_WORLD);
       buildElemRecv(dmd, MPI_COMM_WORLD);
       buildElemsend(mesh, dmd, MPI_COMM_WORLD);
     }
