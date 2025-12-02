@@ -18,6 +18,8 @@ get_filename_component(EXASIM_DIR ${CMAKE_CURRENT_SOURCE_DIR}/.. ABSOLUTE)
 
 set(EXASIM_MAIN_DIR ${EXASIM_DIR}/backend/Main)
 set(Model_LIB_DIR   ${EXASIM_DIR}/backend/Model)
+set(EXASIM_BACKEND_DIR ${EXASIM_DIR}/backend)
+
 
 file(GLOB MAIN_SOURCES ${EXASIM_MAIN_DIR}/main.cpp)
 file(GLOB LIB_SOURCES ${EXASIM_MAIN_DIR}/libexasim.cpp)
@@ -304,62 +306,46 @@ endfunction()
 #  - see the exasim headers
 #  - compile libexasim.cpp into itself
 #  - get Kokkos + BLAS/LAPACK + EXTRA_LIBS
+
 function(add_exasim_interface_variant variant_name)
   set(options USE_MPI)
   set(oneValueArgs)
   set(multiValueArgs EXTRA_LIBS)
   cmake_parse_arguments(INT "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
-  set(interface_target    "${variant_name}")
-  set(interface_namespace "exasim::${variant_name}")
+  add_library(${variant_name} INTERFACE)
+  add_library(exasim::${variant_name} ALIAS ${variant_name})
 
-  add_library(${interface_target} INTERFACE)
-  add_library(${interface_namespace} ALIAS ${interface_target})
-
-  # Compile options propagated to consumers
-  set(common_compile_opts
-      -std=c++17
-      -w
-      -ffast-math
-      -O3
-      -DNDEBUG
-  )
-  target_compile_options(${interface_target} INTERFACE ${common_compile_opts})
+  # Compile options propagated
+  set(common_compile_opts -std=c++17 -w -ffast-math -O3 -DNDEBUG)
+  target_compile_options(${variant_name} INTERFACE ${common_compile_opts})
 
   # Optional MPI define
-  set(defs)
   if(INT_USE_MPI)
-    list(APPEND defs _MPI)
-  endif()
-  if(defs)
-    target_compile_definitions(${interface_target} INTERFACE ${defs})
+    target_compile_definitions(${variant_name} INTERFACE _MPI)
   endif()
 
-  # Headers visible to consumers
-  target_include_directories(${interface_target}
+  # Public include dirs: backend/Main in build + install trees
+  target_include_directories(${variant_name}
     INTERFACE
-      $<BUILD_INTERFACE:${EXASIM_MAIN_DIR}>
-      $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/exasim>
+      $<BUILD_INTERFACE:${EXASIM_BACKEND_DIR}/Main>
+      $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/exasim/backend/Main>
   )
 
-  # Implementation sources that consumers will compile
-  target_sources(${interface_target}
+  # If you want “source-only” (consumers compile libexasim.cpp), keep this:
+  target_sources(${variant_name}
     INTERFACE
-      # build tree path
       $<BUILD_INTERFACE:${LIB_SOURCES}>
-      # install tree path – we’ll install libexasim.cpp here
       $<INSTALL_INTERFACE:${CMAKE_INSTALL_DATADIR}/exasim/src/libexasim.cpp>
   )
 
-  # Link dependencies propagated to consumers
-  target_link_libraries(${interface_target}
+  target_link_libraries(${variant_name}
     INTERFACE
       Kokkos::kokkos
       ${lapackblas_libraries}
       ${INT_EXTRA_LIBS}
   )
 endfunction()
-
 
 
 
@@ -485,16 +471,15 @@ endif()
 
 # ------------------------------ Install header only libs ------------------------------
 install(
-  DIRECTORY ${EXASIM_MAIN_DIR}/
+  DIRECTORY ${EXASIM_BACKEND_DIR}/
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/exasim
   FILES_MATCHING
     PATTERN "*.h"
     PATTERN "*.hpp"
+    PATTERN "*.cpp"
+    PATTERN "*.c"
 )
-install(
-  FILES ${LIB_SOURCES}
-  DESTINATION ${CMAKE_INSTALL_DATADIR}/exasim/src
-)
+
 
 # Only install the interface variant(s) if they were built
 if(EXASIM_INTERFACE_VARIANT)
