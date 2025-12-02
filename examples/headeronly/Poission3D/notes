@@ -1,0 +1,3 @@
+In build:
+cmake -D EXASIM_NOMPI=ON -D EXASIM_MPI=ON -D EXASIM_CUDA=OFF -D EXASIM_HIP=OFF -D WITH_TEXT2CODE=ON -DWITH_ASSUME_GENERATOR=ON ../install -DCMAKE_INSTALL_PREFIX=../export
+cmake --build . --target install
