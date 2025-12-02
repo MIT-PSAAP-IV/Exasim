@@ -10,12 +10,16 @@ if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
   set(CMAKE_CUDA_ARCHITECTURES 70)
 endif()
 
-project(exasim LANGUAGES CXX)
+project(exasim VERSION 1.0.0 LANGUAGES CXX)
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 
 get_filename_component(EXASIM_DIR ${CMAKE_CURRENT_SOURCE_DIR}/.. ABSOLUTE)
 
 set(EXASIM_MAIN_DIR ${EXASIM_DIR}/backend/Main)
 set(Model_LIB_DIR   ${EXASIM_DIR}/backend/Model)
+set(EXASIM_BACKEND_DIR ${EXASIM_DIR}/backend)
+
 
 file(GLOB MAIN_SOURCES ${EXASIM_MAIN_DIR}/main.cpp)
 file(GLOB LIB_SOURCES ${EXASIM_MAIN_DIR}/libexasim.cpp)
@@ -26,6 +30,12 @@ file(GLOB MAIN_LIB_HEADER ${EXASIM_MAIN_DIR}/libexasim.h)
 option(WITH_TEXT2CODE "Build extra EXASIM executables that link text2code-generated dynamic libraries" OFF)
 option(WITH_ASSUME_GENERATOR "Assume exasim does not need a generator" OFF)
 option(WITH_EXASIM_MAIN "Do build exasim main." ON)
+
+
+option(EXASIM_INTERFACE_VARIANT
+  "Build an additional header/source-only INTERFACE variant of exasim"
+  ON)
+
 if (WITH_ASSUME_GENERATOR)
 else()
 add_definitions(-DASSUME_GENERATOR)
@@ -289,6 +299,43 @@ function(add_exasim_gpu_variant variant_name)
         )
     endif()
 endfunction()
+function(add_exasim_header_interface target_name)
+  set(multiValueArgs EXTRA_LIBS)
+  cmake_parse_arguments(HDR "" "" "${multiValueArgs}" ${ARGN})
+
+  add_library(${target_name} INTERFACE)
+
+  # IMPORTANT:
+  # - We name the real target `cpuheader`
+  # - We DO NOT rely on an alias for export; instead we export it and add a namespace.
+  #   After install, the imported name will be exasim::cpuheader.
+  #   (No need to create an alias exasim::cpuheader in the build tree, but you can if you want.)
+  # add_library(exasim::${target_name} ALIAS ${target_name})  # optional, build-only convenience
+
+  # Gentle: only standard, let user choose -O/-ffast-math, etc.
+  target_compile_features(${target_name} INTERFACE cxx_std_17)
+
+  # DO NOT add _CUDA/_HIP/_MPI/_TEXT2CODE here.
+  # ASSUME_GENERATOR + TEXT2CODE-off is enforced by exasim_header_config.hpp.
+
+  target_include_directories(${target_name}
+    INTERFACE
+      # Build tree: backend root so "exasim/Main/..." works
+      $<BUILD_INTERFACE:${EXASIM_BACKEND_DIR}>
+      # Install tree: include root so "exasim/Main/..." works
+      $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+  )
+
+  target_sources(${target_name}
+    INTERFACE
+      # Build tree: libexasim.cpp in backend/Main
+      $<BUILD_INTERFACE:${LIB_SOURCES}>
+      # Install tree: the same file installed under include/exasim/Main
+
+  )
+
+
+endfunction()
 
 
 
@@ -380,6 +427,13 @@ else()
       EXTRA_LIBS          # no extra libs beyond Kokkos + lapackblas
       ${cpu_t2c_args}
     )
+    # NEW: header/source-only variant, serial (no MPI)
+
+  if(EXASIM_INTERFACE_VARIANT)
+      add_exasim_header_interface(cpuheader
+        EXTRA_LIBS          # nothing extra for serial
+      )
+    endif()
   endif()
 
   if(EXASIM_MPI)
@@ -397,3 +451,65 @@ else()
     endif()
   endif()
 endif()
+
+configure_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/exasim_header_config.hpp.in
+  ${CMAKE_CURRENT_BINARY_DIR}/exasim_header_config.hpp
+  @ONLY
+)
+
+
+# ------------------------------ Install header only libs ------------------------------
+
+install(
+  FILES ${CMAKE_CURRENT_BINARY_DIR}/exasim_header_config.hpp
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/exasim
+)
+
+install(
+  DIRECTORY ${EXASIM_BACKEND_DIR}/
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/exasim
+  FILES_MATCHING
+    PATTERN "*.h"
+    PATTERN "*.hpp"
+    PATTERN "*.cpp"
+    PATTERN "*.c"
+)
+
+
+# Only install the interface variant(s) if they were built
+if(EXASIM_INTERFACE_VARIANT)
+  install(
+    TARGETS cpuheader
+    EXPORT exasimTargets
+  )
+endif()
+
+set(EXASIM_INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/exasim)
+
+configure_package_config_file(
+  ${CMAKE_CURRENT_LIST_DIR}/cmake/exasimConfig.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/exasimConfig.cmake
+  INSTALL_DESTINATION ${EXASIM_INSTALL_CONFIGDIR}
+)
+
+write_basic_package_version_file(
+  ${CMAKE_CURRENT_BINARY_DIR}/exasimConfigVersion.cmake
+  VERSION ${PROJECT_VERSION}
+  COMPATIBILITY SameMajorVersion
+)
+
+install(
+  FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/exasimConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/exasimConfigVersion.cmake
+  DESTINATION ${EXASIM_INSTALL_CONFIGDIR}
+)
+
+install(
+  EXPORT exasimTargets
+  NAMESPACE exasim::
+  DESTINATION ${EXASIM_INSTALL_CONFIGDIR}
+)
+
+
