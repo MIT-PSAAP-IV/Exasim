@@ -264,8 +264,9 @@ int premain(int argc, char** argv)
               << std::endl;
 
 #endif
-    
-  Kokkos::initialize(argc, argv);
+    if (!Kokkos::is_initialized()){
+      Kokkos::initialize(argc, argv)
+    }
   {        
 
     string filein[10]; 
