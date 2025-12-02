@@ -265,7 +265,7 @@ int premain(int argc, char** argv)
 
 #endif
     if (!Kokkos::is_initialized()){
-      Kokkos::initialize(argc, argv)
+      Kokkos::initialize(argc, argv);
     }
   {        
 
