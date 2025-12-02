@@ -3,6 +3,8 @@ project(Poission3D LANGUAGES CXX)
 
 # If you installed to a non-standard prefix:
 set(CMAKE_PREFIX_PATH "/Users/teoc/projects/exasim/Exasim/export" ${CMAKE_PREFIX_PATH})
+set(Kokkos_DIR "/Users/teoc/projects/exasim/Exasim/kokkos/buildserial")
+
 
 find_package(exasim CONFIG REQUIRED)
 

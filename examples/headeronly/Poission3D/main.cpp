@@ -2,5 +2,5 @@
 
 int main(int argc, char ** argv) {
   // call exasim stuff
-  libmain(argc, argv)
+  libmain(argc, argv);
 }
