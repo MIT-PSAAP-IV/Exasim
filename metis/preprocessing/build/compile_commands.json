@@ -1,0 +1,8 @@
+[
+{
+  "directory": "/Users/cuongnguyen/Documents/GitHub/Exasim/metis/preprocessing/build",
+  "command": "/usr/bin/c++ -DHAVE_METIS -I/Users/cuongnguyen/Documents/GitHub/Exasim/metis/preprocessing/../../metis/ParMETIS/include -I/Users/cuongnguyen/Documents/GitHub/Exasim/metis/preprocessing/../../metis/METIS/build/xinclude -I/Users/cuongnguyen/Documents/GitHub/Exasim/metis/preprocessing/../../metis/GKlib/include -isystem /opt/homebrew/Cellar/open-mpi/5.0.8/include -O3 -DNDEBUG -std=c++17 -arch arm64 -O2 -o CMakeFiles/preprocess.dir/preprocess.cpp.o -c /Users/cuongnguyen/Documents/GitHub/Exasim/metis/preprocessing/preprocess.cpp",
+  "file": "/Users/cuongnguyen/Documents/GitHub/Exasim/metis/preprocessing/preprocess.cpp",
+  "output": "CMakeFiles/preprocess.dir/preprocess.cpp.o"
+}
+]

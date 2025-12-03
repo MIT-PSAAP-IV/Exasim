@@ -422,5 +422,31 @@ void select_columns(double* a_new, const double* a, const int* ind, int m, int k
 //   }
 // }
 
+// Simple contiguous partition helper
+inline void computeLocalRange(int globalN, int size, int rank,
+                              int &localN, int &offset)
+{
+    int base = globalN / size;
+    int rem  = globalN % size;
+    if (rank < rem) {
+        localN = base + 1;
+        offset = rank * localN;
+    } else {
+        localN = base;
+        offset = rem * (base + 1) + (rank - rem) * base;
+    }
+}
+
+// Helper: compute prefix offsets from counts
+inline void prefixSums(const std::vector<int>& counts, std::vector<int>& displs, int& total)
+{
+    displs.resize(counts.size());
+    total = 0;
+    for (std::size_t i = 0; i < counts.size(); ++i) {
+        displs[i] = total;
+        total += counts[i];
+    }
+}
+
 #endif
 
