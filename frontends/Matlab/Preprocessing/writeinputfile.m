@@ -154,7 +154,7 @@ for i = 1:length(requiredKeys)
             fprintf(fid, '%s = [\"%s\"];\n', key, char(value));     
           elseif (key == "modelfile")  
             fprintf(fid, '%s = \"%s\";\n', key, char(value + ".txt"));     
-          elseif (key == "exasimpath") || (key == "datapath")          
+          elseif (key == "datapath")          
           else
             fprintf(fid, '%s = \"%s\";\n', key, char(value));                 
           end          
