@@ -1,6 +1,8 @@
 % Add Exasim to Matlab search path
-src = "frontends"; 
-ExasimPath = cdir(1:(ii+5));
+src = "frontends";
+if ~exist('ExasimPath', 'var')
+    ExasimPath = cdir(1:(ii+5));
+end
 srcdir = ExasimPath + "/"  + src + "/Matlab";
 addpath(char(ExasimPath + "/install"));
 addpath(char(srcdir + "/Gencode"));
