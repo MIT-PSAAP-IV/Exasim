@@ -777,6 +777,8 @@ void readParMeshFromBinaryFile(const std::string& filename,
     mesh.nve = nve_global;  // same on all ranks
     mesh.np  = np_local;    // local
     mesh.ne  = ne_local;    // local
+    mesh.np_global  = np_global;    // global
+    mesh.ne_global  = ne_global;    // global
 
     mesh.p.resize(static_cast<std::size_t>(mesh.np) * mesh.nd);
     mesh.t.resize(static_cast<std::size_t>(mesh.ne) * mesh.nve);
@@ -872,6 +874,8 @@ void readParMeshGeneric(const std::string& filename,
     mesh.nve = nve_global;
     mesh.np  = np_local;
     mesh.ne  = ne_local;
+    mesh.np_global  = np_global;    // global
+    mesh.ne_global  = ne_global;    // global
 
     mesh.p.resize(static_cast<std::size_t>(mesh.nd) * mesh.np);
     mesh.t.resize(static_cast<std::size_t>(mesh.nve) * mesh.ne);

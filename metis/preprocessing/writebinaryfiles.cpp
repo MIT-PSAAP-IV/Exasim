@@ -391,4 +391,71 @@ void writeBinaryFiles(PDE& pde, Mesh& mesh, const Master& master, const ParsedSp
     std::cout << "Finished writeBinaryFiles.\n";
 }
 
+
+vector<DMD> buildMeshDMD(PDE& pde, Mesh& mesh, const Master& master, const ParsedSpec& spec, int rank=0) 
+{
+    bool callbuildConn = false;
+
+    ensure_dir(pde.datainpath);
+    ensure_dir(pde.dataoutpath);
+    
+    for (const auto& vec : spec.vectors) {
+        const std::string& name = vec.first;
+        int size = vec.second;
+        if (name == "uhat") pde.ncu = size;
+        if (name == "v") pde.ncv = size;
+        if (name == "w") pde.ncw = size;
+        if (name == "uq") pde.nc = size;        
+    }
+
+    for (int i=0; i<spec.functions.size(); i++) {
+        if (spec.functions[i].name == "VisScalars") pde.nsca = spec.functions[i].outputsize;
+        if (spec.functions[i].name == "VisVectors") pde.nvec = spec.functions[i].outputsize/pde.nd;
+        if (spec.functions[i].name == "VisTensors") pde.nten = spec.functions[i].outputsize/(pde.nd*pde.nd);
+        if (spec.functions[i].name == "QoIboundary") pde.nsurf = spec.functions[i].outputsize;
+        if (spec.functions[i].name == "QoIvolume") pde.nvqoi = spec.functions[i].outputsize;
+    }
+        
+    buildMesh(mesh, pde, master);            
+#ifdef HAVE_METIS        
+    if ((pde.partitionfile == "") || (mesh.elem2cpu.size() == 0)) {
+        vector<int> node2cpu;
+        partitionMesh(mesh.elem2cpu, node2cpu, mesh.t, mesh.ne, mesh.np, mesh.nve, mesh.nvf, pde.mpiprocs);
+        node2cpu.resize(0);
+        for (int i=0; i<mesh.ne; i++) mesh.elem2cpu[i] += 1;        
+    }
+#endif          
+    for (int i=0; i<mesh.ne; i++) mesh.elem2cpu[i] -= 1;   
+
+    // buildMesh(mesh, pde, master);
+    // vector<int> node2cpu;
+    // partitionMesh(mesh.elem2cpu, node2cpu, mesh.t, mesh.ne, mesh.np, mesh.nve, mesh.nvf, pde.mpiprocs);
+    // node2cpu.resize(0);
+  
+    mesh.t2t.resize(mesh.nfe*mesh.ne);
+    mesh.nf = mke2e_hash(mesh.t2t.data(), mesh.t.data(), mesh.localfaces.data(), mesh.ne, mesh.nve, mesh.nvf, mesh.nfe);
+            
+    vector<DMD> dmd(pde.mpiprocs);            
+    if (pde.hybrid==1)         
+        build_dmdhdg(dmd, mesh.t2t.data(), mesh.elem2cpu.data(), mesh.inte.data(), mesh.nfe, mesh.ne, pde, rank);
+    else build_dmdldg(dmd, mesh.t2t.data(), mesh.elem2cpu.data(), mesh.nfe, mesh.ne, pde);                
+    
+    for (int n=0; n<pde.mpiprocs; n++) {
+        Conn conn;          
+        if (callbuildConn)  buildConn(conn, pde, mesh, master, dmd[n]);
+        else {
+            int ne = dmd[n].elempart.size();
+            dmd[n].bf.resize(mesh.nfe * ne); 
+            int* fi = (int*)malloc(mesh.nfe * ne * sizeof(int));      
+            select_columns(fi, mesh.f.data(), dmd[n].elempart.data(), mesh.nfe, ne);       
+            apply_bcm(dmd[n].bf.data(), fi, mesh.boundaryConditions.data(), mesh.nfe*ne, mesh.nbcm);                              
+            CPUFREE(fi);
+        }
+    }               
+    
+    std::cout << "Finished buildMeshDMD.\n";
+    return dmd;
+}
+
+
 #endif

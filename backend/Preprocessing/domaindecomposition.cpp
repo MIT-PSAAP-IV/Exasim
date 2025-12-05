@@ -144,7 +144,8 @@ void create_elemsend(std::vector<DMD>& dmd)
         for (int j = 0; j < dmd[i].nbsd.size(); ++j) {
             int k = dmd[i].nbsd[j];
 
-            std::vector<std::vector<int>> tm;
+            //std::vector<std::vector<int>> tm;
+            std::vector<std::array<int, 3>> tm;
             tm.reserve(dmd[i].elemrecv.size());
             for (const auto& row : dmd[i].elemrecv) {
                 if (row[0] == k) tm.push_back(row);
@@ -174,13 +175,20 @@ void create_elemsend(std::vector<DMD>& dmd)
         for (int j = 0; j < dmd[i].nbsd.size(); ++j) {
             int n = dmd[i].nbsd[j];
 
+            // dmd[i].elemsendpts[j] = std::count_if(
+            //     dmd[i].elemsend.begin(), dmd[i].elemsend.end(),
+            //     [n](const std::vector<int>& row) { return row[0] == n; });
+            // 
+            // dmd[i].elemrecvpts[j] = std::count_if(
+            //     dmd[i].elemrecv.begin(), dmd[i].elemrecv.end(),
+            //     [n](const std::vector<int>& row) { return row[0] == n; });
             dmd[i].elemsendpts[j] = std::count_if(
                 dmd[i].elemsend.begin(), dmd[i].elemsend.end(),
-                [n](const std::vector<int>& row) { return row[0] == n; });
-
+                [n](const std::array<int, 3>& row) { return row[0] == n; });
+            
             dmd[i].elemrecvpts[j] = std::count_if(
                 dmd[i].elemrecv.begin(), dmd[i].elemrecv.end(),
-                [n](const std::vector<int>& row) { return row[0] == n; });
+                [n](const std::array<int, 3>& row) { return row[0] == n; });
         }
     }
 }

@@ -860,12 +860,13 @@ void mke2e_fill_first_neighbors(int*       e2e,
             e2e[eLoc * nfe + lf] = nghGlobal;
 
             // record (eLoc, lf, self_rank, eglonb, lfnb, neighbor_rank)
-            nbinfoVec.push_back(eLoc);
-            nbinfoVec.push_back(lf);
-            nbinfoVec.push_back(rank);     // self_rank
-            nbinfoVec.push_back(nghGlobal);
-            nbinfoVec.push_back(lfnb);
-            nbinfoVec.push_back(nghRank);
+            nbinfoVec.insert(nbinfoVec.end(), {eLoc, lf, rank, nghGlobal, lfnb, nghRank});
+            // nbinfoVec.push_back(eLoc);
+            // nbinfoVec.push_back(lf);
+            // nbinfoVec.push_back(rank);     // self_rank
+            // nbinfoVec.push_back(nghGlobal);
+            // nbinfoVec.push_back(lfnb);
+            // nbinfoVec.push_back(nghRank);
         }
     }
 
@@ -874,27 +875,418 @@ void mke2e_fill_first_neighbors(int*       e2e,
     }    
 }
 
-// struct ElementClassification {
-//     // Local indices of elements on this rank
-//     std::vector<int> interiorLocal;
-//     std::vector<int> boundaryLocal;
-//     std::vector<int> interfaceLocal;
-// 
-//     // Global IDs of those same elements
-//     std::vector<int> interiorGlobal;
-//     std::vector<int> boundaryGlobal;
-//     std::vector<int> interfaceGlobal;
-// 
-//     // Off-rank neighbor elements (unique)
-//     std::vector<int> neighborElemLocal;
-//     std::vector<int> neighborElemGlobal; // global ID of neighbor element
-//     std::vector<int> neighborElemRank;   // owning rank of that neighbor
-// 
-//     // Off-rank outer elements (unique)
-//     std::vector<int> outerElemLocal;
-//     std::vector<int> outerElemGlobal; // global ID of outer element
-//     std::vector<int> outerElemRank;   // owning rank of that outer element    
-// };
+// Label boundary faces in t2t:
+// For any face (l,e) with t2t[l + nfe*e] == -1 and matching boundary
+// expression index k, set t2t[l + nfe*e] = -(k+1).
+//
+// - t2t: [nfe x ne], element-to-element; boundary faces initially have -1
+// - t  : [nve x ne], element-to-node connectivity
+// - localfaces: [nvf x nfe], local face connectivity
+// - p  : [dim x np], nodal coordinates
+// - bndexpr: array of boundary expressions, e.g., {"x*x + y*y <= 1"}
+// - nbndexpr: number of boundary expressions
+//
+// Assumes eval_expr(char* expr, const double* x, int dim) is available.
+int setboundaryfaces(
+    int* t2t,                  // [nfe x ne], element-to-element; boundary faces initially -1
+    const int* e2n,            // [nve x ne], element-to-node connectivity
+    const int* localfaces,     // [nvf x nfe], local face connectivity
+    const double* p,           // [dim x np], nodal coordinates
+    char** bndexpr,            // boundary expressions
+    int dim, int nve, int nvf, int nfe, int ne, int nbndexpr)
+{
+    int ind2 = (nvf == 1) ? 0 : 1;
+    int count_bfaces = 0;
+
+    // Loop over all elements and local faces
+    for (int e = 0; e < ne; ++e) {
+        for (int l = 0; l < nfe; ++l) {
+            int face_pos = l + nfe * e;
+
+            // Only process boundary faces (originally marked -1)
+            if (t2t[face_pos] != -1)
+                continue;
+
+            bool labeled = false;
+
+            // for (int i = 0; i < nvf; i++) {              
+            //   int local_node = localfaces[i + l * nvf];
+            //   int node = e2n[local_node + nve * e];  // global node
+            //   const double* x = &p[dim * node];
+            //   for (int k = 0; k < nbndexpr; ++k)
+            //     if (eval_expr(bndexpr[k], x, dim)) 
+            //       printf("%d %d %d %d %g %g\n", e, l, node, k, x[0], x[1]);  
+            // }
+
+            // Try matching boundary expressions
+            for (int k = 0; k < nbndexpr; ++k) {
+                bool ok = true;
+                int check_pts[3] = {0, ind2, nvf - 1};
+
+                for (int m = 0; m < 3; ++m) {
+                    int i = check_pts[m];
+
+                    // Local node index on face l
+                    int local_node = localfaces[i + l * nvf];
+                    int node = e2n[local_node + nve * e];  // global node
+                    const double* x = &p[dim * node];
+
+                    if (!eval_expr(bndexpr[k], x, dim)) {
+                        ok = false;
+                        break;
+                    }
+                }
+
+                if (ok) {
+                    t2t[face_pos] = -(k + 1);  // encode boundary index
+                    labeled = true;
+                    break;
+                }
+            }
+
+            if (labeled)
+                count_bfaces++;
+        }
+    }
+
+    return count_bfaces;
+}
+
+// t2t: [nfe x ne], element-to-element (global neighbor element IDs).
+//      Boundary faces have been labeled by labelboundaryfaces_in_t2t as
+//      t2t = -(k+1), where k is the boundary-expression index.
+// t:   [nve x ne], element-to-node connectivity (local node indices into p)
+// localfaces: [nvf x nfe], local node ids per local face (0..nve-1)
+// p:   [dim x np], nodal coordinates for local nodes
+// elemGlobalID: [ne], global element ID for each local element
+// prd_f1, prd_f2: [nprd], periodic boundary pairs; each entry is 1-based
+//                 index into boundary expressions (like setperiodicfaces).
+// expr1, expr2: [nprd * ncomp], mapping expressions for each periodic pair.
+// dim, nve, nvf, nfe, ne: mesh sizes
+// nprd: number of periodic boundary pairs
+// ncomp: number of mapping components (for xiny)
+// comm: MPI communicator
+// nbinfoVec: will be appended with records
+//            (eLoc, lf, self_rank, eglonb, lfnb, neighbor_rank)
+//            for cross-rank periodic neighbors.
+void setperiodicfaces(
+    int*       t2t,
+    const int* t,
+    const int* localfaces,
+    const double* p,
+    const int* elemGlobalID,
+    const int* prd_f1,
+    const int* prd_f2,
+    char** expr1,
+    char** expr2,
+    int dim,
+    int nve,
+    int nvf,
+    int nfe,
+    int ne,
+    int nprd,
+    int ncomp,
+    int nbfaces,
+    MPI_Comm comm,
+    std::vector<int>& nbinfoVec)
+{
+    int rank, size;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &size);
+
+    // TinyExpr parser setup (as in setperiodicfaces)
+    double x = 0.0, y = 0.0, z = 0.0;
+    te_parser tep;
+    tep.set_variables_and_functions({{"x", &x}, {"y", &y}, {"z", &z}});
+
+    // Iterate over each periodic pair
+    for (int ip = 0; ip < nprd; ++ip) {
+        // Boundary-expression indices (0-based) for the two sides
+        const int bc1 = prd_f1[ip] - 1;
+        const int bc2 = prd_f2[ip] - 1;
+
+        // ----------------------------------------------
+        // 1. Collect local periodic faces for this pair
+        // ----------------------------------------------
+        // meta: [rank, elemLocal, elemGlobal, lf] per face
+        std::vector<int>    meta1Local;
+        std::vector<double> bary1Local;  // [n1loc * dim]
+
+        std::vector<int>    meta2Local;
+        std::vector<double> bary2Local;  // [n2loc * dim]
+
+        meta1Local.reserve(nbfaces * 4);
+        meta2Local.reserve(nbfaces * 4);
+        bary1Local.reserve(nbfaces * dim);
+        bary2Local.reserve(nbfaces * dim);
+
+        for (int e = 0; e < ne; ++e) {
+            int eGlob = elemGlobalID[e];
+
+            for (int lf = 0; lf < nfe; ++lf) {
+                int pos = e * nfe + lf;
+                int val = t2t[pos];
+
+                if (val >= 0) {
+                    // already has a (non-boundary) neighbor
+                    continue;
+                }
+
+                // t2t = -(k+1) encodes boundary label k
+                int k = -val - 1;
+                if (k != bc1 && k != bc2) {
+                    continue; // not part of this periodic pair
+                }
+
+                // Compute face barycenter
+                double xb[3] = {0.0, 0.0, 0.0};
+                for (int i = 0; i < nvf; ++i) {
+                    int ln_face = localfaces[lf * nvf + i];  // local node in element
+                    int node    = t[e * nve + ln_face];      // local node index in mesh
+                    const double* xp = &p[dim * node];
+                    for (int d = 0; d < dim; ++d) {
+                        xb[d] += xp[d];
+                    }
+                }
+                double inv = 1.0 / static_cast<double>(nvf);
+                for (int d = 0; d < dim; ++d) {
+                    xb[d] *= inv;
+                }
+
+                if (k == bc1) {
+                    meta1Local.insert(meta1Local.end(), {rank, e, eGlob, lf});
+                    // meta1Local.push_back(rank);
+                    // meta1Local.push_back(e);
+                    // meta1Local.push_back(eGlob);
+                    // meta1Local.push_back(lf);
+                    for (int d = 0; d < dim; ++d)
+                        bary1Local.push_back(xb[d]);
+                } else { // k == bc2
+                    meta2Local.insert(meta2Local.end(), {rank, e, eGlob, lf});
+                    // meta2Local.push_back(rank);
+                    // meta2Local.push_back(e);
+                    // meta2Local.push_back(eGlob);
+                    // meta2Local.push_back(lf);
+                    for (int d = 0; d < dim; ++d)
+                        bary2Local.push_back(xb[d]);
+                }
+            }
+        }
+
+        int n1loc = static_cast<int>(meta1Local.size() / 4);
+        int n2loc = static_cast<int>(meta2Local.size() / 4);
+
+        // ---------------------------------------------
+        // 2. Evaluate mapping expressions at barycenters
+        // ---------------------------------------------
+        std::vector<double> q1Local(n1loc * ncomp, 0.0);
+        std::vector<double> q2Local(n2loc * ncomp, 0.0);
+
+        // Side 1: expr1
+        for (int c = 0; c < ncomp; ++c) {
+            auto result = tep.evaluate(expr1[ip * ncomp + c]);
+            if (!tep.success()) {
+                std::cout << "\t " << std::setfill(' ')
+                          << std::setw(tep.get_last_error_position()) << '^'
+                          << "\tError near here in periodic expr1\n";
+                error("TinyExpr Failure in periodic expr1");
+            }
+
+            for (int j = 0; j < n1loc; ++j) {
+                const double* xb = &bary1Local[j * dim];
+                x = (dim > 0) ? xb[0] : 0.0;
+                y = (dim > 1) ? xb[1] : 0.0;
+                z = (dim > 2) ? xb[2] : 0.0;
+                q1Local[j * ncomp + c] = tep.evaluate(expr1[ip * ncomp + c]);
+            }
+        }
+
+        // Side 2: expr2
+        for (int c = 0; c < ncomp; ++c) {
+            auto result = tep.evaluate(expr2[ip * ncomp + c]);
+            if (!tep.success()) {
+                std::cout << "\t " << std::setfill(' ')
+                          << std::setw(tep.get_last_error_position()) << '^'
+                          << "\tError near here in periodic expr2\n";
+                error("TinyExpr Failure in periodic expr2");
+            }
+
+            for (int j = 0; j < n2loc; ++j) {
+                const double* xb = &bary2Local[j * dim];
+                x = (dim > 0) ? xb[0] : 0.0;
+                y = (dim > 1) ? xb[1] : 0.0;
+                z = (dim > 2) ? xb[2] : 0.0;
+                q2Local[j * ncomp + c] = tep.evaluate(expr2[ip * ncomp + c]);
+            }
+        }
+
+        // ---------------------------------------
+        // 3. MPI Allgather periodic faces for pair
+        // ---------------------------------------
+        std::vector<int> counts1(size), counts2(size);
+        int n1loc_faces = n1loc;
+        int n2loc_faces = n2loc;
+
+        MPI_Allgather(&n1loc_faces, 1, MPI_INT, counts1.data(), 1, MPI_INT, comm);
+        MPI_Allgather(&n2loc_faces, 1, MPI_INT, counts2.data(), 1, MPI_INT, comm);
+
+        std::vector<int> disp1(size), disp2(size);
+        int n1glob = 0, n2glob = 0;
+        for (int r = 0; r < size; ++r) {
+            disp1[r] = n1glob;
+            disp2[r] = n2glob;
+            n1glob += counts1[r];
+            n2glob += counts2[r];
+        }
+
+        std::vector<int>    meta1_g(4 * n1glob), meta2_g(4 * n2glob);
+        std::vector<double> q1_g(ncomp * n1glob), q2_g(ncomp * n2glob);
+
+        // Allgatherv meta1
+        {
+            std::vector<int> metaCounts1(size), metaDisp1(size);
+            for (int r = 0; r < size; ++r) {
+                metaCounts1[r] = counts1[r] * 4;
+                metaDisp1[r]   = disp1[r]   * 4;
+            }
+            MPI_Allgatherv(meta1Local.data(), n1loc * 4, MPI_INT,
+                           meta1_g.data(), metaCounts1.data(), metaDisp1.data(), MPI_INT,
+                           comm);
+        }
+
+        // Allgatherv meta2
+        {
+            std::vector<int> metaCounts2(size), metaDisp2(size);
+            for (int r = 0; r < size; ++r) {
+                metaCounts2[r] = counts2[r] * 4;
+                metaDisp2[r]   = disp2[r]   * 4;
+            }
+            MPI_Allgatherv(meta2Local.data(), n2loc * 4, MPI_INT,
+                           meta2_g.data(), metaCounts2.data(), metaDisp2.data(), MPI_INT,
+                           comm);
+        }
+
+        // Allgatherv q1
+        {
+            std::vector<int> qCounts1(size), qDisp1(size);
+            for (int r = 0; r < size; ++r) {
+                qCounts1[r] = counts1[r] * ncomp;
+                qDisp1[r]   = disp1[r]   * ncomp;
+            }
+            MPI_Allgatherv(q1Local.data(), n1loc * ncomp, MPI_DOUBLE,
+                           q1_g.data(), qCounts1.data(), qDisp1.data(), MPI_DOUBLE,
+                           comm);
+        }
+
+        // Allgatherv q2
+        {
+            std::vector<int> qCounts2(size), qDisp2(size);
+            for (int r = 0; r < size; ++r) {
+                qCounts2[r] = counts2[r] * ncomp;
+                qDisp2[r]   = disp2[r]   * ncomp;
+            }
+            MPI_Allgatherv(q2Local.data(), n2loc * ncomp, MPI_DOUBLE,
+                           q2_g.data(), qCounts2.data(), qDisp2.data(), MPI_DOUBLE,
+                           comm);
+        }
+
+        if (n1glob == 0 || n2glob == 0) {
+            // no periodic faces of this pair on this mesh
+            continue;
+        }
+
+        // ---------------------------------------
+        // 4. Match faces using xiny on q1 vs q2
+        // ---------------------------------------
+        std::vector<int> in(n1glob, -1);
+        xiny<double>(in.data(), q1_g.data(), q2_g.data(),
+                     n1glob, n2glob, ncomp);
+
+        // ---------------------------------------
+        // 5. Update t2t and nbinfoVec
+        // ---------------------------------------
+        for (int j = 0; j < n1glob; ++j) {
+            int idx2 = in[j];
+            if (idx2 < 0) continue; // no match
+
+            // side 1
+            int r1     = meta1_g[4*j + 0];
+            int eLoc1  = meta1_g[4*j + 1];
+            int eGlob1 = meta1_g[4*j + 2];
+            int lf1    = meta1_g[4*j + 3];
+
+            // side 2
+            int r2     = meta2_g[4*idx2 + 0];
+            int eLoc2  = meta2_g[4*idx2 + 1];
+            int eGlob2 = meta2_g[4*idx2 + 2];
+            int lf2    = meta2_g[4*idx2 + 3];
+
+            // Update side 1 on its owning rank:
+            if (r1 == rank) {
+                int pos1 = eLoc1 * nfe + lf1;
+                t2t[pos1] = eGlob2;  // periodic neighbor is global element ID
+
+                if (r1 != r2) {
+                    nbinfoVec.insert(nbinfoVec.end(), {eLoc1, lf1, rank, eGlob2, lf2, r2});
+                    // // cross-rank neighbor: record in nbinfoVec
+                    // nbinfoVec.push_back(eLoc1);   // self element local
+                    // nbinfoVec.push_back(lf1);     // self local face
+                    // nbinfoVec.push_back(rank);    // self rank
+                    // nbinfoVec.push_back(eGlob2);  // neighbor element global
+                    // nbinfoVec.push_back(lf2);     // neighbor local face (on its rank)
+                    // nbinfoVec.push_back(r2);      // neighbor rank
+                }
+            }
+
+            // Update side 2 on its owning rank:
+            if (r2 == rank) {
+                int pos2 = eLoc2 * nfe + lf2;
+                t2t[pos2] = eGlob1;
+
+                if (r2 != r1) {
+                    nbinfoVec.insert(nbinfoVec.end(), {eLoc2, lf2, rank, eGlob1, lf1, r1});
+                    // nbinfoVec.push_back(eLoc2);
+                    // nbinfoVec.push_back(lf2);
+                    // nbinfoVec.push_back(rank);
+                    // nbinfoVec.push_back(eGlob1);
+                    // nbinfoVec.push_back(lf1);
+                    // nbinfoVec.push_back(r1);
+                }
+            }
+        } // j
+    } // ip
+}
+
+void sortWithReordering(std::vector<int>& a, std::vector<int>& b)
+{
+    // Ensure same size
+    if (a.size() != b.size()) {
+        throw std::runtime_error("a and b must have the same size");
+    }
+
+    // Create index array
+    std::vector<std::size_t> idx(a.size());
+    for (std::size_t i = 0; i < idx.size(); ++i) {
+        idx[i] = i;
+    }
+
+    // Sort indices based on values in a
+    std::sort(idx.begin(), idx.end(),
+              [&](std::size_t i, std::size_t j) { return a[i] < a[j]; });
+
+    // Create sorted arrays
+    std::vector<int> a_sorted(a.size());
+    std::vector<int> b_sorted(b.size());
+
+    for (std::size_t k = 0; k < idx.size(); ++k) {
+        a_sorted[k] = a[idx[k]];
+        b_sorted[k] = b[idx[k]];
+    }
+
+    // Replace original vectors
+    a = std::move(a_sorted);
+    b = std::move(b_sorted);
+}
 
 // nbinfo layout per record: 6 ints
 void classifyElementsWithE2EAndNbinfo(const int* e2e,       // [mesh.ne * nfe], global IDs or -1
@@ -924,11 +1316,11 @@ void classifyElementsWithE2EAndNbinfo(const int* e2e,       // [mesh.ne * nfe], 
     std::vector<char> hasBoundaryFace(ne_local, 0);
     std::vector<char> hasRemoteFace(ne_local,   0);
 
-    // Boundary faces: e2e[e*nfe + lf] == -1 means physical boundary
+    // Boundary faces: e2e[e*nfe + lf] <= -1 means physical boundary
     for (int e = 0; e < ne_local; ++e) {
         for (int lf = 0; lf < nfe; ++lf) {
             int ngh = e2e[e * nfe + lf];
-            if (ngh == -1) {
+            if (ngh <= -1) {
                 hasBoundaryFace[e] = 1;
             }
         }
@@ -983,6 +1375,8 @@ void classifyElementsWithE2EAndNbinfo(const int* e2e,       // [mesh.ne * nfe], 
         // for pure classification purposes, but it's available if needed.
     }
 
+    sortWithReordering(out.neighborElemGlobal, out.neighborElemRank);
+
     // --------------------------------------------------------------
     // 2. Classify each local element
     //
@@ -1012,6 +1406,494 @@ void classifyElementsWithE2EAndNbinfo(const int* e2e,       // [mesh.ne * nfe], 
     if (rank == 0) {
         std::cout << "Finished classifying elements on each subdomain" << std::endl;
     }      
+}
+
+
+void buildElempartFromClassification(ElementClassification& cls, DMD& dmd, int rank)
+{
+    // -------------------------------------------------------------
+    // 1. Clear previous data
+    // -------------------------------------------------------------
+    dmd.elempart.clear();
+    dmd.elempartpts.clear();
+    dmd.elempart_local.clear();
+
+    // Counts
+    const int nInterior = cls.interiorGlobal.size();
+    const int nBoundary = cls.boundaryGlobal.size();
+    const int nInterface = cls.interfaceGlobal.size();
+    const int nNeighbor = cls.neighborElemGlobal.size();
+
+    // -------------------------------------------------------------
+    // 2. Concatenate into elempart in the desired order
+    //
+    // interiorGlobal   – global interior elements
+    // boundaryGlobal   – global boundary elements
+    // interfaceGlobal  – global interface (shared) elements
+    // neighborElemGlobal – off-rank neighbor elements
+    // -------------------------------------------------------------
+    dmd.elempart.reserve(nInterior + nBoundary + nInterface + nNeighbor);
+
+    //  boundary
+    dmd.elempart.insert(dmd.elempart.end(),
+                        cls.boundaryGlobal.begin(),
+                        cls.boundaryGlobal.end());
+
+    //  interior
+    dmd.elempart.insert(dmd.elempart.end(),
+                        cls.interiorGlobal.begin(),
+                        cls.interiorGlobal.end());
+
+    //  interface
+    dmd.elempart.insert(dmd.elempart.end(),
+                        cls.interfaceGlobal.begin(),
+                        cls.interfaceGlobal.end());
+
+    //  off-rank neighbor
+    dmd.elempart.insert(dmd.elempart.end(),
+                        cls.neighborElemGlobal.begin(),
+                        cls.neighborElemGlobal.end());
+
+    cls.neighborElemLocal.resize(nNeighbor);
+    const int neighborOffset = nBoundary + nInterior + nInterface;
+    for (int i = 0; i < nNeighbor; ++i) {
+        cls.neighborElemLocal[i] = neighborOffset + i;
+    }
+
+    // -------------------------------------------------------------
+    // 2b. Build elempart_local in the same order
+    //
+    // elempart_local holds local element indices corresponding to
+    // the global IDs in elempart.
+    // -------------------------------------------------------------
+    dmd.elempart_local.reserve(nInterior + nBoundary + nInterface + nNeighbor);
+
+    // boundary (local)
+    dmd.elempart_local.insert(dmd.elempart_local.end(),
+                              cls.boundaryLocal.begin(),
+                              cls.boundaryLocal.end());
+
+    // interior (local)
+    dmd.elempart_local.insert(dmd.elempart_local.end(),
+                              cls.interiorLocal.begin(),
+                              cls.interiorLocal.end());
+
+    // interface (local)
+    dmd.elempart_local.insert(dmd.elempart_local.end(),
+                              cls.interfaceLocal.begin(),
+                              cls.interfaceLocal.end());
+
+    // off-rank neighbor (local indices of ghost / halo elements)
+    dmd.elempart_local.insert(dmd.elempart_local.end(),
+                              cls.neighborElemLocal.begin(),
+                              cls.neighborElemLocal.end());  
+
+    // -------------------------------------------------------------
+    // 3. Fill elempartpts
+    //
+    // You defined elempartpts as:
+    //     [interior, interface, exterior]
+    //
+    // but boundary elements belong to neither interior nor interface
+    // -------------------------------------------------------------
+
+    const int nExterior = nNeighbor;
+
+    dmd.elempartpts.resize(3);
+    dmd.elempartpts[0] = nInterior + nBoundary;// interior + boundary
+    dmd.elempartpts[1] = nInterface;           // interface
+    dmd.elempartpts[2] = nExterior;            // exterior
+
+    // Optional: intepartpts if you want a 4-way split (interior, boundary, interface, exterior)
+    if (!dmd.intepartpts.empty()) {
+        dmd.intepartpts.resize(4);
+        dmd.intepartpts[0] = nInterior;
+        dmd.intepartpts[1] = nBoundary;
+        dmd.intepartpts[2] = nInterface;
+        dmd.intepartpts[3] = nExterior;
+    }
+
+    if (rank == 0) {
+        std::cout << "Finished partitioning elements on each subdomain" << std::endl;
+    }        
+}
+
+
+void buildElem2CpuFromClassification(const ElementClassification& cls,
+                                     DMD&                        dmd,
+                                     MPI_Comm                    comm)
+{
+    int rank, size;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &size);
+    (void)size;
+
+    const int nInterior  = static_cast<int>(cls.interiorGlobal.size());
+    const int nBoundary  = static_cast<int>(cls.boundaryGlobal.size());
+    const int nInterface = static_cast<int>(cls.interfaceGlobal.size());
+    const int nNeighbor  = static_cast<int>(cls.neighborElemGlobal.size());
+
+    const int expectedSize = nInterior + nBoundary + nInterface + nNeighbor;
+    const int elempartSize = static_cast<int>(dmd.elempart.size());
+
+    // Sanity check: layout of dmd.elempart must match classification
+    if (elempartSize != expectedSize) {
+        std::cerr << "buildElem2CpuFromClassification: size mismatch:\n"
+                  << "  dmd.elempart.size() = " << elempartSize << "\n"
+                  << "  expected            = " << expectedSize << "\n";
+        // You can replace with your own error() routine if you prefer.
+        // error("buildElem2CpuFromClassification: elempart mismatch");
+    }
+
+    dmd.elem2cpu.resize(elempartSize);
+
+    int pos = 0;
+
+    // 1) boundaryGlobal → also owned by this rank
+    for (int i = 0; i < nBoundary; ++i) {
+        dmd.elem2cpu[pos++] = rank;
+    }
+  
+    // 2) interiorGlobal → owned by this rank
+    for (int i = 0; i < nInterior; ++i) {
+        dmd.elem2cpu[pos++] = rank;
+    }
+
+    // 3) interfaceGlobal → also owned by this rank
+    for (int i = 0; i < nInterface; ++i) {
+        dmd.elem2cpu[pos++] = rank;
+    }
+
+    // 4) neighborElemGlobal → owned by their respective neighbor ranks
+    //    Use cls.neighborElemRank (same ordering as neighborElemGlobal).
+    for (int i = 0; i < nNeighbor; ++i) {
+        int ownerRank = cls.neighborElemRank[i];
+        // optional sanity check
+        if (ownerRank < 0 || ownerRank >= size) {
+            std::cerr << "buildElem2CpuFromClassification: invalid owner rank "
+                      << ownerRank << " for neighbor element " << i << "\n";
+        }
+        dmd.elem2cpu[pos++] = ownerRank;
+    }
+
+    // Final consistency check
+    assert(pos == elempartSize);
+
+    if (rank == 0) {
+        std::cout << "Finished building Elem2Rank on each subdomain" << std::endl;
+    }          
+}
+
+void buildElemRecv(DMD& dmd, MPI_Comm comm)
+{
+    int rank, size;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &size);
+    (void)size;
+
+    dmd.elemrecv.clear();
+    dmd.elemrecvpts.clear();
+    dmd.nbsd.clear();
+
+    if (dmd.elempart.empty() || dmd.elem2cpu.empty() || dmd.elempartpts.size() < 3) {
+        return; // nothing to do
+    }
+
+    const int nInterior  = dmd.elempartpts[0];
+    const int nInterface = dmd.elempartpts[1];
+    const int nExterior  = dmd.elempartpts[2];
+
+    const int nPart     = static_cast<int>(dmd.elempart.size());
+    const int expected  = nInterior + nInterface + nExterior;
+
+    if (nPart != expected || static_cast<int>(dmd.elem2cpu.size()) != nPart) {
+        std::cerr << "buildElemRecv: inconsistent elempart / elem2cpu / elempartpts\n";
+        return;
+    }
+
+    // Reserve memory based on maximum possible sizes
+    dmd.elemrecv.reserve(nExterior);     // only exterior elements produce ghosts
+    dmd.nbsd.reserve(nExterior);         // worst-case: each ghost from a different rank
+    dmd.elemrecvpts.reserve(nExterior);  // one entry per neighbor
+  
+    // Range of ghost (exterior) elements in elempart
+    const int extStart = nInterior + nInterface;
+    const int extEnd   = extStart + nExterior; // == nPart
+
+    // --------------------------------------------------------
+    // 1. Build elemrecv rows: [owner, recv_local_idx, globalID]
+    // --------------------------------------------------------
+    for (int k = extStart; k < extEnd; ++k) {
+        int owner    = dmd.elem2cpu[k];     // owning rank of this element
+        int globalID = dmd.elempart[k];     // global element ID
+
+        if (owner == rank) {
+            // Shouldn't normally happen for "exterior" elements,
+            // but ignore quietly if it does.
+            continue;
+        }
+        if (owner < 0) {
+            std::cerr << "buildElemRecv: negative owner rank at elempart index "
+                      << k << "\n";
+            continue;
+        }
+
+        dmd.elemrecv.push_back({owner, k, globalID});
+    }
+
+    if (dmd.elemrecv.empty()) {
+        // no ghosts → no neighbors
+        return;
+    }
+    
+
+    //if (rank==0) printElemRecv(dmd.elemrecv);
+  
+    // --------------------------------------------------------
+    // 2. (Optional but usually helpful) group rows by owner rank
+    // --------------------------------------------------------
+    std::sort(dmd.elemrecv.begin(), dmd.elemrecv.end());
+    // std::sort(dmd.elemrecv.begin(), dmd.elemrecv.end(),
+    //           [](const std::vector<int>& a, const std::vector<int>& b) {
+    //               // row = [owner, recv_local_idx, globalID]
+    //               return a[0] < b[0]; // sort by owner
+    //           });
+    // std::sort(dmd.elemrecv.begin(), dmd.elemrecv.end(),
+    //     [](const std::array<int, 3>& a, const std::array<int, 3>& b) {
+    //         return a[0] < b[0];   // sort by owner
+    //     });
+  
+    // --------------------------------------------------------
+    // 3. Build nbsd (list of neighbor ranks) and elemrecvpts
+    //    (number of elements received from each neighbor)
+    // --------------------------------------------------------
+    int currentOwner = -1;
+    int countForOwner = 0;
+
+    for (std::size_t i = 0; i < dmd.elemrecv.size(); ++i) {
+        int owner = dmd.elemrecv[i][0];
+
+        if (owner != currentOwner) {
+            // flush previous owner count
+            if (currentOwner != -1) {
+                dmd.nbsd.push_back(currentOwner);
+                dmd.elemrecvpts.push_back(countForOwner);
+            }
+            currentOwner = owner;
+            countForOwner = 1;
+        } else {
+            ++countForOwner;
+        }
+    }
+
+    // flush last owner
+    if (currentOwner != -1) {
+        dmd.nbsd.push_back(currentOwner);
+        dmd.elemrecvpts.push_back(countForOwner);
+    }
+
+    if (rank == 0) {
+        std::cout << "Finished building ElemRecv on each subdomain" << std::endl;
+    }        
+  
+    // At this point:
+    //   - dmd.elemrecv is sorted by owner; each row = [owner, recv_local_idx, globalID]
+    //   - dmd.nbsd[i] is neighbor rank i
+    //   - dmd.elemrecvpts[i] is #ghost elements received from dmd.nbsd[i]
+}
+
+void buildElemsend(const Mesh& mesh, DMD& dmd, MPI_Comm comm)
+{
+    int rank, size;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &size);
+
+    dmd.elemsend.clear();
+    dmd.elemsendpts.clear();
+
+    const int ne_local   = mesh.ne;
+    const int nRecvRows  = static_cast<int>(dmd.elemrecv.size());
+    const auto& nbsd     = dmd.nbsd;  // neighbor list
+    const int nNeighbors = static_cast<int>(nbsd.size());
+
+    if (ne_local == 0 && nRecvRows == 0)
+        return;
+
+    // Fast lookup: is this rank a neighbor?
+    std::vector<char> isNeighbor(size, 0);
+    for (int nbr : nbsd) {
+        if (nbr >= 0 && nbr < size)
+            isNeighbor[nbr] = 1;
+    }
+
+    // ------------------------------------------------------------
+    // 1. Build globalID → localID map for *owned* elements
+    // ------------------------------------------------------------
+    std::unordered_map<int,int> gid2loc;
+    gid2loc.reserve(static_cast<size_t>(ne_local) * 2);
+
+    for (int eLoc = 0; eLoc < ne_local; ++eLoc) {
+        gid2loc[ mesh.elemGlobalID[eLoc] ] = eLoc;
+    }
+
+    // ------------------------------------------------------------
+    // 2. Count how many requests we send to each rank
+    //    elemrecv row: [owner_rank, recv_local_idx, globalID]
+    // ------------------------------------------------------------
+    std::vector<int> sendCounts(size, 0);
+
+    for (const auto& row : dmd.elemrecv)
+    {
+        const int owner = row[0];
+
+        if (owner < 0 || owner >= size) continue;
+        if (!isNeighbor[owner])         continue;
+        if (owner == rank)              continue; // should not happen, but safe
+
+        sendCounts[owner] += 1;
+    }
+
+    // ------------------------------------------------------------
+    // 3. Nonblocking exchange of request counts
+    // ------------------------------------------------------------
+    constexpr int TAG_COUNTS = 9001;
+    std::vector<int> recvCounts(size, 0);
+
+    std::vector<MPI_Request> reqs;
+    reqs.reserve(2 * nNeighbors);
+
+    // Irecv from neighbors
+    for (int nbr : nbsd) {
+        MPI_Request rq;
+        MPI_Irecv(&recvCounts[nbr], 1, MPI_INT, nbr, TAG_COUNTS, comm, &rq);
+        reqs.push_back(rq);
+    }
+
+    // Isend to neighbors
+    for (int nbr : nbsd) {
+        MPI_Request rq;
+        MPI_Isend(&sendCounts[nbr], 1, MPI_INT, nbr, TAG_COUNTS, comm, &rq);
+        reqs.push_back(rq);
+    }
+
+    if (!reqs.empty())
+        MPI_Waitall(static_cast<int>(reqs.size()), reqs.data(), MPI_STATUSES_IGNORE);
+
+    // ------------------------------------------------------------
+    // 4. Allocate send/recv buffers
+    // ------------------------------------------------------------
+    std::vector<std::vector<int>> sendReqBuf(size);
+    std::vector<std::vector<int>> recvReqBuf(size);
+
+    for (int nbr : nbsd) {
+        sendReqBuf[nbr].resize(sendCounts[nbr]);
+        recvReqBuf[nbr].resize(recvCounts[nbr]);
+    }
+
+    // ------------------------------------------------------------
+    // 5. Pack the request buffers (global element IDs)
+    // ------------------------------------------------------------
+    std::vector<int> offset(size, 0);
+
+    for (const auto& row : dmd.elemrecv)
+    {
+        const int owner = row[0];
+        const int gID   = row[2];
+
+        if (owner < 0 || owner >= size) continue;
+        if (!isNeighbor[owner])         continue;
+
+        const int pos = offset[owner]++;
+        sendReqBuf[owner][pos] = gID;
+    }
+
+    // ------------------------------------------------------------
+    // 6. Nonblocking exchange of request data
+    // ------------------------------------------------------------
+    reqs.clear();
+
+    constexpr int TAG_REQS = 9002;
+
+    // Irecv
+    for (int nbr : nbsd) {
+        const int count = recvCounts[nbr];
+        if (count == 0) continue;
+
+        MPI_Request rq;
+        MPI_Irecv(recvReqBuf[nbr].data(),
+                  count, MPI_INT,
+                  nbr, TAG_REQS, comm, &rq);
+        reqs.push_back(rq);
+    }
+
+    // Isend
+    for (int nbr : nbsd) {
+        const int count = sendCounts[nbr];
+        if (count == 0) continue;
+
+        MPI_Request rq;
+        MPI_Isend(sendReqBuf[nbr].data(),
+                  count, MPI_INT,
+                  nbr, TAG_REQS, comm, &rq);
+        reqs.push_back(rq);
+    }
+
+    if (!reqs.empty())
+        MPI_Waitall(static_cast<int>(reqs.size()), reqs.data(), MPI_STATUSES_IGNORE);
+
+    // ------------------------------------------------------------
+    // 7. Reserve elemsend and build it from received requests
+    //    Also compute per-neighbor counts, then build cumulative elemsendpts.
+    // ------------------------------------------------------------
+    std::size_t totalSend = 0;
+    for (int nbr : nbsd) {
+        totalSend += static_cast<std::size_t>(recvCounts[nbr]);
+    }
+    dmd.elemsend.reserve(totalSend);
+
+    std::vector<int> sendPerNeighbor(nNeighbors, 0); // count per nbsd[i]
+
+    for (int iNbr = 0; iNbr < nNeighbors; ++iNbr)
+    {
+        const int nbr  = nbsd[iNbr];
+        const int nReq = recvCounts[nbr];
+        if (nReq == 0) continue;
+
+        const auto& reqsFromNbr = recvReqBuf[nbr];
+
+        for (int k = 0; k < nReq; ++k)
+        {
+            const int gID = reqsFromNbr[k];
+
+            auto it = gid2loc.find(gID);
+            if (it == gid2loc.end()) {
+                std::cerr << "ERROR: owner rank " << rank
+                          << " does not own requested elem " << gID
+                          << " from rank " << nbr << "\n";
+                continue;
+            }
+
+            const int localIdx = it->second;
+
+            // elemsend row: [receiver_rank, local_idx, globalID]
+            dmd.elemsend.push_back({nbr, localIdx, gID});
+            ++sendPerNeighbor[iNbr];
+        }
+    }
+
+    // ------------------------------------------------------------
+    // 8. Build cumulative elemsendpts (size = nNeighbors + 1)
+    //    elemsendpts[i] = total #elems sent to neighbors 0..i-1
+    // ------------------------------------------------------------
+    dmd.elemsendpts.resize(nNeighbors + 1);
+    dmd.elemsendpts[0] = 0;
+    for (int i = 0; i < nNeighbors; ++i) {
+        dmd.elemsendpts[i + 1] = dmd.elemsendpts[i] + sendPerNeighbor[i];
+    }
+
+    if (rank == 0) {
+        std::cout << "Finished building ElemSend on each subdomain" << std::endl;
+    }
 }
 
 
@@ -1651,410 +2533,6 @@ void updateOuterElements(ElementClassification& cls,
                                    recvBuf, recvCounts, recvDispls,
                                    nfe, comm);
 }
-
-void buildElempartFromClassification(const ElementClassification& cls, DMD& dmd, int rank)
-{
-    // -------------------------------------------------------------
-    // 1. Clear previous data
-    // -------------------------------------------------------------
-    dmd.elempart.clear();
-    dmd.elempartpts.clear();
-
-    // Counts
-    const int nInterior = cls.interiorGlobal.size();
-    const int nBoundary = cls.boundaryGlobal.size();
-    const int nInterface = cls.interfaceGlobal.size();
-    const int nNeighbor = cls.neighborElemGlobal.size();
-
-    // -------------------------------------------------------------
-    // 2. Concatenate into elempart in the desired order
-    //
-    // interiorGlobal   – local interior elements
-    // boundaryGlobal   – local boundary elements
-    // interfaceGlobal  – local interface (shared) elements
-    // neighborElemGlobal – off-rank neighbor elements
-    // -------------------------------------------------------------
-    dmd.elempart.reserve(nInterior + nBoundary + nInterface + nNeighbor);
-
-    //  interior
-    dmd.elempart.insert(dmd.elempart.end(),
-                        cls.interiorGlobal.begin(),
-                        cls.interiorGlobal.end());
-
-    //  boundary
-    dmd.elempart.insert(dmd.elempart.end(),
-                        cls.boundaryGlobal.begin(),
-                        cls.boundaryGlobal.end());
-
-    //  interface
-    dmd.elempart.insert(dmd.elempart.end(),
-                        cls.interfaceGlobal.begin(),
-                        cls.interfaceGlobal.end());
-
-    //  off-rank neighbor
-    dmd.elempart.insert(dmd.elempart.end(),
-                        cls.neighborElemGlobal.begin(),
-                        cls.neighborElemGlobal.end());
-
-    // -------------------------------------------------------------
-    // 3. Fill elempartpts
-    //
-    // You defined elempartpts as:
-    //     [interior, interface, exterior]
-    //
-    // but boundary elements belong to neither interior nor interface
-    // -------------------------------------------------------------
-
-    const int nExterior = nNeighbor;
-
-    dmd.elempartpts.resize(3);
-    dmd.elempartpts[0] = nInterior + nBoundary;// interior + boundary
-    dmd.elempartpts[1] = nInterface;           // interface
-    dmd.elempartpts[2] = nExterior;            // exterior
-
-    // Optional: intepartpts if you want a 4-way split (interior, boundary, interface, exterior)
-    if (!dmd.intepartpts.empty()) {
-        dmd.intepartpts.resize(4);
-        dmd.intepartpts[0] = nInterior;
-        dmd.intepartpts[1] = nBoundary;
-        dmd.intepartpts[2] = nInterface;
-        dmd.intepartpts[3] = nExterior;
-    }
-
-    if (rank == 0) {
-        std::cout << "Finished partitioning elements on each subdomain" << std::endl;
-    }        
-}
-
-
-void buildElem2CpuFromClassification(const ElementClassification& cls,
-                                     DMD&                        dmd,
-                                     MPI_Comm                    comm)
-{
-    int rank, size;
-    MPI_Comm_rank(comm, &rank);
-    MPI_Comm_size(comm, &size);
-    (void)size;
-
-    const int nInterior  = static_cast<int>(cls.interiorGlobal.size());
-    const int nBoundary  = static_cast<int>(cls.boundaryGlobal.size());
-    const int nInterface = static_cast<int>(cls.interfaceGlobal.size());
-    const int nNeighbor  = static_cast<int>(cls.neighborElemGlobal.size());
-
-    const int expectedSize = nInterior + nBoundary + nInterface + nNeighbor;
-    const int elempartSize = static_cast<int>(dmd.elempart.size());
-
-    // Sanity check: layout of dmd.elempart must match classification
-    if (elempartSize != expectedSize) {
-        std::cerr << "buildElem2CpuFromClassification: size mismatch:\n"
-                  << "  dmd.elempart.size() = " << elempartSize << "\n"
-                  << "  expected            = " << expectedSize << "\n";
-        // You can replace with your own error() routine if you prefer.
-        // error("buildElem2CpuFromClassification: elempart mismatch");
-    }
-
-    dmd.elem2cpu.resize(elempartSize);
-
-    int pos = 0;
-
-    // 1) interiorGlobal → owned by this rank
-    for (int i = 0; i < nInterior; ++i) {
-        dmd.elem2cpu[pos++] = rank;
-    }
-
-    // 2) boundaryGlobal → also owned by this rank
-    for (int i = 0; i < nBoundary; ++i) {
-        dmd.elem2cpu[pos++] = rank;
-    }
-
-    // 3) interfaceGlobal → also owned by this rank
-    for (int i = 0; i < nInterface; ++i) {
-        dmd.elem2cpu[pos++] = rank;
-    }
-
-    // 4) neighborElemGlobal → owned by their respective neighbor ranks
-    //    Use cls.neighborElemRank (same ordering as neighborElemGlobal).
-    for (int i = 0; i < nNeighbor; ++i) {
-        int ownerRank = cls.neighborElemRank[i];
-        // optional sanity check
-        if (ownerRank < 0 || ownerRank >= size) {
-            std::cerr << "buildElem2CpuFromClassification: invalid owner rank "
-                      << ownerRank << " for neighbor element " << i << "\n";
-        }
-        dmd.elem2cpu[pos++] = ownerRank;
-    }
-
-    // Final consistency check
-    assert(pos == elempartSize);
-
-    if (rank == 0) {
-        std::cout << "Finished building Elem2Rank on each subdomain" << std::endl;
-    }          
-}
-
-void buildElemRecv(DMD& dmd, MPI_Comm comm)
-{
-    int rank, size;
-    MPI_Comm_rank(comm, &rank);
-    MPI_Comm_size(comm, &size);
-    (void)size;
-
-    dmd.elemrecv.clear();
-    dmd.elemrecvpts.clear();
-    dmd.nbsd.clear();
-
-    if (dmd.elempart.empty() || dmd.elem2cpu.empty() || dmd.elempartpts.size() < 3) {
-        return; // nothing to do
-    }
-
-    const int nInterior  = dmd.elempartpts[0];
-    const int nInterface = dmd.elempartpts[1];
-    const int nExterior  = dmd.elempartpts[2];
-
-    const int nPart     = static_cast<int>(dmd.elempart.size());
-    const int expected  = nInterior + nInterface + nExterior;
-
-    if (nPart != expected || static_cast<int>(dmd.elem2cpu.size()) != nPart) {
-        std::cerr << "buildElemRecv: inconsistent elempart / elem2cpu / elempartpts\n";
-        return;
-    }
-
-    // Range of ghost (exterior) elements in elempart
-    const int extStart = nInterior + nInterface;
-    const int extEnd   = extStart + nExterior; // == nPart
-
-    // --------------------------------------------------------
-    // 1. Build elemrecv rows: [owner, recv_local_idx, globalID]
-    // --------------------------------------------------------
-    for (int k = extStart; k < extEnd; ++k) {
-        int owner    = dmd.elem2cpu[k];     // owning rank of this element
-        int globalID = dmd.elempart[k];     // global element ID
-
-        if (owner == rank) {
-            // Shouldn't normally happen for "exterior" elements,
-            // but ignore quietly if it does.
-            continue;
-        }
-        if (owner < 0) {
-            std::cerr << "buildElemRecv: negative owner rank at elempart index "
-                      << k << "\n";
-            continue;
-        }
-
-        dmd.elemrecv.push_back({owner, k, globalID});
-    }
-
-    if (dmd.elemrecv.empty()) {
-        // no ghosts → no neighbors
-        return;
-    }
-
-    // --------------------------------------------------------
-    // 2. (Optional but usually helpful) group rows by owner rank
-    // --------------------------------------------------------
-    std::sort(dmd.elemrecv.begin(), dmd.elemrecv.end(),
-              [](const std::vector<int>& a, const std::vector<int>& b) {
-                  // row = [owner, recv_local_idx, globalID]
-                  return a[0] < b[0]; // sort by owner
-              });
-
-    // --------------------------------------------------------
-    // 3. Build nbsd (list of neighbor ranks) and elemrecvpts
-    //    (number of elements received from each neighbor)
-    // --------------------------------------------------------
-    int currentOwner = -1;
-    int countForOwner = 0;
-
-    for (std::size_t i = 0; i < dmd.elemrecv.size(); ++i) {
-        int owner = dmd.elemrecv[i][0];
-
-        if (owner != currentOwner) {
-            // flush previous owner count
-            if (currentOwner != -1) {
-                dmd.nbsd.push_back(currentOwner);
-                dmd.elemrecvpts.push_back(countForOwner);
-            }
-            currentOwner = owner;
-            countForOwner = 1;
-        } else {
-            ++countForOwner;
-        }
-    }
-
-    // flush last owner
-    if (currentOwner != -1) {
-        dmd.nbsd.push_back(currentOwner);
-        dmd.elemrecvpts.push_back(countForOwner);
-    }
-
-    if (rank == 0) {
-        std::cout << "Finished building ElemRecv on each subdomain" << std::endl;
-    }        
-  
-    // At this point:
-    //   - dmd.elemrecv is sorted by owner; each row = [owner, recv_local_idx, globalID]
-    //   - dmd.nbsd[i] is neighbor rank i
-    //   - dmd.elemrecvpts[i] is #ghost elements received from dmd.nbsd[i]
-}
-
-void buildElemsend(const Mesh& mesh, DMD&  dmd, MPI_Comm comm)
-{
-    int rank, size;
-    MPI_Comm_rank(comm, &rank);
-    MPI_Comm_size(comm, &size);
-
-    dmd.elemsend.clear();
-    dmd.elemsendpts.assign(size, 0);
-
-    const int ne_local   = mesh.ne;
-    const int nRecvRows  = static_cast<int>(dmd.elemrecv.size());
-    const auto& nbsd     = dmd.nbsd;              // neighbor list
-    const int nNeighbors = (int)nbsd.size();
-
-    if (ne_local == 0 && nRecvRows == 0)
-        return;
-
-    // ------------------------------------------------------------
-    // 1. Build globalID → localID map for *owned* elements
-    // ------------------------------------------------------------
-    std::unordered_map<int,int> gid2loc;
-    gid2loc.reserve(ne_local * 2);
-
-    for (int eLoc = 0; eLoc < ne_local; ++eLoc) {
-        gid2loc[ mesh.elemGlobalID[eLoc] ] = eLoc;
-    }
-
-    // ------------------------------------------------------------
-    // 2. Count how many requests we send to each neighbor
-    //    elemrecv: [owner_rank, recv_local_idx, globalID]
-    // ------------------------------------------------------------
-    std::vector<int> sendCounts(size, 0);
-
-    for (auto& row : dmd.elemrecv)
-    {
-        int owner = row[0];
-        if (owner == rank) continue;          // rarely happens but safe
-        // Only send to neighbors
-        if (std::find(nbsd.begin(), nbsd.end(), owner) != nbsd.end())
-            sendCounts[owner] += 1;
-    }
-
-    // ------------------------------------------------------------
-    // 3. Nonblocking exchange of request counts
-    // ------------------------------------------------------------
-    const int TAG_COUNTS = 9001;
-    std::vector<int> recvCounts(size, 0);
-
-    std::vector<MPI_Request> reqs;
-    reqs.reserve(2*nNeighbors);
-
-    // Irecv from neighbors
-    for (int nbr : nbsd) {
-        MPI_Request rq;
-        MPI_Irecv(&recvCounts[nbr], 1, MPI_INT, nbr, TAG_COUNTS, comm, &rq);
-        reqs.push_back(rq);
-    }
-
-    // Isend to neighbors
-    for (int nbr : nbsd) {
-        MPI_Request rq;
-        MPI_Isend(&sendCounts[nbr], 1, MPI_INT, nbr, TAG_COUNTS, comm, &rq);
-        reqs.push_back(rq);
-    }
-
-    if (!reqs.empty())
-        MPI_Waitall((int)reqs.size(), reqs.data(), MPI_STATUSES_IGNORE);
-
-    // ------------------------------------------------------------
-    // 4. Allocate send/recv buffers
-    // ------------------------------------------------------------
-    std::vector<std::vector<int>> sendReqBuf(size);
-    std::vector<std::vector<int>> recvReqBuf(size);
-
-    for (int nbr : nbsd) {
-        sendReqBuf[nbr].resize(sendCounts[nbr]);
-        recvReqBuf[nbr].resize(recvCounts[nbr]);
-    }
-
-    // ------------------------------------------------------------
-    // 5. Pack the request buffers (global element IDs)
-    // ------------------------------------------------------------
-    std::vector<int> offset(size, 0);
-
-    for (auto& row : dmd.elemrecv)
-    {
-        int owner = row[0];
-        int gID   = row[2];
-
-        if (std::find(nbsd.begin(), nbsd.end(), owner) == nbsd.end())
-            continue;  // only neighbors
-
-        int pos = offset[owner]++;
-        sendReqBuf[owner][pos] = gID;
-    }
-
-    // ------------------------------------------------------------
-    // 6. Nonblocking exchange of request data
-    // ------------------------------------------------------------
-    reqs.clear();
-
-    const int TAG_REQS = 9002;
-
-    // Irecv
-    for (int nbr : nbsd) {
-        if (recvCounts[nbr] == 0) continue;
-        MPI_Request rq;
-        MPI_Irecv(recvReqBuf[nbr].data(),
-                  recvCounts[nbr], MPI_INT,
-                  nbr, TAG_REQS, comm, &rq);
-        reqs.push_back(rq);
-    }
-
-    // Isend
-    for (int nbr : nbsd) {
-        if (sendCounts[nbr] == 0) continue;
-        MPI_Request rq;
-        MPI_Isend(sendReqBuf[nbr].data(),
-                  sendCounts[nbr], MPI_INT,
-                  nbr, TAG_REQS, comm, &rq);
-        reqs.push_back(rq);
-    }
-
-    if (!reqs.empty())
-        MPI_Waitall((int)reqs.size(), reqs.data(), MPI_STATUSES_IGNORE);
-
-    // ------------------------------------------------------------
-    // 7. Build elemsend from received requests
-    // ------------------------------------------------------------
-    for (int nbr : nbsd)
-    {
-        int nReq = recvCounts[nbr];
-        if (nReq == 0) continue;
-
-        for (int k = 0; k < nReq; ++k)
-        {
-            int gID = recvReqBuf[nbr][k];
-
-            auto it = gid2loc.find(gID);
-            if (it == gid2loc.end()) {
-                std::cerr << "ERROR: owner rank " << rank
-                          << " does not own requested elem " << gID
-                          << " from rank " << nbr << "\n";
-                continue;
-            }
-
-            int localIdx = it->second;
-
-            dmd.elemsend.push_back({nbr, localIdx, gID});
-            dmd.elemsendpts[nbr] += 1;
-        }
-    }
-
-    if (rank == 0) {
-        std::cout << "Finished building ElemSend on each subdomain" << std::endl;
-    }          
-}
-
 
 
 // // nbinfo: output array of (6 + nfe) ints per remote face:

@@ -251,8 +251,10 @@ struct ElementClassification {
 
 struct DMD {
   std::vector<int> nbsd;                  // neighbors    
-  std::vector<std::vector<int>> elemrecv; // each row: [sender, recv_local_idx, sender_global_idx]
-  std::vector<std::vector<int>> elemsend; // each row: [receiver, send_local_idx, recv_global_idx]
+  //std::vector<std::vector<int>> elemrecv; // each row: [sender, recv_local_idx, sender_global_idx]
+  //std::vector<std::vector<int>> elemsend; // each row: [receiver, send_local_idx, recv_global_idx]
+  std::vector<std::array<int, 3>> elemrecv; // each row: [sender, recv_local_idx, sender_global_idx]
+  std::vector<std::array<int, 3>> elemsend; // each row: [receiver, send_local_idx, recv_global_idx]
   std::vector<int> elempart;              // local element IDs in the partition
   std::vector<int> elem2cpu;              // processor ID for each element in the partition
   std::vector<int> elemsendpts;           // number of elements sent to each neighbor

@@ -144,7 +144,8 @@ void create_elemsend(std::vector<DMD>& dmd)
         for (int j = 0; j < dmd[i].nbsd.size(); ++j) {
             int k = dmd[i].nbsd[j];
 
-            std::vector<std::vector<int>> tm;
+            //std::vector<std::vector<int>> tm;
+            std::vector<std::array<int, 3>> tm;
             tm.reserve(dmd[i].elemrecv.size());
             for (const auto& row : dmd[i].elemrecv) {
                 if (row[0] == k) tm.push_back(row);
@@ -174,13 +175,20 @@ void create_elemsend(std::vector<DMD>& dmd)
         for (int j = 0; j < dmd[i].nbsd.size(); ++j) {
             int n = dmd[i].nbsd[j];
 
+            // dmd[i].elemsendpts[j] = std::count_if(
+            //     dmd[i].elemsend.begin(), dmd[i].elemsend.end(),
+            //     [n](const std::vector<int>& row) { return row[0] == n; });
+            // 
+            // dmd[i].elemrecvpts[j] = std::count_if(
+            //     dmd[i].elemrecv.begin(), dmd[i].elemrecv.end(),
+            //     [n](const std::vector<int>& row) { return row[0] == n; });
             dmd[i].elemsendpts[j] = std::count_if(
                 dmd[i].elemsend.begin(), dmd[i].elemsend.end(),
-                [n](const std::vector<int>& row) { return row[0] == n; });
-
+                [n](const std::array<int, 3>& row) { return row[0] == n; });
+            
             dmd[i].elemrecvpts[j] = std::count_if(
                 dmd[i].elemrecv.begin(), dmd[i].elemrecv.end(),
-                [n](const std::vector<int>& row) { return row[0] == n; });
+                [n](const std::array<int, 3>& row) { return row[0] == n; });
         }
     }
 }
@@ -299,7 +307,7 @@ void build_dmdldg(std::vector<DMD>& dmd, const int* e2e, const int* elem2cpu, in
     std::cout << "Finished build_dmdldg.\n";
 }
 
-void build_dmdhdg(std::vector<DMD>& dmd, const int* e2e, const int* elem2cpu, const int* inte, int nfe, int ne, const PDE& pde) 
+void build_dmdhdg(std::vector<DMD>& dmd, const int* e2e, const int* elem2cpu, const int* inte, int nfe, int ne, const PDE& pde, int rank=0) 
 {
     int coupledinterface = pde.coupledinterface;
     int nproc = static_cast<int>(dmd.size());
@@ -310,7 +318,7 @@ void build_dmdhdg(std::vector<DMD>& dmd, const int* e2e, const int* elem2cpu, co
         for (int e = 0; e < ne; ++e) {
             if (elem2cpu[e] == i) intelem.push_back(e);
         }
-
+        
         std::vector<int> elem = neighboringelements(e2e, intelem.data(), nfe, ne, intelem.size());
         std::vector<int> extelem;
         extelem.reserve(elem.size());
@@ -318,7 +326,7 @@ void build_dmdhdg(std::vector<DMD>& dmd, const int* e2e, const int* elem2cpu, co
 
         elem = neighboringelements(e2e, extelem.data(), nfe, ne, extelem.size());
         std::vector<int> bndelem;
-        bndelem.reserve(elem.size());
+        bndelem.reserve(elem.size()); // interface elements on the boundary between two subdomains
         std::set_intersection(elem.begin(), elem.end(), intelem.begin(), intelem.end(), std::back_inserter(bndelem));
 
         std::vector<int> bndelem1, bndelem2;
@@ -333,9 +341,42 @@ void build_dmdhdg(std::vector<DMD>& dmd, const int* e2e, const int* elem2cpu, co
 
         std::vector<int> part1, part2;
         part1.reserve(intelem.size());
-        part2 = bndelem;
-        std::set_difference(intelem.begin(), intelem.end(), bndelem.begin(), bndelem.end(), std::back_inserter(part1));
-        std::vector<int>& part3 = extelem;
+        part2 = bndelem;  // interface elements on the boundary between two subdomains
+        // interior and boundary elements 
+        std::set_difference(intelem.begin(), intelem.end(), bndelem.begin(), bndelem.end(), std::back_inserter(part1));        
+        std::vector<int>& part3 = extelem; // exterior elements outside the current subdomain
+
+        // Split part1 into boundary elements (elements that have any face with e2e < 0)
+        std::vector<int> part0;
+        part0.reserve(part1.size());   // worst case: all elements in part1 are boundary        
+        for (int j = 0; j < (int)part1.size(); ++j) {
+            int m = part1[j];
+        
+            // Check whether element m has any boundary face
+            bool isBoundary = false;
+            for (int k = 0; k < nfe; ++k) {
+                if (e2e[k + nfe * m] < 0) {
+                    isBoundary = true;
+                    break;
+                }
+            }
+        
+            if (isBoundary) {
+                part0.push_back(m);
+            }
+        }
+        // Sort boundary elements
+        std::sort(part0.begin(), part0.end());
+
+        std::vector<int> interior;
+        interior.reserve(part1.size());
+        std::set_difference(part1.begin(), part1.end(), part0.begin(), part0.end(), std::back_inserter(interior));
+    
+        // Now overwrite part1 with [boundary, interior]
+        part1.clear();
+        part1.reserve(part0.size() + interior.size());
+        part1.insert(part1.end(), part0.begin(), part0.end());    // boundary first
+        part1.insert(part1.end(), interior.begin(), interior.end()); // then interior
 
         dmd[i].elempart.clear();
         dmd[i].elempart.reserve(part1.size() + part2.size() + part3.size());
@@ -364,8 +405,8 @@ void build_dmdhdg(std::vector<DMD>& dmd, const int* e2e, const int* elem2cpu, co
             if (ind[j] >= 0) {
                 dmd[i].elemrecv.push_back({dmd[i].elem2cpu[ind[j]], static_cast<int>(offset + j), recvelem[j]});
             }
-        }
-
+        }        
+        
         std::sort(dmd[i].elemrecv.begin(), dmd[i].elemrecv.end());
 
         dmd[i].nbsd.clear();

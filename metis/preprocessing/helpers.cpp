@@ -188,6 +188,17 @@ template <typename T> void writearray2file(string filename, T *a, int N)
     }
 }
 
+template <typename T>
+void readarray(std::ifstream &in, std::vector<T> &a)
+{
+    a.clear();
+    T value;
+
+    while (in >> value) {
+        a.push_back(value);
+    }
+}
+
 template <typename T> 
 void readarray(ifstream &in, vector<T> &a, int N)
 {    
@@ -204,6 +215,68 @@ void readiarrayfromdouble(ifstream &in, vector<int> &a, int N) {
         for (int i = 0; i < N; i++) {
             in.read(reinterpret_cast<char*>(&read), sizeof(read));
             a[i] = static_cast<int>(round(read));
+        }
+    }
+}
+
+template <typename T>
+void readarrayfromfile(const std::string &filename, std::vector<T> &a)
+{
+    a.clear();
+
+    std::ifstream in(filename);
+    if (!in.is_open()) {
+        std::cerr << "Error: Cannot open file: " << filename << "\n";
+        return;
+    }
+
+    T value;
+    while (in >> value) {
+        a.push_back(value);
+    }
+}
+
+template <typename T>
+void readarrayfrombinaryfile(const std::string &filename, std::vector<T> &a)
+{
+    static_assert(std::is_trivially_copyable<T>::value,
+                  "readarrayfromfile(binary) requires trivially copyable T");
+
+    a.clear();
+
+    std::ifstream in(filename, std::ios::binary);
+    if (!in.is_open()) {
+        std::cerr << "Error: Cannot open binary file: " << filename << "\n";
+        return;
+    }
+
+    // Get file size
+    in.seekg(0, std::ios::end);
+    std::streampos end = in.tellg();
+    in.seekg(0, std::ios::beg);
+    std::streampos begin = in.tellg();
+
+    std::streamoff bytes = end - begin;
+    if (bytes < 0) {
+        std::cerr << "Error: Negative size for file: " << filename << "\n";
+        return;
+    }
+
+    if (bytes % static_cast<std::streamoff>(sizeof(T)) != 0) {
+        std::cerr << "Warning: File size not a multiple of sizeof(T) in "
+                  << filename << " (bytes=" << bytes
+                  << ", sizeof(T)=" << sizeof(T) << ")\n";
+    }
+
+    std::size_t n = static_cast<std::size_t>(bytes / sizeof(T));
+    a.resize(n);
+
+    if (n > 0) {
+        in.read(reinterpret_cast<char*>(a.data()),
+                static_cast<std::streamsize>(n * sizeof(T)));
+        if (!in) {
+            std::cerr << "Error: Failed to read all data from " << filename << "\n";
+            a.clear();
         }
     }
 }
@@ -506,6 +579,27 @@ inline void prefixSums(const std::vector<int>& counts, std::vector<int>& displs,
         displs[i] = total;
         total += counts[i];
     }
+}
+
+template<typename T>
+void printvector(const std::vector<T>& a, const std::string& name = "vector", MPI_Comm comm=MPI_COMM_WORLD)
+{
+    int rank, size;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &size);
+
+    for (int r = 0; r < size; ++r) {
+        MPI_Barrier(comm);            // ensure rank order
+        if (rank == r) {
+            std::cout << "[Rank " << rank << "] " << name << " = [ ";
+            for (size_t i = 0; i < a.size(); ++i) {
+                std::cout << a[i];
+                if (i + 1 < a.size()) std::cout << ", ";
+            }
+            std::cout << " ]\n" << std::flush;
+        }
+    }
+    MPI_Barrier(comm);  // final sync
 }
 
 #endif

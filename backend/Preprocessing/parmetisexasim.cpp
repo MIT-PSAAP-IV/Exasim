@@ -1819,6 +1819,11 @@ void buildElemRecv(DMD& dmd, MPI_Comm comm)
         return;
     }
 
+    // Reserve memory based on maximum possible sizes
+    dmd.elemrecv.reserve(nExterior);     // only exterior elements produce ghosts
+    dmd.nbsd.reserve(nExterior);         // worst-case: each ghost from a different rank
+    dmd.elemrecvpts.reserve(nExterior);  // one entry per neighbor
+  
     // Range of ghost (exterior) elements in elempart
     const int extStart = nInterior + nInterface;
     const int extEnd   = extStart + nExterior; // == nPart
@@ -1852,11 +1857,15 @@ void buildElemRecv(DMD& dmd, MPI_Comm comm)
     // --------------------------------------------------------
     // 2. (Optional but usually helpful) group rows by owner rank
     // --------------------------------------------------------
+    // std::sort(dmd.elemrecv.begin(), dmd.elemrecv.end(),
+    //           [](const std::vector<int>& a, const std::vector<int>& b) {
+    //               // row = [owner, recv_local_idx, globalID]
+    //               return a[0] < b[0]; // sort by owner
+    //           });
     std::sort(dmd.elemrecv.begin(), dmd.elemrecv.end(),
-              [](const std::vector<int>& a, const std::vector<int>& b) {
-                  // row = [owner, recv_local_idx, globalID]
-                  return a[0] < b[0]; // sort by owner
-              });
+        [](const std::array<int, 3>& a, const std::array<int, 3>& b) {
+            return a[0] < b[0];   // sort by owner
+        });
 
     // --------------------------------------------------------
     // 3. Build nbsd (list of neighbor ranks) and elemrecvpts
@@ -1897,56 +1906,65 @@ void buildElemRecv(DMD& dmd, MPI_Comm comm)
     //   - dmd.elemrecvpts[i] is #ghost elements received from dmd.nbsd[i]
 }
 
-void buildElemsend(const Mesh& mesh, DMD&  dmd, MPI_Comm comm)
+void buildElemsend(const Mesh& mesh, DMD& dmd, MPI_Comm comm)
 {
     int rank, size;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &size);
 
     dmd.elemsend.clear();
-    dmd.elemsendpts.assign(size, 0);
+    dmd.elemsendpts.clear();
 
     const int ne_local   = mesh.ne;
     const int nRecvRows  = static_cast<int>(dmd.elemrecv.size());
-    const auto& nbsd     = dmd.nbsd;              // neighbor list
-    const int nNeighbors = (int)nbsd.size();
+    const auto& nbsd     = dmd.nbsd;  // neighbor list
+    const int nNeighbors = static_cast<int>(nbsd.size());
 
     if (ne_local == 0 && nRecvRows == 0)
         return;
+
+    // Fast lookup: is this rank a neighbor?
+    std::vector<char> isNeighbor(size, 0);
+    for (int nbr : nbsd) {
+        if (nbr >= 0 && nbr < size)
+            isNeighbor[nbr] = 1;
+    }
 
     // ------------------------------------------------------------
     // 1. Build globalID → localID map for *owned* elements
     // ------------------------------------------------------------
     std::unordered_map<int,int> gid2loc;
-    gid2loc.reserve(ne_local * 2);
+    gid2loc.reserve(static_cast<size_t>(ne_local) * 2);
 
     for (int eLoc = 0; eLoc < ne_local; ++eLoc) {
         gid2loc[ mesh.elemGlobalID[eLoc] ] = eLoc;
     }
 
     // ------------------------------------------------------------
-    // 2. Count how many requests we send to each neighbor
-    //    elemrecv: [owner_rank, recv_local_idx, globalID]
+    // 2. Count how many requests we send to each rank
+    //    elemrecv row: [owner_rank, recv_local_idx, globalID]
     // ------------------------------------------------------------
     std::vector<int> sendCounts(size, 0);
 
-    for (auto& row : dmd.elemrecv)
+    for (const auto& row : dmd.elemrecv)
     {
-        int owner = row[0];
-        if (owner == rank) continue;          // rarely happens but safe
-        // Only send to neighbors
-        if (std::find(nbsd.begin(), nbsd.end(), owner) != nbsd.end())
-            sendCounts[owner] += 1;
+        const int owner = row[0];
+
+        if (owner < 0 || owner >= size) continue;
+        if (!isNeighbor[owner])         continue;
+        if (owner == rank)              continue; // should not happen, but safe
+
+        sendCounts[owner] += 1;
     }
 
     // ------------------------------------------------------------
     // 3. Nonblocking exchange of request counts
     // ------------------------------------------------------------
-    const int TAG_COUNTS = 9001;
+    constexpr int TAG_COUNTS = 9001;
     std::vector<int> recvCounts(size, 0);
 
     std::vector<MPI_Request> reqs;
-    reqs.reserve(2*nNeighbors);
+    reqs.reserve(2 * nNeighbors);
 
     // Irecv from neighbors
     for (int nbr : nbsd) {
@@ -1963,7 +1981,7 @@ void buildElemsend(const Mesh& mesh, DMD&  dmd, MPI_Comm comm)
     }
 
     if (!reqs.empty())
-        MPI_Waitall((int)reqs.size(), reqs.data(), MPI_STATUSES_IGNORE);
+        MPI_Waitall(static_cast<int>(reqs.size()), reqs.data(), MPI_STATUSES_IGNORE);
 
     // ------------------------------------------------------------
     // 4. Allocate send/recv buffers
@@ -1981,15 +1999,15 @@ void buildElemsend(const Mesh& mesh, DMD&  dmd, MPI_Comm comm)
     // ------------------------------------------------------------
     std::vector<int> offset(size, 0);
 
-    for (auto& row : dmd.elemrecv)
+    for (const auto& row : dmd.elemrecv)
     {
-        int owner = row[0];
-        int gID   = row[2];
+        const int owner = row[0];
+        const int gID   = row[2];
 
-        if (std::find(nbsd.begin(), nbsd.end(), owner) == nbsd.end())
-            continue;  // only neighbors
+        if (owner < 0 || owner >= size) continue;
+        if (!isNeighbor[owner])         continue;
 
-        int pos = offset[owner]++;
+        const int pos = offset[owner]++;
         sendReqBuf[owner][pos] = gID;
     }
 
@@ -1998,42 +2016,58 @@ void buildElemsend(const Mesh& mesh, DMD&  dmd, MPI_Comm comm)
     // ------------------------------------------------------------
     reqs.clear();
 
-    const int TAG_REQS = 9002;
+    constexpr int TAG_REQS = 9002;
 
     // Irecv
     for (int nbr : nbsd) {
-        if (recvCounts[nbr] == 0) continue;
+        const int count = recvCounts[nbr];
+        if (count == 0) continue;
+
         MPI_Request rq;
         MPI_Irecv(recvReqBuf[nbr].data(),
-                  recvCounts[nbr], MPI_INT,
+                  count, MPI_INT,
                   nbr, TAG_REQS, comm, &rq);
         reqs.push_back(rq);
     }
 
     // Isend
     for (int nbr : nbsd) {
-        if (sendCounts[nbr] == 0) continue;
+        const int count = sendCounts[nbr];
+        if (count == 0) continue;
+
         MPI_Request rq;
         MPI_Isend(sendReqBuf[nbr].data(),
-                  sendCounts[nbr], MPI_INT,
+                  count, MPI_INT,
                   nbr, TAG_REQS, comm, &rq);
         reqs.push_back(rq);
     }
 
     if (!reqs.empty())
-        MPI_Waitall((int)reqs.size(), reqs.data(), MPI_STATUSES_IGNORE);
+        MPI_Waitall(static_cast<int>(reqs.size()), reqs.data(), MPI_STATUSES_IGNORE);
 
     // ------------------------------------------------------------
-    // 7. Build elemsend from received requests
+    // 7. Reserve elemsend and build it from received requests
+    //    Also compute per-neighbor counts, then build cumulative elemsendpts.
     // ------------------------------------------------------------
-    for (int nbr : nbsd)
+    std::size_t totalSend = 0;
+    for (int nbr : nbsd) {
+        totalSend += static_cast<std::size_t>(recvCounts[nbr]);
+    }
+    dmd.elemsend.reserve(totalSend);
+
+    std::vector<int> sendPerNeighbor(nNeighbors, 0); // count per nbsd[i]
+
+    for (int iNbr = 0; iNbr < nNeighbors; ++iNbr)
     {
-        int nReq = recvCounts[nbr];
+        const int nbr  = nbsd[iNbr];
+        const int nReq = recvCounts[nbr];
         if (nReq == 0) continue;
+
+        const auto& reqsFromNbr = recvReqBuf[nbr];
 
         for (int k = 0; k < nReq; ++k)
         {
-            int gID = recvReqBuf[nbr][k];
+            const int gID = reqsFromNbr[k];
 
             auto it = gid2loc.find(gID);
             if (it == gid2loc.end()) {
@@ -2043,19 +2077,28 @@ void buildElemsend(const Mesh& mesh, DMD&  dmd, MPI_Comm comm)
                 continue;
             }
 
-            int localIdx = it->second;
+            const int localIdx = it->second;
 
+            // elemsend row: [receiver_rank, local_idx, globalID]
             dmd.elemsend.push_back({nbr, localIdx, gID});
-            dmd.elemsendpts[nbr] += 1;
+            ++sendPerNeighbor[iNbr];
         }
+    }
+
+    // ------------------------------------------------------------
+    // 8. Build cumulative elemsendpts (size = nNeighbors + 1)
+    //    elemsendpts[i] = total #elems sent to neighbors 0..i-1
+    // ------------------------------------------------------------
+    dmd.elemsendpts.resize(nNeighbors + 1);
+    dmd.elemsendpts[0] = 0;
+    for (int i = 0; i < nNeighbors; ++i) {
+        dmd.elemsendpts[i + 1] = dmd.elemsendpts[i] + sendPerNeighbor[i];
     }
 
     if (rank == 0) {
         std::cout << "Finished building ElemSend on each subdomain" << std::endl;
-    }          
+    }
 }
-
-
 
 // // nbinfo: output array of (6 + nfe) ints per remote face:
 // //   [0]            = eLoc        (local element index on this rank)
