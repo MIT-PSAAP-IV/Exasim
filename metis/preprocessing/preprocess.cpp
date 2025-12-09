@@ -170,15 +170,23 @@ int main(int argc, char** argv)
       mke2e_fill_first_neighbors(mesh.t2t.data(), mesh.t.data(), mesh.localfaces.data(),
                  mesh.elemGlobalID.data(), mesh.nodeGlobalID.data(), mesh.ne, mesh.nve, 
                 mesh.nvf, mesh.nfe, MPI_COMM_WORLD, dmd.nbinfo);
-
+      
       int nboufaces = setboundaryfaces(mesh.t2t.data(), mesh.t.data(), mesh.localfaces.data(), mesh.p.data(),    
           mesh.boundaryExprs, mesh.dim, mesh.nve, mesh.nvf, mesh.nfe, mesh.ne, mesh.nbndexpr);
 
-      // setperiodicfaces(mesh.t2t.data(), mesh.t.data(), mesh.localfaces.data(), mesh.p.data(),    
-      //     mesh.elemGlobalID.data(), mesh.periodicBoundaries1.data(), mesh.periodicBoundaries2.data(),
-      //     mesh.periodicExprs1, mesh.periodicExprs2, mesh.dim, mesh.nve, mesh.nvf, mesh.nfe, mesh.ne, 
-      //     mesh.nprdexpr, mesh.nprdcom, nboufaces, MPI_COMM_WORLD, dmd.nbinfo);
-                  
+      if (pde.xdgfile == "") {
+          mesh.xdg.resize(master.npe*mesh.dim*mesh.ne);
+          compute_dgnodes(mesh.xdg.data(), mesh.p.data(), mesh.t.data(), master.phielem.data(), master.npe, mesh.dim, mesh.ne, mesh.nve);      
+          project_dgnodes_onto_curved_boundaries(mesh.xdg.data(), mesh.t2t.data(), master.perm.data(), mesh.curvedBoundaries.data(),
+                  mesh.curvedBoundaryExprs, mesh.dim, master.porder, master.npe, master.npf, mesh.nfe, mesh.ne, -1);               
+          if (rank==0) std::cout << "Finished computing dgnodes.\n";
+      }      
+      
+      setperiodicfaces(mesh.t2t.data(), mesh.t.data(), mesh.localfaces.data(), mesh.p.data(),    
+          mesh.elemGlobalID.data(), mesh.periodicBoundaries1.data(), mesh.periodicBoundaries2.data(),
+          mesh.periodicExprs1, mesh.periodicExprs2, mesh.dim, mesh.nve, mesh.nvf, mesh.nfe, mesh.ne, 
+          mesh.nprdexpr, mesh.nprdcom, nboufaces, MPI_COMM_WORLD, dmd.nbinfo);
+                                          
       dmd.numneigh = static_cast<int>(dmd.nbinfo.size() / 6); 
       ElementClassification elemclass;      
       classifyElementsWithE2EAndNbinfo(mesh.t2t.data(), mesh.elemGlobalID.data(), mesh.nfe, 
@@ -196,7 +204,18 @@ int main(int argc, char** argv)
           dmd.bf[j + mesh.nfe*i] = (mesh.t2t[j + mesh.nfe*k] < 0) ? -mesh.t2t[j + mesh.nfe*k] : 0;
       }
 
-      
+      computeElementToGlobalNodeMap(mesh, dmd.elempart_local);
+
+
+      // int ns = dmd.elemsend.size();
+      // for (int i = 0; i < ns; i++) {
+      //   dmd.elemsend[i][1] = dmd.elempart_local[i];        
+      // }
+      // for (int i = 0; i < ns; i++) {
+      //   int k = dmd.elemsend[i][2];
+      //   for (int j = 0; j < mesh.ne; j++)
+      //     if (k == dmd.elempart[j]) dmd.elemsend[i][1] = j;
+      // }
       
       // if (rank==0) {
       //   //print2iarray(t2t_local.data(), mesh.nfe, mesh.ne);
@@ -263,13 +282,13 @@ int main(int argc, char** argv)
       for (int i=0; i<m1; i++) qart1[i] = dmd.elem2cpu[m0+i];
       for (int i=0; i<m2; i++) qart2[i] = dmd.elem2cpu[m0+m1+i];      
       
-      if (compareVecIntSorted(qart0, part0, "interior elem2cpu", true)) 
+      if (compareVecInt(qart0, part0, "interior elem2cpu", true)) 
         cout<<"Rank: "<<rank<<", interior elem2cpu arrays are identical"<<endl;
 
-      if (compareVecIntSorted(qart1, part1, "interface elem2cpu", true)) 
+      if (compareVecInt(qart1, part1, "interface elem2cpu", true)) 
         cout<<"Rank: "<<rank<<", interface elem2cpu arrays are identical"<<endl;
 
-      if (compareVecIntSorted(qart2, part2, "exterior elem2cpu", true)) 
+      if (compareVecInt(qart2, part2, "exterior elem2cpu", true)) 
         cout<<"Rank: "<<rank<<", exterior elem2cpu arrays are identical"<<endl;
       
       if (compareArray3(dmd.elemrecv, dmd1[rank].elemrecv, "elemrecv", true))
@@ -277,6 +296,12 @@ int main(int argc, char** argv)
 
       if (compareArray3(dmd.elemsend, dmd1[rank].elemsend, "elemsend", true))
         cout<<"Rank: "<<rank<<", elemsend arrays are identical"<<endl;
+      else {
+        if (rank==0) {
+          printElemRecv(dmd.elemsend, "elemsend");
+          printElemRecv(dmd1[rank].elemsend, "elemsend");        
+        }
+      }
 
       if (compareVecInt(dmd.nbsd, dmd1[rank].nbsd, "nbsd", true)) 
         cout<<"Rank: "<<rank<<", nbsd arrays are identical"<<endl;
@@ -286,11 +311,30 @@ int main(int argc, char** argv)
       if (compareVecInt(dmd.bf, tm, "bf", true)) 
         cout<<"Rank: "<<rank<<", bf arrays are identical"<<endl;
 
+      vector<int> ti(mesh.nve*mesh.ne); 
+      select_columns(ti.data(), mesh1.t.data(), dmd1[rank].elempart.data(), mesh.nve, mesh.ne); 
+      if (compareVecInt(mesh.tg, ti, "tglobal", true)) 
+        cout<<"Rank: "<<rank<<", tglobal arrays are identical"<<endl;
+
+      vector<double> xdg(master.npe*mesh.dim*mesh.ne, 0);
+      select_columns(xdg.data(), mesh.xdg.data(), dmd.elempart_local.data(), master.npe*mesh.dim, mesh.ne);
+      vector<double> xdg1(master.npe*mesh.dim*mesh.ne, 0);
+      select_columns(xdg1.data(), mesh1.xdg.data(), dmd1[rank].elempart.data(), master.npe*mesh.dim, mesh.ne);
+      if (compareVecDouble(xdg, xdg1, "xdg", true, 1e-7)) 
+        cout<<"Rank: "<<rank<<", xdg arrays are identical"<<endl;
+      
+      MPI_Barrier(MPI_COMM_WORLD);
+
       if (rank==0) {        
+        //print2darray(xdg.data(), master.npe*mesh.dim, mesh.ne);        
+        //print2darray(xdg1.data(), master.npe*mesh.dim, mesh.ne);        
+        //print2iarray(dmd.elempart_local.data(), 1, mesh.ne);        
+        //print2iarray(mesh.tg.data(), mesh.nve, mesh.ne);        
+        //print2iarray(ti.data(), mesh.nve, mesh.ne);        
         //print2iarray(mesh.t2t.data(), mesh.nfe, mesh.ne);        
         //print2iarray(t2ti.data(), mesh.nfe, mesh.ne);        
-        print2iarray(dmd.bf.data(), mesh.nfe, mesh.ne);        
-        print2iarray(tm.data(), mesh.nfe, mesh.ne);
+        //print2iarray(dmd.bf.data(), mesh.nfe, mesh.ne);        
+        //print2iarray(tm.data(), mesh.nfe, mesh.ne);
         // vector<int> fi(mesh.nfe*mesh.ne);      
         // select_columns(fi.data(), mesh1.f.data(), dmd1[rank].elempart.data(), mesh.nfe, mesh.ne);       
         // print2iarray(fi.data(), mesh.nfe, mesh.ne);
@@ -299,6 +343,7 @@ int main(int argc, char** argv)
         //printElemRecv(dmd1[rank].elemrecv);
         //printElemRecv(dmd.elemsend, "elemsend");
         //printElemRecv(dmd1[rank].elemsend, "elemsend");
+        //print2iarray(dmd.elempartpts.data(), 1, dmd.elempartpts.size());        
       }
 
       // if (rank==0) {

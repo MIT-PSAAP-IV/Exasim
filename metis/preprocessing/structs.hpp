@@ -185,7 +185,7 @@ struct PDE {
 
 struct Mesh {
     std::vector<double> p; // flattened nd × np array, column-major
-    std::vector<int> t;    // flattened nve × ne array, column-major
+    std::vector<int> t, tg;// flattened nve × ne array, column-major
     int nd, dim;           // number of spatial dimensions
     int np;                // number of points
     int nve;               // number of vertices per element

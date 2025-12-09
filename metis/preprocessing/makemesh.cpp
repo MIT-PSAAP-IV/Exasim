@@ -827,14 +827,20 @@ void compute_dgnodes(double* dgnodes, const double* p, const int* t,
 }
 
 void project_dgnodes_onto_curved_boundaries(double* dgnodes, const int* f, const int* perm, const int* curvedboundary,
-                         char** fd_exprs, int nd, int porder, int npe, int npf, int nfe, int ne) 
+                         char** fd_exprs, int nd, int porder, int npe, int npf, int nfe, int ne, int factor=1) 
 {
     if (porder <= 1) return;
 
-    int has_curved = 0;
-    for (int k = 0; k < nfe * ne; ++k)
-        if (f[k] > -1 && curvedboundary[f[k]] != 0)
-            has_curved = 1;
+    int has_curved = 0;   
+    if (factor == - 1) {
+      for (int k = 0; k < nfe * ne; ++k)
+          if (f[k] <= -1 && curvedboundary[-f[k]-1] != 0)
+              has_curved = 1;
+    } else {
+       for (int k = 0; k < nfe * ne; ++k)
+          if (f[k] > -1 && curvedboundary[f[k]] != 0)
+              has_curved = 1;
+    }       
 
     if (!has_curved) return;
 
@@ -845,7 +851,8 @@ void project_dgnodes_onto_curved_boundaries(double* dgnodes, const int* f, const
 
     for (int e = 0; e < ne; ++e) {
         for (int j = 0; j < nfe; ++j) {
-            int fid = f[j + nfe * e];
+            int fid = factor*f[j + nfe * e];
+            if (factor == -1) fid = fid - 1;
             if (fid < 0) continue;
 
             int k = fid;

@@ -1257,6 +1257,27 @@ void setperiodicfaces(
     } // ip
 }
 
+void computeElementToGlobalNodeMap(Mesh& mesh, const vector<int> &elempart)
+{
+    const int nve = mesh.nve;
+    const int ne  = mesh.ne;
+
+    // Allocate output
+    mesh.tg.resize(static_cast<size_t>(nve) * ne);
+
+    // Loop over elements
+    for (int e = 0; e < ne; ++e) {
+
+        const int offset = elempart[e] * nve;
+
+        // Map each local node to its global node ID
+        for (int i = 0; i < nve; ++i) {
+            int localNode = mesh.t[offset + i];
+            mesh.tg[i + nve*e] = mesh.nodeGlobalID[localNode];
+        }
+    }
+}
+
 void sortWithReordering(std::vector<int>& a, std::vector<int>& b)
 {
     // Ensure same size
@@ -1733,7 +1754,7 @@ void buildElemsend(const Mesh& mesh, DMD& dmd, MPI_Comm comm)
     gid2loc.reserve(static_cast<size_t>(ne_local) * 2);
 
     for (int eLoc = 0; eLoc < ne_local; ++eLoc) {
-        gid2loc[ mesh.elemGlobalID[eLoc] ] = eLoc;
+      gid2loc[ dmd.elempart[eLoc] ] = eLoc;
     }
 
     // ------------------------------------------------------------
@@ -1896,6 +1917,129 @@ void buildElemsend(const Mesh& mesh, DMD& dmd, MPI_Comm comm)
     }
 }
 
+// Helper: map C++ type to MPI_Datatype
+template<typename T>
+MPI_Datatype mpi_type();
+
+template<>
+inline MPI_Datatype mpi_type<double>() { return MPI_DOUBLE; }
+
+template<>
+inline MPI_Datatype mpi_type<float>()  { return MPI_FLOAT; }
+
+template<>
+inline MPI_Datatype mpi_type<int>()    { return MPI_INT; }
+
+template<typename T>
+void sendrecvdata(
+    MPI_Comm comm,
+    const std::vector<int>   &nbsd,       // neighbor ranks (size = nnbsd)
+    const std::vector<int> &elemsendpts,  // #elements to send to each neighbor
+    const std::vector<int> &elemrecvpts,  // #elements to recv from each neighbor
+    const std::vector<int> &elemsend,     // list of local element IDs to send
+    const std::vector<int> &elemrecv,     // list of local element IDs to receive
+    std::vector<T>         &senddata,     // full source data (all elements)
+    std::vector<T>         &recvdata,     // full destination data (all elements)
+    int bsz                               // #entries per element (block size)
+)
+{
+    const int nelemsend = static_cast<int>(elemsend.size());
+    const int nelemrecv = static_cast<int>(elemrecv.size());
+    const int   nnbsd     = static_cast<int>(nbsd.size());
+
+    // -------------------------------------------------------------------------
+    // 0. Local communication buffers
+    // -------------------------------------------------------------------------
+    std::vector<T> buffsend(static_cast<std::size_t>(nelemsend) * bsz);
+    std::vector<T> buffrecv(static_cast<std::size_t>(nelemrecv) * bsz);
+
+    // -------------------------------------------------------------------------
+    // 1. Pack send buffer from senddata according to elemsend
+    // -------------------------------------------------------------------------
+    select_columns(
+        buffsend.data(),        // packed send buffer (contiguous)
+        senddata.data(),        // global/source data
+        elemsend.data(),        // element indices to extract
+        bsz,
+        nelemsend
+    );
+
+    // -------------------------------------------------------------------------
+    // 2. Count messages
+    // -------------------------------------------------------------------------
+    int nsends = 0, nrecvs = 0;
+    for (int n = 0; n < nnbsd; ++n) {
+        if (elemsendpts[n] * static_cast<int>(bsz) > 0) ++nsends;
+        if (elemrecvpts[n] * static_cast<int>(bsz) > 0) ++nrecvs;
+    }
+
+    const int totalReq = nsends + nrecvs;
+    std::vector<MPI_Request> requests(totalReq);
+    std::vector<MPI_Status>  statuses(totalReq);
+
+    int request_counter = 0;
+    const MPI_Datatype mpiT = mpi_type<T>();
+
+    // -------------------------------------------------------------------------
+    // 3. Non-blocking sends
+    // -------------------------------------------------------------------------
+    int psend = 0;
+    for (int n = 0; n < nnbsd; ++n) {
+        const int   neighbor = nbsd[n];
+        const int nsend    = elemsendpts[n] * static_cast<int>(bsz);
+
+        if (nsend > 0) {
+            MPI_Isend(
+                &buffsend[static_cast<std::size_t>(psend)],
+                static_cast<int>(nsend),
+                mpiT,
+                neighbor,
+                0,                    // tag
+                comm,
+                &requests[request_counter++]
+            );
+            psend += nsend;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 4. Non-blocking receives
+    // -------------------------------------------------------------------------
+    int precv = 0;
+    for (int n = 0; n < nnbsd; ++n) {
+        const int   neighbor = nbsd[n];
+        const int nrecv    = elemrecvpts[n] * static_cast<int>(bsz);
+
+        if (nrecv > 0) {
+            MPI_Irecv(
+                &buffrecv[static_cast<std::size_t>(precv)],
+                static_cast<int>(nrecv),
+                mpiT,
+                neighbor,
+                0,                    // tag
+                comm,
+                &requests[request_counter++]
+            );
+            precv += nrecv;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 5. Wait for all communication to complete
+    // -------------------------------------------------------------------------
+    MPI_Waitall(request_counter, requests.data(), statuses.data());
+
+    // -------------------------------------------------------------------------
+    // 6. Unpack recv buffer back into recvdata according to elemrecv
+    // -------------------------------------------------------------------------
+    insert_columns(
+        recvdata.data(),        // destination/global array
+        buffrecv.data(),        // contiguous received data
+        elemrecv.data(),        // element indices we received
+        bsz,
+        nelemrecv
+    );
+}
 
 // Step 1: collect global neighbor IDs for interface elements
 //

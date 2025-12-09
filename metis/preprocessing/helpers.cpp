@@ -535,6 +535,25 @@ void select_columns(double* a_new, const double* a, const int* ind, int m, int k
     }
 }
 
+void insert_columns(int* a, const int* a_new, const int* ind, int m, int k) 
+{
+    for (int j = 0; j < k; ++j) {
+        int col = ind[j];
+        for (int i = 0; i < m; ++i) {
+            a[i + col * m] = a_new[i + j * m];
+        }
+    }
+}
+
+void insert_columns(double* a, const double* a_new, const int* ind, int m, int k) 
+{
+    for (int j = 0; j < k; ++j) {
+        int col = ind[j];
+        for (int i = 0; i < m; ++i) {
+            a[i + col * m] = a_new[i + j * m];
+        }
+    }
+}
 void permute_columns(int* a, const int* ind, int m, int k) 
 {    
   if ((k > 0) && (m > 0)) {
