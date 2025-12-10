@@ -200,11 +200,13 @@ struct Mesh {
     int ne_global=0;
     int nf_global=0;
     
+    std::vector<idx_t>  epart_local, elmdist;    
+
     // For each local element e, elemGlobalID[e] is its global element index
     std::vector<int> elemGlobalID;
     std::vector<int> nodeGlobalID;  // [np]  global node IDs    
 
-    vector<int> f, f2t, t2t, t2f, t2lf, inte, intl, localfaces;    
+    vector<int> f, bf, f2t, t2t, t2f, t2lf, inte, intl, localfaces;    
     std::vector<double> xdg, udg, vdg, wdg, uhat;
     std::vector<int> xdgdims, udgdims, vdgdims, wdgdims, uhatdims, elem2cpu;    
     
@@ -254,8 +256,8 @@ struct ElementClassification {
 
 struct DMD {
   std::vector<int> nbsd;                  // neighbors    
-  //std::vector<std::vector<int>> elemrecv; // each row: [sender, recv_local_idx, sender_global_idx]
-  //std::vector<std::vector<int>> elemsend; // each row: [receiver, send_local_idx, recv_global_idx]
+  std::vector<int> localelemrecv;         // recv_local_idx
+  std::vector<int> localelemsend;         // send_local_idx
   std::vector<std::array<int, 3>> elemrecv; // each row: [sender, recv_local_idx, sender_global_idx]
   std::vector<std::array<int, 3>> elemsend; // each row: [receiver, send_local_idx, recv_global_idx]
   std::vector<int> elempart;              // global element IDs in the partition

@@ -554,6 +554,7 @@ void insert_columns(double* a, const double* a_new, const int* ind, int m, int k
         }
     }
 }
+
 void permute_columns(int* a, const int* ind, int m, int k) 
 {    
   if ((k > 0) && (m > 0)) {

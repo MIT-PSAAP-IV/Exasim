@@ -1068,6 +1068,72 @@ Mesh initializeMesh(InputParams& params, PDE& pde)
     return mesh;
 }
 
+#ifdef HAVE_MPI
+
+Mesh initializeParMesh(const InputParams& params, const ParsedSpec& spec, PDE& pde, MPI_Comm comm) 
+{
+    Mesh mesh;
+    readParMeshFromFile(make_path(pde.datapath, pde.meshfile), mesh, comm);                       
+    mesh.boundaryConditions = params.boundaryConditions;
+    mesh.curvedBoundaries = params.curvedBoundaries;
+    mesh.periodicBoundaries1 = params.periodicBoundaries1;
+    mesh.periodicBoundaries2 = params.periodicBoundaries2;
+    mesh.cartGridPart = params.cartGridPart;
+    mesh.interfaceConditions = params.interfaceConditions;
+        
+    assignVectorToCharArray(params.boundaryExprs, &mesh.boundaryExprs);
+    assignVectorToCharArray(params.curvedBoundaryExprs, &mesh.curvedBoundaryExprs);
+    assignVectorToCharArray(params.periodicExprs1, &mesh.periodicExprs1);
+    assignVectorToCharArray(params.periodicExprs2, &mesh.periodicExprs2);
+        
+    mesh.nbndexpr = params.boundaryExprs.size();
+    mesh.nbcm = params.boundaryConditions.size();
+    mesh.nprdexpr = params.periodicBoundaries1.size();    
+    mesh.nprdcom = (mesh.nprdexpr == 0) ? 0 : params.periodicExprs1.size()/mesh.nprdexpr;
+    if (mesh.nbndexpr != mesh.nbcm) 
+        error("boundaryconditions and boundaryexpressions are not the same size. Exiting.\n");
+                    
+    ensure_dir(pde.datainpath);
+    ensure_dir(pde.dataoutpath);
+    
+    for (const auto& vec : spec.vectors) {
+        const std::string& name = vec.first;
+        int size = vec.second;
+        if (name == "uhat") pde.ncu = size;
+        if (name == "v") pde.ncv = size;
+        if (name == "w") pde.ncw = size;
+        if (name == "uq") pde.nc = size;        
+    }
+    
+    for (int i=0; i<spec.functions.size(); i++) {
+        if (spec.functions[i].name == "VisScalars") pde.nsca = spec.functions[i].outputsize;
+        if (spec.functions[i].name == "VisVectors") pde.nvec = spec.functions[i].outputsize/pde.nd;
+        if (spec.functions[i].name == "VisTensors") pde.nten = spec.functions[i].outputsize/(pde.nd*pde.nd);
+        if (spec.functions[i].name == "QoIboundary") pde.nsurf = spec.functions[i].outputsize;
+        if (spec.functions[i].name == "QoIvolume") pde.nvqoi = spec.functions[i].outputsize;
+    }
+    
+    mesh.dim = mesh.nd;
+    pde.nve = mesh.nve; pde.np = mesh.np_global; pde.ne = mesh.ne_global; pde.elemtype = mesh.elemtype;                
+    pde.nd = mesh.dim; pde.ncx = mesh.dim;
+    if (pde.model=="ModelC" || pde.model=="modelC") {
+        pde.wave = 0;
+        pde.nc = pde.ncu;
+    } else if (pde.model=="ModelD" || pde.model=="modelD") {     
+        pde.wave = 0;
+        pde.nc = (pde.ncu)*(pde.nd+1);
+    } else if (pde.model=="ModelW" || pde.model=="modelW") {
+        pde.tdep = 1;
+        pde.wave = 1;
+        pde.nc = (pde.ncu)*(pde.nd+1);
+    }
+    pde.ncq = pde.nc - pde.ncu;
+    pde.nch  = pde.ncu;        
+
+    return mesh;
+}
+
+#endif
 
 #endif
 

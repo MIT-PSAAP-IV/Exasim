@@ -777,6 +777,8 @@ void readParMeshFromBinaryFile(const std::string& filename,
     mesh.nve = nve_global;  // same on all ranks
     mesh.np  = np_local;    // local
     mesh.ne  = ne_local;    // local
+    mesh.np_global  = np_global;    // global
+    mesh.ne_global  = ne_global;    // global
 
     mesh.p.resize(static_cast<std::size_t>(mesh.np) * mesh.nd);
     mesh.t.resize(static_cast<std::size_t>(mesh.ne) * mesh.nve);
@@ -872,6 +874,8 @@ void readParMeshGeneric(const std::string& filename,
     mesh.nve = nve_global;
     mesh.np  = np_local;
     mesh.ne  = ne_local;
+    mesh.np_global  = np_global;    // global
+    mesh.ne_global  = ne_global;    // global
 
     mesh.p.resize(static_cast<std::size_t>(mesh.nd) * mesh.np);
     mesh.t.resize(static_cast<std::size_t>(mesh.nve) * mesh.ne);
@@ -1124,6 +1128,99 @@ void readParMeshFromFile(const std::string& filename, Mesh& mesh, MPI_Comm comm)
 
     mesh.nvf = (mesh.nd == 3) ? (mesh.nd + mesh.elemtype) : mesh.nd;
     mesh.nfe = mesh.nd + (mesh.nd - 1) * mesh.elemtype + 1;                    
+}
+
+// Read a *partitioned* field: only the elements listed in epart_local
+// are read from 'filename' into xdg, in the same order as epart_local.
+//
+// Assumptions:
+//   - File format is identical to readFieldFromBinaryFile:
+//       ndims[0] = npe, ndims[1] = nd, ndims[2] = ne  (stored as doubles)
+//       followed by npe*nd*ne doubles in column-major order (MATLAB style).
+//   - For xdg(npe, nd, ne), each element e occupies a contiguous block of
+//       elemBlockSize = npe * nd
+//     doubles in the file.
+//   - epart_local[i] is the *global element index* (0-based, < ne) of the
+//     i-th local element on this rank.
+//
+void readParFieldFromBinaryFile(const std::string& filename,
+                                const std::vector<int>& epart_local,
+                                std::vector<double>& xdg,
+                                std::vector<int>& ndims)
+{
+    std::string ext = getFileExtension(filename);
+    if (ext != "bin") {
+        error("Unsupported mesh file format: " + ext);
+    }
+
+    std::ifstream in(filename, std::ios::in | std::ios::binary);
+    if (!in) error("Unable to open file " + filename);
+
+    // Read global dimensions from header
+    std::vector<int> ndims_global(3);
+    readiarrayfromdouble(in, ndims_global, 3);  // [npe, nd, ne]
+
+    const int npe = ndims_global[0];
+    const int nd  = ndims_global[1];
+    const int ne  = ndims_global[2];
+
+    if (npe <= 0 || nd <= 0 || ne <= 0) {
+        error("Invalid dimensions in file " + filename);
+    }
+
+    const std::size_t npe_sz = static_cast<std::size_t>(npe);
+    const std::size_t nd_sz  = static_cast<std::size_t>(nd);
+    const std::size_t ne_sz  = static_cast<std::size_t>(ne);
+
+    // Doubles per element
+    const std::size_t elemBlockSize = npe_sz * nd_sz;
+
+    // Local number of elements on this rank
+    const std::size_t ne_local = epart_local.size();
+
+    // Output local dimensions: [npe, nd, ne_local]
+    ndims.resize(3);
+    ndims[0] = npe;
+    ndims[1] = nd;
+    ndims[2] = static_cast<int>(ne_local);
+
+    // Allocate xdg for local partition
+    xdg.assign(elemBlockSize * ne_local, 0.0);
+
+    // Position of the start of the data block (right after ndims)
+    std::streampos dataStartPos = in.tellg();
+
+    // Read each requested element block-by-block
+    for (std::size_t i = 0; i < ne_local; ++i) {
+        const int eGlob = epart_local[i];
+
+        if (eGlob < 0 || static_cast<std::size_t>(eGlob) >= ne_sz) {
+            error("readParFieldFromBinaryFile: global element index out of range in epart_local");
+        }
+
+        // Byte offset of element eGlob from the start of the data block
+        const std::streamoff elemOffsetBytes =
+            static_cast<std::streamoff>(elemBlockSize) *
+            static_cast<std::streamoff>(eGlob) *
+            static_cast<std::streamoff>(sizeof(double));
+
+        // Seek to this element's data
+        in.seekg(dataStartPos + elemOffsetBytes, std::ios::beg);
+        if (!in) {
+            error("readParFieldFromBinaryFile: seekg failed while reading " + filename);
+        }
+
+        // Destination in local xdg: i-th local element
+        double* dest = xdg.data() + elemBlockSize * i;
+
+        in.read(reinterpret_cast<char*>(dest),
+                static_cast<std::streamsize>(elemBlockSize * sizeof(double)));
+        if (!in) {
+            error("readParFieldFromBinaryFile: read failed for element " + std::to_string(eGlob));
+        }
+    }
+
+    in.close();
 }
 
 void readLocalMeshFromBinaryFile(const std::string& filename,

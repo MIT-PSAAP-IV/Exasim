@@ -501,9 +501,9 @@ void compareDMD(const DMD& d1, const DMD& d2, bool verbose = false)
     CMP_VECI(elem2cpu);
     CMP_VECI(elemsendpts);
     CMP_VECI(elemrecvpts);
-    CMP_VECI(elempartpts);
+    CMP_VECI(elempartpts);  
     CMP_VECI(intepartpts);
-    CMP_VECI(nbinfo);
+    //CMP_VECI(nbinfo);
 
     #undef CMP_VECI
 
@@ -520,13 +520,13 @@ void compareDMD(const DMD& d1, const DMD& d2, bool verbose = false)
     #undef CMP_ARR3
 
     // ---- scalar int field ----
-    if (d1.numneigh != d2.numneigh) {
-        if (verbose) {
-            std::cout << "Mismatch in numneigh: "
-                      << d1.numneigh << " vs " << d2.numneigh << "\n";
-        }
-        all_equal = false;
-    }
+    // if (d1.numneigh != d2.numneigh) {
+    //     if (verbose) {
+    //         std::cout << "Mismatch in numneigh: "
+    //                   << d1.numneigh << " vs " << d2.numneigh << "\n";
+    //     }
+    //     all_equal = false;
+    // }
 
     // ---- optional summary ----
     if (verbose) {

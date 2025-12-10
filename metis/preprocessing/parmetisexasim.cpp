@@ -1,10 +1,3 @@
-// #include <mpi.h>
-// #include <parmetis.h>
-// #include <iostream>
-// #include <vector>
-// #include <fstream>
-// #include <stdexcept>
-
 #ifndef __PARMETISEXASIM
 #define __PARMETISEXASIM
 
@@ -583,6 +576,49 @@ void mke2e_global(int* e2e,                 // [ne * nfe], output GLOBAL neighbo
     if (rank == 0) {
         std::cout << "Finished making element-to-element connectivities on each subdomain" << std::endl;
     }    
+}
+
+void callParMetis(Mesh& mesh, const PDE& pde, MPI_Comm comm) 
+{
+    int rank, size;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &size);
+  
+    mesh.elmdist = buildElmdistFromLocalCount(mesh.ne, comm);      
+    
+    if (pde.partitionfile == "")  {
+      partitionMeshParMETIS(mesh.epart_local, mesh.t, mesh.elmdist, mesh.nve, mesh.nvf, size, comm);
+    }
+    else {        
+      vector<double> tm;
+      readarrayfrombinaryfile(make_path(pde.datapath, pde.partitionfile), tm);      
+      int n1 = mesh.elmdist[rank];
+      int n2 = mesh.elmdist[rank+1];
+      int n = n2 - n1;
+      mesh.epart_local.resize(n);
+      for (int j = 0; j < n; j++)
+        mesh.epart_local[j] = (idx_t) (tm[n1+j]-1);   
+    }
+
+    Mesh mesh_in;
+    mesh_in.nd = mesh.nd;
+    mesh_in.nve = mesh.nve;
+    mesh_in.ne = mesh.ne;
+    mesh_in.np = mesh.np;
+    mesh_in.t.resize(mesh.nve*mesh.ne);
+    mesh_in.p.resize(mesh.nd*mesh.np);
+    for (int i = 0; i < mesh.nve*mesh.ne; i++) mesh_in.t[i] = mesh.t[i];
+    for (int i = 0; i < mesh.nd*mesh.np; i++) mesh_in.p[i] = mesh.p[i];
+
+    migrateMeshWithParMETIS(mesh_in, mesh.epart_local, mesh, comm);      
+
+    mesh.localfaces.resize(mesh.nvf * mesh.nfe);           
+    getelemface(mesh.localfaces.data(), mesh.dim, mesh.elemtype);    
+
+    //std::vector<int> t2t_local(mesh.nfe*mesh.ne);      
+    mesh.t2t.resize(mesh.nfe*mesh.ne);
+    mke2e_global(mesh.t2t.data(), mesh.t.data(), mesh.localfaces.data(), 
+                 mesh.elemGlobalID.data(), mesh.ne, mesh.nve, mesh.nvf, mesh.nfe, rank);     
 }
 
 // After mke2e_global: fill remote neighbors (across MPI ranks) in e2e.
@@ -1444,6 +1480,7 @@ void buildElempartFromClassification(ElementClassification& cls, DMD& dmd, int r
     const int nBoundary = cls.boundaryGlobal.size();
     const int nInterface = cls.interfaceGlobal.size();
     const int nNeighbor = cls.neighborElemGlobal.size();
+    const int nOuter = cls.outerElemGlobal.size();
 
     // -------------------------------------------------------------
     // 2. Concatenate into elempart in the desired order
@@ -1453,7 +1490,7 @@ void buildElempartFromClassification(ElementClassification& cls, DMD& dmd, int r
     // interfaceGlobal  – global interface (shared) elements
     // neighborElemGlobal – off-rank neighbor elements
     // -------------------------------------------------------------
-    dmd.elempart.reserve(nInterior + nBoundary + nInterface + nNeighbor);
+    dmd.elempart.reserve(nInterior + nBoundary + nInterface + nNeighbor + nOuter);
 
     //  boundary
     dmd.elempart.insert(dmd.elempart.end(),
@@ -1487,7 +1524,7 @@ void buildElempartFromClassification(ElementClassification& cls, DMD& dmd, int r
     // elempart_local holds local element indices corresponding to
     // the global IDs in elempart.
     // -------------------------------------------------------------
-    dmd.elempart_local.reserve(nInterior + nBoundary + nInterface + nNeighbor);
+    dmd.elempart_local.reserve(nInterior + nBoundary + nInterface + nNeighbor + nOuter);
 
     // boundary (local)
     dmd.elempart_local.insert(dmd.elempart_local.end(),
@@ -1509,6 +1546,20 @@ void buildElempartFromClassification(ElementClassification& cls, DMD& dmd, int r
                               cls.neighborElemLocal.begin(),
                               cls.neighborElemLocal.end());  
 
+    if (nOuter > 0) {
+      dmd.elempart.insert(dmd.elempart.end(),
+                        cls.outerElemGlobal.begin(),
+                        cls.outerElemGlobal.end());      
+
+      cls.outerElemLocal.resize(nOuter);
+      const int outerOffset = nBoundary + nInterior + nInterface + nNeighbor;
+      for (int i = 0; i < nOuter; ++i) cls.outerElemLocal[i] = outerOffset + i;
+            
+      dmd.elempart_local.insert(dmd.elempart_local.end(),
+                          cls.outerElemLocal.begin(),
+                          cls.outerElemLocal.end());        
+    }
+  
     // -------------------------------------------------------------
     // 3. Fill elempartpts
     //
@@ -1517,28 +1568,27 @@ void buildElempartFromClassification(ElementClassification& cls, DMD& dmd, int r
     //
     // but boundary elements belong to neither interior nor interface
     // -------------------------------------------------------------
-
-    const int nExterior = nNeighbor;
-
     dmd.elempartpts.resize(3);
     dmd.elempartpts[0] = nInterior + nBoundary;// interior + boundary
     dmd.elempartpts[1] = nInterface;           // interface
-    dmd.elempartpts[2] = nExterior;            // exterior
+    dmd.elempartpts[2] = nNeighbor;            // exterior
+
+    if (nOuter > 0) dmd.elempartpts.push_back(nOuter);
 
     // Optional: intepartpts if you want a 4-way split (interior, boundary, interface, exterior)
     if (!dmd.intepartpts.empty()) {
         dmd.intepartpts.resize(4);
-        dmd.intepartpts[0] = nInterior;
-        dmd.intepartpts[1] = nBoundary;
+        dmd.intepartpts[0] = nBoundary;
+        dmd.intepartpts[1] = nInterior;
         dmd.intepartpts[2] = nInterface;
-        dmd.intepartpts[3] = nExterior;
+        dmd.intepartpts[3] = nNeighbor;
+        if (nOuter > 0) dmd.intepartpts.push_back(nOuter);
     }
 
     if (rank == 0) {
         std::cout << "Finished partitioning elements on each subdomain" << std::endl;
     }        
 }
-
 
 void buildElem2CpuFromClassification(const ElementClassification& cls,
                                      DMD&                        dmd,
@@ -1553,8 +1603,9 @@ void buildElem2CpuFromClassification(const ElementClassification& cls,
     const int nBoundary  = static_cast<int>(cls.boundaryGlobal.size());
     const int nInterface = static_cast<int>(cls.interfaceGlobal.size());
     const int nNeighbor  = static_cast<int>(cls.neighborElemGlobal.size());
+    const int nOuter  = static_cast<int>(cls.outerElemGlobal.size());
 
-    const int expectedSize = nInterior + nBoundary + nInterface + nNeighbor;
+    const int expectedSize = nInterior + nBoundary + nInterface + nNeighbor + nOuter;
     const int elempartSize = static_cast<int>(dmd.elempart.size());
 
     // Sanity check: layout of dmd.elempart must match classification
@@ -1597,6 +1648,18 @@ void buildElem2CpuFromClassification(const ElementClassification& cls,
         dmd.elem2cpu[pos++] = ownerRank;
     }
 
+    // 5) outerElemGlobal → owned by their respective outer ranks
+    //    Use cls.outerElemRank (same ordering as outerElemGlobal).
+    for (int i = 0; i < nOuter; ++i) {
+        int ownerRank = cls.outerElemRank[i];
+        // optional sanity check
+        if (ownerRank < 0 || ownerRank >= size) {
+            std::cerr << "buildElem2CpuFromClassification: invalid owner rank "
+                      << ownerRank << " for neighbor element " << i << "\n";
+        }
+        dmd.elem2cpu[pos++] = ownerRank;
+    }
+  
     // Final consistency check
     assert(pos == elempartSize);
 
@@ -1622,7 +1685,8 @@ void buildElemRecv(DMD& dmd, MPI_Comm comm)
 
     const int nInterior  = dmd.elempartpts[0];
     const int nInterface = dmd.elempartpts[1];
-    const int nExterior  = dmd.elempartpts[2];
+    int nExterior  = dmd.elempartpts[2];
+    if (dmd.elempartpts.size() > 3) nExterior += dmd.elempartpts[3];
 
     const int nPart     = static_cast<int>(dmd.elempart.size());
     const int expected  = nInterior + nInterface + nExterior;
@@ -1906,11 +1970,15 @@ void buildElemsend(const Mesh& mesh, DMD& dmd, MPI_Comm comm)
     // 8. Build cumulative elemsendpts (size = nNeighbors + 1)
     //    elemsendpts[i] = total #elems sent to neighbors 0..i-1
     // ------------------------------------------------------------
-    dmd.elemsendpts.resize(nNeighbors + 1);
-    dmd.elemsendpts[0] = 0;
+    dmd.elemsendpts.resize(nNeighbors);
     for (int i = 0; i < nNeighbors; ++i) {
-        dmd.elemsendpts[i + 1] = dmd.elemsendpts[i] + sendPerNeighbor[i];
+        dmd.elemsendpts[i] = sendPerNeighbor[i];
     }
+    // dmd.elemsendpts.resize(nNeighbors + 1);
+    // dmd.elemsendpts[0] = 0;
+    // for (int i = 0; i < nNeighbors; ++i) {
+    //     dmd.elemsendpts[i + 1] = dmd.elemsendpts[i] + sendPerNeighbor[i];
+    // }
 
     if (rank == 0) {
         std::cout << "Finished building ElemSend on each subdomain" << std::endl;
@@ -2678,6 +2746,234 @@ void updateOuterElements(ElementClassification& cls,
                                    nfe, comm);
 }
 
+DMD initializeDMD(Mesh& mesh, const Master& master, const PDE& pde, MPI_Comm comm) 
+{
+    int rank, size;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &size);
+  
+    DMD dmd;
+
+    mke2e_fill_first_neighbors(mesh.t2t.data(), mesh.t.data(), mesh.localfaces.data(),
+               mesh.elemGlobalID.data(), mesh.nodeGlobalID.data(), mesh.ne, mesh.nve, 
+              mesh.nvf, mesh.nfe, comm, dmd.nbinfo);
+    
+    int nboufaces = setboundaryfaces(mesh.t2t.data(), mesh.t.data(), mesh.localfaces.data(), mesh.p.data(),    
+        mesh.boundaryExprs, mesh.dim, mesh.nve, mesh.nvf, mesh.nfe, mesh.ne, mesh.nbndexpr);
+
+    if (pde.xdgfile == "") {
+        mesh.xdg.resize(master.npe*mesh.dim*mesh.ne);
+        compute_dgnodes(mesh.xdg.data(), mesh.p.data(), mesh.t.data(), master.phielem.data(), master.npe, mesh.dim, mesh.ne, mesh.nve);      
+        project_dgnodes_onto_curved_boundaries(mesh.xdg.data(), mesh.t2t.data(), master.perm.data(), mesh.curvedBoundaries.data(),
+                mesh.curvedBoundaryExprs, mesh.dim, master.porder, master.npe, master.npf, mesh.nfe, mesh.ne, -1);               
+        if (rank==0) std::cout << "Finished computing dgnodes.\n";
+    }     
+    else 
+      readParFieldFromBinaryFile(pde.xdgfile, mesh.epart_local, mesh.xdg, mesh.xdgdims);
+          
+    setperiodicfaces(mesh.t2t.data(), mesh.t.data(), mesh.localfaces.data(), mesh.p.data(),    
+        mesh.elemGlobalID.data(), mesh.periodicBoundaries1.data(), mesh.periodicBoundaries2.data(),
+        mesh.periodicExprs1, mesh.periodicExprs2, mesh.dim, mesh.nve, mesh.nvf, mesh.nfe, mesh.ne, 
+        mesh.nprdexpr, mesh.nprdcom, nboufaces, comm, dmd.nbinfo);
+                                        
+    dmd.numneigh = static_cast<int>(dmd.nbinfo.size() / 6); 
+    ElementClassification elemclass;      
+    classifyElementsWithE2EAndNbinfo(mesh.t2t.data(), mesh.elemGlobalID.data(), mesh.nfe, 
+                                     mesh.ne, dmd.nbinfo.data(), dmd.numneigh, elemclass, rank);
+    
+    if (pde.hybrid==1) { // HDG
+      elemclass.outerElemLocal.clear();
+      elemclass.outerElemGlobal.clear();
+      elemclass.outerElemRank.clear();
+    }
+    else if (pde.hybrid==0) { // LDG
+      updateOuterElements(elemclass, mesh, mesh.t2t.data(), mesh.nfe, 
+                            dmd.nbinfo.data(), dmd.numneigh,  comm);
+    }
+    
+    buildElempartFromClassification(elemclass, dmd, rank);
+    buildElem2CpuFromClassification(elemclass, dmd, comm);      
+    buildElemRecv(dmd, comm);
+    buildElemsend(mesh, dmd, comm);
+          
+    int nsend = dmd.elemsend.size();
+    int nrecv = dmd.elemrecv.size();
+    dmd.localelemsend.resize(nsend); 
+    dmd.localelemrecv.resize(nrecv);
+    for (int i=0; i<nsend; i++) dmd.localelemsend[i] = dmd.elemsend[i][1];
+    for (int i=0; i<nrecv; i++) dmd.localelemrecv[i] = dmd.elemrecv[i][1];      
+
+    return dmd;
+}
+
+void writemesh(Mesh& mesh, const DMD& dmd, const PDE& pde, const Master& master, MPI_Comm comm)
+{    
+    int nve = mesh.nve;
+    int nfe = mesh.nfe;
+    int ne = dmd.elempart.size();      
+    mesh.bf.resize(nfe * ne);
+    for (int i = 0; i < mesh.ne; i++) {
+      int k = dmd.elempart_local[i];
+      for (int j = 0; j < mesh.nfe; j++)
+        mesh.bf[j + mesh.nfe*i] = (mesh.t2t[j + mesh.nfe*k] < 0) ? -mesh.t2t[j + mesh.nfe*k] : 0;
+    }            
+    sendrecvdata(comm, dmd.nbsd, dmd.elemsendpts, dmd.elemrecvpts, 
+                 dmd.localelemsend, dmd.localelemrecv, mesh.bf, mesh.bf, nfe);
+
+    computeElementToGlobalNodeMap(mesh, dmd.elempart_local);
+    mesh.tg.resize(nve * ne);
+    sendrecvdata(comm, dmd.nbsd, dmd.elemsendpts, dmd.elemrecvpts, 
+                 dmd.localelemsend, dmd.localelemrecv, mesh.tg, mesh.tg, mesh.nve);
+  
+    int rank, size;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &size);
+
+    std::string filename = make_path(pde.datainpath, "mesh" + std::to_string(rank+1) + ".bin");
+    std::ofstream out(filename, std::ios::binary);
+    if (!out.is_open()) error("Error opening file: " + filename);
+    
+    std::vector<int> ndims(20, 0);
+    ndims[0] = (mesh.dim);
+    ndims[1] = (dmd.elempart.size());
+    ndims[3] = mesh.np_global;  
+    ndims[4] = (mesh.nfe);
+     
+    std::vector<int> nsize(50, 0);
+    nsize[0]  = 20; 
+    if (size > 1) {
+      nsize[4]  = (dmd.nbsd.size());
+      nsize[5]  = (dmd.localelemsend.size());
+      nsize[6]  = (dmd.localelemrecv.size());
+      nsize[7]  = (dmd.elemsendpts.size());
+      nsize[8]  = (dmd.elemrecvpts.size());
+    }
+    nsize[9]  = (dmd.elempart.size());
+    nsize[10] = (dmd.elempartpts.size());    
+    
+
+    nsize[23] = (master.perm.size());
+    nsize[24] = (mesh.bf.size());
+    nsize[25] = (mesh.cartGridPart.size());
+        
+    nsize[26] = ne * nve;
+    nsize[27] = mesh.boundaryConditions.size();
+    nsize[28] = dmd.intepartpts.size();
+
+    writeDouble(out, static_cast<double>(nsize.size())); 
+    writeVectorAsDoubles(out, nsize);
+    writeVectorAsDoubles(out, ndims);
+
+    if (size > 1) {            
+      writeVectorAsDoubles(out, dmd.nbsd);
+      writeVectorAsDoubles(out, dmd.localelemsend);
+      writeVectorAsDoubles(out, dmd.localelemrecv);
+      writeVectorAsDoubles(out, dmd.elemsendpts);
+      writeVectorAsDoubles(out, dmd.elemrecvpts);
+    }
+    writeVectorAsDoubles(out, dmd.elempart);
+    writeVectorAsDoubles(out, dmd.elempartpts);
+
+    if (pde.hybrid > 0) {
+        writeVectorAsDoubles(out, master.perm);  
+        writeVectorAsDoubles(out, mesh.bf);      
+        writeVectorAsDoubles(out, mesh.cartGridPart);
+    }
+
+    writeVectorAsDoubles(out, mesh.tg);
+    writeVectorAsDoubles(out, mesh.boundaryConditions);
+    writeVectorAsDoubles(out, dmd.intepartpts);
+
+    out.close();    
+    std::cout << "Finished writing mesh to " + filename << std::endl;
+}
+
+void writesol(Mesh& mesh, const DMD& dmd, const PDE& pde, const Master& master, MPI_Comm comm)
+{
+    int rank, size;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &size);
+  
+    std::string filename = make_path(pde.datainpath, "sol" + std::to_string(rank+1) + ".bin");
+    std::ofstream out(filename, std::ios::binary);
+    if (!out.is_open()) error("Error opening file: " + filename);
+    
+    int ne = dmd.elempart.size();     
+
+    std::vector<double> ndims(12, 0);
+    ndims[0] = ne;    
+    ndims[2] = mesh.nfe;
+    ndims[3] = master.npe;
+    ndims[4] = master.npf;
+    ndims[5] = pde.nc;
+    ndims[6] = pde.ncu;
+    ndims[7] = pde.ncq;
+    ndims[8] = pde.ncw;
+    ndims[9] = pde.ncv;
+    ndims[10] = pde.nch;
+    ndims[11] = pde.ncx;    
+
+    std::vector<double> nsize(20, 0);
+    nsize[0] = static_cast<double>(ndims.size());
+    nsize[1] = master.npe*mesh.dim*ne;
+
+    if (pde.udgfile != "") {
+      readParFieldFromBinaryFile(pde.udgfile, mesh.epart_local, mesh.udg, mesh.udgdims);      
+      nsize[2] = master.npe*mesh.udgdims[1]*ne;
+    }
+    if (pde.vdgfile != "") {
+      readParFieldFromBinaryFile(pde.vdgfile, mesh.epart_local, mesh.vdg, mesh.vdgdims);   
+      nsize[3] = master.npe*mesh.vdgdims[1]*ne;
+    }
+    if (pde.wdgfile != "") {
+      readParFieldFromBinaryFile(pde.wdgfile, mesh.epart_local, mesh.wdg, mesh.wdgdims);   
+      nsize[4] = master.npe*mesh.wdgdims[1]*ne;
+    }
+
+    // Helper to write vector as binary double
+    auto writeDoubleVector = [&](const std::vector<double>& vec) {
+        out.write(reinterpret_cast<const char*>(vec.data()), vec.size() * sizeof(double));
+    };
+
+    double len = static_cast<double>(nsize.size());
+    out.write(reinterpret_cast<const char*>(&len), sizeof(double));
+    writeDoubleVector(nsize);
+    writeDoubleVector(ndims);
+
+    vector<double> xdg(master.npe*mesh.dim*ne, 0);
+    select_columns(xdg.data(), mesh.xdg.data(), dmd.elempart_local.data(), master.npe*mesh.dim, mesh.ne);
+    sendrecvdata(comm, dmd.nbsd, dmd.elemsendpts, dmd.elemrecvpts, 
+                 dmd.localelemsend, dmd.localelemrecv, xdg, xdg, master.npe*mesh.dim);
+    writeDoubleVector(xdg);
+    
+    if (pde.udgfile != "") {
+      int nc = mesh.udgdims[1];
+      xdg.resize(master.npe*nc*ne, 0);
+      select_columns(xdg.data(), mesh.udg.data(), dmd.elempart_local.data(), master.npe*nc, mesh.ne);
+      sendrecvdata(comm, dmd.nbsd, dmd.elemsendpts, dmd.elemrecvpts, 
+                 dmd.localelemsend, dmd.localelemrecv, xdg, xdg, master.npe*nc);
+      writeDoubleVector(xdg);
+    }
+    if (pde.vdgfile != "") {
+      int nc = mesh.vdgdims[1];
+      xdg.resize(master.npe*nc*ne, 0);
+      select_columns(xdg.data(), mesh.vdg.data(), dmd.elempart_local.data(), master.npe*nc, mesh.ne);
+      sendrecvdata(comm, dmd.nbsd, dmd.elemsendpts, dmd.elemrecvpts, 
+                 dmd.localelemsend, dmd.localelemrecv, xdg, xdg, master.npe*nc);
+      writeDoubleVector(xdg);
+    }
+    if (pde.wdgfile != "") {
+      int nc = mesh.wdgdims[1];
+      xdg.resize(master.npe*nc*ne, 0);
+      select_columns(xdg.data(), mesh.wdg.data(), dmd.elempart_local.data(), master.npe*nc, mesh.ne);
+      sendrecvdata(comm, dmd.nbsd, dmd.elemsendpts, dmd.elemrecvpts, 
+                 dmd.localelemsend, dmd.localelemrecv, xdg, xdg, master.npe*nc);
+      writeDoubleVector(xdg);
+    }
+      
+    out.close();    
+    std::cout << "Finished writing initial solution to " + filename << std::endl;
+}
 
 // // nbinfo: output array of (6 + nfe) ints per remote face:
 // //   [0]            = eLoc        (local element index on this rank)

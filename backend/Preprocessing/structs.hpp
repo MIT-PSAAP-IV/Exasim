@@ -185,7 +185,7 @@ struct PDE {
 
 struct Mesh {
     std::vector<double> p; // flattened nd × np array, column-major
-    std::vector<int> t;    // flattened nve × ne array, column-major
+    std::vector<int> t, tg;// flattened nve × ne array, column-major
     int nd, dim;           // number of spatial dimensions
     int np;                // number of points
     int nve;               // number of vertices per element
@@ -196,12 +196,17 @@ struct Mesh {
     int elemtype;          // elemtype        
     int npe, npf;    
     int nbndexpr, nbcm, nprdexpr, nprdcom;        
+    int np_global=0;
+    int ne_global=0;
+    int nf_global=0;
     
+    std::vector<idx_t>  epart_local, elmdist;    
+
     // For each local element e, elemGlobalID[e] is its global element index
     std::vector<int> elemGlobalID;
     std::vector<int> nodeGlobalID;  // [np]  global node IDs    
 
-    vector<int> f, f2t, t2t, t2f, t2lf, inte, intl, localfaces;    
+    vector<int> f, bf, f2t, t2t, t2f, t2lf, inte, intl, localfaces;    
     std::vector<double> xdg, udg, vdg, wdg, uhat;
     std::vector<int> xdgdims, udgdims, vdgdims, wdgdims, uhatdims, elem2cpu;    
     
@@ -220,7 +225,7 @@ struct Mesh {
 
 struct Master 
 {    
-    vector<double> xpe, gpe, gwe, xpf, gpf, gwf; // shapegwdotshapeg, shapfgwdotshapfg;
+    vector<double> xpe, gpe, gwe, xpf, gpf, gwf; 
     vector<double> shapeg, shapegt, shapfg, shapfgt, shapent, shapfnt, shapegw, shapfgw, shapen, shapfn;
     vector<double> xp1d, gp1d, gw1d, shap1dg, shap1dgt, shap1dn, shap1dnt, shap1dgw, phielem, phiface;
     vector<int>  telem, tface, perm, permind; 
@@ -251,17 +256,19 @@ struct ElementClassification {
 
 struct DMD {
   std::vector<int> nbsd;                  // neighbors    
-  //std::vector<std::vector<int>> elemrecv; // each row: [sender, recv_local_idx, sender_global_idx]
-  //std::vector<std::vector<int>> elemsend; // each row: [receiver, send_local_idx, recv_global_idx]
+  std::vector<int> localelemrecv;         // recv_local_idx
+  std::vector<int> localelemsend;         // send_local_idx
   std::vector<std::array<int, 3>> elemrecv; // each row: [sender, recv_local_idx, sender_global_idx]
   std::vector<std::array<int, 3>> elemsend; // each row: [receiver, send_local_idx, recv_global_idx]
-  std::vector<int> elempart;              // local element IDs in the partition
+  std::vector<int> elempart;              // global element IDs in the partition
+  std::vector<int> elempart_local;        // local element IDs in the partition
   std::vector<int> elem2cpu;              // processor ID for each element in the partition
   std::vector<int> elemsendpts;           // number of elements sent to each neighbor
   std::vector<int> elemrecvpts;           // number of elements received from each neighbor
   std::vector<int> elempartpts;           // partition sizes: [interior, interface, exterior]
   std::vector<int> intepartpts;           // optional: [interior, interface1, interface2, exterior]
   std::vector<int> nbinfo;                // neighboring information 
+  std::vector<int> bf;
   int numneigh;                           // number of neighbors 
 };
 
