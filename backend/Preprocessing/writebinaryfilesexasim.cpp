@@ -383,10 +383,10 @@ void writeBinaryFiles(PDE& pde, Mesh& mesh, const Master& master, const ParsedSp
         }    
     }
 
-    freeCharArray(mesh.boundaryExprs, mesh.nbndexpr);
-    freeCharArray(mesh.curvedBoundaryExprs, mesh.nbndexpr);
-    freeCharArray(mesh.periodicExprs1, mesh.nprdexpr*mesh.nprdcom);
-    freeCharArray(mesh.periodicExprs2, mesh.nprdexpr*mesh.nprdcom);                
+    // freeCharArray(mesh.boundaryExprs, mesh.nbndexpr);
+    // freeCharArray(mesh.curvedBoundaryExprs, mesh.nbndexpr);
+    // freeCharArray(mesh.periodicExprs1, mesh.nprdexpr*mesh.nprdcom);
+    // freeCharArray(mesh.periodicExprs2, mesh.nprdexpr*mesh.nprdcom);                
     
     std::cout << "Finished writeBinaryFiles.\n";
 }

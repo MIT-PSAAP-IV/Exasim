@@ -56,6 +56,10 @@ int main(int argc, char** argv)
     ParsedSpec spec = TextParser::parseFile(make_path(pde.datapath, pde.modelfile));        
     spec.exasimpath = pde.exasimpath;    
 
+      // Mesh mesh = initializeMesh(params, pde);        
+      // Master master = initializeMaster(pde, mesh);                                    
+      // writeBinaryFiles(pde, mesh, master, spec);
+  
     if (size == 1) {
       Mesh mesh = initializeMesh(params, pde);        
       Master master = initializeMaster(pde, mesh);                                    
@@ -66,6 +70,8 @@ int main(int argc, char** argv)
 
       Master master = initializeMaster(pde, mesh, rank);    
       
+      //printf("%d %d %d %d\n", rank, pde.nsca, pde.nvec, pde.nten);
+
       if (rank==0) {
         writepde(pde, make_path(pde.datainpath, "app.bin"));
         writemaster(master, make_path(pde.datainpath, "master.bin"));    
@@ -80,14 +86,14 @@ int main(int argc, char** argv)
 
       writesol(mesh, dmd, pde, master, MPI_COMM_WORLD);
       
-      // int nfe = mesh.nfe;
-      // int ne = dmd.elempart.size();    
-      // 
-      // vector<double> xdg(master.npe*mesh.dim*ne, 0);
-      // select_columns(xdg.data(), mesh.xdg.data(), dmd.elempart_local.data(), master.npe*mesh.dim, mesh.ne);
-      // sendrecvdata(MPI_COMM_WORLD, dmd.nbsd, dmd.elemsendpts, dmd.elemrecvpts, 
-      //              dmd.localelemsend, dmd.localelemrecv, xdg, xdg, master.npe*mesh.dim);
-      // 
+      int nfe = mesh.nfe;
+      int ne = dmd.elempart.size();    
+
+      vector<double> xdg(master.npe*mesh.dim*ne, 0);
+      select_columns(xdg.data(), mesh.xdg.data(), dmd.elempart_local.data(), master.npe*mesh.dim, mesh.ne);
+      sendrecvdata(MPI_COMM_WORLD, dmd.nbsd, dmd.elemsendpts, dmd.elemrecvpts, 
+                   dmd.localelemsend, dmd.localelemrecv, xdg, xdg, master.npe*mesh.dim);
+
       // if (pde.udgfile != "") {
       //   readParFieldFromBinaryFile(pde.udgfile, mesh.epart_local, mesh.udg, mesh.udgdims);
       //   int nc = mesh.udgdims[1];
@@ -115,18 +121,18 @@ int main(int argc, char** argv)
 
       //------------------------------------------------------// 
       
-      // InputParams params1 = parseInputFile(argv[1], 0);                           
-      // PDE pde1 = initializePDE(params1, 0);         
-      // ParsedSpec spec1 = TextParser::parseFile(make_path(pde1.datapath, pde1.modelfile));        
-      // spec1.exasimpath = pde1.exasimpath;    
-      // Mesh mesh1 = initializeMesh(params1, pde1);        
-      // Master master1 = initializeMaster(pde1, mesh1);                                    
-      // vector<DMD> dmd1 = buildMeshDMD(pde1, mesh1, master1, spec1, rank); 
-      // 
-      // comparePDE(pde1, pde, true, 1e-10);
-      // compareMaster(master1, master, true, 1e-10);        
-      // compareDMD(dmd1[rank], dmd, true);
+      InputParams params1 = parseInputFile(argv[1], 0);                           
+      PDE pde1 = initializePDE(params1, 0);         
+      ParsedSpec spec1 = TextParser::parseFile(make_path(pde1.datapath, pde1.modelfile));        
+      spec1.exasimpath = pde1.exasimpath;    
+      Mesh mesh1 = initializeMesh(params1, pde1);        
+      Master master1 = initializeMaster(pde1, mesh1);                                    
+      vector<DMD> dmd1 = buildMeshDMD(pde1, mesh1, master1, spec1, rank); 
 
+      comparePDE(pde1, pde, true, 1e-10);
+      compareMaster(master1, master, true, 1e-10);        
+      compareDMD(dmd1[rank], dmd, true);
+      
       // std::vector<int> intelem;
       // intelem.reserve(mesh1.ne / size);
       // for (int e = 0; e < mesh1.ne; ++e) {
@@ -191,16 +197,16 @@ int main(int argc, char** argv)
       // 
       // if (compareVecInt(qart2, part2, "exteriorGlobal", true)) 
       //   cout<<"Rank: "<<rank<<", exteriorGlobal arrays are identical"<<endl;
-      // 
-      // if (compareVecInt(dmd.elempart, dmd1[rank].elempart, "elempart", true)) 
-      //   cout<<"Rank: "<<rank<<", elempart arrays are identical"<<endl;
-      // 
-      // if (compareVecInt(dmd.elempartpts, dmd1[rank].elempartpts, "elempartpts", true)) 
-      //   cout<<"Rank: "<<rank<<", elempartpts arrays are identical"<<endl;
-      // 
-      // if (compareVecInt(dmd.intepartpts, dmd1[rank].intepartpts, "intepartpts", true)) 
-      //   cout<<"Rank: "<<rank<<", intepartpts arrays are identical"<<endl;
-      // 
+      
+      if (compareVecInt(dmd.elempart, dmd1[rank].elempart, "elempart", true)) 
+        cout<<"Rank: "<<rank<<", elempart arrays are identical"<<endl;
+
+      if (compareVecInt(dmd.elempartpts, dmd1[rank].elempartpts, "elempartpts", true)) 
+        cout<<"Rank: "<<rank<<", elempartpts arrays are identical"<<endl;
+
+      if (compareVecInt(dmd.intepartpts, dmd1[rank].intepartpts, "intepartpts", true)) 
+        cout<<"Rank: "<<rank<<", intepartpts arrays are identical"<<endl;
+
       // // if (rank==0) {
       // //   cout<<dmd.intepartpts.size()<<endl;
       // //   print2iarray(dmd.intepartpts.data(), 1, dmd.intepartpts.size());
@@ -254,19 +260,25 @@ int main(int argc, char** argv)
       // // for (int i = 0; i < mesh.nfe*mesh.ne; i++) tm[i] = dmd1[rank].bf[i];
       // // if (compareVecInt(mesh.bf, tm, "bf", true)) 
       // //   cout<<"Rank: "<<rank<<", bf arrays are identical"<<endl;
-      // if (compareVecInt(mesh.bf, dmd1[rank].bf, "bf", true)) 
-      //   cout<<"Rank: "<<rank<<", bf arrays are identical"<<endl;
+      if (compareVecInt(mesh.bf, dmd1[rank].bf, "bf", true)) 
+        cout<<"Rank: "<<rank<<", bf arrays are identical"<<endl;
+
+      // if (rank==0) {
+      //   print2iarray(mesh.bf.data(), mesh.nfe, dmd.elempart.size());   
+      //   print2iarray(dmd1[rank].bf.data(), mesh.nfe, dmd.elempart.size());   
+      // }
+      
       // 
       // vector<int> ti(mesh.nve*ne); 
       // select_columns(ti.data(), mesh1.t.data(), dmd1[rank].elempart.data(), mesh.nve, ne); 
       // if (compareVecInt(mesh.tg, ti, "tglobal", true)) 
       //   cout<<"Rank: "<<rank<<", tglobal arrays are identical"<<endl;
-      // 
-      // vector<double> xdg1(master.npe*mesh.dim*ne, 0);
-      // select_columns(xdg1.data(), mesh1.xdg.data(), dmd1[rank].elempart.data(), master.npe*mesh.dim, ne);
-      // if (compareVecDouble(xdg, xdg1, "xdg", true, 1e-7)) 
-      //   cout<<"Rank: "<<rank<<", xdg arrays are identical"<<endl;
-      // 
+      
+      vector<double> xdg1(master.npe*mesh.dim*ne, 0);
+      select_columns(xdg1.data(), mesh1.xdg.data(), dmd1[rank].elempart.data(), master.npe*mesh.dim, ne);
+      if (compareVecDouble(xdg, xdg1, "xdg", true, 1e-7)) 
+        cout<<"Rank: "<<rank<<", xdg arrays are identical"<<endl;
+       
       // if (rank==0) {        
       //   //print2darray(xdg.data(), master.npe*mesh.dim, mesh.ne);        
       //   //print2darray(xdg1.data(), master.npe*mesh.dim, mesh.ne);        

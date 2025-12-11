@@ -2769,7 +2769,7 @@ DMD initializeDMD(Mesh& mesh, const Master& master, const PDE& pde, MPI_Comm com
         if (rank==0) std::cout << "Finished computing dgnodes.\n";
     }     
     else 
-      readParFieldFromBinaryFile(pde.xdgfile, mesh.epart_local, mesh.xdg, mesh.xdgdims);
+      readParFieldFromBinaryFile(pde.xdgfile, mesh.elemGlobalID, mesh.xdg, mesh.xdgdims);
           
     setperiodicfaces(mesh.t2t.data(), mesh.t.data(), mesh.localfaces.data(), mesh.p.data(),    
         mesh.elemGlobalID.data(), mesh.periodicBoundaries1.data(), mesh.periodicBoundaries2.data(),
@@ -2817,6 +2817,10 @@ void writemesh(Mesh& mesh, const DMD& dmd, const PDE& pde, const Master& master,
       for (int j = 0; j < mesh.nfe; j++)
         mesh.bf[j + mesh.nfe*i] = (mesh.t2t[j + mesh.nfe*k] < 0) ? -mesh.t2t[j + mesh.nfe*k] : 0;
     }            
+    // apply boundary conditions    
+    for (int i = 0; i < mesh.nfe*mesh.ne; ++i) 
+        if (mesh.bf[i] > 0) mesh.bf[i] = mesh.boundaryConditions[mesh.bf[i]-1];
+        
     sendrecvdata(comm, dmd.nbsd, dmd.elemsendpts, dmd.elemrecvpts, 
                  dmd.localelemsend, dmd.localelemrecv, mesh.bf, mesh.bf, nfe);
 
@@ -2918,15 +2922,15 @@ void writesol(Mesh& mesh, const DMD& dmd, const PDE& pde, const Master& master, 
     nsize[1] = master.npe*mesh.dim*ne;
 
     if (pde.udgfile != "") {
-      readParFieldFromBinaryFile(pde.udgfile, mesh.epart_local, mesh.udg, mesh.udgdims);      
+      readParFieldFromBinaryFile(pde.udgfile, mesh.elemGlobalID, mesh.udg, mesh.udgdims);      
       nsize[2] = master.npe*mesh.udgdims[1]*ne;
     }
     if (pde.vdgfile != "") {
-      readParFieldFromBinaryFile(pde.vdgfile, mesh.epart_local, mesh.vdg, mesh.vdgdims);   
+      readParFieldFromBinaryFile(pde.vdgfile, mesh.elemGlobalID, mesh.vdg, mesh.vdgdims);   
       nsize[3] = master.npe*mesh.vdgdims[1]*ne;
     }
     if (pde.wdgfile != "") {
-      readParFieldFromBinaryFile(pde.wdgfile, mesh.epart_local, mesh.wdg, mesh.wdgdims);   
+      readParFieldFromBinaryFile(pde.wdgfile, mesh.elemGlobalID, mesh.wdg, mesh.wdgdims);   
       nsize[4] = master.npe*mesh.wdgdims[1]*ne;
     }
 

@@ -1225,15 +1225,7 @@ Mesh initializeParMesh(const InputParams& params, const ParsedSpec& spec, PDE& p
         if (name == "w") pde.ncw = size;
         if (name == "uq") pde.nc = size;        
     }
-    
-    for (int i=0; i<spec.functions.size(); i++) {
-        if (spec.functions[i].name == "VisScalars") pde.nsca = spec.functions[i].outputsize;
-        if (spec.functions[i].name == "VisVectors") pde.nvec = spec.functions[i].outputsize/pde.nd;
-        if (spec.functions[i].name == "VisTensors") pde.nten = spec.functions[i].outputsize/(pde.nd*pde.nd);
-        if (spec.functions[i].name == "QoIboundary") pde.nsurf = spec.functions[i].outputsize;
-        if (spec.functions[i].name == "QoIvolume") pde.nvqoi = spec.functions[i].outputsize;
-    }
-    
+        
     mesh.dim = mesh.nd;
     pde.nve = mesh.nve; pde.np = mesh.np_global; pde.ne = mesh.ne_global; pde.elemtype = mesh.elemtype;                
     pde.nd = mesh.dim; pde.ncx = mesh.dim;
@@ -1251,6 +1243,14 @@ Mesh initializeParMesh(const InputParams& params, const ParsedSpec& spec, PDE& p
     pde.ncq = pde.nc - pde.ncu;
     pde.nch  = pde.ncu;        
 
+    for (int i=0; i<spec.functions.size(); i++) {
+        if (spec.functions[i].name == "VisScalars") pde.nsca = spec.functions[i].outputsize;
+        if (spec.functions[i].name == "VisVectors") pde.nvec = spec.functions[i].outputsize/pde.nd;
+        if (spec.functions[i].name == "VisTensors") pde.nten = spec.functions[i].outputsize/(pde.nd*pde.nd);
+        if (spec.functions[i].name == "QoIboundary") pde.nsurf = spec.functions[i].outputsize;
+        if (spec.functions[i].name == "QoIvolume") pde.nvqoi = spec.functions[i].outputsize;
+    }
+  
     return mesh;
 }
 

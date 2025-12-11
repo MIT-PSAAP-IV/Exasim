@@ -1130,8 +1130,8 @@ void readParMeshFromFile(const std::string& filename, Mesh& mesh, MPI_Comm comm)
     mesh.nfe = mesh.nd + (mesh.nd - 1) * mesh.elemtype + 1;                    
 }
 
-// Read a *partitioned* field: only the elements listed in epart_local
-// are read from 'filename' into xdg, in the same order as epart_local.
+// Read a *partitioned* field: only the elements listed in elemGlobalID
+// are read from 'filename' into xdg, in the same order as elemGlobalID.
 //
 // Assumptions:
 //   - File format is identical to readFieldFromBinaryFile:
@@ -1144,7 +1144,7 @@ void readParMeshFromFile(const std::string& filename, Mesh& mesh, MPI_Comm comm)
 //     i-th local element on this rank.
 //
 void readParFieldFromBinaryFile(const std::string& filename,
-                                const std::vector<int>& epart_local,
+                                const std::vector<int>& elemGlobalID,
                                 std::vector<double>& xdg,
                                 std::vector<int>& ndims)
 {
@@ -1176,7 +1176,7 @@ void readParFieldFromBinaryFile(const std::string& filename,
     const std::size_t elemBlockSize = npe_sz * nd_sz;
 
     // Local number of elements on this rank
-    const std::size_t ne_local = epart_local.size();
+    const std::size_t ne_local = elemGlobalID.size();
 
     // Output local dimensions: [npe, nd, ne_local]
     ndims.resize(3);
@@ -1192,10 +1192,10 @@ void readParFieldFromBinaryFile(const std::string& filename,
 
     // Read each requested element block-by-block
     for (std::size_t i = 0; i < ne_local; ++i) {
-        const int eGlob = epart_local[i];
+        const int eGlob = elemGlobalID[i];
 
         if (eGlob < 0 || static_cast<std::size_t>(eGlob) >= ne_sz) {
-            error("readParFieldFromBinaryFile: global element index out of range in epart_local");
+            error("readParFieldFromBinaryFile: global element index out of range in elemGlobalID");
         }
 
         // Byte offset of element eGlob from the start of the data block

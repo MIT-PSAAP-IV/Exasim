@@ -426,6 +426,8 @@ vector<DMD> buildMeshDMD(PDE& pde, Mesh& mesh, const Master& master, const Parse
     }
 #endif          
     for (int i=0; i<mesh.ne; i++) mesh.elem2cpu[i] -= 1;   
+    
+    // if (rank==0) print2iarray(mesh.elem2cpu.data(), 1, mesh.elem2cpu.size());
 
     // buildMesh(mesh, pde, master);
     // vector<int> node2cpu;

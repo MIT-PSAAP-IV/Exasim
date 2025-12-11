@@ -522,6 +522,9 @@ PDE initializePDE(InputParams& params, int mpirank=0)
         pde.platform = params.stringParams["platform"];
     }
 
+    if (params.intParams.count("gendatain")) {
+        pde.gendatain = params.intParams["gendatain"];
+    }
     if (params.intParams.count("gencode")) {
         pde.gencode = params.intParams["gencode"];
     }

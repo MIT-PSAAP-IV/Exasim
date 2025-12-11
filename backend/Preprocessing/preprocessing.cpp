@@ -47,6 +47,11 @@ void CPreprocessing::SerialPreprocessing()
     mesh = initializeMesh(params, pde);        
     master = initializeMaster(pde, mesh);                                    
     writeBinaryFiles(pde, mesh, master, spec);
+
+    if (mesh.nbndexpr > 0) freeCharArray(mesh.boundaryExprs, mesh.nbndexpr);
+    if (mesh.nbndexpr > 0) freeCharArray(mesh.curvedBoundaryExprs, mesh.nbndexpr);
+    if (mesh.nprdexpr > 0) freeCharArray(mesh.periodicExprs1, mesh.nprdexpr*mesh.nprdcom);
+    if (mesh.nprdexpr > 0) freeCharArray(mesh.periodicExprs2, mesh.nprdexpr*mesh.nprdcom);                      
 }
 
 #if defined(HAVE_PARMETIS) && defined(HAVE_MPI)
@@ -69,16 +74,17 @@ void CPreprocessing::ParallelPreprocessing(MPI_Comm comm)
     writemesh(mesh, dmd, pde, master, comm);
 
     writesol(mesh, dmd, pde, master, comm);    
+
+    if (mesh.nbndexpr > 0) freeCharArray(mesh.boundaryExprs, mesh.nbndexpr);
+    if (mesh.nbndexpr > 0) freeCharArray(mesh.curvedBoundaryExprs, mesh.nbndexpr);
+    if (mesh.nprdexpr > 0) freeCharArray(mesh.periodicExprs1, mesh.nprdexpr*mesh.nprdcom);
+    if (mesh.nprdexpr > 0) freeCharArray(mesh.periodicExprs2, mesh.nprdexpr*mesh.nprdcom);                      
 }
 #endif
 
 // destructor
 CPreprocessing::~CPreprocessing()
 {            
-    freeCharArray(mesh.boundaryExprs, mesh.nbndexpr);
-    freeCharArray(mesh.curvedBoundaryExprs, mesh.nbndexpr);
-    freeCharArray(mesh.periodicExprs1, mesh.nprdexpr*mesh.nprdcom);
-    freeCharArray(mesh.periodicExprs2, mesh.nprdexpr*mesh.nprdcom);                    
     if (mpirank==0) printf("CPreprocessing destructor is called successfully.\n");
 }
 
