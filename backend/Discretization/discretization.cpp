@@ -878,4 +878,87 @@ void CDiscretization<Model>::DG2CG3(dstype* ucg, dstype* udg, dstype *utm, Int n
     }
 }
 
+template <typename Model>
+Int CDiscretization<Model>::getFacesOnInterface(Int **faces, Int boundarycondition)
+{
+    int nintfaces = getinterfacefaces(mesh.bf, common.eblks, common.nbe, common.nfe, boundarycondition);
+    int *intfaces = nullptr; 
+    TemplateMalloc(&intfaces, nintfaces, 0);
+
+    getinterfacefaces(intfaces, mesh.bf, common.eblks, common.nbe, common.nfe, boundarycondition, common.nintfaces);
+
+    TemplateMalloc(faces, common.nintfaces, common.backend);
+    TemplateCopytoDevice(*faces, intfaces, common.nintfaces, common.backend);                           
+
+    CPUFREE(intfaces);
+
+    return nintfaces;
+}
+
+template <typename Model>
+void CDiscretization<Model>::getDGNodesOnInterface(dstype* xdgint, Int* faces, Int nfaces)
+{
+    // npf * nfaces * ncx
+    GetBoudaryNodes(xdgint, sol.xdg, faces, mesh.perm, common.nfe, 
+                  common.npf, common.npe, common.ncx, common.ncx, nfaces);
+}
+
+template <typename Model>
+void CDiscretization<Model>::getUDGOnInterface(dstype* udgint, Int* faces, Int nfaces)
+{
+    GetBoudaryNodes(udgint, sol.udg, faces, mesh.perm, common.nfe, 
+                  common.npf, common.npe, common.nc, common.nc, nfaces);
+}
+
+template <typename Model>
+void CDiscretization<Model>::getWDGOnInterface(dstype* wdgint, Int* faces, Int nfaces)
+{
+    GetBoudaryNodes(wdgint, sol.wdg, faces, mesh.perm, common.nfe, 
+                  common.npf, common.npe, common.ncw, common.ncw, nfaces);
+}
+
+template <typename Model>
+void CDiscretization<Model>::getODGOnInterface(dstype* odgint, Int* faces, Int nfaces)
+{
+    GetBoudaryNodes(odgint, sol.odg, faces, mesh.perm, common.nfe, 
+                  common.npf, common.npe, common.nco, common.nco, nfaces);
+}
+
+template <typename Model>
+void CDiscretization<Model>::getUHATOnInterface(dstype* uhint, Int* faces, Int nfaces)
+{
+    GetBoudaryNodes(uhint, sol.uh, faces, mesh.elemcon, common.nfe, 
+                  common.npf, common.ncu, nfaces);
+}
+
+template <typename Model>
+void CDiscretization<Model>::getNormalVectorOnInterface(dstype* nlint, dstype* xdgint, Int* faces, Int nfaces)
+{  
+    Int nd = common.nd; 
+    Int npf = common.npf; 
+    Int nn = npf*nfaces; 
+    Int ncx = common.ncx;    
+    Int n2 = 0;    // jac
+    Int n3 = nn;   // Jg
+  
+    if (nd==1) {
+        FaceGeom1D(&tmp.tempn[n2], nlint, xdgint, nn);    
+    }
+    else if (nd==2){
+        Node2Gauss(common.cublasHandle, &tmp.tempn[n3], xdgint, &master.shapfnt[npf*npf], npf, npf, nfaces*nd, common.backend);                
+        FaceGeom2D(&tmp.tempn[n2], nlint, &tmp.tempn[n3], nn);
+    }
+    else if (nd==3) {
+        Node2Gauss(common.cublasHandle, &tmp.tempn[n3], xdgint, &master.shapfnt[npf*npf], npf, npf, nfaces*nd, common.backend);                     
+        Node2Gauss(common.cublasHandle, &tmp.tempn[n3+nn*nd], xdgint, &master.shapfnt[2*npf*npf], npf, npf, nfaces*nd, common.backend);                
+        FaceGeom3D(&tmp.tempn[n2], nlint, &tmp.tempn[n3], nn);
+    }
+}
+
+template <typename Model>
+void CDiscretization<Model>::getFieldsAtGaussPointsOnInterface(dstype* xdg, dstype* xdgint, Int* faces, Int nfaces, Int ncx)
+{
+    Node2Gauss(common.cublasHandle, xdg, xdgint, master.shapfgt, common.ngf, common.npf, nfaces*ncx, common.backend);    
+}
+
 #endif        

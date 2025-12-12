@@ -1020,8 +1020,8 @@ Master initializeMaster(PDE& pde, Mesh& mesh, int rank=0)
 {    
     Master master;
     
-    std::string fn1 = make_path(pde.exasimpath, "/text2code/text2code/masternodes.bin");
-    std::string fn2 = make_path(pde.exasimpath, "/text2code/text2code/gaussnodes.bin");
+    std::string fn1 = make_path(pde.exasimpath, "/backend/Preprocessing/masternodes.bin");
+    std::string fn2 = make_path(pde.exasimpath, "/backend/Preprocessing/gaussnodes.bin");
     
     masternodes(master.xpe, master.telem, master.xpf, master.tface, master.perm, pde.porder, mesh.dim, mesh.elemtype, fn1);     
     gaussnodes(master.gpe, master.gwe, pde.pgauss, mesh.dim, mesh.elemtype, fn2); 
