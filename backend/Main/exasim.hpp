@@ -134,7 +134,8 @@ using namespace std;
 #include "../Solution/solution.cpp"             // solution class
 
 #ifdef HAVE_TEXT2CODE
-#include "../../text2code/text2code/readpdeapp.cpp"
+//#include "../../text2code/text2code/readpdeapp.cpp"
+#include "../Preprocessing/preprocessing.cpp" // preprocessing class
 #endif
 
 #include "../Model/modeltemplate.hpp"
@@ -292,6 +293,20 @@ int premain(int argc, char** argv)
     filein[0] = pde.datainpath + "/";
     fileout[0] = make_path(pde.dataoutpath, "out");    
     exasimpath = pde.exasimpath;  
+
+    {
+      if (pde.gendatain == 0) {
+        CPreprocessing preproc(argv[1], mpirank, mpiprocs);
+        if (mpiprocs == 1) 
+          preproc.SerialPreprocessing();
+        else {
+#if defined(HAVE_PARMETIS) && defined(HAVE_MPI)          
+          preproc.ParallelPreprocessing(MPI_COMM_WORLD);  
+#endif          
+        }
+      }
+    }
+    
 #else      
     if (argc < 3) {
       printf("Usage: ./cppfile nummodels InputFile(s) OutputFile(s) [restart]\n");
