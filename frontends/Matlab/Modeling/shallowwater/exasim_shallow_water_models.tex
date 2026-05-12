@@ -1,0 +1,700 @@
+\documentclass[11pt]{article}
+
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{bm}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\geometry{margin=1in}
+
+\title{Nonlinear Shallow Water Equations and Boundary Conditions for Tide--Storm--Surge Modeling}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This note describes the nonlinear shallow water equations (SWE) for modeling tide, storm surge in coastal regions. We describe the governing equations, physical source terms, and their interpretation. A positivity-preserving transformation of the water depth is introduced to improve numerical robustness, particularly for implicit solvers and discontinuous Galerkin discretizations. The transformed system is derived and analyzed in a form suitable for high-order numerical methods. The note summarizes boundary conditions commonly used in tide--storm--surge modeling such as open-ocean boundaries, land boundaries, riverine boundaries, internal hydraulic structures, and wetting--drying interfaces. Both physical interpretation and mathematical formulations are presented, with emphasis on practical choices for coastal and inundation simulations.
+\end{abstract}
+
+\section{Introduction}
+
+Tide--storm--surge modeling is commonly based on the depth-averaged nonlinear shallow water equations (SWE), possibly augmented by atmospheric forcing, bottom friction, Coriolis effects, horizontal viscosity, and wave radiation stresses. The predictive accuracy of such models depends not only on the governing equations and numerical discretization, but also on the proper specification of boundary conditions.
+
+
+\section{Governing Variables}
+
+We define the primary variables as follows:
+\begin{itemize}
+    \item $\eta(x,y,t)$: free surface elevation,
+    \item $h(x,y)$: bathymetric depth (positive downward),
+    \item $H = h + \eta$: total water depth,
+    \item $\bm{u} = (u,v)$: depth-averaged velocity,
+    \item $\bm{q} = H \bm{u}$: volume flux,
+    \item $\rho_w$: water density,
+    \item $g$: gravitational acceleration.
+\end{itemize}
+
+%\section{Conservative Formulation}
+
+%\subsection{Mass Conservation}
+%
+%\begin{equation}
+%\frac{\partial H}{\partial t} + \nabla \cdot (H \bm{u}) = 0.
+%\end{equation}
+%
+%\subsection{Momentum Conservation}
+%
+%\begin{equation}
+%\frac{\partial (H\bm{u})}{\partial t}
+%+
+%\nabla \cdot
+%\left(
+%H\bm{u}\otimes\bm{u}
+%+
+%\frac{1}{2} g H^2 \bm{I}
+%\right)
+%=
+%\bm{S}.
+%\end{equation}
+%\section{Physical Source Terms}
+
+%\subsection{Bathymetric Forcing}
+%\[
+%- g H \nabla h
+%\]
+%
+%\subsection{Atmospheric Pressure}
+%\[
+%- \frac{H}{\rho_w} \nabla p_{atm}
+%\]
+%
+%\subsection{Wind Stress}
+%\[
+%\bm{\tau}_w = \rho_{air} C_D |\bm{U}_{10}| \bm{U}_{10}
+%\]
+%
+%\subsection{Coriolis Force}
+%\[
+%f \hat{\bm{k}} \times (H\bm{u}), \quad f = 2 \Omega \sin\phi
+%\]
+%
+%\subsection{Bottom Friction}
+%\[
+%- C_f |\bm{u}| (H\bm{u})
+%\]
+%
+%\subsection{Viscous Effects}
+%\[
+%\nabla \cdot (\nu H \nabla \bm{u})
+%\]
+
+%\section{Final Governing System}
+
+\begin{equation}
+\boxed{
+\begin{aligned}
+\frac{\partial H}{\partial t} + \nabla \cdot (H\bm{u}) &= 0, \\
+\frac{\partial (H\bm{u})}{\partial t}
++
+\nabla \cdot
+\left(
+H\bm{u}\otimes\bm{u}
++
+\frac{1}{2} g H^2 \bm{I}
+\right)
+&=
+\bm{S}.
+\end{aligned}
+}
+\end{equation}
+where \(\bm{S}\) includes bathymetric forcing, atmospheric pressure gradients, wind stress, Coriolis effects, bottom friction, viscous terms, and possibly other source terms as
+\begin{equation}
+\bm{S}
+=
+- g H \nabla h
+- \frac{H}{\rho_w} \nabla p_{atm}
++ \frac{\bm{\tau}_w}{\rho_w}
++ f \hat{\bm{k}} \times (H\bm{u})
+- C_f |\bm{u}| (H\bm{u})
++ \nabla \cdot (\nu  \nabla H \bm{u}).
+\end{equation}
+
+
+\section{Positivity-Preserving Transformation}
+
+To ensure $H \ge 0$ during numerical simulations, we introduce the transformation:
+\[
+H(\phi) = H_{\min} + e^{\phi}, \quad H_{\min} \ge 0.
+\]
+This guarantees positivity for all $\phi \in \mathbb{R}$.
+
+
+\[
+e^{\phi} \partial_t \phi + \nabla \cdot \mathbf{q} = 0,
+\quad
+\Rightarrow
+\quad
+\partial_t \phi = - e^{-\phi} \nabla \cdot \mathbf{q}.
+\]
+Using product rule:
+\[
+\partial_t \phi
++
+\nabla \cdot (e^{-\phi} \mathbf{q})
++
+e^{-\phi} \mathbf{q} \cdot \nabla \phi
+= 0.
+\]
+
+\[
+\boxed{
+\begin{aligned}
+\partial_t \phi
++
+\nabla \cdot (e^{-\phi} \mathbf{q})
++
+e^{-\phi} \mathbf{q} \cdot \nabla \phi
+& = 0, \\
+\partial_t \mathbf{q}
++
+\nabla \cdot
+\left(
+\frac{\mathbf{q} \otimes \mathbf{q}}{H_{\min} + e^{\phi}}
++
+\frac{1}{2} g (H_{\min} + e^{\phi})^2 \mathbf{I}
+\right)
+&= \mathbf{S} . 
+\end{aligned}
+}
+\]
+where
+\begin{equation}
+\bm{S}
+=
+- g (H_{\min} + e^{\phi}) \nabla h
+- \frac{(H_{\min} + e^{\phi})}{\rho_w} \nabla p_{atm}
++ \frac{\bm{\tau}_w}{\rho_w}
++ f \hat{\bm{k}} \times (\bm{q})
+- C_f |\frac{\mathbf{q} }{H_{\min} + e^{\phi}}| (\bm{q})
++ \nabla \cdot (\nu  \nabla \bm{q}).
+\end{equation}
+%\section{Implications for Numerical Methods}
+%
+%\begin{itemize}
+%\item The transformation guarantees $H \ge H_{\min}$, improving robustness for Newton iterations.
+%\item Required derivatives:
+%\[
+%\frac{dH}{d\phi} = e^{\phi}, \quad
+%\frac{d}{d\phi}\left(\frac{1}{H}\right) = -\frac{e^{\phi}}{H^2}, \quad
+%\frac{d}{d\phi}(H^2) = 2H e^{\phi}.
+%\]
+%\item The formulation is well-suited for HDG discretizations and implicit solvers.
+%\item Dry states can be handled via small $H_{\min}$ and postprocessing strategies.
+%\end{itemize}
+%
+%\section{Conclusion}
+The positivity-preserving transformation enhances numerical stability while maintaining consistency with the underlying physics. This formulation is particularly advantageous for high-order discretizations and large-scale GPU-accelerated simulations.
+
+The positivity-preserving transformation enhances numerical stability while maintaining consistency with the underlying physics. This formulation is particularly advantageous for high-order discretizations and large-scale GPU-accelerated simulations. We summarize its main advantages and benefits below.
+
+\subsection{Guaranteed Positivity and Physical Admissibility}
+
+The transformation
+\[
+H(\phi) = H_{\min} + e^{\phi}
+\]
+ensures
+\[
+H \ge H_{\min} \ge 0
+\quad \text{for all } \phi \in \mathbb{R}.
+\]
+
+This property eliminates the possibility of negative water depth, which is unphysical and can cause catastrophic failure in standard formulations. In particular:
+\begin{itemize}[leftmargin=2em]
+    \item No additional limiters or clipping are required to enforce $H \ge 0$.
+    \item The solution remains within the physically admissible set throughout the simulation.
+    \item Numerical breakdown due to negative depth is completely avoided.
+\end{itemize}
+
+\subsection{Robust Treatment of Wetting and Drying}
+
+Wetting--drying transitions are one of the main challenges in coastal and inundation modeling. The transformation provides a natural and robust framework for handling vanishing water depth:
+\begin{itemize}[leftmargin=2em]
+    \item As $\phi \to -\infty$, $H \to H_{\min}$ smoothly.
+    \item Dry states are approached continuously without introducing discontinuities in the governing variables.
+    \item The shoreline emerges naturally from the solution without requiring explicit front tracking.
+\end{itemize}
+
+This avoids many difficulties associated with traditional wetting--drying algorithms, such as:
+\begin{itemize}[leftmargin=2em]
+    \item ad hoc thresholding,
+    \item switching between wet and dry states,
+    \item instability near thin water layers.
+\end{itemize}
+
+\subsection{Improved Nonlinear Stability}
+
+The exponential mapping regularizes the solution space and improves the behavior of nonlinear solvers:
+\begin{itemize}[leftmargin=2em]
+    \item The transformed system avoids singularities associated with $H \to 0$ in terms such as $\frac{1}{H}$.
+    \item Nonlinear residuals remain well-defined even in nearly dry regions.
+    \item The mapping introduces a natural barrier that prevents iterates from leaving the admissible region.
+\end{itemize}
+
+This is particularly important for implicit time integration and steady-state computations.
+
+\subsection{Advantages for Newton-Type Solvers}
+
+For Newton and Newton--Krylov methods, the transformation provides significant benefits:
+\begin{itemize}[leftmargin=2em]
+    \item The Jacobian is well-defined for all $\phi$.
+    \item The derivatives are smooth and simple:
+    \[
+    \frac{dH}{d\phi} = e^{\phi}, \quad
+    \frac{d}{d\phi}\left(\frac{1}{H}\right) = -\frac{e^{\phi}}{H^2}, \quad
+    \frac{d}{d\phi}(H^2) = 2H e^{\phi}.
+    \]
+    \item Line search or trust-region methods are more effective because feasibility ($H \ge 0$) is automatically preserved.
+\end{itemize}
+
+As a result, the nonlinear solver is more robust and less sensitive to initial guesses.
+
+\subsection{Consistency with Conservation Laws}
+
+The transformation preserves the conservative structure of the shallow water equations:
+\begin{itemize}[leftmargin=2em]
+    \item The mass conservation equation remains in conservative divergence form.
+    \item Momentum conservation is maintained with modified but consistent fluxes.
+    \item Source terms remain physically interpretable.
+\end{itemize}
+
+Thus, the transformation does not alter the underlying physics, but only reparameterizes the state variables.
+
+\subsection{Compatibility with High-Order Methods}
+
+The smoothness of the exponential mapping makes it particularly suitable for high-order discretizations such as DG and HDG:
+\begin{itemize}[leftmargin=2em]
+    \item No need for nonlinear limiters to enforce positivity.
+    \item High-order accuracy is preserved even near wet--dry interfaces.
+    \item The formulation avoids non-smooth switching logic that can degrade convergence.
+\end{itemize}
+
+This is especially important for:
+\begin{itemize}[leftmargin=2em]
+    \item high-order polynomial approximations,
+    \item hp-adaptive methods,
+    \item spectral accuracy in smooth regions.
+\end{itemize}
+
+\subsection{Benefits for GPU and Parallel Computing}
+
+The transformation is also advantageous for modern high-performance computing architectures:
+\begin{itemize}[leftmargin=2em]
+    \item Eliminates conditional branching associated with wet/dry switching.
+    \item Enables uniform kernel execution across elements.
+    \item Improves vectorization and GPU efficiency.
+    \item Reduces divergence in parallel threads.
+\end{itemize}
+
+These properties are critical for scalable implementations on GPUs and distributed systems.
+
+\subsection{Smooth Coupling with Boundary Conditions}
+
+The positivity-preserving formulation facilitates consistent treatment of boundary conditions:
+\begin{itemize}[leftmargin=2em]
+    \item Open, wall, and mixed boundary conditions can be expressed smoothly in terms of $\phi$.
+    \item Wet/dry dependent boundary treatments can be formulated using $H(\phi)$ without discontinuities.
+    \item Blended boundary conditions can be implemented as smooth functions of $\phi$.
+\end{itemize}
+
+\subsection{Summary}
+
+The positivity-preserving transformation provides a mathematically consistent and numerically robust framework for solving the shallow water equations. Its main advantages include:
+\begin{itemize}[leftmargin=2em]
+    \item guaranteed positivity of water depth,
+    \item robust handling of wetting--drying,
+    \item improved nonlinear solver performance,
+    \item compatibility with high-order discretizations,
+    \item enhanced efficiency on modern computing architectures.
+\end{itemize}
+
+These properties make the transformation particularly well suited for large-scale, high-fidelity tide--storm--surge simulations involving complex coastal geometries and inundation processes.
+
+\section{Boundary Conditions}
+
+Boundary conditions in tide--storm--surge modeling are diverse because coastal systems involve multiple physical processes and multiple types of interfaces. Open-ocean boundaries must allow tidal forcing and outgoing wave radiation. Land boundaries may represent impermeable coastlines, rough walls, or engineered structures such as levees and gates. Riverine boundaries may require discharge or stage conditions. Wetting--drying interfaces are generally treated as moving internal fronts rather than fixed external boundaries. In complex domains, mixed and state-dependent boundary conditions are often necessary. A careful and physically consistent choice of boundary conditions is therefore essential for accurate coastal, estuarine, and inundation modeling. In tide--storm--surge modeling, boundary conditions are usually grouped into the following categories:
+\begin{enumerate}[leftmargin=2em]
+    \item Open-ocean boundaries
+    \item Land boundaries
+    \item River and discharge boundaries
+    \item Hydraulic structure boundaries
+    \item Wetting--drying interfaces
+    \item Mixed and state-dependent boundaries
+    \item Pump and drainage boundaries
+    \item Atmospheric and Wave-Coupled Boundary Effects
+\end{enumerate}
+
+
+\section{Open-Ocean Boundary Conditions}
+
+Open-ocean boundaries represent artificial truncations of the sea domain through which tidal waves, storm surge signals, and long gravity waves may enter or leave the computational domain.
+
+\subsection{Prescribed Free-Surface Elevation}
+
+The simplest open boundary condition prescribes the free-surface elevation:
+\begin{equation}
+\eta = \eta_{\mathrm{ext}}(x,y,t)
+\qquad \text{on } \Gamma_{\mathrm{open}}.
+\end{equation}
+Equivalently,
+\begin{equation}
+H = h + \eta_{\mathrm{ext}}.
+\end{equation}
+
+This condition is widely used when tidal harmonics or externally generated surge signals are available. A common representation is
+\begin{equation}
+\eta_{\mathrm{ext}}(t)
+=
+\sum_{k=1}^{N_c} A_k \cos(\omega_k t + \phi_k),
+\end{equation}
+where \(A_k\), \(\omega_k\), and \(\phi_k\) are the amplitudes, frequencies, and phases of tidal constituents.
+
+This approach is simple and effective, but it may generate spurious reflections if used without proper radiation treatment.
+
+\subsection{Prescribed Normal Discharge or Velocity}
+
+Another possibility is to prescribe the normal discharge or normal velocity:
+\begin{equation}
+(H\bm{u})\cdot\bm{n} = q_n^{\mathrm{ext}}(x,y,t)
+\qquad \text{on } \Gamma_{\mathrm{open}},
+\end{equation}
+or
+\begin{equation}
+\bm{u}\cdot\bm{n} = u_n^{\mathrm{ext}}(x,y,t).
+\end{equation}
+
+This type of condition is appropriate when inflow or outflow through the boundary is known from external data or coupled models.
+
+\subsection{Characteristic Boundary Conditions}
+
+Because the shallow water equations are hyperbolic, physically consistent open boundaries should distinguish between incoming and outgoing waves. In the normal direction, the characteristic variables are approximately
+\begin{equation}
+R^{\pm} = u_n \pm \frac{\eta}{\sqrt{gH}},
+\qquad
+u_n = \bm{u}\cdot\bm{n}.
+\end{equation}
+
+At an open boundary, one typically prescribes only the incoming characteristic and allows the outgoing characteristic to be determined by the interior solution. Symbolically,
+\begin{equation}
+R^- = R^-_{\mathrm{ext}}, \qquad R^+ = R^+_{\mathrm{int}}.
+\end{equation}
+
+This is the most physically appropriate framework for radiation-type open boundaries.
+
+\subsection{Flather Boundary Condition}
+
+A widely used radiation condition is the Flather condition:
+\begin{equation}
+u_n = u_{n,\mathrm{ext}} + \frac{\eta - \eta_{\mathrm{ext}}}{\sqrt{gH}}.
+\end{equation}
+
+Here \(\eta_{\mathrm{ext}}\) and \(u_{n,\mathrm{ext}}\) come from external tidal forcing, large-scale ocean models, or climatological data. The Flather condition allows outgoing waves to leave the domain while still imposing large-scale incoming tidal information.
+
+\subsection{Sommerfeld or Radiation Boundary Condition}
+
+A simpler radiative condition may be written in the form
+\begin{equation}
+\frac{\partial \eta}{\partial t} + c \frac{\partial \eta}{\partial n} = 0,
+\qquad c = \sqrt{gH},
+\end{equation}
+which approximates one-way wave propagation normal to the boundary. Such conditions are useful for reducing artificial reflections, but they are generally less accurate than characteristic or Flather-type formulations when strong tidal forcing must also be imposed.
+
+\subsection{Combined Tide and Surge Boundary Condition}
+
+In many practical models, the open boundary signal is decomposed into astronomical tide and meteorological surge:
+\begin{equation}
+\eta_{\mathrm{ext}} = \eta_{\mathrm{tide}} + \eta_{\mathrm{surge}}.
+\end{equation}
+The boundary condition may then prescribe total elevation, or use \(\eta_{\mathrm{ext}}\) and \(u_{n,\mathrm{ext}}\) in a characteristic formulation.
+
+\section{Land Boundary Conditions}
+
+Land boundaries represent coastlines, shorelines, seawalls, cliffs, harbor walls, levees, and other impermeable or partially permeable structures.
+
+\subsection{Impermeable Slip Wall}
+
+The most common land boundary condition is the no-normal-flow condition
+\begin{equation}
+\bm{u}\cdot\bm{n} = 0
+\qquad \text{on } \Gamma_{\mathrm{land}}.
+\end{equation}
+Equivalently,
+\begin{equation}
+(H\bm{u})\cdot\bm{n} = 0.
+\end{equation}
+
+This condition models an impermeable boundary while allowing tangential motion. It is the standard choice for rigid coastlines in depth-averaged models.
+
+\subsection{No-Slip Wall}
+
+A more restrictive condition is
+\begin{equation}
+\bm{u} = \bm{0}
+\qquad \text{on } \Gamma_{\mathrm{land}}.
+\end{equation}
+
+This imposes both zero normal velocity and zero tangential velocity. It is rarely used in depth-averaged storm-surge models because bottom friction usually dominates over lateral wall shear, but it may be useful in special applications or highly idealized studies.
+
+\subsection{Partial-Slip or Frictional Land Boundary}
+
+A more general land boundary condition can combine impermeability with tangential drag:
+\begin{equation}
+\bm{u}\cdot\bm{n} = 0,
+\end{equation}
+together with a tangential stress law such as
+\begin{equation}
+\tau_t = - C_t |\bm{u}_t| \bm{u}_t,
+\end{equation}
+where \(\bm{u}_t\) is the tangential component of velocity and \(C_t\) is an empirical drag coefficient.
+
+This type of condition can be used to represent enhanced resistance along urban or rough coastal boundaries.
+
+\section{River and Discharge Boundary Conditions}
+
+Riverine boundaries are important when coastal surge interacts with river discharge, estuarine inflow, or controlled outflow.
+
+\subsection{Prescribed Inflow Discharge}
+
+One may prescribe a total river discharge \(Q(t)\) distributed along a river boundary \(\Gamma_{\mathrm{river}}\):
+\begin{equation}
+\int_{\Gamma_{\mathrm{river}}} (H\bm{u})\cdot\bm{n}\, ds = -Q(t),
+\end{equation}
+where the negative sign indicates inflow into the domain if \(\bm{n}\) is the outward normal.
+
+In simpler settings, a pointwise discharge condition may be imposed:
+\begin{equation}
+(H\bm{u})\cdot\bm{n} = q_n^{\mathrm{river}}(x,y,t).
+\end{equation}
+
+\subsection{Prescribed Stage Boundary}
+
+In some river models, the water surface elevation is prescribed instead:
+\begin{equation}
+\eta = \eta_{\mathrm{river}}(t)
+\qquad \text{on } \Gamma_{\mathrm{river}}.
+\end{equation}
+
+\subsection{Rating-Curve Boundary Condition}
+
+A stage--discharge relation may also be used:
+\begin{equation}
+Q = Q(\eta),
+\end{equation}
+or equivalently
+\begin{equation}
+(H\bm{u})\cdot\bm{n} = f(\eta),
+\end{equation}
+which is useful for hydraulic control at river mouths or engineered systems.
+
+\section{Hydraulic Structure Boundary Conditions}
+
+Storm-surge models often include levees, seawalls, culverts, gates, barriers, and weirs. These are not standard walls or open boundaries, but internal or boundary interfaces governed by hydraulic laws.
+
+\subsection{Weir or Overtopping Boundary Condition}
+
+A classical overtopping law is
+\begin{equation}
+q_n = C_w \max\!\left(0,\eta_1-\eta_2-z_c\right)^{3/2},
+\end{equation}
+where \(z_c\) is the crest elevation, \(C_w\) is a discharge coefficient, and \(\eta_1-\eta_2\) is the water-level difference across the structure.
+
+This condition allows flow only when the upstream water level exceeds the crest elevation.
+
+\subsection{Orifice or Culvert Boundary Condition}
+
+Flow through a submerged opening may be modeled by an orifice law such as
+\begin{equation}
+q_n = C_o A \sqrt{2g\,|\Delta \eta|}\,\mathrm{sign}(\Delta \eta),
+\end{equation}
+where \(A\) is the opening area and \(\Delta \eta\) is the head difference.
+
+\subsection{Gate-Control Boundary Condition}
+
+For barriers or gates, the discharge may depend on gate opening and head difference:
+\begin{equation}
+q_n = q_n(\Delta \eta, \text{gate opening}, t).
+\end{equation}
+
+These conditions are usually implemented as nonlinear flux laws rather than classical Dirichlet or Neumann conditions.
+
+\section{Wetting--Drying and Moving Shoreline}
+
+The wetting--drying interface is not a conventional external boundary condition. Instead, it is a moving internal transition between wet cells and dry cells.
+
+\subsection{Wetting--Drying Concept}
+
+Let
+\[
+H = h + \eta.
+\]
+A point is considered wet if
+\begin{equation}
+H > H_{\mathrm{tol}},
+\end{equation}
+and dry if
+\begin{equation}
+H \le H_{\mathrm{tol}},
+\end{equation}
+where \(H_{\mathrm{tol}}\) is a small threshold.
+
+\subsection{Numerical Treatment}
+
+In inundation modeling, the shoreline is not imposed as a fixed boundary. Instead, one includes potentially dry land within the computational domain and uses a numerical wetting--drying treatment that ensures
+\begin{equation}
+H \ge 0.
+\end{equation}
+
+Common strategies include:
+\begin{itemize}[leftmargin=2em]
+    \item positivity-preserving reconstructions,
+    \item flux limiting near dry cells,
+    \item special Riemann solvers for wet--dry fronts,
+    \item transformed variables such as
+    \[
+    H(\phi)=H_{\min}+e^\phi.
+    \]
+\end{itemize}
+
+\section{Mixed and State-Dependent Boundary Conditions}
+
+In practical coastal domains, some artificial boundaries may intersect regions that are wet at some times and dry at others. In such cases, a boundary segment cannot be permanently classified as purely open or purely land.
+
+\subsection{State-Dependent Partition}
+
+Let \(\Gamma_b\) be a boundary segment and define
+\begin{align}
+\Gamma_b^{\mathrm{wet}}(t) &= \{ \bm{x}\in\Gamma_b : H(\bm{x},t)>H_{\mathrm{tol}} \}, \\
+\Gamma_b^{\mathrm{dry}}(t) &= \{ \bm{x}\in\Gamma_b : H(\bm{x},t)\le H_{\mathrm{tol}} \}.
+\end{align}
+
+Then one may impose
+\begin{equation}
+\mathcal{B} = \mathcal{B}_{\mathrm{open}}
+\quad \text{on } \Gamma_b^{\mathrm{wet}}(t),
+\qquad
+\mathcal{B} = \mathcal{B}_{\mathrm{wall}}
+\quad \text{on } \Gamma_b^{\mathrm{dry}}(t).
+\end{equation}
+
+\subsection{Blended Boundary Condition}
+
+To avoid abrupt switching, one may define a wetness function \(\alpha(H)\in[0,1]\), for example
+\begin{equation}
+\alpha(H)=
+\begin{cases}
+0, & H\le H_{\mathrm{dry}}, \\[4pt]
+\dfrac{H-H_{\mathrm{dry}}}{H_{\mathrm{wet}}-H_{\mathrm{dry}}}, & H_{\mathrm{dry}}<H<H_{\mathrm{wet}}, \\[8pt]
+1, & H\ge H_{\mathrm{wet}},
+\end{cases}
+\end{equation}
+and blend open and wall boundary fluxes:
+\begin{equation}
+\widehat{F}_n
+=
+\alpha(H)\,\widehat{F}_n^{\mathrm{open}}
++
+\bigl(1-\alpha(H)\bigr)\,\widehat{F}_n^{\mathrm{wall}}.
+\end{equation}
+
+This strategy is particularly attractive for implicit methods and HDG or DG discretizations because it provides a smoother transition between wet and dry states.
+
+\section{Pump and Drainage Boundary Conditions}
+
+Pumping stations and drainage systems represent actively controlled
+fluxes between the computational domain and external storage or
+receiving waters.
+
+A pump boundary condition may be written as
+\begin{equation}
+(H\bm{u})\cdot\bm{n} = -Q_{\mathrm{pump}}(t, \eta),
+\end{equation}
+where $Q_{\mathrm{pump}}$ is a prescribed or state-dependent discharge.
+
+In many cases, the pump discharge is limited by capacity:
+\begin{equation}
+Q_{\mathrm{pump}} = \min\left(Q_{\max}, f(\eta_{\mathrm{in}}, \eta_{\mathrm{out}})\right).
+\end{equation}
+
+A simple on/off control law is
+\begin{equation}
+Q_{\mathrm{pump}} =
+\begin{cases}
+Q_{\max}, & \eta_{\mathrm{in}} > \eta_{\mathrm{on}}, \\
+0, & \eta_{\mathrm{in}} < \eta_{\mathrm{off}}.
+\end{cases}
+\end{equation}
+
+Drainage systems may also be modeled as distributed sinks:
+\begin{equation}
+\frac{\partial H}{\partial t} + \nabla\cdot(H\bm{u})
+= -S_{\mathrm{drain}},
+\end{equation}
+where $S_{\mathrm{drain}}$ represents removal of water due to
+infiltration or engineered drainage networks.
+
+\section{Atmospheric and Wave-Coupled Boundary Effects}
+
+Although atmospheric pressure and wind stress are usually applied as body-force source terms rather than boundary conditions, some coupled tide--storm--surge models also incorporate external wave forcing or wave radiation stress effects through boundary information.
+
+Examples include:
+\begin{itemize}[leftmargin=2em]
+    \item prescribed incoming wave setup,
+    \item wave-averaged radiation stress contributions near open boundaries,
+    \item coupling to larger-scale ocean, wave, or atmospheric models.
+\end{itemize}
+
+These are usually represented through externally prescribed \(\eta_{\mathrm{ext}}\), \(u_{n,\mathrm{ext}}\), or additional boundary flux terms.
+
+\section{Summary of Main Boundary Conditions}
+
+Table~\ref{tab:bc-summary} summarizes the most common boundary conditions used in tide--storm--surge models.
+
+\begin{table}[h!]
+\centering
+\caption{Summary of common boundary conditions in tide--storm--surge modeling.}
+\label{tab:bc-summary}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Boundary type & Mathematical form & Typical use \\ \midrule
+Open elevation & \(\eta=\eta_{\mathrm{ext}}\) & Tidal forcing \\
+Open discharge & \((H\bm{u})\cdot\bm{n}=q_n^{\mathrm{ext}}\) & Known inflow/outflow \\
+Characteristic & \(R^- = R^-_{\mathrm{ext}}\) & Radiation + incoming tide \\
+Flather & \(u_n=u_{n,\mathrm{ext}}+\dfrac{\eta-\eta_{\mathrm{ext}}}{\sqrt{gH}}\) & Coastal/open sea \\
+Slip wall & \(\bm{u}\cdot\bm{n}=0\) & Impermeable coast \\
+No-slip wall & \(\bm{u}=\bm{0}\) & Rare special cases \\
+Frictional wall & \(\bm{u}\cdot\bm{n}=0\), \(\tau_t=-C_t|\bm{u}_t|\bm{u}_t\) & Rough boundary \\
+River inflow & \(\int (H\bm{u})\cdot\bm{n}\,ds=-Q(t)\) & River discharge \\
+Weir/levee & \(q_n=C_w \max(0,\eta_1-\eta_2-z_c)^{3/2}\) & Flood barriers \\
+Wet--dry interface & \(H\ge 0\) with wetting--drying treatment & Inundation \\
+Mixed wet/dry & \(\widehat{F}_n=\alpha \widehat{F}_n^{\mathrm{open}}+(1-\alpha)\widehat{F}_n^{\mathrm{wall}}\) & State-dependent boundary \\ \bottomrule
+\end{tabular}
+\end{table}
+
+
+For many tide--storm--surge applications, the following choices are appropriate:
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Open-ocean boundaries:} characteristic or Flather-type conditions with prescribed tidal elevation.
+    \item \textbf{Rigid coastlines:} impermeable slip-wall condition.
+    \item \textbf{River boundaries:} prescribed discharge, prescribed stage, or rating curve.
+    \item \textbf{Levees and barriers:} nonlinear hydraulic flux laws.
+    \item \textbf{Flooding and inundation:} wetting--drying treatment within the computational domain.
+    \item \textbf{Artificial mixed wet/dry boundaries:} blended state-dependent boundary fluxes.
+\end{itemize}
+
+
+\end{document}

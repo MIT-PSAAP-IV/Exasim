@@ -1,0 +1,40 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{siunitx}
+\usepackage[margin=1in]{geometry}
+
+\begin{document}
+
+\title{Typical Space Shuttle Reentry Profile with Atmospheric Properties}
+\date{}
+\maketitle
+
+
+The Reynolds and Knudsen numbers are representative values based on a reference length
+$L = \SI{1}{m}$.
+
+\begin{table}[h!]
+\centering
+\small
+\begin{tabular}{ccccccccc}
+\toprule
+Altitude & Velocity & Mach & Temperature & Pressure & Density & Viscosity & Reynolds & Knudsen \\
+(km) & (m/s) &  & (K) & (Pa) & (kg/m$^3$) & (kg/m\,s) & ($L=1$ m) & ($L=1$ m) \\
+\midrule
+120 & 7800 & 30.50 & 360.0 & $2.5\times10^{-3}$ & $2.0\times10^{-8}$ & $2.12\times10^{-5}$ & $7$ & $3.4$ \\
+90  & 7700 & 28.08 & 187.0 & $1.83\times10^{-1}$ & $3.4\times10^{-6}$ & $1.25\times10^{-5}$ & $2.1\times10^{3}$ & $2.0\times10^{-2}$ \\
+70  & 7000 & 23.57 & 220.0 & $5.22$ & $8.3\times10^{-5}$ & $1.44\times10^{-5}$ & $4.0\times10^{4}$ & $8.7\times10^{-4}$ \\
+60  & 6500 & 20.61 & 247.0 & $2.20\times10^{1}$ & $3.1\times10^{-4}$ & $1.58\times10^{-5}$ & $1.27\times10^{5}$ & $2.4\times10^{-4}$ \\
+50  & 5500 & 16.70 & 271.0 & $7.98\times10^{1}$ & $1.03\times10^{-3}$ & $1.70\times10^{-5}$ & $3.3\times10^{5}$ & $7.5\times10^{-5}$ \\
+40  & 4000 & 12.62 & 250.0 & $2.87\times10^{2}$ & $4.0\times10^{-3}$ & $1.60\times10^{-5}$ & $1.0\times10^{6}$ & $1.9\times10^{-5}$ \\
+30  & 3000 & 9.93 & 227.0 & $1.20\times10^{3}$ & $1.84\times10^{-2}$ & $1.48\times10^{-5}$ & $3.7\times10^{6}$ & $3.9\times10^{-6}$ \\
+20  & 1500 & 5.09 & 216.7 & $5.48\times10^{3}$ & $8.8\times10^{-2}$ & $1.42\times10^{-5}$ & $9.3\times10^{6}$ & $8.1\times10^{-7}$ \\
+10  & 800 & 2.67 & 223.2 & $2.65\times10^{4}$ & $4.14\times10^{-1}$ & $1.46\times10^{-5}$ & $2.3\times10^{7}$ & $1.7\times10^{-7}$ \\
+0   & 100 & 0.29 & 288.2 & $1.01\times10^{5}$ & $1.225$ & $1.79\times10^{-5}$ & $6.8\times10^{6}$ & $6.4\times10^{-8}$ \\
+\bottomrule
+\end{tabular}
+\caption{Representative atmospheric conditions during Space Shuttle reentry.}
+\end{table}
+
+\end{document}

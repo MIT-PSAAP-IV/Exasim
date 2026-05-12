@@ -1,0 +1,64 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{siunitx}
+\usepackage[margin=1in]{geometry}
+\usepackage{longtable}
+
+\begin{document}
+
+\title{Typical Space Shuttle Reentry Profile with Atmospheric Properties}
+\date{}
+\maketitle
+
+The Reynolds and Knudsen numbers are representative values based on a reference length
+$L = \SI{1}{m}$. The Mach number is computed from
+\[
+a = \sqrt{\gamma R T}, \qquad M = \frac{V}{a},
+\]
+with $\gamma = 1.4$ and $R = \SI{287}{J/(kg\,K)}$.
+
+\begin{table}[h!]
+\centering
+\small
+\begin{tabular}{ccccccccc}
+\toprule
+Altitude & Velocity & Mach & Temperature & Pressure & Density & Viscosity & Reynolds & Knudsen \\
+(km) & (m/s) &  & (K) & (Pa) & (kg/m$^3$) & (kg/m\,s) & ($L=1$ m) & ($L=1$ m) \\
+\midrule
+120 & 7800 & 30.50 & 360.0 & $2.5\times10^{-3}$ & $2.0\times10^{-8}$ & $2.12\times10^{-5}$ & $7$ & $3.4$ \\
+90  & 7700 & 28.08 & 187.0 & $1.83\times10^{-1}$ & $3.4\times10^{-6}$ & $1.25\times10^{-5}$ & $2.1\times10^{3}$ & $2.0\times10^{-2}$ \\
+70  & 7000 & 23.57 & 220.0 & $5.22$ & $8.3\times10^{-5}$ & $1.44\times10^{-5}$ & $4.0\times10^{4}$ & $8.7\times10^{-4}$ \\
+60  & 6500 & 20.61 & 247.0 & $2.20\times10^{1}$ & $3.1\times10^{-4}$ & $1.58\times10^{-5}$ & $1.27\times10^{5}$ & $2.4\times10^{-4}$ \\
+50  & 5500 & 16.70 & 271.0 & $7.98\times10^{1}$ & $1.03\times10^{-3}$ & $1.70\times10^{-5}$ & $3.3\times10^{5}$ & $7.5\times10^{-5}$ \\
+40  & 4000 & 12.62 & 250.0 & $2.87\times10^{2}$ & $4.0\times10^{-3}$ & $1.60\times10^{-5}$ & $1.0\times10^{6}$ & $1.9\times10^{-5}$ \\
+30  & 3000 & 9.93 & 227.0 & $1.20\times10^{3}$ & $1.84\times10^{-2}$ & $1.48\times10^{-5}$ & $3.7\times10^{6}$ & $3.9\times10^{-6}$ \\
+20  & 1500 & 5.09 & 216.7 & $5.48\times10^{3}$ & $8.8\times10^{-2}$ & $1.42\times10^{-5}$ & $9.3\times10^{6}$ & $8.1\times10^{-7}$ \\
+10  & 800 & 2.67 & 223.2 & $2.65\times10^{4}$ & $4.14\times10^{-1}$ & $1.46\times10^{-5}$ & $2.3\times10^{7}$ & $1.7\times10^{-7}$ \\
+0   & 100 & 0.29 & 288.2 & $1.01\times10^{5}$ & $1.225$ & $1.79\times10^{-5}$ & $6.8\times10^{6}$ & $6.4\times10^{-8}$ \\
+\bottomrule
+\end{tabular}
+\caption{Representative atmospheric conditions during Space Shuttle reentry.}
+\end{table}
+
+\section*{Flow Physics by Altitude Range}
+
+\subsection*{0--10 km: Subsonic and transonic terminal approach}
+In the lowest part of the trajectory, the orbiter behaves primarily as an unpowered glider rather than as a hypersonic vehicle. The atmosphere is dense, the Reynolds number is very large, and the Knudsen number is extremely small, so the continuum approximation is excellent and conventional compressible aerodynamics applies. Shock heating is no longer a dominant design issue. Instead, the main concerns are aerodynamic control authority, landing energy management, boundary-layer behavior, and transonic or subsonic lift-to-drag performance. Chemical nonequilibrium is absent, air can be treated as a calorically perfect gas to a very good approximation, and thermal-protection-system loads are far below their peak reentry values.
+
+\subsection*{10--30 km: Supersonic to low-hypersonic glide}
+In this band the vehicle is still moving very fast, but the dominant physics increasingly resemble high-speed aircraft aerodynamics rather than extreme hypersonic entry. The continuum assumption remains very strong, with large Reynolds number and very small Knudsen number. Strong shocks are still present, especially above about \SI{20}{km}, but post-shock temperatures have dropped substantially from peak reentry conditions. High-temperature chemistry becomes weak and then largely negligible. Viscous heating, boundary-layer growth, aerodynamic trim, and control-surface effectiveness remain important. Flow separation and shock--boundary-layer interaction can affect local loads, especially near control surfaces and on the leeside.
+
+\subsection*{30--50 km: Continuum hypersonic regime with declining chemistry}
+This is still a strongly hypersonic regime. Bow shocks remain strong, aerodynamic drag is high, and the vehicle is decelerating rapidly. Reynolds number rises quickly with decreasing altitude, while Knudsen number becomes small enough that continuum Navier--Stokes modeling is generally well justified. Compared with higher altitudes, chemical nonequilibrium and dissociation are weakening, but they may still matter in the upper part of this band, particularly near the stagnation region and other hot spots. Thermal-protection-system heating is no longer at its absolute maximum, but the integrated thermal load is still significant. Boundary-layer transition and turbulence become increasingly relevant in this altitude range because higher density amplifies viscous transport and wall shear.
+
+\subsection*{50--70 km: Peak aerothermodynamic loading and strong nonequilibrium chemistry}
+This is one of the most important reentry bands from the standpoint of hypersonic CFD and aerothermodynamics. The freestream is still cold compared with post-shock temperatures, but the bow shock raises translational temperatures enough to produce strong dissociation of molecular oxygen and nitrogen. The five-species air model $(\mathrm{N},\mathrm{O},\mathrm{NO},\mathrm{N}_2,\mathrm{O}_2)$ is highly relevant here. Continuum Navier--Stokes equations are generally applicable, but the flow is strongly nonequilibrium, with coupled viscous transport, heat conduction, species diffusion, and finite-rate chemistry. Heating rates are often near their peak in this band because the velocity remains very large while the atmospheric density has increased enough to drive intense convective heat transfer. This is also the regime in which catalytic wall effects, surface recombination, and detailed transport-property modeling can materially influence predicted heat flux.
+
+\subsection*{70--90 km: Transitional hypersonic regime}
+In this altitude range the flow is still extremely fast, but the density is low enough that transitional effects become important. The Knudsen number is small enough that continuum ideas are beginning to emerge, yet not so small that a purely continuum model is always reliable everywhere. Depending on local length scales and surface location, one may observe a mix of continuum-like and rarefaction-influenced behavior. Strong bow shocks exist, but shock thickness, translational--vibrational nonequilibrium, and finite-rate chemistry all play major roles. Dissociation is important, and the onset of strong thermochemical nonequilibrium makes this regime especially challenging to model accurately. Hybrid approaches, or at least careful assessment of continuum breakdown, are often needed.
+
+\subsection*{90--120 km: Rarefied and near-free-molecular entry interface regime}
+This is the highest-altitude portion of the atmospheric entry. Although the vehicle speed is near orbital value and the Mach number is extremely large, the density is so low that the continuum assumption becomes weak or completely invalid. The Knudsen number ranges from transitional to strongly rarefied, especially near the top of this interval. Collisions are infrequent compared with lower altitudes, so free-molecular or DSMC-based descriptions are more appropriate than standard Navier--Stokes CFD. Convective heating is still modest in the upper part of this region because the density is extremely small, but chemical nonequilibrium begins to develop as the flow descends and collisional activity increases. This range is important because it sets the initial conditions for the later hypersonic continuum phase: the shock layer begins to form, surface accommodation matters, and rarefaction effects dominate the earliest stages of entry.
+
+\end{document}
