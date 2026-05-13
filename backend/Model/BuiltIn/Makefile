@@ -54,7 +54,7 @@ KOKKOS_CUDA   ?= ../../../kokkos/buildcuda
 KOKKOS_HIP    ?= ../../../kokkos/buildhip
 
 # --- sources ---
-SRC := libbuiltinmodel.cpp
+SRC := libbuiltinmodel.cpp model1/model.cpp model2/model.cpp model3/model.cpp model4/model.cpp 
 
 # --- outputs ---
 TARGET_SERIAL := $(EXASIM_LIB_DIR)/$(SHLIB_PREFIX)builtinmodelserial.$(SHLIB_EXT)
