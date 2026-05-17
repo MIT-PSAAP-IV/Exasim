@@ -171,7 +171,7 @@ function(link_metis target)
       $<BUILD_INTERFACE:${GKLIB_LIBRARY_DIR}>
       $<INSTALL_INTERFACE:${CMAKE_INSTALL_LIBDIR}>)
   endif()
-
+  
   # Link order: ParMETIS, METIS, GKlib
   target_link_libraries(${target} PUBLIC
       ${PARMETIS_LIBRARY_DIR}/libparmetis.a
