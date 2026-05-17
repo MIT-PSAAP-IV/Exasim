@@ -151,9 +151,9 @@ function(link_metis target)
 
   # Link order: ParMETIS, METIS, GKlib
   target_link_libraries(${target} PUBLIC
-    parmetis
-    metis
-    GKlib
+      ${PARMETIS_LIBRARY_DIR}/libparmetis.a
+      ${METIS_LIBRARY_DIR}/libmetis.a
+      ${GKLIB_LIBRARY_DIR}/libGKlib.a
   )
 endfunction()
 
