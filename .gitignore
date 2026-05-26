@@ -322,3 +322,11 @@ lib/libcpumpiEXASIM.a
 lib/libcpumpikkEXASIM.a
 lib/libt2cmodelserial.dylib
 /apps/poisson/poisson3d/build2
+backend/Model/Text2codeGenerated/code2cpp
+backend/Model/Text2codeGenerated/KokkosVisScalars.cpp
+backend/Model/Text2codeGenerated/KokkosVisVectors.cpp
+backend/Model/Text2codeGenerated/my_model.hpp
+backend/Model/Text2codeGenerated/SymbolicFunctions.cpp
+backend/Model/Text2codeGenerated/SymbolicFunctions.hpp
+backend/Model/Text2codeGenerated/SymbolicScalarsVectors.cpp
+metis/GKlib/bin/csrcnv
