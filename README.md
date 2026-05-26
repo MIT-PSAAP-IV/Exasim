@@ -94,7 +94,7 @@ Alternatively, compile main.cpp to generate exasimapp and run it as follows
 
 ```
 cd /path/to/Exasim/apps/<example>
-cmake -B build
+cmake -B build -DExasim_DIR=/path/to/Exasim/lib/cmake/Exasim
 cmake --build build
 mpirun -np 4 build/exasimapp pdeapp.txt
 ```
