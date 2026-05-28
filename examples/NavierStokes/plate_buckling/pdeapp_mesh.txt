@@ -2,24 +2,21 @@ exasimpath = "/home/tsili/dv/Exasim";
 model = "ModelD";
 modelfile = "n";
 meshfile = "grid.bin";
-xdgfile = "n";
-udgfile = "n";
+xdgfile = "xdg.bin";
 discretization = "hdg";
 platform = "cpu";
 
+builtinmodelID = 6;
+gendatain = 0;
 mpiprocs = 1;
 debugmode = 0;
 runmode = 0;
 modelnumber = 1;
-builtinmodelID = 6;
 
 porder = 2;
 pgauss = 4;
 torder = 1;
 nstage = 1;
-
-ncu = 2;
-ncw = 0;
 
 NewtonIter = 10;
 NewtonTol = 1e-08;
@@ -34,8 +31,8 @@ dt = [0];
 physicsparam = [1, 1];
 externalparam = [0, 0];
 
-boundaryconditions = [1, 1, 1];
-boundaryexpressions = ["abs(y-0.0001)<1e-6", "abs(x-0.3492)<1e-6", "abs(y - (0.0001 + (0.2471-0.0001)/(0.3492+0.1100)*(x+0.1100)))<2e-3"];
+boundaryconditions = [1, 1, 2];
+boundaryexpressions = ["abs(y-1e-4)<1e-6", "abs(x-0.3492)<1e-6", "abs(y-(1e-4+0.538*(x+0.1101)))<2e-3"];
 curvedboundaries = [0, 0, 0];
 curvedboundaryexprs = ["", "", ""];
 periodicboundaries1 = [];
@@ -43,7 +40,3 @@ periodicexprs1 = [];
 periodicboundaries2 = [];
 periodicexprs2 = [];
 interfaceconditions = [];
-
-gendatain = 1;
-writecs = 1;
-writesol = 1;

@@ -6,6 +6,8 @@ pde.fbouhdg = @fbouhdg;
 pde.fext = @fext;
 pde.ubou = @ubou;
 pde.initu = @initu;
+pde.visvectors = @visvectors;
+pde.vistensors = @vistensors;
 end
 
 function f = flux(u, q, w, v, x, t, mu, eta)
@@ -35,4 +37,12 @@ end
 
 function fb = fext(u, q, w, v, x, t, mu, eta, uhat, n, uext, tau)
 fb = tau * (uext(:) - uhat(:));
+end
+
+function sv = visvectors(u, q, w, v, x, t, mu, eta)
+sv = u(1:2);
+end
+
+function st = vistensors(u, q, w, v, x, t, mu, eta)
+st = q(:);
 end

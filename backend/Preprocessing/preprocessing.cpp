@@ -39,8 +39,13 @@ inline CPreprocessing::CPreprocessing(std::string filein, int rank, int commsize
   pde = initializePDE(params, rank);
   pde.mpiprocs = commsize;
 
-  spec = TextParser::parseFile(make_path(pde.datapath, pde.modelfile));
-  spec.exasimpath = pde.exasimpath;
+  if (pde.builtinmodelID == 0) {
+    spec = TextParser::parseFile(make_path(pde.datapath, pde.modelfile));
+    spec.exasimpath = pde.exasimpath;
+  } else {
+    pdeFinalizeDerived(pde);
+    spec.exasimpath = pde.exasimpath;
+  }
 }
 
 // Programmatic constructor: caller passes pre-populated structs and we
