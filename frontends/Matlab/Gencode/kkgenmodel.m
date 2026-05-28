@@ -138,9 +138,9 @@ else
       hdgnocodeface2("Fintonly" + strn, kkdir);
   end
   if isfield(pde, 'fext')    
-      uext = sym('uext',[pde.ncuext 1]); 
+      uext = sym('uext',[app.ncuext 1]); 
       f = pde.fext(u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, uext, tau);
-      f = reshape(f,ncuext,[]);
+      f = reshape(f,app.ncuext,[]);
       hdggencodefext("Fext" + strn, f, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time, kkdir);
       hdggencodefext2("Fextonly" + strn, f, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time, kkdir);
   else   
