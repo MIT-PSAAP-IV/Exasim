@@ -19,14 +19,10 @@
 #   - Exasim::gpumpilib    (libgpumpiEXASIM.a, when built)
 #   - Exasim::gpuprelib    (libgpupreEXASIM.a, when built)
 #   - Exasim::gpumpiprelib (libgpumpipreEXASIM.a, when built)
-#   - Exasim::builtinmodelserial (libbuiltinmodelserial.so, when WITH_BUILTINMODEL=ON)
 #
 # Each exported library target carries the transitive link interface of its
 # solver variant. Kokkos is always required; MPI is required whenever any
 # exported MPI library variant is present in the package.
-#
-# For the builtin-model path, additionally define HAVE_BUILTINMODEL _BUILTINMODEL
-# and include builtinlibprovider.cpp from the Exasim include directory.
 
 include(CMakeFindDependencyMacro)
 
@@ -49,16 +45,5 @@ if(@EXASIM_PACKAGE_HAS_MPI@)
 endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/ExasimTargets.cmake")
-
-# --- Builtin model library (optional) ---
-set(Exasim_BuiltinModel_LIBRARY "")
-set(Exasim_HAS_BUILTINMODEL OFF)
-if(@EXASIM_PACKAGE_HAS_BUILTINMODEL@)
-  set(_bm_lib "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_LIBDIR@/libbuiltinmodelserial.so")
-  if(EXISTS "${_bm_lib}")
-    set(Exasim_BuiltinModel_LIBRARY "${_bm_lib}")
-    set(Exasim_HAS_BUILTINMODEL ON)
-  endif()
-endif()
 
 check_required_components(Exasim)
