@@ -69,9 +69,10 @@
 #include "readbinaryfiles.cpp"
 #include "setstructs.cpp"
 #include "residual.cpp"
+//#include "ldgjactest.cpp"
+#include "ldgblockjacobian.cpp"
 #include "matvec.cpp"
 #include "qoicalculation.cpp"
-
 #include "wallmodel.cpp"
 
 void crs_init(commonstruct& common, meshstruct& mesh, int *elem, int nse, int nese)
@@ -163,6 +164,92 @@ void crs_init(commonstruct& common, meshstruct& mesh, int *elem, int nse, int ne
     CPUFREE(f2e);
 }
       
+void BuildElementBlockBoundaryFaces(commonstruct& common, meshstruct& mesh, Int backend)
+{
+    Int nfe = common.nfe;
+    Int ne = common.ne;
+    Int nbe = common.nbe;
+
+    int nboufaces = 0;
+    int maxbc = 0;
+    for (int i = 0; i < nfe*ne; i++) {
+        if (mesh.bf[i] > 0)
+            nboufaces++;
+        maxbc = max(maxbc, mesh.bf[i]);
+    }
+    common.maxnbc = maxbc;
+
+    CPUFREE(common.nboufaces);
+    TemplateFree(mesh.boufaces, backend);
+    common.nboufaces = nullptr;
+    mesh.boufaces = nullptr;
+    mesh.szboufaces = 0;
+
+    TemplateMalloc(&common.nboufaces, 1 + maxbc*nbe, 0);
+    if (nboufaces > 0) {
+        int *boufaces = nullptr;
+        TemplateMalloc(&boufaces, nboufaces, 0);
+        getboundaryfaces(common.nboufaces, boufaces, mesh.bf, common.eblks,
+                         nbe, nfe, maxbc, nboufaces);
+        TemplateMalloc(&mesh.boufaces, nboufaces, backend);
+        TemplateCopytoDevice(mesh.boufaces, boufaces, nboufaces, backend);
+        mesh.szboufaces = nboufaces;
+        CPUFREE(boufaces);
+    }
+    else if (common.nboufaces != nullptr) {
+        common.nboufaces[0] = 0;
+    }
+}
+
+void AllocateLDGBlockJacobianMemory(resstruct& res, commonstruct& common, Int backend)
+{
+    Int npe = common.npe;
+    Int npf = common.npf;
+    Int nfe = common.nfe;
+    Int ncu = common.ncu;
+    Int ncq = common.ncq;
+    Int nd = common.nd;
+    Int ne = common.ne;
+    Int neb = common.neb;
+
+    Int n = npe*ncu;
+    Int m = npf*nfe*ncu;
+    Int nq = npe*ncq;
+    Int ndofu = npe*ncu*common.ne1;
+    Int M = max(common.gmresRestart+1, common.RBdim);
+
+    Int tempn_uface = npf*npf*nfe*neb*ncu*(2*ncu + ncq);
+    Int tempn_schur = max(n*n*neb, n*m*neb);
+    Int szFq = common.ngf*nd*ncu*ncu*common.nfb;
+    Int szBufq = npf*npf*nd*ncu*ncu*common.nfb;
+    Int szEf = npf*nd*npf*common.nfb;
+    Int szAf = npf*npf*ncu*ncu*common.nfb;
+    Int tempn_cross = max(szFq, szBufq) + max(szBufq, szEf) + szAf;
+    Int hSize = max(max(tempn_schur, tempn_uface), tempn_cross);
+
+    Int kInvSize = n*n*common.ne1;
+    Int dSize = n*n*neb;
+    Int bSize = n*nq*neb;
+    Int fSize = m*n*neb;
+    Int kSize = kInvSize + max(dSize + bSize + 2*fSize + hSize, M*ndofu);
+    res.szP = kInvSize;
+
+    EnsureTemplateAllocation(&res.K, res.szK, kSize, backend);
+    EnsureTemplateAllocation(&res.ipiv, res.szipiv, n*neb, backend);
+    if (ncq > 0) {
+        EnsureTemplateAllocation(&res.Mass2, res.szMass2, npe*npe*ne, backend);
+        EnsureTemplateAllocation(&res.Minv2, res.szMinv2, npe*npe*ne, backend);
+        EnsureTemplateAllocation(&res.C, res.szC, npe*npe*ne*nd, backend);
+        EnsureTemplateAllocation(&res.E, res.szE, npe*npf*nfe*ne*nd, backend);
+    }
+
+    res.D = &res.K[kInvSize];
+    res.B = &res.K[kInvSize + dSize];
+    res.F = &res.K[kInvSize + dSize + bSize];
+    res.G = &res.K[kInvSize + dSize + bSize + fSize];
+    res.H = &res.K[kInvSize + dSize + bSize + 2*fSize];
+}
+
 // Both CPU and GPU constructor
 CDiscretization::CDiscretization(string filein, string fileout, string exasimpath, Int mpiprocs, Int mpirank, 
         Int fileoffset, Int omprank, Int backend, Int builtinmodelID,
@@ -204,7 +291,7 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
         gpuInit(sol, res, app, driver_abi, master, mesh, tmp, common, 
             hsol, hres, happ, hmaster, hmesh, htmp, hcommon);                
         app.read_uh = happ.read_uh;
-        if (common.spatialScheme > 0)  { // HDG        
+        if (hmesh.bf != nullptr) {
           TemplateMalloc(&mesh.bf, hcommon.nfe*hcommon.ne, 0);
           for (int i=0; i<hcommon.nfe*hcommon.ne; i++) mesh.bf[i] = hmesh.bf[i];   
         }
@@ -240,7 +327,22 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
     if (common.spatialScheme == 0) {
         if (common.mpiRank==0) printf("start compMassInverse... \n");
         compMassInverse(backend);    
-        if (common.mpiRank==0) printf("finish compMassInverse... \n");        
+        if (common.mpiRank==0) printf("finish compMassInverse... \n");
+        if (common.preconditioner == 1) {
+            if (common.mpiRank==0) printf("start qEquation... \n");
+            BuildElementBlockBoundaryFaces(common, mesh, backend);        
+            AllocateLDGBlockJacobianMemory(res, common, backend);        
+            qEquation(sol, res, app, master, mesh, tmp, common, backend);
+            TemplateFree(res.Mass2, backend);
+            TemplateFree(res.Minv2, backend);
+            if (common.mpiRank==0) printf("finish qEquation... \n");            
+        }
+        else {
+            res.szP = 0;
+            Int ndofu = common.npe*common.ncu*common.ne1;
+            Int M = max(common.gmresRestart+1, common.RBdim);
+            EnsureTemplateAllocation(&res.K, res.szK, M*ndofu, backend);
+        }
     }
     
     // moved from InitSolution to here
@@ -502,13 +604,25 @@ void CDiscretization::compGeometry(Int backend) {
     if (common.mpiRank==0) printf("Finish ElemGeom... \n");
     FaceGeom(sol, master, mesh, tmp, common, common.cublasHandle, backend);   
 
-    if (common.spatialScheme>0)
-      ElemFaceGeom(sol, master, mesh, tmp, common, common.cublasHandle, backend);   
+    ElemFaceGeom(sol, master, mesh, tmp, common, common.cublasHandle, backend);
 }
 
 // Compute and store the inverse of the mass matrix
 void CDiscretization::compMassInverse(Int backend) {
     ComputeMinv(sol, res, app, driver_abi, master, mesh, tmp, common, common.cublasHandle, backend);    
+}
+
+void CDiscretization::ComputeLDGPreconditioner(dstype* K, dstype* u, Int backend)
+{
+#ifdef HAVE_MPI
+    if (common.mpiProcs > 1) {
+        mpiBlockJacobianLDG(K, u, sol, res, app, driver_abi, master, mesh, tmp,
+                common, common.cublasHandle, backend);
+        return;
+    }
+#endif
+    BlockJacobianLDG(K, u, sol, res, app, driver_abi, master, mesh, tmp, common,
+            common.cublasHandle, backend);
 }
 
 void CDiscretization::hdgAssembleLinearSystem(dstype *b, Int backend)

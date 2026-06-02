@@ -429,6 +429,34 @@ void settempstruct(tempstruct &tmp, appstruct &app, ExasimDriverABI& driver_abi,
     Int n3 = max(nge*n1*neb, ngf*n2*nfb);
     n3 = 2*max(n3, ndofucg);
     
+    if (spatialScheme == 0) {
+        Int n = npe*ncu;
+        Int m = npf*nfe*ncu;
+        Int nbfb = nfe*neb;
+
+        Int tempn_uhat = npf*nfe*neb*(ncu + nc + nco + ncw);
+        Int tempn_uelem = max(npe*neb*nc, nge*(nd+1)*ncu*max(ncu,ncq)*neb);
+        n0 = max(n0, tempn_uhat);
+        n0 = max(n0, tempn_uelem);
+
+        Int tempg_common = ngf*nfe*neb*(ncu + nc + nco + 2*ncw);
+        Int tempg_uelem = nge*neb*
+            (ncu*nd + ncu + nc + ncw + ncu*nd*nc +
+             ncu*nd*ncw + ncu*nc + ncu*ncw + ncw*nc);
+        Int tempg_uhat = tempg_common +
+            ngf*nbfb*(ncx + nc + nco + ncw + 2*ncu + nd + ncu*ncu);
+        Int tempg_uface_elem = ngf*nfe*neb*
+            (ncu + nc + nco + 2*ncw + ncu*nd + ncu*nd*nc +
+             ncu*ncu + ncu*nd*ncw + ncw*nc);
+        Int tempg_uface_boundary = tempg_common +
+            ngf*nbfb*(ncx + nc + nco + ncw + ncu + nd + ncw +
+                      ncu + ncu*nc + ncu*ncw + ncu*ncu + ncw*ncu);
+        n3 = max(n3, tempg_uelem);
+        n3 = max(n3, tempg_uhat);
+        n3 = max(n3, tempg_uface_elem);
+        n3 = max(n3, tempg_uface_boundary);
+    }
+
     if (spatialScheme > 0) {
       //Int k1 = npe*ncu*npe*ncu*neb + npe*npf*nfe*ncu*ncu*neb + npe*npf*nfe*ncu*ncu*neb + npf*nfe*npf*nfe*ncu*ncu*neb;
       Int k1 = max(npe*ncu*npe*ncu*neb, npf*nfe*npf*nfe*ncu*ncu*neb);
@@ -529,7 +557,7 @@ void cpuInit(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& dr
     common.eventHandle = 0; 
     if (mpirank==0) printf("Finish setting common struct... \n");
                         
-    if (common.spatialScheme > 0) {      
+    if (common.spatialScheme >= 0) {
       int nd = common.nd;
       int npe = common.npe;
       int nge = common.nge;
@@ -557,6 +585,9 @@ void cpuInit(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& dr
           }
         }
       }              
+    }
+
+    if (common.spatialScheme > 0) {
       // if (common.nelemsend>0) {
       //     mesh.interfacefaces = (Int*) malloc (sizeof (Int)*common.nelemsend);          
       //     int n = getsubdomaininterfaces(mesh.interfacefaces, mesh.f2e, common.ne1, common.nf);
@@ -964,14 +995,16 @@ void devmeshstruct(meshstruct &dmesh, meshstruct &mesh, commonstruct &common)
     TemplateCopytoDevice(dmesh.cole2f2, mesh.cole2f2, mesh.nsize[19], common.backend);
     TemplateCopytoDevice(dmesh.ent2ind2, mesh.ent2ind2, mesh.nsize[20], common.backend);
     
-    if (common.spatialScheme > 0) {      
+    if (common.spatialScheme >= 0) {
         TemplateMalloc(&dmesh.f2e, mesh.nsize[21], common.backend);
         TemplateMalloc(&dmesh.elemcon, mesh.nsize[22], common.backend);
         TemplateMalloc(&dmesh.perm, mesh.nsize[23], common.backend);
         TemplateCopytoDevice(dmesh.f2e, mesh.f2e, mesh.nsize[21], common.backend);
         TemplateCopytoDevice(dmesh.elemcon, mesh.elemcon, mesh.nsize[22], common.backend);
         TemplateCopytoDevice(dmesh.perm, mesh.perm, mesh.nsize[23], common.backend);
-        
+    }
+
+    if (common.spatialScheme > 0) {
         if (mesh.szfaceperm>0) {
           TemplateMalloc(&dmesh.faceperm, mesh.szfaceperm, common.backend);
           TemplateCopytoDevice(dmesh.faceperm, mesh.faceperm, mesh.szfaceperm, common.backend);
@@ -1065,7 +1098,7 @@ void gpuInit(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& dr
     int mpirank = hcommon.mpiRank;
     if (mpirank==0) printf("Finish setting common struct... \n");
 
-    if (common.spatialScheme > 0) {
+    if (common.spatialScheme >= 0) {
 //       if (common.nelemsend > 0) {
 //         TemplateMalloc(&mesh.interfacefaces, common.nelemsend, common.backend);       
 //         TemplateCopytoDevice(mesh.interfacefaces, hmesh.interfacefaces, common.nelemsend, common.backend);          
@@ -1078,8 +1111,10 @@ void gpuInit(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& dr
       M = common.npf*common.npf*common.ngf*(common.nd);
       TemplateMalloc(&master.shapfgwdotshapfg, M, common.backend);       
       TemplateCopytoDevice(master.shapfgwdotshapfg, hmaster.shapfgwdotshapfg, M, common.backend);        
-      
-      M = 2*(common.nfe-1)*common.nf;
+    }
+
+    if (common.spatialScheme > 0) {      
+      int M = 2*(common.nfe-1)*common.nf;
       TemplateMalloc(&mesh.f2f, M, common.backend);       
       TemplateMalloc(&mesh.f2l, M, common.backend);       
       TemplateCopytoDevice(mesh.f2f, hmesh.f2f, M, common.backend);

@@ -155,6 +155,9 @@ void uEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, ExasimDr
     if ((ncw>0) & (common.wave==0)) ArraySetValue(fg_w, 0.0, nga*ncu*nd*ncw); 
     FluxDriver(fg, fg_uq, fg_w, xg, uqg, og, wg, driver_abi, mesh, master, app, sol, tmp, common, nge, e1, e2, backend);    
 
+    // print2darray(fg_uq, nga, ncu*nd*nc);
+    // error("here");
+
     if ((ncw>0) & (common.wave==0)) {
         // sg_uq = sg_uq + sg_w * wg_uq -> ng * ncu * nc = ng * ncu * nc + (ng * ncu * ncw) * (ng * ncw * nc)
         ArrayGemmBatch2(sg_uq, sg_w, wg_uq, 1.0, ncu, nc, ncw, nga);
@@ -177,6 +180,11 @@ void uEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, ExasimDr
       Gauss2Node(handle, res.B, tmp.tempn, master.shapegwdotshapeg, nge*(nd+1), npe*npe, ncu*ncq*ne, backend);        
       ArrayMultiplyScalar(res.B, minusone, npe * npe * ne * ncu * ncq );         
     }    
+
+    // print3darray(res.D, npe, npe, ne);
+    // print3darray(res.B, npe, npe, ne);
+    // print3darray(&res.B[npe*npe*ne], npe, npe, ne);
+    // error("here");
 
     if (common.debugMode==1) {      
       string filename;

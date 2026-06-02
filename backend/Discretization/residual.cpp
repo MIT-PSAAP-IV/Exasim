@@ -870,4 +870,3 @@ void ComputeQ(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& d
 }
 
 #endif
-

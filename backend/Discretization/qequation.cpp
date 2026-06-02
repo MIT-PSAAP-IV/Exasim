@@ -63,6 +63,19 @@
 #ifndef __QEQUATION
 #define __QEQUATION
 
+template <typename T>
+inline void EnsureTemplateAllocation(T **data, Int &currentSize, Int requiredSize, Int backend)
+{
+    if (requiredSize <= 0)
+        return;
+
+    if ((*data == nullptr) || (currentSize != requiredSize)) {
+        TemplateFree(*data, backend);
+        TemplateMalloc(data, requiredSize, backend);
+        currentSize = requiredSize;
+    }
+}
+
 void qEquationElem(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
 {        
@@ -71,15 +84,13 @@ void qEquationElem(solstruct &sol, resstruct &res, appstruct &app, masterstruct 
     Int npe = common.npe; // number of nodes on master element
     Int nge = common.nge; // number of gauss points on master element        
     Int ne = common.ne; // number of elements in this subdomain
-    Int nbe = common.nbe1; // number of blocks for elements   
+    //Int nbe = common.nbe1; // number of blocks for elements   
+    Int nbe = (common.spatialScheme == 0) ? common.nbe2 : common.nbe1;
     Int neb = common.neb; // maximum number of elements per block
 
-    TemplateMalloc(&res.Mass2, npe*npe*ne, backend);
-    TemplateMalloc(&res.Minv2, npe*npe*ne, backend);
-    TemplateMalloc(&res.C, npe*npe*ne*nd, backend);
-    res.szC = npe*npe*ne*nd;
-    res.szMinv2 = npe*npe*ne; 
-    res.szMass2 = npe*npe*ne; 
+    EnsureTemplateAllocation(&res.Mass2, res.szMass2, npe*npe*ne, backend);
+    EnsureTemplateAllocation(&res.Minv2, res.szMinv2, npe*npe*ne, backend);
+    EnsureTemplateAllocation(&res.C, res.szC, npe*npe*ne*nd, backend);
 
     dstype *work=nullptr;  
     Int *ipiv=nullptr;
@@ -120,6 +131,11 @@ void qEquationElem(solstruct &sol, resstruct &res, appstruct &app, masterstruct 
           Gauss2Node(handle,  work, &Xx[nga*1], &master.shapegwdotshapeg[npe*npe*nge], nge, npe*npe, ns, backend);     
           Gauss2Node1(handle, work, &Xx[nga*3], &master.shapegwdotshapeg[npe*npe*nge*2], nge, npe*npe, ns, backend);  
           PGEMNMStridedBached(handle, npe, npe, npe, one, &res.Minv2[npe*npe*e1], npe, work, npe, zero, &Cy[npe*npe*e1], npe, ns, backend); // fixed bug here  
+
+            // print2darray(Cx, npe, npe);
+            // print2darray(Cy, npe, npe);
+            // error("here");
+
         }
         else if (nd==3) { 
           dstype *Cx = res.C;
@@ -222,9 +238,8 @@ void qEquationFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct 
     Int nfe = common.nfe; // number of faces per element
     Int ne = common.ne; // number of elements in this subdomain
 
-    TemplateMalloc(&res.E, npe*npf*nfe*ne*nd, backend);         
+    EnsureTemplateAllocation(&res.E, res.szE, npe*npf*nfe*ne*nd, backend);
     ArraySetValue(res.E, zero, npe*npf*nfe*ne*nd);
-    res.szE = npe*npf*nfe*ne*nd; 
     
     for (Int j=0; j<nbf; j++) {
         Int f1 = common.fblks[3*j]-1;
@@ -321,13 +336,13 @@ void qEquationElemFace(solstruct &sol, resstruct &res, appstruct &app, masterstr
     Int npe = common.npe; // number of nodes on master element
     Int npf = common.npf; // number of nodes on master face           
     Int ngf = common.ngf; // number of gauss poInts on master face
-    Int nbe = common.nbe1; // number of blocks for elements 
+    //Int nbe = common.nbe1; // number of blocks for elements 
+    Int nbe = (common.spatialScheme == 0) ? common.nbe2 : common.nbe1;
     Int nfe = common.nfe; // number of faces per element
     Int ne = common.ne; // number of elements in this subdomain
 
-    TemplateMalloc(&res.E, npe*npf*nfe*ne*nd, backend);         
+    EnsureTemplateAllocation(&res.E, res.szE, npe*npf*nfe*ne*nd, backend);
     ArraySetValue(res.E, zero, npe*npf*nfe*ne*nd);
-    res.szE = npe*npf*nfe*ne*nd; 
     
     for (Int j=0; j<nbe; j++) // for each block of elements
     {
@@ -470,4 +485,3 @@ void hdgGetQ(dstype *udg, dstype *uhat, solstruct &sol, resstruct &res, meshstru
 }
 
 #endif
-

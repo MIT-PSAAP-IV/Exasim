@@ -43,7 +43,7 @@ void ComputeMinv(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI
     Int nbe = common.nbe; // number of blocks for elements   
     Int neb = common.neb; // maximum number of elements per block
             
-    printf("common.curvedMesh = %d\n", common.curvedMesh);
+    //printf("common.curvedMesh = %d\n", common.curvedMesh);
 
     if (common.curvedMesh==0) { //straight mesh                        
         TemplateMalloc(&res.Mass, npe*npe+ne, backend);        
