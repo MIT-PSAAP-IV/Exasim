@@ -24,7 +24,7 @@ function sympyassign2(mystr::String, f, udg, wdg, uhg)
 
     if !isnothing(wdg) && !isempty(wdg)
         nw = length(wdg);
-        f_wdg = [SymPy.symbols("f_wdg$i") for i=1:(nf*nu)];
+        f_wdg = [SymPy.symbols("f_wdg$i") for i=1:(nf*nw)];
         for n = 1:nw
           for m = 1:nf      
             f_wdg[m + nf*(n-1)] = diff(f[m],wdg[n]);      
@@ -54,4 +54,3 @@ function sympyassign2(mystr::String, f, udg, wdg, uhg)
 
     return mystr
 end
-

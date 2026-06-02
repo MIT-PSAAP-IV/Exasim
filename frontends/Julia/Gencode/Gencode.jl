@@ -14,6 +14,7 @@ include("varsassign.jl");
 include("sympyassign.jl");
 include("sympyassign2.jl");
 include("gencodebou.jl");
+include("gencodeboujac.jl");
 include("gencodeelem.jl");
 include("hdggencodebou.jl");
 include("hdggencodebou2.jl");
@@ -313,7 +314,7 @@ if isdefined(pdemodel, Symbol("fbou"))
     end
     f = f[:];
     f = reshape(f,app.ncu,Int(length(f)/app.ncu));
-    gencodeface("Fbou" * strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, foldername);
+    gencodeface("Fbou" * strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, foldername, true);
 else
     error("app.Fbou is empty");
 end
@@ -325,7 +326,7 @@ if isdefined(pdemodel, Symbol("ubou"))
     end
     f = f[:];
     f = reshape(f,app.ncu,Int(length(f)/app.ncu));
-    gencodeface("Ubou" * strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, foldername);
+    gencodeface("Ubou" * strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, foldername, true);
 else
   error("app.Ubou is empty");
 end
