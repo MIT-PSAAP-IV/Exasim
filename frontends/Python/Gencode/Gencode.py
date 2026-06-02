@@ -223,14 +223,14 @@ def gencode(app):
         #f = pde.fbou(xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time);
         f = pde.fbou(u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, tau);
         f = numpy.reshape(f.flatten('F'),(app['ncu'],round(f.size/app['ncu'])),'F');
-        gencodeface("Fbou" + strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, foldername);
+        gencodeface("Fbou" + strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, foldername, True);
     else:
         sys.exit("pde.fbou is not defined");
     if hasattr(pde, 'ubou'):
         #f = pde.ubou(xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time);
         f = pde.ubou(u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, tau);
         f = numpy.reshape(f.flatten('F'),(app['ncu'],round(f.size/app['ncu'])),'F');
-        gencodeface("Ubou" + strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, foldername);
+        gencodeface("Ubou" + strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, foldername, True);
     else:
         sys.exit("pde.ubou is not defined");
     if hasattr(pde, 'qoiboundary'):
