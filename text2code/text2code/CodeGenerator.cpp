@@ -148,14 +148,27 @@ void CodeGenerator::generateCode2Cpp(const std::string& filename) const {
     os << "            }\n";
     os << "            if (n==0) {\n";
     os << "               ssv.func2cppfiles(g, ssv.modelpath + fname, fname + std::to_string(n+1), i, false);\n";
-    os << "               if (ssv.jacobianInputs[i].size() > 0) ssv.funcjac2cppfiles(g, ssv.modelpath + jname, jname + std::to_string(n+1), i, false);\n";
+    os << "               if (ssv.jacobianInputs[i].size() > 0) {\n";
+    os << "                 if (funcname == \"FbouHdg\")\n";
+    os << "                   ssv.funcjac2cppfiles(g, ssv.modelpath + jname, jname + std::to_string(n+1), i, false);\n";
+    os << "                 else\n";
+    os << "                   ssv.funcjac2cppfiles(g, ssv.modelpath + fname, fname + std::string(\"Jac\") + std::to_string(n+1), i, true);\n";
+    os << "               }\n";
     os << "            } else {\n";
     os << "               ssv.func2cppfiles(g, ssv.modelpath + fname, fname + std::to_string(n+1), i, append);\n";
-    os << "               if (ssv.jacobianInputs[i].size() > 0) ssv.funcjac2cppfiles(g, ssv.modelpath + jname, jname + std::to_string(n+1), i, append);\n";
+    os << "               if (ssv.jacobianInputs[i].size() > 0) {\n";
+    os << "                 if (funcname == \"FbouHdg\")\n";
+    os << "                   ssv.funcjac2cppfiles(g, ssv.modelpath + jname, jname + std::to_string(n+1), i, append);\n";
+    os << "                 else\n";
+    os << "                   ssv.funcjac2cppfiles(g, ssv.modelpath + fname, fname + std::string(\"Jac\") + std::to_string(n+1), i, append);\n";
+    os << "               }\n";
     os << "            }\n";
     os << "            if (n==nbc-1) {\n";
     os << "               ssv.appendUbouFbou(ssv.modelpath + fname, fname, nbc);\n";
-    os << "               if (funcname == \"FbouHdg\") ssv.appendFbouHdg(ssv.modelpath + jname, jname, nbc);\n";
+    os << "               if (funcname == \"FbouHdg\")\n";
+    os << "                 ssv.appendFbouHdg(ssv.modelpath + jname, jname, nbc);\n";
+    os << "               else if (ssv.jacobianInputs[i].size() > 0)\n";
+    os << "                 ssv.appendKokkosBoundaryJac(ssv.modelpath + fname, fname + std::string(\"Jac\"), nbc);\n";
     os << "            }\n";
     os << "          }\n";    
     os << "        } else if ((funcname == \"Initu\") || (funcname == \"Initq\") || (funcname == \"Inituq\") || (funcname == \"Initv\") || (funcname == \"Initw\")) { \n";
@@ -665,6 +678,7 @@ void CodeGenerator::generateSymbolicScalarsVectorsHpp(const std::string& filenam
     
     os << "    void initfunc2cppfiles(const std::vector<Expression> &f, const std::string filename, const std::string funcname, const int functionid, bool append, int framework);\n";
     os << "    void appendUbouFbou(const std::string& filename, const std::string& funcname, int nbc);\n";
+    os << "    void appendKokkosBoundaryJac(const std::string& filename, const std::string& funcname, int nbc);\n";
     os << "    void appendFbouHdg(const std::string& filename, const std::string& funcname, int nbc);\n";
     
     os << "    void appendFextonly(const std::string& filename, const std::string& funcname, int nbc);\n";
@@ -1634,6 +1648,28 @@ void emitFbouHdg(std::ostream& os) {
     os << "}\n";
 }
 
+void emitKokkosBoundaryJac(std::ostream& os) {
+    os << "void SymbolicScalarsVectors::appendKokkosBoundaryJac(const std::string& filename, const std::string& funcname, int nbc) {\n";
+    os << "    std::ostringstream tmp;\n\n";
+    os << "    tmp << \"void \" << funcname << \"(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg,\\n\";\n";
+    os << "        tmp << \"           const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time,\\n\";\n";
+    os << "        tmp << \"           const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd,\\n\";\n";
+    os << "        tmp << \"           const int ncx, const int nco, const int ncw) {\\n\";\n\n";
+    os << "    for (int k = 1; k <= nbc; ++k) {\n";
+    os << "        if (k == 1)\n";
+    os << "            tmp << \"    if (ib == 1 )\\n\";\n";
+    os << "        else\n";
+    os << "            tmp << \"    else if (ib == \" << k << \" )\\n\";\n";
+    os << "        tmp << \"        \" << funcname << k << \"(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber,\\n\";\n";
+    os << "        tmp << \"                        ng, nc, ncu, nd, ncx, nco, ncw, nc, ncu, nd);\\n\";\n";
+    os << "    }\n\n";
+    os << "    tmp << \"}\\n\";\n\n";
+    os << "    std::ofstream cppfile(filename + \".cpp\", std::ios::out | std::ios::app);\n";
+    os << "    cppfile << tmp.str();\n";
+    os << "    cppfile.close();\n";
+    os << "}\n";
+}
+
 void emitFextonly(std::ostream& os) {
     os << "void SymbolicScalarsVectors::appendFextonly(const std::string& filename, const std::string& funcname, int nbc) {\n";
     os << "    std::ostringstream tmp;\n\n";
@@ -1896,6 +1932,7 @@ void emitGenerateModelHeader(std::ostream& os, const ParsedSpec& spec) {
     int ncw    = get_size("w");
     int nco    = get_size("v");
     int nparam = get_size("mu");
+    int ntau   = get_size("tau");
 
     os << "void SymbolicScalarsVectors::generateModelHeader(const std::string& filename) {\n";
     os << "    std::ofstream hfile(filename, std::ios::out | std::ios::trunc);\n\n";
@@ -1916,6 +1953,7 @@ void emitGenerateModelHeader(std::ostream& os, const ParsedSpec& spec) {
     os << "    hfile << \"    static constexpr int ncw    = " << ncw    << ";\\n\";\n";
     os << "    hfile << \"    static constexpr int nco    = " << nco    << ";\\n\";\n";
     os << "    hfile << \"    static constexpr int nparam = " << nparam << ";\\n\";\n";
+    os << "    hfile << \"    static constexpr int ntau   = " << ntau   << ";\\n\";\n";
     os << "    hfile << \"    static constexpr int Nq = ncu * (1 + nd);\\n\\n\";\n";
 
     // Volume value-only methods. Iterate over `outputfunctions` and
@@ -2069,6 +2107,36 @@ void emitGenerateModelHeader(std::ostream& os, const ParsedSpec& spec) {
     os << "        }\n";
     os << "    }\n\n";
 
+    os << "    // Fbou/Ubou Jacobians: per-ib dispatch, three Jacs (uq, w, uh).\n";
+    os << "    static const std::vector<std::tuple<std::string, std::string, std::vector<std::string>>>\n";
+    os << "        boundary_jac_methods = {\n";
+    os << "        {\"Fbou\", \"fbou\", {\"fbou_jac_uq\", \"fbou_jac_w\", \"fbou_jac_uh\"}},\n";
+    os << "        {\"Ubou\", \"ubou\", {\"ubou_jac_uq\", \"ubou_jac_w\", \"ubou_jac_uh\"}},\n";
+    os << "    };\n";
+    os << "    for (const auto& [funcname, value_name, jac_names] : boundary_jac_methods) {\n";
+    os << "        auto it = std::find(funcnames.begin(), funcnames.end(), funcname);\n";
+    os << "        if (it == funcnames.end()) continue;\n";
+    os << "        int idx = it - funcnames.begin();\n";
+    os << "        if (!outputfunctions[idx]) continue;\n";
+    os << "        std::vector<Expression> f = evaluateSymbolicFunctions(idx);\n";
+    os << "        int nbc = (szuhat > 0) ? (int)f.size() / szuhat : 0;\n";
+    os << "        const auto& jac_inputs = jacobianInputs[idx];\n";
+    os << "        for (size_t k = 0; k < jac_inputs.size() && k < jac_names.size(); ++k) {\n";
+    os << "            if (jac_inputs[k].empty()) continue;\n";
+    os << "            int jblock = szuhat * (int)jac_inputs[k].size();\n";
+    os << "            std::vector<Expression> jac_all;\n";
+    os << "            jac_all.reserve(jblock * nbc);\n";
+    os << "            for (int n = 0; n < nbc; ++n) {\n";
+    os << "                std::vector<Expression> g(szuhat);\n";
+    os << "                for (int m = 0; m < szuhat; ++m) g[m] = f[m + n * szuhat];\n";
+    os << "                std::vector<Expression> j_n = diff_to_exprs(g, jac_inputs[k]);\n";
+    os << "                for (auto& e : j_n) jac_all.push_back(e);\n";
+    os << "            }\n";
+    os << "            emit_pointwise_value_per_ib(hfile, jac_names[k],\n";
+    os << "                boundary_sig, jac_all, idx, jblock);\n";
+    os << "        }\n";
+    os << "    }\n\n";
+
     os << "    hfile << \"};\\n\";\n";
     os << "    hfile.close();\n";
     os << "}\n\n";
@@ -2098,7 +2166,9 @@ void CodeGenerator::generateSymbolicScalarsVectorsCpp(const std::string& filenam
     emitinitfunc2cppfiles(os, spec);    
     
     emitUbouFbou(os);
-    
+
+    emitKokkosBoundaryJac(os);
+
     emitFbouHdg(os);
 
     emitFextonly(os);
@@ -2440,6 +2510,7 @@ void CodeGenerator::generateLibPDEModelHpp(std::string modelpath) const {
     os << "void KokkosEoSdu(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw, const int nce, const int npe, const int ne);\n";
     os << "void KokkosEoSdw(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw, const int nce, const int npe, const int ne);\n";
     os << "void KokkosFbou(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";
+    os << "void KokkosFbouJac(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";
     os << "void KokkosFhat(dstype* f, const dstype* xdg, const dstype* udg1, const dstype* udg2,  const dstype* odg1, const dstype* odg2,  const dstype* wdg1, const dstype* wdg2,  const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";
     os << "void KokkosInitodg(dstype* f, const dstype* xdg, const dstype* uinf, const dstype* param, const int modelnumber, const int ng, const int ncx, const int nce, const int npe, const int ne);\n";
     os << "void KokkosInitq(dstype* f, const dstype* xdg, const dstype* uinf, const dstype* param, const int modelnumber, const int ng, const int ncx, const int nce, const int npe, const int ne);\n";
@@ -2453,6 +2524,7 @@ void CodeGenerator::generateLibPDEModelHpp(std::string modelpath) const {
     os << "void KokkosStab(dstype* f, const dstype* xdg, const dstype* udg1, const dstype* udg2,  const dstype* odg1, const dstype* odg2,  const dstype* wdg1, const dstype* wdg2,  const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";
     os << "void KokkosTdfunc(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";
     os << "void KokkosUbou(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";
+    os << "void KokkosUbouJac(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";
     os << "void KokkosUhat(dstype* f, const dstype* xdg, const dstype* udg1, const dstype* udg2,  const dstype* odg1, const dstype* odg2,  const dstype* wdg1, const dstype* wdg2,  const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";
 
     // CPU initialization routines
