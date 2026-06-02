@@ -143,73 +143,11 @@ int LinearSolver(sysstruct &sys, CDiscretization& disc, CPreconditioner& prec, o
     printf("MPI_WAITALL time: %g miliseconds\n", disc.common.timing[10]);
     printf("RuElem and GetQ (exterior elements) time: %g miliseconds\n", disc.common.timing[11]);
     printf("RuFace time: %g miliseconds\n", disc.common.timing[12]);    
-    printf("Copy from buffrecv time: %g miliseconds\n\n", disc.common.timing[14]);    
-    
-//     printf("--------- Rq Residual Calculation Analysis -------\n");
-//     printf("RqElem time: %g miliseconds\n", disc.common.timing[15]);
-//     printf("RqFace time: %g miliseconds\n", disc.common.timing[16]);
-//     printf("RqApplyMinv time: %g miliseconds\n", disc.common.timing[17]);
-//     printf("RqArrayInsert time: %g miliseconds\n", disc.common.timing[18]);
-//     
-//     printf("RqFace GetArrayAtIndex xdg time: %g miliseconds\n", disc.common.timing[43]);
-//     printf("RqFace Node2Gauss xdg time: %g miliseconds\n", disc.common.timing[19]);
-//     printf("RqFace facegeom time: %g miliseconds\n", disc.common.timing[20]);
-//     printf("RqFace GetElemNodes uhg time: %g miliseconds\n", disc.common.timing[44]);
-//     printf("RqFace Node2Gauss uhg time: %g miliseconds\n", disc.common.timing[21]);
-//     printf("RqFace ApplyJacNormal time: %g miliseconds\n", disc.common.timing[22]);
-//     printf("RqFace Gauss2Node time: %g miliseconds\n", disc.common.timing[23]);
-//     printf("RqFace PutFaceNodes time: %g miliseconds\n", disc.common.timing[24]);
-//     
-//     printf("RqElem GetArrayAtIndex xdg time: %g miliseconds\n", disc.common.timing[41]);
-//     printf("RqElem Node2Gauss xdg time: %g miliseconds\n", disc.common.timing[25]);
-//     printf("RqElem elemgeom time: %g miliseconds\n", disc.common.timing[26]);
-//     printf("RqElem GetArrayAtIndex udg time: %g miliseconds\n", disc.common.timing[42]);
-//     printf("RqElem Node2Gauss udg time: %g miliseconds\n", disc.common.timing[27]);
-//     printf("RqElem Gauss2Node time: %g miliseconds\n", disc.common.timing[28]);
-//     printf("RqElem PutArrayAtIndex time: %g miliseconds\n\n", disc.common.timing[29]);    
-//     
-//     printf("--------- Ru Residual Calculation Analysis -------\n");
-//     printf("RuFace GetArrayAtIndex xdg time: %g miliseconds\n", disc.common.timing[50]);
-//     printf("RuFace Node2Gauss xdg time: %g miliseconds\n", disc.common.timing[30]);    
-//     printf("RuFace facegeom time: %g miliseconds\n", disc.common.timing[31]);
-//     printf("RuFace GetElemNodes uhg time: %g miliseconds\n", disc.common.timing[51]);
-//     printf("RuFace Node2Gauss uhg time: %g miliseconds\n", disc.common.timing[52]);
-//     printf("RuFace GetArrayAtIndex udg1 time: %g miliseconds\n", disc.common.timing[53]);
-//     printf("RuFace Node2Gauss udg1 time: %g miliseconds\n", disc.common.timing[54]);    
-//     printf("RuFace GetArrayAtIndex udg2 time: %g miliseconds\n", disc.common.timing[55]);
-//     printf("RuFace Node2Gauss udg2 time: %g miliseconds\n", disc.common.timing[56]);    
-//     printf("RuFace GetFaceNodes odg1 time: %g miliseconds\n", disc.common.timing[57]);
-//     printf("RuFace Node2Gauss odg1 time: %g miliseconds\n", disc.common.timing[58]);    
-//     printf("RuFace GetFaceNodes odg2 time: %g miliseconds\n", disc.common.timing[59]);
-//     printf("RuFace Node2Gauss odg2 time: %g miliseconds\n", disc.common.timing[60]);                
-//     printf("RuFace FhatDriver time: %g miliseconds\n", disc.common.timing[32]);
-//     printf("RuFace FbouDriver time: %g miliseconds\n", disc.common.timing[32]);
-//     printf("RuFace ApplyJac1 time: %g miliseconds\n", disc.common.timing[61]);       
-//     printf("RuFace Gauss2Node time: %g miliseconds\n", disc.common.timing[34]);
-//     printf("RuFace PutFaceNodes time: %g miliseconds\n", disc.common.timing[35]);
-//     
-//     printf("RuElem GetArrayAtIndex xdg time: %g miliseconds\n", disc.common.timing[45]);
-//     printf("RuElem Node2Gauss xdg time: %g miliseconds\n", disc.common.timing[36]);
-//     printf("RuElem elemgeom time: %g miliseconds\n", disc.common.timing[37]);
-//     printf("RuElem GetArrayAtIndex udg time: %g miliseconds\n", disc.common.timing[46]);
-//     printf("RuElem Node2Gauss udg time: %g miliseconds\n", disc.common.timing[47]);    
-//     printf("RuElem GetElemNodes odg time: %g miliseconds\n", disc.common.timing[48]);
-//     printf("RuElem Node2Gauss odg time: %g miliseconds\n", disc.common.timing[62]);    
-//     printf("RuElem GetElemNodes sdg time: %g miliseconds\n", disc.common.timing[63]);
-//     printf("RuElem Node2Gauss sdg time: %g miliseconds\n", disc.common.timing[64]);
-//     printf("RuElem TdfuncDriver time: %g miliseconds\n", disc.common.timing[65]);
-//     printf("RuElem SourceDriver time: %g miliseconds\n", disc.common.timing[66]);
-//     printf("RuElem ApplyJac1 time: %g miliseconds\n", disc.common.timing[67]);
-//     printf("RuElem Gauss2Node source: %g miliseconds\n", disc.common.timing[38]);
-//     printf("RuElem FluxDriver time: %g miliseconds\n", disc.common.timing[39]);
-//     printf("RuElem Gauss2Node1 time: %g miliseconds\n", disc.common.timing[40]);    
-//     printf("RuElem PutArrayAtIndex time: %g miliseconds\n\n", disc.common.timing[49]); 
+    printf("Copy from buffrecv time: %g miliseconds\n\n", disc.common.timing[14]);        
     }
 #endif
     
-    return 0;
-    // reset Wcurrentdim
-    //disc.common.Wcurrentdim = disc.common.RBcurrentdim;
+    return 0;    
 }
 
 void UpdateRB(sysstruct &sys, CDiscretization& disc, CPreconditioner& prec, Int backend)

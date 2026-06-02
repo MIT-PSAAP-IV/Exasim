@@ -221,8 +221,10 @@ void setsysstruct(sysstruct &sys, commonstruct &common, resstruct res, meshstruc
     //TemplateMalloc(&sys.v, ndof*M, backend);      
     
     if (common.spatialScheme==0) {
-      TemplateMalloc(&sys.v, ndof*M, backend);      
-      sys.szv = ndof * M;
+      //TemplateMalloc(&sys.v, ndof*M, backend);      
+      //sys.szv = ndof * M;
+        sys.v = &res.K[res.szP];
+        sys.szv = 0;
     }
     else {
       sys.v = &res.K[res.szP];
