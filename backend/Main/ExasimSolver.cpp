@@ -105,6 +105,12 @@ using namespace std;
 
 #include "ExasimSolver.hpp"
 
+#if defined(_TEXT2CODE) && defined(HAVE_BACKEND_PREPROCESSING)
+#include "../Model/Text2codeGenerated/text2codeprovider.cpp"
+#endif
+
+#include "ExasimSolverSetup.hpp"
+
 namespace {
 
 static vector<CSolution*> ModelPointers(vector<unique_ptr<CSolution>>& models)
@@ -585,9 +591,15 @@ int ExasimSolver::BuildModels()
     }
 
     if (model_abis_.size() != static_cast<size_t>(numModelDefinitions)) {
-        if (mpirank_ == 0)
-            std::cerr << "ExasimSolver requires one ExasimDriverABI per model definition." << std::endl;
-        return 1;
+        model_abis_.clear();
+        model_abis_.reserve(numModelDefinitions);
+        for (int i = 0; i < numModelDefinitions; i++) {
+            if (mpirank_ == 0)
+                std::cout << "Auto-selecting ExasimDriverABI for model definition "
+                          << i << " (builtinmodelID=" << BuiltinModelID(i) << ")"
+                          << std::endl;
+            model_abis_.push_back(SelectExasimDriverABI(BuiltinModelID(i)));
+        }
     }
 
     for (int i = 0; i < numModelDefinitions; i++) {
@@ -737,6 +749,17 @@ int ExasimSolver::IntializeMeshInterface(const int modelnumber,
     ncx = model.disc.common.ncx;
     npf = model.disc.common.npf;
     ngf = model.disc.common.ngf;
+    {
+        int ibc_search = ibc + 1;
+        int nfe = model.disc.common.nfe;
+        int ne1 = model.disc.common.ne1;
+        int count_bf = 0;
+        for (int i = 0; i < nfe * ne1; i++)
+            if (model.disc.mesh.bf[i] == ibc_search) count_bf++;
+        if (model.disc.common.mpiRank == 0)
+            printf("[IntializeMeshInterface] searching bf==%d: found %d / %d faces\n",
+                   ibc_search, count_bf, nfe * ne1);
+    }
     nfaces = model.disc.getFacesOnInterface(&faces, ibc + 1);
 
     model.disc.common.ncuext = ncuext;
