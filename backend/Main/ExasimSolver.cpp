@@ -5,6 +5,7 @@
 #include <vector>
 #include <numeric>
 #include <filesystem>
+#include <cstddef>
 #include <cstdint>
 #include <cmath>
 #include <cstdlib>
@@ -117,8 +118,12 @@ static vector<CSolution*> ModelPointers(vector<unique_ptr<CSolution>>& models)
 
 static bool IsValidModelABI(const ExasimDriverABI& abi)
 {
+    const std::uint32_t required_struct_size =
+        static_cast<std::uint32_t>(offsetof(ExasimDriverABI, HdgFextonly) +
+                                  sizeof(abi.HdgFextonly));
+
     return abi.abi_version == kExasimDriverABIVersion &&
-           abi.struct_size == sizeof(ExasimDriverABI) &&
+           abi.struct_size >= required_struct_size &&
            abi.KokkosFlux &&
            abi.KokkosSource &&
            abi.KokkosSourcew &&

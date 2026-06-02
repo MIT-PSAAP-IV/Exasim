@@ -126,10 +126,18 @@ void CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, CDisc
 void CPreconditioner::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretization& disc, Int backend)
 {        
     Int N = disc.common.ndof1;        
-    
+
     ArrayCopy(disc.common.cublasHandle, disc.res.Ru, x, N, backend);
-    ApplyMatrix(disc.common.cublasHandle, x, disc.res.Minv, disc.res.Ru, disc.common.npe, disc.common.ncu, 
-        disc.common.ne1, disc.common.precMatrixType, disc.common.curvedMesh, backend);                
+    if ((disc.common.spatialScheme == 0) && (disc.common.preconditioner == 1) && (disc.res.K != nullptr)) {
+        Int n = disc.common.npe*disc.common.ncu;
+        Int ne = disc.common.ne1;
+        PGEMNMStridedBached(disc.common.cublasHandle, n, 1, n, one,
+                disc.res.K, n, disc.res.Ru, n, zero, x, n, ne, backend);
+    }
+    else 
+        ApplyMatrix(disc.common.cublasHandle, x, disc.res.Minv, disc.res.Ru,
+            disc.common.npe, disc.common.ncu, disc.common.ne1,
+            disc.common.preconditioner, disc.common.curvedMesh, backend);
 }
 
 void CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, CDiscretization& disc, Int N, Int spatialScheme, Int backend)
@@ -319,4 +327,3 @@ void CPreconditioner::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretiza
 }
 
 #endif        
-
