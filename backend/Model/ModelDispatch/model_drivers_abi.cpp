@@ -303,6 +303,43 @@ void FbouDriver(dstype* fb, const dstype* xg, const dstype* udg,
                    nc, ncu, nd, ncx, nco, ncw);
 }
 
+void FbouJacDriver(dstype* fb, dstype* fb_udg, dstype* fb_wdg,
+                   dstype* fb_uhg, const dstype* xg, const dstype* udg,
+                   const dstype* odg, const dstype* wdg, const dstype* uhg,
+                   const dstype* nl, ExasimDriverABI& abi, meshstruct& mesh,
+                   masterstruct& master, appstruct& app, solstruct& sol,
+                   tempstruct& temp, commonstruct& common, Int nga, Int ib,
+                   Int backend)
+{
+    Int nc = common.nc;
+    Int ncu = common.ncu;
+    Int ncw = common.ncw;
+    Int nco = common.nco;
+    Int ncx = common.ncx;
+    Int nd = common.nd;
+    Int numPoints = nga;
+    dstype time = common.time;
+
+    abi.KokkosFbouJac(fb, fb_udg, fb_wdg, fb_uhg, xg, udg, odg, wdg, uhg,
+                      nl, app.tau, app.uinf, app.physicsparam, time,
+                      common.modelnumber, ib, numPoints, nc, ncu, nd, ncx,
+                      nco, ncw);
+}
+
+void FbouJacDriver(dstype* fb, dstype* fb_udg, dstype* fb_wdg,
+                   dstype* fb_uhg, const dstype* xg, const dstype* udg,
+                   const dstype* odg, const dstype* wdg, const dstype* uhg,
+                   const dstype* nl, ExasimDriverABI& abi, meshstruct& mesh,
+                   masterstruct& master, appstruct& app, solstruct& sol,
+                   tempstruct& temp, commonstruct& common, Int ngf, Int f1,
+                   Int f2, Int ib, Int backend)
+{
+    Int numPoints = ngf * (f2 - f1);
+    FbouJacDriver(fb, fb_udg, fb_wdg, fb_uhg, xg, udg, odg, wdg, uhg, nl,
+                  abi, mesh, master, app, sol, temp, common, numPoints, ib,
+                  backend);
+}
+
 void UhatDriver(dstype* fg, dstype* xg, dstype* ug1, dstype* ug2,
                 const dstype* og1, const dstype* og2, const dstype* wg1,
                 const dstype* wg2, const dstype* uh, const dstype* nl,
@@ -349,6 +386,43 @@ void UbouDriver(dstype* ub, const dstype* xg, const dstype* udg,
     abi.KokkosUbou(ub, xg, udg, odg, wdg, uhg, nl, app.tau, app.uinf,
                    app.physicsparam, time, common.modelnumber, ib, numPoints,
                    nc, ncu, nd, ncx, nco, ncw);
+}
+
+void UbouJacDriver(dstype* ub, dstype* ub_udg, dstype* ub_wdg,
+                   dstype* ub_uhg, const dstype* xg, const dstype* udg,
+                   const dstype* odg, const dstype* wdg, const dstype* uhg,
+                   const dstype* nl, ExasimDriverABI& abi, meshstruct& mesh,
+                   masterstruct& master, appstruct& app, solstruct& sol,
+                   tempstruct& temp, commonstruct& common, Int nga, Int ib,
+                   Int backend)
+{
+    Int nc = common.nc;
+    Int ncu = common.ncu;
+    Int ncw = common.ncw;
+    Int nco = common.nco;
+    Int ncx = common.ncx;
+    Int nd = common.nd;
+    Int numPoints = nga;
+    dstype time = common.time;
+
+    abi.KokkosUbouJac(ub, ub_udg, ub_wdg, ub_uhg, xg, udg, odg, wdg, uhg,
+                      nl, app.tau, app.uinf, app.physicsparam, time,
+                      common.modelnumber, ib, numPoints, nc, ncu, nd, ncx,
+                      nco, ncw);
+}
+
+void UbouJacDriver(dstype* ub, dstype* ub_udg, dstype* ub_wdg,
+                   dstype* ub_uhg, const dstype* xg, const dstype* udg,
+                   const dstype* odg, const dstype* wdg, const dstype* uhg,
+                   const dstype* nl, ExasimDriverABI& abi, meshstruct& mesh,
+                   masterstruct& master, appstruct& app, solstruct& sol,
+                   tempstruct& temp, commonstruct& common, Int ngf, Int f1,
+                   Int f2, Int ib, Int backend)
+{
+    Int numPoints = ngf * (f2 - f1);
+    UbouJacDriver(ub, ub_udg, ub_wdg, ub_uhg, xg, udg, odg, wdg, uhg, nl,
+                  abi, mesh, master, app, sol, temp, common, numPoints, ib,
+                  backend);
 }
 
 void InitodgDriver(dstype* f, const dstype* xg,
