@@ -31,23 +31,22 @@ static void HdgFbouonlyTemplate(dstype* f, const dstype* xdg,
         constexpr int nc = ncu * (1 + nd);
         constexpr int nco = Model::nco;
         constexpr int ncw = Model::ncw;
+        constexpr int ntau = Model::ntau;
         dstype x[nd];
         dstype uq[nc];
         dstype v[(nco > 0) ? nco : 1];
         dstype w[(ncw > 0) ? ncw : 1];
         dstype uh[ncu];
         dstype n[nd];
-        dstype tau_local[ncu];
+        dstype tau_local[ntau];
         dstype fb_local[ncu];
 
         for (int k = 0; k < nd; ++k) x[k] = xdg[k * ng + i];
         for (int k = 0; k < nc; ++k) uq[k] = udg[k * ng + i];
         for (int k = 0; k < nco; ++k) v[k] = odg[k * ng + i];
         for (int k = 0; k < ncw; ++k) w[k] = wdg[k * ng + i];
-        for (int k = 0; k < ncu; ++k) {
-            uh[k] = uhg[k * ng + i];
-            tau_local[k] = tau[k];
-        }
+        for (int k = 0; k < ncu; ++k) uh[k] = uhg[k * ng + i];
+        for (int k = 0; k < ntau; ++k) tau_local[k] = tau[k];
         for (int k = 0; k < nd; ++k) n[k] = nlg[k * ng + i];
 
         Model::fbou_hdg(fb_local, ib, x, uq, v, w, uh, n, tau_local, param, uinf, time);

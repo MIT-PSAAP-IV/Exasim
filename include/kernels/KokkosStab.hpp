@@ -33,6 +33,7 @@ static void KokkosStabTemplate(dstype* f, const dstype* xdg,
         constexpr int nc = ncu * (1 + nd);
         constexpr int nco = Model::nco;
         constexpr int ncw = Model::ncw;
+        constexpr int ntau = Model::ntau;
         dstype x[nd];
         dstype uq1[nc];
         dstype uq2[nc];
@@ -42,7 +43,7 @@ static void KokkosStabTemplate(dstype* f, const dstype* xdg,
         dstype w2[(ncw > 0) ? ncw : 1];
         dstype uh[ncu];
         dstype n[nd];
-        dstype tau_local[ncu];
+        dstype tau_local[ntau];
         dstype stab_local[ncu];
 
         for (int k = 0; k < nd; ++k) x[k] = xdg[k * ng + i];
@@ -58,10 +59,8 @@ static void KokkosStabTemplate(dstype* f, const dstype* xdg,
             w1[k] = wdg1[k * ng + i];
             w2[k] = wdg2[k * ng + i];
         }
-        for (int k = 0; k < ncu; ++k) {
-            uh[k] = uhg[k * ng + i];
-            tau_local[k] = tau[k];
-        }
+        for (int k = 0; k < ncu; ++k) uh[k] = uhg[k * ng + i];
+        for (int k = 0; k < ntau; ++k) tau_local[k] = tau[k];
         for (int k = 0; k < nd; ++k) n[k] = nlg[k * ng + i];
 
         Model::stab(stab_local, x, uq1, uq2, v1, v2, w1, w2, uh, n, tau_local,
