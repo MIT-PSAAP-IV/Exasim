@@ -4,9 +4,9 @@ if nargin<=1
   id = app.builtinmodelID;
   app.modelnumber = app.builtinmodelID;
   
-  kkdir = app.backendpath + "/Model/BuiltIn/model" + num2str(app.modelnumber);  
-  if ~exist(char(kkdir), 'dir') 
-    mkdir(char(kkdir));
+  kkdir = app.backendpath + "/Model/BuiltIn/model" + num2str(app.modelnumber);    
+  if ~exist(char(kkdir), 'dir')
+      mkdir(char(kkdir));
   end
 
   text = fileread(char(app.backendpath + "/Model/BuiltIn/model.hpp")); 
@@ -138,9 +138,9 @@ else
       hdgnocodeface2("Fintonly" + strn, kkdir);
   end
   if isfield(pde, 'fext')    
-      uext = sym('uext',[app.ncuext 1]); 
+      uext = sym('uext',[pde.ncuext 1]); 
       f = pde.fext(u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, uext, tau);
-      f = reshape(f,app.ncuext,[]);
+      f = reshape(f,ncuext,[]);
       hdggencodefext("Fext" + strn, f, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time, kkdir);
       hdggencodefext2("Fextonly" + strn, f, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time, kkdir);
   else   
@@ -246,7 +246,7 @@ end
 if isfield(pde, 'fbou')    
     f = pde.fbou(u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, tau);
     f = reshape(f,ncu,[]);
-    kkgencodeface("Fbou" + strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, kkdir);
+    kkgencodeface("Fbou" + strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, kkdir, true);
 else
     % disp("WARNING: fbou is not defined in the PDE model")
     error("pde.fbou is not defined");
@@ -254,7 +254,7 @@ end
 if isfield(pde, 'ubou')
     f = pde.ubou(u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, tau);
     f = reshape(f,ncu,[]);
-    kkgencodeface("Ubou" + strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, kkdir);
+    kkgencodeface("Ubou" + strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, kkdir, true);
 else
     % disp("WARNING: ubou is not defined in the PDE model")
     error("pde.ubou is not defined");

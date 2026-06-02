@@ -144,7 +144,7 @@ end
 if isfield(pde, 'fbou')    
     f = pde.fbou(u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, tau);
     f = reshape(f,ncu,[]);
-    kkgencodeface("Fbou" + strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, kkdir);
+    kkgencodeface("Fbou" + strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, kkdir, true);
 else
     % disp("WARNING: fbou is not defined in the PDE model")
     error("pde.fbou is not defined");
@@ -152,7 +152,7 @@ end
 if isfield(pde, 'ubou')
     f = pde.ubou(u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, tau);
     f = reshape(f,ncu,[]);
-    kkgencodeface("Ubou" + strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, kkdir);
+    kkgencodeface("Ubou" + strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, kkdir, true);
 else
     % disp("WARNING: ubou is not defined in the PDE model")
     error("pde.ubou is not defined");

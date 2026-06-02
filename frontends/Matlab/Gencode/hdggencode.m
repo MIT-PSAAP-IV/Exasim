@@ -22,15 +22,15 @@ else
     q = [];
 end
 
-if app.hybrid == 0
-  hdgnocodeelem("Flux" + strn, kkdir);  
-  hdgnocodeelem("Source" + strn, kkdir);  
-  hdgnocodeelem("EoS" + strn, kkdir);    
-  hdgnocodeelem("Sourcew" + strn, kkdir);
-  hdgnocodeelem2("Sourcewonly" + strn, kkdir);
-  hdgnocodeface("Fbou" + strn, kkdir);
-  hdgnocodeface2("Fbouonly" + strn, kkdir);
-else
+% if app.hybrid == 0
+%   hdgnocodeelem("Flux" + strn, kkdir);  
+%   hdgnocodeelem("Source" + strn, kkdir);  
+%   hdgnocodeelem("EoS" + strn, kkdir);    
+%   hdgnocodeelem("Sourcew" + strn, kkdir);
+%   hdgnocodeelem2("Sourcewonly" + strn, kkdir);
+%   hdgnocodeface("Fbou" + strn, kkdir);
+%   hdgnocodeface2("Fbouonly" + strn, kkdir);
+% else
   if isfield(pde, 'flux')    
       f = pde.flux(u, q, wdg, odg, xdg, time, param, uinf);    
       hdggencodeelem("Flux" + strn, f, xdg, udg, odg, wdg, uinf, param, time, kkdir);       
@@ -88,7 +88,7 @@ else
       hdgnocodefext("Fext" + strn, kkdir);
       hdgnocodefext2("Fextonly" + strn, kkdir);
   end  
-end
+%end
 
 end
 
