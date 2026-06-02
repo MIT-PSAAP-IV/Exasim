@@ -48,6 +48,8 @@
 #include "timestepcoeff.cpp"
 #include "avsolution.cpp"
 
+#include <chrono>
+
 #ifdef TIMESTEP  
 #include <sys/time.h>
 #endif
@@ -79,6 +81,37 @@ void printFirstNonFiniteFlat(const char* label, const dstype* data, Int size, In
               << " on rank " << rank
               << "; max abs entry is at index " << imax
               << " with value " << data[imax] << std::endl;
+}
+
+double SolutionBenchmarkNowMs()
+{
+    return std::chrono::duration<double, std::milli>(
+            std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+}
+
+void SolutionBenchmarkFence(const Int backend)
+{
+    Kokkos::fence();
+#ifdef HAVE_CUDA
+    if (backend == 2)
+        CHECK(cudaDeviceSynchronize());
+#endif
+#ifdef HAVE_HIP
+    if (backend == 3)
+        CHECK(hipDeviceSynchronize());
+#endif
+}
+
+double SolutionBenchmarkStart(const Int backend)
+{
+    SolutionBenchmarkFence(backend);
+    return SolutionBenchmarkNowMs();
+}
+
+double SolutionBenchmarkStop(const double start, const Int backend)
+{
+    SolutionBenchmarkFence(backend);
+    return SolutionBenchmarkNowMs() - start;
 }
 
 }
@@ -181,29 +214,97 @@ Int CSolution::PTCsolver(ofstream &out, Int backend)
     
     nrmr = PNORM(disc.common.cublasHandle, N, solv.sys.u, backend);
     if (disc.common.mpiRank==0)
-        cout<<"PTC Iteration: "<<it<<",  Solution Norm: "<<nrmr<<endl;                                                    
+        cout<<"Newton Iteration: "<<it<<",  Solution Norm: "<<nrmr<<endl;                                                    
     
     // compute both the residual vector and sol.udg  
     disc.evalResidual(solv.sys.r, solv.sys.u, backend);
     nrmr = PNORM(disc.common.cublasHandle, N, solv.sys.r, backend);
     if (disc.common.mpiRank==0)
-        cout<<"PTC Iteration: "<<it<<",  Residual Norm: "<<nrmr<<endl;                           
+        cout<<"Newton Iteration: "<<it<<",  Residual Norm: "<<nrmr<<endl;                           
     
     // use PTC to solve the system: R(u) = 0
     for (it=0; it<maxit; it++) {                        
+        double ldgIterationStart = SolutionBenchmarkStart(backend);
+        double ldgPreconditionerTime = 0.0;
+        double linearSolverTime = 0.0;
+        double residualEvalTime = 0.0;
+        double t0;
 
-        // solve the linear system: (lambda*B + J(u))x = -R(u)
-        int status;
-        status = LinearSolver(solv.sys, disc, prec, out, it, backend);
-                                
-        // update the solution: u = u + x
-        ArrayAXPY(disc.common.cublasHandle, solv.sys.u, solv.sys.x, one, N, backend); 
+        // Build the LDG block-Jacobi preconditioner for the current state.
+        if ((disc.common.spatialScheme == 0) && (disc.common.preconditioner == 1)) {
+            t0 = SolutionBenchmarkStart(backend);
+            if (disc.common.tdep==1) {
+                if (it==0 && disc.common.currentstage==0) disc.ComputeLDGPreconditioner(disc.res.K, solv.sys.u, backend);
+            } else 
+                disc.ComputeLDGPreconditioner(disc.res.K, solv.sys.u, backend);
+            ldgPreconditionerTime += SolutionBenchmarkStop(t0, backend);
+        }
 
-        // compute both the residual vector and sol.udg  
-        disc.evalResidual(solv.sys.r, solv.sys.u, backend);
-        nrmr = PNORM(disc.common.cublasHandle, N, solv.sys.r, backend);
+        dstype nrm0 = nrmr;
 
-        if (nrmr > 1.0e6) {   
+        int status = 0;
+        const dstype minAlpha = 1.0e-12;
+        const Int maxLinearAttempts = 4;
+        dstype alpha = one;
+        bool acceptedStep = false;
+
+        for (Int attempt = 0; attempt < maxLinearAttempts; attempt++) {
+            // solve the linear system: (lambda*B + J(u))x = -R(u)
+            t0 = SolutionBenchmarkStart(backend);
+            status = LinearSolver(solv.sys, disc, prec, out, it, backend);
+            linearSolverTime += SolutionBenchmarkStop(t0, backend);
+
+            ArrayCopy(disc.common.cublasHandle, solv.sys.v, solv.sys.u, N, backend);
+            alpha = one;
+
+            // update the solution: u = u + alpha*x
+            ArrayAXPY(disc.common.cublasHandle, solv.sys.u, solv.sys.x, alpha, N, backend);
+
+            // compute both the residual vector and sol.udg
+            disc.evalResidual(solv.sys.r, solv.sys.u, backend);
+            nrmr = PNORM(disc.common.cublasHandle, N, solv.sys.r, backend);
+
+            while ((IS_NAN(nrmr) || nrmr > nrm0) && alpha > minAlpha) {
+                if (disc.common.mpiRank==0)
+                    cout<<"Newton Iteration: "<<it<<", Alpha: "<<alpha
+                        <<", Original Norm: "<<nrm0
+                        <<", Updated Norm: "<<nrmr<<endl;
+
+                dstype newAlpha = 0.5*alpha;
+                ArrayAXPY(disc.common.cublasHandle, solv.sys.u, solv.sys.x,
+                        newAlpha - alpha, N, backend);
+                alpha = newAlpha;
+
+                t0 = SolutionBenchmarkStart(backend);
+                disc.evalResidual(solv.sys.r, solv.sys.u, backend);
+                nrmr = PNORM(disc.common.cublasHandle, N, solv.sys.r, backend);
+                residualEvalTime += SolutionBenchmarkStop(t0, backend);
+            }
+
+            acceptedStep = (!IS_NAN(nrmr) && nrmr <= nrm0 && nrmr <= 1.0e6);
+            if (acceptedStep)
+                break;
+
+            // Reject this direction and restore the base state before retrying.
+            ArrayCopy(disc.common.cublasHandle, solv.sys.u, solv.sys.v, N, backend);
+            t0 = SolutionBenchmarkStart(backend);
+            disc.evalResidual(solv.sys.r, solv.sys.u, backend);
+            nrmr = PNORM(disc.common.cublasHandle, N, solv.sys.r, backend);
+            residualEvalTime += SolutionBenchmarkStop(t0, backend);
+
+            if (attempt + 1 < maxLinearAttempts) {
+                disc.common.matvecTol *= 0.1;
+                if (disc.common.mpiRank==0)
+                    cout<<"Newton Iteration: "<<it
+                        <<", rejected linear direction; retrying with matvecTol = "
+                        <<disc.common.matvecTol<<endl;
+            }
+        }
+
+        if (acceptedStep && alpha != one)
+            ArrayMultiplyScalar(disc.common.cublasHandle, solv.sys.x, alpha, N, backend);
+
+        if (!acceptedStep) {
             string filename = disc.common.fileout + "_np" + NumberToString(disc.common.mpiRank) + ".bin";                    
             writearray2file(filename, disc.sol.udg, disc.common.ndofudg1, backend);       
             if (vis.savemode > 0) this->SaveParaview(backend, "_CRASH", true);     
@@ -216,7 +317,7 @@ Int CSolution::PTCsolver(ofstream &out, Int backend)
             if (outbouwdg.is_open()) { outbouwdg.close(); }
             if (outbouuhat.is_open()) { outbouuhat.close(); }
             if (outqoi.is_open()) { outqoi.close(); }              
-            error("Residual norm increases more than 1e6. Save and exit.");                                                
+            error("Newton line search failed or residual norm is non-finite. Save and exit.");
         }
         
         if (disc.common.mpiRank==0 && disc.common.saveResNorm==1) {
@@ -226,7 +327,15 @@ Int CSolution::PTCsolver(ofstream &out, Int backend)
         }
         
         if (disc.common.mpiRank==0)
-            cout<<"PTC Iteration: "<<it<<",  Residual Norm: "<<nrmr<<endl;                           
+            cout<<"Newton Iteration: "<<it<<",  Residual Norm: "<<nrmr<<endl;                           
+
+        if ((disc.common.mpiRank==0) && (disc.common.spatialScheme == 0) && (disc.common.preconditioner == 1)) {
+            double ldgIterationTime = SolutionBenchmarkStop(ldgIterationStart, backend);
+            cout << "==> LDG Newton Solver benchmark, iteration " << it << " (milliseconds)" << endl;
+            cout << "    total time       : " << ldgIterationTime << endl;
+            cout << "    ComputeLDGPreconditioner: " << ldgPreconditionerTime << endl;
+            cout << "    LinearSolver/GMRES    : " << linearSolverTime << endl;
+        }
                         
         // update the reduced basis
         if ((status==0) && (disc.common.RBdim > 0)) // fix bug here 
