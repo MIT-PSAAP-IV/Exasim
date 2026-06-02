@@ -131,6 +131,7 @@
 //   flux_jac_uq, flux_jac_w,
 //   source_jac_uq, source_jac_w,
 //   fbou_jac_uq, fbou_jac_uh, fbou_jac_w,
+//   ubou_jac_uq, ubou_jac_uh, ubou_jac_w,
 //   fhat_jac_uq, fhat_jac_uh, fhat_jac_w,
 //   stab_jac_uq, stab_jac_uh,
 //   eos_jac_uq, eos_jac_w
@@ -150,6 +151,10 @@ struct ModelDefaults {
     // field (artificial viscosity, level-set, … plumbed through `odg`)
     // override.
     static constexpr int nco = 0;
+
+    // Default number of stabilization parameters in tau[]. Models with
+    // vector or matrix stabilization data should override this value.
+    static constexpr int ntau = 1;
 
     // Helper: zero-fill an output buffer of size N at compile time.
     template <int N>
@@ -202,7 +207,7 @@ struct ModelDefaults {
 
     // Boundary kernels: pointwise functions seen by every kernel call from
     // <exasim/kernels/boundary.hpp>. Args (after ub/fb output and `ib` tag):
-    //   x[nd], uq[Nq], v[nco], w[ncw], uh[ncu], n[nd], tau[ncu], mu[nparam], uinf, t
+    //   x[nd], uq[Nq], v[nco], w[ncw], uh[ncu], n[nd], tau[ntau], mu[nparam], uinf, t
     KOKKOS_INLINE_FUNCTION static
     void ubou(dstype ub[], int /*ib*/,
               const dstype /*x*/[],  const dstype /*uq*/[],
@@ -450,11 +455,10 @@ struct ModelDefaults {
         }
     }
 
-    // LDG-path boundary Jacobians. These are not currently consumed by
-    // any kernel — text2code's libpdemodel.hpp ABI has `KokkosFbou`
-    // (LDG, value-only) and `HdgFbou` (HDG, value + Jacobians) but no
-    // LDG-path Jacobians. Kept in the contract for completeness in
-    // case a future numerical scheme needs them.
+    // LDG-path boundary Jacobians. These are companions to the Kokkos
+    // boundary derivative ABI entries `KokkosFbouJac` and `KokkosUbouJac`.
+    // The defaults zero-fill so LDG models can opt into only the boundary
+    // derivatives required by a given formulation.
     KOKKOS_INLINE_FUNCTION static
     void fbou_jac_uq(dstype fb_uq[], int /*ib*/,
                      const dstype /*x*/[],  const dstype /*uq*/[],
@@ -482,6 +486,36 @@ struct ModelDefaults {
                     const dstype /*mu*/[], const dstype /*uinf*/[], dstype /*t*/) {
         if constexpr (Self::ncw > 0) {
             for (int k = 0; k < Self::ncu * Self::ncw; ++k) fb_w[k] = 0.0;
+        }
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void ubou_jac_uq(dstype ub_uq[], int /*ib*/,
+                     const dstype /*x*/[],  const dstype /*uq*/[],
+                     const dstype /*v*/[],  const dstype /*w*/[],  const dstype /*uh*/[],
+                     const dstype /*n*/[],  const dstype /*tau*/[],
+                     const dstype /*mu*/[], const dstype /*uinf*/[], dstype /*t*/) {
+        constexpr int Nq = Self::ncu * (1 + Self::nd);
+        for (int k = 0; k < Self::ncu * Nq; ++k) ub_uq[k] = 0.0;
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void ubou_jac_uh(dstype ub_uh[], int /*ib*/,
+                     const dstype /*x*/[],  const dstype /*uq*/[],
+                     const dstype /*v*/[],  const dstype /*w*/[],  const dstype /*uh*/[],
+                     const dstype /*n*/[],  const dstype /*tau*/[],
+                     const dstype /*mu*/[], const dstype /*uinf*/[], dstype /*t*/) {
+        for (int k = 0; k < Self::ncu * Self::ncu; ++k) ub_uh[k] = 0.0;
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void ubou_jac_w(dstype ub_w[], int /*ib*/,
+                    const dstype /*x*/[],  const dstype /*uq*/[],
+                    const dstype /*v*/[],  const dstype /*w*/[],  const dstype /*uh*/[],
+                    const dstype /*n*/[],  const dstype /*tau*/[],
+                    const dstype /*mu*/[], const dstype /*uinf*/[], dstype /*t*/) {
+        if constexpr (Self::ncw > 0) {
+            for (int k = 0; k < Self::ncu * Self::ncw; ++k) ub_w[k] = 0.0;
         }
     }
 

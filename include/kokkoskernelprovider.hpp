@@ -28,6 +28,8 @@ using ::PdeModel;
 #include "kernels/KokkosFhat.hpp"
 #include "kernels/KokkosFbou.hpp"
 #include "kernels/KokkosUbou.hpp"
+#include "kernels/KokkosFbouJac.hpp"
+#include "kernels/KokkosUbouJac.hpp"
 #include "kernels/KokkosUhat.hpp"
 #include "kernels/KokkosStab.hpp"
 #include "kernels/KokkosSource.hpp"
@@ -87,6 +89,8 @@ inline const ExasimDriverABI& getKokkosKernelExasimDriverABI()
         value.KokkosEoSdw = &kokkos_kernel_source::KokkosEoSdw;
         value.KokkosFbou = &kokkos_kernel_source::KokkosFbou;
         value.KokkosUbou = &kokkos_kernel_source::KokkosUbou;
+        value.KokkosFbouJac = &kokkos_kernel_source::KokkosFbouJac;
+        value.KokkosUbouJac = &kokkos_kernel_source::KokkosUbouJac;
         value.KokkosFhat = &kokkos_kernel_source::KokkosFhat;
         value.KokkosUhat = &kokkos_kernel_source::KokkosUhat;
         value.KokkosStab = &kokkos_kernel_source::KokkosStab;

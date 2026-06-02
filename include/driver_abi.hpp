@@ -43,6 +43,14 @@ struct ExasimDriverABI {
                  const dstype* param, dstype time, int modelnumber, int ib,
                  int ng, int nc, int ncu, int nd, int ncx, int nco, int ncw);
 
+    using KokkosBoundaryJacFn =
+        void (*)(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
+                 const dstype* xdg, const dstype* udg, const dstype* odg,
+                 const dstype* wdg, const dstype* uhg, const dstype* nlg,
+                 const dstype* tau, const dstype* uinf, const dstype* param,
+                 dstype time, int modelnumber, int ib, int ng, int nc,
+                 int ncu, int nd, int ncx, int nco, int ncw);
+
     using KokkosFaceCoupledFn =
         void (*)(dstype* f, const dstype* xdg, const dstype* udg1,
                  const dstype* udg2, const dstype* odg1, const dstype* odg2,
@@ -119,6 +127,8 @@ struct ExasimDriverABI {
     KokkosGlobalElementFn KokkosEoSdw = nullptr;
     KokkosBoundaryFn KokkosFbou = nullptr;
     KokkosBoundaryFn KokkosUbou = nullptr;
+    KokkosBoundaryJacFn KokkosFbouJac = nullptr;
+    KokkosBoundaryJacFn KokkosUbouJac = nullptr;
     KokkosFaceCoupledFn KokkosFhat = nullptr;
     KokkosFaceCoupledFn KokkosUhat = nullptr;
     KokkosFaceCoupledFn KokkosStab = nullptr;
