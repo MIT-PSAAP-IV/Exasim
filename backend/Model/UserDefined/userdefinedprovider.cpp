@@ -78,6 +78,8 @@ const ExasimDriverABI& getUserDefinedExasimDriverABI()
         value.KokkosEoSdw = &user_defined_source::KokkosEoSdw;
         value.KokkosFbou = &user_defined_source::KokkosFbou;
         value.KokkosUbou = &user_defined_source::KokkosUbou;
+        value.KokkosFbouJac = &user_defined_source::KokkosFbouJac;
+        value.KokkosUbouJac = &user_defined_source::KokkosUbouJac;
         value.KokkosFhat = &user_defined_source::KokkosFhat;
         value.KokkosUhat = &user_defined_source::KokkosUhat;
         value.KokkosStab = &user_defined_source::KokkosStab;
