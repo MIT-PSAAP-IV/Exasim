@@ -5,7 +5,10 @@ if nargin<=1
   app.modelnumber = app.builtinmodelID;
   
   kkdir = app.backendpath + "/Model/BuiltIn/model" + num2str(app.modelnumber);  
-    
+  if ~exist(char(kkdir), 'dir') 
+    mkdir(char(kkdir));
+  end
+
   text = fileread(char(app.backendpath + "/Model/BuiltIn/model.hpp")); 
   fid = fopen(app.backendpath + "/Model/BuiltIn/model" + num2str(id) + "/model.hpp", 'w');  
   t = string(text);          % ensure scalar string
@@ -135,9 +138,9 @@ else
       hdgnocodeface2("Fintonly" + strn, kkdir);
   end
   if isfield(pde, 'fext')    
-      uext = sym('uext',[pde.ncuext 1]); 
+      uext = sym('uext',[app.ncuext 1]); 
       f = pde.fext(u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, uext, tau);
-      f = reshape(f,ncuext,[]);
+      f = reshape(f,app.ncuext,[]);
       hdggencodefext("Fext" + strn, f, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time, kkdir);
       hdggencodefext2("Fextonly" + strn, f, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time, kkdir);
   else   
