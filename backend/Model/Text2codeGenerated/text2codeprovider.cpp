@@ -8,7 +8,7 @@
  * runtime state.
  */
 
-#include "../ModelDispatch/driver_abi.h"
+//#include "../ModelDispatch/driver_abi.h"
 
 namespace text2code_generated_source {
 
@@ -86,6 +86,8 @@ const ExasimDriverABI& getText2codeGeneratedExasimDriverABI()
         value.KokkosEoSdw = &text2code_generated_source::KokkosEoSdw;
         value.KokkosFbou = &text2code_generated_source::KokkosFbou;
         value.KokkosUbou = &text2code_generated_source::KokkosUbou;
+        value.KokkosFbouJac = &text2code_generated_source::KokkosFbouJac;
+        value.KokkosUbouJac = &text2code_generated_source::KokkosUbouJac;
         value.KokkosFhat = &text2code_generated_source::KokkosFhat;
         value.KokkosUhat = &text2code_generated_source::KokkosUhat;
         value.KokkosStab = &text2code_generated_source::KokkosStab;

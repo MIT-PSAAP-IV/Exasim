@@ -13,7 +13,7 @@ public:
     // from argv[1]. Default left empty (writes relative
     // to cwd) so generated headers don't bake an absolute
     // path tied to the developer who ran codegen.
-    std::string modelpath = "/Users/cuongnguyen/Documents/GitHub/Exasim/backend/Model/Text2codeGenerated/";
+    std::string modelpath = "/Users/cuongnguyen/Documents/GitHub/hexascale/Exasim/backend/Model/Text2codeGenerated/";
 
     // input symbolic scalars
     Expression t;
@@ -74,6 +74,7 @@ public:
     void funcjachess2cppfiles(const std::vector<Expression> &f, const std::string filename, const std::string funcname, const int functionid, bool append);
     void initfunc2cppfiles(const std::vector<Expression> &f, const std::string filename, const std::string funcname, const int functionid, bool append, int framework);
     void appendUbouFbou(const std::string& filename, const std::string& funcname, int nbc);
+    void appendKokkosBoundaryJac(const std::string& filename, const std::string& funcname, int nbc);
     void appendFbouHdg(const std::string& filename, const std::string& funcname, int nbc);
     void appendFextonly(const std::string& filename, const std::string& funcname, int nbc);
     void appendFext(const std::string& filename, const std::string& funcname, int nbc);

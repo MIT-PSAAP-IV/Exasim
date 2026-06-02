@@ -60,20 +60,18 @@ SymbolicScalarsVectors::SymbolicScalarsVectors() {
 
     exasim = true;
 
-    outputfunctions.assign(10, false);
+    outputfunctions.assign(7, false);
     outputfunctions[0] = true;
     outputfunctions[1] = true;
     outputfunctions[2] = true;
     outputfunctions[3] = true;
     outputfunctions[4] = true;
+    outputfunctions[5] = true;
     outputfunctions[6] = true;
-    outputfunctions[7] = true;
-    outputfunctions[8] = true;
-    outputfunctions[9] = true;
 
     batch = {"x", "uq", "v", "w", "uhat", "n"};
 
-    funcnames = {"Flux", "Source", "Tdfunc", "Fbou", "Ubou", "CustomFlux", "FbouHdg", "Initu", "VisScalars", "VisVectors"};
+    funcnames = {"Flux", "Source", "Tdfunc", "Fbou", "Ubou", "FbouHdg", "Initu"};
 
     funcargs = {
         {"x", "uq", "v", "w", "eta", "mu", "t"},
@@ -81,11 +79,8 @@ SymbolicScalarsVectors::SymbolicScalarsVectors() {
         {"x", "uq", "v", "w", "eta", "mu", "t"},
         {"x", "uq", "v", "w", "uhat", "n", "tau", "eta", "mu", "t"},
         {"x", "uq", "v", "w", "uhat", "n", "tau", "eta", "mu", "t"},
-        {"x", "uhat", "uq", "v", "w", "eta", "mu", "t"},
         {"x", "uq", "v", "w", "uhat", "n", "tau", "eta", "mu", "t"},
-        {"x", "eta", "mu"},
-        {"x", "uq", "v", "w", "eta", "mu", "t"},
-        {"x", "uq", "v", "w", "eta", "mu", "t"}
+        {"x", "eta", "mu"}
     };
 
     funcargssizes = {
@@ -94,11 +89,8 @@ SymbolicScalarsVectors::SymbolicScalarsVectors() {
         {"szx", "szuq", "szv", "szw", "szeta", "szmu", "szt"},
         {"szx", "szuq", "szv", "szw", "szuhat", "szn", "sztau", "szeta", "szmu", "szt"},
         {"szx", "szuq", "szv", "szw", "szuhat", "szn", "sztau", "szeta", "szmu", "szt"},
-        {"szx", "szuhat", "szuq", "szv", "szw", "szeta", "szmu", "szt"},
         {"szx", "szuq", "szv", "szw", "szuhat", "szn", "sztau", "szeta", "szmu", "szt"},
-        {"szx", "szeta", "szmu"},
-        {"szx", "szuq", "szv", "szw", "szeta", "szmu", "szt"},
-        {"szx", "szuq", "szv", "szw", "szeta", "szmu", "szt"}
+        {"szx", "szeta", "szmu"}
     };
 
     funcdecls = {
@@ -107,11 +99,8 @@ SymbolicScalarsVectors::SymbolicScalarsVectors() {
        "void Tdfunc(dstype* f, const dstype* x, const dstype* uq, const dstype* v, const dstype* w, const dstype* eta, const dstype* mu, const dstype t, const int modelnumber, const int N, const int szx, const int szuq, const int szv, const int szw, const int szeta, const int szmu)", 
        "void Fbou(dstype* f, const dstype* x, const dstype* uq, const dstype* v, const dstype* w, const dstype* uhat, const dstype* n, const dstype* tau, const dstype* eta, const dstype* mu, const dstype t, const int modelnumber, const int N, const int szx, const int szuq, const int szv, const int szw, const int szuhat, const int szn, const int sztau, const int szeta, const int szmu)", 
        "void Ubou(dstype* f, const dstype* x, const dstype* uq, const dstype* v, const dstype* w, const dstype* uhat, const dstype* n, const dstype* tau, const dstype* eta, const dstype* mu, const dstype t, const int modelnumber, const int N, const int szx, const int szuq, const int szv, const int szw, const int szuhat, const int szn, const int sztau, const int szeta, const int szmu)", 
-       "void CustomFlux(dstype* f, const dstype* x, const dstype* uhat, const dstype* uq, const dstype* v, const dstype* w, const dstype* eta, const dstype* mu, const dstype t, const int modelnumber, const int N, const int szx, const int szuhat, const int szuq, const int szv, const int szw, const int szeta, const int szmu)", 
        "void FbouHdg(dstype* f, const dstype* x, const dstype* uq, const dstype* v, const dstype* w, const dstype* uhat, const dstype* n, const dstype* tau, const dstype* eta, const dstype* mu, const dstype t, const int modelnumber, const int N, const int szx, const int szuq, const int szv, const int szw, const int szuhat, const int szn, const int sztau, const int szeta, const int szmu)", 
-       "void Initu(dstype* f, const dstype* x, const dstype* eta, const dstype* mu, const int modelnumber, const int N, const int szx, const int szeta, const int szmu)", 
-       "void VisScalars(dstype* f, const dstype* x, const dstype* uq, const dstype* v, const dstype* w, const dstype* eta, const dstype* mu, const dstype t, const int modelnumber, const int N, const int szx, const int szuq, const int szv, const int szw, const int szeta, const int szmu)", 
-       "void VisVectors(dstype* f, const dstype* x, const dstype* uq, const dstype* v, const dstype* w, const dstype* eta, const dstype* mu, const dstype t, const int modelnumber, const int N, const int szx, const int szuq, const int szv, const int szw, const int szeta, const int szmu)"
+       "void Initu(dstype* f, const dstype* x, const dstype* eta, const dstype* mu, const int modelnumber, const int N, const int szx, const int szeta, const int szmu)"
     };
 
     funcjacdecls = {
@@ -120,11 +109,8 @@ SymbolicScalarsVectors::SymbolicScalarsVectors() {
        "const dstype* x, const dstype* uq, const dstype* v, const dstype* w, const dstype* eta, const dstype* mu, const dstype t, const int modelnumber, const int N, const int szx, const int szuq, const int szv, const int szw, const int szeta, const int szmu)", 
        "const dstype* x, const dstype* uq, const dstype* v, const dstype* w, const dstype* uhat, const dstype* n, const dstype* tau, const dstype* eta, const dstype* mu, const dstype t, const int modelnumber, const int N, const int szx, const int szuq, const int szv, const int szw, const int szuhat, const int szn, const int sztau, const int szeta, const int szmu)", 
        "const dstype* x, const dstype* uq, const dstype* v, const dstype* w, const dstype* uhat, const dstype* n, const dstype* tau, const dstype* eta, const dstype* mu, const dstype t, const int modelnumber, const int N, const int szx, const int szuq, const int szv, const int szw, const int szuhat, const int szn, const int sztau, const int szeta, const int szmu)", 
-       "const dstype* x, const dstype* uhat, const dstype* uq, const dstype* v, const dstype* w, const dstype* eta, const dstype* mu, const dstype t, const int modelnumber, const int N, const int szx, const int szuhat, const int szuq, const int szv, const int szw, const int szeta, const int szmu)", 
        "const dstype* x, const dstype* uq, const dstype* v, const dstype* w, const dstype* uhat, const dstype* n, const dstype* tau, const dstype* eta, const dstype* mu, const dstype t, const int modelnumber, const int N, const int szx, const int szuq, const int szv, const int szw, const int szuhat, const int szn, const int sztau, const int szeta, const int szmu)", 
-       "const dstype* x, const dstype* eta, const dstype* mu, const int modelnumber, const int N, const int szx, const int szeta, const int szmu)", 
-       "const dstype* x, const dstype* uq, const dstype* v, const dstype* w, const dstype* eta, const dstype* mu, const dstype t, const int modelnumber, const int N, const int szx, const int szuq, const int szv, const int szw, const int szeta, const int szmu)", 
-       "const dstype* x, const dstype* uq, const dstype* v, const dstype* w, const dstype* eta, const dstype* mu, const dstype t, const int modelnumber, const int N, const int szx, const int szuq, const int szv, const int szw, const int szeta, const int szmu)"
+       "const dstype* x, const dstype* eta, const dstype* mu, const int modelnumber, const int N, const int szx, const int szeta, const int szmu)"
     };
 
     inputvectors = {
@@ -133,11 +119,8 @@ SymbolicScalarsVectors::SymbolicScalarsVectors() {
         {{"x", x}, {"uq", uq}, {"v", v}, {"w", w}, {"eta", eta}, {"mu", mu}},
         {{"x", x}, {"uq", uq}, {"v", v}, {"w", w}, {"uhat", uhat}, {"n", n}, {"tau", tau}, {"eta", eta}, {"mu", mu}},
         {{"x", x}, {"uq", uq}, {"v", v}, {"w", w}, {"uhat", uhat}, {"n", n}, {"tau", tau}, {"eta", eta}, {"mu", mu}},
-        {{"x", x}, {"uhat", uhat}, {"uq", uq}, {"v", v}, {"w", w}, {"eta", eta}, {"mu", mu}},
         {{"x", x}, {"uq", uq}, {"v", v}, {"w", w}, {"uhat", uhat}, {"n", n}, {"tau", tau}, {"eta", eta}, {"mu", mu}},
-        {{"x", x}, {"eta", eta}, {"mu", mu}},
-        {{"x", x}, {"uq", uq}, {"v", v}, {"w", w}, {"eta", eta}, {"mu", mu}},
-        {{"x", x}, {"uq", uq}, {"v", v}, {"w", w}, {"eta", eta}, {"mu", mu}}
+        {{"x", x}, {"eta", eta}, {"mu", mu}}
     };
 
     inputscalars = {
@@ -147,10 +130,7 @@ SymbolicScalarsVectors::SymbolicScalarsVectors() {
         {{"t", t}},
         {{"t", t}},
         {{"t", t}},
-        {{"t", t}},
-        {},
-        {{"t", t}},
-        {{"t", t}}
+        {}
     };
 
     jacobianInputs = {
@@ -159,17 +139,11 @@ SymbolicScalarsVectors::SymbolicScalarsVectors() {
         {uq, w},
         {uq, w, uhat},
         {uq, w, uhat},
-        {uhat, uq, w},
         {uq, w, uhat},
-        {},
-        {uq, w},
-        {uq, w}
+        {}
     };
 
     hessianInputs = {
-        {},
-        {},
-        {},
         {},
         {},
         {},
@@ -202,19 +176,10 @@ std::vector<Expression> SymbolicScalarsVectors::evaluateSymbolicFunctions(int ca
       f = Ubou(x, uq, v, w, uhat, n, tau, eta, mu, t);
       break;
     case 5:
-      f = CustomFlux(x, uhat, uq, v, w, eta, mu, t);
-      break;
-    case 6:
       f = FbouHdg(x, uq, v, w, uhat, n, tau, eta, mu, t);
       break;
-    case 7:
+    case 6:
       f = Initu(x, eta, mu);
-      break;
-    case 8:
-      f = VisScalars(x, uq, v, w, eta, mu, t);
-      break;
-    case 9:
-      f = VisVectors(x, uq, v, w, eta, mu, t);
       break;
     default:
       throw std::runtime_error("Invalid function call in evaluateSymbolicFunctions");
@@ -654,6 +619,29 @@ void SymbolicScalarsVectors::appendUbouFbou(const std::string& filename, const s
     cppfile << tmp.str();
     cppfile.close();
 }
+void SymbolicScalarsVectors::appendKokkosBoundaryJac(const std::string& filename, const std::string& funcname, int nbc) {
+    std::ostringstream tmp;
+
+    tmp << "void " << funcname << "(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg,\n";
+        tmp << "           const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time,\n";
+        tmp << "           const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd,\n";
+        tmp << "           const int ncx, const int nco, const int ncw) {\n";
+
+    for (int k = 1; k <= nbc; ++k) {
+        if (k == 1)
+            tmp << "    if (ib == 1 )\n";
+        else
+            tmp << "    else if (ib == " << k << " )\n";
+        tmp << "        " << funcname << k << "(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber,\n";
+        tmp << "                        ng, nc, ncu, nd, ncx, nco, ncw, nc, ncu, nd);\n";
+    }
+
+    tmp << "}\n";
+
+    std::ofstream cppfile(filename + ".cpp", std::ios::out | std::ios::app);
+    cppfile << tmp.str();
+    cppfile.close();
+}
 void SymbolicScalarsVectors::appendFbouHdg(const std::string& filename, const std::string& funcname, int nbc) {
     std::ostringstream tmp;
 
@@ -880,6 +868,7 @@ void SymbolicScalarsVectors::generateModelHeader(const std::string& filename) {
     hfile << "    static constexpr int ncw    = 0;\n";
     hfile << "    static constexpr int nco    = 0;\n";
     hfile << "    static constexpr int nparam = 8;\n";
+    hfile << "    static constexpr int ntau   = 1;\n";
     hfile << "    static constexpr int Nq = ncu * (1 + nd);\n\n";
     // ----- Volume value methods -----
     static const std::vector<std::tuple<std::string, std::string, std::string>>
@@ -1002,6 +991,36 @@ void SymbolicScalarsVectors::generateModelHeader(const std::string& filename) {
                         boundary_sig, jac_all, idx, jblock);
                 }
             }
+        }
+    }
+
+    // Fbou/Ubou Jacobians: per-ib dispatch, three Jacs (uq, w, uh).
+    static const std::vector<std::tuple<std::string, std::string, std::vector<std::string>>>
+        boundary_jac_methods = {
+        {"Fbou", "fbou", {"fbou_jac_uq", "fbou_jac_w", "fbou_jac_uh"}},
+        {"Ubou", "ubou", {"ubou_jac_uq", "ubou_jac_w", "ubou_jac_uh"}},
+    };
+    for (const auto& [funcname, value_name, jac_names] : boundary_jac_methods) {
+        auto it = std::find(funcnames.begin(), funcnames.end(), funcname);
+        if (it == funcnames.end()) continue;
+        int idx = it - funcnames.begin();
+        if (!outputfunctions[idx]) continue;
+        std::vector<Expression> f = evaluateSymbolicFunctions(idx);
+        int nbc = (szuhat > 0) ? (int)f.size() / szuhat : 0;
+        const auto& jac_inputs = jacobianInputs[idx];
+        for (size_t k = 0; k < jac_inputs.size() && k < jac_names.size(); ++k) {
+            if (jac_inputs[k].empty()) continue;
+            int jblock = szuhat * (int)jac_inputs[k].size();
+            std::vector<Expression> jac_all;
+            jac_all.reserve(jblock * nbc);
+            for (int n = 0; n < nbc; ++n) {
+                std::vector<Expression> g(szuhat);
+                for (int m = 0; m < szuhat; ++m) g[m] = f[m + n * szuhat];
+                std::vector<Expression> j_n = diff_to_exprs(g, jac_inputs[k]);
+                for (auto& e : j_n) jac_all.push_back(e);
+            }
+            emit_pointwise_value_per_ib(hfile, jac_names[k],
+                boundary_sig, jac_all, idx, jblock);
         }
     }
 

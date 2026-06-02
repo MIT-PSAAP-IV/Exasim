@@ -87,14 +87,27 @@ int main(int argc, char* argv[])
             }
             if (n==0) {
                ssv.func2cppfiles(g, ssv.modelpath + fname, fname + std::to_string(n+1), i, false);
-               if (ssv.jacobianInputs[i].size() > 0) ssv.funcjac2cppfiles(g, ssv.modelpath + jname, jname + std::to_string(n+1), i, false);
+               if (ssv.jacobianInputs[i].size() > 0) {
+                 if (funcname == "FbouHdg")
+                   ssv.funcjac2cppfiles(g, ssv.modelpath + jname, jname + std::to_string(n+1), i, false);
+                 else
+                   ssv.funcjac2cppfiles(g, ssv.modelpath + fname, fname + std::string("Jac") + std::to_string(n+1), i, true);
+               }
             } else {
                ssv.func2cppfiles(g, ssv.modelpath + fname, fname + std::to_string(n+1), i, append);
-               if (ssv.jacobianInputs[i].size() > 0) ssv.funcjac2cppfiles(g, ssv.modelpath + jname, jname + std::to_string(n+1), i, append);
+               if (ssv.jacobianInputs[i].size() > 0) {
+                 if (funcname == "FbouHdg")
+                   ssv.funcjac2cppfiles(g, ssv.modelpath + jname, jname + std::to_string(n+1), i, append);
+                 else
+                   ssv.funcjac2cppfiles(g, ssv.modelpath + fname, fname + std::string("Jac") + std::to_string(n+1), i, append);
+               }
             }
             if (n==nbc-1) {
                ssv.appendUbouFbou(ssv.modelpath + fname, fname, nbc);
-               if (funcname == "FbouHdg") ssv.appendFbouHdg(ssv.modelpath + jname, jname, nbc);
+               if (funcname == "FbouHdg")
+                 ssv.appendFbouHdg(ssv.modelpath + jname, jname, nbc);
+               else if (ssv.jacobianInputs[i].size() > 0)
+                 ssv.appendKokkosBoundaryJac(ssv.modelpath + fname, fname + std::string("Jac"), nbc);
             }
           }
         } else if ((funcname == "Initu") || (funcname == "Initq") || (funcname == "Inituq") || (funcname == "Initv") || (funcname == "Initw")) { 
