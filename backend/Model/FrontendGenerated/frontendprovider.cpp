@@ -7,7 +7,7 @@
  * therefore stays independent of mesh/master/sol/temp/common runtime state.
  */
 
-#include "../ModelDispatch/driver_abi.h"
+//#include "../ModelDispatch/driver_abi.h"
 
 namespace frontend_generated_source {
 
@@ -74,6 +74,8 @@ const ExasimDriverABI& getFrontendGeneratedExasimDriverABI()
         value.KokkosEoSdw = &frontend_generated_source::KokkosEoSdw;
         value.KokkosFbou = &frontend_generated_source::KokkosFbou;
         value.KokkosUbou = &frontend_generated_source::KokkosUbou;
+        value.KokkosFbouJac = &frontend_generated_source::KokkosFbouJac;
+        value.KokkosUbouJac = &frontend_generated_source::KokkosUbouJac;
         value.KokkosFhat = &frontend_generated_source::KokkosFhat;
         value.KokkosUhat = &frontend_generated_source::KokkosUhat;
         value.KokkosStab = &frontend_generated_source::KokkosStab;

@@ -24,8 +24,10 @@
   - TdfuncDriver: Computes time-dependent functions.
   - FhatDriver: Computes numerical fluxes at element interfaces.
   - FbouDriver: Computes boundary fluxes.
+  - FbouJacDriver: Computes boundary fluxes and their derivatives with respect to udg, wdg, and uhg.
   - UhatDriver: Computes numerical traces at interfaces.
   - UbouDriver: Computes boundary traces.
+  - UbouJacDriver: Computes boundary traces and their derivatives with respect to udg, wdg, and uhg.
   - Initialization Drivers (InitodgDriver, InitqDriver, InitudgDriver, InituDriver, InitwdgDriver): 
     Initialize solution variables.
   - CPU Initialization Drivers (cpuInitodgDriver, cpuInitqDriver, cpuInitudgDriver, cpuInituDriver, cpuInitwdgDriver):
@@ -407,6 +409,27 @@ void FbouDriver(dstype* fb, const dstype* xg, const dstype* udg, const dstype*  
                       common.modelnumber, ib, numPoints, nc, ncu, nd, ncx, nco, ncw);
 }
 
+void FbouJacDriver(dstype* fb, dstype* fb_udg, dstype* fb_wdg,
+        dstype* fb_uhg, const dstype* xg, const dstype* udg,
+        const dstype* odg, const dstype* wdg, const dstype* uhg,
+        const dstype* nl, meshstruct &mesh, masterstruct &master,
+        appstruct &app, solstruct &sol, tempstruct &temp,
+        commonstruct &common, Int ngf, Int f1, Int f2, Int ib, Int backend)
+{
+    Int nc = common.nc; // number of compoments of (u, q, p)
+    Int ncu = common.ncu;// number of compoments of (u)
+    Int ncw = common.ncw;// number of compoments of (w)
+    Int nco = common.nco;// number of compoments of (o)
+    Int ncx = common.ncx;// number of compoments of (xdg)
+    Int nd = common.nd;     // spatial dimension
+    Int numPoints = ngf*(f2-f1);
+    dstype time = common.time;
+
+    KokkosFbouJac(fb, fb_udg, fb_wdg, fb_uhg, xg, udg, odg, wdg, uhg, nl,
+            app.tau, app.uinf, app.physicsparam, time, common.modelnumber,
+            ib, numPoints, nc, ncu, nd, ncx, nco, ncw);
+}
+
 void QoIboundaryDriver(dstype* fb, const dstype* xg, const dstype* udg, const dstype*  odg, const dstype*  wdg, const dstype* uhg, const dstype* nl, 
         meshstruct &mesh, masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
         commonstruct &common, Int ngf, Int f1, Int f2, Int ib, Int backend)
@@ -462,6 +485,27 @@ void UbouDriver(dstype* ub, const dstype* xg, const dstype* udg, const dstype* o
 
     KokkosUbou(ub, xg, udg, odg, wdg, uhg, nl, app.tau, app.uinf, app.physicsparam, time, 
                       common.modelnumber, ib, numPoints, nc, ncu, nd, ncx, nco, ncw);
+}
+
+void UbouJacDriver(dstype* ub, dstype* ub_udg, dstype* ub_wdg,
+        dstype* ub_uhg, const dstype* xg, const dstype* udg,
+        const dstype* odg, const dstype* wdg, const dstype* uhg,
+        const dstype* nl, meshstruct &mesh, masterstruct &master,
+        appstruct &app, solstruct &sol, tempstruct &temp,
+        commonstruct &common, Int ngf, Int f1, Int f2, Int ib, Int backend)
+{
+    Int nc = common.nc; // number of compoments of (u, q, p)
+    Int ncu = common.ncu;// number of compoments of (u)
+    Int ncw = common.ncw;// number of compoments of (w)
+    Int nco = common.nco;// number of compoments of (o)
+    Int ncx = common.ncx;// number of compoments of (xdg)
+    Int nd = common.nd;     // spatial dimension
+    Int numPoints = ngf*(f2-f1);
+    dstype time = common.time;
+
+    KokkosUbouJac(ub, ub_udg, ub_wdg, ub_uhg, xg, udg, odg, wdg, uhg, nl,
+            app.tau, app.uinf, app.physicsparam, time, common.modelnumber,
+            ib, numPoints, nc, ncu, nd, ncx, nco, ncw);
 }
 
 void InitodgDriver(dstype* f, const dstype* xg, appstruct &app, Int ncx, Int nco, Int npe, Int ne, Int backend)
@@ -820,4 +864,3 @@ void FhatDriver(dstype* f, dstype* u, const dstype* xg, dstype* udg, const dstyp
     // add tau*(u - uh) to f
     AddStabilization1(f, udg, uhg, app.tau, M);      
 }
-
