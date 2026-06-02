@@ -9,7 +9,7 @@
  * mesh/master/sol/temp/common runtime state.
  */
 
-#include "../ModelDispatch/driver_abi.h"
+//#include "../ModelDispatch/driver_abi.h"
 #include "builtinmodelsource.cpp"
 
 const ExasimDriverABI& getBuiltInExasimDriverABI()
@@ -29,6 +29,8 @@ const ExasimDriverABI& getBuiltInExasimDriverABI()
         value.KokkosEoSdw = &::builtinKokkosEoSdw;
         value.KokkosFbou = &::builtinKokkosFbou;
         value.KokkosUbou = &::builtinKokkosUbou;
+        value.KokkosFbouJac = &::builtinKokkosFbouJac;
+        value.KokkosUbouJac = &::builtinKokkosUbouJac;
         value.KokkosFhat = &::builtinKokkosFhat;
         value.KokkosUhat = &::builtinKokkosUhat;
         value.KokkosStab = &::builtinKokkosStab;

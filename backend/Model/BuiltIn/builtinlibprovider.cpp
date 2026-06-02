@@ -1,4 +1,4 @@
-#include "../ModelDispatch/driver_abi.h"
+//#include "../ModelDispatch/driver_abi.h"
 #include "libbuiltinmodel.hpp"
 
 #include <stdexcept>
@@ -19,6 +19,8 @@ bool IsValidBuiltInLibraryABI(const ExasimDriverABI& abi)
            abi.KokkosEoSdw &&
            abi.KokkosFbou &&
            abi.KokkosUbou &&
+           abi.KokkosFbouJac &&
+           abi.KokkosUbouJac &&
            abi.KokkosFhat &&
            abi.KokkosUhat &&
            abi.KokkosStab &&
@@ -71,6 +73,8 @@ const ExasimDriverABI& getBuiltInLibraryExasimDriverABI()
         value.KokkosEoSdw = &::builtinKokkosEoSdw;
         value.KokkosFbou = &::builtinKokkosFbou;
         value.KokkosUbou = &::builtinKokkosUbou;
+        value.KokkosFbouJac = &::builtinKokkosFbouJac;
+        value.KokkosUbouJac = &::builtinKokkosUbouJac;
         value.KokkosFhat = &::builtinKokkosFhat;
         value.KokkosUhat = &::builtinKokkosUhat;
         value.KokkosStab = &::builtinKokkosStab;

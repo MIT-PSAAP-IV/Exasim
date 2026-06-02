@@ -104,6 +104,23 @@ void builtinKokkosFbou(dstype* f, const dstype* xdg, const dstype* udg, const ds
 }
 
 extern "C"
+void builtinKokkosFbouJac(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
+                const dstype* xdg, const dstype* udg, const dstype* odg,
+                const dstype* wdg, const dstype* uhg, const dstype* nlg,
+                const dstype* tau, const dstype* uinf, const dstype* param,
+                dstype time, int builtinmodelID, int ib, int ng, int nc,
+                int ncu, int nd, int ncx, int nco, int ncw)
+{
+    switch (builtinmodelID) {
+      case 1: m1::KokkosFbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 2: m2::KokkosFbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 3: m3::KokkosFbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 4: m4::KokkosFbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosFbouJac\n", builtinmodelID); std::abort();
+    }
+}
+
+extern "C"
 void builtinKokkosFhat(dstype* f, const dstype* xdg, const dstype* udg1, const dstype* udg2,
                 const dstype* odg1, const dstype* odg2, const dstype* wdg1, const dstype* wdg2,
                 const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf,
@@ -287,6 +304,23 @@ void builtinKokkosUbou(dstype* f, const dstype* xdg, const dstype* udg, const ds
       case 3: m3::KokkosUbou(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 4: m4::KokkosUbou(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosUbou\n", builtinmodelID); std::abort();
+    }
+}
+
+extern "C"
+void builtinKokkosUbouJac(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
+                const dstype* xdg, const dstype* udg, const dstype* odg,
+                const dstype* wdg, const dstype* uhg, const dstype* nlg,
+                const dstype* tau, const dstype* uinf, const dstype* param,
+                dstype time, int builtinmodelID, int ib, int ng, int nc,
+                int ncu, int nd, int ncx, int nco, int ncw)
+{
+    switch (builtinmodelID) {
+      case 1: m1::KokkosUbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 2: m2::KokkosUbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 3: m3::KokkosUbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 4: m4::KokkosUbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosUbouJac\n", builtinmodelID); std::abort();
     }
 }
 
