@@ -2651,6 +2651,153 @@ void StgInflow2D(dstype *fb, dstype *up, dstype *xdg, dstype *vdg, dstype *uhg, 
     });
 }
 
+KOKKOS_INLINE_FUNCTION
+dstype StgAir5Mw(const int i)
+{
+    if (i == 0) return 14.0067e-3;
+    if (i == 1) return 15.9994e-3;
+    if (i == 2) return 30.0061e-3;
+    if (i == 3) return 28.0134e-3;
+    return 31.9988e-3;
+}
+
+KOKKOS_INLINE_FUNCTION
+dstype StgAir5NasaH(const int species, const int range, const dstype T)
+{
+    dstype a1 = 0.0, a2 = 0.0, a3 = 0.0, a4 = 0.0, a5 = 0.0, a6 = 0.0, a7 = 0.0, b1 = 0.0;
+
+    if (species == 0) {
+        if (range == 0) {
+            a3 = 2.50000000E+00; b1 = 5.610463780E+04;
+        }
+        else if (range == 1) {
+            a1 = 8.876501380E+04; a2 = -1.071231500E+02; a3 = 2.362188287E+00; a4 = 2.916720081E-04;
+            a5 = -1.729515100E-07; a6 = 4.012657880E-11; a7 = -2.677227571E-15; b1 = 5.697351330E+04;
+        }
+        else {
+            a1 = 5.475181050E+08; a2 = -3.107574980E+05; a3 = 6.916782740E+01; a4 = -6.847988130E-03;
+            a5 = 3.827572400E-07; a6 = -1.098367709E-11; a7 = 1.277986024E-16; b1 = 2.550585618E+06;
+        }
+    }
+    else if (species == 1) {
+        if (range == 0) {
+            a1 = -7.953611300E+03; a2 = 1.607177787E+02; a3 = 1.966226438E+00; a4 = 1.013670310E-03;
+            a5 = -1.110415423E-06; a6 = 6.517507500E-10; a7 = -1.584779251E-13; b1 = 2.840362437E+04;
+        }
+        else if (range == 1) {
+            a1 = 2.619020262E+05; a2 = -7.298722030E+02; a3 = 3.317177270E+00; a4 = -4.281334360E-04;
+            a5 = 1.036104594E-07; a6 = -9.438304330E-12; a7 = 2.725038297E-16; b1 = 3.392428060E+04;
+        }
+        else {
+            a1 = 1.779004264E+08; a2 = -1.082328257E+05; a3 = 2.810778365E+01; a4 = -2.975232262E-03;
+            a5 = 1.854997534E-07; a6 = -5.796231540E-12; a7 = 7.191720164E-17; b1 = 8.890942630E+05;
+        }
+    }
+    else if (species == 2) {
+        if (range == 0) {
+            a1 = -1.143916503E+04; a2 = 1.536467592E+02; a3 = 3.431468730E+00; a4 = -2.668592368E-03;
+            a5 = 8.481399120E-06; a6 = -7.685111050E-09; a7 = 2.386797655E-12; b1 = 9.098214410E+03;
+        }
+        else if (range == 1) {
+            a1 = 2.239018716E+05; a2 = -1.289651623E+03; a3 = 5.433936030E+00; a4 = -3.656034900E-04;
+            a5 = 9.880966450E-08; a6 = -1.416076856E-11; a7 = 9.380184620E-16; b1 = 1.750317656E+04;
+        }
+        else {
+            a1 = -9.575303540E+08; a2 = 5.912434480E+05; a3 = -1.384566826E+02; a4 = 1.694339403E-02;
+            a5 = -1.007351096E-06; a6 = 2.912584076E-11; a7 = -3.295109350E-16; b1 = -4.677501240E+06;
+        }
+    }
+    else if (species == 3) {
+        if (range == 0) {
+            a1 = 2.210371497E+04; a2 = -3.818461820E+02; a3 = 6.082738360E+00; a4 = -8.530914410E-03;
+            a5 = 1.384646189E-05; a6 = -9.625793620E-09; a7 = 2.519705809E-12; b1 = 7.108460860E+02;
+        }
+        else if (range == 1) {
+            a1 = 5.877124060E+05; a2 = -2.239249073E+03; a3 = 6.066949220E+00; a4 = -6.139685500E-04;
+            a5 = 1.491806679E-07; a6 = -1.923105485E-11; a7 = 1.061954386E-15; b1 = 1.283210415E+04;
+        }
+        else {
+            a1 = 8.310139160E+08; a2 = -6.420733540E+05; a3 = 2.020264635E+02; a4 = -3.065092046E-02;
+            a5 = 2.486903333E-06; a6 = -9.705954110E-11; a7 = 1.437538881E-15; b1 = 4.938707040E+06;
+        }
+    }
+    else {
+        if (range == 0) {
+            a1 = -3.425563420E+04; a2 = 4.847000970E+02; a3 = 1.119010961E+00; a4 = 4.293889240E-03;
+            a5 = -6.836300520E-07; a6 = -2.023372700E-09; a7 = 1.039040018E-12; b1 = -3.391454870E+03;
+        }
+        else if (range == 1) {
+            a1 = -1.037939022E+06; a2 = 2.344830282E+03; a3 = 1.819732036E+00; a4 = 1.267847582E-03;
+            a5 = -2.188067988E-07; a6 = 2.053719572E-11; a7 = -8.193467050E-16; b1 = -1.689010929E+04;
+        }
+        else {
+            a1 = 4.975294300E+08; a2 = -2.866106874E+05; a3 = 6.690352250E+01; a4 = -6.169959020E-03;
+            a5 = 3.016396027E-07; a6 = -7.421416600E-12; a7 = 7.278175770E-17; b1 = 2.293554027E+06;
+        }
+    }
+
+    dstype T2 = T*T;
+    dstype T3 = T2*T;
+    dstype T4 = T3*T;
+    return -a1/(T2) + a2*log(T)/T + a3 + a4*T*0.5 + a5*T2/3.0 + a6*T3*0.25 + a7*T4*0.2 + b1/T;
+}
+
+KOKKOS_INLINE_FUNCTION
+dstype StgAir5InternalEnergyMass(const int species, const dstype T)
+{
+    const dstype Ru = 8.314471468617452;
+    const dstype alpha = 1.0e4;
+    const dstype pi = 3.14159265358979323846;
+    dstype sw1 = 0.5*tanh(-alpha*(T - 1000.0)/pi) + 0.5;
+    dstype sw3 = 0.5*tanh( alpha*(T - 6000.0)/pi) + 0.5;
+    dstype sw2 = 1.0 - sw1 - sw3;
+    dstype H = sw1*StgAir5NasaH(species, 0, T) + sw2*StgAir5NasaH(species, 1, T) + sw3*StgAir5NasaH(species, 2, T);
+    return (H - 1.0)*Ru*T/StgAir5Mw(species);
+}
+
+void StgInFlow2Dchem(dstype *fb, dstype *up, dstype *xdg, dstype *vdg, dstype *uhg, dstype *physicsparam, dstype *externalparam, dstype *stgdata, dstype *uc, dstype t, int M, int N)
+{
+    StgHomoTurb2D(up, xdg, stgdata, uc, t, M, N);
+
+    Kokkos::parallel_for("StgInFlow2Dchem", M, KOKKOS_LAMBDA(const size_t m) {
+        dstype rin = 0.0;
+        for (int s=0; s<5; s++) rin += vdg[m+M*s];
+        rin = (rin > 1.0e-12) ? rin : 1.0e-12;
+        dstype uin = vdg[m+M*5];
+        dstype vin = vdg[m+M*6];
+        dstype Tin = vdg[m+M*7];
+        dstype uan = sqrt(uin*uin+vin*vin);
+        dstype uinsafe = (fabs(uin) > 1.0e-12) ? uin : ((uin >= 0.0) ? 1.0e-12 : -1.0e-12);
+
+        dstype ujn = uin + uan*up[m+M*0];
+        dstype vjn = vin + uan*up[m+M*1];
+        dstype rjn = rin - 2.0*rin*uan*up[m+M*0]/uinsafe;
+        rjn = (rjn > 1.0e-12) ? rjn : 1.0e-12;
+        dstype Tjn = Tin*rin/rjn;
+        Tjn = (Tjn > 1.0e-12) ? Tjn : 1.0e-12;
+
+        dstype rhoj[5];
+        dstype emixPhys = 0.0;
+        dstype rho_scale = externalparam[0];
+        dstype u_scale = externalparam[1];
+        dstype rhoe_scale = externalparam[2];
+        dstype T_scale = externalparam[3];
+        dstype rhoPhys = rjn*rho_scale;
+        dstype Tphys = Tjn*T_scale;
+        for (int s=0; s<5; s++) {
+            rhoj[s] = vdg[m+M*s]*rjn/rin;
+            fb[m+M*s] = rhoj[s] - uhg[m+M*s];
+            emixPhys += (rhoj[s]*rho_scale/rhoPhys)*StgAir5InternalEnergyMass(s, Tphys);
+        }
+        dstype vel2phys = (ujn*ujn + vjn*vjn)*u_scale*u_scale;
+        dstype rhoEphys = rhoPhys*(emixPhys + 0.5*vel2phys);
+
+        fb[m+M*5] = rjn*ujn - uhg[m+M*5];
+        fb[m+M*6] = rjn*vjn - uhg[m+M*6];
+        fb[m+M*7] = rhoEphys/rhoe_scale - uhg[m+M*7];
+    });
+}
+
 void StgHomoTurb3D(dstype *up, dstype *xdg, dstype *stgdata, dstype *uc, dstype t, int M, int N)
 {	
     Kokkos::parallel_for("StgHomoTurb3D", M, KOKKOS_LAMBDA(const size_t m) {
@@ -2694,6 +2841,52 @@ void StgHomoTurb3D(dstype *up, dstype *xdg, dstype *stgdata, dstype *uc, dstype 
     });
 }
 
+void StgInFlow3Dchem(dstype *fb, dstype *up, dstype *xdg, dstype *vdg, dstype *uhg, dstype *physicsparam, dstype *externalparam, dstype *stgdata, dstype *uc, dstype t, int M, int N)
+{
+    StgHomoTurb3D(up, xdg, stgdata, uc, t, M, N);
+
+    Kokkos::parallel_for("StgInFlow3Dchem", M, KOKKOS_LAMBDA(const size_t m) {
+        dstype rin = 0.0;
+        for (int s=0; s<5; s++) rin += vdg[m+M*s];
+        rin = (rin > 1.0e-12) ? rin : 1.0e-12;
+        dstype uin = vdg[m+M*5];
+        dstype vin = vdg[m+M*6];
+        dstype win = vdg[m+M*7];
+        dstype Tin = vdg[m+M*8];
+        dstype uan = sqrt(uin*uin+vin*vin+win*win);
+        dstype uinsafe = (fabs(uin) > 1.0e-12) ? uin : ((uin >= 0.0) ? 1.0e-12 : -1.0e-12);
+
+        dstype ujn = uin + uan*up[m+M*0];
+        dstype vjn = vin + uan*up[m+M*1];
+        dstype wjn = win + uan*up[m+M*2];
+        dstype rjn = rin - 2.0*rin*uan*up[m+M*0]/uinsafe;
+        rjn = (rjn > 1.0e-12) ? rjn : 1.0e-12;
+        dstype Tjn = Tin*rin/rjn;
+        Tjn = (Tjn > 1.0e-12) ? Tjn : 1.0e-12;
+
+        dstype rhoj[5];
+        dstype emixPhys = 0.0;
+        dstype rho_scale = externalparam[0];
+        dstype u_scale = externalparam[1];
+        dstype rhoe_scale = externalparam[2];
+        dstype T_scale = externalparam[3];
+        dstype rhoPhys = rjn*rho_scale;
+        dstype Tphys = Tjn*T_scale;
+        for (int s=0; s<5; s++) {
+            rhoj[s] = vdg[m+M*s]*rjn/rin;
+            fb[m+M*s] = rhoj[s] - uhg[m+M*s];
+            emixPhys += (rhoj[s]*rho_scale/rhoPhys)*StgAir5InternalEnergyMass(s, Tphys);
+        }
+        dstype vel2phys = (ujn*ujn + vjn*vjn + wjn*wjn)*u_scale*u_scale;
+        dstype rhoEphys = rhoPhys*(emixPhys + 0.5*vel2phys);
+
+        fb[m+M*5] = rjn*ujn - uhg[m+M*5];
+        fb[m+M*6] = rjn*vjn - uhg[m+M*6];
+        fb[m+M*7] = rjn*wjn - uhg[m+M*7];
+        fb[m+M*8] = rhoEphys/rhoe_scale - uhg[m+M*8];
+    });
+}
+
 void StgInflow3D(dstype *fb, dstype *up, dstype *xdg, dstype *vdg, dstype *uhg, dstype *param, dstype *stgdata, dstype *uc, dstype t, int M, int N)
 {
     StgHomoTurb3D(up, xdg, stgdata, uc, t, M, N);
@@ -2718,6 +2911,35 @@ void StgInflow3D(dstype *fb, dstype *up, dstype *xdg, dstype *vdg, dstype *uhg, 
         fb[m+M*3] = rjn*wjn - uhg[m+M*3]; 
         fb[m+M*4] = pin/(gamma-1) + 0.5*rjn*(ujn*ujn + vjn*vjn + wjn*wjn) - uhg[m+M*4];        
     });
+}
+
+void StgInFlowHDGchem(dstype *fb, dstype *up, dstype *xdg, dstype *vdg, dstype *uhg, dstype *physicsparam, dstype *externalparam, dstype *stgdata, dstype *uc, dstype t, int M, int N, int nd)
+{
+	if (nd == 1) {
+	}
+	else if (nd == 2) {
+        StgInFlow2Dchem(fb, up, xdg, vdg, uhg, physicsparam, externalparam, stgdata, uc, t, M, N);
+    }
+    else {
+        StgInFlow3Dchem(fb, up, xdg, vdg, uhg, physicsparam, externalparam, stgdata, uc, t, M, N);
+    }
+}
+
+void StgInFlowHDGchem(dstype *fb, dstype *fb_uq, dstype *fb_w, dstype* fb_uh, dstype *up, dstype *xdg, dstype *vdg, dstype *uhg, dstype *physicsparam, dstype *externalparam, dstype *stgdata, dstype *uc, dstype t, int M, int N, int nd, int ncu, int nc, int ncw)
+{
+	if (nd == 1) {
+	}
+	else if (nd == 2) {
+        StgInFlow2Dchem(fb, up, xdg, vdg, uhg, physicsparam, externalparam, stgdata, uc, t, M, N);
+    }
+    else {
+        StgInFlow3Dchem(fb, up, xdg, vdg, uhg, physicsparam, externalparam, stgdata, uc, t, M, N);
+    }
+
+    ArraySetValue(fb_uq, 0.0, M*ncu*nc);
+    ArraySetValue(fb_uh, 0.0, M*ncu*ncu);
+    for (int i=0; i<ncu; i++) ArraySetValue(&fb_uh[M*(i+ncu*i)], -1.0, M);
+    if (ncw > 0) ArraySetValue(fb_w, 0.0, M*ncu*ncw);
 }
 
 void StgInflowHDG(dstype *fb, dstype *up, dstype *xdg, dstype *vdg, dstype *uhg, dstype *param, dstype *stgdata, dstype *uc, dstype t, int M, int N, int nd)

@@ -23,7 +23,7 @@ exampleDir = fullfile(exasimDir, 'examples', 'Poisson', 'poisson2d');
 appDir = fullfile(exasimDir, 'apps', 'poisson', 'poisson2d');
 buildDir = fullfile(exasimDir, 'build');
 installDir = fullfile(exasimDir, 'install');
-kokkosKernelHeader = fullfile(appDir, 'my_model.hpp');
+kokkosKernelHeader = fullfile(appDir, 'poisson2d.hpp');
 
 cmake = getenvDefault('EXASIM_CMAKE', findExecutable('cmake', '/opt/homebrew/bin/cmake'));
 mpirun = getenvDefault('EXASIM_MPIRUN', findExecutable('mpirun', '/opt/homebrew/bin/mpirun'));
@@ -81,8 +81,8 @@ backendTargets = { ...
     'cpumpit2cEXASIM', ...
     'cpubuiltinEXASIM', ...
     'cpumpibuiltinEXASIM', ...
-    'cpupreEXASIM', ...
-    'cpumpipreEXASIM'};
+    'cpukkEXASIM', ...
+    'cpumpikkEXASIM'};
 
 cmakeBuild = sprintf('%s --build %s --target %s', ...
     shellQuote(cmake), shellQuote(buildDir), strjoin(backendTargets, ' '));
@@ -93,8 +93,8 @@ results(end+1) = runBackendExecutable('backend-cput2c', appDir, buildDir, 'cput2
 results(end+1) = runBackendExecutable('backend-cpumpit2c', appDir, buildDir, 'cpumpit2cEXASIM', mpirun, 'pdeapp.txt', np); %#ok<SAGROW>
 results(end+1) = runBackendExecutable('backend-cpubuiltin', appDir, buildDir, 'cpubuiltinEXASIM', '', 'pdeapp.txt'); %#ok<SAGROW>
 results(end+1) = runBackendExecutable('backend-cpumpibuiltin', appDir, buildDir, 'cpumpibuiltinEXASIM', mpirun, 'pdeapp.txt', np); %#ok<SAGROW>
-results(end+1) = runBackendExecutable('backend-cpupre', appDir, buildDir, 'cpupreEXASIM', '', 'pdeapp.txt'); %#ok<SAGROW>
-results(end+1) = runBackendExecutable('backend-cpumpipre', appDir, buildDir, 'cpumpipreEXASIM', mpirun, 'pdeapp.txt', np); %#ok<SAGROW>
+results(end+1) = runBackendExecutable('backend-cpukk', appDir, buildDir, 'cpukkEXASIM', '', 'pdeapp.txt'); %#ok<SAGROW>
+results(end+1) = runBackendExecutable('backend-cpumpikk', appDir, buildDir, 'cpumpikkEXASIM', mpirun, 'pdeapp.txt', np); %#ok<SAGROW>
 
 %% Summary
 fprintf('\n==> Exasim test summary\n');
