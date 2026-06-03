@@ -6,11 +6,19 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(EXASIM_MPI "Link the MPI-enabled Exasim preprocessing library" ON)
 option(EXASIM_GPU "Link the GPU-enabled Exasim preprocessing library" OFF)
 
-if(Exasim_DIR AND NOT EXISTS "${Exasim_DIR}/ExasimConfig.cmake")
-  if(EXISTS "${Exasim_DIR}/build/ExasimConfig.cmake")
-    set(Exasim_DIR "${Exasim_DIR}/build" CACHE PATH "Path to ExasimConfig.cmake" FORCE)
+if(Exasim_DIR)
+  if(EXISTS "${Exasim_DIR}/ExasimConfig.cmake")
+    if(EXISTS "${Exasim_DIR}/../install/CMakeLists.txt")
+      get_filename_component(EXASIM_APP_PREFIX "${Exasim_DIR}/.." ABSOLUTE)
+    else()
+      get_filename_component(EXASIM_APP_PREFIX "${Exasim_DIR}/../../.." ABSOLUTE)
+    endif()
+  elseif(EXISTS "${Exasim_DIR}/build/ExasimConfig.cmake")
+    get_filename_component(EXASIM_APP_PREFIX "${Exasim_DIR}" ABSOLUTE)
+    set(Exasim_DIR "${EXASIM_APP_PREFIX}/build" CACHE PATH "Path to ExasimConfig.cmake" FORCE)
   elseif(EXISTS "${Exasim_DIR}/lib/cmake/Exasim/ExasimConfig.cmake")
-    set(Exasim_DIR "${Exasim_DIR}/lib/cmake/Exasim" CACHE PATH "Path to ExasimConfig.cmake" FORCE)
+    get_filename_component(EXASIM_APP_PREFIX "${Exasim_DIR}" ABSOLUTE)
+    set(Exasim_DIR "${EXASIM_APP_PREFIX}/lib/cmake/Exasim" CACHE PATH "Path to ExasimConfig.cmake" FORCE)
   else()
     message(FATAL_ERROR
       "Exasim_DIR was set to ${Exasim_DIR}, but no ExasimConfig.cmake was found "
@@ -40,7 +48,12 @@ if(NOT TARGET ${EXASIM_APP_LIBRARY_TARGET})
     "current Exasim package. Reconfigure Exasim to build that library variant.")
 endif()
 
-get_filename_component(EXASIM_APP_PREFIX "${Exasim_DIR}/.." ABSOLUTE)
+if(NOT EXASIM_APP_PREFIX)
+  message(FATAL_ERROR
+    "EXASIM_APP_PREFIX could not be determined. Set Exasim_DIR to the Exasim "
+    "root, build directory, or installed package directory.")
+endif()
+
 find_library(EXASIM_APP_BUILTINMODEL_LIBRARY
   NAMES ${EXASIM_APP_BUILTINMODEL_LIB}
   HINTS "${EXASIM_APP_PREFIX}/lib"
