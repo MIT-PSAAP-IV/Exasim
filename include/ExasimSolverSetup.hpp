@@ -21,25 +21,23 @@
 #include "ExasimSolver.hpp"
 
 // Low-level provider ABI entry points supplied by the provider modules.
-#ifdef HAVE_BUILTINMODEL
+const ExasimDriverABI& getBuiltInLibraryExasimDriverABI();
 const ExasimDriverABI& getBuiltInExasimDriverABI();
-#endif
 const ExasimDriverABI& getKokkosKernelExasimDriverABI();
 const ExasimDriverABI& getText2codeGeneratedExasimDriverABI();
 const ExasimDriverABI& getUserDefinedExasimDriverABI();
 const ExasimDriverABI& getFrontendGeneratedExasimDriverABI();
 
-inline const ExasimDriverABI& SelectExasimDriverABI(const int builtinmodelID)
+inline const ExasimDriverABI& SelectExasimDriverABI()
 {
-#ifdef HAVE_BUILTINMODEL
-    if (builtinmodelID > 0)
-        return getBuiltInExasimDriverABI();
-#endif
-
-#ifdef HAVE_KOKKOSKERNEL
+#if defined(HAVE_BUILTINLIBRARY)
+    return getBuiltInLibraryExasimDriverABI();
+#elif defined(HAVE_BUILTINMODEL)
+    return getBuiltInExasimDriverABI();
+#elif defined(HAVE_KOKKOSKERNEL)
     return getKokkosKernelExasimDriverABI();
 #elif defined(HAVE_TEXT2CODE)
-    return getText2codeGeneratedExasimDriverABI();
+return getText2codeGeneratedExasimDriverABI();
 #elif defined(HAVE_UDERDEFINED) || defined(HAVE_USERDEFINED)
     return getUserDefinedExasimDriverABI();
 #else
@@ -47,14 +45,13 @@ inline const ExasimDriverABI& SelectExasimDriverABI(const int builtinmodelID)
 #endif
 }
 
-inline const char* SelectExasimDriverProviderName(const int builtinmodelID)
+inline const char* SelectExasimDriverProviderName()
 {
-#ifdef HAVE_BUILTINMODEL
-    if (builtinmodelID > 0)
-        return "BuiltIn";
-#endif
-
-#ifdef HAVE_KOKKOSKERNEL
+#if defined(HAVE_BUILTINLIBRARY)
+    return "BuiltInLibrary";
+#elif defined(HAVE_BUILTINMODEL)
+    return "BuiltInModel";
+#elif defined(HAVE_KOKKOSKERNEL)
     return "KokkosKernel";
 #elif defined(HAVE_TEXT2CODE)
     return "Text2codeGenerated";
@@ -75,7 +72,7 @@ inline void PrintModelProvider(const int modelnumber, const int builtinmodelID)
     if (rank == 0) {
         std::cout << "Model " << modelnumber
                   << ": provider = "
-                  << SelectExasimDriverProviderName(builtinmodelID)
+                  << SelectExasimDriverProviderName()
                   << ", builtinmodelID = " << builtinmodelID << std::endl;
     }
 }
@@ -87,7 +84,7 @@ inline int ConfigureModelDefinitions(ExasimSolver& solver)
     for (int i = 0; i < numModelDefinitions; i++) {
         const int builtinmodelID = solver.BuiltinModelID(i);
         const int err = solver.SetModelDefinition(
-            i, builtinmodelID, SelectExasimDriverABI(builtinmodelID));
+            i, builtinmodelID, SelectExasimDriverABI());
         if (err)
             return err;
         PrintModelProvider(i, builtinmodelID);
@@ -96,8 +93,7 @@ inline int ConfigureModelDefinitions(ExasimSolver& solver)
     return 0;
 }
 
-inline int ConfigureModelDefinitions(ExasimSolver& solver,
-                                     const std::vector<int>& vecBuiltinModelID)
+inline int ConfigureModelDefinitions(ExasimSolver& solver, const std::vector<int>& vecBuiltinModelID)
 {
     const int numModelDefinitions = solver.NumModelDefinitions();
 
@@ -111,7 +107,7 @@ inline int ConfigureModelDefinitions(ExasimSolver& solver,
             builtinmodelID = solver.BuiltinModelID(i);
 
         const int err = solver.SetModelDefinition(
-            i, builtinmodelID, SelectExasimDriverABI(builtinmodelID));
+            i, builtinmodelID, SelectExasimDriverABI());
         if (err)
             return err;
         PrintModelProvider(i, builtinmodelID);
@@ -120,8 +116,58 @@ inline int ConfigureModelDefinitions(ExasimSolver& solver,
     return 0;
 }
 
-inline int RunExasimSolver(ExasimSolver& solver, int argc, char** argv,
-                           MPI_Comm comm)
+inline int InitializeExasimSolver(ExasimSolver& solver, int argc, char** argv, MPI_Comm comm)
+{
+    int err = solver.InitializeEnvironment(argc, argv, comm);
+    if (err)
+        return err;
+
+    err = solver.ParseInputs(argc, argv);
+    if (err) {
+        solver.Finalize();
+        return err;
+    }
+
+    err = ConfigureModelDefinitions(solver);
+    if (err) {
+        solver.Finalize();
+        return err;
+    }
+
+    err = solver.InitializeModels();
+    if (err)
+        return err;
+
+    return 0;
+}
+
+inline int InitializeExasimSolver(ExasimSolver& solver, int argc, char** argv,
+                                  MPI_Comm comm, const std::vector<int>& vecBuiltinModelID)
+{
+    int err = solver.InitializeEnvironment(argc, argv, comm);
+    if (err)
+        return err;
+
+    err = solver.ParseInputs(argc, argv);
+    if (err) {
+        solver.Finalize();
+        return err;
+    }
+
+    err = ConfigureModelDefinitions(solver, vecBuiltinModelID);
+    if (err) {
+        solver.Finalize();
+        return err;
+    }
+
+    err = solver.InitializeModels();
+    if (err)
+        return err;
+
+    return 0;
+}
+
+inline int RunExasimSolver(ExasimSolver& solver, int argc, char** argv, MPI_Comm comm)
 {
     int err = solver.InitializeEnvironment(argc, argv, comm);
     if (err)
@@ -152,62 +198,8 @@ inline int RunExasimSolver(ExasimSolver& solver, int argc, char** argv,
     return solver.Finalize();
 }
 
-inline int InitializeExasimSolver(ExasimSolver& solver, int argc, char** argv,
-                                  MPI_Comm comm)
-{
-    int err = solver.InitializeEnvironment(argc, argv, comm);
-    if (err)
-        return err;
-
-    err = solver.ParseInputs(argc, argv);
-    if (err) {
-        solver.Finalize();
-        return err;
-    }
-
-    err = ConfigureModelDefinitions(solver);
-    if (err) {
-        solver.Finalize();
-        return err;
-    }
-
-    err = solver.InitializeModels();
-    if (err)
-        return err;
-
-    return 0;
-}
-
-inline int InitializeExasimSolver(ExasimSolver& solver, int argc, char** argv,
-                                  MPI_Comm comm,
-                                  const std::vector<int>& vecBuiltinModelID)
-{
-    int err = solver.InitializeEnvironment(argc, argv, comm);
-    if (err)
-        return err;
-
-    err = solver.ParseInputs(argc, argv);
-    if (err) {
-        solver.Finalize();
-        return err;
-    }
-
-    err = ConfigureModelDefinitions(solver, vecBuiltinModelID);
-    if (err) {
-        solver.Finalize();
-        return err;
-    }
-
-    err = solver.InitializeModels();
-    if (err)
-        return err;
-
-    return 0;
-}
-
 inline int RunExasimSolver(ExasimSolver& solver, int argc, char** argv,
-                           MPI_Comm comm,
-                           const std::vector<int>& vecBuiltinModelID)
+                           MPI_Comm comm, const std::vector<int>& vecBuiltinModelID)
 {
     int err = solver.InitializeEnvironment(argc, argv, comm);
     if (err)

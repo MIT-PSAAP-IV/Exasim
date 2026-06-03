@@ -330,3 +330,5 @@ backend/Model/Text2codeGenerated/SymbolicFunctions.cpp
 backend/Model/Text2codeGenerated/SymbolicFunctions.hpp
 backend/Model/Text2codeGenerated/SymbolicScalarsVectors.cpp
 metis/GKlib/bin/csrcnv
+/apps/poisson/poisson2d/build
+/apps/builtinlibrary/build

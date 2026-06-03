@@ -19,6 +19,10 @@
 #define HAVE_TEXT2CODE
 #endif
 
+#ifdef _BUILTINLIBRARY
+#define HAVE_BUILTINLIBRARY
+#endif
+
 #ifdef _BUILTINMODEL
 #define HAVE_BUILTINMODEL
 #endif
