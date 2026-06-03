@@ -1,6 +1,6 @@
 
 modelID = 8;
-exasimpath = "/Users/cuongnguyen/Documents/GitHub/hexascale/Exasim";
+exasimpath = "/Users/cuongnguyen/Documents/GitHub/PSAAP/Exasim";
 
 text2code = exasimpath + "/build/text2code";
 modelpath = exasimpath + "/backend/Model/BuiltIn/model" + num2str(modelID);
