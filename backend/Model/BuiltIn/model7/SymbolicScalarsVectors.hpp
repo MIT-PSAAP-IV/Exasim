@@ -76,6 +76,7 @@ public:
     void funcjachess2cppfiles(const std::vector<Expression> &f, const std::string filename, const std::string funcname, const int functionid, bool append);
     void initfunc2cppfiles(const std::vector<Expression> &f, const std::string filename, const std::string funcname, const int functionid, bool append, int framework);
     void appendUbouFbou(const std::string& filename, const std::string& funcname, int nbc);
+    void appendKokkosBoundaryJac(const std::string& filename, const std::string& funcname, int nbc);
     void appendFbouHdg(const std::string& filename, const std::string& funcname, int nbc);
     void appendFextonly(const std::string& filename, const std::string& funcname, int nbc);
     void appendFext(const std::string& filename, const std::string& funcname, int nbc);

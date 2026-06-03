@@ -14,6 +14,7 @@ struct PdeModel : ModelDefaults<PdeModel> {
     static constexpr int ncw    = 0;
     static constexpr int nco    = 2;
     static constexpr int nparam = 11;
+    static constexpr int ntau   = 1;
     static constexpr int Nq = ncu * (1 + nd);
 
     KOKKOS_INLINE_FUNCTION static
@@ -1231,6 +1232,302 @@ struct PdeModel : ModelDefaults<PdeModel> {
             f[13] = 0;
             f[14] = 0;
             f[15] = -1;
+        }
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void fbou_jac_uq(dstype f[], int ib, const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype uh[], const dstype n[], const dstype tau[], const dstype mu[], const dstype uinf[], dstype t) {
+        if (ib == 1) {
+
+            f[0] = 0;
+            f[1] = 0;
+            f[2] = 0;
+            f[3] = 0;
+            f[4] = 0;
+            f[5] = 0;
+            f[6] = 0;
+            f[7] = 0;
+            f[8] = 0;
+            f[9] = 0;
+            f[10] = 0;
+            f[11] = 0;
+            f[12] = 0;
+            f[13] = 0;
+            f[14] = 0;
+            f[15] = 0;
+            f[16] = 0;
+            f[17] = 0;
+            f[18] = 0;
+            f[19] = 0;
+            f[20] = 0;
+            f[21] = 0;
+            f[22] = 0;
+            f[23] = 0;
+            f[24] = 0;
+            f[25] = 0;
+            f[26] = 0;
+            f[27] = 0;
+            f[28] = 0;
+            f[29] = 0;
+            f[30] = 0;
+            f[31] = 0;
+            f[32] = 0;
+            f[33] = 0;
+            f[34] = 0;
+            f[35] = 0;
+            f[36] = 0;
+            f[37] = 0;
+            f[38] = 0;
+            f[39] = 0;
+            f[40] = 0;
+            f[41] = 0;
+            f[42] = 0;
+            f[43] = 0;
+            f[44] = 0;
+            f[45] = 0;
+            f[46] = 0;
+            f[47] = 0;
+        }
+        else if (ib == 2) {
+
+            f[0] = 0;
+            f[1] = 0;
+            f[2] = 0;
+            f[3] = 0;
+            f[4] = 0;
+            f[5] = 0;
+            f[6] = 0;
+            f[7] = 0;
+            f[8] = 0;
+            f[9] = 0;
+            f[10] = 0;
+            f[11] = 0;
+            f[12] = 0;
+            f[13] = 0;
+            f[14] = 0;
+            f[15] = 0;
+            f[16] = 0;
+            f[17] = 0;
+            f[18] = 0;
+            f[19] = 0;
+            f[20] = 0;
+            f[21] = 0;
+            f[22] = 0;
+            f[23] = 0;
+            f[24] = 0;
+            f[25] = 0;
+            f[26] = 0;
+            f[27] = 0;
+            f[28] = 0;
+            f[29] = 0;
+            f[30] = 0;
+            f[31] = 0;
+            f[32] = 0;
+            f[33] = 0;
+            f[34] = 0;
+            f[35] = 0;
+            f[36] = 0;
+            f[37] = 0;
+            f[38] = 0;
+            f[39] = 0;
+            f[40] = 0;
+            f[41] = 0;
+            f[42] = 0;
+            f[43] = 0;
+            f[44] = 0;
+            f[45] = 0;
+            f[46] = 0;
+            f[47] = 0;
+        }
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void fbou_jac_uh(dstype f[], int ib, const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype uh[], const dstype n[], const dstype tau[], const dstype mu[], const dstype uinf[], dstype t) {
+        if (ib == 1) {
+
+            f[0] = 0;
+            f[1] = 0;
+            f[2] = 0;
+            f[3] = 0;
+            f[4] = 0;
+            f[5] = 0;
+            f[6] = 0;
+            f[7] = 0;
+            f[8] = 0;
+            f[9] = 0;
+            f[10] = 0;
+            f[11] = 0;
+            f[12] = 0;
+            f[13] = 0;
+            f[14] = 0;
+            f[15] = 0;
+        }
+        else if (ib == 2) {
+
+            f[0] = 0;
+            f[1] = 0;
+            f[2] = 0;
+            f[3] = 0;
+            f[4] = 0;
+            f[5] = 0;
+            f[6] = 0;
+            f[7] = 0;
+            f[8] = 0;
+            f[9] = 0;
+            f[10] = 0;
+            f[11] = 0;
+            f[12] = 0;
+            f[13] = 0;
+            f[14] = 0;
+            f[15] = 0;
+        }
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void ubou_jac_uq(dstype f[], int ib, const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype uh[], const dstype n[], const dstype tau[], const dstype mu[], const dstype uinf[], dstype t) {
+        if (ib == 1) {
+
+            f[0] = 0;
+            f[1] = 0;
+            f[2] = 0;
+            f[3] = 0;
+            f[4] = 0;
+            f[5] = 0;
+            f[6] = 0;
+            f[7] = 0;
+            f[8] = 0;
+            f[9] = 0;
+            f[10] = 0;
+            f[11] = 0;
+            f[12] = 0;
+            f[13] = 0;
+            f[14] = 0;
+            f[15] = 0;
+            f[16] = 0;
+            f[17] = 0;
+            f[18] = 0;
+            f[19] = 0;
+            f[20] = 0;
+            f[21] = 0;
+            f[22] = 0;
+            f[23] = 0;
+            f[24] = 0;
+            f[25] = 0;
+            f[26] = 0;
+            f[27] = 0;
+            f[28] = 0;
+            f[29] = 0;
+            f[30] = 0;
+            f[31] = 0;
+            f[32] = 0;
+            f[33] = 0;
+            f[34] = 0;
+            f[35] = 0;
+            f[36] = 0;
+            f[37] = 0;
+            f[38] = 0;
+            f[39] = 0;
+            f[40] = 0;
+            f[41] = 0;
+            f[42] = 0;
+            f[43] = 0;
+            f[44] = 0;
+            f[45] = 0;
+            f[46] = 0;
+            f[47] = 0;
+        }
+        else if (ib == 2) {
+
+            f[0] = 0;
+            f[1] = 0;
+            f[2] = 0;
+            f[3] = 0;
+            f[4] = 0;
+            f[5] = 0;
+            f[6] = 0;
+            f[7] = 0;
+            f[8] = 0;
+            f[9] = 0;
+            f[10] = 0;
+            f[11] = 0;
+            f[12] = 0;
+            f[13] = 0;
+            f[14] = 0;
+            f[15] = 0;
+            f[16] = 0;
+            f[17] = 0;
+            f[18] = 0;
+            f[19] = 0;
+            f[20] = 0;
+            f[21] = 0;
+            f[22] = 0;
+            f[23] = 0;
+            f[24] = 0;
+            f[25] = 0;
+            f[26] = 0;
+            f[27] = 0;
+            f[28] = 0;
+            f[29] = 0;
+            f[30] = 0;
+            f[31] = 0;
+            f[32] = 0;
+            f[33] = 0;
+            f[34] = 0;
+            f[35] = 0;
+            f[36] = 0;
+            f[37] = 0;
+            f[38] = 0;
+            f[39] = 0;
+            f[40] = 0;
+            f[41] = 0;
+            f[42] = 0;
+            f[43] = 0;
+            f[44] = 0;
+            f[45] = 0;
+            f[46] = 0;
+            f[47] = 0;
+        }
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void ubou_jac_uh(dstype f[], int ib, const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype uh[], const dstype n[], const dstype tau[], const dstype mu[], const dstype uinf[], dstype t) {
+        if (ib == 1) {
+
+            f[0] = 0;
+            f[1] = 0;
+            f[2] = 0;
+            f[3] = 0;
+            f[4] = 0;
+            f[5] = 0;
+            f[6] = 0;
+            f[7] = 0;
+            f[8] = 0;
+            f[9] = 0;
+            f[10] = 0;
+            f[11] = 0;
+            f[12] = 0;
+            f[13] = 0;
+            f[14] = 0;
+            f[15] = 0;
+        }
+        else if (ib == 2) {
+
+            f[0] = 0;
+            f[1] = 0;
+            f[2] = 0;
+            f[3] = 0;
+            f[4] = 0;
+            f[5] = 0;
+            f[6] = 0;
+            f[7] = 0;
+            f[8] = 0;
+            f[9] = 0;
+            f[10] = 0;
+            f[11] = 0;
+            f[12] = 0;
+            f[13] = 0;
+            f[14] = 0;
+            f[15] = 0;
         }
     }
 

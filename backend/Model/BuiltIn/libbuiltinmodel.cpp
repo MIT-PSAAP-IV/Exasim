@@ -8,6 +8,11 @@
 #include "model4/model.hpp"
 #include "model5/model.hpp"
 #include "model6/model.hpp"
+#include "model7/model.hpp"
+#include "model8/model.hpp"
+#include "model9/model.hpp"
+#include "model10/model.hpp"
+#include "model11/model.hpp"
 
 #include "model1/model.cpp"
 #include "model2/model.cpp"
@@ -15,6 +20,11 @@
 #include "model4/model.cpp"
 #include "model5/model.cpp"
 #include "model6/model.cpp"
+#include "model7/model.cpp"
+#include "model8/model.cpp"
+#include "model9/model.cpp"
+#include "model10/model.cpp"
+#include "model11/model.cpp"
 
 namespace m1 = exasim_model_1;
 namespace m2 = exasim_model_2;
@@ -22,6 +32,11 @@ namespace m3 = exasim_model_3;
 namespace m4 = exasim_model_4;
 namespace m5 = exasim_model_5;
 namespace m6 = exasim_model_6;
+namespace m7 = exasim_model_7;
+namespace m8 = exasim_model_8;
+namespace m9 = exasim_model_9;
+namespace m10 = exasim_model_10;
+namespace m11 = exasim_model_11;
 
 // ----------------------------- Kokkos -----------------------------
 
@@ -38,6 +53,11 @@ void builtinKokkosFlux(dstype* f, const dstype* xdg, const dstype* udg, const ds
       case 4: m4::KokkosFlux(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 5: m5::KokkosFlux(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 6: m6::KokkosFlux(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 7: m7::KokkosFlux(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 8: m8::KokkosFlux(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 9: m9::KokkosFlux(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 10: m10::KokkosFlux(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 11: m11::KokkosFlux(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosFlux\n", builtinmodelID); std::abort();
     }
 }
@@ -55,6 +75,11 @@ void builtinKokkosAvfield(dstype* f, const dstype* xdg, const dstype* udg, const
       case 4: m4::KokkosAvfield(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
       case 5: m5::KokkosAvfield(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
       case 6: m6::KokkosAvfield(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 7: m7::KokkosAvfield(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 8: m8::KokkosAvfield(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 9: m9::KokkosAvfield(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 10: m10::KokkosAvfield(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 11: m11::KokkosAvfield(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosAvfield\n", builtinmodelID); std::abort();
     }
 }
@@ -72,6 +97,11 @@ void builtinKokkosEoS(dstype* f, const dstype* xdg, const dstype* udg, const dst
       case 4: m4::KokkosEoS(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
       case 5: m5::KokkosEoS(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
       case 6: m6::KokkosEoS(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 7: m7::KokkosEoS(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 8: m8::KokkosEoS(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 9: m9::KokkosEoS(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 10: m10::KokkosEoS(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 11: m11::KokkosEoS(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosEoS\n", builtinmodelID); std::abort();
     }
 }
@@ -89,6 +119,11 @@ void builtinKokkosEoSdu(dstype* f, const dstype* xdg, const dstype* udg, const d
       case 4: m4::KokkosEoSdu(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
       case 5: m5::KokkosEoSdu(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
       case 6: m6::KokkosEoSdu(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 7: m7::KokkosEoSdu(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 8: m8::KokkosEoSdu(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 9: m9::KokkosEoSdu(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 10: m10::KokkosEoSdu(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 11: m11::KokkosEoSdu(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosEoSdu\n", builtinmodelID); std::abort();
     }
 }
@@ -106,6 +141,11 @@ void builtinKokkosEoSdw(dstype* f, const dstype* xdg, const dstype* udg, const d
       case 4: m4::KokkosEoSdw(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
       case 5: m5::KokkosEoSdw(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
       case 6: m6::KokkosEoSdw(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 7: m7::KokkosEoSdw(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 8: m8::KokkosEoSdw(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 9: m9::KokkosEoSdw(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 10: m10::KokkosEoSdw(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 11: m11::KokkosEoSdw(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosEoSdw\n", builtinmodelID); std::abort();
     }
 }
@@ -123,6 +163,11 @@ void builtinKokkosFbou(dstype* f, const dstype* xdg, const dstype* udg, const ds
       case 4: m4::KokkosFbou(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 5: m5::KokkosFbou(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 6: m6::KokkosFbou(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 7: m7::KokkosFbou(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 8: m8::KokkosFbou(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 9: m9::KokkosFbou(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 10: m10::KokkosFbou(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 11: m11::KokkosFbou(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosFbou\n", builtinmodelID); std::abort();
     }
 }
@@ -142,6 +187,11 @@ void builtinKokkosFbouJac(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg
       case 4: m4::KokkosFbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 5: m5::KokkosFbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 6: m6::KokkosFbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 7: m7::KokkosFbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 8: m8::KokkosFbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 9: m9::KokkosFbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 10: m10::KokkosFbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 11: m11::KokkosFbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosFbouJac\n", builtinmodelID); std::abort();
     }
 }
@@ -160,6 +210,11 @@ void builtinKokkosFhat(dstype* f, const dstype* xdg, const dstype* udg1, const d
       case 4: m4::KokkosFhat(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 5: m5::KokkosFhat(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 6: m6::KokkosFhat(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 7: m7::KokkosFhat(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 8: m8::KokkosFhat(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 9: m9::KokkosFhat(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 10: m10::KokkosFhat(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 11: m11::KokkosFhat(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosFhat\n", builtinmodelID); std::abort();
     }
 }
@@ -175,6 +230,11 @@ void builtinKokkosInitodg(dstype* f, const dstype* xdg, const dstype* uinf, cons
       case 4: m4::KokkosInitodg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       case 5: m5::KokkosInitodg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       case 6: m6::KokkosInitodg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 7: m7::KokkosInitodg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 8: m8::KokkosInitodg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 9: m9::KokkosInitodg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 10: m10::KokkosInitodg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 11: m11::KokkosInitodg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosInitodg\n", builtinmodelID); std::abort();
     }
 }
@@ -190,6 +250,11 @@ void builtinKokkosInitq(dstype* f, const dstype* xdg, const dstype* uinf, const 
       case 4: m4::KokkosInitq(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       case 5: m5::KokkosInitq(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       case 6: m6::KokkosInitq(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 7: m7::KokkosInitq(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 8: m8::KokkosInitq(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 9: m9::KokkosInitq(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 10: m10::KokkosInitq(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 11: m11::KokkosInitq(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosInitq\n", builtinmodelID); std::abort();
     }
 }
@@ -205,6 +270,11 @@ void builtinKokkosInitu(dstype* f, const dstype* xdg, const dstype* uinf, const 
       case 4: m4::KokkosInitu(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       case 5: m5::KokkosInitu(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       case 6: m6::KokkosInitu(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 7: m7::KokkosInitu(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 8: m8::KokkosInitu(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 9: m9::KokkosInitu(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 10: m10::KokkosInitu(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 11: m11::KokkosInitu(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosInitu\n", builtinmodelID); std::abort();
     }
 }
@@ -220,6 +290,11 @@ void builtinKokkosInitudg(dstype* f, const dstype* xdg, const dstype* uinf, cons
       case 4: m4::KokkosInitudg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       case 5: m5::KokkosInitudg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       case 6: m6::KokkosInitudg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 7: m7::KokkosInitudg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 8: m8::KokkosInitudg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 9: m9::KokkosInitudg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 10: m10::KokkosInitudg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 11: m11::KokkosInitudg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosInitudg\n", builtinmodelID); std::abort();
     }
 }
@@ -235,6 +310,11 @@ void builtinKokkosInitwdg(dstype* f, const dstype* xdg, const dstype* uinf, cons
       case 4: m4::KokkosInitwdg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       case 5: m5::KokkosInitwdg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       case 6: m6::KokkosInitwdg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 7: m7::KokkosInitwdg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 8: m8::KokkosInitwdg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 9: m9::KokkosInitwdg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 10: m10::KokkosInitwdg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 11: m11::KokkosInitwdg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosInitwdg\n", builtinmodelID); std::abort();
     }
 }
@@ -252,6 +332,11 @@ void builtinKokkosMonitor(dstype* f, const dstype* xdg, const dstype* udg, const
       case 4: m4::KokkosMonitor(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
       case 5: m5::KokkosMonitor(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
       case 6: m6::KokkosMonitor(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 7: m7::KokkosMonitor(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 8: m8::KokkosMonitor(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 9: m9::KokkosMonitor(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 10: m10::KokkosMonitor(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 11: m11::KokkosMonitor(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosMonitor\n", builtinmodelID); std::abort();
     }
 }
@@ -269,6 +354,11 @@ void builtinKokkosOutput(dstype* f, const dstype* xdg, const dstype* udg, const 
       case 4: m4::KokkosOutput(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
       case 5: m5::KokkosOutput(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
       case 6: m6::KokkosOutput(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 7: m7::KokkosOutput(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 8: m8::KokkosOutput(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 9: m9::KokkosOutput(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 10: m10::KokkosOutput(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 11: m11::KokkosOutput(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosOutput\n", builtinmodelID); std::abort();
     }
 }
@@ -286,6 +376,11 @@ void builtinKokkosSource(dstype* f, const dstype* xdg, const dstype* udg, const 
       case 4: m4::KokkosSource(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 5: m5::KokkosSource(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 6: m6::KokkosSource(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 7: m7::KokkosSource(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 8: m8::KokkosSource(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 9: m9::KokkosSource(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 10: m10::KokkosSource(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 11: m11::KokkosSource(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosSource\n", builtinmodelID); std::abort();
     }
 }
@@ -303,6 +398,11 @@ void builtinKokkosSourcew(dstype* f, const dstype* xdg, const dstype* udg, const
       case 4: m4::KokkosSourcew(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
       case 5: m5::KokkosSourcew(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
       case 6: m6::KokkosSourcew(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 7: m7::KokkosSourcew(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 8: m8::KokkosSourcew(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 9: m9::KokkosSourcew(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 10: m10::KokkosSourcew(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+      case 11: m11::KokkosSourcew(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosSourcew\n", builtinmodelID); std::abort();
     }
 }
@@ -321,6 +421,11 @@ void builtinKokkosStab(dstype* f, const dstype* xdg, const dstype* udg1, const d
       case 4: m4::KokkosStab(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 5: m5::KokkosStab(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 6: m6::KokkosStab(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 7: m7::KokkosStab(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 8: m8::KokkosStab(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 9: m9::KokkosStab(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 10: m10::KokkosStab(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 11: m11::KokkosStab(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosStab\n", builtinmodelID); std::abort();
     }
 }
@@ -338,6 +443,11 @@ void builtinKokkosTdfunc(dstype* f, const dstype* xdg, const dstype* udg, const 
       case 4: m4::KokkosTdfunc(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 5: m5::KokkosTdfunc(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 6: m6::KokkosTdfunc(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 7: m7::KokkosTdfunc(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 8: m8::KokkosTdfunc(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 9: m9::KokkosTdfunc(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 10: m10::KokkosTdfunc(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 11: m11::KokkosTdfunc(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosTdfunc\n", builtinmodelID); std::abort();
     }
 }
@@ -355,6 +465,11 @@ void builtinKokkosUbou(dstype* f, const dstype* xdg, const dstype* udg, const ds
       case 4: m4::KokkosUbou(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 5: m5::KokkosUbou(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 6: m6::KokkosUbou(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 7: m7::KokkosUbou(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 8: m8::KokkosUbou(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 9: m9::KokkosUbou(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 10: m10::KokkosUbou(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 11: m11::KokkosUbou(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosUbou\n", builtinmodelID); std::abort();
     }
 }
@@ -374,6 +489,11 @@ void builtinKokkosUbouJac(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg
       case 4: m4::KokkosUbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 5: m5::KokkosUbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 6: m6::KokkosUbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 7: m7::KokkosUbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 8: m8::KokkosUbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 9: m9::KokkosUbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 10: m10::KokkosUbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 11: m11::KokkosUbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosUbouJac\n", builtinmodelID); std::abort();
     }
 }
@@ -392,6 +512,11 @@ void builtinKokkosUhat(dstype* f, const dstype* xdg, const dstype* udg1, const d
       case 4: m4::KokkosUhat(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 5: m5::KokkosUhat(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 6: m6::KokkosUhat(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 7: m7::KokkosUhat(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 8: m8::KokkosUhat(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 9: m9::KokkosUhat(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 10: m10::KokkosUhat(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 11: m11::KokkosUhat(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosUhat\n", builtinmodelID); std::abort();
     }
 }
@@ -409,6 +534,11 @@ void builtinKokkosVisScalars(dstype* f, const dstype* xdg, const dstype* udg, co
       case 4: m4::KokkosVisScalars(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 5: m5::KokkosVisScalars(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 6: m6::KokkosVisScalars(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 7: m7::KokkosVisScalars(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 8: m8::KokkosVisScalars(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 9: m9::KokkosVisScalars(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 10: m10::KokkosVisScalars(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 11: m11::KokkosVisScalars(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosVisScalars\n", builtinmodelID); std::abort();
     }
 }
@@ -426,6 +556,11 @@ void builtinKokkosVisVectors(dstype* f, const dstype* xdg, const dstype* udg, co
       case 4: m4::KokkosVisVectors(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 5: m5::KokkosVisVectors(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 6: m6::KokkosVisVectors(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 7: m7::KokkosVisVectors(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 8: m8::KokkosVisVectors(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 9: m9::KokkosVisVectors(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 10: m10::KokkosVisVectors(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 11: m11::KokkosVisVectors(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosVisVectors\n", builtinmodelID); std::abort();
     }
 }
@@ -443,6 +578,11 @@ void builtinKokkosVisTensors(dstype* f, const dstype* xdg, const dstype* udg, co
       case 4: m4::KokkosVisTensors(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 5: m5::KokkosVisTensors(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 6: m6::KokkosVisTensors(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 7: m7::KokkosVisTensors(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 8: m8::KokkosVisTensors(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 9: m9::KokkosVisTensors(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 10: m10::KokkosVisTensors(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 11: m11::KokkosVisTensors(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosVisTensors\n", builtinmodelID); std::abort();
     }
 }
@@ -460,6 +600,11 @@ void builtinKokkosQoIvolume(dstype* f, const dstype* xdg, const dstype* udg, con
       case 4: m4::KokkosQoIvolume(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 5: m5::KokkosQoIvolume(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 6: m6::KokkosQoIvolume(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 7: m7::KokkosQoIvolume(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 8: m8::KokkosQoIvolume(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 9: m9::KokkosQoIvolume(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 10: m10::KokkosQoIvolume(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 11: m11::KokkosQoIvolume(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosQoIvolume\n", builtinmodelID); std::abort();
     }
 }
@@ -477,6 +622,11 @@ void builtinKokkosQoIboundary(dstype* f, const dstype* xdg, const dstype* udg, c
       case 4: m4::KokkosQoIboundary(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 5: m5::KokkosQoIboundary(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 6: m6::KokkosQoIboundary(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 7: m7::KokkosQoIboundary(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 8: m8::KokkosQoIboundary(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 9: m9::KokkosQoIboundary(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 10: m10::KokkosQoIboundary(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 11: m11::KokkosQoIboundary(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosQoIboundary\n", builtinmodelID); std::abort();
     }
 }
@@ -494,6 +644,11 @@ void builtincpuInitodg(dstype* f, const dstype* xdg, const dstype* uinf, const d
       case 4: m4::cpuInitodg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       case 5: m5::cpuInitodg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       case 6: m6::cpuInitodg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 7: m7::cpuInitodg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 8: m8::cpuInitodg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 9: m9::cpuInitodg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 10: m10::cpuInitodg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 11: m11::cpuInitodg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in cpuInitodg\n", builtinmodelID); std::abort();
     }
 }
@@ -509,6 +664,11 @@ void builtincpuInitq(dstype* f, const dstype* xdg, const dstype* uinf, const dst
       case 4: m4::cpuInitq(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       case 5: m5::cpuInitq(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       case 6: m6::cpuInitq(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 7: m7::cpuInitq(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 8: m8::cpuInitq(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 9: m9::cpuInitq(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 10: m10::cpuInitq(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 11: m11::cpuInitq(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in cpuInitq\n", builtinmodelID); std::abort();
     }
 }
@@ -524,6 +684,11 @@ void builtincpuInitu(dstype* f, const dstype* xdg, const dstype* uinf, const dst
       case 4: m4::cpuInitu(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       case 5: m5::cpuInitu(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       case 6: m6::cpuInitu(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 7: m7::cpuInitu(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 8: m8::cpuInitu(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 9: m9::cpuInitu(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 10: m10::cpuInitu(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 11: m11::cpuInitu(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in cpuInitu\n", builtinmodelID); std::abort();
     }
 }
@@ -539,6 +704,11 @@ void builtincpuInitudg(dstype* f, const dstype* xdg, const dstype* uinf, const d
       case 4: m4::cpuInitudg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       case 5: m5::cpuInitudg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       case 6: m6::cpuInitudg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 7: m7::cpuInitudg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 8: m8::cpuInitudg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 9: m9::cpuInitudg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 10: m10::cpuInitudg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 11: m11::cpuInitudg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in cpuInitudg\n", builtinmodelID); std::abort();
     }
 }
@@ -554,6 +724,11 @@ void builtincpuInitwdg(dstype* f, const dstype* xdg, const dstype* uinf, const d
       case 4: m4::cpuInitwdg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       case 5: m5::cpuInitwdg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       case 6: m6::cpuInitwdg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 7: m7::cpuInitwdg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 8: m8::cpuInitwdg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 9: m9::cpuInitwdg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 10: m10::cpuInitwdg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
+      case 11: m11::cpuInitwdg(f, xdg, uinf, param, builtinmodelID, ng, ncx, nce, npe, ne); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in cpuInitwdg\n", builtinmodelID); std::abort();
     }
 }
@@ -573,6 +748,11 @@ void builtinHdgEoS(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xdg, c
       case 4: m4::HdgEoS(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 5: m5::HdgEoS(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 6: m6::HdgEoS(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 7: m7::HdgEoS(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 8: m8::HdgEoS(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 9: m9::HdgEoS(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 10: m10::HdgEoS(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 11: m11::HdgEoS(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in HdgEoS\n", builtinmodelID); std::abort();
     }
 }
@@ -591,6 +771,11 @@ void builtinHdgFbou(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg, cons
       case 4: m4::HdgFbou(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 5: m5::HdgFbou(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 6: m6::HdgFbou(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 7: m7::HdgFbou(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 8: m8::HdgFbou(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 9: m9::HdgFbou(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 10: m10::HdgFbou(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 11: m11::HdgFbou(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in HdgFbou\n", builtinmodelID); std::abort();
     }
 }
@@ -608,6 +793,11 @@ void builtinHdgFbouonly(dstype* f, const dstype* xdg, const dstype* udg, const d
       case 4: m4::HdgFbouonly(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 5: m5::HdgFbouonly(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 6: m6::HdgFbouonly(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 7: m7::HdgFbouonly(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 8: m8::HdgFbouonly(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 9: m9::HdgFbouonly(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 10: m10::HdgFbouonly(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 11: m11::HdgFbouonly(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in HdgFbouonly\n", builtinmodelID); std::abort();
     }
 }
@@ -626,6 +816,11 @@ void builtinHdgFint(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg, cons
       case 4: m4::HdgFint(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 5: m5::HdgFint(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 6: m6::HdgFint(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 7: m7::HdgFint(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 8: m8::HdgFint(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 9: m9::HdgFint(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 10: m10::HdgFint(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 11: m11::HdgFint(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in HdgFint\n", builtinmodelID); std::abort();
     }
 }
@@ -643,6 +838,11 @@ void builtinHdgFintonly(dstype* f, const dstype* xdg, const dstype* udg, const d
       case 4: m4::HdgFintonly(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 5: m5::HdgFintonly(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 6: m6::HdgFintonly(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 7: m7::HdgFintonly(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 8: m8::HdgFintonly(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 9: m9::HdgFintonly(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 10: m10::HdgFintonly(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 11: m11::HdgFintonly(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in HdgFintonly\n", builtinmodelID); std::abort();
     }
 }
@@ -661,6 +861,11 @@ void builtinHdgFext(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg, cons
       case 4: m4::HdgFext(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 5: m5::HdgFext(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 6: m6::HdgFext(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 7: m7::HdgFext(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 8: m8::HdgFext(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 9: m9::HdgFext(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 10: m10::HdgFext(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 11: m11::HdgFext(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in HdgFext\n", builtinmodelID); std::abort();
     }
 }
@@ -679,6 +884,11 @@ void builtinHdgFextonly(dstype* f, const dstype* xdg, const dstype* udg, const d
       case 4: m4::HdgFextonly(f, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 5: m5::HdgFextonly(f, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 6: m6::HdgFextonly(f, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 7: m7::HdgFextonly(f, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 8: m8::HdgFextonly(f, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 9: m9::HdgFextonly(f, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 10: m10::HdgFextonly(f, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 11: m11::HdgFextonly(f, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in HdgFextonly\n", builtinmodelID); std::abort();
     }
 }
@@ -696,6 +906,11 @@ void builtinHdgFlux(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xdg, 
       case 4: m4::HdgFlux(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 5: m5::HdgFlux(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 6: m6::HdgFlux(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 7: m7::HdgFlux(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 8: m8::HdgFlux(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 9: m9::HdgFlux(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 10: m10::HdgFlux(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 11: m11::HdgFlux(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in HdgFlux\n", builtinmodelID); std::abort();
     }
 }
@@ -713,6 +928,11 @@ void builtinHdgSource(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xdg
       case 4: m4::HdgSource(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 5: m5::HdgSource(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 6: m6::HdgSource(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 7: m7::HdgSource(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 8: m8::HdgSource(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 9: m9::HdgSource(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 10: m10::HdgSource(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 11: m11::HdgSource(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in HdgSource\n", builtinmodelID); std::abort();
     }
 }
@@ -730,6 +950,11 @@ void builtinHdgSourcew(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xd
       case 4: m4::HdgSourcew(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 5: m5::HdgSourcew(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 6: m6::HdgSourcew(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 7: m7::HdgSourcew(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 8: m8::HdgSourcew(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 9: m9::HdgSourcew(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 10: m10::HdgSourcew(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 11: m11::HdgSourcew(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in HdgSourcew\n", builtinmodelID); std::abort();
     }
 }
@@ -747,6 +972,11 @@ void builtinHdgSourcewonly(dstype* f, dstype* f_wdg, const dstype* xdg, const ds
       case 4: m4::HdgSourcewonly(f, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 5: m5::HdgSourcewonly(f, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       case 6: m6::HdgSourcewonly(f, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 7: m7::HdgSourcewonly(f, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 8: m8::HdgSourcewonly(f, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 9: m9::HdgSourcewonly(f, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 10: m10::HdgSourcewonly(f, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      case 11: m11::HdgSourcewonly(f, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in HdgSourcewonly\n", builtinmodelID); std::abort();
     }
 }
