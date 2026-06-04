@@ -1,6 +1,8 @@
 
 modelID = 11;
-exasimpath = "/Users/cuongnguyen/Documents/GitHub/PSAAP/Exasim";
+%exasimpath = "/Users/cuongnguyen/Documents/GitHub/PSAAP/Exasim";
+cdir = pwd(); ii = strfind(cdir, "Exasim");
+exasimpath = cdir(1:(ii+5));
 
 text2code = exasimpath + "/build/text2code";
 modelpath = exasimpath + "/backend/Model/BuiltIn/model" + num2str(modelID);

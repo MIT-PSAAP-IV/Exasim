@@ -5,6 +5,7 @@ xdgfile = "xdg.bin";
 discretization = "hdg";
 platform = "cpu";
 
+builtinmodelID = 14;
 gendatain = 0;
 mpiprocs = 4;
 debugmode = 0;
