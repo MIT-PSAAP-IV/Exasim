@@ -1,13 +1,13 @@
 /*************************************************************************
 
+Build the built-in model shared library from Exasim/backend/Model/BuiltIn 
+
+  make serial
+
 Build the static libraries from Exasim/build
 
   cmake -DEXASIM_LIB=ON -DEXASIM_MPI=ON -DEXASIM_NOMPI=ON -DWITH_PARMETIS=ON -DWITH_TEXT2CODE=ON -DWITH_BUILTINMODEL=ON ../install
   cmake --build .
-
-Build the built-in model shared library from Exasim/backend/Model/BuiltIn 
-
-  make serial
 
 Build this main.cpp from Exasim/apps/builtinlibrary 
 
