@@ -11,6 +11,7 @@ text2code symbolic-DSL code generation, and four backends
 | [Installation](01-installation.md) | First-time builders | Vendored + external deps, building text2code, building Exasim, per-platform install (macOS, Linux CPU, Linux + NVIDIA, Linux + AMD) |
 | [Model contract](02-model-contract.md) | Active users | Reference for the `Model` C++ struct: every method, every signature, defaults, indexing layouts |
 | [Internals](03-internals/) | Contributors | Test harness, baseline format, preprocessing internals, known-divergences |
+| [Built-in library coupling](04-builtin-library-kitesurf.md) | Coupling developers | How to run Exasim as a built-in library backend for Summit or kitesurf workflows, including build steps, runtime file contracts, and `builtinmodelID` dispatch |
 
 For walkthroughs that exercise each combination of (PDE × Solver
 × Mesh) end-to-end on the same Poisson problem, see
