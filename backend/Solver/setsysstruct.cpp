@@ -143,7 +143,7 @@ void randomfield(dstype *randvect, commonstruct &common, resstruct res, meshstru
     Int ncu = common.ncu;
     for (Int i=0; i<ncu; i++) {
         // extract the ith component of udg and store it in res.Rq
-        ArrayExtract(res.Rq, randvect, common.npe, ncu, common.ne1, 0, common.npe, i, i+1, 0, common.ne1);
+        ArrayExtract(res.Rq, randvect, common.npe, ncu, common.ne, 0, common.npe, i, i+1, 0, common.ne);
         
         // make it a CG field and store in res.Ru
         ArrayDG2CG(res.Ru, res.Rq, mesh.cgent2dgent, mesh.rowent2elem, common.ndofucg);
@@ -152,8 +152,8 @@ void randomfield(dstype *randvect, commonstruct &common, resstruct res, meshstru
         GetArrayAtIndex(res.Rq, res.Ru, mesh.cgelcon, common.npe*common.ne1);
         
         // insert utm into ucg
-        ArrayInsert(randvect, res.Rq, common.npe, ncu, common.ne1, 0, common.npe, i, i+1, 0, common.ne1);
-    }        
+        ArrayInsert(randvect, res.Rq, common.npe, ncu, common.ne, 0, common.npe, i, i+1, 0, common.ne);
+    }             
     
 #ifdef HAVE_MPI             
     for (int n=0; n<common.nelemsend; n++)  {       
@@ -345,7 +345,7 @@ void setsysstruct(sysstruct &sys, commonstruct &common, resstruct res, meshstruc
     else {
       dstype *randvectu;
       TemplateMalloc(&randvectu, common.npe*common.ncu*common.ne, backend);            
-      randomfield(randvectu, common, res, mesh, tmp, backend);      
+      randomfield(randvectu, common, res, mesh, tmp, backend);
       TemplateMalloc(&sys.randvect, ndof, backend);     
       GetFaceNodes(sys.randvect, randvectu, mesh.f2e, mesh.perm, common.npf, ncu, npe, ncu, common.nf);
       TemplateFree(randvectu, backend);  
