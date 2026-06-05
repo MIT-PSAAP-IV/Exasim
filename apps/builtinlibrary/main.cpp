@@ -48,7 +48,7 @@ FSP-1 APPs:
 **************************************************************************/
 
 #include "ExasimSolverSetup.hpp"
-#include "../../backend/Model/BuiltIn/builtinlibprovider.cpp"
+#include "builtinlibprovider.hpp"
 
 int main(int argc, char** argv)
 {
