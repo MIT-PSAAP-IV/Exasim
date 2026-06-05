@@ -246,14 +246,34 @@ static void hipComputeInverse(cublasHandle_t handle, dstype* A, dstype* C, Int n
 
 static void cpuComputeInverse(dstype* A, dstype* work, Int* ipiv, Int n)
 {
-    Int lwork = n*n;
+    // LAPACK GETRI requires workspace of at least max(1,n).  Some callers,
+    // such as the polynomial-preconditioner setup, only provide O(n) scratch.
+    // Advertising n*n workspace here lets GETRI write past the supplied buffer
+    // and corrupt neighboring solver memory.
+    Int lwork = (n > 0) ? n : 1;
     Int info;
 #ifdef USE_FLOAT           
     SGETRF(&n,&n,A,&n,ipiv,&info);
+    if (info != 0) {
+        printf("SGETRF failed in cpuComputeInverse with info = %d and n = %d\n", (int) info, (int) n);
+        error("cpuComputeInverse failed during LU factorization.");
+    }
     SGETRI(&n,A,&n,ipiv,work,&lwork,&info);    
+    if (info != 0) {
+        printf("SGETRI failed in cpuComputeInverse with info = %d and n = %d\n", (int) info, (int) n);
+        error("cpuComputeInverse failed during matrix inversion.");
+    }
 #else            
     DGETRF(&n,&n,A,&n,ipiv,&info);
+    if (info != 0) {
+        printf("DGETRF failed in cpuComputeInverse with info = %d and n = %d\n", (int) info, (int) n);
+        error("cpuComputeInverse failed during LU factorization.");
+    }
     DGETRI(&n,A,&n,ipiv,work,&lwork,&info);
+    if (info != 0) {
+        printf("DGETRI failed in cpuComputeInverse with info = %d and n = %d\n", (int) info, (int) n);
+        error("cpuComputeInverse failed during matrix inversion.");
+    }
 #endif        
 }
    
@@ -731,4 +751,3 @@ static void PGEMNMStridedBached(cublasHandle_t handle, Int m, Int n, Int k, dsty
 }
 
 #endif  
-
