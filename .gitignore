@@ -12,6 +12,7 @@
 *.asv
 .gitignore~
 .DS_Store
+*.vscode
 *.aux
 *.log
 *.out
@@ -315,9 +316,9 @@ examples/ReactingFlows/reactingcylinder/AssessmentofCFDcapabilityforpredictionof
 /examples/Poisson/test
 /examples/ShallowWater/wetdry1dweir
 /doc
-lib/libbuiltinmodelserial.dylib
+lib/libbuiltinmodelserial.*
 lib/*.a
-lib/libt2cmodelserial.dylib
+lib/libt2cmodelserial.*
 /apps/poisson/poisson3d/build2
 backend/Model/Text2codeGenerated/code2cpp
 backend/Model/Text2codeGenerated/KokkosVisScalars.cpp
