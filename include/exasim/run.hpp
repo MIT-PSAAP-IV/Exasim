@@ -57,6 +57,10 @@
 #define HAVE_TEXT2CODE
 #endif
 
+#ifdef _KOKKOSKERNEL
+#define HAVE_KOKKOSKERNEL
+#endif
+
 #if defined(HAVE_TEXT2CODE) || defined(HAVE_BUILTINMODEL)
 #define HAVE_SHARED_MODEL_LIB
 #endif

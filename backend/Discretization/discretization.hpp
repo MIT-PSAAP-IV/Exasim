@@ -64,6 +64,12 @@
 #include "../Model/ModelDrivers.cpp"
 #elif defined(HAVE_BUILTINMODEL)
 #include "../Model/BuiltIn/BuiltinModelDrivers.cpp"
+#elif defined(HAVE_KOKKOSKERNEL)
+// Header-only / templated path: declarations only. The legacy ::*Driver branch
+// of EXASIM_DRIVER_CALL is discarded by if constexpr for a real Model M, which
+// instead uses exasim::*Driver<M> (M's pointwise math) -- so no per-model kernel
+// .cpp is needed and the headers compile out-of-tree from an install prefix.
+#include "../Model/driver_decls.hpp"
 #else
 #include "../Model/KokkosDrivers.cpp"
 #endif

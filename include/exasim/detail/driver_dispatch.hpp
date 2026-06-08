@@ -42,3 +42,19 @@
             exasim::Name<M>(__VA_ARGS__);                                  \
         }                                                                  \
     } while (0)
+
+// For a few legacy kernels still called directly (not yet routed through a
+// templated exasim::*<M>) -- currently the HDG w-equation source. Call the
+// legacy global for the AbiAdapter ABI; for a real Model M, require the feature
+// be absent (ncw == 0) until the templated version is implemented. The legacy
+// call must still be DECLARED (backend/Model/driver_decls.hpp) so the discarded
+// branch parses.
+#define EXASIM_LEGACY_W_CALL(...)                                           \
+    do {                                                                   \
+        if constexpr (std::is_same_v<M, exasim::detail::AbiAdapter>) {     \
+            __VA_ARGS__;                                                   \
+        } else {                                                           \
+            static_assert(M::ncw == 0,                                     \
+                "templated HDG w-equation (ncw>0) not yet implemented");   \
+        }                                                                  \
+    } while (0)
