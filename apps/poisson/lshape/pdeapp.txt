@@ -17,7 +17,13 @@ torder = 1;
 nstage = 1;
 
 ncu = 1;
+ncv = 0;
 ncw = 0;
+nsca = 2;
+nvec = 1;
+nten = 0;
+nsurf = 1;
+nvqoi = 2;
 neb = 4096;
 nfb = 8192;
 

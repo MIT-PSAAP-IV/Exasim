@@ -1491,39 +1491,15 @@ inline Mesh initializeParMesh(const InputParams& params, const ParsedSpec& spec,
     ensure_dir(pde.datainpath);
     ensure_dir(pde.dataoutpath);
     
-    for (const auto& vec : spec.vectors) {
-        const std::string& name = vec.first;
-        int size = vec.second;
-        if (name == "uhat") pde.ncu = size;
-        if (name == "v") pde.ncv = size;
-        if (name == "w") pde.ncw = size;
-        if (name == "uq") pde.nc = size;        
-    }
-        
     mesh.dim = mesh.nd;
     pde.nve = mesh.nve; pde.np = mesh.np_global; pde.ne = mesh.ne_global; pde.elemtype = mesh.elemtype;                
     pde.nd = mesh.dim; pde.ncx = mesh.dim;
-    if (pde.model=="ModelC" || pde.model=="modelC") {
-        pde.wave = 0;
-        pde.nc = pde.ncu;
-    } else if (pde.model=="ModelD" || pde.model=="modelD") {     
-        pde.wave = 0;
-        pde.nc = (pde.ncu)*(pde.nd+1);
-    } else if (pde.model=="ModelW" || pde.model=="modelW") {
-        pde.tdep = 1;
-        pde.wave = 1;
-        pde.nc = (pde.ncu)*(pde.nd+1);
+    if (useBuiltInAppMetadata(pde)) {
+        validateBuiltInAppMetadata(pde);
+    } else {
+        applyParsedSpecMetadata(pde, spec);
     }
-    pde.ncq = pde.nc - pde.ncu;
-    pde.nch  = pde.ncu;        
-
-    for (int i=0; i<spec.functions.size(); i++) {
-        if (spec.functions[i].name == "VisScalars") pde.nsca = spec.functions[i].outputsize;
-        if (spec.functions[i].name == "VisVectors") pde.nvec = spec.functions[i].outputsize/pde.nd;
-        if (spec.functions[i].name == "VisTensors") pde.nten = spec.functions[i].outputsize/(pde.nd*pde.nd);
-        if (spec.functions[i].name == "QoIboundary") pde.nsurf = spec.functions[i].outputsize;
-        if (spec.functions[i].name == "QoIvolume") pde.nvqoi = spec.functions[i].outputsize;
-    }
+    finalizePDEModelSizes(pde);
   
     return mesh;
 }
@@ -1531,4 +1507,3 @@ inline Mesh initializeParMesh(const InputParams& params, const ParsedSpec& spec,
 #endif
 
 #endif
-

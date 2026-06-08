@@ -39,8 +39,12 @@ inline CPreprocessing::CPreprocessing(std::string filein, int rank, int commsize
   pde = initializePDE(params, rank);
   pde.mpiprocs = commsize;
 
-  spec = TextParser::parseFile(make_path(pde.datapath, pde.modelfile));
-  spec.exasimpath = pde.exasimpath;
+  if (useBuiltInAppMetadata(pde)) {
+    validateBuiltInAppMetadata(pde);
+  } else {
+    spec = TextParser::parseFile(make_path(pde.datapath, pde.modelfile));
+    spec.exasimpath = pde.exasimpath;
+  }
 }
 
 // Programmatic constructor: caller passes pre-populated structs and we
@@ -138,24 +142,14 @@ inline exasim::Preprocessed CPreprocessing::take()
         mesh = initializeMesh(params, pde);
     Master mas = initializeMaster(pde, mesh, mpirank);
 
-    // Mirrors writeBinaryFiles' spec → pde adjustment so dimensions
-    // are consistent with what the legacy file path computes.
-    for (const auto& vec : spec.vectors) {
-        const std::string& name = vec.first;
-        int size = vec.second;
-        if (name == "uhat") pde.ncu = size;
-        if (name == "v")    pde.ncv = size;
-        if (name == "w")    pde.ncw = size;
-        if (name == "uq")   pde.nc  = size;
+    pde.nd = mesh.dim;
+    pde.ncx = mesh.dim;
+    if (useBuiltInAppMetadata(pde)) {
+        validateBuiltInAppMetadata(pde);
+    } else {
+        applyParsedSpecMetadata(pde, spec);
     }
-    for (size_t i = 0; i < spec.functions.size(); ++i) {
-        const auto& fn = spec.functions[i];
-        if (fn.name == "VisScalars") pde.nsca  = fn.outputsize;
-        if (fn.name == "VisVectors") pde.nvec  = fn.outputsize / pde.nd;
-        if (fn.name == "VisTensors") pde.nten  = fn.outputsize / (pde.nd*pde.nd);
-        if (fn.name == "QoIboundary") pde.nsurf = fn.outputsize;
-        if (fn.name == "QoIvolume")  pde.nvqoi = fn.outputsize;
-    }
+    finalizePDEModelSizes(pde);
 
     if (pde.mpiprocs > 1)
         error("CPreprocessing::take(): MPI path lands in HOT.7.6. Use SerialPreprocessing or pde.mpiprocs=1.");
@@ -214,23 +208,14 @@ inline exasim::Preprocessed CPreprocessing::takeParallel(MPI_Comm comm)
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &csize);
 
-    // Same spec → pde adjustments writeBinaryFiles does serially.
-    for (const auto& vec : spec.vectors) {
-        const std::string& name = vec.first;
-        int size = vec.second;
-        if (name == "uhat") pde.ncu = size;
-        if (name == "v")    pde.ncv = size;
-        if (name == "w")    pde.ncw = size;
-        if (name == "uq")   pde.nc  = size;
+    pde.nd = mesh.dim;
+    pde.ncx = mesh.dim;
+    if (useBuiltInAppMetadata(pde)) {
+        validateBuiltInAppMetadata(pde);
+    } else {
+        applyParsedSpecMetadata(pde, spec);
     }
-    for (size_t i = 0; i < spec.functions.size(); ++i) {
-        const auto& fn = spec.functions[i];
-        if (fn.name == "VisScalars") pde.nsca  = fn.outputsize;
-        if (fn.name == "VisVectors") pde.nvec  = fn.outputsize / pde.nd;
-        if (fn.name == "VisTensors") pde.nten  = fn.outputsize / (pde.nd*pde.nd);
-        if (fn.name == "QoIboundary") pde.nsurf = fn.outputsize;
-        if (fn.name == "QoIvolume")  pde.nvqoi = fn.outputsize;
-    }
+    finalizePDEModelSizes(pde);
 
     if (rank == 0) {
         std::cout << "[takeParallel] entering: np_local=" << mesh.np
@@ -336,4 +321,3 @@ inline exasim::Preprocessed CPreprocessing::takeParallel(MPI_Comm comm)
 #endif
 
 #endif        
-

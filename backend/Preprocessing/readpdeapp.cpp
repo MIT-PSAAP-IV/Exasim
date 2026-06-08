@@ -512,6 +512,65 @@ inline void pdeFinalizeDerived(PDE& pde)
     pde.solversparam = {pde.NewtonTol, pde.GMREStol, pde.matvectol, pde.NLparam};
 }
 
+inline bool useBuiltInAppMetadata(const PDE& pde)
+{
+    return (pde.builtinmodelID > 0);
+}
+
+inline void applyParsedSpecMetadata(PDE& pde, const ParsedSpec& spec)
+{
+    for (const auto& vec : spec.vectors) {
+        const std::string& name = vec.first;
+        int size = vec.second;
+        if (name == "uhat") pde.ncu = size;
+        if (name == "v")    pde.ncv = size;
+        if (name == "w")    pde.ncw = size;
+        if (name == "uq")   pde.nc  = size;
+    }
+
+    for (size_t i = 0; i < spec.functions.size(); ++i) {
+        const auto& fn = spec.functions[i];
+        if (fn.name == "VisScalars")  pde.nsca  = fn.outputsize;
+        if (fn.name == "VisVectors")  pde.nvec  = fn.outputsize / pde.nd;
+        if (fn.name == "VisTensors")  pde.nten  = fn.outputsize / (pde.nd * pde.nd);
+        if (fn.name == "QoIboundary") pde.nsurf = fn.outputsize;
+        if (fn.name == "QoIvolume")   pde.nvqoi = fn.outputsize;
+    }
+}
+
+inline void validateBuiltInAppMetadata(const PDE& pde)
+{
+    if (pde.ncu <= 0)
+        error("builtinmodelID > 0 requires ncu > 0 in pdeapp.txt.");
+    if (pde.ncv < 0)
+        error("builtinmodelID > 0 requires ncv >= 0 in pdeapp.txt.");
+    if (pde.ncw < 0)
+        error("builtinmodelID > 0 requires ncw >= 0 in pdeapp.txt.");
+    if (pde.nsca < 0 || pde.nvec < 0 || pde.nten < 0 || pde.nsurf < 0 || pde.nvqoi < 0)
+        error("builtinmodelID > 0 requires nsca, nvec, nten, nsurf, and nvqoi to be nonnegative in pdeapp.txt.");
+}
+
+inline void finalizePDEModelSizes(PDE& pde)
+{
+    if (pde.model=="ModelC" || pde.model=="modelC") {
+        pde.wave = 0;
+        pde.nc = pde.ncu;
+    } else if (pde.model=="ModelD" || pde.model=="modelD") {
+        pde.wave = 0;
+        pde.nc = pde.ncu * (pde.nd + 1);
+    } else if (pde.model=="ModelW" || pde.model=="modelW") {
+        pde.tdep = 1;
+        pde.wave = 1;
+        pde.nc = pde.ncu * (pde.nd + 1);
+    }
+
+    if (pde.nc < pde.ncu)
+        error("Invalid PDE dimensions: nc must be greater than or equal to ncu.");
+
+    pde.ncq = pde.nc - pde.ncu;
+    pde.nch = pde.ncu;
+}
+
 inline PDE initializePDE(InputParams& params, int mpirank=0)
 {
     PDE pde;
@@ -591,6 +650,21 @@ inline PDE initializePDE(InputParams& params, int mpirank=0)
     }
     if (params.intParams.count("ncw")) {
         pde.ncw = params.intParams["ncw"];
+    }
+    if (params.intParams.count("nsca")) {
+        pde.nsca = params.intParams["nsca"];
+    }
+    if (params.intParams.count("nvec")) {
+        pde.nvec = params.intParams["nvec"];
+    }
+    if (params.intParams.count("nten")) {
+        pde.nten = params.intParams["nten"];
+    }
+    if (params.intParams.count("nsurf")) {
+        pde.nsurf = params.intParams["nsurf"];
+    }
+    if (params.intParams.count("nvqoi")) {
+        pde.nvqoi = params.intParams["nvqoi"];
     }
     if (params.intParams.count("neb")) {
         pde.neb = params.intParams["neb"];
@@ -954,4 +1028,3 @@ inline void writepde(const PDE& pde, const std::string& filename)
 }
     
 #endif
-
