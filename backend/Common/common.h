@@ -1589,9 +1589,9 @@ struct precondstruct {
 };
 
 struct commonstruct {         
-    string exasimpath = "";  
-    string filein;       // Name of binary file with input data
-    string fileout;      // Name of binary file to write the solution            
+    std::string exasimpath = "";  
+    std::string filein;       // Name of binary file with input data
+    std::string fileout;      // Name of binary file to write the solution            
     
     Int backend;   // 0: Serial; 1: OpenMP; 2: CUDA  
     Int maxnbc;    // maximum number of boundary conditions

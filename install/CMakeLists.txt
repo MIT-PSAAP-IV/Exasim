@@ -633,6 +633,26 @@ install(TARGETS ${EXASIM_EXPORT_TARGETS}
 install(DIRECTORY ${EXASIM_INCLUDE_DIR}/
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
+# Header-only / templated authoring path: the public <exasim/*.hpp> headers pull
+# in the FEM internals under backend/ (e.g. backend/Common/common.h). Install the
+# backend headers so out-of-tree consumers can compile against the templates.
+# Installed under include/backend/, so the existing include/ search dir resolves
+# both <exasim/...> and backend/... .
+install(DIRECTORY ${EXASIM_DIR}/backend/
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/backend
+  FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp")
+
+# The templated path's discretization.hpp includes one model-driver
+# implementation (.cpp) selected by HAVE_TEXT2CODE / HAVE_BUILTINMODEL / else.
+# Install those so out-of-tree templated consumers can compile.
+install(FILES
+  ${EXASIM_DIR}/backend/Model/KokkosDrivers.cpp
+  ${EXASIM_DIR}/backend/Model/ModelDrivers.cpp
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/backend/Model)
+install(FILES
+  ${EXASIM_DIR}/backend/Model/BuiltIn/BuiltinModelDrivers.cpp
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/backend/Model/BuiltIn)
+
 # ---- Façade headers under the exasim/ prefix -------------------------------
 # The C++ façade headers (ExasimSolver.hpp, ExasimSolverSetup.hpp,
 # builtinlibprovider.hpp, ...) live at include/ top-level, but consumers include
