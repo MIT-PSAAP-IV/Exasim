@@ -39,6 +39,12 @@ set_property(GLOBAL PROPERTY EXASIM_BM_GENFILES "")
 function(exasim_add_builtin_model ID)
   cmake_parse_arguments(BM "" "SOURCE;MODEL_DIR" "" ${ARGN})
 
+  if(BM_SOURCE AND NOT EXISTS "${EXASIM_TEXT2CODE}")
+    message(STATUS "exasim_add_builtin_model(${ID}): text2code not found at "
+                   "${EXASIM_TEXT2CODE}; using checked-in kernels in model${ID}.")
+    set(BM_SOURCE "")
+  endif()
+
   if(BM_SOURCE)
     set(_gendir "${EXASIM_BUILTIN_GENROOT}/model${ID}")
     file(MAKE_DIRECTORY "${_gendir}")

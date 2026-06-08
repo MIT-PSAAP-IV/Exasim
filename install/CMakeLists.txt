@@ -95,6 +95,15 @@ set(BM_CPU_LIB  builtinmodelserial)
 set(BM_CUDA_LIB builtinmodelcuda)
 set(BM_HIP_LIB  builtinmodelhip)
 
+# Build the built-in model library as part of this build (defines the target
+# `builtinmodelserial`, regenerating models from text2code). Replaces the
+# standalone backend/Model/BuiltIn/Makefile. The *builtinEXASIM executables and
+# the package export below pick the target up by name.
+if(WITH_BUILTINMODEL)
+  add_subdirectory(${EXASIM_DIR}/backend/Model/BuiltIn
+                   ${CMAKE_BINARY_DIR}/builtinmodel)
+endif()
+
 # ---- Option: build EXASIM variants that include Kokkos kernel providers ----
 set(KOKKOSKERNEL_HEADER "" CACHE STRING "Header defining PdeModel for the Kokkos kernel provider")
 option(WITH_KOKKOSKERNEL "Build extra EXASIM executables that use header-only Kokkos kernel providers" OFF)
@@ -566,6 +575,12 @@ register_exasim_export_target(gpumpiEXASIM_static gpumpilib TRUE)
 register_exasim_export_target(gpupreEXASIM_static gpuprelib FALSE)
 register_exasim_export_target(gpumpipreEXASIM_static gpumpiprelib TRUE)
 
+# Built-in model shared libraries (built above via add_subdirectory) ship as
+# part of the package, exported as Exasim::builtinmodel{serial,cuda,hip}.
+register_exasim_export_target(builtinmodelserial builtinmodelserial FALSE)
+register_exasim_export_target(builtinmodelcuda   builtinmodelcuda   FALSE)
+register_exasim_export_target(builtinmodelhip    builtinmodelhip    FALSE)
+
 list(LENGTH EXASIM_EXPORT_TARGETS EXASIM_NUM_EXPORT_TARGETS)
 if(EXASIM_NUM_EXPORT_TARGETS EQUAL 1)
   message(FATAL_ERROR "No Exasim static solver library target was built for packaging.")
@@ -607,18 +622,8 @@ endforeach()
 install(DIRECTORY ${_exasim_fwd_dir}/
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/exasim)
 
-# ---- Built-in model shared libraries ---------------------------------------
-# Produced separately by backend/Model/BuiltIn/Makefile (make serial|cuda|hip)
-# into ${EXASIM_LIB_DIR}. They are not CMake targets, so install whichever exist
-# alongside the package; ExasimConfig.cmake exposes them as imported targets so
-# consumers link Exasim::builtinmodelserial instead of hardcoding a path/suffix.
-foreach(_bm builtinmodelserial builtinmodelcuda builtinmodelhip)
-  set(_bm_file
-    "${EXASIM_LIB_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}${_bm}${CMAKE_SHARED_LIBRARY_SUFFIX}")
-  if(EXISTS "${_bm_file}")
-    install(FILES "${_bm_file}" DESTINATION ${CMAKE_INSTALL_LIBDIR})
-  endif()
-endforeach()
+# (Built-in model libraries are exported as real targets above, via the
+#  add_subdirectory(backend/Model/BuiltIn) build and the export set.)
 
 if(WITH_PARMETIS)
   if(EXISTS "${METIS_INCLUDE_DIR}/metis.h")
