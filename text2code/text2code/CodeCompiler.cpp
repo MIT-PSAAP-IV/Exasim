@@ -42,6 +42,18 @@
 
 */
 
+// Build-time SymEngine resolution (installed copy preferred, vendored fallback),
+// baked by text2code/CMakeLists.txt. Absent in non-CMake builds → fall back to
+// the vendored path constructed from spec.symenginepath.
+#if defined(__has_include)
+#  if __has_include("symengine_config.h")
+#    include "symengine_config.h"
+#  endif
+#endif
+#ifndef EXASIM_SYMENGINE_FOUND
+#  define EXASIM_SYMENGINE_FOUND 0
+#endif
+
 void generateCppCode(ParsedSpec spec)
 {
     std::cout << "\nGenerating the C++ code for this model file ("<< spec.modelfile << ") ... \n\n";
@@ -263,14 +275,25 @@ int executeCppCode(ParsedSpec& spec)
           << quote(symengine_lib) << " "
           << "/Fe:" << quote(exefile);
     } else {
-      std::string symengine_lib = make_path(spec.symenginepath, "lib/libsymengine.a");
-      cmd << tc.cxx << " -std=c++17 -w "          
-          << "-I" << quote(spec.symenginepath) << " "
-          << "-I" << quote(symengine_include) << " "       
+#if EXASIM_SYMENGINE_FOUND
+      // Use the SymEngine resolved at build time (installed copy preferred,
+      // vendored fallback) — baked into symengine_config.h.
+      cmd << tc.cxx << " -std=c++17 -w "
+          << EXASIM_SYMENGINE_INCFLAGS << " "
           << "-I" << quote(backend_model) << " "
-          << quote(sourcefile) << " "        
-          << quote(symengine_lib) << " -o "    
+          << quote(sourcefile) << " "
+          << EXASIM_SYMENGINE_LIB << " -o "
           << quote(exefile);
+#else
+      std::string symengine_lib = make_path(spec.symenginepath, "lib/libsymengine.a");
+      cmd << tc.cxx << " -std=c++17 -w "
+          << "-I" << quote(spec.symenginepath) << " "
+          << "-I" << quote(symengine_include) << " "
+          << "-I" << quote(backend_model) << " "
+          << quote(sourcefile) << " "
+          << quote(symengine_lib) << " -o "
+          << quote(exefile);
+#endif
     }
                            
     std::cout<<cmd.str().c_str()<<std::endl;

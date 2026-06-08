@@ -61,6 +61,41 @@ function(link_blas_lapack target)
   endif()
 endfunction()
 
+# ---- SymEngine (used at runtime to compile generated Code2Cpp.cpp) ----
+# Prefer an installed SymEngine (apt libsymengine-dev / conda / brew all ship
+# SymEngineConfig.cmake); fall back to the vendored build under
+# text2code/symengine. The resolved include/lib flags are baked into the binary
+# (symengine_config.h) so CodeCompiler uses them instead of a hardcoded path.
+find_package(SymEngine CONFIG QUIET
+  HINTS "${EXASIM_ROOT}/text2code/symengine/lib/cmake/symengine"
+        "${EXASIM_ROOT}/text2code/symengine")
+set(_se_header "${CMAKE_CURRENT_BINARY_DIR}/symengine_config.h")
+if(SymEngine_FOUND)
+  set(_se_inc "")
+  foreach(_d ${SYMENGINE_INCLUDE_DIRS})
+    string(APPEND _se_inc "-I${_d} ")
+  endforeach()
+  if(TARGET symengine)
+    set(_se_lib "$<TARGET_FILE:symengine>")
+  else()
+    string(REPLACE ";" " " _se_lib "${SYMENGINE_LIBRARIES}")
+  endif()
+  file(GENERATE OUTPUT "${_se_header}" CONTENT
+"#pragma once
+#define EXASIM_SYMENGINE_FOUND 1
+#define EXASIM_SYMENGINE_INCFLAGS \"${_se_inc}\"
+#define EXASIM_SYMENGINE_LIB \"${_se_lib}\"
+")
+  message(STATUS "SymEngine                = found (${SYMENGINE_INCLUDE_DIRS})")
+else()
+  file(GENERATE OUTPUT "${_se_header}" CONTENT
+"#pragma once
+#define EXASIM_SYMENGINE_FOUND 0
+")
+  message(STATUS "SymEngine                = not found; text2code uses the vendored path at runtime")
+endif()
+include_directories("${CMAKE_CURRENT_BINARY_DIR}")
+
 set(MODEL_FILE "${CMAKE_CURRENT_SOURCE_DIR}/pdeapp.txt" CACHE FILEPATH "Input for text2code")
 
 # ============================================================
