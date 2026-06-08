@@ -147,6 +147,31 @@ set(GKLIB_INCLUDE_DIR "${GKLIB_ROOT}/include"
 set(GKLIB_LIBRARY_DIR "${GKLIB_ROOT}/lib"
     CACHE PATH "GKlib library dir")
 
+# Resolve METIS / ParMETIS / GKlib: prefer an installed copy (e.g.
+# `apt install libmetis-dev libparmetis-dev`, or any package-manager install on
+# CMAKE_PREFIX_PATH), and fall back to the vendored build under Exasim/metis via
+# HINTS. METIS ships no upstream CMake config, so we locate the library + header
+# directly with find_library/find_path -- no third-party Find-module is adopted.
+if(WITH_PARMETIS)
+  find_path(EXASIM_METIS_INCLUDE       metis.h    HINTS "${METIS_INCLUDE_DIR}")
+  find_library(EXASIM_METIS_LIBRARY    metis      HINTS "${METIS_LIBRARY_DIR}")
+  find_path(EXASIM_PARMETIS_INCLUDE    parmetis.h HINTS "${PARMETIS_INCLUDE_DIR}")
+  find_library(EXASIM_PARMETIS_LIBRARY parmetis   HINTS "${PARMETIS_LIBRARY_DIR}")
+  # GKlib is a separate library in the vendored build but is bundled into libmetis
+  # on some installs (e.g. apt); link/include it only when present.
+  find_path(EXASIM_GKLIB_INCLUDE    GKlib.h HINTS "${GKLIB_INCLUDE_DIR}")
+  find_library(EXASIM_GKLIB_LIBRARY GKlib   HINTS "${GKLIB_LIBRARY_DIR}")
+  if(NOT EXASIM_METIS_LIBRARY OR NOT EXASIM_PARMETIS_LIBRARY)
+    message(FATAL_ERROR
+      "WITH_PARMETIS=ON but METIS/ParMETIS were not found. Install them (e.g. "
+      "apt install libmetis-dev libparmetis-dev) or build the vendored copy "
+      "(cd Exasim/metis && make metis).")
+  endif()
+  message(STATUS "METIS                     = ${EXASIM_METIS_LIBRARY}")
+  message(STATUS "ParMETIS                  = ${EXASIM_PARMETIS_LIBRARY}")
+  message(STATUS "GKlib                     = ${EXASIM_GKLIB_LIBRARY}")
+endif()
+
 # METIS: helper to attach METIS / ParMETIS / GKlib to a target when WITH_PARMETIS=ON
 function(link_metis target)
   if (NOT WITH_PARMETIS)
@@ -158,35 +183,23 @@ function(link_metis target)
 
   # Includes
   target_include_directories(${target} PUBLIC
-    $<BUILD_INTERFACE:${PARMETIS_INCLUDE_DIR}>
-    $<BUILD_INTERFACE:${METIS_INCLUDE_DIR}>
-    $<BUILD_INTERFACE:${GKLIB_INCLUDE_DIR}>
+    $<BUILD_INTERFACE:${EXASIM_PARMETIS_INCLUDE}>
+    $<BUILD_INTERFACE:${EXASIM_METIS_INCLUDE}>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   )
+  if (EXASIM_GKLIB_INCLUDE)
+    target_include_directories(${target} PUBLIC
+      $<BUILD_INTERFACE:${EXASIM_GKLIB_INCLUDE}>)
+  endif()
 
-  # Library search paths (only if they exist, to avoid noisy warnings)
-  if (EXISTS "${PARMETIS_LIBRARY_DIR}")
-    target_link_directories(${target} PUBLIC
-      $<BUILD_INTERFACE:${PARMETIS_LIBRARY_DIR}>
-      $<INSTALL_INTERFACE:${CMAKE_INSTALL_LIBDIR}>)
-  endif()
-  if (EXISTS "${METIS_LIBRARY_DIR}")
-    target_link_directories(${target} PUBLIC
-      $<BUILD_INTERFACE:${METIS_LIBRARY_DIR}>
-      $<INSTALL_INTERFACE:${CMAKE_INSTALL_LIBDIR}>)
-  endif()
-  if (EXISTS "${GKLIB_LIBRARY_DIR}")
-    target_link_directories(${target} PUBLIC
-      $<BUILD_INTERFACE:${GKLIB_LIBRARY_DIR}>
-      $<INSTALL_INTERFACE:${CMAKE_INSTALL_LIBDIR}>)
-  endif()
-  
-  # Link order: ParMETIS, METIS, GKlib
+  # Link order: ParMETIS, METIS, then GKlib (only if it is a separate library)
   target_link_libraries(${target} PUBLIC
-      ${PARMETIS_LIBRARY_DIR}/libparmetis.a
-      ${METIS_LIBRARY_DIR}/libmetis.a
-      ${GKLIB_LIBRARY_DIR}/libGKlib.a
+      ${EXASIM_PARMETIS_LIBRARY}
+      ${EXASIM_METIS_LIBRARY}
   )
+  if (EXASIM_GKLIB_LIBRARY)
+    target_link_libraries(${target} PUBLIC ${EXASIM_GKLIB_LIBRARY})
+  endif()
 endfunction()
 
 # BLAS / LAPACK
