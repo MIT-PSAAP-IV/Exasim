@@ -213,7 +213,10 @@ endif()
 
 # ----------------------------- CUDA branch ------------------------------
 if(EXASIM_CUDA)
-  set(Kokkos_DIR ${EXASIM_DIR}/kokkos/buildcuda)
+  # Respect a user-provided installed Kokkos (-DKokkos_DIR); else vendored CUDA build.
+  if(NOT Kokkos_DIR)
+    set(Kokkos_DIR ${EXASIM_DIR}/kokkos/buildcuda)
+  endif()
   find_package(Kokkos REQUIRED)
 
   enable_language(CUDA)
@@ -333,10 +336,13 @@ if(EXASIM_CUDA)
 
 # ------------------------------ HIP branch ------------------------------
 elseif(EXASIM_HIP)
-  if(EXASIM_TUOLUMNE)
-    set(Kokkos_DIR ${EXASIM_DIR}/kokkos/buildtuolumne)
-  else()
-    set(Kokkos_DIR ${EXASIM_DIR}/kokkos/buildhip)
+  # Respect a user-provided installed Kokkos (-DKokkos_DIR); else vendored HIP build.
+  if(NOT Kokkos_DIR)
+    if(EXASIM_TUOLUMNE)
+      set(Kokkos_DIR ${EXASIM_DIR}/kokkos/buildtuolumne)
+    else()
+      set(Kokkos_DIR ${EXASIM_DIR}/kokkos/buildhip)
+    endif()
   endif()
 
   message(${Kokkos_DIR})
@@ -457,8 +463,17 @@ elseif(EXASIM_HIP)
 
 # ------------------------------ CPU branch ------------------------------
 else()
-  set(Kokkos_DIR ${EXASIM_DIR}/kokkos/buildserial)
-  find_package(Kokkos REQUIRED)
+  # Prefer an installed Kokkos (apt/conda/spack/brew, -DKokkos_DIR, or
+  # CMAKE_PREFIX_PATH); fall back to the vendored serial build.
+  if(NOT Kokkos_DIR)
+    find_package(Kokkos QUIET)
+  endif()
+  if(NOT Kokkos_FOUND)
+    if(NOT Kokkos_DIR)
+      set(Kokkos_DIR ${EXASIM_DIR}/kokkos/buildserial)
+    endif()
+    find_package(Kokkos REQUIRED)
+  endif()
 
   if(EXASIM_NOMPI)
     add_exasim_static_library(cpuEXASIM_static cpuEXASIM)
