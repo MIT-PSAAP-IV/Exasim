@@ -590,6 +590,36 @@ install(TARGETS ${EXASIM_EXPORT_TARGETS}
 install(DIRECTORY ${EXASIM_INCLUDE_DIR}/
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
+# ---- Façade headers under the exasim/ prefix -------------------------------
+# The C++ façade headers (ExasimSolver.hpp, ExasimSolverSetup.hpp,
+# builtinlibprovider.hpp, ...) live at include/ top-level, but consumers include
+# them as <exasim/...> (matching the templated-path headers already under
+# include/exasim/). Generate forwarding headers so both spellings resolve.
+file(GLOB _exasim_top_headers RELATIVE ${EXASIM_INCLUDE_DIR}
+  ${EXASIM_INCLUDE_DIR}/*.hpp)
+set(_exasim_fwd_dir ${CMAKE_CURRENT_BINARY_DIR}/exasim_forward_headers)
+file(MAKE_DIRECTORY ${_exasim_fwd_dir})
+foreach(_h ${_exasim_top_headers})
+  if(NOT EXISTS ${EXASIM_INCLUDE_DIR}/exasim/${_h})
+    file(WRITE ${_exasim_fwd_dir}/${_h} "#pragma once\n#include \"../${_h}\"\n")
+  endif()
+endforeach()
+install(DIRECTORY ${_exasim_fwd_dir}/
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/exasim)
+
+# ---- Built-in model shared libraries ---------------------------------------
+# Produced separately by backend/Model/BuiltIn/Makefile (make serial|cuda|hip)
+# into ${EXASIM_LIB_DIR}. They are not CMake targets, so install whichever exist
+# alongside the package; ExasimConfig.cmake exposes them as imported targets so
+# consumers link Exasim::builtinmodelserial instead of hardcoding a path/suffix.
+foreach(_bm builtinmodelserial builtinmodelcuda builtinmodelhip)
+  set(_bm_file
+    "${EXASIM_LIB_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}${_bm}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  if(EXISTS "${_bm_file}")
+    install(FILES "${_bm_file}" DESTINATION ${CMAKE_INSTALL_LIBDIR})
+  endif()
+endforeach()
+
 if(WITH_PARMETIS)
   if(EXISTS "${METIS_INCLUDE_DIR}/metis.h")
     install(FILES "${METIS_INCLUDE_DIR}/metis.h"

@@ -39,7 +39,10 @@ inline CPreprocessing::CPreprocessing(std::string filein, int rank, int commsize
   pde = initializePDE(params, rank);
   pde.mpiprocs = commsize;
 
-  spec = TextParser::parseFile(make_path(pde.datapath, pde.modelfile));
+  // A built-in model library (builtinmodelID > 0) provides the kernels, so the
+  // text model file is not required to define Flux/Source/etc.
+  spec = TextParser::parseFile(make_path(pde.datapath, pde.modelfile),
+                               pde.builtinmodelID <= 0);
   spec.exasimpath = pde.exasimpath;
 }
 

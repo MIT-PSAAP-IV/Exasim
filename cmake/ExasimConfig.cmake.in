@@ -46,4 +46,17 @@ endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/ExasimTargets.cmake")
 
+# Built-in model shared libraries, installed alongside the package when built via
+# backend/Model/BuiltIn/Makefile. Exposed as imported targets so consumers link
+# Exasim::builtinmodelserial (etc.) instead of hardcoding a path or extension.
+foreach(_bm builtinmodelserial builtinmodelcuda builtinmodelhip)
+  set(_bm_file
+    "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_LIBDIR@/${CMAKE_SHARED_LIBRARY_PREFIX}${_bm}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  if(EXISTS "${_bm_file}" AND NOT TARGET Exasim::${_bm})
+    add_library(Exasim::${_bm} SHARED IMPORTED)
+    set_target_properties(Exasim::${_bm} PROPERTIES IMPORTED_LOCATION "${_bm_file}")
+  endif()
+endforeach()
+unset(_bm_file)
+
 check_required_components(Exasim)
