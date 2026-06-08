@@ -89,10 +89,16 @@ int main(int argc, char* argv[])
            
     // Optional --out-dir override (HOT.7.14).
     std::string out_dir_override;
-    for (int i = 2; i + 1 < argc; ++i) {
-        if (std::string(argv[i]) == "--out-dir") {
+    // --gen-only emits the generated kernel sources but skips building the
+    // dynamic model library. Used by the built-in model CMake build, which
+    // compiles the generated kernels into libbuiltinmodel itself.
+    bool gen_only = false;
+    for (int i = 2; i < argc; ++i) {
+        if (std::string(argv[i]) == "--out-dir" && i + 1 < argc) {
             out_dir_override = argv[i + 1];
-            break;
+            ++i;
+        } else if (std::string(argv[i]) == "--gen-only") {
+            gen_only = true;
         }
     }
 
@@ -119,8 +125,8 @@ int main(int argc, char* argv[])
 #else    
     if (pde.gencode==1) {
         generateCppCode(spec);
-        executeCppCode(spec); 
-        buildDynamicLibraries(spec);     
+        executeCppCode(spec);
+        if (!gen_only) buildDynamicLibraries(spec);
     }
 #endif        
     
