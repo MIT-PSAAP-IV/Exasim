@@ -1,0 +1,141 @@
+# =============================================================================
+#  Exasim superbuild — one-command build.
+#
+#      cmake -B build [-D<option>=...]
+#      cmake --build build
+#
+#  Orchestrates the dependency chain in order: each heavy dependency is used from
+#  an installed copy when available (find-or-build), otherwise the vendored source
+#  is built; then text2code, then Exasim itself. Advanced users can still build the
+#  solver layer directly with `cmake -S install -B build`.
+#
+#  Dependencies (prefer installed, e.g. apt install libmetis-dev libparmetis-dev
+#  libsymengine-dev; vendored fallback otherwise):
+#    - Kokkos      (find_package; vendored kokkos/buildserial)
+#    - METIS       (find_library; vendored metis/)
+#    - SymEngine   (find_package; vendored text2code/symengine/)  [text2code only]
+# =============================================================================
+cmake_minimum_required(VERSION 3.16)
+project(ExasimSuperbuild C CXX)
+include(ExternalProject)
+
+set(EXASIM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
+
+# ---- Build options (forwarded to the Exasim solver build) ----
+option(EXASIM_MPI         "Build MPI variants"                 ON)
+option(EXASIM_NOMPI       "Build non-MPI variants"             ON)
+option(EXASIM_CUDA        "CUDA backend"                       OFF)
+option(EXASIM_HIP         "HIP backend"                        OFF)
+option(EXASIM_LIB         "Build static libraries"             ON)
+option(WITH_PARMETIS      "Link METIS/ParMETIS"                ON)
+option(WITH_TEXT2CODE     "Build text2code-linked executables" OFF)
+option(WITH_BUILTINMODEL  "Build the built-in model library"   ON)
+
+# Forward the toolchain to every sub-build.
+set(_fwd
+  -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+  -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER})
+if(CMAKE_BUILD_TYPE)
+  list(APPEND _fwd -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE})
+endif()
+# Run Makefile-based vendored builds with the same compiler.
+set(_envcxx ${CMAKE_COMMAND} -E env "CXX=${CMAKE_CXX_COMPILER}")
+
+set(_exasim_deps "")   # ExternalProject targets Exasim must wait for
+
+# ----------------------------------------------------------------------------
+# Kokkos: installed -> already-built vendored -> build vendored serial
+# ----------------------------------------------------------------------------
+find_package(Kokkos QUIET)
+if(Kokkos_FOUND)
+  message(STATUS "Kokkos: using installed (${Kokkos_DIR})")
+elseif(EXISTS "${EXASIM_ROOT}/kokkos/buildserial/KokkosConfig.cmake")
+  message(STATUS "Kokkos: using vendored kokkos/buildserial (already built)")
+elseif(NOT EXASIM_CUDA AND NOT EXASIM_HIP)
+  message(STATUS "Kokkos: building vendored serial")
+  ExternalProject_Add(kokkos_vendored
+    SOURCE_DIR        "${EXASIM_ROOT}/kokkos"
+    DOWNLOAD_COMMAND  ""
+    CONFIGURE_COMMAND ""
+    BUILD_IN_SOURCE   TRUE
+    BUILD_COMMAND     ${_envcxx} make -f Makefile.builds serial
+    INSTALL_COMMAND   "")
+  list(APPEND _exasim_deps kokkos_vendored)
+endif()
+
+# ----------------------------------------------------------------------------
+# METIS / ParMETIS: installed -> already-built vendored -> build vendored
+# ----------------------------------------------------------------------------
+if(WITH_PARMETIS)
+  find_library(_sb_metis    metis)
+  find_library(_sb_parmetis parmetis)
+  if(_sb_metis AND _sb_parmetis)
+    message(STATUS "METIS: using installed (${_sb_metis})")
+  elseif(EXISTS "${EXASIM_ROOT}/metis/METIS/build/libmetis/libmetis.a")
+    message(STATUS "METIS: using vendored metis/ (already built)")
+  else()
+    message(STATUS "METIS: building vendored")
+    ExternalProject_Add(metis_vendored
+      SOURCE_DIR        "${EXASIM_ROOT}/metis"
+      DOWNLOAD_COMMAND  ""
+      CONFIGURE_COMMAND ""
+      BUILD_IN_SOURCE   TRUE
+      BUILD_COMMAND     ${_envcxx} make metis
+      INSTALL_COMMAND   "")
+    list(APPEND _exasim_deps metis_vendored)
+  endif()
+endif()
+
+# ----------------------------------------------------------------------------
+# SymEngine (text2code only): installed -> already-built vendored -> build vendored
+# ----------------------------------------------------------------------------
+set(_symengine_dep "")
+find_package(SymEngine CONFIG QUIET)
+if(SymEngine_FOUND)
+  message(STATUS "SymEngine: using installed")
+elseif(EXISTS "${EXASIM_ROOT}/text2code/symengine/lib/cmake/symengine/SymEngineConfig.cmake")
+  message(STATUS "SymEngine: using vendored text2code/symengine (already built)")
+else()
+  message(STATUS "SymEngine: building vendored")
+  ExternalProject_Add(symengine_vendored
+    SOURCE_DIR  "${EXASIM_ROOT}/text2code/symengine"
+    BINARY_DIR  "${EXASIM_ROOT}/text2code/symengine/build"
+    DOWNLOAD_COMMAND ""
+    CMAKE_ARGS  ${_fwd}
+      -DCMAKE_INSTALL_PREFIX=${EXASIM_ROOT}/text2code/symengine
+      -DBUILD_SHARED_LIBS=OFF -DWITH_GMP=OFF -DWITH_MPFR=OFF -DWITH_LLVM=OFF
+      -DWITH_SYMENGINE_THREAD_SAFE=ON -DINTEGER_CLASS=boostmp
+      "-DCMAKE_CXX_FLAGS=-std=gnu++17 -fPIC")
+  set(_symengine_dep symengine_vendored)
+endif()
+
+# ----------------------------------------------------------------------------
+# text2code (Exasim's own codegen tool; depends on SymEngine + METIS)
+# Installs its binary to ${EXASIM_ROOT}/build/text2code.
+# ----------------------------------------------------------------------------
+ExternalProject_Add(text2code_build
+  SOURCE_DIR  "${EXASIM_ROOT}/text2code/text2code"
+  DOWNLOAD_COMMAND ""
+  CMAKE_ARGS  ${_fwd} -DWITH_METIS=${WITH_PARMETIS} -DEXASIM_ROOT=${EXASIM_ROOT}
+  INSTALL_COMMAND ""
+  DEPENDS ${_symengine_dep} ${_exasim_deps})
+list(APPEND _exasim_deps text2code_build)
+
+# ----------------------------------------------------------------------------
+# Exasim solver layer (install/). Its own CMake find-or-builds Kokkos/METIS, so it
+# locates whatever the steps above produced. Depends on everything.
+# ----------------------------------------------------------------------------
+ExternalProject_Add(exasim_build
+  SOURCE_DIR  "${EXASIM_ROOT}/install"
+  DOWNLOAD_COMMAND ""
+  CMAKE_ARGS  ${_fwd}
+    -DEXASIM_MPI=${EXASIM_MPI} -DEXASIM_NOMPI=${EXASIM_NOMPI}
+    -DEXASIM_CUDA=${EXASIM_CUDA} -DEXASIM_HIP=${EXASIM_HIP}
+    -DEXASIM_LIB=${EXASIM_LIB} -DWITH_PARMETIS=${WITH_PARMETIS}
+    -DWITH_TEXT2CODE=${WITH_TEXT2CODE} -DWITH_BUILTINMODEL=${WITH_BUILTINMODEL}
+    "-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}"
+  BUILD_ALWAYS TRUE
+  INSTALL_COMMAND ${CMAKE_COMMAND} --install <BINARY_DIR>
+  DEPENDS ${_exasim_deps})
+
+message(STATUS "Exasim superbuild configured. Build with: cmake --build ${CMAKE_BINARY_DIR}")
