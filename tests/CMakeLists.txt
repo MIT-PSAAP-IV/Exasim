@@ -7,9 +7,10 @@
 #   B4  runs it (if it ships a pdeapp.txt) and checks the QoI gate.
 # This catches export/packaging regressions a normal in-tree build would miss.
 #
-# (The legacy in-tree multi_tu_consumer / install_consumer subprojects remain as
-#  standalone consumer examples; their CMakeLists are exercised by the harness as
-#  they are migrated under tests/consumers/.)
+# Run everything with `bash tests/run-tests.sh` (configures with
+# EXASIM_BUILD_TESTS=ON, builds, runs ctest). The superseded in-tree consumers
+# (install_consumer / multi_tu_consumer) and bespoke runners now live under
+# tests/archive/ — see tests/archive/README.md.
 cmake_minimum_required(VERSION 3.16)
 
 add_test(NAME consumer_out_of_tree
