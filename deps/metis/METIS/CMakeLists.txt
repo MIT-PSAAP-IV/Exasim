@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
 project(METIS C)
 
+include(GNUInstallDirs)
+
 set(SHARED FALSE CACHE BOOL "build a shared library")
 
 if(MSVC)
@@ -41,10 +43,12 @@ include_directories(build/xinclude)
 include_directories(${GKLIB_PATH}/include)
 include_directories(${CMAKE_INSTALL_PREFIX}/include)
 
+# Use CMake's platform-aware install libdir instead of hardcoding lib/lib64.
+set(GKLIB_LIBDIR "${GKLIB_PATH}/${CMAKE_INSTALL_LIBDIR}")
+
 # List of paths that the compiler will search for library files.
 # i.e., the -L equivalent
-link_directories(${GKLIB_PATH}/lib)
-link_directories(${CMAKE_INSTALL_PREFIX}/lib)
+link_directories(${GKLIB_LIBDIR})
 
 # Recursively look for CMakeLists.txt in subdirs.
 add_subdirectory("build/xinclude")
