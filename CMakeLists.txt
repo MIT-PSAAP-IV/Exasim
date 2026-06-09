@@ -11,9 +11,9 @@
 #
 #  Dependencies (prefer installed, e.g. apt install libmetis-dev libparmetis-dev
 #  libsymengine-dev; vendored fallback otherwise):
-#    - Kokkos      (find_package; vendored kokkos/buildserial)
-#    - METIS       (find_library; vendored metis/)
-#    - SymEngine   (find_package; vendored text2code/symengine/)  [text2code only]
+#    - Kokkos      (find_package; vendored deps/kokkos/buildserial)
+#    - METIS       (find_library; vendored deps/metis/)
+#    - SymEngine   (find_package; vendored deps/symengine/)  [text2code only]
 # =============================================================================
 cmake_minimum_required(VERSION 3.16)
 project(ExasimSuperbuild C CXX)
@@ -47,18 +47,18 @@ set(_exasim_deps "")   # ExternalProject targets Exasim must wait for
 # ----------------------------------------------------------------------------
 # Kokkos: installed -> already-built vendored -> build vendored.
 # The vendored backend (serial/cuda/hip) is chosen from the requested EXASIM
-# backend so the inner Exasim build (which picks kokkos/build{serial,cuda,hip}
+# backend so the inner Exasim build (which picks deps/kokkos/build{serial,cuda,hip}
 # by the same flags) finds a matching Kokkos. CUDA/HIP use nvcc_wrapper/hipcc.
 # ----------------------------------------------------------------------------
 if(EXASIM_CUDA)
   set(_kk_target cuda)
-  set(_kk_dir    "${EXASIM_ROOT}/kokkos/buildcuda")
+  set(_kk_dir    "${EXASIM_ROOT}/deps/kokkos/buildcuda")
 elseif(EXASIM_HIP)
   set(_kk_target hip)
-  set(_kk_dir    "${EXASIM_ROOT}/kokkos/buildhip")
+  set(_kk_dir    "${EXASIM_ROOT}/deps/kokkos/buildhip")
 else()
   set(_kk_target serial)
-  set(_kk_dir    "${EXASIM_ROOT}/kokkos/buildserial")
+  set(_kk_dir    "${EXASIM_ROOT}/deps/kokkos/buildserial")
 endif()
 
 find_package(Kokkos QUIET)
@@ -69,7 +69,7 @@ elseif(EXISTS "${_kk_dir}/KokkosConfig.cmake")
 else()
   message(STATUS "Kokkos: building vendored ${_kk_target}")
   ExternalProject_Add(kokkos_vendored
-    SOURCE_DIR        "${EXASIM_ROOT}/kokkos"
+    SOURCE_DIR        "${EXASIM_ROOT}/deps/kokkos"
     DOWNLOAD_COMMAND  ""
     CONFIGURE_COMMAND ""
     BUILD_IN_SOURCE   TRUE
@@ -86,12 +86,12 @@ if(WITH_PARMETIS)
   find_library(_sb_parmetis parmetis)
   if(_sb_metis AND _sb_parmetis)
     message(STATUS "METIS: using installed (${_sb_metis})")
-  elseif(EXISTS "${EXASIM_ROOT}/metis/METIS/build/libmetis/libmetis.a")
-    message(STATUS "METIS: using vendored metis/ (already built)")
+  elseif(EXISTS "${EXASIM_ROOT}/deps/metis/METIS/build/libmetis/libmetis.a")
+    message(STATUS "METIS: using vendored deps/metis/ (already built)")
   else()
     message(STATUS "METIS: building vendored")
     ExternalProject_Add(metis_vendored
-      SOURCE_DIR        "${EXASIM_ROOT}/metis"
+      SOURCE_DIR        "${EXASIM_ROOT}/deps/metis"
       DOWNLOAD_COMMAND  ""
       CONFIGURE_COMMAND ""
       BUILD_IN_SOURCE   TRUE
@@ -108,16 +108,16 @@ set(_symengine_dep "")
 find_package(SymEngine CONFIG QUIET)
 if(SymEngine_FOUND)
   message(STATUS "SymEngine: using installed")
-elseif(EXISTS "${EXASIM_ROOT}/text2code/symengine/lib/cmake/symengine/SymEngineConfig.cmake")
-  message(STATUS "SymEngine: using vendored text2code/symengine (already built)")
+elseif(EXISTS "${EXASIM_ROOT}/deps/symengine/lib/cmake/symengine/SymEngineConfig.cmake")
+  message(STATUS "SymEngine: using vendored deps/symengine (already built)")
 else()
   message(STATUS "SymEngine: building vendored")
   ExternalProject_Add(symengine_vendored
-    SOURCE_DIR  "${EXASIM_ROOT}/text2code/symengine"
-    BINARY_DIR  "${EXASIM_ROOT}/text2code/symengine/build"
+    SOURCE_DIR  "${EXASIM_ROOT}/deps/symengine"
+    BINARY_DIR  "${EXASIM_ROOT}/deps/symengine/build"
     DOWNLOAD_COMMAND ""
     CMAKE_ARGS  ${_fwd}
-      -DCMAKE_INSTALL_PREFIX=${EXASIM_ROOT}/text2code/symengine
+      -DCMAKE_INSTALL_PREFIX=${EXASIM_ROOT}/deps/symengine
       -DBUILD_SHARED_LIBS=OFF -DWITH_GMP=OFF -DWITH_MPFR=OFF -DWITH_LLVM=OFF
       -DWITH_SYMENGINE_THREAD_SAFE=ON -DINTEGER_CLASS=boostmp
       "-DCMAKE_CXX_FLAGS=-std=gnu++17 -fPIC")
@@ -140,11 +140,11 @@ list(APPEND _exasim_deps text2code_build)
 # Exasim solver layer (install/). Its own CMake find-or-builds Kokkos/METIS, so it
 # locates whatever the steps above produced. Depends on everything.
 #
-# Unlike text2code/symengine (host-only), the solver compiles Kokkos device code,
+# Unlike deps/symengine (host-only), the solver compiles Kokkos device code,
 # so under CUDA/HIP it must build with the Kokkos compiler wrapper as CXX.
 # ----------------------------------------------------------------------------
 if(EXASIM_CUDA)
-  set(_exasim_cxx "${EXASIM_ROOT}/kokkos/bin/nvcc_wrapper")
+  set(_exasim_cxx "${EXASIM_ROOT}/deps/kokkos/bin/nvcc_wrapper")
 elseif(EXASIM_HIP)
   set(_exasim_cxx "hipcc")
 else()

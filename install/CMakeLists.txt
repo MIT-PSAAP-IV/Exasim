@@ -141,11 +141,11 @@ endif()
 option(WITH_PARMETIS "Build extra EXASIM executables that link metis libraries" OFF)
 
 # METIS: ParMETIS / METIS / GKlib roots (override if your layout differs)
-set(PARMETIS_ROOT "${EXASIM_DIR}/metis/ParMETIS"
+set(PARMETIS_ROOT "${EXASIM_DIR}/deps/metis/ParMETIS"
     CACHE PATH "Path to ParMETIS root")
-set(METIS_ROOT    "${EXASIM_DIR}/metis/METIS"
+set(METIS_ROOT    "${EXASIM_DIR}/deps/metis/METIS"
     CACHE PATH "Path to METIS root")
-set(GKLIB_ROOT    "${EXASIM_DIR}/metis/GKlib"
+set(GKLIB_ROOT    "${EXASIM_DIR}/deps/metis/GKlib"
     CACHE PATH "Path to GKlib root")
 
 # METIS: derived include/lib dirs (override if needed)
@@ -233,7 +233,7 @@ endif()
 if(EXASIM_CUDA)
   # Respect a user-provided installed Kokkos (-DKokkos_DIR); else vendored CUDA build.
   if(NOT Kokkos_DIR)
-    set(Kokkos_DIR ${EXASIM_DIR}/kokkos/buildcuda)
+    set(Kokkos_DIR ${EXASIM_DIR}/deps/kokkos/buildcuda)
   endif()
   find_package(Kokkos REQUIRED)
 
@@ -357,9 +357,9 @@ elseif(EXASIM_HIP)
   # Respect a user-provided installed Kokkos (-DKokkos_DIR); else vendored HIP build.
   if(NOT Kokkos_DIR)
     if(EXASIM_TUOLUMNE)
-      set(Kokkos_DIR ${EXASIM_DIR}/kokkos/buildtuolumne)
+      set(Kokkos_DIR ${EXASIM_DIR}/deps/kokkos/buildtuolumne)
     else()
-      set(Kokkos_DIR ${EXASIM_DIR}/kokkos/buildhip)
+      set(Kokkos_DIR ${EXASIM_DIR}/deps/kokkos/buildhip)
     endif()
   endif()
 
@@ -488,7 +488,7 @@ else()
   endif()
   if(NOT Kokkos_FOUND)
     if(NOT Kokkos_DIR)
-      set(Kokkos_DIR ${EXASIM_DIR}/kokkos/buildserial)
+      set(Kokkos_DIR ${EXASIM_DIR}/deps/kokkos/buildserial)
     endif()
     find_package(Kokkos REQUIRED)
   endif()

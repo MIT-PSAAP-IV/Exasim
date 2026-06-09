@@ -157,13 +157,13 @@ function(exasim_finalize_builtin_models)
   # are needed to compile the kernels.
   if(EXASIM_CUDA)
     set(_bm_name builtinmodelcuda)
-    set(_bm_kokkos "${EXASIM_DIR}/kokkos/buildcuda")
+    set(_bm_kokkos "${EXASIM_DIR}/deps/kokkos/buildcuda")
   elseif(EXASIM_HIP)
     set(_bm_name builtinmodelhip)
-    set(_bm_kokkos "${EXASIM_DIR}/kokkos/buildhip")
+    set(_bm_kokkos "${EXASIM_DIR}/deps/kokkos/buildhip")
   else()
     set(_bm_name builtinmodelserial)
-    set(_bm_kokkos "${EXASIM_DIR}/kokkos/buildserial")
+    set(_bm_kokkos "${EXASIM_DIR}/deps/kokkos/buildserial")
   endif()
   # Pull in the matching Kokkos as a usage requirement. For a STATIC library this
   # applies Kokkos's *compile* flags — include dirs, the GPU arch, and (crucially

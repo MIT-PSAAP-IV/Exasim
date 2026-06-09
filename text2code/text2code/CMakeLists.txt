@@ -18,8 +18,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${EXASIM_ROOT}/build")
 # Adjust these if your layout differs; they default to your examples.
 #set(METIS_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../METIS" CACHE PATH "Path to METIS root")
 #set(GKLIB_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../GKlib" CACHE PATH "Path to GKlib root")
-set(METIS_ROOT    "${EXASIM_ROOT}/metis/METIS" CACHE PATH "Path to METIS root")
-set(GKLIB_ROOT    "${EXASIM_ROOT}/metis/GKlib" CACHE PATH "Path to GKlib root")
+set(METIS_ROOT    "${EXASIM_ROOT}/deps/metis/METIS" CACHE PATH "Path to METIS root")
+set(GKLIB_ROOT    "${EXASIM_ROOT}/deps/metis/GKlib" CACHE PATH "Path to GKlib root")
 
 # Derived include/lib dirs (override if needed)
 set(METIS_INCLUDE_DIR "${METIS_ROOT}/build/xinclude" CACHE PATH "METIS public include dir")
@@ -67,8 +67,8 @@ endfunction()
 # text2code/symengine. The resolved include/lib flags are baked into the binary
 # (symengine_config.h) so CodeCompiler uses them instead of a hardcoded path.
 find_package(SymEngine CONFIG QUIET
-  HINTS "${EXASIM_ROOT}/text2code/symengine/lib/cmake/symengine"
-        "${EXASIM_ROOT}/text2code/symengine")
+  HINTS "${EXASIM_ROOT}/deps/symengine/lib/cmake/symengine"
+        "${EXASIM_ROOT}/deps/symengine")
 set(_se_header "${CMAKE_CURRENT_BINARY_DIR}/symengine_config.h")
 if(SymEngine_FOUND)
   set(_se_inc "")
@@ -76,7 +76,7 @@ if(SymEngine_FOUND)
     string(APPEND _se_inc "-I${_d} ")
   endforeach()
   # Only when the *vendored* SymEngine is the one resolved: it is built with
-  # INTEGER_CLASS=boostmp against a bundled boost (text2code/symengine/boost)
+  # INTEGER_CLASS=boostmp against a bundled boost (deps/symengine/boost)
   # that its installed SymEngineConfig does not expose, so generated Code2Cpp.cpp
   # cannot resolve <boost/multiprecision/...> without it. An external/system
   # SymEngine (apt libsymengine-dev, conda, brew) resolves boost from system
@@ -84,12 +84,12 @@ if(SymEngine_FOUND)
   # different version, so restrict this to the vendored case.
   set(_se_vendored FALSE)
   foreach(_d ${SYMENGINE_INCLUDE_DIRS})
-    if(_d MATCHES "^${EXASIM_ROOT}/text2code/symengine")
+    if(_d MATCHES "^${EXASIM_ROOT}/deps/symengine")
       set(_se_vendored TRUE)
     endif()
   endforeach()
-  if(_se_vendored AND EXISTS "${EXASIM_ROOT}/text2code/symengine/boost")
-    string(APPEND _se_inc "-I${EXASIM_ROOT}/text2code/symengine ")
+  if(_se_vendored AND EXISTS "${EXASIM_ROOT}/deps/symengine/boost")
+    string(APPEND _se_inc "-I${EXASIM_ROOT}/deps/symengine ")
   endif()
   if(TARGET symengine)
     set(_se_lib "$<TARGET_FILE:symengine>")

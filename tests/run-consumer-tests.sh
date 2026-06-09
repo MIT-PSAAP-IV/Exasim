@@ -10,7 +10,7 @@
 # Env (all optional):
 #   EXASIM_BUILD     Exasim build dir to install from   (default: $REPO/build_conda)
 #   INSTALL_PREFIX   where to install Exasim            (default: /tmp/exasim_install)
-#   KOKKOS_DIR       Kokkos install/build dir           (default: $REPO/kokkos/buildserial)
+#   KOKKOS_DIR       Kokkos install/build dir           (default: $REPO/deps/kokkos/buildserial)
 #   EXASIM_ROOT      tree holding runtime master data   (default: $REPO) -> fills @EXASIM_ROOT@
 #   NP               MPI ranks for run tests            (default: 2)
 #   QOI_TOL          max allowed QoI[1] (L2 error^2)    (default: 1e-8)
@@ -19,7 +19,7 @@ set -uo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 EXASIM_BUILD="${EXASIM_BUILD:-$REPO/build_conda}"
 INSTALL_PREFIX="${INSTALL_PREFIX:-/tmp/exasim_install}"
-KOKKOS_DIR="${KOKKOS_DIR:-$REPO/kokkos/buildserial}"
+KOKKOS_DIR="${KOKKOS_DIR:-$REPO/deps/kokkos/buildserial}"
 EXASIM_ROOT="${EXASIM_ROOT:-$REPO}"
 NP="${NP:-2}"
 QOI_TOL="${QOI_TOL:-1e-8}"
