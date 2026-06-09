@@ -1,3 +1,4 @@
+#include "exasim_paths.h"  // exasim_data_dir()
 /*
  * makemaster.cpp
  * 
@@ -1020,10 +1021,10 @@ inline Master initializeMaster(PDE& pde, Mesh& mesh, int rank=0)
 {    
     Master master;
     
-    std::string fn1 = make_path(pde.exasimpath, "/backend/Preprocessing/masternodes.bin");
-    std::string fn2 = make_path(pde.exasimpath, "/backend/Preprocessing/gaussnodes.bin");
-    
-    masternodes(master.xpe, master.telem, master.xpf, master.tface, master.perm, pde.porder, mesh.dim, mesh.elemtype, fn1);     
+    std::string fn1 = make_path(exasim_data_dir(), "masternodes.bin");
+    std::string fn2 = make_path(exasim_data_dir(), "gaussnodes.bin");
+
+    masternodes(master.xpe, master.telem, master.xpf, master.tface, master.perm, pde.porder, mesh.dim, mesh.elemtype, fn1);
     gaussnodes(master.gpe, master.gwe, pde.pgauss, mesh.dim, mesh.elemtype, fn2); 
         
     if (mesh.dim>1) gaussnodes(master.gpf, master.gwf, pde.pgauss, mesh.dim-1, mesh.elemtype, fn2);         

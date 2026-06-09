@@ -20,6 +20,24 @@ set(EXASIM_INCLUDE_DIR ${EXASIM_DIR}/include)
 set(EXASIM_LIB_DIR ${EXASIM_DIR}/lib)
 file(MAKE_DIRECTORY ${EXASIM_LIB_DIR})
 include_directories(${EXASIM_INCLUDE_DIR})
+
+# ---- Runtime data location (replaces exasimpath for master/gauss node files) ----
+# Install the precomputed node data and bake its install location into the build
+# so the runtime finds it without a user-supplied exasimpath. $EXASIM_DATA_DIR
+# overrides at runtime for a relocated install (see backend/Common/exasim_paths.h).
+set(EXASIM_DATA_DEST "${CMAKE_INSTALL_DATAROOTDIR}/exasim")
+set(EXASIM_INSTALL_DATADIR "${CMAKE_INSTALL_PREFIX}/${EXASIM_DATA_DEST}")
+set(EXASIM_GENINC_DIR "${CMAKE_BINARY_DIR}/exasim_gen")
+configure_file("${EXASIM_DIR}/backend/Common/exasim_paths.h.in"
+               "${EXASIM_GENINC_DIR}/exasim_paths.h" @ONLY)
+include_directories("${EXASIM_GENINC_DIR}")
+install(FILES "${EXASIM_DIR}/backend/Preprocessing/masternodes.bin"
+              "${EXASIM_DIR}/backend/Preprocessing/gaussnodes.bin"
+        DESTINATION "${EXASIM_DATA_DEST}")
+# Install the generated header so out-of-tree templated consumers that compile
+# the FEM internals (which call exasim_data_dir()) resolve it from include/.
+install(FILES "${EXASIM_GENINC_DIR}/exasim_paths.h"
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
 set(EXASIM_CMAKE_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/Exasim")
 set(EXASIM_PACKAGE_VERSION "0.0.0")
 

@@ -1,4 +1,3 @@
-exasimpath = "@EXASIM_ROOT@";
 model = "ModelD";
 modelfile = "pdemodel.txt";
 meshfile = "grid.bin"; 
