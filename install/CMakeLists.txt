@@ -53,7 +53,6 @@ target_include_directories(ExasimHeaders INTERFACE
 set(EXASIM_MAIN_DIR ${EXASIM_DIR}/backend/Main)
 file(GLOB MAIN_SOURCES ${EXASIM_MAIN_DIR}/main.cpp)
 set(T2C_MAIN_SOURCES ${EXASIM_MAIN_DIR}/maint2c.cpp)
-set(BUILTIN_MAIN_SOURCES ${EXASIM_MAIN_DIR}/maintbuiltin.cpp)
 set(KOKKOSKERNEL_MAIN_SOURCES ${EXASIM_MAIN_DIR}/mainkernel.cpp)
 set(EXASIM_SOLVER_SOURCES ${EXASIM_MAIN_DIR}/ExasimSolver.cpp)
 
@@ -110,7 +109,6 @@ endfunction()
 set(Model_LIB_DIR   ${EXASIM_LIB_DIR})
 
 # BuiltinModel shared libraries live here
-set(BuiltinModel_LIB_DIR   ${EXASIM_LIB_DIR})
 
 # ---- Option: build EXASIM variants that link text2code-generated libs ----
 option(EXASIM_LIB "Build and install static libraries only; skip all EXASIM executables" OFF)
@@ -123,22 +121,15 @@ set(T2C_CPU_LIB  t2cmodelserial)
 set(T2C_CUDA_LIB t2cmodelcuda)
 set(T2C_HIP_LIB  t2cmodelhip)
 
-# ---- Option: build EXASIM variants that link builtinmodel libs ----
-option(WITH_BUILTINMODEL "Build extra EXASIM executables that link builtin PDE model dynamic libraries" OFF)
-
-# logical names for builtin shared libs (lib<name>.so/.dylib/.dll)
+# logical names for builtin static libs (lib<name>.a)
 set(BM_CPU_LIB  builtinmodelserial)
 set(BM_CUDA_LIB builtinmodelcuda)
 set(BM_HIP_LIB  builtinmodelhip)
 
-# Build the built-in model library as part of this build (defines the target
-# `builtinmodelserial`, regenerating models from text2code). Replaces the
-# standalone backend/Model/BuiltIn/Makefile. The *builtinEXASIM executables and
-# the package export below pick the target up by name.
-if(WITH_BUILTINMODEL)
-  add_subdirectory(${EXASIM_DIR}/backend/Model/BuiltIn
-                   ${CMAKE_BINARY_DIR}/builtinmodel)
-endif()
+# The built-in model library is always required: cpuEXASIM/gpuEXASIM link it
+# directly. Defines the CMake target builtinmodel{serial,cuda,hip}.
+add_subdirectory(${EXASIM_DIR}/backend/Model/BuiltIn
+                 ${CMAKE_BINARY_DIR}/builtinmodel)
 
 # ---- Option: build EXASIM variants that include Kokkos kernel providers ----
 set(KOKKOSKERNEL_HEADER "" CACHE STRING "Header defining PdeModel for the Kokkos kernel provider")
@@ -265,7 +256,7 @@ if(EXASIM_CUDA)
     target_link_directories(gpuEXASIM_static PUBLIC ${Model_LIB_DIR})
     target_compile_definitions(gpuEXASIM_static PUBLIC _CUDA)
     target_compile_options(gpuEXASIM_static PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG -fno-unroll-loops)
-    target_link_libraries(gpuEXASIM_static PUBLIC Kokkos::kokkos ${lapackblas_libraries} ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES})
+    target_link_libraries(gpuEXASIM_static PUBLIC Kokkos::kokkos ${lapackblas_libraries} ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES} ${BM_CUDA_LIB})
     link_metis(gpuEXASIM_static)     # METIS
     if(NOT EXASIM_LIB)
       add_exasim_executable_from_static(gpuEXASIM gpuEXASIM_static)
@@ -281,18 +272,6 @@ if(EXASIM_CUDA)
         ${T2C_CUDA_LIB})
       link_metis(gput2cEXASIM)   # METIS
       set_target_properties(gput2cEXASIM PROPERTIES BUILD_RPATH "${Model_LIB_DIR}")
-    endif()
-
-    if(WITH_BUILTINMODEL)
-      add_executable(gpubuiltinEXASIM ${BUILTIN_MAIN_SOURCES} ${EXASIM_SOLVER_SOURCES})
-      target_link_directories(gpubuiltinEXASIM PRIVATE ${BuiltinModel_LIB_DIR})
-      target_compile_definitions(gpubuiltinEXASIM PRIVATE _CUDA HAVE_BUILTINMODEL _BUILTINMODEL)
-      target_compile_options(gpubuiltinEXASIM PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG -fno-unroll-loops)
-      target_link_libraries(gpubuiltinEXASIM PRIVATE
-        Kokkos::kokkos ${lapackblas_libraries} ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES}
-        ${BM_CUDA_LIB})
-      link_metis(gpubuiltinEXASIM)
-      set_target_properties(gpubuiltinEXASIM PROPERTIES BUILD_RPATH "${BuiltinModel_LIB_DIR}")
     endif()
 
     if(EXASIM_BUILD_PREPROCESSING_LIBS)
@@ -321,7 +300,7 @@ if(EXASIM_CUDA)
       target_compile_definitions(gpumpiEXASIM_static PUBLIC _MPI _CUDA)
       target_compile_options(gpumpiEXASIM_static PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG -fno-unroll-loops)
       target_link_libraries(gpumpiEXASIM_static PUBLIC
-        Kokkos::kokkos ${lapackblas_libraries} ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES} ${MPI_LIBRARIES})
+        Kokkos::kokkos ${lapackblas_libraries} ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES} ${MPI_LIBRARIES} ${BM_CUDA_LIB})
       link_metis(gpumpiEXASIM_static)   # METIS
       if(NOT EXASIM_LIB)
         add_exasim_executable_from_static(gpumpiEXASIM gpumpiEXASIM_static)
@@ -337,18 +316,6 @@ if(EXASIM_CUDA)
           ${T2C_CUDA_LIB})
         link_metis(gpumpit2cEXASIM) # METIS
         set_target_properties(gpumpit2cEXASIM PROPERTIES BUILD_RPATH "${Model_LIB_DIR}")
-      endif()
-
-      if(WITH_BUILTINMODEL)
-        add_executable(gpumpibuiltinEXASIM ${BUILTIN_MAIN_SOURCES} ${EXASIM_SOLVER_SOURCES})
-        target_link_directories(gpumpibuiltinEXASIM PRIVATE ${BuiltinModel_LIB_DIR})
-        target_compile_definitions(gpumpibuiltinEXASIM PRIVATE _MPI _CUDA HAVE_BUILTINMODEL _BUILTINMODEL)
-        target_compile_options(gpumpibuiltinEXASIM PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG -fno-unroll-loops)
-        target_link_libraries(gpumpibuiltinEXASIM PRIVATE
-          Kokkos::kokkos ${lapackblas_libraries} ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES} ${MPI_LIBRARIES}
-          ${BM_CUDA_LIB})
-        link_metis(gpumpibuiltinEXASIM)
-        set_target_properties(gpumpibuiltinEXASIM PROPERTIES BUILD_RPATH "${BuiltinModel_LIB_DIR}")
       endif()
 
       if(EXASIM_BUILD_PREPROCESSING_LIBS)
@@ -396,7 +363,7 @@ elseif(EXASIM_HIP)
     target_link_directories(gpuEXASIM_static PUBLIC ${Model_LIB_DIR})
     target_compile_definitions(gpuEXASIM_static PUBLIC _HIP)
     target_compile_options(gpuEXASIM_static PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG -fno-unroll-loops)
-    target_link_libraries(gpuEXASIM_static PUBLIC Kokkos::kokkos hipblas rocblas ${HIP_LIBRARIES} ${lapackblas_libraries})
+    target_link_libraries(gpuEXASIM_static PUBLIC Kokkos::kokkos hipblas rocblas ${HIP_LIBRARIES} ${lapackblas_libraries} ${BM_HIP_LIB})
     link_metis(gpuEXASIM_static)     # METIS
     if(NOT EXASIM_LIB)
       add_exasim_executable_from_static(gpuEXASIM gpuEXASIM_static)
@@ -410,18 +377,6 @@ elseif(EXASIM_HIP)
       target_link_libraries(gput2cEXASIM PRIVATE Kokkos::kokkos hipblas rocblas ${HIP_LIBRARIES} ${lapackblas_libraries} ${T2C_HIP_LIB})
       link_metis(gput2cEXASIM)   # METIS
       set_target_properties(gput2cEXASIM PROPERTIES BUILD_RPATH "${Model_LIB_DIR}")
-    endif()
-
-    if(WITH_BUILTINMODEL)
-      add_executable(gpubuiltinEXASIM ${BUILTIN_MAIN_SOURCES} ${EXASIM_SOLVER_SOURCES})
-      target_link_directories(gpubuiltinEXASIM PRIVATE ${BuiltinModel_LIB_DIR})
-      target_compile_definitions(gpubuiltinEXASIM PRIVATE _HIP HAVE_BUILTINMODEL _BUILTINMODEL)
-      target_compile_options(gpubuiltinEXASIM PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG -fno-unroll-loops)
-      target_link_libraries(gpubuiltinEXASIM PRIVATE
-        Kokkos::kokkos hipblas rocblas ${HIP_LIBRARIES} ${lapackblas_libraries}
-        ${BM_HIP_LIB})
-      link_metis(gpubuiltinEXASIM)
-      set_target_properties(gpubuiltinEXASIM PROPERTIES BUILD_RPATH "${BuiltinModel_LIB_DIR}")
     endif()
 
     if(EXASIM_BUILD_PREPROCESSING_LIBS)
@@ -449,7 +404,7 @@ elseif(EXASIM_HIP)
       target_link_directories(gpumpiEXASIM_static PUBLIC ${Model_LIB_DIR})
       target_compile_definitions(gpumpiEXASIM_static PUBLIC _MPI _HIP)
       target_compile_options(gpumpiEXASIM_static PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG -fno-unroll-loops)
-      target_link_libraries(gpumpiEXASIM_static PUBLIC Kokkos::kokkos hipblas rocblas ${HIP_LIBRARIES} ${lapackblas_libraries} ${MPI_LIBRARIES})
+      target_link_libraries(gpumpiEXASIM_static PUBLIC Kokkos::kokkos hipblas rocblas ${HIP_LIBRARIES} ${lapackblas_libraries} ${MPI_LIBRARIES} ${BM_HIP_LIB})
       link_metis(gpumpiEXASIM_static)   # METIS
       if(NOT EXASIM_LIB)
         add_exasim_executable_from_static(gpumpiEXASIM gpumpiEXASIM_static)
@@ -465,18 +420,6 @@ elseif(EXASIM_HIP)
           ${T2C_HIP_LIB})
         link_metis(gpumpit2cEXASIM) # METIS
         set_target_properties(gpumpit2cEXASIM PROPERTIES BUILD_RPATH "${Model_LIB_DIR}")
-      endif()
-
-      if(WITH_BUILTINMODEL)
-        add_executable(gpumpibuiltinEXASIM ${BUILTIN_MAIN_SOURCES} ${EXASIM_SOLVER_SOURCES})
-        target_link_directories(gpumpibuiltinEXASIM PRIVATE ${BuiltinModel_LIB_DIR})
-        target_compile_definitions(gpumpibuiltinEXASIM PRIVATE _MPI _HIP HAVE_BUILTINMODEL _BUILTINMODEL)
-        target_compile_options(gpumpibuiltinEXASIM PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG -fno-unroll-loops)
-        target_link_libraries(gpumpibuiltinEXASIM PRIVATE
-          Kokkos::kokkos hipblas rocblas ${HIP_LIBRARIES} ${lapackblas_libraries} ${MPI_LIBRARIES}
-          ${BM_HIP_LIB})
-        link_metis(gpumpibuiltinEXASIM)
-        set_target_properties(gpumpibuiltinEXASIM PROPERTIES BUILD_RPATH "${BuiltinModel_LIB_DIR}")
       endif()
 
       if(EXASIM_BUILD_PREPROCESSING_LIBS)
@@ -514,7 +457,7 @@ else()
   if(EXASIM_NOMPI)
     add_exasim_static_library(cpuEXASIM_static cpuEXASIM)
     target_link_directories(cpuEXASIM_static PUBLIC ${Model_LIB_DIR})
-    target_link_libraries(cpuEXASIM_static PUBLIC Kokkos::kokkos ${lapackblas_libraries})
+    target_link_libraries(cpuEXASIM_static PUBLIC Kokkos::kokkos ${lapackblas_libraries} ${BM_CPU_LIB})
     target_compile_options(cpuEXASIM_static PRIVATE -std=c++17 -w -O2)
     link_metis(cpuEXASIM_static)    # METIS
     if(NOT EXASIM_LIB)
@@ -527,12 +470,6 @@ else()
       add_exasim_model_executable(cput2cEXASIM
         MAIN_SOURCES ${T2C_MAIN_SOURCES} LIB_DIR ${Model_LIB_DIR} MODEL_LIB ${T2C_CPU_LIB}
         DEFINES _TEXT2CODE OPTIONS -std=c++17 -w -O2)
-    endif()
-
-    if(WITH_BUILTINMODEL)
-      add_exasim_model_executable(cpubuiltinEXASIM
-        MAIN_SOURCES ${BUILTIN_MAIN_SOURCES} LIB_DIR ${BuiltinModel_LIB_DIR} MODEL_LIB ${BM_CPU_LIB}
-        DEFINES HAVE_BUILTINMODEL _BUILTINMODEL OPTIONS -std=c++17 -w -O2)
     endif()
 
     if(EXASIM_BUILD_PREPROCESSING_LIBS)
@@ -561,7 +498,7 @@ else()
       target_compile_options(cpumpiEXASIM_static PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG)
       #target_compile_options(cpumpiEXASIM PRIVATE -std=c++17 -w -ffast-math -fsanitize=address,undefined -fno-omit-frame-pointer -g)
       #target_link_options(cpumpiEXASIM PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)  
-      target_link_libraries(cpumpiEXASIM_static PUBLIC Kokkos::kokkos ${lapackblas_libraries} ${MPI_LIBRARIES})
+      target_link_libraries(cpumpiEXASIM_static PUBLIC Kokkos::kokkos ${lapackblas_libraries} ${MPI_LIBRARIES} ${BM_CPU_LIB})
       link_metis(cpumpiEXASIM_static)   # METIS
       if(NOT EXASIM_LIB)
         add_exasim_executable_from_static(cpumpiEXASIM cpumpiEXASIM_static)
@@ -571,13 +508,6 @@ else()
         add_exasim_model_executable(cpumpit2cEXASIM
           MAIN_SOURCES ${T2C_MAIN_SOURCES} LIB_DIR ${Model_LIB_DIR} MODEL_LIB ${T2C_CPU_LIB}
           DEFINES _MPI _TEXT2CODE OPTIONS -std=c++17 -w -ffast-math -O3 -DNDEBUG
-          EXTRA_LIBS ${MPI_LIBRARIES})
-      endif()
-
-      if(WITH_BUILTINMODEL)
-        add_exasim_model_executable(cpumpibuiltinEXASIM
-          MAIN_SOURCES ${BUILTIN_MAIN_SOURCES} LIB_DIR ${BuiltinModel_LIB_DIR} MODEL_LIB ${BM_CPU_LIB}
-          DEFINES _MPI HAVE_BUILTINMODEL _BUILTINMODEL OPTIONS -std=c++17 -w -ffast-math -O3 -DNDEBUG
           EXTRA_LIBS ${MPI_LIBRARIES})
       endif()
 
@@ -743,7 +673,6 @@ message(STATUS "EXASIM_NOMPI              = ${EXASIM_NOMPI}")
 message(STATUS "EXASIM_TUOLUMNE           = ${EXASIM_TUOLUMNE}")
 
 message(STATUS "WITH_TEXT2CODE            = ${WITH_TEXT2CODE}")
-message(STATUS "WITH_BUILTINMODEL         = ${WITH_BUILTINMODEL}")
 message(STATUS "WITH_KOKKOSKERNEL         = ${WITH_KOKKOSKERNEL}")
 message(STATUS "EXASIM_BUILD_PREPROCESSING_LIBS = ${EXASIM_BUILD_PREPROCESSING_LIBS}")
 message(STATUS "KOKKOSKERNEL_HEADER       = ${KOKKOSKERNEL_HEADER}")
@@ -755,7 +684,6 @@ endif()
 message(STATUS "WITH_PARMETIS             = ${WITH_PARMETIS}")
 
 message(STATUS "Model_LIB_DIR             = ${Model_LIB_DIR}")
-message(STATUS "BuiltinModel_LIB_DIR      = ${BuiltinModel_LIB_DIR}")
 
 message(STATUS "PARMETIS_ROOT             = ${PARMETIS_ROOT}")
 message(STATUS "METIS_ROOT                = ${METIS_ROOT}")
