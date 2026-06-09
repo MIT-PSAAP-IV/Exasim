@@ -331,6 +331,7 @@ metis/GKlib/bin/csrcnv
 /apps/poisson/poisson2d/build
 /apps/builtinlibrary/build
 
+/build_local/
 # ---- Build outputs (keep the checkout clean; see the in-source-build guard) ----
 # Top-level / out-of-source build dirs and stray host-triplet dirs.
 /lib/

@@ -126,6 +126,40 @@ set(BM_CPU_LIB  builtinmodelserial)
 set(BM_CUDA_LIB builtinmodelcuda)
 set(BM_HIP_LIB  builtinmodelhip)
 
+# ---- Kokkos: resolve before the BuiltIn subdirectory ----
+# exasim_finalize_builtin_models() (called from the BuiltIn subdirectory) has an
+# `if(NOT TARGET Kokkos::kokkos)` guard; it skips find_package when the target
+# already exists. If the guard is NOT skipped, the function calls find_package itself
+# — but for CUDA builds KokkosConfig.cmake calls FIND_DEPENDENCY(CUDAToolkit REQUIRED)
+# which requires CUDAToolkit to be locatable, and that can fail before the parent's
+# if(EXASIM_CUDA) block has had a chance to set things up. Detect Kokkos here first
+# so the guard fires and the BuiltIn subdirectory never calls find_package on its own.
+if(EXASIM_CUDA)
+  if(NOT Kokkos_DIR)
+    set(Kokkos_DIR ${EXASIM_DIR}/deps/kokkos/buildcuda)
+  endif()
+  find_package(Kokkos REQUIRED)
+elseif(EXASIM_HIP)
+  if(NOT Kokkos_DIR)
+    if(EXASIM_TUOLUMNE)
+      set(Kokkos_DIR ${EXASIM_DIR}/deps/kokkos/buildtuolumne)
+    else()
+      set(Kokkos_DIR ${EXASIM_DIR}/deps/kokkos/buildhip)
+    endif()
+  endif()
+  find_package(Kokkos REQUIRED)
+else()
+  if(NOT Kokkos_DIR)
+    find_package(Kokkos QUIET)
+  endif()
+  if(NOT Kokkos_FOUND)
+    if(NOT Kokkos_DIR)
+      set(Kokkos_DIR ${EXASIM_DIR}/deps/kokkos/buildserial)
+    endif()
+    find_package(Kokkos REQUIRED)
+  endif()
+endif()
+
 # The built-in model library is always required: cpuEXASIM/gpuEXASIM link it
 # directly. Defines the CMake target builtinmodel{serial,cuda,hip}.
 add_subdirectory(${EXASIM_DIR}/backend/Model/BuiltIn
