@@ -98,6 +98,12 @@ include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
 set(MODEL_FILE "${CMAKE_CURRENT_SOURCE_DIR}/pdeapp.txt" CACHE FILEPATH "Input for text2code")
 
+# Auto-run the freshly built tool on a sample model after linking. OFF by
+# default: this is a dev smoke-test that needs a valid exasimpath/cwd, which is
+# not portable across machines and has no place in the tool build. Enable
+# explicitly with -DTEST_RUN_AFTER_BUILD=ON.
+option(TEST_RUN_AFTER_BUILD "Run the codegen tool on MODEL_FILE after build" OFF)
+
 # ============================================================
 # Target: text2code (with METIS)  (equivalent to your METIS line)
 # Only if WITH_METIS=ON and the expected dirs exist
@@ -129,8 +135,8 @@ if (WITH_METIS)
     )
     link_blas_lapack(text2code)
 
-    # Auto-run after the executable links
-    if (EXISTS "${MODEL_FILE}")
+    # Auto-run after the executable links (opt-in dev smoke-test only)
+    if (TEST_RUN_AFTER_BUILD AND EXISTS "${MODEL_FILE}")
       add_custom_command(
         TARGET text2code POST_BUILD
         COMMAND $<TARGET_FILE:text2code> "${MODEL_FILE}"
@@ -175,8 +181,8 @@ else()
   add_o2(t2cnometis)
   link_blas_lapack(t2cnometis)
 
-  # Auto-run after the executable links
-  if (EXISTS "${MODEL_FILE}")
+  # Auto-run after the executable links (opt-in dev smoke-test only)
+  if (TEST_RUN_AFTER_BUILD AND EXISTS "${MODEL_FILE}")
     add_custom_command(
       TARGET t2cnometis POST_BUILD
       COMMAND $<TARGET_FILE:t2cnometis> "${MODEL_FILE}"

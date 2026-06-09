@@ -39,5 +39,5 @@ metis:
 	  $(CLEAN_ENV) make config prefix="$$PWD" gklib_path="$$PWD/../GKlib" metis_path="$$PWD/../METIS" && \
 	  $(CLEAN_ENV) make -j"$(NPROCS)" install
 
-	# preprocess
-	cd preprocessing && cmake -S . -B build && cmake --build build -j"$(NPROCS)"
+	# preprocess (TEST_RUN_AFTER_BUILD=OFF: build the tool, don't run a sample model)
+	cd preprocessing && cmake -S . -B build -DTEST_RUN_AFTER_BUILD=OFF && cmake --build build -j"$(NPROCS)"

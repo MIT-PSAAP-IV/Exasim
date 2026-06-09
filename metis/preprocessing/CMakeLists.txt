@@ -24,8 +24,11 @@ set(EXASIM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../"
 # Put executables directly under Exasim/build at build time
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${EXASIM_ROOT}/build")
 
-# Optionally auto-run the preprocess executable after build
-option(TEST_RUN_AFTER_BUILD "Run 'preprocess' automatically after build" ON)
+# Optionally auto-run the preprocess executable after build. OFF by default:
+# this is a dev smoke-test that runs a sample model and depends on a valid
+# exasimpath/cwd, which is not portable across machines (and has no place in
+# the library build). Enable explicitly with -DTEST_RUN_AFTER_BUILD=ON.
+option(TEST_RUN_AFTER_BUILD "Run 'preprocess' automatically after build" OFF)
 
 # ParMETIS / METIS / GKlib roots (override if your layout differs)
 set(PARMETIS_ROOT "${EXASIM_ROOT}/metis/ParMETIS"
