@@ -282,10 +282,18 @@ inline CDiscretization<M>::CDiscretization(std::string filein, std::string fileo
         tempstruct htmp;    
         commonstruct hcommon;     
 
-        hcommon.backend = backend;        
+        hcommon.backend = backend;
+        // The GPU path stages the read into host structs (happ/hcommon) and then
+        // copies to device. cpuInit() computes the initial solution on the host
+        // (cpuInituDriver), which for the built-in model provider dispatches on
+        // builtinmodelID — so the staging structs need it too, otherwise it is 0
+        // and the dispatch aborts ("Unknown builtinmodelID=0"). Mirror the member
+        // assignment above (the CPU path uses the member app/common directly).
+        hcommon.builtinmodelID = builtinmodelID;
+        happ.builtinmodelID = builtinmodelID;
         // allocate data for structs in CPU memory
-        cpuInit(hsol, hres, happ, hmaster, hmesh, htmp, hcommon, filein, fileout, 
-                mpiprocs, mpirank, fileoffset, omprank);                    
+        cpuInit(hsol, hres, happ, hmaster, hmesh, htmp, hcommon, filein, fileout,
+                mpiprocs, mpirank, fileoffset, omprank);
                 
         // copy data from cpu memory to gpu memory
         gpuInit(sol, res, app, master, mesh, tmp, common, 
