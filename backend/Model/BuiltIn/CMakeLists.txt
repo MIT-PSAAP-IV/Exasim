@@ -71,6 +71,11 @@ function(exasim_add_builtin_model ID)
     file(READ "${BM_SOURCE}" _pde)
     string(REGEX REPLACE "exasimpath[ \t]*=[ \t]*\"[^\"]*\""
            "exasimpath = \"${EXASIM_DIR}\"" _pde "${_pde}")
+    # Some checked-in pdeapp sources (e.g. models 12-15) omit exasimpath entirely;
+    # the replace above is then a no-op. Inject it so text2code can locate this tree.
+    if(NOT _pde MATCHES "exasimpath[ \t]*=")
+      set(_pde "exasimpath = \"${EXASIM_DIR}\";\n${_pde}")
+    endif()
     set(_pdeapp "${_gendir}/pdeapp.txt")
     file(WRITE "${_pdeapp}" "${_pde}")
     # text2code resolves modelfile relative to the pdeapp's directory, so place
