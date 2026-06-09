@@ -849,3 +849,12 @@ if(DEFINED Kokkos_ENABLE_HIP)
 endif()
 
 message(STATUS "===============================================================")
+
+# ---- Test suite (opt-in) ---------------------------------------------------
+# Out-of-tree consumer tests (tests/consumers/) build each consumption path ONLY
+# via find_package(Exasim) against an install prefix, catching export regressions.
+option(EXASIM_BUILD_TESTS "Build/register the Exasim test suite (ctest)" OFF)
+if(EXASIM_BUILD_TESTS)
+  enable_testing()
+  add_subdirectory(${EXASIM_DIR}/tests ${CMAKE_BINARY_DIR}/tests)
+endif()
