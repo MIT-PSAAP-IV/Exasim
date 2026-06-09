@@ -5,7 +5,7 @@ make text2code
 ##### If the above installation fails, then install them inviddually #####
 
 # Install SYMENGINE
-cd ../symengine
+cd ../deps/symengine
 cmake -S . -B build \
   -DCMAKE_INSTALL_PREFIX=$(pwd) \
   -DCMAKE_BUILD_TYPE=Release \
