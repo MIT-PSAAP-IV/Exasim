@@ -5,11 +5,12 @@ name: smoke (CPU)
 # out-of-tree find_package(Exasim) consumer, run the built-in Poisson 2D, and
 # gate its QoI. This is the gate for merging into the integration branch.
 #
-# Heavy deps are externalized (apt): SymEngine, METIS/ParMETIS, BLAS/LAPACK and
-# MPI all come from the system, so the only thing built from source is the
-# vendored serial Kokkos (cached by its Makefile hash). That keeps the run well
-# under the standard-runner memory limits that previously OOM'd on the
-# Kokkos+SymEngine source build.
+# Heavy deps are taken off the hot path: METIS/ParMETIS, BLAS/LAPACK and MPI
+# from the system (apt); the vendored serial Kokkos and SymEngine are built from
+# source once and cached by their source hashes, so reruns skip them. Bounded
+# parallelism (JOBS=2) keeps the cold build under the standard-runner memory
+# limits that previously OOM'd. (SymEngine is cached rather than apt-installed
+# because libsymengine-dev is not packaged on the GitHub-hosted runners.)
 
 on:
   push:
@@ -43,17 +44,25 @@ jobs:
             build-essential cmake git \
             libblas-dev liblapack-dev \
             libmetis-dev libparmetis-dev \
-            libsymengine-dev \
             libopenmpi-dev openmpi-bin
 
-      # Only the vendored serial Kokkos is built from source; cache it by the
-      # build recipe so reruns skip the compile. The superbuild detects the
-      # already-installed kokkos/buildserial and reuses it.
+      # Build the two from-source deps once and cache them; the superbuild
+      # detects the installed kokkos/buildserial and text2code/symengine and
+      # reuses them on a cache hit.
       - name: Cache vendored Kokkos (serial)
         uses: actions/cache@v4
         with:
           path: kokkos/buildserial
           key: kokkos-serial-${{ runner.os }}-${{ hashFiles('kokkos/Makefile.builds', 'kokkos/CMakeLists.txt') }}
 
+      - name: Cache vendored SymEngine
+        uses: actions/cache@v4
+        with:
+          path: |
+            text2code/symengine/lib
+            text2code/symengine/include
+            text2code/symengine/build
+          key: symengine-${{ runner.os }}-${{ hashFiles('text2code/symengine/CMakeLists.txt') }}
+
       - name: Build + test (one command)
-        run: bash tests/run-tests.sh
+        run: JOBS=2 bash tests/run-tests.sh
