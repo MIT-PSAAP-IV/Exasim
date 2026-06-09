@@ -56,6 +56,24 @@ function(add_exasim_executable_from_static target library_target)
   target_link_libraries(${target} PRIVATE ${library_target})
 endfunction()
 
+# Create a model-linked solver executable (text2code or built-in model variant),
+# consolidating the per-backend t2c/builtin blocks. Backend-specific flags
+# (OPTIONS, EXTRA_LIBS) are passed by the caller so behavior is preserved exactly.
+#   add_exasim_model_executable(<name>
+#     MAIN_SOURCES <...> LIB_DIR <dir> MODEL_LIB <lib>
+#     DEFINES <...> OPTIONS <...> [EXTRA_LIBS <...>])
+function(add_exasim_model_executable name)
+  cmake_parse_arguments(E "" "LIB_DIR;MODEL_LIB" "MAIN_SOURCES;DEFINES;OPTIONS;EXTRA_LIBS" ${ARGN})
+  add_executable(${name} ${E_MAIN_SOURCES} ${EXASIM_SOLVER_SOURCES})
+  target_link_directories(${name} PRIVATE ${E_LIB_DIR})
+  target_compile_definitions(${name} PRIVATE ${E_DEFINES})
+  target_compile_options(${name} PRIVATE ${E_OPTIONS})
+  target_link_libraries(${name} PRIVATE
+    Kokkos::kokkos ${lapackblas_libraries} ${E_EXTRA_LIBS} ${E_MODEL_LIB})
+  link_metis(${name})
+  set_target_properties(${name} PROPERTIES BUILD_RPATH "${E_LIB_DIR}")
+endfunction()
+
 function(add_exasim_preprocessing_executable_from_static target library_target)
   add_executable(${target} ${KOKKOSKERNEL_MAIN_SOURCES})
   target_include_directories(${target} PRIVATE ${EXASIM_INCLUDE_DIR})
@@ -488,23 +506,15 @@ else()
     #target_link_options(cpuEXASIM PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
 
     if(WITH_TEXT2CODE)
-      add_executable(cput2cEXASIM ${T2C_MAIN_SOURCES} ${EXASIM_SOLVER_SOURCES})
-      target_link_directories(cput2cEXASIM PRIVATE ${Model_LIB_DIR})
-      target_compile_definitions(cput2cEXASIM PRIVATE _TEXT2CODE)
-      target_link_libraries(cput2cEXASIM PRIVATE Kokkos::kokkos ${lapackblas_libraries} ${T2C_CPU_LIB})
-      target_compile_options(cput2cEXASIM PRIVATE -std=c++17 -w -O2)   
-      link_metis(cput2cEXASIM)   # METIS
-      set_target_properties(cput2cEXASIM PROPERTIES BUILD_RPATH "${Model_LIB_DIR}")
+      add_exasim_model_executable(cput2cEXASIM
+        MAIN_SOURCES ${T2C_MAIN_SOURCES} LIB_DIR ${Model_LIB_DIR} MODEL_LIB ${T2C_CPU_LIB}
+        DEFINES _TEXT2CODE OPTIONS -std=c++17 -w -O2)
     endif()
 
     if(WITH_BUILTINMODEL)
-      add_executable(cpubuiltinEXASIM ${BUILTIN_MAIN_SOURCES} ${EXASIM_SOLVER_SOURCES})
-      target_link_directories(cpubuiltinEXASIM PRIVATE ${BuiltinModel_LIB_DIR})
-      target_compile_definitions(cpubuiltinEXASIM PRIVATE HAVE_BUILTINMODEL _BUILTINMODEL)
-      target_link_libraries(cpubuiltinEXASIM PRIVATE Kokkos::kokkos ${lapackblas_libraries} ${BM_CPU_LIB})
-      target_compile_options(cpubuiltinEXASIM PRIVATE -std=c++17 -w -O2)
-      link_metis(cpubuiltinEXASIM)
-      set_target_properties(cpubuiltinEXASIM PROPERTIES BUILD_RPATH "${BuiltinModel_LIB_DIR}")
+      add_exasim_model_executable(cpubuiltinEXASIM
+        MAIN_SOURCES ${BUILTIN_MAIN_SOURCES} LIB_DIR ${BuiltinModel_LIB_DIR} MODEL_LIB ${BM_CPU_LIB}
+        DEFINES HAVE_BUILTINMODEL _BUILTINMODEL OPTIONS -std=c++17 -w -O2)
     endif()
 
     if(EXASIM_BUILD_PREPROCESSING_LIBS)
@@ -540,25 +550,17 @@ else()
       endif()
 
       if(WITH_TEXT2CODE)
-        add_executable(cpumpit2cEXASIM ${T2C_MAIN_SOURCES} ${EXASIM_SOLVER_SOURCES})
-        target_link_directories(cpumpit2cEXASIM PRIVATE ${Model_LIB_DIR})
-        target_compile_definitions(cpumpit2cEXASIM PRIVATE _MPI _TEXT2CODE)
-        target_compile_options(cpumpit2cEXASIM PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG)
-        target_link_libraries(cpumpit2cEXASIM PRIVATE Kokkos::kokkos ${lapackblas_libraries} ${MPI_LIBRARIES} ${T2C_CPU_LIB})
-        link_metis(cpumpit2cEXASIM) # METIS
-        set_target_properties(cpumpit2cEXASIM PROPERTIES BUILD_RPATH "${Model_LIB_DIR}")
+        add_exasim_model_executable(cpumpit2cEXASIM
+          MAIN_SOURCES ${T2C_MAIN_SOURCES} LIB_DIR ${Model_LIB_DIR} MODEL_LIB ${T2C_CPU_LIB}
+          DEFINES _MPI _TEXT2CODE OPTIONS -std=c++17 -w -ffast-math -O3 -DNDEBUG
+          EXTRA_LIBS ${MPI_LIBRARIES})
       endif()
 
       if(WITH_BUILTINMODEL)
-        add_executable(cpumpibuiltinEXASIM ${BUILTIN_MAIN_SOURCES} ${EXASIM_SOLVER_SOURCES})
-        target_link_directories(cpumpibuiltinEXASIM PRIVATE ${BuiltinModel_LIB_DIR})
-        target_compile_definitions(cpumpibuiltinEXASIM PRIVATE _MPI HAVE_BUILTINMODEL _BUILTINMODEL)
-        target_compile_options(cpumpibuiltinEXASIM PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG)
-        target_link_libraries(cpumpibuiltinEXASIM PRIVATE
-          Kokkos::kokkos ${lapackblas_libraries} ${MPI_LIBRARIES}
-          ${BM_CPU_LIB})
-        link_metis(cpumpibuiltinEXASIM)
-        set_target_properties(cpumpibuiltinEXASIM PROPERTIES BUILD_RPATH "${BuiltinModel_LIB_DIR}")
+        add_exasim_model_executable(cpumpibuiltinEXASIM
+          MAIN_SOURCES ${BUILTIN_MAIN_SOURCES} LIB_DIR ${BuiltinModel_LIB_DIR} MODEL_LIB ${BM_CPU_LIB}
+          DEFINES _MPI HAVE_BUILTINMODEL _BUILTINMODEL OPTIONS -std=c++17 -w -ffast-math -O3 -DNDEBUG
+          EXTRA_LIBS ${MPI_LIBRARIES})
       endif()
 
       if(EXASIM_BUILD_PREPROCESSING_LIBS)
