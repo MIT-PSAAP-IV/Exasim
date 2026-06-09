@@ -141,15 +141,24 @@ function(exasim_finalize_builtin_models)
 
   # --- define the library variant(s) ---
   # Serial is always built; CUDA/HIP follow the parent build's backend flags.
+  #
+  # STATIC, and deliberately *not* linking libkokkoscore.a: a SHARED model lib
+  # that statically embeds its own Kokkos produces a second copy of Kokkos's
+  # global state (SharedAllocationRecord list, the default spaces, the atexit
+  # finalizers) alongside the copy in the consumer executable. On glibc's flat
+  # symbol namespace both finalizers run at _dl_fini and double-free the shared
+  # singleton (a latent bug macOS's two-level namespace masked). As a static
+  # archive linked into the consumer — which already links exactly one Kokkos —
+  # there is a single copy of Kokkos and a single finalizer. Only the headers
+  # are needed to compile the kernels.
   set(_kokkos_serial "${EXASIM_DIR}/kokkos/buildserial")
-  add_library(builtinmodelserial SHARED "${EXASIM_BUILTIN_DIR}/libbuiltinmodel.cpp")
+  add_library(builtinmodelserial STATIC "${EXASIM_BUILTIN_DIR}/libbuiltinmodel.cpp")
   add_dependencies(builtinmodelserial exasim_builtin_model_codegen)
   target_include_directories(builtinmodelserial PRIVATE
     "${EXASIM_BUILTIN_INCDIR}" "${EXASIM_BUILTIN_DIR}" "${_kokkos_serial}/include")
-  target_link_libraries(builtinmodelserial PRIVATE "${_kokkos_serial}/lib/libkokkoscore.a")
   set_target_properties(builtinmodelserial PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY "${EXASIM_DIR}/lib"
-    BUILD_RPATH "${EXASIM_DIR}/lib")
+    ARCHIVE_OUTPUT_DIRECTORY "${EXASIM_DIR}/lib"
+    POSITION_INDEPENDENT_CODE ON)
 endfunction()
 
 # -----------------------------------------------------------------------------
