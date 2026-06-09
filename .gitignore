@@ -349,3 +349,4 @@ metis/GKlib/bin/csrcnv
 /deps/symengine/lib/
 /deps/symengine/include/
 /deps/symengine/bin/
+backend/Model/BuiltIn/builtin_model_registry.h
