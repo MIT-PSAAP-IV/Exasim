@@ -41,10 +41,14 @@
 #ifndef __COMMON_H__
 #define __COMMON_H__
 
-// #include <cstdint>
-// #include <cstring>
-// #include <chrono>
-// #include <cmath>
+// Standard headers used directly below (filesystem path/dir helpers, string,
+// containers). Included here so common.h is self-contained for consumers that
+// reach it without run.hpp's preamble (e.g. <exasim/model.hpp>).
+#include <string>
+#include <vector>
+#include <filesystem>
+#include <cstdint>
+#include <cstring>
 
 #define SCOPY scopy_
 #define SSCAL sscal_
