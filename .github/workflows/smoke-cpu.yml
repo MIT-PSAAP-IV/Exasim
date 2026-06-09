@@ -25,6 +25,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Fast pre-build check: no .DS_Store, no prebuilt binaries, no gitignore bypass.
+  # Runs on every push; cheap (git only, no build tools needed).
+  hygiene:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Repo hygiene check
+        run: bash tests/check-hygiene.sh
+
   build-and-test:
     # Standard GitHub-hosted runner — always available with no org configuration.
     # Pinned to 22.04 (jammy): the externalized deps below (libsymengine-dev in
@@ -33,6 +42,10 @@ jobs:
     # (only vendored serial Kokkos is built from source) keeps this within the
     # standard runner, which the old from-source workflow could not. If a larger
     # runner is enabled for the repo, bump this to e.g. `ubuntu-22.04-4-cores`.
+    #
+    # ctest registered tests:
+    #   consumer_builtin_cpu   — CPU-only variant (NP=1, EXASIM_MPI=OFF)
+    #   consumer_builtin_mpi   — CPU+MPI variant (NP=2, EXASIM_MPI=ON)
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
