@@ -12,8 +12,10 @@
 #   INSTALL_PREFIX   where to install Exasim            (default: /tmp/exasim_install)
 #   KOKKOS_DIR       Kokkos install/build dir           (default: $REPO/deps/kokkos/buildserial)
 #   EXASIM_ROOT      tree holding runtime master data   (default: $REPO) -> fills @EXASIM_ROOT@
-#   NP               MPI ranks for run tests            (default: 2)
-#   QOI_TOL          max allowed QoI[1] (L2 error^2)    (default: 1e-8)
+#   NP                   MPI ranks for run tests            (default: 2)
+#   EXASIM_MPI_VARIANT   ON or OFF; if set, overrides the consumer's EXASIM_MPI
+#                        cmake option (default: empty = use consumer default)
+#   QOI_TOL              max allowed QoI[1] (L2 error^2)    (default: 1e-8)
 set -uo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -22,6 +24,7 @@ INSTALL_PREFIX="${INSTALL_PREFIX:-/tmp/exasim_install}"
 KOKKOS_DIR="${KOKKOS_DIR:-$REPO/deps/kokkos/buildserial}"
 EXASIM_ROOT="${EXASIM_ROOT:-$REPO}"
 NP="${NP:-2}"
+EXASIM_MPI_VARIANT="${EXASIM_MPI_VARIANT:-}"
 QOI_TOL="${QOI_TOL:-1e-8}"
 
 echo "[consumer-tests] repo           $REPO"
@@ -51,6 +54,7 @@ for dir in "$REPO"/tests/consumers/*/; do
   cmake -S "$dir" -B "$bdir" \
         -D "CMAKE_PREFIX_PATH=$INSTALL_PREFIX;$KOKKOS_DIR" \
         ${CC:+-DCMAKE_C_COMPILER="$CC"} ${CXX:+-DCMAKE_CXX_COMPILER="$CXX"} \
+        ${EXASIM_MPI_VARIANT:+-DEXASIM_MPI="${EXASIM_MPI_VARIANT}"} \
         > "$bdir.cfg.log" 2>&1 || { echo "  FAIL[B2]: configure (see $bdir.cfg.log)"; fail=1; continue; }
   cmake --build "$bdir" -j > "$bdir.build.log" 2>&1 \
         || { echo "  FAIL[B2]: build (see $bdir.build.log)"; fail=1; continue; }
@@ -62,8 +66,11 @@ for dir in "$REPO"/tests/consumers/*/; do
     cp "$dir"/*.txt "$dir"/*.bin "$dir"/*.hpp "$rdir"/ 2>/dev/null
     sed -i.bak "s#@EXASIM_ROOT@#$EXASIM_ROOT#" "$rdir/pdeapp.txt"
     exe="$(find "$bdir" -maxdepth 1 -type f -perm -u+x ! -name '*.cmake' | head -1)"
-    ( cd "$rdir" && mpirun -np "$NP" "$exe" pdeapp.txt > run.log 2>&1 ) \
-        || { echo "  FAIL[B4]: run nonzero exit (see $rdir/run.log)"; fail=1; continue; }
+    if [ "${NP}" -gt 1 ]; then
+      ( cd "$rdir" && mpirun -np "$NP" "$exe" pdeapp.txt > run.log 2>&1 )
+    else
+      ( cd "$rdir" && "$exe" pdeapp.txt > run.log 2>&1 )
+    fi || { echo "  FAIL[B4]: run nonzero exit (see $rdir/run.log)"; fail=1; continue; }
     qoi1="$(tail -1 "$rdir/dataout/outqoi.txt" 2>/dev/null | awk '{print $2}')"
     if [ -z "$qoi1" ]; then echo "  FAIL[B4]: no QoI output"; fail=1; continue; fi
     if awk "BEGIN{exit !(($qoi1)+0 < ($QOI_TOL)+0)}"; then

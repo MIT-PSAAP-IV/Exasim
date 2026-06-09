@@ -13,12 +13,30 @@
 # tests/archive/ — see tests/archive/README.md.
 cmake_minimum_required(VERSION 3.16)
 
-add_test(NAME consumer_out_of_tree
+# CPU-only consumer (non-MPI, single process).
+add_test(NAME consumer_builtin_cpu
   COMMAND ${CMAKE_COMMAND} -E env
     "EXASIM_BUILD=${CMAKE_BINARY_DIR}"
     "KOKKOS_DIR=${Kokkos_DIR}"
     "EXASIM_ROOT=${EXASIM_DIR}"
     "CC=${CMAKE_C_COMPILER}"
     "CXX=${CMAKE_CXX_COMPILER}"
+    "NP=1"
+    "EXASIM_MPI_VARIANT=OFF"
+    "INSTALL_PREFIX=/tmp/exasim_install_cpu"
     bash "${CMAKE_CURRENT_SOURCE_DIR}/run-consumer-tests.sh")
-set_tests_properties(consumer_out_of_tree PROPERTIES TIMEOUT 1200)
+set_tests_properties(consumer_builtin_cpu PROPERTIES TIMEOUT 1200)
+
+# CPU+MPI consumer (2 ranks).
+add_test(NAME consumer_builtin_mpi
+  COMMAND ${CMAKE_COMMAND} -E env
+    "EXASIM_BUILD=${CMAKE_BINARY_DIR}"
+    "KOKKOS_DIR=${Kokkos_DIR}"
+    "EXASIM_ROOT=${EXASIM_DIR}"
+    "CC=${CMAKE_C_COMPILER}"
+    "CXX=${CMAKE_CXX_COMPILER}"
+    "NP=2"
+    "EXASIM_MPI_VARIANT=ON"
+    "INSTALL_PREFIX=/tmp/exasim_install_mpi"
+    bash "${CMAKE_CURRENT_SOURCE_DIR}/run-consumer-tests.sh")
+set_tests_properties(consumer_builtin_mpi PROPERTIES TIMEOUT 1200)

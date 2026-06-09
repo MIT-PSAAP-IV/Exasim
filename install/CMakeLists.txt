@@ -686,6 +686,28 @@ install(FILES
   ${CMAKE_CURRENT_BINARY_DIR}/ExasimConfigVersion.cmake
   DESTINATION ${EXASIM_CMAKE_INSTALL_DIR})
 
+# ---- External built-in model helpers ---------------------------------------
+# ExasimExternalModel.cmake and ExternalModelProvider.cpp.in are installed
+# alongside ExasimConfig.cmake so consumers can call
+# exasim_add_external_builtin_model() after find_package(Exasim).
+install(FILES
+  ${EXASIM_DIR}/cmake/ExasimExternalModel.cmake
+  ${EXASIM_DIR}/cmake/ExternalModelProvider.cpp.in
+  DESTINATION ${EXASIM_CMAKE_INSTALL_DIR})
+
+# model.hpp is installed by the backend DIRECTORY rule (*.hpp pattern), but
+# model.cpp is not (the pattern excludes .cpp). Install it explicitly so
+# exasim_add_external_builtin_model(PDEMODEL) can instantiate the templates.
+install(FILES
+  ${EXASIM_DIR}/backend/Model/BuiltIn/model.cpp
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/backend/Model/BuiltIn)
+
+# Install text2code binary if it was built by the superbuild.
+if(EXISTS "${EXASIM_DIR}/build/text2code")
+  install(PROGRAMS "${EXASIM_DIR}/build/text2code"
+    DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif()
+
 export(EXPORT ExasimTargets
   NAMESPACE Exasim::
   FILE ${CMAKE_CURRENT_BINARY_DIR}/ExasimTargets.cmake)

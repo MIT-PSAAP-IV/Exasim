@@ -4,10 +4,13 @@
 # Builds Exasim via the one-command superbuild with the ctest suite enabled,
 # then runs ctest. All regression coverage lives behind ctest:
 #
-#   consumer_out_of_tree  — for each project under tests/consumers/:
+#   consumer_builtin_cpu  — CPU-only variant (EXASIM_MPI=OFF, NP=1):
 #       B3  the consumer CMakeLists does not reach into the Exasim source tree
-#       B2  it configures via find_package(Exasim) against an install prefix and builds
-#       B4  it runs (if it ships a pdeapp.txt) and meets the QoI gate (QOI_TOL, default 1e-8)
+#       B2  configures via find_package(Exasim COMPONENTS cpu) and builds
+#       B4  runs the built-in Poisson 2D and meets the QoI gate (QOI_TOL, default 1e-8)
+#
+#   consumer_builtin_mpi  — CPU+MPI variant (EXASIM_MPI=ON, NP=2):
+#       B3/B2/B4 as above but linking Exasim::cpumpiprelib and running with mpirun -np 2
 #
 # This is what CI runs. Humans can equivalently configure with
 # `-DEXASIM_BUILD_TESTS=ON` and run `ctest` in the solver build dir themselves.
