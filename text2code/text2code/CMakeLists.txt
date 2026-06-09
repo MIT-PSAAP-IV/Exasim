@@ -75,6 +75,14 @@ if(SymEngine_FOUND)
   foreach(_d ${SYMENGINE_INCLUDE_DIRS})
     string(APPEND _se_inc "-I${_d} ")
   endforeach()
+  # The vendored SymEngine is built with INTEGER_CLASS=boostmp against a bundled
+  # boost (text2code/symengine/boost), but its *installed* SymEngineConfig only
+  # exposes .../include, omitting that boost root. Add it explicitly when present
+  # so generated Code2Cpp.cpp can resolve <boost/multiprecision/...> on machines
+  # without a system boost. (A system SymEngine resolves boost from system dirs.)
+  if(EXISTS "${EXASIM_ROOT}/text2code/symengine/boost")
+    string(APPEND _se_inc "-I${EXASIM_ROOT}/text2code/symengine ")
+  endif()
   if(TARGET symengine)
     set(_se_lib "$<TARGET_FILE:symengine>")
   else()
