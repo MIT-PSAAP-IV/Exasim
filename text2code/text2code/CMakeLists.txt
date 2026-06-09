@@ -75,12 +75,20 @@ if(SymEngine_FOUND)
   foreach(_d ${SYMENGINE_INCLUDE_DIRS})
     string(APPEND _se_inc "-I${_d} ")
   endforeach()
-  # The vendored SymEngine is built with INTEGER_CLASS=boostmp against a bundled
-  # boost (text2code/symengine/boost), but its *installed* SymEngineConfig only
-  # exposes .../include, omitting that boost root. Add it explicitly when present
-  # so generated Code2Cpp.cpp can resolve <boost/multiprecision/...> on machines
-  # without a system boost. (A system SymEngine resolves boost from system dirs.)
-  if(EXISTS "${EXASIM_ROOT}/text2code/symengine/boost")
+  # Only when the *vendored* SymEngine is the one resolved: it is built with
+  # INTEGER_CLASS=boostmp against a bundled boost (text2code/symengine/boost)
+  # that its installed SymEngineConfig does not expose, so generated Code2Cpp.cpp
+  # cannot resolve <boost/multiprecision/...> without it. An external/system
+  # SymEngine (apt libsymengine-dev, conda, brew) resolves boost from system
+  # include dirs; adding the vendored boost there could shadow it with a
+  # different version, so restrict this to the vendored case.
+  set(_se_vendored FALSE)
+  foreach(_d ${SYMENGINE_INCLUDE_DIRS})
+    if(_d MATCHES "^${EXASIM_ROOT}/text2code/symengine")
+      set(_se_vendored TRUE)
+    endif()
+  endforeach()
+  if(_se_vendored AND EXISTS "${EXASIM_ROOT}/text2code/symengine/boost")
     string(APPEND _se_inc "-I${EXASIM_ROOT}/text2code/symengine ")
   endif()
   if(TARGET symengine)
