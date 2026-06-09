@@ -193,12 +193,18 @@ function(exasim_finalize_builtin_models)
 endfunction()
 
 # -----------------------------------------------------------------------------
-# Register the default model set: legacy 1-6 (checked-in kernels), 7-15 from
-# their text2code sources. Skipped if the caller opts to register models itself.
+# Register the default model set: models 1-6 use text2code when a pdeapp*.txt
+# source exists alongside the checked-in kernels, otherwise fall back to legacy
+# checked-in kernels. Models 7-15 are always text2code-generated.
+# Skipped if the caller opts to register models itself.
 # -----------------------------------------------------------------------------
 if(NOT DEFINED EXASIM_BUILTIN_SKIP_DEFAULTS)
   foreach(_id RANGE 1 6)
-    exasim_add_builtin_model(${_id})
+    if(EXISTS "${EXASIM_BUILTIN_DIR}/pdeapp${_id}.txt")
+      exasim_add_builtin_model(${_id} SOURCE "${EXASIM_BUILTIN_DIR}/pdeapp${_id}.txt")
+    else()
+      exasim_add_builtin_model(${_id})
+    endif()
   endforeach()
   foreach(_id RANGE 7 15)
     if(EXISTS "${EXASIM_BUILTIN_DIR}/pdeapp${_id}.txt")
