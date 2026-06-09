@@ -53,6 +53,12 @@
 #ifndef EXASIM_SYMENGINE_FOUND
 #  define EXASIM_SYMENGINE_FOUND 0
 #endif
+#ifndef EXASIM_KOKKOS_DIR
+#  define EXASIM_KOKKOS_DIR ""        // empty -> fall back to the exasimpath layout
+#endif
+#ifndef EXASIM_KOKKOS_BACKEND
+#  define EXASIM_KOKKOS_BACKEND "serial"
+#endif
 
 void generateCppCode(ParsedSpec spec)
 {
@@ -328,9 +334,14 @@ std::string getSharedLibExtension() {
 
 int buildDynamicLibraries(ParsedSpec& spec) 
 {
-    const std::string kokkos_serial_path = make_path(spec.exasimpath, "kokkos/buildserial");
-    const std::string kokkos_cuda_path   = make_path(spec.exasimpath, "kokkos/buildcuda");
-    const std::string kokkos_hip_path    = make_path(spec.exasimpath, "kokkos/buildhip");
+    // Kokkos location baked by the superbuild (it builds Kokkos out of the source
+    // tree). The active backend's path points at the baked dir; the others stay
+    // empty so only the matching libt2cmodel<backend> is built. Falls back to the
+    // legacy in-source exasimpath/kokkos/build* layout for a standalone build.
+    const std::string _kk(EXASIM_KOKKOS_DIR), _kkb(EXASIM_KOKKOS_BACKEND);
+    const std::string kokkos_serial_path = !_kk.empty() ? (_kkb=="serial" ? _kk : "") : make_path(spec.exasimpath, "kokkos/buildserial");
+    const std::string kokkos_cuda_path   = !_kk.empty() ? (_kkb=="cuda"   ? _kk : "") : make_path(spec.exasimpath, "kokkos/buildcuda");
+    const std::string kokkos_hip_path    = !_kk.empty() ? (_kkb=="hip"    ? _kk : "") : make_path(spec.exasimpath, "kokkos/buildhip");
     const std::string exasim_lib_path    = make_path(spec.exasimpath, "lib");
     fs::create_directories(exasim_lib_path);
 

@@ -173,6 +173,8 @@ ExternalProject_Add(text2code_build
   CMAKE_ARGS  ${_fwd} -DWITH_METIS=${WITH_PARMETIS} -DEXASIM_ROOT=${EXASIM_ROOT}
     -DEXASIM_SYMENGINE_DIR=${_symengine_for_t2c}
     -DEXASIM_SYMENGINE_VENDORED=${_symengine_vendored}
+    -DEXASIM_KOKKOS_DIR=${_kokkos_for_exasim}
+    -DEXASIM_KOKKOS_BACKEND=${_kk_target}
   INSTALL_COMMAND ""
   DEPENDS ${_symengine_dep} ${_exasim_deps})
 list(APPEND _exasim_deps text2code_build)
