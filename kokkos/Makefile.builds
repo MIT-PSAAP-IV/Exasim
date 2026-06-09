@@ -10,6 +10,12 @@ NPROCS := $(strip $(shell \
 
 .PHONY: all serial cuda hip clean
 
+# GPU architecture for the CUDA build. Override for other GPUs, e.g.
+#   make cuda KOKKOS_CUDA_ARCH=AMPERE80   (A100)   or   HOPPER90 (H100).
+# Default VOLTA70 targets the Tesla V100 (sm_70). Empty => let Kokkos auto-detect
+# the visible GPU (only works when a GPU is present at configure time).
+KOKKOS_CUDA_ARCH ?= VOLTA70
+
 all: serial cuda hip
 
 serial:
@@ -23,10 +29,11 @@ serial:
 cuda:
 	mkdir -p buildcuda
 	cmake -S . -B buildcuda \
-	  -DCMAKE_CXX_COMPILER=g++ \
+	  -DCMAKE_CXX_COMPILER=$(CURDIR)/bin/nvcc_wrapper \
 	  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
 	  -DKokkos_ENABLE_CUDA=ON \
 	  -DKokkos_ENABLE_CUDA_LAMBDA=ON \
+	  $(if $(KOKKOS_CUDA_ARCH),-DKokkos_ARCH_$(KOKKOS_CUDA_ARCH)=ON,) \
 	  -DCMAKE_INSTALL_PREFIX=buildcuda
 	cmake --build buildcuda -j$(NPROCS)
 	cmake --install buildcuda
