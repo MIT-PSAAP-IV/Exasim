@@ -4,12 +4,13 @@ void HdgFext1(dstype* f, dstype* J1, dstype* J2, dstype* J3, const dstype* x, co
   Kokkos::parallel_for("Fext", N, KOKKOS_LAMBDA(const size_t i) {
     dstype uhat0 = uhat[0*N+i];
     dstype uext0 = uext[0*N+i];
+    dstype tau0 = tau[0];
 
-    f[0 * N + i] = uext0 - uhat0;
+    f[0 * N + i] = (uext0 - uhat0)*tau0;
     J1[0 * N + i] = 0;
     J1[1 * N + i] = 0;
     J1[2 * N + i] = 0;
-    J3[0 * N + i] = -1;
+    J3[0 * N + i] = -tau0;
   });
 }
 

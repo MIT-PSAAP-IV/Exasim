@@ -14,8 +14,6 @@ std::vector<Expression> Source(const std::vector<Expression>& x, const std::vect
     std::vector<Expression> s;
     s.resize(1);
 
-    Expression x1 = x[0];
-    Expression x2 = x[1];
     s[0]  =  0.0;
     return s;
 }
@@ -73,7 +71,7 @@ std::vector<Expression> Fext(const std::vector<Expression>& x, const std::vector
     std::vector<Expression> fb;
     fb.resize(1);
 
-    fb[0]  =  uext[0] - uhat[0];
+    fb[0]  =  tau[0]*(uext[0] - uhat[0]);
     return fb;
 }
 
@@ -125,13 +123,5 @@ std::vector<Expression> QoIboundary(const std::vector<Expression>& x, const std:
     auto f = Flux(x, uq, v, w, eta, mu, t);
     fb[0]  =  f[0]*n[0] + f[1]*n[1] + tau[0]*(uq[0]-uhat[0]);
     return fb;
-}
-
-std::vector<Expression> Initv(const std::vector<Expression>& x, const std::vector<Expression>& eta, const std::vector<Expression>& mu) {
-    std::vector<Expression> vi;
-    vi.resize(1);
-
-    vi[0]  =  0.5;
-    return vi;
 }
 

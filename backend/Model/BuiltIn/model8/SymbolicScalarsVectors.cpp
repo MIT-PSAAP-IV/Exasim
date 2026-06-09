@@ -4,10 +4,10 @@ SymbolicScalarsVectors::SymbolicScalarsVectors() {
 
     t =   Expression("t");
 
-    szx = 2;
-    x.resize(2);
-    for (int i = 0; i < 2; ++i) {
-         x[i] = Expression("x"  + std::to_string(i));
+    szeta = 0;
+    eta.resize(0);
+    for (int i = 0; i < 0; ++i) {
+         eta[i] = Expression("eta"  + std::to_string(i));
     }
 
     szmu = 1;
@@ -16,16 +16,10 @@ SymbolicScalarsVectors::SymbolicScalarsVectors() {
          mu[i] = Expression("mu"  + std::to_string(i));
     }
 
-    szv = 1;
-    v.resize(1);
+    sztau = 1;
+    tau.resize(1);
     for (int i = 0; i < 1; ++i) {
-         v[i] = Expression("v"  + std::to_string(i));
-    }
-
-    szuhat = 1;
-    uhat.resize(1);
-    for (int i = 0; i < 1; ++i) {
-         uhat[i] = Expression("uhat"  + std::to_string(i));
+         tau[i] = Expression("tau"  + std::to_string(i));
     }
 
     szn = 2;
@@ -34,16 +28,16 @@ SymbolicScalarsVectors::SymbolicScalarsVectors() {
          n[i] = Expression("n"  + std::to_string(i));
     }
 
-    szuq = 3;
-    uq.resize(3);
-    for (int i = 0; i < 3; ++i) {
-         uq[i] = Expression("uq"  + std::to_string(i));
+    szuext = 1;
+    uext.resize(1);
+    for (int i = 0; i < 1; ++i) {
+         uext[i] = Expression("uext"  + std::to_string(i));
     }
 
-    szeta = 0;
-    eta.resize(0);
-    for (int i = 0; i < 0; ++i) {
-         eta[i] = Expression("eta"  + std::to_string(i));
+    szuhat = 1;
+    uhat.resize(1);
+    for (int i = 0; i < 1; ++i) {
+         uhat[i] = Expression("uhat"  + std::to_string(i));
     }
 
     szw = 0;
@@ -52,21 +46,27 @@ SymbolicScalarsVectors::SymbolicScalarsVectors() {
          w[i] = Expression("w"  + std::to_string(i));
     }
 
-    sztau = 1;
-    tau.resize(1);
-    for (int i = 0; i < 1; ++i) {
-         tau[i] = Expression("tau"  + std::to_string(i));
+    szv = 0;
+    v.resize(0);
+    for (int i = 0; i < 0; ++i) {
+         v[i] = Expression("v"  + std::to_string(i));
     }
 
-    szuext = 1;
-    uext.resize(1);
-    for (int i = 0; i < 1; ++i) {
-         uext[i] = Expression("uext"  + std::to_string(i));
+    szuq = 3;
+    uq.resize(3);
+    for (int i = 0; i < 3; ++i) {
+         uq[i] = Expression("uq"  + std::to_string(i));
+    }
+
+    szx = 2;
+    x.resize(2);
+    for (int i = 0; i < 2; ++i) {
+         x[i] = Expression("x"  + std::to_string(i));
     }
 
     exasim = true;
 
-    outputfunctions.assign(14, false);
+    outputfunctions.assign(13, false);
     outputfunctions[0] = true;
     outputfunctions[1] = true;
     outputfunctions[2] = true;
@@ -80,11 +80,10 @@ SymbolicScalarsVectors::SymbolicScalarsVectors() {
     outputfunctions[10] = true;
     outputfunctions[11] = true;
     outputfunctions[12] = true;
-    outputfunctions[13] = true;
 
     batch = {"x", "uq", "v", "w", "uhat", "n", "uext"};
 
-    funcnames = {"Flux", "Source", "Tdfunc", "Fbou", "Ubou", "FbouHdg", "Fint", "Fext", "Initu", "VisScalars", "VisVectors", "QoIvolume", "QoIboundary", "Initv"};
+    funcnames = {"Flux", "Source", "Tdfunc", "Fbou", "Ubou", "FbouHdg", "Fint", "Fext", "Initu", "VisScalars", "VisVectors", "QoIvolume", "QoIboundary"};
 
     funcargs = {
         {"x", "uq", "v", "w", "eta", "mu", "t"},
@@ -99,8 +98,7 @@ SymbolicScalarsVectors::SymbolicScalarsVectors() {
         {"x", "uq", "v", "w", "eta", "mu", "t"},
         {"x", "uq", "v", "w", "eta", "mu", "t"},
         {"x", "uq", "v", "w", "eta", "mu", "t"},
-        {"x", "uq", "v", "w", "uhat", "n", "tau", "eta", "mu", "t"},
-        {"x", "eta", "mu"}
+        {"x", "uq", "v", "w", "uhat", "n", "tau", "eta", "mu", "t"}
     };
 
     funcargssizes = {
@@ -116,8 +114,7 @@ SymbolicScalarsVectors::SymbolicScalarsVectors() {
         {"szx", "szuq", "szv", "szw", "szeta", "szmu", "szt"},
         {"szx", "szuq", "szv", "szw", "szeta", "szmu", "szt"},
         {"szx", "szuq", "szv", "szw", "szeta", "szmu", "szt"},
-        {"szx", "szuq", "szv", "szw", "szuhat", "szn", "sztau", "szeta", "szmu", "szt"},
-        {"szx", "szeta", "szmu"}
+        {"szx", "szuq", "szv", "szw", "szuhat", "szn", "sztau", "szeta", "szmu", "szt"}
     };
 
     funcdecls = {
@@ -133,8 +130,7 @@ SymbolicScalarsVectors::SymbolicScalarsVectors() {
        "void VisScalars(dstype* f, const dstype* x, const dstype* uq, const dstype* v, const dstype* w, const dstype* eta, const dstype* mu, const dstype t, const int modelnumber, const int N, const int szx, const int szuq, const int szv, const int szw, const int szeta, const int szmu)", 
        "void VisVectors(dstype* f, const dstype* x, const dstype* uq, const dstype* v, const dstype* w, const dstype* eta, const dstype* mu, const dstype t, const int modelnumber, const int N, const int szx, const int szuq, const int szv, const int szw, const int szeta, const int szmu)", 
        "void QoIvolume(dstype* f, const dstype* x, const dstype* uq, const dstype* v, const dstype* w, const dstype* eta, const dstype* mu, const dstype t, const int modelnumber, const int N, const int szx, const int szuq, const int szv, const int szw, const int szeta, const int szmu)", 
-       "void QoIboundary(dstype* f, const dstype* x, const dstype* uq, const dstype* v, const dstype* w, const dstype* uhat, const dstype* n, const dstype* tau, const dstype* eta, const dstype* mu, const dstype t, const int modelnumber, const int N, const int szx, const int szuq, const int szv, const int szw, const int szuhat, const int szn, const int sztau, const int szeta, const int szmu)", 
-       "void Initv(dstype* f, const dstype* x, const dstype* eta, const dstype* mu, const int modelnumber, const int N, const int szx, const int szeta, const int szmu)"
+       "void QoIboundary(dstype* f, const dstype* x, const dstype* uq, const dstype* v, const dstype* w, const dstype* uhat, const dstype* n, const dstype* tau, const dstype* eta, const dstype* mu, const dstype t, const int modelnumber, const int N, const int szx, const int szuq, const int szv, const int szw, const int szuhat, const int szn, const int sztau, const int szeta, const int szmu)"
     };
 
     funcjacdecls = {
@@ -150,8 +146,7 @@ SymbolicScalarsVectors::SymbolicScalarsVectors() {
        "const dstype* x, const dstype* uq, const dstype* v, const dstype* w, const dstype* eta, const dstype* mu, const dstype t, const int modelnumber, const int N, const int szx, const int szuq, const int szv, const int szw, const int szeta, const int szmu)", 
        "const dstype* x, const dstype* uq, const dstype* v, const dstype* w, const dstype* eta, const dstype* mu, const dstype t, const int modelnumber, const int N, const int szx, const int szuq, const int szv, const int szw, const int szeta, const int szmu)", 
        "const dstype* x, const dstype* uq, const dstype* v, const dstype* w, const dstype* eta, const dstype* mu, const dstype t, const int modelnumber, const int N, const int szx, const int szuq, const int szv, const int szw, const int szeta, const int szmu)", 
-       "const dstype* x, const dstype* uq, const dstype* v, const dstype* w, const dstype* uhat, const dstype* n, const dstype* tau, const dstype* eta, const dstype* mu, const dstype t, const int modelnumber, const int N, const int szx, const int szuq, const int szv, const int szw, const int szuhat, const int szn, const int sztau, const int szeta, const int szmu)", 
-       "const dstype* x, const dstype* eta, const dstype* mu, const int modelnumber, const int N, const int szx, const int szeta, const int szmu)"
+       "const dstype* x, const dstype* uq, const dstype* v, const dstype* w, const dstype* uhat, const dstype* n, const dstype* tau, const dstype* eta, const dstype* mu, const dstype t, const int modelnumber, const int N, const int szx, const int szuq, const int szv, const int szw, const int szuhat, const int szn, const int sztau, const int szeta, const int szmu)"
     };
 
     inputvectors = {
@@ -167,8 +162,7 @@ SymbolicScalarsVectors::SymbolicScalarsVectors() {
         {{"x", x}, {"uq", uq}, {"v", v}, {"w", w}, {"eta", eta}, {"mu", mu}},
         {{"x", x}, {"uq", uq}, {"v", v}, {"w", w}, {"eta", eta}, {"mu", mu}},
         {{"x", x}, {"uq", uq}, {"v", v}, {"w", w}, {"eta", eta}, {"mu", mu}},
-        {{"x", x}, {"uq", uq}, {"v", v}, {"w", w}, {"uhat", uhat}, {"n", n}, {"tau", tau}, {"eta", eta}, {"mu", mu}},
-        {{"x", x}, {"eta", eta}, {"mu", mu}}
+        {{"x", x}, {"uq", uq}, {"v", v}, {"w", w}, {"uhat", uhat}, {"n", n}, {"tau", tau}, {"eta", eta}, {"mu", mu}}
     };
 
     inputscalars = {
@@ -184,8 +178,7 @@ SymbolicScalarsVectors::SymbolicScalarsVectors() {
         {{"t", t}},
         {{"t", t}},
         {{"t", t}},
-        {{"t", t}},
-        {}
+        {{"t", t}}
     };
 
     jacobianInputs = {
@@ -201,12 +194,10 @@ SymbolicScalarsVectors::SymbolicScalarsVectors() {
         {uq, w},
         {uq, w},
         {uq, w},
-        {uq, w, uhat},
-        {}
+        {uq, w, uhat}
     };
 
     hessianInputs = {
-        {},
         {},
         {},
         {},
@@ -267,9 +258,6 @@ std::vector<Expression> SymbolicScalarsVectors::evaluateSymbolicFunctions(int ca
       break;
     case 12:
       f = QoIboundary(x, uq, v, w, uhat, n, tau, eta, mu, t);
-      break;
-    case 13:
-      f = Initv(x, eta, mu);
       break;
     default:
       throw std::runtime_error("Invalid function call in evaluateSymbolicFunctions");
@@ -956,7 +944,7 @@ void SymbolicScalarsVectors::generateModelHeader(const std::string& filename) {
     hfile << "    static constexpr int nd     = 2;\n";
     hfile << "    static constexpr int ncu    = 1;\n";
     hfile << "    static constexpr int ncw    = 0;\n";
-    hfile << "    static constexpr int nco    = 1;\n";
+    hfile << "    static constexpr int nco    = 0;\n";
     hfile << "    static constexpr int nparam = 1;\n";
     hfile << "    static constexpr int ntau   = 1;\n";
     hfile << "    static constexpr int Nq = ncu * (1 + nd);\n\n";

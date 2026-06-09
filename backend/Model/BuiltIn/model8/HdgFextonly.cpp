@@ -4,9 +4,10 @@ void HdgFextonly1(dstype* f, const dstype* x, const dstype* uq, const dstype* v,
   Kokkos::parallel_for("Fext", N, KOKKOS_LAMBDA(const size_t i) {
     dstype uhat0 = uhat[0*N+i];
     dstype uext0 = uext[0*N+i];
+    dstype tau0 = tau[0];
 
 
-    f[0 * N + i] = uext0 - uhat0;
+    f[0 * N + i] = (uext0 - uhat0)*tau0;
   });
 }
 

@@ -13,34 +13,34 @@ public:
     // from argv[1]. Default left empty (writes relative
     // to cwd) so generated headers don't bake an absolute
     // path tied to the developer who ran codegen.
-    std::string modelpath = "/Users/cuongnguyen/Documents/GitHub/PSAAP/Exasim/backend/Model/BuiltIn/model8/";
+    std::string modelpath = "model8/";
 
     // input symbolic scalars
     Expression t;
 
     // input symbolic vectors
-    std::vector<Expression> x;
-    std::vector<Expression> mu;
-    std::vector<Expression> v;
-    std::vector<Expression> uhat;
-    std::vector<Expression> n;
-    std::vector<Expression> uq;
     std::vector<Expression> eta;
-    std::vector<Expression> w;
+    std::vector<Expression> mu;
     std::vector<Expression> tau;
+    std::vector<Expression> n;
     std::vector<Expression> uext;
+    std::vector<Expression> uhat;
+    std::vector<Expression> w;
+    std::vector<Expression> v;
+    std::vector<Expression> uq;
+    std::vector<Expression> x;
 
     // vector sizes
-    int szx;
-    int szmu;
-    int szv;
-    int szuhat;
-    int szn;
-    int szuq;
     int szeta;
-    int szw;
+    int szmu;
     int sztau;
+    int szn;
     int szuext;
+    int szuhat;
+    int szw;
+    int szv;
+    int szuq;
+    int szx;
     bool exasim;
 
     std::vector<bool> outputfunctions;
