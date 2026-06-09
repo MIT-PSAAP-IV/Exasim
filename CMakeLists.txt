@@ -21,6 +21,26 @@ include(ExternalProject)
 
 set(EXASIM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
 
+# ---- Discourage building inside the source tree ----
+# A true in-source build (binary dir == source dir) is rejected outright. A build
+# directory *inside* the repo is allowed but warned about: the vendored deps and
+# generated outputs would otherwise clutter the checkout. Prefer a sibling dir:
+#     cmake -B ../Exasim-build && cmake --build ../Exasim-build
+get_filename_component(_exasim_src "${CMAKE_SOURCE_DIR}" REALPATH)
+get_filename_component(_exasim_bin "${CMAKE_BINARY_DIR}" REALPATH)
+if(_exasim_bin STREQUAL _exasim_src)
+  message(FATAL_ERROR
+    "In-source build detected. Configure in a separate build directory, e.g.:\n"
+    "    cmake -B ../Exasim-build && cmake --build ../Exasim-build\n"
+    "(delete the CMakeCache.txt and CMakeFiles/ this attempt just created).")
+endif()
+if(_exasim_bin MATCHES "^${_exasim_src}/")
+  message(WARNING
+    "Build directory is inside the Exasim source tree:\n  ${CMAKE_BINARY_DIR}\n"
+    "This works, but build outputs clutter the checkout. Prefer a sibling "
+    "directory: cmake -B ../Exasim-build")
+endif()
+
 # ---- Build options (forwarded to the Exasim solver build) ----
 option(EXASIM_MPI         "Build MPI variants"                 ON)
 option(EXASIM_NOMPI       "Build non-MPI variants"             ON)

@@ -14,7 +14,7 @@
 #
 # Usage:
 #   bash tests/run-tests.sh                 # build (reusing vendored deps) + test
-#   BUILD=/path bash tests/run-tests.sh     # use a specific superbuild dir
+#   EXASIM_BUILD_DIR=/path bash tests/run-tests.sh     # use a specific superbuild dir
 #   CMAKE_ARGS="-DEXASIM_CUDA=ON" bash tests/run-tests.sh   # extra configure args
 #
 # Toolchain (compiler/MPI) is taken from the environment — source the right
@@ -23,10 +23,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BUILD="${BUILD:-$ROOT/build}"
+EXASIM_BUILD_DIR="${EXASIM_BUILD_DIR:-$ROOT/build}"
 
 echo "[run-tests] repo  $ROOT"
-echo "[run-tests] build $BUILD"
+echo "[run-tests] build $EXASIM_BUILD_DIR"
 
 # 1. Configure + build the superbuild with the ctest suite enabled. The
 #    find-or-build steps reuse any already-built vendored deps, so a warm tree
@@ -35,15 +35,15 @@ echo "[run-tests] build $BUILD"
 # build-local prefix so it never needs /usr/local (overridable via CMAKE_ARGS or
 # a pre-seeded cache). The out-of-tree consumer test installs to its own temp
 # prefix independently.
-cmake -S "$ROOT" -B "$BUILD" -DEXASIM_BUILD_TESTS=ON \
-      -DCMAKE_INSTALL_PREFIX="$BUILD/install" ${CMAKE_ARGS:-}
+cmake -S "$ROOT" -B "$EXASIM_BUILD_DIR" -DEXASIM_BUILD_TESTS=ON \
+      -DCMAKE_INSTALL_PREFIX="$EXASIM_BUILD_DIR/install" ${CMAKE_ARGS:-}
 # Bound parallelism to the core count (override with JOBS=) — a bare `-j` is
 # unlimited under Make and can OOM small CI runners on the big template TUs.
-cmake --build "$BUILD" -j"${JOBS:-$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)}"
+cmake --build "$EXASIM_BUILD_DIR" -j"${JOBS:-$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)}"
 
 # 2. The solver layer (where the ctest is registered) is built by the
 #    exasim_build ExternalProject; ctest runs from its binary dir.
-INNER="$BUILD/exasim_build-prefix/src/exasim_build-build"
+INNER="$EXASIM_BUILD_DIR/exasim_build-prefix/src/exasim_build-build"
 if [ ! -f "$INNER/CTestTestfile.cmake" ]; then
   echo "[run-tests] FAIL: no ctest registered at $INNER (was EXASIM_BUILD_TESTS honored?)" >&2
   exit 1
