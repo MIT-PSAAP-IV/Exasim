@@ -32,7 +32,9 @@ echo "[run-tests] build $BUILD"
 #    find-or-build steps reuse any already-built vendored deps, so a warm tree
 #    only rebuilds what changed.
 cmake -S "$ROOT" -B "$BUILD" -DEXASIM_BUILD_TESTS=ON ${CMAKE_ARGS:-}
-cmake --build "$BUILD" -j
+# Bound parallelism to the core count (override with JOBS=) — a bare `-j` is
+# unlimited under Make and can OOM small CI runners on the big template TUs.
+cmake --build "$BUILD" -j"${JOBS:-$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)}"
 
 # 2. The solver layer (where the ctest is registered) is built by the
 #    exasim_build ExternalProject; ctest runs from its binary dir.

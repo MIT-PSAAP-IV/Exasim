@@ -25,9 +25,12 @@ concurrency:
 
 jobs:
   build-and-test:
-    # GitHub larger runner (4 vCPU / 16 GB). Requires the larger runner to be
-    # enabled for the repo/org; falls back to editing this label if not.
-    runs-on: ubuntu-latest-4-cores
+    # Standard GitHub-hosted runner (2 vCPU / 16 GB) — always available with no
+    # org configuration. Externalizing SymEngine/METIS (only vendored serial
+    # Kokkos is built from source) keeps this within the standard runner, which
+    # the old from-source workflow could not. If a larger runner is enabled for
+    # the repo, bump this to e.g. `ubuntu-latest-4-cores` for a faster build.
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
