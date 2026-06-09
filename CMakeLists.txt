@@ -44,21 +44,35 @@ set(_envcxx ${CMAKE_COMMAND} -E env "CXX=${CMAKE_CXX_COMPILER}")
 set(_exasim_deps "")   # ExternalProject targets Exasim must wait for
 
 # ----------------------------------------------------------------------------
-# Kokkos: installed -> already-built vendored -> build vendored serial
+# Kokkos: installed -> already-built vendored -> build vendored.
+# The vendored backend (serial/cuda/hip) is chosen from the requested EXASIM
+# backend so the inner Exasim build (which picks kokkos/build{serial,cuda,hip}
+# by the same flags) finds a matching Kokkos. CUDA/HIP use nvcc_wrapper/hipcc.
 # ----------------------------------------------------------------------------
+if(EXASIM_CUDA)
+  set(_kk_target cuda)
+  set(_kk_dir    "${EXASIM_ROOT}/kokkos/buildcuda")
+elseif(EXASIM_HIP)
+  set(_kk_target hip)
+  set(_kk_dir    "${EXASIM_ROOT}/kokkos/buildhip")
+else()
+  set(_kk_target serial)
+  set(_kk_dir    "${EXASIM_ROOT}/kokkos/buildserial")
+endif()
+
 find_package(Kokkos QUIET)
 if(Kokkos_FOUND)
   message(STATUS "Kokkos: using installed (${Kokkos_DIR})")
-elseif(EXISTS "${EXASIM_ROOT}/kokkos/buildserial/KokkosConfig.cmake")
-  message(STATUS "Kokkos: using vendored kokkos/buildserial (already built)")
-elseif(NOT EXASIM_CUDA AND NOT EXASIM_HIP)
-  message(STATUS "Kokkos: building vendored serial")
+elseif(EXISTS "${_kk_dir}/KokkosConfig.cmake")
+  message(STATUS "Kokkos: using vendored ${_kk_dir} (already built)")
+else()
+  message(STATUS "Kokkos: building vendored ${_kk_target}")
   ExternalProject_Add(kokkos_vendored
     SOURCE_DIR        "${EXASIM_ROOT}/kokkos"
     DOWNLOAD_COMMAND  ""
     CONFIGURE_COMMAND ""
     BUILD_IN_SOURCE   TRUE
-    BUILD_COMMAND     ${_envcxx} make -f Makefile.builds serial
+    BUILD_COMMAND     ${_envcxx} make -f Makefile.builds ${_kk_target}
     INSTALL_COMMAND   "")
   list(APPEND _exasim_deps kokkos_vendored)
 endif()
@@ -124,11 +138,26 @@ list(APPEND _exasim_deps text2code_build)
 # ----------------------------------------------------------------------------
 # Exasim solver layer (install/). Its own CMake find-or-builds Kokkos/METIS, so it
 # locates whatever the steps above produced. Depends on everything.
+#
+# Unlike text2code/symengine (host-only), the solver compiles Kokkos device code,
+# so under CUDA/HIP it must build with the Kokkos compiler wrapper as CXX.
 # ----------------------------------------------------------------------------
+if(EXASIM_CUDA)
+  set(_exasim_cxx "${EXASIM_ROOT}/kokkos/bin/nvcc_wrapper")
+elseif(EXASIM_HIP)
+  set(_exasim_cxx "hipcc")
+else()
+  set(_exasim_cxx "${CMAKE_CXX_COMPILER}")
+endif()
+set(_exasim_fwd -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DCMAKE_CXX_COMPILER=${_exasim_cxx})
+if(CMAKE_BUILD_TYPE)
+  list(APPEND _exasim_fwd -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE})
+endif()
+
 ExternalProject_Add(exasim_build
   SOURCE_DIR  "${EXASIM_ROOT}/install"
   DOWNLOAD_COMMAND ""
-  CMAKE_ARGS  ${_fwd}
+  CMAKE_ARGS  ${_exasim_fwd}
     -DEXASIM_MPI=${EXASIM_MPI} -DEXASIM_NOMPI=${EXASIM_NOMPI}
     -DEXASIM_CUDA=${EXASIM_CUDA} -DEXASIM_HIP=${EXASIM_HIP}
     -DEXASIM_LIB=${EXASIM_LIB} -DWITH_PARMETIS=${WITH_PARMETIS}

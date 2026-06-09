@@ -139,8 +139,12 @@ function(exasim_finalize_builtin_models)
   # force regeneration of kernels before compiling the dispatcher
   add_custom_target(exasim_builtin_model_codegen DEPENDS ${_gen})
 
-  # --- define the library variant(s) ---
-  # Serial is always built; CUDA/HIP follow the parent build's backend flags.
+  # --- define the library variant matching the active backend ---
+  # The inner build uses a single CXX compiler (g++ for CPU, nvcc_wrapper for
+  # CUDA, hipcc for HIP), so the built-in model library is compiled for whichever
+  # backend this build targets — exactly like the cpu*/gpu* EXASIM executables.
+  # The matching Kokkos build dir supplies the headers (and selects the default
+  # execution space: Serial / Cuda / HIP).
   #
   # STATIC, and deliberately *not* linking libkokkoscore.a: a SHARED model lib
   # that statically embeds its own Kokkos produces a second copy of Kokkos's
@@ -151,12 +155,21 @@ function(exasim_finalize_builtin_models)
   # archive linked into the consumer — which already links exactly one Kokkos —
   # there is a single copy of Kokkos and a single finalizer. Only the headers
   # are needed to compile the kernels.
-  set(_kokkos_serial "${EXASIM_DIR}/kokkos/buildserial")
-  add_library(builtinmodelserial STATIC "${EXASIM_BUILTIN_DIR}/libbuiltinmodel.cpp")
-  add_dependencies(builtinmodelserial exasim_builtin_model_codegen)
-  target_include_directories(builtinmodelserial PRIVATE
-    "${EXASIM_BUILTIN_INCDIR}" "${EXASIM_BUILTIN_DIR}" "${_kokkos_serial}/include")
-  set_target_properties(builtinmodelserial PROPERTIES
+  if(EXASIM_CUDA)
+    set(_bm_name builtinmodelcuda)
+    set(_bm_kokkos "${EXASIM_DIR}/kokkos/buildcuda")
+  elseif(EXASIM_HIP)
+    set(_bm_name builtinmodelhip)
+    set(_bm_kokkos "${EXASIM_DIR}/kokkos/buildhip")
+  else()
+    set(_bm_name builtinmodelserial)
+    set(_bm_kokkos "${EXASIM_DIR}/kokkos/buildserial")
+  endif()
+  add_library(${_bm_name} STATIC "${EXASIM_BUILTIN_DIR}/libbuiltinmodel.cpp")
+  add_dependencies(${_bm_name} exasim_builtin_model_codegen)
+  target_include_directories(${_bm_name} PRIVATE
+    "${EXASIM_BUILTIN_INCDIR}" "${EXASIM_BUILTIN_DIR}" "${_bm_kokkos}/include")
+  set_target_properties(${_bm_name} PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY "${EXASIM_DIR}/lib"
     POSITION_INDEPENDENT_CODE ON)
 endfunction()
