@@ -295,24 +295,14 @@ void writeBinaryFiles(PDE& pde, Mesh& mesh, const Master& master, const ParsedSp
     ensure_dir(pde.datainpath);
     ensure_dir(pde.dataoutpath);
     
-    for (const auto& vec : spec.vectors) {
-        const std::string& name = vec.first;
-        int size = vec.second;
-        //std::cout<<name<<" : "<<size<<std::endl;
-        if (name == "uhat") pde.ncu = size;
-        if (name == "v") pde.ncv = size;
-        if (name == "w") pde.ncw = size;
-        if (name == "uq") pde.nc = size;        
+    pde.nd = mesh.dim;
+    pde.ncx = mesh.dim;
+    if (useBuiltInAppMetadata(pde)) {
+        validateBuiltInAppMetadata(pde);
+    } else {
+        applyParsedSpecMetadata(pde, spec);
     }
-
-    for (int i=0; i<spec.functions.size(); i++) {
-        //std::cout<<spec.functions[i].name<<" : "<<spec.functions[i].outputsize<<std::endl;
-        if (spec.functions[i].name == "VisScalars") pde.nsca = spec.functions[i].outputsize;
-        if (spec.functions[i].name == "VisVectors") pde.nvec = spec.functions[i].outputsize/pde.nd;
-        if (spec.functions[i].name == "VisTensors") pde.nten = spec.functions[i].outputsize/(pde.nd*pde.nd);
-        if (spec.functions[i].name == "QoIboundary") pde.nsurf = spec.functions[i].outputsize;
-        if (spec.functions[i].name == "QoIvolume") pde.nvqoi = spec.functions[i].outputsize;
-    }
+    finalizePDEModelSizes(pde);
     
     writepde(pde, make_path(pde.datainpath, "app.bin"));
     writemaster(master, make_path(pde.datainpath, "master.bin"));    

@@ -10,13 +10,13 @@ void HdgFint1(dstype* f, dstype* J1, dstype* J2, dstype* J3, const dstype* x, co
     dstype n1 = n[1*N+i];
     dstype tau0 = tau[0];
     dstype mu0 = mu[0];
-    dstype x0 = n0*mu0;
-    dstype x1 = n1*mu0;
+    dstype x0 = n1*mu0;
+    dstype x1 = n0*mu0;
 
-    f[0 * N + i] = tau0*(-uhat0 + uq0) + x0*uq1 + x1*uq2;
+    f[0 * N + i] = tau0*(-uhat0 + uq0) + x0*uq2 + x1*uq1;
     J1[0 * N + i] = tau0;
-    J1[1 * N + i] = x0;
-    J1[2 * N + i] = x1;
+    J1[1 * N + i] = x1;
+    J1[2 * N + i] = x0;
     J3[0 * N + i] = -tau0;
   });
 }

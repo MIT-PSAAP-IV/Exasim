@@ -12,7 +12,7 @@ struct PdeModel : ModelDefaults<PdeModel> {
     static constexpr int nd     = 2;
     static constexpr int ncu    = 1;
     static constexpr int ncw    = 0;
-    static constexpr int nco    = 1;
+    static constexpr int nco    = 0;
     static constexpr int nparam = 1;
     static constexpr int ntau   = 1;
     static constexpr int Nq = ncu * (1 + nd);
