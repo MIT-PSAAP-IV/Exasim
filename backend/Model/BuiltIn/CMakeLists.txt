@@ -165,10 +165,21 @@ function(exasim_finalize_builtin_models)
     set(_bm_name builtinmodelserial)
     set(_bm_kokkos "${EXASIM_DIR}/kokkos/buildserial")
   endif()
+  # Pull in the matching Kokkos as a usage requirement. For a STATIC library this
+  # applies Kokkos's *compile* flags — include dirs, the GPU arch, and (crucially
+  # for CUDA/HIP) --expt-extended-lambda / relaxed-constexpr for the device
+  # lambdas in the kernels — without archiving Kokkos into the .a (so still no
+  # duplicate Kokkos globals). CMake propagates the Kokkos dependency to the
+  # consumer, which links the very same Kokkos: one copy overall. find_package
+  # here because the parent build only locates Kokkos after this subdirectory.
+  if(NOT TARGET Kokkos::kokkos)
+    find_package(Kokkos REQUIRED PATHS "${_bm_kokkos}" NO_DEFAULT_PATH)
+  endif()
   add_library(${_bm_name} STATIC "${EXASIM_BUILTIN_DIR}/libbuiltinmodel.cpp")
   add_dependencies(${_bm_name} exasim_builtin_model_codegen)
   target_include_directories(${_bm_name} PRIVATE
-    "${EXASIM_BUILTIN_INCDIR}" "${EXASIM_BUILTIN_DIR}" "${_bm_kokkos}/include")
+    "${EXASIM_BUILTIN_INCDIR}" "${EXASIM_BUILTIN_DIR}")
+  target_link_libraries(${_bm_name} PRIVATE Kokkos::kokkos)
   set_target_properties(${_bm_name} PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY "${EXASIM_DIR}/lib"
     POSITION_INDEPENDENT_CODE ON)
