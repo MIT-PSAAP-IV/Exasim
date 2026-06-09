@@ -35,12 +35,12 @@ end
 
 function Ubou(x, uq, v, w, uhat, n, tau, eta, mu, t)
   output_size(ub) = 1;
-  ub[0] = 0.0;
+  ub[0] = x[0];
 end
 
 function FbouHdg(x, uq, v, w, uhat, n, tau, eta, mu, t)
   output_size(fb) = 3;
-  ub = x[0] + x[1];
+  ub = x[0];
   fb[0] = tau[0]*(ub - uhat[0]);
 
   f = Flux(x, uq, v, w, eta, mu, t);

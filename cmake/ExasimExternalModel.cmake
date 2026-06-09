@@ -81,13 +81,16 @@ function(exasim_add_external_builtin_model)
     endforeach()
 
     # Rewrite exasimpath in the pdeapp so text2code finds this Exasim install.
+    # text2code looks for backend/ headers at $exasimpath/backend/...; in an
+    # installed package those live under include/, so point to Exasim_TEXT2CODE_ROOT
+    # ($prefix/include) rather than the prefix itself.
     file(READ "${EXT_PDEMODEL}" _pde)
     string(REGEX REPLACE
       "exasimpath[ \t]*=[ \t]*\"[^\"]*\""
-      "exasimpath = \"${Exasim_ROOT}\""
+      "exasimpath = \"${Exasim_TEXT2CODE_ROOT}\""
       _pde "${_pde}")
     if(NOT _pde MATCHES "exasimpath[ \t]*=")
-      set(_pde "exasimpath = \"${Exasim_ROOT}\";\n${_pde}")
+      set(_pde "exasimpath = \"${Exasim_TEXT2CODE_ROOT}\";\n${_pde}")
     endif()
     set(_pdeapp "${_modeldir}/pdeapp.txt")
     file(WRITE "${_pdeapp}" "${_pde}")
@@ -103,11 +106,18 @@ function(exasim_add_external_builtin_model)
     endif()
 
     set(_stamp "${_modeldir}/.text2code.stamp")
+    # Depend on both the pdeapp and the pdemodel so that physics changes
+    # (e.g. modifying Ubou, Flux, etc.) invalidate the stamp and trigger rerun.
+    set(_pdemodel_path "${_pdeapp_dir}/${_pdemodel_name}")
+    set(_extra_deps)
+    if(EXISTS "${_pdemodel_path}")
+      set(_extra_deps "${_pdemodel_path}")
+    endif()
     add_custom_command(
       OUTPUT  "${_stamp}"
       COMMAND "${Exasim_TEXT2CODE}" "${_pdeapp}" --out-dir "${_modeldir}" --gen-only
       COMMAND "${CMAKE_COMMAND}" -E touch "${_stamp}"
-      DEPENDS "${EXT_PDEMODEL}"
+      DEPENDS "${EXT_PDEMODEL}" ${_extra_deps}
       COMMENT "text2code: generating model ${_id} kernels for target ${_tgt}"
       VERBATIM)
     add_custom_target(_exasim_ext_codegen_${_tgt} DEPENDS "${_stamp}")

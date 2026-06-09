@@ -48,14 +48,19 @@ include("${CMAKE_CURRENT_LIST_DIR}/ExasimTargets.cmake")
 
 # ---- External built-in model support paths ---------------------------------
 # Available after find_package(Exasim); consumed by ExasimExternalModel.cmake.
-#   Exasim_ROOT        — install prefix (for exasimpath rewriting in pdeapp files)
-#   Exasim_BUILTIN_DIR — installed backend/Model/BuiltIn/ (model.hpp/model.cpp templates)
-#   Exasim_CMAKE_DIR   — directory of this file (ExternalModelProvider.cpp.in lives here)
-#   Exasim_TEXT2CODE   — installed text2code binary (may not exist if not built)
-set(Exasim_ROOT        "${PACKAGE_PREFIX_DIR}")
-set(Exasim_BUILTIN_DIR "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_INCLUDEDIR@/backend/Model/BuiltIn")
-set(Exasim_CMAKE_DIR   "${CMAKE_CURRENT_LIST_DIR}")
-set(Exasim_TEXT2CODE   "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_BINDIR@/text2code")
+#   Exasim_ROOT             — install prefix
+#   Exasim_TEXT2CODE_ROOT   — root that text2code expects for backend/ headers;
+#                             text2code looks for $exasimpath/backend/... which
+#                             in an installed package lives under include/, so
+#                             this points to $prefix/include.
+#   Exasim_BUILTIN_DIR      — installed backend/Model/BuiltIn/ (model.hpp/model.cpp)
+#   Exasim_CMAKE_DIR        — directory of this file (ExternalModelProvider.cpp.in)
+#   Exasim_TEXT2CODE        — installed text2code binary (may not exist if not built)
+set(Exasim_ROOT             "${PACKAGE_PREFIX_DIR}")
+set(Exasim_TEXT2CODE_ROOT   "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_INCLUDEDIR@")
+set(Exasim_BUILTIN_DIR      "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_INCLUDEDIR@/backend/Model/BuiltIn")
+set(Exasim_CMAKE_DIR        "${CMAKE_CURRENT_LIST_DIR}")
+set(Exasim_TEXT2CODE        "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_BINDIR@/text2code")
 if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/ExasimExternalModel.cmake")
   include("${CMAKE_CURRENT_LIST_DIR}/ExasimExternalModel.cmake")
 endif()
