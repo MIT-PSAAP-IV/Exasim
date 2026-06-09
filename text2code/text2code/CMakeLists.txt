@@ -18,6 +18,12 @@ set(EXASIM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../" CACHE PATH "Path to Exasim 
 set(EXASIM_SYMENGINE_DIR "" CACHE PATH "Vendored SymEngine install dir (from superbuild)")
 option(EXASIM_SYMENGINE_VENDORED "Resolved SymEngine is the vendored one" OFF)
 
+# Kokkos location + backend, forwarded by the superbuild (it builds Kokkos out of
+# the source tree). Baked into the binary so buildDynamicLibraries() compiles the
+# runtime model .so against the right Kokkos instead of a stale exasimpath/kokkos.
+set(EXASIM_KOKKOS_DIR "" CACHE PATH "Kokkos install dir (from superbuild)")
+set(EXASIM_KOKKOS_BACKEND "serial" CACHE STRING "Active Kokkos backend: serial|cuda|hip")
+
 # Put executables directly under Exasim/build at build time
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${EXASIM_ROOT}/build")
 
@@ -32,6 +38,15 @@ set(METIS_INCLUDE_DIR "${METIS_ROOT}/build/xinclude" CACHE PATH "METIS public in
 set(METIS_LIBRARY_DIR "${METIS_ROOT}/build/libmetis"  CACHE PATH "METIS library dir")
 set(GKLIB_INCLUDE_DIR "${GKLIB_ROOT}/include"         CACHE PATH "GKlib include dir")
 set(GKLIB_LIBRARY_DIR "${GKLIB_ROOT}/lib"             CACHE PATH "GKlib library dir")
+
+# Resolve METIS/GKlib robustly: find them on the system (conda/apt) OR fall back
+# to the vendored build dirs via HINTS — exactly like the main solver build.
+# Without this, text2code silently fails to build when METIS is external (e.g.
+# conda on macOS), and the built-in model regen then falls back to the checked-in
+# kernels instead of regenerating from text2code.
+find_path(T2C_METIS_INCLUDE    metis.h   HINTS "${METIS_INCLUDE_DIR}")
+find_library(T2C_METIS_LIBRARY metis     HINTS "${METIS_LIBRARY_DIR}")
+find_library(T2C_GKLIB_LIBRARY GKlib     HINTS "${GKLIB_LIBRARY_DIR}")  # optional; conda metis bundles it
 
 # ---- BLAS / LAPACK ----
 # Try to find proper BLAS/LAPACK; fall back to -lblas -llapack if not found.
@@ -103,12 +118,16 @@ if(SymEngine_FOUND)
 #define EXASIM_SYMENGINE_FOUND 1
 #define EXASIM_SYMENGINE_INCFLAGS \"${_se_inc}\"
 #define EXASIM_SYMENGINE_LIB \"${_se_lib}\"
+#define EXASIM_KOKKOS_DIR \"${EXASIM_KOKKOS_DIR}\"
+#define EXASIM_KOKKOS_BACKEND \"${EXASIM_KOKKOS_BACKEND}\"
 ")
   message(STATUS "SymEngine                = found (${SYMENGINE_INCLUDE_DIRS})")
 else()
   file(GENERATE OUTPUT "${_se_header}" CONTENT
 "#pragma once
 #define EXASIM_SYMENGINE_FOUND 0
+#define EXASIM_KOKKOS_DIR \"${EXASIM_KOKKOS_DIR}\"
+#define EXASIM_KOKKOS_BACKEND \"${EXASIM_KOKKOS_BACKEND}\"
 ")
   message(STATUS "SymEngine                = not found; text2code uses the vendored path at runtime")
 endif()
@@ -127,30 +146,23 @@ option(TEST_RUN_AFTER_BUILD "Run the codegen tool on MODEL_FILE after build" OFF
 # Only if WITH_METIS=ON and the expected dirs exist
 # ============================================================
 if (WITH_METIS)
-  if (EXISTS "${METIS_INCLUDE_DIR}" AND EXISTS "${METIS_LIBRARY_DIR}"
-      AND EXISTS "${GKLIB_INCLUDE_DIR}" AND EXISTS "${GKLIB_LIBRARY_DIR}")
+  if (T2C_METIS_INCLUDE AND T2C_METIS_LIBRARY)
+
+    # GKlib: link the resolved lib if found; the vendored build also has headers.
+    set(_t2c_metis_libs "${T2C_METIS_LIBRARY}")
+    if (T2C_GKLIB_LIBRARY)
+      list(APPEND _t2c_metis_libs "${T2C_GKLIB_LIBRARY}")
+    endif()
+    set(_t2c_metis_incs "${T2C_METIS_INCLUDE}")
+    if (EXISTS "${GKLIB_INCLUDE_DIR}")
+      list(APPEND _t2c_metis_incs "${GKLIB_INCLUDE_DIR}")
+    endif()
 
     add_executable(text2code text2code.cpp)
     add_o2(text2code)
-
     target_compile_definitions(text2code PRIVATE HAVE_METIS)
-
-    target_include_directories(text2code PRIVATE
-      "${METIS_INCLUDE_DIR}"
-      "${GKLIB_INCLUDE_DIR}"
-    )
-
-    # Prefer modern per-target link directories
-    target_link_directories(text2code PRIVATE
-      "${METIS_LIBRARY_DIR}"
-      "${GKLIB_LIBRARY_DIR}"
-    )
-
-    # Link order: your command links metis, GKlib, then BLAS/LAPACK
-    target_link_libraries(text2code PRIVATE
-      metis
-      GKlib
-    )
+    target_include_directories(text2code PRIVATE ${_t2c_metis_incs})
+    target_link_libraries(text2code PRIVATE ${_t2c_metis_libs})
     link_blas_lapack(text2code)
 
     # Auto-run after the executable links (opt-in dev smoke-test only)
@@ -167,29 +179,17 @@ if (WITH_METIS)
     add_executable(t2cusecmake text2code.cpp)
     add_o2(t2cusecmake)
     target_compile_definitions(t2cusecmake PRIVATE HAVE_METIS USE_CMAKE)
-
-    target_include_directories(t2cusecmake PRIVATE
-      "${METIS_INCLUDE_DIR}"
-      "${GKLIB_INCLUDE_DIR}"
-    )
-    target_link_directories(t2cusecmake PRIVATE
-      "${METIS_LIBRARY_DIR}"
-      "${GKLIB_LIBRARY_DIR}"
-    )
-    target_link_libraries(t2cusecmake PRIVATE
-      metis
-      GKlib
-    )
+    target_include_directories(t2cusecmake PRIVATE ${_t2c_metis_incs})
+    target_link_libraries(t2cusecmake PRIVATE ${_t2c_metis_libs})
     link_blas_lapack(t2cusecmake)
 
   else()
-    message(WARNING
-      "WITH_METIS=ON but one or more METIS/GKlib dirs do not exist:\n"
-      "  METIS_INCLUDE_DIR='${METIS_INCLUDE_DIR}'\n"
-      "  METIS_LIBRARY_DIR='${METIS_LIBRARY_DIR}'\n"
-      "  GKLIB_INCLUDE_DIR='${GKLIB_INCLUDE_DIR}'\n"
-      "  GKLIB_LIBRARY_DIR='${GKLIB_LIBRARY_DIR}'\n"
-      "Skipping 'text2code' target.")
+    message(FATAL_ERROR
+      "WITH_METIS=ON but METIS was not found (system or vendored):\n"
+      "  metis.h        -> '${T2C_METIS_INCLUDE}'\n"
+      "  libmetis       -> '${T2C_METIS_LIBRARY}'\n"
+      "Install libmetis-dev / conda metis, or build the vendored deps/metis. "
+      "Without text2code the built-in models cannot be regenerated.")
   endif()
 else()
   # ============================================================
