@@ -31,7 +31,12 @@ echo "[run-tests] build $BUILD"
 # 1. Configure + build the superbuild with the ctest suite enabled. The
 #    find-or-build steps reuse any already-built vendored deps, so a warm tree
 #    only rebuilds what changed.
-cmake -S "$ROOT" -B "$BUILD" -DEXASIM_BUILD_TESTS=ON ${CMAKE_ARGS:-}
+# The superbuild's solver layer runs an install step; default it to a writable,
+# build-local prefix so it never needs /usr/local (overridable via CMAKE_ARGS or
+# a pre-seeded cache). The out-of-tree consumer test installs to its own temp
+# prefix independently.
+cmake -S "$ROOT" -B "$BUILD" -DEXASIM_BUILD_TESTS=ON \
+      -DCMAKE_INSTALL_PREFIX="$BUILD/install" ${CMAKE_ARGS:-}
 # Bound parallelism to the core count (override with JOBS=) — a bare `-j` is
 # unlimited under Make and can OOM small CI runners on the big template TUs.
 cmake --build "$BUILD" -j"${JOBS:-$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)}"
