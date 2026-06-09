@@ -16,38 +16,45 @@ NPROCS := $(strip $(shell \
 # the visible GPU (only works when a GPU is present at configure time).
 KOKKOS_CUDA_ARCH ?= VOLTA70
 
+# Output (build == install) directory per backend. Defaults build in-source next
+# to this Makefile; the Exasim superbuild overrides them to its build tree so the
+# checkout stays clean, e.g. `make serial SERIAL_DIR=/path/to/build/kokkos`.
+SERIAL_DIR ?= buildserial
+CUDA_DIR   ?= buildcuda
+HIP_DIR    ?= buildhip
+
 all: serial cuda hip
 
 serial:
-	mkdir -p buildserial
-	cmake -S . -B buildserial \
+	mkdir -p $(SERIAL_DIR)
+	cmake -S . -B $(SERIAL_DIR) \
 	  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-	  -DCMAKE_INSTALL_PREFIX=buildserial
-	cmake --build buildserial -j$(NPROCS)
-	cmake --install buildserial
+	  -DCMAKE_INSTALL_PREFIX=$(SERIAL_DIR)
+	cmake --build $(SERIAL_DIR) -j$(NPROCS)
+	cmake --install $(SERIAL_DIR)
 
 cuda:
-	mkdir -p buildcuda
-	cmake -S . -B buildcuda \
+	mkdir -p $(CUDA_DIR)
+	cmake -S . -B $(CUDA_DIR) \
 	  -DCMAKE_CXX_COMPILER=$(CURDIR)/bin/nvcc_wrapper \
 	  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
 	  -DKokkos_ENABLE_CUDA=ON \
 	  -DKokkos_ENABLE_CUDA_LAMBDA=ON \
 	  $(if $(KOKKOS_CUDA_ARCH),-DKokkos_ARCH_$(KOKKOS_CUDA_ARCH)=ON,) \
-	  -DCMAKE_INSTALL_PREFIX=buildcuda
-	cmake --build buildcuda -j$(NPROCS)
-	cmake --install buildcuda
+	  -DCMAKE_INSTALL_PREFIX=$(CUDA_DIR)
+	cmake --build $(CUDA_DIR) -j$(NPROCS)
+	cmake --install $(CUDA_DIR)
 
 hip:
-	mkdir -p buildhip
-	cmake -S . -B buildhip \
+	mkdir -p $(HIP_DIR)
+	cmake -S . -B $(HIP_DIR) \
 	  -DCMAKE_CXX_COMPILER=hipcc \
 	  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
 	  -DKokkos_ENABLE_HIP=ON \
 	  -DKokkos_ENABLE_ROCM=ON \
-	  -DCMAKE_INSTALL_PREFIX=buildhip
-	cmake --build buildhip -j$(NPROCS)
-	cmake --install buildhip
+	  -DCMAKE_INSTALL_PREFIX=$(HIP_DIR)
+	cmake --build $(HIP_DIR) -j$(NPROCS)
+	cmake --install $(HIP_DIR)
 
 clean:
 	rm -rf buildserial buildcuda buildhip

@@ -172,8 +172,15 @@ function(exasim_finalize_builtin_models)
   # duplicate Kokkos globals). CMake propagates the Kokkos dependency to the
   # consumer, which links the very same Kokkos: one copy overall. find_package
   # here because the parent build only locates Kokkos after this subdirectory.
+  # Prefer the Kokkos_DIR the superbuild forwards (it builds Kokkos out of the
+  # source tree); fall back to the in-source vendored location for a standalone
+  # `cmake -S install` build.
   if(NOT TARGET Kokkos::kokkos)
-    find_package(Kokkos REQUIRED PATHS "${_bm_kokkos}" NO_DEFAULT_PATH)
+    if(Kokkos_DIR)
+      find_package(Kokkos REQUIRED)
+    else()
+      find_package(Kokkos REQUIRED PATHS "${_bm_kokkos}" NO_DEFAULT_PATH)
+    endif()
   endif()
   add_library(${_bm_name} STATIC "${EXASIM_BUILTIN_DIR}/libbuiltinmodel.cpp")
   add_dependencies(${_bm_name} exasim_builtin_model_codegen)

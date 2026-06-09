@@ -12,6 +12,12 @@ option(WITH_METIS "Build text2code with METIS/GKlib" ON)
 # Default guesses two levels up from this CMakeLists.txt; override if needed.
 set(EXASIM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../" CACHE PATH "Path to Exasim root")
 
+# Where the superbuild installed the vendored SymEngine (out of the source tree),
+# and whether the resolved SymEngine is that vendored one. Both forwarded by the
+# superbuild; empty/OFF for a standalone build (falls back to the in-source dep).
+set(EXASIM_SYMENGINE_DIR "" CACHE PATH "Vendored SymEngine install dir (from superbuild)")
+option(EXASIM_SYMENGINE_VENDORED "Resolved SymEngine is the vendored one" OFF)
+
 # Put executables directly under Exasim/build at build time
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${EXASIM_ROOT}/build")
 
@@ -67,7 +73,8 @@ endfunction()
 # text2code/symengine. The resolved include/lib flags are baked into the binary
 # (symengine_config.h) so CodeCompiler uses them instead of a hardcoded path.
 find_package(SymEngine CONFIG QUIET
-  HINTS "${EXASIM_ROOT}/deps/symengine/lib/cmake/symengine"
+  HINTS "${EXASIM_SYMENGINE_DIR}/lib/cmake/symengine" "${EXASIM_SYMENGINE_DIR}"
+        "${EXASIM_ROOT}/deps/symengine/lib/cmake/symengine"
         "${EXASIM_ROOT}/deps/symengine")
 set(_se_header "${CMAKE_CURRENT_BINARY_DIR}/symengine_config.h")
 if(SymEngine_FOUND)
@@ -75,20 +82,15 @@ if(SymEngine_FOUND)
   foreach(_d ${SYMENGINE_INCLUDE_DIRS})
     string(APPEND _se_inc "-I${_d} ")
   endforeach()
-  # Only when the *vendored* SymEngine is the one resolved: it is built with
-  # INTEGER_CLASS=boostmp against a bundled boost (deps/symengine/boost)
-  # that its installed SymEngineConfig does not expose, so generated Code2Cpp.cpp
-  # cannot resolve <boost/multiprecision/...> without it. An external/system
-  # SymEngine (apt libsymengine-dev, conda, brew) resolves boost from system
-  # include dirs; adding the vendored boost there could shadow it with a
-  # different version, so restrict this to the vendored case.
-  set(_se_vendored FALSE)
-  foreach(_d ${SYMENGINE_INCLUDE_DIRS})
-    if(_d MATCHES "^${EXASIM_ROOT}/deps/symengine")
-      set(_se_vendored TRUE)
-    endif()
-  endforeach()
-  if(_se_vendored AND EXISTS "${EXASIM_ROOT}/deps/symengine/boost")
+  # The vendored SymEngine is built with INTEGER_CLASS=boostmp against a bundled
+  # boost that lives in the SOURCE tree (deps/symengine/boost) — even though the
+  # library now installs out-of-tree — and its installed config does not expose
+  # that boost. When the resolved SymEngine is the vendored one (flagged by the
+  # superbuild), add the source boost dir so Code2Cpp.cpp resolves
+  # <boost/multiprecision/...>. An external/system SymEngine (apt, conda, brew)
+  # resolves boost from system dirs; adding the vendored boost there could shadow
+  # it with a different version, so this is gated on EXASIM_SYMENGINE_VENDORED.
+  if(EXASIM_SYMENGINE_VENDORED AND EXISTS "${EXASIM_ROOT}/deps/symengine/boost")
     string(APPEND _se_inc "-I${EXASIM_ROOT}/deps/symengine ")
   endif()
   if(TARGET symengine)

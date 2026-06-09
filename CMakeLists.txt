@@ -64,38 +64,50 @@ set(_envcxx ${CMAKE_COMMAND} -E env "CXX=${CMAKE_CXX_COMPILER}")
 
 set(_exasim_deps "")   # ExternalProject targets Exasim must wait for
 
+# Vendored deps build OUT of the source tree, into the build directory, so a
+# checkout stays clean. Their source stays under deps/; only the build/install
+# artifacts go here. (The deps' own Makefiles otherwise build in place.)
+set(_dep_build "${CMAKE_BINARY_DIR}/deps")
+
 # ----------------------------------------------------------------------------
 # Kokkos: installed -> already-built vendored -> build vendored.
 # The vendored backend (serial/cuda/hip) is chosen from the requested EXASIM
-# backend so the inner Exasim build (which picks deps/kokkos/build{serial,cuda,hip}
-# by the same flags) finds a matching Kokkos. CUDA/HIP use nvcc_wrapper/hipcc.
+# backend. Its location is forwarded to the solver build as -DKokkos_DIR.
+# CUDA/HIP use nvcc_wrapper/hipcc (set inside Makefile.builds).
 # ----------------------------------------------------------------------------
 if(EXASIM_CUDA)
   set(_kk_target cuda)
-  set(_kk_dir    "${EXASIM_ROOT}/deps/kokkos/buildcuda")
+  set(_kk_var    CUDA_DIR)
+  set(_kk_dir    "${_dep_build}/kokkos/buildcuda")
 elseif(EXASIM_HIP)
   set(_kk_target hip)
-  set(_kk_dir    "${EXASIM_ROOT}/deps/kokkos/buildhip")
+  set(_kk_var    HIP_DIR)
+  set(_kk_dir    "${_dep_build}/kokkos/buildhip")
 else()
   set(_kk_target serial)
-  set(_kk_dir    "${EXASIM_ROOT}/deps/kokkos/buildserial")
+  set(_kk_var    SERIAL_DIR)
+  set(_kk_dir    "${_dep_build}/kokkos/buildserial")
 endif()
 
+set(_kokkos_for_exasim "")   # -DKokkos_DIR forwarded to the solver build
 find_package(Kokkos QUIET)
 if(Kokkos_FOUND)
   message(STATUS "Kokkos: using installed (${Kokkos_DIR})")
+  set(_kokkos_for_exasim "${Kokkos_DIR}")
 elseif(EXISTS "${_kk_dir}/KokkosConfig.cmake")
   message(STATUS "Kokkos: using vendored ${_kk_dir} (already built)")
+  set(_kokkos_for_exasim "${_kk_dir}")
 else()
-  message(STATUS "Kokkos: building vendored ${_kk_target}")
+  message(STATUS "Kokkos: building vendored ${_kk_target} -> ${_kk_dir}")
   ExternalProject_Add(kokkos_vendored
     SOURCE_DIR        "${EXASIM_ROOT}/deps/kokkos"
     DOWNLOAD_COMMAND  ""
     CONFIGURE_COMMAND ""
     BUILD_IN_SOURCE   TRUE
-    BUILD_COMMAND     ${_envcxx} make -f Makefile.builds ${_kk_target}
+    BUILD_COMMAND     ${_envcxx} make -f Makefile.builds ${_kk_target} ${_kk_var}=${_kk_dir}
     INSTALL_COMMAND   "")
   list(APPEND _exasim_deps kokkos_vendored)
+  set(_kokkos_for_exasim "${_kk_dir}")
 endif()
 
 # ----------------------------------------------------------------------------
@@ -124,24 +136,31 @@ endif()
 # ----------------------------------------------------------------------------
 # SymEngine (text2code only): installed -> already-built vendored -> build vendored
 # ----------------------------------------------------------------------------
+set(_se_install "${_dep_build}/symengine")
 set(_symengine_dep "")
+set(_symengine_for_t2c "")     # -DEXASIM_SYMENGINE_DIR forwarded to text2code
+set(_symengine_vendored OFF)
 find_package(SymEngine CONFIG QUIET)
 if(SymEngine_FOUND)
   message(STATUS "SymEngine: using installed")
-elseif(EXISTS "${EXASIM_ROOT}/deps/symengine/lib/cmake/symengine/SymEngineConfig.cmake")
-  message(STATUS "SymEngine: using vendored deps/symengine (already built)")
+elseif(EXISTS "${_se_install}/lib/cmake/symengine/SymEngineConfig.cmake")
+  message(STATUS "SymEngine: using vendored ${_se_install} (already built)")
+  set(_symengine_for_t2c "${_se_install}")
+  set(_symengine_vendored ON)
 else()
-  message(STATUS "SymEngine: building vendored")
+  message(STATUS "SymEngine: building vendored -> ${_se_install}")
   ExternalProject_Add(symengine_vendored
     SOURCE_DIR  "${EXASIM_ROOT}/deps/symengine"
-    BINARY_DIR  "${EXASIM_ROOT}/deps/symengine/build"
+    BINARY_DIR  "${_dep_build}/symengine-build"
     DOWNLOAD_COMMAND ""
     CMAKE_ARGS  ${_fwd}
-      -DCMAKE_INSTALL_PREFIX=${EXASIM_ROOT}/deps/symengine
+      -DCMAKE_INSTALL_PREFIX=${_se_install}
       -DBUILD_SHARED_LIBS=OFF -DWITH_GMP=OFF -DWITH_MPFR=OFF -DWITH_LLVM=OFF
       -DWITH_SYMENGINE_THREAD_SAFE=ON -DINTEGER_CLASS=boostmp
       "-DCMAKE_CXX_FLAGS=-std=gnu++17 -fPIC")
   set(_symengine_dep symengine_vendored)
+  set(_symengine_for_t2c "${_se_install}")
+  set(_symengine_vendored ON)
 endif()
 
 # ----------------------------------------------------------------------------
@@ -152,6 +171,8 @@ ExternalProject_Add(text2code_build
   SOURCE_DIR  "${EXASIM_ROOT}/text2code/text2code"
   DOWNLOAD_COMMAND ""
   CMAKE_ARGS  ${_fwd} -DWITH_METIS=${WITH_PARMETIS} -DEXASIM_ROOT=${EXASIM_ROOT}
+    -DEXASIM_SYMENGINE_DIR=${_symengine_for_t2c}
+    -DEXASIM_SYMENGINE_VENDORED=${_symengine_vendored}
   INSTALL_COMMAND ""
   DEPENDS ${_symengine_dep} ${_exasim_deps})
 list(APPEND _exasim_deps text2code_build)
@@ -179,6 +200,7 @@ ExternalProject_Add(exasim_build
   SOURCE_DIR  "${EXASIM_ROOT}/install"
   DOWNLOAD_COMMAND ""
   CMAKE_ARGS  ${_exasim_fwd}
+    -DKokkos_DIR=${_kokkos_for_exasim}
     -DEXASIM_MPI=${EXASIM_MPI} -DEXASIM_NOMPI=${EXASIM_NOMPI}
     -DEXASIM_CUDA=${EXASIM_CUDA} -DEXASIM_HIP=${EXASIM_HIP}
     -DEXASIM_LIB=${EXASIM_LIB} -DWITH_PARMETIS=${WITH_PARMETIS}
