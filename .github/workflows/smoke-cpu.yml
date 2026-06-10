@@ -14,7 +14,7 @@ name: smoke (CPU)
 
 on:
   push:
-    branches: [teoc-Kitesurf-Coupling-build-and-test]
+    branches: [teoc-Kitesurf-Coupling-build-and-test, teoc-other-frontends-and-misc-cleanup]
   pull_request:
     branches: [Kitesurf-Coupling, teoc-Kitesurf-Coupling-build-and-test]
   workflow_dispatch:
@@ -46,6 +46,8 @@ jobs:
     # ctest registered tests:
     #   consumer_builtin_cpu   — CPU-only variant (NP=1, EXASIM_MPI=OFF)
     #   consumer_builtin_mpi   — CPU+MPI variant (NP=2, EXASIM_MPI=ON)
+    #   frontend_python        — Poisson 2D via the installed exasim package
+    #   frontend_julia/matlab  — registered but SKIP here (no julia/matlab)
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -74,6 +76,9 @@ jobs:
         with:
           path: build/deps/symengine
           key: symengine-${{ runner.os }}-${{ hashFiles('deps/symengine/CMakeLists.txt') }}
+
+      - name: Python frontend dependencies
+        run: python3 -m pip install --user numpy scipy sympy
 
       - name: Build + test (one command)
         run: JOBS=2 bash tests/run-tests.sh
