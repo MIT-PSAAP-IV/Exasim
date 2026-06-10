@@ -1,0 +1,35 @@
+cmake_minimum_required(VERSION 3.16)
+project(exasim_frontend_app C CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Rendered by the Exasim language frontend (cmakecompile) — do not edit.
+set(EXASIM_VARIANT "@EXASIM_VARIANT@")  # cpu | cpumpi | gpu | gpumpi
+
+find_package(Exasim REQUIRED COMPONENTS ${EXASIM_VARIANT})
+find_package(Kokkos REQUIRED)
+
+# The frontend gencode step writes the kernel .cpp set into KERNELS; the
+# provider library intercepts model ID @MODEL_ID@ and falls through to the
+# installed built-in dispatchers for all other IDs.
+exasim_add_external_builtin_model(TARGET frontend_model
+  ID @MODEL_ID@
+  KERNELS "@KERNEL_DIR@")
+
+add_executable(exasimapp main.cpp)
+target_compile_definitions(exasimapp PRIVATE _BUILTINLIBRARY)
+target_link_libraries(exasimapp PRIVATE
+    Exasim::headers
+    Exasim::${EXASIM_VARIANT}lib
+    frontend_model
+    Kokkos::kokkos)
+
+if(EXASIM_VARIANT MATCHES "mpi")
+  find_package(MPI REQUIRED)
+  target_compile_definitions(exasimapp PRIVATE _MPI)
+  target_link_libraries(exasimapp PRIVATE MPI::MPI_CXX)
+endif()
+
+message(STATUS
+  "Exasim frontend app: ${CMAKE_CURRENT_BINARY_DIR}/exasimapp "
+  "(model ID @MODEL_ID@, variant ${EXASIM_VARIANT})")

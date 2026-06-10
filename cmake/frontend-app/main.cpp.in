@@ -1,0 +1,18 @@
+// Rendered by the Exasim language frontend (cmakecompile) — do not edit.
+// Runs the frontend-generated model as external builtin model ID @MODEL_ID@,
+// using the legacy CLI: exasimapp <nummodels> <datain>/ <dataout>/out
+// Do NOT include <exasim/builtinlibprovider.hpp>: the frontend_model library
+// provides getBuiltInLibraryExasimDriverABI() for ID @MODEL_ID@ and falls
+// through to the installed built-in dispatchers for all other IDs.
+#include <exasim/ExasimSolverSetup.hpp>
+
+int main(int argc, char** argv)
+{
+#ifdef HAVE_MPI
+    MPI_Comm comm = MPI_COMM_WORLD;
+#else
+    MPI_Comm comm = MPI_COMM_NULL;
+#endif
+    ExasimSolver solver;
+    return RunExasimSolver(solver, argc, argv, comm, {@MODEL_ID@});
+}

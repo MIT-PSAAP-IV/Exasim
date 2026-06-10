@@ -708,6 +708,47 @@ if(EXISTS "${EXASIM_DIR}/build/text2code")
     DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 
+# ---- Language frontends (Python / Julia / MATLAB) ---------------------------
+# The frontends are installed as proper packages; their cmakecompile step
+# renders the frontend-app templates below into a hidden per-app build dir and
+# builds against this install via find_package(Exasim).
+option(EXASIM_FRONTENDS "Install the Python/Julia/MATLAB frontends" ON)
+
+if(EXASIM_FRONTENDS)
+  # App project templates, rendered by each frontend's cmakecompile step.
+  install(DIRECTORY ${EXASIM_DIR}/cmake/frontend-app
+    DESTINATION ${EXASIM_CMAKE_INSTALL_DIR})
+
+  # Python: install the exasim package into the prefix's site-packages. When
+  # CMAKE_INSTALL_PREFIX is a conda env or venv, `import exasim` then works
+  # without any path setup; otherwise add the directory to PYTHONPATH.
+  find_package(Python3 COMPONENTS Interpreter QUIET)
+  if(Python3_FOUND AND EXISTS ${EXASIM_DIR}/frontends/Python/exasim)
+    set(EXASIM_PYTHON_SITEDIR
+      lib/python${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}/site-packages
+      CACHE STRING "Install dir for the exasim Python package (relative to the prefix)")
+    install(DIRECTORY ${EXASIM_DIR}/frontends/Python/exasim
+      DESTINATION ${EXASIM_PYTHON_SITEDIR}
+      PATTERN "__pycache__" EXCLUDE)
+    install(CODE "message(STATUS \"exasim Python package: add \${CMAKE_INSTALL_PREFIX}/${EXASIM_PYTHON_SITEDIR} to PYTHONPATH unless the prefix is your active conda env/venv\")")
+  endif()
+
+  # Julia: Exasim.jl package; use it via
+  #   push!(LOAD_PATH, "<prefix>/share/exasim/julia") ; using Exasim
+  # or Pkg.develop(path="<prefix>/share/exasim/julia/Exasim").
+  if(EXISTS ${EXASIM_DIR}/frontends/Julia/Exasim)
+    install(DIRECTORY ${EXASIM_DIR}/frontends/Julia/Exasim
+      DESTINATION share/exasim/julia)
+  endif()
+
+  # MATLAB: function tree plus the exasim_setup.m addpath entry point;
+  #   run("<prefix>/share/exasim/matlab/exasim_setup.m") in MATLAB.
+  if(EXISTS ${EXASIM_DIR}/frontends/Matlab)
+    install(DIRECTORY ${EXASIM_DIR}/frontends/Matlab/
+      DESTINATION share/exasim/matlab)
+  endif()
+endif()
+
 export(EXPORT ExasimTargets
   NAMESPACE Exasim::
   FILE ${CMAKE_CURRENT_BINARY_DIR}/ExasimTargets.cmake)

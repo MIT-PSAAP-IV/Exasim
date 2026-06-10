@@ -28,13 +28,26 @@
 # functions in namespace exasim_model_<ID>. dstype is already defined by the
 # time the provider TU is compiled (via driver_abi.hpp -> Kokkos_Core.hpp).
 #
-# In both cases, the resulting target provides getBuiltInLibraryExasimDriverABI()
+# Usage (KERNELS / pre-generated path, used by the language frontends):
+#
+#   exasim_add_external_builtin_model(TARGET my_model_100
+#     ID 100
+#     KERNELS ${CMAKE_CURRENT_SOURCE_DIR}/kernels)
+#
+# KERNELS names a directory that already contains the full kernel .cpp set
+# (KokkosFlux.cpp, ..., HdgFextonly.cpp) as produced by the Python/Julia/MATLAB
+# gencode step. model.{hpp,cpp} are instantiated from the installed templates
+# exactly as in the PDEMODEL path, and the kernel directory is put on the
+# include path so model.cpp's quoted includes resolve there. Compiler depfiles
+# track the kernel files, so regenerating them triggers a rebuild.
+#
+# In all cases, the resulting target provides getBuiltInLibraryExasimDriverABI()
 # and links to the installed Exasim::builtinmodel{serial,cuda,hip} for fallthrough
 # to all other model IDs. Do NOT also link Exasim::builtinmodel in the consumer;
 # it will be pulled in transitively through this target.
 
 function(exasim_add_external_builtin_model)
-  cmake_parse_arguments(EXT "" "TARGET;ID" "PDEMODEL;SOURCES" ${ARGN})
+  cmake_parse_arguments(EXT "" "TARGET;ID;KERNELS" "PDEMODEL;SOURCES" ${ARGN})
 
   if(NOT EXT_TARGET)
     message(FATAL_ERROR "exasim_add_external_builtin_model: TARGET is required")
@@ -42,9 +55,9 @@ function(exasim_add_external_builtin_model)
   if(NOT EXT_ID)
     message(FATAL_ERROR "exasim_add_external_builtin_model: ID is required")
   endif()
-  if(NOT EXT_PDEMODEL AND NOT EXT_SOURCES)
+  if(NOT EXT_PDEMODEL AND NOT EXT_SOURCES AND NOT EXT_KERNELS)
     message(FATAL_ERROR
-      "exasim_add_external_builtin_model: one of PDEMODEL or SOURCES is required")
+      "exasim_add_external_builtin_model: one of PDEMODEL, SOURCES, or KERNELS is required")
   endif()
 
   set(_id     "${EXT_ID}")
@@ -122,6 +135,26 @@ function(exasim_add_external_builtin_model)
       VERBATIM)
     add_custom_target(_exasim_ext_codegen_${_tgt} DEPENDS "${_stamp}")
 
+  elseif(EXT_KERNELS)
+    # ---- pre-generated kernels (KERNELS) path ------------------------------
+    # The caller (a language frontend's gencode step) has already produced the
+    # full kernel .cpp set in ${EXT_KERNELS}. Instantiate model.{hpp,cpp} from
+    # the installed templates; their quoted kernel includes resolve through the
+    # kernel directory added to the target's include path below.
+    if(NOT IS_DIRECTORY "${EXT_KERNELS}")
+      message(FATAL_ERROR
+        "exasim_add_external_builtin_model(${_tgt}): KERNELS directory not found:\n"
+        "  ${EXT_KERNELS}")
+    endif()
+    foreach(_tmpl model.hpp model.cpp)
+      file(READ "${Exasim_BUILTIN_DIR}/${_tmpl}" _txt)
+      string(REPLACE "exasim_model_1" "exasim_model_${_id}" _txt "${_txt}")
+      string(REPLACE "\"../dstype.hpp\""
+                     "\"${Exasim_BUILTIN_DIR}/dstype.hpp\"" _txt "${_txt}")
+      file(WRITE "${_modeldir}/${_tmpl}" "${_txt}")
+    endforeach()
+    add_custom_target(_exasim_ext_codegen_${_tgt})
+
   else()
     # ---- hand-written (SOURCES) path --------------------------------------
     # Copy user-provided sources into model<ID>/ so the relative includes
@@ -158,6 +191,10 @@ function(exasim_add_external_builtin_model)
   add_dependencies(${_tgt} _exasim_ext_codegen_${_tgt})
   # gendir is the #include root: ExternalModelProvider.cpp uses "model<ID>/model.hpp"
   target_include_directories(${_tgt} PRIVATE "${_gendir}")
+  if(EXT_KERNELS)
+    # model.cpp's quoted kernel includes fall back to this search path.
+    target_include_directories(${_tgt} PRIVATE "${EXT_KERNELS}")
+  endif()
   target_link_libraries(${_tgt} PRIVATE "${_bm_lib}" Kokkos::kokkos)
   target_link_libraries(${_tgt} PUBLIC  Exasim::headers)
   set_target_properties(${_tgt} PROPERTIES POSITION_INDEPENDENT_CODE ON)
