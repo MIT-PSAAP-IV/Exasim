@@ -1,0 +1,63 @@
+name: warm dep caches
+
+# Keeps the vendored Kokkos (serial) and SymEngine caches alive so smoke-cpu
+# runs never pay the ~15-20 min cold dependency build.
+#
+# GitHub evicts caches not accessed for 7 days; this job restores (and on a
+# miss, rebuilds) them twice a week. IMPORTANT scoping rules:
+#   - scheduled workflows only run from the repo's DEFAULT branch (master),
+#     so the schedule activates once this file lands there; until then, run
+#     it manually via workflow_dispatch on any branch that has it.
+#   - caches created on the default branch are restorable from EVERY branch
+#     and PR; caches created on a feature branch are visible only to that
+#     branch (and PRs based on it). The scheduled master run therefore warms
+#     the whole repo.
+#
+# Cache keys MUST stay in sync with .github/workflows/smoke-cpu.yml.
+
+on:
+  schedule:
+    - cron: '17 5 * * 1,4'   # Mon+Thu 05:17 UTC — inside the 7-day eviction window
+  workflow_dispatch:
+
+jobs:
+  warm:
+    runs-on: ubuntu-22.04
+    env:
+      BUILD_DIR: ${{ github.workspace }}/../Exasim-build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache vendored Kokkos (serial)
+        id: kokkos
+        uses: actions/cache@v4
+        with:
+          path: ../Exasim-build/deps/kokkos/buildserial
+          key: kokkos-serial-oot-${{ runner.os }}-${{ hashFiles('deps/kokkos/Makefile.builds', 'deps/kokkos/CMakeLists.txt') }}
+
+      - name: Cache vendored SymEngine
+        id: symengine
+        uses: actions/cache@v4
+        with:
+          path: ../Exasim-build/deps/symengine
+          key: symengine-oot-${{ runner.os }}-${{ hashFiles('deps/symengine/CMakeLists.txt') }}
+
+      # Restoring is enough to refresh the eviction clock on a hit; only a
+      # miss (new key after a dep bump, or eviction) rebuilds.
+      - name: Build tools (only on cache miss)
+        if: steps.kokkos.outputs.cache-hit != 'true' || steps.symengine.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential cmake git
+
+      - name: Configure superbuild (deps only)
+        if: steps.kokkos.outputs.cache-hit != 'true' || steps.symengine.outputs.cache-hit != 'true'
+        run: cmake -S . -B "$BUILD_DIR" -DWITH_PARMETIS=OFF
+
+      - name: Build vendored Kokkos
+        if: steps.kokkos.outputs.cache-hit != 'true'
+        run: cmake --build "$BUILD_DIR" --target kokkos_vendored --parallel 2
+
+      - name: Build vendored SymEngine
+        if: steps.symengine.outputs.cache-hit != 'true'
+        run: cmake --build "$BUILD_DIR" --target symengine_vendored --parallel 2

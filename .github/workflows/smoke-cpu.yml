@@ -67,7 +67,8 @@ jobs:
 
       # The two from-source deps are built once and cached. They build OUT of the
       # source tree, into the build dir (../Exasim-build/deps/...), so cache those
-      # paths and the superbuild detects them on a hit.
+      # paths and the superbuild detects them on a hit. cache-warm.yml keeps these
+      # caches alive on a schedule (keys must stay in sync with it).
       - name: Cache vendored Kokkos (serial)
         uses: actions/cache@v4
         with:
