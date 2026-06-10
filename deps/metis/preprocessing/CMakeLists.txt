@@ -5,6 +5,8 @@ project(preprocess_builder
   LANGUAGES CXX
 )
 
+include(GNUInstallDirs)
+
 # ---- General configuration ---------------------------------------------------
 
 # Default to Release if nothing is specified
@@ -41,8 +43,6 @@ set(GKLIB_ROOT    "${EXASIM_ROOT}/metis/GKlib"
 # Derived include/lib dirs (override if needed)
 set(PARMETIS_INCLUDE_DIR "${PARMETIS_ROOT}/include"
     CACHE PATH "PARMETIS include dir")
-set(PARMETIS_LIBRARY_DIR "${PARMETIS_ROOT}/lib"
-    CACHE PATH "PARMETIS library dir")
 
 # Your METIS layout: public headers under build/xinclude, library under build/libmetis
 set(METIS_INCLUDE_DIR "${METIS_ROOT}/build/xinclude"
@@ -52,8 +52,20 @@ set(METIS_LIBRARY_DIR "${METIS_ROOT}/build/libmetis"
 
 set(GKLIB_INCLUDE_DIR "${GKLIB_ROOT}/include"
     CACHE PATH "GKlib include dir")
-set(GKLIB_LIBRARY_DIR "${GKLIB_ROOT}/lib"
-    CACHE PATH "GKlib library dir")
+
+# Resolve concrete libraries instead of relying on link directory guessing.
+find_library(PARMETIS_LIBRARY NAMES parmetis
+  HINTS "${PARMETIS_ROOT}" PATH_SUFFIXES "${CMAKE_INSTALL_LIBDIR}" REQUIRED)
+
+find_library(METIS_LIBRARY NAMES metis
+  HINTS "${METIS_ROOT}" PATH_SUFFIXES build/libmetis "${CMAKE_INSTALL_LIBDIR}" REQUIRED)
+
+find_library(GKLIB_LIBRARY NAMES GKlib
+  HINTS "${GKLIB_ROOT}" PATH_SUFFIXES "${CMAKE_INSTALL_LIBDIR}")
+
+if (NOT GKLIB_LIBRARY)
+  message(WARNING "GKlib library not found; continuing without explicit GKlib link.")
+endif()
 
 # Model file used as input to the preprocess executable
 set(MODEL_FILE "${CMAKE_CURRENT_SOURCE_DIR}/pdeapp.txt"
@@ -157,26 +169,19 @@ target_compile_definitions(preprocess PRIVATE HAVE_METIS)
 target_include_directories(preprocess PRIVATE
   "${PARMETIS_INCLUDE_DIR}"
   "${METIS_INCLUDE_DIR}"
+  "${METIS_ROOT}/include"
   "${GKLIB_INCLUDE_DIR}"
 )
 
-# Link directories (only if they exist, to avoid noisy warnings)
-if (EXISTS "${PARMETIS_LIBRARY_DIR}")
-  target_link_directories(preprocess PRIVATE "${PARMETIS_LIBRARY_DIR}")
-endif()
-if (EXISTS "${METIS_LIBRARY_DIR}")
-  target_link_directories(preprocess PRIVATE "${METIS_LIBRARY_DIR}")
-endif()
-if (EXISTS "${GKLIB_LIBRARY_DIR}")
-  target_link_directories(preprocess PRIVATE "${GKLIB_LIBRARY_DIR}")
-endif()
-
 # Link order: ParMETIS, METIS, GKlib, then BLAS/LAPACK, MPI
 target_link_libraries(preprocess PRIVATE
-  parmetis
-  metis
-  GKlib
+  ${PARMETIS_LIBRARY}
+  ${METIS_LIBRARY}
 )
+
+if (GKLIB_LIBRARY)
+  target_link_libraries(preprocess PRIVATE ${GKLIB_LIBRARY})
+endif()
 
 link_blas_lapack(preprocess)
 link_mpi(preprocess)
@@ -208,13 +213,14 @@ message(STATUS "METIS_ROOT               = ${METIS_ROOT}")
 message(STATUS "GKLIB_ROOT               = ${GKLIB_ROOT}")
 
 message(STATUS "PARMETIS_INCLUDE_DIR     = ${PARMETIS_INCLUDE_DIR}")
-message(STATUS "PARMETIS_LIBRARY_DIR     = ${PARMETIS_LIBRARY_DIR}")
+message(STATUS "PARMETIS_LIBRARY         = ${PARMETIS_LIBRARY}")
 
 message(STATUS "METIS_INCLUDE_DIR        = ${METIS_INCLUDE_DIR}")
 message(STATUS "METIS_LIBRARY_DIR        = ${METIS_LIBRARY_DIR}")
+message(STATUS "METIS_LIBRARY            = ${METIS_LIBRARY}")
 
 message(STATUS "GKLIB_INCLUDE_DIR        = ${GKLIB_INCLUDE_DIR}")
-message(STATUS "GKLIB_LIBRARY_DIR        = ${GKLIB_LIBRARY_DIR}")
+message(STATUS "GKLIB_LIBRARY            = ${GKLIB_LIBRARY}")
 
 # --- BLAS / LAPACK ---
 message(STATUS "BLAS_FOUND               = ${BLAS_FOUND}")
