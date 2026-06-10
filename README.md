@@ -27,10 +27,10 @@ text2code, the solver libraries, the built-in model library, and the language
 frontends are built and installed:
 
 ```bash
-cd Exasim
-cmake -S . -B build                  # add -DEXASIM_CUDA=ON or -DEXASIM_HIP=ON for GPUs
-cmake --build build -j
-cmake --install build --prefix /path/to/prefix
+# build directories must be OUTSIDE the source tree (the repo stays pristine)
+cmake -S Exasim -B Exasim-build      # add -DEXASIM_CUDA=ON or -DEXASIM_HIP=ON for GPUs
+cmake --build Exasim-build -j
+cmake --install Exasim-build --prefix /path/to/prefix
 ```
 
 Useful configure options: `EXASIM_MPI`/`EXASIM_NOMPI` (both ON by default),
@@ -49,54 +49,74 @@ The install prefix then contains:
 - `share/exasim/julia/Exasim` — the Julia frontend (Exasim.jl)
 - `share/exasim/matlab` — the MATLAB frontend
 
+### The install prefix, in one place
+
+There is exactly one notion of "where Exasim is": the **install prefix** you
+pass to `cmake --install <build> --prefix P`. Everything resolves against it:
+
+- C++ consumers: `find_package(Exasim)` via `-DExasim_DIR=P/lib/cmake/Exasim`
+  or `-DCMAKE_PREFIX_PATH=P`.
+- Frontends: each package locates its own prefix automatically — from its
+  installed location (`P/lib/pythonX.Y/site-packages/exasim`,
+  `P/share/exasim/julia/Exasim`, `P/share/exasim/matlab`), or from the prefix
+  baked in by `EXASIM_PIP_INSTALL`. The environment variable **`EXASIM_PREFIX`**
+  overrides everywhere (Python, Julia, MATLAB, and the test runner).
+- Defaults when you don't choose: the test suite builds into the sibling
+  `<repo>-build` and installs to `<repo>-build/install`; the frontends fall
+  back to that location when imported from a source checkout. The consumer
+  tests additionally make their own scratch installs under `/tmp` to prove
+  install isolation.
+
+The source tree itself is never built into or installed into.
+
 To deploy on **HPC systems**, see [the hpc manual](install/hpc.txt).
 
 ### Feature flags
 
-All configure options, with defaults:
+All configure options, their defaults, and what choosing them means:
 
-| Option | Default | Effect |
-|---|---|---|
-| `EXASIM_MPI` | `ON` | build the MPI solver variants (`cpumpi`, `gpumpi`) |
-| `EXASIM_NOMPI` | `ON` | build the serial solver variants (`cpu`, `gpu`) |
-| `EXASIM_CUDA` | `OFF` | CUDA backend (NVIDIA GPUs) |
-| `EXASIM_HIP` | `OFF` | HIP backend (AMD GPUs) |
-| `EXASIM_LIB` | `ON` | build/install the static solver libraries |
-| `WITH_PARMETIS` | `ON` | METIS/ParMETIS mesh partitioning (system or vendored) |
-| `WITH_TEXT2CODE` | `OFF` | also build the text2code-linked solver executables (`*t2cEXASIM`); the `text2code` binary itself is always built |
-| `WITH_BUILTINMODEL` | `ON` | build the built-in model library (required by consumers and frontends) |
-| `EXASIM_FRONTENDS` | `ON` | install the Python/Julia/MATLAB frontends |
-| `EXASIM_PIP_INSTALL` | `OFF` | at install time, `pip install` the Python package into the configured interpreter (no PYTHONPATH needed afterwards; requires a pip-writable interpreter) |
-| `EXASIM_JULIA_DEVELOP` | `OFF` | at install time, `Pkg.develop` the installed Exasim.jl into the default Julia environment (no LOAD_PATH needed afterwards) |
-| `EXASIM_BUILD_TESTS` | `OFF` | register the ctest regression suite |
+| Option | Default | What it does | Consequences / how you use it |
+|---|---|---|---|
+| `EXASIM_MPI` | `ON` | build the MPI solver variants (`cpumpi`, `gpumpi`) | frontends with `pde.mpiprocs > 1` and `find_package(Exasim COMPONENTS cpumpi)` consumers work; needs an MPI on `PATH` at app-run time |
+| `EXASIM_NOMPI` | `ON` | build the serial solver variants (`cpu`, `gpu`) | frontends with `pde.mpiprocs = 1` and `COMPONENTS cpu` consumers work |
+| `EXASIM_CUDA` | `OFF` | CUDA backend (NVIDIA GPUs) | `pde.platform = "gpu"` in the frontends; `COMPONENTS gpu/gpumpi` consumers |
+| `EXASIM_HIP` | `OFF` | HIP backend (AMD GPUs) | same as CUDA but for AMD; mutually exclusive with `EXASIM_CUDA` |
+| `EXASIM_LIB` | `ON` | build/install the static solver libraries | required for everything `find_package(Exasim)`-based, incl. the frontends |
+| `WITH_PARMETIS` | `ON` | METIS/ParMETIS mesh partitioning (system or vendored) | required for multi-rank runs (mesh partitioning) |
+| `WITH_TEXT2CODE` | `OFF` | also build the text2code-linked solver executables (`*t2cEXASIM`) | only needed for the legacy text2code-exe workflow; the `text2code` **binary** itself always builds and installs to `bin/` |
+| `WITH_BUILTINMODEL` | `ON` | build the built-in model library | required by frontends and consumers: external models fall through to it |
+| `EXASIM_FRONTENDS` | `ON` | install the Python/Julia/MATLAB frontends | `import exasim` (site-packages), `using Exasim` (`share/exasim/julia`), `exasim_setup.m` (`share/exasim/matlab`) — see "Using the frontends" |
+| `EXASIM_PIP_INSTALL` | `OFF` | at install time, `pip install` the Python package into the configured interpreter and bake the prefix in | `import exasim` works with **zero** setup (no PYTHONPATH/EXASIM_PREFIX); needs a pip-writable interpreter |
+| `EXASIM_JULIA_DEVELOP` | `OFF` | at install time, `Pkg.develop` the installed Exasim.jl into the default Julia environment | `using Exasim` works with **zero** setup (no LOAD_PATH) |
+| `EXASIM_BUILD_TESTS` | `OFF` | register the ctest regression suite | enables `ctest`/`tests/run-tests.sh`; see "Testing the install" |
 
 Everything on, including the opt-in conveniences:
 
 ```bash
-cmake -S . -B build \
+cmake -S Exasim -B Exasim-build \
   -DEXASIM_BUILD_TESTS=ON \
   -DEXASIM_PIP_INSTALL=ON -DEXASIM_JULIA_DEVELOP=ON \
   -DWITH_TEXT2CODE=ON
 # add -DEXASIM_CUDA=ON or -DEXASIM_HIP=ON to target GPUs
-cmake --build build -j
-cmake --install build --prefix /path/to/prefix
+cmake --build Exasim-build -j
+cmake --install Exasim-build --prefix /path/to/prefix
 ```
 
 ### Testing the install
 
-The one-command suite (builds if needed, installs to `<build>/install`, runs
-ctest — consumers + frontend tests):
+The one-command suite (builds if needed into the sibling `<repo>-build`,
+installs to `<repo>-build/install`, runs ctest — consumers + frontend tests):
 
 ```bash
-bash tests/run-tests.sh
+bash tests/run-tests.sh        # build dir override: EXASIM_BUILD_DIR=/elsewhere
 ```
 
 Individual tests, after `run-tests.sh` (or any configure with
 `-DEXASIM_BUILD_TESTS=ON`) has set up the build:
 
 ```bash
-ctest --test-dir build/exasim_build-prefix/src/exasim_build-build -R consumer_ --output-on-failure
-ctest --test-dir build/exasim_build-prefix/src/exasim_build-build -R frontend_ --output-on-failure
+ctest --test-dir ../Exasim-build/exasim_build-prefix/src/exasim_build-build -R consumer_ --output-on-failure
+ctest --test-dir ../Exasim-build/exasim_build-prefix/src/exasim_build-build -R frontend_ --output-on-failure
 ```
 
 `frontend_python` requires `numpy scipy sympy`; `frontend_julia` requires
@@ -111,8 +131,21 @@ EXASIM_ROOT=$PWD EXASIM_INSTALL=/path/to/prefix FRONTEND=python \
 ```
 
 All numerical tests gate `Domain_QoI1` (the L2 error² of a Poisson 2D solve)
-below `QOI_TOL` (default `1e-8`; healthy runs produce ~`5e-13`). See
-`tests/README.md` for the full inventory.
+below `QOI_TOL` (default `1e-8`; healthy runs produce ~`5e-13`).
+
+The full test inventory and where each runs:
+
+| test | what it covers | on CI (`smoke-cpu`)? |
+|---|---|---|
+| hygiene job | no tracked .DS_Store / prebuilt binaries | ✅ every push/PR |
+| `consumer_builtin_cpu` | out-of-tree `find_package(Exasim)` consumer, serial; build + run + QoI gate | ✅ |
+| `consumer_builtin_mpi` | same consumer, `mpirun -np 2` | ✅ |
+| `frontend_python` | end-to-end Poisson 2D via the installed `exasim` package | ✅ |
+| `frontend_julia` | same via Exasim.jl | ⏭️ SKIP on CI (no julia); runs locally where julia + SymPy.jl exist |
+| `frontend_matlab` | same via the MATLAB frontend | ⏭️ SKIP on CI (no MATLAB); runs locally where MATLAB + Symbolic Toolbox exist |
+
+The CI run summary shows a per-test pass/fail/skip table for every run. GPU
+(CUDA/HIP) and Slurm builds are manual-only. See `tests/README.md` for details.
 
 ## Using the frontends
 

@@ -7,9 +7,11 @@ One entry point, one ctest.
 bash tests/run-tests.sh
 ```
 
-`run-tests.sh` configures the superbuild with `-DEXASIM_BUILD_TESTS=ON`, builds
-(reusing already-built vendored deps), installs to `<build>/install`, and runs
-`ctest`.
+`run-tests.sh` configures the superbuild with `-DEXASIM_BUILD_TESTS=ON` into
+the out-of-tree sibling `<repo>-build` (override with `EXASIM_BUILD_DIR`),
+builds (reusing already-built vendored deps), installs to
+`<repo>-build/install`, and runs `ctest`. Build directories inside the source
+tree are rejected; the repo is never written to by a build.
 
 ## What runs
 
@@ -47,7 +49,7 @@ EXASIM_ROOT=$PWD FRONTEND=python bash tests/frontends/run-frontend-test.sh
 Each test copies `tests/frontends/<lang>/pdeapp.*` + `pdemodel.*` into a
 scratch directory and runs it there — `datain/`, `dataout/`, and the hidden
 `.exasim/` build dir land in the scratch dir, never in the repo. Honours
-`EXASIM_INSTALL` (default `$EXASIM_ROOT/build/install`), `QOI_TOL`, `PYTHON3`.
+`EXASIM_INSTALL` (default `$EXASIM_ROOT-build/install`), `QOI_TOL`, `PYTHON3`.
 Exit 77 = dependency missing = ctest SKIP.
 
 ## Knobs
