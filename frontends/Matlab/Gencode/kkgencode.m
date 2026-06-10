@@ -3,19 +3,17 @@ function kkgencode(app)
 disp("generate code...");
 
 if app.codegenerator == "text2code"
-  runstr = "!" + app.exasimpath + "/text2code/text2code/text2code " + app.modelfile + ".txt";
+  runstr = "!" + exasim_install_prefix() + "/bin/text2code " + app.modelfile + ".txt";
   eval(char(runstr));
   return;
 end
 
-%kkdir = app.buildpath + "/model";
-%kkdir = app.exasimpath + "/build/model";
-
-kkdir = app.backendpath + "/Model/FrontendGenerated";
-text = fileread(char(app.backendpath + "/Discretization/KokkosDrivers.cpp"));
-fid = fopen(kkdir + "/" + "KokkosDrivers.cpp", 'w');
-fprintf(fid, text);
-fclose(fid);
+% Generated kernels go to the hidden build dir; cmakecompile points the
+% external-model provider's include path here (no source-tree writes).
+kkdir = app.builddir + "/kernels";
+if ~exist(char(kkdir), 'dir')
+    mkdir(char(kkdir));
+end
 
 hdggencode(app);
 

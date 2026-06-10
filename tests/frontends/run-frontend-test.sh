@@ -52,8 +52,13 @@ case "$FE" in
       || { echo "SKIP: julia lacks SymPy.jl"; exit $SKIP; }
     ;;
   matlab)
-    command -v matlab >/dev/null 2>&1 || { echo "SKIP: no matlab"; exit $SKIP; }
-    matlab -batch "assert(license('test','Symbolic_Toolbox')==1)" >/dev/null 2>&1 \
+    # PATH first, then the macOS GUI-app install location.
+    MATLAB="$(command -v matlab || true)"
+    if [ -z "$MATLAB" ]; then
+      MATLAB="$(ls -d /Applications/MATLAB_*.app/bin/matlab 2>/dev/null | sort | tail -1)"
+    fi
+    [ -n "$MATLAB" ] && [ -x "$MATLAB" ] || { echo "SKIP: no matlab"; exit $SKIP; }
+    "$MATLAB" -batch "assert(license('test','Symbolic_Toolbox')==1)" >/dev/null 2>&1 \
       || { echo "SKIP: matlab lacks the Symbolic Math Toolbox"; exit $SKIP; }
     ;;
 esac
@@ -78,7 +83,7 @@ case "$FE" in
     JULIA_LOAD_PATH=":$INSTALL/share/exasim/julia" julia "$APP" || status=$?
     ;;
   matlab)
-    matlab -batch "run('$INSTALL/share/exasim/matlab/exasim_setup.m'); pdeapp" || status=$?
+    "$MATLAB" -batch "run('$INSTALL/share/exasim/matlab/exasim_setup.m'); pdeapp" || status=$?
     ;;
 esac
 if [ "$status" -ne 0 ]; then

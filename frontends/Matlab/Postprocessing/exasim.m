@@ -28,7 +28,7 @@ if nmodels==1
     runstr = runcode(pde, 1); % run C++ code
 
     % get solution from output files in dataout folder
-    sol = fetchsolution(pde,master,dmd, pde.buildpath + "/dataout");
+    sol = fetchsolution(pde,master,dmd, pde.datapath + "/dataout");
     
     % get residual norms from output files in dataout folder
     if pde.saveResNorm
