@@ -1,6 +1,7 @@
 module Gencode
 
 using SymPy
+import SHA
 import ..install_prefix, ..cmake_dir, ..frontend_app_template_dir, ..text2code_path
 
 #export syminit, gencode, compilecode

@@ -4,6 +4,7 @@ version = "1.0.0"
 
 [deps]
 DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
+SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 SymPy = "24249f21-da20-56a4-8eb1-6a02cf4ae2e6"
 
 [compat]

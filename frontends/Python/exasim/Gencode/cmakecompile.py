@@ -1,3 +1,4 @@
+import hashlib
 import os
 import subprocess
 
@@ -51,14 +52,41 @@ def cmakecompile(pde):
     _render(tmpl / "main.cpp.in", os.path.join(builddir, "main.cpp"), subs)
 
     bdir = os.path.join(builddir, "build")
+    exe = os.path.join(bdir, "exasimapp")
     cfg = ["cmake", "-S", builddir, "-B", bdir,
            "-DExasim_DIR=" + str(config.cmake_dir())]
-    subprocess.run(cfg, check=True)
 
+    # Hash the model inputs; if nothing changed since the last successful
+    # build, skip cmake entirely.
+    stamp = os.path.join(bdir, ".exasim_model_hash")
+    digest = _model_hash(kernels,
+                         [os.path.join(builddir, "CMakeLists.txt"),
+                          os.path.join(builddir, "main.cpp")])
+    if os.path.exists(exe) and os.path.exists(stamp):
+        with open(stamp) as f:
+            if f.read() == digest:
+                print("Model unchanged (hash match); skipping build.")
+                return cfg
+
+    subprocess.run(cfg, check=True)
     jobs = os.environ.get("JOBS") or str(os.cpu_count() or 4)
     subprocess.run(["cmake", "--build", bdir, "--parallel", jobs], check=True)
 
-    exe = os.path.join(bdir, "exasimapp")
     if not os.path.exists(exe):
         raise RuntimeError(f"Build did not produce {exe}.")
+    with open(stamp, "w") as f:
+        f.write(digest)
     return cfg
+
+
+def _model_hash(kernelsdir, extra_files):
+    """SHA-256 over the kernel set and the rendered app sources."""
+    h = hashlib.sha256()
+    for name in sorted(os.listdir(kernelsdir)):
+        h.update(name.encode())
+        with open(os.path.join(kernelsdir, name), "rb") as f:
+            h.update(f.read())
+    for path in extra_files:
+        with open(path, "rb") as f:
+            h.update(f.read())
+    return h.hexdigest()

@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.16)
 project(exasim_frontend_app C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# Don't relink exasimapp when libfrontend_model changes — its link interface
+# is a single stable C++ function; only the dynamic library is rebuilt.
+set(CMAKE_LINK_DEPENDS_NO_SHARED ON)
 
 # Rendered by the Exasim language frontend (cmakecompile) — do not edit.
 set(EXASIM_VARIANT "@EXASIM_VARIANT@")  # cpu | cpumpi | gpu | gpumpi
@@ -15,13 +18,19 @@ endif()
 
 # The frontend gencode step writes the kernel .cpp set into KERNELS; the
 # provider library intercepts model ID @MODEL_ID@ and falls through to the
-# installed built-in dispatchers for all other IDs.
+# installed built-in dispatchers for all other IDs. SHARED: the model is a
+# dynamic library (libfrontend_model), so model changes relink only the
+# small provider — exasimapp itself never relinks.
 exasim_add_external_builtin_model(TARGET frontend_model
   ID @MODEL_ID@
-  KERNELS "@KERNEL_DIR@")
+  KERNELS "@KERNEL_DIR@"
+  SHARED)
 
 add_executable(exasimapp main.cpp)
 target_compile_definitions(exasimapp PRIVATE _BUILTINLIBRARY)
+# Export the executable's symbols (Kokkos in particular) so the dynamic
+# provider resolves them at load time — one Kokkos runtime overall.
+set_target_properties(exasimapp PROPERTIES ENABLE_EXPORTS ON)
 target_link_libraries(exasimapp PRIVATE
     Exasim::headers
     Exasim::${EXASIM_VARIANT}lib

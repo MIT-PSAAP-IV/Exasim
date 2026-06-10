@@ -48,15 +48,42 @@ function cmakecompile(pde)
     render(joinpath(tmpl, "main.cpp.in"), joinpath(builddir, "main.cpp"), subs)
 
     bdir = joinpath(builddir, "build")
+    exe = joinpath(bdir, "exasimapp")
     cfg = `cmake -S $builddir -B $bdir -DExasim_DIR=$(cmake_dir())`
-    run(cfg)
 
+    # Hash the model inputs; if nothing changed since the last successful
+    # build, skip cmake entirely.
+    stamp = joinpath(bdir, ".exasim_model_hash")
+    digest = modelhash(kernels,
+                       [joinpath(builddir, "CMakeLists.txt"),
+                        joinpath(builddir, "main.cpp")])
+    if isfile(exe) && isfile(stamp) && read(stamp, String) == digest
+        print("Model unchanged (hash match); skipping build.\n")
+        return string(cfg)
+    end
+
+    run(cfg)
     jobs = get(ENV, "JOBS", string(Sys.CPU_THREADS))
     run(`cmake --build $bdir --parallel $jobs`)
 
-    exe = joinpath(bdir, "exasimapp")
     if !isfile(exe)
         error("Build did not produce $exe.")
     end
+    open(stamp, "w") do f
+        write(f, digest)
+    end
     return string(cfg)
+end
+
+# SHA-256 over the kernel set and the rendered app sources.
+function modelhash(kernelsdir, extra_files)
+    ctx = SHA.SHA256_CTX()
+    for name in sort(readdir(kernelsdir))
+        SHA.update!(ctx, codeunits(name))
+        SHA.update!(ctx, read(joinpath(kernelsdir, name)))
+    end
+    for path in extra_files
+        SHA.update!(ctx, read(path))
+    end
+    return bytes2hex(SHA.digest!(ctx))
 end

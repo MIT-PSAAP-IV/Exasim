@@ -125,31 +125,36 @@ pde.model = "ModelD"; pde.modelfile = "pdemodel";   % pdemodel.m on the path
 
 ### Build artifacts and reuse
 
-The frontends do **not** produce shared/dynamic libraries. Per app, everything
+The generated model is compiled into a **dynamic library**; per app, everything
 lives in the hidden `pde.builddir` (default `<cwd>/.exasim/`):
 
 ```
 .exasim/
-  kernels/                 # the generated model kernel .cpp set
-  CMakeLists.txt, main.cpp # rendered app project (from the installed templates)
+  kernels/                   # the generated model kernel .cpp set
+  CMakeLists.txt, main.cpp   # rendered app project (from the installed templates)
   build/
-    libfrontend_model.a    # the generated model, compiled as a static provider library
-    exasimapp              # the solver executable (statically linked)
+    libfrontend_model.so     # the generated model as a dynamic provider library
+    exasimapp                # the solver executable (loads the model at runtime)
+    .exasim_model_hash       # SHA-256 of the model inputs from the last build
 ```
 
 The heavy code — Kokkos, the solver libraries, the built-in model library — is
-prebuilt in the install prefix and only **linked**, never recompiled. Per-app
-compilation is two translation units (the model provider and `main.cpp`) plus
-links, a few seconds. Everything is written **only when its content changes**
-(kernels, rendered templates, model wrappers), so re-running an app whose
-physics didn't change recompiles nothing and goes straight to the solver run;
-changing the model recompiles just the provider TU and relinks. Mesh,
-parameter, and solver-option changes never trigger compilation (they only
-affect `datain/`).
+prebuilt in the install prefix and never recompiled. Reuse is hash-based:
+`cmakecompile` hashes the kernel set and the rendered app sources, and when the
+hash matches the last successful build it skips the build system entirely and
+goes straight to the solver run. When the model **does** change, only the
+provider translation unit recompiles and only `libfrontend_model` relinks —
+`exasimapp` itself is never rebuilt. Mesh, parameter, and solver-option changes
+never trigger compilation (they only affect `datain/`).
 
 To reuse one build across runs, simply run from the same directory (or point
 `pde.builddir` / `pde['builddir']` at a shared location — one model per
 builddir). Delete `.exasim/` to force a clean rebuild.
+
+(The model library deliberately does not embed Kokkos; it resolves Kokkos
+symbols from `exasimapp` at load time, so there is exactly one Kokkos runtime
+— see `cmake/ExasimExternalModel.cmake` and `backend/Model/BuiltIn/CMakeLists.txt`
+for why this matters.)
 
 ## C++: running built-in models
 

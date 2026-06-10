@@ -47,7 +47,7 @@
 # it will be pulled in transitively through this target.
 
 function(exasim_add_external_builtin_model)
-  cmake_parse_arguments(EXT "" "TARGET;ID;KERNELS" "PDEMODEL;SOURCES" ${ARGN})
+  cmake_parse_arguments(EXT "SHARED" "TARGET;ID;KERNELS" "PDEMODEL;SOURCES" ${ARGN})
 
   if(NOT EXT_TARGET)
     message(FATAL_ERROR "exasim_add_external_builtin_model: TARGET is required")
@@ -196,12 +196,32 @@ function(exasim_add_external_builtin_model)
       "Use find_package(Exasim REQUIRED COMPONENTS cpu) before calling this function.")
   endif()
 
-  # Build the static provider library.
+  # Build the provider library.
   # getBuiltInLibraryExasimDriverABI() is defined in ExternalModelProvider.cpp and
   # intercepts model ID @EXT_ID@; all other IDs fall through to the builtin dispatchers
   # in ${_bm_lib}. Link order: ext library first so its symbol definition wins over
   # any duplicate in the builtin archive.
-  add_library(${_tgt} STATIC "${_gendir}/ExternalModelProvider.cpp")
+  if(EXT_SHARED)
+    # Dynamic provider (used by the language frontends): the model lives in
+    # libfrontend_model.{so,dylib}; the host executable links it and never has
+    # to relink when the model changes. The .so must NOT embed Kokkos — a
+    # second copy of Kokkos's global state double-frees at exit on glibc's
+    # flat namespace (see backend/Model/BuiltIn/CMakeLists.txt). Take Kokkos
+    # as compile flags/includes only and resolve its symbols from the host
+    # executable at load time (the host must set ENABLE_EXPORTS).
+    add_library(${_tgt} SHARED "${_gendir}/ExternalModelProvider.cpp")
+    target_include_directories(${_tgt} PRIVATE
+      $<TARGET_PROPERTY:Kokkos::kokkos,INTERFACE_INCLUDE_DIRECTORIES>)
+    target_compile_options(${_tgt} PRIVATE
+      $<TARGET_PROPERTY:Kokkos::kokkos,INTERFACE_COMPILE_OPTIONS>)
+    target_link_libraries(${_tgt} PRIVATE "${_bm_lib}")
+    if(APPLE)
+      target_link_options(${_tgt} PRIVATE -undefined dynamic_lookup)
+    endif()
+  else()
+    add_library(${_tgt} STATIC "${_gendir}/ExternalModelProvider.cpp")
+    target_link_libraries(${_tgt} PRIVATE "${_bm_lib}" Kokkos::kokkos)
+  endif()
   add_dependencies(${_tgt} _exasim_ext_codegen_${_tgt})
   # gendir is the #include root: ExternalModelProvider.cpp uses "model<ID>/model.hpp"
   target_include_directories(${_tgt} PRIVATE "${_gendir}")
@@ -209,7 +229,6 @@ function(exasim_add_external_builtin_model)
     # model.cpp's quoted kernel includes fall back to this search path.
     target_include_directories(${_tgt} PRIVATE "${EXT_KERNELS}")
   endif()
-  target_link_libraries(${_tgt} PRIVATE "${_bm_lib}" Kokkos::kokkos)
   target_link_libraries(${_tgt} PUBLIC  Exasim::headers)
   set_target_properties(${_tgt} PROPERTIES POSITION_INDEPENDENT_CODE ON)
 endfunction()
