@@ -53,7 +53,7 @@ def exasim(pde,mesh):
         Gencode.gencodeall(nmodels);
 
         # compile source codes to build an executable file and store it in app folder
-        compilerstr = Gencode.compilecode(pde[0]);
+        compilerstr = Gencode.cmakecompile(pde[0]);
         # compilerstr = Gencode.compilepdemodel(pde[0]);
 
         # run executable file to compute solution and store it in dataout folder

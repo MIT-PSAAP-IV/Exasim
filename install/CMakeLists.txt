@@ -126,6 +126,25 @@ set(BM_CPU_LIB  builtinmodelserial)
 set(BM_CUDA_LIB builtinmodelcuda)
 set(BM_HIP_LIB  builtinmodelhip)
 
+function(exasim_set_default_kokkos_dir backend)
+  if(Kokkos_DIR)
+    return()
+  endif()
+
+  set(_kokkos_candidates
+    "${EXASIM_DIR}/build_local/deps/kokkos/build${backend}"
+    "${EXASIM_DIR}/build/deps/kokkos/build${backend}"
+    "${EXASIM_DIR}/deps/kokkos/build${backend}"
+    "${EXASIM_DIR}/kokkos/build${backend}")
+
+  foreach(_cand IN LISTS _kokkos_candidates)
+    if(EXISTS "${_cand}/KokkosConfig.cmake")
+      set(Kokkos_DIR "${_cand}" CACHE PATH "Path to KokkosConfig.cmake" FORCE)
+      return()
+    endif()
+  endforeach()
+endfunction()
+
 # ---- Kokkos: resolve before the BuiltIn subdirectory ----
 # exasim_finalize_builtin_models() (called from the BuiltIn subdirectory) has an
 # `if(NOT TARGET Kokkos::kokkos)` guard; it skips find_package when the target
@@ -136,15 +155,15 @@ set(BM_HIP_LIB  builtinmodelhip)
 # so the guard fires and the BuiltIn subdirectory never calls find_package on its own.
 if(EXASIM_CUDA)
   if(NOT Kokkos_DIR)
-    set(Kokkos_DIR ${EXASIM_DIR}/deps/kokkos/buildcuda)
+    exasim_set_default_kokkos_dir(cuda)
   endif()
   find_package(Kokkos REQUIRED)
 elseif(EXASIM_HIP)
   if(NOT Kokkos_DIR)
     if(EXASIM_TUOLUMNE)
-      set(Kokkos_DIR ${EXASIM_DIR}/deps/kokkos/buildtuolumne)
+      exasim_set_default_kokkos_dir(tuolumne)
     else()
-      set(Kokkos_DIR ${EXASIM_DIR}/deps/kokkos/buildhip)
+      exasim_set_default_kokkos_dir(hip)
     endif()
   endif()
   find_package(Kokkos REQUIRED)
@@ -154,7 +173,7 @@ else()
   endif()
   if(NOT Kokkos_FOUND)
     if(NOT Kokkos_DIR)
-      set(Kokkos_DIR ${EXASIM_DIR}/deps/kokkos/buildserial)
+      exasim_set_default_kokkos_dir(serial)
     endif()
     find_package(Kokkos REQUIRED)
   endif()
@@ -276,7 +295,7 @@ endif()
 if(EXASIM_CUDA)
   # Respect a user-provided installed Kokkos (-DKokkos_DIR); else vendored CUDA build.
   if(NOT Kokkos_DIR)
-    set(Kokkos_DIR ${EXASIM_DIR}/deps/kokkos/buildcuda)
+    exasim_set_default_kokkos_dir(cuda)
   endif()
   find_package(Kokkos REQUIRED)
 
@@ -376,13 +395,11 @@ elseif(EXASIM_HIP)
   # Respect a user-provided installed Kokkos (-DKokkos_DIR); else vendored HIP build.
   if(NOT Kokkos_DIR)
     if(EXASIM_TUOLUMNE)
-      set(Kokkos_DIR ${EXASIM_DIR}/deps/kokkos/buildtuolumne)
+      exasim_set_default_kokkos_dir(tuolumne)
     else()
-      set(Kokkos_DIR ${EXASIM_DIR}/deps/kokkos/buildhip)
+      exasim_set_default_kokkos_dir(hip)
     endif()
   endif()
-
-  message(${Kokkos_DIR})
   find_package(Kokkos REQUIRED)
 
   enable_language(HIP)
@@ -483,7 +500,7 @@ else()
   endif()
   if(NOT Kokkos_FOUND)
     if(NOT Kokkos_DIR)
-      set(Kokkos_DIR ${EXASIM_DIR}/deps/kokkos/buildserial)
+      exasim_set_default_kokkos_dir(serial)
     endif()
     find_package(Kokkos REQUIRED)
   endif()
