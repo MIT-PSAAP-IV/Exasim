@@ -193,11 +193,10 @@ pde['model'] = "ModelD"; pde['modelfile'] = "pdemodel"   # pdemodel.py next to t
 sol, pde, mesh = exasim.exasim(pde, mesh)[0:3]
 ```
 
-The package is also pip-installable from `frontends/Python`
-(`pip install ./frontends/Python`; set `EXASIM_PREFIX=/path/to/prefix` so it
-can find the C++ install). Or configure with `-DEXASIM_PIP_INSTALL=ON` and the
-install step pip-installs it for you, baking the prefix in — `import exasim`
-then needs no setup at all.
+No-setup alternative: configure with `-DEXASIM_PIP_INSTALL=ON` and the
+install step pip-installs the package into your interpreter with the prefix
+baked in — `import exasim` then just works. (Manual `pip install
+frontends/Python` is also possible; set `EXASIM_PREFIX` in that case.)
 
 ### Julia
 

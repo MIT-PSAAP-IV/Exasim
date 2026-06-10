@@ -1,8 +1,7 @@
 # import external modules
 import numpy
 
-# import the Exasim frontend (installed via `cmake --install` or pip;
-# see frontends/Python/exasim/config.py for how the install is located)
+# import the Exasim frontend (see README, "Using the frontends")
 import exasim
 
 # Create pde object and mesh object

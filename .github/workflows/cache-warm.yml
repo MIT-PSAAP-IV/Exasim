@@ -24,7 +24,7 @@ jobs:
   warm:
     runs-on: ubuntu-22.04
     env:
-      BUILD_DIR: ${{ github.workspace }}/../Exasim-build
+      BUILD_DIR: ${{ runner.workspace }}/Exasim-build
     steps:
       - uses: actions/checkout@v4
 
@@ -32,14 +32,14 @@ jobs:
         id: kokkos
         uses: actions/cache@v4
         with:
-          path: ../Exasim-build/deps/kokkos/buildserial
+          path: ${{ runner.workspace }}/Exasim-build/deps/kokkos/buildserial
           key: kokkos-serial-oot-${{ runner.os }}-${{ hashFiles('deps/kokkos/Makefile.builds', 'deps/kokkos/CMakeLists.txt') }}
 
       - name: Cache vendored SymEngine
         id: symengine
         uses: actions/cache@v4
         with:
-          path: ../Exasim-build/deps/symengine
+          path: ${{ runner.workspace }}/Exasim-build/deps/symengine
           key: symengine-oot-${{ runner.os }}-${{ hashFiles('deps/symengine/CMakeLists.txt') }}
 
       # Restoring is enough to refresh the eviction clock on a hit; only a
