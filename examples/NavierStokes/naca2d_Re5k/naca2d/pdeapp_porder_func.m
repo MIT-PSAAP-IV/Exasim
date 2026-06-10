@@ -1,7 +1,7 @@
 function [UDG1, mesh] = pdeapp_porder_func(pde, mesh, porder, UDG, project_flag)
-    % % Add Exasim to Matlab search path
-    % cdir = pwd(); ii = strfind(cdir, "Exasim"); ii = ii(end);
-    % run(cdir(1:(ii+5)) + "/install/setpath.m");
+    % Put the Exasim MATLAB frontend on the path. For an installed Exasim use
+    % run('<prefix>/share/exasim/matlab/exasim_setup.m') instead.
+    % run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', '..', 'frontends', 'Matlab', 'exasim_setup.m'));
     if nargin < 5
         project_flag = 0;
     end

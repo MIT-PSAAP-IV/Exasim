@@ -1,15 +1,11 @@
 # import external modules
-import numpy, os
+import numpy
 
-# Add Exasim to Python search path
-cdir = os.getcwd(); ii = cdir.find("Exasim");
-exec(open(cdir[0:(ii+6)] + "/install/setpath.py").read());
-
-# import internal modules
-import Preprocessing, Postprocessing, Gencode, Mesh
+# import the Exasim frontend (see README, "Using the frontends")
+import exasim
 
 # Create pde object and mesh object
-pde,mesh = Preprocessing.initializeexasim();
+pde,mesh = exasim.initializeexasim();
 
 # Define a PDE model: governing equations and boundary conditions
 pde['model'] = "ModelC";       # ModelC, ModelD, ModelW
@@ -33,7 +29,7 @@ pde['physicsparam'] = [gam, M_ref];
 pde['tau'] = numpy.array([1+1/M_ref]); # DG stabilization parameter
 
 # create a mesh of 10 by 10 quads on a square domain
-mesh['p'], mesh['t'] = Mesh.SquareMesh(10,10,1)[0:2];
+mesh['p'], mesh['t'] = exasim.Mesh.SquareMesh(10,10,1)[0:2];
 mesh['p'] = 10*mesh['p'] - 5;
 # expressions for domain boundaries
 mesh['boundaryexpr'] = [lambda p: (p[1,:] < -5+1e-3), lambda p: (p[0,:] > 5-1e-3), lambda p: (p[1,:] > 5-1e-3), lambda p: (p[0,:] < -5+1e-3)];
@@ -41,10 +37,10 @@ mesh['boundarycondition'] = numpy.array([1, 1, 1, 1]); # Set boundary condition 
 mesh['periodicexpr'] = [[2, lambda p: p[1,:], 4, lambda p: p[1,:]], [1, lambda p: p[0,:], 3, lambda p: p[0,:]]];
 
 # call exasim to generate and run C++ code to solve the PDE model
-sol, pde, mesh  = Postprocessing.exasim(pde,mesh)[0:3];
+sol, pde, mesh  = exasim.exasim(pde,mesh)[0:3];
 
 # visualize the numerical solution of the PDE model using Paraview
 pde['visscalars'] = ["density", 0, "energy", 3]; # list of scalar fields for visualization
 pde['visvectors'] = ["momentum", [1, 2]]; # list of vector fields for visualization
-Postprocessing.vis(sol,pde,mesh); # visualize the numerical solution
+exasim.vis(sol,pde,mesh); # visualize the numerical solution
 print("Done!");

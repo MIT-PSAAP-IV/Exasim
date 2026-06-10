@@ -1,15 +1,14 @@
 # import external modules
 import numpy, os
 
-# Add Exasim to Python search path
-cdir = os.getcwd(); ii = cdir.find("Exasim");
-exec(open(cdir[0:(ii+6)] + "/install/setpath.py").read());
+# import the Exasim frontend (see README, "Using the frontends")
+import exasim
 
-# import internal modules
-import Preprocessing, Postprocessing, Gencode, Mesh
+# locate the Exasim source tree (used for the Kokkos nvcc_wrapper path below)
+cdir = os.getcwd(); ii = cdir.find("Exasim");
 
 # Create pde object and mesh object
-pde,mesh = Preprocessing.initializeexasim();
+pde,mesh = exasim.initializeexasim();
 
 # Define a PDE model: governing equations and boundary conditions
 pde['model'] = "ModelD";       # ModelC, ModelD, ModelW
@@ -35,7 +34,7 @@ pde['mpicompiler'] = "CC"
 pde['gpucompiler'] = cdir[0:(ii+6)] + "/kokkos/bin/nvcc_wrapper" # e.g. /path_to_kokkos/bin/nvcc_wrapper
 
 # create a mesh of 8 by 8 by 8 hexes for a unit cube
-mesh['p'], mesh['t'] = Mesh.cubemesh(16,16,16,1)[0:2];
+mesh['p'], mesh['t'] = exasim.Mesh.cubemesh(16,16,16,1)[0:2];
 # expressions for domain boundaries
 mesh['boundaryexpr'] = [lambda p: (p[1,:] < 1e-3), lambda p: (p[0,:] > 1-1e-3), lambda p: (p[1,:] > 1-1e-3), lambda p: (p[0,:] < 1e-3), lambda p: (p[2,:] < 1e-3), lambda p: (p[2,:] > 1-1e-3)];
 mesh['boundarycondition'] = numpy.array([1, 1, 1, 1, 1, 1]); # Set boundary condition for each boundary
@@ -44,29 +43,29 @@ mesh['boundarycondition'] = numpy.array([1, 1, 1, 1, 1, 1]); # Set boundary cond
 # sol, pde, mesh  = Postprocessing.exasim(pde,mesh)[0:3];
 
 # search compilers and set options
-pde = Gencode.setcompilers(pde)
+pde = exasim.Gencode.setcompilers(pde)
 
 # generate input files and store them in datain folder
-pde, mesh, master, dmd = Preprocessing.preprocessing(pde,mesh)
+pde, mesh, master, dmd = exasim.preprocessing(pde,mesh)
 
 # generate source codes and store them in app folder
-Gencode.gencode(pde)
+exasim.Gencode.gencode(pde)
 
 # compile source codes to build an executable file and store it in build folder
-compilerstr = Gencode.cmakecompile(pde)
+compilerstr = exasim.Gencode.cmakecompile(pde)
 
 # Run code
 pde['mpirun'] = "mpirun"; # command to run MPI programs
-runstr = Gencode.runcode(pde, 1)
+runstr = exasim.Gencode.runcode(pde, 1)
 
 pde['vistime'] = [];
-sol = Postprocessing.fetchsolution(pde,master,dmd, pde['buildpath'] + "/dataout");
+sol = exasim.fetchsolution(pde,master,dmd, pde['buildpath'] + "/dataout");
 
 # visualize the numerical solution of the PDE model using Paraview
 #pde['paraview'] = "/Applications/ParaView-5.8.1.app/Contents/MacOS/paraview"; # Set the path to Paraview executable
 pde['visscalars'] = ["temperature", 0]; # list of scalar fields for visualization
 pde['visvectors'] = ["temperature gradient", numpy.array([1, 2, 3]).astype(int)]; # list of vector fields for visualization
-dgnodes = Preprocessing.createdgnodes(mesh['p'],mesh['t'],mesh['f'],mesh['curvedboundary'],mesh['curvedboundaryexpr'],pde['porder']);
+dgnodes = exasim.Preprocessing.createdgnodes(mesh['p'],mesh['t'],mesh['f'],mesh['curvedboundary'],mesh['curvedboundaryexpr'],pde['porder']);
 x = dgnodes[:,0,:]; y = dgnodes[:,1,:]; z = dgnodes[:,2,:];
 uexact = numpy.sin(numpy.pi*x)*numpy.sin(numpy.pi*y)*numpy.sin(numpy.pi*z); # exact solution
 uh = sol[:,0,:];  # numerical solution

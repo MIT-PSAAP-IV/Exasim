@@ -1,15 +1,11 @@
 # import external modules
-import numpy, os, netCDF4
+import numpy, netCDF4
 
-# Add Exasim to Python search path
-cdir = os.getcwd(); ii = cdir.find("Exasim");
-exec(open(cdir[0:(ii+6)] + "/install/setpath.py").read());
-
-# import internal modules
-import Preprocessing, Postprocessing, Gencode, Mesh
+# import the Exasim frontend (see README, "Using the frontends")
+import exasim
 
 # Create pde object and mesh object
-pde,mesh = Preprocessing.initializeexasim();
+pde,mesh = exasim.initializeexasim();
 
 # Define a PDE model: governing equations and boundary conditions
 pde['model'] = "ModelD";       # ModelC, ModelD, ModelW
@@ -45,7 +41,7 @@ pde['hybrid'] = 1;          # 0 -> LDG, 1 -> HDG
 Re = 6378
 R0 = (Re + 100)/Re
 R1 = (Re + 500)/Re
-mesh['p'], mesh['t'], mesh['dgnodes'] = Mesh.cubesphere(pde['porder'],R0,R1,15,10)
+mesh['p'], mesh['t'], mesh['dgnodes'] = exasim.Mesh.cubesphere(pde['porder'],R0,R1,15,10)
 mesh['boundaryexpr'] = [
     lambda p: abs(p[0,:]**2 + p[1,:]**2 + p[2,:]**2 - R0**2) < 1e-6,
     lambda p: abs(p[0,:]**2 + p[1,:]**2 + p[2,:]**2 - R1**2) < 1e-6]
@@ -80,7 +76,7 @@ mesh['vdg'] = vdg
 mesh['udg'] = udg
 
 # call exasim to generate and run C++ code to solve the PDE model
-sol, pde, mesh  = Postprocessing.exasim(pde,mesh)[0:3]
+sol, pde, mesh  = exasim.exasim(pde,mesh)[0:3]
 
 # visualize the numerical solution of the PDE model using Paraview
 #pde['paraview'] = "/Applications/ParaView-5.8.1.app/Contents/MacOS/paraview"; # Set the path to Paraview executable

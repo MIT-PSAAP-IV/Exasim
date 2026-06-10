@@ -1,6 +1,6 @@
-% Add Exasim to Matlab search path
-cdir = pwd(); ii = strfind(cdir, "Exasim");
-run(cdir(1:(ii+5)) + "/install/setpath.m");
+% Put the Exasim MATLAB frontend on the path. For an installed Exasim use
+% run('<prefix>/share/exasim/matlab/exasim_setup.m') instead.
+run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'frontends', 'Matlab', 'exasim_setup.m'));
 
 % initialize pde structure and mesh structure
 [pde,mesh] = initializeexasim();

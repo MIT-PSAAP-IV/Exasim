@@ -1,15 +1,14 @@
 # import external modules
 import numpy, os
 
-# Add Exasim to Python search path
-cdir = os.getcwd(); ii = cdir.find("Exasim")
-exec(open(cdir[0:(ii+6)] + "/install/setpath.py").read())
+# import the Exasim frontend (see README, "Using the frontends")
+import exasim
 
-# import internal modules
-import Preprocessing, Postprocessing, Gencode, Mesh
+# locate the Exasim source tree (used for the Kokkos nvcc_wrapper path below)
+cdir = os.getcwd(); ii = cdir.find("Exasim");
 
 # Create pde object and mesh object
-pde,mesh = Preprocessing.initializeexasim()
+pde,mesh = exasim.initializeexasim()
 
 # Define a PDE model: governing equations and boundary conditions
 pde['model'] = "ModelD";       # ModelC, ModelD, ModelW
@@ -82,7 +81,7 @@ pde['soltime'] = numpy.arange(1,pde['dt'].size+1,1); # steps at which solution a
 pde['visdt'] = 1.0; # visualization timestep size
 
 # Mesh generation
-mesh['p'], mesh['t'], mesh['dgnodes'] = Mesh.cubesphere(pde['porder'],R0,R1,15,10)
+mesh['p'], mesh['t'], mesh['dgnodes'] = exasim.Mesh.cubesphere(pde['porder'],R0,R1,15,10)
 mesh['boundaryexpr'] = [
     lambda p: abs(p[0,:]**2 + p[1,:]**2 + p[2,:]**2 - R0**2) < 1e-6,
     lambda p: abs(p[0,:]**2 + p[1,:]**2 + p[2,:]**2 - R1**2) < 1e-6]
@@ -104,20 +103,20 @@ mesh['vdg'][:,4,:] = 0.0    # Ey
 mesh['vdg'][:,5,:] = 0.0    # Ez
 
 # search compilers and set options
-pde = Gencode.setcompilers(pde)
+pde = exasim.Gencode.setcompilers(pde)
 
 # generate input files and store them in datain folder
-pde, mesh, master, dmd = Preprocessing.preprocessing(pde,mesh)
+pde, mesh, master, dmd = exasim.preprocessing(pde,mesh)
 
 # generate source codes and store them in app folder
-Gencode.gencode(pde)
+exasim.Gencode.gencode(pde)
 
 # compile source codes to build an executable file and store it in build folder
-compilerstr = Gencode.cmakecompile(pde)
+compilerstr = exasim.Gencode.cmakecompile(pde)
 
 # Run code
 pde['mpirun'] = "mpirun"; # command to run MPI programs
-runstr = Gencode.runcode(pde, 1)
+runstr = exasim.Gencode.runcode(pde, 1)
 
 # # # get solution from output files in dataout folder
 # pde['vistime'] = [];

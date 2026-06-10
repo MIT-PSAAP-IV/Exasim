@@ -1,6 +1,6 @@
-% Add Exasim to Matlab search path
-cdir = pwd(); ii = strfind(cdir, "Exasim");
-run(cdir(1:(ii+5)) + "/install/setpath.m");
+% Put the Exasim MATLAB frontend on the path. For an installed Exasim use
+% run('<prefix>/share/exasim/matlab/exasim_setup.m') instead.
+run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'frontends', 'Matlab', 'exasim_setup.m'));
 
 porder = 3;                     % polynomial degree
 gam = 1.4;                      % gas constant
