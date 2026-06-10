@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
 project(ParMETIS C)
 
+include(GNUInstallDirs)
+
 
 # Search for MPI.
 # GK commented this out as it seems to be creating problems
@@ -30,9 +32,9 @@ include_directories(${CMAKE_INSTALL_PREFIX}/include)
 
 # List of paths that the compiler will search for library files.
 # i.e., the -L equivalent
-link_directories(${GKLIB_PATH}/lib)
-link_directories(${METIS_PATH}/lib)
-link_directories(${CMAKE_INSTALL_PREFIX}/lib)
+link_directories(${GKLIB_PATH}/${CMAKE_INSTALL_LIBDIR})
+link_directories(${METIS_PATH}/${CMAKE_INSTALL_LIBDIR})
+link_directories(${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR})
 
 # List of directories that cmake will look for CMakeLists.txt
 add_subdirectory(include)

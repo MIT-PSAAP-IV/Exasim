@@ -13,4 +13,4 @@ foreach(prog pm_ptest pm_mtest pm_parmetis pm_pometis pm_dglpart)
 endforeach(prog)
 
 install(TARGETS pm_ptest pm_mtest pm_parmetis pm_pometis pm_dglpart
-  RUNTIME DESTINATION bin)
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
