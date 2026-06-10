@@ -12,6 +12,13 @@ if(EXASIM_CUDA AND EXASIM_HIP)
     "EXASIM_CUDA and EXASIM_HIP cannot both be ON. Select exactly one GPU backend.")
 endif()
 
+get_filename_component(EXASIM_SOURCE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
+set(EXASIM_LOCAL_PACKAGE_DIR "${EXASIM_SOURCE_ROOT}/local/lib/cmake/Exasim")
+if(EXISTS "${EXASIM_LOCAL_PACKAGE_DIR}/ExasimConfig.cmake")
+  set(Exasim_DIR "${EXASIM_LOCAL_PACKAGE_DIR}"
+    CACHE PATH "Path to ExasimConfig.cmake" FORCE)
+endif()
+
 find_package(Exasim REQUIRED)
 
 set(EXASIM_APP_LIBRARY_TARGET Exasim::cpulib)
