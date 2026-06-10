@@ -776,6 +776,10 @@ if(EXASIM_FRONTENDS)
       if(NOT _bakeres EQUAL 0)
         message(WARNING \"could not bake the install prefix into the pip-installed exasim package; set EXASIM_PREFIX when using it\")
       endif()
+      # setuptools may drop build artifacts next to the package source; the
+      # source tree stays pristine.
+      file(REMOVE_RECURSE \"${EXASIM_DIR}/frontends/Python/build\"
+                          \"${EXASIM_DIR}/frontends/Python/exasim.egg-info\")
     ")
   endif()
 

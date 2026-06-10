@@ -382,3 +382,6 @@ backend/Model/FrontendGenerated/KokkosUhat.cpp
 
 # per-app frontend build dirs (created wherever a pdeapp runs)
 **/.exasim/
+# pip/setuptools artifacts from EXASIM_PIP_INSTALL
+/frontends/Python/build/
+/frontends/Python/*.egg-info/
