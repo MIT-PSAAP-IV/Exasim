@@ -1,31 +1,6 @@
-% Add Exasim to Matlab search path
-src = "frontends"; 
+% Compatibility shim for legacy pdeapps that run this script after computing
+% cdir/ii. The frontend entry point is now frontends/Matlab/exasim_setup.m
+% (installed to <prefix>/share/exasim/matlab/exasim_setup.m).
 ExasimPath = cdir(1:(ii+5));
-srcdir = ExasimPath + "/"  + src + "/Matlab";
-addpath(char(ExasimPath + "/install"));
-addpath(char(srcdir + "/Gencode"));
-addpath(char(srcdir + "/master"));
-addpath(char(srcdir + "/Mesh"));
-addpath(char(srcdir + "/Mesh/boundaryexpressions"));
-addpath(char(srcdir + "/Mesh/mkmesh"));
-addpath(char(srcdir + "/Mesh/cmesh"));
-addpath(char(srcdir + "/Mesh/lesmesh"));
-addpath(char(srcdir + "/Mesh/surfmesh"));
-addpath(char(srcdir + "/HDG"));
-addpath(char(srcdir + "/Preprocessing"));
-addpath(char(srcdir + "/Postprocessing"));
-addpath(char(srcdir + "/Utilities"));
-addpath(char(srcdir + "/STG"));
-
-% Set Matlab's PATH enviroment variable so that Exasim can call external packages    
-setenv('PATH', '/usr/local/bin:/usr/bin:/opt/local/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/home/linuxbrew/.linuxbrew/opt/llvm@11/bin/:/usr/local/cuda-11.7/bin/');
-% Add more paths if neccesary 
-setenv('PATH', [getenv('PATH') ':/Applications/ParaView-6.0.0.app/Contents/MacOS']);
-setenv('LD_LIBRARY_PATH','/usr/bin:/usr/local/cuda-11.7/bin:/usr/local/cuda-11.7/lib64');
-
-% create build folder if it does not exist
-if exist(ExasimPath + "/build", "file") == 0
-    mkdir(char(ExasimPath + "/build"));    
-end
-
-fprintf("==> Exasim " + " ...\n"');
+run(char(ExasimPath + "/frontends/Matlab/exasim_setup.m"));
+clear ExasimPath;

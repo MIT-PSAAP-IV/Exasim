@@ -19,7 +19,7 @@
 set -uo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-EXASIM_BUILD="${EXASIM_BUILD:-$REPO/build_conda}"
+EXASIM_BUILD="${EXASIM_BUILD:-$REPO-build}"
 INSTALL_PREFIX="${INSTALL_PREFIX:-/tmp/exasim_install}"
 KOKKOS_DIR="${KOKKOS_DIR:-$REPO/deps/kokkos/buildserial}"
 EXASIM_ROOT="${EXASIM_ROOT:-$REPO}"

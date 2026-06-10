@@ -1,40 +1,51 @@
 function runstr = runcode(pde, numpde, mpiprocs)
+% Run the solver executable built by cmakecompile.
+%
+% Uses the legacy CLI: exasimapp <numpde> <datain>/ <dataout>/out, with
+% datain/dataout under pde.datapath and the executable in the hidden
+% pde.builddir. Errors on a nonzero solver exit code.
 
 if nargin<3
   mpiprocs = pde.mpiprocs;
 end
 
 disp("Run C++ Exasim code ...")
-cdir = pwd();
-cd(char(pde.buildpath));
 
-DataPath = pde.buildpath;
+exe = pde.builddir + "/build/exasimapp";
+if ~exist(char(exe), 'file')
+    error("Solver executable not found at %s; run cmakecompile(pde) first.", exe);
+end
 
+DataPath = pde.datapath;
 mystr = " " + num2str(numpde) + " ";
 if numpde>100 % two-domain problems
   numpde = 2;
 end
 if numpde==1
     mystr = mystr + DataPath + "/datain/ " + DataPath + "/dataout/out";
-else    
+else
     for i = 1:numpde
         mystr = mystr + DataPath + "/datain" + num2str(i) + "/ " + DataPath + "/dataout" + num2str(i) + "/out";
         mystr = mystr + " ";
-    end    
+    end
 end
 
-mpirun = pde.mpirun;
-exec = "./exasimfe ";
 if mpiprocs==1
-    runstr = "!" + exec + mystr;
+    runstr = exe + mystr;
 else
-    runstr = "!" + mpirun + " -np " + string(mpiprocs) + " " + exec + mystr;
+    runstr = pde.mpirun + " -np " + string(mpiprocs) + " " + exe + mystr;
 end
 
+cdir = pwd();
+cd(char(DataPath));
 tic
-eval(char(runstr));
+[status, output] = system(char(runstr));
+disp(output);
 toc
-
 cd(char(cdir));
+
+if status ~= 0
+    error("Solver failed (exit %d): %s", status, runstr);
+end
 
 end

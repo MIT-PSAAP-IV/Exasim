@@ -1,20 +1,22 @@
+# Compatibility shim for legacy pdeapps that exec() this file after computing
+# cdir/ii. The frontend now lives in the `exasim` package
+# (frontends/Python/exasim); new code should simply `import exasim`.
 import sys, os
 
-# Add Exasim to Python search path
-src = "frontends"; 
-srcdir = cdir[0:(ii+6)] + "/"  + src + "/Python";
-sys.path.append(cdir[0:(ii+6)] + '/install');
-sys.path.append(srcdir + '/Gencode');
-sys.path.append(srcdir + '/Mesh');
-sys.path.append(srcdir + '/Preprocessing');
-sys.path.append(srcdir + '/Postprocessing');
-# sys.path.append(srcdir + '/Utilities');
-sys.path.append(cdir);
+_srcdir = cdir[0:(ii+6)] + "/frontends/Python"
+if _srcdir not in sys.path:
+    sys.path.insert(0, _srcdir)
+sys.path.append(cdir)
 
-# Set Python's PATH enviroment variable so that Exasim can call external programs
-# os.environ['PATH'] = "/usr/local/bin:/usr/bin:/opt/local/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin";
-# # Add more paths if neccesary
-# os.environ['PATH'] = os.environ['PATH'] + ":/Applications/ParaView-6.0.0.app/Contents/MacOS"
+import exasim
+# Re-export the historical bare module names for un-migrated pdeapps.
+Preprocessing = exasim.Preprocessing
+Postprocessing = exasim.Postprocessing
+Gencode = exasim.Gencode
+Mesh = exasim.Mesh
+sys.modules.setdefault('Preprocessing', exasim.Preprocessing)
+sys.modules.setdefault('Postprocessing', exasim.Postprocessing)
+sys.modules.setdefault('Gencode', exasim.Gencode)
+sys.modules.setdefault('Mesh', exasim.Mesh)
 
-print('==> Exasim ' + src + ' ...\n');
-
+print('==> Exasim Python frontend (exasim package) ...\n')

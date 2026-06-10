@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 project(exasim_consumer_external_model CXX)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 
 # Pure out-of-tree consumer: find_package only, no reach into the Exasim source tree.
 option(EXASIM_MPI "MPI variant" ON)

@@ -795,9 +795,16 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     // exasimpath was provided at all.
     {
       const std::string rawpath = pde.exasimpath;
-      const std::string trimmed = trimToSubstringAtLastOccurence(rawpath, "Exasim");
-      if (!trimmed.empty()) {
-        pde.exasimpath = trimmed;
+      // An explicitly-set path that already looks like an Exasim root (has a
+      // backend/ component) is honored verbatim — trimming at the last
+      // "Exasim" substring would mangle checkouts like .../Exasim/Exasim/src
+      // (CI) or paths that merely contain "Exasim" in a parent directory.
+      if (!rawpath.empty() && std::filesystem::is_directory(
+              std::filesystem::path(rawpath) / "backend")) {
+        pde.exasimpath = rawpath;
+      } else if (!rawpath.empty() &&
+                 !trimToSubstringAtLastOccurence(rawpath, "Exasim").empty()) {
+        pde.exasimpath = trimToSubstringAtLastOccurence(rawpath, "Exasim");
       } else if (!rawpath.empty()) {
         pde.exasimpath = rawpath;   // honor an explicit path verbatim
       } else {

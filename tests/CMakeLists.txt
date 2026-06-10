@@ -40,3 +40,34 @@ add_test(NAME consumer_builtin_mpi
     "INSTALL_PREFIX=/tmp/exasim_install_mpi"
     bash "${CMAKE_CURRENT_SOURCE_DIR}/run-consumer-tests.sh")
 set_tests_properties(consumer_builtin_mpi PROPERTIES TIMEOUT 1200)
+
+# Language-frontend end-to-end tests (Poisson 2D via the installed packages).
+# Each builds a small app against this build's install (CMAKE_INSTALL_PREFIX)
+# through the external-model path and gates the QoI. The wrapper exits 77 —
+# a clean ctest SKIP — when the interpreter or its symbolic stack is missing
+# (e.g. julia/matlab on CI runners), so registration is unconditional.
+find_package(Python3 COMPONENTS Interpreter QUIET)
+foreach(_fe python julia matlab)
+  add_test(NAME frontend_${_fe}
+    COMMAND ${CMAKE_COMMAND} -E env
+      "EXASIM_ROOT=${EXASIM_DIR}"
+      "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}"
+      "FRONTEND=${_fe}"
+      "PYTHON3=${Python3_EXECUTABLE}"
+      bash "${EXASIM_DIR}/tests/frontends/run-frontend-test.sh")
+  set_tests_properties(frontend_${_fe} PROPERTIES
+    TIMEOUT 2400 SKIP_RETURN_CODE 77)
+endforeach()
+
+# Per-user model cache: a second app directory must reuse the cached
+# (libfrontend_model, exasimapp) pair with zero compilation.
+add_test(NAME frontend_python_modelcache
+  COMMAND ${CMAKE_COMMAND} -E env
+    "EXASIM_ROOT=${EXASIM_DIR}"
+    "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}"
+    "FRONTEND=python"
+    "CACHE_TEST=1"
+    "PYTHON3=${Python3_EXECUTABLE}"
+    bash "${EXASIM_DIR}/tests/frontends/run-frontend-test.sh")
+set_tests_properties(frontend_python_modelcache PROPERTIES
+  TIMEOUT 2400 SKIP_RETURN_CODE 77)

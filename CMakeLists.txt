@@ -21,24 +21,18 @@ include(ExternalProject)
 
 set(EXASIM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
 
-# ---- Discourage building inside the source tree ----
-# A true in-source build (binary dir == source dir) is rejected outright. A build
-# directory *inside* the repo is allowed but warned about: the vendored deps and
-# generated outputs would otherwise clutter the checkout. Prefer a sibling dir:
-#     cmake -B ../Exasim-build && cmake --build ../Exasim-build
+# ---- Refuse building inside the source tree ----
+# The repo stays pristine: all build/install outputs live in the (out-of-tree)
+# binary dir. Both a true in-source build and a build dir nested anywhere
+# under the repo are rejected.
 get_filename_component(_exasim_src "${CMAKE_SOURCE_DIR}" REALPATH)
 get_filename_component(_exasim_bin "${CMAKE_BINARY_DIR}" REALPATH)
-if(_exasim_bin STREQUAL _exasim_src)
+if(_exasim_bin STREQUAL _exasim_src OR _exasim_bin MATCHES "^${_exasim_src}/")
   message(FATAL_ERROR
-    "In-source build detected. Configure in a separate build directory, e.g.:\n"
-    "    cmake -B ../Exasim-build && cmake --build ../Exasim-build\n"
-    "(delete the CMakeCache.txt and CMakeFiles/ this attempt just created).")
-endif()
-if(_exasim_bin MATCHES "^${_exasim_src}/")
-  message(WARNING
-    "Build directory is inside the Exasim source tree:\n  ${CMAKE_BINARY_DIR}\n"
-    "This works, but build outputs clutter the checkout. Prefer a sibling "
-    "directory: cmake -B ../Exasim-build")
+    "Build directories inside the Exasim source tree are not supported. "
+    "Configure out of tree, e.g.:\n"
+    "    cmake -S ${_exasim_src} -B ${_exasim_src}-build\n"
+    "(delete any CMakeCache.txt / CMakeFiles/ this attempt just created).")
 endif()
 
 # ---- Build options (forwarded to the Exasim solver build) ----
@@ -51,6 +45,9 @@ option(WITH_PARMETIS      "Link METIS/ParMETIS"                ON)
 option(WITH_TEXT2CODE     "Build text2code-linked executables" OFF)
 option(WITH_BUILTINMODEL  "Build the built-in model library"   ON)
 option(EXASIM_BUILD_TESTS "Register the ctest regression suite" OFF)
+option(EXASIM_FRONTENDS   "Install the Python/Julia/MATLAB frontends" ON)
+option(EXASIM_PIP_INSTALL "pip-install the exasim Python package at install time" OFF)
+option(EXASIM_JULIA_DEVELOP "Pkg.develop the installed Exasim.jl at install time" OFF)
 
 # Forward the toolchain to every sub-build.
 set(_fwd
@@ -165,16 +162,19 @@ endif()
 
 # ----------------------------------------------------------------------------
 # text2code (Exasim's own codegen tool; depends on SymEngine + METIS)
-# Installs its binary to ${EXASIM_ROOT}/build/text2code.
+# Its binary lands in ${CMAKE_BINARY_DIR}/bin/text2code.
 # ----------------------------------------------------------------------------
+set(EXASIM_TEXT2CODE "${CMAKE_BINARY_DIR}/bin/text2code")
 ExternalProject_Add(text2code_build
   SOURCE_DIR  "${EXASIM_ROOT}/text2code/text2code"
   DOWNLOAD_COMMAND ""
   CMAKE_ARGS  ${_fwd} -DWITH_METIS=${WITH_PARMETIS} -DEXASIM_ROOT=${EXASIM_ROOT}
+    -DEXASIM_T2C_OUTPUT_DIR=${CMAKE_BINARY_DIR}/bin
     -DEXASIM_SYMENGINE_DIR=${_symengine_for_t2c}
     -DEXASIM_SYMENGINE_VENDORED=${_symengine_vendored}
     -DEXASIM_KOKKOS_DIR=${_kokkos_for_exasim}
     -DEXASIM_KOKKOS_BACKEND=${_kk_target}
+  BUILD_ALWAYS TRUE
   INSTALL_COMMAND ""
   DEPENDS ${_symengine_dep} ${_exasim_deps})
 list(APPEND _exasim_deps text2code_build)
@@ -208,6 +208,10 @@ ExternalProject_Add(exasim_build
     -DEXASIM_LIB=${EXASIM_LIB} -DWITH_PARMETIS=${WITH_PARMETIS}
     -DWITH_TEXT2CODE=${WITH_TEXT2CODE} -DWITH_BUILTINMODEL=${WITH_BUILTINMODEL}
     -DEXASIM_BUILD_TESTS=${EXASIM_BUILD_TESTS}
+    -DEXASIM_TEXT2CODE=${EXASIM_TEXT2CODE}
+    -DEXASIM_FRONTENDS=${EXASIM_FRONTENDS}
+    -DEXASIM_PIP_INSTALL=${EXASIM_PIP_INSTALL}
+    -DEXASIM_JULIA_DEVELOP=${EXASIM_JULIA_DEVELOP}
     "-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}"
   BUILD_ALWAYS TRUE
   INSTALL_COMMAND ${CMAKE_COMMAND} --install <BINARY_DIR>

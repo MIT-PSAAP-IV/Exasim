@@ -26,7 +26,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-EXASIM_BUILD_DIR="${EXASIM_BUILD_DIR:-$ROOT/build}"
+# Build out of tree (in-tree build dirs are rejected by the superbuild).
+EXASIM_BUILD_DIR="${EXASIM_BUILD_DIR:-$ROOT-build}"
 
 echo "[run-tests] repo  $ROOT"
 echo "[run-tests] build $EXASIM_BUILD_DIR"
