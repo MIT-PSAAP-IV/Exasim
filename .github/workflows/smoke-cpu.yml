@@ -16,6 +16,11 @@ name: smoke (CPU)
 #   frontend_python        — Poisson 2D via the installed exasim package (RUNS here)
 #   frontend_julia         — same via Exasim.jl (SKIPs here: no julia on runner)
 #   frontend_matlab        — same via the MATLAB frontend (SKIPs here: no MATLAB)
+#   frontend_python_modelcache — per-user model cache reuse (RUNS here)
+#   builtin_model4_kernel_equivalence — text2code-regenerated model 4 kernels
+#                            match the legacy checked-in ones to machine
+#                            precision: 35 comparisons incl. all 9 HDG BCs and
+#                            the analytic jacobians (RUNS here)
 #
 # Heavy deps are taken off the hot path: METIS/ParMETIS, BLAS/LAPACK and MPI
 # from the system (apt); the vendored serial Kokkos and SymEngine are built from
@@ -26,7 +31,7 @@ name: smoke (CPU)
 
 on:
   push:
-    branches: [teoc-Kitesurf-Coupling-build-and-test, teoc-other-frontends-and-misc-cleanup]
+    branches: [teoc-Kitesurf-Coupling-build-and-test, teoc-other-frontends-and-misc-cleanup, teoc-examples-migration]
   pull_request:
     branches: [Kitesurf-Coupling, teoc-Kitesurf-Coupling-build-and-test]
   workflow_dispatch:

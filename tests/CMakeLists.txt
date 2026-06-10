@@ -59,6 +59,34 @@ foreach(_fe python julia matlab)
     TIMEOUT 2400 SKIP_RETURN_CODE 77)
 endforeach()
 
+# Builtin model 4 kernel equivalence: model 4 (CNS5air reacting NS) switched
+# from MATLAB-generated kernels to a text2code source (pdemodel4.txt). This
+# test compiles the legacy checked-in kernels (backend/Model/BuiltIn/model4/)
+# and the kernels THIS build regenerated into libbuiltinmodel side by side and
+# checks 35 outputs — every kernel family, all 9 HDG BCs, and the analytic
+# jacobians — agree to machine precision at a physical reacting-flow state.
+# See tests/builtin-models/compare_model4.cpp for the full story.
+get_property(_bm_genroot GLOBAL PROPERTY EXASIM_BUILTIN_GENROOT)
+if(_bm_genroot AND EXISTS "${EXASIM_TEXT2CODE}"
+   AND EXISTS "${EXASIM_DIR}/backend/Model/BuiltIn/pdeapp4.txt")
+  # Stable include roots for the harness's "ref/..." / "gen/..." includes.
+  # gen/ dangles until the codegen step runs; the target dependency below
+  # guarantees ordering.
+  file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/model4eq")
+  file(CREATE_LINK "${EXASIM_DIR}/backend/Model/BuiltIn/model4"
+       "${CMAKE_CURRENT_BINARY_DIR}/model4eq/ref" SYMBOLIC)
+  file(CREATE_LINK "${_bm_genroot}/model4"
+       "${CMAKE_CURRENT_BINARY_DIR}/model4eq/gen" SYMBOLIC)
+  add_executable(model4_kernel_equivalence
+    "${EXASIM_DIR}/tests/builtin-models/compare_model4.cpp")
+  target_include_directories(model4_kernel_equivalence PRIVATE
+    "${CMAKE_CURRENT_BINARY_DIR}/model4eq")
+  add_dependencies(model4_kernel_equivalence exasim_builtin_model_codegen)
+  add_test(NAME builtin_model4_kernel_equivalence
+    COMMAND model4_kernel_equivalence)
+  set_tests_properties(builtin_model4_kernel_equivalence PROPERTIES TIMEOUT 60)
+endif()
+
 # Per-user model cache: a second app directory must reuse the cached
 # (libfrontend_model, exasimapp) pair with zero compilation.
 add_test(NAME frontend_python_modelcache

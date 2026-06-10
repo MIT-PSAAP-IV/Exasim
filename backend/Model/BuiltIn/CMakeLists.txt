@@ -19,6 +19,9 @@ set(EXASIM_BUILTIN_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 set(EXASIM_BUILTIN_GENROOT "${CMAKE_CURRENT_BINARY_DIR}/generated")
 set(EXASIM_BUILTIN_INCDIR  "${EXASIM_BUILTIN_GENROOT}/include")
 file(MAKE_DIRECTORY "${EXASIM_BUILTIN_INCDIR}")
+# Published for tests that compare regenerated kernels against checked-in ones
+# (see tests/builtin-models/).
+set_property(GLOBAL PROPERTY EXASIM_BUILTIN_GENROOT "${EXASIM_BUILTIN_GENROOT}")
 
 # text2code binary used to (re)generate model kernels from a pdemodel source.
 # The superbuild forwards its out-of-tree location via EXASIM_TEXT2CODE.

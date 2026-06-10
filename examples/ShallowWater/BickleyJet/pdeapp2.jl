@@ -1,15 +1,9 @@
-# External packages
-using Revise, DelimitedFiles, SymPy
-
-# Add Exasim to Julia search path
-cdir = pwd(); ii = findlast("Exasim", cdir);
-include(cdir[1:ii[end]] * "/install/setpath.jl");
-
-# Exasim packages
-using Preprocessing, Mesh, Gencode, Postprocessing
+# import the Exasim frontend (installed via `cmake --install` under
+# <prefix>/share/exasim/julia, or Pkg.develop'd from frontends/Julia/Exasim)
+using Exasim
 
 # create pde structure and mesh structure
-pde, mesh = Preprocessing.initializeexasim();
+pde, mesh = Exasim.initializeexasim();
 
 # Define PDE model: governing equations, initial solutions, and boundary conditions
 pde.model = "ModelD";            # ModelC, ModelD, ModelW
@@ -42,7 +36,7 @@ pde.dae_beta = 0.0;
 pde.mpiprocs = 1;                # number of MPI processors
 
 # create a linear mesh for a square domain
-mesh.p, mesh.t = Mesh.SquareMesh(64,64,1); # a mesh of 8 by 8 quadrilaterals
+mesh.p, mesh.t = Exasim.Mesh.SquareMesh(64,64,1); # a mesh of 8 by 8 quadrilaterals
 mesh.p = (4*pi)*mesh.p .- 2*pi;
 # expressions for disjoint boundaries
 mesh.boundaryexpr = [p -> (p[2,:] .< -2*pi+1e-3), p -> (p[1,:] .> 2*pi-1e-3), p -> (p[2,:] .> 2*pi-1e-3), p -> (p[1,:] .< -2*pi+1e-3)];
@@ -50,28 +44,28 @@ mesh.boundarycondition = [1 1 1 1]; # Set boundary condition for each disjoint b
 mesh.periodicexpr = [2 p->p[2,:] 4 p->p[2,:]; 1 p->p[1,:] 3 p->p[1,:]];
 
 # call exasim to generate and run C++ code to solve the PDE model
-sol, pde, mesh,~,~,~,~  = Postprocessing.exasim(pde,mesh);
+sol, pde, mesh,~,~,~,~  = Exasim.exasim(pde,mesh);
 
 # # search compilers and set options
-# pde = Gencode.setcompilers(pde);
+# pde = Exasim.Gencode.setcompilers(pde);
 
 # # generate input files and store them in datain folder
-# pde, mesh, master, dmd = Preprocessing.preprocessing(pde,mesh);
+# pde, mesh, master, dmd = Exasim.preprocessing(pde,mesh);
 
 # # generate source codes and store them in app folder
-# Gencode.gencode(pde);
+# Exasim.Gencode.gencode(pde);
 
 # # compile source codes to build an executable file and store it in app folder
-# compilerstr = Gencode.compilecode(pde);
+# compilerstr = Exasim.Gencode.compilecode(pde);
 
 # # run executable file to compute solution and store it in dataout folder
-# runstr = Gencode.runcode(pde, 1);
+# runstr = Exasim.Gencode.runcode(pde, 1);
 
 # # get solution from output files in dataout folder
-# sol = Postprocessing.fetchsolution(pde,master,dmd);
+# sol = Exasim.fetchsolution(pde,master,dmd);
 
 # visualize the numerical solution of the PDE model using Paraview
 pde.visscalars = ["uy", 4, "vx", 5];  # list of scalar fields for visualization
 pde.visvectors = ["velocity", [1, 2]]; # list of vector fields for visualization
-Postprocessing.vis(sol,pde,mesh); # visualize the numerical solution
+Exasim.vis(sol,pde,mesh); # visualize the numerical solution
 print("Done!");
