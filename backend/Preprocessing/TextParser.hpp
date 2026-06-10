@@ -44,7 +44,7 @@
 
 class TextParser {
 public:
-    static ParsedSpec parseFile(const std::string& filename) {
+    static ParsedSpec parseFile(const std::string& filename, bool requireExasimFunctions = true) {
       
         ParsedSpec spec;
         spec.modelfile = filename;
@@ -154,13 +154,17 @@ public:
           //     spec.isoutput[i] = (outputSet.count(name) > 0) ? true : false;
           // }
 
-          for (size_t i = 0; i < 6; ++i) {
-            if (spec.isoutput[i] == false) {
-              std::cerr << "Error: \"" << spec.exasimfunctions[i]
-                        << "\" is not defined in the model file. Please define it.\n";
-              std::exit(EXIT_FAILURE);  // More conventional than -1
+          // When a built-in model library supplies the kernels (builtinmodelID > 0),
+          // the text model file is optional and need not define these functions.
+          if (requireExasimFunctions) {
+            for (size_t i = 0; i < 6; ++i) {
+              if (spec.isoutput[i] == false) {
+                std::cerr << "Error: \"" << spec.exasimfunctions[i]
+                          << "\" is not defined in the model file. Please define it.\n";
+                std::exit(EXIT_FAILURE);  // More conventional than -1
+              }
             }
-          }                    
+          }
         } else {
           spec.exasim = false;                        
         }

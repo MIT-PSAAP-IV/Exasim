@@ -64,6 +64,12 @@
 #include "../Model/ModelDrivers.cpp"
 #elif defined(HAVE_BUILTINMODEL)
 #include "../Model/BuiltIn/BuiltinModelDrivers.cpp"
+#elif defined(HAVE_KOKKOSKERNEL)
+// Header-only / templated path: declarations only. The legacy ::*Driver branch
+// of EXASIM_DRIVER_CALL is discarded by if constexpr for a real Model M, which
+// instead uses exasim::*Driver<M> (M's pointwise math) -- so no per-model kernel
+// .cpp is needed and the headers compile out-of-tree from an install prefix.
+#include "../Model/driver_decls.hpp"
 #else
 #include "../Model/KokkosDrivers.cpp"
 #endif
@@ -276,10 +282,18 @@ inline CDiscretization<M>::CDiscretization(std::string filein, std::string fileo
         tempstruct htmp;    
         commonstruct hcommon;     
 
-        hcommon.backend = backend;        
+        hcommon.backend = backend;
+        // The GPU path stages the read into host structs (happ/hcommon) and then
+        // copies to device. cpuInit() computes the initial solution on the host
+        // (cpuInituDriver), which for the built-in model provider dispatches on
+        // builtinmodelID — so the staging structs need it too, otherwise it is 0
+        // and the dispatch aborts ("Unknown builtinmodelID=0"). Mirror the member
+        // assignment above (the CPU path uses the member app/common directly).
+        hcommon.builtinmodelID = builtinmodelID;
+        happ.builtinmodelID = builtinmodelID;
         // allocate data for structs in CPU memory
-        cpuInit(hsol, hres, happ, hmaster, hmesh, htmp, hcommon, filein, fileout, 
-                mpiprocs, mpirank, fileoffset, omprank);                    
+        cpuInit(hsol, hres, happ, hmaster, hmesh, htmp, hcommon, filein, fileout,
+                mpiprocs, mpirank, fileoffset, omprank);
                 
         // copy data from cpu memory to gpu memory
         gpuInit(sol, res, app, master, mesh, tmp, common, 

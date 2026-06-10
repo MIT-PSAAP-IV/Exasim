@@ -42,6 +42,24 @@
 
 */
 
+// Build-time SymEngine resolution (installed copy preferred, vendored fallback),
+// baked by text2code/CMakeLists.txt. Absent in non-CMake builds → fall back to
+// the vendored path constructed from spec.symenginepath.
+#if defined(__has_include)
+#  if __has_include("symengine_config.h")
+#    include "symengine_config.h"
+#  endif
+#endif
+#ifndef EXASIM_SYMENGINE_FOUND
+#  define EXASIM_SYMENGINE_FOUND 0
+#endif
+#ifndef EXASIM_KOKKOS_DIR
+#  define EXASIM_KOKKOS_DIR ""        // empty -> fall back to the exasimpath layout
+#endif
+#ifndef EXASIM_KOKKOS_BACKEND
+#  define EXASIM_KOKKOS_BACKEND "serial"
+#endif
+
 void generateCppCode(ParsedSpec spec)
 {
     std::cout << "\nGenerating the C++ code for this model file ("<< spec.modelfile << ") ... \n\n";
@@ -263,14 +281,25 @@ int executeCppCode(ParsedSpec& spec)
           << quote(symengine_lib) << " "
           << "/Fe:" << quote(exefile);
     } else {
-      std::string symengine_lib = make_path(spec.symenginepath, "lib/libsymengine.a");
-      cmd << tc.cxx << " -std=c++17 -w "          
-          << "-I" << quote(spec.symenginepath) << " "
-          << "-I" << quote(symengine_include) << " "       
+#if EXASIM_SYMENGINE_FOUND
+      // Use the SymEngine resolved at build time (installed copy preferred,
+      // vendored fallback) — baked into symengine_config.h.
+      cmd << tc.cxx << " -std=c++17 -w "
+          << EXASIM_SYMENGINE_INCFLAGS << " "
           << "-I" << quote(backend_model) << " "
-          << quote(sourcefile) << " "        
-          << quote(symengine_lib) << " -o "    
+          << quote(sourcefile) << " "
+          << EXASIM_SYMENGINE_LIB << " -o "
           << quote(exefile);
+#else
+      std::string symengine_lib = make_path(spec.symenginepath, "lib/libsymengine.a");
+      cmd << tc.cxx << " -std=c++17 -w "
+          << "-I" << quote(spec.symenginepath) << " "
+          << "-I" << quote(symengine_include) << " "
+          << "-I" << quote(backend_model) << " "
+          << quote(sourcefile) << " "
+          << quote(symengine_lib) << " -o "
+          << quote(exefile);
+#endif
     }
                            
     std::cout<<cmd.str().c_str()<<std::endl;
@@ -305,9 +334,14 @@ std::string getSharedLibExtension() {
 
 int buildDynamicLibraries(ParsedSpec& spec) 
 {
-    const std::string kokkos_serial_path = make_path(spec.exasimpath, "kokkos/buildserial");
-    const std::string kokkos_cuda_path   = make_path(spec.exasimpath, "kokkos/buildcuda");
-    const std::string kokkos_hip_path    = make_path(spec.exasimpath, "kokkos/buildhip");
+    // Kokkos location baked by the superbuild (it builds Kokkos out of the source
+    // tree). The active backend's path points at the baked dir; the others stay
+    // empty so only the matching libt2cmodel<backend> is built. Falls back to the
+    // legacy in-source exasimpath/kokkos/build* layout for a standalone build.
+    const std::string _kk(EXASIM_KOKKOS_DIR), _kkb(EXASIM_KOKKOS_BACKEND);
+    const std::string kokkos_serial_path = !_kk.empty() ? (_kkb=="serial" ? _kk : "") : make_path(spec.exasimpath, "kokkos/buildserial");
+    const std::string kokkos_cuda_path   = !_kk.empty() ? (_kkb=="cuda"   ? _kk : "") : make_path(spec.exasimpath, "kokkos/buildcuda");
+    const std::string kokkos_hip_path    = !_kk.empty() ? (_kkb=="hip"    ? _kk : "") : make_path(spec.exasimpath, "kokkos/buildhip");
     const std::string exasim_lib_path    = make_path(spec.exasimpath, "lib");
     fs::create_directories(exasim_lib_path);
 

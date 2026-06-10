@@ -1,55 +1,42 @@
-# In-tree wiring for tests/ subprojects.
+# Test registration (gated by EXASIM_BUILD_TESTS; wired from install/CMakeLists.txt).
 #
-# Each subdirectory has its own consumer-style CMakeLists.txt for
-# documentation and out-of-tree build. This file registers the same
-# tests directly against the in-tree backend so a developer can run
-# them without a separate `cmake --install` step.
+# B1-B4: out-of-tree consumer tests. run-consumer-tests.sh installs this build to a
+# temp prefix, then for each project under tests/consumers/:
+#   B3  asserts the consumer CMakeLists does NOT reference the Exasim source tree;
+#   B2  configures it ONLY via find_package(Exasim) and builds it;
+#   B4  runs it (if it ships a pdeapp.txt) and checks the QoI gate.
+# This catches export/packaging regressions a normal in-tree build would miss.
 #
-# Gated by EXASIM_BUILD_TESTS (default OFF). Some tests are expected
-# to FAIL until the corresponding fix lands — see comments below.
-
+# Run everything with `bash tests/run-tests.sh` (configures with
+# EXASIM_BUILD_TESTS=ON, builds, runs ctest). The superseded in-tree consumers
+# (install_consumer / multi_tu_consumer) and bespoke runners now live under
+# tests/archive/ — see tests/archive/README.md.
 cmake_minimum_required(VERSION 3.16)
 
-# multi_tu_consumer — surfaces multi-TU ODR violations in the public
-# header set. Three .cpp files include <exasim/run.hpp>; if any
-# transitive header defines a non-inline free function, the link
-# fails. PR #73 review B2 will inline those; before that lands this
-# target will not link, which is the point.
-#
-# Setup mirrors tutorial 04 (hand-written Poisson2D + libpdemodel.cpp
-# compiled directly into the binary) so the only difference from a
-# known-good single-TU build is the unit_a/unit_b/main split. That
-# isolates ODR breakage from any other linkage concern.
-set(_mtu_pdemodel_src "${EXASIM_DIR}/backend/Model/libpdemodel.cpp")
-add_executable(multi_tu_consumer
-    multi_tu_consumer/main.cpp
-    multi_tu_consumer/unit_a.cpp
-    multi_tu_consumer/unit_b.cpp
-    ${_mtu_pdemodel_src})
-target_compile_features(multi_tu_consumer PRIVATE cxx_std_17)
-target_compile_definitions(multi_tu_consumer PRIVATE _TEXT2CODE)
-target_include_directories(multi_tu_consumer PRIVATE
-    ${EXASIM_DIR}/include
-    ${EXASIM_DIR}/backend/Model
-    "${CMAKE_CURRENT_SOURCE_DIR}/multi_tu_consumer")
-target_link_libraries(multi_tu_consumer PRIVATE
-    Kokkos::kokkos ${lapackblas_libraries})
+# CPU-only consumer (non-MPI, single process).
+add_test(NAME consumer_builtin_cpu
+  COMMAND ${CMAKE_COMMAND} -E env
+    "EXASIM_BUILD=${CMAKE_BINARY_DIR}"
+    "KOKKOS_DIR=${Kokkos_DIR}"
+    "EXASIM_ROOT=${EXASIM_DIR}"
+    "CC=${CMAKE_C_COMPILER}"
+    "CXX=${CMAKE_CXX_COMPILER}"
+    "NP=1"
+    "EXASIM_MPI_VARIANT=OFF"
+    "INSTALL_PREFIX=/tmp/exasim_install_cpu"
+    bash "${CMAKE_CURRENT_SOURCE_DIR}/run-consumer-tests.sh")
+set_tests_properties(consumer_builtin_cpu PROPERTIES TIMEOUT 1200)
 
-if(EXASIM_MPI AND MPI_FOUND)
-    target_compile_definitions(multi_tu_consumer PRIVATE _MPI)
-    target_link_libraries(multi_tu_consumer PRIVATE ${MPI_LIBRARIES})
-endif()
-if(EXASIM_CUDA)
-    target_compile_definitions(multi_tu_consumer PRIVATE _CUDA)
-    set_source_files_properties(${_mtu_pdemodel_src} PROPERTIES
-        LANGUAGE CUDA
-        COMPILE_OPTIONS "--expt-extended-lambda;--expt-relaxed-constexpr")
-elseif(EXASIM_HIP)
-    target_compile_definitions(multi_tu_consumer PRIVATE _HIP)
-    set_source_files_properties(${_mtu_pdemodel_src} PROPERTIES
-        LANGUAGE HIP)
-endif()
-
-link_metis(multi_tu_consumer)
-set_target_properties(multi_tu_consumer PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
+# CPU+MPI consumer (2 ranks).
+add_test(NAME consumer_builtin_mpi
+  COMMAND ${CMAKE_COMMAND} -E env
+    "EXASIM_BUILD=${CMAKE_BINARY_DIR}"
+    "KOKKOS_DIR=${Kokkos_DIR}"
+    "EXASIM_ROOT=${EXASIM_DIR}"
+    "CC=${CMAKE_C_COMPILER}"
+    "CXX=${CMAKE_CXX_COMPILER}"
+    "NP=2"
+    "EXASIM_MPI_VARIANT=ON"
+    "INSTALL_PREFIX=/tmp/exasim_install_mpi"
+    bash "${CMAKE_CURRENT_SOURCE_DIR}/run-consumer-tests.sh")
+set_tests_properties(consumer_builtin_mpi PROPERTIES TIMEOUT 1200)

@@ -39,6 +39,9 @@ inline CPreprocessing::CPreprocessing(std::string filein, int rank, int commsize
   pde = initializePDE(params, rank);
   pde.mpiprocs = commsize;
 
+  // A built-in model library (builtinmodelID > 0) provides the kernels and its
+  // dimensions come from pdeapp.txt metadata, so the text model file is not
+  // parsed at all; otherwise parse pdemodel.txt as usual.
   if (useBuiltInAppMetadata(pde)) {
     validateBuiltInAppMetadata(pde);
   } else {

@@ -41,10 +41,14 @@
 #ifndef __COMMON_H__
 #define __COMMON_H__
 
-// #include <cstdint>
-// #include <cstring>
-// #include <chrono>
-// #include <cmath>
+// Standard headers used directly below (filesystem path/dir helpers, string,
+// containers). Included here so common.h is self-contained for consumers that
+// reach it without run.hpp's preamble (e.g. <exasim/model.hpp>).
+#include <string>
+#include <vector>
+#include <filesystem>
+#include <cstdint>
+#include <cstring>
 
 #define SCOPY scopy_
 #define SSCAL sscal_
@@ -1589,9 +1593,9 @@ struct precondstruct {
 };
 
 struct commonstruct {         
-    string exasimpath = "";  
-    string filein;       // Name of binary file with input data
-    string fileout;      // Name of binary file to write the solution            
+    std::string exasimpath = "";  
+    std::string filein;       // Name of binary file with input data
+    std::string fileout;      // Name of binary file to write the solution            
     
     Int backend;   // 0: Serial; 1: OpenMP; 2: CUDA  
     Int maxnbc;    // maximum number of boundary conditions

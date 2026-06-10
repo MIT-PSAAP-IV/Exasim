@@ -6,13 +6,13 @@
 #include "../Model/FrontendGenerated/frontendprovider.cpp"
 #include "../Model/Text2codeGenerated/text2codeprovider.cpp"
 #include "../Model/UserDefined/userdefinedprovider.cpp"
-#include "../Model/BuiltIn/builtinprovider.cpp"
+#include "../Model/BuiltIn/builtinlibprovider.cpp"
 
 namespace {
 
 const ExasimDriverABI& SelectExasimDriverABI(const int builtinmodelID)
 {
-    if (builtinmodelID > 0) return getBuiltInExasimDriverABI();
+    if (builtinmodelID > 0) return getBuiltInLibraryExasimDriverABI();
 
 #ifdef HAVE_TEXT2CODE
     return getText2codeGeneratedExasimDriverABI();

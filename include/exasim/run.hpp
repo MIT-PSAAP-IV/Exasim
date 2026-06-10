@@ -57,6 +57,10 @@
 #define HAVE_TEXT2CODE
 #endif
 
+#ifdef _KOKKOSKERNEL
+#define HAVE_KOKKOSKERNEL
+#endif
+
 #if defined(HAVE_TEXT2CODE) || defined(HAVE_BUILTINMODEL)
 #define HAVE_SHARED_MODEL_LIB
 #endif
@@ -99,6 +103,14 @@
 #include <regex>
 #include <unordered_map>
 #include <unordered_set>
+#endif
+
+#ifdef HAVE_MPI
+#include <mpi.h>
+// Exasim communicators (defined in the linked preprocessing library). Declared
+// here so the backend headers below compile in an out-of-tree consumer TU.
+extern MPI_Comm EXASIM_COMM_WORLD;
+extern MPI_Comm EXASIM_COMM_LOCAL;
 #endif
 
 #include <Kokkos_Core.hpp>

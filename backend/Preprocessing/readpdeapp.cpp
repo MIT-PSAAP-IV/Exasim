@@ -885,13 +885,26 @@ inline PDE initializePDE(InputParams& params, int mpirank=0)
     pdeFinalizeDerived(pde);
     
                     
-    pde.exasimpath = trimToSubstringAtLastOccurence(pde.exasimpath, "Exasim");     
-    if (pde.exasimpath == "") {      
-      if (mpirank==0) std::cout<<"exasimpath is not set in "<< params.pdeappfile <<" file.\nWe use the working directory to define exasimpath.\n";
-      std::filesystem::path cwd = std::filesystem::current_path();
-      pde.exasimpath = trimToSubstringAtLastOccurence(cwd, "Exasim");            
-      if (pde.exasimpath == "") 
-        error("exasimpath is not valid. Please set exasimpath to the correct path of the Exasim source code in pdeapp.txt file.");     
+    // Normalize a path that contains an "Exasim" component down to the Exasim
+    // root, but honor an explicitly-set exasimpath verbatim even when its
+    // directory name does not literally contain "Exasim" (the checkout may live
+    // at e.g. /data/scratch/.../exasim-teoc). Only fall back to the cwd when no
+    // exasimpath was provided at all. (Mirrors text2code/readpdeapp.cpp.)
+    {
+      const std::string rawpath = pde.exasimpath;
+      const std::string trimmed = trimToSubstringAtLastOccurence(rawpath, "Exasim");
+      if (!trimmed.empty()) {
+        pde.exasimpath = trimmed;
+      } else if (!rawpath.empty()) {
+        pde.exasimpath = rawpath;   // honor an explicit path verbatim
+      } else {
+        if (mpirank==0) std::cout<<"exasimpath is not set in "<< params.pdeappfile <<" file.\nWe use the working directory to define exasimpath.\n";
+        std::filesystem::path cwd = std::filesystem::current_path();
+        std::string cwdtrim = trimToSubstringAtLastOccurence(cwd, "Exasim");
+        pde.exasimpath = cwdtrim.empty() ? cwd.string() : cwdtrim;
+        if (pde.exasimpath == "")
+          error("exasimpath is not valid. Please set exasimpath to the correct path of the Exasim source code in pdeapp.txt file.");
+      }
     }
     if (mpirank==0) std::cout << "exasimpath = "<<pde.exasimpath<<std::endl;
     

@@ -788,13 +788,26 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     pde.solversparam = {pde.NewtonTol, pde.GMREStol, pde.matvectol, pde.NLparam};
     
                     
-    pde.exasimpath = trimToSubstringAtLastOccurence(pde.exasimpath, "Exasim");     
-    if (pde.exasimpath == "") {      
-      if (mpirank==0) std::cout<<"exasimpath is not set in "<< params.pdeappfile <<" file.\nWe use the working directory to define exasimpath.\n";
-      std::filesystem::path cwd = std::filesystem::current_path();
-      pde.exasimpath = trimToSubstringAtLastOccurence(cwd, "Exasim");            
-      if (pde.exasimpath == "") 
-        error("exasimpath is not valid. Please set exasimpath to the correct path of the Exasim source code in pdeapp.txt file.");     
+    // Normalize a path that contains an "Exasim" component (e.g. .../Exasim/backend)
+    // down to the Exasim root. But an explicitly-set exasimpath must be honored even
+    // when its directory name does not literally contain "Exasim" (the checkout may
+    // live at e.g. /data/scratch/.../exasim-teoc): only fall back to the cwd when no
+    // exasimpath was provided at all.
+    {
+      const std::string rawpath = pde.exasimpath;
+      const std::string trimmed = trimToSubstringAtLastOccurence(rawpath, "Exasim");
+      if (!trimmed.empty()) {
+        pde.exasimpath = trimmed;
+      } else if (!rawpath.empty()) {
+        pde.exasimpath = rawpath;   // honor an explicit path verbatim
+      } else {
+        if (mpirank==0) std::cout<<"exasimpath is not set in "<< params.pdeappfile <<" file.\nWe use the working directory to define exasimpath.\n";
+        std::filesystem::path cwd = std::filesystem::current_path();
+        std::string cwdtrim = trimToSubstringAtLastOccurence(cwd, "Exasim");
+        pde.exasimpath = cwdtrim.empty() ? cwd.string() : cwdtrim;
+        if (pde.exasimpath == "")
+          error("exasimpath is not valid. Please set exasimpath to the correct path of the Exasim source code in pdeapp.txt file.");
+      }
     }
     if (mpirank==0) std::cout << "exasimpath = "<<pde.exasimpath<<std::endl;
     

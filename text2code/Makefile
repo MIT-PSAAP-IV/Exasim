@@ -21,7 +21,7 @@ text2code:
 	@echo "Building with -j$(NPROCS)…"
 
 	# SymEngine (CMake is fine)
-	cd symengine && cmake -S . -B build \
+	cd ../deps/symengine && cmake -S . -B build \
 	  -DCMAKE_INSTALL_PREFIX="$$PWD" \
 	  -DCMAKE_BUILD_TYPE=Release \
 	  -DBUILD_SHARED_LIBS=OFF \

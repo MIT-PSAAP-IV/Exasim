@@ -20,6 +20,24 @@ set(EXASIM_INCLUDE_DIR ${EXASIM_DIR}/include)
 set(EXASIM_LIB_DIR ${EXASIM_DIR}/lib)
 file(MAKE_DIRECTORY ${EXASIM_LIB_DIR})
 include_directories(${EXASIM_INCLUDE_DIR})
+
+# ---- Runtime data location (replaces exasimpath for master/gauss node files) ----
+# Install the precomputed node data and bake its install location into the build
+# so the runtime finds it without a user-supplied exasimpath. $EXASIM_DATA_DIR
+# overrides at runtime for a relocated install (see backend/Common/exasim_paths.h).
+set(EXASIM_DATA_DEST "${CMAKE_INSTALL_DATAROOTDIR}/exasim")
+set(EXASIM_INSTALL_DATADIR "${CMAKE_INSTALL_PREFIX}/${EXASIM_DATA_DEST}")
+set(EXASIM_GENINC_DIR "${CMAKE_BINARY_DIR}/exasim_gen")
+configure_file("${EXASIM_DIR}/backend/Common/exasim_paths.h.in"
+               "${EXASIM_GENINC_DIR}/exasim_paths.h" @ONLY)
+include_directories("${EXASIM_GENINC_DIR}")
+install(FILES "${EXASIM_DIR}/backend/Preprocessing/masternodes.bin"
+              "${EXASIM_DIR}/backend/Preprocessing/gaussnodes.bin"
+        DESTINATION "${EXASIM_DATA_DEST}")
+# Install the generated header so out-of-tree templated consumers that compile
+# the FEM internals (which call exasim_data_dir()) resolve it from include/.
+install(FILES "${EXASIM_GENINC_DIR}/exasim_paths.h"
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
 set(EXASIM_CMAKE_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/Exasim")
 set(EXASIM_PACKAGE_VERSION "0.0.0")
 
@@ -35,7 +53,6 @@ target_include_directories(ExasimHeaders INTERFACE
 set(EXASIM_MAIN_DIR ${EXASIM_DIR}/backend/Main)
 file(GLOB MAIN_SOURCES ${EXASIM_MAIN_DIR}/main.cpp)
 set(T2C_MAIN_SOURCES ${EXASIM_MAIN_DIR}/maint2c.cpp)
-set(BUILTIN_MAIN_SOURCES ${EXASIM_MAIN_DIR}/maintbuiltin.cpp)
 set(KOKKOSKERNEL_MAIN_SOURCES ${EXASIM_MAIN_DIR}/mainkernel.cpp)
 set(EXASIM_SOLVER_SOURCES ${EXASIM_MAIN_DIR}/ExasimSolver.cpp)
 
@@ -56,6 +73,24 @@ function(add_exasim_executable_from_static target library_target)
   target_link_libraries(${target} PRIVATE ${library_target})
 endfunction()
 
+# Create a model-linked solver executable (text2code or built-in model variant),
+# consolidating the per-backend t2c/builtin blocks. Backend-specific flags
+# (OPTIONS, EXTRA_LIBS) are passed by the caller so behavior is preserved exactly.
+#   add_exasim_model_executable(<name>
+#     MAIN_SOURCES <...> LIB_DIR <dir> MODEL_LIB <lib>
+#     DEFINES <...> OPTIONS <...> [EXTRA_LIBS <...>])
+function(add_exasim_model_executable name)
+  cmake_parse_arguments(E "" "LIB_DIR;MODEL_LIB" "MAIN_SOURCES;DEFINES;OPTIONS;EXTRA_LIBS" ${ARGN})
+  add_executable(${name} ${E_MAIN_SOURCES} ${EXASIM_SOLVER_SOURCES})
+  target_link_directories(${name} PRIVATE ${E_LIB_DIR})
+  target_compile_definitions(${name} PRIVATE ${E_DEFINES})
+  target_compile_options(${name} PRIVATE ${E_OPTIONS})
+  target_link_libraries(${name} PRIVATE
+    Kokkos::kokkos ${lapackblas_libraries} ${E_EXTRA_LIBS} ${E_MODEL_LIB})
+  link_metis(${name})
+  set_target_properties(${name} PROPERTIES BUILD_RPATH "${E_LIB_DIR}")
+endfunction()
+
 function(add_exasim_preprocessing_executable_from_static target library_target)
   add_executable(${target} ${KOKKOSKERNEL_MAIN_SOURCES})
   target_include_directories(${target} PRIVATE ${EXASIM_INCLUDE_DIR})
@@ -74,7 +109,6 @@ endfunction()
 set(Model_LIB_DIR   ${EXASIM_LIB_DIR})
 
 # BuiltinModel shared libraries live here
-set(BuiltinModel_LIB_DIR   ${EXASIM_LIB_DIR})
 
 # ---- Option: build EXASIM variants that link text2code-generated libs ----
 option(EXASIM_LIB "Build and install static libraries only; skip all EXASIM executables" OFF)
@@ -87,13 +121,49 @@ set(T2C_CPU_LIB  t2cmodelserial)
 set(T2C_CUDA_LIB t2cmodelcuda)
 set(T2C_HIP_LIB  t2cmodelhip)
 
-# ---- Option: build EXASIM variants that link builtinmodel libs ----
-option(WITH_BUILTINMODEL "Build extra EXASIM executables that link builtin PDE model dynamic libraries" OFF)
-
-# logical names for builtin shared libs (lib<name>.so/.dylib/.dll)
+# logical names for builtin static libs (lib<name>.a)
 set(BM_CPU_LIB  builtinmodelserial)
 set(BM_CUDA_LIB builtinmodelcuda)
 set(BM_HIP_LIB  builtinmodelhip)
+
+# ---- Kokkos: resolve before the BuiltIn subdirectory ----
+# exasim_finalize_builtin_models() (called from the BuiltIn subdirectory) has an
+# `if(NOT TARGET Kokkos::kokkos)` guard; it skips find_package when the target
+# already exists. If the guard is NOT skipped, the function calls find_package itself
+# — but for CUDA builds KokkosConfig.cmake calls FIND_DEPENDENCY(CUDAToolkit REQUIRED)
+# which requires CUDAToolkit to be locatable, and that can fail before the parent's
+# if(EXASIM_CUDA) block has had a chance to set things up. Detect Kokkos here first
+# so the guard fires and the BuiltIn subdirectory never calls find_package on its own.
+if(EXASIM_CUDA)
+  if(NOT Kokkos_DIR)
+    set(Kokkos_DIR ${EXASIM_DIR}/deps/kokkos/buildcuda)
+  endif()
+  find_package(Kokkos REQUIRED)
+elseif(EXASIM_HIP)
+  if(NOT Kokkos_DIR)
+    if(EXASIM_TUOLUMNE)
+      set(Kokkos_DIR ${EXASIM_DIR}/deps/kokkos/buildtuolumne)
+    else()
+      set(Kokkos_DIR ${EXASIM_DIR}/deps/kokkos/buildhip)
+    endif()
+  endif()
+  find_package(Kokkos REQUIRED)
+else()
+  if(NOT Kokkos_DIR)
+    find_package(Kokkos QUIET)
+  endif()
+  if(NOT Kokkos_FOUND)
+    if(NOT Kokkos_DIR)
+      set(Kokkos_DIR ${EXASIM_DIR}/deps/kokkos/buildserial)
+    endif()
+    find_package(Kokkos REQUIRED)
+  endif()
+endif()
+
+# The built-in model library is always required: cpuEXASIM/gpuEXASIM link it
+# directly. Defines the CMake target builtinmodel{serial,cuda,hip}.
+add_subdirectory(${EXASIM_DIR}/backend/Model/BuiltIn
+                 ${CMAKE_BINARY_DIR}/builtinmodel)
 
 # ---- Option: build EXASIM variants that include Kokkos kernel providers ----
 set(KOKKOSKERNEL_HEADER "" CACHE STRING "Header defining PdeModel for the Kokkos kernel provider")
@@ -114,11 +184,11 @@ endif()
 option(WITH_PARMETIS "Build extra EXASIM executables that link metis libraries" OFF)
 
 # METIS: ParMETIS / METIS / GKlib roots (override if your layout differs)
-set(PARMETIS_ROOT "${EXASIM_DIR}/metis/ParMETIS"
+set(PARMETIS_ROOT "${EXASIM_DIR}/deps/metis/ParMETIS"
     CACHE PATH "Path to ParMETIS root")
-set(METIS_ROOT    "${EXASIM_DIR}/metis/METIS"
+set(METIS_ROOT    "${EXASIM_DIR}/deps/metis/METIS"
     CACHE PATH "Path to METIS root")
-set(GKLIB_ROOT    "${EXASIM_DIR}/metis/GKlib"
+set(GKLIB_ROOT    "${EXASIM_DIR}/deps/metis/GKlib"
     CACHE PATH "Path to GKlib root")
 
 # METIS: derived include/lib dirs (override if needed)
@@ -138,6 +208,31 @@ set(GKLIB_INCLUDE_DIR "${GKLIB_ROOT}/include"
 set(GKLIB_LIBRARY_DIR "${GKLIB_ROOT}/lib"
     CACHE PATH "GKlib library dir")
 
+# Resolve METIS / ParMETIS / GKlib: prefer an installed copy (e.g.
+# `apt install libmetis-dev libparmetis-dev`, or any package-manager install on
+# CMAKE_PREFIX_PATH), and fall back to the vendored build under Exasim/metis via
+# HINTS. METIS ships no upstream CMake config, so we locate the library + header
+# directly with find_library/find_path -- no third-party Find-module is adopted.
+if(WITH_PARMETIS)
+  find_path(EXASIM_METIS_INCLUDE       metis.h    HINTS "${METIS_INCLUDE_DIR}")
+  find_library(EXASIM_METIS_LIBRARY    metis      HINTS "${METIS_LIBRARY_DIR}")
+  find_path(EXASIM_PARMETIS_INCLUDE    parmetis.h HINTS "${PARMETIS_INCLUDE_DIR}")
+  find_library(EXASIM_PARMETIS_LIBRARY parmetis   HINTS "${PARMETIS_LIBRARY_DIR}")
+  # GKlib is a separate library in the vendored build but is bundled into libmetis
+  # on some installs (e.g. apt); link/include it only when present.
+  find_path(EXASIM_GKLIB_INCLUDE    GKlib.h HINTS "${GKLIB_INCLUDE_DIR}")
+  find_library(EXASIM_GKLIB_LIBRARY GKlib   HINTS "${GKLIB_LIBRARY_DIR}")
+  if(NOT EXASIM_METIS_LIBRARY OR NOT EXASIM_PARMETIS_LIBRARY)
+    message(FATAL_ERROR
+      "WITH_PARMETIS=ON but METIS/ParMETIS were not found. Install them (e.g. "
+      "apt install libmetis-dev libparmetis-dev) or build the vendored copy "
+      "(cd Exasim/metis && make metis).")
+  endif()
+  message(STATUS "METIS                     = ${EXASIM_METIS_LIBRARY}")
+  message(STATUS "ParMETIS                  = ${EXASIM_PARMETIS_LIBRARY}")
+  message(STATUS "GKlib                     = ${EXASIM_GKLIB_LIBRARY}")
+endif()
+
 # METIS: helper to attach METIS / ParMETIS / GKlib to a target when WITH_PARMETIS=ON
 function(link_metis target)
   if (NOT WITH_PARMETIS)
@@ -149,35 +244,23 @@ function(link_metis target)
 
   # Includes
   target_include_directories(${target} PUBLIC
-    $<BUILD_INTERFACE:${PARMETIS_INCLUDE_DIR}>
-    $<BUILD_INTERFACE:${METIS_INCLUDE_DIR}>
-    $<BUILD_INTERFACE:${GKLIB_INCLUDE_DIR}>
+    $<BUILD_INTERFACE:${EXASIM_PARMETIS_INCLUDE}>
+    $<BUILD_INTERFACE:${EXASIM_METIS_INCLUDE}>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   )
+  if (EXASIM_GKLIB_INCLUDE)
+    target_include_directories(${target} PUBLIC
+      $<BUILD_INTERFACE:${EXASIM_GKLIB_INCLUDE}>)
+  endif()
 
-  # Library search paths (only if they exist, to avoid noisy warnings)
-  if (EXISTS "${PARMETIS_LIBRARY_DIR}")
-    target_link_directories(${target} PUBLIC
-      $<BUILD_INTERFACE:${PARMETIS_LIBRARY_DIR}>
-      $<INSTALL_INTERFACE:${CMAKE_INSTALL_LIBDIR}>)
-  endif()
-  if (EXISTS "${METIS_LIBRARY_DIR}")
-    target_link_directories(${target} PUBLIC
-      $<BUILD_INTERFACE:${METIS_LIBRARY_DIR}>
-      $<INSTALL_INTERFACE:${CMAKE_INSTALL_LIBDIR}>)
-  endif()
-  if (EXISTS "${GKLIB_LIBRARY_DIR}")
-    target_link_directories(${target} PUBLIC
-      $<BUILD_INTERFACE:${GKLIB_LIBRARY_DIR}>
-      $<INSTALL_INTERFACE:${CMAKE_INSTALL_LIBDIR}>)
-  endif()
-  
-  # Link order: ParMETIS, METIS, GKlib
+  # Link order: ParMETIS, METIS, then GKlib (only if it is a separate library)
   target_link_libraries(${target} PUBLIC
-      ${PARMETIS_LIBRARY_DIR}/libparmetis.a
-      ${METIS_LIBRARY_DIR}/libmetis.a
-      ${GKLIB_LIBRARY_DIR}/libGKlib.a
+      ${EXASIM_PARMETIS_LIBRARY}
+      ${EXASIM_METIS_LIBRARY}
   )
+  if (EXASIM_GKLIB_LIBRARY)
+    target_link_libraries(${target} PUBLIC ${EXASIM_GKLIB_LIBRARY})
+  endif()
 endfunction()
 
 # BLAS / LAPACK
@@ -191,7 +274,10 @@ endif()
 
 # ----------------------------- CUDA branch ------------------------------
 if(EXASIM_CUDA)
-  set(Kokkos_DIR ${EXASIM_DIR}/kokkos/buildcuda)
+  # Respect a user-provided installed Kokkos (-DKokkos_DIR); else vendored CUDA build.
+  if(NOT Kokkos_DIR)
+    set(Kokkos_DIR ${EXASIM_DIR}/deps/kokkos/buildcuda)
+  endif()
   find_package(Kokkos REQUIRED)
 
   enable_language(CUDA)
@@ -204,7 +290,7 @@ if(EXASIM_CUDA)
     target_link_directories(gpuEXASIM_static PUBLIC ${Model_LIB_DIR})
     target_compile_definitions(gpuEXASIM_static PUBLIC _CUDA)
     target_compile_options(gpuEXASIM_static PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG -fno-unroll-loops)
-    target_link_libraries(gpuEXASIM_static PUBLIC Kokkos::kokkos ${lapackblas_libraries} ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES})
+    target_link_libraries(gpuEXASIM_static PUBLIC Kokkos::kokkos ${lapackblas_libraries} ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES} ${BM_CUDA_LIB})
     link_metis(gpuEXASIM_static)     # METIS
     if(NOT EXASIM_LIB)
       add_exasim_executable_from_static(gpuEXASIM gpuEXASIM_static)
@@ -220,18 +306,6 @@ if(EXASIM_CUDA)
         ${T2C_CUDA_LIB})
       link_metis(gput2cEXASIM)   # METIS
       set_target_properties(gput2cEXASIM PROPERTIES BUILD_RPATH "${Model_LIB_DIR}")
-    endif()
-
-    if(WITH_BUILTINMODEL)
-      add_executable(gpubuiltinEXASIM ${BUILTIN_MAIN_SOURCES} ${EXASIM_SOLVER_SOURCES})
-      target_link_directories(gpubuiltinEXASIM PRIVATE ${BuiltinModel_LIB_DIR})
-      target_compile_definitions(gpubuiltinEXASIM PRIVATE _CUDA HAVE_BUILTINMODEL _BUILTINMODEL)
-      target_compile_options(gpubuiltinEXASIM PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG -fno-unroll-loops)
-      target_link_libraries(gpubuiltinEXASIM PRIVATE
-        Kokkos::kokkos ${lapackblas_libraries} ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES}
-        ${BM_CUDA_LIB})
-      link_metis(gpubuiltinEXASIM)
-      set_target_properties(gpubuiltinEXASIM PROPERTIES BUILD_RPATH "${BuiltinModel_LIB_DIR}")
     endif()
 
     if(EXASIM_BUILD_PREPROCESSING_LIBS)
@@ -260,7 +334,7 @@ if(EXASIM_CUDA)
       target_compile_definitions(gpumpiEXASIM_static PUBLIC _MPI _CUDA)
       target_compile_options(gpumpiEXASIM_static PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG -fno-unroll-loops)
       target_link_libraries(gpumpiEXASIM_static PUBLIC
-        Kokkos::kokkos ${lapackblas_libraries} ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES} ${MPI_LIBRARIES})
+        Kokkos::kokkos ${lapackblas_libraries} ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES} ${MPI_LIBRARIES} ${BM_CUDA_LIB})
       link_metis(gpumpiEXASIM_static)   # METIS
       if(NOT EXASIM_LIB)
         add_exasim_executable_from_static(gpumpiEXASIM gpumpiEXASIM_static)
@@ -276,18 +350,6 @@ if(EXASIM_CUDA)
           ${T2C_CUDA_LIB})
         link_metis(gpumpit2cEXASIM) # METIS
         set_target_properties(gpumpit2cEXASIM PROPERTIES BUILD_RPATH "${Model_LIB_DIR}")
-      endif()
-
-      if(WITH_BUILTINMODEL)
-        add_executable(gpumpibuiltinEXASIM ${BUILTIN_MAIN_SOURCES} ${EXASIM_SOLVER_SOURCES})
-        target_link_directories(gpumpibuiltinEXASIM PRIVATE ${BuiltinModel_LIB_DIR})
-        target_compile_definitions(gpumpibuiltinEXASIM PRIVATE _MPI _CUDA HAVE_BUILTINMODEL _BUILTINMODEL)
-        target_compile_options(gpumpibuiltinEXASIM PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG -fno-unroll-loops)
-        target_link_libraries(gpumpibuiltinEXASIM PRIVATE
-          Kokkos::kokkos ${lapackblas_libraries} ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES} ${MPI_LIBRARIES}
-          ${BM_CUDA_LIB})
-        link_metis(gpumpibuiltinEXASIM)
-        set_target_properties(gpumpibuiltinEXASIM PROPERTIES BUILD_RPATH "${BuiltinModel_LIB_DIR}")
       endif()
 
       if(EXASIM_BUILD_PREPROCESSING_LIBS)
@@ -311,10 +373,13 @@ if(EXASIM_CUDA)
 
 # ------------------------------ HIP branch ------------------------------
 elseif(EXASIM_HIP)
-  if(EXASIM_TUOLUMNE)
-    set(Kokkos_DIR ${EXASIM_DIR}/kokkos/buildtuolumne)
-  else()
-    set(Kokkos_DIR ${EXASIM_DIR}/kokkos/buildhip)
+  # Respect a user-provided installed Kokkos (-DKokkos_DIR); else vendored HIP build.
+  if(NOT Kokkos_DIR)
+    if(EXASIM_TUOLUMNE)
+      set(Kokkos_DIR ${EXASIM_DIR}/deps/kokkos/buildtuolumne)
+    else()
+      set(Kokkos_DIR ${EXASIM_DIR}/deps/kokkos/buildhip)
+    endif()
   endif()
 
   message(${Kokkos_DIR})
@@ -332,7 +397,7 @@ elseif(EXASIM_HIP)
     target_link_directories(gpuEXASIM_static PUBLIC ${Model_LIB_DIR})
     target_compile_definitions(gpuEXASIM_static PUBLIC _HIP)
     target_compile_options(gpuEXASIM_static PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG -fno-unroll-loops)
-    target_link_libraries(gpuEXASIM_static PUBLIC Kokkos::kokkos hipblas rocblas ${HIP_LIBRARIES} ${lapackblas_libraries})
+    target_link_libraries(gpuEXASIM_static PUBLIC Kokkos::kokkos hipblas rocblas ${HIP_LIBRARIES} ${lapackblas_libraries} ${BM_HIP_LIB})
     link_metis(gpuEXASIM_static)     # METIS
     if(NOT EXASIM_LIB)
       add_exasim_executable_from_static(gpuEXASIM gpuEXASIM_static)
@@ -346,18 +411,6 @@ elseif(EXASIM_HIP)
       target_link_libraries(gput2cEXASIM PRIVATE Kokkos::kokkos hipblas rocblas ${HIP_LIBRARIES} ${lapackblas_libraries} ${T2C_HIP_LIB})
       link_metis(gput2cEXASIM)   # METIS
       set_target_properties(gput2cEXASIM PROPERTIES BUILD_RPATH "${Model_LIB_DIR}")
-    endif()
-
-    if(WITH_BUILTINMODEL)
-      add_executable(gpubuiltinEXASIM ${BUILTIN_MAIN_SOURCES} ${EXASIM_SOLVER_SOURCES})
-      target_link_directories(gpubuiltinEXASIM PRIVATE ${BuiltinModel_LIB_DIR})
-      target_compile_definitions(gpubuiltinEXASIM PRIVATE _HIP HAVE_BUILTINMODEL _BUILTINMODEL)
-      target_compile_options(gpubuiltinEXASIM PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG -fno-unroll-loops)
-      target_link_libraries(gpubuiltinEXASIM PRIVATE
-        Kokkos::kokkos hipblas rocblas ${HIP_LIBRARIES} ${lapackblas_libraries}
-        ${BM_HIP_LIB})
-      link_metis(gpubuiltinEXASIM)
-      set_target_properties(gpubuiltinEXASIM PROPERTIES BUILD_RPATH "${BuiltinModel_LIB_DIR}")
     endif()
 
     if(EXASIM_BUILD_PREPROCESSING_LIBS)
@@ -385,7 +438,7 @@ elseif(EXASIM_HIP)
       target_link_directories(gpumpiEXASIM_static PUBLIC ${Model_LIB_DIR})
       target_compile_definitions(gpumpiEXASIM_static PUBLIC _MPI _HIP)
       target_compile_options(gpumpiEXASIM_static PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG -fno-unroll-loops)
-      target_link_libraries(gpumpiEXASIM_static PUBLIC Kokkos::kokkos hipblas rocblas ${HIP_LIBRARIES} ${lapackblas_libraries} ${MPI_LIBRARIES})
+      target_link_libraries(gpumpiEXASIM_static PUBLIC Kokkos::kokkos hipblas rocblas ${HIP_LIBRARIES} ${lapackblas_libraries} ${MPI_LIBRARIES} ${BM_HIP_LIB})
       link_metis(gpumpiEXASIM_static)   # METIS
       if(NOT EXASIM_LIB)
         add_exasim_executable_from_static(gpumpiEXASIM gpumpiEXASIM_static)
@@ -401,18 +454,6 @@ elseif(EXASIM_HIP)
           ${T2C_HIP_LIB})
         link_metis(gpumpit2cEXASIM) # METIS
         set_target_properties(gpumpit2cEXASIM PROPERTIES BUILD_RPATH "${Model_LIB_DIR}")
-      endif()
-
-      if(WITH_BUILTINMODEL)
-        add_executable(gpumpibuiltinEXASIM ${BUILTIN_MAIN_SOURCES} ${EXASIM_SOLVER_SOURCES})
-        target_link_directories(gpumpibuiltinEXASIM PRIVATE ${BuiltinModel_LIB_DIR})
-        target_compile_definitions(gpumpibuiltinEXASIM PRIVATE _MPI _HIP HAVE_BUILTINMODEL _BUILTINMODEL)
-        target_compile_options(gpumpibuiltinEXASIM PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG -fno-unroll-loops)
-        target_link_libraries(gpumpibuiltinEXASIM PRIVATE
-          Kokkos::kokkos hipblas rocblas ${HIP_LIBRARIES} ${lapackblas_libraries} ${MPI_LIBRARIES}
-          ${BM_HIP_LIB})
-        link_metis(gpumpibuiltinEXASIM)
-        set_target_properties(gpumpibuiltinEXASIM PROPERTIES BUILD_RPATH "${BuiltinModel_LIB_DIR}")
       endif()
 
       if(EXASIM_BUILD_PREPROCESSING_LIBS)
@@ -435,13 +476,22 @@ elseif(EXASIM_HIP)
 
 # ------------------------------ CPU branch ------------------------------
 else()
-  set(Kokkos_DIR ${EXASIM_DIR}/kokkos/buildserial)
-  find_package(Kokkos REQUIRED)
+  # Prefer an installed Kokkos (apt/conda/spack/brew, -DKokkos_DIR, or
+  # CMAKE_PREFIX_PATH); fall back to the vendored serial build.
+  if(NOT Kokkos_DIR)
+    find_package(Kokkos QUIET)
+  endif()
+  if(NOT Kokkos_FOUND)
+    if(NOT Kokkos_DIR)
+      set(Kokkos_DIR ${EXASIM_DIR}/deps/kokkos/buildserial)
+    endif()
+    find_package(Kokkos REQUIRED)
+  endif()
 
   if(EXASIM_NOMPI)
     add_exasim_static_library(cpuEXASIM_static cpuEXASIM)
     target_link_directories(cpuEXASIM_static PUBLIC ${Model_LIB_DIR})
-    target_link_libraries(cpuEXASIM_static PUBLIC Kokkos::kokkos ${lapackblas_libraries})
+    target_link_libraries(cpuEXASIM_static PUBLIC Kokkos::kokkos ${lapackblas_libraries} ${BM_CPU_LIB})
     target_compile_options(cpuEXASIM_static PRIVATE -std=c++17 -w -O2)
     link_metis(cpuEXASIM_static)    # METIS
     if(NOT EXASIM_LIB)
@@ -451,23 +501,9 @@ else()
     #target_link_options(cpuEXASIM PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
 
     if(WITH_TEXT2CODE)
-      add_executable(cput2cEXASIM ${T2C_MAIN_SOURCES} ${EXASIM_SOLVER_SOURCES})
-      target_link_directories(cput2cEXASIM PRIVATE ${Model_LIB_DIR})
-      target_compile_definitions(cput2cEXASIM PRIVATE _TEXT2CODE)
-      target_link_libraries(cput2cEXASIM PRIVATE Kokkos::kokkos ${lapackblas_libraries} ${T2C_CPU_LIB})
-      target_compile_options(cput2cEXASIM PRIVATE -std=c++17 -w -O2)   
-      link_metis(cput2cEXASIM)   # METIS
-      set_target_properties(cput2cEXASIM PROPERTIES BUILD_RPATH "${Model_LIB_DIR}")
-    endif()
-
-    if(WITH_BUILTINMODEL)
-      add_executable(cpubuiltinEXASIM ${BUILTIN_MAIN_SOURCES} ${EXASIM_SOLVER_SOURCES})
-      target_link_directories(cpubuiltinEXASIM PRIVATE ${BuiltinModel_LIB_DIR})
-      target_compile_definitions(cpubuiltinEXASIM PRIVATE HAVE_BUILTINMODEL _BUILTINMODEL)
-      target_link_libraries(cpubuiltinEXASIM PRIVATE Kokkos::kokkos ${lapackblas_libraries} ${BM_CPU_LIB})
-      target_compile_options(cpubuiltinEXASIM PRIVATE -std=c++17 -w -O2)
-      link_metis(cpubuiltinEXASIM)
-      set_target_properties(cpubuiltinEXASIM PROPERTIES BUILD_RPATH "${BuiltinModel_LIB_DIR}")
+      add_exasim_model_executable(cput2cEXASIM
+        MAIN_SOURCES ${T2C_MAIN_SOURCES} LIB_DIR ${Model_LIB_DIR} MODEL_LIB ${T2C_CPU_LIB}
+        DEFINES _TEXT2CODE OPTIONS -std=c++17 -w -O2)
     endif()
 
     if(EXASIM_BUILD_PREPROCESSING_LIBS)
@@ -496,32 +532,17 @@ else()
       target_compile_options(cpumpiEXASIM_static PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG)
       #target_compile_options(cpumpiEXASIM PRIVATE -std=c++17 -w -ffast-math -fsanitize=address,undefined -fno-omit-frame-pointer -g)
       #target_link_options(cpumpiEXASIM PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)  
-      target_link_libraries(cpumpiEXASIM_static PUBLIC Kokkos::kokkos ${lapackblas_libraries} ${MPI_LIBRARIES})
+      target_link_libraries(cpumpiEXASIM_static PUBLIC Kokkos::kokkos ${lapackblas_libraries} ${MPI_LIBRARIES} ${BM_CPU_LIB})
       link_metis(cpumpiEXASIM_static)   # METIS
       if(NOT EXASIM_LIB)
         add_exasim_executable_from_static(cpumpiEXASIM cpumpiEXASIM_static)
       endif()
 
       if(WITH_TEXT2CODE)
-        add_executable(cpumpit2cEXASIM ${T2C_MAIN_SOURCES} ${EXASIM_SOLVER_SOURCES})
-        target_link_directories(cpumpit2cEXASIM PRIVATE ${Model_LIB_DIR})
-        target_compile_definitions(cpumpit2cEXASIM PRIVATE _MPI _TEXT2CODE)
-        target_compile_options(cpumpit2cEXASIM PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG)
-        target_link_libraries(cpumpit2cEXASIM PRIVATE Kokkos::kokkos ${lapackblas_libraries} ${MPI_LIBRARIES} ${T2C_CPU_LIB})
-        link_metis(cpumpit2cEXASIM) # METIS
-        set_target_properties(cpumpit2cEXASIM PROPERTIES BUILD_RPATH "${Model_LIB_DIR}")
-      endif()
-
-      if(WITH_BUILTINMODEL)
-        add_executable(cpumpibuiltinEXASIM ${BUILTIN_MAIN_SOURCES} ${EXASIM_SOLVER_SOURCES})
-        target_link_directories(cpumpibuiltinEXASIM PRIVATE ${BuiltinModel_LIB_DIR})
-        target_compile_definitions(cpumpibuiltinEXASIM PRIVATE _MPI HAVE_BUILTINMODEL _BUILTINMODEL)
-        target_compile_options(cpumpibuiltinEXASIM PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG)
-        target_link_libraries(cpumpibuiltinEXASIM PRIVATE
-          Kokkos::kokkos ${lapackblas_libraries} ${MPI_LIBRARIES}
-          ${BM_CPU_LIB})
-        link_metis(cpumpibuiltinEXASIM)
-        set_target_properties(cpumpibuiltinEXASIM PROPERTIES BUILD_RPATH "${BuiltinModel_LIB_DIR}")
+        add_exasim_model_executable(cpumpit2cEXASIM
+          MAIN_SOURCES ${T2C_MAIN_SOURCES} LIB_DIR ${Model_LIB_DIR} MODEL_LIB ${T2C_CPU_LIB}
+          DEFINES _MPI _TEXT2CODE OPTIONS -std=c++17 -w -ffast-math -O3 -DNDEBUG
+          EXTRA_LIBS ${MPI_LIBRARIES})
       endif()
 
       if(EXASIM_BUILD_PREPROCESSING_LIBS)
@@ -566,6 +587,12 @@ register_exasim_export_target(gpumpiEXASIM_static gpumpilib TRUE)
 register_exasim_export_target(gpupreEXASIM_static gpuprelib FALSE)
 register_exasim_export_target(gpumpipreEXASIM_static gpumpiprelib TRUE)
 
+# Built-in model shared libraries (built above via add_subdirectory) ship as
+# part of the package, exported as Exasim::builtinmodel{serial,cuda,hip}.
+register_exasim_export_target(builtinmodelserial builtinmodelserial FALSE)
+register_exasim_export_target(builtinmodelcuda   builtinmodelcuda   FALSE)
+register_exasim_export_target(builtinmodelhip    builtinmodelhip    FALSE)
+
 list(LENGTH EXASIM_EXPORT_TARGETS EXASIM_NUM_EXPORT_TARGETS)
 if(EXASIM_NUM_EXPORT_TARGETS EQUAL 1)
   message(FATAL_ERROR "No Exasim static solver library target was built for packaging.")
@@ -589,6 +616,46 @@ install(TARGETS ${EXASIM_EXPORT_TARGETS}
 
 install(DIRECTORY ${EXASIM_INCLUDE_DIR}/
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+# Header-only / templated authoring path: the public <exasim/*.hpp> headers pull
+# in the FEM internals under backend/ (e.g. backend/Common/common.h). Install the
+# backend headers so out-of-tree consumers can compile against the templates.
+# Installed under include/backend/, so the existing include/ search dir resolves
+# both <exasim/...> and backend/... .
+install(DIRECTORY ${EXASIM_DIR}/backend/
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/backend
+  FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp")
+
+# The templated path's discretization.hpp includes one model-driver
+# implementation (.cpp) selected by HAVE_TEXT2CODE / HAVE_BUILTINMODEL / else.
+# Install those so out-of-tree templated consumers can compile.
+install(FILES
+  ${EXASIM_DIR}/backend/Model/KokkosDrivers.cpp
+  ${EXASIM_DIR}/backend/Model/ModelDrivers.cpp
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/backend/Model)
+install(FILES
+  ${EXASIM_DIR}/backend/Model/BuiltIn/BuiltinModelDrivers.cpp
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/backend/Model/BuiltIn)
+
+# ---- Façade headers under the exasim/ prefix -------------------------------
+# The C++ façade headers (ExasimSolver.hpp, ExasimSolverSetup.hpp,
+# builtinlibprovider.hpp, ...) live at include/ top-level, but consumers include
+# them as <exasim/...> (matching the templated-path headers already under
+# include/exasim/). Generate forwarding headers so both spellings resolve.
+file(GLOB _exasim_top_headers RELATIVE ${EXASIM_INCLUDE_DIR}
+  ${EXASIM_INCLUDE_DIR}/*.hpp)
+set(_exasim_fwd_dir ${CMAKE_CURRENT_BINARY_DIR}/exasim_forward_headers)
+file(MAKE_DIRECTORY ${_exasim_fwd_dir})
+foreach(_h ${_exasim_top_headers})
+  if(NOT EXISTS ${EXASIM_INCLUDE_DIR}/exasim/${_h})
+    file(WRITE ${_exasim_fwd_dir}/${_h} "#pragma once\n#include \"../${_h}\"\n")
+  endif()
+endforeach()
+install(DIRECTORY ${_exasim_fwd_dir}/
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/exasim)
+
+# (Built-in model libraries are exported as real targets above, via the
+#  add_subdirectory(backend/Model/BuiltIn) build and the export set.)
 
 if(WITH_PARMETIS)
   if(EXISTS "${METIS_INCLUDE_DIR}/metis.h")
@@ -619,6 +686,28 @@ install(FILES
   ${CMAKE_CURRENT_BINARY_DIR}/ExasimConfigVersion.cmake
   DESTINATION ${EXASIM_CMAKE_INSTALL_DIR})
 
+# ---- External built-in model helpers ---------------------------------------
+# ExasimExternalModel.cmake and ExternalModelProvider.cpp.in are installed
+# alongside ExasimConfig.cmake so consumers can call
+# exasim_add_external_builtin_model() after find_package(Exasim).
+install(FILES
+  ${EXASIM_DIR}/cmake/ExasimExternalModel.cmake
+  ${EXASIM_DIR}/cmake/ExternalModelProvider.cpp.in
+  DESTINATION ${EXASIM_CMAKE_INSTALL_DIR})
+
+# model.hpp is installed by the backend DIRECTORY rule (*.hpp pattern), but
+# model.cpp is not (the pattern excludes .cpp). Install it explicitly so
+# exasim_add_external_builtin_model(PDEMODEL) can instantiate the templates.
+install(FILES
+  ${EXASIM_DIR}/backend/Model/BuiltIn/model.cpp
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/backend/Model/BuiltIn)
+
+# Install text2code binary if it was built by the superbuild.
+if(EXISTS "${EXASIM_DIR}/build/text2code")
+  install(PROGRAMS "${EXASIM_DIR}/build/text2code"
+    DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif()
+
 export(EXPORT ExasimTargets
   NAMESPACE Exasim::
   FILE ${CMAKE_CURRENT_BINARY_DIR}/ExasimTargets.cmake)
@@ -640,7 +729,6 @@ message(STATUS "EXASIM_NOMPI              = ${EXASIM_NOMPI}")
 message(STATUS "EXASIM_TUOLUMNE           = ${EXASIM_TUOLUMNE}")
 
 message(STATUS "WITH_TEXT2CODE            = ${WITH_TEXT2CODE}")
-message(STATUS "WITH_BUILTINMODEL         = ${WITH_BUILTINMODEL}")
 message(STATUS "WITH_KOKKOSKERNEL         = ${WITH_KOKKOSKERNEL}")
 message(STATUS "EXASIM_BUILD_PREPROCESSING_LIBS = ${EXASIM_BUILD_PREPROCESSING_LIBS}")
 message(STATUS "KOKKOSKERNEL_HEADER       = ${KOKKOSKERNEL_HEADER}")
@@ -652,7 +740,6 @@ endif()
 message(STATUS "WITH_PARMETIS             = ${WITH_PARMETIS}")
 
 message(STATUS "Model_LIB_DIR             = ${Model_LIB_DIR}")
-message(STATUS "BuiltinModel_LIB_DIR      = ${BuiltinModel_LIB_DIR}")
 
 message(STATUS "PARMETIS_ROOT             = ${PARMETIS_ROOT}")
 message(STATUS "METIS_ROOT                = ${METIS_ROOT}")
@@ -766,3 +853,12 @@ if(DEFINED Kokkos_ENABLE_HIP)
 endif()
 
 message(STATUS "===============================================================")
+
+# ---- Test suite (opt-in) ---------------------------------------------------
+# Out-of-tree consumer tests (tests/consumers/) build each consumption path ONLY
+# via find_package(Exasim) against an install prefix, catching export regressions.
+option(EXASIM_BUILD_TESTS "Build/register the Exasim test suite (ctest)" OFF)
+if(EXASIM_BUILD_TESTS)
+  enable_testing()
+  add_subdirectory(${EXASIM_DIR}/tests ${CMAKE_BINARY_DIR}/tests)
+endif()

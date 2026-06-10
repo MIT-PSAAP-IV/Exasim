@@ -1,3 +1,4 @@
+#include "exasim_paths.h"  // exasim_data_dir()
 class CVisualization {
 public:
     float* scafields=nullptr;
@@ -86,7 +87,7 @@ public:
             int elemtype= disc.common.elemtype;
             int nve_in  = (elemtype==0) ? (nd_in + 1) : std::pow(2, nd_in);
                 
-            std::string fn1 = make_path(disc.common.exasimpath, "text2code/text2code/masternodes.bin");
+            std::string fn1 = make_path(exasim_data_dir(), "masternodes.bin");
             std::vector<dstype> xpe, xpf;
             std::vector<int> telem, tface, perm;
             masternodes(xpe, telem, xpf, tface, perm, porder, nd_in, elemtype, fn1);

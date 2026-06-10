@@ -1,0 +1,60 @@
+# Makefile.builds - build Kokkos for different backends using relative install dirs
+
+# ---- Portable CPU core detection (Linux / macOS / Git Bash/MSYS2/WSL) ----
+NPROCS := $(strip $(shell \
+  (command -v nproc >/dev/null 2>&1 && nproc) || \
+  (command -v sysctl >/dev/null 2>&1 && sysctl -n hw.ncpu) || \
+  (command -v getconf >/dev/null 2>&1 && getconf _NPROCESSORS_ONLN) || \
+  (command -v cmd.exe >/dev/null 2>&1 && cmd.exe /C echo %NUMBER_OF_PROCESSORS%) || \
+  echo 1))
+
+.PHONY: all serial cuda hip clean
+
+# GPU architecture for the CUDA build. Override for other GPUs, e.g.
+#   make cuda KOKKOS_CUDA_ARCH=AMPERE80   (A100)   or   HOPPER90 (H100).
+# Default VOLTA70 targets the Tesla V100 (sm_70). Empty => let Kokkos auto-detect
+# the visible GPU (only works when a GPU is present at configure time).
+KOKKOS_CUDA_ARCH ?= VOLTA70
+
+# Output (build == install) directory per backend. Defaults build in-source next
+# to this Makefile; the Exasim superbuild overrides them to its build tree so the
+# checkout stays clean, e.g. `make serial SERIAL_DIR=/path/to/build/kokkos`.
+SERIAL_DIR ?= buildserial
+CUDA_DIR   ?= buildcuda
+HIP_DIR    ?= buildhip
+
+all: serial cuda hip
+
+serial:
+	mkdir -p $(SERIAL_DIR)
+	cmake -S . -B $(SERIAL_DIR) \
+	  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+	  -DCMAKE_INSTALL_PREFIX=$(SERIAL_DIR)
+	cmake --build $(SERIAL_DIR) -j$(NPROCS)
+	cmake --install $(SERIAL_DIR)
+
+cuda:
+	mkdir -p $(CUDA_DIR)
+	cmake -S . -B $(CUDA_DIR) \
+	  -DCMAKE_CXX_COMPILER=$(CURDIR)/bin/nvcc_wrapper \
+	  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+	  -DKokkos_ENABLE_CUDA=ON \
+	  -DKokkos_ENABLE_CUDA_LAMBDA=ON \
+	  $(if $(KOKKOS_CUDA_ARCH),-DKokkos_ARCH_$(KOKKOS_CUDA_ARCH)=ON,) \
+	  -DCMAKE_INSTALL_PREFIX=$(CUDA_DIR)
+	cmake --build $(CUDA_DIR) -j$(NPROCS)
+	cmake --install $(CUDA_DIR)
+
+hip:
+	mkdir -p $(HIP_DIR)
+	cmake -S . -B $(HIP_DIR) \
+	  -DCMAKE_CXX_COMPILER=hipcc \
+	  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+	  -DKokkos_ENABLE_HIP=ON \
+	  -DKokkos_ENABLE_ROCM=ON \
+	  -DCMAKE_INSTALL_PREFIX=$(HIP_DIR)
+	cmake --build $(HIP_DIR) -j$(NPROCS)
+	cmake --install $(HIP_DIR)
+
+clean:
+	rm -rf buildserial buildcuda buildhip

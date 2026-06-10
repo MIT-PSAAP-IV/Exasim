@@ -1,0 +1,79 @@
+name: smoke (CPU)
+
+# End-to-end smoke test of the one-command superbuild + the consolidated ctest
+# suite (tests/run-tests.sh): build Exasim's CPU stack, install it, build an
+# out-of-tree find_package(Exasim) consumer, run the built-in Poisson 2D, and
+# gate its QoI. This is the gate for merging into the integration branch.
+#
+# Heavy deps are taken off the hot path: METIS/ParMETIS, BLAS/LAPACK and MPI
+# from the system (apt); the vendored serial Kokkos and SymEngine are built from
+# source once and cached by their source hashes, so reruns skip them. Bounded
+# parallelism (JOBS=2) keeps the cold build under the standard-runner memory
+# limits that previously OOM'd. (SymEngine is cached rather than apt-installed
+# because libsymengine-dev is not packaged on the GitHub-hosted runners.)
+
+on:
+  push:
+    branches: [teoc-Kitesurf-Coupling-build-and-test]
+  pull_request:
+    branches: [Kitesurf-Coupling, teoc-Kitesurf-Coupling-build-and-test]
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: smoke-cpu-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Fast pre-build check: no .DS_Store, no prebuilt binaries, no gitignore bypass.
+  # Runs on every push; cheap (git only, no build tools needed).
+  hygiene:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Repo hygiene check
+        run: bash tests/check-hygiene.sh
+
+  build-and-test:
+    # Standard GitHub-hosted runner — always available with no org configuration.
+    # Pinned to 22.04 (jammy): the externalized deps below (libsymengine-dev in
+    # particular) are reliably packaged there; `ubuntu-latest` floated to 24.04
+    # where libsymengine-dev is not available. Externalizing SymEngine/METIS
+    # (only vendored serial Kokkos is built from source) keeps this within the
+    # standard runner, which the old from-source workflow could not. If a larger
+    # runner is enabled for the repo, bump this to e.g. `ubuntu-22.04-4-cores`.
+    #
+    # ctest registered tests:
+    #   consumer_builtin_cpu   — CPU-only variant (NP=1, EXASIM_MPI=OFF)
+    #   consumer_builtin_mpi   — CPU+MPI variant (NP=2, EXASIM_MPI=ON)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: System packages (externalized deps)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake git \
+            libblas-dev liblapack-dev \
+            libmetis-dev libparmetis-dev \
+            libopenmpi-dev openmpi-bin
+
+      # The two from-source deps are built once and cached. They build OUT of the
+      # source tree, into the build dir (build/deps/...), so cache those paths and
+      # the superbuild detects them on a hit. run-tests.sh defaults its build dir
+      # to ./build.
+      - name: Cache vendored Kokkos (serial)
+        uses: actions/cache@v4
+        with:
+          path: build/deps/kokkos/buildserial
+          key: kokkos-serial-${{ runner.os }}-${{ hashFiles('deps/kokkos/Makefile.builds', 'deps/kokkos/CMakeLists.txt') }}
+
+      - name: Cache vendored SymEngine
+        uses: actions/cache@v4
+        with:
+          path: build/deps/symengine
+          key: symengine-${{ runner.os }}-${{ hashFiles('deps/symengine/CMakeLists.txt') }}
+
+      - name: Build + test (one command)
+        run: JOBS=2 bash tests/run-tests.sh

@@ -206,6 +206,7 @@ examples/Poisson/poisson3d/xdg.bin
 /examples/NavierStokes/nshtmach8/datain2
 /examples/NavierStokes/nshtmach8/datain1
 *.cmake
+!cmake/*.cmake
 examples/NavierStokes/nshtmach8/CMakeCache.txt
 examples/NavierStokes/nshtmach8/cpumpiEXASIM
 examples/NavierStokes/nshtmach8/Makefile
@@ -330,3 +331,28 @@ backend/Model/Text2codeGenerated/SymbolicScalarsVectors.cpp
 metis/GKlib/bin/csrcnv
 /apps/poisson/poisson2d/build
 /apps/builtinlibrary/build
+
+/build_local/
+# ---- Generated model shared libraries (macOS text2code build artifacts) ----
+backend/Model/Text2codeGenerated/*.dylib
+backend/Model/Text2codeGenerated/*.so
+backend/Model/Text2codeGenerated/code2cpp
+# ---- Build outputs (keep the checkout clean; see the in-source-build guard) ----
+# Top-level / out-of-source build dirs and stray host-triplet dirs.
+/lib/
+/cmake-build*/
+/*-apple-darwin*/
+/*-linux-gnu*/
+# Vendored dependencies build in-source under deps/; ignore their artifacts.
+/deps/kokkos/build*/
+/deps/metis/*/build/
+/deps/metis/*/lib/
+/deps/metis/*/bin/
+/deps/metis/preprocessing/build/
+/deps/metis/preprocessing/datain/
+/deps/metis/preprocessing/dataout/
+/deps/symengine/build/
+/deps/symengine/lib/
+/deps/symengine/include/
+/deps/symengine/bin/
+backend/Model/BuiltIn/builtin_model_registry.h

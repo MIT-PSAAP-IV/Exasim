@@ -7,7 +7,11 @@
 #include "postdiscretization.h"
 #include "ioutilities.hpp"
 
+#ifdef HAVE_KOKKOSKERNEL
+#include "../Model/driver_decls.hpp"   // header-only/templated path: declarations only
+#else
 #include "../Model/KokkosDrivers.cpp"
+#endif
 #include "connectivity.hpp"
 #include "readbinaryfiles.hpp"
 #include "setstructs.hpp"
