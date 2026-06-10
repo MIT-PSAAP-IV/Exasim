@@ -24,22 +24,11 @@ else
 end
 
 mpirun = pde.mpirun;
-if pde.platform == "cpu"        
-    if mpiprocs==1        
-        exec = "./cpuEXASIM ";        
-        runstr = "!" + exec + mystr;
-    else        
-        exec = " ./cpumpiEXASIM ";
-        runstr = "!" + mpirun + " -np " + string(mpiprocs) + exec + mystr;
-    end        
-elseif pde.platform == "gpu"
-    if mpiprocs==1        
-        exec = "./gpuEXASIM ";     
-        runstr = "!" + exec + mystr;
-    else        
-        exec = " ./gpumpiEXASIM ";
-        runstr = "!" + mpirun + " -np " + string(mpiprocs) + exec + mystr;
-    end
+exec = "./exasimfe ";
+if mpiprocs==1
+    runstr = "!" + exec + mystr;
+else
+    runstr = "!" + mpirun + " -np " + string(mpiprocs) + " " + exec + mystr;
 end
 
 tic
@@ -49,4 +38,3 @@ toc
 cd(char(cdir));
 
 end
-

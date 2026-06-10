@@ -55,13 +55,12 @@ else
     strn = string(app.modelnumber);
 end
 
-model_path = joinpath(app.buildpath, "model")
 datain_path = joinpath(app.buildpath, "datain", strn)
 dataout_path = joinpath(app.buildpath, "dataout", strn)
 
 # Check if directories exist and create them if they don't
-if !isdir(model_path)
-    mkpath(model_path)
+if !isdir(app.buildpath)
+    mkpath(app.buildpath)
 end
 
 if !isdir(datain_path)

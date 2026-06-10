@@ -15,7 +15,7 @@ def initializepde(version):
 
     cdir = os.getcwd(); ii = cdir.find("Exasim");
     pde['exasimpath'] = cdir[0:(ii+6)];
-    pde['buildpath'] = pde['exasimpath'] + "/build";
+    pde['buildpath'] = pde['exasimpath'] + "/examples/build";
     pde['backendpath'] = pde['exasimpath'] + "/backend";
 
     pde['codename'] = "Exasim";

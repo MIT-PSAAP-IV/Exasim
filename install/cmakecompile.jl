@@ -19,19 +19,13 @@ function cmakecompile(pde)
 display("Compile C++ Exasim code using cmake...")
 
 cdir = pwd(); 
+if !isdir(pde.buildpath)
+  mkpath(pde.buildpath)
+end
 cd(pde.buildpath);
 
-if isfile("cpuEXASIM")
-  rm("cpuEXASIM")
-end
-if isfile("cpumpiEXASIM")
-  rm("cpumpiEXASIM")
-end
-if isfile("gpuEXASIM")
-  rm("gpuEXASIM")
-end
-if isfile("gpumpiEXASIM")
-  rm("gpumpiEXASIM")
+if isfile("exasimfe")
+  rm("exasimfe")
 end
 
 # if isfile("CMakeCache.txt")
@@ -40,25 +34,19 @@ end
 
 if pde.mpiprocs==1 
   if pde.platform == "gpu"
-    comstr = "cmake -D EXASIM_NOMPI=ON -D EXASIM_MPI=OFF -D EXASIM_CUDA=ON -D EXASIM_BUILD_LIBRARY_EXAMPLES=OFF ../install";
-    target = "gpuEXASIM"
+    comstr = "cmake -S " * pde.exasimpath * "/examples -B . -D EXASIM_MPI=OFF -D EXASIM_CUDA=ON";
   elseif pde.platform == "hip"
-    comstr = "cmake -D CMAKE_CXX_COMPILER=hipcc -D EXASIM_NOMPI=ON -D EXASIM_HIP=ON -D EXASIM_BUILD_LIBRARY_EXAMPLES=OFF ../install";
-    target = "gpuEXASIM"
+    comstr = "cmake -S " * pde.exasimpath * "/examples -B . -D CMAKE_CXX_COMPILER=hipcc -D EXASIM_MPI=OFF -D EXASIM_HIP=ON";
   else
-    comstr = "cmake -D EXASIM_NOMPI=ON -D EXASIM_MPI=OFF -D EXASIM_CUDA=OFF -D EXASIM_BUILD_LIBRARY_EXAMPLES=OFF ../install";
-    target = "cpuEXASIM"
+    comstr = "cmake -S " * pde.exasimpath * "/examples -B . -D EXASIM_MPI=OFF";
   end
 else
   if pde.platform == "gpu"
-    comstr = "cmake -D EXASIM_NOMPI=OFF -D EXASIM_MPI=ON -D EXASIM_CUDA=ON -D EXASIM_BUILD_LIBRARY_EXAMPLES=OFF ../install";
-    target = "gpumpiEXASIM"
+    comstr = "cmake -S " * pde.exasimpath * "/examples -B . -D EXASIM_MPI=ON -D EXASIM_CUDA=ON";
   elseif pde.platform == "hip"
-    comstr = "cmake -D CMAKE_CXX_COMPILER=hipcc -D EXASIM_NOMPI=OFF -D EXASIM_MPI=ON -D EXASIM_HIP=ON -D EXASIM_BUILD_LIBRARY_EXAMPLES=OFF ../install";
-    target = "gpumpiEXASIM"
+    comstr = "cmake -S " * pde.exasimpath * "/examples -B . -D CMAKE_CXX_COMPILER=hipcc -D EXASIM_MPI=ON -D EXASIM_HIP=ON";
   else
-    comstr = "cmake -D EXASIM_NOMPI=OFF -D EXASIM_MPI=ON -D EXASIM_CUDA=OFF -D EXASIM_BUILD_LIBRARY_EXAMPLES=OFF ../install";
-    target = "cpumpiEXASIM"
+    comstr = "cmake -S " * pde.exasimpath * "/examples -B . -D EXASIM_MPI=ON";
   end  
 end
 
@@ -66,7 +54,7 @@ end
 # exit, so configure / build failures already propagate up — no
 # explicit status check needed (PR #73 review NB3).
 run(stringcommand(comstr));
-run(stringcommand("cmake --build . --target " * target));
+run(stringcommand("cmake --build . --target exasimfe"));
 
 cd(cdir);
 return comstr;

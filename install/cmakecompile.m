@@ -8,49 +8,32 @@ disp("Compile C++ Exasim code using cmake...")
 
 cdir = pwd();
 buildpath = char(pde.buildpath);
+if exist(buildpath, "dir") == 0
+    mkdir(buildpath);
+end
 cd(buildpath);
 
-ii = strfind(pde.buildpath, pde.codename);
-n = length(strfind(buildpath(ii:end),'/'));
-mystr = "install";
-for i = 1:n
-  mystr = "../" + mystr;
-end
+sourcepath = char(pde.exasimpath + "/examples");
 
-if exist("cpuEXASIM", "file")
-    delete(char("cpuEXASIM"));
-end
-if exist("cpumpiEXASIM", "file")
-    delete(char("cpumpiEXASIM"));
-end
-if exist("gpuEXASIM", "file")
-    delete(char("gpuEXASIM"));
-end
-if exist("gpumpiEXASIM", "file")
-    delete(char("gpumpiEXASIM"));
+if exist(fullfile(buildpath, "exasimfe"), "file")
+    delete(fullfile(buildpath, "exasimfe"));
 end
 
 if mpiprocs==1
   if pde.platform == "gpu"
-    comstr = "cmake -D EXASIM_LIB=OFF -D EXASIM_NOMPI=ON -D EXASIM_MPI=OFF -D EXASIM_CUDA=ON -D WITH_TEXT2CODE=OFF -D WITH_BUILTINMODEL=OFF -D EXASIM_BUILD_LIBRARY_EXAMPLES=OFF " + mystr;
-    target = "gpuEXASIM";
+    comstr = "cmake -S " + sourcepath + " -B . -D EXASIM_MPI=OFF -D EXASIM_CUDA=ON";
   elseif pde.platform == "hip"
-    comstr = "cmake -D EXASIM_LIB=OFF -D CMAKE_CXX_COMPILER=hipcc -D EXASIM_NOMPI=ON -D EXASIM_HIP=ON -D WITH_TEXT2CODE=OFF -D WITH_BUILTINMODEL=OFF -D EXASIM_BUILD_LIBRARY_EXAMPLES=OFF " + mystr;
-    target = "gpuEXASIM";
+    comstr = "cmake -S " + sourcepath + " -B . -D CMAKE_CXX_COMPILER=hipcc -D EXASIM_MPI=OFF -D EXASIM_HIP=ON";
   else
-    comstr = "cmake -D EXASIM_LIB=OFF -D EXASIM_NOMPI=ON -D EXASIM_MPI=OFF -D EXASIM_CUDA=OFF -D WITH_TEXT2CODE=OFF -D WITH_BUILTINMODEL=OFF -D EXASIM_BUILD_LIBRARY_EXAMPLES=OFF " + mystr;
-    target = "cpuEXASIM";
+    comstr = "cmake -S " + sourcepath + " -B . -D EXASIM_MPI=OFF";
   end
 else
   if pde.platform == "gpu"
-    comstr = "cmake -D EXASIM_LIB=OFF -D EXASIM_NOMPI=OFF -D EXASIM_MPI=ON -D EXASIM_CUDA=ON -D WITH_TEXT2CODE=OFF -D WITH_BUILTINMODEL=OFF -D EXASIM_BUILD_LIBRARY_EXAMPLES=OFF " + mystr;
-    target = "gpumpiEXASIM";
+    comstr = "cmake -S " + sourcepath + " -B . -D EXASIM_MPI=ON -D EXASIM_CUDA=ON";
   elseif pde.platform == "hip"
-    comstr = "cmake -D EXASIM_LIB=OFF -D CMAKE_CXX_COMPILER=hipcc -D EXASIM_NOMPI=OFF -D EXASIM_MPI=ON -D EXASIM_HIP=ON -D WITH_TEXT2CODE=OFF -D WITH_BUILTINMODEL=OFF -D EXASIM_BUILD_LIBRARY_EXAMPLES=OFF " + mystr;
-    target = "gpumpiEXASIM";
+    comstr = "cmake -S " + sourcepath + " -B . -D CMAKE_CXX_COMPILER=hipcc -D EXASIM_MPI=ON -D EXASIM_HIP=ON";
   else
-    comstr = "cmake -D EXASIM_LIB=OFF -D EXASIM_NOMPI=OFF -D EXASIM_MPI=ON -D EXASIM_CUDA=OFF -D WITH_TEXT2CODE=OFF -D WITH_BUILTINMODEL=OFF -D EXASIM_BUILD_LIBRARY_EXAMPLES=OFF " + mystr;
-    target = "cpumpiEXASIM";
+    comstr = "cmake -S " + sourcepath + " -B . -D EXASIM_MPI=ON";
   end
 end
 
@@ -62,10 +45,10 @@ if status ~= 0
     cd(char(cdir));
     error("Exasim:cmakecompile", "cmake configure failed (exit %d)", status);
 end
-status = system(char("cmake --build . --target " + target + " --verbose"));
+status = system("cmake --build . --target exasimfe --verbose");
 if status ~= 0
     cd(char(cdir));
-    error("Exasim:cmakecompile", "cmake --build %s failed (exit %d)", char(target), status);
+    error("Exasim:cmakecompile", "cmake --build exasimfe failed (exit %d)", status);
 end
 
 cd(char(cdir));

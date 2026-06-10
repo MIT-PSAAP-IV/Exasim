@@ -166,7 +166,7 @@ function initializepde(version)
     cdir = pwd(); ii = findlast("Exasim", cdir);
     ExasimPath = cdir[1:ii[end]];
     pde.exasimpath = ExasimPath;
-    pde.buildpath = pde.exasimpath * "/build";
+    pde.buildpath = pde.exasimpath * "/examples/build";
     pde.backendpath = pde.exasimpath * "/backend";        
     pde.version = version;
     pde.appname = "app";

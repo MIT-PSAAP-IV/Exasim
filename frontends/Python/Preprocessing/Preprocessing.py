@@ -31,12 +31,11 @@ def preprocessing(app,mesh):
     else:
         strn = str(app['modelnumber']);    
      
-    model_path = os.path.join(app['buildpath'], "model")
     datain_path = os.path.join(app['buildpath'], "datain", strn)
     dataout_path = os.path.join(app['buildpath'], "dataout", strn)
 
     # Check if directories exist and create them if they don't
-    os.makedirs(model_path, exist_ok=True)
+    os.makedirs(app['buildpath'], exist_ok=True)
     os.makedirs(datain_path, exist_ok=True)
     os.makedirs(dataout_path, exist_ok=True)
 

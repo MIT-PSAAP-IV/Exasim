@@ -18,7 +18,7 @@ pde.codegenerator = "";
 pde.codename = "Exasim";
 cdir = pwd(); ii = strfind(cdir, pde.codename);
 pde.exasimpath = cdir(1:(ii+5));
-pde.buildpath = pde.exasimpath + "/build";
+pde.buildpath = pde.exasimpath + "/examples/build";
 pde.backendpath = pde.exasimpath + "/backend";
 pde.version = version;
 pde.appname = "app";
@@ -151,7 +151,6 @@ pde.fbou = "fbou";
 pde.fhat = "fhat";
 pde.source = "source";
 pde.arg = {};
-
 
 
 

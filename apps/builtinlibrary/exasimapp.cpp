@@ -9,9 +9,9 @@ Build the static libraries from Exasim/build
   cmake -DEXASIM_LIB=ON -DEXASIM_MPI=ON -DEXASIM_NOMPI=ON -DWITH_PARMETIS=ON -DWITH_TEXT2CODE=ON -DWITH_BUILTINMODEL=ON ../install
   cmake --build .
 
-Build this main.cpp from Exasim/apps/builtinlibrary 
+Build this exasimapp.cpp from Exasim/apps/builtinlibrary 
 
-  cmake -B build -DExasim_DIR=/path/to/Exasim
+  cmake -B build -DExasim_DIR=/path/to/Exasim/local
   cmake --build build
 
 Run an APP with an input file that uses a built-in model ID:

@@ -31,8 +31,8 @@ else
     strn = num2str(app.modelnumber);
 end
 
-if ~exist(char(app.exasimpath + "/build/model"), 'dir')
-    mkdir(char(app.exasimpath + "/build/model"));
+if ~exist(char(app.buildpath), 'dir')
+    mkdir(char(app.buildpath));
 end
 if  ~exist(char(app.buildpath + "/datain" + strn), 'dir')
     mkdir(char(app.buildpath + "/datain" + strn));

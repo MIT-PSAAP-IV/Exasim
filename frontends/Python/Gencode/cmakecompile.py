@@ -5,31 +5,32 @@ def cmakecompile(pde):
     
     print("Compile C++ Exasim code using cmake...")
 
-    cdir = os.getcwd()    
+    cdir = os.getcwd()
+    os.makedirs(pde['buildpath'], exist_ok=True)
     os.chdir(pde['buildpath'])
 
-    files_to_delete = ["cpuEXASIM", "cpumpiEXASIM", "gpuEXASIM", "gpumpiEXASIM"]
-    for file in files_to_delete:
-        if os.path.exists(file):
-            os.remove(file)
+    if os.path.exists("exasimfe"):
+        os.remove("exasimfe")
+
+    sourcepath = os.path.join(pde['exasimpath'], "examples")
 
     if pde['mpiprocs'] == 1:
         if pde['platform'] == "gpu":
-            comstr = ["cmake", "-D", "EXASIM_LIB=OFF", "-D", "EXASIM_NOMPI=ON", "-D", "EXASIM_MPI=OFF", "-D", "EXASIM_CUDA=ON", "../install"]
+            comstr = ["cmake", "-S", sourcepath, "-B", ".", "-D", "EXASIM_MPI=OFF", "-D", "EXASIM_CUDA=ON"]
         elif pde['platform'] == "hip":
-            comstr = ["cmake", "-D", "EXASIM_LIB=OFF", "-D", "CMAKE_CXX_COMPILER=hipcc", "-D", "EXASIM_NOMPI=ON", "-D", "EXASIM_HIP=ON", "../install"]
+            comstr = ["cmake", "-S", sourcepath, "-B", ".", "-D", "CMAKE_CXX_COMPILER=hipcc", "-D", "EXASIM_MPI=OFF", "-D", "EXASIM_HIP=ON"]
         else:
-            comstr = ["cmake", "-D", "EXASIM_LIB=OFF", "-D", "EXASIM_NOMPI=ON", "-D", "EXASIM_MPI=OFF", "-D", "EXASIM_CUDA=OFF", "../install"]
+            comstr = ["cmake", "-S", sourcepath, "-B", ".", "-D", "EXASIM_MPI=OFF"]
     else:
         if pde['platform'] == "gpu":
-            comstr = ["cmake", "-D", "EXASIM_LIB=OFF", "-D", "EXASIM_NOMPI=OFF", "-D", "EXASIM_MPI=ON", "-D", "EXASIM_CUDA=ON", "../install"]
+            comstr = ["cmake", "-S", sourcepath, "-B", ".", "-D", "EXASIM_MPI=ON", "-D", "EXASIM_CUDA=ON"]
         elif pde['platform'] == "hip":
-            comstr = ["cmake", "-D", "EXASIM_LIB=OFF", "-D", "CMAKE_CXX_COMPILER=hipcc", "-D", "EXASIM_NOMPI=OFF", "-D", "EXASIM_MPI=ON", "-D", "EXASIM_HIP=ON", "../install"]
+            comstr = ["cmake", "-S", sourcepath, "-B", ".", "-D", "CMAKE_CXX_COMPILER=hipcc", "-D", "EXASIM_MPI=ON", "-D", "EXASIM_HIP=ON"]
         else:
-            comstr = ["cmake", "-D", "EXASIM_LIB=OFF", "-D", "EXASIM_NOMPI=OFF", "-D", "EXASIM_MPI=ON", "-D", "EXASIM_CUDA=OFF", "../install"]
+            comstr = ["cmake", "-S", sourcepath, "-B", ".", "-D", "EXASIM_MPI=ON"]
 
     subprocess.run(comstr, check=True)
-    subprocess.run(["cmake", "--build", "."], check=True)
+    subprocess.run(["cmake", "--build", ".", "--target", "exasimfe"], check=True)
 
     os.chdir(cdir)
     
