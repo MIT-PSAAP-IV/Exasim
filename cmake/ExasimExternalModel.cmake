@@ -210,6 +210,11 @@ function(exasim_add_external_builtin_model)
     # as compile flags/includes only and resolve its symbols from the host
     # executable at load time (the host must set ENABLE_EXPORTS).
     add_library(${_tgt} SHARED "${_gendir}/ExternalModelProvider.cpp")
+    # Relocatable: consumers find the library via rpath, so a built (lib, exe)
+    # pair can be copied anywhere together (e.g. the per-user model cache).
+    set_target_properties(${_tgt} PROPERTIES
+      BUILD_WITH_INSTALL_NAME_DIR TRUE
+      INSTALL_NAME_DIR "@rpath")
     target_include_directories(${_tgt} PRIVATE
       $<TARGET_PROPERTY:Kokkos::kokkos,INTERFACE_INCLUDE_DIRECTORIES>)
     target_compile_options(${_tgt} PRIVATE

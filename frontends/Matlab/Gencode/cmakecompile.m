@@ -33,13 +33,29 @@ exe = bdir + "/exasimapp";
 comstr = "cmake -S " + builddir + " -B " + bdir + ...
          " -DExasim_DIR=" + prefix + "/lib/cmake/Exasim";
 
-% Hash the model inputs; if nothing changed since the last successful
-% build, skip cmake entirely.
+% Hash the model inputs (kernels + rendered app sources + the install);
+% if nothing changed since the last successful build, skip cmake entirely.
 stamp = char(bdir + "/.exasim_model_hash");
-digest = modelhash(kernels, {char(builddir + "/CMakeLists.txt"), char(builddir + "/main.cpp")});
+% Templates rather than rendered files: rendered sources embed absolute
+% paths, which would make the digest directory-specific.
+digest = modelhash(kernels, {char(tmpl + "/CMakeLists.txt.in"), char(tmpl + "/main.cpp.in")}, prefix, variant, pde.modelid);
 if exist(char(exe), 'file') == 2 && exist(stamp, 'file') == 2 ...
         && strcmp(strtrim(fileread(stamp)), digest)
     disp("Model unchanged (hash match); skipping build.");
+    return;
+end
+
+% Per-user model cache: the relocatable (libfrontend_model, exasimapp) pair
+% built for this modelid+digest by any earlier app run.
+cachedir = fullfile(cacheroot(), num2str(pde.modelid), digest);
+cached = cachefiles(cachedir);
+if ~isempty(cached)
+    if ~exist(char(bdir), 'dir'), mkdir(char(bdir)); end
+    for i = 1:numel(cached)
+        copyfile(cached{i}, char(bdir));
+    end
+    fid = fopen(stamp, 'w'); fwrite(fid, digest); fclose(fid);
+    disp("Model cache hit (" + string(cachedir) + "); skipping build.");
     return;
 end
 
@@ -55,11 +71,47 @@ end
 fid = fopen(stamp, 'w');
 fwrite(fid, digest);
 fclose(fid);
+
+% Populate the cache for other app directories / future runs.
+libs = dir(char(bdir + "/libfrontend_model.*"));
+if ~isempty(libs)
+    if ~exist(char(cachedir), 'dir'), mkdir(char(cachedir)); end
+    for i = 1:numel(libs)
+        copyfile(fullfile(libs(i).folder, libs(i).name), char(cachedir));
+    end
+    copyfile(char(exe), char(cachedir));
+end
 end
 
-% SHA-256 over the kernel set and the rendered app sources.
-function h = modelhash(kernelsdir, extra_files)
+% Per-user cache of built model libraries (EXASIM_CACHE_DIR overrides).
+function root = cacheroot()
+env = getenv('EXASIM_CACHE_DIR');
+if isempty(env)
+    root = fullfile(char(java.lang.System.getProperty('user.home')), '.exasim', 'cache');
+else
+    root = fullfile(env, 'cache');
+end
+end
+
+% Return the cached (lib, exe) pair as a cellstr, or {} if incomplete.
+function files = cachefiles(cachedir)
+files = {};
+if ~exist(char(cachedir), 'dir'), return; end
+libs = dir(char(string(cachedir) + "/libfrontend_model.*"));
+exe = fullfile(char(cachedir), 'exasimapp');
+if isempty(libs) || exist(exe, 'file') ~= 2, return; end
+files = cell(1, numel(libs) + 1);
+for i = 1:numel(libs)
+    files{i} = fullfile(libs(i).folder, libs(i).name);
+end
+files{end} = exe;
+end
+
+% SHA-256 over the kernel set, the rendered app sources, and the identity
+% of the Exasim install they build against.
+function h = modelhash(kernelsdir, extra_files, prefix, variant, modelid)
 md = java.security.MessageDigest.getInstance('SHA-256');
+md.update(uint8([char(string(variant)) '|' char(string(modelid))]));
 files = dir(char(kernelsdir));
 [~, order] = sort({files.name});
 files = files(order);
@@ -74,6 +126,12 @@ for i = 1:numel(extra_files)
     fid = fopen(extra_files{i}, 'r');
     md.update(fread(fid, inf, 'uint8=>uint8'));
     fclose(fid);
+end
+md.update(uint8(char(prefix)));
+targets = fullfile(char(prefix), 'lib', 'cmake', 'Exasim', 'ExasimTargets.cmake');
+if exist(targets, 'file') == 2
+    s = dir(targets);
+    md.update(uint8(sprintf('%d:%d', round(s.datenum*86400), s.bytes)));
 end
 h = lower(reshape(dec2hex(typecast(md.digest(), 'uint8'))', 1, []));
 end

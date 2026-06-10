@@ -51,14 +51,33 @@ function cmakecompile(pde)
     exe = joinpath(bdir, "exasimapp")
     cfg = `cmake -S $builddir -B $bdir -DExasim_DIR=$(cmake_dir())`
 
-    # Hash the model inputs; if nothing changed since the last successful
-    # build, skip cmake entirely.
+    # Hash the model inputs (kernels + rendered app sources + the install);
+    # if nothing changed since the last successful build, skip cmake entirely.
     stamp = joinpath(bdir, ".exasim_model_hash")
+    # Templates rather than rendered files: rendered sources embed absolute
+    # paths, which would make the digest directory-specific.
     digest = modelhash(kernels,
-                       [joinpath(builddir, "CMakeLists.txt"),
-                        joinpath(builddir, "main.cpp")])
+                       [joinpath(tmpl, "CMakeLists.txt.in"),
+                        joinpath(tmpl, "main.cpp.in")],
+                       prefix, variant, pde.modelid)
     if isfile(exe) && isfile(stamp) && read(stamp, String) == digest
         print("Model unchanged (hash match); skipping build.\n")
+        return string(cfg)
+    end
+
+    # Per-user model cache: the relocatable (libfrontend_model, exasimapp)
+    # pair built for this modelid+digest by any earlier app run.
+    cachedir = joinpath(cacheroot(), string(pde.modelid), digest)
+    cached = cachefiles(cachedir)
+    if cached !== nothing
+        mkpath(bdir)
+        for src in cached
+            cp(src, joinpath(bdir, basename(src)); force=true)
+        end
+        open(stamp, "w") do f
+            write(f, digest)
+        end
+        print("Model cache hit ($cachedir); skipping build.\n")
         return string(cfg)
     end
 
@@ -72,18 +91,47 @@ function cmakecompile(pde)
     open(stamp, "w") do f
         write(f, digest)
     end
+
+    # Populate the cache for other app directories / future runs.
+    libs = filter(n -> startswith(n, "libfrontend_model."), readdir(bdir))
+    if !isempty(libs)
+        mkpath(cachedir)
+        for name in vcat(libs, ["exasimapp"])
+            cp(joinpath(bdir, name), joinpath(cachedir, name); force=true)
+        end
+    end
     return string(cfg)
 end
 
-# SHA-256 over the kernel set and the rendered app sources.
-function modelhash(kernelsdir, extra_files)
+# Per-user cache of built model libraries (EXASIM_CACHE_DIR overrides).
+cacheroot() = joinpath(get(ENV, "EXASIM_CACHE_DIR", joinpath(homedir(), ".exasim")), "cache")
+
+# Return the cached (lib, exe) pair, or nothing if incomplete.
+function cachefiles(cachedir)
+    isdir(cachedir) || return nothing
+    libs = filter(n -> startswith(n, "libfrontend_model."), readdir(cachedir))
+    exe = joinpath(cachedir, "exasimapp")
+    (!isempty(libs) && isfile(exe)) || return nothing
+    return vcat([joinpath(cachedir, n) for n in libs], [exe])
+end
+
+# SHA-256 over the kernel set, the rendered app sources, and the identity of
+# the Exasim install they build against.
+function modelhash(kernelsdir, extra_files, prefix, variant, modelid)
     ctx = SHA.SHA256_CTX()
+    SHA.update!(ctx, codeunits(string(variant, "|", modelid)))
     for name in sort(readdir(kernelsdir))
         SHA.update!(ctx, codeunits(name))
         SHA.update!(ctx, read(joinpath(kernelsdir, name)))
     end
     for path in extra_files
         SHA.update!(ctx, read(path))
+    end
+    SHA.update!(ctx, codeunits(string(prefix)))
+    targets = joinpath(prefix, "lib", "cmake", "Exasim", "ExasimTargets.cmake")
+    if isfile(targets)
+        st = stat(targets)
+        SHA.update!(ctx, codeunits(string(st.mtime, ":", st.size)))
     end
     return bytes2hex(SHA.digest!(ctx))
 end

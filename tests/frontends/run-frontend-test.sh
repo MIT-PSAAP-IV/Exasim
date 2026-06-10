@@ -67,10 +67,13 @@ esac
 # --- run from a scratch dir (datain/dataout/.exasim land there) --------------
 RUN="$(mktemp -d "${TMPDIR:-/tmp}/exasim_frontend_${FE}.XXXXXX")"
 trap 'rm -rf "$RUN"' EXIT
-cp "$SRC"/* "$RUN"/
-cd "$RUN"
+mkdir -p "$RUN/a"
+cp "$SRC"/* "$RUN/a/"
+cd "$RUN/a"
 
 export EXASIM_PREFIX="$INSTALL"
+# Hermetic per-user model cache (never touch the real ~/.exasim from tests).
+export EXASIM_CACHE_DIR="$RUN/cache"
 status=0
 case "$FE" in
   python)
@@ -92,8 +95,27 @@ if [ "$status" -ne 0 ]; then
   exit 1
 fi
 
+# --- model-cache check (CACHE_TEST=1): a second app dir must reuse the
+# cached (libfrontend_model, exasimapp) pair with zero compilation ------------
+if [ "${CACHE_TEST:-0}" = "1" ]; then
+  mkdir -p "$RUN/b"
+  cp "$SRC"/* "$RUN/b/"
+  cd "$RUN/b"
+  case "$FE" in
+    python) PYTHONPATH="$sitedir${PYTHONPATH:+:$PYTHONPATH}" "$PY" "$APP" > run-b.log 2>&1 \
+              || { cat run-b.log; echo "FAIL: cache-test rerun failed"; exit 1; } ;;
+    *) echo "FAIL: CACHE_TEST only implemented for python"; exit 1 ;;
+  esac
+  grep -q "Model cache hit" run-b.log \
+    || { cat run-b.log; echo "FAIL: second app dir did not hit the model cache"; exit 1; }
+  if grep -q "Building CXX" run-b.log; then
+    cat run-b.log; echo "FAIL: cache hit still compiled something"; exit 1
+  fi
+  echo "model cache reused from a second app directory (no compilation)"
+fi
+
 # --- QoI gate (in addition to any in-language assert) ------------------------
-qoi_file="$RUN/dataout/outqoi.txt"
+qoi_file="$(pwd)/dataout/outqoi.txt"
 [ -f "$qoi_file" ] || { echo "FAIL: no $qoi_file produced"; exit 1; }
 qoi="$(tail -1 "$qoi_file" | awk '{print $2}')"
 [ -n "$qoi" ] || { echo "FAIL: could not read QoI from $qoi_file"; exit 1; }

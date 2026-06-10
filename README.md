@@ -252,6 +252,16 @@ To reuse one build across runs, simply run from the same directory (or point
 `pde.builddir` / `pde['builddir']` at a shared location — one model per
 builddir). Delete `.exasim/` to force a clean rebuild.
 
+Built model libraries are additionally cached **per user**: every successful
+build stores the relocatable (`libfrontend_model`, `exasimapp`) pair under
+`~/.exasim/cache/<modelID>/<digest>/` (override the root with
+`EXASIM_CACHE_DIR`), and any app directory whose model hashes to the same
+digest reuses it with zero compilation — including the very first run in a
+fresh directory. The digest covers the kernel set, the app templates, the
+variant/model ID, and the identity of the Exasim install, so model changes
+and Exasim upgrades invalidate cleanly. The `frontend_python_modelcache`
+ctest exercises this.
+
 (The model library deliberately does not embed Kokkos; it resolves Kokkos
 symbols from `exasimapp` at load time, so there is exactly one Kokkos runtime
 — see `cmake/ExasimExternalModel.cmake` and `backend/Model/BuiltIn/CMakeLists.txt`

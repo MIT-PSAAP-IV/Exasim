@@ -28,6 +28,10 @@ exasim_add_external_builtin_model(TARGET frontend_model
 
 add_executable(exasimapp main.cpp)
 target_compile_definitions(exasimapp PRIVATE _BUILTINLIBRARY)
+# Find libfrontend_model next to the executable wherever the pair is copied
+# (per-user model cache); @loader_path is macOS, $ORIGIN is Linux.
+set_target_properties(exasimapp PROPERTIES
+  BUILD_RPATH "@loader_path;$ORIGIN")
 # Export the executable's symbols (Kokkos in particular) so the dynamic
 # provider resolves them at load time — one Kokkos runtime overall.
 set_target_properties(exasimapp PROPERTIES ENABLE_EXPORTS ON)

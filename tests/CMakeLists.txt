@@ -58,3 +58,16 @@ foreach(_fe python julia matlab)
   set_tests_properties(frontend_${_fe} PROPERTIES
     TIMEOUT 2400 SKIP_RETURN_CODE 77)
 endforeach()
+
+# Per-user model cache: a second app directory must reuse the cached
+# (libfrontend_model, exasimapp) pair with zero compilation.
+add_test(NAME frontend_python_modelcache
+  COMMAND ${CMAKE_COMMAND} -E env
+    "EXASIM_ROOT=${EXASIM_DIR}"
+    "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}"
+    "FRONTEND=python"
+    "CACHE_TEST=1"
+    "PYTHON3=${Python3_EXECUTABLE}"
+    bash "${EXASIM_DIR}/tests/frontends/run-frontend-test.sh")
+set_tests_properties(frontend_python_modelcache PROPERTIES
+  TIMEOUT 2400 SKIP_RETURN_CODE 77)
