@@ -1,8 +1,6 @@
-__precompile__()
-
 module Master
 
-using Types
+using ..Types
 export masternodes, gaussnodes, mkshape, mkmaster;
 
 include("masternodes.jl");

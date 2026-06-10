@@ -1,0 +1,10 @@
+name = "Exasim"
+uuid = "829e80a6-ac9e-4531-abd5-3cf0395cd169"
+version = "1.0.0"
+
+[deps]
+DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
+SymPy = "24249f21-da20-56a4-8eb1-6a02cf4ae2e6"
+
+[compat]
+julia = "1.6"

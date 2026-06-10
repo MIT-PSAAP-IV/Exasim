@@ -1,8 +1,6 @@
-__precompile__()
-
 module Preprocessing
 
-using Types, Master, SymPy
+using ..Types, ..Master, SymPy
 
 export createhighordermesh, preprocessing, initializeexasim, findexec
 
@@ -55,15 +53,10 @@ else
     strn = string(app.modelnumber);
 end
 
-model_path = joinpath(app.buildpath, "model")
-datain_path = joinpath(app.buildpath, "datain", strn)
-dataout_path = joinpath(app.buildpath, "dataout", strn)
+datain_path = joinpath(app.datapath, "datain", strn)
+dataout_path = joinpath(app.datapath, "dataout", strn)
 
 # Check if directories exist and create them if they don't
-if !isdir(model_path)
-    mkpath(model_path)
-end
-
 if !isdir(datain_path)
     mkpath(datain_path)
 end
@@ -72,7 +65,7 @@ if !isdir(dataout_path)
     mkpath(dataout_path)
 end
 
-filename = joinpath(app.buildpath, "datain", strn) * "/"
+filename = joinpath(app.datapath, "datain", strn) * "/"
 fileapp = filename * "app.bin"
 filemaster = filename * "master.bin"    
 

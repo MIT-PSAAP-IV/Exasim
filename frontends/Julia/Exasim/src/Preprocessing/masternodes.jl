@@ -1,7 +1,5 @@
 function masternodes(porder::Int,dim::Int,elemtype::Int)
 
-d0 = pwd();
-ii = findlast("Exasim", d0);
 
 # filename = string(d0[1:ii[end]],"Preprocessing/masternodes.mat");
 # vars = MAT.matread(filename);
@@ -16,7 +14,7 @@ ii = findlast("Exasim", d0);
 # tface1 = convert(Array{Int}, tface1);
 # perm1 = convert(Array{Int}, perm1);
 
-fn = string(d0[1:ii[end]],"/frontends/Julia/Preprocessing/masternodes.bin");
+fn = joinpath(@__DIR__, "masternodes.bin");
 tmp = reinterpret(Float64,read(fn));
 
 ndims = Int(tmp[1]);

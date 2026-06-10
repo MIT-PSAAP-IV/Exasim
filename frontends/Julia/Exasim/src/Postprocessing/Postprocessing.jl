@@ -1,8 +1,6 @@
-__precompile__()
-
 module Postprocessing
 
-using Gencode, Preprocessing
+using ..Gencode, ..Preprocessing
 
 export fetchsolution, getsolutions, vis, exasim, producecode
 

@@ -72,7 +72,10 @@ case "$FE" in
     PYTHONPATH="$sitedir${PYTHONPATH:+:$PYTHONPATH}" "$PY" "$APP" || status=$?
     ;;
   julia)
-    JULIA_LOAD_PATH="$INSTALL/share/exasim/julia:@:@v#.#:@stdlib" julia "$APP" || status=$?
+    # Leading colon: keep the default environment stack (and active project)
+    # first, then append the installed package dir. Putting the package dir
+    # first would make it the active project and demand a Manifest.toml.
+    JULIA_LOAD_PATH=":$INSTALL/share/exasim/julia" julia "$APP" || status=$?
     ;;
   matlab)
     matlab -batch "run('$INSTALL/share/exasim/matlab/exasim_setup.m'); pdeapp" || status=$?

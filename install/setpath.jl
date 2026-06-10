@@ -1,19 +1,24 @@
+# Compatibility shim for legacy pdeapps that include() this file after
+# computing cdir/ii. The frontend now lives in the Exasim.jl package
+# (frontends/Julia/Exasim); new code should `using Exasim` directly.
+let srcdir = cdir[1:ii[end]] * "/frontends/Julia"
+    if !(srcdir in LOAD_PATH)
+        push!(LOAD_PATH, srcdir)
+    end
+end
 
-# Add Exasim to Julia search path
-src = "frontends"; 
-srcdir = cdir[1:ii[end]] * "/" * src * "/Julia";
-push!(LOAD_PATH, cdir[1:ii[end]] * "/install");
-push!(LOAD_PATH, srcdir * "/Gencode");
-push!(LOAD_PATH, srcdir * "/Mesh");
-push!(LOAD_PATH, srcdir * "/Preprocessing");
-push!(LOAD_PATH, srcdir * "/Postprocessing");
-push!(LOAD_PATH, srcdir * "/Utilities");
+import Exasim
+# Re-export the historical bare module names for un-migrated pdeapps.
+const Preprocessing = Exasim.Preprocessing
+const Postprocessing = Exasim.Postprocessing
+const Gencode = Exasim.Gencode
+const Mesh = Exasim.Mesh
+# Legacy pdeapps call Main.cmakecompile via Postprocessing.exasim; keep a
+# top-level alias for any script that calls it directly.
+const cmakecompile = Exasim.Gencode.cmakecompile
 
-include(cdir[1:ii[end]] * "/install/cmakecompile.jl");
+# Make external tools in common nonstandard prefixes visible without
+# clobbering the user's PATH.
+ENV["PATH"] = ENV["PATH"] * ":/usr/local/bin:/opt/local/bin:/opt/homebrew/bin";
 
-# Set Julia's PATH enviroment variable so that Exasim can call external programs
-ENV["PATH"] = "/usr/local/bin:/usr/bin:/opt/local/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin";
-# Add more paths if neccesary
-ENV["PATH"] =  ENV["PATH"] * ":/Applications/ParaView-6.0.0.app/Contents/MacOS";
-
-print("==> Exasim ...\n");
+print("==> Exasim Julia frontend (Exasim.jl package) ...\n");

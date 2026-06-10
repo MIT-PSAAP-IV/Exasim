@@ -4,6 +4,9 @@ mutable struct PDEStruct
     exasimpath::String; 
     buildpath::String; 
     backendpath::String; 
+    datapath::String;   # runtime data dir (datain/, dataout/); default cwd
+    builddir::String;   # hidden dir for generated code + app build
+    modelid::IntP;      # external builtin model ID for the generated model
     appname::String;  # application name
     platform::String; # CPU or GPU
     cpucompiler::String; # Path to CPU compiler
@@ -163,11 +166,14 @@ function initializepde(version)
     pde.codegenerator = "";
 
     pde.codename = "Exasim";
-    cdir = pwd(); ii = findlast("Exasim", cdir);
-    ExasimPath = cdir[1:ii[end]];
-    pde.exasimpath = ExasimPath;
-    pde.buildpath = pde.exasimpath * "/build";
-    pde.backendpath = pde.exasimpath * "/backend";        
+    # Runtime data (datain/, dataout/) goes under datapath (user-visible);
+    # generated code and the solver build live in the hidden builddir.
+    pde.datapath = pwd();
+    pde.builddir = joinpath(pwd(), ".exasim");
+    pde.modelid = 100;   # external builtin model ID for the generated model
+    pde.exasimpath = ""; # Exasim install prefix; resolved by cmakecompile
+    pde.buildpath = "";
+    pde.backendpath = "";
     pde.version = version;
     pde.appname = "app";
     pde.platform = "cpu";
@@ -279,7 +285,7 @@ function initializepde(version)
     pde.externalparam = [0.0 0.0]; #
     pde.uinf = [0.0 0.0]; #
 
-    pde.visfilename = pde.buildpath * "/dataout/output";
+    pde.visfilename = joinpath(pde.datapath, "dataout", "output");
     pde.visscalars = [];
     pde.visvectors = [];
     pde.viselem = [];

@@ -1,4 +1,4 @@
-using Gencode, Preprocessing
+using ..Gencode, ..Preprocessing
 
 function gmshcall(pde, filename, nd, elemtype)
 

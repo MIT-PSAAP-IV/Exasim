@@ -1,6 +1,6 @@
-__precompile__()
-
 module Mesh
+
+using ..Preprocessing, ..Gencode
 
 export squaremesh, cubemesh, gmshcall
 export readmesh, writemesh

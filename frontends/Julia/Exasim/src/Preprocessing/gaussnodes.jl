@@ -1,7 +1,5 @@
 function gaussnodes(pgauss::Int,dim::Int,elemtype::Int)
 
-d0 = pwd();
-ii = findlast("Exasim", d0);
 
 # filename = string(d0[1:ii[end]],"Preprocessing/gaussnodes.mat");
 # vars = MAT.matread(filename);
@@ -10,7 +8,7 @@ ii = findlast("Exasim", d0);
 # wgauss1 = vars["wgauss"][elemtype+1,pgauss,dim];
 
 #fn = string(d0[1:ii[end]],"Preprocessing/gaussnodes.bin");
-fn = string(d0[1:ii[end]],"/frontends/Julia/Preprocessing/gaussnodes.bin");
+fn = joinpath(@__DIR__, "gaussnodes.bin");
 tmp = reinterpret(Float64,read(fn));
 
 ndims = Int(tmp[1]);

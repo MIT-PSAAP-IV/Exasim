@@ -1,4 +1,4 @@
-using Gencode
+using ..Gencode
 
 function findexec(filename, version)
 

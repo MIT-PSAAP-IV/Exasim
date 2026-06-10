@@ -1,11 +1,10 @@
-__precompile__()
-
 module Gencode
 
 using SymPy
+import ..install_prefix, ..cmake_dir, ..frontend_app_template_dir, ..text2code_path
 
 #export syminit, gencode, compilecode
-export syminit, gencode, gencodeall, compilecode, runcode, checkcompilers, setcompilers, tring2cmd
+export syminit, gencode, gencodeall, compilecode, cmakecompile, runcode, checkcompilers, setcompilers, string2cmd
 
 include("syminit.jl");
 include("contains.jl");
@@ -44,6 +43,7 @@ include("genlib.jl");
 include("checkcompilers.jl");
 include("setcompilers.jl");
 include("compilecode.jl");
+include("cmakecompile.jl");
 include("runcode.jl");
 
 function gencode(app)
@@ -51,22 +51,15 @@ function gencode(app)
 print("generate code...\n");
 
 if app.codegenerator == "text2code"
-    runstr = app.exasimpath * "/text2code/text2code/text2code " * app.modelfile * ".txt"
+    runstr = text2code_path() * " " * app.modelfile * ".txt"
     run(`$runstr`)
     return
 end
 
-# foldername = app.exasimpath * "/build/model";
-
-foldername = app.backendpath * "/Model/FrontendGenerated";
-
-# Read the content of the file
-text = read(joinpath(app.backendpath * "/Discretization", "KokkosDrivers.cpp"), String)
-
-# Write the content to a new file
-open(joinpath(foldername, "KokkosDrivers.cpp"), "w") do fid
-    write(fid, text)
-end
+# Generated kernels go to the hidden build dir; cmakecompile points the
+# external-model provider's include path here (no source-tree writes).
+foldername = joinpath(app.builddir, "kernels");
+mkpath(foldername);
 
 xdg, udg, udg1, udg2, wdg, wdg1, wdg2, odg, odg1, odg2, uhg, nlg, tau, uinf, param, time = syminit(app);
 
@@ -462,6 +455,18 @@ end
 #         nocodeelem3("Initudg");
 #     end
 # end
+
+# External-field boundary kernels (HdgFext/HdgFextonly): the Julia frontend
+# has no fext support yet, so emit empty stubs to complete the kernel set
+# that model.cpp includes.
+fext_sig = "dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* uext, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw";
+fextonly_sig = "dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* uext, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw";
+open(joinpath(foldername, "HdgFext" * strn * ".cpp"), "w") do fid
+    write(fid, "void HdgFext" * strn * "(" * fext_sig * ")\n{\n}\n")
+end
+open(joinpath(foldername, "HdgFextonly" * strn * ".cpp"), "w") do fid
+    write(fid, "void HdgFextonly" * strn * "(" * fextonly_sig * ")\n{\n}\n")
+end
 
 end
 
