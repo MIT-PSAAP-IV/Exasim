@@ -720,8 +720,9 @@ if(EXASIM_FRONTENDS)
     DESTINATION ${EXASIM_CMAKE_INSTALL_DIR})
 
   # Python: install the exasim package into the prefix's site-packages. When
-  # CMAKE_INSTALL_PREFIX is a conda env or venv, `import exasim` then works
-  # without any path setup; otherwise add the directory to PYTHONPATH.
+  # the prefix is on the interpreter's sys.path (e.g. a virtualenv prefix),
+  # `import exasim` then works without any path setup; otherwise add the
+  # directory to PYTHONPATH.
   find_package(Python3 COMPONENTS Interpreter QUIET)
   if(Python3_FOUND AND EXISTS ${EXASIM_DIR}/frontends/Python/exasim)
     set(EXASIM_PYTHON_SITEDIR
@@ -730,7 +731,33 @@ if(EXASIM_FRONTENDS)
     install(DIRECTORY ${EXASIM_DIR}/frontends/Python/exasim
       DESTINATION ${EXASIM_PYTHON_SITEDIR}
       PATTERN "__pycache__" EXCLUDE)
-    install(CODE "message(STATUS \"exasim Python package: add \${CMAKE_INSTALL_PREFIX}/${EXASIM_PYTHON_SITEDIR} to PYTHONPATH unless the prefix is your active conda env/venv\")")
+    install(CODE "message(STATUS \"exasim Python package: add \${CMAKE_INSTALL_PREFIX}/${EXASIM_PYTHON_SITEDIR} to PYTHONPATH unless that prefix is already on the interpreter's sys.path\")")
+  endif()
+
+  # Optionally pip-install the package into the configured interpreter at
+  # install time, so `import exasim` works with no PYTHONPATH at all. Off by
+  # default because it mutates the interpreter's environment; requires a
+  # pip-writable interpreter (a virtualenv or similar).
+  option(EXASIM_PIP_INSTALL
+    "pip-install the exasim Python package into the configured interpreter at install time" OFF)
+  if(EXASIM_PIP_INSTALL AND Python3_FOUND)
+    install(CODE "
+      message(STATUS \"pip install ${EXASIM_DIR}/frontends/Python (into ${Python3_EXECUTABLE})\")
+      execute_process(
+        COMMAND ${Python3_EXECUTABLE} -m pip install --quiet ${EXASIM_DIR}/frontends/Python
+        RESULT_VARIABLE _pipres)
+      if(NOT _pipres EQUAL 0)
+        message(FATAL_ERROR \"pip install failed (is the interpreter pip-writable?)\")
+      endif()
+      # Bake the install prefix into the pip-installed copy so it can locate
+      # this C++ install without EXASIM_PREFIX.
+      execute_process(
+        COMMAND ${Python3_EXECUTABLE} -c \"import exasim, os; open(os.path.join(os.path.dirname(exasim.__file__), '_installed_prefix.py'), 'w').write('PREFIX = ' + repr('\${CMAKE_INSTALL_PREFIX}') + chr(10))\"
+        RESULT_VARIABLE _bakeres)
+      if(NOT _bakeres EQUAL 0)
+        message(WARNING \"could not bake the install prefix into the pip-installed exasim package; set EXASIM_PREFIX when using it\")
+      endif()
+    ")
   endif()
 
   # Julia: Exasim.jl package; use it via
@@ -739,6 +766,28 @@ if(EXASIM_FRONTENDS)
   if(EXISTS ${EXASIM_DIR}/frontends/Julia/Exasim)
     install(DIRECTORY ${EXASIM_DIR}/frontends/Julia/Exasim
       DESTINATION share/exasim/julia)
+
+    # Optionally Pkg.develop the installed package into the default Julia
+    # environment at install time, so `using Exasim` works with no LOAD_PATH
+    # setup. Off by default because it mutates the user's Julia environment.
+    option(EXASIM_JULIA_DEVELOP
+      "Pkg.develop the installed Exasim.jl into the default Julia environment at install time" OFF)
+    if(EXASIM_JULIA_DEVELOP)
+      find_program(EXASIM_JULIA_EXECUTABLE julia)
+      if(EXASIM_JULIA_EXECUTABLE)
+        install(CODE "
+          message(STATUS \"Pkg.develop \${CMAKE_INSTALL_PREFIX}/share/exasim/julia/Exasim\")
+          execute_process(
+            COMMAND ${EXASIM_JULIA_EXECUTABLE} -e \"using Pkg; Pkg.develop(path=raw\\\"\${CMAKE_INSTALL_PREFIX}/share/exasim/julia/Exasim\\\")\"
+            RESULT_VARIABLE _jlres)
+          if(NOT _jlres EQUAL 0)
+            message(FATAL_ERROR \"julia Pkg.develop failed\")
+          endif()
+        ")
+      else()
+        message(WARNING "EXASIM_JULIA_DEVELOP=ON but no julia executable found")
+      endif()
+    endif()
   endif()
 
   # MATLAB: function tree plus the exasim_setup.m addpath entry point;

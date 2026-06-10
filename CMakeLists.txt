@@ -51,6 +51,9 @@ option(WITH_PARMETIS      "Link METIS/ParMETIS"                ON)
 option(WITH_TEXT2CODE     "Build text2code-linked executables" OFF)
 option(WITH_BUILTINMODEL  "Build the built-in model library"   ON)
 option(EXASIM_BUILD_TESTS "Register the ctest regression suite" OFF)
+option(EXASIM_FRONTENDS   "Install the Python/Julia/MATLAB frontends" ON)
+option(EXASIM_PIP_INSTALL "pip-install the exasim Python package at install time" OFF)
+option(EXASIM_JULIA_DEVELOP "Pkg.develop the installed Exasim.jl at install time" OFF)
 
 # Forward the toolchain to every sub-build.
 set(_fwd
@@ -208,6 +211,9 @@ ExternalProject_Add(exasim_build
     -DEXASIM_LIB=${EXASIM_LIB} -DWITH_PARMETIS=${WITH_PARMETIS}
     -DWITH_TEXT2CODE=${WITH_TEXT2CODE} -DWITH_BUILTINMODEL=${WITH_BUILTINMODEL}
     -DEXASIM_BUILD_TESTS=${EXASIM_BUILD_TESTS}
+    -DEXASIM_FRONTENDS=${EXASIM_FRONTENDS}
+    -DEXASIM_PIP_INSTALL=${EXASIM_PIP_INSTALL}
+    -DEXASIM_JULIA_DEVELOP=${EXASIM_JULIA_DEVELOP}
     "-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}"
   BUILD_ALWAYS TRUE
   INSTALL_COMMAND ${CMAKE_COMMAND} --install <BINARY_DIR>

@@ -22,6 +22,15 @@ def install_prefix():
         raise RuntimeError(
             f"EXASIM_PREFIX={env} does not contain lib/cmake/Exasim/ExasimConfig.cmake")
 
+    # Prefix baked in at install time (EXASIM_PIP_INSTALL writes
+    # _installed_prefix.py next to this file).
+    try:
+        from ._installed_prefix import PREFIX
+        if _is_prefix(PREFIX):
+            return Path(PREFIX)
+    except ImportError:
+        pass
+
     here = Path(__file__).resolve().parent
     # Installed layout: <prefix>/lib/pythonX.Y/site-packages/exasim
     for up in (3, 2):

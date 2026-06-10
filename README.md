@@ -51,6 +51,69 @@ The install prefix then contains:
 
 To deploy on **HPC systems**, see [the hpc manual](install/hpc.txt).
 
+### Feature flags
+
+All configure options, with defaults:
+
+| Option | Default | Effect |
+|---|---|---|
+| `EXASIM_MPI` | `ON` | build the MPI solver variants (`cpumpi`, `gpumpi`) |
+| `EXASIM_NOMPI` | `ON` | build the serial solver variants (`cpu`, `gpu`) |
+| `EXASIM_CUDA` | `OFF` | CUDA backend (NVIDIA GPUs) |
+| `EXASIM_HIP` | `OFF` | HIP backend (AMD GPUs) |
+| `EXASIM_LIB` | `ON` | build/install the static solver libraries |
+| `WITH_PARMETIS` | `ON` | METIS/ParMETIS mesh partitioning (system or vendored) |
+| `WITH_TEXT2CODE` | `OFF` | also build the text2code-linked solver executables (`*t2cEXASIM`); the `text2code` binary itself is always built |
+| `WITH_BUILTINMODEL` | `ON` | build the built-in model library (required by consumers and frontends) |
+| `EXASIM_FRONTENDS` | `ON` | install the Python/Julia/MATLAB frontends |
+| `EXASIM_PIP_INSTALL` | `OFF` | at install time, `pip install` the Python package into the configured interpreter (no PYTHONPATH needed afterwards; requires a pip-writable interpreter) |
+| `EXASIM_JULIA_DEVELOP` | `OFF` | at install time, `Pkg.develop` the installed Exasim.jl into the default Julia environment (no LOAD_PATH needed afterwards) |
+| `EXASIM_BUILD_TESTS` | `OFF` | register the ctest regression suite |
+
+Everything on, including the opt-in conveniences:
+
+```bash
+cmake -S . -B build \
+  -DEXASIM_BUILD_TESTS=ON \
+  -DEXASIM_PIP_INSTALL=ON -DEXASIM_JULIA_DEVELOP=ON \
+  -DWITH_TEXT2CODE=ON
+# add -DEXASIM_CUDA=ON or -DEXASIM_HIP=ON to target GPUs
+cmake --build build -j
+cmake --install build --prefix /path/to/prefix
+```
+
+### Testing the install
+
+The one-command suite (builds if needed, installs to `<build>/install`, runs
+ctest — consumers + frontend tests):
+
+```bash
+bash tests/run-tests.sh
+```
+
+Individual tests, after `run-tests.sh` (or any configure with
+`-DEXASIM_BUILD_TESTS=ON`) has set up the build:
+
+```bash
+ctest --test-dir build/exasim_build-prefix/src/exasim_build-build -R consumer_ --output-on-failure
+ctest --test-dir build/exasim_build-prefix/src/exasim_build-build -R frontend_ --output-on-failure
+```
+
+`frontend_python` requires `numpy scipy sympy`; `frontend_julia` requires
+julia + SymPy.jl; `frontend_matlab` requires MATLAB (PATH or
+`/Applications/MATLAB_*.app`) + the Symbolic Math Toolbox — each SKIPs
+cleanly when its toolchain is absent. The frontend tests can also run by hand
+against **any** install prefix:
+
+```bash
+EXASIM_ROOT=$PWD EXASIM_INSTALL=/path/to/prefix FRONTEND=python \
+  bash tests/frontends/run-frontend-test.sh   # FRONTEND=python|julia|matlab
+```
+
+All numerical tests gate `Domain_QoI1` (the L2 error² of a Poisson 2D solve)
+below `QOI_TOL` (default `1e-8`; healthy runs produce ~`5e-13`). See
+`tests/README.md` for the full inventory.
+
 ## Using the frontends
 
 Each frontend drives the same flow: define the PDE model symbolically in a
@@ -99,7 +162,9 @@ sol, pde, mesh = exasim.exasim(pde, mesh)[0:3]
 
 The package is also pip-installable from `frontends/Python`
 (`pip install ./frontends/Python`; set `EXASIM_PREFIX=/path/to/prefix` so it
-can find the C++ install).
+can find the C++ install). Or configure with `-DEXASIM_PIP_INSTALL=ON` and the
+install step pip-installs it for you, baking the prefix in — `import exasim`
+then needs no setup at all.
 
 ### Julia
 
@@ -112,6 +177,10 @@ include("pdemodel.jl")          # defines flux/source/... in Main
 # ... discretization/physics parameters, mesh ...
 sol, pde, mesh = Exasim.exasim(pde, mesh)
 ```
+
+Configure with `-DEXASIM_JULIA_DEVELOP=ON` and the install step runs
+`Pkg.develop` on the installed package for you — `using Exasim` then needs no
+`LOAD_PATH` setup.
 
 ### MATLAB
 
