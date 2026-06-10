@@ -7,7 +7,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(EXASIM_VARIANT "@EXASIM_VARIANT@")  # cpu | cpumpi | gpu | gpumpi
 
 find_package(Exasim REQUIRED COMPONENTS ${EXASIM_VARIANT})
-find_package(Kokkos REQUIRED)
+# ExasimConfig.cmake resolves Kokkos from its baked build-time location;
+# only search again if that somehow did not produce the target.
+if(NOT TARGET Kokkos::kokkos)
+  find_package(Kokkos REQUIRED)
+endif()
 
 # The frontend gencode step writes the kernel .cpp set into KERNELS; the
 # provider library intercepts model ID @MODEL_ID@ and falls through to the

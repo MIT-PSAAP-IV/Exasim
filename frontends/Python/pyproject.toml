@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "exasim"
+version = "1.0.0"
+description = "Exasim Python frontend: generate and run Exasim PDE solvers"
+requires-python = ">=3.8"
+dependencies = ["numpy", "scipy", "sympy"]
+
+[tool.setuptools]
+packages = [
+    "exasim",
+    "exasim.Preprocessing",
+    "exasim.Gencode",
+    "exasim.Mesh",
+    "exasim.Postprocessing",
+]
+
+# Note: the package needs an Exasim C++ install to build solvers against.
+# When installed via `cmake --install` it finds the install prefix on its own;
+# for a pip install from the source tree, set EXASIM_PREFIX (see exasim/config.py).
