@@ -21,8 +21,9 @@ set(EXASIM_BUILTIN_INCDIR  "${EXASIM_BUILTIN_GENROOT}/include")
 file(MAKE_DIRECTORY "${EXASIM_BUILTIN_INCDIR}")
 
 # text2code binary used to (re)generate model kernels from a pdemodel source.
+# The superbuild forwards its out-of-tree location via EXASIM_TEXT2CODE.
 if(NOT DEFINED EXASIM_TEXT2CODE)
-  set(EXASIM_TEXT2CODE "${EXASIM_DIR}/build/text2code")
+  find_program(EXASIM_TEXT2CODE text2code)
 endif()
 
 # Accumulators (parent scope so exasim_add_builtin_model can append from anywhere)
@@ -188,7 +189,7 @@ function(exasim_finalize_builtin_models)
     "${EXASIM_BUILTIN_INCDIR}" "${EXASIM_BUILTIN_DIR}")
   target_link_libraries(${_bm_name} PRIVATE Kokkos::kokkos)
   set_target_properties(${_bm_name} PROPERTIES
-    ARCHIVE_OUTPUT_DIRECTORY "${EXASIM_DIR}/lib"
+    ARCHIVE_OUTPUT_DIRECTORY "${EXASIM_LIB_DIR}"
     POSITION_INDEPENDENT_CODE ON)
 endfunction()
 

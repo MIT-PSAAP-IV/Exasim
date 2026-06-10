@@ -9,7 +9,8 @@
 #
 # Environment:
 #   EXASIM_ROOT     repo root (required)
-#   EXASIM_INSTALL  Exasim install prefix (default: $EXASIM_ROOT/build/install)
+#   EXASIM_INSTALL  Exasim install prefix (default: $EXASIM_PREFIX if set,
+#                   else $EXASIM_ROOT-build/install)
 #   FRONTEND        python | julia | matlab (required)
 #   PYTHON3         python interpreter (default: python3)
 #   QOI_TOL         QoI gate (default: 1e-8)
@@ -17,7 +18,7 @@ set -uo pipefail
 
 ROOT="${EXASIM_ROOT:?set EXASIM_ROOT to the Exasim repo root}"
 FE="${FRONTEND:?set FRONTEND to python|julia|matlab}"
-INSTALL="${EXASIM_INSTALL:-$ROOT/build/install}"
+INSTALL="${EXASIM_INSTALL:-${EXASIM_PREFIX:-$ROOT-build/install}}"
 QOI_TOL="${QOI_TOL:-1e-8}"
 SKIP=77
 

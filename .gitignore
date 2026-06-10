@@ -379,3 +379,6 @@ deps/build/preprocess
 backend/Model/FrontendGenerated/KokkosFhat.cpp
 backend/Model/FrontendGenerated/KokkosStab.cpp
 backend/Model/FrontendGenerated/KokkosUhat.cpp
+
+# per-app frontend build dirs (created wherever a pdeapp runs)
+**/.exasim/

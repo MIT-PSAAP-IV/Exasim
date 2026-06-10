@@ -17,7 +17,8 @@ include(CMakePackageConfigHelpers)
 
 get_filename_component(EXASIM_DIR ${CMAKE_CURRENT_SOURCE_DIR}/.. ABSOLUTE)
 set(EXASIM_INCLUDE_DIR ${EXASIM_DIR}/include)
-set(EXASIM_LIB_DIR ${EXASIM_DIR}/lib)
+# All build outputs live in the binary dir; the source tree is never written.
+set(EXASIM_LIB_DIR ${CMAKE_BINARY_DIR}/lib)
 file(MAKE_DIRECTORY ${EXASIM_LIB_DIR})
 include_directories(${EXASIM_INCLUDE_DIR})
 
@@ -306,7 +307,7 @@ if(EXASIM_CUDA)
 
   if(EXASIM_NOMPI)
     add_exasim_static_library(gpuEXASIM_static gpuEXASIM)
-    target_link_directories(gpuEXASIM_static PUBLIC ${Model_LIB_DIR})
+    target_link_directories(gpuEXASIM_static PUBLIC $<BUILD_INTERFACE:${Model_LIB_DIR}> $<INSTALL_INTERFACE:${CMAKE_INSTALL_LIBDIR}>)
     target_compile_definitions(gpuEXASIM_static PUBLIC _CUDA)
     target_compile_options(gpuEXASIM_static PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG -fno-unroll-loops)
     target_link_libraries(gpuEXASIM_static PUBLIC Kokkos::kokkos ${lapackblas_libraries} ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES} ${BM_CUDA_LIB})
@@ -329,7 +330,7 @@ if(EXASIM_CUDA)
 
     if(EXASIM_BUILD_PREPROCESSING_LIBS)
       add_exasim_static_library(gpupreEXASIM_static gpupreEXASIM)
-      target_link_directories(gpupreEXASIM_static PUBLIC ${Model_LIB_DIR})
+      target_link_directories(gpupreEXASIM_static PUBLIC $<BUILD_INTERFACE:${Model_LIB_DIR}> $<INSTALL_INTERFACE:${CMAKE_INSTALL_LIBDIR}>)
       target_compile_definitions(gpupreEXASIM_static PUBLIC _KOKKOSKERNEL _CUDA)
       target_compile_options(gpupreEXASIM_static PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG -fno-unroll-loops)
       target_link_libraries(gpupreEXASIM_static PUBLIC Kokkos::kokkos ${lapackblas_libraries} ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES})
@@ -349,7 +350,7 @@ if(EXASIM_CUDA)
       include_directories(SYSTEM ${MPI_INCLUDE_PATH})
 
       add_exasim_static_library(gpumpiEXASIM_static gpumpiEXASIM)
-      target_link_directories(gpumpiEXASIM_static PUBLIC ${Model_LIB_DIR})
+      target_link_directories(gpumpiEXASIM_static PUBLIC $<BUILD_INTERFACE:${Model_LIB_DIR}> $<INSTALL_INTERFACE:${CMAKE_INSTALL_LIBDIR}>)
       target_compile_definitions(gpumpiEXASIM_static PUBLIC _MPI _CUDA)
       target_compile_options(gpumpiEXASIM_static PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG -fno-unroll-loops)
       target_link_libraries(gpumpiEXASIM_static PUBLIC
@@ -373,7 +374,7 @@ if(EXASIM_CUDA)
 
       if(EXASIM_BUILD_PREPROCESSING_LIBS)
         add_exasim_static_library(gpumpipreEXASIM_static gpumpipreEXASIM)
-        target_link_directories(gpumpipreEXASIM_static PUBLIC ${Model_LIB_DIR})
+        target_link_directories(gpumpipreEXASIM_static PUBLIC $<BUILD_INTERFACE:${Model_LIB_DIR}> $<INSTALL_INTERFACE:${CMAKE_INSTALL_LIBDIR}>)
         target_compile_definitions(gpumpipreEXASIM_static PUBLIC _KOKKOSKERNEL _MPI _CUDA)
         target_compile_options(gpumpipreEXASIM_static PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG -fno-unroll-loops)
         target_link_libraries(gpumpipreEXASIM_static PUBLIC
@@ -411,7 +412,7 @@ elseif(EXASIM_HIP)
 
   if(EXASIM_NOMPI)
     add_exasim_static_library(gpuEXASIM_static gpuEXASIM)
-    target_link_directories(gpuEXASIM_static PUBLIC ${Model_LIB_DIR})
+    target_link_directories(gpuEXASIM_static PUBLIC $<BUILD_INTERFACE:${Model_LIB_DIR}> $<INSTALL_INTERFACE:${CMAKE_INSTALL_LIBDIR}>)
     target_compile_definitions(gpuEXASIM_static PUBLIC _HIP)
     target_compile_options(gpuEXASIM_static PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG -fno-unroll-loops)
     target_link_libraries(gpuEXASIM_static PUBLIC Kokkos::kokkos hipblas rocblas ${HIP_LIBRARIES} ${lapackblas_libraries} ${BM_HIP_LIB})
@@ -432,7 +433,7 @@ elseif(EXASIM_HIP)
 
     if(EXASIM_BUILD_PREPROCESSING_LIBS)
       add_exasim_static_library(gpupreEXASIM_static gpupreEXASIM)
-      target_link_directories(gpupreEXASIM_static PUBLIC ${Model_LIB_DIR})
+      target_link_directories(gpupreEXASIM_static PUBLIC $<BUILD_INTERFACE:${Model_LIB_DIR}> $<INSTALL_INTERFACE:${CMAKE_INSTALL_LIBDIR}>)
       target_compile_definitions(gpupreEXASIM_static PUBLIC _KOKKOSKERNEL _HIP)
       target_compile_options(gpupreEXASIM_static PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG -fno-unroll-loops)
       target_link_libraries(gpupreEXASIM_static PUBLIC Kokkos::kokkos hipblas rocblas ${HIP_LIBRARIES} ${lapackblas_libraries})
@@ -452,7 +453,7 @@ elseif(EXASIM_HIP)
       include_directories(SYSTEM ${MPI_INCLUDE_PATH})
 
       add_exasim_static_library(gpumpiEXASIM_static gpumpiEXASIM)
-      target_link_directories(gpumpiEXASIM_static PUBLIC ${Model_LIB_DIR})
+      target_link_directories(gpumpiEXASIM_static PUBLIC $<BUILD_INTERFACE:${Model_LIB_DIR}> $<INSTALL_INTERFACE:${CMAKE_INSTALL_LIBDIR}>)
       target_compile_definitions(gpumpiEXASIM_static PUBLIC _MPI _HIP)
       target_compile_options(gpumpiEXASIM_static PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG -fno-unroll-loops)
       target_link_libraries(gpumpiEXASIM_static PUBLIC Kokkos::kokkos hipblas rocblas ${HIP_LIBRARIES} ${lapackblas_libraries} ${MPI_LIBRARIES} ${BM_HIP_LIB})
@@ -475,7 +476,7 @@ elseif(EXASIM_HIP)
 
       if(EXASIM_BUILD_PREPROCESSING_LIBS)
         add_exasim_static_library(gpumpipreEXASIM_static gpumpipreEXASIM)
-        target_link_directories(gpumpipreEXASIM_static PUBLIC ${Model_LIB_DIR})
+        target_link_directories(gpumpipreEXASIM_static PUBLIC $<BUILD_INTERFACE:${Model_LIB_DIR}> $<INSTALL_INTERFACE:${CMAKE_INSTALL_LIBDIR}>)
         target_compile_definitions(gpumpipreEXASIM_static PUBLIC _KOKKOSKERNEL _MPI _HIP)
         target_compile_options(gpumpipreEXASIM_static PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG -fno-unroll-loops)
         target_link_libraries(gpumpipreEXASIM_static PUBLIC Kokkos::kokkos hipblas rocblas ${HIP_LIBRARIES} ${lapackblas_libraries} ${MPI_LIBRARIES})
@@ -507,7 +508,7 @@ else()
 
   if(EXASIM_NOMPI)
     add_exasim_static_library(cpuEXASIM_static cpuEXASIM)
-    target_link_directories(cpuEXASIM_static PUBLIC ${Model_LIB_DIR})
+    target_link_directories(cpuEXASIM_static PUBLIC $<BUILD_INTERFACE:${Model_LIB_DIR}> $<INSTALL_INTERFACE:${CMAKE_INSTALL_LIBDIR}>)
     target_link_libraries(cpuEXASIM_static PUBLIC Kokkos::kokkos ${lapackblas_libraries} ${BM_CPU_LIB})
     target_compile_options(cpuEXASIM_static PRIVATE -std=c++17 -w -O2)
     link_metis(cpuEXASIM_static)    # METIS
@@ -525,7 +526,7 @@ else()
 
     if(EXASIM_BUILD_PREPROCESSING_LIBS)
       add_exasim_static_library(cpupreEXASIM_static cpupreEXASIM)
-      target_link_directories(cpupreEXASIM_static PUBLIC ${Model_LIB_DIR})
+      target_link_directories(cpupreEXASIM_static PUBLIC $<BUILD_INTERFACE:${Model_LIB_DIR}> $<INSTALL_INTERFACE:${CMAKE_INSTALL_LIBDIR}>)
       target_compile_definitions(cpupreEXASIM_static PUBLIC _KOKKOSKERNEL)
       target_link_libraries(cpupreEXASIM_static PUBLIC Kokkos::kokkos ${lapackblas_libraries})
       target_compile_options(cpupreEXASIM_static PRIVATE -std=c++17 -w -O2)
@@ -544,7 +545,7 @@ else()
       include_directories(${MPI_INCLUDE_PATH})
 
       add_exasim_static_library(cpumpiEXASIM_static cpumpiEXASIM)
-      target_link_directories(cpumpiEXASIM_static PUBLIC ${Model_LIB_DIR})
+      target_link_directories(cpumpiEXASIM_static PUBLIC $<BUILD_INTERFACE:${Model_LIB_DIR}> $<INSTALL_INTERFACE:${CMAKE_INSTALL_LIBDIR}>)
       target_compile_definitions(cpumpiEXASIM_static PUBLIC _MPI)
       target_compile_options(cpumpiEXASIM_static PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG)
       #target_compile_options(cpumpiEXASIM PRIVATE -std=c++17 -w -ffast-math -fsanitize=address,undefined -fno-omit-frame-pointer -g)
@@ -564,7 +565,7 @@ else()
 
       if(EXASIM_BUILD_PREPROCESSING_LIBS)
         add_exasim_static_library(cpumpipreEXASIM_static cpumpipreEXASIM)
-        target_link_directories(cpumpipreEXASIM_static PUBLIC ${Model_LIB_DIR})
+        target_link_directories(cpumpipreEXASIM_static PUBLIC $<BUILD_INTERFACE:${Model_LIB_DIR}> $<INSTALL_INTERFACE:${CMAKE_INSTALL_LIBDIR}>)
         target_compile_definitions(cpumpipreEXASIM_static PUBLIC _KOKKOSKERNEL _MPI)
         target_compile_options(cpumpipreEXASIM_static PRIVATE -std=c++17 -w -ffast-math -O3 -DNDEBUG)
         target_link_libraries(cpumpipreEXASIM_static PUBLIC Kokkos::kokkos ${lapackblas_libraries} ${MPI_LIBRARIES})
@@ -719,9 +720,10 @@ install(FILES
   ${EXASIM_DIR}/backend/Model/BuiltIn/model.cpp
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/backend/Model/BuiltIn)
 
-# Install text2code binary if it was built by the superbuild.
-if(EXISTS "${EXASIM_DIR}/build/text2code")
-  install(PROGRAMS "${EXASIM_DIR}/build/text2code"
+# Install the text2code binary if the superbuild built it (it forwards the
+# location via EXASIM_TEXT2CODE; out-of-tree, never under the source tree).
+if(DEFINED EXASIM_TEXT2CODE AND EXISTS "${EXASIM_TEXT2CODE}")
+  install(PROGRAMS "${EXASIM_TEXT2CODE}"
     DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 

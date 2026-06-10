@@ -23,14 +23,21 @@ if isprefix(cand)
     return;
 end
 % Source-tree layout: <repo>/frontends/Matlab/Gencode with the superbuild
-% installed to <repo>/build/install.
-cand = fullfile(here, '..', '..', '..', 'build', 'install');
+% installed to <repo>-build/install (sibling of the repo).
+repodir = absolutepath(fullfile(here, '..', '..', '..'));
+[repoparent, reponame] = fileparts(repodir);
+cand = fullfile(repoparent, [reponame '-build'], 'install');
+if isprefix(cand)
+    prefix = string(absolutepath(cand));
+    return;
+end
+cand = fullfile(repodir, 'build', 'install');
 if isprefix(cand)
     prefix = string(absolutepath(cand));
     return;
 end
 error("Cannot locate an Exasim install. Build and install Exasim " + ...
-      "(cmake -S <repo> -B build && cmake --build build && cmake --install build) " + ...
+      "(cmake -S <repo> -B <repo>-build, build, install) " + ...
       "and/or set EXASIM_PREFIX to the install prefix.");
 end
 

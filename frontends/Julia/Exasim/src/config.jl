@@ -22,12 +22,15 @@ function install_prefix()
     cand = abspath(joinpath(here, "..", "..", "..", ".."))
     _is_prefix(cand) && return cand
     # Source-tree layout: <repo>/frontends/Julia/Exasim/src with the
-    # superbuild installed to <repo>/build/install.
-    cand = abspath(joinpath(here, "..", "..", "..", "..", "build", "install"))
-    _is_prefix(cand) && return cand
+    # superbuild installed to <repo>-build/install (sibling of the repo).
+    repo = abspath(joinpath(here, "..", "..", "..", ".."))
+    for cand in (joinpath(dirname(repo), basename(repo) * "-build", "install"),
+                 joinpath(repo, "build", "install"))
+        _is_prefix(cand) && return cand
+    end
     error("Cannot locate an Exasim install. Build and install Exasim " *
-          "(cmake -S <repo> -B build && cmake --build build && cmake --install build) " *
-          "and/or set EXASIM_PREFIX to the install prefix.")
+          "(cmake -S <repo> -B <repo>-build && cmake --build <repo>-build && " *
+          "cmake --install <repo>-build) and/or set EXASIM_PREFIX to the install prefix.")
 end
 
 cmake_dir() = joinpath(install_prefix(), "lib", "cmake", "Exasim")

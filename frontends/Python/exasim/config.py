@@ -38,15 +38,17 @@ def install_prefix():
         if cand and _is_prefix(cand):
             return cand
     # Source-tree layout: <repo>/frontends/Python/exasim with the superbuild
-    # installed to <repo>/build/install (what tests/run-tests.sh produces).
+    # installed to <repo>-build/install (what tests/run-tests.sh produces).
     if len(here.parents) >= 3:
-        cand = here.parents[2] / "build" / "install"
-        if _is_prefix(cand):
-            return cand
+        repo = here.parents[2]
+        for cand in (repo.parent / (repo.name + "-build") / "install",
+                     repo / "build" / "install"):
+            if _is_prefix(cand):
+                return cand
     raise RuntimeError(
         "Cannot locate an Exasim install. Build and install Exasim "
-        "(cmake -S <repo> -B build && cmake --build build && cmake --install build) "
-        "and/or set EXASIM_PREFIX to the install prefix.")
+        "(cmake -S <repo> -B <repo>-build && cmake --build <repo>-build && "
+        "cmake --install <repo>-build) and/or set EXASIM_PREFIX to the install prefix.")
 
 
 def cmake_dir():

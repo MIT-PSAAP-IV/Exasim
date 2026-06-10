@@ -25,7 +25,12 @@ set(EXASIM_KOKKOS_DIR "" CACHE PATH "Kokkos install dir (from superbuild)")
 set(EXASIM_KOKKOS_BACKEND "serial" CACHE STRING "Active Kokkos backend: serial|cuda|hip")
 
 # Put executables directly under Exasim/build at build time
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${EXASIM_ROOT}/build")
+# Binary lands in the build tree (the superbuild passes its own bin/ here);
+# never write into the source tree.
+if(NOT DEFINED EXASIM_T2C_OUTPUT_DIR)
+  set(EXASIM_T2C_OUTPUT_DIR "${CMAKE_BINARY_DIR}/bin")
+endif()
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${EXASIM_T2C_OUTPUT_DIR}")
 
 # Adjust these if your layout differs; they default to your examples.
 #set(METIS_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../METIS" CACHE PATH "Path to METIS root")
@@ -193,7 +198,7 @@ if (WITH_METIS)
   endif()
 else()
   # ============================================================
-  # Target: t2cnometis  (equivalent to: g++ -O2 -std=c++17 text2code.cpp -o t2cnometis -lblas -llapack)
+  # Target: t2cnometis  (equivalent to: g++ -O2 -std=c++20 text2code.cpp -o t2cnometis -lblas -llapack)
   # ============================================================
   add_executable(t2cnometis text2code.cpp)
   add_o2(t2cnometis)

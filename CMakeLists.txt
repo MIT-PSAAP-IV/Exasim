@@ -21,24 +21,18 @@ include(ExternalProject)
 
 set(EXASIM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
 
-# ---- Discourage building inside the source tree ----
-# A true in-source build (binary dir == source dir) is rejected outright. A build
-# directory *inside* the repo is allowed but warned about: the vendored deps and
-# generated outputs would otherwise clutter the checkout. Prefer a sibling dir:
-#     cmake -B ../Exasim-build && cmake --build ../Exasim-build
+# ---- Refuse building inside the source tree ----
+# The repo stays pristine: all build/install outputs live in the (out-of-tree)
+# binary dir. Both a true in-source build and a build dir nested anywhere
+# under the repo are rejected.
 get_filename_component(_exasim_src "${CMAKE_SOURCE_DIR}" REALPATH)
 get_filename_component(_exasim_bin "${CMAKE_BINARY_DIR}" REALPATH)
-if(_exasim_bin STREQUAL _exasim_src)
+if(_exasim_bin STREQUAL _exasim_src OR _exasim_bin MATCHES "^${_exasim_src}/")
   message(FATAL_ERROR
-    "In-source build detected. Configure in a separate build directory, e.g.:\n"
-    "    cmake -B ../Exasim-build && cmake --build ../Exasim-build\n"
-    "(delete the CMakeCache.txt and CMakeFiles/ this attempt just created).")
-endif()
-if(_exasim_bin MATCHES "^${_exasim_src}/")
-  message(WARNING
-    "Build directory is inside the Exasim source tree:\n  ${CMAKE_BINARY_DIR}\n"
-    "This works, but build outputs clutter the checkout. Prefer a sibling "
-    "directory: cmake -B ../Exasim-build")
+    "Build directories inside the Exasim source tree are not supported. "
+    "Configure out of tree, e.g.:\n"
+    "    cmake -S ${_exasim_src} -B ${_exasim_src}-build\n"
+    "(delete any CMakeCache.txt / CMakeFiles/ this attempt just created).")
 endif()
 
 # ---- Build options (forwarded to the Exasim solver build) ----
@@ -168,12 +162,14 @@ endif()
 
 # ----------------------------------------------------------------------------
 # text2code (Exasim's own codegen tool; depends on SymEngine + METIS)
-# Installs its binary to ${EXASIM_ROOT}/build/text2code.
+# Its binary lands in ${CMAKE_BINARY_DIR}/bin/text2code.
 # ----------------------------------------------------------------------------
+set(EXASIM_TEXT2CODE "${CMAKE_BINARY_DIR}/bin/text2code")
 ExternalProject_Add(text2code_build
   SOURCE_DIR  "${EXASIM_ROOT}/text2code/text2code"
   DOWNLOAD_COMMAND ""
   CMAKE_ARGS  ${_fwd} -DWITH_METIS=${WITH_PARMETIS} -DEXASIM_ROOT=${EXASIM_ROOT}
+    -DEXASIM_T2C_OUTPUT_DIR=${CMAKE_BINARY_DIR}/bin
     -DEXASIM_SYMENGINE_DIR=${_symengine_for_t2c}
     -DEXASIM_SYMENGINE_VENDORED=${_symengine_vendored}
     -DEXASIM_KOKKOS_DIR=${_kokkos_for_exasim}
@@ -211,6 +207,7 @@ ExternalProject_Add(exasim_build
     -DEXASIM_LIB=${EXASIM_LIB} -DWITH_PARMETIS=${WITH_PARMETIS}
     -DWITH_TEXT2CODE=${WITH_TEXT2CODE} -DWITH_BUILTINMODEL=${WITH_BUILTINMODEL}
     -DEXASIM_BUILD_TESTS=${EXASIM_BUILD_TESTS}
+    -DEXASIM_TEXT2CODE=${EXASIM_TEXT2CODE}
     -DEXASIM_FRONTENDS=${EXASIM_FRONTENDS}
     -DEXASIM_PIP_INSTALL=${EXASIM_PIP_INSTALL}
     -DEXASIM_JULIA_DEVELOP=${EXASIM_JULIA_DEVELOP}
