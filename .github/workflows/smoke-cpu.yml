@@ -26,7 +26,7 @@ name: smoke (CPU)
 
 on:
   push:
-    branches: [teoc-Kitesurf-Coupling-build-and-test, teoc-other-frontends-and-misc-cleanup]
+    branches: [teoc-Kitesurf-Coupling-build-and-test, teoc-other-frontends-and-misc-cleanup, teoc-examples-migration]
   pull_request:
     branches: [Kitesurf-Coupling, teoc-Kitesurf-Coupling-build-and-test]
   workflow_dispatch:
