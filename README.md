@@ -119,7 +119,29 @@ To run any example with Matlab, type the following line and hit return
    > >  pdeapp
 ```
 
-Exasim produces two folders in the `Exasim/build` directory. The `datain` folder contains input files which store the master, mesh and initial solution. The `dataout` folder contains the output files which store the numerical solution of the PDE model defined in the `pdeapp` script.
+Exasim produces two folders in the working directory where the `pdeapp` script runs. The `datain` folder contains input files which store the master, mesh and initial solution. The `dataout` folder contains the output files which store the numerical solution of the PDE model defined in the `pdeapp` script. Generated code and the solver build live in a hidden `.exasim` directory next to them (override with `pde.builddir` / `pde['builddir']`).
+
+## Language frontends as installed packages (new)
+
+`cmake --install` installs the three frontends alongside the C++ package:
+
+- **Python** — installed to `<prefix>/lib/python3.X/site-packages/exasim`. When
+  the prefix is a conda env or venv, `import exasim` just works; otherwise add
+  that directory to `PYTHONPATH`. Also pip-installable from
+  `frontends/Python` (set `EXASIM_PREFIX` to the install prefix in that case).
+- **Julia** — the `Exasim.jl` package at `<prefix>/share/exasim/julia`. Use
+  `push!(LOAD_PATH, "<prefix>/share/exasim/julia"); using Exasim`, or
+  `Pkg.develop(path=...)`.
+- **MATLAB** — `run('<prefix>/share/exasim/matlab/exasim_setup.m')` puts the
+  frontend on the MATLAB path.
+
+A `pdeapp` then drives the whole flow against the installed Exasim: the
+frontend generates the model kernels symbolically, builds a small solver app
+out of tree via `find_package(Exasim)` and the external-model mechanism
+(`exasim_add_external_builtin_model`, model ID `pde.modelid`, default 100),
+and runs it. The Exasim source tree is never touched at app-run time. See
+`examples/Poisson/poisson2d/pdeapp.{py,jl,m}` for migrated examples and
+`tests/frontends/` for the end-to-end tests (`frontend_python` runs in CI).
 
 ## Header-only template-library authoring path (new)
 
