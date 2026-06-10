@@ -19,129 +19,173 @@ After downloading the source code, please make sure that the name of the folder 
 
 To deploy, compile, and run Exasim on **HPC systems**, please follow the intructions in [the hpc manual](https://github.com/exapde/Exasim/blob/master/install/hpc.txt).
 
-## Installation 
+## Installation: build and install everything
 
-Exasim needs Kokkos (required), Blas/Lapack libaries (required), MPI library (required), Gmesh for mesh generation (optional), METIS for mesh partitioning (optional), Paraview for visualization (optional), and CUDA Toolkit (optional) to run on Nvidia GPUs. 
+One command builds the whole stack — vendored dependencies (Kokkos, METIS/ParMETIS,
+SymEngine) are found on the system or built from source automatically, then
+text2code, the solver libraries, the built-in model library, and the language
+frontends are built and installed:
 
-### Build Kokkos Libaries
-Since Exasim uses Kokkos to target various computing platforms, you must build Kokkos libraries before using Exasim. To build Kokkos serial library for CPU platform:
-```
-cd Exasim/kokkos   
-make -f Makefile.builds serial 
-```
-
-To build Kokkos CUDA library for Nvidia GPU platform:
-```
-cd Exasim/kokkos
-make -f Makefile.builds cuda   
-```
-To build Kokkos HIP library for AMD GPU platform:
-```
-cd Exasim/kokkos
-make -f Makefile.builds hip   
+```bash
+cd Exasim
+cmake -S . -B build                  # add -DEXASIM_CUDA=ON or -DEXASIM_HIP=ON for GPUs
+cmake --build build -j
+cmake --install build --prefix /path/to/prefix
 ```
 
-### Build Metis and ParMetis Libraries
+Useful configure options: `EXASIM_MPI`/`EXASIM_NOMPI` (both ON by default),
+`EXASIM_CUDA`, `EXASIM_HIP`, `WITH_PARMETIS`, `WITH_TEXT2CODE`,
+`EXASIM_FRONTENDS` (ON: install the Python/Julia/MATLAB frontends),
+`EXASIM_BUILD_TESTS` (register the ctest suite; see `tests/README.md`).
 
-To build Metis and ParMetis libaries:
+The install prefix then contains:
+
+- `lib/` + `include/` + `lib/cmake/Exasim/` — the C++ package: solver libraries
+  for every enabled variant (`Exasim::cpulib`, `Exasim::cpumpilib`,
+  `Exasim::gpulib`, ...), the built-in model library, and the CMake config
+  consumed by `find_package(Exasim)`
+- `bin/text2code` — the text-to-code generator/preprocessor
+- `lib/python3.X/site-packages/exasim` — the Python frontend
+- `share/exasim/julia/Exasim` — the Julia frontend (Exasim.jl)
+- `share/exasim/matlab` — the MATLAB frontend
+
+If you install into an active conda env or venv prefix, the Python package is
+immediately importable. To deploy on **HPC systems**, see
+[the hpc manual](install/hpc.txt).
+
+## Using the frontends
+
+Each frontend drives the same flow: define the PDE model symbolically in a
+`pdeapp` script, and the frontend generates the model kernels, builds a small
+solver app out of tree against the installed Exasim (via `find_package(Exasim)`
+and the external-model mechanism, model ID `pde.modelid`, default 100), and
+runs it. Runtime data (`datain/`, `dataout/`) is written under the working
+directory (`pde.datapath`); generated code and the app build live in the hidden
+`.exasim/` directory next to them (`pde.builddir`). The Exasim source tree is
+never touched.
+
+Migrated examples: `examples/Poisson/poisson2d/pdeapp.{py,jl,m}`. End-to-end
+tests: `tests/frontends/` (`frontend_python` runs in CI; julia/matlab run
+wherever those toolchains exist).
+
+### Python
+
+```bash
+# if the prefix is not your active conda env/venv:
+export PYTHONPATH=/path/to/prefix/lib/python3.X/site-packages:$PYTHONPATH
 ```
-cd Exasim/metis
-make metis
+
+```python
+import exasim
+pde, mesh = exasim.initializeexasim()
+pde['model'] = "ModelD"; pde['modelfile'] = "pdemodel"   # pdemodel.py next to the script
+# ... discretization/physics parameters, mesh ...
+sol, pde, mesh = exasim.exasim(pde, mesh)[0:3]
 ```
 
-### Build Text2Code Executable
+The package is also pip-installable from `frontends/Python`
+(`pip install ./frontends/Python`; set `EXASIM_PREFIX=/path/to/prefix` so it
+can find the C++ install).
 
-To use Text2Code as a code generator and preprocessor in Exasim:
+### Julia
+
+```julia
+push!(LOAD_PATH, "/path/to/prefix/share/exasim/julia")   # or Pkg.develop(path=...)
+using Exasim
+pde, mesh = Exasim.initializeexasim()
+pde.model = "ModelD"
+include("pdemodel.jl")          # defines flux/source/... in Main
+# ... discretization/physics parameters, mesh ...
+sol, pde, mesh = Exasim.exasim(pde, mesh)
 ```
-cd Exasim/text2code
-make text2code
-``` 
 
-Text2Code produces faster, cleaner code and removes the need for MATLAB/Julia/Python preprocessing. 
+### MATLAB
 
-### Build Exasim Libraries and Executables
-
-After installing Text2Code successfully, please procceed installing Exasim as follows
+```matlab
+run('/path/to/prefix/share/exasim/matlab/exasim_setup.m')
+[pde, mesh] = initializeexasim();
+pde.model = "ModelD"; pde.modelfile = "pdemodel";   % pdemodel.m on the path
+% ... discretization/physics parameters, mesh ...
+[sol, pde, mesh] = exasim(pde, mesh);
 ```
-cd Exasim/build
-cmake -DEXASIM_LIB=ON -DEXASIM_MPI=ON -DEXASIM_NOMPI=ON -DEXASIM_CUDA=OFF -DEXASIM_HIP=OFF -DWITH_PARMETIS=ON -DWITH_TEXT2CODE=ON ../install
-cmake --build .
-cmake --install . --prefix /path/to/Exasim
-``` 
 
-EXASIM_CUDA=ON switches to the CUDA backend (ensure kokkos/buildcuda exists). Similarly, EXASIM_HIP=ON switches to the HIP backend. It will produce Exasim's libraries in Exasim/lib and  Exasim's headers in Exasim/include. It will also produce Exasim's executable programs in Exasim/build, which are **cput2cEXASIM** for CPU platform on one core, **cpumpit2cEXASIM** for CPU platform on many cores, **gput2cEXASIM** for CUDA/HIP platform on one GPU, and **gpumpit2cEXASIM** for CUDA/HIP platform on many GPUs. 
+## C++: running built-in models
+
+The install ships a built-in model library with pregenerated models (Poisson,
+advection, ...; built at Exasim build time by text2code from
+`backend/Model/BuiltIn/pdeapp<N>.txt`). A pure out-of-tree consumer selects a
+model by `builtinmodelID` in a `pdeapp.txt` and needs only `find_package`:
+
+```cmake
+find_package(Exasim REQUIRED COMPONENTS cpumpi)   # or: cpu, gpu, gpumpi
+add_executable(consumer main.cpp)
+target_compile_definitions(consumer PRIVATE _BUILTINLIBRARY _MPI)
+target_link_libraries(consumer PRIVATE
+    Exasim::headers Exasim::pre Exasim::builtinmodel Kokkos::kokkos MPI::MPI_CXX)
+```
+
+```cpp
+#include <exasim/ExasimSolverSetup.hpp>
+#include <exasim/builtinlibprovider.hpp>
+
+int main(int argc, char** argv)
+{
+#ifdef HAVE_MPI
+    MPI_Comm comm = MPI_COMM_WORLD;
+#else
+    MPI_Comm comm = MPI_COMM_NULL;
+#endif
+    ExasimSolver solver;
+    return RunExasimSolver(solver, argc, argv, comm);   // ./consumer pdeapp.txt
+}
+```
+
+`Exasim::pre` includes the C++ preprocessing path, so the consumer reads
+`pdeapp.txt` directly and generates its own input data. A complete working
+example (CMakeLists, main.cpp, pdeapp.txt, QoI gate) is
+`tests/consumers/builtin/`; the `apps/` directory holds many text2code-driven
+applications run the same way.
+
+## C++: external built-in models (out-of-tree model IDs)
+
+To add a **new** model without touching the installed package, register it as
+an external built-in model. The installed helper generates kernels at build
+time and produces a provider library that intercepts your model ID and falls
+through to the installed built-ins for all other IDs:
+
+```cmake
+find_package(Exasim REQUIRED COMPONENTS cpumpi)
+
+# variant A: generate kernels from a pdeapp/pdemodel text pair via text2code
+exasim_add_external_builtin_model(TARGET my_model_100
+  ID 100
+  PDEMODEL ${CMAKE_CURRENT_SOURCE_DIR}/pdeapp100.txt)
+
+# variant B: hand-written model.hpp/model.cpp (namespace exasim_model_<ID>)
+#   exasim_add_external_builtin_model(TARGET my_model_100 ID 100
+#     SOURCES model100.hpp model100.cpp)
+# variant C: a directory of pregenerated kernel .cpp files (what the language
+#   frontends use under the hood)
+#   exasim_add_external_builtin_model(TARGET my_model_100 ID 100
+#     KERNELS ${CMAKE_CURRENT_BINARY_DIR}/kernels)
+
+add_executable(my_solver main.cpp)
+target_compile_definitions(my_solver PRIVATE _BUILTINLIBRARY _MPI)
+target_link_libraries(my_solver PRIVATE
+    Exasim::headers Exasim::pre my_model_100 Kokkos::kokkos MPI::MPI_CXX)
+# Do NOT also link Exasim::builtinmodel — it comes in transitively.
+```
+
+The consumer's `main.cpp` is the same as the built-in one above, but must NOT
+include `<exasim/builtinlibprovider.hpp>` (the provider library defines
+`getBuiltInLibraryExasimDriverABI()`); declare nothing and set
+`builtinmodelID = 100` in `pdeapp.txt`, or pre-seed it in code via
+`RunExasimSolver(solver, argc, argv, comm, {100})`. See
+`cmake/ExasimExternalModel.cmake` for the full contract.
 
 ## Examples
 
-Exasim produces C++ Code to solve a wide variety of parametrized partial differential equations from first-order, second-order elliptic, parabolic, hyperbolic PDEs, to higher-order PDEs. Many examples are provided in **Exasim/apps** and **Exasim/examples** to illustrate how to use Exasim for solving Poisson equation, wave equation, heat equation, advection, convection-diffusion, linear elasticity, nonlinear elasticity, Euler equations, Navier-Stokes equations, and MHD equations. The directory **Exasim/apps** include examples that use Text2Code to generate C++ source code from a text file. The directory **Exasim/examples** include examples that use Matlab, Julia, or Python to generate C++ source code. 
-
-### Exasim/apps
-
-To run any example in the directory **Exasim/apps**, open a terminal and perform the following commands
-
-```
-cd /path/to/Exasim/apps/<example>
-/path/to/Exasim/build/text2code pdeapp.txt
-/path/to/Exasim/build/cput2cEXASIM pdeapp.txt                     (if you run on one CPU core)
-/path/to/Exasim/build/gput2cEXASIM pdeapp.txt                     (if you run on one GPU)
-mpirun -np $N /path/to/Exasim/build/cpumpit2cEXASIM pdeapp.txt    (if you run on many CPU cores)
-mpirun -np $N /path/to/Exasim/build/gpumpit2cEXASIM pdeapp.txt    (if you run on many GPUs) 
-```
-
-where N is the number of processors. Make sure to set MPI and GPU environment variables appropriately on your system. 
-
-Alternatively, compile main.cpp to generate exasimapp and run it as follows
-
-```
-cd /path/to/Exasim/apps/<example>
-cmake -B build -DExasim_DIR=/path/to/Exasim/lib/cmake/Exasim
-cmake --build build
-mpirun -np 4 build/exasimapp pdeapp.txt
-```
-
-### Exasim/examples
-
-To run any example in the directory **Exasim/examples** with Julia, type the following line and hit return
-
-```
-   julia> include("pdeapp.jl")
-```
-
-To run any example with Python,  type the following line and hit return
-
-```
-   > > > exec(open("pdeapp.py").read())
-```
-
-To run any example with Matlab, type the following line and hit return
-
-```
-   > >  pdeapp
-```
-
-Exasim produces two folders in the working directory where the `pdeapp` script runs. The `datain` folder contains input files which store the master, mesh and initial solution. The `dataout` folder contains the output files which store the numerical solution of the PDE model defined in the `pdeapp` script. Generated code and the solver build live in a hidden `.exasim` directory next to them (override with `pde.builddir` / `pde['builddir']`).
-
-## Language frontends as installed packages (new)
-
-`cmake --install` installs the three frontends alongside the C++ package:
-
-- **Python** — installed to `<prefix>/lib/python3.X/site-packages/exasim`. When
-  the prefix is a conda env or venv, `import exasim` just works; otherwise add
-  that directory to `PYTHONPATH`. Also pip-installable from
-  `frontends/Python` (set `EXASIM_PREFIX` to the install prefix in that case).
-- **Julia** — the `Exasim.jl` package at `<prefix>/share/exasim/julia`. Use
-  `push!(LOAD_PATH, "<prefix>/share/exasim/julia"); using Exasim`, or
-  `Pkg.develop(path=...)`.
-- **MATLAB** — `run('<prefix>/share/exasim/matlab/exasim_setup.m')` puts the
-  frontend on the MATLAB path.
-
-A `pdeapp` then drives the whole flow against the installed Exasim: the
-frontend generates the model kernels symbolically, builds a small solver app
-out of tree via `find_package(Exasim)` and the external-model mechanism
-(`exasim_add_external_builtin_model`, model ID `pde.modelid`, default 100),
-and runs it. The Exasim source tree is never touched at app-run time. See
-`examples/Poisson/poisson2d/pdeapp.{py,jl,m}` for migrated examples and
-`tests/frontends/` for the end-to-end tests (`frontend_python` runs in CI).
+Exasim produces C++ code to solve a wide variety of parametrized partial differential equations from first-order, second-order elliptic, parabolic, hyperbolic PDEs, to higher-order PDEs. Many examples are provided in **Exasim/apps** and **Exasim/examples** to illustrate how to use Exasim for solving Poisson equation, wave equation, heat equation, advection, convection-diffusion, linear elasticity, nonlinear elasticity, Euler equations, Navier-Stokes equations, and MHD equations. The directory **Exasim/apps** include examples that use Text2Code to generate C++ source code from a text file (run them with the C++ built-in path above). The directory **Exasim/examples** include examples that use Matlab, Julia, or Python to generate C++ source code; run a `pdeapp.{py,jl,m}` from its directory with the frontend of your choice (`python3 pdeapp.py`, `julia pdeapp.jl`, or `pdeapp` in MATLAB). Note that most examples still use the legacy `setpath` preamble and are being migrated to the installed packages incrementally; the `examples/Poisson/poisson2d` example shows the new style.
 
 ## Header-only template-library authoring path (new)
 
