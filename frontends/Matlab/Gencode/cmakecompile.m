@@ -48,6 +48,10 @@ text = fileread(char(srcfile));
 for i = 1:size(subs, 1)
     text = strrep(text, char("@" + subs{i,1} + "@"), char(string(subs{i,2})));
 end
+% Write only on change so unchanged apps don't dirty mtimes (recompiles).
+if exist(char(dstfile), 'file') == 2 && strcmp(fileread(char(dstfile)), text)
+    return;
+end
 fid = fopen(char(dstfile), 'w');
 fwrite(fid, text);
 fclose(fid);

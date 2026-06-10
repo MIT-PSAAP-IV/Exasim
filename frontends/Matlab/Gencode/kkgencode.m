@@ -10,10 +10,13 @@ end
 
 % Generated kernels go to the hidden build dir; cmakecompile points the
 % external-model provider's include path here (no source-tree writes).
-kkdir = app.builddir + "/kernels";
-if ~exist(char(kkdir), 'dir')
-    mkdir(char(kkdir));
+% Generate into a staging dir, then sync write-if-changed into kernels/ so
+% an unchanged model does not touch mtimes (and thus avoids recompiles).
+kkdir = app.builddir + "/kernels.gen";
+if exist(char(kkdir), 'dir')
+    rmdir(char(kkdir), 's');
 end
+mkdir(char(kkdir));
 
 hdggencode(app);
 
@@ -225,4 +228,6 @@ else
     end
 end 
 
+
+exasim_sync_kernels(kkdir, app.builddir + "/kernels");
 end

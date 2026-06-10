@@ -1,5 +1,5 @@
 
-import os, sys, subprocess, numpy
+import os, sys, shutil, subprocess, numpy
 from sympy import *
 from .. import config
 from importlib import import_module
@@ -46,7 +46,12 @@ def gencode(app):
 
     # Generated kernels go to the hidden build dir; cmakecompile points the
     # external-model provider's include path here (no source-tree writes).
-    foldername = os.path.join(app['builddir'], "kernels")
+    # Generate into a staging dir, then sync write-if-changed into kernels/ so
+    # an unchanged model does not touch mtimes (and thus avoids recompiles).
+    kernelsdir = os.path.join(app['builddir'], "kernels")
+    foldername = os.path.join(app['builddir'], "kernels.gen")
+    if os.path.isdir(foldername):
+        shutil.rmtree(foldername)
     os.makedirs(foldername, exist_ok=True)
 
     xdg, udg, udg1, udg2, wdg, wdg1, wdg2, odg, odg1, odg2, uhg, nlg, tau, uinf, param, time = syminit(app)[0:16];
@@ -323,4 +328,25 @@ def gencode(app):
     with open(os.path.join(foldername, "HdgFextonly" + str(strn) + ".cpp"), "w") as fid:
         fid.write("void HdgFextonly" + str(strn) + "(" + fextonly_sig + ")\n{\n}\n")
 
+    _sync_kernels(foldername, kernelsdir)
+
     return 0;
+
+
+def _sync_kernels(srcdir, dstdir):
+    """Copy generated kernels into dstdir, rewriting only files whose content
+    changed, so unchanged models keep their mtimes and skip recompilation."""
+    os.makedirs(dstdir, exist_ok=True)
+    for name in sorted(os.listdir(srcdir)):
+        src = os.path.join(srcdir, name)
+        dst = os.path.join(dstdir, name)
+        with open(src) as f:
+            new = f.read()
+        old = None
+        if os.path.exists(dst):
+            with open(dst) as f:
+                old = f.read()
+        if new != old:
+            with open(dst, "w") as f:
+                f.write(new)
+    shutil.rmtree(srcdir)

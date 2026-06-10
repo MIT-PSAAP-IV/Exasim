@@ -11,6 +11,10 @@ function render(template_path, dest_path, subs)
     for (key, val) in subs
         text = replace(text, "@" * key * "@" => string(val))
     end
+    # Write only on change so unchanged apps don't dirty mtimes (recompiles).
+    if isfile(dest_path) && read(dest_path, String) == text
+        return
+    end
     open(dest_path, "w") do f
         write(f, text)
     end

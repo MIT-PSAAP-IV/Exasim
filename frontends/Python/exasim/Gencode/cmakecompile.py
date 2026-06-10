@@ -8,6 +8,11 @@ def _render(template_path, dest_path, subs):
     text = open(template_path).read()
     for key, val in subs.items():
         text = text.replace("@" + key + "@", str(val))
+    # Write only on change so unchanged apps don't dirty mtimes (recompiles).
+    if os.path.exists(dest_path):
+        with open(dest_path) as f:
+            if f.read() == text:
+                return
     with open(dest_path, "w") as f:
         f.write(text)
 

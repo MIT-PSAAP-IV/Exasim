@@ -1,6 +1,6 @@
 function hdggencode(app)
 
-kkdir = app.builddir + "/kernels";
+kkdir = app.builddir + "/kernels.gen";   % staging dir; kkgencode syncs it
 if ~exist(char(kkdir), 'dir')
     mkdir(char(kkdir));
 end

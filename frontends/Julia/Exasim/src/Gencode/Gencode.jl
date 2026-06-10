@@ -58,7 +58,11 @@ end
 
 # Generated kernels go to the hidden build dir; cmakecompile points the
 # external-model provider's include path here (no source-tree writes).
-foldername = joinpath(app.builddir, "kernels");
+# Generate into a staging dir, then sync write-if-changed into kernels/ so
+# an unchanged model does not touch mtimes (and thus avoids recompiles).
+kernelsdir = joinpath(app.builddir, "kernels");
+foldername = joinpath(app.builddir, "kernels.gen");
+isdir(foldername) && rm(foldername; recursive=true);
 mkpath(foldername);
 
 xdg, udg, udg1, udg2, wdg, wdg1, wdg2, odg, odg1, odg2, uhg, nlg, tau, uinf, param, time = syminit(app);
@@ -468,6 +472,25 @@ open(joinpath(foldername, "HdgFextonly" * strn * ".cpp"), "w") do fid
     write(fid, "void HdgFextonly" * strn * "(" * fextonly_sig * ")\n{\n}\n")
 end
 
+synckernels(foldername, kernelsdir)
+
+end
+
+# Copy generated kernels into dstdir, rewriting only files whose content
+# changed, so unchanged models keep their mtimes and skip recompilation.
+function synckernels(srcdir, dstdir)
+    mkpath(dstdir)
+    for name in sort(readdir(srcdir))
+        src = joinpath(srcdir, name)
+        dst = joinpath(dstdir, name)
+        new = read(src, String)
+        if !isfile(dst) || read(dst, String) != new
+            open(dst, "w") do f
+                write(f, new)
+            end
+        end
+    end
+    rm(srcdir; recursive=true)
 end
 
 end

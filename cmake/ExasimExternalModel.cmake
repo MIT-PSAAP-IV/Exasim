@@ -90,7 +90,14 @@ function(exasim_add_external_builtin_model)
       string(REPLACE "exasim_model_1" "exasim_model_${_id}" _txt "${_txt}")
       string(REPLACE "\"../dstype.hpp\""
                      "\"${Exasim_BUILTIN_DIR}/dstype.hpp\"" _txt "${_txt}")
-      file(WRITE "${_modeldir}/${_tmpl}" "${_txt}")
+      # Write only on change so reconfigures don't dirty mtimes (recompiles).
+      set(_prev "")
+      if(EXISTS "${_modeldir}/${_tmpl}")
+        file(READ "${_modeldir}/${_tmpl}" _prev)
+      endif()
+      if(NOT _txt STREQUAL _prev)
+        file(WRITE "${_modeldir}/${_tmpl}" "${_txt}")
+      endif()
     endforeach()
 
     # Rewrite exasimpath in the pdeapp so text2code finds this Exasim install.
@@ -151,7 +158,14 @@ function(exasim_add_external_builtin_model)
       string(REPLACE "exasim_model_1" "exasim_model_${_id}" _txt "${_txt}")
       string(REPLACE "\"../dstype.hpp\""
                      "\"${Exasim_BUILTIN_DIR}/dstype.hpp\"" _txt "${_txt}")
-      file(WRITE "${_modeldir}/${_tmpl}" "${_txt}")
+      # Write only on change so reconfigures don't dirty mtimes (recompiles).
+      set(_prev "")
+      if(EXISTS "${_modeldir}/${_tmpl}")
+        file(READ "${_modeldir}/${_tmpl}" _prev)
+      endif()
+      if(NOT _txt STREQUAL _prev)
+        file(WRITE "${_modeldir}/${_tmpl}" "${_txt}")
+      endif()
     endforeach()
     add_custom_target(_exasim_ext_codegen_${_tgt})
 

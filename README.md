@@ -49,9 +49,7 @@ The install prefix then contains:
 - `share/exasim/julia/Exasim` — the Julia frontend (Exasim.jl)
 - `share/exasim/matlab` — the MATLAB frontend
 
-If you install into an active conda env or venv prefix, the Python package is
-immediately importable. To deploy on **HPC systems**, see
-[the hpc manual](install/hpc.txt).
+To deploy on **HPC systems**, see [the hpc manual](install/hpc.txt).
 
 ## Using the frontends
 
@@ -68,10 +66,26 @@ Migrated examples: `examples/Poisson/poisson2d/pdeapp.{py,jl,m}`. End-to-end
 tests: `tests/frontends/` (`frontend_python` runs in CI; julia/matlab run
 wherever those toolchains exist).
 
+### Frontend dependencies
+
+The frontends generate code symbolically and then compile it, so two kinds of
+dependencies must be present at app-run time:
+
+- the **C++ toolchain used for the install** — `cmake`, a C++17 compiler,
+  BLAS/LAPACK, and (for the `*mpi` variants) the same MPI — on `PATH`, exactly
+  as for the Exasim build itself;
+- the **language's symbolic stack**:
+  - Python ≥ 3.8 with `numpy`, `scipy`, `sympy` — install with
+    `python3 -m pip install numpy scipy sympy` into whichever interpreter you
+    use (system Python, a virtualenv, a module-loaded HPC Python, ...);
+  - Julia ≥ 1.6 with SymPy.jl — `julia -e 'using Pkg; Pkg.add("SymPy")'`;
+  - MATLAB with the Symbolic Math Toolbox.
+
 ### Python
 
 ```bash
-# if the prefix is not your active conda env/venv:
+# make the installed package importable (unnecessary only when the install
+# prefix is already on your interpreter's sys.path, e.g. a virtualenv prefix):
 export PYTHONPATH=/path/to/prefix/lib/python3.X/site-packages:$PYTHONPATH
 ```
 
@@ -108,6 +122,34 @@ pde.model = "ModelD"; pde.modelfile = "pdemodel";   % pdemodel.m on the path
 % ... discretization/physics parameters, mesh ...
 [sol, pde, mesh] = exasim(pde, mesh);
 ```
+
+### Build artifacts and reuse
+
+The frontends do **not** produce shared/dynamic libraries. Per app, everything
+lives in the hidden `pde.builddir` (default `<cwd>/.exasim/`):
+
+```
+.exasim/
+  kernels/                 # the generated model kernel .cpp set
+  CMakeLists.txt, main.cpp # rendered app project (from the installed templates)
+  build/
+    libfrontend_model.a    # the generated model, compiled as a static provider library
+    exasimapp              # the solver executable (statically linked)
+```
+
+The heavy code — Kokkos, the solver libraries, the built-in model library — is
+prebuilt in the install prefix and only **linked**, never recompiled. Per-app
+compilation is two translation units (the model provider and `main.cpp`) plus
+links, a few seconds. Everything is written **only when its content changes**
+(kernels, rendered templates, model wrappers), so re-running an app whose
+physics didn't change recompiles nothing and goes straight to the solver run;
+changing the model recompiles just the provider TU and relinks. Mesh,
+parameter, and solver-option changes never trigger compilation (they only
+affect `datain/`).
+
+To reuse one build across runs, simply run from the same directory (or point
+`pde.builddir` / `pde['builddir']` at a shared location — one model per
+builddir). Delete `.exasim/` to force a clean rebuild.
 
 ## C++: running built-in models
 
