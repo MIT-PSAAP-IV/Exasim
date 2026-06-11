@@ -2,7 +2,6 @@ void HdgFlux(dstype* f, dstype* J1, dstype* J2, const dstype* x, const dstype* u
 {
 
   Kokkos::parallel_for("Flux", N, KOKKOS_LAMBDA(const size_t i) {
-    dstype uq0 = uq[0*N+i];
     dstype uq1 = uq[1*N+i];
     dstype uq2 = uq[2*N+i];
     dstype uq3 = uq[3*N+i];

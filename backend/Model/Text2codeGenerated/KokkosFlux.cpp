@@ -2,7 +2,6 @@ void KokkosFlux(dstype* f, const dstype* x, const dstype* uq, const dstype* v, c
 {
 
   Kokkos::parallel_for("Flux", N, KOKKOS_LAMBDA(const size_t i) {
-    dstype uq0 = uq[0*N+i];
     dstype uq1 = uq[1*N+i];
     dstype uq2 = uq[2*N+i];
     dstype uq3 = uq[3*N+i];
