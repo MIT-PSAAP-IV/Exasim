@@ -8,6 +8,11 @@ function comstr = cmakecompile(pde, ~)
 
 disp("Compile C++ Exasim code against the installed Exasim package...");
 
+if pde.sharedbuild==1
+  comstr = cmakecompilesharedbuild(pde);
+  return;
+end
+
 prefix = exasim_install_prefix();
 pde.exasimpath = prefix;
 
@@ -157,3 +162,61 @@ if status ~= 0
     error("Command failed (exit %d): %s", status, cmd);
 end
 end
+
+function comstr = cmakecompilesharedbuild(pde,mpiprocs)
+
+if nargin<2
+  mpiprocs = pde.mpiprocs;
+end
+
+disp("Compile C++ Exasim code using cmake...")
+
+sourcepath = pde.builddir;
+
+cdir = pwd();
+buildpath = char(pde.builddir + "/build");
+if exist(buildpath, "dir") == 0
+    mkdir(buildpath);
+end
+cd(buildpath);
+
+if exist(fullfile(buildpath, "exasimapp"), "file")
+    delete(fullfile(buildpath, "exasimapp"));
+end
+
+if mpiprocs==1
+  if pde.platform == "gpu"
+    comstr = "cmake -S " + sourcepath + " -B . -D EXASIM_MPI=OFF -D EXASIM_CUDA=ON";
+  elseif pde.platform == "hip"
+    comstr = "cmake -S " + sourcepath + " -B . -D CMAKE_CXX_COMPILER=hipcc -D EXASIM_MPI=OFF -D EXASIM_HIP=ON";
+  else
+    comstr = "cmake -S " + sourcepath + " -B . -D EXASIM_MPI=OFF";
+  end
+else
+  if pde.platform == "gpu"
+    comstr = "cmake -S " + sourcepath + " -B . -D EXASIM_MPI=ON -D EXASIM_CUDA=ON";
+  elseif pde.platform == "hip"
+    comstr = "cmake -S " + sourcepath + " -B . -D CMAKE_CXX_COMPILER=hipcc -D EXASIM_MPI=ON -D EXASIM_HIP=ON";
+  else
+    comstr = "cmake -S " + sourcepath + " -B . -D EXASIM_MPI=ON";
+  end
+end
+
+% Use system() and check the exit code so configure / build failures
+% surface immediately rather than hiding behind missing-binary errors
+% downstream. The previous `eval("!cmake ...")` swallowed nonzero exit.
+status = system(char(comstr));
+if status ~= 0
+    cd(char(cdir));
+    error("Exasim:cmakecompile", "cmake configure failed (exit %d)", status);
+end
+status = system("cmake --build . --target exasimapp --verbose");
+if status ~= 0
+    cd(char(cdir));
+    error("Exasim:cmakecompile", "cmake --build exasimapp failed (exit %d)", status);
+end
+
+cd(char(cdir));
+
+end
+

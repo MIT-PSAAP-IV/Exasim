@@ -1,9 +1,12 @@
+// cmake -S . -B build
+// cmake --build build
+
 #include <iostream>
 #include <stdexcept>
 #include <vector>
 
 #include "ExasimSolver.hpp"
-#include "../backend/Model/FrontendGenerated/frontendprovider.cpp"
+#include "kernels/frontendprovider.cpp"
 
 namespace {
 
