@@ -430,3 +430,7 @@ examples/exasimfe/kernels/KokkosVisScalars.cpp
 examples/exasimfe/kernels/KokkosVisTensors.cpp
 examples/exasimfe/kernels/KokkosVisVectors.cpp
 /examples/Poisson/poisson2d/exasim
+/examples/LinearElasticity/platebottomgaussian2d/exasim
+examples/LinearElasticity/platebottomgaussian2d/deformedmeshzoom.png
+/examples/Poisson/Orion/exasim
+/examples/Poisson/poisson3d/exasim
