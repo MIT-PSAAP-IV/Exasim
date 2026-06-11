@@ -58,7 +58,7 @@ std::vector<Expression> Flux(const std::vector<Expression>& x, const std::vector
 
 std::vector<Expression> Source(const std::vector<Expression>& x, const std::vector<Expression>& uq, const std::vector<Expression>& v, const std::vector<Expression>& w, const std::vector<Expression>& eta, const std::vector<Expression>& mu, const Expression& t) {
     std::vector<Expression> s;
-    s.resize(1);
+    s.resize(4);
 
     for (int i = 0; i < 4; ++i) {
          s[i] = Expression(0);
@@ -68,9 +68,9 @@ std::vector<Expression> Source(const std::vector<Expression>& x, const std::vect
 
 std::vector<Expression> Tdfunc(const std::vector<Expression>& x, const std::vector<Expression>& uq, const std::vector<Expression>& v, const std::vector<Expression>& w, const std::vector<Expression>& eta, const std::vector<Expression>& mu, const Expression& t) {
     std::vector<Expression> m;
-    m.resize(1);
+    m.resize(4);
 
-    for (int i = 0; i < 1; ++i) {
+    for (int i = 0; i < 4; ++i) {
          m[i] = Expression(1);
     }
     return m;
@@ -78,18 +78,21 @@ std::vector<Expression> Tdfunc(const std::vector<Expression>& x, const std::vect
 
 std::vector<Expression> Fbou(const std::vector<Expression>& x, const std::vector<Expression>& uq, const std::vector<Expression>& v, const std::vector<Expression>& w, const std::vector<Expression>& uhat, const std::vector<Expression>& n, const std::vector<Expression>& tau, const std::vector<Expression>& eta, const std::vector<Expression>& mu, const Expression& t) {
     std::vector<Expression> fb;
-    fb.resize(1);
+    fb.resize(8);
 
-    auto f = Flux(x, uq, v, w, eta, mu, t);
-    fb[0]  =  f[0]*n[0] + f[1]*n[1] + tau[0]*(uq[0]-uhat[0]);
+    for (int i = 0; i < 8; ++i) {
+         fb[i] = Expression(0);
+    }
     return fb;
 }
 
 std::vector<Expression> Ubou(const std::vector<Expression>& x, const std::vector<Expression>& uq, const std::vector<Expression>& v, const std::vector<Expression>& w, const std::vector<Expression>& uhat, const std::vector<Expression>& n, const std::vector<Expression>& tau, const std::vector<Expression>& eta, const std::vector<Expression>& mu, const Expression& t) {
     std::vector<Expression> ub;
-    ub.resize(1);
+    ub.resize(8);
 
-    ub[0]  =  0.0;
+    for (int i = 0; i < 8; ++i) {
+         ub[i] = Expression(0);
+    }
     return ub;
 }
 
@@ -203,9 +206,12 @@ std::vector<Expression> FbouHdg(const std::vector<Expression>& x, const std::vec
 
 std::vector<Expression> Initu(const std::vector<Expression>& x, const std::vector<Expression>& eta, const std::vector<Expression>& mu) {
     std::vector<Expression> ui;
-    ui.resize(1);
+    ui.resize(4);
 
-    ui[0]  =  0.0;
+    ui[0]  =  mu[4];
+    ui[1]  =  mu[5];
+    ui[2]  =  mu[6];
+    ui[3]  =  mu[7];
     return ui;
 }
 
