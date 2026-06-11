@@ -41,22 +41,24 @@
 #ifndef __DISCRETIZATION_H__
 #define __DISCRETIZATION_H__
 
-
-template <typename Model>
 class CDiscretization {
 private:
 public:
     solstruct sol;
     resstruct res;
     appstruct app;
+    wallmodelstruct wallmodel;
     masterstruct master; 
     meshstruct mesh;
     tempstruct tmp;    
     commonstruct common;
+    ExasimDriverABI driver_abi;
     // solstruct hsol;
 
     // constructor for both CPU and GPU
-    CDiscretization(string filein, string fileout, string exasimpath, Int mpiprocs, Int mpirank, Int ompthreads, Int omprank, Int backend); 
+    CDiscretization(std::string filein, std::string fileout, std::string exasimpath, Int mpiprocs, 
+                    Int mpirank, Int ompthreads, Int omprank, Int backend,
+                    Int builtinmodelID, const ExasimDriverABI& abi); 
     
     // destructor        
     ~CDiscretization(); 
@@ -66,6 +68,9 @@ public:
     
     // compute the mass inverse
     void compMassInverse(Int backend);    
+
+    // compute the LDG block-Jacobi preconditioner and store it in res.K
+    void ComputeLDGPreconditioner(dstype* K, dstype* u, Int backend);
 
     void hdgAssembleLinearSystem(dstype *b, Int backend);        
     void hdgAssembleResidual(dstype *b, Int backend);        
@@ -107,13 +112,25 @@ public:
     
     // evaluate a monitor function to monitor changes in solution QoIs for pseudotime stepping
     void evalMonitor(dstype* output, dstype* udg, dstype* wdg, Int nc, Int backed);
+
+    bool BuildWallModelData(Int ibc, dstype y1);
     
     // converge DG to CG
     void DG2CG(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, Int ncudg, Int ncu, Int backend);
     void DG2CG2(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, Int ncudg, Int ncu, Int backend);
     void DG2CG3(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, Int ncudg, Int ncu, Int backend);
+
+    Int getFacesOnInterface(Int **faces, const Int boundarycondition);    
+    void getDGNodesOnInterface(dstype* xdgint, const Int* faces, const Int nfaces);
+    void getUDGOnInterface(dstype* udgint, const Int* faces, const Int nfaces);
+    void getWDGOnInterface(dstype* wdgint, const Int* faces, const Int nfaces);
+    void getODGOnInterface(dstype* odgint, const Int* faces, const Int nfaces);
+    void getUHATOnInterface(dstype* uhint, const Int* faces, const Int nfaces);
+    void getNormalVectorOnInterface(dstype* nlint, dstype* xdgint, const Int nfaces);
+    void getFieldsAtGaussPointsOnInterface(dstype* xdggint, dstype* xdgint, const Int nfaces, const Int ncx);
+    void getInterfaceFluxesAtNodalPoints(dstype *flux, dstype* xdgint, dstype* nlint, const Int* faces, const Int nfaces);  
+    void getInterfaceFluxesAtGaussPoints(dstype *flux, dstype* xdggint, dstype* nlgint, const Int* faces, const Int nfaces);  
+    void computeAverageSolutionsOnBoundary();
 };
 
-
 #endif        
-

@@ -5,19 +5,19 @@
 
     Functions:
 
-    - setcommonstruct(commonstruct &common, appstruct &app, masterstruct &master, meshstruct &mesh, string filein, string fileout, Int curvedMesh, Int fileoffset)
+    - setcommonstruct(commonstruct &common, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh, string filein, string fileout, Int curvedMesh, Int fileoffset)
         Initializes the commonstruct with parameters from app, master, and mesh structures, as well as input/output file names and mesh curvature information. Sets up MPI-related fields, problem flags, solver parameters, and allocates memory for time integration coefficients and communication buffers.
 
-    - setresstruct(resstruct &res, appstruct &app, masterstruct &master, meshstruct &mesh, Int backend)
+    - setresstruct(resstruct &res, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh, Int backend)
         Allocates and initializes memory for residual arrays (Rq, Ru, Rh) and their sizes in the resstruct. Handles additional allocations if Enzyme AD is enabled.
 
-    - settempstruct(tempstruct &tmp, appstruct &app, masterstruct &master, meshstruct &mesh, Int backend)
+    - settempstruct(tempstruct &tmp, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh, Int backend)
         Allocates temporary arrays for intermediate computations, communication buffers for MPI, and sets their sizes in tempstruct. Handles different spatial schemes and backend types.
 
-    - cpuInit(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, meshstruct &mesh, tempstruct &tmp, commonstruct &common, string filein, string fileout, Int mpiprocs, Int mpirank, Int fileoffset, Int omprank)
+    - cpuInit(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh, tempstruct &tmp, commonstruct &common, string filein, string fileout, Int mpiprocs, Int mpirank, Int fileoffset, Int omprank)
         Reads input data, initializes solution, residual, temporary, and common structures for CPU execution. Allocates memory for solution arrays, mesh permutation arrays, and sets up index arrays for communication. Handles mesh curvature and precomputes shape function products.
 
-    - devappstruct(appstruct &dapp, appstruct &app, commonstruct &common)
+    - devappstruct(appstruct &dapp, appstruct &app, ExasimDriverABI& driver_abi, commonstruct &common)
         Allocates and copies appstruct arrays to device memory for GPU execution.
 
     - devsolstruct(solstruct &dsol, solstruct &sol, commonstruct &common)
@@ -29,7 +29,7 @@
     - devmeshstruct(meshstruct &dmesh, meshstruct &mesh, commonstruct &common)
         Allocates and copies meshstruct arrays to device memory for GPU execution. Handles additional arrays for HDG/EDG schemes.
 
-    - gpuInit(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, meshstruct &mesh, tempstruct &tmp, commonstruct &common, solstruct &hsol, resstruct &hres, appstruct &happ, masterstruct &hmaster, meshstruct &hmesh, tempstruct &htmp, commonstruct &hcommon)
+    - gpuInit(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh, tempstruct &tmp, commonstruct &common, solstruct &hsol, resstruct &hres, appstruct &happ, masterstruct &hmaster, meshstruct &hmesh, tempstruct &htmp, commonstruct &hcommon)
         Initializes all structures for GPU execution, including device memory allocation and copying from host. Sets up CUDA/HIP handles and allocates solution arrays for source terms and auxiliary variables.
 
     Notes:
@@ -42,7 +42,7 @@
 
 #include "ismeshcurved.cpp"
 
-void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &master, meshstruct &mesh, 
+void setcommonstruct(commonstruct &common, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh, 
         string filein, string fileout, Int curvedMesh, Int fileoffset)
 {                   
     common.filein = filein;
@@ -86,6 +86,9 @@ void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &master,
     else
         common.ncs = 0; // steady-state problem
         
+    common.ncuext = 0;
+    common.FextCall = 0;
+  
     common.nd = master.ndims[0];     // spatial dimension    
     common.elemtype = master.ndims[1]; 
     common.nodetype = master.ndims[2]; 
@@ -135,7 +138,7 @@ void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &master,
     common.runmode = app.flag[9];
     common.tdfunc = app.flag[10];
     common.source = app.flag[11]; 
-    common.modelnumber = app.flag[12]; 
+    common.modelnumber = app.modelnumber; 
     common.extFhat = app.flag[13];
     common.extUhat = app.flag[14];
     common.extStab = app.flag[15];
@@ -212,6 +215,31 @@ void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &master,
     common.dae_dt = copyarray(app.dae_dt,app.nsize[13]); // dual timestep sizes           
     common.szinterfacefluxmap = app.nsize[14];
     common.interfacefluxmap = copyarray(app.interfacefluxmap,app.nsize[14]); 
+    common.szwmModelIDs = app.szwmModelIDs;
+    common.szwmBoundaries = app.szwmBoundaries;
+    common.szwmDistances = app.szwmDistances;
+    common.nwm = app.szwmModelIDs;
+    if ((common.szwmModelIDs != common.szwmBoundaries) || (common.szwmModelIDs != common.szwmDistances))
+        error("Wall-model configuration is invalid: wmModelIDs, wmBoundaries, and wmDistances must have the same length.");
+    if (common.nwm > 0) {
+        common.wmModelIDs = copyarray(app.wmModelIDs, common.nwm);
+        common.wmBoundaries = copyarray(app.wmBoundaries, common.nwm);
+        common.wmDistances = copyarray(app.wmDistances, common.nwm);
+        for (Int i=0; i<common.nwm; i++) {
+            if (common.wmDistances[i] <= 0.0)
+                error("Wall-model configuration is invalid: wmDistances entries must be positive.");
+
+            bool boundaryFound = false;
+            for (Int j=0; j<common.nfe*common.ne; j++) {
+                if (mesh.bf[j] == common.wmBoundaries[i]) {
+                    boundaryFound = true;
+                    break;
+                }
+            }
+            if (!boundaryFound)
+                error("Wall-model configuration is invalid: a wmBoundaries entry does not exist in mesh.bf.");
+        }
+    }
     common.cartgridpart = copyarray(mesh.cartgridpart,mesh.nsize[25]); 
     common.szcartgridpart = mesh.nsize[25];
 
@@ -226,6 +254,17 @@ void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &master,
     
     if (common.nvqoi > 0) common.qoivolume = (dstype*) malloc(common.nvqoi*sizeof(dstype));
     if (common.nsurf > 0) common.qoisurface = (dstype*) malloc(common.nsurf*sizeof(dstype));
+
+    if ( common.saveSolBouFreq>0 ) {
+        common.ndofbou = 0; 
+        for (Int j=0; j<common.nbf; j++) {            
+            if (common.fblks[3*j+2] == common.ibs) {     
+                Int f1 = common.fblks[3*j]-1;
+                Int f2 = common.fblks[3*j+1];                                  
+                common.ndofbou += common.npf*(f2-f1); 
+            }
+        }                                           
+    }  
 
     common.nf0 = 0;
     for (Int j=0; j<common.nbf; j++) {
@@ -257,7 +296,7 @@ void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &master,
         common.ndofsdg1 = common.npe*common.ncs*common.ne1; // number of degrees of freedom of sdg    
         common.ndofodg1 = common.npe*common.nco*common.ne1; // number of degrees of freedom of odg           
         common.ndofedg1 = common.npe*common.nce*common.ne1; // number of degrees of freedom of edg           
-        
+               
         common.nbe0 = 0;
         common.nbe1 = 0;
         common.nbe2 = 0;
@@ -320,10 +359,10 @@ void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &master,
         common.ndofsdg1 = common.npe*common.ncs*common.ne; // number of degrees of freedom of sdg    
         common.ndofodg1 = common.npe*common.nco*common.ne; // number of degrees of freedom of odg                   
         common.ndofedg1 = common.npe*common.nce*common.ne; // number of degrees of freedom of edg                   
-    }            
+    }                
 }
 
-void setresstruct(resstruct &res, appstruct &app, masterstruct &master, meshstruct &mesh, Int backend)
+void setresstruct(resstruct &res, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh, Int backend)
 {
     Int ncu = app.ndims[6];    // number of compoments of (u)
     Int ncq = app.ndims[7];    // number of compoments of (q)
@@ -362,7 +401,7 @@ void setresstruct(resstruct &res, appstruct &app, masterstruct &master, meshstru
 #endif                   
 }
 
-void settempstruct(tempstruct &tmp, appstruct &app, masterstruct &master, meshstruct &mesh, Int backend)
+void settempstruct(tempstruct &tmp, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh, Int backend)
 {               
     Int nc = app.ndims[5]; // number of compoments of (u, q, p)
     Int ncu = app.ndims[6];// number of compoments of (u)        
@@ -390,6 +429,34 @@ void settempstruct(tempstruct &tmp, appstruct &app, masterstruct &master, meshst
     Int n3 = max(nge*n1*neb, ngf*n2*nfb);
     n3 = 2*max(n3, ndofucg);
     
+    if (spatialScheme == 0) {
+        Int n = npe*ncu;
+        Int m = npf*nfe*ncu;
+        Int nbfb = nfe*neb;
+
+        Int tempn_uhat = npf*nfe*neb*(ncu + nc + nco + ncw);
+        Int tempn_uelem = max(npe*neb*nc, nge*(nd+1)*ncu*max(ncu,ncq)*neb);
+        n0 = max(n0, tempn_uhat);
+        n0 = max(n0, tempn_uelem);
+
+        Int tempg_common = ngf*nfe*neb*(ncu + nc + nco + 2*ncw);
+        Int tempg_uelem = nge*neb*
+            (ncu*nd + ncu + nc + ncw + ncu*nd*nc +
+             ncu*nd*ncw + ncu*nc + ncu*ncw + ncw*nc);
+        Int tempg_uhat = tempg_common +
+            ngf*nbfb*(ncx + nc + nco + ncw + 2*ncu + nd + ncu*ncu);
+        Int tempg_uface_elem = ngf*nfe*neb*
+            (ncu + nc + nco + 2*ncw + ncu*nd + ncu*nd*nc +
+             ncu*ncu + ncu*nd*ncw + ncw*nc);
+        Int tempg_uface_boundary = tempg_common +
+            ngf*nbfb*(ncx + nc + nco + ncw + ncu + nd + ncw +
+                      ncu + ncu*nc + ncu*ncw + ncu*ncu + ncw*ncu);
+        n3 = max(n3, tempg_uelem);
+        n3 = max(n3, tempg_uhat);
+        n3 = max(n3, tempg_uface_elem);
+        n3 = max(n3, tempg_uface_boundary);
+    }
+
     if (spatialScheme > 0) {
       //Int k1 = npe*ncu*npe*ncu*neb + npe*npf*nfe*ncu*ncu*neb + npe*npf*nfe*ncu*ncu*neb + npf*nfe*npf*nfe*ncu*ncu*neb;
       Int k1 = max(npe*ncu*npe*ncu*neb, npf*nfe*npf*nfe*ncu*ncu*neb);
@@ -437,15 +504,14 @@ void settempstruct(tempstruct &tmp, appstruct &app, masterstruct &master, meshst
 #endif
 }
 
-template <typename Model>
-void cpuInit(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
+void cpuInit(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common,
         string filein, string fileout, Int mpiprocs, Int mpirank, Int fileoffset, Int omprank) 
 {
      
     if (mpirank==0)
         printf("Reading data from binary files \n");
-    readInput<Model>(app, master, mesh, sol, filein, mpiprocs, mpirank, fileoffset, omprank);            
+    readInput(app, driver_abi, master, mesh, sol, filein, mpiprocs, mpirank, fileoffset, omprank);
     
     if (mpirank==0)
         printf("Finish reading data from binary files \n");
@@ -476,22 +542,22 @@ void cpuInit(solstruct &sol, resstruct &res, appstruct &app, masterstruct &maste
 //     }
             
     if (mpirank==0) printf("Set res struct... \n");    
-    setresstruct(res, app, master, mesh, 0);
+    setresstruct(res, app, driver_abi, master, mesh, 0);
     
     if (mpirank==0) printf("Set temp struct... \n");    
-    settempstruct(tmp, app, master, mesh, 0);    
+    settempstruct(tmp, app, driver_abi, master, mesh, 0);    
         
     if (mpirank==0) printf("Run IsMeshCurved... \n");    
-    int curvedmesh = IsMeshCurved(sol, app, master, mesh, tmp);       
+    int curvedmesh = IsMeshCurved(sol, app, master, mesh, tmp);
     if (mpirank==0) printf("IsMeshCurved = %d \n",curvedmesh);        
     
     if (mpirank==0) printf("Set common struct... \n");
-    setcommonstruct(common, app, master, mesh, filein, fileout, curvedmesh, fileoffset);            
+    setcommonstruct(common, app, driver_abi, master, mesh, filein, fileout, curvedmesh, fileoffset);            
     common.cublasHandle = 0;
     common.eventHandle = 0; 
     if (mpirank==0) printf("Finish setting common struct... \n");
                         
-    if (common.spatialScheme > 0) {      
+    if (common.spatialScheme >= 0) {
       int nd = common.nd;
       int npe = common.npe;
       int nge = common.nge;
@@ -519,6 +585,9 @@ void cpuInit(solstruct &sol, resstruct &res, appstruct &app, masterstruct &maste
           }
         }
       }              
+    }
+
+    if (common.spatialScheme > 0) {
       // if (common.nelemsend>0) {
       //     mesh.interfacefaces = (Int*) malloc (sizeof (Int)*common.nelemsend);          
       //     int n = getsubdomaininterfaces(mesh.interfacefaces, mesh.f2e, common.ne1, common.nf);
@@ -593,6 +662,12 @@ void cpuInit(solstruct &sol, resstruct &res, appstruct &app, masterstruct &maste
         sol.szudgavg = common.npe*common.nc*common.ne1+1;
     }
     
+    if (common.ndofbou>0) {
+        sol.bouudgavg = (dstype*) malloc (sizeof (dstype)*(common.ndofbou*common.nc+1));  
+        if (common.ncw > 0) sol.bouwdgavg = (dstype*) malloc (sizeof (dstype)*(common.ndofbou*common.ncw+1));  
+        sol.bouuhavg = (dstype*) malloc (sizeof (dstype)*(common.ndofbou*common.ncu+1));                
+    }
+
     // allocate memory for uh
     if (!app.read_uh) {
     sol.uh = (dstype*) malloc (sizeof (dstype)*common.npf*common.ncu*common.nf);
@@ -710,7 +785,7 @@ void cpuInit(solstruct &sol, resstruct &res, appstruct &app, masterstruct &maste
 
 #ifdef HAVE_GPU
 
-void devappstruct(appstruct &dapp, appstruct &app, commonstruct &common)
+void devappstruct(appstruct &dapp, appstruct &app, ExasimDriverABI& driver_abi, commonstruct &common)
 {        
     TemplateMalloc(&dapp.nsize, app.lsize[0], common.backend);
     TemplateMalloc(&dapp.ndims, app.nsize[0], common.backend);
@@ -920,14 +995,16 @@ void devmeshstruct(meshstruct &dmesh, meshstruct &mesh, commonstruct &common)
     TemplateCopytoDevice(dmesh.cole2f2, mesh.cole2f2, mesh.nsize[19], common.backend);
     TemplateCopytoDevice(dmesh.ent2ind2, mesh.ent2ind2, mesh.nsize[20], common.backend);
     
-    if (common.spatialScheme > 0) {      
+    if (common.spatialScheme >= 0) {
         TemplateMalloc(&dmesh.f2e, mesh.nsize[21], common.backend);
         TemplateMalloc(&dmesh.elemcon, mesh.nsize[22], common.backend);
         TemplateMalloc(&dmesh.perm, mesh.nsize[23], common.backend);
         TemplateCopytoDevice(dmesh.f2e, mesh.f2e, mesh.nsize[21], common.backend);
         TemplateCopytoDevice(dmesh.elemcon, mesh.elemcon, mesh.nsize[22], common.backend);
         TemplateCopytoDevice(dmesh.perm, mesh.perm, mesh.nsize[23], common.backend);
-        
+    }
+
+    if (common.spatialScheme > 0) {
         if (mesh.szfaceperm>0) {
           TemplateMalloc(&dmesh.faceperm, mesh.szfaceperm, common.backend);
           TemplateCopytoDevice(dmesh.faceperm, mesh.faceperm, mesh.szfaceperm, common.backend);
@@ -1003,25 +1080,25 @@ void devmeshstruct(meshstruct &dmesh, meshstruct &mesh, commonstruct &common)
     }
 }
 
-void gpuInit(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
+void gpuInit(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, 
        meshstruct &mesh, tempstruct &tmp, commonstruct &common, solstruct &hsol, resstruct &hres, 
        appstruct &happ, masterstruct &hmaster, meshstruct &hmesh, tempstruct &htmp, commonstruct &hcommon) 
 {    
-    devappstruct(app, happ, hcommon);
+    devappstruct(app, happ, driver_abi, hcommon);
     devmasterstruct(master, hmaster, hcommon);    
     devmeshstruct(mesh, hmesh, hcommon);
     devsolstruct(sol, hsol, hcommon);    
-    setresstruct(res, happ, hmaster, hmesh, hcommon.backend);    
-    settempstruct(tmp, happ, hmaster, hmesh, hcommon.backend);            
+    setresstruct(res, happ, driver_abi, hmaster, hmesh, hcommon.backend);
+    settempstruct(tmp, happ, driver_abi, hmaster, hmesh, hcommon.backend);
                 
     // set common struct
-    setcommonstruct(common, happ, hmaster, hmesh, 
+    setcommonstruct(common, happ, driver_abi, hmaster, hmesh,
             hcommon.filein, hcommon.fileout, hcommon.curvedMesh, hcommon.fileoffset);        
     
     int mpirank = hcommon.mpiRank;
     if (mpirank==0) printf("Finish setting common struct... \n");
 
-    if (common.spatialScheme > 0) {
+    if (common.spatialScheme >= 0) {
 //       if (common.nelemsend > 0) {
 //         TemplateMalloc(&mesh.interfacefaces, common.nelemsend, common.backend);       
 //         TemplateCopytoDevice(mesh.interfacefaces, hmesh.interfacefaces, common.nelemsend, common.backend);          
@@ -1034,8 +1111,10 @@ void gpuInit(solstruct &sol, resstruct &res, appstruct &app, masterstruct &maste
       M = common.npf*common.npf*common.ngf*(common.nd);
       TemplateMalloc(&master.shapfgwdotshapfg, M, common.backend);       
       TemplateCopytoDevice(master.shapfgwdotshapfg, hmaster.shapfgwdotshapfg, M, common.backend);        
-      
-      M = 2*(common.nfe-1)*common.nf;
+    }
+
+    if (common.spatialScheme > 0) {      
+      int M = 2*(common.nfe-1)*common.nf;
       TemplateMalloc(&mesh.f2f, M, common.backend);       
       TemplateMalloc(&mesh.f2l, M, common.backend);       
       TemplateCopytoDevice(mesh.f2f, hmesh.f2f, M, common.backend);
@@ -1082,6 +1161,12 @@ void gpuInit(solstruct &sol, resstruct &res, appstruct &app, masterstruct &maste
         TemplateMalloc(&sol.udgavg, common.npe*common.nc*common.ne1+1, common.backend);
     }
     
+    if (common.ndofbou>0) {
+        TemplateMalloc(&sol.bouudgavg, common.ndofbou*common.nc+1, common.backend);
+        if (common.ncw > 0) TemplateMalloc(&sol.bouwdgavg, common.ndofbou*common.ncw+1, common.backend);
+        TemplateMalloc(&sol.bouuhavg, common.ndofbou*common.ncu+1, common.backend);
+    }
+  
     TemplateMalloc(&sol.uh, common.npf*common.ncu*common.nf, common.backend);    
     if (common.read_uh) {
         TemplateCopytoDevice(sol.uh, hsol.uh, common.npf*common.ncu*common.nf, common.backend);

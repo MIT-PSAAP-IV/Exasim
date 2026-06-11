@@ -7,7 +7,7 @@ class SymbolicScalarsVectors {
 public:
 
     // path to model folder 
-    std::string modelpath = "/Users/cuongnguyen/Documents/GitHub/PSAAP/Exasim/backend/Model/";
+    std::string modelpath = "/Users/cuongnguyen/Documents/GitHub/hexascale/Exasim/backend/Model/";
 
     // input symbolic scalars
     Expression t;
@@ -69,4 +69,6 @@ public:
     void initfunc2cppfiles(const std::vector<Expression> &f, const std::string filename, const std::string funcname, const int functionid, bool append, int framework);
     void appendUbouFbou(const std::string& filename, const std::string& funcname, int nbc);
     void appendFbouHdg(const std::string& filename, const std::string& funcname, int nbc);
+    void appendFextonly(const std::string& filename, const std::string& funcname, int nbc);
+    void appendFext(const std::string& filename, const std::string& funcname, int nbc);
 };

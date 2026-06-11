@@ -352,6 +352,7 @@ struct PDE {
     std::string uhatfile = "";
     std::string partitionfile = "";
 
+    int gendatain = 1;
     int gencode = 1; // 1 for code generation, 0 for no code generation
     int writemeshsol = 1; // 1 for writing mesh solution, 0 for no writing
     int modelnumber = 0;
@@ -522,6 +523,9 @@ PDE initializePDE(InputParams& params, int mpirank=0)
         pde.platform = params.stringParams["platform"];
     }
 
+    if (params.intParams.count("gendatain")) {
+        pde.gendatain = params.intParams["gendatain"];
+    }
     if (params.intParams.count("gencode")) {
         pde.gencode = params.intParams["gencode"];
     }
@@ -784,13 +788,33 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     pde.solversparam = {pde.NewtonTol, pde.GMREStol, pde.matvectol, pde.NLparam};
     
                     
-    pde.exasimpath = trimToSubstringAtLastOccurence(pde.exasimpath, "Exasim");     
-    if (pde.exasimpath == "") {      
-      if (mpirank==0) std::cout<<"exasimpath is not set in "<< params.pdeappfile <<" file.\nWe use the working directory to define exasimpath.\n";
-      std::filesystem::path cwd = std::filesystem::current_path();
-      pde.exasimpath = trimToSubstringAtLastOccurence(cwd, "Exasim");            
-      if (pde.exasimpath == "") 
-        error("exasimpath is not valid. Please set exasimpath to the correct path of the Exasim source code in pdeapp.txt file.");     
+    // Normalize a path that contains an "Exasim" component (e.g. .../Exasim/backend)
+    // down to the Exasim root. But an explicitly-set exasimpath must be honored even
+    // when its directory name does not literally contain "Exasim" (the checkout may
+    // live at e.g. /data/scratch/.../exasim-teoc): only fall back to the cwd when no
+    // exasimpath was provided at all.
+    {
+      const std::string rawpath = pde.exasimpath;
+      // An explicitly-set path that already looks like an Exasim root (has a
+      // backend/ component) is honored verbatim — trimming at the last
+      // "Exasim" substring would mangle checkouts like .../Exasim/Exasim/src
+      // (CI) or paths that merely contain "Exasim" in a parent directory.
+      if (!rawpath.empty() && std::filesystem::is_directory(
+              std::filesystem::path(rawpath) / "backend")) {
+        pde.exasimpath = rawpath;
+      } else if (!rawpath.empty() &&
+                 !trimToSubstringAtLastOccurence(rawpath, "Exasim").empty()) {
+        pde.exasimpath = trimToSubstringAtLastOccurence(rawpath, "Exasim");
+      } else if (!rawpath.empty()) {
+        pde.exasimpath = rawpath;   // honor an explicit path verbatim
+      } else {
+        if (mpirank==0) std::cout<<"exasimpath is not set in "<< params.pdeappfile <<" file.\nWe use the working directory to define exasimpath.\n";
+        std::filesystem::path cwd = std::filesystem::current_path();
+        std::string cwdtrim = trimToSubstringAtLastOccurence(cwd, "Exasim");
+        pde.exasimpath = cwdtrim.empty() ? cwd.string() : cwdtrim;
+        if (pde.exasimpath == "")
+          error("exasimpath is not valid. Please set exasimpath to the correct path of the Exasim source code in pdeapp.txt file.");
+      }
     }
     if (mpirank==0) std::cout << "exasimpath = "<<pde.exasimpath<<std::endl;
     

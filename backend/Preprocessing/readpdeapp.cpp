@@ -8,13 +8,13 @@
 
     1. InputParams Struct:
         - Holds all parsed input parameters from the PDE application file.
-        - Includes maps for string, double, and integer parameters.
+        - Includes maps for std::string, double, and integer parameters.
         - Contains vectors for boundary conditions, physics parameters, and other simulation-specific data.
 
     2. Helper Functions:
-        - parseList<T>: Parses a list of numbers from a string buffer enclosed in square brackets.
+        - parseList<T>: Parses a list of numbers from a std::string buffer enclosed in square brackets.
         - parseStringList: Parses a list of strings from a buffer, extracting quoted strings.
-        - trim: Removes leading and trailing whitespace from a string.
+        - trim: Removes leading and trailing whitespace from a std::string.
         - tokenizeBraceList: Tokenizes a comma-separated list, respecting parentheses nesting.
         - parseExpression: Parses a list of doubles, supporting "repeat(value, count)" syntax for repeated values.
 
@@ -60,38 +60,38 @@
 #define __READPDEAPP
 
 // Struct to hold all parsed input parameters
-struct InputParams {
-    std::string pdeappfile;
-    std::unordered_map<std::string, std::string> stringParams;
-    std::unordered_map<std::string, double> doubleParams;
-    std::unordered_map<std::string, int> intParams;
-
-    std::vector<int> interfaceConditions;
-    std::vector<int> interfaceFluxmap;
-    std::vector<int> boundaryConditions;
-    std::vector<int> curvedBoundaries;
-    std::vector<int> periodicBoundaries1;
-    std::vector<int> periodicBoundaries2;
-    std::vector<int> cartGridPart;
-    
-    std::vector<double> dae_dt;
-    std::vector<double> dt;
-    std::vector<double> tau;
-    std::vector<double> physicsParam;
-    std::vector<double> externalParam;
-    std::vector<double> vindx;
-    std::vector<double> avparam1, avparam2;       
-    std::vector<double> stgib;
-    std::vector<double> stgdata;
-    std::vector<double> stgparam;
-    
-    std::vector<std::string> boundaryExprs;    
-    std::vector<std::string> curvedBoundaryExprs;    
-    std::vector<std::string> periodicExprs1;    
-    std::vector<std::string> periodicExprs2;        
-    
-    std::unordered_set<std::string> foundKeys;
-};
+// struct InputParams {
+//     std::string pdeappfile;
+//     std::unordered_map<std::string, std::string> stringParams;
+//     std::unordered_map<std::string, double> doubleParams;
+//     std::unordered_map<std::string, int> intParams;
+// 
+//     std::vector<int> interfaceConditions;
+//     std::vector<int> interfaceFluxmap;
+//     std::vector<int> boundaryConditions;
+//     std::vector<int> curvedBoundaries;
+//     std::vector<int> periodicBoundaries1;
+//     std::vector<int> periodicBoundaries2;
+//     std::vector<int> cartGridPart;
+// 
+//     std::vector<double> dae_dt;
+//     std::vector<double> dt;
+//     std::vector<double> tau;
+//     std::vector<double> physicsParam;
+//     std::vector<double> externalParam;
+//     std::vector<double> vindx;
+//     std::vector<double> avparam1, avparam2;       
+//     std::vector<double> stgib;
+//     std::vector<double> stgdata;
+//     std::vector<double> stgparam;
+// 
+//     std::vector<std::string> boundaryExprs;    
+//     std::vector<std::string> curvedBoundaryExprs;    
+//     std::vector<std::string> periodicExprs1;    
+//     std::vector<std::string> periodicExprs2;        
+// 
+//     std::unordered_set<std::string> foundKeys;
+// };
 
 // Helper to parse a list of numbers in braces
 template <typename T>
@@ -115,7 +115,7 @@ std::vector<T> parseList(const std::string& buffer) {
 }
 
 // Helper to parse a list of strings in braces
-std::vector<std::string> parseStringList(const std::string& buffer) {    
+inline std::vector<std::string> parseStringList(const std::string& buffer) {
     std::vector<std::string> result;
     std::regex string_regex("\"([^\"]*)\"");
     auto begin = std::sregex_iterator(buffer.begin(), buffer.end(), string_regex);
@@ -127,13 +127,13 @@ std::vector<std::string> parseStringList(const std::string& buffer) {
     return result;
 }
 
-std::string trim(const std::string& s) {
+inline std::string trim(const std::string& s) {
     size_t start = s.find_first_not_of(" \t");
     size_t end = s.find_last_not_of(" \t");
     return (start == std::string::npos) ? "" : s.substr(start, end - start + 1);
 }
 
-std::vector<std::string> tokenizeBraceList(const std::string& input) {
+inline std::vector<std::string> tokenizeBraceList(const std::string& input) {
     std::vector<std::string> tokens;
     std::string current;
     int parenLevel = 0;
@@ -152,7 +152,7 @@ std::vector<std::string> tokenizeBraceList(const std::string& input) {
     return tokens;
 }
 
-std::vector<double> parseExpression(const std::string& expr) {
+inline std::vector<double> parseExpression(const std::string& expr) {
     std::string content = expr;
 
     // Extract content between first { and last }
@@ -184,7 +184,7 @@ std::vector<double> parseExpression(const std::string& expr) {
     return result;
 }
 
-InputParams parseInputFile(const std::string& filename, int mpirank=0) 
+inline InputParams parseInputFile(const std::string& filename, int mpirank=0)
 {
     InputParams params;
     
@@ -303,7 +303,7 @@ InputParams parseInputFile(const std::string& filename, int mpirank=0)
     return params;
 }
 
-void printInputParams(InputParams& params) 
+inline void printInputParams(InputParams& params) 
 {
     auto printVec = [](const auto& vec, const std::string& name) {
         std::cout << name << ": ";
@@ -334,116 +334,116 @@ void printInputParams(InputParams& params)
     printVec(params.interfaceFluxmap, "interfaceFluxmap");
 }
 
-struct PDE {
-    std::string discretization = "ldg";
-    std::string exasimpath = "";
-    std::string datapath = "";
-    std::string datainpath = "";
-    std::string dataoutpath = "";
-    std::string platform = "cpu";   
-    std::string model = "ModelD";
-    std::string pdeappfile = "";
-    std::string modelfile = "pdemodel.txt";
-    std::string meshfile = "mesh.bin";
-    std::string xdgfile = "";
-    std::string udgfile = "";
-    std::string vdgfile = "";
-    std::string wdgfile = "";
-    std::string uhatfile = "";
-    std::string partitionfile = "";
+// struct PDE {
+//     std::string discretization = "ldg";
+//     std::string exasimpath = "";
+//     std::string datapath = "";
+//     std::string datainpath = "";
+//     std::string dataoutpath = "";
+//     std::string platform = "cpu";   
+//     std::string model = "ModelD";
+//     std::string pdeappfile = "";
+//     std::string modelfile = "pdemodel.txt";
+//     std::string meshfile = "mesh.bin";
+//     std::string xdgfile = "";
+//     std::string udgfile = "";
+//     std::string vdgfile = "";
+//     std::string wdgfile = "";
+//     std::string uhatfile = "";
+//     std::string partitionfile = "";
+// 
+//     int gencode = 1; // 1 for code generation, 0 for no code generation
+//     int writemeshsol = 1; // 1 for writing mesh solution, 0 for no writing
+//     int modelnumber = 0;
+//     int mpiprocs = 1;
+//     int nd = 1, nc = 1, ncu = 1, ncq = 0, ncp = 0, ncv = 0;
+//     int nch = 1, ncx = 1, ncw = 0, nce = 0, np=0, nve=0, ne=0;
+//     int nsca=0, nvec=0, nten=0, nsurf=0, nvqoi=0;
+//     int neb = 512 * 8;
+//     int nfb = 512 * 16;
+//     int elemtype = 1;
+//     int nodetype = 1;
+//     int hybrid = 0;
+//     int tdep = 0;
+//     int wave = 0;
+//     int linearproblem = 0;
+//     int subproblem = 0;
+//     int debugmode = 0;
+//     int stgNmode = 0;
+//     int porder = 1;
+//     int pgauss = 2;
+//     int temporalscheme = 0;
+//     int torder = 1;
+//     int nstage = 1;
+//     int convStabMethod = 0;
+//     int diffStabMethod = 0;
+//     int rotatingFrame = 0;
+//     int viscosityModel = 0;
+//     int SGSmodel = 0;
+//     int ALE = 0;
+//     int AV = 0;
+//     int AVdistfunction = 0;
+//     int AVsmoothingIter = 2;
+//     int frozenAVflag = 1;
+//     int nonlinearsolver = 0;
+//     int linearsolver = 0;
+//     int NewtonIter = 20;
+//     int GMRESiter = 200;
+//     int GMRESrestart = 25;
+//     int GMRESortho = 0;
+//     int preconditioner = 0;
+//     int precMatrixType = 0;
+//     int ppdegree = 0;
+//     int NLMatrixType = 0;
+//     int runmode = 0;
+//     int tdfunc = 1;
+//     int sourcefunc = 1;
+//     int matvecorder = 1;
+//     int RBdim = 5;
+//     int saveSolFreq = 1;
+//     int saveSolOpt = 1;
+//     int timestepOffset = 0;
+//     int saveSolBouFreq = 0;
+//     int ibs = 0;
+//     int compudgavg = 0;
+//     int extFhat = 0;
+//     int extUhat = 0;
+//     int extStab = 0;
+//     int saveResNorm = 0;
+//     int dae_steps = 0;
+// 
+//     int coupledinterface = 0; 
+//     int coupledcondition = 0;
+//     int coupledboundarycondition = 0;    
+// 
+//     double time = 0.0;
+//     double NLparam = 0.0;
+//     double NewtonTol = 1e-6;
+//     double GMREStol = 1e-3;
+//     double matvectol = 1e-3;
+//     double dae_alpha = 1.0;
+//     double dae_beta = 0.0;
+//     double dae_gamma = 0.0;
+//     double dae_epsilon = 0.0;    
+// 
+//     std::vector<int> interfaceFluxmap;    
+//     std::vector<double> dae_dt;
+//     std::vector<double> dt;
+//     std::vector<double> tau;
+//     std::vector<double> flag;
+//     std::vector<double> problem;
+//     std::vector<double> solversparam;
+//     std::vector<double> factor;
+//     std::vector<double> physicsparam;    
+//     std::vector<double> externalparam;            
+//     std::vector<double> vindx;
+//     std::vector<double> avparam1, avparam2;       
+//     std::vector<double> stgib;
+//     std::vector<double> stgdata;
+//     std::vector<double> stgparam;    
+// };
 
-    int gencode = 1; // 1 for code generation, 0 for no code generation
-    int writemeshsol = 1; // 1 for writing mesh solution, 0 for no writing
-    int modelnumber = 0;
-    int mpiprocs = 1;
-    int nd = 1, nc = 1, ncu = 1, ncq = 0, ncp = 0, ncv = 0;
-    int nch = 1, ncx = 1, ncw = 0, nce = 0, np=0, nve=0, ne=0;
-    int nsca=0, nvec=0, nten=0, nsurf=0, nvqoi=0;
-    int neb = 512 * 8;
-    int nfb = 512 * 16;
-    int elemtype = 1;
-    int nodetype = 1;
-    int hybrid = 0;
-    int tdep = 0;
-    int wave = 0;
-    int linearproblem = 0;
-    int subproblem = 0;
-    int debugmode = 0;
-    int stgNmode = 0;
-    int porder = 1;
-    int pgauss = 2;
-    int temporalscheme = 0;
-    int torder = 1;
-    int nstage = 1;
-    int convStabMethod = 0;
-    int diffStabMethod = 0;
-    int rotatingFrame = 0;
-    int viscosityModel = 0;
-    int SGSmodel = 0;
-    int ALE = 0;
-    int AV = 0;
-    int AVdistfunction = 0;
-    int AVsmoothingIter = 2;
-    int frozenAVflag = 1;
-    int nonlinearsolver = 0;
-    int linearsolver = 0;
-    int NewtonIter = 20;
-    int GMRESiter = 200;
-    int GMRESrestart = 25;
-    int GMRESortho = 0;
-    int preconditioner = 0;
-    int precMatrixType = 0;
-    int ppdegree = 0;
-    int NLMatrixType = 0;
-    int runmode = 0;
-    int tdfunc = 1;
-    int sourcefunc = 1;
-    int matvecorder = 1;
-    int RBdim = 5;
-    int saveSolFreq = 1;
-    int saveSolOpt = 1;
-    int timestepOffset = 0;
-    int saveSolBouFreq = 0;
-    int ibs = 0;
-    int compudgavg = 0;
-    int extFhat = 0;
-    int extUhat = 0;
-    int extStab = 0;
-    int saveResNorm = 0;
-    int dae_steps = 0;
-
-    int coupledinterface = 0; 
-    int coupledcondition = 0;
-    int coupledboundarycondition = 0;    
-    
-    double time = 0.0;
-    double NLparam = 0.0;
-    double NewtonTol = 1e-6;
-    double GMREStol = 1e-3;
-    double matvectol = 1e-3;
-    double dae_alpha = 1.0;
-    double dae_beta = 0.0;
-    double dae_gamma = 0.0;
-    double dae_epsilon = 0.0;    
-            
-    std::vector<int> interfaceFluxmap;    
-    std::vector<double> dae_dt;
-    std::vector<double> dt;
-    std::vector<double> tau;
-    std::vector<double> flag;
-    std::vector<double> problem;
-    std::vector<double> solversparam;
-    std::vector<double> factor;
-    std::vector<double> physicsparam;    
-    std::vector<double> externalparam;            
-    std::vector<double> vindx;
-    std::vector<double> avparam1, avparam2;       
-    std::vector<double> stgib;
-    std::vector<double> stgdata;
-    std::vector<double> stgparam;    
-};
-
-void extractCoupledData(
+inline void extractCoupledData(
     const std::vector<int>& interfacecondition,
     const std::vector<int>& boundarycondition,
     std::vector<int>& coupledinterface,
@@ -478,7 +478,100 @@ std::vector<double> makeDoubleVector(Args... args) {
     return { static_cast<double>(args)... };
 }
 
-PDE initializePDE(InputParams& params, int mpirank=0)
+// Pack the user-set scalar fields of `pde` into the runtime-side
+// flag/problem/factor/solversparam arrays that downstream code
+// (`writepde`, `readsolstruct`, etc.) reads at offset, and apply the
+// derived-field rules (hybrid from discretization, tdep from dt).
+//
+// Called automatically at the tail of `initializePDE` *and* by the
+// programmatic CPreprocessing constructor. External apps populating
+// the PDE struct directly don't need to call this themselves.
+inline void pdeFinalizeDerived(PDE& pde)
+{
+    if (pde.dt.size() > 0 && pde.dt[0] > 0) pde.tdep = 1;
+
+    if (pde.discretization == "ldg" || pde.discretization == "LDG")
+        pde.hybrid = 0;
+    else if (pde.discretization == "hdg" || pde.discretization == "HDG")
+        pde.hybrid = 1;
+
+    pde.flag = makeDoubleVector(
+        pde.tdep, pde.wave, pde.linearproblem, pde.debugmode, pde.matvecorder, pde.GMRESortho,
+        pde.preconditioner, pde.precMatrixType, pde.NLMatrixType, pde.runmode, pde.tdfunc, pde.sourcefunc,
+        pde.modelnumber, pde.extFhat, pde.extUhat, pde.extStab, pde.subproblem
+    );
+    pde.problem = makeDoubleVector(
+        pde.hybrid, 0, pde.temporalscheme, pde.torder, pde.nstage, pde.convStabMethod,
+        pde.diffStabMethod, pde.rotatingFrame, pde.viscosityModel, pde.SGSmodel, pde.ALE, pde.AV,
+        pde.linearsolver, pde.NewtonIter, pde.GMRESiter, pde.GMRESrestart, pde.RBdim,
+        pde.saveSolFreq, pde.saveSolOpt, pde.timestepOffset, pde.stgNmode, pde.saveSolBouFreq, pde.ibs,
+        pde.dae_steps, pde.saveResNorm, pde.AVsmoothingIter, pde.frozenAVflag, pde.ppdegree,
+        pde.coupledinterface, pde.coupledcondition, pde.coupledboundarycondition, pde.AVdistfunction
+    );
+    pde.factor       = {pde.time, pde.dae_alpha, pde.dae_beta, pde.dae_gamma, pde.dae_epsilon};
+    pde.solversparam = {pde.NewtonTol, pde.GMREStol, pde.matvectol, pde.NLparam};
+}
+
+inline bool useBuiltInAppMetadata(const PDE& pde)
+{
+    return (pde.builtinmodelID > 0);
+}
+
+inline void applyParsedSpecMetadata(PDE& pde, const ParsedSpec& spec)
+{
+    for (const auto& vec : spec.vectors) {
+        const std::string& name = vec.first;
+        int size = vec.second;
+        if (name == "uhat") pde.ncu = size;
+        if (name == "v")    pde.ncv = size;
+        if (name == "w")    pde.ncw = size;
+        if (name == "uq")   pde.nc  = size;
+    }
+
+    for (size_t i = 0; i < spec.functions.size(); ++i) {
+        const auto& fn = spec.functions[i];
+        if (fn.name == "VisScalars")  pde.nsca  = fn.outputsize;
+        if (fn.name == "VisVectors")  pde.nvec  = fn.outputsize / pde.nd;
+        if (fn.name == "VisTensors")  pde.nten  = fn.outputsize / (pde.nd * pde.nd);
+        if (fn.name == "QoIboundary") pde.nsurf = fn.outputsize;
+        if (fn.name == "QoIvolume")   pde.nvqoi = fn.outputsize;
+    }
+}
+
+inline void validateBuiltInAppMetadata(const PDE& pde)
+{
+    if (pde.ncu <= 0)
+        error("builtinmodelID > 0 requires ncu > 0 in pdeapp.txt.");
+    if (pde.ncv < 0)
+        error("builtinmodelID > 0 requires ncv >= 0 in pdeapp.txt.");
+    if (pde.ncw < 0)
+        error("builtinmodelID > 0 requires ncw >= 0 in pdeapp.txt.");
+    if (pde.nsca < 0 || pde.nvec < 0 || pde.nten < 0 || pde.nsurf < 0 || pde.nvqoi < 0)
+        error("builtinmodelID > 0 requires nsca, nvec, nten, nsurf, and nvqoi to be nonnegative in pdeapp.txt.");
+}
+
+inline void finalizePDEModelSizes(PDE& pde)
+{
+    if (pde.model=="ModelC" || pde.model=="modelC") {
+        pde.wave = 0;
+        pde.nc = pde.ncu;
+    } else if (pde.model=="ModelD" || pde.model=="modelD") {
+        pde.wave = 0;
+        pde.nc = pde.ncu * (pde.nd + 1);
+    } else if (pde.model=="ModelW" || pde.model=="modelW") {
+        pde.tdep = 1;
+        pde.wave = 1;
+        pde.nc = pde.ncu * (pde.nd + 1);
+    }
+
+    if (pde.nc < pde.ncu)
+        error("Invalid PDE dimensions: nc must be greater than or equal to ncu.");
+
+    pde.ncq = pde.nc - pde.ncu;
+    pde.nch = pde.ncu;
+}
+
+inline PDE initializePDE(InputParams& params, int mpirank=0)
 {
     PDE pde;
     
@@ -522,6 +615,12 @@ PDE initializePDE(InputParams& params, int mpirank=0)
         pde.platform = params.stringParams["platform"];
     }
 
+    if (params.intParams.count("builtinmodelID")) {
+        pde.builtinmodelID = params.intParams["builtinmodelID"];
+    }
+    if (params.intParams.count("gendatain")) {
+        pde.gendatain = params.intParams["gendatain"];
+    }
     if (params.intParams.count("gencode")) {
         pde.gencode = params.intParams["gencode"];
     }
@@ -551,6 +650,21 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     }
     if (params.intParams.count("ncw")) {
         pde.ncw = params.intParams["ncw"];
+    }
+    if (params.intParams.count("nsca")) {
+        pde.nsca = params.intParams["nsca"];
+    }
+    if (params.intParams.count("nvec")) {
+        pde.nvec = params.intParams["nvec"];
+    }
+    if (params.intParams.count("nten")) {
+        pde.nten = params.intParams["nten"];
+    }
+    if (params.intParams.count("nsurf")) {
+        pde.nsurf = params.intParams["nsurf"];
+    }
+    if (params.intParams.count("nvqoi")) {
+        pde.nvqoi = params.intParams["nvqoi"];
     }
     if (params.intParams.count("neb")) {
         pde.neb = params.intParams["neb"];
@@ -739,6 +853,7 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     
     if (pde.dt.size() > 0) {if (pde.dt[0]> 0) pde.tdep = 1;}    
     
+  
     if (pde.discretization == "ldg" || pde.discretization == "LDG")
       pde.hybrid = 0;
     else if (pde.discretization == "hdg" || pde.discretization == "HDG")
@@ -767,36 +882,35 @@ PDE initializePDE(InputParams& params, int mpirank=0)
         pde.coupledboundarycondition = c[0];            
     }
             
-    pde.flag = makeDoubleVector(
-        pde.tdep, pde.wave, pde.linearproblem, pde.debugmode, pde.matvecorder, pde.GMRESortho,
-        pde.preconditioner, pde.precMatrixType, pde.NLMatrixType, pde.runmode, pde.tdfunc, pde.sourcefunc,
-        pde.modelnumber, pde.extFhat, pde.extUhat, pde.extStab, pde.subproblem
-    );        
-    pde.problem = makeDoubleVector(
-        pde.hybrid, 0, pde.temporalscheme, pde.torder, pde.nstage, pde.convStabMethod,
-        pde.diffStabMethod, pde.rotatingFrame, pde.viscosityModel, pde.SGSmodel, pde.ALE, pde.AV,
-        pde.linearsolver, pde.NewtonIter, pde.GMRESiter, pde.GMRESrestart, pde.RBdim,
-        pde.saveSolFreq, pde.saveSolOpt, pde.timestepOffset, pde.stgNmode, pde.saveSolBouFreq, pde.ibs,
-        pde.dae_steps, pde.saveResNorm, pde.AVsmoothingIter, pde.frozenAVflag, pde.ppdegree,
-        pde.coupledinterface, pde.coupledcondition, pde.coupledboundarycondition, pde.AVdistfunction
-    );
-    pde.factor = {pde.time, pde.dae_alpha, pde.dae_beta, pde.dae_gamma, pde.dae_epsilon};    
-    pde.solversparam = {pde.NewtonTol, pde.GMREStol, pde.matvectol, pde.NLparam};
+    pdeFinalizeDerived(pde);
     
                     
-    pde.exasimpath = trimToSubstringAtLastOccurence(pde.exasimpath, "Exasim");     
-    if (pde.exasimpath == "") {      
-      if (mpirank==0) std::cout<<"exasimpath is not set in "<< params.pdeappfile <<" file.\nWe use the working directory to define exasimpath.\n";
-      std::filesystem::path cwd = std::filesystem::current_path();
-      pde.exasimpath = trimToSubstringAtLastOccurence(cwd, "Exasim");            
-      if (pde.exasimpath == "") 
-        error("exasimpath is not valid. Please set exasimpath to the correct path of the Exasim source code in pdeapp.txt file.");     
+    // Normalize a path that contains an "Exasim" component down to the Exasim
+    // root, but honor an explicitly-set exasimpath verbatim even when its
+    // directory name does not literally contain "Exasim" (the checkout may live
+    // at e.g. /data/scratch/.../exasim-teoc). Only fall back to the cwd when no
+    // exasimpath was provided at all. (Mirrors text2code/readpdeapp.cpp.)
+    {
+      const std::string rawpath = pde.exasimpath;
+      const std::string trimmed = trimToSubstringAtLastOccurence(rawpath, "Exasim");
+      if (!trimmed.empty()) {
+        pde.exasimpath = trimmed;
+      } else if (!rawpath.empty()) {
+        pde.exasimpath = rawpath;   // honor an explicit path verbatim
+      } else {
+        if (mpirank==0) std::cout<<"exasimpath is not set in "<< params.pdeappfile <<" file.\nWe use the working directory to define exasimpath.\n";
+        std::filesystem::path cwd = std::filesystem::current_path();
+        std::string cwdtrim = trimToSubstringAtLastOccurence(cwd, "Exasim");
+        pde.exasimpath = cwdtrim.empty() ? cwd.string() : cwdtrim;
+        if (pde.exasimpath == "")
+          error("exasimpath is not valid. Please set exasimpath to the correct path of the Exasim source code in pdeapp.txt file.");
+      }
     }
     if (mpirank==0) std::cout << "exasimpath = "<<pde.exasimpath<<std::endl;
     
     pde.pdeappfile = params.pdeappfile;    
     if (pde.datapath == "") {      
-      string dp = trim_dir(params.pdeappfile);
+      std::string dp = trim_dir(params.pdeappfile);
       if (dp == "") {
         if (mpirank==0) std::cout<<"datapath is not set in "<< params.pdeappfile <<".\nWe set datapath to the working directory.\n";
         pde.datapath = std::filesystem::current_path();    
@@ -810,14 +924,26 @@ PDE initializePDE(InputParams& params, int mpirank=0)
         
     if (pde.modelnumber<=0) {
       //pde.datainpath = make_path(pde.exasimpath, "build/datain");
-      //pde.dataoutpath = make_path(pde.exasimpath, "build/dataout");      
+      //pde.dataoutpath = make_path(pde.exasimpath, "build/dataout");
       pde.datainpath = make_path(pde.datapath, "datain");
-      pde.dataoutpath = make_path(pde.datapath, "dataout");      
+      pde.dataoutpath = make_path(pde.datapath, "dataout");
     } else if (pde.modelnumber>0) {
       //pde.datainpath = make_path(pde.exasimpath, "build/datain" + std::to_string(pde.modelnumber));
       //pde.dataoutpath = make_path(pde.exasimpath, "build/dataout" + std::to_string(pde.modelnumber));
       pde.datainpath = make_path(pde.datapath, "datain" + std::to_string(pde.modelnumber));
       pde.dataoutpath = make_path(pde.datapath, "dataout" + std::to_string(pde.modelnumber));
+    }
+    // HOT.7.14 — let pdeapp override datainpath / dataoutpath. Used
+    // by validate_codegen.sh to give each parallel ctest gate its
+    // own dataout dir so codegen:X and facade:X don't collide.
+    // Relative paths resolve against datapath; absolute paths win.
+    if (params.stringParams.count("datainpath")) {
+        std::string p = params.stringParams["datainpath"];
+        pde.datainpath = (!p.empty() && p[0] == '/') ? p : make_path(pde.datapath, p);
+    }
+    if (params.stringParams.count("dataoutpath")) {
+        std::string p = params.stringParams["dataoutpath"];
+        pde.dataoutpath = (!p.empty() && p[0] == '/') ? p : make_path(pde.datapath, p);
     }
     
     if (mpirank==0) std::cout << "Finished initializePDE.\n";
@@ -827,7 +953,7 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     return pde;
 }
 
-void writepde(const PDE& pde, const std::string& filename) 
+inline void writepde(const PDE& pde, const std::string& filename) 
 {    
     std::vector<double> avparam;
     avparam.insert(avparam.end(), pde.avparam1.begin(), pde.avparam1.end());
@@ -915,4 +1041,3 @@ void writepde(const PDE& pde, const std::string& filename)
 }
     
 #endif
-

@@ -7,18 +7,18 @@
 
     Functions:
 
-    - void UpdateSourceDIRK(solstruct &sol, sysstruct &sys, appstruct &app, resstruct &res, commonstruct &common, Int backend)
+    - void UpdateSourceDIRK(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriverABI& driver_abi, resstruct &res, commonstruct &common, Int backend)
         Updates the source term for the DIRK time integration scheme.
         - Computes the time derivative contributions to the source term for each DIRK stage.
         - Updates auxiliary vectors (fc_u, fc_q) and extracts the current stage solution.
         - Handles differential algebraic equations if present.
 
-    - void UpdateSourceBDF(solstruct &sol, sysstruct &sys, appstruct &app, resstruct &res, commonstruct &common, Int backend)
+    - void UpdateSourceBDF(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriverABI& driver_abi, resstruct &res, commonstruct &common, Int backend)
         Updates the source term for the BDF time integration scheme.
         - Computes the time derivative contributions to the source term for BDF1, BDF2, and BDF3 orders.
         - Updates auxiliary vectors (fc_u, fc_q).
 
-    - void UpdateSource(solstruct &sol, sysstruct &sys, appstruct &app, resstruct &res, commonstruct &common, Int backend)
+    - void UpdateSource(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriverABI& driver_abi, resstruct &res, commonstruct &common, Int backend)
         Dispatches the source term update to either DIRK or BDF scheme based on the temporalScheme parameter.
 
     Notes:
@@ -29,7 +29,7 @@
 #ifndef __UPDATESOURCE
 #define __UPDATESOURCE
 
-void UpdateSourceDIRK(solstruct &sol, sysstruct &sys, appstruct &app, resstruct &res, commonstruct &common, Int backend)
+void UpdateSourceDIRK(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriverABI& driver_abi, resstruct &res, commonstruct &common, Int backend)
 {   
     Int nc = common.nc; // number of compoments of (u, q, p)
     Int ncs = common.ncs;// number of compoments of (s)    
@@ -101,7 +101,7 @@ void UpdateSourceDIRK(solstruct &sol, sysstruct &sys, appstruct &app, resstruct 
     }       
 }
 
-void UpdateSourceBDF(solstruct &sol, sysstruct &sys, appstruct &app, resstruct &res, commonstruct &common, Int backend)
+void UpdateSourceBDF(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriverABI& driver_abi, resstruct &res, commonstruct &common, Int backend)
 {   
     //Int nc = common.nc; // number of compoments of (u, q, p)
     Int ncs = common.ncs;// number of compoments of (s)    
@@ -138,12 +138,12 @@ void UpdateSourceBDF(solstruct &sol, sysstruct &sys, appstruct &app, resstruct &
     }        
 }
 
-void UpdateSource(solstruct &sol, sysstruct &sys, appstruct &app, resstruct &res, commonstruct &common, Int backend)
+void UpdateSource(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriverABI& driver_abi, resstruct &res, commonstruct &common, Int backend)
 {           
     if (common.temporalScheme==0) // DIRK
-        UpdateSourceDIRK(sol, sys, app, res, common, backend);
+        UpdateSourceDIRK(sol, sys, app, driver_abi, res, common, backend);
     else // BDF
-        UpdateSourceBDF(sol, sys, app, res, common, backend);
+        UpdateSourceBDF(sol, sys, app, driver_abi, res, common, backend);
 }
 
 #endif

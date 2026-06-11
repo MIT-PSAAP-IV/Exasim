@@ -1,8 +1,9 @@
 function hdggencode(app)
 
-%kkdir = app.buildpath + "/model";
-%kkdir = app.exasimpath + "/build/model";
-kkdir = app.backendpath + "/Model";
+kkdir = app.builddir + "/kernels.gen";   % staging dir; kkgencode syncs it
+if ~exist(char(kkdir), 'dir')
+    mkdir(char(kkdir));
+end
 
 [xdg, udg, ~, ~, wdg, ~, ~, odg, ~, ~, uhg, nlg, tau, uinf, param, time] = syminit(app);
 pdemodel = str2func(app.modelfile);
@@ -22,15 +23,15 @@ else
     q = [];
 end
 
-if app.hybrid == 0
-  hdgnocodeelem("Flux" + strn, kkdir);  
-  hdgnocodeelem("Source" + strn, kkdir);  
-  hdgnocodeelem("EoS" + strn, kkdir);    
-  hdgnocodeelem("Sourcew" + strn, kkdir);
-  hdgnocodeelem2("Sourcewonly" + strn, kkdir);
-  hdgnocodeface("Fbou" + strn, kkdir);
-  hdgnocodeface2("Fbouonly" + strn, kkdir);
-else
+% if app.hybrid == 0
+%   hdgnocodeelem("Flux" + strn, kkdir);  
+%   hdgnocodeelem("Source" + strn, kkdir);  
+%   hdgnocodeelem("EoS" + strn, kkdir);    
+%   hdgnocodeelem("Sourcew" + strn, kkdir);
+%   hdgnocodeelem2("Sourcewonly" + strn, kkdir);
+%   hdgnocodeface("Fbou" + strn, kkdir);
+%   hdgnocodeface2("Fbouonly" + strn, kkdir);
+% else
   if isfield(pde, 'flux')    
       f = pde.flux(u, q, wdg, odg, xdg, time, param, uinf);    
       hdggencodeelem("Flux" + strn, f, xdg, udg, odg, wdg, uinf, param, time, kkdir);       
@@ -64,7 +65,7 @@ else
       hdggencodeface2("Fbouonly" + strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, kkdir);
   else
       error("pde.fbouhdg is not defined");
-  end
+  end  
   if isfield(pde, 'fint')    
       ncu12 = length(app.interfacefluxmap);
       if ncu12==0
@@ -78,6 +79,17 @@ else
       hdgnocodeface("Fint" + strn, kkdir);
       hdgnocodeface2("Fintonly" + strn, kkdir);
   end
-end
+  if isfield(pde, 'fext')    
+      uext = sym('uext',[pde.ncuext 1]); 
+      f = pde.fext(u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, uext, tau);
+      f = reshape(f,ncuext,[]);
+      hdggencodefext("Fext" + strn, f, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time, kkdir);
+      hdggencodefext2("Fextonly" + strn, f, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time, kkdir);
+  else   
+      hdgnocodefext("Fext" + strn, kkdir);
+      hdgnocodefext2("Fextonly" + strn, kkdir);
+  end  
+%end
 
 end
+

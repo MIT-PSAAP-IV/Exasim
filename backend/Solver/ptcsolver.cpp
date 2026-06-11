@@ -47,8 +47,7 @@
 #ifndef __PTCSOLVER
 #define __PTCSOLVER
 
-template <typename Model>
-int LinearSolver(sysstruct &sys, CDiscretization<Model>& disc, CPreconditioner<Model>& prec, ofstream &out, Int it, Int backend)
+int LinearSolver(sysstruct &sys, CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int it, Int backend)
 {    
         
 #ifdef TIMING    
@@ -144,77 +143,14 @@ int LinearSolver(sysstruct &sys, CDiscretization<Model>& disc, CPreconditioner<M
     printf("MPI_WAITALL time: %g miliseconds\n", disc.common.timing[10]);
     printf("RuElem and GetQ (exterior elements) time: %g miliseconds\n", disc.common.timing[11]);
     printf("RuFace time: %g miliseconds\n", disc.common.timing[12]);    
-    printf("Copy from buffrecv time: %g miliseconds\n\n", disc.common.timing[14]);    
-    
-//     printf("--------- Rq Residual Calculation Analysis -------\n");
-//     printf("RqElem time: %g miliseconds\n", disc.common.timing[15]);
-//     printf("RqFace time: %g miliseconds\n", disc.common.timing[16]);
-//     printf("RqApplyMinv time: %g miliseconds\n", disc.common.timing[17]);
-//     printf("RqArrayInsert time: %g miliseconds\n", disc.common.timing[18]);
-//     
-//     printf("RqFace GetArrayAtIndex xdg time: %g miliseconds\n", disc.common.timing[43]);
-//     printf("RqFace Node2Gauss xdg time: %g miliseconds\n", disc.common.timing[19]);
-//     printf("RqFace facegeom time: %g miliseconds\n", disc.common.timing[20]);
-//     printf("RqFace GetElemNodes uhg time: %g miliseconds\n", disc.common.timing[44]);
-//     printf("RqFace Node2Gauss uhg time: %g miliseconds\n", disc.common.timing[21]);
-//     printf("RqFace ApplyJacNormal time: %g miliseconds\n", disc.common.timing[22]);
-//     printf("RqFace Gauss2Node time: %g miliseconds\n", disc.common.timing[23]);
-//     printf("RqFace PutFaceNodes time: %g miliseconds\n", disc.common.timing[24]);
-//     
-//     printf("RqElem GetArrayAtIndex xdg time: %g miliseconds\n", disc.common.timing[41]);
-//     printf("RqElem Node2Gauss xdg time: %g miliseconds\n", disc.common.timing[25]);
-//     printf("RqElem elemgeom time: %g miliseconds\n", disc.common.timing[26]);
-//     printf("RqElem GetArrayAtIndex udg time: %g miliseconds\n", disc.common.timing[42]);
-//     printf("RqElem Node2Gauss udg time: %g miliseconds\n", disc.common.timing[27]);
-//     printf("RqElem Gauss2Node time: %g miliseconds\n", disc.common.timing[28]);
-//     printf("RqElem PutArrayAtIndex time: %g miliseconds\n\n", disc.common.timing[29]);    
-//     
-//     printf("--------- Ru Residual Calculation Analysis -------\n");
-//     printf("RuFace GetArrayAtIndex xdg time: %g miliseconds\n", disc.common.timing[50]);
-//     printf("RuFace Node2Gauss xdg time: %g miliseconds\n", disc.common.timing[30]);    
-//     printf("RuFace facegeom time: %g miliseconds\n", disc.common.timing[31]);
-//     printf("RuFace GetElemNodes uhg time: %g miliseconds\n", disc.common.timing[51]);
-//     printf("RuFace Node2Gauss uhg time: %g miliseconds\n", disc.common.timing[52]);
-//     printf("RuFace GetArrayAtIndex udg1 time: %g miliseconds\n", disc.common.timing[53]);
-//     printf("RuFace Node2Gauss udg1 time: %g miliseconds\n", disc.common.timing[54]);    
-//     printf("RuFace GetArrayAtIndex udg2 time: %g miliseconds\n", disc.common.timing[55]);
-//     printf("RuFace Node2Gauss udg2 time: %g miliseconds\n", disc.common.timing[56]);    
-//     printf("RuFace GetFaceNodes odg1 time: %g miliseconds\n", disc.common.timing[57]);
-//     printf("RuFace Node2Gauss odg1 time: %g miliseconds\n", disc.common.timing[58]);    
-//     printf("RuFace GetFaceNodes odg2 time: %g miliseconds\n", disc.common.timing[59]);
-//     printf("RuFace Node2Gauss odg2 time: %g miliseconds\n", disc.common.timing[60]);                
-//     printf("RuFace FhatDriver time: %g miliseconds\n", disc.common.timing[32]);
-//     printf("RuFace FbouDriver time: %g miliseconds\n", disc.common.timing[32]);
-//     printf("RuFace ApplyJac1 time: %g miliseconds\n", disc.common.timing[61]);       
-//     printf("RuFace Gauss2Node time: %g miliseconds\n", disc.common.timing[34]);
-//     printf("RuFace PutFaceNodes time: %g miliseconds\n", disc.common.timing[35]);
-//     
-//     printf("RuElem GetArrayAtIndex xdg time: %g miliseconds\n", disc.common.timing[45]);
-//     printf("RuElem Node2Gauss xdg time: %g miliseconds\n", disc.common.timing[36]);
-//     printf("RuElem elemgeom time: %g miliseconds\n", disc.common.timing[37]);
-//     printf("RuElem GetArrayAtIndex udg time: %g miliseconds\n", disc.common.timing[46]);
-//     printf("RuElem Node2Gauss udg time: %g miliseconds\n", disc.common.timing[47]);    
-//     printf("RuElem GetElemNodes odg time: %g miliseconds\n", disc.common.timing[48]);
-//     printf("RuElem Node2Gauss odg time: %g miliseconds\n", disc.common.timing[62]);    
-//     printf("RuElem GetElemNodes sdg time: %g miliseconds\n", disc.common.timing[63]);
-//     printf("RuElem Node2Gauss sdg time: %g miliseconds\n", disc.common.timing[64]);
-//     printf("RuElem TdfuncDriver time: %g miliseconds\n", disc.common.timing[65]);
-//     printf("RuElem SourceDriver time: %g miliseconds\n", disc.common.timing[66]);
-//     printf("RuElem ApplyJac1 time: %g miliseconds\n", disc.common.timing[67]);
-//     printf("RuElem Gauss2Node source: %g miliseconds\n", disc.common.timing[38]);
-//     printf("RuElem FluxDriver time: %g miliseconds\n", disc.common.timing[39]);
-//     printf("RuElem Gauss2Node1 time: %g miliseconds\n", disc.common.timing[40]);    
-//     printf("RuElem PutArrayAtIndex time: %g miliseconds\n\n", disc.common.timing[49]); 
+    printf("Copy from buffrecv time: %g miliseconds\n\n", disc.common.timing[14]);        
     }
 #endif
     
-    return 0;
-    // reset Wcurrentdim
-    //disc.common.Wcurrentdim = disc.common.RBcurrentdim;
+    return 0;    
 }
 
-template <typename Model>
-void UpdateRB(sysstruct &sys, CDiscretization<Model>& disc, CPreconditioner<Model>& prec, Int backend)
+void UpdateRB(sysstruct &sys, CDiscretization& disc, CPreconditioner& prec, Int backend)
 {
     Int N = disc.common.ndof1;
                     
@@ -235,96 +171,7 @@ void UpdateRB(sysstruct &sys, CDiscretization<Model>& disc, CPreconditioner<Mode
     }
 }
 
-template <typename Model>
-Int PTCsolver(sysstruct &sys,  CDiscretization<Model>& disc, CPreconditioner<Model>& prec, ofstream &out, Int backend)       
-{
-    Int N = disc.common.ndof1;     
-    Int it = 0, maxit = disc.common.nonlinearSolverMaxIter;  
-    dstype nrmr, tol;
-    tol = disc.common.nonlinearSolverTol; // tolerance for the residual
-    
-    nrmr = PNORM(disc.common.cublasHandle, N, sys.u, backend);
-    if (disc.common.mpiRank==0)
-        cout<<"PTC Iteration: "<<it<<",  Solution Norm: "<<nrmr<<endl;                                                    
-    
-    // compute both the residual vector and sol.udg  
-    disc.evalResidual(sys.r, sys.u, backend);
-    nrmr = PNORM(disc.common.cublasHandle, N, sys.r, backend);
-    if (disc.common.mpiRank==0)
-        cout<<"PTC Iteration: "<<it<<",  Residual Norm: "<<nrmr<<endl;                           
-    
-    // use PTC to solve the system: R(u) = 0
-    for (it=0; it<maxit; it++) {                        
-        //nrmrold = nrmr;
-        
-        // solve the linear system: (lambda*B + J(u))x = -R(u)
-        int status;
-        status = LinearSolver(sys, disc, prec, out, it, backend);
-                                
-        // update the solution: u = u + x
-        ArrayAXPY(disc.common.cublasHandle, sys.u, sys.x, one, N, backend); 
-
-// #ifdef HAVE_CUDA
-//        cudaDeviceSynchronize();
-// #endif         
-       
-        // if (status==1)
-        //    return it;
-       
-        // compute both the residual vector and sol.udg  
-        disc.evalResidual(sys.r, sys.u, backend);
-        nrmr = PNORM(disc.common.cublasHandle, N, sys.r, backend);
-
-        if (nrmr > 1.0e6) {                        
-            string filename = disc.common.fileout + "_np" + NumberToString(disc.common.mpiRank) + ".bin";                    
-            if (disc.common.saveSolOpt==0)
-                writearray2file(filename, sys.u, disc.common.ndof1, backend);
-            else
-                writearray2file(filename, disc.sol.udg, disc.common.ndofudg1, backend);       
-
-            if (disc.common.mpiRank==0)
-                cout<<"Residual is NaN in file ptcsolver.cpp at line 301"<<endl;                           
-            
-            #ifdef  HAVE_MPI       
-                MPI_Finalize();    
-            #endif
-            
-            exit(1);
-            //error("\nResidual norm in nonlinear solver is NaN.\n");
-        }
-        
-        if (disc.common.mpiRank==0 && disc.common.saveResNorm==1) {
-            disc.common.timing[122] = it + 0.0; 
-            disc.common.timing[123] = nrmr;        
-            writearray(out, &disc.common.timing[120], 4);    
-        }
-        
-        if (disc.common.mpiRank==0)
-            cout<<"PTC Iteration: "<<it<<",  Residual Norm: "<<nrmr<<endl;                           
-                        
-        // update the reduced basis
-        if ((status==0) && (disc.common.RBdim > 0)) // fix bug here 
-            UpdateRB(sys, disc, prec, backend);      
-        
-        // check convergence
-        if (nrmr < tol) {            
-            return it;   
-        }
-    }
-    
-//     if (disc.common.tdep == 1) {
-//         disc.common.tdep = 0;
-//         disc.evalResidual(sys.r, sys.u, backend);
-//         nrmr = PNORM(disc.common.cublasHandle, N, sys.r, backend);
-//         cout<<"PTC Iteration: "<<it<<",  Steady-State Residual Norm: "<<nrmr<<endl;   
-//         disc.common.tdep = 1;
-//     }
-    
-    return it;
-}
-
-template <typename Model>
-void UpdateRB(sysstruct &sys, CDiscretization<Model>& disc, CPreconditioner<Model>& prec, Int N, Int backend)
+void UpdateRB(sysstruct &sys, CDiscretization& disc, CPreconditioner& prec, Int N, Int backend)
 {                       
     dstype nrmr = PNORM(disc.common.cublasHandle, N, sys.x, backend);
     if (nrmr>zero) {
@@ -343,8 +190,7 @@ void UpdateRB(sysstruct &sys, CDiscretization<Model>& disc, CPreconditioner<Mode
     }
 }
 
-template <typename Model>
-void LinearSolver(sysstruct &sys, CDiscretization<Model>& disc, CPreconditioner<Model>& prec, ofstream &out, Int N, Int spatialScheme, Int it, Int backend)
+void LinearSolver(sysstruct &sys, CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int N, Int spatialScheme, Int it, Int backend)
 {            
     // evaluate the residual R(u) and set it to sys.b
     if (spatialScheme==0) {
@@ -390,124 +236,6 @@ void LinearSolver(sysstruct &sys, CDiscretization<Model>& disc, CPreconditioner<
         printf("GMRES time: %g miliseconds\n", t1);
         printf("GMRES(%d) converges to the tolerance %g within % d iterations and %d RB dimensions\n",disc.common.gmresRestart,disc.common.linearSolverTol,disc.common.linearSolverIter,disc.common.RBcurrentdim);                    
     }
-    
-    //if ((disc.common.linearSolverRelError <= disc.common.linearSolverTol*disc.common.linearSolverTolFactor) && (disc.common.mpiRank==0))             
-    //    printf("GMRES(%d) converges to the tolerance %g within % d iterations and %d RB dimensions\n",disc.common.gmresRestart,disc.common.linearSolverTol,disc.common.linearSolverIter,disc.common.RBcurrentdim);                    
-}
-
-template <typename Model>
-Int NonlinearSolver(sysstruct &sys,  CDiscretization<Model>& disc, CPreconditioner<Model>& prec, ofstream &out, Int N, Int spatialScheme, Int backend)       
-{
-    Int it = 0, maxit = disc.common.nonlinearSolverMaxIter;  
-    dstype nrmr, nrm0, tol;
-    tol = disc.common.nonlinearSolverTol; // tolerance for the residual
-                
-    //cout<<disc.common.mpiRank<<"  "<<N<<endl;   
-    nrmr = PNORM(disc.common.cublasHandle, N, disc.common.ndofuhatinterface, sys.u, backend);
-//     if (disc.common.mpiProcs>1 && disc.common.spatialScheme==1) {
-//       dstype nrm = PNORM(disc.common.cublasHandle, disc.common.ncu*disc.common.npf*disc.common.ninterfacefaces, sys.u, backend);
-//       nrmr = sqrt(nrmr*nrmr - 0.5*nrm*nrm);
-//     }                
-    
-    if (disc.common.mpiRank==0)
-      cout<<"Newton Iteration: "<<it<<",  Solution Norm: "<<nrmr<<endl;                                                        
-
-    if (disc.common.debugMode==1) {
-      writearray2file(disc.common.fileout + NumberToString(it) + "newton_uh.bin", disc.sol.uh, N, backend);
-      writearray2file(disc.common.fileout + NumberToString(it) + "newton_udg.bin", disc.sol.udg, disc.common.npe*disc.common.nc*disc.common.ne1, backend);
-    }
-
-    if (spatialScheme == 1) { 
-            
-      if (disc.common.ncq > 0) hdgGetQ(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common, backend);          
-              
-      // compute the residual vector R = [Ru; Rh]
-      disc.hdgAssembleResidual(sys.b, backend);
-            
-      nrmr = PNORM(disc.common.cublasHandle, N, disc.common.ndofuhatinterface, sys.b, backend);       
-      nrmr += PNORM(disc.common.cublasHandle, disc.common.npe*disc.common.ncu*disc.common.ne1, disc.res.Ru, backend);                 
-      if (disc.common.mpiRank==0)
-        cout<<"Newton Iteration: "<<0<<",  Residual Norm: "<<nrmr<<endl;          
-    }                
-    
-    // use PTC to solve the system: R(u) = 0
-    for (it=0; it<maxit; it++) {              
-                      
-        // solve the linear system:  J(u) x = -R(u)        
-        LinearSolver(sys, disc, prec, out, N, spatialScheme, it, backend);
-                        
-//         printArray2D(sys.u, disc.common.npf, disc.common.nf, backend);
-//         printArray2D(sys.x, disc.common.npf, disc.common.nf, backend);
-        
-        sys.alpha = 1.0;        
-        // update the solution: u = u + alpha*x
-        ArrayAXPY(disc.common.cublasHandle, sys.u, sys.x, sys.alpha, N, backend); 
-        
-        
-        if (spatialScheme == 0) {          
-          // compute both the residual vector and sol.udg  
-          disc.evalResidual(sys.r, sys.u, backend);          
-          nrmr = PNORM(disc.common.cublasHandle, N, sys.r, backend);          
-        } 
-        else if (spatialScheme == 1) {      
-          ArrayCopy(disc.sol.uh, sys.u, N);
-          hdgGetDUDG(disc.res.Ru, disc.res.F, sys.x, disc.res.Rq, disc.mesh, disc.common, backend);          
-          ArrayCopy(sys.v, disc.res.Ru, disc.common.npe*disc.common.ncu*disc.common.ne1);
-          UpdateUDG(disc.sol.udg, disc.res.Ru, sys.alpha, disc.common.npe, disc.common.nc, disc.common.ne1, 0, disc.common.npe, 0, disc.common.ncu, 0, disc.common.ne1);                    
-                    
-          if (disc.common.debugMode==1) {
-            writearray2file(disc.common.fileout + NumberToString(it+1) + "newton_x.bin", sys.x, N, backend);
-            writearray2file(disc.common.fileout + NumberToString(it+1) + "newton_u.bin", sys.u, N, backend);
-            writearray2file(disc.common.fileout + NumberToString(it+1) + "newton_uh.bin", disc.sol.uh, N, backend);
-            writearray2file(disc.common.fileout + NumberToString(it+1) + "newton_udg.bin", disc.sol.udg, disc.common.npe*disc.common.nc*disc.common.ne1, backend);
-            error("stop for debugging...");
-          }          
-                    
-          if (disc.common.ncq > 0) hdgGetQ(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common, backend);          
-          if (disc.common.ncw > 0) GetW(disc.sol.wdg, disc.sol, disc.tmp, disc.app, disc.common, backend);
-                              
-          nrm0 = nrmr; // original norm          
-          // compute the updated residual norm |[Ru; Rh]|
-          disc.hdgAssembleResidual(sys.b, backend);          
-          nrmr = PNORM(disc.common.cublasHandle, N, disc.common.ndofuhatinterface, sys.b, backend);           
-          nrmr += PNORM(disc.common.cublasHandle, disc.common.npe*disc.common.ncu*disc.common.ne1, disc.res.Ru, backend);   
-                                    
-          // if (nrmr > nrm0 && nrmr > 1.0e6) {                        
-          //   string filename = disc.common.fileout + "_np" + NumberToString(disc.common.mpiRank) + ".bin";                    
-          //   writearray2file(filename, disc.sol.udg, disc.common.ndofudg1, backend);       
-          //   error("Residual norm increases more than 1e6. Save and exit.");                                    
-          // }
-            
-          // damped Newton loop to determine alpha
-          while ((nrmr>nrm0 && sys.alpha > 0.1) || IS_NAN(nrmr)) 
-          {
-            if (disc.common.mpiRank==0)
-              printf("Newton Iteration: %d, Alpha: %g, Original Norm: %g,  Updated Norm: %g\n", it+1, sys.alpha, nrm0, nrmr);
-            sys.alpha = sys.alpha/2.0;             
-            ArrayAXPY(disc.common.cublasHandle, sys.u, sys.x, -sys.alpha, N, backend); 
-            ArrayCopy(disc.sol.uh, sys.u, N);
-            UpdateUDG(disc.sol.udg, sys.v, -sys.alpha, disc.common.npe, disc.common.nc, disc.common.ne1, 0, disc.common.npe, 0, disc.common.ncu, 0, disc.common.ne1);                    
-            if (disc.common.ncq > 0) hdgGetQ(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common, backend);          
-            if (disc.common.ncw > 0) GetW(disc.sol.wdg, disc.sol, disc.tmp, disc.app, disc.common, backend);
-            disc.hdgAssembleResidual(sys.b, backend);
-            nrmr = PNORM(disc.common.cublasHandle, N, disc.common.ndofuhatinterface, sys.b, backend); 
-            nrmr += PNORM(disc.common.cublasHandle, disc.common.npe*disc.common.ncu*disc.common.ne1, disc.res.Ru, backend);                       
-          }          
-        }
-
-        // update the reduced basis space
-        ArrayMultiplyScalar(disc.common.cublasHandle, sys.x, sys.alpha, N, backend);   
-                        
-        if (disc.common.RBdim > 0) UpdateRB(sys, disc, prec, N, backend);         
-                
-        if (disc.common.mpiRank==0)
-          printf("Newton Iteration: %d, Alpha: %g, Original Norm: %g,  Updated Norm: %g\n", it+1, sys.alpha, nrm0, nrmr);
-        
-        // check convergence
-        if (nrmr < tol) return (it+1);           
-    }
-    
-    return it;
 }
 
 #endif

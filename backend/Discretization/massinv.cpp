@@ -5,7 +5,7 @@
 
     Functions:
 
-    1. void ComputeMinv(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
+    1. void ComputeMinv(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, 
                         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
         - Computes the inverse of the mass matrix (Minv) for either straight or curved meshes.
         - Allocates memory for mass and inverse matrices, workspace, and pivot arrays.
@@ -29,7 +29,7 @@
 #ifndef __MASSINV
 #define __MASSINV
 
-void ComputeMinv(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
+void ComputeMinv(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle,  Int backend)
 {   
     dstype *work=NULL;  
@@ -43,7 +43,7 @@ void ComputeMinv(solstruct &sol, resstruct &res, appstruct &app, masterstruct &m
     Int nbe = common.nbe; // number of blocks for elements   
     Int neb = common.neb; // maximum number of elements per block
             
-    printf("common.curvedMesh = %d\n", common.curvedMesh);
+    //printf("common.curvedMesh = %d\n", common.curvedMesh);
 
     if (common.curvedMesh==0) { //straight mesh                        
         TemplateMalloc(&res.Mass, npe*npe+ne, backend);        

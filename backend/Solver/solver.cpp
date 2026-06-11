@@ -44,8 +44,7 @@
 #include "ptcsolver.cpp"
 
 // constructor
-template <typename Model>
-CSolver<Model>::CSolver(CDiscretization<Model>& disc, Int backend)
+CSolver::CSolver(CDiscretization& disc, Int backend)
 {
     mpiRank = disc.common.mpiRank;
     setsysstruct(sys, disc.common, disc.res, disc.mesh, disc.tmp, backend);   
@@ -55,31 +54,10 @@ CSolver<Model>::CSolver(CDiscretization<Model>& disc, Int backend)
 }
 
 // destructor
-template <typename Model>
-CSolver<Model>::~CSolver()
+CSolver::~CSolver()
 {        
     sys.freememory(sys.backend);    
     if (mpiRank==0) printf("CSolver destructor: sys memory is freed successfully.\n");
-}
-
-template <typename Model>
-void CSolver<Model>::PseudoTransientContinuation(CDiscretization<Model>& disc, CPreconditioner<Model>& prec, ofstream& out, Int backend)       
-{
-    // solve the system using PTC to obtain the solution sys.u
-    disc.common.nonlinearSolverIter = PTCsolver(sys, disc, prec, out, backend); 
-    
-    // update UDG
-    disc.updateUDG(sys.u, backend);           
-}
-
-template <typename Model>
-void CSolver<Model>::NewtonSolver(CDiscretization<Model>& disc, CPreconditioner<Model>& prec, ofstream& out, Int N, Int spatialScheme, Int backend)       
-{
-    // solve the system using PTC to obtain the solution sys.u
-    disc.common.nonlinearSolverIter = NonlinearSolver(sys, disc, prec, out, N, spatialScheme, backend); 
-    
-    // update UDG
-    if (spatialScheme==0) disc.updateUDG(sys.u, backend);           
 }
 
 #endif        

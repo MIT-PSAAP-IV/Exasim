@@ -1,7 +1,6 @@
-% Add Exasim to Matlab search path
-cdir = pwd(); ii = strfind(cdir, "Exasim");
-ii = ii(end);
-run(cdir(1:(ii+5)) + "/install/setpath.m");
+% Put the Exasim MATLAB frontend on the path. For an installed Exasim use
+% run('<prefix>/share/exasim/matlab/exasim_setup.m') instead.
+run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'frontends', 'Matlab', 'exasim_setup.m'));
 
 % initialize pde structure and mesh structure
 [pde,~] = initializeexasim();
@@ -17,6 +16,7 @@ pde.mpiprocs = 1;              % number of MPI processors
 pde.hybrid = 1;
 pde.porder = 4;          % polynomial degree
 pde.gencode = 1;
+pde.Cxxpreprocessing = 0;
 
 mesh = mkmesh_cylns(pde.porder);
 % iso-thermal wall, supersonic outflow, supersonic inflow

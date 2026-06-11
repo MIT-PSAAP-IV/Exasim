@@ -1,0 +1,138 @@
+scalars t
+
+vectors x(2), uq(3), v(0), w(0), uhat(1), n(2), tau(1), mu(2), eta(0)
+
+jacobian uq, w, uhat 
+
+hessian 
+
+batch x, uq, v, w, uhat, n
+
+outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Initu, VisScalars, VisVectors, QoIvolume, QoIboundary
+
+function ALEGeom(x, mu)
+  output_size(g) = 5;
+  alpha = mu[1];
+  pi_ = Expression(pi);
+  cosY = cos(pi_*x[1]);
+  g[0] = 1.0;
+  g[1] = alpha*pi_*cosY;
+  g[2] = 0.0;
+  g[3] = 1.0;
+  g[4] = g[0]*g[3] - g[1]*g[2];
+end
+
+function ALEGradRefToPhys(x, uq, mu)
+  output_size(grad) = 2;
+  g = ALEGeom(x, mu);
+  J = g[4];
+  grad[0] = (g[3]*uq[1] - g[2]*uq[2]) / J;
+  grad[1] = (-g[1]*uq[1] + g[0]*uq[2]) / J;
+end
+
+function ALEPoissonFlux(x, uq, mu)
+  output_size(fa) = 2;
+  g = ALEGeom(x, mu);
+  grad = ALEGradRefToPhys(x, uq, mu);
+  kappa = mu[0];
+  fa[0] = kappa*(g[3]*grad[0] - g[1]*grad[1]);
+  fa[1] = kappa*(-g[2]*grad[0] + g[0]*grad[1]);
+end
+
+function ALEMappedPoint(x, mu)
+  output_size(xm) = 2;
+  alpha = mu[1];
+  pi_ = Expression(pi);
+  sinY = sin(pi_*x[1]);
+  xm[0] = x[0] + alpha*sinY;
+  xm[1] = x[1];
+end
+
+function ALEUnmappedPoint(x, mu)
+  output_size(xr) = 2;
+  alpha = mu[1];
+  pi_ = Expression(pi);
+  xr[1] = x[1];
+  xr[0] = x[0] - alpha*sin(pi_*xr[1]);
+end
+
+function Flux(x, uq, v, w, eta, mu, t)
+  output_size(f) = 2;
+  fa = ALEPoissonFlux(x, uq, mu);
+  f[0] = fa[0];
+  f[1] = fa[1];
+end
+
+function Source(x, uq, v, w, eta, mu, t)  
+  output_size(s) = 1;
+  g = ALEGeom(x, mu);
+  xm = ALEMappedPoint(x, mu);
+  pi_ = Expression(pi);
+  s[0] = g[4]*2.0*pi_*pi_*sin(pi_*xm[0])*sin(pi_*xm[1]);
+end
+
+function Tdfunc(x, uq, v, w, eta, mu, t)  
+  output_size(m) = 1;
+  ones(m);
+end
+
+function Fbou(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(fb) = 1;
+  fa = ALEPoissonFlux(x, uq, mu);
+  fb[0] = fa[0]*n[0] + fa[1]*n[1] + tau[0]*(uq[0]-uhat[0]);
+end
+
+function Ubou(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(ub) = 1;
+  ub[0] = 0.0;
+end
+
+function FbouHdg(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(fb) = 1;
+  fb[0] = tau[0]*(0.0 - uhat[0]);  
+end
+
+function Initu(x, eta, mu)
+  output_size(ui) = 1;
+  ui[0] = 0.0;
+end
+
+function VisScalars(x, uq, v, w, eta, mu, t)
+  output_size(s) = 5;
+  xm = ALEMappedPoint(x, mu);
+  xr = ALEUnmappedPoint(xm, mu);
+  pi_ = Expression(pi);
+  uexact_map = sin(pi_*xm[0])*sin(pi_*xm[1]);
+  uexact_unmap = sin(pi_*xr[0])*sin(pi_*xr[1]);
+  s[0] = uq[0];
+  s[1] = uexact_map;
+  s[2] = uq[0] - uexact_map;
+  s[3] = uexact_unmap;
+  s[4] = uq[0] - uexact_unmap;
+end
+
+function VisVectors(x, uq, v, w, eta, mu, t)
+  output_size(s) = 4;
+  xm = ALEMappedPoint(x, mu);
+  grad = ALEGradRefToPhys(x, uq, mu);
+  s[0] = xm[0];
+  s[1] = xm[1];
+  s[2] = grad[0];
+  s[3] = grad[1];
+end
+
+function QoIvolume(x, uq, v, w, eta, mu, t)
+  output_size(s) = 2;
+  g = ALEGeom(x, mu);
+  xm = ALEMappedPoint(x, mu);
+  pi_ = Expression(pi);
+  uexact = sin(pi_*xm[0])*sin(pi_*xm[1]); 
+  s[0] = g[4]*(uq[0] - uexact)*(uq[0] - uexact);
+  s[1] = g[4]*uq[0];
+end
+
+function QoIboundary(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(fb) = 1;
+  fa = ALEPoissonFlux(x, uq, mu);
+  fb[0] = fa[0]*n[0] + fa[1]*n[1] + tau[0]*(uq[0]-uhat[0]);
+end

@@ -16,10 +16,13 @@ pde.enzyme = [];
 pde.codegenerator = "";
 
 pde.codename = "Exasim";
-cdir = pwd(); ii = strfind(cdir, pde.codename);
-pde.exasimpath = cdir(1:(ii+5));
-pde.buildpath = pde.exasimpath + "/build";
-pde.backendpath = pde.exasimpath + "/backend";
+% Runtime data (datain/, dataout/) goes under datapath (user-visible);
+% generated code and the solver build live in the hidden builddir.
+pde.sharedbuild = 0;
+pde.datapath = string(fullfile(pwd(), "exasim"));
+pde.builddir = string(fullfile(pwd(), "exasim"));
+pde.modelid = 100;   % external builtin model ID for the generated model
+pde.exasimpath = ""; % Exasim install prefix; resolved by cmakecompile
 pde.version = version;
 pde.appname = "app";
 pde.platform = "cpu";
@@ -31,6 +34,7 @@ pde.cpulibflags = "";
 pde.gpulibflags = "";
 pde.pdemodel="ModelD";
 pde.modelnumber = 0;
+pde.builtinmodelID = 0;
 
 pde.Cxxpreprocessing = 1;
 pde.preprocessmode = 1;
@@ -80,9 +84,9 @@ pde.nonlinearsolver = 0;
 pde.linearsolver = 0;
 pde.NLiter = 20;
 pde.linearsolveriter = 200;
-pde.GMRESrestart = 25;
+pde.GMRESrestart = 100;
 pde.GMRESortho = 0;
-pde.preconditioner = 0;
+pde.preconditioner = 1;
 pde.precMatrixType = 0;
 pde.ppdegree = 0;
 pde.NLMatrixType = 0;
@@ -90,7 +94,7 @@ pde.runmode = 0;
 pde.tdfunc = 1;
 pde.sourcefunc = 1;
 pde.matvecorder = 1;
-pde.RBdim = 5;
+pde.RBdim = 0;
 pde.saveSolFreq = 1;
 pde.saveSolOpt = 1;
 pde.timestepOffset = 0;
@@ -111,6 +115,9 @@ pde.matvectol = 1e-3;
 pde.flag = [];
 pde.problem = [];
 pde.boundaryconditions = [0 0];
+pde.wmModelIDs = [];
+pde.wmBoundaries = [];
+pde.wmDistances = [];
 pde.stgib = [];
 pde.vindx = [];
 pde.interfacefluxmap = [];
@@ -129,7 +136,7 @@ pde.stgparam = [];
 
 pde.soltime = 1;
 pde.vistime = 1;
-pde.visfilename = pde.buildpath + "/dataout/output";  
+pde.visfilename = pde.datapath + "/dataout/output";  
 pde.viselem = [];
 
 pde.dae_alpha = 1.0;
@@ -147,9 +154,5 @@ pde.fbou = "fbou";
 pde.fhat = "fhat";
 pde.source = "source";
 pde.arg = {};
-
-
-
-
 
 

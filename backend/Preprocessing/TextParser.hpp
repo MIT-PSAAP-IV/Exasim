@@ -8,43 +8,43 @@
 #include <vector>
 #include <regex>
 
-struct FunctionDef {
-    std::string name;
-    std::string output;
-    int outputsize = 0;
-    std::vector<std::string> args;
-    std::vector<std::string> body;    
-    std::unordered_map<std::string, std::pair<int, int>> matrices; // name -> (rows, cols)
-};
-
-struct ParsedSpec {
-    std::vector<std::string> scalars;
-    std::unordered_map<std::string, int> vectors;
-    std::vector<std::string> namevectors;
-    std::vector<std::string> jacobian;
-    std::vector<std::string> hessian;
-    std::vector<std::string> batch;
-    std::vector<std::string> outputs;
-    std::vector<std::string> exasimfunctions = {
-        "Flux", "Source", "Tdfunc", "Ubou", "Fbou", "FbouHdg",
-        "Sourcew", "Output", "Monitor", "Initu", "Initq", "Inituq",
-        "Initw", "Initv", "Avfield", "Fint", "EoS", "VisScalars", 
-        "VisVectors", "VisTensors", "QoIvolume", "QoIboundary"};
-    std::vector<bool> isoutput;     
-    std::string datatype = "dstype";
-    std::string framework = "kokkos";
-    std::string codeformat = "exasim";    
-    std::string exasimpath = "";
-    std::string modelpath = "";
-    std::string symenginepath = "";
-    std::string modelfile = "";
-    bool exasim;
-    std::vector<FunctionDef> functions;
-};
+// struct FunctionDef {
+//     std::string name;
+//     std::string output;
+//     int outputsize = 0;
+//     std::vector<std::string> args;
+//     std::vector<std::string> body;    
+//     std::unordered_map<std::string, std::pair<int, int>> matrices; // name -> (rows, cols)
+// };
+// 
+// struct ParsedSpec {
+//     std::vector<std::string> scalars;
+//     std::unordered_map<std::string, int> vectors;
+//     std::vector<std::string> namevectors;
+//     std::vector<std::string> jacobian;
+//     std::vector<std::string> hessian;
+//     std::vector<std::string> batch;
+//     std::vector<std::string> outputs;
+//     std::vector<std::string> exasimfunctions = {
+//         "Flux", "Source", "Tdfunc", "Ubou", "Fbou", "FbouHdg",
+//         "Sourcew", "Output", "Monitor", "Initu", "Initq", "Inituq",
+//         "Initw", "Initv", "Avfield", "Fint", "EoS", "VisScalars", 
+//         "VisVectors", "VisTensors", "QoIvolume", "QoIboundary"};
+//     std::vector<bool> isoutput;     
+//     std::string datatype = "dstype";
+//     std::string framework = "kokkos";
+//     std::string codeformat = "exasim";    
+//     std::string exasimpath = "";
+//     std::string modelpath = "";
+//     std::string symenginepath = "";
+//     std::string modelfile = "";
+//     bool exasim;
+//     std::vector<FunctionDef> functions;
+// };
 
 class TextParser {
 public:
-    static ParsedSpec parseFile(const std::string& filename) {
+    static ParsedSpec parseFile(const std::string& filename, bool requireExasimFunctions = true) {
       
         ParsedSpec spec;
         spec.modelfile = filename;
@@ -154,13 +154,17 @@ public:
           //     spec.isoutput[i] = (outputSet.count(name) > 0) ? true : false;
           // }
 
-          for (size_t i = 0; i < 6; ++i) {
-            if (spec.isoutput[i] == false) {
-              std::cerr << "Error: \"" << spec.exasimfunctions[i]
-                        << "\" is not defined in the model file. Please define it.\n";
-              std::exit(EXIT_FAILURE);  // More conventional than -1
+          // When a built-in model library supplies the kernels (builtinmodelID > 0),
+          // the text model file is optional and need not define these functions.
+          if (requireExasimFunctions) {
+            for (size_t i = 0; i < 6; ++i) {
+              if (spec.isoutput[i] == false) {
+                std::cerr << "Error: \"" << spec.exasimfunctions[i]
+                          << "\" is not defined in the model file. Please define it.\n";
+                std::exit(EXIT_FAILURE);  // More conventional than -1
+              }
             }
-          }                    
+          }
         } else {
           spec.exasim = false;                        
         }

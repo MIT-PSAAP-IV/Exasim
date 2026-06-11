@@ -19,11 +19,25 @@ pde.dt = pde.dt(:)';
 pde.tau = pde.tau(:)';
 pde.physicsparam = pde.physicsparam(:)';
 pde.externalparam = pde.externalparam(:)';
+if isfield(pde, 'wmModelIDs') == 0, pde.wmModelIDs = []; end
+if isfield(pde, 'wmBoundaries') == 0, pde.wmBoundaries = []; end
+if isfield(pde, 'wmDistances') == 0, pde.wmDistances = []; end
+pde.wmModelIDs = pde.wmModelIDs(:)';
+pde.wmBoundaries = pde.wmBoundaries(:)';
+pde.wmDistances = pde.wmDistances(:)';
 
 pde.boundaryconditions = mesh.boundarycondition(:)';
 pde.boundaryexpressions = convertHandlesToStrings(mesh.boundaryexpr);
-pde.curvedboundaries = mesh.curvedboundary;
-pde.curvedboundaryexprs = mesh.curvedboundaryexpr;
+if isfield(mesh, "curvedboundary")
+  pde.curvedboundaries = mesh.curvedboundary;
+else
+  pde.curvedboundaries = [];
+end
+if isfield(mesh, "curvedboundaryexprs")
+  pde.curvedboundaryexprs = mesh.curvedboundaryexprs;
+else
+  pde.curvedboundaryexprs = [];
+end
 
 if isfield(pde, 'curvedboundaries') == 0 || isempty(pde.curvedboundaries)
   pde.curvedboundaries = 0*pde.boundaryconditions;
@@ -112,6 +126,7 @@ requiredKeys = ["exasimpath", "datapath", "model", "modelfile", "meshfile", "xdg
   "nstage","ncu", "ncw", "neb", "nfb", "NewtonIter", "NewtonTol", "GMRESiter", "GMRESrestart",...
   "GMREStol", "GMRESortho","ppdegree","RBdim", "matvecorder", "matvectol", "precMatrixType",...
   "preconditioner", "time", "tau", "dt", "physicsparam", "externalparam", "boundaryconditions",...
+  "wmModelIDs", "wmBoundaries", "wmDistances",...
   "boundaryexpressions", "curvedboundaries", "curvedboundaryexprs", "periodicboundaries1",...
   "periodicexprs1", "periodicboundaries2","periodicexprs2", "interfaceconditions"];
   
@@ -131,7 +146,7 @@ for i = 1:length(requiredKeys)
         if isempty(value)
           fprintf(fid, '%s = [];\n', key);       
         elseif length(value)==1
-          if key == "dt" || key == "tau" || key == "physicsparam" || key == "externalparam" || key == "boundaryconditions" || key == "curvedboundaries" || key == "periodicboundaries1" || key == "periodicboundaries2"
+          if key == "dt" || key == "tau" || key == "physicsparam" || key == "externalparam" || key == "boundaryconditions" || key == "wmModelIDs" || key == "wmBoundaries" || key == "wmDistances" || key == "curvedboundaries" || key == "periodicboundaries1" || key == "periodicboundaries2"
             fprintf(fid, '%s = [%s];\n', key, mat2str(value));       
           else
             fprintf(fid, '%s = %s;\n', key, mat2str(value));       
@@ -192,5 +207,4 @@ end
 
 end
 
-  
   

@@ -1,4 +1,4 @@
-template <typename Model>
+#include "exasim_paths.h"  // exasim_data_dir()
 class CVisualization {
 public:
     float* scafields=nullptr;
@@ -54,28 +54,28 @@ public:
     std::uint64_t types_offset  = 0;
 
 public:
-    CVisualization(const dstype* xcg, int nd_in, int np,
-                   const int* cgelcon, int npe, int ne,
-                   const int* telem,   int nce, int nverts_per_cell,
-                   int elemtype,
-                   const std::vector<std::string>& scalars,
-                   const std::vector<std::string>& vectors,
-                   const std::vector<std::string>& tensors,
-                   const std::vector<std::string>& surfaces)
-    {
-        if (np > 0) {
-            Init(xcg, nd_in, np, cgelcon, npe, ne,
-                 telem, nce, nverts_per_cell, elemtype,
-                 scalars, vectors, tensors, surfaces);            
-        }
-    }
+    // CVisualization(const dstype* xcg, int nd_in, int np,
+    //                const int* cgelcon, int npe, int ne,
+    //                const int* telem,   int nce, int nverts_per_cell,
+    //                int elemtype,
+    //                const std::vector<std::string>& scalars,
+    //                const std::vector<std::string>& vectors,
+    //                const std::vector<std::string>& tensors,
+    //                const std::vector<std::string>& surfaces)
+    // {
+    //     if (np > 0) {
+    //         Init(xcg, nd_in, np, cgelcon, npe, ne,
+    //              telem, nce, nverts_per_cell, elemtype,
+    //              scalars, vectors, tensors, surfaces);            
+    //     }
+    // }
 
-    CVisualization(CDiscretization<Model>& disc, int backend) {      
-        int rank = disc.common.mpiRank;
+    CVisualization(CDiscretization& disc, int backend) {      
+        rank = disc.common.mpiRank;
         int nd_in   = disc.common.nd;
         int npoints_in = disc.sol.szxcg / nd_in;
         
-        if (npoints_in > 0) {            
+        if (npoints_in > 0 && nd_in > 1) {            
             int porder  = disc.common.porder;        
             int nsca    = disc.common.nsca;
             int nvec    = disc.common.nvec;            
@@ -86,7 +86,7 @@ public:
             int elemtype= disc.common.elemtype;
             int nve_in  = (elemtype==0) ? (nd_in + 1) : std::pow(2, nd_in);
                 
-            std::string fn1 = make_path(disc.common.exasimpath, "text2code/text2code/masternodes.bin");
+            std::string fn1 = make_path(exasim_data_dir(), "masternodes.bin");
             std::vector<dstype> xpe, xpf;
             std::vector<int> telem, tface, perm;
             masternodes(xpe, telem, xpf, tface, perm, porder, nd_in, elemtype, fn1);
@@ -143,6 +143,10 @@ public:
                 host_alloc_backend = 0;
             }
             
+            for (int i = 0; i < npoints*nsca; i++) scafields[i] = 0.0;
+            for (int i = 0; i < 3*npoints*nvec; i++) vecfields[i] = 0.0;
+            for (int i = 0; i < ntc*npoints*nten; i++) tenfields[i] = 0.0;
+
             //cout<<ne<<"  "<<npoints<<endl;
             if (disc.common.mpiRank == 0) printf("finish CVisualization constructor... \n");    
         }        
@@ -289,8 +293,10 @@ public:
         if (rank == 0) {
             std::vector<std::string> pieces;
             pieces.reserve(nranks);
-            for (int r = 0; r < nranks; ++r)
-                pieces.push_back(base_name + rank_tag(r) + ".vtu");
+            for (int r = 0; r < nranks; ++r) {
+                const std::filesystem::path piece = base_name + rank_tag(r) + ".vtu";
+                pieces.push_back(piece.filename().generic_string());
+            }
             write_pvtu(base_name, pieces, scalar_names, vector_names, tensor_names, ntc);
         }
     }
@@ -335,7 +341,7 @@ public:
                 times.push_back(t);
             }
         }
-        cout<<nt<<",  "<<nm<<",  "<<base<<endl;        
+        //cout<<nt<<",  "<<nm<<",  "<<base<<endl;        
         pvdwrite(base, files, times);
     }
 
@@ -358,12 +364,12 @@ private:
         tensor_names = t_names;
         surface_names = surf_names;
 
-        if (!xcg)     throw std::invalid_argument("Visualization: xcg pointer is null.");
-        if (!cgelcon) throw std::invalid_argument("Visualization: cgelcon pointer is null.");
-        if (!telem)   throw std::invalid_argument("Visualization: telem pointer is null.");
+        if (!xcg)     error("Visualization: xcg pointer is null.");
+        if (!cgelcon) error("Visualization: cgelcon pointer is null.");
+        if (!telem)   error("Visualization: telem pointer is null.");
         if (nd != 2 && nd != 3) throw std::invalid_argument("nd must be 2 or 3.");
         if (npoints < 0 || ne <= 0 || npe <= 0 || nce <= 0 || nve <= 0)
-            throw std::invalid_argument("Visualization: invalid sizes (np, ne, npe, nce, nve).");
+            error("Visualization: invalid sizes (np, ne, npe, nce, nve).");
 
         // cgnodes padded to 3D
         cgnodes.assign(3 * npoints, 0.0f);
@@ -516,4 +522,3 @@ private:
         if (!os) throw std::runtime_error("Error writing PVTU file.");
     }
 };
-

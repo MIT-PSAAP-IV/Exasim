@@ -56,8 +56,7 @@ bool isin(Int ib, Int *a, Int n)
     return in;
 }        
 
-template <typename Model>
-void UhatBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
+void UhatBlock(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
         Int nd, Int npe, Int npf, Int nc, Int ncu, Int ncx, Int nco, Int f1, Int f2, Int ib, Int backend)
 {        
@@ -94,59 +93,6 @@ void UhatBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &mas
 
         PutElemNodes(sol.uh, tmp.tempn, npf, ncu, 0, ncu, f1, f2);
     }
-    //else if (isin(ib, common.stgib, common.nstgib)) {        
-//     else if (ib <= 2) {        
-//         // synthetic turbulence generation    
-// //         GetArrayAtIndex(tmp.tempg, sol.xdg, &mesh.findxdg1[npf*ncx*f1], nn*ncx, backend);
-// //         StgHomoTurb2(tmp.tempn, tmp.tempg, app.stgdata, app.uinf, app.stgparam, &app.stgparam[nd], 
-// //                 app.physicsparam, common.time, nn, common.stgNmode, nd, backend);
-//         
-//         GetArrayAtIndex(tmp.tempn, sol.xdg, &mesh.findxdg1[npf*ncx*f1], nn*ncx, backend);
-//         Node2Gauss(handle, &tmp.tempg[n0], tmp.tempn, master.shapfnt, npf, npf, nf*ncx, backend);    
-//     
-//         if (nd==1) {
-//             FaceGeom1D(&tmp.tempg[n2], &tmp.tempg[n1], &tmp.tempg[n3], nga, backend);
-//         }
-//         else if (nd==2){
-//             Node2Gauss(handle, &tmp.tempg[n3], tmp.tempn, &master.shapfnt[npf*npf], npf, npf, nf*nd, backend);                
-//             FaceGeom2D(&tmp.tempg[n2], &tmp.tempg[n1], &tmp.tempg[n3], nga, backend);
-//         }
-//         else if (nd==3) {
-//             Node2Gauss(handle, &tmp.tempg[n3], tmp.tempn, &master.shapfnt[npf*npf], npf, npf, nf*nd, backend);                     
-//             Node2Gauss(handle, &tmp.tempg[n3+nga*nd], tmp.tempn, &master.shapfnt[2*npf*npf], npf, npf, nf*nd, backend);                
-//             FaceGeom3D(&tmp.tempg[n2], &tmp.tempg[n1], &tmp.tempg[n3], nga, backend);
-//         }        
-//         
-//         // uh
-//         StgHomoTurb(&tmp.tempg[n3], &tmp.tempg[n0], app.stgdata,  app.stgparam,
-//                 common.time, nn, common.stgNmode, nd, backend);
-// //         StgHomoTurb2(&tmp.tempg[n3], &tmp.tempg[n0], app.stgdata, app.uinf, app.stgparam, &app.stgparam[nd], 
-// //                 app.physicsparam, common.time, nn, common.stgNmode, nd, backend);
-//         
-//         // udg
-//         GetArrayAtIndex(&tmp.tempg[n4], sol.udg, &mesh.findudg1[npf*nc*f1], nn*nc, backend);        
-//         
-//         // odg
-//         if (nco>0) {
-//             GetFaceNodes(&tmp.tempg[n5], sol.odg, mesh.facecon, npf, nco, npe, nco, f1, f2, 1,backend);       
-//         }
-//         if (ncw>0) {
-//             GetFaceNodes(&tmp.tempg[n6], sol.wdg, mesh.facecon, npf, ncw, npe, ncw, f1, f2, 1,backend);       
-//         }
-//         
-//         UbouDriver<Model>(tmp.tempn, &tmp.tempg[n0], &tmp.tempg[n3], &tmp.tempg[n4], &tmp.tempg[n5], 
-//                 &tmp.tempg[n6], &tmp.tempg[n1], mesh, master, app, sol, tmp, common, 
-//                 npf, f1, f2, ib, backend);
-//         
-//         PutElemNodes(sol.uh, tmp.tempn, npf, ncu, 0, ncu, f1, f2, backend);                        
-//         
-// //         printArray2D(tmp.tempn,nn,ncu,backend);
-// //         printArray2D(app.stgdata,common.stgNmode,10,backend);
-// //         printArray2D(app.stgparam,1,2*nd,backend);
-// //         printArray2D(app.uinf,1,4,backend);
-// //         cout<<common.stgNmode<<endl;
-// //         error("here");        
-//     }
     else {        
         //GetFaceNodes(tmp.tempn, sol.xdg, mesh.facecon, npf, ncx, npe, ncx, f1, f2, 1, backend);            
         //Node2Gauss(handle, &tmp.tempg[n0], tmp.tempn, master.shapfnt, npf, npf, nf*ncx, backend);    
@@ -174,15 +120,14 @@ void UhatBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &mas
             GetFaceNodes(&tmp.tempg[n5], sol.odg, mesh.facecon, npf, nco, npe, nco, f1, f2, 1);       
         }
                 
-        UbouDriver<Model>(tmp.tempn, &tmp.tempg[n0], &tmp.tempg[n4], &tmp.tempg[n5], &tmp.tempg[n6], &tmp.tempg[n3], 
-                 &tmp.tempg[n1], mesh, master, app, sol, tmp, common, npf, f1, f2, ib, backend);
+        UbouDriver(tmp.tempn, &tmp.tempg[n0], &tmp.tempg[n4], &tmp.tempg[n5], &tmp.tempg[n6], &tmp.tempg[n3], 
+                 &tmp.tempg[n1], driver_abi, mesh, master, app, sol, tmp, common, npf, f1, f2, ib, backend);
                                
         PutElemNodes(sol.uh, tmp.tempn, npf, ncu, 0, ncu, f1, f2);
     }
 }
 
-template <typename Model>
-void GetUhat(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
+void GetUhat(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
         Int nbf1, Int nbf2, Int backend)
 {        
@@ -198,16 +143,15 @@ void GetUhat(solstruct &sol, resstruct &res, appstruct &app, masterstruct &maste
         Int f1 = common.fblks[3*j]-1;
         Int f2 = common.fblks[3*j+1];    
         Int ib = common.fblks[3*j+2];    
-        //UhatBlock(sol, res, app, master, mesh, tmp, common, handle, f1, f2, ib, backend);
-        UhatBlock<Model>(sol, res, app, master, mesh, tmp, common,
+        //UhatBlock(sol, res, app, driver_abi, master, mesh, tmp, common, handle, f1, f2, ib, backend);
+        UhatBlock(sol, res, app, driver_abi, master, mesh, tmp, common,
                 handle, nd, npe, npf, nc, ncu, ncx, nco, f1, f2, ib, backend);
     }                           
 }
 
 #ifdef HAVE_ENZYME
-  //// Method 2
-template <typename Model>
-void dUhatBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
+//// Method 2
+void dUhatBlock(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
         Int nd, Int npe, Int npf, Int nc, Int ncu, Int ncx, Int nco, Int f1, Int f2, Int ib, Int backend)
 {        
@@ -263,17 +207,16 @@ void dUhatBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &ma
         ArraySetValue(tmp.tempn, zero, 2*nn*ncu);
 
         // uhat = tempn[0], duhat = tempn[nn*ncu]
-        UbouDriver<Model>(&tmp.tempn[0], &tmp.tempn[nn*ncu], &tmp.tempg[n0], &tmp.tempg[n4], &tmp.tempg[n8],
+        UbouDriver(&tmp.tempn[0], &tmp.tempn[nn*ncu], &tmp.tempg[n0], &tmp.tempg[n4], &tmp.tempg[n8],
                 &tmp.tempg[n5], &tmp.tempg[n6], &tmp.tempg[n9], &tmp.tempg[n3], 
-                &tmp.tempg[n1], mesh, master, app, sol, tmp, common, npf, f1, f2, ib, backend);
+                &tmp.tempg[n1], driver_abi, mesh, master, app, sol, tmp, common, npf, f1, f2, ib, backend);
 
         //Update sol.duh = (duhat/du) v   
         PutElemNodes(sol.duh, &tmp.tempn[nn*ncu], npf, ncu, 0, ncu, f1, f2);
     }
 }
 
-template <typename Model>
-void GetdUhat(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
+void GetdUhat(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
         Int nbf1, Int nbf2, Int backend)
 {        
@@ -289,7 +232,7 @@ void GetdUhat(solstruct &sol, resstruct &res, appstruct &app, masterstruct &mast
         Int f1 = common.fblks[3*j]-1;
         Int f2 = common.fblks[3*j+1];    
         Int ib = common.fblks[3*j+2];    
-        dUhatBlock<Model>(sol, res, app, master, mesh, tmp, common,
+        dUhatBlock(sol, res, app, driver_abi, master, mesh, tmp, common,
                 handle, nd, npe, npf, nc, ncu, ncx, nco, f1, f2, ib, backend);
     }                           
 }

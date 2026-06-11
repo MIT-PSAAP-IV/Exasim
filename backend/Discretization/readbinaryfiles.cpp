@@ -33,14 +33,14 @@
     - void writesolstruct(string filename, solstruct &sol)
         Writes the contents of a solstruct object to a binary file.
 
-    - void readsolstruct(string filename, solstruct &sol, appstruct &app, masterstruct &master, meshstruct &mesh, Int mpirank)
+    - void readsolstruct(string filename, solstruct &sol, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh, Int mpirank)
         Reads solution data from a binary file, with additional logic for initializing solution arrays
         based on the application, master, and mesh structures, and MPI rank.
 
-    - void readInput(appstruct &app, masterstruct &master, meshstruct &mesh, solstruct &sol, string filein, Int mpiprocs, Int mpirank, Int fileoffset, Int omprank)
+    - void readInput(appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh, solstruct &sol, string filein, Int mpiprocs, Int mpirank, Int fileoffset, Int omprank)
         Reads all input data structures from binary files, handling both serial and parallel (MPI) cases.
 
-    - void writeOutput(appstruct &app, masterstruct &master, meshstruct &mesh, solstruct &sol, string fileout, Int mpiprocs, Int mpirank, Int fileoffset, Int omprank)
+    - void writeOutput(appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh, solstruct &sol, string fileout, Int mpiprocs, Int mpirank, Int fileoffset, Int omprank)
         Writes all output data structures to binary files, handling both serial and parallel (MPI) cases.
 
     Dependencies:
@@ -77,6 +77,8 @@ void readappstruct(string filename, appstruct &app)
     app.nsize = readiarrayfromdouble(in, app.lsize[0]);
     app.ndims = readiarrayfromdouble(in, app.nsize[0]);
     app.flag = readiarrayfromdouble(in, app.nsize[1]);
+    app.modelnumber = app.flag[12];
+    if (app.builtinmodelID > 0) app.modelnumber = app.builtinmodelID;
     app.problem = readiarrayfromdouble(in, app.nsize[2]);
     readarray(in, &app.uinf, app.nsize[3]);
     readarray(in, &app.dt, app.nsize[4]);                
@@ -90,7 +92,14 @@ void readappstruct(string filename, appstruct &app)
     app.vindx = readiarrayfromdouble(in, app.nsize[12]);
     readarray(in, &app.dae_dt, app.nsize[13]);   
     app.interfacefluxmap = readiarrayfromdouble(in, app.nsize[14]);
-    readarray(in, &app.avparam, app.nsize[15]);   
+    readarray(in, &app.avparam, app.nsize[15]);
+
+    const Int szwmModelIDs = (app.lsize[0] > 16) ? app.nsize[16] : 0;
+    const Int szwmBoundaries = (app.lsize[0] > 17) ? app.nsize[17] : 0;
+    const Int szwmDistances = (app.lsize[0] > 18) ? app.nsize[18] : 0;
+    if (szwmModelIDs > 0) app.wmModelIDs = readiarrayfromdouble(in, szwmModelIDs);
+    if (szwmBoundaries > 0) app.wmBoundaries = readiarrayfromdouble(in, szwmBoundaries);
+    if (szwmDistances > 0) readarray(in, &app.wmDistances, szwmDistances);
     
     app.szflag = app.nsize[1];
     app.szproblem = app.nsize[2];
@@ -107,6 +116,9 @@ void readappstruct(string filename, appstruct &app)
     app.szdae_dt = app.nsize[13];
     app.szinterfacefluxmap = app.nsize[14];
     app.szavparam = app.nsize[15];
+    app.szwmModelIDs = szwmModelIDs;
+    app.szwmBoundaries = szwmBoundaries;
+    app.szwmDistances = szwmDistances;
 
     #ifdef HAVE_MPP
         char a[50];
@@ -200,6 +212,11 @@ void writeappstruct(string filename, appstruct &app)
     writeiarraytodouble(out, app.stgib, app.nsize[11]);
     writeiarraytodouble(out, app.vindx, app.nsize[12]);
     writearray(out, app.dae_dt, app.nsize[13]);        
+    writeiarraytodouble(out, app.interfacefluxmap, app.nsize[14]);
+    writearray(out, app.avparam, app.nsize[15]);
+    if (app.lsize[0] > 16) writeiarraytodouble(out, app.wmModelIDs, app.nsize[16]);
+    if (app.lsize[0] > 17) writeiarraytodouble(out, app.wmBoundaries, app.nsize[17]);
+    if (app.lsize[0] > 18) writearray(out, app.wmDistances, app.nsize[18]);
     
     // Close file:
     out.close();
@@ -317,8 +334,7 @@ void writemasterstruct(string filename, masterstruct &master)
 }
 
 
-template <typename Model>
-void readmeshstruct(string filename, meshstruct &mesh, solstruct &sol, appstruct &app, masterstruct &master, Int mpirank)
+void readmeshstruct(string filename, meshstruct &mesh, solstruct &sol, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, Int mpirank)
 {
     // Open file to read
     ifstream in(filename.c_str(), ios::in | ios::binary);
@@ -386,7 +402,7 @@ void readmeshstruct(string filename, meshstruct &mesh, solstruct &sol, appstruct
     mesh.intepartpts = readiarrayfromdouble(in, mesh.nsize[28]);
 
     //printf("%d %d %d\n", mesh.nsize[26], mesh.nsize[27], mesh.nsize[28]);
-    //checkConn(mesh, sol, app, master, ti, boundaryConditions, intepartpts, mesh.nsize[27]);    
+    //checkConn(mesh, sol, app, master, ti, boundaryConditions, intepartpts, mesh.nsize[27]);
     if (mesh.nsize[26] > 0 && mesh.nsize[27] > 0 && mesh.szfacecon == 0) {
         if (mpirank==0) printf("Building element and face connectivities \n");         
         buildConn(mesh, sol, app, master, ti, mesh.boundaryConditions, mesh.intepartpts, mesh.nsize[27]);
@@ -495,8 +511,7 @@ void writesolstruct(string filename, solstruct &sol)
     out.close();    
 }
 
-template <typename Model>
-void readsolstruct(string filename, solstruct &sol, appstruct &app, masterstruct &master, string filemesh, Int mpirank)
+void readsolstruct(string filename, solstruct &sol, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, string filemesh, Int mpirank)
 {
     // Open file to read
     ifstream inmesh(filemesh.c_str(), ios::in | ios::binary);
@@ -564,10 +579,10 @@ void readsolstruct(string filename, solstruct &sol, appstruct &app, masterstruct
         cpuArraySetValue(sol.udg, zero, npe*nc*ne);
         
         if (app.flag[1]==0) { //            
-            cpuInituDriver<Model>(sol.udg, sol.xdg, app, ncx, nc, npe, ne, 0);    
+            cpuInituDriver(sol.udg, sol.xdg, driver_abi, app, ncx, nc, npe, ne, 0);    
         }
         else // wave problem
-            cpuInitudgDriver<Model>(sol.udg, sol.xdg, app, ncx, nc, npe, ne, 0);                    
+            cpuInitudgDriver(sol.udg, sol.xdg, driver_abi, app, ncx, nc, npe, ne, 0);                    
         sol.nsize[2] = npe*nc*ne;       
         sol.szudg = sol.nsize[2];
     }
@@ -586,7 +601,7 @@ void readsolstruct(string filename, solstruct &sol, appstruct &app, masterstruct
     }
     else if (nco>0) {
         sol.odg = (dstype*) malloc (sizeof (dstype)*npe*nco*ne);
-        cpuInitodgDriver<Model>(sol.odg, sol.xdg, app, ncx, nco, npe, ne, 0);       
+        cpuInitodgDriver(sol.odg, sol.xdg, driver_abi, app, ncx, nco, npe, ne, 0);       
         sol.nsize[3] = npe*nco*ne;
         sol.szodg = sol.nsize[3];
     } 
@@ -602,7 +617,7 @@ void readsolstruct(string filename, solstruct &sol, appstruct &app, masterstruct
     }
     else if (ncw>0) {
         sol.wdg = (dstype*) malloc (sizeof (dstype)*npe*ncw*ne);    
-        cpuInitwdgDriver<Model>(sol.wdg, sol.xdg, app, ncx, ncw, npe, ne, 0);        
+        cpuInitwdgDriver(sol.wdg, sol.xdg, driver_abi, app, ncx, ncw, npe, ne, 0);        
         sol.nsize[4] = npe*ncw*ne;
         sol.szwdg = sol.nsize[4];
     }
@@ -621,8 +636,7 @@ void readsolstruct(string filename, solstruct &sol, appstruct &app, masterstruct
     in.close();            
 }
 
-template <typename Model>
-void readInput(appstruct &app, masterstruct &master, meshstruct &mesh, solstruct &sol, string filein, 
+void readInput(appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh, solstruct &sol, string filein, 
         Int mpiprocs, Int mpirank, Int fileoffset, Int omprank) 
 {   
     if (mpirank==0) printf("Reading app from binary files \n");  
@@ -650,24 +664,24 @@ void readInput(appstruct &app, masterstruct &master, meshstruct &mesh, solstruct
         string filemesh = filein + "mesh" + NumberToString(filenumber) + ".bin";                    
         
         if (mpirank==0) printf("Reading initial solution from binary files \n");         
-        readsolstruct<Model>(filesol, sol, app, master, filemesh, mpirank);    
+        readsolstruct(filesol, sol, app, driver_abi, master, filemesh, mpirank);    
         
         if (mpirank==0) printf("Reading mesh from binary files \n");            
-        readmeshstruct<Model>(filemesh, mesh, sol, app, master, mpirank);                              
+        readmeshstruct(filemesh, mesh, sol, app, driver_abi, master, mpirank);                              
     }
     else {
         string filesol = filein + "sol.bin";              
         string filemesh = filein + "mesh.bin";                    
 
         if (mpirank==0) printf("Reading initial solution from binary files \n");                       
-        readsolstruct<Model>(filesol, sol, app, master, filemesh, mpirank);    
+        readsolstruct(filesol, sol, app, driver_abi, master, filemesh, mpirank);    
         
         if (mpirank==0) printf("Reading mesh from binary files \n");         
-        readmeshstruct<Model>(filemesh, mesh, sol, app, master, mpirank);                      
+        readmeshstruct(filemesh, mesh, sol, app, driver_abi, master, mpirank);                      
     }    
 }
 
-void writeOutput(appstruct &app, masterstruct &master, meshstruct &mesh, solstruct &sol, string fileout, 
+void writeOutput(appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh, solstruct &sol, string fileout, 
         Int mpiprocs, Int mpirank, Int fileoffset, Int omprank) 
 {
     string fileoutapp = fileout + "app.bin";        
@@ -696,4 +710,3 @@ void writeOutput(appstruct &app, masterstruct &master, meshstruct &mesh, solstru
 }
 
 #endif    
-

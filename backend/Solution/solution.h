@@ -57,14 +57,70 @@ void open_and_write(std::ofstream& ofs,
     writearray(ofs, a, 3);
 }
 
-template <typename Model = DefaultModel>
+void printinterfaceinfo(CDiscretization &disc)
+{
+    disc.common.printinfo();
+    
+    int nnbintf = disc.common.nnbintf;
+    int nfacesend = disc.common.nfacesend;
+    int nfacerecv = disc.common.nfacerecv;
+        
+  //printf("%d %d %d %d %d %d %d %d\n", common.mpiRank, common.coupledboundarycondition, common.nintfaces, common.nfacerecv, common.nfacesend, common.ncie, common.ne, ncu12);
+    printf("coupled boundary condition: %d\n", disc.common.coupledboundarycondition);      
+    printf("coupled interface condition: %d\n", disc.common.coupledcondition);      
+    printf("szinterfacefluxmap: %d\n", disc.common.szinterfacefluxmap);      
+    printf("number of neighboring interface subdomains: %d\n", nnbintf);      
+    printf("number of faces to send: %d\n", nfacesend);
+    printf("number of faces to receive: %d\n", nfacerecv);
+    printf("number of interior elements: %d\n", disc.common.ne0);
+    printf("number of interior+interface elements: %d\n", disc.common.ne1);
+    printf("number of interior+interface+exterior elements: %d\n", disc.common.ne);
+  
+    printf("nbintf array: %d by %d\n", 1, nnbintf);  
+    print2iarray(disc.common.nbintf, 1, nnbintf);   
+    printf("facesend array: %d by %d\n", 1, nfacesend);  
+    print2iarray(disc.common.facesend, 1, nfacesend);   
+    printf("facerecv array: %d by %d\n", 1, nfacerecv);  
+    print2iarray(disc.common.facerecv, 1, nfacerecv);   
+    printf("facesendpts array: %d by %d\n", 1, nnbintf);  
+    print2iarray(disc.common.facesendpts, 1, nnbintf);   
+    printf("facerecvpts array: %d by %d\n", 1, nnbintf);  
+    print2iarray(disc.common.facerecvpts, 1, nnbintf);   
+
+    printf("interfacefluxmap array: %d by %d\n", 1, disc.common.szinterfacefluxmap);  
+    print2iarray(disc.app.interfacefluxmap, 1, disc.common.szinterfacefluxmap);     
+    printf("faceperm array: %d by %d\n", 1, disc.mesh.szfaceperm);  
+    print2iarray(disc.mesh.faceperm, 1, disc.mesh.szfaceperm);     
+    printf("intfaces array: %d by %d\n", 1, disc.common.nintfaces);  
+    print2iarray(disc.mesh.intfaces, 1, disc.common.nintfaces);     
+    printf("bf array: %d by %d\n", disc.common.nfe, disc.common.ne);  
+    print2iarray(disc.mesh.bf, disc.common.nfe, disc.common.ne);     
+    printf("eblks array: %d by %d\n", 3, disc.common.nbe);  
+    print2iarray(disc.common.eblks, 3, disc.common.nbe);    
+    printf("xdgint array: %d by %d\n", disc.common.npf, disc.common.nintfaces*disc.common.ncx);  
+    print2darray(disc.sol.xdgint, disc.common.npf, disc.common.nintfaces*disc.common.ncx);                      
+    printf("xdg array: %d by %d\n", disc.common.npe, disc.common.ne*disc.common.ncx);  
+    print2darray(disc.sol.xdg, disc.common.npe, disc.common.ne*disc.common.ncx);                      
+    // printf("udg array: %d by %d\n", disc.common.npe, disc.common.ne*disc.common.nc);  
+    // print2darray(disc.sol.udg, disc.common.npe, disc.common.ne*disc.common.nc);                      
+}
+
 class CSolution {
 private:
+    struct PDEStateSnapshot {
+        bool initialized = false;
+        dstype *udg = nullptr;
+        dstype *uh = nullptr;
+        dstype *wdg = nullptr;
+        dstype *odg = nullptr;
+    };
+
+    PDEStateSnapshot snapshot;
 public:
-    CDiscretization<Model> disc;  // spatial discretization class
-    CPreconditioner<Model> prec;  // precondtioner class 
-    CSolver<Model> solv;          // linear and nonlinear solvers
-    CVisualization<Model> vis;    // visualization class
+    CDiscretization disc;  // spatial discretization class
+    CPreconditioner prec;  // precondtioner class 
+    CSolver solv;          // linear and nonlinear solvers
+    CVisualization vis;    // visualization class
     ofstream outsol;       // storing solutions
     ofstream outwdg;  
     ofstream outuhat;  
@@ -76,8 +132,11 @@ public:
     ofstream outqoi;
     
     // constructor 
-    CSolution(string filein, string fileout, string exasimpath, Int mpiprocs, Int mpirank, Int fileoffset, Int omprank, Int backend)   
-       : disc(filein, fileout, exasimpath, mpiprocs, mpirank, fileoffset, omprank, backend),
+    CSolution(string filein, string fileout, string exasimpath, Int mpiprocs,
+              Int mpirank, Int fileoffset, Int omprank, Int backend,
+              Int builtinmodelID, const ExasimDriverABI& abi)   
+       : disc(filein, fileout, exasimpath, mpiprocs, mpirank, fileoffset,
+              omprank, backend, builtinmodelID, abi),
          prec(disc, backend), solv(disc, backend), vis(disc, backend) 
     {   
         int ncx = disc.common.ncx;                            
@@ -93,6 +152,18 @@ public:
         int offset = disc.common.fileoffset;
         std::string base = disc.common.fileout;
 
+        if ((disc.common.nintfaces > 0) && (disc.common.coupledcondition>0)) disc.common.ne0 = disc.common.intepartpts[0];
+
+        //this->ReadSolutions(backend);
+        // for (int k = 0; k<mpiprocs; k++) {
+        //   MPI_Barrier(MPI_COMM_WORLD);
+        //   if (k==rank) {
+        //     cout<<rank<<endl;
+        //     printinterfaceinfo(disc);
+        //     cout<<rank<<endl;
+        //   }
+        //   MPI_Barrier(MPI_COMM_WORLD);
+        // }                 
 
         if (mpirank==0 && (disc.common.nvqoi > 0 || disc.common.nsurf > 0)) {
             outqoi.open(base + "qoi.txt", std::ios::out);                         
@@ -150,6 +221,7 @@ public:
     
     // destructor        
     ~CSolution() { 
+        this->ClearSavedState();
         if (outsol.is_open()) { outsol.close(); }
         if (outwdg.is_open()) { outwdg.close(); }
         if (outuhat.is_open()) { outuhat.close(); }
@@ -160,39 +232,18 @@ public:
         if (outbouuhat.is_open()) { outbouuhat.close(); }
         if (outqoi.is_open()) { outqoi.close(); }
     }; 
-
-    // solve steady-state problems
-    void SteadyProblem(Int backend);
     
     void SteadyProblem(ofstream &out, Int backend);    
 
     void SteadyProblem_PTC(ofstream &out, Int backend);    
-            
-    void SteadyProblem(CSolution *subprob, Int backend);    
-    
-    // advance the solution to the next time step using DIRK and BDF schemes
-    void TimeStepping(ofstream &out, dstype time, Int istep, Int backend);
-        
-    // solve time-dependent problems
-    void UnsteadyProblem(ofstream &out, Int backend);    
-        
-    // solve time-dependent problems
-    void DIRK(Int backend);
-    
+                                    
     void DIRK(ofstream &out, Int backend);    
     
-    void DIRK(CSolution *subprob, Int backend);
-
     // precompute some quantities
     void InitSolution(Int backend);    
-    
-    // solve both steady-state and time-dependent problems
-    void SolveProblem(Int backend);    
-    
+        
     void SolveProblem(ofstream &out, Int backend);    
-    
-    void SolveProblem(CSolution *subprob, Int backend);    
-    
+        
     // save solutions in binary files
     void SaveSolutions(Int backend);    
 
@@ -209,19 +260,16 @@ public:
     
     // read solutions from binary files
     void ReadSolutions(Int backend);        
-    
-    // save output in binary files
-    void SaveOutputDG(Int backend);        
-    
+        
     // save output in binary files
     void SaveOutputCG(Int backend);   
 
-  Int PTCsolver(ofstream &out, Int backend);
+    void SaveState();
+    void RestoreState();
+    void ClearSavedState();
 
-
+    Int PTCsolver(ofstream &out, Int backend);
     Int NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int backend);       
 };
 
 #endif        
-
-

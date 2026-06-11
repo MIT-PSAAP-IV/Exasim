@@ -3,19 +3,20 @@ function kkgencode(app)
 disp("generate code...");
 
 if app.codegenerator == "text2code"
-  runstr = "!" + app.exasimpath + "/text2code/text2code/text2code " + app.modelfile + ".txt";
+  runstr = "!" + exasim_install_prefix() + "/bin/text2code " + app.modelfile + ".txt";
   eval(char(runstr));
   return;
 end
 
-%kkdir = app.buildpath + "/model";
-%kkdir = app.exasimpath + "/build/model";
-
-kkdir = app.backendpath + "/Model";
-text = fileread(char(app.backendpath + "/Discretization/KokkosDrivers.cpp"));
-fid = fopen(kkdir + "/" + "KokkosDrivers.cpp", 'w');
-fprintf(fid, text);
-fclose(fid);
+% Generated kernels go to the hidden build dir; cmakecompile points the
+% external-model provider's include path here (no source-tree writes).
+% Generate into a staging dir, then sync write-if-changed into kernels/ so
+% an unchanged model does not touch mtimes (and thus avoids recompiles).
+kkdir = app.builddir + "/kernels.gen";
+if exist(char(kkdir), 'dir')
+    rmdir(char(kkdir), 's');
+end
+mkdir(char(kkdir));
 
 hdggencode(app);
 
@@ -144,7 +145,7 @@ end
 if isfield(pde, 'fbou')    
     f = pde.fbou(u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, tau);
     f = reshape(f,ncu,[]);
-    kkgencodeface("Fbou" + strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, kkdir);
+    kkgencodeface("Fbou" + strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, kkdir, true);
 else
     % disp("WARNING: fbou is not defined in the PDE model")
     error("pde.fbou is not defined");
@@ -152,7 +153,7 @@ end
 if isfield(pde, 'ubou')
     f = pde.ubou(u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, tau);
     f = reshape(f,ncu,[]);
-    kkgencodeface("Ubou" + strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, kkdir);
+    kkgencodeface("Ubou" + strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, kkdir, true);
 else
     % disp("WARNING: ubou is not defined in the PDE model")
     error("pde.ubou is not defined");
@@ -227,4 +228,6 @@ else
     end
 end 
 
+
+exasim_sync_kernels(kkdir, app.builddir + "/kernels");
 end

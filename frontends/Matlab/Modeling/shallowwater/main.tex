@@ -1,0 +1,188 @@
+\documentclass[11pt]{article}
+
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\usepackage{bm}
+\usepackage{physics}
+\usepackage{graphicx}
+
+\geometry{margin=1in}
+
+\title{Governing Equations for Storm Surge Modeling\\
+Depth-Averaged Nonlinear Shallow Water Equations}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+Storm surge in coastal regions is commonly modeled using the depth-averaged nonlinear shallow water equations (2D SWE). These equations describe long-wave, barotropic flow where horizontal length scales are much larger than the vertical scale:
+
+\[
+\frac{H}{L} \ll 1.
+\]
+
+Under this assumption, vertical acceleration is negligible compared to gravity, and the hydrostatic approximation is valid.
+
+\section{Variables and Definitions}
+
+Let
+
+\begin{itemize}
+    \item $\eta(x,y,t)$ = free surface elevation relative to mean sea level,
+    \item $h(x,y)$ = bathymetric depth (positive downward),
+    \item $H = h + \eta$ = total water depth,
+    \item $\bm{u} = (u,v)$ = depth-averaged horizontal velocity,
+    \item $\bm{q} = H\bm{u}$ = volume flux (transport per unit width),
+    \item $\rho_w$ = water density (assumed constant),
+    \item $g$ = gravitational acceleration.
+\end{itemize}
+
+\section{Mass Conservation}
+
+Depth-integrated continuity yields:
+
+\begin{equation}
+\frac{\partial H}{\partial t}
++
+\nabla \cdot (H \bm{u})
+=
+0.
+\end{equation}
+
+This equation states that changes in water depth are governed by horizontal transport divergence.
+
+\section{Momentum Conservation}
+
+The depth-averaged horizontal momentum equations are:
+
+\begin{equation}
+\frac{\partial (H\bm{u})}{\partial t}
++
+\nabla \cdot
+\left(
+H\bm{u}\otimes\bm{u}
++
+\frac{1}{2} g H^2 \bm{I}
+\right)
+=
+\bm{S},
+\end{equation}
+
+where $\bm{I}$ is the identity tensor and $\bm{S}$ contains physical source terms relevant to storm surge.
+
+\section{Physical Source Terms}
+
+The source term includes bathymetry, atmospheric forcing, Coriolis effects, and friction:
+
+\begin{align}
+\bm{S}
+&=
+- g H \nabla h
+- \frac{H}{\rho_w} \nabla p_{atm}
++ \frac{\bm{\tau}_w}{\rho_w}
++ f \hat{\bm{k}} \times (H\bm{u})
+- C_f |\bm{u}| (H\bm{u})
++ \nabla \cdot (\nu H \nabla \bm{u}).
+\end{align}
+
+Each term represents:
+
+\subsection*{Bathymetric Slope}
+\[
+- g H \nabla h
+\]
+Ensures correct balance at rest (well-balanced property).
+
+\subsection*{Atmospheric Pressure Gradient}
+\[
+- \frac{H}{\rho_w} \nabla p_{atm}
+\]
+Represents inverse barometer effect due to low pressure.
+
+\subsection*{Wind Stress}
+\[
+\bm{\tau}_w = \rho_{air} C_D |\bm{U}_{10}| \bm{U}_{10}
+\]
+Surface wind forcing that drives storm surge.
+
+\subsection*{Coriolis Force}
+\[
+f \hat{\bm{k}} \times (H\bm{u}),
+\qquad
+f = 2 \Omega \sin\phi
+\]
+Important for large-scale coastal basins.
+
+\subsection*{Bottom Friction}
+Quadratic drag:
+\[
+- C_f |\bm{u}| (H\bm{u})
+\]
+or Manning formulation:
+\[
+- g n^2 \frac{|\bm{u}|}{H^{1/3}} (H\bm{u}).
+\]
+
+\subsection*{Horizontal Viscosity}
+\[
+\nabla \cdot (\nu H \nabla \bm{u})
+\]
+Represents unresolved turbulence.
+
+\section{Final Governing System}
+
+The complete depth-averaged nonlinear shallow water system for storm surge is:
+
+\begin{equation}
+\boxed{
+\begin{aligned}
+\frac{\partial H}{\partial t}
++
+\nabla \cdot (H\bm{u})
+&= 0, \\
+\frac{\partial (H\bm{u})}{\partial t}
++
+\nabla \cdot
+\left(
+H\bm{u}\otimes\bm{u}
++
+\frac{1}{2} g H^2 \bm{I}
+\right)
+&=
+- g H \nabla h
+- \frac{H}{\rho_w} \nabla p_{atm}
++ \frac{\bm{\tau}_w}{\rho_w}
++ f \hat{\bm{k}} \times (H\bm{u})
+- C_f |\bm{u}| (H\bm{u}).
+\end{aligned}
+}
+\end{equation}
+
+\section{Wave Speed and CFL Condition}
+
+The characteristic gravity wave speed is:
+
+\[
+c = \sqrt{gH}.
+\]
+
+Time stepping must satisfy a CFL condition based on this speed.
+
+\section{Physical Interpretation}
+
+Storm surge arises from:
+
+\begin{itemize}
+    \item Wind stress pushing water toward the coast,
+    \item Low atmospheric pressure elevating the sea surface,
+    \item Coastal boundaries trapping water,
+    \item Nonlinear shallow water dynamics amplifying long waves.
+\end{itemize}
+
+The shallow water equations capture these effects through conservative mass and momentum balances.
+
+\end{document}

@@ -1,0 +1,133 @@
+name: smoke (CPU)
+
+# End-to-end smoke test of the one-command superbuild + the consolidated ctest
+# suite: build Exasim's CPU stack out of tree, install it, then run the tests.
+# This is the gate for merging into the integration branch.
+#
+# Stages (separate steps so failures are attributable at a glance):
+#   1. Configure + Build  — repo in src/, superbuild in build/ beside it
+#                           (out of tree), installs to build/install
+#   2. Test               — ctest; every registered test listed below
+#   3. Test summary       — per-test pass/fail/skip table in the run summary
+#
+# Registered tests (see tests/README.md):
+#   consumer_builtin_cpu   — out-of-tree find_package consumer, CPU (NP=1)
+#   consumer_builtin_mpi   — same, CPU+MPI (mpirun -np 2)
+#   frontend_python        — Poisson 2D via the installed exasim package (RUNS here)
+#   frontend_julia         — same via Exasim.jl (SKIPs here: no julia on runner)
+#   frontend_matlab        — same via the MATLAB frontend (SKIPs here: no MATLAB)
+#   frontend_python_modelcache — per-user model cache reuse (RUNS here)
+#   builtin_model4_kernel_equivalence — text2code-regenerated model 4 kernels
+#                            match the legacy checked-in ones to machine
+#                            precision: 35 comparisons incl. all 9 HDG BCs and
+#                            the analytic jacobians (RUNS here)
+#
+# Heavy deps are taken off the hot path: METIS/ParMETIS, BLAS/LAPACK and MPI
+# from the system (apt); the vendored serial Kokkos and SymEngine are built from
+# source once and cached by their source hashes, so reruns skip them. Bounded
+# parallelism (JOBS=2) keeps the cold build under the standard-runner memory
+# limits that previously OOM'd. (SymEngine is cached rather than apt-installed
+# because libsymengine-dev is not packaged on the GitHub-hosted runners.)
+
+on:
+  push:
+    branches: [teoc-Kitesurf-Coupling-build-and-test, teoc-other-frontends-and-misc-cleanup, teoc-examples-migration]
+  pull_request:
+    branches: [Kitesurf-Coupling, teoc-Kitesurf-Coupling-build-and-test]
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: smoke-cpu-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Fast pre-build check: no .DS_Store, no prebuilt binaries, no gitignore bypass.
+  # Runs on every push; cheap (git only, no build tools needed).
+  hygiene:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Repo hygiene check
+        run: bash tests/check-hygiene.sh
+
+  build-and-test:
+    # Standard GitHub-hosted runner — always available with no org configuration.
+    # Pinned to 22.04 (jammy): the externalized deps below are reliably packaged
+    # there. If a larger runner is enabled for the repo, bump this.
+    runs-on: ubuntu-22.04
+    env:
+      # Out-of-tree: the repo is checked out into src/, the build lives in
+      # build/ beside it (both inside the workspace — actions/cache cannot
+      # reference paths outside it).
+      BUILD_DIR: ${{ github.workspace }}/build
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: src
+
+      - name: System packages (externalized deps)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake git \
+            libblas-dev liblapack-dev \
+            libmetis-dev libparmetis-dev \
+            libopenmpi-dev openmpi-bin
+
+      # The two from-source deps are built once and cached (build/deps/...);
+      # the superbuild detects them on a hit. cache-warm.yml keeps these
+      # caches alive on a schedule (keys must stay in sync with it).
+      - name: Cache vendored Kokkos (serial)
+        uses: actions/cache@v4
+        with:
+          path: build/deps/kokkos/buildserial
+          key: kokkos-serial-oot-${{ runner.os }}-${{ hashFiles('src/deps/kokkos/Makefile.builds', 'src/deps/kokkos/CMakeLists.txt') }}
+
+      - name: Cache vendored SymEngine
+        uses: actions/cache@v4
+        with:
+          path: build/deps/symengine
+          key: symengine-oot-${{ runner.os }}-${{ hashFiles('src/deps/symengine/CMakeLists.txt') }}
+
+      - name: Python frontend dependencies
+        run: python3 -m pip install --user numpy scipy sympy
+
+      - name: Configure + Build (out of tree)
+        run: |
+          cmake -S src -B "$BUILD_DIR" -DEXASIM_BUILD_TESTS=ON \
+                -DCMAKE_INSTALL_PREFIX="$BUILD_DIR/install"
+          cmake --build "$BUILD_DIR" --parallel 2
+
+      - name: Test (ctest)
+        env:
+          JOBS: "2"
+        run: |
+          ctest --test-dir "$BUILD_DIR/exasim_build-prefix/src/exasim_build-build" \
+                --output-on-failure \
+                --output-junit "$RUNNER_TEMP/ctest-results.xml"
+
+      - name: Test summary
+        if: always()
+        run: |
+          python3 - "$RUNNER_TEMP/ctest-results.xml" >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+          import sys, xml.etree.ElementTree as ET
+          try:
+              root = ET.parse(sys.argv[1]).getroot()
+          except Exception as e:
+              print(f"### Test results\n\n_no ctest results file ({e})_")
+              raise SystemExit(0)
+          print("### Test results\n")
+          print("| test | result | time |")
+          print("|---|---|---|")
+          for case in root.iter("testcase"):
+              name = case.get("name")
+              t = float(case.get("time", "0"))
+              if case.find("failure") is not None or case.get("status") == "fail":
+                  res = "❌ failed"
+              elif case.find("skipped") is not None:
+                  res = "⏭️ skipped"
+              else:
+                  res = "✅ passed"
+              print(f"| `{name}` | {res} | {t:.1f}s |")
+          EOF

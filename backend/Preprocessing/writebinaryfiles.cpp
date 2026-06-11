@@ -263,7 +263,7 @@ void writemesh(const PDE& pde,
     std::cout << "Finished writing mesh to " + filename << std::endl;
 }
 
-//#ifdef HAVE_METIS
+#ifdef HAVE_METIS
 void partitionMesh(std::vector<int>& epart, std::vector<int>& npart, std::vector<int>& eind, 
          int ne, int np, int nve, int nvf, int nparts) 
 { 
@@ -292,7 +292,7 @@ void partitionMesh(std::vector<int>& epart, std::vector<int>& npart, std::vector
         std::cout << "Finished partitioning mesh using METIS" << std::endl;
     }    
 }
-//#endif
+#endif
 
 void writeBinaryFiles(PDE& pde, Mesh& mesh, const Master& master, const ParsedSpec& spec) 
 {
@@ -301,24 +301,14 @@ void writeBinaryFiles(PDE& pde, Mesh& mesh, const Master& master, const ParsedSp
     ensure_dir(pde.datainpath);
     ensure_dir(pde.dataoutpath);
     
-    for (const auto& vec : spec.vectors) {
-        const std::string& name = vec.first;
-        int size = vec.second;
-        //std::cout<<name<<" : "<<size<<std::endl;
-        if (name == "uhat") pde.ncu = size;
-        if (name == "v") pde.ncv = size;
-        if (name == "w") pde.ncw = size;
-        if (name == "uq") pde.nc = size;        
+    pde.nd = mesh.dim;
+    pde.ncx = mesh.dim;
+    if (useBuiltInAppMetadata(pde)) {
+        validateBuiltInAppMetadata(pde);
+    } else {
+        applyParsedSpecMetadata(pde, spec);
     }
-
-    for (int i=0; i<spec.functions.size(); i++) {
-        //std::cout<<spec.functions[i].name<<" : "<<spec.functions[i].outputsize<<std::endl;
-        if (spec.functions[i].name == "VisScalars") pde.nsca = spec.functions[i].outputsize;
-        if (spec.functions[i].name == "VisVectors") pde.nvec = spec.functions[i].outputsize/pde.nd;
-        if (spec.functions[i].name == "VisTensors") pde.nten = spec.functions[i].outputsize/(pde.nd*pde.nd);
-        if (spec.functions[i].name == "QoIboundary") pde.nsurf = spec.functions[i].outputsize;
-        if (spec.functions[i].name == "QoIvolume") pde.nvqoi = spec.functions[i].outputsize;
-    }
+    finalizePDEModelSizes(pde);
     
     writepde(pde, make_path(pde.datainpath, "app.bin"));
     writemaster(master, make_path(pde.datainpath, "master.bin"));    
@@ -329,10 +319,14 @@ void writeBinaryFiles(PDE& pde, Mesh& mesh, const Master& master, const ParsedSp
         if (pde.mpiprocs>1) {
         
             if ((pde.partitionfile == "") || (mesh.elem2cpu.size() == 0)) {
+#ifdef HAVE_METIS          
                 vector<int> node2cpu;
                 partitionMesh(mesh.elem2cpu, node2cpu, mesh.t, mesh.ne, mesh.np, mesh.nve, mesh.nvf, pde.mpiprocs);
                 node2cpu.resize(0);
                 for (int i=0; i<mesh.ne; i++) mesh.elem2cpu[i] += 1;        
+#else
+                error("mpiprocs > 1 requires a mesh partition array. \nPlease include the required mesh partition array in a binary file\nand set partitionfile to the name of the file.");      
+#endif                  
             }
 
             for (int i=0; i<mesh.ne; i++) mesh.elem2cpu[i] -= 1;                    

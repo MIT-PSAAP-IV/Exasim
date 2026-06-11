@@ -13,7 +13,6 @@
  * Methods:
  * - CPreconditioner(CDiscretization& disc, Int backend): Constructor that initializes the preconditioner with the given discretization and backend.
  * - ~CPreconditioner(): Destructor.
- * - ConstructPreconditioner(sysstruct& sys, CDiscretization& disc, Int backend): Constructs the preconditioner based on the system and discretization.
  * - ComputeInitialGuessAndPreconditioner(sysstruct& sys, CDiscretization& disc, Int backend): Computes the initial guess and constructs the preconditioner.
  * - ComputeInitialGuessAndPreconditioner(sysstruct& sys, CDiscretization& disc, Int N, Int spatialScheme, Int backend): Overloaded method to compute initial guess and preconditioner with additional parameters.
  * - ApplyPreconditioner(dstype* v, sysstruct& sys, CDiscretization& disc, Int backend): Applies the preconditioner to a vector.
@@ -22,7 +21,6 @@
 #ifndef __PRECONDITIONER_H__
 #define __PRECONDITIONER_H__
 
-template <typename Model>
 class CPreconditioner {
 private:
 public:
@@ -31,21 +29,18 @@ public:
     int mpiRank;
     
     // constructor 
-    CPreconditioner(CDiscretization<Model>& disc, Int backend); 
+    CPreconditioner(CDiscretization& disc, Int backend); 
     
     // destructor        
     ~CPreconditioner(); 
-
-    // Construct the precontioner
-    void ConstructPreconditioner(sysstruct& sys, CDiscretization<Model>& disc, Int backend);
             
-    void ComputeInitialGuessAndPreconditioner(sysstruct& sys, CDiscretization<Model>& disc, Int backend);
+    void ComputeInitialGuessAndPreconditioner(sysstruct& sys, CDiscretization& disc, Int backend);
     
-    void ComputeInitialGuessAndPreconditioner(sysstruct& sys, CDiscretization<Model>& disc, Int N, Int spatialScheme, Int backend);
+    void ComputeInitialGuessAndPreconditioner(sysstruct& sys, CDiscretization& disc, Int N, Int spatialScheme, Int backend);
     
     // apply the precontioner: Pv = P(u)*v
-    void ApplyPreconditioner(dstype* v, sysstruct& sys, CDiscretization<Model>& disc, Int backend);
-    void ApplyPreconditioner(dstype* v, sysstruct& sys, CDiscretization<Model>& disc, Int spatialScheme, Int backend);
+    void ApplyPreconditioner(dstype* v, sysstruct& sys, CDiscretization& disc, Int backend);
+    void ApplyPreconditioner(dstype* v, sysstruct& sys, CDiscretization& disc, Int spatialScheme, Int backend);
 };
 
 #endif        

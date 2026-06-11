@@ -114,8 +114,8 @@ void UpdateSolution(solstruct &sol, sysstruct &sys, commonstruct &common, Int ba
         UpdateSolutionBDF(sol, sys, common, backend);
 }
 
-template <typename Model>
-void UpdateSolution(solstruct &sol, sysstruct &sys, appstruct &app, resstruct &res, tempstruct &tmp, commonstruct &common, Int backend)
+
+void UpdateSolution(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriverABI& driver_abi, resstruct &res, tempstruct &tmp, commonstruct &common, Int backend)
 {                                   
     Int N = common.ndof1;
     Int N2 = common.npe*common.nc*common.ne2;                        
@@ -160,7 +160,7 @@ void UpdateSolution(solstruct &sol, sysstruct &sys, appstruct &app, resstruct &r
                 GetElemNodes(udg, sol.udg, common.npe, nc, 0, nc, e1, e2);
                 GetElemNodes(odg, sol.odg, common.npe, nco, 0, nco, e1, e2);
                 GetElemNodes(sdg, sol.wsrc, common.npe, ncw, 0, ncw, e1, e2);
-                wEquation<Model>(wdg, xdg, udg, odg, sdg, tmp.tempg, app, common, ng, common.backend);
+                wEquation(wdg, xdg, udg, odg, sdg, tmp.tempg, app, driver_abi, common, ng, common.backend);
                 PutElemNodes(sol.wdg, wdg, common.npe, ncw, 0, ncw, e1, e2);
             }   
         }

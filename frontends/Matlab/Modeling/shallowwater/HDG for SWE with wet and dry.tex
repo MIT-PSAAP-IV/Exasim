@@ -1,0 +1,490 @@
+\documentclass[11pt]{article}
+
+\usepackage{amsmath,amssymb,bm}
+\usepackage{geometry}
+\usepackage{physics}
+\usepackage{amsfonts}
+
+\geometry{margin=1in}
+
+\title{Implicit DG/HDG Algorithm for the 2D SWE with Wetting and Drying}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+You’re right: Exasim’s DG/HDG time integration is typically implicit (Backward Euler / DIRK + Newton–Krylov), so the ``explicit-update → limiter → dry-enforcement'' workflow needs to be adapted.
+
+A robust implicit wetting/drying (W/D) scheme for 2D SWE hinges on one key design choice:
+
+How you enforce $H \ge 0$ inside Newton iterations.
+
+Below are two practical, working approaches used in implicit solvers. I present an implicit HDG algorithm (with static condensation) and show where wet/dry logic enters.
+
+\section*{0) Problem setup}
+
+Unknowns (conservative):
+\[
+\mathbf{U} = (H,\ q_x,\ q_y), \qquad \mathbf{q} = H\mathbf{u}.
+\]
+
+Let the semi-discrete HDG residual be
+\[
+\mathcal{R}(\mathbf{U}, \widehat{\mathbf{U}};\ z_b,\text{params}) = 0,
+\]
+where $\widehat{\mathbf{U}}$ are trace unknowns on faces (global), and $\mathbf{U}$ are element unknowns (local).
+
+Implicit time step (Backward Euler shown; DIRK is similar stage-by-stage):
+\[
+\mathbf{G}(\mathbf{U}^{n+1}, \widehat{\mathbf{U}}^{n+1})
+=
+\frac{\mathbf{U}^{n+1}-\mathbf{U}^n}{\Delta t}
++\mathcal{R}(\mathbf{U}^{n+1},\widehat{\mathbf{U}}^{n+1})
+=0.
+\]
+
+\section*{1) The central difficulty in implicit W/D}
+
+In Newton iterations, intermediate iterates can produce:
+\begin{itemize}
+\item negative $H$,
+\item huge $\mathbf{u}=\mathbf{q}/H$,
+\item invalid wave speeds $\sqrt{gH}$,
+\item divergence of the nonlinear solve.
+\end{itemize}
+
+So for implicit methods, you typically do one of:
+
+\subsection*{Option A (recommended): Depth transform to guarantee positivity}
+
+Represent depth as
+\[
+H = H_{\min} + \exp(\phi)
+\]
+(or softplus), and solve for $\phi$ instead of $H$.
+
+This makes $H>H_{\min}$ automatically for every Newton iterate, which is extremely stabilizing.
+
+\subsection*{Option B: Active-set / projection (semi-smooth Newton)}
+
+Treat dryness as an inequality constraint:
+\[
+H \ge 0,\quad \mathbf{q}=0\ \text{when dry},
+\]
+and update the wet/dry set inside the nonlinear iterations.
+
+This can be more ``physically sharp'' but is harder to implement robustly.
+
+Given you want something robust in Exasim, Option A is usually the best starting point.
+
+\section*{2) Implicit HDG algorithm with positivity via depth transform (Option A)}
+
+\subsection*{Unknowns}
+
+Solve for:
+\[
+\mathbf{W}=(\phi,\ q_x,\ q_y),\quad \widehat{\mathbf{W}}=(\widehat{\phi},\ \widehat{q}_x,\ \widehat{q}_y),
+\]
+and map to conservative variables:
+\[
+H(\phi)=H_{\min}+\exp(\phi),\qquad \mathbf{U}(\mathbf{W})=(H(\phi),q_x,q_y).
+\]
+
+\subsection*{Wet/dry classification (used only for physics switches)}
+
+Define a smooth wet indicator to avoid discontinuities in Newton:
+\[
+\chi(H)=\frac{1}{2}\left(1+\tanh\left(\frac{H-H_{\text{dry}}}{\varepsilon}\right)\right)\in(0,1),
+\]
+with $\varepsilon$ small (e.g. $0.1H_{\text{dry}}$).
+
+Use $\chi$ to smoothly turn on/off terms that are problematic near dry states (e.g., friction, wind stress, certain closures).
+
+\subsection*{Regularized velocity used in fluxes/closures}
+
+\[
+\mathbf{u} = \frac{\mathbf{q}}{H_{\text{reg}}},\qquad
+H_{\text{reg}}=\max(H, H_{\text{dry}})
+\]
+(or a smooth max).
+
+\subsection*{Hydrostatic reconstruction in fluxes (well-balanced + W/D safe)}
+
+On each face quadrature point, use reconstructed nonnegative depths built from $\eta$ and bed elevation (your convention consistent):
+\[
+\eta = H + z_b,\qquad z_b^\*=\max(z_{b,L},z_{b,R}),
+\]
+\[
+H_L^\*=\max(H_{\min},\eta_L-z_b^\*),\qquad
+H_R^\*=\max(H_{\min},\eta_R-z_b^\*),
+\]
+and reconstructed momenta $\mathbf{q}^\* = H^\*\mathbf{u}$ with regularized $\mathbf{u}$.
+
+\subsection*{Implicit step: Newton–Krylov with HDG condensation}
+
+At time step $n\to n+1$, solve:
+\[
+\mathbf{F}(\mathbf{W},\widehat{\mathbf{W}})
+=
+\frac{\mathbf{U}(\mathbf{W})-\mathbf{U}^n}{\Delta t}
++
+\mathcal{R}(\mathbf{U}(\mathbf{W}), \widehat{\mathbf{U}}(\widehat{\mathbf{W}}))
+=0.
+\]
+
+\subsubsection*{Algorithm block (Backward Euler; HDG)}
+
+\begin{enumerate}
+\item \textbf{Initialize} $\mathbf{W}^{(0)}$ from $\mathbf{U}^n$:  
+$\phi^{(0)}=\log(\max(H^n-H_{\min},\text{tiny}))$, $\mathbf{q}^{(0)}=\mathbf{q}^n$.  
+Initialize $\widehat{\mathbf{W}}^{(0)}$ similarly (or extrapolate).
+
+\item \textbf{Newton loop} for $k=0,1,\dots$:
+\begin{itemize}
+\item Local element solves (static condensation preparation):  
+For each element $K$, given trace guess $\widehat{\mathbf{W}}^{(k)}$, compute the element residual and local Jacobian blocks
+\[
+\mathbf{F}_K(\mathbf{W}_K,\widehat{\mathbf{W}}_K)=0,
+\]
+including:
+\begin{itemize}
+\item hydrostatic reconstruction in numerical flux,
+\item regularized velocity $\mathbf{u}(\mathbf{W})$,
+\item smooth wet indicator $\chi(H)$ gating stiff/degenerate terms.
+\end{itemize}
+
+\item Condense element unknown increments $\delta \mathbf{W}_K$ to obtain a global system for trace increments $\delta \widehat{\mathbf{W}}$:
+\[
+\mathbf{S}\,\delta \widehat{\mathbf{W}} = -\mathbf{g},
+\]
+where $\mathbf{S}$ is the HDG Schur complement.
+
+\item Solve the global linear system with GMRES (preconditioned).
+
+\item Recover local increments $\delta \mathbf{W}_K$ element-by-element.
+
+\item Line search / damping to ensure stability of Newton:
+\[
+\mathbf{W}^{(k+1)}=\mathbf{W}^{(k)}+\alpha \delta \mathbf{W},\quad
+\widehat{\mathbf{W}}^{(k+1)}=\widehat{\mathbf{W}}^{(k)}+\alpha \delta \widehat{\mathbf{W}},
+\]
+with $\alpha\in(0,1]$ chosen to reduce $\|\mathbf{F}\|$.  
+(Positivity is automatic because $H=H_{\min}+\exp(\phi)$.)
+
+\item Converge when $\|\mathbf{F}\|$ and/or $\|\delta\|$ are below tolerance.
+\end{itemize}
+
+\item \textbf{Post-step ``hard'' dryness option (optional)}:  
+If you want strictly dry cells (not thin film), you can apply:
+if $H < H_{\text{dry}}$ then set $\mathbf{q}=0$ (and optionally clamp $H\to H_{\min}$) after convergence.  
+This is not required, but sometimes helpful for clean dry masks.
+\end{enumerate}
+
+Why this works well in implicit HDG:
+\begin{itemize}
+\item Newton never sees negative $H$.
+\item Flux wave speeds remain real.
+\item The only non-smoothness left is in wet/dry switching, which we smooth with $\chi(H)$.
+\end{itemize}
+
+\section*{3) Implicit HDG algorithm with an active-set dry mask (Option B)}
+
+If you insist on true dry states ($H=0$) inside the solve (no thin film), you can do an active-set strategy.
+
+\subsection*{Key idea}
+
+At Newton iteration $k$, define wet set:
+\[
+\mathcal{W}^{(k)}=\{K:\ \bar H_K^{(k)} > H_{\text{dry}}\},\qquad
+\mathcal{D}^{(k)}=\Omega\setminus\mathcal{W}^{(k)}.
+\]
+
+Then enforce in dry elements:
+\[
+H=0,\quad \mathbf{q}=0,
+\]
+and remove those DOFs from the Newton update (or strongly penalize them).
+
+\subsection*{Semi-smooth Newton / active set loop}
+
+At each Newton iteration:
+\begin{enumerate}
+\item Compute $\bar H_K^{(k)}$, update $\mathcal{W}^{(k)},\mathcal{D}^{(k)}$.
+\item Assemble residual/Jacobian:
+\begin{itemize}
+\item In wet cells: full SWE residual.
+\item In dry cells: constraints residual $H=0,\mathbf{q}=0$.
+\end{itemize}
+\item Solve condensed HDG linear system for increments.
+\item Apply line search that prevents ``unphysical'' creation of negative depths.
+\item Repeat until both:
+\begin{itemize}
+\item residual small,
+\item active set no longer changes.
+\end{itemize}
+\end{enumerate}
+
+This is more complex and less forgiving than the transform approach, but it can give a sharper shoreline.
+
+\section*{4) What I recommend for Exasim}
+
+Start with Option A (depth transform) plus:
+\begin{itemize}
+\item hydrostatic reconstruction in fluxes,
+\item smooth wet indicator $\chi(H)$,
+\item regularized division $\mathbf{q}/H_{\text{reg}}$,
+\item implicit treatment of friction (it fits naturally in BE/IRK).
+\end{itemize}
+
+This combination is the most robust path to a convergent implicit solver with W/D.
+
+\section*{5) Minimal implicit HDG W/D algorithm block you can implement first}
+
+\begin{enumerate}
+\item Use Backward Euler.
+\item Solve with Newton–GMRES + HDG condensation.
+\item Enforce $H>0$ via $H=H_{\min}+\exp(\phi)$.
+\item Use hydrostatic reconstruction for face fluxes.
+\item Gate stiff terms with $\chi(H)$.
+\end{enumerate}
+
+That gets you a stable, production-capable baseline.
+
+If you tell me which Exasim SWE form you’re using (e.g., $(H,Hu,Hv)$ with bathymetry source split, and your exact bed convention $z_b$ vs $h$), I can write the exact HDG residual form $\mathcal{R}$ and its block Jacobian structure suitable for static condensation (including which terms to lag vs differentiate for better Newton robustness).
+
+
+\
+
+\
+
+\noindent 
+{\Large \textbf{2D Nonlinear Shallow Water Equations in Transformed Variables $(\phi,q_x,q_y)$}}
+
+\
+
+
+Below is the 2D nonlinear SWE rewritten with the positivity-enforcing transformation
+\[
+H(\phi)=H_{\min}+e^{\phi},\qquad H_{\min}\ge 0,
+\]
+using the unknowns $(\phi,q_x,q_y)$ where $\mathbf{q}=(q_x,q_y)$.
+
+I give (i) the conservative form with transformed depth, (ii) the expanded $\phi$-equation, and (iii) a clean vector form.
+
+\section*{1) Start from conservative SWE in $(H,\mathbf{q})$}
+
+Mass:
+\[
+\partial_t H+\nabla\cdot\mathbf{q}=0.
+\]
+
+Momentum:
+\[
+\partial_t \mathbf{q}+\nabla\cdot\!\left(\frac{\mathbf{q}\otimes\mathbf{q}}{H}+\frac{1}{2}gH^2\mathbf{I}\right)
+=-gH\nabla z_b+\mathbf{S}_{phys},
+\]
+where $z_b(x,y)$ is bed elevation (positive upward) and $\eta=H+z_b$.
+
+\section*{2) Substitute $H = H_{\min}+e^{\phi}$}
+
+Define
+\[
+H(\phi)=H_{\min}+e^{\phi},\qquad
+\partial_t H = e^{\phi}\,\partial_t\phi,\qquad
+\nabla H = e^{\phi}\,\nabla\phi.
+\]
+
+\subsection*{2.1 Continuity equation in $\phi$}
+
+From $\partial_t H+\nabla\cdot\mathbf{q}=0$:
+\[
+e^{\phi}\,\partial_t\phi+\nabla\cdot\mathbf{q}=0.
+\]
+
+Equivalently,
+\[
+\boxed{\;\partial_t\phi=-e^{-\phi}\,\nabla\cdot\mathbf{q}\;}
+\]
+(note the singularity as $\phi\to -\infty$ corresponds to $H\to H_{\min}$; numerically you often keep $H_{\min}>0$ and/or regularize).
+
+\section*{3) Momentum equations in $(\phi,q_x,q_y)$}
+
+The momentum PDE remains an evolution equation for $\mathbf{q}$, with $H(\phi)$ inserted wherever $H$ appears.
+
+Let
+\[
+H(\phi)=H_{\min}+e^{\phi}.
+\]
+
+Then
+\[
+\boxed{
+\partial_t \mathbf{q}
++\nabla\cdot\!\left(\frac{\mathbf{q}\otimes\mathbf{q}}{H(\phi)}
++\frac{1}{2}g\,H(\phi)^2\,\mathbf{I}\right)
+=
+-g\,H(\phi)\,\nabla z_b
++\mathbf{S}_{phys}(\phi,\mathbf{q})
+}.
+\]
+
+Written componentwise ($i=x,y$):
+\[
+\partial_t q_i
++
+\partial_x\!\left(\frac{q_i q_x}{H(\phi)}\right)
++
+\partial_y\!\left(\frac{q_i q_y}{H(\phi)}\right)
++
+\partial_i\!\left(\frac{1}{2}gH(\phi)^2\right)
+=
+-gH(\phi)\,\partial_i z_b
++S_i.
+\]
+
+You can combine the pressure gradient and bed slope term using $\eta=H+z_b$:
+\[
+\partial_i\!\left(\frac{1}{2}gH^2\right)+gH\,\partial_i z_b
+= gH\,\partial_i(H+z_b)=gH\,\partial_i\eta,
+\]
+so the momentum equation can also be expressed as
+\[
+\boxed{
+\partial_t \mathbf{q}
++\nabla\cdot\!\left(\frac{\mathbf{q}\otimes\mathbf{q}}{H(\phi)}\right)
++g\,H(\phi)\,\nabla \eta
+=
+\mathbf{S}_{phys}
+}.
+\]
+(Choose the form that best matches your well-balanced discretization; hydrostatic reconstruction is usually built around $\eta$.)
+
+\section*{4) Full transformed system (compact)}
+
+Let the state be
+\[
+\mathbf{W}=(\phi,q_x,q_y)^T,\qquad H(\phi)=H_{\min}+e^{\phi}.
+\]
+
+Then
+\[
+\boxed{
+\begin{aligned}
+e^{\phi}\,\partial_t\phi+\nabla\cdot\mathbf{q}&=0,\\[4pt]
+\partial_t \mathbf{q}
++\nabla\cdot\!\left(\frac{\mathbf{q}\otimes\mathbf{q}}{H(\phi)}
++\frac{1}{2}gH(\phi)^2\mathbf{I}\right)
+&=-gH(\phi)\nabla z_b+\mathbf{S}_{phys}(\phi,\mathbf{q}).
+\end{aligned}
+}
+\]
+
+We begin with the transformed continuity equation
+
+\[
+\partial_t\phi + e^{-\phi}\,\nabla\cdot\mathbf{q} = 0.
+\]
+
+Let 
+\[
+a(\phi)=e^{-\phi}.
+\]
+
+Then the vector calculus identity (product rule) states
+
+\[
+\nabla\cdot(a\,\mathbf{q}) 
+= a\,\nabla\cdot\mathbf{q} + \mathbf{q}\cdot\nabla a.
+\]
+
+Rearranging,
+
+\[
+a\,\nabla\cdot\mathbf{q}
+=
+\nabla\cdot(a\,\mathbf{q})
+-
+\mathbf{q}\cdot\nabla a.
+\]
+
+Substituting $a = e^{-\phi}$ into the transformed continuity equation gives
+
+\[
+\partial_t\phi
++
+\nabla\cdot(e^{-\phi}\mathbf{q})
+-
+\mathbf{q}\cdot\nabla(e^{-\phi})
+= 0.
+\]
+
+Now compute the gradient:
+
+\[
+\nabla(e^{-\phi})
+=
+- e^{-\phi}\nabla\phi.
+\]
+
+Therefore,
+
+\[
+-\mathbf{q}\cdot\nabla(e^{-\phi})
+=
+-\mathbf{q}\cdot(-e^{-\phi}\nabla\phi)
+=
+e^{-\phi}\,\mathbf{q}\cdot\nabla\phi.
+\]
+
+Thus the correctly expanded form is
+
+\[
+\boxed{
+\partial_t\phi
++
+\nabla\cdot(e^{-\phi}\mathbf{q})
++
+e^{-\phi}\,\mathbf{q}\cdot\nabla\phi
+= 0.
+}
+\]
+
+
+Then
+\[
+\boxed{
+\begin{aligned}
+\partial_t\phi
++
+\nabla\cdot(e^{-\phi}\mathbf{q})
++
+e^{-\phi}\,\mathbf{q}\cdot\nabla\phi
+& = 0,\\[4pt]
+\partial_t \mathbf{q}
++\nabla\cdot\!\left(\frac{\mathbf{q}\otimes\mathbf{q}}{H(\phi)}
++\frac{1}{2}gH(\phi)^2\mathbf{I}\right)
+&=-gH(\phi)\nabla z_b+\mathbf{S}_{phys}(\phi,\mathbf{q}).
+\end{aligned}
+}
+\]
+
+
+\section*{5) Notes for implicit Newton/HDG implementation}
+
+\begin{itemize}
+\item The map $H(\phi)$ gives automatic positivity $H\ge H_{\min}$ for all Newton iterates.
+\item For Jacobians you need:
+\[
+\frac{dH}{d\phi}=e^{\phi},\quad
+\frac{d}{d\phi}\left(\frac{1}{H(\phi)}\right)=-\frac{e^{\phi}}{H(\phi)^2},\quad
+\frac{d}{d\phi}\left(H(\phi)^2\right)=2H(\phi)e^{\phi}.
+\]
+\item If you want true dry states, you can take $H_{\min}$ very small and separately apply a ``hard dry'' postprocessing ($\mathbf{q}\to 0$ when $H<H_{\text{dry}}$), but the PDE system above remains well-defined.
+\end{itemize}
+
+If you want, I can also write the transformed system in flux form for $\mathbf{W}=(\phi,q_x,q_y)$ suitable for HDG assembly (i.e., identify the fluxes and source terms explicitly and provide the derivatives needed for Newton linearization).
+
+
+\end{document}

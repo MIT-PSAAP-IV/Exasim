@@ -2,6 +2,8 @@ function [app,mesh,master,dmd] = preprocessing(app,mesh)
 
 %app.Cxxpreprocessing = 0;
 
+[app.datapath, app.builddir] = exasimbuilddirs(app.sharedbuild);
+
 coupledinterface = 0;
 coupledcondition = 0;
 coupledboundarycondition = 0;
@@ -31,16 +33,13 @@ else
     strn = num2str(app.modelnumber);
 end
 
-if ~exist(char(app.exasimpath + "/build/model"), 'dir')
-    mkdir(char(app.exasimpath + "/build/model"));
+if  ~exist(char(app.datapath + "/datain" + strn), 'dir')
+    mkdir(char(app.datapath + "/datain" + strn));
 end
-if  ~exist(char(app.buildpath + "/datain" + strn), 'dir')
-    mkdir(char(app.buildpath + "/datain" + strn));
+if  ~exist(char(app.datapath + "/dataout" + strn), 'dir')
+    mkdir(char(app.datapath + "/dataout" + strn));
 end
-if  ~exist(char(app.buildpath + "/dataout" + strn), 'dir')
-    mkdir(char(app.buildpath + "/dataout" + strn));
-end
-filename = app.buildpath + "/datain" + strn + "/";
+filename = app.datapath + "/datain" + strn + "/";
 fileapp = filename + "app.bin";
 filemaster = filename + "master.bin";
 endian = 'native';
@@ -75,6 +74,32 @@ pdemodel = str2func(app.modelfile);
 pde = pdemodel();
 
 app.boundaryconditions = mesh.boundarycondition;
+if isfield(app, 'wmModelIDs') == 0, app.wmModelIDs = []; end
+if isfield(app, 'wmBoundaries') == 0, app.wmBoundaries = []; end
+if isfield(app, 'wmDistances') == 0, app.wmDistances = []; end
+app.wmModelIDs = app.wmModelIDs(:)';
+app.wmBoundaries = app.wmBoundaries(:)';
+app.wmDistances = app.wmDistances(:)';
+nwm = length(app.wmModelIDs);
+if length(app.wmBoundaries) ~= nwm || length(app.wmDistances) ~= nwm
+    error("app.wmModelIDs, app.wmBoundaries, and app.wmDistances must have the same length.");
+end
+if nwm > 0
+    if any(app.wmModelIDs ~= round(app.wmModelIDs))
+        error("app.wmModelIDs must contain integer wall-model identifiers.");
+    end
+    if any(app.wmBoundaries ~= round(app.wmBoundaries)) || any(app.wmBoundaries <= 0)
+        error("app.wmBoundaries must contain positive integer boundary-condition markers.");
+    end
+    if any(app.wmDistances <= 0)
+        error("app.wmDistances must contain positive off-wall distances.");
+    end
+    if ~isempty(app.boundaryconditions) && any(app.boundaryconditions(:) ~= 0)
+        if any(~ismember(app.wmBoundaries, app.boundaryconditions(:)'))
+            error("app.wmBoundaries must be present in mesh.boundarycondition.");
+        end
+    end
+end
 app.uinf = app.externalparam;
 nuinf = length(app.uinf);
 nparam = length(app.physicsparam);
@@ -233,9 +258,9 @@ for i = 1:mpiprocs
             % Just write that directly, no need for UH(i,j,k);
             if isfield(app, 'read_uh_steady')
                 disp("FORCE THE READ OF UH STEADY")
-                fileID = fopen(app.buildpath+"/dataout/out_uhat_np"+string(i-1)+".bin",'r');
+                fileID = fopen(app.datapath+"/dataout/out_uhat_np"+string(i-1)+".bin",'r');
             else
-            fileID = fopen(app.buildpath+"/dataout/out_uhat_t1500_np"+string(i-1)+".bin",'r');
+            fileID = fopen(app.datapath+"/dataout/out_uhat_t1500_np"+string(i-1)+".bin",'r');
             end
             UH_tmp = fread(fileID,'double');
             nsize(6) = length(UH_tmp); 
@@ -282,8 +307,13 @@ for i = 1:mpiprocs
             nfb = max(fblks(2,:)-fblks(1,:))+1;        
         else
             if coupledinterface>0
-              me = cumsum([0 dmd{i}.intepartpts(1) dmd{i}.intepartpts(2) dmd{i}.intepartpts(3) dmd{i}.intepartpts(4)]);
-              [eblks,nbe] = mkfaceblocks(me,[0 -1 1 2],app.neb);          
+              if dmd{i}.intepartpts(2)>0
+                me = cumsum([0 dmd{i}.intepartpts(1) dmd{i}.intepartpts(2) dmd{i}.intepartpts(3) dmd{i}.intepartpts(4)]);
+                [eblks,nbe] = mkfaceblocks(me,[0 -1 1 2],app.neb);          
+              else
+                me = cumsum([0 dmd{i}.intepartpts(1) dmd{i}.intepartpts(3) dmd{i}.intepartpts(4)]);
+                [eblks,nbe] = mkfaceblocks(me,[0 1 2],app.neb);          
+              end
             else
               me = cumsum([0 dmd{i}.elempartpts(1) dmd{i}.elempartpts(2) dmd{i}.elempartpts(3)]);
               [eblks,nbe] = mkfaceblocks(me,[0 1 2],app.neb);          
@@ -434,4 +464,3 @@ mesh.telem = master.telem;
 mesh.tface = master.telem;
 mesh.xpe = master.xpe;
 mesh.xpf = master.xpf;
-

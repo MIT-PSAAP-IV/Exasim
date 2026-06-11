@@ -85,11 +85,11 @@ void ApplyMassInv(cublasHandle_t handle, dstype *MinvR, dstype *Minv, dstype *R,
 }
 
 void ApplyMatrix(cublasHandle_t handle, dstype *y, dstype *MassInv, dstype *x, 
-        Int npe, Int ncu, Int ne, Int matrixtype, Int curvedmesh, Int backend)
+        Int npe, Int ncu, Int ne, Int preconditioner, Int curvedmesh, Int backend)
 {    
     Int N = npe*ncu*ne;
        
-    if (matrixtype==0) // identity matrix      
+    if (preconditioner==0) // identity matrix      
     {
         ArrayCopy(y, x, N);
     }

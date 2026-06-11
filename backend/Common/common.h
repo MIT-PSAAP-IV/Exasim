@@ -41,10 +41,14 @@
 #ifndef __COMMON_H__
 #define __COMMON_H__
 
-// #include <cstdint>
-// #include <cstring>
-// #include <chrono>
-// #include <cmath>
+// Standard headers used directly below (filesystem path/dir helpers, string,
+// containers). Included here so common.h is self-contained for consumers that
+// reach it without run.hpp's preamble (e.g. <exasim/model.hpp>).
+#include <string>
+#include <vector>
+#include <filesystem>
+#include <cstdint>
+#include <cstring>
 
 #define SCOPY scopy_
 #define SSCAL sscal_
@@ -103,6 +107,8 @@ typedef Kokkos::View<dstype*> view_1d;
 #ifdef HAVE_MPP
 #include <mutation++.h>
 #endif
+
+#include "../Model/ModelDispatch/driver_abi.h"
 
 #define MKL_INT int
 
@@ -455,7 +461,7 @@ template <typename T> static void TemplateReallocate(T **data, Int n, Int backen
     TemplateMalloc(data, n, backend);
 }
 
-template <typename T> static void TemplateCopytoDevice(T *d_data, T *h_data, Int n, Int backend)
+template <typename T> static void TemplateCopytoDevice(T *d_data, const T *h_data, Int n, Int backend)
 {
     if (backend <= 1)  {
         for (Int i=0; i<n; i++)
@@ -473,6 +479,17 @@ template <typename T> static void TemplateCopytoDevice(T *d_data, T *h_data, Int
         CHECK( hipMemcpy(d_data, h_data, n * sizeof(T), hipMemcpyHostToDevice) );
     }
 #endif    
+}
+
+template <typename T> static void TemplateMallocCopytoDevice(T **d_data, const T *h_data, Int n, Int backend)
+{
+    if (n <= 0) {
+        *d_data = nullptr;
+        return;
+    }
+
+    TemplateMalloc(d_data, n, backend);
+    TemplateCopytoDevice(*d_data, h_data, n, backend);
 }
 
 template <typename T> static void TemplateCopytoHost(T *h_data, T *d_data, Int n, Int backend)
@@ -529,7 +546,7 @@ static inline void PrintErrorAndExit(const std::string& errmsg, const char* file
     int rank = 0;
 
 #ifdef HAVE_MPI
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_rank(EXASIM_COMM_WORLD, &rank);
 #endif
     
     fprintf(stderr,
@@ -543,7 +560,7 @@ static inline void PrintErrorAndExit(const std::string& errmsg, const char* file
 #ifdef HAVE_MPI
     // Abort the entire MPI job instead of trying to finalize gracefully.
     // MPI_Finalize() is unsafe after a runtime error and can hang.
-    MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+    MPI_Abort(EXASIM_COMM_WORLD, EXIT_FAILURE);
 #else
     exit(EXIT_FAILURE);
 #endif
@@ -628,6 +645,8 @@ struct appstruct {
     Int *stgib=nullptr;
     Int *vindx=nullptr;
     Int *interfacefluxmap=nullptr;
+    Int *wmModelIDs=nullptr;
+    Int *wmBoundaries=nullptr;
     
     dstype *uinf=nullptr;    // boundary data
     dstype *dt=nullptr;      // time steps       
@@ -639,6 +658,7 @@ struct appstruct {
     dstype *stgdata=nullptr; 
     dstype *stgparam=nullptr;
     dstype *avparam=nullptr;
+    dstype *wmDistances=nullptr;
     
     //dstype time=nullptr;     /* current time */
     dstype *fc_u=nullptr;    /* factor when discretizing the time derivative of the U equation. Allow scalar field for local time stepping in steady problems? */
@@ -650,19 +670,23 @@ struct appstruct {
     dstype *dtcoef_w=nullptr;    /* factor when discretizing the time derivative of the P equation. Allow scalar field for local time stepping in steady problems? */    
     
     Int szflag=0, szproblem=0, szcomm=0, szporder=0, szstgib=0, szvindx=0, szinterfacefluxmap=0;
+    Int szwmModelIDs=0, szwmBoundaries=0;
     Int szuinf=0, szdt=0, szdae_dt=0, szfactor=0, szphysicsparam=0, szsolversparam=0;
     Int sztau=0, szstgdata=0, szstgparam=0, szfc_u=0, szfc_q=0, szfc_w=0;
-    Int szdtcoef_u=0, szdtcoef_q=0, szdtcoef_w=0, szavparam=0;
+    Int szdtcoef_u=0, szdtcoef_q=0, szdtcoef_w=0, szavparam=0, szwmDistances=0;
     Int read_uh = 0;
+    Int modelnumber = 0;
+    Int builtinmodelID = 0;
 
     int sizeofint() {
-      int sz = szflag + szproblem + szcomm + szporder + szstgib + szvindx + szinterfacefluxmap;
+      int sz = szflag + szproblem + szcomm + szporder + szstgib + szvindx + szinterfacefluxmap
+             + szwmModelIDs + szwmBoundaries;
       return sz;
     }
     int sizeoffloat() {
       int sz = szuinf+szdt+szdae_dt+szfactor+szphysicsparam+szsolversparam+
                sztau+szstgdata+szstgparam+szfc_u+szfc_q+szfc_w+szdtcoef_u+
-               szdtcoef_q+szdtcoef_w+szavparam;
+               szdtcoef_q+szdtcoef_w+szavparam+szwmDistances;
       return sz;        
     }
 
@@ -676,6 +700,8 @@ struct appstruct {
       printf("size of stgib: %d\n", szstgib);
       printf("size of vindx: %d\n", szvindx);
       printf("size of interfacefluxmap: %d\n", szinterfacefluxmap);
+      printf("size of wmModelIDs: %d\n", szwmModelIDs);
+      printf("size of wmBoundaries: %d\n", szwmBoundaries);
       printf("size of uinf: %d\n", szuinf);
       printf("size of dt: %d\n", szdt);
       printf("size of dae_dt: %d\n", szdae_dt);
@@ -686,6 +712,7 @@ struct appstruct {
       printf("size of stgdata: %d\n", szstgdata);
       printf("size of stgparam: %d\n", szstgparam);
       printf("size of avparam: %d\n", szavparam);
+      printf("size of wmDistances: %d\n", szwmDistances);
       printf("size of fc_u: %d\n", szfc_u);
       printf("size of fc_q: %d\n", szfc_q);
       printf("size of fc_w: %d\n", szfc_w);
@@ -713,6 +740,8 @@ struct appstruct {
         TemplateFree(stgib, backend);
         TemplateFree(vindx, backend);
         TemplateFree(interfacefluxmap, backend);
+        TemplateFree(wmModelIDs, backend);
+        TemplateFree(wmBoundaries, backend);
         TemplateFree(uinf, backend);
         TemplateFree(dt, backend);
         TemplateFree(dae_dt, backend);
@@ -723,12 +752,107 @@ struct appstruct {
         TemplateFree(stgdata, backend);
         TemplateFree(stgparam, backend);
         TemplateFree(avparam, backend);
+        TemplateFree(wmDistances, backend);
         TemplateFree(fc_u, backend);
         TemplateFree(fc_q, backend);
         TemplateFree(fc_w, backend);
         TemplateFree(dtcoef_u, backend);
         TemplateFree(dtcoef_q, backend);
         TemplateFree(dtcoef_w, backend);
+    }
+};
+
+struct wallmodelstruct {
+    Int initialized = 0;
+
+    Int ibc = -1;
+    Int nd = 0;
+    Int ncx = 0;
+    Int npe = 0;
+    Int npf = 0;
+    Int ngf = 0;
+    Int nfe = 0;
+    Int nfaces = 0;
+    Int npoints = 0;
+    Int nbe1 = 0;
+    Int bfwmDepth = 4;
+    Int bfwmWidth = 15;
+    dstype y1 = 0.0;
+
+    Int* faces = nullptr;
+    Int* nextfaces = nullptr;  // always allocated in CPU memory
+    Int* elems = nullptr;
+    Int* elemsx1 = nullptr;
+    dstype* xw = nullptr;
+    dstype* nw = nullptr;
+    dstype* x1 = nullptr;
+    dstype* xi1 = nullptr;
+    dstype* shap1 = nullptr;
+    dstype* bfwmTauwCoeffs = nullptr;
+    dstype* bfwmQwCoeffs = nullptr;
+
+    Int szfaces = 0;
+    Int sznextfaces = 0;
+    Int szelems = 0;
+    Int szelemsx1 = 0;
+    Int szxw = 0;
+    Int sznw = 0;
+    Int szx1 = 0;
+    Int szxi1 = 0;
+    Int szshap1 = 0;
+    Int szbfwmTauwCoeffs = 0;
+    Int szbfwmQwCoeffs = 0;
+
+    int sizeofint()
+    {
+        return szfaces + sznextfaces + szelems + szelemsx1;
+    }
+
+    int sizeoffloat()
+    {
+        return szxw + sznw + szx1 + szxi1 + szshap1 + szbfwmTauwCoeffs + szbfwmQwCoeffs;
+    }
+
+    void freememory(Int backend)
+    {
+        TemplateFree(faces, backend);
+        TemplateFree(nextfaces, 0);
+        TemplateFree(elems, backend);
+        TemplateFree(elemsx1, backend);
+        TemplateFree(xw, backend);
+        TemplateFree(nw, backend);
+        TemplateFree(x1, backend);
+        TemplateFree(xi1, backend);
+        TemplateFree(shap1, backend);
+        TemplateFree(bfwmTauwCoeffs, backend);
+        TemplateFree(bfwmQwCoeffs, backend);
+
+        initialized = 0;
+        ibc = -1;
+        nd = 0;
+        ncx = 0;
+        npe = 0;
+        npf = 0;
+        ngf = 0;
+        nfe = 0;
+        nfaces = 0;
+        npoints = 0;
+        nbe1 = 0;
+        bfwmDepth = 4;
+        bfwmWidth = 15;
+        y1 = 0.0;
+
+        szfaces = 0;
+        sznextfaces = 0;
+        szelems = 0;
+        szelemsx1 = 0;
+        szxw = 0;
+        sznw = 0;
+        szx1 = 0;
+        szxi1 = 0;
+        szshap1 = 0;
+        szbfwmTauwCoeffs = 0;
+        szbfwmQwCoeffs = 0;
     }
 };
 
@@ -1052,7 +1176,7 @@ struct solstruct {
     Int *ndims=nullptr;  // dimensions
     
     dstype *xdg=nullptr; // spatial coordinates
-    dstype *udg=nullptr; // solution (u, q, p) 
+    dstype *udg=nullptr; // solution (u, q) 
     dstype *sdg=nullptr; // source term due to the previous solution
     dstype *odg=nullptr; // auxilary term 
     dstype *wdg=nullptr; // dw/dt = u (wave problem)
@@ -1070,27 +1194,36 @@ struct solstruct {
     #endif
     dstype *elemg=nullptr;
     dstype *faceg=nullptr;
-    dstype *xdgint=nullptr;        
+    dstype *xdgint=nullptr;   
+    dstype *uext = nullptr;   
+    // dstype *udgint=nullptr;  
+    // dstype *odgint=nullptr;  
+    // dstype *wdgint=nullptr;   
+    // dstype *uhint=nullptr;  
+    // dstype *nlint=nullptr;  
     dstype *elemfaceg=nullptr;        
     //dstype *udgg=nullptr;
     dstype *sdgg=nullptr;
     dstype *odgg=nullptr;
     dstype *og1=nullptr;
     dstype *og2=nullptr;    
-    dstype *udgavg=nullptr; // time-average solution (u, q, p) 
+    dstype *udgavg=nullptr; // time-average solution (u, q) 
+    dstype *bouudgavg=nullptr; 
+    dstype *bouwdgavg=nullptr; 
+    dstype *bouuhavg=nullptr; 
     dstype *wsrc=nullptr;   // source term due to the time derivative for DAE equations  
     dstype *wdual=nullptr;   // source term due to the dual time derivative for DAE equations  
-    dstype** udgarray;
+    dstype** udgarray;    
     
     Int szxdg=0, szxcg=0, szudg=0, szsdg=0, szodg=0, szwdg=0, szuh=0;
     Int szelemg=0, szfaceg=0, szelemfaceg=0, szsdgg=0, szodgg=0, szog1=0, szog2=0;
-    Int szudgavg=0, szwsrc=0, szwdual=0, szxdgint=0;
+    Int szudgavg=0, szwsrc=0, szwdual=0, szuext=0, szxdgint=0, szudgint=0, szwdgint=0, szodgint=0;
 
     int sizeofint() {return 0;}
     int sizeoffloat() {
       int sz = szxdg + szxcg + szudg + szsdg + szodg + szwdg + szuh + szelemg + szfaceg +
                szelemfaceg + szsdgg + szodgg + szog1 + szog2 + szudgavg + 
-               szwsrc + szwdual + szxdgint;
+               szwsrc + szwdual + szuext + szxdgint + szudgint + szodgint + szwdgint;
       return sz;
     }
 
@@ -1104,7 +1237,11 @@ struct solstruct {
       printf("size of odg: %d\n", szodg);
       printf("size of wdg: %d\n", szwdg);
       printf("size of uh: %d\n", szuh);
+      printf("size of uext: %d\n", szuext);
       printf("size of xdgint: %d\n", szxdgint);
+      // printf("size of udgint: %d\n", szudgint);
+      // printf("size of wdgint: %d\n", szwdgint);
+      // printf("size of odgint: %d\n", szodgint);
       printf("size of elemg: %d\n", szelemg);
       printf("size of faceg: %d\n", szfaceg);
       printf("size of elemfaceg: %d\n", szelemfaceg);
@@ -1130,6 +1267,7 @@ struct solstruct {
         TemplateFree(sdg, backend); // source term due to the previous solution
         TemplateFree(odg, backend); // auxilary term 
         TemplateFree(wdg, backend); // wave problem
+        TemplateFree(uext, backend); 
         TemplateFree(xdgint, backend); // spatial coordinates
       #ifdef HAVE_ENZYME                   
         TemplateFree(dudg, backend); // solution (u, q, p) 
@@ -1151,6 +1289,9 @@ struct solstruct {
         TemplateFree(og1, backend);
         TemplateFree(og2, backend);     
         TemplateFree(udgavg, backend); // time-average solution (u, q, p) 
+        TemplateFree(bouudgavg, backend); 
+        TemplateFree(bouwdgavg, backend); 
+        TemplateFree(bouuhavg, backend); 
     }             
 };
 
@@ -1451,10 +1592,10 @@ struct precondstruct {
     }            
 };
 
-struct commonstruct {     
-    string exasimpath = "";  
-    string filein;       // Name of binary file with input data
-    string fileout;      // Name of binary file to write the solution            
+struct commonstruct {         
+    std::string exasimpath = "";  
+    std::string filein;       // Name of binary file with input data
+    std::string fileout;      // Name of binary file to write the solution            
     
     Int backend;   // 0: Serial; 1: OpenMP; 2: CUDA  
     Int maxnbc;    // maximum number of boundary conditions
@@ -1473,6 +1614,7 @@ struct commonstruct {
     Int ncx;// number of compoments of (xdg)
     Int ncs;// number of compoments of (sdg)
     Int nce;// number of compoments of (edg)
+    Int ncuext; // number of compoments of uext
     Int ncm;// number of compoments of PTC monitor function
     Int nsca; // number of components of scalar fields for visualization
     Int nvec; // number of components of vector fields for visualization
@@ -1495,6 +1637,7 @@ struct commonstruct {
     Int coupledinterface;
     Int coupledcondition;
     Int coupledboundarycondition;
+    Int FextCall=0;
     Int isd=0; 
             
     Int ne; // number of elements
@@ -1524,6 +1667,7 @@ struct commonstruct {
     Int ndofsdg; // number of degrees of freedom of sdg
     Int ndofodg; // number of degrees of freedom of odg
     Int ndofedg; // number of degrees of freedom of edg
+    Int ndofbou=0;
     Int ntau; // length of the stabilization
     
     Int ne0;  // number of interior elements
@@ -1556,13 +1700,15 @@ struct commonstruct {
     Int wave;      // wave problem    
     Int linearProblem; // 0: nonlinear problem;  1: linear problem
     Int subproblem=0;
-    Int saveSolFreq;   // number of time steps to save the solution
-    Int saveSolOpt;    // option to save the solution
+    Int saveSolFreq;      // number of time steps to save the solution
+    Int saveSolOpt;       // option to save the solution
+    Int saveRestart=200;  // number of time steps to save the solution for restarting
     Int timestepOffset=0; // timestep offset to restart the simulation 
     Int stgNmode=0;       // number of synthetic turbulence generation modes
     Int tdfunc;           // time-derivative function flag
     Int source;           // source function flag
     Int modelnumber;      // model number
+    Int builtinmodelID=0; // model ID
     Int ibs;              // boundary index to save solution 
     Int saveSolBouFreq=0; // number of time steps to save the solution on the boundary
     Int compudgavg=1;     // compute time-averaged solution udg
@@ -1630,6 +1776,7 @@ struct commonstruct {
     Int* fblks=nullptr; // face blocks   
     Int* ncarray=nullptr;
     Int* nboufaces=nullptr;
+    Int* nextfaces=nullptr;
     
     Int nintfaces;
     Int nstgib;
@@ -1638,6 +1785,10 @@ struct commonstruct {
     Int nelemrecv;
     Int nvindx;
     Int szinterfacefluxmap;
+    Int nwm=0;
+    Int szwmModelIDs=0;
+    Int szwmBoundaries=0;
+    Int szwmDistances=0;
     Int szcartgridpart;
     Int* nbsd=nullptr; // neighboring subdomains
     Int* elemsend=nullptr;
@@ -1647,6 +1798,8 @@ struct commonstruct {
     Int* stgib=nullptr;
     Int *vindx=nullptr;
     Int *interfacefluxmap=nullptr;
+    Int *wmModelIDs=nullptr;
+    Int *wmBoundaries=nullptr;
     Int *cartgridpart=nullptr;
     Int *boundaryConditions=nullptr;
     Int *intepartpts=nullptr;
@@ -1674,6 +1827,7 @@ struct commonstruct {
     dstype  timing[128];
     dstype* dt=nullptr;
     dstype* dae_dt=nullptr;
+    dstype* wmDistances=nullptr;
     dstype* DIRKcoeff_c=nullptr;
     dstype* DIRKcoeff_d=nullptr;
     dstype* DIRKcoeff_t=nullptr;
@@ -1803,6 +1957,7 @@ struct commonstruct {
       printf("DAE epsilon parameter: %f\n", dae_epsilon);
       
       printf("number of boundary conditions: %d\n", maxnbc);
+      printf("number of wall-model configurations: %d\n", nwm);
       printf("number of neighboring subdomains: %d\n", nnbsd);      
       printf("number of elements to send: %d\n", nelemsend);
       printf("number of elements to receive: %d\n", nelemrecv);
@@ -1830,7 +1985,7 @@ struct commonstruct {
         }        
       }
       
-      if (nnbsd > 1) {
+      if (nnbsd >= 1) {
         printf("nbsd array: %d by %d\n", 1, nnbsd);
         for (int i=0; i<nnbsd; i++)
           printf("%d  ", nbsd[i]);
@@ -1863,6 +2018,7 @@ struct commonstruct {
         CPUFREE(eblks); 
         CPUFREE(fblks);
         CPUFREE(nboufaces);
+        CPUFREE(nextfaces);
         CPUFREE(nbsd); 
         CPUFREE(elemsend); 
         CPUFREE(elemrecv); 
@@ -1871,11 +2027,14 @@ struct commonstruct {
         if (nstgib > 0) CPUFREE(stgib); 
         CPUFREE(vindx); 
         CPUFREE(interfacefluxmap); 
+        CPUFREE(wmModelIDs);
+        CPUFREE(wmBoundaries);
         CPUFREE(cartgridpart); 
         CPUFREE(boundaryConditions); 
         CPUFREE(intepartpts);         
         CPUFREE(dt); 
         CPUFREE(dae_dt); 
+        CPUFREE(wmDistances);
         CPUFREE(DIRKcoeff_c); 
         CPUFREE(DIRKcoeff_d); 
         CPUFREE(DIRKcoeff_t); 

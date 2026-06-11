@@ -73,7 +73,11 @@ using namespace std;
 int main(int argc, char* argv[]) 
 {
     if (argc < 2) {
-        std::cerr << "Usage: ./parseinput <pdeapp.txt>\n";
+        std::cerr << "Usage: ./text2code <pdeapp.txt> [--out-dir <path>]\n"
+            "  --out-dir overrides where my_model.hpp + libpdemodel*.{so,dylib}\n"
+            "    are written. Default: <exasimpath>/backend/Model/Text2codeGenerated/\n"
+            "    Per-target dirs let multiple text2code runs avoid clobbering\n"
+            "    each other (HOT.7.14 — drops the test-matrix RESOURCE_LOCK).\n";
         return 1;
     }    
 
@@ -83,26 +87,46 @@ int main(int argc, char* argv[])
         error("Error: Input file does not exist.\n");        
     }          
            
+    // Optional --out-dir override (HOT.7.14).
+    std::string out_dir_override;
+    // --gen-only emits the generated kernel sources but skips building the
+    // dynamic model library. Used by the built-in model CMake build, which
+    // compiles the generated kernels into libbuiltinmodel itself.
+    bool gen_only = false;
+    for (int i = 2; i < argc; ++i) {
+        if (std::string(argv[i]) == "--out-dir" && i + 1 < argc) {
+            out_dir_override = argv[i + 1];
+            ++i;
+        } else if (std::string(argv[i]) == "--gen-only") {
+            gen_only = true;
+        }
+    }
+
     InputParams params = parseInputFile(argv[1]);                           
     PDE pde = initializePDE(params);    
      
     ParsedSpec spec = TextParser::parseFile(make_path(pde.datapath, pde.modelfile));        
     spec.exasimpath = pde.exasimpath;
-    spec.modelpath = make_path(pde.exasimpath, "/backend/Model/");
+    //spec.modelpath = make_path(pde.exasimpath, "/backend/Model/Text2codeGenerated/");
+    spec.modelpath = out_dir_override.empty()
+        ? make_path(pde.exasimpath, "/backend/Model/Text2codeGenerated/")
+        : (out_dir_override.back() == '/' ? out_dir_override : out_dir_override + "/");
+    if (!out_dir_override.empty()) std::filesystem::create_directories(spec.modelpath);    
     spec.symenginepath = make_path(pde.exasimpath, "/text2code/symengine");
     
-    Mesh mesh = initializeMesh(params, pde);        
-    Master master = initializeMaster(pde, mesh);                            
-        
-    writeBinaryFiles(pde, mesh, master, spec);
+    if (pde.gendatain == 1) {
+      Mesh mesh = initializeMesh(params, pde);        
+      Master master = initializeMaster(pde, mesh);                                    
+      writeBinaryFiles(pde, mesh, master, spec);
+    }
     
 #ifdef USE_CMAKE
     if (pde.gencode==1) generateCppCode(spec);
 #else    
     if (pde.gencode==1) {
         generateCppCode(spec);
-        executeCppCode(spec); 
-        buildDynamicLibraries(spec);     
+        executeCppCode(spec);
+        if (!gen_only) buildDynamicLibraries(spec);
     }
 #endif        
     

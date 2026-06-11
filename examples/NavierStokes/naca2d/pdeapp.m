@@ -1,6 +1,6 @@
-% Add Exasim to Matlab search path
-cdir = pwd(); ii = strfind(cdir, "Exasim");
-run(cdir(1:(ii+5)) + "/install/setpath.m");
+% Put the Exasim MATLAB frontend on the path. For an installed Exasim use
+% run('<prefix>/share/exasim/matlab/exasim_setup.m') instead.
+run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'frontends', 'Matlab', 'exasim_setup.m'));
 
 porder = 3;                     % polynomial degree
 gam = 1.4;                      % gas constant
@@ -24,7 +24,7 @@ pde.modelfile = "pdemodel";    % name of a file defining the PDE model
 
 % Choose computing platform and set number of processors
 pde.platform = "cpu";         % choose this option if NVIDIA GPUs are available
-pde.mpiprocs = 1;              % number of MPI processors
+pde.mpiprocs = 4;              % number of MPI processors
 pde.hybrid = 1;
 pde.debugmode = 0;
 pde.porder = porder;
@@ -43,7 +43,7 @@ pde.RBdim = 0;
 pde.gencode = 1;
 
 % naca mesh
-mesh = mkmesh_naca0012(porder,1,2);
+mesh = mkmesh_naca0012(porder,1,2);  
 
 % call exasim to generate and run C++ code to solve the PDE model
 [sol,pde,mesh] = exasim(pde,mesh);
@@ -58,15 +58,18 @@ axis([-0.5 2 -0.62 0.62])
 set(gca,'fontsize', 16);
 %exportgraphics(gca,"nacap3M0025.png",'Resolution',200);
 
-
-
-
-
-
-
+% [mesh.f, mesh.tprd, t2t] = facenumbering(mesh.p,mesh.t,1,mesh.boundaryexpr,mesh.periodicexpr);
+% pde1.nd = 2;
+% pde1.porder = 4;
+% pde1.pgauss = 8;
+% pde1.elemtype = 1;
+% pde1.nodetype = 1;
+% master1 = Master(pde1);
+% mesh.xpe = master1.xpe;
+% 
 
 % pde.codegenerator = "text2code";
-% pde.denseblock = 1;
+% pde.denseblock = 0;
 % pde.source = 'source';
 % pde.flux = 'flux';
 % pde.fbou = 'fbou';
@@ -83,7 +86,13 @@ set(gca,'fontsize', 16);
 % master = Master(pde);
 % UDG0 = initu(mesh1,{ui(1),ui(2),ui(3),ui(4); 0,0,0,0; 0,0,0,0});
 % UH0 = getuhat(UDG0, mesh1.f2t, master.perm, 4);
-% [UDG,UH] = hdgsolve(master,mesh1,pde,UDG0,UH0,[]);
+% [UDG,UH,AE,FE,K,F] = hdgsolve(master,mesh1,pde,UDG0,UH0,[]);
+% 
+% ne = size(mesh1.elcon,2);
+% npe = master.npe;
+% npf = master.npf;
+% nfe  = size(master.perm,2);
+% BE = blockjacobi(AE, mesh1.f2t, reshape(mesh1.elcon, [npf nfe ne]));  
 % 
 % compareexasim(master, mesh1, pde);
 

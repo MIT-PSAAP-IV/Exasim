@@ -246,14 +246,34 @@ static void hipComputeInverse(cublasHandle_t handle, dstype* A, dstype* C, Int n
 
 static void cpuComputeInverse(dstype* A, dstype* work, Int* ipiv, Int n)
 {
-    Int lwork = n*n;
+    // LAPACK GETRI requires workspace of at least max(1,n).  Some callers,
+    // such as the polynomial-preconditioner setup, only provide O(n) scratch.
+    // Advertising n*n workspace here lets GETRI write past the supplied buffer
+    // and corrupt neighboring solver memory.
+    Int lwork = (n > 0) ? n : 1;
     Int info;
 #ifdef USE_FLOAT           
     SGETRF(&n,&n,A,&n,ipiv,&info);
+    if (info != 0) {
+        printf("SGETRF failed in cpuComputeInverse with info = %d and n = %d\n", (int) info, (int) n);
+        error("cpuComputeInverse failed during LU factorization.");
+    }
     SGETRI(&n,A,&n,ipiv,work,&lwork,&info);    
+    if (info != 0) {
+        printf("SGETRI failed in cpuComputeInverse with info = %d and n = %d\n", (int) info, (int) n);
+        error("cpuComputeInverse failed during matrix inversion.");
+    }
 #else            
     DGETRF(&n,&n,A,&n,ipiv,&info);
+    if (info != 0) {
+        printf("DGETRF failed in cpuComputeInverse with info = %d and n = %d\n", (int) info, (int) n);
+        error("cpuComputeInverse failed during LU factorization.");
+    }
     DGETRI(&n,A,&n,ipiv,work,&lwork,&info);
+    if (info != 0) {
+        printf("DGETRI failed in cpuComputeInverse with info = %d and n = %d\n", (int) info, (int) n);
+        error("cpuComputeInverse failed during matrix inversion.");
+    }
 #endif        
 }
    
@@ -310,9 +330,9 @@ static void PDOT(cublasHandle_t handle, Int m, dstype* x, Int incx, dstype* y, I
     
 #ifdef HAVE_MPI        
 #ifdef USE_FLOAT        
-    MPI_Allreduce(&local_dot, global_dot, 1, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&local_dot, global_dot, 1, MPI_FLOAT, MPI_SUM, EXASIM_COMM_WORLD);
 #else        
-    MPI_Allreduce(&local_dot, global_dot, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&local_dot, global_dot, 1, MPI_DOUBLE, MPI_SUM, EXASIM_COMM_WORLD);
 #endif         
 #else    
     //ArrayCopy(global_dot, local_dot, 1, backend);
@@ -562,9 +582,9 @@ static void PGEMTV(cublasHandle_t handle, Int m, Int n, dstype *alpha, dstype* A
     hipDeviceSynchronize();
 #endif        
 #ifdef USE_FLOAT         
-    MPI_Allreduce(ylocal, y, n, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(ylocal, y, n, MPI_FLOAT, MPI_SUM, EXASIM_COMM_WORLD);
 #else            
-    MPI_Allreduce(ylocal, y, n, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(ylocal, y, n, MPI_DOUBLE, MPI_SUM, EXASIM_COMM_WORLD);
 #endif    
 #else
     ArrayCopy(y, ylocal, n);
@@ -603,9 +623,9 @@ static void PGEMTV(cublasHandle_t handle, Int m, Int n, dstype *alpha, dstype* A
 //     
 // #ifdef  HAVE_MPI          
 // #ifdef USE_FLOAT         
-//     MPI_Allreduce(ylocal, y, n, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
+//     MPI_Allreduce(ylocal, y, n, MPI_FLOAT, MPI_SUM, EXASIM_COMM_WORLD);
 // #else            
-//     MPI_Allreduce(ylocal, y, n, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+//     MPI_Allreduce(ylocal, y, n, MPI_DOUBLE, MPI_SUM, EXASIM_COMM_WORLD);
 // #endif    
 // #else
 //     ArrayCopy(y, ylocal, n);
@@ -683,9 +703,9 @@ static void PGEMTM(cublasHandle_t handle, Int m, Int n, Int k, dstype *alpha, ds
     hipDeviceSynchronize();
 #endif            
 #ifdef USE_FLOAT         
-    MPI_Allreduce(Clocal, C, p, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(Clocal, C, p, MPI_FLOAT, MPI_SUM, EXASIM_COMM_WORLD);
 #else            
-    MPI_Allreduce(Clocal, C, p, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(Clocal, C, p, MPI_DOUBLE, MPI_SUM, EXASIM_COMM_WORLD);
 #endif    
 #else
     ArrayCopy(C, Clocal, p);
@@ -731,4 +751,3 @@ static void PGEMNMStridedBached(cublasHandle_t handle, Int m, Int n, Int k, dsty
 }
 
 #endif  
-
