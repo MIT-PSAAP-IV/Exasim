@@ -214,7 +214,17 @@ ExternalProject_Add(exasim_build
     -DEXASIM_JULIA_DEVELOP=${EXASIM_JULIA_DEVELOP}
     "-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}"
   BUILD_ALWAYS TRUE
-  INSTALL_COMMAND ${CMAKE_COMMAND} --install <BINARY_DIR>
+  INSTALL_COMMAND ""
   DEPENDS ${_exasim_deps})
+
+ExternalProject_Get_Property(exasim_build BINARY_DIR)
+install(CODE
+  "execute_process(
+     COMMAND \"${CMAKE_COMMAND}\" --install \"${BINARY_DIR}\" --prefix \"\${CMAKE_INSTALL_PREFIX}\"
+     RESULT_VARIABLE _rv
+   )
+   if(NOT _rv EQUAL 0)
+     message(FATAL_ERROR \"Installing exasim_build failed with exit code \${_rv}\")
+   endif()")
 
 message(STATUS "Exasim superbuild configured. Build with: cmake --build ${CMAKE_BINARY_DIR}")

@@ -25,6 +25,11 @@ end
 % Source-tree layout: <repo>/frontends/Matlab/Gencode with the superbuild
 % installed to <repo>-build/install (sibling of the repo).
 repodir = absolutepath(fullfile(here, '..', '..', '..'));
+cand = fullfile(repodir, 'local');
+if isprefix(cand)
+    prefix = string(absolutepath(cand));
+    return;
+end
 [repoparent, reponame] = fileparts(repodir);
 cand = fullfile(repoparent, [reponame '-build'], 'install');
 if isprefix(cand)

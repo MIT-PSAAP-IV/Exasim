@@ -38,10 +38,12 @@ def install_prefix():
         if cand and _is_prefix(cand):
             return cand
     # Source-tree layout: <repo>/frontends/Python/exasim with the superbuild
-    # installed to <repo>-build/install (what tests/run-tests.sh produces).
+    # installed to <repo>-build/install (what tests/run-tests.sh produces),
+    # or a local package under <repo>/local.
     if len(here.parents) >= 3:
         repo = here.parents[2]
-        for cand in (repo.parent / (repo.name + "-build") / "install",
+        for cand in (repo / "local",
+                     repo.parent / (repo.name + "-build") / "install",
                      repo / "build" / "install"):
             if _is_prefix(cand):
                 return cand

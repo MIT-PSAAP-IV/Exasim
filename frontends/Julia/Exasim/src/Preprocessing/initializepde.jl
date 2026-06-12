@@ -6,6 +6,7 @@ mutable struct PDEStruct
     backendpath::String; 
     datapath::String;   # runtime data dir (datain/, dataout/); default cwd
     builddir::String;   # hidden dir for generated code + app build
+    sharedbuild::IntP;  # 1 uses examples/exasimfe, 0 uses a local exasim dir
     modelid::IntP;      # external builtin model ID for the generated model
     appname::String;  # application name
     platform::String; # CPU or GPU
@@ -167,9 +168,10 @@ function initializepde(version)
 
     pde.codename = "Exasim";
     # Runtime data (datain/, dataout/) goes under datapath (user-visible);
-    # generated code and the solver build live in the hidden builddir.
-    pde.datapath = pwd();
+    # generated code and the solver build live in builddir.
+    pde.datapath = joinpath(pwd(), "exasim");
     pde.builddir = joinpath(pwd(), "exasim");
+    pde.sharedbuild = 0;
     pde.modelid = 100;   # external builtin model ID for the generated model
     pde.exasimpath = ""; # Exasim install prefix; resolved by cmakecompile
     pde.buildpath = "";

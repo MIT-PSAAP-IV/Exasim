@@ -1,17 +1,25 @@
 /*************************************************************************
 
-Build the built-in model shared library from Exasim/backend/Model/BuiltIn 
+// Build the built-in model shared library from Exasim/backend/Model/BuiltIn 
+// 
+//   make serial
+// 
+// Build the static libraries from Exasim/build
+// 
+//   cmake -DEXASIM_LIB=ON -DEXASIM_MPI=ON -DEXASIM_NOMPI=ON -DWITH_PARMETIS=ON -DWITH_TEXT2CODE=ON -DWITH_BUILTINMODEL=ON ../install
+//   cmake --build .
 
-  make serial
+Build the static libraries and the built-in model shared library
 
-Build the static libraries from Exasim/build
-
-  cmake -DEXASIM_LIB=ON -DEXASIM_MPI=ON -DEXASIM_NOMPI=ON -DWITH_PARMETIS=ON -DWITH_TEXT2CODE=ON -DWITH_BUILTINMODEL=ON ../install
-  cmake --build .
+  cmake -S Exasim -B Exasim-build \
+    -DEXASIM_FRONTENDS=ON \
+    -DCMAKE_INSTALL_PREFIX=/Users/cuongnguyen/Documents/GitHub/PSAAP/Exasim/local
+  cmake --build Exasim-build -j8
+  cmake --install Exasim-build
 
 Build this exasimapp.cpp from Exasim/apps/builtinlibrary 
 
-  cmake -B build -DExasim_DIR=/path/to/Exasim/local
+  cmake -B build -DExasim_DIR=/path/to/prefix
   cmake --build build
 
 Run an APP with an input file that uses a built-in model ID:

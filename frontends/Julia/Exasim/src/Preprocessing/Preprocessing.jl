@@ -1,6 +1,7 @@
 module Preprocessing
 
 using ..Types, ..Master, SymPy
+import ..exasimbuilddirs
 
 export createhighordermesh, preprocessing, initializeexasim, findexec
 
@@ -46,6 +47,8 @@ include("initializeexasim.jl");
 include("findexec.jl");
 
 function preprocessing(app,mesh)
+
+app.datapath, app.builddir = exasimbuilddirs(app.sharedbuild)
 
 if app.modelnumber==0
     strn = "";
