@@ -849,32 +849,13 @@ if(EXASIM_FRONTENDS)
   endif()
 endif()
 
-if(EXISTS ${EXASIM_DIR}/frontends/Matlab)
-  install(CODE "
-    file(READ \"${EXASIM_DIR}/frontends/Matlab/exasim_setup.m.in\" _exasim_setup_template)
-    string(CONFIGURE \"\${_exasim_setup_template}\" _exasim_setup_contents @ONLY)
-    file(WRITE \"${EXASIM_DIR}/frontends/Matlab/exasim_setup.m\"
-      \"\${_exasim_setup_contents}\")
-  ")
-endif()
-
-if(EXISTS ${EXASIM_DIR}/frontends/Python/exasim)
-  install(CODE "
-    file(READ \"${EXASIM_DIR}/frontends/Python/exasim/__init__.py.in\" _exasim_python_init_template)
-    string(CONFIGURE \"\${_exasim_python_init_template}\" _exasim_python_init_contents @ONLY)
-    file(WRITE \"${EXASIM_DIR}/frontends/Python/exasim/__init__.py\"
-      \"\${_exasim_python_init_contents}\")
-  ")
-endif()
-
-if(EXISTS ${EXASIM_DIR}/frontends/Julia/Exasim/src)
-  install(CODE "
-    file(READ \"${EXASIM_DIR}/frontends/Julia/Exasim/src/Exasim.jl.in\" _exasim_julia_module_template)
-    string(CONFIGURE \"\${_exasim_julia_module_template}\" _exasim_julia_module_contents @ONLY)
-    file(WRITE \"${EXASIM_DIR}/frontends/Julia/Exasim/src/Exasim.jl\"
-      \"\${_exasim_julia_module_contents}\")
-  ")
-endif()
+# NOTE: the frontend entry files (exasim_setup.m / __init__.py / Exasim.jl) are
+# rendered from their .in templates into the INSTALL tree above. They are
+# deliberately NOT written back into the source tree: doing so bakes the
+# machine-specific CMAKE_INSTALL_PREFIX into tracked files (git churn, and a
+# leaked absolute path if committed). A source checkout resolves the prefix at
+# runtime via config.install_prefix() / exasim_install_prefix(), which already
+# probe <repo>/local and <repo>-build/install, or honor EXASIM_PREFIX.
 
 export(EXPORT ExasimTargets
   NAMESPACE Exasim::
