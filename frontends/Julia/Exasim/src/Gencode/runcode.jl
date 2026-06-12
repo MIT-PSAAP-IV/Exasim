@@ -18,7 +18,14 @@ dataout = joinpath(pde.datapath, "dataout", "out")
 if pde.mpiprocs == 1
     cmd = `$exe $numpde $datain $dataout`
 else
+    # Prefer the MPI launcher CMake discovered at build-configure time
+    # (portable); fall back to the frontend-detected pde.mpirun.
     mpirun = pde.mpirun
+    mpitxt = joinpath(pde.builddir, "build", "mpiexec.txt")
+    if isfile(mpitxt)
+        discovered = strip(read(mpitxt, String))
+        isempty(discovered) || (mpirun = discovered)
+    end
     cmd = `$mpirun -np $(pde.mpiprocs) $exe $numpde $datain $dataout`
 end
 

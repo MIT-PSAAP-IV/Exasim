@@ -33,7 +33,17 @@ end
 if mpiprocs==1
     runstr = exe + mystr;
 else
-    runstr = pde.mpirun + " -np " + string(mpiprocs) + " " + exe + mystr;
+    % Prefer the MPI launcher CMake discovered at build-configure time
+    % (portable); fall back to the frontend-detected pde.mpirun.
+    mpirun = pde.mpirun;
+    mpitxt = char(pde.builddir + "/build/mpiexec.txt");
+    if exist(mpitxt, 'file')
+        discovered = strip(string(fileread(mpitxt)));
+        if strlength(discovered) > 0
+            mpirun = discovered;
+        end
+    end
+    runstr = mpirun + " -np " + string(mpiprocs) + " " + exe + mystr;
 end
 
 cdir = pwd();
