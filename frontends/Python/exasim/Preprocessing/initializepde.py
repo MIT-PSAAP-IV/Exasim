@@ -14,10 +14,9 @@ def initializepde(version):
     pde['codegenerator'] = "";
 
     # Runtime data (datain/, dataout/) goes under datapath (user-visible);
-    # generated code and the solver build live in builddir.
-    pde['datapath'] = os.path.join(os.getcwd(), "exasim");
-    pde['builddir'] = os.path.join(os.getcwd(), "exasim");
-    pde['sharedbuild'] = 0;
+    # generated code and the solver build live in the hidden builddir.
+    pde['datapath'] = os.getcwd();
+    pde['builddir'] = os.path.join(os.getcwd(), ".exasim");
     pde['modelid'] = 100;   # external builtin model ID for the generated model
     pde['exasimpath'] = ""; # Exasim install prefix; resolved by cmakecompile
 
