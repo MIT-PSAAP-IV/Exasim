@@ -13,14 +13,34 @@ pde.exasimpath = prefix;
 
 % Use the absolute path of the cmake that built/installed Exasim (recorded at
 % install time) so this works when MATLAB is launched from the GUI app, whose
-% PATH does not include the Homebrew/conda cmake. Fall back to a bare "cmake".
-cmakecmd = "cmake";
+% PATH does not include the Homebrew/conda cmake. If that record is missing or
+% its path no longer exists (a relocated install — recorded cmake belongs to
+% another machine), discover a cmake on this machine. Last resort: bare "cmake".
+resolved = "";
 cmakerec = char(prefix + "/lib/cmake/Exasim/cmake_command.txt");
 if exist(cmakerec, 'file') == 2
     rec = strtrim(string(fileread(cmakerec)));
     if strlength(rec) > 0 && exist(char(rec), 'file') == 2
-        cmakecmd = """" + rec + """";   % quote in case the path has spaces
+        resolved = rec;
     end
+end
+if strlength(resolved) == 0
+    [st, out] = system('command -v cmake');   % PATH (incl. exasim_setup additions)
+    if st == 0 && strlength(strtrim(string(out))) > 0
+        resolved = strtrim(string(out));
+    else
+        for cand = ["/opt/homebrew/bin/cmake", "/usr/local/bin/cmake", ...
+                    "/opt/local/bin/cmake", "/usr/bin/cmake"]
+            if exist(char(cand), 'file') == 2
+                resolved = cand; break;
+            end
+        end
+    end
+end
+if strlength(resolved) > 0
+    cmakecmd = """" + resolved + """";   % quote in case the path has spaces
+else
+    cmakecmd = "cmake";
 end
 
 builddir = pde.builddir;

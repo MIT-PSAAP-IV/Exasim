@@ -11,7 +11,10 @@ pde.usecmake = 1;
 pde.mpirun = "mpirun";
 pde.metis = "mpmetis";
 pde.gmsh = "gmsh";
-pde.paraview = "/Applications/ParaView-6.1.0.app/Contents/MacOS/paraview";
+% Bare command, resolved on demand by vis.m -> findexec (PATH + common dirs).
+% Do not hardcode a version-specific absolute path; set pde.paraview yourself
+% to override (e.g. "/Applications/ParaView-6.1.0.app/Contents/MacOS/paraview").
+pde.paraview = "paraview";
 pde.enzyme = [];
 pde.codegenerator = "";
 
