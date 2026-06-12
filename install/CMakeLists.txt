@@ -749,7 +749,11 @@ if(EXASIM_FRONTENDS)
       CACHE STRING "Install dir for the exasim Python package (relative to the prefix)")
     install(DIRECTORY ${EXASIM_DIR}/frontends/Python/exasim
       DESTINATION ${EXASIM_PYTHON_SITEDIR}
-      PATTERN "__init__.py" EXCLUDE
+      # Exclude ONLY the top-level package __init__.py (regenerated from the
+      # .in template below). A bare PATTERN "__init__.py" would match the
+      # trailing component of every path and drop the subpackage __init__.py
+      # files too, turning each subpackage into an empty namespace package.
+      REGEX "/exasim/__init__\\.py$" EXCLUDE
       PATTERN "__pycache__" EXCLUDE)
     install(CODE "
       file(READ \"${EXASIM_DIR}/frontends/Python/exasim/__init__.py.in\" _exasim_python_init_template)
