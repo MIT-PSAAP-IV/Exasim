@@ -45,6 +45,11 @@ if(EXASIM_VARIANT MATCHES "mpi")
   find_package(MPI REQUIRED)
   target_compile_definitions(exasimapp PRIVATE _MPI)
   target_link_libraries(exasimapp PRIVATE MPI::MPI_CXX)
+  # Record the MPI launcher CMake discovered so the frontend's runcode uses a
+  # portable, configure-time path instead of guessing /usr/local/bin/mpirun etc.
+  if(MPIEXEC_EXECUTABLE)
+    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/mpiexec.txt" "${MPIEXEC_EXECUTABLE}\n")
+  endif()
 endif()
 
 message(STATUS

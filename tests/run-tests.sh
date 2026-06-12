@@ -44,6 +44,11 @@ cmake -S "$ROOT" -B "$EXASIM_BUILD_DIR" -DEXASIM_BUILD_TESTS=ON \
 # Bound parallelism to the core count (override with JOBS=) — a bare `-j` is
 # unlimited under Make and can OOM small CI runners on the big template TUs.
 cmake --build "$EXASIM_BUILD_DIR" -j"${JOBS:-$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)}"
+# The solver layer installs via an outer install(CODE) step, so `cmake --build`
+# alone does not populate $EXASIM_BUILD_DIR/install. Install explicitly so the
+# baked data dir (<prefix>/share/exasim) and the frontend packages are present
+# for the consumer and frontend tests.
+cmake --install "$EXASIM_BUILD_DIR"
 
 # 2. The solver layer (where the ctest is registered) is built by the
 #    exasim_build ExternalProject; ctest runs from its binary dir.

@@ -1,7 +1,8 @@
 module Gencode
 
 using SymPy
-import ..install_prefix, ..text2code_path, ..exasim_path
+import SHA
+import ..install_prefix, ..cmake_dir, ..frontend_app_template_dir, ..text2code_path, ..cmake_command
 
 #export syminit, gencode, compilecode
 export syminit, gencode, gencodeall, compilecode, cmakecompile, runcode, checkcompilers, setcompilers, string2cmd

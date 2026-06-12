@@ -38,3 +38,32 @@ end
 cmake_dir() = joinpath(install_prefix(), "lib", "cmake", "Exasim")
 frontend_app_template_dir() = joinpath(cmake_dir(), "frontend-app")
 text2code_path() = joinpath(install_prefix(), "bin", "text2code")
+
+# Common locations a GUI launchd PATH omits; probed by absolute path.
+const _TOOL_DIRS = ("/opt/homebrew/bin", "/usr/local/bin", "/opt/local/bin", "/usr/bin")
+
+# Locate an executable on this machine: PATH first, then common dirs.
+function _find_tool(name)
+    found = Sys.which(name)
+    found === nothing || return found
+    for d in _TOOL_DIRS
+        cand = joinpath(d, name)
+        isfile(cand) && return cand
+    end
+    return nothing
+end
+
+# The cmake to invoke for building generated apps: prefer the absolute path of
+# the cmake that built/installed Exasim (recorded at install time) so it works
+# from a GUI with a restricted PATH. If the record is missing or its path no
+# longer exists (relocated install — recorded cmake is from another machine),
+# discover a cmake on this machine; last resort a bare "cmake".
+function cmake_command()
+    record = joinpath(cmake_dir(), "cmake_command.txt")
+    if isfile(record)
+        p = strip(read(record, String))
+        (!isempty(p) && isfile(p)) && return p
+    end
+    found = _find_tool("cmake")
+    return found === nothing ? "cmake" : found
+end

@@ -6,7 +6,24 @@ location itself. Override with the EXASIM_PREFIX environment variable (e.g.
 for a source-tree checkout used with `pip install -e`).
 """
 import os
+import shutil
 from pathlib import Path
+
+# Common locations a GUI launchd PATH omits (Homebrew on Apple Silicon / Intel,
+# MacPorts, system). Probed by absolute path so discovery does not need PATH.
+_TOOL_DIRS = ("/opt/homebrew/bin", "/usr/local/bin", "/opt/local/bin", "/usr/bin")
+
+
+def _find_tool(name):
+    """Locate an executable on this machine: PATH first, then common dirs."""
+    found = shutil.which(name)
+    if found:
+        return found
+    for d in _TOOL_DIRS:
+        cand = Path(d) / name
+        if cand.exists():
+            return str(cand)
+    return None
 
 
 def _is_prefix(path):
@@ -63,3 +80,23 @@ def frontend_app_template_dir():
 
 def text2code_path():
     return install_prefix() / "bin" / "text2code"
+
+
+def cmake_command():
+    """The cmake executable to invoke for building generated apps.
+
+    Prefer the absolute path of the cmake that built/installed Exasim (recorded
+    at install time in lib/cmake/Exasim/cmake_command.txt) so the build works
+    from a GUI whose PATH lacks that cmake (e.g. MATLAB launched from the app).
+    If that record is missing or its path no longer exists (a relocated install,
+    where the recorded cmake belongs to another machine), discover a cmake on
+    this machine instead. Last resort: a bare "cmake" (errors clearly if absent).
+    """
+    record = cmake_dir() / "cmake_command.txt"
+    try:
+        path = record.read_text().strip()
+    except OSError:
+        path = ""
+    if path and Path(path).exists():
+        return path
+    return _find_tool("cmake") or "cmake"

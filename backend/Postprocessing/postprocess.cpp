@@ -35,8 +35,8 @@ MPI_Comm EXASIM_COMM_LOCAL = MPI_COMM_NULL;
 // g++ -O2 -std=c++17 -I../../kokkos/buildserial/include postprocess.cpp ../../kokkos/buildserial/lib/libkokkoscore.a -o postprocess -lblas -llapack
 // mpicxx -O2 -std=c++17 -D _MPI -I../../kokkos/buildserial/include postprocess.cpp ../../kokkos/buildserial/lib/libkokkoscore.a -o postprocess -lblas -llapack
 
-// g++ -O2 -std=c++17 -I/Users/cuongnguyen/Documents/GitHub/Exasim/kokkos/buildserial/include postprocess.cpp /Users/cuongnguyen/Documents/GitHub/Exasim/kokkos/buildserial/lib/libkokkoscore.a -o postprocess -lblas -llapack
-// mpicxx -O2 -std=c++17 -D _MPI -I/Users/cuongnguyen/Documents/GitHub/Exasim/kokkos/buildserial/include postprocess.cpp /Users/cuongnguyen/Documents/GitHub/Exasim/kokkos/buildserial/lib/libkokkoscore.a -o postprocess -lblas -llapack
+// g++ -O2 -std=c++17 -I/path/to/Exasim/kokkos/buildserial/include postprocess.cpp /path/to/Exasim/kokkos/buildserial/lib/libkokkoscore.a -o postprocess -lblas -llapack
+// mpicxx -O2 -std=c++17 -D _MPI -I/path/to/Exasim/kokkos/buildserial/include postprocess.cpp /path/to/Exasim/kokkos/buildserial/lib/libkokkoscore.a -o postprocess -lblas -llapack
 
 using namespace std;
 

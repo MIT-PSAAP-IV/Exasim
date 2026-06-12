@@ -9,14 +9,12 @@ Typical use:
     sol, pde, mesh = Exasim.exasim(pde, mesh)
 
 Runtime data (datain/, dataout/) is written under the working directory
-(override with pde.datapath); generated code and the solver build live under
-pde.builddir (default <cwd>/exasim).
+(override with pde.datapath); generated code and the solver build live in the
+hidden pde.builddir (default <cwd>/.exasim).
 """
 module Exasim
 
 include("config.jl")
-include("exasim_path.jl")
-include("exasimbuilddirs.jl")
 
 include("Preprocessing/Types.jl")
 include("Preprocessing/Master.jl")
@@ -29,12 +27,6 @@ using .Preprocessing: initializeexasim, preprocessing
 using .Postprocessing: exasim, vis, fetchsolution
 using .Mesh
 using .Gencode
-
-function __init__()
-    if isempty(get(ENV, "EXASIM_PREFIX", ""))
-        ENV["EXASIM_PREFIX"] = "/Users/cuongnguyen/Documents/GitHub/PSAAP/Exasim/local"
-    end
-end
 
 export initializeexasim, preprocessing, exasim, vis, fetchsolution,
        Preprocessing, Gencode, Mesh, Postprocessing

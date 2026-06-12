@@ -1,6 +1,6 @@
 
 modelID = 9;
-%exasimpath = "/Users/cuongnguyen/Documents/GitHub/PSAAP/Exasim";
+%exasimpath = "/path/to/Exasim";
 cdir = pwd(); ii = strfind(cdir, "Exasim");
 exasimpath = cdir(1:(ii+5));
 

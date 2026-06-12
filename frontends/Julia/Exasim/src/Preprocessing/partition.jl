@@ -14,6 +14,7 @@ metisstatus1 = Sys.which("mpmetis");
 metisstatus2 = Sys.which("/usr/bin/mpmetis");
 metisstatus3 = Sys.which("/usr/local/bin/mpmetis");
 metisstatus4 = Sys.which("/opt/local/bin/mpmetis");
+metisstatus5 = Sys.which("/opt/homebrew/bin/mpmetis");
 
 if metisstatus0 != nothing
 elseif metisstatus1 != nothing
@@ -24,8 +25,10 @@ elseif metisstatus3 != nothing
     metis = "/usr/local/bin/mpmetis";
 elseif metisstatus4 != nothing
     metis = "/opt/local/bin/mpmetis";
+elseif metisstatus5 != nothing
+    metis = "/opt/homebrew/bin/mpmetis";
 else
-    error("Exasim search in /usr/bin, /usr/local/bin, and /opt/local/bin and could not find Metis. Please see the documentation to install it. After installation, please set its path to app.metis");
+    error("Exasim search of PATH, /usr/bin, /usr/local/bin, /opt/local/bin, and /opt/homebrew/bin could not find Metis. Please see the documentation to install it. After installation, please set its path to app.metis");
 end
 
 print("Calling METIS and reading output files...\n");

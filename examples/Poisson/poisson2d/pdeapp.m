@@ -121,7 +121,7 @@ R1 = reshape(R1, [npf 76]);
 % [Mass, Minv, C, E, udg] = qEquationExasim(pde, mesh);
 % [Ru, B, D, fg, fg_udg, sg, sg_udg] = uEquationElemExasim(pde, mesh, nge);
 % 
-% run('/Users/ngoccuongnguyen/Dropbox (MIT)/HDGv1.0/setup.m');
+% run('/path/to/HDGv1.0/setup.m');
 % ngrid = 3;
 % mesh1   = mkmesh_square(ngrid+1,ngrid+1,pde.porder,0,1,1,1,1);
 % master = mkmaster(mesh1,2*pde.porder);
