@@ -749,7 +749,15 @@ if(EXASIM_FRONTENDS)
       CACHE STRING "Install dir for the exasim Python package (relative to the prefix)")
     install(DIRECTORY ${EXASIM_DIR}/frontends/Python/exasim
       DESTINATION ${EXASIM_PYTHON_SITEDIR}
+      PATTERN "__init__.py" EXCLUDE
       PATTERN "__pycache__" EXCLUDE)
+    install(CODE "
+      file(READ \"${EXASIM_DIR}/frontends/Python/exasim/__init__.py.in\" _exasim_python_init_template)
+      string(CONFIGURE \"\${_exasim_python_init_template}\" _exasim_python_init_contents @ONLY)
+      file(MAKE_DIRECTORY \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${EXASIM_PYTHON_SITEDIR}/exasim\")
+      file(WRITE \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${EXASIM_PYTHON_SITEDIR}/exasim/__init__.py\"
+        \"\${_exasim_python_init_contents}\")
+    ")
     install(CODE "message(STATUS \"exasim Python package: add \${CMAKE_INSTALL_PREFIX}/${EXASIM_PYTHON_SITEDIR} to PYTHONPATH unless that prefix is already on the interpreter's sys.path\")")
   endif()
 
@@ -788,7 +796,15 @@ if(EXASIM_FRONTENDS)
   # or Pkg.develop(path="<prefix>/share/exasim/julia/Exasim").
   if(EXISTS ${EXASIM_DIR}/frontends/Julia/Exasim)
     install(DIRECTORY ${EXASIM_DIR}/frontends/Julia/Exasim
-      DESTINATION share/exasim/julia)
+      DESTINATION share/exasim/julia
+      PATTERN "src/Exasim.jl" EXCLUDE)
+    install(CODE "
+      file(READ \"${EXASIM_DIR}/frontends/Julia/Exasim/src/Exasim.jl.in\" _exasim_julia_module_template)
+      string(CONFIGURE \"\${_exasim_julia_module_template}\" _exasim_julia_module_contents @ONLY)
+      file(MAKE_DIRECTORY \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/share/exasim/julia/Exasim/src\")
+      file(WRITE \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/share/exasim/julia/Exasim/src/Exasim.jl\"
+        \"\${_exasim_julia_module_contents}\")
+    ")
 
     # Optionally Pkg.develop the installed package into the default Julia
     # environment at install time, so `using Exasim` works with no LOAD_PATH
@@ -817,8 +833,43 @@ if(EXASIM_FRONTENDS)
   #   run("<prefix>/share/exasim/matlab/exasim_setup.m") in MATLAB.
   if(EXISTS ${EXASIM_DIR}/frontends/Matlab)
     install(DIRECTORY ${EXASIM_DIR}/frontends/Matlab/
-      DESTINATION share/exasim/matlab)
+      DESTINATION share/exasim/matlab
+      PATTERN "exasim_setup.m" EXCLUDE)
+    install(CODE "
+      file(READ \"${EXASIM_DIR}/frontends/Matlab/exasim_setup.m.in\" _exasim_setup_template)
+      string(CONFIGURE \"\${_exasim_setup_template}\" _exasim_setup_contents @ONLY)
+      file(MAKE_DIRECTORY \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/share/exasim/matlab\")
+      file(WRITE \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/share/exasim/matlab/exasim_setup.m\"
+        \"\${_exasim_setup_contents}\")
+    ")
   endif()
+endif()
+
+if(EXISTS ${EXASIM_DIR}/frontends/Matlab)
+  install(CODE "
+    file(READ \"${EXASIM_DIR}/frontends/Matlab/exasim_setup.m.in\" _exasim_setup_template)
+    string(CONFIGURE \"\${_exasim_setup_template}\" _exasim_setup_contents @ONLY)
+    file(WRITE \"${EXASIM_DIR}/frontends/Matlab/exasim_setup.m\"
+      \"\${_exasim_setup_contents}\")
+  ")
+endif()
+
+if(EXISTS ${EXASIM_DIR}/frontends/Python/exasim)
+  install(CODE "
+    file(READ \"${EXASIM_DIR}/frontends/Python/exasim/__init__.py.in\" _exasim_python_init_template)
+    string(CONFIGURE \"\${_exasim_python_init_template}\" _exasim_python_init_contents @ONLY)
+    file(WRITE \"${EXASIM_DIR}/frontends/Python/exasim/__init__.py\"
+      \"\${_exasim_python_init_contents}\")
+  ")
+endif()
+
+if(EXISTS ${EXASIM_DIR}/frontends/Julia/Exasim/src)
+  install(CODE "
+    file(READ \"${EXASIM_DIR}/frontends/Julia/Exasim/src/Exasim.jl.in\" _exasim_julia_module_template)
+    string(CONFIGURE \"\${_exasim_julia_module_template}\" _exasim_julia_module_contents @ONLY)
+    file(WRITE \"${EXASIM_DIR}/frontends/Julia/Exasim/src/Exasim.jl\"
+      \"\${_exasim_julia_module_contents}\")
+  ")
 endif()
 
 export(EXPORT ExasimTargets

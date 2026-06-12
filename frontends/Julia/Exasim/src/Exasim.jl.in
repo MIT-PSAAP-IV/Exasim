@@ -32,7 +32,7 @@ using .Gencode
 
 function __init__()
     if isempty(get(ENV, "EXASIM_PREFIX", ""))
-        ENV["EXASIM_PREFIX"] = "/Users/cuongnguyen/Documents/GitHub/PSAAP/Exasim/local"
+        ENV["EXASIM_PREFIX"] = "@CMAKE_INSTALL_PREFIX@"
     end
 end
 

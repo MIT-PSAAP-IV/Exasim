@@ -4,9 +4,7 @@ if nargin < 1
 end
 
 if sharedbuild == 1
-    cdir = pwd(); 
-    ii = strfind(cdir, "Exasim");
-    sharedroot = cdir(1:(ii+5)) + "/examples/exasimfe/";
+    sharedroot = string(fullfile(exasim_path(), "examples", "exasimfe"));
     if strlength(sharedroot) > 0
         datapath = sharedroot;
         builddir = sharedroot;
@@ -18,4 +16,3 @@ localroot = string(fullfile(pwd(), "exasim"));
 datapath = localroot;
 builddir = localroot;
 end
-

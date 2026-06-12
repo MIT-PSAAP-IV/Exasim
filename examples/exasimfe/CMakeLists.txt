@@ -12,14 +12,22 @@ if(EXASIM_CUDA AND EXASIM_HIP)
     "EXASIM_CUDA and EXASIM_HIP cannot both be ON. Select exactly one GPU backend.")
 endif()
 
-get_filename_component(EXASIM_SOURCE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
-set(EXASIM_LOCAL_PACKAGE_DIR "${EXASIM_SOURCE_ROOT}/local/lib/cmake/Exasim")
-if(EXISTS "${EXASIM_LOCAL_PACKAGE_DIR}/ExasimConfig.cmake")
-  set(Exasim_DIR "${EXASIM_LOCAL_PACKAGE_DIR}"
-    CACHE PATH "Path to ExasimConfig.cmake" FORCE)
+if(Exasim_DIR)
+  if(EXISTS "${Exasim_DIR}/ExasimConfig.cmake")
+    set(Exasim_DIR "${Exasim_DIR}" CACHE PATH "Path to ExasimConfig.cmake" FORCE)
+  elseif(EXISTS "${Exasim_DIR}/build/ExasimConfig.cmake")
+    set(Exasim_DIR "${Exasim_DIR}/build" CACHE PATH "Path to ExasimConfig.cmake" FORCE)
+  elseif(EXISTS "${Exasim_DIR}/lib/cmake/Exasim/ExasimConfig.cmake")
+    set(Exasim_DIR "${Exasim_DIR}/lib/cmake/Exasim" CACHE PATH "Path to ExasimConfig.cmake" FORCE)
+  else()
+    message(FATAL_ERROR
+      "Exasim_DIR was set to ${Exasim_DIR}, but no ExasimConfig.cmake was found "
+      "in ${Exasim_DIR}, ${Exasim_DIR}/build, or ${Exasim_DIR}/lib/cmake/Exasim.")
+  endif()
 endif()
 
 find_package(Exasim REQUIRED)
+message(STATUS "Exasim_DIR = ${Exasim_DIR}")
 
 set(EXASIM_APP_LIBRARY_TARGET Exasim::cpulib)
 if(EXASIM_CUDA OR EXASIM_HIP)

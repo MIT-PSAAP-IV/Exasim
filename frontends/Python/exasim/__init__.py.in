@@ -22,6 +22,6 @@ from .Preprocessing import initializeexasim, preprocessing
 from .Postprocessing import exasim, vis, fetchsolution
 
 if not os.environ.get("EXASIM_PREFIX"):
-    os.environ["EXASIM_PREFIX"] = "/Users/cuongnguyen/Documents/GitHub/PSAAP/Exasim/local"
+    os.environ["EXASIM_PREFIX"] = "@CMAKE_INSTALL_PREFIX@"
 
 __version__ = "1.0.0"

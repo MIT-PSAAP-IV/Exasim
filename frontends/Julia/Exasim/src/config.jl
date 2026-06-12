@@ -21,10 +21,12 @@ function install_prefix()
     # Installed layout: <prefix>/share/exasim/julia/Exasim/src
     cand = abspath(joinpath(here, "..", "..", "..", ".."))
     _is_prefix(cand) && return cand
-    # Source-tree layout: <repo>/frontends/Julia/Exasim/src with the
-    # superbuild installed to <repo>-build/install (sibling of the repo).
+    # Source-tree layout: <repo>/frontends/Julia/Exasim/src with either a
+    # local package under <repo>/local or the superbuild installed to
+    # <repo>-build/install (sibling of the repo).
     repo = abspath(joinpath(here, "..", "..", "..", ".."))
-    for cand in (joinpath(dirname(repo), basename(repo) * "-build", "install"),
+    for cand in (joinpath(repo, "local"),
+                 joinpath(dirname(repo), basename(repo) * "-build", "install"),
                  joinpath(repo, "build", "install"))
         _is_prefix(cand) && return cand
     end
