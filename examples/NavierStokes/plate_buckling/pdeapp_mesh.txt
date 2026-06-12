@@ -1,4 +1,4 @@
-exasimpath = "/home/tsili/dv/Exasim";
+exasimpath = "/path/to/Exasim";
 model = "ModelD";
 modelfile = "n";
 meshfile = "grid.bin";

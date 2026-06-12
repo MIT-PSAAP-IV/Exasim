@@ -149,7 +149,7 @@ while duh > NewtonTol && it < 10
         q = qequationschur(MinvC, MinvE, UDG(:,1:ncu,:), reshape(UH(:,mesh.elcon),[ncu npf*nfe ne]), SH(:,ncu+1:nc,:), pde.fc_q);    
         UDG(:,(ncu+1):nc,:) = q;          
         
-%         dataout = "/Users/ngoccuongnguyen/Exasim/build/dataout/out" + num2str(it);        
+%         dataout = "/path/to/Exasim/build/dataout/out" + num2str(it);        
 %         tmp = readbin(dataout + "newton_x.bin");        
 %         max(abs(tmp(:)-DUH(:)))
 %         tmp = readbin(dataout + "newton_u.bin");

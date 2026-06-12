@@ -3,7 +3,7 @@ modelID = 14;
 
 cdir = pwd(); ii = strfind(cdir, "Exasim");
 exasimpath = cdir(1:(ii+5));
-%exasimpath = "/Users/cuongnguyen/Documents/GitHub/PSAAP/Exasim";
+%exasimpath = "/path/to/Exasim";
 
 text2code = exasimpath + "/build/text2code";
 modelpath = exasimpath + "/backend/Model/BuiltIn/model" + num2str(modelID);

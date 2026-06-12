@@ -1,4 +1,4 @@
-exasimpath = "/Users/cuongnguyen/Documents/GitHub/PSAAP/Exasim";
+exasimpath = "/path/to/Exasim";
 model = "ModelD";
 modelfile = "pdemodel6.txt";
 meshfile = "grid.bin";

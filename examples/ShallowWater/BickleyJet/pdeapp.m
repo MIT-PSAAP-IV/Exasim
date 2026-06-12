@@ -73,5 +73,5 @@ pde.visvectors = {"velocity", [2, 3]}; % list of vector fields for visualization
 xdg = vis(sol,pde,mesh); % visualize the numerical solution
 disp("Done!");
 
-% /home/peraire/ParaView-5.9.0-RC1-egl-MPI-Linux-Python3.8-64bit/bin/pvserver--server-port=11111
+% /path/to/ParaView/bin/pvserver--server-port=11111
 
