@@ -31,9 +31,9 @@ name: smoke (CPU)
 
 on:
   push:
-    branches: [teoc-Kitesurf-Coupling-build-and-test, teoc-other-frontends-and-misc-cleanup, teoc-examples-migration]
+    branches: [master, teoc-Kitesurf-Coupling-build-and-test, teoc-other-frontends-and-misc-cleanup, teoc-examples-migration]
   pull_request:
-    branches: [Kitesurf-Coupling, teoc-Kitesurf-Coupling-build-and-test]
+    branches: [master, Kitesurf-Coupling, teoc-Kitesurf-Coupling-build-and-test]
   workflow_dispatch:
 
 # Cancel superseded runs on the same ref.
