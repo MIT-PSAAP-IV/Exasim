@@ -4,24 +4,28 @@ function [app,cpulib,gpulib] = checkcompilers(app)
 [cpustatus1,~] = system("g++ -v");
 [cpustatus2,~] = system("/usr/bin/g++ -v");
 [cpustatus3,~] = system("/usr/local/bin/g++ -v");
-[cpustatus4,~] = system("/opt/local/bin/g++ -v");        
+[cpustatus4,~] = system("/opt/local/bin/g++ -v");
+[cpustatus5,~] = system("/opt/homebrew/bin/g++ -v");
 
 if cpustatus0==0
     disp("Using " + app.cpucompiler + " compiler for CPU source code");
-elseif cpustatus1==0        
+elseif cpustatus1==0
     app.cpucompiler = "g++";
     disp("Using g++ compiler for CPU source code");
-elseif cpustatus2==0        
-    app.cpucompiler = "/usr/bin/g++";    
+elseif cpustatus2==0
+    app.cpucompiler = "/usr/bin/g++";
     disp("Using /usr/bin/g++ compiler for CPU source code");
-elseif cpustatus3==0        
+elseif cpustatus3==0
     app.cpucompiler = "/usr/local/bin/g++";
     disp("Using /usr/local/bin/g++ compiler for CPU source code");
-elseif cpustatus4==0        
-    app.cpucompiler = "/opt/local/bin/g++";    
+elseif cpustatus4==0
+    app.cpucompiler = "/opt/local/bin/g++";
     disp("Using /opt/local/bin/g++ compiler for CPU source code");
-else            
-    error("C++ compiler is not found on your system. Please install it. If a C++ compiler is available on your system, please set its path to app.cpucompiler"); 
+elseif cpustatus5==0
+    app.cpucompiler = "/opt/homebrew/bin/g++";
+    disp("Using /opt/homebrew/bin/g++ compiler for CPU source code");
+else
+    error("C++ compiler is not found on your system. Please install it. If a C++ compiler is available on your system, please set its path to app.cpucompiler");
 end
 
 if app.mpiprocs>1
@@ -33,8 +37,10 @@ if app.mpiprocs>1
     [mpistatus5,~] = system("mpicxx-openmpi-mp -v");
     [mpistatus6,~] = system("/usr/bin/mpicxx-openmpi-mp -v");
     [mpistatus7,~] = system("/usr/local/bin/mpicxx-openmpi-mp -v");
-    [mpistatus8,~] = system("/opt/local/bin/mpicxx-openmpi-mp -v");        
-    
+    [mpistatus8,~] = system("/opt/local/bin/mpicxx-openmpi-mp -v");
+    [mpistatus9,~] = system("/opt/homebrew/bin/mpicxx -v");
+    [mpistatus10,~] = system("/opt/homebrew/bin/mpicxx-openmpi-mp -v");
+
     if mpistatus0==0
         disp("Using " + app.mpicompiler + " compiler for MPI source code");
     elseif mpistatus5==0        
@@ -65,13 +71,21 @@ if app.mpiprocs>1
         app.mpicompiler = "/usr/local/bin/mpicxx";    
         app.mpirun = "/usr/local/bin/mpirun";
         disp("Using /usr/local/bin/mpicxx compiler for MPI source code");
-    elseif mpistatus4==0        
-        app.mpicompiler = "/opt/local/bin/mpicxx";    
-        app.mpirun = "/opt/local/bin/mpirun";                
+    elseif mpistatus4==0
+        app.mpicompiler = "/opt/local/bin/mpicxx";
+        app.mpirun = "/opt/local/bin/mpirun";
         disp("Using opt/local/bin/mpicxx compiler for MPI source code");
-    else            
-        error("MPI compiler is not found on your system. Please install it. If a MPI compiler is available on your system, please set its path to app.mpicompiler"); 
-    end        
+    elseif mpistatus10==0
+        app.mpicompiler = "/opt/homebrew/bin/mpicxx-openmpi-mp";
+        app.mpirun = "/opt/homebrew/bin/mpirun-openmpi-mp";
+        disp("Using /opt/homebrew/bin/mpicxx-openmpi-mp compiler for MPI source code");
+    elseif mpistatus9==0
+        app.mpicompiler = "/opt/homebrew/bin/mpicxx";
+        app.mpirun = "/opt/homebrew/bin/mpirun";
+        disp("Using /opt/homebrew/bin/mpicxx compiler for MPI source code");
+    else
+        error("MPI compiler is not found on your system. Please install it. If a MPI compiler is available on your system, please set its path to app.mpicompiler");
+    end
 end
 
 if app.platform == "gpu"

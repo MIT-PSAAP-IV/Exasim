@@ -6,8 +6,9 @@ class SymbolicScalarsVectors {
 
 public:
 
-    // path to model folder 
-    std::string modelpath = "/Users/cuongnguyen/Documents/GitHub/hexascale/Exasim/backend/Model/";
+    // Output dir for generated kernels; empty = relative to the current working
+    // directory (set by the caller / codegen). Never hardcode an absolute path.
+    std::string modelpath = "";
 
     // input symbolic scalars
     Expression t;

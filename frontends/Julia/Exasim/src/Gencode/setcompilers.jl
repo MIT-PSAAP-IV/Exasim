@@ -5,6 +5,7 @@ cpustatus1 = Sys.which("g++");
 cpustatus2 = Sys.which("/usr/bin/g++");
 cpustatus3 = Sys.which("/usr/local/bin/g++");
 cpustatus4 = Sys.which("/opt/local/bin/g++");
+cpustatus5 = Sys.which("/opt/homebrew/bin/g++");
 
 if cpustatus0 != nothing
     print("Using " * app.cpucompiler * " compiler for CPU source code\n");
@@ -20,8 +21,11 @@ elseif cpustatus3 != nothing
 elseif cpustatus4 != nothing
     app.cpucompiler = "/opt/local/bin/g++";
     print("Using /opt/local/bin/g++ compiler for CPU source code\n");
+elseif cpustatus5 != nothing
+    app.cpucompiler = "/opt/homebrew/bin/g++";
+    print("Using /opt/homebrew/bin/g++ compiler for CPU source code\n");
 else
-    error("Exasim search in /usr/bin, /usr/local/bin, and /opt/local/bin and could not find C++ compiler. Please see the documentation to install it. After installation, please set its path to app.cpucompiler");
+    error("Exasim search of PATH, /usr/bin, /usr/local/bin, /opt/local/bin, and /opt/homebrew/bin could not find a C++ compiler. Please see the documentation to install it. After installation, please set its path to app.cpucompiler");
 end
 
 if app.mpiprocs>1
@@ -34,6 +38,8 @@ if app.mpiprocs>1
     mpistatus6 = Sys.which("/usr/bin/mpicxx-openmpi-mp");
     mpistatus7 = Sys.which("/usr/local/bin/mpicxx-openmpi-mp");
     mpistatus8 = Sys.which("/opt/local/bin/mpicxx-openmpi-mp");
+    mpistatus9 = Sys.which("/opt/homebrew/bin/mpicxx");
+    mpistatus10 = Sys.which("/opt/homebrew/bin/mpicxx-openmpi-mp");
     if mpistatus0 != nothing
         print("Using " * app.mpicompiler * " compiler for MPI source code\n");
     elseif mpistatus5 != nothing
@@ -68,8 +74,16 @@ if app.mpiprocs>1
         app.mpicompiler = "/opt/local/bin/mpicxx";
         app.mpirun = "/opt/local/bin/mpirun";
         print("Using opt/local/bin/mpicxx compiler for MPI source code\n");
+    elseif mpistatus10 != nothing
+        app.mpicompiler = "/opt/homebrew/bin/mpicxx-openmpi-mp";
+        app.mpirun = "/opt/homebrew/bin/mpirun-openmpi-mp";
+        print("Using /opt/homebrew/bin/mpicxx-openmpi-mp compiler for MPI source code\n");
+    elseif mpistatus9 != nothing
+        app.mpicompiler = "/opt/homebrew/bin/mpicxx";
+        app.mpirun = "/opt/homebrew/bin/mpirun";
+        print("Using /opt/homebrew/bin/mpicxx compiler for MPI source code\n");
     else
-        error("Exasim search in /usr/bin, /usr/local/bin, and /opt/local/bin and could not find MPI compiler. Please see the documentation to install it. After installation, please set its path to app.mpicompiler");
+        error("Exasim search of PATH, /usr/bin, /usr/local/bin, /opt/local/bin, and /opt/homebrew/bin could not find an MPI compiler. Please see the documentation to install it. After installation, please set its path to app.mpicompiler");
     end
     app.mpirun = replace(app.mpicompiler, "mpicxx" => "mpirun");
 end

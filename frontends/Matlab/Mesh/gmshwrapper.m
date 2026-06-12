@@ -6,19 +6,22 @@ disp('Gmsh mesh generator...');
 [gmshstatus1,~] = system("which gmsh");
 [gmshstatus2,~] = system("which /usr/bin/gmsh");
 [gmshstatus3,~] = system("which /usr/local/bin/gmsh");
-[gmshstatus4,~] = system("which /opt/local/bin/gmsh");        
+[gmshstatus4,~] = system("which /opt/local/bin/gmsh");
+[gmshstatus5,~] = system("which /opt/homebrew/bin/gmsh");
 
 if gmshstatus0==0
-elseif gmshstatus1==0        
-    gmsh = "gmsh";        
-elseif gmshstatus2==0        
-    gmsh = "/usr/bin/gmsh";    
-elseif gmshstatus3==0        
-    gmsh = "/usr/local/bin/gmsh";    
-elseif gmshstatus4==0        
-    gmsh = "/opt/local/bin/gmsh";    
-else            
-    error("Exasim search in /usr/bin, /usr/local/bin, and /opt/local/bin and could not find Gmsh. Please see the documentation to install it. After installation, please set its path to app.gmsh"); 
+elseif gmshstatus1==0
+    gmsh = "gmsh";
+elseif gmshstatus2==0
+    gmsh = "/usr/bin/gmsh";
+elseif gmshstatus3==0
+    gmsh = "/usr/local/bin/gmsh";
+elseif gmshstatus4==0
+    gmsh = "/opt/local/bin/gmsh";
+elseif gmshstatus5==0
+    gmsh = "/opt/homebrew/bin/gmsh";
+else
+    error("Exasim search of PATH, /usr/bin, /usr/local/bin, /opt/local/bin, and /opt/homebrew/bin could not find Gmsh. Please see the documentation to install it. After installation, please set its path to app.gmsh");
 end
 
 % call gmsh
