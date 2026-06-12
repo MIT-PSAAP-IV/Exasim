@@ -738,6 +738,14 @@ if(EXASIM_FRONTENDS)
   install(DIRECTORY ${EXASIM_DIR}/cmake/frontend-app
     DESTINATION ${EXASIM_CMAKE_INSTALL_DIR})
 
+  # Record the absolute path of the cmake that built/installed Exasim, so the
+  # frontends' cmakecompile step can invoke it directly. This matters when a
+  # frontend runs from a GUI (e.g. the MATLAB app) whose PATH does not include
+  # the cmake used to build Exasim (Homebrew/conda dirs are not on the launchd
+  # PATH). Falls back to a bare "cmake" lookup when the file is absent or its
+  # path no longer exists (relocated install).
+  install(CODE "file(WRITE \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${EXASIM_CMAKE_INSTALL_DIR}/cmake_command.txt\" \"${CMAKE_COMMAND}\n\")")
+
   # Python: install the exasim package into the prefix's site-packages. When
   # the prefix is on the interpreter's sys.path (e.g. a virtualenv prefix),
   # `import exasim` then works without any path setup; otherwise add the

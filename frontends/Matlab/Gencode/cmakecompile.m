@@ -11,6 +11,18 @@ disp("Compile C++ Exasim code against the installed Exasim package...");
 prefix = exasim_install_prefix();
 pde.exasimpath = prefix;
 
+% Use the absolute path of the cmake that built/installed Exasim (recorded at
+% install time) so this works when MATLAB is launched from the GUI app, whose
+% PATH does not include the Homebrew/conda cmake. Fall back to a bare "cmake".
+cmakecmd = "cmake";
+cmakerec = char(prefix + "/lib/cmake/Exasim/cmake_command.txt");
+if exist(cmakerec, 'file') == 2
+    rec = strtrim(string(fileread(cmakerec)));
+    if strlength(rec) > 0 && exist(char(rec), 'file') == 2
+        cmakecmd = """" + rec + """";   % quote in case the path has spaces
+    end
+end
+
 builddir = pde.builddir;
 kernels = builddir + "/kernels";
 if ~exist(char(kernels), 'dir')
@@ -30,7 +42,7 @@ rendertemplate(tmpl + "/main.cpp.in", builddir + "/main.cpp", subs);
 
 bdir = builddir + "/build";
 exe = bdir + "/exasimapp";
-comstr = "cmake -S " + builddir + " -B " + bdir + ...
+comstr = cmakecmd + " -S " + builddir + " -B " + bdir + ...
          " -DExasim_DIR=" + prefix + "/lib/cmake/Exasim";
 
 % Hash the model inputs (kernels + rendered app sources + the install);
@@ -63,7 +75,7 @@ runchecked(comstr);
 
 jobs = getenv('JOBS');
 if isempty(jobs), jobs = num2str(feature('numcores')); end
-runchecked("cmake --build " + bdir + " --parallel " + jobs);
+runchecked(cmakecmd + " --build " + bdir + " --parallel " + jobs);
 
 if ~exist(char(exe), 'file')
     error("Build did not produce %s.", exe);

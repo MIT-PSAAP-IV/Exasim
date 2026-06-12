@@ -63,3 +63,21 @@ def frontend_app_template_dir():
 
 def text2code_path():
     return install_prefix() / "bin" / "text2code"
+
+
+def cmake_command():
+    """The cmake executable to invoke for building generated apps.
+
+    Prefer the absolute path of the cmake that built/installed Exasim (recorded
+    at install time in lib/cmake/Exasim/cmake_command.txt) so the build works
+    from a GUI whose PATH lacks that cmake (e.g. MATLAB launched from the app).
+    Fall back to a bare "cmake" on PATH when the record is missing or stale.
+    """
+    record = cmake_dir() / "cmake_command.txt"
+    try:
+        path = record.read_text().strip()
+    except OSError:
+        path = ""
+    if path and Path(path).exists():
+        return path
+    return "cmake"

@@ -49,7 +49,8 @@ function cmakecompile(pde)
 
     bdir = joinpath(builddir, "build")
     exe = joinpath(bdir, "exasimapp")
-    cfg = `cmake -S $builddir -B $bdir -DExasim_DIR=$(cmake_dir())`
+    cmake = cmake_command()
+    cfg = `$cmake -S $builddir -B $bdir -DExasim_DIR=$(cmake_dir())`
 
     # Hash the model inputs (kernels + rendered app sources + the install);
     # if nothing changed since the last successful build, skip cmake entirely.
@@ -83,7 +84,7 @@ function cmakecompile(pde)
 
     run(cfg)
     jobs = get(ENV, "JOBS", string(Sys.CPU_THREADS))
-    run(`cmake --build $bdir --parallel $jobs`)
+    run(`$cmake --build $bdir --parallel $jobs`)
 
     if !isfile(exe)
         error("Build did not produce $exe.")

@@ -55,7 +55,8 @@ def cmakecompile(pde):
 
     bdir = os.path.join(builddir, "build")
     exe = os.path.join(bdir, "exasimapp")
-    cfg = ["cmake", "-S", builddir, "-B", bdir,
+    cmake = config.cmake_command()
+    cfg = [cmake, "-S", builddir, "-B", bdir,
            "-DExasim_DIR=" + str(config.cmake_dir())]
 
     # Hash the model inputs (kernels + app templates + substitution values +
@@ -87,7 +88,7 @@ def cmakecompile(pde):
 
     subprocess.run(cfg, check=True)
     jobs = os.environ.get("JOBS") or str(os.cpu_count() or 4)
-    subprocess.run(["cmake", "--build", bdir, "--parallel", jobs], check=True)
+    subprocess.run([cmake, "--build", bdir, "--parallel", jobs], check=True)
 
     if not os.path.exists(exe):
         raise RuntimeError(f"Build did not produce {exe}.")

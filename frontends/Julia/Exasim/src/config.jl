@@ -38,3 +38,15 @@ end
 cmake_dir() = joinpath(install_prefix(), "lib", "cmake", "Exasim")
 frontend_app_template_dir() = joinpath(cmake_dir(), "frontend-app")
 text2code_path() = joinpath(install_prefix(), "bin", "text2code")
+
+# The cmake to invoke for building generated apps: prefer the absolute path of
+# the cmake that built/installed Exasim (recorded at install time) so it works
+# from a GUI with a restricted PATH; fall back to a bare "cmake" on PATH.
+function cmake_command()
+    record = joinpath(cmake_dir(), "cmake_command.txt")
+    if isfile(record)
+        p = strip(read(record, String))
+        (!isempty(p) && isfile(p)) && return p
+    end
+    return "cmake"
+end
