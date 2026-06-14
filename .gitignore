@@ -434,3 +434,5 @@ examples/exasimfe/kernels/KokkosVisVectors.cpp
 examples/LinearElasticity/platebottomgaussian2d/deformedmeshzoom.png
 /examples/Poisson/Orion/exasim
 /examples/Poisson/poisson3d/exasim
+/examples/NavierStokes/sharpb2/exasim/build
+/examples/NavierStokes/sharpb2/exasim

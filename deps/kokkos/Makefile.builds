@@ -10,18 +10,23 @@ NPROCS := $(strip $(shell \
 
 .PHONY: all serial cuda hip clean
 
-# GPU architecture for the CUDA build. Override for other GPUs, e.g.
-#   make cuda KOKKOS_CUDA_ARCH=AMPERE80   (A100)   or   HOPPER90 (H100).
-# Default VOLTA70 targets the Tesla V100 (sm_70). Empty => let Kokkos auto-detect
-# the visible GPU (only works when a GPU is present at configure time).
-KOKKOS_CUDA_ARCH ?= VOLTA70
-
 # Output (build == install) directory per backend. Defaults build in-source next
 # to this Makefile; the Exasim superbuild overrides them to its build tree so the
 # checkout stays clean, e.g. `make serial SERIAL_DIR=/path/to/build/kokkos`.
 SERIAL_DIR ?= buildserial
 CUDA_DIR   ?= buildcuda
 HIP_DIR    ?= buildhip
+
+# GPU architecture for the CUDA build. Override for other GPUs, e.g.
+#   make cuda KOKKOS_CUDA_ARCH=AMPERE80   (A100)   or   HOPPER90 (H100).
+# Default VOLTA70 targets the Tesla V100 (sm_70). Empty => let Kokkos auto-detect
+# the visible GPU (only works when a GPU is present at configure time).
+KOKKOS_CUDA_ARCH ?= VOLTA70
+
+# AMD GPU architecture for HIP build.
+# Frontier MI250X: gfx90a
+# Tuolumne MI300A: gfx942
+KOKKOS_HIP_ARCH ?= AMD_GFX942
 
 all: serial cuda hip
 
@@ -38,8 +43,11 @@ cuda:
 	cmake -S . -B $(CUDA_DIR) \
 	  -DCMAKE_CXX_COMPILER=$(CURDIR)/bin/nvcc_wrapper \
 	  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+      -DKokkos_ENABLE_SERIAL=ON \
 	  -DKokkos_ENABLE_CUDA=ON \
 	  -DKokkos_ENABLE_CUDA_LAMBDA=ON \
+      -DKokkos_ENABLE_CUDA_CONSTEXPR=ON \
+      -DKokkos_ENABLE_CUDA_RELOCATABLE_DEVICE_CODE=OFF \
 	  $(if $(KOKKOS_CUDA_ARCH),-DKokkos_ARCH_$(KOKKOS_CUDA_ARCH)=ON,) \
 	  -DCMAKE_INSTALL_PREFIX=$(CUDA_DIR)
 	cmake --build $(CUDA_DIR) -j$(NPROCS)
@@ -51,7 +59,9 @@ hip:
 	  -DCMAKE_CXX_COMPILER=hipcc \
 	  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
 	  -DKokkos_ENABLE_HIP=ON \
-	  -DKokkos_ENABLE_ROCM=ON \
+	  -DKokkos_ENABLE_SERIAL=ON \
+	  -DKokkos_ARCH_$(KOKKOS_HIP_ARCH)=ON \
+	  -DKokkos_ENABLE_HIP_RELOCATABLE_DEVICE_CODE=OFF \
 	  -DCMAKE_INSTALL_PREFIX=$(HIP_DIR)
 	cmake --build $(HIP_DIR) -j$(NPROCS)
 	cmake --install $(HIP_DIR)

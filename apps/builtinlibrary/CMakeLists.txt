@@ -19,6 +19,8 @@ if(Exasim_DIR)
     set(Exasim_DIR "${Exasim_DIR}/build" CACHE PATH "Path to ExasimConfig.cmake" FORCE)
   elseif(EXISTS "${Exasim_DIR}/lib/cmake/Exasim/ExasimConfig.cmake")
     set(Exasim_DIR "${Exasim_DIR}/lib/cmake/Exasim" CACHE PATH "Path to ExasimConfig.cmake" FORCE)
+  elseif(EXISTS "${Exasim_DIR}/lib64/cmake/Exasim/ExasimConfig.cmake")
+    set(Exasim_DIR "${Exasim_DIR}/lib64/cmake/Exasim" CACHE PATH "Path to ExasimConfig.cmake" FORCE)
   else()
     message(FATAL_ERROR
       "Exasim_DIR was set to ${Exasim_DIR}, but no ExasimConfig.cmake was found "
@@ -80,6 +82,12 @@ target_include_directories(exasimapp PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_definitions(exasimapp PRIVATE _BUILTINLIBRARY)
 if(EXASIM_MPI)
   target_compile_definitions(exasimapp PRIVATE _MPI)
+endif()
+if(EXASIM_CUDA)
+  target_compile_definitions(exasimapp PRIVATE _CUDA)
+endif()
+if(EXASIM_HIP)
+  target_compile_definitions(exasimapp PRIVATE _HIP)
 endif()
 target_link_libraries(exasimapp PRIVATE
   Exasim::headers

@@ -13,7 +13,7 @@ Build the static libraries and the built-in model shared library
 
   cmake -S Exasim -B Exasim-build \
     -DEXASIM_FRONTENDS=ON \
-    -DCMAKE_INSTALL_PREFIX=/Users/cuongnguyen/Documents/GitHub/PSAAP/Exasim/local
+    -DCMAKE_INSTALL_PREFIX=/path/to/prefix
   cmake --build Exasim-build -j8
   cmake --install Exasim-build
 

@@ -9,7 +9,7 @@ pde.modelfile = "pdemodel_axialns";
 
 % Choose computing platform and set number of processors
 pde.platform = "cpu";         % choose this option if NVIDIA GPUs are available
-pde.mpiprocs = 4;             % number of MPI processors
+pde.mpiprocs = 8;             % number of MPI processors
 pde.porder = 2;          % polynomial degree
 pde.pgauss = 2*pde.porder;
 pde.hybrid = 1;               % 0 -> LDG, 1 -> HDG
@@ -76,6 +76,7 @@ pde.gencode = 1;
 [sol,pde,mesh,master,dmd] = exasim(pde,mesh);
 figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[0 Minf],1); colorbar;
 
+pde.buildpath = pde.builddir;
 disp("Iter 2")
 mesh.vdg(:,1,:) = 0.002*tanh(nm*dist);
 mesh.udg = sol;
