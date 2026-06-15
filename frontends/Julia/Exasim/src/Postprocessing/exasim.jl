@@ -22,6 +22,12 @@ if nmodels==1
 
     runstr = Gencode.runcode(pde, 1);
 
+    # optionally package a relocatable "data transfer app" bundle (the
+    # local build+run above doubles as the bundle's verification step).
+    if isdefined(pde, :exportapp) && !isempty(pde.exportapp)
+        Gencode.exportapp(pde, pde.exportapp; build=true);
+    end
+
     # get solution from output files in dataout folder
     sol = Postprocessing.fetchsolution(pde,master,dmd, joinpath(pde.datapath, "dataout"));
     if pde.saveResNorm == 1
