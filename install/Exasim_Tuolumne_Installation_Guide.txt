@@ -12,9 +12,9 @@ module load cray-mpich
 module load amd/6.4.3
 module load rocm/6.4.3
 module load craype-accel-amd-gfx942
-export PROJDIR=/g/g16/nnguyen/PSAAP/
-export EXASIM_ROOT=/g/g16/nnguyen/PSAAP/Exasim
-export EXASIM_PREFIX=/g/g16/nnguyen/PSAAP/Exasim/local
+export PROJDIR=/path/to/PSAAP
+export EXASIM_ROOT=/path/to/PSAAP/Exasim
+export EXASIM_PREFIX=/path/to/PSAAP/Exasim/local
 export CRAYPE_LINK_TYPE=dynamic
 export MPICH_GPU_SUPPORT_ENABLED=1
 export CXX=/opt/cray/pe/craype/2.7.35/bin/CC
@@ -203,12 +203,11 @@ module load cray-mpich
 module load amd/6.4.3
 module load rocm/6.4.3
 module load craype-accel-amd-gfx942
-export PROJDIR=/g/g16/nnguyen/PSAAP/
-export EXASIM_ROOT=/g/g16/nnguyen/PSAAP/Exasim
-export EXASIM_PREFIX=/g/g16/nnguyen/PSAAP/Exasim/local
+export PROJDIR=/path/to/PSAAP
+export EXASIM_ROOT=/path/to/PSAAP/Exasim
+export EXASIM_PREFIX=/path/to/PSAAP/Exasim/local
 export CRAYPE_LINK_TYPE=dynamic
 export MPICH_GPU_SUPPORT_ENABLED=1
 export CXX=/opt/cray/pe/craype/2.7.35/bin/CC
 export EXASIM_GPU_ARCH=gfx942
 flux run -N1 -n4 --verbose --exclusive --setopt=mpibind=verbose:1 build/exasimapp ../navierstokes/reactingsharpb2/pdeapp.txt
-

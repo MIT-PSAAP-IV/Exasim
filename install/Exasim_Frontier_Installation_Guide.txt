@@ -12,9 +12,9 @@ module load amd
 module load cray-mpich
 module load rocm
 
-export PROJDIR=/ccs/home/cuongng/PSAAP/
-export EXASIM_ROOT=/ccs/home/cuongng/PSAAP/Exasim
-export EXASIM_PREFIX=/ccs/home/cuongng/PSAAP/Exasim/local
+export PROJDIR=/path/to/PSAAP
+export EXASIM_ROOT=/path/to/PSAAP/Exasim
+export EXASIM_PREFIX=/path/to/PSAAP/Exasim/local
 
 mkdir -p $EXASIM_PREFIX
 
@@ -162,9 +162,9 @@ module load amd
 module load cray-mpich
 module load craype-accel-amd-gfx90a
 module load rocm
-export PROJDIR=/ccs/home/cuongng/PSAAP/
-export EXASIM_ROOT=/ccs/home/cuongng/PSAAP/Exasim
-export EXASIM_PREFIX=/ccs/home/cuongng/PSAAP/Exasim/local
+export PROJDIR=/path/to/PSAAP
+export EXASIM_ROOT=/path/to/PSAAP/Exasim
+export EXASIM_PREFIX=/path/to/PSAAP/Exasim/local
 export CRAYPE_LINK_TYPE=dynamic
 export MPICH_GPU_SUPPORT_ENABLED=1
 export CXX=/opt/cray/pe/craype/2.7.33/bin/CC
@@ -200,12 +200,11 @@ module load amd
 module load cray-mpich
 module load craype-accel-amd-gfx90a
 module load rocm
-export PROJDIR=/ccs/home/cuongng/PSAAP/
-export EXASIM_ROOT=/ccs/home/cuongng/PSAAP/Exasim
-export EXASIM_PREFIX=/ccs/home/cuongng/PSAAP/Exasim/local
+export PROJDIR=/path/to/PSAAP
+export EXASIM_ROOT=/path/to/PSAAP/Exasim
+export EXASIM_PREFIX=/path/to/PSAAP/Exasim/local
 export CRAYPE_LINK_TYPE=dynamic
 export MPICH_GPU_SUPPORT_ENABLED=1
 export CXX=/opt/cray/pe/craype/2.7.33/bin/CC
 export EXASIM_GPU_ARCH=gfx90a
 srun -N1 -n4 --gpus-per-task=1 build/exasimapp ../navierstokes/reactingsharpb2/pdeapp.txt
-
