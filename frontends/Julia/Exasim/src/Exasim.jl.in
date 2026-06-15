@@ -15,8 +15,6 @@ pde.builddir (default <cwd>/exasim).
 module Exasim
 
 include("config.jl")
-include("exasim_path.jl")
-include("exasimbuilddirs.jl")
 
 include("Preprocessing/Types.jl")
 include("Preprocessing/Master.jl")

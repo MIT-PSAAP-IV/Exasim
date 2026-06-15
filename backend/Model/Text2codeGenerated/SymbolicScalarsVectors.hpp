@@ -13,7 +13,7 @@ public:
     // from argv[1]. Default left empty (writes relative
     // to cwd) so generated headers don't bake an absolute
     // path tied to the developer who ran codegen.
-    std::string modelpath = "/Users/cuongnguyen/Documents/GitHub/PSAAP/Exasim/backend/Model/Text2codeGenerated/";
+    std::string modelpath = "";
 
     // input symbolic scalars
     Expression t;

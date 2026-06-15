@@ -23,11 +23,8 @@ import os, sys, sympy
 from importlib import import_module
 import importlib.util
 from numpy import *
-from ..exasimbuilddirs import exasimbuilddirs
 
 def preprocessing(app,mesh):
-
-    app['datapath'], app['builddir'] = exasimbuilddirs(app['sharedbuild'])
 
     if app['modelnumber']==0:
         strn = "";

@@ -56,4 +56,4 @@ mesh.periodicexpr = {2, @(p) p(2,:), 4, @(p) p(2,:); 1, @(p) p(1,:), 3, @(p) p(1
 kkgencode(pde);
 
 % Build: cmake --build . --target cpumpiEXASIM
-% Run:   cd /home/tsili/dv/Exasim/build && ./cpumpiEXASIM 1 /path/to/EulerVortexMapped/datain/ /path/to/EulerVortexMapped/dataout/out
+% Run:   cd /path/to/Exasim/build && ./cpumpiEXASIM 1 /path/to/EulerVortexMapped/datain/ /path/to/EulerVortexMapped/dataout/out

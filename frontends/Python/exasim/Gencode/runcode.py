@@ -23,7 +23,16 @@ def runcode(pde, numpde):
     if pde['mpiprocs'] == 1:
         cmd = [exe, str(numpde), datain, dataout]
     else:
-        cmd = [pde['mpirun'], "-np", str(pde['mpiprocs']),
+        # Prefer the MPI launcher CMake discovered at build-configure time
+        # (portable); fall back to the frontend-detected pde['mpirun'].
+        mpirun = pde['mpirun']
+        mpitxt = os.path.join(pde['builddir'], "build", "mpiexec.txt")
+        if os.path.exists(mpitxt):
+            with open(mpitxt) as f:
+                discovered = f.read().strip()
+            if discovered:
+                mpirun = discovered
+        cmd = [mpirun, "-np", str(pde['mpiprocs']),
                exe, str(numpde), datain, dataout]
 
     start_time = time.time()

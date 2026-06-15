@@ -51,9 +51,9 @@ gupta_structs = {
     N_O2 O_O2 NO_O2 O2_N2 O2_O2
 };
 
-% data_mu= CSV.File("/Users/rloekvh/Downloads/tabula-gupta-mu.csv", header=true) |> Tables.matrix
+% data_mu= CSV.File("/path/to/data/tabula-gupta-mu.csv", header=true) |> Tables.matrix
 % data_mu = data_mu[[3,4,5,1,2],2:end]
-% data_kappa= CSV.File("/Users/rloekvh/Downloads/tabula-gupta-kappa.csv", header=true) |> Tables.matrix
+% data_kappa= CSV.File("/path/to/data/tabula-gupta-kappa.csv", header=true) |> Tables.matrix
 % data_kappa = data_kappa[[3,4,5,1,2],2:end]
 data_mu = [ 
 0.012    0.593   -12.3805

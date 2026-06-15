@@ -2,8 +2,6 @@ function [app,mesh,master,dmd] = preprocessing(app,mesh)
 
 %app.Cxxpreprocessing = 0;
 
-[app.datapath, app.builddir] = exasimbuilddirs(app.sharedbuild);
-
 coupledinterface = 0;
 coupledcondition = 0;
 coupledboundarycondition = 0;

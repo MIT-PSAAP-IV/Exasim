@@ -57,6 +57,19 @@ foreach(_fe python julia matlab)
       bash "${EXASIM_DIR}/tests/frontends/run-frontend-test.sh")
   set_tests_properties(frontend_${_fe} PROPERTIES
     TIMEOUT 2400 SKIP_RETURN_CODE 77)
+
+  # Data-transfer app export: the run also packages a relocatable bundle, which
+  # must be pristine and build+run on its own (copied elsewhere) via run.sh.
+  add_test(NAME frontend_${_fe}_export
+    COMMAND ${CMAKE_COMMAND} -E env
+      "EXASIM_ROOT=${EXASIM_DIR}"
+      "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}"
+      "FRONTEND=${_fe}"
+      "EXPORT_TEST=1"
+      "PYTHON3=${Python3_EXECUTABLE}"
+      bash "${EXASIM_DIR}/tests/frontends/run-frontend-test.sh")
+  set_tests_properties(frontend_${_fe}_export PROPERTIES
+    TIMEOUT 2400 SKIP_RETURN_CODE 77)
 endforeach()
 
 # Builtin model 4 kernel equivalence: model 4 (CNS5air reacting NS) switched

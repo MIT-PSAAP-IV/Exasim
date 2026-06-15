@@ -37,7 +37,7 @@ uhg = reshape(uhg,[ngf*nfe*ne ncu]);
 % Compute numerical fluxes 
 [FH, FH_udg, FH_uh] = fhat(nlg, pg, udgg, uhg, arg, time);     
 
-% dataout = "/Users/ngoccuongnguyen/Exasim/build/dataout/";
+% dataout = "/path/to/Exasim/build/dataout/";
 % filename = dataout + "outuEquationElemFace_fh.bin";
 % tmp = readbin(filename);
 % fh = reshape(tmp, size(FH));

@@ -738,6 +738,14 @@ if(EXASIM_FRONTENDS)
   install(DIRECTORY ${EXASIM_DIR}/cmake/frontend-app
     DESTINATION ${EXASIM_CMAKE_INSTALL_DIR})
 
+  # Record the absolute path of the cmake that built/installed Exasim, so the
+  # frontends' cmakecompile step can invoke it directly. This matters when a
+  # frontend runs from a GUI (e.g. the MATLAB app) whose PATH does not include
+  # the cmake used to build Exasim (Homebrew/conda dirs are not on the launchd
+  # PATH). Falls back to a bare "cmake" lookup when the file is absent or its
+  # path no longer exists (relocated install).
+  install(CODE "file(WRITE \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${EXASIM_CMAKE_INSTALL_DIR}/cmake_command.txt\" \"${CMAKE_COMMAND}\n\")")
+
   # Python: install the exasim package into the prefix's site-packages. When
   # the prefix is on the interpreter's sys.path (e.g. a virtualenv prefix),
   # `import exasim` then works without any path setup; otherwise add the
@@ -749,7 +757,11 @@ if(EXASIM_FRONTENDS)
       CACHE STRING "Install dir for the exasim Python package (relative to the prefix)")
     install(DIRECTORY ${EXASIM_DIR}/frontends/Python/exasim
       DESTINATION ${EXASIM_PYTHON_SITEDIR}
-      PATTERN "__init__.py" EXCLUDE
+      # Exclude ONLY the top-level package __init__.py (regenerated from the
+      # .in template below). A bare PATTERN "__init__.py" would match the
+      # trailing component of every path and drop the subpackage __init__.py
+      # files too, turning each subpackage into an empty namespace package.
+      REGEX "/exasim/__init__\\.py$" EXCLUDE
       PATTERN "__pycache__" EXCLUDE)
     install(CODE "
       file(READ \"${EXASIM_DIR}/frontends/Python/exasim/__init__.py.in\" _exasim_python_init_template)
@@ -845,32 +857,13 @@ if(EXASIM_FRONTENDS)
   endif()
 endif()
 
-if(EXISTS ${EXASIM_DIR}/frontends/Matlab)
-  install(CODE "
-    file(READ \"${EXASIM_DIR}/frontends/Matlab/exasim_setup.m.in\" _exasim_setup_template)
-    string(CONFIGURE \"\${_exasim_setup_template}\" _exasim_setup_contents @ONLY)
-    file(WRITE \"${EXASIM_DIR}/frontends/Matlab/exasim_setup.m\"
-      \"\${_exasim_setup_contents}\")
-  ")
-endif()
-
-if(EXISTS ${EXASIM_DIR}/frontends/Python/exasim)
-  install(CODE "
-    file(READ \"${EXASIM_DIR}/frontends/Python/exasim/__init__.py.in\" _exasim_python_init_template)
-    string(CONFIGURE \"\${_exasim_python_init_template}\" _exasim_python_init_contents @ONLY)
-    file(WRITE \"${EXASIM_DIR}/frontends/Python/exasim/__init__.py\"
-      \"\${_exasim_python_init_contents}\")
-  ")
-endif()
-
-if(EXISTS ${EXASIM_DIR}/frontends/Julia/Exasim/src)
-  install(CODE "
-    file(READ \"${EXASIM_DIR}/frontends/Julia/Exasim/src/Exasim.jl.in\" _exasim_julia_module_template)
-    string(CONFIGURE \"\${_exasim_julia_module_template}\" _exasim_julia_module_contents @ONLY)
-    file(WRITE \"${EXASIM_DIR}/frontends/Julia/Exasim/src/Exasim.jl\"
-      \"\${_exasim_julia_module_contents}\")
-  ")
-endif()
+# NOTE: the frontend entry files (exasim_setup.m / __init__.py / Exasim.jl) are
+# rendered from their .in templates into the INSTALL tree above. They are
+# deliberately NOT written back into the source tree: doing so bakes the
+# machine-specific CMAKE_INSTALL_PREFIX into tracked files (git churn, and a
+# leaked absolute path if committed). A source checkout resolves the prefix at
+# runtime via config.install_prefix() / exasim_install_prefix(), which already
+# probe <repo>/local and <repo>-build/install, or honor EXASIM_PREFIX.
 
 export(EXPORT ExasimTargets
   NAMESPACE Exasim::

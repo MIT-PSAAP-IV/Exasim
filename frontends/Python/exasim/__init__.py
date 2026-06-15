@@ -9,9 +9,8 @@ Typical use:
 
 Runtime data (datain/, dataout/) is written under the working directory
 (override with pde['datapath']); generated code and the solver build live in
-pde['builddir'] (default <cwd>/exasim).
+the hidden pde['builddir'] (default <cwd>/.exasim).
 """
-import os
 from . import config
 from . import Preprocessing
 from . import Mesh
@@ -20,8 +19,5 @@ from . import Postprocessing
 
 from .Preprocessing import initializeexasim, preprocessing
 from .Postprocessing import exasim, vis, fetchsolution
-
-if not os.environ.get("EXASIM_PREFIX"):
-    os.environ["EXASIM_PREFIX"] = "/Users/cuongnguyen/Documents/GitHub/PSAAP/Exasim/local"
 
 __version__ = "1.0.0"

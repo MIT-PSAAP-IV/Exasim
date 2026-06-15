@@ -70,7 +70,9 @@ for dir in "$REPO"/tests/consumers/*/; do
       ( cd "$rdir" && mpirun -np "$NP" "$exe" pdeapp.txt > run.log 2>&1 )
     else
       ( cd "$rdir" && "$exe" pdeapp.txt > run.log 2>&1 )
-    fi || { echo "  FAIL[B4]: run nonzero exit (see $rdir/run.log)"; fail=1; continue; }
+    fi || { echo "  FAIL[B4]: run nonzero exit (see $rdir/run.log)"; \
+            echo "  --- $rdir/run.log ---"; sed 's/^/  | /' "$rdir/run.log"; \
+            echo "  --- end run.log ---"; fail=1; continue; }
     qoi1="$(tail -1 "$rdir/dataout/outqoi.txt" 2>/dev/null | awk '{print $2}')"
     if [ -z "$qoi1" ]; then echo "  FAIL[B4]: no QoI output"; fail=1; continue; fi
     if awk "BEGIN{exit !(($qoi1)+0 < ($QOI_TOL)+0)}"; then

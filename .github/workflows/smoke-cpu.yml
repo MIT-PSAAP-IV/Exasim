@@ -31,9 +31,9 @@ name: smoke (CPU)
 
 on:
   push:
-    branches: [teoc-Kitesurf-Coupling-build-and-test, teoc-other-frontends-and-misc-cleanup, teoc-examples-migration]
+    branches: [master, teoc-Kitesurf-Coupling-build-and-test, teoc-other-frontends-and-misc-cleanup, teoc-examples-migration]
   pull_request:
-    branches: [Kitesurf-Coupling, teoc-Kitesurf-Coupling-build-and-test]
+    branches: [master, Kitesurf-Coupling, teoc-Kitesurf-Coupling-build-and-test]
   workflow_dispatch:
 
 # Cancel superseded runs on the same ref.
@@ -93,11 +93,16 @@ jobs:
       - name: Python frontend dependencies
         run: python3 -m pip install --user numpy scipy sympy
 
-      - name: Configure + Build (out of tree)
+      - name: Configure + Build + Install (out of tree)
         run: |
           cmake -S src -B "$BUILD_DIR" -DEXASIM_BUILD_TESTS=ON \
                 -DCMAKE_INSTALL_PREFIX="$BUILD_DIR/install"
           cmake --build "$BUILD_DIR" --parallel 2
+          # The solver layer installs via an outer install(CODE) step, so the
+          # build alone does not populate $BUILD_DIR/install. Install explicitly
+          # so the baked data dir (<prefix>/share/exasim) and the frontend
+          # packages exist for the consumer and frontend tests.
+          cmake --install "$BUILD_DIR"
 
       - name: Test (ctest)
         env:

@@ -7,7 +7,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_LINK_DEPENDS_NO_SHARED ON)
 
 # Rendered by the Exasim language frontend (cmakecompile) — do not edit.
-set(EXASIM_VARIANT "@EXASIM_VARIANT@")  # cpu | cpumpi | gpu | gpumpi
+# A cache STRING so an exported "data transfer app" can be retargeted to the
+# variant the build machine actually has, e.g. cmake -DEXASIM_VARIANT=gpu,
+# without regenerating. The rendered value is the default; the kernels and
+# datain are arch-independent, so only the linked Exasim variant changes.
+set(EXASIM_VARIANT "@EXASIM_VARIANT@" CACHE STRING
+    "Exasim solver variant: cpu | cpumpi | gpu | gpumpi")
 
 find_package(Exasim REQUIRED COMPONENTS ${EXASIM_VARIANT})
 # ExasimConfig.cmake resolves Kokkos from its baked build-time location;
@@ -45,6 +50,11 @@ if(EXASIM_VARIANT MATCHES "mpi")
   find_package(MPI REQUIRED)
   target_compile_definitions(exasimapp PRIVATE _MPI)
   target_link_libraries(exasimapp PRIVATE MPI::MPI_CXX)
+  # Record the MPI launcher CMake discovered so the frontend's runcode uses a
+  # portable, configure-time path instead of guessing /usr/local/bin/mpirun etc.
+  if(MPIEXEC_EXECUTABLE)
+    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/mpiexec.txt" "${MPIEXEC_EXECUTABLE}\n")
+  endif()
 endif()
 
 message(STATUS

@@ -6,7 +6,6 @@ mutable struct PDEStruct
     backendpath::String; 
     datapath::String;   # runtime data dir (datain/, dataout/); default cwd
     builddir::String;   # hidden dir for generated code + app build
-    sharedbuild::IntP;  # 1 uses examples/exasimfe, 0 uses a local exasim dir
     modelid::IntP;      # external builtin model ID for the generated model
     appname::String;  # application name
     platform::String; # CPU or GPU
@@ -23,6 +22,7 @@ mutable struct PDEStruct
     model::String;# used to indicate PDE model
     modelfile::String;# PDE model file name
     modelnumber::IntP;
+    exportapp::String; # destination dir for a relocatable data-transfer app bundle ("" = off)
 
     usecmake::IntP; 
     buildexec::IntP; 
@@ -168,10 +168,9 @@ function initializepde(version)
 
     pde.codename = "Exasim";
     # Runtime data (datain/, dataout/) goes under datapath (user-visible);
-    # generated code and the solver build live in builddir.
-    pde.datapath = joinpath(pwd(), "exasim");
-    pde.builddir = joinpath(pwd(), "exasim");
-    pde.sharedbuild = 0;
+    # generated code and the solver build live in the hidden builddir.
+    pde.datapath = pwd();
+    pde.builddir = joinpath(pwd(), ".exasim");
     pde.modelid = 100;   # external builtin model ID for the generated model
     pde.exasimpath = ""; # Exasim install prefix; resolved by cmakecompile
     pde.buildpath = "";
@@ -211,6 +210,7 @@ function initializepde(version)
     pde.nodetype = 1;
     pde.model="ModelD";
     pde.modelnumber = 0;
+    pde.exportapp = ""; # off by default; set to a dir to export a data-transfer app bundle
 
     pde.hybrid = 0;
     pde.tdep = 0;

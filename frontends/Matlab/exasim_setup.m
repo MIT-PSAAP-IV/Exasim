@@ -26,7 +26,6 @@ addpath(fullfile(srcdir, 'STG'));
 % Make external tools in common nonstandard prefixes visible without
 % clobbering the user's PATH.
 setenv('PATH', [getenv('PATH') ':/usr/bin:/usr/local/bin:/opt/local/bin:/opt/homebrew/bin']);
-setenv('EXASIM_PREFIX', '/Users/cuongnguyen/Documents/GitHub/PSAAP/Exasim/local');
 
 fprintf("==> Exasim MATLAB frontend ...\n");
 clear srcdir;

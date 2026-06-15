@@ -21,8 +21,13 @@ if status != nothing
     filename = "/opt/local/bin/" * filename;
     return filename;
 end
+status = Sys.which("/opt/homebrew/bin/" * filename);
+if status != nothing
+    filename = "/opt/homebrew/bin/" * filename;
+    return filename;
+end
 if status == nothing
-    print("Exasim could not find " * filename * " in /usr/bin, /usr/local/bin, /opt/local/bin\n");
+    print("Exasim could not find " * filename * " in /usr/bin, /usr/local/bin, /opt/local/bin, /opt/homebrew/bin\n");
     if Sys.isapple()
         print("Exasim tries to find " * filename * " in /Applications. It may take a while.\n");
         a = read(Gencode.string2cmd("find /Applications -name " * filename * " -type f"), String);

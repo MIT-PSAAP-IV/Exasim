@@ -71,6 +71,18 @@ mkdir -p "$RUN/a"
 cp "$SRC"/* "$RUN/a/"
 cd "$RUN/a"
 
+# --- export-app mode (EXPORT_TEST=1): inject a pde.exportapp assignment just
+# before the exasim() call so the run also packages a data-transfer bundle ----
+if [ "${EXPORT_TEST:-0}" = "1" ]; then
+  case "$FE" in
+    python) ins="pde['exportapp'] = os.path.join(os.getcwd(), 'bundle')" ;;
+    julia)  ins='pde.exportapp = joinpath(pwd(), "bundle")' ;;
+    matlab) ins='pde.exportapp = fullfile(pwd,"bundle");' ;;
+  esac
+  awk -v ins="$ins" '/exasim\(pde/ && !d {print ins; d=1} {print}' "$APP" > "$APP.tmp" \
+    && mv "$APP.tmp" "$APP"
+fi
+
 export EXASIM_PREFIX="$INSTALL"
 # Hermetic per-user model cache (never touch the real ~/.exasim from tests).
 export EXASIM_CACHE_DIR="$RUN/cache"
@@ -93,6 +105,29 @@ esac
 if [ "$status" -ne 0 ]; then
   echo "FAIL: $APP exited with status $status"
   exit 1
+fi
+
+# --- export-app assertions (EXPORT_TEST=1) ----------------------------------
+# The bundle must be present, pristine (no build/, empty dataout/), and
+# genuinely relocatable: copy it elsewhere and build+run via run.sh against
+# the install, with no frontend involved.
+if [ "${EXPORT_TEST:-0}" = "1" ]; then
+  B="$(pwd)/bundle"
+  [ -d "$B" ] || { echo "FAIL: no bundle at $B"; exit 1; }
+  for f in CMakeLists.txt main.cpp run.sh manifest.json; do
+    [ -f "$B/$f" ] || { echo "FAIL: bundle missing $f"; exit 1; }
+  done
+  { [ -d "$B/kernels" ] && [ -d "$B/datain" ]; } \
+    || { echo "FAIL: bundle missing kernels/ or datain/"; exit 1; }
+  [ -d "$B/build" ] && { echo "FAIL: bundle has build/ (not pristine)"; exit 1; }
+  [ -z "$(ls -A "$B/dataout")" ] \
+    || { echo "FAIL: bundle dataout/ not empty (not pristine)"; exit 1; }
+  REL="$RUN/relocated"; rm -rf "$REL"; cp -R "$B" "$REL"
+  ( cd "$REL" && EXASIM_ROOT="$INSTALL" bash run.sh ) > "$RUN/export-run.log" 2>&1 \
+    || { cat "$RUN/export-run.log"; echo "FAIL: relocated bundle run.sh failed"; exit 1; }
+  [ -f "$REL/dataout/outqoi.txt" ] \
+    || { echo "FAIL: relocated run produced no dataout/outqoi.txt"; exit 1; }
+  echo "frontend_${FE}_export: bundle pristine + relocatable build+run OK"
 fi
 
 # --- model-cache check (CACHE_TEST=1): a second app dir must reuse the
