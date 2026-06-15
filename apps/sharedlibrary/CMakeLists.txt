@@ -13,66 +13,34 @@ if(EXASIM_CUDA AND EXASIM_HIP)
     "EXASIM_CUDA and EXASIM_HIP cannot both be ON. Select exactly one GPU backend.")
 endif()
 
-# ----------------------------------------------------------------------
-# Resolve Exasim_DIR and remember the Exasim install prefix.
-# ----------------------------------------------------------------------
-set(EXASIM_APP_PREFIX "" CACHE PATH "Exasim install prefix")
-
 if(Exasim_DIR)
   if(EXISTS "${Exasim_DIR}/ExasimConfig.cmake")
-    # Exasim_DIR already points directly to the package config directory.
     set(Exasim_DIR "${Exasim_DIR}" CACHE PATH "Path to ExasimConfig.cmake" FORCE)
-
-    # Try to infer prefix from .../lib/cmake/Exasim or .../lib64/cmake/Exasim.
-    get_filename_component(_exasim_config_parent "${Exasim_DIR}" DIRECTORY) # cmake
-    get_filename_component(_exasim_lib_dir        "${_exasim_config_parent}" DIRECTORY) # lib or lib64
-    get_filename_component(EXASIM_APP_PREFIX      "${_exasim_lib_dir}" DIRECTORY CACHE)
-
   elseif(EXISTS "${Exasim_DIR}/build/ExasimConfig.cmake")
-    set(EXASIM_APP_PREFIX "${Exasim_DIR}" CACHE PATH "Exasim install prefix" FORCE)
     set(Exasim_DIR "${Exasim_DIR}/build" CACHE PATH "Path to ExasimConfig.cmake" FORCE)
-
   elseif(EXISTS "${Exasim_DIR}/lib/cmake/Exasim/ExasimConfig.cmake")
-    set(EXASIM_APP_PREFIX "${Exasim_DIR}" CACHE PATH "Exasim install prefix" FORCE)
     set(Exasim_DIR "${Exasim_DIR}/lib/cmake/Exasim" CACHE PATH "Path to ExasimConfig.cmake" FORCE)
-
   elseif(EXISTS "${Exasim_DIR}/lib64/cmake/Exasim/ExasimConfig.cmake")
-    set(EXASIM_APP_PREFIX "${Exasim_DIR}" CACHE PATH "Exasim install prefix" FORCE)
     set(Exasim_DIR "${Exasim_DIR}/lib64/cmake/Exasim" CACHE PATH "Path to ExasimConfig.cmake" FORCE)
-
   else()
     message(FATAL_ERROR
       "Exasim_DIR was set to ${Exasim_DIR}, but no ExasimConfig.cmake was found.")
   endif()
 endif()
 
-find_package(Exasim REQUIRED)
-
-message(STATUS "Exasim_DIR        = ${Exasim_DIR}")
-message(STATUS "EXASIM_APP_PREFIX = ${EXASIM_APP_PREFIX}")
-
-# ----------------------------------------------------------------------
-# Select Exasim preprocessing library.
-# ----------------------------------------------------------------------
-set(EXASIM_APP_LIBRARY_TARGET Exasim::cpuprelib)
-
+set(EXASIM_VARIANT cpu)
 if(EXASIM_MPI)
-  set(EXASIM_APP_LIBRARY_TARGET Exasim::cpumpiprelib)
+  set(EXASIM_VARIANT cpumpi)
 endif()
-
 if(EXASIM_CUDA OR EXASIM_HIP)
   if(EXASIM_MPI)
-    set(EXASIM_APP_LIBRARY_TARGET Exasim::gpumpiprelib)
+    set(EXASIM_VARIANT gpumpi)
   else()
-    set(EXASIM_APP_LIBRARY_TARGET Exasim::gpuprelib)
+    set(EXASIM_VARIANT gpu)
   endif()
 endif()
 
-if(NOT TARGET ${EXASIM_APP_LIBRARY_TARGET})
-  message(FATAL_ERROR
-    "Requested Exasim target ${EXASIM_APP_LIBRARY_TARGET} is not available in the "
-    "current Exasim package. Reconfigure Exasim to build that library variant.")
-endif()
+find_package(Exasim REQUIRED COMPONENTS ${EXASIM_VARIANT})
 
 # ----------------------------------------------------------------------
 # Select generated shared model library.
@@ -87,24 +55,27 @@ if(EXASIM_HIP)
   set(EXASIM_APP_MODEL_LIB t2cmodelhip)
 endif()
 
+set(EXASIM_APP_PREFIX "${Exasim_ROOT}" CACHE PATH "Exasim install prefix")
 if(NOT EXASIM_APP_PREFIX)
   message(FATAL_ERROR
     "Could not determine EXASIM_APP_PREFIX. "
     "Set Exasim_DIR to the Exasim install prefix or set EXASIM_APP_PREFIX explicitly.")
 endif()
 
-set(EXASIM_APP_MODEL_DIR "${EXASIM_APP_PREFIX}/lib"
-    CACHE PATH "Directory containing libt2cmodel*.so")
+message(STATUS "Exasim_DIR        = ${Exasim_DIR}")
+message(STATUS "EXASIM_VARIANT    = ${EXASIM_VARIANT}")
+message(STATUS "EXASIM_APP_PREFIX = ${EXASIM_APP_PREFIX}")
 
 find_library(EXASIM_APP_MODEL_LIBRARY
   NAMES ${EXASIM_APP_MODEL_LIB}
-  HINTS "${EXASIM_APP_MODEL_DIR}"
+  HINTS "${EXASIM_APP_PREFIX}/lib" "${EXASIM_APP_PREFIX}/lib64"
   NO_DEFAULT_PATH)
 
 if(NOT EXASIM_APP_MODEL_LIBRARY)
   message(FATAL_ERROR
     "Could not find shared model library ${EXASIM_APP_MODEL_LIB} in "
-    "${EXASIM_APP_MODEL_DIR}. Run text2code first to generate and build it.")
+    "${EXASIM_APP_PREFIX}/lib or ${EXASIM_APP_PREFIX}/lib64. "
+    "Run text2code first to generate and build it.")
 endif()
 
 message(STATUS "EXASIM_APP_MODEL_LIBRARY = ${EXASIM_APP_MODEL_LIBRARY}")
@@ -134,7 +105,7 @@ endif()
 
 target_link_libraries(exasimapp PRIVATE
   Exasim::headers
-  ${EXASIM_APP_LIBRARY_TARGET}
+  Exasim::pre
   "${EXASIM_APP_MODEL_LIBRARY}")
 
 get_filename_component(EXASIM_APP_MODEL_LIBRARY_DIR

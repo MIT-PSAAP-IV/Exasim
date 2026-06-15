@@ -714,11 +714,15 @@ install(FILES
   DESTINATION ${EXASIM_CMAKE_INSTALL_DIR})
 
 # model.hpp is installed by the backend DIRECTORY rule (*.hpp pattern), but
-# model.cpp is not (the pattern excludes .cpp). Install it explicitly so
-# exasim_add_external_builtin_model(PDEMODEL) can instantiate the templates.
+# model.cpp / libt2cmodel.cpp are not (the pattern excludes .cpp). Install them
+# explicitly so exasim_add_external_builtin_model(PDEMODEL) can instantiate the
+# builtin templates and the installed text2code can build libt2cmodel*.{so,dylib}.
 install(FILES
   ${EXASIM_DIR}/backend/Model/BuiltIn/model.cpp
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/backend/Model/BuiltIn)
+install(FILES
+  ${EXASIM_DIR}/backend/Model/Text2codeGenerated/libt2cmodel.cpp
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/backend/Model/Text2codeGenerated)
 
 # Install the text2code binary if the superbuild built it (it forwards the
 # location via EXASIM_TEXT2CODE; out-of-tree, never under the source tree).

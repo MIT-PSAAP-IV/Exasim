@@ -405,6 +405,23 @@ int buildDynamicLibraries(ParsedSpec& spec)
                : ("-I" + quote(dir));
     };
 
+    auto exasim_include_flags = [&]() -> std::string
+    {
+        std::stringstream flags;
+        const std::string include_root = make_path(spec.exasimpath, "include");
+
+        if (fs::exists(spec.exasimpath) && fs::is_directory(spec.exasimpath)) {
+            flags << inc(spec.exasimpath) << " ";
+        }
+
+        if (include_root != spec.exasimpath &&
+            fs::exists(include_root) && fs::is_directory(include_root)) {
+            flags << inc(include_root) << " ";
+        }
+
+        return flags.str();
+    };
+
     auto shlib_flags = [&] {
         if (tc.kind == CompilerKind::MSVC) {
             return std::string{"/LD /nologo /std:c++17 /EHsc /W0 "};
@@ -536,12 +553,14 @@ int buildDynamicLibraries(ParsedSpec& spec)
             if (tc.kind == CompilerKind::MSVC) {
                 cmd << tc.cxx << " " << shlib_flags
                     << inc(spec.modelpath) << " " << inc(inc_dir) << " "
+                    << exasim_include_flags()
                     << quote(src) << " "
                     << "/Fe:" << quote(out) << " "
                     << "/link " << quote(lib_core) << " " << quote(lib_cont);
             } else {
                 cmd << tc.cxx << " " << shlib_flags
                     << inc(spec.modelpath) << " " << inc(inc_dir) << " "
+                    << exasim_include_flags()
                     << quote(src) << " "
                     << quote(lib_core) << " " << quote(lib_cont) << " "
                     << install_name_flag(out)
@@ -593,6 +612,7 @@ int buildDynamicLibraries(ParsedSpec& spec)
                 << "--expt-extended-lambda --expt-relaxed-constexpr "
                 << cuda_arch_flag()
                 << inc(spec.modelpath) << " " << inc(inc_dir) << " "
+                << exasim_include_flags()
                 << quote(src) << " "
                 << install_name_flag(out)
                 << "-o " << quote(out) << " "
@@ -647,6 +667,7 @@ int buildDynamicLibraries(ParsedSpec& spec)
             cmd << quote(hip_cxx)
                 << " -shared -std=c++17 -fPIC " << hip_arch_flag()
                 << inc(spec.modelpath) << " " << inc(inc_dir) << " "
+                << exasim_include_flags()
                 << quote(src) << " "
                 << install_name_flag(out)
                 << "-o " << quote(out) << " "
@@ -673,4 +694,3 @@ int buildDynamicLibraries(ParsedSpec& spec)
 
     return final_status;
 }
-

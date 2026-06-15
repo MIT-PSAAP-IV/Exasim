@@ -1,6 +1,6 @@
 #include <cmath>
 #include <Kokkos_Core.hpp>
-#include "../../../include/driver_abi.hpp"
+#include "driver_abi.hpp"
 
 #ifdef USE_FLOAT
 typedef float dstype;

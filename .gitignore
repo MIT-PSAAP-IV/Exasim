@@ -42,6 +42,7 @@ text2code/symengine/lib/*
 text2code/symengine/include/*
 backend/Model/libpdemodelserial.dylib
 backend/Model/code2cpp
+backend/Model/Text2codeGenerated/code2cpp
 backend/.DS_Store
 .DS_Store
 frontends/Julia/.DS_Store
