@@ -1,6 +1,6 @@
 #include <cmath>
 #include <Kokkos_Core.hpp>
-#include "../ModelDispatch/driver_abi.h"
+#include "../../../include/driver_abi.hpp"
 
 #ifdef USE_FLOAT
 typedef float dstype;
@@ -77,6 +77,8 @@ extern "C" const ExasimDriverABI* GetText2CodeExasimDriverABI()
         value.KokkosUbou = &text2code_shared_lib::KokkosUbou;
         value.KokkosFhat = &text2code_shared_lib::KokkosFhat;
         value.KokkosUhat = &text2code_shared_lib::KokkosUhat;
+        value.KokkosFbouJac = &text2code_shared_lib::KokkosFbouJac;
+        value.KokkosUbouJac = &text2code_shared_lib::KokkosUbouJac;
         value.KokkosStab = &text2code_shared_lib::KokkosStab;
         value.KokkosOutput = &text2code_shared_lib::KokkosOutput;
         value.KokkosMonitor = &text2code_shared_lib::KokkosMonitor;
