@@ -86,12 +86,17 @@ nav:
       - Built-in model: usage-modes/builtin.md
       - External built-in model: usage-modes/external-builtin.md
       - Shared library: usage-modes/shared-library.md
+  - Frontends: frontends/index.md
   - Theory:
       - theory/index.md
       - LDG formulation: theory/ldg-formulation.md
       - Block-diagonal Jacobian: theory/block-diagonal-jacobian.md
   - Reference:
       - Model contract: reference/model-contract.md
+      - pdeapp.txt fields: reference/pdeapp.md
+      - pdemodel.txt syntax: reference/pdemodel.md
+      - CMake targets & options: reference/cmake.md
+      - text2code: reference/text2code.md
   - Driving the solver (C++ API): driving-the-solver.md
   - Internals:
       - Architecture & data flow: internals/architecture.md
