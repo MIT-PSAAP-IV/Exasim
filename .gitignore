@@ -230,22 +230,10 @@ doc/Gov_eq_new_compr_NS_solver_Sandberg.pdf
 /frontends/Matlab/Mesh/adaptivity
 backend/Model/cpuInitu.cpp
 backend/Model/HdgFbou.cpp
-/backend/Model/FrontendGenerated/cpuInitu.cpp
-/backend/Model/FrontendGenerated/HdgFbou.cpp
-/backend/Model/FrontendGenerated/HdgFbouonly.cpp
-/backend/Model/FrontendGenerated/HdgFlux.cpp
-/backend/Model/FrontendGenerated/HdgSource.cpp
-/backend/Model/FrontendGenerated/KokkosDrivers.cpp
-/backend/Model/FrontendGenerated/KokkosFbou.cpp
-/backend/Model/FrontendGenerated/KokkosFlux.cpp
-/backend/Model/FrontendGenerated/KokkosInitu.cpp
-/backend/Model/FrontendGenerated/KokkosQoIboundary.cpp
-/backend/Model/FrontendGenerated/KokkosQoIvolume.cpp
-/backend/Model/FrontendGenerated/KokkosSource.cpp
-/backend/Model/FrontendGenerated/KokkosTdfunc.cpp
-/backend/Model/FrontendGenerated/KokkosUbou.cpp
-/backend/Model/FrontendGenerated/KokkosVisScalars.cpp
-/backend/Model/FrontendGenerated/KokkosVisVectors.cpp
+# ---- Frontend-generated model outputs --------------------------------------
+/backend/Model/FrontendGenerated/Hdg*.cpp
+/backend/Model/FrontendGenerated/Kokkos*.cpp
+/backend/Model/FrontendGenerated/cpuInit*.cpp
 /examples/NavierStokes/flaredplate3dsteady
 /examples/NavierStokes/isoq/hm
 examples/NavierStokes/isoq/av.png
@@ -338,13 +326,20 @@ lib/libbuiltinmodelserial.*
 lib/*.a
 lib/libt2cmodelserial.*
 /apps/poisson/poisson3d/build2
+# ---- Text2Code generated model outputs -------------------------------------
 backend/Model/Text2codeGenerated/code2cpp
-backend/Model/Text2codeGenerated/KokkosVisScalars.cpp
-backend/Model/Text2codeGenerated/KokkosVisVectors.cpp
+backend/Model/Text2codeGenerated/Code2Cpp.cpp
+backend/Model/Text2codeGenerated/CudaHip.hpp
+backend/Model/Text2codeGenerated/Hdg*.cpp
+backend/Model/Text2codeGenerated/Kokkos*.cpp
+backend/Model/Text2codeGenerated/cpuInit*.cpp
+backend/Model/Text2codeGenerated/libpdemodel.cpp
+backend/Model/Text2codeGenerated/libpdemodel.hpp
 backend/Model/Text2codeGenerated/my_model.hpp
 backend/Model/Text2codeGenerated/SymbolicFunctions.cpp
 backend/Model/Text2codeGenerated/SymbolicFunctions.hpp
 backend/Model/Text2codeGenerated/SymbolicScalarsVectors.cpp
+backend/Model/Text2codeGenerated/SymbolicScalarsVectors.hpp
 metis/GKlib/bin/csrcnv
 /apps/poisson/poisson2d/build
 /apps/builtinlibrary/build
@@ -353,7 +348,6 @@ metis/GKlib/bin/csrcnv
 # ---- Generated model shared libraries (macOS text2code build artifacts) ----
 backend/Model/Text2codeGenerated/*.dylib
 backend/Model/Text2codeGenerated/*.so
-backend/Model/Text2codeGenerated/code2cpp
 # ---- Build outputs (keep the checkout clean; see the in-source-build guard) ----
 # Top-level / out-of-source build dirs and stray host-triplet dirs.
 /lib/
@@ -377,9 +371,6 @@ backend/Model/BuiltIn/builtin_model_registry.h
 /frontends/build
 /examples/build
 deps/build/preprocess
-backend/Model/FrontendGenerated/KokkosFhat.cpp
-backend/Model/FrontendGenerated/KokkosStab.cpp
-backend/Model/FrontendGenerated/KokkosUhat.cpp
 
 # per-app frontend build dirs (created wherever a pdeapp runs)
 **/.exasim/
