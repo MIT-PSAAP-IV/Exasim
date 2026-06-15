@@ -114,6 +114,10 @@ message(STATUS "EXASIM_APP_MODEL_LIBRARY = ${EXASIM_APP_MODEL_LIBRARY}")
 # ----------------------------------------------------------------------
 add_executable(exasimapp exasimsharedapp.cpp)
 
+target_include_directories(exasimapp BEFORE PRIVATE
+  "${CMAKE_CURRENT_SOURCE_DIR}"
+  "${CMAKE_CURRENT_SOURCE_DIR}/../../include")
+
 target_compile_definitions(exasimapp PRIVATE _SHAREDLIBRARY)
 
 if(EXASIM_MPI)

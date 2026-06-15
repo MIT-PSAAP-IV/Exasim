@@ -1,0 +1,214 @@
+
+Exasim Installation on Tuolumne
+
+0. Download Exasim
+git clone --branch Kitesurf-Coupling --single-branch https://github.com/MIT-PSAAP-IV/Exasim.git
+
+1. Environment
+
+module reset
+module load PrgEnv-amd
+module load cray-mpich
+module load amd/6.4.3
+module load rocm/6.4.3
+module load craype-accel-amd-gfx942
+export PROJDIR=/g/g16/nnguyen/PSAAP/
+export EXASIM_ROOT=/g/g16/nnguyen/PSAAP/Exasim
+export EXASIM_PREFIX=/g/g16/nnguyen/PSAAP/Exasim/local
+export CRAYPE_LINK_TYPE=dynamic
+export MPICH_GPU_SUPPORT_ENABLED=1
+export CXX=/opt/cray/pe/craype/2.7.35/bin/CC
+export EXASIM_GPU_ARCH=gfx942
+
+mkdir -p $EXASIM_PREFIX
+
+Verify:
+CC --version
+cc --version
+hipcc --version
+
+2. Build GKlib
+cd $EXASIM_ROOT/deps/metis/GKlib
+rm -rf build
+mkdir build
+cd build
+cmake .. -DCMAKE_C_COMPILER=amdclang -DCMAKE_INSTALL_PREFIX=$EXASIM_PREFIX
+make -j8
+make install
+
+3. Build METIS
+cd $EXASIM_ROOT/deps/metis/METIS
+rm -rf build
+make config cc=amdclang prefix=$EXASIM_PREFIX gklib_path=$EXASIM_PREFIX
+make -j8
+make install
+
+4. Build ParMETIS
+cd $EXASIM_ROOT/deps/metis/ParMETIS
+rm -rf build
+mkdir build
+cd build
+cmake .. -DCMAKE_C_COMPILER=cc -DCMAKE_INSTALL_PREFIX=$EXASIM_PREFIX  -DGKLIB_PATH=$EXASIM_PREFIX -DMETIS_PATH=$EXASIM_PREFIX
+make -j8
+make install
+
+5. Build Kokkos (HIP)
+export CRAYPE_LINK_TYPE=dynamic
+cd $EXASIM_ROOT/deps/kokkos
+rm -rf $EXASIM_ROOT/deps/kokkos/buildhip
+make -f Makefile.builds hip HIP_DIR=$EXASIM_ROOT/deps/kokkos/buildhip KOKKOS_HIP_ARCH=AMD_GFX942
+
+cd $EXASIM_ROOT/deps/kokkos
+rm -rf $EXASIM_ROOT/deps/kokkos/buildserial
+cmake -S . -B $EXASIM_ROOT/deps/kokkos/buildserial \
+  -DCMAKE_CXX_COMPILER=CC \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+  -DKokkos_ENABLE_SERIAL=ON \
+  -DCMAKE_INSTALL_PREFIX=$EXASIM_ROOT/deps/kokkos/buildserial
+cmake --build $EXASIM_ROOT/deps/kokkos/buildserial -j8
+cmake --install $EXASIM_ROOT/deps/kokkos/buildserial
+
+6. Build GMP
+cd $EXASIM_ROOT/deps
+wget https://gmplib.org/download/gmp/gmp-6.3.0.tar.xz
+tar -xf gmp-6.3.0.tar.xz
+cd gmp-6.3.0
+./configure --prefix=$EXASIM_PREFIX CC=cc CXX=CC --enable-cxx --disable-shared --enable-static
+make -j8
+make install
+
+Verify:
+ls $EXASIM_PREFIX/lib/libgmp.a
+ls $EXASIM_PREFIX/lib/libgmpxx.a
+
+7. Build SymEngine (GMP version)
+cd $PROJDIR
+rm -rf SymEngine-build
+cmake -S $EXASIM_ROOT/deps/symengine -B SymEngine-build -DCMAKE_C_COMPILER=cc -DCMAKE_CXX_COMPILER=CC -DCMAKE_INSTALL_PREFIX=$EXASIM_PREFIX -DBUILD_SHARED_LIBS=OFF -DWITH_GMP=ON -DWITH_MPFR=OFF -DWITH_LLVM=OFF -DWITH_SYMENGINE_THREAD_SAFE=OFF -DINTEGER_CLASS=gmp -DGMP_INCLUDE_DIR=$EXASIM_PREFIX/include -DGMP_LIBRARY=$EXASIM_PREFIX/lib/libgmp.a -DCMAKE_CXX_FLAGS="-std=gnu++17 -fPIC"
+cmake --build SymEngine-build -j8
+cmake --install SymEngine-build
+
+8. Build Text2Code
+cd $PROJDIR
+rm -rf text2code-build
+cmake -S $EXASIM_ROOT/text2code/text2code -B text2code-build \
+  -DCMAKE_C_COMPILER=cc \
+  -DCMAKE_CXX_COMPILER=CC \
+  -DCMAKE_INSTALL_PREFIX=$EXASIM_PREFIX \
+  -DUSE_CMAKE=ON \
+  -DWITH_METIS=ON \
+  -DEXASIM_ROOT=$EXASIM_ROOT \
+  -DEXASIM_T2C_OUTPUT_DIR=$EXASIM_PREFIX/bin \
+  -DEXASIM_SYMENGINE_DIR=$EXASIM_PREFIX \
+  -DEXASIM_SYMENGINE_VENDORED=OFF \
+  -DMETIS_INCLUDE_DIR=$EXASIM_PREFIX/include \
+  -DMETIS_LIBRARY_DIR=$EXASIM_PREFIX/lib64 \
+  -DPARMETIS_INCLUDE_DIR=$EXASIM_PREFIX/include \
+  -DPARMETIS_LIBRARY_DIR=$EXASIM_PREFIX/lib64 \
+  -DGKLIB_INCLUDE_DIR=$EXASIM_PREFIX/include \
+  -DGKLIB_LIBRARY_DIR=$EXASIM_PREFIX/lib64
+cmake --build text2code-build -j8
+
+9. Build Exasim
+cd $PROJDIR
+rm -rf Exasim-build
+cmake -S Exasim/install -B Exasim-build \
+  -DEXASIM_HIP=ON \
+  -DEXASIM_MPI=ON \
+  -DEXASIM_NOMPI=ON \
+  -DEXASIM_LIB=ON \
+  -DWITH_PARMETIS=ON \
+  -DWITH_TEXT2CODE=OFF \
+  -DEXASIM_TEXT2CODE=$EXASIM_PREFIX/bin/text2code \
+  -DCMAKE_INSTALL_PREFIX=$EXASIM_PREFIX \
+  -DCMAKE_C_COMPILER=cc \
+  -DCMAKE_CXX_COMPILER=hipcc \
+  -DKokkos_DIR=$EXASIM_ROOT/deps/kokkos/buildhip \
+  -DMETIS_INCLUDE_DIR=$EXASIM_PREFIX/include \
+  -DMETIS_LIBRARY_DIR=$EXASIM_PREFIX/lib64 \
+  -DPARMETIS_INCLUDE_DIR=$EXASIM_PREFIX/include \
+  -DPARMETIS_LIBRARY_DIR=$EXASIM_PREFIX/lib64 \
+  -DGKLIB_INCLUDE_DIR=$EXASIM_PREFIX/include \
+  -DGKLIB_LIBRARY_DIR=$EXASIM_PREFIX/lib64 \
+  -DBLAS_LIBRARIES=$CRAY_LIBSCI_PREFIX_DIR/lib/libsci_amd.so \
+  -DLAPACK_LIBRARIES=$CRAY_LIBSCI_PREFIX_DIR/lib/libsci_amd.so \
+  -DCMAKE_HIP_FLAGS="--offload-arch=gfx942" \
+  -DCMAKE_CXX_FLAGS="-I${MPICH_DIR}/include -I${ROCM_PATH}/include -I${PE_MPICH_GTL_DIR_amd_gfx942}" \
+  -DCMAKE_EXE_LINKER_FLAGS="-L${MPICH_DIR}/lib -lmpi -L${ROCM_PATH}/lib -lamdhip64 ${PE_MPICH_GTL_LIBS_amd_gfx942}" \
+  -DCMAKE_BUILD_TYPE=RelWithDebInfo
+
+cmake --build Exasim-build -j8
+cmake --install Exasim-build
+
+Verify:
+find $EXASIM_PREFIX -name "libgpuEXASIM*"
+find $EXASIM_PREFIX -name "libgpumpiEXASIM*"
+find $EXASIM_PREFIX -name "builtinmodel*"
+
+10. Build Exasim's builtin library app
+cd $EXASIM_ROOT/apps/builtinlibrary
+rm -rf build
+cmake -S . -B build \
+  -DCMAKE_CXX_COMPILER=hipcc \
+  -DEXASIM_MPI=ON \
+  -DEXASIM_HIP=ON \
+  -DEXASIM_CUDA=OFF \
+  -DExasim_DIR=$EXASIM_PREFIX/lib64/cmake/Exasim \
+  -DCMAKE_HIP_FLAGS="--offload-arch=gfx942" \
+  -DCMAKE_CXX_FLAGS="-I${MPICH_DIR}/include -I${ROCM_PATH}/include -I${PE_MPICH_GTL_DIR_amd_gfx942}" \
+  -DCMAKE_EXE_LINKER_FLAGS="-L${MPICH_DIR}/lib -lmpi -L${ROCM_PATH}/lib -lamdhip64 ${PE_MPICH_GTL_LIBS_amd_gfx942}" \
+  -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake --build build -j8
+
+11. Run builtin library app
+flux alloc -N 1 -q pdebug
+module reset
+module load PrgEnv-amd
+module load cray-mpich
+module load amd/6.4.3
+module load rocm/6.4.3
+module load craype-accel-amd-gfx942
+export MPICH_GPU_SUPPORT_ENABLED=1
+export HSA_XNACK=1
+export CRAYPE_LINK_TYPE=dynamic
+
+flux run -N1 -n1 --verbose --exclusive --setopt=mpibind=verbose:1 build/exasimapp ../poisson/lshape/pdeapp.txt
+flux run -N1 -n4 --verbose --exclusive --setopt=mpibind=verbose:1 build/exasimapp ../poisson/lshape/pdeapp.txt
+flux run -N1 -n4 --verbose --exclusive --setopt=mpibind=verbose:1 build/exasimapp ../poisson/poisson2d/pdeapp.txt
+
+12. Build Exasim's shared library app
+cd $EXASIM_ROOT/apps/sharedlibrary
+cmake -S . -B build \
+  -DCMAKE_CXX_COMPILER=hipcc \
+  -DEXASIM_MPI=ON \
+  -DEXASIM_HIP=ON \
+  -DEXASIM_CUDA=OFF \
+  -DExasim_DIR=$EXASIM_PREFIX \
+  -DCMAKE_HIP_FLAGS="--offload-arch=gfx942" \
+  -DCMAKE_CXX_FLAGS="-I${MPICH_DIR}/include -I${ROCM_PATH}/include -I${PE_MPICH_GTL_DIR_amd_gfx942}" \
+  -DCMAKE_EXE_LINKER_FLAGS="-L${MPICH_DIR}/lib -lmpi -L${ROCM_PATH}/lib -lamdhip64 ${PE_MPICH_GTL_LIBS_amd_gfx942}" \
+  -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake --build build -j8
+
+13. Build shared library
+$EXASIM_PREFIX/bin/text2code $EXASIM_ROOT/apps/navierstokes/reactingsharpb2/pdeapp.txt
+
+14. Run shared library app
+cd $EXASIM_ROOT/apps/sharedlibrary
+flux alloc -N 1 -q pdebug
+module reset
+module load PrgEnv-amd
+module load cray-mpich
+module load amd/6.4.3
+module load rocm/6.4.3
+module load craype-accel-amd-gfx942
+export PROJDIR=/g/g16/nnguyen/PSAAP/
+export EXASIM_ROOT=/g/g16/nnguyen/PSAAP/Exasim
+export EXASIM_PREFIX=/g/g16/nnguyen/PSAAP/Exasim/local
+export CRAYPE_LINK_TYPE=dynamic
+export MPICH_GPU_SUPPORT_ENABLED=1
+export CXX=/opt/cray/pe/craype/2.7.35/bin/CC
+export EXASIM_GPU_ARCH=gfx942
+flux run -N1 -n4 --verbose --exclusive --setopt=mpibind=verbose:1 build/exasimapp ../navierstokes/reactingsharpb2/pdeapp.txt
+
