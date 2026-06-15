@@ -76,6 +76,16 @@ if exist(char(modelsrc), 'file') == 2
     copyfile(char(modelsrc), char(dest + "/" + mname + mext));
 end
 
+% 5b. A text2code DSL file (pdemodel.txt) emitted from the symbolic model, so
+% the bundle can regenerate kernels via text2code without the MATLAB frontend.
+% Additive: if generation fails, warn and continue (the kernels are already
+% shipped in kernels/), mirroring the Python frontend's non-fatal 5b block.
+try
+    genpdemodel(pde, dest + "/pdemodel.txt");
+catch exc
+    fprintf("WARNING: pdemodel.txt generation skipped (%s); the exported kernels/ are unaffected.\n", exc.message);
+end
+
 % 6. run.sh + manifest with the provenance needed to rebuild elsewhere.
 write_runscript(dest, pde, variant, numpde);
 write_manifest(dest, pde, variant, numpde, prefix);

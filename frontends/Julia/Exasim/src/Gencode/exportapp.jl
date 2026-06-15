@@ -82,6 +82,16 @@ function exportapp(pde, dest=nothing; build=true)
         cp(modelsrc, joinpath(dest, basename(modelsrc)); force=true)
     end
 
+    # 5b. A text2code DSL file (pdemodel.txt) emitted from the symbolic model,
+    # so the bundle can regenerate kernels via text2code without the Julia
+    # frontend. Additive: if generation fails, warn and continue (the kernels
+    # are already shipped in kernels/).
+    try
+        genpdemodel(pde, joinpath(dest, "pdemodel.txt"))
+    catch exc
+        @warn "pdemodel.txt generation skipped; the exported kernels/ are unaffected." exception=exc
+    end
+
     # 6. run.sh + manifest with the provenance needed to rebuild elsewhere.
     _write_runscript(dest, pde, variant, numpde)
     _write_manifest(dest, pde, variant, numpde)

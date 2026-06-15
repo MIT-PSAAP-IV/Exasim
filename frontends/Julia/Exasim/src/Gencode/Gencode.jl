@@ -46,6 +46,7 @@ include("setcompilers.jl");
 include("compilecode.jl");
 include("cmakecompile.jl");
 include("runcode.jl");
+include("genpdemodel.jl");
 include("exportapp.jl");
 
 function gencode(app)
