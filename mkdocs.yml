@@ -92,6 +92,7 @@ nav:
       - Block-diagonal Jacobian: theory/block-diagonal-jacobian.md
   - Reference:
       - Model contract: reference/model-contract.md
+  - Driving the solver (C++ API): driving-the-solver.md
   - Internals:
       - Architecture & data flow: internals/architecture.md
       - Testing: internals/testing.md
