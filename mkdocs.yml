@@ -77,6 +77,10 @@ nav:
       - "Local: Linux (CPU)": install/linux-cpu.md
       - "Local: Linux (NVIDIA GPU)": install/linux-nvidia.md
       - "Local: Linux (AMD GPU)": install/linux-amd.md
+      - "HPC: build chain & options": install/hpc.md
+      - "HPC: Frontier": install/frontier.md
+      - "HPC: Tuolumne": install/tuolumne.md
+      - "HPC: Generic": install/generic-hpc.md
   - Usage modes:
       - usage-modes/index.md
       - Built-in model: usage-modes/builtin.md
