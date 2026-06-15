@@ -20,12 +20,16 @@ pde.exportapp = "/path/to/bundle";     % MATLAB
 pde.exportapp = "/path/to/bundle"      # Julia
 ```
 
-See [`poisson2d/pdeapp.py`](poisson2d/pdeapp.py) — it is the standard Poisson2D
-example with exactly that one extra line.
+The [`poisson2d/`](poisson2d/) example provides all three frontends — each is
+the standard Poisson2D example with exactly that one extra line:
+[`pdeapp.py`](poisson2d/pdeapp.py), [`pdeapp.m`](poisson2d/pdeapp.m),
+[`pdeapp.jl`](poisson2d/pdeapp.jl).
 
 ```sh
 cd poisson2d
-python pdeapp.py          # runs the solver AND writes ./poisson2d-bundle
+python pdeapp.py          # Python  — runs the solver AND writes ./poisson2d-bundle
+# or:  matlab -batch pdeapp        # MATLAB
+# or:  julia pdeapp.jl             # Julia
 ```
 
 ## What's in the bundle
