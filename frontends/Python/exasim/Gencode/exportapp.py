@@ -91,6 +91,17 @@ def exportapp(pde, dest=None, build=True):
     if os.path.isfile(modelsrc):
         shutil.copy2(modelsrc, os.path.join(dest, os.path.basename(modelsrc)))
 
+    # 5b. A text2code DSL file (pdemodel.txt) emitted from the symbolic model,
+    # so the bundle can regenerate kernels via text2code without the Python
+    # frontend. Additive: if generation fails, warn and continue (the kernels
+    # are already shipped in kernels/).
+    try:
+        from .genpdemodel import genpdemodel
+        genpdemodel(pde, os.path.join(dest, "pdemodel.txt"))
+    except Exception as exc:  # noqa: BLE001 - intentionally non-fatal
+        print(f"WARNING: pdemodel.txt generation skipped ({exc!r}); "
+              "the exported kernels/ are unaffected.")
+
     # 6. run.sh + manifest with the provenance needed to rebuild elsewhere.
     _write_runscript(dest, pde, variant, numpde)
     _write_manifest(dest, pde, variant, numpde)
@@ -120,11 +131,17 @@ def _write_runscript(dest, pde, variant, numpde):
 # Requires an Exasim install on this machine; point EXASIM_ROOT at its prefix
 # (the directory that contains lib/cmake/Exasim/). For MPI variants, set
 # MPIRUN if your launcher is not "mpirun".
+#
+# The bundle was exported for variant "{variant}", but the kernels and datain
+# are arch-independent: retarget to whatever the build machine has by setting
+# EXASIM_VARIANT (cpu | cpumpi | gpu | gpumpi), e.g.
+#   EXASIM_ROOT=/path/to/install EXASIM_VARIANT=gpu ./run.sh
 set -euo pipefail
 here="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
 : "${{EXASIM_ROOT:?Set EXASIM_ROOT to your Exasim install prefix}}"
 cmake -S "$here" -B "$here/build" \\
-  -DExasim_DIR="$EXASIM_ROOT/lib/cmake/Exasim"
+  -DExasim_DIR="$EXASIM_ROOT/lib/cmake/Exasim" \\
+  -DEXASIM_VARIANT="${{EXASIM_VARIANT:-{variant}}}"
 cmake --build "$here/build" --parallel
 {runline}
 """
@@ -172,9 +189,15 @@ relies on an **Exasim install** on the machine where you build it.
 ```sh
 EXASIM_ROOT=/path/to/exasim/install ./run.sh
 ```
+The bundle was exported for variant `{variant}`, but the kernels and datain are
+arch-independent — retarget to whatever the build machine provides by setting
+`EXASIM_VARIANT` (cpu | cpumpi | gpu | gpumpi):
+```sh
+EXASIM_ROOT=/path/to/install EXASIM_VARIANT=gpu ./run.sh
+```
 or manually:
 ```sh
-cmake -S . -B build -DExasim_DIR=$EXASIM_ROOT/lib/cmake/Exasim
+cmake -S . -B build -DExasim_DIR=$EXASIM_ROOT/lib/cmake/Exasim -DEXASIM_VARIANT={variant}
 cmake --build build --parallel
 ./build/exasimapp {numpde} datain/ dataout/out
 ```
