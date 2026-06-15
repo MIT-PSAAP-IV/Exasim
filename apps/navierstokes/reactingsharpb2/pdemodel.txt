@@ -1,55 +1,649 @@
 scalars t
 
-vectors x(2), uq(24), v(1), w(1), uhat(8), n(2), tau(1), mu(12), eta(18)
+vectors x(2), uq(24), v(1), w(1), uhat(8), uext(1), n(2), tau(1), mu(12), eta(18)
 
-jacobian uq, w, uhat 
+jacobian uq, w, uhat
 
-hessian 
+hessian
 
-batch x, uq, v, w, uhat, n
+batch x, uq, v, w, uhat, n, uext
 
-outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Initu, VisScalars, VisVectors, VisTensors
+outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Sourcew, Initu, Initw, EoS, VisScalars, VisVectors, VisTensors
 
-function Flux(x, uq, v, w, eta, mu, t)  
-    output_size(f) = 16;
+function Hspec(t)
+  output_size(hs) = 5;
+  lgT = log(t);
+  Ti = 1.0/t;
+  Ti2 = Ti*Ti;
+  T2 = t*t;
+  T3 = T2*t;
+  T4 = T3*t;
+  pival = Expression(pi);
+  sw1 = 0.5 - 0.5*tanh(1.0e3*(t - 1.0e3)/pival);
+  sw3 = 0.5 + 0.5*tanh(1.0e3*(t - 6.0e3)/pival);
+  sw2 = 1.0 - sw1 - sw3;
+  ha0 = (-0.0)*Ti2 + (56104.6378)*Ti + (0.0)*lgT*Ti + (2.5) + (0.0)*t + (0.0)*T2 + (0.0)*T3 + (0.0)*T4;
+  hb0 = (-88765.0138)*Ti2 + (56973.5133)*Ti + (-107.12315)*lgT*Ti + (2.362188287) + (0.00014583600405)*t + (-5.7650503333333334e-08)*T2 + (1.00316447e-11)*T3 + (-5.354455142e-16)*T4;
+  hc0 = (-547518105.0)*Ti2 + (2550585.618)*Ti + (-310757.498)*lgT*Ti + (69.1678274) + (-0.003423994065)*t + (1.2758574666666667e-07)*T2 + (-2.7459192725e-12)*T3 + (2.555972048e-17)*T4;
+  hs[0] = sw1*ha0 + sw2*hb0 + sw3*hc0;
+  ha1 = (7953.6113)*Ti2 + (28403.62437)*Ti + (160.7177787)*lgT*Ti + (1.966226438) + (0.000506835155)*t + (-3.7013847433333333e-07)*T2 + (1.629376875e-10)*T3 + (-3.169558502e-14)*T4;
+  hb1 = (-261902.0262)*Ti2 + (33924.2806)*Ti + (-729.872203)*lgT*Ti + (3.31717727) + (-0.000214066718)*t + (3.45368198e-08)*T2 + (-2.3595760825e-12)*T3 + (5.4500765939999995e-17)*T4;
+  hc1 = (-177900426.4)*Ti2 + (889094.263)*Ti + (-108232.8257)*lgT*Ti + (28.10778365) + (-0.001487616131)*t + (6.183325113333333e-08)*T2 + (-1.449057885e-12)*T3 + (1.4383440328e-17)*T4;
+  hs[1] = sw1*ha1 + sw2*hb1 + sw3*hc1;
+  ha2 = (11439.16503)*Ti2 + (9098.21441)*Ti + (153.6467592)*lgT*Ti + (3.43146873) + (-0.001334296184)*t + (2.82713304e-06)*T2 + (-1.9212777625e-09)*T3 + (4.77359531e-13)*T4;
+  hb2 = (-223901.8716)*Ti2 + (17503.17656)*Ti + (-1289.651623)*lgT*Ti + (5.43393603) + (-0.000182801745)*t + (3.293655483333333e-08)*T2 + (-3.54019214e-12)*T3 + (1.8760369239999998e-16)*T4;
+  hc2 = (957530354.0)*Ti2 + (-4677501.24)*Ti + (591243.448)*lgT*Ti + (-138.4566826) + (0.008471697015)*t + (-3.357836986666666e-07)*T2 + (7.28146019e-12)*T3 + (-6.5902187e-17)*T4;
+  hs[2] = sw1*ha2 + sw2*hb2 + sw3*hc2;
+  ha3 = (-22103.71497)*Ti2 + (710.846086)*Ti + (-381.846182)*lgT*Ti + (6.08273836) + (-0.004265457205)*t + (4.615487296666666e-06)*T2 + (-2.406448405e-09)*T3 + (5.039411618000001e-13)*T4;
+  hb3 = (-587712.406)*Ti2 + (12832.10415)*Ti + (-2239.249073)*lgT*Ti + (6.06694922) + (-0.000306984275)*t + (4.9726889300000005e-08)*T2 + (-4.8077637125e-12)*T3 + (2.123908772e-16)*T4;
+  hc3 = (-831013916.0)*Ti2 + (4938707.04)*Ti + (-642073.354)*lgT*Ti + (202.0264635) + (-0.01532546023)*t + (8.289677776666666e-07)*T2 + (-2.4264885275e-11)*T3 + (2.875077762e-16)*T4;
+  hs[3] = sw1*ha3 + sw2*hb3 + sw3*hc3;
+  ha4 = (34255.6342)*Ti2 + (-3391.45487)*Ti + (484.700097)*lgT*Ti + (1.119010961) + (0.00214694462)*t + (-2.27876684e-07)*T2 + (-5.05843175e-10)*T3 + (2.078080036e-13)*T4;
+  hb4 = (1037939.022)*Ti2 + (-16890.10929)*Ti + (2344.830282)*lgT*Ti + (1.819732036) + (0.000633923791)*t + (-7.29355996e-08)*T2 + (5.13429893e-12)*T3 + (-1.63869341e-16)*T4;
+  hc4 = (-497529430.0)*Ti2 + (2293554.027)*Ti + (-286610.6874)*lgT*Ti + (66.9035225) + (-0.00308497951)*t + (1.0054653423333334e-07)*T2 + (-1.85535415e-12)*T3 + (1.455635154e-17)*T4;
+  hs[4] = sw1*ha4 + sw2*hb4 + sw3*hc4;
 end
 
-function Source(x, uq, v, w, eta, mu, t)  
-    output_size(s) = 8;  
+function CPspec(t)
+  output_size(cs) = 5;
+  lgT = log(t);
+  Ti = 1.0/t;
+  Ti2 = Ti*Ti;
+  T2 = t*t;
+  T3 = T2*t;
+  T4 = T3*t;
+  pival = Expression(pi);
+  sw1 = 0.5 - 0.5*tanh(1.0e3*(t - 1.0e3)/pival);
+  sw3 = 0.5 + 0.5*tanh(1.0e3*(t - 6.0e3)/pival);
+  sw2 = 1.0 - sw1 - sw3;
+  ca0 = (0.0)*Ti2 + (0.0)*Ti + (2.5) + (0.0)*t + (0.0)*T2 + (0.0)*T3 + (0.0)*T4;
+  cb0 = (88765.0138)*Ti2 + (-107.12315)*Ti + (2.362188287) + (0.0002916720081)*t + (-1.7295151e-07)*T2 + (4.01265788e-11)*T3 + (-2.677227571e-15)*T4;
+  cc0 = (547518105.0)*Ti2 + (-310757.498)*Ti + (69.1678274) + (-0.00684798813)*t + (3.8275724e-07)*T2 + (-1.098367709e-11)*T3 + (1.277986024e-16)*T4;
+  cs[0] = sw1*ca0 + sw2*cb0 + sw3*cc0;
+  ca1 = (-7953.6113)*Ti2 + (160.7177787)*Ti + (1.966226438) + (0.00101367031)*t + (-1.110415423e-06)*T2 + (6.5175075e-10)*T3 + (-1.584779251e-13)*T4;
+  cb1 = (261902.0262)*Ti2 + (-729.872203)*Ti + (3.31717727) + (-0.000428133436)*t + (1.036104594e-07)*T2 + (-9.43830433e-12)*T3 + (2.725038297e-16)*T4;
+  cc1 = (177900426.4)*Ti2 + (-108232.8257)*Ti + (28.10778365) + (-0.002975232262)*t + (1.854997534e-07)*T2 + (-5.79623154e-12)*T3 + (7.191720164e-17)*T4;
+  cs[1] = sw1*ca1 + sw2*cb1 + sw3*cc1;
+  ca2 = (-11439.16503)*Ti2 + (153.6467592)*Ti + (3.43146873) + (-0.002668592368)*t + (8.48139912e-06)*T2 + (-7.68511105e-09)*T3 + (2.386797655e-12)*T4;
+  cb2 = (223901.8716)*Ti2 + (-1289.651623)*Ti + (5.43393603) + (-0.00036560349)*t + (9.88096645e-08)*T2 + (-1.416076856e-11)*T3 + (9.38018462e-16)*T4;
+  cc2 = (-957530354.0)*Ti2 + (591243.448)*Ti + (-138.4566826) + (0.01694339403)*t + (-1.007351096e-06)*T2 + (2.912584076e-11)*T3 + (-3.29510935e-16)*T4;
+  cs[2] = sw1*ca2 + sw2*cb2 + sw3*cc2;
+  ca3 = (22103.71497)*Ti2 + (-381.846182)*Ti + (6.08273836) + (-0.00853091441)*t + (1.384646189e-05)*T2 + (-9.62579362e-09)*T3 + (2.519705809e-12)*T4;
+  cb3 = (587712.406)*Ti2 + (-2239.249073)*Ti + (6.06694922) + (-0.00061396855)*t + (1.491806679e-07)*T2 + (-1.923105485e-11)*T3 + (1.061954386e-15)*T4;
+  cc3 = (831013916.0)*Ti2 + (-642073.354)*Ti + (202.0264635) + (-0.03065092046)*t + (2.486903333e-06)*T2 + (-9.70595411e-11)*T3 + (1.437538881e-15)*T4;
+  cs[3] = sw1*ca3 + sw2*cb3 + sw3*cc3;
+  ca4 = (-34255.6342)*Ti2 + (484.700097)*Ti + (1.119010961) + (0.00429388924)*t + (-6.83630052e-07)*T2 + (-2.0233727e-09)*T3 + (1.039040018e-12)*T4;
+  cb4 = (-1037939.022)*Ti2 + (2344.830282)*Ti + (1.819732036) + (0.001267847582)*t + (-2.188067988e-07)*T2 + (2.053719572e-11)*T3 + (-8.19346705e-16)*T4;
+  cc4 = (497529430.0)*Ti2 + (-286610.6874)*Ti + (66.9035225) + (-0.00616995902)*t + (3.016396027e-07)*T2 + (-7.4214166e-12)*T3 + (7.27817577e-17)*T4;
+  cs[4] = sw1*ca4 + sw2*cb4 + sw3*cc4;
 end
 
-function Tdfunc(x, uq, v, w, eta, mu, t)  
+function Gspec(t)
+  output_size(gs) = 5;
+  lgT = log(t);
+  Ti = 1.0/t;
+  Ti2 = Ti*Ti;
+  T2 = t*t;
+  T3 = T2*t;
+  T4 = T3*t;
+  pival = Expression(pi);
+  sw1 = 0.5 - 0.5*tanh(1.0e3*(t - 1.0e3)/pival);
+  sw3 = 0.5 + 0.5*tanh(1.0e3*(t - 6.0e3)/pival);
+  sw2 = 1.0 - sw1 - sw3;
+  ga0 = (-1.6939050360000003) + (-0.0)*t + (-0.0)*T2 + (-0.0)*T3 + (-0.0)*T4 + (56104.6378)*Ti + (-0.0)*Ti2 + (-2.5)*lgT + (0.0)*lgT*Ti;
+  gb0 = (-2.503043219) + (-0.00014583600405)*t + (2.8825251666666667e-08)*T2 + (-3.3438815666666664e-12)*T3 + (1.3386137855e-16)*T4 + (56866.39015)*Ti + (-44382.5069)*Ti2 + (-2.362188287)*lgT + (-107.12315)*lgT*Ti;
+  gc0 = (654.0448027) + (0.003423994065)*t + (-6.379287333333334e-08)*T2 + (9.153064241666666e-13)*T3 + (-6.38993012e-18)*T4 + (2239828.1199999996)*Ti + (-273759052.5)*Ti2 + (-69.1678274)*lgT + (-310757.498)*lgT*Ti;
+  gs[0] = sw1*ga0 + sw2*gb0 + sw3*gc0;
+  ga1 = (-6.438015382) + (-0.000506835155)*t + (1.8506923716666666e-07)*T2 + (-5.43125625e-11)*T3 + (7.923896255e-15)*T4 + (28564.3421487)*Ti + (3976.80565)*Ti2 + (-1.966226438)*lgT + (160.7177787)*lgT*Ti;
+  gb1 = (3.985135805) + (0.000214066718)*t + (-1.72684099e-08)*T2 + (7.865253608333333e-13)*T3 + (-1.3625191484999999e-17)*T4 + (33194.408397)*Ti + (-130951.0131)*Ti2 + (-3.31717727)*lgT + (-729.872203)*lgT*Ti;
+  gc1 = (246.28059875) + (0.001487616131)*t + (-3.0916625566666664e-08)*T2 + (4.83019295e-13)*T3 + (-3.595860082e-18)*T4 + (780861.4373)*Ti + (-88950213.2)*Ti2 + (-28.10778365)*lgT + (-108232.8257)*lgT*Ti;
+  gs[1] = sw1*ga1 + sw2*gb1 + sw3*gc1;
+  ga2 = (-3.2972567600000002) + (0.001334296184)*t + (-1.41356652e-06)*T2 + (6.404259208333333e-10)*T3 + (-1.1933988275e-13)*T4 + (9251.861169200001)*Ti + (5719.582515)*Ti2 + (-3.43146873)*lgT + (153.6467592)*lgT*Ti;
+  gb2 = (13.93560512) + (0.000182801745)*t + (-1.6468277416666665e-08)*T2 + (1.1800640466666667e-12)*T3 + (-4.6900923099999995e-17)*T4 + (16213.524937)*Ti + (-111950.9358)*Ti2 + (-5.43393603)*lgT + (-1289.651623)*lgT*Ti;
+  gc2 = (-1380.5378986) + (-0.008471697015)*t + (1.678918493333333e-07)*T2 + (-2.4271533966666667e-12)*T3 + (1.647554675e-17)*T4 + (-4086257.7920000004)*Ti + (478765177.0)*Ti2 + (138.4566826)*lgT + (591243.448)*lgT*Ti;
+  gs[2] = sw1*ga2 + sw2*gb2 + sw3*gc2;
+  ga3 = (16.8427758) + (0.004265457205)*t + (-2.307743648333333e-06)*T2 + (8.021494683333333e-10)*T3 + (-1.2598529045000001e-13)*T4 + (328.999904)*Ti + (-11051.857485)*Ti2 + (-6.08273836)*lgT + (-381.846182)*lgT*Ti;
+  gb3 = (21.933349489999998) + (0.000306984275)*t + (-2.4863444650000003e-08)*T2 + (1.6025879041666668e-12)*T3 + (-5.30977193e-17)*T4 + (10592.855077)*Ti + (-293856.203)*Ti2 + (-6.06694922)*lgT + (-2239.249073)*lgT*Ti;
+  gc3 = (1874.1262035000002) + (0.01532546023)*t + (-4.144838888333333e-07)*T2 + (8.088295091666667e-12)*T3 + (-7.187694405e-17)*T4 + (4296633.686)*Ti + (-415506958.0)*Ti2 + (-202.0264635)*lgT + (-642073.354)*lgT*Ti;
+  gs[3] = sw1*ga3 + sw2*gb3 + sw3*gc3;
+  ga4 = (-17.377983738999998) + (-0.00214694462)*t + (1.13938342e-07)*T2 + (1.6861439166666666e-10)*T3 + (-5.19520009e-14)*T4 + (-2906.754773)*Ti + (17127.8171)*Ti2 + (-1.119010961)*lgT + (484.700097)*lgT*Ti;
+  gb4 = (-15.567433024000001) + (-0.000633923791)*t + (3.64677998e-08)*T2 + (-1.7114329766666668e-12)*T3 + (4.096733525e-17)*T4 + (-14545.279008000001)*Ti + (518969.511)*Ti2 + (-1.819732036)*lgT + (2344.830282)*lgT*Ti;
+  gc4 = (619.9656835) + (0.00308497951)*t + (-5.027326711666667e-08)*T2 + (6.184513833333334e-13)*T3 + (-3.639087885e-18)*T4 + (2006943.3395999998)*Ti + (-248764715.0)*Ti2 + (-66.9035225)*lgT + (-286610.6874)*lgT*Ti;
+  gs[4] = sw1*ga4 + sw2*gb4 + sw3*gc4;
+end
+
+function Emass(t)
+  output_size(es) = 5;
+  hs = Hspec(t);
+  es[0] = (hs[0] - 1.0)*t*593.6067359633212;
+  es[1] = (hs[1] - 1.0)*t*519.6739545618868;
+  es[2] = (hs[2] - 1.0)*t*277.0927067702051;
+  es[3] = (hs[3] - 1.0)*t*296.8033679816606;
+  es[4] = (hs[4] - 1.0)*t*259.8369772809434;
+end
+
+function MuSpec(t)
+  output_size(ms) = 5;
+  lgT = log(t);
+  ms[0] = 0.1*exp(0.0115572*lgT*lgT + (0.6031679)*lgT + (-12.4327495));
+  ms[1] = 0.1*exp(0.0203144*lgT*lgT + (0.4294404)*lgT + (-11.6021403));
+  ms[2] = 0.1*exp(0.0436378*lgT*lgT + (-0.0335511)*lgT + (-9.576743));
+  ms[3] = 0.1*exp(0.0268142*lgT*lgT + (0.3177838)*lgT + (-11.3155513));
+  ms[4] = 0.1*exp(0.044929*lgT*lgT + (-0.0826158)*lgT + (-9.2019475));
+end
+
+function Dspec(uq, mu, t)
+  output_size(ds) = 5;
+  lgT = log(t);
+  cm0 = mu[0]*uq[0]*71.39440410660612;
+  cm1 = mu[0]*uq[1]*62.50234383789392;
+  cm2 = mu[0]*uq[2]*33.32655693342354;
+  cm3 = mu[0]*uq[3]*35.69720205330306;
+  cm4 = mu[0]*uq[4]*31.25117191894696;
+  csum = cm0 + cm1 + cm2 + cm3 + cm4;
+  xm0 = cm0/csum;
+  xm1 = cm1/csum;
+  xm2 = cm2/csum;
+  xm3 = cm3/csum;
+  xm4 = cm4/csum;
+  pdim = 8.314471468617452*t*csum;
+  dd01 = 10.1325*exp(-11.9261)*pow(t, (-0.0048)*lgT + (1.9195))/pdim;
+  dd02 = 10.1325*exp(-10.3301)*pow(t, (0.0185)*lgT + (1.4882))/pdim;
+  dd03 = 10.1325*exp(-10.3654)*pow(t, (0.0195)*lgT + (1.488))/pdim;
+  dd04 = 10.1325*exp(-10.281)*pow(t, (0.0179)*lgT + (1.4848))/pdim;
+  dd12 = 10.1325*exp(-10.3155)*pow(t, (0.0179)*lgT + (1.4848))/pdim;
+  dd13 = 10.1325*exp(-10.8819)*pow(t, (0.014)*lgT + (1.5824))/pdim;
+  dd14 = 10.1325*exp(-9.6631)*pow(t, (0.0226)*lgT + (1.37))/pdim;
+  dd23 = 10.1325*exp(-9.6878)*pow(t, (0.0291)*lgT + (1.2676))/pdim;
+  dd24 = 10.1325*exp(-8.238)*pow(t, (0.0438)*lgT + (0.9647))/pdim;
+  dd34 = 10.1325*exp(-8.1137)*pow(t, (0.0465)*lgT + (0.9271))/pdim;
+  den0 = xm1/dd01 + xm2/dd02 + xm3/dd03 + xm4/dd04;
+  ds[0] = (1.0 - xm0)/den0;
+  den1 = xm0/dd01 + xm2/dd12 + xm3/dd13 + xm4/dd14;
+  ds[1] = (1.0 - xm1)/den1;
+  den2 = xm0/dd02 + xm1/dd12 + xm3/dd23 + xm4/dd24;
+  ds[2] = (1.0 - xm2)/den2;
+  den3 = xm0/dd03 + xm1/dd13 + xm2/dd23 + xm4/dd34;
+  ds[3] = (1.0 - xm3)/den3;
+  den4 = xm0/dd04 + xm1/dd14 + xm2/dd24 + xm3/dd34;
+  ds[4] = (1.0 - xm4)/den4;
+end
+
+function PhiWilke(uq, mu, t)
+  output_size(ph) = 5;
+  ms = MuSpec(t);
+  cm0 = mu[0]*uq[0]*71.39440410660612;
+  cm1 = mu[0]*uq[1]*62.50234383789392;
+  cm2 = mu[0]*uq[2]*33.32655693342354;
+  cm3 = mu[0]*uq[3]*35.69720205330306;
+  cm4 = mu[0]*uq[4]*31.25117191894696;
+  csum = cm0 + cm1 + cm2 + cm3 + cm4;
+  xm0 = cm0/csum;
+  xm1 = cm1/csum;
+  xm2 = cm2/csum;
+  xm3 = cm3/csum;
+  xm4 = cm4/csum;
+  wf01 = 1.0 + sqrt((ms[0]/ms[1])*1.0687692122545605);
+  wf02 = 1.0 + sqrt((ms[0]/ms[2])*1.4636487382781547);
+  wf03 = 1.0 + sqrt((ms[0]/ms[3])*1.414213562373095);
+  wf04 = 1.0 + sqrt((ms[0]/ms[4])*1.5114679150172088);
+  ph[0] = xm0 + xm1*wf01*wf01*0.258167802746735 + xm2*wf02*wf02*0.29192432419201697 + xm3*wf03*wf03*0.2886751345948129 + xm4*wf04*wf04*0.29486075616627566;
+  wf10 = 1.0 + sqrt((ms[1]/ms[0])*0.9356556949189315);
+  wf12 = 1.0 + sqrt((ms[1]/ms[2])*1.3694712773308642);
+  wf13 = 1.0 + sqrt((ms[1]/ms[3])*1.323216973465976);
+  wf14 = 1.0 + sqrt((ms[1]/ms[4])*1.414213562373095);
+  ph[1] = xm1 + xm0*wf10*wf10*0.24155617488468997 + xm2*wf12*wf12*0.28553207742130493 + xm3*wf13*wf13*0.28206449243048715 + xm4*wf14*wf14*0.2886751345948129;
+  wf20 = 1.0 + sqrt((ms[2]/ms[0])*0.6832240371937915);
+  wf21 = 1.0 + sqrt((ms[2]/ms[1])*0.7302088160249892);
+  wf23 = 1.0 + sqrt((ms[2]/ms[3])*0.9662246995387599);
+  wf24 = 1.0 + sqrt((ms[2]/ms[4])*1.03267121098694);
+  ph[2] = xm2 + xm0*wf20*wf20*0.19944971532953906 + xm1*wf21*wf21*0.20849804019096663 + xm3*wf23*wf23*0.24566932177619516 + xm4*wf24*wf24*0.25398545512724646;
+  wf30 = 1.0 + sqrt((ms[3]/ms[0])*0.7071067811865475);
+  wf31 = 1.0 + sqrt((ms[3]/ms[1])*0.7557339575086044);
+  wf32 = 1.0 + sqrt((ms[3]/ms[2])*1.0349559481116175);
+  wf34 = 1.0 + sqrt((ms[3]/ms[4])*1.0687692122545605);
+  ph[3] = xm3 + xm0*wf30*wf30*0.20412414523193154 + xm1*wf31*wf31*0.21316571513714783 + xm2*wf32*wf32*0.2542569258408201 + xm4*wf34*wf34*0.258167802746735;
+  wf40 = 1.0 + sqrt((ms[4]/ms[0])*0.661608486732988);
+  wf41 = 1.0 + sqrt((ms[4]/ms[1])*0.7071067811865475);
+  wf42 = 1.0 + sqrt((ms[4]/ms[2])*0.968362426840857);
+  wf43 = 1.0 + sqrt((ms[4]/ms[3])*0.9356556949189315);
+  ph[4] = xm4 + xm0*wf40*wf40*0.1950823786841142 + xm1*wf41*wf41*0.20412414523193154 + xm2*wf42*wf42*0.2459499717093 + xm3*wf43*wf43*0.24155617488468997;
+end
+
+function MuMix(uq, mu, t)
+  output_size(mm) = 1;
+  ms = MuSpec(t);
+  ph = PhiWilke(uq, mu, t);
+  cm0 = mu[0]*uq[0]*71.39440410660612;
+  cm1 = mu[0]*uq[1]*62.50234383789392;
+  cm2 = mu[0]*uq[2]*33.32655693342354;
+  cm3 = mu[0]*uq[3]*35.69720205330306;
+  cm4 = mu[0]*uq[4]*31.25117191894696;
+  csum = cm0 + cm1 + cm2 + cm3 + cm4;
+  xm0 = cm0/csum;
+  xm1 = cm1/csum;
+  xm2 = cm2/csum;
+  xm3 = cm3/csum;
+  xm4 = cm4/csum;
+  mm[0] = ms[0]*xm0/ph[0] + ms[1]*xm1/ph[1] + ms[2]*xm2/ph[2] + ms[3]*xm3/ph[3] + ms[4]*xm4/ph[4];
+end
+
+function KappaMix(uq, mu, t)
+  output_size(km) = 1;
+  ms = MuSpec(t);
+  cs = CPspec(t);
+  ph = PhiWilke(uq, mu, t);
+  cm0 = mu[0]*uq[0]*71.39440410660612;
+  cm1 = mu[0]*uq[1]*62.50234383789392;
+  cm2 = mu[0]*uq[2]*33.32655693342354;
+  cm3 = mu[0]*uq[3]*35.69720205330306;
+  cm4 = mu[0]*uq[4]*31.25117191894696;
+  csum = cm0 + cm1 + cm2 + cm3 + cm4;
+  xm0 = cm0/csum;
+  xm1 = cm1/csum;
+  xm2 = cm2/csum;
+  xm3 = cm3/csum;
+  xm4 = cm4/csum;
+  lam0 = ms[0]*(cs[0] + 1.25)*593.6067359633212;
+  lam1 = ms[1]*(cs[1] + 1.25)*519.6739545618868;
+  lam2 = ms[2]*(cs[2] + 1.25)*277.0927067702051;
+  lam3 = ms[3]*(cs[3] + 1.25)*296.8033679816606;
+  lam4 = ms[4]*(cs[4] + 1.25)*259.8369772809434;
+  km[0] = lam0*xm0/ph[0] + lam1*xm1/ph[1] + lam2*xm2/ph[2] + lam3*xm3/ph[3] + lam4*xm4/ph[4];
+end
+
+function TGrad(uq, mu, t)
+  output_size(tg) = 2;
+  es = Emass(t);
+  cs = CPspec(t);
+  cv0 = (cs[0] - 1.0)*593.6067359633212;
+  cv1 = (cs[1] - 1.0)*519.6739545618868;
+  cv2 = (cs[2] - 1.0)*277.0927067702051;
+  cv3 = (cs[3] - 1.0)*296.8033679816606;
+  cv4 = (cs[4] - 1.0)*259.8369772809434;
+  den = mu[0]*uq[0]*cv0 + mu[0]*uq[1]*cv1 + mu[0]*uq[2]*cv2 + mu[0]*uq[3]*cv3 + mu[0]*uq[4]*cv4;
+  rho = uq[0] + uq[1] + uq[2] + uq[3] + uq[4];
+  ir = 1.0/rho;
+  velz = uq[5]*ir;
+  velr = uq[6]*ir;
+  drz = -(uq[8] + uq[9] + uq[10] + uq[11] + uq[12]);
+  drr = -(uq[16] + uq[17] + uq[18] + uq[19] + uq[20]);
+  duzdz = (-uq[13] - drz*velz)*ir;
+  durdz = (-uq[14] - drz*velr)*ir;
+  duzdr = (-uq[21] - drr*velz)*ir;
+  durdr = (-uq[22] - drr*velr)*ir;
+  ke2 = 0.5*(velz*velz + velr*velr);
+  dkedz = velz*duzdz + velr*durdz;
+  dkedr = velz*duzdr + velr*durdr;
+  dredz = -ke2*drz - rho*dkedz - uq[15];
+  dredr = -ke2*drr - rho*dkedr - uq[23];
+  dtr0 = (-es[0]/den)*mu[0]/mu[3];
+  dtr1 = (-es[1]/den)*mu[0]/mu[3];
+  dtr2 = (-es[2]/den)*mu[0]/mu[3];
+  dtr3 = (-es[3]/den)*mu[0]/mu[3];
+  dtr4 = (-es[4]/den)*mu[0]/mu[3];
+  dte = (1.0/den)*mu[2]/mu[3];
+  tg[0] = dtr0*(-uq[8]) + dtr1*(-uq[9]) + dtr2*(-uq[10]) + dtr3*(-uq[11]) + dtr4*(-uq[12]) + dte*dredz;
+  tg[1] = dtr0*(-uq[16]) + dtr1*(-uq[17]) + dtr2*(-uq[18]) + dtr3*(-uq[19]) + dtr4*(-uq[20]) + dte*dredr;
+end
+
+function Jdiff(uq, mu, t)
+  output_size(jd) = 10;
+  ds = Dspec(uq, mu, t);
+  dn0 = ds[0]/(mu[1]*mu[7]);
+  dn1 = ds[1]/(mu[1]*mu[7]);
+  dn2 = ds[2]/(mu[1]*mu[7]);
+  dn3 = ds[3]/(mu[1]*mu[7]);
+  dn4 = ds[4]/(mu[1]*mu[7]);
+  rho = uq[0] + uq[1] + uq[2] + uq[3] + uq[4];
+  ir = 1.0/rho;
+  drz = -(uq[8] + uq[9] + uq[10] + uq[11] + uq[12]);
+  drr = -(uq[16] + uq[17] + uq[18] + uq[19] + uq[20]);
+  dyz0 = (-uq[8]*rho - uq[0]*drz)*ir*ir;
+  dyr0 = (-uq[16]*rho - uq[0]*drr)*ir*ir;
+  dyz1 = (-uq[9]*rho - uq[1]*drz)*ir*ir;
+  dyr1 = (-uq[17]*rho - uq[1]*drr)*ir*ir;
+  dyz2 = (-uq[10]*rho - uq[2]*drz)*ir*ir;
+  dyr2 = (-uq[18]*rho - uq[2]*drr)*ir*ir;
+  dyz3 = (-uq[11]*rho - uq[3]*drz)*ir*ir;
+  dyr3 = (-uq[19]*rho - uq[3]*drr)*ir*ir;
+  dyz4 = (-uq[12]*rho - uq[4]*drz)*ir*ir;
+  dyr4 = (-uq[20]*rho - uq[4]*drr)*ir*ir;
+  sz = dn0*dyz0 + dn1*dyz1 + dn2*dyz2 + dn3*dyz3 + dn4*dyz4;
+  sr = dn0*dyr0 + dn1*dyr1 + dn2*dyr2 + dn3*dyr3 + dn4*dyr4;
+  jd[0] = -rho*dn0*dyz0 + uq[0]*sz;
+  jd[1] = -rho*dn1*dyz1 + uq[1]*sz;
+  jd[2] = -rho*dn2*dyz2 + uq[2]*sz;
+  jd[3] = -rho*dn3*dyz3 + uq[3]*sz;
+  jd[4] = -rho*dn4*dyz4 + uq[4]*sz;
+  jd[5] = -rho*dn0*dyr0 + uq[0]*sr;
+  jd[6] = -rho*dn1*dyr1 + uq[1]*sr;
+  jd[7] = -rho*dn2*dyr2 + uq[2]*sr;
+  jd[8] = -rho*dn3*dyr3 + uq[3]*sr;
+  jd[9] = -rho*dn4*dyr4 + uq[4]*sr;
+end
+
+function Stress(x, uq, mu, t)
+  output_size(st) = 4;
+  mm = MuMix(uq, mu, t);
+  mud = mm[0]/mu[4];
+  rho = uq[0] + uq[1] + uq[2] + uq[3] + uq[4];
+  ir = 1.0/rho;
+  velz = uq[5]*ir;
+  velr = uq[6]*ir;
+  drz = -(uq[8] + uq[9] + uq[10] + uq[11] + uq[12]);
+  drr = -(uq[16] + uq[17] + uq[18] + uq[19] + uq[20]);
+  duzdz = (-uq[13] - drz*velz)*ir;
+  durdz = (-uq[14] - drz*velr)*ir;
+  duzdr = (-uq[21] - drr*velz)*ir;
+  durdr = (-uq[22] - drr*velr)*ir;
+  rinv = 1.0/x[1];
+  cmu = mud*(2.0/3.0)/mu[10];
+  st[0] = cmu*(2.0*duzdz - durdr - velr*rinv);
+  st[1] = mud*(duzdr + durdz)/mu[10];
+  st[2] = cmu*(2.0*durdr - duzdz - velr*rinv);
+  st[3] = cmu*(2.0*velr*rinv - duzdz - durdr);
+end
+
+function Omega(uq, mu, t)
+  output_size(om) = 5;
+  gs = Gspec(t);
+  lgT = log(t);
+  cm0 = mu[0]*uq[0]*71.39440410660612;
+  cm1 = mu[0]*uq[1]*62.50234383789392;
+  cm2 = mu[0]*uq[2]*33.32655693342354;
+  cm3 = mu[0]*uq[3]*35.69720205330306;
+  cm4 = mu[0]*uq[4]*31.25117191894696;
+  pterm = 9.408090904477708 - lgT;
+  gc0 = gs[0] - pterm;
+  gc1 = gs[1] - pterm;
+  gc2 = gs[2] - pterm;
+  gc3 = gs[3] - pterm;
+  gc4 = gs[4] - pterm;
+  lkf0 = 37.93997377657284 + (-1.6)*lgT - 113200.0/t;
+  lkf1 = 36.841361487904734 + (-1.5)*lgT - 59360.0/t;
+  lkf2 = 22.33270374938051 - 75500.0/t;
+  lkf3 = 15.555976732804778 + (0.42)*lgT - 42938.0/t;
+  lkf4 = 15.943742263813542 - 19400.0/t;
+  lkb0 = lkf0 + 2.0*gc0 - gc3;
+  lkb1 = lkf1 + 2.0*gc1 - gc4;
+  lkb2 = lkf2 + gc0 + gc1 - gc2;
+  lkb3 = lkf3 + gc0 - gc1 + gc2 - gc3;
+  lkb4 = lkf4 + gc0 - gc1 - gc2 + gc4;
+  kf0 = exp(lkf0);
+  kb0 = exp(lkb0);
+  kf1 = exp(lkf1);
+  kb1 = exp(lkb1);
+  kf2 = exp(lkf2);
+  kb2 = exp(lkb2);
+  kf3 = exp(lkf3);
+  kb3 = exp(lkb3);
+  kf4 = exp(lkf4);
+  kb4 = exp(lkb4);
+  tb0 = cm0 + cm1 + 0.2333*(cm2 + cm3 + cm4);
+  tb1 = cm0 + cm1 + 0.2*(cm2 + cm3 + cm4);
+  tb2 = 22.0*(cm0 + cm1 + cm2) + cm3 + cm4;
+  rr0 = (kf0*cm3 - kb0*cm0*cm0)*tb0;
+  rr1 = (kf1*cm4 - kb1*cm1*cm1)*tb1;
+  rr2 = (kf2*cm2 - kb2*cm0*cm1)*tb2;
+  rr3 = kf3*cm1*cm3 - kb3*cm0*cm2;
+  rr4 = kf4*cm1*cm2 - kb4*cm0*cm4;
+  om[0] = 0.0140067*(2.0*rr0 + rr2 + rr3 + rr4);
+  om[1] = 0.0159994*(2.0*rr1 + rr2 - rr3 - rr4);
+  om[2] = 0.0300061*(- rr2 + rr3 - rr4);
+  om[3] = 0.0280134*(- rr0 - rr3);
+  om[4] = 0.0319988*(- rr1 + rr4);
+end
+
+function FluxAxial(x, uq, v, w, eta, mu, t)
+  output_size(fa) = 18;
+  tdim = w[0]*mu[3];
+  rho = uq[0] + uq[1] + uq[2] + uq[3] + uq[4];
+  ir = 1.0/rho;
+  velz = uq[5]*ir;
+  velr = uq[6]*ir;
+  ene = uq[7]*ir;
+  av = v[0];
+  pdim = tdim*8.314471468617452*(mu[0]*uq[0]*71.39440410660612 + mu[0]*uq[1]*62.50234383789392 + mu[0]*uq[2]*33.32655693342354 + mu[0]*uq[3]*35.69720205330306 + mu[0]*uq[4]*31.25117191894696);
+  pre = pdim/mu[2];
+  hh = ene + pre*ir;
+  st = Stress(x, uq, mu, tdim);
+  jd = Jdiff(uq, mu, tdim);
+  hs = Hspec(tdim);
+  hm0 = hs[0]*tdim*593.6067359633212/(mu[1]*mu[1]);
+  hm1 = hs[1]*tdim*519.6739545618868/(mu[1]*mu[1]);
+  hm2 = hs[2]*tdim*277.0927067702051/(mu[1]*mu[1]);
+  hm3 = hs[3]*tdim*296.8033679816606/(mu[1]*mu[1]);
+  hm4 = hs[4]*tdim*259.8369772809434/(mu[1]*mu[1]);
+  tg = TGrad(uq, mu, tdim);
+  km = KappaMix(uq, mu, tdim);
+  kap = km[0]/mu[5];
+  hjz = hm0*jd[0] + hm1*jd[1] + hm2*jd[2] + hm3*jd[3] + hm4*jd[4];
+  hjr = hm0*jd[5] + hm1*jd[6] + hm2*jd[7] + hm3*jd[8] + hm4*jd[9];
+  edz = hjz - kap*tg[0]/(mu[10]*mu[9]*mu[8]);
+  edr = hjr - kap*tg[1]/(mu[10]*mu[9]*mu[8]);
+  fa[0] = uq[0]*velz + av*uq[8] + jd[0];
+  fa[1] = uq[1]*velz + av*uq[9] + jd[1];
+  fa[2] = uq[2]*velz + av*uq[10] + jd[2];
+  fa[3] = uq[3]*velz + av*uq[11] + jd[3];
+  fa[4] = uq[4]*velz + av*uq[12] + jd[4];
+  fa[5] = uq[5]*velz + pre + av*uq[13] - st[0];
+  fa[6] = uq[6]*velz + av*uq[14] - st[1];
+  fa[7] = uq[5]*hh + av*uq[15] - (velz*st[0] + velr*st[1] - edz);
+  fa[8] = uq[0]*velr + av*uq[16] + jd[5];
+  fa[9] = uq[1]*velr + av*uq[17] + jd[6];
+  fa[10] = uq[2]*velr + av*uq[18] + jd[7];
+  fa[11] = uq[3]*velr + av*uq[19] + jd[8];
+  fa[12] = uq[4]*velr + av*uq[20] + jd[9];
+  fa[13] = uq[5]*velr + av*uq[21] - st[1];
+  fa[14] = uq[6]*velr + pre + av*uq[22] - st[2];
+  fa[15] = uq[6]*hh + av*uq[23] - (velz*st[1] + velr*st[2] - edr);
+  fa[16] = pre;
+  fa[17] = st[3];
+end
+
+function Flux(x, uq, v, w, eta, mu, t)
+  output_size(f) = 16;
+  fa = FluxAxial(x, uq, v, w, eta, mu, t);
+  for i in 0:15
+  f[i] = fa[i];
+  endfor
+end
+
+function Source(x, uq, v, w, eta, mu, t)
+  output_size(s) = 8;
+  fa = FluxAxial(x, uq, v, w, eta, mu, t);
+  tdim = w[0]*mu[3];
+  om = Omega(uq, mu, tdim);
+  oms = mu[7]/(mu[0]*mu[1]);
+  rinv = 1.0/x[1];
+  s[0] = om[0]*oms - fa[8]*rinv;
+  s[1] = om[1]*oms - fa[9]*rinv;
+  s[2] = om[2]*oms - fa[10]*rinv;
+  s[3] = om[3]*oms - fa[11]*rinv;
+  s[4] = om[4]*oms - fa[12]*rinv;
+  s[5] = -fa[13]*rinv;
+  s[6] = -fa[14]*rinv + (fa[16] - fa[17])*rinv;
+  s[7] = -fa[15]*rinv;
+end
+
+function Tdfunc(x, uq, v, w, eta, mu, t)
   output_size(m) = 8;
   ones(m);
 end
 
-function Fbou(x, uq, v, w, uhat, n, tau, eta, mu, t)
-  output_size(fb) = 8;
-  zeros(fb);
-end
-
 function Ubou(x, uq, v, w, uhat, n, tau, eta, mu, t)
   output_size(ub) = 8;
-  zeros(ub);
+  ones(ub);
+end
+
+function Fbou(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(fb) = 8;
+  ones(fb);
 end
 
 function FbouHdg(x, uq, v, w, uhat, n, tau, eta, mu, t)
-    output_size(fb) = 40;    
+  output_size(fb) = 72;
+  twall = mu[11];
+  for i in 0:7
+  fb[i] = tau[0]*(eta[i] - uhat[i]);
+  endfor
+  for i in 0:7
+  fb[8+i] = tau[0]*(uq[i] - uhat[i]);
+  endfor
+  ew = Emass(twall);
+  rew = (mu[0]*uq[0]*ew[0] + mu[0]*uq[1]*ew[1] + mu[0]*uq[2]*ew[2] + mu[0]*uq[3]*ew[3] + mu[0]*uq[4]*ew[4])/mu[2];
+  for i in 0:4
+  fb[16+i] = tau[0]*(uq[i] - uhat[i]);
+  endfor
+  fb[21] = -tau[0]*uhat[5];
+  fb[22] = -tau[0]*uhat[6];
+  fb[23] = tau[0]*(rew - uhat[7]);
+  mn = uq[5]*n[0] + uq[6]*n[1];
+  for i in 0:4
+  fb[24+i] = tau[0]*(uq[i] - uhat[i]);
+  endfor
+  fb[29] = tau[0]*(uq[5] - mn*n[0] - uhat[5]);
+  fb[30] = tau[0]*(uq[6] - mn*n[1] - uhat[6]);
+  fb[31] = tau[0]*(uq[7] - uhat[7]);
+  for i in 0:7
+  fb[32+i] = uq[8+i]*n[0] + uq[16+i]*n[1] + tau[0]*(uq[i] - uhat[i]);
+  endfor
+  cnc = w[0]*mu[3]/twall;
+  renc = (mu[0]*uq[0]*ew[0] + mu[0]*uq[1]*ew[1] + mu[0]*uq[2]*ew[2] + mu[0]*uq[3]*ew[3] + mu[0]*uq[4]*ew[4])*cnc/mu[2];
+  for i in 0:4
+  fb[40+i] = tau[0]*(cnc*uq[i] - uhat[i]);
+  endfor
+  fb[45] = -tau[0]*uhat[5];
+  fb[46] = -tau[0]*uhat[6];
+  fb[47] = tau[0]*(renc - uhat[7]);
+  ysum = eta[8] + eta[9] + eta[10] + eta[11] + eta[12];
+  yh0 = eta[8]/ysum;
+  yh1 = eta[9]/ysum;
+  yh2 = eta[10]/ysum;
+  yh3 = eta[11]/ysum;
+  yh4 = eta[12]/ysum;
+  molsum = mu[0]*uq[0]*71.39440410660612 + mu[0]*uq[1]*62.50234383789392 + mu[0]*uq[2]*33.32655693342354 + mu[0]*uq[3]*35.69720205330306 + mu[0]*uq[4]*31.25117191894696;
+  pflow = w[0]*mu[3]*molsum*8.314471468617452;
+  ymol = yh0*71.39440410660612 + yh1*62.50234383789392 + yh2*33.32655693342354 + yh3*35.69720205330306 + yh4*31.25117191894696;
+  rhocat = pflow/(8.314471468617452*twall*ymol);
+  recat = (yh0*ew[0] + yh1*ew[1] + yh2*ew[2] + yh3*ew[3] + yh4*ew[4])*rhocat/mu[2];
+  fb[48] = tau[0]*(rhocat*yh0/mu[0] - uhat[0]);
+  fb[49] = tau[0]*(rhocat*yh1/mu[0] - uhat[1]);
+  fb[50] = tau[0]*(rhocat*yh2/mu[0] - uhat[2]);
+  fb[51] = tau[0]*(rhocat*yh3/mu[0] - uhat[3]);
+  fb[52] = tau[0]*(rhocat*yh4/mu[0] - uhat[4]);
+  fb[53] = -tau[0]*uhat[5];
+  fb[54] = -tau[0]*uhat[6];
+  fb[55] = tau[0]*(recat - uhat[7]);
+  pival = Expression(pi);
+  jw = Jdiff(uq, mu, twall);
+  sqt = sqrt(twall/(2.0*pival));
+  fnw0 = jw[0]*n[0] + jw[5]*n[1];
+  mdc0 = eta[13]*sqt*24.36404596866705*uq[0]/mu[1];
+  fb[56] = fnw0 - mdc0 + tau[0]*(uq[0] - uhat[0]);
+  fnw1 = jw[1]*n[0] + jw[6]*n[1];
+  mdc1 = eta[14]*sqt*22.796358361849965*uq[1]/mu[1];
+  fb[57] = fnw1 - mdc1 + tau[0]*(uq[1] - uhat[1]);
+  fnw2 = jw[2]*n[0] + jw[7]*n[1];
+  mdc2 = eta[15]*sqt*16.646101849087824*uq[2]/mu[1];
+  fb[58] = fnw2 - mdc2 + tau[0]*(uq[2] - uhat[2]);
+  fnw3 = jw[3]*n[0] + jw[8]*n[1];
+  mdc3 = eta[16]*sqt*17.22798212158524*uq[3]/mu[1];
+  fb[59] = fnw3 - mdc3 + tau[0]*(uq[3] - uhat[3]);
+  fnw4 = jw[4]*n[0] + jw[9]*n[1];
+  mdc4 = eta[17]*sqt*16.119459584022767*uq[4]/mu[1];
+  fb[60] = fnw4 - mdc4 + tau[0]*(uq[4] - uhat[4]);
+  fb[61] = -tau[0]*uhat[5];
+  fb[62] = -tau[0]*uhat[6];
+  fb[63] = tau[0]*(rew - uhat[7]);
+  msn = eta[13]*sqt*24.36404596866705*uq[0]/mu[1];
+  mso = eta[14]*sqt*22.796358361849965*uq[1]/mu[1];
+  fb[64] = fnw0 - mdc0 - msn + tau[0]*(uq[0] - uhat[0]);
+  fb[65] = fnw1 - mdc1 - mso + tau[0]*(uq[1] - uhat[1]);
+  fb[66] = fnw2 - mdc2 + tau[0]*(uq[2] - uhat[2]);
+  fb[67] = fnw3 - mdc3 + msn + tau[0]*(uq[3] - uhat[3]);
+  fb[68] = fnw4 - mdc4 + mso + tau[0]*(uq[4] - uhat[4]);
+  fb[69] = -tau[0]*uhat[5];
+  fb[70] = -tau[0]*uhat[6];
+  fb[71] = tau[0]*(rew - uhat[7]);
+end
+
+function EoS(x, uq, v, w, eta, mu, t)
+  output_size(fe) = 1;
+  pival = Expression(pi);
+  ul0 = uq[0]*(atan(1.0e6*uq[0])/pival + 0.5) - atan(1.0e6)/pival + 0.5;
+  ul1 = uq[1]*(atan(1.0e6*uq[1])/pival + 0.5) - atan(1.0e6)/pival + 0.5;
+  ul2 = uq[2]*(atan(1.0e6*uq[2])/pival + 0.5) - atan(1.0e6)/pival + 0.5;
+  ul3 = uq[3]*(atan(1.0e6*uq[3])/pival + 0.5) - atan(1.0e6)/pival + 0.5;
+  ul4 = uq[4]*(atan(1.0e6*uq[4])/pival + 0.5) - atan(1.0e6)/pival + 0.5;
+  tdim = w[0]*mu[3];
+  hs = Hspec(tdim);
+  rsum = mu[0]*ul0 + mu[0]*ul1 + mu[0]*ul2 + mu[0]*ul3 + mu[0]*ul4;
+  rmz = uq[5]*mu[0]*mu[1];
+  rmr = uq[6]*mu[0]*mu[1];
+  redim = uq[7]*mu[2] - 0.5*(rmz*rmz + rmr*rmr)/rsum;
+  gsum = mu[0]*ul0*71.39440410660612*(hs[0] - 1.0) + mu[0]*ul1*62.50234383789392*(hs[1] - 1.0) + mu[0]*ul2*33.32655693342354*(hs[2] - 1.0) + mu[0]*ul3*35.69720205330306*(hs[3] - 1.0) + mu[0]*ul4*31.25117191894696*(hs[4] - 1.0);
+  fe[0] = tdim*gsum - redim*0.12027222701700871;
+end
+
+function Sourcew(x, uq, v, w, eta, mu, t)
+  output_size(sw) = 1;
+  fe = EoS(x, uq, v, w, eta, mu, t);
+  sw[0] = fe[0];
 end
 
 function Initu(x, eta, mu)
   output_size(ui) = 8;
+  ones(ui);
 end
 
-function VisScalars(x, uq, v, w, eta, mu, t)  
+function Initw(x, eta, mu)
+  output_size(wi) = 1;
+  ones(wi);
+end
+
+function VisScalars(x, uq, v, w, eta, mu, t)
   output_size(s) = 8;
+  s[0] = mu[0]*uq[0];
+  s[1] = mu[0]*uq[1];
+  s[2] = mu[0]*uq[2];
+  s[3] = mu[0]*uq[3];
+  s[4] = mu[0]*uq[4];
+  s[5] = mu[0]*(uq[0] + uq[1] + uq[2] + uq[3] + uq[4]);
+  s[6] = w[0]*mu[3];
+  s[7] = w[0]*mu[3]*8.314471468617452*(mu[0]*uq[0]*71.39440410660612 + mu[0]*uq[1]*62.50234383789392 + mu[0]*uq[2]*33.32655693342354 + mu[0]*uq[3]*35.69720205330306 + mu[0]*uq[4]*31.25117191894696);
 end
 
-function VisVectors(x, uq, v, w, eta, mu, t)  
+function VisVectors(x, uq, v, w, eta, mu, t)
   output_size(s) = 6;
+  tdim = w[0]*mu[3];
+  rhodim = mu[0]*(uq[0] + uq[1] + uq[2] + uq[3] + uq[4]);
+  s[0] = uq[5]*mu[0]*mu[1]/rhodim;
+  s[1] = uq[6]*mu[0]*mu[1]/rhodim;
+  tg = TGrad(uq, mu, tdim);
+  km = KappaMix(uq, mu, tdim);
+  kap = km[0]/mu[5];
+  s[2] = -(mu[5]*mu[3]/mu[7])*kap*tg[0];
+  s[3] = -(mu[5]*mu[3]/mu[7])*kap*tg[1];
+  jd = Jdiff(uq, mu, tdim);
+  hs = Hspec(tdim);
+  hm0 = hs[0]*tdim*593.6067359633212/(mu[1]*mu[1]);
+  hm1 = hs[1]*tdim*519.6739545618868/(mu[1]*mu[1]);
+  hm2 = hs[2]*tdim*277.0927067702051/(mu[1]*mu[1]);
+  hm3 = hs[3]*tdim*296.8033679816606/(mu[1]*mu[1]);
+  hm4 = hs[4]*tdim*259.8369772809434/(mu[1]*mu[1]);
+  s[4] = mu[0]*mu[1]*mu[1]*mu[1]*(hm0*jd[0] + hm1*jd[1] + hm2*jd[2] + hm3*jd[3] + hm4*jd[4]);
+  s[5] = mu[0]*mu[1]*mu[1]*mu[1]*(hm0*jd[5] + hm1*jd[6] + hm2*jd[7] + hm3*jd[8] + hm4*jd[9]);
 end
 
-function VisTensors(x, uq, v, w, eta, mu, t)  
+function VisTensors(x, uq, v, w, eta, mu, t)
   output_size(s) = 4;
+  tdim = w[0]*mu[3];
+  st = Stress(x, uq, mu, tdim);
+  cdim = mu[4]*mu[1]/mu[7];
+  s[0] = cdim*st[0];
+  s[1] = cdim*st[1];
+  s[2] = cdim*st[1];
+  s[3] = cdim*st[2];
 end
-

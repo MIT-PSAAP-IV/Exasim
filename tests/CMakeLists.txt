@@ -112,3 +112,18 @@ add_test(NAME frontend_python_modelcache
     bash "${EXASIM_DIR}/tests/frontends/run-frontend-test.sh")
 set_tests_properties(frontend_python_modelcache PROPERTIES
   TIMEOUT 2400 SKIP_RETURN_CODE 77)
+
+# Shared-library app test: install Exasim, build apps/sharedlibrary against the
+# installed package, generate libt2cmodelserial with the installed text2code,
+# and run a small Poisson text2code fixture through the shared-library ABI path.
+add_test(NAME sharedlibrary_app
+  COMMAND ${CMAKE_COMMAND} -E env
+    "EXASIM_BUILD=${CMAKE_BINARY_DIR}"
+    "KOKKOS_DIR=${Kokkos_DIR}"
+    "EXASIM_ROOT=${EXASIM_DIR}"
+    "CC=${CMAKE_C_COMPILER}"
+    "CXX=${CMAKE_CXX_COMPILER}"
+    "INSTALL_PREFIX=/tmp/exasim_install_sharedlibrary"
+    bash "${CMAKE_CURRENT_SOURCE_DIR}/run-sharedlibrary-test.sh")
+set_tests_properties(sharedlibrary_app PROPERTIES
+  TIMEOUT 2400 SKIP_RETURN_CODE 77)

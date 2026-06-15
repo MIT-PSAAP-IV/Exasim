@@ -19,6 +19,10 @@
 #define HAVE_TEXT2CODE
 #endif
 
+#ifdef _SHAREDLIBRARY
+#define HAVE_SHAREDLIBRARY
+#endif
+
 #ifdef _BUILTINLIBRARY
 #define HAVE_BUILTINLIBRARY
 #endif

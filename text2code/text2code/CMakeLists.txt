@@ -118,14 +118,25 @@ if(SymEngine_FOUND)
   else()
     string(REPLACE ";" " " _se_lib "${SYMENGINE_LIBRARIES}")
   endif()
+  
+  # Add GMP dependencies required by GMP-based static SymEngine.
+  set(_se_extra_libs "")
+  if(EXISTS "${EXASIM_SYMENGINE_DIR}/lib/libgmpxx.a")
+    string(APPEND _se_extra_libs " ${EXASIM_SYMENGINE_DIR}/lib/libgmpxx.a")
+  endif()
+  if(EXISTS "${EXASIM_SYMENGINE_DIR}/lib/libgmp.a")
+    string(APPEND _se_extra_libs " ${EXASIM_SYMENGINE_DIR}/lib/libgmp.a")
+  endif()
+  
   file(GENERATE OUTPUT "${_se_header}" CONTENT
-"#pragma once
-#define EXASIM_SYMENGINE_FOUND 1
-#define EXASIM_SYMENGINE_INCFLAGS \"${_se_inc}\"
-#define EXASIM_SYMENGINE_LIB \"${_se_lib}\"
-#define EXASIM_KOKKOS_DIR \"${EXASIM_KOKKOS_DIR}\"
-#define EXASIM_KOKKOS_BACKEND \"${EXASIM_KOKKOS_BACKEND}\"
-")
+  "#pragma once
+  #define EXASIM_SYMENGINE_FOUND 1
+  #define EXASIM_SYMENGINE_INCFLAGS \"${_se_inc}\"
+  #define EXASIM_SYMENGINE_LIB \"${_se_lib}${_se_extra_libs}\"
+  #define EXASIM_KOKKOS_DIR \"${EXASIM_KOKKOS_DIR}\"
+  #define EXASIM_KOKKOS_BACKEND \"${EXASIM_KOKKOS_BACKEND}\"
+  ")
+
   message(STATUS "SymEngine                = found (${SYMENGINE_INCLUDE_DIRS})")
 else()
   file(GENERATE OUTPUT "${_se_header}" CONTENT
