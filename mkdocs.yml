@@ -70,3 +70,17 @@ plugins:
 # stays green at each step.
 nav:
   - Home: index.md
+  - Installation:
+      - install/index.md
+      - Common dependencies: install/common.md
+      - "Local: macOS": install/macos.md
+      - "Local: Linux (CPU)": install/linux-cpu.md
+      - "Local: Linux (NVIDIA GPU)": install/linux-nvidia.md
+      - "Local: Linux (AMD GPU)": install/linux-amd.md
+  - Reference:
+      - Model contract: reference/model-contract.md
+  - Internals:
+      - Architecture & data flow: internals/architecture.md
+      - Testing: internals/testing.md
+      - Baselines: internals/baselines.md
+      - Known divergences: internals/known-divergences.md
