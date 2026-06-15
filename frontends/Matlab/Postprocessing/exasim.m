@@ -27,6 +27,12 @@ if nmodels==1
            
     runstr = runcode(pde, 1); % run C++ code
 
+    % optionally package a relocatable "data transfer app" bundle (the
+    % local build+run above doubles as the bundle's verification step).
+    if isfield(pde,'exportapp') && ~isempty(pde.exportapp)
+        exportapp(pde, pde.exportapp, true);
+    end
+
     % get solution from output files in dataout folder
     sol = fetchsolution(pde,master,dmd, pde.datapath + "/dataout");
     
