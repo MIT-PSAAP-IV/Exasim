@@ -8,6 +8,7 @@ from .checkcompilers import checkcompilers
 from .setcompilers import setcompilers
 from .compilecode import compilecode
 from .cmakecompile import cmakecompile
+from .exportapp import exportapp
 from .compilepdemodel import compilepdemodel
 from .runcode import runcode
 from .gencodeall import gencodeall

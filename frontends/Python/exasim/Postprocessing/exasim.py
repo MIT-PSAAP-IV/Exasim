@@ -28,6 +28,11 @@ def exasim(pde,mesh):
 
         runstr = Gencode.runcode(pde, 1);
 
+        # optionally package a relocatable "data transfer app" bundle (the
+        # local build+run above doubles as the bundle's verification step).
+        if pde.get('exportapp'):
+            Gencode.exportapp(pde, pde['exportapp'], build=True);
+
         # get solution from output files in dataout folder
         pde['vistime'] = [];
         sol = fetchsolution(pde,master,dmd, pde['datapath'] + "/dataout");
