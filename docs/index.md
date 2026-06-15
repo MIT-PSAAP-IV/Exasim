@@ -6,9 +6,8 @@ core (HDG / LDG, GMRES, Newton, DIRK time stepping) with optional symbolic code
 generation and Kokkos-based backend portability, so the same model definition
 runs on CPU, GPU, MPI, and MPI+GPU without changing the math.
 
-!!! note "Site under construction"
-    This documentation site is being assembled. Sections land incrementally;
-    the navigation reflects what is currently published.
+New here? Jump to the [Quickstart](getting-started/quickstart.md) to build and run
+a built-in solve in a few minutes.
 
 ## What you get
 
@@ -32,3 +31,14 @@ setup, and the mesh — then consume the solver in one of three modes:
 | **Built-in model** | Pick a pre-generated model by ID; no code generation at your build time. |
 | **External built-in model** | Register a *new* model out-of-tree; it falls through to the built-ins for other IDs. |
 | **Shared library** | A frontend (Python / Julia / MATLAB) generates the model kernels into a shared library loaded at runtime. |
+
+## Where to go
+
+- **Install** → [local](install/index.md) or [HPC](install/hpc.md) (Frontier, Tuolumne, generic)
+- **Run a model** → [usage modes](usage-modes/index.md), [frontends](frontends/index.md)
+- **Look something up** → [model contract](reference/model-contract.md),
+  [`pdeapp.txt`](reference/pdeapp.md), [`pdemodel.txt`](reference/pdemodel.md),
+  [CMake](reference/cmake.md)
+- **Understand the math** → [Theory](theory/index.md)
+- **Embed Exasim** → [Driving the solver (C++ API)](driving-the-solver.md)
+- **Contribute** → [Internals](internals/architecture.md)

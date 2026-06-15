@@ -70,6 +70,9 @@ plugins:
 # stays green at each step.
 nav:
   - Home: index.md
+  - Getting started:
+      - Quickstart: getting-started/quickstart.md
+      - Choosing a usage mode: usage-modes/index.md
   - Installation:
       - install/index.md
       - Common dependencies: install/common.md
