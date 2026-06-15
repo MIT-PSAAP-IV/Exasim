@@ -12,9 +12,12 @@ struct shape, and all three usage modes (built-in, external built-in, shared
 library) ultimately satisfy this same contract.
 
 !!! note "Mathematical background"
-    Each contract method corresponds to a term in the DG/HDG formulation. The
-    Theory section will be cross-linked here so every method maps back to the
-    equation it supplies.
+    Each contract method supplies a term in the DG/HDG formulation. Read the
+    [Theory](../theory/index.md) section first: `flux`, `source`, and the
+    boundary methods are the pointwise terms of the
+    [LDG weak form](../theory/ldg-formulation.md), and the HDG Jacobian methods
+    are the blocks of the
+    [block-diagonal Jacobian](../theory/block-diagonal-jacobian.md).
 
 ## The Model contract
 
@@ -51,6 +54,10 @@ default zero-fill — `MyModel` MUST override them:
 | `ubou`     | `ub[ncu]`   | imposed boundary value (Dirichlet etc., per-`ib` dispatch) |
 | `initu`    | `ui[ncu]`   | initial condition |
 
+These are the volume and face terms of the
+[LDG weak form](../theory/ldg-formulation.md): `flux` is $F$, `source` is $S$,
+and `fbou`/`fbou_hdg`/`ubou` are the boundary contributions $\hat{f}$/$\hat{u}$.
+
 ### HDG Jacobians (required for `disc = HDG`)
 
 The HDG kernels need pointwise Jacobians. Defaults are zero-fill, which makes the
@@ -67,7 +74,8 @@ linearized system zero and Newton fail — for HDG you MUST override:
 | `fbou_hdg_jac_w`     | `fb_w[ncu*ncw]`    | column-major (per-`ib` dispatch) |
 
 `Nq = ncu * (1 + nd)` is the size of the `uq` array (primary unknowns plus their
-gradients in HDG).
+gradients in HDG). These pointwise Jacobians are the per-element blocks derived
+on the [block-diagonal Jacobian](../theory/block-diagonal-jacobian.md) page.
 
 ### Volume method signature
 

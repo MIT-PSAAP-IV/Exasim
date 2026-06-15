@@ -86,6 +86,10 @@ nav:
       - Built-in model: usage-modes/builtin.md
       - External built-in model: usage-modes/external-builtin.md
       - Shared library: usage-modes/shared-library.md
+  - Theory:
+      - theory/index.md
+      - LDG formulation: theory/ldg-formulation.md
+      - Block-diagonal Jacobian: theory/block-diagonal-jacobian.md
   - Reference:
       - Model contract: reference/model-contract.md
   - Internals:
