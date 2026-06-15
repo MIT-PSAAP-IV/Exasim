@@ -401,16 +401,18 @@ int main(int argc, char** argv)
 }
 ```
 
-Documentation lives under [`docs/`](docs/) — start at
-[`docs/README.md`](docs/README.md) for the table of contents.
+Documentation is published at
+**<https://mit-psaap-iv.github.io/Exasim>** (source under [`docs/`](docs/),
+built with MkDocs — `pip install -r requirements-docs.txt && mkdocs serve`).
 
 Quick pointers:
 
-- [`tutorial/`](tutorial/) — solve Poisson 2D through every supported path; the worked walkthrough for picking among the PDE × Solver × Mesh combinations
-- [`docs/00-introduction.md`](docs/00-introduction.md) — what Exasim is and how the pieces fit together
-- [`docs/01-installation.md`](docs/01-installation.md) — per-platform install (macOS, Linux CPU, Linux + NVIDIA, Linux + AMD)
-- [`docs/02-model-contract.md`](docs/02-model-contract.md) — full reference for the `Model` C++ struct that the templated FEM internals consume
-- [`docs/03-internals/`](docs/03-internals/) — test harness, baseline format, architecture
+- [Quickstart](docs/getting-started/quickstart.md) — build and run a built-in solve
+- [Installation](docs/install/index.md) — local (macOS, Linux CPU/NVIDIA/AMD) and HPC (Frontier, Tuolumne, generic)
+- [Usage modes](docs/usage-modes/index.md) — built-in, external built-in, shared library
+- [Model contract](docs/reference/model-contract.md) and [`pdeapp.txt`](docs/reference/pdeapp.md) / [`pdemodel.txt`](docs/reference/pdemodel.md) references
+- [Theory](docs/theory/index.md) — the LDG formulation and Jacobian the contract maps to
+- [Internals](docs/internals/architecture.md) — architecture, test harness, baselines
 
 The legacy `pdemodel.txt` + `text2code` + `cput2cEXASIM` workflow stays
 fully supported. text2code now also emits a `my_model.hpp` for the
