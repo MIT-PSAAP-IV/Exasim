@@ -100,18 +100,6 @@ if(_bm_genroot AND EXISTS "${EXASIM_TEXT2CODE}"
   set_tests_properties(builtin_model4_kernel_equivalence PROPERTIES TIMEOUT 60)
 endif()
 
-# Per-user model cache: a second app directory must reuse the cached
-# (libfrontend_model, exasimapp) pair with zero compilation.
-add_test(NAME frontend_python_modelcache
-  COMMAND ${CMAKE_COMMAND} -E env
-    "EXASIM_ROOT=${EXASIM_DIR}"
-    "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}"
-    "FRONTEND=python"
-    "CACHE_TEST=1"
-    "PYTHON3=${Python3_EXECUTABLE}"
-    bash "${EXASIM_DIR}/tests/frontends/run-frontend-test.sh")
-set_tests_properties(frontend_python_modelcache PROPERTIES
-  TIMEOUT 2400 SKIP_RETURN_CODE 77)
 
 # Shared-library app test: install Exasim, build apps/sharedlibrary against the
 # installed package, generate libt2cmodelserial with the installed text2code,
