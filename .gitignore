@@ -433,3 +433,6 @@ examples/LinearElasticity/platebottomgaussian2d/deformedmeshzoom.png
 /examples/DataTransferApp/poisson2d/exasim
 /examples/DataTransferApp/poisson2d/poisson2d-bundle
 /examples/NavierStokes/caltechcone/hm
+
+# MkDocs documentation build output
+/site/
