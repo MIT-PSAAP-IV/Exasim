@@ -152,6 +152,7 @@ public:
     dstype *nlint= nullptr;    // normal vectors on the interface
     dstype *xdggint= nullptr;  // XDG gauss nodes on the interface
     dstype *nlgint= nullptr;   // normal vectors at Gauss nodes on the interface
+    dstype *flux_dev_= nullptr;  // device buffer for interface fluxes
 
 private:
     std::vector<std::unique_ptr<CSolution>> models_;
