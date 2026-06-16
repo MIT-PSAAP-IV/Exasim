@@ -1,0 +1,108 @@
+site_name: Exasim
+site_description: >-
+  High-order discontinuous Galerkin PDE solvers in C++ with symbolic code
+  generation and Kokkos backend portability (CPU / GPU / MPI).
+repo_url: https://github.com/MIT-PSAAP-IV/Exasim
+repo_name: MIT-PSAAP-IV/Exasim
+edit_uri: edit/master/docs/
+docs_dir: docs
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - navigation.tracking
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - search.suggest
+    - search.highlight
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.arithmatex:
+      generic: true
+  # Pull live code from the repo (e.g. tests/consumers/*) so docs don't drift.
+  - pymdownx.snippets:
+      base_path:
+        - .
+        - docs
+      check_paths: true
+
+extra_javascript:
+  - assets/javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
+plugins:
+  - search
+
+# Nav grows phase by phase; every entry must resolve so `mkdocs build --strict`
+# stays green at each step.
+nav:
+  - Home: index.md
+  - Getting started:
+      - Quickstart: getting-started/quickstart.md
+      - Choosing a usage mode: usage-modes/index.md
+  - Installation:
+      - install/index.md
+      - Common dependencies: install/common.md
+      - "Local: macOS": install/macos.md
+      - "Local: Linux (CPU)": install/linux-cpu.md
+      - "Local: Linux (NVIDIA GPU)": install/linux-nvidia.md
+      - "Local: Linux (AMD GPU)": install/linux-amd.md
+      - "HPC: build chain & options": install/hpc.md
+      - "HPC: Frontier": install/frontier.md
+      - "HPC: Tuolumne": install/tuolumne.md
+      - "HPC: Generic": install/generic-hpc.md
+  - Usage modes:
+      - usage-modes/index.md
+      - Built-in model: usage-modes/builtin.md
+      - External built-in model: usage-modes/external-builtin.md
+      - Shared library: usage-modes/shared-library.md
+  - Frontends: frontends/index.md
+  - Theory:
+      - theory/index.md
+      - LDG formulation: theory/ldg-formulation.md
+      - Block-diagonal Jacobian: theory/block-diagonal-jacobian.md
+  - Reference:
+      - Model contract: reference/model-contract.md
+      - pdeapp.txt fields: reference/pdeapp.md
+      - pdemodel.txt syntax: reference/pdemodel.md
+      - CMake targets & options: reference/cmake.md
+      - text2code: reference/text2code.md
+  - Driving the solver (C++ API): driving-the-solver.md
+  - Internals:
+      - Architecture & data flow: internals/architecture.md
+      - Testing: internals/testing.md
+      - Baselines: internals/baselines.md
+      - Known divergences: internals/known-divergences.md

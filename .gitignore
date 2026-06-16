@@ -429,3 +429,6 @@ examples/LinearElasticity/platebottomgaussian2d/deformedmeshzoom.png
 /examples/NavierStokes/sharpb2/exasim/build
 /examples/NavierStokes/sharpb2/exasim
 /apps/sharedlibrary/build
+
+# MkDocs documentation build output
+/site/
