@@ -429,3 +429,7 @@ examples/LinearElasticity/platebottomgaussian2d/deformedmeshzoom.png
 /examples/NavierStokes/sharpb2/exasim/build
 /examples/NavierStokes/sharpb2/exasim
 /apps/sharedlibrary/build
+/examples/NavierStokes/caltechcone/exasim
+/examples/DataTransferApp/poisson2d/exasim
+/examples/DataTransferApp/poisson2d/poisson2d-bundle
+/examples/NavierStokes/caltechcone/hm

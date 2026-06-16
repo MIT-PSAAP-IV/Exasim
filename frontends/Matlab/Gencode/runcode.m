@@ -46,16 +46,18 @@ else
     runstr = mpirun + " -np " + string(mpiprocs) + " " + exe + mystr;
 end
 
-cdir = pwd();
-cd(char(DataPath));
-tic
-[status, output] = system(char(runstr));
-disp(output);
-toc
-cd(char(cdir));
+eval("!" + runstr);
 
-if status ~= 0
-    error("Solver failed (exit %d): %s", status, runstr);
-end
+% cdir = pwd();
+% cd(char(DataPath));
+% tic
+% [status, output] = system(char(runstr));
+% disp(output);
+% toc
+% cd(char(cdir));
+% 
+% if status ~= 0
+%     error("Solver failed (exit %d): %s", status, runstr);
+% end
 
 end
