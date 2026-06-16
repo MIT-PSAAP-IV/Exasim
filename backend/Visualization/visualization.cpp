@@ -331,13 +331,18 @@ public:
         if (nt < 0)        throw std::invalid_argument("pvdwrite_series: nt must be non-negative.");
         if (!(ext == "vtu" || ext == "pvtu"))
             throw std::invalid_argument("pvdwrite_series: ext must be \"vtu\" or \"pvtu\".");
+        // Strip directory prefix so .pvd uses relative paths
+        std::string base_name = base;
+        auto pos = base.find_last_of("/\\");
+        if (pos != std::string::npos)
+            base_name = base.substr(pos + 1);
         std::vector<std::string> files; files.reserve(nt);
         std::vector<float>       times; times.reserve(nt);
         float t = 0.0f;
         for (int k = 0; k < nt; ++k) {
             t += dt[k];
             if ((k+1) % nm == 0) {
-                files.push_back(base + "_" + step_tag(k+1) + "." + ext);
+                files.push_back(base_name + "_" + step_tag(k+1) + "." + ext);
                 times.push_back(t);
             }
         }
