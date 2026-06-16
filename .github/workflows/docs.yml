@@ -1,0 +1,36 @@
+name: docs
+
+on:
+  push:
+    branches: [master, teoc-docs-site]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "requirements-docs.txt"
+      - ".github/workflows/docs.yml"
+  pull_request:
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "requirements-docs.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - run: pip install -r requirements-docs.txt
+      # --strict fails the build on broken links / nav: doubles as a docs lint.
+      - run: mkdocs build --strict
+      # Publish to the gh-pages branch. Enable Pages (Settings -> Pages ->
+      # Deploy from branch: gh-pages) once this has run for the first time.
+      - name: Deploy
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/teoc-docs-site')
+        run: mkdocs gh-deploy --force
