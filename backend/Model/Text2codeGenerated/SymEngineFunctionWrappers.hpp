@@ -74,9 +74,9 @@ static inline Expression log10(const Expression &c) {
     return Expression(SymEngine::log(c)) / Expression(SymEngine::log(integer(10)));
 }
 
-static inline Expression pow(const Expression &base, const Expression &exp) {
-    return Expression(SymEngine::pow(base, exp));
-}
+// No pow wrapper: symengine/expression.h already defines
+// pow(const Expression&, const Expression&), found via ADL; redeclaring the
+// same signature here makes every unqualified pow call ambiguous.
 
 static inline Expression sqrt(const Expression &c) {
     return Expression(SymEngine::sqrt(c));

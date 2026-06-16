@@ -86,11 +86,39 @@ void CodeGenerator::generateCode2Cpp(const std::string& filename) const {
     os << "          fname = std::string(\"HdgFextonly\");\n";
     os << "          jname = std::string(\"HdgFext\");\n";
     os << "        }\n";    
-    os << "        if (funcname == \"Sourcew\") {\n"; 
-    os << "          fname = std::string(\"HdgSourcewonly\");\n";
-    os << "          jname = std::string(\"HdgSourcew\");\n";
-    os << "        }\n";    
-    os << "        if (funcname == \"QoIboundary\") { \n";
+    // EoS and Sourcew live on the element DG nodes (npe x nc x ne layout), not the
+    // batched quadrature layout, and the backend drivers (EosDriver/SourcewDriver
+    // in backend/Discretization) call them with the legacy
+    // (..., ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne) signature. Emit them via
+    // dgfunc2cppfiles (npe-indexed value kernels) plus the Hdg jacobian kernels.
+    os << "        if (funcname == \"EoS\") {\n";
+    os << "          ssv.dgfunc2cppfiles(f, ssv.modelpath + \"KokkosEoS\", \"KokkosEoS\", i, false);\n";
+    os << "          if (ssv.jacobianInputs[i].size() > 1) {\n";
+    os << "            // KokkosEoSdu: derivatives w.r.t. the first ncu entries of uq (u only, not q);\n";
+    os << "            // the driver passes nce = ncw*ncu. KokkosEoSdw: derivatives w.r.t. w (nce = ncw*ncw).\n";
+    os << "            std::vector<Expression> g;\n";
+    os << "            const std::vector<Expression>& uqv = ssv.jacobianInputs[i][0];\n";
+    os << "            int nuq = (ssv.szuhat < (int) uqv.size()) ? ssv.szuhat : (int) uqv.size();\n";
+    os << "            for (int n = 0; n < nuq; ++n)\n";
+    os << "              for (size_t m = 0; m < f.size(); ++m) g.push_back(f[m].diff(uqv[n]));\n";
+    os << "            ssv.dgfunc2cppfiles(g, ssv.modelpath + \"KokkosEoSdu\", \"KokkosEoSdu\", i, false);\n";
+    os << "            std::vector<Expression> h;\n";
+    os << "            const std::vector<Expression>& wv = ssv.jacobianInputs[i][1];\n";
+    os << "            for (size_t n = 0; n < wv.size(); ++n)\n";
+    os << "              for (size_t m = 0; m < f.size(); ++m) h.push_back(f[m].diff(wv[n]));\n";
+    os << "            ssv.dgfunc2cppfiles(h, ssv.modelpath + \"KokkosEoSdw\", \"KokkosEoSdw\", i, false);\n";
+    os << "            ssv.funcjac2cppfiles(f, ssv.modelpath + jname, jname, i, false);\n";
+    os << "          }\n";
+    os << "        }\n";
+    os << "        else if (funcname == \"Sourcew\") {\n";
+    os << "          ssv.dgfunc2cppfiles(f, ssv.modelpath + \"KokkosSourcew\", \"KokkosSourcew\", i, false);\n";
+    os << "          if (ssv.jacobianInputs[i].size() > 1) {\n";
+    os << "            ssv.funcjac2cppfiles(f, ssv.modelpath + \"HdgSourcew\", \"HdgSourcew\", i, false);\n";
+    os << "            // HdgSourcewonly carries the value plus the jacobian w.r.t. w only (f, f_wdg, ...).\n";
+    os << "            ssv.funcjacsel2cppfiles(f, ssv.modelpath + \"HdgSourcewonly\", \"HdgSourcewonly\", i, 1, false);\n";
+    os << "          }\n";
+    os << "        }\n";
+    os << "        else if (funcname == \"QoIboundary\") { \n";
     os << "            ssv.func2cppfiles(f, ssv.modelpath + fname, fname + std::to_string(1), i, false);\n";
     os << "            ssv.appendUbouFbou(ssv.modelpath + fname, fname, 1);\n";
     os << "        }\n";
@@ -649,7 +677,8 @@ void CodeGenerator::generateSymbolicScalarsVectorsHpp(const std::string& filenam
     os << "    std::vector<std::vector<std::string>> funcargssizes;\n";
     os << "    std::vector<std::string> funcnames;\n";
     os << "    std::vector<std::string> funcdecls;\n";
-    os << "    std::vector<std::string> funcjacdecls;\n\n";
+    os << "    std::vector<std::string> funcjacdecls;\n";
+    os << "    std::vector<std::string> funcdgdecls;\n\n";
     
     os << "    std::vector<std::vector<std::pair<std::string, std::vector<Expression>>>> inputvectors;\n";  
     os << "    std::vector<std::vector<std::pair<std::string, Expression>>> inputscalars;\n";  
@@ -673,6 +702,8 @@ void CodeGenerator::generateSymbolicScalarsVectorsHpp(const std::string& filenam
     os << "                         const std::vector<std::vector<Expression>>& inputs_H);\n\n";
     
     os << "    void func2cppfiles(const std::vector<Expression> &f, const std::string filename, const std::string funcname, const int functionid, bool append);\n";
+    os << "    void dgfunc2cppfiles(const std::vector<Expression> &f, const std::string filename, const std::string funcname, const int functionid, bool append);\n";
+    os << "    void funcjacsel2cppfiles(const std::vector<Expression> &f, const std::string filename, const std::string funcname, const int functionid, const int jacindex, bool append);\n";
     os << "    void funcjac2cppfiles(const std::vector<Expression> &f, const std::string filename, const std::string funcname, const int functionid, bool append);\n";
     os << "    void funcjachess2cppfiles(const std::vector<Expression> &f, const std::string filename, const std::string funcname, const int functionid, bool append);\n";
     
@@ -852,7 +883,29 @@ void emitSymbolicScalarsVectors(std::ostream& os, const ParsedSpec& spec) {
       os << "\n";
     }
     os << "    };\n\n";
-    
+
+    // funcdgdecls: legacy element-DG signatures (used for EoS / Sourcew kernels that
+    // the backend drivers call with (..., ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne)).
+    os << "    funcdgdecls = {\n";
+    for (size_t i = 0; i < spec.functions.size(); ++i) {
+      const FunctionDef& func = spec.functions[i];
+      const std::string& type = spec.datatype;
+
+      os <<"       \"";
+      for (size_t k = 0; k < func.args.size(); k++) {
+          std::string arg = func.args[k];
+          bool is_scalar = std::find(spec.scalars.begin(), spec.scalars.end(), arg) != spec.scalars.end();
+          if (k > 0) os << ", ";
+          os << "const " << type;
+          if (!is_scalar) os << "*";
+          os << " " << arg;
+      }
+      os << ", const int modelnumber, const int N, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw, const int nce, const int npe, const int ne)"<<"\"";
+      if (i < spec.functions.size() - 1) os << ", ";
+      os << "\n";
+    }
+    os << "    };\n\n";
+
     os << "    inputvectors = {\n";
     for (size_t fi = 0; fi < spec.functions.size(); ++fi) {
         const auto& func = spec.functions[fi];
@@ -1265,6 +1318,183 @@ void emitfunc2cppfiles(std::ostream& os, const ParsedSpec& spec) {
 //     os << "    cppfile << \"  }\\n\";\n";
 //     os << "    cppfile << \"}\\n\\n\";\n";    
 //     os << "}\n\n";
+}
+
+// dgfunc2cppfiles: value-only kernel on the element DG node layout (npe x nc x ne),
+// using the legacy (..., ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne) signature that
+// the backend EoS/Sourcew drivers call. Inputs x/uq/v/w are indexed
+// name[p + npe*j + npe*<stride>*e] with stride ncx/nc/nco/ncw; eta/mu are uniform.
+// The output is f[p + npe*n + npe*nce*e].
+void emitdgfunc2cppfiles(std::ostream& os, const ParsedSpec& spec) {
+
+    os << "void SymbolicScalarsVectors::dgfunc2cppfiles(const std::vector<Expression> &f, const std::string filename, const std::string funcname, const int functionid, bool append) {\n";
+
+    os << "    std::ios_base::openmode mode = std::ios::out;\n";
+    os << "    if (append)\n";
+    os << "        mode |= std::ios::app;\n";
+    os << "    else\n";
+    os << "        mode |= std::ios::trunc;\n\n";
+
+    os << "    std::ofstream cppfile(filename + std::string(\".cpp\"), mode);\n";
+    os << "    cppfile << \"void \" << funcname << \"(" << spec.datatype << "* f, \";\n";
+    os << "    cppfile << funcdgdecls[functionid] << \"\\n\";\n";
+    os << "    cppfile << \"{\\n\\n\";";
+    os << "\n\n";
+
+    os << "   if (f.size() > 0) {\n";
+
+    os << "       vec_pair replacements;\n";
+    os << "       vec_basic reduced_exprs;\n";
+    os << "       func2cse(replacements, reduced_exprs, f);\n\n";
+
+    os << "       // Determine variable usage\n";
+    os << "       std::unordered_set<RCP<const Basic>, SymEngine::RCPBasicHash, SymEngine::RCPBasicKeyEq> used;\n";
+    os << "       for (const auto &expr : f) {\n";
+    os << "           auto symbols = free_symbols(*expr.get_basic());\n";
+    os << "           used.insert(symbols.begin(), symbols.end());\n";
+    os << "       }\n\n";
+
+    os << "       auto depends_on = [&](const Expression &sym) {\n";
+    os << "           return used.count(sym.get_basic()) > 0;\n";
+    os << "       };\n\n";
+
+    os << "       // element-DG strides for the batched inputs (legacy int names)\n";
+    os << "       auto dgstride = [](const std::string& name) -> std::string {\n";
+    os << "           if (name == \"x\")  return \"ncx\";\n";
+    os << "           if (name == \"uq\") return \"nc\";\n";
+    os << "           if (name == \"v\")  return \"nco\";\n";
+    os << "           if (name == \"w\")  return \"ncw\";\n";
+    os << "           return \"\";\n";
+    os << "       };\n\n";
+
+    os << "       std::vector<std::pair<std::string, std::vector<Expression>>> inputs = inputvectors[functionid];\n";
+    os << "       C99CodePrinter cpp;\n";
+
+    forloopstart(os, spec.framework);
+    os << "       cppfile << \"    int p = i%npe;\\n\";\n";
+    os << "       cppfile << \"    int e = i/npe;\\n\";\n";
+    os << "       \n";
+    os << "       // Emit symbolic variable loads\n";
+    os << "       for (const auto &[name, vec] : inputs) {\n";
+    os << "           std::string stride = dgstride(name);\n";
+    os << "           for (size_t j = 0; j < vec.size(); ++j) {\n";
+    os << "               if (depends_on(vec[j])) { \n";
+    os << "                 if ((std::find(batch.begin(), batch.end(), name) != batch.end()) && (stride.size() > 0))\n";
+    os << "                   cppfile << \"    " << spec.datatype << " \" << name << j << \" = \" << name << \"[p+npe*\" << j << \"+npe*\" << stride << \"*e];\\n\";\n";
+    os << "                 else \n";
+    os << "                   cppfile << \"    " << spec.datatype << " \" << name << j << \" = \" << name << \"[\" << j << \"];\\n\";\n";
+    os << "               }\n";
+    os << "           }\n";
+    os << "       }\n";
+    os << "       \n";
+    os << "       cppfile << \"\\n\";\n";
+    os << "       \n";
+
+    os << "       // Emit intermediate CSE substitutions\n";
+    os << "       for (size_t n = 0; n < replacements.size(); ++n) {\n";
+    os << "           std::string var_name = cpp.apply(*replacements[n].first);\n";
+    os << "           std::string rhs = cpp.apply(*replacements[n].second);\n";
+    os << "           cppfile << \"    " << spec.datatype << " \" << var_name << \" = \" << rhs << \";\\n\";\n";
+    os << "       }\n";
+    os << "       cppfile << \"\\n\";\n";
+    os << "       \n";
+
+    os << "       for (size_t n = 0; n < f.size(); ++n) {\n";
+    os << "           cppfile << \"    f[p+npe*\" << n << \"+npe*nce*e] = \" << cpp.apply(*reduced_exprs[n]) << \";\\n\";\n";
+    os << "       }\n";
+    os << "       \n";
+    forloopend(os, spec.framework);
+    os << "   }\n";
+
+    os << "    cppfile << \"}\\n\\n\";\n";
+    os << "    cppfile.close();\n";
+    os << "}\n\n";
+}
+
+// funcjacsel2cppfiles: like funcjac2cppfiles but emits the value plus the jacobian
+// w.r.t. a single selected jacobian input (jacindex into jacobianInputs[functionid]).
+// Used for HdgSourcewonly, whose legacy signature is (f, f_wdg, ...).
+void emitfuncjacsel2cppfiles(std::ostream& os, const ParsedSpec& spec) {
+
+    os << "void SymbolicScalarsVectors::funcjacsel2cppfiles(const std::vector<Expression> &f, const std::string filename, const std::string funcname, const int functionid, const int jacindex, bool append) {\n";
+
+    os << "    std::ios_base::openmode mode = std::ios::out;\n";
+    os << "    if (append)\n";
+    os << "        mode |= std::ios::app;\n";
+    os << "    else\n";
+    os << "        mode |= std::ios::trunc;\n\n";
+
+    os << "    std::vector<std::vector<Expression>> inputs_J;\n";
+    os << "    inputs_J.push_back(jacobianInputs[functionid][jacindex]);\n\n";
+
+    os << "    std::ofstream cppfile(filename + std::string(\".cpp\"), mode);\n";
+    os << "    cppfile << \"void \" << funcname << \"(" << spec.datatype << "* f, \";\n";
+    os << "    cppfile << \"" << spec.datatype << "* J1, \";\n";
+    os << "    cppfile << funcjacdecls[functionid] << \"\\n\";\n";
+    os << "    cppfile << \"{\\n\\n\";";
+    os << "\n\n";
+
+    os << "   if (f.size() > 0) {\n";
+    os << "       vec_pair replacements;\n";
+    os << "       vec_basic reduced_exprs_f;\n";
+    os << "       std::vector<vec_basic> reduced_exprs_J;\n";
+    os << "       funcjac2cse(replacements, reduced_exprs_f, reduced_exprs_J, f, inputs_J);\n\n";
+
+    os << "       // Determine variable usage\n";
+    os << "       std::unordered_set<RCP<const Basic>, SymEngine::RCPBasicHash, SymEngine::RCPBasicKeyEq> used;\n";
+    os << "       for (const auto &expr : f) {\n";
+    os << "           auto symbols = free_symbols(*expr.get_basic());\n";
+    os << "           used.insert(symbols.begin(), symbols.end());\n";
+    os << "       }\n\n";
+
+    os << "       auto depends_on = [&](const Expression &sym) {\n";
+    os << "           return used.count(sym.get_basic()) > 0;\n";
+    os << "       };\n\n";
+
+    os << "       std::vector<std::pair<std::string, std::vector<Expression>>> inputs = inputvectors[functionid];\n";
+    os << "       C99CodePrinter cpp;\n";
+
+    forloopstart(os, spec.framework);
+    os << "       \n";
+    os << "       // Emit symbolic variable loads\n";
+    os << "       for (const auto &[name, vec] : inputs) {\n";
+    os << "           for (size_t j = 0; j < vec.size(); ++j) {\n";
+    os << "               if (depends_on(vec[j])) { \n";
+    os << "                 if (std::find(batch.begin(), batch.end(), name) != batch.end())\n";
+    os << "                   cppfile << \"    " << spec.datatype << " \" << name << j << \" = \" << name << \"[\" << j << \"*N+i];\\n\";\n";
+    os << "                 else \n";
+    os << "                   cppfile << \"    " << spec.datatype << " \" << name << j << \" = \" << name << \"[\" << j << \"];\\n\";\n";
+    os << "               }\n";
+    os << "           }\n";
+    os << "       }\n";
+    os << "       \n";
+    os << "       cppfile << \"\\n\";\n";
+    os << "       \n";
+
+    os << "       // Emit intermediate CSE substitutions\n";
+    os << "       for (size_t n = 0; n < replacements.size(); ++n) {\n";
+    os << "           std::string var_name = cpp.apply(*replacements[n].first);\n";
+    os << "           std::string rhs = cpp.apply(*replacements[n].second);\n";
+    os << "           cppfile << \"    " << spec.datatype << " \" << var_name << \" = \" << rhs << \";\\n\";\n";
+    os << "       }\n";
+    os << "       cppfile << \"\\n\";\n";
+    os << "       \n";
+
+    os << "       for (size_t n = 0; n < reduced_exprs_f.size(); ++n) {\n";
+    os << "           cppfile << \"    f[\" << n << \" * N + i] = \" << cpp.apply(*reduced_exprs_f[n]) << \";\\n\";\n";
+    os << "       }\n\n";
+
+    os << "       for (size_t k = 0; k < reduced_exprs_J.size(); ++k) {\n";
+    os << "           for (size_t j = 0; j < reduced_exprs_J[k].size(); ++j) {\n";
+    os << "               cppfile << \"    J\" << (k+1) << \"[\" << j << \" * N + i] = \" << cpp.apply(*reduced_exprs_J[k][j]) << \";\\n\";\n";
+    os << "           }\n";
+    os << "       }\n";
+    forloopend(os, spec.framework);
+    os << "   }\n";
+
+    os << "    cppfile << \"}\\n\\n\";\n";
+    os << "    cppfile.close();\n";
+    os << "}\n\n";
 }
 
 void emitfuncjac2cppfiles(std::ostream& os, const ParsedSpec& spec) {
@@ -2157,9 +2387,13 @@ void CodeGenerator::generateSymbolicScalarsVectorsCpp(const std::string& filenam
     
     emitfuncjachess2cse(os);    
        
-    emitfunc2cppfiles(os, spec);    
-    
-    emitfuncjac2cppfiles(os, spec);       
+    emitfunc2cppfiles(os, spec);
+
+    emitdgfunc2cppfiles(os, spec);
+
+    emitfuncjacsel2cppfiles(os, spec);
+
+    emitfuncjac2cppfiles(os, spec);
     
     emitfuncjachess2cppfiles(os, spec);
     

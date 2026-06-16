@@ -1,15 +1,11 @@
 # import external modules
-import numpy, os
+import numpy
 
-# Add Exasim to Python search path
-cdir = os.getcwd(); ii = cdir.find("Exasim");
-exec(open(cdir[0:(ii+6)] + "/install/setpath.py").read());
-
-# import internal modules
-import Preprocessing, Postprocessing, Gencode, Mesh
+# import the Exasim frontend (see README, "Using the frontends")
+import exasim
 
 # Create pde object and mesh object
-pde,mesh = Preprocessing.initializeexasim();
+pde,mesh = exasim.initializeexasim();
 
 # Define a PDE model: governing equations and boundary conditions
 pde['model'] = "ModelD";       # ModelC, ModelD, ModelW
@@ -45,7 +41,7 @@ pde['NLtol'] = 1e-7;               # Newton tolerance
 pde['NLiter']=3;                   # Newton iterations
 
 # read a grid from a file
-mesh['p'], mesh['t'] = Mesh.readmesh("grid.bin",0);
+mesh['p'], mesh['t'] = exasim.Mesh.readmesh("grid.bin",0);
 mesh['t'] = mesh['t'] - 1;
 
 # expressions for domain boundaries
@@ -56,10 +52,10 @@ mesh['curvedboundary'] = numpy.array([1, 0]);
 mesh['curvedboundaryexpr'] = [lambda p: p[1,:]**2-(5*0.01*12*(0.29690*numpy.sqrt(numpy.abs(p[0,:]))-0.12600*p[0,:]-0.35160*p[0,:]**2+0.28430*p[0,:]**3-0.10150*p[0,:]**4))**2, lambda p: 0];
 
 # call exasim to generate and run C++ code to solve the PDE model
-sol, pde, mesh  = Postprocessing.exasim(pde,mesh)[0:3];
+sol, pde, mesh  = exasim.exasim(pde,mesh)[0:3];
 
 # visualize the numerical solution of the PDE model using Paraview
 pde['visscalars'] = ["density", 0, "energy", 3]; # list of scalar fields for visualization
 pde['visvectors'] = ["momentum", [1, 2]]; # list of vector fields for visualization
-Postprocessing.vis(sol,pde,mesh); # visualize the numerical solution
+exasim.vis(sol,pde,mesh); # visualize the numerical solution
 print("Done!");

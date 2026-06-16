@@ -42,6 +42,7 @@ text2code/symengine/lib/*
 text2code/symengine/include/*
 backend/Model/libpdemodelserial.dylib
 backend/Model/code2cpp
+backend/Model/Text2codeGenerated/code2cpp
 backend/.DS_Store
 .DS_Store
 frontends/Julia/.DS_Store
@@ -229,6 +230,10 @@ doc/Gov_eq_new_compr_NS_solver_Sandberg.pdf
 /frontends/Matlab/Mesh/adaptivity
 backend/Model/cpuInitu.cpp
 backend/Model/HdgFbou.cpp
+# ---- Frontend-generated model outputs --------------------------------------
+/backend/Model/FrontendGenerated/Hdg*.cpp
+/backend/Model/FrontendGenerated/Kokkos*.cpp
+/backend/Model/FrontendGenerated/cpuInit*.cpp
 /examples/NavierStokes/flaredplate3dsteady
 /examples/NavierStokes/isoq/hm
 examples/NavierStokes/isoq/av.png
@@ -321,13 +326,20 @@ lib/libbuiltinmodelserial.*
 lib/*.a
 lib/libt2cmodelserial.*
 /apps/poisson/poisson3d/build2
+# ---- Text2Code generated model outputs -------------------------------------
 backend/Model/Text2codeGenerated/code2cpp
-backend/Model/Text2codeGenerated/KokkosVisScalars.cpp
-backend/Model/Text2codeGenerated/KokkosVisVectors.cpp
+backend/Model/Text2codeGenerated/Code2Cpp.cpp
+backend/Model/Text2codeGenerated/CudaHip.hpp
+backend/Model/Text2codeGenerated/Hdg*.cpp
+backend/Model/Text2codeGenerated/Kokkos*.cpp
+backend/Model/Text2codeGenerated/cpuInit*.cpp
+backend/Model/Text2codeGenerated/libpdemodel.cpp
+backend/Model/Text2codeGenerated/libpdemodel.hpp
 backend/Model/Text2codeGenerated/my_model.hpp
 backend/Model/Text2codeGenerated/SymbolicFunctions.cpp
 backend/Model/Text2codeGenerated/SymbolicFunctions.hpp
 backend/Model/Text2codeGenerated/SymbolicScalarsVectors.cpp
+backend/Model/Text2codeGenerated/SymbolicScalarsVectors.hpp
 metis/GKlib/bin/csrcnv
 /apps/poisson/poisson2d/build
 /apps/builtinlibrary/build
@@ -336,7 +348,6 @@ metis/GKlib/bin/csrcnv
 # ---- Generated model shared libraries (macOS text2code build artifacts) ----
 backend/Model/Text2codeGenerated/*.dylib
 backend/Model/Text2codeGenerated/*.so
-backend/Model/Text2codeGenerated/code2cpp
 # ---- Build outputs (keep the checkout clean; see the in-source-build guard) ----
 # Top-level / out-of-source build dirs and stray host-triplet dirs.
 /lib/
@@ -356,3 +367,65 @@ backend/Model/Text2codeGenerated/code2cpp
 /deps/symengine/include/
 /deps/symengine/bin/
 backend/Model/BuiltIn/builtin_model_registry.h
+/local
+/frontends/build
+/examples/build
+deps/build/preprocess
+
+# per-app frontend build dirs (created wherever a pdeapp runs)
+**/.exasim/
+# pip/setuptools artifacts from EXASIM_PIP_INSTALL
+/frontends/Python/build/
+/frontends/Python/*.egg-info/
+/examples/Poisson/isoq3d/exasim
+/examples/exasimfe/build
+examples/exasimfe/kernels/cpuInitodg.cpp
+examples/exasimfe/kernels/cpuInitq.cpp
+examples/exasimfe/kernels/cpuInitu.cpp
+examples/exasimfe/kernels/cpuInitudg.cpp
+examples/exasimfe/kernels/cpuInitwdg.cpp
+examples/exasimfe/kernels/frontendprovider.cpp
+examples/exasimfe/kernels/HdgEoS.cpp
+examples/exasimfe/kernels/HdgFbou.cpp
+examples/exasimfe/kernels/HdgFbouonly.cpp
+examples/exasimfe/kernels/HdgFext.cpp
+examples/exasimfe/kernels/HdgFextonly.cpp
+examples/exasimfe/kernels/HdgFint.cpp
+examples/exasimfe/kernels/HdgFintonly.cpp
+examples/exasimfe/kernels/HdgFlux.cpp
+examples/exasimfe/kernels/HdgSource.cpp
+examples/exasimfe/kernels/HdgSourcew.cpp
+examples/exasimfe/kernels/HdgSourcewonly.cpp
+examples/exasimfe/kernels/KokkosAvfield.cpp
+examples/exasimfe/kernels/KokkosEoS.cpp
+examples/exasimfe/kernels/KokkosEoSdu.cpp
+examples/exasimfe/kernels/KokkosEoSdw.cpp
+examples/exasimfe/kernels/KokkosFbou.cpp
+examples/exasimfe/kernels/KokkosFhat.cpp
+examples/exasimfe/kernels/KokkosFlux.cpp
+examples/exasimfe/kernels/KokkosInitodg.cpp
+examples/exasimfe/kernels/KokkosInitq.cpp
+examples/exasimfe/kernels/KokkosInitu.cpp
+examples/exasimfe/kernels/KokkosInitudg.cpp
+examples/exasimfe/kernels/KokkosInitwdg.cpp
+examples/exasimfe/kernels/KokkosMonitor.cpp
+examples/exasimfe/kernels/KokkosOutput.cpp
+examples/exasimfe/kernels/KokkosQoIboundary.cpp
+examples/exasimfe/kernels/KokkosQoIvolume.cpp
+examples/exasimfe/kernels/KokkosSource.cpp
+examples/exasimfe/kernels/KokkosSourcew.cpp
+examples/exasimfe/kernels/KokkosStab.cpp
+examples/exasimfe/kernels/KokkosTdfunc.cpp
+examples/exasimfe/kernels/KokkosUbou.cpp
+examples/exasimfe/kernels/KokkosUhat.cpp
+examples/exasimfe/kernels/KokkosVisScalars.cpp
+examples/exasimfe/kernels/KokkosVisTensors.cpp
+examples/exasimfe/kernels/KokkosVisVectors.cpp
+/examples/Poisson/poisson2d/exasim
+/examples/LinearElasticity/platebottomgaussian2d/exasim
+examples/LinearElasticity/platebottomgaussian2d/deformedmeshzoom.png
+/examples/Poisson/Orion/exasim
+/examples/Poisson/poisson3d/exasim
+/examples/NavierStokes/sharpb2/exasim/build
+/examples/NavierStokes/sharpb2/exasim
+/apps/sharedlibrary/build

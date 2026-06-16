@@ -1,9 +1,10 @@
-% Add Exasim to Matlab search path
-cdir = pwd(); ii = strfind(cdir, "Exasim");
-run(cdir(1:(ii+5)) + "/install/setpath.m");
+% Put the Exasim MATLAB frontend on the path. For an installed Exasim use
+% run('<prefix>/share/exasim/matlab/exasim_setup.m') instead.
+run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'frontends', 'Matlab', 'exasim_setup.m'));
 
 % initialize pde structure and mesh structure
 [pde,mesh] = initializeexasim();
+%pde.sharedbuild = 1;
 
 % Define a PDE model: governing equations, initial solutions, and boundary conditions
 pde.model = "ModelD";          % ModelC, ModelD, ModelW
@@ -120,7 +121,7 @@ R1 = reshape(R1, [npf 76]);
 % [Mass, Minv, C, E, udg] = qEquationExasim(pde, mesh);
 % [Ru, B, D, fg, fg_udg, sg, sg_udg] = uEquationElemExasim(pde, mesh, nge);
 % 
-% run('/Users/ngoccuongnguyen/Dropbox (MIT)/HDGv1.0/setup.m');
+% run('/path/to/HDGv1.0/setup.m');
 % ngrid = 3;
 % mesh1   = mkmesh_square(ngrid+1,ngrid+1,pde.porder,0,1,1,1,1);
 % master = mkmaster(mesh1,2*pde.porder);

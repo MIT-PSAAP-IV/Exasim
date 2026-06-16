@@ -1,15 +1,11 @@
 # import external modules
-import numpy, os
+import numpy
 
-# Add Exasim to Python search path
-cdir = os.getcwd(); ii = cdir.find("Exasim");
-exec(open(cdir[0:(ii+6)] + "/install/setpath.py").read());
-
-# import internal modules
-import Preprocessing, Postprocessing, Gencode, Mesh
+# import the Exasim frontend (see README, "Using the frontends")
+import exasim
 
 # Create pde object and mesh object
-pde,mesh = Preprocessing.initializeexasim();
+pde,mesh = exasim.initializeexasim();
 
 # Define a PDE model: governing equations and boundary conditions
 pde['model'] = "ModelD";       # ModelC, ModelD, ModelW
@@ -32,19 +28,19 @@ pde['mpiprocs'] = 4;        # number of MPI processors
 
 # create a mesh of 8 by 8 by 8 hexes for a unit cube
 nd = 3; elemtype = 0;
-mesh['p'], mesh['t'] = Mesh.gmshcall(pde, "coneincube", nd, elemtype)[0:2];
+mesh['p'], mesh['t'] = exasim.Mesh.gmshcall(pde, "coneincube", nd, elemtype)[0:2];
 # expressions for domain boundaries
 mesh['boundaryexpr'] = [lambda p: (p[1,:] < -10.0+1e-3), lambda p: (p[0,:] > 10.0-1e-3), lambda p: (p[1,:] > 10.0-1e-3), lambda p: (p[0,:] < -10.0+1e-3), lambda p: (p[2,:] < -10.0+1e-3), lambda p: (p[2,:] > 10.0-1e-3), lambda p: (p[2,:] < 1e+3)];
 mesh['boundarycondition'] = numpy.array([2, 2, 2, 2, 2, 2, 1]); # Set boundary condition for each boundary
 #
 # # call exasim to generate and run C++ code to solve the PDE model
-sol, pde, mesh  = Postprocessing.exasim(pde,mesh)[0:3];
+sol, pde, mesh  = exasim.exasim(pde,mesh)[0:3];
 #Postprocessing.producecode(pde,mesh);
 
 # visualize the numerical solution of the PDE model using Paraview
 pde['visscalars'] = ["temperature", 0]; # list of scalar fields for visualization
 pde['visvectors'] = ["temperature gradient", numpy.array([1, 2, 3]).astype(int)]; # list of vector fields for visualization
-dgnodes = Postprocessing.vis(sol,pde,mesh); # visualize the numerical solution
+dgnodes = exasim.vis(sol,pde,mesh); # visualize the numerical solution
 # x = dgnodes[:,0,:]; y = dgnodes[:,1,:]; z = dgnodes[:,2,:];
 # uexact = numpy.sin(numpy.pi*x)*numpy.sin(numpy.pi*y)*numpy.sin(numpy.pi*z); # exact solution
 # uh = sol[:,0,:];  # numerical solution

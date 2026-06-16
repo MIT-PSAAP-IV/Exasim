@@ -1,6 +1,6 @@
-% Add Exasim to Matlab search path
-cdir = pwd(); ii = strfind(cdir, "Exasim");
-run(cdir(1:(ii+5)) + "/install/setpath.m");
+% Put the Exasim MATLAB frontend on the path. For an installed Exasim use
+% run('<prefix>/share/exasim/matlab/exasim_setup.m') instead.
+run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'frontends', 'Matlab', 'exasim_setup.m'));
 
 % initialize pde structure and mesh structure
 [pde,mesh] = initializeexasim();
@@ -56,4 +56,4 @@ mesh.periodicexpr = {2, @(p) p(2,:), 4, @(p) p(2,:); 1, @(p) p(1,:), 3, @(p) p(1
 kkgencode(pde);
 
 % Build: cmake --build . --target cpumpiEXASIM
-% Run:   cd /home/tsili/dv/Exasim/build && ./cpumpiEXASIM 1 /path/to/EulerVortexMapped/datain/ /path/to/EulerVortexMapped/dataout/out
+% Run:   cd /path/to/Exasim/build && ./cpumpiEXASIM 1 /path/to/EulerVortexMapped/datain/ /path/to/EulerVortexMapped/dataout/out

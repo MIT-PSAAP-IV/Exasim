@@ -4,7 +4,7 @@
 
 #include "readbinfiles.cpp"
 
-// ./readsolution /Users/cuongnguyen/Documents/GitHub/Exasim/apps/navierstokes/orion/dataout/outudg /Users/cuongnguyen/Documents/GitHub/Exasim/apps/navierstokes/orion/datain/mesh 4
+// ./readsolution /path/to/Exasim/apps/navierstokes/orion/dataout/outudg /path/to/Exasim/apps/navierstokes/orion/datain/mesh 4
 
 int main(int argc, char** argv)
 {

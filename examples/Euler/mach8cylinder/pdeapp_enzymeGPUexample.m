@@ -1,6 +1,6 @@
-% Add Exasim to Matlab search path
-cdir = pwd(); ii = strfind(cdir, "Exasim");
-run(cdir(1:(ii+5)) + "/install/setpath.m");
+% Put the Exasim MATLAB frontend on the path. For an installed Exasim use
+% run('<prefix>/share/exasim/matlab/exasim_setup.m') instead.
+run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'frontends', 'Matlab', 'exasim_setup.m'));
 
 % initialize pde structure and mesh structure
 [pde,mesh] = initializeexasim();
@@ -12,9 +12,12 @@ pde.modelfile = "pdemodel";    % name of a file defining the PDE model
 % Choose computing platform and set number of processors
 pde.platform = "gpu";         % choose this option if NVIDIA GPUs are available
 pde.mpiprocs = 1;              % number of MPI processors
-pde.gpuappflags = "--cuda-gpu-arch=sm_60 -stdlib=libc++ -std=c++11 --cuda-path=/usr/local/cuda-9.0/";
-pde.gpucompiler = "/home/linuxbrew/.linuxbrew/Cellar/llvm@12/12.0.1_1/bin/clang++";
-pde.cpucompiler = "/home/linuxbrew/.linuxbrew/Cellar/llvm@12/12.0.1_1/bin/clang++";
+% Enzyme AD needs an Enzyme-compatible Clang and a matching CUDA toolkit.
+% Set these to your local install (the values below are placeholders, not
+% working defaults). --cuda-gpu-arch should match your GPU.
+pde.gpuappflags = "--cuda-gpu-arch=sm_60 -stdlib=libc++ -std=c++11 --cuda-path=/path/to/cuda/";
+pde.gpucompiler = "/path/to/enzyme-clang/bin/clang++";
+pde.cpucompiler = "/path/to/enzyme-clang/bin/clang++";
 pde.enzyme = "ClangEnzyme-12.so";
 % Set discretization parameters, physical parameters, and solver parameters
 pde.porder = 4;          % polynomial degree

@@ -1,6 +1,6 @@
-% Add Exasim to Matlab search path
-cdir = pwd(); ii = strfind(cdir, "Exasim");
-run(cdir(1:(ii+5)) + "/install/setpath.m");
+% Put the Exasim MATLAB frontend on the path. For an installed Exasim use
+% run('<prefix>/share/exasim/matlab/exasim_setup.m') instead.
+run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'frontends', 'Matlab', 'exasim_setup.m'));
 
 % initialize pde structure and mesh structure
 [pde,mesh] = initializeexasim();
@@ -73,5 +73,5 @@ pde.visvectors = {"velocity", [2, 3]}; % list of vector fields for visualization
 xdg = vis(sol,pde,mesh); % visualize the numerical solution
 disp("Done!");
 
-% /home/peraire/ParaView-5.9.0-RC1-egl-MPI-Linux-Python3.8-64bit/bin/pvserver--server-port=11111
+% /path/to/ParaView/bin/pvserver--server-port=11111
 

@@ -45,6 +45,22 @@ else
     echo "ok"
 fi
 
+echo "=== [4] No leaked absolute home paths (/Users/<user>, /home/<user>) ==="
+# Catches machine-specific developer paths committed to tracked source — the
+# class of leak behind the old /Users/<dev>/... paths. Redacted placeholders
+# (/Users/.../, /path/to/...) pass because the match requires an alphanumeric
+# first path component; the CI runner workspace (/home/runner) is allowed and
+# vendored third-party trees under deps/ are excluded.
+leaks=$(git grep -nIE '/(Users|home)/[A-Za-z0-9_][A-Za-z0-9._-]*' \
+          -- . ':(exclude)deps/*' ':(exclude)tests/check-hygiene.sh' 2>/dev/null \
+        | grep -vE '/home/runner' || true)
+if [ -n "$leaks" ]; then
+    printf "FAIL: leaked absolute home path(s) — use a relative path, an env var, or /path/to/...:\n%s\n" "$leaks"
+    fail=1
+else
+    echo "ok"
+fi
+
 if [ "$fail" -eq 0 ]; then
     echo "=== ALL HYGIENE CHECKS PASSED ==="
 else

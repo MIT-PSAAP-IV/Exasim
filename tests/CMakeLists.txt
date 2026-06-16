@@ -40,3 +40,90 @@ add_test(NAME consumer_builtin_mpi
     "INSTALL_PREFIX=/tmp/exasim_install_mpi"
     bash "${CMAKE_CURRENT_SOURCE_DIR}/run-consumer-tests.sh")
 set_tests_properties(consumer_builtin_mpi PROPERTIES TIMEOUT 1200)
+
+# Language-frontend end-to-end tests (Poisson 2D via the installed packages).
+# Each builds a small app against this build's install (CMAKE_INSTALL_PREFIX)
+# through the external-model path and gates the QoI. The wrapper exits 77 —
+# a clean ctest SKIP — when the interpreter or its symbolic stack is missing
+# (e.g. julia/matlab on CI runners), so registration is unconditional.
+find_package(Python3 COMPONENTS Interpreter QUIET)
+foreach(_fe python julia matlab)
+  add_test(NAME frontend_${_fe}
+    COMMAND ${CMAKE_COMMAND} -E env
+      "EXASIM_ROOT=${EXASIM_DIR}"
+      "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}"
+      "FRONTEND=${_fe}"
+      "PYTHON3=${Python3_EXECUTABLE}"
+      bash "${EXASIM_DIR}/tests/frontends/run-frontend-test.sh")
+  set_tests_properties(frontend_${_fe} PROPERTIES
+    TIMEOUT 2400 SKIP_RETURN_CODE 77)
+
+  # Data-transfer app export: the run also packages a relocatable bundle, which
+  # must be pristine and build+run on its own (copied elsewhere) via run.sh.
+  add_test(NAME frontend_${_fe}_export
+    COMMAND ${CMAKE_COMMAND} -E env
+      "EXASIM_ROOT=${EXASIM_DIR}"
+      "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}"
+      "FRONTEND=${_fe}"
+      "EXPORT_TEST=1"
+      "PYTHON3=${Python3_EXECUTABLE}"
+      bash "${EXASIM_DIR}/tests/frontends/run-frontend-test.sh")
+  set_tests_properties(frontend_${_fe}_export PROPERTIES
+    TIMEOUT 2400 SKIP_RETURN_CODE 77)
+endforeach()
+
+# Builtin model 4 kernel equivalence: model 4 (CNS5air reacting NS) switched
+# from MATLAB-generated kernels to a text2code source (pdemodel4.txt). This
+# test compiles the legacy checked-in kernels (backend/Model/BuiltIn/model4/)
+# and the kernels THIS build regenerated into libbuiltinmodel side by side and
+# checks 35 outputs — every kernel family, all 9 HDG BCs, and the analytic
+# jacobians — agree to machine precision at a physical reacting-flow state.
+# See tests/builtin-models/compare_model4.cpp for the full story.
+get_property(_bm_genroot GLOBAL PROPERTY EXASIM_BUILTIN_GENROOT)
+if(_bm_genroot AND EXISTS "${EXASIM_TEXT2CODE}"
+   AND EXISTS "${EXASIM_DIR}/backend/Model/BuiltIn/pdeapp4.txt")
+  # Stable include roots for the harness's "ref/..." / "gen/..." includes.
+  # gen/ dangles until the codegen step runs; the target dependency below
+  # guarantees ordering.
+  file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/model4eq")
+  file(CREATE_LINK "${EXASIM_DIR}/backend/Model/BuiltIn/model4"
+       "${CMAKE_CURRENT_BINARY_DIR}/model4eq/ref" SYMBOLIC)
+  file(CREATE_LINK "${_bm_genroot}/model4"
+       "${CMAKE_CURRENT_BINARY_DIR}/model4eq/gen" SYMBOLIC)
+  add_executable(model4_kernel_equivalence
+    "${EXASIM_DIR}/tests/builtin-models/compare_model4.cpp")
+  target_include_directories(model4_kernel_equivalence PRIVATE
+    "${CMAKE_CURRENT_BINARY_DIR}/model4eq")
+  add_dependencies(model4_kernel_equivalence exasim_builtin_model_codegen)
+  add_test(NAME builtin_model4_kernel_equivalence
+    COMMAND model4_kernel_equivalence)
+  set_tests_properties(builtin_model4_kernel_equivalence PROPERTIES TIMEOUT 60)
+endif()
+
+# Per-user model cache: a second app directory must reuse the cached
+# (libfrontend_model, exasimapp) pair with zero compilation.
+add_test(NAME frontend_python_modelcache
+  COMMAND ${CMAKE_COMMAND} -E env
+    "EXASIM_ROOT=${EXASIM_DIR}"
+    "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}"
+    "FRONTEND=python"
+    "CACHE_TEST=1"
+    "PYTHON3=${Python3_EXECUTABLE}"
+    bash "${EXASIM_DIR}/tests/frontends/run-frontend-test.sh")
+set_tests_properties(frontend_python_modelcache PROPERTIES
+  TIMEOUT 2400 SKIP_RETURN_CODE 77)
+
+# Shared-library app test: install Exasim, build apps/sharedlibrary against the
+# installed package, generate libt2cmodelserial with the installed text2code,
+# and run a small Poisson text2code fixture through the shared-library ABI path.
+add_test(NAME sharedlibrary_app
+  COMMAND ${CMAKE_COMMAND} -E env
+    "EXASIM_BUILD=${CMAKE_BINARY_DIR}"
+    "KOKKOS_DIR=${Kokkos_DIR}"
+    "EXASIM_ROOT=${EXASIM_DIR}"
+    "CC=${CMAKE_C_COMPILER}"
+    "CXX=${CMAKE_CXX_COMPILER}"
+    "INSTALL_PREFIX=/tmp/exasim_install_sharedlibrary"
+    bash "${CMAKE_CURRENT_SOURCE_DIR}/run-sharedlibrary-test.sh")
+set_tests_properties(sharedlibrary_app PROPERTIES
+  TIMEOUT 2400 SKIP_RETURN_CODE 77)

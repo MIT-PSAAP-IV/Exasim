@@ -26,11 +26,34 @@ int main(int argc, char* argv[])
           fname = std::string("HdgFextonly");
           jname = std::string("HdgFext");
         }
-        if (funcname == "Sourcew") {
-          fname = std::string("HdgSourcewonly");
-          jname = std::string("HdgSourcew");
+        if (funcname == "EoS") {
+          ssv.dgfunc2cppfiles(f, ssv.modelpath + "KokkosEoS", "KokkosEoS", i, false);
+          if (ssv.jacobianInputs[i].size() > 1) {
+            // KokkosEoSdu: derivatives w.r.t. the first ncu entries of uq (u only, not q);
+            // the driver passes nce = ncw*ncu. KokkosEoSdw: derivatives w.r.t. w (nce = ncw*ncw).
+            std::vector<Expression> g;
+            const std::vector<Expression>& uqv = ssv.jacobianInputs[i][0];
+            int nuq = (ssv.szuhat < (int) uqv.size()) ? ssv.szuhat : (int) uqv.size();
+            for (int n = 0; n < nuq; ++n)
+              for (size_t m = 0; m < f.size(); ++m) g.push_back(f[m].diff(uqv[n]));
+            ssv.dgfunc2cppfiles(g, ssv.modelpath + "KokkosEoSdu", "KokkosEoSdu", i, false);
+            std::vector<Expression> h;
+            const std::vector<Expression>& wv = ssv.jacobianInputs[i][1];
+            for (size_t n = 0; n < wv.size(); ++n)
+              for (size_t m = 0; m < f.size(); ++m) h.push_back(f[m].diff(wv[n]));
+            ssv.dgfunc2cppfiles(h, ssv.modelpath + "KokkosEoSdw", "KokkosEoSdw", i, false);
+            ssv.funcjac2cppfiles(f, ssv.modelpath + jname, jname, i, false);
+          }
         }
-        if (funcname == "QoIboundary") { 
+        else if (funcname == "Sourcew") {
+          ssv.dgfunc2cppfiles(f, ssv.modelpath + "KokkosSourcew", "KokkosSourcew", i, false);
+          if (ssv.jacobianInputs[i].size() > 1) {
+            ssv.funcjac2cppfiles(f, ssv.modelpath + "HdgSourcew", "HdgSourcew", i, false);
+            // HdgSourcewonly carries the value plus the jacobian w.r.t. w only (f, f_wdg, ...).
+            ssv.funcjacsel2cppfiles(f, ssv.modelpath + "HdgSourcewonly", "HdgSourcewonly", i, 1, false);
+          }
+        }
+        else if (funcname == "QoIboundary") { 
             ssv.func2cppfiles(f, ssv.modelpath + fname, fname + std::to_string(1), i, false);
             ssv.appendUbouFbou(ssv.modelpath + fname, fname, 1);
         }

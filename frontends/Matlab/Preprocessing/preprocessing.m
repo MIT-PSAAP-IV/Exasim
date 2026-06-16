@@ -31,16 +31,13 @@ else
     strn = num2str(app.modelnumber);
 end
 
-if ~exist(char(app.exasimpath + "/build/model"), 'dir')
-    mkdir(char(app.exasimpath + "/build/model"));
+if  ~exist(char(app.datapath + "/datain" + strn), 'dir')
+    mkdir(char(app.datapath + "/datain" + strn));
 end
-if  ~exist(char(app.buildpath + "/datain" + strn), 'dir')
-    mkdir(char(app.buildpath + "/datain" + strn));
+if  ~exist(char(app.datapath + "/dataout" + strn), 'dir')
+    mkdir(char(app.datapath + "/dataout" + strn));
 end
-if  ~exist(char(app.buildpath + "/dataout" + strn), 'dir')
-    mkdir(char(app.buildpath + "/dataout" + strn));
-end
-filename = app.buildpath + "/datain" + strn + "/";
+filename = app.datapath + "/datain" + strn + "/";
 fileapp = filename + "app.bin";
 filemaster = filename + "master.bin";
 endian = 'native';
@@ -259,9 +256,9 @@ for i = 1:mpiprocs
             % Just write that directly, no need for UH(i,j,k);
             if isfield(app, 'read_uh_steady')
                 disp("FORCE THE READ OF UH STEADY")
-                fileID = fopen(app.buildpath+"/dataout/out_uhat_np"+string(i-1)+".bin",'r');
+                fileID = fopen(app.datapath+"/dataout/out_uhat_np"+string(i-1)+".bin",'r');
             else
-            fileID = fopen(app.buildpath+"/dataout/out_uhat_t1500_np"+string(i-1)+".bin",'r');
+            fileID = fopen(app.datapath+"/dataout/out_uhat_t1500_np"+string(i-1)+".bin",'r');
             end
             UH_tmp = fread(fileID,'double');
             nsize(6) = length(UH_tmp); 

@@ -206,21 +206,40 @@ struct Toolchain {
     std::vector<std::string> warn_squelch;
 };
 
-static Toolchain detect_toolchain() {
+static Toolchain detect_toolchain()
+{
     Toolchain tc;
-    tc.cxx  = detect_cxx_exe();
+
+    if (const char* env_cxx = std::getenv("CXX")) {
+        tc.cxx = env_cxx;
+    }
+
+    if (tc.cxx.empty()) {
+        tc.cxx = detect_cxx_exe();
+    }
+
+    if (tc.cxx.empty()) {
+        error("Could not detect a C++ compiler. Please set CXX.");
+    }
+
     tc.kind = detect_kind(tc.cxx);
 
-    // C++17 flag
     if (tc.kind == CompilerKind::MSVC) {
         tc.cxx17_flag = {"/std:c++17", "/EHsc"};
     } else {
         tc.cxx17_flag = {"-std=c++17"};
     }
 
-    // Only add warning-squelch if supported (Clang has this, GCC doesn’t)
-    if (compiler_supports_flag(tc.cxx, "-Wno-inconsistent-missing-override"))
-        tc.warn_squelch.push_back("-Wno-inconsistent-missing-override");
+    if (tc.kind != CompilerKind::MSVC &&
+        compiler_supports_flag(tc.cxx,
+                               "-Wno-inconsistent-missing-override"))
+    {
+        tc.warn_squelch.push_back(
+            "-Wno-inconsistent-missing-override");
+    }
+
+    std::cout << "Detected C++ compiler: "
+              << tc.cxx << "\n";
 
     return tc;
 }
@@ -333,23 +352,51 @@ std::string getSharedLibExtension() {
 }
 
 int buildDynamicLibraries(ParsedSpec& spec) 
-{
+{  
+    std::cout << "text2code is building the shared library" << std::endl;
+
     // Kokkos location baked by the superbuild (it builds Kokkos out of the source
     // tree). The active backend's path points at the baked dir; the others stay
     // empty so only the matching libt2cmodel<backend> is built. Falls back to the
-    // legacy in-source exasimpath/kokkos/build* layout for a standalone build.
+    // legacy in-source exasimpath/kokkos/build* layout for a standalone build.    
     const std::string _kk(EXASIM_KOKKOS_DIR), _kkb(EXASIM_KOKKOS_BACKEND);
-    const std::string kokkos_serial_path = !_kk.empty() ? (_kkb=="serial" ? _kk : "") : make_path(spec.exasimpath, "kokkos/buildserial");
-    const std::string kokkos_cuda_path   = !_kk.empty() ? (_kkb=="cuda"   ? _kk : "") : make_path(spec.exasimpath, "kokkos/buildcuda");
-    const std::string kokkos_hip_path    = !_kk.empty() ? (_kkb=="hip"    ? _kk : "") : make_path(spec.exasimpath, "kokkos/buildhip");
-    const std::string exasim_lib_path    = make_path(spec.exasimpath, "lib");
+
+    const std::string kokkos_serial_path =
+        !_kk.empty() ? (_kkb == "serial" ? _kk : "")
+                     : make_path(spec.exasimpath, "deps/kokkos/buildserial");
+
+    const std::string kokkos_cuda_path =
+        !_kk.empty() ? (_kkb == "cuda" ? _kk : "")
+                     : make_path(spec.exasimpath, "deps/kokkos/buildcuda");
+
+    const std::string kokkos_hip_path =
+        !_kk.empty() ? (_kkb == "hip" ? _kk : "")
+                     : make_path(spec.exasimpath, "deps/kokkos/buildhip");
+
+    auto getenv_string = [](const char* name) {
+        const char* v = std::getenv(name);
+        return (v && std::string(v).size() > 0) ? std::string(v) : std::string{};
+    };
+  
+    std::string exasim_lib_path = getenv_string("EXASIMLIB_DIR");    
+    if (exasim_lib_path.empty()) {
+        const std::string exasim_prefix = getenv_string("EXASIM_PREFIX");
+    
+        if (!exasim_prefix.empty()) {
+            exasim_lib_path = make_path(exasim_prefix, "lib");
+        }
+        else {
+            exasim_lib_path = make_path(spec.exasimpath, "lib");
+        }
+    }    
+    std::cout << "Using Exasim library directory: " << exasim_lib_path << "\n";
     fs::create_directories(exasim_lib_path);
 
     Toolchain tc = detect_toolchain();
     auto ext = getSharedLibExtension();
-
+  
     auto out_name = [&](const std::string& stem) {
-        return make_path(exasim_lib_path, stem) + ext;   // build full name, THEN quote
+        return make_path(exasim_lib_path, stem) + ext;
     };
 
     auto inc = [&](const std::string& dir) {
@@ -358,200 +405,292 @@ int buildDynamicLibraries(ParsedSpec& spec)
                : ("-I" + quote(dir));
     };
 
+    auto exasim_include_flags = [&]() -> std::string
+    {
+        std::stringstream flags;
+        const std::string include_root = make_path(spec.exasimpath, "include");
+
+        if (fs::exists(spec.exasimpath) && fs::is_directory(spec.exasimpath)) {
+            flags << inc(spec.exasimpath) << " ";
+        }
+
+        if (include_root != spec.exasimpath &&
+            fs::exists(include_root) && fs::is_directory(include_root)) {
+            flags << inc(include_root) << " ";
+        }
+
+        return flags.str();
+    };
+
     auto shlib_flags = [&] {
-        if (tc.kind == CompilerKind::MSVC) return std::string{"/LD /nologo /std:c++17 /EHsc /W0 "};
+        if (tc.kind == CompilerKind::MSVC) {
+            return std::string{"/LD /nologo /std:c++17 /EHsc /W0 "};
+        }
+
 #ifdef __APPLE__
-        return std::string{"-dynamiclib -std=c++17 -fPIC "};  // macOS
+        return std::string{"-dynamiclib -std=c++17 -fPIC "};
 #else
-        return std::string{"-shared -std=c++17 -fPIC "};      // Linux/MinGW
+        return std::string{"-shared -std=c++17 -fPIC "};
 #endif
     }();
 
     auto install_name_flag = [&](const std::string& out) {
 #ifdef __APPLE__
-        if (tc.kind == CompilerKind::MSVC) return std::string{};
-        return std::string{"-Wl,-install_name,@rpath/"} + fs::path(out).filename().string() + " ";
+        if (tc.kind == CompilerKind::MSVC) {
+            return std::string{};
+        }
+
+        return std::string{"-Wl,-install_name,@rpath/"}
+             + fs::path(out).filename().string() + " ";
 #else
         return std::string{};
 #endif
     };
 
+    auto kokkos_lib_dir = [&](const std::string& kokkos_path) {
+        const std::string lib64_dir = make_path(kokkos_path, "lib64");
+        const std::string lib_dir   = make_path(kokkos_path, "lib");
+
+        if (fs::exists(lib64_dir) && fs::is_directory(lib64_dir)) {
+            return lib64_dir;
+        }
+
+        return lib_dir;
+    };
+
+    auto require_kokkos_static_libs = [&](const std::string& kokkos_path,
+                                          const std::string& backend,
+                                          std::string& lib_dir,
+                                          std::string& lib_core,
+                                          std::string& lib_cont) {
+        lib_dir = kokkos_lib_dir(kokkos_path);
+
+        if (tc.kind == CompilerKind::MSVC) {
+            lib_core = make_path(lib_dir, "kokkoscore.lib");
+            lib_cont = make_path(lib_dir, "kokkoscontainers.lib");
+        } else {
+            lib_core = make_path(lib_dir, "libkokkoscore.a");
+            lib_cont = make_path(lib_dir, "libkokkoscontainers.a");
+        }
+
+        if (!fs::exists(lib_core)) {
+            std::cout << "Skipping Kokkos " << backend
+                      << ": missing " << lib_core << "\n";
+            return false;
+        }
+
+        if (!fs::exists(lib_cont)) {
+            std::cout << "Skipping Kokkos " << backend
+                      << ": missing " << lib_cont << "\n";
+            return false;
+        }
+
+        return true;
+    };
+        
+    auto get_gpu_arch = [&](std::initializer_list<const char*> vars,
+                            const std::string& backend) -> std::string
+    {
+        for (const char* var : vars) {
+            std::string value = getenv_string(var);
+            if (!value.empty()) {
+                std::cout << "Using " << backend
+                          << " GPU architecture from "
+                          << var << ": "
+                          << value << "\n";
+                return value;
+            }
+        }
+    
+        std::cout << "Warning: no " << backend
+                  << " GPU architecture specified. "
+                  << "Using compiler default.\n";
+    
+        return {};
+    };
+    
+    auto cuda_arch_flag = [&]() -> std::string
+    {
+        const std::string arch =
+            get_gpu_arch({"EXASIM_CUDA_ARCH", "CUDAARCH", "EXASIM_GPU_ARCH"}, "CUDA");
+    
+        return arch.empty() ? std::string{} : "-arch=" + arch + " ";
+    };
+    
+    auto hip_arch_flag = [&]() -> std::string
+    {
+        const std::string arch =
+            get_gpu_arch({"EXASIM_HIP_ARCH", "HIPARCH", "EXASIM_GPU_ARCH"}, "HIP");
+    
+        return arch.empty() ? std::string{} : "--offload-arch=" + arch + " ";
+    };
+
     int status = 0;
+    int final_status = 0;
+    int attempted_builds = 0;
 
     // -------------------- SERIAL --------------------
     if (fs::exists(kokkos_serial_path) && fs::is_directory(kokkos_serial_path)) {
         const std::string inc_dir = make_path(kokkos_serial_path, "include");
-        const std::string src      = make_path(spec.modelpath, "libt2cmodel.cpp");
-        const std::string out      = out_name("libt2cmodelserial");
+        const std::string src     = make_path(spec.modelpath, "libt2cmodel.cpp");
+        const std::string out     = out_name("libt2cmodelserial");
 
-        std::cout << "Compiling libt2cmodelserial\n";
-        std::stringstream cmd;
+        std::string lib_dir, lib_core, lib_cont;
 
-        if (tc.kind == CompilerKind::MSVC) {
-            const std::string lib_core = make_path(kokkos_serial_path, "lib/kokkoscore.lib");
-            const std::string lib_cont = make_path(kokkos_serial_path, "lib/kokkoscontainers.lib");
-            const std::string lib_simd = make_path(kokkos_serial_path, "lib/kokkossimd.lib");
-          
-            cmd << tc.cxx << " " << shlib_flags
-                << inc(spec.modelpath) << " " << inc(inc_dir) << " "
-                << quote(src) << " "
-                << "/Fe:" << quote(out) << " "
-                << "/link " << quote(lib_core) << " " << quote(lib_cont) << " " << quote(lib_simd);
+        if (!require_kokkos_static_libs(kokkos_serial_path,
+                                        "serial",
+                                        lib_dir,
+                                        lib_core,
+                                        lib_cont)) {
+            final_status = 1;
         } else {
-            const std::string lib_core = make_path(kokkos_serial_path, "lib/libkokkoscore.a");
-            const std::string lib_cont = make_path(kokkos_serial_path, "lib/libkokkoscontainers.a");
-            const std::string lib_simd = make_path(kokkos_serial_path, "lib/libkokkossimd.a");
-          
-            cmd << tc.cxx << " " << shlib_flags
-                << inc(spec.modelpath) << " " << inc(inc_dir) << " "  // includes BEFORE source
-                << quote(src) << " "
-                << quote(lib_core) << " " << quote(lib_cont) << " " << quote(lib_simd) << " "
-                << install_name_flag(out)
-                << "-o " << quote(out);
-        }
+            ++attempted_builds;
 
-        std::cout << cmd.str() << "\n";
-        status = std::system(cmd.str().c_str());
-        if (status != 0) { error("Compiling libt2cmodelserial failed!"); return 1; }
-        std::cout << "libt2cmodelserial built: " << out << "\n";
+            std::cout << "Compiling libt2cmodelserial\n";
+
+            std::stringstream cmd;
+
+            if (tc.kind == CompilerKind::MSVC) {
+                cmd << tc.cxx << " " << shlib_flags
+                    << inc(spec.modelpath) << " " << inc(inc_dir) << " "
+                    << exasim_include_flags()
+                    << quote(src) << " "
+                    << "/Fe:" << quote(out) << " "
+                    << "/link " << quote(lib_core) << " " << quote(lib_cont);
+            } else {
+                cmd << tc.cxx << " " << shlib_flags
+                    << inc(spec.modelpath) << " " << inc(inc_dir) << " "
+                    << exasim_include_flags()
+                    << quote(src) << " "
+                    << quote(lib_core) << " " << quote(lib_cont) << " "
+                    << install_name_flag(out)
+                    << "-o " << quote(out);
+            }
+
+            std::cout << cmd.str() << "\n";
+            status = std::system(cmd.str().c_str());
+
+            if (status != 0) {
+                std::cout << "Compiling libt2cmodelserial failed!\n";
+                final_status = 1;
+            } else {
+                std::cout << "libt2cmodelserial built: " << out << "\n";
+            }
+        }
     }
 
-    // -------------------- CUDA (sketch) --------------------
+    // -------------------- CUDA --------------------
     if (fs::exists(kokkos_cuda_path) && fs::is_directory(kokkos_cuda_path)) {
-        // Prefer Kokkos nvcc_wrapper if available:
         std::string cuda_cxx = tc.cxx;
+
         std::string nvccw = make_path(kokkos_cuda_path, "bin/nvcc_wrapper");
-        if (fs::exists(nvccw)) cuda_cxx = nvccw;
+        if (fs::exists(nvccw)) {
+            cuda_cxx = nvccw;
+        }
 
         const std::string inc_dir = make_path(kokkos_cuda_path, "include");
-        const std::string lib_dir = make_path(kokkos_cuda_path, "lib");
-        const std::string lib_core = make_path(kokkos_cuda_path, "lib/libkokkoscore.a");
-        const std::string lib_cont = make_path(kokkos_cuda_path, "lib/libkokkoscontainers.a");
-        const std::string src      = make_path(spec.modelpath, "libt2cmodel.cpp");
-        const std::string out      = out_name("libt2cmodelcuda");
+        const std::string src     = make_path(spec.modelpath, "libt2cmodel.cpp");
+        const std::string out     = out_name("libt2cmodelcuda");
 
-        std::cout << "Compiling libt2cmodelcuda\n";
-        std::stringstream cmd;
-        cmd << quote(cuda_cxx) << " -shared -std=c++17 -Xcompiler -fPIC --expt-extended-lambda --expt-relaxed-constexpr "
-            << inc(spec.modelpath) << " " << inc(inc_dir) << " "
-            << quote(src) << " -L" << quote(lib_dir) << " -lkokkoscore -lkokkoscontainers -Wl,-rpath,"
-            << quote(lib_dir) << " " << install_name_flag(out) << "-o " << quote(out);
+        std::string lib_dir, lib_core, lib_cont;
 
-        std::cout << cmd.str() << "\n";
-        status = std::system(cmd.str().c_str());
-        if (status != 0) { error("Compiling libt2cmodelcuda failed!"); return 1; }
-        std::cout << "libt2cmodelcuda built: " << out << "\n";
+        if (!require_kokkos_static_libs(kokkos_cuda_path,
+                                        "cuda",
+                                        lib_dir,
+                                        lib_core,
+                                        lib_cont)) {
+            final_status = 1;
+        } else {
+            ++attempted_builds;
+
+            std::cout << "Compiling libt2cmodelcuda\n";
+
+            std::stringstream cmd;
+
+            cmd << quote(cuda_cxx)
+                << " -shared -std=c++17 -Xcompiler -fPIC "
+                << "--expt-extended-lambda --expt-relaxed-constexpr "
+                << cuda_arch_flag()
+                << inc(spec.modelpath) << " " << inc(inc_dir) << " "
+                << exasim_include_flags()
+                << quote(src) << " "
+                << install_name_flag(out)
+                << "-o " << quote(out) << " "
+                << "-L" << quote(lib_dir) << " "
+                << "-lkokkoscore -lkokkoscontainers";
+
+            std::cout << cmd.str() << "\n";
+            status = std::system(cmd.str().c_str());
+
+            if (status != 0) {
+                std::cout << "Compiling libt2cmodelcuda failed!\n";
+                final_status = 1;
+            } else {
+                std::cout << "libt2cmodelcuda built: " << out << "\n";
+            }
+        }
     }
 
-    // -------------------- HIP (sketch) --------------------
+    // -------------------- HIP --------------------
     if (fs::exists(kokkos_hip_path) && fs::is_directory(kokkos_hip_path)) {
         std::string hip_cxx = tc.cxx;
-        std::string amdccw = make_path(kokkos_cuda_path, "bin/hipcc_wrapper");
-        if (fs::exists(amdccw)) hip_cxx = amdccw;
-        else {        
-          std::string hipcc = "hipcc";
-          if (run_silently(quote(hipcc) + " --version") == 0) hip_cxx = hipcc;
+
+        std::string hipccw = make_path(kokkos_hip_path, "bin/hipcc_wrapper");
+        if (fs::exists(hipccw)) {
+            hip_cxx = hipccw;
+        } else {
+            std::string hipcc = "hipcc";
+            if (run_silently(quote(hipcc) + " --version") == 0) {
+                hip_cxx = hipcc;
+            }
         }
-        
+
         const std::string inc_dir = make_path(kokkos_hip_path, "include");
-        const std::string lib_core = make_path(kokkos_hip_path, "lib/libkokkoscore.a");
-        const std::string lib_cont = make_path(kokkos_hip_path, "lib/libkokkoscontainers.a");
-        const std::string src      = make_path(spec.modelpath, "libt2cmodel.cpp");
-        const std::string out      = out_name("libt2cmodelhip");
+        const std::string src     = make_path(spec.modelpath, "libt2cmodel.cpp");
+        const std::string out     = out_name("libt2cmodelhip");
 
-        std::cout << "Compiling libt2cmodelhip\n";
-        std::stringstream cmd;
-        cmd << quote(hip_cxx) << " -shared -std=c++17 -fPIC "
-            << inc(spec.modelpath) << " " << inc(inc_dir) << " "
-            << quote(src) << " "
-            << quote(lib_core) << " " << quote(lib_cont) << " "
-            << install_name_flag(out)
-            << "-o " << quote(out);
+        std::string lib_dir, lib_core, lib_cont;
 
-        std::cout << cmd.str() << "\n";
-        status = std::system(cmd.str().c_str());
-        if (status != 0) { error("Compiling libt2cmodelhip failed!"); return 1; }
-        std::cout << "libt2cmodelhip built: " << out << "\n";
+        if (!require_kokkos_static_libs(kokkos_hip_path,
+                                        "hip",
+                                        lib_dir,
+                                        lib_core,
+                                        lib_cont)) {
+            final_status = 1;
+        } else {
+            ++attempted_builds;
+
+            std::cout << "Compiling libt2cmodelhip\n";
+
+            std::stringstream cmd;
+
+            cmd << quote(hip_cxx)
+                << " -shared -std=c++17 -fPIC " << hip_arch_flag()
+                << inc(spec.modelpath) << " " << inc(inc_dir) << " "
+                << exasim_include_flags()
+                << quote(src) << " "
+                << install_name_flag(out)
+                << "-o " << quote(out) << " "
+                << "-L" << quote(lib_dir) << " "
+                << "-lkokkoscore -lkokkoscontainers";
+
+            std::cout << cmd.str() << "\n";
+            status = std::system(cmd.str().c_str());
+
+            if (status != 0) {
+                std::cout << "Compiling libt2cmodelhip failed!\n";
+                final_status = 1;
+            } else {
+                std::cout << "libt2cmodelhip built: " << out << "\n";
+            }
+        }
     }
 
-    return 0;
+    if (attempted_builds == 0) {
+        std::cout << "No Kokkos backend libraries were built. "
+                  << "No valid Kokkos build directory was found.\n";
+        final_status = 1;
+    }
+
+    return final_status;
 }
-
-
-
-
-
-
-
-
-// int buildDynamicLibraries(ParsedSpec& spec) 
-// {
-//     std::string kokkos_path = spec.exasimpath + "/kokkos";          
-//     std::string kokkos_serial_path = spec.exasimpath + "/kokkos/buildserial";
-//     std::string kokkos_cuda_path = spec.exasimpath + "/kokkos/buildcuda";
-//     std::string kokkos_hip_path = spec.exasimpath + "/kokkos/buildhip";
-// 
-//     Toolchain tc = detect_toolchain();
-//     int status = 0;
-//     
-//     if (std::filesystem::exists(kokkos_serial_path) && std::filesystem::is_directory(kokkos_serial_path)) {   
-//         std::cout<<"Compiling libt2cmodelserial\n";
-//         std::stringstream cmp;
-//         cmp << tc.cxx << " -fPIC -shared -std=c++17 "        
-//             << quote(make_path(spec.modelpath, "libt2cmodel.cpp"))<<" "   
-//             << "-I" << quote(make_path(kokkos_serial_path, "include"))<<" "       
-//             << quote(make_path(kokkos_serial_path, "lib/libkokkoscore.a"))<<" "    
-//             << quote(make_path(kokkos_serial_path, "lib/libkokkoscontainers.a"))<<" "        
-//             << quote(make_path(kokkos_serial_path, "lib/libkokkossimd.a"))<<" -o "        
-//             << quote(make_path(spec.modelpath, "libt2cmodelserial"))<< getSharedLibExtension();                                   
-// 
-//         std::cout<<cmp.str().c_str()<<std::endl;
-//         
-//         status = std::system(cmp.str().c_str());
-//         if (status != 0) 
-//           error("Compiling libt2cmodelserial failed! Please compile text2code with -DUSE_CMAKE=ON and use cmake to run text2code.");        
-//         else
-//           std::cout<<"Compiling libt2cmodelserial successfully.\n";
-//     }                   
-// 
-//     if (std::filesystem::exists(kokkos_cuda_path) && std::filesystem::is_directory(kokkos_cuda_path)) {
-//         std::cout<<"Compiling libt2cmodelcuda\n";
-//         std::stringstream cmp;
-//         cmp << tc.cxx << " -fPIC -shared -std=c++17 "     
-//             << quote(make_path(spec.modelpath, "libt2cmodel.cpp"))<<" "      
-//             << "-I" << quote(make_path(kokkos_cuda_path, "include"))<<" "     
-//             << quote(make_path(kokkos_cuda_path, "lib/libkokkoscore.a"))<<" " 
-//             << quote(make_path(kokkos_cuda_path, "lib/libkokkoscontainers.a"))<<" -o "    
-//             << quote(make_path(spec.modelpath, "libt2cmodelcuda"))<< getSharedLibExtension();                                    
-// 
-//         std::cout<<cmp.str().c_str()<<std::endl;
-//         
-//         status = std::system(cmp.str().c_str());
-//         if (status != 0) 
-//           error("Compiling libt2cmodelcuda failed! Please compile text2code with -DUSE_CMAKE=ON and use cmake to run text2code.");        
-//         else
-//           std::cout<<"Compiling libt2cmodelcuda successfully.\n";
-//     }                   
-// 
-//     if (std::filesystem::exists(kokkos_hip_path) && std::filesystem::is_directory(kokkos_hip_path)) {
-//         std::cout<<"Compiling libt2cmodelhip\n";
-//         std::stringstream cmp;
-//         cmp << tc.cxx << " -fPIC -shared -std=c++17 "        
-//             << quote(make_path(spec.modelpath, "libt2cmodel.cpp"))<<" "   
-//             << "-I" << quote(make_path(kokkos_hip_path, "include"))<<" "     
-//             << quote(make_path(kokkos_hip_path, "lib/libkokkoscore.a"))<<" " 
-//             << quote(make_path(kokkos_hip_path, "lib/libkokkoscontainers.a"))<<" -o "        
-//             << quote(make_path(spec.modelpath, "libt2cmodelhip"))<< getSharedLibExtension();                              
-// 
-//         std::cout<<cmp.str().c_str()<<std::endl;
-//         
-//         status = std::system(cmp.str().c_str());
-//         if (status != 0) 
-//           error("Compiling libt2cmodelhip failed! Please compile text2code with -DUSE_CMAKE=ON and use cmake to run text2code.");        
-//         else
-//           std::cout<<"Compiling libt2cmodelhip successfully.\n";
-//     }                             
-//     
-//     return 0;
-// }
-// 

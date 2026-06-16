@@ -1,0 +1,53 @@
+exasimpath = "/path/to/Exasim";
+model = "ModelD";
+modelfile = "pdemodel5.txt";
+meshfile = "grid.bin";
+xdgfile = "xdg.bin";
+discretization = "hdg";
+platform = "cpu";
+
+builtinmodelID = 5;
+gendatain = 0;
+mpiprocs = 1;
+debugmode = 0;
+runmode = 0;
+modelnumber = 0;
+
+porder = 3;
+pgauss = 6;
+torder = 2;
+nstage = 2;
+
+ncu = 4;
+ncw = 0;
+neb = 4096;
+nfb = 8192;
+
+NewtonIter = 20;
+NewtonTol = 1e-06;
+GMRESiter = 200;
+GMRESrestart = 25;
+GMREStol = 1e-06;
+GMRESortho = 0;
+ppdegree = 0;
+RBdim = 5;
+matvecorder = 1;
+matvectol = 0.001;
+precMatrixType = 0;
+preconditioner = 0;
+
+time = 0;
+tau = [2];
+dt = [repeat(0.05, 200)];
+physicsparam = [1.4, 0.5, 5.0, 1.0, 10.0, 7.5];
+externalparam = [0, 0];
+
+boundaryconditions = [1, 1, 1, 1];
+boundaryexpressions = ["abs(y)<1e-8", "abs(x-20)<1e-8", "abs(y-15)<1e-8", "abs(x)<1e-8"];
+curvedboundaries = [0, 0, 0, 0];
+curvedboundaryexprs = ["", "", "", ""];
+periodicboundaries1 = [];
+periodicexprs1 = [];
+periodicboundaries2 = [];
+periodicexprs2 = [];
+interfaceconditions = [];

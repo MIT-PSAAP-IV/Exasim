@@ -1,12 +1,8 @@
 # import external modules
-import numpy, os
+import numpy
 
-# Add Exasim to Python search path
-cdir = os.getcwd(); ii = cdir.find("Exasim");
-exec(open(cdir[0:(ii+6)] + "/Installation/setpath.py").read());
-
-# import internal modules
-import Preprocessing, Postprocessing, Gencode, Mesh
+# import the Exasim frontend (see README, "Using the frontends")
+import exasim
 
 # create pde and mesh for each PDE model
 pde = [None] * 2
@@ -15,14 +11,14 @@ exec(open("pdeapp1.py").read());
 exec(open("pdeapp2.py").read());
 
 # call exasim to generate and run C++ code to solve the PDE models
-sol,pde,mesh,master,dmd,compilerstr,runstr = Postprocessing.exasim(pde,mesh)[0:7];
+sol,pde,mesh,master,dmd,compilerstr,runstr = exasim.exasim(pde,mesh)[0:7];
 
 # visualize the numerical solution of the PDE model using Paraview
 for m in range(0,len(pde)):
     pde[m]['visscalars'] = ["temperature", 0]; # list of scalar fields for visualization
     pde[m]['visvectors'] = ["temperature gradient", numpy.array([1, 2]).astype(int)]; # list of vector fields for visualization
     pde[m]['visfilename'] = "dataout" + str(m+1) + "/output"; 
-    Postprocessing.vis(sol[m],pde[m],mesh[m]); # visualize the numerical solution
+    exasim.vis(sol[m],pde[m],mesh[m]); # visualize the numerical solution
 
 print("Done!");
 

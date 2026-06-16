@@ -1,0 +1,232 @@
+scalars t
+
+vectors x(2), uq(4), v(0), w(0), uhat(4), uext(1), n(2), tau(1), mu(6), eta(0)
+
+jacobian uq, w, uhat
+
+hessian
+
+batch x, uq, v, w, uhat, n, uext
+
+outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Initu, VisScalars, VisVectors, QoIvolume
+
+function AleMapping(x, t, mu)
+  output_size(xp) = 2;
+  t0 = sqrt(125.0);
+  pi1 = Expression(pi);
+  sx = sin(pi1*x[0]/10.0)*sin(pi1*x[1]/7.5);
+  xp[0] = x[0] + 2.0*sx*sin(2.0*pi1*t/t0);
+  xp[1] = x[1] + 1.5*sx*sin(4.0*pi1*t/t0);
+end
+
+function DeformationGradient(x, t, mu)
+  output_size(g) = 4;
+  t0 = sqrt(125.0);
+  pi1 = Expression(pi);
+  cosx1 = cos(pi1*x[0]/10.0);
+  sinx1 = sin(pi1*x[0]/10.0);
+  cosx2 = cos(pi1*x[1]/7.5);
+  sinx2 = sin(pi1*x[1]/7.5);
+  s2 = sin(2.0*pi1*t/t0);
+  s4 = sin(4.0*pi1*t/t0);
+  g[0] = 1.0 + (pi1/5.0)*cosx1*sinx2*s2;
+  g[1] = (2.0*pi1/7.5)*sinx1*cosx2*s2;
+  g[2] = (1.5*pi1/10.0)*cosx1*sinx2*s4;
+  g[3] = 1.0 + (pi1/5.0)*sinx1*cosx2*s4;
+end
+
+function MappingJacobian(x, t, mu)
+  output_size(jd) = 1;
+  g = DeformationGradient(x, t, mu);
+  jd[0] = g[0]*g[3] - g[1]*g[2];
+end
+
+function MeshVelocity(x, t, mu)
+  output_size(vm) = 2;
+  t0 = sqrt(125.0);
+  pi1 = Expression(pi);
+  sx = sin(pi1*x[0]/10.0)*sin(pi1*x[1]/7.5);
+  c2 = cos(2.0*pi1*t/t0);
+  c4 = cos(4.0*pi1*t/t0);
+  vm[0] = 4.0*pi1/t0*sx*c2;
+  vm[1] = 6.0*pi1/t0*sx*c4;
+end
+
+function DJdt(x, t, mu)
+  output_size(dj) = 1;
+  t0 = sqrt(125.0);
+  pi1 = Expression(pi);
+  cosx1 = cos(pi1*x[0]/10.0);
+  sinx1 = sin(pi1*x[0]/10.0);
+  cosx2 = cos(pi1*x[1]/7.5);
+  sinx2 = sin(pi1*x[1]/7.5);
+  s2 = sin(2.0*pi1*t/t0);
+  c2 = cos(2.0*pi1*t/t0);
+  s4 = sin(4.0*pi1*t/t0);
+  c4 = cos(4.0*pi1*t/t0);
+  g11 = 1.0 + (pi1/5.0)*cosx1*sinx2*s2;
+  g12 = (2.0*pi1/7.5)*sinx1*cosx2*s2;
+  g21 = (1.5*pi1/10.0)*cosx1*sinx2*s4;
+  g22 = 1.0 + (pi1/5.0)*sinx1*cosx2*s4;
+  w2 = 2.0*pi1/t0;
+  w4 = 4.0*pi1/t0;
+  dg11 = (pi1/5.0)*cosx1*sinx2*w2*c2;
+  dg12 = (2.0*pi1/7.5)*sinx1*cosx2*w2*c2;
+  dg21 = (1.5*pi1/10.0)*cosx1*sinx2*w4*c4;
+  dg22 = (pi1/5.0)*sinx1*cosx2*w4*c4;
+  dj[0] = dg11*g22 + g11*dg22 - dg12*g21 - g12*dg21;
+end
+
+function Vortex(x, t, mu)
+  output_size(ue) = 4;
+  xp = AleMapping(x, t, mu);
+  gam = mu[0];
+  gam1 = gam - 1.0;
+  minf = mu[1];
+  eps = mu[2];
+  rc = mu[3];
+  x0 = mu[4];
+  y0 = mu[5];
+  rt5 = sqrt(5.0);
+  costh = 2.0/rt5;
+  sinth = 1.0/rt5;
+  ubar = minf*costh;
+  vbar = minf*sinth;
+  xcent = x0 + ubar*t;
+  ycent = y0 + vbar*t;
+  dxv = xp[0] - xcent;
+  dyv = xp[1] - ycent;
+  fe = 1.0 - (dxv*dxv + dyv*dyv)/(rc*rc);
+  pi1 = Expression(pi);
+  coeff = gam1*eps*eps/(8.0*pi1*pi1);
+  tv = 1.0 - coeff*exp(fe);
+  rho = pow(tv, 1.0/gam1);
+  uv = ubar - eps*dyv/(2.0*pi1*rc)*exp(fe/2.0);
+  vv = vbar + eps*dxv/(2.0*pi1*rc)*exp(fe/2.0);
+  pv = pow(tv, gam/gam1)/gam;
+  rhoe = pv/gam1 + 0.5*rho*(uv*uv + vv*vv);
+  ue[0] = rho;
+  ue[1] = rho*uv;
+  ue[2] = rho*vv;
+  ue[3] = rhoe;
+end
+
+function Flux(x, uq, v, w, eta, mu, t)
+  output_size(f) = 8;
+  gam = mu[0];
+  gam1 = gam - 1.0;
+  r = uq[0];
+  ru = uq[1];
+  rv = uq[2];
+  re = uq[3];
+  r1 = 1.0/r;
+  uv = ru*r1;
+  vv = rv*r1;
+  ke = 0.5*(uv*uv + vv*vv);
+  p = gam1*(re - r*ke);
+  h = (re + p)*r1;
+  g = DeformationGradient(x, t, mu);
+  vm = MeshVelocity(x, t, mu);
+  a10 = ru - r*vm[0];
+  a11 = ru*uv + p - ru*vm[0];
+  a12 = rv*uv - rv*vm[0];
+  a13 = ru*h - re*vm[0];
+  a20 = rv - r*vm[1];
+  a21 = ru*vv - ru*vm[1];
+  a22 = rv*vv + p - rv*vm[1];
+  a23 = rv*h - re*vm[1];
+  f[0] = a10*g[3] - a20*g[1];
+  f[1] = a11*g[3] - a21*g[1];
+  f[2] = a12*g[3] - a22*g[1];
+  f[3] = a13*g[3] - a23*g[1];
+  f[4] = a20*g[0] - a10*g[2];
+  f[5] = a21*g[0] - a11*g[2];
+  f[6] = a22*g[0] - a12*g[2];
+  f[7] = a23*g[0] - a13*g[2];
+end
+
+function Source(x, uq, v, w, eta, mu, t)
+  output_size(s) = 4;
+  dj = DJdt(x, t, mu);
+  s[0] = -uq[0]*dj[0];
+  s[1] = -uq[1]*dj[0];
+  s[2] = -uq[2]*dj[0];
+  s[3] = -uq[3]*dj[0];
+end
+
+function Tdfunc(x, uq, v, w, eta, mu, t)
+  output_size(m) = 4;
+  jd = MappingJacobian(x, t, mu);
+  m[0] = jd[0];
+  m[1] = jd[0];
+  m[2] = jd[0];
+  m[3] = jd[0];
+end
+
+function Fbou(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(fb) = 4;
+  f = Flux(x, uq, v, w, eta, mu, t);
+  fb[0] = f[0]*n[0] + f[4]*n[1] + tau[0]*(uq[0]-uhat[0]);
+  fb[1] = f[1]*n[0] + f[5]*n[1] + tau[0]*(uq[1]-uhat[1]);
+  fb[2] = f[2]*n[0] + f[6]*n[1] + tau[0]*(uq[2]-uhat[2]);
+  fb[3] = f[3]*n[0] + f[7]*n[1] + tau[0]*(uq[3]-uhat[3]);
+end
+
+function Ubou(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(ub) = 4;
+  ub[0] = 0.0;
+  ub[1] = 0.0;
+  ub[2] = 0.0;
+  ub[3] = 0.0;
+end
+
+function FbouHdg(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(fb) = 4;
+  fb0 = tau[0]*(0.0 - uhat[0]);
+  fb[0] = fb0;
+  fb[1] = fb0;
+  fb[2] = fb0;
+  fb[3] = fb0;
+end
+
+function Initu(x, eta, mu)
+  output_size(ui) = 4;
+  t0c = 0.0;
+  ui = Vortex(x, t0c, mu);
+end
+
+function VisScalars(x, uq, v, w, eta, mu, t)
+  output_size(s) = 3;
+  gam = mu[0];
+  gam1 = gam - 1.0;
+  r = uq[0];
+  ru = uq[1];
+  rv = uq[2];
+  re = uq[3];
+  r1 = 1.0/r;
+  uv = ru*r1;
+  vv = rv*r1;
+  p = gam1*(re - r*0.5*(uv*uv + vv*vv));
+  ue = Vortex(x, t, mu);
+  s[0] = r;
+  s[1] = p;
+  s[2] = r - ue[0];
+end
+
+function VisVectors(x, uq, v, w, eta, mu, t)
+  output_size(s) = 2;
+  xp = AleMapping(x, t, mu);
+  s[0] = xp[0] - x[0];
+  s[1] = xp[1] - x[1];
+end
+
+function QoIvolume(x, uq, v, w, eta, mu, t)
+  output_size(s) = 1;
+  jd = MappingJacobian(x, t, mu);
+  ue = Vortex(x, t, mu);
+  e0 = uq[0] - ue[0];
+  e1 = uq[1] - ue[1];
+  e2 = uq[2] - ue[2];
+  e3 = uq[3] - ue[3];
+  s[0] = jd[0]*(e0*e0 + e1*e1 + e2*e2 + e3*e3);
+end

@@ -47,7 +47,9 @@ Ec = v_ref^2 / (cp_ref * T_ref);
 U_ref = [rho_ref v_ref rhoe_ref T_ref mu_ref kappa_ref cp_ref L_ref Ec Pr Re T_wall];
 U_inf = [rho_species_inf/rho_ref rhov_phys_inf/(rho_ref*v_ref) 0 rhoE_phys_inf/rhoe_ref];
 
-load("/Users/cuongnguyen/Documents/GitHub/Exasim/examples/NavierStokes/reactingcylinder/solp2.mat");
+% Set solp2_path to your reactingcylinder solution (e.g. the repo's
+% examples/NavierStokes/reactingcylinder/solp2.mat); no absolute dev path here.
+load(solp2_path);
 [rho_species, rhov_phys, rhoE_phys, rho_phys, T_phys, p_phys] = initializeFromIdealGasSolution(sol, Minf, rho_ref, v_ref, T_ref);
 e = rho_phys - sum(rho_species,2);
 max(abs(e(:)))

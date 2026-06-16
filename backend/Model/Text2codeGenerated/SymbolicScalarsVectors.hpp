@@ -13,7 +13,7 @@ public:
     // from argv[1]. Default left empty (writes relative
     // to cwd) so generated headers don't bake an absolute
     // path tied to the developer who ran codegen.
-    std::string modelpath = "/Users/cuongnguyen/Documents/GitHub/hexascale/Exasim/backend/Model/Text2codeGenerated/";
+    std::string modelpath = "";
 
     // input symbolic scalars
     Expression t;
@@ -28,6 +28,7 @@ public:
     std::vector<Expression> eta;
     std::vector<Expression> w;
     std::vector<Expression> tau;
+    std::vector<Expression> uext;
 
     // vector sizes
     int szx;
@@ -39,6 +40,7 @@ public:
     int szeta;
     int szw;
     int sztau;
+    int szuext;
     bool exasim;
 
     std::vector<bool> outputfunctions;
@@ -47,6 +49,7 @@ public:
     std::vector<std::string> funcnames;
     std::vector<std::string> funcdecls;
     std::vector<std::string> funcjacdecls;
+    std::vector<std::string> funcdgdecls;
 
     std::vector<std::vector<std::pair<std::string, std::vector<Expression>>>> inputvectors;
     std::vector<std::vector<std::pair<std::string, Expression>>> inputscalars;
@@ -70,6 +73,8 @@ public:
                          const std::vector<std::vector<Expression>>& inputs_H);
 
     void func2cppfiles(const std::vector<Expression> &f, const std::string filename, const std::string funcname, const int functionid, bool append);
+    void dgfunc2cppfiles(const std::vector<Expression> &f, const std::string filename, const std::string funcname, const int functionid, bool append);
+    void funcjacsel2cppfiles(const std::vector<Expression> &f, const std::string filename, const std::string funcname, const int functionid, const int jacindex, bool append);
     void funcjac2cppfiles(const std::vector<Expression> &f, const std::string filename, const std::string funcname, const int functionid, bool append);
     void funcjachess2cppfiles(const std::vector<Expression> &f, const std::string filename, const std::string funcname, const int functionid, bool append);
     void initfunc2cppfiles(const std::vector<Expression> &f, const std::string filename, const std::string funcname, const int functionid, bool append, int framework);

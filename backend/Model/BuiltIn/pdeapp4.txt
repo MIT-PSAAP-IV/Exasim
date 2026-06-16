@@ -1,0 +1,55 @@
+exasimpath = "/path/to/Exasim";
+model = "ModelD";
+modelfile = "pdemodel4.txt";
+meshfile = "grid.bin";
+xdgfile = "xdg.bin";
+discretization = "hdg";
+platform = "cpu";
+
+builtinmodelID = 4;
+gendatain = 0;
+mpiprocs = 1;
+debugmode = 0;
+runmode = 0;
+modelnumber = 0;
+
+porder = 2;
+pgauss = 4;
+torder = 1;
+nstage = 1;
+saveSolFreq = 1;
+
+ncu = 8;
+ncw = 1;
+neb = 4096;
+nfb = 8192;
+
+NewtonIter = 10;
+NewtonTol = 1e-06;
+GMRESiter = 500;
+GMRESrestart = 250;
+GMREStol = 1e-06;
+GMRESortho = 1;
+ppdegree = 0;
+RBdim = 0;
+matvecorder = 1;
+matvectol = 1e-06;
+precMatrixType = 0;
+preconditioner = 1;
+
+time = 0;
+tau = [5];
+dt = [repeat(0.001, 100)];
+
+physicsparam = [0.0023402724, 6921, 112099.61, 260.6, 1.801932e-05, 0.024602882, 1009.9704, 1, 181.99298, 0.7397093, 898869.96, 1400];
+externalparam = [0, 0, 0, 0.76708249, 0.23291751, 1.0041566, 0, 0.49763987, 0, 0, 0, 0.76708249, 0.23291751, 0, 0, 0, 0, 0];
+
+boundaryconditions = [5, 1, 8, 2];
+boundaryexpressions = ["abs(y)<1e-8", "abs(x)<20", "sqrt(x^2+y^2)<3", "x>20-1e-6"];
+curvedboundaries = [0, 0, 0, 0];
+curvedboundaryexprs = ["", "", "", ""];
+periodicboundaries1 = [];
+periodicexprs1 = [];
+periodicboundaries2 = [];
+periodicexprs2 = [];
+interfaceconditions = [];

@@ -21,6 +21,7 @@
 #include "ExasimSolver.hpp"
 
 // Low-level provider ABI entry points supplied by the provider modules.
+const ExasimDriverABI& getSharedLibraryExasimDriverABI();
 const ExasimDriverABI& getBuiltInLibraryExasimDriverABI();
 const ExasimDriverABI& getBuiltInExasimDriverABI();
 const ExasimDriverABI& getKokkosKernelExasimDriverABI();
@@ -30,7 +31,9 @@ const ExasimDriverABI& getFrontendGeneratedExasimDriverABI();
 
 inline const ExasimDriverABI& SelectExasimDriverABI()
 {
-#if defined(HAVE_BUILTINLIBRARY)
+#if defined(HAVE_SHAREDLIBRARY)
+    return getSharedLibraryExasimDriverABI();  
+#elif defined(HAVE_BUILTINLIBRARY)
     return getBuiltInLibraryExasimDriverABI();
 #elif defined(HAVE_BUILTINMODEL)
     return getBuiltInExasimDriverABI();
@@ -47,7 +50,9 @@ return getText2codeGeneratedExasimDriverABI();
 
 inline const char* SelectExasimDriverProviderName()
 {
-#if defined(HAVE_BUILTINLIBRARY)
+#if defined(HAVE_SHAREDLIBRARY)
+    return "SharedLibrary";
+#elif defined(HAVE_BUILTINLIBRARY)
     return "BuiltInLibrary";
 #elif defined(HAVE_BUILTINMODEL)
     return "BuiltInModel";

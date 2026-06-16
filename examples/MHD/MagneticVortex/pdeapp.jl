@@ -1,15 +1,9 @@
-# External packages
-using Revise, DelimitedFiles, SymPy
-
-# Add Exasim to Julia search path
-cdir = pwd(); ii = findlast("Exasim", cdir);
-include(cdir[1:ii[end]] * "/install/setpath.jl");
-
-# Exasim packages
-using Preprocessing, Mesh, Gencode, Postprocessing
+# import the Exasim frontend (installed via `cmake --install` under
+# <prefix>/share/exasim/julia, or Pkg.develop'd from frontends/Julia/Exasim)
+using Exasim
 
 # create pde structure and mesh structure
-pde, mesh = Preprocessing.initializeexasim();
+pde, mesh = Exasim.initializeexasim();
 
 # Define PDE model: governing equations, initial solutions, and boundary conditions
 pde.model = "ModelC";            # ModelC, ModelD, ModelW
@@ -32,7 +26,7 @@ pde.tau = [4];                    # DG stabilization parameter
 pde.mpiprocs = 1;                # number of MPI processors
 
 # create a linear mesh for a square domain
-mesh.p, mesh.t = Mesh.SquareMesh(16,16,1); # a mesh of 8 by 8 quadrilaterals
+mesh.p, mesh.t = Exasim.Mesh.SquareMesh(16,16,1); # a mesh of 8 by 8 quadrilaterals
 mesh.p = 10.0*mesh.p .- 5.0;
 # expressions for disjoint boundaries
 mesh.boundaryexpr = [p -> (p[2,:] .< -5+1e-3), p -> (p[1,:] .> 5-1e-3), p -> (p[2,:] .> 5-1e-3), p -> (p[1,:] .< -5+1e-3)];
@@ -40,10 +34,10 @@ mesh.boundarycondition = [1 1 1 1]; # Set boundary condition for each disjoint b
 mesh.periodicexpr = [2 p->p[2,:] 4 p->p[2,:]; 1 p->p[1,:] 3 p->p[1,:]];
 
 # call exasim to generate and run C++ code to solve the PDE model
-sol, pde, mesh,~,~,~,~  = Postprocessing.exasim(pde,mesh);
+sol, pde, mesh,~,~,~,~  = Exasim.exasim(pde,mesh);
 
 # visualize the numerical solution of the PDE model using Paraview
 pde.visscalars = ["density", 1, "energy", 4,  "langrange multiplier", 7];  # list of scalar fields for visualization
 pde.visvectors = ["momentum", [2, 3], "magnetic", [5, 6]]; # list of vector fields for visualization
-Postprocessing.vis(sol,pde,mesh); # visualize the numerical solution
+Exasim.vis(sol,pde,mesh); # visualize the numerical solution
 print("Done!");

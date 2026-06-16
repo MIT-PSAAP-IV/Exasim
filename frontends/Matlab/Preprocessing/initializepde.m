@@ -11,15 +11,20 @@ pde.usecmake = 1;
 pde.mpirun = "mpirun";
 pde.metis = "mpmetis";
 pde.gmsh = "gmsh";
-pde.paraview = "/Applications/ParaView-6.1.0.app/Contents/MacOS/paraview";
+% Bare command, resolved on demand by vis.m -> findexec (PATH + common dirs).
+% Do not hardcode a version-specific absolute path; set pde.paraview yourself
+% to override (e.g. "/Applications/ParaView-6.1.0.app/Contents/MacOS/paraview").
+pde.paraview = "paraview";
 pde.enzyme = [];
 pde.codegenerator = "";
 
 pde.codename = "Exasim";
-cdir = pwd(); ii = strfind(cdir, pde.codename);
-pde.exasimpath = cdir(1:(ii+5));
-pde.buildpath = pde.exasimpath + "/build";
-pde.backendpath = pde.exasimpath + "/backend";
+% Runtime data (datain/, dataout/) goes under datapath (user-visible);
+% generated code and the solver build live in the hidden builddir.
+pde.datapath = string(pwd());
+pde.builddir = string(fullfile(pwd(), ".exasim"));
+pde.modelid = 100;   % external builtin model ID for the generated model
+pde.exasimpath = ""; % Exasim install prefix; resolved by cmakecompile
 pde.version = version;
 pde.appname = "app";
 pde.platform = "cpu";
@@ -133,7 +138,7 @@ pde.stgparam = [];
 
 pde.soltime = 1;
 pde.vistime = 1;
-pde.visfilename = pde.buildpath + "/dataout/output";  
+pde.visfilename = pde.datapath + "/dataout/output";  
 pde.viselem = [];
 
 pde.dae_alpha = 1.0;

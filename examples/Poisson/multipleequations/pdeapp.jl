@@ -1,12 +1,6 @@
-# External packages
-using Revise, DelimitedFiles, SymPy
-
-# Add Exasim to Julia search path
-cdir = pwd(); ii = findlast("Exasim", cdir);
-include(cdir[1:ii[end]] * "/Installation/setpath.jl");
-
-# Exasim packages
-using Preprocessing, Mesh, Gencode, Postprocessing
+# import the Exasim frontend (installed via `cmake --install` under
+# <prefix>/share/exasim/julia, or Pkg.develop'd from frontends/Julia/Exasim)
+using Exasim
 
 pde = Array{Any, 1}(undef, 2);
 mesh = Array{Any, 1}(undef, 2);

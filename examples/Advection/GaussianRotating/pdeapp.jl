@@ -1,15 +1,9 @@
-# External packages
-using Revise, DelimitedFiles, SymPy
-
-# Add Exasim to Julia search path
-cdir = pwd(); ii = findlast("Exasim", cdir);
-include(cdir[1:ii[end]] * "/install/setpath.jl");
-
-# Exasim packages
-using Preprocessing, Mesh, Gencode, Postprocessing
+# import the Exasim frontend (installed via `cmake --install` under
+# <prefix>/share/exasim/julia, or Pkg.develop'd from frontends/Julia/Exasim)
+using Exasim
 
 # create pde structure and mesh structure
-pde, mesh = Preprocessing.initializeexasim();
+pde, mesh = Exasim.initializeexasim();
 
 # Define PDE model: governing equations, initial solutions, and boundary conditions
 pde.model = "ModelC";            # ModelC, ModelD, ModelW
@@ -30,17 +24,17 @@ pde.visdt = 0.025; # visualization timestep size
 pde.mpiprocs = 4;                # number of MPI processors
 
 # create a linear mesh for a square domain
-mesh.p, mesh.t = Mesh.SquareMesh(20,20,1); # a mesh of 8 by 8 quadrilaterals
+mesh.p, mesh.t = Exasim.Mesh.SquareMesh(20,20,1); # a mesh of 8 by 8 quadrilaterals
 mesh.p = mesh.p .- 0.5; 
 # expressions for disjoint boundaries
 mesh.boundaryexpr = [p -> (p[2,:] .< -0.5+1e-3), p -> (p[1,:] .> 0.5-1e-3), p -> (p[2,:] .> 0.5-1e-3), p -> (p[1,:] .< -0.5+1e-3)];
 mesh.boundarycondition = [1 1 1 1]; # Set boundary condition for each disjoint boundary
 
 # call exasim to generate and run C++ code to solve the PDE model
-sol, pde, mesh,~,~,~,~  = Postprocessing.exasim(pde,mesh);
+sol, pde, mesh,~,~,~,~  = Exasim.exasim(pde,mesh);
 
 # visualize the numerical solution of the PDE model using Paraview
 pde.visscalars = ["temperature", 1];  # list of scalar fields for visualization
 pde.visvectors = []; # list of vector fields for visualization
-Postprocessing.vis(sol,pde,mesh); # visualize the numerical solution
+Exasim.vis(sol,pde,mesh); # visualize the numerical solution
 print("Done!");

@@ -1,8 +1,9 @@
 function hdggencode(app)
 
-%kkdir = app.buildpath + "/model";
-%kkdir = app.exasimpath + "/build/model";
-kkdir = app.backendpath + "/Model/FrontendGenerated";
+kkdir = app.builddir + "/kernels.gen";   % staging dir; kkgencode syncs it
+if ~exist(char(kkdir), 'dir')
+    mkdir(char(kkdir));
+end
 
 [xdg, udg, ~, ~, wdg, ~, ~, odg, ~, ~, uhg, nlg, tau, uinf, param, time] = syminit(app);
 pdemodel = str2func(app.modelfile);
