@@ -63,28 +63,28 @@ def cmakecompile(pde):
     # the install). Templates rather than rendered files: the rendered sources
     # embed absolute paths, which would make the digest directory-specific and
     # defeat the cross-directory model cache.
-    stamp = os.path.join(bdir, ".exasim_model_hash")
-    digest = _model_hash(kernels,
-                         [tmpl / "CMakeLists.txt.in", tmpl / "main.cpp.in"],
-                         prefix, variant, pde['modelid'])
-    if os.path.exists(exe) and os.path.exists(stamp):
-        with open(stamp) as f:
-            if f.read() == digest:
-                print("Model unchanged (hash match); skipping build.")
-                return cfg
+    # stamp = os.path.join(bdir, ".exasim_model_hash")
+    # digest = _model_hash(kernels,
+    #                      [tmpl / "CMakeLists.txt.in", tmpl / "main.cpp.in"],
+    #                      prefix, variant, pde['modelid'])
+    # if os.path.exists(exe) and os.path.exists(stamp):
+    #     with open(stamp) as f:
+    #         if f.read() == digest:
+    #             print("Model unchanged (hash match); skipping build.")
+    #             return cfg
 
     # Per-user model cache: the relocatable (libfrontend_model, exasimapp)
     # pair built for this modelid+digest by any earlier app run.
-    cachedir = os.path.join(_cache_root(), str(pde['modelid']), digest)
-    cached = _cache_files(cachedir)
-    if cached:
-        os.makedirs(bdir, exist_ok=True)
-        for src in cached:
-            shutil.copy2(src, os.path.join(bdir, os.path.basename(src)))
-        with open(stamp, "w") as f:
-            f.write(digest)
-        print(f"Model cache hit ({cachedir}); skipping build.")
-        return cfg
+    # cachedir = os.path.join(_cache_root(), str(pde['modelid']), digest)
+    # cached = _cache_files(cachedir)
+    # if cached:
+    #     os.makedirs(bdir, exist_ok=True)
+    #     for src in cached:
+    #         shutil.copy2(src, os.path.join(bdir, os.path.basename(src)))
+    #     with open(stamp, "w") as f:
+    #         f.write(digest)
+    #     print(f"Model cache hit ({cachedir}); skipping build.")
+    #     return cfg
 
     subprocess.run(cfg, check=True)
     jobs = os.environ.get("JOBS") or str(os.cpu_count() or 4)
@@ -92,15 +92,15 @@ def cmakecompile(pde):
 
     if not os.path.exists(exe):
         raise RuntimeError(f"Build did not produce {exe}.")
-    with open(stamp, "w") as f:
-        f.write(digest)
+    # with open(stamp, "w") as f:
+    #     f.write(digest)
 
     # Populate the cache for other app directories / future runs.
-    libs = glob.glob(os.path.join(bdir, "libfrontend_model.*"))
-    if libs:
-        os.makedirs(cachedir, exist_ok=True)
-        for src in libs + [exe]:
-            shutil.copy2(src, os.path.join(cachedir, os.path.basename(src)))
+    # libs = glob.glob(os.path.join(bdir, "libfrontend_model.*"))
+    # if libs:
+    #     os.makedirs(cachedir, exist_ok=True)
+    #     for src in libs + [exe]:
+    #         shutil.copy2(src, os.path.join(cachedir, os.path.basename(src)))
     return cfg
 
 
