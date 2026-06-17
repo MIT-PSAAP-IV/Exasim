@@ -104,25 +104,24 @@ function fb = fbou(u, q, w, v, x, t, mu, eta, uhat, n, tau)
     fn = f(:,1)*n(1) + f(:,2)*n(2) + f(:,3)*n(3) + tau*(u - uhat);
     f_wall = fn;
     f_wall(1) = 0.0;
-    f_wall(2:4) = -uhat(2:4);
+    f_wall(end) = 0.0;
+    u_far = farfieldstate(u, n, mu);
+    f_far = fn + tau*(u_far - u);
     f_slip = slipflux(u, uhat, n, tau);
-    fb = [f_wall fn f_slip];
+    fb = [f_wall f_far f_slip];
 end
 
 function ub = ubou(u, q, w, v, x, t, mu, eta, uhat, n, tau)
-    uinf = sym(mu(5:9));
-    uinf = uinf(:);
     u_wall = u(:);
     u_wall(2:4) = 0;
+    u_far = farfieldstate(u, n, mu);
     u_slip = slipstate(u, n);
-    ub = [u_wall uinf u_slip];
+    ub = [u_wall u_far u_slip];
 end
 
 function fb = fbouhdg(u, q, w, v, x, t, mu, eta, uhat, n, tau)
-    uinf = sym(mu(5:9));
-    uinf = uinf(:);
-
-    f_far = uinf - uhat;
+    u_far = farfieldstate(u, n, mu, uhat);
+    f_far = u_far - uhat;
 
     f_wall = 0*u;
     f_wall(1) = u(1) - uhat(1);
@@ -134,6 +133,18 @@ function fb = fbouhdg(u, q, w, v, x, t, mu, eta, uhat, n, tau)
 
     f_slip = slipflux(u, uhat, n, tau);
     fb = [f_wall f_far f_slip];
+end
+
+function u_far = farfieldstate(u, n, mu, anstate)
+    if nargin < 4
+        anstate = u;
+    end
+    gam = mu(1);
+    uinf = sym(mu(5:9));
+    uinf = uinf(:);
+    An = getan3d(n, anstate, gam, 0);
+    u = u(:);
+    u_far = 0.5*((u + uinf) + An*(u - uinf));
 end
 
 function f = slipflux(u, uhat, n, tau)
