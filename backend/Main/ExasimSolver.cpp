@@ -715,6 +715,10 @@ int ExasimSolver::IntializeMeshInterface(const int modelnumber,
         TemplateFree(nlgint, interfaceBackend);
         nlgint = nullptr;
     }
+    if (flux_dev_) {
+        TemplateFree(flux_dev_, interfaceBackend);
+        flux_dev_ = nullptr;
+    }
     if (model.disc.sol.uext) {
         TemplateFree(model.disc.sol.uext, interfaceBackend);
         model.disc.sol.uext = nullptr;
@@ -756,6 +760,8 @@ int ExasimSolver::IntializeMeshInterface(const int modelnumber,
     TemplateMalloc(&xdggint, ngf * nfaces * model.disc.common.ncx,
                    interfaceBackend);
     TemplateMalloc(&nlgint, ngf * nfaces * model.disc.common.nd,
+                   interfaceBackend);
+    TemplateMalloc(&flux_dev_, ngf * nfaces * _ncuint,
                    interfaceBackend);
 
     model.disc.getDGNodesOnInterface(xdgint, faces, nfaces);
@@ -826,16 +832,23 @@ std::vector<ExasimPoint> ExasimSolver::getInterfacePoints() const
 
 void ExasimSolver::getInterfaceFluxes(std::vector<double>& send_flux) const
 {    
-    send_flux.resize(ngf * nfaces * _ncuint);
+    const Int sz = ngf * nfaces * _ncuint;
+    send_flux.resize(sz);
+
     CSolution& model = *models_[interface_modelnumber_];
-    model.disc.getInterfaceFluxesAtGaussPoints(send_flux.data(), xdggint, nlgint, faces, nfaces);
+    if (backend_ > 1) {
+        model.disc.getInterfaceFluxesAtGaussPoints(flux_dev_, xdggint, nlgint, faces, nfaces);
+        TemplateCopytoHost(send_flux.data(), flux_dev_, sz, backend_);
+    } else {
+        model.disc.getInterfaceFluxesAtGaussPoints(send_flux.data(), xdggint, nlgint, faces, nfaces);
+    }
 }
 
 void ExasimSolver::setInterfaceFluxes(const std::vector<double>& recv_flux)
 {
     CSolution& model = *models_[interface_modelnumber_];
-    ArrayCopy(model.disc.sol.uext, recv_flux.data(), ngf * nfaces * model.disc.common.ncuext);
-    model.disc.common.FextCall = _ibc + 1; // flag to indicate that external fields have been set
+    TemplateCopytoDevice(model.disc.sol.uext, recv_flux.data(), ngf * nfaces * model.disc.common.ncuext, backend_);
+    model.disc.common.FextCall = _ibc + 1;
 }
 
 int ExasimSolver::RunAVDistanceFunction()
@@ -1151,6 +1164,10 @@ void ExasimSolver::DestroyModels()
         if (nlgint) {
             TemplateFree(nlgint, interfaceBackend);
             nlgint = nullptr;
+        }
+        if (flux_dev_) {
+            TemplateFree(flux_dev_, interfaceBackend);
+            flux_dev_ = nullptr;
         }
     }
 
