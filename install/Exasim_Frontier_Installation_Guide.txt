@@ -10,11 +10,16 @@ module reset
 module load PrgEnv-amd
 module load amd
 module load cray-mpich
+module load craype-accel-amd-gfx90a
 module load rocm
 
 export PROJDIR=/path/to/PSAAP
 export EXASIM_ROOT=/path/to/PSAAP/Exasim
 export EXASIM_PREFIX=/path/to/PSAAP/Exasim/local
+export CRAYPE_LINK_TYPE=dynamic
+export MPICH_GPU_SUPPORT_ENABLED=1
+export CXX=/opt/cray/pe/craype/2.7.33/bin/CC
+export EXASIM_GPU_ARCH=gfx90a
 
 mkdir -p $EXASIM_PREFIX
 

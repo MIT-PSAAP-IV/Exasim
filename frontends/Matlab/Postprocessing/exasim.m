@@ -23,24 +23,30 @@ if nmodels==1
       kkgencode(pde);
       compilerstr = cmakecompile(pde); % use cmake to compile C++ source codes 
       %compilerstr = compilepdemodel(pde);
-    end
-           
-    runstr = runcode(pde, 1); % run C++ code
+    end               
 
     % optionally package a relocatable "data transfer app" bundle (the
     % local build+run above doubles as the bundle's verification step).
     if isfield(pde,'exportapp') && ~isempty(pde.exportapp)
-        exportapp(pde, pde.exportapp, true);
-    end
+        if isfield(pde,'buildandrun') && ~isempty(pde.buildandrun)
+            exportapp(pde, pde.exportapp, pde.buildandrun);
+        else
+            exportapp(pde, pde.exportapp, true);
+        end
+        runstr = [];
+        sol = [];
+    else
+        runstr = runcode(pde, 1); % run C++ code
 
-    % get solution from output files in dataout folder
-    sol = fetchsolution(pde,master,dmd, pde.datapath + "/dataout");
-    
-    % get residual norms from output files in dataout folder
-    if pde.saveResNorm
-        fileID = fopen('dataout/out_residualnorms0.bin','r'); res = fread(fileID,'double'); fclose(fileID);
-        res = reshape(res,4,[])';
-    end    
+        % get solution from output files in dataout folder
+        sol = fetchsolution(pde,master,dmd, pde.datapath + "/dataout");
+        
+        % get residual norms from output files in dataout folder
+        if pde.saveResNorm
+            fileID = fopen('dataout/out_residualnorms0.bin','r'); res = fread(fileID,'double'); fclose(fileID);
+            res = reshape(res,4,[])';
+        end    
+    end
 else
     master = cell(nmodels,1);
     dmd = cell(nmodels,1);

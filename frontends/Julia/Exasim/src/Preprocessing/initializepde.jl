@@ -173,7 +173,7 @@ function initializepde(version)
     pde.builddir = joinpath(pwd(), ".exasim");
     pde.modelid = 100;   # external builtin model ID for the generated model
     pde.exasimpath = ""; # Exasim install prefix; resolved by cmakecompile
-    pde.buildpath = "";
+    pde.buildpath = pde.builddir;
     pde.backendpath = "";
     pde.version = version;
     pde.appname = "app";

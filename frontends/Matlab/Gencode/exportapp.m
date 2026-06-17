@@ -40,8 +40,6 @@ if ~exist(char(datain), 'dir')
     error("No datain at %s; run preprocessing(pde, mesh) first.", datain);
 end
 
-prefix = exasim_install_prefix();
-
 fprintf("Export Exasim data-transfer app to %s ...\n", dest);
 if ~exist(char(dest), 'dir'), mkdir(char(dest)); end
 
@@ -61,13 +59,23 @@ if pde.platform == "gpu"
 else
     if pde.mpiprocs > 1, variant = "cpumpi"; else, variant = "cpu"; end
 end
+
+prefix = exasim_install_prefix();
 numpde = 1;
 tmpl = prefix + "/lib/cmake/Exasim/frontend-app";
-subs = {"EXASIM_VARIANT", variant; ...
-        "MODEL_ID", string(pde.modelid); ...
-        "KERNEL_DIR", "${CMAKE_CURRENT_SOURCE_DIR}/kernels"};
-rendertemplate(tmpl + "/CMakeLists.txt.in", dest + "/CMakeLists.txt", subs);
-rendertemplate(tmpl + "/main.cpp.in", dest + "/main.cpp", subs);
+
+% 4. Render the CMakeLists.txt and main.cpp templates with the substitutions
+if isfield(pde,'frontendprovider') && ~isempty(pde.frontendprovider) && pde.frontendprovider == true
+    rendertemplate(tmpl + "/exasimfeapp.cpp.in", dest + "/exasimfeapp.cpp", []);
+    rendertemplate(tmpl + "/frontendprovider.cpp.in", dest + "/frontendprovider.cpp", []);
+    rendertemplate(tmpl + "/CMakeListsFrontendProvider.txt.in", dest + "/CMakeLists.txt", []);
+else
+    subs = {"EXASIM_VARIANT", variant; ...
+            "MODEL_ID", string(pde.modelid); ...
+            "KERNEL_DIR", "${CMAKE_CURRENT_SOURCE_DIR}/kernels"};
+    rendertemplate(tmpl + "/CMakeLists.txt.in", dest + "/CMakeLists.txt", subs);
+    rendertemplate(tmpl + "/main.cpp.in", dest + "/main.cpp", subs);
+end
 
 % 5. A copy of the source model, for reference / reproducibility.
 modelsrc = string(pde.modelfile) + ".m";
@@ -236,14 +244,16 @@ else
     runstr = exe + " " + string(numpde) + " " + datain + " " + dataout;
 end
 
-cdir = pwd();
-cd(char(work));
-[status, output] = system(char(runstr));
-disp(output);
-cd(char(cdir));
-if status ~= 0
-    error("Bundle verification run failed (exit %d): %s", status, runstr);
-end
+eval("!" + runstr);
+
+% cdir = pwd();
+% cd(char(work));
+% [status, output] = system(char(runstr));
+% disp(output);
+% cd(char(cdir));
+% if status ~= 0
+%     error("Bundle verification run failed (exit %d): %s", status, runstr);
+% end
 
 produced = dir(char(string(work) + "/out*"));
 if isempty(produced)
