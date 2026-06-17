@@ -19,6 +19,8 @@ if(Exasim_DIR)
     set(Exasim_DIR "${Exasim_DIR}/build" CACHE PATH "Path to ExasimConfig.cmake" FORCE)
   elseif(EXISTS "${Exasim_DIR}/lib/cmake/Exasim/ExasimConfig.cmake")
     set(Exasim_DIR "${Exasim_DIR}/lib/cmake/Exasim" CACHE PATH "Path to ExasimConfig.cmake" FORCE)
+  elseif(EXISTS "${Exasim_DIR}/lib64/cmake/Exasim/ExasimConfig.cmake")
+    set(Exasim_DIR "${Exasim_DIR}/lib64/cmake/Exasim" CACHE PATH "Path to ExasimConfig.cmake" FORCE)
   else()
     message(FATAL_ERROR
       "Exasim_DIR was set to ${Exasim_DIR}, but no ExasimConfig.cmake was found "
@@ -26,29 +28,29 @@ if(Exasim_DIR)
   endif()
 endif()
 
-find_package(Exasim REQUIRED)
-message(STATUS "Exasim_DIR = ${Exasim_DIR}")
-
-set(EXASIM_APP_LIBRARY_TARGET Exasim::cpulib)
+set(EXASIM_VARIANT cpu)
+if(EXASIM_MPI)
+  set(EXASIM_VARIANT cpumpi)
+endif()
 if(EXASIM_CUDA OR EXASIM_HIP)
-  set(EXASIM_APP_LIBRARY_TARGET Exasim::gpulib)
   if(EXASIM_MPI)
-    set(EXASIM_APP_LIBRARY_TARGET Exasim::gpumpilib)
+    set(EXASIM_VARIANT gpumpi)
+  else()
+    set(EXASIM_VARIANT gpu)
   endif()
-elseif(EXASIM_MPI)
-  set(EXASIM_APP_LIBRARY_TARGET Exasim::cpumpilib)
 endif()
 
-if(NOT TARGET ${EXASIM_APP_LIBRARY_TARGET})
-  message(FATAL_ERROR
-    "Requested Exasim target ${EXASIM_APP_LIBRARY_TARGET} is not available in the "
-    "current Exasim package. Reconfigure Exasim to build that library variant.")
+find_package(Exasim REQUIRED COMPONENTS ${EXASIM_VARIANT})
+# ExasimConfig.cmake resolves Kokkos from its baked build-time location;
+# only search again if that somehow did not produce the target.
+if(NOT TARGET Kokkos::kokkos)
+  find_package(Kokkos REQUIRED)
 endif()
+
+message(STATUS "Exasim_DIR = ${Exasim_DIR}")
 
 add_executable(exasimapp exasimfeapp.cpp)
 if(EXASIM_MPI)
   target_compile_definitions(exasimapp PRIVATE _MPI)
 endif()
-target_link_libraries(exasimapp PRIVATE
-  Exasim::headers
-  ${EXASIM_APP_LIBRARY_TARGET})
+target_link_libraries(exasimapp PRIVATE Exasim::headers Exasim::${EXASIM_VARIANT}lib)

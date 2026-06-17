@@ -39,12 +39,12 @@ pde.linearsolveriter = 100;
 pde.preconditioner = 1;
 pde.NLtol = 1e-8;
 pde.ppdegree = 0;
-pde.RBdim = 0;
+pde.RBdim = 5;
 pde.gencode = 1;
 
 pde.torder = 2;
 pde.nstage = 2;
-pde.dt = [0.005 0.01 0.02 0.04*ones(1,95)];
+pde.dt = [0.01 0.01 0.02 0.04*ones(1,301)];
 pde.saveSolFreq = 4;
 pde.saveSolBouFreq = 2;
 pde.ibs = 1;
