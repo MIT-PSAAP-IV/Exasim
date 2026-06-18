@@ -59,10 +59,11 @@ def gencode(app):
 
     pde = import_module(app['modelfile']);
 
-    if app['modelnumber']==0:
-        strn = "";
-    else:
-        strn = str(app['modelnumber']);
+    # Kernel filenames are always unsuffixed: per-model isolation comes from the
+    # per-model kernel directory (config.model_builddir), and the generated
+    # exasim_model_<id> model.cpp template #includes the unsuffixed names. The
+    # legacy modelnumber suffix (Flux1.cpp, ...) is retired with gencodeall.
+    strn = "";
 
     nc = app['nc'];
     ncu = app['ncu'];

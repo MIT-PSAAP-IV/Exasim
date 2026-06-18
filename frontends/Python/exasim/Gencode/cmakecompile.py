@@ -44,10 +44,11 @@ def cmakecompile(pde):
     else:
         variant = "cpumpi" if pde['mpiprocs'] > 1 else "cpu"
 
+    modelid = config.resolve_modelid(pde)
     tmpl = config.frontend_app_template_dir()
     subs = {
         "EXASIM_VARIANT": variant,
-        "MODEL_ID": pde['modelid'],
+        "MODEL_ID": modelid,
         "KERNEL_DIR": kernels,
     }
     _render(tmpl / "CMakeLists.txt.in", os.path.join(builddir, "CMakeLists.txt"), subs)
