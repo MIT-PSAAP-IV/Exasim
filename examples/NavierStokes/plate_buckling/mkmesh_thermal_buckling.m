@@ -10,10 +10,10 @@ arguments
     bump_width (1,1) double = 0.02
 end
 
-[xl, xu, T1] = thermal_buckling_smooth();
+[xl, xu, T1, T2] = thermal_buckling_smooth();
 
 x1 = T1(1);
-x2 = 0.0;
+x2 = T2(1);
 
 ind = (xl(:,1) <= x1);
 xl1 = xl(ind,:);
