@@ -171,7 +171,7 @@ function initializepde(version)
     # generated code and the solver build live in the hidden builddir.
     pde.datapath = pwd();
     pde.builddir = joinpath(pwd(), ".exasim");
-    pde.modelid = 100;   # external builtin model ID for the generated model
+    pde.modelid = -1;    # external builtin model ID; -1 = auto (100 + modelnumber), resolved in cmakecompile
     pde.exasimpath = ""; # Exasim install prefix; resolved by cmakecompile
     pde.buildpath = pde.builddir;
     pde.backendpath = "";
