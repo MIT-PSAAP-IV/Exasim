@@ -34,6 +34,14 @@ case "$FE" in
   matlab) APP="pdeapp.m" ;;
   *) echo "FAIL: unknown FRONTEND=$FE"; exit 1 ;;
 esac
+
+# Coexistence mode (two models built from one dir): uses a dedicated app.
+if [ "${COEXIST_TEST:-0}" = "1" ]; then
+  case "$FE" in
+    python) APP="pdeapp_coexist.py" ;;
+    *) echo "SKIP: COEXIST_TEST only implemented for python"; exit "$SKIP" ;;
+  esac
+fi
 if [ ! -f "$SRC/$APP" ]; then
   echo "SKIP: $SRC/$APP does not exist (frontend test not implemented yet)"
   exit $SKIP
@@ -147,6 +155,24 @@ if [ "${CACHE_TEST:-0}" = "1" ]; then
     cat run-b.log; echo "FAIL: cache hit still compiled something"; exit 1
   fi
   echo "model cache reused from a second app directory (no compilation)"
+fi
+
+# --- coexistence assertions (COEXIST_TEST=1) --------------------------------
+# Two models ran from one dir: model 0 keeps the flat layout, model 1 nests.
+# Both isolated artifact trees and both output sets must exist (no clobber).
+# The final QoI gate below checks model 0; here we check model 1.
+if [ "${COEXIST_TEST:-0}" = "1" ]; then
+  for d in ".exasim/kernels" ".exasim/models/1/kernels" "datain" "datain/1"; do
+    [ -d "$(pwd)/$d" ] || { echo "FAIL: missing isolated dir $d"; exit 1; }
+  done
+  q1="$(pwd)/dataout/1/outqoi.txt"
+  [ -f "$q1" ] || { echo "FAIL: model 1 produced no $q1 (clobbered?)"; exit 1; }
+  qoi1="$(tail -1 "$q1" | awk '{print $2}')"
+  if awk "BEGIN{exit !( ($qoi1)+0 < ($QOI_TOL)+0 )}"; then
+    echo "frontend_coexistence: model 1 (id 101) Domain_QoI1 = $qoi1 < $QOI_TOL"
+  else
+    echo "FAIL: model 1 Domain_QoI1 = $qoi1 >= $QOI_TOL"; exit 1
+  fi
 fi
 
 # --- QoI gate (in addition to any in-language assert) ------------------------

@@ -72,6 +72,21 @@ foreach(_fe python julia matlab)
     TIMEOUT 2400 SKIP_RETURN_CODE 77)
 endforeach()
 
+# Coexistence: build + run two independent generated models from ONE working
+# directory. Asserts per-model isolation (distinct .exasim build trees, datain
+# and dataout subdirs, modelid 100 vs 101) so they no longer clobber. Python
+# only for now; the wrapper SKIPs (77) for other frontends.
+add_test(NAME frontend_coexistence
+  COMMAND ${CMAKE_COMMAND} -E env
+    "EXASIM_ROOT=${EXASIM_DIR}"
+    "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}"
+    "FRONTEND=python"
+    "COEXIST_TEST=1"
+    "PYTHON3=${Python3_EXECUTABLE}"
+    bash "${EXASIM_DIR}/tests/frontends/run-frontend-test.sh")
+set_tests_properties(frontend_coexistence PROPERTIES
+  TIMEOUT 2400 SKIP_RETURN_CODE 77)
+
 # Builtin model 4 kernel equivalence: model 4 (CNS5air reacting NS) switched
 # from MATLAB-generated kernels to a text2code source (pdemodel4.txt). This
 # test compiles the legacy checked-in kernels (backend/Model/BuiltIn/model4/)

@@ -45,12 +45,15 @@ def gencode(app):
         subprocess.run(full_cmd, check=True)
         return
 
-    # Generated kernels go to the hidden build dir; cmakecompile points the
+    # Generated kernels go to the per-model build dir; cmakecompile points the
     # external-model provider's include path here (no source-tree writes).
     # Generate into a staging dir, then sync write-if-changed into kernels/ so
     # an unchanged model does not touch mtimes (and thus avoids recompiles).
-    kernelsdir = os.path.join(app['builddir'], "kernels")
-    foldername = os.path.join(app['builddir'], "kernels.gen")
+    # model_builddir() keeps model 0 flat (builddir) and nests others under
+    # models/<n>/ so two models in one working dir never share a kernel dir.
+    mbdir = config.model_builddir(app)
+    kernelsdir = os.path.join(mbdir, "kernels")
+    foldername = os.path.join(mbdir, "kernels.gen")
     if os.path.isdir(foldername):
         shutil.rmtree(foldername)
     os.makedirs(foldername, exist_ok=True)

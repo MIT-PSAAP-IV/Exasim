@@ -33,7 +33,9 @@ def cmakecompile(pde):
     prefix = config.install_prefix()
     pde['exasimpath'] = str(prefix)
 
-    builddir = pde['builddir']
+    # Per-model build root: model 0 stays flat (builddir), others nest under
+    # models/<n>/ so coexisting models never clobber CMakeLists/main/build.
+    builddir = config.model_builddir(pde)
     kernels = os.path.join(builddir, "kernels")
     if not os.path.isdir(kernels):
         raise RuntimeError(

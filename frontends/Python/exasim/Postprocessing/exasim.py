@@ -1,5 +1,7 @@
+import os
 from .. import Preprocessing
 from .. import Gencode
+from .. import config
 from .fetchsolution import fetchsolution
 from .getsolutions import getsolutions
 from .generatecode import generatecode
@@ -33,9 +35,13 @@ def exasim(pde,mesh):
         if pde.get('exportapp'):
             Gencode.exportapp(pde, pde['exportapp'], build=True);
 
-        # get solution from output files in dataout folder
+        # get solution from output files in dataout folder (per-model strn dir;
+        # strn="" for model 0 keeps the historical datapath/dataout location).
         pde['vistime'] = [];
-        sol = fetchsolution(pde,master,dmd, pde['datapath'] + "/dataout");
+        strn = config.model_strn(pde)
+        dataout_dir = os.path.join(pde['datapath'], "dataout", strn) if strn \
+            else (pde['datapath'] + "/dataout")
+        sol = fetchsolution(pde,master,dmd, dataout_dir);
         #sol, _, _ = getsolutions(pde, dmd);
         
         if pde['saveResNorm']:
