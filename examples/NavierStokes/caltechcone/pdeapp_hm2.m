@@ -84,7 +84,7 @@ av = av.*tanh(2e2*dist);
 % plot solution
 figure(1); clf; scaplot(meshhm,div(:,1,:)); axis on; axis equal;
 
-figure(2); clf; scaplot(meshhm,dis(:,1,:)); axis on; axis equal;
+%figure(2); clf; scaplot(meshhm,dis(:,1,:)); axis on; axis equal;
 
 figure(3); clf; scaplot(meshhm,meshhm.vdg(:,1,:)); axis on; axis equal;
 

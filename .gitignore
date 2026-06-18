@@ -437,3 +437,5 @@ examples/LinearElasticity/platebottomgaussian2d/deformedmeshzoom.png
 # MkDocs documentation build output
 /site/
 /examples/NavierStokes/eppler/eppler
+/examples/NavierStokes/eppler3d/eppler3d
+/examples/NavierStokes/eppler3d/eppler2d

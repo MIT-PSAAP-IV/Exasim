@@ -44,9 +44,9 @@ pde.gencode = 1;
 
 pde.torder = 2;
 pde.nstage = 2;
-pde.dt = [0.01 0.01 0.02 0.04*ones(1,301)];
-pde.saveSolFreq = 4;
-pde.saveSolBouFreq = 2;
+pde.dt = [0.01 0.02 0.03 0.04 0.05*ones(1,1001)];
+pde.saveSolFreq = 10;
+pde.saveSolBouFreq = 10;
 pde.ibs = 1;
 
 % naca mesh
@@ -55,7 +55,7 @@ mesh = mkmesh_epp387(porder,1,-6);
 % call exasim to generate and run C++ code to solve the PDE model
 pde.exportapp = "eppler";
 pde.frontendprovider = true;
-pde.buildandrun = true;
+pde.buildandrun = false;
 [sol,pde,mesh] = exasim(pde,mesh);
 
 
