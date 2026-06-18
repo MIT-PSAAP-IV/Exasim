@@ -1,8 +1,9 @@
 # ExasimExternalModel.cmake — installed alongside ExasimConfig.cmake.
 # Provides exasim_add_external_builtin_model() for out-of-tree consumers that
-# want to register a new model ID without modifying the installed Exasim package.
+# want to register one or more new model IDs without modifying the installed
+# Exasim package.
 #
-# Usage (text2code / PDEMODEL path):
+# Usage (text2code / PDEMODEL path, single model):
 #
 #   exasim_add_external_builtin_model(TARGET my_model_100
 #     ID 100
@@ -17,7 +18,7 @@
 # from the given pdeapp.txt into a persistent hidden directory under the consumer's
 # cmake binary dir (${CMAKE_BINARY_DIR}/exasim_external_models/<target>/).
 #
-# Usage (SOURCES / hand-written path):
+# Usage (SOURCES / hand-written path, single model):
 #
 #   exasim_add_external_builtin_model(TARGET my_model_100
 #     ID 100
@@ -30,16 +31,27 @@
 #
 # Usage (KERNELS / pre-generated path, used by the language frontends):
 #
-#   exasim_add_external_builtin_model(TARGET my_model_100
+#   # single model
+#   exasim_add_external_builtin_model(TARGET frontend_model
 #     ID 100
 #     KERNELS ${CMAKE_CURRENT_SOURCE_DIR}/kernels)
 #
-# KERNELS names a directory that already contains the full kernel .cpp set
-# (KokkosFlux.cpp, ..., HdgFextonly.cpp) as produced by the Python/Julia/MATLAB
-# gencode step. model.{hpp,cpp} are instantiated from the installed templates
-# exactly as in the PDEMODEL path, and the kernel directory is put on the
-# include path so model.cpp's quoted includes resolve there. Compiler depfiles
-# track the kernel files, so regenerating them triggers a rebuild.
+#   # several generated models in ONE executable (combined multi-PDE): pass
+#   # parallel ID and kernel-dir lists. Each model gets its own
+#   # exasim_model_<ID> namespace and the single provider dispatches all of them.
+#   exasim_add_external_builtin_model(TARGET frontend_model
+#     IDS 100 101
+#     KERNELS_DIRS "${dir100}" "${dir101}"
+#     SHARED)
+#
+# KERNELS/KERNELS_DIRS name directories that already contain the full kernel
+# .cpp set (KokkosFlux.cpp, ..., HdgFextonly.cpp) as produced by the
+# Python/Julia/MATLAB gencode step. model.{hpp,cpp} are instantiated from the
+# installed templates exactly as in the PDEMODEL path. For a single model the
+# kernel directory is put on the include path so model.cpp's quoted includes
+# resolve there; for several models each model's kernels are copied into its own
+# model<ID>/ directory so the quoted includes resolve per-model (the directory
+# of the including file is searched before the include path), with no collision.
 #
 # In all cases, the resulting target provides getBuiltInLibraryExasimDriverABI()
 # and links to the installed Exasim::builtinmodel{serial,cuda,hip} for fallthrough
@@ -47,35 +59,65 @@
 # it will be pulled in transitively through this target.
 
 function(exasim_add_external_builtin_model)
-  cmake_parse_arguments(EXT "SHARED" "TARGET;ID;KERNELS" "PDEMODEL;SOURCES" ${ARGN})
+  cmake_parse_arguments(EXT "SHARED" "TARGET;ID;KERNELS"
+    "IDS;KERNELS_DIRS;PDEMODEL;SOURCES" ${ARGN})
 
   if(NOT EXT_TARGET)
     message(FATAL_ERROR "exasim_add_external_builtin_model: TARGET is required")
   endif()
-  if(NOT EXT_ID)
-    message(FATAL_ERROR "exasim_add_external_builtin_model: ID is required")
+
+  # Back-compat: the singular ID/KERNELS map onto the list forms, so existing
+  # single-model callers (and the out-of-tree consumer tests) are unchanged.
+  if(NOT EXT_IDS AND NOT "${EXT_ID}" STREQUAL "")
+    set(EXT_IDS "${EXT_ID}")
   endif()
-  if(NOT EXT_PDEMODEL AND NOT EXT_SOURCES AND NOT EXT_KERNELS)
-    message(FATAL_ERROR
-      "exasim_add_external_builtin_model: one of PDEMODEL, SOURCES, or KERNELS is required")
+  if(NOT EXT_KERNELS_DIRS AND EXT_KERNELS)
+    set(EXT_KERNELS_DIRS "${EXT_KERNELS}")
   endif()
 
-  set(_id     "${EXT_ID}")
+  if(NOT EXT_IDS)
+    message(FATAL_ERROR "exasim_add_external_builtin_model: ID (or IDS) is required")
+  endif()
+  if(NOT EXT_PDEMODEL AND NOT EXT_SOURCES AND NOT EXT_KERNELS_DIRS)
+    message(FATAL_ERROR
+      "exasim_add_external_builtin_model: one of PDEMODEL, SOURCES, or KERNELS/KERNELS_DIRS is required")
+  endif()
+
   set(_tgt    "${EXT_TARGET}")
   set(_gendir "${CMAKE_BINARY_DIR}/exasim_external_models/${_tgt}")
-  set(_modeldir "${_gendir}/model${_id}")
-  file(MAKE_DIRECTORY "${_modeldir}")
+  list(LENGTH EXT_IDS _nids)
 
-  # Configure the C++ provider wrapper from the installed template.
-  # configure_file() substitutes @EXT_ID@ at cmake time.
-  set(EXT_ID "${_id}")
+  # ---- Configure the C++ provider over ALL ids --------------------------------
+  # The provider TU #includes every model<id>/model.{hpp,cpp} and its 43 ext*
+  # functions dispatch by id via the EXASIM_EXT_MODEL_IDS(X) X-macro list.
+  set(_includes "")
+  set(_idmacro "#define EXASIM_EXT_MODEL_IDS(X)")
+  foreach(_id IN LISTS EXT_IDS)
+    string(APPEND _includes
+      "#include \"model${_id}/model.hpp\"\n#include \"model${_id}/model.cpp\"\n")
+    string(APPEND _idmacro " X(${_id})")
+  endforeach()
+  set(EXT_MODEL_INCLUDES "${_includes}")
+  set(EXT_MODEL_IDS_MACRO "${_idmacro}")
   configure_file(
     "${Exasim_CMAKE_DIR}/ExternalModelProvider.cpp.in"
     "${_gendir}/ExternalModelProvider.cpp"
     @ONLY)
 
+  # Helper: instantiate model.hpp/model.cpp for one id from the installed
+  # templates, renaming the namespace and fixing the absolute dstype.hpp path.
+  # (Inlined per call site below because CMake lacks closures.)
+
   if(EXT_PDEMODEL)
-    # ---- text2code (PDEMODEL) path ----------------------------------------
+    # ---- text2code (PDEMODEL) path — single model only --------------------
+    if(NOT _nids EQUAL 1)
+      message(FATAL_ERROR
+        "exasim_add_external_builtin_model: PDEMODEL supports a single ID")
+    endif()
+    set(_id "${EXT_IDS}")
+    set(_modeldir "${_gendir}/model${_id}")
+    file(MAKE_DIRECTORY "${_modeldir}")
+
     if(NOT EXISTS "${Exasim_TEXT2CODE}")
       message(FATAL_ERROR
         "exasim_add_external_builtin_model(${_tgt}): text2code not found at\n"
@@ -83,14 +125,11 @@ function(exasim_add_external_builtin_model)
         "Set Exasim_TEXT2CODE to the path of the text2code binary.")
     endif()
 
-    # Instantiate model.hpp and model.cpp from the installed templates,
-    # renaming the namespace and fixing the absolute dstype.hpp path.
     foreach(_tmpl model.hpp model.cpp)
       file(READ "${Exasim_BUILTIN_DIR}/${_tmpl}" _txt)
       string(REPLACE "exasim_model_1" "exasim_model_${_id}" _txt "${_txt}")
       string(REPLACE "\"../dstype.hpp\""
                      "\"${Exasim_BUILTIN_DIR}/dstype.hpp\"" _txt "${_txt}")
-      # Write only on change so reconfigures don't dirty mtimes (recompiles).
       set(_prev "")
       if(EXISTS "${_modeldir}/${_tmpl}")
         file(READ "${_modeldir}/${_tmpl}" _prev)
@@ -101,9 +140,6 @@ function(exasim_add_external_builtin_model)
     endforeach()
 
     # Rewrite exasimpath in the pdeapp so text2code finds this Exasim install.
-    # text2code looks for backend/ headers at $exasimpath/backend/...; in an
-    # installed package those live under include/, so point to Exasim_TEXT2CODE_ROOT
-    # ($prefix/include) rather than the prefix itself.
     file(READ "${EXT_PDEMODEL}" _pde)
     string(REGEX REPLACE
       "exasimpath[ \t]*=[ \t]*\"[^\"]*\""
@@ -115,8 +151,6 @@ function(exasim_add_external_builtin_model)
     set(_pdeapp "${_modeldir}/pdeapp.txt")
     file(WRITE "${_pdeapp}" "${_pde}")
 
-    # Copy the pdemodel*.txt file (same directory, same base name as pdeapp)
-    # so text2code can find it next to the rewritten pdeapp.
     get_filename_component(_pdeapp_dir "${EXT_PDEMODEL}" DIRECTORY)
     get_filename_component(_pdeapp_name "${EXT_PDEMODEL}" NAME)
     string(REGEX REPLACE "pdeapp([0-9]*)\.txt$" "pdemodel\\1.txt"
@@ -126,8 +160,6 @@ function(exasim_add_external_builtin_model)
     endif()
 
     set(_stamp "${_modeldir}/.text2code.stamp")
-    # Depend on both the pdeapp and the pdemodel so that physics changes
-    # (e.g. modifying Ubou, Flux, etc.) invalidate the stamp and trigger rerun.
     set(_pdemodel_path "${_pdeapp_dir}/${_pdemodel_name}")
     set(_extra_deps)
     if(EXISTS "${_pdemodel_path}")
@@ -142,37 +174,65 @@ function(exasim_add_external_builtin_model)
       VERBATIM)
     add_custom_target(_exasim_ext_codegen_${_tgt} DEPENDS "${_stamp}")
 
-  elseif(EXT_KERNELS)
-    # ---- pre-generated kernels (KERNELS) path ------------------------------
-    # The caller (a language frontend's gencode step) has already produced the
-    # full kernel .cpp set in ${EXT_KERNELS}. Instantiate model.{hpp,cpp} from
-    # the installed templates; their quoted kernel includes resolve through the
-    # kernel directory added to the target's include path below.
-    if(NOT IS_DIRECTORY "${EXT_KERNELS}")
+  elseif(EXT_KERNELS_DIRS)
+    # ---- pre-generated kernels (KERNELS/KERNELS_DIRS) path ----------------
+    list(LENGTH EXT_KERNELS_DIRS _nk)
+    if(NOT _nk EQUAL _nids)
       message(FATAL_ERROR
-        "exasim_add_external_builtin_model(${_tgt}): KERNELS directory not found:\n"
-        "  ${EXT_KERNELS}")
+        "exasim_add_external_builtin_model(${_tgt}): IDS (${_nids}) and "
+        "KERNELS_DIRS (${_nk}) must have the same length")
     endif()
-    foreach(_tmpl model.hpp model.cpp)
-      file(READ "${Exasim_BUILTIN_DIR}/${_tmpl}" _txt)
-      string(REPLACE "exasim_model_1" "exasim_model_${_id}" _txt "${_txt}")
-      string(REPLACE "\"../dstype.hpp\""
-                     "\"${Exasim_BUILTIN_DIR}/dstype.hpp\"" _txt "${_txt}")
-      # Write only on change so reconfigures don't dirty mtimes (recompiles).
-      set(_prev "")
-      if(EXISTS "${_modeldir}/${_tmpl}")
-        file(READ "${_modeldir}/${_tmpl}" _prev)
+    math(EXPR _last "${_nids} - 1")
+    foreach(_i RANGE ${_last})
+      list(GET EXT_IDS ${_i} _id)
+      list(GET EXT_KERNELS_DIRS ${_i} _kdir)
+      if(NOT IS_DIRECTORY "${_kdir}")
+        message(FATAL_ERROR
+          "exasim_add_external_builtin_model(${_tgt}): KERNELS directory not found:\n"
+          "  ${_kdir}")
       endif()
-      if(NOT _txt STREQUAL _prev)
-        file(WRITE "${_modeldir}/${_tmpl}" "${_txt}")
+      set(_modeldir "${_gendir}/model${_id}")
+      file(MAKE_DIRECTORY "${_modeldir}")
+      foreach(_tmpl model.hpp model.cpp)
+        file(READ "${Exasim_BUILTIN_DIR}/${_tmpl}" _txt)
+        string(REPLACE "exasim_model_1" "exasim_model_${_id}" _txt "${_txt}")
+        string(REPLACE "\"../dstype.hpp\""
+                       "\"${Exasim_BUILTIN_DIR}/dstype.hpp\"" _txt "${_txt}")
+        set(_prev "")
+        if(EXISTS "${_modeldir}/${_tmpl}")
+          file(READ "${_modeldir}/${_tmpl}" _prev)
+        endif()
+        if(NOT _txt STREQUAL _prev)
+          file(WRITE "${_modeldir}/${_tmpl}" "${_txt}")
+        endif()
+      endforeach()
+      # With several models the kernel dirs cannot all sit on one include path
+      # (model.cpp's quoted "KokkosFlux.cpp" would resolve ambiguously). Copy
+      # each model's kernels into its own model<ID>/ so the quoted includes
+      # resolve to the directory of the including file. A single model keeps
+      # the historical include-path resolution (see include dirs below) for a
+      # byte-identical build.
+      if(_nids GREATER 1)
+        file(GLOB _kfiles "${_kdir}/*")
+        foreach(_kf IN LISTS _kfiles)
+          if(NOT IS_DIRECTORY "${_kf}")
+            get_filename_component(_kfn "${_kf}" NAME)
+            configure_file("${_kf}" "${_modeldir}/${_kfn}" COPYONLY)
+          endif()
+        endforeach()
       endif()
     endforeach()
     add_custom_target(_exasim_ext_codegen_${_tgt})
 
   else()
-    # ---- hand-written (SOURCES) path --------------------------------------
-    # Copy user-provided sources into model<ID>/ so the relative includes
-    # in ExternalModelProvider.cpp ("model<ID>/model.hpp") resolve correctly.
+    # ---- hand-written (SOURCES) path — single model only ------------------
+    if(NOT _nids EQUAL 1)
+      message(FATAL_ERROR
+        "exasim_add_external_builtin_model: SOURCES supports a single ID")
+    endif()
+    set(_id "${EXT_IDS}")
+    set(_modeldir "${_gendir}/model${_id}")
+    file(MAKE_DIRECTORY "${_modeldir}")
     foreach(_src ${EXT_SOURCES})
       get_filename_component(_sname "${_src}" NAME)
       configure_file("${_src}" "${_modeldir}/${_sname}" COPYONLY)
@@ -181,7 +241,6 @@ function(exasim_add_external_builtin_model)
   endif()
 
   # Select the installed built-in model library to link for fallthrough dispatch.
-  # Prefer the component-alias if the consumer used COMPONENTS, else detect.
   if(TARGET Exasim::builtinmodel)
     set(_bm_lib Exasim::builtinmodel)
   elseif(TARGET Exasim::builtinmodelcuda)
@@ -196,22 +255,12 @@ function(exasim_add_external_builtin_model)
       "Use find_package(Exasim REQUIRED COMPONENTS cpu) before calling this function.")
   endif()
 
-  # Build the provider library.
-  # getBuiltInLibraryExasimDriverABI() is defined in ExternalModelProvider.cpp and
-  # intercepts model ID @EXT_ID@; all other IDs fall through to the builtin dispatchers
-  # in ${_bm_lib}. Link order: ext library first so its symbol definition wins over
-  # any duplicate in the builtin archive.
+  # Build the provider library. getBuiltInLibraryExasimDriverABI() is defined in
+  # ExternalModelProvider.cpp and intercepts every ID in EXASIM_EXT_MODEL_IDS;
+  # all other IDs fall through to the builtin dispatchers in ${_bm_lib}. Link
+  # order: ext library first so its symbol definition wins over any duplicate.
   if(EXT_SHARED)
-    # Dynamic provider (used by the language frontends): the model lives in
-    # libfrontend_model.{so,dylib}; the host executable links it and never has
-    # to relink when the model changes. The .so must NOT embed Kokkos — a
-    # second copy of Kokkos's global state double-frees at exit on glibc's
-    # flat namespace (see backend/Model/BuiltIn/CMakeLists.txt). Take Kokkos
-    # as compile flags/includes only and resolve its symbols from the host
-    # executable at load time (the host must set ENABLE_EXPORTS).
     add_library(${_tgt} SHARED "${_gendir}/ExternalModelProvider.cpp")
-    # Relocatable: consumers find the library via rpath, so a built (lib, exe)
-    # pair can be copied anywhere together (e.g. the per-user model cache).
     set_target_properties(${_tgt} PROPERTIES
       BUILD_WITH_INSTALL_NAME_DIR TRUE
       INSTALL_NAME_DIR "@rpath")
@@ -230,10 +279,12 @@ function(exasim_add_external_builtin_model)
   add_dependencies(${_tgt} _exasim_ext_codegen_${_tgt})
   # gendir is the #include root: ExternalModelProvider.cpp uses "model<ID>/model.hpp"
   target_include_directories(${_tgt} PRIVATE "${_gendir}")
-  if(EXT_KERNELS)
-    # model.cpp's quoted kernel includes fall back to this search path.
-    target_include_directories(${_tgt} PRIVATE "${EXT_KERNELS}")
-  endif()
+  # For a single model, model.cpp's quoted kernel includes fall back to this
+  # search path (no per-model copy is made). For several models the per-model
+  # copies above take precedence, and these entries are a harmless fallback.
+  foreach(_kdir IN LISTS EXT_KERNELS_DIRS)
+    target_include_directories(${_tgt} PRIVATE "${_kdir}")
+  endforeach()
   target_link_libraries(${_tgt} PUBLIC  Exasim::headers)
   set_target_properties(${_tgt} PROPERTIES POSITION_INDEPENDENT_CODE ON)
 endfunction()

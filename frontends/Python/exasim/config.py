@@ -78,6 +78,10 @@ def frontend_app_template_dir():
     return cmake_dir() / "frontend-app"
 
 
+def frontend_app_combined_template_dir():
+    return cmake_dir() / "frontend-app-combined"
+
+
 def text2code_path():
     return install_prefix() / "bin" / "text2code"
 

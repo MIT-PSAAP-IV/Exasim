@@ -1,0 +1,19 @@
+// Rendered by the Exasim language frontend (cmakecompile combined path) — do not edit.
+// Runs several frontend-generated models in ONE solver (combined multi-PDE) via
+// the legacy CLI:
+//   exasimapp <nummodels> <datain0>/ <dataout0>/out <datain1>/ <dataout1>/out ...
+// The frontend_model library provides getBuiltInLibraryExasimDriverABI() that
+// dispatches the model IDs {@MODEL_IDS@} (one per model slot, in order) and
+// falls through to the installed built-in dispatchers for all other IDs.
+#include <exasim/ExasimSolverSetup.hpp>
+
+int main(int argc, char** argv)
+{
+#ifdef HAVE_MPI
+    MPI_Comm comm = MPI_COMM_WORLD;
+#else
+    MPI_Comm comm = MPI_COMM_NULL;
+#endif
+    ExasimSolver solver;
+    return RunExasimSolver(solver, argc, argv, comm, {@MODEL_IDS@});
+}

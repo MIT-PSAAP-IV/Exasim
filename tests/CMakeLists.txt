@@ -87,6 +87,21 @@ add_test(NAME frontend_coexistence
 set_tests_properties(frontend_coexistence PROPERTIES
   TIMEOUT 2400 SKIP_RETURN_CODE 77)
 
+# Combined multi-PDE: build two generated models into ONE exasimapp and run
+# them together via the solver's multi-model CLI (one datain/dataout pair per
+# model). Asserts the single provider dispatches both ids (100, 101) and both
+# output sets are produced. Python only for now; SKIPs (77) for others.
+add_test(NAME frontend_combined_multimodel
+  COMMAND ${CMAKE_COMMAND} -E env
+    "EXASIM_ROOT=${EXASIM_DIR}"
+    "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}"
+    "FRONTEND=python"
+    "COMBINED_TEST=1"
+    "PYTHON3=${Python3_EXECUTABLE}"
+    bash "${EXASIM_DIR}/tests/frontends/run-frontend-test.sh")
+set_tests_properties(frontend_combined_multimodel PROPERTIES
+  TIMEOUT 2400 SKIP_RETURN_CODE 77)
+
 # Builtin model 4 kernel equivalence: model 4 (CNS5air reacting NS) switched
 # from MATLAB-generated kernels to a text2code source (pdemodel4.txt). This
 # test compiles the legacy checked-in kernels (backend/Model/BuiltIn/model4/)

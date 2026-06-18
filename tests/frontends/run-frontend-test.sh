@@ -42,6 +42,14 @@ if [ "${COEXIST_TEST:-0}" = "1" ]; then
     *) echo "SKIP: COEXIST_TEST only implemented for python"; exit "$SKIP" ;;
   esac
 fi
+
+# Combined multi-PDE mode (two models in ONE exasimapp): uses a dedicated app.
+if [ "${COMBINED_TEST:-0}" = "1" ]; then
+  case "$FE" in
+    python) APP="pdeapp_combined.py" ;;
+    *) echo "SKIP: COMBINED_TEST only implemented for python"; exit "$SKIP" ;;
+  esac
+fi
 if [ ! -f "$SRC/$APP" ]; then
   echo "SKIP: $SRC/$APP does not exist (frontend test not implemented yet)"
   exit $SKIP
@@ -172,6 +180,24 @@ if [ "${COEXIST_TEST:-0}" = "1" ]; then
     echo "frontend_coexistence: model 1 (id 101) Domain_QoI1 = $qoi1 < $QOI_TOL"
   else
     echo "FAIL: model 1 Domain_QoI1 = $qoi1 >= $QOI_TOL"; exit 1
+  fi
+fi
+
+# --- combined multi-PDE assertions (COMBINED_TEST=1) ------------------------
+# Two models linked into ONE exasimapp and run together. Assert the single
+# combined executable exists and both per-model output sets were produced.
+# The final QoI gate below checks model 0; here we check the combined exe and
+# model 1's output.
+if [ "${COMBINED_TEST:-0}" = "1" ]; then
+  [ -x "$(pwd)/.exasim/combined/build/exasimapp" ] \
+    || { echo "FAIL: no combined exasimapp"; exit 1; }
+  q1="$(pwd)/dataout/1/outqoi.txt"
+  [ -f "$q1" ] || { echo "FAIL: slot 1 produced no $q1"; exit 1; }
+  qoi1="$(tail -1 "$q1" | awk '{print $2}')"
+  if awk "BEGIN{exit !( ($qoi1)+0 < ($QOI_TOL)+0 )}"; then
+    echo "frontend_combined_multimodel: slot 1 (id 101) Domain_QoI1 = $qoi1 < $QOI_TOL"
+  else
+    echo "FAIL: slot 1 Domain_QoI1 = $qoi1 >= $QOI_TOL"; exit 1
   fi
 fi
 

@@ -46,3 +46,47 @@ def runcode(pde, numpde):
     print(f"Elapsed time: {end_time - start_time} seconds")
 
     return " ".join(cmd)
+
+
+def runcode_combined(pdes):
+    """Run the combined multi-PDE executable built by cmakecompile_combined.
+
+    Emits the per-model CLI the solver's ParseInputs expects:
+        exasimapp N datain0/ dataout0/out datain1/ dataout1/out ...
+    one (datain, dataout) pair per model slot, each in its model's strn subdir
+    (matching preprocessing). Raises on a nonzero solver exit code.
+    """
+    print("Run combined multi-PDE C++ Exasim code ...")
+
+    p0 = pdes[0]
+    n = len(pdes)
+    exe = os.path.join(p0['builddir'], "combined", "build", "exasimapp")
+    if not os.path.exists(exe):
+        raise RuntimeError(f"Combined executable not found at {exe}; "
+                           "run Gencode.cmakecompile_combined(pdes) first.")
+
+    datapath = p0['datapath']
+    pairs = []
+    for p in pdes:
+        strn = config.model_strn(p)
+        pairs.append(os.path.join(datapath, "datain", strn, ""))
+        pairs.append(os.path.join(datapath, "dataout", strn, "out"))
+
+    if p0['mpiprocs'] == 1:
+        cmd = [exe, str(n)] + pairs
+    else:
+        mpirun = p0['mpirun']
+        mpitxt = os.path.join(p0['builddir'], "combined", "build", "mpiexec.txt")
+        if os.path.exists(mpitxt):
+            with open(mpitxt) as f:
+                discovered = f.read().strip()
+            if discovered:
+                mpirun = discovered
+        cmd = [mpirun, "-np", str(p0['mpiprocs']), exe, str(n)] + pairs
+
+    start_time = time.time()
+    subprocess.run(cmd, cwd=datapath, check=True)
+    end_time = time.time()
+    print(f"Elapsed time: {end_time - start_time} seconds")
+
+    return " ".join(cmd)

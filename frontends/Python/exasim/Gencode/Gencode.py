@@ -7,11 +7,10 @@ import importlib.util
 from .checkcompilers import checkcompilers
 from .setcompilers import setcompilers
 from .compilecode import compilecode
-from .cmakecompile import cmakecompile
+from .cmakecompile import cmakecompile, cmakecompile_combined
 from .exportapp import exportapp
 from .compilepdemodel import compilepdemodel
-from .runcode import runcode
-from .gencodeall import gencodeall
+from .runcode import runcode, runcode_combined
 from .syminit import syminit
 from .gencodeelemface import gencodeelemface
 from .gencodeelem import gencodeelem
