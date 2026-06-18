@@ -109,15 +109,17 @@ function(exasim_add_external_builtin_model)
   # (Inlined per call site below because CMake lacks closures.)
 
   if(EXT_PDEMODEL)
-    # ---- text2code (PDEMODEL) path — single model only --------------------
-    if(NOT _nids EQUAL 1)
+    # ---- text2code (PDEMODEL) path — one or more models -------------------
+    # IDS and PDEMODEL are parallel lists. text2code generates each model's
+    # kernels straight into its own model<ID>/ dir, so the quoted kernel
+    # includes in model.cpp resolve per-model with no collision even for
+    # several models in one provider.
+    list(LENGTH EXT_PDEMODEL _np)
+    if(NOT _np EQUAL _nids)
       message(FATAL_ERROR
-        "exasim_add_external_builtin_model: PDEMODEL supports a single ID")
+        "exasim_add_external_builtin_model(${_tgt}): IDS (${_nids}) and "
+        "PDEMODEL (${_np}) must have the same length")
     endif()
-    set(_id "${EXT_IDS}")
-    set(_modeldir "${_gendir}/model${_id}")
-    file(MAKE_DIRECTORY "${_modeldir}")
-
     if(NOT EXISTS "${Exasim_TEXT2CODE}")
       message(FATAL_ERROR
         "exasim_add_external_builtin_model(${_tgt}): text2code not found at\n"
@@ -125,54 +127,64 @@ function(exasim_add_external_builtin_model)
         "Set Exasim_TEXT2CODE to the path of the text2code binary.")
     endif()
 
-    foreach(_tmpl model.hpp model.cpp)
-      file(READ "${Exasim_BUILTIN_DIR}/${_tmpl}" _txt)
-      string(REPLACE "exasim_model_1" "exasim_model_${_id}" _txt "${_txt}")
-      string(REPLACE "\"../dstype.hpp\""
-                     "\"${Exasim_BUILTIN_DIR}/dstype.hpp\"" _txt "${_txt}")
-      set(_prev "")
-      if(EXISTS "${_modeldir}/${_tmpl}")
-        file(READ "${_modeldir}/${_tmpl}" _prev)
+    set(_stamps "")
+    math(EXPR _last "${_nids} - 1")
+    foreach(_i RANGE ${_last})
+      list(GET EXT_IDS ${_i} _id)
+      list(GET EXT_PDEMODEL ${_i} _pdemodel)
+      set(_modeldir "${_gendir}/model${_id}")
+      file(MAKE_DIRECTORY "${_modeldir}")
+
+      foreach(_tmpl model.hpp model.cpp)
+        file(READ "${Exasim_BUILTIN_DIR}/${_tmpl}" _txt)
+        string(REPLACE "exasim_model_1" "exasim_model_${_id}" _txt "${_txt}")
+        string(REPLACE "\"../dstype.hpp\""
+                       "\"${Exasim_BUILTIN_DIR}/dstype.hpp\"" _txt "${_txt}")
+        set(_prev "")
+        if(EXISTS "${_modeldir}/${_tmpl}")
+          file(READ "${_modeldir}/${_tmpl}" _prev)
+        endif()
+        if(NOT _txt STREQUAL _prev)
+          file(WRITE "${_modeldir}/${_tmpl}" "${_txt}")
+        endif()
+      endforeach()
+
+      # Rewrite exasimpath in the pdeapp so text2code finds this Exasim install.
+      file(READ "${_pdemodel}" _pde)
+      string(REGEX REPLACE
+        "exasimpath[ \t]*=[ \t]*\"[^\"]*\""
+        "exasimpath = \"${Exasim_TEXT2CODE_ROOT}\""
+        _pde "${_pde}")
+      if(NOT _pde MATCHES "exasimpath[ \t]*=")
+        set(_pde "exasimpath = \"${Exasim_TEXT2CODE_ROOT}\";\n${_pde}")
       endif()
-      if(NOT _txt STREQUAL _prev)
-        file(WRITE "${_modeldir}/${_tmpl}" "${_txt}")
+      set(_pdeapp "${_modeldir}/pdeapp.txt")
+      file(WRITE "${_pdeapp}" "${_pde}")
+
+      get_filename_component(_pdeapp_dir "${_pdemodel}" DIRECTORY)
+      get_filename_component(_pdeapp_name "${_pdemodel}" NAME)
+      string(REGEX REPLACE "pdeapp([0-9]*)\.txt$" "pdemodel\\1.txt"
+                           _pdemodel_name "${_pdeapp_name}")
+      if(EXISTS "${_pdeapp_dir}/${_pdemodel_name}")
+        file(COPY "${_pdeapp_dir}/${_pdemodel_name}" DESTINATION "${_modeldir}")
       endif()
+
+      set(_stamp "${_modeldir}/.text2code.stamp")
+      set(_pdemodel_path "${_pdeapp_dir}/${_pdemodel_name}")
+      set(_extra_deps)
+      if(EXISTS "${_pdemodel_path}")
+        set(_extra_deps "${_pdemodel_path}")
+      endif()
+      add_custom_command(
+        OUTPUT  "${_stamp}"
+        COMMAND "${Exasim_TEXT2CODE}" "${_pdeapp}" --out-dir "${_modeldir}" --gen-only
+        COMMAND "${CMAKE_COMMAND}" -E touch "${_stamp}"
+        DEPENDS "${_pdemodel}" ${_extra_deps}
+        COMMENT "text2code: generating model ${_id} kernels for target ${_tgt}"
+        VERBATIM)
+      list(APPEND _stamps "${_stamp}")
     endforeach()
-
-    # Rewrite exasimpath in the pdeapp so text2code finds this Exasim install.
-    file(READ "${EXT_PDEMODEL}" _pde)
-    string(REGEX REPLACE
-      "exasimpath[ \t]*=[ \t]*\"[^\"]*\""
-      "exasimpath = \"${Exasim_TEXT2CODE_ROOT}\""
-      _pde "${_pde}")
-    if(NOT _pde MATCHES "exasimpath[ \t]*=")
-      set(_pde "exasimpath = \"${Exasim_TEXT2CODE_ROOT}\";\n${_pde}")
-    endif()
-    set(_pdeapp "${_modeldir}/pdeapp.txt")
-    file(WRITE "${_pdeapp}" "${_pde}")
-
-    get_filename_component(_pdeapp_dir "${EXT_PDEMODEL}" DIRECTORY)
-    get_filename_component(_pdeapp_name "${EXT_PDEMODEL}" NAME)
-    string(REGEX REPLACE "pdeapp([0-9]*)\.txt$" "pdemodel\\1.txt"
-                         _pdemodel_name "${_pdeapp_name}")
-    if(EXISTS "${_pdeapp_dir}/${_pdemodel_name}")
-      file(COPY "${_pdeapp_dir}/${_pdemodel_name}" DESTINATION "${_modeldir}")
-    endif()
-
-    set(_stamp "${_modeldir}/.text2code.stamp")
-    set(_pdemodel_path "${_pdeapp_dir}/${_pdemodel_name}")
-    set(_extra_deps)
-    if(EXISTS "${_pdemodel_path}")
-      set(_extra_deps "${_pdemodel_path}")
-    endif()
-    add_custom_command(
-      OUTPUT  "${_stamp}"
-      COMMAND "${Exasim_TEXT2CODE}" "${_pdeapp}" --out-dir "${_modeldir}" --gen-only
-      COMMAND "${CMAKE_COMMAND}" -E touch "${_stamp}"
-      DEPENDS "${EXT_PDEMODEL}" ${_extra_deps}
-      COMMENT "text2code: generating model ${_id} kernels for target ${_tgt}"
-      VERBATIM)
-    add_custom_target(_exasim_ext_codegen_${_tgt} DEPENDS "${_stamp}")
+    add_custom_target(_exasim_ext_codegen_${_tgt} DEPENDS ${_stamps})
 
   elseif(EXT_KERNELS_DIRS)
     # ---- pre-generated kernels (KERNELS/KERNELS_DIRS) path ----------------
