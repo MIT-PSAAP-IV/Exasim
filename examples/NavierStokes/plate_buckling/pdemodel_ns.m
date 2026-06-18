@@ -96,7 +96,7 @@ fv = [0, txx, txy, uv*txx + vv*txy + (fc)*Tx, ...
 fl = [av.*rx, av.*rux, av.*rvx, av.*rEx, av.*ry, av.*ruy, av.*rvy, av.*rEy];
 f = fi+fv +fl;
 
-    f = reshape(f,[4,2]);        
+f = reshape(f,[4,2]);        
 end
 
 % function f = avfield(u, q, w, v, x, t, mu, eta)
@@ -173,5 +173,7 @@ end
 function u0 = initu(x, mu, eta)
     u0 = sym(mu(5:8)); % freestream flow   
 end
+
+
 
 
