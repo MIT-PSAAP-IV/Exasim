@@ -44,10 +44,11 @@ if [ "${COEXIST_TEST:-0}" = "1" ]; then
 fi
 
 # Combined multi-PDE mode (two models in ONE exasimapp): uses a dedicated app.
-if [ "${COMBINED_TEST:-0}" = "1" ]; then
+# COMBINED_EXPORT=1 reuses the same app but also packages a combined bundle.
+if [ "${COMBINED_TEST:-0}" = "1" ] || [ "${COMBINED_EXPORT:-0}" = "1" ]; then
   case "$FE" in
     python) APP="pdeapp_combined.py" ;;
-    *) echo "SKIP: COMBINED_TEST only implemented for python"; exit "$SKIP" ;;
+    *) echo "SKIP: combined tests only implemented for python"; exit "$SKIP" ;;
   esac
 fi
 if [ ! -f "$SRC/$APP" ]; then
@@ -199,6 +200,25 @@ if [ "${COMBINED_TEST:-0}" = "1" ]; then
   else
     echo "FAIL: slot 1 Domain_QoI1 = $qoi1 >= $QOI_TOL"; exit 1
   fi
+fi
+
+# --- combined export assertions (COMBINED_EXPORT=1) -------------------------
+# The combined bundle must be present, pristine, and genuinely relocatable:
+# copy it elsewhere and build+run via run.sh against the install, no frontend.
+if [ "${COMBINED_EXPORT:-0}" = "1" ]; then
+  B="$(pwd)/bundle"
+  [ -d "$B" ] || { echo "FAIL: no combined bundle at $B"; exit 1; }
+  for f in CMakeLists.txt main.cpp run.sh manifest.json; do
+    [ -f "$B/$f" ] || { echo "FAIL: combined bundle missing $f"; exit 1; }
+  done
+  for d in datain datain1 dataout dataout1 kernels kernels1; do
+    [ -d "$B/$d" ] || { echo "FAIL: combined bundle missing $d/"; exit 1; }
+  done
+  [ -d "$B/build" ] && { echo "FAIL: combined bundle has build/ (not pristine)"; exit 1; }
+  REL="$RUN/relocated_combined"; rm -rf "$REL"; cp -R "$B" "$REL"
+  ( cd "$REL" && EXASIM_ROOT="$INSTALL" bash run.sh ) > "$RUN/export-combined.log" 2>&1 \
+    || { cat "$RUN/export-combined.log"; echo "FAIL: relocated combined run.sh failed"; exit 1; }
+  echo "frontend_combined_export: bundle pristine + relocatable build+run OK"
 fi
 
 # --- QoI gate (in addition to any in-language assert) ------------------------

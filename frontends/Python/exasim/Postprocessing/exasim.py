@@ -73,6 +73,10 @@ def exasim(pde,mesh):
         compilerstr = Gencode.cmakecompile_combined(pde);
         runstr = Gencode.runcode_combined(pde);
 
+        # optionally package a relocatable combined "data transfer app" bundle.
+        if pde[0].get('exportapp'):
+            Gencode.exportapp_combined(pde, pde[0]['exportapp'], build=True);
+
         # get solution from each model's own dataout subdir
         for m in range(0, nmodels):
             strn = config.model_strn(pde[m])

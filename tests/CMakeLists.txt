@@ -102,6 +102,20 @@ add_test(NAME frontend_combined_multimodel
 set_tests_properties(frontend_combined_multimodel PROPERTIES
   TIMEOUT 2400 SKIP_RETURN_CODE 77)
 
+# Combined multi-PDE export: the combined run also packages a relocatable
+# data-transfer bundle (per-model datain<n>/kernels<n>, id list, N-pair run.sh)
+# which must be pristine and build+run on its own elsewhere. Python only.
+add_test(NAME frontend_combined_export
+  COMMAND ${CMAKE_COMMAND} -E env
+    "EXASIM_ROOT=${EXASIM_DIR}"
+    "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}"
+    "FRONTEND=python"
+    "COMBINED_EXPORT=1"
+    "PYTHON3=${Python3_EXECUTABLE}"
+    bash "${EXASIM_DIR}/tests/frontends/run-frontend-test.sh")
+set_tests_properties(frontend_combined_export PROPERTIES
+  TIMEOUT 2400 SKIP_RETURN_CODE 77)
+
 # Builtin model 4 kernel equivalence: model 4 (CNS5air reacting NS) switched
 # from MATLAB-generated kernels to a text2code source (pdemodel4.txt). This
 # test compiles the legacy checked-in kernels (backend/Model/BuiltIn/model4/)

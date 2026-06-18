@@ -27,6 +27,10 @@ def make():
 pde0, mesh0 = make()
 pde1, mesh1 = make()
 
+# In export mode, also package a relocatable combined data-transfer bundle.
+if os.environ.get("COMBINED_EXPORT") == "1":
+    pde0['exportapp'] = os.path.join(os.getcwd(), "bundle")
+
 sol, pde, mesh, master, dmd, cstr, rstr, res = exasim.exasim([pde0, pde1], [mesh0, mesh1])
 
 assert pde[0]['modelid'] == 100 and pde[1]['modelid'] == 101, \
