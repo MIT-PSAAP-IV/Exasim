@@ -59,7 +59,7 @@ pde['mpirun'] = "mpirun"; # command to run MPI programs
 runstr = exasim.Gencode.runcode(pde, 1)
 
 pde['vistime'] = [];
-sol = exasim.fetchsolution(pde,master,dmd, pde['buildpath'] + "/dataout");
+sol = exasim.fetchsolution(pde,master,dmd, pde['datapath'] + "/dataout");
 
 # visualize the numerical solution of the PDE model using Paraview
 #pde['paraview'] = "/Applications/ParaView-5.8.1.app/Contents/MacOS/paraview"; # Set the path to Paraview executable

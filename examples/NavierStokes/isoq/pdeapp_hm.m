@@ -4,12 +4,7 @@ run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'frontends', 'M
 
 % initialize pdehm structure and mesh structure
 [pdehm,~] = initializeexasim();
-
-pdehm.buildpath = string(pwd()) + "/hm";
-if exist(pdehm.buildpath, 'dir') == 0
-    mkdir(pdehm.buildpath);
-end
-
+pdehm.modelnumber = 1;   % isolate from the main model (build .exasim/models/1, data dataout1)
 % hm_path = pde.buildpath+ "/hm";
 % if exist(hm_path,'dir') == 0
 %     mkdir(hm_path);

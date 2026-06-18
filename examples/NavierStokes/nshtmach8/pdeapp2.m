@@ -4,7 +4,7 @@ run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'frontends', 'M
 
 % initialize pde{2} structure and mesh structure
 [pde{2},~] = initializeexasim();
-pde{2}.buildpath = string(pwd());
+pde{2}.modelnumber = 1;   % isolate from pde{1} (build .exasim/models/1, data dataout1)
 
 % Define a PDE model: governing equations, initial solutions, and boundary conditions
 pde{2}.model = "ModelD";          % ModelC, ModelD, ModelW

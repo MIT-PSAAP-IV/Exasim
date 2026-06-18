@@ -32,7 +32,6 @@ pde.modelfile = "pdemodel6";
 pde.model = "ModelD";
 pde.hybrid = 1;
 pde.modelnumber = modelnumber;
-pde.buildpath = buildpath;
 pde.datapath = buildpath;
 pde.datainpath = datainpath;
 pde.dataoutpath = dataoutpath;

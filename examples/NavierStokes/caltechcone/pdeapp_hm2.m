@@ -5,18 +5,7 @@ run(cdir(1:(ii+5)) + "/install/setpath.m");
 % initialize pdehm structure and mesh structure
 [pdehm,~] = initializeexasim();
 
-% pdehm.buildpath = string(pwd()) + "/hm";
-% if exist(pdehm.buildpath, 'dir') == 0
-%     mkdir(pdehm.buildpath);
-% end
-pdehm.datapath = string(pwd()) + "/hm";
-pdehm.builddir = string(pwd()) + "/hm";
-pdehm.buildpath = string(pwd()) + "/hm";
-
-hm_path = pdehm.buildpath;
-if exist(hm_path,'dir') == 0
-    mkdir(hm_path);
-end
+pdehm.modelnumber = 1;   % isolate from the main model (build .exasim/models/1, data dataout1)
 
 % Define a pdehm model: governing equations, initial solutions, and boundary conditions
 pdehm.model = "ModelD";          % ModelC, ModelD, ModelW

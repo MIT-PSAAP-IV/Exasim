@@ -4,7 +4,6 @@ run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'frontends', 'M
 
 % initialize pde structure and mesh structure
 [pde,~] = initializeexasim();
-pde.buildpath = string(pwd()) + "/ns";
 
 % Define a PDE model: governing equations, initial solutions, and boundary conditions
 pde.model = "ModelD";          % ModelC, ModelD, ModelW
@@ -74,7 +73,7 @@ mesh.vdg(:,1,:) = 0.04.*tanh(dist*30);
 mesh.udg = sol;
 [pde,mesh,master,dmd] = preprocessing(pde,mesh);
 runcode(pde, 1); % run C++ code
-sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+sol = fetchsolution(pde,master,dmd, pde.datapath + "/dataout" + model_strn(pde));
 figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[],2,1);
 
 disp("Iter 3")
@@ -82,7 +81,7 @@ mesh.vdg(:,1,:) = 0.025.*tanh(dist*30);
 mesh.udg = sol;
 [pde,mesh,master,dmd] = preprocessing(pde,mesh);
 runcode(pde, 1); % run C++ code
-sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+sol = fetchsolution(pde,master,dmd, pde.datapath + "/dataout" + model_strn(pde));
 figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[],2,1);
 
 disp("Iter 4")
@@ -90,7 +89,7 @@ mesh.vdg(:,1,:) = 0.025.*tanh(dist*5);
 mesh.udg = sol;
 [pde,mesh,master,dmd] = preprocessing(pde,mesh);
 runcode(pde, 1); % run C++ code
-sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+sol = fetchsolution(pde,master,dmd, pde.datapath + "/dataout" + model_strn(pde));
 figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[]);
 
 % mesh1 = hdgmesh(mesh,pde.porder);

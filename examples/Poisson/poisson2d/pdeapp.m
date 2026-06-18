@@ -49,7 +49,7 @@ figure(1); clf; scaplot(mesh,sol(:,1,:),[],2); axis on; axis equal; axis tight;
 % [AE0, FE0, DUDG0, DUDG_DUH0, D0, F0, K0, H0] = uEquationSchurExasim(dataout + "0", pde, npe, npf, nfe, 40);
 return;
 
-dataout = pde.buildpath + "/dataout/out";
+dataout = pde.datapath + "/dataout/out";
 [AE, FE, DUDG, DUDG_DUH] = NewtonExasim(dataout, pde, npe, npf, nfe);
 [AE0, FE0, DUDG0, DUDG_DUH0] = NewtonExasim(dataout + "0", pde, npe, npf, nfe);
 [AE1, FE1, DUDG1, DUDG_DUH1] = NewtonExasim(dataout + "1", pde, npe, npf, nfe);

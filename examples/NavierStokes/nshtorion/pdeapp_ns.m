@@ -4,7 +4,6 @@ run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'frontends', 'M
 
 % initialize pde structure and mesh structure
 [pde,~] = initializeexasim();
-pde.buildpath = string(pwd()) + "/ns";
 
 % Define a PDE model: governing equations, initial solutions, and boundary conditions
 pde.model = "ModelD";          % ModelC, ModelD, ModelW
