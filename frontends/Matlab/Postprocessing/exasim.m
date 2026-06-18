@@ -11,9 +11,12 @@ end
 
 res = [];
 if nmodels==1
-    % search compilers and set options
-    % pde = setcompilers(pde);       
-    
+    % External-model path: isolate this model's kernels/build/datain/dataout by
+    % its modelnumber so it can coexist with others in one working dir (model 0
+    % is byte-identical to the historical single-model layout).
+    pde.combinedmodel = true;
+    pde.modelid = resolve_modelid(pde);   % resolve auto (-1) -> 100 + modelnumber
+
     % generate input files and store them in datain folder
     [pde,mesh,master,dmd] = preprocessing(pde,mesh);
 
@@ -21,74 +24,92 @@ if nmodels==1
     if pde.gencode==1
       %gencode(pde);
       kkgencode(pde);
-      compilerstr = cmakecompile(pde); % use cmake to compile C++ source codes 
+      compilerstr = cmakecompile(pde); % use cmake to compile C++ source codes
       %compilerstr = compilepdemodel(pde);
-    end               
+    end
 
-    % optionally package a relocatable "data transfer app" bundle (the
-    % local build+run above doubles as the bundle's verification step).
+    runstr = runcode(pde, 1); % run C++ code
+
+    % get solution from output files in this model's dataout dir
+    sol = fetchsolution(pde,master,dmd, pde.datapath + "/dataout" + model_strn(pde));
+
+    % optionally package a relocatable "data transfer app" bundle (matches the
+    % Python frontend: run first, then export; the local build+run doubles as
+    % the bundle's verification step).
     if isfield(pde,'exportapp') && ~isempty(pde.exportapp)
         if isfield(pde,'buildandrun') && ~isempty(pde.buildandrun)
             exportapp(pde, pde.exportapp, pde.buildandrun);
         else
             exportapp(pde, pde.exportapp, true);
         end
-        runstr = [];
-        sol = [];
-    else
-        runstr = runcode(pde, 1); % run C++ code
+    end
 
-        % get solution from output files in dataout folder
-        sol = fetchsolution(pde,master,dmd, pde.datapath + "/dataout");
-        
-        % get residual norms from output files in dataout folder
-        if pde.saveResNorm
-            fileID = fopen('dataout/out_residualnorms0.bin','r'); res = fread(fileID,'double'); fclose(fileID);
-            res = reshape(res,4,[])';
-        end    
+    % get residual norms from output files in dataout folder
+    if pde.saveResNorm
+        fileID = fopen('dataout/out_residualnorms0.bin','r'); res = fread(fileID,'double'); fclose(fileID);
+        res = reshape(res,4,[])';
     end
 else
     master = cell(nmodels,1);
     dmd = cell(nmodels,1);
     sol = cell(nmodels,1);
     res = cell(nmodels,1);
-    
-    nummodels = nmodels;
-    mpiprocs = pde{1}.mpiprocs;
-    if isfield(mesh{1}, 'interfacecondition')           
-      if max(mesh{1}.interfacecondition) >= 1
-        nummodels = 100 + pde{1}.mpiprocs;
-        mpiprocs = mpiprocs + pde{2}.mpiprocs;        
-      end
-    end
 
-    % preprocess all PDE models
-    for m = 1:nmodels    
-        [pde{m},mesh{m},master{m},dmd{m}] = preprocessing(pde{m},mesh{m});
-    end                  
-    
-    if isfield(mesh{1}, 'interfacecondition')        
-      [dmd{1},dmd{2},isd1,isd2]=interfacepartition(mesh{1}, dmd{1}, mesh{2}, dmd{2});
-      writedmd(dmd{1}, pde{1}, isd1);
-      writedmd(dmd{2}, pde{2}, isd2);
+    is_coupling = isfield(mesh{1}, 'interfacecondition') && ...
+                  max(mesh{1}.interfacecondition) >= 1;
+
+    if is_coupling
+        % ---- legacy two-domain coupling path (interfacecondition) ----------
+        % Unchanged: suffixed kernels via kkgencodeall + interface partition +
+        % the nummodels>100 MPI-split CLI. (combinedmodel stays unset.)
+        nummodels = 100 + pde{1}.mpiprocs;
+        mpiprocs = pde{1}.mpiprocs + pde{2}.mpiprocs;
+
+        for m = 1:nmodels
+            [pde{m},mesh{m},master{m},dmd{m}] = preprocessing(pde{m},mesh{m});
+        end
+
+        [dmd{1},dmd{2},isd1,isd2]=interfacepartition(mesh{1}, dmd{1}, mesh{2}, dmd{2});
+        writedmd(dmd{1}, pde{1}, isd1);
+        writedmd(dmd{2}, pde{2}, isd2);
+
+        if pde{1}.gencode==1
+          for m = 1:nmodels
+            kkgencode(pde{m});
+          end
+          kkgencodeall(nmodels, pde{1}.backendpath + "/Model");
+          compilerstr = cmakecompile(pde{1}, mpiprocs);
+        end
+
+        runstr = runcode(pde{1}, nummodels, mpiprocs);
+
+        for m = 1:nmodels
+            sol{m} = fetchsolution(pde{m},master{m},dmd{m}, pde{m}.buildpath + "/dataout" + num2str(m));
+        end
+    else
+        % ---- combined multi-PDE through the external-model path -----------
+        % Each model occupies slot m: modelnumber=m-1 gives a distinct modelid
+        % (100+slot), kernel dir and datain/dataout, so the N models generate
+        % without clobbering and link into ONE exasimapp (one provider that
+        % dispatches all ids). Replaces the broken legacy kkgencodeall path.
+        for m = 1:nmodels
+            pde{m}.modelnumber = m - 1;
+            pde{m}.combinedmodel = true;
+            pde{m}.modelid = resolve_modelid(pde{m});   % 100 + slot
+            [pde{m},mesh{m},master{m},dmd{m}] = preprocessing(pde{m},mesh{m});
+            if pde{m}.gencode==1
+                kkgencode(pde{m});
+            end
+        end
+
+        compilerstr = cmakecompile_combined(pde);
+        runstr = runcode_combined(pde);
+
+        for m = 1:nmodels
+            sol{m} = fetchsolution(pde{m},master{m},dmd{m}, ...
+                                   pde{m}.datapath + "/dataout" + model_strn(pde{m}));
+        end
     end
-          
-    % generate code for all PDE models
-    if pde{1}.gencode==1
-      for m = 1:nmodels    
-        kkgencode(pde{m});
-      end      
-      kkgencodeall(nmodels, pde{1}.backendpath + "/Model");
-      compilerstr = cmakecompile(pde{1}, mpiprocs); % use cmake to compile C++ source codes 
-      %compilerstr = compilepdemodel(pde{1}); % use cmake to compile C++ source codes 
-    end
-           
-    runstr = runcode(pde{1}, nummodels, mpiprocs); % run C++ code
-    
-    % get solution from output files in dataout folder
-    for m = 1:nmodels        
-        sol{m} = fetchsolution(pde{m},master{m},dmd{m}, pde{m}.buildpath + "/dataout" + num2str(m));                
-    end    
 end
 
 
