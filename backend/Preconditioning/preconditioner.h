@@ -21,6 +21,8 @@
 #ifndef __PRECONDITIONER_H__
 #define __PRECONDITIONER_H__
 
+#include "exasim/execution_mode.hpp"
+
 class CPreconditioner {
 private:
 public:
@@ -29,7 +31,8 @@ public:
     int mpiRank;
     
     // constructor 
-    CPreconditioner(CDiscretization& disc, Int backend); 
+    CPreconditioner(CDiscretization& disc, Int backend,
+                    ExasimExecutionMode mode = ExasimExecutionMode::Solve); 
     
     // destructor        
     ~CPreconditioner(); 
@@ -44,4 +47,3 @@ public:
 };
 
 #endif        
-

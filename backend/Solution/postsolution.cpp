@@ -248,6 +248,51 @@ void CSolution::ReadSolutions(Int backend)
         }                                    
    }    
 }
+
+void CSolution::GetSolutions(Int step, Int backend)
+{
+    if (step < 0)
+        error("GetSolutions: step must be nonnegative");
+
+    const Int rank = disc.common.mpiRank - disc.common.fileoffset;
+    const Int headerSize = 3;
+    string filename = disc.common.fileout + "udg_np" + NumberToString(rank) + ".bin";
+
+    if (disc.common.saveSolOpt == 0) {
+        const Int skip = headerSize + step * disc.common.ndof1;
+        if (disc.common.spatialScheme > 0) {
+            readarrayfromfile(filename, &disc.res.Rq, disc.common.ndof1, backend, skip);
+            ArrayInsert(disc.sol.udg, disc.res.Rq, disc.common.npe, disc.common.nc,
+                        disc.common.ne, 0, disc.common.npe, 0, disc.common.ncu,
+                        0, disc.common.ne1);
+        }
+        else {
+            readarrayfromfile(filename, &solv.sys.u, disc.common.ndof1, backend, skip);
+            ArrayInsert(disc.sol.udg, solv.sys.u, disc.common.npe, disc.common.nc,
+                        disc.common.ne, 0, disc.common.npe, 0, disc.common.ncu,
+                        0, disc.common.ne1);
+        }
+    }
+    else {
+        const Int skip = headerSize + step * disc.common.ndofudg1;
+        readarrayfromfile(filename, &disc.sol.udg, disc.common.ndofudg1, backend, skip);
+    }
+
+    if (disc.common.ncw > 0) {
+        string fn = disc.common.fileout + "wdg_np" + NumberToString(rank) + ".bin";
+        const Int skip = headerSize + step * disc.common.ndofw1;
+        readarrayfromfile(fn, &disc.sol.wdg, disc.common.ndofw1, backend, skip);
+    }
+
+    if (disc.common.spatialScheme == 1) {
+        string fn = disc.common.fileout + "uhat_np" + NumberToString(rank) + ".bin";
+        const Int skip = headerSize + step * disc.common.ndofuhat;
+        readarrayfromfile(fn, &disc.sol.uh, disc.common.ndofuhat, backend, skip);
+    }
+
+    if ((disc.common.saveSolOpt == 0) && (disc.common.ncq > 0))
+        disc.evalQ(backend);
+}
  
 void CSolution::SaveParaview(Int backend, std::string fname_modifier, bool force_tdep_write) 
 {  

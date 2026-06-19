@@ -167,6 +167,18 @@ static bool IsValidModelABI(const ExasimDriverABI& abi)
            abi.HdgFextonly;
 }
 
+static int ParseIntegerArgument(const char* text, const char* name, const int rank, bool& ok)
+{
+    try {
+        return std::stoi(std::string(text));
+    } catch (...) {
+        if (rank == 0)
+            std::cerr << "Invalid " << name << ": " << text << std::endl;
+        ok = false;
+        return 0;
+    }
+}
+
 } // namespace
 
 ExasimSolver::ExasimSolver() = default;
@@ -470,6 +482,7 @@ int ExasimSolver::ParseInputs(int argc, char** argv)
     nummodels_ = 1;
     mpiprocs0_ = 0;
     restart_ = 0;
+    executionMode_ = ExasimExecutionMode::Solve;
     const bool preserveModelDefinitions =
         !builtinmodelID_.empty() || !model_abis_.empty();
 
@@ -579,6 +592,118 @@ int ExasimSolver::ParseInputs(int argc, char** argv)
     return 0;
 }
 
+int ExasimSolver::ParsePostprocessInputs(int argc, char** argv)
+{
+    filein_.clear();
+    fileout_.clear();
+    exasimpath_.clear();
+    nummodels_ = 1;
+    mpiprocs0_ = 0;
+    restart_ = 0;
+    executionMode_ = ExasimExecutionMode::Postprocess;
+    postmode_ = 0;
+    nsca_ = 0;
+    nvec_ = 0;
+    nten_ = 0;
+    nsurf_ = 0;
+    nvqoi_ = 0;
+    const bool preserveModelDefinitions =
+        !builtinmodelID_.empty() || !model_abis_.empty();
+
+    if (argc < 3) {
+        if (mpirank_ == 0)
+            std::cerr << "Usage: ./postprocess nummodels InputFile(s) OutputFile(s) [restart] [postmode]\n";
+        return 1;
+    }
+
+    bool ok = true;
+    nummodels_ = ParseIntegerArgument(argv[1], "nummodels", mpirank_, ok);
+    if (!ok)
+        return 1;
+
+    if (nummodels_ > 100) {
+        mpiprocs0_ = nummodels_ - 100;
+        nummodels_ = 2;
+    }
+
+    if ((mpiprocs0_ > 0) && (mpiprocs_ <= mpiprocs0_)) {
+        std::printf("For two-domain problem, total number of MPI processors (%d) must be greater than # MPI processors on the first domain (%d)\n",
+                    mpiprocs_, mpiprocs0_);
+        return 1;
+    }
+
+    const int requiredArgs = 2 * nummodels_ + 2;
+    if (argc < requiredArgs) {
+        if (mpirank_ == 0)
+            std::cerr << "Missing input/output file argument(s)." << std::endl;
+        return 1;
+    }
+
+    for (int i = 0; i < nummodels_; i++) {
+        filein_.push_back(std::string(argv[2 * i + 2]));
+        fileout_.push_back(std::string(argv[2 * i + 3]));
+    }
+
+    if (argc >= (2 * nummodels_ + 3)) {
+        restart_ = ParseIntegerArgument(argv[2 * nummodels_ + 2], "restart", mpirank_, ok);
+        if (!ok) return 1;
+    }
+    if (argc >= (2 * nummodels_ + 4)) {
+        postmode_ = ParseIntegerArgument(argv[2 * nummodels_ + 3], "postmode", mpirank_, ok);
+        if (!ok) return 1;
+    }
+    if (argc >= (2 * nummodels_ + 5)) {
+        nsca_ = ParseIntegerArgument(argv[2 * nummodels_ + 4], "nsca", mpirank_, ok);
+        if (!ok) return 1;
+    }
+    if (argc >= (2 * nummodels_ + 6)) {
+        nvec_ = ParseIntegerArgument(argv[2 * nummodels_ + 5], "nvec", mpirank_, ok);
+        if (!ok) return 1;
+    }
+    if (argc >= (2 * nummodels_ + 7)) {
+        nten_ = ParseIntegerArgument(argv[2 * nummodels_ + 6], "nten", mpirank_, ok);
+        if (!ok) return 1;
+    }
+    if (argc >= (2 * nummodels_ + 8)) {
+        nsurf_ = ParseIntegerArgument(argv[2 * nummodels_ + 7], "nsurf", mpirank_, ok);
+        if (!ok) return 1;
+    }
+    if (argc >= (2 * nummodels_ + 9)) {
+        nvqoi_ = ParseIntegerArgument(argv[2 * nummodels_ + 8], "nvqoi", mpirank_, ok);
+        if (!ok) return 1;
+    }
+
+    std::filesystem::path cwd = std::filesystem::current_path();
+    exasimpath_ = trimToSubstringAtLastOccurence(cwd, "Exasim");
+    if (exasimpath_ == "")
+        exasimpath_ = trimToSubstringAtLastOccurence(fileout_[0], "Exasim");
+    if (mpirank_ == 0)
+        std::cout << "exasimpath = " << exasimpath_ << std::endl;
+
+    if (mpiprocs0_ > 0) {
+        nummodels_ = 1;
+#ifdef HAVE_MPI
+        int color = (mpirank_ < mpiprocs0_) ? 0 : 1;
+        MPI_Comm_split(EXASIM_COMM_WORLD, color, mpirank_, &local_comm_);
+        EXASIM_COMM_LOCAL = local_comm_;
+        MPI_Comm_size(EXASIM_COMM_LOCAL, &localprocs_);
+        MPI_Comm_rank(EXASIM_COMM_LOCAL, &localrank_);
+#endif
+    }
+
+    if (!preserveModelDefinitions && builtinmodelID_.empty())
+        builtinmodelID_.assign(NumModelDefinitions(), 0);
+
+    if (!builtinmodelID_.empty() &&
+        builtinmodelID_.size() != static_cast<size_t>(NumModelDefinitions())) {
+        if (mpirank_ == 0)
+            std::cerr << "Number of builtin model IDs does not match the number of model definitions." << std::endl;
+        return 1;
+    }
+
+    return 0;
+}
+
 int ExasimSolver::BuildModels()
 {
     const int numModelDefinitions = NumModelDefinitions();
@@ -618,14 +743,14 @@ int ExasimSolver::BuildModels()
             models_.push_back(std::make_unique<CSolution>(
                 filein_[i], fileout_[i], exasimpath_, mpiprocs_, mpirank_,
                 fileoffset, gpuid, backend_, builtinmodelID_[modelDefinition],
-                model_abis_[modelDefinition]));
+                model_abis_[modelDefinition], nsca_, nvec_, nten_, nsurf_, nvqoi_, executionMode_));
         }
         else if (mpiprocs0_ > 0) {
             if (mpirank_ < mpiprocs0_) {
                 models_.push_back(std::make_unique<CSolution>(
                     filein_[0], fileout_[0], exasimpath_, mpiprocs_, mpirank_,
                     fileoffset, gpuid, backend_, builtinmodelID_[modelDefinition],
-                    model_abis_[modelDefinition]));
+                    model_abis_[modelDefinition], nsca_, nvec_, nten_, nsurf_, nvqoi_, executionMode_));
             }
             else {
                 fileoffset = mpiprocs0_;
@@ -634,7 +759,7 @@ int ExasimSolver::BuildModels()
                 models_.push_back(std::make_unique<CSolution>(
                     filein_[1], fileout_[1], exasimpath_, mpiprocs_, mpirank_,
                     fileoffset, gpuid, backend_, builtinmodelID_[modelDefinition],
-                    model_abis_[modelDefinition]));
+                    model_abis_[modelDefinition], nsca_, nvec_, nten_, nsurf_, nvqoi_, executionMode_));
             }
         }
 
@@ -1122,6 +1247,27 @@ int ExasimSolver::RunSolveProblemOrPostprocess()
                               NumberToString(models_[i]->disc.common.mpiRank) + ".bin";
             writearray2file(filename, models_[i]->disc.sol.udg,
                             models_[i]->disc.common.ndofudg1, backend_);
+        }
+    }
+
+    return 0;
+}
+
+int ExasimSolver::Postprocess()
+{
+    if (!initialized_ || models_.empty())
+        return 1;
+
+    for (int i = 0; i < nummodels_; i++) {
+        if (postmode_ == 0) {
+            models_[i]->disc.common.currentstep = -1;
+            models_[i]->ReadSolutions(backend_);
+            models_[i]->SaveQoI(backend_);
+            if (mpirank_ == 0)
+                std::cout << "save paraview = " << models_[i]->vis.savemode << std::endl;
+            if (models_[i]->vis.savemode > 0)
+                models_[i]->SaveParaview(backend_);
+            models_[i]->SaveOutputCG(backend_);
         }
     }
 

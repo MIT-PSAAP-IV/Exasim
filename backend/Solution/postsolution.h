@@ -117,6 +117,9 @@ public:
     
     // read solutions from binary files
     void ReadSolutions(Int backend);        
+
+    // read a saved solution record from the appended solution files
+    void GetSolutions(Int step, Int backend);
     
     // save output in binary files
     void SaveOutputDG(Int backend);        
@@ -126,5 +129,4 @@ public:
 };
 
 #endif        
-
 

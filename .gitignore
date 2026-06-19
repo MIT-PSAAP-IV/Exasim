@@ -439,3 +439,4 @@ examples/LinearElasticity/platebottomgaussian2d/deformedmeshzoom.png
 /examples/NavierStokes/eppler/eppler
 /examples/NavierStokes/eppler3d/eppler3d
 /examples/NavierStokes/eppler3d/eppler2d
+backend/Postprocessing/solution_io

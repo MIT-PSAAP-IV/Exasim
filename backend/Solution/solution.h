@@ -41,6 +41,8 @@
 #ifndef __SOLUTION_H__
 #define __SOLUTION_H__
 
+#include "exasim/execution_mode.hpp"
+
 // Common helper: open file and write 3-element header [a0, a1, a2]
 void open_and_write(std::ofstream& ofs,
                     const std::string& prefix,
@@ -134,10 +136,13 @@ public:
     // constructor 
     CSolution(string filein, string fileout, string exasimpath, Int mpiprocs,
               Int mpirank, Int fileoffset, Int omprank, Int backend,
-              Int builtinmodelID, const ExasimDriverABI& abi)   
+              Int builtinmodelID, const ExasimDriverABI& abi,
+              Int nsca = 0, Int nvec = 0, Int nten = 0,
+              Int nsurf = 0, Int nvqoi = 0,
+              ExasimExecutionMode mode = ExasimExecutionMode::Solve)   
        : disc(filein, fileout, exasimpath, mpiprocs, mpirank, fileoffset,
-              omprank, backend, builtinmodelID, abi),
-         prec(disc, backend), solv(disc, backend), vis(disc, backend) 
+              omprank, backend, builtinmodelID, abi, nsca, nvec, nten, nsurf, nvqoi, mode),
+         prec(disc, backend, mode), solv(disc, backend, mode), vis(disc, backend) 
     {   
         int ncx = disc.common.ncx;                            
         int nd = disc.common.nd;     
@@ -260,6 +265,9 @@ public:
     
     // read solutions from binary files
     void ReadSolutions(Int backend);        
+
+    // read a saved solution record from the appended solution files
+    void GetSolutions(Int step, Int backend);
         
     // save output in binary files
     void SaveOutputCG(Int backend);   

@@ -56,6 +56,7 @@
 #endif
 
 #include "driver_abi.hpp"
+#include "exasim/execution_mode.hpp"
 #include "modeldefaults.hpp"
 
 #if defined(HAVE_MPI) || defined(_MPI)
@@ -91,6 +92,7 @@ public:
     int InitializeEnvironment(int argc, char** argv, MPI_Comm comm);
     int Initialize(int argc, char** argv, MPI_Comm comm);    
     int ParseInputs(int argc, char** argv);
+    int ParsePostprocessInputs(int argc, char** argv);
     int SetModelDefinition(const int modelnumber, const int builtinmodelID,
                            const ExasimDriverABI& abi);
     int InitializeModels();
@@ -125,6 +127,7 @@ public:
     int RunSteady();
     int RunSteady(const int modelnumber);
     int RunSolveProblemOrPostprocess();
+    int Postprocess();
     int Solve();
     int Solve(const int modelnumber);
 
@@ -168,6 +171,13 @@ private:
     int nummodels_ = 0;
     int backend_ = 0;
     int restart_ = 0;
+    ExasimExecutionMode executionMode_ = ExasimExecutionMode::Solve;
+    int postmode_ = 0;
+    int nsca_ = 0;
+    int nvec_ = 0;
+    int nten_ = 0;
+    int nsurf_ = 0;
+    int nvqoi_ = 0;
     std::vector<int> builtinmodelID_;
     int interface_modelnumber_ = -1;
 
