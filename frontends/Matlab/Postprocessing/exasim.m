@@ -28,26 +28,31 @@ if nmodels==1
       %compilerstr = compilepdemodel(pde);
     end
 
-    runstr = runcode(pde, 1); % run C++ code
-
-    % get solution from output files in this model's dataout dir
-    sol = fetchsolution(pde,master,dmd, pde.datapath + "/dataout" + model_strn(pde));
-
-    % optionally package a relocatable "data transfer app" bundle (matches the
-    % Python frontend: run first, then export; the local build+run doubles as
-    % the bundle's verification step).
+    % When pde.exportapp is set, package a relocatable "data transfer app"
+    % bundle INSTEAD of running the simulation here: a production run can be
+    % prohibitively expensive on the local machine, so we export it to be built
+    % and run elsewhere. pde.buildandrun (default true) controls whether
+    % exportapp builds+runs the bundle in a throwaway scratch dir to verify it
+    % before hand-off; set it false to export without any local build/run.
     if isfield(pde,'exportapp') && ~isempty(pde.exportapp)
         if isfield(pde,'buildandrun') && ~isempty(pde.buildandrun)
             exportapp(pde, pde.exportapp, pde.buildandrun);
         else
             exportapp(pde, pde.exportapp, true);
         end
-    end
+        runstr = [];
+        sol = [];
+    else
+        runstr = runcode(pde, 1); % run C++ code
 
-    % get residual norms from output files in dataout folder
-    if pde.saveResNorm
-        fileID = fopen('dataout/out_residualnorms0.bin','r'); res = fread(fileID,'double'); fclose(fileID);
-        res = reshape(res,4,[])';
+        % get solution from output files in this model's dataout dir
+        sol = fetchsolution(pde,master,dmd, pde.datapath + "/dataout" + model_strn(pde));
+
+        % get residual norms from output files in dataout folder
+        if pde.saveResNorm
+            fileID = fopen('dataout/out_residualnorms0.bin','r'); res = fread(fileID,'double'); fclose(fileID);
+            res = reshape(res,4,[])';
+        end
     end
 else
     master = cell(nmodels,1);

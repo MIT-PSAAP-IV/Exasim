@@ -142,9 +142,18 @@ if [ "${EXPORT_TEST:-0}" = "1" ]; then
   REL="$RUN/relocated"; rm -rf "$REL"; cp -R "$B" "$REL"
   ( cd "$REL" && EXASIM_ROOT="$INSTALL" bash run.sh ) > "$RUN/export-run.log" 2>&1 \
     || { cat "$RUN/export-run.log"; echo "FAIL: relocated bundle run.sh failed"; exit 1; }
-  [ -f "$REL/dataout/outqoi.txt" ] \
-    || { echo "FAIL: relocated run produced no dataout/outqoi.txt"; exit 1; }
-  echo "frontend_${FE}_export: bundle pristine + relocatable build+run OK"
+  rq="$REL/dataout/outqoi.txt"
+  [ -f "$rq" ] || { echo "FAIL: relocated run produced no dataout/outqoi.txt"; exit 1; }
+  qoi="$(tail -1 "$rq" | awk '{print $2}')"
+  if awk "BEGIN{exit !( ($qoi)+0 < ($QOI_TOL)+0 )}"; then
+    echo "frontend_${FE}_export: bundle pristine + relocatable build+run OK (Domain_QoI1 = $qoi < $QOI_TOL)"
+  else
+    echo "FAIL: relocated bundle Domain_QoI1 = $qoi >= $QOI_TOL"; exit 1
+  fi
+  # Export mode skips the local main run (pde.exportapp set), so there is no
+  # main-dir dataout/outqoi.txt to gate below: the relocated bundle's QoI above
+  # is the gate.
+  exit 0
 fi
 
 # --- model-cache check (CACHE_TEST=1): a second app dir must reuse the
@@ -218,7 +227,16 @@ if [ "${COMBINED_EXPORT:-0}" = "1" ]; then
   REL="$RUN/relocated_combined"; rm -rf "$REL"; cp -R "$B" "$REL"
   ( cd "$REL" && EXASIM_ROOT="$INSTALL" bash run.sh ) > "$RUN/export-combined.log" 2>&1 \
     || { cat "$RUN/export-combined.log"; echo "FAIL: relocated combined run.sh failed"; exit 1; }
-  echo "frontend_combined_export: bundle pristine + relocatable build+run OK"
+  for q in "$REL/dataout/outqoi.txt" "$REL/dataout1/outqoi.txt"; do
+    [ -f "$q" ] || { echo "FAIL: relocated combined run produced no $q"; exit 1; }
+    qoi="$(tail -1 "$q" | awk '{print $2}')"
+    awk "BEGIN{exit !( ($qoi)+0 < ($QOI_TOL)+0 )}" \
+      || { echo "FAIL: relocated combined $q Domain_QoI1 = $qoi >= $QOI_TOL"; exit 1; }
+  done
+  echo "frontend_combined_export: bundle pristine + relocatable build+run OK (both QoIs < $QOI_TOL)"
+  # Combined export mode skips the local main run; the relocated bundle's
+  # per-model QoIs above are the gate (no main-dir dataout to check below).
+  exit 0
 fi
 
 # --- QoI gate (in addition to any in-language assert) ------------------------

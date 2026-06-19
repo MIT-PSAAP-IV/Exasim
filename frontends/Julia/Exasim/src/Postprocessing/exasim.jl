@@ -24,24 +24,31 @@ if nmodels==1
     compilerstr = Gencode.cmakecompile(pde); # use cmake to compile source codes
     #compilerstr = Main.compilepdemodel(pde); # use cmake to compile source codes
 
-    runstr = Gencode.runcode(pde, 1);
-
-    # optionally package a relocatable "data transfer app" bundle (the
-    # local build+run above doubles as the bundle's verification step).
+    # When pde.exportapp is set, package a relocatable "data transfer app"
+    # bundle INSTEAD of running the simulation here: a production run can be
+    # prohibitively expensive on the local machine, so we export it to be built
+    # and run elsewhere. pde.buildandrun (default 1) controls whether exportapp
+    # builds+runs the bundle in a scratch dir to verify it; set it to 0 to
+    # export without any local build/run.
     if isdefined(pde, :exportapp) && !isempty(pde.exportapp)
-        Gencode.exportapp(pde, pde.exportapp; build=true);
-    end
+        buildandrun = (isdefined(pde, :buildandrun) ? pde.buildandrun : 1) != 0;
+        Gencode.exportapp(pde, pde.exportapp; build=buildandrun);
+        runstr = "";
+        sol = [];
+    else
+        runstr = Gencode.runcode(pde, 1);
 
-    # get solution from output files in this model's dataout dir
-    strn = Gencode.model_strn(pde);
-    doutdir = isempty(strn) ? joinpath(pde.datapath, "dataout") : joinpath(pde.datapath, "dataout", strn);
-    sol = Postprocessing.fetchsolution(pde,master,dmd, doutdir);
-    if pde.saveResNorm == 1
-        fn = "dataout/out_residualnorms0.bin";
-        res = reinterpret(Float64,read(fn));
-        ne = Int64(round(length(res)/4));
-        res = reshape(res,(4,ne));
-        res = res';
+        # get solution from output files in this model's dataout dir
+        strn = Gencode.model_strn(pde);
+        doutdir = isempty(strn) ? joinpath(pde.datapath, "dataout") : joinpath(pde.datapath, "dataout", strn);
+        sol = Postprocessing.fetchsolution(pde,master,dmd, doutdir);
+        if pde.saveResNorm == 1
+            fn = "dataout/out_residualnorms0.bin";
+            res = reinterpret(Float64,read(fn));
+            ne = Int64(round(length(res)/4));
+            res = reshape(res,(4,ne));
+            res = res';
+        end
     end
 else
     master = Array{Any, 1}(undef, nmodels);

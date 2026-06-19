@@ -36,11 +36,16 @@ sol, pde, mesh, master, dmd, cstr, rstr, res = exasim.exasim([pde0, pde1], [mesh
 assert pde[0]['modelid'] == 100 and pde[1]['modelid'] == 101, \
     f"expected modelids [100, 101], got {[pde[0]['modelid'], pde[1]['modelid']]}"
 
-tol = float(os.environ.get("QOI_TOL", "1e-8"))
-for m, sub in ((0, ""), (1, "1")):
-    qoifile = os.path.join(pde[m]['datapath'], "dataout", sub, "outqoi.txt")
-    err2 = float(open(qoifile).readlines()[-1].split()[1])
-    print(f"slot {m} (id {pde[m]['modelid']}): L2 error^2 = {err2:.6e} (tol {tol:.1e})")
-    assert err2 < tol, f"slot {m} QoI gate failed: {err2} >= {tol}"
+if pde[0].get('exportapp'):
+    # export mode: no local run, so no per-model main-dir QoI to gate here; the
+    # harness validates the exported combined bundle by relocating + running it.
+    print("COMBINED MULTI-PDE TEST (export mode): skipped in-app QoI gate")
+else:
+    tol = float(os.environ.get("QOI_TOL", "1e-8"))
+    for m, sub in ((0, ""), (1, "1")):
+        qoifile = os.path.join(pde[m]['datapath'], "dataout", sub, "outqoi.txt")
+        err2 = float(open(qoifile).readlines()[-1].split()[1])
+        print(f"slot {m} (id {pde[m]['modelid']}): L2 error^2 = {err2:.6e} (tol {tol:.1e})")
+        assert err2 < tol, f"slot {m} QoI gate failed: {err2} >= {tol}"
 
-print("COMBINED MULTI-PDE TEST PASSED")
+    print("COMBINED MULTI-PDE TEST PASSED")
