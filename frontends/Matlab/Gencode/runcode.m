@@ -11,7 +11,11 @@ end
 
 disp("Run C++ Exasim code ...")
 
-exe = pde.builddir + "/build/exasimapp";
+if isfield(pde, 'combinedmodel') && pde.combinedmodel
+    exe = model_builddir(pde) + "/build/exasimapp";   % external-model path
+else
+    exe = string(pde.builddir) + "/build/exasimapp";  % legacy path
+end
 if ~exist(char(exe), 'file')
     error("Solver executable not found at %s; run cmakecompile(pde) first.", exe);
 end
@@ -22,7 +26,9 @@ if numpde>100 % two-domain problems
   numpde = 2;
 end
 if numpde==1
-    mystr = mystr + DataPath + "/datain/ " + DataPath + "/dataout/out";
+    % per-model datain/dataout (sibling strn dirs; "" for model 0 -> datain/)
+    strn = model_strn(pde);
+    mystr = mystr + DataPath + "/datain" + strn + "/ " + DataPath + "/dataout" + strn + "/out";
 else
     for i = 1:numpde
         mystr = mystr + DataPath + "/datain" + num2str(i) + "/ " + DataPath + "/dataout" + num2str(i) + "/out";

@@ -30,13 +30,20 @@ mesh.boundarycondition = [1;1;1;1];
 % generate and run C++ code to solve the PDE model
 [sol,pde,mesh] = exasim(pde,mesh);
 
-% QoI gate
-qoifile = char(pde.datapath + "/dataout/outqoi.txt");
-lines = strsplit(strtrim(fileread(qoifile)), '\n');
-last = strsplit(strtrim(lines{end}));
-err2 = str2double(last{2});
-tolenv = getenv('QOI_TOL');
-if isempty(tolenv), tol = 1e-8; else, tol = str2double(tolenv); end
-fprintf("L2 error^2 = %g (tol %g)\n", err2, tol);
-assert(err2 < tol, "QoI gate failed: %g >= %g", err2, tol);
-fprintf("FRONTEND TEST PASSED\n");
+if isfield(pde,'exportapp') && ~isempty(pde.exportapp)
+    % export mode: exasim() packages the bundle without running the simulation
+    % locally, so there is no main-dir QoI to gate here (the harness validates
+    % the exported bundle by relocating and running it).
+    fprintf("FRONTEND TEST (export mode): skipped in-app QoI gate\n");
+else
+    % QoI gate
+    qoifile = char(pde.datapath + "/dataout/outqoi.txt");
+    lines = strsplit(strtrim(fileread(qoifile)), '\n');
+    last = strsplit(strtrim(lines{end}));
+    err2 = str2double(last{2});
+    tolenv = getenv('QOI_TOL');
+    if isempty(tolenv), tol = 1e-8; else, tol = str2double(tolenv); end
+    fprintf("L2 error^2 = %g (tol %g)\n", err2, tol);
+    assert(err2 < tol, "QoI gate failed: %g >= %g", err2, tol);
+    fprintf("FRONTEND TEST PASSED\n");
+end

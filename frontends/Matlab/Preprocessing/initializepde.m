@@ -24,7 +24,7 @@ pde.codename = "Exasim";
 pde.datapath = pwd();
 pde.builddir = string(fullfile(pwd(), ".exasim"));
 pde.buildpath = pde.builddir;
-pde.modelid = 100;   % external builtin model ID for the generated model
+pde.modelid = -1;    % external builtin model ID; -1 = auto (100 + modelnumber), resolved in cmakecompile
 pde.exasimpath = ""; % Exasim install prefix; resolved by cmakecompile
 pde.version = version;
 pde.appname = "app";

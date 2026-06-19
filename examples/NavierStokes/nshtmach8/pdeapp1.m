@@ -4,7 +4,6 @@ run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'frontends', 'M
 
 % initialize pde structure and mesh structure
 [pde{1},~] = initializeexasim();
-pde{1}.buildpath = string(pwd);
 
 % Define a PDE model: governing equations, initial solutions, and boundary conditions
 pde{1}.model = "ModelD";          % ModelC, ModelD, ModelW
@@ -73,21 +72,21 @@ mesh{1}.vdg(:,1,:) = 0.04.*tanh(dist*30);
 mesh{1}.udg = sol{1};
 [pde{1},mesh{1},master{1},dmd{1}] = preprocessing(pde{1},mesh{1});
 runcode(pde{1}, 1); % run C++ code
-sol{1} = fetchsolution(pde{1},master{1},dmd{1}, pde{1}.buildpath + '/dataout');
+sol{1} = fetchsolution(pde{1},master{1},dmd{1}, pde{1}.datapath + "/dataout" + model_strn(pde{1}));
 
 disp("Iter 3")
 mesh{1}.vdg(:,1,:) = 0.025.*tanh(dist*30);
 mesh{1}.udg = sol{1};
 [pde{1},mesh{1},master{1},dmd{1}] = preprocessing(pde{1},mesh{1});
 runcode(pde{1}, 1); % run C++ code
-sol{1} = fetchsolution(pde{1},master{1},dmd{1}, pde{1}.buildpath + '/dataout');
+sol{1} = fetchsolution(pde{1},master{1},dmd{1}, pde{1}.datapath + "/dataout" + model_strn(pde{1}));
 
 disp("Iter 4")
 mesh{1}.vdg(:,1,:) = 0.025.*tanh(dist*5);
 mesh{1}.udg = sol{1};
 [pde{1},mesh{1},master{1},dmd{1}] = preprocessing(pde{1},mesh{1});
 runcode(pde{1}, 1); % run C++ code
-sol{1} = fetchsolution(pde{1},master{1},dmd{1}, pde{1}.buildpath + '/dataout');
+sol{1} = fetchsolution(pde{1},master{1},dmd{1}, pde{1}.datapath + "/dataout" + model_strn(pde{1}));
 mesh{1}.udg = sol{1};
 
 figure(1); clf; scaplot(mesh{1}, eulereval(sol{1}, 'M',gam,Minf),[]);

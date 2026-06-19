@@ -33,7 +33,9 @@ def cmakecompile(pde):
     prefix = config.install_prefix()
     pde['exasimpath'] = str(prefix)
 
-    builddir = pde['builddir']
+    # Per-model build root: model 0 stays flat (builddir), others nest under
+    # models/<n>/ so coexisting models never clobber CMakeLists/main/build.
+    builddir = config.model_builddir(pde)
     kernels = os.path.join(builddir, "kernels")
     if not os.path.isdir(kernels):
         raise RuntimeError(
@@ -44,10 +46,11 @@ def cmakecompile(pde):
     else:
         variant = "cpumpi" if pde['mpiprocs'] > 1 else "cpu"
 
+    modelid = config.resolve_modelid(pde)
     tmpl = config.frontend_app_template_dir()
     subs = {
         "EXASIM_VARIANT": variant,
-        "MODEL_ID": pde['modelid'],
+        "MODEL_ID": modelid,
         "KERNEL_DIR": kernels,
     }
     _render(tmpl / "CMakeLists.txt.in", os.path.join(builddir, "CMakeLists.txt"), subs)
@@ -101,6 +104,62 @@ def cmakecompile(pde):
     #     os.makedirs(cachedir, exist_ok=True)
     #     for src in libs + [exe]:
     #         shutil.copy2(src, os.path.join(cachedir, os.path.basename(src)))
+    return cfg
+
+
+def cmakecompile_combined(pdes):
+    """Build ONE solver executable that runs several generated models together
+    (combined multi-PDE). Each pde in `pdes` must already have its kernels
+    generated (Gencode.gencode) into its own per-model build dir, and a distinct
+    modelnumber (hence distinct modelid). Renders the frontend-app-combined
+    templates into <builddir>/combined and builds against the installed Exasim.
+    Returns the configure command.
+    """
+    print("Compile combined multi-PDE Exasim app against the installed Exasim package...")
+
+    prefix = config.install_prefix()
+    builddir = os.path.join(pdes[0]['builddir'], "combined")
+    os.makedirs(builddir, exist_ok=True)
+
+    ids, kdirs = [], []
+    for p in pdes:
+        p['exasimpath'] = str(prefix)
+        ids.append(config.resolve_modelid(p))
+        kd = os.path.join(config.model_builddir(p), "kernels")
+        if not os.path.isdir(kd):
+            raise RuntimeError(
+                f"No generated kernels at {kd}; run Gencode.gencode(pde) first.")
+        kdirs.append(kd)
+    if len(set(ids)) != len(ids):
+        raise RuntimeError(
+            f"combined models need distinct modelids (one per slot); got {ids}")
+
+    p0 = pdes[0]
+    if p0['platform'] == "gpu":
+        variant = "gpumpi" if p0['mpiprocs'] > 1 else "gpu"
+    else:
+        variant = "cpumpi" if p0['mpiprocs'] > 1 else "cpu"
+
+    tmpl = config.frontend_app_combined_template_dir()
+    subs = {
+        "EXASIM_VARIANT": variant,
+        "MODEL_IDS": ", ".join(str(i) for i in ids),          # main.cpp: {100, 101}
+        "MODEL_ID_LIST": " ".join(str(i) for i in ids),       # CMake: IDS 100 101
+        "KERNEL_DIRS": " ".join('"' + d + '"' for d in kdirs),  # CMake: KERNELS_DIRS
+    }
+    _render(tmpl / "CMakeLists.txt.in", os.path.join(builddir, "CMakeLists.txt"), subs)
+    _render(tmpl / "main.cpp.in", os.path.join(builddir, "main.cpp"), subs)
+
+    bdir = os.path.join(builddir, "build")
+    exe = os.path.join(bdir, "exasimapp")
+    cmake = config.cmake_command()
+    cfg = [cmake, "-S", builddir, "-B", bdir,
+           "-DExasim_DIR=" + str(config.cmake_dir())]
+    subprocess.run(cfg, check=True)
+    jobs = os.environ.get("JOBS") or str(os.cpu_count() or 4)
+    subprocess.run([cmake, "--build", bdir, "--parallel", jobs], check=True)
+    if not os.path.exists(exe):
+        raise RuntimeError(f"Build did not produce {exe}.")
     return cfg
 
 

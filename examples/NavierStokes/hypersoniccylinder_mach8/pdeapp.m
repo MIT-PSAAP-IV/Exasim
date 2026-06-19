@@ -21,7 +21,7 @@ for i = 1:length(lambda)
         meshhm.vdg = limiting(div,0,3,1e3,0);
         [pdehm,meshhm,masterhm,dmdhm] = preprocessing(pdehm,meshhm);
         runcode(pdehm, 1); % run C++ code
-        solhm = fetchsolution(pdehm,masterhm,dmdhm,pdehm.buildpath + '/dataout');
+        solhm = fetchsolution(pdehm,masterhm,dmdhm,pdehm.datapath + "/dataout" + model_strn(pdehm));
         s = solhm(:,1,:);
         s = s/max(s(:));
         av = (s-S0).*(atan(gamma*(s-S0))/pi + 0.5) - atan(gamma)/pi + 0.5;    
@@ -34,11 +34,11 @@ for i = 1:length(lambda)
     mesh.udg = sol;
     [pde,mesh,master,dmd] = preprocessing(pde,mesh);
     runcode(pde, 1); % run C++ code
-    sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+    sol = fetchsolution(pde,master,dmd, pde.datapath + "/dataout" + model_strn(pde));
     figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[0 8]);
 end
 
-% fileID = fopen(pde.buildpath+"/dataout/outuhat_np0.bin",'r');
+% fileID = fopen(pde.datapath + "/dataout" + model_strn(pde) + "/outuhat_np0.bin",'r');
 % UH = fread(fileID,'double');
 % UH = UH(4:end);
 % UH = reshape(UH, [pde.ncu mesh.nf*master.npf]);

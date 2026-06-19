@@ -4,7 +4,7 @@ run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'frontends', 'M
 
 % initialize pdeht structure and mesh structure
 [pdeht,~] = initializeexasim();
-pdeht.buildpath = string(pwd()) + "/ht";
+pdeht.modelnumber = 1;   % isolate from the NS model (build .exasim/models/1, data dataout1)
 
 % Define a PDE model: governing equations, initial solutions, and boundary conditions
 pdeht.model = "ModelD";          % ModelC, ModelD, ModelW

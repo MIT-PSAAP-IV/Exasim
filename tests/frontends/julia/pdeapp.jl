@@ -24,10 +24,17 @@ mesh.boundarycondition = [1 1 1 1];
 
 sol, pde, mesh = Exasim.exasim(pde, mesh);
 
-qoifile = joinpath(pde.datapath, "dataout", "outqoi.txt");
-last_row = split(strip(readlines(qoifile)[end]));
-err2 = parse(Float64, last_row[2]);
-tol = parse(Float64, get(ENV, "QOI_TOL", "1e-8"));
-println("L2 error^2 = $err2 (tol $tol)");
-err2 < tol || error("QoI gate failed: $err2 >= $tol");
-println("FRONTEND TEST PASSED");
+if isdefined(pde, :exportapp) && !isempty(pde.exportapp)
+    # export mode: exasim() packages the bundle without running the simulation
+    # locally, so there is no main-dir QoI to gate here (the harness validates
+    # the exported bundle by relocating and running it).
+    println("FRONTEND TEST (export mode): skipped in-app QoI gate");
+else
+    qoifile = joinpath(pde.datapath, "dataout", "outqoi.txt");
+    last_row = split(strip(readlines(qoifile)[end]));
+    err2 = parse(Float64, last_row[2]);
+    tol = parse(Float64, get(ENV, "QOI_TOL", "1e-8"));
+    println("L2 error^2 = $err2 (tol $tol)");
+    err2 < tol || error("QoI gate failed: $err2 >= $tol");
+    println("FRONTEND TEST PASSED");
+end

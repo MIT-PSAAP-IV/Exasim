@@ -43,7 +43,14 @@ else
     cmakecmd = "cmake";
 end
 
-builddir = pde.builddir;
+% Per-model build root for the external-model path (combinedmodel): model 0
+% stays flat (= builddir), others nest under models/<n>/ so coexisting models
+% never clobber. The legacy interfacecondition/kkgencodeall path uses builddir.
+if isfield(pde, 'combinedmodel') && pde.combinedmodel
+    builddir = model_builddir(pde);
+else
+    builddir = string(pde.builddir);
+end
 kernels = builddir + "/kernels";
 if ~exist(char(kernels), 'dir')
     error("No generated kernels at %s; run kkgencode(pde) first.", kernels);
@@ -55,8 +62,9 @@ else
     if pde.mpiprocs > 1, variant = "cpumpi"; else, variant = "cpu"; end
 end
 
+modelid = resolve_modelid(pde);
 tmpl = prefix + "/lib/cmake/Exasim/frontend-app";
-subs = {"EXASIM_VARIANT", variant; "MODEL_ID", string(pde.modelid); "KERNEL_DIR", kernels};
+subs = {"EXASIM_VARIANT", variant; "MODEL_ID", string(modelid); "KERNEL_DIR", kernels};
 rendertemplate(tmpl + "/CMakeLists.txt.in", builddir + "/CMakeLists.txt", subs);
 rendertemplate(tmpl + "/main.cpp.in", builddir + "/main.cpp", subs);
 

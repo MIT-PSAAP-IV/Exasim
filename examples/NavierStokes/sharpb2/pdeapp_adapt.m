@@ -52,6 +52,6 @@ mesh.dgnodes = xdg;
 
 preprocessing(pde,mesh);
 runcode(pde, 1); % run C++ code
-sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+sol = fetchsolution(pde,master,dmd, pde.datapath + '/dataout');
 figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[],1); colorbar; axis equal; axis tight;set(gca,'FontSize',16);
 figure(2); clf; scaplot(mesh, mesh.vdg(:,1,:),[],1); colorbar; axis equal; axis tight;set(gca,'FontSize',16);

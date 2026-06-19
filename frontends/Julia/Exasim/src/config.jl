@@ -37,7 +37,25 @@ end
 
 cmake_dir() = joinpath(install_prefix(), "lib", "cmake", "Exasim")
 frontend_app_template_dir() = joinpath(cmake_dir(), "frontend-app")
+frontend_app_combined_template_dir() = joinpath(cmake_dir(), "frontend-app-combined")
 text2code_path() = joinpath(install_prefix(), "bin", "text2code")
+
+# --- Per-model identity and build layout (mirrors the Python frontend) -------
+# modelnumber = I/O & build index; modelid = runtime dispatch id (auto =
+# 100 + modelnumber); kernels are unsuffixed and isolated by per-model dir.
+
+# Per-model path suffix: "" for model 0 (historical flat layout), else number.
+model_strn(app) = app.modelnumber == 0 ? "" : string(app.modelnumber)
+
+# Resolve an auto (negative) modelid to 100 + modelnumber; explicit id wins.
+resolve_modelid(app) = app.modelid < 0 ? 100 + app.modelnumber : app.modelid
+
+# Per-model build root: model 0 stays flat (= builddir, byte-identical),
+# others nest under models/<n>/ so coexisting models never clobber.
+function model_builddir(app)
+    strn = model_strn(app)
+    isempty(strn) ? app.builddir : joinpath(app.builddir, "models", strn)
+end
 
 # Common locations a GUI launchd PATH omits; probed by absolute path.
 const _TOOL_DIRS = ("/opt/homebrew/bin", "/usr/local/bin", "/opt/local/bin", "/usr/bin")

@@ -6,10 +6,10 @@ end
 
 % initialize pde structure and mesh structure
 [pde, mesh0] = initializeexasim();
-rpath = pde.buildpath + "/radaptivity";
-if exist(rpath,'dir') == 0
-    mkdir(rpath);
-end
+% Per-model build isolation for the low-level (non-exasim) flow: poisson is
+% model 0 and transport is model 1, so they build into .exasim/models/<n> and
+% read/write datain<n>/dataout<n> without clobbering each other.
+pde.combinedmodel = true;
 
 % get only necessary fields
 mesh0.p = mesh.p;
@@ -56,15 +56,14 @@ pde.ppdegree = 10;
 pde.NLtol = 1e-8;
 
 % solve Poisson equation with  homogeneous Neumann boundary condition
-pde.buildpath = rpath + "/poisson"; 
 [pde,mesh,master,dmd] = preprocessing(pde,mesh);
-if exist(pde.buildpath + "/cpuEXASIM", "file") == 0
+if exist(model_builddir(pde) + "/build/exasimapp", "file") == 0
   kkgencode(pde);
-  cmakecompile(pde); 
-end           
+  cmakecompile(pde);
+end
 runcode(pde, 1); % run C++ code
 % get solution from output files in dataout folder
-sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+sol = fetchsolution(pde,master,dmd, pde.datapath + "/dataout" + model_strn(pde));
 
 % plot the velocity field
 figure(1); clf; scaplot(mesh,sol(:,2,:),[],2); axis on; axis equal; 
@@ -85,6 +84,7 @@ mesh1 = mesh;
 
 % Define a PDE model: governing equations, initial solutions, and boundary conditions
 pdet = pde;
+pdet.modelnumber = 1;   % transport is model 1 -> isolated build (.exasim/models/1) and dataout1
 pdet.model = "ModelD";          % ModelC, ModelD, ModelW
 pdet.modelfile = "pdemodel_transport";    % name of a file defining the PDE model
 
@@ -102,15 +102,14 @@ pdet.ppdegree = 1;
 %mesh.boundarycondition(3:5) = 2;
 mesh.udg = mesh.dgnodes(:,1,:);
 %[solt,pdet] = exasim(pdet,mesh);
-pdet.buildpath = rpath + "/transport"; 
 [pdet,mesh,master,dmd] = preprocessing(pdet,mesh);
-if exist(pdet.buildpath + "/cpuEXASIM", "file") == 0
+if exist(model_builddir(pdet) + "/build/exasimapp", "file") == 0
   kkgencode(pdet);
-  cmakecompile(pdet); 
-end           
+  cmakecompile(pdet);
+end
 runcode(pdet, 1); % run C++ code
 % get solution from output files in dataout folder
-solt = fetchsolution(pdet,master,dmd, pdet.buildpath + '/dataout');
+solt = fetchsolution(pdet,master,dmd, pdet.datapath + "/dataout" + model_strn(pdet));
 
 % the x-component of the adaptive mesh is the solution of the transport
 % equation at time t = 1
@@ -122,7 +121,7 @@ mesh.udg = mesh.dgnodes(:,2,:);
 %solt = exasim(pdet,mesh);
 [pdet,mesh,master,dmd] = preprocessing(pdet,mesh);
 runcode(pdet, 1); % run C++ code
-solt = fetchsolution(pdet,master,dmd, pdet.buildpath + '/dataout');
+solt = fetchsolution(pdet,master,dmd, pdet.datapath + "/dataout" + model_strn(pdet));
 
 % the y-component of the adaptive mesh is the solution of the transport
 % equation at time t = 1
