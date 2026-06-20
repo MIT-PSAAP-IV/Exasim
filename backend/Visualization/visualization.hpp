@@ -123,7 +123,7 @@ public:
 
             if (backend != 0) CPUFREE(cgelcon);    
 
-            savemode = (nsca + nvec + nten > 0); 
+            savemode = (disc.common.saveParaview != 0) && (nsca + nvec + nten > 0); 
         
             if (backend==2) { // GPU
             #ifdef HAVE_CUDA        

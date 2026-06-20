@@ -107,6 +107,7 @@ pde.compudgavg = 0;
 pde.extFhat = 0;
 pde.extUhat = 0;
 pde.extStab = 0;
+pde.saveParaview = 0;
 pde.saveResNorm = 0;
 
 pde.time = 0.0;
@@ -157,7 +158,6 @@ pde.fbou = "fbou";
 pde.fhat = "fhat";
 pde.source = "source";
 pde.arg = {};
-
 
 
 

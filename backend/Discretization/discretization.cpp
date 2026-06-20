@@ -332,10 +332,6 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
         if (nten > 0) common.nten = nten;
         if (nsurf > 0) common.nsurf = nsurf;
         if (nvqoi > 0) common.nvqoi = nvqoi;
-    } else {
-      common.nsca = 0;
-      common.nvec = 0;
-      common.nten = 0;
     }
 
     // compute the geometry quantities
