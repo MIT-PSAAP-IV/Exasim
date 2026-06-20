@@ -7,13 +7,15 @@ function runcode(pde, numpde=1)
 
 display("Run C++ Exasim code ...")
 
-exe = joinpath(pde.builddir, "build", "exasimapp")
+exe = joinpath(model_builddir(pde), "build", "exasimapp")
 if !isfile(exe)
     error("Solver executable not found at $exe; run Gencode.cmakecompile(pde) first.")
 end
 
-datain = joinpath(pde.datapath, "datain") * "/"
-dataout = joinpath(pde.datapath, "dataout", "out")
+# per-model datain/dataout (nested strn dirs; "" for model 0 -> datain/)
+strn = model_strn(pde)
+datain = joinpath(pde.datapath, "datain", strn) * "/"
+dataout = joinpath(pde.datapath, "dataout", strn, "out")
 
 if pde.mpiprocs == 1
     cmd = `$exe $numpde $datain $dataout`

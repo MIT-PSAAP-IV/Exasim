@@ -21,9 +21,10 @@ pde.codegenerator = "";
 pde.codename = "Exasim";
 % Runtime data (datain/, dataout/) goes under datapath (user-visible);
 % generated code and the solver build live in the hidden builddir.
-pde.datapath = string(pwd());
+pde.datapath = pwd();
 pde.builddir = string(fullfile(pwd(), ".exasim"));
-pde.modelid = 100;   % external builtin model ID for the generated model
+pde.buildpath = pde.builddir;
+pde.modelid = -1;    % external builtin model ID; -1 = auto (100 + modelnumber), resolved in cmakecompile
 pde.exasimpath = ""; % Exasim install prefix; resolved by cmakecompile
 pde.version = version;
 pde.appname = "app";

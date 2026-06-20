@@ -75,10 +75,11 @@ def exportapp(pde, dest=None, build=True):
     # the only external dependency, supplied on the target via Exasim_DIR.
     variant = _variant(pde)
     numpde = 1
+    modelid = config.resolve_modelid(pde)
     tmpl = config.frontend_app_template_dir()
     subs = {
         "EXASIM_VARIANT": variant,
-        "MODEL_ID": str(pde['modelid']),
+        "MODEL_ID": str(modelid),
         "KERNEL_DIR": "${CMAKE_CURRENT_SOURCE_DIR}/kernels",
     }
     _render(str(tmpl / "CMakeLists.txt.in"),
@@ -204,6 +205,185 @@ cmake --build build --parallel
 """
     with open(os.path.join(dest, "README.md"), "w") as f:
         f.write(text)
+
+
+def exportapp_combined(pdes, dest=None, build=True):
+    """Package a relocatable data-transfer bundle for a COMBINED multi-PDE app.
+
+    Like exportapp() but for several generated models linked into one exasimapp.
+    Each model m contributes its own datain<strn>/, dataout<strn>/ and
+    kernels<strn>/ inside the bundle (strn="" for model 0), and the combined
+    CMakeLists/main.cpp/run.sh carry the full id list and the N (datain,dataout)
+    pairs. Single-model export is unaffected (use exportapp()).
+
+    Returns the absolute bundle path.
+    """
+    if dest is None:
+        dest = pdes[0].get('exportapp')
+    if not dest:
+        raise RuntimeError(
+            "exportapp_combined: no destination (set pde[0]['exportapp'] or pass dest).")
+    dest = os.path.abspath(dest)
+
+    variant = _variant(pdes[0])
+    ids = [config.resolve_modelid(p) for p in pdes]
+    if len(set(ids)) != len(ids):
+        raise RuntimeError(f"combined export needs distinct modelids; got {ids}")
+
+    print(f"Export combined Exasim data-transfer app to {dest} ...")
+    os.makedirs(dest, exist_ok=True)
+
+    kdir_subs = []
+    for p in pdes:
+        strn = config.model_strn(p)
+        kbuild = os.path.join(config.model_builddir(p), "kernels")
+        if not os.path.isdir(kbuild):
+            raise RuntimeError(
+                f"No generated kernels at {kbuild}; run Gencode.gencode(pde) first.")
+        src_datain = os.path.join(p['datapath'], "datain", strn) if strn \
+            else os.path.join(p['datapath'], "datain")
+        if not os.path.isdir(src_datain):
+            raise RuntimeError(
+                f"No datain at {src_datain}; run Preprocessing.preprocessing first.")
+        # Per-model bundle dirs (sibling, strn-suffixed). The kernel/datain dirs
+        # are bundle-relative so the bundle stays relocatable.
+        _copytree(src_datain, os.path.join(dest, "datain" + strn))
+        os.makedirs(os.path.join(dest, "dataout" + strn), exist_ok=True)
+        _copytree(kbuild, os.path.join(dest, "kernels" + strn))
+        kdir_subs.append("${CMAKE_CURRENT_SOURCE_DIR}/kernels" + strn)
+
+    tmpl = config.frontend_app_combined_template_dir()
+    subs = {
+        "EXASIM_VARIANT": variant,
+        "MODEL_IDS": ", ".join(str(i) for i in ids),
+        "MODEL_ID_LIST": " ".join(str(i) for i in ids),
+        "KERNEL_DIRS": " ".join('"' + d + '"' for d in kdir_subs),
+    }
+    _render(str(tmpl / "CMakeLists.txt.in"),
+            os.path.join(dest, "CMakeLists.txt"), subs)
+    _render(str(tmpl / "main.cpp.in"),
+            os.path.join(dest, "main.cpp"), subs)
+
+    # Source models + a per-model text2code DSL (additive; non-fatal on failure).
+    for p in pdes:
+        strn = config.model_strn(p)
+        modelsrc = str(p.get('modelfile', "")) + ".py"
+        if os.path.isfile(modelsrc):
+            shutil.copy2(modelsrc, os.path.join(dest, os.path.basename(modelsrc)))
+        try:
+            from .genpdemodel import genpdemodel
+            genpdemodel(p, os.path.join(dest, "pdemodel" + strn + ".txt"))
+        except Exception as exc:  # noqa: BLE001 - intentionally non-fatal
+            print(f"WARNING: pdemodel{strn}.txt generation skipped ({exc!r}).")
+
+    _write_runscript_combined(dest, pdes, variant, ids)
+    _write_manifest_combined(dest, pdes, variant, ids)
+
+    if build:
+        _build_and_run_combined(dest, pdes)
+
+    print(f"Exported combined data-transfer app: {dest}")
+    return dest
+
+
+def _combined_pairs(pdes, datain_prefix, dataout_prefix):
+    """The N (datain, dataout) argv pairs for a combined run, in slot order."""
+    pairs = []
+    for p in pdes:
+        strn = config.model_strn(p)
+        pairs.append(f"{datain_prefix}/datain{strn}/")
+        pairs.append(f"{dataout_prefix}/dataout{strn}/out")
+    return pairs
+
+
+def _write_runscript_combined(dest, pdes, variant, ids):
+    n = len(pdes)
+    pairs = " ".join('"' + s + '"' for s in _combined_pairs(pdes, '$here', '$here'))
+    if pdes[0]['mpiprocs'] > 1:
+        runline = f'${{MPIRUN:-mpirun}} -np {pdes[0]["mpiprocs"]} ' \
+                  f'"$here/build/exasimapp" {n} {pairs}'
+    else:
+        runline = f'"$here/build/exasimapp" {n} {pairs}'
+    text = f"""#!/usr/bin/env bash
+# Build and run this exported COMBINED multi-PDE Exasim data-transfer app
+# (model ids {", ".join(str(i) for i in ids)}). Requires an Exasim install;
+# point EXASIM_ROOT at its prefix. Retarget the variant with EXASIM_VARIANT.
+set -euo pipefail
+here="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
+: "${{EXASIM_ROOT:?Set EXASIM_ROOT to your Exasim install prefix}}"
+cmake -S "$here" -B "$here/build" \\
+  -DExasim_DIR="$EXASIM_ROOT/lib/cmake/Exasim" \\
+  -DEXASIM_VARIANT="${{EXASIM_VARIANT:-{variant}}}"
+cmake --build "$here/build" --parallel
+{runline}
+"""
+    path = os.path.join(dest, "run.sh")
+    with open(path, "w") as f:
+        f.write(text)
+    os.chmod(path, 0o755)
+
+
+def _write_manifest_combined(dest, pdes, variant, ids):
+    manifest = {
+        "format": "exasim-data-transfer-app/1",
+        "frontend": "python",
+        "combined": True,
+        "modelids": ids,
+        "numpde": len(pdes),
+        "variant": variant,
+        "platform": pdes[0]['platform'],
+        "mpiprocs": pdes[0]['mpiprocs'],
+        "built_against_prefix": str(config.install_prefix()),
+    }
+    with open(os.path.join(dest, "manifest.json"), "w") as f:
+        json.dump(manifest, f, indent=2)
+        f.write("\n")
+
+
+def _build_and_run_combined(dest, pdes):
+    """Configure, build, and run the combined bundle against the local Exasim
+    install to verify it before hand-off. Build + outputs go to a scratch dir
+    so the shipped bundle stays pristine."""
+    print("Verify exported combined app: build + run against the local install...")
+    cmake = config.cmake_command()
+    work = tempfile.mkdtemp(prefix="exasim_export_verify_combined.")
+    try:
+        bdir = os.path.join(work, "build")
+        subprocess.run([cmake, "-S", dest, "-B", bdir,
+                        "-DExasim_DIR=" + str(config.cmake_dir())], check=True)
+        jobs = os.environ.get("JOBS") or str(os.cpu_count() or 4)
+        subprocess.run([cmake, "--build", bdir, "--parallel", jobs], check=True)
+        exe = os.path.join(bdir, "exasimapp")
+        if not os.path.exists(exe):
+            raise RuntimeError(f"Bundle build did not produce {exe}.")
+
+        n = len(pdes)
+        # datain from the (pristine) bundle; dataout into the scratch dir.
+        pairs = []
+        for p in pdes:
+            strn = config.model_strn(p)
+            os.makedirs(os.path.join(work, "dataout" + strn), exist_ok=True)
+            pairs.append(os.path.join(dest, "datain" + strn) + "/")
+            pairs.append(os.path.join(work, "dataout" + strn, "out"))
+        if pdes[0]['mpiprocs'] > 1:
+            mpirun = pdes[0].get('mpirun') or "mpirun"
+            mpitxt = os.path.join(bdir, "mpiexec.txt")
+            if os.path.exists(mpitxt):
+                discovered = open(mpitxt).read().strip()
+                if discovered:
+                    mpirun = discovered
+            cmd = [mpirun, "-np", str(pdes[0]['mpiprocs']), exe, str(n)] + pairs
+        else:
+            cmd = [exe, str(n)] + pairs
+        subprocess.run(cmd, cwd=work, check=True)
+
+        produced = [f for f in os.listdir(work) if f.startswith("dataout")
+                    and os.listdir(os.path.join(work, f))]
+        if len(produced) < n:
+            raise RuntimeError("Combined bundle verification produced too few outputs.")
+        print("Exported combined app verified (built and ran against the local install).")
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
 
 
 def _build_and_run(dest, pde, numpde):

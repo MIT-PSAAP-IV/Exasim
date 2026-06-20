@@ -1,6 +1,13 @@
 function hdggencode(app)
 
-kkdir = app.builddir + "/kernels.gen";   % staging dir; kkgencode syncs it
+% Match kkgencode: external-model path (combinedmodel) -> per-model dir +
+% unsuffixed; legacy interfacecondition/kkgencodeall path -> builddir + suffix.
+combined = isfield(app, 'combinedmodel') && app.combinedmodel;
+if combined
+    kkdir = model_builddir(app) + "/kernels.gen";
+else
+    kkdir = string(app.builddir) + "/kernels.gen";
+end
 if ~exist(char(kkdir), 'dir')
     mkdir(char(kkdir));
 end
@@ -9,7 +16,7 @@ end
 pdemodel = str2func(app.modelfile);
 pde = pdemodel();
 
-if app.modelnumber==0
+if combined || app.modelnumber==0
     strn = "";
 else
     strn = num2str(app.modelnumber);

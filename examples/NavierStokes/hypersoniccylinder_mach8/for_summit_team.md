@@ -29,7 +29,7 @@
         runstr = runcode(pde, 1); % run C++ code
 
         % get solution from output files in dataout folder
-        sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+        sol = fetchsolution(pde,master,dmd, pde.datapath + '/dataout');
     ```
 
 # Notes on coupling

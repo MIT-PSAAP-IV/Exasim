@@ -126,8 +126,8 @@ kkgencode(pde);
 compilerstr = cmakecompile(pde);
 runcode(pde,1);
 
-UDG = getsolutions(pde.buildpath + "/dataout/outudg", dmd);
-WDG = getsolutions(pde.buildpath + "/dataout/outwdg", dmd);
+UDG = getsolutions(pde.datapath + "/dataout/outudg", dmd);
+WDG = getsolutions(pde.datapath + "/dataout/outwdg", dmd);
 
 UDG = UDG(:,:,:,end);
 WDG = WDG(:,:,:,end);

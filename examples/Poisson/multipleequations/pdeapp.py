@@ -17,7 +17,7 @@ sol,pde,mesh,master,dmd,compilerstr,runstr = exasim.exasim(pde,mesh)[0:7];
 for m in range(0,len(pde)):
     pde[m]['visscalars'] = ["temperature", 0]; # list of scalar fields for visualization
     pde[m]['visvectors'] = ["temperature gradient", numpy.array([1, 2]).astype(int)]; # list of vector fields for visualization
-    pde[m]['visfilename'] = "dataout" + str(m+1) + "/output"; 
+    pde[m]['visfilename'] = "dataout" + exasim.config.model_strn(pde[m]) + "/output"; 
     exasim.vis(sol[m],pde[m],mesh[m]); # visualize the numerical solution
 
 print("Done!");

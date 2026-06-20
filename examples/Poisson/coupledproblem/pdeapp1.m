@@ -1,6 +1,5 @@
 % initialize pde{1} structure and mesh{1} structure
 [pde{1},mesh{1}] = initializeexasim();
-pde{1}.buildpath = string(pwd);
 
 % Define a PDE model: governing equations, initial solutions, and boundary conditions
 pde{1}.model = "ModelD";          % ModelC, ModelD, ModelW

@@ -43,7 +43,14 @@ else
     cmakecmd = "cmake";
 end
 
-builddir = pde.builddir;
+% Per-model build root for the external-model path (combinedmodel): model 0
+% stays flat (= builddir), others nest under models/<n>/ so coexisting models
+% never clobber. The legacy interfacecondition/kkgencodeall path uses builddir.
+if isfield(pde, 'combinedmodel') && pde.combinedmodel
+    builddir = model_builddir(pde);
+else
+    builddir = string(pde.builddir);
+end
 kernels = builddir + "/kernels";
 if ~exist(char(kernels), 'dir')
     error("No generated kernels at %s; run kkgencode(pde) first.", kernels);
@@ -55,8 +62,9 @@ else
     if pde.mpiprocs > 1, variant = "cpumpi"; else, variant = "cpu"; end
 end
 
+modelid = resolve_modelid(pde);
 tmpl = prefix + "/lib/cmake/Exasim/frontend-app";
-subs = {"EXASIM_VARIANT", variant; "MODEL_ID", string(pde.modelid); "KERNEL_DIR", kernels};
+subs = {"EXASIM_VARIANT", variant; "MODEL_ID", string(modelid); "KERNEL_DIR", kernels};
 rendertemplate(tmpl + "/CMakeLists.txt.in", builddir + "/CMakeLists.txt", subs);
 rendertemplate(tmpl + "/main.cpp.in", builddir + "/main.cpp", subs);
 
@@ -67,29 +75,29 @@ comstr = cmakecmd + " -S " + builddir + " -B " + bdir + ...
 
 % Hash the model inputs (kernels + rendered app sources + the install);
 % if nothing changed since the last successful build, skip cmake entirely.
-stamp = char(bdir + "/.exasim_model_hash");
-% Templates rather than rendered files: rendered sources embed absolute
-% paths, which would make the digest directory-specific.
-digest = modelhash(kernels, {char(tmpl + "/CMakeLists.txt.in"), char(tmpl + "/main.cpp.in")}, prefix, variant, pde.modelid);
-if exist(char(exe), 'file') == 2 && exist(stamp, 'file') == 2 ...
-        && strcmp(strtrim(fileread(stamp)), digest)
-    disp("Model unchanged (hash match); skipping build.");
-    return;
-end
+% stamp = char(bdir + "/.exasim_model_hash");
+% % Templates rather than rendered files: rendered sources embed absolute
+% % paths, which would make the digest directory-specific.
+% digest = modelhash(kernels, {char(tmpl + "/CMakeLists.txt.in"), char(tmpl + "/main.cpp.in")}, prefix, variant, pde.modelid);
+% if exist(char(exe), 'file') == 2 && exist(stamp, 'file') == 2 ...
+%         && strcmp(strtrim(fileread(stamp)), digest)
+%     disp("Model unchanged (hash match); skipping build.");
+%     return;
+% end
 
 % Per-user model cache: the relocatable (libfrontend_model, exasimapp) pair
 % built for this modelid+digest by any earlier app run.
-cachedir = fullfile(cacheroot(), num2str(pde.modelid), digest);
-cached = cachefiles(cachedir);
-if ~isempty(cached)
-    if ~exist(char(bdir), 'dir'), mkdir(char(bdir)); end
-    for i = 1:numel(cached)
-        copyfile(cached{i}, char(bdir));
-    end
-    fid = fopen(stamp, 'w'); fwrite(fid, digest); fclose(fid);
-    disp("Model cache hit (" + string(cachedir) + "); skipping build.");
-    return;
-end
+% cachedir = fullfile(cacheroot(), num2str(pde.modelid), digest);
+% cached = cachefiles(cachedir);
+% if ~isempty(cached)
+%     if ~exist(char(bdir), 'dir'), mkdir(char(bdir)); end
+%     for i = 1:numel(cached)
+%         copyfile(cached{i}, char(bdir));
+%     end
+%     fid = fopen(stamp, 'w'); fwrite(fid, digest); fclose(fid);
+%     disp("Model cache hit (" + string(cachedir) + "); skipping build.");
+%     return;
+% end
 
 runchecked(comstr);
 
@@ -100,19 +108,20 @@ runchecked(cmakecmd + " --build " + bdir + " --parallel " + jobs);
 if ~exist(char(exe), 'file')
     error("Build did not produce %s.", exe);
 end
-fid = fopen(stamp, 'w');
-fwrite(fid, digest);
-fclose(fid);
+% fid = fopen(stamp, 'w');
+% fwrite(fid, digest);
+% fclose(fid);
 
-% Populate the cache for other app directories / future runs.
-libs = dir(char(bdir + "/libfrontend_model.*"));
-if ~isempty(libs)
-    if ~exist(char(cachedir), 'dir'), mkdir(char(cachedir)); end
-    for i = 1:numel(libs)
-        copyfile(fullfile(libs(i).folder, libs(i).name), char(cachedir));
-    end
-    copyfile(char(exe), char(cachedir));
-end
+% % Populate the cache for other app directories / future runs.
+% libs = dir(char(bdir + "/libfrontend_model.*"));
+% if ~isempty(libs)
+%     if ~exist(char(cachedir), 'dir'), mkdir(char(cachedir)); end
+%     for i = 1:numel(libs)
+%         copyfile(fullfile(libs(i).folder, libs(i).name), char(cachedir));
+%     end
+%     copyfile(char(exe), char(cachedir));
+% end
+
 end
 
 % Per-user cache of built model libraries (EXASIM_CACHE_DIR overrides).

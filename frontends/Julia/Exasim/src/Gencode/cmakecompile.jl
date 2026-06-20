@@ -26,7 +26,9 @@ function cmakecompile(pde)
     prefix = install_prefix()
     pde.exasimpath = prefix
 
-    builddir = pde.builddir
+    # Per-model build root: model 0 stays flat (= builddir), others nest under
+    # models/<n>/ so coexisting models never clobber CMakeLists/main/build.
+    builddir = model_builddir(pde)
     kernels = joinpath(builddir, "kernels")
     if !isdir(kernels)
         error("No generated kernels at $kernels; run Gencode.gencode(pde) first.")
@@ -38,10 +40,11 @@ function cmakecompile(pde)
         variant = pde.mpiprocs > 1 ? "cpumpi" : "cpu"
     end
 
+    modelid = resolve_modelid(pde)
     tmpl = frontend_app_template_dir()
     subs = Dict(
         "EXASIM_VARIANT" => variant,
-        "MODEL_ID" => pde.modelid,
+        "MODEL_ID" => modelid,
         "KERNEL_DIR" => kernels,
     )
     render(joinpath(tmpl, "CMakeLists.txt.in"), joinpath(builddir, "CMakeLists.txt"), subs)
@@ -54,33 +57,33 @@ function cmakecompile(pde)
 
     # Hash the model inputs (kernels + rendered app sources + the install);
     # if nothing changed since the last successful build, skip cmake entirely.
-    stamp = joinpath(bdir, ".exasim_model_hash")
+    # stamp = joinpath(bdir, ".exasim_model_hash")
     # Templates rather than rendered files: rendered sources embed absolute
     # paths, which would make the digest directory-specific.
-    digest = modelhash(kernels,
-                       [joinpath(tmpl, "CMakeLists.txt.in"),
-                        joinpath(tmpl, "main.cpp.in")],
-                       prefix, variant, pde.modelid)
-    if isfile(exe) && isfile(stamp) && read(stamp, String) == digest
-        print("Model unchanged (hash match); skipping build.\n")
-        return string(cfg)
-    end
+    # digest = modelhash(kernels,
+    #                    [joinpath(tmpl, "CMakeLists.txt.in"),
+    #                     joinpath(tmpl, "main.cpp.in")],
+    #                    prefix, variant, pde.modelid)
+    # if isfile(exe) && isfile(stamp) && read(stamp, String) == digest
+    #     print("Model unchanged (hash match); skipping build.\n")
+    #     return string(cfg)
+    # end
 
     # Per-user model cache: the relocatable (libfrontend_model, exasimapp)
     # pair built for this modelid+digest by any earlier app run.
-    cachedir = joinpath(cacheroot(), string(pde.modelid), digest)
-    cached = cachefiles(cachedir)
-    if cached !== nothing
-        mkpath(bdir)
-        for src in cached
-            cp(src, joinpath(bdir, basename(src)); force=true)
-        end
-        open(stamp, "w") do f
-            write(f, digest)
-        end
-        print("Model cache hit ($cachedir); skipping build.\n")
-        return string(cfg)
-    end
+    # cachedir = joinpath(cacheroot(), string(pde.modelid), digest)
+    # cached = cachefiles(cachedir)
+    # if cached !== nothing
+    #     mkpath(bdir)
+    #     for src in cached
+    #         cp(src, joinpath(bdir, basename(src)); force=true)
+    #     end
+    #     open(stamp, "w") do f
+    #         write(f, digest)
+    #     end
+    #     print("Model cache hit ($cachedir); skipping build.\n")
+    #     return string(cfg)
+    # end
 
     run(cfg)
     jobs = get(ENV, "JOBS", string(Sys.CPU_THREADS))
@@ -89,18 +92,18 @@ function cmakecompile(pde)
     if !isfile(exe)
         error("Build did not produce $exe.")
     end
-    open(stamp, "w") do f
-        write(f, digest)
-    end
+    # open(stamp, "w") do f
+    #     write(f, digest)
+    # end
 
     # Populate the cache for other app directories / future runs.
-    libs = filter(n -> startswith(n, "libfrontend_model."), readdir(bdir))
-    if !isempty(libs)
-        mkpath(cachedir)
-        for name in vcat(libs, ["exasimapp"])
-            cp(joinpath(bdir, name), joinpath(cachedir, name); force=true)
-        end
-    end
+    # libs = filter(n -> startswith(n, "libfrontend_model."), readdir(bdir))
+    # if !isempty(libs)
+    #     mkpath(cachedir)
+    #     for name in vcat(libs, ["exasimapp"])
+    #         cp(joinpath(bdir, name), joinpath(cachedir, name); force=true)
+    #     end
+    # end
     return string(cfg)
 end
 

@@ -1,8 +1,8 @@
 function [vdg, UHb, in, im] = solutiontransfer_ht2ns(pde, dmd, mesh, meshns)
 
 % Get UDG and UH from the binary files
-% UDGht = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
-fileID = fopen(pde.buildpath + "/dataout/outuhat_np0.bin",'r');
+% UDGht = fetchsolution(pde,master,dmd, pde.datapath + "/dataout" + model_strn(pde));
+fileID = fopen(pde.datapath + "/dataout" + model_strn(pde) + "/outuhat_np0.bin",'r');
 UHht = fread(fileID,'double');
 UHht = UHht(4:end);
 fclose(fileID);

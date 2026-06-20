@@ -17,7 +17,8 @@ def initializepde(version):
     # generated code and the solver build live in the hidden builddir.
     pde['datapath'] = os.getcwd();
     pde['builddir'] = os.path.join(os.getcwd(), ".exasim");
-    pde['modelid'] = 100;   # external builtin model ID for the generated model
+    pde['buildpath'] = pde['builddir'];
+    pde['modelid'] = -1;    # external builtin model ID; -1 = auto (100 + modelnumber), resolved in cmakecompile
     pde['exasimpath'] = ""; # Exasim install prefix; resolved by cmakecompile
 
     pde['codename'] = "Exasim";
@@ -25,6 +26,7 @@ def initializepde(version):
     pde['appname'] = "pde";
     pde['model'] = "ModelD";
     pde['modelnumber'] = 0;
+    pde['builtinmodelID'] = 0;  # backend per-slot dispatch selector; 0 = use modelid
     pde['modelfile'] = "";
     pde['platform'] = "cpu";
     #pde['cpuflags'] = "-O2 -Wall -ldl -lm -lblas -llapack";

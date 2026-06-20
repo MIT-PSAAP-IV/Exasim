@@ -78,6 +78,10 @@ def frontend_app_template_dir():
     return cmake_dir() / "frontend-app"
 
 
+def frontend_app_combined_template_dir():
+    return cmake_dir() / "frontend-app-combined"
+
+
 def text2code_path():
     return install_prefix() / "bin" / "text2code"
 
@@ -100,3 +104,43 @@ def cmake_command():
     if path and Path(path).exists():
         return path
     return _find_tool("cmake") or "cmake"
+
+
+# --- Per-model identity and build layout -----------------------------------
+# Three identifiers, kept orthogonal (see the multi-model contract in the docs):
+#   modelnumber     frontend I/O & build-artifact index (0-based per app).
+#   modelid         runtime dispatch ID == backend builtinmodelID; names the
+#                   C++ namespace exasim_model_<id>, the provider dispatch key,
+#                   and the model-cache key. Auto-resolves to 100 + modelnumber.
+#   builtinmodelID  backend per-slot selector (set from the executable's ID
+#                   list, not from the frontend); 0 means "use modelid".
+
+def model_strn(pde):
+    """Per-model path suffix: "" for model 0 (the historical flat layout),
+    else str(modelnumber). Reused for both datain/dataout and build dirs so
+    distinct models never share a directory."""
+    n = pde.get('modelnumber', 0)
+    return "" if n == 0 else str(n)
+
+
+def resolve_modelid(pde):
+    """Resolve an auto (negative) modelid to 100 + modelnumber and store it
+    back on the pde. An explicit non-negative pde['modelid'] is left as-is.
+    Idempotent, so it is safe to call from every consumer (cmakecompile,
+    exportapp, ...). Returns the resolved id."""
+    mid = pde.get('modelid', -1)
+    if mid is None or mid < 0:
+        mid = 100 + pde.get('modelnumber', 0)
+        pde['modelid'] = mid
+    return mid
+
+
+def model_builddir(pde):
+    """Per-model build root under the hidden builddir. Model 0 keeps the
+    historical flat layout (builddir itself) so single-model builds and the
+    model cache are byte-identical; other models nest under models/<n>/ so
+    their kernels/, build/, CMakeLists.txt and main.cpp never clobber."""
+    strn = model_strn(pde)
+    if strn == "":
+        return pde['builddir']
+    return os.path.join(pde['builddir'], "models", strn)

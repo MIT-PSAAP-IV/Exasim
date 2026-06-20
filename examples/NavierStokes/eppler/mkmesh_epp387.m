@@ -10,7 +10,7 @@ if gridNum==-6  % p=4, very coarse mesh, 10c
    TEC = 6;
    [x,y] = cmeshparam6(n1, n2, n2-8, n2-8, n2, n3, ...
                         [TEC, 1, 1, 1, 1, TEC, 1, 1, 1, 1, TEC], ...
-                        [10, 10, 10, 10, 10, 10, 10]*30); 
+                        [10, 10, 10, 10, 10, 10, 10]*10); 
 elseif gridNum==-5  % p=4, Fine mesh, 50c
    n1=52*porder+1; n2=24*porder+1; n3=34*porder+1; 
    TEC = 14;

@@ -44,8 +44,8 @@ for itime = 1:1000
     [app_tdep,mesh,master,dmd] = preprocessing(app_tdep,mesh);
 
     runcode(app_tdep, 1); % run C++ code
-    % UDG = fetchsolution(app_tdep,master,dmd, app_tdep.buildpath + '/dataout');
-    UDG = getsolution(app_tdep.buildpath + '/dataout' + "/out_t1",dmd,master.npe);
+    % UDG = fetchsolution(app_tdep,master,dmd, app_tdep.datapath + '/dataout');
+    UDG = getsolution(app_tdep.datapath + '/dataout' + "/out_t1",dmd,master.npe);
     mesh.porder = app.porder;
     figure(1); clf; scaplot(mesh, eulereval(UDG, 'M',1.4,0.2)); xlim([-0.1 1.2]); ylim([-0.5 0.5]);
     % [UDG,UH,~,it,alfa,duh] = hdg_solve_dirk(master,mesh,app_dirk,UDG,UH,[],time,dt,nstage,torder);    
@@ -62,7 +62,7 @@ for itime = 1:1000
     time = time + dt;
 
     alfa = 1;
-    % alfa = readbin(app_tdep.buildpath + '/dataout/outalpha.bin');
+    % alfa = readbin(app_tdep.datapath + '/dataout/outalpha.bin');
     if alfa == 1 && drho < 0.1 && drhoe < 0.1
         dt = dt*2;
         disp("Increasing time step: dt = " + string(dt))
