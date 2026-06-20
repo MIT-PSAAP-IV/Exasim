@@ -20,7 +20,7 @@ pde.hybrid = 1;
 pde.debugmode = 0;
 pde.nd = 2;
 
-nx1 = 12; nxf = 30; ny = 20;
+nx1 = 10; nxf = 30; ny = 20;
 mesh = mkmesh_thermal_buckling(pde.porder, nx1, nxf, ny, 0);
 figure(1); clf; meshplot(mesh);
 
@@ -45,7 +45,7 @@ mesh.vdg = solhm;
 mesh.udg = sol;
 [pde,mesh,master,dmd] = preprocessing(pde,mesh);
 runcode(pde, 1); % run C++ code
-sol = fetchsolution(pde,master,dmd, pde.datapath+"/dataout");
+sol = fetchsolution(pde,master,dmd, fullfile(pde.datapath, 'dataout'));
 figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[0 Minf],1); colorbar;
 
 

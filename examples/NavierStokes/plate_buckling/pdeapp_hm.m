@@ -3,9 +3,8 @@
 run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'frontends', 'Matlab', 'exasim_setup.m'));
 
 % initialize pdehm structure and mesh structure
-cd("hm");
 [pdehm,~] = initializeexasim();
-cd ..;
+pdehm.modelnumber = 1;   % isolate from the NS model (build .exasim/models/1, data dataout1)
 
 % Use the same mesh as the NS solver
 pdehm.model = "ModelD";          % ModelC, ModelD, ModelW
@@ -31,6 +30,8 @@ mesh.boundarycondition = [1;1;1;1];
 mesh.udg = zeros(size(mesh.dgnodes,1), 3, size(mesh.dgnodes,3));
 div = divergence(sol, 1);
 mesh.vdg = limiting(div,0,3,1e3,0);
+figure(); clf; scaplot(mesh,mesh.vdg); axis on; axis equal; axis tight;
+
 
 % call exasim to generate and run C++ code to solve the pdehm model
 [solhm,pdehm,mesh] = exasim(pdehm,mesh);

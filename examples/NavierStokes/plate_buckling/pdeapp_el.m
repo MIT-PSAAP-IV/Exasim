@@ -2,6 +2,7 @@ function mesh = pdeapp_el(mesh, pde, bump_amp, bump_loc, bump_width)
 % Linear elasticity mesh deformation for wall bump
 
 pde_el = pde;
+pde_el.modelnumber = 2;   % isolate from NS model (model 0) and HM model (model 1)
 E = 1.0;
 nu = 0.30;
 mu_lam = E / (2 * (1 + nu));

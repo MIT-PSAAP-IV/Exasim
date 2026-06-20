@@ -3,9 +3,7 @@
 run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'frontends', 'Matlab', 'exasim_setup.m'));
 
 % initialize pde structure and mesh structure
-cd("ns");
 [pde,~] = initializeexasim();
-cd ..;
 
 % Define a PDE model: governing equations, initial solutions, and boundary conditions
 pde.model = "ModelD";          % ModelC, ModelD, ModelW
@@ -84,21 +82,21 @@ mesh.vdg(:,1,:) = 0.004*tanh(nm*dist);
 mesh.udg = sol;
 [pde,mesh,master,dmd] = preprocessing(pde,mesh);
 runcode(pde, 1); % run C++ code
-sol = fetchsolution(pde,master,dmd, pde.datapath+'/dataout');
+sol = fetchsolution(pde,master,dmd, fullfile(pde.datapath, 'dataout'));
 figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[0 Minf],1); colorbar;
-% 
-% disp("Iter 3")
-% mesh.vdg(:,1,:) = 0.003*tanh(nm*dist);
-% mesh.udg = sol;
-% [pde,mesh,master,dmd] = preprocessing(pde,mesh);
-% runcode(pde, 1); % run C++ code
-% sol = fetchsolution(pde,master,dmd, pde.datapath + '/dataout');
-% figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[0 Minf],1); colorbar;
-% 
+
+disp("Iter 3")
+mesh.vdg(:,1,:) = 0.003*tanh(nm*dist);
+mesh.udg = sol;
+[pde,mesh,master,dmd] = preprocessing(pde,mesh);
+runcode(pde, 1); % run C++ code
+sol = fetchsolution(pde,master,dmd, fullfile(pde.datapath, 'dataout'));
+figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[0 Minf],1); colorbar;
+
 % disp("Iter 4")
 % mesh.vdg(:,1,:) = 0.0025*tanh(nm*dist);
 % mesh.udg = sol;
 % [pde,mesh,master,dmd] = preprocessing(pde,mesh);
 % runcode(pde, 1); % run C++ code
-% sol = fetchsolution(pde,master,dmd, pde.datapath + '/dataout');
+% sol = fetchsolution(pde,master,dmd, fullfile(pde.datapath, 'dataout'));
 % figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[0 Minf],1); colorbar;
