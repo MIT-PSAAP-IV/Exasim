@@ -285,11 +285,19 @@ inline void CSolution<M>::SaveParaview(Int backend, std::string fname_modifier, 
        int ndg  = npe * ne;
        int ncg  = vis.npoints;
     
-       dstype* xdg = &disc.tmp.tempn[0];  
        dstype* udg = disc.res.Rq;   
-       dstype* vdg = &disc.tmp.tempn[npe*ncx*ne];    
-       dstype* wdg = disc.res.Ru;     
-       dstype* f = &disc.res.Rq[npe*nc*ne];
+       dstype* wdg = disc.res.Ru;
+       int nvis = max(max(nsca, 3*nvec), vis.ntc*nten);
+       int szvis = npe*(ncx+nco+nvis)*ne;
+       bool ownsTempn = false;
+       dstype* tempn = disc.tmp.tempn;
+       if (disc.tmp.sztempn + disc.tmp.sztempg < szvis) {
+         TemplateMalloc(&tempn, szvis, backend);
+         ownsTempn = true;
+       }
+       dstype* xdg = &tempn[0];  
+       dstype* vdg = &tempn[npe*ncx*ne];    
+       dstype* f = &tempn[npe*(ncx+nco)*ne];
     
        GetElemNodes(xdg, disc.sol.xdg, npe, ncx, 0, ncx, 0, ne);
        GetElemNodes(udg, disc.sol.udg, npe, nc, 0, nc, 0, ne);
@@ -299,17 +307,14 @@ inline void CSolution<M>::SaveParaview(Int backend, std::string fname_modifier, 
        if (nsca > 0) {        
             EXASIM_DRIVER_CALL(VisScalarsDriver, f, xdg, udg, vdg, wdg, disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common, npe, 0, ne, backend);                                 
             VisDG2CG(vis.scafields, f, disc.mesh.cgent2dgent, disc.mesh.colent2elem, disc.mesh.rowent2elem, ne, ncg, ndg, 1, 1, nsca);
-            if (disc.common.mpiRank==0) std::cout<<"scafields[0] = "<<vis.scafields[0]<<std::endl;
        }    
        if (nvec > 0) {        
             EXASIM_DRIVER_CALL(VisVectorsDriver, f, xdg, udg, vdg, wdg, disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common, npe, 0, ne, backend);                                 
             VisDG2CG(vis.vecfields, f, disc.mesh.cgent2dgent, disc.mesh.colent2elem, disc.mesh.rowent2elem, ne, ncg, ndg, 3, ncx, nvec);
-            if (disc.common.mpiRank==0) std::cout<<"vecfields[0] = "<<vis.vecfields[0]<<std::endl;
        }
        if (nten > 0) {        
             EXASIM_DRIVER_CALL(VisTensorsDriver, f, xdg, udg, vdg, wdg, disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common, npe, 0, ne, backend);                                 
             VisDG2CG(vis.tenfields, f, disc.mesh.cgent2dgent, disc.mesh.colent2elem, disc.mesh.rowent2elem, ne, ncg, ndg, vis.ntc, vis.ntc, nten);
-            if (disc.common.mpiRank==0) std::cout<<"tenfields[0] = "<<vis.tenfields[0]<<std::endl;
        }
 
        std::string baseName = disc.common.fileout + "vis" + fname_modifier;
@@ -319,12 +324,13 @@ inline void CSolution<M>::SaveParaview(Int backend, std::string fname_modifier, 
            baseName = baseName + "_" + ss.str();           
        }
        
-       if (disc.common.mpiRank==0) std::cout<<"baseName = "<<baseName<<std::endl;
-
        if (disc.common.mpiProcs==1)                
             vis.vtuwrite(baseName, vis.scafields, vis.vecfields, vis.tenfields);
        else 
             vis.vtuwrite_parallel(baseName, disc.common.mpiRank, disc.common.mpiProcs, vis.scafields, vis.vecfields, vis.tenfields);       
+
+       if (ownsTempn)
+         TemplateFree(tempn, backend);
    }
 }
 

@@ -325,12 +325,18 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
                 mpiprocs, mpirank, fileoffset, omprank);    
     }
     common.read_uh = app.read_uh;
-    if (nsca > 0) common.nsca = nsca;
-    if (nvec > 0) common.nvec = nvec;
-    if (nten > 0) common.nten = nten;
-    if (nsurf > 0) common.nsurf = nsurf;
-    if (nvqoi > 0) common.nvqoi = nvqoi;
-    const bool postprocessOnly = (mode == ExasimExecutionMode::Postprocess);
+    const bool postprocessOnly = (mode == ExasimExecutionMode::Postprocess);  
+    if (postprocessOnly) {
+        if (nsca > 0) common.nsca = nsca;
+        if (nvec > 0) common.nvec = nvec;
+        if (nten > 0) common.nten = nten;
+        if (nsurf > 0) common.nsurf = nsurf;
+        if (nvqoi > 0) common.nvqoi = nvqoi;
+    } else {
+      common.nsca = 0;
+      common.nvec = 0;
+      common.nten = 0;
+    }
 
     // compute the geometry quantities
     if (common.mpiRank==0) printf("start compGeometry... \n");

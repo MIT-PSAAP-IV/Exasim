@@ -1263,12 +1263,24 @@ int ExasimSolver::Postprocess()
             models_[i]->disc.common.currentstep = -1;
             models_[i]->ReadSolutions(backend_);
             models_[i]->SaveQoI(backend_);
-            if (mpirank_ == 0)
-                std::cout << "save paraview = " << models_[i]->vis.savemode << std::endl;
             if (models_[i]->vis.savemode > 0)
                 models_[i]->SaveParaview(backend_);
             models_[i]->SaveOutputCG(backend_);
-        }
+        } else if (postmode_ == 1) {
+            models_[i]->disc.common.currentstep = restart_;
+            models_[i]->GetSolutions(restart_, backend_);
+            models_[i]->SaveQoI(backend_);
+            if (models_[i]->vis.savemode > 0) models_[i]->SaveParaview(backend_);
+            models_[i]->SaveOutputCG(backend_);
+        } else if (postmode_ > 1) {
+            for (int j = 0; j < postmode_; j++) {
+              models_[i]->disc.common.currentstep = restart_ + j;
+              models_[i]->GetSolutions(restart_ + j, backend_);
+              models_[i]->SaveQoI(backend_);
+              if (models_[i]->vis.savemode > 0) models_[i]->SaveParaview(backend_);
+              models_[i]->SaveOutputCG(backend_);
+            }
+        }        
     }
 
     return 0;
