@@ -4,8 +4,8 @@ run(cdir(1:(ii+5)) + "/install/setpath.m");
 
 porder = 4;                     % polynomial degree
 gam = 1.4;                      % gas constant
-Minf = 0.25;                    % freestream mach number
-tau = 1;                        % stabilization parameter
+Minf = 0.1;                    % freestream mach number
+tau = 8;                        % stabilization parameter
 alpha = 8*pi/180;               % angle of attack
 rinf = 1.0;                     % freestream density
 ruinf = cos(alpha);             % freestream horizontal velocity
@@ -44,7 +44,8 @@ pde.gencode = 1;
 
 pde.torder = 2;
 pde.nstage = 2;
-pde.dt = [0.01 0.02 0.03 0.04 0.05*ones(1,1001)];
+pde.dt = 0.01*ones(1,10);
+%pde.dt = [0.01 0.02 0.03 0.04 0.05*ones(1,1001)];
 pde.saveSolFreq = 10;
 pde.saveSolBouFreq = 10;
 pde.ibs = 1;

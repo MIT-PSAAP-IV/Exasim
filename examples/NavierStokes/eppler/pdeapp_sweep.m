@@ -1,0 +1,80 @@
+% Exported standalone app for an Eppler airfoil parameter sweep.
+%
+% Each row in pde.physicsparamsweep is one concrete physicsparam vector. The
+% exported app writes outputs to eppler-sweep/dataout/paramcase_0001,
+% eppler-sweep/dataout/paramcase_0002, ...
+
+% Add Exasim to Matlab search path
+cdir = pwd(); ii = strfind(cdir, "Exasim");
+run(cdir(1:(ii+5)) + "/install/setpath.m");
+
+porder = 4;                    % polynomial degree
+gam = 1.4;                     % gas constant
+Minf = 0.1;                    % freestream mach number
+tau = 8;                       % stabilization parameter
+rinf = 1.0;                    % freestream density
+pinf = 1/(gam*Minf^2);         % freestream pressure
+rEinf = 0.5+pinf/(gam-1);      % freestream energy
+Pr = 0.72;                     % Prandtl number
+reynoldsNumbers = [2000; 5000; 8000];
+anglesOfAttack = [4; 8]*pi/180;
+
+% initialize pde structure and mesh structure
+[pde,~] = initializeexasim();
+
+pde.model = "ModelD";          % ModelC, ModelD, ModelW
+pde.modelfile = "pdemodel";    % name of a file defining the PDE model
+
+% Choose computing platform and set number of processors
+pde.platform = "cpu";          % choose this option if NVIDIA GPUs are available
+pde.mpiprocs = 4;              % number of MPI processors
+pde.hybrid = 1;
+pde.debugmode = 0;
+pde.porder = porder;
+pde.pgauss = 2*porder;
+
+basePhysicsParam = [gam reynoldsNumbers(1) Pr Minf rinf cos(anglesOfAttack(1)) sin(anglesOfAttack(1)) rEinf];
+pde.physicsparam = basePhysicsParam;
+pde.physicsparamsweep = zeros(numel(reynoldsNumbers)*numel(anglesOfAttack), numel(basePhysicsParam));
+icase = 0;
+for ialpha = 1:numel(anglesOfAttack)
+    alpha = anglesOfAttack(ialpha);
+    for iRe = 1:numel(reynoldsNumbers)
+        icase = icase + 1;
+        pde.physicsparamsweep(icase,:) = [gam reynoldsNumbers(iRe) Pr Minf rinf cos(alpha) sin(alpha) rEinf];
+    end
+end
+pde.tau = tau;                 % DG stabilization parameter
+pde.GMRESrestart = 100;
+pde.GMRESortho = 1;
+pde.linearsolvertol = 1e-6;    % GMRES tolerance
+pde.linearsolveriter = 100;
+pde.preconditioner = 1;
+pde.NLtol = 1e-8;
+pde.ppdegree = 0;
+pde.RBdim = 5;
+pde.gencode = 1;
+
+pde.torder = 2;
+pde.nstage = 2;
+pde.dt = 0.01*ones(1,10);
+pde.saveSolFreq = 10;
+pde.saveSolBouFreq = 10;
+pde.ibs = 1;
+
+% Export a frontend-provider app that can run the entire sweep without MATLAB.
+pde.exportapp = "eppler-sweep";
+pde.frontendprovider = true;
+pde.buildandrun = false;
+if exist(pde.exportapp, 'dir')
+    rmdir(pde.exportapp, 's');
+end
+
+% Eppler mesh
+mesh = mkmesh_epp387(porder,1,-6);
+
+% call exasim to preprocess, generate code, and export the standalone app
+exasim(pde,mesh);
+
+fprintf("Exported Eppler sweep app: %s\n", fullfile(pwd, pde.exportapp));
+fprintf("Run with: EXASIM_ROOT=%s %s\n", char(exasim_install_prefix()), fullfile(pwd, pde.exportapp, "run.sh"));
