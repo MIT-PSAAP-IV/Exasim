@@ -37,6 +37,16 @@ def test_scalar_parameter_value_list():
     assert numpy.allclose(cases[:, 0], [0.5, 1.0, 2.0])
 
 
+def test_physicsparam_column_vector_is_single_case():
+    pde = {
+        "physicsparam": numpy.array([[0.5], [1.0], [2.0]]),
+    }
+    cases, has_sweep = _normalize_physicsparam_sweep(pde)
+    assert not has_sweep
+    assert cases.shape == (1, 3)
+    assert numpy.allclose(cases[0], [0.5, 1.0, 2.0])
+
+
 def test_structured_grid_and_case_metadata():
     pde = {
         "datapath": tempfile.mkdtemp(),
@@ -81,9 +91,22 @@ def test_export_writes_shared_physicsparamcases_file():
     assert numpy.allclose(raw[2:], [0.5, 0.0, 1.0, 1.0])
 
 
+def test_export_skips_empty_and_single_case_sweeps():
+    for sweep in (numpy.array([]), numpy.array([[1.0, 0.0]])):
+        datain = tempfile.mkdtemp()
+        pde = {
+            "physicsparam": numpy.array([1.0, 0.0]),
+            "physicsparamsweep": sweep,
+        }
+        _write_physicsparamcases_if_needed(pde, datain)
+        assert not os.path.exists(os.path.join(datain, "physicsparamcases.bin"))
+
+
 if __name__ == "__main__":
     test_matrix_samples()
     test_scalar_parameter_value_list()
+    test_physicsparam_column_vector_is_single_case()
     test_structured_grid_and_case_metadata()
     test_bad_dimension_rejected()
     test_export_writes_shared_physicsparamcases_file()
+    test_export_skips_empty_and_single_case_sweeps()

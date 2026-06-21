@@ -113,6 +113,9 @@ function _write_physicsparamcases_if_needed(pde, datain)
         return
     end
     cases = _physicsparam_sweep_cases(pde.physicsparamsweep, length(vec(pde.physicsparam)))
+    if size(cases, 1) <= 1
+        return
+    end
     open(joinpath(datain, "physicsparamcases.bin"), "w") do f
         write(f, Float64[size(cases, 1), size(cases, 2)])
         write(f, vec(permutedims(Float64.(cases))))

@@ -137,6 +137,8 @@ def _physicsparam_sweep_cases(spec, nparam):
         raise ValueError("physicsparamsweep dict must contain 'samples', 'values', or 'grid'.")
 
     arr = numpy.asarray(spec, dtype=float)
+    if arr.size == 0:
+        return None
     if arr.ndim == 1:
         if nparam == 1:
             cases = arr.reshape((-1, 1))
@@ -164,7 +166,7 @@ def _physicsparam_sweep_cases(spec, nparam):
 
 def _write_physicsparamcases_if_needed(pde, datain):
     cases = _physicsparam_sweep_cases(pde.get("physicsparamsweep"), len(numpy.asarray(pde["physicsparam"]).ravel()))
-    if cases is None:
+    if cases is None or cases.shape[0] <= 1:
         return
     path = os.path.join(datain, "physicsparamcases.bin")
     header = numpy.asarray([cases.shape[0], cases.shape[1]], dtype=numpy.float64)

@@ -114,6 +114,9 @@ if ~isfield(pde, 'physicsparamsweep') || isempty(pde.physicsparamsweep)
     return;
 end
 cases = export_physicsparamsweepcases(pde.physicsparamsweep, numel(pde.physicsparam));
+if size(cases,1) <= 1
+    return;
+end
 fn = char(datain + "/physicsparamcases.bin");
 fid = fopen(fn, 'w');
 if fid < 0

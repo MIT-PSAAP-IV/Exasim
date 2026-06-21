@@ -12,7 +12,7 @@ ruinf = cos(alpha);             % freestream horizontal velocity
 rvinf = sin(alpha);             % freestream vertical velocity
 pinf = 1/(gam*Minf^2);          % freestream pressure
 rEinf = 0.5+pinf/(gam-1);       % freestream energy
-Re = 2000;                       % Reynolds number
+Re = 100;                       % Reynolds number
 Pr = 0.72;                      % Prandtl number 
 ui = [ 1, cos(alpha), sin(alpha), 0.5+pinf/(gam-1)];
 
@@ -95,4 +95,3 @@ set(gca,'fontsize', 16);
 % BE = blockjacobi(AE, mesh1.f2t, reshape(mesh1.elcon, [npf nfe ne]));  
 % 
 % compareexasim(master, mesh1, pde);
-

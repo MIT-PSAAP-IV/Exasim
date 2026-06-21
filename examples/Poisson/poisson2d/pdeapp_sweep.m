@@ -33,6 +33,6 @@ mesh.boundarycondition = [1;1;1;1];
 [sol,pde,mesh,master,dmd,comstr,runstr] = exasim(pde,mesh);
 
 disp("Sweep outputs:");
-for i = 1:numel(pde)
-    disp(pde{i}.dataoutpath);
+for i = 1:numel(pde.paramcaseoutputdirs)
+    disp(pde.paramcaseoutputdirs(i));
 end
