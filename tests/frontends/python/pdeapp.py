@@ -23,11 +23,17 @@ mesh['boundarycondition'] = numpy.array([1, 1, 1, 1])
 
 sol, pde, mesh = exasim.exasim(pde, mesh)[0:3]
 
-qoifile = os.path.join(pde['datapath'], "dataout", "outqoi.txt")
-with open(qoifile) as f:
-    last = f.readlines()[-1].split()
-err2 = float(last[1])
-tol = float(os.environ.get("QOI_TOL", "1e-8"))
-print(f"L2 error^2 = {err2:.6e} (tol {tol:.1e})")
-assert err2 < tol, f"QoI gate failed: {err2} >= {tol}"
-print("FRONTEND TEST PASSED")
+if pde.get('exportapp'):
+    # export mode: exasim() packages the bundle without running the simulation
+    # locally, so there is no main-dir QoI to gate here (the test harness
+    # validates the exported bundle by relocating and running it).
+    print("FRONTEND TEST (export mode): skipped in-app QoI gate")
+else:
+    qoifile = os.path.join(pde['datapath'], "dataout", "outqoi.txt")
+    with open(qoifile) as f:
+        last = f.readlines()[-1].split()
+    err2 = float(last[1])
+    tol = float(os.environ.get("QOI_TOL", "1e-8"))
+    print(f"L2 error^2 = {err2:.6e} (tol {tol:.1e})")
+    assert err2 < tol, f"QoI gate failed: {err2} >= {tol}"
+    print("FRONTEND TEST PASSED")

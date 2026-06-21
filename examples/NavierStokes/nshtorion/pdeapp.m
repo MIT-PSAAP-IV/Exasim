@@ -25,7 +25,7 @@ while (iter < itermax)
   else
     [pdeht,meshht,masterht,dmdht] = preprocessing(pdeht,meshht);
     runcode(pdeht, 1); 
-    solht = fetchsolution(pdeht,masterht,dmdht, pdeht.buildpath + '/dataout');
+    solht = fetchsolution(pdeht,masterht,dmdht, pdeht.datapath + "/dataout" + model_strn(pdeht));
   end 
   figure(1); clf; scaplot(meshht, solht(:,1,:));
   set(gca,'FontSize',20); axis equal; axis tight;
@@ -51,15 +51,15 @@ while (iter < itermax)
   % solve the NS equations with the external temperature from solid domain
   [pde,mesh,master,dmd] = preprocessing(pde,mesh);
   runcode(pde, 1); % run C++ code
-  sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+  sol = fetchsolution(pde,master,dmd, pde.datapath + "/dataout" + model_strn(pde));
   figure(2); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[],2,1);
   set(gca,'FontSize',20); axis equal; axis tight;
   figure(3); clf; scaplot(mesh, eulereval(sol, 't',gam,Minf),[]);
   set(gca,'FontSize',20); axis equal; axis tight;
 end
 
-solht = fetchsolution(pdeht,masterht,dmdht, pdeht.buildpath + '/dataout');
-sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+solht = fetchsolution(pdeht,masterht,dmdht, pdeht.datapath + "/dataout" + model_strn(pdeht));
+sol = fetchsolution(pde,master,dmd, pde.datapath + "/dataout" + model_strn(pde));
 figure(4); clf; scaplot(meshht, (Tref/Tinf)*solht(:,1,:), [200 5000]);
 hold on;
 scaplot(mesh, (Tref/Tinf)*eulereval(sol, 't',gam,Minf),[200 5000]);

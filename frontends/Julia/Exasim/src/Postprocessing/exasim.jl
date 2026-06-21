@@ -14,67 +14,69 @@ if nmodels==1
     # generate input files and store them in datain folder
     pde, mesh, master, dmd = Preprocessing.preprocessing(pde,mesh);
 
+    # resolve auto (-1) modelid -> 100 + modelnumber so this model can coexist
+    # with others in one working dir (model 0 stays at 100, byte-identical).
+    pde.modelid = Gencode.resolve_modelid(pde);
+
     # generate source codes and store them in app folder
     Gencode.gencode(pde);
 
-    compilerstr = Gencode.cmakecompile(pde); # use cmake to compile source codes 
-    #compilerstr = Main.compilepdemodel(pde); # use cmake to compile source codes 
+    compilerstr = Gencode.cmakecompile(pde); # use cmake to compile source codes
+    #compilerstr = Main.compilepdemodel(pde); # use cmake to compile source codes
 
-    runstr = Gencode.runcode(pde, 1);
-
-    # optionally package a relocatable "data transfer app" bundle (the
-    # local build+run above doubles as the bundle's verification step).
+    # When pde.exportapp is set, package a relocatable "data transfer app"
+    # bundle INSTEAD of running the simulation here: a production run can be
+    # prohibitively expensive on the local machine, so we export it to be built
+    # and run elsewhere. pde.buildandrun (default 1) controls whether exportapp
+    # builds+runs the bundle in a scratch dir to verify it; set it to 0 to
+    # export without any local build/run.
     if isdefined(pde, :exportapp) && !isempty(pde.exportapp)
-        Gencode.exportapp(pde, pde.exportapp; build=true);
-    end
+        buildandrun = (isdefined(pde, :buildandrun) ? pde.buildandrun : 1) != 0;
+        Gencode.exportapp(pde, pde.exportapp; build=buildandrun);
+        runstr = "";
+        sol = [];
+    else
+        runstr = Gencode.runcode(pde, 1);
 
-    # get solution from output files in dataout folder
-    sol = Postprocessing.fetchsolution(pde,master,dmd, joinpath(pde.datapath, "dataout"));
-    if pde.saveResNorm == 1
-        fn = "dataout/out_residualnorms0.bin";
-        res = reinterpret(Float64,read(fn));        
-        ne = Int64(round(length(res)/4));
-        res = reshape(res,(4,ne));                
-        res = res';
-    end    
+        # get solution from output files in this model's dataout dir
+        strn = Gencode.model_strn(pde);
+        doutdir = isempty(strn) ? joinpath(pde.datapath, "dataout") : joinpath(pde.datapath, "dataout", strn);
+        sol = Postprocessing.fetchsolution(pde,master,dmd, doutdir);
+        if pde.saveResNorm == 1
+            fn = "dataout/out_residualnorms0.bin";
+            res = reinterpret(Float64,read(fn));
+            ne = Int64(round(length(res)/4));
+            res = reshape(res,(4,ne));
+            res = res';
+        end
+    end
 else
     master = Array{Any, 1}(undef, nmodels);
     dmd = Array{Any, 1}(undef, nmodels);
     sol = Array{Any, 1}(undef, nmodels);
     res = Array{Any, 1}(undef, nmodels);
 
-    # preprocess and generate code for all PDE models
-    for m = 1:nmodels    
-        pde[m],mesh[m],master[m],dmd[m] = generatecode(pde[m],mesh[m]);
-    end        
-    gencodeall(nmodels);
-
-    if pde.usecmake==1    
-        compilerstr = Gencode.cmakecompile(pde[1]); # use cmake to compile source codes 
-        #compilerstr = "";    
-        #compilerstr = Main.compilepdemodel(pde[1]); # use cmake to compile source codes 
-        runstr = runcode(pde[1],nmodels);
-    else
-        # # compile source codes to build an executable file and store it in app folder
-        compilerstr = compilecode(pde[1]);
-
-        # run executable file to compute solution and store it in dataout folder
-        runstr = runcode(pde[1],nmodels);
+    # Combined multi-PDE through the external-model path: model m occupies slot
+    # m (modelnumber=m-1 -> distinct modelid 100+slot, kernel dir, datain/dataout
+    # subdir), so the N models generate without clobbering and link into ONE
+    # exasimapp (one provider that dispatches all ids). Replaces gencodeall.
+    for m = 1:nmodels
+        pde[m].modelnumber = m - 1;
+        pde[m] = Gencode.setcompilers(pde[m]);
+        pde[m], mesh[m], master[m], dmd[m] = Preprocessing.preprocessing(pde[m], mesh[m]);
+        pde[m].modelid = Gencode.resolve_modelid(pde[m]);
+        Gencode.gencode(pde[m]);
     end
 
-    # get solution from output files in dataout folder
-    for m = 1:nmodels        
-        sol[m] = Postprocessing.fetchsolution(pde[m], master[m], dmd[m], "dataout" * string(m));
-        #sol[m],~,~ = Postprocessing.getsolutions(pde[m], dmd[m]);
+    compilerstr = Gencode.cmakecompile_combined(pde);
+    runstr = Gencode.runcode_combined(pde);
 
-        if pde[m].saveResNorm
-            fn = "dataout/out_residualnorms" * string(m-1) * ".bin";
-            tm = reinterpret(Float64,read(fn));        
-            ne = Int64(round(length(tm)/4));
-            tm = reshape(tm,(4,ne));                
-            res[m] = tm';
-        end    
-    end    
+    # get solution from each model's own dataout subdir
+    for m = 1:nmodels
+        strn = Gencode.model_strn(pde[m]);
+        doutdir = isempty(strn) ? joinpath(pde[m].datapath, "dataout") : joinpath(pde[m].datapath, "dataout", strn);
+        sol[m] = Postprocessing.fetchsolution(pde[m], master[m], dmd[m], doutdir);
+    end
 end
 
 return sol,pde,mesh,master,dmd,compilerstr,runstr,res

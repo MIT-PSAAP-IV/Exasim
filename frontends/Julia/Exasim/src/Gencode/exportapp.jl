@@ -67,10 +67,11 @@ function exportapp(pde, dest=nothing; build=true)
     # the only external dependency, supplied on the target via Exasim_DIR.
     variant = _variant(pde)
     numpde = 1
+    modelid = resolve_modelid(pde)
     tmpl = frontend_app_template_dir()
     subs = Dict(
         "EXASIM_VARIANT" => variant,
-        "MODEL_ID" => string(pde.modelid),
+        "MODEL_ID" => string(modelid),
         "KERNEL_DIR" => "\${CMAKE_CURRENT_SOURCE_DIR}/kernels",
     )
     render(joinpath(tmpl, "CMakeLists.txt.in"), joinpath(dest, "CMakeLists.txt"), subs)

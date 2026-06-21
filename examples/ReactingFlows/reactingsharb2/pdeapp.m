@@ -93,10 +93,10 @@ kkgencode(pde);
 compilerstr = cmakecompile(pde);
 runcode(pde,1);
 
-sol1 = getsolutions(pde.buildpath + "/dataout/outudg", dmd);
-wdg1 = getsolutions(pde.buildpath + "/dataout/outwdg", dmd);
-% sol2 = getsolution(pde.buildpath + "/dataout/out",dmd,9);
-% wdg2 = getsolution(pde.buildpath + "/dataout/out_wdg",dmd,9);
+sol1 = getsolutions(pde.datapath + "/dataout/outudg", dmd);
+wdg1 = getsolutions(pde.datapath + "/dataout/outwdg", dmd);
+% sol2 = getsolution(pde.datapath + "/dataout/out",dmd,9);
+% wdg2 = getsolution(pde.datapath + "/dataout/out_wdg",dmd,9);
  
 udg = sol1(:,:,:,end);
 rho = sum(udg(:,1:5,:),2);

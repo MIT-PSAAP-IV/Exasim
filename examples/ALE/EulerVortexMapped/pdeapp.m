@@ -40,7 +40,6 @@ pde.tau = 3.0;             % DG stabilization parameter
 pde.ALE = 1;
 
 % place datain/dataout in the example folder
-pde.buildpath = pwd();
 
 % create a 64x48 grid on [0,20]x[0,15]
 [mesh.p,mesh.t] = squaremesh(64,48,1,1);

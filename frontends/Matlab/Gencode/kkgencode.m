@@ -8,11 +8,22 @@ if app.codegenerator == "text2code"
   return;
 end
 
-% Generated kernels go to the hidden build dir; cmakecompile points the
+% Generated kernels go to the per-model build dir; cmakecompile points the
 % external-model provider's include path here (no source-tree writes).
 % Generate into a staging dir, then sync write-if-changed into kernels/ so
 % an unchanged model does not touch mtimes (and thus avoids recompiles).
-kkdir = app.builddir + "/kernels.gen";
+%
+% External-model path (single model + combined multi-PDE): unsuffixed kernels
+% in the per-model build dir (model 0 stays flat = builddir, byte-identical).
+% Legacy path (interfacecondition coupling via kkgencodeall): suffixed kernels
+% in the shared builddir, unchanged. The app.combinedmodel flag selects.
+combined = isfield(app, 'combinedmodel') && app.combinedmodel;
+if combined
+    mbdir = model_builddir(app);
+else
+    mbdir = string(app.builddir);
+end
+kkdir = mbdir + "/kernels.gen";
 if exist(char(kkdir), 'dir')
     rmdir(char(kkdir), 's');
 end
@@ -24,10 +35,10 @@ hdggencode(app);
 pdemodel = str2func(app.modelfile);
 pde = pdemodel();
 
-if app.modelnumber==0
-    strn = "";
+if combined || app.modelnumber==0
+    strn = "";        % unsuffixed: isolation is by per-model directory
 else
-    strn = num2str(app.modelnumber);
+    strn = num2str(app.modelnumber);   % legacy suffix for kkgencodeall
 end
 
 ncu = app.ncu;
@@ -229,5 +240,5 @@ else
 end 
 
 
-exasim_sync_kernels(kkdir, app.builddir + "/kernels");
+exasim_sync_kernels(kkdir, mbdir + "/kernels");
 end

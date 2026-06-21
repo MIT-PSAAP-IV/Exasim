@@ -759,7 +759,11 @@ option(EXASIM_FRONTENDS "Install the Python/Julia/MATLAB frontends" ON)
 
 if(EXASIM_FRONTENDS)
   # App project templates, rendered by each frontend's cmakecompile step.
+  # frontend-app builds one generated model; frontend-app-combined builds
+  # several into one exasimapp (combined multi-PDE).
   install(DIRECTORY ${EXASIM_DIR}/cmake/frontend-app
+    DESTINATION ${EXASIM_CMAKE_INSTALL_DIR})
+  install(DIRECTORY ${EXASIM_DIR}/cmake/frontend-app-combined
     DESTINATION ${EXASIM_CMAKE_INSTALL_DIR})
 
   # Record the absolute path of the cmake that built/installed Exasim, so the
