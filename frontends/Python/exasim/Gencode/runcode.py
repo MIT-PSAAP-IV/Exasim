@@ -32,7 +32,8 @@ def runcode(pde, numpde):
     # same way); strn="" for model 0 collapses to the historical paths.
     strn = config.model_strn(pde)
     datain = os.path.join(pde['datapath'], "datain", strn, "")
-    dataout = os.path.join(pde['datapath'], "dataout", strn, "out")
+    dataoutdir = pde.get('dataoutpath') or os.path.join(pde['datapath'], "dataout", strn)
+    dataout = os.path.join(dataoutdir, "out")
 
     if pde['mpiprocs'] == 1:
         cmd = [exe, str(numpde), datain, dataout]

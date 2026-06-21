@@ -101,15 +101,16 @@ app.externalparam = [0.0 0.0]; % external parameters
 app.dt = [0.0 0.0];  % time steps
 app.factor = [0.0 0.0];  % factors
 app.physicsparam = [0.0 0.0]; % physical parameters
+app.physicsparamsweep = [];
 app.solversparam = [0.0 0.0]; % solvers parameters
 app.stgdata = [0.0 0.0]; % synthetic turbulence
 app.stgparam = [0.0 0.0]; % synthetic turbulence
 
 app.soltime = 1;
 app.visfilename = "dataout/output";   % filename for paraview output files
+app.dataoutpath = "";
 app.metis = "mpmetis";
 app.gmsh = "gmsh";
 app.paraview = "paraview";
-
 
 

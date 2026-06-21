@@ -122,6 +122,7 @@ mutable struct PDEStruct
     tau::Array{FloatP,1}; # stabilization parameters
     factor::Array{FloatP,2};  # factors
     physicsparam::Array{FloatP,2}; # physical parameters
+    physicsparamsweep;
     solversparam::Array{FloatP,2}; # solvers parameters
     stgdata::Array{FloatP,2}; # synthetic turbulence
     stgparam::Array{FloatP,2}; # synthetic turbulence
@@ -134,6 +135,7 @@ mutable struct PDEStruct
     codegenerator::String;
     enzyme::String;
     visfilename::String;
+    dataoutpath::String;
     visscalars;
     visvectors;
     viselem;
@@ -287,6 +289,7 @@ function initializepde(version)
     pde.dt = [0.0];  # time steps
     pde.factor = [0.0 0.0];  # factors
     pde.physicsparam = [0.0 0.0]; # physical parameters
+    pde.physicsparamsweep = [];
     pde.solversparam = [0.0 0.0]; # solvers parameters
     pde.stgdata = [0.0 0.0]; # synthetic turbulence
     pde.stgparam = [0.0 0.0]; # synthetic turbulence
@@ -294,6 +297,7 @@ function initializepde(version)
     pde.uinf = [0.0 0.0]; #
 
     pde.visfilename = joinpath(pde.datapath, "dataout", "output");
+    pde.dataoutpath = "";
     pde.visscalars = [];
     pde.visvectors = [];
     pde.viselem = [];

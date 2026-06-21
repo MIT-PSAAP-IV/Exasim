@@ -16,9 +16,17 @@ if nmodels==1
     % is byte-identical to the historical single-model layout).
     pde.combinedmodel = true;
     pde.modelid = resolve_modelid(pde);   % resolve auto (-1) -> 100 + modelnumber
+    [physicsparamcases, hasPhysicsParamSweep] = normalizephysicsparamsweep(pde);
+    if hasPhysicsParamSweep
+        pde.physicsparam = physicsparamcases(1,:);
+    end
 
     % generate input files and store them in datain folder
     [pde,mesh,master,dmd] = preprocessing(pde,mesh);
+    writeappbase = [];
+    if hasPhysicsParamSweep
+        writeappbase = writeapptemplate(pde);
+    end
 
     % generate source codes and store them in app folder
     if pde.gencode==1
@@ -35,6 +43,9 @@ if nmodels==1
     % exportapp builds+runs the bundle in a throwaway scratch dir to verify it
     % before hand-off; set it false to export without any local build/run.
     if isfield(pde,'exportapp') && ~isempty(pde.exportapp)
+        if hasPhysicsParamSweep
+            error("physicsparamsweep is not supported with exportapp. Run the sweep locally or export each case explicitly.");
+        end
         if isfield(pde,'buildandrun') && ~isempty(pde.buildandrun)
             exportapp(pde, pde.exportapp, pde.buildandrun);
         else
@@ -43,15 +54,42 @@ if nmodels==1
         runstr = [];
         sol = [];
     else
-        runstr = runcode(pde, 1); % run C++ code
+        if hasPhysicsParamSweep
+            ncases = size(physicsparamcases, 1);
+            sol = cell(ncases, 1);
+            runstr = cell(ncases, 1);
+            res = cell(ncases, 1);
+            pde.paramcaseoutputdirs = strings(ncases, 1);
+            for icase = 1:ncases
+                pdecase = writeappbase;
+                pdecase.physicsparam = physicsparamcases(icase,:);
+                pdecase.dataoutpath = paramcaseoutputdir(pdecase, icase);
+                if exist(char(pdecase.dataoutpath), 'dir') == 0
+                    mkdir(char(pdecase.dataoutpath));
+                end
+                writephysicsparamcase(pdecase.dataoutpath, pdecase.physicsparam);
 
-        % get solution from output files in this model's dataout dir
-        sol = fetchsolution(pde,master,dmd, pde.datapath + "/dataout" + model_strn(pde));
+                pdecase = writeapp(pdecase, appbinfile(pdecase), 'native');
+                runstr{icase} = runcode(pdecase, 1);
+                sol{icase} = fetchsolution(pdecase,master,dmd,pdecase.dataoutpath);
+                if pdecase.saveResNorm
+                    fn = pdecase.dataoutpath + "/out_residualnorms0.bin";
+                    fileID = fopen(char(fn),'r'); res{icase} = fread(fileID,'double'); fclose(fileID);
+                    res{icase} = reshape(res{icase},4,[])';
+                end
+                pde.paramcaseoutputdirs(icase) = pdecase.dataoutpath;
+            end
+        else
+            runstr = runcode(pde, 1); % run C++ code
 
-        % get residual norms from output files in dataout folder
-        if pde.saveResNorm
-            fileID = fopen('dataout/out_residualnorms0.bin','r'); res = fread(fileID,'double'); fclose(fileID);
-            res = reshape(res,4,[])';
+            % get solution from output files in this model's dataout dir
+            sol = fetchsolution(pde,master,dmd, pde.datapath + "/dataout" + model_strn(pde));
+
+            % get residual norms from output files in dataout folder
+            if pde.saveResNorm
+                fileID = fopen('dataout/out_residualnorms0.bin','r'); res = fread(fileID,'double'); fclose(fileID);
+                res = reshape(res,4,[])';
+            end
         end
     end
 else
@@ -117,5 +155,96 @@ else
     end
 end
 
+end
 
+function [cases, hassweep] = normalizephysicsparamsweep(pde)
+base = pde.physicsparam(:).';
+hassweep = false;
+if isfield(pde, 'physicsparamsweep') && ~isempty(pde.physicsparamsweep)
+    cases = physicsparamsweepcases(pde.physicsparamsweep, numel(base));
+    hassweep = size(cases, 1) > 1;
+elseif isnumeric(pde.physicsparam) && ismatrix(pde.physicsparam) && ...
+        size(pde.physicsparam,1) > 1 && size(pde.physicsparam,2) > 1
+    cases = pde.physicsparam;
+    validatephysicsparamcases(cases, size(cases,2));
+    hassweep = true;
+else
+    cases = base;
+end
+end
 
+function cases = physicsparamsweepcases(spec, nparam)
+if isstruct(spec)
+    if isfield(spec, 'samples')
+        cases = physicsparamsweepcases(spec.samples, nparam);
+    elseif isfield(spec, 'values')
+        cases = physicsparamsweepcases(spec.values, nparam);
+    elseif isfield(spec, 'grid')
+        cases = physicsparamgridcases(spec.grid, nparam);
+    else
+        error("physicsparamsweep struct must contain samples, values, or grid.");
+    end
+elseif iscell(spec)
+    cases = zeros(numel(spec), nparam);
+    for i = 1:numel(spec)
+        v = spec{i}(:).';
+        if numel(v) ~= nparam
+            error("physicsparamsweep case %d has %d parameters; expected %d.", i, numel(v), nparam);
+        end
+        cases(i,:) = v;
+    end
+elseif isnumeric(spec)
+    if isvector(spec)
+        if nparam == 1
+            cases = spec(:);
+        else
+            cases = spec(:).';
+        end
+    else
+        cases = spec;
+    end
+    validatephysicsparamcases(cases, nparam);
+else
+    error("physicsparamsweep must be numeric, a cell array, or a struct.");
+end
+end
+
+function cases = physicsparamgridcases(grid, nparam)
+if ~iscell(grid) || numel(grid) ~= nparam
+    error("physicsparamsweep.grid must be a cell array with one value vector per physics parameter.");
+end
+[meshgridvalues{1:nparam}] = ndgrid(grid{:});
+ncases = numel(meshgridvalues{1});
+cases = zeros(ncases, nparam);
+for j = 1:nparam
+    cases(:,j) = meshgridvalues{j}(:);
+end
+end
+
+function validatephysicsparamcases(cases, nparam)
+if ndims(cases) ~= 2 || size(cases,2) ~= nparam
+    error("Each physicsparamsweep row must contain %d physics parameters.", nparam);
+end
+if ~isnumeric(cases) || any(~isfinite(cases(:)))
+    error("physicsparamsweep cases must contain finite numeric values.");
+end
+end
+
+function outdir = paramcaseoutputdir(pde, icase)
+outdir = pde.datapath + "/dataout" + model_strn(pde) + "/paramcase_" + sprintf("%04d", icase);
+end
+
+function writephysicsparamcase(outdir, values)
+dlmwrite(char(outdir + "/physicsparam.txt"), values(:).', 'delimiter', ' ', 'precision', '%.17g');
+end
+
+function app = writeapptemplate(app)
+app.flag = app.flag(19:end);
+app.problem = app.problem(33:end);
+app.factor = app.factor(6:end);
+app.solversparam = app.solversparam(5:end);
+end
+
+function filename = appbinfile(app)
+filename = app.datapath + "/datain" + model_strn(app) + "/app.bin";
+end

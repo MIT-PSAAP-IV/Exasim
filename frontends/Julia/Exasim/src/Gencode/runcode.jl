@@ -24,7 +24,9 @@ end
 # per-model datain/dataout (nested strn dirs; "" for model 0 -> datain/)
 strn = model_strn(pde)
 datain = joinpath(pde.datapath, "datain", strn) * "/"
-dataout = joinpath(pde.datapath, "dataout", strn, "out")
+dataoutdir = isdefined(pde, :dataoutpath) && !isempty(pde.dataoutpath) ?
+             pde.dataoutpath : joinpath(pde.datapath, "dataout", strn)
+dataout = joinpath(dataoutdir, "out")
 
 if pde.mpiprocs == 1
     cmd = isnothing(modearg) ? `$exe $numpde $datain $dataout` :

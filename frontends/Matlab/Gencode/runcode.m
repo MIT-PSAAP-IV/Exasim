@@ -40,7 +40,12 @@ end
 if numpde==1
     % per-model datain/dataout (sibling strn dirs; "" for model 0 -> datain/)
     strn = model_strn(pde);
-    mystr = mystr + DataPath + "/datain" + strn + "/ " + DataPath + "/dataout" + strn + "/out";
+    if isfield(pde, 'dataoutpath') && strlength(string(pde.dataoutpath)) > 0
+        dataout = string(pde.dataoutpath);
+    else
+        dataout = DataPath + "/dataout" + strn;
+    end
+    mystr = mystr + DataPath + "/datain" + strn + "/ " + dataout + "/out";
 else
     for i = 1:numpde
         mystr = mystr + DataPath + "/datain" + num2str(i) + "/ " + DataPath + "/dataout" + num2str(i) + "/out";
