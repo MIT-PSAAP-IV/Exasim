@@ -1,4 +1,8 @@
 #include "exasim_paths.h"  // exasim_data_dir()
+#include <algorithm>
+#include <cerrno>
+#include <cstring>
+#include <limits>
 class CVisualization {
 public:
     float* scafields=nullptr;
@@ -119,7 +123,7 @@ public:
 
             if (backend != 0) CPUFREE(cgelcon);    
 
-            savemode = (nsca + nvec + nten > 0); 
+            savemode = (disc.common.saveParaview != 0) && (nsca + nvec + nten > 0); 
         
             if (backend==2) { // GPU
             #ifdef HAVE_CUDA        
@@ -256,25 +260,35 @@ public:
         for (int si = 0; si < (int)scalar_names.size(); ++si) {
             //const dstype* src = &scalarfields[npoints * si];
             //write_as_float32(os, src, npoints);
-            write_block(os, &scalarfields[npoints * si], npoints * (int)sizeof(float));
+            write_block(os, filename, "scalar:" + scalar_names[si],
+                        &scalarfields[npoints * si],
+                        byte_count(npoints, sizeof(float)));
         }       
 
         for (int vi = 0; vi < (int)vector_names.size(); ++vi) {
             //const dstype* src = &vectorfields[3 * npoints * vi];
             //write_as_float32(os, src, 3 * npoints);
-            write_block(os, &vectorfields[3 * npoints * vi], 3 * npoints * (int)sizeof(float));
+            write_block(os, filename, "vector:" + vector_names[vi],
+                        &vectorfields[3 * npoints * vi],
+                        byte_count(3, npoints, sizeof(float)));
         }
 
         for (int ti = 0; ti < (int)tensor_names.size(); ++ti) {
             //const dstype* src = &tensorfields[ntc * npoints * ti];
             //write_as_float32(os, src, ntc * npoints);
-            write_block(os, &tensorfields[ntc * npoints * ti], ntc * npoints * (int)sizeof(float));
+            write_block(os, filename, "tensor:" + tensor_names[ti],
+                        &tensorfields[ntc * npoints * ti],
+                        byte_count(ntc, npoints, sizeof(float)));
         }
 
-        write_block(os, cgnodes.data(),      3 * npoints * (int)sizeof(float));
-        write_block(os, cgcells.data(),      nve * ncells * (int)sizeof(int32_t));
-        write_block(os, celloffsets.data(),  ncells      * (int)sizeof(int32_t));
-        write_block(os, celltypes.data(),    ncells      * (int)sizeof(uint8_t));
+        write_block(os, filename, "points", cgnodes.data(),
+                    byte_count(3, npoints, sizeof(float)));
+        write_block(os, filename, "connectivity", cgcells.data(),
+                    byte_count(nve, ncells, sizeof(int32_t)));
+        write_block(os, filename, "offsets", celloffsets.data(),
+                    byte_count(ncells, sizeof(int32_t)));
+        write_block(os, filename, "types", celltypes.data(),
+                    byte_count(ncells, sizeof(uint8_t)));
 
         os << "\n  </AppendedData>\n";
         os << "</VTKFile>\n";
@@ -413,7 +427,7 @@ private:
         const int obytesize = 8; // UInt64
 
         std::uint64_t offset = 0;
-        auto add_off = [&](int payload_bytes) {
+        auto add_off = [&](std::uint64_t payload_bytes) {
             std::uint64_t here = offset;
             offset += (std::uint64_t)payload_bytes + (std::uint64_t)obytesize;
             return here;
@@ -427,16 +441,16 @@ private:
         tensor_offsets.reserve((int)tensor_names.size());
 
         for (int i = 0; i < (int)scalar_names.size(); ++i)
-            scalar_offsets.push_back(add_off(npoints * fbytesize));
+            scalar_offsets.push_back(add_off(byte_count(npoints, fbytesize)));
         for (int i = 0; i < (int)vector_names.size(); ++i)
-            vector_offsets.push_back(add_off(3 * npoints * fbytesize));
+            vector_offsets.push_back(add_off(byte_count(3, npoints, fbytesize)));
         for (int i = 0; i < (int)tensor_names.size(); ++i)
-            tensor_offsets.push_back(add_off(ntc * npoints * fbytesize));
+            tensor_offsets.push_back(add_off(byte_count(ntc, npoints, fbytesize)));
 
-        points_offset = add_off(3 * npoints * fbytesize);
-        conn_offset   = add_off(ncells * nve * ibytesize);
-        offs_offset   = add_off(ncells * ibytesize);
-        types_offset  = add_off(ncells * 1);
+        points_offset = add_off(byte_count(3, npoints, fbytesize));
+        conn_offset   = add_off(byte_count(ncells, nve, ibytesize));
+        offs_offset   = add_off(byte_count(ncells, ibytesize));
+        types_offset  = add_off(byte_count(ncells, 1));
     }
 
     // endianness
@@ -447,11 +461,44 @@ private:
     }
 
     // VTK appended block (UInt64 length + payload)
-    static void write_block(std::ofstream& s, const void* data, int nbytes) {
-        std::uint64_t nb = static_cast<std::uint64_t>(nbytes);
+    static std::uint64_t byte_count(std::uint64_t n, std::uint64_t bytes_per_entry) {
+        if (bytes_per_entry != 0 &&
+            n > std::numeric_limits<std::uint64_t>::max() / bytes_per_entry)
+            throw std::overflow_error("Visualization byte count overflow.");
+        return n * bytes_per_entry;
+    }
+
+    static std::uint64_t byte_count(std::uint64_t n1, std::uint64_t n2,
+                                    std::uint64_t bytes_per_entry) {
+        return byte_count(byte_count(n1, n2), bytes_per_entry);
+    }
+
+    static void write_block(std::ofstream& s, const std::string& filename,
+                            const std::string& block_name, const void* data,
+                            std::uint64_t nbytes) {
+        if (!data && nbytes > 0)
+            throw std::runtime_error("Cannot write VTU block '" + block_name +
+                                     "' to " + filename + ": null data pointer.");
+
+        std::uint64_t nb = nbytes;
+        errno = 0;
         s.write(reinterpret_cast<const char*>(&nb), sizeof(std::uint64_t));
-        if (nbytes) s.write(reinterpret_cast<const char*>(data), nbytes);
-        if (!s) throw std::runtime_error("Error writing appended block.");
+        const char* ptr = reinterpret_cast<const char*>(data);
+        while (s && nbytes > 0) {
+            const std::uint64_t chunk64 =
+                std::min<std::uint64_t>(nbytes,
+                    static_cast<std::uint64_t>(std::numeric_limits<std::streamsize>::max()));
+            s.write(ptr, static_cast<std::streamsize>(chunk64));
+            ptr += chunk64;
+            nbytes -= chunk64;
+        }
+        if (!s) {
+            std::string msg = "Error writing VTU appended block '" + block_name +
+                              "' to " + filename + " (" + std::to_string(nb) +
+                              " bytes)";
+            if (errno != 0) msg += ": " + std::string(std::strerror(errno));
+            throw std::runtime_error(msg);
+        }
     }
 
     // Write N values as Float32 appended block from either float* or double*
@@ -460,14 +507,14 @@ private:
         using U = std::remove_cv_t<T>;
         if constexpr (std::is_same_v<U, float>) {
             // Fast path: already Float32, write directly
-            write_block(os, src, N * (int)sizeof(float));
+            write_block(os, "<stream>", "float32", src, byte_count(N, sizeof(float)));
         } else {
             // U is double: convert once into a reusable buffer and write
             static thread_local std::vector<float> buf; // reuse to avoid re-allocs
             buf.resize(N);
             std::transform(src, src + N, buf.begin(),
                            [](double v){ return static_cast<float>(v); });
-            write_block(os, buf.data(), N * (int)sizeof(float));
+            write_block(os, "<stream>", "float32", buf.data(), byte_count(N, sizeof(float)));
         }
     }
     

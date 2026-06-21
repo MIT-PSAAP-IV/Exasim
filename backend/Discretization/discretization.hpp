@@ -780,8 +780,17 @@ inline void CDiscretization<M>::evalResidual(dstype* Ru, dstype* u, Int backend)
 template <class M>
 inline void CDiscretization<M>::evalQ(Int backend)
 {
-    // compute the flux q
-    ComputeQ<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
+    if (common.spatialScheme == 0) {
+        // LDG computes q through the model flux kernels.
+        ComputeQ<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
+    }
+    else if (common.spatialScheme == 1) {
+        // HDG recovers q from the element state and trace unknowns.
+        hdgGetQ<M>(sol.udg, sol.uh, sol, res, mesh, tmp, common, backend);
+    }
+    else {
+        error("Spatial discretization scheme is not implemented");
+    }
 }
 
 template <class M>
@@ -799,8 +808,17 @@ inline void CDiscretization<M>::evalQ(dstype* q, dstype* u, Int backend)
     ArrayInsert(sol.udg, u, common.npe, common.nc, common.ne, 0, common.npe, 
             0, common.ncu, 0, common.ne1);
 
-    // compute the flux q
-    ComputeQ<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
+    if (common.spatialScheme == 0) {
+        // LDG computes q through the model flux kernels.
+        ComputeQ<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
+    }
+    else if (common.spatialScheme == 1) {
+        // HDG recovers q from the element state and trace unknowns.
+        hdgGetQ<M>(sol.udg, sol.uh, sol, res, mesh, tmp, common, backend);
+    }
+    else {
+        error("Spatial discretization scheme is not implemented");
+    }
 
     // get q from udg
     ArrayExtract(q, sol.udg, common.npe, common.nc, common.ne, 0, common.npe, 

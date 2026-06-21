@@ -1029,8 +1029,8 @@ void CSolution::SaveSolutions(Int backend)
         if (disc.common.spatialScheme==1)
             writearray(outuhat, disc.sol.uh, disc.common.ndofuhat, backend);
     }
-   
-   if (disc.common.tdep==1) { 
+    
+    if (disc.common.tdep==1) { 
         if (((disc.common.currentstep+1) % disc.common.saveRestart) == 0)             
         {        
             string filename = disc.common.fileout + "udg_t" + NumberToString(disc.common.currentstep+disc.common.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";     
@@ -1062,7 +1062,7 @@ void CSolution::SaveSolutions(Int backend)
                 writearray2file(fn2, disc.sol.uh, disc.common.ndofuhat, backend);        
             }
         }    
-   }
+    }
     
    // if (disc.common.tdep==1) { 
    //      if (((disc.common.currentstep+1) % disc.common.saveSolFreq) == 0)             
@@ -1156,6 +1156,43 @@ void CSolution::ReadSolutions(Int backend)
         }                                    
    }    
 }
+
+void CSolution::GetSolutions(Int step, Int backend)
+{
+    if (step < 0)
+        error("GetSolutions: step must be nonnegative");
+
+    const Int rank = disc.common.mpiRank - disc.common.fileoffset;
+    const Int headerSize = 3;
+    string filename = disc.common.fileout + "udg_np" + NumberToString(rank) + ".bin";
+
+    if (disc.common.saveSolOpt == 0) {
+        const Int skip = headerSize + step * disc.common.ndof1;
+        readarrayfromfile(filename, &disc.res.Rq, disc.common.ndof1, backend, skip);
+        ArrayInsert(disc.sol.udg, disc.res.Rq, disc.common.npe, disc.common.nc,
+                    disc.common.ne, 0, disc.common.npe, 0, disc.common.ncu,
+                    0, disc.common.ne1);
+    }
+    else {
+        const Int skip = headerSize + step * disc.common.ndofudg1;
+        readarrayfromfile(filename, &disc.sol.udg, disc.common.ndofudg1, backend, skip);
+    }
+
+    if (disc.common.ncw > 0) {
+        string fn = disc.common.fileout + "wdg_np" + NumberToString(rank) + ".bin";
+        const Int skip = headerSize + step * disc.common.ndofw1;
+        readarrayfromfile(fn, &disc.sol.wdg, disc.common.ndofw1, backend, skip);
+    }
+
+    if (disc.common.spatialScheme == 1) {
+        string fn = disc.common.fileout + "uhat_np" + NumberToString(rank) + ".bin";
+        const Int skip = headerSize + step * disc.common.ndofuhat;
+        readarrayfromfile(fn, &disc.sol.uh, disc.common.ndofuhat, backend, skip);
+    }
+
+    if ((disc.common.saveSolOpt == 0) && (disc.common.ncq > 0))
+        disc.evalQ(backend);
+}
  
 void CSolution::SaveParaview(Int backend, std::string fname_modifier, bool force_tdep_write) 
 {
@@ -1189,11 +1226,19 @@ void CSolution::SaveParaview(Int backend, std::string fname_modifier, bool force
        int ndg  = npe * ne;
        int ncg  = vis.npoints;
     
-       dstype* xdg = &disc.tmp.tempn[0];  
-       dstype* udg = disc.res.Rq;   
-       dstype* vdg = &disc.tmp.tempn[npe*ncx*ne];    
-       dstype* wdg = disc.res.Ru;     
-       dstype* f = solv.sys.v;
+       dstype* udg = disc.res.Rq;  
+       dstype* wdg = disc.res.Ru;
+       int nvis = max(max(nsca, 3*nvec), vis.ntc*nten);
+       int szvis = npe*(ncx+nco+nvis)*ne;
+       bool ownsTempn = false;
+       dstype* tempn = disc.tmp.tempn;
+       if (disc.tmp.sztempn + disc.tmp.sztempg < szvis) {
+         TemplateMalloc(&tempn, szvis, backend);
+         ownsTempn = true;
+       }
+       dstype* xdg = &tempn[0];         
+       dstype* vdg = &tempn[npe*ncx*ne];           
+       dstype* f = &tempn[npe*(ncx+nco)*ne];
     
        GetElemNodes(xdg, disc.sol.xdg, npe, ncx, 0, ncx, 0, ne);
        GetElemNodes(udg, disc.sol.udg, npe, nc, 0, nc, 0, ne);
@@ -1224,6 +1269,9 @@ void CSolution::SaveParaview(Int backend, std::string fname_modifier, bool force
             vis.vtuwrite(baseName, vis.scafields, vis.vecfields, vis.tenfields);
        else
             vis.vtuwrite_parallel(baseName, disc.common.mpiRank, disc.common.mpiProcs, vis.scafields, vis.vecfields, vis.tenfields);
+
+       if (ownsTempn)
+         TemplateFree(tempn, backend);
    }
 }
 
@@ -1250,10 +1298,10 @@ void CSolution::SaveOutputCG(Int backend)
         if (((disc.common.currentstep+1) % disc.common.saveSolFreq) == 0)             
         {                    
             string filename1 = disc.common.fileout + "_outputCG_t" + NumberToString(disc.common.currentstep+disc.common.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";     
-            disc.evalOutput(solv.sys.v, backend);
-            disc.DG2CG(solv.sys.v, solv.sys.v, solv.sys.x, disc.common.nce, 
+            disc.evalOutput(disc.res.Rq, backend);
+            disc.DG2CG(disc.res.Rq, disc.res.Rq, disc.tmp.tempn, disc.common.nce, 
                      disc.common.nce, disc.common.nce, backend);
-            writearray2file(filename1, solv.sys.v, disc.common.ndofedg1, backend);                   
+            writearray2file(filename1, disc.res.Rq, disc.common.ndofedg1, backend);                   
 //             disc.DG2CG3(solv.sys.v, solv.sys.v, solv.sys.x, disc.common.nce, 
 //                  disc.common.nce, disc.common.nce, backend);
 //             writearray2file(filename1, solv.sys.v, disc.common.ndofucg, backend);               
@@ -1261,10 +1309,10 @@ void CSolution::SaveOutputCG(Int backend)
    }
    else {
         string filename1 = disc.common.fileout + "_outputCG_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";                            
-        disc.evalOutput(solv.sys.v, backend);
-        disc.DG2CG(solv.sys.v, solv.sys.v, solv.sys.x, disc.common.nce, 
+        disc.evalOutput(disc.res.Rq, backend);
+        disc.DG2CG(disc.res.Rq, disc.res.Rq, disc.tmp.tempn, disc.common.nce, 
                  disc.common.nce, disc.common.nce, backend);
-        writearray2file(filename1, solv.sys.v, disc.common.ndofedg1, backend);               
+        writearray2file(filename1, disc.res.Rq, disc.common.ndofedg1, backend);               
 //         disc.DG2CG3(solv.sys.v, solv.sys.v, solv.sys.x, disc.common.nce, 
 //                  disc.common.nce, disc.common.nce, backend);        
 //         writearray2file(filename1, solv.sys.v, disc.common.ndofucg, backend);               

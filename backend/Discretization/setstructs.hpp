@@ -143,6 +143,7 @@ inline void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &
     common.extUhat = app.flag[14];
     common.extStab = app.flag[15];
     common.subproblem = app.flag[16];
+    common.saveParaview = (app.nsize[1] > 17) ? app.flag[17] : 0;
     
     common.tsteps = app.nsize[4];  // number of time steps          
     common.spatialScheme = app.problem[0];   /* 0: HDG; 1: EDG; 2: IEDG, HEDG */

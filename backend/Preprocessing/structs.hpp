@@ -184,6 +184,7 @@ struct PDE {
     int extFhat = 0;
     int extUhat = 0;
     int extStab = 0;
+    int saveParaview = 0;
     int saveResNorm = 0;
     int dae_steps = 0;
 

@@ -1240,11 +1240,19 @@ inline void CSolution<M>::SaveParaview(Int backend, std::string fname_modifier, 
        int ndg  = npe * ne;
        int ncg  = vis.npoints;
     
-       dstype* xdg = &disc.tmp.tempn[0];  
        dstype* udg = disc.res.Rq;   
-       dstype* vdg = &disc.tmp.tempn[npe*ncx*ne];    
-       dstype* wdg = disc.res.Ru;     
-       dstype* f = solv.sys.v;
+       dstype* wdg = disc.res.Ru;
+       int nvis = max(max(nsca, 3*nvec), vis.ntc*nten);
+       int szvis = npe*(ncx+nco+nvis)*ne;
+       bool ownsTempn = false;
+       dstype* tempn = disc.tmp.tempn;
+       if (disc.tmp.sztempn + disc.tmp.sztempg < szvis) {
+         TemplateMalloc(&tempn, szvis, backend);
+         ownsTempn = true;
+       }
+       dstype* xdg = &tempn[0];  
+       dstype* vdg = &tempn[npe*ncx*ne];    
+       dstype* f = &tempn[npe*(ncx+nco)*ne];
     
        GetElemNodes(xdg, disc.sol.xdg, npe, ncx, 0, ncx, 0, ne);
        GetElemNodes(udg, disc.sol.udg, npe, nc, 0, nc, 0, ne);
@@ -1275,6 +1283,9 @@ inline void CSolution<M>::SaveParaview(Int backend, std::string fname_modifier, 
             vis.vtuwrite(baseName, vis.scafields, vis.vecfields, vis.tenfields);
        else
             vis.vtuwrite_parallel(baseName, disc.common.mpiRank, disc.common.mpiProcs, vis.scafields, vis.vecfields, vis.tenfields);
+
+       if (ownsTempn)
+         TemplateFree(tempn, backend);
    }
 }
 

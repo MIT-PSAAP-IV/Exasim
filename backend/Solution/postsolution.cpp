@@ -248,6 +248,51 @@ void CSolution::ReadSolutions(Int backend)
         }                                    
    }    
 }
+
+void CSolution::GetSolutions(Int step, Int backend)
+{
+    if (step < 0)
+        error("GetSolutions: step must be nonnegative");
+
+    const Int rank = disc.common.mpiRank - disc.common.fileoffset;
+    const Int headerSize = 3;
+    string filename = disc.common.fileout + "udg_np" + NumberToString(rank) + ".bin";
+
+    if (disc.common.saveSolOpt == 0) {
+        const Int skip = headerSize + step * disc.common.ndof1;
+        if (disc.common.spatialScheme > 0) {
+            readarrayfromfile(filename, &disc.res.Rq, disc.common.ndof1, backend, skip);
+            ArrayInsert(disc.sol.udg, disc.res.Rq, disc.common.npe, disc.common.nc,
+                        disc.common.ne, 0, disc.common.npe, 0, disc.common.ncu,
+                        0, disc.common.ne1);
+        }
+        else {
+            readarrayfromfile(filename, &solv.sys.u, disc.common.ndof1, backend, skip);
+            ArrayInsert(disc.sol.udg, solv.sys.u, disc.common.npe, disc.common.nc,
+                        disc.common.ne, 0, disc.common.npe, 0, disc.common.ncu,
+                        0, disc.common.ne1);
+        }
+    }
+    else {
+        const Int skip = headerSize + step * disc.common.ndofudg1;
+        readarrayfromfile(filename, &disc.sol.udg, disc.common.ndofudg1, backend, skip);
+    }
+
+    if (disc.common.ncw > 0) {
+        string fn = disc.common.fileout + "wdg_np" + NumberToString(rank) + ".bin";
+        const Int skip = headerSize + step * disc.common.ndofw1;
+        readarrayfromfile(fn, &disc.sol.wdg, disc.common.ndofw1, backend, skip);
+    }
+
+    if (disc.common.spatialScheme == 1) {
+        string fn = disc.common.fileout + "uhat_np" + NumberToString(rank) + ".bin";
+        const Int skip = headerSize + step * disc.common.ndofuhat;
+        readarrayfromfile(fn, &disc.sol.uh, disc.common.ndofuhat, backend, skip);
+    }
+
+    if ((disc.common.saveSolOpt == 0) && (disc.common.ncq > 0))
+        disc.evalQ(backend);
+}
  
 void CSolution::SaveParaview(Int backend, std::string fname_modifier, bool force_tdep_write) 
 {  
@@ -281,11 +326,19 @@ void CSolution::SaveParaview(Int backend, std::string fname_modifier, bool force
        int ndg  = npe * ne;
        int ncg  = vis.npoints;
     
-       dstype* xdg = &disc.tmp.tempn[0];  
        dstype* udg = disc.res.Rq;   
-       dstype* vdg = &disc.tmp.tempn[npe*ncx*ne];    
-       dstype* wdg = disc.res.Ru;     
-       dstype* f = &disc.res.Rq[npe*nc*ne];
+       dstype* wdg = disc.res.Ru;
+       int nvis = max(max(nsca, 3*nvec), vis.ntc*nten);
+       int szvis = npe*(ncx+nco+nvis)*ne;
+       bool ownsTempn = false;
+       dstype* tempn = disc.tmp.tempn;
+       if (disc.tmp.sztempn + disc.tmp.sztempg < szvis) {
+         TemplateMalloc(&tempn, szvis, backend);
+         ownsTempn = true;
+       }
+       dstype* xdg = &tempn[0];  
+       dstype* vdg = &tempn[npe*ncx*ne];    
+       dstype* f = &tempn[npe*(ncx+nco)*ne];
     
        GetElemNodes(xdg, disc.sol.xdg, npe, ncx, 0, ncx, 0, ne);
        GetElemNodes(udg, disc.sol.udg, npe, nc, 0, nc, 0, ne);
@@ -295,17 +348,14 @@ void CSolution::SaveParaview(Int backend, std::string fname_modifier, bool force
        if (nsca > 0) {        
             VisScalarsDriver(f, xdg, udg, vdg, wdg, disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common, npe, 0, ne, backend);                                 
             VisDG2CG(vis.scafields, f, disc.mesh.cgent2dgent, disc.mesh.colent2elem, disc.mesh.rowent2elem, ne, ncg, ndg, 1, 1, nsca);
-            if (disc.common.mpiRank==0) cout<<"scafields[0] = "<<vis.scafields[0]<<endl;
        }    
        if (nvec > 0) {        
             VisVectorsDriver(f, xdg, udg, vdg, wdg, disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common, npe, 0, ne, backend);                                 
             VisDG2CG(vis.vecfields, f, disc.mesh.cgent2dgent, disc.mesh.colent2elem, disc.mesh.rowent2elem, ne, ncg, ndg, 3, ncx, nvec);
-            if (disc.common.mpiRank==0) cout<<"vecfields[0] = "<<vis.vecfields[0]<<endl;
        }
        if (nten > 0) {        
             VisTensorsDriver(f, xdg, udg, vdg, wdg, disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common, npe, 0, ne, backend);                                 
             VisDG2CG(vis.tenfields, f, disc.mesh.cgent2dgent, disc.mesh.colent2elem, disc.mesh.rowent2elem, ne, ncg, ndg, vis.ntc, vis.ntc, nten);
-            if (disc.common.mpiRank==0) cout<<"tenfields[0] = "<<vis.tenfields[0]<<endl;
        }
 
        string baseName = disc.common.fileout + "vis" + fname_modifier;
@@ -315,12 +365,13 @@ void CSolution::SaveParaview(Int backend, std::string fname_modifier, bool force
            baseName = baseName + "_" + ss.str();           
        }
        
-       if (disc.common.mpiRank==0) cout<<"baseName = "<<baseName<<endl;
-
        if (disc.common.mpiProcs==1)                
             vis.vtuwrite(baseName, vis.scafields, vis.vecfields, vis.tenfields);
        else 
             vis.vtuwrite_parallel(baseName, disc.common.mpiRank, disc.common.mpiProcs, vis.scafields, vis.vecfields, vis.tenfields);       
+
+       if (ownsTempn)
+         TemplateFree(tempn, backend);
    }
 }
 

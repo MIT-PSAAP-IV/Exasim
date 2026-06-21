@@ -146,6 +146,31 @@ inline int InitializeExasimSolver(ExasimSolver& solver, int argc, char** argv, M
     return 0;
 }
 
+inline int InitializeExasimPostprocessor(ExasimSolver& solver, int argc, char** argv, MPI_Comm comm)
+{
+    int err = solver.InitializeEnvironment(argc, argv, comm);
+    if (err)
+        return err;
+
+    err = solver.ParsePostprocessInputs(argc, argv);
+    if (err) {
+        solver.Finalize();
+        return err;
+    }
+
+    err = ConfigureModelDefinitions(solver);
+    if (err) {
+        solver.Finalize();
+        return err;
+    }
+
+    err = solver.InitializeModels();
+    if (err)
+        return err;
+
+    return 0;
+}
+
 inline int InitializeExasimSolver(ExasimSolver& solver, int argc, char** argv,
                                   MPI_Comm comm, const std::vector<int>& vecBuiltinModelID)
 {

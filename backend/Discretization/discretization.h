@@ -41,6 +41,8 @@
 #ifndef __DISCRETIZATION_H__
 #define __DISCRETIZATION_H__
 
+#include "exasim/execution_mode.hpp"
+
 class CDiscretization {
 private:
 public:
@@ -58,7 +60,10 @@ public:
     // constructor for both CPU and GPU
     CDiscretization(std::string filein, std::string fileout, std::string exasimpath, Int mpiprocs, 
                     Int mpirank, Int ompthreads, Int omprank, Int backend,
-                    Int builtinmodelID, const ExasimDriverABI& abi); 
+                    Int builtinmodelID, const ExasimDriverABI& abi,
+                    Int nsca = 0, Int nvec = 0, Int nten = 0,
+                    Int nsurf = 0, Int nvqoi = 0,
+                    ExasimExecutionMode mode = ExasimExecutionMode::Solve); 
     
     // destructor        
     ~CDiscretization(); 

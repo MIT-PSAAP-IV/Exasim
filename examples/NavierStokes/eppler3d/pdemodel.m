@@ -6,6 +6,8 @@ pde.fbou = @fbou;
 pde.fbouhdg = @fbouhdg;
 pde.ubou = @ubou;
 pde.initu = @initu;
+pde.visscalars = @visscalars;
+pde.visvectors = @visvectors;
 end
 
 function m = mass(u, q, w, v, x, t, mu, eta)
@@ -105,10 +107,10 @@ function fb = fbou(u, q, w, v, x, t, mu, eta, uhat, n, tau)
     f_wall = fn;
     f_wall(1) = 0.0;
     f_wall(end) = 0.0;
-    u_far = farfieldstate(u, n, mu);
-    f_far = fn + tau*(u_far - u);
+    % u_far = farfieldstate(u, n, mu);
+    % f_far = fn + tau*(u_far - u);
     f_slip = slipflux(u, uhat, n, tau);
-    fb = [f_wall f_far f_slip];
+    fb = [f_wall fn f_slip];
 end
 
 function ub = ubou(u, q, w, v, x, t, mu, eta, uhat, n, tau)
@@ -165,4 +167,16 @@ end
 
 function u0 = initu(x, mu, eta)
     u0 = sym(mu(5:9));
+end
+
+function s = visscalars(u, q, w, v, x, t, mu, eta)
+s(1) = u(1);
+vx = u(2)/u(1);
+vy = u(3)/u(1);  
+vz = u(4)/u(1);  
+s(2) = 0.4*(u(5) - 0.5*(u(2)*vx + u(3)*vy + u(4)*vz));
+end
+
+function s = visvectors(u, q, w, v, x, t, mu, eta)
+s = u(2:4)/u(1);
 end

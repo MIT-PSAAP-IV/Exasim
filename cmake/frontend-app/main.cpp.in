@@ -4,7 +4,54 @@
 // Do NOT include <exasim/builtinlibprovider.hpp>: the frontend_model library
 // provides getBuiltInLibraryExasimDriverABI() for ID @MODEL_ID@ and falls
 // through to the installed built-in dispatchers for all other IDs.
+#include <string>
+#include <vector>
+
 #include <exasim/ExasimSolverSetup.hpp>
+
+namespace {
+
+int RunExasimPostprocess(ExasimSolver& solver, int argc, char** argv, MPI_Comm comm)
+{
+    const std::vector<int> modelIds = {@MODEL_ID@};
+
+    int err = solver.InitializeEnvironment(argc, argv, comm);
+    if (err)
+        return err;
+
+    err = solver.ParsePostprocessInputs(argc, argv);
+    if (err) {
+        solver.Finalize();
+        return err;
+    }
+
+    err = ConfigureModelDefinitions(solver, modelIds);
+    if (err) {
+        solver.Finalize();
+        return err;
+    }
+
+    err = solver.InitializeModels();
+    if (err) {
+        solver.Finalize();
+        return err;
+    }
+
+    err = solver.Postprocess();
+    if (err) {
+        solver.Finalize();
+        return err;
+    }
+
+    return solver.Finalize();
+}
+
+int RunExasimSolve(ExasimSolver& solver, int argc, char** argv, MPI_Comm comm)
+{
+    return RunExasimSolver(solver, argc, argv, comm, {@MODEL_ID@});
+}
+
+} // namespace
 
 int main(int argc, char** argv)
 {
@@ -14,5 +61,22 @@ int main(int argc, char** argv)
     MPI_Comm comm = MPI_COMM_NULL;
 #endif
     ExasimSolver solver;
-    return RunExasimSolver(solver, argc, argv, comm, {@MODEL_ID@});
+
+    if (argc > 1 && std::string(argv[1]) == "postprocess") {
+        std::vector<char*> shifted;
+        shifted.push_back(argv[0]);
+        for (int i = 2; i < argc; i++)
+            shifted.push_back(argv[i]);
+        return RunExasimPostprocess(solver, static_cast<int>(shifted.size()), shifted.data(), comm);
+    }
+
+    if (argc > 1 && std::string(argv[1]) == "solve") {
+        std::vector<char*> shifted;
+        shifted.push_back(argv[0]);
+        for (int i = 2; i < argc; i++)
+            shifted.push_back(argv[i]);
+        return RunExasimSolve(solver, static_cast<int>(shifted.size()), shifted.data(), comm);
+    }
+
+    return RunExasimSolve(solver, argc, argv, comm);
 }

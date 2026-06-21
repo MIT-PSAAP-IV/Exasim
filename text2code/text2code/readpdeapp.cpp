@@ -410,6 +410,7 @@ struct PDE {
     int extFhat = 0;
     int extUhat = 0;
     int extStab = 0;
+    int saveParaview = 0;
     int saveResNorm = 0;
     int dae_steps = 0;
 
@@ -567,6 +568,9 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     }
     if (params.intParams.count("subproblem")) {
         pde.subproblem = params.intParams["subproblem"];
+    }
+    if (params.intParams.count("saveParaview")) {
+        pde.saveParaview = params.intParams["saveParaview"];
     }
     if (params.intParams.count("tdep")) {
         pde.tdep = params.intParams["tdep"];
@@ -774,7 +778,7 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     pde.flag = makeDoubleVector(
         pde.tdep, pde.wave, pde.linearproblem, pde.debugmode, pde.matvecorder, pde.GMRESortho,
         pde.preconditioner, pde.precMatrixType, pde.NLMatrixType, pde.runmode, pde.tdfunc, pde.sourcefunc,
-        pde.modelnumber, pde.extFhat, pde.extUhat, pde.extStab, pde.subproblem
+        pde.modelnumber, pde.extFhat, pde.extUhat, pde.extStab, pde.subproblem, pde.saveParaview
     );        
     pde.problem = makeDoubleVector(
         pde.hybrid, 0, pde.temporalscheme, pde.torder, pde.nstage, pde.convStabMethod,
@@ -939,4 +943,3 @@ void writepde(const PDE& pde, const std::string& filename)
 }
     
 #endif
-

@@ -44,9 +44,15 @@
 #include "ptcsolver.cpp"
 
 // constructor
-CSolver::CSolver(CDiscretization& disc, Int backend)
+CSolver::CSolver(CDiscretization& disc, Int backend, ExasimExecutionMode mode)
 {
     mpiRank = disc.common.mpiRank;
+    sys.backend = backend;
+    if (mode == ExasimExecutionMode::Postprocess) {
+        if (disc.common.mpiRank == 0) printf("finish CSolver constructor (postprocess mode)... \n");
+        return;
+    }
+
     setsysstruct(sys, disc.common, disc.res, disc.mesh, disc.tmp, backend);   
     if ((disc.common.mpiRank==0) && (disc.common.debugMode==1)) sys.printinfo(); 
 
@@ -61,4 +67,3 @@ CSolver::~CSolver()
 }
 
 #endif        
-

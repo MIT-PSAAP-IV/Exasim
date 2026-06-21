@@ -94,7 +94,7 @@ int main(int argc, char** argv)
     int builtinmodelID=0;
     
     if (argc < 3) {
-      printf("Usage: ./postprocess nummodels InputFile(s) OutputFile(s) [timestep] [postmode]\n");
+      printf("Usage: ./postprocess nummodels InputFile(s) OutputFile(s) [restart] [postmode]\n");
       return 1;
     }
     
@@ -126,7 +126,7 @@ int main(int argc, char** argv)
         mystr = string(argv[2*nummodels+2]);
         try { restart = stoi(mystr); }
         catch (...) {
-            if (mpirank==0) std::cerr << "Invalid timestep value: " << mystr << std::endl;
+            if (mpirank==0) std::cerr << "Invalid restart value: " << mystr << std::endl;
             return 1;
         }
     }

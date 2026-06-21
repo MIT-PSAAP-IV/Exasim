@@ -58,5 +58,5 @@ else
                      0 , 0 , 0 , abs(un) , 0;...
                      0 , 0 , 0 , 0 , abs(un+a) ];
 end
-E = simplify(K * Lambda * Kinv);
-An = simplify(Tinv * E * T);
+E = K * Lambda * Kinv;
+An = Tinv * E * T;
