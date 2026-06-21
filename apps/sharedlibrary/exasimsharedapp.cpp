@@ -24,7 +24,7 @@ Build this exasimapp.cpp from Exasim/apps/builtinlibrary
 
 Run an APP with an input file that uses a built-in model ID:
 
-  /Users/cuongnguyen/Documents/GitHub/PSAAP/Exasim-build/bin/text2code ../poisson/cone/pdeapp.txt
+  text2code ../poisson/cone/pdeapp.txt
   mpirun -np 4 build/exasimapp /path/to/pdeapp.txt
 
 Poisson APPs:
