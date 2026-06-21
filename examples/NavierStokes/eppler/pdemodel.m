@@ -214,5 +214,5 @@ s(4) = 0.4*(u(4) - 0.5*(u(2)*s(2) + u(3)*s(3)));
 end
 
 function s = visvectors(u, q, w, v, x, t, mu, eta)
-s = u(2:3);
+s = u(2:3)/u(1);
 end
