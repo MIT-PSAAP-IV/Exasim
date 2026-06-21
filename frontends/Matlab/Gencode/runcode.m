@@ -20,8 +20,20 @@ if ~exist(char(exe), 'file')
     error("Solver executable not found at %s; run cmakecompile(pde) first.", exe);
 end
 
+executionmode = 0;
+if isfield(pde, 'executionmode')
+    executionmode = pde.executionmode;
+end
+if executionmode == 0
+    modestring = " ";
+elseif executionmode == 1
+    modestring = " postprocess";
+else
+    error("Unsupported executionmode=%d. Use 0 for solve or 1 for postprocess.", executionmode);
+end
+
 DataPath = pde.datapath;
-mystr = " " + num2str(numpde) + " ";
+mystr = modestring + " " + num2str(numpde) + " ";
 if numpde>100 % two-domain problems
   numpde = 2;
 end

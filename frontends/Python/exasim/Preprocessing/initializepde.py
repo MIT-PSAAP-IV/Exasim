@@ -107,6 +107,7 @@ def initializepde(version):
     pde['extUhat'] = 0;
     pde['extStab'] = 0;
     pde['saveParaview'] = 0;
+    pde['executionmode'] = 0;
 
     pde['saveResNorm'] = 0;
 

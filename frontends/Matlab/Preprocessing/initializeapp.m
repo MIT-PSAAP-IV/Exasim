@@ -80,6 +80,7 @@ app.extFhat = 0;
 app.extUhat = 0;
 app.extStab = 0;
 app.saveParaview = 0;
+app.executionmode = 0;
 
 app.time = 0.0;
 app.NLparam = 0.0;
@@ -109,7 +110,6 @@ app.visfilename = "dataout/output";   % filename for paraview output files
 app.metis = "mpmetis";
 app.gmsh = "gmsh";
 app.paraview = "paraview";
-
 
 
 

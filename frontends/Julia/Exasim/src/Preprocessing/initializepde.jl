@@ -97,6 +97,7 @@ mutable struct PDEStruct
     extUhat::IntP;
     extStab::IntP;
     saveParaview::IntP;
+    executionmode::IntP;
     saveResNorm::IntP; # option for how the solution be saved: 0 -> u only, 1 -> u and q
 
     time::FloatP; # starting time (usually 0, however >0 if restarting from the saved solution)
@@ -261,6 +262,7 @@ function initializepde(version)
     pde.extUhat = 0;
     pde.extStab = 0;
     pde.saveParaview = 0;
+    pde.executionmode = 0;
     pde.saveResNorm = 0;
 
     pde.time = 0.0;

@@ -19,6 +19,15 @@ def runcode(pde, numpde):
         raise RuntimeError(f"Solver executable not found at {exe}; "
                            "run Gencode.cmakecompile(pde) first.")
 
+    executionmode = pde.get('executionmode', 0)
+    if executionmode == 0:
+        modearg = None
+    elif executionmode == 1:
+        modearg = "postprocess"
+    else:
+        raise ValueError("Unsupported executionmode={}. Use 0 for solve or "
+                         "1 for postprocess.".format(executionmode))
+
     # datain/dataout are isolated per model by strn (preprocessing writes the
     # same way); strn="" for model 0 collapses to the historical paths.
     strn = config.model_strn(pde)
@@ -27,6 +36,8 @@ def runcode(pde, numpde):
 
     if pde['mpiprocs'] == 1:
         cmd = [exe, str(numpde), datain, dataout]
+        if modearg is not None:
+            cmd.insert(1, modearg)
     else:
         # Prefer the MPI launcher CMake discovered at build-configure time
         # (portable); fall back to the frontend-detected pde['mpirun'].
@@ -39,6 +50,8 @@ def runcode(pde, numpde):
                 mpirun = discovered
         cmd = [mpirun, "-np", str(pde['mpiprocs']),
                exe, str(numpde), datain, dataout]
+        if modearg is not None:
+            cmd.insert(4, modearg)
 
     start_time = time.time()
     subprocess.run(cmd, cwd=pde['datapath'], check=True)
