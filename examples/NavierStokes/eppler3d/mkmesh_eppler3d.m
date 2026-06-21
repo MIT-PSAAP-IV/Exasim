@@ -27,7 +27,6 @@ mesh.boundarycondition = [3; 3; 1; 2];
 mesh.curvedboundary = [0 0 0 0];
 mesh.curvedboundaryexpr = {@(p) 0*p(1,:), @(p) 0*p(1,:), @(p) 0*p(1,:), @(p) 0*p(1,:)};
 mesh.periodicboundary = [];
-mesh.periodicexpr = {};
 mesh.periodicexpr = {1, @(p) p([1 2],:), 2, @(p) p([1 2],:)};
 mesh.f = facenumbering(mesh.p, mesh.t, mesh.elemtype, mesh.boundaryexpr, mesh.periodicexpr);
 
