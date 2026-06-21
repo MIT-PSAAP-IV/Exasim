@@ -139,9 +139,11 @@ public:
               Int builtinmodelID, const ExasimDriverABI& abi,
               Int nsca = 0, Int nvec = 0, Int nten = 0,
               Int nsurf = 0, Int nvqoi = 0,
-              ExasimExecutionMode mode = ExasimExecutionMode::Solve)   
+              ExasimExecutionMode mode = ExasimExecutionMode::Solve,
+              const std::vector<dstype>* physicsparamOverride = nullptr)
        : disc(filein, fileout, exasimpath, mpiprocs, mpirank, fileoffset,
-              omprank, backend, builtinmodelID, abi, nsca, nvec, nten, nsurf, nvqoi, mode),
+              omprank, backend, builtinmodelID, abi, nsca, nvec, nten, nsurf, nvqoi, mode,
+              physicsparamOverride),
          prec(disc, backend, mode), solv(disc, backend, mode), vis(disc, backend) 
     {   
         int ncx = disc.common.ncx;                            

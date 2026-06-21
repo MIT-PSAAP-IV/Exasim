@@ -12,6 +12,7 @@ from exasim.Postprocessing.exasim import (  # noqa: E402
     _paramcase_output_dir,
     _write_physicsparam_case,
 )
+from exasim.Gencode.exportapp import _write_physicsparamcases_if_needed  # noqa: E402
 
 
 def test_matrix_samples():
@@ -68,8 +69,21 @@ def test_bad_dimension_rejected():
         raise AssertionError("malformed physicsparamsweep was not rejected")
 
 
+def test_export_writes_shared_physicsparamcases_file():
+    datain = tempfile.mkdtemp()
+    pde = {
+        "physicsparam": numpy.array([1.0, 0.0]),
+        "physicsparamsweep": numpy.array([[0.5, 0.0], [1.0, 1.0]]),
+    }
+    _write_physicsparamcases_if_needed(pde, datain)
+    raw = numpy.fromfile(os.path.join(datain, "physicsparamcases.bin"), dtype=numpy.float64)
+    assert numpy.allclose(raw[:2], [2.0, 2.0])
+    assert numpy.allclose(raw[2:], [0.5, 0.0, 1.0, 1.0])
+
+
 if __name__ == "__main__":
     test_matrix_samples()
     test_scalar_parameter_value_list()
     test_structured_grid_and_case_metadata()
     test_bad_dimension_rejected()
+    test_export_writes_shared_physicsparamcases_file()

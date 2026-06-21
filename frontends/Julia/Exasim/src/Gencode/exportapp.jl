@@ -57,6 +57,7 @@ function exportapp(pde, dest=nothing; build=true)
     # 1. Runtime inputs + the output directory the solver writes into.
     _copytree(datain, joinpath(dest, "datain"))
     mkpath(joinpath(dest, "dataout"))
+    _write_physicsparamcases_if_needed(pde, joinpath(dest, "datain"))
 
     # 2. The generated kernel .cpp set.
     _copytree(kernels, joinpath(dest, "kernels"))
@@ -104,6 +105,88 @@ function exportapp(pde, dest=nothing; build=true)
 
     print("Exported data-transfer app: $dest\n")
     return dest
+end
+
+# Write the shared standalone-sweep input file used by the C++ runtime.
+function _write_physicsparamcases_if_needed(pde, datain)
+    if !isdefined(pde, :physicsparamsweep) || isempty(pde.physicsparamsweep)
+        return
+    end
+    cases = _physicsparam_sweep_cases(pde.physicsparamsweep, length(vec(pde.physicsparam)))
+    open(joinpath(datain, "physicsparamcases.bin"), "w") do f
+        write(f, Float64[size(cases, 1), size(cases, 2)])
+        write(f, vec(permutedims(Float64.(cases))))
+    end
+end
+
+function _physicsparam_sweep_cases(spec, nparam)
+    if spec isa Dict
+        if haskey(spec, "samples")
+            return _physicsparam_sweep_cases(spec["samples"], nparam)
+        elseif haskey(spec, :samples)
+            return _physicsparam_sweep_cases(spec[:samples], nparam)
+        elseif haskey(spec, "values")
+            return _physicsparam_sweep_cases(spec["values"], nparam)
+        elseif haskey(spec, :values)
+            return _physicsparam_sweep_cases(spec[:values], nparam)
+        elseif haskey(spec, "grid")
+            return _physicsparam_grid_cases(spec["grid"], nparam)
+        elseif haskey(spec, :grid)
+            return _physicsparam_grid_cases(spec[:grid], nparam)
+        end
+        error("physicsparamsweep Dict must contain samples, values, or grid.")
+    elseif spec isa NamedTuple
+        if haskey(spec, :samples)
+            return _physicsparam_sweep_cases(spec.samples, nparam)
+        elseif haskey(spec, :values)
+            return _physicsparam_sweep_cases(spec.values, nparam)
+        elseif haskey(spec, :grid)
+            return _physicsparam_grid_cases(spec.grid, nparam)
+        end
+        error("physicsparamsweep NamedTuple must contain samples, values, or grid.")
+    end
+
+    if spec isa AbstractVector && !(eltype(spec) <: Number)
+        cases = zeros(Float64, length(spec), nparam)
+        for i in eachindex(spec)
+            v = vec(Float64.(spec[i]))
+            length(v) == nparam || error("physicsparamsweep case $i has $(length(v)) parameters; expected $nparam.")
+            cases[i,:] = v
+        end
+    else
+        arr = Float64.(spec)
+        if ndims(arr) == 1
+            if nparam == 1
+                cases = reshape(arr, :, 1)
+            elseif length(arr) == nparam
+                cases = reshape(arr, 1, :)
+            else
+                error("physicsparamsweep vector has $(length(arr)) entries; expected $nparam.")
+            end
+        elseif ndims(arr) == 2
+            cases = arr
+        else
+            error("physicsparamsweep must be numeric, a vector of vectors, a Dict, or a NamedTuple.")
+        end
+    end
+    _validate_physicsparam_cases(cases, nparam)
+    return cases
+end
+
+function _physicsparam_grid_cases(grid, nparam)
+    length(grid) == nparam || error("physicsparamsweep.grid must contain one value vector per physics parameter.")
+    rows = collect(Iterators.product((vec(Float64.(g)) for g in grid)...))
+    cases = zeros(Float64, length(rows), nparam)
+    for (i, row) in enumerate(rows)
+        cases[i,:] = collect(row)
+    end
+    _validate_physicsparam_cases(cases, nparam)
+    return cases
+end
+
+function _validate_physicsparam_cases(cases, nparam)
+    size(cases, 2) == nparam || error("Each physicsparamsweep row must contain $nparam physics parameters.")
+    all(isfinite, cases) || error("physicsparamsweep cases must contain finite numeric values.")
 end
 
 # The shell command line the bundle uses to launch the solver (MPI-aware).

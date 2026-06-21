@@ -44,10 +44,6 @@ def exasim(pde,mesh):
         # verify it; set it False to export without any local build/run.
         pde['vistime'] = [];
         if pde.get('exportapp'):
-            if has_physicsparam_sweep:
-                raise RuntimeError("physicsparamsweep is not supported with "
-                                   "exportapp. Run the sweep locally or "
-                                   "export each case explicitly.")
             Gencode.exportapp(pde, pde['exportapp'], build=pde.get('buildandrun', True));
             runstr = None;
             sol = None;
@@ -78,6 +74,8 @@ def exasim(pde,mesh):
                         res.append(None)
 
                     pde['paramcaseoutputdirs'].append(pdecase['dataoutpath'])
+                _write_physicsparam_sweep_manifest(
+                    _dataout_base_dir(pde), physicsparamcases, pde['paramcaseoutputdirs'])
             else:
                 runstr = Gencode.runcode(pde, 1);
 
@@ -211,15 +209,27 @@ def _validate_physicsparam_cases(cases, nparam):
 
 
 def _paramcase_output_dir(pde, icase):
+    return os.path.join(_dataout_base_dir(pde), f"paramcase_{icase:04d}")
+
+
+def _dataout_base_dir(pde):
     strn = config.model_strn(pde)
-    base = os.path.join(pde['datapath'], "dataout", strn) if strn else os.path.join(pde['datapath'], "dataout")
-    return os.path.join(base, f"paramcase_{icase:04d}")
+    return os.path.join(pde['datapath'], "dataout", strn) if strn else os.path.join(pde['datapath'], "dataout")
 
 
 def _write_physicsparam_case(outdir, values):
     numpy.savetxt(os.path.join(outdir, "physicsparam.txt"),
                   numpy.asarray(values, dtype=float).reshape(1, -1),
                   fmt="%.17g")
+
+
+def _write_physicsparam_sweep_manifest(baseout, cases, outdirs):
+    with open(os.path.join(baseout, "physicsparam_sweep_manifest.txt"), "w") as f:
+        f.write(f"ncases {cases.shape[0]}\n")
+        f.write(f"nparam {cases.shape[1]}\n")
+        for i, row in enumerate(cases, start=1):
+            values = " ".join(f"{float(v):.17g}" for v in row)
+            f.write(f"case {i} {outdirs[i - 1]} {values}\n")
 
 
 def _writeapp_template(app):

@@ -43,9 +43,6 @@ if nmodels==1
     % exportapp builds+runs the bundle in a throwaway scratch dir to verify it
     % before hand-off; set it false to export without any local build/run.
     if isfield(pde,'exportapp') && ~isempty(pde.exportapp)
-        if hasPhysicsParamSweep
-            error("physicsparamsweep is not supported with exportapp. Run the sweep locally or export each case explicitly.");
-        end
         if isfield(pde,'buildandrun') && ~isempty(pde.buildandrun)
             exportapp(pde, pde.exportapp, pde.buildandrun);
         else
@@ -79,6 +76,7 @@ if nmodels==1
                 end
                 pde.paramcaseoutputdirs(icase) = pdecase.dataoutpath;
             end
+            writephysicsparamsweepmanifest(pde.datapath + "/dataout" + model_strn(pde), physicsparamcases, pde.paramcaseoutputdirs);
         else
             runstr = runcode(pde, 1); % run C++ code
 
@@ -236,6 +234,21 @@ end
 
 function writephysicsparamcase(outdir, values)
 dlmwrite(char(outdir + "/physicsparam.txt"), values(:).', 'delimiter', ' ', 'precision', '%.17g');
+end
+
+function writephysicsparamsweepmanifest(baseout, cases, outdirs)
+fid = fopen(char(baseout + "/physicsparam_sweep_manifest.txt"), 'w');
+if fid < 0
+    error("Unable to write physicsparam sweep manifest in %s.", baseout);
+end
+cleanup = onCleanup(@() fclose(fid));
+fprintf(fid, "ncases %d\n", size(cases,1));
+fprintf(fid, "nparam %d\n", size(cases,2));
+for i = 1:size(cases,1)
+    fprintf(fid, "case %d %s", i, outdirs(i));
+    fprintf(fid, " %.17g", cases(i,:));
+    fprintf(fid, "\n");
+end
 end
 
 function app = writeapptemplate(app)

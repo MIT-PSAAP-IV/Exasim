@@ -130,6 +130,7 @@ public:
     int Postprocess();
     int Solve();
     int Solve(const int modelnumber);
+    int RunPhysicsParamSweep();
 
     bool IsInitialized() const;
     int NumModels() const;
@@ -163,6 +164,9 @@ private:
     std::vector<std::ofstream> residual_outputs_;
     std::vector<std::string> filein_;
     std::vector<std::string> fileout_;
+    std::vector<std::string> base_fileout_;
+    std::vector<std::vector<dstype>> physicsparamcases_;
+    std::vector<dstype> active_physicsparam_;
     std::string exasimpath_;
 
     MPI_Comm world_comm_ = MPI_COMM_NULL;
@@ -191,4 +195,13 @@ private:
     bool initialized_ = false;
     bool owns_mpi_ = false;
     bool owns_kokkos_ = false;    
+
+    bool HasPhysicsParamSweepFile() const;
+    int ReadPhysicsParamSweepFile();
+    int BuildModelsForCurrentCase();
+    void DestroyModelInstances();
+    std::string PhysicsParamSweepFile() const;
+    std::string CaseOutputPrefix(int icase) const;
+    int WritePhysicsParamCaseMetadata(int icase, const std::string& outputPrefix) const;
+    int WritePhysicsParamSweepManifest() const;
 };

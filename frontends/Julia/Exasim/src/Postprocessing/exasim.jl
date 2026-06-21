@@ -36,9 +36,6 @@ if nmodels==1
     # builds+runs the bundle in a scratch dir to verify it; set it to 0 to
     # export without any local build/run.
     if isdefined(pde, :exportapp) && !isempty(pde.exportapp)
-        if hasPhysicsParamSweep
-            error("physicsparamsweep is not supported with exportapp. Run the sweep locally or export each case explicitly.");
-        end
         buildandrun = (isdefined(pde, :buildandrun) ? pde.buildandrun : 1) != 0;
         Gencode.exportapp(pde, pde.exportapp; build=buildandrun);
         runstr = "";
@@ -71,6 +68,7 @@ if nmodels==1
                 end
                 pde.paramcaseoutputdirs[icase] = pdecase.dataoutpath;
             end
+            writephysicsparamsweepmanifest(dataoutbasedir(pde), physicsparamcases, pde.paramcaseoutputdirs);
         else
             runstr = Gencode.runcode(pde, 1);
 
@@ -209,14 +207,27 @@ function validatephysicsparamcases(cases, nparam)
 end
 
 function paramcaseoutputdir(pde, icase)
+    return joinpath(dataoutbasedir(pde), "paramcase_" * lpad(string(icase), 4, "0"));
+end
+
+function dataoutbasedir(pde)
     strn = Gencode.model_strn(pde);
-    base = isempty(strn) ? joinpath(pde.datapath, "dataout") : joinpath(pde.datapath, "dataout", strn);
-    return joinpath(base, "paramcase_" * lpad(string(icase), 4, "0"));
+    return isempty(strn) ? joinpath(pde.datapath, "dataout") : joinpath(pde.datapath, "dataout", strn);
 end
 
 function writephysicsparamcase(outdir, values)
     open(joinpath(outdir, "physicsparam.txt"), "w") do io
         println(io, join(string.(vec(values)), " "));
+    end
+end
+
+function writephysicsparamsweepmanifest(baseout, cases, outdirs)
+    open(joinpath(baseout, "physicsparam_sweep_manifest.txt"), "w") do io
+        println(io, "ncases ", size(cases,1));
+        println(io, "nparam ", size(cases,2));
+        for i = 1:size(cases,1)
+            println(io, "case ", i, " ", outdirs[i], " ", join(string.(vec(cases[i,:])), " "));
+        end
     end
 end
 

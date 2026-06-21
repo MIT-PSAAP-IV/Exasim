@@ -3,6 +3,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import numpy
 
 from .. import config
 from .cmakecompile import _render
@@ -65,6 +66,7 @@ def exportapp(pde, dest=None, build=True):
     # 1. Runtime inputs + the output directory the solver writes into.
     _copytree(datain, os.path.join(dest, "datain"))
     os.makedirs(os.path.join(dest, "dataout"), exist_ok=True)
+    _write_physicsparamcases_if_needed(pde, os.path.join(dest, "datain"))
 
     # 2. The generated kernel .cpp set.
     _copytree(kernels, os.path.join(dest, "kernels"))
@@ -113,6 +115,62 @@ def exportapp(pde, dest=None, build=True):
 
     print(f"Exported data-transfer app: {dest}")
     return dest
+
+
+def _physicsparam_sweep_cases(spec, nparam):
+    if spec is None:
+        return None
+    if isinstance(spec, (list, tuple)) and len(spec) == 0:
+        return None
+    if isinstance(spec, dict):
+        if "samples" in spec:
+            return _physicsparam_sweep_cases(spec["samples"], nparam)
+        if "values" in spec:
+            return _physicsparam_sweep_cases(spec["values"], nparam)
+        if "grid" in spec:
+            grid = spec["grid"]
+            if len(grid) != nparam:
+                raise ValueError("physicsparamsweep['grid'] must contain one value list per physics parameter.")
+            meshes = numpy.meshgrid(*[numpy.asarray(v, dtype=float).ravel() for v in grid], indexing="ij")
+            cases = numpy.column_stack([m.ravel() for m in meshes])
+            return cases
+        raise ValueError("physicsparamsweep dict must contain 'samples', 'values', or 'grid'.")
+
+    arr = numpy.asarray(spec, dtype=float)
+    if arr.ndim == 1:
+        if nparam == 1:
+            cases = arr.reshape((-1, 1))
+        elif arr.size == nparam:
+            cases = arr.reshape((1, nparam))
+        else:
+            raise ValueError(f"physicsparamsweep vector has {arr.size} entries; expected {nparam}.")
+    elif arr.ndim == 2:
+        cases = arr
+    else:
+        rows = []
+        for i, row in enumerate(spec, start=1):
+            values = numpy.asarray(row, dtype=float).ravel()
+            if values.size != nparam:
+                raise ValueError(f"physicsparamsweep case {i} has {values.size} parameters; expected {nparam}.")
+            rows.append(values)
+        cases = numpy.vstack(rows)
+
+    if cases.shape[1] != nparam:
+        raise ValueError(f"Each physicsparamsweep row must contain {nparam} physics parameters.")
+    if not numpy.all(numpy.isfinite(cases)):
+        raise ValueError("physicsparamsweep cases must contain finite numeric values.")
+    return numpy.asarray(cases, dtype=numpy.float64)
+
+
+def _write_physicsparamcases_if_needed(pde, datain):
+    cases = _physicsparam_sweep_cases(pde.get("physicsparamsweep"), len(numpy.asarray(pde["physicsparam"]).ravel()))
+    if cases is None:
+        return
+    path = os.path.join(datain, "physicsparamcases.bin")
+    header = numpy.asarray([cases.shape[0], cases.shape[1]], dtype=numpy.float64)
+    with open(path, "wb") as f:
+        header.tofile(f)
+        numpy.asarray(cases, dtype=numpy.float64, order="C").ravel(order="C").tofile(f)
 
 
 def _run_command(pde, numpde, exe, datain, dataout):

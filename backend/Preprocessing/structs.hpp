@@ -79,6 +79,7 @@ struct InputParams {
     std::vector<double> dt;
     std::vector<double> tau;
     std::vector<double> physicsParam;
+    std::vector<double> physicsParamCases;
     std::vector<double> externalParam;
     std::vector<double> vindx;
     std::vector<double> avparam1, avparam2;       
@@ -218,6 +219,7 @@ struct PDE {
     std::vector<double> solversparam;
     std::vector<double> factor;
     std::vector<double> physicsparam;    
+    std::vector<double> physicsparamcases;
     std::vector<double> externalparam;            
     std::vector<double> vindx;
     std::vector<double> avparam1, avparam2;       
