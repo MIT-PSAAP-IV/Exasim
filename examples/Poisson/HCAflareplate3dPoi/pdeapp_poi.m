@@ -70,7 +70,7 @@ pde.Cxxpreprocessing = 0;
 kkgencode(pde);
 compilerstr = cmakecompile(pde); % use cmake to compile C++ source codes 
 runstr = runcode(pde, 1); % run C++ code
-sol = fetchsolution(pde,master,dmd, pde.buildpath + "/dataout");
+sol = fetchsolution(pde,master,dmd, pde.datapath + "/dataout");
 
 npe2 = size(mesh2d.dgnodes,1);
 ne2 = size(mesh2d.dgnodes,3);

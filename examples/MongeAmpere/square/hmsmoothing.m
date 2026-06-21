@@ -9,10 +9,8 @@ end
 
 % initialize pde structure and mesh structure
 [pde, mesh0] = initializeexasim();
-rpath = pde.buildpath + "/radaptivity";
-if exist(rpath,'dir') == 0
-    mkdir(rpath);
-end
+% Per-model build isolation for the low-level (non-exasim) flow.
+pde.combinedmodel = true;
 
 % get only necessary fields
 mesh0.p = mesh.p;
@@ -62,20 +60,19 @@ mesh.vdg(:,2,:) = sensor;
 
 mesh.boundarycondition(:) = 1;
 
-pde.buildpath = rpath + "/helmholtz"; 
 [pde,mesh,master,dmd] = preprocessing(pde,mesh);
-if exist(pde.buildpath + "/cpuEXASIM", "file") == 0
+if exist(model_builddir(pde) + "/build/exasimapp", "file") == 0
   kkgencode(pde);
-  cmakecompile(pde); 
-end        
+  cmakecompile(pde);
+end
 runcode(pde, 1); % run C++ code
-solhm = fetchsolution(pde,master,dmd,pde.buildpath + '/dataout');
+solhm = fetchsolution(pde,master,dmd, pde.datapath + "/dataout" + model_strn(pde));
 
 % solve Helmholtz equation again if nhms > 1
 for i = 2:nhms
     mesh.vdg(:,2,:) = solhm(:,1,:);
     runcode(pde, 1); % run C++ code
-    solhm = fetchsolution(pde,master,dmd,pde.buildpath + '/dataout');
+    solhm = fetchsolution(pde,master,dmd, pde.datapath + "/dataout" + model_strn(pde));
 end
 
 % % smoothed mesh density and its gradient

@@ -55,7 +55,7 @@ function [UDG1, mesh] = pdeapp_porder_func(pde, mesh, porder, UDG, project_flag)
     %% plot solution
     % Output is saved as a steady solution (out_np0.bin) since we do not know how many timesteps are taken. 
     % So, we use getsolution; fetchsolution will grab the last timestep
-    sol = getsolution(pde.buildpath + "/dataout/out", dmd, master.npe);
+    sol = getsolution(pde.datapath + "/dataout/out", dmd, master.npe);
 
     UDG1 = sol;
 end

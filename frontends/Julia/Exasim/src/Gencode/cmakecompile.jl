@@ -26,7 +26,9 @@ function cmakecompile(pde)
     prefix = install_prefix()
     pde.exasimpath = prefix
 
-    builddir = pde.builddir
+    # Per-model build root: model 0 stays flat (= builddir), others nest under
+    # models/<n>/ so coexisting models never clobber CMakeLists/main/build.
+    builddir = model_builddir(pde)
     kernels = joinpath(builddir, "kernels")
     if !isdir(kernels)
         error("No generated kernels at $kernels; run Gencode.gencode(pde) first.")
@@ -38,10 +40,11 @@ function cmakecompile(pde)
         variant = pde.mpiprocs > 1 ? "cpumpi" : "cpu"
     end
 
+    modelid = resolve_modelid(pde)
     tmpl = frontend_app_template_dir()
     subs = Dict(
         "EXASIM_VARIANT" => variant,
-        "MODEL_ID" => pde.modelid,
+        "MODEL_ID" => modelid,
         "KERNEL_DIR" => kernels,
     )
     render(joinpath(tmpl, "CMakeLists.txt.in"), joinpath(builddir, "CMakeLists.txt"), subs)

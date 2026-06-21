@@ -23,6 +23,7 @@ mutable struct PDEStruct
     modelfile::String;# PDE model file name
     modelnumber::IntP;
     exportapp::String; # destination dir for a relocatable data-transfer app bundle ("" = off)
+    buildandrun::IntP; # when exporting: 1 = build+run the bundle to verify it, 0 = export only
 
     usecmake::IntP; 
     buildexec::IntP; 
@@ -172,7 +173,7 @@ function initializepde(version)
     # generated code and the solver build live in the hidden builddir.
     pde.datapath = pwd();
     pde.builddir = joinpath(pwd(), ".exasim");
-    pde.modelid = 100;   # external builtin model ID for the generated model
+    pde.modelid = -1;    # external builtin model ID; -1 = auto (100 + modelnumber), resolved in cmakecompile
     pde.exasimpath = ""; # Exasim install prefix; resolved by cmakecompile
     pde.buildpath = pde.builddir;
     pde.backendpath = "";
@@ -212,6 +213,7 @@ function initializepde(version)
     pde.model="ModelD";
     pde.modelnumber = 0;
     pde.exportapp = ""; # off by default; set to a dir to export a data-transfer app bundle
+    pde.buildandrun = 1; # when exporting, default to build+run the bundle to verify it
 
     pde.hybrid = 0;
     pde.tdep = 0;

@@ -71,7 +71,7 @@ mesh.vdg(:,1,:) = 0.03.*tanh(dist*nm);
 mesh.udg = sol;
 [pde,mesh,master,dmd] = preprocessing(pde,mesh);
 runcode(pde, 1); % run C++ code
-sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+sol = fetchsolution(pde,master,dmd, pde.datapath + '/dataout');
 figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[],2,1);
 
 disp("Iter 3")
@@ -79,7 +79,7 @@ mesh.vdg(:,1,:) = 0.02.*tanh(dist*nm);
 mesh.udg = sol;
 [pde,mesh,master,dmd] = preprocessing(pde,mesh);
 runcode(pde, 1); % run C++ code
-sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+sol = fetchsolution(pde,master,dmd, pde.datapath + '/dataout');
 figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[]);
 figure(2); clf; scaplot(mesh, (Tref/Tinf)*eulereval(sol, 't',gam,Minf),[]);
 
@@ -88,7 +88,7 @@ mesh.vdg(:,1,:) = 0.015.*tanh(dist*nm);
 mesh.udg = sol;
 [pde,mesh,master,dmd] = preprocessing(pde,mesh);
 runcode(pde, 1); % run C++ code
-sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+sol = fetchsolution(pde,master,dmd, pde.datapath + '/dataout');
 figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[],1);
 
 % disp("Iter 5")
@@ -96,7 +96,7 @@ figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[],1);
 % mesh.udg = sol;
 % [pde,mesh,master,dmd] = preprocessing(pde,mesh);
 % runcode(pde, 1); % run C++ code
-% sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+% sol = fetchsolution(pde,master,dmd, pde.datapath + '/dataout');
 % figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[],1);
 
 % disp("Iter 6")
@@ -104,7 +104,7 @@ figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[],1);
 % mesh.udg = sol;
 % [pde,mesh,master,dmd] = preprocessing(pde,mesh);
 % runcode(pde, 1); % run C++ code
-% sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+% sol = fetchsolution(pde,master,dmd, pde.datapath + '/dataout');
 % figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[],1);
 % colorbar; colormap('jet'); axis on; axis equal; axis tight; set(gca,'FontSize',16);
 
@@ -114,7 +114,7 @@ figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[],1);
 % mesh.udg = sol;
 % [pde,mesh,master,dmd] = preprocessing(pde,mesh);
 % runcode(pde, 1); % run C++ code
-% sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+% sol = fetchsolution(pde,master,dmd, pde.datapath + '/dataout');
 % figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[],1);
 % colorbar; colormap('jet'); axis on; axis equal; axis tight; set(gca,'FontSize',16);
 % 
@@ -124,7 +124,7 @@ figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[],1);
 % mesh.udg = sol;
 % [pde,mesh,master,dmd] = preprocessing(pde,mesh);
 % runcode(pde, 1); % run C++ code
-% sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+% sol = fetchsolution(pde,master,dmd, pde.datapath + '/dataout');
 % figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[],1);
 % colorbar; colormap('jet'); axis on; axis equal; axis tight; set(gca,'FontSize',16);
 % 
@@ -134,7 +134,7 @@ figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[],1);
 % mesh.udg = sol;
 % [pde,mesh,master,dmd] = preprocessing(pde,mesh);
 % runcode(pde, 1); % run C++ code
-% sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+% sol = fetchsolution(pde,master,dmd, pde.datapath + '/dataout');
 % figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[],1);
 % colorbar; colormap('jet'); axis on; axis equal; axis tight; set(gca,'FontSize',16);
 % 
@@ -144,7 +144,7 @@ figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[],1);
 % mesh.udg = sol;
 % [pde,mesh,master,dmd] = preprocessing(pde,mesh);
 % runcode(pde, 1); % run C++ code
-% sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+% sol = fetchsolution(pde,master,dmd, pde.datapath + '/dataout');
 % figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[],1);
 % colorbar; colormap('jet'); axis on; axis equal; axis tight; set(gca,'FontSize',16);
 % 
@@ -156,7 +156,7 @@ figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[],1);
 % pde.linearsolveriter = 500; %try 100
 % preprocessing(pde,mesh);
 % runcode(pde, 1); % run C++ code
-% sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+% sol = fetchsolution(pde,master,dmd, pde.datapath + '/dataout');
 % figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[0 Minf],1); colorbar;
 % figure(2); clf; scaplot(mesh, mesh.vdg(:,1,:),[],2); colorbar;
 % 
@@ -168,7 +168,7 @@ figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[],1);
 % pde.linearsolveriter = 500; %try 100
 % preprocessing(pde,mesh);
 % runcode(pde, 1); % run C++ code
-% sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+% sol = fetchsolution(pde,master,dmd, pde.datapath + '/dataout');
 % figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[0 Minf],1); colorbar;
 % figure(2); clf; scaplot(mesh, mesh.vdg(:,1,:),[],2); colorbar;
 % 
@@ -180,7 +180,7 @@ figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[],1);
 % pde.linearsolveriter = 500; %try 100
 % preprocessing(pde,mesh);
 % runcode(pde, 1); % run C++ code
-% sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+% sol = fetchsolution(pde,master,dmd, pde.datapath + '/dataout');
 % figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[0 Minf],1); colorbar;
 % figure(2); clf; scaplot(mesh, mesh.vdg(:,1,:),[],2); colorbar;
 % 
@@ -192,7 +192,7 @@ figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[],1);
 % pde.linearsolveriter = 500; %try 100
 % preprocessing(pde,mesh);
 % runcode(pde, 1); % run C++ code
-% sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+% sol = fetchsolution(pde,master,dmd, pde.datapath + '/dataout');
 % figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[0 Minf],1); colorbar;
 % figure(2); clf; scaplot(mesh, eulereval(sol, 't',gam,Minf),[],1); colorbar;
 % figure(3); clf; scaplot(mesh, mesh.vdg(:,1,:),[],2); colorbar;
@@ -203,6 +203,6 @@ figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[],1);
 % mesh.udg = sol;
 % preprocessing(pde,mesh);
 % runcode(pde, 1); % run C++ code
-% sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+% sol = fetchsolution(pde,master,dmd, pde.datapath + '/dataout');
 % figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[0 Minf],1); colorbar;
 % figure(2); clf; scaplot(mesh, mesh.vdg(:,1,:),[],2); colorbar;

@@ -7,11 +7,10 @@ import importlib.util
 from .checkcompilers import checkcompilers
 from .setcompilers import setcompilers
 from .compilecode import compilecode
-from .cmakecompile import cmakecompile
-from .exportapp import exportapp
+from .cmakecompile import cmakecompile, cmakecompile_combined
+from .exportapp import exportapp, exportapp_combined
 from .compilepdemodel import compilepdemodel
-from .runcode import runcode
-from .gencodeall import gencodeall
+from .runcode import runcode, runcode_combined
 from .syminit import syminit
 from .gencodeelemface import gencodeelemface
 from .gencodeelem import gencodeelem
@@ -45,12 +44,15 @@ def gencode(app):
         subprocess.run(full_cmd, check=True)
         return
 
-    # Generated kernels go to the hidden build dir; cmakecompile points the
+    # Generated kernels go to the per-model build dir; cmakecompile points the
     # external-model provider's include path here (no source-tree writes).
     # Generate into a staging dir, then sync write-if-changed into kernels/ so
     # an unchanged model does not touch mtimes (and thus avoids recompiles).
-    kernelsdir = os.path.join(app['builddir'], "kernels")
-    foldername = os.path.join(app['builddir'], "kernels.gen")
+    # model_builddir() keeps model 0 flat (builddir) and nests others under
+    # models/<n>/ so two models in one working dir never share a kernel dir.
+    mbdir = config.model_builddir(app)
+    kernelsdir = os.path.join(mbdir, "kernels")
+    foldername = os.path.join(mbdir, "kernels.gen")
     if os.path.isdir(foldername):
         shutil.rmtree(foldername)
     os.makedirs(foldername, exist_ok=True)
@@ -59,10 +61,11 @@ def gencode(app):
 
     pde = import_module(app['modelfile']);
 
-    if app['modelnumber']==0:
-        strn = "";
-    else:
-        strn = str(app['modelnumber']);
+    # Kernel filenames are always unsuffixed: per-model isolation comes from the
+    # per-model kernel directory (config.model_builddir), and the generated
+    # exasim_model_<id> model.cpp template #includes the unsuffixed names. The
+    # legacy modelnumber suffix (Flux1.cpp, ...) is retired with gencodeall.
+    strn = "";
 
     nc = app['nc'];
     ncu = app['ncu'];

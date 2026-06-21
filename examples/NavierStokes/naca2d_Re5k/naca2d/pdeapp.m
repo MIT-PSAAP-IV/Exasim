@@ -18,7 +18,6 @@ ui = [ 1, cos(alpha), sin(alpha), 0.5+pinf/(gam-1)];
 
 % initialize pde structure and mesh structure
 [pde,~] = initializeexasim();
-pde.buildpath=string(pwd()); 
 
 pde.model = "ModelD";          % ModelC, ModelD, ModelW
 pde.modelfile = "pdemodel";    % name of a file defining the PDE model
@@ -76,7 +75,7 @@ mesh.vdg(:,1,:) = hh;
 
 %% plot solution
 pde.dt = [1];
-sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+sol = fetchsolution(pde,master,dmd, pde.datapath + '/dataout');
 figure(1); clf; scaplot(mesh,eulereval(sol(:,1:4,:),'M',gam),[]); axis off; axis equal; axis tight;
 % %%
 % pde.debugmode=0;

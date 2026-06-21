@@ -34,6 +34,23 @@ case "$FE" in
   matlab) APP="pdeapp.m" ;;
   *) echo "FAIL: unknown FRONTEND=$FE"; exit 1 ;;
 esac
+
+# Coexistence mode (two models built from one dir): uses a dedicated app.
+if [ "${COEXIST_TEST:-0}" = "1" ]; then
+  case "$FE" in
+    python) APP="pdeapp_coexist.py" ;;
+    *) echo "SKIP: COEXIST_TEST only implemented for python"; exit "$SKIP" ;;
+  esac
+fi
+
+# Combined multi-PDE mode (two models in ONE exasimapp): uses a dedicated app.
+# COMBINED_EXPORT=1 reuses the same app but also packages a combined bundle.
+if [ "${COMBINED_TEST:-0}" = "1" ] || [ "${COMBINED_EXPORT:-0}" = "1" ]; then
+  case "$FE" in
+    python) APP="pdeapp_combined.py" ;;
+    *) echo "SKIP: combined tests only implemented for python"; exit "$SKIP" ;;
+  esac
+fi
 if [ ! -f "$SRC/$APP" ]; then
   echo "SKIP: $SRC/$APP does not exist (frontend test not implemented yet)"
   exit $SKIP
@@ -125,9 +142,18 @@ if [ "${EXPORT_TEST:-0}" = "1" ]; then
   REL="$RUN/relocated"; rm -rf "$REL"; cp -R "$B" "$REL"
   ( cd "$REL" && EXASIM_ROOT="$INSTALL" bash run.sh ) > "$RUN/export-run.log" 2>&1 \
     || { cat "$RUN/export-run.log"; echo "FAIL: relocated bundle run.sh failed"; exit 1; }
-  [ -f "$REL/dataout/outqoi.txt" ] \
-    || { echo "FAIL: relocated run produced no dataout/outqoi.txt"; exit 1; }
-  echo "frontend_${FE}_export: bundle pristine + relocatable build+run OK"
+  rq="$REL/dataout/outqoi.txt"
+  [ -f "$rq" ] || { echo "FAIL: relocated run produced no dataout/outqoi.txt"; exit 1; }
+  qoi="$(tail -1 "$rq" | awk '{print $2}')"
+  if awk "BEGIN{exit !( ($qoi)+0 < ($QOI_TOL)+0 )}"; then
+    echo "frontend_${FE}_export: bundle pristine + relocatable build+run OK (Domain_QoI1 = $qoi < $QOI_TOL)"
+  else
+    echo "FAIL: relocated bundle Domain_QoI1 = $qoi >= $QOI_TOL"; exit 1
+  fi
+  # Export mode skips the local main run (pde.exportapp set), so there is no
+  # main-dir dataout/outqoi.txt to gate below: the relocated bundle's QoI above
+  # is the gate.
+  exit 0
 fi
 
 # --- model-cache check (CACHE_TEST=1): a second app dir must reuse the
@@ -147,6 +173,70 @@ if [ "${CACHE_TEST:-0}" = "1" ]; then
     cat run-b.log; echo "FAIL: cache hit still compiled something"; exit 1
   fi
   echo "model cache reused from a second app directory (no compilation)"
+fi
+
+# --- coexistence assertions (COEXIST_TEST=1) --------------------------------
+# Two models ran from one dir: model 0 keeps the flat layout, model 1 nests.
+# Both isolated artifact trees and both output sets must exist (no clobber).
+# The final QoI gate below checks model 0; here we check model 1.
+if [ "${COEXIST_TEST:-0}" = "1" ]; then
+  for d in ".exasim/kernels" ".exasim/models/1/kernels" "datain" "datain/1"; do
+    [ -d "$(pwd)/$d" ] || { echo "FAIL: missing isolated dir $d"; exit 1; }
+  done
+  q1="$(pwd)/dataout/1/outqoi.txt"
+  [ -f "$q1" ] || { echo "FAIL: model 1 produced no $q1 (clobbered?)"; exit 1; }
+  qoi1="$(tail -1 "$q1" | awk '{print $2}')"
+  if awk "BEGIN{exit !( ($qoi1)+0 < ($QOI_TOL)+0 )}"; then
+    echo "frontend_coexistence: model 1 (id 101) Domain_QoI1 = $qoi1 < $QOI_TOL"
+  else
+    echo "FAIL: model 1 Domain_QoI1 = $qoi1 >= $QOI_TOL"; exit 1
+  fi
+fi
+
+# --- combined multi-PDE assertions (COMBINED_TEST=1) ------------------------
+# Two models linked into ONE exasimapp and run together. Assert the single
+# combined executable exists and both per-model output sets were produced.
+# The final QoI gate below checks model 0; here we check the combined exe and
+# model 1's output.
+if [ "${COMBINED_TEST:-0}" = "1" ]; then
+  [ -x "$(pwd)/.exasim/combined/build/exasimapp" ] \
+    || { echo "FAIL: no combined exasimapp"; exit 1; }
+  q1="$(pwd)/dataout/1/outqoi.txt"
+  [ -f "$q1" ] || { echo "FAIL: slot 1 produced no $q1"; exit 1; }
+  qoi1="$(tail -1 "$q1" | awk '{print $2}')"
+  if awk "BEGIN{exit !( ($qoi1)+0 < ($QOI_TOL)+0 )}"; then
+    echo "frontend_combined_multimodel: slot 1 (id 101) Domain_QoI1 = $qoi1 < $QOI_TOL"
+  else
+    echo "FAIL: slot 1 Domain_QoI1 = $qoi1 >= $QOI_TOL"; exit 1
+  fi
+fi
+
+# --- combined export assertions (COMBINED_EXPORT=1) -------------------------
+# The combined bundle must be present, pristine, and genuinely relocatable:
+# copy it elsewhere and build+run via run.sh against the install, no frontend.
+if [ "${COMBINED_EXPORT:-0}" = "1" ]; then
+  B="$(pwd)/bundle"
+  [ -d "$B" ] || { echo "FAIL: no combined bundle at $B"; exit 1; }
+  for f in CMakeLists.txt main.cpp run.sh manifest.json; do
+    [ -f "$B/$f" ] || { echo "FAIL: combined bundle missing $f"; exit 1; }
+  done
+  for d in datain datain1 dataout dataout1 kernels kernels1; do
+    [ -d "$B/$d" ] || { echo "FAIL: combined bundle missing $d/"; exit 1; }
+  done
+  [ -d "$B/build" ] && { echo "FAIL: combined bundle has build/ (not pristine)"; exit 1; }
+  REL="$RUN/relocated_combined"; rm -rf "$REL"; cp -R "$B" "$REL"
+  ( cd "$REL" && EXASIM_ROOT="$INSTALL" bash run.sh ) > "$RUN/export-combined.log" 2>&1 \
+    || { cat "$RUN/export-combined.log"; echo "FAIL: relocated combined run.sh failed"; exit 1; }
+  for q in "$REL/dataout/outqoi.txt" "$REL/dataout1/outqoi.txt"; do
+    [ -f "$q" ] || { echo "FAIL: relocated combined run produced no $q"; exit 1; }
+    qoi="$(tail -1 "$q" | awk '{print $2}')"
+    awk "BEGIN{exit !( ($qoi)+0 < ($QOI_TOL)+0 )}" \
+      || { echo "FAIL: relocated combined $q Domain_QoI1 = $qoi >= $QOI_TOL"; exit 1; }
+  done
+  echo "frontend_combined_export: bundle pristine + relocatable build+run OK (both QoIs < $QOI_TOL)"
+  # Combined export mode skips the local main run; the relocated bundle's
+  # per-model QoIs above are the gate (no main-dir dataout to check below).
+  exit 0
 fi
 
 # --- QoI gate (in addition to any in-language assert) ------------------------

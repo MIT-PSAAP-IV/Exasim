@@ -4,7 +4,6 @@ run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'frontends', 'M
 
 % initialize pde structure and mesh structure
 [pde,mesh] = initializeexasim();
-pde.buildpath=string(pwd()); 
 % pde.exasimpath = string(pwd());
 addpath("hypersonicModelingKernels_HDG/kineticsMatlab/");
 addpath("hypersonicModelingKernels_HDG/transportMatlab/");
@@ -166,37 +165,37 @@ runcode(pde, 1); %
 pde.NLtol = 1e-6;              % Newton tolerance
 
 %%
-sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+sol = fetchsolution(pde,master,dmd, pde.datapath + '/dataout');
 mesh.udg = sol;
 mesh.vdg(:,1,:) = 0.1*tanh(dist*25);
 [pde,mesh,master,dmd] = preprocessing(pde,mesh);
 runcode(pde, 1); %
 
-sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+sol = fetchsolution(pde,master,dmd, pde.datapath + '/dataout');
 mesh.udg = sol;
 mesh.vdg(:,1,:) = 0.05*tanh(dist*25);
 [pde,mesh,master,dmd] = preprocessing(pde,mesh);
 runcode(pde, 1); %
 
-sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+sol = fetchsolution(pde,master,dmd, pde.datapath + '/dataout');
 mesh.udg = sol;
 mesh.vdg(:,1,:) = 0.03*tanh(dist*25);
 [pde,mesh,master,dmd] = preprocessing(pde,mesh);
 runcode(pde, 1); %
 
-sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+sol = fetchsolution(pde,master,dmd, pde.datapath + '/dataout');
 mesh.udg = sol;
 mesh.vdg(:,1,:) = 0.015*tanh(dist*25);
 [pde,mesh,master,dmd] = preprocessing(pde,mesh);
 runcode(pde, 1); %
 
-sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+sol = fetchsolution(pde,master,dmd, pde.datapath + '/dataout');
 mesh.udg = sol;
 mesh.vdg(:,1,:) = 0.01*tanh(dist*25);
 [pde,mesh,master,dmd] = preprocessing(pde,mesh);
 runcode(pde, 1); %
 
-sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
+sol = fetchsolution(pde,master,dmd, pde.datapath + '/dataout');
 for i = 1:5
     figure(i); clf; scaplot(mesh, sol(:,i,:));
 end

@@ -3,9 +3,10 @@ module Gencode
 using SymPy
 import SHA
 import ..install_prefix, ..cmake_dir, ..frontend_app_template_dir, ..text2code_path, ..cmake_command
+import ..model_strn, ..model_builddir, ..resolve_modelid, ..frontend_app_combined_template_dir
 
 #export syminit, gencode, compilecode
-export syminit, gencode, gencodeall, compilecode, cmakecompile, runcode, exportapp, checkcompilers, setcompilers, string2cmd
+export syminit, gencode, gencodeall, compilecode, cmakecompile, cmakecompile_combined, runcode, runcode_combined, exportapp, checkcompilers, setcompilers, string2cmd
 
 include("syminit.jl");
 include("contains.jl");
@@ -45,7 +46,9 @@ include("checkcompilers.jl");
 include("setcompilers.jl");
 include("compilecode.jl");
 include("cmakecompile.jl");
+include("cmakecompile_combined.jl");
 include("runcode.jl");
+include("runcode_combined.jl");
 include("genpdemodel.jl");
 include("exportapp.jl");
 
@@ -63,18 +66,19 @@ end
 # external-model provider's include path here (no source-tree writes).
 # Generate into a staging dir, then sync write-if-changed into kernels/ so
 # an unchanged model does not touch mtimes (and thus avoids recompiles).
-kernelsdir = joinpath(app.builddir, "kernels");
-foldername = joinpath(app.builddir, "kernels.gen");
+mbdir = model_builddir(app);
+kernelsdir = joinpath(mbdir, "kernels");
+foldername = joinpath(mbdir, "kernels.gen");
 isdir(foldername) && rm(foldername; recursive=true);
 mkpath(foldername);
 
 xdg, udg, udg1, udg2, wdg, wdg1, wdg2, odg, odg1, odg2, uhg, nlg, tau, uinf, param, time = syminit(app);
 
-if app.modelnumber==0
-    strn = "";
-else
-    strn = string(app.modelnumber);
-end
+# Kernel filenames are always unsuffixed: per-model isolation comes from the
+# per-model kernel directory, and the exasim_model_<id> model.cpp template
+# #includes the unsuffixed names. (The legacy modelnumber suffix went with
+# gencodeall, retired from the multi-model driver path.)
+strn = "";
 
 ncu = app.ncu;
 u = udg[1:ncu];
