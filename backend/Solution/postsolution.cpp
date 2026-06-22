@@ -60,6 +60,51 @@ void CSolution::evalMonitor(dstype* output, dstype* udg, dstype* wdg, Int nc, In
                   disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common, backend);
 }
 
+// Re-homed from CDiscretization (S4); mirrors the main CSolution (no-driver_abi OutputDriver
+// variant, matching the postprocess discretization twin).
+void CSolution::evalOutput(dstype* output, Int backend)
+{
+#ifdef  HAVE_MPI
+    Int bsz = disc.common.grid.npe*disc.common.components.nc;
+    Int n;
+
+    GetArrayAtIndex(disc.tmp.buffsend, disc.sol.udg, disc.mesh.elemsendudg, bsz*disc.common.nelemsend);
+#ifdef HAVE_CUDA
+    cudaDeviceSynchronize();
+#endif
+#ifdef HAVE_HIP
+    hipDeviceSynchronize();
+#endif
+    Int neighbor, nsend, psend = 0, request_counter = 0;
+    for (n=0; n<disc.common.nnbsd; n++) {
+        neighbor = disc.common.nbsd[n];
+        nsend = disc.common.elemsendpts[n]*bsz;
+        if (nsend>0) {
+            MPI_Isend(&disc.tmp.buffsend[psend], nsend, MPI_DOUBLE, neighbor, 0,
+                   EXASIM_COMM_LOCAL, &disc.common.requests[request_counter]);
+            psend += nsend;
+            request_counter += 1;
+        }
+    }
+    Int nrecv, precv = 0;
+    for (n=0; n<disc.common.nnbsd; n++) {
+        neighbor = disc.common.nbsd[n];
+        nrecv = disc.common.elemrecvpts[n]*bsz;
+        if (nrecv>0) {
+            MPI_Irecv(&disc.tmp.buffrecv[precv], nrecv, MPI_DOUBLE, neighbor, 0,
+                   EXASIM_COMM_LOCAL, &disc.common.requests[request_counter]);
+            precv += nrecv;
+            request_counter += 1;
+        }
+    }
+    MPI_Waitall(request_counter, disc.common.requests, disc.common.statuses);
+    PutArrayAtIndex(disc.sol.udg, disc.tmp.buffrecv, disc.mesh.elemrecvudg, bsz*disc.common.nelemrecv);
+#endif
+
+    OutputDriver(output, disc.sol.xdg, disc.sol.udg, disc.sol.odg, disc.sol.wdg,
+                 disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common, backend);
+}
+
 void CSolution::InitSolution(Int backend)
 {
     if (disc.common.spatialScheme==0) {
@@ -403,13 +448,13 @@ void CSolution::SaveOutputDG(Int backend)
         if (((disc.common.timestate.currentstep+1) % disc.common.outputparams.saveSolFreq) == 0)             
         {                    
             string filename1 = disc.common.fileout + "_outputDG_t" + NumberToString(disc.common.timestate.currentstep+disc.common.outputparams.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin";     
-            disc.evalOutput(solv.sys.v, backend);                        
+            evalOutput(solv.sys.v, backend);                        
             writearray2file(filename1, solv.sys.v, disc.common.sizes.ndofedg1, backend);       
         }                                
    }
    else {
         string filename1 = disc.common.fileout + "_outputDG_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin";                           
-        disc.evalOutput(solv.sys.v, backend);
+        evalOutput(solv.sys.v, backend);
         writearray2file(filename1, solv.sys.v, disc.common.sizes.ndofedg1, backend);       
    }    
 }
@@ -420,7 +465,7 @@ void CSolution::SaveOutputCG(Int backend)
         if (((disc.common.timestate.currentstep+1) % disc.common.outputparams.saveSolFreq) == 0)             
         {                    
             string filename1 = disc.common.fileout + "_outputCG_t" + NumberToString(disc.common.timestate.currentstep+disc.common.outputparams.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin";     
-            disc.evalOutput(solv.sys.v, backend);
+            evalOutput(solv.sys.v, backend);
             disc.DG2CG(solv.sys.v, solv.sys.v, solv.sys.x, disc.common.components.nce, 
                      disc.common.components.nce, disc.common.components.nce, backend);
             writearray2file(filename1, solv.sys.v, disc.common.sizes.ndofedg1, backend);                   
@@ -431,7 +476,7 @@ void CSolution::SaveOutputCG(Int backend)
    }
    else {
         string filename1 = disc.common.fileout + "_outputCG_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin";                            
-        disc.evalOutput(solv.sys.v, backend);
+        evalOutput(solv.sys.v, backend);
         disc.DG2CG(solv.sys.v, solv.sys.v, solv.sys.x, disc.common.components.nce, 
                  disc.common.components.nce, disc.common.components.nce, backend);
         writearray2file(filename1, solv.sys.v, disc.common.sizes.ndofedg1, backend);               

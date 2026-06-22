@@ -96,6 +96,9 @@ public:
     // PTC convergence monitor (re-homed from CDiscretization in S4; mirrors the main CSolution).
     void evalMonitor(dstype* output, dstype* udg, dstype* wdg, Int nc, Int backend);
 
+    // Output field for I/O (re-homed from CDiscretization in S4; mirrors the main CSolution).
+    void evalOutput(dstype* output, Int backend);
+
     // precompute some quantities
     void InitSolution(Int backend);
         

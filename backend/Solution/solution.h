@@ -242,6 +242,10 @@ public:
     // concern; uses the owned disc's structs to call the model MonitorDriver).
     void evalMonitor(dstype* output, dstype* udg, dstype* wdg, Int nc, Int backend);
 
+    // Output field for I/O (re-homed from CDiscretization in S4 -- an output concern; MPI-halo
+    // exchanges the owned disc's udg, then calls the model OutputDriver).
+    void evalOutput(dstype* output, Int backend);
+
     void DIRK(ofstream &out, Int backend);    
     
     // precompute some quantities

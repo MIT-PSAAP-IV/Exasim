@@ -840,65 +840,7 @@ void CDiscretization::evalAVfield(dstype* avField, Int backend)
     AvfieldDriver(avField, sol.xdg, sol.udg, sol.odg, sol.wdg, driver_abi, mesh, master, app, sol, tmp, common, backend);           
 }
 
-void CDiscretization::evalOutput(dstype* output, Int backend)
-{
-#ifdef  HAVE_MPI    
-    Int bsz = common.grid.npe*common.components.nc;
-    Int nudg = common.grid.npe*common.components.nc;
-    Int n;
-    
-    /* copy some portion of u to buffsend */
-    GetArrayAtIndex(tmp.buffsend, sol.udg, mesh.elemsendudg, bsz*common.nelemsend);
-
-#ifdef HAVE_CUDA
-    cudaDeviceSynchronize();
-#endif
-
-#ifdef HAVE_HIP
-    hipDeviceSynchronize();
-#endif
-    
-    /* non-blocking send */
-    Int neighbor, nsend, psend = 0, request_counter = 0;
-    for (n=0; n<common.nnbsd; n++) {
-        neighbor = common.nbsd[n];
-        nsend = common.elemsendpts[n]*bsz;
-        if (nsend>0) {
-            MPI_Isend(&tmp.buffsend[psend], nsend, MPI_DOUBLE, neighbor, 0,
-                   EXASIM_COMM_LOCAL, &common.requests[request_counter]);
-            psend += nsend;
-            request_counter += 1;
-        }
-    }
-
-    /* non-blocking receive */
-    Int nrecv, precv = 0;
-    for (n=0; n<common.nnbsd; n++) {
-        neighbor = common.nbsd[n];
-        nrecv = common.elemrecvpts[n]*bsz;
-        if (nrecv>0) {
-            MPI_Irecv(&tmp.buffrecv[precv], nrecv, MPI_DOUBLE, neighbor, 0,
-                   EXASIM_COMM_LOCAL, &common.requests[request_counter]);
-            precv += nrecv;
-            request_counter += 1;
-        }
-    }
-
-    // non-blocking receive solutions on exterior and outer elements from neighbors
-    /* wait until all send and receive operations are completely done */
-    MPI_Waitall(request_counter, common.requests, common.statuses);
-        
-    /* copy buffrecv to udg */
-    PutArrayAtIndex(sol.udg, tmp.buffrecv, mesh.elemrecvudg, bsz*common.nelemrecv);
-#endif
-            
-    // compute the output field
-    OutputDriver(output, sol.xdg, sol.udg, sol.odg, sol.wdg, driver_abi, mesh, master, app, sol, tmp, common, backend);    
-//     void OutputDriver(dstype *f, dstype *xg, dstype *udg, dstype *odg, dstype *wdg, meshstruct &mesh, 
-//         masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
-//         commonstruct &common, Int nge, Int e1, Int e2, Int backend)
-
-}
+// evalOutput re-homed to CSolution (S4).
 
 
 // evalMonitor re-homed to CSolution (S4).

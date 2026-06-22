@@ -104,7 +104,6 @@ public:
     void evalAVfield(dstype* avField, Int backend);       
     
     // evaluate the artificial viscosity field at sol.udg
-    void evalOutput(dstype* output, Int backend);       
     
     // evaluate a monitor function to monitor changes in solution QoIs for pseudotime stepping
     
