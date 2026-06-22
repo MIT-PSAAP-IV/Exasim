@@ -57,7 +57,7 @@ inline void DG2CGAVField(solstruct &sol, resstruct &res, appstruct &app, masters
     Int ncavdg = common.nco;
     Int ncavcg = common.nco;
 
-    for(Int i = 0; i<common.ncAV; i++)
+    for(Int i = 0; i<common.physicsparams.ncAV; i++)
     { 
         //extract ith component of av field and store it in tmp.tempn
         ArrayExtract(tmp.tempn, avdg, common.npe, ncavdg, common.ne, 0, common.npe, i, i+1, 0, common.ne); 
@@ -224,7 +224,7 @@ inline void GetAv(solstruct &sol, resstruct &res, appstruct &app, masterstruct &
     EXASIM_DRIVER_CALL(AvfieldDriver, sol.odg, sol.xdg, sol.udg, sol.odg, sol.wdg, mesh, master, app, sol, tmp, common, backend); 
     // note that the args imply avfield can depend on odg...not sure this is true.
     // This is true actually; but we need to be careful with autodiff. Might need a seperate avfield...
-    for (Int iav = 0; iav<common.AVsmoothingIter; iav++){
+    for (Int iav = 0; iav<common.physicsparams.AVsmoothingIter; iav++){
         DG2CGAVField<M>(sol, res, app, master, mesh, tmp, common, sol.odg, sol.odg, backend);
     }
 
@@ -268,7 +268,7 @@ inline void RuResidual(solstruct &sol, resstruct &res, appstruct &app, masterstr
     if (common.ncw>0)
          GetW<M>(sol, res, app, master, mesh, tmp, common, handle, nbe1q, nbe2q, nbf1, nbf2, backend);                
     
-    if (common.ncAV>0 && common.frozenAVflag == 0)
+    if (common.physicsparams.ncAV>0 && common.physicsparams.frozenAVflag == 0)
     /// FROM MEETING: MUST MOVE THE VOLUME RESIDUAL AND EVALUATE 0 to common.npe2 if unfrozen for mpi
         GetAv<M>(sol, res, app, master, mesh, tmp, common, handle, backend);
 
@@ -438,7 +438,7 @@ inline void RuResidualMPI(solstruct &sol, resstruct &res, appstruct &app, master
     
     START_TIMING; 
     // calculate Ru for interior elements
-    if (common.frozenAVflag == 1)
+    if (common.physicsparams.frozenAVflag == 1)
     // if AVfield is not part of residual, we can evaluate interior volume integrals before receving neighbor information
         RuElem<M>(sol, res, app, master, mesh, tmp, common, handle, 0, common.nbe0, backend);    
     END_TIMING(9);    
@@ -468,12 +468,12 @@ inline void RuResidualMPI(solstruct &sol, resstruct &res, appstruct &app, master
     if (common.ncw>0)         
         GetW<M>(sol, res, app, master, mesh, tmp, common, handle, common.nbe0, common.nbe2, 0, common.nbf, backend);        
     
-    if (common.ncAV>0 && common.frozenAVflag == 0)
+    if (common.physicsparams.ncAV>0 && common.physicsparams.frozenAVflag == 0)
     /// FROM MEETING: MUST MOVE THE VOLUME RESIDUAL AND EVALUATE 0 to common.npe2 if unfrozen for mpi
         GetAv<M>(sol, res, app, master, mesh, tmp, common, handle, backend);
 
     
-    if (common.frozenAVflag == 1)
+    if (common.physicsparams.frozenAVflag == 1)
     { // calculate Ru for interface elements
         RuElem<M>(sol, res, app, master, mesh, tmp, common, handle, common.nbe0, common.nbe1, backend); 
     } 
@@ -671,7 +671,7 @@ inline void GetdAv(solstruct &sol, resstruct &res, appstruct &app, masterstruct 
 {
     EXASIM_DRIVER_CALL(AvfieldDriver, sol.odg, sol.dodg, sol.xdg, sol.udg, sol.dudg, sol.odg, sol.wdg, sol.dwdg, mesh, master, app, sol, tmp, common, backend); 
 
-    for (Int iav = 0; iav<common.AVsmoothingIter; iav++){
+    for (Int iav = 0; iav<common.physicsparams.AVsmoothingIter; iav++){
         DG2CGAVField<M>(sol, res, app, master, mesh, tmp, common, sol.dodg, sol.dodg, backend);
     }
 
@@ -716,7 +716,7 @@ inline void dRuResidual(solstruct &sol, resstruct &res, appstruct &app, masterst
         GetdQ<M>(sol, res, app, master, mesh, tmp, common, handle, nbe1q, nbe2q, nbf1, nbf2, backend);
     }               
 
-    if (common.ncAV>0 && common.frozenAVflag == 0)
+    if (common.physicsparams.ncAV>0 && common.physicsparams.frozenAVflag == 0)
     /// FROM MEETING: MUST MOVE THE VOLUME RESIDUAL AND EVALUATE 0 to common.npe2 if unfrozen for mpi
         GetdAv<M>(sol, res, app, master, mesh, tmp, common, handle, backend);
 
@@ -793,7 +793,7 @@ inline void dRuResidualMPI(solstruct &sol, resstruct &res, appstruct &app, maste
     // TODO: DAE AD matvec
 
     // calculate Ru for interior elements
-    if (common.frozenAVflag == 1)
+    if (common.physicsparams.frozenAVflag == 1)
     // if AVfield is not part of residual, we can evaluate interior volume integrals before receving neighbor information
         dRuElem<M>(sol, res, app, master, mesh, tmp, common, handle, 0, common.nbe0, backend);    
         
@@ -812,11 +812,11 @@ inline void dRuResidualMPI(solstruct &sol, resstruct &res, appstruct &app, maste
         GetdQ<M>(sol, res, app, master, mesh, tmp, common, handle, common.nbe0, common.nbe2, 0, common.nbf, backend);        
     // TODO: DAE AD Matvec    
 
-    if (common.ncAV>0 && common.frozenAVflag == 0)
+    if (common.physicsparams.ncAV>0 && common.physicsparams.frozenAVflag == 0)
     /// FROM MEETING: MUST MOVE THE VOLUME RESIDUAL AND EVALUATE 0 to common.npe2 if unfrozen for mpi
         GetdAv<M>(sol, res, app, master, mesh, tmp, common, handle, backend);
     
-    if (common.frozenAVflag == 1)
+    if (common.physicsparams.frozenAVflag == 1)
     { // calculate Ru for interface elements
         dRuElem<M>(sol, res, app, master, mesh, tmp, common, handle, common.nbe0, common.nbe1, backend); 
     } 

@@ -563,7 +563,7 @@ int main(int argc, char** argv)
 //         }    
 // 
 // 
-//     if (pdemodel[0]->disc.common.AVdistfunction==1) {
+//     if (pdemodel[0]->disc.common.physicsparams.AVdistfunction==1) {
 //       avdistfunc(pdemodel, out, nummodels, backend);
 //     }    
 //     else if ((pdemodel[0]->disc.common.tdep==1) && (pdemodel[0]->disc.common.runmode==0)) {

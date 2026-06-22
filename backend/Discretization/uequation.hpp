@@ -873,7 +873,7 @@ inline void RuEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, 
             ArrayAXY(sg, sg, fg, one, nga*ncu);                
         }
         
-        if (common.source==1) {            
+        if (common.physicsparams.source==1) {            
             ArraySetValue(fg, 0.0, nga*ncu);
             // calculate the source term Source(xdg, udg, odg, wdg)
             EXASIM_DRIVER_CALL(SourceDriver, fg, xg, uqg, og, wg, mesh, master, app, sol, tmp, common, nge, e1, e2, backend);

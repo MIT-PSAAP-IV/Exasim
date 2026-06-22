@@ -258,7 +258,7 @@ void AvfieldDriver(dstype* f, const dstype* xg, const dstype* udg, const dstype*
   dstype time = common.timestate.time;
 
   KokkosAvfield(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, common.modelnumber, 
-              numPoints, nc, ncu, nd, ncx, nco, ncw, common.ncAV, npe, ne);                
+              numPoints, nc, ncu, nd, ncx, nco, ncw, common.physicsparams.ncAV, npe, ne);                
 }
 
 void EosDriver(dstype* f, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, meshstruct &mesh, 

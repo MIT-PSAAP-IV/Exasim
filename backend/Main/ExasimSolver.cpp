@@ -303,7 +303,7 @@ int ExasimSolver::Solve()
     int status = 0;
     commonstruct& common = models_[0]->disc.common;
 
-    if (common.AVdistfunction == 1) {
+    if (common.physicsparams.AVdistfunction == 1) {
         status = RunAVDistanceFunction();
     }
     else if ((common.tdep == 1) && (common.runmode == 0)) {
@@ -1608,7 +1608,7 @@ int ExasimSolver::RunPhysicsParamSweep()
         }
 
         commonstruct& common = models_[0]->disc.common;
-        if (common.AVdistfunction == 1)
+        if (common.physicsparams.AVdistfunction == 1)
             status = RunAVDistanceFunction();
         else if ((common.tdep == 1) && (common.runmode == 0))
             status = RunTimeDependent();

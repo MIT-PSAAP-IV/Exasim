@@ -121,7 +121,7 @@ void setcommonstruct(commonstruct &common, appstruct &app, ExasimDriverABI& driv
     common.ndofucg = mesh.nsize[12]-1;
             
     common.ntau = app.nsize[8];
-    if (common.ntau>0) common.tau0 = app.tau[0];
+    if (common.ntau>0) common.physicsparams.tau0 = app.tau[0];
 		
     common.curvedMesh = curvedMesh;        
     common.fileoffset = fileoffset;
@@ -137,7 +137,7 @@ void setcommonstruct(commonstruct &common, appstruct &app, ExasimDriverABI& driv
     common.ptcMatrixType = app.flag[8];
     common.runmode = app.flag[9];
     common.tdfunc = app.flag[10];
-    common.source = app.flag[11]; 
+    common.physicsparams.source = app.flag[11]; 
     common.modelnumber = app.modelnumber; 
     common.extFhat = app.flag[13];
     common.extUhat = app.flag[14];
@@ -147,20 +147,20 @@ void setcommonstruct(commonstruct &common, appstruct &app, ExasimDriverABI& driv
     
     common.tsteps = app.nsize[4];  // number of time steps          
     common.spatialScheme = app.problem[0];   /* 0: HDG; 1: EDG; 2: IEDG, HEDG */
-    common.appname = app.problem[1];   /* 0: Euler; 1: Compressible Navier-Stokes; etc. */    
+    common.physicsparams.appname = app.problem[1];   /* 0: Euler; 1: Compressible Navier-Stokes; etc. */    
     common.temporalScheme = app.problem[2];  // 0: DIRK; 1: BDF; 2: ERK
     common.torder = app.problem[3];    /* temporal accuracy order */
     common.tstages = app.problem[4];    /* DIRK stages */    
-    common.convStabMethod = app.problem[5];  // Flag for convective stabilization tensor. 0: Constant tau, 1: Lax-Friedrichs; 2: Roe.
-    common.diffStabMethod = app.problem[6];  // Flag for diffusive stabilization tensor. 0: No diffusive stabilization.
-    common.rotatingFrame = app.problem[7];   // Flag for rotating frame. Options: 0: Velocities are respect to a non-rotating frame. 1: Velocities are respect to a rotating frame.
-    common.viscosityModel = app.problem[8];  // Flag for viscosity model. 0: Constant kinematic viscosity; 1: Sutherland's law. 2: Hack for viscosity for compressible HIT case in (Johnsen, 2010)
-    common.SGSmodel = app.problem[9];        // Flag for sub-grid scale (SGS) model. Only available for 3D solver.
+    common.physicsparams.convStabMethod = app.problem[5];  // Flag for convective stabilization tensor. 0: Constant tau, 1: Lax-Friedrichs; 2: Roe.
+    common.physicsparams.diffStabMethod = app.problem[6];  // Flag for diffusive stabilization tensor. 0: No diffusive stabilization.
+    common.physicsparams.rotatingFrame = app.problem[7];   // Flag for rotating frame. Options: 0: Velocities are respect to a non-rotating frame. 1: Velocities are respect to a rotating frame.
+    common.physicsparams.viscosityModel = app.problem[8];  // Flag for viscosity model. 0: Constant kinematic viscosity; 1: Sutherland's law. 2: Hack for viscosity for compressible HIT case in (Johnsen, 2010)
+    common.physicsparams.SGSmodel = app.problem[9];        // Flag for sub-grid scale (SGS) model. Only available for 3D solver.
                                         //  0: No SGS model. 1: Static Smagorinsky/Yoshizawa/Knight model. 
                                         //  2: Static WALE/Yoshizawa/Knight model. 3: Static Vreman/Yoshizawa/Knight model.
                                         //  4: Dynamic Smagorinsky/Yoshizawa/Knight model.        
-    common.ALEflag = app.problem[10];   // Flag for Arbitrary Lagrangian-Eulerian (ALE) formulation. 0: No ALE; 1: Translation; 2: Translation + rotation; 3: Translation + rotation + deformation
-    common.ncAV = app.problem[11];    // Flag for artificial viscosity. 0: No artificial viscosity; 1: Homogeneous artificial viscosity (C. Nguyen's formulation); 2: Hypersonic homogeneous artificial viscosity (C. Nguyen's formulation)
+    common.physicsparams.ALEflag = app.problem[10];   // Flag for Arbitrary Lagrangian-Eulerian (ALE) formulation. 0: No ALE; 1: Translation; 2: Translation + rotation; 3: Translation + rotation + deformation
+    common.physicsparams.ncAV = app.problem[11];    // Flag for artificial viscosity. 0: No artificial viscosity; 1: Homogeneous artificial viscosity (C. Nguyen's formulation); 2: Hypersonic homogeneous artificial viscosity (C. Nguyen's formulation)
                                         //                                3: Isotropic artificial viscosity (D. Moro's formulation). 4: Latest version of the model (taking the best of all previous models)
                                         //                                8: Density smoothness sensor (Per's approach)    
     common.linearSolver = app.problem[12];  /* 0: GMRES; 1: CG; etc. */      
@@ -176,15 +176,15 @@ void setcommonstruct(commonstruct &common, appstruct &app, ExasimDriverABI& driv
     common.ibs = app.problem[22];   
     common.dae_steps = app.problem[23];  // number of dual time steps      
     common.saveResNorm = app.problem[24];   
-    common.AVsmoothingIter = app.problem[25]; //Number of times artificial viscosity is smoothed
-    common.frozenAVflag = app.problem[26]; // Flag deciding if artificial viscosity is calculated once per non-linear solve or in every residual evluation
+    common.physicsparams.AVsmoothingIter = app.problem[25]; //Number of times artificial viscosity is smoothed
+    common.physicsparams.frozenAVflag = app.problem[26]; // Flag deciding if artificial viscosity is calculated once per non-linear solve or in every residual evluation
                                            //   0: AV not frozen, evaluated every iteration
                                            //   1: AV frozen, evluated once per solve (default)          
     common.ppdegree = app.problem[27]; // degree of polynomial preconditioner
     common.coupledinterface = app.problem[28]; 
     common.coupledcondition = app.problem[29]; 
     common.coupledboundarycondition = app.problem[30];
-    common.AVdistfunction = app.problem[31];
+    common.physicsparams.AVdistfunction = app.problem[31];
     
     common.solverstate.RBcurrentdim = 0; // current dimension of the reduced basis space
     common.solverstate.RBremovedind = 0; // the vector to be removed from the RB space and replaced with new vector
@@ -196,7 +196,7 @@ void setcommonstruct(commonstruct &common, appstruct &app, ExasimDriverABI& driv
     common.solverstate.PTCparam = app.solversparam[3];
     if (common.tdep==1)
         common.timestate.time = app.factor[0];
-    common.rampFactor = 1.0;   // Ramp factor for artificial viscosity flux        
+    common.physicsparams.rampFactor = 1.0;   // Ramp factor for artificial viscosity flux        
     common.dae_alpha = app.factor[1];
     common.dae_beta = app.factor[2];
     common.dae_gamma = app.factor[3];
@@ -749,7 +749,7 @@ void cpuInit(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& dr
             for (Int j=0; j<bsz; j++) 
                 mesh.elemsendind[bsz*i+j] = nudg*common.elemsend[i] + j;            
       
-        bsz = common.npe*common.ncAV;
+        bsz = common.npe*common.physicsparams.ncAV;
         nudg = common.npe*common.nco;
         mesh.elemsendodg = (Int*) malloc (sizeof (Int)*bsz*common.nelemsend);
         mesh.szelemsendodg = bsz*common.nelemsend;
@@ -776,7 +776,7 @@ void cpuInit(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& dr
             for (Int j=0; j<bsz; j++) 
                 mesh.elemrecvind[bsz*i+j] = nudg*common.elemrecv[i] + j;            
     
-        bsz = common.npe*common.ncAV;
+        bsz = common.npe*common.physicsparams.ncAV;
         nudg = common.npe*common.nco;
         mesh.elemrecvodg = (Int*) malloc (sizeof (Int)*bsz*common.nelemrecv);
         mesh.szelemrecvodg = bsz*common.nelemrecv;
@@ -1076,7 +1076,7 @@ void devmeshstruct(meshstruct &dmesh, meshstruct &mesh, commonstruct &common)
         TemplateMalloc(&dmesh.elemsendudg, bsz, common.backend);
         TemplateCopytoDevice(dmesh.elemsendudg, mesh.elemsendudg, bsz, common.backend);
     
-        bsz = common.npe*common.ncAV*common.nelemsend;
+        bsz = common.npe*common.physicsparams.ncAV*common.nelemsend;
         TemplateMalloc(&dmesh.elemsendodg, bsz, common.backend);
         TemplateCopytoDevice(dmesh.elemsendodg, mesh.elemsendodg, bsz, common.backend);
     }
@@ -1090,7 +1090,7 @@ void devmeshstruct(meshstruct &dmesh, meshstruct &mesh, commonstruct &common)
         TemplateMalloc(&dmesh.elemrecvudg, bsz, common.backend);
         TemplateCopytoDevice(dmesh.elemrecvudg, mesh.elemrecvudg, bsz, common.backend);
      
-        bsz = common.npe*common.ncAV*common.nelemrecv;
+        bsz = common.npe*common.physicsparams.ncAV*common.nelemrecv;
         TemplateMalloc(&dmesh.elemrecvodg, bsz, common.backend);
         TemplateCopytoDevice(dmesh.elemrecvodg, mesh.elemrecvodg, bsz, common.backend);
     }

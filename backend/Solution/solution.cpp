@@ -546,11 +546,11 @@ void CSolution::SteadyProblem(ofstream &out, Int backend)
     }
     
     // calculate AV field
-    if (disc.common.ncAV>0 && disc.common.frozenAVflag > 0) {
+    if (disc.common.physicsparams.ncAV>0 && disc.common.physicsparams.frozenAVflag > 0) {
         // START_TIMING;
 
         Int nco = disc.common.nco;
-        Int ncAV = disc.common.ncAV;
+        Int ncAV = disc.common.physicsparams.ncAV;
         Int npe = disc.common.npe;
         Int ne = disc.common.ne;            
         
@@ -561,12 +561,12 @@ void CSolution::SteadyProblem(ofstream &out, Int backend)
         // evaluate AV field
         disc.evalAVfield(avField, backend);
 
-        for (Int iav = 0; iav<disc.common.AVsmoothingIter; iav++){
+        for (Int iav = 0; iav<disc.common.physicsparams.AVsmoothingIter; iav++){
             // printf("Solution AV smoothing iter: %i\n", iav);
-            disc.DG2CG2(avField, avField, utm, disc.common.ncAV, disc.common.ncAV, disc.common.ncAV, backend);
+            disc.DG2CG2(avField, avField, utm, disc.common.physicsparams.ncAV, disc.common.physicsparams.ncAV, disc.common.physicsparams.ncAV, backend);
 
 #ifdef  HAVE_MPI    
-            Int bsz = disc.common.npe*disc.common.ncAV;
+            Int bsz = disc.common.npe*disc.common.physicsparams.ncAV;
             Int nudg = disc.common.npe*disc.common.nco;
             Int n;
 

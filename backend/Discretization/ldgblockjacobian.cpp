@@ -1542,7 +1542,7 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
         tm.w += LDGBenchmarkStop(t0, backend);
     }
 
-    if (common.ncAV>0 && common.frozenAVflag == 0) {
+    if (common.physicsparams.ncAV>0 && common.physicsparams.frozenAVflag == 0) {
         t0 = LDGBenchmarkStart(backend);
         GetAv<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, backend);
         tm.av += LDGBenchmarkStop(t0, backend);
@@ -1738,7 +1738,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
         tm.w += LDGBenchmarkStop(t0, backend);
     }
 
-    if (common.ncAV>0 && common.frozenAVflag == 0) {
+    if (common.physicsparams.ncAV>0 && common.physicsparams.frozenAVflag == 0) {
         t0 = LDGBenchmarkStart(backend);
         GetAv<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, backend);
         tm.av += LDGBenchmarkStop(t0, backend);
@@ -1816,7 +1816,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 //     if (common.ncw>0)
 //         GetW<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.nbe, 0, common.nbf, backend);                
 // 
-//     if (common.ncAV>0 && common.frozenAVflag == 0)
+//     if (common.physicsparams.ncAV>0 && common.physicsparams.frozenAVflag == 0)
 //         GetAv<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, backend);
 // 
 //     Int n = common.npe*common.ncu;

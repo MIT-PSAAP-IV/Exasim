@@ -1631,7 +1631,28 @@ struct timestatestruct {
     dstype time;       // current simulation time
 };
 
+// Physics / model configuration: stabilization, viscosity/SGS, ALE, artificial viscosity,
+// rotating frame, source/model-type flags, plus the AV ramp factor. Grouped out of
+// commonstruct (C3). Access via common.physicsparams.<field>.
+struct physicsparamsstruct {
+    Int appname;          // model identifier (0: Euler; 1: Compressible Navier-Stokes; ...)
+    Int source;           // source function flag
+    Int convStabMethod;   // convective stabilization (0 const tau, 1 Lax-Friedrichs, 2 Roe)
+    Int diffStabMethod;   // diffusive stabilization
+    Int rotatingFrame;    // rotating-frame flag
+    Int viscosityModel;   // viscosity law
+    Int SGSmodel;         // sub-grid-scale model
+    Int ALEflag;          // Arbitrary Lagrangian-Eulerian formulation flag
+    Int ncAV;             // number of artificial-viscosity components
+    Int AVsmoothingIter;  // AV smoothing iterations
+    Int frozenAVflag;     // freeze AV per nonlinear solve
+    Int AVdistfunction=0; // AV distance-function flag
+    dstype rampFactor;    // AV flux ramp factor (advanced over steps)
+    dstype tau0=0.0;      // initial stabilization parameter
+};
+
 struct commonstruct {
+    physicsparamsstruct physicsparams;  // physics/model configuration (see above)
     solverstatestruct solverstate;  // mutable solver/preconditioner runtime state (see above)
     timestatestruct timestate;      // mutable time-stepping runtime state (see above)
     std::vector<qoiinstancestruct> qoiinstances;  // registered QoI instances (default: 1 domain + 1 boundary)
@@ -1739,7 +1760,6 @@ struct commonstruct {
     Int curvedMesh;// curved mesh   
     Int fileoffset;
     Int debugMode; // 1: save data to binary files for debugging
-    Int appname;   /* 0: Euler; 1: Compressible Navier-Stokes; etc. */
     Int tdep;      // 0: steady-state; 1: time-dependent;  
     Int wave;      // wave problem    
     Int linearProblem; // 0: nonlinear problem;  1: linear problem
@@ -1750,7 +1770,6 @@ struct commonstruct {
     Int timestepOffset=0; // timestep offset to restart the simulation 
     Int stgNmode=0;       // number of synthetic turbulence generation modes
     Int tdfunc;           // time-derivative function flag
-    Int source;           // source function flag
     Int modelnumber;      // model number
     Int builtinmodelID=0; // model ID
     Int ibs;              // boundary index to save solution 
@@ -1766,21 +1785,11 @@ struct commonstruct {
     Int tstages;    /* DIRK stages */
     Int tsteps;    /* number of time steps */
     Int dae_steps=0; /* number of dual time steps */
-    Int convStabMethod;  // Flag for convective stabilization tensor. 0: Constant tau, 1: Lax-Friedrichs; 2: Roe.
-    Int diffStabMethod;  // Flag for diffusive stabilization tensor. 0: No diffusive stabilization.
-    Int rotatingFrame;   // Flag for rotating frame. Options: 0: Velocities are respect to a non-rotating frame. 1: Velocities are respect to a rotating frame.
-    Int viscosityModel;  // Flag for viscosity model. 0: Constant kinematic viscosity; 1: Sutherland's law. 2: Hack for viscosity for compressible HIT case in (Johnsen, 2010)
-    Int SGSmodel;        // Flag for sub-grid scale (SGS) model. Only available for 3D solver.
                                         //  0: No SGS model. 1: Static Smagorinsky/Yoshizawa/Knight model. 
                                         //  2: Static WALE/Yoshizawa/Knight model. 3: Static Vreman/Yoshizawa/Knight model.
                                         //  4: Dynamic Smagorinsky/Yoshizawa/Knight model.        
-    Int ALEflag;                    // Flag for Arbitrary Lagrangian-Eulerian (ALE) formulation. 0: No ALE; 1: Translation; 2: Translation + rotation; 3: Translation + rotation + deformation
-    Int ncAV;                     // Number of components for artificial viscosity; formulation specified in symbolic code as pde.avfield function   
-    Int AVsmoothingIter;           //Number of times artificial viscosity is smoothed
-    Int frozenAVflag;    // Flag deciding if artificial viscosity is calculated once per non-linear solve or in every residual evluation
                                 //   0: AV not frozen, evaluated as part of residual
                                 //   1: AV frozen, evluated once per solve (default)   
-    Int AVdistfunction=0;
     Int read_uh = 0;
 
     Int linearSolver;  /* 0: GMRES; 1: CG; etc. */      
@@ -1800,8 +1809,6 @@ struct commonstruct {
     dstype matvecTol;
     dstype linearSolverTol;
     dstype nonlinearSolverTol;
-    dstype rampFactor;               // Ramp factor for artificial viscosity flux
-    dstype tau0=0.0;
     dstype dae_alpha=1.0;
     dstype dae_beta=0.0;
     dstype dae_gamma=0.0;
@@ -1953,16 +1960,16 @@ struct commonstruct {
       printf("save solution option: %d\n", saveSolOpt);
       printf("timestep offset to restart simulation: %d\n", timestepOffset);
       printf("time-derivative function flag: %d\n", tdfunc);
-      printf("source function flag: %d\n", source);
+      printf("source function flag: %d\n", physicsparams.source);
       printf("model number: %d\n", modelnumber);
       printf("boundary index to save solution: %d\n", ibs);
       printf("save solution boundary frequency: %d\n", saveSolBouFreq);
       printf("compute time-averaged solution flag: %d\n", compudgavg);
       printf("read time-averaged solution flag: %d\n", readudgavg);
     
-      printf("number of components of artificial viscosity: %d\n", ncAV);
-      printf("number of artificial viscosity smoothing iterations: %d\n", AVsmoothingIter);
-      printf("frozen artificial viscosity flag: %d\n", frozenAVflag);
+      printf("number of components of artificial viscosity: %d\n", physicsparams.ncAV);
+      printf("number of artificial viscosity smoothing iterations: %d\n", physicsparams.AVsmoothingIter);
+      printf("frozen artificial viscosity flag: %d\n", physicsparams.frozenAVflag);
       printf("linear solver type: %d\n", linearSolver);
       printf("nonlinear solver type: %d\n", nonlinearSolver);
       printf("maximum linear solver iterations: %d\n", linearSolverMaxIter);
@@ -1983,9 +1990,9 @@ struct commonstruct {
       printf("linear solver tolerance factor: %f\n", solverstate.linearSolverTolFactor);
       printf("nonlinear solver tolerance: %f\n", nonlinearSolverTol);
       printf("linear solver relative error: %f\n", solverstate.linearSolverRelError);
-      printf("artificial viscosity ramp factor: %f\n", rampFactor);
+      printf("artificial viscosity ramp factor: %f\n", physicsparams.rampFactor);
       printf("PTC parameter: %f\n", solverstate.PTCparam);
-      printf("initial stabilization parameter: %f\n", tau0);
+      printf("initial stabilization parameter: %f\n", physicsparams.tau0);
       printf("DAE alpha parameter: %f\n", dae_alpha);
       printf("DAE beta parameter: %f\n", dae_beta);
       printf("DAE gamma parameter: %f\n", dae_gamma);

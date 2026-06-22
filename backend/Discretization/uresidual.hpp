@@ -95,7 +95,7 @@ inline void RuElemBlock(solstruct &sol, resstruct &res, appstruct &app, masterst
             ArrayAXY(&tmp.tempg[n4], &tmp.tempg[n4], &tmp.tempg[n5], one, nga*ncu);                
         }
         
-        if (common.source==1) {            
+        if (common.physicsparams.source==1) {            
             // calculate the source term Source(xdg, udg, odg, wdg)
             EXASIM_DRIVER_CALL(SourceDriver, &tmp.tempg[n5], &sol.elemg[nm], &tmp.tempg[n3], &sol.odgg[nge*nco*e1], 
                 &tmp.tempg[n6], mesh, master, app, sol, tmp, common, nge, e1, e2, backend);
@@ -210,7 +210,7 @@ inline void dRuElemBlock(solstruct &sol, resstruct &res, appstruct &app, masters
             ArrayAXY(&tmp.tempg[n8], &tmp.tempg[n8], &tmp.tempg[n5], one, nga*ncu);                
         }
         
-        if (common.source==1) {            
+        if (common.physicsparams.source==1) {            
             // calculate the source term Source(xdg, udg, odg, wdg) and dSource
             EXASIM_DRIVER_CALL(SourceDriver, &tmp.tempg[n5], &tmp.tempg[n7], &sol.elemg[nm], &tmp.tempg[n3], &tmp.tempg[n9], &sol.odgg[nge*nco*e1], 
                 &tmp.tempg[n6], &tmp.tempg[n0], mesh, master, app, sol, tmp, common, nge, e1, e2, backend);
