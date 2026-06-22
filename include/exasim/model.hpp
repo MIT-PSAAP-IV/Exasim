@@ -180,8 +180,18 @@ enum class Discretization {
 //
 //       // ... source, ubou, initu — explicit overrides for what's used.
 //   };
+namespace detail {
+// Zero-fill an output buffer of size N at compile time. A free helper (formerly a
+// ModelDefaults member) so the per-concern default mixins below can all call it
+// without depending on a shared base class (avoids two-phase-lookup on a dependent base).
+template <int N>
+KOKKOS_INLINE_FUNCTION void zero_fill(double f[]) {
+    for (int k = 0; k < N; ++k) f[k] = 0.0;
+}
+} // namespace detail
+
 template <class Self>
-struct ModelDefaults {
+struct ModelConstants {
     // Default discretization tag. Override by `static constexpr auto
     // disc = exasim::Discretization::HDG;` in the derived struct.
     static constexpr Discretization disc = Discretization::LDG;
@@ -193,12 +203,14 @@ struct ModelDefaults {
     // override.
     static constexpr int nco = 0;
 
-    // Helper: zero-fill an output buffer of size N at compile time.
-    template <int N>
-    KOKKOS_INLINE_FUNCTION static void zero_fill_(double f[]) {
-        for (int k = 0; k < N; ++k) f[k] = 0.0;
-    }
+};
 
+// Per-concern default mixins (a C3-style split of the model "god-base"): each adds the
+// zero/identity defaults for ONE concern, chained so the composite ModelDefaults below
+// supplies everything. Each mixin can be referenced on its own to express that a kernel
+// or class needs only that concern's surface.
+template <class Self>
+struct VolumeDefaults : ModelConstants<Self> {
     // ---- Volume terms (default: zero) ----
     //
     // Volume pointwise methods take 8 args after the output buffer:
@@ -212,7 +224,7 @@ struct ModelDefaults {
                 const double /*x*/[],  const double /*uq*/[],
                 const double /*v*/[],  const double /*w*/[],  const double /*mu*/[],
                 const double /*uinf*/[], double /*t*/) {
-        zero_fill_<Self::ncu>(s);
+        detail::zero_fill<Self::ncu>(s);
     }
 
     KOKKOS_INLINE_FUNCTION static
@@ -220,7 +232,7 @@ struct ModelDefaults {
                  const double /*x*/[],  const double /*uq*/[],
                  const double /*v*/[],  const double /*w*/[],  const double /*mu*/[],
                  const double /*uinf*/[], double /*t*/) {
-        if constexpr (Self::ncw > 0) zero_fill_<Self::ncw>(sw);
+        if constexpr (Self::ncw > 0) detail::zero_fill<Self::ncw>(sw);
     }
 
     KOKKOS_INLINE_FUNCTION static
@@ -237,9 +249,13 @@ struct ModelDefaults {
                  const double /*x*/[],  const double /*uq*/[],
                  const double /*v*/[],  const double /*w*/[],  const double /*mu*/[],
                  const double /*uinf*/[], double /*t*/) {
-        zero_fill_<Self::ncu>(av);
+        detail::zero_fill<Self::ncu>(av);
     }
 
+};
+
+template <class Self>
+struct BoundaryDefaults : VolumeDefaults<Self> {
     // ---- Boundary terms (default: zero) ----
 
     // Boundary kernels: pointwise functions seen by every kernel call from
@@ -251,7 +267,7 @@ struct ModelDefaults {
               const double /*v*/[],  const double /*w*/[],  const double /*uh*/[],
               const double /*n*/[],  const double /*tau*/[],
               const double /*mu*/[], const double /*uinf*/[], double /*t*/) {
-        zero_fill_<Self::ncu>(ub);
+        detail::zero_fill<Self::ncu>(ub);
     }
 
     KOKKOS_INLINE_FUNCTION static
@@ -260,7 +276,7 @@ struct ModelDefaults {
               const double /*v*/[],  const double /*w*/[],  const double /*uh*/[],
               const double /*n*/[],  const double /*tau*/[],
               const double /*mu*/[], const double /*uinf*/[], double /*t*/) {
-        zero_fill_<Self::ncu>(fb);
+        detail::zero_fill<Self::ncu>(fb);
     }
 
     // HDG boundary residual — distinct from `fbou`.
@@ -278,7 +294,7 @@ struct ModelDefaults {
                   const double /*v*/[],  const double /*w*/[],  const double /*uh*/[],
                   const double /*n*/[],  const double /*tau*/[],
                   const double /*mu*/[], const double /*uinf*/[], double /*t*/) {
-        zero_fill_<Self::ncu>(fb);
+        detail::zero_fill<Self::ncu>(fb);
     }
 
     // Interface kernels see both sides (uq1, uq2, v1, v2, w1, w2) plus the
@@ -292,7 +308,7 @@ struct ModelDefaults {
               const double /*w1*/[],   const double /*w2*/[],
               const double /*uh*/[],   const double /*n*/[],   const double /*tau*/[],
               const double /*mu*/[],   const double /*uinf*/[], double /*t*/) {
-        zero_fill_<Self::ncu>(fh);
+        detail::zero_fill<Self::ncu>(fh);
     }
 
     KOKKOS_INLINE_FUNCTION static
@@ -302,7 +318,7 @@ struct ModelDefaults {
               const double /*w1*/[],   const double /*w2*/[],
               const double /*trace*/[],const double /*n*/[],   const double /*tau*/[],
               const double /*mu*/[],   const double /*uinf*/[], double /*t*/) {
-        zero_fill_<Self::ncu>(uh);
+        detail::zero_fill<Self::ncu>(uh);
     }
 
     KOKKOS_INLINE_FUNCTION static
@@ -315,6 +331,10 @@ struct ModelDefaults {
         for (int k = 0; k < Self::ncu; ++k) tau[k] = 1.0;
     }
 
+};
+
+template <class Self>
+struct EoSDefaults : BoundaryDefaults<Self> {
     // ---- Equation of state (default: identity / zero) ----
 
     KOKKOS_INLINE_FUNCTION static
@@ -322,7 +342,7 @@ struct ModelDefaults {
              const double /*x*/[],  const double /*uq*/[],
              const double /*v*/[],  const double /*w*/[],  const double /*mu*/[],
              const double /*uinf*/[], double /*t*/) {
-        zero_fill_<Self::ncu>(e);
+        detail::zero_fill<Self::ncu>(e);
     }
 
     KOKKOS_INLINE_FUNCTION static
@@ -344,22 +364,26 @@ struct ModelDefaults {
         }
     }
 
+};
+
+template <class Self>
+struct InitDefaults : EoSDefaults<Self> {
     // ---- Initial conditions (default: zero, except `initu` which is required) ----
 
     KOKKOS_INLINE_FUNCTION static
     void initq(double q[], const double[], const double[], const double[]) {
-        zero_fill_<Self::ncu * Self::nd>(q);
+        detail::zero_fill<Self::ncu * Self::nd>(q);
     }
 
     KOKKOS_INLINE_FUNCTION static
     void initwdg(double w[], const double[], const double[], const double[]) {
-        if constexpr (Self::ncw > 0) zero_fill_<Self::ncw>(w);
+        if constexpr (Self::ncw > 0) detail::zero_fill<Self::ncw>(w);
     }
 
     KOKKOS_INLINE_FUNCTION static
     void initudg(double udg[], const double[], const double[], const double[]) {
         constexpr int Nq = Self::ncu * (1 + Self::nd);
-        zero_fill_<Nq>(udg);
+        detail::zero_fill<Nq>(udg);
     }
 
     KOKKOS_INLINE_FUNCTION static
@@ -369,6 +393,10 @@ struct ModelDefaults {
         (void)odg;
     }
 
+};
+
+template <class Self>
+struct OutputDefaults : InitDefaults<Self> {
     // ---- Visualization, QoI, monitor/output (default: empty / zero) ----
     //
     // Volume-shape methods (`vis_*`, `qoi_volume`, `monitor`, `output`)
@@ -414,6 +442,10 @@ struct ModelDefaults {
                 const double /*v*/[], const double /*w*/[], const double /*mu*/[],
                 const double /*uinf*/[], double /*t*/) { }
 
+};
+
+template <class Self>
+struct HDGJacobianDefaults : OutputDefaults<Self> {
     // ---- HDG Jacobians (default: zero) ----
     //
     // For HDG models these MUST be overridden by the user — the
@@ -534,6 +566,13 @@ struct ModelDefaults {
     // (fhat_jac_*, stab_jac_*, eos_jac_* follow the same shape; added
     // when the corresponding kernel template is wired up.)
 };
+
+// Compose the per-concern mixins into the public CRTP base. Users still derive from
+// ModelDefaults<Self> and inherit every default; each default now lives in the mixin for
+// its concern (mirrors the commonstruct -> per-concern-struct split). A future refinement
+// can have a kernel/class derive a constraint from just the mixin it needs.
+template <class Self>
+struct ModelDefaults : HDGJacobianDefaults<Self> {};
 
 // ===========================================================================
 // Deferred surface — recorded for v2 / multi-domain coupling
