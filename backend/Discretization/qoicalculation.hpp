@@ -43,7 +43,7 @@ inline void qoiElemBlock(solstruct &sol, resstruct &res, appstruct &app, masters
         Node2Gauss(handle, wg, tmp.tempn, master.shapegt, nge, npe, ne*ncw, backend);        
     }
     
-    int nvqoi = common.nvqoi;     
+    int nvqoi = common.qoiparams.nvqoi;     
     ArraySetValue(sg, 0.0, nga*nvqoi);     
     EXASIM_DRIVER_CALL(QoIvolumeDriver, sg, xg, uqg, og, wg, mesh, master, app, sol, tmp, common, nge, e1, e2, backend);    
     
@@ -54,7 +54,7 @@ inline void qoiElemBlock(solstruct &sol, resstruct &res, appstruct &app, masters
     for (int i = 0; i<nvqoi; i++) {
         dstype dotprod = 0;
         PDOT(handle, ne, tmp.tempg, inc1, &tmp.tempn[i*ne], inc1, &dotprod, backend);
-        common.qoivolume[i] += dotprod;
+        common.qoiparams.qoivolume[i] += dotprod;
     }    
 }
 
@@ -62,7 +62,7 @@ template <class M>
 inline void qoiElement(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common)
 {    
-    for (int i = 0; i<common.nvqoi; i++) common.qoivolume[i] = 0.0;
+    for (int i = 0; i<common.qoiparams.nvqoi; i++) common.qoiparams.qoivolume[i] = 0.0;
     for (Int j=0; j<common.nbe; j++) {              
         Int e2 = common.eblks[3*j+1];            
         if (e2 <= common.ne1) qoiElemBlock<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, j, common.backend);        
@@ -98,7 +98,7 @@ inline void qoiFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masters
         GetFaceNodes(&tmp.tempn[nn*(ncu+nc)], sol.wdg, mesh.facecon, npf, ncw, npe, ncw, f1, f2, 1);             
     Node2Gauss(handle, tmp.tempg, tmp.tempn, master.shapfgt, ngf, npf, nf*(ncu+nc+ncw), backend);
         
-    int nsurf = common.nsurf;     
+    int nsurf = common.qoiparams.nsurf;     
     ArraySetValue(tmp.tempn, 0.0, nga*nsurf);     
     EXASIM_DRIVER_CALL(QoIboundaryDriver, tmp.tempn, &sol.faceg[nm], &tmp.tempg[nga*ncu], &sol.og1[ngf*nco*f1], 
             &tmp.tempg[nga*(ncu+nc)], &tmp.tempg[0], &sol.faceg[nm+n1], mesh, master, app, 
@@ -111,7 +111,7 @@ inline void qoiFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masters
     for (int i = 0; i<nsurf; i++) {
         dstype dotprod = 0;
         PDOT(handle, nf, tmp.tempn, inc1, &tmp.tempg[i*nf], inc1, &dotprod, backend);
-        common.qoisurface[i] += dotprod;
+        common.qoiparams.qoisurface[i] += dotprod;
     }        
 }
 
@@ -119,12 +119,12 @@ template <class M>
 inline void qoiFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common)
 {    
-    for (int i = 0; i<common.nsurf; i++) common.qoisurface[i] = 0.0;
+    for (int i = 0; i<common.qoiparams.nsurf; i++) common.qoiparams.qoisurface[i] = 0.0;
     for (Int j=0; j<common.nbf; j++) {
         Int f1 = common.fblks[3*j]-1;
         Int f2 = common.fblks[3*j+1];    
         Int ib = common.fblks[3*j+2];    
-        if ((common.ibs > 0) && (ib == common.ibs))
+        if ((common.qoiparams.ibs > 0) && (ib == common.qoiparams.ibs))
             qoiFaceBlock<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, f1, f2, 1, common.backend);
     }                          
 }

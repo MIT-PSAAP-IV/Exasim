@@ -401,15 +401,15 @@ int ExasimSolver::AddQoI(int modelindex, const std::string& name, int kind,
     if (m == nullptr) return 1;
     commonstruct& common = m->disc.common;
     if (offset < 0 || ncomp <= 0) return 2;
-    if (kind == 0 && offset + ncomp > common.nvqoi) return 2;  // volume slice out of range
-    if (kind == 1 && offset + ncomp > common.nsurf) return 2;  // boundary slice out of range
+    if (kind == 0 && offset + ncomp > common.qoiparams.nvqoi) return 2;  // volume slice out of range
+    if (kind == 1 && offset + ncomp > common.qoiparams.nsurf) return 2;  // boundary slice out of range
     qoiinstancestruct q;
     q.name = name;
     q.kind = kind;
-    q.boundary = (kind == 1 && boundary <= 0) ? common.ibs : boundary;
+    q.boundary = (kind == 1 && boundary <= 0) ? common.qoiparams.ibs : boundary;
     q.offset = offset;
     q.ncomp = ncomp;
-    common.qoiinstances.push_back(q);
+    common.qoiparams.qoiinstances.push_back(q);
     return 0;
 }
 
@@ -417,7 +417,7 @@ int ExasimSolver::ClearQoI(int modelindex)
 {
     CSolution* m = Model(modelindex);
     if (m == nullptr) return 1;
-    m->disc.common.qoiinstances.clear();
+    m->disc.common.qoiparams.qoiinstances.clear();
     return 0;
 }
 

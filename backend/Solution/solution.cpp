@@ -1218,9 +1218,9 @@ void CSolution::SaveParaview(Int backend, std::string fname_modifier, bool force
        int ncx = disc.common.ncx;   
        int nco = disc.common.nco;  
        int ncw = disc.common.ncw;  
-       int nsca = disc.common.nsca; 
-       int nvec = disc.common.nvec;  
-       int nten = disc.common.nten;     
+       int nsca = disc.common.qoiparams.nsca; 
+       int nvec = disc.common.qoiparams.nvec;  
+       int nten = disc.common.qoiparams.nten;     
        int npe  = disc.common.npe;     
        int ne   = disc.common.ne1;      
        int ndg  = npe * ne;
@@ -1277,10 +1277,10 @@ void CSolution::SaveParaview(Int backend, std::string fname_modifier, bool force
 
 void CSolution::SaveQoI(Int backend) 
 {
-    if (disc.common.nvqoi > 0) qoiElement<exasim::detail::AbiAdapter>(disc.sol, disc.res, disc.app, disc.master, disc.mesh, disc.tmp, disc.common);
-    if (disc.common.nsurf > 0) qoiFace<exasim::detail::AbiAdapter>(disc.sol, disc.res, disc.app, disc.master, disc.mesh, disc.tmp, disc.common);
+    if (disc.common.qoiparams.nvqoi > 0) qoiElement<exasim::detail::AbiAdapter>(disc.sol, disc.res, disc.app, disc.master, disc.mesh, disc.tmp, disc.common);
+    if (disc.common.qoiparams.nsurf > 0) qoiFace<exasim::detail::AbiAdapter>(disc.sol, disc.res, disc.app, disc.master, disc.mesh, disc.tmp, disc.common);
 
-    if (disc.common.mpiRank==0 && (disc.common.nvqoi > 0 || disc.common.nsurf > 0)) {
+    if (disc.common.mpiRank==0 && (disc.common.qoiparams.nvqoi > 0 || disc.common.qoiparams.nsurf > 0)) {
         writeQoIHeaderOnce(outqoi, disc.common);
         if (disc.common.timeparams.tdep==1)
             outqoi << std::setw(16) << std::scientific << std::setprecision(6) << disc.common.timestate.time;
@@ -1326,7 +1326,7 @@ void CSolution::SaveSolutionsOnBoundary(Int backend)
                 Int f1 = disc.common.fblks[3*j]-1;
                 Int f2 = disc.common.fblks[3*j+1];    
                 Int ib = disc.common.fblks[3*j+2];            
-                if (ib == disc.common.ibs) {     
+                if (ib == disc.common.qoiparams.ibs) {     
                     Int npf = disc.common.npf; // number of nodes on master face      
                     Int npe = disc.common.npe; // number of nodes on master face      
                     Int nf = f2-f1;
@@ -1358,7 +1358,7 @@ void CSolution::SaveNodesOnBoundary(Int backend)
             Int f1 = disc.common.fblks[3*j]-1;
             Int f2 = disc.common.fblks[3*j+1];    
             Int ib = disc.common.fblks[3*j+2];            
-            if (ib == disc.common.ibs) {     
+            if (ib == disc.common.qoiparams.ibs) {     
                 Int nd = disc.common.nd; 
                 Int npf = disc.common.npf; // number of nodes on master face      
                 Int nf = f2-f1;
@@ -1400,7 +1400,7 @@ void CSolution::SaveNodesOnBoundary(Int backend)
 //                 Int f1 = disc.common.fblks[3*j]-1;
 //                 Int f2 = disc.common.fblks[3*j+1];    
 //                 Int ib = disc.common.fblks[3*j+2];            
-//                 if (ib == disc.common.ibs) {     
+//                 if (ib == disc.common.qoiparams.ibs) {     
 //                     Int npf = disc.common.npf; // number of nodes on master face      
 //                     Int nf = f2-f1;
 //                     Int nn = npf*nf; 
@@ -1421,7 +1421,7 @@ void CSolution::SaveNodesOnBoundary(Int backend)
 //             Int f1 = disc.common.fblks[3*j]-1;
 //             Int f2 = disc.common.fblks[3*j+1];    
 //             Int ib = disc.common.fblks[3*j+2];            
-//             if (ib == disc.common.ibs) {     
+//             if (ib == disc.common.qoiparams.ibs) {     
 //                 Int npf = disc.common.npf; // number of nodes on master face      
 //                 Int nf = f2-f1;
 //                 Int nn = npf*nf; 

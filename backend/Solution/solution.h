@@ -172,7 +172,7 @@ public:
         //   MPI_Barrier(MPI_COMM_WORLD);
         // }                 
 
-        if (mpirank==0 && (disc.common.nvqoi > 0 || disc.common.nsurf > 0)) {
+        if (mpirank==0 && (disc.common.qoiparams.nvqoi > 0 || disc.common.qoiparams.nsurf > 0)) {
             // The header line is written lazily on the first SaveQoI row (writeQoIHeaderOnce)
             // so QoI instances registered after model init (ExasimSolver::AddQoI) are shown.
             outqoi.open(base + "qoi.txt", std::ios::out);
@@ -194,7 +194,7 @@ public:
                 Int f1 = disc.common.fblks[3*j]-1;
                 Int f2 = disc.common.fblks[3*j+1];    
                 Int ib = disc.common.fblks[3*j+2];            
-                if (ib == disc.common.ibs) {     
+                if (ib == disc.common.qoiparams.ibs) {     
                     Int nf = f2-f1;
                     nfbou += nf;
                 }

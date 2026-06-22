@@ -72,11 +72,11 @@ inline void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &
     common.ncx = app.ndims[11];// number of compoments of (xdg)        
     common.nce = app.ndims[12];// number of compoments of (output)        
     common.ncw = app.ndims[13];//number of compoments of (w)
-    common.nsca = app.ndims[14];// number of components of scalar fields for visualization
-    common.nvec = app.ndims[15];// number of components of vector fields for visualization
-    common.nten = app.ndims[16];// number of components of tensor fields for visualization
-    common.nsurf = app.ndims[17];// number of components of surface fields for visualization, storage, and QoIs
-    common.nvqoi = app.ndims[18];// number of volume quantities of interest (QoIs)    
+    common.qoiparams.nsca = app.ndims[14];// number of components of scalar fields for visualization
+    common.qoiparams.nvec = app.ndims[15];// number of components of vector fields for visualization
+    common.qoiparams.nten = app.ndims[16];// number of components of tensor fields for visualization
+    common.qoiparams.nsurf = app.ndims[17];// number of components of surface fields for visualization, storage, and QoIs
+    common.qoiparams.nvqoi = app.ndims[18];// number of volume quantities of interest (QoIs)    
 
     common.ncm = 1;//number of components of monitor function    
     if (app.flag[1]==1)
@@ -143,7 +143,7 @@ inline void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &
     common.extUhat = app.flag[14];
     common.extStab = app.flag[15];
     common.timeparams.subproblem = app.flag[16];
-    common.saveParaview = (app.nsize[1] > 17) ? app.flag[17] : 0;
+    common.qoiparams.saveParaview = (app.nsize[1] > 17) ? app.flag[17] : 0;
     
     common.timeparams.tsteps = app.nsize[4];  // number of time steps          
     common.spatialScheme = app.problem[0];   /* 0: HDG; 1: EDG; 2: IEDG, HEDG */
@@ -173,7 +173,7 @@ inline void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &
     common.timestepOffset = app.problem[19];    
     common.stgNmode = app.problem[20];    
     common.saveSolBouFreq = app.problem[21];   
-    common.ibs = app.problem[22];   
+    common.qoiparams.ibs = app.problem[22];   
     common.timeparams.dae_steps = app.problem[23];  // number of dual time steps      
     common.saveResNorm = app.problem[24];   
     common.physicsparams.AVsmoothingIter = app.problem[25]; //Number of times artificial viscosity is smoothed
@@ -228,26 +228,26 @@ inline void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &
         //TemplateFree(mesh.intepartpts, 0);        
     }
     
-    if (common.nvqoi > 0) common.qoivolume = (dstype*) malloc(common.nvqoi*sizeof(dstype));
-    if (common.nsurf > 0) common.qoisurface = (dstype*) malloc(common.nsurf*sizeof(dstype));
+    if (common.qoiparams.nvqoi > 0) common.qoiparams.qoivolume = (dstype*) malloc(common.qoiparams.nvqoi*sizeof(dstype));
+    if (common.qoiparams.nsurf > 0) common.qoiparams.qoisurface = (dstype*) malloc(common.qoiparams.nsurf*sizeof(dstype));
 
     // Default QoI instances: one domain instance over all volume QoIs and one boundary
-    // instance over all surface QoIs on common.ibs. Reproduces the historical single-QoI
+    // instance over all surface QoIs on common.qoiparams.ibs. Reproduces the historical single-QoI
     // output byte-for-byte; additional named instances may be registered before the solve.
-    common.qoiinstances.clear();
-    if (common.nvqoi > 0) {
+    common.qoiparams.qoiinstances.clear();
+    if (common.qoiparams.nvqoi > 0) {
         qoiinstancestruct q; q.name = "Domain_QoI"; q.kind = 0; q.boundary = 0;
-        q.offset = 0; q.ncomp = common.nvqoi; common.qoiinstances.push_back(q);
+        q.offset = 0; q.ncomp = common.qoiparams.nvqoi; common.qoiparams.qoiinstances.push_back(q);
     }
-    if (common.nsurf > 0) {
-        qoiinstancestruct q; q.name = "Boundary_QoI"; q.kind = 1; q.boundary = common.ibs;
-        q.offset = 0; q.ncomp = common.nsurf; common.qoiinstances.push_back(q);
+    if (common.qoiparams.nsurf > 0) {
+        qoiinstancestruct q; q.name = "Boundary_QoI"; q.kind = 1; q.boundary = common.qoiparams.ibs;
+        q.offset = 0; q.ncomp = common.qoiparams.nsurf; common.qoiparams.qoiinstances.push_back(q);
     }
 
     if ( common.saveSolBouFreq>0 ) {
         common.ndofbou = 0; 
         for (Int j=0; j<common.nbf; j++) {            
-            if (common.fblks[3*j+2] == common.ibs) {     
+            if (common.fblks[3*j+2] == common.qoiparams.ibs) {     
                 Int f1 = common.fblks[3*j]-1;
                 Int f2 = common.fblks[3*j+1];                                  
                 common.ndofbou += common.npf*(f2-f1); 

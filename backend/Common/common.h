@@ -1694,13 +1694,30 @@ struct solverparamsstruct {
     dstype nonlinearSolverTol;
 };
 
+// QoI / visualization-output configuration: visualization component counts (scalar/vector/tensor),
+// surface/volume QoI counts, the Paraview flag, the boundary-to-save index, the QoI accumulation
+// buffers, and the registered QoI-instance list (C2). Grouped out of commonstruct (C3). Access via
+// common.qoiparams.<field>.
+struct qoiparamsstruct {
+    Int nsca;             // visualization scalar-field components
+    Int nvec;             // visualization vector-field components
+    Int nten;             // visualization tensor-field components
+    Int nsurf;            // surface QoI / storage components
+    Int nvqoi;            // volume QoI components
+    Int saveParaview = 0; // enable Paraview output
+    Int ibs;              // boundary index to save solution
+    dstype* qoivolume=nullptr;  // volume-QoI accumulation buffer
+    dstype* qoisurface=nullptr; // surface-QoI accumulation buffer
+    std::vector<qoiinstancestruct> qoiinstances;  // registered QoI instances (default: 1 domain + 1 boundary)
+};
+
 struct commonstruct {
+    qoiparamsstruct qoiparams;          // QoI/visualization-output configuration (see above)
     timeparamsstruct timeparams;        // time-integration/problem-evolution config (see above)
     solverparamsstruct solverparams;    // iterative-solver configuration (see above)
     physicsparamsstruct physicsparams;  // physics/model configuration (see above)
     solverstatestruct solverstate;  // mutable solver/preconditioner runtime state (see above)
     timestatestruct timestate;      // mutable time-stepping runtime state (see above)
-    std::vector<qoiinstancestruct> qoiinstances;  // registered QoI instances (default: 1 domain + 1 boundary)
     // Runtime model ABI for the unified templated FEM code (M == AbiAdapter path): set by
     // CDiscretization to point at its driver_abi, so the no-driver_abi kernel-driver
     // overloads can reach the ABI without threading it through every call.
@@ -1728,12 +1745,6 @@ struct commonstruct {
     Int nce;// number of compoments of (edg)
     Int ncuext; // number of compoments of uext
     Int ncm;// number of compoments of PTC monitor function
-    Int nsca; // number of components of scalar fields for visualization
-    Int nvec; // number of components of vector fields for visualization
-    Int nten; // number of components of tensur fields for visualization
-    Int nsurf; // number of components of surface fields for visualization, storage, and QoIs
-    Int nvqoi;  // number of volume quantities of interest (QoIs)    
-    Int saveParaview = 0; // flag to enable Paraview visualization output
 
     Int nd; // spatial dimension    
     Int elemtype;
@@ -1810,7 +1821,6 @@ struct commonstruct {
     Int stgNmode=0;       // number of synthetic turbulence generation modes
     Int modelnumber;      // model number
     Int builtinmodelID=0; // model ID
-    Int ibs;              // boundary index to save solution 
     Int saveSolBouFreq=0; // number of time steps to save the solution on the boundary
     Int compudgavg=1;     // compute time-averaged solution udg
     Int readudgavg=0;     // flag to read time-averaged solution udg from file
@@ -1891,8 +1901,6 @@ struct commonstruct {
     dstype* DIRKcoeff_t=nullptr;
     dstype* BDFcoeff_c=nullptr;
     dstype* BDFcoeff_t=nullptr;    
-    dstype* qoivolume=nullptr;
-    dstype* qoisurface=nullptr;
 
     cudaEvent_t eventHandle;
     cublasHandle_t cublasHandle;
@@ -1978,7 +1986,7 @@ struct commonstruct {
       printf("time-derivative function flag: %d\n", timeparams.tdfunc);
       printf("source function flag: %d\n", physicsparams.source);
       printf("model number: %d\n", modelnumber);
-      printf("boundary index to save solution: %d\n", ibs);
+      printf("boundary index to save solution: %d\n", qoiparams.ibs);
       printf("save solution boundary frequency: %d\n", saveSolBouFreq);
       printf("compute time-averaged solution flag: %d\n", compudgavg);
       printf("read time-averaged solution flag: %d\n", readudgavg);
@@ -2098,8 +2106,8 @@ struct commonstruct {
         CPUFREE(DIRKcoeff_t); 
         CPUFREE(BDFcoeff_c); 
         CPUFREE(BDFcoeff_t);  
-        if (nvqoi > 0) CPUFREE(qoivolume);
-        if (nsurf > 0) CPUFREE(qoisurface);
+        if (qoiparams.nvqoi > 0) CPUFREE(qoiparams.qoivolume);
+        if (qoiparams.nsurf > 0) CPUFREE(qoiparams.qoisurface);
     }
 };
 
@@ -2109,14 +2117,14 @@ struct commonstruct {
 // "Domain_QoI<i>" / "Boundary_QoI<i>" columns and values byte-for-byte.
 inline void writeQoIHeader(std::ostream& outqoi, const commonstruct& common)
 {
-    for (const auto& q : common.qoiinstances)
+    for (const auto& q : common.qoiparams.qoiinstances)
         for (Int j = 0; j < q.ncomp; ++j)
             outqoi << std::setw(16) << std::left << (q.name + std::to_string(j + 1));
 }
 inline void writeQoIRow(std::ostream& outqoi, const commonstruct& common)
 {
-    for (const auto& q : common.qoiinstances) {
-        const dstype* buf = (q.kind == 0) ? common.qoivolume : common.qoisurface;
+    for (const auto& q : common.qoiparams.qoiinstances) {
+        const dstype* buf = (q.kind == 0) ? common.qoiparams.qoivolume : common.qoiparams.qoisurface;
         for (Int j = 0; j < q.ncomp; ++j)
             outqoi << std::setw(16) << std::scientific << std::setprecision(6) << buf[q.offset + j];
     }

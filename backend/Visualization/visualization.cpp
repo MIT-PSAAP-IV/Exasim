@@ -81,10 +81,10 @@ public:
         
         if (npoints_in > 0 && nd_in > 1) {            
             int porder  = disc.common.porder;        
-            int nsca    = disc.common.nsca;
-            int nvec    = disc.common.nvec;            
-            int nten    = disc.common.nten;            
-            int nsurf   = disc.common.nsurf;            
+            int nsca    = disc.common.qoiparams.nsca;
+            int nvec    = disc.common.qoiparams.nvec;            
+            int nten    = disc.common.qoiparams.nten;            
+            int nsurf   = disc.common.qoiparams.nsurf;            
             int npe     = disc.common.npe;
             int ne      = disc.common.ne1;
             int elemtype= disc.common.elemtype;
@@ -122,7 +122,7 @@ public:
 
             if (backend != 0) CPUFREE(cgelcon);    
 
-            savemode = (disc.common.saveParaview != 0) && (nsca + nvec + nten > 0); 
+            savemode = (disc.common.qoiparams.saveParaview != 0) && (nsca + nvec + nten > 0); 
         
             if (backend==2) { // GPU
             #ifdef HAVE_CUDA        

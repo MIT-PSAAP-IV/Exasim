@@ -331,11 +331,11 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
     common.read_uh = app.read_uh;
     const bool postprocessOnly = (mode == ExasimExecutionMode::Postprocess);  
     if (postprocessOnly) {
-        if (nsca > 0) common.nsca = nsca;
-        if (nvec > 0) common.nvec = nvec;
-        if (nten > 0) common.nten = nten;
-        if (nsurf > 0) common.nsurf = nsurf;
-        if (nvqoi > 0) common.nvqoi = nvqoi;
+        if (nsca > 0) common.qoiparams.nsca = nsca;
+        if (nvec > 0) common.qoiparams.nvec = nvec;
+        if (nten > 0) common.qoiparams.nten = nten;
+        if (nsurf > 0) common.qoiparams.nsurf = nsurf;
+        if (nvqoi > 0) common.qoiparams.nvqoi = nvqoi;
     }
 
     // compute the geometry quantities
@@ -1102,7 +1102,7 @@ void CDiscretization::computeAverageSolutionsOnBoundary()
     if ( common.saveSolBouFreq>0 ) {
         for (Int j=0; j<common.nbf; j++) {
             Int ib = common.fblks[3*j+2];            
-            if (ib == common.ibs) {     
+            if (ib == common.qoiparams.ibs) {     
                 Int f1 = common.fblks[3*j]-1;
                 Int f2 = common.fblks[3*j+1];                      
                 Int npf = common.npf; // number of nodes on master face      
