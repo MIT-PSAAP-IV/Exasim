@@ -2156,16 +2156,16 @@ struct commonstruct {
 // Write the QoI column headers / one QoI value row by iterating the registered QoI instances.
 // With the default single-domain + single-boundary instances this reproduces the historical
 // "Domain_QoI<i>" / "Boundary_QoI<i>" columns and values byte-for-byte.
-inline void writeQoIHeader(std::ostream& outqoi, const commonstruct& common)
+inline void writeQoIHeader(std::ostream& outqoi, const qoiparamsstruct& qoiparams)
 {
-    for (const auto& q : common.qoiparams.qoiinstances)
+    for (const auto& q : qoiparams.qoiinstances)
         for (Int j = 0; j < q.ncomp; ++j)
             outqoi << std::setw(16) << std::left << (q.name + std::to_string(j + 1));
 }
-inline void writeQoIRow(std::ostream& outqoi, const commonstruct& common)
+inline void writeQoIRow(std::ostream& outqoi, const qoiparamsstruct& qoiparams)
 {
-    for (const auto& q : common.qoiparams.qoiinstances) {
-        const dstype* buf = (q.kind == 0) ? common.qoiparams.qoivolume : common.qoiparams.qoisurface;
+    for (const auto& q : qoiparams.qoiinstances) {
+        const dstype* buf = (q.kind == 0) ? qoiparams.qoivolume : qoiparams.qoisurface;
         for (Int j = 0; j < q.ncomp; ++j)
             outqoi << std::setw(16) << std::scientific << std::setprecision(6) << buf[q.offset + j];
     }
@@ -2173,11 +2173,11 @@ inline void writeQoIRow(std::ostream& outqoi, const commonstruct& common)
 // Write the "Time" + QoI-instance header line exactly once, on the first row (while the
 // stream is still empty). Writing the header lazily (rather than at file-open) lets QoI
 // instances registered after model init (ExasimSolver::AddQoI) be reflected in the columns.
-inline void writeQoIHeaderOnce(std::ostream& outqoi, const commonstruct& common)
+inline void writeQoIHeaderOnce(std::ostream& outqoi, const qoiparamsstruct& qoiparams)
 {
     if (outqoi.tellp() == std::streampos(0)) {
         outqoi << std::setw(16) << std::left << "Time";
-        writeQoIHeader(outqoi, common);
+        writeQoIHeader(outqoi, qoiparams);
         outqoi << "\n";
     }
 }

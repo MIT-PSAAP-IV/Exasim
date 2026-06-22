@@ -83,7 +83,7 @@ public:
         if (mpirank==0 && (disc.common.qoiparams.nvqoi > 0 || disc.common.qoiparams.nsurf > 0)) {
             outqoi.open(base + "qoi.txt", std::ios::out);                         
             outqoi << std::setw(16) << std::left << "Time";
-            writeQoIHeader(outqoi, disc.common);
+            writeQoIHeader(outqoi, disc.common.qoiparams);
             outqoi << "\n";
         }        
     };        

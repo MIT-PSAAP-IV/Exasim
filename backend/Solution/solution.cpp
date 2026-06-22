@@ -1281,11 +1281,11 @@ void CSolution::SaveQoI(Int backend)
     if (disc.common.qoiparams.nsurf > 0) qoiFace<exasim::detail::AbiAdapter>(disc.sol, disc.res, disc.app, disc.master, disc.mesh, disc.tmp, disc.common);
 
     if (disc.common.mpiRank==0 && (disc.common.qoiparams.nvqoi > 0 || disc.common.qoiparams.nsurf > 0)) {
-        writeQoIHeaderOnce(outqoi, disc.common);
+        writeQoIHeaderOnce(outqoi, disc.common.qoiparams);
         if (disc.common.timeparams.tdep==1)
             outqoi << std::setw(16) << std::scientific << std::setprecision(6) << disc.common.timestate.time;
         else outqoi << std::setw(16) << std::scientific << std::setprecision(6) << 0.0;
-        writeQoIRow(outqoi, disc.common);
+        writeQoIRow(outqoi, disc.common.qoiparams);
         outqoi << "\n";
     }
 }
