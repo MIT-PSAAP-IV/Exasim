@@ -43,7 +43,7 @@
 #include "qequation.cpp"
 #include "wequation.cpp"
 #include "uequation.cpp"
-#include "qresidual.cpp"
+#include "qresidual.hpp"  // unified onto templated source (U)
 #include "uresidual.cpp"
 #include "getuhat.hpp"  // unified templated; non-templated callers use <AbiAdapter>
 
@@ -82,11 +82,11 @@ void GetQ(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& drive
     Int N = npe*ncq*ne;
 
     // Element integrals
-    RqElem(sol, res, app, master, mesh, tmp, common, handle, nbe1, nbe2, backend);
+    RqElem<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, nbe1, nbe2, backend);
         
     START_TIMING;
     // Face integrals
-    RqFace(sol, res, app, master, mesh, tmp, common, handle, nbf1, nbf2, backend);
+    RqFace<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, nbf1, nbf2, backend);
     END_TIMING(16);       
         
     // elements in the range [e1, e2)
@@ -622,10 +622,10 @@ void GetdQ(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& driv
     Int N = npe*ncq*ne;
 
     // Element integrals
-    dRqElem(sol, res, app, master, mesh, tmp, common, handle, nbe1, nbe2, backend);
+    dRqElem<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, nbe1, nbe2, backend);
         
     // Face integrals
-    dRqFace(sol, res, app, master, mesh, tmp, common, handle, nbf1, nbf2, backend);
+    dRqFace<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, nbf1, nbf2, backend);
         
     // elements in the range [e1, e2)
     Int e1 = common.eblks[3*nbe1]-1;    
