@@ -72,13 +72,13 @@ public:
         int ncw = disc.common.components.ncw;
         int npe = disc.common.grid.npe;
         int npf = disc.common.grid.npf;
-        int ne = disc.common.ne1;     
-        int nf = disc.common.nf;     
+        int ne = disc.common.meshsizes.ne1;     
+        int nf = disc.common.meshsizes.nf;     
         int rank = disc.common.mpiRank;
         int offset = disc.common.outputparams.fileoffset;
         std::string base = disc.common.fileout;
 
-        if ((disc.common.couplingparams.nintfaces > 0) && (disc.common.couplingparams.coupledcondition>0)) disc.common.ne0 = disc.common.intepartpts[0];            
+        if ((disc.common.couplingparams.nintfaces > 0) && (disc.common.couplingparams.coupledcondition>0)) disc.common.meshsizes.ne0 = disc.common.intepartpts[0];            
 
         if (mpirank==0 && (disc.common.qoiparams.nvqoi > 0 || disc.common.qoiparams.nsurf > 0)) {
             outqoi.open(base + "qoi.txt", std::ios::out);                         

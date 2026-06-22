@@ -39,9 +39,9 @@ inline void ComputeMinv(solstruct &sol, resstruct &res, appstruct &app, masterst
     Int nd = common.grid.nd;     // spatial dimension    
     Int npe = common.grid.npe; // number of nodes on master element
     Int nge = common.grid.nge; // number of gauss points on master element    
-    Int ne = common.ne; // number of elements in this subdomain 
-    Int nbe = common.nbe; // number of blocks for elements   
-    Int neb = common.neb; // maximum number of elements per block
+    Int ne = common.meshsizes.ne; // number of elements in this subdomain 
+    Int nbe = common.meshsizes.nbe; // number of blocks for elements   
+    Int neb = common.meshsizes.neb; // maximum number of elements per block
             
     printf("common.grid.curvedMesh = %d\n", common.grid.curvedMesh);
 

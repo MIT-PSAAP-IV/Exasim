@@ -67,16 +67,16 @@ void printinterfaceinfo(CDiscretization &disc)
     int nfacesend = disc.common.nfacesend;
     int nfacerecv = disc.common.nfacerecv;
         
-  //printf("%d %d %d %d %d %d %d %d\n", common.mpiRank, common.couplingparams.coupledboundarycondition, common.couplingparams.nintfaces, common.nfacerecv, common.nfacesend, common.couplingparams.ncie, common.ne, ncu12);
+  //printf("%d %d %d %d %d %d %d %d\n", common.mpiRank, common.couplingparams.coupledboundarycondition, common.couplingparams.nintfaces, common.nfacerecv, common.nfacesend, common.couplingparams.ncie, common.meshsizes.ne, ncu12);
     printf("coupled boundary condition: %d\n", disc.common.couplingparams.coupledboundarycondition);      
     printf("coupled interface condition: %d\n", disc.common.couplingparams.coupledcondition);      
     printf("szinterfacefluxmap: %d\n", disc.common.szinterfacefluxmap);      
     printf("number of neighboring interface subdomains: %d\n", nnbintf);      
     printf("number of faces to send: %d\n", nfacesend);
     printf("number of faces to receive: %d\n", nfacerecv);
-    printf("number of interior elements: %d\n", disc.common.ne0);
-    printf("number of interior+interface elements: %d\n", disc.common.ne1);
-    printf("number of interior+interface+exterior elements: %d\n", disc.common.ne);
+    printf("number of interior elements: %d\n", disc.common.meshsizes.ne0);
+    printf("number of interior+interface elements: %d\n", disc.common.meshsizes.ne1);
+    printf("number of interior+interface+exterior elements: %d\n", disc.common.meshsizes.ne);
   
     printf("nbintf array: %d by %d\n", 1, nnbintf);  
     print2iarray(disc.common.nbintf, 1, nnbintf);   
@@ -95,16 +95,16 @@ void printinterfaceinfo(CDiscretization &disc)
     print2iarray(disc.mesh.faceperm, 1, disc.mesh.szfaceperm);     
     printf("intfaces array: %d by %d\n", 1, disc.common.couplingparams.nintfaces);  
     print2iarray(disc.mesh.intfaces, 1, disc.common.couplingparams.nintfaces);     
-    printf("bf array: %d by %d\n", disc.common.nfe, disc.common.ne);  
-    print2iarray(disc.mesh.bf, disc.common.nfe, disc.common.ne);     
-    printf("eblks array: %d by %d\n", 3, disc.common.nbe);  
-    print2iarray(disc.common.eblks, 3, disc.common.nbe);    
+    printf("bf array: %d by %d\n", disc.common.meshsizes.nfe, disc.common.meshsizes.ne);  
+    print2iarray(disc.mesh.bf, disc.common.meshsizes.nfe, disc.common.meshsizes.ne);     
+    printf("eblks array: %d by %d\n", 3, disc.common.meshsizes.nbe);  
+    print2iarray(disc.common.eblks, 3, disc.common.meshsizes.nbe);    
     printf("xdgint array: %d by %d\n", disc.common.grid.npf, disc.common.couplingparams.nintfaces*disc.common.components.ncx);  
     print2darray(disc.sol.xdgint, disc.common.grid.npf, disc.common.couplingparams.nintfaces*disc.common.components.ncx);                      
-    printf("xdg array: %d by %d\n", disc.common.grid.npe, disc.common.ne*disc.common.components.ncx);  
-    print2darray(disc.sol.xdg, disc.common.grid.npe, disc.common.ne*disc.common.components.ncx);                      
-    // printf("udg array: %d by %d\n", disc.common.grid.npe, disc.common.ne*disc.common.components.nc);  
-    // print2darray(disc.sol.udg, disc.common.grid.npe, disc.common.ne*disc.common.components.nc);                      
+    printf("xdg array: %d by %d\n", disc.common.grid.npe, disc.common.meshsizes.ne*disc.common.components.ncx);  
+    print2darray(disc.sol.xdg, disc.common.grid.npe, disc.common.meshsizes.ne*disc.common.components.ncx);                      
+    // printf("udg array: %d by %d\n", disc.common.grid.npe, disc.common.meshsizes.ne*disc.common.components.nc);  
+    // print2darray(disc.sol.udg, disc.common.grid.npe, disc.common.meshsizes.ne*disc.common.components.nc);                      
 }
 
 class CSolution {
@@ -153,13 +153,13 @@ public:
         int ncw = disc.common.components.ncw;
         int npe = disc.common.grid.npe;
         int npf = disc.common.grid.npf;
-        int ne = disc.common.ne1;     
-        int nf = disc.common.nf;     
+        int ne = disc.common.meshsizes.ne1;     
+        int nf = disc.common.meshsizes.nf;     
         int rank = disc.common.mpiRank;
         int offset = disc.common.outputparams.fileoffset;
         std::string base = disc.common.fileout;
 
-        if ((disc.common.couplingparams.nintfaces > 0) && (disc.common.couplingparams.coupledcondition>0)) disc.common.ne0 = disc.common.intepartpts[0];
+        if ((disc.common.couplingparams.nintfaces > 0) && (disc.common.couplingparams.coupledcondition>0)) disc.common.meshsizes.ne0 = disc.common.intepartpts[0];
 
         //this->ReadSolutions(backend);
         // for (int k = 0; k<mpiprocs; k++) {
@@ -190,7 +190,7 @@ public:
 
         if ( disc.common.outputparams.saveSolBouFreq>0 ) {
             Int nfbou = 0;
-            for (Int j=0; j<disc.common.nbf; j++) {
+            for (Int j=0; j<disc.common.meshsizes.nbf; j++) {
                 Int f1 = disc.common.fblks[3*j]-1;
                 Int f2 = disc.common.fblks[3*j+1];    
                 Int ib = disc.common.fblks[3*j+2];            

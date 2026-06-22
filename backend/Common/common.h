@@ -1835,7 +1835,33 @@ struct gridstruct {
     Int curvedMesh;  // curved-mesh flag
 };
 
+// Mesh partition sizes: element / face / vertex counts and the block counts the kernels iterate
+// over, including the interior / interior+interface / +exterior splits used by the coupling and
+// halo paths. Grouped out of commonstruct (C3/S3) into an intermediate struct. Access via
+// common.meshsizes.<field>.
+struct meshsizesstruct {
+    Int maxnbc;  // max number of boundary conditions
+    Int ne;      // total elements
+    Int nf;      // total faces
+    Int nv;      // vertices
+    Int nfe;     // faces per element
+    Int nbe;     // element blocks
+    Int neb;     // max elements per block
+    Int nbf;     // face blocks
+    Int nfb;     // max faces per block
+    Int nbe0;    // element blocks: interior
+    Int nbe1;    // element blocks: interior+interface
+    Int nbe2;    // element blocks: interior+interface+exterior
+    Int nbf0;    // face blocks: interior
+    Int nbf1;    // face blocks: interior+interface
+    Int ne0;     // interior elements
+    Int ne1;     // interior+interface elements
+    Int ne2;     // interior+interface+exterior elements
+    Int nf0;     // interior faces
+};
+
 struct commonstruct {
+    meshsizesstruct meshsizes;              // mesh partition element/face/block counts (see above)
     gridstruct grid;                        // reference-element/discretization sizes (see above)
     componentsstruct components;            // DG-field component counts (see above)
     sizesstruct sizes;                      // derived degree-of-freedom counts (see above)
@@ -1858,7 +1884,6 @@ struct commonstruct {
     std::string fileout;      // Name of binary file to write the solution            
     
     Int backend;   // 0: Serial; 1: OpenMP; 2: CUDA  
-    Int maxnbc;    // maximum number of boundary conditions
     
     Int mpiRank;  // MPI rank      
     Int mpiProcs;    // number of MPI ranks
@@ -1869,29 +1894,12 @@ struct commonstruct {
     Int ppdegree=0; // polynomial preconditioner degree
     Int isd=0; 
             
-    Int ne; // number of elements
-    Int nf; // number of faces
-    Int nv; // number of vertices      
-    Int nfe; // number of faces per element        
-    Int nbe; // number of blocks for elements 
-    Int neb; // maximum number of elements per block
-    Int nbf; // number of blocks for faces   
-    Int nfb; // maximum number of faces per block
-    Int nbe0; // number of blocks for interior elements 
-    Int nbe1; // number of blocks for interior+interface elements 
-    Int nbe2; // number of blocks for interior+interface+exterior elements 
-    Int nbf0; // number of blocks for interior faces
-    Int nbf1; // number of blocks for interior+interface faces
     Int nse=0;  // number of superelements
     Int nese=0; // number of elements per superelement
     Int nfse=0; // number of faces per superelement
     Int nnz=0;
     
     
-    Int ne0;  // number of interior elements
-    Int ne1;  // number of interior+interface elements
-    Int ne2;  // number of interior+interface+exterior elements
-    Int nf0;  // number of interior faces
         
     
     Int modelnumber;      // model number
@@ -1998,22 +2006,22 @@ struct commonstruct {
       printf("number of DIRK stages: %d\n", timeparams.tstages);   
       printf("number of time steps: %d\n", timeparams.tsteps);   
       
-      printf("total number of elements: %d\n", ne);   
-      printf("number of interior elements: %d\n", ne0);   
-      printf("number of interior+interface elements: %d\n", ne1);   
-      printf("number of interior+interface+exterior elements: %d\n", ne2);   
-      printf("total number of faces: %d\n", nf);   
-      printf("number of interior faces: %d\n", nf0);   
+      printf("total number of elements: %d\n", meshsizes.ne);   
+      printf("number of interior elements: %d\n", meshsizes.ne0);   
+      printf("number of interior+interface elements: %d\n", meshsizes.ne1);   
+      printf("number of interior+interface+exterior elements: %d\n", meshsizes.ne2);   
+      printf("total number of faces: %d\n", meshsizes.nf);   
+      printf("number of interior faces: %d\n", meshsizes.nf0);   
       
-      printf("number of faces per elements: %d\n", nfe);
-      printf("number of blocks for elements: %d\n", nbe);
-      printf("number of blocks for faces: %d\n", nbf);        
-      printf("maximum number of faces per block: %d\n", nfb);
-      printf("number of blocks for interior elements: %d\n", nbe0);
-      printf("number of blocks for interior+interface elements: %d\n", nbe1);
-      printf("number of blocks for interior+interface+exterior elements: %d\n", nbe2);
-      printf("number of blocks for interior faces: %d\n", nbf0);
-      printf("number of blocks for interior+interface faces: %d\n", nbf1);
+      printf("number of faces per elements: %d\n", meshsizes.nfe);
+      printf("number of blocks for elements: %d\n", meshsizes.nbe);
+      printf("number of blocks for faces: %d\n", meshsizes.nbf);        
+      printf("maximum number of faces per block: %d\n", meshsizes.nfb);
+      printf("number of blocks for interior elements: %d\n", meshsizes.nbe0);
+      printf("number of blocks for interior+interface elements: %d\n", meshsizes.nbe1);
+      printf("number of blocks for interior+interface+exterior elements: %d\n", meshsizes.nbe2);
+      printf("number of blocks for interior faces: %d\n", meshsizes.nbf0);
+      printf("number of blocks for interior+interface faces: %d\n", meshsizes.nbf1);
       printf("number of interface faces: %d\n", couplingparams.ninterfacefaces);
 
       printf("number of degrees of freedom of u: %d\n", sizes.ndof);   
@@ -2080,31 +2088,31 @@ struct commonstruct {
       printf("DAE gamma parameter: %f\n", timeparams.dae_gamma);
       printf("DAE epsilon parameter: %f\n", timeparams.dae_epsilon);
       
-      printf("number of boundary conditions: %d\n", maxnbc);
+      printf("number of boundary conditions: %d\n", meshsizes.maxnbc);
       printf("number of wall-model configurations: %d\n", wallmodelparams.nwm);
       printf("number of neighboring subdomains: %d\n", nnbsd);      
       printf("number of elements to send: %d\n", nelemsend);
       printf("number of elements to receive: %d\n", nelemrecv);
       
-      printf("eblks array: %d by %d\n", 3, nbe);
+      printf("eblks array: %d by %d\n", 3, meshsizes.nbe);
       for (int j=0; j<3; j++) {
-        for (int i=0; i<nbe; i++)
+        for (int i=0; i<meshsizes.nbe; i++)
           printf("%d  ", eblks[j+3*i]);
         printf("\n");  
       }
 
-      printf("fblks array: %d by %d\n", 3, nbf);
+      printf("fblks array: %d by %d\n", 3, meshsizes.nbf);
       for (int j=0; j<3; j++) {
-        for (int i=0; i<nbf; i++)
+        for (int i=0; i<meshsizes.nbf; i++)
           printf("%d  ", fblks[j+3*i]);
         printf("\n");  
       }
 
       if (spatialScheme==1) {
-        printf("nboufaces array: %d by %d\n", maxnbc, nbe);
-        for (int j=0; j<maxnbc; j++) {
-          for (int i=0; i<nbe; i++)
-            printf("%d  ", nboufaces[1+j+maxnbc*i]);
+        printf("nboufaces array: %d by %d\n", meshsizes.maxnbc, meshsizes.nbe);
+        for (int j=0; j<meshsizes.maxnbc; j++) {
+          for (int i=0; i<meshsizes.nbe; i++)
+            printf("%d  ", nboufaces[1+j+meshsizes.maxnbc*i]);
           printf("\n");  
         }        
       }

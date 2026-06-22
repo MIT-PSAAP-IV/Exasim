@@ -63,9 +63,9 @@ inline void qoiElement(solstruct &sol, resstruct &res, appstruct &app, masterstr
         meshstruct &mesh, tempstruct &tmp, commonstruct &common)
 {    
     for (int i = 0; i<common.qoiparams.nvqoi; i++) common.qoiparams.qoivolume[i] = 0.0;
-    for (Int j=0; j<common.nbe; j++) {              
+    for (Int j=0; j<common.meshsizes.nbe; j++) {              
         Int e2 = common.eblks[3*j+1];            
-        if (e2 <= common.ne1) qoiElemBlock<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, j, common.backend);        
+        if (e2 <= common.meshsizes.ne1) qoiElemBlock<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, j, common.backend);        
     }                     
 }
 
@@ -120,7 +120,7 @@ inline void qoiFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct
         meshstruct &mesh, tempstruct &tmp, commonstruct &common)
 {    
     for (int i = 0; i<common.qoiparams.nsurf; i++) common.qoiparams.qoisurface[i] = 0.0;
-    for (Int j=0; j<common.nbf; j++) {
+    for (Int j=0; j<common.meshsizes.nbf; j++) {
         Int f1 = common.fblks[3*j]-1;
         Int f2 = common.fblks[3*j+1];    
         Int ib = common.fblks[3*j+2];    

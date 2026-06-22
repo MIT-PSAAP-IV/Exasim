@@ -86,7 +86,7 @@ public:
             int nten    = disc.common.qoiparams.nten;            
             int nsurf   = disc.common.qoiparams.nsurf;            
             int npe     = disc.common.grid.npe;
-            int ne      = disc.common.ne1;
+            int ne      = disc.common.meshsizes.ne1;
             int elemtype= disc.common.grid.elemtype;
             int nve_in  = (elemtype==0) ? (nd_in + 1) : std::pow(2, nd_in);
                 

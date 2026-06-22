@@ -278,7 +278,7 @@ inline void wEquation(dstype *wdg, dstype *wdg_udg, dstype *xdg, dstype *udg, ds
 template <class M>
 inline void GetW(dstype *w, solstruct &sol, tempstruct &tmp, appstruct &app, commonstruct &common, Int backend)
 {
-  for (Int j=0; j<common.nbe; j++) {         
+  for (Int j=0; j<common.meshsizes.nbe; j++) {         
       Int e1 = common.eblks[3*j]-1;
       Int e2 = common.eblks[3*j+1];
       Int ns = e2-e1;        

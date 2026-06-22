@@ -129,7 +129,7 @@ inline void RuElemBlock(solstruct &sol, resstruct &res, appstruct &app, masterst
     writearray2file(common.fileout + "RuElem_uge.bin", &tmp.tempg[n3], nge*nc*ne, backend);  
     writearray2file(common.fileout + "RuElem_fge.bin", &tmp.tempg[n4], nge*ncu*nd*ne, backend);  
     writearray2file(common.fileout + "RuElem_rne.bin", tmp.tempn, npe*ncu*ne, backend);
-    writearray2file(common.fileout + "RuElem_rqe.bin", res.Rue, npe*ncu*common.ne1, backend);
+    writearray2file(common.fileout + "RuElem_rqe.bin", res.Rue, npe*ncu*common.meshsizes.ne1, backend);
 #endif                  
 }
 
@@ -241,8 +241,8 @@ inline void dRuElemBlock(solstruct &sol, resstruct &res, appstruct &app, masters
     writearray2file(common.fileout + "EnzymeRuElem_uge.bin", &tmp.tempg[n3], nge*nc*ne, backend);  
     writearray2file(common.fileout + "EnzymeRuElem_fge.bin", &tmp.tempg[n4], nge*ncu*nd*ne, backend);  
     writearray2file(common.fileout + "EnzymeRuElem_rne.bin", tmp.tempn, npe*ncu*ne, backend);
-    writearray2file(common.fileout + "EnzymeRuElem_rqe.bin", res.Rue, npe*ncu*common.ne1, backend);
-    writearray2file(common.fileout + "EnzymedRuElem_rqe.bin", res.dRue, npe*ncu*common.ne1, backend);
+    writearray2file(common.fileout + "EnzymeRuElem_rqe.bin", res.Rue, npe*ncu*common.meshsizes.ne1, backend);
+    writearray2file(common.fileout + "EnzymedRuElem_rqe.bin", res.dRue, npe*ncu*common.meshsizes.ne1, backend);
 #endif                  
 }
 
@@ -333,7 +333,7 @@ inline void RuFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masterst
     writearray2file(common.fileout + NumberToString(ib) + "RuFace_uhgf.bin", &tmp.tempg[n3], ngf*ncu*nf, backend);  
     writearray2file(common.fileout + NumberToString(ib) + "RuFace_fgf.bin", &tmp.tempg[n4], ngf*ncu*nf, backend);  
     writearray2file(common.fileout + NumberToString(ib) + "RuFace_rnf.bin", tmp.tempn, npf*ncu*nf, backend);
-    writearray2file(common.fileout + NumberToString(ib) + "RuFace_ruf.bin", res.Ruf, npe*ncu*common.ne1, backend);
+    writearray2file(common.fileout + NumberToString(ib) + "RuFace_ruf.bin", res.Ruf, npe*ncu*common.meshsizes.ne1, backend);
 #endif              
 }
 
@@ -455,7 +455,7 @@ inline void dRuFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masters
     writearray2file(common.fileout + NumberToString(ib) + "RuFace_uhgf.bin", &tmp.tempg[n3], ngf*ncu*nf, backend);  
     writearray2file(common.fileout + NumberToString(ib) + "RuFace_fgf.bin", &tmp.tempg[n4], ngf*ncu*nf, backend);  
     writearray2file(common.fileout + NumberToString(ib) + "RuFace_rnf.bin", tmp.tempn, npf*ncu*nf, backend);
-    writearray2file(common.fileout + NumberToString(ib) + "RuFace_ruf.bin", res.Ruf, npe*ncu*common.ne1, backend);
+    writearray2file(common.fileout + NumberToString(ib) + "RuFace_ruf.bin", res.Ruf, npe*ncu*common.meshsizes.ne1, backend);
 #endif              
 }
 

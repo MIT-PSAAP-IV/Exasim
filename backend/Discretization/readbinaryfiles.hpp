@@ -516,7 +516,7 @@ inline void readsolstruct(std::string filename, solstruct &sol, appstruct &app, 
     
     //printf("Read sol struct from files...\n");  
 
-    //dstype *tmp; // = (dstype*) malloc (sizeof (dstype)*common.grid.nge*common.components.nco*common.ne);
+    //dstype *tmp; // = (dstype*) malloc (sizeof (dstype)*common.grid.nge*common.components.nco*common.meshsizes.ne);
     Int npe = master.ndims[5];
     Int npf = master.ndims[6];
     Int nc = app.ndims[5];

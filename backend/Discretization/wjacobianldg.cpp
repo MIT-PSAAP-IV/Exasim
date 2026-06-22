@@ -253,7 +253,7 @@ inline void wJacobianLDG(dstype* DWDU, solstruct& sol, resstruct& res,
         cublasHandle_t handle, Int backend)
 {
     wJacobianLDG(DWDU, sol, res, app, driver_abi, master, mesh, tmp, common,
-            handle, 0, common.ne, backend);
+            handle, 0, common.meshsizes.ne, backend);
 }
 
 #endif

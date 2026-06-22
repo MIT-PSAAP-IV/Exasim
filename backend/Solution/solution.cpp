@@ -167,8 +167,8 @@ void CSolution::RestoreState()
         ArrayCopy(disc.common.cublasHandle, disc.sol.odg, snapshot.odg, disc.sol.szodg, backend);
 
     if (disc.common.spatialScheme == 0) {
-        ArrayExtract(solv.sys.u, disc.sol.udg, disc.common.grid.npe, disc.common.components.nc, disc.common.ne1,
-              0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.ne1);
+        ArrayExtract(solv.sys.u, disc.sol.udg, disc.common.grid.npe, disc.common.components.nc, disc.common.meshsizes.ne1,
+              0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.meshsizes.ne1);
     }
     else if (disc.common.spatialScheme == 1) {
         ArrayCopy(disc.common.cublasHandle, solv.sys.u, disc.sol.uh, disc.common.sizes.ndofuhat, backend);
@@ -367,7 +367,7 @@ Int CSolution::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int backend
 
     if (disc.common.outputparams.debugMode==1) {
       writearray2file(disc.common.fileout + NumberToString(it) + "newton_uh.bin", disc.sol.uh, N, backend);
-      writearray2file(disc.common.fileout + NumberToString(it) + "newton_udg.bin", disc.sol.udg, disc.common.grid.npe*disc.common.components.nc*disc.common.ne1, backend);
+      writearray2file(disc.common.fileout + NumberToString(it) + "newton_udg.bin", disc.sol.udg, disc.common.grid.npe*disc.common.components.nc*disc.common.meshsizes.ne1, backend);
     }
 
     if (spatialScheme == 1) { 
@@ -380,7 +380,7 @@ Int CSolution::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int backend
             
       nrmr = PNORM(disc.common.cublasHandle, N, disc.common.couplingparams.ndofuhatinterface, solv.sys.b, backend);       
       // cout<<"Rank = "<<disc.common.mpiRank<<", norm Rh = "<<NORM(disc.common.cublasHandle, N, solv.sys.b, backend)<<endl;          
-      // cout<<"Rank = "<<disc.common.mpiRank<<", norm Ru = "<<NORM(disc.common.cublasHandle, disc.common.grid.npe*disc.common.components.ncu*disc.common.ne1, disc.res.Ru, backend)<<endl;          
+      // cout<<"Rank = "<<disc.common.mpiRank<<", norm Ru = "<<NORM(disc.common.cublasHandle, disc.common.grid.npe*disc.common.components.ncu*disc.common.meshsizes.ne1, disc.res.Ru, backend)<<endl;          
       // if (IS_NAN(nrmr)) {
       //   for (int m=0; m<N; m++) { 
       //     nrm0 = solv.sys.b[m];
@@ -390,16 +390,16 @@ Int CSolution::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int backend
       //   if (disc.common.mpiRank==0) cout<<"Rhat is nan"<<endl;
       //   printFirstNonFiniteFlat("sys.b", solv.sys.b, N, disc.common.mpiRank);
       // }
-      nrmr += PNORM(disc.common.cublasHandle, disc.common.grid.npe*disc.common.components.ncu*disc.common.ne1, disc.res.Ru, backend);                 
+      nrmr += PNORM(disc.common.cublasHandle, disc.common.grid.npe*disc.common.components.ncu*disc.common.meshsizes.ne1, disc.res.Ru, backend);                 
       // nrmr += nrmru;
       // if (IS_NAN(nrmru)) {        
-      //   for (int m=0; m<disc.common.grid.npe*disc.common.components.ncu*disc.common.ne1; m++) {
+      //   for (int m=0; m<disc.common.grid.npe*disc.common.components.ncu*disc.common.meshsizes.ne1; m++) {
       //     nrm0 = disc.res.Ru[m];
       //     if (IS_NAN(nrm0)) 
       //       cout<<"Rank = "<<disc.common.mpiRank<<", m = "<<m<<", Ru[m] = "<<disc.res.Ru[m]<<endl;       
       //   }   
       //   if (disc.common.mpiRank==0) cout<<"Ru is nan"<<endl;
-      //   printFirstNonFiniteFlat("res.Ru", disc.res.Ru, disc.common.grid.npe*disc.common.components.ncu*disc.common.ne1, disc.common.mpiRank);
+      //   printFirstNonFiniteFlat("res.Ru", disc.res.Ru, disc.common.grid.npe*disc.common.components.ncu*disc.common.meshsizes.ne1, disc.common.mpiRank);
       // }
       if (disc.common.mpiRank==0)
         cout<<"Newton Iteration: "<<0<<",  Residual Norm: "<<nrmr<<endl;      
@@ -409,7 +409,7 @@ Int CSolution::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int backend
         writearray2file(filename, disc.sol.udg, disc.common.sizes.ndofudg1, backend);   
         if (disc.common.components.ncw > 0) {
           string filename1 = disc.common.fileout + "_wdg_np" + NumberToString(disc.common.mpiRank) + ".bin";                    
-          writearray2file(filename1, disc.sol.wdg, disc.common.grid.npe*disc.common.components.ncw*disc.common.ne1, backend);   
+          writearray2file(filename1, disc.sol.wdg, disc.common.grid.npe*disc.common.components.ncw*disc.common.meshsizes.ne1, backend);   
         }
         if (vis.savemode > 0) this->SaveParaview(backend, "_CRASH", true);     
         if (outsol.is_open()) { outsol.close(); }
@@ -432,12 +432,12 @@ Int CSolution::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int backend
         LinearSolver(solv.sys, disc, prec, out, N, spatialScheme, it, backend);
               
         // int npf = disc.common.grid.npf;
-        // int nfe = disc.common.nfe;        
+        // int nfe = disc.common.meshsizes.nfe;        
         // print3darray(disc.res.Hi, npf, npf*nfe, disc.common.nfacerecv, "Hi", MPI_COMM_WORLD);
-        // print2darray(solv.sys.x, npf, disc.common.nf, "uhat face", MPI_COMM_WORLD);
-        // GetElementFaceNodes(disc.res.Rq, solv.sys.x, disc.mesh.elemcon, npf*nfe, disc.common.components.ncu, 0, disc.common.ne1, 2);
-        // print3darray(&disc.res.Rq[npf*nfe*disc.common.ne0], npf, nfe, 4, "uhat element", MPI_COMM_WORLD);
-        // printf("%d %d\n", disc.common.mpiRank, disc.common.ne0);
+        // print2darray(solv.sys.x, npf, disc.common.meshsizes.nf, "uhat face", MPI_COMM_WORLD);
+        // GetElementFaceNodes(disc.res.Rq, solv.sys.x, disc.mesh.elemcon, npf*nfe, disc.common.components.ncu, 0, disc.common.meshsizes.ne1, 2);
+        // print3darray(&disc.res.Rq[npf*nfe*disc.common.meshsizes.ne0], npf, nfe, 4, "uhat element", MPI_COMM_WORLD);
+        // printf("%d %d\n", disc.common.mpiRank, disc.common.meshsizes.ne0);
 
         solv.sys.alpha = 1.0;        
         // update the solution: u = u + alpha*x
@@ -451,14 +451,14 @@ Int CSolution::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int backend
         else if (spatialScheme == 1) {      
           ArrayCopy(disc.sol.uh, solv.sys.u, N);
           hdgGetDUDG<exasim::detail::AbiAdapter>(disc.res.Ru, disc.res.F, solv.sys.x, disc.res.Rq, disc.mesh, disc.common, backend);          
-          ArrayCopy(solv.sys.v, disc.res.Ru, disc.common.grid.npe*disc.common.components.ncu*disc.common.ne1);
-          UpdateUDG(disc.sol.udg, disc.res.Ru, solv.sys.alpha, disc.common.grid.npe, disc.common.components.nc, disc.common.ne1, 0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.ne1);                    
+          ArrayCopy(solv.sys.v, disc.res.Ru, disc.common.grid.npe*disc.common.components.ncu*disc.common.meshsizes.ne1);
+          UpdateUDG(disc.sol.udg, disc.res.Ru, solv.sys.alpha, disc.common.grid.npe, disc.common.components.nc, disc.common.meshsizes.ne1, 0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.meshsizes.ne1);                    
                     
           if (disc.common.outputparams.debugMode==1) {
             writearray2file(disc.common.fileout + NumberToString(it+1) + "newton_x.bin", solv.sys.x, N, backend);
             writearray2file(disc.common.fileout + NumberToString(it+1) + "newton_u.bin", solv.sys.u, N, backend);
             writearray2file(disc.common.fileout + NumberToString(it+1) + "newton_uh.bin", disc.sol.uh, N, backend);
-            writearray2file(disc.common.fileout + NumberToString(it+1) + "newton_udg.bin", disc.sol.udg, disc.common.grid.npe*disc.common.components.nc*disc.common.ne1, backend);
+            writearray2file(disc.common.fileout + NumberToString(it+1) + "newton_udg.bin", disc.sol.udg, disc.common.grid.npe*disc.common.components.nc*disc.common.meshsizes.ne1, backend);
             error("stop for debugging...");
           }          
                     
@@ -469,14 +469,14 @@ Int CSolution::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int backend
           // compute the updated residual norm |[Ru; Rh]|
           disc.hdgAssembleResidual(solv.sys.b, backend);          
           nrmr = PNORM(disc.common.cublasHandle, N, disc.common.couplingparams.ndofuhatinterface, solv.sys.b, backend);           
-          nrmr += PNORM(disc.common.cublasHandle, disc.common.grid.npe*disc.common.components.ncu*disc.common.ne1, disc.res.Ru, backend);   
+          nrmr += PNORM(disc.common.cublasHandle, disc.common.grid.npe*disc.common.components.ncu*disc.common.meshsizes.ne1, disc.res.Ru, backend);   
                     
           if ((nrmr > nrm0 && nrmr > 1.0e6) || IS_NAN(nrmr)) {                        
             string filename = disc.common.fileout + "_np" + NumberToString(disc.common.mpiRank) + ".bin";                    
             writearray2file(filename, disc.sol.udg, disc.common.sizes.ndofudg1, backend);   
             if (disc.common.components.ncw > 0) {
               string filename1 = disc.common.fileout + "_wdg_np" + NumberToString(disc.common.mpiRank) + ".bin";                    
-              writearray2file(filename1, disc.sol.wdg, disc.common.grid.npe*disc.common.components.ncw*disc.common.ne1, backend);   
+              writearray2file(filename1, disc.sol.wdg, disc.common.grid.npe*disc.common.components.ncw*disc.common.meshsizes.ne1, backend);   
             }
             if (vis.savemode > 0) this->SaveParaview(backend, "_CRASH", true);     
             if (outsol.is_open()) { outsol.close(); }
@@ -499,12 +499,12 @@ Int CSolution::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int backend
             solv.sys.alpha = solv.sys.alpha/2.0;             
             ArrayAXPY(disc.common.cublasHandle, solv.sys.u, solv.sys.x, -solv.sys.alpha, N, backend); 
             ArrayCopy(disc.sol.uh, solv.sys.u, N);
-            UpdateUDG(disc.sol.udg, solv.sys.v, -solv.sys.alpha, disc.common.grid.npe, disc.common.components.nc, disc.common.ne1, 0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.ne1);                    
+            UpdateUDG(disc.sol.udg, solv.sys.v, -solv.sys.alpha, disc.common.grid.npe, disc.common.components.nc, disc.common.meshsizes.ne1, 0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.meshsizes.ne1);                    
             if (disc.common.components.ncq > 0) hdgGetQ<exasim::detail::AbiAdapter>(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common, backend);          
             if (disc.common.components.ncw > 0) GetW<exasim::detail::AbiAdapter>(disc.sol.wdg, disc.sol, disc.tmp, disc.app, disc.common, backend);
             disc.hdgAssembleResidual(solv.sys.b, backend);
             nrmr = PNORM(disc.common.cublasHandle, N, disc.common.couplingparams.ndofuhatinterface, solv.sys.b, backend); 
-            nrmr += PNORM(disc.common.cublasHandle, disc.common.grid.npe*disc.common.components.ncu*disc.common.ne1, disc.res.Ru, backend);                       
+            nrmr += PNORM(disc.common.cublasHandle, disc.common.grid.npe*disc.common.components.ncu*disc.common.meshsizes.ne1, disc.res.Ru, backend);                       
           }          
         }
 
@@ -534,7 +534,7 @@ void CSolution::SteadyProblem(ofstream &out, Int backend)
     if (disc.common.nomodels>1) {
         Int nco = disc.common.components.nco;
         Int npe = disc.common.grid.npe;
-        Int ne = disc.common.ne;            
+        Int ne = disc.common.meshsizes.ne;            
         for (Int n=0; n<nco; n++) {            
             Int m = disc.common.vindx[n];     // model index
             Int k = disc.common.vindx[nco+n]; // solution index
@@ -552,7 +552,7 @@ void CSolution::SteadyProblem(ofstream &out, Int backend)
         Int nco = disc.common.components.nco;
         Int ncAV = disc.common.physicsparams.ncAV;
         Int npe = disc.common.grid.npe;
-        Int ne = disc.common.ne;            
+        Int ne = disc.common.meshsizes.ne;            
         
         // store AV field 
         dstype *avField = &disc.res.Rq[0];
@@ -619,7 +619,7 @@ void CSolution::SteadyProblem(ofstream &out, Int backend)
     }
 
     if (disc.common.components.nco>0) {
-        for (Int j=0; j<disc.common.nbe; j++) {
+        for (Int j=0; j<disc.common.meshsizes.nbe; j++) {
             Int e1 = disc.common.eblks[3*j]-1;
             Int e2 = disc.common.eblks[3*j+1];                
             GetElemNodes(disc.tmp.tempn, disc.sol.odg, disc.common.grid.npe, disc.common.components.nco, 
@@ -627,7 +627,7 @@ void CSolution::SteadyProblem(ofstream &out, Int backend)
             Node2Gauss(disc.common.cublasHandle, &disc.sol.odgg[disc.common.grid.nge*disc.common.components.nco*e1], 
               disc.tmp.tempn, disc.master.shapegt, disc.common.grid.nge, disc.common.grid.npe, (e2-e1)*disc.common.components.nco, backend);        
         }         
-        for (Int j=0; j<disc.common.nbf; j++) {
+        for (Int j=0; j<disc.common.meshsizes.nbf; j++) {
             Int f1 = disc.common.fblks[3*j]-1;
             Int f2 = disc.common.fblks[3*j+1];            
             
@@ -644,7 +644,7 @@ void CSolution::SteadyProblem(ofstream &out, Int backend)
     }
     
     if (disc.common.components.ncs>0) {
-        for (Int j=0; j<disc.common.nbe; j++) {
+        for (Int j=0; j<disc.common.meshsizes.nbe; j++) {
             Int e1 = disc.common.eblks[3*j]-1;
             Int e2 = disc.common.eblks[3*j+1];                
             GetElemNodes(disc.tmp.tempn, disc.sol.sdg, disc.common.grid.npe, disc.common.components.ncs, 0, disc.common.components.ncs, e1, e2);        
@@ -693,8 +693,8 @@ void CSolution::InitSolution(Int backend)
     //     prec.precond.Cmat = &disc.res.Minv[0];    
         
     if (disc.common.spatialScheme==0) {
-        ArrayExtract(solv.sys.u, disc.sol.udg, disc.common.grid.npe, disc.common.components.nc, disc.common.ne1, 
-              0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.ne1);                                                  
+        ArrayExtract(solv.sys.u, disc.sol.udg, disc.common.grid.npe, disc.common.components.nc, disc.common.meshsizes.ne1, 
+              0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.meshsizes.ne1);                                                  
     }
     else if (disc.common.spatialScheme==1) {      
         ArrayCopy(solv.sys.u, disc.sol.uh, disc.common.sizes.ndofuhat);
@@ -839,8 +839,8 @@ void CSolution::SteadyProblem_PTC(ofstream &out, Int backend) {
     Int ncu = disc.common.components.ncu;// number of compoments of (u)    
     Int ncs = disc.common.components.ncs;// number of compoments of (s)        
     Int npe = disc.common.grid.npe; // number of nodes on master element    
-    //Int ne = common.ne1; // number of elements in this subdomain         
-    Int ne2 = disc.common.ne2; // number of elements in this subdomain       
+    //Int ne = common.meshsizes.ne1; // number of elements in this subdomain         
+    Int ne2 = disc.common.meshsizes.ne2; // number of elements in this subdomain       
     //Int N = common.sizes.ndof1;
     Int N2 = npe*disc.common.components.ncw*ne2;  
 
@@ -880,10 +880,10 @@ void CSolution::SteadyProblem_PTC(ofstream &out, Int backend) {
             disc.evalMonitor(disc.tmp.tempn,  disc.sol.udg, disc.sol.wdg, disc.common.components.nc, backend);
             disc.evalMonitor(disc.tmp.tempg,  solv.sys.udgprev, solv.sys.wprev, disc.common.components.ncu, backend);
             
-            ArrayAXPBY(disc.tmp.tempn, disc.tmp.tempn, disc.tmp.tempg, 1.0, -1.0, disc.common.grid.npe*disc.common.components.ncm*disc.common.ne);            
+            ArrayAXPBY(disc.tmp.tempn, disc.tmp.tempn, disc.tmp.tempg, 1.0, -1.0, disc.common.grid.npe*disc.common.components.ncm*disc.common.meshsizes.ne);            
             
-            monitor_diff  = PNORM(disc.common.cublasHandle,  disc.common.grid.npe*disc.common.components.ncm*disc.common.ne,disc.tmp.tempn, backend);
-            monitor_scale = PNORM(disc.common.cublasHandle,  disc.common.grid.npe*disc.common.components.ncm*disc.common.ne, disc.tmp.tempg, backend);
+            monitor_diff  = PNORM(disc.common.cublasHandle,  disc.common.grid.npe*disc.common.components.ncm*disc.common.meshsizes.ne,disc.tmp.tempn, backend);
+            monitor_scale = PNORM(disc.common.cublasHandle,  disc.common.grid.npe*disc.common.components.ncm*disc.common.meshsizes.ne, disc.tmp.tempg, backend);
 
             delta_monitor = monitor_diff / monitor_scale;
             std::cout << "delta_monitor: " << delta_monitor << std::endl;
@@ -898,7 +898,7 @@ void CSolution::SteadyProblem_PTC(ofstream &out, Int backend) {
                 ArrayExtract(disc.sol.udg, solv.sys.udgprev, npe, ncu, ne2, 0, npe, 0, nc, 0, ne2);     
 
                 // Compute a new UH
-                GetFaceNodes(disc.sol.uh, disc.sol.udg, disc.mesh.f2e, disc.mesh.perm, disc.common.grid.npf, disc.common.components.ncu, disc.common.grid.npe, disc.common.components.nc, disc.common.nf);
+                GetFaceNodes(disc.sol.uh, disc.sol.udg, disc.mesh.f2e, disc.mesh.perm, disc.common.grid.npf, disc.common.components.ncu, disc.common.grid.npe, disc.common.components.nc, disc.common.meshsizes.nf);
 
                 // Recompute gradient from udg old
                 hdgGetQ<exasim::detail::AbiAdapter>(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common, backend);
@@ -936,7 +936,7 @@ void CSolution::SteadyProblem_PTC(ofstream &out, Int backend) {
                         disc.hdgAssembleResidual(solv.sys.b, backend);
                                 
                         nrmr = PNORM(disc.common.cublasHandle, N, solv.sys.b, backend);       
-                        nrmr += PNORM(disc.common.cublasHandle, disc.common.grid.npe*disc.common.components.ncu*disc.common.ne1, disc.res.Ru, backend); 
+                        nrmr += PNORM(disc.common.cublasHandle, disc.common.grid.npe*disc.common.components.ncu*disc.common.meshsizes.ne1, disc.res.Ru, backend); 
                         std::cout << " Steady residual = " << nrmr << std::endl;
     
                         // SaveSolutions(backend); 
@@ -1014,7 +1014,7 @@ void CSolution::SaveSolutions(Int backend)
     if (save == true) {        
         if (disc.common.outputparams.saveSolOpt==0) {
             if (disc.common.spatialScheme > 0) {
-                ArrayExtract(disc.res.Rq, disc.sol.udg, disc.common.grid.npe, disc.common.components.nc, disc.common.ne1, 0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.ne1);                                                  
+                ArrayExtract(disc.res.Rq, disc.sol.udg, disc.common.grid.npe, disc.common.components.nc, disc.common.meshsizes.ne1, 0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.meshsizes.ne1);                                                  
                 writearray(outsol, disc.res.Rq, disc.common.sizes.ndof1, backend);    
             }
             else
@@ -1118,7 +1118,7 @@ void CSolution::ReadSolutions(Int backend)
             //     readarrayfromfile(filename, &disc.res.Rq, disc.common.sizes.ndof1, backend);
             //     // insert u into udg
             //     ArrayInsert(disc.sol.udg, disc.res.Rq, disc.common.grid.npe, disc.common.components.nc, 
-            //      disc.common.ne, 0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.ne1);  
+            //      disc.common.meshsizes.ne, 0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.meshsizes.ne1);  
             // }
             // else
                 readarrayfromfile(filename, &disc.sol.udg, disc.common.sizes.ndofudg1, backend);        
@@ -1140,7 +1140,7 @@ void CSolution::ReadSolutions(Int backend)
             readarrayfromfile(filename, &solv.sys.u, disc.common.sizes.ndof1, backend);
             // insert u into udg
             ArrayInsert(disc.sol.udg, solv.sys.u, disc.common.grid.npe, disc.common.components.nc, 
-             disc.common.ne, 0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.ne1);              
+             disc.common.meshsizes.ne, 0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.meshsizes.ne1);              
         }
         else
             readarrayfromfile(filename, &disc.sol.udg, disc.common.sizes.ndofudg1, backend, 3);      
@@ -1170,8 +1170,8 @@ void CSolution::GetSolutions(Int step, Int backend)
         const Int skip = headerSize + step * disc.common.sizes.ndof1;
         readarrayfromfile(filename, &disc.res.Rq, disc.common.sizes.ndof1, backend, skip);
         ArrayInsert(disc.sol.udg, disc.res.Rq, disc.common.grid.npe, disc.common.components.nc,
-                    disc.common.ne, 0, disc.common.grid.npe, 0, disc.common.components.ncu,
-                    0, disc.common.ne1);
+                    disc.common.meshsizes.ne, 0, disc.common.grid.npe, 0, disc.common.components.ncu,
+                    0, disc.common.meshsizes.ne1);
     }
     else {
         const Int skip = headerSize + step * disc.common.sizes.ndofudg1;
@@ -1222,7 +1222,7 @@ void CSolution::SaveParaview(Int backend, std::string fname_modifier, bool force
        int nvec = disc.common.qoiparams.nvec;  
        int nten = disc.common.qoiparams.nten;     
        int npe  = disc.common.grid.npe;     
-       int ne   = disc.common.ne1;      
+       int ne   = disc.common.meshsizes.ne1;      
        int ndg  = npe * ne;
        int ncg  = vis.npoints;
     
@@ -1322,7 +1322,7 @@ void CSolution::SaveSolutionsOnBoundary(Int backend)
     if ( disc.common.outputparams.saveSolBouFreq>0 ) {
         if (((disc.common.timestate.currentstep+1) % disc.common.outputparams.saveSolBouFreq) == 0)             
         {        
-            for (Int j=0; j<disc.common.nbf; j++) {
+            for (Int j=0; j<disc.common.meshsizes.nbf; j++) {
                 Int f1 = disc.common.fblks[3*j]-1;
                 Int f2 = disc.common.fblks[3*j+1];    
                 Int ib = disc.common.fblks[3*j+2];            
@@ -1354,7 +1354,7 @@ void CSolution::SaveSolutionsOnBoundary(Int backend)
 void CSolution::SaveNodesOnBoundary(Int backend) 
 {   
     if ( disc.common.outputparams.saveSolBouFreq>0 ) {
-        for (Int j=0; j<disc.common.nbf; j++) {
+        for (Int j=0; j<disc.common.meshsizes.nbf; j++) {
             Int f1 = disc.common.fblks[3*j]-1;
             Int f2 = disc.common.fblks[3*j+1];    
             Int ib = disc.common.fblks[3*j+2];            
@@ -1396,7 +1396,7 @@ void CSolution::SaveNodesOnBoundary(Int backend)
 //     if ( disc.common.outputparams.saveSolBouFreq>0 ) {
 //         if (((disc.common.timestate.currentstep+1) % disc.common.outputparams.saveSolBouFreq) == 0)             
 //         {        
-//             for (Int j=0; j<disc.common.nbf; j++) {
+//             for (Int j=0; j<disc.common.meshsizes.nbf; j++) {
 //                 Int f1 = disc.common.fblks[3*j]-1;
 //                 Int f2 = disc.common.fblks[3*j+1];    
 //                 Int ib = disc.common.fblks[3*j+2];            
@@ -1417,7 +1417,7 @@ void CSolution::SaveNodesOnBoundary(Int backend)
 // void CSolution::SaveNodesOnBoundary(Int backend) 
 // {   
 //     if ( disc.common.outputparams.saveSolBouFreq>0 ) {
-//         for (Int j=0; j<disc.common.nbf; j++) {
+//         for (Int j=0; j<disc.common.meshsizes.nbf; j++) {
 //             Int f1 = disc.common.fblks[3*j]-1;
 //             Int f2 = disc.common.fblks[3*j+1];    
 //             Int ib = disc.common.fblks[3*j+2];            

@@ -208,8 +208,8 @@ void LinearSolver(sysstruct &sys, CDiscretization& disc, CPreconditioner& prec, 
       
       if (disc.common.outputparams.debugMode==1) {
         int n = disc.common.grid.npe*disc.common.components.ncu;
-        int m = disc.common.grid.npf*disc.common.nfe*disc.common.components.ncu;
-        int ne = disc.common.ne1;
+        int m = disc.common.grid.npf*disc.common.meshsizes.nfe*disc.common.components.ncu;
+        int ne = disc.common.meshsizes.ne1;
         writearray2file(disc.common.fileout + NumberToString(it+1) + "newton_AE.bin", disc.res.H, m*m*ne, backend);
         writearray2file(disc.common.fileout + NumberToString(it+1) + "newton_FE.bin", disc.res.Rh, m*ne, backend);
         writearray2file(disc.common.fileout + NumberToString(it+1) + "newton_DUDG.bin", disc.res.Ru, n*ne, backend);

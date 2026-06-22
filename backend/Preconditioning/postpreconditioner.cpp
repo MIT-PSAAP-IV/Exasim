@@ -129,7 +129,7 @@ void CPreconditioner::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretiza
     
     ArrayCopy(disc.common.cublasHandle, disc.res.Ru, x, N, backend);
     ApplyMatrix(disc.common.cublasHandle, x, disc.res.Minv, disc.res.Ru, disc.common.grid.npe, disc.common.components.ncu, 
-        disc.common.ne1, disc.common.solverparams.precMatrixType, disc.common.grid.curvedMesh, backend);                
+        disc.common.meshsizes.ne1, disc.common.solverparams.precMatrixType, disc.common.grid.curvedMesh, backend);                
 }
 
 void CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, CDiscretization& disc, Int N, Int spatialScheme, Int backend)
@@ -178,7 +178,7 @@ void CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, CDisc
 
 void ApplyBlockILU0(double* x, double* A, double* b, double *B, double *C, commonstruct& common) 
 {    
-    Int nfe = common.nfe; 
+    Int nfe = common.meshsizes.nfe; 
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int npf = common.grid.npf; // number of nodes on master face           
     Int ncf = ncu*npf;    
@@ -270,11 +270,11 @@ void CPreconditioner::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretiza
       Int N = disc.common.sizes.ndof1;        
       ArrayCopy(disc.common.cublasHandle, disc.res.Ru, x, N, backend);
       ApplyMatrix(disc.common.cublasHandle, x, disc.res.Minv, disc.res.Ru, disc.common.grid.npe, disc.common.components.ncu, 
-          disc.common.ne1, disc.common.solverparams.precMatrixType, disc.common.grid.curvedMesh, backend);                
+          disc.common.meshsizes.ne1, disc.common.solverparams.precMatrixType, disc.common.grid.curvedMesh, backend);                
     }
     else if (spatialScheme==1) {      
       if (disc.common.solverparams.preconditioner==0) { // Block Jacobi preconditioner
-        Int nf = disc.common.nf; // number of faces in this subdomain
+        Int nf = disc.common.meshsizes.nf; // number of faces in this subdomain
         Int ncu = disc.common.components.ncu;// number of compoments of (u)
         Int npf = disc.common.grid.npf; // number of nodes on master face           
         Int ncf = ncu*npf;  
@@ -288,7 +288,7 @@ void CPreconditioner::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretiza
         hdgMatVec<exasim::detail::AbiAdapter>(x, disc.res.K, x, disc.res.Rh, disc.res.Rq, disc.res, disc.app, disc.mesh, disc.common, disc.tmp, disc.common.cublasHandle, backend);
       }
       else if (disc.common.solverparams.preconditioner==2) { // super-element additive Schwarz preconditioner with BLIU0
-        Int nf = disc.common.nf; // number of faces in this subdomain
+        Int nf = disc.common.meshsizes.nf; // number of faces in this subdomain
         Int ncu = disc.common.components.ncu;// number of compoments of (u)
         Int npf = disc.common.grid.npf; // number of nodes on master face           
         Int ncf = ncu*npf;          

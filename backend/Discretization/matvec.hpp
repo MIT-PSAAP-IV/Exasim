@@ -45,7 +45,7 @@ inline void MatVec(dstype *w, solstruct &sol, resstruct &res, appstruct &app, ma
     Int nc = common.components.nc; // number of compoments of (u, q, p)
     Int ncu = common.components.ncu;// number of compoments of (u)    
     Int npe = common.grid.npe; // number of nodes on master element    
-    Int ne = common.ne1; // number of elements in this subdomain 
+    Int ne = common.meshsizes.ne1; // number of elements in this subdomain 
     //Int nd = common.grid.nd;
     Int N = npe*ncu*ne;
     
@@ -103,14 +103,14 @@ inline void MatVec(dstype *w, solstruct &sol, resstruct &res, appstruct &app, ma
 template <class M>
 inline void hdgAssembleRHS(dstype *R, dstype *Rh, meshstruct &mesh, commonstruct &common)
 {   
-    Int nf = common.nf; // number of faces in this subdomain
+    Int nf = common.meshsizes.nf; // number of faces in this subdomain
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int npf = common.grid.npf; // number of nodes on master face           
-    Int nfe = common.nfe; // number of faces in each element
+    Int nfe = common.meshsizes.nfe; // number of faces in each element
 
      // ncu * npf * nfe * ne -> ncu * npf * nf
     PutElementFaceNodes(R, Rh, mesh.f2e, npf, nfe, ncu, nf);
-    PutElementFaceNodes(R, Rh, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.nf0);    
+    PutElementFaceNodes(R, Rh, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.meshsizes.nf0);    
 
     if (common.outputparams.debugMode == 1) {
       writearray2file(common.fileout + "hdgAssembleRHS.bin", R, ncu * npf * nf, common.backend);
@@ -122,7 +122,7 @@ inline void hdgBlockILU0(dstype *BE, dstype *AE, resstruct &res, meshstruct &mes
 {
   Int ncu = common.components.ncu;// number of compoments of (u)
   Int npf = common.grid.npf; // number of nodes on master face           
-  Int nfe = common.nfe; // number of faces in each element
+  Int nfe = common.meshsizes.nfe; // number of faces in each element
   Int nfse = common.nfse; // number of faces in each superelement
   Int nse  = common.nse;  // number of superelements
   Int ncf = ncu*npf;
@@ -131,10 +131,10 @@ inline void hdgBlockILU0(dstype *BE, dstype *AE, resstruct &res, meshstruct &mes
 //  std::cout<<"AssembleBlockILU0\n";
   AssembleBlockILU0(BE, AE, mesh.f2e, mesh.elemcon, mesh.face, mesh.row_ptr, mesh.col_ind, npf, nfe, ncu, nfse, nse);
   
-//   writearray2file(common.fileout + "AE.bin", AE, npf*npf*nfe*nfe*ncu*ncu*common.ne1, backend);  
+//   writearray2file(common.fileout + "AE.bin", AE, npf*npf*nfe*nfe*ncu*ncu*common.meshsizes.ne1, backend);  
 //   writearray2file(common.fileout + "BE.bin", BE, ncf*ncf*nse*common.nnz, backend);  
   
-  int nn = 2*(common.nfe-1);
+  int nn = 2*(common.meshsizes.nfe-1);
   for (int i = 0; i < nfse; ++i) {      
       int diag_idx = common.ind_ii[i];
       
@@ -170,16 +170,16 @@ inline void hdgBlockILU0(dstype *BE, dstype *AE, resstruct &res, meshstruct &mes
 template <class M>
 inline void hdgElementalAdditiveSchwarz(dstype *BE, dstype *AE, resstruct &res, meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
 {   
-    Int nf = common.nf; // number of faces in this subdomain
+    Int nf = common.meshsizes.nf; // number of faces in this subdomain
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int npf = common.grid.npf; // number of nodes on master face           
-    Int nfe = common.nfe; // number of faces in each element
+    Int nfe = common.meshsizes.nfe; // number of faces in each element
     Int ncf = ncu*npf;
 
-    ArrayCopy(BE, AE, ncf*nfe*ncf*nfe*common.ne); 
+    ArrayCopy(BE, AE, ncf*nfe*ncf*nfe*common.meshsizes.ne); 
     ElementalAdditiveSchwarz(BE, AE, mesh.f2e, mesh.elemcon, npf, nfe, ncu, nf);       
     
-    for (Int j=0; j<common.nbe; j++) {              
+    for (Int j=0; j<common.meshsizes.nbe; j++) {              
       Int e1 = common.eblks[3*j]-1;
       Int e2 = common.eblks[3*j+1];          
       Inverse(handle, &BE[ncf*nfe*ncf*nfe*e1], tmp.tempn, res.ipiv, ncf*nfe, e2-e1, backend); 
@@ -193,18 +193,18 @@ inline void hdgElementalAdditiveSchwarz(dstype *BE, dstype *AE, resstruct &res, 
 template <class M>
 inline void hdgBlockJacobi(dstype *BE, dstype *AE, resstruct &res, meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
 {   
-    Int nf = common.nf; // number of faces in this subdomain
+    Int nf = common.meshsizes.nf; // number of faces in this subdomain
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int npf = common.grid.npf; // number of nodes on master face           
-    Int nfe = common.nfe; // number of faces in each element
+    Int nfe = common.meshsizes.nfe; // number of faces in each element
     Int ncf = ncu*npf;
 
      // ncf * nfe * ncf * nfe * ne -> ncf * ncf * nf
     BlockJacobi(BE, AE, mesh.f2e, npf, nfe, ncu, nf);
-    BlockJacobi(BE, AE, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.nf0);        
+    BlockJacobi(BE, AE, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.meshsizes.nf0);        
     
     //Inverse(handle, BE, res.tempn, res.ipiv, ncf, nf, backend);         
-    for (Int j=0; j<common.nbf; j++) {              
+    for (Int j=0; j<common.meshsizes.nbf; j++) {              
       Int f1 = common.fblks[3*j]-1;
       Int f2 = common.fblks[3*j+1];          
       Inverse(handle, &BE[ncf*ncf*f1], tmp.tempn, res.ipiv, ncf, f2-f1, backend); 
@@ -224,10 +224,10 @@ template <class M>
 inline void hdgGetDUDG(dstype *w, dstype *F, dstype *duh, dstype *ve, meshstruct &mesh, 
         commonstruct &common,  Int backend)
 {   
-    Int ne = common.ne1; // number of elements in this subdomain 
+    Int ne = common.meshsizes.ne1; // number of elements in this subdomain 
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int npf = common.grid.npf; // number of nodes on master face           
-    Int nfe = common.nfe; // number of faces in each element
+    Int nfe = common.meshsizes.nfe; // number of faces in each element
     Int m = ncu*npf*nfe;  
     Int n = common.grid.npe*ncu;
 
@@ -246,18 +246,18 @@ template <class M>
 inline void hdgMatVec(dstype *w, dstype *AE, dstype *v, dstype *ve, dstype *we, resstruct &res, appstruct &app, 
         meshstruct &mesh, commonstruct &common, tempstruct &tmp, cublasHandle_t handle, Int backend)
 {   
-    Int ne1 = common.ne1; // number of elements in this subdomain 
-    Int nf = common.nf; // number of faces in this subdomain
+    Int ne1 = common.meshsizes.ne1; // number of elements in this subdomain 
+    Int nf = common.meshsizes.nf; // number of faces in this subdomain
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int npf = common.grid.npf; // number of nodes on master face           
-    Int nfe = common.nfe; // number of faces in each element
+    Int nfe = common.meshsizes.nfe; // number of faces in each element
     Int m = ncu*npf*nfe;  
 
     // ncu * npf * nf -> ncu * npf * nfe * ne1
     GetElementFaceNodes(ve, v, mesh.elemcon, npf*nfe, ncu, 0, ne1, 2);
 
 #ifdef HAVE_MPI     
-    Int ne0 = common.ne0; // number of interior elements in this subdomain
+    Int ne0 = common.meshsizes.ne0; // number of interior elements in this subdomain
     Int bsz = ncu*npf*nfe;  
 
     // perform matrix-vector products for interface elements
@@ -379,14 +379,14 @@ inline void hdgMatVec(dstype *w, dstype *AE, dstype *v, dstype *ve, dstype *we, 
     PutElementFaceNodes(w, we, mesh.f2e, npf, nfe, ncu, nf);
 
     // assemble vector w from we using the SECOND elements in mesh.f2e
-    PutElementFaceNodes(w, we, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.nf0);           
+    PutElementFaceNodes(w, we, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.meshsizes.nf0);           
 #else 
     // (ncu * npf * nfe)  * (ncu * npf * nfe) * ne x (ncu * npf * nfe) * ne -> (ncu * npf * nfe) * ne
     PGEMNMStridedBached(handle, m, 1, m, one, AE, m, ve, m, zero, we, m, ne1, backend); 
 
      // ncu * npf * nfe * ne -> ncu * npf * nf
     PutElementFaceNodes(w, we, mesh.f2e, npf, nfe, ncu, nf);
-    PutElementFaceNodes(w, we, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.nf0);    
+    PutElementFaceNodes(w, we, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.meshsizes.nf0);    
 
     if (common.outputparams.debugMode == 1) {
       writearray2file(common.fileout + "hdgMatVec.bin", w, ncu * npf * nf, backend);
@@ -402,16 +402,16 @@ inline void hdgAssembleLinearSystemMPI(dstype *b, solstruct &sol, resstruct &res
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int npf = common.grid.npf; // number of nodes on master face           
     Int npe = common.grid.npe; // number of nodes on master element
-    Int nfe = common.nfe; // number of faces in each element
+    Int nfe = common.meshsizes.nfe; // number of faces in each element
     Int ncf = ncu*npf;
     Int szR = ncu*npf*nfe;  
     Int szH = szR*szR;
     Int bsz = szH + szR; // send and receive H and Rh together   
 
-    //printf("hdgAssembleLinearSystemMPI: %d %d %d %d\n", common.nbe0, common.nbe1, common.nelemsend, common.nnbsd);
+    //printf("hdgAssembleLinearSystemMPI: %d %d %d %d\n", common.meshsizes.nbe0, common.meshsizes.nbe1, common.nelemsend, common.nnbsd);
     
     // perform HDG descrization for interface elements
-    for (Int j=common.nbe0; j<common.nbe1; j++) {     // fixed bug here             
+    for (Int j=common.meshsizes.nbe0; j<common.meshsizes.nbe1; j++) {     // fixed bug here             
       uEquationElemBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
       uEquationElemFaceBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
       uEquationSchurBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
@@ -509,7 +509,7 @@ inline void hdgAssembleLinearSystemMPI(dstype *b, solstruct &sol, resstruct &res
     }
       
     // perform HDG descrization for interior elements
-    for (Int j=0; j<common.nbe0; j++) {                  
+    for (Int j=0; j<common.meshsizes.nbe0; j++) {                  
       uEquationElemBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
       uEquationElemFaceBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
       uEquationSchurBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
@@ -539,13 +539,13 @@ inline void hdgAssembleLinearSystemMPI(dstype *b, solstruct &sol, resstruct &res
 //         print2darray(res.Ri, szRi, common.nfacerecv);
     }
     
-    ArraySetValue(b, 0.0, ncu*npf*common.nf); // fix bug here
+    ArraySetValue(b, 0.0, ncu*npf*common.meshsizes.nf); // fix bug here
 
     // assemble RHS vector b from res.Rh using the FIRST elements in mesh.f2e
-    PutElementFaceNodes(b, res.Rh, mesh.f2e, npf, nfe, ncu, common.nf);
+    PutElementFaceNodes(b, res.Rh, mesh.f2e, npf, nfe, ncu, common.meshsizes.nf);
 
     // assemble RHS vector b from res.Rh using the SECOND elements in mesh.f2e
-    PutElementFaceNodes(b, res.Rh, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.nf0);    
+    PutElementFaceNodes(b, res.Rh, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.meshsizes.nf0);    
 }
 
 template <class M>
@@ -555,13 +555,13 @@ inline void hdgAssembleResidualMPI(dstype *b, solstruct &sol, resstruct &res, ap
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int npf = common.grid.npf; // number of nodes on master face           
     Int npe = common.grid.npe; // number of nodes on master element
-    Int nfe = common.nfe; // number of faces in each element
+    Int nfe = common.meshsizes.nfe; // number of faces in each element
     Int ncf = ncu*npf;
     Int szR = ncu*npf*nfe;  
     Int bsz = szR; // send and receive H and Rh together   
     
     // perform HDG descrization for interface elements
-    for (Int j=common.nbe0; j<common.nbe1; j++) {     // fixed bug here             
+    for (Int j=common.meshsizes.nbe0; j<common.meshsizes.nbe1; j++) {     // fixed bug here             
       RuEquationElemBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
       RuEquationElemFaceBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);        
     }                             
@@ -651,7 +651,7 @@ inline void hdgAssembleResidualMPI(dstype *b, solstruct &sol, resstruct &res, ap
     }
 
     // perform HDG descrization for interior elements
-    for (Int j=0; j<common.nbe0; j++) {                  
+    for (Int j=0; j<common.meshsizes.nbe0; j++) {                  
       RuEquationElemBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
       RuEquationElemFaceBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);        
     }                        
@@ -676,10 +676,10 @@ inline void hdgAssembleResidualMPI(dstype *b, solstruct &sol, resstruct &res, ap
     }
 
     // assemble RHS vector b from res.Rh using the FIRST elements in mesh.f2e
-    PutElementFaceNodes(b, res.Rh, mesh.f2e, npf, nfe, ncu, common.nf);
+    PutElementFaceNodes(b, res.Rh, mesh.f2e, npf, nfe, ncu, common.meshsizes.nf);
 
     // assemble RHS vector b from res.Rh using the SECOND elements in mesh.f2e
-    PutElementFaceNodes(b, res.Rh, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.nf0);    
+    PutElementFaceNodes(b, res.Rh, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.meshsizes.nf0);    
 
 }
 

@@ -18,7 +18,7 @@ void CopyFieldToHost(std::vector<dstype>& host, dstype* data, Int n, Int backend
 
 void CopyVolumeCoordinatesToHost(std::vector<dstype>& xdg_host, CDiscretization& disc)
 {
-    const Int n = disc.common.grid.npe * disc.common.components.ncx * disc.common.ne;
+    const Int n = disc.common.grid.npe * disc.common.components.ncx * disc.common.meshsizes.ne;
     xdg_host.resize(static_cast<size_t>(n));
     TemplateCopytoHost(xdg_host.data(), disc.sol.xdg, n, disc.common.backend);
 }
@@ -107,7 +107,7 @@ void BuildWallModelSamplingData(
     FindContainingElements(
         wm.e1, wm.xi1, wm.x1, wm.faces, xdg_host.data(),
         disc.mesh, master_host, opts, wm.nd, wm.ncx, wm.npe,
-        disc.common.ne, wm.ngf, disc.common.grid.elemtype, disc.common.grid.porder);
+        disc.common.meshsizes.ne, wm.ngf, disc.common.grid.elemtype, disc.common.grid.porder);
 
     EvaluateVolumeBasisBatch(
         wm.shap1, wm.xi1, master_host, wm.nd, disc.common.grid.elemtype,

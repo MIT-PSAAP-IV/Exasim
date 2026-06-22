@@ -220,7 +220,7 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
     Int npe = common.grid.npe; // number of nodes on master element
     Int npf = common.grid.npf; // number of nodes on master face           
     Int ngf = common.grid.ngf; // number of gauss poInts on master face              
-    Int nfe = common.nfe; // number of faces in each element
+    Int nfe = common.meshsizes.nfe; // number of faces in each element
 
     Int e1 = common.eblks[3*jth]-1;
     Int e2 = common.eblks[3*jth+1];            
@@ -347,9 +347,9 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
     assembleMatrixF(&res.F[npe*npf*nfe*ncu*ncu*e1], Ftmp, mesh.perm, npe, npf, nfe, ne*ncu*ncu);
 
     // impose boundary conditions
-    for (int ibc=0; ibc<common.maxnbc; ibc++)
+    for (int ibc=0; ibc<common.meshsizes.maxnbc; ibc++)
     {
-      int n = ibc + common.maxnbc*jth;
+      int n = ibc + common.meshsizes.maxnbc*jth;
       int start = common.nboufaces[n];
       int nfaces = common.nboufaces[n + 1] - start;
       if (nfaces>0) {        
@@ -403,7 +403,7 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
                              ngb, common.stgparams.stgNmode, nd, ncu, nc, ncw);
         } else {     
           if (common.couplingparams.ncuext > 0 && sol.szuext > 0 && (ibc+1 == common.couplingparams.FextCall)) {
-            ArrayExtract(res.K, sol.uext, ngf, common.nextfaces[common.nbe1], common.couplingparams.ncuext, 0, ngf, common.nextfaces[jth], common.nextfaces[jth+1], 0, common.couplingparams.ncuext);  
+            ArrayExtract(res.K, sol.uext, ngf, common.nextfaces[common.meshsizes.nbe1], common.couplingparams.ncuext, 0, ngf, common.nextfaces[jth], common.nextfaces[jth+1], 0, common.couplingparams.ncuext);  
             EXASIM_DRIVER_CALL(FextDriver, fhb, fhb_uq, fhb_w, fhb_uh, xgb, ugb, ogb, wgb, uhb, nlb, res.K, 
                  mesh, master, app, sol, tmp, common, ngb, 1, backend);                       
           }          
@@ -462,9 +462,9 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
     assembleMatrixH(&res.H[npf*nfe*npf*nfe*ncu*ncu*e1], Ftmp, mesh.perm, npe, npf, nfe, ne*ncu*ncu);
 
     // impose interface conditions
-    for (int ibc=0; ibc<common.maxnbc; ibc++)
+    for (int ibc=0; ibc<common.meshsizes.maxnbc; ibc++)
     {
-      int n = ibc + common.maxnbc*jth;
+      int n = ibc + common.meshsizes.maxnbc*jth;
       int start = common.nboufaces[n];
       int nfaces = common.nboufaces[n + 1] - start;
       if ((nfaces>0) && (common.eblks[3*jth+2]==-1) && (common.couplingparams.coupledboundarycondition == ibc+1) && (common.couplingparams.coupledcondition>0)) {        
@@ -579,7 +579,7 @@ inline void uEquationSchurBlock(solstruct &sol, resstruct &res, appstruct &app, 
     Int nd = common.grid.nd;     // spatial dimension    
     Int npe = common.grid.npe; // number of nodes on master element
     Int npf = common.grid.npf; // number of nodes on master face           
-    Int nfe = common.nfe; // number of faces in each element
+    Int nfe = common.meshsizes.nfe; // number of faces in each element
 
     Int e1 = common.eblks[3*jth]-1;
     Int e2 = common.eblks[3*jth+1];            
@@ -644,9 +644,9 @@ inline void uEquationSchurBlock(solstruct &sol, resstruct &res, appstruct &app, 
       } 
       else if (nd == 2) {
         dstype *Cx = &res.C[npe*npe*e1]; // fix bug here
-        dstype *Cy = &res.C[npe*npe*common.ne + npe*npe*e1]; // fix bug here
+        dstype *Cy = &res.C[npe*npe*common.meshsizes.ne + npe*npe*e1]; // fix bug here
         dstype *Ex = &res.E[npe*npf*nfe*e1]; // fix bug here
-        dstype *Ey = &res.E[npe*npf*nfe*common.ne + npe*npf*nfe*e1]; // fix bug here
+        dstype *Ey = &res.E[npe*npf*nfe*common.meshsizes.ne + npe*npf*nfe*e1]; // fix bug here
         dstype *Bx = res.B; // npe * npe * ne * ncu * ncu
         dstype *By = &res.B[npe*npe*ncu*ncu*ne]; // npe * npe * ne * ncu * ncu
         dstype *Gx = res.G; // npf*nfe*npe*ne*ncu*ncu
@@ -666,11 +666,11 @@ inline void uEquationSchurBlock(solstruct &sol, resstruct &res, appstruct &app, 
       }
       else if (nd == 3) {
         dstype *Cx = &res.C[npe*npe*e1]; // fixed bug here
-        dstype *Cy = &res.C[npe*npe*common.ne + npe*npe*e1]; // fixed bug here
-        dstype *Cz = &res.C[npe*npe*common.ne*2 + npe*npe*e1]; // fixed bug here
+        dstype *Cy = &res.C[npe*npe*common.meshsizes.ne + npe*npe*e1]; // fixed bug here
+        dstype *Cz = &res.C[npe*npe*common.meshsizes.ne*2 + npe*npe*e1]; // fixed bug here
         dstype *Ex = &res.E[npe*npf*nfe*e1]; // fixed bug here
-        dstype *Ey = &res.E[npe*npf*nfe*common.ne + npe*npf*nfe*e1]; // fixed bug here
-        dstype *Ez = &res.E[npe*npf*nfe*common.ne*2 + npe*npf*nfe*e1]; // fixed bug here
+        dstype *Ey = &res.E[npe*npf*nfe*common.meshsizes.ne + npe*npf*nfe*e1]; // fixed bug here
+        dstype *Ez = &res.E[npe*npf*nfe*common.meshsizes.ne*2 + npe*npf*nfe*e1]; // fixed bug here
         dstype *Bx = res.B;
         dstype *By = &res.B[npe*npe*ncu*ncu*ne];
         dstype *Bz = &res.B[npe*npe*ncu*ncu*ne*2];
@@ -739,9 +739,9 @@ inline void uEquationSchurBlock(solstruct &sol, resstruct &res, appstruct &app, 
         } 
         else if (nd == 2) {
           dstype *Cx = &res.C[npe*npe*e1]; // fix bug here
-          dstype *Cy = &res.C[npe*npe*common.ne + npe*npe*e1]; // fix bug here
+          dstype *Cy = &res.C[npe*npe*common.meshsizes.ne + npe*npe*e1]; // fix bug here
           dstype *Ex = &res.E[npe*npf*nfe*e1]; // fix bug here
-          dstype *Ey = &res.E[npe*npf*nfe*common.ne + npe*npf*nfe*e1]; // fix bug here
+          dstype *Ey = &res.E[npe*npf*nfe*common.meshsizes.ne + npe*npf*nfe*e1]; // fix bug here
           dstype *Gx = res.Gi; // npf*npe*ne*ncu12*ncu
           dstype *Gy = &res.Gi[npf*npe*ncu12*ncu*ne]; // npf*npe*ne*ncu12*ncu
           
@@ -753,11 +753,11 @@ inline void uEquationSchurBlock(solstruct &sol, resstruct &res, appstruct &app, 
         }
         else if (nd == 3) {
           dstype *Cx = &res.C[npe*npe*e1]; // fixed bug here
-          dstype *Cy = &res.C[npe*npe*common.ne + npe*npe*e1]; // fixed bug here
-          dstype *Cz = &res.C[npe*npe*common.ne*2 + npe*npe*e1]; // fixed bug here
+          dstype *Cy = &res.C[npe*npe*common.meshsizes.ne + npe*npe*e1]; // fixed bug here
+          dstype *Cz = &res.C[npe*npe*common.meshsizes.ne*2 + npe*npe*e1]; // fixed bug here
           dstype *Ex = &res.E[npe*npf*nfe*e1]; // fixed bug here
-          dstype *Ey = &res.E[npe*npf*nfe*common.ne + npe*npf*nfe*e1]; // fixed bug here
-          dstype *Ez = &res.E[npe*npf*nfe*common.ne*2 + npe*npf*nfe*e1]; // fixed bug here
+          dstype *Ey = &res.E[npe*npf*nfe*common.meshsizes.ne + npe*npf*nfe*e1]; // fixed bug here
+          dstype *Ez = &res.E[npe*npf*nfe*common.meshsizes.ne*2 + npe*npf*nfe*e1]; // fixed bug here
           dstype *Gx = res.Gi;
           dstype *Gy = &res.Gi[npf*npe*ncu12*ncu*ne];
           dstype *Gz = &res.Gi[npf*npe*ncu12*ncu*ne*2];
@@ -796,7 +796,7 @@ inline void uEquationHDG(solstruct &sol, resstruct &res, appstruct &app, masters
         meshstruct &mesh, tempstruct &tmp, commonstruct &common,         
         cublasHandle_t handle, Int backend)
 {    
-    for (Int j=0; j<common.nbe; j++) {         
+    for (Int j=0; j<common.meshsizes.nbe; j++) {         
         uEquationElemBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
         uEquationElemFaceBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
         uEquationSchurBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
@@ -910,7 +910,7 @@ inline void RuEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &a
     Int npe = common.grid.npe; // number of nodes on master element
     Int npf = common.grid.npf; // number of nodes on master face           
     Int ngf = common.grid.ngf; // number of gauss poInts on master face              
-    Int nfe = common.nfe; // number of faces in each element
+    Int nfe = common.meshsizes.nfe; // number of faces in each element
 
     Int e1 = common.eblks[3*jth]-1;
     Int e2 = common.eblks[3*jth+1];            
@@ -978,9 +978,9 @@ inline void RuEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &a
     assembleRu(&res.Ru[npe*ncu*e1], Rutmp, mesh.perm, npe, npf*nfe, ne*ncu);
 
     // impose boundary conditions
-    for (int ibc=0; ibc<common.maxnbc; ibc++)
+    for (int ibc=0; ibc<common.meshsizes.maxnbc; ibc++)
     {
-      int n = ibc + common.maxnbc*jth;
+      int n = ibc + common.meshsizes.maxnbc*jth;
       int start = common.nboufaces[n];
       int nfaces = common.nboufaces[n + 1] - start;
       if (nfaces>0) {
@@ -1020,7 +1020,7 @@ inline void RuEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &a
                                 app.stgdata, app.stgparam, common.timestate.time, ngb, common.stgparams.stgNmode, nd);
         else {
           if (common.couplingparams.ncuext > 0 && sol.szuext > 0  && (ibc+1 == common.couplingparams.FextCall)) {
-            ArrayExtract(Rb, sol.uext, ngf, common.nextfaces[common.nbe1], common.couplingparams.ncuext, 0, ngf, common.nextfaces[jth], common.nextfaces[jth+1], 0, common.couplingparams.ncuext);  
+            ArrayExtract(Rb, sol.uext, ngf, common.nextfaces[common.meshsizes.nbe1], common.couplingparams.ncuext, 0, ngf, common.nextfaces[jth], common.nextfaces[jth+1], 0, common.couplingparams.ncuext);  
             EXASIM_DRIVER_CALL(FextDriver, fhb, xgb, ugb, ogb, wgb, uhb, nlb, Rb, mesh, master, app, sol, tmp, common, ngb, 1, backend);    
           }                       
           else
@@ -1048,9 +1048,9 @@ inline void RuEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &a
     ArrayCopy(&res.Rh[npf*nfe*ncu*e1], tmp.tempn, npf*nfe*ncu*ne);
     
     // impose interface conditions
-    for (int ibc=0; ibc<common.maxnbc; ibc++)
+    for (int ibc=0; ibc<common.meshsizes.maxnbc; ibc++)
     {
-      int n = ibc + common.maxnbc*jth;
+      int n = ibc + common.meshsizes.maxnbc*jth;
       int start = common.nboufaces[n];
       int nfaces = common.nboufaces[n + 1] - start;
       if ((nfaces>0) && (common.eblks[3*jth+2]==-1) && (common.couplingparams.coupledboundarycondition == ibc+1) && (common.couplingparams.coupledcondition>0))
@@ -1107,7 +1107,7 @@ inline void ResidualHDG(solstruct &sol, resstruct &res, appstruct &app, masterst
         meshstruct &mesh, tempstruct &tmp, commonstruct &common,         
         cublasHandle_t handle, Int backend)
 {    
-    for (Int j=0; j<common.nbe; j++) {        
+    for (Int j=0; j<common.meshsizes.nbe; j++) {        
         RuEquationElemBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
         RuEquationElemFaceBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);        
     }                     

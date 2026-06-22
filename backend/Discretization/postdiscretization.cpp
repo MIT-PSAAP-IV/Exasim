@@ -89,17 +89,17 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
     if ((common.components.ncq>0) && (common.timeparams.wave==0) && (common.spatialScheme == 0)) evalQSer(backend); 
     
     if (common.spatialScheme > 0)  { // HDG
-      Int neb = common.neb; // maximum number of elements per block
+      Int neb = common.meshsizes.neb; // maximum number of elements per block
       Int npe = common.grid.npe; // number of nodes on master element
       Int npf = common.grid.npf; // number of nodes on master face
-      Int nfe = common.nfe; // number of faces on master element
-      Int ne = common.ne; // number of elements in this subdomain
-      Int nf = common.nf; // number of faces in this subdomain
+      Int nfe = common.meshsizes.nfe; // number of faces on master element
+      Int ne = common.meshsizes.ne; // number of elements in this subdomain
+      Int nf = common.meshsizes.nf; // number of faces in this subdomain
       Int ncx = common.components.ncx; // number of compoments of (xdg)
       Int nc = common.components.nc; // number of compoments of (u, q)
       Int ncu = common.components.ncu; // number of compoments of (u)
       Int ncq = common.components.ncq; // number of compoments of (q)      
-      Int nbe = common.nbe; // number of blocks for elements
+      Int nbe = common.meshsizes.nbe; // number of blocks for elements
       int ncu12 = common.szinterfacefluxmap;
       
       if (common.mpiRank==0) 
@@ -111,7 +111,7 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
         if (mesh.bf[i] > 0) nboufaces++;
         maxbc = max(maxbc, mesh.bf[i]);
       }
-      common.maxnbc = maxbc;      
+      common.meshsizes.maxnbc = maxbc;      
                                       
       // compute uhat by getting u on faces
       if (!common.read_uh){
@@ -202,8 +202,8 @@ void CDiscretization::compMassInverse(Int backend) {
 void CDiscretization::hdgAssembleLinearSystem(dstype *b, Int backend)
 {
     int n = common.grid.npe*common.components.ncu;
-    int m = common.grid.npf*common.nfe*common.components.ncu;
-    int ne = common.ne1;
+    int m = common.grid.npf*common.meshsizes.nfe*common.components.ncu;
+    int ne = common.meshsizes.ne1;
 
     ArraySetValue(res.H, zero, m*m*ne);
     ArraySetValue(res.Rh, zero, m*ne);
@@ -230,27 +230,27 @@ void CDiscretization::hdgAssembleLinearSystem(dstype *b, Int backend)
         
 //     if (common.solverparams.preconditioner==0) {
 //       // assemble block Jacobi matrix from res.H using the FIRST elements in mesh.f2e
-//       BlockJacobi(res.K, res.H, mesh.f2e, npf, nfe, ncu, common.nf);
+//       BlockJacobi(res.K, res.H, mesh.f2e, npf, nfe, ncu, common.meshsizes.nf);
 // 
 //       // assemble block Jacobi matrix from res.H using the SECOND elements in mesh.f2e
-//       BlockJacobi(res.K, res.H, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.nf0);    
+//       BlockJacobi(res.K, res.H, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.meshsizes.nf0);    
 // 
 //       // inverse block Jacobi matrix
-//       //Inverse(handle, res.K, tmp.tempn, res.ipiv, ncf, common.nf, backend); // fix bug here
-//       for (Int j=0; j<common.nbf; j++) {      
+//       //Inverse(handle, res.K, tmp.tempn, res.ipiv, ncf, common.meshsizes.nf, backend); // fix bug here
+//       for (Int j=0; j<common.meshsizes.nbf; j++) {      
 //         Int f1 = common.fblks[3*j]-1;
 //         Int f2 = common.fblks[3*j+1];                  
 //         Inverse(common.cublasHandle, &res.K[ncf*ncf*f1], tmp.tempn, res.ipiv, ncf, f2-f1, backend); 
 //       }          
 //     }
 //     else if (common.solverparams.preconditioner==1) { 
-//       ArrayCopy(res.K, res.H, ncf*nfe*ncf*nfe*common.ne); 
-//       ElementalAdditiveSchwarz(res.K, res.H, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.nf);       
+//       ArrayCopy(res.K, res.H, ncf*nfe*ncf*nfe*common.meshsizes.ne); 
+//       ElementalAdditiveSchwarz(res.K, res.H, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.meshsizes.nf);       
 // 
-//       for (Int j=0; j<common.nbe; j++) {              
+//       for (Int j=0; j<common.meshsizes.nbe; j++) {              
 //         Int e1 = common.eblks[3*j]-1;
 //         Int e2 = common.eblks[3*j+1];          
-//         Inverse(common.cublasHandle, &res.K[ncf*common.nfe*ncf*common.nfe*e1], tmp.tempn, res.ipiv, ncf*nfe, e2-e1, backend); 
+//         Inverse(common.cublasHandle, &res.K[ncf*common.meshsizes.nfe*ncf*common.meshsizes.nfe*e1], tmp.tempn, res.ipiv, ncf*nfe, e2-e1, backend); 
 //       }          
 //     }
 //     else if (common.solverparams.preconditioner==2) { // Block ILU0
@@ -294,8 +294,8 @@ void CDiscretization::hdgAssembleLinearSystem(dstype *b, Int backend)
 void CDiscretization::hdgAssembleResidual(dstype *b, Int backend)
 {
     int n = common.grid.npe*common.components.ncu;
-    int m = common.grid.npf*common.nfe*common.components.ncu;
-    int ne = common.ne1;
+    int m = common.grid.npf*common.meshsizes.nfe*common.components.ncu;
+    int ne = common.meshsizes.ne1;
     ArraySetValue(res.Rh, zero, m*ne);
     ArraySetValue(res.Ru, zero, n*ne);
 
@@ -320,8 +320,8 @@ void CDiscretization::evalResidual(Int backend)
 void CDiscretization::evalResidual(dstype* Ru, dstype* u, Int backend)
 { 
     // insert u into udg
-    ArrayInsert(sol.udg, u, common.grid.npe, common.components.nc, common.ne, 0, common.grid.npe, 
-            0, common.components.ncu, 0, common.ne1);  
+    ArrayInsert(sol.udg, u, common.grid.npe, common.components.nc, common.meshsizes.ne, 0, common.grid.npe, 
+            0, common.components.ncu, 0, common.meshsizes.ne1);  
 
     // compute the residual vector R(u)
     Residual<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
@@ -349,15 +349,15 @@ void CDiscretization::evalQ(Int backend)
 void CDiscretization::evalQSer(Int backend)
 {
     // compute the flux q    
-    GetUhat(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 0, common.nbf, backend);        
-    GetQ<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 0, common.nbe, 0, common.nbf, backend);        
+    GetUhat(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 0, common.meshsizes.nbf, backend);        
+    GetQ<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 0, common.meshsizes.nbe, 0, common.meshsizes.nbf, backend);        
 }
 
 void CDiscretization::evalQ(dstype* q, dstype* u, Int backend)
 {
     // insert u into udg
-    ArrayInsert(sol.udg, u, common.grid.npe, common.components.nc, common.ne, 0, common.grid.npe, 
-            0, common.components.ncu, 0, common.ne1);
+    ArrayInsert(sol.udg, u, common.grid.npe, common.components.nc, common.meshsizes.ne, 0, common.grid.npe, 
+            0, common.components.ncu, 0, common.meshsizes.ne1);
 
     if (common.spatialScheme == 0) {
         // LDG computes q through the model flux kernels.
@@ -372,8 +372,8 @@ void CDiscretization::evalQ(dstype* q, dstype* u, Int backend)
     }
 
     // get q from udg
-    ArrayExtract(q, sol.udg, common.grid.npe, common.components.nc, common.ne, 0, common.grid.npe, 
-            common.components.ncu, common.components.ncu+common.components.ncq, 0, common.ne1);
+    ArrayExtract(q, sol.udg, common.grid.npe, common.components.nc, common.meshsizes.ne, 0, common.grid.npe, 
+            common.components.ncu, common.components.ncu+common.components.ncq, 0, common.meshsizes.ne1);
 }
 
 // matrix-vector product
@@ -396,8 +396,8 @@ void CDiscretization::evalMatVec(dstype* Jv, dstype* v, dstype* u, dstype* Ru, I
 void CDiscretization::updateUDG(dstype* u, Int backend)
 {
     // insert u into udg
-    ArrayInsert(sol.udg, u, common.grid.npe, common.components.nc, common.ne, 0, common.grid.npe, 
-            0, common.components.ncu, 0, common.ne1);
+    ArrayInsert(sol.udg, u, common.grid.npe, common.components.nc, common.meshsizes.ne, 0, common.grid.npe, 
+            0, common.components.ncu, 0, common.meshsizes.ne1);
 
     if (common.components.ncq>0)
         // compute the flux q
@@ -407,15 +407,15 @@ void CDiscretization::updateUDG(dstype* u, Int backend)
 void CDiscretization::updateU(dstype* u, Int backend)
 {
     // insert u into udg
-    ArrayInsert(sol.udg, u, common.grid.npe, common.components.nc, common.ne, 0, common.grid.npe, 
-            0, common.components.ncu, 0, common.ne1);
+    ArrayInsert(sol.udg, u, common.grid.npe, common.components.nc, common.meshsizes.ne, 0, common.grid.npe, 
+            0, common.components.ncu, 0, common.meshsizes.ne1);
 }
 
 void CDiscretization::evalAVfield(dstype* avField, dstype* u, Int backend)
 {
     // insert u into udg
-    ArrayInsert(sol.udg, u, common.grid.npe, common.components.nc, common.ne, 0, common.grid.npe, 
-            0, common.components.ncu, 0, common.ne);
+    ArrayInsert(sol.udg, u, common.grid.npe, common.components.nc, common.meshsizes.ne, 0, common.grid.npe, 
+            0, common.components.ncu, 0, common.meshsizes.ne);
     
     // compute the flux q
     if (common.components.ncq>0)        
@@ -557,16 +557,16 @@ void CDiscretization::DG2CG(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, In
 {
     for (Int i=0; i<ncu; i++) {
         // extract the ith component of udg and store it in utm
-        ArrayExtract(utm, udg, common.grid.npe, ncudg, common.ne, 0, common.grid.npe, i, i+1, 0, common.ne);
+        ArrayExtract(utm, udg, common.grid.npe, ncudg, common.meshsizes.ne, 0, common.grid.npe, i, i+1, 0, common.meshsizes.ne);
         
         // make it a CG field and store in res.Ru
         ArrayDG2CG(res.Ru, utm, mesh.cgent2dgent, mesh.rowent2elem, common.sizes.ndofucg);
         
         // convert CG field to DG field
-        GetArrayAtIndex(utm, res.Ru, mesh.cgelcon, common.grid.npe*common.ne);
+        GetArrayAtIndex(utm, res.Ru, mesh.cgelcon, common.grid.npe*common.meshsizes.ne);
         
         // insert utm into ucg
-        ArrayInsert(ucg, utm, common.grid.npe, ncucg, common.ne, 0, common.grid.npe, i, i+1, 0, common.ne);
+        ArrayInsert(ucg, utm, common.grid.npe, ncucg, common.meshsizes.ne, 0, common.grid.npe, i, i+1, 0, common.meshsizes.ne);
     }
 }
 
@@ -574,16 +574,16 @@ void CDiscretization::DG2CG2(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, I
 {
     for (Int i=0; i<ncu; i++) {
         // extract the ith component of udg and store it in utm
-        ArrayExtract(utm, udg, common.grid.npe, ncudg, common.ne, 0, common.grid.npe, i, i+1, 0, common.ne);
+        ArrayExtract(utm, udg, common.grid.npe, ncudg, common.meshsizes.ne, 0, common.grid.npe, i, i+1, 0, common.meshsizes.ne);
 
         // make it a CG field and store in res.Ru
         ArrayDG2CG2(res.Ru, utm, mesh.colent2elem, mesh.rowent2elem, common.sizes.ndofucg, common.grid.npe);
         
         // convert CG field to DG field
-        GetArrayAtIndex(utm, res.Ru, mesh.cgelcon, common.grid.npe*common.ne);
+        GetArrayAtIndex(utm, res.Ru, mesh.cgelcon, common.grid.npe*common.meshsizes.ne);
         
         // insert utm into ucg
-        ArrayInsert(ucg, utm, common.grid.npe, ncucg, common.ne, 0, common.grid.npe, i, i+1, 0, common.ne);
+        ArrayInsert(ucg, utm, common.grid.npe, ncucg, common.meshsizes.ne, 0, common.grid.npe, i, i+1, 0, common.meshsizes.ne);
     }
 }
 
@@ -591,7 +591,7 @@ void CDiscretization::DG2CG3(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, I
 {
     for (Int i=0; i<ncu; i++) {
         // extract the ith component of udg and store it in utm
-        ArrayExtract(utm, udg, common.grid.npe, ncudg, common.ne, 0, common.grid.npe, i, i+1, 0, common.ne);
+        ArrayExtract(utm, udg, common.grid.npe, ncudg, common.meshsizes.ne, 0, common.grid.npe, i, i+1, 0, common.meshsizes.ne);
         
         // make it a CG field and store in res.Ru
         ArrayDG2CG(&ucg[i*common.sizes.ndofucg], utm, mesh.cgent2dgent, mesh.rowent2elem, common.sizes.ndofucg);
@@ -600,11 +600,11 @@ void CDiscretization::DG2CG3(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, I
 
 Int CDiscretization::getFacesOnInterface(Int **faces, const Int boundarycondition)
 {
-    int nintfaces = getinterfacefaces(mesh.bf, common.nfe, common.ne1, boundarycondition);
+    int nintfaces = getinterfacefaces(mesh.bf, common.meshsizes.nfe, common.meshsizes.ne1, boundarycondition);
     int *intfaces = nullptr; 
     TemplateMalloc(&intfaces, nintfaces, 0);
 
-    getinterfacefaces(intfaces, mesh.bf, common.nfe, common.ne1, boundarycondition, nintfaces);
+    getinterfacefaces(intfaces, mesh.bf, common.meshsizes.nfe, common.meshsizes.ne1, boundarycondition, nintfaces);
 
     TemplateMalloc(faces, nintfaces, common.backend);
     TemplateCopytoDevice(*faces, intfaces, nintfaces, common.backend);                           
@@ -617,31 +617,31 @@ Int CDiscretization::getFacesOnInterface(Int **faces, const Int boundaryconditio
 void CDiscretization::getDGNodesOnInterface(dstype* xdgint, const Int* faces, const Int nfaces)
 {
     // npf * nfaces * ncx
-    GetBoudaryNodes(xdgint, sol.xdg, faces, mesh.perm, common.nfe, 
+    GetBoudaryNodes(xdgint, sol.xdg, faces, mesh.perm, common.meshsizes.nfe, 
                   common.grid.npf, common.grid.npe, common.components.ncx, common.components.ncx, nfaces);
 }
 
 void CDiscretization::getUDGOnInterface(dstype* udgint, const Int* faces, const Int nfaces)
 {
-    GetBoudaryNodes(udgint, sol.udg, faces, mesh.perm, common.nfe, 
+    GetBoudaryNodes(udgint, sol.udg, faces, mesh.perm, common.meshsizes.nfe, 
                   common.grid.npf, common.grid.npe, common.components.nc, common.components.nc, nfaces);
 }
 
 void CDiscretization::getWDGOnInterface(dstype* wdgint, const Int* faces, const Int nfaces)
 {
-    GetBoudaryNodes(wdgint, sol.wdg, faces, mesh.perm, common.nfe, 
+    GetBoudaryNodes(wdgint, sol.wdg, faces, mesh.perm, common.meshsizes.nfe, 
                   common.grid.npf, common.grid.npe, common.components.ncw, common.components.ncw, nfaces);
 }
 
 void CDiscretization::getODGOnInterface(dstype* odgint, const Int* faces, const Int nfaces)
 {
-    GetBoudaryNodes(odgint, sol.odg, faces, mesh.perm, common.nfe, 
+    GetBoudaryNodes(odgint, sol.odg, faces, mesh.perm, common.meshsizes.nfe, 
                   common.grid.npf, common.grid.npe, common.components.nco, common.components.nco, nfaces);
 }
 
 void CDiscretization::getUHATOnInterface(dstype* uhint, const Int* faces, const Int nfaces)
 {
-    GetBoudaryNodes(uhint, sol.uh, faces, mesh.elemcon, common.nfe, 
+    GetBoudaryNodes(uhint, sol.uh, faces, mesh.elemcon, common.meshsizes.nfe, 
                   common.grid.npf, common.components.ncu, nfaces);
 }
 
@@ -722,7 +722,7 @@ void CDiscretization::getInterfaceFluxesAtGaussPoints(dstype *flux, dstype* xdgg
 void CDiscretization::computeAverageSolutionsOnBoundary() 
 {   
     if ( common.outputparams.saveSolBouFreq>0 ) {
-        for (Int j=0; j<common.nbf; j++) {
+        for (Int j=0; j<common.meshsizes.nbf; j++) {
             Int ib = common.fblks[3*j+2];            
             if (ib == common.qoiparams.ibs) {     
                 Int f1 = common.fblks[3*j]-1;

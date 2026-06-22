@@ -55,8 +55,8 @@
 void CSolution::InitSolution(Int backend) 
 {            
     if (disc.common.spatialScheme==0) {
-        ArrayExtract(solv.sys.u, disc.sol.udg, disc.common.grid.npe, disc.common.components.nc, disc.common.ne1, 
-              0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.ne1);                                                  
+        ArrayExtract(solv.sys.u, disc.sol.udg, disc.common.grid.npe, disc.common.components.nc, disc.common.meshsizes.ne1, 
+              0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.meshsizes.ne1);                                                  
     }
     else if (disc.common.spatialScheme==1) {      
         ArrayCopy(solv.sys.u, disc.sol.uh, disc.common.sizes.ndofuhat);
@@ -104,7 +104,7 @@ void CSolution::SaveSolutions(Int backend)
     if (save == true) {        
         if (disc.common.outputparams.saveSolOpt==0) {
             if (disc.common.spatialScheme > 0) {
-                ArrayExtract(disc.res.Rq, disc.sol.udg, disc.common.grid.npe, disc.common.components.nc, disc.common.ne1, 0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.ne1);                                                  
+                ArrayExtract(disc.res.Rq, disc.sol.udg, disc.common.grid.npe, disc.common.components.nc, disc.common.meshsizes.ne1, 0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.meshsizes.ne1);                                                  
                 writearray(outsol, disc.res.Rq, disc.common.sizes.ndof1, backend);    
             }
             else
@@ -208,7 +208,7 @@ void CSolution::ReadSolutions(Int backend)
             //     readarrayfromfile(filename, &disc.res.Rq, disc.common.sizes.ndof1, backend);
             //     // insert u into udg
             //     ArrayInsert(disc.sol.udg, disc.res.Rq, disc.common.grid.npe, disc.common.components.nc, 
-            //      disc.common.ne, 0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.ne1);  
+            //      disc.common.meshsizes.ne, 0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.meshsizes.ne1);  
             // }
             // else
                 readarrayfromfile(filename, &disc.sol.udg, disc.common.sizes.ndofudg1, backend);        
@@ -232,7 +232,7 @@ void CSolution::ReadSolutions(Int backend)
             readarrayfromfile(filename, &solv.sys.u, disc.common.sizes.ndof1, backend);
             // insert u into udg
             ArrayInsert(disc.sol.udg, solv.sys.u, disc.common.grid.npe, disc.common.components.nc, 
-             disc.common.ne, 0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.ne1);              
+             disc.common.meshsizes.ne, 0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.meshsizes.ne1);              
         }
         else
             readarrayfromfile(filename, &disc.sol.udg, disc.common.sizes.ndofudg1, backend, 3);      
@@ -263,14 +263,14 @@ void CSolution::GetSolutions(Int step, Int backend)
         if (disc.common.spatialScheme > 0) {
             readarrayfromfile(filename, &disc.res.Rq, disc.common.sizes.ndof1, backend, skip);
             ArrayInsert(disc.sol.udg, disc.res.Rq, disc.common.grid.npe, disc.common.components.nc,
-                        disc.common.ne, 0, disc.common.grid.npe, 0, disc.common.components.ncu,
-                        0, disc.common.ne1);
+                        disc.common.meshsizes.ne, 0, disc.common.grid.npe, 0, disc.common.components.ncu,
+                        0, disc.common.meshsizes.ne1);
         }
         else {
             readarrayfromfile(filename, &solv.sys.u, disc.common.sizes.ndof1, backend, skip);
             ArrayInsert(disc.sol.udg, solv.sys.u, disc.common.grid.npe, disc.common.components.nc,
-                        disc.common.ne, 0, disc.common.grid.npe, 0, disc.common.components.ncu,
-                        0, disc.common.ne1);
+                        disc.common.meshsizes.ne, 0, disc.common.grid.npe, 0, disc.common.components.ncu,
+                        0, disc.common.meshsizes.ne1);
         }
     }
     else {
@@ -322,7 +322,7 @@ void CSolution::SaveParaview(Int backend, std::string fname_modifier, bool force
        int nvec = disc.common.qoiparams.nvec;  
        int nten = disc.common.qoiparams.nten;     
        int npe  = disc.common.grid.npe;     
-       int ne   = disc.common.ne1;      
+       int ne   = disc.common.meshsizes.ne1;      
        int ndg  = npe * ne;
        int ncg  = vis.npoints;
     
@@ -438,7 +438,7 @@ void CSolution::SaveSolutionsOnBoundary(Int backend)
     if ( disc.common.outputparams.saveSolBouFreq>0 ) {
         if (((disc.common.timestate.currentstep+1) % disc.common.outputparams.saveSolBouFreq) == 0)             
         {        
-            for (Int j=0; j<disc.common.nbf; j++) {
+            for (Int j=0; j<disc.common.meshsizes.nbf; j++) {
                 Int f1 = disc.common.fblks[3*j]-1;
                 Int f2 = disc.common.fblks[3*j+1];    
                 Int ib = disc.common.fblks[3*j+2];            
@@ -470,7 +470,7 @@ void CSolution::SaveSolutionsOnBoundary(Int backend)
 void CSolution::SaveNodesOnBoundary(Int backend) 
 {   
     if ( disc.common.outputparams.saveSolBouFreq>0 ) {
-        for (Int j=0; j<disc.common.nbf; j++) {
+        for (Int j=0; j<disc.common.meshsizes.nbf; j++) {
             Int f1 = disc.common.fblks[3*j]-1;
             Int f2 = disc.common.fblks[3*j+1];    
             Int ib = disc.common.fblks[3*j+2];            
@@ -512,7 +512,7 @@ void CSolution::SaveNodesOnBoundary(Int backend)
 //     if ( disc.common.outputparams.saveSolBouFreq>0 ) {
 //         if (((disc.common.timestate.currentstep+1) % disc.common.outputparams.saveSolBouFreq) == 0)             
 //         {        
-//             for (Int j=0; j<disc.common.nbf; j++) {
+//             for (Int j=0; j<disc.common.meshsizes.nbf; j++) {
 //                 Int f1 = disc.common.fblks[3*j]-1;
 //                 Int f2 = disc.common.fblks[3*j+1];    
 //                 Int ib = disc.common.fblks[3*j+2];            
@@ -533,7 +533,7 @@ void CSolution::SaveNodesOnBoundary(Int backend)
 // void CSolution::SaveNodesOnBoundary(Int backend) 
 // {   
 //     if ( disc.common.outputparams.saveSolBouFreq>0 ) {
-//         for (Int j=0; j<disc.common.nbf; j++) {
+//         for (Int j=0; j<disc.common.meshsizes.nbf; j++) {
 //             Int f1 = disc.common.fblks[3*j]-1;
 //             Int f2 = disc.common.fblks[3*j+1];    
 //             Int ib = disc.common.fblks[3*j+2];            

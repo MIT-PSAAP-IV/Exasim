@@ -86,7 +86,7 @@ void OutputDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int nce = common.components.nce;
     Int nd = common.grid.nd;
     Int npe = common.grid.npe;
-    Int ne = common.ne;
+    Int ne = common.meshsizes.ne;
     Int numPoints = npe * ne;
     dstype time = common.timestate.time;
 
@@ -108,7 +108,7 @@ void MonitorDriver(dstype* f, Int nc_sol, const dstype* xg,
     Int ncm = common.components.ncm;
     Int nd = common.grid.nd;
     Int npe = common.grid.npe;
-    Int ne = common.ne;
+    Int ne = common.meshsizes.ne;
     Int numPoints = npe * ne;
     dstype time = common.timestate.time;
 
@@ -130,7 +130,7 @@ void AvfieldDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int ncx = common.components.ncx;
     Int nd = common.grid.nd;
     Int npe = common.grid.npe;
-    Int ne = common.ne;
+    Int ne = common.meshsizes.ne;
     Int numPoints = npe * ne;
     dstype time = common.timestate.time;
 

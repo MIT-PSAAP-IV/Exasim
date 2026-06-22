@@ -159,11 +159,11 @@ inline void AvfieldDriver(dstype* f, const dstype* xg, const dstype* udg,
                           appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
                           commonstruct& common, Int /*backend*/)
 {
-    Int numPoints = common.grid.npe * common.ne;
+    Int numPoints = common.grid.npe * common.meshsizes.ne;
     avfield_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                       common.timestate.time, common.modelnumber, numPoints,
                       common.components.nc, common.components.ncu, common.grid.nd, common.components.ncx,
-                      common.components.nco, common.components.ncw, common.components.nce, common.grid.npe, common.ne);
+                      common.components.nco, common.components.ncw, common.components.nce, common.grid.npe, common.meshsizes.ne);
 }
 
 template <class M>
@@ -173,11 +173,11 @@ inline void OutputDriver(dstype* f, const dstype* xg, const dstype* udg,
                          appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
                          commonstruct& common, Int /*backend*/)
 {
-    Int numPoints = common.grid.npe * common.ne;
+    Int numPoints = common.grid.npe * common.meshsizes.ne;
     output_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                      common.timestate.time, common.modelnumber, numPoints,
                      common.components.nc, common.components.ncu, common.grid.nd, common.components.ncx,
-                     common.components.nco, common.components.ncw, common.components.nce, common.grid.npe, common.ne);
+                     common.components.nco, common.components.ncw, common.components.nce, common.grid.npe, common.meshsizes.ne);
 }
 
 template <class M>
@@ -187,11 +187,11 @@ inline void MonitorDriver(dstype* f, Int nc_sol, const dstype* xg, const dstype*
                           appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
                           commonstruct& common, Int /*backend*/)
 {
-    Int numPoints = common.grid.npe * common.ne;
+    Int numPoints = common.grid.npe * common.meshsizes.ne;
     monitor_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                       common.timestate.time, common.modelnumber, numPoints,
                       nc_sol, common.components.ncu, common.grid.nd, common.components.ncx,
-                      common.components.nco, common.components.ncw, common.components.nce, common.grid.npe, common.ne);
+                      common.components.nco, common.components.ncw, common.components.nce, common.grid.npe, common.meshsizes.ne);
 }
 
 // ===== EoS drivers =====
@@ -581,50 +581,50 @@ template <class M>
 inline void InitodgDriver(dstype* f, const dstype* xg,
                           appstruct& app, commonstruct& common, Int /*backend*/)
 {
-    Int numPoints = common.grid.npe * common.ne;
+    Int numPoints = common.grid.npe * common.meshsizes.ne;
     initodg_kernel<M>(f, xg, app.uinf, app.physicsparam,
                       common.modelnumber, numPoints,
-                      common.components.ncx, common.components.nce, common.grid.npe, common.ne);
+                      common.components.ncx, common.components.nce, common.grid.npe, common.meshsizes.ne);
 }
 
 template <class M>
 inline void InitqDriver(dstype* f, const dstype* xg,
                         appstruct& app, commonstruct& common, Int /*backend*/)
 {
-    Int numPoints = common.grid.npe * common.ne;
+    Int numPoints = common.grid.npe * common.meshsizes.ne;
     initq_kernel<M>(f, xg, app.uinf, app.physicsparam,
                     common.modelnumber, numPoints,
-                    common.components.ncx, common.components.nce, common.grid.npe, common.ne);
+                    common.components.ncx, common.components.nce, common.grid.npe, common.meshsizes.ne);
 }
 
 template <class M>
 inline void InitudgDriver(dstype* f, const dstype* xg,
                           appstruct& app, commonstruct& common, Int /*backend*/)
 {
-    Int numPoints = common.grid.npe * common.ne;
+    Int numPoints = common.grid.npe * common.meshsizes.ne;
     initudg_kernel<M>(f, xg, app.uinf, app.physicsparam,
                       common.modelnumber, numPoints,
-                      common.components.ncx, common.components.nce, common.grid.npe, common.ne);
+                      common.components.ncx, common.components.nce, common.grid.npe, common.meshsizes.ne);
 }
 
 template <class M>
 inline void InituDriver(dstype* f, const dstype* xg,
                         appstruct& app, commonstruct& common, Int /*backend*/)
 {
-    Int numPoints = common.grid.npe * common.ne;
+    Int numPoints = common.grid.npe * common.meshsizes.ne;
     initu_kernel<M>(f, xg, app.uinf, app.physicsparam,
                     common.modelnumber, numPoints,
-                    common.components.ncx, common.components.nce, common.grid.npe, common.ne);
+                    common.components.ncx, common.components.nce, common.grid.npe, common.meshsizes.ne);
 }
 
 template <class M>
 inline void InitwdgDriver(dstype* f, const dstype* xg,
                           appstruct& app, commonstruct& common, Int /*backend*/)
 {
-    Int numPoints = common.grid.npe * common.ne;
+    Int numPoints = common.grid.npe * common.meshsizes.ne;
     initwdg_kernel<M>(f, xg, app.uinf, app.physicsparam,
                       common.modelnumber, numPoints,
-                      common.components.ncx, common.components.nce, common.grid.npe, common.ne);
+                      common.components.ncx, common.components.nce, common.grid.npe, common.meshsizes.ne);
 }
 
 } // namespace exasim — end of templated *Driver<M> wrappers

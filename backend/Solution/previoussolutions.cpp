@@ -26,8 +26,8 @@ void PreviousSolutions(solstruct &sol, sysstruct &sys, commonstruct &common, Int
     Int ncu = common.components.ncu;// number of compoments of (u)    
     Int ncs = common.components.ncs;// number of compoments of (s)        
     Int npe = common.grid.npe; // number of nodes on master element    
-    //Int ne = common.ne1; // number of elements in this subdomain         
-    Int ne2 = common.ne2; // number of elements in this subdomain       
+    //Int ne = common.meshsizes.ne1; // number of elements in this subdomain         
+    Int ne2 = common.meshsizes.ne2; // number of elements in this subdomain       
     //Int N = common.sizes.ndof1;
     Int N2 = npe*common.components.ncw*ne2;  
         

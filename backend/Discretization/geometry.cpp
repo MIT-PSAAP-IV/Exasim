@@ -86,11 +86,11 @@ void ElemGeom(solstruct &sol, masterstruct &master, meshstruct &mesh, tempstruct
     Int nd = common.grid.nd;     // spatial dimension    
     Int npe = common.grid.npe; // number of nodes on master element
     Int nge = common.grid.nge; // number of gauss points on master element    
-    Int ne = common.ne; // number of elements in this subdomain 
+    Int ne = common.meshsizes.ne; // number of elements in this subdomain 
     
     TemplateMalloc(&sol.elemg, nge*ne*(ncx+nd*nd+1), backend);  
     sol.szelemg = nge*ne*(ncx+nd*nd+1);
-    for (Int j=0; j<common.nbe; j++) {
+    for (Int j=0; j<common.meshsizes.nbe; j++) {
         Int e1 = common.eblks[3*j]-1;
         Int e2 = common.eblks[3*j+1];    
         ElemGeomBlock(sol, master, mesh, tmp, common, common.cublasHandle, nd, npe, nge, ncx, e1, e2, backend);                
@@ -141,12 +141,12 @@ void FaceGeom(solstruct &sol, masterstruct &master, meshstruct &mesh, tempstruct
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
     Int nd = common.grid.nd;     // spatial dimension    
     Int ngf = common.grid.ngf; // number of gauss points on master face                      
-    Int nbf = common.nbf;
+    Int nbf = common.meshsizes.nbf;
     Int nf = common.fblks[3*(nbf-1)+1];    
     
     TemplateMalloc(&sol.faceg, ngf*nf*(ncx+nd+1), backend);        
     sol.szfaceg = ngf*nf*(ncx+nd+1);
-    for (Int j=0; j<common.nbf; j++) {
+    for (Int j=0; j<common.meshsizes.nbf; j++) {
         Int f1 = common.fblks[3*j]-1;
         Int f2 = common.fblks[3*j+1];       
         //Int ib = common.fblks[3*j+2];    
@@ -163,7 +163,7 @@ void ElemFaceGeomBlock(solstruct &sol, masterstruct &master, meshstruct &mesh, t
     Int npe = common.grid.npe; // number of nodes on master element
     Int npf = common.grid.npf; // number of nodes on master face           
     Int ngf = common.grid.ngf; // number of gauss poInts on master face              
-    Int nfe = common.nfe; // number of faces per element
+    Int nfe = common.meshsizes.nfe; // number of faces per element
 
     Int ne = e2-e1;
     Int nga = ngf*nfe*ne;   
@@ -198,12 +198,12 @@ void ElemFaceGeom(solstruct &sol, masterstruct &master, meshstruct &mesh, tempst
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
     Int nd = common.grid.nd;     // spatial dimension        
     Int ngf = common.grid.ngf; // number of gauss poInts on master face    
-    Int nfe = common.nfe; // number of faces per element
-    Int ne = common.ne; // number of elements in this subdomain 
+    Int nfe = common.meshsizes.nfe; // number of faces per element
+    Int ne = common.meshsizes.ne; // number of elements in this subdomain 
     
     TemplateMalloc(&sol.elemfaceg, ngf*nfe*ne*(ncx+nd+1), backend);  // fixed bug here
     sol.szelemfaceg = ngf*nfe*ne*(ncx+nd+1);
-    for (Int j=0; j<common.nbe; j++) {
+    for (Int j=0; j<common.meshsizes.nbe; j++) {
         Int e1 = common.eblks[3*j]-1;
         Int e2 = common.eblks[3*j+1];    
         ElemFaceGeomBlock(sol, master, mesh, tmp, common, common.cublasHandle, e1, e2, backend);                

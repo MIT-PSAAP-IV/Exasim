@@ -142,7 +142,7 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int back
     Int maxit, nrest, orthogMethod, n1, i, k, j = 0;
     Int ncu = disc.common.components.ncu;
     Int npe = disc.common.grid.npe;
-    Int ne = disc.common.ne1;
+    Int ne = disc.common.meshsizes.ne1;
     Int N = npe*ncu*ne;
     dstype nrmb, nrmr, tol, scalar;
     tol = std::min(0.01,disc.common.solverparams.linearSolverTol*disc.common.solverstate.linearSolverTolFactor);
@@ -440,7 +440,7 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int N, I
     nrmb = PNORM(disc.common.cublasHandle, N, disc.common.couplingparams.ndofuhatinterface, sys.r, backend);    
     nrmr = nrmb;
                 
-    //printf("%d %d %d %d %g\n", N, disc.common.nf, disc.common.ne, disc.common.couplingparams.ninterfacefaces, nrmr);
+    //printf("%d %d %d %d %g\n", N, disc.common.meshsizes.nf, disc.common.meshsizes.ne, disc.common.couplingparams.ninterfacefaces, nrmr);
     
     j = 0;
     while (j < maxit) {

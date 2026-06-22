@@ -87,7 +87,7 @@ inline void RqElemBlock(solstruct &sol, resstruct &res, appstruct &app, masterst
 #ifdef EXADEBUG                       
     writearray2file(common.fileout + "RqElem_uge.bin", &tmp.tempg[n0], nge*ncu*ne, backend);  
     writearray2file(common.fileout + "RqElem_fge.bin", &tmp.tempg[n1], nge*ncq*ne, backend);  
-    writearray2file(common.fileout + "RqElem_rqe.bin", res.Rqe, npe*ncq*common.ne1, backend);
+    writearray2file(common.fileout + "RqElem_rqe.bin", res.Rqe, npe*ncq*common.meshsizes.ne1, backend);
 #endif              
 }
 
@@ -102,7 +102,7 @@ inline void RqElem(solstruct &sol, resstruct &res, appstruct &app, masterstruct 
     Int nd = common.grid.nd;     // spatial dimension    
     Int npe = common.grid.npe; // number of nodes on master element
     Int nge = common.grid.nge; // number of gauss points on master element    
-    //Int ne = common.ne; // number of elements in this subdomain 
+    //Int ne = common.meshsizes.ne; // number of elements in this subdomain 
     
     for (Int j=nbe1; j<nbe2; j++) {
         Int e1 = common.eblks[3*j]-1;
@@ -142,7 +142,7 @@ inline void RqFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masterst
     writearray2file(common.fileout + NumberToString(ib) + "RqFace_uhgf.bin", &tmp.tempg[n3], ngf*ncu*nf, backend);  
     writearray2file(common.fileout + NumberToString(ib) + "RqFace_fgf.bin", &tmp.tempg[n4], ngf*ncq*nf, backend);  
     writearray2file(common.fileout + NumberToString(ib) + "RqFace_rnf.bin", tmp.tempn, npf*ncq*nf, backend);
-    writearray2file(common.fileout + NumberToString(ib) + "RqFace_rqf.bin", res.Rqf, npe*ncq*common.ne1, backend);
+    writearray2file(common.fileout + NumberToString(ib) + "RqFace_rqf.bin", res.Rqf, npe*ncq*common.meshsizes.ne1, backend);
 #endif              
 }
 
@@ -157,7 +157,7 @@ inline void RqFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct 
     Int npe = common.grid.npe; // number of nodes on master element
     Int npf = common.grid.npf; // number of nodes on master face           
     Int ngf = common.grid.ngf; // number of gauss poInts on master face          
-    //Int ne = common.ne; // number of elements in this subdomain 
+    //Int ne = common.meshsizes.ne; // number of elements in this subdomain 
     
     for (Int j=nbf1; j<nbf2; j++) {
         Int f1 = common.fblks[3*j]-1;
@@ -197,7 +197,7 @@ inline void dRqElemBlock(solstruct &sol, resstruct &res, appstruct &app, masters
 #ifdef EXADEBUG                       
     writearray2file(common.fileout + "RqElem_uge.bin", &tmp.tempg[n0], nge*ncu*ne, backend);  
     writearray2file(common.fileout + "RqElem_fge.bin", &tmp.tempg[n1], nge*ncq*ne, backend);  
-    writearray2file(common.fileout + "RqElem_rqe.bin", res.Rqe, npe*ncq*common.ne1, backend);
+    writearray2file(common.fileout + "RqElem_rqe.bin", res.Rqe, npe*ncq*common.meshsizes.ne1, backend);
 #endif              
 }
 
@@ -212,7 +212,7 @@ inline void dRqElem(solstruct &sol, resstruct &res, appstruct &app, masterstruct
     Int nd = common.grid.nd;     // spatial dimension    
     Int npe = common.grid.npe; // number of nodes on master element
     Int nge = common.grid.nge; // number of gauss points on master element    
-    //Int ne = common.ne; // number of elements in this subdomain 
+    //Int ne = common.meshsizes.ne; // number of elements in this subdomain 
     
     for (Int j=nbe1; j<nbe2; j++) {
         Int e1 = common.eblks[3*j]-1;
@@ -252,7 +252,7 @@ inline void dRqFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masters
     writearray2file(common.fileout + NumberToString(ib) + "RqFace_uhgf.bin", &tmp.tempg[n3], ngf*ncu*nf, backend);  
     writearray2file(common.fileout + NumberToString(ib) + "RqFace_fgf.bin", &tmp.tempg[n4], ngf*ncq*nf, backend);  
     writearray2file(common.fileout + NumberToString(ib) + "RqFace_rnf.bin", tmp.tempn, npf*ncq*nf, backend);
-    writearray2file(common.fileout + NumberToString(ib) + "RqFace_rqf.bin", res.Rqf, npe*ncq*common.ne1, backend);
+    writearray2file(common.fileout + NumberToString(ib) + "RqFace_rqf.bin", res.Rqf, npe*ncq*common.meshsizes.ne1, backend);
 #endif              
 }
 
@@ -268,7 +268,7 @@ inline void dRqFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct
     Int npe = common.grid.npe; // number of nodes on master element
     Int npf = common.grid.npf; // number of nodes on master face           
     Int ngf = common.grid.ngf; // number of gauss poInts on master face          
-    //Int ne = common.ne; // number of elements in this subdomain 
+    //Int ne = common.meshsizes.ne; // number of elements in this subdomain 
     
     for (Int j=nbf1; j<nbf2; j++) {
         Int f1 = common.fblks[3*j]-1;

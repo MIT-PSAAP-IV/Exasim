@@ -327,7 +327,7 @@ inline void uJacobianLDGFace(dstype* JU, dstype* JQ, dstype* JW,
     if ((JQ != nullptr) && (ncq > 0)) ArraySetValue(JQ, zero, nlocu*nlocq*ne);
     if ((JW != nullptr) && (ncw > 0)) ArraySetValue(JW, zero, nlocu*nlocw*ne);
 
-    for (Int j = 0; j < common.nbf; ++j) {
+    for (Int j = 0; j < common.meshsizes.nbf; ++j) {
         Int f1 = common.fblks[3*j] - 1;
         Int f2 = common.fblks[3*j + 1];
         Int ib = common.fblks[3*j + 2];
@@ -593,7 +593,7 @@ inline void uJacobianLDG(dstype* JU, solstruct& sol, resstruct& res,
         cublasHandle_t handle, Int backend)
 {
     uJacobianLDG(JU, nullptr, nullptr, nullptr, nullptr, nullptr, sol, res, app,
-            driver_abi, master, mesh, tmp, common, handle, 0, common.ne, backend);
+            driver_abi, master, mesh, tmp, common, handle, 0, common.meshsizes.ne, backend);
 }
 
 #endif
