@@ -46,7 +46,7 @@ inline void wJacobianLDGZero(dstype* DWDU, commonstruct& common, Int e1, Int e2)
     if (DWDU == nullptr)
         return;
 
-    Int npe = common.npe;
+    Int npe = common.grid.npe;
     Int ncu = common.components.ncu;
     Int ncw = common.components.ncw;
     Int ne = e2 - e1;
@@ -59,7 +59,7 @@ inline void wJacobianLDGInsertPointwise(dstype* DWDU, const dstype* dwdudg,
     if ((DWDU == nullptr) || (dwdudg == nullptr))
         return;
 
-    Int npe = common.npe;
+    Int npe = common.grid.npe;
     Int ncu = common.components.ncu;
     Int ncw = common.components.ncw;
     Int ne = e2 - e1;
@@ -93,7 +93,7 @@ inline void wJacobianLDGWave(dstype* DWDU, commonstruct& common, Int e1, Int e2)
     if (DWDU == nullptr)
         return;
 
-    Int npe = common.npe;
+    Int npe = common.grid.npe;
     Int ncu = common.components.ncu;
     Int ncw = common.components.ncw;
     Int ne = e2 - e1;
@@ -127,7 +127,7 @@ inline void wJacobianLDGEos(dstype* DWDU, dstype* Fu, dstype* Fw,
     if (DWDU == nullptr)
         return;
 
-    Int npe = common.npe;
+    Int npe = common.grid.npe;
     Int ncu = common.components.ncu;
     Int ncw = common.components.ncw;
     Int nc = common.components.nc;
@@ -172,7 +172,7 @@ inline void wJacobianLDGSourcew(dstype* DWDU, dstype* Su, dstype* Sw,
     if (DWDU == nullptr)
         return;
 
-    Int npe = common.npe;
+    Int npe = common.grid.npe;
     Int nc = common.components.nc;
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
@@ -214,7 +214,7 @@ inline void wJacobianLDG(dstype* DWDU, solstruct& sol, resstruct& res,
         return;
     }
 
-    Int npe = common.npe;
+    Int npe = common.grid.npe;
     Int ncu = common.components.ncu;
     Int nc = common.components.nc;
     Int ncw = common.components.ncw;

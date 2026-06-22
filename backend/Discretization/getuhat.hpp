@@ -94,7 +94,7 @@ inline void UhatBlock(solstruct &sol, resstruct &res, appstruct &app, masterstru
         }
         
         StgInflowLDG(tmp.tempn, xgb, ogb, app.physicsparam, app.stgdata, 
-                          app.stgparam, common.timestate.time, nga, common.stgparams.stgNmode, common.nd);          
+                          app.stgparam, common.timestate.time, nga, common.stgparams.stgNmode, common.grid.nd);          
 
         PutElemNodes(sol.uh, tmp.tempn, npf, ncu, 0, ncu, f1, f2);
     }
@@ -141,9 +141,9 @@ inline void GetUhat(solstruct &sol, resstruct &res, appstruct &app, masterstruct
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int nco = common.components.nco;// number of compoments of (o)
     Int ncx = common.components.ncx;// number of compoments of (xdg)   
-    Int nd = common.nd;     // spatial dimension        
-    Int npe = common.npe; // number of nodes on master element
-    Int npf = common.npf; // number of nodes on master face      
+    Int nd = common.grid.nd;     // spatial dimension        
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int npf = common.grid.npf; // number of nodes on master face      
     
     for (Int j=nbf1; j<nbf2; j++) {
         Int f1 = common.fblks[3*j]-1;
@@ -232,9 +232,9 @@ inline void GetdUhat(solstruct &sol, resstruct &res, appstruct &app, masterstruc
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int nco = common.components.nco;// number of compoments of (o)
     Int ncx = common.components.ncx;// number of compoments of (xdg)   
-    Int nd = common.nd;     // spatial dimension        
-    Int npe = common.npe; // number of nodes on master element
-    Int npf = common.npf; // number of nodes on master face      
+    Int nd = common.grid.nd;     // spatial dimension        
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int npf = common.grid.npf; // number of nodes on master face      
     
     for (Int j=nbf1; j<nbf2; j++) {
         Int f1 = common.fblks[3*j]-1;

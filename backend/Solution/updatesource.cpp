@@ -33,7 +33,7 @@ void UpdateSourceDIRK(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriv
 {   
     Int nc = common.components.nc; // number of compoments of (u, q, p)
     Int ncs = common.components.ncs;// number of compoments of (s)    
-    Int npe = common.npe; // number of nodes on master element    
+    Int npe = common.grid.npe; // number of nodes on master element    
     Int ne = common.ne2; // number of elements in this subdomain 
     Int N = npe*ncs*ne;
     Int dirkStage = common.timeparams.tstages;
@@ -105,7 +105,7 @@ void UpdateSourceBDF(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDrive
 {   
     //Int nc = common.components.nc; // number of compoments of (u, q, p)
     Int ncs = common.components.ncs;// number of compoments of (s)    
-    Int npe = common.npe; // number of nodes on master element    
+    Int npe = common.grid.npe; // number of nodes on master element    
     Int ne = common.ne2; // number of elements in this subdomain 
     Int N = npe*ncs*ne;
     dstype dt = common.dt[common.timestate.currentstep];

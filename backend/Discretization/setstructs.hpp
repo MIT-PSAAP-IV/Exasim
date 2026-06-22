@@ -89,17 +89,17 @@ inline void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &
     common.couplingparams.ncuext = 0;
     common.couplingparams.FextCall = 0;
   
-    common.nd = master.ndims[0];     // spatial dimension    
-    common.elemtype = master.ndims[1]; 
-    common.nodetype = master.ndims[2]; 
-    common.porder = master.ndims[3]; 
-    common.pgauss = master.ndims[4]; 
-    common.npe = master.ndims[5]; // number of nodes on master element
-    common.npf = master.ndims[6]; // number of nodes on master face       
-    common.nge = master.ndims[7]; // number of gauss points on master element
-    common.ngf = master.ndims[8]; // number of gauss poInts on master face          
-    common.np1d = master.ndims[9]; // number of node points on 1D element
-    common.ng1d = master.ndims[10]; // number of gauss poInts on 1D element          
+    common.grid.nd = master.ndims[0];     // spatial dimension    
+    common.grid.elemtype = master.ndims[1]; 
+    common.grid.nodetype = master.ndims[2]; 
+    common.grid.porder = master.ndims[3]; 
+    common.grid.pgauss = master.ndims[4]; 
+    common.grid.npe = master.ndims[5]; // number of nodes on master element
+    common.grid.npf = master.ndims[6]; // number of nodes on master face       
+    common.grid.nge = master.ndims[7]; // number of gauss points on master element
+    common.grid.ngf = master.ndims[8]; // number of gauss poInts on master face          
+    common.grid.np1d = master.ndims[9]; // number of node points on 1D element
+    common.grid.ng1d = master.ndims[10]; // number of gauss poInts on 1D element          
     
     common.ne = mesh.ndims[1]; // number of elements in this subdomain 
     common.nf = mesh.ndims[2]; // number of faces in this subdomain 
@@ -110,20 +110,20 @@ inline void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &
     common.nbf = mesh.ndims[7]; // number of blocks for faces   
     common.nfb = mesh.ndims[8]; // maximum number of faces per block     
     
-    common.sizes.ndof = common.npe*common.components.ncu*common.ne; // number of degrees of freedom of u
-    common.sizes.ndofq = common.npe*common.components.ncq*common.ne; // number of degrees of freedom of q
-    common.sizes.ndofw = common.npe*common.components.ncw*common.ne; // number of degrees of freedom of w
-    common.sizes.ndofuhat = common.npf*common.components.ncu*common.nf; // number of degrees of freedom of uhat
-    common.sizes.ndofudg = common.npe*common.components.nc*common.ne; // number of degrees of freedom of udg    
-    common.sizes.ndofsdg = common.npe*common.components.ncs*common.ne; // number of degrees of freedom of sdg    
-    common.sizes.ndofodg = common.npe*common.components.nco*common.ne; // number of degrees of freedom of odg               
-    common.sizes.ndofedg = common.npe*common.components.nce*common.ne; // number of degrees of freedom of edg               
+    common.sizes.ndof = common.grid.npe*common.components.ncu*common.ne; // number of degrees of freedom of u
+    common.sizes.ndofq = common.grid.npe*common.components.ncq*common.ne; // number of degrees of freedom of q
+    common.sizes.ndofw = common.grid.npe*common.components.ncw*common.ne; // number of degrees of freedom of w
+    common.sizes.ndofuhat = common.grid.npf*common.components.ncu*common.nf; // number of degrees of freedom of uhat
+    common.sizes.ndofudg = common.grid.npe*common.components.nc*common.ne; // number of degrees of freedom of udg    
+    common.sizes.ndofsdg = common.grid.npe*common.components.ncs*common.ne; // number of degrees of freedom of sdg    
+    common.sizes.ndofodg = common.grid.npe*common.components.nco*common.ne; // number of degrees of freedom of odg               
+    common.sizes.ndofedg = common.grid.npe*common.components.nce*common.ne; // number of degrees of freedom of edg               
     common.sizes.ndofucg = mesh.nsize[12]-1;
             
     common.components.ntau = app.nsize[8];
     if (common.components.ntau>0) common.physicsparams.tau0 = app.tau[0];
 		
-    common.curvedMesh = curvedMesh;        
+    common.grid.curvedMesh = curvedMesh;        
     common.outputparams.fileoffset = fileoffset;
 
     common.timeparams.tdep = app.flag[0];      // 0: steady-state; 1: time-dependent;  
@@ -250,7 +250,7 @@ inline void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &
             if (common.fblks[3*j+2] == common.qoiparams.ibs) {     
                 Int f1 = common.fblks[3*j]-1;
                 Int f2 = common.fblks[3*j+1];                                  
-                common.sizes.ndofbou += common.npf*(f2-f1); 
+                common.sizes.ndofbou += common.grid.npf*(f2-f1); 
             }
         }                                           
     }  
@@ -278,13 +278,13 @@ inline void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &
         common.ne0 = mesh.elempartpts[0]; // number of interior elements
         common.ne1 = mesh.elempartpts[0]+mesh.elempartpts[1]; // added with number of interface elements
         common.ne2 = mesh.elempartpts[0]+mesh.elempartpts[1]+mesh.elempartpts[2]; // added with number of exterior elements        
-        common.sizes.ndof1 = common.npe*common.components.ncu*common.ne1; // number of degrees of freedom
-        common.sizes.ndofq1 = common.npe*common.components.ncq*common.ne1; // number of degrees of freedom of q
-        common.sizes.ndofw1 = common.npe*common.components.ncw*common.ne1; // number of degrees of freedom of w
-        common.sizes.ndofudg1 = common.npe*common.components.nc*common.ne1; // number of degrees of freedom of udg    
-        common.sizes.ndofsdg1 = common.npe*common.components.ncs*common.ne1; // number of degrees of freedom of sdg    
-        common.sizes.ndofodg1 = common.npe*common.components.nco*common.ne1; // number of degrees of freedom of odg           
-        common.sizes.ndofedg1 = common.npe*common.components.nce*common.ne1; // number of degrees of freedom of edg           
+        common.sizes.ndof1 = common.grid.npe*common.components.ncu*common.ne1; // number of degrees of freedom
+        common.sizes.ndofq1 = common.grid.npe*common.components.ncq*common.ne1; // number of degrees of freedom of q
+        common.sizes.ndofw1 = common.grid.npe*common.components.ncw*common.ne1; // number of degrees of freedom of w
+        common.sizes.ndofudg1 = common.grid.npe*common.components.nc*common.ne1; // number of degrees of freedom of udg    
+        common.sizes.ndofsdg1 = common.grid.npe*common.components.ncs*common.ne1; // number of degrees of freedom of sdg    
+        common.sizes.ndofodg1 = common.grid.npe*common.components.nco*common.ne1; // number of degrees of freedom of odg           
+        common.sizes.ndofedg1 = common.grid.npe*common.components.nce*common.ne1; // number of degrees of freedom of edg           
                
         common.nbe0 = 0;
         common.nbe1 = 0;
@@ -327,7 +327,7 @@ inline void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &
         common.statuses = (MPI_Status *) malloc( 2*(common.nnbsd + common.nnbintf) * sizeof(MPI_Status) );     
         if (common.spatialScheme==1) {
           //common.couplingparams.ninterfacefaces = getinterfacefaces(mesh.f2e, common.ne1, common.nf);
-          //common.couplingparams.ndofuhatinterface = common.components.ncu*common.npf*common.couplingparams.ninterfacefaces;
+          //common.couplingparams.ndofuhatinterface = common.components.ncu*common.grid.npf*common.couplingparams.ninterfacefaces;
         }
 #endif        
     }
@@ -341,13 +341,13 @@ inline void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &
         common.ne0 = common.ne;
         common.ne1 = common.ne;
         common.ne2 = common.ne;
-        common.sizes.ndof1 = common.npe*common.components.ncu*common.ne; // number of degrees of freedom
-        common.sizes.ndofq1 = common.npe*common.components.ncq*common.ne; // number of degrees of freedom of q
-        common.sizes.ndofw1 = common.npe*common.components.ncw*common.ne; // number of degrees of freedom of w
-        common.sizes.ndofudg1 = common.npe*common.components.nc*common.ne; // number of degrees of freedom of udg    
-        common.sizes.ndofsdg1 = common.npe*common.components.ncs*common.ne; // number of degrees of freedom of sdg    
-        common.sizes.ndofodg1 = common.npe*common.components.nco*common.ne; // number of degrees of freedom of odg                   
-        common.sizes.ndofedg1 = common.npe*common.components.nce*common.ne; // number of degrees of freedom of edg                   
+        common.sizes.ndof1 = common.grid.npe*common.components.ncu*common.ne; // number of degrees of freedom
+        common.sizes.ndofq1 = common.grid.npe*common.components.ncq*common.ne; // number of degrees of freedom of q
+        common.sizes.ndofw1 = common.grid.npe*common.components.ncw*common.ne; // number of degrees of freedom of w
+        common.sizes.ndofudg1 = common.grid.npe*common.components.nc*common.ne; // number of degrees of freedom of udg    
+        common.sizes.ndofsdg1 = common.grid.npe*common.components.ncs*common.ne; // number of degrees of freedom of sdg    
+        common.sizes.ndofodg1 = common.grid.npe*common.components.nco*common.ne; // number of degrees of freedom of odg                   
+        common.sizes.ndofedg1 = common.grid.npe*common.components.nce*common.ne; // number of degrees of freedom of edg                   
     }                
 }
 
@@ -538,9 +538,9 @@ inline void cpuInitTail(solstruct &sol, resstruct &res, appstruct &app, masterst
     if (mpirank==0) printf("Finish setting common struct... \n");
                         
     if (common.spatialScheme > 0) {      
-      int nd = common.nd;
-      int npe = common.npe;
-      int nge = common.nge;
+      int nd = common.grid.nd;
+      int npe = common.grid.npe;
+      int nge = common.grid.nge;
       master.shapegwdotshapeg = (dstype*) malloc (sizeof (dstype)*npe*npe*nge*(nd+1));      
       master.szshapegwdotshapeg = npe*npe*nge*(nd+1);
       for (int d=0; d<nd+1; d++) {
@@ -552,8 +552,8 @@ inline void cpuInitTail(solstruct &sol, resstruct &res, appstruct &app, masterst
           }
         }
       }      
-      int npf = common.npf;
-      int ngf = common.ngf;
+      int npf = common.grid.npf;
+      int ngf = common.grid.ngf;
       master.shapfgwdotshapfg = (dstype*) malloc (sizeof (dstype)*npf*npf*ngf*nd);
       master.szshapfgwdotshapfg = npf*npf*ngf*nd;
       for (int d=0; d<nd; d++) {
@@ -613,17 +613,17 @@ inline void cpuInitTail(solstruct &sol, resstruct &res, appstruct &app, masterst
 
     if (common.components.ncs>0) {
         // initialize source term
-        Int N = common.npe*common.components.ncs*common.ne;
+        Int N = common.grid.npe*common.components.ncs*common.ne;
         sol.sdg = (dstype*) malloc (sizeof (dstype)*N);        
         for (Int i=0; i<N; i++)
             sol.sdg[i] = 0.0;               
-        sol.sdgg = (dstype*) malloc (sizeof (dstype)*common.nge*common.components.ncs*common.ne);     
+        sol.sdgg = (dstype*) malloc (sizeof (dstype)*common.grid.nge*common.components.ncs*common.ne);     
         sol.szsdg = N;
-        sol.szsdgg = common.nge*common.components.ncs*common.ne;
+        sol.szsdgg = common.grid.nge*common.components.ncs*common.ne;
     }            
     
     if (common.components.ncw>0) {        
-        Int N = common.npe*common.components.ncw*common.ne;
+        Int N = common.grid.npe*common.components.ncw*common.ne;
         sol.wsrc = (dstype*) malloc (sizeof (dstype)*N);
         sol.szwsrc = N;
         for (Int i=0; i<N; i++)
@@ -635,8 +635,8 @@ inline void cpuInitTail(solstruct &sol, resstruct &res, appstruct &app, masterst
     }
     
     if (common.outputparams.compudgavg>0) {
-        sol.udgavg = (dstype*) malloc (sizeof (dstype)*(common.npe*common.components.nc*common.ne1+1));  
-        sol.szudgavg = common.npe*common.components.nc*common.ne1+1;
+        sol.udgavg = (dstype*) malloc (sizeof (dstype)*(common.grid.npe*common.components.nc*common.ne1+1));  
+        sol.szudgavg = common.grid.npe*common.components.nc*common.ne1+1;
     }
     
     if (common.sizes.ndofbou>0) {
@@ -647,30 +647,30 @@ inline void cpuInitTail(solstruct &sol, resstruct &res, appstruct &app, masterst
 
     // allocate memory for uh
     if (!app.read_uh) {
-    sol.uh = (dstype*) malloc (sizeof (dstype)*common.npf*common.components.ncu*common.nf);
+    sol.uh = (dstype*) malloc (sizeof (dstype)*common.grid.npf*common.components.ncu*common.nf);
     }
-    sol.szuh = common.npf*common.components.ncu*common.nf;
+    sol.szuh = common.grid.npf*common.components.ncu*common.nf;
     
     #ifdef HAVE_ENZYME
-        sol.duh = (dstype*) malloc (sizeof (dstype)*common.npf*common.components.ncu*common.nf);
+        sol.duh = (dstype*) malloc (sizeof (dstype)*common.grid.npf*common.components.ncu*common.nf);
     #endif
-    //sol.uhg = (dstype*) malloc (sizeof (dstype)*common.ngf*common.components.ncu*common.nf);
-    //sol.udgg = (dstype*) malloc (sizeof (dstype)*common.nge*common.components.nc*common.ne);
+    //sol.uhg = (dstype*) malloc (sizeof (dstype)*common.grid.ngf*common.components.ncu*common.nf);
+    //sol.udgg = (dstype*) malloc (sizeof (dstype)*common.grid.nge*common.components.nc*common.ne);
     if (common.components.nco>0) {
-        sol.odgg = (dstype*) malloc (sizeof (dstype)*common.nge*common.components.nco*common.ne);
-        sol.og1 = (dstype*) malloc (sizeof (dstype)*common.ngf*common.components.nco*common.nf);
-        sol.og2 = (dstype*) malloc (sizeof (dstype)*common.ngf*common.components.nco*common.nf);
-        sol.szodgg = common.nge*common.components.nco*common.ne;
-        sol.szog1 = common.ngf*common.components.nco*common.nf;
-        sol.szog2 = common.ngf*common.components.nco*common.nf;
+        sol.odgg = (dstype*) malloc (sizeof (dstype)*common.grid.nge*common.components.nco*common.ne);
+        sol.og1 = (dstype*) malloc (sizeof (dstype)*common.grid.ngf*common.components.nco*common.nf);
+        sol.og2 = (dstype*) malloc (sizeof (dstype)*common.grid.ngf*common.components.nco*common.nf);
+        sol.szodgg = common.grid.nge*common.components.nco*common.ne;
+        sol.szog1 = common.grid.ngf*common.components.nco*common.nf;
+        sol.szog2 = common.grid.ngf*common.components.nco*common.nf;
         
         #ifdef HAVE_ENZYME
-            sol.dodgg = (dstype*) malloc (sizeof (dstype)*common.nge*common.components.nco*common.ne);
-            ArraySetValue(sol.dodgg, zero, common.nge*common.components.nco*common.ne, 0);
-            sol.dog1 = (dstype*) malloc (sizeof (dstype)*common.ngf*common.components.nco*common.nf);
-            ArraySetValue(sol.dog1, zero, common.ngf*common.components.nco*common.nf, 0);
-            sol.dog2 = (dstype*) malloc (sizeof (dstype)*common.ngf*common.components.nco*common.nf);
-            ArraySetValue(sol.dog2, zero, common.ngf*common.components.nco*common.nf, 0);
+            sol.dodgg = (dstype*) malloc (sizeof (dstype)*common.grid.nge*common.components.nco*common.ne);
+            ArraySetValue(sol.dodgg, zero, common.grid.nge*common.components.nco*common.ne, 0);
+            sol.dog1 = (dstype*) malloc (sizeof (dstype)*common.grid.ngf*common.components.nco*common.nf);
+            ArraySetValue(sol.dog1, zero, common.grid.ngf*common.components.nco*common.nf, 0);
+            sol.dog2 = (dstype*) malloc (sizeof (dstype)*common.grid.ngf*common.components.nco*common.nf);
+            ArraySetValue(sol.dog2, zero, common.grid.ngf*common.components.nco*common.nf, 0);
         #endif
     }
             
@@ -678,48 +678,48 @@ inline void cpuInitTail(solstruct &sol, resstruct &res, appstruct &app, masterst
     //mesh.index = (Int*) malloc (sizeof (Int)*(1024));            
     
     // allocate memory 
-    mesh.findxdg1 = (Int*) malloc (sizeof (Int)*common.npf*common.components.ncx*common.nf);
+    mesh.findxdg1 = (Int*) malloc (sizeof (Int)*common.grid.npf*common.components.ncx*common.nf);
     mesh.findxdgp = (Int*) malloc (sizeof (Int)*(common.nbf+1));
-    mesh.findudg1 = (Int*) malloc (sizeof (Int)*common.npf*common.components.nc*common.nf);
-    mesh.findudg2 = (Int*) malloc (sizeof (Int)*common.npf*common.components.nc*common.nf);
+    mesh.findudg1 = (Int*) malloc (sizeof (Int)*common.grid.npf*common.components.nc*common.nf);
+    mesh.findudg2 = (Int*) malloc (sizeof (Int)*common.grid.npf*common.components.nc*common.nf);
     mesh.findudgp = (Int*) malloc (sizeof (Int)*(common.nbf+1));
-    mesh.eindudg1 = (Int*) malloc (sizeof (Int)*common.npe*common.components.nc*common.ne);
+    mesh.eindudg1 = (Int*) malloc (sizeof (Int)*common.grid.npe*common.components.nc*common.ne);
     mesh.eindudgp = (Int*) malloc (sizeof (Int)*(common.nbe+1));
     
-    mesh.szfindxdg1 = common.npf*common.components.ncx*common.nf;
+    mesh.szfindxdg1 = common.grid.npf*common.components.ncx*common.nf;
     mesh.szfindxdgp = (common.nbf+1);
-    mesh.szfindudg1 = common.npf * common.components.nc * common.nf;
-    mesh.szfindudg2 = common.npf * common.components.nc * common.nf;
+    mesh.szfindudg1 = common.grid.npf * common.components.nc * common.nf;
+    mesh.szfindudg2 = common.grid.npf * common.components.nc * common.nf;
     mesh.szfindudgp = common.nbf + 1;
-    mesh.szeindudg1 = common.npe * common.components.nc * common.ne;
+    mesh.szeindudg1 = common.grid.npe * common.components.nc * common.ne;
     mesh.szeindudgp = common.nbe + 1;
             
     faceperm1(mesh.findxdg1, mesh.findxdgp, mesh.facecon, mesh.fblks,
-             common.npf, common.components.ncx, common.npe, common.components.ncx, common.nbf);
+             common.grid.npf, common.components.ncx, common.grid.npe, common.components.ncx, common.nbf);
     faceperm(mesh.findudg1, mesh.findudg2, mesh.findudgp, mesh.facecon, mesh.fblks,
-             common.npf, common.components.nc, common.npe, common.components.nc, common.nbf);
+             common.grid.npf, common.components.nc, common.grid.npe, common.components.nc, common.nbf);
     elemperm(mesh.eindudg1, mesh.eindudgp, mesh.eblks, 
-             common.npe, common.components.nc, common.components.nc, common.nbe);   
+             common.grid.npe, common.components.nc, common.components.nc, common.nbe);   
     
     if (common.nelemsend>0) {
-        Int bsz = common.npe*common.components.ncu;
-        Int nudg = common.npe*common.components.nc;
+        Int bsz = common.grid.npe*common.components.ncu;
+        Int nudg = common.grid.npe*common.components.nc;
         mesh.elemsendind = (Int*) malloc (sizeof (Int)*bsz*common.nelemsend);                        
         mesh.szelemsendind = bsz*common.nelemsend;
         for (Int i=0; i<common.nelemsend; i++)
             for (Int j=0; j<bsz; j++) 
                 mesh.elemsendind[bsz*i+j] = nudg*common.elemsend[i] + j;            
       
-        bsz = common.npe*common.physicsparams.ncAV;
-        nudg = common.npe*common.components.nco;
+        bsz = common.grid.npe*common.physicsparams.ncAV;
+        nudg = common.grid.npe*common.components.nco;
         mesh.elemsendodg = (Int*) malloc (sizeof (Int)*bsz*common.nelemsend);
         mesh.szelemsendodg = bsz*common.nelemsend;
         for (Int i=0; i<common.nelemsend; i++)
             for (Int j=0; j<bsz; j++)
                 mesh.elemsendodg[bsz*i+j] = nudg*common.elemsend[i] + j;
        
-        bsz = common.npe*common.components.nc;
-        nudg = common.npe*common.components.nc;
+        bsz = common.grid.npe*common.components.nc;
+        nudg = common.grid.npe*common.components.nc;
         mesh.elemsendudg = (Int*) malloc (sizeof (Int)*bsz*common.nelemsend);
         mesh.szelemsendudg = bsz*common.nelemsend;
         for (Int i=0; i<common.nelemsend; i++)
@@ -729,24 +729,24 @@ inline void cpuInitTail(solstruct &sol, resstruct &res, appstruct &app, masterst
     }
     
     if (common.nelemrecv>0) {
-        Int bsz = common.npe*common.components.ncu;
-        Int nudg = common.npe*common.components.nc;
+        Int bsz = common.grid.npe*common.components.ncu;
+        Int nudg = common.grid.npe*common.components.nc;
         mesh.elemrecvind = (Int*) malloc (sizeof (Int)*bsz*common.nelemrecv);                        
         mesh.szelemrecvind = bsz*common.nelemrecv;
         for (Int i=0; i<common.nelemrecv; i++)
             for (Int j=0; j<bsz; j++) 
                 mesh.elemrecvind[bsz*i+j] = nudg*common.elemrecv[i] + j;            
     
-        bsz = common.npe*common.physicsparams.ncAV;
-        nudg = common.npe*common.components.nco;
+        bsz = common.grid.npe*common.physicsparams.ncAV;
+        nudg = common.grid.npe*common.components.nco;
         mesh.elemrecvodg = (Int*) malloc (sizeof (Int)*bsz*common.nelemrecv);
         mesh.szelemrecvodg = bsz*common.nelemrecv;
         for (Int i=0; i<common.nelemrecv; i++)
             for (Int j=0; j<bsz; j++)
                 mesh.elemrecvodg[bsz*i+j] = nudg*common.elemrecv[i] + j;  
     
-        bsz = common.npe*common.components.nc;
-        nudg = common.npe*common.components.nc;
+        bsz = common.grid.npe*common.components.nc;
+        nudg = common.grid.npe*common.components.nc;
         mesh.elemrecvudg = (Int*) malloc (sizeof (Int)*bsz*common.nelemrecv);
         mesh.szelemrecvudg = bsz*common.nelemrecv;
         for (Int i=0; i<common.nelemrecv; i++)
@@ -1106,29 +1106,29 @@ inline void devmeshstruct(meshstruct &dmesh, meshstruct &mesh, commonstruct &com
     TemplateCopytoDevice(dmesh.eindudgp, mesh.eindudgp, nbe+1, common.backend);
         
     if (common.nelemsend>0) {
-        Int bsz = common.npe*common.components.ncu*common.nelemsend;
+        Int bsz = common.grid.npe*common.components.ncu*common.nelemsend;
         TemplateMalloc(&dmesh.elemsendind, bsz, common.backend);
         TemplateCopytoDevice(dmesh.elemsendind, mesh.elemsendind, bsz, common.backend);
     
-        bsz = common.npe*common.components.nc*common.nelemsend;
+        bsz = common.grid.npe*common.components.nc*common.nelemsend;
         TemplateMalloc(&dmesh.elemsendudg, bsz, common.backend);
         TemplateCopytoDevice(dmesh.elemsendudg, mesh.elemsendudg, bsz, common.backend);
     
-        bsz = common.npe*common.physicsparams.ncAV*common.nelemsend;
+        bsz = common.grid.npe*common.physicsparams.ncAV*common.nelemsend;
         TemplateMalloc(&dmesh.elemsendodg, bsz, common.backend);
         TemplateCopytoDevice(dmesh.elemsendodg, mesh.elemsendodg, bsz, common.backend);
     }
     
     if (common.nelemrecv>0) {
-        Int bsz = common.npe*common.components.ncu*common.nelemrecv;
+        Int bsz = common.grid.npe*common.components.ncu*common.nelemrecv;
         TemplateMalloc(&dmesh.elemrecvind, bsz, common.backend);
         TemplateCopytoDevice(dmesh.elemrecvind, mesh.elemrecvind, bsz, common.backend);
     
-        bsz = common.npe*common.components.nc*common.nelemrecv;
+        bsz = common.grid.npe*common.components.nc*common.nelemrecv;
         TemplateMalloc(&dmesh.elemrecvudg, bsz, common.backend);
         TemplateCopytoDevice(dmesh.elemrecvudg, mesh.elemrecvudg, bsz, common.backend);
      
-        bsz = common.npe*common.physicsparams.ncAV*common.nelemrecv;
+        bsz = common.grid.npe*common.physicsparams.ncAV*common.nelemrecv;
         TemplateMalloc(&dmesh.elemrecvodg, bsz, common.backend);
         TemplateCopytoDevice(dmesh.elemrecvodg, mesh.elemrecvodg, bsz, common.backend);
     }
@@ -1158,11 +1158,11 @@ inline void gpuInit(solstruct &sol, resstruct &res, appstruct &app, masterstruct
 //         TemplateCopytoDevice(mesh.interfacefaces, hmesh.interfacefaces, common.nelemsend, common.backend);          
 //       }
 
-      int M = common.npe*common.npe*common.nge*(common.nd+1);
+      int M = common.grid.npe*common.grid.npe*common.grid.nge*(common.grid.nd+1);
       TemplateMalloc(&master.shapegwdotshapeg, M, common.backend);       
       TemplateCopytoDevice(master.shapegwdotshapeg, hmaster.shapegwdotshapeg, M, common.backend);
 
-      M = common.npf*common.npf*common.ngf*(common.nd);
+      M = common.grid.npf*common.grid.npf*common.grid.ngf*(common.grid.nd);
       TemplateMalloc(&master.shapfgwdotshapfg, M, common.backend);       
       TemplateCopytoDevice(master.shapfgwdotshapfg, hmaster.shapfgwdotshapfg, M, common.backend);        
       
@@ -1195,14 +1195,14 @@ inline void gpuInit(solstruct &sol, resstruct &res, appstruct &app, masterstruct
     
     if (common.components.ncs>0) {
         // initialize source term
-        Int N = common.npe*common.components.ncs*common.ne;
+        Int N = common.grid.npe*common.components.ncs*common.ne;
         TemplateMalloc(&sol.sdg, N, common.backend);       
         TemplateCopytoDevice(sol.sdg, hsol.sdg, N, common.backend);
-        TemplateMalloc(&sol.sdgg, common.nge*common.components.ncs*common.ne, common.backend);              
+        TemplateMalloc(&sol.sdgg, common.grid.nge*common.components.ncs*common.ne, common.backend);              
     }          
     
     if (common.components.ncw>0) {        
-        Int N = common.npe*common.components.ncw*common.ne;
+        Int N = common.grid.npe*common.components.ncw*common.ne;
         TemplateMalloc(&sol.wsrc, N, common.backend);       
         TemplateCopytoDevice(sol.wsrc, hsol.wsrc, N, common.backend);
         if (common.timeparams.dae_steps>0)
@@ -1210,7 +1210,7 @@ inline void gpuInit(solstruct &sol, resstruct &res, appstruct &app, masterstruct
     }          
     
     if (common.outputparams.compudgavg>0) {
-        TemplateMalloc(&sol.udgavg, common.npe*common.components.nc*common.ne1+1, common.backend);
+        TemplateMalloc(&sol.udgavg, common.grid.npe*common.components.nc*common.ne1+1, common.backend);
     }
     
     if (common.sizes.ndofbou>0) {
@@ -1219,29 +1219,29 @@ inline void gpuInit(solstruct &sol, resstruct &res, appstruct &app, masterstruct
         TemplateMalloc(&sol.bouuhavg, common.sizes.ndofbou*common.components.ncu+1, common.backend);
     }
   
-    TemplateMalloc(&sol.uh, common.npf*common.components.ncu*common.nf, common.backend);    
+    TemplateMalloc(&sol.uh, common.grid.npf*common.components.ncu*common.nf, common.backend);    
     if (common.read_uh) {
-        TemplateCopytoDevice(sol.uh, hsol.uh, common.npf*common.components.ncu*common.nf, common.backend);
+        TemplateCopytoDevice(sol.uh, hsol.uh, common.grid.npf*common.components.ncu*common.nf, common.backend);
     }
 
     #ifdef HAVE_ENZYME
-        TemplateMalloc(&sol.duh, common.npf*common.components.ncu*common.nf, common.backend);
+        TemplateMalloc(&sol.duh, common.grid.npf*common.components.ncu*common.nf, common.backend);
     #endif
-    //cudaTemplateMalloc(&sol.uhg, common.ngf*common.components.ncu*common.nf);   
-    //cudaTemplateMalloc(&sol.udgg, common.nge*common.components.nc*common.ne);   
+    //cudaTemplateMalloc(&sol.uhg, common.grid.ngf*common.components.ncu*common.nf);   
+    //cudaTemplateMalloc(&sol.udgg, common.grid.nge*common.components.nc*common.ne);   
     if (common.components.nco>0) {
-        TemplateMalloc(&sol.odgg, common.nge*common.components.nco*common.ne, common.backend);
-        TemplateMalloc(&sol.og1, common.ngf*common.components.nco*common.nf, common.backend);    
-        TemplateMalloc(&sol.og2, common.ngf*common.components.nco*common.nf, common.backend);    
+        TemplateMalloc(&sol.odgg, common.grid.nge*common.components.nco*common.ne, common.backend);
+        TemplateMalloc(&sol.og1, common.grid.ngf*common.components.nco*common.nf, common.backend);    
+        TemplateMalloc(&sol.og2, common.grid.ngf*common.components.nco*common.nf, common.backend);    
         #ifdef HAVE_ENZYME
-        TemplateMalloc(&sol.dodgg, common.nge*common.components.nco*common.ne, common.backend);
-        TemplateCopytoDevice(sol.dodgg, hsol.dodgg, common.nge*common.components.nco*common.ne, common.backend);
+        TemplateMalloc(&sol.dodgg, common.grid.nge*common.components.nco*common.ne, common.backend);
+        TemplateCopytoDevice(sol.dodgg, hsol.dodgg, common.grid.nge*common.components.nco*common.ne, common.backend);
 
-        TemplateMalloc(&sol.dog1, common.ngf*common.components.nco*common.nf, common.backend);    
-        TemplateCopytoDevice(sol.dog1, hsol.dog1, common.ngf*common.components.nco*common.nf, common.backend);
+        TemplateMalloc(&sol.dog1, common.grid.ngf*common.components.nco*common.nf, common.backend);    
+        TemplateCopytoDevice(sol.dog1, hsol.dog1, common.grid.ngf*common.components.nco*common.nf, common.backend);
 
-        TemplateMalloc(&sol.dog2, common.ngf*common.components.nco*common.nf, common.backend); 
-        TemplateCopytoDevice(sol.dog2, hsol.dog2, common.ngf*common.components.nco*common.nf, common.backend);
+        TemplateMalloc(&sol.dog2, common.grid.ngf*common.components.nco*common.nf, common.backend); 
+        TemplateCopytoDevice(sol.dog2, hsol.dog2, common.grid.ngf*common.components.nco*common.nf, common.backend);
         #endif
     }
     

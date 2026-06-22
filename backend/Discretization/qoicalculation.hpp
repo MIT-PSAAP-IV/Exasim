@@ -15,9 +15,9 @@ inline void qoiElemBlock(solstruct &sol, resstruct &res, appstruct &app, masters
     Int ncx = common.components.ncx;// number of compoments of (xdg) 
     Int ncs = common.components.ncs;// number of compoments of (sdg) 
     Int ncw = common.components.ncw;// number of compoments of (wdg) 
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int nge = common.nge; // number of gauss points on master element        
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int nge = common.grid.nge; // number of gauss points on master element        
 
     Int e1 = common.eblks[3*jth]-1;
     Int e2 = common.eblks[3*jth+1];            
@@ -79,10 +79,10 @@ inline void qoiFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masters
     Int nco = common.components.nco;// number of compoments of (o)
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
     Int ncw = common.components.ncw;
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int npf = common.npf; // number of nodes on master face           
-    Int ngf = common.ngf; // number of gauss poInts on master face              
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int npf = common.grid.npf; // number of nodes on master face           
+    Int ngf = common.grid.ngf; // number of gauss poInts on master face              
 
     Int nf = f2-f1;
     Int nn =  npf*nf; 

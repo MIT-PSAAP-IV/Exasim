@@ -23,7 +23,7 @@ void FluxDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int numPoints = nge * (e2 - e1);
     dstype time = common.timestate.time;
 
@@ -42,7 +42,7 @@ void SourceDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int numPoints = nge * (e2 - e1);
     dstype time = common.timestate.time;
 
@@ -62,7 +62,7 @@ void SourcewDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int ne = e2 - e1;
     Int numPoints = npe * ne;
     dstype time = common.timestate.time;
@@ -84,8 +84,8 @@ void OutputDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
     Int nce = common.components.nce;
-    Int nd = common.nd;
-    Int npe = common.npe;
+    Int nd = common.grid.nd;
+    Int npe = common.grid.npe;
     Int ne = common.ne;
     Int numPoints = npe * ne;
     dstype time = common.timestate.time;
@@ -106,8 +106,8 @@ void MonitorDriver(dstype* f, Int nc_sol, const dstype* xg,
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
     Int ncm = common.components.ncm;
-    Int nd = common.nd;
-    Int npe = common.npe;
+    Int nd = common.grid.nd;
+    Int npe = common.grid.npe;
     Int ne = common.ne;
     Int numPoints = npe * ne;
     dstype time = common.timestate.time;
@@ -128,8 +128,8 @@ void AvfieldDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
-    Int npe = common.npe;
+    Int nd = common.grid.nd;
+    Int npe = common.grid.npe;
     Int ne = common.ne;
     Int numPoints = npe * ne;
     dstype time = common.timestate.time;
@@ -150,7 +150,7 @@ void EosDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int ne = e2 - e1;
     Int numPoints = npe * ne;
     dstype time = common.timestate.time;
@@ -171,7 +171,7 @@ void EosduDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int ne = e2 - e1;
     Int numPoints = npe * ne;
     dstype time = common.timestate.time;
@@ -192,7 +192,7 @@ void EosdwDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int ne = e2 - e1;
     Int numPoints = npe * ne;
     dstype time = common.timestate.time;
@@ -213,7 +213,7 @@ void TdfuncDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int numPoints = nge * (e2 - e1);
     dstype time = common.timestate.time;
 
@@ -235,7 +235,7 @@ void FhatDriver(dstype* fg, const dstype* xg, const dstype* ug1,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int numPoints = ngf * (f2 - f1);
     Int M = numPoints * ncu;
     Int N = numPoints * ncu * nd;
@@ -294,7 +294,7 @@ void FbouDriver(dstype* fb, const dstype* xg, const dstype* udg,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int numPoints = ngf * (f2 - f1);
     dstype time = common.timestate.time;
 
@@ -316,7 +316,7 @@ void FbouJacDriver(dstype* fb, dstype* fb_udg, dstype* fb_wdg,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int numPoints = nga;
     dstype time = common.timestate.time;
 
@@ -352,7 +352,7 @@ void UhatDriver(dstype* fg, dstype* xg, dstype* ug1, dstype* ug2,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int numPoints = ngf * (f2 - f1);
     dstype time = common.timestate.time;
 
@@ -379,7 +379,7 @@ void UbouDriver(dstype* ub, const dstype* xg, const dstype* udg,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int numPoints = ngf * (f2 - f1);
     dstype time = common.timestate.time;
 
@@ -401,7 +401,7 @@ void UbouJacDriver(dstype* ub, dstype* ub_udg, dstype* ub_wdg,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int numPoints = nga;
     dstype time = common.timestate.time;
 
@@ -546,7 +546,7 @@ void FluxDriver(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xg,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int numPoints = nge * (e2 - e1);
     dstype time = common.timestate.time;
 
@@ -567,7 +567,7 @@ void SourceDriver(dstype* f, dstype* f_udg, dstype* f_wdg,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int numPoints = nge * (e2 - e1);
     dstype time = common.timestate.time;
 
@@ -588,7 +588,7 @@ void SourcewDriver(dstype* f, dstype* f_udg, dstype* f_wdg,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int numPoints = nge * (e2 - e1);
     dstype time = common.timestate.time;
 
@@ -609,7 +609,7 @@ void SourcewDriver(dstype* f, dstype* f_wdg, const dstype* xg,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int numPoints = nge * (e2 - e1);
     dstype time = common.timestate.time;
 
@@ -629,7 +629,7 @@ void EosDriver(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xg,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int numPoints = nge * (e2 - e1);
     dstype time = common.timestate.time;
 
@@ -650,7 +650,7 @@ void FbouDriver(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int numPoints = nga;
     dstype time = common.timestate.time;
 
@@ -671,7 +671,7 @@ void FbouDriver(dstype* f, dstype* xg, const dstype* udg,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int numPoints = nga;
     dstype time = common.timestate.time;
 
@@ -692,7 +692,7 @@ void FintDriver(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int numPoints = nga;
     dstype time = common.timestate.time;
 
@@ -713,7 +713,7 @@ void FintDriver(dstype* f, dstype* xg, const dstype* udg,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int numPoints = nga;
     dstype time = common.timestate.time;
 
@@ -732,7 +732,7 @@ void FextDriver(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
 {
     abi.HdgFext(f, f_udg, f_wdg, f_uhg, xg, udg, odg, wdg, uhg, nl, uext,
                 app.tau, app.uinf, app.physicsparam, common.timestate.time,
-                common.modelnumber, ib, nga, common.components.nc, common.components.ncu, common.nd,
+                common.modelnumber, ib, nga, common.components.nc, common.components.ncu, common.grid.nd,
                 common.components.ncx, common.components.nco, common.components.ncw);
 }
 
@@ -745,7 +745,7 @@ void FextDriver(dstype* f, dstype* xg, const dstype* udg,
 {
     abi.HdgFextonly(f, xg, udg, odg, wdg, uhg, nl, uext, app.tau, app.uinf,
                     app.physicsparam, common.timestate.time, common.modelnumber, ib, nga,
-                    common.components.nc, common.components.ncu, common.nd, common.components.ncx, common.components.nco,
+                    common.components.nc, common.components.ncu, common.grid.nd, common.components.ncx, common.components.nco,
                     common.components.ncw);
 }
 
@@ -761,7 +761,7 @@ void FhatDriver(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int numPoints = nga;
     Int M = numPoints * ncu;
     Int N = numPoints * ncu * nd;
@@ -804,7 +804,7 @@ void FhatDriver(dstype* f, dstype* u, const dstype* xg, dstype* udg,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int numPoints = nga;
     Int M = numPoints * ncu;
     dstype time = common.timestate.time;
@@ -833,7 +833,7 @@ void VisScalarsDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int numPoints = nge * (e2 - e1);
     dstype time = common.timestate.time;
 
@@ -854,7 +854,7 @@ void VisVectorsDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int numPoints = nge * (e2 - e1);
     dstype time = common.timestate.time;
 
@@ -875,7 +875,7 @@ void VisTensorsDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int numPoints = nge * (e2 - e1);
     dstype time = common.timestate.time;
 
@@ -896,7 +896,7 @@ void QoIvolumeDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int numPoints = nge * (e2 - e1);
     dstype time = common.timestate.time;
 
@@ -918,7 +918,7 @@ void QoIboundaryDriver(dstype* fb, const dstype* xg, const dstype* udg,
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int numPoints = ngf * (f2 - f1);
     dstype time = common.timestate.time;
 

@@ -949,8 +949,8 @@ int ExasimSolver::IntializeMeshInterface(const int modelnumber,
 
     backend_ = interfaceBackend;
     ncx = model.disc.common.components.ncx;
-    npf = model.disc.common.npf;
-    ngf = model.disc.common.ngf;
+    npf = model.disc.common.grid.npf;
+    ngf = model.disc.common.grid.ngf;
     nfaces = model.disc.getFacesOnInterface(&faces, ibc + 1);
 
     model.disc.common.couplingparams.ncuext = ncuext;
@@ -960,11 +960,11 @@ int ExasimSolver::IntializeMeshInterface(const int modelnumber,
 
     TemplateMalloc(&xdgint, npf * nfaces * model.disc.common.components.ncx,
                    interfaceBackend);
-    TemplateMalloc(&nlint, npf * nfaces * model.disc.common.nd,
+    TemplateMalloc(&nlint, npf * nfaces * model.disc.common.grid.nd,
                    interfaceBackend);
     TemplateMalloc(&xdggint, ngf * nfaces * model.disc.common.components.ncx,
                    interfaceBackend);
-    TemplateMalloc(&nlgint, ngf * nfaces * model.disc.common.nd,
+    TemplateMalloc(&nlgint, ngf * nfaces * model.disc.common.grid.nd,
                    interfaceBackend);
     TemplateMalloc(&flux_dev_, ngf * nfaces * _ncuint,
                    interfaceBackend);
@@ -974,7 +974,7 @@ int ExasimSolver::IntializeMeshInterface(const int modelnumber,
     model.disc.getFieldsAtGaussPointsOnInterface(xdggint, xdgint, nfaces,
                                                  model.disc.common.components.ncx);
     model.disc.getFieldsAtGaussPointsOnInterface(nlgint, nlint, nfaces,
-                                                 model.disc.common.nd);
+                                                 model.disc.common.grid.nd);
 
     return 0;
 }

@@ -85,12 +85,12 @@ inline void wEquation(dstype *wdg, dstype *xdg, dstype *udg, dstype *odg, dstype
       dstype *tempg, appstruct &app, commonstruct &common, Int ng, Int backend)
 {        
     Int ncu = common.components.ncu; // number of compoments of (u)
-    Int nd = common.nd; // spatial dimension
+    Int nd = common.grid.nd; // spatial dimension
     Int nc = common.components.nc; // number of compoments of (u, q)
     Int ncw = common.components.ncw;// number of compoments of (w)
     Int nco = common.components.nco;// number of compoments of (o)
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
-    //Int npe = common.npe; // number of nodes on master element    
+    //Int npe = common.grid.npe; // number of nodes on master element    
     Int modelnumber = common.modelnumber;
     if  (common.builtinmodelID > 0) modelnumber = common.builtinmodelID;
     dstype time = common.timestate.time;                
@@ -173,12 +173,12 @@ inline void wEquation(dstype *wdg, dstype *wdg_udg, dstype *xdg, dstype *udg, ds
        dstype *tempg, appstruct &app, commonstruct &common, Int ng, Int backend)
 {        
     Int ncu = common.components.ncu; // number of compoments of (u)
-    Int nd = common.nd; // spatial dimension
+    Int nd = common.grid.nd; // spatial dimension
     Int nc = common.components.nc; // number of compoments of (u, q)
     Int ncw = common.components.ncw;// number of compoments of (w)
     Int nco = common.components.nco;// number of compoments of (o)
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
-    //Int npe = common.npe; // number of nodes on master element    
+    //Int npe = common.grid.npe; // number of nodes on master element    
     Int modelnumber = common.modelnumber;
     if  (common.builtinmodelID > 0) modelnumber = common.builtinmodelID;
     dstype time = common.timestate.time;                
@@ -282,7 +282,7 @@ inline void GetW(dstype *w, solstruct &sol, tempstruct &tmp, appstruct &app, com
       Int e1 = common.eblks[3*j]-1;
       Int e2 = common.eblks[3*j+1];
       Int ns = e2-e1;        
-      Int ng = common.npe*ns;
+      Int ng = common.grid.npe*ns;
       Int ncw = common.components.ncw;
       Int ncx = common.components.ncx;
       Int nc = common.components.nc;
@@ -292,13 +292,13 @@ inline void GetW(dstype *w, solstruct &sol, tempstruct &tmp, appstruct &app, com
       dstype* udg = &tmp.tempn[ng*(ncw+ncx)];
       dstype* odg = &tmp.tempn[ng*(ncw+ncx+nc)];
       dstype* sdg = &tmp.tempn[ng*(ncw+ncx+nc+nco)];
-      GetElemNodes(wdg, w, common.npe, ncw, 0, ncw, e1, e2);
-      GetElemNodes(xdg, sol.xdg, common.npe, ncx, 0, ncx, e1, e2);
-      GetElemNodes(udg, sol.udg, common.npe, nc, 0, nc, e1, e2);
-      GetElemNodes(odg, sol.odg, common.npe, nco, 0, nco, e1, e2);
-      GetElemNodes(sdg, sol.wsrc, common.npe, ncw, 0, ncw, e1, e2);
+      GetElemNodes(wdg, w, common.grid.npe, ncw, 0, ncw, e1, e2);
+      GetElemNodes(xdg, sol.xdg, common.grid.npe, ncx, 0, ncx, e1, e2);
+      GetElemNodes(udg, sol.udg, common.grid.npe, nc, 0, nc, e1, e2);
+      GetElemNodes(odg, sol.odg, common.grid.npe, nco, 0, nco, e1, e2);
+      GetElemNodes(sdg, sol.wsrc, common.grid.npe, ncw, 0, ncw, e1, e2);
       wEquation<M>(wdg, xdg, udg, odg, sdg, tmp.tempg, app, common, ng, common.backend);
-      PutElemNodes(w, wdg, common.npe, ncw, 0, ncw, e1, e2);
+      PutElemNodes(w, wdg, common.grid.npe, ncw, 0, ncw, e1, e2);
   }   
 }
 

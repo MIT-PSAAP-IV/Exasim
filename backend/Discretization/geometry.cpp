@@ -83,9 +83,9 @@ void ElemGeom(solstruct &sol, masterstruct &master, meshstruct &mesh, tempstruct
         commonstruct &common, cublasHandle_t handle, Int backend)
 {    
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int nge = common.nge; // number of gauss points on master element    
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int nge = common.grid.nge; // number of gauss points on master element    
     Int ne = common.ne; // number of elements in this subdomain 
     
     TemplateMalloc(&sol.elemg, nge*ne*(ncx+nd*nd+1), backend);  
@@ -102,10 +102,10 @@ void FaceGeomBlock(solstruct &sol, masterstruct &master, meshstruct &mesh, temps
         commonstruct &common, cublasHandle_t handle, Int f1, Int f2, Int backend)
 {            
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int npf = common.npf; // number of nodes on master face           
-    Int ngf = common.ngf; // number of gauss poInts on master face              
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int npf = common.grid.npf; // number of nodes on master face           
+    Int ngf = common.grid.ngf; // number of gauss poInts on master face              
 
     Int nf = f2-f1;
     //Int nn =  npf*nf; 
@@ -139,8 +139,8 @@ void FaceGeom(solstruct &sol, masterstruct &master, meshstruct &mesh, tempstruct
 {           
     
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
-    Int nd = common.nd;     // spatial dimension    
-    Int ngf = common.ngf; // number of gauss points on master face                      
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int ngf = common.grid.ngf; // number of gauss points on master face                      
     Int nbf = common.nbf;
     Int nf = common.fblks[3*(nbf-1)+1];    
     
@@ -159,10 +159,10 @@ void ElemFaceGeomBlock(solstruct &sol, masterstruct &master, meshstruct &mesh, t
         commonstruct &common, cublasHandle_t handle, Int e1, Int e2, Int backend)
 {            
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int npf = common.npf; // number of nodes on master face           
-    Int ngf = common.ngf; // number of gauss poInts on master face              
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int npf = common.grid.npf; // number of nodes on master face           
+    Int ngf = common.grid.ngf; // number of gauss poInts on master face              
     Int nfe = common.nfe; // number of faces per element
 
     Int ne = e2-e1;
@@ -196,8 +196,8 @@ void ElemFaceGeom(solstruct &sol, masterstruct &master, meshstruct &mesh, tempst
         commonstruct &common, cublasHandle_t handle, Int backend)
 {    
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
-    Int nd = common.nd;     // spatial dimension        
-    Int ngf = common.ngf; // number of gauss poInts on master face    
+    Int nd = common.grid.nd;     // spatial dimension        
+    Int ngf = common.grid.ngf; // number of gauss poInts on master face    
     Int nfe = common.nfe; // number of faces per element
     Int ne = common.ne; // number of elements in this subdomain 
     

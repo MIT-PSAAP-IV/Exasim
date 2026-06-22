@@ -101,9 +101,9 @@ inline void uJacobianLDGDirect(dstype* AU, dstype* AQ, dstype* AW,
     Int ncx = common.components.ncx;
     Int ncs = common.components.ncs;
     Int ncw = common.components.ncw;
-    Int nd = common.nd;
-    Int npe = common.npe;
-    Int nge = common.nge;
+    Int nd = common.grid.nd;
+    Int npe = common.grid.npe;
+    Int nge = common.grid.nge;
 
     Int ne = e2-e1;
     Int nn = npe*ne;
@@ -230,7 +230,7 @@ inline void uJacobianLDGCompose(dstype* JU, const dstype* AU, const dstype* AQ,
     if ((JU == nullptr) || (AU == nullptr))
         return;
 
-    Int npe = common.npe;
+    Int npe = common.grid.npe;
     Int ncu = common.components.ncu;
     Int ncq = common.components.ncq;
     Int ncw = common.components.ncw;
@@ -260,8 +260,8 @@ inline void uJacobianLDGAssembleFaceSide(dstype* A, const dstype* Atmp,
     if ((A == nullptr) || (Atmp == nullptr) || (ncol <= 0))
         return;
 
-    Int npe = common.npe;
-    Int npf = common.npf;
+    Int npe = common.grid.npe;
+    Int npf = common.grid.npf;
     Int ncu = common.components.ncu;
     Int nf = f2 - f1;
     Int ne = e2 - e1;
@@ -311,8 +311,8 @@ inline void uJacobianLDGFace(dstype* JU, dstype* JQ, dstype* JW,
     (void)res;
     (void)tmp;
 
-    Int npe = common.npe;
-    Int npf = common.npf;
+    Int npe = common.grid.npe;
+    Int npf = common.grid.npf;
     Int ncu = common.components.ncu;
     Int nc = common.components.nc;
     Int ncq = common.components.ncq;
@@ -333,10 +333,10 @@ inline void uJacobianLDGFace(dstype* JU, dstype* JQ, dstype* JW,
         Int ib = common.fblks[3*j + 2];
         Int nf = f2 - f1;
         Int nn = npf*nf;
-        Int ngf = common.ngf;
+        Int ngf = common.grid.ngf;
         Int nga = ngf*nf;
         Int ncx = common.components.ncx;
-        Int nd = common.nd;
+        Int nd = common.grid.nd;
 
         Int nodalCols = (ib == 0) ? (ncu + 2*nc + 2*ncw) : (ncu + nc + ncw);
         dstype* fn = nullptr;
@@ -499,7 +499,7 @@ inline void uJacobianLDG(dstype* JU, dstype* AU, dstype* AQ, dstype* AW,
         meshstruct& mesh, tempstruct& tmp, commonstruct& common,
         cublasHandle_t handle, Int e1, Int e2, Int backend)
 {
-    Int npe = common.npe;
+    Int npe = common.grid.npe;
     Int ncu = common.components.ncu;
     Int ncq = common.components.ncq;
     Int ncw = common.components.ncw;

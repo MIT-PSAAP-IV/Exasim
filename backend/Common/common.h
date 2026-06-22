@@ -1816,7 +1816,27 @@ struct componentsstruct {
     Int ntau;  // stabilization length
 };
 
+// Reference-element / discretization sizes: spatial dimension, element & node types, polynomial
+// and quadrature orders, and the per-element/face node & Gauss-point counts (the master-element
+// shape the kernels loop over). Grouped out of commonstruct (C3/S3) into an intermediate struct
+// alongside componentsstruct. Access via common.grid.<field>.
+struct gridstruct {
+    Int nd;          // spatial dimension
+    Int elemtype;
+    Int nodetype;
+    Int porder;      // solution polynomial degree
+    Int pgauss;      // Gauss-quadrature degree
+    Int npe;         // nodes on master element
+    Int npf;         // nodes on master face
+    Int nge;         // Gauss points on master element
+    Int ngf;         // Gauss points on master face
+    Int np1d;
+    Int ng1d;
+    Int curvedMesh;  // curved-mesh flag
+};
+
 struct commonstruct {
+    gridstruct grid;                        // reference-element/discretization sizes (see above)
     componentsstruct components;            // DG-field component counts (see above)
     sizesstruct sizes;                      // derived degree-of-freedom counts (see above)
     wallmodelparamsstruct wallmodelparams;  // wall-model configuration (see above)
@@ -1846,17 +1866,6 @@ struct commonstruct {
     Int enzyme=0;
     
 
-    Int nd; // spatial dimension    
-    Int elemtype;
-    Int nodetype;
-    Int porder; // polynomial degree for solution approximation
-    Int pgauss; // polynomial degree for Gauss quadrature
-    Int npe;  // number of nodes on master element
-    Int npf;  // number of nodes on master face       
-    Int nge;  // number of gauss poInts on master element
-    Int ngf;  // number of gauss poInts on master face                    
-    Int np1d;
-    Int ng1d;    
     Int ppdegree=0; // polynomial preconditioner degree
     Int isd=0; 
             
@@ -1885,7 +1894,6 @@ struct commonstruct {
     Int nf0;  // number of interior faces
         
     
-    Int curvedMesh;// curved mesh   
     Int modelnumber;      // model number
     Int builtinmodelID=0; // model ID
     Int matrixformat=0;
@@ -1975,16 +1983,16 @@ struct commonstruct {
       printf("number of compoments of x: %d\n", components.ncx);   
       printf("number of compoments of s: %d\n", components.ncs);   
       printf("number of compoments of outputs: %d\n", components.nce);    
-      printf("spatial dimension: %d\n", nd);   
+      printf("spatial dimension: %d\n", grid.nd);   
       printf("spatial scheme: %d\n", spatialScheme);        
-      printf("element type: %d\n", elemtype);   
+      printf("element type: %d\n", grid.elemtype);   
       printf("node type: %d\n", 1);   
-      printf("polynomial degree: %d\n", porder);   
-      printf("gauss quadrature degree: %d\n", pgauss); 
-      printf("number of nodes on master element: %d\n", npe); 
-      printf("number of gauss points on master element: %d\n", nge); 
-      printf("number of nodes on master face: %d\n", npf); 
-      printf("number of gauss points on master face: %d\n", ngf); 
+      printf("polynomial degree: %d\n", grid.porder);   
+      printf("gauss quadrature degree: %d\n", grid.pgauss); 
+      printf("number of nodes on master element: %d\n", grid.npe); 
+      printf("number of gauss points on master element: %d\n", grid.nge); 
+      printf("number of nodes on master face: %d\n", grid.npf); 
+      printf("number of gauss points on master face: %d\n", grid.ngf); 
       printf("temporal scheme: %d\n", timeparams.temporalScheme);   
       printf("temporal order: %d\n", timeparams.torder);   
       printf("number of DIRK stages: %d\n", timeparams.tstages);   
@@ -2025,7 +2033,7 @@ struct commonstruct {
       printf("external uhat function flag: %d\n", couplingparams.extUhat);
       printf("external fhat function flag: %d\n", couplingparams.extFhat);
       printf("external stabilization function flag: %d\n", couplingparams.extStab);
-      printf("curved mesh flag: %d\n", curvedMesh);
+      printf("curved mesh flag: %d\n", grid.curvedMesh);
       printf("debug mode flag: %d\n", outputparams.debugMode);
       printf("time-dependent problem flag: %d\n", timeparams.tdep);
       printf("wave problem flag: %d\n", timeparams.wave);

@@ -141,7 +141,7 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int back
     
     Int maxit, nrest, orthogMethod, n1, i, k, j = 0;
     Int ncu = disc.common.components.ncu;
-    Int npe = disc.common.npe;
+    Int npe = disc.common.grid.npe;
     Int ne = disc.common.ne1;
     Int N = npe*ncu*ne;
     dstype nrmb, nrmr, tol, scalar;
@@ -412,7 +412,7 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int N, I
         // norm of the new RHS vector
         nrmr = PNORM(disc.common.cublasHandle, N, disc.common.couplingparams.ndofuhatinterface, sys.r, backend);
         // if (disc.common.mpiProcs>1 && disc.common.spatialScheme==1) {
-        //   nrm = PNORM(disc.common.cublasHandle, disc.common.components.ncu*disc.common.npf*disc.common.couplingparams.ninterfacefaces, sys.b, backend);
+        //   nrm = PNORM(disc.common.cublasHandle, disc.common.components.ncu*disc.common.grid.npf*disc.common.couplingparams.ninterfacefaces, sys.b, backend);
         //   nrmr = sqrt(nrmr*nrmr - 0.5*nrm*nrm);
         // }                
     }

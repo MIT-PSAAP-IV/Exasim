@@ -99,12 +99,12 @@ void printinterfaceinfo(CDiscretization &disc)
     print2iarray(disc.mesh.bf, disc.common.nfe, disc.common.ne);     
     printf("eblks array: %d by %d\n", 3, disc.common.nbe);  
     print2iarray(disc.common.eblks, 3, disc.common.nbe);    
-    printf("xdgint array: %d by %d\n", disc.common.npf, disc.common.couplingparams.nintfaces*disc.common.components.ncx);  
-    print2darray(disc.sol.xdgint, disc.common.npf, disc.common.couplingparams.nintfaces*disc.common.components.ncx);                      
-    printf("xdg array: %d by %d\n", disc.common.npe, disc.common.ne*disc.common.components.ncx);  
-    print2darray(disc.sol.xdg, disc.common.npe, disc.common.ne*disc.common.components.ncx);                      
-    // printf("udg array: %d by %d\n", disc.common.npe, disc.common.ne*disc.common.components.nc);  
-    // print2darray(disc.sol.udg, disc.common.npe, disc.common.ne*disc.common.components.nc);                      
+    printf("xdgint array: %d by %d\n", disc.common.grid.npf, disc.common.couplingparams.nintfaces*disc.common.components.ncx);  
+    print2darray(disc.sol.xdgint, disc.common.grid.npf, disc.common.couplingparams.nintfaces*disc.common.components.ncx);                      
+    printf("xdg array: %d by %d\n", disc.common.grid.npe, disc.common.ne*disc.common.components.ncx);  
+    print2darray(disc.sol.xdg, disc.common.grid.npe, disc.common.ne*disc.common.components.ncx);                      
+    // printf("udg array: %d by %d\n", disc.common.grid.npe, disc.common.ne*disc.common.components.nc);  
+    // print2darray(disc.sol.udg, disc.common.grid.npe, disc.common.ne*disc.common.components.nc);                      
 }
 
 class CSolution {
@@ -147,12 +147,12 @@ public:
          prec(disc, backend, mode), solv(disc, backend, mode), vis(disc, backend) 
     {   
         int ncx = disc.common.components.ncx;                            
-        int nd = disc.common.nd;     
+        int nd = disc.common.grid.nd;     
         int ncu = disc.common.components.ncu;     
         int nc = (disc.common.outputparams.saveSolOpt==0) ? disc.common.components.ncu : disc.common.components.nc;        
         int ncw = disc.common.components.ncw;
-        int npe = disc.common.npe;
-        int npf = disc.common.npf;
+        int npe = disc.common.grid.npe;
+        int npf = disc.common.grid.npf;
         int ne = disc.common.ne1;     
         int nf = disc.common.nf;     
         int rank = disc.common.mpiRank;

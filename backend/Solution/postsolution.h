@@ -66,12 +66,12 @@ public:
          prec(disc, backend), solv(disc, backend), vis(disc, backend) 
     {   
         int ncx = disc.common.components.ncx;                            
-        int nd = disc.common.nd;     
+        int nd = disc.common.grid.nd;     
         int ncu = disc.common.components.ncu;     
         int nc = (disc.common.outputparams.saveSolOpt==0) ? disc.common.components.ncu : disc.common.components.nc;        
         int ncw = disc.common.components.ncw;
-        int npe = disc.common.npe;
-        int npf = disc.common.npf;
+        int npe = disc.common.grid.npe;
+        int npf = disc.common.grid.npf;
         int ne = disc.common.ne1;     
         int nf = disc.common.nf;     
         int rank = disc.common.mpiRank;

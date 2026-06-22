@@ -793,15 +793,15 @@ void uhatEquationElemFaceBlockLDG(solstruct &sol, resstruct &res, appstruct &app
 {
     Int e1 = common.eblks[3*jth]-1;
     Int e2 = common.eblks[3*jth+1];
-    Int npe = common.npe;
-    Int npf = common.npf;
+    Int npe = common.grid.npe;
+    Int npf = common.grid.npf;
     Int nfe = common.nfe;
     Int ncu = common.components.ncu;
     Int nc = common.components.nc;
     Int nco = common.components.nco;
     Int ncw = common.components.ncw;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int ne = e2 - e1;
     Int ndf = npf*nfe;
     Int nlocu = npe*ncu;
@@ -900,10 +900,10 @@ void uEquationElemFaceBlockLDG(solstruct &sol, resstruct &res, appstruct &app,
     Int nco = common.components.nco;
     Int ncx = common.components.ncx;
     Int ncw = common.components.ncw;
-    Int nd = common.nd;
-    Int npe = common.npe;
-    Int npf = common.npf;
-    Int ngf = common.ngf;
+    Int nd = common.grid.nd;
+    Int npe = common.grid.npe;
+    Int npf = common.grid.npf;
+    Int ngf = common.grid.ngf;
     Int nfe = common.nfe;
 
     Int e1 = common.eblks[3*jth]-1;
@@ -1086,9 +1086,9 @@ void uEquationSchurBlockLDG(solstruct &sol, resstruct &res, appstruct &app,
     (void)mesh;
 
     Int ncu = common.components.ncu;
-    Int nd = common.nd;
-    Int npe = common.npe;
-    Int npf = common.npf;
+    Int nd = common.grid.nd;
+    Int npe = common.grid.npe;
+    Int npf = common.grid.npf;
     Int nfe = common.nfe;
 
     Int e1 = common.eblks[3*jth]-1;
@@ -1223,9 +1223,9 @@ void RuFaceCrossDeriv(dstype* A, solstruct &sol,
         return;
 
     Int backend = common.backend;
-    Int npe = common.npe;
-    Int npf = common.npf;
-    Int ngf = common.ngf;
+    Int npe = common.grid.npe;
+    Int npf = common.grid.npf;
+    Int ngf = common.grid.ngf;
     Int nfe = common.nfe;
     Int ncu = common.components.ncu;
     Int ncq = common.components.ncq;
@@ -1233,7 +1233,7 @@ void RuFaceCrossDeriv(dstype* A, solstruct &sol,
     Int nco = common.components.nco;
     Int ncw = common.components.ncw;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int ne = common.ne1;
     LDGRuFaceCrossBenchmarkTimes tm;
     double tTotal = LDGBenchmarkStart(backend);
@@ -1384,16 +1384,16 @@ void RuFaceCrossDerivOptimized(dstype* A, solstruct &sol,
         return;
 
     Int backend = common.backend;
-    Int npe = common.npe;
-    Int npf = common.npf;
-    Int ngf = common.ngf;
+    Int npe = common.grid.npe;
+    Int npf = common.grid.npf;
+    Int ngf = common.grid.ngf;
     Int ncu = common.components.ncu;
     //Int ncq = common.components.ncq;
     Int nc = common.components.nc;
     Int nco = common.components.nco;
     Int ncw = common.components.ncw;
     Int ncx = common.components.ncx;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int ne = common.ne1;
 
     dstype scalar = 1.0;
@@ -1519,7 +1519,7 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
 
     // insert u into udg
     t0 = LDGBenchmarkStart(backend);
-    ArrayInsert(sol.udg, u, common.npe, common.components.nc, common.ne, 0, common.npe, 
+    ArrayInsert(sol.udg, u, common.grid.npe, common.components.nc, common.ne, 0, common.grid.npe, 
                 0, common.components.ncu, 0, common.ne);  
     tm.insert += LDGBenchmarkStop(t0, backend);
 
@@ -1548,8 +1548,8 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
         tm.av += LDGBenchmarkStop(t0, backend);
     }
 
-    Int n = common.npe*common.components.ncu;
-    Int m = common.npf*common.nfe*common.components.ncu;
+    Int n = common.grid.npe*common.components.ncu;
+    Int m = common.grid.npf*common.nfe*common.components.ncu;
     for (Int j = 0; j < common.nbe; j++) {
         Int e1 = common.eblks[3*j]-1;
         Int e2 = common.eblks[3*j+1];
@@ -1588,7 +1588,7 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
     // if (common.timeparams.tdep == 1)
     //     ArrayMultiplyScalar(handle, K, minusone/common.timestate.dtfactor, n*n*common.ne1, backend);
     
-    // print3darray(sol.xdg, common.npe, common.components.ncx, common.ne1);
+    // print3darray(sol.xdg, common.grid.npe, common.components.ncx, common.ne1);
     // print3darray(K, n, n, common.ne1);
 
     // VerifyRuDerivFromUFiniteDifference(K, u, sol, res, app, driver_abi, master, mesh, tmp, common, 1e-6);
@@ -1649,12 +1649,12 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
     double tTotal = LDGBenchmarkStart(backend);
     double t0;
 
-    Int bsz = common.npe*common.components.ncu;
+    Int bsz = common.grid.npe*common.components.ncu;
     Int n;
 
     // Insert owned primal unknowns. Neighbor/exterior primal values are received below.
     t0 = LDGBenchmarkStart(backend);
-    ArrayInsert(sol.udg, u, common.npe, common.components.nc, common.ne, 0, common.npe,
+    ArrayInsert(sol.udg, u, common.grid.npe, common.components.nc, common.ne, 0, common.grid.npe,
                 0, common.components.ncu, 0, common.ne1);
     tm.insert += LDGBenchmarkStop(t0, backend);
 
@@ -1744,7 +1744,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
         tm.av += LDGBenchmarkStop(t0, backend);
     }
 
-    Int nlocu = common.npe*common.components.ncu;
+    Int nlocu = common.grid.npe*common.components.ncu;
     for (Int j = 0; j < common.nbe1; j++) {
         Int e1 = common.eblks[3*j]-1;
         Int e2 = common.eblks[3*j+1];
@@ -1802,7 +1802,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 //                              tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
 // {    
 //     // insert u into udg
-//     ArrayInsert(sol.udg, u, common.npe, common.components.nc, common.ne, 0, common.npe, 
+//     ArrayInsert(sol.udg, u, common.grid.npe, common.components.nc, common.ne, 0, common.grid.npe, 
 //                 0, common.components.ncu, 0, common.ne);  
 // 
 //     // compute uhat
@@ -1819,7 +1819,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 //     if (common.physicsparams.ncAV>0 && common.physicsparams.frozenAVflag == 0)
 //         GetAv<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, backend);
 // 
-//     Int n = common.npe*common.components.ncu;
+//     Int n = common.grid.npe*common.components.ncu;
 //     Int szA = n*n*common.ne1;
 //     dstype *K = nullptr;
 //     TemplateMalloc(&K, szA, backend);
@@ -1830,7 +1830,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 //         Int ne = e2-e1;        
 // 
 //         ArraySetValue(res.D, 0.0, n*n*ne);
-//         ArraySetValue(res.B, 0.0, n*common.npe*common.components.ncq*ne);
+//         ArraySetValue(res.B, 0.0, n*common.grid.npe*common.components.ncq*ne);
 //         uEquationElemFaceBlockLDG(sol, res, app, driver_abi, master, mesh,
 //                                   tmp, common, handle, j, backend);
 // 
@@ -1876,8 +1876,8 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 //         tempstruct &tmp, commonstruct &common, cublasHandle_t handle,
 //         Int backend)
 // {
-//     Int n = common.npe*common.components.ncu;
-//     Int m = common.npf*common.nfe*common.components.ncu;
+//     Int n = common.grid.npe*common.components.ncu;
+//     Int m = common.grid.npf*common.nfe*common.components.ncu;
 // 
 //     // common.outputparams.debugMode = 1;
 //     // if (common.outputparams.debugMode == 1) {
@@ -1885,9 +1885,9 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 //     //             driver_abi, master, mesh, tmp, common, 1e-6);
 //     // 
 //     //     dstype* u = nullptr;
-//     //     TemplateMalloc(&u, common.npe*common.components.ncu*common.ne1, backend);
-//     //     ArrayExtract(u, sol.udg, common.npe, common.components.nc, common.ne,
-//     //             0, common.npe, 0, common.components.ncu, 0, common.ne1);
+//     //     TemplateMalloc(&u, common.grid.npe*common.components.ncu*common.ne1, backend);
+//     //     ArrayExtract(u, sol.udg, common.grid.npe, common.components.nc, common.ne,
+//     //             0, common.grid.npe, 0, common.components.ncu, 0, common.ne1);
 //     //     VerifyRuElemDerivFromUFiniteDifference(u, sol, res, app,
 //     //             driver_abi, master, mesh, tmp, common, 1e-6);
 //     //     VerifyRuFaceDerivFromUFiniteDifference(u, sol, res, app,
@@ -1923,7 +1923,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 //     //     uEquationElemBlock<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp,
 //     //             common, handle, j, backend);
 //     // 
-//     //     // print3darray(res.B, n, n*common.nd, ne);
+//     //     // print3darray(res.B, n, n*common.grid.nd, ne);
 //     // 
 //     //     uEquationElemFaceBlockLDG0(sol, res, app, driver_abi, master, mesh,
 //     //             tmp, common, handle, j, backend);
@@ -1968,10 +1968,10 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 //     Int nco = common.components.nco;// number of compoments of (o)
 //     Int ncx = common.components.ncx;// number of compoments of (xdg)        
 //     Int ncw = common.components.ncw;
-//     Int nd = common.nd;     // spatial dimension    
-//     Int npe = common.npe; // number of nodes on master element
-//     Int npf = common.npf; // number of nodes on master face           
-//     Int ngf = common.ngf; // number of gauss poInts on master face              
+//     Int nd = common.grid.nd;     // spatial dimension    
+//     Int npe = common.grid.npe; // number of nodes on master element
+//     Int npf = common.grid.npf; // number of nodes on master face           
+//     Int ngf = common.grid.ngf; // number of gauss poInts on master face              
 //     Int nfe = common.nfe; // number of faces in each element
 // 
 //     Int e1 = common.eblks[3*jth]-1;
@@ -2079,9 +2079,9 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 //         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int jth, Int backend)
 // {        
 //     Int ncu = common.components.ncu;// number of compoments of (u)
-//     Int nd = common.nd;     // spatial dimension    
-//     Int npe = common.npe; // number of nodes on master element
-//     Int npf = common.npf; // number of nodes on master face           
+//     Int nd = common.grid.nd;     // spatial dimension    
+//     Int npe = common.grid.npe; // number of nodes on master element
+//     Int npf = common.grid.npf; // number of nodes on master face           
 //     Int nfe = common.nfe; // number of faces in each element
 // 
 //     Int e1 = common.eblks[3*jth]-1;

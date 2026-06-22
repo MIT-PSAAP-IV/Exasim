@@ -99,9 +99,9 @@ inline void RqElem(solstruct &sol, resstruct &res, appstruct &app, masterstruct 
     Int nc = common.components.nc; // number of compoments of (u, q, p)
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int nge = common.nge; // number of gauss points on master element    
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int nge = common.grid.nge; // number of gauss points on master element    
     //Int ne = common.ne; // number of elements in this subdomain 
     
     for (Int j=nbe1; j<nbe2; j++) {
@@ -153,10 +153,10 @@ inline void RqFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct 
     Int nc = common.components.nc; // number of compoments of (u, q, p)
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int npf = common.npf; // number of nodes on master face           
-    Int ngf = common.ngf; // number of gauss poInts on master face          
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int npf = common.grid.npf; // number of nodes on master face           
+    Int ngf = common.grid.ngf; // number of gauss poInts on master face          
     //Int ne = common.ne; // number of elements in this subdomain 
     
     for (Int j=nbf1; j<nbf2; j++) {
@@ -209,9 +209,9 @@ inline void dRqElem(solstruct &sol, resstruct &res, appstruct &app, masterstruct
     Int nc = common.components.nc; // number of compoments of (u, q, p)
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int nge = common.nge; // number of gauss points on master element    
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int nge = common.grid.nge; // number of gauss points on master element    
     //Int ne = common.ne; // number of elements in this subdomain 
     
     for (Int j=nbe1; j<nbe2; j++) {
@@ -264,10 +264,10 @@ inline void dRqFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct
     Int nc = common.components.nc; // number of compoments of (u, q, p)
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int npf = common.npf; // number of nodes on master face           
-    Int ngf = common.ngf; // number of gauss poInts on master face          
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int npf = common.grid.npf; // number of nodes on master face           
+    Int ngf = common.grid.ngf; // number of gauss poInts on master face          
     //Int ne = common.ne; // number of elements in this subdomain 
     
     for (Int j=nbf1; j<nbf2; j++) {

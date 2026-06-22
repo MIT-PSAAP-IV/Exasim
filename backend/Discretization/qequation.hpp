@@ -84,9 +84,9 @@ inline void qEquationElem(solstruct &sol, resstruct &res, appstruct &app, master
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
 {        
     Int ncx = common.components.ncx;// number of compoments of (xdg) 
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int nge = common.nge; // number of gauss points on master element        
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int nge = common.grid.nge; // number of gauss points on master element        
     Int ne = common.ne; // number of elements in this subdomain
     Int nbe = common.nbe1; // number of blocks for elements   
     Int neb = common.neb; // maximum number of elements per block
@@ -233,10 +233,10 @@ inline void qEquationFace(solstruct &sol, resstruct &res, appstruct &app, master
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
 {    
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int npf = common.npf; // number of nodes on master face           
-    Int ngf = common.ngf; // number of gauss poInts on master face
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int npf = common.grid.npf; // number of nodes on master face           
+    Int ngf = common.grid.ngf; // number of gauss poInts on master face
     Int nbf = common.nbf; // number of blocks for faces 
     Int nfe = common.nfe; // number of faces per element
     Int ne = common.ne; // number of elements in this subdomain
@@ -338,10 +338,10 @@ inline void qEquationElemFace(solstruct &sol, resstruct &res, appstruct &app, ma
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
 {    
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int npf = common.npf; // number of nodes on master face           
-    Int ngf = common.ngf; // number of gauss poInts on master face
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int npf = common.grid.npf; // number of nodes on master face           
+    Int ngf = common.grid.ngf; // number of gauss poInts on master face
     Int nbe = common.nbe1; // number of blocks for elements 
     Int nfe = common.nfe; // number of faces per element
     Int ne = common.ne; // number of elements in this subdomain
@@ -383,10 +383,10 @@ inline void hdgGetQ(dstype *udg, dstype *uhat, solstruct &sol, resstruct &res, m
     Int nc = common.components.nc;// number of compoments of (udg)        
     Int ncu = common.components.ncu; // number of compoments of (u)
     Int ncq = common.components.ncq; // number of compoments of (q)
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int npf = common.npf; // number of nodes on master face           
-    //Int ngf = common.ngf; // number of gauss poInts on master face
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int npf = common.grid.npf; // number of nodes on master face           
+    //Int ngf = common.grid.ngf; // number of gauss poInts on master face
     Int nbe = common.nbe1; // number of blocks for elements 
     Int nfe = common.nfe; // number of faces per element
     Int ne = common.ne; // number of elements in this subdomain
@@ -414,7 +414,7 @@ inline void hdgGetQ(dstype *udg, dstype *uhat, solstruct &sol, resstruct &res, m
       dstype *s = res.Rq;
       ArraySetValue(s, zero, npe*ncq*ns);
       
-      // print3darray(uhat, common.components.ncu, common.npf, common.nf);
+      // print3darray(uhat, common.components.ncu, common.grid.npf, common.nf);
       //print3darray(uh, npf*nfe, common.components.ncu, ns);            
       dstype *Cx = res.C;        
       dstype *Ex = res.E;              

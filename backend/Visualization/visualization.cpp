@@ -76,18 +76,18 @@ public:
 
     CVisualization(CDiscretization& disc, int backend) {      
         rank = disc.common.mpiRank;
-        int nd_in   = disc.common.nd;
+        int nd_in   = disc.common.grid.nd;
         int npoints_in = disc.sol.szxcg / nd_in;
         
         if (npoints_in > 0 && nd_in > 1) {            
-            int porder  = disc.common.porder;        
+            int porder  = disc.common.grid.porder;        
             int nsca    = disc.common.qoiparams.nsca;
             int nvec    = disc.common.qoiparams.nvec;            
             int nten    = disc.common.qoiparams.nten;            
             int nsurf   = disc.common.qoiparams.nsurf;            
-            int npe     = disc.common.npe;
+            int npe     = disc.common.grid.npe;
             int ne      = disc.common.ne1;
-            int elemtype= disc.common.elemtype;
+            int elemtype= disc.common.grid.elemtype;
             int nve_in  = (elemtype==0) ? (nd_in + 1) : std::pow(2, nd_in);
                 
             std::string fn1 = make_path(exasim_data_dir(), "masternodes.bin");

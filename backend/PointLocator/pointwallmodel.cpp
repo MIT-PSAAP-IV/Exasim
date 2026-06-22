@@ -145,7 +145,7 @@ static inline void getFieldsAtGaussPointsOnInterface(
 {
     Node2Gauss(
         disc.common.cublasHandle, ugint, uint, disc.master.shapfgt,
-        disc.common.ngf, disc.common.npf, nfaces * ncomp, 0);
+        disc.common.grid.ngf, disc.common.grid.npf, nfaces * ncomp, 0);
 }
 
 static inline void getNormalVectorOnInterface(
@@ -154,8 +154,8 @@ static inline void getNormalVectorOnInterface(
     CDiscretization& disc,
     const Int nfaces)
 {  
-    const Int nd = disc.common.nd;
-    const Int npf = disc.common.npf;
+    const Int nd = disc.common.grid.nd;
+    const Int npf = disc.common.grid.npf;
     const Int nn = npf * nfaces;
     const Int n2 = 0;
     const Int n3 = nn;
@@ -193,11 +193,11 @@ static inline void GatherWallGaussPointsAndNormals(
     const Int ibc)
 {
     wm.ibc = ibc;
-    wm.nd = disc.common.nd;
+    wm.nd = disc.common.grid.nd;
     wm.ncx = disc.common.components.ncx;
-    wm.npe = disc.common.npe;
-    wm.npf = disc.common.npf;
-    wm.ngf = disc.common.ngf;
+    wm.npe = disc.common.grid.npe;
+    wm.npf = disc.common.grid.npf;
+    wm.ngf = disc.common.grid.ngf;
     wm.nfe = disc.common.nfe;
     wm.nbe1 = disc.common.nbe1;
 
@@ -224,7 +224,7 @@ static inline void GatherWallGaussPointsAndNormals(
 
     getNodesOnInterface(
         xdgint, disc.sol.xdg, wm.faces.data(), disc.mesh.perm, disc.common.nfe,
-        disc.common.npf, disc.common.npe, disc.common.components.ncx, disc.common.components.ncx, wm.nfaces);
+        disc.common.grid.npf, disc.common.grid.npe, disc.common.components.ncx, disc.common.components.ncx, wm.nfaces);
     getNormalVectorOnInterface(nlint, xdgint, disc, wm.nfaces);
 
     wm.xw.resize(static_cast<size_t>(wm.npoints * wm.nd));
@@ -284,8 +284,8 @@ static inline bool ComputeXi1AndShapeFunctionsFromElementFaces(
         wm.nd,
         wm.npe,
         wm.ncx,
-        disc.common.elemtype,
-        disc.common.porder,
+        disc.common.grid.elemtype,
+        disc.common.grid.porder,
         maxNewtonIter,
         newtonTol,
         insideTol);

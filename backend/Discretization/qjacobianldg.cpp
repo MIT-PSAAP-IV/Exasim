@@ -49,10 +49,10 @@ inline void qJacobianLDGSetupOperators(solstruct &sol, resstruct &res, appstruct
         masterstruct &master, meshstruct &mesh, tempstruct &tmp,
         commonstruct &common, cublasHandle_t handle, Int backend)
 {
-    Int npe = common.npe;
-    Int npf = common.npf;
+    Int npe = common.grid.npe;
+    Int npf = common.grid.npf;
     Int nfe = common.nfe;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int ne = common.ne;
 
     if ((res.Minv2 == nullptr) || (res.C == nullptr) ||
@@ -93,8 +93,8 @@ inline void qJacobianLDGTrace(dstype *DUH, solstruct &sol, resstruct &res,
     if (DUH == nullptr)
         return;
 
-    Int npe = common.npe;
-    Int npf = common.npf;
+    Int npe = common.grid.npe;
+    Int npf = common.grid.npf;
     Int nfe = common.nfe;
     Int ncu = common.components.ncu;
     Int ne = e2 - e1;
@@ -143,12 +143,12 @@ inline void qJacobianLDGAssemble(dstype *DQDU, const dstype *DUH, resstruct &res
     if ((DQDU == nullptr) || (DUH == nullptr))
         return;
 
-    Int npe = common.npe;
-    Int npf = common.npf;
+    Int npe = common.grid.npe;
+    Int npf = common.grid.npf;
     Int nfe = common.nfe;
     Int ncu = common.components.ncu;
     Int ncq = common.components.ncq;
-    Int nd = common.nd;
+    Int nd = common.grid.nd;
     Int ne = e2 - e1;
     Int ndf = npf*nfe;
     Int nlocu = npe*ncu;
@@ -202,8 +202,8 @@ inline void qJacobianLDG(dstype *DQDU, solstruct &sol, resstruct &res,
 
     dstype *DUHwork = DUH;
     if ((DQDU != nullptr) && (DUHwork == nullptr)) {
-        Int npe = common.npe;
-        Int npf = common.npf;
+        Int npe = common.grid.npe;
+        Int npf = common.grid.npf;
         Int nfe = common.nfe;
         Int ncu = common.components.ncu;
         Int ndf = npf*nfe;

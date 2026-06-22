@@ -55,8 +55,8 @@
 void CSolution::InitSolution(Int backend) 
 {            
     if (disc.common.spatialScheme==0) {
-        ArrayExtract(solv.sys.u, disc.sol.udg, disc.common.npe, disc.common.components.nc, disc.common.ne1, 
-              0, disc.common.npe, 0, disc.common.components.ncu, 0, disc.common.ne1);                                                  
+        ArrayExtract(solv.sys.u, disc.sol.udg, disc.common.grid.npe, disc.common.components.nc, disc.common.ne1, 
+              0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.ne1);                                                  
     }
     else if (disc.common.spatialScheme==1) {      
         ArrayCopy(solv.sys.u, disc.sol.uh, disc.common.sizes.ndofuhat);
@@ -104,7 +104,7 @@ void CSolution::SaveSolutions(Int backend)
     if (save == true) {        
         if (disc.common.outputparams.saveSolOpt==0) {
             if (disc.common.spatialScheme > 0) {
-                ArrayExtract(disc.res.Rq, disc.sol.udg, disc.common.npe, disc.common.components.nc, disc.common.ne1, 0, disc.common.npe, 0, disc.common.components.ncu, 0, disc.common.ne1);                                                  
+                ArrayExtract(disc.res.Rq, disc.sol.udg, disc.common.grid.npe, disc.common.components.nc, disc.common.ne1, 0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.ne1);                                                  
                 writearray(outsol, disc.res.Rq, disc.common.sizes.ndof1, backend);    
             }
             else
@@ -207,8 +207,8 @@ void CSolution::ReadSolutions(Int backend)
             // if (disc.common.outputparams.saveSolOpt==0) {
             //     readarrayfromfile(filename, &disc.res.Rq, disc.common.sizes.ndof1, backend);
             //     // insert u into udg
-            //     ArrayInsert(disc.sol.udg, disc.res.Rq, disc.common.npe, disc.common.components.nc, 
-            //      disc.common.ne, 0, disc.common.npe, 0, disc.common.components.ncu, 0, disc.common.ne1);  
+            //     ArrayInsert(disc.sol.udg, disc.res.Rq, disc.common.grid.npe, disc.common.components.nc, 
+            //      disc.common.ne, 0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.ne1);  
             // }
             // else
                 readarrayfromfile(filename, &disc.sol.udg, disc.common.sizes.ndofudg1, backend);        
@@ -231,8 +231,8 @@ void CSolution::ReadSolutions(Int backend)
         if (disc.common.outputparams.saveSolOpt==0) {
             readarrayfromfile(filename, &solv.sys.u, disc.common.sizes.ndof1, backend);
             // insert u into udg
-            ArrayInsert(disc.sol.udg, solv.sys.u, disc.common.npe, disc.common.components.nc, 
-             disc.common.ne, 0, disc.common.npe, 0, disc.common.components.ncu, 0, disc.common.ne1);              
+            ArrayInsert(disc.sol.udg, solv.sys.u, disc.common.grid.npe, disc.common.components.nc, 
+             disc.common.ne, 0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.ne1);              
         }
         else
             readarrayfromfile(filename, &disc.sol.udg, disc.common.sizes.ndofudg1, backend, 3);      
@@ -262,14 +262,14 @@ void CSolution::GetSolutions(Int step, Int backend)
         const Int skip = headerSize + step * disc.common.sizes.ndof1;
         if (disc.common.spatialScheme > 0) {
             readarrayfromfile(filename, &disc.res.Rq, disc.common.sizes.ndof1, backend, skip);
-            ArrayInsert(disc.sol.udg, disc.res.Rq, disc.common.npe, disc.common.components.nc,
-                        disc.common.ne, 0, disc.common.npe, 0, disc.common.components.ncu,
+            ArrayInsert(disc.sol.udg, disc.res.Rq, disc.common.grid.npe, disc.common.components.nc,
+                        disc.common.ne, 0, disc.common.grid.npe, 0, disc.common.components.ncu,
                         0, disc.common.ne1);
         }
         else {
             readarrayfromfile(filename, &solv.sys.u, disc.common.sizes.ndof1, backend, skip);
-            ArrayInsert(disc.sol.udg, solv.sys.u, disc.common.npe, disc.common.components.nc,
-                        disc.common.ne, 0, disc.common.npe, 0, disc.common.components.ncu,
+            ArrayInsert(disc.sol.udg, solv.sys.u, disc.common.grid.npe, disc.common.components.nc,
+                        disc.common.ne, 0, disc.common.grid.npe, 0, disc.common.components.ncu,
                         0, disc.common.ne1);
         }
     }
@@ -321,7 +321,7 @@ void CSolution::SaveParaview(Int backend, std::string fname_modifier, bool force
        int nsca = disc.common.qoiparams.nsca; 
        int nvec = disc.common.qoiparams.nvec;  
        int nten = disc.common.qoiparams.nten;     
-       int npe  = disc.common.npe;     
+       int npe  = disc.common.grid.npe;     
        int ne   = disc.common.ne1;      
        int ndg  = npe * ne;
        int ncg  = vis.npoints;
@@ -443,8 +443,8 @@ void CSolution::SaveSolutionsOnBoundary(Int backend)
                 Int f2 = disc.common.fblks[3*j+1];    
                 Int ib = disc.common.fblks[3*j+2];            
                 if (ib == disc.common.qoiparams.ibs) {     
-                    Int npf = disc.common.npf; // number of nodes on master face      
-                    Int npe = disc.common.npe; // number of nodes on master face      
+                    Int npf = disc.common.grid.npf; // number of nodes on master face      
+                    Int npe = disc.common.grid.npe; // number of nodes on master face      
                     Int nf = f2-f1;
                     Int nn = npf*nf; 
                     Int nc = disc.common.components.nc; // number of compoments of (u, q, p)            
@@ -475,8 +475,8 @@ void CSolution::SaveNodesOnBoundary(Int backend)
             Int f2 = disc.common.fblks[3*j+1];    
             Int ib = disc.common.fblks[3*j+2];            
             if (ib == disc.common.qoiparams.ibs) {     
-                Int nd = disc.common.nd; 
-                Int npf = disc.common.npf; // number of nodes on master face      
+                Int nd = disc.common.grid.nd; 
+                Int npf = disc.common.grid.npf; // number of nodes on master face      
                 Int nf = f2-f1;
                 Int nn = npf*nf; 
                 Int ncx = disc.common.components.ncx; // number of compoments of (u, q, p)                            
@@ -517,7 +517,7 @@ void CSolution::SaveNodesOnBoundary(Int backend)
 //                 Int f2 = disc.common.fblks[3*j+1];    
 //                 Int ib = disc.common.fblks[3*j+2];            
 //                 if (ib == disc.common.qoiparams.ibs) {     
-//                     Int npf = disc.common.npf; // number of nodes on master face      
+//                     Int npf = disc.common.grid.npf; // number of nodes on master face      
 //                     Int nf = f2-f1;
 //                     Int nn = npf*nf; 
 //                     Int nc = disc.common.components.nc; // number of compoments of (u, q, p)            
@@ -538,7 +538,7 @@ void CSolution::SaveNodesOnBoundary(Int backend)
 //             Int f2 = disc.common.fblks[3*j+1];    
 //             Int ib = disc.common.fblks[3*j+2];            
 //             if (ib == disc.common.qoiparams.ibs) {     
-//                 Int npf = disc.common.npf; // number of nodes on master face      
+//                 Int npf = disc.common.grid.npf; // number of nodes on master face      
 //                 Int nf = f2-f1;
 //                 Int nn = npf*nf; 
 //                 Int ncx = disc.common.components.ncx; // number of compoments of (u, q, p)                            
