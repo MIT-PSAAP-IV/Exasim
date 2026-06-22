@@ -52,8 +52,16 @@
 #include <sys/time.h>
 #endif
 
-void CSolution::InitSolution(Int backend) 
-{            
+// Re-homed from CDiscretization (S4); mirrors the main CSolution (no-driver_abi MonitorDriver
+// variant, matching the postprocess discretization twin).
+void CSolution::evalMonitor(dstype* output, dstype* udg, dstype* wdg, Int nc, Int backend)
+{
+    MonitorDriver(output, nc, disc.sol.xdg, udg, disc.sol.odg, wdg,
+                  disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common, backend);
+}
+
+void CSolution::InitSolution(Int backend)
+{
     if (disc.common.spatialScheme==0) {
         ArrayExtract(solv.sys.u, disc.sol.udg, disc.common.grid.npe, disc.common.components.nc, disc.common.meshsizes.ne1, 
               0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.meshsizes.ne1);                                                  

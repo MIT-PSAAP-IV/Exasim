@@ -107,7 +107,6 @@ public:
     void evalOutput(dstype* output, Int backend);       
     
     // evaluate a monitor function to monitor changes in solution QoIs for pseudotime stepping
-    void evalMonitor(dstype* output, dstype* udg, dstype* wdg, Int nc, Int backed);
     
     // converge DG to CG
     void DG2CG(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, Int ncudg, Int ncu, Int backend);

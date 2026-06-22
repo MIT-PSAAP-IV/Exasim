@@ -93,8 +93,11 @@ public:
         if (outqoi.is_open()) { outqoi.close(); }
     }; 
 
+    // PTC convergence monitor (re-homed from CDiscretization in S4; mirrors the main CSolution).
+    void evalMonitor(dstype* output, dstype* udg, dstype* wdg, Int nc, Int backend);
+
     // precompute some quantities
-    void InitSolution(Int backend);    
+    void InitSolution(Int backend);
         
     // save solutions in binary files
     void SaveSolutions(Int backend);    

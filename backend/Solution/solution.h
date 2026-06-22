@@ -236,8 +236,12 @@ public:
     
     void SteadyProblem(ofstream &out, Int backend);    
 
-    void SteadyProblem_PTC(ofstream &out, Int backend);    
-                                    
+    void SteadyProblem_PTC(ofstream &out, Int backend);
+
+    // PTC convergence-monitor field (re-homed from CDiscretization in S4 -- a solver-monitor
+    // concern; uses the owned disc's structs to call the model MonitorDriver).
+    void evalMonitor(dstype* output, dstype* udg, dstype* wdg, Int nc, Int backend);
+
     void DIRK(ofstream &out, Int backend);    
     
     // precompute some quantities

@@ -825,6 +825,14 @@ void CSolution::DIRK(ofstream &out, Int backend)
     }           
 }
 
+// Re-homed from CDiscretization (S4): the PTC monitor field is a solver-convergence artifact,
+// not a discretization quantity. Uses the owned disc's structs to call the model MonitorDriver.
+void CSolution::evalMonitor(dstype* output, dstype* udg, dstype* wdg, Int nc, Int backend)
+{
+    MonitorDriver(output, nc, disc.sol.xdg, udg, disc.sol.odg, wdg, disc.driver_abi,
+                  disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common, backend);
+}
+
 void CSolution::SteadyProblem_PTC(ofstream &out, Int backend) {
 
     // initial time
@@ -877,8 +885,8 @@ void CSolution::SteadyProblem_PTC(ofstream &out, Int backend) {
             UpdateSolution(disc.sol, solv.sys, disc.app, disc.driver_abi, disc.res, disc.tmp, disc.common, backend);
             
             // TODO: input wprev
-            disc.evalMonitor(disc.tmp.tempn,  disc.sol.udg, disc.sol.wdg, disc.common.components.nc, backend);
-            disc.evalMonitor(disc.tmp.tempg,  solv.sys.udgprev, solv.sys.wprev, disc.common.components.ncu, backend);
+            evalMonitor(disc.tmp.tempn,  disc.sol.udg, disc.sol.wdg, disc.common.components.nc, backend);
+            evalMonitor(disc.tmp.tempg,  solv.sys.udgprev, solv.sys.wprev, disc.common.components.ncu, backend);
             
             ArrayAXPBY(disc.tmp.tempn, disc.tmp.tempn, disc.tmp.tempg, 1.0, -1.0, disc.common.grid.npe*disc.common.components.ncm*disc.common.meshsizes.ne);            
             

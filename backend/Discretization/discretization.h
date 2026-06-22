@@ -116,7 +116,6 @@ public:
     void evalOutput(dstype* output, Int backend);       
     
     // evaluate a monitor function to monitor changes in solution QoIs for pseudotime stepping
-    void evalMonitor(dstype* output, dstype* udg, dstype* wdg, Int nc, Int backed);
 
     bool BuildWallModelData(Int ibc, dstype y1);
     
