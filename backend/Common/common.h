@@ -1748,7 +1748,31 @@ struct outputparamsstruct {
     Int debugMode;         // debug output flag
 };
 
+// Wall-model configuration: model-ID / boundary / distance tables and their sizes (the working
+// copies; the raw tables are mirrored in appstruct). Grouped out of commonstruct (C3). Access via
+// common.wallmodelparams.<field>.
+struct wallmodelparamsstruct {
+    Int nwm=0;               // number of wall-model configurations
+    Int szwmModelIDs=0;
+    Int szwmBoundaries=0;
+    Int szwmDistances=0;
+    Int *wmModelIDs=nullptr;
+    Int *wmBoundaries=nullptr;
+    dstype* wmDistances=nullptr;
+};
+
+// Synthetic-turbulence-generation (STG) configuration: number of modes, inlet-boundary count, and
+// the inlet-boundary index table (working copy; raw STG data lives in appstruct). Grouped out of
+// commonstruct (C3). Access via common.stgparams.<field>.
+struct stgparamsstruct {
+    Int stgNmode=0;          // number of synthetic-turbulence modes
+    Int nstgib;              // number of STG inlet boundaries
+    Int* stgib=nullptr;      // STG inlet-boundary index table
+};
+
 struct commonstruct {
+    wallmodelparamsstruct wallmodelparams;  // wall-model configuration (see above)
+    stgparamsstruct stgparams;              // synthetic-turbulence-generation config (see above)
     outputparamsstruct outputparams;      // output/checkpoint/IO configuration (see above)
     couplingparamsstruct couplingparams;  // interface-coupling configuration (see above)
     qoiparamsstruct qoiparams;          // QoI/visualization-output configuration (see above)
@@ -1842,7 +1866,6 @@ struct commonstruct {
         
     
     Int curvedMesh;// curved mesh   
-    Int stgNmode=0;       // number of synthetic turbulence generation modes
     Int modelnumber;      // model number
     Int builtinmodelID=0; // model ID
     Int matrixformat=0;
@@ -1864,26 +1887,18 @@ struct commonstruct {
     Int* nboufaces=nullptr;
     Int* nextfaces=nullptr;
     
-    Int nstgib;
     Int nnbsd; // number of neighboring subdomains
     Int nelemsend;
     Int nelemrecv;
     Int szinterfacefluxmap;
-    Int nwm=0;
-    Int szwmModelIDs=0;
-    Int szwmBoundaries=0;
-    Int szwmDistances=0;
     Int szcartgridpart;
     Int* nbsd=nullptr; // neighboring subdomains
     Int* elemsend=nullptr;
     Int* elemrecv=nullptr;       
     Int* elemsendpts=nullptr;
     Int* elemrecvpts=nullptr;        
-    Int* stgib=nullptr;
     Int *vindx=nullptr;
     Int *interfacefluxmap=nullptr;
-    Int *wmModelIDs=nullptr;
-    Int *wmBoundaries=nullptr;
     Int *cartgridpart=nullptr;
     Int *boundaryConditions=nullptr;
     Int *intepartpts=nullptr;
@@ -1911,7 +1926,6 @@ struct commonstruct {
     dstype  timing[128];
     dstype* dt=nullptr;
     dstype* dae_dt=nullptr;
-    dstype* wmDistances=nullptr;
     dstype* DIRKcoeff_c=nullptr;
     dstype* DIRKcoeff_d=nullptr;
     dstype* DIRKcoeff_t=nullptr;
@@ -2039,7 +2053,7 @@ struct commonstruct {
       printf("DAE epsilon parameter: %f\n", timeparams.dae_epsilon);
       
       printf("number of boundary conditions: %d\n", maxnbc);
-      printf("number of wall-model configurations: %d\n", nwm);
+      printf("number of wall-model configurations: %d\n", wallmodelparams.nwm);
       printf("number of neighboring subdomains: %d\n", nnbsd);      
       printf("number of elements to send: %d\n", nelemsend);
       printf("number of elements to receive: %d\n", nelemrecv);
@@ -2106,17 +2120,17 @@ struct commonstruct {
         CPUFREE(elemrecv); 
         CPUFREE(elemsendpts); 
         CPUFREE(elemrecvpts); 
-        if (nstgib > 0) CPUFREE(stgib); 
+        if (stgparams.nstgib > 0) CPUFREE(stgparams.stgib); 
         CPUFREE(vindx); 
         CPUFREE(interfacefluxmap); 
-        CPUFREE(wmModelIDs);
-        CPUFREE(wmBoundaries);
+        CPUFREE(wallmodelparams.wmModelIDs);
+        CPUFREE(wallmodelparams.wmBoundaries);
         CPUFREE(cartgridpart); 
         CPUFREE(boundaryConditions); 
         CPUFREE(intepartpts);         
         CPUFREE(dt); 
         CPUFREE(dae_dt); 
-        CPUFREE(wmDistances);
+        CPUFREE(wallmodelparams.wmDistances);
         CPUFREE(DIRKcoeff_c); 
         CPUFREE(DIRKcoeff_d); 
         CPUFREE(DIRKcoeff_t); 

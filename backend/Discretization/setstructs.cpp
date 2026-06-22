@@ -171,7 +171,7 @@ void setcommonstruct(commonstruct &common, appstruct &app, ExasimDriverABI& driv
     common.outputparams.saveSolFreq = app.problem[17];    
     common.outputparams.saveSolOpt = app.problem[18];    
     common.outputparams.timestepOffset = app.problem[19];    
-    common.stgNmode = app.problem[20];    
+    common.stgparams.stgNmode = app.problem[20];    
     common.outputparams.saveSolBouFreq = app.problem[21];   
     common.qoiparams.ibs = app.problem[22];   
     common.timeparams.dae_steps = app.problem[23];  // number of dual time steps      
@@ -202,8 +202,8 @@ void setcommonstruct(commonstruct &common, appstruct &app, ExasimDriverABI& driv
     common.timeparams.dae_gamma = app.factor[3];
     common.timeparams.dae_epsilon = app.factor[4];
     
-    common.nstgib = app.nsize[11];
-    if (common.nstgib > 0) common.stgib = copyarray(app.stgib,app.nsize[11]); 
+    common.stgparams.nstgib = app.nsize[11];
+    if (common.stgparams.nstgib > 0) common.stgparams.stgib = copyarray(app.stgib,app.nsize[11]); 
 
     //common.eblks = &mesh.eblks[0]; // element blocks
     //common.fblks = &mesh.fblks[0]; // face blocks        
@@ -216,23 +216,23 @@ void setcommonstruct(commonstruct &common, appstruct &app, ExasimDriverABI& driv
     common.dae_dt = copyarray(app.dae_dt,app.nsize[13]); // dual timestep sizes           
     common.szinterfacefluxmap = app.nsize[14];
     common.interfacefluxmap = copyarray(app.interfacefluxmap,app.nsize[14]); 
-    common.szwmModelIDs = app.szwmModelIDs;
-    common.szwmBoundaries = app.szwmBoundaries;
-    common.szwmDistances = app.szwmDistances;
-    common.nwm = app.szwmModelIDs;
-    if ((common.szwmModelIDs != common.szwmBoundaries) || (common.szwmModelIDs != common.szwmDistances))
+    common.wallmodelparams.szwmModelIDs = app.szwmModelIDs;
+    common.wallmodelparams.szwmBoundaries = app.szwmBoundaries;
+    common.wallmodelparams.szwmDistances = app.szwmDistances;
+    common.wallmodelparams.nwm = app.szwmModelIDs;
+    if ((common.wallmodelparams.szwmModelIDs != common.wallmodelparams.szwmBoundaries) || (common.wallmodelparams.szwmModelIDs != common.wallmodelparams.szwmDistances))
         error("Wall-model configuration is invalid: wmModelIDs, wmBoundaries, and wmDistances must have the same length.");
-    if (common.nwm > 0) {
-        common.wmModelIDs = copyarray(app.wmModelIDs, common.nwm);
-        common.wmBoundaries = copyarray(app.wmBoundaries, common.nwm);
-        common.wmDistances = copyarray(app.wmDistances, common.nwm);
-        for (Int i=0; i<common.nwm; i++) {
-            if (common.wmDistances[i] <= 0.0)
+    if (common.wallmodelparams.nwm > 0) {
+        common.wallmodelparams.wmModelIDs = copyarray(app.wmModelIDs, common.wallmodelparams.nwm);
+        common.wallmodelparams.wmBoundaries = copyarray(app.wmBoundaries, common.wallmodelparams.nwm);
+        common.wallmodelparams.wmDistances = copyarray(app.wmDistances, common.wallmodelparams.nwm);
+        for (Int i=0; i<common.wallmodelparams.nwm; i++) {
+            if (common.wallmodelparams.wmDistances[i] <= 0.0)
                 error("Wall-model configuration is invalid: wmDistances entries must be positive.");
 
             bool boundaryFound = false;
             for (Int j=0; j<common.nfe*common.ne; j++) {
-                if (mesh.bf[j] == common.wmBoundaries[i]) {
+                if (mesh.bf[j] == common.wallmodelparams.wmBoundaries[i]) {
                     boundaryFound = true;
                     break;
                 }

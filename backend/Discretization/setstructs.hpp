@@ -171,7 +171,7 @@ inline void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &
     common.outputparams.saveSolFreq = app.problem[17];    
     common.outputparams.saveSolOpt = app.problem[18];    
     common.outputparams.timestepOffset = app.problem[19];    
-    common.stgNmode = app.problem[20];    
+    common.stgparams.stgNmode = app.problem[20];    
     common.outputparams.saveSolBouFreq = app.problem[21];   
     common.qoiparams.ibs = app.problem[22];   
     common.timeparams.dae_steps = app.problem[23];  // number of dual time steps      
@@ -202,8 +202,8 @@ inline void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &
     common.timeparams.dae_gamma = app.factor[3];
     common.timeparams.dae_epsilon = app.factor[4];
     
-    common.nstgib = app.nsize[11];
-    if (common.nstgib > 0) common.stgib = copyarray(app.stgib,app.nsize[11]); 
+    common.stgparams.nstgib = app.nsize[11];
+    if (common.stgparams.nstgib > 0) common.stgparams.stgib = copyarray(app.stgib,app.nsize[11]); 
 
     //common.eblks = &mesh.eblks[0]; // element blocks
     //common.fblks = &mesh.fblks[0]; // face blocks        

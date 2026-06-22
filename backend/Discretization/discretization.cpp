@@ -525,12 +525,12 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
       }
     }
 
-    if (common.nwm == 1) {
+    if (common.wallmodelparams.nwm == 1) {
       if (common.mpiRank==0)
-        printf("Build wall-model data for boundary condition %d ... \n", common.wmBoundaries[0]);
-      BuildWallModelData(common.wmBoundaries[0], common.wmDistances[0]);
+        printf("Build wall-model data for boundary condition %d ... \n", common.wallmodelparams.wmBoundaries[0]);
+      BuildWallModelData(common.wallmodelparams.wmBoundaries[0], common.wallmodelparams.wmDistances[0]);
     }
-    else if (common.nwm > 1) {
+    else if (common.wallmodelparams.nwm > 1) {
       error("Multiple wall-model configurations are not supported by the backend wallmodelstruct yet.");
     }
 

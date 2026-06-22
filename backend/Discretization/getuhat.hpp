@@ -82,7 +82,7 @@ inline void UhatBlock(solstruct &sol, resstruct &res, appstruct &app, masterstru
         GetFaceNodes(tmp.tempn, sol.udg, mesh.facecon, npf, ncu, npe, nc, f1, f2, 0);
         PutElemNodes(sol.uh, tmp.tempn, npf, ncu, 0, ncu, f1, f2);
     }
-    else if (isin<M>(ib, common.stgib, common.nstgib)) {        
+    else if (isin<M>(ib, common.stgparams.stgib, common.stgparams.nstgib)) {        
         //if (common.mpiRank==0 && ib > 0) printf("ib = %d \n", ib);
         dstype *xgb = &tmp.tempg[0];
         dstype *ogb = &tmp.tempg[nga*ncx];
@@ -94,7 +94,7 @@ inline void UhatBlock(solstruct &sol, resstruct &res, appstruct &app, masterstru
         }
         
         StgInflowLDG(tmp.tempn, xgb, ogb, app.physicsparam, app.stgdata, 
-                          app.stgparam, common.timestate.time, nga, common.stgNmode, common.nd);          
+                          app.stgparam, common.timestate.time, nga, common.stgparams.stgNmode, common.nd);          
 
         PutElemNodes(sol.uh, tmp.tempn, npf, ncu, 0, ncu, f1, f2);
     }
