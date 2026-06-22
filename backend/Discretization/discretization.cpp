@@ -216,7 +216,7 @@ void AllocateLDGBlockJacobianMemory(resstruct& res, commonstruct& common, Int ba
     Int m = npf*nfe*ncu;
     Int nq = npe*ncq;
     Int ndofu = npe*ncu*common.ne1;
-    Int M = max(common.gmresRestart+1, common.RBdim);
+    Int M = max(common.solverparams.gmresRestart+1, common.solverparams.RBdim);
 
     Int tempn_uface = npf*npf*nfe*neb*ncu*(2*ncu + ncq);
     Int tempn_schur = max(n*n*neb, n*m*neb);
@@ -348,7 +348,7 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
         if (common.mpiRank==0) printf("start compMassInverse... \n");
         compMassInverse(backend);    
         if (common.mpiRank==0) printf("finish compMassInverse... \n");
-        if (!postprocessOnly && common.preconditioner == 1) {
+        if (!postprocessOnly && common.solverparams.preconditioner == 1) {
             if (common.mpiRank==0) printf("start qEquation... \n");
             BuildElementBlockBoundaryFaces(common, mesh, backend);        
             AllocateLDGBlockJacobianMemory(res, common, backend);        
@@ -360,7 +360,7 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
         else if (!postprocessOnly) {
             res.szP = 0;
             Int ndofu = common.npe*common.ncu*common.ne1;
-            Int M = max(common.gmresRestart+1, common.RBdim);
+            Int M = max(common.solverparams.gmresRestart+1, common.solverparams.RBdim);
             EnsureTemplateAllocation(&res.K, res.szK, M*ndofu, backend);
         }
         else {
@@ -433,7 +433,7 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
       CPUFREE(boufaces);
       //CPUFREE(mesh.bf);            
                           
-      if (!postprocessOnly && (common.preconditioner==2) && (common.szcartgridpart > 0)) {              
+      if (!postprocessOnly && (common.solverparams.preconditioner==2) && (common.szcartgridpart > 0)) {              
         if (common.cartgridpart[0]==2) {          
           int *elem = NULL;                
           int nse  = gridpartition2d(&elem, common.cartgridpart[1], common.cartgridpart[2], common.cartgridpart[3], common.cartgridpart[4], common.cartgridpart[5]);       
@@ -453,13 +453,13 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
       if (!postprocessOnly) {
         res.szH = npf*nfe*ncu*npf*nfe*ncu*common.ne; // HDG elemental matrices     
         res.szK = (npe*ncu*npe*ncu + npe*ncu*npe*ncq + npf*nfe*ncu*npe*ncq + npf*nfe*ncu*npe*ncu)*neb;                        
-        if (common.preconditioner==0)      // Block Jacobition preconditioner
+        if (common.solverparams.preconditioner==0)      // Block Jacobition preconditioner
           res.szP = ncu*npf*ncu*npf*nf;
-        else if (common.preconditioner==1) // Elemental additive Schwarz preconditioner
+        else if (common.solverparams.preconditioner==1) // Elemental additive Schwarz preconditioner
           res.szP = npf*nfe*ncu*npf*nfe*ncu*common.ne;        
-        else if (common.preconditioner==2) // Superelement additive Schwarz preconditioner
+        else if (common.solverparams.preconditioner==2) // Superelement additive Schwarz preconditioner
           res.szP = npf*ncu*npf*ncu*common.nse*common.nnz;        
-        res.szV = ncu*npf*nf*(common.gmresRestart+1); // Krylov vectors in GMRES
+        res.szV = ncu*npf*nf*(common.solverparams.gmresRestart+1); // Krylov vectors in GMRES
         res.szK = max(res.szK, res.szP + res.szV);              
         res.szF = npe*ncu*npf*nfe*ncu*common.ne;      
         res.szipiv = max(max(npf*nfe,npe)*ncu*neb, ncu*npf*common.nfb);
@@ -644,14 +644,14 @@ void CDiscretization::hdgAssembleLinearSystem(dstype *b, Int backend)
     hdgAssembleRHS<exasim::detail::AbiAdapter>(b, res.Rh, mesh, common);
 #endif
 
-    if (common.preconditioner==0) {
+    if (common.solverparams.preconditioner==0) {
       // fix bug here: tmp.tempn is not enough memory to store ncu*npf*ncu*npf*nf 
       hdgBlockJacobi<exasim::detail::AbiAdapter>(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);      
     }
-    else if (common.preconditioner==1) {
+    else if (common.solverparams.preconditioner==1) {
       hdgElementalAdditiveSchwarz<exasim::detail::AbiAdapter>(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);      
     }
-    else if (common.preconditioner==2) {
+    else if (common.solverparams.preconditioner==2) {
       hdgBlockILU0<exasim::detail::AbiAdapter>(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);
     }        
 }

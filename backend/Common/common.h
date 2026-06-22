@@ -1651,7 +1651,30 @@ struct physicsparamsstruct {
     dstype tau0=0.0;      // initial stabilization parameter
 };
 
+// Iterative-solver configuration: linear/nonlinear solver type, iteration caps, tolerances,
+// GMRES/matvec/preconditioner settings, and reduced-basis/W max dimensions. Grouped out of
+// commonstruct (C3). Access via common.solverparams.<field>. (The mutable per-solve counters
+// live in solverstate.)
+struct solverparamsstruct {
+    Int linearSolver;            // 0: GMRES; 1: CG; ...
+    Int nonlinearSolver;
+    Int linearSolverMaxIter;
+    Int nonlinearSolverMaxIter;
+    Int matvecOrder;
+    Int gmresRestart;
+    Int gmresOrthogMethod;
+    Int preconditioner;          // 0: low-rank; 1: reduced basis
+    Int precMatrixType;          // 0: identity; 1: inverse mass matrix
+    Int ptcMatrixType;           // 0: identity; 1: mass matrix
+    Int RBdim;                   // max dimension of the reduced-basis space
+    Int Wdim;                    // max dimension of W
+    dstype matvecTol;
+    dstype linearSolverTol;
+    dstype nonlinearSolverTol;
+};
+
 struct commonstruct {
+    solverparamsstruct solverparams;    // iterative-solver configuration (see above)
     physicsparamsstruct physicsparams;  // physics/model configuration (see above)
     solverstatestruct solverstate;  // mutable solver/preconditioner runtime state (see above)
     timestatestruct timestate;      // mutable time-stepping runtime state (see above)
@@ -1751,8 +1774,6 @@ struct commonstruct {
     Int ndofedg1; // number of degrees of freedom of edg
     Int ndofucg;
         
-    Int RBdim; // maximum dimension of the reduced basis space
-    Int Wdim; // maxium dimension of W
     
     Int extUhat=0; // external uhat function flag
     Int extFhat=0; // external fhat function flag
@@ -1792,23 +1813,10 @@ struct commonstruct {
                                 //   1: AV frozen, evluated once per solve (default)   
     Int read_uh = 0;
 
-    Int linearSolver;  /* 0: GMRES; 1: CG; etc. */      
-    Int nonlinearSolver;
-    Int linearSolverMaxIter;   
-    Int nonlinearSolverMaxIter;                
-    Int matvecOrder;    
-    Int gmresRestart;    
-    Int gmresOrthogMethod;        
-    Int preconditioner; // 0: low-rank; 1: reduced basis
-    Int precMatrixType; // 0: identity; 1: inverse mass matrix
-    Int ptcMatrixType;  // 0: identity; 1: mass matrix
     Int runmode;
     Int ninterfacefaces=0; // number of interface faces
     Int ndofuhatinterface=0;
     
-    dstype matvecTol;
-    dstype linearSolverTol;
-    dstype nonlinearSolverTol;
     dstype dae_alpha=1.0;
     dstype dae_beta=0.0;
     dstype dae_gamma=0.0;
@@ -1944,7 +1952,7 @@ struct commonstruct {
       printf("number of degrees of freedom of edg: %d\n", ndofedg);   
       printf("length of the stabilization: %d\n", ntau);   
 
-      printf("maximum dimension of the reduced basis space: %d\n", RBdim);
+      printf("maximum dimension of the reduced basis space: %d\n", solverparams.RBdim);
       printf("current dimension of the reduced basis space: %d\n", solverstate.RBcurrentdim);
       printf("the vector to be removed from the RB space and replaced with new vector: %d\n", solverstate.RBremovedind);
      
@@ -1970,25 +1978,25 @@ struct commonstruct {
       printf("number of components of artificial viscosity: %d\n", physicsparams.ncAV);
       printf("number of artificial viscosity smoothing iterations: %d\n", physicsparams.AVsmoothingIter);
       printf("frozen artificial viscosity flag: %d\n", physicsparams.frozenAVflag);
-      printf("linear solver type: %d\n", linearSolver);
-      printf("nonlinear solver type: %d\n", nonlinearSolver);
-      printf("maximum linear solver iterations: %d\n", linearSolverMaxIter);
+      printf("linear solver type: %d\n", solverparams.linearSolver);
+      printf("nonlinear solver type: %d\n", solverparams.nonlinearSolver);
+      printf("maximum linear solver iterations: %d\n", solverparams.linearSolverMaxIter);
       printf("current linear solver iteration: %d\n", solverstate.linearSolverIter);
-      printf("maximum nonlinear solver iterations: %d\n", nonlinearSolverMaxIter);
+      printf("maximum nonlinear solver iterations: %d\n", solverparams.nonlinearSolverMaxIter);
       printf("current nonlinear solver iteration: %d\n", solverstate.nonlinearSolverIter);
-      printf("matrix-vector multiplication order: %d\n", matvecOrder);
-      printf("GMRES restart parameter: %d\n", gmresRestart);
-      printf("GMRES orthogonalization method: %d\n", gmresOrthogMethod);
-      printf("preconditioner type: %d\n", preconditioner);
-      printf("preconditioner matrix type: %d\n", precMatrixType);
-      printf("PTC matrix type: %d\n", ptcMatrixType);
+      printf("matrix-vector multiplication order: %d\n", solverparams.matvecOrder);
+      printf("GMRES restart parameter: %d\n", solverparams.gmresRestart);
+      printf("GMRES orthogonalization method: %d\n", solverparams.gmresOrthogMethod);
+      printf("preconditioner type: %d\n", solverparams.preconditioner);
+      printf("preconditioner matrix type: %d\n", solverparams.precMatrixType);
+      printf("PTC matrix type: %d\n", solverparams.ptcMatrixType);
       printf("run mode: %d\n", runmode);
       printf("time step factor: %f\n", timestate.dtfactor);
       printf("current simulation time: %f\n", timestate.time);
-      printf("matrix-vector multiplication tolerance: %f\n", matvecTol);
-      printf("linear solver tolerance: %f\n", linearSolverTol);
+      printf("matrix-vector multiplication tolerance: %f\n", solverparams.matvecTol);
+      printf("linear solver tolerance: %f\n", solverparams.linearSolverTol);
       printf("linear solver tolerance factor: %f\n", solverstate.linearSolverTolFactor);
-      printf("nonlinear solver tolerance: %f\n", nonlinearSolverTol);
+      printf("nonlinear solver tolerance: %f\n", solverparams.nonlinearSolverTol);
       printf("linear solver relative error: %f\n", solverstate.linearSolverRelError);
       printf("artificial viscosity ramp factor: %f\n", physicsparams.rampFactor);
       printf("PTC parameter: %f\n", solverstate.PTCparam);

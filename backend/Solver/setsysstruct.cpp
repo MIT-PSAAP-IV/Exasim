@@ -209,8 +209,8 @@ void setsysstruct(sysstruct &sys, commonstruct &common, resstruct res, meshstruc
     Int ne = common.ne1; // number of elements in this subdomain 
     Int N = npe*ncu*ne;    
         
-    Int M = common.gmresRestart+1;    
-    M = max(M, common.RBdim);    
+    Int M = common.solverparams.gmresRestart+1;    
+    M = max(M, common.solverparams.RBdim);    
     
     // fix bug here
     Int ndof = (common.spatialScheme==0) ? N : common.ndofuhat;              

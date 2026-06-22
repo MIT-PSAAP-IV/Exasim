@@ -208,9 +208,9 @@ void CSolution::ClearSavedState()
 Int CSolution::PTCsolver(ofstream &out, Int backend)       
 {
     Int N = disc.common.ndof1;     
-    Int it = 0, maxit = disc.common.nonlinearSolverMaxIter;  
+    Int it = 0, maxit = disc.common.solverparams.nonlinearSolverMaxIter;  
     dstype nrmr, tol;
-    tol = disc.common.nonlinearSolverTol; // tolerance for the residual
+    tol = disc.common.solverparams.nonlinearSolverTol; // tolerance for the residual
     
     nrmr = PNORM(disc.common.cublasHandle, N, solv.sys.u, backend);
     if (disc.common.mpiRank==0)
@@ -231,7 +231,7 @@ Int CSolution::PTCsolver(ofstream &out, Int backend)
         double t0;
 
         // Build the LDG block-Jacobi preconditioner for the current state.
-        if ((disc.common.spatialScheme == 0) && (disc.common.preconditioner == 1)) {
+        if ((disc.common.spatialScheme == 0) && (disc.common.solverparams.preconditioner == 1)) {
             t0 = SolutionBenchmarkStart(backend);
             if (disc.common.tdep==1) {
                 if (it==0 && disc.common.timestate.currentstage==0) disc.ComputeLDGPreconditioner(disc.res.K, solv.sys.u, backend);
@@ -293,11 +293,11 @@ Int CSolution::PTCsolver(ofstream &out, Int backend)
             residualEvalTime += SolutionBenchmarkStop(t0, backend);
 
             if (attempt + 1 < maxLinearAttempts) {
-                disc.common.matvecTol *= 0.1;
+                disc.common.solverparams.matvecTol *= 0.1;
                 if (disc.common.mpiRank==0)
                     cout<<"Newton Iteration: "<<it
                         <<", rejected linear direction; retrying with matvecTol = "
-                        <<disc.common.matvecTol<<endl;
+                        <<disc.common.solverparams.matvecTol<<endl;
             }
         }
 
@@ -329,7 +329,7 @@ Int CSolution::PTCsolver(ofstream &out, Int backend)
         if (disc.common.mpiRank==0)
             cout<<"Newton Iteration: "<<it<<",  Residual Norm: "<<nrmr<<endl;                           
 
-        if ((disc.common.mpiRank==0) && (disc.common.spatialScheme == 0) && (disc.common.preconditioner == 1)) {
+        if ((disc.common.mpiRank==0) && (disc.common.spatialScheme == 0) && (disc.common.solverparams.preconditioner == 1)) {
             double ldgIterationTime = SolutionBenchmarkStop(ldgIterationStart, backend);
             cout << "==> LDG Newton Solver benchmark, iteration " << it << " (milliseconds)" << endl;
             cout << "    total time       : " << ldgIterationTime << endl;
@@ -338,7 +338,7 @@ Int CSolution::PTCsolver(ofstream &out, Int backend)
         }
                         
         // update the reduced basis
-        if ((status==0) && (disc.common.RBdim > 0)) // fix bug here 
+        if ((status==0) && (disc.common.solverparams.RBdim > 0)) // fix bug here 
             UpdateRB(solv.sys, disc, prec, backend);      
         
         // check convergence
@@ -352,9 +352,9 @@ Int CSolution::PTCsolver(ofstream &out, Int backend)
 
 Int CSolution::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int backend)       
 {
-    Int it = 0, maxit = disc.common.nonlinearSolverMaxIter;  
+    Int it = 0, maxit = disc.common.solverparams.nonlinearSolverMaxIter;  
     dstype nrmr, nrm0, tol;
-    tol = disc.common.nonlinearSolverTol; // tolerance for the residual
+    tol = disc.common.solverparams.nonlinearSolverTol; // tolerance for the residual
                 
     nrmr = PNORM(disc.common.cublasHandle, N, disc.common.ndofuhatinterface, solv.sys.u, backend);
 //     if (disc.common.mpiProcs>1 && disc.common.spatialScheme==1) {
@@ -511,7 +511,7 @@ Int CSolution::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int backend
         // update the reduced basis space
         ArrayMultiplyScalar(disc.common.cublasHandle, solv.sys.x, solv.sys.alpha, N, backend);   
                         
-        if (disc.common.RBdim > 0) UpdateRB(solv.sys, disc, prec, N, backend);         
+        if (disc.common.solverparams.RBdim > 0) UpdateRB(solv.sys, disc, prec, N, backend);         
                 
         if (disc.common.mpiRank==0)
           printf("Newton Iteration: %d, Alpha: %g, Original Norm: %g,  Updated Norm: %g\n", it+1, solv.sys.alpha, nrm0, nrmr);
@@ -687,9 +687,9 @@ void CSolution::InitSolution(Int backend)
     //     disc.evalQSer(backend);
             
     // // set pointer depending on the matrix type
-    // if (disc.common.precMatrixType==0)
+    // if (disc.common.solverparams.precMatrixType==0)
     //     prec.precond.Cmat = &prec.precond.C[0];
-    // else //if (disc.common.precMatrixType==2)
+    // else //if (disc.common.solverparams.precMatrixType==2)
     //     prec.precond.Cmat = &disc.res.Minv[0];    
         
     if (disc.common.spatialScheme==0) {
@@ -831,7 +831,7 @@ void CSolution::SteadyProblem_PTC(ofstream &out, Int backend) {
     double time = disc.common.timestate.time;           
     double monitor_diff, monitor_scale, delta_monitor;
     int N = disc.common.ndofuhat;
-    int NLiters = disc.common.nonlinearSolverMaxIter;
+    int NLiters = disc.common.solverparams.nonlinearSolverMaxIter;
     double nrmr = 0;
     int conv_flag = 0;
 
@@ -847,7 +847,7 @@ void CSolution::SteadyProblem_PTC(ofstream &out, Int backend) {
     // time stepping with DIRK schemes
     for (Int istep=0; istep<disc.common.tsteps-1; istep++)            
     {            
-        disc.common.nonlinearSolverMaxIter = 1;
+        disc.common.solverparams.nonlinearSolverMaxIter = 1;
 
         // current timestep        
         disc.common.timestate.currentstep = istep;
@@ -914,7 +914,7 @@ void CSolution::SteadyProblem_PTC(ofstream &out, Int backend) {
             }
             else if (delta_monitor < 0.1 && solv.sys.alpha == 1.0)
             {
-                if (disc.common.solverstate.linearSolverIter < disc.common.linearSolverMaxIter){
+                if (disc.common.solverstate.linearSolverIter < disc.common.solverparams.linearSolverMaxIter){
                     // increase timestep by 2
                     disc.common.dt[istep+1] = disc.common.dt[istep]*2;
                     // std::cout << "Doubling timestep: " << disc.common.dt[istep+1] << std::endl;
@@ -940,7 +940,7 @@ void CSolution::SteadyProblem_PTC(ofstream &out, Int backend) {
                         std::cout << " Steady residual = " << nrmr << std::endl;
     
                         // SaveSolutions(backend); 
-                        if (nrmr < disc.common.nonlinearSolverTol) {
+                        if (nrmr < disc.common.solverparams.nonlinearSolverTol) {
                             conv_flag = 1;
                             istep = disc.common.tsteps+10;
                             this->SaveSolutions(backend); 
@@ -954,7 +954,7 @@ void CSolution::SteadyProblem_PTC(ofstream &out, Int backend) {
                     if (disc.common.runmode == 11) { // Compute steady solve
                         std::cout << "Steady solve..." << std::endl;
                         disc.common.tdep=0;
-                        disc.common.nonlinearSolverMaxIter = NLiters;
+                        disc.common.solverparams.nonlinearSolverMaxIter = NLiters;
                         this->SolveProblem(out, backend);
                         istep = disc.common.tsteps+10;
                     }

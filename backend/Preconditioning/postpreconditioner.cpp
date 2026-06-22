@@ -129,7 +129,7 @@ void CPreconditioner::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretiza
     
     ArrayCopy(disc.common.cublasHandle, disc.res.Ru, x, N, backend);
     ApplyMatrix(disc.common.cublasHandle, x, disc.res.Minv, disc.res.Ru, disc.common.npe, disc.common.ncu, 
-        disc.common.ne1, disc.common.precMatrixType, disc.common.curvedMesh, backend);                
+        disc.common.ne1, disc.common.solverparams.precMatrixType, disc.common.curvedMesh, backend);                
 }
 
 void CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, CDiscretization& disc, Int N, Int spatialScheme, Int backend)
@@ -270,10 +270,10 @@ void CPreconditioner::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretiza
       Int N = disc.common.ndof1;        
       ArrayCopy(disc.common.cublasHandle, disc.res.Ru, x, N, backend);
       ApplyMatrix(disc.common.cublasHandle, x, disc.res.Minv, disc.res.Ru, disc.common.npe, disc.common.ncu, 
-          disc.common.ne1, disc.common.precMatrixType, disc.common.curvedMesh, backend);                
+          disc.common.ne1, disc.common.solverparams.precMatrixType, disc.common.curvedMesh, backend);                
     }
     else if (spatialScheme==1) {      
-      if (disc.common.preconditioner==0) { // Block Jacobi preconditioner
+      if (disc.common.solverparams.preconditioner==0) { // Block Jacobi preconditioner
         Int nf = disc.common.nf; // number of faces in this subdomain
         Int ncu = disc.common.ncu;// number of compoments of (u)
         Int npf = disc.common.npf; // number of nodes on master face           
@@ -284,10 +284,10 @@ void CPreconditioner::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretiza
         // (ncf)  * (ncf) * nf x (ncf) * nf -> (ncf) * nf
         PGEMNMStridedBached(disc.common.cublasHandle, ncf, 1, ncf, one, disc.res.K, ncf, disc.res.Rh, ncf, zero, x, ncf, nf, backend);         
       }
-      else if (disc.common.preconditioner==1) { // Elemental additive Schwarz preconditioner        
+      else if (disc.common.solverparams.preconditioner==1) { // Elemental additive Schwarz preconditioner        
         hdgMatVec<exasim::detail::AbiAdapter>(x, disc.res.K, x, disc.res.Rh, disc.res.Rq, disc.res, disc.app, disc.mesh, disc.common, disc.tmp, disc.common.cublasHandle, backend);
       }
-      else if (disc.common.preconditioner==2) { // super-element additive Schwarz preconditioner with BLIU0
+      else if (disc.common.solverparams.preconditioner==2) { // super-element additive Schwarz preconditioner with BLIU0
         Int nf = disc.common.nf; // number of faces in this subdomain
         Int ncu = disc.common.ncu;// number of compoments of (u)
         Int npf = disc.common.npf; // number of nodes on master face           

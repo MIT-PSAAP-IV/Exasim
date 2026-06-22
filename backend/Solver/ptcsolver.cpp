@@ -96,7 +96,7 @@ int LinearSolver(sysstruct &sys, CDiscretization& disc, CPreconditioner& prec, o
             //disc.common.solverstate.RBremovedind = 1;            
         }
 
-        if (nrmr < disc.common.nonlinearSolverTol) 
+        if (nrmr < disc.common.solverparams.nonlinearSolverTol) 
             return 1;               
     }    
     else {
@@ -119,7 +119,7 @@ int LinearSolver(sysstruct &sys, CDiscretization& disc, CPreconditioner& prec, o
 #endif    
     disc.common.solverstate.linearSolverIter = GMRES(sys, disc, prec, backend);  
     if (disc.common.mpiRank==0)             
-        printf("GMRES converges to the tolerance %g within % d iterations and %d RB dimensions\n",disc.common.linearSolverTol,disc.common.solverstate.linearSolverIter,disc.common.solverstate.RBcurrentdim);        
+        printf("GMRES converges to the tolerance %g within % d iterations and %d RB dimensions\n",disc.common.solverparams.linearSolverTol,disc.common.solverstate.linearSolverIter,disc.common.solverstate.RBcurrentdim);        
     
 #ifdef TIMING        
     end = chrono::high_resolution_clock::now();
@@ -161,12 +161,12 @@ void UpdateRB(sysstruct &sys, CDiscretization& disc, CPreconditioner& prec, Int 
       ArrayCopy(disc.common.cublasHandle, &prec.precond.W[disc.common.solverstate.RBremovedind*N], sys.x, N, backend);  
 
       // update the current dimension of the RB dimension
-      if (disc.common.solverstate.RBcurrentdim<disc.common.RBdim) 
+      if (disc.common.solverstate.RBcurrentdim<disc.common.solverparams.RBdim) 
           disc.common.solverstate.RBcurrentdim += 1;                    
 
       // update the position of the RB vector to be replaced  
       disc.common.solverstate.RBremovedind += 1;
-      if (disc.common.solverstate.RBremovedind==disc.common.RBdim) 
+      if (disc.common.solverstate.RBremovedind==disc.common.solverparams.RBdim) 
           disc.common.solverstate.RBremovedind = 0;                
     }
 }
@@ -180,12 +180,12 @@ void UpdateRB(sysstruct &sys, CDiscretization& disc, CPreconditioner& prec, Int 
       //ArrayCopy(disc.common.cublasHandle, &prec.precond.W[disc.common.solverstate.RBremovedind*N], sys.x, N, backend);  
 
       // update the current dimension of the RB dimension
-      if (disc.common.solverstate.RBcurrentdim<disc.common.RBdim) 
+      if (disc.common.solverstate.RBcurrentdim<disc.common.solverparams.RBdim) 
           disc.common.solverstate.RBcurrentdim += 1;                    
 
       // update the position of the RB vector to be replaced  
       disc.common.solverstate.RBremovedind += 1;
-      if (disc.common.solverstate.RBremovedind==disc.common.RBdim) 
+      if (disc.common.solverstate.RBremovedind==disc.common.solverparams.RBdim) 
           disc.common.solverstate.RBremovedind = 0;                
     }
 }
@@ -234,7 +234,7 @@ void LinearSolver(sysstruct &sys, CDiscretization& disc, CPreconditioner& prec, 
     
     if (disc.common.mpiRank==0)  {
         printf("GMRES time: %g miliseconds\n", t1);
-        printf("GMRES(%d) converges to the tolerance %g within % d iterations and %d RB dimensions\n",disc.common.gmresRestart,disc.common.linearSolverTol,disc.common.solverstate.linearSolverIter,disc.common.solverstate.RBcurrentdim);                    
+        printf("GMRES(%d) converges to the tolerance %g within % d iterations and %d RB dimensions\n",disc.common.solverparams.gmresRestart,disc.common.solverparams.linearSolverTol,disc.common.solverstate.linearSolverIter,disc.common.solverstate.RBcurrentdim);                    
     }
 }
 

@@ -145,10 +145,10 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int back
     Int ne = disc.common.ne1;
     Int N = npe*ncu*ne;
     dstype nrmb, nrmr, tol, scalar;
-    tol = std::min(0.01,disc.common.linearSolverTol*disc.common.solverstate.linearSolverTolFactor);
-    maxit = disc.common.linearSolverMaxIter;
-    nrest = disc.common.gmresRestart;
-    orthogMethod = disc.common.gmresOrthogMethod;
+    tol = std::min(0.01,disc.common.solverparams.linearSolverTol*disc.common.solverstate.linearSolverTolFactor);
+    maxit = disc.common.solverparams.linearSolverMaxIter;
+    nrest = disc.common.solverparams.gmresRestart;
+    orthogMethod = disc.common.solverparams.gmresOrthogMethod;
     n1 = nrest + 1;
                 
     dstype *s, *y, *cs, *sn, *H;
@@ -199,7 +199,7 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int back
         cout<<"Old RHS Norm: "<<nrmb<<",  New RHS Norm: "<<nrmr<<endl; 
     
     disc.common.solverstate.linearSolverTolFactor = nrmb/nrmr;
-    tol = std::min(0.1,disc.common.linearSolverTol*disc.common.solverstate.linearSolverTolFactor);
+    tol = std::min(0.1,disc.common.solverparams.linearSolverTol*disc.common.solverstate.linearSolverTolFactor);
         
     //disc.common.ppdegree = 0;
     
@@ -360,9 +360,9 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int N, I
     
     Int maxit, nrest, orthogMethod, n1, i, k, j = 0;
     dstype nrmb, nrmr, tol, scalar;
-    maxit = disc.common.linearSolverMaxIter;
-    nrest = disc.common.gmresRestart;
-    orthogMethod = disc.common.gmresOrthogMethod;
+    maxit = disc.common.solverparams.linearSolverMaxIter;
+    nrest = disc.common.solverparams.gmresRestart;
+    orthogMethod = disc.common.solverparams.gmresOrthogMethod;
     n1 = nrest + 1;
                 
     dstype *s, *y, *cs, *sn, *H;
@@ -395,7 +395,7 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int N, I
     }    
     
     nrmb = PNORM(disc.common.cublasHandle, N, disc.common.ndofuhatinterface, sys.b, backend);       
-    if (nrmb < disc.common.nonlinearSolverTol) {
+    if (nrmb < disc.common.solverparams.nonlinearSolverTol) {
         ArraySetValue(sys.x, zero, N);
         return 0;
     }
@@ -425,7 +425,7 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int N, I
         cout<<"Old RHS Norm: "<<nrmb<<",  New RHS Norm: "<<nrmr<<endl; 
     
     disc.common.solverstate.linearSolverTolFactor = nrmb/nrmr;
-    tol = min(0.1,disc.common.linearSolverTol*disc.common.solverstate.linearSolverTolFactor);
+    tol = min(0.1,disc.common.solverparams.linearSolverTol*disc.common.solverstate.linearSolverTolFactor);
             
     // compute r = P*r
     if (disc.common.ppdegree>1) {

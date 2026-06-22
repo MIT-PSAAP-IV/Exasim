@@ -49,8 +49,8 @@ inline void MatVec(dstype *w, solstruct &sol, resstruct &res, appstruct &app, ma
     //Int nd = common.nd;
     Int N = npe*ncu*ne;
     
-    Int order = common.matvecOrder;
-    dstype epsilon = common.matvecTol;
+    Int order = common.solverparams.matvecOrder;
+    dstype epsilon = common.solverparams.matvecTol;
 #ifdef HAVE_ENZYME
 //TODO: there might be a cleaner way to do this...matvecAD v. matvecFD functions? 
     ArrayInsert(sol.dudg, v, npe, nc, ne, 0, npe, 0, ncu, 0, ne); //insert v into dudgs

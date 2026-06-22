@@ -217,18 +217,18 @@ void CDiscretization::hdgAssembleLinearSystem(dstype *b, Int backend)
     hdgAssembleRHS<exasim::detail::AbiAdapter>(b, res.Rh, mesh, common);
 #endif
 
-    if (common.preconditioner==0) {
+    if (common.solverparams.preconditioner==0) {
       // fix bug here: tmp.tempn is not enough memory to store ncu*npf*ncu*npf*nf 
       hdgBlockJacobi<exasim::detail::AbiAdapter>(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);      
     }
-    else if (common.preconditioner==1) {
+    else if (common.solverparams.preconditioner==1) {
       hdgElementalAdditiveSchwarz<exasim::detail::AbiAdapter>(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);      
     }
-    else if (common.preconditioner==2) {
+    else if (common.solverparams.preconditioner==2) {
       hdgBlockILU0<exasim::detail::AbiAdapter>(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);
     }
         
-//     if (common.preconditioner==0) {
+//     if (common.solverparams.preconditioner==0) {
 //       // assemble block Jacobi matrix from res.H using the FIRST elements in mesh.f2e
 //       BlockJacobi(res.K, res.H, mesh.f2e, npf, nfe, ncu, common.nf);
 // 
@@ -243,7 +243,7 @@ void CDiscretization::hdgAssembleLinearSystem(dstype *b, Int backend)
 //         Inverse(common.cublasHandle, &res.K[ncf*ncf*f1], tmp.tempn, res.ipiv, ncf, f2-f1, backend); 
 //       }          
 //     }
-//     else if (common.preconditioner==1) { 
+//     else if (common.solverparams.preconditioner==1) { 
 //       ArrayCopy(res.K, res.H, ncf*nfe*ncf*nfe*common.ne); 
 //       ElementalAdditiveSchwarz(res.K, res.H, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.nf);       
 // 
@@ -253,7 +253,7 @@ void CDiscretization::hdgAssembleLinearSystem(dstype *b, Int backend)
 //         Inverse(common.cublasHandle, &res.K[ncf*common.nfe*ncf*common.nfe*e1], tmp.tempn, res.ipiv, ncf*nfe, e2-e1, backend); 
 //       }          
 //     }
-//     else if (common.preconditioner==2) { // Block ILU0
+//     else if (common.solverparams.preconditioner==2) { // Block ILU0
 //       //hdgBlockILU0<exasim::detail::AbiAdapter>(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);
 //       Int nfse = common.nfse; // number of faces in each superelement
 //       Int nse  = common.nse;  // number of superelements

@@ -130,11 +130,11 @@ inline void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &
     common.wave = app.flag[1];
     common.linearProblem = app.flag[2]; // 0: nonlinear problem;  1: linear problem
     common.debugMode = app.flag[3]; // 1: save data to binary files for debugging
-    common.matvecOrder = app.flag[4];        
-    common.gmresOrthogMethod = app.flag[5];            
-    common.preconditioner = app.flag[6];
-    common.precMatrixType = app.flag[7];
-    common.ptcMatrixType = app.flag[8];
+    common.solverparams.matvecOrder = app.flag[4];        
+    common.solverparams.gmresOrthogMethod = app.flag[5];            
+    common.solverparams.preconditioner = app.flag[6];
+    common.solverparams.precMatrixType = app.flag[7];
+    common.solverparams.ptcMatrixType = app.flag[8];
     common.runmode = app.flag[9];
     common.tdfunc = app.flag[10];
     common.physicsparams.source = app.flag[11]; 
@@ -163,11 +163,11 @@ inline void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &
     common.physicsparams.ncAV = app.problem[11];    // Flag for artificial viscosity. 0: No artificial viscosity; 1: Homogeneous artificial viscosity (C. Nguyen's formulation); 2: Hypersonic homogeneous artificial viscosity (C. Nguyen's formulation)
                                         //                                3: Isotropic artificial viscosity (D. Moro's formulation). 4: Latest version of the model (taking the best of all previous models)
                                         //                                8: Density smoothness sensor (Per's approach)    
-    common.linearSolver = app.problem[12];  /* 0: GMRES; 1: CG; etc. */      
-    common.nonlinearSolverMaxIter = app.problem[13];                
-    common.linearSolverMaxIter = app.problem[14];        
-    common.gmresRestart = app.problem[15];    
-    common.RBdim = app.problem[16];  
+    common.solverparams.linearSolver = app.problem[12];  /* 0: GMRES; 1: CG; etc. */      
+    common.solverparams.nonlinearSolverMaxIter = app.problem[13];                
+    common.solverparams.linearSolverMaxIter = app.problem[14];        
+    common.solverparams.gmresRestart = app.problem[15];    
+    common.solverparams.RBdim = app.problem[16];  
     common.saveSolFreq = app.problem[17];    
     common.saveSolOpt = app.problem[18];    
     common.timestepOffset = app.problem[19];    
@@ -190,9 +190,9 @@ inline void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &
     common.solverstate.RBremovedind = 0; // the vector to be removed from the RB space and replaced with new vector
     common.solverstate.Wcurrentdim = 0; // current dimension of the W space
     
-    common.nonlinearSolverTol = app.solversparam[0];    
-    common.linearSolverTol = app.solversparam[1];
-    common.matvecTol = app.solversparam[2];
+    common.solverparams.nonlinearSolverTol = app.solversparam[0];    
+    common.solverparams.linearSolverTol = app.solversparam[1];
+    common.solverparams.matvecTol = app.solversparam[2];
     common.solverstate.PTCparam = app.solversparam[3];
     if (common.tdep==1)
         common.timestate.time = app.factor[0];
