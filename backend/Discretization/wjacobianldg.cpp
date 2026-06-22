@@ -185,10 +185,10 @@ inline void wJacobianLDGSourcew(dstype* DWDU, dstype* Su, dstype* Sw,
             app, sol, tmp, common, npe, e1, e2, backend);
 
     dstype scalar = zero;
-    if (common.dae_steps==0)
-        scalar = one/(common.dae_alpha*common.timestate.dtfactor + common.dae_beta);
+    if (common.timeparams.dae_steps==0)
+        scalar = one/(common.timeparams.dae_alpha*common.timestate.dtfactor + common.timeparams.dae_beta);
     else
-        scalar = one/(common.dae_alpha*common.timestate.dtfactor + common.dae_beta + common.dae_gamma);
+        scalar = one/(common.timeparams.dae_alpha*common.timestate.dtfactor + common.timeparams.dae_beta + common.timeparams.dae_gamma);
 
     ArrayMultiplyScalar(Su, scalar, nn*ncw*nc);
     wJacobianLDGInsertPointwise(DWDU, Su, common, e1, e2, common.ncu);
@@ -204,12 +204,12 @@ inline void wJacobianLDG(dstype* DWDU, solstruct& sol, resstruct& res,
     if (DWDU == nullptr)
         return;
 
-    if ((common.subproblem != 0) || (common.ncw <= 0)) {
+    if ((common.timeparams.subproblem != 0) || (common.ncw <= 0)) {
         wJacobianLDGZero(DWDU, common, e1, e2);
         return;
     }
 
-    if (common.wave == 1) {
+    if (common.timeparams.wave == 1) {
         wJacobianLDGWave(DWDU, common, e1, e2);
         return;
     }
@@ -221,7 +221,7 @@ inline void wJacobianLDG(dstype* DWDU, solstruct& sol, resstruct& res,
     Int ne = e2 - e1;
     Int nn = npe*ne;
 
-    if ((fabs(common.dae_alpha) < 1e-10) && (fabs(common.dae_beta) < 1e-10)) {
+    if ((fabs(common.timeparams.dae_alpha) < 1e-10) && (fabs(common.timeparams.dae_beta) < 1e-10)) {
         dstype* Fu = nullptr;
         dstype* Fw = nullptr;
         TemplateMalloc(&Fu, nn*ncw*ncu, backend);

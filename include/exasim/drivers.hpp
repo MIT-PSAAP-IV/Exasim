@@ -468,7 +468,7 @@ inline void FhatDriver(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
     for (int n = 0; n < nc; n++) {
         FluxDotNormal(&f_udg[Mn * n], &f_udg[N * n], nl, Mn, numPoints, nd);
     }
-    if ((ncw > 0) & (common.wave == 0)) {
+    if ((ncw > 0) & (common.timeparams.wave == 0)) {
         for (int n = 0; n < ncw; n++) {
             FluxDotNormal(&f_wdg[Mn * n], &f_wdg[N * n], nl, Mn, numPoints, nd);
         }

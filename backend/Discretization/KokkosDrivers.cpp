@@ -769,7 +769,7 @@ void FhatDriver(dstype* f,  dstype* f_udg, dstype* f_wdg, dstype* f_uhg, const d
     }
 
     // f_wdg = ng * ncu * ncw
-    if ((ncw>0) & (common.wave==0)) {
+    if ((ncw>0) & (common.timeparams.wave==0)) {
       for (int n=0; n< ncw; n++) {
         FluxDotNormal(&f_wdg[M*n], &f_wdg[N*n], nl, M, numPoints, nd);    
       }      

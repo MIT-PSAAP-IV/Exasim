@@ -306,13 +306,13 @@ int ExasimSolver::Solve()
     if (common.physicsparams.AVdistfunction == 1) {
         status = RunAVDistanceFunction();
     }
-    else if ((common.tdep == 1) && (common.runmode == 0)) {
+    else if ((common.timeparams.tdep == 1) && (common.runmode == 0)) {
         status = RunTimeDependent();
     }
-    else if ((common.tdep == 1) && (common.runmode == 10 || common.runmode == 11)) {
+    else if ((common.timeparams.tdep == 1) && (common.runmode == 10 || common.runmode == 11)) {
         status = RunPseudoTime();
     }
-    else if ((common.tdep == 0) && (common.runmode == 0)) {
+    else if ((common.timeparams.tdep == 0) && (common.runmode == 0)) {
         status = RunSteady();
     }
     else {
@@ -330,13 +330,13 @@ int ExasimSolver::Solve(const int i)
     int status = 0;
     commonstruct& common = models_[i]->disc.common;
 
-    if ((common.tdep == 1) && (common.runmode == 0)) {
+    if ((common.timeparams.tdep == 1) && (common.runmode == 0)) {
         status = RunTimeDependent(i);
     }
-    else if ((common.tdep == 1) && (common.runmode == 10 || common.runmode == 11)) {
+    else if ((common.timeparams.tdep == 1) && (common.runmode == 10 || common.runmode == 11)) {
         status = RunPseudoTime(i);
     }
-    else if ((common.tdep == 0) && (common.runmode == 0)) {
+    else if ((common.timeparams.tdep == 0) && (common.runmode == 0)) {
         status = RunSteady(i);
     }
     else {
@@ -1092,7 +1092,7 @@ int ExasimSolver::RunTimeDependent()
     int status = InitializeSolution();
     if (status) return status;
 
-    return RunTimeDependent(0, models_[0]->disc.common.tsteps);
+    return RunTimeDependent(0, models_[0]->disc.common.timeparams.tsteps);
 }
 
 int ExasimSolver::RunTimeDependent(const int modelnumber)
@@ -1100,7 +1100,7 @@ int ExasimSolver::RunTimeDependent(const int modelnumber)
     int status = InitializeSolution(modelnumber);
     if (status) return status;
 
-    return RunTimeDependent(modelnumber, 0, models_[0]->disc.common.tsteps);
+    return RunTimeDependent(modelnumber, 0, models_[0]->disc.common.timeparams.tsteps);
 }
 
 int ExasimSolver::RunTimeDependent(Int start, Int steps)
@@ -1113,7 +1113,7 @@ int ExasimSolver::RunTimeDependent(Int start, Int steps)
                               models_[i]->disc.common, backend_);
         }
 
-        for (Int j = 0; j < models_[0]->disc.common.tstages; j++) {
+        for (Int j = 0; j < models_[0]->disc.common.timeparams.tstages; j++) {
             if (models_[0]->disc.common.mpiRank == 0)
                 printf("\nTimestep :  %d,  Timestage :  %d,   Time : %g\n",
                        istep + 1, j + 1,
@@ -1173,7 +1173,7 @@ int ExasimSolver::RunTimeDependent(const int i, Int start, Int steps)
         PreviousSolutions(models_[i]->disc.sol, models_[i]->solv.sys,
                           models_[i]->disc.common, backend_);
         
-        for (Int j = 0; j < models_[0]->disc.common.tstages; j++) {
+        for (Int j = 0; j < models_[0]->disc.common.timeparams.tstages; j++) {
             if (models_[0]->disc.common.mpiRank == 0)
                 printf("\nTimestep :  %d,  Timestage :  %d,   Time : %g\n",
                        istep + 1, j + 1,
@@ -1296,7 +1296,7 @@ int ExasimSolver::RunSolveProblemOrPostprocess()
             models_[i]->SaveOutputCG(backend_);
         }
         else if (models_[i]->disc.common.runmode == 2) {
-            for (Int istep = 0; istep < models_[i]->disc.common.tsteps; istep++) {
+            for (Int istep = 0; istep < models_[i]->disc.common.timeparams.tsteps; istep++) {
                 if (((istep + 1) % models_[i]->disc.common.saveSolFreq) == 0) {
                     models_[i]->disc.common.timestate.currentstep = istep;
                     models_[i]->ReadSolutions(backend_);
@@ -1307,7 +1307,7 @@ int ExasimSolver::RunSolveProblemOrPostprocess()
             }
         }
         else if (models_[i]->disc.common.runmode == 3) {
-            for (Int istep = 0; istep < models_[i]->disc.common.tsteps; istep++) {
+            for (Int istep = 0; istep < models_[i]->disc.common.timeparams.tsteps; istep++) {
                 if (((istep + 1) % models_[i]->disc.common.saveSolFreq) == 0) {
                     models_[i]->disc.common.timestate.currentstep = istep;
                     models_[i]->ReadSolutions(backend_);
@@ -1610,11 +1610,11 @@ int ExasimSolver::RunPhysicsParamSweep()
         commonstruct& common = models_[0]->disc.common;
         if (common.physicsparams.AVdistfunction == 1)
             status = RunAVDistanceFunction();
-        else if ((common.tdep == 1) && (common.runmode == 0))
+        else if ((common.timeparams.tdep == 1) && (common.runmode == 0))
             status = RunTimeDependent();
-        else if ((common.tdep == 1) && (common.runmode == 10 || common.runmode == 11))
+        else if ((common.timeparams.tdep == 1) && (common.runmode == 10 || common.runmode == 11))
             status = RunPseudoTime();
-        else if ((common.tdep == 0) && (common.runmode == 0))
+        else if ((common.timeparams.tdep == 0) && (common.runmode == 0))
             status = RunSteady();
         else
             status = RunSolveProblemOrPostprocess();

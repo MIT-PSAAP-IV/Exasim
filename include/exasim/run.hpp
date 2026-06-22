@@ -447,7 +447,7 @@ inline int run(int argc, char** argv) {
     if (pdemodel[0]->disc.common.physicsparams.AVdistfunction==1) {
       avdistfunc(pdemodel, out, nummodels, backend);
     }
-    else if ((pdemodel[0]->disc.common.tdep==1) && (pdemodel[0]->disc.common.runmode==0)) {
+    else if ((pdemodel[0]->disc.common.timeparams.tdep==1) && (pdemodel[0]->disc.common.runmode==0)) {
 
         for (int i=0; i<nummodels; i++) {
             if (restart>0) {
@@ -459,14 +459,14 @@ inline int run(int argc, char** argv) {
 
         dstype time = pdemodel[0]->disc.common.timestate.time;
 
-        for (Int istep=0; istep<pdemodel[0]->disc.common.tsteps; istep++)
+        for (Int istep=0; istep<pdemodel[0]->disc.common.timeparams.tsteps; istep++)
         {
             for (int i=0; i<nummodels; i++) {
                 pdemodel[i]->disc.common.timestate.currentstep = istep;
                 PreviousSolutions(pdemodel[i]->disc.sol, pdemodel[i]->solv.sys, pdemodel[i]->disc.common, backend);
             }
 
-            for (Int j=0; j<pdemodel[0]->disc.common.tstages; j++) {
+            for (Int j=0; j<pdemodel[0]->disc.common.timeparams.tstages; j++) {
 
                 if (pdemodel[0]->disc.common.mpiRank==0)
                     printf("\nTimestep :  %d,  Timestage :  %d,   Time : %g\n",istep+1,j+1,time + pdemodel[0]->disc.common.dt[istep]*pdemodel[0]->disc.common.DIRKcoeff_t[j]);
@@ -503,7 +503,7 @@ inline int run(int argc, char** argv) {
         }
     }
     // Pseudo-time stepping (single model only).
-    else if ((pdemodel[0]->disc.common.tdep==1) && (pdemodel[0]->disc.common.runmode==10 || pdemodel[0]->disc.common.runmode==11)) {
+    else if ((pdemodel[0]->disc.common.timeparams.tdep==1) && (pdemodel[0]->disc.common.runmode==10 || pdemodel[0]->disc.common.runmode==11)) {
         if (restart>0) {
             pdemodel[0]->disc.common.timestate.currentstep = -1;
             pdemodel[0]->ReadSolutions(backend);
@@ -532,7 +532,7 @@ inline int run(int argc, char** argv) {
                 pdemodel[i]->SaveOutputCG(backend);
             }
             else if (pdemodel[i]->disc.common.runmode==2){
-                for (Int istep=0; istep<pdemodel[i]->disc.common.tsteps; istep++)
+                for (Int istep=0; istep<pdemodel[i]->disc.common.timeparams.tsteps; istep++)
                 {
                     if (((istep+1) % pdemodel[i]->disc.common.saveSolFreq) == 0)
                     {
@@ -545,7 +545,7 @@ inline int run(int argc, char** argv) {
                 }
             }
             else if (pdemodel[i]->disc.common.runmode==3){
-                for (Int istep=0; istep<pdemodel[i]->disc.common.tsteps; istep++)
+                for (Int istep=0; istep<pdemodel[i]->disc.common.timeparams.tsteps; istep++)
                 {
                     if (((istep+1) % pdemodel[i]->disc.common.saveSolFreq) == 0)
                     {

@@ -393,7 +393,7 @@ inline void hdgGetQ(dstype *udg, dstype *uhat, solstruct &sol, resstruct &res, m
     Int ndf = npf*nfe; // number of dofs on a face
 
     dstype scalar = 1.0;
-    if (common.wave==1)
+    if (common.timeparams.wave==1)
         scalar = 1.0/common.timestate.dtfactor;    
     
     // Solve: dtfactor * M * q = C * u - E * uhat + M * s
@@ -421,7 +421,7 @@ inline void hdgGetQ(dstype *udg, dstype *uhat, solstruct &sol, resstruct &res, m
       if (nd==1) {        
         PGEMNMStridedBached(common.cublasHandle, npe, ncu, npe, one, &Cx[npe*npe*e1], npe, u, npe, zero, q, npe, ns, backend);
         PGEMNMStridedBached(common.cublasHandle, npe, ncu, npf*nfe, minusone, &Ex[npe*npf*nfe*e1], npe, uh, ndf, one, q, npe, ns, backend);        
-        if (common.wave==1) {// get the source term due to the time derivative 
+        if (common.timeparams.wave==1) {// get the source term due to the time derivative 
           ArrayExtract(s, sol.sdg, npe, nc, ne, 0, npe, ncu, ncu+ncq, e1, e2);          
           ArrayAXPBY(q, q, s, scalar, scalar, npe*ncu*ns); // scalar*(q + s)                   
         }
@@ -433,7 +433,7 @@ inline void hdgGetQ(dstype *udg, dstype *uhat, solstruct &sol, resstruct &res, m
         
         PGEMNMStridedBached(common.cublasHandle, npe, ncu, npe, one, &Cx[npe*npe*e1], npe, u, npe, zero, q, npe, ns, backend);
         PGEMNMStridedBached(common.cublasHandle, npe, ncu, npf*nfe, minusone, &Ex[npe*npf*nfe*e1], npe, uh, ndf, one, q, npe, ns, backend);
-        if (common.wave==1) {
+        if (common.timeparams.wave==1) {
           ArrayExtract(s, sol.sdg, npe, nc, ne, 0, npe, ncu, 2*ncu, e1, e2);          
           ArrayAXPBY(q, q, s, scalar, scalar, npe*ncu*ns); // scalar*(q + s)
         }
@@ -441,7 +441,7 @@ inline void hdgGetQ(dstype *udg, dstype *uhat, solstruct &sol, resstruct &res, m
 
         PGEMNMStridedBached(common.cublasHandle, npe, ncu, npe, one, &Cy[npe*npe*e1], npe, u, npe, zero, q, npe, ns, backend);
         PGEMNMStridedBached(common.cublasHandle, npe, ncu, npf*nfe, minusone, &Ey[npe*npf*nfe*e1], npe, uh, ndf, one, q, npe, ns, backend);
-        if (common.wave==1) {
+        if (common.timeparams.wave==1) {
           ArrayExtract(s, sol.sdg, npe, nc, ne, 0, npe, 2*ncu, 3*ncu, e1, e2);          
           ArrayAXPBY(q, q, s, scalar, scalar, npe*ncu*ns); // scalar*(q + s)
         }
@@ -456,7 +456,7 @@ inline void hdgGetQ(dstype *udg, dstype *uhat, solstruct &sol, resstruct &res, m
 
         PGEMNMStridedBached(common.cublasHandle, npe, ncu, npe, one, &Cx[npe*npe*e1], npe, u, npe, zero, q, npe, ns, backend);
         PGEMNMStridedBached(common.cublasHandle, npe, ncu, npf*nfe, minusone, &Ex[npe*npf*nfe*e1], npe, uh, ndf, one, q, npe, ns, backend);
-        if (common.wave==1) {
+        if (common.timeparams.wave==1) {
           ArrayExtract(s, sol.sdg, npe, nc, ne, 0, npe, ncu, 2*ncu, e1, e2);          
           ArrayAXPBY(q, q, s, scalar, scalar, npe*ncu*ns); // scalar*(q + s)
         }
@@ -464,7 +464,7 @@ inline void hdgGetQ(dstype *udg, dstype *uhat, solstruct &sol, resstruct &res, m
 
         PGEMNMStridedBached(common.cublasHandle, npe, ncu, npe, one, &Cy[npe*npe*e1], npe, u, npe, zero, q, npe, ns, backend);
         PGEMNMStridedBached(common.cublasHandle, npe, ncu, npf*nfe, minusone, &Ey[npe*npf*nfe*e1], npe, uh, ndf, one, q, npe, ns, backend);
-        if (common.wave==1) {
+        if (common.timeparams.wave==1) {
           ArrayExtract(s, sol.sdg, npe, nc, ne, 0, npe, 2*ncu, 3*ncu, e1, e2);          
           ArrayAXPBY(q, q, s, scalar, scalar, npe*ncu*ns); // scalar*(q + s)
         }
@@ -472,7 +472,7 @@ inline void hdgGetQ(dstype *udg, dstype *uhat, solstruct &sol, resstruct &res, m
 
         PGEMNMStridedBached(common.cublasHandle, npe, ncu, npe, one, &Cz[npe*npe*e1], npe, u, npe, zero, q, npe, ns, backend);                        
         PGEMNMStridedBached(common.cublasHandle, npe, ncu, npf*nfe, minusone, &Ez[npe*npf*nfe*e1], npe, uh, ndf, one, q, npe, ns, backend);
-        if (common.wave==1) {
+        if (common.timeparams.wave==1) {
           ArrayExtract(s, sol.sdg, npe, nc, ne, 0, npe, 3*ncu, 4*ncu, e1, e2);          
           ArrayAXPBY(q, q, s, scalar, scalar, npe*ncu*ns); // scalar*(q + s)
         }

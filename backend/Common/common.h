@@ -1651,6 +1651,27 @@ struct physicsparamsstruct {
     dstype tau0=0.0;      // initial stabilization parameter
 };
 
+// Time-integration / problem-evolution configuration: temporal scheme + order + stages, time-step
+// count, dual-time (DAE) parameters, and the problem-character flags (time-dependent, wave, linear,
+// sub-problem, time-derivative function). Grouped out of commonstruct (C3). Access via
+// common.timeparams.<field>. (The mutable step/stage counters live in timestate.)
+struct timeparamsstruct {
+    Int temporalScheme;  // 0: DIRK; 1: BDF; 2: ERK
+    Int torder;          // temporal accuracy order
+    Int tstages;         // DIRK stages
+    Int tsteps;          // number of time steps
+    Int dae_steps=0;     // number of dual time steps
+    Int tdep;            // 0: steady-state; 1: time-dependent
+    Int wave;            // wave problem
+    Int tdfunc;          // time-derivative function flag
+    Int linearProblem;   // 0: nonlinear; 1: linear
+    Int subproblem=0;
+    dstype dae_alpha=1.0;
+    dstype dae_beta=0.0;
+    dstype dae_gamma=0.0;
+    dstype dae_epsilon=0.0;
+};
+
 // Iterative-solver configuration: linear/nonlinear solver type, iteration caps, tolerances,
 // GMRES/matvec/preconditioner settings, and reduced-basis/W max dimensions. Grouped out of
 // commonstruct (C3). Access via common.solverparams.<field>. (The mutable per-solve counters
@@ -1674,6 +1695,7 @@ struct solverparamsstruct {
 };
 
 struct commonstruct {
+    timeparamsstruct timeparams;        // time-integration/problem-evolution config (see above)
     solverparamsstruct solverparams;    // iterative-solver configuration (see above)
     physicsparamsstruct physicsparams;  // physics/model configuration (see above)
     solverstatestruct solverstate;  // mutable solver/preconditioner runtime state (see above)
@@ -1781,16 +1803,11 @@ struct commonstruct {
     Int curvedMesh;// curved mesh   
     Int fileoffset;
     Int debugMode; // 1: save data to binary files for debugging
-    Int tdep;      // 0: steady-state; 1: time-dependent;  
-    Int wave;      // wave problem    
-    Int linearProblem; // 0: nonlinear problem;  1: linear problem
-    Int subproblem=0;
     Int saveSolFreq;      // number of time steps to save the solution
     Int saveSolOpt;       // option to save the solution
     Int saveRestart=200;  // number of time steps to save the solution for restarting
     Int timestepOffset=0; // timestep offset to restart the simulation 
     Int stgNmode=0;       // number of synthetic turbulence generation modes
-    Int tdfunc;           // time-derivative function flag
     Int modelnumber;      // model number
     Int builtinmodelID=0; // model ID
     Int ibs;              // boundary index to save solution 
@@ -1801,11 +1818,6 @@ struct commonstruct {
     Int matrixformat=0;
     
     Int spatialScheme;   /* 0: HDG; 1: EDG; 2: IEDG, HEDG */
-    Int temporalScheme;  // 0: DIRK; 1: BDF; 2: ERK
-    Int torder;    /* temporal accuracy order */
-    Int tstages;    /* DIRK stages */
-    Int tsteps;    /* number of time steps */
-    Int dae_steps=0; /* number of dual time steps */
                                         //  0: No SGS model. 1: Static Smagorinsky/Yoshizawa/Knight model. 
                                         //  2: Static WALE/Yoshizawa/Knight model. 3: Static Vreman/Yoshizawa/Knight model.
                                         //  4: Dynamic Smagorinsky/Yoshizawa/Knight model.        
@@ -1817,10 +1829,6 @@ struct commonstruct {
     Int ninterfacefaces=0; // number of interface faces
     Int ndofuhatinterface=0;
     
-    dstype dae_alpha=1.0;
-    dstype dae_beta=0.0;
-    dstype dae_gamma=0.0;
-    dstype dae_epsilon=0.0;
             
     Int* eblks=nullptr; // element blocks
     Int* fblks=nullptr; // face blocks   
@@ -1919,10 +1927,10 @@ struct commonstruct {
       printf("number of gauss points on master element: %d\n", nge); 
       printf("number of nodes on master face: %d\n", npf); 
       printf("number of gauss points on master face: %d\n", ngf); 
-      printf("temporal scheme: %d\n", temporalScheme);   
-      printf("temporal order: %d\n", torder);   
-      printf("number of DIRK stages: %d\n", tstages);   
-      printf("number of time steps: %d\n", tsteps);   
+      printf("temporal scheme: %d\n", timeparams.temporalScheme);   
+      printf("temporal order: %d\n", timeparams.torder);   
+      printf("number of DIRK stages: %d\n", timeparams.tstages);   
+      printf("number of time steps: %d\n", timeparams.tsteps);   
       
       printf("total number of elements: %d\n", ne);   
       printf("number of interior elements: %d\n", ne0);   
@@ -1961,13 +1969,13 @@ struct commonstruct {
       printf("external stabilization function flag: %d\n", extStab);
       printf("curved mesh flag: %d\n", curvedMesh);
       printf("debug mode flag: %d\n", debugMode);
-      printf("time-dependent problem flag: %d\n", tdep);
-      printf("wave problem flag: %d\n", wave);
-      printf("linear problem flag: %d\n", linearProblem);
+      printf("time-dependent problem flag: %d\n", timeparams.tdep);
+      printf("wave problem flag: %d\n", timeparams.wave);
+      printf("linear problem flag: %d\n", timeparams.linearProblem);
       printf("save solution frequency: %d\n", saveSolFreq);
       printf("save solution option: %d\n", saveSolOpt);
       printf("timestep offset to restart simulation: %d\n", timestepOffset);
-      printf("time-derivative function flag: %d\n", tdfunc);
+      printf("time-derivative function flag: %d\n", timeparams.tdfunc);
       printf("source function flag: %d\n", physicsparams.source);
       printf("model number: %d\n", modelnumber);
       printf("boundary index to save solution: %d\n", ibs);
@@ -2001,10 +2009,10 @@ struct commonstruct {
       printf("artificial viscosity ramp factor: %f\n", physicsparams.rampFactor);
       printf("PTC parameter: %f\n", solverstate.PTCparam);
       printf("initial stabilization parameter: %f\n", physicsparams.tau0);
-      printf("DAE alpha parameter: %f\n", dae_alpha);
-      printf("DAE beta parameter: %f\n", dae_beta);
-      printf("DAE gamma parameter: %f\n", dae_gamma);
-      printf("DAE epsilon parameter: %f\n", dae_epsilon);
+      printf("DAE alpha parameter: %f\n", timeparams.dae_alpha);
+      printf("DAE beta parameter: %f\n", timeparams.dae_beta);
+      printf("DAE gamma parameter: %f\n", timeparams.dae_gamma);
+      printf("DAE epsilon parameter: %f\n", timeparams.dae_epsilon);
       
       printf("number of boundary conditions: %d\n", maxnbc);
       printf("number of wall-model configurations: %d\n", nwm);

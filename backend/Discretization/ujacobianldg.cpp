@@ -146,7 +146,7 @@ inline void uJacobianLDGDirect(dstype* AU, dstype* AQ, dstype* AW,
         TemplateMalloc(&sg_w, nga*ncu*ncw, backend);
         TemplateMalloc(&fg_w, nga*ncu*nd*ncw, backend);
     }
-    if (common.tdep) TemplateMalloc(&td, nga*ncu, backend);
+    if (common.timeparams.tdep) TemplateMalloc(&td, nga*ncu, backend);
 
     Int maxcol = ncu;
     if (ncq > maxcol) maxcol = ncq;
@@ -171,10 +171,10 @@ inline void uJacobianLDGDirect(dstype* AU, dstype* AQ, dstype* AW,
     SourceDriver(sg, sg_uq, sg_w, xg, uqg, og, wg, driver_abi, mesh, master,
             app, sol, tmp, common, nge, e1, e2, backend);
 
-    if (common.tdep) {
+    if (common.timeparams.tdep) {
         ArrayAXPBY(td, &sol.sdgg[nge*ncs*e1], uqg, one, -common.timestate.dtfactor, nga*ncu);
 
-        if (common.tdfunc==1)
+        if (common.timeparams.tdfunc==1)
             TdfuncDriver(fg, xg, uqg, og, wg, driver_abi, mesh, master, app, sol, tmp, common, nge, e1, e2, backend);
         else
             ArraySetValue(fg, one, nga*ncu);

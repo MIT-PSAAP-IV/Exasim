@@ -106,7 +106,7 @@ inline void uEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, m
     //GetArrayAtIndex(tmp.tempn, sol.udg, &mesh.eindudg1[npe*nc*e1], nn*nc); // npe x ne x nc
     Node2Gauss(handle, uqg, tmp.tempn, master.shapegt, nge, npe, ne*nc, backend);    
     
-    if ((ncw>0) & (common.wave==0)) {
+    if ((ncw>0) & (common.timeparams.wave==0)) {
         GetElemNodes(tmp.tempn, sol.wdg, npe, ncw, 0, ncw, e1, e2);    
         Node2Gauss(handle, wg, tmp.tempn, master.shapegt, nge, npe, ne*ncw, backend);        
 
@@ -124,14 +124,14 @@ inline void uEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, m
     // calculate the source term Source(xdg, udg, odg, wdg)
     ArraySetValue(sg, 0.0, nga*ncu);
     ArraySetValue(sg_uq, 0.0, nga*ncu*nc);
-    if ((ncw>0) & (common.wave==0)) ArraySetValue(sg_w, 0.0, nga*ncu*ncw);
+    if ((ncw>0) & (common.timeparams.wave==0)) ArraySetValue(sg_w, 0.0, nga*ncu*ncw);
     EXASIM_DRIVER_CALL(SourceDriver, sg, sg_uq, sg_w, xg, uqg, og, wg, mesh, master, app, sol, tmp, common, nge, e1, e2, backend);                 
     
-    if (common.tdep) { // for time-dependent problem                
+    if (common.timeparams.tdep) { // for time-dependent problem                
         // calculate sdg - udg*dtfactor
         ArrayAXPBY(fg, &sol.sdgg[nge*ncs*e1], uqg, one, -common.timestate.dtfactor, nga*ncu);                    
       
-        if (common.tdfunc==1) {
+        if (common.timeparams.tdfunc==1) {
             // calculate the time derivative function Tdfunc(xdg, udg, odg)
             EXASIM_DRIVER_CALL(TdfuncDriver, fg_uq, xg, uqg, og, wg, mesh, master, app, sol, tmp, common, nge, e1, e2, backend);            
         }
@@ -157,10 +157,10 @@ inline void uEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, m
     // fg = nga*ncu*nd, sg = nga*ncu, fg_uq = nga*ncu*nd*nc, sg_uq = nga*ncu*nc
     ArraySetValue(fg, 0.0, nga*ncu*nd);
     ArraySetValue(fg_uq, 0.0, nga*ncu*nd*nc);
-    if ((ncw>0) & (common.wave==0)) ArraySetValue(fg_w, 0.0, nga*ncu*nd*ncw); 
+    if ((ncw>0) & (common.timeparams.wave==0)) ArraySetValue(fg_w, 0.0, nga*ncu*nd*ncw); 
     EXASIM_DRIVER_CALL(FluxDriver, fg, fg_uq, fg_w, xg, uqg, og, wg, mesh, master, app, sol, tmp, common, nge, e1, e2, backend);    
     
-    if ((ncw>0) & (common.wave==0)) {
+    if ((ncw>0) & (common.timeparams.wave==0)) {
         // sg_uq = sg_uq + sg_w * wg_uq -> ng * ncu * nc = ng * ncu * nc + (ng * ncu * ncw) * (ng * ncw * nc)
         ArrayGemmBatch2(sg_uq, sg_w, wg_uq, 1.0, ncu, nc, ncw, nga);
         // fg_uq = fg_uq + fg_w * wg_uq -> ng * ncu*nd * nc = ng * ncu*nd * nc + (ng * ncu*nd * ncw) * (ng * ncw * nc)
@@ -263,14 +263,14 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
 
     if (nco>0) GetElementFaceNodes(&tmp.tempn[nn*(ncu+nc)], sol.odg, mesh.perm, npf*nfe, nco, npe, nco, e1, e2);      
 
-    if ((ncw>0) & (common.wave==0)) {
+    if ((ncw>0) & (common.timeparams.wave==0)) {
       GetElementFaceNodes(&tmp.tempn[nn*(ncu+nc+nco)], sol.wsrc, mesh.perm, npf*nfe, ncw, npe, ncw, e1, e2); 
       GetElementFaceNodes(&tmp.tempn[nn*(ncu+nc+nco+ncw)], sol.wdg, mesh.perm, npf*nfe, ncw, npe, ncw, e1, e2); // fix bug here
     }
     
     Node2Gauss(handle, tmp.tempg, tmp.tempn, master.shapfgt, ngf, npf, nfe*ne*(ncu+nc+nco+ncw+ncw), backend); // fix bug here
         
-    if ((ncw>0) & (common.wave==0)) {
+    if ((ncw>0) & (common.timeparams.wave==0)) {
         // copy udg to tmp.tempn
         ArrayCopy(tmp.tempn, udg, nga*nc);
         
@@ -296,7 +296,7 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
     EXASIM_DRIVER_CALL(FhatDriver, fh, fh_uq, fh_w, fh_uh, xg, udg, odg, wdg, uhg, nlg, 
         mesh, master, app, sol, tmp, common, nga, backend);      
         
-    if ((ncw>0) & (common.wave==0)) {
+    if ((ncw>0) & (common.timeparams.wave==0)) {
       ArrayGemmBatch2(fh_uh, fh_w, wdg_uq, one, ncu, ncu, ncw, nga); // fix bug here       
       
       ArraySetValue(wdg_uq, 0.0, nga*ncu*ncu);
@@ -376,7 +376,7 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
         GetBoundaryNodes(uhb, uhg, &mesh.boufaces[start], ngf, nfe, ne, ncu, nfaces);
         GetBoundaryNodes(nlb, nlg, &mesh.boufaces[start], ngf, nfe, ne, nd, nfaces);
 
-        if ((ncw>0) & (common.wave==0)) {
+        if ((ncw>0) & (common.timeparams.wave==0)) {
           // copy (u, q) to res.K
           ArrayCopy(res.K, ugb, ngb*nc);
         
@@ -412,7 +412,7 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
                  mesh, master, app, sol, tmp, common, ngb, ibc+1, backend);    
         }
 
-        if ((ncw>0) & (common.wave==0)) {      
+        if ((ncw>0) & (common.timeparams.wave==0)) {      
           // void ArrayGemmBatch2(dstype* C, const dstype* A, const dstype* B, dstype alpha, const int I, const int J, const int K, const int S)
           // C[S*I*J] = A[S*I*K] x B[S*K*J] + C[S*I*J]
           ArrayGemmBatch2(fhb_uh, fhb_w, wgb_uq, one, ncu, ncu, ncw, ngb);  // fix bug here             
@@ -496,7 +496,7 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
 
         // transfer summit's boundary data to ogb  
 
-        if ((ncw>0) & (common.wave==0)) {
+        if ((ncw>0) & (common.timeparams.wave==0)) {
           dstype *temp1 =  &tmp.tempn[0];
           dstype *temp2 =  &tmp.tempn[ngb*nc];
           
@@ -517,7 +517,7 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
         EXASIM_DRIVER_CALL(FintDriver, fhb, fhb_uq, fhb_w, fhb_uh, xgb, ugb, ogb, wgb, uhb, nlb, 
              mesh, master, app, sol, tmp, common, ngb, common.coupledcondition, backend);    
                         
-        if ((ncw>0) & (common.wave==0)) {          
+        if ((ncw>0) & (common.timeparams.wave==0)) {          
           ArrayGemmBatch2(fhb_uh, fhb_w, wgb_uq, one, ncu12, ncu, ncw, ngb);  // fix bug here             
           ArraySetValue(wgb_uq, 0.0, ngb*ncw*ncu);          
           ArrayGemmBatch2(fhb_uq, fhb_w, wgb_uq, one, ncu12, nc, ncw, ngb);  // fix bug here                      
@@ -628,7 +628,7 @@ inline void uEquationSchurBlock(solstruct &sol, resstruct &res, appstruct &app, 
     ArrayCopy(F, tmp.tempn, n * m * ne);
         
     dstype scalar = 1.0;
-    if (common.wave==1)
+    if (common.timeparams.wave==1)
         scalar = 1.0/common.timestate.dtfactor;    
     
     if (common.ncq > 0) {      
@@ -846,7 +846,7 @@ inline void RuEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, 
     GetArrayAtIndex(tmp.tempn, sol.udg, &mesh.eindudg1[npe*nc*e1], nn*nc);
     Node2Gauss(handle, uqg, tmp.tempn, master.shapegt, nge, npe, ne*nc, backend);
     
-    if ((ncw>0) & (common.wave==0)) {
+    if ((ncw>0) & (common.timeparams.wave==0)) {
         GetElemNodes(tmp.tempn, sol.wdg, npe, ncw, 0, ncw, e1, e2);    
         Node2Gauss(handle, wg, tmp.tempn, master.shapegt, nge, npe, ne*ncw, backend);        
         
@@ -861,11 +861,11 @@ inline void RuEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, 
 //         error("here");
     }
     
-    if (common.tdep) { // for time-dependent problem                
+    if (common.timeparams.tdep) { // for time-dependent problem                
         // calculate sdg = sdg-udg*dtfactor
         ArrayAXPBY(sg, &sol.sdgg[nge*ncs*e1], uqg, one, -common.timestate.dtfactor, nga*ncu);            
         
-        if (common.tdfunc==1) {
+        if (common.timeparams.tdfunc==1) {
             // calculate the time derivative function Tdfunc(xdg, udg, odg)
             EXASIM_DRIVER_CALL(TdfuncDriver, fg, xg, uqg, og, wg, mesh, master, app, sol, tmp, common, nge, e1, e2, backend);
 
@@ -949,14 +949,14 @@ inline void RuEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &a
     if (nco>0) GetElementFaceNodes(&tmp.tempn[nn*(ncu+nc)], sol.odg, mesh.perm, npf*nfe, nco, npe, nco, e1, e2);      
 
     // fix bug here
-    if ((ncw>0) & (common.wave==0)) {
+    if ((ncw>0) & (common.timeparams.wave==0)) {
       GetElementFaceNodes(&tmp.tempn[nn*(ncu+nc+nco)], sol.wdg, mesh.perm, npf*nfe, ncw, npe, ncw, e1, e2); 
       GetElementFaceNodes(&tmp.tempn[nn*(ncu+nc+nco+ncw)], sol.wsrc, mesh.perm, npf*nfe, ncw, npe, ncw, e1, e2); 
     }
     
     Node2Gauss(handle, tmp.tempg, tmp.tempn, master.shapfgt, ngf, npf, nfe*ne*(ncu+nc+nco+ncw+ncw), backend);
     
-    if ((ncw>0) & (common.wave==0)) {
+    if ((ncw>0) & (common.timeparams.wave==0)) {
         // copy udg to tmp.tempn
         ArrayCopy(tmp.tempn, udg, nga*nc);
         
@@ -1003,7 +1003,7 @@ inline void RuEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &a
         GetBoundaryNodes(uhb, uhg, &mesh.boufaces[start], ngf, nfe, ne, ncu, nfaces);
         GetBoundaryNodes(nlb, nlg, &mesh.boufaces[start], ngf, nfe, ne, nd, nfaces);
 
-        if ((ncw>0) & (common.wave==0)) {
+        if ((ncw>0) & (common.timeparams.wave==0)) {
           // copy ugb to tmp.tempn
           ArrayCopy(Rb, ugb, ngb*nc);
         
@@ -1075,7 +1075,7 @@ inline void RuEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &a
         GetBoundaryNodes(uhb, uhg, &mesh.boufaces[start], ngf, nfe, ne, ncu, nfaces);
         GetBoundaryNodes(nlb, nlg, &mesh.boufaces[start], ngf, nfe, ne, nd, nfaces);
 
-        if ((ncw>0) & (common.wave==0)) {
+        if ((ncw>0) & (common.timeparams.wave==0)) {
           // copy ugb to tmp.tempn
           ArrayCopy(Rb, ugb, ngb*nc);
         

@@ -54,15 +54,15 @@ void UpdateSolutionDIRK(solstruct &sol, sysstruct &sys, commonstruct &common, In
     ArrayExtract(sys.u, sol.udg, common.npe, common.nc, common.ne1, 0, common.npe, 0, common.ncu, 0, common.ne1);                                                  
     
     // update the solution at each DIRK stage
-    if (common.wave==1)
+    if (common.timeparams.wave==1)
         ArrayAXPBY(sys.utmp, sol.udg, sys.utmp, common.DIRKcoeff_c[common.timestate.currentstage], one, N2);                    
     else
         ArrayAXPBY(sys.utmp, sys.u, sys.utmp, common.DIRKcoeff_c[common.timestate.currentstage], one, N);                    
     
     // after the last DIRK stage
-    if (common.timestate.currentstage == common.tstages-1) {
+    if (common.timestate.currentstage == common.timeparams.tstages-1) {
        // copy utmp to udg
-        if (common.wave==1)
+        if (common.timeparams.wave==1)
             ArrayCopy(sol.udg, sys.utmp, N2);
         else
             ArrayInsert(sol.udg, sys.utmp, common.npe, common.nc, common.ne1, 0, common.npe, 0, common.ncu, 0, common.ne1);                                                  
@@ -73,7 +73,7 @@ void UpdateSolutionDIRK(solstruct &sol, sysstruct &sys, commonstruct &common, In
         N2 = common.npe*common.ncw*common.ne2;            
         ArrayAXPBY(sys.wtmp, sol.wdg, sys.wtmp, common.DIRKcoeff_c[common.timestate.currentstage], one, N2);                
         // after the last DIRK stage
-        if (common.timestate.currentstage == common.tstages-1) 
+        if (common.timestate.currentstage == common.timeparams.tstages-1) 
             ArrayCopy(sol.wdg, sys.wtmp, N2);                                 
     }    
 }
@@ -83,11 +83,11 @@ void UpdateSolutionBDF(solstruct &sol, sysstruct &sys, commonstruct &common, Int
     Int N = common.ndof1;
     
     // solve dw/dt = u for wave problems
-    if (common.wave==1) {          
+    if (common.timeparams.wave==1) {          
         dstype dt = common.dt[common.timestate.currentstep];
         
         // update the source term
-        switch (common.torder) {
+        switch (common.timeparams.torder) {
             case 1:
                 ArrayAXPB(sol.wsrc, sys.wprev1, -common.BDFcoeff_c[1]/dt, zero, N);
                 break;
@@ -108,7 +108,7 @@ void UpdateSolutionBDF(solstruct &sol, sysstruct &sys, commonstruct &common, Int
 
 void UpdateSolution(solstruct &sol, sysstruct &sys, commonstruct &common, Int backend)
 {           
-    if (common.temporalScheme==0) // DIRK
+    if (common.timeparams.temporalScheme==0) // DIRK
         UpdateSolutionDIRK(sol, sys, common, backend);
     else // BDF
         UpdateSolutionBDF(sol, sys, common, backend);
@@ -121,7 +121,7 @@ void UpdateSolution(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriver
     Int N2 = common.npe*common.nc*common.ne2;                        
     
     // update the solution at each DIRK stage
-    if (common.wave==1) {
+    if (common.timeparams.wave==1) {
         ArrayAXPBY(sys.utmp, sol.udg, sys.utmp, common.DIRKcoeff_c[common.timestate.currentstage], one, N2);                    
     }
     else {
@@ -130,9 +130,9 @@ void UpdateSolution(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriver
     }
 
     // after the last DIRK stage
-    if (common.timestate.currentstage == common.tstages-1) {
+    if (common.timestate.currentstage == common.timeparams.tstages-1) {
        // copy utmp to udg
-        if (common.wave==1)
+        if (common.timeparams.wave==1)
             ArrayCopy(sol.udg, sys.utmp, N2);
         else
             ArrayInsert(sol.udg, sys.utmp, common.npe, common.nc, common.ne1, 0, common.npe, 0, common.ncu, 0, common.ne1);                                                  
@@ -168,7 +168,7 @@ void UpdateSolution(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriver
         N2 = common.npe*common.ncw*common.ne2;            
         ArrayAXPBY(sys.wtmp, sol.wdg, sys.wtmp, common.DIRKcoeff_c[common.timestate.currentstage], one, N2);                
         // after the last DIRK stage
-        if (common.timestate.currentstage == common.tstages-1) 
+        if (common.timestate.currentstage == common.timeparams.tstages-1) 
             ArrayCopy(sol.wdg, sys.wtmp, N2);                                 
     }    
 }

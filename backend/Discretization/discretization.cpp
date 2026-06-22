@@ -369,7 +369,7 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
     }
     
     // moved from InitSolution to here
-    if ((common.ncq>0) && (common.wave==0) && (common.spatialScheme == 0)) evalQSer(backend); 
+    if ((common.ncq>0) && (common.timeparams.wave==0) && (common.spatialScheme == 0)) evalQSer(backend); 
     
     if (common.spatialScheme > 0)  { // HDG
       Int neb = common.neb; // maximum number of elements per block
@@ -518,7 +518,7 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
           printf("Finish qEquation ... \n");        
 
         // compute the flux q = -nabla u and store it in sol.udg
-        if (common.wave == 0 && sol.szudg != npe*nc*ne) {
+        if (common.timeparams.wave == 0 && sol.szudg != npe*nc*ne) {
             hdgGetQ<exasim::detail::AbiAdapter>(sol.udg, sol.uh, sol, res, mesh, tmp, common, backend);
             if (common.mpiRank==0) printf("Finish hdgGetQ ... \n");     
         }        

@@ -97,7 +97,7 @@ inline void wEquation(dstype *wdg, dstype *xdg, dstype *udg, dstype *odg, dstype
     dstype *uinf = app.uinf;
     dstype *physicsparam = app.physicsparam;    
 
-    if (common.wave==1) {
+    if (common.timeparams.wave==1) {
         // dw/dt = u -> (dtfactor * w - wsrc) = u -> w = (1/dtfactor) * (u + wsrc)
         dstype scalar = one/common.timestate.dtfactor;
         ArrayAXPBY(wdg, udg, wsrc, scalar, scalar, ng*ncw);
@@ -119,10 +119,10 @@ inline void wEquation(dstype *wdg, dstype *xdg, dstype *udg, dstype *odg, dstype
           // }
                     
           // alpha*dirkd/dt + beta
-          dstype scalar = common.dae_alpha*common.timestate.dtfactor + common.dae_beta;
+          dstype scalar = common.timeparams.dae_alpha*common.timestate.dtfactor + common.timeparams.dae_beta;
 
           // calculate residual vector = sourcew(u,q,w) + alpha * wsrc - (alpha * dtfactor + beta) w
-          ArrayAdd3Vectors(s, s, wsrc, wdg, one, common.dae_alpha, -scalar, ng*ncw);                           
+          ArrayAdd3Vectors(s, s, wsrc, wdg, one, common.timeparams.dae_alpha, -scalar, ng*ncw);                           
 
           // compute jacobian matrix = (alpha * dtfactor + beta) - s_wdg
           ArrayAXPB(s_wdg, s_wdg, minusone, scalar, ng*ncw*ncw);                
@@ -132,7 +132,7 @@ inline void wEquation(dstype *wdg, dstype *xdg, dstype *udg, dstype *odg, dstype
           if (nrm < 1e-6) {
             // if (common.mpiRank==2) {
             //   std::cout << std::fixed << std::setprecision(15);
-            //   std::cout<<common.dae_alpha<<"  "<<common.dae_beta<<"  "<<scalar<<std::endl;
+            //   std::cout<<common.timeparams.dae_alpha<<"  "<<common.timeparams.dae_beta<<"  "<<scalar<<std::endl;
             //   std::cout<<"Iter = "<<iter<<", norm = "<<nrm<<", s[0] = "<<s[0]<<std::endl;
             //   std::cout<<wdg[0];
             //   for (int m=0; m<8; m++)
@@ -185,7 +185,7 @@ inline void wEquation(dstype *wdg, dstype *wdg_udg, dstype *xdg, dstype *udg, ds
     dstype *uinf = app.uinf;
     dstype *physicsparam = app.physicsparam;
 
-    if (common.wave==1) {
+    if (common.timeparams.wave==1) {
         // dw/dt = u -> (dtfactor * w - wsrc) = u -> w = (1/dtfactor) * (u + wsrc)
         dstype scalar = one/common.timestate.dtfactor;
         ArrayAXPBY(wdg, udg, wsrc, scalar, scalar, ng*ncw);
@@ -204,10 +204,10 @@ inline void wEquation(dstype *wdg, dstype *wdg_udg, dstype *xdg, dstype *udg, ds
           EXASIM_LEGACY_W_CALL(HdgSourcewonly(s, s_wdg, xdg, udg, odg, wdg, uinf, physicsparam, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw));            
           
           // alpha*dirkd/dt + beta
-          dstype scalar = common.dae_alpha*common.timestate.dtfactor + common.dae_beta;
+          dstype scalar = common.timeparams.dae_alpha*common.timestate.dtfactor + common.timeparams.dae_beta;
 
           // calculate residual vector = sourcew(u,q,w) + alpha * wsrc - (alpha * dtfactor + beta) w
-          ArrayAdd3Vectors(s, s, wsrc, wdg, one, common.dae_alpha, -scalar, ng*ncw);                           
+          ArrayAdd3Vectors(s, s, wsrc, wdg, one, common.timeparams.dae_alpha, -scalar, ng*ncw);                           
 
           // compute jacobian matrix = (alpha * dtfactor + beta) - s_wdg
           ArrayAXPB(s_wdg, s_wdg, minusone, scalar, ng*ncw*ncw);                

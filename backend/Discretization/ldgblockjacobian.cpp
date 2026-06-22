@@ -940,7 +940,7 @@ void uEquationElemFaceBlockLDG(solstruct &sol, resstruct &res, appstruct &app,
     GetElementFaceNodes(&tmp.tempn[nn*ncu], sol.udg, mesh.perm, npf*nfe, nc, npe, nc, e1, e2);
     if (nco > 0)
         GetElementFaceNodes(&tmp.tempn[nn*(ncu+nc)], sol.odg, mesh.perm, npf*nfe, nco, npe, nco, e1, e2);
-    if ((ncw > 0) && (common.wave == 0)) {
+    if ((ncw > 0) && (common.timeparams.wave == 0)) {
         GetElementFaceNodes(&tmp.tempn[nn*(ncu+nc+nco)], sol.wsrc, mesh.perm, npf*nfe, ncw, npe, ncw, e1, e2);
         GetElementFaceNodes(&tmp.tempn[nn*(ncu+nc+nco+ncw)], sol.wdg, mesh.perm, npf*nfe, ncw, npe, ncw, e1, e2);
     }
@@ -948,7 +948,7 @@ void uEquationElemFaceBlockLDG(solstruct &sol, resstruct &res, appstruct &app,
     Node2Gauss(handle, tmp.tempg, tmp.tempn, master.shapfgt,
             ngf, npf, nf*(ncu+nc+nco+ncw+ncw), backend);
 
-    if ((ncw > 0) && (common.wave == 0)) {
+    if ((ncw > 0) && (common.timeparams.wave == 0)) {
         wEquation<exasim::detail::AbiAdapter>(wdg, wdg_uq, xg, udg, odg, wsrc, tmp.tempn, app, common, nga, backend);
     }
 
@@ -964,7 +964,7 @@ void uEquationElemFaceBlockLDG(solstruct &sol, resstruct &res, appstruct &app,
     LDGFluxDerivativeDotNormal(tmp.tempn, fg_uq, nlg, 0.5, nga, ncu, nd, nc);
     ArrayCopy(fg_uq, tmp.tempn, nga*ncu*nc);
 
-    if ((ncw > 0) && (common.wave == 0)) {
+    if ((ncw > 0) && (common.timeparams.wave == 0)) {
         LDGFluxDerivativeDotNormal(tmp.tempn, fg_w, nlg, 0.5, nga, ncu, nd, ncw);
         ArrayCopy(fg_w, tmp.tempn, nga*ncu*ncw);
         ArrayGemmBatch2(fg_uq, fg_w, wdg_uq, one, ncu, nc, ncw, nga);
@@ -1018,7 +1018,7 @@ void uEquationElemFaceBlockLDG(solstruct &sol, resstruct &res, appstruct &app,
             GetBoundaryNodes(uhb, uhg, &mesh.boufaces[start], ngf, nfe, ne, ncu, nfaces);
             GetBoundaryNodes(nlb, nlg, &mesh.boufaces[start], ngf, nfe, ne, nd, nfaces);
 
-            if ((ncw > 0) && (common.wave == 0)) {
+            if ((ncw > 0) && (common.timeparams.wave == 0)) {
                 ArrayCopy(res.F, ugb, ngb*nc);
                 ArrayCopy(res.F, uhb, ngb*ncu);
                 wEquation<exasim::detail::AbiAdapter>(wgb, wgb_uq, xgb, res.F, ogb, wsb, &res.F[ngb*nc],
@@ -1034,7 +1034,7 @@ void uEquationElemFaceBlockLDG(solstruct &sol, resstruct &res, appstruct &app,
                           wgb, uhb, nlb, driver_abi, mesh, master, app,
                           sol, tmp, common, ngb, ibc+1, backend);
 
-            if ((ncw > 0) && (common.wave == 0)) {
+            if ((ncw > 0) && (common.timeparams.wave == 0)) {
                 ArrayGemmBatch2(fhb_uh, fhb_w, wgb_uq, one, ncu, ncu, ncw, ngb);
                 ArraySetValue(wgb_uq, 0.0, ngb*ncw*ncu);
                 ArrayGemmBatch2(fhb_uq, fhb_w, wgb_uq, one, ncu, nc, ncw, ngb);
@@ -1123,7 +1123,7 @@ void uEquationSchurBlockLDG(solstruct &sol, resstruct &res, appstruct &app,
         benchmark->layoutF += LDGBenchmarkStop(t0, backend);
 
     dstype scalar = 1.0;
-    if (common.wave == 1)
+    if (common.timeparams.wave == 1)
         scalar = 1.0/common.timestate.dtfactor;
 
     if (common.ncq > 0) {
@@ -1242,7 +1242,7 @@ void RuFaceCrossDeriv(dstype* A, solstruct &sol,
     //cout<<common.mpiRank<<", "<<ne<<", "<<common.ne<<endl;
 
     dstype scalar = 1.0;
-    if (common.wave == 1)
+    if (common.timeparams.wave == 1)
         scalar = 1.0/common.timestate.dtfactor;
     
     //print2iarray(common.fblks, 3, common.nbf, "fblks", EXASIM_COMM_WORLD);
@@ -1397,7 +1397,7 @@ void RuFaceCrossDerivOptimized(dstype* A, solstruct &sol,
     Int ne = common.ne1;
 
     dstype scalar = 1.0;
-    if (common.wave == 1)
+    if (common.timeparams.wave == 1)
         scalar = 1.0/common.timestate.dtfactor;
 
     for (Int jblk = 0; jblk < common.nbf; jblk++) {
@@ -1585,7 +1585,7 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
     RuFaceCrossDerivOptimized(K, sol, res, app, driver_abi, master, mesh, tmp, common);
     tm.cross += LDGBenchmarkStop(t0, backend);
 
-    // if (common.tdep == 1)
+    // if (common.timeparams.tdep == 1)
     //     ArrayMultiplyScalar(handle, K, minusone/common.timestate.dtfactor, n*n*common.ne1, backend);
     
     // print3darray(sol.xdg, common.npe, common.ncx, common.ne1);
@@ -1779,7 +1779,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
     RuFaceCrossDerivOptimized(K, sol, res, app, driver_abi, master, mesh, tmp, common);
     tm.cross += LDGBenchmarkStop(t0, backend);
 
-    // if (common.tdep == 1)
+    // if (common.timeparams.tdep == 1)
     //     ArrayMultiplyScalar(handle, K, one/common.timestate.dtfactor, nlocu*nlocu*common.ne1, backend);
 
     for (Int j = 0; j < common.nbe1; j++) {
@@ -2015,14 +2015,14 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 // 
 //     if (nco>0) GetElementFaceNodes(&tmp.tempn[nn*(ncu+nc)], sol.odg, mesh.perm, npf*nfe, nco, npe, nco, e1, e2);      
 // 
-//     if ((ncw>0) & (common.wave==0)) {
+//     if ((ncw>0) & (common.timeparams.wave==0)) {
 //       GetElementFaceNodes(&tmp.tempn[nn*(ncu+nc+nco)], sol.wsrc, mesh.perm, npf*nfe, ncw, npe, ncw, e1, e2); 
 //       GetElementFaceNodes(&tmp.tempn[nn*(ncu+nc+nco+ncw)], sol.wdg, mesh.perm, npf*nfe, ncw, npe, ncw, e1, e2); // fix bug here
 //     }
 // 
 //     Node2Gauss(handle, tmp.tempg, tmp.tempn, master.shapfgt, ngf, npf, nfe*ne*(ncu+nc+nco+ncw+ncw), backend); // fix bug here
 // 
-//     if ((ncw>0) & (common.wave==0)) {
+//     if ((ncw>0) & (common.timeparams.wave==0)) {
 //         // copy udg to tmp.tempn
 //         ArrayCopy(tmp.tempn, udg, nga*nc);
 // 
@@ -2042,7 +2042,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 //     FhatDriver(fh, fh_uq, fh_w, fh_uh, xg, udg, odg, wdg, uhg, nlg,
 //         driver_abi, mesh, master, app, sol, tmp, common, nga, backend);
 // 
-//     if ((ncw>0) & (common.wave==0)) {
+//     if ((ncw>0) & (common.timeparams.wave==0)) {
 //       ArrayGemmBatch2(fh_uh, fh_w, wdg_uq, one, ncu, ncu, ncw, nga); // fix bug here       
 // 
 //       ArraySetValue(wdg_uq, 0.0, nga*ncu*ncu);
@@ -2102,7 +2102,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 //     ArrayCopy(F, tmp.tempn, n * m * ne);
 // 
 //     dstype scalar = 1.0;
-//     if (common.wave==1)
+//     if (common.timeparams.wave==1)
 //         scalar = 1.0/common.timestate.dtfactor;    
 // 
 //     if (common.ncq > 0) {      

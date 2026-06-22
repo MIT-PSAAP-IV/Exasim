@@ -126,9 +126,9 @@ inline void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &
     common.curvedMesh = curvedMesh;        
     common.fileoffset = fileoffset;
 
-    common.tdep = app.flag[0];      // 0: steady-state; 1: time-dependent;  
-    common.wave = app.flag[1];
-    common.linearProblem = app.flag[2]; // 0: nonlinear problem;  1: linear problem
+    common.timeparams.tdep = app.flag[0];      // 0: steady-state; 1: time-dependent;  
+    common.timeparams.wave = app.flag[1];
+    common.timeparams.linearProblem = app.flag[2]; // 0: nonlinear problem;  1: linear problem
     common.debugMode = app.flag[3]; // 1: save data to binary files for debugging
     common.solverparams.matvecOrder = app.flag[4];        
     common.solverparams.gmresOrthogMethod = app.flag[5];            
@@ -136,21 +136,21 @@ inline void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &
     common.solverparams.precMatrixType = app.flag[7];
     common.solverparams.ptcMatrixType = app.flag[8];
     common.runmode = app.flag[9];
-    common.tdfunc = app.flag[10];
+    common.timeparams.tdfunc = app.flag[10];
     common.physicsparams.source = app.flag[11]; 
     common.modelnumber = app.flag[12]; 
     common.extFhat = app.flag[13];
     common.extUhat = app.flag[14];
     common.extStab = app.flag[15];
-    common.subproblem = app.flag[16];
+    common.timeparams.subproblem = app.flag[16];
     common.saveParaview = (app.nsize[1] > 17) ? app.flag[17] : 0;
     
-    common.tsteps = app.nsize[4];  // number of time steps          
+    common.timeparams.tsteps = app.nsize[4];  // number of time steps          
     common.spatialScheme = app.problem[0];   /* 0: HDG; 1: EDG; 2: IEDG, HEDG */
     common.physicsparams.appname = app.problem[1];   /* 0: Euler; 1: Compressible Navier-Stokes; etc. */    
-    common.temporalScheme = app.problem[2];  // 0: DIRK; 1: BDF; 2: ERK
-    common.torder = app.problem[3];    /* temporal accuracy order */
-    common.tstages = app.problem[4];    /* DIRK stages */    
+    common.timeparams.temporalScheme = app.problem[2];  // 0: DIRK; 1: BDF; 2: ERK
+    common.timeparams.torder = app.problem[3];    /* temporal accuracy order */
+    common.timeparams.tstages = app.problem[4];    /* DIRK stages */    
     common.physicsparams.convStabMethod = app.problem[5];  // Flag for convective stabilization tensor. 0: Constant tau, 1: Lax-Friedrichs; 2: Roe.
     common.physicsparams.diffStabMethod = app.problem[6];  // Flag for diffusive stabilization tensor. 0: No diffusive stabilization.
     common.physicsparams.rotatingFrame = app.problem[7];   // Flag for rotating frame. Options: 0: Velocities are respect to a non-rotating frame. 1: Velocities are respect to a rotating frame.
@@ -174,7 +174,7 @@ inline void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &
     common.stgNmode = app.problem[20];    
     common.saveSolBouFreq = app.problem[21];   
     common.ibs = app.problem[22];   
-    common.dae_steps = app.problem[23];  // number of dual time steps      
+    common.timeparams.dae_steps = app.problem[23];  // number of dual time steps      
     common.saveResNorm = app.problem[24];   
     common.physicsparams.AVsmoothingIter = app.problem[25]; //Number of times artificial viscosity is smoothed
     common.physicsparams.frozenAVflag = app.problem[26]; // Flag deciding if artificial viscosity is calculated once per non-linear solve or in every residual evluation
@@ -194,13 +194,13 @@ inline void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &
     common.solverparams.linearSolverTol = app.solversparam[1];
     common.solverparams.matvecTol = app.solversparam[2];
     common.solverstate.PTCparam = app.solversparam[3];
-    if (common.tdep==1)
+    if (common.timeparams.tdep==1)
         common.timestate.time = app.factor[0];
     common.physicsparams.rampFactor = 1.0;   // Ramp factor for artificial viscosity flux        
-    common.dae_alpha = app.factor[1];
-    common.dae_beta = app.factor[2];
-    common.dae_gamma = app.factor[3];
-    common.dae_epsilon = app.factor[4];
+    common.timeparams.dae_alpha = app.factor[1];
+    common.timeparams.dae_beta = app.factor[2];
+    common.timeparams.dae_gamma = app.factor[3];
+    common.timeparams.dae_epsilon = app.factor[4];
     
     common.nstgib = app.nsize[11];
     if (common.nstgib > 0) common.stgib = copyarray(app.stgib,app.nsize[11]); 
@@ -263,14 +263,14 @@ inline void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &
         if (ib==0) common.nf0 += f2 - f1; // number of interior faces        
     }
     
-    Int tstages = common.tstages;  
+    Int tstages = common.timeparams.tstages;  
     if (tstages>0) {
         common.DIRKcoeff_c = (dstype*) malloc(tstages*sizeof(dstype));
         common.DIRKcoeff_d = (dstype*) malloc(tstages*tstages*sizeof(dstype));
         common.DIRKcoeff_t = (dstype*) malloc(tstages*sizeof(dstype));
     }
-    if (common.torder>0) {
-        common.BDFcoeff_c = (dstype*) malloc((common.torder+1)*sizeof(dstype));
+    if (common.timeparams.torder>0) {
+        common.BDFcoeff_c = (dstype*) malloc((common.timeparams.torder+1)*sizeof(dstype));
         common.BDFcoeff_t = (dstype*) malloc(sizeof(dstype));
     }    
         
@@ -628,7 +628,7 @@ inline void cpuInitTail(solstruct &sol, resstruct &res, appstruct &app, masterst
         sol.szwsrc = N;
         for (Int i=0; i<N; i++)
             sol.wsrc[i] = 0.0;               
-        if (common.dae_steps>0) {
+        if (common.timeparams.dae_steps>0) {
             sol.wdual = (dstype*) malloc (sizeof (dstype)*N);
             sol.szwdual = N;
         }
@@ -1205,7 +1205,7 @@ inline void gpuInit(solstruct &sol, resstruct &res, appstruct &app, masterstruct
         Int N = common.npe*common.ncw*common.ne;
         TemplateMalloc(&sol.wsrc, N, common.backend);       
         TemplateCopytoDevice(sol.wsrc, hsol.wsrc, N, common.backend);
-        if (common.dae_steps>0)
+        if (common.timeparams.dae_steps>0)
             TemplateMalloc(&sol.wdual, N, common.backend);                 
     }          
     

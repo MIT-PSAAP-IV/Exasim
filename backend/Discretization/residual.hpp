@@ -107,7 +107,7 @@ inline void GetQ(solstruct &sol, resstruct &res, appstruct &app, masterstruct &m
     //         mesh.ent2ind2, npf, npe, ncq, e1, e2, 0);    
     PutFaceNodes(res.Rq, &res.Rh[common.npf*common.ncq*f1],  mesh.facecon, npf, ncq, npe, ncq, f1, f2);
   
-    if (common.wave==1)
+    if (common.timeparams.wave==1)
         // get the source term due to the time derivative (for wave problem)  
         ArrayExtract(&res.Rq[N], sol.sdg, npe, nc, ne, 0, npe, ncu, ncu+ncq, e1, e2);  
     else
@@ -115,7 +115,7 @@ inline void GetQ(solstruct &sol, resstruct &res, appstruct &app, masterstruct &m
         ArraySetValue(&res.Rq[N], zero, npe*ncq*(e2-e1));
         
     dstype scalar = one;
-    if (common.wave==1)
+    if (common.timeparams.wave==1)
         scalar = one/common.timestate.dtfactor;
 
     // START_TIMING;
@@ -134,7 +134,7 @@ inline void GetW(solstruct &sol, resstruct &res, appstruct &app, masterstruct &m
         tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
         Int nbe1, Int nbe2, Int nbf1, Int nbf2, Int backend)
 {        
-    if (common.subproblem==0) {
+    if (common.timeparams.subproblem==0) {
     Int nc = common.nc; // number of compoments of (u, q, p)
     Int ncw = common.ncw;// number of compoments of (w)
     Int nco = common.nco;// number of compoments of (o)
@@ -144,14 +144,14 @@ inline void GetW(solstruct &sol, resstruct &res, appstruct &app, masterstruct &m
         Int e1 = common.eblks[3*j]-1;
         Int e2 = common.eblks[3*j+1];
                 
-        if (common.wave==1) {
+        if (common.timeparams.wave==1) {
             // dw/dt = u
             dstype scalar = one/common.timestate.dtfactor;
             ArrayExtract(tmp.tempn, sol.udg, common.npe, common.nc, common.ne1, 0, common.npe, 0, common.ncu, e1, e2);                                                  
             ArrayAXPBY(&sol.wdg[npe*ncw*e1], tmp.tempn, &sol.wsrc[npe*ncw*e1], scalar, scalar, npe*ncw*(e2-e1));                        
         }        
-        else if (common.wave==0) {             
-            if ((fabs(common.dae_alpha) < 1e-10) && (fabs(common.dae_beta) < 1e-10)) {
+        else if (common.timeparams.wave==0) {             
+            if ((fabs(common.timeparams.dae_alpha) < 1e-10) && (fabs(common.timeparams.dae_beta) < 1e-10)) {
                 // use Newton to solve the nonlinear system F(w, u) = 0 to obtain w for given u                
                 for (int iter=0; iter<10; iter++) {
                   // evaluate nonlinear system F(w, u)
@@ -190,26 +190,26 @@ inline void GetW(solstruct &sol, resstruct &res, appstruct &app, masterstruct &m
                 // calculate the source term Sourcew(xdg, udg, odg, wdg)
                 EXASIM_DRIVER_CALL(SourcewDriver, tmp.tempn, &sol.xdg[npe*ncx*e1], &sol.udg[npe*nc*e1], &sol.odg[npe*nco*e1], 
                         &sol.wdg[npe*ncw*e1], mesh, master, app, sol, tmp, common, npe, e1, e2, backend);            
-                if (common.dae_steps==0) { // alpha * dw/dt + beta w = sourcew(u,q,v)
+                if (common.timeparams.dae_steps==0) { // alpha * dw/dt + beta w = sourcew(u,q,v)
                     // 1.0/(alpha*dirkd/dt + beta)
-                    dstype scalar = one/(common.dae_alpha*common.timestate.dtfactor + common.dae_beta);
+                    dstype scalar = one/(common.timeparams.dae_alpha*common.timestate.dtfactor + common.timeparams.dae_beta);
 
-                    //std::cout<<common.dae_alpha<<" "<<common.timestate.dtfactor<<" "<<scalar<<" "<<app.physicsparam[0]<<std::endl;
+                    //std::cout<<common.timeparams.dae_alpha<<" "<<common.timestate.dtfactor<<" "<<scalar<<" "<<app.physicsparam[0]<<std::endl;
 
                     // calculate w = (1/(alpha*dirkd/dt + beta))*(alpha*wsrc + Sourcew(xdg, udg, odg, wdg))  
-                    ArrayAXPBY(&sol.wdg[npe*ncw*e1], &sol.wsrc[npe*ncw*e1], tmp.tempn, common.dae_alpha*scalar, scalar, npe*ncw*(e2-e1));                    
+                    ArrayAXPBY(&sol.wdg[npe*ncw*e1], &sol.wsrc[npe*ncw*e1], tmp.tempn, common.timeparams.dae_alpha*scalar, scalar, npe*ncw*(e2-e1));                    
                 }
                 else {
                     // calculate tmp = alpha*wsrc + Sourcew(xdg, udg, odg, wdg)) 
-                    ArrayAXPBY(tmp.tempn, &sol.wsrc[npe*ncw*e1], tmp.tempn, common.dae_alpha, one, npe*ncw*(e2-e1));                    
+                    ArrayAXPBY(tmp.tempn, &sol.wsrc[npe*ncw*e1], tmp.tempn, common.timeparams.dae_alpha, one, npe*ncw*(e2-e1));                    
 
                     // 1.0/(alpha*dirkd/dt + beta + gamma)
-                    dstype scalar = one/(common.dae_alpha*common.timestate.dtfactor + common.dae_beta + common.dae_gamma);
+                    dstype scalar = one/(common.timeparams.dae_alpha*common.timestate.dtfactor + common.timeparams.dae_beta + common.timeparams.dae_gamma);
 
                     //std::cout<<scalar<<std::endl;
 
                     // calculate w = (1/(alpha*dirkd/dt + beta + gamma))*(gamma*walg + alpha*wsrc + Sourcew(xdg, udg, odg, wdg))  
-                    ArrayAXPBY(&sol.wdg[npe*ncw*e1], &sol.wdual[npe*ncw*e1], tmp.tempn, common.dae_gamma*scalar, scalar, npe*ncw*(e2-e1));                                    
+                    ArrayAXPBY(&sol.wdg[npe*ncw*e1], &sol.wdual[npe*ncw*e1], tmp.tempn, common.timeparams.dae_gamma*scalar, scalar, npe*ncw*(e2-e1));                                    
                 }                
             }
         }
@@ -607,7 +607,7 @@ inline void Residual(solstruct &sol, resstruct &res, appstruct &app, masterstruc
     ArrayMultiplyScalar(res.Ru, minusone, common.ndof1);      
         
     //common.timestate.dtfactor
-    if (common.tdep==1) 
+    if (common.timeparams.tdep==1) 
         ArrayMultiplyScalar(res.Ru, one/common.timestate.dtfactor, common.ndof1);                
     
     if (common.debugMode==1) {
@@ -647,7 +647,7 @@ inline void GetdQ(solstruct &sol, resstruct &res, appstruct &app, masterstruct &
     PutFaceNodes(res.dRq, res.dRh, mesh.rowe2f1, mesh.cole2f1, mesh.ent2ind1, mesh.rowe2f2, mesh.cole2f2, 
             mesh.ent2ind2, npf, npe, ncq, e1, e2, 0, backend);
     
-    if (common.wave==1)
+    if (common.timeparams.wave==1)
     { //TODO: not checked yet
         // get the source term due to the time derivative (for wave problem)  
         ArrayExtract(&res.dRq[N], sol.sdg, npe, nc, ne, 0, npe, ncu, ncu+ncq, e1, e2);  
@@ -657,7 +657,7 @@ inline void GetdQ(solstruct &sol, resstruct &res, appstruct &app, masterstruct &
         ArraySetValue(&res.dRq[N], zero, npe*ncq*(e2-e1));
      }
     dstype scalar = one;
-    if (common.wave==1)
+    if (common.timeparams.wave==1)
         scalar = one/common.timestate.dtfactor;
 
     ApplyMinv(&res.dRq[N], res.Minv, &res.dRq[npe*ncq*e1], scalar, common.curvedMesh, npe, ncq, e1, e2);  
@@ -854,7 +854,7 @@ inline void dResidual(solstruct &sol, resstruct &res, appstruct &app, masterstru
     } 
     // change sign for matrix-vector product
     ArrayMultiplyScalar(res.dRu, minusone, common.ndof1, backend);     
-    if (common.tdep==1)
+    if (common.timeparams.tdep==1)
     { 
         ArrayMultiplyScalar(res.dRu, one/common.timestate.dtfactor, common.ndof1, backend); 
     }

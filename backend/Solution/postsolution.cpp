@@ -67,9 +67,9 @@ void CSolution::InitSolution(Int backend)
     // save solutions into binary files
     this->SaveNodesOnBoundary(backend);     
     
-    if (disc.common.tdep==1) { // DIRK schemes
+    if (disc.common.timeparams.tdep==1) { // DIRK schemes
         //DIRK coefficients 
-        disc.common.temporalScheme = 0; 
+        disc.common.timeparams.temporalScheme = 0; 
         TimestepCoefficents(disc.common); 
                 
         if (disc.common.mpiRank==0)
@@ -97,7 +97,7 @@ void CSolution::InitSolution(Int backend)
 void CSolution::SaveSolutions(Int backend) 
 {
     bool save = false;
-    if (disc.common.tdep==0) save = true;
+    if (disc.common.timeparams.tdep==0) save = true;
     else 
         if (((disc.common.timestate.currentstep+1) % disc.common.saveSolFreq) == 0) save = true;             
 
@@ -120,7 +120,7 @@ void CSolution::SaveSolutions(Int backend)
             writearray(outuhat, disc.sol.uh, disc.common.ndofuhat, backend);
     }
    
-   if (disc.common.tdep==1) { 
+   if (disc.common.timeparams.tdep==1) { 
         if (((disc.common.timestate.currentstep+1) % disc.common.saveRestart) == 0)             
         {        
             string filename = disc.common.fileout + "udg_t" + NumberToString(disc.common.timestate.currentstep+disc.common.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";     
@@ -154,7 +154,7 @@ void CSolution::SaveSolutions(Int backend)
         }    
    }
     
-   // if (disc.common.tdep==1) { 
+   // if (disc.common.timeparams.tdep==1) { 
    //      if (((disc.common.timestate.currentstep+1) % disc.common.saveSolFreq) == 0)             
    //      {        
    //          string filename = disc.common.fileout + "udg_t" + NumberToString(disc.common.timestate.currentstep+disc.common.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";     
@@ -200,7 +200,7 @@ void CSolution::SaveSolutions(Int backend)
 
 void CSolution::ReadSolutions(Int backend) 
 {
-   if (disc.common.tdep==1) { 
+   if (disc.common.timeparams.tdep==1) { 
         if (((disc.common.timestate.currentstep+1) % disc.common.saveRestart) == 0)             
         {        
             string filename = disc.common.fileout + "udg_t" + NumberToString(disc.common.timestate.currentstep+disc.common.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";     
@@ -299,10 +299,10 @@ void CSolution::SaveParaview(Int backend, std::string fname_modifier, bool force
     // Decide whether we should write a file on this step
     bool writeSolution = false;
     
-    if (disc.common.tdep == 1) {
+    if (disc.common.timeparams.tdep == 1) {
        if (disc.common.timestate.currentstep==0 && disc.common.mpiRank==0) {
           string ext = (disc.common.mpiProcs==1) ? "vtu" : "pvtu";                                  
-          vis.pvdwrite_series(disc.common.fileout + "vis", disc.common.dt, disc.common.tsteps, disc.common.saveSolFreq, ext);                          
+          vis.pvdwrite_series(disc.common.fileout + "vis", disc.common.dt, disc.common.timeparams.tsteps, disc.common.saveSolFreq, ext);                          
        }
         
         // Time-dependent: only write every 'saveSolFreq' steps
@@ -359,7 +359,7 @@ void CSolution::SaveParaview(Int backend, std::string fname_modifier, bool force
        }
 
        string baseName = disc.common.fileout + "vis" + fname_modifier;
-       if (disc.common.tdep == 1) {
+       if (disc.common.timeparams.tdep == 1) {
            std::ostringstream ss; 
            ss << std::setw(6) << std::setfill('0') << disc.common.timestate.currentstep+disc.common.timestepOffset+1; 
            baseName = baseName + "_" + ss.str();           
@@ -381,7 +381,7 @@ void CSolution::SaveQoI(Int backend)
     if (disc.common.nsurf > 0) qoiFace<exasim::detail::AbiAdapter>(disc.sol, disc.res, disc.app, disc.master, disc.mesh, disc.tmp, disc.common);
 
     if (disc.common.mpiRank==0 && (disc.common.nvqoi > 0 || disc.common.nsurf > 0)) {
-        if (disc.common.tdep==1) 
+        if (disc.common.timeparams.tdep==1) 
             outqoi << std::setw(16) << std::scientific << std::setprecision(6) << disc.common.timestate.time;
         else outqoi << std::setw(16) << std::scientific << std::setprecision(6) << 0.0;
         writeQoIRow(outqoi, disc.common);
@@ -391,7 +391,7 @@ void CSolution::SaveQoI(Int backend)
 
 void CSolution::SaveOutputDG(Int backend) 
 {
-   if (disc.common.tdep==1) { 
+   if (disc.common.timeparams.tdep==1) { 
         if (((disc.common.timestate.currentstep+1) % disc.common.saveSolFreq) == 0)             
         {                    
             string filename1 = disc.common.fileout + "_outputDG_t" + NumberToString(disc.common.timestate.currentstep+disc.common.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";     
@@ -408,7 +408,7 @@ void CSolution::SaveOutputDG(Int backend)
 
 void CSolution::SaveOutputCG(Int backend) 
 {
-   if (disc.common.tdep==1) { 
+   if (disc.common.timeparams.tdep==1) { 
         if (((disc.common.timestate.currentstep+1) % disc.common.saveSolFreq) == 0)             
         {                    
             string filename1 = disc.common.fileout + "_outputCG_t" + NumberToString(disc.common.timestate.currentstep+disc.common.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";     

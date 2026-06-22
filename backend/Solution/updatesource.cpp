@@ -36,7 +36,7 @@ void UpdateSourceDIRK(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriv
     Int npe = common.npe; // number of nodes on master element    
     Int ne = common.ne2; // number of elements in this subdomain 
     Int N = npe*ncs*ne;
-    Int dirkStage = common.tstages;
+    Int dirkStage = common.timeparams.tstages;
     
     dstype *dirkd = &common.DIRKcoeff_d[0];    
     dstype dt = common.dt[common.timestate.currentstep];
@@ -46,7 +46,7 @@ void UpdateSourceDIRK(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriv
     common.timestate.dtfactor = scalar;
     // fc_u = scalar*dtcoef_u
     ArrayAXPB(app.fc_u, app.dtcoef_u, scalar, zero, common.ncu);
-    if (common.wave==1) 
+    if (common.timeparams.wave==1) 
         ArrayAXPB(app.fc_q, app.dtcoef_q, scalar, zero, common.ncq);              
     
     // extract the current stage solution to res.Rq
@@ -115,11 +115,11 @@ void UpdateSourceBDF(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDrive
     common.timestate.dtfactor = scalar;
     // fc_u = scalar*dtcoef_u
     ArrayAXPB(app.fc_u, app.dtcoef_u, scalar, zero, common.ncu);
-    if (common.wave==1) 
+    if (common.timeparams.wave==1) 
         ArrayAXPB(app.fc_q, app.dtcoef_q, scalar, zero, common.ncq);              
 
     // update the source term
-    switch (common.torder) {
+    switch (common.timeparams.torder) {
         case 1:
             // source term for the BDF1 scheme: sdg = -(BDFcoeff_c[1]/dt)*udgprev1
             ArrayAXPB(sol.sdg, sys.udgprev1, -common.BDFcoeff_c[1]/dt, zero, N);
@@ -140,7 +140,7 @@ void UpdateSourceBDF(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDrive
 
 void UpdateSource(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriverABI& driver_abi, resstruct &res, commonstruct &common, Int backend)
 {           
-    if (common.temporalScheme==0) // DIRK
+    if (common.timeparams.temporalScheme==0) // DIRK
         UpdateSourceDIRK(sol, sys, app, driver_abi, res, common, backend);
     else // BDF
         UpdateSourceBDF(sol, sys, app, driver_abi, res, common, backend);

@@ -38,7 +38,7 @@ inline void qoiElemBlock(solstruct &sol, resstruct &res, appstruct &app, masters
             
     GetElemNodes(tmp.tempn, sol.udg, npe, nc, 0, nc, e1, e2);   
     Node2Gauss(handle, uqg, tmp.tempn, master.shapegt, nge, npe, ne*nc, backend);        
-    if ((ncw>0) & (common.wave==0)) {
+    if ((ncw>0) & (common.timeparams.wave==0)) {
         GetElemNodes(tmp.tempn, sol.wdg, npe, ncw, 0, ncw, e1, e2);    
         Node2Gauss(handle, wg, tmp.tempn, master.shapegt, nge, npe, ne*ncw, backend);        
     }

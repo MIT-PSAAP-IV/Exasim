@@ -233,7 +233,7 @@ Int CSolution::PTCsolver(ofstream &out, Int backend)
         // Build the LDG block-Jacobi preconditioner for the current state.
         if ((disc.common.spatialScheme == 0) && (disc.common.solverparams.preconditioner == 1)) {
             t0 = SolutionBenchmarkStart(backend);
-            if (disc.common.tdep==1) {
+            if (disc.common.timeparams.tdep==1) {
                 if (it==0 && disc.common.timestate.currentstage==0) disc.ComputeLDGPreconditioner(disc.res.K, solv.sys.u, backend);
             } else 
                 disc.ComputeLDGPreconditioner(disc.res.K, solv.sys.u, backend);
@@ -683,7 +683,7 @@ void CSolution::InitSolution(Int backend)
 //     disc.compMassInverse(backend);
             
     // compute q
-    // if ((disc.common.ncq>0) & (disc.common.wave==0))
+    // if ((disc.common.ncq>0) & (disc.common.timeparams.wave==0))
     //     disc.evalQSer(backend);
             
     // // set pointer depending on the matrix type
@@ -705,9 +705,9 @@ void CSolution::InitSolution(Int backend)
     // save solutions into binary files
     this->SaveNodesOnBoundary(backend);     
     
-    if (disc.common.tdep==1) { // DIRK schemes
+    if (disc.common.timeparams.tdep==1) { // DIRK schemes
         //DIRK coefficients 
-        disc.common.temporalScheme = 0; 
+        disc.common.timeparams.temporalScheme = 0; 
         TimestepCoefficents(disc.common); 
                 
         if (disc.common.mpiRank==0)
@@ -740,7 +740,7 @@ void CSolution::DIRK(ofstream &out, Int backend)
     dstype time = disc.common.timestate.time;           
     
     //DIRK coefficients 
-    disc.common.temporalScheme = 0; 
+    disc.common.timeparams.temporalScheme = 0; 
     TimestepCoefficents(disc.common); 
                 
 #ifdef TIMESTEP                  
@@ -748,7 +748,7 @@ void CSolution::DIRK(ofstream &out, Int backend)
 #endif                
     
     // time stepping with DIRK schemes
-    for (Int istep=0; istep<disc.common.tsteps; istep++)            
+    for (Int istep=0; istep<disc.common.timeparams.tsteps; istep++)            
     {            
         // current timestep        
         disc.common.timestate.currentstep = istep;
@@ -761,7 +761,7 @@ void CSolution::DIRK(ofstream &out, Int backend)
 #endif
                     
         // compute the solution at the next step
-        for (Int j=0; j<disc.common.tstages; j++) {            
+        for (Int j=0; j<disc.common.timeparams.tstages; j++) {            
             // current timestage
             disc.common.timestate.currentstage = j;
         
@@ -845,7 +845,7 @@ void CSolution::SteadyProblem_PTC(ofstream &out, Int backend) {
     Int N2 = npe*disc.common.ncw*ne2;  
 
     // time stepping with DIRK schemes
-    for (Int istep=0; istep<disc.common.tsteps-1; istep++)            
+    for (Int istep=0; istep<disc.common.timeparams.tsteps-1; istep++)            
     {            
         disc.common.solverparams.nonlinearSolverMaxIter = 1;
 
@@ -856,7 +856,7 @@ void CSolution::SteadyProblem_PTC(ofstream &out, Int backend) {
         PreviousSolutions(disc.sol, solv.sys, disc.common, backend);
                             
         // compute the solution at the next step
-        for (int j=0; j<disc.common.tstages; j++) {     
+        for (int j=0; j<disc.common.timeparams.tstages; j++) {     
             
             if (disc.common.mpiRank==0)
                 printf("\nTimestep :  %d,  Timestage :  %d,   Time : %g\n",istep+1,j+1,time + disc.common.dt[istep]*disc.common.DIRKcoeff_t[j]);                                
@@ -909,7 +909,7 @@ void CSolution::SteadyProblem_PTC(ofstream &out, Int backend) {
                 std::cout << "next time step: " << disc.common.dt[istep+1] << std::endl;
                 if (disc.common.dt[istep+1] < 1e-8){
                     std::cout << "WARNING: PTC stalled" << std::endl;
-                    istep = disc.common.tsteps+1;
+                    istep = disc.common.timeparams.tsteps+1;
                 }
             }
             else if (delta_monitor < 0.1 && solv.sys.alpha == 1.0)
@@ -928,7 +928,7 @@ void CSolution::SteadyProblem_PTC(ofstream &out, Int backend) {
                 if (delta_monitor < 1e-3 && disc.common.dt[istep] > 1e-4) {
                     if (disc.common.runmode == 10) {
                         std::cout << "Evaluate steady residual..." << std::endl;
-                        disc.common.tdep=0;
+                        disc.common.timeparams.tdep=0;
     
                         if (disc.common.ncq > 0) hdgGetQ<exasim::detail::AbiAdapter>(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common, backend);          
             
@@ -942,21 +942,21 @@ void CSolution::SteadyProblem_PTC(ofstream &out, Int backend) {
                         // SaveSolutions(backend); 
                         if (nrmr < disc.common.solverparams.nonlinearSolverTol) {
                             conv_flag = 1;
-                            istep = disc.common.tsteps+10;
+                            istep = disc.common.timeparams.tsteps+10;
                             this->SaveSolutions(backend); 
                             this->SaveQoI(backend);
                             if (vis.savemode > 0) this->SaveParaview(backend); 
                             this->SaveSolutionsOnBoundary(backend); 
                         }
-                        // istep = disc.common.tsteps+1;
-                        disc.common.tdep=1;
+                        // istep = disc.common.timeparams.tsteps+1;
+                        disc.common.timeparams.tdep=1;
                     }
                     if (disc.common.runmode == 11) { // Compute steady solve
                         std::cout << "Steady solve..." << std::endl;
-                        disc.common.tdep=0;
+                        disc.common.timeparams.tdep=0;
                         disc.common.solverparams.nonlinearSolverMaxIter = NLiters;
                         this->SolveProblem(out, backend);
-                        istep = disc.common.tsteps+10;
+                        istep = disc.common.timeparams.tsteps+10;
                     }
                     
                 }    
@@ -973,7 +973,7 @@ void CSolution::SteadyProblem_PTC(ofstream &out, Int backend) {
     if (conv_flag == 0) {                
         std::cout << "Warning: PTC reached max iterations without converging." << std::endl;
         // Save steady solution anyways
-        disc.common.tdep=0;
+        disc.common.timeparams.tdep=0;
         this->SaveSolutions(backend); 
         this->SaveQoI(backend);
         if (vis.savemode > 0) this->SaveParaview(backend); 
@@ -985,7 +985,7 @@ void CSolution::SolveProblem(ofstream &out, Int backend)
 {          
     this->InitSolution(backend); 
         
-    if (disc.common.tdep==1) {        
+    if (disc.common.timeparams.tdep==1) {        
         // solve time-dependent problems using DIRK
         this->DIRK(out, backend);            
     }
@@ -1007,7 +1007,7 @@ void CSolution::SolveProblem(ofstream &out, Int backend)
 void CSolution::SaveSolutions(Int backend) 
 {
     bool save = false;
-    if (disc.common.tdep==0) save = true;
+    if (disc.common.timeparams.tdep==0) save = true;
     else 
         if (((disc.common.timestate.currentstep+1) % disc.common.saveSolFreq) == 0) save = true;             
 
@@ -1030,7 +1030,7 @@ void CSolution::SaveSolutions(Int backend)
             writearray(outuhat, disc.sol.uh, disc.common.ndofuhat, backend);
     }
     
-    if (disc.common.tdep==1) { 
+    if (disc.common.timeparams.tdep==1) { 
         if (((disc.common.timestate.currentstep+1) % disc.common.saveRestart) == 0)             
         {        
             string filename = disc.common.fileout + "udg_t" + NumberToString(disc.common.timestate.currentstep+disc.common.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";     
@@ -1064,7 +1064,7 @@ void CSolution::SaveSolutions(Int backend)
         }    
     }
     
-   // if (disc.common.tdep==1) { 
+   // if (disc.common.timeparams.tdep==1) { 
    //      if (((disc.common.timestate.currentstep+1) % disc.common.saveSolFreq) == 0)             
    //      {        
    //          string filename = disc.common.fileout + "udg_t" + NumberToString(disc.common.timestate.currentstep+disc.common.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";     
@@ -1110,7 +1110,7 @@ void CSolution::SaveSolutions(Int backend)
 
 void CSolution::ReadSolutions(Int backend) 
 {
-   if (disc.common.tdep==1) { 
+   if (disc.common.timeparams.tdep==1) { 
         if (((disc.common.timestate.currentstep+1) % disc.common.saveRestart) == 0)             
         {        
             string filename = disc.common.fileout + "udg_t" + NumberToString(disc.common.timestate.currentstep+disc.common.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";     
@@ -1199,10 +1199,10 @@ void CSolution::SaveParaview(Int backend, std::string fname_modifier, bool force
     // Decide whether we should write a file on this step
     bool writeSolution = false;
     
-    if (disc.common.tdep == 1) {
+    if (disc.common.timeparams.tdep == 1) {
        if (disc.common.timestate.currentstep==0 && disc.common.mpiRank==0) {
           string ext = (disc.common.mpiProcs==1) ? "vtu" : "pvtu";                                  
-          vis.pvdwrite_series(disc.common.fileout + "vis", disc.common.dt, disc.common.tsteps, disc.common.saveSolFreq, ext);                          
+          vis.pvdwrite_series(disc.common.fileout + "vis", disc.common.dt, disc.common.timeparams.tsteps, disc.common.saveSolFreq, ext);                          
        }
         
         // Time-dependent: only write every 'saveSolFreq' steps
@@ -1259,7 +1259,7 @@ void CSolution::SaveParaview(Int backend, std::string fname_modifier, bool force
        }
 
        string baseName = disc.common.fileout + "vis" + fname_modifier;
-       if (disc.common.tdep == 1) {
+       if (disc.common.timeparams.tdep == 1) {
            std::ostringstream ss; 
            ss << std::setw(6) << std::setfill('0') << disc.common.timestate.currentstep+disc.common.timestepOffset+1; 
            baseName = baseName + "_" + ss.str();           
@@ -1282,7 +1282,7 @@ void CSolution::SaveQoI(Int backend)
 
     if (disc.common.mpiRank==0 && (disc.common.nvqoi > 0 || disc.common.nsurf > 0)) {
         writeQoIHeaderOnce(outqoi, disc.common);
-        if (disc.common.tdep==1)
+        if (disc.common.timeparams.tdep==1)
             outqoi << std::setw(16) << std::scientific << std::setprecision(6) << disc.common.timestate.time;
         else outqoi << std::setw(16) << std::scientific << std::setprecision(6) << 0.0;
         writeQoIRow(outqoi, disc.common);
@@ -1292,7 +1292,7 @@ void CSolution::SaveQoI(Int backend)
 
 void CSolution::SaveOutputCG(Int backend) 
 {
-   if (disc.common.tdep==1) { 
+   if (disc.common.timeparams.tdep==1) { 
         if (((disc.common.timestate.currentstep+1) % disc.common.saveSolFreq) == 0)             
         {                    
             string filename1 = disc.common.fileout + "_outputCG_t" + NumberToString(disc.common.timestate.currentstep+disc.common.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";     

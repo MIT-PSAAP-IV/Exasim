@@ -82,11 +82,11 @@ inline void RuElemBlock(solstruct &sol, resstruct &res, appstruct &app, masterst
         Node2Gauss(handle, &tmp.tempg[n6], tmp.tempn, master.shapegt, nge, npe, ne*ncw, backend);
     }
     
-    if (common.tdep) { // for time-dependent problem                
+    if (common.timeparams.tdep) { // for time-dependent problem                
         // calculate sdg = sdg-udg*dtfactor
         ArrayAXPBY(&tmp.tempg[n4], &sol.sdgg[nge*ncs*e1], &tmp.tempg[n3], one, -common.timestate.dtfactor, nga*ncu);            
         
-        if (common.tdfunc==1) {
+        if (common.timeparams.tdfunc==1) {
             // calculate the time derivative function Tdfunc(xdg, udg, odg)
             EXASIM_DRIVER_CALL(TdfuncDriver, &tmp.tempg[n5], &sol.elemg[nm], &tmp.tempg[n3], &sol.odgg[nge*nco*e1], 
                 &tmp.tempg[n6], mesh, master, app, sol, tmp, common, nge, e1, e2, backend);
@@ -192,14 +192,14 @@ inline void dRuElemBlock(solstruct &sol, resstruct &res, appstruct &app, masters
         Node2Gauss(handle, &tmp.tempg[n0], tmp.tempn, master.shapegt, nge, npe, ne*ncw, backend);
     }
 
-    if (common.tdep) { // for time-dependent problem                
+    if (common.timeparams.tdep) { // for time-dependent problem                
         ArrayAXPBY(&tmp.tempg[n4], &sol.sdgg[nge*ncs*e1], &tmp.tempg[n3], one, -common.timestate.dtfactor, nga*ncu);
 
         // ArrayCopy(&tmp.tempg[n8], &tmp.tempg[n9], nga*ncu, backend);
         // ArrayMultiplyScalar(&tmp.tempg[n8], -common.timestate.dtfactor, nga*ncu, backend); 
         ArrayAXPBY(&tmp.tempg[n8], &tmp.tempg[n8], &tmp.tempg[n9], one, -common.timestate.dtfactor, nga*ncu);
         
-        if (common.tdfunc==1) {
+        if (common.timeparams.tdfunc==1) {
             // calculate the time derivative function Tdfunc(xdg, udg, odg)
             EXASIM_DRIVER_CALL(TdfuncDriver, &tmp.tempg[n5], &sol.elemg[nm], &tmp.tempg[n3], &sol.odgg[nge*nco*e1], 
                 &tmp.tempg[n6], mesh, master, app, sol, tmp, common, nge, e1, e2, backend);
