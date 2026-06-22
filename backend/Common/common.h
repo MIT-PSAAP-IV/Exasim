@@ -2087,5 +2087,16 @@ inline void writeQoIRow(std::ostream& outqoi, const commonstruct& common)
             outqoi << std::setw(16) << std::scientific << std::setprecision(6) << buf[q.offset + j];
     }
 }
+// Write the "Time" + QoI-instance header line exactly once, on the first row (while the
+// stream is still empty). Writing the header lazily (rather than at file-open) lets QoI
+// instances registered after model init (ExasimSolver::AddQoI) be reflected in the columns.
+inline void writeQoIHeaderOnce(std::ostream& outqoi, const commonstruct& common)
+{
+    if (outqoi.tellp() == std::streampos(0)) {
+        outqoi << std::setw(16) << std::left << "Time";
+        writeQoIHeader(outqoi, common);
+        outqoi << "\n";
+    }
+}
 
 #endif

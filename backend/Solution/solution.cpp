@@ -1281,7 +1281,8 @@ void CSolution::SaveQoI(Int backend)
     if (disc.common.nsurf > 0) qoiFace(disc.sol, disc.res, disc.app, disc.driver_abi, disc.master, disc.mesh, disc.tmp, disc.common);
 
     if (disc.common.mpiRank==0 && (disc.common.nvqoi > 0 || disc.common.nsurf > 0)) {
-        if (disc.common.tdep==1) 
+        writeQoIHeaderOnce(outqoi, disc.common);
+        if (disc.common.tdep==1)
             outqoi << std::setw(16) << std::scientific << std::setprecision(6) << disc.common.time;
         else outqoi << std::setw(16) << std::scientific << std::setprecision(6) << 0.0;
         writeQoIRow(outqoi, disc.common);

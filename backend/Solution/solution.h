@@ -173,10 +173,9 @@ public:
         // }                 
 
         if (mpirank==0 && (disc.common.nvqoi > 0 || disc.common.nsurf > 0)) {
-            outqoi.open(base + "qoi.txt", std::ios::out);                         
-            outqoi << std::setw(16) << std::left << "Time";
-            writeQoIHeader(outqoi, disc.common);
-            outqoi << "\n";
+            // The header line is written lazily on the first SaveQoI row (writeQoIHeaderOnce)
+            // so QoI instances registered after model init (ExasimSolver::AddQoI) are shown.
+            outqoi.open(base + "qoi.txt", std::ios::out);
         }
 
         open_and_write(outsol, "udg_np", rank, offset, npe, nc, ne, base);

@@ -139,6 +139,16 @@ public:
     int Backend() const;
     CSolution* Model(int i);
 
+    // Register / clear named QoI instances on a model. Call after Initialize and before
+    // Solve. kind: 0 = volume (domain) QoI, 1 = boundary (surface) QoI. (offset, ncomp)
+    // select a slice of the model's QoI-kernel output; boundary is the mesh boundary id for
+    // kind==1 (<=0 means "use the model's default boundary"). Out-of-range slices are
+    // rejected. Returns 0 on success. Lets several independently-named QoIs coexist in one
+    // program (the "QoI template, many instances" model).
+    int AddQoI(int modelindex, const std::string& name, int kind,
+               int boundary, int offset, int ncomp);
+    int ClearQoI(int modelindex);
+
     int _ncuext; // number of components of external fields
     int _ncuint; // number of components of internal fields
     int _ibc; // boundary condition index for the interface
