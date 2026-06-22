@@ -66,7 +66,7 @@ int LinearSolver(sysstruct &sys, CDiscretization& disc, CPreconditioner& prec, o
     // residual norm
     dstype oldnrm = PNORM(disc.common.cublasHandle, N, sys.b, backend); 
                 
-    if (disc.common.mpiRank==0 && disc.common.saveResNorm==1 && it==1) {
+    if (disc.common.mpiRank==0 && disc.common.outputparams.saveResNorm==1 && it==1) {
         disc.common.timing[120] = disc.common.timestate.currentstep + 1.0;
         disc.common.timing[121] = disc.common.timestate.currentstage + 1.0;
         disc.common.timing[122] = 0.0; 
@@ -206,7 +206,7 @@ void LinearSolver(sysstruct &sys, CDiscretization& disc, CPreconditioner& prec, 
 
       if (disc.common.mpiRank==0) printf("hdgAssembleLinearSystem time: %g miliseconds\n", t1);
       
-      if (disc.common.debugMode==1) {
+      if (disc.common.outputparams.debugMode==1) {
         int n = disc.common.npe*disc.common.ncu;
         int m = disc.common.npf*disc.common.nfe*disc.common.ncu;
         int ne = disc.common.ne1;

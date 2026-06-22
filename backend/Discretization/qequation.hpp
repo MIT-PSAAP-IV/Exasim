@@ -53,7 +53,7 @@
     - NumberToString: Converts numbers to strings.
 
   Debugging:
-    - If common.debugMode==1, intermediate matrices and solution vectors are written to binary files for inspection.
+    - If common.outputparams.debugMode==1, intermediate matrices and solution vectors are written to binary files for inspection.
 
   Notes:
     - The code is designed to work with both CPU and GPU backends.
@@ -159,7 +159,7 @@ inline void qEquationElem(solstruct &sol, resstruct &res, appstruct &app, master
         }
     }
 
-    if (common.debugMode==1) {
+    if (common.outputparams.debugMode==1) {
 
       std::string filename;
       if (common.mpiProcs==1)
@@ -254,7 +254,7 @@ inline void qEquationFace(solstruct &sol, resstruct &res, appstruct &app, master
                 nd, nfe, npe, npf, ngf, ncx, f1, f2, ib, backend);
     }                       
 
-    if (common.debugMode==1) {
+    if (common.outputparams.debugMode==1) {
       writearray2file(common.fileout + "qEquationFace_E.bin", res.E, npe*npf*nfe*nd*common.ne, backend);  
     }    
 }
@@ -358,7 +358,7 @@ inline void qEquationElemFace(solstruct &sol, resstruct &res, appstruct &app, ma
                 nd, nfe, npe, npf, ngf, ncx, e1, e2, backend);
     }    
 
-    if (common.debugMode==1) {
+    if (common.outputparams.debugMode==1) {
       std::string filename;
       if (common.mpiProcs==1)
         filename = common.fileout;
@@ -480,7 +480,7 @@ inline void hdgGetQ(dstype *udg, dstype *uhat, solstruct &sol, resstruct &res, m
       }                
     }    
     
-    if (common.debugMode==1) {
+    if (common.outputparams.debugMode==1) {
       std::string filename;
       if (common.mpiProcs==1)
         filename = common.fileout;

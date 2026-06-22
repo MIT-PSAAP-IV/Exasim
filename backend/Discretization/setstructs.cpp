@@ -124,12 +124,12 @@ void setcommonstruct(commonstruct &common, appstruct &app, ExasimDriverABI& driv
     if (common.ntau>0) common.physicsparams.tau0 = app.tau[0];
 		
     common.curvedMesh = curvedMesh;        
-    common.fileoffset = fileoffset;
+    common.outputparams.fileoffset = fileoffset;
 
     common.timeparams.tdep = app.flag[0];      // 0: steady-state; 1: time-dependent;  
     common.timeparams.wave = app.flag[1];
     common.timeparams.linearProblem = app.flag[2]; // 0: nonlinear problem;  1: linear problem
-    common.debugMode = app.flag[3]; // 1: save data to binary files for debugging
+    common.outputparams.debugMode = app.flag[3]; // 1: save data to binary files for debugging
     common.solverparams.matvecOrder = app.flag[4];        
     common.solverparams.gmresOrthogMethod = app.flag[5];            
     common.solverparams.preconditioner = app.flag[6];
@@ -168,14 +168,14 @@ void setcommonstruct(commonstruct &common, appstruct &app, ExasimDriverABI& driv
     common.solverparams.linearSolverMaxIter = app.problem[14];        
     common.solverparams.gmresRestart = app.problem[15];    
     common.solverparams.RBdim = app.problem[16];  
-    common.saveSolFreq = app.problem[17];    
-    common.saveSolOpt = app.problem[18];    
-    common.timestepOffset = app.problem[19];    
+    common.outputparams.saveSolFreq = app.problem[17];    
+    common.outputparams.saveSolOpt = app.problem[18];    
+    common.outputparams.timestepOffset = app.problem[19];    
     common.stgNmode = app.problem[20];    
-    common.saveSolBouFreq = app.problem[21];   
+    common.outputparams.saveSolBouFreq = app.problem[21];   
     common.qoiparams.ibs = app.problem[22];   
     common.timeparams.dae_steps = app.problem[23];  // number of dual time steps      
-    common.saveResNorm = app.problem[24];   
+    common.outputparams.saveResNorm = app.problem[24];   
     common.physicsparams.AVsmoothingIter = app.problem[25]; //Number of times artificial viscosity is smoothed
     common.physicsparams.frozenAVflag = app.problem[26]; // Flag deciding if artificial viscosity is calculated once per non-linear solve or in every residual evluation
                                            //   0: AV not frozen, evaluated every iteration
@@ -269,7 +269,7 @@ void setcommonstruct(commonstruct &common, appstruct &app, ExasimDriverABI& driv
         q.offset = 0; q.ncomp = common.qoiparams.nsurf; common.qoiparams.qoiinstances.push_back(q);
     }
 
-    if ( common.saveSolBouFreq>0 ) {
+    if ( common.outputparams.saveSolBouFreq>0 ) {
         common.ndofbou = 0; 
         for (Int j=0; j<common.nbf; j++) {            
             if (common.fblks[3*j+2] == common.qoiparams.ibs) {     
@@ -673,7 +673,7 @@ void cpuInit(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& dr
         }
     }
     
-    if (common.compudgavg>0) {
+    if (common.outputparams.compudgavg>0) {
         sol.udgavg = (dstype*) malloc (sizeof (dstype)*(common.npe*common.nc*common.ne1+1));  
         sol.szudgavg = common.npe*common.nc*common.ne1+1;
     }
@@ -1173,7 +1173,7 @@ void gpuInit(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& dr
             TemplateMalloc(&sol.wdual, N, common.backend);                 
     }          
     
-    if (common.compudgavg>0) {
+    if (common.outputparams.compudgavg>0) {
         TemplateMalloc(&sol.udgavg, common.npe*common.nc*common.ne1+1, common.backend);
     }
     

@@ -61,7 +61,7 @@ CPreconditioner::CPreconditioner(CDiscretization& disc, Int backend)
 {
     mpiRank = disc.common.mpiRank;
     //setprecondstruct(precond, disc, backend);    
-    if ((disc.common.mpiRank==0) && (disc.common.debugMode==1)) precond.printinfo();
+    if ((disc.common.mpiRank==0) && (disc.common.outputparams.debugMode==1)) precond.printinfo();
     if (disc.common.mpiRank == 0) printf("finish CPreconditioner constructor... \n");    
 }
 

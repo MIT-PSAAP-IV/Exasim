@@ -1594,8 +1594,8 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
     // VerifyRuDerivFromUFiniteDifference(K, u, sol, res, app, driver_abi, master, mesh, tmp, common, 1e-6);
     // error("here");
 
-    //common.debugMode = 1;
-    // if (common.debugMode == 1) {
+    //common.outputparams.debugMode = 1;
+    // if (common.outputparams.debugMode == 1) {
     //     Int szA = n*n*common.ne1;
     //     dstype *A = nullptr;
     //     TemplateMalloc(&A, szA, backend);
@@ -1879,8 +1879,8 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 //     Int n = common.npe*common.ncu;
 //     Int m = common.npf*common.nfe*common.ncu;
 // 
-//     // common.debugMode = 1;
-//     // if (common.debugMode == 1) {
+//     // common.outputparams.debugMode = 1;
+//     // if (common.outputparams.debugMode == 1) {
 //     //     VerifyUEquationElemFiniteDifference(sol.udg, sol, res, app,
 //     //             driver_abi, master, mesh, tmp, common, 1e-6);
 //     // 

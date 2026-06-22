@@ -73,14 +73,14 @@ void CSolution::InitSolution(Int backend)
         TimestepCoefficents(disc.common); 
                 
         if (disc.common.mpiRank==0)
-            cout<<"Compute solution average = "<<disc.common.compudgavg<<endl;
+            cout<<"Compute solution average = "<<disc.common.outputparams.compudgavg<<endl;
         
-        if (disc.common.compudgavg == 1) {
+        if (disc.common.outputparams.compudgavg == 1) {
             string filename = disc.common.fileout + "avg_np" + NumberToString(disc.common.mpiRank) + ".bin";
-            disc.common.readudgavg = fileexists(filename);
+            disc.common.outputparams.readudgavg = fileexists(filename);
             if (disc.common.mpiRank==0)
-                cout<<"File exist = "<<disc.common.readudgavg<<endl;
-            if (disc.common.readudgavg == 0)
+                cout<<"File exist = "<<disc.common.outputparams.readudgavg<<endl;
+            if (disc.common.outputparams.readudgavg == 0)
                 ArraySetValue(disc.sol.udgavg, zero, disc.common.ndofudg1+1);
             else 
                 readarrayfromfile(filename, &disc.sol.udgavg, disc.common.ndofudg1+1, backend);   
@@ -99,10 +99,10 @@ void CSolution::SaveSolutions(Int backend)
     bool save = false;
     if (disc.common.timeparams.tdep==0) save = true;
     else 
-        if (((disc.common.timestate.currentstep+1) % disc.common.saveSolFreq) == 0) save = true;             
+        if (((disc.common.timestate.currentstep+1) % disc.common.outputparams.saveSolFreq) == 0) save = true;             
 
     if (save == true) {        
-        if (disc.common.saveSolOpt==0) {
+        if (disc.common.outputparams.saveSolOpt==0) {
             if (disc.common.spatialScheme > 0) {
                 ArrayExtract(disc.res.Rq, disc.sol.udg, disc.common.npe, disc.common.nc, disc.common.ne1, 0, disc.common.npe, 0, disc.common.ncu, 0, disc.common.ne1);                                                  
                 writearray(outsol, disc.res.Rq, disc.common.ndof1, backend);    
@@ -121,78 +121,78 @@ void CSolution::SaveSolutions(Int backend)
     }
    
    if (disc.common.timeparams.tdep==1) { 
-        if (((disc.common.timestate.currentstep+1) % disc.common.saveRestart) == 0)             
+        if (((disc.common.timestate.currentstep+1) % disc.common.outputparams.saveRestart) == 0)             
         {        
-            string filename = disc.common.fileout + "udg_t" + NumberToString(disc.common.timestate.currentstep+disc.common.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";     
+            string filename = disc.common.fileout + "udg_t" + NumberToString(disc.common.timestate.currentstep+disc.common.outputparams.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin";     
             writearray2file(filename, disc.sol.udg, disc.common.ndofudg1, backend);
 
-            if (disc.common.compudgavg == 1) {
-                string fn1 = disc.common.fileout + "solavg_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin"; 
+            if (disc.common.outputparams.compudgavg == 1) {
+                string fn1 = disc.common.fileout + "solavg_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin"; 
                 writearray2file(fn1, disc.sol.udgavg, disc.common.ndofudg1+1, backend);
             }        
           
             if (disc.common.ndofbou > 0) {
-                string fn0 = disc.common.fileout + "bouudgavg_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin"; 
+                string fn0 = disc.common.fileout + "bouudgavg_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin"; 
                 writearray2file(fn0, disc.sol.bouudgavg, disc.common.ndofbou*disc.common.nc+1, backend);
-                fn0 = disc.common.fileout + "bouuhavg_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin"; 
+                fn0 = disc.common.fileout + "bouuhavg_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin"; 
                 writearray2file(fn0, disc.sol.bouuhavg, disc.common.ndofbou*disc.common.ncu+1, backend);
                 if (disc.common.ncw > 0) {
-                    fn0 = disc.common.fileout + "bouwdgavg_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin"; 
+                    fn0 = disc.common.fileout + "bouwdgavg_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin"; 
                     writearray2file(fn0, disc.sol.bouwdgavg, disc.common.ndofbou*disc.common.ncw+1, backend);
                 }
             }        
           
             if (disc.common.ncw>0) {
-                string fn = disc.common.fileout + "wdg_t" + NumberToString(disc.common.timestate.currentstep+disc.common.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";                    
+                string fn = disc.common.fileout + "wdg_t" + NumberToString(disc.common.timestate.currentstep+disc.common.outputparams.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin";                    
                 writearray2file(fn, solv.sys.wtmp, disc.common.ndofw1, backend);
             }                        
 
             if (disc.common.spatialScheme==1) {
-                string fn2 = disc.common.fileout + "_uhat_t" + NumberToString(disc.common.timestate.currentstep+disc.common.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";                    
+                string fn2 = disc.common.fileout + "_uhat_t" + NumberToString(disc.common.timestate.currentstep+disc.common.outputparams.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin";                    
                 writearray2file(fn2, disc.sol.uh, disc.common.ndofuhat, backend);        
             }
         }    
    }
     
    // if (disc.common.timeparams.tdep==1) { 
-   //      if (((disc.common.timestate.currentstep+1) % disc.common.saveSolFreq) == 0)             
+   //      if (((disc.common.timestate.currentstep+1) % disc.common.outputparams.saveSolFreq) == 0)             
    //      {        
-   //          string filename = disc.common.fileout + "udg_t" + NumberToString(disc.common.timestate.currentstep+disc.common.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";     
-   //          if (disc.common.saveSolOpt==0)
+   //          string filename = disc.common.fileout + "udg_t" + NumberToString(disc.common.timestate.currentstep+disc.common.outputparams.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin";     
+   //          if (disc.common.outputparams.saveSolOpt==0)
    //              writearray2file(filename, solv.sys.u, disc.common.ndof1, backend);
    //          else
    //              writearray2file(filename, disc.sol.udg, disc.common.ndofudg1, backend);
    // 
    //          if (disc.common.ncw>0) {
-   //              string fn = disc.common.fileout + "_wdg_t" + NumberToString(disc.common.timestate.currentstep+disc.common.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";                    
+   //              string fn = disc.common.fileout + "_wdg_t" + NumberToString(disc.common.timestate.currentstep+disc.common.outputparams.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin";                    
    //              writearray2file(fn, solv.sys.wtmp, disc.common.ndofw1, backend);
    //          }                        
    // 
-   //          if (disc.common.compudgavg == 1) {
-   //              string fn1 = disc.common.fileout + "avg_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin"; 
+   //          if (disc.common.outputparams.compudgavg == 1) {
+   //              string fn1 = disc.common.fileout + "avg_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin"; 
    //              writearray2file(fn1, disc.sol.udgavg, disc.common.ndofudg1+1, backend);
    //          }
    // 
    //          if (disc.common.spatialScheme==1) {
-   //              string fn2 = disc.common.fileout + "_uhat_t" + NumberToString(disc.common.timestate.currentstep+disc.common.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";                    
+   //              string fn2 = disc.common.fileout + "_uhat_t" + NumberToString(disc.common.timestate.currentstep+disc.common.outputparams.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin";                    
    //              writearray2file(fn2, disc.sol.uh, disc.common.ndofuhat, backend);        
    //          }
    //      }    
    // }
    // else {
-   //      string filename = disc.common.fileout + "udg_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";                    
-   //      if (disc.common.saveSolOpt==0)
+   //      string filename = disc.common.fileout + "udg_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin";                    
+   //      if (disc.common.outputparams.saveSolOpt==0)
    //          writearray2file(filename, solv.sys.u, disc.common.ndof1, backend);
    //      else
    //          writearray2file(filename, disc.sol.udg, disc.common.ndofudg1, backend);       
    // 
    //      if (disc.common.ncw>0) {
-   //          string fn = disc.common.fileout + "_wdg_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";                    
+   //          string fn = disc.common.fileout + "_wdg_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin";                    
    //          writearray2file(fn, disc.sol.wdg, disc.common.ndofw1, backend);     
    //      }                
    // 
    //      if (disc.common.spatialScheme==1) {
-   //          string filename1 = disc.common.fileout + "_uhat_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";                    
+   //          string filename1 = disc.common.fileout + "_uhat_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin";                    
    //          writearray2file(filename1, disc.sol.uh, disc.common.ndofuhat, backend);        
    //      }
    // }    
@@ -201,10 +201,10 @@ void CSolution::SaveSolutions(Int backend)
 void CSolution::ReadSolutions(Int backend) 
 {
    if (disc.common.timeparams.tdep==1) { 
-        if (((disc.common.timestate.currentstep+1) % disc.common.saveRestart) == 0)             
+        if (((disc.common.timestate.currentstep+1) % disc.common.outputparams.saveRestart) == 0)             
         {        
-            string filename = disc.common.fileout + "udg_t" + NumberToString(disc.common.timestate.currentstep+disc.common.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";     
-            // if (disc.common.saveSolOpt==0) {
+            string filename = disc.common.fileout + "udg_t" + NumberToString(disc.common.timestate.currentstep+disc.common.outputparams.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin";     
+            // if (disc.common.outputparams.saveSolOpt==0) {
             //     readarrayfromfile(filename, &disc.res.Rq, disc.common.ndof1, backend);
             //     // insert u into udg
             //     ArrayInsert(disc.sol.udg, disc.res.Rq, disc.common.npe, disc.common.nc, 
@@ -216,19 +216,19 @@ void CSolution::ReadSolutions(Int backend)
             if (disc.common.mpiRank==0) cout<<"filename = "<<filename<<endl;
           
             if (disc.common.ncw>0) {
-                string fn = disc.common.fileout+"wdg_t" + NumberToString(disc.common.timestate.currentstep+disc.common.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";                    
+                string fn = disc.common.fileout+"wdg_t" + NumberToString(disc.common.timestate.currentstep+disc.common.outputparams.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin";                    
                 readarrayfromfile(fn, &disc.sol.wdg, disc.common.ndofw1, backend);     
             }                      
 
             if (disc.common.spatialScheme==1) {
-                string fn2 = disc.common.fileout + "_uhat_t" + NumberToString(disc.common.timestate.currentstep+disc.common.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";                    
+                string fn2 = disc.common.fileout + "_uhat_t" + NumberToString(disc.common.timestate.currentstep+disc.common.outputparams.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin";                    
                 readarrayfromfile(fn2, &disc.sol.uh, disc.common.ndofuhat, backend);        
             }              
         }                                
    }
    else {
-        string filename = disc.common.fileout + "udg_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";                    
-        if (disc.common.saveSolOpt==0) {
+        string filename = disc.common.fileout + "udg_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin";                    
+        if (disc.common.outputparams.saveSolOpt==0) {
             readarrayfromfile(filename, &solv.sys.u, disc.common.ndof1, backend);
             // insert u into udg
             ArrayInsert(disc.sol.udg, solv.sys.u, disc.common.npe, disc.common.nc, 
@@ -238,12 +238,12 @@ void CSolution::ReadSolutions(Int backend)
             readarrayfromfile(filename, &disc.sol.udg, disc.common.ndofudg1, backend, 3);      
              
         if (disc.common.ncw>0) {
-            string fn = disc.common.fileout + "wdg_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";                    
+            string fn = disc.common.fileout + "wdg_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin";                    
             readarrayfromfile(fn, &disc.sol.wdg, disc.common.ndofw1, backend, 3);     
         }                
 
         if (disc.common.spatialScheme==1) {
-            string fn = disc.common.fileout + "uhat_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";                    
+            string fn = disc.common.fileout + "uhat_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin";                    
             readarrayfromfile(fn, &disc.sol.uh, disc.common.ndofuhat, backend, 3);        
         }                                    
    }    
@@ -254,11 +254,11 @@ void CSolution::GetSolutions(Int step, Int backend)
     if (step < 0)
         error("GetSolutions: step must be nonnegative");
 
-    const Int rank = disc.common.mpiRank - disc.common.fileoffset;
+    const Int rank = disc.common.mpiRank - disc.common.outputparams.fileoffset;
     const Int headerSize = 3;
     string filename = disc.common.fileout + "udg_np" + NumberToString(rank) + ".bin";
 
-    if (disc.common.saveSolOpt == 0) {
+    if (disc.common.outputparams.saveSolOpt == 0) {
         const Int skip = headerSize + step * disc.common.ndof1;
         if (disc.common.spatialScheme > 0) {
             readarrayfromfile(filename, &disc.res.Rq, disc.common.ndof1, backend, skip);
@@ -290,7 +290,7 @@ void CSolution::GetSolutions(Int step, Int backend)
         readarrayfromfile(fn, &disc.sol.uh, disc.common.ndofuhat, backend, skip);
     }
 
-    if ((disc.common.saveSolOpt == 0) && (disc.common.ncq > 0))
+    if ((disc.common.outputparams.saveSolOpt == 0) && (disc.common.ncq > 0))
         disc.evalQ(backend);
 }
  
@@ -302,11 +302,11 @@ void CSolution::SaveParaview(Int backend, std::string fname_modifier, bool force
     if (disc.common.timeparams.tdep == 1) {
        if (disc.common.timestate.currentstep==0 && disc.common.mpiRank==0) {
           string ext = (disc.common.mpiProcs==1) ? "vtu" : "pvtu";                                  
-          vis.pvdwrite_series(disc.common.fileout + "vis", disc.common.dt, disc.common.timeparams.tsteps, disc.common.saveSolFreq, ext);                          
+          vis.pvdwrite_series(disc.common.fileout + "vis", disc.common.dt, disc.common.timeparams.tsteps, disc.common.outputparams.saveSolFreq, ext);                          
        }
         
         // Time-dependent: only write every 'saveSolFreq' steps
-        writeSolution = ((disc.common.timestate.currentstep + 1) % disc.common.saveSolFreq) == 0;
+        writeSolution = ((disc.common.timestate.currentstep + 1) % disc.common.outputparams.saveSolFreq) == 0;
         writeSolution = writeSolution || force_tdep_write;
     } else {
         // Steady / not time-dependent: always write
@@ -361,7 +361,7 @@ void CSolution::SaveParaview(Int backend, std::string fname_modifier, bool force
        string baseName = disc.common.fileout + "vis" + fname_modifier;
        if (disc.common.timeparams.tdep == 1) {
            std::ostringstream ss; 
-           ss << std::setw(6) << std::setfill('0') << disc.common.timestate.currentstep+disc.common.timestepOffset+1; 
+           ss << std::setw(6) << std::setfill('0') << disc.common.timestate.currentstep+disc.common.outputparams.timestepOffset+1; 
            baseName = baseName + "_" + ss.str();           
        }
        
@@ -392,15 +392,15 @@ void CSolution::SaveQoI(Int backend)
 void CSolution::SaveOutputDG(Int backend) 
 {
    if (disc.common.timeparams.tdep==1) { 
-        if (((disc.common.timestate.currentstep+1) % disc.common.saveSolFreq) == 0)             
+        if (((disc.common.timestate.currentstep+1) % disc.common.outputparams.saveSolFreq) == 0)             
         {                    
-            string filename1 = disc.common.fileout + "_outputDG_t" + NumberToString(disc.common.timestate.currentstep+disc.common.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";     
+            string filename1 = disc.common.fileout + "_outputDG_t" + NumberToString(disc.common.timestate.currentstep+disc.common.outputparams.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin";     
             disc.evalOutput(solv.sys.v, backend);                        
             writearray2file(filename1, solv.sys.v, disc.common.ndofedg1, backend);       
         }                                
    }
    else {
-        string filename1 = disc.common.fileout + "_outputDG_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";                           
+        string filename1 = disc.common.fileout + "_outputDG_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin";                           
         disc.evalOutput(solv.sys.v, backend);
         writearray2file(filename1, solv.sys.v, disc.common.ndofedg1, backend);       
    }    
@@ -409,9 +409,9 @@ void CSolution::SaveOutputDG(Int backend)
 void CSolution::SaveOutputCG(Int backend) 
 {
    if (disc.common.timeparams.tdep==1) { 
-        if (((disc.common.timestate.currentstep+1) % disc.common.saveSolFreq) == 0)             
+        if (((disc.common.timestate.currentstep+1) % disc.common.outputparams.saveSolFreq) == 0)             
         {                    
-            string filename1 = disc.common.fileout + "_outputCG_t" + NumberToString(disc.common.timestate.currentstep+disc.common.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";     
+            string filename1 = disc.common.fileout + "_outputCG_t" + NumberToString(disc.common.timestate.currentstep+disc.common.outputparams.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin";     
             disc.evalOutput(solv.sys.v, backend);
             disc.DG2CG(solv.sys.v, solv.sys.v, solv.sys.x, disc.common.nce, 
                      disc.common.nce, disc.common.nce, backend);
@@ -422,7 +422,7 @@ void CSolution::SaveOutputCG(Int backend)
         }                                
    }
    else {
-        string filename1 = disc.common.fileout + "_outputCG_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";                            
+        string filename1 = disc.common.fileout + "_outputCG_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin";                            
         disc.evalOutput(solv.sys.v, backend);
         disc.DG2CG(solv.sys.v, solv.sys.v, solv.sys.x, disc.common.nce, 
                  disc.common.nce, disc.common.nce, backend);
@@ -435,8 +435,8 @@ void CSolution::SaveOutputCG(Int backend)
 
 void CSolution::SaveSolutionsOnBoundary(Int backend) 
 {   
-    if ( disc.common.saveSolBouFreq>0 ) {
-        if (((disc.common.timestate.currentstep+1) % disc.common.saveSolBouFreq) == 0)             
+    if ( disc.common.outputparams.saveSolBouFreq>0 ) {
+        if (((disc.common.timestate.currentstep+1) % disc.common.outputparams.saveSolBouFreq) == 0)             
         {        
             for (Int j=0; j<disc.common.nbf; j++) {
                 Int f1 = disc.common.fblks[3*j]-1;
@@ -469,7 +469,7 @@ void CSolution::SaveSolutionsOnBoundary(Int backend)
 
 void CSolution::SaveNodesOnBoundary(Int backend) 
 {   
-    if ( disc.common.saveSolBouFreq>0 ) {
+    if ( disc.common.outputparams.saveSolBouFreq>0 ) {
         for (Int j=0; j<disc.common.nbf; j++) {
             Int f1 = disc.common.fblks[3*j]-1;
             Int f2 = disc.common.fblks[3*j+1];    
@@ -509,8 +509,8 @@ void CSolution::SaveNodesOnBoundary(Int backend)
 
 // void CSolution::SaveSolutionsOnBoundary(Int backend) 
 // {   
-//     if ( disc.common.saveSolBouFreq>0 ) {
-//         if (((disc.common.timestate.currentstep+1) % disc.common.saveSolBouFreq) == 0)             
+//     if ( disc.common.outputparams.saveSolBouFreq>0 ) {
+//         if (((disc.common.timestate.currentstep+1) % disc.common.outputparams.saveSolBouFreq) == 0)             
 //         {        
 //             for (Int j=0; j<disc.common.nbf; j++) {
 //                 Int f1 = disc.common.fblks[3*j]-1;
@@ -522,7 +522,7 @@ void CSolution::SaveNodesOnBoundary(Int backend)
 //                     Int nn = npf*nf; 
 //                     Int nc = disc.common.nc; // number of compoments of (u, q, p)            
 //                     GetArrayAtIndex(disc.tmp.tempn, disc.sol.udg, &disc.mesh.findudg1[npf*nc*f1], nn*nc);
-//                     string filename = disc.common.fileout + "bou_t" + NumberToString(disc.common.timestate.currentstep+disc.common.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";     
+//                     string filename = disc.common.fileout + "bou_t" + NumberToString(disc.common.timestate.currentstep+disc.common.outputparams.timestepOffset+1) + "_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin";     
 //                     writearray2file(filename, disc.tmp.tempn, nn*nc, backend);            
 //                 }
 //             }                                               
@@ -532,7 +532,7 @@ void CSolution::SaveNodesOnBoundary(Int backend)
 // 
 // void CSolution::SaveNodesOnBoundary(Int backend) 
 // {   
-//     if ( disc.common.saveSolBouFreq>0 ) {
+//     if ( disc.common.outputparams.saveSolBouFreq>0 ) {
 //         for (Int j=0; j<disc.common.nbf; j++) {
 //             Int f1 = disc.common.fblks[3*j]-1;
 //             Int f2 = disc.common.fblks[3*j+1];    
@@ -543,7 +543,7 @@ void CSolution::SaveNodesOnBoundary(Int backend)
 //                 Int nn = npf*nf; 
 //                 Int ncx = disc.common.ncx; // number of compoments of (u, q, p)                            
 //                 GetArrayAtIndex(disc.tmp.tempn, disc.sol.xdg, &disc.mesh.findxdg1[npf*ncx*f1], nn*ncx);
-//                 string filename = disc.common.fileout + "node_np" + NumberToString(disc.common.mpiRank-disc.common.fileoffset) + ".bin";     
+//                 string filename = disc.common.fileout + "node_np" + NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin";     
 //                 writearray2file(filename, disc.tmp.tempn, nn*ncx, backend);            
 //             }
 //         }                                                                   

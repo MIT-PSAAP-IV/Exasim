@@ -149,14 +149,14 @@ public:
         int ncx = disc.common.ncx;                            
         int nd = disc.common.nd;     
         int ncu = disc.common.ncu;     
-        int nc = (disc.common.saveSolOpt==0) ? disc.common.ncu : disc.common.nc;        
+        int nc = (disc.common.outputparams.saveSolOpt==0) ? disc.common.ncu : disc.common.nc;        
         int ncw = disc.common.ncw;
         int npe = disc.common.npe;
         int npf = disc.common.npf;
         int ne = disc.common.ne1;     
         int nf = disc.common.nf;     
         int rank = disc.common.mpiRank;
-        int offset = disc.common.fileoffset;
+        int offset = disc.common.outputparams.fileoffset;
         std::string base = disc.common.fileout;
 
         if ((disc.common.couplingparams.nintfaces > 0) && (disc.common.couplingparams.coupledcondition>0)) disc.common.ne0 = disc.common.intepartpts[0];
@@ -188,7 +188,7 @@ public:
             open_and_write(outuhat, "uhat_np", rank, offset, ncu, npf, nf, base);
         }
 
-        if ( disc.common.saveSolBouFreq>0 ) {
+        if ( disc.common.outputparams.saveSolBouFreq>0 ) {
             Int nfbou = 0;
             for (Int j=0; j<disc.common.nbf; j++) {
                 Int f1 = disc.common.fblks[3*j]-1;

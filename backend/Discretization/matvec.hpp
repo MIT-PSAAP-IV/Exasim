@@ -112,7 +112,7 @@ inline void hdgAssembleRHS(dstype *R, dstype *Rh, meshstruct &mesh, commonstruct
     PutElementFaceNodes(R, Rh, mesh.f2e, npf, nfe, ncu, nf);
     PutElementFaceNodes(R, Rh, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.nf0);    
 
-    if (common.debugMode == 1) {
+    if (common.outputparams.debugMode == 1) {
       writearray2file(common.fileout + "hdgAssembleRHS.bin", R, ncu * npf * nf, common.backend);
     }
 }
@@ -185,7 +185,7 @@ inline void hdgElementalAdditiveSchwarz(dstype *BE, dstype *AE, resstruct &res, 
       Inverse(handle, &BE[ncf*nfe*ncf*nfe*e1], tmp.tempn, res.ipiv, ncf*nfe, e2-e1, backend); 
     }
     
-    if (common.debugMode == 1) {
+    if (common.outputparams.debugMode == 1) {
       writearray2file(common.fileout + "hdgElementalAdditiveSchwarz.bin", BE, ncf*nfe*ncf*nfe*nf, backend);
     }
 }
@@ -215,7 +215,7 @@ inline void hdgBlockJacobi(dstype *BE, dstype *AE, resstruct &res, meshstruct &m
 //     print3darray(AE, ncf*nfe, ncf*nfe, 2);
 //     print3darray(BEtmp, ncf, ncf, 14);
     
-    if (common.debugMode == 1) {
+    if (common.outputparams.debugMode == 1) {
       writearray2file(common.fileout + "hdgBlockJacobi.bin", BE, ncf * ncf * nf, backend);
     }
 }
@@ -237,7 +237,7 @@ inline void hdgGetDUDG(dstype *w, dstype *F, dstype *duh, dstype *ve, meshstruct
     // (npe * ncu)  * (ncu * npf * nfe) * ne x (ncu * npf * nfe) * ne -> (npe * ncu) * ne
     PGEMNMStridedBached(common.cublasHandle, n, 1, m, one, F, n, ve, m, one, w, n, ne, backend); 
 
-    if (common.debugMode == 1) {
+    if (common.outputparams.debugMode == 1) {
       writearray2file(common.fileout + "hdgGetDUDG.bin", w, n * ne, backend);
     }
 }
@@ -388,7 +388,7 @@ inline void hdgMatVec(dstype *w, dstype *AE, dstype *v, dstype *ve, dstype *we, 
     PutElementFaceNodes(w, we, mesh.f2e, npf, nfe, ncu, nf);
     PutElementFaceNodes(w, we, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.nf0);    
 
-    if (common.debugMode == 1) {
+    if (common.outputparams.debugMode == 1) {
       writearray2file(common.fileout + "hdgMatVec.bin", w, ncu * npf * nf, backend);
     }
 #endif

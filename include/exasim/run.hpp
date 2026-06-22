@@ -422,15 +422,15 @@ inline int run(int argc, char** argv) {
         pdemodel[i]->disc.common.ncarray = new Int[nummodels];
         pdemodel[i]->disc.sol.udgarray = new dstype*[nummodels];
 
-        if (pdemodel[i]->disc.common.timestepOffset>0)
-            restart = pdemodel[i]->disc.common.timestepOffset;
+        if (pdemodel[i]->disc.common.outputparams.timestepOffset>0)
+            restart = pdemodel[i]->disc.common.outputparams.timestepOffset;
 
         if (restart>0) {
-            pdemodel[i]->disc.common.timestepOffset = restart;
+            pdemodel[i]->disc.common.outputparams.timestepOffset = restart;
             pdemodel[i]->disc.common.timestate.time = restart*pdemodel[i]->disc.common.dt[0];
         }
 
-        if (pdemodel[i]->disc.common.mpiRank==0 && pdemodel[i]->disc.common.saveResNorm==1) {
+        if (pdemodel[i]->disc.common.mpiRank==0 && pdemodel[i]->disc.common.outputparams.saveResNorm==1) {
             std::string filename = pdemodel[i]->disc.common.fileout + "_residualnorms" + NumberToString(i) + ".bin";
             out[i].open(filename.c_str(), std::ios::out | std::ios::binary);
             if (!out[i]) error("Unable to open file " + filename);
@@ -484,7 +484,7 @@ inline int run(int argc, char** argv) {
             }
 
             for (int i=0; i<nummodels; i++) {
-                if (pdemodel[i]->disc.common.compudgavg == 1) {
+                if (pdemodel[i]->disc.common.outputparams.compudgavg == 1) {
                     ArrayAXPBY(pdemodel[i]->disc.sol.udgavg, pdemodel[i]->disc.sol.udgavg, pdemodel[i]->disc.sol.udg, one, one, pdemodel[i]->disc.common.ndofudg1);
                     ArrayAddScalar(&pdemodel[i]->disc.sol.udgavg[pdemodel[i]->disc.common.ndofudg1], one, 1);
                 }
@@ -525,7 +525,7 @@ inline int run(int argc, char** argv) {
                 pdemodel[i]->ReadSolutions(backend);
                 if (pdemodel[i]->disc.common.ncq>0)
                     pdemodel[i]->disc.evalQ(backend);
-                pdemodel[i]->disc.common.saveSolOpt = 1;
+                pdemodel[i]->disc.common.outputparams.saveSolOpt = 1;
                 pdemodel[i]->SaveSolutions(backend);
                 pdemodel[i]->SaveQoI(backend);
                 if (pdemodel[i]->vis.savemode > 0) pdemodel[i]->SaveParaview(backend);
@@ -534,7 +534,7 @@ inline int run(int argc, char** argv) {
             else if (pdemodel[i]->disc.common.runmode==2){
                 for (Int istep=0; istep<pdemodel[i]->disc.common.timeparams.tsteps; istep++)
                 {
-                    if (((istep+1) % pdemodel[i]->disc.common.saveSolFreq) == 0)
+                    if (((istep+1) % pdemodel[i]->disc.common.outputparams.saveSolFreq) == 0)
                     {
                         pdemodel[i]->disc.common.timestate.currentstep = istep;
                         pdemodel[i]->ReadSolutions(backend);
@@ -547,7 +547,7 @@ inline int run(int argc, char** argv) {
             else if (pdemodel[i]->disc.common.runmode==3){
                 for (Int istep=0; istep<pdemodel[i]->disc.common.timeparams.tsteps; istep++)
                 {
-                    if (((istep+1) % pdemodel[i]->disc.common.saveSolFreq) == 0)
+                    if (((istep+1) % pdemodel[i]->disc.common.outputparams.saveSolFreq) == 0)
                     {
                         pdemodel[i]->disc.common.timestate.currentstep = istep;
                         pdemodel[i]->ReadSolutions(backend);
@@ -562,7 +562,7 @@ inline int run(int argc, char** argv) {
             }
             else if (pdemodel[i]->disc.common.runmode==5){
                 pdemodel[i]->disc.evalQSer(backend);
-                pdemodel[i]->disc.common.saveSolOpt = 1;
+                pdemodel[i]->disc.common.outputparams.saveSolOpt = 1;
                 std::string filename = pdemodel[i]->disc.common.fileout + "_np" + NumberToString(pdemodel[i]->disc.common.mpiRank) + ".bin";
                 writearray2file(filename, pdemodel[i]->disc.sol.udg, pdemodel[i]->disc.common.ndofudg1, backend);
             }
@@ -570,7 +570,7 @@ inline int run(int argc, char** argv) {
     }
 
     for (int i=0; i<nummodels; i++) {
-        if (pdemodel[i]->disc.common.mpiRank==0 && pdemodel[i]->disc.common.saveResNorm==1)
+        if (pdemodel[i]->disc.common.mpiRank==0 && pdemodel[i]->disc.common.outputparams.saveResNorm==1)
             out[i].close();
     }
 

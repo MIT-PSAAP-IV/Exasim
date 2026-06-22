@@ -847,11 +847,11 @@ int ExasimSolver::BuildModels()
         models_[i]->disc.common.ncarray = new Int[nummodels_];
         models_[i]->disc.sol.udgarray = new dstype*[nummodels_];
 
-        if (models_[i]->disc.common.timestepOffset > 0)
-            restart_ = models_[i]->disc.common.timestepOffset;
+        if (models_[i]->disc.common.outputparams.timestepOffset > 0)
+            restart_ = models_[i]->disc.common.outputparams.timestepOffset;
 
         if (restart_ > 0) {
-            models_[i]->disc.common.timestepOffset = restart_;
+            models_[i]->disc.common.outputparams.timestepOffset = restart_;
             models_[i]->disc.common.timestate.time = restart_ * models_[i]->disc.common.dt[0];
         }
     }
@@ -875,7 +875,7 @@ int ExasimSolver::OpenOutputStreams()
 {
     for (int i = 0; i < nummodels_; i++) {
         if (models_[i]->disc.common.mpiRank == 0 &&
-            models_[i]->disc.common.saveResNorm == 1) {
+            models_[i]->disc.common.outputparams.saveResNorm == 1) {
             string filename = models_[i]->disc.common.fileout +
                               "_residualnorms" + NumberToString(i) + ".bin";
             residual_outputs_[i].open(filename.c_str(), ios::out | ios::binary);
@@ -1140,7 +1140,7 @@ int ExasimSolver::RunTimeDependent(Int start, Int steps)
         }
 
         for (int i = 0; i < nummodels_; i++) {
-            if (models_[i]->disc.common.compudgavg == 1) {
+            if (models_[i]->disc.common.outputparams.compudgavg == 1) {
                 ArrayAXPBY(models_[i]->disc.sol.udgavg,
                            models_[i]->disc.sol.udgavg,
                            models_[i]->disc.sol.udg, one, one,
@@ -1198,7 +1198,7 @@ int ExasimSolver::RunTimeDependent(const int i, Int start, Int steps)
             
         }
         
-        if (models_[i]->disc.common.compudgavg == 1) {
+        if (models_[i]->disc.common.outputparams.compudgavg == 1) {
             ArrayAXPBY(models_[i]->disc.sol.udgavg,
                        models_[i]->disc.sol.udgavg,
                        models_[i]->disc.sol.udg, one, one,
@@ -1288,7 +1288,7 @@ int ExasimSolver::RunSolveProblemOrPostprocess()
             models_[i]->ReadSolutions(backend_);
             if (models_[i]->disc.common.ncq > 0)
                 models_[i]->disc.evalQ(backend_);
-            models_[i]->disc.common.saveSolOpt = 1;
+            models_[i]->disc.common.outputparams.saveSolOpt = 1;
             models_[i]->SaveSolutions(backend_);
             models_[i]->SaveQoI(backend_);
             if (models_[i]->vis.savemode > 0)
@@ -1297,7 +1297,7 @@ int ExasimSolver::RunSolveProblemOrPostprocess()
         }
         else if (models_[i]->disc.common.runmode == 2) {
             for (Int istep = 0; istep < models_[i]->disc.common.timeparams.tsteps; istep++) {
-                if (((istep + 1) % models_[i]->disc.common.saveSolFreq) == 0) {
+                if (((istep + 1) % models_[i]->disc.common.outputparams.saveSolFreq) == 0) {
                     models_[i]->disc.common.timestate.currentstep = istep;
                     models_[i]->ReadSolutions(backend_);
                     if (models_[i]->disc.common.ncq > 0)
@@ -1308,7 +1308,7 @@ int ExasimSolver::RunSolveProblemOrPostprocess()
         }
         else if (models_[i]->disc.common.runmode == 3) {
             for (Int istep = 0; istep < models_[i]->disc.common.timeparams.tsteps; istep++) {
-                if (((istep + 1) % models_[i]->disc.common.saveSolFreq) == 0) {
+                if (((istep + 1) % models_[i]->disc.common.outputparams.saveSolFreq) == 0) {
                     models_[i]->disc.common.timestate.currentstep = istep;
                     models_[i]->ReadSolutions(backend_);
                     models_[i]->SaveOutputCG(backend_);
@@ -1322,7 +1322,7 @@ int ExasimSolver::RunSolveProblemOrPostprocess()
         }
         else if (models_[i]->disc.common.runmode == 5) {
             models_[i]->disc.evalQSer(backend_);
-            models_[i]->disc.common.saveSolOpt = 1;
+            models_[i]->disc.common.outputparams.saveSolOpt = 1;
             string filename = models_[i]->disc.common.fileout + "_np" +
                               NumberToString(models_[i]->disc.common.mpiRank) + ".bin";
             writearray2file(filename, models_[i]->disc.sol.udg,
@@ -1634,7 +1634,7 @@ void ExasimSolver::CloseOutputStreams()
                     i < static_cast<int>(residual_outputs_.size()); i++) {
         if (models_[i] &&
             models_[i]->disc.common.mpiRank == 0 &&
-            models_[i]->disc.common.saveResNorm == 1 &&
+            models_[i]->disc.common.outputparams.saveResNorm == 1 &&
             residual_outputs_[i].is_open()) {
             residual_outputs_[i].close();
         }

@@ -183,7 +183,7 @@ inline void uEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, m
       ArrayMultiplyScalar(res.B, minusone, npe * npe * ne * ncu * ncq );         
     }    
 
-    if (common.debugMode==1) {      
+    if (common.outputparams.debugMode==1) {      
       std::string filename;
       if (common.mpiProcs==1)
         filename = common.fileout;
@@ -303,7 +303,7 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
       ArrayGemmBatch2(fh_uq, fh_w, wdg_uq, one, ncu, nc, ncw, nga); // fix bug here       
     }
     
-//     if (common.debugMode==1) {    
+//     if (common.outputparams.debugMode==1) {    
 //       writearray2file(common.fileout + "uEquationElemFace_fh.bin", fh, nga*ncu, backend);
 //       writearray2file(common.fileout + "uEquationElemFace_fh_udg.bin", fh_uq, nga*ncu, backend);
 //     }
@@ -321,7 +321,7 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
     // npf*nfe*ne*ncu
     Gauss2Node(handle, Rutmp, fh, master.shapfgw, ngf, npf, nf*ncu, backend);                
 
-    // if (common.debugMode==1) {    
+    // if (common.outputparams.debugMode==1) {    
     //   writearray2file(common.fileout + "uEquationElemFace_Rutmp.bin", Rutmp, npf*nfe*ne*ncu, backend);
     // }
 
@@ -554,7 +554,7 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
       }      
     }
     
-  if (common.debugMode==1) {    
+  if (common.outputparams.debugMode==1) {    
     std::string filename;
     if (common.mpiProcs==1)
       filename = common.fileout;
@@ -696,7 +696,7 @@ inline void uEquationSchurBlock(solstruct &sol, resstruct &res, appstruct &app, 
       }
     }
 
-    if (common.debugMode==1) {    
+    if (common.outputparams.debugMode==1) {    
       std::string filename;
       if (common.mpiProcs==1)
         filename = common.fileout;
@@ -778,7 +778,7 @@ inline void uEquationSchurBlock(solstruct &sol, resstruct &res, appstruct &app, 
       PGEMNMStridedBached(handle, m12, 1, n, minusone, res.Ki, m12, Ru, n, one, res.Ri, m12, ne, backend);                 
     }
     
-    if (common.debugMode==1) {    
+    if (common.outputparams.debugMode==1) {    
       std::string filename;
       if (common.mpiProcs==1)
         filename = common.fileout;

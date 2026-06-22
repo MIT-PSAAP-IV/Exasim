@@ -1732,7 +1732,24 @@ struct couplingparamsstruct {
     Int nvindx;
 };
 
+// Output / checkpoint / IO configuration: solution-save frequencies and options, restart offset,
+// time-averaged-solution flags, residual-norm logging, file offset, and debug mode. Grouped out of
+// commonstruct (C3). Access via common.outputparams.<field>.
+struct outputparamsstruct {
+    Int saveSolFreq;       // steps between solution saves
+    Int saveSolOpt;        // solution-save option
+    Int saveRestart=200;   // steps between restart saves
+    Int saveSolBouFreq=0;  // steps between boundary-solution saves
+    Int timestepOffset=0;  // timestep offset to restart the simulation
+    Int compudgavg=1;      // compute time-averaged solution
+    Int readudgavg=0;      // read time-averaged solution from file
+    Int saveResNorm=0;     // log residual norms
+    Int fileoffset;        // file/rank offset for IO
+    Int debugMode;         // debug output flag
+};
+
 struct commonstruct {
+    outputparamsstruct outputparams;      // output/checkpoint/IO configuration (see above)
     couplingparamsstruct couplingparams;  // interface-coupling configuration (see above)
     qoiparamsstruct qoiparams;          // QoI/visualization-output configuration (see above)
     timeparamsstruct timeparams;        // time-integration/problem-evolution config (see above)
@@ -1825,19 +1842,9 @@ struct commonstruct {
         
     
     Int curvedMesh;// curved mesh   
-    Int fileoffset;
-    Int debugMode; // 1: save data to binary files for debugging
-    Int saveSolFreq;      // number of time steps to save the solution
-    Int saveSolOpt;       // option to save the solution
-    Int saveRestart=200;  // number of time steps to save the solution for restarting
-    Int timestepOffset=0; // timestep offset to restart the simulation 
     Int stgNmode=0;       // number of synthetic turbulence generation modes
     Int modelnumber;      // model number
     Int builtinmodelID=0; // model ID
-    Int saveSolBouFreq=0; // number of time steps to save the solution on the boundary
-    Int compudgavg=1;     // compute time-averaged solution udg
-    Int readudgavg=0;     // flag to read time-averaged solution udg from file
-    Int saveResNorm=0;   
     Int matrixformat=0;
     
     Int spatialScheme;   /* 0: HDG; 1: EDG; 2: IEDG, HEDG */
@@ -1985,20 +1992,20 @@ struct commonstruct {
       printf("external fhat function flag: %d\n", couplingparams.extFhat);
       printf("external stabilization function flag: %d\n", couplingparams.extStab);
       printf("curved mesh flag: %d\n", curvedMesh);
-      printf("debug mode flag: %d\n", debugMode);
+      printf("debug mode flag: %d\n", outputparams.debugMode);
       printf("time-dependent problem flag: %d\n", timeparams.tdep);
       printf("wave problem flag: %d\n", timeparams.wave);
       printf("linear problem flag: %d\n", timeparams.linearProblem);
-      printf("save solution frequency: %d\n", saveSolFreq);
-      printf("save solution option: %d\n", saveSolOpt);
-      printf("timestep offset to restart simulation: %d\n", timestepOffset);
+      printf("save solution frequency: %d\n", outputparams.saveSolFreq);
+      printf("save solution option: %d\n", outputparams.saveSolOpt);
+      printf("timestep offset to restart simulation: %d\n", outputparams.timestepOffset);
       printf("time-derivative function flag: %d\n", timeparams.tdfunc);
       printf("source function flag: %d\n", physicsparams.source);
       printf("model number: %d\n", modelnumber);
       printf("boundary index to save solution: %d\n", qoiparams.ibs);
-      printf("save solution boundary frequency: %d\n", saveSolBouFreq);
-      printf("compute time-averaged solution flag: %d\n", compudgavg);
-      printf("read time-averaged solution flag: %d\n", readudgavg);
+      printf("save solution boundary frequency: %d\n", outputparams.saveSolBouFreq);
+      printf("compute time-averaged solution flag: %d\n", outputparams.compudgavg);
+      printf("read time-averaged solution flag: %d\n", outputparams.readudgavg);
     
       printf("number of components of artificial viscosity: %d\n", physicsparams.ncAV);
       printf("number of artificial viscosity smoothing iterations: %d\n", physicsparams.AVsmoothingIter);

@@ -535,7 +535,7 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
     }
 
     if (common.mpiRank==0) {
-      if (common.debugMode==1) {
+      if (common.outputparams.debugMode==1) {
         common.printinfo();
         app.printinfo();
         res.printinfo();
@@ -1099,7 +1099,7 @@ void CDiscretization::getInterfaceFluxesAtGaussPoints(dstype *flux, dstype* xdgg
 
 void CDiscretization::computeAverageSolutionsOnBoundary() 
 {   
-    if ( common.saveSolBouFreq>0 ) {
+    if ( common.outputparams.saveSolBouFreq>0 ) {
         for (Int j=0; j<common.nbf; j++) {
             Int ib = common.fblks[3*j+2];            
             if (ib == common.qoiparams.ibs) {     

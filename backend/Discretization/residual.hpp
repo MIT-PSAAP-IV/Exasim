@@ -610,7 +610,7 @@ inline void Residual(solstruct &sol, resstruct &res, appstruct &app, masterstruc
     if (common.timeparams.tdep==1) 
         ArrayMultiplyScalar(res.Ru, one/common.timestate.dtfactor, common.ndof1);                
     
-    if (common.debugMode==1) {
+    if (common.outputparams.debugMode==1) {
         writearray2file(common.fileout + "_uh.bin", sol.uh, common.npf*common.ncu*common.nf, backend);
         writearray2file(common.fileout + "_udg.bin", sol.udg, common.npe*common.nc*common.ne, backend);
         writearray2file(common.fileout + "_Ru.bin", res.Ru, common.npe*common.ncu*common.ne, backend);
@@ -858,7 +858,7 @@ inline void dResidual(solstruct &sol, resstruct &res, appstruct &app, masterstru
     { 
         ArrayMultiplyScalar(res.dRu, one/common.timestate.dtfactor, common.ndof1, backend); 
     }
-    if (common.debugMode==1) {
+    if (common.outputparams.debugMode==1) {
         writearray2file(common.fileout + "enz_uh.bin", sol.uh, common.npf*common.ncu*common.nf, backend);
         writearray2file(common.fileout + "enz_udg.bin", sol.udg, common.npe*common.nc*common.ne, backend);
         writearray2file(common.fileout + "enz_Ru.bin", res.Ru, common.npe*common.ncu*common.ne, backend);
@@ -882,7 +882,7 @@ inline void ComputeQ(solstruct &sol, resstruct &res, appstruct &app, masterstruc
         GetQ<M>(sol, res, app, master, mesh, tmp, common, handle, 0, common.nbe, 0, common.nbf, backend);    
     }        
     
-    if (common.debugMode==1) {
+    if (common.outputparams.debugMode==1) {
         writearray2file(common.fileout + "_udg.bin", sol.udg, common.npe*common.nc*common.ne, backend);
     }
 }

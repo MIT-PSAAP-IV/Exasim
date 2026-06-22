@@ -235,11 +235,11 @@ int main(int argc, char** argv)
         pdemodel[i]->disc.common.ncarray = new Int[nummodels]; 
         pdemodel[i]->disc.sol.udgarray = new dstype*[nummodels]; // array of pointers pointing to udg
         
-        if (pdemodel[i]->disc.common.timestepOffset>0)
-            restart = pdemodel[i]->disc.common.timestepOffset;    
+        if (pdemodel[i]->disc.common.outputparams.timestepOffset>0)
+            restart = pdemodel[i]->disc.common.outputparams.timestepOffset;    
         
         if (restart>0) {
-            pdemodel[i]->disc.common.timestepOffset = restart;
+            pdemodel[i]->disc.common.outputparams.timestepOffset = restart;
             pdemodel[i]->disc.common.timestate.time = restart*pdemodel[i]->disc.common.dt[0];            
         }              
     }            
