@@ -202,7 +202,7 @@ function s = visscalars(u, q, w, v, x, t, mu, eta)
     xp = p - pmin;
     dp = atan(alpha*xp)/pi + (alpha*xp)/(pi*(alpha^2*xp^2 + 1)) + 0.5;
 
-    s = [M; Tphys; dp];
+    s = [M; Tphys; p; dp];
 end
 
 function s = visvectors(u, q, w, v, x, t, mu, eta)
