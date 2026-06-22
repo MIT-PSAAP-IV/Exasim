@@ -394,7 +394,7 @@ inline void hdgGetQ(dstype *udg, dstype *uhat, solstruct &sol, resstruct &res, m
 
     dstype scalar = 1.0;
     if (common.wave==1)
-        scalar = 1.0/common.dtfactor;    
+        scalar = 1.0/common.timestate.dtfactor;    
     
     // Solve: dtfactor * M * q = C * u - E * uhat + M * s
     //        q = (1/dtfactor) * (Minv * C * u - Minv * E * uhat + s)

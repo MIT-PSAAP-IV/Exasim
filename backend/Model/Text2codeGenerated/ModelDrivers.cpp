@@ -11,7 +11,7 @@ inline void FluxDriver(dstype* f, const dstype* xg, const dstype* udg, const dst
   Int ncx = common.ncx;// number of compoments of (xdg)        
   Int nd = common.nd;     // spatial dimension    
   Int numPoints = nge*(e2-e1);              
-  dstype time = common.time;
+  dstype time = common.timestate.time;
 
   KokkosFlux(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time,
                 common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);                
@@ -28,7 +28,7 @@ inline void SourceDriver(dstype* f, const dstype* xg, const dstype* udg, const d
   Int ncx = common.ncx;// number of compoments of (xdg)        
   Int nd = common.nd;     // spatial dimension    
   Int numPoints = nge*(e2-e1);              
-  dstype time = common.time;
+  dstype time = common.timestate.time;
             
   KokkosSource(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, 
               common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);                       
@@ -46,7 +46,7 @@ inline void SourcewDriver(dstype* f, const dstype* xg, const dstype* udg, const 
   Int nd = common.nd;     // spatial dimension    
   Int ne = e2-e1;
   Int numPoints = npe*ne;              
-  dstype time = common.time;            
+  dstype time = common.timestate.time;            
   
   KokkosSourcew(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, common.modelnumber,
               numPoints, nc, ncu, nd, ncx, nco, ncw, ncw, npe, ne);                
@@ -67,7 +67,7 @@ inline void OutputDriver(dstype* f, const dstype* xg, const dstype* udg, const d
   Int ne = common.ne;
   Int numPoints = npe*ne;              
 
-  dstype time = common.time;
+  dstype time = common.timestate.time;
 
   KokkosOutput(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, 
               common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne);                
@@ -88,7 +88,7 @@ inline void MonitorDriver(dstype* f, Int nc_sol, const dstype* xg, const dstype*
   Int ne = common.ne;
   Int numPoints = npe*ne;              
 
-  dstype time = common.time;
+  dstype time = common.timestate.time;
 
   KokkosMonitor(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, 
           common.modelnumber, numPoints, nc_sol, ncu, nd, ncx, nco, ncw, ncm, npe, ne);                
@@ -109,7 +109,7 @@ inline void AvfieldDriver(dstype* f, const dstype* xg, const dstype* udg, const 
   Int ne = common.ne;
   Int numPoints = npe*ne;              
 
-  dstype time = common.time;
+  dstype time = common.timestate.time;
 
   KokkosAvfield(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, common.modelnumber, 
               numPoints, nc, ncu, nd, ncx, nco, ncw, nco, npe, ne);                
@@ -127,7 +127,7 @@ inline void EosDriver(dstype* f, const dstype* xg, const dstype* udg, const dsty
   Int nd = common.nd;     // spatial dimension    
   Int ne = e2-e1;
   Int numPoints = npe*ne;              
-  dstype time = common.time;            
+  dstype time = common.timestate.time;            
   
   KokkosEoS(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, common.modelnumber,
               numPoints, nc, ncu, nd, ncx, nco, ncw, ncw, npe, ne);                                          
@@ -145,7 +145,7 @@ inline void EosduDriver(dstype* f, const dstype* xg, const dstype* udg, const ds
   Int nd = common.nd;     // spatial dimension    
   Int ne = e2-e1;
   Int numPoints = npe*ne;              
-  dstype time = common.time;            
+  dstype time = common.timestate.time;            
   
   KokkosEoSdu(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, common.modelnumber,
               numPoints, nc, ncu, nd, ncx, nco, ncw, ncw*ncu, npe, ne);                  
@@ -163,7 +163,7 @@ inline void EosdwDriver(dstype* f, const dstype* xg, const dstype* udg, const ds
   Int nd = common.nd;     // spatial dimension    
   Int ne = e2-e1;
   Int numPoints = npe*ne;              
-  dstype time = common.time;            
+  dstype time = common.timestate.time;            
   
   KokkosEoSdw(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, common.modelnumber,
               numPoints, nc, ncu, nd, ncx, nco, ncw, ncw*ncw, npe, ne);                        
@@ -180,7 +180,7 @@ inline void TdfuncDriver(dstype* f, const dstype* xg, const dstype* udg, const d
   Int ncx = common.ncx;// number of compoments of (xdg)        
   Int nd = common.nd;     // spatial dimension    
   Int numPoints = nge*(e2-e1);              
-  dstype time = common.time;
+  dstype time = common.timestate.time;
 
   KokkosTdfunc(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, 
               common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);                
@@ -200,7 +200,7 @@ inline void FhatDriver(dstype* fg, const dstype* xg, const dstype* ug1, const ds
   Int M = numPoints * ncu;
   Int N = numPoints*ncu*nd;
   Int ntau = common.ntau;
-  dstype time = common.time; 
+  dstype time = common.timestate.time; 
   
   if (common.extFhat==1) { 
     KokkosFhat(fg, xg, ug1, ug2, og1, og2, wg1, wg2, uh, nl, app.tau, app.uinf, app.physicsparam, 
@@ -255,7 +255,7 @@ inline void FbouDriver(dstype* fb, const dstype* xg, const dstype* udg, const ds
     Int ncx = common.ncx;// number of compoments of (xdg)        
     Int nd = common.nd;     // spatial dimension        
     Int numPoints = ngf*(f2-f1);
-    dstype time = common.time;    
+    dstype time = common.timestate.time;    
 
     KokkosFbou(fb, xg, udg, odg, wdg, uhg, nl, app.tau, app.uinf, app.physicsparam, time, 
                       common.modelnumber, ib, numPoints, nc, ncu, nd, ncx, nco, ncw);
@@ -273,7 +273,7 @@ inline void UhatDriver(dstype* fg, dstype* xg, dstype* ug1, dstype* ug2, const d
     Int ncx = common.ncx;// number of compoments of (xdg)        
     Int nd = common.nd;     // spatial dimension            
     Int numPoints = ngf*(f2-f1);
-    dstype time = common.time; 
+    dstype time = common.timestate.time; 
     
     if (common.extUhat==1) { 
       KokkosUhat(fg, xg, ug1, ug2, og1, og2, wg1, wg2, uh, nl, app.tau, app.uinf, app.physicsparam, 
@@ -295,7 +295,7 @@ inline void UbouDriver(dstype* ub, const dstype* xg, const dstype* udg, const ds
     Int ncx = common.ncx;// number of compoments of (xdg)        
     Int nd = common.nd;     // spatial dimension        
     Int numPoints = ngf*(f2-f1);
-    dstype time = common.time;    
+    dstype time = common.timestate.time;    
 
     KokkosUbou(ub, xg, udg, odg, wdg, uhg, nl, app.tau, app.uinf, app.physicsparam, time, 
                       common.modelnumber, ib, numPoints, nc, ncu, nd, ncx, nco, ncw);
@@ -394,7 +394,7 @@ inline void FluxDriver(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xg
   Int ncx = common.ncx;// number of compoments of (xdg)        
   Int nd = common.nd;     // spatial dimension    
   Int numPoints = nge*(e2-e1);              
-  dstype time = common.time;
+  dstype time = common.timestate.time;
 
   HdgFlux(f, f_udg, f_wdg, xg, udg, odg, wdg, app.uinf, app.physicsparam, time,
                 common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);         
@@ -411,7 +411,7 @@ inline void SourceDriver(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* 
   Int ncx = common.ncx;// number of compoments of (xdg)        
   Int nd = common.nd;     // spatial dimension    
   Int numPoints = nge*(e2-e1);              
-  dstype time = common.time;
+  dstype time = common.timestate.time;
             
   HdgSource(f, f_udg, f_wdg, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, 
               common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);                       
@@ -428,7 +428,7 @@ inline void SourcewDriver(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype*
   Int ncx = common.ncx;// number of compoments of (xdg)        
   Int nd = common.nd;     // spatial dimension    
   Int numPoints = nge*(e2-e1);    
-  dstype time = common.time;            
+  dstype time = common.timestate.time;            
   
   HdgSourcew(f, f_udg, f_wdg, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, 
               common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);                       
@@ -445,7 +445,7 @@ inline void SourcewDriver(dstype* f, dstype* f_wdg, const dstype* xg, const dsty
   Int ncx = common.ncx;// number of compoments of (xdg)        
   Int nd = common.nd;     // spatial dimension    
   Int numPoints = nge*(e2-e1);    
-  dstype time = common.time;            
+  dstype time = common.timestate.time;            
   
   HdgSourcewonly(f, f_wdg, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, 
               common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);                       
@@ -462,7 +462,7 @@ inline void EosDriver(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xg,
   Int ncx = common.ncx;// number of compoments of (xdg)        
   Int nd = common.nd;     // spatial dimension    
   Int numPoints = nge*(e2-e1);    
-  dstype time = common.time;            
+  dstype time = common.timestate.time;            
   
   HdgEoS(f, f_udg, f_wdg, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, 
               common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);                           
@@ -479,7 +479,7 @@ inline void FbouDriver(dstype* f,  dstype* f_udg, dstype* f_wdg, dstype* f_uhg, 
     Int ncx = common.ncx;// number of compoments of (xdg)        
     Int nd = common.nd;     // spatial dimension        
     Int numPoints = nga;
-    dstype time = common.time;    
+    dstype time = common.timestate.time;    
 
 
     HdgFbou(f, f_udg, f_wdg, f_uhg, xg, udg, odg, wdg, uhg, nl, app.tau, app.uinf, app.physicsparam, time, 
@@ -498,7 +498,7 @@ inline void FbouDriver(dstype* f, dstype* xg, const dstype* udg, const dstype*  
     Int ncx = common.ncx;// number of compoments of (xdg)        
     Int nd = common.nd;     // spatial dimension        
     Int numPoints = nga;
-    dstype time = common.time;    
+    dstype time = common.timestate.time;    
 
     HdgFbouonly(f, xg, udg, odg, wdg, uhg, nl, app.tau, app.uinf, app.physicsparam, time, 
                       common.modelnumber, ib, numPoints, nc, ncu, nd, ncx, nco, ncw);
@@ -515,7 +515,7 @@ inline void FintDriver(dstype* f,  dstype* f_udg, dstype* f_wdg, dstype* f_uhg, 
     Int ncx = common.ncx;// number of compoments of (xdg)        
     Int nd = common.nd;     // spatial dimension        
     Int numPoints = nga;
-    dstype time = common.time;    
+    dstype time = common.timestate.time;    
 
 
     HdgFint(f, f_udg, f_wdg, f_uhg, xg, udg, odg, wdg, uhg, nl, app.tau, app.uinf, app.physicsparam, time, 
@@ -533,7 +533,7 @@ inline void FintDriver(dstype* f, dstype* xg, const dstype* udg, const dstype*  
     Int ncx = common.ncx;// number of compoments of (xdg)        
     Int nd = common.nd;     // spatial dimension        
     Int numPoints = nga;
-    dstype time = common.time;    
+    dstype time = common.timestate.time;    
 
     HdgFintonly(f, xg, udg, odg, wdg, uhg, nl, app.tau, app.uinf, app.physicsparam, time, 
                       common.modelnumber, ib, numPoints, nc, ncu, nd, ncx, nco, ncw);
@@ -543,7 +543,7 @@ inline void FextDriver(dstype* f,  dstype* f_udg, dstype* f_wdg, dstype* f_uhg, 
         const dstype*  odg, const dstype*  wdg, dstype* uhg, const dstype* nl, const dstype* uext, meshstruct &mesh, 
         masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, commonstruct &common, Int nga, Int ib, Int backend)
 {
-    HdgFext(f, f_udg, f_wdg, f_uhg, xg, udg, odg, wdg, uhg, nl, uext, app.tau, app.uinf, app.physicsparam, common.time, 
+    HdgFext(f, f_udg, f_wdg, f_uhg, xg, udg, odg, wdg, uhg, nl, uext, app.tau, app.uinf, app.physicsparam, common.timestate.time, 
               common.modelnumber, ib, nga, common.nc, common.ncu, common.nd, common.ncx, common.nco, common.ncw);
 }
 
@@ -551,7 +551,7 @@ inline void FextDriver(dstype* f, dstype* xg, const dstype* udg, const dstype*  
         const dstype* nl, const dstype* uext, meshstruct &mesh, masterstruct &master, appstruct &app, 
         solstruct &sol, tempstruct &temp, commonstruct &common, Int nga, Int ib, Int backend)
 {
-    HdgFextonly(f, xg, udg, odg, wdg, uhg, nl, uext, app.tau, app.uinf, app.physicsparam, common.time, 
+    HdgFextonly(f, xg, udg, odg, wdg, uhg, nl, uext, app.tau, app.uinf, app.physicsparam, common.timestate.time, 
               common.modelnumber, ib, nga, common.nc, common.ncu, common.nd, common.ncx, common.nco, common.ncw);
 }
 
@@ -569,7 +569,7 @@ inline void FhatDriver(dstype* f,  dstype* f_udg, dstype* f_wdg, dstype* f_uhg, 
     Int M = numPoints * ncu;
     Int N = numPoints*ncu*nd;
 
-    dstype time = common.time;    
+    dstype time = common.timestate.time;    
     
     // copy u-compoment of udg to f_uhg
     ArrayCopy(f_uhg, udg, numPoints*ncu);
@@ -625,7 +625,7 @@ inline void FhatDriver(dstype* f, dstype* u, const dstype* xg, dstype* udg, cons
     Int M = numPoints * ncu;
     //Int N = numPoints*ncu*nd;
 
-    dstype time = common.time;    
+    dstype time = common.timestate.time;    
 
     // copy u-compoment of udg to u
     ArrayCopy(u, udg, numPoints*ncu);
@@ -658,7 +658,7 @@ inline void VisScalarsDriver(dstype* f, const dstype* xg, const dstype* udg, con
   Int ncx = common.ncx;// number of compoments of (xdg)        
   Int nd = common.nd;     // spatial dimension    
   Int numPoints = nge*(e2-e1);              
-  dstype time = common.time;
+  dstype time = common.timestate.time;
             
   KokkosVisScalars(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, 
               common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);                       
@@ -675,7 +675,7 @@ inline void VisVectorsDriver(dstype* f, const dstype* xg, const dstype* udg, con
   Int ncx = common.ncx;// number of compoments of (xdg)        
   Int nd = common.nd;     // spatial dimension    
   Int numPoints = nge*(e2-e1);              
-  dstype time = common.time;
+  dstype time = common.timestate.time;
             
   KokkosVisVectors(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, 
               common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);                       
@@ -692,7 +692,7 @@ inline void VisTensorsDriver(dstype* f, const dstype* xg, const dstype* udg, con
   Int ncx = common.ncx;// number of compoments of (xdg)        
   Int nd = common.nd;     // spatial dimension    
   Int numPoints = nge*(e2-e1);              
-  dstype time = common.time;
+  dstype time = common.timestate.time;
             
   KokkosVisTensors(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, 
               common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);                       
@@ -709,7 +709,7 @@ inline void QoIvolumeDriver(dstype* f, const dstype* xg, const dstype* udg, cons
   Int ncx = common.ncx;// number of compoments of (xdg)        
   Int nd = common.nd;     // spatial dimension    
   Int numPoints = nge*(e2-e1);              
-  dstype time = common.time;
+  dstype time = common.timestate.time;
             
   KokkosQoIvolume(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, 
               common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);                       
@@ -726,7 +726,7 @@ inline void QoIboundaryDriver(dstype* fb, const dstype* xg, const dstype* udg, c
     Int ncx = common.ncx;// number of compoments of (xdg)        
     Int nd = common.nd;     // spatial dimension        
     Int numPoints = ngf*(f2-f1);
-    dstype time = common.time;    
+    dstype time = common.timestate.time;    
 
     KokkosQoIboundary(fb, xg, udg, odg, wdg, uhg, nl, app.tau, app.uinf, app.physicsparam, time, 
                       common.modelnumber, ib, numPoints, nc, ncu, nd, ncx, nco, ncw);

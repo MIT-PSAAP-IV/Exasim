@@ -25,7 +25,7 @@ void FluxDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int ncx = common.ncx;
     Int nd = common.nd;
     Int numPoints = nge * (e2 - e1);
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     abi.KokkosFlux(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time,
                    common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);
@@ -44,7 +44,7 @@ void SourceDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int ncx = common.ncx;
     Int nd = common.nd;
     Int numPoints = nge * (e2 - e1);
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     abi.KokkosSource(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time,
                      common.modelnumber, numPoints, nc, ncu, nd, ncx, nco,
@@ -65,7 +65,7 @@ void SourcewDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int nd = common.nd;
     Int ne = e2 - e1;
     Int numPoints = npe * ne;
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     abi.KokkosSourcew(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time,
                       common.modelnumber, numPoints, nc, ncu, nd, ncx, nco,
@@ -88,7 +88,7 @@ void OutputDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int npe = common.npe;
     Int ne = common.ne;
     Int numPoints = npe * ne;
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     abi.KokkosOutput(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time,
                      common.modelnumber, numPoints, nc, ncu, nd, ncx, nco,
@@ -110,7 +110,7 @@ void MonitorDriver(dstype* f, Int nc_sol, const dstype* xg,
     Int npe = common.npe;
     Int ne = common.ne;
     Int numPoints = npe * ne;
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     abi.KokkosMonitor(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time,
                       common.modelnumber, numPoints, nc_sol, ncu, nd, ncx,
@@ -132,7 +132,7 @@ void AvfieldDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int npe = common.npe;
     Int ne = common.ne;
     Int numPoints = npe * ne;
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     abi.KokkosAvfield(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time,
                       common.modelnumber, numPoints, nc, ncu, nd, ncx, nco,
@@ -153,7 +153,7 @@ void EosDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int nd = common.nd;
     Int ne = e2 - e1;
     Int numPoints = npe * ne;
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     abi.KokkosEoS(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time,
                   common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw,
@@ -174,7 +174,7 @@ void EosduDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int nd = common.nd;
     Int ne = e2 - e1;
     Int numPoints = npe * ne;
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     abi.KokkosEoSdu(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time,
                     common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw,
@@ -195,7 +195,7 @@ void EosdwDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int nd = common.nd;
     Int ne = e2 - e1;
     Int numPoints = npe * ne;
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     abi.KokkosEoSdw(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time,
                     common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw,
@@ -215,7 +215,7 @@ void TdfuncDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int ncx = common.ncx;
     Int nd = common.nd;
     Int numPoints = nge * (e2 - e1);
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     abi.KokkosTdfunc(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time,
                      common.modelnumber, numPoints, nc, ncu, nd, ncx, nco,
@@ -240,7 +240,7 @@ void FhatDriver(dstype* fg, const dstype* xg, const dstype* ug1,
     Int M = numPoints * ncu;
     Int N = numPoints * ncu * nd;
     Int ntau = common.ntau;
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     if (common.extFhat == 1) {
         abi.KokkosFhat(fg, xg, ug1, ug2, og1, og2, wg1, wg2, uh, nl, app.tau,
@@ -296,7 +296,7 @@ void FbouDriver(dstype* fb, const dstype* xg, const dstype* udg,
     Int ncx = common.ncx;
     Int nd = common.nd;
     Int numPoints = ngf * (f2 - f1);
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     abi.KokkosFbou(fb, xg, udg, odg, wdg, uhg, nl, app.tau, app.uinf,
                    app.physicsparam, time, common.modelnumber, ib, numPoints,
@@ -318,7 +318,7 @@ void FbouJacDriver(dstype* fb, dstype* fb_udg, dstype* fb_wdg,
     Int ncx = common.ncx;
     Int nd = common.nd;
     Int numPoints = nga;
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     abi.KokkosFbouJac(fb, fb_udg, fb_wdg, fb_uhg, xg, udg, odg, wdg, uhg,
                       nl, app.tau, app.uinf, app.physicsparam, time,
@@ -354,7 +354,7 @@ void UhatDriver(dstype* fg, dstype* xg, dstype* ug1, dstype* ug2,
     Int ncx = common.ncx;
     Int nd = common.nd;
     Int numPoints = ngf * (f2 - f1);
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     if (common.extUhat == 1) {
         abi.KokkosUhat(fg, xg, ug1, ug2, og1, og2, wg1, wg2, uh, nl, app.tau,
@@ -381,7 +381,7 @@ void UbouDriver(dstype* ub, const dstype* xg, const dstype* udg,
     Int ncx = common.ncx;
     Int nd = common.nd;
     Int numPoints = ngf * (f2 - f1);
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     abi.KokkosUbou(ub, xg, udg, odg, wdg, uhg, nl, app.tau, app.uinf,
                    app.physicsparam, time, common.modelnumber, ib, numPoints,
@@ -403,7 +403,7 @@ void UbouJacDriver(dstype* ub, dstype* ub_udg, dstype* ub_wdg,
     Int ncx = common.ncx;
     Int nd = common.nd;
     Int numPoints = nga;
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     abi.KokkosUbouJac(ub, ub_udg, ub_wdg, ub_uhg, xg, udg, odg, wdg, uhg,
                       nl, app.tau, app.uinf, app.physicsparam, time,
@@ -548,7 +548,7 @@ void FluxDriver(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xg,
     Int ncx = common.ncx;
     Int nd = common.nd;
     Int numPoints = nge * (e2 - e1);
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     abi.HdgFlux(f, f_udg, f_wdg, xg, udg, odg, wdg, app.uinf,
                 app.physicsparam, time, common.modelnumber, numPoints, nc,
@@ -569,7 +569,7 @@ void SourceDriver(dstype* f, dstype* f_udg, dstype* f_wdg,
     Int ncx = common.ncx;
     Int nd = common.nd;
     Int numPoints = nge * (e2 - e1);
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     abi.HdgSource(f, f_udg, f_wdg, xg, udg, odg, wdg, app.uinf,
                   app.physicsparam, time, common.modelnumber, numPoints, nc,
@@ -590,7 +590,7 @@ void SourcewDriver(dstype* f, dstype* f_udg, dstype* f_wdg,
     Int ncx = common.ncx;
     Int nd = common.nd;
     Int numPoints = nge * (e2 - e1);
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     abi.HdgSourcew(f, f_udg, f_wdg, xg, udg, odg, wdg, app.uinf,
                    app.physicsparam, time, common.modelnumber, numPoints, nc,
@@ -611,7 +611,7 @@ void SourcewDriver(dstype* f, dstype* f_wdg, const dstype* xg,
     Int ncx = common.ncx;
     Int nd = common.nd;
     Int numPoints = nge * (e2 - e1);
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     abi.HdgSourcewonly(f, f_wdg, xg, udg, odg, wdg, app.uinf,
                        app.physicsparam, time, common.modelnumber, numPoints,
@@ -631,7 +631,7 @@ void EosDriver(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xg,
     Int ncx = common.ncx;
     Int nd = common.nd;
     Int numPoints = nge * (e2 - e1);
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     abi.HdgEoS(f, f_udg, f_wdg, xg, udg, odg, wdg, app.uinf,
                app.physicsparam, time, common.modelnumber, numPoints, nc, ncu,
@@ -652,7 +652,7 @@ void FbouDriver(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
     Int ncx = common.ncx;
     Int nd = common.nd;
     Int numPoints = nga;
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     abi.HdgFbou(f, f_udg, f_wdg, f_uhg, xg, udg, odg, wdg, uhg, nl, app.tau,
                 app.uinf, app.physicsparam, time, common.modelnumber, ib,
@@ -673,7 +673,7 @@ void FbouDriver(dstype* f, dstype* xg, const dstype* udg,
     Int ncx = common.ncx;
     Int nd = common.nd;
     Int numPoints = nga;
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     abi.HdgFbouonly(f, xg, udg, odg, wdg, uhg, nl, app.tau, app.uinf,
                     app.physicsparam, time, common.modelnumber, ib, numPoints,
@@ -694,7 +694,7 @@ void FintDriver(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
     Int ncx = common.ncx;
     Int nd = common.nd;
     Int numPoints = nga;
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     abi.HdgFint(f, f_udg, f_wdg, f_uhg, xg, udg, odg, wdg, uhg, nl, app.tau,
                 app.uinf, app.physicsparam, time, common.modelnumber, ib,
@@ -715,7 +715,7 @@ void FintDriver(dstype* f, dstype* xg, const dstype* udg,
     Int ncx = common.ncx;
     Int nd = common.nd;
     Int numPoints = nga;
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     abi.HdgFintonly(f, xg, udg, odg, wdg, uhg, nl, app.tau, app.uinf,
                     app.physicsparam, time, common.modelnumber, ib, numPoints,
@@ -731,7 +731,7 @@ void FextDriver(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
                 Int backend)
 {
     abi.HdgFext(f, f_udg, f_wdg, f_uhg, xg, udg, odg, wdg, uhg, nl, uext,
-                app.tau, app.uinf, app.physicsparam, common.time,
+                app.tau, app.uinf, app.physicsparam, common.timestate.time,
                 common.modelnumber, ib, nga, common.nc, common.ncu, common.nd,
                 common.ncx, common.nco, common.ncw);
 }
@@ -744,7 +744,7 @@ void FextDriver(dstype* f, dstype* xg, const dstype* udg,
                 Int nga, Int ib, Int backend)
 {
     abi.HdgFextonly(f, xg, udg, odg, wdg, uhg, nl, uext, app.tau, app.uinf,
-                    app.physicsparam, common.time, common.modelnumber, ib, nga,
+                    app.physicsparam, common.timestate.time, common.modelnumber, ib, nga,
                     common.nc, common.ncu, common.nd, common.ncx, common.nco,
                     common.ncw);
 }
@@ -765,7 +765,7 @@ void FhatDriver(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
     Int numPoints = nga;
     Int M = numPoints * ncu;
     Int N = numPoints * ncu * nd;
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     ArrayCopy(f_uhg, udg, numPoints * ncu);
     ArrayCopy(udg, uhg, numPoints * ncu);
@@ -807,7 +807,7 @@ void FhatDriver(dstype* f, dstype* u, const dstype* xg, dstype* udg,
     Int nd = common.nd;
     Int numPoints = nga;
     Int M = numPoints * ncu;
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     ArrayCopy(u, udg, numPoints * ncu);
     ArrayCopy(udg, uhg, numPoints * ncu);
@@ -835,7 +835,7 @@ void VisScalarsDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int ncx = common.ncx;
     Int nd = common.nd;
     Int numPoints = nge * (e2 - e1);
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     abi.KokkosVisScalars(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                          time, common.modelnumber, numPoints, nc, ncu, nd, ncx,
@@ -856,7 +856,7 @@ void VisVectorsDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int ncx = common.ncx;
     Int nd = common.nd;
     Int numPoints = nge * (e2 - e1);
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     abi.KokkosVisVectors(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                          time, common.modelnumber, numPoints, nc, ncu, nd, ncx,
@@ -877,7 +877,7 @@ void VisTensorsDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int ncx = common.ncx;
     Int nd = common.nd;
     Int numPoints = nge * (e2 - e1);
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     abi.KokkosVisTensors(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                          time, common.modelnumber, numPoints, nc, ncu, nd, ncx,
@@ -898,7 +898,7 @@ void QoIvolumeDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int ncx = common.ncx;
     Int nd = common.nd;
     Int numPoints = nge * (e2 - e1);
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     abi.KokkosQoIvolume(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                         time, common.modelnumber, numPoints, nc, ncu, nd, ncx,
@@ -920,7 +920,7 @@ void QoIboundaryDriver(dstype* fb, const dstype* xg, const dstype* udg,
     Int ncx = common.ncx;
     Int nd = common.nd;
     Int numPoints = ngf * (f2 - f1);
-    dstype time = common.time;
+    dstype time = common.timestate.time;
 
     abi.KokkosQoIboundary(fb, xg, udg, odg, wdg, uhg, nl, app.tau, app.uinf,
                           app.physicsparam, time, common.modelnumber, ib,

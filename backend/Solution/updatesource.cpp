@@ -39,11 +39,11 @@ void UpdateSourceDIRK(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriv
     Int dirkStage = common.tstages;
     
     dstype *dirkd = &common.DIRKcoeff_d[0];    
-    dstype dt = common.dt[common.currentstep];
+    dstype dt = common.dt[common.timestate.currentstep];
     
     /* Update fc_u and fc_q */                
-    dstype scalar = dirkd[common.currentstage*dirkStage+common.currentstage]/dt;
-    common.dtfactor = scalar;
+    dstype scalar = dirkd[common.timestate.currentstage*dirkStage+common.timestate.currentstage]/dt;
+    common.timestate.dtfactor = scalar;
     // fc_u = scalar*dtcoef_u
     ArrayAXPB(app.fc_u, app.dtcoef_u, scalar, zero, common.ncu);
     if (common.wave==1) 
@@ -53,7 +53,7 @@ void UpdateSourceDIRK(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriv
     ArrayExtract(res.Rq, sol.udg, npe, nc, ne, 0, npe, 0, ncs, 0, ne);          
              
     // update the source term due to the time derivative
-    switch (common.currentstage) {
+    switch (common.timestate.currentstage) {
         case 0:
             // source term for the first stage: sdg = (dirkd[0]/dt)*udg
             ArrayAXPB(sol.sdg, res.Rq, dirkd[0]/dt, zero, N);
@@ -80,7 +80,7 @@ void UpdateSourceDIRK(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriv
         Int ncw = common.ncw;
         N = npe*ncw*ne;
         // update the source term
-        switch (common.currentstage) {
+        switch (common.timestate.currentstage) {
             case 0:
                 ArrayAXPB(sol.wsrc, sol.wdg, dirkd[0]/dt, zero, N);
                 break;
@@ -108,11 +108,11 @@ void UpdateSourceBDF(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDrive
     Int npe = common.npe; // number of nodes on master element    
     Int ne = common.ne2; // number of elements in this subdomain 
     Int N = npe*ncs*ne;
-    dstype dt = common.dt[common.currentstep];
+    dstype dt = common.dt[common.timestate.currentstep];
     
     /* Update fc_u and fc_q */            
     dstype scalar = common.BDFcoeff_c[0]/dt;
-    common.dtfactor = scalar;
+    common.timestate.dtfactor = scalar;
     // fc_u = scalar*dtcoef_u
     ArrayAXPB(app.fc_u, app.dtcoef_u, scalar, zero, common.ncu);
     if (common.wave==1) 

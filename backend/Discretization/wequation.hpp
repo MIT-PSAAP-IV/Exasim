@@ -93,13 +93,13 @@ inline void wEquation(dstype *wdg, dstype *xdg, dstype *udg, dstype *odg, dstype
     //Int npe = common.npe; // number of nodes on master element    
     Int modelnumber = common.modelnumber;
     if  (common.builtinmodelID > 0) modelnumber = common.builtinmodelID;
-    dstype time = common.time;                
+    dstype time = common.timestate.time;                
     dstype *uinf = app.uinf;
     dstype *physicsparam = app.physicsparam;    
 
     if (common.wave==1) {
         // dw/dt = u -> (dtfactor * w - wsrc) = u -> w = (1/dtfactor) * (u + wsrc)
-        dstype scalar = one/common.dtfactor;
+        dstype scalar = one/common.timestate.dtfactor;
         ArrayAXPBY(wdg, udg, wsrc, scalar, scalar, ng*ncw);
     }        
     else {         
@@ -119,7 +119,7 @@ inline void wEquation(dstype *wdg, dstype *xdg, dstype *udg, dstype *odg, dstype
           // }
                     
           // alpha*dirkd/dt + beta
-          dstype scalar = common.dae_alpha*common.dtfactor + common.dae_beta;
+          dstype scalar = common.dae_alpha*common.timestate.dtfactor + common.dae_beta;
 
           // calculate residual vector = sourcew(u,q,w) + alpha * wsrc - (alpha * dtfactor + beta) w
           ArrayAdd3Vectors(s, s, wsrc, wdg, one, common.dae_alpha, -scalar, ng*ncw);                           
@@ -181,13 +181,13 @@ inline void wEquation(dstype *wdg, dstype *wdg_udg, dstype *xdg, dstype *udg, ds
     //Int npe = common.npe; // number of nodes on master element    
     Int modelnumber = common.modelnumber;
     if  (common.builtinmodelID > 0) modelnumber = common.builtinmodelID;
-    dstype time = common.time;                
+    dstype time = common.timestate.time;                
     dstype *uinf = app.uinf;
     dstype *physicsparam = app.physicsparam;
 
     if (common.wave==1) {
         // dw/dt = u -> (dtfactor * w - wsrc) = u -> w = (1/dtfactor) * (u + wsrc)
-        dstype scalar = one/common.dtfactor;
+        dstype scalar = one/common.timestate.dtfactor;
         ArrayAXPBY(wdg, udg, wsrc, scalar, scalar, ng*ncw);
         ArraySetValue(wdg_udg, scalar, ng*ncw*nc);
     }        
@@ -204,7 +204,7 @@ inline void wEquation(dstype *wdg, dstype *wdg_udg, dstype *xdg, dstype *udg, ds
           EXASIM_LEGACY_W_CALL(HdgSourcewonly(s, s_wdg, xdg, udg, odg, wdg, uinf, physicsparam, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw));            
           
           // alpha*dirkd/dt + beta
-          dstype scalar = common.dae_alpha*common.dtfactor + common.dae_beta;
+          dstype scalar = common.dae_alpha*common.timestate.dtfactor + common.dae_beta;
 
           // calculate residual vector = sourcew(u,q,w) + alpha * wsrc - (alpha * dtfactor + beta) w
           ArrayAdd3Vectors(s, s, wsrc, wdg, one, common.dae_alpha, -scalar, ng*ncw);                           

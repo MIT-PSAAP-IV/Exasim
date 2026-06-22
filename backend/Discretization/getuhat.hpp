@@ -94,7 +94,7 @@ inline void UhatBlock(solstruct &sol, resstruct &res, appstruct &app, masterstru
         }
         
         StgInflowLDG(tmp.tempn, xgb, ogb, app.physicsparam, app.stgdata, 
-                          app.stgparam, common.time, nga, common.stgNmode, common.nd);          
+                          app.stgparam, common.timestate.time, nga, common.stgNmode, common.nd);          
 
         PutElemNodes(sol.uh, tmp.tempn, npf, ncu, 0, ncu, f1, f2);
     }

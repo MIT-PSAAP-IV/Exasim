@@ -1621,8 +1621,19 @@ struct qoiinstancestruct {
     Int ncomp = 0;             // number of components this instance owns
 };
 
+// Mutable time-stepping runtime state, advanced in the step/stage loop. Grouped out of
+// commonstruct (C3) alongside solverstate so the simulation's mutable state is named and
+// isolated from the read-only configuration. Access via common.timestate.<field>.
+struct timestatestruct {
+    Int currentstep;   // current time step (loop counter)
+    Int currentstage;  // current time stage (loop counter)
+    dstype dtfactor;   // time-derivative factor for udg (set per stage)
+    dstype time;       // current simulation time
+};
+
 struct commonstruct {
     solverstatestruct solverstate;  // mutable solver/preconditioner runtime state (see above)
+    timestatestruct timestate;      // mutable time-stepping runtime state (see above)
     std::vector<qoiinstancestruct> qoiinstances;  // registered QoI instances (default: 1 domain + 1 boundary)
     // Runtime model ABI for the unified templated FEM code (M == AbiAdapter path): set by
     // CDiscretization to point at its driver_abi, so the no-driver_abi kernel-driver
@@ -1755,8 +1766,6 @@ struct commonstruct {
     Int tstages;    /* DIRK stages */
     Int tsteps;    /* number of time steps */
     Int dae_steps=0; /* number of dual time steps */
-    Int currentstep;  // current time step
-    Int currentstage; // curent time stage
     Int convStabMethod;  // Flag for convective stabilization tensor. 0: Constant tau, 1: Lax-Friedrichs; 2: Roe.
     Int diffStabMethod;  // Flag for diffusive stabilization tensor. 0: No diffusive stabilization.
     Int rotatingFrame;   // Flag for rotating frame. Options: 0: Velocities are respect to a non-rotating frame. 1: Velocities are respect to a rotating frame.
@@ -1788,8 +1797,6 @@ struct commonstruct {
     Int ninterfacefaces=0; // number of interface faces
     Int ndofuhatinterface=0;
     
-    dstype dtfactor; // factor asssociated with udg for temporal discretization
-    dstype time; // current simulation time    
     dstype matvecTol;
     dstype linearSolverTol;
     dstype nonlinearSolverTol;
@@ -1969,8 +1976,8 @@ struct commonstruct {
       printf("preconditioner matrix type: %d\n", precMatrixType);
       printf("PTC matrix type: %d\n", ptcMatrixType);
       printf("run mode: %d\n", runmode);
-      printf("time step factor: %f\n", dtfactor);
-      printf("current simulation time: %f\n", time);
+      printf("time step factor: %f\n", timestate.dtfactor);
+      printf("current simulation time: %f\n", timestate.time);
       printf("matrix-vector multiplication tolerance: %f\n", matvecTol);
       printf("linear solver tolerance: %f\n", linearSolverTol);
       printf("linear solver tolerance factor: %f\n", solverstate.linearSolverTolFactor);

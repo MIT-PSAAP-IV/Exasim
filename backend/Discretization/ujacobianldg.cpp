@@ -172,7 +172,7 @@ inline void uJacobianLDGDirect(dstype* AU, dstype* AQ, dstype* AW,
             app, sol, tmp, common, nge, e1, e2, backend);
 
     if (common.tdep) {
-        ArrayAXPBY(td, &sol.sdgg[nge*ncs*e1], uqg, one, -common.dtfactor, nga*ncu);
+        ArrayAXPBY(td, &sol.sdgg[nge*ncs*e1], uqg, one, -common.timestate.dtfactor, nga*ncu);
 
         if (common.tdfunc==1)
             TdfuncDriver(fg, xg, uqg, og, wg, driver_abi, mesh, master, app, sol, tmp, common, nge, e1, e2, backend);
@@ -181,7 +181,7 @@ inline void uJacobianLDGDirect(dstype* AU, dstype* AQ, dstype* AW,
 
         ArrayAXY(td, td, fg, one, nga*ncu);
         ArrayAXPBY(sg, sg, td, one, one, nga*ncu);
-        ApplyDtcoef(sg_uq, fg, -common.dtfactor, nga, ncu);
+        ApplyDtcoef(sg_uq, fg, -common.timestate.dtfactor, nga, ncu);
     }
 
     ArraySetValue(fg, zero, nga*ncu*nd);

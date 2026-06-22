@@ -67,8 +67,8 @@ int LinearSolver(sysstruct &sys, CDiscretization& disc, CPreconditioner& prec, o
     dstype oldnrm = PNORM(disc.common.cublasHandle, N, sys.b, backend); 
                 
     if (disc.common.mpiRank==0 && disc.common.saveResNorm==1 && it==1) {
-        disc.common.timing[120] = disc.common.currentstep + 1.0;
-        disc.common.timing[121] = disc.common.currentstage + 1.0;
+        disc.common.timing[120] = disc.common.timestate.currentstep + 1.0;
+        disc.common.timing[121] = disc.common.timestate.currentstage + 1.0;
         disc.common.timing[122] = 0.0; 
         disc.common.timing[123] = oldnrm;        
         writearray(out, &disc.common.timing[120], 4);    

@@ -852,7 +852,7 @@ int ExasimSolver::BuildModels()
 
         if (restart_ > 0) {
             models_[i]->disc.common.timestepOffset = restart_;
-            models_[i]->disc.common.time = restart_ * models_[i]->disc.common.dt[0];
+            models_[i]->disc.common.timestate.time = restart_ * models_[i]->disc.common.dt[0];
         }
     }
 
@@ -1067,7 +1067,7 @@ int ExasimSolver::InitializeSolution()
 {
     for (int i = 0; i < nummodels_; i++) {
         if (restart_ > 0) {
-            models_[i]->disc.common.currentstep = -1;
+            models_[i]->disc.common.timestate.currentstep = -1;
             models_[i]->ReadSolutions(backend_);
         }
         models_[i]->InitSolution(backend_);
@@ -1079,7 +1079,7 @@ int ExasimSolver::InitializeSolution()
 int ExasimSolver::InitializeSolution(const int i)
 {
     if (restart_ > 0) {
-        models_[i]->disc.common.currentstep = -1;
+        models_[i]->disc.common.timestate.currentstep = -1;
         models_[i]->ReadSolutions(backend_);
     }
     models_[i]->InitSolution(backend_);
@@ -1105,10 +1105,10 @@ int ExasimSolver::RunTimeDependent(const int modelnumber)
 
 int ExasimSolver::RunTimeDependent(Int start, Int steps)
 {
-    dstype time = models_[0]->disc.common.time;
+    dstype time = models_[0]->disc.common.timestate.time;
     for (Int istep = start; istep < start+steps; istep++) {
         for (int i = 0; i < nummodels_; i++) {
-            models_[i]->disc.common.currentstep = istep;
+            models_[i]->disc.common.timestate.currentstep = istep;
             PreviousSolutions(models_[i]->disc.sol, models_[i]->solv.sys,
                               models_[i]->disc.common, backend_);
         }
@@ -1121,8 +1121,8 @@ int ExasimSolver::RunTimeDependent(Int start, Int steps)
                        models_[0]->disc.common.DIRKcoeff_t[j]);
 
             for (int i = 0; i < nummodels_; i++) {
-                models_[i]->disc.common.currentstage = j;
-                models_[i]->disc.common.time =
+                models_[i]->disc.common.timestate.currentstage = j;
+                models_[i]->disc.common.timestate.time =
                     time + models_[i]->disc.common.dt[istep] *
                     models_[i]->disc.common.DIRKcoeff_t[j];
 
@@ -1167,9 +1167,9 @@ int ExasimSolver::RunTimeDependent(Int start, Int steps)
 
 int ExasimSolver::RunTimeDependent(const int i, Int start, Int steps)
 {
-    dstype time = models_[i]->disc.common.time;
+    dstype time = models_[i]->disc.common.timestate.time;
     for (Int istep = start; istep < start+steps; istep++) {
-        models_[i]->disc.common.currentstep = istep;
+        models_[i]->disc.common.timestate.currentstep = istep;
         PreviousSolutions(models_[i]->disc.sol, models_[i]->solv.sys,
                           models_[i]->disc.common, backend_);
         
@@ -1180,8 +1180,8 @@ int ExasimSolver::RunTimeDependent(const int i, Int start, Int steps)
                        time + models_[0]->disc.common.dt[istep] *
                        models_[0]->disc.common.DIRKcoeff_t[j]);
             
-            models_[i]->disc.common.currentstage = j;
-            models_[i]->disc.common.time =
+            models_[i]->disc.common.timestate.currentstage = j;
+            models_[i]->disc.common.timestate.time =
                 time + models_[i]->disc.common.dt[istep] *
                 models_[i]->disc.common.DIRKcoeff_t[j];
 
@@ -1278,13 +1278,13 @@ int ExasimSolver::RunSolveProblemOrPostprocess()
     for (int i = 0; i < nummodels_; i++) {
         if (models_[i]->disc.common.runmode == 0) {
             if (restart_ > 0) {
-                models_[i]->disc.common.currentstep = -1;
+                models_[i]->disc.common.timestate.currentstep = -1;
                 models_[i]->ReadSolutions(backend_);
             }
             models_[i]->SolveProblem(residual_outputs_[i], backend_);
         }
         else if (models_[i]->disc.common.runmode == 1) {
-            models_[i]->disc.common.currentstep = -1;
+            models_[i]->disc.common.timestate.currentstep = -1;
             models_[i]->ReadSolutions(backend_);
             if (models_[i]->disc.common.ncq > 0)
                 models_[i]->disc.evalQ(backend_);
@@ -1298,7 +1298,7 @@ int ExasimSolver::RunSolveProblemOrPostprocess()
         else if (models_[i]->disc.common.runmode == 2) {
             for (Int istep = 0; istep < models_[i]->disc.common.tsteps; istep++) {
                 if (((istep + 1) % models_[i]->disc.common.saveSolFreq) == 0) {
-                    models_[i]->disc.common.currentstep = istep;
+                    models_[i]->disc.common.timestate.currentstep = istep;
                     models_[i]->ReadSolutions(backend_);
                     if (models_[i]->disc.common.ncq > 0)
                         models_[i]->disc.evalQ(backend_);
@@ -1309,14 +1309,14 @@ int ExasimSolver::RunSolveProblemOrPostprocess()
         else if (models_[i]->disc.common.runmode == 3) {
             for (Int istep = 0; istep < models_[i]->disc.common.tsteps; istep++) {
                 if (((istep + 1) % models_[i]->disc.common.saveSolFreq) == 0) {
-                    models_[i]->disc.common.currentstep = istep;
+                    models_[i]->disc.common.timestate.currentstep = istep;
                     models_[i]->ReadSolutions(backend_);
                     models_[i]->SaveOutputCG(backend_);
                 }
             }
         }
         else if (models_[i]->disc.common.runmode == 4) {
-            models_[i]->disc.common.currentstep = -1;
+            models_[i]->disc.common.timestate.currentstep = -1;
             models_[i]->ReadSolutions(backend_);
             models_[i]->SolveProblem(residual_outputs_[i], backend_);
         }
@@ -1340,21 +1340,21 @@ int ExasimSolver::Postprocess()
 
     for (int i = 0; i < nummodels_; i++) {
         if (postmode_ == 0) {
-            models_[i]->disc.common.currentstep = -1;
+            models_[i]->disc.common.timestate.currentstep = -1;
             models_[i]->ReadSolutions(backend_);
             models_[i]->SaveQoI(backend_);
             if (models_[i]->vis.savemode > 0)
                 models_[i]->SaveParaview(backend_);
             models_[i]->SaveOutputCG(backend_);
         } else if (postmode_ == 1) {
-            models_[i]->disc.common.currentstep = restart_;
+            models_[i]->disc.common.timestate.currentstep = restart_;
             models_[i]->GetSolutions(restart_, backend_);
             models_[i]->SaveQoI(backend_);
             if (models_[i]->vis.savemode > 0) models_[i]->SaveParaview(backend_);
             models_[i]->SaveOutputCG(backend_);
         } else if (postmode_ > 1) {
             for (int j = 0; j < postmode_; j++) {
-              models_[i]->disc.common.currentstep = restart_ + j;
+              models_[i]->disc.common.timestate.currentstep = restart_ + j;
               models_[i]->GetSolutions(restart_ + j, backend_);
               models_[i]->SaveQoI(backend_);
               if (models_[i]->vis.savemode > 0) models_[i]->SaveParaview(backend_);

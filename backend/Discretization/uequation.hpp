@@ -129,7 +129,7 @@ inline void uEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, m
     
     if (common.tdep) { // for time-dependent problem                
         // calculate sdg - udg*dtfactor
-        ArrayAXPBY(fg, &sol.sdgg[nge*ncs*e1], uqg, one, -common.dtfactor, nga*ncu);                    
+        ArrayAXPBY(fg, &sol.sdgg[nge*ncs*e1], uqg, one, -common.timestate.dtfactor, nga*ncu);                    
       
         if (common.tdfunc==1) {
             // calculate the time derivative function Tdfunc(xdg, udg, odg)
@@ -145,13 +145,13 @@ inline void uEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, m
         ArrayAXPBY(sg, sg, fg, one, one, nga*ncu);     
         
         // calculate sg_u = source_u  - dtfactor*Tdfunc(xdg, udg, odg) 
-        ApplyDtcoef(sg_uq, fg_uq, -common.dtfactor, nga, ncu);                
+        ApplyDtcoef(sg_uq, fg_uq, -common.timestate.dtfactor, nga, ncu);                
         
 //         // calculate sg = source + (sdgg - udg*dtfactor)*Tdfunc(xdg, udg, odg) 
-//         ArrayAdd3Vectors(sg, sg, &sol.sdgg[nge*ncs*e1], uqg, one, one, -common.dtfactor, nga*ncu);        
+//         ArrayAdd3Vectors(sg, sg, &sol.sdgg[nge*ncs*e1], uqg, one, one, -common.timestate.dtfactor, nga*ncu);        
 //         
 //         // calculate sg_u = source_u  - dtfactor*Tdfunc(xdg, udg, odg) 
-//         ApplyDtcoef(sg_uq, -common.dtfactor, nga, ncu);                
+//         ApplyDtcoef(sg_uq, -common.timestate.dtfactor, nga, ncu);                
     }
                 
     // fg = nga*ncu*nd, sg = nga*ncu, fg_uq = nga*ncu*nd*nc, sg_uq = nga*ncu*nc
@@ -395,11 +395,11 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
         if (ncw > 0) ArraySetValue(fhb_w, 0.0, ngb*ncu*ncw);      
         if (ibc+1 == 1000) {
             StgInflowHDG(fhb, fhb_uq, fhb_w, fhb_uh, res.K, xgb, ogb, uhb, 
-                         app.physicsparam, app.stgdata, app.stgparam, common.time, 
+                         app.physicsparam, app.stgdata, app.stgparam, common.timestate.time, 
                          ngb, common.stgNmode, nd, ncu, nc, ncw);
         } else if (ibc+1 == 1001) {
             StgInFlowHDGchem(fhb, fhb_uq, fhb_w, fhb_uh, res.K, xgb, ogb, uhb,
-                             app.physicsparam, app.uinf, app.stgdata, app.stgparam, common.time,
+                             app.physicsparam, app.uinf, app.stgdata, app.stgparam, common.timestate.time,
                              ngb, common.stgNmode, nd, ncu, nc, ncw);
         } else {     
           if (common.ncuext > 0 && sol.szuext > 0 && (ibc+1 == common.FextCall)) {
@@ -629,7 +629,7 @@ inline void uEquationSchurBlock(solstruct &sol, resstruct &res, appstruct &app, 
         
     dstype scalar = 1.0;
     if (common.wave==1)
-        scalar = 1.0/common.dtfactor;    
+        scalar = 1.0/common.timestate.dtfactor;    
     
     if (common.ncq > 0) {      
       if (nd == 1) {
@@ -863,7 +863,7 @@ inline void RuEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, 
     
     if (common.tdep) { // for time-dependent problem                
         // calculate sdg = sdg-udg*dtfactor
-        ArrayAXPBY(sg, &sol.sdgg[nge*ncs*e1], uqg, one, -common.dtfactor, nga*ncu);            
+        ArrayAXPBY(sg, &sol.sdgg[nge*ncs*e1], uqg, one, -common.timestate.dtfactor, nga*ncu);            
         
         if (common.tdfunc==1) {
             // calculate the time derivative function Tdfunc(xdg, udg, odg)
@@ -1015,9 +1015,9 @@ inline void RuEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &a
         }
         
         if (ibc+1 == 1000) StgInflowHDG(fhb, &tmp.tempg[n8], xgb, ogb, uhb, app.physicsparam, app.stgdata, 
-                                app.stgparam, common.time, ngb, common.stgNmode, nd);          
+                                app.stgparam, common.timestate.time, ngb, common.stgNmode, nd);          
         else if (ibc+1 == 1001) StgInFlowHDGchem(fhb, &tmp.tempg[n8], xgb, ogb, uhb, app.physicsparam, app.uinf,
-                                app.stgdata, app.stgparam, common.time, ngb, common.stgNmode, nd);
+                                app.stgdata, app.stgparam, common.timestate.time, ngb, common.stgNmode, nd);
         else {
           if (common.ncuext > 0 && sol.szuext > 0  && (ibc+1 == common.FextCall)) {
             ArrayExtract(Rb, sol.uext, ngf, common.nextfaces[common.nbe1], common.ncuext, 0, ngf, common.nextfaces[jth], common.nextfaces[jth+1], 0, common.ncuext);  

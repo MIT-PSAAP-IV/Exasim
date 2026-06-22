@@ -545,7 +545,7 @@ int main(int argc, char** argv)
 // 
 //         if (restart>0) {
 //             pdemodel[i]->disc.common.timestepOffset = restart;
-//             pdemodel[i]->disc.common.time = restart*pdemodel[i]->disc.common.dt[0];            
+//             pdemodel[i]->disc.common.timestate.time = restart*pdemodel[i]->disc.common.dt[0];            
 //         }        
 // 
 //         if (pdemodel[i]->disc.common.mpiRank==0 && pdemodel[i]->disc.common.saveResNorm==1) {
@@ -571,21 +571,21 @@ int main(int argc, char** argv)
 //         // initialize 
 //         for (int i=0; i<nummodels; i++) {
 //             if (restart>0) {
-//                 pdemodel[i]->disc.common.currentstep = -1;
+//                 pdemodel[i]->disc.common.timestate.currentstep = -1;
 //                 pdemodel[i]->ReadSolutions(backend);  
 //             }            
 //             pdemodel[i]->InitSolution(backend);             
 //         }
 // 
 //         // initial time
-//         dstype time = pdemodel[0]->disc.common.time;           
+//         dstype time = pdemodel[0]->disc.common.timestate.time;           
 // 
 //         // time stepping with DIRK schemes
 //         for (Int istep=0; istep<pdemodel[0]->disc.common.tsteps; istep++)            
 //         {            
 //             for (int i=0; i<nummodels; i++) {
 //                 // current timestep        
-//                 pdemodel[i]->disc.common.currentstep = istep;
+//                 pdemodel[i]->disc.common.timestate.currentstep = istep;
 // 
 //                 // store previous solutions to calculate the source term        
 //                 PreviousSolutions(pdemodel[i]->disc.sol, pdemodel[i]->solv.sys, pdemodel[i]->disc.common, backend);
@@ -599,10 +599,10 @@ int main(int argc, char** argv)
 // 
 //                 for (int i=0; i<nummodels; i++) {
 //                     // current timestage
-//                     pdemodel[i]->disc.common.currentstage = j;
+//                     pdemodel[i]->disc.common.timestate.currentstage = j;
 // 
 //                     // current time
-//                     pdemodel[i]->disc.common.time = time + pdemodel[i]->disc.common.dt[istep]*pdemodel[i]->disc.common.DIRKcoeff_t[j];
+//                     pdemodel[i]->disc.common.timestate.time = time + pdemodel[i]->disc.common.dt[istep]*pdemodel[i]->disc.common.DIRKcoeff_t[j];
 // 
 //                     // update source term             
 //                     UpdateSource(pdemodel[i]->disc.sol, pdemodel[i]->solv.sys, pdemodel[i]->disc.app, pdemodel[i]->disc.res, pdemodel[i]->disc.common, backend);
@@ -645,7 +645,7 @@ int main(int argc, char** argv)
 //     // NOTE: Only works for 1 model
 //     else if ((pdemodel[0]->disc.common.tdep==1) && (pdemodel[0]->disc.common.runmode==10 || pdemodel[0]->disc.common.runmode==11)) {
 //         if (restart>0) {
-//             pdemodel[0]->disc.common.currentstep = -1;
+//             pdemodel[0]->disc.common.timestate.currentstep = -1;
 //             pdemodel[0]->ReadSolutions(backend);  
 //         }    
 //         pdemodel[0]->InitSolution(backend);    
@@ -658,13 +658,13 @@ int main(int argc, char** argv)
 //         for (int i=0; i<nummodels; i++) {                                
 //             if (pdemodel[i]->disc.common.runmode==0) {
 //                 if (restart>0) {
-//                     pdemodel[i]->disc.common.currentstep = -1;
+//                     pdemodel[i]->disc.common.timestate.currentstep = -1;
 //                     pdemodel[i]->ReadSolutions(backend);  
 //                 }
 //                 pdemodel[i]->SolveProblem(out[i], backend);           
 //             }
 //             else if (pdemodel[i]->disc.common.runmode==1){
-//                 pdemodel[i]->disc.common.currentstep = -1;
+//                 pdemodel[i]->disc.common.timestate.currentstep = -1;
 //                 pdemodel[i]->ReadSolutions(backend);   
 //                 if (pdemodel[i]->disc.common.ncq>0)
 //                     pdemodel[i]->disc.evalQ(backend);
@@ -679,7 +679,7 @@ int main(int argc, char** argv)
 //                 {                                            
 //                     if (((istep+1) % pdemodel[i]->disc.common.saveSolFreq) == 0)  
 //                     {
-//                         pdemodel[i]->disc.common.currentstep = istep;
+//                         pdemodel[i]->disc.common.timestate.currentstep = istep;
 //                         pdemodel[i]->ReadSolutions(backend);                    
 //                         if (pdemodel[i]->disc.common.ncq>0)
 //                             pdemodel[i]->disc.evalQ(backend);
@@ -692,14 +692,14 @@ int main(int argc, char** argv)
 //                 {                                            
 //                     if (((istep+1) % pdemodel[i]->disc.common.saveSolFreq) == 0)  
 //                     {
-//                         pdemodel[i]->disc.common.currentstep = istep;
+//                         pdemodel[i]->disc.common.timestate.currentstep = istep;
 //                         pdemodel[i]->ReadSolutions(backend);                    
 //                         pdemodel[i]->SaveOutputCG(backend);            
 //                     }
 //                 }
 //             }
 //             else if (pdemodel[i]->disc.common.runmode==4) {
-//                 pdemodel[i]->disc.common.currentstep = -1;
+//                 pdemodel[i]->disc.common.timestate.currentstep = -1;
 //                 pdemodel[i]->ReadSolutions(backend);
 //                 pdemodel[i]->SolveProblem(out[i], backend);   
 //             }

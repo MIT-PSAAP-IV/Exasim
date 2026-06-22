@@ -240,13 +240,13 @@ int main(int argc, char** argv)
         
         if (restart>0) {
             pdemodel[i]->disc.common.timestepOffset = restart;
-            pdemodel[i]->disc.common.time = restart*pdemodel[i]->disc.common.dt[0];            
+            pdemodel[i]->disc.common.timestate.time = restart*pdemodel[i]->disc.common.dt[0];            
         }              
     }            
                
     for (int i=0; i<nummodels; i++) {                                
         if (postmode == 0) {
-            pdemodel[i]->disc.common.currentstep = -1;
+            pdemodel[i]->disc.common.timestate.currentstep = -1;
             pdemodel[i]->ReadSolutions(backend);   
             pdemodel[i]->SaveQoI(backend);
             if (mpirank==0) cout<<"save paraview = "<<pdemodel[i]->vis.savemode<<endl;

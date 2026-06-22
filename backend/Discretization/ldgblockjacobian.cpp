@@ -1124,7 +1124,7 @@ void uEquationSchurBlockLDG(solstruct &sol, resstruct &res, appstruct &app,
 
     dstype scalar = 1.0;
     if (common.wave == 1)
-        scalar = 1.0/common.dtfactor;
+        scalar = 1.0/common.timestate.dtfactor;
 
     if (common.ncq > 0) {
         if (nd == 1) {
@@ -1243,7 +1243,7 @@ void RuFaceCrossDeriv(dstype* A, solstruct &sol,
 
     dstype scalar = 1.0;
     if (common.wave == 1)
-        scalar = 1.0/common.dtfactor;
+        scalar = 1.0/common.timestate.dtfactor;
     
     //print2iarray(common.fblks, 3, common.nbf, "fblks", EXASIM_COMM_WORLD);
 
@@ -1398,7 +1398,7 @@ void RuFaceCrossDerivOptimized(dstype* A, solstruct &sol,
 
     dstype scalar = 1.0;
     if (common.wave == 1)
-        scalar = 1.0/common.dtfactor;
+        scalar = 1.0/common.timestate.dtfactor;
 
     for (Int jblk = 0; jblk < common.nbf; jblk++) {
         Int f1 = common.fblks[3*jblk]-1;
@@ -1586,7 +1586,7 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
     tm.cross += LDGBenchmarkStop(t0, backend);
 
     // if (common.tdep == 1)
-    //     ArrayMultiplyScalar(handle, K, minusone/common.dtfactor, n*n*common.ne1, backend);
+    //     ArrayMultiplyScalar(handle, K, minusone/common.timestate.dtfactor, n*n*common.ne1, backend);
     
     // print3darray(sol.xdg, common.npe, common.ncx, common.ne1);
     // print3darray(K, n, n, common.ne1);
@@ -1780,7 +1780,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
     tm.cross += LDGBenchmarkStop(t0, backend);
 
     // if (common.tdep == 1)
-    //     ArrayMultiplyScalar(handle, K, one/common.dtfactor, nlocu*nlocu*common.ne1, backend);
+    //     ArrayMultiplyScalar(handle, K, one/common.timestate.dtfactor, nlocu*nlocu*common.ne1, backend);
 
     for (Int j = 0; j < common.nbe1; j++) {
         Int e1 = common.eblks[3*j]-1;
@@ -2103,7 +2103,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 // 
 //     dstype scalar = 1.0;
 //     if (common.wave==1)
-//         scalar = 1.0/common.dtfactor;    
+//         scalar = 1.0/common.timestate.dtfactor;    
 // 
 //     if (common.ncq > 0) {      
 //       if (nd == 1) {

@@ -116,7 +116,7 @@ inline void GetQ(solstruct &sol, resstruct &res, appstruct &app, masterstruct &m
         
     dstype scalar = one;
     if (common.wave==1)
-        scalar = one/common.dtfactor;
+        scalar = one/common.timestate.dtfactor;
 
     // START_TIMING;
     // // Apply the mass matrix inverse and the factor fc_q to the residual
@@ -146,7 +146,7 @@ inline void GetW(solstruct &sol, resstruct &res, appstruct &app, masterstruct &m
                 
         if (common.wave==1) {
             // dw/dt = u
-            dstype scalar = one/common.dtfactor;
+            dstype scalar = one/common.timestate.dtfactor;
             ArrayExtract(tmp.tempn, sol.udg, common.npe, common.nc, common.ne1, 0, common.npe, 0, common.ncu, e1, e2);                                                  
             ArrayAXPBY(&sol.wdg[npe*ncw*e1], tmp.tempn, &sol.wsrc[npe*ncw*e1], scalar, scalar, npe*ncw*(e2-e1));                        
         }        
@@ -192,9 +192,9 @@ inline void GetW(solstruct &sol, resstruct &res, appstruct &app, masterstruct &m
                         &sol.wdg[npe*ncw*e1], mesh, master, app, sol, tmp, common, npe, e1, e2, backend);            
                 if (common.dae_steps==0) { // alpha * dw/dt + beta w = sourcew(u,q,v)
                     // 1.0/(alpha*dirkd/dt + beta)
-                    dstype scalar = one/(common.dae_alpha*common.dtfactor + common.dae_beta);
+                    dstype scalar = one/(common.dae_alpha*common.timestate.dtfactor + common.dae_beta);
 
-                    //std::cout<<common.dae_alpha<<" "<<common.dtfactor<<" "<<scalar<<" "<<app.physicsparam[0]<<std::endl;
+                    //std::cout<<common.dae_alpha<<" "<<common.timestate.dtfactor<<" "<<scalar<<" "<<app.physicsparam[0]<<std::endl;
 
                     // calculate w = (1/(alpha*dirkd/dt + beta))*(alpha*wsrc + Sourcew(xdg, udg, odg, wdg))  
                     ArrayAXPBY(&sol.wdg[npe*ncw*e1], &sol.wsrc[npe*ncw*e1], tmp.tempn, common.dae_alpha*scalar, scalar, npe*ncw*(e2-e1));                    
@@ -204,7 +204,7 @@ inline void GetW(solstruct &sol, resstruct &res, appstruct &app, masterstruct &m
                     ArrayAXPBY(tmp.tempn, &sol.wsrc[npe*ncw*e1], tmp.tempn, common.dae_alpha, one, npe*ncw*(e2-e1));                    
 
                     // 1.0/(alpha*dirkd/dt + beta + gamma)
-                    dstype scalar = one/(common.dae_alpha*common.dtfactor + common.dae_beta + common.dae_gamma);
+                    dstype scalar = one/(common.dae_alpha*common.timestate.dtfactor + common.dae_beta + common.dae_gamma);
 
                     //std::cout<<scalar<<std::endl;
 
@@ -606,9 +606,9 @@ inline void Residual(solstruct &sol, resstruct &res, appstruct &app, masterstruc
     // change sign for matrix-vector product
     ArrayMultiplyScalar(res.Ru, minusone, common.ndof1);      
         
-    //common.dtfactor
+    //common.timestate.dtfactor
     if (common.tdep==1) 
-        ArrayMultiplyScalar(res.Ru, one/common.dtfactor, common.ndof1);                
+        ArrayMultiplyScalar(res.Ru, one/common.timestate.dtfactor, common.ndof1);                
     
     if (common.debugMode==1) {
         writearray2file(common.fileout + "_uh.bin", sol.uh, common.npf*common.ncu*common.nf, backend);
@@ -658,7 +658,7 @@ inline void GetdQ(solstruct &sol, resstruct &res, appstruct &app, masterstruct &
      }
     dstype scalar = one;
     if (common.wave==1)
-        scalar = one/common.dtfactor;
+        scalar = one/common.timestate.dtfactor;
 
     ApplyMinv(&res.dRq[N], res.Minv, &res.dRq[npe*ncq*e1], scalar, common.curvedMesh, npe, ncq, e1, e2);  
 
@@ -856,7 +856,7 @@ inline void dResidual(solstruct &sol, resstruct &res, appstruct &app, masterstru
     ArrayMultiplyScalar(res.dRu, minusone, common.ndof1, backend);     
     if (common.tdep==1)
     { 
-        ArrayMultiplyScalar(res.dRu, one/common.dtfactor, common.ndof1, backend); 
+        ArrayMultiplyScalar(res.dRu, one/common.timestate.dtfactor, common.ndof1, backend); 
     }
     if (common.debugMode==1) {
         writearray2file(common.fileout + "enz_uh.bin", sol.uh, common.npf*common.ncu*common.nf, backend);

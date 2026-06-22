@@ -84,7 +84,7 @@ inline void RuElemBlock(solstruct &sol, resstruct &res, appstruct &app, masterst
     
     if (common.tdep) { // for time-dependent problem                
         // calculate sdg = sdg-udg*dtfactor
-        ArrayAXPBY(&tmp.tempg[n4], &sol.sdgg[nge*ncs*e1], &tmp.tempg[n3], one, -common.dtfactor, nga*ncu);            
+        ArrayAXPBY(&tmp.tempg[n4], &sol.sdgg[nge*ncs*e1], &tmp.tempg[n3], one, -common.timestate.dtfactor, nga*ncu);            
         
         if (common.tdfunc==1) {
             // calculate the time derivative function Tdfunc(xdg, udg, odg)
@@ -193,11 +193,11 @@ inline void dRuElemBlock(solstruct &sol, resstruct &res, appstruct &app, masters
     }
 
     if (common.tdep) { // for time-dependent problem                
-        ArrayAXPBY(&tmp.tempg[n4], &sol.sdgg[nge*ncs*e1], &tmp.tempg[n3], one, -common.dtfactor, nga*ncu);
+        ArrayAXPBY(&tmp.tempg[n4], &sol.sdgg[nge*ncs*e1], &tmp.tempg[n3], one, -common.timestate.dtfactor, nga*ncu);
 
         // ArrayCopy(&tmp.tempg[n8], &tmp.tempg[n9], nga*ncu, backend);
-        // ArrayMultiplyScalar(&tmp.tempg[n8], -common.dtfactor, nga*ncu, backend); 
-        ArrayAXPBY(&tmp.tempg[n8], &tmp.tempg[n8], &tmp.tempg[n9], one, -common.dtfactor, nga*ncu);
+        // ArrayMultiplyScalar(&tmp.tempg[n8], -common.timestate.dtfactor, nga*ncu, backend); 
+        ArrayAXPBY(&tmp.tempg[n8], &tmp.tempg[n8], &tmp.tempg[n9], one, -common.timestate.dtfactor, nga*ncu);
         
         if (common.tdfunc==1) {
             // calculate the time derivative function Tdfunc(xdg, udg, odg)

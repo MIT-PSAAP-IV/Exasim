@@ -99,7 +99,7 @@ inline void wJacobianLDGWave(dstype* DWDU, commonstruct& common, Int e1, Int e2)
     Int ne = e2 - e1;
     Int nlocu = npe*ncu;
     Int nlocw = npe*ncw;
-    dstype scalar = one/common.dtfactor;
+    dstype scalar = one/common.timestate.dtfactor;
 
     ArraySetValue(DWDU, zero, nlocw*nlocu*ne);
 
@@ -186,9 +186,9 @@ inline void wJacobianLDGSourcew(dstype* DWDU, dstype* Su, dstype* Sw,
 
     dstype scalar = zero;
     if (common.dae_steps==0)
-        scalar = one/(common.dae_alpha*common.dtfactor + common.dae_beta);
+        scalar = one/(common.dae_alpha*common.timestate.dtfactor + common.dae_beta);
     else
-        scalar = one/(common.dae_alpha*common.dtfactor + common.dae_beta + common.dae_gamma);
+        scalar = one/(common.dae_alpha*common.timestate.dtfactor + common.dae_beta + common.dae_gamma);
 
     ArrayMultiplyScalar(Su, scalar, nn*ncw*nc);
     wJacobianLDGInsertPointwise(DWDU, Su, common, e1, e2, common.ncu);

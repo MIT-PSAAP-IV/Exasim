@@ -195,7 +195,7 @@ void setcommonstruct(commonstruct &common, appstruct &app, ExasimDriverABI& driv
     common.matvecTol = app.solversparam[2];
     common.solverstate.PTCparam = app.solversparam[3];
     if (common.tdep==1)
-        common.time = app.factor[0];
+        common.timestate.time = app.factor[0];
     common.rampFactor = 1.0;   // Ramp factor for artificial viscosity flux        
     common.dae_alpha = app.factor[1];
     common.dae_beta = app.factor[2];
