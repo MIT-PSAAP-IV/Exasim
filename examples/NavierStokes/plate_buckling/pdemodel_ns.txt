@@ -1,0 +1,274 @@
+scalars t
+
+vectors x(2), uq(12), v(1), w(0), uhat(4), uext(1), n(2), tau(1), mu(11), eta(0)
+
+jacobian uq, w, uhat 
+
+hessian 
+
+batch x, uq, v, w, uhat, n, uext
+
+outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Initu, VisScalars, VisVectors
+
+function Flux(x, uq, v, w, eta, mu, t)  
+    output_size(f) = 8;
+
+    gam = mu[0];
+    gam1 = gam - 1.0;
+    Re = mu[1];
+    Pr = mu[2];
+    Minf = mu[3];
+    Tref = mu[9];
+    muRef = 1/Re;
+    Tinf = 1/(gam*gam1*Minf*Minf);
+    c23 = 2.0/3.0;
+
+    alpha = 1.0e3;
+    rmin = 1.0e-2;
+    pmin = 1.0e-3;
+
+    av = v[0];
+
+    r = uq[0];
+    ru = uq[1];
+    rv = uq[2];
+    rE = uq[3];
+    rx = uq[4];
+    rux = uq[5];
+    rvx = uq[6];
+    rEx = uq[7];
+    ry = uq[8];
+    ruy = uq[9];
+    rvy = uq[10];
+    rEy = uq[11];
+
+    lmax_x = r - rmin;
+    lmax_r = lmax_x*(atan(alpha*lmax_x)/pi + 0.5) - atan(alpha)/pi + 0.5;
+    r = rmin + lmax_r;
+    dr = atan(alpha*(r-rmin))/pi + alpha*(r-rmin)/(pi*(pow(alpha*(r-rmin),2)+1)) + 0.5;
+    rx = rx*dr;
+    ry = ry*dr;
+
+    r1 = 1/r;
+    uv = ru*r1;
+    vv = rv*r1;
+    E = rE*r1;
+    qq = 0.5*(uv*uv+vv*vv);
+    p = gam1*(rE - r*qq);
+
+    lmax_xp = p - pmin;
+    lmax_p = lmax_xp*(atan(alpha*lmax_xp)/pi + 0.5) - atan(alpha)/pi + 0.5;
+    p = pmin + lmax_p;
+    dp = atan(alpha*(p-pmin))/pi + alpha*(p-pmin)/(pi*(pow(alpha*(p-pmin),2)+1)) + 0.5;
+
+    h = E + p*r1;
+
+    ux = (rux - rx*uv)*r1;
+    vx = (rvx - rx*vv)*r1;
+    qx = uv*ux + vv*vx;
+    px = gam1*(rEx - rx*qq - r*qx);
+    px = px*dp;
+    Tx = 1/gam1*(px*r - p*rx)*r1*r1;
+
+    uy = (ruy - ry*uv)*r1;
+    vy = (rvy - ry*vv)*r1;
+    qy = uv*uy + vv*vy;
+    py = gam1*(rEy - ry*qq - r*qy);
+    py = py*dp;
+    Ty = 1/gam1*(py*r - p*ry)*r1*r1;
+
+    T = p/(gam1*r);
+    Tphys = Tref/Tinf * T;
+    Ts = 110.4;
+    mu_visc = muRef*pow(Tphys/Tref, 1.5)*(Tref+Ts)/(Tphys+Ts);
+    fc = mu_visc*gam/Pr;
+
+    txx = mu_visc*c23*(2*ux - vy);
+    txy = mu_visc*(uy + vx);
+    tyy = mu_visc*c23*(2*vy - ux);
+
+    f[0] = ru;
+    f[1] = ru*uv + p + txx;
+    f[2] = rv*uv + txy;
+    f[3] = ru*h + uv*txx + vv*txy + fc*Tx;
+    f[4] = rv;
+    f[5] = ru*vv + txy;
+    f[6] = rv*vv + p + tyy;
+    f[7] = rv*h + uv*txy + vv*tyy + fc*Ty;
+
+    f[0] = f[0] + av*rx;
+    f[1] = f[1] + av*rux;
+    f[2] = f[2] + av*rvx;
+    f[3] = f[3] + av*rEx;
+    f[4] = f[4] + av*ry;
+    f[5] = f[5] + av*ruy;
+    f[6] = f[6] + av*rvy;
+    f[7] = f[7] + av*rEy;
+end
+
+function Source(x, uq, v, w, eta, mu, t)  
+  output_size(s) = 4;  
+  zeros(s);
+end
+
+function Tdfunc(x, uq, v, w, eta, mu, t)  
+  output_size(m) = 4;
+  ones(m);
+end
+
+function Fbou(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(fb) = 8;
+  zeros(fb);
+end
+
+function Ubou(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(ub) = 8;
+  zeros(ub);
+end
+
+function FbouHdg(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(fb) = 20;
+
+  f = Flux(x, uq, v, w, eta, mu, t);
+
+  gam = mu[0];
+  gam1 = gam - 1.0;
+  Tinf = mu[8];
+  Tref = mu[9];
+  Twall = mu[10];
+  TisoW = Twall/Tref * Tinf;
+
+  % f_in: inflow (boundary 0)
+  fb[0] = mu[4] - uhat[0];
+  fb[1] = mu[5] - uhat[1];
+  fb[2] = mu[6] - uhat[2];
+  fb[3] = mu[7] - uhat[3];
+
+  % f_out: outflow (boundary 1)
+  fb[4] = uq[0] - uhat[0];
+  fb[5] = uq[1] - uhat[1];
+  fb[6] = uq[2] - uhat[2];
+  fb[7] = uq[3] - uhat[3];
+
+  % f1: isothermal wall (boundary 2)
+  fb[8] = uq[0] - uhat[0];
+  fb[9] = 0.0 - uhat[1];
+  fb[10] = 0.0 - uhat[2];
+  fb[11] = -uhat[3] + uhat[0]*TisoW;
+
+  % f2: adiabatic wall (boundary 3)
+  fb[12] = uq[0] - uhat[0];
+  fb[13] = 0.0 - uhat[1];
+  fb[14] = 0.0 - uhat[2];
+  fb[15] = f[3]*n[0] + f[7]*n[1] + tau[0]*(uq[3]-uhat[3]);
+
+  % f_sym: symmetry (boundary 4)
+  r1 = 1/uhat[0];
+  uv = uhat[1]*r1;
+  ry = uq[8];
+  uy = (uq[9] - ry*uv)*r1;
+  Ty = (uq[11] - ry*(uhat[3]*r1))*r1;
+  fb[16] = ry + tau[0]*(uq[0]-uhat[0]);
+  fb[17] = uy + tau[0]*(uq[1]-uhat[1]);
+  fb[18] = 0.0 - uhat[2];
+  fb[19] = Ty + tau[0]*(uq[3]-uhat[3]);
+end
+
+function Initu(x, eta, mu)
+  output_size(ui) = 4;
+  ui[0] = mu[4];
+  ui[1] = mu[5];
+  ui[2] = mu[6];
+  ui[3] = mu[7];
+end
+
+function VisScalars(x, uq, v, w, eta, mu, t)
+    output_size(s) = 4;
+
+    gam = mu[0];
+    gam1 = gam - 1.0;
+    Minf = mu[3];
+    Tref = mu[9];
+    Tinf = 1/(gam*gam1*Minf*Minf);
+    alpha = 1.0e3;
+    pmin = 1.0e-3;
+
+    r = uq[0];
+    ru = uq[1];
+    rv = uq[2];
+    rE = uq[3];
+
+    r1 = 1/r;
+    uv = ru*r1;
+    vv = rv*r1;
+    qq = 0.5*(uv*uv+vv*vv);
+    p = gam1*(rE - r*qq);
+
+    s[0] = sqrt(uv*uv+vv*vv) / sqrt(gam*p*r1);
+
+    T = p/(gam1*r);
+    s[1] = Tref/Tinf * T;
+
+    s[2] = p;
+
+    xp = p - pmin;
+    s[3] = atan(alpha*xp)/pi + alpha*xp/(pi*(pow(alpha*xp,2)+1)) + 0.5;
+end
+
+function VisVectors(x, uq, v, w, eta, mu, t)
+    output_size(s) = 4;
+
+    gam = mu[0];
+    gam1 = gam - 1.0;
+    Re = mu[1];
+    Pr = mu[2];
+    Minf = mu[3];
+    Tref = mu[9];
+    Tinf = 1/(gam*gam1*Minf*Minf);
+
+    r = uq[0];
+    ru = uq[1];
+    rv = uq[2];
+    rE = uq[3];
+    rx = uq[4];
+    rux = uq[5];
+    rvx = uq[6];
+    rEx = uq[7];
+    ry = uq[8];
+    ruy = uq[9];
+    rvy = uq[10];
+    rEy = uq[11];
+
+    r1 = 1/r;
+    uv = ru*r1;
+    vv = rv*r1;
+    qq = 0.5*(uv*uv+vv*vv);
+    p = gam1*(rE - r*qq);
+    T = p/(gam1*r);
+
+    Rgas = 287;
+    c_inf_phys = sqrt(gam*Rgas*Tref);
+    u_ref_phys = Minf*c_inf_phys;
+    s[0] = uv*u_ref_phys;
+    s[1] = vv*u_ref_phys;
+
+    ux = (rux - rx*uv)*r1;
+    vx = (rvx - rx*vv)*r1;
+    qx = uv*ux + vv*vx;
+    px = gam1*(rEx - rx*qq - r*qx);
+    Tx = 1/gam1*(px*r - p*rx)*r1*r1;
+
+    uy = (ruy - ry*uv)*r1;
+    vy = (rvy - ry*vv)*r1;
+    qy = uv*uy + vv*vy;
+    py = gam1*(rEy - ry*qq - r*qy);
+    Ty = 1/gam1*(py*r - p*ry)*r1*r1;
+
+    Tphys = Tref/Tinf * T;
+    muRef = 1/Re;
+    Ts = 110.4;
+    mu_visc = muRef*pow(Tphys/Tref, 1.5)*(Tref+Ts)/(Tphys+Ts);
+    fc = mu_visc*gam/Pr;
+    s[2] = -fc*Tx;
+    s[3] = -fc*Ty;
+end
