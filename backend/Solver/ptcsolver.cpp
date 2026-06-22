@@ -139,7 +139,7 @@ int LinearSolver(sysstruct &sys, CDiscretization& disc, CPreconditioner& prec, o
     printf("Non-blocking send/receive time: %g miliseconds\n", disc.common.timing[6]);
     printf("GetUhat time: %g miliseconds\n", disc.common.timing[7]);
     printf("GetQ (interior elements) time: %g miliseconds\n", disc.common.timing[8]);
-    printf("RuElem (interior elements) time: %g miliseconds\n", disc.common.timing[9]);
+    printf("RuElem<exasim::detail::AbiAdapter>(interior elements) time: %g miliseconds\n", disc.common.timing[9]);
     printf("MPI_WAITALL time: %g miliseconds\n", disc.common.timing[10]);
     printf("RuElem and GetQ (exterior elements) time: %g miliseconds\n", disc.common.timing[11]);
     printf("RuFace time: %g miliseconds\n", disc.common.timing[12]);    

@@ -44,7 +44,7 @@
 #include "wequation.cpp"
 #include "uequation.cpp"
 #include "qresidual.hpp"  // unified onto templated source (U)
-#include "uresidual.cpp"
+#include "uresidual.hpp"  // unified onto templated source (U)
 #include "getuhat.hpp"  // unified templated; non-templated callers use <AbiAdapter>
 
 void DG2CGAVField(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh, 
@@ -265,10 +265,10 @@ void RuResidual(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI&
         GetAv(sol, res, app, driver_abi, master, mesh, tmp, common, handle, backend);
 
     // Element integrals
-    RuElem(sol, res, app, driver_abi, master, mesh, tmp, common, handle, nbe1u, nbe2u, backend);    
+    RuElem<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, nbe1u, nbe2u, backend);    
                     
     // Face integrals
-    RuFace(sol, res, app, driver_abi, master, mesh, tmp, common, handle, nbf1, nbf2, backend);
+    RuFace<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, nbf1, nbf2, backend);
         
     Int f1 = common.fblks[3*nbf1]-1;
     Int f2 = common.fblks[3*(nbf2-1)+1];        
@@ -430,7 +430,7 @@ void RuResidualMPI(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverA
     // calculate Ru for interior elements
     if (common.frozenAVflag == 1)
     // if AVfield is not part of residual, we can evaluate interior volume integrals before receving neighbor information
-        RuElem(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbe0, backend);    
+        RuElem<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.nbe0, backend);    
     END_TIMING(9);    
         
     START_TIMING; 
@@ -465,11 +465,11 @@ void RuResidualMPI(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverA
     
     if (common.frozenAVflag == 1)
     { // calculate Ru for interface elements
-        RuElem(sol, res, app, driver_abi, master, mesh, tmp, common, handle, common.nbe0, common.nbe1, backend); 
+        RuElem<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, common.nbe0, common.nbe1, backend); 
     } 
     else
     { // For unfrozen AV, we can only compute Ru for interior and interface after calculating AV 
-        RuElem(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbe1, backend); 
+        RuElem<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.nbe1, backend); 
     }
     
        
@@ -477,7 +477,7 @@ void RuResidualMPI(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverA
      
     START_TIMING; 
     // calculate Ru for all faces
-    RuFace(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbf, backend);
+    RuFace<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.nbf, backend);
     END_TIMING(12);    
         
     // assemble face residual vector into element residual vector
@@ -547,10 +547,10 @@ void RuResidualMPI1(solstruct &sol, resstruct &res, appstruct &app, ExasimDriver
         GetQ(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbe0, 0, common.nbf, backend);        
     
     // calculate Ru for interior elements
-    RuElem(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbe0, backend);    
+    RuElem<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.nbe0, backend);    
         
     // calculate Ru for interior faces
-    RuFace(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbf0, backend);
+    RuFace<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.nbf0, backend);
     
     // non-blocking receive solutions on exterior and outer elements from neighbors
     /* wait until all send and receive operations are completely done */
@@ -567,10 +567,10 @@ void RuResidualMPI1(solstruct &sol, resstruct &res, appstruct &app, ExasimDriver
         GetQ(sol, res, app, driver_abi, master, mesh, tmp, common, handle, common.nbe0, common.nbe2, common.nbf0, common.nbf, backend);        
                 
     // calculate Ru for interface elements
-    RuElem(sol, res, app, driver_abi, master, mesh, tmp, common, handle, common.nbe0, common.nbe1, backend);    
+    RuElem<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, common.nbe0, common.nbe1, backend);    
      
     // calculate Ru for all other faces
-    RuFace(sol, res, app, driver_abi, master, mesh, tmp, common, handle, common.nbf0, common.nbf, backend);
+    RuFace<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, common.nbf0, common.nbf, backend);
         
     // change sign 
     //ArrayMultiplyScalar(res.Ru, minusone, common.ndof1, backend);      
@@ -709,10 +709,10 @@ void dRuResidual(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI
     //TODO: DAE functionality not implemented yet
 
     // Element integrals
-    dRuElem(sol, res, app, driver_abi, master, mesh, tmp, common, handle, nbe1u, nbe2u, backend);    
+    dRuElem<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, nbe1u, nbe2u, backend);    
 
     // Face integrals
-    dRuFace(sol, res, app, driver_abi, master, mesh, tmp, common, handle, nbf1, nbf2, backend);
+    dRuFace<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, nbf1, nbf2, backend);
 
     Int e1 = common.eblks[3*nbe1u]-1;    
     Int e2 = common.eblks[3*(nbe2u-1)+1];    
@@ -779,7 +779,7 @@ void dRuResidualMPI(solstruct &sol, resstruct &res, appstruct &app, ExasimDriver
     // calculate Ru for interior elements
     if (common.frozenAVflag == 1)
     // if AVfield is not part of residual, we can evaluate interior volume integrals before receving neighbor information
-        dRuElem(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbe0, backend);    
+        dRuElem<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.nbe0, backend);    
         
     // non-blocking receive solutions on exterior and outer elements from neighbors
     // wait until all send and receive operations are completely done
@@ -802,15 +802,15 @@ void dRuResidualMPI(solstruct &sol, resstruct &res, appstruct &app, ExasimDriver
     
     if (common.frozenAVflag == 1)
     { // calculate Ru for interface elements
-        dRuElem(sol, res, app, driver_abi, master, mesh, tmp, common, handle, common.nbe0, common.nbe1, backend); 
+        dRuElem<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, common.nbe0, common.nbe1, backend); 
     } 
     else
     { // For unfrozen AV, we can only compute Ru for interior and interface after calculating AV 
-        dRuElem(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbe1, backend); 
+        dRuElem<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.nbe1, backend); 
     }
 
     // calculate Ru for all faces
-    dRuFace(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbf, backend);
+    dRuFace<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.nbf, backend);
         
     // assemble face residual vector into element residual vector
     Int e1 = common.eblks[3*0]-1;    
