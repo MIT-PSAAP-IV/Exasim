@@ -31,8 +31,7 @@ pde.NLtol = 1e-6; pde.NLiter = 10; pde.matvectol = 1e-6;
 
 % ---- mesh ----
 nx1 = 10; nxf = 30; ny = 20;
-bump_amp = 0.24; bump_loc = 0.20; bump_width = 0.05;
-mesh = mkmesh_thermal_buckling(pde.porder, nx1, nxf, ny, bump_amp, bump_loc, bump_width);
+mesh = mkmesh_thermal_buckling(pde.porder, nx1, nxf, ny);
 master = Master(pde);
 
 % ---- fit compilable boundary expressions ----

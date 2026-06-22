@@ -1,21 +1,13 @@
-function mesh = mkmesh_thermal_buckling(porder, nx1, nxf, ny, bump_amp, bump_loc, bump_width)
+function mesh = mkmesh_thermal_buckling(porder, nx1, nxf, ny)
 
 arguments
     porder (1,1) double = 2
     nx1 (1,1) double = 36
     nxf (1,1) double = 120
     ny (1,1) double = 100
-    bump_amp (1,1) double = 0.0
-    bump_loc (1,1) double = 0.22
-    bump_width (1,1) double = 0.02
 end
 
 [xl1, xl2, xu1, xu2] = thermal_buckling_smooth();
-
-% Apply Gaussian bump to plate wall
-if bump_amp ~= 0
-    xl2(:,2) = xl2(:,2) + bump_amp * exp(-((xl2(:,1) - bump_loc) / bump_width).^2);
-end
 
 mesh1 = surfmesh2d(xl1, xu1, nx1, ny, porder, [2.0 1.2], [5 0]);
 mesh2 = surfmesh2d(xl2, xu2, nxf, ny, porder, [3.5 1.5], [5 0]);
