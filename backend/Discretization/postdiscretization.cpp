@@ -10,7 +10,7 @@
 #include "setstructs.cpp"
 #include "residual.cpp"
 #include "matvec.cpp"
-#include "qoicalculation.cpp"
+#include "qoicalculation.hpp"  // unified templated QoI (non-templated callers instantiate <AbiAdapter>)
 
 // Both CPU and GPU constructor
 CDiscretization::CDiscretization(string filein, string fileout, string exasimpath, Int mpiprocs, Int mpirank, 

@@ -21,6 +21,10 @@ set(EXASIM_INCLUDE_DIR ${EXASIM_DIR}/include)
 set(EXASIM_LIB_DIR ${CMAKE_BINARY_DIR}/lib)
 file(MAKE_DIRECTORY ${EXASIM_LIB_DIR})
 include_directories(${EXASIM_INCLUDE_DIR})
+# Repo root on the include path so the unified templated FEM headers (which include
+# <exasim/...> umbrellas that forward to <backend/Common/common.h>) resolve in the in-tree
+# build, matching how out-of-tree consumers see them.
+include_directories(${EXASIM_DIR})
 
 # ---- Runtime data location (replaces exasimpath for master/gauss node files) ----
 # Install the precomputed node data and bake its install location into the build

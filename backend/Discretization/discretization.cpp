@@ -72,7 +72,7 @@
 //#include "ldgjactest.cpp"
 #include "ldgblockjacobian.cpp"
 #include "matvec.cpp"
-#include "qoicalculation.cpp"
+#include "qoicalculation.hpp"  // unified templated QoI; production instantiates <AbiAdapter>
 #include "wallmodel.cpp"
 
 void crs_init(commonstruct& common, meshstruct& mesh, int *elem, int nse, int nese)
@@ -257,6 +257,7 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
         ExasimExecutionMode mode, const std::vector<dstype>* physicsparamOverride)
 {
     driver_abi = abi;
+    common.driver_abi = &driver_abi;  // expose the ABI to the unified templated FEM code (AbiAdapter path)
     common.backend = backend;
     common.exasimpath = exasimpath;
     common.builtinmodelID = builtinmodelID;

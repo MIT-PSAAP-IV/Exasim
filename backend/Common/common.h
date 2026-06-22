@@ -1624,6 +1624,10 @@ struct qoiinstancestruct {
 struct commonstruct {
     solverstatestruct solverstate;  // mutable solver/preconditioner runtime state (see above)
     std::vector<qoiinstancestruct> qoiinstances;  // registered QoI instances (default: 1 domain + 1 boundary)
+    // Runtime model ABI for the unified templated FEM code (M == AbiAdapter path): set by
+    // CDiscretization to point at its driver_abi, so the no-driver_abi kernel-driver
+    // overloads can reach the ABI without threading it through every call.
+    ExasimDriverABI* driver_abi = nullptr;
     std::string exasimpath = "";
     std::string filein;       // Name of binary file with input data
     std::string fileout;      // Name of binary file to write the solution            

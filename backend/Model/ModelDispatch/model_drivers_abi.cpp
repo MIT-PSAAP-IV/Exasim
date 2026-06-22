@@ -927,4 +927,30 @@ void QoIboundaryDriver(dstype* fb, const dstype* xg, const dstype* udg,
                           numPoints, nc, ncu, nd, ncx, nco, ncw);
 }
 
+// --- No-driver_abi overloads ------------------------------------------------------------
+// The unified templated FEM code invokes kernel drivers via EXASIM_DRIVER_CALL without
+// threading driver_abi (the model is the template parameter). For the AbiAdapter path these
+// overloads recover the ABI from common.driver_abi and forward to the explicit-ABI versions
+// above, so a single templated body serves both the runtime-ABI and compile-time-model paths.
+void QoIvolumeDriver(dstype* f, const dstype* xg, const dstype* udg,
+                     const dstype* odg, const dstype* wdg, meshstruct& mesh,
+                     masterstruct& master, appstruct& app, solstruct& sol,
+                     tempstruct& temp, commonstruct& common, Int nge, Int e1,
+                     Int e2, Int backend)
+{
+    QoIvolumeDriver(f, xg, udg, odg, wdg, *common.driver_abi, mesh, master, app,
+                    sol, temp, common, nge, e1, e2, backend);
+}
+
+void QoIboundaryDriver(dstype* fb, const dstype* xg, const dstype* udg,
+                       const dstype* odg, const dstype* wdg, const dstype* uhg,
+                       const dstype* nl, meshstruct& mesh, masterstruct& master,
+                       appstruct& app, solstruct& sol, tempstruct& temp,
+                       commonstruct& common, Int ngf, Int f1, Int f2, Int ib,
+                       Int backend)
+{
+    QoIboundaryDriver(fb, xg, udg, odg, wdg, uhg, nl, *common.driver_abi, mesh,
+                      master, app, sol, temp, common, ngf, f1, f2, ib, backend);
+}
+
 #endif
