@@ -85,7 +85,7 @@ inline void CPreconditioner<M>::ComputeInitialGuessAndPreconditioner(sysstruct& 
     // H = I + W^T*U = I + W^T C*V = I + W^T C*(A-B)*W = I + W^T invB*(A-B)*W = W^T*C*A*W = W^T*Q
     
     Int N = disc.common.ndof1;
-    Int RBdim = disc.common.RBcurrentdim;
+    Int RBdim = disc.common.solverstate.RBcurrentdim;
     dstype *RBcoef = &disc.tmp.tempn[0];
     dstype *RBcoef_tmp = &disc.tmp.tempn[RBdim];
     dstype *H = &disc.tmp.tempg[0];
@@ -93,8 +93,8 @@ inline void CPreconditioner<M>::ComputeInitialGuessAndPreconditioner(sysstruct& 
     
     // compute V = J(u)*W        
     //Int i = RBdim-1;
-    int i = disc.common.RBremovedind - 1;
-    if (disc.common.RBremovedind==0) i = RBdim-1;
+    int i = disc.common.solverstate.RBremovedind - 1;
+    if (disc.common.solverstate.RBremovedind==0) i = RBdim-1;
     disc.evalMatVec(&precond.U[i*N], &precond.W[i*N], sys.u, sys.b, backend);
     
     //disc.evalMatVec(view_1d Jv, view_1d v, view_1d u, view_1d Ru, Int backend);
@@ -139,7 +139,7 @@ inline void CPreconditioner<M>::ApplyPreconditioner(dstype* x, sysstruct& sys, C
 template <class M>
 inline void CPreconditioner<M>::ComputeInitialGuessAndPreconditioner(sysstruct& sys, CDiscretization<M>& disc, Int N, Int spatialScheme, Int backend)
 {     
-    Int RBdim = disc.common.RBcurrentdim;
+    Int RBdim = disc.common.solverstate.RBcurrentdim;
     dstype *RBcoef = &disc.tmp.tempn[0];
     dstype *RBcoef_tmp = &disc.tmp.tempn[RBdim];
     dstype *H = &disc.tmp.tempg[0];
@@ -147,8 +147,8 @@ inline void CPreconditioner<M>::ComputeInitialGuessAndPreconditioner(sysstruct& 
     
     // compute V = J(u)*W        
     //Int i = RBdim-1;
-    int i = disc.common.RBremovedind - 1;
-    if (disc.common.RBremovedind==0) i = RBdim-1;
+    int i = disc.common.solverstate.RBremovedind - 1;
+    if (disc.common.solverstate.RBremovedind==0) i = RBdim-1;
     disc.evalMatVec(&precond.U[i*N], &precond.W[i*N], sys.u, sys.b, spatialScheme, backend);
     
     //disc.evalMatVec(view_1d Jv, view_1d v, view_1d u, view_1d Ru, Int backend);

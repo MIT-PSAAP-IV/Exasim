@@ -932,7 +932,7 @@ inline void CSolution<M>::SteadyProblem_PTC(std::ofstream &out, Int backend) {
             }
             else if (delta_monitor < 0.1 && solv.sys.alpha == 1.0)
             {
-                if (disc.common.linearSolverIter < disc.common.linearSolverMaxIter){
+                if (disc.common.solverstate.linearSolverIter < disc.common.linearSolverMaxIter){
                     // increase timestep by 2
                     disc.common.dt[istep+1] = disc.common.dt[istep]*2;
                     // std::cout << "Doubling timestep: " << disc.common.dt[istep+1] << std::endl;

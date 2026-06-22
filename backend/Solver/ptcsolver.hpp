@@ -76,7 +76,7 @@ inline int LinearSolver(sysstruct &sys, CDiscretization<M>& disc, CPreconditione
     }
     
     // construct the preconditioner
-    if (disc.common.RBcurrentdim>0) {
+    if (disc.common.solverstate.RBcurrentdim>0) {
         //prec.ConstructPreconditioner(sys, disc, backend);                  
         prec.ComputeInitialGuessAndPreconditioner(sys, disc, backend); 
         
@@ -90,11 +90,11 @@ inline int LinearSolver(sysstruct &sys, CDiscretization<M>& disc, CPreconditione
             //ArraySetValue(sys.x, zero, N, backend);
             ArrayMultiplyScalar(disc.common.cublasHandle, sys.x, zero, N, backend);                       
             // reset the reduced basis
-            disc.common.RBremovedind = 0;
-            disc.common.RBcurrentdim = 0;
-            //ArrayCopy(&prec.precond.W[disc.common.RBremovedind*N], sys.x, N, backend);         
-            //disc.common.RBcurrentdim = 1;
-            //disc.common.RBremovedind = 1;            
+            disc.common.solverstate.RBremovedind = 0;
+            disc.common.solverstate.RBcurrentdim = 0;
+            //ArrayCopy(&prec.precond.W[disc.common.solverstate.RBremovedind*N], sys.x, N, backend);         
+            //disc.common.solverstate.RBcurrentdim = 1;
+            //disc.common.solverstate.RBremovedind = 1;            
         }
 
         if (nrmr < disc.common.nonlinearSolverTol) 
@@ -113,14 +113,14 @@ inline int LinearSolver(sysstruct &sys, CDiscretization<M>& disc, CPreconditione
 #endif
     
     // set Wcurrentdim
-    //disc.common.Wcurrentdim = disc.common.RBcurrentdim;
+    //disc.common.solverstate.Wcurrentdim = disc.common.solverstate.RBcurrentdim;
     
 #ifdef TIMING    
     begin = std::chrono::high_resolution_clock::now();      
 #endif    
-    disc.common.linearSolverIter = GMRES(sys, disc, prec, backend);  
+    disc.common.solverstate.linearSolverIter = GMRES(sys, disc, prec, backend);  
     if (disc.common.mpiRank==0)             
-        printf("GMRES converges to the tolerance %g within % d iterations and %d RB dimensions\n",disc.common.linearSolverTol,disc.common.linearSolverIter,disc.common.RBcurrentdim);        
+        printf("GMRES converges to the tolerance %g within % d iterations and %d RB dimensions\n",disc.common.linearSolverTol,disc.common.solverstate.linearSolverIter,disc.common.solverstate.RBcurrentdim);        
     
 #ifdef TIMING        
     end = std::chrono::high_resolution_clock::now();
@@ -210,7 +210,7 @@ inline int LinearSolver(sysstruct &sys, CDiscretization<M>& disc, CPreconditione
     
     return 0;
     // reset Wcurrentdim
-    //disc.common.Wcurrentdim = disc.common.RBcurrentdim;
+    //disc.common.solverstate.Wcurrentdim = disc.common.solverstate.RBcurrentdim;
 }
 
 template <class M>
@@ -221,17 +221,17 @@ inline void UpdateRB(sysstruct &sys, CDiscretization<M>& disc, CPreconditioner<M
     dstype nrmr = PNORM(disc.common.cublasHandle, N, sys.x, backend);
     if (nrmr>zero) {
       // update the reduced basis        
-      //ArrayCopy(&prec.precond.W[disc.common.RBremovedind*N], sys.x, N, backend);  
-      ArrayCopy(disc.common.cublasHandle, &prec.precond.W[disc.common.RBremovedind*N], sys.x, N, backend);  
+      //ArrayCopy(&prec.precond.W[disc.common.solverstate.RBremovedind*N], sys.x, N, backend);  
+      ArrayCopy(disc.common.cublasHandle, &prec.precond.W[disc.common.solverstate.RBremovedind*N], sys.x, N, backend);  
 
       // update the current dimension of the RB dimension
-      if (disc.common.RBcurrentdim<disc.common.RBdim) 
-          disc.common.RBcurrentdim += 1;                    
+      if (disc.common.solverstate.RBcurrentdim<disc.common.RBdim) 
+          disc.common.solverstate.RBcurrentdim += 1;                    
 
       // update the position of the RB vector to be replaced  
-      disc.common.RBremovedind += 1;
-      if (disc.common.RBremovedind==disc.common.RBdim) 
-          disc.common.RBremovedind = 0;                
+      disc.common.solverstate.RBremovedind += 1;
+      if (disc.common.solverstate.RBremovedind==disc.common.RBdim) 
+          disc.common.solverstate.RBremovedind = 0;                
     }
 }
 
@@ -241,17 +241,17 @@ inline void UpdateRB(sysstruct &sys, CDiscretization<M>& disc, CPreconditioner<M
     dstype nrmr = PNORM(disc.common.cublasHandle, N, sys.x, backend);
     if (nrmr>zero) {
       // update the reduced basis        
-      ArrayCopy(&prec.precond.W[disc.common.RBremovedind*N], sys.x, N);  
-      //ArrayCopy(disc.common.cublasHandle, &prec.precond.W[disc.common.RBremovedind*N], sys.x, N, backend);  
+      ArrayCopy(&prec.precond.W[disc.common.solverstate.RBremovedind*N], sys.x, N);  
+      //ArrayCopy(disc.common.cublasHandle, &prec.precond.W[disc.common.solverstate.RBremovedind*N], sys.x, N, backend);  
 
       // update the current dimension of the RB dimension
-      if (disc.common.RBcurrentdim<disc.common.RBdim) 
-          disc.common.RBcurrentdim += 1;                    
+      if (disc.common.solverstate.RBcurrentdim<disc.common.RBdim) 
+          disc.common.solverstate.RBcurrentdim += 1;                    
 
       // update the position of the RB vector to be replaced  
-      disc.common.RBremovedind += 1;
-      if (disc.common.RBremovedind==disc.common.RBdim) 
-          disc.common.RBremovedind = 0;                
+      disc.common.solverstate.RBremovedind += 1;
+      if (disc.common.solverstate.RBremovedind==disc.common.RBdim) 
+          disc.common.solverstate.RBremovedind = 0;                
     }
 }
 
@@ -284,7 +284,7 @@ inline void LinearSolver(sysstruct &sys, CDiscretization<M>& disc, CPrecondition
     }
     
     // construct the preconditioner
-    if (disc.common.RBcurrentdim>0) {
+    if (disc.common.solverstate.RBcurrentdim>0) {
         prec.ComputeInitialGuessAndPreconditioner(sys, disc, N, spatialScheme, backend);         
     }    
     else {
@@ -293,14 +293,14 @@ inline void LinearSolver(sysstruct &sys, CDiscretization<M>& disc, CPrecondition
             
     auto begin = std::chrono::high_resolution_clock::now();   
         
-    disc.common.linearSolverIter = GMRES(sys, disc, prec, N, spatialScheme, backend);  
+    disc.common.solverstate.linearSolverIter = GMRES(sys, disc, prec, N, spatialScheme, backend);  
 
     auto end = std::chrono::high_resolution_clock::now();
     double t1 = std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count()/1e6;        
     
     if (disc.common.mpiRank==0)  {
         printf("GMRES time: %g miliseconds\n", t1);
-        printf("GMRES(%d) converges to the tolerance %g within % d iterations and %d RB dimensions\n",disc.common.gmresRestart,disc.common.linearSolverTol,disc.common.linearSolverIter,disc.common.RBcurrentdim);                    
+        printf("GMRES(%d) converges to the tolerance %g within % d iterations and %d RB dimensions\n",disc.common.gmresRestart,disc.common.linearSolverTol,disc.common.solverstate.linearSolverIter,disc.common.solverstate.RBcurrentdim);                    
     }
 }
 

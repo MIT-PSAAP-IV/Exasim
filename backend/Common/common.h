@@ -1592,8 +1592,24 @@ struct precondstruct {
     }            
 };
 
-struct commonstruct {         
-    std::string exasimpath = "";  
+// Grouped mutable transient state of the iterative solver + reduced-basis preconditioner.
+// Extracted from commonstruct (C1 of the concern-separation refactor) so the solver's runtime
+// state is named and isolated from the read-only configuration it used to ride with.
+// Access via common.solverstate.<field>.
+struct solverstatestruct {
+    Int RBcurrentdim;  // current dimension of the reduced basis space
+    Int RBremovedind;  // RB vector to be removed and replaced with a new vector
+    Int Wcurrentdim;   // current dimension of W
+    Int linearSolverIter;     // current linear-solver iteration
+    Int nonlinearSolverIter;  // current nonlinear-solver iteration
+    dstype linearSolverTolFactor = 1.0;  // adaptive linear-solver tolerance scaling
+    dstype linearSolverRelError;         // achieved linear-solver relative residual
+    dstype PTCparam;                     // pseudo-transient-continuation parameter
+};
+
+struct commonstruct {
+    solverstatestruct solverstate;  // mutable solver/preconditioner runtime state (see above)
+    std::string exasimpath = "";
     std::string filein;       // Name of binary file with input data
     std::string fileout;      // Name of binary file to write the solution            
     
@@ -1685,10 +1701,7 @@ struct commonstruct {
     Int ndofucg;
         
     Int RBdim; // maximum dimension of the reduced basis space
-    Int RBcurrentdim; // current dimension of the reduced basis space
-    Int RBremovedind; // the vector to be removed from the RB space and replaced with new vector    
     Int Wdim; // maxium dimension of W
-    Int Wcurrentdim;
     
     Int extUhat=0; // external uhat function flag
     Int extFhat=0; // external fhat function flag
@@ -1745,9 +1758,7 @@ struct commonstruct {
     Int linearSolver;  /* 0: GMRES; 1: CG; etc. */      
     Int nonlinearSolver;
     Int linearSolverMaxIter;   
-    Int linearSolverIter;   // current iteration
     Int nonlinearSolverMaxIter;                
-    Int nonlinearSolverIter;                
     Int matvecOrder;    
     Int gmresRestart;    
     Int gmresOrthogMethod;        
@@ -1762,11 +1773,8 @@ struct commonstruct {
     dstype time; // current simulation time    
     dstype matvecTol;
     dstype linearSolverTol;
-    dstype linearSolverTolFactor=1.0;
     dstype nonlinearSolverTol;
-    dstype linearSolverRelError;
     dstype rampFactor;               // Ramp factor for artificial viscosity flux
-    dstype PTCparam;
     dstype tau0=0.0;
     dstype dae_alpha=1.0;
     dstype dae_beta=0.0;
@@ -1904,8 +1912,8 @@ struct commonstruct {
       printf("length of the stabilization: %d\n", ntau);   
 
       printf("maximum dimension of the reduced basis space: %d\n", RBdim);
-      printf("current dimension of the reduced basis space: %d\n", RBcurrentdim);
-      printf("the vector to be removed from the RB space and replaced with new vector: %d\n", RBremovedind);
+      printf("current dimension of the reduced basis space: %d\n", solverstate.RBcurrentdim);
+      printf("the vector to be removed from the RB space and replaced with new vector: %d\n", solverstate.RBremovedind);
      
       printf("external uhat function flag: %d\n", extUhat);
       printf("external fhat function flag: %d\n", extFhat);
@@ -1932,9 +1940,9 @@ struct commonstruct {
       printf("linear solver type: %d\n", linearSolver);
       printf("nonlinear solver type: %d\n", nonlinearSolver);
       printf("maximum linear solver iterations: %d\n", linearSolverMaxIter);
-      printf("current linear solver iteration: %d\n", linearSolverIter);
+      printf("current linear solver iteration: %d\n", solverstate.linearSolverIter);
       printf("maximum nonlinear solver iterations: %d\n", nonlinearSolverMaxIter);
-      printf("current nonlinear solver iteration: %d\n", nonlinearSolverIter);
+      printf("current nonlinear solver iteration: %d\n", solverstate.nonlinearSolverIter);
       printf("matrix-vector multiplication order: %d\n", matvecOrder);
       printf("GMRES restart parameter: %d\n", gmresRestart);
       printf("GMRES orthogonalization method: %d\n", gmresOrthogMethod);
@@ -1946,11 +1954,11 @@ struct commonstruct {
       printf("current simulation time: %f\n", time);
       printf("matrix-vector multiplication tolerance: %f\n", matvecTol);
       printf("linear solver tolerance: %f\n", linearSolverTol);
-      printf("linear solver tolerance factor: %f\n", linearSolverTolFactor);
+      printf("linear solver tolerance factor: %f\n", solverstate.linearSolverTolFactor);
       printf("nonlinear solver tolerance: %f\n", nonlinearSolverTol);
-      printf("linear solver relative error: %f\n", linearSolverRelError);
+      printf("linear solver relative error: %f\n", solverstate.linearSolverRelError);
       printf("artificial viscosity ramp factor: %f\n", rampFactor);
-      printf("PTC parameter: %f\n", PTCparam);
+      printf("PTC parameter: %f\n", solverstate.PTCparam);
       printf("initial stabilization parameter: %f\n", tau0);
       printf("DAE alpha parameter: %f\n", dae_alpha);
       printf("DAE beta parameter: %f\n", dae_beta);
