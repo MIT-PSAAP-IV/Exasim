@@ -39,6 +39,7 @@ basePhysicsParam = [gam reynoldsNumbers(1) Pr Minf rinf ruinf rvinf rEinf];
 pde.physicsparam = basePhysicsParam;
 pde.physicsparamsweep = repmat(basePhysicsParam, numel(reynoldsNumbers), 1);
 pde.physicsparamsweep(:,2) = reynoldsNumbers;
+pde.physicsparamwarmstart = 1;
 pde.tau = tau;                 % DG stabilization parameter
 pde.GMRESrestart = 100;
 pde.GMRESortho = 1;

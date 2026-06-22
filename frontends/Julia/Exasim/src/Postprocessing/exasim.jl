@@ -233,7 +233,7 @@ end
 
 function writeapptemplate(app)
     template = deepcopy(app);
-    template.flag = template.flag[19:end];
+    template.flag = template.flag[20:end];
     template.problem = template.problem[29:end];
     template.factor = template.factor[6:end];
     template.solversparam = template.solversparam[5:end];

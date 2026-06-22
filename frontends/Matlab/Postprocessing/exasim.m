@@ -252,7 +252,7 @@ end
 end
 
 function app = writeapptemplate(app)
-app.flag = app.flag(19:end);
+app.flag = app.flag(20:end);
 app.problem = app.problem(33:end);
 app.factor = app.factor(6:end);
 app.solversparam = app.solversparam(5:end);

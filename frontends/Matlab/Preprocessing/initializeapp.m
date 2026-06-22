@@ -80,6 +80,7 @@ app.extFhat = 0;
 app.extUhat = 0;
 app.extStab = 0;
 app.saveParaview = 0;
+app.physicsparamwarmstart = 0;
 app.executionmode = 0;
 
 app.time = 0.0;
@@ -112,5 +113,4 @@ app.dataoutpath = "";
 app.metis = "mpmetis";
 app.gmsh = "gmsh";
 app.paraview = "paraview";
-
 

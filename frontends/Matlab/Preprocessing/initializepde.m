@@ -108,6 +108,7 @@ pde.extFhat = 0;
 pde.extUhat = 0;
 pde.extStab = 0;
 pde.saveParaview = 0;
+pde.physicsparamwarmstart = 0;
 pde.executionmode = 0;
 pde.saveResNorm = 0;
 
@@ -161,5 +162,4 @@ pde.fbou = "fbou";
 pde.fhat = "fhat";
 pde.source = "source";
 pde.arg = {};
-
 

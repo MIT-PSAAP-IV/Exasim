@@ -97,6 +97,7 @@ mutable struct PDEStruct
     extUhat::IntP;
     extStab::IntP;
     saveParaview::IntP;
+    physicsparamwarmstart::IntP;
     executionmode::IntP;
     saveResNorm::IntP; # option for how the solution be saved: 0 -> u only, 1 -> u and q
 
@@ -264,6 +265,7 @@ function initializepde(version)
     pde.extUhat = 0;
     pde.extStab = 0;
     pde.saveParaview = 0;
+    pde.physicsparamwarmstart = 0;
     pde.executionmode = 0;
     pde.saveResNorm = 0;
 
