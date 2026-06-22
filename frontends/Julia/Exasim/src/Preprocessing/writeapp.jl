@@ -2,7 +2,11 @@ function writeapp(app,filename)
 
 appname = 0;
 app.flag = [app.tdep app.wave app.linearproblem app.debugmode app.matvecorder app.GMRESortho app.preconditioner app.precMatrixType app.NLMatrixType app.runmode app.tdfunc app.source app.modelnumber app.extFhat app.extUhat app.extStab app.subproblem app.saveParaview app.flag];
-app.problem = [app.hybrid appname app.temporalscheme app.torder app.nstage app.convStabMethod app.diffStabMethod app.rotatingFrame app.viscosityModel app.SGSmodel app.ALE app.AV app.linearsolver app.NLiter app.linearsolveriter app.GMRESrestart app.RBdim app.saveSolFreq app.saveSolOpt app.timestepOffset app.stgNmode app.saveSolBouFreq app.ibs app.dae_steps app.saveResNorm app.AVsmoothingInter app.frozenAVflag app.ppdegree app.problem];
+# problem[0..27], then the coupling slots problem[28..31] (M1: reconcile to Matlab's app.bin
+# layout -- backend reads problem[28..31] as coupledinterface/coupledcondition/
+# coupledboundarycondition/AVdistfunction; previously the user's trailing app.problem collided
+# with these slots).
+app.problem = [app.hybrid appname app.temporalscheme app.torder app.nstage app.convStabMethod app.diffStabMethod app.rotatingFrame app.viscosityModel app.SGSmodel app.ALE app.AV app.linearsolver app.NLiter app.linearsolveriter app.GMRESrestart app.RBdim app.saveSolFreq app.saveSolOpt app.timestepOffset app.stgNmode app.saveSolBouFreq app.ibs app.dae_steps app.saveResNorm app.AVsmoothingInter app.frozenAVflag app.ppdegree app.coupledinterface app.coupledcondition app.coupledboundarycondition app.AVdistfunction app.problem];
 app.factor = [app.time app.dae_alpha app.dae_beta app.dae_gamma app.dae_epsilon app.factor];
 app.solversparam = [app.NLtol app.linearsolvertol app.matvectol app.NLparam app.solversparam];
 
