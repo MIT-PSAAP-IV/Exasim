@@ -344,10 +344,7 @@ inline void CSolution<M>::SaveQoI(Int backend)
         if (disc.common.tdep==1) 
             outqoi << std::setw(16) << std::scientific << std::setprecision(6) << disc.common.time;
         else outqoi << std::setw(16) << std::scientific << std::setprecision(6) << 0.0;
-        for (size_t i = 0; i < disc.common.nvqoi; ++i) 
-            outqoi << std::setw(16) << std::scientific << std::setprecision(6) << disc.common.qoivolume[i];            
-        for (size_t i = 0; i < disc.common.nsurf; ++i) 
-            outqoi << std::setw(16) << std::scientific << std::setprecision(6) << disc.common.qoisurface[i];            
+        writeQoIRow(outqoi, disc.common);
         outqoi << "\n";
     }
 }

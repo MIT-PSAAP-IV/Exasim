@@ -231,6 +231,19 @@ inline void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &
     if (common.nvqoi > 0) common.qoivolume = (dstype*) malloc(common.nvqoi*sizeof(dstype));
     if (common.nsurf > 0) common.qoisurface = (dstype*) malloc(common.nsurf*sizeof(dstype));
 
+    // Default QoI instances: one domain instance over all volume QoIs and one boundary
+    // instance over all surface QoIs on common.ibs. Reproduces the historical single-QoI
+    // output byte-for-byte; additional named instances may be registered before the solve.
+    common.qoiinstances.clear();
+    if (common.nvqoi > 0) {
+        qoiinstancestruct q; q.name = "Domain_QoI"; q.kind = 0; q.boundary = 0;
+        q.offset = 0; q.ncomp = common.nvqoi; common.qoiinstances.push_back(q);
+    }
+    if (common.nsurf > 0) {
+        qoiinstancestruct q; q.name = "Boundary_QoI"; q.kind = 1; q.boundary = common.ibs;
+        q.offset = 0; q.ncomp = common.nsurf; common.qoiinstances.push_back(q);
+    }
+
     if ( common.saveSolBouFreq>0 ) {
         common.ndofbou = 0; 
         for (Int j=0; j<common.nbf; j++) {            

@@ -47,6 +47,8 @@
 #include <string>
 #include <vector>
 #include <filesystem>
+#include <iomanip>
+#include <ostream>
 #include <cstdint>
 #include <cstring>
 
@@ -1607,8 +1609,21 @@ struct solverstatestruct {
     dstype PTCparam;                     // pseudo-transient-continuation parameter
 };
 
+// One quantity-of-interest instance: a named QoI the backend computes and writes. Several
+// instances may coexist in a single program (the "QoI template, many instances" model). Each
+// instance owns a contiguous [offset, offset+ncomp) slice of its model QoI-kernel output;
+// volume instances integrate over the domain, boundary instances over one boundary id.
+struct qoiinstancestruct {
+    std::string name = "QoI";  // output-column header prefix
+    Int kind = 0;              // 0: volume (domain) QoI; 1: boundary (surface) QoI
+    Int boundary = 0;          // boundary id to integrate over (kind==1); unused for volume
+    Int offset = 0;            // first component in the model QoI-kernel output vector
+    Int ncomp = 0;             // number of components this instance owns
+};
+
 struct commonstruct {
     solverstatestruct solverstate;  // mutable solver/preconditioner runtime state (see above)
+    std::vector<qoiinstancestruct> qoiinstances;  // registered QoI instances (default: 1 domain + 1 boundary)
     std::string exasimpath = "";
     std::string filein;       // Name of binary file with input data
     std::string fileout;      // Name of binary file to write the solution            
@@ -2049,9 +2064,28 @@ struct commonstruct {
         CPUFREE(DIRKcoeff_t); 
         CPUFREE(BDFcoeff_c); 
         CPUFREE(BDFcoeff_t);  
-        if (nvqoi > 0) CPUFREE(qoivolume);  
-        if (nsurf > 0) CPUFREE(qoisurface);  
-    }                         
+        if (nvqoi > 0) CPUFREE(qoivolume);
+        if (nsurf > 0) CPUFREE(qoisurface);
+    }
 };
 
-#endif  
+// --- QoI output helpers (instance-driven) ------------------------------------------------
+// Write the QoI column headers / one QoI value row by iterating the registered QoI instances.
+// With the default single-domain + single-boundary instances this reproduces the historical
+// "Domain_QoI<i>" / "Boundary_QoI<i>" columns and values byte-for-byte.
+inline void writeQoIHeader(std::ostream& outqoi, const commonstruct& common)
+{
+    for (const auto& q : common.qoiinstances)
+        for (Int j = 0; j < q.ncomp; ++j)
+            outqoi << std::setw(16) << std::left << (q.name + std::to_string(j + 1));
+}
+inline void writeQoIRow(std::ostream& outqoi, const commonstruct& common)
+{
+    for (const auto& q : common.qoiinstances) {
+        const dstype* buf = (q.kind == 0) ? common.qoivolume : common.qoisurface;
+        for (Int j = 0; j < q.ncomp; ++j)
+            outqoi << std::setw(16) << std::scientific << std::setprecision(6) << buf[q.offset + j];
+    }
+}
+
+#endif
