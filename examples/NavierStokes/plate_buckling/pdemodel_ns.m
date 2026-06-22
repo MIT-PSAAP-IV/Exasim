@@ -7,6 +7,8 @@ pde.ubou = @ubou;
 pde.initu = @initu;
 % pde.avfield = @avfield;
 pde.fbouhdg = @fbouhdg;
+pde.visscalars = @visscalars;
+pde.visvectors = @visvectors;
 end
 
 function m = mass(u, q, w, v, x, t, mu, eta)
@@ -174,6 +176,82 @@ function u0 = initu(x, mu, eta)
     u0 = sym(mu(5:8)); % freestream flow   
 end
 
+function s = visscalars(u, q, w, v, x, t, mu, eta)
+    gam = mu(1);
+    gam1 = gam - 1.0;
+    Minf = mu(4);
+    Tref = mu(10);
+    Tinf = 1/(gam*gam1*Minf^2);
+    alpha = 1.0e3;
+    pmin = 1.0e-3;
 
+    r = u(1); ru = u(2); rv = u(3); rE = u(4);
 
+    r1 = 1/r;
+    uv = ru*r1;
+    vv = rv*r1;
+    qq = 0.5*(uv*uv+vv*vv);
+    p = gam1*(rE - r*qq);
 
+    M = sqrt(uv^2 + vv^2) / sqrt(gam * p * r1);
+
+    T = p/(gam1*r);
+    Tphys = Tref / Tinf * T;
+
+    % Pressure shock sensor (smooth indicator of pressure regularization)
+    xp = p - pmin;
+    dp = atan(alpha*xp)/pi + (alpha*xp)/(pi*(alpha^2*xp^2 + 1)) + 0.5;
+
+    s = [M; Tphys; dp];
+end
+
+function s = visvectors(u, q, w, v, x, t, mu, eta)
+    gam = mu(1);
+    gam1 = gam - 1.0;
+    Re = mu(2);
+    Pr = mu(3);
+    Minf = mu(4);
+    Tref = mu(10);
+    Tinf = 1/(gam*gam1*Minf^2);
+
+    r = u(1); ru = u(2); rv = u(3); rE = u(4);
+    rx = q(1); rux = q(2); rvx = q(3); rEx = q(4);
+    ry = q(5); ruy = q(6); rvy = q(7); rEy = q(8);
+
+    r1 = 1/r;
+    uv = ru*r1;
+    vv = rv*r1;
+    qq = 0.5*(uv*uv+vv*vv);
+    p = gam1*(rE - r*qq);
+    T = p/(gam1*r);
+
+    % Physical velocity (m/s) via freestream speed of sound
+    Rgas = 287;
+    c_inf_phys = sqrt(gam * Rgas * Tref);
+    u_ref_phys = Minf * c_inf_phys;
+    u_phys = uv * u_ref_phys;
+    v_phys = vv * u_ref_phys;
+
+    % Temperature gradients from conservative variable gradients
+    ux = (rux - rx*uv)*r1;
+    vx = (rvx - rx*vv)*r1;
+    qx = uv*ux + vv*vx;
+    px = gam1*(rEx - rx*qq - r*qx);
+    Tx = 1/gam1*(px*r - p*rx)*r1^2;
+
+    uy = (ruy - ry*uv)*r1;
+    vy = (rvy - ry*vv)*r1;
+    qy = uv*uy + vv*vy;
+    py = gam1*(rEy - ry*qq - r*qy);
+    Ty = 1/gam1*(py*r - p*ry)*r1^2;
+
+    % Heat flux: Fourier's law q = -k * grad(T)
+    Tphys = Tref / Tinf * T;
+    muRef = 1/Re;
+    mu_visc = getViscosity(muRef, Tref, Tphys, 1);
+    fc = mu_visc * gam / Pr;
+    hf_x = -fc * Tx;
+    hf_y = -fc * Ty;
+
+    s = [u_phys; v_phys; hf_x; hf_y];
+end
