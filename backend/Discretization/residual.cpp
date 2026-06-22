@@ -45,7 +45,7 @@
 #include "uequation.cpp"
 #include "qresidual.cpp"
 #include "uresidual.cpp"
-#include "getuhat.cpp"
+#include "getuhat.hpp"  // unified templated; non-templated callers use <AbiAdapter>
 
 void DG2CGAVField(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh, 
         tempstruct &tmp, commonstruct &common, dstype* avcg, dstype* avdg, Int backend)
@@ -250,7 +250,7 @@ void RuResidual(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI&
    Int nbe1u, Int nbe2u, Int nbe1q, Int nbe2q, Int nbf1, Int nbf2, Int backend)
 {    
     // compute uhat
-    GetUhat(sol, res, app, driver_abi, master, mesh, tmp, common, handle, nbf1, nbf2, backend);
+    GetUhat<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, nbf1, nbf2, backend);
     
     // compute q
     if (common.ncq>0)
@@ -336,7 +336,7 @@ void GetQMPI(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& dr
     }
             
     // compute uhat for all faces
-    GetUhat(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbf, backend);
+    GetUhat<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.nbf, backend);
        
     // calculate q for interior elements
     if (common.ncq>0)         
@@ -352,7 +352,7 @@ void GetQMPI(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& dr
     //    ArrayCopy(&sol.udg[nudg*common.elemrecv[n]], &tmp.buffrecv[bsz*n], bsz, backend);        
     
     // compute uhat for all faces
-    GetUhat(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbf, backend);
+    GetUhat<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.nbf, backend);
     
     // calculate q for interface and exterior elements
     if (common.ncq>0)         
@@ -415,7 +415,7 @@ void RuResidualMPI(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverA
                     
     START_TIMING; 
     // compute uhat for all faces
-    GetUhat(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbf, backend);            
+    GetUhat<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.nbf, backend);            
     END_TIMING(7);    
     
     START_TIMING;  
@@ -448,7 +448,7 @@ void RuResidualMPI(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverA
     
     START_TIMING; 
     // compute uhat for all faces
-    GetUhat(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbf, backend);
+    GetUhat<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.nbf, backend);
     END_TIMING(7);    
 
     START_TIMING; 
@@ -540,7 +540,7 @@ void RuResidualMPI1(solstruct &sol, resstruct &res, appstruct &app, ExasimDriver
     }
                     
     // compute uhat for all faces
-    GetUhat(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbf, backend);                    
+    GetUhat<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.nbf, backend);                    
     
     // calculate q for interior elements
     if (common.ncq>0)         
@@ -560,7 +560,7 @@ void RuResidualMPI1(solstruct &sol, resstruct &res, appstruct &app, ExasimDriver
     PutArrayAtIndex(sol.udg, tmp.buffrecv, mesh.elemrecvind, bsz*common.nelemrecv);
     
     // compute uhat for all faces
-    GetUhat(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbf, backend);
+    GetUhat<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.nbf, backend);
 
     // calculate q for interface and exterior elements
     if (common.ncq>0)
@@ -691,8 +691,8 @@ void dRuResidual(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI
    Int nbe1u, Int nbe2u, Int nbe1q, Int nbe2q, Int nbf1, Int nbf2, Int backend)
 {   
     // compute (duhat/du v)
-    // GetUhat(sol, res, app, driver_abi, master, mesh, tmp, common, handle, nbf1, nbf2, backend);
-    GetdUhat(sol, res, app, driver_abi, master, mesh, tmp, common, handle, nbf1, nbf2, backend);
+    // GetUhat<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, nbf1, nbf2, backend);
+    GetdUhat<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, nbf1, nbf2, backend);
 
     // compute dq
     if (common.ncq>0)
@@ -769,7 +769,7 @@ void dRuResidualMPI(solstruct &sol, resstruct &res, appstruct &app, ExasimDriver
         }
     }
     // compute uhat for all faces
-    GetdUhat(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbf, backend);            
+    GetdUhat<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.nbf, backend);            
     
     // calculate q for interior elements
     if (common.ncq>0)         
@@ -789,7 +789,7 @@ void dRuResidualMPI(solstruct &sol, resstruct &res, appstruct &app, ExasimDriver
     PutArrayAtIndex(sol.dudg, tmp.buffrecv, mesh.elemrecvind, bsz*common.nelemrecv, backend);
 
     // compute uhat for all faces
-    GetdUhat(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbf, backend);
+    GetdUhat<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.nbf, backend);
 
     // calculate q for interface and exterior elements
     if (common.ncq>0)         
@@ -860,7 +860,7 @@ void ComputeQ(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& d
     }
     else {
         // compute uhat
-        GetUhat(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbf, backend);
+        GetUhat<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.nbf, backend);
         GetQ(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbe, 0, common.nbf, backend);    
     }        
     

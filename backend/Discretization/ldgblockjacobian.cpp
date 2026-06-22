@@ -1526,7 +1526,7 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
 
     // compute uhat
     t0 = LDGBenchmarkStart(backend);
-    GetUhat(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbf, backend);
+    GetUhat<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.nbf, backend);
     tm.uhat += LDGBenchmarkStop(t0, backend);
 
     // compute q
@@ -1698,7 +1698,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 
     // Interior q and w can be computed while neighbor values are in flight.
     t0 = LDGBenchmarkStart(backend);
-    GetUhat(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbf, backend);
+    GetUhat<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.nbf, backend);
     tm.uhat += LDGBenchmarkStop(t0, backend);
 
     if (common.ncq>0) {
@@ -1722,7 +1722,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 
     // Recompute traces with up-to-date exterior states, then update interface/exterior q and w.
     t0 = LDGBenchmarkStart(backend);
-    GetUhat(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbf, backend);
+    GetUhat<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.nbf, backend);
     tm.uhat += LDGBenchmarkStop(t0, backend);
 
     if (common.ncq>0) {
@@ -1807,7 +1807,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 //                 0, common.ncu, 0, common.ne);  
 // 
 //     // compute uhat
-//     GetUhat(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbf, backend);
+//     GetUhat<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.nbf, backend);
 // 
 //     // compute q
 //     if (common.ncq>0)

@@ -714,7 +714,7 @@ void CDiscretization::evalQ(Int backend)
 void CDiscretization::evalQSer(Int backend)
 {
     // compute the flux q    
-    GetUhat(sol, res, app, driver_abi, master, mesh, tmp, common, common.cublasHandle, 0, common.nbf, backend);        
+    GetUhat<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 0, common.nbf, backend);        
     GetQ(sol, res, app, driver_abi, master, mesh, tmp, common, common.cublasHandle, 0, common.nbe, 0, common.nbf, backend);        
 }
 
