@@ -7,7 +7,8 @@ arguments
     ny (1,1) double = 100
 end
 
-[xl1, xl2, xu1, xu2] = thermal_buckling_smooth();
+btol = 5e-4;
+[xl1, xl2, xu1, xu2, bnd_lower, bnd_upper, bnd_sym] = thermal_buckling_smooth(btol);
 
 mesh1 = surfmesh2d(xl1, xu1, nx1, ny, porder, [2.0 1.2], [5 0]);
 mesh2 = surfmesh2d(xl2, xu2, nxf, ny, porder, [3.5 1.5], [5 0]);
@@ -26,32 +27,16 @@ mesh.dgnodes = cat(3, mesh1.dgnodes, mesh2.dgnodes);
 mesh.p = mesh.p';
 mesh.t = mesh.t';
 
-mesh.p(2,:) = mesh.p(2,:) + 1e-4;
-mesh.dgnodes(:,2,:) = mesh.dgnodes(:,2,:) + 1e-4;
-
-shift = 1e-4;
-xl_full = [xl1; xl2(2:end,:)];
-xu_full = [xu1; xu2(2:end,:)];
-xl_full(:,2) = xl_full(:,2) + shift;
-xu_full(:,2) = xu_full(:,2) + shift;
-
 xmax = max(mesh.p(1,:));
-xmin = min(mesh.p(1,:));
-btol = 5e-4;
-
-[~, ia] = unique(xl_full(:,1));
-xl_full_u = xl_full(ia, :);
-[~, ia] = unique(xu_full(:,1));
-xu_full_u = xu_full(ia, :);
 
 mesh.boundaryexpr = {
-    @(p) abs(p(1,:) - xmax) < btol, ...
-    @(p) abs(p(1,:) - xmin) < btol, ...
-    @(p) abs(p(2,:) - interp1(xl_full_u(:,1), xl_full_u(:,2), p(1,:), 'linear', 'extrap')) < btol, ...
-    @(p) abs(p(2,:) - interp1(xu_full_u(:,1), xu_full_u(:,2), p(1,:), 'linear', 'extrap')) < btol, ...
+    bnd_upper;           % 1: inflow (upper surface)
+    str2func(sprintf('@(p) abs(p(1,:)-%.12e)<%.12e', xmax, btol));  % 2: outflow (right end)
+    bnd_lower;           % 3: isothermal wall (lower curved)
+    bnd_sym;             % 4: symmetry (flat bottom)
 };
 mesh.f = facenumbering(mesh.p, mesh.t, 1, mesh.boundaryexpr, []);
-mesh.boundarycondition = [2, 1, 3, 1];
+mesh.boundarycondition = [1, 2, 3, 5];
 mesh.periodicboundary = [];
 mesh.periodicexpr = {};
 
@@ -68,7 +53,7 @@ end
 
 
 % -------------------------------------------------------------------------
-function [xl1, xl2, xu1, xu2] = thermal_buckling_smooth()
+function [xl1, xl2, xu1, xu2, bnd_lower, bnd_upper, bnd_sym] = thermal_buckling_smooth(btol)
 
 Lplate = 0.2;
 L1 = 0.0977;
@@ -125,5 +110,25 @@ xu1 = xu(1:k, :);
 xu_rest = xu(k+1:end, :);
 i = xu_rest(:,1) <= 1.22;
 xu2 = [xu1(end,:); xu_rest(i,:)];
+
+% ---- analytical boundary expressions ----
+% Lower surface: circle (nose) + tangent line (cone), x >= 0 only
+xj_lower = T1(1);
+m_lower = (R - T1(2)) / (L - T1(1));
+bnd_lower = str2func(sprintf(...
+    '@(p)abs(p(2,:)-((p(1,:)<=%.12e)*sqrt(max(0,2*%.12e*p(1,:)-p(1,:)^2))+(p(1,:)>%.12e)*(%.12e+%.12e*(p(1,:)-%.12e))))<%.12e & p(1,:)>=0',...
+    xj_lower, rt, xj_lower, T1(2), m_lower, xj_lower, btol));
+
+% Upper surface: arc + tangent line
+if T1_up(2) > 0, pt_up = T1_up; else pt_up = T2_up; end
+xj_upper = pt_up(1);
+m_upper = (h_back*R - pt_up(2)) / (L - pt_up(1));
+bnd_upper = str2func(sprintf(...
+    '@(p)abs(p(2,:)-((p(1,:)<=%.12e)*sqrt(max(0,%.12e-p(1,:)^2))+(p(1,:)>%.12e)*(%.12e+%.12e*(p(1,:)-%.12e))))<%.12e',...
+    xj_upper, ra^2, xj_upper, pt_up(2), m_upper, xj_upper, btol));
+
+% Flat bottom: symmetry (y=0, x < 0)
+bnd_sym = str2func(sprintf(...
+    '@(p)abs(p(2,:))<%.12e & p(1,:)<0', btol));
 
 end

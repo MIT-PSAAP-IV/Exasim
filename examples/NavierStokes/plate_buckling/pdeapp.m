@@ -35,7 +35,7 @@ end
 
 %% ---- 3. Navier-Stokes solve + viscosity ramp ----
 pdeapp_ns;
-% writeinputfile("pdeapp_ns.txt", pde, mesh);
+writeinputfile("pdeapp_ns.txt", pde, mesh);
 
 
 %% ---- 4. Helmholtz + NS solve ----
