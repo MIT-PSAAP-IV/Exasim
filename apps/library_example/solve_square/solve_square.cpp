@@ -237,7 +237,7 @@ int main(int argc, char** argv) {
                                  gpuid, backend, pde.builtinmodelID);
 
         sol.disc.common.nomodels = 1;
-        sol.disc.common.ncarray  = new Int[1]{ sol.disc.common.nc };
+        sol.disc.common.ncarray  = new Int[1]{ sol.disc.common.components.nc };
         sol.disc.sol.udgarray    = new dstype*[1]{ &sol.disc.sol.udg[0] };
 
         std::ofstream resnorms;

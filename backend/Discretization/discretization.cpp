@@ -303,8 +303,8 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
             hsol, hres, happ, hmaster, hmesh, htmp, hcommon);                
         app.read_uh = happ.read_uh;
         if (hmesh.bf != nullptr) {
-          TemplateMalloc(&mesh.bf, hcommon.nfe*hcommon.ne, 0);
-          for (int i=0; i<hcommon.nfe*hcommon.ne; i++) mesh.bf[i] = hmesh.bf[i];   
+          TemplateMalloc(&mesh.bf, hcommon.meshsizes.nfe*hcommon.meshsizes.ne, 0);
+          for (int i=0; i<hcommon.meshsizes.nfe*hcommon.meshsizes.ne; i++) mesh.bf[i] = hmesh.bf[i];   
         }
 
        // copy hsol.xcg to sol.xcg for paraview visualization
