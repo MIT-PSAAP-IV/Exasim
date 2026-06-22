@@ -86,8 +86,8 @@ void setcommonstruct(commonstruct &common, appstruct &app, ExasimDriverABI& driv
     else
         common.ncs = 0; // steady-state problem
         
-    common.ncuext = 0;
-    common.FextCall = 0;
+    common.couplingparams.ncuext = 0;
+    common.couplingparams.FextCall = 0;
   
     common.nd = master.ndims[0];     // spatial dimension    
     common.elemtype = master.ndims[1]; 
@@ -139,9 +139,9 @@ void setcommonstruct(commonstruct &common, appstruct &app, ExasimDriverABI& driv
     common.timeparams.tdfunc = app.flag[10];
     common.physicsparams.source = app.flag[11]; 
     common.modelnumber = app.modelnumber; 
-    common.extFhat = app.flag[13];
-    common.extUhat = app.flag[14];
-    common.extStab = app.flag[15];
+    common.couplingparams.extFhat = app.flag[13];
+    common.couplingparams.extUhat = app.flag[14];
+    common.couplingparams.extStab = app.flag[15];
     common.timeparams.subproblem = app.flag[16];
     common.qoiparams.saveParaview = (app.nsize[1] > 17) ? app.flag[17] : 0;
     
@@ -181,9 +181,9 @@ void setcommonstruct(commonstruct &common, appstruct &app, ExasimDriverABI& driv
                                            //   0: AV not frozen, evaluated every iteration
                                            //   1: AV frozen, evluated once per solve (default)          
     common.ppdegree = app.problem[27]; // degree of polynomial preconditioner
-    common.coupledinterface = app.problem[28]; 
-    common.coupledcondition = app.problem[29]; 
-    common.coupledboundarycondition = app.problem[30];
+    common.couplingparams.coupledinterface = app.problem[28]; 
+    common.couplingparams.coupledcondition = app.problem[29]; 
+    common.couplingparams.coupledboundarycondition = app.problem[30];
     common.physicsparams.AVdistfunction = app.problem[31];
     
     common.solverstate.RBcurrentdim = 0; // current dimension of the reduced basis space
@@ -211,7 +211,7 @@ void setcommonstruct(commonstruct &common, appstruct &app, ExasimDriverABI& driv
     common.eblks = copyarray(mesh.eblks,mesh.nsize[2]); // element blocks
     common.fblks = copyarray(mesh.fblks,mesh.nsize[3]); // face blocks            
     common.dt = copyarray(app.dt,app.nsize[4]); // timestep sizes       
-    common.nvindx = app.nsize[12];
+    common.couplingparams.nvindx = app.nsize[12];
     common.vindx = copyarray(app.vindx,app.nsize[12]); 
     common.dae_dt = copyarray(app.dae_dt,app.nsize[13]); // dual timestep sizes           
     common.szinterfacefluxmap = app.nsize[14];
@@ -314,7 +314,7 @@ void setcommonstruct(commonstruct &common, appstruct &app, ExasimDriverABI& driv
         common.nbe0 = 0;
         common.nbe1 = 0;
         common.nbe2 = 0;
-        common.ncie = 0; // number of coupled interface elements
+        common.couplingparams.ncie = 0; // number of coupled interface elements
         for (Int j=0; j<common.nbe; j++) {           
             if (common.eblks[3*j+2] == 0)
                 common.nbe0 += 1;
@@ -323,7 +323,7 @@ void setcommonstruct(commonstruct &common, appstruct &app, ExasimDriverABI& driv
             if (common.eblks[3*j+2] <= 2)
                 common.nbe2 += 1;
             if (common.eblks[3*j+2] == -1)
-              common.ncie += common.eblks[3*j+1] - common.eblks[3*j+0] + 1;
+              common.couplingparams.ncie += common.eblks[3*j+1] - common.eblks[3*j+0] + 1;
         }        
         
         common.nbf0 = mesh.ndims[9]; // number of blocks for faces   
@@ -351,8 +351,8 @@ void setcommonstruct(commonstruct &common, appstruct &app, ExasimDriverABI& driv
         common.requests = (MPI_Request *) malloc( 2*(common.nnbsd + common.nnbintf) * sizeof(MPI_Request) );
         common.statuses = (MPI_Status *) malloc( 2*(common.nnbsd + common.nnbintf) * sizeof(MPI_Status) );     
         if (common.spatialScheme==1) {
-          //common.ninterfacefaces = getinterfacefaces(mesh.f2e, common.ne1, common.nf);
-          //common.ndofuhatinterface = common.ncu*common.npf*common.ninterfacefaces;
+          //common.couplingparams.ninterfacefaces = getinterfacefaces(mesh.f2e, common.ne1, common.nf);
+          //common.couplingparams.ndofuhatinterface = common.ncu*common.npf*common.couplingparams.ninterfacefaces;
         }
 #endif        
     }

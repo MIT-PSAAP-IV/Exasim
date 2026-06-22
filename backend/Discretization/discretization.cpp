@@ -396,22 +396,22 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
       }
       common.maxnbc = maxbc;      
       
-      if (common.coupledboundarycondition>0) {
-        //common.nintfaces = getinterfacefaces(mesh.bf, common.eblks, nbe-1, nfe, common.coupledboundarycondition);
-        common.nintfaces = getinterfacefaces(mesh.bf, nfe, common.ne1, common.coupledboundarycondition);
+      if (common.couplingparams.coupledboundarycondition>0) {
+        //common.couplingparams.nintfaces = getinterfacefaces(mesh.bf, common.eblks, nbe-1, nfe, common.couplingparams.coupledboundarycondition);
+        common.couplingparams.nintfaces = getinterfacefaces(mesh.bf, nfe, common.ne1, common.couplingparams.coupledboundarycondition);
         int *intfaces = nullptr; // store interface faces
-        TemplateMalloc(&intfaces, common.nintfaces, 0);
-        //getinterfacefaces(intfaces, mesh.bf, common.eblks, nbe-1, nfe, common.coupledboundarycondition, common.nintfaces);
-        getinterfacefaces(intfaces, mesh.bf, nfe, common.ne1, common.coupledboundarycondition, common.nintfaces);
-        TemplateMalloc(&mesh.intfaces, common.nintfaces, common.backend);
-        TemplateCopytoDevice(mesh.intfaces, intfaces, common.nintfaces, common.backend);                       
-        mesh.szintfaces = common.nintfaces;
+        TemplateMalloc(&intfaces, common.couplingparams.nintfaces, 0);
+        //getinterfacefaces(intfaces, mesh.bf, common.eblks, nbe-1, nfe, common.couplingparams.coupledboundarycondition, common.couplingparams.nintfaces);
+        getinterfacefaces(intfaces, mesh.bf, nfe, common.ne1, common.couplingparams.coupledboundarycondition, common.couplingparams.nintfaces);
+        TemplateMalloc(&mesh.intfaces, common.couplingparams.nintfaces, common.backend);
+        TemplateCopytoDevice(mesh.intfaces, intfaces, common.couplingparams.nintfaces, common.backend);                       
+        mesh.szintfaces = common.couplingparams.nintfaces;
         
         CPUFREE(intfaces);
         
-        TemplateMalloc(&sol.xdgint, ncx*npf*common.nintfaces, common.backend);
-        GetBoudaryNodes(sol.xdgint, sol.xdg, mesh.intfaces, mesh.perm, nfe, npf, npe, ncx, ncx, common.nintfaces);
-        sol.szxdgint = ncx*npf*common.nintfaces;                 
+        TemplateMalloc(&sol.xdgint, ncx*npf*common.couplingparams.nintfaces, common.backend);
+        GetBoudaryNodes(sol.xdgint, sol.xdg, mesh.intfaces, mesh.perm, nfe, npf, npe, ncx, ncx, common.couplingparams.nintfaces);
+        sol.szxdgint = ncx*npf*common.couplingparams.nintfaces;                 
       }
       
       // GetBoudaryNodes(xdgb.data(), &sol.xdg[0], &mesh.boufaces[start], mesh.perm, nfe, npf, npe, ncx, ncx, nfaces);
@@ -475,10 +475,10 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
         res.B = &res.K[npf*nfe*ncu*npe*ncu*neb + npe*ncu*npe*ncu*neb];
         res.G = &res.K[npf*nfe*ncu*npe*ncu*neb + npe*ncu*npe*ncu*neb + npe*ncu*npe*ncq*neb];        
         
-        if (common.coupledinterface>0) {
-          res.szRi = npf*ncu12*common.ncie;
-          res.szKi = npf*ncu12*npe*ncu*common.ncie;
-          res.szHi = npf*ncu12*npf*nfe*ncu*common.ncie;
+        if (common.couplingparams.coupledinterface>0) {
+          res.szRi = npf*ncu12*common.couplingparams.ncie;
+          res.szKi = npf*ncu12*npe*ncu*common.couplingparams.ncie;
+          res.szHi = npf*ncu12*npf*nfe*ncu*common.couplingparams.ncie;
           TemplateMalloc(&res.Ri, res.szRi, backend);
           TemplateMalloc(&res.Ki, res.szKi, backend);
           TemplateMalloc(&res.Hi, res.szHi, backend);
@@ -505,8 +505,8 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
         printf("Finish GetFaceNodes ... \n");        
 
       if (common.ncq > 0) {        
-        if (common.coupledinterface>0 && !postprocessOnly) {
-          res.szGi = npf*ncu12*npe*ncq*common.ncie;          
+        if (common.couplingparams.coupledinterface>0 && !postprocessOnly) {
+          res.szGi = npf*ncu12*npe*ncq*common.couplingparams.ncie;          
           TemplateMalloc(&res.Gi, res.szGi, backend);
         }
         

@@ -67,9 +67,9 @@ void printinterfaceinfo(CDiscretization &disc)
     int nfacesend = disc.common.nfacesend;
     int nfacerecv = disc.common.nfacerecv;
         
-  //printf("%d %d %d %d %d %d %d %d\n", common.mpiRank, common.coupledboundarycondition, common.nintfaces, common.nfacerecv, common.nfacesend, common.ncie, common.ne, ncu12);
-    printf("coupled boundary condition: %d\n", disc.common.coupledboundarycondition);      
-    printf("coupled interface condition: %d\n", disc.common.coupledcondition);      
+  //printf("%d %d %d %d %d %d %d %d\n", common.mpiRank, common.couplingparams.coupledboundarycondition, common.couplingparams.nintfaces, common.nfacerecv, common.nfacesend, common.couplingparams.ncie, common.ne, ncu12);
+    printf("coupled boundary condition: %d\n", disc.common.couplingparams.coupledboundarycondition);      
+    printf("coupled interface condition: %d\n", disc.common.couplingparams.coupledcondition);      
     printf("szinterfacefluxmap: %d\n", disc.common.szinterfacefluxmap);      
     printf("number of neighboring interface subdomains: %d\n", nnbintf);      
     printf("number of faces to send: %d\n", nfacesend);
@@ -93,14 +93,14 @@ void printinterfaceinfo(CDiscretization &disc)
     print2iarray(disc.app.interfacefluxmap, 1, disc.common.szinterfacefluxmap);     
     printf("faceperm array: %d by %d\n", 1, disc.mesh.szfaceperm);  
     print2iarray(disc.mesh.faceperm, 1, disc.mesh.szfaceperm);     
-    printf("intfaces array: %d by %d\n", 1, disc.common.nintfaces);  
-    print2iarray(disc.mesh.intfaces, 1, disc.common.nintfaces);     
+    printf("intfaces array: %d by %d\n", 1, disc.common.couplingparams.nintfaces);  
+    print2iarray(disc.mesh.intfaces, 1, disc.common.couplingparams.nintfaces);     
     printf("bf array: %d by %d\n", disc.common.nfe, disc.common.ne);  
     print2iarray(disc.mesh.bf, disc.common.nfe, disc.common.ne);     
     printf("eblks array: %d by %d\n", 3, disc.common.nbe);  
     print2iarray(disc.common.eblks, 3, disc.common.nbe);    
-    printf("xdgint array: %d by %d\n", disc.common.npf, disc.common.nintfaces*disc.common.ncx);  
-    print2darray(disc.sol.xdgint, disc.common.npf, disc.common.nintfaces*disc.common.ncx);                      
+    printf("xdgint array: %d by %d\n", disc.common.npf, disc.common.couplingparams.nintfaces*disc.common.ncx);  
+    print2darray(disc.sol.xdgint, disc.common.npf, disc.common.couplingparams.nintfaces*disc.common.ncx);                      
     printf("xdg array: %d by %d\n", disc.common.npe, disc.common.ne*disc.common.ncx);  
     print2darray(disc.sol.xdg, disc.common.npe, disc.common.ne*disc.common.ncx);                      
     // printf("udg array: %d by %d\n", disc.common.npe, disc.common.ne*disc.common.nc);  
@@ -159,7 +159,7 @@ public:
         int offset = disc.common.fileoffset;
         std::string base = disc.common.fileout;
 
-        if ((disc.common.nintfaces > 0) && (disc.common.coupledcondition>0)) disc.common.ne0 = disc.common.intepartpts[0];
+        if ((disc.common.couplingparams.nintfaces > 0) && (disc.common.couplingparams.coupledcondition>0)) disc.common.ne0 = disc.common.intepartpts[0];
 
         //this->ReadSolutions(backend);
         // for (int k = 0; k<mpiprocs; k++) {

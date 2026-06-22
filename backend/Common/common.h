@@ -1711,7 +1711,29 @@ struct qoiparamsstruct {
     std::vector<qoiinstancestruct> qoiinstances;  // registered QoI instances (default: 1 domain + 1 boundary)
 };
 
+// Interface-coupling configuration: coupled interface/condition/boundary flags, external
+// uhat/fhat/stabilization function flags, the external-force call flag, and interface/coupled-
+// element counts. Grouped out of commonstruct (C3). Access via common.couplingparams.<field>.
+// (The raw interface arrays vindx/interfacefluxmap/intepartpts are shared with appstruct and
+// left in place; the wall-model and synthetic-turbulence fields are separate concerns.)
+struct couplingparamsstruct {
+    Int ncuext;                   // number of components of uext (external/coupling)
+    Int coupledinterface;
+    Int coupledcondition;
+    Int coupledboundarycondition;
+    Int FextCall=0;               // external-force call flag
+    Int ncie;                     // number of coupled interface elements
+    Int extUhat=0;                // external uhat function flag
+    Int extFhat=0;                // external fhat function flag
+    Int extStab=0;                // external stabilization function flag
+    Int ninterfacefaces=0;        // number of interface faces
+    Int ndofuhatinterface=0;
+    Int nintfaces;
+    Int nvindx;
+};
+
 struct commonstruct {
+    couplingparamsstruct couplingparams;  // interface-coupling configuration (see above)
     qoiparamsstruct qoiparams;          // QoI/visualization-output configuration (see above)
     timeparamsstruct timeparams;        // time-integration/problem-evolution config (see above)
     solverparamsstruct solverparams;    // iterative-solver configuration (see above)
@@ -1743,7 +1765,6 @@ struct commonstruct {
     Int ncx;// number of compoments of (xdg)
     Int ncs;// number of compoments of (sdg)
     Int nce;// number of compoments of (edg)
-    Int ncuext; // number of compoments of uext
     Int ncm;// number of compoments of PTC monitor function
 
     Int nd; // spatial dimension    
@@ -1758,10 +1779,6 @@ struct commonstruct {
     Int np1d;
     Int ng1d;    
     Int ppdegree=0; // polynomial preconditioner degree
-    Int coupledinterface;
-    Int coupledcondition;
-    Int coupledboundarycondition;
-    Int FextCall=0;
     Int isd=0; 
             
     Int ne; // number of elements
@@ -1777,7 +1794,6 @@ struct commonstruct {
     Int nbe2; // number of blocks for interior+interface+exterior elements 
     Int nbf0; // number of blocks for interior faces
     Int nbf1; // number of blocks for interior+interface faces
-    Int ncie; // number of coupled interface elements
     Int nse=0;  // number of superelements
     Int nese=0; // number of elements per superelement
     Int nfse=0; // number of faces per superelement
@@ -1808,9 +1824,6 @@ struct commonstruct {
     Int ndofucg;
         
     
-    Int extUhat=0; // external uhat function flag
-    Int extFhat=0; // external fhat function flag
-    Int extStab=0; // external stabilization function flag
     Int curvedMesh;// curved mesh   
     Int fileoffset;
     Int debugMode; // 1: save data to binary files for debugging
@@ -1836,8 +1849,6 @@ struct commonstruct {
     Int read_uh = 0;
 
     Int runmode;
-    Int ninterfacefaces=0; // number of interface faces
-    Int ndofuhatinterface=0;
     
             
     Int* eblks=nullptr; // element blocks
@@ -1846,12 +1857,10 @@ struct commonstruct {
     Int* nboufaces=nullptr;
     Int* nextfaces=nullptr;
     
-    Int nintfaces;
     Int nstgib;
     Int nnbsd; // number of neighboring subdomains
     Int nelemsend;
     Int nelemrecv;
-    Int nvindx;
     Int szinterfacefluxmap;
     Int nwm=0;
     Int szwmModelIDs=0;
@@ -1956,7 +1965,7 @@ struct commonstruct {
       printf("number of blocks for interior+interface+exterior elements: %d\n", nbe2);
       printf("number of blocks for interior faces: %d\n", nbf0);
       printf("number of blocks for interior+interface faces: %d\n", nbf1);
-      printf("number of interface faces: %d\n", ninterfacefaces);
+      printf("number of interface faces: %d\n", couplingparams.ninterfacefaces);
 
       printf("number of degrees of freedom of u: %d\n", ndof);   
       printf("number of degrees of freedom of q: %d\n", ndofq);   
@@ -1972,9 +1981,9 @@ struct commonstruct {
       printf("current dimension of the reduced basis space: %d\n", solverstate.RBcurrentdim);
       printf("the vector to be removed from the RB space and replaced with new vector: %d\n", solverstate.RBremovedind);
      
-      printf("external uhat function flag: %d\n", extUhat);
-      printf("external fhat function flag: %d\n", extFhat);
-      printf("external stabilization function flag: %d\n", extStab);
+      printf("external uhat function flag: %d\n", couplingparams.extUhat);
+      printf("external fhat function flag: %d\n", couplingparams.extFhat);
+      printf("external stabilization function flag: %d\n", couplingparams.extStab);
       printf("curved mesh flag: %d\n", curvedMesh);
       printf("debug mode flag: %d\n", debugMode);
       printf("time-dependent problem flag: %d\n", timeparams.tdep);

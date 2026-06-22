@@ -202,7 +202,7 @@ inline void FhatDriver(dstype* fg, const dstype* xg, const dstype* ug1, const ds
   Int ntau = common.ntau;
   dstype time = common.timestate.time; 
   
-  if (common.extFhat==1) { 
+  if (common.couplingparams.extFhat==1) { 
     KokkosFhat(fg, xg, ug1, ug2, og1, og2, wg1, wg2, uh, nl, app.tau, app.uinf, app.physicsparam, 
             time, common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);
   }
@@ -221,7 +221,7 @@ inline void FhatDriver(dstype* fg, const dstype* xg, const dstype* ug1, const ds
     AverageFluxDotNormal(fg, nl, N, M, numPoints, nd);            
 
     // Part 2: Contribution due to tau*(U-UH)
-    if (common.extStab>=1) { 
+    if (common.couplingparams.extStab>=1) { 
       KokkosStab(fg, xg, ug1, ug2, og1, og2, wg1, wg2, uh, nl, app.tau, app.uinf, app.physicsparam, 
               time, common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);
     }
@@ -275,7 +275,7 @@ inline void UhatDriver(dstype* fg, dstype* xg, dstype* ug1, dstype* ug2, const d
     Int numPoints = ngf*(f2-f1);
     dstype time = common.timestate.time; 
     
-    if (common.extUhat==1) { 
+    if (common.couplingparams.extUhat==1) { 
       KokkosUhat(fg, xg, ug1, ug2, og1, og2, wg1, wg2, uh, nl, app.tau, app.uinf, app.physicsparam, 
               time, common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);
     }

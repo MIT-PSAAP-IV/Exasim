@@ -204,12 +204,12 @@ void makeH(CDiscretization &disc, CPreconditioner& prec, sysstruct &sys,
     for(int i=0; i<m*m1; i++)
         H[i] = 0.0;
     
-    dstype normr = PNORM(disc.common.cublasHandle, N, disc.common.ndofuhatinterface, r, backend);        
+    dstype normr = PNORM(disc.common.cublasHandle, N, disc.common.couplingparams.ndofuhatinterface, r, backend);        
     ArrayAX(disc.common.cublasHandle, sys.v, r, 1.0/normr, N, backend);    
     for (int j=0; j<m; j++) {                    
         disc.evalMatVec(&sys.v[(j+1)*N], &sys.v[j*N], sys.u, sys.b, spatialScheme, backend);      
         prec.ApplyPreconditioner(&sys.v[(j+1)*N], sys, disc, spatialScheme, backend);            
-        MGS(disc.common.cublasHandle, sys.v, &H[m1*j], N, j+1, disc.common.ndofuhatinterface, backend);
+        MGS(disc.common.cublasHandle, sys.v, &H[m1*j], N, j+1, disc.common.couplingparams.ndofuhatinterface, backend);
         //MGS(disc.common.cublasHandle, sys.v, &H[m1*j], N, j+1, backend);
     }
 }

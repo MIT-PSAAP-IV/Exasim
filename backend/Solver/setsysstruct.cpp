@@ -351,7 +351,7 @@ void setsysstruct(sysstruct &sys, commonstruct &common, resstruct res, meshstruc
       TemplateFree(randvectu, backend);  
     }    
     
-    dstype normr = PNORM(common.cublasHandle, ndof, common.ndofuhatinterface, sys.randvect, backend);    
+    dstype normr = PNORM(common.cublasHandle, ndof, common.couplingparams.ndofuhatinterface, sys.randvect, backend);    
     //cout<<"sys.randvect: "<<common.mpiRank<<" "<<normr<<" "<<ndof<<endl;
     ArrayMultiplyScalar(common.cublasHandle, sys.randvect, 1.0/normr, ndof, backend);              
     sys.szrandvect = ndof;

@@ -953,7 +953,7 @@ int ExasimSolver::IntializeMeshInterface(const int modelnumber,
     ngf = model.disc.common.ngf;
     nfaces = model.disc.getFacesOnInterface(&faces, ibc + 1);
 
-    model.disc.common.ncuext = ncuext;
+    model.disc.common.couplingparams.ncuext = ncuext;
     TemplateMalloc(&model.disc.sol.uext, ngf * nfaces * ncuext,
                    interfaceBackend);
     model.disc.sol.szuext = ngf * nfaces * ncuext;
@@ -1052,8 +1052,8 @@ void ExasimSolver::getInterfaceFluxes(std::vector<double>& send_flux) const
 void ExasimSolver::setInterfaceFluxes(const std::vector<double>& recv_flux)
 {
     CSolution& model = *models_[interface_modelnumber_];
-    TemplateCopytoDevice(model.disc.sol.uext, recv_flux.data(), ngf * nfaces * model.disc.common.ncuext, backend_);
-    model.disc.common.FextCall = _ibc + 1;
+    TemplateCopytoDevice(model.disc.sol.uext, recv_flux.data(), ngf * nfaces * model.disc.common.couplingparams.ncuext, backend_);
+    model.disc.common.couplingparams.FextCall = _ibc + 1;
 }
 
 int ExasimSolver::RunAVDistanceFunction()

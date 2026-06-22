@@ -78,7 +78,7 @@ public:
         int offset = disc.common.fileoffset;
         std::string base = disc.common.fileout;
 
-        if ((disc.common.nintfaces > 0) && (disc.common.coupledcondition>0)) disc.common.ne0 = disc.common.intepartpts[0];            
+        if ((disc.common.couplingparams.nintfaces > 0) && (disc.common.couplingparams.coupledcondition>0)) disc.common.ne0 = disc.common.intepartpts[0];            
 
         if (mpirank==0 && (disc.common.qoiparams.nvqoi > 0 || disc.common.qoiparams.nsurf > 0)) {
             outqoi.open(base + "qoi.txt", std::ios::out);                         

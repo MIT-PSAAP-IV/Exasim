@@ -394,12 +394,12 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int N, I
         }        
     }    
     
-    nrmb = PNORM(disc.common.cublasHandle, N, disc.common.ndofuhatinterface, sys.b, backend);       
+    nrmb = PNORM(disc.common.cublasHandle, N, disc.common.couplingparams.ndofuhatinterface, sys.b, backend);       
     if (nrmb < disc.common.solverparams.nonlinearSolverTol) {
         ArraySetValue(sys.x, zero, N);
         return 0;
     }
-    scalar = PNORM(disc.common.cublasHandle, N, disc.common.ndofuhatinterface, sys.x, backend);      
+    scalar = PNORM(disc.common.cublasHandle, N, disc.common.couplingparams.ndofuhatinterface, sys.x, backend);      
     
     dstype alpha = spatialScheme == 0 ? minusone : one;
     if (scalar>1e-12) {
@@ -410,9 +410,9 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int N, I
         ArrayAXPBY(sys.r, sys.b, sys.r, alpha, minusone, N);    
         
         // norm of the new RHS vector
-        nrmr = PNORM(disc.common.cublasHandle, N, disc.common.ndofuhatinterface, sys.r, backend);
+        nrmr = PNORM(disc.common.cublasHandle, N, disc.common.couplingparams.ndofuhatinterface, sys.r, backend);
         // if (disc.common.mpiProcs>1 && disc.common.spatialScheme==1) {
-        //   nrm = PNORM(disc.common.cublasHandle, disc.common.ncu*disc.common.npf*disc.common.ninterfacefaces, sys.b, backend);
+        //   nrm = PNORM(disc.common.cublasHandle, disc.common.ncu*disc.common.npf*disc.common.couplingparams.ninterfacefaces, sys.b, backend);
         //   nrmr = sqrt(nrmr*nrmr - 0.5*nrm*nrm);
         // }                
     }
@@ -437,10 +437,10 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int N, I
     }
     
     // compute ||r||
-    nrmb = PNORM(disc.common.cublasHandle, N, disc.common.ndofuhatinterface, sys.r, backend);    
+    nrmb = PNORM(disc.common.cublasHandle, N, disc.common.couplingparams.ndofuhatinterface, sys.r, backend);    
     nrmr = nrmb;
                 
-    //printf("%d %d %d %d %g\n", N, disc.common.nf, disc.common.ne, disc.common.ninterfacefaces, nrmr);
+    //printf("%d %d %d %d %g\n", N, disc.common.nf, disc.common.ne, disc.common.couplingparams.ninterfacefaces, nrmr);
     
     j = 0;
     while (j < maxit) {
@@ -497,7 +497,7 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int N, I
             begin = chrono::high_resolution_clock::now();   
             //CGS(disc.common.cublasHandle, sys.v, &H[n1*i], y, N, m, backend);
             if (orthogMethod == 0)
-                MGS(disc.common.cublasHandle, sys.v, &H[n1*i], N, m, disc.common.ndofuhatinterface, backend);
+                MGS(disc.common.cublasHandle, sys.v, &H[n1*i], N, m, disc.common.couplingparams.ndofuhatinterface, backend);
                 //MGS(disc.common.cublasHandle, sys.v, &H[n1*i], N, m, backend);
             else
                 CGS(disc.common.cublasHandle, sys.v, &H[n1*i], y, N, m, backend);
@@ -564,7 +564,7 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int N, I
         }
         
         // compute relative error
-        nrmr = PNORM(disc.common.cublasHandle, N, disc.common.ndofuhatinterface, sys.r, backend);
+        nrmr = PNORM(disc.common.cublasHandle, N, disc.common.couplingparams.ndofuhatinterface, sys.r, backend);
         disc.common.solverstate.linearSolverRelError = nrmr/nrmb;
         
         // check convergence

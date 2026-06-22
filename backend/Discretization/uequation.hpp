@@ -402,8 +402,8 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
                              app.physicsparam, app.uinf, app.stgdata, app.stgparam, common.timestate.time,
                              ngb, common.stgNmode, nd, ncu, nc, ncw);
         } else {     
-          if (common.ncuext > 0 && sol.szuext > 0 && (ibc+1 == common.FextCall)) {
-            ArrayExtract(res.K, sol.uext, ngf, common.nextfaces[common.nbe1], common.ncuext, 0, ngf, common.nextfaces[jth], common.nextfaces[jth+1], 0, common.ncuext);  
+          if (common.couplingparams.ncuext > 0 && sol.szuext > 0 && (ibc+1 == common.couplingparams.FextCall)) {
+            ArrayExtract(res.K, sol.uext, ngf, common.nextfaces[common.nbe1], common.couplingparams.ncuext, 0, ngf, common.nextfaces[jth], common.nextfaces[jth+1], 0, common.couplingparams.ncuext);  
             EXASIM_DRIVER_CALL(FextDriver, fhb, fhb_uq, fhb_w, fhb_uh, xgb, ugb, ogb, wgb, uhb, nlb, res.K, 
                  mesh, master, app, sol, tmp, common, ngb, 1, backend);                       
           }          
@@ -467,10 +467,10 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
       int n = ibc + common.maxnbc*jth;
       int start = common.nboufaces[n];
       int nfaces = common.nboufaces[n + 1] - start;
-      if ((nfaces>0) && (common.eblks[3*jth+2]==-1) && (common.coupledboundarycondition == ibc+1) && (common.coupledcondition>0)) {        
+      if ((nfaces>0) && (common.eblks[3*jth+2]==-1) && (common.couplingparams.coupledboundarycondition == ibc+1) && (common.couplingparams.coupledcondition>0)) {        
         int ncu12 = common.szinterfacefluxmap;
         
-        //printf("%d %d %d %d %d %d %d %d %d %d %d\n", common.mpiRank, common.eblks[3*jth], common.eblks[3*jth+1], common.eblks[3*jth+2], ibc, common.coupledinterface, common.coupledcondition, common.coupledboundarycondition, common.ncie, ne, ncu12);
+        //printf("%d %d %d %d %d %d %d %d %d %d %d\n", common.mpiRank, common.eblks[3*jth], common.eblks[3*jth+1], common.eblks[3*jth+2], ibc, common.couplingparams.coupledinterface, common.couplingparams.coupledcondition, common.couplingparams.coupledboundarycondition, common.couplingparams.ncie, ne, ncu12);
                         
         int ngb = nfaces*ngf;
         dstype *xgb = &tmp.tempg[n8];
@@ -515,7 +515,7 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
         ArraySetValue(fhb_uh, 0.0, ngb*ncu12*ncu);
         if (ncw > 0) ArraySetValue(fhb_w, 0.0, ngb*ncu12*ncw);        
         EXASIM_DRIVER_CALL(FintDriver, fhb, fhb_uq, fhb_w, fhb_uh, xgb, ugb, ogb, wgb, uhb, nlb, 
-             mesh, master, app, sol, tmp, common, ngb, common.coupledcondition, backend);    
+             mesh, master, app, sol, tmp, common, ngb, common.couplingparams.coupledcondition, backend);    
                         
         if ((ncw>0) & (common.timeparams.wave==0)) {          
           ArrayGemmBatch2(fhb_uh, fhb_w, wgb_uq, one, ncu12, ncu, ncw, ngb);  // fix bug here             
@@ -728,7 +728,7 @@ inline void uEquationSchurBlock(solstruct &sol, resstruct &res, appstruct &app, 
     ArrayCopy(Rh, tmp.tempn, m*ne);
     PGEMNMStridedBached(handle, m, 1, n, minusone, K, m, Ru, n, one, Rh, m, ne, backend);     
     
-    if ((common.eblks[3*jth+2]==-1) && (common.coupledcondition>0) && (common.coupledinterface>0)) {      
+    if ((common.eblks[3*jth+2]==-1) && (common.couplingparams.coupledcondition>0) && (common.couplingparams.coupledinterface>0)) {      
       int ncu12 = common.szinterfacefluxmap;
       Int m12 = npf*ncu12;
       
@@ -1019,8 +1019,8 @@ inline void RuEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &a
         else if (ibc+1 == 1001) StgInFlowHDGchem(fhb, &tmp.tempg[n8], xgb, ogb, uhb, app.physicsparam, app.uinf,
                                 app.stgdata, app.stgparam, common.timestate.time, ngb, common.stgNmode, nd);
         else {
-          if (common.ncuext > 0 && sol.szuext > 0  && (ibc+1 == common.FextCall)) {
-            ArrayExtract(Rb, sol.uext, ngf, common.nextfaces[common.nbe1], common.ncuext, 0, ngf, common.nextfaces[jth], common.nextfaces[jth+1], 0, common.ncuext);  
+          if (common.couplingparams.ncuext > 0 && sol.szuext > 0  && (ibc+1 == common.couplingparams.FextCall)) {
+            ArrayExtract(Rb, sol.uext, ngf, common.nextfaces[common.nbe1], common.couplingparams.ncuext, 0, ngf, common.nextfaces[jth], common.nextfaces[jth+1], 0, common.couplingparams.ncuext);  
             EXASIM_DRIVER_CALL(FextDriver, fhb, xgb, ugb, ogb, wgb, uhb, nlb, Rb, mesh, master, app, sol, tmp, common, ngb, 1, backend);    
           }                       
           else
@@ -1053,7 +1053,7 @@ inline void RuEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &a
       int n = ibc + common.maxnbc*jth;
       int start = common.nboufaces[n];
       int nfaces = common.nboufaces[n + 1] - start;
-      if ((nfaces>0) && (common.eblks[3*jth+2]==-1) && (common.coupledboundarycondition == ibc+1) && (common.coupledcondition>0))
+      if ((nfaces>0) && (common.eblks[3*jth+2]==-1) && (common.couplingparams.coupledboundarycondition == ibc+1) && (common.couplingparams.coupledcondition>0))
       {
         int ncu12 = common.szinterfacefluxmap;
         int ngb = nfaces*ngf;
@@ -1087,7 +1087,7 @@ inline void RuEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &a
         }
         
         EXASIM_DRIVER_CALL(FintDriver, fhb, xgb, ugb, ogb, wgb, uhb, nlb, 
-             mesh, master, app, sol, tmp, common, ngb, common.coupledcondition, backend);    
+             mesh, master, app, sol, tmp, common, ngb, common.couplingparams.coupledcondition, backend);    
 
         dstype *jacb = &tmp.tempg[n8];
         GetBoundaryNodes(jacb, jac, &mesh.boufaces[start], ngf, nfe, ne, 1, nfaces);

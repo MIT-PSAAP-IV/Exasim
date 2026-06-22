@@ -242,7 +242,7 @@ void FhatDriver(dstype* fg, const dstype* xg, const dstype* ug1,
     Int ntau = common.ntau;
     dstype time = common.timestate.time;
 
-    if (common.extFhat == 1) {
+    if (common.couplingparams.extFhat == 1) {
         abi.KokkosFhat(fg, xg, ug1, ug2, og1, og2, wg1, wg2, uh, nl, app.tau,
                        app.uinf, app.physicsparam, time, common.modelnumber,
                        numPoints, nc, ncu, nd, ncx, nco, ncw);
@@ -257,7 +257,7 @@ void FhatDriver(dstype* fg, const dstype* xg, const dstype* ug1,
         AverageFlux(fg, N);
         AverageFluxDotNormal(fg, nl, N, M, numPoints, nd);
 
-        if (common.extStab >= 1) {
+        if (common.couplingparams.extStab >= 1) {
             abi.KokkosStab(fg, xg, ug1, ug2, og1, og2, wg1, wg2, uh, nl,
                            app.tau, app.uinf, app.physicsparam, time,
                            common.modelnumber, numPoints, nc, ncu, nd, ncx,
@@ -356,7 +356,7 @@ void UhatDriver(dstype* fg, dstype* xg, dstype* ug1, dstype* ug2,
     Int numPoints = ngf * (f2 - f1);
     dstype time = common.timestate.time;
 
-    if (common.extUhat == 1) {
+    if (common.couplingparams.extUhat == 1) {
         abi.KokkosUhat(fg, xg, ug1, ug2, og1, og2, wg1, wg2, uh, nl, app.tau,
                        app.uinf, app.physicsparam, time, common.modelnumber,
                        numPoints, nc, ncu, nd, ncx, nco, ncw);

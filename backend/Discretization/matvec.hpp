@@ -303,10 +303,10 @@ inline void hdgMatVec(dstype *w, dstype *AE, dstype *v, dstype *ve, dstype *we, 
         }
     }
 
-    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.coupledcondition>0)) {
+    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.couplingparams.coupledcondition>0)) {
       int ncu12 = common.szinterfacefluxmap;
       int szRi = ncu12*npf;  
-      int neI = common.nintfaces;
+      int neI = common.couplingparams.nintfaces;
 
       // perform  matrix-vector products for interface elements
       // (ncu12 * npf) * (ncu * npf * nfe ) * neI x (ncu * npf * nfe ) * neI  = (ncu12 * npf) * neI    
@@ -362,7 +362,7 @@ inline void hdgMatVec(dstype *w, dstype *AE, dstype *v, dstype *ve, dstype *we, 
 //     }
     PutCollumnAtIndex(we, tmp.buffrecv, mesh.elemrecv, bsz, common.nelemrecv);   
 
-    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.coupledcondition>0)) {
+    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.couplingparams.coupledcondition>0)) {
       int ncu12 = common.szinterfacefluxmap;
       int szRi = ncu12*npf;  
 
@@ -371,7 +371,7 @@ inline void hdgMatVec(dstype *w, dstype *AE, dstype *v, dstype *ve, dstype *we, 
 //       }      
       PutCollumnAtIndex(res.Ri, tmp.bufffacerecv, mesh.facerecv, szRi, common.nfacerecv);   
 
-      PutBoudaryNodes(we, res.Ri, mesh.intfaces, mesh.faceperm, app.interfacefluxmap, nfe, npf, ncu12, ncu, common.nintfaces); 
+      PutBoudaryNodes(we, res.Ri, mesh.intfaces, mesh.faceperm, app.interfacefluxmap, nfe, npf, ncu12, ncu, common.couplingparams.nintfaces); 
     }
 
     // ncu * npf * nfe * ne -> ncu * npf * nf
@@ -459,7 +459,7 @@ inline void hdgAssembleLinearSystemMPI(dstype *b, solstruct &sol, resstruct &res
         }
     }
 
-    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.coupledcondition>0)) {
+    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.couplingparams.coupledcondition>0)) {
       int ncu12 = common.szinterfacefluxmap;
       int szRi = ncu12*npf;  
       
@@ -471,7 +471,7 @@ inline void hdgAssembleLinearSystemMPI(dstype *b, solstruct &sol, resstruct &res
 //       }
       GetCollumnAtIndex(tmp.bufffacesend, res.Ri, mesh.facesend, szRi, common.nfacesend);   
 
-      //printf("hdgAssembleLinearSystemMPI: %d %d %d %d %d %d %d %d %d %d %d\n", common.mpiRank, common.nnbintf, common.nbintf[0], common.facesendpts[0], common.facerecvpts[0], common.nfacesend, common.nelemsend, szRi, common.coupledcondition, common.coupledboundarycondition, app.interfacefluxmap[0]);
+      //printf("hdgAssembleLinearSystemMPI: %d %d %d %d %d %d %d %d %d %d %d\n", common.mpiRank, common.nnbintf, common.nbintf[0], common.facesendpts[0], common.facerecvpts[0], common.nfacesend, common.nelemsend, szRi, common.couplingparams.coupledcondition, common.couplingparams.coupledboundarycondition, app.interfacefluxmap[0]);
       
 #ifdef HAVE_CUDA
     cudaDeviceSynchronize();
@@ -524,7 +524,7 @@ inline void hdgAssembleLinearSystemMPI(dstype *b, solstruct &sol, resstruct &res
     PutCollumnAtIndex(res.H, tmp.buffrecv, mesh.elemrecv, 0, bsz, szH, common.nelemrecv);
     PutCollumnAtIndex(res.Rh, tmp.buffrecv, mesh.elemrecv, szH, bsz, szR, common.nelemrecv);
     
-    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.coupledcondition>0)) {
+    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.couplingparams.coupledcondition>0)) {
       int ncu12 = common.szinterfacefluxmap;
       int szRi = ncu12*npf;  
       
@@ -533,7 +533,7 @@ inline void hdgAssembleLinearSystemMPI(dstype *b, solstruct &sol, resstruct &res
 //       }      
       PutCollumnAtIndex(res.Ri, tmp.bufffacerecv, mesh.facerecv, szRi, common.nfacerecv);  
       
-      PutBoudaryNodes(res.Rh, res.Ri, mesh.intfaces, mesh.faceperm, app.interfacefluxmap, nfe, npf, ncu12, ncu, common.nintfaces); 
+      PutBoudaryNodes(res.Rh, res.Ri, mesh.intfaces, mesh.faceperm, app.interfacefluxmap, nfe, npf, ncu12, ncu, common.couplingparams.nintfaces); 
       
 //       if (common.mpiRank==1)
 //         print2darray(res.Ri, szRi, common.nfacerecv);
@@ -606,7 +606,7 @@ inline void hdgAssembleResidualMPI(dstype *b, solstruct &sol, resstruct &res, ap
         }
     }
 
-    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.coupledcondition>0)) {
+    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.couplingparams.coupledcondition>0)) {
       int ncu12 = common.szinterfacefluxmap;
       int szRi = ncu12*npf;  
 
@@ -663,7 +663,7 @@ inline void hdgAssembleResidualMPI(dstype *b, solstruct &sol, resstruct &res, ap
 //     }
     PutCollumnAtIndex(res.Rh, tmp.buffrecv, mesh.elemrecv, szR, common.nelemrecv);         
 
-    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.coupledcondition>0)) {
+    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.couplingparams.coupledcondition>0)) {
       int ncu12 = common.szinterfacefluxmap;
       int szRi = ncu12*npf;  
 
@@ -672,7 +672,7 @@ inline void hdgAssembleResidualMPI(dstype *b, solstruct &sol, resstruct &res, ap
 //       }      
       PutCollumnAtIndex(res.Ri, tmp.bufffacerecv, mesh.facerecv, szRi, common.nfacerecv);  
 
-      PutBoudaryNodes(res.Rh, res.Ri, mesh.intfaces, mesh.faceperm, app.interfacefluxmap, nfe, npf, ncu12, ncu, common.nintfaces);       
+      PutBoudaryNodes(res.Rh, res.Ri, mesh.intfaces, mesh.faceperm, app.interfacefluxmap, nfe, npf, ncu12, ncu, common.couplingparams.nintfaces);       
     }
 
     // assemble RHS vector b from res.Rh using the FIRST elements in mesh.f2e
