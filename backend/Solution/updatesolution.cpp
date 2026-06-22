@@ -47,7 +47,7 @@
 
 void UpdateSolutionDIRK(solstruct &sol, sysstruct &sys, commonstruct &common, Int backend)
 {                                   
-    Int N = common.ndof1;
+    Int N = common.sizes.ndof1;
     Int N2 = common.npe*common.nc*common.ne2;            
     
     // update sys.u
@@ -80,7 +80,7 @@ void UpdateSolutionDIRK(solstruct &sol, sysstruct &sys, commonstruct &common, In
 
 void UpdateSolutionBDF(solstruct &sol, sysstruct &sys, commonstruct &common, Int backend)
 {       
-    Int N = common.ndof1;
+    Int N = common.sizes.ndof1;
     
     // solve dw/dt = u for wave problems
     if (common.timeparams.wave==1) {          
@@ -117,7 +117,7 @@ void UpdateSolution(solstruct &sol, sysstruct &sys, commonstruct &common, Int ba
 
 void UpdateSolution(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriverABI& driver_abi, resstruct &res, tempstruct &tmp, commonstruct &common, Int backend)
 {                                   
-    Int N = common.ndof1;
+    Int N = common.sizes.ndof1;
     Int N2 = common.npe*common.nc*common.ne2;                        
     
     // update the solution at each DIRK stage

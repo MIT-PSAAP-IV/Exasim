@@ -87,7 +87,7 @@ void CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, CDisc
     // U = invB*V = C*V = C*(A-B)*W = C*A*W - W = Q - W, with Q = C*A*W
     // H = I + W^T*U = I + W^T C*V = I + W^T C*(A-B)*W = I + W^T invB*(A-B)*W = W^T*C*A*W = W^T*Q
     
-    Int N = disc.common.ndof1;
+    Int N = disc.common.sizes.ndof1;
     Int RBdim = disc.common.solverstate.RBcurrentdim;
     dstype *RBcoef = &disc.tmp.tempn[0];
     dstype *RBcoef_tmp = &disc.tmp.tempn[RBdim];
@@ -131,7 +131,7 @@ void CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, CDisc
 
 void CPreconditioner::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretization& disc, Int backend)
 {        
-    Int N = disc.common.ndof1;        
+    Int N = disc.common.sizes.ndof1;        
 
     ArrayCopy(disc.common.cublasHandle, disc.res.Ru, x, N, backend);
     if ((disc.common.spatialScheme == 0) && (disc.common.solverparams.preconditioner == 1) && (disc.res.K != nullptr)) {
@@ -281,7 +281,7 @@ void ApplyBlockILU0(double* x, double* A, double* b, double *B, double *C, commo
 void CPreconditioner::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretization& disc, Int spatialScheme, Int backend)
 {                
     if (spatialScheme==0) {
-      Int N = disc.common.ndof1;        
+      Int N = disc.common.sizes.ndof1;        
       ArrayCopy(disc.common.cublasHandle, disc.res.Ru, x, N, backend);
       ApplyMatrix(disc.common.cublasHandle, x, disc.res.Minv, disc.res.Ru, disc.common.npe, disc.common.ncu, 
           disc.common.ne1, disc.common.solverparams.precMatrixType, disc.common.curvedMesh, backend);                

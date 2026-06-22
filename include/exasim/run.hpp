@@ -485,8 +485,8 @@ inline int run(int argc, char** argv) {
 
             for (int i=0; i<nummodels; i++) {
                 if (pdemodel[i]->disc.common.outputparams.compudgavg == 1) {
-                    ArrayAXPBY(pdemodel[i]->disc.sol.udgavg, pdemodel[i]->disc.sol.udgavg, pdemodel[i]->disc.sol.udg, one, one, pdemodel[i]->disc.common.ndofudg1);
-                    ArrayAddScalar(&pdemodel[i]->disc.sol.udgavg[pdemodel[i]->disc.common.ndofudg1], one, 1);
+                    ArrayAXPBY(pdemodel[i]->disc.sol.udgavg, pdemodel[i]->disc.sol.udgavg, pdemodel[i]->disc.sol.udg, one, one, pdemodel[i]->disc.common.sizes.ndofudg1);
+                    ArrayAddScalar(&pdemodel[i]->disc.sol.udgavg[pdemodel[i]->disc.common.sizes.ndofudg1], one, 1);
                 }
 
                 pdemodel[i]->disc.computeAverageSolutionsOnBoundary();
@@ -564,7 +564,7 @@ inline int run(int argc, char** argv) {
                 pdemodel[i]->disc.evalQSer(backend);
                 pdemodel[i]->disc.common.outputparams.saveSolOpt = 1;
                 std::string filename = pdemodel[i]->disc.common.fileout + "_np" + NumberToString(pdemodel[i]->disc.common.mpiRank) + ".bin";
-                writearray2file(filename, pdemodel[i]->disc.sol.udg, pdemodel[i]->disc.common.ndofudg1, backend);
+                writearray2file(filename, pdemodel[i]->disc.sol.udg, pdemodel[i]->disc.common.sizes.ndofudg1, backend);
             }
         }
     }

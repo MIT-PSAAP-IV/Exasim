@@ -327,7 +327,7 @@ void CDiscretization::evalResidual(dstype* Ru, dstype* u, Int backend)
     Residual<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
 
     // copy the residual vector to Ru
-    ArrayCopy(Ru, res.Ru, common.ndof1);
+    ArrayCopy(Ru, res.Ru, common.sizes.ndof1);
 }
 
 // q evaluation
@@ -560,7 +560,7 @@ void CDiscretization::DG2CG(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, In
         ArrayExtract(utm, udg, common.npe, ncudg, common.ne, 0, common.npe, i, i+1, 0, common.ne);
         
         // make it a CG field and store in res.Ru
-        ArrayDG2CG(res.Ru, utm, mesh.cgent2dgent, mesh.rowent2elem, common.ndofucg);
+        ArrayDG2CG(res.Ru, utm, mesh.cgent2dgent, mesh.rowent2elem, common.sizes.ndofucg);
         
         // convert CG field to DG field
         GetArrayAtIndex(utm, res.Ru, mesh.cgelcon, common.npe*common.ne);
@@ -577,7 +577,7 @@ void CDiscretization::DG2CG2(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, I
         ArrayExtract(utm, udg, common.npe, ncudg, common.ne, 0, common.npe, i, i+1, 0, common.ne);
 
         // make it a CG field and store in res.Ru
-        ArrayDG2CG2(res.Ru, utm, mesh.colent2elem, mesh.rowent2elem, common.ndofucg, common.npe);
+        ArrayDG2CG2(res.Ru, utm, mesh.colent2elem, mesh.rowent2elem, common.sizes.ndofucg, common.npe);
         
         // convert CG field to DG field
         GetArrayAtIndex(utm, res.Ru, mesh.cgelcon, common.npe*common.ne);
@@ -594,7 +594,7 @@ void CDiscretization::DG2CG3(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, I
         ArrayExtract(utm, udg, common.npe, ncudg, common.ne, 0, common.npe, i, i+1, 0, common.ne);
         
         // make it a CG field and store in res.Ru
-        ArrayDG2CG(&ucg[i*common.ndofucg], utm, mesh.cgent2dgent, mesh.rowent2elem, common.ndofucg);
+        ArrayDG2CG(&ucg[i*common.sizes.ndofucg], utm, mesh.cgent2dgent, mesh.rowent2elem, common.sizes.ndofucg);
     }
 }
 

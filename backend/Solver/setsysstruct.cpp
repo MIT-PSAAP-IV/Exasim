@@ -146,7 +146,7 @@ void randomfield(dstype *randvect, commonstruct &common, resstruct res, meshstru
         ArrayExtract(res.Rq, randvect, common.npe, ncu, common.ne, 0, common.npe, i, i+1, 0, common.ne);
         
         // make it a CG field and store in res.Ru
-        ArrayDG2CG(res.Ru, res.Rq, mesh.cgent2dgent, mesh.rowent2elem, common.ndofucg);
+        ArrayDG2CG(res.Ru, res.Rq, mesh.cgent2dgent, mesh.rowent2elem, common.sizes.ndofucg);
         
         // convert CG field to DG field
         GetArrayAtIndex(res.Rq, res.Ru, mesh.cgelcon, common.npe*common.ne1);
@@ -213,7 +213,7 @@ void setsysstruct(sysstruct &sys, commonstruct &common, resstruct res, meshstruc
     M = max(M, common.solverparams.RBdim);    
     
     // fix bug here
-    Int ndof = (common.spatialScheme==0) ? N : common.ndofuhat;              
+    Int ndof = (common.spatialScheme==0) ? N : common.sizes.ndofuhat;              
     TemplateMalloc(&sys.u, ndof, backend); 
     TemplateMalloc(&sys.x, ndof, backend); 
     TemplateMalloc(&sys.b, ndof, backend); 

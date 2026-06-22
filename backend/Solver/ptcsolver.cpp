@@ -61,7 +61,7 @@ int LinearSolver(sysstruct &sys, CDiscretization& disc, CPreconditioner& prec, o
     // evaluate the residual R(u) and set it to sys.b
     disc.evalResidual(sys.b, sys.u, backend);
 
-    int N = disc.common.ndof1;
+    int N = disc.common.sizes.ndof1;
 
     // residual norm
     dstype oldnrm = PNORM(disc.common.cublasHandle, N, sys.b, backend); 
@@ -80,7 +80,7 @@ int LinearSolver(sysstruct &sys, CDiscretization& disc, CPreconditioner& prec, o
         prec.ComputeInitialGuessAndPreconditioner(sys, disc, backend); 
         
         // v = u + x 
-        //int N = disc.common.ndof1;
+        //int N = disc.common.sizes.ndof1;
         ArrayAXPBY(disc.common.cublasHandle, sys.v, sys.u, sys.x, one, one, N, backend);  
         disc.evalResidual(sys.r, sys.v, backend);  
         dstype nrmr = PNORM(disc.common.cublasHandle, N, sys.r, backend);
@@ -100,11 +100,11 @@ int LinearSolver(sysstruct &sys, CDiscretization& disc, CPreconditioner& prec, o
             return 1;               
     }    
     else {
-        //ArraySetValue(sys.x, zero, disc.common.ndof1, backend);
+        //ArraySetValue(sys.x, zero, disc.common.sizes.ndof1, backend);
         ArrayMultiplyScalar(disc.common.cublasHandle, sys.x, zero, N, backend);   
     }
     
-//   ArraySetValue(sys.x, zero, disc.common.ndof1, backend);
+//   ArraySetValue(sys.x, zero, disc.common.sizes.ndof1, backend);
     
 #ifdef TIMING        
     auto end = chrono::high_resolution_clock::now();
@@ -152,7 +152,7 @@ int LinearSolver(sysstruct &sys, CDiscretization& disc, CPreconditioner& prec, o
 
 void UpdateRB(sysstruct &sys, CDiscretization& disc, CPreconditioner& prec, Int backend)
 {
-    Int N = disc.common.ndof1;
+    Int N = disc.common.sizes.ndof1;
                     
     dstype nrmr = PNORM(disc.common.cublasHandle, N, sys.x, backend);
     if (nrmr>zero) {

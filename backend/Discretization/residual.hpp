@@ -63,7 +63,7 @@ inline void DG2CGAVField(solstruct &sol, resstruct &res, appstruct &app, masters
         ArrayExtract(tmp.tempn, avdg, common.npe, ncavdg, common.ne, 0, common.npe, i, i+1, 0, common.ne); 
 
         //make it a CG field and store in tmp.tempg
-        ArrayDG2CG2(tmp.tempg, tmp.tempn, mesh.colent2elem, mesh.rowent2elem, common.ndofucg, common.npe);   
+        ArrayDG2CG2(tmp.tempg, tmp.tempn, mesh.colent2elem, mesh.rowent2elem, common.sizes.ndofucg, common.npe);   
 
         // convert CG field to DG field   
         GetArrayAtIndex(tmp.tempn, tmp.tempg, mesh.cgelcon, common.npe*common.ne);      
@@ -290,7 +290,7 @@ inline void RuResidual(solstruct &sol, resstruct &res, appstruct &app, masterstr
     //         mesh.ent2ind2, common.npf, common.npe, common.ncu, e1, e2, 0);
                 
     // change sign 
-    // ArrayMultiplyScalar(res.Ru, minusone, common.ndof1, backend);        
+    // ArrayMultiplyScalar(res.Ru, minusone, common.sizes.ndof1, backend);        
 }
 
 #ifdef  HAVE_MPI
@@ -501,7 +501,7 @@ inline void RuResidualMPI(solstruct &sol, resstruct &res, appstruct &app, master
     //         mesh.ent2ind2, common.npf, common.npe, common.ncu, e1, e2, 0);
     
     // change sign 
-    //ArrayMultiplyScalar(res.Ru, minusone, common.ndof1, backend);      
+    //ArrayMultiplyScalar(res.Ru, minusone, common.sizes.ndof1, backend);      
 }
 
 template <class M>
@@ -584,7 +584,7 @@ inline void RuResidualMPI1(solstruct &sol, resstruct &res, appstruct &app, maste
     RuFace<M>(sol, res, app, master, mesh, tmp, common, handle, common.nbf0, common.nbf, backend);
         
     // change sign 
-    //ArrayMultiplyScalar(res.Ru, minusone, common.ndof1, backend);      
+    //ArrayMultiplyScalar(res.Ru, minusone, common.sizes.ndof1, backend);      
 }
 
 #endif
@@ -604,11 +604,11 @@ inline void Residual(solstruct &sol, resstruct &res, appstruct &app, masterstruc
     }        
             
     // change sign for matrix-vector product
-    ArrayMultiplyScalar(res.Ru, minusone, common.ndof1);      
+    ArrayMultiplyScalar(res.Ru, minusone, common.sizes.ndof1);      
         
     //common.timestate.dtfactor
     if (common.timeparams.tdep==1) 
-        ArrayMultiplyScalar(res.Ru, one/common.timestate.dtfactor, common.ndof1);                
+        ArrayMultiplyScalar(res.Ru, one/common.timestate.dtfactor, common.sizes.ndof1);                
     
     if (common.outputparams.debugMode==1) {
         writearray2file(common.fileout + "_uh.bin", sol.uh, common.npf*common.ncu*common.nf, backend);
@@ -853,10 +853,10 @@ inline void dResidual(solstruct &sol, resstruct &res, appstruct &app, masterstru
                 0, common.nbe, 0, common.nbe, 0, common.nbf, backend);
     } 
     // change sign for matrix-vector product
-    ArrayMultiplyScalar(res.dRu, minusone, common.ndof1, backend);     
+    ArrayMultiplyScalar(res.dRu, minusone, common.sizes.ndof1, backend);     
     if (common.timeparams.tdep==1)
     { 
-        ArrayMultiplyScalar(res.dRu, one/common.timestate.dtfactor, common.ndof1, backend); 
+        ArrayMultiplyScalar(res.dRu, one/common.timestate.dtfactor, common.sizes.ndof1, backend); 
     }
     if (common.outputparams.debugMode==1) {
         writearray2file(common.fileout + "enz_uh.bin", sol.uh, common.npf*common.ncu*common.nf, backend);

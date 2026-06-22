@@ -1144,9 +1144,9 @@ int ExasimSolver::RunTimeDependent(Int start, Int steps)
                 ArrayAXPBY(models_[i]->disc.sol.udgavg,
                            models_[i]->disc.sol.udgavg,
                            models_[i]->disc.sol.udg, one, one,
-                           models_[i]->disc.common.ndofudg1);
+                           models_[i]->disc.common.sizes.ndofudg1);
                 ArrayAddScalar(&models_[i]->disc.sol.udgavg[
-                    models_[i]->disc.common.ndofudg1], one, 1);
+                    models_[i]->disc.common.sizes.ndofudg1], one, 1);
             }
 
             models_[i]->disc.computeAverageSolutionsOnBoundary();
@@ -1202,9 +1202,9 @@ int ExasimSolver::RunTimeDependent(const int i, Int start, Int steps)
             ArrayAXPBY(models_[i]->disc.sol.udgavg,
                        models_[i]->disc.sol.udgavg,
                        models_[i]->disc.sol.udg, one, one,
-                       models_[i]->disc.common.ndofudg1);
+                       models_[i]->disc.common.sizes.ndofudg1);
             ArrayAddScalar(&models_[i]->disc.sol.udgavg[
-                models_[i]->disc.common.ndofudg1], one, 1);
+                models_[i]->disc.common.sizes.ndofudg1], one, 1);
         }
 
         models_[i]->disc.computeAverageSolutionsOnBoundary();
@@ -1326,7 +1326,7 @@ int ExasimSolver::RunSolveProblemOrPostprocess()
             string filename = models_[i]->disc.common.fileout + "_np" +
                               NumberToString(models_[i]->disc.common.mpiRank) + ".bin";
             writearray2file(filename, models_[i]->disc.sol.udg,
-                            models_[i]->disc.common.ndofudg1, backend_);
+                            models_[i]->disc.common.sizes.ndofudg1, backend_);
         }
     }
 

@@ -110,15 +110,15 @@ inline void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &
     common.nbf = mesh.ndims[7]; // number of blocks for faces   
     common.nfb = mesh.ndims[8]; // maximum number of faces per block     
     
-    common.ndof = common.npe*common.ncu*common.ne; // number of degrees of freedom of u
-    common.ndofq = common.npe*common.ncq*common.ne; // number of degrees of freedom of q
-    common.ndofw = common.npe*common.ncw*common.ne; // number of degrees of freedom of w
-    common.ndofuhat = common.npf*common.ncu*common.nf; // number of degrees of freedom of uhat
-    common.ndofudg = common.npe*common.nc*common.ne; // number of degrees of freedom of udg    
-    common.ndofsdg = common.npe*common.ncs*common.ne; // number of degrees of freedom of sdg    
-    common.ndofodg = common.npe*common.nco*common.ne; // number of degrees of freedom of odg               
-    common.ndofedg = common.npe*common.nce*common.ne; // number of degrees of freedom of edg               
-    common.ndofucg = mesh.nsize[12]-1;
+    common.sizes.ndof = common.npe*common.ncu*common.ne; // number of degrees of freedom of u
+    common.sizes.ndofq = common.npe*common.ncq*common.ne; // number of degrees of freedom of q
+    common.sizes.ndofw = common.npe*common.ncw*common.ne; // number of degrees of freedom of w
+    common.sizes.ndofuhat = common.npf*common.ncu*common.nf; // number of degrees of freedom of uhat
+    common.sizes.ndofudg = common.npe*common.nc*common.ne; // number of degrees of freedom of udg    
+    common.sizes.ndofsdg = common.npe*common.ncs*common.ne; // number of degrees of freedom of sdg    
+    common.sizes.ndofodg = common.npe*common.nco*common.ne; // number of degrees of freedom of odg               
+    common.sizes.ndofedg = common.npe*common.nce*common.ne; // number of degrees of freedom of edg               
+    common.sizes.ndofucg = mesh.nsize[12]-1;
             
     common.ntau = app.nsize[8];
     if (common.ntau>0) common.physicsparams.tau0 = app.tau[0];
@@ -245,12 +245,12 @@ inline void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &
     }
 
     if ( common.outputparams.saveSolBouFreq>0 ) {
-        common.ndofbou = 0; 
+        common.sizes.ndofbou = 0; 
         for (Int j=0; j<common.nbf; j++) {            
             if (common.fblks[3*j+2] == common.qoiparams.ibs) {     
                 Int f1 = common.fblks[3*j]-1;
                 Int f2 = common.fblks[3*j+1];                                  
-                common.ndofbou += common.npf*(f2-f1); 
+                common.sizes.ndofbou += common.npf*(f2-f1); 
             }
         }                                           
     }  
@@ -278,13 +278,13 @@ inline void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &
         common.ne0 = mesh.elempartpts[0]; // number of interior elements
         common.ne1 = mesh.elempartpts[0]+mesh.elempartpts[1]; // added with number of interface elements
         common.ne2 = mesh.elempartpts[0]+mesh.elempartpts[1]+mesh.elempartpts[2]; // added with number of exterior elements        
-        common.ndof1 = common.npe*common.ncu*common.ne1; // number of degrees of freedom
-        common.ndofq1 = common.npe*common.ncq*common.ne1; // number of degrees of freedom of q
-        common.ndofw1 = common.npe*common.ncw*common.ne1; // number of degrees of freedom of w
-        common.ndofudg1 = common.npe*common.nc*common.ne1; // number of degrees of freedom of udg    
-        common.ndofsdg1 = common.npe*common.ncs*common.ne1; // number of degrees of freedom of sdg    
-        common.ndofodg1 = common.npe*common.nco*common.ne1; // number of degrees of freedom of odg           
-        common.ndofedg1 = common.npe*common.nce*common.ne1; // number of degrees of freedom of edg           
+        common.sizes.ndof1 = common.npe*common.ncu*common.ne1; // number of degrees of freedom
+        common.sizes.ndofq1 = common.npe*common.ncq*common.ne1; // number of degrees of freedom of q
+        common.sizes.ndofw1 = common.npe*common.ncw*common.ne1; // number of degrees of freedom of w
+        common.sizes.ndofudg1 = common.npe*common.nc*common.ne1; // number of degrees of freedom of udg    
+        common.sizes.ndofsdg1 = common.npe*common.ncs*common.ne1; // number of degrees of freedom of sdg    
+        common.sizes.ndofodg1 = common.npe*common.nco*common.ne1; // number of degrees of freedom of odg           
+        common.sizes.ndofedg1 = common.npe*common.nce*common.ne1; // number of degrees of freedom of edg           
                
         common.nbe0 = 0;
         common.nbe1 = 0;
@@ -341,13 +341,13 @@ inline void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &
         common.ne0 = common.ne;
         common.ne1 = common.ne;
         common.ne2 = common.ne;
-        common.ndof1 = common.npe*common.ncu*common.ne; // number of degrees of freedom
-        common.ndofq1 = common.npe*common.ncq*common.ne; // number of degrees of freedom of q
-        common.ndofw1 = common.npe*common.ncw*common.ne; // number of degrees of freedom of w
-        common.ndofudg1 = common.npe*common.nc*common.ne; // number of degrees of freedom of udg    
-        common.ndofsdg1 = common.npe*common.ncs*common.ne; // number of degrees of freedom of sdg    
-        common.ndofodg1 = common.npe*common.nco*common.ne; // number of degrees of freedom of odg                   
-        common.ndofedg1 = common.npe*common.nce*common.ne; // number of degrees of freedom of edg                   
+        common.sizes.ndof1 = common.npe*common.ncu*common.ne; // number of degrees of freedom
+        common.sizes.ndofq1 = common.npe*common.ncq*common.ne; // number of degrees of freedom of q
+        common.sizes.ndofw1 = common.npe*common.ncw*common.ne; // number of degrees of freedom of w
+        common.sizes.ndofudg1 = common.npe*common.nc*common.ne; // number of degrees of freedom of udg    
+        common.sizes.ndofsdg1 = common.npe*common.ncs*common.ne; // number of degrees of freedom of sdg    
+        common.sizes.ndofodg1 = common.npe*common.nco*common.ne; // number of degrees of freedom of odg                   
+        common.sizes.ndofedg1 = common.npe*common.nce*common.ne; // number of degrees of freedom of edg                   
     }                
 }
 
@@ -639,10 +639,10 @@ inline void cpuInitTail(solstruct &sol, resstruct &res, appstruct &app, masterst
         sol.szudgavg = common.npe*common.nc*common.ne1+1;
     }
     
-    if (common.ndofbou>0) {
-        sol.bouudgavg = (dstype*) malloc (sizeof (dstype)*(common.ndofbou*common.nc+1));  
-        if (common.ncw > 0) sol.bouwdgavg = (dstype*) malloc (sizeof (dstype)*(common.ndofbou*common.ncw+1));  
-        sol.bouuhavg = (dstype*) malloc (sizeof (dstype)*(common.ndofbou*common.ncu+1));                
+    if (common.sizes.ndofbou>0) {
+        sol.bouudgavg = (dstype*) malloc (sizeof (dstype)*(common.sizes.ndofbou*common.nc+1));  
+        if (common.ncw > 0) sol.bouwdgavg = (dstype*) malloc (sizeof (dstype)*(common.sizes.ndofbou*common.ncw+1));  
+        sol.bouuhavg = (dstype*) malloc (sizeof (dstype)*(common.sizes.ndofbou*common.ncu+1));                
     }
 
     // allocate memory for uh
@@ -1213,10 +1213,10 @@ inline void gpuInit(solstruct &sol, resstruct &res, appstruct &app, masterstruct
         TemplateMalloc(&sol.udgavg, common.npe*common.nc*common.ne1+1, common.backend);
     }
     
-    if (common.ndofbou>0) {
-        TemplateMalloc(&sol.bouudgavg, common.ndofbou*common.nc+1, common.backend);
-        if (common.ncw > 0) TemplateMalloc(&sol.bouwdgavg, common.ndofbou*common.ncw+1, common.backend);
-        TemplateMalloc(&sol.bouuhavg, common.ndofbou*common.ncu+1, common.backend);
+    if (common.sizes.ndofbou>0) {
+        TemplateMalloc(&sol.bouudgavg, common.sizes.ndofbou*common.nc+1, common.backend);
+        if (common.ncw > 0) TemplateMalloc(&sol.bouwdgavg, common.sizes.ndofbou*common.ncw+1, common.backend);
+        TemplateMalloc(&sol.bouuhavg, common.sizes.ndofbou*common.ncu+1, common.backend);
     }
   
     TemplateMalloc(&sol.uh, common.npf*common.ncu*common.nf, common.backend);    

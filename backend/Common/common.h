@@ -1770,7 +1770,35 @@ struct stgparamsstruct {
     Int* stgib=nullptr;      // STG inlet-boundary index table
 };
 
+// Derived size "view": degree-of-freedom counts that are cross-products of the base dimensions
+// (npe/npf x nc-family x ne/nf), computed once in setstructs and read throughout the solver. Grouped
+// out of commonstruct (C3) so the ~17 derived ndof* counts have one home distinct from the base
+// dimensions (nd, nc-family, npe, ne, ...), which stay top-level as the fundamental shape. Access
+// via common.sizes.<field>. NOTE: these are stored, not recomputed on access -- ndof1* switch
+// between ne1 and ne by mesh branch (setstructs.cpp), and ndofucg/ndofbou are not simple products,
+// so a naive computed view would be incorrect.
+struct sizesstruct {
+    Int ndof;       // dofs of u   = npe*ncu*ne
+    Int ndofq;      // dofs of q   = npe*ncq*ne
+    Int ndofw;      // dofs of w   = npe*ncw*ne
+    Int ndofuhat;   // dofs of uhat= npf*ncu*nf
+    Int ndofudg;    // dofs of udg = npe*nc*ne
+    Int ndofsdg;    // dofs of sdg = npe*ncs*ne
+    Int ndofodg;    // dofs of odg = npe*nco*ne
+    Int ndofedg;    // dofs of edg = npe*nce*ne
+    Int ndofbou=0;  // dofs on saved boundary (conditional)
+    Int ndofucg;    // dofs of ucg = mesh.nsize[12]-1
+    Int ndof1;      // interior(+interface) variant of ndof   (ne1 or ne by mesh branch)
+    Int ndofq1;     // interior(+interface) variant of ndofq
+    Int ndofw1;     // interior(+interface) variant of ndofw
+    Int ndofudg1;   // interior(+interface) variant of ndofudg
+    Int ndofsdg1;   // interior(+interface) variant of ndofsdg
+    Int ndofodg1;   // interior(+interface) variant of ndofodg
+    Int ndofedg1;   // interior(+interface) variant of ndofedg
+};
+
 struct commonstruct {
+    sizesstruct sizes;                      // derived degree-of-freedom counts (see above)
     wallmodelparamsstruct wallmodelparams;  // wall-model configuration (see above)
     stgparamsstruct stgparams;              // synthetic-turbulence-generation config (see above)
     outputparamsstruct outputparams;      // output/checkpoint/IO configuration (see above)
@@ -1840,29 +1868,12 @@ struct commonstruct {
     Int nfse=0; // number of faces per superelement
     Int nnz=0;
     
-    Int ndof; // number of degrees of freedom of u
-    Int ndofq; // number of degrees of freedom of q
-    Int ndofw; // number of degrees of freedom of w
-    Int ndofuhat; // number of degrees of freedom of uhat
-    Int ndofudg; // number of degrees of freedom of udg
-    Int ndofsdg; // number of degrees of freedom of sdg
-    Int ndofodg; // number of degrees of freedom of odg
-    Int ndofedg; // number of degrees of freedom of edg
-    Int ndofbou=0;
     Int ntau; // length of the stabilization
     
     Int ne0;  // number of interior elements
     Int ne1;  // number of interior+interface elements
     Int ne2;  // number of interior+interface+exterior elements
     Int nf0;  // number of interior faces
-    Int ndof1; // number of degrees of freedom of u
-    Int ndofq1; // number of degrees of freedom of q
-    Int ndofw1; // number of degrees of freedom of w
-    Int ndofudg1; // number of degrees of freedom of udg
-    Int ndofsdg1; // number of degrees of freedom of sdg
-    Int ndofodg1; // number of degrees of freedom of odg
-    Int ndofedg1; // number of degrees of freedom of edg
-    Int ndofucg;
         
     
     Int curvedMesh;// curved mesh   
@@ -1988,14 +1999,14 @@ struct commonstruct {
       printf("number of blocks for interior+interface faces: %d\n", nbf1);
       printf("number of interface faces: %d\n", couplingparams.ninterfacefaces);
 
-      printf("number of degrees of freedom of u: %d\n", ndof);   
-      printf("number of degrees of freedom of q: %d\n", ndofq);   
-      printf("number of degrees of freedom of w: %d\n", ndofw);   
-      printf("number of degrees of freedom of uhat: %d\n", ndofuhat);   
-      printf("number of degrees of freedom of udg: %d\n", ndofudg);   
-      printf("number of degrees of freedom of sdg: %d\n", ndofsdg);   
-      printf("number of degrees of freedom of odg: %d\n", ndofodg);   
-      printf("number of degrees of freedom of edg: %d\n", ndofedg);   
+      printf("number of degrees of freedom of u: %d\n", sizes.ndof);   
+      printf("number of degrees of freedom of q: %d\n", sizes.ndofq);   
+      printf("number of degrees of freedom of w: %d\n", sizes.ndofw);   
+      printf("number of degrees of freedom of uhat: %d\n", sizes.ndofuhat);   
+      printf("number of degrees of freedom of udg: %d\n", sizes.ndofudg);   
+      printf("number of degrees of freedom of sdg: %d\n", sizes.ndofsdg);   
+      printf("number of degrees of freedom of odg: %d\n", sizes.ndofodg);   
+      printf("number of degrees of freedom of edg: %d\n", sizes.ndofedg);   
       printf("length of the stabilization: %d\n", ntau);   
 
       printf("maximum dimension of the reduced basis space: %d\n", solverparams.RBdim);
