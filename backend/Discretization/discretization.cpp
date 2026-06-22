@@ -248,6 +248,7 @@ void AllocateLDGBlockJacobianMemory(resstruct& res, commonstruct& common, Int ba
     res.F = &res.K[kInvSize + dSize + bSize];
     res.G = &res.K[kInvSize + dSize + bSize + fSize];
     res.H = &res.K[kInvSize + dSize + bSize + 2*fSize];
+    res.fhAliasesK = 1;  // F and H alias into K here; freememory must not free them (see resstruct)
 }
 
 // Both CPU and GPU constructor
@@ -465,9 +466,10 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
         res.szipiv = max(max(npf*nfe,npe)*ncu*neb, ncu*npf*common.meshsizes.nfb);
               
         TemplateMalloc(&res.H, res.szH, backend);
-        TemplateMalloc(&res.K, res.szK, backend);      
+        TemplateMalloc(&res.K, res.szK, backend);
         TemplateMalloc(&res.F, res.szF, backend);
-        TemplateMalloc(&res.ipiv, res.szipiv, backend); // fix big here     
+        TemplateMalloc(&res.ipiv, res.szipiv, backend); // fix big here
+        res.fhAliasesK = 0;  // HDG: H/F/K each owned -> freememory frees all three
               
         // B, D, G, K share the same memmory block 
         // It is also used for storing both the preconditioner matrix and sys.v

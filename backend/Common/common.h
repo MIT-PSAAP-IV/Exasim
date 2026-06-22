@@ -1337,7 +1337,12 @@ struct resstruct {
     
     Int szRi=0, szHi=0, szKi=0, szGi=0, szP=0, szV=0;
     Int szipiv=0, szH=0, szK=0, szG=0, szF=0, szB=0, szD=0, szE=0, szC=0, szMass=0, szMinv=0, szMass2=0, szMinv2=0;
-    Int szRq=0, szRu=0, szRh=0, szRuf=0, szRue=0, szRqf=0, szRqe=0;  
+    Int szRq=0, szRu=0, szRh=0, szRuf=0, szRue=0, szRqf=0, szRqe=0;
+    // 1 when F and H alias INTO the K block (the LDG block-Jacobi arena, AllocateLDGBlockJacobianMemory).
+    // In that layout K is the only owned allocation; freememory must NOT TemplateFree(F)/(H) (they are
+    // interior pointers of K -> freeing them is undefined behavior / a double free). 0 (default) in the
+    // HDG layout, where H/F/K are each malloc'd separately and all three are freed.
+    Int fhAliasesK = 0;
 
     int sizeofint() {return szipiv;}
     int sizeoffloat() {
@@ -1393,9 +1398,11 @@ struct resstruct {
         TemplateFree(Minv2, backend);      
         TemplateFree(C, backend);      
         TemplateFree(E, backend);      
-        TemplateFree(F, backend);
+        // F and H are owned only in the HDG layout; in the LDG block-Jacobi arena they alias into
+        // K (fhAliasesK==1) and must not be freed (freeing K reclaims the whole block).
+        if (!fhAliasesK) TemplateFree(F, backend); else F = nullptr;
         TemplateFree(K, backend);
-        TemplateFree(H, backend);
+        if (!fhAliasesK) TemplateFree(H, backend); else H = nullptr;
         TemplateFree(Gi, backend);
         TemplateFree(Ki, backend);
         TemplateFree(Hi, backend);
