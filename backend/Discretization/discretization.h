@@ -75,10 +75,9 @@ public:
     // compute the mass inverse
     void compMassInverse(Int backend);    
 
-    // compute the LDG block-Jacobi preconditioner and store it in res.K
-    void ComputeLDGPreconditioner(dstype* K, dstype* u, Int backend);
+    // (ComputeLDGPreconditioner moved to CPreconditioner in C4)
 
-    void hdgAssembleLinearSystem(dstype *b, Int backend);        
+    void hdgAssembleLinearSystem(dstype *b, Int backend);
     void hdgAssembleResidual(dstype *b, Int backend);        
 
     // evaluate the residual vector 

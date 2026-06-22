@@ -332,4 +332,21 @@ void CPreconditioner::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretiza
     }
 }
 
-#endif        
+// Re-homed from CDiscretization (C4): the LDG block-Jacobi preconditioner matrix is computed
+// from the discretization's structs but is a preconditioner responsibility. BlockJacobianLDG /
+// mpiBlockJacobianLDG are visible here via the unity build (discretization.cpp, which includes
+// ldgblockjacobian.cpp, precedes preconditioner.cpp in ExasimSolver.cpp).
+void CPreconditioner::ComputeLDGPreconditioner(CDiscretization& disc, dstype* K, dstype* u, Int backend)
+{
+#ifdef HAVE_MPI
+    if (disc.common.mpiProcs > 1) {
+        mpiBlockJacobianLDG(K, u, disc.sol, disc.res, disc.app, disc.driver_abi, disc.master, disc.mesh, disc.tmp,
+                disc.common, disc.common.cublasHandle, backend);
+        return;
+    }
+#endif
+    BlockJacobianLDG(K, u, disc.sol, disc.res, disc.app, disc.driver_abi, disc.master, disc.mesh, disc.tmp, disc.common,
+            disc.common.cublasHandle, backend);
+}
+
+#endif

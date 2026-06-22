@@ -234,9 +234,9 @@ Int CSolution::PTCsolver(ofstream &out, Int backend)
         if ((disc.common.spatialScheme == 0) && (disc.common.solverparams.preconditioner == 1)) {
             t0 = SolutionBenchmarkStart(backend);
             if (disc.common.timeparams.tdep==1) {
-                if (it==0 && disc.common.timestate.currentstage==0) disc.ComputeLDGPreconditioner(disc.res.K, solv.sys.u, backend);
-            } else 
-                disc.ComputeLDGPreconditioner(disc.res.K, solv.sys.u, backend);
+                if (it==0 && disc.common.timestate.currentstage==0) prec.ComputeLDGPreconditioner(disc, disc.res.K, solv.sys.u, backend);
+            } else
+                prec.ComputeLDGPreconditioner(disc, disc.res.K, solv.sys.u, backend);
             ldgPreconditionerTime += SolutionBenchmarkStop(t0, backend);
         }
 

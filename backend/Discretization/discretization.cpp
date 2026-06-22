@@ -613,18 +613,7 @@ void CDiscretization::compMassInverse(Int backend) {
     ComputeMinv(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);    
 }
 
-void CDiscretization::ComputeLDGPreconditioner(dstype* K, dstype* u, Int backend)
-{
-#ifdef HAVE_MPI
-    if (common.mpiProcs > 1) {
-        mpiBlockJacobianLDG(K, u, sol, res, app, driver_abi, master, mesh, tmp,
-                common, common.cublasHandle, backend);
-        return;
-    }
-#endif
-    BlockJacobianLDG(K, u, sol, res, app, driver_abi, master, mesh, tmp, common,
-            common.cublasHandle, backend);
-}
+// ComputeLDGPreconditioner re-homed to CPreconditioner (C4).
 
 void CDiscretization::hdgAssembleLinearSystem(dstype *b, Int backend)
 {

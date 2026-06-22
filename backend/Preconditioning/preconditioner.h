@@ -44,6 +44,10 @@ public:
     // apply the precontioner: Pv = P(u)*v
     void ApplyPreconditioner(dstype* v, sysstruct& sys, CDiscretization& disc, Int backend);
     void ApplyPreconditioner(dstype* v, sysstruct& sys, CDiscretization& disc, Int spatialScheme, Int backend);
+
+    // compute the LDG block-Jacobi preconditioner matrix K from the discretization's state
+    // (re-homed from CDiscretization in C4 -- computing the preconditioner is a preconditioner concern)
+    void ComputeLDGPreconditioner(CDiscretization& disc, dstype* K, dstype* u, Int backend);
 };
 
 #endif        
