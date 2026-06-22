@@ -57,6 +57,8 @@ if nmodels==1
             runstr = cell(ncases, 1);
             res = cell(ncases, 1);
             pde.paramcaseoutputdirs = strings(ncases, 1);
+            warmstart = isfield(pde, 'physicsparamwarmstart') && pde.physicsparamwarmstart == 1;
+            previousoutdir = "";
             for icase = 1:ncases
                 pdecase = writeappbase;
                 pdecase.physicsparam = physicsparamcases(icase,:);
@@ -66,6 +68,9 @@ if nmodels==1
                 end
                 writephysicsparamcase(pdecase.dataoutpath, pdecase.physicsparam);
 
+                if warmstart && icase > 1
+                    writephysicsparamwarmstart(pdecase, dmd, previousoutdir);
+                end
                 pdecase = writeapp(pdecase, appbinfile(pdecase), 'native');
                 runstr{icase} = runcode(pdecase, 1);
                 sol{icase} = fetchsolution(pdecase,master,dmd,pdecase.dataoutpath);
@@ -75,8 +80,9 @@ if nmodels==1
                     res{icase} = reshape(res{icase},4,[])';
                 end
                 pde.paramcaseoutputdirs(icase) = pdecase.dataoutpath;
+                previousoutdir = pdecase.dataoutpath;
             end
-            writephysicsparamsweepmanifest(pde.datapath + "/dataout" + model_strn(pde), physicsparamcases, pde.paramcaseoutputdirs);
+            writephysicsparamsweepmanifest(pde.datapath + "/dataout" + model_strn(pde), physicsparamcases, pde.paramcaseoutputdirs, warmstart);
         else
             runstr = runcode(pde, 1); % run C++ code
 
@@ -236,7 +242,86 @@ function writephysicsparamcase(outdir, values)
 dlmwrite(char(outdir + "/physicsparam.txt"), values(:).', 'delimiter', ' ', 'precision', '%.17g');
 end
 
-function writephysicsparamsweepmanifest(baseout, cases, outdirs)
+function writephysicsparamwarmstart(pde, dmd, previousoutdir)
+udg = getsolutions(previousoutdir + "/outudg", dmd);
+udg = udg(:,:,:,end);
+if pde.ncw > 0
+    wdg = getsolutions(previousoutdir + "/outwdg", dmd);
+    wdg = wdg(:,:,:,end);
+else
+    wdg = [];
+end
+
+for iproc = 1:length(dmd)
+    if pde.mpiprocs == 1
+        solfile = pde.datapath + "/datain" + model_strn(pde) + "/sol.bin";
+    else
+        solfile = pde.datapath + "/datain" + model_strn(pde) + "/sol" + string(iproc) + ".bin";
+    end
+    rewritewarmstartsolfile(solfile, udg(:,:,dmd{iproc}.elempart), wdg, dmd{iproc}.elempart);
+end
+end
+
+function rewritewarmstartsolfile(solfile, udgpart, wdg, elempart)
+endian = 'native';
+fileID = fopen(char(solfile), 'r');
+if fileID < 0
+    error("Unable to open warm-start solution file %s.", solfile);
+end
+cleanup = onCleanup(@() fclose(fileID));
+data = fread(fileID, inf, 'double', endian);
+clear cleanup;
+
+if isempty(data)
+    error("Warm-start solution file %s is empty.", solfile);
+end
+nsizeLen = data(1);
+nsizeStart = 2;
+nsizeEnd = nsizeStart + nsizeLen - 1;
+nsize = data(nsizeStart:nsizeEnd);
+ndimsStart = nsizeEnd + 1;
+ndimsEnd = ndimsStart + nsize(1) - 1;
+xdgStart = ndimsEnd + 1;
+xdgEnd = xdgStart + nsize(2) - 1;
+udgStart = xdgEnd + 1;
+udgEnd = udgStart + nsize(3) - 1;
+odgStart = udgEnd + 1;
+odgEnd = odgStart + nsize(4) - 1;
+wdgStart = odgEnd + 1;
+wdgEnd = wdgStart + nsize(5) - 1;
+tailStart = wdgEnd + 1;
+
+odgdata = data(odgStart:odgEnd);
+if nsize(5) > 0
+    wdgdata = data(wdgStart:wdgEnd);
+else
+    wdgdata = [];
+end
+if tailStart <= numel(data)
+    taildata = data(tailStart:end);
+else
+    taildata = [];
+end
+
+newnsize = nsize;
+newnsize(3) = numel(udgpart);
+udgdata = udgpart(:);
+if ~isempty(wdg)
+    wdgpart = wdg(:,:,elempart);
+    newnsize(5) = numel(wdgpart);
+    wdgdata = wdgpart(:);
+end
+data = [data(1); newnsize; data(ndimsStart:xdgEnd); udgdata; odgdata; wdgdata; taildata];
+
+fileID = fopen(char(solfile), 'w');
+if fileID < 0
+    error("Unable to write warm-start solution file %s.", solfile);
+end
+cleanup = onCleanup(@() fclose(fileID));
+fwrite(fileID, data, 'double', endian);
+end
+
+function writephysicsparamsweepmanifest(baseout, cases, outdirs, warmstart)
 fid = fopen(char(baseout + "/physicsparam_sweep_manifest.txt"), 'w');
 if fid < 0
     error("Unable to write physicsparam sweep manifest in %s.", baseout);
@@ -244,6 +329,7 @@ end
 cleanup = onCleanup(@() fclose(fid));
 fprintf(fid, "ncases %d\n", size(cases,1));
 fprintf(fid, "nparam %d\n", size(cases,2));
+fprintf(fid, "physicsparamwarmstart %d\n", warmstart);
 for i = 1:size(cases,1)
     fprintf(fid, "case %d %s", i, outdirs(i));
     fprintf(fid, " %.17g", cases(i,:));

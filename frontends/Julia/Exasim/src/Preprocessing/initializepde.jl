@@ -124,6 +124,7 @@ mutable struct PDEStruct
     factor::Array{FloatP,2};  # factors
     physicsparam::Array{FloatP,2}; # physical parameters
     physicsparamsweep;
+    paramcaseoutputdirs;
     solversparam::Array{FloatP,2}; # solvers parameters
     stgdata::Array{FloatP,2}; # synthetic turbulence
     stgparam::Array{FloatP,2}; # synthetic turbulence
@@ -292,6 +293,7 @@ function initializepde(version)
     pde.factor = [0.0 0.0];  # factors
     pde.physicsparam = [0.0 0.0]; # physical parameters
     pde.physicsparamsweep = [];
+    pde.paramcaseoutputdirs = [];
     pde.solversparam = [0.0 0.0]; # solvers parameters
     pde.stgdata = [0.0 0.0]; # synthetic turbulence
     pde.stgparam = [0.0 0.0]; # synthetic turbulence
