@@ -10,9 +10,14 @@ res = []
 if nmodels==1
     # search compilers and set options
     pde = Gencode.setcompilers(pde);
+    physicsparamcases, hasPhysicsParamSweep = normalizephysicsparamsweep(pde);
+    if hasPhysicsParamSweep
+        pde.physicsparam = reshape(physicsparamcases[1,:], 1, :);
+    end
 
     # generate input files and store them in datain folder
     pde, mesh, master, dmd = Preprocessing.preprocessing(pde,mesh);
+    writeappbase = hasPhysicsParamSweep ? writeapptemplate(pde) : nothing;
 
     # resolve auto (-1) modelid -> 100 + modelnumber so this model can coexist
     # with others in one working dir (model 0 stays at 100, byte-identical).
@@ -36,18 +41,48 @@ if nmodels==1
         runstr = "";
         sol = [];
     else
-        runstr = Gencode.runcode(pde, 1);
+        if hasPhysicsParamSweep
+            ncases = size(physicsparamcases, 1);
+            sol = Array{Any, 1}(undef, ncases);
+            runstr = Array{Any, 1}(undef, ncases);
+            res = Array{Any, 1}(undef, ncases);
+            pde.paramcaseoutputdirs = Array{String, 1}(undef, ncases);
 
-        # get solution from output files in this model's dataout dir
-        strn = Gencode.model_strn(pde);
-        doutdir = isempty(strn) ? joinpath(pde.datapath, "dataout") : joinpath(pde.datapath, "dataout", strn);
-        sol = Postprocessing.fetchsolution(pde,master,dmd, doutdir);
-        if pde.saveResNorm == 1
-            fn = "dataout/out_residualnorms0.bin";
-            res = reinterpret(Float64,read(fn));
-            ne = Int64(round(length(res)/4));
-            res = reshape(res,(4,ne));
-            res = res';
+            for icase = 1:ncases
+                pdecase = deepcopy(writeappbase);
+                pdecase.physicsparam = reshape(physicsparamcases[icase,:], 1, :);
+                pdecase.dataoutpath = paramcaseoutputdir(pdecase, icase);
+                mkpath(pdecase.dataoutpath);
+                writephysicsparamcase(pdecase.dataoutpath, pdecase.physicsparam);
+
+                pdecase = Preprocessing.writeapp(pdecase, appbinfile(pdecase));
+                runstr[icase] = Gencode.runcode(pdecase, 1);
+                sol[icase] = Postprocessing.fetchsolution(pdecase, master, dmd, pdecase.dataoutpath);
+                if pdecase.saveResNorm == 1
+                    fn = joinpath(pdecase.dataoutpath, "out_residualnorms0.bin");
+                    tm = reinterpret(Float64,read(fn));
+                    ne = Int64(round(length(tm)/4));
+                    res[icase] = reshape(tm,(4,ne))';
+                else
+                    res[icase] = [];
+                end
+                pde.paramcaseoutputdirs[icase] = pdecase.dataoutpath;
+            end
+            writephysicsparamsweepmanifest(dataoutbasedir(pde), physicsparamcases, pde.paramcaseoutputdirs);
+        else
+            runstr = Gencode.runcode(pde, 1);
+
+            # get solution from output files in this model's dataout dir
+            strn = Gencode.model_strn(pde);
+            doutdir = isempty(strn) ? joinpath(pde.datapath, "dataout") : joinpath(pde.datapath, "dataout", strn);
+            sol = Postprocessing.fetchsolution(pde,master,dmd, doutdir);
+            if pde.saveResNorm == 1
+                fn = "dataout/out_residualnorms0.bin";
+                res = reinterpret(Float64,read(fn));
+                ne = Int64(round(length(res)/4));
+                res = reshape(res,(4,ne));
+                res = res';
+            end
         end
     end
 else
@@ -83,3 +118,129 @@ return sol,pde,mesh,master,dmd,compilerstr,runstr,res
 
 end
 
+function normalizephysicsparamsweep(pde)
+    base = vec(Float64.(pde.physicsparam));
+    if !emptysweepspec(pde.physicsparamsweep)
+        cases = physicsparamsweepcases(pde.physicsparamsweep, length(base));
+        return cases, size(cases, 1) > 1;
+    end
+
+    raw = Float64.(pde.physicsparam);
+    if ndims(raw) == 2 && size(raw,1) > 1 && size(raw,2) > 1
+        validatephysicsparamcases(raw, size(raw,2));
+        return raw, true;
+    end
+
+    return reshape(base, 1, :), false;
+end
+
+emptysweepspec(spec) = spec === nothing || (applicable(isempty, spec) && isempty(spec))
+
+function physicsparamsweepcases(spec, nparam)
+    if spec isa Dict
+        if haskey(spec, "samples")
+            return physicsparamsweepcases(spec["samples"], nparam);
+        elseif haskey(spec, :samples)
+            return physicsparamsweepcases(spec[:samples], nparam);
+        elseif haskey(spec, "values")
+            return physicsparamsweepcases(spec["values"], nparam);
+        elseif haskey(spec, :values)
+            return physicsparamsweepcases(spec[:values], nparam);
+        elseif haskey(spec, "grid")
+            return physicsparamgridcases(spec["grid"], nparam);
+        elseif haskey(spec, :grid)
+            return physicsparamgridcases(spec[:grid], nparam);
+        else
+            error("physicsparamsweep Dict must contain samples, values, or grid.");
+        end
+    elseif spec isa NamedTuple
+        if haskey(spec, :samples)
+            return physicsparamsweepcases(spec.samples, nparam);
+        elseif haskey(spec, :values)
+            return physicsparamsweepcases(spec.values, nparam);
+        elseif haskey(spec, :grid)
+            return physicsparamgridcases(spec.grid, nparam);
+        else
+            error("physicsparamsweep NamedTuple must contain samples, values, or grid.");
+        end
+    elseif spec isa AbstractMatrix
+        cases = Float64.(spec);
+    elseif spec isa AbstractVector && !isempty(spec) && first(spec) isa AbstractVector
+        cases = zeros(Float64, length(spec), nparam);
+        for i = 1:length(spec)
+            v = vec(Float64.(spec[i]));
+            if length(v) != nparam
+                error("physicsparamsweep case $i has $(length(v)) parameters; expected $nparam.");
+            end
+            cases[i,:] = v;
+        end
+    elseif spec isa AbstractVector
+        values = Float64.(spec);
+        cases = nparam == 1 && length(values) > 1 ? reshape(values, :, 1) : reshape(values, 1, :);
+    else
+        error("physicsparamsweep must be numeric, a vector of vectors, a Dict, or a NamedTuple.");
+    end
+    validatephysicsparamcases(cases, nparam);
+    return cases;
+end
+
+function physicsparamgridcases(grid, nparam)
+    if length(grid) != nparam
+        error("physicsparamsweep.grid must contain one value vector per physics parameter.");
+    end
+    products = collect(Iterators.product(grid...));
+    cases = zeros(Float64, length(products), nparam);
+    for i = 1:length(products)
+        cases[i,:] = collect(products[i]);
+    end
+    validatephysicsparamcases(cases, nparam);
+    return cases;
+end
+
+function validatephysicsparamcases(cases, nparam)
+    if ndims(cases) != 2 || size(cases,2) != nparam
+        error("Each physicsparamsweep row must contain $nparam physics parameters.");
+    end
+    if any(!isfinite, cases)
+        error("physicsparamsweep cases must contain finite numeric values.");
+    end
+end
+
+function paramcaseoutputdir(pde, icase)
+    return joinpath(dataoutbasedir(pde), "paramcase_" * lpad(string(icase), 4, "0"));
+end
+
+function dataoutbasedir(pde)
+    strn = Gencode.model_strn(pde);
+    return isempty(strn) ? joinpath(pde.datapath, "dataout") : joinpath(pde.datapath, "dataout", strn);
+end
+
+function writephysicsparamcase(outdir, values)
+    open(joinpath(outdir, "physicsparam.txt"), "w") do io
+        println(io, join(string.(vec(values)), " "));
+    end
+end
+
+function writephysicsparamsweepmanifest(baseout, cases, outdirs)
+    open(joinpath(baseout, "physicsparam_sweep_manifest.txt"), "w") do io
+        println(io, "ncases ", size(cases,1));
+        println(io, "nparam ", size(cases,2));
+        for i = 1:size(cases,1)
+            println(io, "case ", i, " ", outdirs[i], " ", join(string.(vec(cases[i,:])), " "));
+        end
+    end
+end
+
+function writeapptemplate(app)
+    template = deepcopy(app);
+    template.flag = template.flag[19:end];
+    template.problem = template.problem[29:end];
+    template.factor = template.factor[6:end];
+    template.solversparam = template.solversparam[5:end];
+    return template;
+end
+
+function appbinfile(pde)
+    strn = Gencode.model_strn(pde);
+    return joinpath(pde.datapath, "datain", strn, "app.bin");
+end

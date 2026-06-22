@@ -84,6 +84,7 @@ def initializeapp(version):
     app['extUhat'] = 0;
     app['extStab'] = 0;
     app['saveParaview'] = 0;
+    app['executionmode'] = 0;
 
     app['time'] = 0.0;
     app['NLparam'] = 0.0;
@@ -108,6 +109,7 @@ def initializeapp(version):
     app['dt'] = [0.0, 0.0];  # time steps
     app['factor'] = [0.0, 0.0];  # factors
     app['physicsparam'] = [0.0, 0.0]; # physical parameters
+    app['physicsparamsweep'] = [];
     app['solversparam'] = [0.0, 0.0]; # solvers parameters
     app['stgdata'] = [0.0, 0.0]; # synthetic turbulence
     app['stgparam'] = [0.0, 0.0]; # synthetic turbulence
@@ -115,6 +117,7 @@ def initializeapp(version):
     app['gmsh'] = "";
     app['metis'] = "";
     app['paraview'] = "";
+    app['dataoutpath'] = "";
     app['viselem'] = [];
     
     return app

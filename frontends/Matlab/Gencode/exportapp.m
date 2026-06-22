@@ -46,6 +46,7 @@ if ~exist(char(dest), 'dir'), mkdir(char(dest)); end
 % 1. Runtime inputs + the output directory the solver writes into.
 copytree(datain, dest + "/datain");
 if ~exist(char(dest + "/dataout"), 'dir'), mkdir(char(dest + "/dataout")); end
+write_physicsparamcases_if_needed(pde, dest + "/datain");
 
 % 2. The generated kernel .cpp set.
 copytree(kernels, dest + "/kernels");
@@ -107,6 +108,69 @@ fprintf("Exported data-transfer app: %s\n", dest);
 end
 
 % ---------------------------------------------------------------------------
+
+function write_physicsparamcases_if_needed(pde, datain)
+if ~isfield(pde, 'physicsparamsweep') || isempty(pde.physicsparamsweep)
+    return;
+end
+cases = export_physicsparamsweepcases(pde.physicsparamsweep, numel(pde.physicsparam));
+if size(cases,1) <= 1
+    return;
+end
+fn = char(datain + "/physicsparamcases.bin");
+fid = fopen(fn, 'w');
+if fid < 0
+    error("Unable to write %s.", fn);
+end
+cleanup = onCleanup(@() fclose(fid));
+fwrite(fid, [size(cases,1), size(cases,2)], 'double');
+fwrite(fid, cases.', 'double');
+end
+
+function cases = export_physicsparamsweepcases(spec, nparam)
+if isnumeric(spec)
+    if isvector(spec) && nparam == 1
+        cases = spec(:);
+    else
+        cases = spec;
+    end
+elseif iscell(spec)
+    cases = zeros(numel(spec), nparam);
+    for i = 1:numel(spec)
+        v = spec{i};
+        if numel(v) ~= nparam
+            error("physicsparamsweep case %d has %d parameters; expected %d.", i, numel(v), nparam);
+        end
+        cases(i,:) = reshape(v, 1, []);
+    end
+elseif isstruct(spec)
+    if isfield(spec, 'samples')
+        cases = export_physicsparamsweepcases(spec.samples, nparam);
+    elseif isfield(spec, 'values')
+        cases = export_physicsparamsweepcases(spec.values, nparam);
+    elseif isfield(spec, 'grid')
+        if ~iscell(spec.grid) || numel(spec.grid) ~= nparam
+            error("physicsparamsweep.grid must be a cell array with one value vector per physics parameter.");
+        end
+        grids = cellfun(@(v) v(:), spec.grid, 'UniformOutput', false);
+        [meshgrids{1:nparam}] = ndgrid(grids{:});
+        cases = zeros(numel(meshgrids{1}), nparam);
+        for j = 1:nparam
+            cases(:,j) = meshgrids{j}(:);
+        end
+    else
+        error("physicsparamsweep struct must contain samples, values, or grid.");
+    end
+else
+    error("physicsparamsweep must be numeric, a cell array, or a struct.");
+end
+if size(cases,2) ~= nparam
+    error("Each physicsparamsweep row must contain %d physics parameters.", nparam);
+end
+if any(~isfinite(cases(:)))
+    error("physicsparamsweep cases must contain finite numeric values.");
+end
+end
 
 function write_runscript(dest, pde, variant, numpde)
 runline = run_command(pde, numpde, '"$here/build/exasimapp"', ...

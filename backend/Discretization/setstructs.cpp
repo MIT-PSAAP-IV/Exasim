@@ -507,12 +507,14 @@ void settempstruct(tempstruct &tmp, appstruct &app, ExasimDriverABI& driver_abi,
 
 void cpuInit(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common,
-        string filein, string fileout, Int mpiprocs, Int mpirank, Int fileoffset, Int omprank) 
+        string filein, string fileout, Int mpiprocs, Int mpirank, Int fileoffset, Int omprank,
+        const std::vector<dstype>* physicsparamOverride = nullptr)
 {
      
     if (mpirank==0)
         printf("Reading data from binary files \n");
-    readInput(app, driver_abi, master, mesh, sol, filein, mpiprocs, mpirank, fileoffset, omprank);
+    readInput(app, driver_abi, master, mesh, sol, filein, mpiprocs, mpirank, fileoffset, omprank,
+              physicsparamOverride);
     
     if (mpirank==0)
         printf("Finish reading data from binary files \n");

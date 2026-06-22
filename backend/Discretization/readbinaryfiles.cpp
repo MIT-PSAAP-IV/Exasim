@@ -604,7 +604,7 @@ void readsolstruct(string filename, solstruct &sol, appstruct &app, ExasimDriver
         cpuInitodgDriver(sol.odg, sol.xdg, driver_abi, app, ncx, nco, npe, ne, 0);       
         sol.nsize[3] = npe*nco*ne;
         sol.szodg = sol.nsize[3];
-    } 
+    }
     #ifdef HAVE_ENZYME
         sol.dodg = (dstype*) malloc (sizeof (dstype)*npe*nco*ne);
         cpuArraySetValue(sol.dodg, zero, npe*nco*ne);
@@ -637,11 +637,18 @@ void readsolstruct(string filename, solstruct &sol, appstruct &app, ExasimDriver
 }
 
 void readInput(appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh, solstruct &sol, string filein, 
-        Int mpiprocs, Int mpirank, Int fileoffset, Int omprank) 
+        Int mpiprocs, Int mpirank, Int fileoffset, Int omprank,
+        const std::vector<dstype>* physicsparamOverride = nullptr)
 {   
     if (mpirank==0) printf("Reading app from binary files \n");  
     string fileapp = filein + "app.bin";        
     readappstruct(fileapp,app);        
+    if (physicsparamOverride != nullptr) {
+        if (static_cast<Int>(physicsparamOverride->size()) != app.nsize[6])
+            error("physicsparam sweep case has incorrect number of parameters");
+        for (Int i = 0; i < app.nsize[6]; ++i)
+            app.physicsparam[i] = (*physicsparamOverride)[i];
+    }
         
     if (mpirank==0) printf("Reading master from binary files \n");    
     string filemaster = filein + "master.bin";           
@@ -664,7 +671,7 @@ void readInput(appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master
         string filemesh = filein + "mesh" + NumberToString(filenumber) + ".bin";                    
         
         if (mpirank==0) printf("Reading initial solution from binary files \n");         
-        readsolstruct(filesol, sol, app, driver_abi, master, filemesh, mpirank);    
+        readsolstruct(filesol, sol, app, driver_abi, master, filemesh, mpirank);
         
         if (mpirank==0) printf("Reading mesh from binary files \n");            
         readmeshstruct(filemesh, mesh, sol, app, driver_abi, master, mpirank);                              
@@ -674,7 +681,7 @@ void readInput(appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master
         string filemesh = filein + "mesh.bin";                    
 
         if (mpirank==0) printf("Reading initial solution from binary files \n");                       
-        readsolstruct(filesol, sol, app, driver_abi, master, filemesh, mpirank);    
+        readsolstruct(filesol, sol, app, driver_abi, master, filemesh, mpirank);
         
         if (mpirank==0) printf("Reading mesh from binary files \n");         
         readmeshstruct(filemesh, mesh, sol, app, driver_abi, master, mpirank);                      

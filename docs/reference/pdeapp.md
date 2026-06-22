@@ -97,8 +97,77 @@ A default of `—` means the parser sets none (the key is applied only if presen
 | `tau` | list(float) | — | HDG/LDG stabilization parameter(s). **Required.** |
 | `dt` | list(float) | — | Time-step sequence; first nonzero entry sets `tdep=1`. |
 | `physicsparam` | list(float) | — | PDE physical coefficients ($\mu$). **Required.** |
+| `physicsparamsweep` | samples/grid | empty | Optional sweep over multiple `physicsparam` vectors. |
 | `externalparam` | list(float) | — | External/auxiliary parameters passed to the model. |
 | `tdep` / `wave` / `tdfunc` / `sourcefunc` | int | `0` / `0` / `1` / `1` | Time-dependent / wave / time-derivative-fn / source-fn flags. |
+
+### Parameter sweeps
+
+Use `physicsparamsweep` to run the same generated model over multiple
+`physicsparam` vectors without recompiling between cases. In frontend-driven
+MATLAB/Python/Julia runs, the frontend compiles once using the first case, then
+rewrites the runtime app input and runs cases sequentially. In exported
+standalone apps and `pdeapp.txt`/text2code apps, Exasim writes
+`datain/physicsparamcases.bin`; the generated C++ executable detects that file
+and runs all cases internally without MATLAB/Python/Julia.
+
+Each case writes to a deterministic directory:
+
+```text
+dataout/paramcase_0001/
+dataout/paramcase_0002/
+...
+```
+
+Each case directory contains `physicsparam.txt`, which records the parameter
+vector used for that run. Standalone sweeps also write
+`dataout/physicsparam_sweep_manifest.txt`.
+
+Supported forms are:
+
+```matlab
+% one row per case
+pde.physicsparam = [1.0];
+pde.physicsparamsweep = [0.5; 1.0; 2.0];
+
+% structured Cartesian product
+pde.physicsparam = [1.0 0.0];
+pde.physicsparamsweep.grid = {[0.5 1.0 2.0], [0.0 1.0]};
+```
+
+```python
+pde['physicsparam'] = numpy.array([1.0])
+pde['physicsparamsweep'] = numpy.array([[0.5], [1.0], [2.0]])
+
+pde['physicsparam'] = numpy.array([1.0, 0.0])
+pde['physicsparamsweep'] = {'grid': [[0.5, 1.0, 2.0], [0.0, 1.0]]}
+```
+
+```julia
+pde.physicsparam = [1.0 0.0]
+pde.physicsparamsweep = [0.5 0.0; 1.0 0.0; 2.0 0.0]
+
+pde.physicsparamsweep = Dict(:grid => [[0.5, 1.0, 2.0], [0.0, 1.0]])
+```
+
+For `pdeapp.txt`, use one row per case:
+
+```text
+physicsparam = [1.0, 0.0];
+physicsparamcases = [[0.5, 0.0], [1.0, 1.0], [2.0, 0.0]];
+```
+
+or semicolon-separated rows:
+
+```text
+physicsparamcases = [0.5, 0.0; 1.0, 1.0; 2.0, 0.0];
+```
+
+Standalone sweep mode recomputes generated initial-condition fields for each
+case after replacing `physicsparam`, so `initu`, `initq`/`initudg`, `initv`,
+and `initw` can depend on the swept parameter values.
+
+Existing single-case apps do not need to set `physicsparamsweep`.
 
 ## Stabilization & closure models
 

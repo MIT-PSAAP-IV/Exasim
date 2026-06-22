@@ -253,7 +253,8 @@ void AllocateLDGBlockJacobianMemory(resstruct& res, commonstruct& common, Int ba
 // Both CPU and GPU constructor
 CDiscretization::CDiscretization(string filein, string fileout, string exasimpath, Int mpiprocs, Int mpirank, 
         Int fileoffset, Int omprank, Int backend, Int builtinmodelID,
-        const ExasimDriverABI& abi, Int nsca, Int nvec, Int nten, Int nsurf, Int nvqoi, ExasimExecutionMode mode) 
+        const ExasimDriverABI& abi, Int nsca, Int nvec, Int nten, Int nsurf, Int nvqoi,
+        ExasimExecutionMode mode, const std::vector<dstype>* physicsparamOverride)
 {
     driver_abi = abi;
     common.backend = backend;
@@ -293,7 +294,8 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
         happ.builtinmodelID = builtinmodelID;
         // allocate data for structs in CPU memory
         cpuInit(hsol, hres, happ, driver_abi, hmaster, hmesh, htmp, hcommon, filein, fileout,
-                mpiprocs, mpirank, fileoffset, omprank);              
+                mpiprocs, mpirank, fileoffset, omprank,
+                physicsparamOverride);
                 
         // copy data from cpu memory to gpu memory
         gpuInit(sol, res, app, driver_abi, master, mesh, tmp, common, 
@@ -322,7 +324,8 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
     }
     else  {// CPU        
         cpuInit(sol, res, app, driver_abi, master, mesh, tmp, common, filein, fileout, 
-                mpiprocs, mpirank, fileoffset, omprank);    
+                mpiprocs, mpirank, fileoffset, omprank,
+                physicsparamOverride);
     }
     common.read_uh = app.read_uh;
     const bool postprocessOnly = (mode == ExasimExecutionMode::Postprocess);  
