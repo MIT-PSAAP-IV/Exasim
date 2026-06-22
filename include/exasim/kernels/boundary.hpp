@@ -26,7 +26,7 @@ void fbou_kernel(dstype*       fb,
                  dstype t, int /*modelnumber*/, int ib, int ng,
                  int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/, int /*ncw*/)
 {
-    static_assert(is_model_v<M>);
+    static_assert(is_boundary_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);
     constexpr int ncw_buf = (ncw > 0) ? ncw : 1;
@@ -59,7 +59,7 @@ void hdg_fbou_only_kernel(dstype* fb,
                           dstype t, int /*modelnumber*/, int ib, int ng,
                           int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/, int /*ncw*/)
 {
-    static_assert(is_model_v<M>);
+    static_assert(is_hdg_boundary_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);
     constexpr int ncw_buf = (ncw > 0) ? ncw : 1;
@@ -90,7 +90,7 @@ void hdg_fbou_kernel(dstype* fb, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
                      dstype t, int /*modelnumber*/, int ib, int ng,
                      int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/, int /*ncw*/)
 {
-    static_assert(is_model_v<M>);
+    static_assert(is_hdg_boundary_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);
     constexpr int ncw_buf = (ncw > 0) ? ncw : 1;
@@ -141,7 +141,7 @@ void ubou_kernel(dstype* ub,
                  dstype t, int /*modelnumber*/, int ib, int ng,
                  int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/, int /*ncw*/)
 {
-    static_assert(is_model_v<M>);
+    static_assert(is_boundary_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);
     constexpr int ncw_buf = (ncw > 0) ? ncw : 1;

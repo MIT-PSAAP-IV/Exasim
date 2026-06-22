@@ -56,7 +56,7 @@ void flux_kernel(dstype*       f,
                  int           /*nco*/,
                  int           ncw_runtime)
 {
-    static_assert(is_model_v<M>,
+    static_assert(is_flux_model_v<M>,
                   "flux_kernel<M>: M must satisfy the Model contract — "
                   "see <exasim/model.hpp>.");
 
@@ -133,7 +133,7 @@ void hdg_flux_kernel(dstype*       f,
                      int           /*nco*/,
                      int           ncw_runtime)
 {
-    static_assert(is_model_v<M>,
+    static_assert(is_flux_model_v<M>,
                   "hdg_flux_kernel<M>: M must satisfy the Model contract.");
 
     constexpr int nd  = M::nd;

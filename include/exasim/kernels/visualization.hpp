@@ -27,7 +27,7 @@ void vis_scalars_kernel(dstype* f, const dstype* xdg, const dstype* udg,
                         int nc_runtime, int /*ncu*/, int /*nd*/,
                         int /*ncx*/, int /*nco*/, int /*ncw*/)
 {
-    static_assert(is_model_v<M>);
+    static_assert(is_vis_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);
     constexpr int ncw_buf = (ncw > 0) ? ncw : 1;
@@ -56,7 +56,7 @@ void vis_vectors_kernel(dstype* f, const dstype* xdg, const dstype* udg,
                         int nc_runtime, int /*ncu*/, int /*nd*/,
                         int /*ncx*/, int /*nco*/, int /*ncw*/)
 {
-    static_assert(is_model_v<M>);
+    static_assert(is_vis_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);
     constexpr int ncw_buf = (ncw > 0) ? ncw : 1;
@@ -85,7 +85,7 @@ void vis_tensors_kernel(dstype* f, const dstype* xdg, const dstype* udg,
                         int nc_runtime, int /*ncu*/, int /*nd*/,
                         int /*ncx*/, int /*nco*/, int /*ncw*/)
 {
-    static_assert(is_model_v<M>);
+    static_assert(is_vis_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);
     constexpr int ncw_buf = (ncw > 0) ? ncw : 1;

@@ -37,7 +37,7 @@ void source_kernel(dstype*       s,
                    int           /*nco*/,
                    int           ncw_runtime)
 {
-    static_assert(is_model_v<M>, "source_kernel<M>: M must satisfy the Model contract.");
+    static_assert(is_source_model_v<M>, "source_kernel<M>: M must satisfy the Model contract.");
 
     constexpr int nd  = M::nd;
     constexpr int ncu = M::ncu;
@@ -95,7 +95,7 @@ void hdg_source_kernel(dstype*       s,
                        int           /*nco*/,
                        int           ncw_runtime)
 {
-    static_assert(is_model_v<M>, "hdg_source_kernel<M>: M must satisfy the Model contract.");
+    static_assert(is_source_model_v<M>, "hdg_source_kernel<M>: M must satisfy the Model contract.");
 
     constexpr int nd  = M::nd;
     constexpr int ncu = M::ncu;

@@ -21,7 +21,7 @@ void tdfunc_kernel(dstype* f,
                    dstype t, int /*modelnumber*/, int ng,
                    int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/, int /*ncw*/)
 {
-    static_assert(is_model_v<M>);
+    static_assert(is_tdfunc_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);
     constexpr int ncw_buf = (ncw > 0) ? ncw : 1;

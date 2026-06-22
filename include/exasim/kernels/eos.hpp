@@ -25,7 +25,7 @@ void eos_kernel(dstype* f, const dstype* xdg, const dstype* udg, const dstype* o
                 int /*modelnumber*/, int ng, int /*nc*/, int /*ncu*/, int /*nd*/,
                 int /*ncx*/, int /*nco*/, int /*ncw*/, int /*nce*/, int /*npe*/, int /*ne*/)
 {
-    static_assert(is_model_v<M>);
+    static_assert(is_eos_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);
     constexpr int ncw_buf = (ncw > 0) ? ncw : 1;
@@ -51,7 +51,7 @@ void eos_du_kernel(dstype* f, const dstype* xdg, const dstype* udg, const dstype
                    int /*modelnumber*/, int ng, int /*nc*/, int /*ncu*/, int /*nd*/,
                    int /*ncx*/, int /*nco*/, int /*ncw*/, int /*nce*/, int /*npe*/, int /*ne*/)
 {
-    static_assert(is_model_v<M>);
+    static_assert(is_eos_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);
     constexpr int ncw_buf = (ncw > 0) ? ncw : 1;
@@ -77,7 +77,7 @@ void eos_dw_kernel(dstype* f, const dstype* xdg, const dstype* udg, const dstype
                    int /*modelnumber*/, int ng, int /*nc*/, int /*ncu*/, int /*nd*/,
                    int /*ncx*/, int /*nco*/, int /*ncw*/, int /*nce*/, int /*npe*/, int /*ne*/)
 {
-    static_assert(is_model_v<M>);
+    static_assert(is_eos_model_v<M>);
     if constexpr (M::ncw > 0) {
         constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
         constexpr int Nq = ncu * (1 + nd);
@@ -106,7 +106,7 @@ void avfield_kernel(dstype* f, const dstype* xdg, const dstype* udg, const dstyp
                     int /*modelnumber*/, int ng, int /*nc*/, int /*ncu*/, int /*nd*/,
                     int /*ncx*/, int /*nco*/, int /*ncw*/, int /*nce*/, int /*npe*/, int /*ne*/)
 {
-    static_assert(is_model_v<M>);
+    static_assert(is_avfield_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);
     constexpr int ncw_buf = (ncw > 0) ? ncw : 1;

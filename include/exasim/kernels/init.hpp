@@ -52,7 +52,7 @@ void initu_kernel(dstype* f, const dstype* xdg, const dstype* uinf,
                   const dstype* param, int /*modelnumber*/, int ng,
                   int /*ncx*/, int /*nce*/, int npe, int /*ne*/)
 {
-    static_assert(is_model_v<M>);
+    static_assert(is_init_model_v<M>);
     detail::init_dispatch<M, M::ncu>(
         f, xdg, uinf, param, ng, npe,
         [](double out[], const double x[], const double uinf[], const double mu[])
@@ -64,7 +64,7 @@ void initq_kernel(dstype* f, const dstype* xdg, const dstype* uinf,
                   const dstype* param, int /*modelnumber*/, int ng,
                   int /*ncx*/, int /*nce*/, int npe, int /*ne*/)
 {
-    static_assert(is_model_v<M>);
+    static_assert(is_init_model_v<M>);
     detail::init_dispatch<M, M::ncu * M::nd>(
         f, xdg, uinf, param, ng, npe,
         [](double out[], const double x[], const double uinf[], const double mu[])
@@ -76,7 +76,7 @@ void initudg_kernel(dstype* f, const dstype* xdg, const dstype* uinf,
                     const dstype* param, int /*modelnumber*/, int ng,
                     int /*ncx*/, int /*nce*/, int npe, int /*ne*/)
 {
-    static_assert(is_model_v<M>);
+    static_assert(is_init_model_v<M>);
     constexpr int Nq = M::ncu * (1 + M::nd);
     detail::init_dispatch<M, Nq>(
         f, xdg, uinf, param, ng, npe,
@@ -89,7 +89,7 @@ void initwdg_kernel(dstype* f, const dstype* xdg, const dstype* uinf,
                     const dstype* param, int /*modelnumber*/, int ng,
                     int /*ncx*/, int /*nce*/, int npe, int /*ne*/)
 {
-    static_assert(is_model_v<M>);
+    static_assert(is_init_model_v<M>);
     if constexpr (M::ncw > 0) {
         detail::init_dispatch<M, M::ncw>(
             f, xdg, uinf, param, ng, npe,
@@ -107,7 +107,7 @@ void initodg_kernel(dstype* f, const dstype* xdg, const dstype* uinf,
                     const dstype* param, int /*modelnumber*/, int ng,
                     int /*ncx*/, int nce, int npe, int /*ne*/)
 {
-    static_assert(is_model_v<M>);
+    static_assert(is_init_model_v<M>);
     Kokkos::parallel_for("exasim::initodg_kernel", ng, KOKKOS_LAMBDA(size_t i) {
         const int j    = static_cast<int>(i % npe);
         const int elem = static_cast<int>(i / npe);

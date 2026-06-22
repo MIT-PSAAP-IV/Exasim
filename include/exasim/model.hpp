@@ -641,4 +641,41 @@ struct has_required_constants<M,
 template <class M>
 inline constexpr bool is_model_v = detail::has_required_constants<M>::value;
 
+// ---- Per-capability concept checks (one per kernel concern) ----
+//
+// Each kernel in <exasim/kernels/*.hpp> consumes only ONE concern's surface (see the mixin
+// chain above). These narrow traits let a kernel static_assert exactly the capability it uses
+// instead of the whole model, so a model missing e.g. `fbou` fails with a clear concept message
+// at the boundary kernel rather than a deep member-lookup error. Because ModelDefaults supplies
+// zero-fill defaults for every optional method, a model deriving ModelDefaults satisfies all of
+// these — their value is precise diagnostics + self-documenting each kernel's required surface.
+namespace detail {
+#define EXASIM_HAS_METHOD(name) \
+    template <class, class = void> struct has_##name : std::false_type {}; \
+    template <class M> struct has_##name<M, std::void_t<decltype(&M::name)>> : std::true_type {}
+EXASIM_HAS_METHOD(flux);        EXASIM_HAS_METHOD(source);      EXASIM_HAS_METHOD(sourcew);
+EXASIM_HAS_METHOD(tdfunc);      EXASIM_HAS_METHOD(avfield);     EXASIM_HAS_METHOD(eos);
+EXASIM_HAS_METHOD(eos_du);      EXASIM_HAS_METHOD(eos_dw);      EXASIM_HAS_METHOD(fbou);
+EXASIM_HAS_METHOD(ubou);        EXASIM_HAS_METHOD(fbou_hdg);    EXASIM_HAS_METHOD(fhat);
+EXASIM_HAS_METHOD(uhat);        EXASIM_HAS_METHOD(stab);        EXASIM_HAS_METHOD(initu);
+EXASIM_HAS_METHOD(qoi_volume);  EXASIM_HAS_METHOD(qoi_boundary);EXASIM_HAS_METHOD(monitor);
+EXASIM_HAS_METHOD(output);      EXASIM_HAS_METHOD(vis_scalars); EXASIM_HAS_METHOD(vis_vectors);
+EXASIM_HAS_METHOD(vis_tensors);
+#undef EXASIM_HAS_METHOD
+} // namespace detail
+
+template <class M> inline constexpr bool is_flux_model_v        = is_model_v<M> && detail::has_flux<M>::value;
+template <class M> inline constexpr bool is_source_model_v      = is_model_v<M> && detail::has_source<M>::value;
+template <class M> inline constexpr bool is_sourcew_model_v     = is_model_v<M> && detail::has_sourcew<M>::value;
+template <class M> inline constexpr bool is_tdfunc_model_v      = is_model_v<M> && detail::has_tdfunc<M>::value;
+template <class M> inline constexpr bool is_avfield_model_v     = is_model_v<M> && detail::has_avfield<M>::value;
+template <class M> inline constexpr bool is_eos_model_v         = is_model_v<M> && detail::has_eos<M>::value && detail::has_eos_du<M>::value && detail::has_eos_dw<M>::value;
+template <class M> inline constexpr bool is_boundary_model_v    = is_model_v<M> && detail::has_fbou<M>::value && detail::has_ubou<M>::value;
+template <class M> inline constexpr bool is_hdg_boundary_model_v= is_model_v<M> && detail::has_fbou_hdg<M>::value;
+template <class M> inline constexpr bool is_interface_model_v   = is_model_v<M> && detail::has_fhat<M>::value && detail::has_uhat<M>::value && detail::has_stab<M>::value;
+template <class M> inline constexpr bool is_init_model_v        = is_model_v<M> && detail::has_initu<M>::value;
+template <class M> inline constexpr bool is_qoi_model_v         = is_model_v<M> && detail::has_qoi_volume<M>::value && detail::has_qoi_boundary<M>::value;
+template <class M> inline constexpr bool is_output_model_v      = is_model_v<M> && detail::has_monitor<M>::value && detail::has_output<M>::value;
+template <class M> inline constexpr bool is_vis_model_v         = is_model_v<M> && detail::has_vis_scalars<M>::value && detail::has_vis_vectors<M>::value && detail::has_vis_tensors<M>::value;
+
 } // namespace exasim

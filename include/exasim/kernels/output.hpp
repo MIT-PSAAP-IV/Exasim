@@ -31,7 +31,7 @@ void monitor_kernel(dstype* f, const dstype* xdg, const dstype* udg,
                     int /*ncx*/, int /*nco*/, int /*ncw*/,
                     int /*nce*/, int /*npe*/, int /*ne*/)
 {
-    static_assert(is_model_v<M>);
+    static_assert(is_output_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);
     constexpr int ncw_buf = (ncw > 0) ? ncw : 1;
@@ -61,7 +61,7 @@ void output_kernel(dstype* f, const dstype* xdg, const dstype* udg,
                    int /*ncx*/, int /*nco*/, int /*ncw*/,
                    int /*nce*/, int /*npe*/, int /*ne*/)
 {
-    static_assert(is_model_v<M>);
+    static_assert(is_output_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);
     constexpr int ncw_buf = (ncw > 0) ? ncw : 1;

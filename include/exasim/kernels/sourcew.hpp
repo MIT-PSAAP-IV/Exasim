@@ -22,7 +22,7 @@ void sourcew_kernel(dstype* sw,
                     int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/,
                     int /*ncw_runtime*/, int /*nce*/, int /*npe*/, int /*ne*/)
 {
-    static_assert(is_model_v<M>);
+    static_assert(is_sourcew_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);
     constexpr int nco_buf = (nco > 0) ? nco : 1;
@@ -53,7 +53,7 @@ void hdg_sourcew_kernel(dstype* sw, dstype* sw_udg, dstype* sw_wdg,
                         int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/,
                         int /*ncw_runtime*/)
 {
-    static_assert(is_model_v<M>);
+    static_assert(is_sourcew_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);
     constexpr int nco_buf = (nco > 0) ? nco : 1;
