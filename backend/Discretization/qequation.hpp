@@ -63,6 +63,22 @@
 #ifndef __QEQUATION
 #define __QEQUATION
 
+// Generic grow-if-needed allocation helper. Originally lived in qequation.cpp (and was used
+// across the discretization); restored here during the twin unification so its users (e.g.
+// CDiscretization) still see it after the .cpp twins were removed.
+template <typename T>
+inline void EnsureTemplateAllocation(T **data, Int &currentSize, Int requiredSize, Int backend)
+{
+    if (requiredSize <= 0)
+        return;
+
+    if ((*data == nullptr) || (currentSize != requiredSize)) {
+        TemplateFree(*data, backend);
+        TemplateMalloc(data, requiredSize, backend);
+        currentSize = requiredSize;
+    }
+}
+
 template <class M>
 inline void qEquationElem(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)

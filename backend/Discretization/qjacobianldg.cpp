@@ -9,11 +9,11 @@
 
   Existing backend operators are reused as follows:
 
-  1. qEquationElem(...) computes and stores:
+  1. qEquationElem<exasim::detail::AbiAdapter>(...) computes and stores:
        - res.Minv2 : scalar M_K^{-1}
        - res.C     : scalar M_K^{-1} C_K for each spatial direction
 
-  2. qEquationElemFace(...) computes and stores:
+  2. qEquationElemFace<exasim::detail::AbiAdapter>(...) computes and stores:
        - res.E     : scalar M_K^{-1} E_K for each spatial direction
 
   Therefore the actual assembly implemented below uses the already
@@ -57,11 +57,11 @@ inline void qJacobianLDGSetupOperators(solstruct &sol, resstruct &res, appstruct
 
     if ((res.Minv2 == nullptr) || (res.C == nullptr) ||
         (res.szMinv2 != npe*npe*ne) || (res.szC != npe*npe*ne*nd)) {
-        qEquationElem(sol, res, app, master, mesh, tmp, common, handle, backend);
+        qEquationElem<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, backend);
     }
 
     if ((res.E == nullptr) || (res.szE != npe*npf*nfe*ne*nd)) {
-        qEquationElemFace(sol, res, app, master, mesh, tmp, common, handle, backend);
+        qEquationElemFace<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, backend);
     }
 }
 

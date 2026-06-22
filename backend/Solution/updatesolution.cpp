@@ -160,7 +160,7 @@ void UpdateSolution(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriver
                 GetElemNodes(udg, sol.udg, common.npe, nc, 0, nc, e1, e2);
                 GetElemNodes(odg, sol.odg, common.npe, nco, 0, nco, e1, e2);
                 GetElemNodes(sdg, sol.wsrc, common.npe, ncw, 0, ncw, e1, e2);
-                wEquation(wdg, xdg, udg, odg, sdg, tmp.tempg, app, driver_abi, common, ng, common.backend);
+                wEquation<exasim::detail::AbiAdapter>(wdg, xdg, udg, odg, sdg, tmp.tempg, app, common, ng, common.backend);
                 PutElemNodes(sol.wdg, wdg, common.npe, ncw, 0, ncw, e1, e2);
             }   
         }

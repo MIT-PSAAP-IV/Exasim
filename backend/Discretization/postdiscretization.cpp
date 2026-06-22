@@ -8,8 +8,8 @@
 #include "connectivity.cpp"
 #include "readbinaryfiles.cpp"
 #include "setstructs.cpp"
-#include "residual.cpp"
-#include "matvec.cpp"
+#include "residual.hpp"  // unified (U)
+#include "matvec.hpp"  // unified (U)
 #include "qoicalculation.hpp"  // unified templated QoI (non-templated callers instantiate <AbiAdapter>)
 
 // Both CPU and GPU constructor
@@ -121,14 +121,14 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
       }
 
       if (common.ncq > 0) {                
-        qEquation(sol, res, app, master, mesh, tmp, common, backend);      
+        qEquation<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, backend);      
 
         if (common.mpiRank==0) 
           printf("Finish qEquation ... \n");        
 
         // compute the flux q = -nabla u and store it in sol.udg
         if (common.wave == 0 && sol.szudg != npe*nc*ne) {
-            hdgGetQ(sol.udg, sol.uh, sol, res, mesh, tmp, common, backend);
+            hdgGetQ<exasim::detail::AbiAdapter>(sol.udg, sol.uh, sol, res, mesh, tmp, common, backend);
             if (common.mpiRank==0) printf("Finish hdgGetQ ... \n");     
         }        
       }
@@ -211,21 +211,21 @@ void CDiscretization::hdgAssembleLinearSystem(dstype *b, Int backend)
     ArraySetValue(res.F, zero, n*m*ne);    
 
 #ifdef HAVE_MPI     
-    hdgAssembleLinearSystemMPI(b, sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);    
+    hdgAssembleLinearSystemMPI<exasim::detail::AbiAdapter>(b, sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);    
 #else    
-    uEquationHDG(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);    
-    hdgAssembleRHS(b, res.Rh, mesh, common);
+    uEquationHDG<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);    
+    hdgAssembleRHS<exasim::detail::AbiAdapter>(b, res.Rh, mesh, common);
 #endif
 
     if (common.preconditioner==0) {
       // fix bug here: tmp.tempn is not enough memory to store ncu*npf*ncu*npf*nf 
-      hdgBlockJacobi(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);      
+      hdgBlockJacobi<exasim::detail::AbiAdapter>(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);      
     }
     else if (common.preconditioner==1) {
-      hdgElementalAdditiveSchwarz(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);      
+      hdgElementalAdditiveSchwarz<exasim::detail::AbiAdapter>(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);      
     }
     else if (common.preconditioner==2) {
-      hdgBlockILU0(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);
+      hdgBlockILU0<exasim::detail::AbiAdapter>(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);
     }
         
 //     if (common.preconditioner==0) {
@@ -254,7 +254,7 @@ void CDiscretization::hdgAssembleLinearSystem(dstype *b, Int backend)
 //       }          
 //     }
 //     else if (common.preconditioner==2) { // Block ILU0
-//       //hdgBlockILU0(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);
+//       //hdgBlockILU0<exasim::detail::AbiAdapter>(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);
 //       Int nfse = common.nfse; // number of faces in each superelement
 //       Int nse  = common.nse;  // number of superelements
 //       Int N = nse*ncf*ncf;  
@@ -300,12 +300,12 @@ void CDiscretization::hdgAssembleResidual(dstype *b, Int backend)
     ArraySetValue(res.Ru, zero, n*ne);
 
 #ifdef HAVE_MPI     
-    hdgAssembleResidualMPI(b, sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);    
+    hdgAssembleResidualMPI<exasim::detail::AbiAdapter>(b, sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);    
 #else    
     // b, K, H, F, Ru    
-    ResidualHDG(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
-    //uEquationHDG(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
-    hdgAssembleRHS(b, res.Rh, mesh, common);      
+    ResidualHDG<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
+    //uEquationHDG<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
+    hdgAssembleRHS<exasim::detail::AbiAdapter>(b, res.Rh, mesh, common);      
 #endif
 }
 
@@ -313,7 +313,7 @@ void CDiscretization::hdgAssembleResidual(dstype *b, Int backend)
 void CDiscretization::evalResidual(Int backend)
 {
     // compute the residual vector
-    Residual(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
+    Residual<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
 }
 
 // residual evaluation
@@ -324,7 +324,7 @@ void CDiscretization::evalResidual(dstype* Ru, dstype* u, Int backend)
             0, common.ncu, 0, common.ne1);  
 
     // compute the residual vector R(u)
-    Residual(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
+    Residual<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
 
     // copy the residual vector to Ru
     ArrayCopy(Ru, res.Ru, common.ndof1);
@@ -335,11 +335,11 @@ void CDiscretization::evalQ(Int backend)
 {
     if (common.spatialScheme == 0) {
         // LDG computes q through the model flux kernels.
-        ComputeQ(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
+        ComputeQ<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
     }
     else if (common.spatialScheme == 1) {
         // HDG recovers q from the element state and trace unknowns.
-        hdgGetQ(sol.udg, sol.uh, sol, res, mesh, tmp, common, backend);
+        hdgGetQ<exasim::detail::AbiAdapter>(sol.udg, sol.uh, sol, res, mesh, tmp, common, backend);
     }
     else {
         error("Spatial discretization scheme is not implemented");
@@ -350,7 +350,7 @@ void CDiscretization::evalQSer(Int backend)
 {
     // compute the flux q    
     GetUhat(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 0, common.nbf, backend);        
-    GetQ(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 0, common.nbe, 0, common.nbf, backend);        
+    GetQ<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 0, common.nbe, 0, common.nbf, backend);        
 }
 
 void CDiscretization::evalQ(dstype* q, dstype* u, Int backend)
@@ -361,11 +361,11 @@ void CDiscretization::evalQ(dstype* q, dstype* u, Int backend)
 
     if (common.spatialScheme == 0) {
         // LDG computes q through the model flux kernels.
-        ComputeQ(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
+        ComputeQ<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
     }
     else if (common.spatialScheme == 1) {
         // HDG recovers q from the element state and trace unknowns.
-        hdgGetQ(sol.udg, sol.uh, sol, res, mesh, tmp, common, backend);
+        hdgGetQ<exasim::detail::AbiAdapter>(sol.udg, sol.uh, sol, res, mesh, tmp, common, backend);
     }
     else {
         error("Spatial discretization scheme is not implemented");
@@ -379,17 +379,17 @@ void CDiscretization::evalQ(dstype* q, dstype* u, Int backend)
 // matrix-vector product
 void CDiscretization::evalMatVec(dstype* Jv, dstype* v, dstype* u, dstype* Ru, Int backend)
 {    
-    MatVec(Jv, sol, res, app, master, mesh, tmp, common, common.cublasHandle, v, u, Ru, backend); 
+    MatVec<exasim::detail::AbiAdapter>(Jv, sol, res, app, master, mesh, tmp, common, common.cublasHandle, v, u, Ru, backend); 
 }
 
 // matrix-vector product
 void CDiscretization::evalMatVec(dstype* Jv, dstype* v, dstype* u, dstype* Ru, Int spatialScheme, Int backend)
 {    
     if (spatialScheme == 0) {// LDG
-      MatVec(Jv, sol, res, app, master, mesh, tmp, common, common.cublasHandle, v, u, Ru, backend); 
+      MatVec<exasim::detail::AbiAdapter>(Jv, sol, res, app, master, mesh, tmp, common, common.cublasHandle, v, u, Ru, backend); 
     }
     else if (spatialScheme == 1) { // HDG  
-      hdgMatVec(Jv, res.H, v, res.Rh, res.Rq, res, app, mesh, common, tmp, common.cublasHandle, backend);
+      hdgMatVec<exasim::detail::AbiAdapter>(Jv, res.H, v, res.Rh, res.Rq, res, app, mesh, common, tmp, common.cublasHandle, backend);
     }
 }
 
@@ -401,7 +401,7 @@ void CDiscretization::updateUDG(dstype* u, Int backend)
 
     if (common.ncq>0)
         // compute the flux q
-        ComputeQ(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
+        ComputeQ<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
 }
 
 void CDiscretization::updateU(dstype* u, Int backend)
@@ -419,7 +419,7 @@ void CDiscretization::evalAVfield(dstype* avField, dstype* u, Int backend)
     
     // compute the flux q
     if (common.ncq>0)        
-        ComputeQ(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
+        ComputeQ<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
 
     // compute the av field
     AvfieldDriver(avField, sol.xdg, sol.udg, sol.odg, sol.wdg, mesh, master, app, sol, tmp, common, backend);    

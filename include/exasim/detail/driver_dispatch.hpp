@@ -52,7 +52,7 @@
 #define EXASIM_LEGACY_W_CALL(...)                                           \
     do {                                                                   \
         if constexpr (std::is_same_v<M, exasim::detail::AbiAdapter>) {     \
-            __VA_ARGS__;                                                   \
+            common.driver_abi->__VA_ARGS__;                                                   \
         } else {                                                           \
             static_assert(M::ncw == 0,                                     \
                 "templated HDG w-equation (ncw>0) not yet implemented");   \

@@ -1,3 +1,6 @@
+#include <exasim/drivers.hpp>
+#include <exasim/detail/driver_dispatch.hpp>
+
 /*
   wequation.cpp
 

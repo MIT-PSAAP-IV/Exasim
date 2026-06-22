@@ -3,7 +3,7 @@
 GMRES Solver Implementation
 ================================================================================
 
-This file implements the Generalized Minimal Residual (GMRES) iterative solver 
+This file implements the Generalized Minimal Residual<exasim::detail::AbiAdapter>(GMRES) iterative solver 
 with support for polynomial preconditioning and restart functionality. The solver 
 is designed for use with CUDA/cuBLAS and supports both classical and modified 
 Gram-Schmidt orthogonalization methods.

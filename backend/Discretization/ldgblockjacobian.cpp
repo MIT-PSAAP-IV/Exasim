@@ -949,8 +949,7 @@ void uEquationElemFaceBlockLDG(solstruct &sol, resstruct &res, appstruct &app,
             ngf, npf, nf*(ncu+nc+nco+ncw+ncw), backend);
 
     if ((ncw > 0) && (common.wave == 0)) {
-        wEquation(wdg, wdg_uq, xg, udg, odg, wsrc, tmp.tempn, app,
-                driver_abi, common, nga, backend);
+        wEquation<exasim::detail::AbiAdapter>(wdg, wdg_uq, xg, udg, odg, wsrc, tmp.tempn, app, common, nga, backend);
     }
 
     ArraySetValue(fg, 0.0, nga*ncu*nd);
@@ -1022,8 +1021,8 @@ void uEquationElemFaceBlockLDG(solstruct &sol, resstruct &res, appstruct &app,
             if ((ncw > 0) && (common.wave == 0)) {
                 ArrayCopy(res.F, ugb, ngb*nc);
                 ArrayCopy(res.F, uhb, ngb*ncu);
-                wEquation(wgb, wgb_uq, xgb, res.F, ogb, wsb, &res.F[ngb*nc],
-                        app, driver_abi, common, ngb, backend);
+                wEquation<exasim::detail::AbiAdapter>(wgb, wgb_uq, xgb, res.F, ogb, wsb, &res.F[ngb*nc],
+                        app, common, ngb, backend);
             }
 
             ArraySetValue(fhb, 0.0, ngb*ncu);
@@ -1532,20 +1531,20 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
     // compute q
     if (common.ncq>0) {
         t0 = LDGBenchmarkStart(backend);
-        GetQ(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbe, 0, common.nbf, backend);                
+        GetQ<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.nbe, 0, common.nbf, backend);                
         tm.q += LDGBenchmarkStop(t0, backend);
     }
 
     // compute w
     if (common.ncw>0) {
         t0 = LDGBenchmarkStart(backend);
-        GetW(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbe, 0, common.nbf, backend);                
+        GetW<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.nbe, 0, common.nbf, backend);                
         tm.w += LDGBenchmarkStop(t0, backend);
     }
 
     if (common.ncAV>0 && common.frozenAVflag == 0) {
         t0 = LDGBenchmarkStart(backend);
-        GetAv(sol, res, app, driver_abi, master, mesh, tmp, common, handle, backend);
+        GetAv<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, backend);
         tm.av += LDGBenchmarkStop(t0, backend);
     }
 
@@ -1557,7 +1556,7 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
         Int ne = e2-e1;        
 
         t0 = LDGBenchmarkStart(backend);
-        uEquationElemBlock(sol, res, app, driver_abi, master, mesh, tmp,
+        uEquationElemBlock<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp,
                 common, handle, j, backend);
         tm.elem += LDGBenchmarkStop(t0, backend);
 
@@ -1659,7 +1658,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
                 0, common.ncu, 0, common.ne1);
     tm.insert += LDGBenchmarkStop(t0, backend);
 
-    // Non-blocking exchange of owned primal unknowns, matching RuResidualMPI().
+    // Non-blocking exchange of owned primal unknowns, matching RuResidualMPI<exasim::detail::AbiAdapter>().
     t0 = LDGBenchmarkStart(backend);
     GetArrayAtIndex(tmp.buffsend, sol.udg, mesh.elemsendind, bsz*common.nelemsend);
 
@@ -1703,14 +1702,14 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 
     if (common.ncq>0) {
         t0 = LDGBenchmarkStart(backend);
-        GetQ(sol, res, app, driver_abi, master, mesh, tmp, common, handle,
+        GetQ<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle,
              0, common.nbe0, 0, common.nbf, backend);
         tm.q += LDGBenchmarkStop(t0, backend);
     }
 
     if (common.ncw>0) {
         t0 = LDGBenchmarkStart(backend);
-        GetW(sol, res, app, driver_abi, master, mesh, tmp, common, handle,
+        GetW<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle,
              0, common.nbe0, 0, common.nbf, backend);
         tm.w += LDGBenchmarkStop(t0, backend);
     }
@@ -1727,21 +1726,21 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 
     if (common.ncq>0) {
         t0 = LDGBenchmarkStart(backend);
-        GetQ(sol, res, app, driver_abi, master, mesh, tmp, common, handle,
+        GetQ<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle,
              common.nbe0, common.nbe2, 0, common.nbf, backend);
         tm.q += LDGBenchmarkStop(t0, backend);
     }
 
     if (common.ncw>0) {
         t0 = LDGBenchmarkStart(backend);
-        GetW(sol, res, app, driver_abi, master, mesh, tmp, common, handle,
+        GetW<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle,
              common.nbe0, common.nbe2, 0, common.nbf, backend);
         tm.w += LDGBenchmarkStop(t0, backend);
     }
 
     if (common.ncAV>0 && common.frozenAVflag == 0) {
         t0 = LDGBenchmarkStart(backend);
-        GetAv(sol, res, app, driver_abi, master, mesh, tmp, common, handle, backend);
+        GetAv<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, backend);
         tm.av += LDGBenchmarkStop(t0, backend);
     }
 
@@ -1752,7 +1751,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
         Int ne = e2-e1;
 
         t0 = LDGBenchmarkStart(backend);
-        uEquationElemBlock(sol, res, app, driver_abi, master, mesh, tmp,
+        uEquationElemBlock<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp,
                 common, handle, j, backend);
         tm.elem += LDGBenchmarkStop(t0, backend);
 
@@ -1811,14 +1810,14 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 // 
 //     // compute q
 //     if (common.ncq>0)
-//         GetQ(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbe, 0, common.nbf, backend);                
+//         GetQ<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.nbe, 0, common.nbf, backend);                
 // 
 //     // compute w
 //     if (common.ncw>0)
-//         GetW(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbe, 0, common.nbf, backend);                
+//         GetW<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.nbe, 0, common.nbf, backend);                
 // 
 //     if (common.ncAV>0 && common.frozenAVflag == 0)
-//         GetAv(sol, res, app, driver_abi, master, mesh, tmp, common, handle, backend);
+//         GetAv<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, backend);
 // 
 //     Int n = common.npe*common.ncu;
 //     Int szA = n*n*common.ne1;
@@ -1921,7 +1920,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 //     //     Int e2 = common.eblks[3*j+1];
 //     //     Int ne = e2-e1;
 //     // 
-//     //     uEquationElemBlock(sol, res, app, driver_abi, master, mesh, tmp,
+//     //     uEquationElemBlock<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp,
 //     //             common, handle, j, backend);
 //     // 
 //     //     // print3darray(res.B, n, n*common.nd, ne);
@@ -2031,7 +2030,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 //         ArrayCopy(tmp.tempn, uhg, nga*ncu);
 // 
 //         // solve the w equation to get wg and wg_uq
-//         wEquation(wdg, wdg_uq, xg, tmp.tempn, odg, wsrc, &tmp.tempn[nga*nc], app, driver_abi, common, nga, backend);                
+//         wEquation<exasim::detail::AbiAdapter>(wdg, wdg_uq, xg, tmp.tempn, odg, wsrc, &tmp.tempn[nga*nc], app, common, nga, backend);                
 //     }
 // 
 //     ArraySetValue(fh, 0.0, nga*ncu);    

@@ -138,10 +138,10 @@ int LinearSolver(sysstruct &sys, CDiscretization& disc, CPreconditioner& prec, o
     printf("Copy to buffsend time: %g miliseconds\n", disc.common.timing[13]);
     printf("Non-blocking send/receive time: %g miliseconds\n", disc.common.timing[6]);
     printf("GetUhat time: %g miliseconds\n", disc.common.timing[7]);
-    printf("GetQ (interior elements) time: %g miliseconds\n", disc.common.timing[8]);
+    printf("GetQ<exasim::detail::AbiAdapter>(interior elements) time: %g miliseconds\n", disc.common.timing[8]);
     printf("RuElem<exasim::detail::AbiAdapter>(interior elements) time: %g miliseconds\n", disc.common.timing[9]);
     printf("MPI_WAITALL time: %g miliseconds\n", disc.common.timing[10]);
-    printf("RuElem and GetQ (exterior elements) time: %g miliseconds\n", disc.common.timing[11]);
+    printf("RuElem and GetQ<exasim::detail::AbiAdapter>(exterior elements) time: %g miliseconds\n", disc.common.timing[11]);
     printf("RuFace time: %g miliseconds\n", disc.common.timing[12]);    
     printf("Copy from buffrecv time: %g miliseconds\n\n", disc.common.timing[14]);        
     }

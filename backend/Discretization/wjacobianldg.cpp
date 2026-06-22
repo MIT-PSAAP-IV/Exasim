@@ -10,7 +10,7 @@
   and W_K contains the degrees of freedom of w_h, with local size
       npe * ncw.
 
-  The implementation matches the active GetW(...) branches in residual.cpp:
+  The implementation matches the active GetW<exasim::detail::AbiAdapter>(...) branches in residual.cpp:
 
   1. wave == 1
        w = (1/dtfactor) * (u + wsrc)
@@ -20,7 +20,7 @@
        dw/du = - (dEos/dw)^{-1} (dEos/du)
 
   3. wave == 0 and not (dae_alpha == dae_beta == 0)
-       explicit update used by GetW(...):
+       explicit update used by GetW<exasim::detail::AbiAdapter>(...):
 
          if dae_steps == 0:
              w = scalar * (dae_alpha * wsrc + Sourcew(x,u,o,w))
