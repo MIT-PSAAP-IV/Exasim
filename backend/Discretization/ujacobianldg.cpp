@@ -94,13 +94,13 @@ inline void uJacobianLDGDirect(dstype* AU, dstype* AQ, dstype* AW,
     (void)res;
     (void)tmp;
 
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncq = common.ncq;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
-    Int ncs = common.ncs;
-    Int ncw = common.ncw;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncq = common.components.ncq;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
+    Int ncs = common.components.ncs;
+    Int ncw = common.components.ncw;
     Int nd = common.nd;
     Int npe = common.npe;
     Int nge = common.nge;
@@ -231,9 +231,9 @@ inline void uJacobianLDGCompose(dstype* JU, const dstype* AU, const dstype* AQ,
         return;
 
     Int npe = common.npe;
-    Int ncu = common.ncu;
-    Int ncq = common.ncq;
-    Int ncw = common.ncw;
+    Int ncu = common.components.ncu;
+    Int ncq = common.components.ncq;
+    Int ncw = common.components.ncw;
     Int ne = e2 - e1;
     Int nlocr = npe*ncu;
     Int nlocu = npe*ncu;
@@ -262,7 +262,7 @@ inline void uJacobianLDGAssembleFaceSide(dstype* A, const dstype* Atmp,
 
     Int npe = common.npe;
     Int npf = common.npf;
-    Int ncu = common.ncu;
+    Int ncu = common.components.ncu;
     Int nf = f2 - f1;
     Int ne = e2 - e1;
     Int nlocu = npe*ncu;
@@ -313,11 +313,11 @@ inline void uJacobianLDGFace(dstype* JU, dstype* JQ, dstype* JW,
 
     Int npe = common.npe;
     Int npf = common.npf;
-    Int ncu = common.ncu;
-    Int nc = common.nc;
-    Int ncq = common.ncq;
-    Int nco = common.nco;
-    Int ncw = common.ncw;
+    Int ncu = common.components.ncu;
+    Int nc = common.components.nc;
+    Int ncq = common.components.ncq;
+    Int nco = common.components.nco;
+    Int ncw = common.components.ncw;
     Int nlocu = npe*ncu;
     Int nlocq = npe*ncq;
     Int nlocw = npe*ncw;
@@ -335,7 +335,7 @@ inline void uJacobianLDGFace(dstype* JU, dstype* JQ, dstype* JW,
         Int nn = npf*nf;
         Int ngf = common.ngf;
         Int nga = ngf*nf;
-        Int ncx = common.ncx;
+        Int ncx = common.components.ncx;
         Int nd = common.nd;
 
         Int nodalCols = (ib == 0) ? (ncu + 2*nc + 2*ncw) : (ncu + nc + ncw);
@@ -500,9 +500,9 @@ inline void uJacobianLDG(dstype* JU, dstype* AU, dstype* AQ, dstype* AW,
         cublasHandle_t handle, Int e1, Int e2, Int backend)
 {
     Int npe = common.npe;
-    Int ncu = common.ncu;
-    Int ncq = common.ncq;
-    Int ncw = common.ncw;
+    Int ncu = common.components.ncu;
+    Int ncq = common.components.ncq;
+    Int ncw = common.components.ncw;
     Int ne = e2 - e1;
     Int nlocu = npe*ncu;
     Int nlocq = npe*ncq;

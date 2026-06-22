@@ -99,12 +99,12 @@ void printinterfaceinfo(CDiscretization &disc)
     print2iarray(disc.mesh.bf, disc.common.nfe, disc.common.ne);     
     printf("eblks array: %d by %d\n", 3, disc.common.nbe);  
     print2iarray(disc.common.eblks, 3, disc.common.nbe);    
-    printf("xdgint array: %d by %d\n", disc.common.npf, disc.common.couplingparams.nintfaces*disc.common.ncx);  
-    print2darray(disc.sol.xdgint, disc.common.npf, disc.common.couplingparams.nintfaces*disc.common.ncx);                      
-    printf("xdg array: %d by %d\n", disc.common.npe, disc.common.ne*disc.common.ncx);  
-    print2darray(disc.sol.xdg, disc.common.npe, disc.common.ne*disc.common.ncx);                      
-    // printf("udg array: %d by %d\n", disc.common.npe, disc.common.ne*disc.common.nc);  
-    // print2darray(disc.sol.udg, disc.common.npe, disc.common.ne*disc.common.nc);                      
+    printf("xdgint array: %d by %d\n", disc.common.npf, disc.common.couplingparams.nintfaces*disc.common.components.ncx);  
+    print2darray(disc.sol.xdgint, disc.common.npf, disc.common.couplingparams.nintfaces*disc.common.components.ncx);                      
+    printf("xdg array: %d by %d\n", disc.common.npe, disc.common.ne*disc.common.components.ncx);  
+    print2darray(disc.sol.xdg, disc.common.npe, disc.common.ne*disc.common.components.ncx);                      
+    // printf("udg array: %d by %d\n", disc.common.npe, disc.common.ne*disc.common.components.nc);  
+    // print2darray(disc.sol.udg, disc.common.npe, disc.common.ne*disc.common.components.nc);                      
 }
 
 class CSolution {
@@ -146,11 +146,11 @@ public:
               physicsparamOverride),
          prec(disc, backend, mode), solv(disc, backend, mode), vis(disc, backend) 
     {   
-        int ncx = disc.common.ncx;                            
+        int ncx = disc.common.components.ncx;                            
         int nd = disc.common.nd;     
-        int ncu = disc.common.ncu;     
-        int nc = (disc.common.outputparams.saveSolOpt==0) ? disc.common.ncu : disc.common.nc;        
-        int ncw = disc.common.ncw;
+        int ncu = disc.common.components.ncu;     
+        int nc = (disc.common.outputparams.saveSolOpt==0) ? disc.common.components.ncu : disc.common.components.nc;        
+        int ncw = disc.common.components.ncw;
         int npe = disc.common.npe;
         int npf = disc.common.npf;
         int ne = disc.common.ne1;     
@@ -202,7 +202,7 @@ public:
 
             open_and_write(outbouxdg, "bouxdg_np", rank, offset, npf, nfbou, ncx, base);
             open_and_write(outboundg, "boundg_np", rank, offset, npf, nfbou, nd, base);
-            open_and_write(outbouudg, "bouudg_np", rank, offset, npf, nfbou, disc.common.nc, base);            
+            open_and_write(outbouudg, "bouudg_np", rank, offset, npf, nfbou, disc.common.components.nc, base);            
             open_and_write(outbouuhat, "bouuhat_np", rank, offset, npf, nfbou, ncu, base);
             if (ncw > 0) open_and_write(outbouwdg, "bouwdg_np", rank, offset, npf, nfbou, ncw, base);
         }

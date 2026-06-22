@@ -327,7 +327,7 @@ public:
         // Storage lives on the facade, not on solver_, so reusing the
         // facade across multiple solve() calls doesn't leak.
         solver_->disc.common.nomodels = 1;
-        ncarray_storage_  = { solver_->disc.common.nc };
+        ncarray_storage_  = { solver_->disc.common.components.nc };
         udgarray_storage_ = { &solver_->disc.sol.udg[0] };
         solver_->disc.common.ncarray  = ncarray_storage_.data();
         solver_->disc.sol.udgarray    = udgarray_storage_.data();

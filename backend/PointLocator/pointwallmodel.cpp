@@ -194,7 +194,7 @@ static inline void GatherWallGaussPointsAndNormals(
 {
     wm.ibc = ibc;
     wm.nd = disc.common.nd;
-    wm.ncx = disc.common.ncx;
+    wm.ncx = disc.common.components.ncx;
     wm.npe = disc.common.npe;
     wm.npf = disc.common.npf;
     wm.ngf = disc.common.ngf;
@@ -224,7 +224,7 @@ static inline void GatherWallGaussPointsAndNormals(
 
     getNodesOnInterface(
         xdgint, disc.sol.xdg, wm.faces.data(), disc.mesh.perm, disc.common.nfe,
-        disc.common.npf, disc.common.npe, disc.common.ncx, disc.common.ncx, wm.nfaces);
+        disc.common.npf, disc.common.npe, disc.common.components.ncx, disc.common.components.ncx, wm.nfaces);
     getNormalVectorOnInterface(nlint, xdgint, disc, wm.nfaces);
 
     wm.xw.resize(static_cast<size_t>(wm.npoints * wm.nd));

@@ -48,10 +48,10 @@
 void UpdateSolutionDIRK(solstruct &sol, sysstruct &sys, commonstruct &common, Int backend)
 {                                   
     Int N = common.sizes.ndof1;
-    Int N2 = common.npe*common.nc*common.ne2;            
+    Int N2 = common.npe*common.components.nc*common.ne2;            
     
     // update sys.u
-    ArrayExtract(sys.u, sol.udg, common.npe, common.nc, common.ne1, 0, common.npe, 0, common.ncu, 0, common.ne1);                                                  
+    ArrayExtract(sys.u, sol.udg, common.npe, common.components.nc, common.ne1, 0, common.npe, 0, common.components.ncu, 0, common.ne1);                                                  
     
     // update the solution at each DIRK stage
     if (common.timeparams.wave==1)
@@ -65,12 +65,12 @@ void UpdateSolutionDIRK(solstruct &sol, sysstruct &sys, commonstruct &common, In
         if (common.timeparams.wave==1)
             ArrayCopy(sol.udg, sys.utmp, N2);
         else
-            ArrayInsert(sol.udg, sys.utmp, common.npe, common.nc, common.ne1, 0, common.npe, 0, common.ncu, 0, common.ne1);                                                  
+            ArrayInsert(sol.udg, sys.utmp, common.npe, common.components.nc, common.ne1, 0, common.npe, 0, common.components.ncu, 0, common.ne1);                                                  
     }   
 
     // update the solution w at each DIRK stage
-    if (common.ncw>0) {
-        N2 = common.npe*common.ncw*common.ne2;            
+    if (common.components.ncw>0) {
+        N2 = common.npe*common.components.ncw*common.ne2;            
         ArrayAXPBY(sys.wtmp, sol.wdg, sys.wtmp, common.DIRKcoeff_c[common.timestate.currentstage], one, N2);                
         // after the last DIRK stage
         if (common.timestate.currentstage == common.timeparams.tstages-1) 
@@ -118,14 +118,14 @@ void UpdateSolution(solstruct &sol, sysstruct &sys, commonstruct &common, Int ba
 void UpdateSolution(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriverABI& driver_abi, resstruct &res, tempstruct &tmp, commonstruct &common, Int backend)
 {                                   
     Int N = common.sizes.ndof1;
-    Int N2 = common.npe*common.nc*common.ne2;                        
+    Int N2 = common.npe*common.components.nc*common.ne2;                        
     
     // update the solution at each DIRK stage
     if (common.timeparams.wave==1) {
         ArrayAXPBY(sys.utmp, sol.udg, sys.utmp, common.DIRKcoeff_c[common.timestate.currentstage], one, N2);                    
     }
     else {
-        ArrayExtract(res.Rq, sol.udg, common.npe, common.nc, common.ne1, 0, common.npe, 0, common.ncu, 0, common.ne1);                                                  
+        ArrayExtract(res.Rq, sol.udg, common.npe, common.components.nc, common.ne1, 0, common.npe, 0, common.components.ncu, 0, common.ne1);                                                  
         ArrayAXPBY(sys.utmp, res.Rq, sys.utmp, common.DIRKcoeff_c[common.timestate.currentstage], one, N);                    
     }
 
@@ -135,21 +135,21 @@ void UpdateSolution(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriver
         if (common.timeparams.wave==1)
             ArrayCopy(sol.udg, sys.utmp, N2);
         else
-            ArrayInsert(sol.udg, sys.utmp, common.npe, common.nc, common.ne1, 0, common.npe, 0, common.ncu, 0, common.ne1);                                                  
+            ArrayInsert(sol.udg, sys.utmp, common.npe, common.components.nc, common.ne1, 0, common.npe, 0, common.components.ncu, 0, common.ne1);                                                  
     }   
 
     // update the solution w at each DIRK stage
-    if (common.ncw>0) {
+    if (common.components.ncw>0) {
         if (common.spatialScheme > 0)  { // HDG
             for (Int j=0; j<common.nbe; j++) {         
                 Int e1 = common.eblks[3*j]-1;
                 Int e2 = common.eblks[3*j+1];
                 Int ns = e2-e1;        
                 Int ng = common.npe*ns;
-                Int ncw = common.ncw;
-                Int ncx = common.ncx;
-                Int nc = common.nc;
-                Int nco = common.nco;
+                Int ncw = common.components.ncw;
+                Int ncx = common.components.ncx;
+                Int nc = common.components.nc;
+                Int nco = common.components.nco;
                 dstype* wdg = &tmp.tempn[0];
                 dstype* xdg = &tmp.tempn[ng*ncw];
                 dstype* udg = &tmp.tempn[ng*(ncw+ncx)];
@@ -165,7 +165,7 @@ void UpdateSolution(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriver
             }   
         }
 
-        N2 = common.npe*common.ncw*common.ne2;            
+        N2 = common.npe*common.components.ncw*common.ne2;            
         ArrayAXPBY(sys.wtmp, sol.wdg, sys.wtmp, common.DIRKcoeff_c[common.timestate.currentstage], one, N2);                
         // after the last DIRK stage
         if (common.timestate.currentstage == common.timeparams.tstages-1) 

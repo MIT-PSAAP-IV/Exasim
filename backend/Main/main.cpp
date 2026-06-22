@@ -558,7 +558,7 @@ int main(int argc, char** argv)
 //     // set ncarray and udgarray for each PDE model
 //     for (int i=0; i<nummodels; i++) 
 //         for (int j=0; j<nummodels; j++) {
-//             pdemodel[i]->disc.common.ncarray[j] = pdemodel[j]->disc.common.nc;            
+//             pdemodel[i]->disc.common.ncarray[j] = pdemodel[j]->disc.common.components.nc;            
 //             pdemodel[i]->disc.sol.udgarray[j] = &pdemodel[j]->disc.sol.udg[0]; // model[i], model[j]
 //         }    
 // 
@@ -630,7 +630,7 @@ int main(int argc, char** argv)
 //                 pdemodel[i]->SaveQoI(backend); 
 //                 if (pdemodel[i]->vis.savemode > 0) pdemodel[i]->SaveParaview(backend); 
 //                 pdemodel[i]->SaveSolutionsOnBoundary(backend); 
-//                 if (pdemodel[i]->disc.common.nce>0)
+//                 if (pdemodel[i]->disc.common.components.nce>0)
 //                     pdemodel[i]->SaveOutputCG(backend);                
 //             }
 // 
@@ -666,7 +666,7 @@ int main(int argc, char** argv)
 //             else if (pdemodel[i]->disc.common.runmode==1){
 //                 pdemodel[i]->disc.common.timestate.currentstep = -1;
 //                 pdemodel[i]->ReadSolutions(backend);   
-//                 if (pdemodel[i]->disc.common.ncq>0)
+//                 if (pdemodel[i]->disc.common.components.ncq>0)
 //                     pdemodel[i]->disc.evalQ(backend);
 //                 pdemodel[i]->disc.common.outputparams.saveSolOpt = 1;
 //                 pdemodel[i]->SaveSolutions(backend);      
@@ -681,7 +681,7 @@ int main(int argc, char** argv)
 //                     {
 //                         pdemodel[i]->disc.common.timestate.currentstep = istep;
 //                         pdemodel[i]->ReadSolutions(backend);                    
-//                         if (pdemodel[i]->disc.common.ncq>0)
+//                         if (pdemodel[i]->disc.common.components.ncq>0)
 //                             pdemodel[i]->disc.evalQ(backend);
 //                         pdemodel[i]->SaveOutputCG(backend);            
 //                     }

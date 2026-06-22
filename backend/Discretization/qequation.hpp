@@ -83,7 +83,7 @@ template <class M>
 inline void qEquationElem(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
 {        
-    Int ncx = common.ncx;// number of compoments of (xdg) 
+    Int ncx = common.components.ncx;// number of compoments of (xdg) 
     Int nd = common.nd;     // spatial dimension    
     Int npe = common.npe; // number of nodes on master element
     Int nge = common.nge; // number of gauss points on master element        
@@ -232,7 +232,7 @@ template <class M>
 inline void qEquationFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
 {    
-    Int ncx = common.ncx;// number of compoments of (xdg)        
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
     Int nd = common.nd;     // spatial dimension    
     Int npe = common.npe; // number of nodes on master element
     Int npf = common.npf; // number of nodes on master face           
@@ -337,7 +337,7 @@ template <class M>
 inline void qEquationElemFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
 {    
-    Int ncx = common.ncx;// number of compoments of (xdg)        
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
     Int nd = common.nd;     // spatial dimension    
     Int npe = common.npe; // number of nodes on master element
     Int npf = common.npf; // number of nodes on master face           
@@ -380,9 +380,9 @@ inline void qEquation(solstruct &sol, resstruct &res, appstruct &app, masterstru
 template <class M>
 inline void hdgGetQ(dstype *udg, dstype *uhat, solstruct &sol, resstruct &res, meshstruct &mesh, tempstruct &tmp, commonstruct &common, Int backend)
 {
-    Int nc = common.nc;// number of compoments of (udg)        
-    Int ncu = common.ncu; // number of compoments of (u)
-    Int ncq = common.ncq; // number of compoments of (q)
+    Int nc = common.components.nc;// number of compoments of (udg)        
+    Int ncu = common.components.ncu; // number of compoments of (u)
+    Int ncq = common.components.ncq; // number of compoments of (q)
     Int nd = common.nd;     // spatial dimension    
     Int npe = common.npe; // number of nodes on master element
     Int npf = common.npf; // number of nodes on master face           
@@ -414,8 +414,8 @@ inline void hdgGetQ(dstype *udg, dstype *uhat, solstruct &sol, resstruct &res, m
       dstype *s = res.Rq;
       ArraySetValue(s, zero, npe*ncq*ns);
       
-      // print3darray(uhat, common.ncu, common.npf, common.nf);
-      //print3darray(uh, npf*nfe, common.ncu, ns);            
+      // print3darray(uhat, common.components.ncu, common.npf, common.nf);
+      //print3darray(uh, npf*nfe, common.components.ncu, ns);            
       dstype *Cx = res.C;        
       dstype *Ex = res.E;              
       if (nd==1) {        
@@ -446,7 +446,7 @@ inline void hdgGetQ(dstype *udg, dstype *uhat, solstruct &sol, resstruct &res, m
           ArrayAXPBY(q, q, s, scalar, scalar, npe*ncu*ns); // scalar*(q + s)
         }
         ArrayInsert(udg, q, npe, nc, ne, 0, npe, 2*ncu, 3*ncu, e1, e2);
-        //print3darray(q, npe, common.ncu, ns);         
+        //print3darray(q, npe, common.components.ncu, ns);         
       }
       else if (nd==3) {
         dstype *Cy = &res.C[npe*npe*common.ne];

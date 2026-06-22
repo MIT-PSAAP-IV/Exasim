@@ -533,7 +533,7 @@ void readsolstruct(string filename, solstruct &sol, appstruct &app, ExasimDriver
     
     //printf("Read sol struct from files...\n");  
 
-    //dstype *tmp; // = (dstype*) malloc (sizeof (dstype)*common.nge*common.nco*common.ne);
+    //dstype *tmp; // = (dstype*) malloc (sizeof (dstype)*common.nge*common.components.nco*common.ne);
     Int npe = master.ndims[5];
     Int npf = master.ndims[6];
     Int nc = app.ndims[5];

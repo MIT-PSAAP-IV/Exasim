@@ -42,8 +42,8 @@ inline void MatVec(dstype *w, solstruct &sol, resstruct &res, appstruct &app, ma
       meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, dstype *v, 
       dstype *u, dstype *Ru, Int backend)
 {   
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)    
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)    
     Int npe = common.npe; // number of nodes on master element    
     Int ne = common.ne1; // number of elements in this subdomain 
     //Int nd = common.nd;
@@ -104,7 +104,7 @@ template <class M>
 inline void hdgAssembleRHS(dstype *R, dstype *Rh, meshstruct &mesh, commonstruct &common)
 {   
     Int nf = common.nf; // number of faces in this subdomain
-    Int ncu = common.ncu;// number of compoments of (u)
+    Int ncu = common.components.ncu;// number of compoments of (u)
     Int npf = common.npf; // number of nodes on master face           
     Int nfe = common.nfe; // number of faces in each element
 
@@ -120,7 +120,7 @@ inline void hdgAssembleRHS(dstype *R, dstype *Rh, meshstruct &mesh, commonstruct
 template <class M>
 inline void hdgBlockILU0(dstype *BE, dstype *AE, resstruct &res, meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
 {
-  Int ncu = common.ncu;// number of compoments of (u)
+  Int ncu = common.components.ncu;// number of compoments of (u)
   Int npf = common.npf; // number of nodes on master face           
   Int nfe = common.nfe; // number of faces in each element
   Int nfse = common.nfse; // number of faces in each superelement
@@ -171,7 +171,7 @@ template <class M>
 inline void hdgElementalAdditiveSchwarz(dstype *BE, dstype *AE, resstruct &res, meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
 {   
     Int nf = common.nf; // number of faces in this subdomain
-    Int ncu = common.ncu;// number of compoments of (u)
+    Int ncu = common.components.ncu;// number of compoments of (u)
     Int npf = common.npf; // number of nodes on master face           
     Int nfe = common.nfe; // number of faces in each element
     Int ncf = ncu*npf;
@@ -194,7 +194,7 @@ template <class M>
 inline void hdgBlockJacobi(dstype *BE, dstype *AE, resstruct &res, meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
 {   
     Int nf = common.nf; // number of faces in this subdomain
-    Int ncu = common.ncu;// number of compoments of (u)
+    Int ncu = common.components.ncu;// number of compoments of (u)
     Int npf = common.npf; // number of nodes on master face           
     Int nfe = common.nfe; // number of faces in each element
     Int ncf = ncu*npf;
@@ -225,7 +225,7 @@ inline void hdgGetDUDG(dstype *w, dstype *F, dstype *duh, dstype *ve, meshstruct
         commonstruct &common,  Int backend)
 {   
     Int ne = common.ne1; // number of elements in this subdomain 
-    Int ncu = common.ncu;// number of compoments of (u)
+    Int ncu = common.components.ncu;// number of compoments of (u)
     Int npf = common.npf; // number of nodes on master face           
     Int nfe = common.nfe; // number of faces in each element
     Int m = ncu*npf*nfe;  
@@ -248,7 +248,7 @@ inline void hdgMatVec(dstype *w, dstype *AE, dstype *v, dstype *ve, dstype *we, 
 {   
     Int ne1 = common.ne1; // number of elements in this subdomain 
     Int nf = common.nf; // number of faces in this subdomain
-    Int ncu = common.ncu;// number of compoments of (u)
+    Int ncu = common.components.ncu;// number of compoments of (u)
     Int npf = common.npf; // number of nodes on master face           
     Int nfe = common.nfe; // number of faces in each element
     Int m = ncu*npf*nfe;  
@@ -399,7 +399,7 @@ template <class M>
 inline void hdgAssembleLinearSystemMPI(dstype *b, solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common,  cublasHandle_t handle, Int backend)
 {
-    Int ncu = common.ncu;// number of compoments of (u)
+    Int ncu = common.components.ncu;// number of compoments of (u)
     Int npf = common.npf; // number of nodes on master face           
     Int npe = common.npe; // number of nodes on master element
     Int nfe = common.nfe; // number of faces in each element
@@ -552,7 +552,7 @@ template <class M>
 inline void hdgAssembleResidualMPI(dstype *b, solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common,  cublasHandle_t handle, Int backend)
 {
-    Int ncu = common.ncu;// number of compoments of (u)
+    Int ncu = common.components.ncu;// number of compoments of (u)
     Int npf = common.npf; // number of nodes on master face           
     Int npe = common.npe; // number of nodes on master element
     Int nfe = common.nfe; // number of faces in each element

@@ -65,11 +65,11 @@ public:
        : disc(filein, fileout, exasimpath, mpiprocs, mpirank, fileoffset, omprank, backend, builtinmodelID, nsca, nvec, nten, nsurf, nvqoi),
          prec(disc, backend), solv(disc, backend), vis(disc, backend) 
     {   
-        int ncx = disc.common.ncx;                            
+        int ncx = disc.common.components.ncx;                            
         int nd = disc.common.nd;     
-        int ncu = disc.common.ncu;     
-        int nc = (disc.common.outputparams.saveSolOpt==0) ? disc.common.ncu : disc.common.nc;        
-        int ncw = disc.common.ncw;
+        int ncu = disc.common.components.ncu;     
+        int nc = (disc.common.outputparams.saveSolOpt==0) ? disc.common.components.ncu : disc.common.components.nc;        
+        int ncw = disc.common.components.ncw;
         int npe = disc.common.npe;
         int npf = disc.common.npf;
         int ne = disc.common.ne1;     

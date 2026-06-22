@@ -18,7 +18,7 @@ void avdistfunc(CSolution** pdemodel, ofstream* out, Int nummodels, Int backend)
   for (int i=0; i<nummodels; i++) {        
     pdemodel[i]->SaveSolutions(backend);    
     pdemodel[i]->SaveSolutionsOnBoundary(backend);         
-    if (pdemodel[i]->disc.common.nce>0)
+    if (pdemodel[i]->disc.common.components.nce>0)
       pdemodel[i]->SaveOutputCG(backend);            
   }
 }

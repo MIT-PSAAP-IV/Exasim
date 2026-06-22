@@ -18,7 +18,7 @@ void CopyFieldToHost(std::vector<dstype>& host, dstype* data, Int n, Int backend
 
 void CopyVolumeCoordinatesToHost(std::vector<dstype>& xdg_host, CDiscretization& disc)
 {
-    const Int n = disc.common.npe * disc.common.ncx * disc.common.ne;
+    const Int n = disc.common.npe * disc.common.components.ncx * disc.common.ne;
     xdg_host.resize(static_cast<size_t>(n));
     TemplateCopytoHost(xdg_host.data(), disc.sol.xdg, n, disc.common.backend);
 }
@@ -32,7 +32,7 @@ void GatherWallGaussPointsAndNormals(
 {
     wm.ibc = ibc;
     wm.nd = disc.common.nd;
-    wm.ncx = disc.common.ncx;
+    wm.ncx = disc.common.components.ncx;
     wm.npe = disc.common.npe;
     wm.npf = disc.common.npf;
     wm.ngf = disc.common.ngf;

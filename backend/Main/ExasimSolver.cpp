@@ -863,7 +863,7 @@ int ExasimSolver::CoupleModels()
 {
     for (int i = 0; i < nummodels_; i++) {
         for (int j = 0; j < nummodels_; j++) {
-            models_[i]->disc.common.ncarray[j] = models_[j]->disc.common.nc;
+            models_[i]->disc.common.ncarray[j] = models_[j]->disc.common.components.nc;
             models_[i]->disc.sol.udgarray[j] = &models_[j]->disc.sol.udg[0];
         }
     }
@@ -948,7 +948,7 @@ int ExasimSolver::IntializeMeshInterface(const int modelnumber,
 #endif
 
     backend_ = interfaceBackend;
-    ncx = model.disc.common.ncx;
+    ncx = model.disc.common.components.ncx;
     npf = model.disc.common.npf;
     ngf = model.disc.common.ngf;
     nfaces = model.disc.getFacesOnInterface(&faces, ibc + 1);
@@ -958,11 +958,11 @@ int ExasimSolver::IntializeMeshInterface(const int modelnumber,
                    interfaceBackend);
     model.disc.sol.szuext = ngf * nfaces * ncuext;
 
-    TemplateMalloc(&xdgint, npf * nfaces * model.disc.common.ncx,
+    TemplateMalloc(&xdgint, npf * nfaces * model.disc.common.components.ncx,
                    interfaceBackend);
     TemplateMalloc(&nlint, npf * nfaces * model.disc.common.nd,
                    interfaceBackend);
-    TemplateMalloc(&xdggint, ngf * nfaces * model.disc.common.ncx,
+    TemplateMalloc(&xdggint, ngf * nfaces * model.disc.common.components.ncx,
                    interfaceBackend);
     TemplateMalloc(&nlgint, ngf * nfaces * model.disc.common.nd,
                    interfaceBackend);
@@ -972,7 +972,7 @@ int ExasimSolver::IntializeMeshInterface(const int modelnumber,
     model.disc.getDGNodesOnInterface(xdgint, faces, nfaces);
     model.disc.getNormalVectorOnInterface(nlint, xdgint, nfaces);
     model.disc.getFieldsAtGaussPointsOnInterface(xdggint, xdgint, nfaces,
-                                                 model.disc.common.ncx);
+                                                 model.disc.common.components.ncx);
     model.disc.getFieldsAtGaussPointsOnInterface(nlgint, nlint, nfaces,
                                                  model.disc.common.nd);
 
@@ -1155,7 +1155,7 @@ int ExasimSolver::RunTimeDependent(Int start, Int steps)
             if (models_[i]->vis.savemode > 0)
                 models_[i]->SaveParaview(backend_);
             models_[i]->SaveSolutionsOnBoundary(backend_);
-            if (models_[i]->disc.common.nce > 0)
+            if (models_[i]->disc.common.components.nce > 0)
                 models_[i]->SaveOutputCG(backend_);
         }
 
@@ -1212,7 +1212,7 @@ int ExasimSolver::RunTimeDependent(const int i, Int start, Int steps)
         models_[i]->SaveQoI(backend_);
         if (models_[i]->vis.savemode > 0) models_[i]->SaveParaview(backend_);
         models_[i]->SaveSolutionsOnBoundary(backend_);
-        if (models_[i]->disc.common.nce > 0) models_[i]->SaveOutputCG(backend_);
+        if (models_[i]->disc.common.components.nce > 0) models_[i]->SaveOutputCG(backend_);
         
         time = time + models_[0]->disc.common.dt[istep];
     }
@@ -1252,7 +1252,7 @@ int ExasimSolver::RunSteady()
         models_[i]->SaveQoI(backend_);
         if (models_[i]->vis.savemode > 0) models_[i]->SaveParaview(backend_); 
         models_[i]->SaveSolutionsOnBoundary(backend_);         
-        if (models_[i]->disc.common.nce>0) models_[i]->SaveOutputCG(backend_);            
+        if (models_[i]->disc.common.components.nce>0) models_[i]->SaveOutputCG(backend_);            
     }
 
     return 0;
@@ -1268,7 +1268,7 @@ int ExasimSolver::RunSteady(const int modelnumber)
     models_[modelnumber]->SaveQoI(backend_);
     if (models_[modelnumber]->vis.savemode > 0) models_[modelnumber]->SaveParaview(backend_); 
     models_[modelnumber]->SaveSolutionsOnBoundary(backend_);         
-    if (models_[modelnumber]->disc.common.nce>0) models_[modelnumber]->SaveOutputCG(backend_);            
+    if (models_[modelnumber]->disc.common.components.nce>0) models_[modelnumber]->SaveOutputCG(backend_);            
 
     return 0;
 }
@@ -1286,7 +1286,7 @@ int ExasimSolver::RunSolveProblemOrPostprocess()
         else if (models_[i]->disc.common.runmode == 1) {
             models_[i]->disc.common.timestate.currentstep = -1;
             models_[i]->ReadSolutions(backend_);
-            if (models_[i]->disc.common.ncq > 0)
+            if (models_[i]->disc.common.components.ncq > 0)
                 models_[i]->disc.evalQ(backend_);
             models_[i]->disc.common.outputparams.saveSolOpt = 1;
             models_[i]->SaveSolutions(backend_);
@@ -1300,7 +1300,7 @@ int ExasimSolver::RunSolveProblemOrPostprocess()
                 if (((istep + 1) % models_[i]->disc.common.outputparams.saveSolFreq) == 0) {
                     models_[i]->disc.common.timestate.currentstep = istep;
                     models_[i]->ReadSolutions(backend_);
-                    if (models_[i]->disc.common.ncq > 0)
+                    if (models_[i]->disc.common.components.ncq > 0)
                         models_[i]->disc.evalQ(backend_);
                     models_[i]->SaveOutputCG(backend_);
                 }

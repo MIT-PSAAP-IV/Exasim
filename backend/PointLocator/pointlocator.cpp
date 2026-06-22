@@ -112,7 +112,7 @@ bool CPointLocator::BuildWallModelSamplingData(
 {
     SetGeometry(
         disc.sol.xdg, disc.master.xpe, disc.common.nd, disc.common.npe,
-        disc.common.ncx, disc.common.elemtype, disc.common.porder);
+        disc.common.components.ncx, disc.common.elemtype, disc.common.porder);
     SetElementFaceConnectivity(disc.mesh.e2f, disc.mesh.f2e, disc.common.nfe);
 
     return ::BuildWallModelSamplingData(

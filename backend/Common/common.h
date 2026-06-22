@@ -1797,7 +1797,27 @@ struct sizesstruct {
     Int ndofedg1;   // interior(+interface) variant of ndofedg
 };
 
+// Component counts of the DG fields: how many scalar components each field (u, q, w, o/odg, uhat,
+// xdg, sdg, edg, PTC monitor) carries, plus the stabilization length. The fundamental "field shape"
+// the kernels/drivers template their loops on. Grouped out of commonstruct (C3/S3) into an
+// intermediate struct so driver/kernel signatures can take just the component counts instead of the
+// whole commonstruct. Access via common.components.<field>.
+struct componentsstruct {
+    Int nc;    // components of (u, q) packed
+    Int ncu;   // components of u
+    Int ncq;   // components of q
+    Int ncw;   // components of w
+    Int nco;   // components of o (odg / auxiliary "other DG")
+    Int nch;   // components of uhat
+    Int ncx;   // components of xdg (coordinates)
+    Int ncs;   // components of sdg (source)
+    Int nce;   // components of edg (outputs)
+    Int ncm;   // components of the PTC monitor function
+    Int ntau;  // stabilization length
+};
+
 struct commonstruct {
+    componentsstruct components;            // DG-field component counts (see above)
     sizesstruct sizes;                      // derived degree-of-freedom counts (see above)
     wallmodelparamsstruct wallmodelparams;  // wall-model configuration (see above)
     stgparamsstruct stgparams;              // synthetic-turbulence-generation config (see above)
@@ -1825,16 +1845,6 @@ struct commonstruct {
     Int nomodels; // number of models
     Int enzyme=0;
     
-    Int nc; // number of compoments of (u, q)
-    Int ncu;// number of compoments of (u)
-    Int ncq;// number of compoments of (q)
-    Int ncw;// number of compoments of (w)
-    Int nco;// number of compoments of (o)
-    Int nch;// number of compoments of (uhat)
-    Int ncx;// number of compoments of (xdg)
-    Int ncs;// number of compoments of (sdg)
-    Int nce;// number of compoments of (edg)
-    Int ncm;// number of compoments of PTC monitor function
 
     Int nd; // spatial dimension    
     Int elemtype;
@@ -1868,7 +1878,6 @@ struct commonstruct {
     Int nfse=0; // number of faces per superelement
     Int nnz=0;
     
-    Int ntau; // length of the stabilization
     
     Int ne0;  // number of interior elements
     Int ne1;  // number of interior+interface elements
@@ -1957,15 +1966,15 @@ struct commonstruct {
       printf("backend: %d\n", backend);   
       printf("number of MPI ranks: %d\n", mpiProcs);   
       printf("number of models: %d\n", nomodels);               
-      printf("number of compoments of (u, q): %d\n", nc);   
-      printf("number of compoments of u: %d\n", ncu);   
-      printf("number of compoments of q: %d\n", ncq);   
-      printf("number of compoments of w: %d\n", ncw);   
-      printf("number of compoments of v: %d\n", nco);   
-      printf("number of compoments of uhat: %d\n", nch);   
-      printf("number of compoments of x: %d\n", ncx);   
-      printf("number of compoments of s: %d\n", ncs);   
-      printf("number of compoments of outputs: %d\n", nce);    
+      printf("number of compoments of (u, q): %d\n", components.nc);   
+      printf("number of compoments of u: %d\n", components.ncu);   
+      printf("number of compoments of q: %d\n", components.ncq);   
+      printf("number of compoments of w: %d\n", components.ncw);   
+      printf("number of compoments of v: %d\n", components.nco);   
+      printf("number of compoments of uhat: %d\n", components.nch);   
+      printf("number of compoments of x: %d\n", components.ncx);   
+      printf("number of compoments of s: %d\n", components.ncs);   
+      printf("number of compoments of outputs: %d\n", components.nce);    
       printf("spatial dimension: %d\n", nd);   
       printf("spatial scheme: %d\n", spatialScheme);        
       printf("element type: %d\n", elemtype);   
@@ -2007,7 +2016,7 @@ struct commonstruct {
       printf("number of degrees of freedom of sdg: %d\n", sizes.ndofsdg);   
       printf("number of degrees of freedom of odg: %d\n", sizes.ndofodg);   
       printf("number of degrees of freedom of edg: %d\n", sizes.ndofedg);   
-      printf("length of the stabilization: %d\n", ntau);   
+      printf("length of the stabilization: %d\n", components.ntau);   
 
       printf("maximum dimension of the reduced basis space: %d\n", solverparams.RBdim);
       printf("current dimension of the reduced basis space: %d\n", solverstate.RBcurrentdim);

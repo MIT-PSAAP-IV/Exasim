@@ -8,13 +8,13 @@ template <class M>
 inline void qoiElemBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int jth, Int backend)
 {        
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int ncq = common.ncq;// number of compoments of (q)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg) 
-    Int ncs = common.ncs;// number of compoments of (sdg) 
-    Int ncw = common.ncw;// number of compoments of (wdg) 
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int ncq = common.components.ncq;// number of compoments of (q)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg) 
+    Int ncs = common.components.ncs;// number of compoments of (sdg) 
+    Int ncw = common.components.ncw;// number of compoments of (wdg) 
     Int nd = common.nd;     // spatial dimension    
     Int npe = common.npe; // number of nodes on master element
     Int nge = common.nge; // number of gauss points on master element        
@@ -74,11 +74,11 @@ inline void qoiFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masters
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, 
         cublasHandle_t handle, Int f1, Int f2, Int ib, Int backend)
 {            
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
-    Int ncw = common.ncw;
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
+    Int ncw = common.components.ncw;
     Int nd = common.nd;     // spatial dimension    
     Int npe = common.npe; // number of nodes on master element
     Int npf = common.npf; // number of nodes on master face           

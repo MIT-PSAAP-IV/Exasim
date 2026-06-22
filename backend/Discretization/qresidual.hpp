@@ -96,9 +96,9 @@ inline void RqElem(solstruct &sol, resstruct &res, appstruct &app, masterstruct 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
         Int nbe1, Int nbe2, Int backend)
 {
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
     Int nd = common.nd;     // spatial dimension    
     Int npe = common.npe; // number of nodes on master element
     Int nge = common.nge; // number of gauss points on master element    
@@ -150,9 +150,9 @@ template <class M>
 inline void RqFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int nbf1, Int nbf2, Int backend)
 {    
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
     Int nd = common.nd;     // spatial dimension    
     Int npe = common.npe; // number of nodes on master element
     Int npf = common.npf; // number of nodes on master face           
@@ -206,9 +206,9 @@ inline void dRqElem(solstruct &sol, resstruct &res, appstruct &app, masterstruct
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
         Int nbe1, Int nbe2, Int backend)
 {
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
     Int nd = common.nd;     // spatial dimension    
     Int npe = common.npe; // number of nodes on master element
     Int nge = common.nge; // number of gauss points on master element    
@@ -261,9 +261,9 @@ template <class M>
 inline void dRqFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int nbf1, Int nbf2, Int backend)
 {    
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
     Int nd = common.nd;     // spatial dimension    
     Int npe = common.npe; // number of nodes on master element
     Int npf = common.npf; // number of nodes on master face           

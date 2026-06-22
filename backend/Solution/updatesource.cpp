@@ -31,8 +31,8 @@
 
 void UpdateSourceDIRK(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriverABI& driver_abi, resstruct &res, commonstruct &common, Int backend)
 {   
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncs = common.ncs;// number of compoments of (s)    
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncs = common.components.ncs;// number of compoments of (s)    
     Int npe = common.npe; // number of nodes on master element    
     Int ne = common.ne2; // number of elements in this subdomain 
     Int N = npe*ncs*ne;
@@ -45,9 +45,9 @@ void UpdateSourceDIRK(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriv
     dstype scalar = dirkd[common.timestate.currentstage*dirkStage+common.timestate.currentstage]/dt;
     common.timestate.dtfactor = scalar;
     // fc_u = scalar*dtcoef_u
-    ArrayAXPB(app.fc_u, app.dtcoef_u, scalar, zero, common.ncu);
+    ArrayAXPB(app.fc_u, app.dtcoef_u, scalar, zero, common.components.ncu);
     if (common.timeparams.wave==1) 
-        ArrayAXPB(app.fc_q, app.dtcoef_q, scalar, zero, common.ncq);              
+        ArrayAXPB(app.fc_q, app.dtcoef_q, scalar, zero, common.components.ncq);              
     
     // extract the current stage solution to res.Rq
     ArrayExtract(res.Rq, sol.udg, npe, nc, ne, 0, npe, 0, ncs, 0, ne);          
@@ -76,8 +76,8 @@ void UpdateSourceDIRK(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriv
     }       
     
     // update the source term due to the time derivative for differential algebraic equations
-    if (common.ncw>0) { 
-        Int ncw = common.ncw;
+    if (common.components.ncw>0) { 
+        Int ncw = common.components.ncw;
         N = npe*ncw*ne;
         // update the source term
         switch (common.timestate.currentstage) {
@@ -103,8 +103,8 @@ void UpdateSourceDIRK(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriv
 
 void UpdateSourceBDF(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriverABI& driver_abi, resstruct &res, commonstruct &common, Int backend)
 {   
-    //Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncs = common.ncs;// number of compoments of (s)    
+    //Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncs = common.components.ncs;// number of compoments of (s)    
     Int npe = common.npe; // number of nodes on master element    
     Int ne = common.ne2; // number of elements in this subdomain 
     Int N = npe*ncs*ne;
@@ -114,9 +114,9 @@ void UpdateSourceBDF(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDrive
     dstype scalar = common.BDFcoeff_c[0]/dt;
     common.timestate.dtfactor = scalar;
     // fc_u = scalar*dtcoef_u
-    ArrayAXPB(app.fc_u, app.dtcoef_u, scalar, zero, common.ncu);
+    ArrayAXPB(app.fc_u, app.dtcoef_u, scalar, zero, common.components.ncu);
     if (common.timeparams.wave==1) 
-        ArrayAXPB(app.fc_q, app.dtcoef_q, scalar, zero, common.ncq);              
+        ArrayAXPB(app.fc_q, app.dtcoef_q, scalar, zero, common.components.ncq);              
 
     // update the source term
     switch (common.timeparams.torder) {

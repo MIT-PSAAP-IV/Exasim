@@ -83,7 +83,7 @@ dstype rand_normal(dstype mean, dstype stddev)
 
 void randomfield(dstype *randvect, commonstruct &common, resstruct res, meshstruct mesh, tempstruct tmp, Int backend)
 {
-    int N = common.npe*common.ncu*common.ne;          
+    int N = common.npe*common.components.ncu*common.ne;          
     
     dstype *rvec = (dstype *) malloc((N)*sizeof(dstype));
     for (int i=0; i<N; i++) rvec[i] = rand_normal(0.0, 1.0);   
@@ -94,7 +94,7 @@ void randomfield(dstype *randvect, commonstruct &common, resstruct res, meshstru
     free(rvec);
 
 #ifdef HAVE_MPI         
-    int bsz = common.npe*common.ncu;
+    int bsz = common.npe*common.components.ncu;
     
     for (int n=0; n<common.nelemsend; n++)  {       
       ArrayCopy(&tmp.tempn[bsz*n], &randvect[bsz*common.elemsend[n]], bsz);     
@@ -140,7 +140,7 @@ void randomfield(dstype *randvect, commonstruct &common, resstruct res, meshstru
     }    
 #endif    
     
-    Int ncu = common.ncu;
+    Int ncu = common.components.ncu;
     for (Int i=0; i<ncu; i++) {
         // extract the ith component of udg and store it in res.Rq
         ArrayExtract(res.Rq, randvect, common.npe, ncu, common.ne, 0, common.npe, i, i+1, 0, common.ne);
@@ -204,7 +204,7 @@ void randomfield(dstype *randvect, commonstruct &common, resstruct res, meshstru
 
 void setsysstruct(sysstruct &sys, commonstruct &common, resstruct res, meshstruct mesh, tempstruct tmp, Int backend)
 {
-    Int ncu = common.ncu;// number of compoments of (u)    
+    Int ncu = common.components.ncu;// number of compoments of (u)    
     Int npe = common.npe; // number of nodes on master element    
     Int ne = common.ne1; // number of elements in this subdomain 
     Int N = npe*ncu*ne;    
@@ -244,21 +244,21 @@ void setsysstruct(sysstruct &sys, commonstruct &common, resstruct res, meshstruc
     ArraySetValue(sys.r, 0.0, ndof);
     ArraySetValue(sys.v, 0.0, ndof*M);
         
-    if (common.ncs>0) {        
-        TemplateMalloc(&sys.utmp, npe*common.nc*common.ne2, backend); 
-        sys.szutmp = npe*common.nc*common.ne2;
+    if (common.components.ncs>0) {        
+        TemplateMalloc(&sys.utmp, npe*common.components.nc*common.ne2, backend); 
+        sys.szutmp = npe*common.components.nc*common.ne2;
         
-        if (common.ncw>0) {
+        if (common.components.ncw>0) {
             //TemplateMalloc(&sys.w, N, backend); 
-            TemplateMalloc(&sys.wtmp, npe*common.ncw*common.ne2, backend); 
+            TemplateMalloc(&sys.wtmp, npe*common.components.ncw*common.ne2, backend); 
             //TemplateMalloc(&sys.wsrc, N, backend);               
-            sys.szwtmp = npe*common.ncw*common.ne2; 
+            sys.szwtmp = npe*common.components.ncw*common.ne2; 
         }                
         
         // allocate memory for the previous solutions
         if (common.timeparams.temporalScheme==1) // BDF schemes 
         {
-            N = common.npe*common.ncs*common.ne2;
+            N = common.npe*common.components.ncs*common.ne2;
             if (common.timeparams.torder==1) {
                 TemplateMalloc(&sys.udgprev1, N, backend);        
                 sys.szudgprev1 = N;
@@ -282,7 +282,7 @@ void setsysstruct(sysstruct &sys, commonstruct &common, resstruct res, meshstruc
                 sys.szudgprev3 = N;                  
             }      
             if (common.timeparams.wave==1) {
-                N = common.npe*common.ncu*common.ne1;
+                N = common.npe*common.components.ncu*common.ne1;
                 if (common.timeparams.torder==1) {
                     TemplateMalloc(&sys.wprev1, N, backend);   
                     sys.szwprev1 = N;
@@ -309,11 +309,11 @@ void setsysstruct(sysstruct &sys, commonstruct &common, resstruct res, meshstruc
         }    
         else // DIRK schemes
         {
-            TemplateMalloc(&sys.udgprev, npe*common.ncs*common.ne2, backend);      
-            sys.szudgprev = npe*common.ncs*common.ne2;
-            if (common.ncw>0) {
-                TemplateMalloc(&sys.wprev, npe*common.ncw*common.ne2, backend);                
-                sys.szwprev = npe*common.ncw*common.ne2;
+            TemplateMalloc(&sys.udgprev, npe*common.components.ncs*common.ne2, backend);      
+            sys.szudgprev = npe*common.components.ncs*common.ne2;
+            if (common.components.ncw>0) {
+                TemplateMalloc(&sys.wprev, npe*common.components.ncw*common.ne2, backend);                
+                sys.szwprev = npe*common.components.ncw*common.ne2;
             }
         }        
     }    
@@ -339,12 +339,12 @@ void setsysstruct(sysstruct &sys, commonstruct &common, resstruct res, meshstruc
     sys.sztempmem = (5*M + M*M);
                  
     if (common.spatialScheme==0) {
-      TemplateMalloc(&sys.randvect, common.npe*common.ncu*common.ne, backend);     
+      TemplateMalloc(&sys.randvect, common.npe*common.components.ncu*common.ne, backend);     
       randomfield(sys.randvect, common, res, mesh, tmp, backend);
     }
     else {
       dstype *randvectu;
-      TemplateMalloc(&randvectu, common.npe*common.ncu*common.ne, backend);            
+      TemplateMalloc(&randvectu, common.npe*common.components.ncu*common.ne, backend);            
       randomfield(randvectu, common, res, mesh, tmp, backend);
       TemplateMalloc(&sys.randvect, ndof, backend);     
       GetFaceNodes(sys.randvect, randvectu, mesh.f2e, mesh.perm, common.npf, ncu, npe, ncu, common.nf);

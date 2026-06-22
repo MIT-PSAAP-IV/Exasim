@@ -65,7 +65,7 @@ inline void UhatBlock(solstruct &sol, resstruct &res, appstruct &app, masterstru
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
         Int nd, Int npe, Int npf, Int nc, Int ncu, Int ncx, Int nco, Int f1, Int f2, Int ib, Int backend)
 {        
-    Int ncw = common.ncw;
+    Int ncw = common.components.ncw;
     //Int ncq = ncu*nd;
     Int nf = f2-f1;
     Int nn = npf*nf; 
@@ -137,10 +137,10 @@ inline void GetUhat(solstruct &sol, resstruct &res, appstruct &app, masterstruct
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
         Int nbf1, Int nbf2, Int backend)
 {        
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg)   
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)   
     Int nd = common.nd;     // spatial dimension        
     Int npe = common.npe; // number of nodes on master element
     Int npf = common.npf; // number of nodes on master face      
@@ -162,7 +162,7 @@ inline void dUhatBlock(solstruct &sol, resstruct &res, appstruct &app, masterstr
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
         Int nd, Int npe, Int npf, Int nc, Int ncu, Int ncx, Int nco, Int f1, Int f2, Int ib, Int backend)
 {        
-    Int ncw = common.ncw;
+    Int ncw = common.components.ncw;
     //Int ncq = ncu*nd;
     Int nf = f2-f1;
     Int nn = npf*nf; 
@@ -228,10 +228,10 @@ inline void GetdUhat(solstruct &sol, resstruct &res, appstruct &app, masterstruc
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
         Int nbf1, Int nbf2, Int backend)
 {        
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg)   
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)   
     Int nd = common.nd;     // spatial dimension        
     Int npe = common.npe; // number of nodes on master element
     Int npf = common.npf; // number of nodes on master face      

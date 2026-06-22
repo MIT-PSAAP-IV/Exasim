@@ -35,7 +35,7 @@ inline void ComputeMinv(solstruct &sol, resstruct &res, appstruct &app, masterst
     dstype *work=NULL;  
     Int *ipiv=NULL;
     
-    Int ncx = common.ncx;// number of compoments of (xdg)        
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
     Int nd = common.nd;     // spatial dimension    
     Int npe = common.npe; // number of nodes on master element
     Int nge = common.nge; // number of gauss points on master element    

@@ -18,11 +18,11 @@ void FluxDriver(dstype* f, const dstype* xg, const dstype* udg,
                 solstruct& sol, tempstruct& temp, commonstruct& common,
                 Int nge, Int e1, Int e2, Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int numPoints = nge * (e2 - e1);
     dstype time = common.timestate.time;
@@ -37,11 +37,11 @@ void SourceDriver(dstype* f, const dstype* xg, const dstype* udg,
                   solstruct& sol, tempstruct& temp, commonstruct& common,
                   Int nge, Int e1, Int e2, Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int numPoints = nge * (e2 - e1);
     dstype time = common.timestate.time;
@@ -57,11 +57,11 @@ void SourcewDriver(dstype* f, const dstype* xg, const dstype* udg,
                    solstruct& sol, tempstruct& temp, commonstruct& common,
                    Int npe, Int e1, Int e2, Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int ne = e2 - e1;
     Int numPoints = npe * ne;
@@ -78,12 +78,12 @@ void OutputDriver(dstype* f, const dstype* xg, const dstype* udg,
                   solstruct& sol, tempstruct& temp, commonstruct& common,
                   Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
-    Int nce = common.nce;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
+    Int nce = common.components.nce;
     Int nd = common.nd;
     Int npe = common.npe;
     Int ne = common.ne;
@@ -101,11 +101,11 @@ void MonitorDriver(dstype* f, Int nc_sol, const dstype* xg,
                    masterstruct& master, appstruct& app, solstruct& sol,
                    tempstruct& temp, commonstruct& common, Int backend)
 {
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
-    Int ncm = common.ncm;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
+    Int ncm = common.components.ncm;
     Int nd = common.nd;
     Int npe = common.npe;
     Int ne = common.ne;
@@ -123,11 +123,11 @@ void AvfieldDriver(dstype* f, const dstype* xg, const dstype* udg,
                    solstruct& sol, tempstruct& temp, commonstruct& common,
                    Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int npe = common.npe;
     Int ne = common.ne;
@@ -145,11 +145,11 @@ void EosDriver(dstype* f, const dstype* xg, const dstype* udg,
                solstruct& sol, tempstruct& temp, commonstruct& common,
                Int npe, Int e1, Int e2, Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int ne = e2 - e1;
     Int numPoints = npe * ne;
@@ -166,11 +166,11 @@ void EosduDriver(dstype* f, const dstype* xg, const dstype* udg,
                  solstruct& sol, tempstruct& temp, commonstruct& common,
                  Int npe, Int e1, Int e2, Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int ne = e2 - e1;
     Int numPoints = npe * ne;
@@ -187,11 +187,11 @@ void EosdwDriver(dstype* f, const dstype* xg, const dstype* udg,
                  solstruct& sol, tempstruct& temp, commonstruct& common,
                  Int npe, Int e1, Int e2, Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int ne = e2 - e1;
     Int numPoints = npe * ne;
@@ -208,11 +208,11 @@ void TdfuncDriver(dstype* f, const dstype* xg, const dstype* udg,
                   solstruct& sol, tempstruct& temp, commonstruct& common,
                   Int nge, Int e1, Int e2, Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int numPoints = nge * (e2 - e1);
     dstype time = common.timestate.time;
@@ -230,16 +230,16 @@ void FhatDriver(dstype* fg, const dstype* xg, const dstype* ug1,
                 tempstruct& tmp, commonstruct& common, Int ngf, Int f1, Int f2,
                 Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int numPoints = ngf * (f2 - f1);
     Int M = numPoints * ncu;
     Int N = numPoints * ncu * nd;
-    Int ntau = common.ntau;
+    Int ntau = common.components.ntau;
     dstype time = common.timestate.time;
 
     if (common.couplingparams.extFhat == 1) {
@@ -289,11 +289,11 @@ void FbouDriver(dstype* fb, const dstype* xg, const dstype* udg,
                 tempstruct& temp, commonstruct& common, Int ngf, Int f1,
                 Int f2, Int ib, Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int numPoints = ngf * (f2 - f1);
     dstype time = common.timestate.time;
@@ -311,11 +311,11 @@ void FbouJacDriver(dstype* fb, dstype* fb_udg, dstype* fb_wdg,
                    tempstruct& temp, commonstruct& common, Int nga, Int ib,
                    Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int numPoints = nga;
     dstype time = common.timestate.time;
@@ -347,11 +347,11 @@ void UhatDriver(dstype* fg, dstype* xg, dstype* ug1, dstype* ug2,
                 appstruct& app, solstruct& sol, tempstruct& tmp,
                 commonstruct& common, Int ngf, Int f1, Int f2, Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int numPoints = ngf * (f2 - f1);
     dstype time = common.timestate.time;
@@ -363,7 +363,7 @@ void UhatDriver(dstype* fg, dstype* xg, dstype* ug1, dstype* ug2,
     }
     else {
         ArrayAXPBY(fg, ug1, ug2, (dstype)0.5, (dstype)0.5,
-                   ngf * common.ncu * (f2 - f1));
+                   ngf * common.components.ncu * (f2 - f1));
     }
 }
 
@@ -374,11 +374,11 @@ void UbouDriver(dstype* ub, const dstype* xg, const dstype* udg,
                 tempstruct& temp, commonstruct& common, Int ngf, Int f1,
                 Int f2, Int ib, Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int numPoints = ngf * (f2 - f1);
     dstype time = common.timestate.time;
@@ -396,11 +396,11 @@ void UbouJacDriver(dstype* ub, dstype* ub_udg, dstype* ub_wdg,
                    tempstruct& temp, commonstruct& common, Int nga, Int ib,
                    Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int numPoints = nga;
     dstype time = common.timestate.time;
@@ -541,11 +541,11 @@ void FluxDriver(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xg,
                 appstruct& app, solstruct& sol, tempstruct& temp,
                 commonstruct& common, Int nge, Int e1, Int e2, Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int numPoints = nge * (e2 - e1);
     dstype time = common.timestate.time;
@@ -562,11 +562,11 @@ void SourceDriver(dstype* f, dstype* f_udg, dstype* f_wdg,
                   tempstruct& temp, commonstruct& common, Int nge, Int e1,
                   Int e2, Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int numPoints = nge * (e2 - e1);
     dstype time = common.timestate.time;
@@ -583,11 +583,11 @@ void SourcewDriver(dstype* f, dstype* f_udg, dstype* f_wdg,
                    tempstruct& temp, commonstruct& common, Int nge, Int e1,
                    Int e2, Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int numPoints = nge * (e2 - e1);
     dstype time = common.timestate.time;
@@ -604,11 +604,11 @@ void SourcewDriver(dstype* f, dstype* f_wdg, const dstype* xg,
                    tempstruct& temp, commonstruct& common, Int nge, Int e1,
                    Int e2, Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int numPoints = nge * (e2 - e1);
     dstype time = common.timestate.time;
@@ -624,11 +624,11 @@ void EosDriver(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xg,
                appstruct& app, solstruct& sol, tempstruct& temp,
                commonstruct& common, Int nge, Int e1, Int e2, Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int numPoints = nge * (e2 - e1);
     dstype time = common.timestate.time;
@@ -645,11 +645,11 @@ void FbouDriver(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
                 appstruct& app, solstruct& sol, tempstruct& temp,
                 commonstruct& common, Int nga, Int ib, Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int numPoints = nga;
     dstype time = common.timestate.time;
@@ -666,11 +666,11 @@ void FbouDriver(dstype* f, dstype* xg, const dstype* udg,
                 tempstruct& temp, commonstruct& common, Int nga, Int ib,
                 Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int numPoints = nga;
     dstype time = common.timestate.time;
@@ -687,11 +687,11 @@ void FintDriver(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
                 appstruct& app, solstruct& sol, tempstruct& temp,
                 commonstruct& common, Int nga, Int ib, Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int numPoints = nga;
     dstype time = common.timestate.time;
@@ -708,11 +708,11 @@ void FintDriver(dstype* f, dstype* xg, const dstype* udg,
                 tempstruct& temp, commonstruct& common, Int nga, Int ib,
                 Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int numPoints = nga;
     dstype time = common.timestate.time;
@@ -732,8 +732,8 @@ void FextDriver(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
 {
     abi.HdgFext(f, f_udg, f_wdg, f_uhg, xg, udg, odg, wdg, uhg, nl, uext,
                 app.tau, app.uinf, app.physicsparam, common.timestate.time,
-                common.modelnumber, ib, nga, common.nc, common.ncu, common.nd,
-                common.ncx, common.nco, common.ncw);
+                common.modelnumber, ib, nga, common.components.nc, common.components.ncu, common.nd,
+                common.components.ncx, common.components.nco, common.components.ncw);
 }
 
 void FextDriver(dstype* f, dstype* xg, const dstype* udg,
@@ -745,8 +745,8 @@ void FextDriver(dstype* f, dstype* xg, const dstype* udg,
 {
     abi.HdgFextonly(f, xg, udg, odg, wdg, uhg, nl, uext, app.tau, app.uinf,
                     app.physicsparam, common.timestate.time, common.modelnumber, ib, nga,
-                    common.nc, common.ncu, common.nd, common.ncx, common.nco,
-                    common.ncw);
+                    common.components.nc, common.components.ncu, common.nd, common.components.ncx, common.components.nco,
+                    common.components.ncw);
 }
 
 void FhatDriver(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
@@ -756,11 +756,11 @@ void FhatDriver(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
                 appstruct& app, solstruct& sol, tempstruct& temp,
                 commonstruct& common, Int nga, Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int numPoints = nga;
     Int M = numPoints * ncu;
@@ -799,11 +799,11 @@ void FhatDriver(dstype* f, dstype* u, const dstype* xg, dstype* udg,
                 masterstruct& master, appstruct& app, solstruct& sol,
                 tempstruct& temp, commonstruct& common, Int nga, Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int numPoints = nga;
     Int M = numPoints * ncu;
@@ -828,11 +828,11 @@ void VisScalarsDriver(dstype* f, const dstype* xg, const dstype* udg,
                       tempstruct& temp, commonstruct& common, Int nge, Int e1,
                       Int e2, Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int numPoints = nge * (e2 - e1);
     dstype time = common.timestate.time;
@@ -849,11 +849,11 @@ void VisVectorsDriver(dstype* f, const dstype* xg, const dstype* udg,
                       tempstruct& temp, commonstruct& common, Int nge, Int e1,
                       Int e2, Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int numPoints = nge * (e2 - e1);
     dstype time = common.timestate.time;
@@ -870,11 +870,11 @@ void VisTensorsDriver(dstype* f, const dstype* xg, const dstype* udg,
                       tempstruct& temp, commonstruct& common, Int nge, Int e1,
                       Int e2, Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int numPoints = nge * (e2 - e1);
     dstype time = common.timestate.time;
@@ -891,11 +891,11 @@ void QoIvolumeDriver(dstype* f, const dstype* xg, const dstype* udg,
                      tempstruct& temp, commonstruct& common, Int nge, Int e1,
                      Int e2, Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int numPoints = nge * (e2 - e1);
     dstype time = common.timestate.time;
@@ -913,11 +913,11 @@ void QoIboundaryDriver(dstype* fb, const dstype* xg, const dstype* udg,
                        tempstruct& temp, commonstruct& common, Int ngf, Int f1,
                        Int f2, Int ib, Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd = common.nd;
     Int numPoints = ngf * (f2 - f1);
     dstype time = common.timestate.time;

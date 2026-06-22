@@ -49,13 +49,13 @@ template <class M>
 inline void uEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int jth, Int backend)
 {        
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int ncq = common.ncq;// number of compoments of (q)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg) 
-    Int ncs = common.ncs;// number of compoments of (sdg) 
-    Int ncw = common.ncw;// number of compoments of (wdg) 
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int ncq = common.components.ncq;// number of compoments of (q)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg) 
+    Int ncs = common.components.ncs;// number of compoments of (sdg) 
+    Int ncw = common.components.ncw;// number of compoments of (wdg) 
     Int nd = common.nd;     // spatial dimension    
     Int npe = common.npe; // number of nodes on master element
     Int nge = common.nge; // number of gauss points on master element        
@@ -210,12 +210,12 @@ template <class M>
 inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int jth, Int backend)
 {            
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int ncq = common.ncq;// number of compoments of (q)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
-    Int ncw = common.ncw;
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int ncq = common.components.ncq;// number of compoments of (q)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
+    Int ncw = common.components.ncw;
     Int nd = common.nd;     // spatial dimension    
     Int npe = common.npe; // number of nodes on master element
     Int npf = common.npf; // number of nodes on master face           
@@ -575,7 +575,7 @@ template <class M>
 inline void uEquationSchurBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int jth, Int backend)
 {        
-    Int ncu = common.ncu;// number of compoments of (u)
+    Int ncu = common.components.ncu;// number of compoments of (u)
     Int nd = common.nd;     // spatial dimension    
     Int npe = common.npe; // number of nodes on master element
     Int npf = common.npf; // number of nodes on master face           
@@ -631,7 +631,7 @@ inline void uEquationSchurBlock(solstruct &sol, resstruct &res, appstruct &app, 
     if (common.timeparams.wave==1)
         scalar = 1.0/common.timestate.dtfactor;    
     
-    if (common.ncq > 0) {      
+    if (common.components.ncq > 0) {      
       if (nd == 1) {
         // D = D + B * Minv * C
         schurMatrixBMinvC(D, res.B, &res.C[npe*npe*e1], scalar, npe, ncu, ne);
@@ -732,7 +732,7 @@ inline void uEquationSchurBlock(solstruct &sol, resstruct &res, appstruct &app, 
       int ncu12 = common.szinterfacefluxmap;
       Int m12 = npf*ncu12;
       
-      if (common.ncq > 0) {      
+      if (common.components.ncq > 0) {      
         if (nd == 1) {
           schurMatrixGMinvC(res.Ki, res.Gi, &res.C[npe*npe*e1], scalar, npe, ncu12, ncu, npf, 1, ne);
           schurMatrixGintMinvE(res.Hi, res.Gi, &res.E[npe*npf*nfe*e1], scalar, npe, ncu12, ncu, npf, nfe, ne);
@@ -807,13 +807,13 @@ template <class M>
 inline void RuEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int jth, Int backend)
 {        
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    //Int ncq = common.ncq;// number of compoments of (q)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg) 
-    Int ncs = common.ncs;// number of compoments of (sdg) 
-    Int ncw = common.ncw;// number of compoments of (wdg) 
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    //Int ncq = common.components.ncq;// number of compoments of (q)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg) 
+    Int ncs = common.components.ncs;// number of compoments of (sdg) 
+    Int ncw = common.components.ncw;// number of compoments of (wdg) 
     Int nd = common.nd;     // spatial dimension    
     Int npe = common.npe; // number of nodes on master element
     Int nge = common.nge; // number of gauss points on master element        
@@ -900,12 +900,12 @@ template <class M>
 inline void RuEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int jth, Int backend)
 {            
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    //Int ncq = common.ncq;// number of compoments of (q)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
-    Int ncw = common.ncw;
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    //Int ncq = common.components.ncq;// number of compoments of (q)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
+    Int ncw = common.components.ncw;
     Int nd = common.nd;     // spatial dimension    
     Int npe = common.npe; // number of nodes on master element
     Int npf = common.npf; // number of nodes on master face           

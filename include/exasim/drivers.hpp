@@ -62,8 +62,8 @@ struct DriverShape {
 
 inline DriverShape compute_shape(commonstruct& common, Int nge, Int e1, Int e2) {
     return DriverShape{
-        common.nc, common.ncu, common.ncw, common.nco,
-        common.ncx, common.nd,
+        common.components.nc, common.components.ncu, common.components.ncw, common.components.nco,
+        common.components.ncx, common.nd,
         nge * (e2 - e1),
         common.timestate.time,
         common.modelnumber
@@ -162,8 +162,8 @@ inline void AvfieldDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int numPoints = common.npe * common.ne;
     avfield_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                       common.timestate.time, common.modelnumber, numPoints,
-                      common.nc, common.ncu, common.nd, common.ncx,
-                      common.nco, common.ncw, common.nce, common.npe, common.ne);
+                      common.components.nc, common.components.ncu, common.nd, common.components.ncx,
+                      common.components.nco, common.components.ncw, common.components.nce, common.npe, common.ne);
 }
 
 template <class M>
@@ -176,8 +176,8 @@ inline void OutputDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int numPoints = common.npe * common.ne;
     output_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                      common.timestate.time, common.modelnumber, numPoints,
-                     common.nc, common.ncu, common.nd, common.ncx,
-                     common.nco, common.ncw, common.nce, common.npe, common.ne);
+                     common.components.nc, common.components.ncu, common.nd, common.components.ncx,
+                     common.components.nco, common.components.ncw, common.components.nce, common.npe, common.ne);
 }
 
 template <class M>
@@ -190,8 +190,8 @@ inline void MonitorDriver(dstype* f, Int nc_sol, const dstype* xg, const dstype*
     Int numPoints = common.npe * common.ne;
     monitor_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                       common.timestate.time, common.modelnumber, numPoints,
-                      nc_sol, common.ncu, common.nd, common.ncx,
-                      common.nco, common.ncw, common.nce, common.npe, common.ne);
+                      nc_sol, common.components.ncu, common.nd, common.components.ncx,
+                      common.components.nco, common.components.ncw, common.components.nce, common.npe, common.ne);
 }
 
 // ===== EoS drivers =====
@@ -206,8 +206,8 @@ inline void EosDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int numPoints = npe * (e2 - e1);
     eos_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                   common.timestate.time, common.modelnumber, numPoints,
-                  common.nc, common.ncu, common.nd, common.ncx,
-                  common.nco, common.ncw, common.nce, npe, e2 - e1);
+                  common.components.nc, common.components.ncu, common.nd, common.components.ncx,
+                  common.components.nco, common.components.ncw, common.components.nce, npe, e2 - e1);
 }
 
 template <class M>
@@ -220,8 +220,8 @@ inline void EosduDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int numPoints = npe * (e2 - e1);
     eos_du_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                      common.timestate.time, common.modelnumber, numPoints,
-                     common.nc, common.ncu, common.nd, common.ncx,
-                     common.nco, common.ncw, common.nce, npe, e2 - e1);
+                     common.components.nc, common.components.ncu, common.nd, common.components.ncx,
+                     common.components.nco, common.components.ncw, common.components.nce, npe, e2 - e1);
 }
 
 template <class M>
@@ -234,8 +234,8 @@ inline void EosdwDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int numPoints = npe * (e2 - e1);
     eos_dw_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                      common.timestate.time, common.modelnumber, numPoints,
-                     common.nc, common.ncu, common.nd, common.ncx,
-                     common.nco, common.ncw, common.nce, npe, e2 - e1);
+                     common.components.nc, common.components.ncu, common.nd, common.components.ncx,
+                     common.components.nco, common.components.ncw, common.components.nce, npe, e2 - e1);
 }
 
 // ===== Sourcew drivers (auxiliary `w` field) =====
@@ -250,8 +250,8 @@ inline void SourcewDriver(dstype* f, const dstype* xg, const dstype* udg,
     Int numPoints = npe * (e2 - e1);
     sourcew_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                       common.timestate.time, common.modelnumber, numPoints,
-                      common.nc, common.ncu, common.nd, common.ncx,
-                      common.nco, common.ncw, common.nce, npe, e2 - e1);
+                      common.components.nc, common.components.ncu, common.nd, common.components.ncx,
+                      common.components.nco, common.components.ncw, common.components.nce, npe, e2 - e1);
 }
 
 // ===== Visualization & QoI drivers =====
@@ -324,8 +324,8 @@ inline void QoIboundaryDriver(dstype* fb, const dstype* xg, const dstype* udg,
     qoi_boundary_kernel<M>(fb, xg, udg, odg, wdg, uhg, nl, app.tau,
                            app.uinf, app.physicsparam,
                            common.timestate.time, common.modelnumber, ib, ng,
-                           common.nc, common.ncu, common.nd, common.ncx,
-                           common.nco, common.ncw);
+                           common.components.nc, common.components.ncu, common.nd, common.components.ncx,
+                           common.components.nco, common.components.ncw);
 }
 
 // ===== Surface drivers =====
@@ -343,8 +343,8 @@ inline void FbouDriver(dstype* fb, const dstype* xg, const dstype* udg,
     fbou_kernel<M>(fb, xg, udg, odg, wdg, uhg, nl, app.tau,
                    app.uinf, app.physicsparam,
                    common.timestate.time, common.modelnumber, ib, ng,
-                   common.nc, common.ncu, common.nd, common.ncx,
-                   common.nco, common.ncw);
+                   common.components.nc, common.components.ncu, common.nd, common.components.ncx,
+                   common.components.nco, common.components.ncw);
 }
 
 // HDG boundary residual + 3 Jacobians — calls M::fbou_hdg, NOT M::fbou.
@@ -361,8 +361,8 @@ inline void FbouDriver(dstype* fb, dstype* fb_udg, dstype* fb_wdg, dstype* fb_uh
     hdg_fbou_kernel<M>(fb, fb_udg, fb_wdg, fb_uhg, xg, udg, odg, wdg,
                        uhg, nl, app.tau, app.uinf, app.physicsparam,
                        common.timestate.time, common.modelnumber, ib, nga,
-                       common.nc, common.ncu, common.nd, common.ncx,
-                       common.nco, common.ncw);
+                       common.components.nc, common.components.ncu, common.nd, common.components.ncx,
+                       common.components.nco, common.components.ncw);
 }
 
 template <class M>
@@ -377,8 +377,8 @@ inline void UbouDriver(dstype* ub, const dstype* xg, const dstype* udg,
     ubou_kernel<M>(ub, xg, udg, odg, wdg, uhg, nl, app.tau,
                    app.uinf, app.physicsparam,
                    common.timestate.time, common.modelnumber, ib, ng,
-                   common.nc, common.ncu, common.nd, common.ncx,
-                   common.nco, common.ncw);
+                   common.components.nc, common.components.ncu, common.nd, common.components.ncx,
+                   common.components.nco, common.components.ncw);
 }
 
 // FhatDriver — LDG path (interior faces): `ngf, f1, f2, backend`.
@@ -396,8 +396,8 @@ inline void FhatDriver(dstype* fg, const dstype* xg,
     fhat_kernel<M>(fg, xg, ug1, ug2, og1, og2, wg1, wg2,
                    uh, nl, app.tau, app.uinf, app.physicsparam,
                    common.timestate.time, common.modelnumber, ng,
-                   common.nc, common.ncu, common.nd, common.ncx,
-                   common.nco, common.ncw);
+                   common.components.nc, common.components.ncu, common.nd, common.components.ncx,
+                   common.components.nco, common.components.ncw);
 }
 
 // FhatDriver — single-block form (HDG path): `nga, backend`.
@@ -414,8 +414,8 @@ inline void FhatDriver(dstype* fg, const dstype* xg,
     fhat_kernel<M>(fg, xg, ug1, ug2, og1, og2, wg1, wg2,
                    uh, nl, app.tau, app.uinf, app.physicsparam,
                    common.timestate.time, common.modelnumber, nga,
-                   common.nc, common.ncu, common.nd, common.ncx,
-                   common.nco, common.ncw);
+                   common.components.nc, common.components.ncu, common.nd, common.components.ncx,
+                   common.components.nco, common.components.ncw);
 }
 
 // FhatDriver — HDG single-block, value + 3 Jacobians. Mirrors the
@@ -438,11 +438,11 @@ inline void FhatDriver(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
                        appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
                        commonstruct& common, Int nga, Int /*backend*/)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd  = common.nd;
     Int numPoints = nga;
     Int Mn = numPoints * ncu;
@@ -496,11 +496,11 @@ inline void FhatDriver(dstype* fh, dstype* u, const dstype* xg,
                        appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
                        commonstruct& common, Int nga, Int /*backend*/)
 {
-    Int nc  = common.nc;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int nc  = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int nd  = common.nd;
     Int numPoints = nga;
     Int Mn = numPoints * ncu;
@@ -537,8 +537,8 @@ inline void FbouDriver(dstype* fb, const dstype* xg, const dstype* udg,
     hdg_fbou_only_kernel<M>(fb, xg, udg, odg, wdg, uhg, nl, app.tau,
                             app.uinf, app.physicsparam,
                             common.timestate.time, common.modelnumber, ib, nga,
-                            common.nc, common.ncu, common.nd, common.ncx,
-                            common.nco, common.ncw);
+                            common.components.nc, common.components.ncu, common.nd, common.components.ncx,
+                            common.components.nco, common.components.ncw);
 }
 
 template <class M>
@@ -554,8 +554,8 @@ inline void UhatDriver(dstype* fg, const dstype* xg,
     uhat_kernel<M>(fg, xg, ug1, ug2, og1, og2, wg1, wg2,
                    uh, nl, app.tau, app.uinf, app.physicsparam,
                    common.timestate.time, common.modelnumber, ng,
-                   common.nc, common.ncu, common.nd, common.ncx,
-                   common.nco, common.ncw);
+                   common.components.nc, common.components.ncu, common.nd, common.components.ncx,
+                   common.components.nco, common.components.ncw);
 }
 
 template <class M>
@@ -571,8 +571,8 @@ inline void StabDriver(dstype* fg, const dstype* xg,
     stab_kernel<M>(fg, xg, ug1, ug2, og1, og2, wg1, wg2,
                    uh, nl, app.tau, app.uinf, app.physicsparam,
                    common.timestate.time, common.modelnumber, ng,
-                   common.nc, common.ncu, common.nd, common.ncx,
-                   common.nco, common.ncw);
+                   common.components.nc, common.components.ncu, common.nd, common.components.ncx,
+                   common.components.nco, common.components.ncw);
 }
 
 // ===== Initialization drivers =====
@@ -584,7 +584,7 @@ inline void InitodgDriver(dstype* f, const dstype* xg,
     Int numPoints = common.npe * common.ne;
     initodg_kernel<M>(f, xg, app.uinf, app.physicsparam,
                       common.modelnumber, numPoints,
-                      common.ncx, common.nce, common.npe, common.ne);
+                      common.components.ncx, common.components.nce, common.npe, common.ne);
 }
 
 template <class M>
@@ -594,7 +594,7 @@ inline void InitqDriver(dstype* f, const dstype* xg,
     Int numPoints = common.npe * common.ne;
     initq_kernel<M>(f, xg, app.uinf, app.physicsparam,
                     common.modelnumber, numPoints,
-                    common.ncx, common.nce, common.npe, common.ne);
+                    common.components.ncx, common.components.nce, common.npe, common.ne);
 }
 
 template <class M>
@@ -604,7 +604,7 @@ inline void InitudgDriver(dstype* f, const dstype* xg,
     Int numPoints = common.npe * common.ne;
     initudg_kernel<M>(f, xg, app.uinf, app.physicsparam,
                       common.modelnumber, numPoints,
-                      common.ncx, common.nce, common.npe, common.ne);
+                      common.components.ncx, common.components.nce, common.npe, common.ne);
 }
 
 template <class M>
@@ -614,7 +614,7 @@ inline void InituDriver(dstype* f, const dstype* xg,
     Int numPoints = common.npe * common.ne;
     initu_kernel<M>(f, xg, app.uinf, app.physicsparam,
                     common.modelnumber, numPoints,
-                    common.ncx, common.nce, common.npe, common.ne);
+                    common.components.ncx, common.components.nce, common.npe, common.ne);
 }
 
 template <class M>
@@ -624,7 +624,7 @@ inline void InitwdgDriver(dstype* f, const dstype* xg,
     Int numPoints = common.npe * common.ne;
     initwdg_kernel<M>(f, xg, app.uinf, app.physicsparam,
                       common.modelnumber, numPoints,
-                      common.ncx, common.nce, common.npe, common.ne);
+                      common.components.ncx, common.components.nce, common.npe, common.ne);
 }
 
 } // namespace exasim — end of templated *Driver<M> wrappers

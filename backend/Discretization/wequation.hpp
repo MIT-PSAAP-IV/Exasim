@@ -84,12 +84,12 @@ template <class M>
 inline void wEquation(dstype *wdg, dstype *xdg, dstype *udg, dstype *odg, dstype *wsrc, 
       dstype *tempg, appstruct &app, commonstruct &common, Int ng, Int backend)
 {        
-    Int ncu = common.ncu; // number of compoments of (u)
+    Int ncu = common.components.ncu; // number of compoments of (u)
     Int nd = common.nd; // spatial dimension
-    Int nc = common.nc; // number of compoments of (u, q)
-    Int ncw = common.ncw;// number of compoments of (w)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
+    Int nc = common.components.nc; // number of compoments of (u, q)
+    Int ncw = common.components.ncw;// number of compoments of (w)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
     //Int npe = common.npe; // number of nodes on master element    
     Int modelnumber = common.modelnumber;
     if  (common.builtinmodelID > 0) modelnumber = common.builtinmodelID;
@@ -172,12 +172,12 @@ template <class M>
 inline void wEquation(dstype *wdg, dstype *wdg_udg, dstype *xdg, dstype *udg, dstype *odg, dstype *wsrc, 
        dstype *tempg, appstruct &app, commonstruct &common, Int ng, Int backend)
 {        
-    Int ncu = common.ncu; // number of compoments of (u)
+    Int ncu = common.components.ncu; // number of compoments of (u)
     Int nd = common.nd; // spatial dimension
-    Int nc = common.nc; // number of compoments of (u, q)
-    Int ncw = common.ncw;// number of compoments of (w)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
+    Int nc = common.components.nc; // number of compoments of (u, q)
+    Int ncw = common.components.ncw;// number of compoments of (w)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
     //Int npe = common.npe; // number of nodes on master element    
     Int modelnumber = common.modelnumber;
     if  (common.builtinmodelID > 0) modelnumber = common.builtinmodelID;
@@ -283,10 +283,10 @@ inline void GetW(dstype *w, solstruct &sol, tempstruct &tmp, appstruct &app, com
       Int e2 = common.eblks[3*j+1];
       Int ns = e2-e1;        
       Int ng = common.npe*ns;
-      Int ncw = common.ncw;
-      Int ncx = common.ncx;
-      Int nc = common.nc;
-      Int nco = common.nco;
+      Int ncw = common.components.ncw;
+      Int ncx = common.components.ncx;
+      Int nc = common.components.nc;
+      Int nco = common.components.nco;
       dstype* wdg = &tmp.tempn[0];
       dstype* xdg = &tmp.tempn[ng*ncw];
       dstype* udg = &tmp.tempn[ng*(ncw+ncx)];

@@ -96,7 +96,7 @@ inline void qJacobianLDGTrace(dstype *DUH, solstruct &sol, resstruct &res,
     Int npe = common.npe;
     Int npf = common.npf;
     Int nfe = common.nfe;
-    Int ncu = common.ncu;
+    Int ncu = common.components.ncu;
     Int ne = e2 - e1;
     Int ndf = npf*nfe;
     Int nlocu = npe*ncu;
@@ -146,8 +146,8 @@ inline void qJacobianLDGAssemble(dstype *DQDU, const dstype *DUH, resstruct &res
     Int npe = common.npe;
     Int npf = common.npf;
     Int nfe = common.nfe;
-    Int ncu = common.ncu;
-    Int ncq = common.ncq;
+    Int ncu = common.components.ncu;
+    Int ncq = common.components.ncq;
     Int nd = common.nd;
     Int ne = e2 - e1;
     Int ndf = npf*nfe;
@@ -205,7 +205,7 @@ inline void qJacobianLDG(dstype *DQDU, solstruct &sol, resstruct &res,
         Int npe = common.npe;
         Int npf = common.npf;
         Int nfe = common.nfe;
-        Int ncu = common.ncu;
+        Int ncu = common.components.ncu;
         Int ndf = npf*nfe;
         Int nlocu = npe*ncu;
         Int nlocuh = ndf*ncu;

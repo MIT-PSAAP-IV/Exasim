@@ -22,14 +22,14 @@
 
 void PreviousSolutions(solstruct &sol, sysstruct &sys, commonstruct &common, Int backend)
 {   
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)    
-    Int ncs = common.ncs;// number of compoments of (s)        
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)    
+    Int ncs = common.components.ncs;// number of compoments of (s)        
     Int npe = common.npe; // number of nodes on master element    
     //Int ne = common.ne1; // number of elements in this subdomain         
     Int ne2 = common.ne2; // number of elements in this subdomain       
     //Int N = common.sizes.ndof1;
-    Int N2 = npe*common.ncw*ne2;  
+    Int N2 = npe*common.components.ncw*ne2;  
         
     if (common.timeparams.temporalScheme==0) {//DIRK     
         dstype scalar = one;
@@ -52,7 +52,7 @@ void PreviousSolutions(solstruct &sol, sysstruct &sys, commonstruct &common, Int
 //             ArrayAXPB(sys.wtmp, sol.wdg, scalar, zero, N);        
 //         }
         
-        if (common.ncw>0) {             
+        if (common.components.ncw>0) {             
             /* get solution from the previous timestep */   
             ArrayCopy(sys.wprev, sol.wdg, N2);   
             /* wtmp = (1-sum(c))*w */  
@@ -65,7 +65,7 @@ void PreviousSolutions(solstruct &sol, sysstruct &sys, commonstruct &common, Int
             ArrayExtract(sys.udgprev1, sol.udg, npe, nc, ne2, 0, npe, 0, ncs, 0, ne2);     
 //             if (common.timeparams.wave==1)
 //                 ArrayCopy(sys.wprev1, sol.wdg, N);
-            if (common.ncw>0)
+            if (common.components.ncw>0)
                 ArrayCopy(sys.wprev1, sol.wdg, N2);
         }
         else if (common.timeparams.torder==2) { // BDF2          
@@ -80,7 +80,7 @@ void PreviousSolutions(solstruct &sol, sysstruct &sys, commonstruct &common, Int
 //                 /* get solution from the previous timestep */  
 //                 ArrayCopy(sys.wprev2, sol.wdg, N); 
 //             }
-            if (common.ncw>0) {
+            if (common.components.ncw>0) {
                 /* get solution from the two previous timesteps */ 
                 ArrayCopy(sys.wprev1, sys.wprev2, N2);            
                 /* get solution from the previous timestep */  
@@ -102,7 +102,7 @@ void PreviousSolutions(solstruct &sol, sysstruct &sys, commonstruct &common, Int
 //                 /* get solution from the one previous timestep */     
 //                 ArrayCopy(sys.wprev3, sol.wdg, N); 
 //             }
-            if (common.ncw>0) {
+            if (common.components.ncw>0) {
                 /* get solution from the three previous timesteps */    
                 ArrayCopy(sys.wprev1, sys.wprev2, N2);             
                 /* get solution from the two previous timesteps */
