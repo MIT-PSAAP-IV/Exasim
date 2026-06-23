@@ -150,6 +150,11 @@ pde.preconditioner = 1;
 pde.saveResNorm = 1;
 ```
 
+The mathematical and algorithmic meaning of these controls is described in
+[Nonlinear solvers](../theory/nonlinear-solvers.md),
+[Linear solvers](../theory/linear-solvers.md), and
+[Preconditioning](../theory/preconditioning.md).
+
 ## Postprocessing Flags
 
 `pde.saveParaview = 1` enables backend VTK output during solve mode.
@@ -173,5 +178,6 @@ See [Postprocessing and visualization](postprocessing.md).
 - [Execution workflow](execution.md)
 - [Preprocessing](preprocessing.md)
 - [pdemodel abstraction](pdemodel.md)
+- [Theory](../theory/index.md)
 - [Parameter sweeps](../usage-modes/parameter-sweeps.md)
 - [Postprocessing](../usage-modes/postprocessing.md)

@@ -21,9 +21,10 @@ If it succeeds, manual dependency installation is unnecessary.
 
 ```bash
 cd /path/to/workspace
-cmake -S Exasim -B Exasim-build
+export EXASIM_PREFIX=/path/to/prefix
+cmake -S Exasim -B Exasim-build -DCMAKE_INSTALL_PREFIX=$EXASIM_PREFIX
 cmake --build Exasim-build -j8
-cmake --install Exasim-build --prefix /path/to/exasim-prefix
+cmake --install Exasim-build
 ```
 
 Use a build directory outside the source tree. The examples above assume:
@@ -49,10 +50,11 @@ Example with explicit MPI wrappers:
 
 ```bash
 cmake -S Exasim -B Exasim-build \
+  -DCMAKE_INSTALL_PREFIX=$EXASIM_PREFIX \
   -DMPI_C_COMPILER=$(which mpicc) \
   -DMPI_CXX_COMPILER=$(which mpicxx)
 cmake --build Exasim-build -j8
-cmake --install Exasim-build --prefix /path/to/exasim-prefix
+cmake --install Exasim-build
 ```
 
 ## Install Prefix
@@ -60,7 +62,10 @@ cmake --install Exasim-build --prefix /path/to/exasim-prefix
 Prefer a user-writable prefix:
 
 ```bash
-cmake --install Exasim-build --prefix $HOME/exasim-local
+export EXASIM_PREFIX=$HOME/exasim-local
+cmake -S Exasim -B Exasim-build -DCMAKE_INSTALL_PREFIX=$EXASIM_PREFIX
+cmake --build Exasim-build -j8
+cmake --install Exasim-build
 ```
 
 Avoid installing into `/usr/local` unless you intentionally want a system-wide
@@ -85,4 +90,3 @@ The `share/exasim/` directory contains runtime data such as
 - [Verification and Testing](verification.md)
 - [Quick Start](../getting-started/quickstart.md)
 - [Troubleshooting Superbuild Failures](superbuild-troubleshooting.md)
-

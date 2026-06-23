@@ -25,9 +25,10 @@ See [macOS](macos.md), [Linux CPU](linux-cpu.md), or
 From the parent directory containing the `Exasim` source tree:
 
 ```bash
-cmake -S Exasim -B Exasim-build
+export EXASIM_PREFIX=/path/to/prefix
+cmake -S Exasim -B Exasim-build -DCMAKE_INSTALL_PREFIX=$EXASIM_PREFIX
 cmake --build Exasim-build -j8
-cmake --install Exasim-build --prefix /path/to/exasim-prefix
+cmake --install Exasim-build
 ```
 
 What this does:
@@ -35,14 +36,14 @@ What this does:
 1. Configures the Exasim Superbuild.
 2. Builds required dependencies in order.
 3. Builds Exasim libraries, model libraries, Text2Code, and runtime data.
-4. Installs everything into `/path/to/exasim-prefix`.
+4. Installs everything into `$EXASIM_PREFIX`.
 
 ## Confirm The Install
 
 ```bash
-find /path/to/exasim-prefix -name ExasimConfig.cmake
-find /path/to/exasim-prefix -name "libbuiltinmodel*"
-ls /path/to/exasim-prefix/bin/text2code
+find $EXASIM_PREFIX -name ExasimConfig.cmake
+find $EXASIM_PREFIX -name "libbuiltinmodel*"
+ls $EXASIM_PREFIX/bin/text2code
 ```
 
 Then build and run the first example from the
@@ -58,4 +59,3 @@ installation is mainly for systems where:
 - network downloads are blocked;
 - GPU toolchains need architecture-specific configuration;
 - the Superbuild cannot find compatible BLAS/LAPACK, MPI, or compiler tools.
-

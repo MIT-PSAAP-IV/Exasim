@@ -38,6 +38,10 @@ model when you need a new equation set, different variable ordering, different
 boundary physics, geometry-dependent model changes, or new source/closure laws
 not already represented by a built-in model.
 
+For the numerical methods used to solve built-in applications, see
+[Theory](../theory/index.md), especially [HDG](../theory/hdg.md),
+[LDG](../theory/ldg.md), and [Preconditioning](../theory/preconditioning.md).
+
 ## Relationship To Text2Code And Preprocessing
 
 ```mermaid

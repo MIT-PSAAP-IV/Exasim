@@ -8,7 +8,7 @@ without manually building every dependency.
 
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
-| Install tries to write into `/usr/local` | No install prefix was provided at install time. | Use `cmake --install Exasim-build --prefix /path/to/exasim-prefix`. |
+| Install tries to write into `/usr/local` | No install prefix was provided at configure time. | Configure with `-DCMAKE_INSTALL_PREFIX=$EXASIM_PREFIX`, then run `cmake --install Exasim-build`. |
 | CMake cannot find a compiler | Compiler modules or command-line tools are missing. | Install/load compilers and rerun CMake from a clean build directory. |
 | CMake finds the wrong MPI | Multiple MPI installations are visible. | Set `MPI_C_COMPILER` and `MPI_CXX_COMPILER` explicitly. |
 | ParMETIS or MPI link errors | MPI compiler/runtime mismatch. | Build and run with the same MPI stack. |
@@ -48,9 +48,10 @@ directory:
 
 ```bash
 rm -rf Exasim-build
-cmake -S Exasim -B Exasim-build
+export EXASIM_PREFIX=/path/to/prefix
+cmake -S Exasim -B Exasim-build -DCMAKE_INSTALL_PREFIX=$EXASIM_PREFIX
 cmake --build Exasim-build -j8
-cmake --install Exasim-build --prefix /path/to/exasim-prefix
+cmake --install Exasim-build
 ```
 
 ## When To Use Manual Installation
@@ -61,4 +62,3 @@ Proceed to [Manual Dependency Installation](manual-dependencies.md) when:
 - you must use preinstalled system or vendor dependencies;
 - the cluster requires specific compiler/MPI/GPU module combinations;
 - you need fine-grained control over Kokkos, SymEngine, METIS, or ParMETIS.
-

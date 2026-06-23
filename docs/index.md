@@ -135,7 +135,7 @@ Start with [Postprocessing](usage-modes/postprocessing.md).
 | [Frontends](frontends/index.md) | MATLAB, Python, and Julia APIs, preprocessing, execution, postprocessing, and data structures. |
 | [Application Modes](usage-modes/index.md) | Built-in, external built-in, shared-library, parameter-sweep, and postprocessing workflows. |
 | [Physics Models](physics-models/index.md) | PDE formulations, auxiliary equations, EOS, external variables, AV, multiphysics, and coupling. |
-| [Theory](theory/index.md) | Numerical-method background for LDG/HDG and solver-related derivations. |
+| [Theory](theory/index.md) | DG, LDG, HDG, DIRK, Newton-GMRES, preconditioning, parallelism, GPU execution, and scalability. |
 | [Reference](reference/model-contract.md) | Model contract, `pdeapp.txt`, `pdemodel.txt`, Text2Code, and CMake details. |
 | [Driving the solver](driving-the-solver.md) | C++ API entry points for embedding or custom applications. |
 | [Internals](internals/architecture.md) | Architecture, testing, baselines, and implementation notes. |

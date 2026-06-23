@@ -56,7 +56,9 @@ flowchart LR
 ```
 
 The model callbacks are local functions evaluated at element, face, or
-initialization points. They do not own the mesh or solver state.
+initialization points. They do not own the mesh or solver state. For the
+numerical methods that consume these callbacks, see
+[Theory](../theory/index.md).
 
 ## Source-Verified Naming
 

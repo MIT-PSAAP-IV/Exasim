@@ -90,33 +90,40 @@ Start from a parent directory that contains the `Exasim` source tree:
 
 ```bash
 cd /path/to/workspace
-cmake -S Exasim -B Exasim-build
+export EXASIM_PREFIX=/path/to/prefix
+cmake -S Exasim -B Exasim-build -DCMAKE_INSTALL_PREFIX=$EXASIM_PREFIX
 cmake --build Exasim-build -j8
-cmake --install Exasim-build --prefix /path/to/exasim-prefix
+cmake --install Exasim-build
 ```
 
 The install prefix should contain Exasim libraries, headers, CMake package
 files, runtime data, and Text2Code:
 
 ```bash
-ls /path/to/exasim-prefix
-ls /path/to/exasim-prefix/bin/text2code
-ls /path/to/exasim-prefix/lib/cmake/Exasim \
-  || ls /path/to/exasim-prefix/lib64/cmake/Exasim
+ls $EXASIM_PREFIX
+ls $EXASIM_PREFIX/bin/text2code
+ls $EXASIM_PREFIX/lib/cmake/Exasim \
+  || ls $EXASIM_PREFIX/lib64/cmake/Exasim
 ```
 
 For GPU builds, configure the superbuild with the appropriate backend:
 
 ```bash
-cmake -S Exasim -B Exasim-build-cuda -DEXASIM_CUDA=ON
+export EXASIM_PREFIX=/path/to/prefix
+cmake -S Exasim -B Exasim-build-cuda \
+  -DCMAKE_INSTALL_PREFIX=$EXASIM_PREFIX \
+  -DEXASIM_CUDA=ON
 cmake --build Exasim-build-cuda -j8
-cmake --install Exasim-build-cuda --prefix /path/to/exasim-prefix
+cmake --install Exasim-build-cuda
 ```
 
 ```bash
-cmake -S Exasim -B Exasim-build-hip -DEXASIM_HIP=ON
+export EXASIM_PREFIX=/path/to/prefix
+cmake -S Exasim -B Exasim-build-hip \
+  -DCMAKE_INSTALL_PREFIX=$EXASIM_PREFIX \
+  -DEXASIM_HIP=ON
 cmake --build Exasim-build-hip -j8
-cmake --install Exasim-build-hip --prefix /path/to/exasim-prefix
+cmake --install Exasim-build-hip
 ```
 
 For detailed platform-specific compiler and dependency choices, use the
@@ -128,9 +135,9 @@ Run these checks before building the first app:
 
 ```bash
 cmake --version
-/path/to/exasim-prefix/bin/text2code --help || true
-find /path/to/exasim-prefix -name ExasimConfig.cmake
-find /path/to/exasim-prefix -name "libbuiltinmodel*"
+$EXASIM_PREFIX/bin/text2code --help || true
+find $EXASIM_PREFIX -name ExasimConfig.cmake
+find $EXASIM_PREFIX -name "libbuiltinmodel*"
 ```
 
 Expected result:
@@ -146,7 +153,7 @@ Expected result:
 
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
-| CMake tries to install under `/usr/local` | No install prefix was provided at install time. | Use `cmake --install Exasim-build --prefix /path/to/exasim-prefix`. |
+| CMake tries to install under `/usr/local` | No install prefix was provided at configure time. | Configure with `-DCMAKE_INSTALL_PREFIX=$EXASIM_PREFIX`, then run `cmake --install Exasim-build`. |
 | `find_package(Exasim)` fails | CMake cannot locate the installed package. | Pass `-DExasim_DIR=/path/to/exasim-prefix` or the exact `lib/cmake/Exasim` directory. |
 | Kokkos build fails early | Unsupported compiler, whitespace in path, or missing GPU toolkit. | Move to a clean path and use the platform install guide. |
 | MPI symbols fail at link time | App variant and MPI toolchain do not match. | Use the same MPI environment for Exasim and application builds. |
@@ -319,6 +326,7 @@ Start with [Postprocessing](../usage-modes/postprocessing.md).
 | Run built-in applications | [Built-in library](../usage-modes/builtin.md) |
 | Generate apps from text files | [Text2Code Applications](../text2code-applications/index.md) |
 | Build a custom PDE model | [pdemodel abstraction](../frontends/pdemodel.md) and [pdemodel.txt guide](../text2code-applications/pdemodel.md) |
+| Understand the numerical methods | [Theory](../theory/index.md) |
 | Sweep parameters | [Parameter Sweeps](../usage-modes/parameter-sweeps.md) |
 | Visualize results | [Postprocessing](../usage-modes/postprocessing.md) |
 | Build for clusters or GPUs | [HPC build chain](../install/hpc.md), [Frontier](../install/frontier.md), [Tuolumne](../install/tuolumne.md) |

@@ -229,3 +229,7 @@ Several keys set quantities in the [discretization theory](../theory/index.md):
 - `porder` / `pgauss` → the polynomial basis order and quadrature degree of the
   [DG approximation](../theory/index.md).
 - `torder` / `nstage` → the order and stage count of the DIRK time integration.
+- `GMRESrestart`, `GMREStol`, `preconditioner`, `ppdegree`, and `RBdim` →
+  Krylov, preconditioning, polynomial-preconditioner, and reduced-basis controls
+  described in [Linear solvers](../theory/linear-solvers.md) and
+  [Preconditioning](../theory/preconditioning.md).

@@ -131,9 +131,21 @@ nav:
       - Multi-model problems: physics-models/multi-model.md
       - Worked examples: physics-models/examples.md
   - Theory:
-      - theory/index.md
-      - LDG formulation: theory/ldg-formulation.md
+      - Overview: theory/index.md
+      - DG methods: theory/dg-methods.md
+      - LDG: theory/ldg.md
+      - HDG: theory/hdg.md
+      - Temporal discretization: theory/temporal-discretization.md
+      - Nonlinear solvers: theory/nonlinear-solvers.md
+      - Linear solvers: theory/linear-solvers.md
+      - Preconditioning: theory/preconditioning.md
+      - Parallel computing: theory/parallel-computing.md
+      - GPU computing: theory/gpu-computing.md
+      - Scalability: theory/scalability.md
+      - Algorithmic flow: theory/algorithmic-flow.md
+      - LDG implementation deep dive: theory/ldg-formulation.md
       - Block-diagonal Jacobian: theory/block-diagonal-jacobian.md
+      - References: theory/references.md
   - Reference:
       - Model contract: reference/model-contract.md
       - pdeapp.txt fields: reference/pdeapp.md

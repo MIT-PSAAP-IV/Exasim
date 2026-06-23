@@ -9,9 +9,12 @@ directories under `examples/`.
 Install Exasim with frontend support:
 
 ```bash
-cmake -S Exasim -B Exasim-build -DEXASIM_FRONTENDS=ON
+export EXASIM_PREFIX=/path/to/prefix
+cmake -S Exasim -B Exasim-build \
+  -DCMAKE_INSTALL_PREFIX=$EXASIM_PREFIX \
+  -DEXASIM_FRONTENDS=ON
 cmake --build Exasim-build -j
-cmake --install Exasim-build --prefix /path/to/exasim-prefix
+cmake --install Exasim-build
 ```
 
 The frontend setup scripts should set or discover `EXASIM_PREFIX`. If you use a

@@ -18,9 +18,10 @@ brew install open-mpi          # only for MPI builds
 ## Recommended Superbuild
 
 ```bash
-cmake -S Exasim -B Exasim-build
+export EXASIM_PREFIX=/path/to/prefix
+cmake -S Exasim -B Exasim-build -DCMAKE_INSTALL_PREFIX=$EXASIM_PREFIX
 cmake --build Exasim-build -j8
-cmake --install Exasim-build --prefix /path/to/exasim-prefix
+cmake --install Exasim-build
 ```
 
 See [CPU Installation via Superbuild](superbuild-cpu.md).
