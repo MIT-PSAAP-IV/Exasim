@@ -80,6 +80,18 @@ for dir in "$REPO"/tests/consumers/*/; do
     else
       echo "  FAIL[B4]: QoI[1]=$qoi1 >= $QOI_TOL"; fail=1
     fi
+
+    # B5: visualization gate. When a consumer enables saveParaview (and declares
+    # nsca/nvec), the solve must emit ParaView vis. This guards the external-model
+    # vis path: ParseInputs must propagate nsca/nvec/nten so savemode>0 (external
+    # models do not bake the vis counts into datain). Without it no outvis is written.
+    if grep -qE '^[[:space:]]*saveParaview[[:space:]]*=[[:space:]]*[1-9]' "$rdir/pdeapp.txt"; then
+      if ls "$rdir"/dataout/outvis*.vtu "$rdir"/dataout/outvis*.pvtu >/dev/null 2>&1; then
+        echo "  [B5] vis ok: $(ls "$rdir"/dataout/outvis* 2>/dev/null | wc -l | tr -d ' ') outvis file(s)"
+      else
+        echo "  FAIL[B5]: saveParaview enabled but no outvis*.vtu/.pvtu written"; fail=1
+      fi
+    fi
   fi
 done
 
