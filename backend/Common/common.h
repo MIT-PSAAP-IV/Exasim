@@ -1382,6 +1382,23 @@ struct resstruct {
       printf("size of float: %d\n", sizeoffloat());
     }
 
+    // --- K-block as a scratch arena: callers RESERVE views instead of hard-coding offsets ---
+    // The single owned K allocation doubles as a scratch arena: [0, szP) holds the
+    // preconditioner; the [szP, szK) tail is shared scratch -- the assembly views
+    // (D/B/F/G/H) live there during assembly, the GMRES Krylov vectors during the solve
+    // (the two phases are temporally disjoint, which is why they may share the bytes).
+    // Reserving the Krylov view through this method (rather than &res.K[res.szP] at the call
+    // site) means no other class needs to know this layout: it decouples CSolver's sys.v from
+    // CDiscretization's res, and lets a future change hand back a separate buffer transparently.
+    // Non-owning: the returned pointer aliases K and must never be freed (keep sys.szv == 0).
+    dstype* reserveKrylovScratch(Int szRequest)
+    {
+        if (K != nullptr && szP + szRequest > szK)
+            printf("WARNING: reserveKrylovScratch overruns the res.K arena (szP=%d + req=%d > szK=%d)\n",
+                   (int)szP, (int)szRequest, (int)szK);
+        return &K[szP];
+    }
+
     void freememory(Int backend)
     {
         TemplateFree(Rq, backend);    

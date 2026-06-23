@@ -220,16 +220,12 @@ void setsysstruct(sysstruct &sys, commonstruct &common, resstruct res, meshstruc
     TemplateMalloc(&sys.r, ndof, backend); 
     //TemplateMalloc(&sys.v, ndof*M, backend);      
     
-    if (common.spatialScheme==0) {
-      //TemplateMalloc(&sys.v, ndof*M, backend);      
-      //sys.szv = ndof * M;
-        sys.v = &res.K[res.szP];
-        sys.szv = 0;
-    }
-    else {
-      sys.v = &res.K[res.szP];
-      sys.szv = 0;
-    }
+    // Reserve the GMRES Krylov scratch from the residual K-arena (non-owning; the arena sized
+    // its [szP, szK) tail for exactly this). Was, in both branches: sys.v = &res.K[res.szP] --
+    // the solver no longer hard-codes the discretization's buffer layout (S5: decouple sys.v
+    // from res; a future change can hand back a separate buffer without touching this call).
+    sys.v = res.reserveKrylovScratch(ndof*M);
+    sys.szv = 0;
     
     sys.backend = backend;  
     sys.szu = ndof;
