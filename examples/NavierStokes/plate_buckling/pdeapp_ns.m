@@ -85,14 +85,14 @@ runcode(pde, 1); % run C++ code
 sol = fetchsolution(pde,master,dmd, fullfile(pde.datapath, 'dataout'));
 figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[0 Minf],1); colorbar;
 
-disp("Iter 3")
-mesh.vdg(:,1,:) = 0.003*tanh(nm*dist);
-mesh.udg = sol;
-[pde,mesh,master,dmd] = preprocessing(pde,mesh);
-runcode(pde, 1); % run C++ code
-sol = fetchsolution(pde,master,dmd, fullfile(pde.datapath, 'dataout'));
-figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[0 Minf],1); colorbar;
-
+% disp("Iter 3")
+% mesh.vdg(:,1,:) = 0.003*tanh(nm*dist);
+% mesh.udg = sol;
+% [pde,mesh,master,dmd] = preprocessing(pde,mesh);
+% runcode(pde, 1); % run C++ code
+% sol = fetchsolution(pde,master,dmd, fullfile(pde.datapath, 'dataout'));
+% figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[0 Minf],1); colorbar;
+% 
 % disp("Iter 4")
 % mesh.vdg(:,1,:) = 0.0025*tanh(nm*dist);
 % mesh.udg = sol;

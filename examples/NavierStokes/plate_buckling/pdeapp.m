@@ -25,12 +25,13 @@ mesh = mkmesh_thermal_buckling(pde.porder, nx1, nxf, ny);
 figure(1); clf; meshplot(mesh);
 
 %% ---- 2. Elasticity mesh deformation ----
-bump_amp = 0.24;
+bump_amp = 0.012;
 bump_loc = 0.20;
 bump_width = 0.05;
 
 if abs(bump_amp) > 0
     mesh = pdeapp_el(mesh, pde, bump_amp, bump_loc, bump_width);
+    % writeinputfile("pdeapp_el.txt", pde_el, mesh_el);
 end
 
 %% ---- 3. Navier-Stokes solve + viscosity ramp ----
