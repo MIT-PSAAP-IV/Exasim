@@ -117,6 +117,17 @@ nav:
       - Shared library: usage-modes/shared-library.md
       - Parameter sweeps: usage-modes/parameter-sweeps.md
       - Postprocessing: usage-modes/postprocessing.md
+  - Using AI Tools:
+      - Overview: using-ai-tools/index.md
+      - Prompt engineering: using-ai-tools/prompt-engineering.md
+      - Creating examples: using-ai-tools/creating-examples.md
+      - Implementing physics models: using-ai-tools/implementing-physics-models.md
+      - Mesh generation: using-ai-tools/mesh-generation.md
+      - Debugging and code review: using-ai-tools/debugging.md
+      - Extending Exasim: using-ai-tools/extending-exasim.md
+      - Validating AI-generated code: using-ai-tools/validating-ai-generated-code.md
+      - Best practices: using-ai-tools/best-practices.md
+      - Example prompts: using-ai-tools/example-prompts.md
   - Physics Models:
       - Overview: physics-models/index.md
       - ModelC: physics-models/modelc.md
@@ -147,14 +158,35 @@ nav:
       - Block-diagonal Jacobian: theory/block-diagonal-jacobian.md
       - References: theory/references.md
   - Reference:
+      - Overview: reference/index.md
+      - pdeapp fields: reference/pdeapp.md
+      - pdemodel syntax: reference/pdemodel.md
       - Model contract: reference/model-contract.md
-      - pdeapp.txt fields: reference/pdeapp.md
-      - pdemodel.txt syntax: reference/pdemodel.md
+      - Model functions: reference/model-functions.md
+      - Equations of state: reference/equations-of-state.md
+      - Boundary conditions: reference/boundary-conditions.md
+      - Source terms: reference/source-terms.md
+      - Auxiliary equations: reference/auxiliary-equations.md
+      - Parameter sweeps: reference/parameter-sweeps.md
+      - Postprocessing: reference/postprocessing.md
+      - Text2Code: reference/text2code.md
       - CMake targets & options: reference/cmake.md
-      - text2code: reference/text2code.md
+      - Glossary: reference/glossary.md
   - Driving the solver (C++ API): driving-the-solver.md
   - Internals:
-      - Architecture & data flow: internals/architecture.md
+      - Overview: internals/index.md
+      - Architecture: internals/architecture.md
+      - Repository structure: internals/repository-structure.md
+      - Code generation: internals/code-generation.md
+      - Frontends: internals/frontends.md
+      - Backend: internals/backend.md
+      - Runtime: internals/runtime.md
+      - GPU implementation: internals/gpu-implementation.md
+      - MPI implementation: internals/mpi-implementation.md
       - Testing: internals/testing.md
       - Baselines: internals/baselines.md
       - Known divergences: internals/known-divergences.md
+      - Development workflow: internals/development-workflow.md
+      - Coding guidelines: internals/coding-guidelines.md
+      - CI and validation: internals/ci-and-validation.md
+      - References: internals/references.md

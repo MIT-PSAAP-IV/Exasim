@@ -32,6 +32,7 @@ choose an [Application Mode](usage-modes/index.md).
 | External built-in models | Register new built-in-style models out of tree without modifying the Exasim install. | [External built-in library](usage-modes/external-builtin.md) |
 | Shared-library applications | Compile Text2Code-generated kernels into `libt2cmodel*` and link them into a standalone C++ app. | [Shared library](usage-modes/shared-library.md) |
 | MATLAB, Python, and Julia frontends | Configure PDEs, meshes, sweeps, export apps, and postprocess results from high-level languages. | [Frontends](frontends/index.md) |
+| AI-assisted development | Use Codex, Claude, ChatGPT, Copilot, Gemini, and similar tools to draft examples, meshes, models, debugging plans, and validation workflows. | [Using AI Tools](using-ai-tools/index.md) |
 | Physics model formulation | Choose `ModelC`, `ModelD`, or `ModelW`; add `w`, `v`, EOS, AV, and coupling mechanisms consistently. | [Physics Models](physics-models/index.md) |
 | Custom PDE development | Define fluxes, sources, boundary conditions, initial conditions, QoI, and visualization callbacks. | [pdemodel abstraction](frontends/pdemodel.md) |
 | Parameter studies | Sweep `physicsparam` cases, write deterministic per-case outputs, and optionally warm-start continuation runs. | [Parameter sweeps](usage-modes/parameter-sweeps.md) |
@@ -50,14 +51,16 @@ choose an [Application Mode](usage-modes/index.md).
    Julia workflows.
 5. Use [Text2Code Applications](text2code-applications/index.md) if you want a
    text-file workflow based on `pdeapp.txt` and `pdemodel.txt`.
-6. Learn how Exasim represents PDEs in
+6. Use [Using AI Tools](using-ai-tools/index.md) to draft examples, meshes,
+   model files, debugging prompts, and validation plans efficiently.
+7. Learn how Exasim represents PDEs in
    [Physics Models](physics-models/index.md).
-7. Learn custom model development through the
+8. Learn custom model development through the
    [pdemodel abstraction](frontends/pdemodel.md) and
    [pdemodel.txt guide](text2code-applications/pdemodel.md).
-8. Generate visualization and derived quantities with
+9. Generate visualization and derived quantities with
    [Postprocessing](usage-modes/postprocessing.md).
-9. Explore design or physics spaces with
+10. Explore design or physics spaces with
    [Parameter sweeps](usage-modes/parameter-sweeps.md).
 
 ## Documentation Roadmap
@@ -66,7 +69,7 @@ choose an [Application Mode](usage-modes/index.md).
 | --- | --- |
 | A new user | [Quickstart](getting-started/quickstart.md) → [Installation](install/index.md) → [Application Modes](usage-modes/index.md) |
 | Running checked-in applications | [Built-in library](usage-modes/builtin.md) → [pdeapp.txt fields](reference/pdeapp.md) → [Postprocessing](usage-modes/postprocessing.md) |
-| Developing a custom PDE | [Physics Models](physics-models/index.md) → [Frontends](frontends/index.md) → [pdemodel abstraction](frontends/pdemodel.md) → [Text2Code `pdemodel.txt`](text2code-applications/pdemodel.md) |
+| Developing a custom PDE | [Using AI Tools](using-ai-tools/index.md) → [Physics Models](physics-models/index.md) → [Frontends](frontends/index.md) → [pdemodel abstraction](frontends/pdemodel.md) → [Text2Code `pdemodel.txt`](text2code-applications/pdemodel.md) |
 | Building standalone text apps | [Text2Code overview](text2code-applications/index.md) → [pdeapp.txt guide](text2code-applications/pdeapp.md) → [Workflow](text2code-applications/workflow.md) |
 | Running parameter studies | [Parameter sweeps](usage-modes/parameter-sweeps.md) → [Postprocessing](usage-modes/postprocessing.md) |
 | Targeting HPC or GPUs | [HPC build chain](install/hpc.md) → [Frontier](install/frontier.md) or [Tuolumne](install/tuolumne.md) → [CMake reference](reference/cmake.md) |
@@ -134,6 +137,7 @@ Start with [Postprocessing](usage-modes/postprocessing.md).
 | [Text2Code Applications](text2code-applications/index.md) | Text-file application setup, model syntax, generation workflow, and references. |
 | [Frontends](frontends/index.md) | MATLAB, Python, and Julia APIs, preprocessing, execution, postprocessing, and data structures. |
 | [Application Modes](usage-modes/index.md) | Built-in, external built-in, shared-library, parameter-sweep, and postprocessing workflows. |
+| [Using AI Tools](using-ai-tools/index.md) | Prompting, example generation, mesh generation, model implementation, debugging, extension, and validation workflows for AI assistants. |
 | [Physics Models](physics-models/index.md) | PDE formulations, auxiliary equations, EOS, external variables, AV, multiphysics, and coupling. |
 | [Theory](theory/index.md) | DG, LDG, HDG, DIRK, Newton-GMRES, preconditioning, parallelism, GPU execution, and scalability. |
 | [Reference](reference/model-contract.md) | Model contract, `pdeapp.txt`, `pdemodel.txt`, Text2Code, and CMake details. |

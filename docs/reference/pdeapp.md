@@ -1,235 +1,280 @@
-# pdeapp.txt field reference
+# pdeapp Reference
 
-`pdeapp.txt` is the solver-setup file: a flat list of `key = value;` statements
-read by text2code (`readpdeapp.cpp`). It is consumed by every
-[usage mode](../usage-modes/index.md). This page documents every recognized key.
+`pdeapp.txt` is the Text2Code application configuration file. It is a flat
+list of assignments read by `text2code/text2code/readpdeapp.cpp`. The same
+conceptual fields also appear in MATLAB/Python/Julia `pde` structures, but not
+every frontend field is parsed from `pdeapp.txt`.
 
-For the *model* definition (the PDE math) see the
-[pdemodel.txt syntax reference](pdemodel.md); for the C++ struct those keys
-ultimately configure, see the [model contract](model-contract.md). The
-implemented `ModelC`, `ModelD`, and `ModelW` formulations are documented in
+For model equations, see [pdemodel reference](pdemodel.md) and
 [Physics Models](../physics-models/index.md).
 
-## Syntax notes
-
-- Each statement ends at `;`. Strings are quoted (`key = "value";`); numeric
-  **lists** use brackets (`key = [a, b, c];`); string lists use
-  `key = ["a", "b"];`.
-- A scalar is stored as a **float** if its text contains `.` or `e`
-  (`1e-06`, `0.001`), otherwise as an **int**. So `time = 0;` is read as int and
-  will *not* reach the float field `pde.time` — write `time = 0.0;`.
-- Lists support `repeat(value, count)`, e.g. `tau = [repeat(1.0, 4)];`.
-- Special keys are matched by substring, so order matters; the parser guards the
-  built-in keys, but avoid custom keys that contain a recognized key as a
-  substring.
-- **Required keys** (the parser aborts if missing): `model`, `modelfile`,
-  `meshfile`, `discretization`, `platform`, `mpiprocs`, `porder`, `pgauss`,
-  `physicsparam`, `tau`, `boundaryconditions`, `boundaryexpressions`.
-
-A default of `—` means the parser sets none (the key is applied only if present).
-
-## Model / app selection
-
-| Key | Type | Default | Meaning |
-|---|---|---|---|
-| `model` | string | `"ModelD"` | Model class selector: `ModelC`, `ModelD`, or `ModelW`. **Required.** |
-| `modelfile` | string | `"pdemodel.txt"` | Path to the symbolic model file. **Required.** |
-| `meshfile` | string | `"mesh.bin"` | Path to the binary mesh. **Required.** |
-| `discretization` | string | `"ldg"` | `ldg`/`LDG` → `hybrid=0`; `hdg`/`HDG` → `hybrid=1`. **Required.** |
-| `platform` | string | `"cpu"` | Compute backend (`cpu`/`gpu`). **Required.** |
-| `modelnumber` | int | `0` | Model index; `>0` suffixes the `datain`/`dataout` dirs. |
-| `builtinmodelID` | int | — | Built-in model ID (consumed by the provider; parsed but not stored in the PDE struct). |
-| `gendatain` | int | `1` | Generate the `datain` input bundle. |
-| `gencode` | int | `1` | Generate model C++ code. |
-| `writemeshsol` | int | `1` | Write mesh/solution output. |
-| `runmode` | int | `0` | Run-mode selector. |
-| `debugmode` | int | `0` | `1` prints parsed params. |
-| `mpiprocs` | int | `1` | Number of MPI processes. **Required.** |
-| `nodetype` | int | `1` | Node distribution (uniform vs Gauss–Lobatto). |
-| `exasimpath` / `datapath` | string | auto | Exasim root / base data dir (auto-derived if unset). |
-| `xdgfile` / `udgfile` / `vdgfile` / `wdgfile` / `uhatfile` / `partitionfile` | string | `""` | Optional input-data files. |
-
-## Field counts
-
-| Key | Type | Default | Meaning |
-|---|---|---|---|
-| `ncu` | int | `1` | Number of state components $u$. |
-| `ncv` | int | `0` | Number of VDG (`v`) components. |
-| `ncw` | int | `0` | Number of WDG (`w`) components. |
-| `nsca` / `nvec` / `nten` | int | `0` | Scalar / vector / tensor visualization output counts. |
-| `nsurf` | int | `0` | Surface output count. |
-| `nvqoi` | int | `0` | Volume quantity-of-interest count. |
-| `neb` | int | `4096` | Element block size (kernel batching). |
-| `nfb` | int | `8192` | Face block size (kernel batching). |
-
-## Discretization
-
-| Key | Type | Default | Meaning |
-|---|---|---|---|
-| `porder` | int | `1` | Polynomial order of the solution basis. **Required.** |
-| `pgauss` | int | `2` | Gauss quadrature degree. **Required.** |
-| `torder` | int | `1` | Temporal accuracy order. |
-| `nstage` | int | `1` | Number of time-integrator stages. |
-| `temporalscheme` | int | `0` | Time-integration scheme selector. |
-
-## Solver
-
-| Key | Type | Default | Meaning |
-|---|---|---|---|
-| `nonlinearsolver` | int | `0` | Nonlinear solver selector. |
-| `NewtonIter` | int | `20` | Max Newton iterations. |
-| `NewtonTol` | float | `1e-6` | Newton tolerance. |
-| `NLparam` / `NLMatrixType` | float / int | `0.0` / `0` | Nonlinear solver parameter / matrix type. |
-| `linearsolver` | int | `0` | Linear solver selector. |
-| `GMRESiter` | int | `200` | Max GMRES iterations. |
-| `GMRESrestart` | int | `25` | GMRES restart length. |
-| `GMREStol` | float | `1e-3` | GMRES tolerance. |
-| `GMRESortho` | int | `0` | GMRES orthogonalization scheme. |
-| `preconditioner` / `precMatrixType` | int | `0` | Preconditioner / its matrix type. |
-| `ppdegree` | int | `0` | Polynomial-preconditioner degree. |
-| `RBdim` | int | `5` | Reduced-basis dimension. |
-| `matvecorder` | int | `1` | Jacobian-matvec approximation order. |
-| `matvectol` | float | `1e-3` | Matvec finite-difference tolerance. |
-
-## Time / physics
-
-| Key | Type | Default | Meaning |
-|---|---|---|---|
-| `time` | float | `0.0` | Initial/simulation time. |
-| `tau` | list(float) | — | HDG/LDG stabilization parameter(s). **Required.** |
-| `dt` | list(float) | — | Time-step sequence; first nonzero entry sets `tdep=1`. |
-| `physicsparam` | list(float) | — | PDE physical coefficients ($\mu$). **Required.** |
-| `physicsparamcases` | matrix/list(float) | empty | Optional `pdeapp.txt` sweep over multiple `physicsparam` vectors; one row per case. |
-| `physicsparamwarmstart` | int | `0` | If `1`, standalone C++ parameter sweeps reuse the previous case's converged solution as the next case's initial guess. |
-| `externalparam` | list(float) | — | External/auxiliary parameters passed to the model. |
-| `tdep` / `wave` / `tdfunc` / `sourcefunc` | int | `0` / `0` / `1` / `1` | Time-dependent / wave / time-derivative-fn / source-fn flags. |
-
-### Parameter sweeps
-
-Use `physicsparamcases` to run the same generated `pdeapp.txt` model over
-multiple `physicsparam` vectors. Exasim writes `datain/physicsparamcases.bin`;
-the standalone C++ executable detects that file and runs the cases internally.
-
-Each case writes to a deterministic directory:
+## Syntax
 
 ```text
-dataout/paramcase_0001/
-dataout/paramcase_0002/
-...
+key = value;
+key = [1, 2, 3];
+key = ["expr1", "expr2"];
 ```
 
-Each case directory contains `physicsparam.txt`, which records the parameter
-vector used for that run. Sweeps also write
-`dataout/physicsparam_sweep_manifest.txt`.
+Supported forms:
 
-Use one row per case:
+- Strings use double quotes.
+- Numeric lists use square brackets.
+- `repeat(value, count)` is supported inside numeric lists.
+- `physicsparamcases` supports bracketed rows or semicolon-separated rows.
+- Statements end with `;`.
+
+!!! warning "Integer versus floating-point parsing"
+    The parser stores a scalar as floating-point only when the text contains
+    `.` or `e`. Use `time = 0.0;`, not `time = 0;`, when setting a floating
+    field.
+
+## Required `pdeapp.txt` Keys
+
+The Text2Code parser errors if any of these keys are missing:
+
+| Key | Type | Purpose |
+| --- | --- | --- |
+| `model` | string | Model formulation: `ModelC`, `ModelD`, or `ModelW`. |
+| `modelfile` | string | Path to `pdemodel.txt`. |
+| `meshfile` | string | Path to binary mesh input. |
+| `discretization` | string | `ldg` or `hdg`. |
+| `platform` | string | `cpu` or `gpu`. |
+| `mpiprocs` | int | Number of MPI ranks intended for generated data. |
+| `porder` | int | Polynomial order. |
+| `pgauss` | int | Quadrature order/degree used by preprocessing. |
+| `physicsparam` | list(float) | Physics parameter vector `mu`. |
+| `tau` | list(float) | Stabilization parameter vector. |
+| `boundaryconditions` | list(int) | Boundary-condition code per boundary expression. |
+| `boundaryexpressions` | list(string) | Geometric predicates defining boundary IDs. |
+
+## Problem Definition
+
+| Key | Type | Default | Required | Accepted values / notes |
+| --- | --- | --- | --- | --- |
+| `model` | string | `ModelD` | Yes | `ModelC`, `ModelD`, `ModelW`. |
+| `modelfile` | string | `pdemodel.txt` | Yes | File path relative to `datapath` or working directory. |
+| `meshfile` | string | `mesh.bin` | Yes | Binary mesh file read by preprocessing. |
+| `discretization` | string | `ldg` | Yes | `ldg`, `LDG`, `hdg`, `HDG`; sets `hybrid`. |
+| `platform` | string | `cpu` | Yes | `cpu` or `gpu`; actual backend also depends on linked executable. |
+| `modelnumber` | int | `0` | No | Positive values suffix `datain`/`dataout` directories. |
+| `builtinmodelID` | int | unset | No | Built-in provider dispatch ID where supported. |
+| `runmode` | int | `0` | No | Runtime mode selector used by solver paths. |
+| `debugmode` | int | `0` | No | `1` prints parsed parameters. |
+| `linearproblem` | int | `0` | No | Marks linear problem paths where supported. |
+| `subproblem` | int | `0` | No | Subproblem selector used by coupled workflows. |
+
+## Paths and Generated Data
+
+| Key | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `exasimpath` | string | auto | No | Source/install root used by Text2Code for runtime data discovery. |
+| `datapath` | string | path of `pdeapp.txt` or cwd | No | Base directory for `datain/` and `dataout/`. |
+| `xdgfile` | string | empty | No | Optional coordinates/DG nodes input file. |
+| `udgfile` | string | empty | No | Optional initial `udg` input file. |
+| `vdgfile` | string | empty | No | Optional external/other-DG field input file. |
+| `wdgfile` | string | empty | No | Optional auxiliary `w` field input file. |
+| `uhatfile` | string | empty | No | Optional HDG trace input file. |
+| `partitionfile` | string | empty | No | Optional partition input. |
+| `gendatain` | int | `1` | No | Write backend binary input bundle. |
+| `gencode` | int | `1` | No | Generate C++ model code. |
+| `writemeshsol` | int | `1` | No | Write mesh and solution binary data. |
+
+## Mesh and Dimensions
+
+| Key | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `ncu` | int | `1` | No | Number of primary solution components. |
+| `ncv` | int | `0` | No | Number of external/other-DG components in text parser naming. |
+| `ncw` | int | `0` | No | Number of auxiliary `w` components. |
+| `nsca` | int | `0` | No | Number of scalar visualization fields. |
+| `nvec` | int | `0` | No | Number of vector visualization fields. |
+| `nten` | int | `0` | No | Number of tensor visualization fields. |
+| `nsurf` | int | `0` | No | Surface output count. |
+| `nvqoi` | int | `0` | No | Volume QoI count. |
+| `neb` | int | `4096` | No | Element block size for batched kernels. |
+| `nfb` | int | `8192` | No | Face block size for batched kernels. |
+| `nodetype` | int | `1` | No | Node distribution selector. |
+
+Some dimensions such as `nd`, `nc`, `ncq`, `ncx`, and element counts are
+derived from mesh/model preprocessing rather than typically written by hand in
+`pdeapp.txt`.
+
+## Discretization and Time Integration
+
+| Key | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `porder` | int | `1` | Yes | Polynomial order. |
+| `pgauss` | int | `2` | Yes | Quadrature order/degree. |
+| `temporalscheme` | int | `0` | No | Temporal scheme selector. |
+| `torder` | int | `1` | No | Time-integration order. |
+| `nstage` | int | `1` | No | Number of stages. |
+| `time` | float | `0.0` | No | Initial time; write with decimal. |
+| `dt` | list(float) | empty | No | Time-step sequence; first positive value sets `tdep=1`. |
+| `tdep` | int | `0` | No | Time-dependent flag; also inferred from `dt`. |
+| `wave` | int | `0` | No | Wave-model flag used by ModelW-style paths. |
+
+## Solver Configuration
+
+| Key | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `nonlinearsolver` | int | `0` | No | Nonlinear solver selector. |
+| `NewtonIter` | int | `20` | No | Maximum Newton iterations. |
+| `NewtonTol` | float | `1e-6` | No | Newton convergence tolerance. |
+| `NLparam` | float | `0.0` | No | Nonlinear solver parameter. |
+| `NLMatrixType` | int | `0` | No | Nonlinear matrix selector. |
+| `linearsolver` | int | `0` | No | Linear solver selector. |
+| `GMRESiter` | int | `200` | No | Maximum GMRES iterations. |
+| `GMRESrestart` | int | `25` | No | GMRES restart length in Text2Code defaults. |
+| `GMRESortho` | int | `0` | No | Orthogonalization selector. |
+| `GMREStol` | float | `1e-3` | No | Linear solver tolerance. |
+| `preconditioner` | int | `0` | No | Preconditioner selector in Text2Code defaults. |
+| `precMatrixType` | int | `0` | No | Preconditioner matrix type selector. |
+| `ppdegree` | int | `0` | No | Polynomial-preconditioner degree. |
+| `RBdim` | int | `5` | No | Reduced-basis preconditioner dimension. |
+| `matvecorder` | int | `1` | No | Matrix-vector approximation order. |
+| `matvectol` | float | `1e-3` | No | Matrix-vector finite-difference tolerance. |
+
+Frontend defaults can differ from Text2Code defaults. For example, MATLAB and
+Python currently initialize `GMRESrestart = 100`, `preconditioner = 1`, and
+`RBdim = 0`.
+
+## Physics Parameters and Sweeps
+
+| Key | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `physicsparam` | list(float) | empty | Yes | Runtime physics parameter vector `mu`. |
+| `physicsparamcases` | matrix(float) | empty | No | Standalone Text2Code sweep cases; each row has length `numel(physicsparam)`. |
+| `physicsparamwarmstart` | int | `0` | No | `1` reuses previous case solution during standalone sweeps. |
+| `externalparam` | list(float) | empty | No | Extra model parameters serialized separately from `physicsparam`. |
+| `tau` | list(float) | empty | Yes | Stabilization parameters. |
+| `uinf` | frontend field | frontend default | No | Frontend free-stream/reference values; not a Text2Code required key. |
+
+Example:
 
 ```text
-physicsparam = [1.0, 0.0];
-physicsparamcases = [[0.5, 0.0], [1.0, 1.0], [2.0, 0.0]];
+physicsparam = [1.4, 0.72, 1000.0, 0.3];
+physicsparamcases = [
+  [1.4, 0.72, 500.0, 0.3],
+  [1.4, 0.72, 1000.0, 0.3],
+  [1.4, 0.72, 1500.0, 0.3]
+];
 physicsparamwarmstart = 1;
 ```
 
-or semicolon-separated rows:
+See [Parameter sweeps](parameter-sweeps.md) for output layout and frontend
+syntax.
+
+## Boundary and Interface Configuration
+
+| Key | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `boundaryconditions` | list(int) | empty | Yes | Boundary condition code for each boundary expression. |
+| `boundaryexpressions` | list(string) | empty | Yes | Geometry predicates evaluated on mesh faces. |
+| `curvedboundaries` | list(int) | empty | No | Curved-boundary flags. |
+| `curvedboundaryexprs` | list(string) | empty | No | Expressions for curved-boundary projection. |
+| `periodicboundaries1` | list(int) | empty | No | First periodic boundary ID set. |
+| `periodicexprs1` | list(string) | empty | No | Matching coordinate expressions for first periodic set. |
+| `periodicboundaries2` | list(int) | empty | No | Second periodic boundary ID set. |
+| `periodicexprs2` | list(string) | empty | No | Matching coordinate expressions for second periodic set. |
+| `interfaceconditions` | list(int) | empty | No | Coupled-interface condition codes. |
+| `interfacefluxmap` | list(int) | empty | No | Interface flux component map. |
+| `cartgridpart` | list(int) | empty | No | Cartesian grid partition specification. |
+| `extFhat` | int | `0` | No | Enable external interface flux hook. |
+| `extUhat` | int | `0` | No | Enable external interface trace hook. |
+| `extStab` | int | `0` | No | Enable external stabilization hook. |
+
+See [Boundary conditions](boundary-conditions.md) for model-function
+interfaces.
+
+## Stabilization, Closure, and AV
+
+| Key | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `convStabMethod` | int | `0` | No | Convective stabilization selector. |
+| `diffStabMethod` | int | `0` | No | Diffusive stabilization selector. |
+| `viscosityModel` | int | `0` | No | Viscosity-model selector. |
+| `SGSmodel` | int | `0` | No | Sub-grid-scale model selector. |
+| `rotatingFrame` | int | `0` | No | Rotating-frame flag. |
+| `ALE` | int | `0` | No | Arbitrary Lagrangian-Eulerian flag. |
+| `AV` | int | `0` | No | Artificial-viscosity flag. |
+| `AVdistfunction` | int | `0` | No | AV distance-function flag. |
+| `AVsmoothingIter` | int | `2` | No | Number of AV smoothing iterations. |
+| `frozenAVflag` | int | `1` | No | Freeze AV field where supported. |
+| `avparam1` | list(float) | empty | No | Artificial-viscosity parameter vector. |
+| `avparam2` | list(float) | empty | No | Additional artificial-viscosity parameter vector. |
+
+## Synthetic Turbulence and DAE
+
+| Key | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `stgNmode` | int | `0` | No | Synthetic turbulence mode count. |
+| `stgib` | list(float) | empty | No | Synthetic turbulence boundary data. |
+| `stgdata` | list(float) | empty | No | Synthetic turbulence mode data. |
+| `stgparam` | list(float) | empty | No | Synthetic turbulence parameters. |
+| `dae_steps` | int | `0` | No | Number of DAE substeps. |
+| `dae_dt` | list(float) | empty | No | DAE pseudo-time steps. |
+| `dae_alpha` | float | `1.0` | No | DAE coefficient. |
+| `dae_beta` | float | `0.0` | No | DAE coefficient. |
+| `dae_gamma` | float | `0.0` | No | DAE coefficient. |
+| `dae_epsilon` | float | `0.0` | No | DAE coefficient. |
+
+## Output and Postprocessing
+
+| Key | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `saveParaview` | int | `0` | No | Enables VTK/ParaView output when visualization fields exist. |
+| `saveSolFreq` | int | `1` | No | Saved solution frequency. |
+| `saveSolOpt` | int | `1` | No | Saved solution option; implementation distinguishes compact/full solution storage. |
+| `timestepOffset` | int | `0` | No | Offset used in time-dependent/restart output naming. |
+| `saveSolBouFreq` | int | `0` | No | Boundary solution save frequency. |
+| `ibs` | int | `0` | No | Boundary ID for boundary-solution output. |
+| `saveResNorm` | int | `0` | No | Save residual norm history. |
+| `compudgavg` | int | `0` | No | Compute averaged solution field where supported. |
+
+Frontend-only execution field:
+
+| Field | Type | Default | Scope | Notes |
+| --- | --- | --- | --- | --- |
+| `executionmode` | int | `0` | Frontend-only | `0` runs solve mode; `1` launches standalone postprocess mode. Not parsed from `pdeapp.txt`. |
+
+See [Postprocessing](postprocessing.md).
+
+## Minimal `pdeapp.txt`
 
 ```text
-physicsparamcases = [0.5, 0.0; 1.0, 1.0; 2.0, 0.0];
+model = "ModelD";
+modelfile = "pdemodel.txt";
+meshfile = "mesh.bin";
+discretization = "hdg";
+platform = "cpu";
+mpiprocs = 1;
+porder = 2;
+pgauss = 4;
+physicsparam = [1.0];
+tau = [1.0];
+boundaryconditions = [1, 2, 3, 4];
+boundaryexpressions = ["x < 1e-8", "x > 1-1e-8", "y < 1e-8", "y > 1-1e-8"];
 ```
 
-Cold-start standalone sweep mode rebuilds each case after replacing
-`physicsparam`, so `initu`, `initq`/`initudg`, `initv`, and `initw` can depend
-on the swept parameter values. Warm-start standalone sweep mode builds the
-first case only; later cases reuse the previous converged solution and only
-refresh `app.physicsparam`.
+## Complete-Style Example Fragment
 
-Existing single-case apps do not need to set `physicsparamcases`.
-
-The MATLAB/Python/Julia frontends use `physicsparamsweep` rather than
-`physicsparamcases`. See the [parameter sweep guide](../usage-modes/parameter-sweeps.md)
-for frontend syntax, `exportapp` behavior, restart guidance, output comparison,
-and current limitations.
-
-## Stabilization & closure models
-
-| Key | Type | Default | Meaning |
-|---|---|---|---|
-| `convStabMethod` / `diffStabMethod` | int | `0` | Convective / diffusive stabilization method. |
-| `viscosityModel` / `SGSmodel` | int | `0` | Viscosity / sub-grid-scale model. |
-| `rotatingFrame` / `ALE` | int | `0` | Rotating-frame / ALE flags. |
-| `AV` | int | `0` | Artificial-viscosity flag. |
-| `AVdistfunction` / `AVsmoothingIter` / `frozenAVflag` | int | `0` / `2` / `1` | AV distance function / smoothing iters / freeze flag. |
-| `avparam1` / `avparam2` | list(float) | — | AV parameter sets. |
-
-## Boundary / interface conditions
-
-| Key | Type | Default | Meaning |
-|---|---|---|---|
-| `boundaryconditions` | list(int) | — | BC type per boundary. **Required.** |
-| `boundaryexpressions` | list(string) | — | Geometric predicate selecting each boundary. **Required.** |
-| `curvedboundaries` / `curvedboundaryexprs` | list(int) / list(string) | — | Curved-boundary flag / defining expression per boundary. |
-| `periodicboundaries1` / `periodicexprs1` | list(int) / list(string) | — | First periodic set: boundary IDs / matching coordinate expressions. |
-| `periodicboundaries2` / `periodicexprs2` | list(int) / list(string) | — | Second periodic set. |
-| `interfaceconditions` | list(int) | — | Interface-condition codes (drives coupled-interface extraction). |
-| `interfacefluxmap` | list(int) | — | Flux mapping across a coupled interface. |
-| `cartgridpart` | list(int) | — | Cartesian grid partitioning spec. |
-
-## Coupling / external-flux hooks
-
-| Key | Type | Default | Meaning |
-|---|---|---|---|
-| `extFhat` / `extUhat` / `extStab` | int | `0` | Use external numerical flux $\hat F$ / trace $\hat u$ / stabilization (see [Driving the solver](../driving-the-solver.md)). |
-| `compudgavg` | int | `0` | Compute time-averaged UDG. |
-| `vindx` | list(float) | — | Variable-index map. |
-
-## DAE / pseudo-transient
-
-| Key | Type | Default | Meaning |
-|---|---|---|---|
-| `dae_steps` | int | `0` | Number of DAE sub-steps. |
-| `dae_dt` | list(float) | — | DAE pseudo-time-step sequence. |
-| `dae_alpha` / `dae_beta` / `dae_gamma` / `dae_epsilon` | float | `1.0` / `0.0` / `0.0` / `0.0` | DAE continuation coefficients. |
-
-## Synthetic-turbulence generation (STG)
-
-| Key | Type | Default | Meaning |
-|---|---|---|---|
-| `stgNmode` | int | `0` | Number of STG modes. |
-| `stgib` / `stgdata` / `stgparam` | list(float) | — | STG inflow-boundary data / mode data / parameters. |
-
-## I/O control
-
-| Key | Type | Default | Meaning |
-|---|---|---|---|
-| `saveParaview` | int | `0` | Enable backend ParaView/VTK output when visualization callbacks are present (`nsca+nvec+nten>0`). |
-| `saveSolFreq` / `saveSolOpt` | int | `1` | Solution save frequency / option. |
-| `saveSolBouFreq` | int | `0` | Boundary-solution save frequency. |
-| `saveResNorm` | int | `0` | Save residual-norm history. |
-| `timestepOffset` | int | `0` | Starting time-step index offset. |
-| `ibs` | int | `0` | Boundary-solution save selector. |
-
-See the [postprocessing guide](../usage-modes/postprocessing.md) for the
-resulting `dataout/` files, explicit `postprocess` replay mode, MPI VTK layout,
-and frontend visualization helpers.
-
-!!! note "`pde.executionmode` is frontend-only"
-    MATLAB/Python/Julia frontends expose `pde.executionmode` /
-    `pde['executionmode']` to decide whether `runcode(...)` launches
-    `exasimapp` in solve mode (`0`) or with the `postprocess` subcommand (`1`).
-    It is not parsed from `pdeapp.txt` and is not serialized into `app.bin`.
-    Text and C++ workflows should use the explicit command-line form described
-    in [Postprocessing](../usage-modes/postprocessing.md#explicit-standalone-postprocess-mode).
-
-## Relation to theory
-
-Several keys set quantities in the [discretization theory](../theory/index.md):
-
-- `physicsparam` → the PDE coefficients $\mu$ in the [flux/source terms](../theory/ldg-formulation.md).
-- `tau` → the [HDG/LDG stabilization parameter](../theory/ldg-formulation.md) in
-  the numerical flux $\hat f = f + \tau\,(u - \hat u)$.
-- `porder` / `pgauss` → the polynomial basis order and quadrature degree of the
-  [DG approximation](../theory/index.md).
-- `torder` / `nstage` → the order and stage count of the DIRK time integration.
-- `GMRESrestart`, `GMREStol`, `preconditioner`, `ppdegree`, and `RBdim` →
-  Krylov, preconditioning, polynomial-preconditioner, and reduced-basis controls
-  described in [Linear solvers](../theory/linear-solvers.md) and
-  [Preconditioning](../theory/preconditioning.md).
+```text
+model = "ModelD";
+modelfile = "pdemodel.txt";
+meshfile = "mesh.bin";
+discretization = "hdg";
+platform = "cpu";
+mpiprocs = 4;
+porder = 3;
+pgauss = 6;
+physicsparam = [1.4, 0.72, 5000.0, 0.3];
+tau = [1.0];
+dt = [repeat(0.001, 100)];
+saveSolFreq = 10;
+saveParaview = 1;
+nsca = 2;
+nvec = 1;
+boundaryconditions = [1, 2, 3, 4];
+boundaryexpressions = ["x < -10", "x > 20", "wall_distance < 1e-8", "farfield > 0"];
+```

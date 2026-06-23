@@ -19,9 +19,11 @@ Recommended learning path:
 
 1. Complete this Quick Start.
 2. Read [Application Modes](../usage-modes/index.md).
-3. Choose either [Frontends](../frontends/index.md) or
+3. Use [Using AI Tools](../using-ai-tools/index.md) if you want help drafting
+   examples, meshes, models, debugging prompts, or validation plans.
+4. Choose either [Frontends](../frontends/index.md) or
    [Text2Code Applications](../text2code-applications/index.md).
-4. Use [Postprocessing](../usage-modes/postprocessing.md) and
+5. Use [Postprocessing](../usage-modes/postprocessing.md) and
    [Parameter Sweeps](../usage-modes/parameter-sweeps.md) once the first solve
    works.
 
@@ -322,6 +324,7 @@ Start with [Postprocessing](../usage-modes/postprocessing.md).
 | Goal | Go to |
 | --- | --- |
 | Pick the right run path | [Application Modes](../usage-modes/index.md) |
+| Use AI assistants effectively | [Using AI Tools](../using-ai-tools/index.md) |
 | Use MATLAB/Python/Julia | [Frontends](../frontends/index.md) |
 | Run built-in applications | [Built-in library](../usage-modes/builtin.md) |
 | Generate apps from text files | [Text2Code Applications](../text2code-applications/index.md) |
