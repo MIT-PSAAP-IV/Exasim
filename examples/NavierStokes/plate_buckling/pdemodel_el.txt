@@ -1,0 +1,70 @@
+scalars t
+
+vectors x(2), uq(6), v(0), w(0), uhat(2), uext(2), n(2), tau(1), mu(5), eta(0)
+
+jacobian uq, w, uhat
+
+hessian
+
+batch x, uq, v, w, uhat, n, uext
+
+outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Fext, Initu
+
+function Flux(x, uq, v, w, eta, mu, t)
+  output_size(f) = 4;
+  mu_lam = mu[0];
+  lambda = mu[1];
+  u1_x = uq[2];
+  u2_x = uq[3];
+  u1_y = uq[4];
+  u2_y = uq[5];
+  f[0] = (2*mu_lam+lambda)*u1_x + lambda*u2_y;
+  f[1] = mu_lam*(u1_y + u2_x);
+  f[2] = mu_lam*(u2_x + u1_y);
+  f[3] = (2*mu_lam+lambda)*u2_y + lambda*u1_x;
+end
+
+function Source(x, uq, v, w, eta, mu, t)
+  output_size(s) = 2;
+  zeros(s);
+end
+
+function Tdfunc(x, uq, v, w, eta, mu, t)
+  output_size(m) = 2;
+  ones(m);
+end
+
+function Fbou(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(fb) = 4;
+  zeros(fb);
+end
+
+function Ubou(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(ub) = 4;
+  zeros(ub);
+end
+
+function FbouHdg(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(fb) = 4;
+  bump_amp = mu[2];
+  bump_loc = mu[3];
+  bump_width = mu[4];
+  % BC type 1: fixed — zero displacement
+  fb[0] = tau[0]*(0.0 - uhat[0]);
+  fb[1] = tau[0]*(0.0 - uhat[1]);
+  % BC type 2: wall — Gaussian displacement along outward normal
+  u_bump = bump_amp*exp(-pow(x[0]-bump_loc,2)/(2*bump_width*bump_width));
+  fb[2] = tau[0]*(u_bump*n[0] - uhat[0]);
+  fb[3] = tau[0]*(u_bump*n[1] - uhat[1]);
+end
+
+function Fext(x, uq, v, w, uhat, n, uext, tau, eta, mu, t)
+  output_size(fb) = 2;
+  fb[0] = tau[0]*(uext[0] - uhat[0]);
+  fb[1] = tau[0]*(uext[1] - uhat[1]);
+end
+
+function Initu(x, eta, mu)
+  output_size(ui) = 2;
+  zeros(ui);
+end
