@@ -128,6 +128,10 @@ public:
     int RunSteady(const int modelnumber);
     int RunSolveProblemOrPostprocess();
     int Postprocess();
+    // Write a single ParaView vis frame for the given model at step `step` (1-based),
+    // naming it outvis<modifier>_<step>.vtu. Used by partitioned-coupling drivers to
+    // emit a per-outer-step fluid series during a transient solve. No-op if savemode==0.
+    int SaveParaviewStep(const int modelnumber, const int step, const std::string& modifier);
     int Solve();
     int Solve(const int modelnumber);
     int RunPhysicsParamSweep();

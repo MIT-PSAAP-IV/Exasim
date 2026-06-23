@@ -547,6 +547,11 @@ int ExasimSolver::ParseInputs(int argc, char** argv)
     filein_.push_back(pde.datainpath + "/");
     fileout_.push_back(make_path(pde.dataoutpath, "out"));
     exasimpath_ = pde.exasimpath;
+    // Propagate visualization field counts from the pdeapp (nsca/nvec/nten keys) so
+    // external/builtin-library models can write ParaView vis inline during the solve.
+    // CDiscretization overrides common.nsca only when nsca>0; without this the external
+    // model's app.ndims[14..16] are 0 and savemode stays 0 -> no outvis is written.
+    nsca_ = pde.nsca; nvec_ = pde.nvec; nten_ = pde.nten;
     if (!preserveModelDefinitions)
         builtinmodelID_.assign(1, pde.builtinmodelID);
     if (mpirank_ == 0)
@@ -1336,6 +1341,19 @@ int ExasimSolver::Postprocess()
         }        
     }
 
+    return 0;
+}
+
+int ExasimSolver::SaveParaviewStep(const int modelnumber, const int step, const std::string& modifier)
+{
+    if (!initialized_ || modelnumber < 0 || modelnumber >= nummodels_)
+        return 1;
+    CSolution& m = *models_[modelnumber];
+    // SaveParaview names the file outvis<modifier>_<currentstep+timestepOffset+1>; set
+    // currentstep = step-1 so a 1-based step maps to outvis<modifier>_<step>.vtu.
+    m.disc.common.currentstep = step - 1;
+    if (m.vis.savemode > 0)
+        m.SaveParaview(backend_, modifier, true);
     return 0;
 }
 
