@@ -120,52 +120,52 @@ static vector<CSolution*> ModelPointers(vector<unique_ptr<CSolution>>& models)
 static bool IsValidModelABI(const ExasimDriverABI& abi)
 {
     const std::uint32_t required_struct_size =
-        static_cast<std::uint32_t>(offsetof(ExasimDriverABI, HdgFextonly) +
-                                  sizeof(abi.HdgFextonly));
+        static_cast<std::uint32_t>(offsetof(ExasimDriverABI, hdgjac.HdgFextonly) +
+                                  sizeof(abi.hdgjac.HdgFextonly));
 
     return abi.abi_version == kExasimDriverABIVersion &&
            abi.struct_size >= required_struct_size &&
-           abi.KokkosFlux &&
-           abi.KokkosSource &&
-           abi.KokkosSourcew &&
-           abi.KokkosTdfunc &&
-           abi.KokkosAvfield &&
-           abi.KokkosEoS &&
-           abi.KokkosEoSdu &&
-           abi.KokkosEoSdw &&
-           abi.KokkosFbou &&
-           abi.KokkosUbou &&
-           abi.KokkosFhat &&
-           abi.KokkosUhat &&
-           abi.KokkosStab &&
-           abi.KokkosOutput &&
-           abi.KokkosMonitor &&
-           abi.KokkosVisScalars &&
-           abi.KokkosVisVectors &&
-           abi.KokkosVisTensors &&
-           abi.KokkosQoIvolume &&
-           abi.KokkosQoIboundary &&
-           abi.KokkosInitu &&
-           abi.KokkosInitq &&
-           abi.KokkosInitudg &&
-           abi.KokkosInitwdg &&
-           abi.KokkosInitodg &&
-           abi.cpuInitu &&
-           abi.cpuInitq &&
-           abi.cpuInitudg &&
-           abi.cpuInitwdg &&
-           abi.cpuInitodg &&
-           abi.HdgFlux &&
-           abi.HdgSource &&
-           abi.HdgSourcew &&
-           abi.HdgSourcewonly &&
-           abi.HdgEoS &&
-           abi.HdgFbou &&
-           abi.HdgFbouonly &&
-           abi.HdgFint &&
-           abi.HdgFintonly &&
-           abi.HdgFext &&
-           abi.HdgFextonly;
+           abi.volume.KokkosFlux &&
+           abi.volume.KokkosSource &&
+           abi.volume.KokkosSourcew &&
+           abi.volume.KokkosTdfunc &&
+           abi.volume.KokkosAvfield &&
+           abi.eos.KokkosEoS &&
+           abi.eos.KokkosEoSdu &&
+           abi.eos.KokkosEoSdw &&
+           abi.boundary.KokkosFbou &&
+           abi.boundary.KokkosUbou &&
+           abi.iface.KokkosFhat &&
+           abi.iface.KokkosUhat &&
+           abi.iface.KokkosStab &&
+           abi.output.KokkosOutput &&
+           abi.output.KokkosMonitor &&
+           abi.output.KokkosVisScalars &&
+           abi.output.KokkosVisVectors &&
+           abi.output.KokkosVisTensors &&
+           abi.qoi.KokkosQoIvolume &&
+           abi.qoi.KokkosQoIboundary &&
+           abi.init.KokkosInitu &&
+           abi.init.KokkosInitq &&
+           abi.init.KokkosInitudg &&
+           abi.init.KokkosInitwdg &&
+           abi.init.KokkosInitodg &&
+           abi.init.cpuInitu &&
+           abi.init.cpuInitq &&
+           abi.init.cpuInitudg &&
+           abi.init.cpuInitwdg &&
+           abi.init.cpuInitodg &&
+           abi.hdgjac.HdgFlux &&
+           abi.hdgjac.HdgSource &&
+           abi.hdgjac.HdgSourcew &&
+           abi.hdgjac.HdgSourcewonly &&
+           abi.hdgjac.HdgEoS &&
+           abi.hdgjac.HdgFbou &&
+           abi.hdgjac.HdgFbouonly &&
+           abi.hdgjac.HdgFint &&
+           abi.hdgjac.HdgFintonly &&
+           abi.hdgjac.HdgFext &&
+           abi.hdgjac.HdgFextonly;
 }
 
 static int ParseIntegerArgument(const char* text, const char* name, const int rank, bool& ok)

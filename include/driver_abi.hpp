@@ -20,7 +20,7 @@ using dstype = float;
 using dstype = double;
 #endif
 
-inline constexpr std::uint32_t kExasimDriverABIVersion = 1;
+inline constexpr std::uint32_t kExasimDriverABIVersion = 2;  // v2: kernels grouped into per-concern sub-structs
 
 struct ExasimDriverABI {
     using KokkosElementFn =
@@ -117,51 +117,70 @@ struct ExasimDriverABI {
     std::uint32_t abi_version = 0;
     std::uint32_t struct_size = 0;
 
-    KokkosElementFn KokkosFlux = nullptr;
-    KokkosElementFn KokkosSource = nullptr;
-    KokkosGlobalElementFn KokkosSourcew = nullptr;
-    KokkosElementFn KokkosTdfunc = nullptr;
-    KokkosGlobalElementFn KokkosAvfield = nullptr;
-    KokkosGlobalElementFn KokkosEoS = nullptr;
-    KokkosGlobalElementFn KokkosEoSdu = nullptr;
-    KokkosGlobalElementFn KokkosEoSdw = nullptr;
-    KokkosBoundaryFn KokkosFbou = nullptr;
-    KokkosBoundaryFn KokkosUbou = nullptr;
-    KokkosBoundaryJacFn KokkosFbouJac = nullptr;
-    KokkosBoundaryJacFn KokkosUbouJac = nullptr;
-    KokkosFaceCoupledFn KokkosFhat = nullptr;
-    KokkosFaceCoupledFn KokkosUhat = nullptr;
-    KokkosFaceCoupledFn KokkosStab = nullptr;
-    KokkosGlobalElementFn KokkosOutput = nullptr;
-    KokkosGlobalElementFn KokkosMonitor = nullptr;
-    KokkosElementFn KokkosVisScalars = nullptr;
-    KokkosElementFn KokkosVisVectors = nullptr;
-    KokkosElementFn KokkosVisTensors = nullptr;
-    KokkosElementFn KokkosQoIvolume = nullptr;
-    KokkosBoundaryFn KokkosQoIboundary = nullptr;
-
-    KokkosInitFn KokkosInitu = nullptr;
-    KokkosInitFn KokkosInitq = nullptr;
-    KokkosInitFn KokkosInitudg = nullptr;
-    KokkosInitFn KokkosInitwdg = nullptr;
-    KokkosInitFn KokkosInitodg = nullptr;
-    CpuInitFn cpuInitu = nullptr;
-    CpuInitFn cpuInitq = nullptr;
-    CpuInitFn cpuInitudg = nullptr;
-    CpuInitFn cpuInitwdg = nullptr;
-    CpuInitFn cpuInitodg = nullptr;
-
-    HdgElementJacFn HdgFlux = nullptr;
-    HdgElementJacFn HdgSource = nullptr;
-    HdgElementJacFn HdgSourcew = nullptr;
-    HdgSourcewOnlyFn HdgSourcewonly = nullptr;
-    HdgElementJacFn HdgEoS = nullptr;
-    HdgBoundaryJacFn HdgFbou = nullptr;
-    HdgBoundaryStateFn HdgFbouonly = nullptr;
-    HdgBoundaryJacFn HdgFint = nullptr;
-    HdgBoundaryStateFn HdgFintonly = nullptr;
-    HdgBoundaryExternalJacFn HdgFext = nullptr;
-    HdgBoundaryExternalStateFn HdgFextonly = nullptr;
+    // The model's kernel dispatch table, grouped by concern to mirror the compile-time model
+    // decomposition (the ModelDefaults mixins / is_*_model_v traits). Each sub-struct is a
+    // self-contained, COPYABLE unit: a consumer can compose a model from sub-parts of different
+    // providers (e.g. one model's `volume` physics with another's `boundary`), as long as the
+    // parts share the same dimensional contract (nc/ncu/nd, which come from app.bin). (ABI v2.)
+    struct VolumeDriverABI {        // flux/source/sourcew/tdfunc/avfield (the volume terms)
+        KokkosElementFn       KokkosFlux    = nullptr;
+        KokkosElementFn       KokkosSource  = nullptr;
+        KokkosGlobalElementFn KokkosSourcew = nullptr;
+        KokkosElementFn       KokkosTdfunc  = nullptr;
+        KokkosGlobalElementFn KokkosAvfield = nullptr;
+    } volume;
+    struct EoSDriverABI {           // equation of state
+        KokkosGlobalElementFn KokkosEoS   = nullptr;
+        KokkosGlobalElementFn KokkosEoSdu = nullptr;
+        KokkosGlobalElementFn KokkosEoSdw = nullptr;
+    } eos;
+    struct BoundaryDriverABI {      // boundary terms + LDG jacobians
+        KokkosBoundaryFn    KokkosFbou    = nullptr;
+        KokkosBoundaryFn    KokkosUbou    = nullptr;
+        KokkosBoundaryJacFn KokkosFbouJac = nullptr;
+        KokkosBoundaryJacFn KokkosUbouJac = nullptr;
+    } boundary;
+    struct InterfaceDriverABI {     // fhat/uhat/stab
+        KokkosFaceCoupledFn KokkosFhat = nullptr;
+        KokkosFaceCoupledFn KokkosUhat = nullptr;
+        KokkosFaceCoupledFn KokkosStab = nullptr;
+    } iface;
+    struct OutputDriverABI {        // output/monitor + visualization
+        KokkosGlobalElementFn KokkosOutput     = nullptr;
+        KokkosGlobalElementFn KokkosMonitor    = nullptr;
+        KokkosElementFn       KokkosVisScalars = nullptr;
+        KokkosElementFn       KokkosVisVectors = nullptr;
+        KokkosElementFn       KokkosVisTensors = nullptr;
+    } output;
+    struct QoIDriverABI {           // quantities of interest
+        KokkosElementFn  KokkosQoIvolume   = nullptr;
+        KokkosBoundaryFn KokkosQoIboundary = nullptr;
+    } qoi;
+    struct InitDriverABI {          // initial conditions (device + host)
+        KokkosInitFn KokkosInitu   = nullptr;
+        KokkosInitFn KokkosInitq   = nullptr;
+        KokkosInitFn KokkosInitudg = nullptr;
+        KokkosInitFn KokkosInitwdg = nullptr;
+        KokkosInitFn KokkosInitodg = nullptr;
+        CpuInitFn    cpuInitu      = nullptr;
+        CpuInitFn    cpuInitq      = nullptr;
+        CpuInitFn    cpuInitudg    = nullptr;
+        CpuInitFn    cpuInitwdg    = nullptr;
+        CpuInitFn    cpuInitodg    = nullptr;
+    } init;
+    struct HdgJacDriverABI {        // HDG pointwise jacobians
+        HdgElementJacFn            HdgFlux        = nullptr;
+        HdgElementJacFn            HdgSource      = nullptr;
+        HdgElementJacFn            HdgSourcew     = nullptr;
+        HdgSourcewOnlyFn           HdgSourcewonly = nullptr;
+        HdgElementJacFn            HdgEoS         = nullptr;
+        HdgBoundaryJacFn           HdgFbou        = nullptr;
+        HdgBoundaryStateFn         HdgFbouonly    = nullptr;
+        HdgBoundaryJacFn           HdgFint        = nullptr;
+        HdgBoundaryStateFn         HdgFintonly    = nullptr;
+        HdgBoundaryExternalJacFn   HdgFext        = nullptr;
+        HdgBoundaryExternalStateFn HdgFextonly    = nullptr;
+    } hdgjac;
 };
 
 #endif
