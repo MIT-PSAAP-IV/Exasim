@@ -547,11 +547,14 @@ int ExasimSolver::ParseInputs(int argc, char** argv)
     filein_.push_back(pde.datainpath + "/");
     fileout_.push_back(make_path(pde.dataoutpath, "out"));
     exasimpath_ = pde.exasimpath;
-    // Propagate visualization field counts from the pdeapp (nsca/nvec/nten keys) so
-    // external/builtin-library models can write ParaView vis inline during the solve.
-    // CDiscretization overrides common.nsca only when nsca>0; without this the external
-    // model's app.ndims[14..16] are 0 and savemode stays 0 -> no outvis is written.
+    // Propagate visualization field counts and the saveParaview flag from the pdeapp
+    // (nsca/nvec/nten/saveParaview keys) so external/builtin-library models can write
+    // ParaView vis inline during the solve. External models do not bake these into datain
+    // (app.ndims[14..16]=0, app.flag[17]=0), so without this savemode stays 0 and no outvis
+    // is written. CDiscretization applies these to disc.common before CVisualization (which
+    // computes savemode) is constructed.
     nsca_ = pde.nsca; nvec_ = pde.nvec; nten_ = pde.nten;
+    saveParaview_ = pde.saveParaview;
     if (!preserveModelDefinitions)
         builtinmodelID_.assign(1, pde.builtinmodelID);
     if (mpirank_ == 0)
@@ -660,6 +663,7 @@ int ExasimSolver::ParsePostprocessInputs(int argc, char** argv)
     nten_ = 0;
     nsurf_ = 0;
     nvqoi_ = 0;
+    saveParaview_ = 0;
     const bool preserveModelDefinitions =
         !builtinmodelID_.empty() || !model_abis_.empty();
 
@@ -799,7 +803,7 @@ int ExasimSolver::BuildModels()
                 filein_[i], fileout_[i], exasimpath_, mpiprocs_, mpirank_,
                 fileoffset, gpuid, backend_, builtinmodelID_[modelDefinition],
                 model_abis_[modelDefinition], nsca_, nvec_, nten_, nsurf_, nvqoi_, executionMode_,
-                physicsparamOverride));
+                physicsparamOverride, saveParaview_));
         }
         else if (mpiprocs0_ > 0) {
             if (mpirank_ < mpiprocs0_) {
@@ -807,7 +811,7 @@ int ExasimSolver::BuildModels()
                     filein_[0], fileout_[0], exasimpath_, mpiprocs_, mpirank_,
                     fileoffset, gpuid, backend_, builtinmodelID_[modelDefinition],
                     model_abis_[modelDefinition], nsca_, nvec_, nten_, nsurf_, nvqoi_, executionMode_,
-                    physicsparamOverride));
+                    physicsparamOverride, saveParaview_));
             }
             else {
                 fileoffset = mpiprocs0_;
@@ -817,7 +821,7 @@ int ExasimSolver::BuildModels()
                     filein_[1], fileout_[1], exasimpath_, mpiprocs_, mpirank_,
                     fileoffset, gpuid, backend_, builtinmodelID_[modelDefinition],
                     model_abis_[modelDefinition], nsca_, nvec_, nten_, nsurf_, nvqoi_, executionMode_,
-                    physicsparamOverride));
+                    physicsparamOverride, saveParaview_));
             }
         }
 

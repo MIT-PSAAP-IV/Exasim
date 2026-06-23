@@ -254,7 +254,8 @@ void AllocateLDGBlockJacobianMemory(resstruct& res, commonstruct& common, Int ba
 CDiscretization::CDiscretization(string filein, string fileout, string exasimpath, Int mpiprocs, Int mpirank, 
         Int fileoffset, Int omprank, Int backend, Int builtinmodelID,
         const ExasimDriverABI& abi, Int nsca, Int nvec, Int nten, Int nsurf, Int nvqoi,
-        ExasimExecutionMode mode, const std::vector<dstype>* physicsparamOverride)
+        ExasimExecutionMode mode, const std::vector<dstype>* physicsparamOverride,
+        Int saveParaview)
 {
     driver_abi = abi;
     common.backend = backend;
@@ -328,14 +329,21 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
                 physicsparamOverride);
     }
     common.read_uh = app.read_uh;
-    const bool postprocessOnly = (mode == ExasimExecutionMode::Postprocess);  
-    if (postprocessOnly) {
-        if (nsca > 0) common.nsca = nsca;
-        if (nvec > 0) common.nvec = nvec;
-        if (nten > 0) common.nten = nten;
-        if (nsurf > 0) common.nsurf = nsurf;
-        if (nvqoi > 0) common.nvqoi = nvqoi;
-    }
+    const bool postprocessOnly = (mode == ExasimExecutionMode::Postprocess);
+    // Apply caller-supplied visualization field counts whenever provided (>0). The
+    // postprocess path passes these from CLI args; the solve path passes them from the
+    // pdeapp nsca/nvec/nten keys so external/builtin-library models (gendatain=0, which
+    // do not bake the vis counts into datain) can still write ParaView vis inline.
+    if (nsca > 0) common.nsca = nsca;
+    if (nvec > 0) common.nvec = nvec;
+    if (nten > 0) common.nten = nten;
+    if (nsurf > 0) common.nsurf = nsurf;
+    if (nvqoi > 0) common.nvqoi = nvqoi;
+    // Likewise honor the pdeapp saveParaview key on the solve path (external models do
+    // not bake app.flag[17] into datain). Only force-enable; never disable a datain that
+    // already requested vis.
+    if (!postprocessOnly && saveParaview != 0)
+        common.saveParaview = saveParaview;
 
     // compute the geometry quantities
     if (common.mpiRank==0) printf("start compGeometry... \n");
