@@ -50,6 +50,9 @@ you need exploratory scripting, frontend mesh utilities, or rapid plotting.
   execution modes, sweeps, outputs, and HPC settings.
 - [pdemodel.txt guide](pdemodel.md): how to write symbolic PDE models,
   callbacks, variables, and generated outputs.
+- [Physics Models](../physics-models/index.md): how to choose `ModelC`,
+  `ModelD`, or `ModelW`, and how auxiliary variables, EOS, AV, and coupling map
+  to Text2Code functions.
 - [PDE modeling guide](modeling-guide.md): practical model-building examples.
 - [Application setup guide](application-setup.md): steady, transient, MPI, GPU,
   parameter sweep, restart, and postprocessing configurations.

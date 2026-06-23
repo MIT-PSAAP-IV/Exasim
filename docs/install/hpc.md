@@ -1,9 +1,15 @@
 # HPC builds
 
-On an HPC system the vendored dependencies are built explicitly (system software
-is often too old), then Exasim is configured against them. The procedure is the
-same on every machine; only the modules, GPU architecture, and job scheduler
-change. This page is the shared reference; the per-machine pages give the
+On CPU-only HPC systems, try the [CPU Superbuild](superbuild-cpu.md) first with
+the site compiler and MPI modules loaded. If the Superbuild cannot satisfy site
+requirements, use this manual HPC build chain.
+
+On GPU HPC systems, the dependencies are often built explicitly because system
+software, GPU architecture flags, MPI wrappers, and scheduler environments are
+site-specific. The procedure is the same on every machine; only the modules, GPU
+architecture, and job scheduler change.
+
+This page is the shared manual/HPC reference; the per-machine pages give the
 concrete values:
 
 - [Frontier](frontier.md) — AMD MI250X (`gfx90a`), Slurm
@@ -11,6 +17,9 @@ concrete values:
 - [Generic HPC](generic-hpc.md) — CUDA / HIP / MPI knobs for any cluster
 
 ## Dependency build chain
+
+Use this chain only after deciding not to use the Superbuild, or when a platform
+guide explicitly requires manual dependency builds.
 
 Build these in order into a single install prefix `$EXASIM_PREFIX` (Kokkos is the
 exception — it installs into its own build trees under `deps/kokkos/`):

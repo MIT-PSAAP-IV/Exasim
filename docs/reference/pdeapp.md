@@ -6,7 +6,9 @@ read by text2code (`readpdeapp.cpp`). It is consumed by every
 
 For the *model* definition (the PDE math) see the
 [pdemodel.txt syntax reference](pdemodel.md); for the C++ struct those keys
-ultimately configure, see the [model contract](model-contract.md).
+ultimately configure, see the [model contract](model-contract.md). The
+implemented `ModelC`, `ModelD`, and `ModelW` formulations are documented in
+[Physics Models](../physics-models/index.md).
 
 ## Syntax notes
 
@@ -30,7 +32,7 @@ A default of `—` means the parser sets none (the key is applied only if presen
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `model` | string | `"ModelD"` | Model class selector. **Required.** |
+| `model` | string | `"ModelD"` | Model class selector: `ModelC`, `ModelD`, or `ModelW`. **Required.** |
 | `modelfile` | string | `"pdemodel.txt"` | Path to the symbolic model file. **Required.** |
 | `meshfile` | string | `"mesh.bin"` | Path to the binary mesh. **Required.** |
 | `discretization` | string | `"ldg"` | `ldg`/`LDG` → `hybrid=0`; `hdg`/`HDG` → `hybrid=1`. **Required.** |

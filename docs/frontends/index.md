@@ -50,6 +50,9 @@ files, generated model code, launch commands, and postprocessing helpers.
   solution arrays, residual histories, and their relationships.
 - [Configuration](configuration.md): physics, boundary conditions, solvers,
   time integration, parameter sweeps, and postprocessing flags.
+- [Physics Models](../physics-models/index.md): how `pde.model` selects
+  `ModelC`, `ModelD`, or `ModelW`, and how `w`, `v`, EOS, AV, and coupling fit
+  into the model.
 - [Preprocessing](preprocessing.md): how frontend data become backend input
   files and decomposition metadata.
 - [pdemodel abstraction](pdemodel.md): the callback interface between user
@@ -115,6 +118,8 @@ Every language follows this pattern:
 
 - Field names shared with text input are documented in
   [pdeapp.txt fields](../reference/pdeapp.md).
+- The mathematical meaning of `pde.model`, `u`, `q`, `w`, `v`, EOS, and AV is
+  documented in [Physics Models](../physics-models/index.md).
 - Frontend preprocessing internals are documented in
   [Preprocessing](preprocessing.md).
 - Host-language PDE model callbacks are documented in

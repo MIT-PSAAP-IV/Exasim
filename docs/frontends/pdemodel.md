@@ -5,6 +5,10 @@ Exasim's numerical infrastructure. It contains symbolic callback functions for
 the PDE, boundary terms, initial conditions, auxiliary variables, visualization
 fields, and quantities of interest.
 
+For the mathematical meaning of `ModelC`, `ModelD`, `ModelW`, `u`, `q`, `w`,
+`v`, EOS, and artificial viscosity, see
+[Physics Models](../physics-models/index.md).
+
 The frontend evaluates these callbacks symbolically during preprocessing and
 code generation. The generated C++ kernels are then called by the backend solver
 on CPU or GPU.

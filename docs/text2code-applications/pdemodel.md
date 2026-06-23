@@ -5,6 +5,9 @@ the mathematical terms that become generated Exasim model kernels.
 
 For the complete grammar reference, see
 [pdemodel.txt syntax](../reference/pdemodel.md).
+For the mathematical meaning of `ModelC`, `ModelD`, `ModelW`, `u`, `q`, `w`,
+`v`, EOS, AV, and coupling, see
+[Physics Models](../physics-models/index.md).
 
 ## File Structure
 
@@ -61,6 +64,9 @@ In default `exasim` mode, `Flux`, `Source`, `Tdfunc`, `Ubou`, `Fbou`, and
 | `mu` | `physicsparam`. |
 | `eta` | `externalparam` / additional parameters. |
 | `t` | Time. |
+
+For `ModelC`, `uq` contains only `u`. For `ModelD` and `ModelW`, `uq` is
+packed as `[u, q]`, where `q` has `ncu * nd` entries.
 
 ## Function Blocks
 

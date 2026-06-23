@@ -4,6 +4,10 @@ Tested on Apple Silicon (M1, M2) with Homebrew. Apple's Accelerate
 framework provides BLAS / LAPACK; no system MPI required for CPU
 builds.
 
+!!! tip "Recommended path"
+    Start with [Quick Installation](quick-install.md). On macOS CPU systems,
+    the Superbuild is the preferred installation path.
+
 ## System packages
 
 ```bash
@@ -11,10 +15,21 @@ brew install cmake llvm
 brew install open-mpi          # only for MPI builds
 ```
 
-## Vendored dependencies
+## Recommended Superbuild
 
-Follow [`common.md`](common.md) for GKlib + METIS + ParMETIS,
-Kokkos serial, SymEngine + text2code.
+```bash
+cmake -S Exasim -B Exasim-build
+cmake --build Exasim-build -j8
+cmake --install Exasim-build --prefix /path/to/exasim-prefix
+```
+
+See [CPU Installation via Superbuild](superbuild-cpu.md).
+
+## Manual Dependency Fallback
+
+If the Superbuild fails or you need explicit dependency control, follow
+[Manual Dependency Installation](manual-dependencies.md) and
+[Common Dependencies](common.md).
 
 `$MPI_PREFIX` for ParMETIS is `$(brew --prefix open-mpi)` (e.g.
 `/opt/homebrew/Cellar/open-mpi/5.0.8`).
@@ -25,6 +40,9 @@ Apple Silicon has no CUDA or HIP support. CPU builds are the only
 backend on macOS.
 
 ## Build Exasim
+
+The commands below are manual fallback commands for users who already built
+dependencies explicitly.
 
 CPU only:
 

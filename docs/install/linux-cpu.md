@@ -1,7 +1,11 @@
 # Linux (CPU)
 
-For Linux machines without an NVIDIA or AMD GPU. CPU and MPI variants
-only.
+For Linux machines without an NVIDIA or AMD GPU. CPU and MPI variants only.
+
+!!! tip "Recommended path"
+    Start with [Quick Installation](quick-install.md). The Superbuild is the
+    recommended CPU installation method. If it completes successfully, do not
+    manually build the dependencies listed below.
 
 ## System packages
 
@@ -22,12 +26,27 @@ CPU+MPI Exasim. `MPI_PREFIX` for use in [`common.md`](common.md):
 MPI_PREFIX=$(dirname $(dirname $(which mpicc)))   # usually /usr
 ```
 
-## Vendored dependencies
+## Recommended Superbuild
 
-Follow [`common.md`](common.md) for GKlib + METIS + ParMETIS,
-Kokkos serial, SymEngine + text2code.
+```bash
+cmake -S Exasim -B Exasim-build
+cmake --build Exasim-build -j8
+cmake --install Exasim-build --prefix /path/to/exasim-prefix
+```
+
+See [CPU Installation via Superbuild](superbuild-cpu.md).
+
+## Manual Dependency Fallback
+
+If the Superbuild fails or you need explicit dependency control, follow
+[Manual Dependency Installation](manual-dependencies.md) and
+[Common Dependencies](common.md) for GKlib, METIS, ParMETIS, Kokkos serial,
+SymEngine, and Text2Code.
 
 ## Build Exasim
+
+The commands below are manual fallback commands for users who already built
+dependencies explicitly.
 
 CPU only:
 

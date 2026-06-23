@@ -287,6 +287,9 @@ after replacing `physicsparam`. This preserves parameter-dependent initial
 condition behavior from callbacks such as `initu`, `initq`/`initudg`, `initv`,
 and `initw`.
 
+For the meaning of `u`, `q`, `w`, `v`, EOS, and model callbacks in swept
+physics models, see [Physics Models](../physics-models/index.md).
+
 Warm-start mode (`physicsparamwarmstart = 1`) builds the first case, then reuses
 the converged solution for later cases and updates `app.physicsparam` in the
 existing model. This avoids rebuilding and is intended for continuation studies.

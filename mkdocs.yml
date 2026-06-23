@@ -75,15 +75,21 @@ nav:
       - Choosing an application mode: usage-modes/index.md
   - Installation:
       - install/index.md
-      - Common dependencies: install/common.md
-      - "Local: macOS": install/macos.md
-      - "Local: Linux (CPU)": install/linux-cpu.md
-      - "Local: Linux (NVIDIA GPU)": install/linux-nvidia.md
-      - "Local: Linux (AMD GPU)": install/linux-amd.md
+      - Quick Installation (Recommended): install/quick-install.md
+      - CPU Installation via Superbuild: install/superbuild-cpu.md
+      - Troubleshooting Superbuild Failures: install/superbuild-troubleshooting.md
+      - Manual Dependency Installation: install/manual-dependencies.md
+      - Common manual dependency steps: install/common.md
+      - GPU Installation: install/gpu.md
+      - "Platform: macOS": install/macos.md
+      - "Platform: Linux CPU": install/linux-cpu.md
+      - "Platform: Linux NVIDIA GPU": install/linux-nvidia.md
+      - "Platform: Linux AMD GPU": install/linux-amd.md
       - "HPC: build chain & options": install/hpc.md
       - "HPC: Frontier": install/frontier.md
       - "HPC: Tuolumne": install/tuolumne.md
       - "HPC: Generic": install/generic-hpc.md
+      - Verification and Testing: install/verification.md
   - Text2Code Applications:
       - Overview: text2code-applications/index.md
       - pdeapp.txt guide: text2code-applications/pdeapp.md
@@ -111,6 +117,19 @@ nav:
       - Shared library: usage-modes/shared-library.md
       - Parameter sweeps: usage-modes/parameter-sweeps.md
       - Postprocessing: usage-modes/postprocessing.md
+  - Physics Models:
+      - Overview: physics-models/index.md
+      - ModelC: physics-models/modelc.md
+      - ModelD: physics-models/modeld.md
+      - ModelW: physics-models/modelw.md
+      - Model comparison: physics-models/comparison.md
+      - Auxiliary equations through w: physics-models/auxiliary-equations.md
+      - Equations of state: physics-models/equations-of-state.md
+      - External variables through v: physics-models/external-variables.md
+      - Artificial viscosity: physics-models/artificial-viscosity.md
+      - Multiphysics problems: physics-models/multiphysics.md
+      - Multi-model problems: physics-models/multi-model.md
+      - Worked examples: physics-models/examples.md
   - Theory:
       - theory/index.md
       - LDG formulation: theory/ldg-formulation.md

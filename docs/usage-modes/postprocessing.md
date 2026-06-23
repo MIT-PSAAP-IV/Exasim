@@ -6,6 +6,10 @@ derived fields, residual histories, and optional boundary extracts. It can run
 as part of a normal solve or as a separate pass over existing `datain/` and
 `dataout/` files.
 
+Postprocessing callbacks operate on the same model variables described in
+[Physics Models](../physics-models/index.md): `u`, optional `q`, auxiliary
+`w`, external `v`, EOS-derived fields, and AV fields when present.
+
 This page documents the current implementation used by generated frontend apps,
 `text2code` apps, and C++ applications that drive `ExasimSolver`.
 

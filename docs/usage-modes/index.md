@@ -27,6 +27,11 @@ model kernels come from** and **how they are linked**.
 All three read the same `pdeapp.txt` solver-setup file and produce identical
 results for the same physics.
 
+Before choosing a linking/application mode, choose the mathematical model
+formulation. The [Physics Models](../physics-models/index.md) section explains
+`ModelC`, `ModelD`, `ModelW`, auxiliary `w`, external `v`, EOS, artificial
+viscosity, and coupling patterns.
+
 ## Common runtime workflows
 
 Postprocessing is shared by all usage modes. After any solve, Exasim can write
