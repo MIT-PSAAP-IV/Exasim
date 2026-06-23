@@ -1399,6 +1399,22 @@ struct resstruct {
         return &K[szP];
     }
 
+    // Cursor-based reservation for the sequential assembly views (D/B/F/G/H) laid out in the K
+    // arena. resetKArena(start) sets the cursor, then each reserveView(size) returns the next
+    // slice and advances -- centralizing the offset arithmetic that used to be spelled out
+    // inline as &K[start + dSize + bSize + ...] at every assignment, and warning on overrun.
+    // Non-owning views into K (freed with K). See AllocateLDGBlockJacobianMemory / the HDG branch.
+    Int kArenaCursor = 0;
+    void resetKArena(Int start) { kArenaCursor = start; }
+    dstype* reserveView(Int size)
+    {
+        dstype* p = &K[kArenaCursor];
+        kArenaCursor += size;
+        if (K != nullptr && kArenaCursor > szK)
+            printf("WARNING: K arena view overruns (cursor=%d > szK=%d)\n", (int)kArenaCursor, (int)szK);
+        return p;
+    }
+
     void freememory(Int backend)
     {
         TemplateFree(Rq, backend);    

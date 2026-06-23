@@ -243,11 +243,14 @@ void AllocateLDGBlockJacobianMemory(resstruct& res, commonstruct& common, Int ba
         EnsureTemplateAllocation(&res.E, res.szE, npe*npf*nfe*ne*nd, backend);
     }
 
-    res.D = &res.K[kInvSize];
-    res.B = &res.K[kInvSize + dSize];
-    res.F = &res.K[kInvSize + dSize + bSize];
-    res.G = &res.K[kInvSize + dSize + bSize + fSize];
-    res.H = &res.K[kInvSize + dSize + bSize + 2*fSize];
+    // Assembly views reserved sequentially from the K arena (the shared tail after the
+    // preconditioner region szP==kInvSize). Replaces the inline &K[kInvSize + dSize + ...] math.
+    res.resetKArena(kInvSize);
+    res.D = res.reserveView(dSize);
+    res.B = res.reserveView(bSize);
+    res.F = res.reserveView(fSize);
+    res.G = res.reserveView(fSize);
+    res.H = res.reserveView(hSize);
     res.fhAliasesK = 1;  // F and H alias into K here; freememory must not free them (see resstruct)
 }
 
@@ -471,11 +474,13 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
         TemplateMalloc(&res.ipiv, res.szipiv, backend); // fix big here
         res.fhAliasesK = 0;  // HDG: H/F/K each owned -> freememory frees all three
               
-        // B, D, G, K share the same memmory block 
-        // It is also used for storing both the preconditioner matrix and sys.v
-        res.D = &res.K[npf*nfe*ncu*npe*ncu*neb];
-        res.B = &res.K[npf*nfe*ncu*npe*ncu*neb + npe*ncu*npe*ncu*neb];
-        res.G = &res.K[npf*nfe*ncu*npe*ncu*neb + npe*ncu*npe*ncu*neb + npe*ncu*npe*ncq*neb];        
+        // B, D, G share the K block (and it also holds the preconditioner matrix + sys.v
+        // Krylov vectors -- see resstruct). Assembly views reserved sequentially after the
+        // leading npf*nfe*ncu*npe*ncu*neb block; replaces the inline &K[off + ...] math.
+        res.resetKArena(npf*nfe*ncu*npe*ncu*neb);
+        res.D = res.reserveView(npe*ncu*npe*ncu*neb);
+        res.B = res.reserveView(npe*ncu*npe*ncq*neb);
+        res.G = res.reserveView(npf*nfe*ncu*npe*ncq*neb);
         
         if (common.couplingparams.coupledinterface>0) {
           res.szRi = npf*ncu12*common.couplingparams.ncie;
