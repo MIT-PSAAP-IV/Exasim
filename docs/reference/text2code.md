@@ -15,7 +15,7 @@ paths.
 
 ## Pipeline
 
-Running `text2code pdeapp.txt` performs:
+Running `/path/to/exasim-prefix/local/bin/text2code pdeapp.txt` performs:
 
 1. **Parse** `pdeapp.txt` and `pdemodel.txt` (`readpdeapp.cpp`, `TextParser.hpp`);
    numeric formulas are evaluated by `tinyexpr`.
@@ -32,7 +32,7 @@ Running `text2code pdeapp.txt` performs:
 ## Usage
 
 ```bash
-text2code pdeapp.txt
+/path/to/exasim-prefix/local/bin/text2code pdeapp.txt
 ```
 
 Related files (e.g. `pdemodel.txt`) are discovered from the paths in

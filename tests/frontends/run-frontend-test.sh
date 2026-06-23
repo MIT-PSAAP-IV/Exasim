@@ -100,6 +100,21 @@ if [ "${EXPORT_TEST:-0}" = "1" ]; then
     && mv "$APP.tmp" "$APP"
 fi
 
+# --- postprocess mode (POSTPROCESS_TEST=1): enable visualization outputs so
+# the generated executable can be rerun in explicit postprocess mode below.
+if [ "${POSTPROCESS_TEST:-0}" = "1" ]; then
+  case "$FE" in
+    python)
+      ins1="pde['saveParaview'] = 1"
+      ins2="pde['saveResNorm'] = 1"
+      ;;
+    *) echo "SKIP: POSTPROCESS_TEST only implemented for python"; exit "$SKIP" ;;
+  esac
+  awk -v ins1="$ins1" -v ins2="$ins2" \
+    '/exasim\(pde/ && !d {print ins1; print ins2; d=1} {print}' "$APP" > "$APP.tmp" \
+    && mv "$APP.tmp" "$APP"
+fi
+
 export EXASIM_PREFIX="$INSTALL"
 # Hermetic per-user model cache (never touch the real ~/.exasim from tests).
 export EXASIM_CACHE_DIR="$RUN/cache"
@@ -237,6 +252,45 @@ if [ "${COMBINED_EXPORT:-0}" = "1" ]; then
   # Combined export mode skips the local main run; the relocated bundle's
   # per-model QoIs above are the gate (no main-dir dataout to check below).
   exit 0
+fi
+
+# --- explicit postprocess assertions (POSTPROCESS_TEST=1) -------------------
+# Re-run the generated standalone executable in postprocess mode on a copied
+# dataout directory. This catches regressions where postprocess construction
+# truncates saved solution files before ReadSolutions/GetSolutions can use them.
+if [ "${POSTPROCESS_TEST:-0}" = "1" ]; then
+  [ -x "$(pwd)/.exasim/build/exasimapp" ] \
+    || { echo "FAIL: no generated exasimapp for postprocess test"; exit 1; }
+  rm -rf dataout_post
+  cp -R dataout dataout_post
+  .exasim/build/exasimapp postprocess 1 datain/ dataout_post/out 0 0 2 1 0 0 0 \
+    > "$RUN/postprocess.log" 2>&1 \
+    || { cat "$RUN/postprocess.log"; echo "FAIL: postprocess mode failed"; exit 1; }
+  for f in outqoi.txt outvis.vtu outudg_np0.bin outuhat_np0.bin; do
+    [ -f "dataout/$f" ] || { echo "FAIL: missing dataout/$f"; exit 1; }
+    [ -f "dataout_post/$f" ] || { echo "FAIL: missing dataout_post/$f"; exit 1; }
+    cmp -s "dataout/$f" "dataout_post/$f" \
+      || { echo "FAIL: postprocess changed $f"; exit 1; }
+  done
+  "$PY" - <<'PY'
+import re
+from pathlib import Path
+
+data = Path("dataout_post/outvis.vtu").read_bytes()
+marker = b"_"
+idx = data.find(marker, data.find(b"<AppendedData"))
+assert idx >= 0, "VTK appended data marker not found"
+header = data[:idx].decode("utf-8", errors="ignore")
+offsets = [int(x) for x in re.findall(r'offset="(\d+)"', header)]
+assert offsets, "VTK appended offsets not found"
+payload = data[idx + 1:]
+for i, off in enumerate(offsets):
+    assert off + 8 <= len(payload), f"VTK block {i} header out of bounds"
+    nbytes = int.from_bytes(payload[off:off + 8], "little")
+    assert off + 8 + nbytes <= len(payload), f"VTK block {i} payload out of bounds"
+print("postprocess VTK raw-appended blocks are in bounds")
+PY
+  echo "frontend_python_postprocess: explicit postprocess outputs match solve-time outputs"
 fi
 
 # --- QoI gate (in addition to any in-language assert) ------------------------

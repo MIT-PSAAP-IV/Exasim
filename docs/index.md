@@ -36,6 +36,8 @@ setup, and the mesh — then consume the solver in one of three modes:
 
 - **Install** → [local](install/index.md) or [HPC](install/hpc.md) (Frontier, Tuolumne, generic)
 - **Run a model** → [usage modes](usage-modes/index.md), [frontends](frontends/index.md)
+- **Explore parameter space** → [parameter sweeps](usage-modes/parameter-sweeps.md)
+- **Postprocess results** → [postprocessing](usage-modes/postprocessing.md)
 - **Look something up** → [model contract](reference/model-contract.md),
   [`pdeapp.txt`](reference/pdeapp.md), [`pdemodel.txt`](reference/pdemodel.md),
   [CMake](reference/cmake.md)

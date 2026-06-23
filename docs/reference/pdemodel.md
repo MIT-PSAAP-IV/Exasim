@@ -137,6 +137,11 @@ one in `outputs` emits its kernel(s). Each corresponds to a
 **Required in `exasim` mode (the default):** `Flux`, `Source`, `Tdfunc`, `Ubou`,
 `Fbou`, `FbouHdg` must appear in `outputs`; all others are optional.
 
+Visualization and QoI functions are consumed by the
+[postprocessing workflow](../usage-modes/postprocessing.md). `VisScalars`,
+`VisVectors`, and `VisTensors` populate VTK point fields when `saveParaview` is
+enabled. `QoIvolume` and `QoIboundary` populate `outqoi.txt`.
+
 Derivatives are generated w.r.t. the vectors named in the `jacobian` (and
 `hessian`) declarations — these become the HDG Jacobian methods of the
 [model contract](model-contract.md), the per-element blocks of the

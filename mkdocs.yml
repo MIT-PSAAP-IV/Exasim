@@ -72,7 +72,7 @@ nav:
   - Home: index.md
   - Getting started:
       - Quickstart: getting-started/quickstart.md
-      - Choosing a usage mode: usage-modes/index.md
+      - Choosing an application mode: usage-modes/index.md
   - Installation:
       - install/index.md
       - Common dependencies: install/common.md
@@ -84,12 +84,33 @@ nav:
       - "HPC: Frontier": install/frontier.md
       - "HPC: Tuolumne": install/tuolumne.md
       - "HPC: Generic": install/generic-hpc.md
-  - Usage modes:
+  - Text2Code Applications:
+      - Overview: text2code-applications/index.md
+      - pdeapp.txt guide: text2code-applications/pdeapp.md
+      - pdemodel.txt guide: text2code-applications/pdemodel.md
+      - PDE modeling guide: text2code-applications/modeling-guide.md
+      - Application setup guide: text2code-applications/application-setup.md
+      - Workflow and troubleshooting: text2code-applications/workflow.md
+      - Advanced topics: text2code-applications/advanced.md
+      - Reference gateway: text2code-applications/reference.md
+  - Frontends:
+      - Overview: frontends/index.md
+      - Getting started: frontends/getting-started.md
+      - Core data structures: frontends/data-structures.md
+      - Configuration: frontends/configuration.md
+      - Preprocessing: frontends/preprocessing.md
+      - pdemodel abstraction: frontends/pdemodel.md
+      - Mesh and geometry: frontends/mesh-and-geometry.md
+      - Execution workflow: frontends/execution.md
+      - Postprocessing and visualization: frontends/postprocessing.md
+      - API reference: frontends/api-reference.md
+  - Application Modes:
       - usage-modes/index.md
-      - Built-in model: usage-modes/builtin.md
-      - External built-in model: usage-modes/external-builtin.md
+      - Built-in library: usage-modes/builtin.md
+      - External built-in library: usage-modes/external-builtin.md
       - Shared library: usage-modes/shared-library.md
-  - Frontends: frontends/index.md
+      - Parameter sweeps: usage-modes/parameter-sweeps.md
+      - Postprocessing: usage-modes/postprocessing.md
   - Theory:
       - theory/index.md
       - LDG formulation: theory/ldg-formulation.md

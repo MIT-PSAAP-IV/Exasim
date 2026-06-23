@@ -184,33 +184,37 @@ public:
             outqoi << "\n";
         }
 
-        open_and_write(outsol, "udg_np", rank, offset, npe, nc, ne, base);
+        const bool postprocessOnly = (mode == ExasimExecutionMode::Postprocess);
 
-        if (ncw > 0) {     
-            open_and_write(outwdg, "wdg_np", rank, offset, npe, ncw, ne, base);
-        }
+        if (!postprocessOnly) {
+            open_and_write(outsol, "udg_np", rank, offset, npe, nc, ne, base);
 
-        if (disc.common.spatialScheme==1) {         
-            open_and_write(outuhat, "uhat_np", rank, offset, ncu, npf, nf, base);
-        }
-
-        if ( disc.common.saveSolBouFreq>0 ) {
-            Int nfbou = 0;
-            for (Int j=0; j<disc.common.nbf; j++) {
-                Int f1 = disc.common.fblks[3*j]-1;
-                Int f2 = disc.common.fblks[3*j+1];    
-                Int ib = disc.common.fblks[3*j+2];            
-                if (ib == disc.common.ibs) {     
-                    Int nf = f2-f1;
-                    nfbou += nf;
-                }
+            if (ncw > 0) {
+                open_and_write(outwdg, "wdg_np", rank, offset, npe, ncw, ne, base);
             }
 
-            open_and_write(outbouxdg, "bouxdg_np", rank, offset, npf, nfbou, ncx, base);
-            open_and_write(outboundg, "boundg_np", rank, offset, npf, nfbou, nd, base);
-            open_and_write(outbouudg, "bouudg_np", rank, offset, npf, nfbou, disc.common.nc, base);            
-            open_and_write(outbouuhat, "bouuhat_np", rank, offset, npf, nfbou, ncu, base);
-            if (ncw > 0) open_and_write(outbouwdg, "bouwdg_np", rank, offset, npf, nfbou, ncw, base);
+            if (disc.common.spatialScheme==1) {
+                open_and_write(outuhat, "uhat_np", rank, offset, ncu, npf, nf, base);
+            }
+
+            if ( disc.common.saveSolBouFreq>0 ) {
+                Int nfbou = 0;
+                for (Int j=0; j<disc.common.nbf; j++) {
+                    Int f1 = disc.common.fblks[3*j]-1;
+                    Int f2 = disc.common.fblks[3*j+1];
+                    Int ib = disc.common.fblks[3*j+2];
+                    if (ib == disc.common.ibs) {
+                        Int nf = f2-f1;
+                        nfbou += nf;
+                    }
+                }
+
+                open_and_write(outbouxdg, "bouxdg_np", rank, offset, npf, nfbou, ncx, base);
+                open_and_write(outboundg, "boundg_np", rank, offset, npf, nfbou, nd, base);
+                open_and_write(outbouudg, "bouudg_np", rank, offset, npf, nfbou, disc.common.nc, base);
+                open_and_write(outbouuhat, "bouuhat_np", rank, offset, npf, nfbou, ncu, base);
+                if (ncw > 0) open_and_write(outbouwdg, "bouwdg_np", rank, offset, npf, nfbou, ncw, base);
+            }
         }
         
         // if (!outsol) error("Unable to open file " + filename);        

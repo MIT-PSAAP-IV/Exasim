@@ -2,7 +2,7 @@
 
 Build options, exported package targets, and the external-model helper. For the
 build procedures that use them, see [Installation](../install/index.md); for the
-consumer link lines, see [Usage modes](../usage-modes/index.md).
+consumer link lines, see [Application Modes](../usage-modes/index.md).
 
 ## Build options
 

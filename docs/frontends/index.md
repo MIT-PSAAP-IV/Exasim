@@ -1,84 +1,134 @@
-# Frontends (Python / Julia / MATLAB)
+# Frontend Overview
 
-The frontends let you author a PDE model interactively in Python, Julia, or
-MATLAB, then generate, build, and run it without writing C++ or CMake. They drive
-the [shared-library](../usage-modes/shared-library.md) path: the symbolic stack
-generates the model kernels, builds them into a model library, and runs a
-pre-built solver against it.
+Exasim frontends let users describe a PDE application in MATLAB, Python, or
+Julia, then drive the same C++/Kokkos backend used by standalone Exasim
+applications. A frontend run prepares the numerical problem, generates model
+kernels when needed, compiles or reuses an executable, runs the solver, and
+loads or visualizes the results.
 
-Prerequisite: an [installed Exasim](../install/index.md) built with
-`-DEXASIM_FRONTENDS=ON` (the default).
+Use this section as the practical guide for interactive Exasim workflows. Use
+the [usage-mode pages](../usage-modes/index.md) when you need lower-level
+details about built-in models, shared libraries, parameter sweeps, or
+postprocessing.
 
-## The authoring flow
+## Supported Interfaces
 
-All three languages follow the same shape:
+| Interface | Primary use | User-facing object style |
+| --- | --- | --- |
+| MATLAB | Mature interactive workflow, mesh utilities, plotting, examples | MATLAB `struct` fields such as `pde.physicsparam` |
+| Python | Scriptable workflows and integration with Python tools | Python `dict` keys such as `pde["physicsparam"]` |
+| Julia | Julia-native scripts and package workflow | `PDEStruct` fields such as `pde.physicsparam` |
+| `pdeapp.txt` / text2code | Frontend-free text input for standalone C++ apps | Text keys documented in [pdeapp.txt fields](../reference/pdeapp.md) |
 
-1. Initialize the `pde` and `mesh` objects.
-2. Point `pde` at a model file (`pdemodel.{py,jl,m}`) defining the PDE — `flux`,
-   `source`, boundary terms, etc. (the same functions as the
-   [`pdemodel.txt`](../reference/pdemodel.md) DSL, written in the host language).
-3. Set discretization and physics parameters and build/load the mesh.
-4. Call `exasim(...)`, which generates the kernels, builds the model library, and
-   runs the solver.
+The MATLAB, Python, and Julia frontends intentionally expose nearly the same
+PDE fields. Syntax differs by language, but concepts such as `pde.model`,
+`pde.physicsparam`, `pde.mpiprocs`, `pde.saveParaview`, and
+`pde.physicsparamsweep` have the same meaning.
 
-The fields you set on `pde` correspond to the
-[`pdeapp.txt` keys](../reference/pdeapp.md); the model functions correspond to the
-[model contract](../reference/model-contract.md) methods.
+## Frontend Role In The Exasim Workflow
 
-## Python
-
-```python
-from exasim import initializeexasim, exasim
-pde, mesh = initializeexasim()
-pde['model'] = "ModelD"
-pde['modelfile'] = "pdemodel"      # pdemodel.py defining flux/source/...
-# ... discretization / physics parameters, mesh ...
-sol, pde, mesh = exasim(pde, mesh)
+```mermaid
+flowchart LR
+  A["User script: pde, mesh, model file"] --> B["Frontend preprocessing"]
+  B --> C["master, dmd, and datain files"]
+  B --> D["Generated kernels or frontend provider"]
+  D --> E["CMake build / cache reuse"]
+  C --> F["exasimapp / exasimfe runtime"]
+  E --> F
+  F --> G["dataout files, residuals, QoI, VTK"]
+  G --> H["fetchsolution, vis, postprocess"]
 ```
 
-Run an example directly from its directory: `python3 pdeapp.py`. Configure
-`-DEXASIM_PIP_INSTALL=ON` to pip-install the `exasim` package at install time.
+The frontend does not replace the backend solver. It supplies backend input
+files, generated model code, launch commands, and postprocessing helpers.
 
-## Julia
+## Documentation Roadmap
 
-```julia
-push!(LOAD_PATH, "/path/to/prefix/share/exasim/julia")   # or Pkg.develop(path=...)
-using Exasim
-pde, mesh = Exasim.initializeexasim()
-pde.model = "ModelD"
-include("pdemodel.jl")             # defines flux/source/... in Main
-# ... discretization / physics parameters, mesh ...
-sol, pde, mesh = Exasim.exasim(pde, mesh)
-```
+- [Getting started](getting-started.md): minimal MATLAB, Python, and Julia
+  examples and the generated file layout.
+- [Core data structures](data-structures.md): `pde`, `mesh`, `master`, `dmd`,
+  solution arrays, residual histories, and their relationships.
+- [Configuration](configuration.md): physics, boundary conditions, solvers,
+  time integration, parameter sweeps, and postprocessing flags.
+- [Preprocessing](preprocessing.md): how frontend data become backend input
+  files and decomposition metadata.
+- [pdemodel abstraction](pdemodel.md): the callback interface between user
+  physics and generated backend kernels.
+- [Mesh and geometry](mesh-and-geometry.md): mesh generation, import, boundary
+  tagging, curved meshes, and partitioning.
+- [Execution workflow](execution.md): preprocessing, code generation,
+  compilation, CPU/GPU/MPI execution, `exportapp`, restart, and execution modes.
+- [Postprocessing and visualization](postprocessing.md): frontend result
+  loading, MATLAB visualization, backend ParaView output, QoI, and derived
+  fields.
+- [API reference](api-reference.md): function and field reference for the
+  MATLAB, Python, and Julia frontends.
 
-Configure `-DEXASIM_JULIA_DEVELOP=ON` and the install runs `Pkg.develop` on the
-installed package, so `using Exasim` needs no `LOAD_PATH` setup.
+## Common Workflow
 
-## MATLAB
+Every language follows this pattern:
 
-```matlab
-run('/path/to/prefix/share/exasim/matlab/exasim_setup.m')
-[pde, mesh] = initializeexasim();
-pde.model = "ModelD"; pde.modelfile = "pdemodel";   % pdemodel.m on the path
-% ... discretization / physics parameters, mesh ...
-[sol, pde, mesh] = exasim(pde, mesh);
-```
+1. Initialize `pde` and `mesh`.
+2. Define or load a mesh.
+3. Set dimensions, model type, physical parameters, solver options, and output
+   options.
+4. Point `pde.modelfile` at the host-language PDE model implementation.
+5. Call `exasim(...)`.
+6. Inspect `sol`, residual histories, binary files, or visualization files.
 
-## Build reuse and the model cache
+=== "MATLAB"
 
-The generated model is compiled into a dynamic library under the hidden
-`pde.builddir` (default `<cwd>/.exasim/`), and reuse is hash-based: an unchanged
-model skips compilation entirely. Built libraries are also cached **per user**
-under `~/.exasim/cache/<modelID>/<digest>/`, so an identical model reuses the
-build even from a fresh directory. See
-[Shared library → build artifacts and reuse](../usage-modes/shared-library.md#build-artifacts-and-reuse)
-for the full layout and the cache semantics.
+    ```matlab
+    run('/path/to/prefix/share/exasim/matlab/exasim_setup.m')
+    [pde, mesh] = initializeexasim();
+    pde.model = "ModelD";
+    pde.modelfile = "pdemodel";
+    pde.physicsparam = [1.0];
+    [sol, pde, mesh, master, dmd] = exasim(pde, mesh);
+    ```
 
-## exportapp — the data-transfer bundle
+=== "Python"
 
-The frontends can export a self-contained application bundle (`exportapp` in each
-frontend's `Gencode/`): the generated kernels, `datain` inputs, CMake project,
-and `main.cpp`, packaged so the app can be built and run elsewhere (e.g. moved to
-an HPC system). This is the hand-off from interactive authoring to a standalone
-[built-in](../usage-modes/builtin.md) / [shared-library](../usage-modes/shared-library.md)
-build.
+    ```python
+    from exasim import initializeexasim, exasim
+
+    pde, mesh = initializeexasim()
+    pde["model"] = "ModelD"
+    pde["modelfile"] = "pdemodel"
+    pde["physicsparam"] = [1.0]
+    sol, pde, mesh = exasim(pde, mesh)
+    ```
+
+=== "Julia"
+
+    ```julia
+    using Exasim
+
+    pde, mesh = Exasim.initializeexasim()
+    pde.model = "ModelD"
+    pde.modelfile = "pdemodel"
+    pde.physicsparam = [1.0]
+    sol, pde, mesh = Exasim.exasim(pde, mesh)
+    ```
+
+## Relationship To Other Documentation
+
+- Field names shared with text input are documented in
+  [pdeapp.txt fields](../reference/pdeapp.md).
+- Frontend preprocessing internals are documented in
+  [Preprocessing](preprocessing.md).
+- Host-language PDE model callbacks are documented in
+  [pdemodel abstraction](pdemodel.md).
+- PDE model callback names and signatures are documented in
+  [Model contract](../reference/model-contract.md) and
+  [pdemodel.txt syntax](../reference/pdemodel.md).
+- Parameter sweeps are covered in
+  [Parameter sweeps](../usage-modes/parameter-sweeps.md).
+- Postprocessing and standalone replay are covered in
+  [Postprocessing](../usage-modes/postprocessing.md).
+
+## See Also
+
+- [Quickstart](../getting-started/quickstart.md)
+- [Shared library mode](../usage-modes/shared-library.md)
+- [text2code reference](../reference/text2code.md)
