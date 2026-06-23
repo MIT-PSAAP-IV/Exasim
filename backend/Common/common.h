@@ -1297,6 +1297,26 @@ struct solstruct {
     }             
 };
 
+// Neutral scratch-arena owner (S5 step 3). Owns the big K backing buffer (grow-if-needed).
+// The residual struct (res.K + the D/B/F/G/H views) and the solver (sys.v) hold NON-owning
+// pointers/reserves into this buffer rather than owning it -- so the scratch memory is owned by
+// a dedicated arena concern, not entangled in the residual data. Lives as a CDiscretization
+// member (where the size is computed); res/solv/prec reach it only through res.K and the
+// reserve* API, so no functional class owns the allocation.
+struct scratcharenastruct {
+    dstype* buffer = nullptr;
+    Int sz = 0;
+    dstype* allocate(Int n, Int backend) {
+        if (buffer == nullptr || sz != n) {   // grow-if-needed (same policy as EnsureTemplateAllocation)
+            TemplateFree(buffer, backend);
+            TemplateMalloc(&buffer, n, backend);
+            sz = n;
+        }
+        return buffer;
+    }
+    void freememory(Int backend) { TemplateFree(buffer, backend); buffer = nullptr; sz = 0; }
+};
+
 struct resstruct {
     //dstype *R=nullptr;    // shared memory for all residual vectors
     dstype *Rqe=nullptr;  // element residual vector for q
@@ -1434,7 +1454,7 @@ struct resstruct {
         // F and H are owned only in the HDG layout; in the LDG block-Jacobi arena they alias into
         // K (fhAliasesK==1) and must not be freed (freeing K reclaims the whole block).
         if (!fhAliasesK) TemplateFree(F, backend); else F = nullptr;
-        TemplateFree(K, backend);
+        K = nullptr;  // non-owning view into the scratch arena (owned/freed by CDiscretization::scratch, S5 step 3)
         if (!fhAliasesK) TemplateFree(H, backend); else H = nullptr;
         TemplateFree(Gi, backend);
         TemplateFree(Ki, backend);

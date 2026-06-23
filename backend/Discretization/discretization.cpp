@@ -201,7 +201,7 @@ void BuildElementBlockBoundaryFaces(commonstruct& common, meshstruct& mesh, Int 
     }
 }
 
-void AllocateLDGBlockJacobianMemory(resstruct& res, commonstruct& common, Int backend)
+void AllocateLDGBlockJacobianMemory(resstruct& res, commonstruct& common, Int backend, scratcharenastruct& scratch)
 {
     Int npe = common.grid.npe;
     Int npf = common.grid.npf;
@@ -234,7 +234,7 @@ void AllocateLDGBlockJacobianMemory(resstruct& res, commonstruct& common, Int ba
     Int kSize = kInvSize + max(dSize + bSize + 2*fSize + hSize, M*ndofu);
     res.szP = kInvSize;
 
-    EnsureTemplateAllocation(&res.K, res.szK, kSize, backend);
+    res.K = scratch.allocate(kSize, backend); res.szK = kSize;  // K owned by the arena (S5 step 3)
     EnsureTemplateAllocation(&res.ipiv, res.szipiv, n*neb, backend);
     if (ncq > 0) {
         EnsureTemplateAllocation(&res.Mass2, res.szMass2, npe*npe*ne, backend);
@@ -355,7 +355,7 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
         if (!postprocessOnly && common.solverparams.preconditioner == 1) {
             if (common.mpiRank==0) printf("start qEquation... \n");
             BuildElementBlockBoundaryFaces(common, mesh, backend);        
-            AllocateLDGBlockJacobianMemory(res, common, backend);        
+            AllocateLDGBlockJacobianMemory(res, common, backend, scratch);
             qEquation<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, backend);
             TemplateFree(res.Mass2, backend);
             TemplateFree(res.Minv2, backend);
@@ -365,7 +365,7 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
             res.szP = 0;
             Int ndofu = common.grid.npe*common.components.ncu*common.meshsizes.ne1;
             Int M = max(common.solverparams.gmresRestart+1, common.solverparams.RBdim);
-            EnsureTemplateAllocation(&res.K, res.szK, M*ndofu, backend);
+            res.K = scratch.allocate(M*ndofu, backend); res.szK = M*ndofu;  // K owned by the arena (S5 step 3)
         }
         else {
             res.szP = 0;
@@ -469,7 +469,7 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
         res.szipiv = max(max(npf*nfe,npe)*ncu*neb, ncu*npf*common.meshsizes.nfb);
               
         TemplateMalloc(&res.H, res.szH, backend);
-        TemplateMalloc(&res.K, res.szK, backend);
+        res.K = scratch.allocate(res.szK, backend);  // K owned by the arena (S5 step 3)
         TemplateMalloc(&res.F, res.szF, backend);
         TemplateMalloc(&res.ipiv, res.szipiv, backend); // fix big here
         res.fhAliasesK = 0;  // HDG: H/F/K each owned -> freememory frees all three
@@ -585,6 +585,7 @@ CDiscretization::~CDiscretization()
     if (common.mpiRank==0) printf("CDiscretization destructor: tmp memory is freed successfully.\n");
     res.freememory(common.backend);
     if (common.mpiRank==0) printf("CDiscretization destructor: res memory is freed successfully.\n");
+    scratch.freememory(common.backend);  // owns the K backing buffer (res.K was a non-owning view) -- S5 step 3
     wallmodel.freememory(common.backend);
     if (common.mpiRank==0) printf("CDiscretization destructor: wallmodel memory is freed successfully.\n");
     common.freememory();

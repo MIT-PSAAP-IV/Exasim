@@ -50,11 +50,12 @@ public:
     resstruct res;
     appstruct app;
     wallmodelstruct wallmodel;
-    masterstruct master; 
+    masterstruct master;
     meshstruct mesh;
-    tempstruct tmp;    
+    tempstruct tmp;
     commonstruct common;
     ExasimDriverABI driver_abi;
+    scratcharenastruct scratch;  // owns the K backing buffer; res.K/views + sys.v are non-owning reserves (S5 step 3)
     // solstruct hsol;
 
     // constructor for both CPU and GPU
