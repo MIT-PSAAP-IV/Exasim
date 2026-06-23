@@ -3,6 +3,13 @@
 For machines with AMD GPUs running ROCm. Adds HIP and MPI+HIP
 variants on top of the CPU baseline.
 
+!!! warning "GPU installs are advanced"
+    For CPU-only work, use the [Quick Installation](quick-install.md)
+    Superbuild first. AMD GPU builds require ROCm/HIP, a HIP-enabled Kokkos
+    build, architecture flags, and often GPU-aware MPI.
+
+Read [GPU Installation Overview](gpu.md) before following this page.
+
 ## System packages
 
 ```bash
@@ -41,10 +48,17 @@ UCX (built with ROCm support) handles the GPU-aware transport
 layer. If your system already has UCX with ROCm, OpenMPI picks it
 up automatically. For CPU-only MPI, omit `--with-rocm` and `--with-ucx`.
 
-## Vendored dependencies
+## CPU Baseline
 
-Follow [`common.md`](common.md) for GKlib + METIS + ParMETIS,
-Kokkos serial, SymEngine + text2code.
+Build or install a CPU baseline first. For most users this should be the
+[CPU Superbuild](superbuild-cpu.md). Use manual dependency steps only if your
+GPU build requires explicit site dependency control.
+
+## Manual Dependency Fallback
+
+Follow [Manual Dependency Installation](manual-dependencies.md) and
+[Common Dependencies](common.md) for GKlib, METIS, ParMETIS, Kokkos serial,
+SymEngine, and Text2Code when the Superbuild is not sufficient.
 
 ## Build Kokkos HIP
 

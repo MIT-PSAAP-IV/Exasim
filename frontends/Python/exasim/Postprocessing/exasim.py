@@ -1,4 +1,4 @@
-import copy
+import copy as pycopy
 import itertools
 import os
 import numpy
@@ -53,13 +53,17 @@ def exasim(pde,mesh):
                 runstr = []
                 res = []
                 pde['paramcaseoutputdirs'] = []
+                warmstart = pde.get('physicsparamwarmstart', 0) == 1
+                previousoutdir = None
                 for icase, physicsparam in enumerate(physicsparamcases, start=1):
-                    pdecase = copy.deepcopy(writeappbase)
+                    pdecase = pycopy.deepcopy(writeappbase)
                     pdecase['physicsparam'] = physicsparam.copy()
                     pdecase['dataoutpath'] = _paramcase_output_dir(pdecase, icase)
                     os.makedirs(pdecase['dataoutpath'], exist_ok=True)
                     _write_physicsparam_case(pdecase['dataoutpath'], pdecase['physicsparam'])
 
+                    if warmstart and icase > 1:
+                        _write_physicsparam_warmstart(pdecase, dmd, previousoutdir)
                     pdecase = Preprocessing.writeapp(pdecase, _app_bin_file(pdecase))
                     runstr.append(Gencode.runcode(pdecase, 1))
                     sol.append(fetchsolution(pdecase, master, dmd, pdecase['dataoutpath']))
@@ -74,8 +78,9 @@ def exasim(pde,mesh):
                         res.append(None)
 
                     pde['paramcaseoutputdirs'].append(pdecase['dataoutpath'])
+                    previousoutdir = pdecase['dataoutpath']
                 _write_physicsparam_sweep_manifest(
-                    _dataout_base_dir(pde), physicsparamcases, pde['paramcaseoutputdirs'])
+                    _dataout_base_dir(pde), physicsparamcases, pde['paramcaseoutputdirs'], warmstart)
             else:
                 runstr = Gencode.runcode(pde, 1);
 
@@ -223,18 +228,80 @@ def _write_physicsparam_case(outdir, values):
                   fmt="%.17g")
 
 
-def _write_physicsparam_sweep_manifest(baseout, cases, outdirs):
+def _write_physicsparam_warmstart(pde, dmd, previousoutdir):
+    udg = getsolutions(os.path.join(previousoutdir, "outudg"), dmd)[:, :, :, -1]
+    wdg = getsolutions(os.path.join(previousoutdir, "outwdg"), dmd) \
+        if pde.get('ncw', 0) > 0 else None
+    if wdg is not None:
+        wdg = wdg[:, :, :, -1]
+
+    strn = config.model_strn(pde)
+    datain = os.path.join(pde['datapath'], "datain", strn)
+    for iproc, part in enumerate(dmd, start=1):
+        solfile = os.path.join(datain, "sol.bin" if pde['mpiprocs'] == 1
+                               else f"sol{iproc}.bin")
+        elempart = numpy.asarray(part['elempart']).reshape(-1)
+        if elempart.size > 0 and elempart.min() == 1:
+            elempart = elempart - 1
+        _rewrite_warmstart_sol_file(solfile, udg[:, :, elempart],
+                                    None if wdg is None else wdg[:, :, elempart])
+
+
+def _rewrite_warmstart_sol_file(solfile, udgpart, wdgpart):
+    data = numpy.fromfile(solfile, dtype=numpy.float64)
+    if data.size == 0:
+        raise RuntimeError(f"Warm-start solution file {solfile} is empty.")
+
+    nsize_len = int(data[0])
+    nsize_start = 1
+    nsize_end = nsize_start + nsize_len
+    nsize = data[nsize_start:nsize_end].astype(numpy.int64)
+    ndims_start = nsize_end
+    ndims_end = ndims_start + int(nsize[0])
+    xdg_start = ndims_end
+    xdg_end = xdg_start + int(nsize[1])
+    udg_start = xdg_end
+    udg_end = udg_start + int(nsize[2])
+    odg_start = udg_end
+    odg_end = odg_start + int(nsize[3])
+    wdg_start = odg_end
+    wdg_end = wdg_start + int(nsize[4])
+
+    udgflat = numpy.asarray(udgpart, dtype=numpy.float64).reshape(-1, order='F')
+    newnsize = nsize.copy()
+    newnsize[2] = udgflat.size
+    wdgflat = data[wdg_start:wdg_end]
+
+    if wdgpart is not None:
+        wdgflat = numpy.asarray(wdgpart, dtype=numpy.float64).reshape(-1, order='F')
+        newnsize[4] = wdgflat.size
+
+    data = numpy.concatenate((
+        data[:nsize_start],
+        newnsize.astype(numpy.float64),
+        data[ndims_start:xdg_end],
+        udgflat,
+        data[odg_start:odg_end],
+        wdgflat,
+        data[wdg_end:],
+    ))
+
+    data.tofile(solfile)
+
+
+def _write_physicsparam_sweep_manifest(baseout, cases, outdirs, warmstart):
     with open(os.path.join(baseout, "physicsparam_sweep_manifest.txt"), "w") as f:
         f.write(f"ncases {cases.shape[0]}\n")
         f.write(f"nparam {cases.shape[1]}\n")
+        f.write(f"physicsparamwarmstart {1 if warmstart else 0}\n")
         for i, row in enumerate(cases, start=1):
             values = " ".join(f"{float(v):.17g}" for v in row)
             f.write(f"case {i} {outdirs[i - 1]} {values}\n")
 
 
 def _writeapp_template(app):
-    template = copy.deepcopy(app)
-    template['flag'] = numpy.asarray(template['flag']).reshape(-1, order='F')[18:]
+    template = pycopy.deepcopy(app)
+    template['flag'] = numpy.asarray(template['flag']).reshape(-1, order='F')[19:]
     template['problem'] = numpy.asarray(template['problem']).reshape(-1, order='F')[28:]
     template['factor'] = numpy.asarray(template['factor']).reshape(-1, order='F')[5:]
     template['solversparam'] = numpy.asarray(template['solversparam']).reshape(-1, order='F')[4:]

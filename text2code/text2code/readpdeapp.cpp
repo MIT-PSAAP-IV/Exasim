@@ -272,6 +272,14 @@ InputParams parseInputFile(const std::string& filename, int mpirank=0)
             params.periodicBoundaries2 = parseList<int>(full);
         else if (full.find("periodicexprs2") != std::string::npos)
             params.periodicExprs2 = parseStringList(full);
+        else if (full.find("physicsparamwarmstart") != std::string::npos) {
+            std::regex key_val_num("([a-zA-Z0-9_]+)\\s*=\\s*([^;]+)");
+            std::smatch match;
+            if (std::regex_search(full, match, key_val_num)) {
+                params.intParams[match[1]] = static_cast<int>(std::stod(match[2]));
+                markFound(match[1]);
+            }
+        }
         else if (full.find("physicsparamcases") != std::string::npos) {
             int nrows = 0, ncols = 0;
             params.physicsParamCases = parseMatrixExpression(full, nrows, ncols);
@@ -471,6 +479,7 @@ struct PDE {
     int extUhat = 0;
     int extStab = 0;
     int saveParaview = 0;
+    int physicsparamwarmstart = 0;
     int saveResNorm = 0;
     int dae_steps = 0;
 
@@ -632,6 +641,9 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     }
     if (params.intParams.count("saveParaview")) {
         pde.saveParaview = params.intParams["saveParaview"];
+    }
+    if (params.intParams.count("physicsparamwarmstart")) {
+        pde.physicsparamwarmstart = params.intParams["physicsparamwarmstart"];
     }
     if (params.intParams.count("tdep")) {
         pde.tdep = params.intParams["tdep"];
@@ -846,7 +858,8 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     pde.flag = makeDoubleVector(
         pde.tdep, pde.wave, pde.linearproblem, pde.debugmode, pde.matvecorder, pde.GMRESortho,
         pde.preconditioner, pde.precMatrixType, pde.NLMatrixType, pde.runmode, pde.tdfunc, pde.sourcefunc,
-        pde.modelnumber, pde.extFhat, pde.extUhat, pde.extStab, pde.subproblem, pde.saveParaview
+        pde.modelnumber, pde.extFhat, pde.extUhat, pde.extStab, pde.subproblem, pde.saveParaview,
+        pde.physicsparamwarmstart
     );        
     pde.problem = makeDoubleVector(
         pde.hybrid, 0, pde.temporalscheme, pde.torder, pde.nstage, pde.convStabMethod,

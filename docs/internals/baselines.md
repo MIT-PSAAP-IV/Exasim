@@ -1,145 +1,94 @@
 # Baselines
 
-The test harness compares each run's output to a recorded reference
-using a **DG element-L2 relative norm** that is invariant to MPI
-partition assignment and tolerant to platform numerics drift (e.g.
-Apple Accelerate vs Intel MKL).
+Baselines are reference outputs used to decide whether a code change preserves
+expected numerical behavior. They are most useful when they compare physical
+or numerical quantities that are stable across platforms and parallel
+decompositions.
 
-```
-relative L2 = sqrt( sum_e ||u_run - u_baseline||² / sum_e ||u_baseline||² )
-```
+## What Baselines Are For
 
-Pass threshold: `< 1e-3`. Well above platform-numerics drift (typical
-~1e-7), well below anything that would mask a real solver bug
-(typical >1e-2).
+Baselines answer two questions:
 
-This file documents the sidecar format, the comparison script, and
-how to record a new baseline.
+1. Did the code still run to completion?
+2. Did the computed result remain within an acceptable numerical tolerance?
 
-## Properties
+They should not encode accidental details such as rank ordering,
+machine-specific floating-point roundoff, or local build paths.
 
-- **Partition-invariant.** Aggregate by global element ID and sort
-  before comparing. Different `np`, different ParMETIS choices,
-  different load balance — same metric.
-- **FP-order-tolerant.** Relative L2 with a `1e-3` threshold absorbs
-  last-bit drift between BLAS implementations / SIMD widths / FMA
-  policies that accumulates through GMRES + Newton iterations.
+## Preferred Baseline Signals
 
-## The sidecar
+| Signal | Strength | Notes |
+| --- | --- | --- |
+| Manufactured-solution error | Strongest | Validates numerical correctness directly. |
+| Analytical benchmark quantity | Strong | Good for canonical PDE examples. |
+| QoI or integral output | Strong if owned-only | Must avoid ghost-element double counting in MPI. |
+| Element-ID-aligned relative norm | Strong | Partition-invariant if element IDs are available. |
+| Residual history | Useful | Sensitive to solver tolerances and floating-point ordering. |
+| Raw binary equality | Weak across platforms | Useful only for deterministic same-platform checks. |
 
-When `SaveSolutions` writes `outudg_np<r>.bin`, it also writes
-`outelemid_np<r>.bin` — `ne_local` int64 values, one per local
-element, holding the **global element ID** of each element in the
-order `outudg` stored them.
+## Partition-Invariant Comparisons
 
-```
-outudg_np<r>.bin       (header[3 doubles]) + (npe × ncu × ne_local) doubles
-outelemid_np<r>.bin    (ne_local int64 values)
-```
+MPI changes element ordering and local ownership. A robust comparison should
+match data by global element ID before computing a norm:
 
-The global IDs come from `mesh.elempart[0..ne_local)`, which is the
-same array ParMETIS / DMD uses internally to map local element index
-→ global element index.
-
-The runtime function that writes the sidecar lives in
-`backend/Solution/solution.hpp` `CSolution<M>::SaveSolutions`.
-
-## The comparator
-
-`apps/library_example/element_l2_diff.py` aggregates and compares.
-
-```bash
-python3 apps/library_example/element_l2_diff.py \
-    --baseline-dir <path> \
-    --current-dir  <path> \
-    --np <N>          \
-    [--baseline-np <N>]   # default 1 (serial baseline)
-    [--rtol 1e-3]         # pass threshold
-    [--stem outudg]       # default: outudg
+```text
+relative L2 = sqrt(sum_e ||u_current(e) - u_reference(e)||^2
+                   / sum_e ||u_reference(e)||^2)
 ```
 
-Flow:
+This is preferable to comparing `outudg_np0.bin` byte-for-byte.
 
-1. Read all `outudg_np<r>.bin` for `r in [0, np)` and the matching
-   `outelemid_np<r>.bin`. Strip the 3-double header.
-2. Slice the `outudg` payload into per-element blocks (size = total
-   doubles / ne_local).
-3. Build a dict `global_id → element_block` for both baseline and
-   current.
-4. Sort the union of keys; complain on missing pairs.
-5. For each common key, accumulate `||a - b||²` and `||a||²` (sum of
-   squares of nodal values inside that element block).
-6. Return `sqrt(err_sq / ref_sq)` and pass if `< rtol`.
+## Updating Baselines
 
-Exit code 0 on pass, non-zero on fail. The summary line is the
-relative L2 magnitude, which the test harness echoes:
+Only update a baseline after confirming that the change is intended. A good
+baseline update should include:
 
-```
-[ OK ] poisson2d (element-L2: outudg: relative element-L2 = 4.13e-12 over 256 elements)
-```
+- Reason for the numerical change.
+- Solver options and backend used to regenerate the output.
+- Platform and compiler context if relevant.
+- Evidence that CPU/GPU or serial/MPI differences are acceptable.
+- Documentation updates if user-visible output changed.
 
-The threshold of `1e-3` is conservative — typical lockstep-pass
-magnitudes are 1e-12 to 1e-7, real bugs show up at >1e-2.
+Do not update baselines to hide an unexplained regression.
 
-## Recording a new baseline
+## Baseline Workflow
 
-For a new example app:
-
-1. Make sure the binary works in serial (run any output-producing
-   variant with `np=1`):
-   ```bash
-   cmake --build build_cpu --target <name>_codegen
-   bash apps/library_example/regenerate.sh <name>
-   bash apps/library_example/validate_codegen.sh <name>   # FAIL — no baseline
-   ```
-2. Copy the freshly-produced output bins as the canonical baseline:
-   ```bash
-   mkdir -p baseline/<name>_serial
-   cp apps/library_example/<name>_codegen/dataout_codegen/outudg_np0.bin \
-      apps/library_example/<name>_codegen/dataout_codegen/outelemid_np0.bin \
-      baseline/<name>_serial/
-   # If the model defines QoIs, copy that too — outqoi.txt is
-   # partition-invariant by nature and is a stronger gate when
-   # available:
-   cp apps/library_example/<name>_codegen/dataout_codegen/outqoi.txt \
-      baseline/<name>_serial/   # optional
-   ```
-3. Re-run the validator — should pass with element-L2 ~ 0:
-   ```bash
-   bash apps/library_example/validate_codegen.sh <name>
-   # → [ OK ] <name> (element-L2: outudg: relative element-L2 = 0.000e+00 …)
-   ```
-4. Commit `baseline/<name>_serial/` (the bin + sidecar files).
-
-For an existing app whose recorded baseline is bit-fragile (drifts
-across re-runs even on the same machine), record it once with
-element-L2 sidecars and never look back.
-
-## Cross-platform check
-
-After recording on Mac and pushing, on lanka:
-
-```bash
-cmake --build build_cpu --target <name>_codegen
-ctest --test-dir build_cpu -R "<name>:.*:cpu" --output-on-failure
+```mermaid
+flowchart TD
+  RUN["Run reference example"] --> CHECK["Compare with existing baseline"]
+  CHECK --> PASS{"Pass?"}
+  PASS -->|yes| DONE["No baseline change"]
+  PASS -->|no| ANALYZE["Analyze root cause"]
+  ANALYZE --> INTENDED{"Intended numerical change?"}
+  INTENDED -->|no| FIX["Fix implementation"]
+  INTENDED -->|yes| RECORD["Record new baseline and rationale"]
 ```
 
-Expected: passes with element-L2 in the 1e-12 to 1e-7 range. If it
-gates at 1e-3 (the threshold), the magnitude tells you whether it's
-platform-numerics or a real bug — the loose threshold catches real
-divergence at 10-100× over the platform-drift baseline.
+## Baselines and Hardware Differences
 
-## What about the legacy bin-md5 path?
+Expected differences can come from:
 
-Still supported as a fallback. If a baseline directory has only
-`outudg_np0.bin` + `md5.txt` (no sidecar), the harness drops to bin-
-md5 comparison. New baselines should record the sidecar.
+- BLAS/LAPACK implementation.
+- FMA and vectorization choices.
+- GPU backend arithmetic.
+- MPI reduction ordering.
+- Nonlinear solver tolerances.
 
-## What about MPI without QoI?
+Use tolerances that admit expected floating-point drift while still catching
+real solver bugs. If a tolerance must be loose, document why.
 
-When the baseline lacks `outqoi.txt` AND lacks `outelemid_np0.bin`
-(the truly-old baselines), MPI variants fall back to the structural
-"each rank wrote its own bins" check — weaker than numerical
-validation but catches the common failure modes (binary abort,
-missing SaveSolutions, wrong rank count). Once you re-record with
-the sidecar, the strong element-L2 check kicks in.
+## Source-Control Policy
+
+Baseline files can be large. Prefer compact reference quantities when
+possible. If binary baseline data is necessary:
+
+- Keep only required files.
+- Avoid generated build directories.
+- Avoid machine-specific paths.
+- Document how to regenerate the data.
+
+## Related Pages
+
+- [Testing](testing.md)
+- [Known divergences](known-divergences.md)
+- [CI and validation](ci-and-validation.md)

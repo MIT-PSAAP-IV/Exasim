@@ -16,8 +16,16 @@ rinf = 1.0;                    % freestream density
 pinf = 1/(gam*Minf^2);         % freestream pressure
 rEinf = 0.5+pinf/(gam-1);      % freestream energy
 Pr = 0.72;                     % Prandtl number
-reynoldsNumbers = [2000; 5000; 8000];
-anglesOfAttack = [4; 8]*pi/180;
+% reynoldsNumbers = [2000; 5000; 8000]; % [1000, 10000]
+% anglesOfAttack = [4; 8]*pi/180;       % [0, 10]
+
+% reynoldsNumbers = [2000; 5000; 8000]; % [1000, 10000]
+% anglesOfAttack = [4; 8]*pi/180;       % [0, 10]
+
+alpha = 3;
+n = 17;
+reynoldsNumbers = logdec(linspace(1000,10000,n), alpha);
+anglesOfAttack  = logdec(linspace(0,10,n), alpha);
 
 % initialize pde structure and mesh structure
 [pde,~] = initializeexasim();
@@ -27,7 +35,7 @@ pde.modelfile = "pdemodel";    % name of a file defining the PDE model
 
 % Choose computing platform and set number of processors
 pde.platform = "cpu";          % choose this option if NVIDIA GPUs are available
-pde.mpiprocs = 4;              % number of MPI processors
+pde.mpiprocs = 8;              % number of MPI processors
 pde.hybrid = 1;
 pde.debugmode = 0;
 pde.porder = porder;
@@ -44,6 +52,14 @@ for ialpha = 1:numel(anglesOfAttack)
         pde.physicsparamsweep(icase,:) = [gam reynoldsNumbers(iRe) Pr Minf rinf cos(alpha) sin(alpha) rEinf];
     end
 end
+
+% 
+% tm = pde.physicsparamsweep;
+% pde.physicsparamsweep = tm(1:72,:);
+% pde.physicsparamsweep = tm(73:144,:);
+% pde.physicsparamsweep = tm(145:216,:);
+% pde.physicsparamsweep = tm(217:289,:);
+
 pde.tau = tau;                 % DG stabilization parameter
 pde.GMRESrestart = 100;
 pde.GMRESortho = 1;
@@ -55,11 +71,11 @@ pde.ppdegree = 0;
 pde.RBdim = 5;
 pde.gencode = 1;
 
-pde.torder = 2;
-pde.nstage = 2;
-pde.dt = 0.01*ones(1,10);
-pde.saveSolFreq = 10;
-pde.saveSolBouFreq = 10;
+pde.torder = 3;
+pde.nstage = 3;
+pde.dt = 0.05*ones(1,400);
+pde.saveSolFreq = 2;
+pde.saveSolBouFreq = 2;
 pde.ibs = 1;
 
 % Export a frontend-provider app that can run the entire sweep without MATLAB.

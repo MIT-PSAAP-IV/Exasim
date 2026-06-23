@@ -47,6 +47,8 @@ if nmodels==1
             runstr = Array{Any, 1}(undef, ncases);
             res = Array{Any, 1}(undef, ncases);
             pde.paramcaseoutputdirs = Array{String, 1}(undef, ncases);
+            warmstart = isdefined(pde, :physicsparamwarmstart) && pde.physicsparamwarmstart == 1;
+            previousoutdir = "";
 
             for icase = 1:ncases
                 pdecase = deepcopy(writeappbase);
@@ -55,6 +57,9 @@ if nmodels==1
                 mkpath(pdecase.dataoutpath);
                 writephysicsparamcase(pdecase.dataoutpath, pdecase.physicsparam);
 
+                if warmstart && icase > 1
+                    writephysicsparamwarmstart(pdecase, dmd, previousoutdir);
+                end
                 pdecase = Preprocessing.writeapp(pdecase, appbinfile(pdecase));
                 runstr[icase] = Gencode.runcode(pdecase, 1);
                 sol[icase] = Postprocessing.fetchsolution(pdecase, master, dmd, pdecase.dataoutpath);
@@ -67,8 +72,9 @@ if nmodels==1
                     res[icase] = [];
                 end
                 pde.paramcaseoutputdirs[icase] = pdecase.dataoutpath;
+                previousoutdir = pdecase.dataoutpath;
             end
-            writephysicsparamsweepmanifest(dataoutbasedir(pde), physicsparamcases, pde.paramcaseoutputdirs);
+            writephysicsparamsweepmanifest(dataoutbasedir(pde), physicsparamcases, pde.paramcaseoutputdirs, warmstart);
         else
             runstr = Gencode.runcode(pde, 1);
 
@@ -221,10 +227,71 @@ function writephysicsparamcase(outdir, values)
     end
 end
 
-function writephysicsparamsweepmanifest(baseout, cases, outdirs)
+function writephysicsparamwarmstart(pde, dmd, previousoutdir)
+    udg = getsolutions(joinpath(previousoutdir, "outudg"), dmd);
+    udg = udg[:,:,:,end];
+    wdg = pde.ncw > 0 ? getsolutions(joinpath(previousoutdir, "outwdg"), dmd) : nothing;
+    wdg === nothing || (wdg = wdg[:,:,:,end]);
+    strn = Gencode.model_strn(pde);
+    datain = joinpath(pde.datapath, "datain", strn);
+
+    for iproc = 1:length(dmd)
+        solfile = pde.mpiprocs == 1 ? joinpath(datain, "sol.bin") :
+                                      joinpath(datain, "sol" * string(iproc) * ".bin");
+        elempart = dmd[iproc].elempart[:];
+        rewritewarmstartsolfile(solfile, udg[:,:,elempart],
+            wdg === nothing ? nothing : wdg[:,:,elempart]);
+    end
+end
+
+function rewritewarmstartsolfile(solfile, udgpart, wdgpart)
+    data = reinterpret(Float64, read(solfile));
+    isempty(data) && error("Warm-start solution file $solfile is empty.");
+
+    nsizeLen = Int(data[1]);
+    nsizeStart = 2;
+    nsizeEnd = nsizeStart + nsizeLen - 1;
+    nsize = Int.(data[nsizeStart:nsizeEnd]);
+    ndimsStart = nsizeEnd + 1;
+    ndimsEnd = ndimsStart + nsize[1] - 1;
+    xdgStart = ndimsEnd + 1;
+    xdgEnd = xdgStart + nsize[2] - 1;
+    udgStart = xdgEnd + 1;
+    udgEnd = udgStart + nsize[3] - 1;
+    odgStart = udgEnd + 1;
+    odgEnd = odgStart + nsize[4] - 1;
+    wdgStart = odgEnd + 1;
+    wdgEnd = wdgStart + nsize[5] - 1;
+
+    udgflat = Float64.(vec(udgpart));
+    if length(udgflat) != nsize[3]
+        error("Warm-start udg size mismatch in $solfile: got $(length(udgflat)) values, expected $(nsize[3]).");
+    end
+    newnsize = copy(nsize);
+    newnsize[3] = length(udgflat);
+    wdgflat = data[wdgStart:wdgEnd];
+
+    if wdgpart !== nothing
+        wdgflat = Float64.(vec(wdgpart));
+        if nsize[5] != 0 && length(wdgflat) != nsize[5]
+            error("Warm-start wdg size mismatch in $solfile: got $(length(wdgflat)) values, expected $(nsize[5]).");
+        end
+        newnsize[5] = length(wdgflat);
+    end
+    data = vcat(data[1:nsizeStart-1], Float64.(newnsize),
+        data[ndimsStart:xdgEnd], udgflat, data[odgStart:odgEnd],
+        wdgflat, data[wdgEnd+1:end]);
+
+    open(solfile, "w") do io
+        write(io, data);
+    end
+end
+
+function writephysicsparamsweepmanifest(baseout, cases, outdirs, warmstart)
     open(joinpath(baseout, "physicsparam_sweep_manifest.txt"), "w") do io
         println(io, "ncases ", size(cases,1));
         println(io, "nparam ", size(cases,2));
+        println(io, "physicsparamwarmstart ", warmstart ? 1 : 0);
         for i = 1:size(cases,1)
             println(io, "case ", i, " ", outdirs[i], " ", join(string.(vec(cases[i,:])), " "));
         end
@@ -233,10 +300,10 @@ end
 
 function writeapptemplate(app)
     template = deepcopy(app);
-    template.flag = template.flag[19:end];
-    template.problem = template.problem[29:end];
-    template.factor = template.factor[6:end];
-    template.solversparam = template.solversparam[5:end];
+    template.flag = reshape(template.flag[20:end], 1, :);
+    template.problem = reshape(template.problem[29:end], 1, :);
+    template.factor = reshape(template.factor[6:end], 1, :);
+    template.solversparam = reshape(template.solversparam[5:end], 1, :);
     return template;
 end
 

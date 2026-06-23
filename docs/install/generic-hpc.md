@@ -1,8 +1,11 @@
 # Generic HPC
 
-For a cluster without a dedicated page, follow the shared
-[HPC build chain](hpc.md) and substitute your site's modules, compilers, and
-scheduler. This page collects the backend-selection knobs that vary by machine.
+For a cluster without a dedicated page, start with the Superbuild for CPU-only
+work if your site modules provide a compatible compiler, MPI, and BLAS/LAPACK.
+
+Use the shared [HPC build chain](hpc.md) when the Superbuild is not suitable or
+when building CUDA/HIP variants that require explicit Kokkos and architecture
+configuration. Substitute your site's modules, compilers, and scheduler.
 
 ## Kokkos build per backend
 
@@ -59,6 +62,6 @@ Set `MPICH_GPU_SUPPORT_ENABLED=1` for GPU-aware MPI. Replace `<N>` with the rank
 count from your `pdeapp.txt`.
 
 !!! note
-    Out-of-tree consumers (the [usage modes](../usage-modes/index.md)) launch
+    Out-of-tree consumers (the [Application Modes](../usage-modes/index.md)) launch
     their own executable — e.g. `mpirun -np <N> build/consumer_builtin pdeapp.txt`
     — rather than the in-tree `cpumpiEXASIM` binaries shown above.
