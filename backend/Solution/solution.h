@@ -140,10 +140,11 @@ public:
               Int nsca = 0, Int nvec = 0, Int nten = 0,
               Int nsurf = 0, Int nvqoi = 0,
               ExasimExecutionMode mode = ExasimExecutionMode::Solve,
-              const std::vector<dstype>* physicsparamOverride = nullptr)
+              const std::vector<dstype>* physicsparamOverride = nullptr,
+              Int saveParaview = 0)
        : disc(filein, fileout, exasimpath, mpiprocs, mpirank, fileoffset,
               omprank, backend, builtinmodelID, abi, nsca, nvec, nten, nsurf, nvqoi, mode,
-              physicsparamOverride),
+              physicsparamOverride, saveParaview),
          prec(disc, backend, mode), solv(disc, backend, mode), vis(disc, backend) 
     {   
         int ncx = disc.common.ncx;                            
