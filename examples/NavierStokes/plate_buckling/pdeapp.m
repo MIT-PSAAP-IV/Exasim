@@ -25,7 +25,7 @@ mesh = mkmesh_thermal_buckling(pde.porder, nx1, nxf, ny);
 figure(1); clf; meshplot(mesh);
 
 %% ---- 2. Elasticity mesh deformation ----
-bump_amp = 0.012;
+bump_amp = 0.0;
 bump_loc = 0.20;
 bump_width = 0.05;
 
@@ -36,7 +36,7 @@ end
 
 %% ---- 3. Navier-Stokes solve + viscosity ramp ----
 pdeapp_ns;
-writeinputfile("pdeapp_ns.txt", pde, mesh);
+% writeinputfile("pdeapp_ns.txt", pde, mesh);
 
 
 %% ---- 4. Helmholtz + NS solve ----
@@ -46,6 +46,10 @@ pdeapp_hm;
 
 mesh.vdg = solhm;
 mesh.udg = sol;
+% figure(1); clf; scaplot(mesh, mesh.vdg);
+% figure(1); clf; scaplot(mesh, mesh.udg);
+
+mesh.boundarycondition = [1, 2, 3, 5]; % restore bcs
 [pde,mesh,master,dmd] = preprocessing(pde,mesh);
 runcode(pde, 1); % run C++ code
 sol = fetchsolution(pde,master,dmd, fullfile(pde.datapath, 'dataout'));

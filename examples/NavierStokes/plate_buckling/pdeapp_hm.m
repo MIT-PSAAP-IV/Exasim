@@ -29,6 +29,7 @@ pdehm.RBdim = 0;
 mesh.boundarycondition = [1;1;1;1];
 mesh.udg = zeros(size(mesh.dgnodes,1), 3, size(mesh.dgnodes,3));
 div = divergence(sol, 1);
+figure(); clf; scaplot(mesh,div); axis on; axis equal; axis tight;
 mesh.vdg = limiting(div,0,3,1e3,0);
 figure(); clf; scaplot(mesh,mesh.vdg); axis on; axis equal; axis tight;
 
