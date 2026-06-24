@@ -50,6 +50,7 @@ physicsparamcases = [
   [1.4, 1500, 0.72, 0.2, 1, 1, 0, 45.1429],
   [1.4, 2000, 0.72, 0.2, 1, 1, 0, 45.1429]
 ];
+physicsparamwarmstart = 1;
 externalparam = [0, 0];
 
 boundaryconditions = [1, 2];

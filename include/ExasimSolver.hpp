@@ -209,9 +209,13 @@ private:
     bool HasPhysicsParamSweepFile() const;
     int ReadPhysicsParamSweepFile();
     int BuildModelsForCurrentCase();
+    bool PhysicsParamWarmStartEnabledFromCurrentModel() const;
+    int ApplyPhysicsParamToModels(const std::vector<dstype>& physicsparam);
+    int ResetModelOutputsForCurrentCase();
+    int RunCurrentPhysicsParamCase();
     void DestroyModelInstances();
     std::string PhysicsParamSweepFile() const;
     std::string CaseOutputPrefix(int icase) const;
     int WritePhysicsParamCaseMetadata(int icase, const std::string& outputPrefix) const;
-    int WritePhysicsParamSweepManifest() const;
+    int WritePhysicsParamSweepManifest(bool warmstart) const;
 };

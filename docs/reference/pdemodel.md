@@ -1,49 +1,19 @@
-# pdemodel.txt syntax reference
+# pdemodel Reference
 
-`pdemodel.txt` is a small line-oriented DSL that text2code parses
-(`TextParser.hpp`) and turns into SymEngine-based C++ kernels
-(`CodeGenerator.cpp`). This page documents the **syntax**; the **semantics** of
-each function — what `flux`, `source`, etc. mean — live in the
-[model contract](model-contract.md) and the [theory](../theory/index.md) pages,
-which this page cross-links.
+`pdemodel.txt` is the Text2Code model-definition file. It declares symbolic
+inputs and function blocks, then Text2Code emits C++ kernels for the requested
+outputs.
 
-A file has two parts, in order: **header declarations** (`keyword value` lines),
-then **function blocks** (`function NAME(args) … end`). Blank lines are ignored.
+This page documents the exact text format. For mathematical meaning, see
+[Physics Models](../physics-models/index.md). For the C++ runtime contract, see
+[Model contract](model-contract.md).
 
-!!! note "Conventions vs. enforcement"
-    The parser does not validate the *names* in `vectors` or their order — the
-    conventional meanings below (`x`, `uq`, `w`, …) are enforced by the Exasim
-    model contract and the C++ drivers, not by the parser. The only hard error is
-    using a function argument that was not declared as a scalar or vector.
+## File Structure
 
-## Header declarations
+A `pdemodel.txt` file has two sections:
 
-| Declaration | Form | Meaning |
-|---|---|---|
-| `scalars` | `scalars t` | Scalar symbolic inputs; each becomes a `SymEngine::Expression`. |
-| `vectors` | `vectors x(2), uq(3), …` | Vector symbolic inputs and their lengths; each becomes a `std::vector<Expression>` with components `name0, name1, …`. Size `0` = declared but empty. |
-| `jacobian` | `jacobian uq, w, uhat` | Input vectors w.r.t. which first derivatives of each output are generated (`.diff(...)`). May be empty. |
-| `hessian` | `hessian` | Input vectors w.r.t. which second derivatives are generated. Often empty. |
-| `batch` | `batch x, uq, …` | Input vectors batched over the per-point (quadrature/element) loop in the kernels. |
-| `outputs` | `outputs Flux, Source, …` | The function blocks to actually emit. A `function` not listed here is parsed but not emitted. |
-| `datatype` | `datatype dstype` | (optional) C++ scalar type for kernel signatures. Default `dstype`. |
-| `framework` | `framework kokkos` | (optional) Backend target. Default `kokkos`. |
-| `codeformat` | `codeformat exasim` | (optional) Default `exasim`; enables the Exasim kernel path and requires the six core functions (below). |
-
-### Conventional vector symbols
-
-| Symbol | Meaning |
-|---|---|
-| `x` | spatial coordinates (size = dimension) |
-| `uq` | solution + gradients packed: `uq[0..ncu-1]` is $u$, the rest are gradients $q$ |
-| `w` | auxiliary scalar (`wdg`) field(s) |
-| `v` | auxiliary "other DG" (`odg`) field(s) |
-| `uhat` | trace unknown on faces (HDG hybrid variable $\hat u$) |
-| `uext` | externally supplied face data (used by `Fext`) |
-| `n` | outward face normal |
-| `tau` | stabilization parameter(s) |
-| `mu` | physics parameters |
-| `eta` | additional parameter vector |
+1. Header declarations.
+2. Function blocks.
 
 ```text
 scalars t
@@ -51,93 +21,167 @@ vectors x(2), uq(3), v(0), w(0), uhat(1), uext(1), n(2), tau(1), mu(1), eta(0)
 jacobian uq, w, uhat
 hessian
 batch x, uq, v, w, uhat, n, uext
-outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Initu, QoIvolume
-```
+outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Initu
 
-## Function blocks
-
-```text
-function NAME(arg1, arg2, ...)
-  output_size(RESULT) = N;
-  <body statements>
-end
-```
-
-- `function NAME(args)` — each arg must be a declared scalar (emitted
-  `const Expression&`) or vector (`const std::vector<Expression>&`).
-- `output_size(RESULT) = N;` — names the result vector and its length; the
-  function returns a `std::vector<Expression> RESULT` of size `N`.
-- The block runs to the next `function` or end of file; the literal `end` is
-  written for readability.
-
-### Body sublanguage
-
-Each body line is matched against an ordered set of regexes. `pi` is rewritten to
-`SymEngine::pi`. Recognized statement forms:
-
-| Form | Example | Emits |
-|---|---|---|
-| Result element | `f[0] = kappa*uq[1]` | `f[0] = kappa*uq[1];` |
-| Scalar assignment | `kappa = mu[0]` | `Expression kappa = mu[0];` |
-| Function call | `f = Flux(x, uq, ...)` | `auto f = Flux(...);` |
-| `vector NAME(N)` | `vector tmp(3)` | `std::vector<Expression> tmp(3);` |
-| `matrix NAME(R,C)` | `matrix A(2,2)` | `SymEngine::DenseMatrix A(2,2);` |
-| `A[i][j] = expr` / `x = A[i][j]` | | matrix element set / get |
-| `v[i] = det(A)` / `trace(A)` | | `A.det()` / `A.trace()` |
-| `B = inv(A)` / `transpose(A)` | | `A.inv(B)` / `A.transpose(B)` |
-| `C = A + B` / `A * B` | | matrix or scalar add/mul |
-| `ones(NAME)` / `zeros(NAME)` / `fill(NAME, val)` | `ones(m)` | fill result/vector with constant |
-| `for VAR in A:B` … `endfor` | | `for (int VAR=A; VAR<=B; ++VAR) { … }` |
-
-Expressions transliterate to C++/SymEngine. Available: `+ - * /`, parentheses,
-indexing `name[i]`; the symbolic product `mul(a, b)`; `pi`; `Expression(...)` and
-`SymEngine::integer(N)` literals; the math wrappers `sin cos tan asin acos atan
-atan2 sinh cosh tanh exp log log10 pow sqrt abs floor ceiling erf erfc gamma
-lgamma` (from `backend/Model/SymEngineFunctionWrappers.hpp`); and calls to other
-functions defined in the same file.
-
-```text
 function Flux(x, uq, v, w, eta, mu, t)
   output_size(f) = 2;
-  kappa = mu[0];
-  f[0] = kappa*uq[1];
-  f[1] = kappa*uq[2];
-end
-
-function Fbou(x, uq, v, w, uhat, n, tau, eta, mu, t)
-  output_size(fb) = 1;
-  f = Flux(x, uq, v, w, eta, mu, t);
-  fb[0] = f[0]*n[0] + f[1]*n[1] + tau[0]*(uq[0]-uhat[0]);
+  f[0] = mu[0]*uq[1];
+  f[1] = mu[0]*uq[2];
 end
 ```
 
-## Output functions → model contract
+## Header Declarations
 
-The recognized function names are fixed (`ParsedSpec::exasimfunctions`). Listing
-one in `outputs` emits its kernel(s). Each corresponds to a
-[model contract](model-contract.md) method (the SEMANTICS):
+| Declaration | Form | Required | Meaning |
+| --- | --- | --- | --- |
+| `scalars` | `scalars t` | Usually yes | Scalar symbolic inputs. |
+| `vectors` | `vectors x(2), uq(3)` | Yes | Vector symbolic inputs and sizes. |
+| `jacobian` | `jacobian uq, w, uhat` | Optional | Vectors with respect to which first derivatives are generated. |
+| `hessian` | `hessian` | Optional | Vectors for second derivatives; often empty. |
+| `batch` | `batch x, uq, ...` | Optional | Inputs batched over generated point loops. |
+| `outputs` | `outputs Flux, Source, ...` | Yes | Function blocks to emit. |
+| `datatype` | `datatype dstype` | Optional | C++ scalar type; default is `dstype`. |
+| `framework` | `framework kokkos` | Optional | Generation framework; default is `kokkos`. |
+| `codeformat` | `codeformat exasim` | Optional | Default `exasim`; enforces core Exasim outputs. |
 
-| DSL function | Role | Contract method |
-|---|---|---|
-| `Flux` | volume flux $F$ | `flux` |
-| `Source` | volume source $S$ | `source` |
-| `Tdfunc` | time-derivative mass coefficient | `tdfunc` |
-| `Ubou` | Dirichlet boundary value of $u$ | `ubou` |
-| `Fbou` | boundary flux (LDG) | `fbou` |
-| `FbouHdg` | HDG boundary flux | `fbou_hdg` |
-| `Sourcew` | source for the `w` field | `sourcew` |
-| `EoS` | equation of state for `w` | `eos` |
-| `Initu` / `Initq` / `Inituq` / `Initw` / `Initv` | initial conditions | `initu` / `initq` / `initudg` / `initwdg` / `initodg` |
-| `Avfield` | artificial-viscosity field | `avfield` |
-| `VisScalars` / `VisVectors` / `VisTensors` | visualization outputs | `vis_scalars` / `vis_vectors` / `vis_tensors` |
-| `QoIvolume` / `QoIboundary` | quantity-of-interest integrands | `qoi_volume` / `qoi_boundary` |
-| `Output` / `Monitor` | output / solver-monitor hooks | `output` / `monitor` |
-| `Fint` / `Fext` | interior / external interface flux | used by the [solver coupling interface](../driving-the-solver.md) |
+## Conventional Vector Names
 
-**Required in `exasim` mode (the default):** `Flux`, `Source`, `Tdfunc`, `Ubou`,
-`Fbou`, `FbouHdg` must appear in `outputs`; all others are optional.
+Text2Code allows arbitrary vector names, but Exasim-generated model files use
+the following conventions:
 
-Derivatives are generated w.r.t. the vectors named in the `jacobian` (and
-`hessian`) declarations — these become the HDG Jacobian methods of the
-[model contract](model-contract.md), the per-element blocks of the
-[block-diagonal Jacobian](../theory/block-diagonal-jacobian.md).
+| Name | Meaning |
+| --- | --- |
+| `x` | Spatial coordinate vector. |
+| `uq` | Packed solution vector; `u` plus gradients/auxiliary `q` entries. |
+| `v` | External or other-DG field, stored as `odg` at runtime. |
+| `w` | Auxiliary state field, stored as `wdg`. |
+| `uhat` | HDG trace state on faces. |
+| `uext` | External face data for coupled/interface functions. |
+| `n` | Outward unit normal on a face. |
+| `tau` | Stabilization parameters. |
+| `mu` | Physics parameters, from `physicsparam`. |
+| `eta` | Extra/reference parameters, mapped to `uinf` in the ABI. |
+| `t` | Current time. |
+
+## Required Outputs in `exasim` Code Format
+
+When `codeformat` is `exasim` or omitted, the parser requires the first six
+outputs:
+
+| Function | Purpose |
+| --- | --- |
+| `Flux` | Volume flux. |
+| `Source` | Volume source. |
+| `Tdfunc` | Time-derivative coefficient/mass function. |
+| `Ubou` | Boundary state/value function. |
+| `Fbou` | LDG boundary flux. |
+| `FbouHdg` | HDG boundary residual/flux. |
+
+Optional outputs are emitted when listed:
+
+| Function | Purpose |
+| --- | --- |
+| `Sourcew` | Source/evolution term for auxiliary `w`. |
+| `Output` | Output field callback. |
+| `Monitor` | Monitor callback. |
+| `Initu` | Initial primary state. |
+| `Initq` | Initial gradient/auxiliary `q`. |
+| `Inituq` | Initial packed `u,q` state. |
+| `Initw` | Initial auxiliary `w`. |
+| `Initv` | Initial external/other-DG field. |
+| `Avfield` | Artificial-viscosity field. |
+| `Fint` | Internal interface flux. |
+| `EoS` | Equation-of-state/closure output. |
+| `VisScalars` | Scalar visualization fields. |
+| `VisVectors` | Vector visualization fields. |
+| `VisTensors` | Tensor visualization fields. |
+| `QoIvolume` | Volume QoI integrand. |
+| `QoIboundary` | Boundary QoI integrand. |
+| `Fext` | External interface flux. |
+
+## Function Block Syntax
+
+```text
+function Name(arg1, arg2, ...)
+  output_size(out) = N;
+  statement;
+  out[0] = expression;
+end
+```
+
+Rules:
+
+- Arguments must be declared in `scalars` or `vectors`.
+- `output_size(name) = N;` declares the output vector and size.
+- The function body is parsed line-by-line until the next `function` or EOF.
+- `end` is conventional and improves readability.
+
+## Body Sublanguage
+
+The body sublanguage is intentionally small. It supports scalar/vector
+assignments, simple matrix operations, loops, and calls to other functions
+declared in the same `pdemodel.txt` file.
+
+## Supported Body Statements
+
+| Form | Example |
+| --- | --- |
+| Output assignment | `f[0] = uq[1];` |
+| Scalar assignment | `p = mu[0]*uq[0];` |
+| Function call | `f = Flux(x, uq, v, w, eta, mu, t);` |
+| Vector declaration | `vector tmp(3);` |
+| Matrix declaration | `matrix A(2,2);` |
+| Matrix element assignment | `A[0][1] = x[0];` |
+| Matrix operations | `B = inv(A);`, `C = transpose(A);` |
+| Fill operations | `zeros(f);`, `ones(f);`, `fill(f, 1.0);` |
+| Loop | `for i in 0:2` ... `endfor` |
+
+Supported mathematical functions include common functions such as `sin`,
+`cos`, `tan`, `exp`, `log`, `pow`, `sqrt`, `abs`, `atan2`, hyperbolic
+functions, and error/gamma functions as wrapped by the generated C++ support.
+
+## Model-Type Mapping
+
+| Model type | Typical `uq` contents | Required model meaning |
+| --- | --- | --- |
+| `ModelC` | `u` only | Convection/source systems without a `q + grad(u)` equation. |
+| `ModelD` | `u` and gradient variables `q` | Diffusion/mixed systems with auxiliary gradient variables. |
+| `ModelW` | `u` and time-dependent auxiliary wave variables | Wave-type first-order systems. |
+
+The parser does not prove that the mathematics matches the selected model
+type; the user/model author is responsible for consistency.
+
+## Minimal Poisson-Style Fragment
+
+```text
+scalars t
+vectors x(2), uq(3), v(0), w(0), uhat(1), n(2), tau(1), mu(1), eta(0)
+jacobian uq, w, uhat
+hessian
+batch x, uq, v, w, uhat, n
+outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Initu
+
+function Flux(x, uq, v, w, eta, mu, t)
+  output_size(f) = 2;
+  f[0] = mu[0]*uq[1];
+  f[1] = mu[0]*uq[2];
+end
+
+function Source(x, uq, v, w, eta, mu, t)
+  output_size(s) = 1;
+  s[0] = 0.0;
+end
+
+function Tdfunc(x, uq, v, w, eta, mu, t)
+  output_size(m) = 1;
+  m[0] = 1.0;
+end
+```
+
+## Cross-References
+
+- [Model functions](model-functions.md)
+- [Boundary conditions](boundary-conditions.md)
+- [Equations of state](equations-of-state.md)
+- [Auxiliary equations](auxiliary-equations.md)
+- [Text2Code](text2code.md)

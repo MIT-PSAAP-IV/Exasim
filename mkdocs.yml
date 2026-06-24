@@ -72,37 +72,121 @@ nav:
   - Home: index.md
   - Getting started:
       - Quickstart: getting-started/quickstart.md
-      - Choosing a usage mode: usage-modes/index.md
+      - Choosing an application mode: usage-modes/index.md
   - Installation:
       - install/index.md
-      - Common dependencies: install/common.md
-      - "Local: macOS": install/macos.md
-      - "Local: Linux (CPU)": install/linux-cpu.md
-      - "Local: Linux (NVIDIA GPU)": install/linux-nvidia.md
-      - "Local: Linux (AMD GPU)": install/linux-amd.md
+      - Quick Installation (Recommended): install/quick-install.md
+      - CPU Installation via Superbuild: install/superbuild-cpu.md
+      - Troubleshooting Superbuild Failures: install/superbuild-troubleshooting.md
+      - Manual Dependency Installation: install/manual-dependencies.md
+      - Common manual dependency steps: install/common.md
+      - GPU Installation: install/gpu.md
+      - "Platform: macOS": install/macos.md
+      - "Platform: Linux CPU": install/linux-cpu.md
+      - "Platform: Linux NVIDIA GPU": install/linux-nvidia.md
+      - "Platform: Linux AMD GPU": install/linux-amd.md
       - "HPC: build chain & options": install/hpc.md
       - "HPC: Frontier": install/frontier.md
       - "HPC: Tuolumne": install/tuolumne.md
       - "HPC: Generic": install/generic-hpc.md
-  - Usage modes:
+      - Verification and Testing: install/verification.md
+  - Text2Code Applications:
+      - Overview: text2code-applications/index.md
+      - pdeapp.txt guide: text2code-applications/pdeapp.md
+      - pdemodel.txt guide: text2code-applications/pdemodel.md
+      - PDE modeling guide: text2code-applications/modeling-guide.md
+      - Application setup guide: text2code-applications/application-setup.md
+      - Workflow and troubleshooting: text2code-applications/workflow.md
+      - Advanced topics: text2code-applications/advanced.md
+      - Reference gateway: text2code-applications/reference.md
+  - Frontends:
+      - Overview: frontends/index.md
+      - Getting started: frontends/getting-started.md
+      - Core data structures: frontends/data-structures.md
+      - Configuration: frontends/configuration.md
+      - Preprocessing: frontends/preprocessing.md
+      - pdemodel abstraction: frontends/pdemodel.md
+      - Mesh and geometry: frontends/mesh-and-geometry.md
+      - Execution workflow: frontends/execution.md
+      - Postprocessing and visualization: frontends/postprocessing.md
+      - API reference: frontends/api-reference.md
+  - Application Modes:
       - usage-modes/index.md
-      - Built-in model: usage-modes/builtin.md
-      - External built-in model: usage-modes/external-builtin.md
+      - Built-in library: usage-modes/builtin.md
+      - External built-in library: usage-modes/external-builtin.md
       - Shared library: usage-modes/shared-library.md
-  - Frontends: frontends/index.md
+      - Parameter sweeps: usage-modes/parameter-sweeps.md
+      - Postprocessing: usage-modes/postprocessing.md
+  - Using AI Tools:
+      - Overview: using-ai-tools/index.md
+      - Prompt engineering: using-ai-tools/prompt-engineering.md
+      - Creating examples: using-ai-tools/creating-examples.md
+      - Implementing physics models: using-ai-tools/implementing-physics-models.md
+      - Mesh generation: using-ai-tools/mesh-generation.md
+      - Debugging and code review: using-ai-tools/debugging.md
+      - Extending Exasim: using-ai-tools/extending-exasim.md
+      - Validating AI-generated code: using-ai-tools/validating-ai-generated-code.md
+      - Best practices: using-ai-tools/best-practices.md
+      - Example prompts: using-ai-tools/example-prompts.md
+  - Physics Models:
+      - Overview: physics-models/index.md
+      - ModelC: physics-models/modelc.md
+      - ModelD: physics-models/modeld.md
+      - ModelW: physics-models/modelw.md
+      - Model comparison: physics-models/comparison.md
+      - Auxiliary equations through w: physics-models/auxiliary-equations.md
+      - Equations of state: physics-models/equations-of-state.md
+      - External variables through v: physics-models/external-variables.md
+      - Artificial viscosity: physics-models/artificial-viscosity.md
+      - Multiphysics problems: physics-models/multiphysics.md
+      - Multi-model problems: physics-models/multi-model.md
+      - Worked examples: physics-models/examples.md
   - Theory:
-      - theory/index.md
-      - LDG formulation: theory/ldg-formulation.md
+      - Overview: theory/index.md
+      - DG methods: theory/dg-methods.md
+      - LDG: theory/ldg.md
+      - HDG: theory/hdg.md
+      - Temporal discretization: theory/temporal-discretization.md
+      - Nonlinear solvers: theory/nonlinear-solvers.md
+      - Linear solvers: theory/linear-solvers.md
+      - Preconditioning: theory/preconditioning.md
+      - Parallel computing: theory/parallel-computing.md
+      - GPU computing: theory/gpu-computing.md
+      - Scalability: theory/scalability.md
+      - Algorithmic flow: theory/algorithmic-flow.md
+      - LDG implementation deep dive: theory/ldg-formulation.md
       - Block-diagonal Jacobian: theory/block-diagonal-jacobian.md
+      - References: theory/references.md
   - Reference:
+      - Overview: reference/index.md
+      - pdeapp fields: reference/pdeapp.md
+      - pdemodel syntax: reference/pdemodel.md
       - Model contract: reference/model-contract.md
-      - pdeapp.txt fields: reference/pdeapp.md
-      - pdemodel.txt syntax: reference/pdemodel.md
+      - Model functions: reference/model-functions.md
+      - Equations of state: reference/equations-of-state.md
+      - Boundary conditions: reference/boundary-conditions.md
+      - Source terms: reference/source-terms.md
+      - Auxiliary equations: reference/auxiliary-equations.md
+      - Parameter sweeps: reference/parameter-sweeps.md
+      - Postprocessing: reference/postprocessing.md
+      - Text2Code: reference/text2code.md
       - CMake targets & options: reference/cmake.md
-      - text2code: reference/text2code.md
+      - Glossary: reference/glossary.md
   - Driving the solver (C++ API): driving-the-solver.md
   - Internals:
-      - Architecture & data flow: internals/architecture.md
+      - Overview: internals/index.md
+      - Architecture: internals/architecture.md
+      - Repository structure: internals/repository-structure.md
+      - Code generation: internals/code-generation.md
+      - Frontends: internals/frontends.md
+      - Backend: internals/backend.md
+      - Runtime: internals/runtime.md
+      - GPU implementation: internals/gpu-implementation.md
+      - MPI implementation: internals/mpi-implementation.md
       - Testing: internals/testing.md
       - Baselines: internals/baselines.md
       - Known divergences: internals/known-divergences.md
+      - Development workflow: internals/development-workflow.md
+      - Coding guidelines: internals/coding-guidelines.md
+      - CI and validation: internals/ci-and-validation.md
+      - References: internals/references.md

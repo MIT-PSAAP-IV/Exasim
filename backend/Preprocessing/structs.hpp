@@ -186,6 +186,7 @@ struct PDE {
     int extUhat = 0;
     int extStab = 0;
     int saveParaview = 0;
+    int physicsparamwarmstart = 0;
     int saveResNorm = 0;
     int dae_steps = 0;
 
