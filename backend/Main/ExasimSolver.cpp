@@ -1352,12 +1352,21 @@ int ExasimSolver::SaveParaviewStep(const int modelnumber, const int step, const 
 {
     if (!initialized_ || modelnumber < 0 || modelnumber >= nummodels_)
         return 1;
+    if (step < 1)  // step is 1-based; step-1 must be a valid (>=0) index
+        return 1;
     CSolution& m = *models_[modelnumber];
+    // Nothing to write — and nothing to perturb — when vis is disabled. Returning
+    // before touching currentstep keeps this a true no-op for non-vis models.
+    if (m.vis.savemode <= 0)
+        return 0;
     // SaveParaview names the file outvis<modifier>_<currentstep+timestepOffset+1>; set
-    // currentstep = step-1 so a 1-based step maps to outvis<modifier>_<step>.vtu.
+    // currentstep = step-1 so a 1-based step maps to outvis<modifier>_<step+offset>.
+    // Save and restore currentstep so this scratch index never leaks into a later
+    // solve/postprocess that reads common.currentstep.
+    const auto savedstep = m.disc.common.currentstep;
     m.disc.common.currentstep = step - 1;
-    if (m.vis.savemode > 0)
-        m.SaveParaview(backend_, modifier, true);
+    m.SaveParaview(backend_, modifier, true);
+    m.disc.common.currentstep = savedstep;
     return 0;
 }
 

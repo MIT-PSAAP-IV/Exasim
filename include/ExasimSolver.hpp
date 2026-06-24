@@ -128,9 +128,14 @@ public:
     int RunSteady(const int modelnumber);
     int RunSolveProblemOrPostprocess();
     int Postprocess();
-    // Write a single ParaView vis frame for the given model at step `step` (1-based),
-    // naming it outvis<modifier>_<step>.vtu. Used by partitioned-coupling drivers to
-    // emit a per-outer-step fluid series during a transient solve. No-op if savemode==0.
+    // Write a single ParaView vis frame for `modelnumber` at 1-based `step`, forcing a
+    // time-series filename even when the model is steady (re-solved each outer step):
+    //   outvis<modifier>_<NNNNNN>{.vtu | .pvtu}
+    // where NNNNNN = step + common.timestepOffset, zero-padded to 6 digits (serial runs
+    // emit .vtu; parallel runs add a .pvtu over per-rank .vtu). Used by partitioned-
+    // coupling drivers to emit a per-outer-step fluid series. Returns 0 (no-op, state
+    // untouched) when savemode==0; returns 1 for an uninitialized solver, an out-of-range
+    // modelnumber, or step < 1.
     int SaveParaviewStep(const int modelnumber, const int step, const std::string& modifier);
     int Solve();
     int Solve(const int modelnumber);
