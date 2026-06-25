@@ -57,9 +57,15 @@
 
 
 // constructor
-CPreconditioner::CPreconditioner(CDiscretization& disc, Int backend)
+CPreconditioner::CPreconditioner(CDiscretization& disc, Int backend, ExasimExecutionMode mode)
 {
     mpiRank = disc.common.mpiRank;
+    precond.backend = backend;
+    if (mode == ExasimExecutionMode::Postprocess) {
+        if (disc.common.mpiRank == 0) printf("finish CPreconditioner constructor (postprocess mode)... \n");
+        return;
+    }
+
     setprecondstruct(precond, disc, backend);    
     if ((disc.common.mpiRank==0) && (disc.common.debugMode==1)) precond.printinfo();
     if (disc.common.mpiRank == 0) printf("finish CPreconditioner constructor... \n");    

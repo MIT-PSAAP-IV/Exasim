@@ -56,6 +56,7 @@
 #endif
 
 #include "driver_abi.hpp"
+#include "exasim/execution_mode.hpp"
 #include "modeldefaults.hpp"
 
 #if defined(HAVE_MPI) || defined(_MPI)
@@ -91,6 +92,7 @@ public:
     int InitializeEnvironment(int argc, char** argv, MPI_Comm comm);
     int Initialize(int argc, char** argv, MPI_Comm comm);    
     int ParseInputs(int argc, char** argv);
+    int ParsePostprocessInputs(int argc, char** argv);
     int SetModelDefinition(const int modelnumber, const int builtinmodelID,
                            const ExasimDriverABI& abi);
     int InitializeModels();
@@ -125,8 +127,19 @@ public:
     int RunSteady();
     int RunSteady(const int modelnumber);
     int RunSolveProblemOrPostprocess();
+    int Postprocess();
+    // Write a single ParaView vis frame for `modelnumber` at 1-based `step`, forcing a
+    // time-series filename even when the model is steady (re-solved each outer step):
+    //   outvis<modifier>_<NNNNNN>{.vtu | .pvtu}
+    // where NNNNNN = step + common.timestepOffset, zero-padded to 6 digits (serial runs
+    // emit .vtu; parallel runs add a .pvtu over per-rank .vtu). Used by partitioned-
+    // coupling drivers to emit a per-outer-step fluid series. Returns 0 (no-op, state
+    // untouched) when savemode==0; returns 1 for an uninitialized solver, an out-of-range
+    // modelnumber, or step < 1.
+    int SaveParaviewStep(const int modelnumber, const int step, const std::string& modifier);
     int Solve();
     int Solve(const int modelnumber);
+    int RunPhysicsParamSweep();
 
     bool IsInitialized() const;
     int NumModels() const;
@@ -160,6 +173,9 @@ private:
     std::vector<std::ofstream> residual_outputs_;
     std::vector<std::string> filein_;
     std::vector<std::string> fileout_;
+    std::vector<std::string> base_fileout_;
+    std::vector<std::vector<dstype>> physicsparamcases_;
+    std::vector<dstype> active_physicsparam_;
     std::string exasimpath_;
 
     MPI_Comm world_comm_ = MPI_COMM_NULL;
@@ -168,6 +184,14 @@ private:
     int nummodels_ = 0;
     int backend_ = 0;
     int restart_ = 0;
+    ExasimExecutionMode executionMode_ = ExasimExecutionMode::Solve;
+    int postmode_ = 0;
+    int nsca_ = 0;
+    int nvec_ = 0;
+    int nten_ = 0;
+    int nsurf_ = 0;
+    int nvqoi_ = 0;
+    int saveParaview_ = 0;
     std::vector<int> builtinmodelID_;
     int interface_modelnumber_ = -1;
 
@@ -181,4 +205,17 @@ private:
     bool initialized_ = false;
     bool owns_mpi_ = false;
     bool owns_kokkos_ = false;    
+
+    bool HasPhysicsParamSweepFile() const;
+    int ReadPhysicsParamSweepFile();
+    int BuildModelsForCurrentCase();
+    bool PhysicsParamWarmStartEnabledFromCurrentModel() const;
+    int ApplyPhysicsParamToModels(const std::vector<dstype>& physicsparam);
+    int ResetModelOutputsForCurrentCase();
+    int RunCurrentPhysicsParamCase();
+    void DestroyModelInstances();
+    std::string PhysicsParamSweepFile() const;
+    std::string CaseOutputPrefix(int icase) const;
+    int WritePhysicsParamCaseMetadata(int icase, const std::string& outputPrefix) const;
+    int WritePhysicsParamSweepManifest(bool warmstart) const;
 };

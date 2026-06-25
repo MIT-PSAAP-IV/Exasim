@@ -1,58 +1,123 @@
-# text2code
+# Text2Code Reference
 
-`text2code` is the C++17 utility that turns a PDE application description into
-solver inputs. It parses [`pdeapp.txt`](pdeapp.md) and its companion
-[`pdemodel.txt`](pdemodel.md), builds mesh / master / connectivity data,
-optionally generates the C++ model kernels, and writes the binary inputs the
-Exasim backend consumes. It is self-contained (no external parser framework) and
-uses a small expression engine (`tinyexpr`) for numeric formulas in the text
-configuration.
+`text2code` is the installed executable that converts `pdeapp.txt` and
+`pdemodel.txt` into Exasim runtime inputs and generated C++ model code.
 
-It is the engine behind the codegen variant of the
-[external built-in model](../usage-modes/external-builtin.md) and the
-[shared-library](../usage-modes/shared-library.md) / [frontend](../frontends/index.md)
-paths.
+Use:
+
+```bash
+/path/to/exasim-prefix/bin/text2code pdeapp.txt
+```
+
+If your install layout places executables under `local/bin`, use:
+
+```bash
+/path/to/exasim-prefix/local/bin/text2code pdeapp.txt
+```
+
+The exact path depends on the install prefix used with CMake.
 
 ## Pipeline
 
-Running `text2code pdeapp.txt` performs:
-
-1. **Parse** `pdeapp.txt` and `pdemodel.txt` (`readpdeapp.cpp`, `TextParser.hpp`);
-   numeric formulas are evaluated by `tinyexpr`.
-2. **Build geometry** — mesh, master element, connectivity, and (for MPI)
-   domain decomposition (`readmesh.cpp`, `makemesh.cpp`, `makemaster.cpp`,
-   `connectivity.cpp`, `domaindecomposition.cpp`).
-3. **Generate code** (when `gencode = 1`) — `CodeGenerator` emits the model
-   kernel `.cpp` from the `pdemodel.txt` functions.
-4. **Compile** the generated code (optional, the `USE_CMAKE` path via
-   `CodeCompiler.cpp`).
-5. **Write binaries** — `writebinaryfiles.cpp` emits `mesh.bin` and the rest of
-   the `datain` bundle into the data path.
-
-## Usage
-
-```bash
-text2code pdeapp.txt
+```mermaid
+flowchart TD
+  A["pdeapp.txt"] --> P["parseInputFile"]
+  M["pdemodel.txt"] --> T["TextParser"]
+  P --> PRE["C++ preprocessing"]
+  T --> GEN["CodeGenerator"]
+  PRE --> BIN["datain/*.bin"]
+  GEN --> SRC["generated model source"]
+  SRC --> APP["standalone app / provider"]
 ```
 
-Related files (e.g. `pdemodel.txt`) are discovered from the paths in
-`pdeapp.txt`.
+## Input Files
 
-| Knob | Source | Effect |
-|---|---|---|
-| `gencode` | `pdeapp.txt` | when `1`, generate model C++ kernels |
-| `gendatain` | `pdeapp.txt` | when `1`, write the `datain` binary bundle |
-| `USE_CMAKE` | CMake option | select the `CodeCompiler` path that builds generated code |
-| `datainpath` | `pdeapp.txt` / paths | directory where the binaries are written |
+| File | Required | Purpose |
+| --- | --- | --- |
+| `pdeapp.txt` | Yes | Application settings, mesh path, solver options, parameter sweeps. |
+| `pdemodel.txt` | Yes for generated models | Symbolic model functions. |
+| `mesh.bin` | Usually yes | Binary mesh input referenced by `meshfile`. |
+| Optional field files | No | `xdgfile`, `udgfile`, `vdgfile`, `wdgfile`, `uhatfile`, `partitionfile`. |
 
-## Building text2code
+## `pdeapp.txt` Format
+
+See [pdeapp reference](pdeapp.md) for the full key table.
+
+Important parser details:
+
+- Required keys are checked explicitly.
+- Lists use `[...]`.
+- `physicsparamcases` is parsed as a matrix.
+- Scalar floating fields must include `.` or `e`.
+- Unknown scalar keys can be parsed into generic maps, but only recognized keys
+  are transferred into the `PDE` struct.
+
+## `pdemodel.txt` Format
+
+See [pdemodel reference](pdemodel.md) for declarations and function syntax.
+
+Text2Code requires these outputs in default `exasim` mode:
+
+```text
+outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg
+```
+
+Most practical models also define one or more initial-condition functions such
+as `Initu`, `Inituq`, `Initw`, or `Initv`.
+
+## Generated Outputs
+
+Depending on `pdeapp.txt` options, Text2Code may produce:
+
+| Output | Controlled by | Meaning |
+| --- | --- | --- |
+| `datain/` | `gendatain = 1` | Runtime binary input bundle. |
+| Generated C++ model files | `gencode = 1` | Provider/model source code. |
+| `physicsparamcases.bin` | `physicsparamcases` present | Standalone parameter-sweep cases. |
+| Mesh/solution binaries | `writemeshsol = 1` | Runtime mesh and initial solution files. |
+
+## Minimal Command Sequence
 
 ```bash
-cmake -S text2code/text2code -B build -DCMAKE_BUILD_TYPE=Release
+cd apps/navierstokes/naca0012steady
+/path/to/exasim-prefix/bin/text2code pdeapp.txt
+cmake -S . -B build -DExasim_DIR=/path/to/exasim-prefix
 cmake --build build -j
+build/exasimapp datain/ dataout/out
 ```
 
-Requires CMake ≥ 3.16 and a C++17 compiler. On HPC it is built as a dependency
-of the [HPC build chain](../install/hpc.md) and the install ships a prebuilt
-`text2code` binary; consumers reach it through
-`exasim_add_external_builtin_model(... PDEMODEL ...)`.
+If the package config is installed under a standard CMake prefix, passing the
+install prefix through `Exasim_DIR` or `CMAKE_PREFIX_PATH` may not be needed.
+
+## Parameter Sweeps
+
+When `physicsparamcases` is present, Text2Code writes the shared sweep file
+used by standalone C++ apps. The generated executable runs all cases without
+rerunning Text2Code or recompiling.
+
+See [Parameter sweeps](parameter-sweeps.md).
+
+## AI-Assisted Text2Code Authoring
+
+When using Codex, Claude, Copilot, ChatGPT, or similar tools to generate
+Text2Code inputs, provide:
+
+- The target model type (`ModelC`, `ModelD`, or `ModelW`).
+- Exact state ordering.
+- `physicsparam` ordering.
+- Boundary IDs and geometry.
+- Required outputs and visualization/QoI fields.
+- A nearby working example path.
+
+Then validate by running Text2Code, compiling the app, and running a small
+case. See [Using AI Tools](../using-ai-tools/index.md).
+
+## Common Errors
+
+| Error | Cause | Fix |
+| --- | --- | --- |
+| Missing required key | `pdeapp.txt` lacks a required parser key. | Add the key listed in the error. |
+| Missing required model output | `pdemodel.txt` omits one of the six core outputs. | Add the function and list it in `outputs`. |
+| `std::stod` parse failure | Malformed numeric list or expression. | Check brackets, commas, semicolons, and `repeat(...)`. |
+| Sweep row mismatch | `physicsparamcases` row width differs from `physicsparam`. | Make every row the same length. |
+| Generated app link error | Wrong Exasim package or backend variant. | Check `find_package(Exasim)` and linked targets. |

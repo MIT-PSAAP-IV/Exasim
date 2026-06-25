@@ -78,6 +78,10 @@ app.ibs = 0;
 app.compudgavg = 0;
 app.extFhat = 0;
 app.extUhat = 0;
+app.extStab = 0;
+app.saveParaview = 0;
+app.physicsparamwarmstart = 0;
+app.executionmode = 0;
 
 app.time = 0.0;
 app.NLparam = 0.0;
@@ -98,17 +102,15 @@ app.externalparam = [0.0 0.0]; % external parameters
 app.dt = [0.0 0.0];  % time steps
 app.factor = [0.0 0.0];  % factors
 app.physicsparam = [0.0 0.0]; % physical parameters
+app.physicsparamsweep = [];
 app.solversparam = [0.0 0.0]; % solvers parameters
 app.stgdata = [0.0 0.0]; % synthetic turbulence
 app.stgparam = [0.0 0.0]; % synthetic turbulence
 
 app.soltime = 1;
 app.visfilename = "dataout/output";   % filename for paraview output files
+app.dataoutpath = "";
 app.metis = "mpmetis";
 app.gmsh = "gmsh";
 app.paraview = "paraview";
-
-
-
-
 

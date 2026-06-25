@@ -143,6 +143,7 @@ void setcommonstruct(commonstruct &common, appstruct &app, ExasimDriverABI& driv
     common.extUhat = app.flag[14];
     common.extStab = app.flag[15];
     common.subproblem = app.flag[16];
+    common.saveParaview = (app.nsize[1] > 17) ? app.flag[17] : 0;
     
     common.tsteps = app.nsize[4];  // number of time steps          
     common.spatialScheme = app.problem[0];   /* 0: HDG; 1: EDG; 2: IEDG, HEDG */
@@ -506,12 +507,14 @@ void settempstruct(tempstruct &tmp, appstruct &app, ExasimDriverABI& driver_abi,
 
 void cpuInit(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common,
-        string filein, string fileout, Int mpiprocs, Int mpirank, Int fileoffset, Int omprank) 
+        string filein, string fileout, Int mpiprocs, Int mpirank, Int fileoffset, Int omprank,
+        const std::vector<dstype>* physicsparamOverride = nullptr)
 {
      
     if (mpirank==0)
         printf("Reading data from binary files \n");
-    readInput(app, driver_abi, master, mesh, sol, filein, mpiprocs, mpirank, fileoffset, omprank);
+    readInput(app, driver_abi, master, mesh, sol, filein, mpiprocs, mpirank, fileoffset, omprank,
+              physicsparamOverride);
     
     if (mpirank==0)
         printf("Finish reading data from binary files \n");

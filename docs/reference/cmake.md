@@ -1,85 +1,157 @@
-# CMake reference
+# CMake Reference
 
-Build options, exported package targets, and the external-model helper. For the
-build procedures that use them, see [Installation](../install/index.md); for the
-consumer link lines, see [Usage modes](../usage-modes/index.md).
+This page documents Exasim CMake options, installed targets, package
+components, and common build configurations. For step-by-step installation
+instructions, see [Installation](../install/index.md).
 
-## Build options
+## Recommended Superbuild Pattern
 
-The first group is declared by the top-level superbuild (`CMakeLists.txt`) and
-forwarded to the solver layer; the second group is declared in
-`install/CMakeLists.txt` and the vendored `text2code` build.
+```bash
+export EXASIM_PREFIX=/path/to/prefix
+cmake -S Exasim -B Exasim-build -DCMAKE_INSTALL_PREFIX=$EXASIM_PREFIX
+cmake --build Exasim-build -j8
+cmake --install Exasim-build
+```
 
-| Option | Default | Meaning |
-|---|---|---|
-| `EXASIM_MPI` | `ON` | Build MPI solver variants (`cpumpi…`, `gpumpi…`). |
-| `EXASIM_NOMPI` | `ON` | Build non-MPI variants (`cpu…`, `gpu…`). |
-| `EXASIM_CUDA` | `OFF` | Enable the CUDA backend; builds `gpu*` targets and `builtinmodelcuda`. |
-| `EXASIM_HIP` | `OFF` | Enable the HIP (AMD) backend; builds `gpu*` targets and `builtinmodelhip`. |
-| `EXASIM_LIB` | `ON` | Build/install static libraries only; skip Exasim executables. |
-| `WITH_PARMETIS` | `ON` | Link METIS/ParMETIS/GKlib (defines `HAVE_PARMETIS`). |
-| `WITH_TEXT2CODE` | `OFF` | Also build `*t2cEXASIM` executables that link text2code-generated dynamic libraries. |
-| `WITH_BUILTINMODEL` | `ON` | Forwarded to the solver build (the built-in model library is built regardless). |
-| `EXASIM_FRONTENDS` | `ON` | Install the Python / Julia / MATLAB frontends. |
-| `EXASIM_BUILD_TESTS` | `OFF` | Register the ctest regression suite. |
-| `EXASIM_PIP_INSTALL` | `OFF` | pip-install the `exasim` Python package at install time. |
-| `EXASIM_JULIA_DEVELOP` | `OFF` | `Pkg.develop` the installed `Exasim.jl` at install time. |
-| `WITH_KOKKOSKERNEL` | `OFF` | (solver layer) build executables using header-only Kokkos kernel providers. |
-| `WITH_METIS` | `ON` | (text2code) build text2code with METIS/GKlib. |
+The superbuild configures dependencies, builds Text2Code, builds Exasim, and
+installs the package into `CMAKE_INSTALL_PREFIX`.
 
-!!! note "Not options, but cache variables"
-    `EXASIM_TEXT2CODE` is a *path* the superbuild sets to the built text2code
-    binary and forwards. `EXASIM_TUOLUMNE` is an undeclared cache variable a
-    consumer may pass (`-DEXASIM_TUOLUMNE=ON`) to select a Tuolumne Kokkos build
-    under HIP. When configuring `install/` directly (not via the superbuild),
-    `EXASIM_LIB` and `WITH_PARMETIS` default to `OFF` — the superbuild forces
-    them `ON` with `-D`.
+## Top-Level Superbuild Options
 
-## Exported targets and components
+Defined in the root `CMakeLists.txt`:
 
-`find_package(Exasim)` always exports `Exasim::headers`. Requesting
-`COMPONENTS cpu | cpumpi | gpu | gpumpi` does not create new targets — it
-resolves a variant, synthesizes the stable chooser aliases `Exasim::pre` and
-`Exasim::builtinmodel` for it, and verifies the variant was built.
+| Option | Default | Valid values | Description |
+| --- | --- | --- | --- |
+| `EXASIM_MPI` | `ON` | `ON/OFF` | Build MPI variants. |
+| `EXASIM_NOMPI` | `ON` | `ON/OFF` | Build non-MPI variants. |
+| `EXASIM_CUDA` | `OFF` | `ON/OFF` | Enable CUDA backend. |
+| `EXASIM_HIP` | `OFF` | `ON/OFF` | Enable HIP backend. |
+| `EXASIM_LIB` | `ON` | `ON/OFF` | Build static libraries; skip executables in solver layer when enabled. |
+| `WITH_PARMETIS` | `ON` | `ON/OFF` | Link METIS/ParMETIS/GKlib support. |
+| `WITH_TEXT2CODE` | `OFF` | `ON/OFF` | Build additional text2code-linked executable variants. |
+| `WITH_BUILTINMODEL` | `ON` | `ON/OFF` | Forwarded to solver build; built-in model library remains part of package flow. |
+| `EXASIM_BUILD_TESTS` | `OFF` | `ON/OFF` | Register CTest tests. |
+| `EXASIM_FRONTENDS` | `ON` | `ON/OFF` | Install MATLAB/Python/Julia frontends and app templates. |
+| `EXASIM_PIP_INSTALL` | `OFF` | `ON/OFF` | Pip-install Python frontend into configured interpreter. |
+| `EXASIM_JULIA_DEVELOP` | `OFF` | `ON/OFF` | Run Julia `Pkg.develop` for installed Julia frontend. |
 
-| Target | What it is |
-|---|---|
-| `Exasim::headers` | INTERFACE include target (`include/`, C++20). Required by every consumer. |
-| `Exasim::cpulib` / `Exasim::cpumpilib` | CPU solver static libs (non-MPI / MPI). |
-| `Exasim::gpulib` / `Exasim::gpumpilib` | GPU solver static libs (non-MPI / MPI). |
-| `Exasim::cpuprelib` / `Exasim::cpumpiprelib` | CPU preprocessing static libs. |
-| `Exasim::gpuprelib` / `Exasim::gpumpiprelib` | GPU preprocessing static libs. |
-| `Exasim::builtinmodelserial` / `…cuda` / `…hip` | Built-in model static libs per backend. |
-| `Exasim::pre` *(chooser alias)* | the `*prelib` for the first requested component. |
-| `Exasim::builtinmodel` *(chooser alias)* | the built-in model lib for the first requested component. |
+## Solver-Layer Options
 
-| Component | Selects | `Exasim::pre` → | `Exasim::builtinmodel` → |
-|---|---|---|---|
-| `cpu` | non-MPI CPU | `cpuprelib` | `builtinmodelserial` |
-| `cpumpi` | MPI CPU | `cpumpiprelib` | `builtinmodelserial` |
-| `gpu` | non-MPI GPU | `gpuprelib` | `builtinmodelcuda` |
-| `gpumpi` | MPI GPU | `gpumpiprelib` | `builtinmodelcuda` |
+Defined in `install/CMakeLists.txt`:
 
-!!! note
-    The chooser maps `gpu`/`gpumpi` to `builtinmodelcuda`; a HIP-only install
-    still exports `Exasim::builtinmodelhip` as a plain target, so link it
-    directly there. The built-in model libs are **static** archives despite a
-    "shared" mention in the config header.
+| Option/cache variable | Default | Description |
+| --- | --- | --- |
+| `EXASIM_LIB` | `OFF` when configuring `install/` directly | Build/install static libraries only. |
+| `WITH_TEXT2CODE` | `OFF` | Build `*t2cEXASIM` executables if generated libraries exist. |
+| `WITH_KOKKOSKERNEL` | `OFF` | Build header-only Kokkos-kernel provider executables. |
+| `KOKKOSKERNEL_HEADER` | empty | Header defining Kokkos kernel provider; enables `WITH_KOKKOSKERNEL`. |
+| `WITH_PARMETIS` | `OFF` when configuring `install/` directly | Link METIS/ParMETIS/GKlib. |
+| `PARMETIS_ROOT` | source-tree default | Override ParMETIS root. |
+| `METIS_ROOT` | source-tree default | Override METIS root. |
+| `GKLIB_ROOT` | source-tree default | Override GKlib root. |
+| `EXASIM_TUOLUMNE` | unset | HIP/Kokkos layout selector used by Tuolumne-style builds. |
+| `EXASIM_FRONTENDS` | `ON` | Install language frontends and app templates. |
+| `EXASIM_PIP_INSTALL` | `OFF` | Mutate Python environment with pip install. |
+| `EXASIM_JULIA_DEVELOP` | `OFF` | Mutate Julia environment with `Pkg.develop`. |
 
-## `exasim_add_external_builtin_model()`
+## Exported Targets
 
-Registers an [external built-in model](../usage-modes/external-builtin.md).
-Exactly one of `PDEMODEL` / `SOURCES` / `KERNELS` is required.
+After installation:
 
-| Argument | Required? | Meaning |
-|---|---|---|
-| `TARGET` | yes | Name of the provider library target to create. |
-| `ID` | yes | Model ID this provider intercepts; namespace `exasim_model_<ID>`. Other IDs fall through to `Exasim::builtinmodel*`. |
-| `PDEMODEL` | one-of | Path to a `pdeapp*.txt`; runs text2code at build time to generate kernels. |
-| `SOURCES` | one-of | Hand-written `model.hpp`/`model.cpp` (+ extras) in `exasim_model_<ID>`. |
-| `KERNELS` | one-of | Directory of pre-generated kernel `.cpp` files (frontend gencode output). |
-| `SHARED` | optional | Build a SHARED provider (frontend dynamic-model path; Kokkos as flags only). Default is STATIC, linking `Kokkos::kokkos`. |
+```cmake
+find_package(Exasim REQUIRED)
+```
 
-The target links `Exasim::headers` PUBLIC and the appropriate
-`Exasim::builtinmodel*` for fallthrough; consumers must **not** also link
-`Exasim::builtinmodel` directly.
+Exported targets include:
+
+| Target | Meaning |
+| --- | --- |
+| `Exasim::headers` | Public include target. |
+| `Exasim::cpulib` | CPU non-MPI solver library. |
+| `Exasim::cpumpilib` | CPU MPI solver library. |
+| `Exasim::gpulib` | GPU non-MPI solver library. |
+| `Exasim::gpumpilib` | GPU MPI solver library. |
+| `Exasim::cpuprelib` | CPU non-MPI preprocessing/runtime app library. |
+| `Exasim::cpumpiprelib` | CPU MPI preprocessing/runtime app library. |
+| `Exasim::gpuprelib` | GPU non-MPI preprocessing/runtime app library. |
+| `Exasim::gpumpiprelib` | GPU MPI preprocessing/runtime app library. |
+| `Exasim::builtinmodelserial` | Static built-in model library for serial/CPU provider. |
+| `Exasim::builtinmodelcuda` | Static built-in model library for CUDA provider, if built. |
+| `Exasim::builtinmodelhip` | Static built-in model library for HIP provider, if built. |
+
+## Package Components
+
+Components select stable aliases:
+
+```cmake
+find_package(Exasim REQUIRED COMPONENTS cpumpi)
+target_link_libraries(app PRIVATE Exasim::headers Exasim::pre Exasim::builtinmodel)
+```
+
+| Component | Alias `Exasim::pre` | Alias `Exasim::builtinmodel` |
+| --- | --- | --- |
+| `cpu` | `Exasim::cpuprelib` | `Exasim::builtinmodelserial` |
+| `cpumpi` | `Exasim::cpumpiprelib` | `Exasim::builtinmodelserial` |
+| `gpu` | `Exasim::gpuprelib` | `Exasim::builtinmodelcuda` |
+| `gpumpi` | `Exasim::gpumpiprelib` | `Exasim::builtinmodelcuda` |
+
+For HIP-only installs, link `Exasim::builtinmodelhip` directly where needed.
+
+## Common Build Configurations
+
+### CPU with MPI and frontends
+
+```bash
+cmake -S Exasim -B Exasim-build \
+  -DCMAKE_INSTALL_PREFIX=/path/to/prefix \
+  -DEXASIM_MPI=ON \
+  -DEXASIM_NOMPI=ON \
+  -DEXASIM_FRONTENDS=ON
+cmake --build Exasim-build -j8
+cmake --install Exasim-build
+```
+
+### NVIDIA GPU
+
+```bash
+cmake -S Exasim -B Exasim-build-cuda \
+  -DCMAKE_INSTALL_PREFIX=/path/to/prefix \
+  -DEXASIM_CUDA=ON \
+  -DEXASIM_HIP=OFF
+cmake --build Exasim-build-cuda -j8
+cmake --install Exasim-build-cuda
+```
+
+### AMD GPU
+
+```bash
+cmake -S Exasim -B Exasim-build-hip \
+  -DCMAKE_INSTALL_PREFIX=/path/to/prefix \
+  -DEXASIM_HIP=ON \
+  -DEXASIM_CUDA=OFF
+cmake --build Exasim-build-hip -j8
+cmake --install Exasim-build-hip
+```
+
+## External Built-In Models
+
+After `find_package(Exasim)`, consumers can call:
+
+```cmake
+exasim_add_external_builtin_model(
+  TARGET mymodel
+  ID 101
+  PDEMODEL path/to/pdeapp.txt)
+```
+
+Exactly one of `PDEMODEL`, `SOURCES`, or `KERNELS` is required. See
+[External built-in library](../usage-modes/external-builtin.md).
+
+## Notes
+
+- CUDA and HIP should not both be enabled in the same build.
+- GPU builds rely on a compatible Kokkos backend.
+- MPI targets require MPI at package-consume time when MPI variants are
+  exported.
+- Frontend-generated apps should prefer imported Exasim targets rather than
+  manually linking libraries.

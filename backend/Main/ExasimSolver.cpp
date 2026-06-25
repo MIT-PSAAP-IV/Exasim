@@ -2,6 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <iomanip>
 #include <vector>
 #include <numeric>
 #include <filesystem>
@@ -167,6 +168,48 @@ static bool IsValidModelABI(const ExasimDriverABI& abi)
            abi.HdgFextonly;
 }
 
+static int ParseIntegerArgument(const char* text, const char* name, const int rank, bool& ok)
+{
+    try {
+        return std::stoi(std::string(text));
+    } catch (...) {
+        if (rank == 0)
+            std::cerr << "Invalid " << name << ": " << text << std::endl;
+        ok = false;
+        return 0;
+    }
+}
+
+static std::string ParentDirectoryFromOutputPrefix(const std::string& prefix)
+{
+    std::filesystem::path p(prefix);
+    std::filesystem::path parent = p.parent_path();
+    if (parent.empty())
+        parent = ".";
+    return parent.string();
+}
+
+static int PhysicsParamSizeFromAppFile(const std::string& filename)
+{
+    std::ifstream in(filename.c_str(), std::ios::in | std::ios::binary);
+    if (!in)
+        error("Unable to open file " + filename);
+
+    double len = 0.0;
+    in.read(reinterpret_cast<char*>(&len), sizeof(double));
+    if (!in)
+        error("Malformed app file: " + filename);
+    const int nsizeLen = static_cast<int>(len);
+    if (nsizeLen <= 6)
+        error("Malformed app file nsize in " + filename);
+
+    std::vector<double> nsize(nsizeLen, 0.0);
+    in.read(reinterpret_cast<char*>(nsize.data()), sizeof(double) * nsizeLen);
+    if (!in)
+        error("Malformed app file nsize payload in " + filename);
+    return static_cast<int>(nsize[6]);
+}
+
 } // namespace
 
 ExasimSolver::ExasimSolver() = default;
@@ -222,6 +265,11 @@ int ExasimSolver::InitializeModels()
     if (initialized_)
         return 0;
 
+    if (!physicsparamcases_.empty()) {
+        initialized_ = true;
+        return 0;
+    }
+
     int err = BuildModels();
     if (err) {
         Finalize();
@@ -246,6 +294,9 @@ int ExasimSolver::InitializeModels()
 
 int ExasimSolver::Solve()
 {
+    if (!physicsparamcases_.empty())
+        return RunPhysicsParamSweep();
+
     if (!initialized_ || models_.empty())
         return 1;
 
@@ -466,10 +517,14 @@ int ExasimSolver::ParseInputs(int argc, char** argv)
 {
     filein_.clear();
     fileout_.clear();
+    base_fileout_.clear();
+    physicsparamcases_.clear();
+    active_physicsparam_.clear();
     exasimpath_.clear();
     nummodels_ = 1;
     mpiprocs0_ = 0;
     restart_ = 0;
+    executionMode_ = ExasimExecutionMode::Solve;
     const bool preserveModelDefinitions =
         !builtinmodelID_.empty() || !model_abis_.empty();
 
@@ -492,6 +547,14 @@ int ExasimSolver::ParseInputs(int argc, char** argv)
     filein_.push_back(pde.datainpath + "/");
     fileout_.push_back(make_path(pde.dataoutpath, "out"));
     exasimpath_ = pde.exasimpath;
+    // Propagate visualization field counts and the saveParaview flag from the pdeapp
+    // (nsca/nvec/nten/saveParaview keys) so external/builtin-library models can write
+    // ParaView vis inline during the solve. External models do not bake these into datain
+    // (app.ndims[14..16]=0, app.flag[17]=0), so without this savemode stays 0 and no outvis
+    // is written. CDiscretization applies these to disc.common before CVisualization (which
+    // computes savemode) is constructed.
+    nsca_ = pde.nsca; nvec_ = pde.nvec; nten_ = pde.nten;
+    saveParaview_ = pde.saveParaview;
     if (!preserveModelDefinitions)
         builtinmodelID_.assign(1, pde.builtinmodelID);
     if (mpirank_ == 0)
@@ -576,6 +639,125 @@ int ExasimSolver::ParseInputs(int argc, char** argv)
         return 1;
     }
 
+    base_fileout_ = fileout_;
+    if (HasPhysicsParamSweepFile()) {
+        int err = ReadPhysicsParamSweepFile();
+        if (err) return err;
+    }
+
+    return 0;
+}
+
+int ExasimSolver::ParsePostprocessInputs(int argc, char** argv)
+{
+    filein_.clear();
+    fileout_.clear();
+    exasimpath_.clear();
+    nummodels_ = 1;
+    mpiprocs0_ = 0;
+    restart_ = 0;
+    executionMode_ = ExasimExecutionMode::Postprocess;
+    postmode_ = 0;
+    nsca_ = 0;
+    nvec_ = 0;
+    nten_ = 0;
+    nsurf_ = 0;
+    nvqoi_ = 0;
+    saveParaview_ = 0;
+    const bool preserveModelDefinitions =
+        !builtinmodelID_.empty() || !model_abis_.empty();
+
+    if (argc < 3) {
+        if (mpirank_ == 0)
+            std::cerr << "Usage: ./postprocess nummodels InputFile(s) OutputFile(s) [restart] [postmode]\n";
+        return 1;
+    }
+
+    bool ok = true;
+    nummodels_ = ParseIntegerArgument(argv[1], "nummodels", mpirank_, ok);
+    if (!ok)
+        return 1;
+
+    if (nummodels_ > 100) {
+        mpiprocs0_ = nummodels_ - 100;
+        nummodels_ = 2;
+    }
+
+    if ((mpiprocs0_ > 0) && (mpiprocs_ <= mpiprocs0_)) {
+        std::printf("For two-domain problem, total number of MPI processors (%d) must be greater than # MPI processors on the first domain (%d)\n",
+                    mpiprocs_, mpiprocs0_);
+        return 1;
+    }
+
+    const int requiredArgs = 2 * nummodels_ + 2;
+    if (argc < requiredArgs) {
+        if (mpirank_ == 0)
+            std::cerr << "Missing input/output file argument(s)." << std::endl;
+        return 1;
+    }
+
+    for (int i = 0; i < nummodels_; i++) {
+        filein_.push_back(std::string(argv[2 * i + 2]));
+        fileout_.push_back(std::string(argv[2 * i + 3]));
+    }
+
+    if (argc >= (2 * nummodels_ + 3)) {
+        restart_ = ParseIntegerArgument(argv[2 * nummodels_ + 2], "restart", mpirank_, ok);
+        if (!ok) return 1;
+    }
+    if (argc >= (2 * nummodels_ + 4)) {
+        postmode_ = ParseIntegerArgument(argv[2 * nummodels_ + 3], "postmode", mpirank_, ok);
+        if (!ok) return 1;
+    }
+    if (argc >= (2 * nummodels_ + 5)) {
+        nsca_ = ParseIntegerArgument(argv[2 * nummodels_ + 4], "nsca", mpirank_, ok);
+        if (!ok) return 1;
+    }
+    if (argc >= (2 * nummodels_ + 6)) {
+        nvec_ = ParseIntegerArgument(argv[2 * nummodels_ + 5], "nvec", mpirank_, ok);
+        if (!ok) return 1;
+    }
+    if (argc >= (2 * nummodels_ + 7)) {
+        nten_ = ParseIntegerArgument(argv[2 * nummodels_ + 6], "nten", mpirank_, ok);
+        if (!ok) return 1;
+    }
+    if (argc >= (2 * nummodels_ + 8)) {
+        nsurf_ = ParseIntegerArgument(argv[2 * nummodels_ + 7], "nsurf", mpirank_, ok);
+        if (!ok) return 1;
+    }
+    if (argc >= (2 * nummodels_ + 9)) {
+        nvqoi_ = ParseIntegerArgument(argv[2 * nummodels_ + 8], "nvqoi", mpirank_, ok);
+        if (!ok) return 1;
+    }
+
+    std::filesystem::path cwd = std::filesystem::current_path();
+    exasimpath_ = trimToSubstringAtLastOccurence(cwd, "Exasim");
+    if (exasimpath_ == "")
+        exasimpath_ = trimToSubstringAtLastOccurence(fileout_[0], "Exasim");
+    if (mpirank_ == 0)
+        std::cout << "exasimpath = " << exasimpath_ << std::endl;
+
+    if (mpiprocs0_ > 0) {
+        nummodels_ = 1;
+#ifdef HAVE_MPI
+        int color = (mpirank_ < mpiprocs0_) ? 0 : 1;
+        MPI_Comm_split(EXASIM_COMM_WORLD, color, mpirank_, &local_comm_);
+        EXASIM_COMM_LOCAL = local_comm_;
+        MPI_Comm_size(EXASIM_COMM_LOCAL, &localprocs_);
+        MPI_Comm_rank(EXASIM_COMM_LOCAL, &localrank_);
+#endif
+    }
+
+    if (!preserveModelDefinitions && builtinmodelID_.empty())
+        builtinmodelID_.assign(NumModelDefinitions(), 0);
+
+    if (!builtinmodelID_.empty() &&
+        builtinmodelID_.size() != static_cast<size_t>(NumModelDefinitions())) {
+        if (mpirank_ == 0)
+            std::cerr << "Number of builtin model IDs does not match the number of model definitions." << std::endl;
+        return 1;
+    }
+
     return 0;
 }
 
@@ -613,19 +795,23 @@ int ExasimSolver::BuildModels()
 
     for (int i = 0; i < nummodels_; i++) {
         const int modelDefinition = (mpiprocs0_ > 0 && mpirank_ >= mpiprocs0_) ? 1 : i;
+        const std::vector<dstype>* physicsparamOverride =
+            active_physicsparam_.empty() ? nullptr : &active_physicsparam_;
 
         if (mpiprocs0_ == 0) {
             models_.push_back(std::make_unique<CSolution>(
                 filein_[i], fileout_[i], exasimpath_, mpiprocs_, mpirank_,
                 fileoffset, gpuid, backend_, builtinmodelID_[modelDefinition],
-                model_abis_[modelDefinition]));
+                model_abis_[modelDefinition], nsca_, nvec_, nten_, nsurf_, nvqoi_, executionMode_,
+                physicsparamOverride, saveParaview_));
         }
         else if (mpiprocs0_ > 0) {
             if (mpirank_ < mpiprocs0_) {
                 models_.push_back(std::make_unique<CSolution>(
                     filein_[0], fileout_[0], exasimpath_, mpiprocs_, mpirank_,
                     fileoffset, gpuid, backend_, builtinmodelID_[modelDefinition],
-                    model_abis_[modelDefinition]));
+                    model_abis_[modelDefinition], nsca_, nvec_, nten_, nsurf_, nvqoi_, executionMode_,
+                    physicsparamOverride, saveParaview_));
             }
             else {
                 fileoffset = mpiprocs0_;
@@ -634,7 +820,8 @@ int ExasimSolver::BuildModels()
                 models_.push_back(std::make_unique<CSolution>(
                     filein_[1], fileout_[1], exasimpath_, mpiprocs_, mpirank_,
                     fileoffset, gpuid, backend_, builtinmodelID_[modelDefinition],
-                    model_abis_[modelDefinition]));
+                    model_abis_[modelDefinition], nsca_, nvec_, nten_, nsurf_, nvqoi_, executionMode_,
+                    physicsparamOverride, saveParaview_));
             }
         }
 
@@ -1127,6 +1314,448 @@ int ExasimSolver::RunSolveProblemOrPostprocess()
 
     return 0;
 }
+
+int ExasimSolver::Postprocess()
+{
+    if (!initialized_ || models_.empty())
+        return 1;
+
+    for (int i = 0; i < nummodels_; i++) {
+        if (postmode_ == 0) {
+            models_[i]->disc.common.currentstep = -1;
+            models_[i]->ReadSolutions(backend_);
+            models_[i]->SaveQoI(backend_);
+            if (models_[i]->vis.savemode > 0)
+                models_[i]->SaveParaview(backend_);
+            models_[i]->SaveOutputCG(backend_);
+        } else if (postmode_ == 1) {
+            models_[i]->disc.common.currentstep = restart_;
+            models_[i]->GetSolutions(restart_, backend_);
+            models_[i]->SaveQoI(backend_);
+            if (models_[i]->vis.savemode > 0) models_[i]->SaveParaview(backend_);
+            models_[i]->SaveOutputCG(backend_);
+        } else if (postmode_ > 1) {
+            for (int j = 0; j < postmode_; j++) {
+              models_[i]->disc.common.currentstep = restart_ + j;
+              models_[i]->GetSolutions(restart_ + j, backend_);
+              models_[i]->SaveQoI(backend_);
+              if (models_[i]->vis.savemode > 0) models_[i]->SaveParaview(backend_);
+              models_[i]->SaveOutputCG(backend_);
+            }
+        }        
+    }
+
+    return 0;
+}
+
+int ExasimSolver::SaveParaviewStep(const int modelnumber, const int step, const std::string& modifier)
+{
+    if (!initialized_ || modelnumber < 0 || modelnumber >= nummodels_)
+        return 1;
+    if (step < 1)  // step is 1-based; step-1 must be a valid (>=0) index
+        return 1;
+    CSolution& m = *models_[modelnumber];
+    // Nothing to write — and nothing to perturb — when vis is disabled. Returning
+    // before touching currentstep keeps this a true no-op for non-vis models.
+    if (m.vis.savemode <= 0)
+        return 0;
+    // SaveParaview names the file outvis<modifier>_<currentstep+timestepOffset+1>; set
+    // currentstep = step-1 so a 1-based step maps to outvis<modifier>_<step+offset>.
+    // Save and restore currentstep so this scratch index never leaks into a later
+    // solve/postprocess that reads common.currentstep.
+    const auto savedstep = m.disc.common.currentstep;
+    m.disc.common.currentstep = step - 1;
+    m.SaveParaview(backend_, modifier, true);
+    m.disc.common.currentstep = savedstep;
+    return 0;
+}
+
+bool ExasimSolver::HasPhysicsParamSweepFile() const
+{
+    return std::filesystem::exists(PhysicsParamSweepFile());
+}
+
+std::string ExasimSolver::PhysicsParamSweepFile() const
+{
+    if (filein_.empty())
+        return "";
+    return (std::filesystem::path(filein_[0]) / "physicsparamcases.bin").string();
+}
+
+int ExasimSolver::ReadPhysicsParamSweepFile()
+{
+    if (nummodels_ != 1 || mpiprocs0_ > 0) {
+        if (mpirank_ == 0)
+            std::cerr << "physicsparamcases.bin is currently supported only for single-model standalone runs." << std::endl;
+        return 1;
+    }
+
+    const std::string filename = PhysicsParamSweepFile();
+    std::ifstream in(filename.c_str(), std::ios::in | std::ios::binary);
+    if (!in) {
+        if (mpirank_ == 0)
+            std::cerr << "Unable to open physicsparam sweep file: " << filename << std::endl;
+        return 1;
+    }
+
+    double header[2] = {0.0, 0.0};
+    in.read(reinterpret_cast<char*>(header), sizeof(header));
+    if (!in) {
+        if (mpirank_ == 0)
+            std::cerr << "Malformed physicsparam sweep file header: " << filename << std::endl;
+        return 1;
+    }
+
+    if (!std::isfinite(header[0]) || !std::isfinite(header[1])) {
+        if (mpirank_ == 0)
+            std::cerr << "Malformed physicsparam sweep dimensions in " << filename << std::endl;
+        return 1;
+    }
+
+    const int ncases = static_cast<int>(header[0]);
+    const int nparam = static_cast<int>(header[1]);
+    if (ncases <= 0 || nparam <= 0 ||
+        std::fabs(header[0] - static_cast<double>(ncases)) > 0.0 ||
+        std::fabs(header[1] - static_cast<double>(nparam)) > 0.0) {
+        if (mpirank_ == 0)
+            std::cerr << "Malformed physicsparam sweep dimensions in " << filename << std::endl;
+        return 1;
+    }
+
+    const int expected = PhysicsParamSizeFromAppFile((std::filesystem::path(filein_[0]) / "app.bin").string());
+    if (nparam != expected) {
+        if (mpirank_ == 0)
+            std::cerr << "physicsparam sweep nparam = " << nparam
+                      << " does not match app physicsparam length = " << expected
+                      << " in " << filename << std::endl;
+        return 1;
+    }
+
+    std::vector<double> raw(static_cast<size_t>(ncases) * nparam, 0.0);
+    in.read(reinterpret_cast<char*>(raw.data()), sizeof(double) * raw.size());
+    if (!in) {
+        if (mpirank_ == 0)
+            std::cerr << "Malformed physicsparam sweep payload in " << filename << std::endl;
+        return 1;
+    }
+
+    physicsparamcases_.assign(ncases, std::vector<dstype>(nparam, 0.0));
+    for (int i = 0; i < ncases; ++i) {
+        for (int j = 0; j < nparam; ++j) {
+            const double value = raw[static_cast<size_t>(i) * nparam + j];
+            if (!std::isfinite(value)) {
+                if (mpirank_ == 0)
+                    std::cerr << "physicsparam sweep contains non-finite value at case "
+                              << (i + 1) << ", parameter " << (j + 1) << std::endl;
+                return 1;
+            }
+            physicsparamcases_[i][j] = static_cast<dstype>(value);
+        }
+    }
+
+    if (mpirank_ == 0)
+        std::cout << "Detected physicsparam sweep with " << ncases
+                  << " case(s), " << nparam << " parameter(s) per case." << std::endl;
+
+    return 0;
+}
+
+std::string ExasimSolver::CaseOutputPrefix(int icase) const
+{
+    std::ostringstream ss;
+    ss << "paramcase_" << std::setw(4) << std::setfill('0') << icase;
+    const std::filesystem::path base = ParentDirectoryFromOutputPrefix(base_fileout_[0]);
+    return (base / ss.str() / "out").string();
+}
+
+int ExasimSolver::WritePhysicsParamCaseMetadata(int icase, const std::string& outputPrefix) const
+{
+    const std::filesystem::path caseDir = std::filesystem::path(outputPrefix).parent_path();
+    std::error_code ec;
+    std::filesystem::create_directories(caseDir, ec);
+    if (ec) {
+        std::cerr << "Unable to create physicsparam case output directory "
+                  << caseDir << ": " << ec.message() << std::endl;
+        return 1;
+    }
+
+    if (mpirank_ != 0)
+        return 0;
+
+    std::ofstream out((caseDir / "physicsparam.txt").string().c_str());
+    if (!out) {
+        std::cerr << "Unable to write physicsparam metadata in " << caseDir << std::endl;
+        return 1;
+    }
+    out << std::setprecision(17);
+    for (size_t i = 0; i < active_physicsparam_.size(); ++i) {
+        if (i > 0) out << " ";
+        out << active_physicsparam_[i];
+    }
+    out << "\n";
+
+    std::ofstream meta((caseDir / "physicsparam_metadata.txt").string().c_str());
+    if (!meta) {
+        std::cerr << "Unable to write physicsparam case metadata in " << caseDir << std::endl;
+        return 1;
+    }
+    meta << "case_index " << icase << "\n";
+    meta << "output_dir " << caseDir.string() << "\n";
+    meta << "physicsparam_file " << (caseDir / "physicsparam.txt").string() << "\n";
+    return 0;
+}
+
+int ExasimSolver::WritePhysicsParamSweepManifest(bool warmstart) const
+{
+    if (mpirank_ != 0 || physicsparamcases_.empty())
+        return 0;
+
+    const std::filesystem::path base = ParentDirectoryFromOutputPrefix(base_fileout_[0]);
+    std::error_code ec;
+    std::filesystem::create_directories(base, ec);
+    if (ec) {
+        std::cerr << "Unable to create physicsparam sweep output directory "
+                  << base << ": " << ec.message() << std::endl;
+        return 1;
+    }
+
+    std::ofstream out((base / "physicsparam_sweep_manifest.txt").string().c_str());
+    if (!out) {
+        std::cerr << "Unable to write physicsparam sweep manifest in " << base << std::endl;
+        return 1;
+    }
+
+    out << "ncases " << physicsparamcases_.size() << "\n";
+    out << "nparam " << physicsparamcases_[0].size() << "\n";
+    out << "physicsparamwarmstart " << (warmstart ? 1 : 0) << "\n";
+    out << std::setprecision(17);
+    for (size_t i = 0; i < physicsparamcases_.size(); ++i) {
+        const std::filesystem::path caseDir = std::filesystem::path(CaseOutputPrefix(static_cast<int>(i) + 1)).parent_path();
+        out << "case " << (i + 1) << " " << caseDir.string();
+        for (dstype value : physicsparamcases_[i])
+            out << " " << value;
+        out << "\n";
+    }
+    return 0;
+}
+
+bool ExasimSolver::PhysicsParamWarmStartEnabledFromCurrentModel() const
+{
+    if (models_.empty() || !models_[0])
+        return false;
+
+    const appstruct& app = models_[0]->disc.app;
+    if (app.szflag <= 18)
+        return false;
+
+    std::vector<Int> flag(app.szflag, 0);
+    TemplateCopytoHost(flag.data(), app.flag, app.szflag,
+                       models_[0]->disc.common.backend);
+    return flag[18] != 0;
+}
+
+int ExasimSolver::ApplyPhysicsParamToModels(const std::vector<dstype>& physicsparam)
+{
+    for (auto& model : models_) {
+        if (!model)
+            continue;
+        const Int expected = model->disc.app.szphysicsparam;
+        if (static_cast<Int>(physicsparam.size()) != expected) {
+            if (mpirank_ == 0)
+                std::cerr << "physicsparam warm-start case has "
+                          << physicsparam.size() << " parameter(s); expected "
+                          << expected << "." << std::endl;
+            return 1;
+        }
+        TemplateCopytoDevice(model->disc.app.physicsparam, physicsparam.data(),
+                             expected, model->disc.common.backend);
+    }
+    return 0;
+}
+
+int ExasimSolver::ResetModelOutputsForCurrentCase()
+{
+    CloseOutputStreams();
+    residual_outputs_.clear();
+    residual_outputs_.resize(nummodels_);
+
+    for (int i = 0; i < nummodels_; ++i) {
+        if (!models_[i])
+            continue;
+        models_[i]->ResetOutputFiles(fileout_[i]);
+    }
+
+    return OpenOutputStreams();
+}
+
+void ExasimSolver::DestroyModelInstances()
+{
+    CloseOutputStreams();
+
+    if (!models_.empty() && models_[0]) {
+        const int interfaceBackend = models_[0]->disc.common.backend;
+        if (faces) { TemplateFree(faces, interfaceBackend); faces = nullptr; }
+        if (xdgint) { TemplateFree(xdgint, interfaceBackend); xdgint = nullptr; }
+        if (nlint) { TemplateFree(nlint, interfaceBackend); nlint = nullptr; }
+        if (xdggint) { TemplateFree(xdggint, interfaceBackend); xdggint = nullptr; }
+        if (nlgint) { TemplateFree(nlgint, interfaceBackend); nlgint = nullptr; }
+        if (flux_dev_) { TemplateFree(flux_dev_, interfaceBackend); flux_dev_ = nullptr; }
+    }
+
+    for (auto& model : models_) {
+        if (model) {
+            delete[] model->disc.common.ncarray;
+            model->disc.common.ncarray = nullptr;
+            delete[] model->disc.sol.udgarray;
+            model->disc.sol.udgarray = nullptr;
+        }
+    }
+
+    models_.clear();
+    residual_outputs_.clear();
+    interface_modelnumber_ = -1;
+}
+
+int ExasimSolver::BuildModelsForCurrentCase()
+{
+    DestroyModelInstances();
+    int err = BuildModels();
+    if (err) return err;
+    err = CoupleModels();
+    if (err) return err;
+    err = OpenOutputStreams();
+    if (err) return err;
+    return 0;
+}
+
+int ExasimSolver::RunPhysicsParamSweep()
+{
+    if (!initialized_ || physicsparamcases_.empty())
+        return 1;
+
+    if (executionMode_ != ExasimExecutionMode::Solve) {
+        if (mpirank_ == 0)
+            std::cerr << "physicsparam sweep is supported for solve mode only." << std::endl;
+        return 1;
+    }
+
+    const std::vector<std::string> savedFileout = fileout_;
+    int status = 0;
+
+    active_physicsparam_ = physicsparamcases_[0];
+    fileout_ = base_fileout_;
+    fileout_[0] = CaseOutputPrefix(1);
+
+    if (mpirank_ == 0)
+        std::cout << "\nRunning physicsparam case 1 of "
+                  << physicsparamcases_.size() << "...\n";
+
+    status = WritePhysicsParamCaseMetadata(1, fileout_[0]);
+    if (!status)
+        status = BuildModelsForCurrentCase();
+    if (status) {
+        DestroyModelInstances();
+        fileout_ = savedFileout;
+        active_physicsparam_.clear();
+        return status;
+    }
+
+    const bool warmstart = PhysicsParamWarmStartEnabledFromCurrentModel();
+    status = WritePhysicsParamSweepManifest(warmstart);
+    if (status) {
+        DestroyModelInstances();
+        fileout_ = savedFileout;
+        active_physicsparam_.clear();
+        return status;
+    }
+
+    if (warmstart) {
+        if (mpirank_ == 0)
+            std::cout << "Physicsparam warm-start is enabled; building the model once."
+                      << std::endl;
+
+        const dstype initialTime = models_[0]->disc.common.time;
+        const Int initialTimestepOffset = models_[0]->disc.common.timestepOffset;
+
+        for (size_t icase = 0; icase < physicsparamcases_.size(); ++icase) {
+            if (icase > 0) {
+                active_physicsparam_ = physicsparamcases_[icase];
+                fileout_ = base_fileout_;
+                fileout_[0] = CaseOutputPrefix(static_cast<int>(icase) + 1);
+
+                if (mpirank_ == 0)
+                    std::cout << "\nRunning physicsparam case " << (icase + 1)
+                              << " of " << physicsparamcases_.size()
+                              << " with warm-start...\n";
+
+                status = WritePhysicsParamCaseMetadata(static_cast<int>(icase) + 1, fileout_[0]);
+                if (status) break;
+
+                status = ApplyPhysicsParamToModels(active_physicsparam_);
+                if (status) break;
+
+                models_[0]->disc.common.time = initialTime;
+                models_[0]->disc.common.timestepOffset = initialTimestepOffset;
+                models_[0]->disc.common.currentstep = -1;
+                models_[0]->disc.common.currentstage = 0;
+
+                status = ResetModelOutputsForCurrentCase();
+                if (status) break;
+            }
+
+            status = RunCurrentPhysicsParamCase();
+            if (status) break;
+        }
+    }
+    else {
+        status = RunCurrentPhysicsParamCase();
+
+        DestroyModelInstances();
+        for (size_t icase = 1; !status && icase < physicsparamcases_.size(); ++icase) {
+            active_physicsparam_ = physicsparamcases_[icase];
+            fileout_ = base_fileout_;
+            fileout_[0] = CaseOutputPrefix(static_cast<int>(icase) + 1);
+
+            if (mpirank_ == 0)
+                std::cout << "\nRunning physicsparam case " << (icase + 1)
+                          << " of " << physicsparamcases_.size() << "...\n";
+
+            status = WritePhysicsParamCaseMetadata(static_cast<int>(icase) + 1, fileout_[0]);
+            if (status) break;
+
+            status = BuildModelsForCurrentCase();
+            if (status) {
+                DestroyModelInstances();
+                break;
+            }
+
+            status = RunCurrentPhysicsParamCase();
+            DestroyModelInstances();
+        }
+    }
+
+    if (warmstart)
+        DestroyModelInstances();
+
+    fileout_ = savedFileout;
+    active_physicsparam_.clear();
+    return status;
+}
+
+int ExasimSolver::RunCurrentPhysicsParamCase()
+{
+    commonstruct& common = models_[0]->disc.common;
+    if (common.AVdistfunction == 1)
+        return RunAVDistanceFunction();
+    if ((common.tdep == 1) && (common.runmode == 0))
+        return RunTimeDependent();
+    if ((common.tdep == 1) && (common.runmode == 10 || common.runmode == 11))
+        return RunPseudoTime();
+    if ((common.tdep == 0) && (common.runmode == 0))
+        return RunSteady();
+    return RunSolveProblemOrPostprocess();
+}
+
 
 void ExasimSolver::CloseOutputStreams()
 {

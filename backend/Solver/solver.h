@@ -22,6 +22,8 @@
 #ifndef __SOLVER_H__
 #define __SOLVER_H__
 
+#include "exasim/execution_mode.hpp"
+
 class CSolver {
 private:
 public:
@@ -30,7 +32,8 @@ public:
     int mpiRank;
     
     // constructor 
-    CSolver(CDiscretization& disc, Int backend); 
+    CSolver(CDiscretization& disc, Int backend,
+            ExasimExecutionMode mode = ExasimExecutionMode::Solve); 
     
     // destructor        
     ~CSolver(); 
@@ -38,4 +41,3 @@ public:
 };
 
 #endif        
-

@@ -107,6 +107,9 @@ pde.compudgavg = 0;
 pde.extFhat = 0;
 pde.extUhat = 0;
 pde.extStab = 0;
+pde.saveParaview = 0;
+pde.physicsparamwarmstart = 0;
+pde.executionmode = 0;
 pde.saveResNorm = 0;
 
 pde.time = 0.0;
@@ -133,6 +136,7 @@ pde.uinf = [0.0 0.0];
 pde.dt = 0.0;  
 pde.factor = [];  
 pde.physicsparam = [0.0 0.0]; 
+pde.physicsparamsweep = [];
 pde.solversparam = []; 
 pde.stgdata = []; 
 pde.stgparam = []; 
@@ -140,6 +144,7 @@ pde.stgparam = [];
 pde.soltime = 1;
 pde.vistime = 1;
 pde.visfilename = pde.datapath + "/dataout/output";  
+pde.dataoutpath = "";
 pde.viselem = [];
 
 pde.dae_alpha = 1.0;
@@ -157,8 +162,4 @@ pde.fbou = "fbou";
 pde.fhat = "fhat";
 pde.source = "source";
 pde.arg = {};
-
-
-
-
 

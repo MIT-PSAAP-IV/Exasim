@@ -106,6 +106,8 @@ def initializepde(version):
     pde['extFhat'] = 0;
     pde['extUhat'] = 0;
     pde['extStab'] = 0;
+    pde['saveParaview'] = 0;
+    pde['executionmode'] = 0;
 
     pde['saveResNorm'] = 0;
 
@@ -133,12 +135,15 @@ def initializepde(version):
     pde['dt'] = numpy.array([0.0]);  # time steps
     pde['factor'] = numpy.array([0.0, 0.0]);  # factors
     pde['physicsparam'] = numpy.array([0.0, 0.0]); # physical parameters
+    pde['physicsparamsweep'] = [];
+    pde['physicsparamwarmstart'] = 0;
     pde['solversparam'] = numpy.array([0.0, 0.0]); # solvers parameters
     pde['stgdata'] = numpy.array([0.0, 0.0]); # synthetic turbulence
     pde['stgparam'] = numpy.array([0.0, 0.0]); # synthetic turbulence
 
     pde['viselem'] = [];
     pde['visfilename'] = os.path.join(pde['datapath'], "dataout", "output");  # filename for paraview output files
+    pde['dataoutpath'] = "";
 
     pde['dae_alpha'] = 1.0;
     pde['dae_beta'] = 0.0;

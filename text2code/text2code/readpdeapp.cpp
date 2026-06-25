@@ -78,6 +78,7 @@ struct InputParams {
     std::vector<double> dt;
     std::vector<double> tau;
     std::vector<double> physicsParam;
+    std::vector<double> physicsParamCases;
     std::vector<double> externalParam;
     std::vector<double> vindx;
     std::vector<double> avparam1, avparam2;       
@@ -184,6 +185,59 @@ std::vector<double> parseExpression(const std::string& expr) {
     return result;
 }
 
+std::vector<double> parseMatrixExpression(const std::string& expr, int& nrows, int& ncols) {
+    std::string content = expr;
+    size_t lbrace = content.find('[');
+    size_t rbrace = content.rfind(']');
+
+    if (lbrace == std::string::npos || rbrace == std::string::npos || lbrace >= rbrace)
+        error("Error: physicsparamcases must contain square brackets [...]");
+
+    content = content.substr(lbrace + 1, rbrace - lbrace - 1);
+    std::vector<std::vector<double>> rows;
+
+    if (content.find('[') != std::string::npos) {
+        size_t pos = 0;
+        while (true) {
+            size_t rowStart = content.find('[', pos);
+            if (rowStart == std::string::npos)
+                break;
+            size_t rowEnd = content.find(']', rowStart);
+            if (rowEnd == std::string::npos)
+                error("Malformed physicsparamcases row");
+            std::string row = "[" + content.substr(rowStart + 1, rowEnd - rowStart - 1) + "]";
+            rows.push_back(parseExpression(row));
+            pos = rowEnd + 1;
+        }
+    }
+    else {
+        std::stringstream ss(content);
+        std::string row;
+        while (std::getline(ss, row, ';')) {
+            row = trim(row);
+            if (!row.empty())
+                rows.push_back(parseExpression("[" + row + "]"));
+        }
+    }
+
+    if (rows.empty())
+        error("physicsparamcases must contain at least one row");
+
+    nrows = static_cast<int>(rows.size());
+    ncols = static_cast<int>(rows[0].size());
+    if (ncols <= 0)
+        error("physicsparamcases rows must be nonempty");
+
+    std::vector<double> result;
+    result.reserve(static_cast<size_t>(nrows) * ncols);
+    for (int i = 0; i < nrows; ++i) {
+        if (static_cast<int>(rows[i].size()) != ncols)
+            error("All physicsparamcases rows must have the same number of parameters");
+        result.insert(result.end(), rows[i].begin(), rows[i].end());
+    }
+    return result;
+}
+
 InputParams parseInputFile(const std::string& filename, int mpirank=0) 
 {
     InputParams params;
@@ -218,6 +272,19 @@ InputParams parseInputFile(const std::string& filename, int mpirank=0)
             params.periodicBoundaries2 = parseList<int>(full);
         else if (full.find("periodicexprs2") != std::string::npos)
             params.periodicExprs2 = parseStringList(full);
+        else if (full.find("physicsparamwarmstart") != std::string::npos) {
+            std::regex key_val_num("([a-zA-Z0-9_]+)\\s*=\\s*([^;]+)");
+            std::smatch match;
+            if (std::regex_search(full, match, key_val_num)) {
+                params.intParams[match[1]] = static_cast<int>(std::stod(match[2]));
+                markFound(match[1]);
+            }
+        }
+        else if (full.find("physicsparamcases") != std::string::npos) {
+            int nrows = 0, ncols = 0;
+            params.physicsParamCases = parseMatrixExpression(full, nrows, ncols);
+            markFound("physicsparamcases");
+        }
         else if (full.find("physicsparam") != std::string::npos) {
             params.physicsParam = parseExpression(full);
             markFound("physicsparam");
@@ -328,6 +395,7 @@ void printInputParams(InputParams& params)
     printVec(params.dae_dt, "dae_dt");
     printVec(params.tau, "tau");
     printVec(params.physicsParam, "physicsParam");
+    printVec(params.physicsParamCases, "physicsParamCases");
     printVec(params.externalParam, "externalParam");
     printVec(params.cartGridPart, "cartGridPart");
     printVec(params.interfaceConditions, "interfaceConditions");
@@ -410,6 +478,8 @@ struct PDE {
     int extFhat = 0;
     int extUhat = 0;
     int extStab = 0;
+    int saveParaview = 0;
+    int physicsparamwarmstart = 0;
     int saveResNorm = 0;
     int dae_steps = 0;
 
@@ -436,6 +506,7 @@ struct PDE {
     std::vector<double> solversparam;
     std::vector<double> factor;
     std::vector<double> physicsparam;    
+    std::vector<double> physicsparamcases;
     std::vector<double> externalparam;            
     std::vector<double> vindx;
     std::vector<double> avparam1, avparam2;       
@@ -567,6 +638,12 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     }
     if (params.intParams.count("subproblem")) {
         pde.subproblem = params.intParams["subproblem"];
+    }
+    if (params.intParams.count("saveParaview")) {
+        pde.saveParaview = params.intParams["saveParaview"];
+    }
+    if (params.intParams.count("physicsparamwarmstart")) {
+        pde.physicsparamwarmstart = params.intParams["physicsparamwarmstart"];
     }
     if (params.intParams.count("tdep")) {
         pde.tdep = params.intParams["tdep"];
@@ -733,6 +810,13 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     pde.dae_dt = params.dae_dt;
     pde.tau = params.tau;
     pde.physicsparam = params.physicsParam;
+    pde.physicsparamcases = params.physicsParamCases;
+    if (!pde.physicsparamcases.empty()) {
+        if (pde.physicsparam.empty())
+            error("physicsparamcases requires a nonempty physicsparam vector");
+        if ((pde.physicsparamcases.size() % pde.physicsparam.size()) != 0)
+            error("Each physicsparamcases row must have the same length as physicsparam");
+    }
     pde.externalparam = params.externalParam;
     pde.vindx = params.vindx;
     pde.avparam1 = params.avparam1;
@@ -774,7 +858,8 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     pde.flag = makeDoubleVector(
         pde.tdep, pde.wave, pde.linearproblem, pde.debugmode, pde.matvecorder, pde.GMRESortho,
         pde.preconditioner, pde.precMatrixType, pde.NLMatrixType, pde.runmode, pde.tdfunc, pde.sourcefunc,
-        pde.modelnumber, pde.extFhat, pde.extUhat, pde.extStab, pde.subproblem
+        pde.modelnumber, pde.extFhat, pde.extUhat, pde.extStab, pde.subproblem, pde.saveParaview,
+        pde.physicsparamwarmstart
     );        
     pde.problem = makeDoubleVector(
         pde.hybrid, 0, pde.temporalscheme, pde.torder, pde.nstage, pde.convStabMethod,
@@ -935,8 +1020,20 @@ void writepde(const PDE& pde, const std::string& filename)
     }
 
     file.close();
+    if (!pde.physicsparamcases.empty()) {
+        const size_t nparam = pde.physicsparam.size();
+        const size_t ncases = pde.physicsparamcases.size() / nparam;
+        std::filesystem::path sweepfile = std::filesystem::path(filename).parent_path() / "physicsparamcases.bin";
+        std::ofstream sweep(sweepfile.string(), std::ios::binary);
+        if (!sweep) throw std::runtime_error("Cannot open physicsparamcases.bin for writing.");
+        double header[2] = {static_cast<double>(ncases), static_cast<double>(nparam)};
+        sweep.write(reinterpret_cast<const char*>(header), sizeof(header));
+        sweep.write(reinterpret_cast<const char*>(pde.physicsparamcases.data()),
+                    pde.physicsparamcases.size() * sizeof(double));
+        sweep.close();
+        std::cout << "Finished writing physicsparam sweep to " << sweepfile.string() << std::endl;
+    }
     std::cout << "Finished writing pde to " << filename << std::endl;
 }
     
 #endif
-

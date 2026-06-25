@@ -1621,6 +1621,7 @@ struct commonstruct {
     Int nten; // number of components of tensur fields for visualization
     Int nsurf; // number of components of surface fields for visualization, storage, and QoIs
     Int nvqoi;  // number of volume quantities of interest (QoIs)    
+    Int saveParaview = 0; // flag to enable Paraview visualization output
 
     Int nd; // spatial dimension    
     Int elemtype;

@@ -3,6 +3,13 @@
 For machines with NVIDIA GPUs. Adds GPU and MPI+GPU variants on
 top of the CPU baseline.
 
+!!! warning "GPU installs are advanced"
+    For CPU-only work, use the [Quick Installation](quick-install.md)
+    Superbuild first. NVIDIA GPU builds require CUDA, a CUDA-enabled Kokkos
+    build, architecture flags, and often CUDA-aware MPI.
+
+Read [GPU Installation Overview](gpu.md) before following this page.
+
 ## System packages
 
 ```bash
@@ -39,10 +46,17 @@ ompi_info | grep -i cuda
 `ompi_info` should list `cuda` under MPI extensions. For CPU-only
 MPI, omit the CUDA bits.
 
-## Vendored dependencies
+## CPU Baseline
 
-Follow [`common.md`](common.md) for GKlib + METIS + ParMETIS,
-Kokkos serial, SymEngine + text2code.
+Build or install a CPU baseline first. For most users this should be the
+[CPU Superbuild](superbuild-cpu.md). Use manual dependency steps only if your
+GPU build requires explicit site dependency control.
+
+## Manual Dependency Fallback
+
+Follow [Manual Dependency Installation](manual-dependencies.md) and
+[Common Dependencies](common.md) for GKlib, METIS, ParMETIS, Kokkos serial,
+SymEngine, and Text2Code when the Superbuild is not sufficient.
 
 ## Build Kokkos CUDA
 

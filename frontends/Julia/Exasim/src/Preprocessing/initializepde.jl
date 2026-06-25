@@ -96,6 +96,9 @@ mutable struct PDEStruct
     extFhat::IntP;
     extUhat::IntP;
     extStab::IntP;
+    saveParaview::IntP;
+    physicsparamwarmstart::IntP;
+    executionmode::IntP;
     saveResNorm::IntP; # option for how the solution be saved: 0 -> u only, 1 -> u and q
 
     time::FloatP; # starting time (usually 0, however >0 if restarting from the saved solution)
@@ -120,6 +123,8 @@ mutable struct PDEStruct
     tau::Array{FloatP,1}; # stabilization parameters
     factor::Array{FloatP,2};  # factors
     physicsparam::Array{FloatP,2}; # physical parameters
+    physicsparamsweep;
+    paramcaseoutputdirs;
     solversparam::Array{FloatP,2}; # solvers parameters
     stgdata::Array{FloatP,2}; # synthetic turbulence
     stgparam::Array{FloatP,2}; # synthetic turbulence
@@ -132,6 +137,7 @@ mutable struct PDEStruct
     codegenerator::String;
     enzyme::String;
     visfilename::String;
+    dataoutpath::String;
     visscalars;
     visvectors;
     viselem;
@@ -259,6 +265,9 @@ function initializepde(version)
     pde.extFhat = 0;
     pde.extUhat = 0;
     pde.extStab = 0;
+    pde.saveParaview = 0;
+    pde.physicsparamwarmstart = 0;
+    pde.executionmode = 0;
     pde.saveResNorm = 0;
 
     pde.time = 0.0;
@@ -283,6 +292,8 @@ function initializepde(version)
     pde.dt = [0.0];  # time steps
     pde.factor = [0.0 0.0];  # factors
     pde.physicsparam = [0.0 0.0]; # physical parameters
+    pde.physicsparamsweep = [];
+    pde.paramcaseoutputdirs = [];
     pde.solversparam = [0.0 0.0]; # solvers parameters
     pde.stgdata = [0.0 0.0]; # synthetic turbulence
     pde.stgparam = [0.0 0.0]; # synthetic turbulence
@@ -290,6 +301,7 @@ function initializepde(version)
     pde.uinf = [0.0 0.0]; #
 
     pde.visfilename = joinpath(pde.datapath, "dataout", "output");
+    pde.dataoutpath = "";
     pde.visscalars = [];
     pde.visvectors = [];
     pde.viselem = [];

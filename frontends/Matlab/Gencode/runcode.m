@@ -20,15 +20,32 @@ if ~exist(char(exe), 'file')
     error("Solver executable not found at %s; run cmakecompile(pde) first.", exe);
 end
 
+executionmode = 0;
+if isfield(pde, 'executionmode')
+    executionmode = pde.executionmode;
+end
+if executionmode == 0
+    modestring = " ";
+elseif executionmode == 1
+    modestring = " postprocess";
+else
+    error("Unsupported executionmode=%d. Use 0 for solve or 1 for postprocess.", executionmode);
+end
+
 DataPath = pde.datapath;
-mystr = " " + num2str(numpde) + " ";
+mystr = modestring + " " + num2str(numpde) + " ";
 if numpde>100 % two-domain problems
   numpde = 2;
 end
 if numpde==1
     % per-model datain/dataout (sibling strn dirs; "" for model 0 -> datain/)
     strn = model_strn(pde);
-    mystr = mystr + DataPath + "/datain" + strn + "/ " + DataPath + "/dataout" + strn + "/out";
+    if isfield(pde, 'dataoutpath') && strlength(string(pde.dataoutpath)) > 0
+        dataout = string(pde.dataoutpath);
+    else
+        dataout = DataPath + "/dataout" + strn;
+    end
+    mystr = mystr + DataPath + "/datain" + strn + "/ " + dataout + "/out";
 else
     for i = 1:numpde
         mystr = mystr + DataPath + "/datain" + num2str(i) + "/ " + DataPath + "/dataout" + num2str(i) + "/out";

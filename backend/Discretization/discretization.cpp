@@ -253,7 +253,9 @@ void AllocateLDGBlockJacobianMemory(resstruct& res, commonstruct& common, Int ba
 // Both CPU and GPU constructor
 CDiscretization::CDiscretization(string filein, string fileout, string exasimpath, Int mpiprocs, Int mpirank, 
         Int fileoffset, Int omprank, Int backend, Int builtinmodelID,
-        const ExasimDriverABI& abi) 
+        const ExasimDriverABI& abi, Int nsca, Int nvec, Int nten, Int nsurf, Int nvqoi,
+        ExasimExecutionMode mode, const std::vector<dstype>* physicsparamOverride,
+        Int saveParaview)
 {
     driver_abi = abi;
     common.backend = backend;
@@ -293,7 +295,8 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
         happ.builtinmodelID = builtinmodelID;
         // allocate data for structs in CPU memory
         cpuInit(hsol, hres, happ, driver_abi, hmaster, hmesh, htmp, hcommon, filein, fileout,
-                mpiprocs, mpirank, fileoffset, omprank);              
+                mpiprocs, mpirank, fileoffset, omprank,
+                physicsparamOverride);
                 
         // copy data from cpu memory to gpu memory
         gpuInit(sol, res, app, driver_abi, master, mesh, tmp, common, 
@@ -322,9 +325,25 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
     }
     else  {// CPU        
         cpuInit(sol, res, app, driver_abi, master, mesh, tmp, common, filein, fileout, 
-                mpiprocs, mpirank, fileoffset, omprank);    
+                mpiprocs, mpirank, fileoffset, omprank,
+                physicsparamOverride);
     }
     common.read_uh = app.read_uh;
+    const bool postprocessOnly = (mode == ExasimExecutionMode::Postprocess);
+    // Apply caller-supplied visualization field counts whenever provided (>0). The
+    // postprocess path passes these from CLI args; the solve path passes them from the
+    // pdeapp nsca/nvec/nten keys so external/builtin-library models (gendatain=0, which
+    // do not bake the vis counts into datain) can still write ParaView vis inline.
+    if (nsca > 0) common.nsca = nsca;
+    if (nvec > 0) common.nvec = nvec;
+    if (nten > 0) common.nten = nten;
+    if (nsurf > 0) common.nsurf = nsurf;
+    if (nvqoi > 0) common.nvqoi = nvqoi;
+    // Likewise honor the pdeapp saveParaview key on the solve path (external models do
+    // not bake app.flag[17] into datain). Only force-enable; never disable a datain that
+    // already requested vis.
+    if (!postprocessOnly && saveParaview != 0)
+        common.saveParaview = saveParaview;
 
     // compute the geometry quantities
     if (common.mpiRank==0) printf("start compGeometry... \n");
@@ -336,7 +355,7 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
         if (common.mpiRank==0) printf("start compMassInverse... \n");
         compMassInverse(backend);    
         if (common.mpiRank==0) printf("finish compMassInverse... \n");
-        if (common.preconditioner == 1) {
+        if (!postprocessOnly && common.preconditioner == 1) {
             if (common.mpiRank==0) printf("start qEquation... \n");
             BuildElementBlockBoundaryFaces(common, mesh, backend);        
             AllocateLDGBlockJacobianMemory(res, common, backend);        
@@ -345,11 +364,14 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
             TemplateFree(res.Minv2, backend);
             if (common.mpiRank==0) printf("finish qEquation... \n");            
         }
-        else {
+        else if (!postprocessOnly) {
             res.szP = 0;
             Int ndofu = common.npe*common.ncu*common.ne1;
             Int M = max(common.gmresRestart+1, common.RBdim);
             EnsureTemplateAllocation(&res.K, res.szK, M*ndofu, backend);
+        }
+        else {
+            res.szP = 0;
         }
     }
     
@@ -418,7 +440,7 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
       CPUFREE(boufaces);
       //CPUFREE(mesh.bf);            
                           
-      if ((common.preconditioner==2) && (common.szcartgridpart > 0)) {              
+      if (!postprocessOnly && (common.preconditioner==2) && (common.szcartgridpart > 0)) {              
         if (common.cartgridpart[0]==2) {          
           int *elem = NULL;                
           int nse  = gridpartition2d(&elem, common.cartgridpart[1], common.cartgridpart[2], common.cartgridpart[3], common.cartgridpart[4], common.cartgridpart[5]);       
@@ -435,65 +457,43 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
         }                               
       }
       
-      res.szH = npf*nfe*ncu*npf*nfe*ncu*common.ne; // HDG elemental matrices     
-      res.szK = (npe*ncu*npe*ncu + npe*ncu*npe*ncq + npf*nfe*ncu*npe*ncq + npf*nfe*ncu*npe*ncu)*neb;          
-      if (common.preconditioner==0)      // Block Jacobition preconditioner
-        res.szP = ncu*npf*ncu*npf*nf;
-      else if (common.preconditioner==1) // Elemental additive Schwarz preconditioner
-        res.szP = npf*nfe*ncu*npf*nfe*ncu*common.ne;        
-      else if (common.preconditioner==2) // Superelement additive Schwarz preconditioner
-        res.szP = npf*ncu*npf*ncu*common.nse*common.nnz;        
-      res.szV = ncu*npf*nf*(common.gmresRestart+1); // Krylov vectors in GMRES
-      res.szK = max(res.szK, res.szP + res.szV);              
-      res.szF = npe*ncu*npf*nfe*ncu*common.ne;      
-      res.szipiv = max(max(npf*nfe,npe)*ncu*neb, ncu*npf*common.nfb);
-            
-      TemplateMalloc(&res.H, res.szH, backend);
-      TemplateMalloc(&res.K, res.szK, backend);      
-      TemplateMalloc(&res.F, res.szF, backend);
-      TemplateMalloc(&res.ipiv, res.szipiv, backend); // fix big here     
-            
-      // B, D, G, K share the same memmory block 
-      // It is also used for storing both the preconditioner matrix and sys.v
-      res.D = &res.K[npf*nfe*ncu*npe*ncu*neb];
-      res.B = &res.K[npf*nfe*ncu*npe*ncu*neb + npe*ncu*npe*ncu*neb];
-      res.G = &res.K[npf*nfe*ncu*npe*ncu*neb + npe*ncu*npe*ncu*neb + npe*ncu*npe*ncq*neb];        
-      
-      if (common.coupledinterface>0) {
-        res.szRi = npf*ncu12*common.ncie;
-        res.szKi = npf*ncu12*npe*ncu*common.ncie;
-        res.szHi = npf*ncu12*npf*nfe*ncu*common.ncie;
-        TemplateMalloc(&res.Ri, res.szRi, backend);
-        TemplateMalloc(&res.Ki, res.szKi, backend);
-        TemplateMalloc(&res.Hi, res.szHi, backend);
+      if (!postprocessOnly) {
+        res.szH = npf*nfe*ncu*npf*nfe*ncu*common.ne; // HDG elemental matrices     
+        res.szK = (npe*ncu*npe*ncu + npe*ncu*npe*ncq + npf*nfe*ncu*npe*ncq + npf*nfe*ncu*npe*ncu)*neb;                        
+        if (common.preconditioner==0)      // Block Jacobition preconditioner
+          res.szP = ncu*npf*ncu*npf*nf;
+        else if (common.preconditioner==1) // Elemental additive Schwarz preconditioner
+          res.szP = npf*nfe*ncu*npf*nfe*ncu*common.ne;        
+        else if (common.preconditioner==2) // Superelement additive Schwarz preconditioner
+          res.szP = npf*ncu*npf*ncu*common.nse*common.nnz;        
+        res.szV = ncu*npf*nf*(common.gmresRestart+1); // Krylov vectors in GMRES
+        res.szK = max(res.szK, res.szP + res.szV);              
+        res.szF = npe*ncu*npf*nfe*ncu*common.ne;      
+        res.szipiv = max(max(npf*nfe,npe)*ncu*neb, ncu*npf*common.nfb);
+              
+        TemplateMalloc(&res.H, res.szH, backend);
+        TemplateMalloc(&res.K, res.szK, backend);      
+        TemplateMalloc(&res.F, res.szF, backend);
+        TemplateMalloc(&res.ipiv, res.szipiv, backend); // fix big here     
+              
+        // B, D, G, K share the same memmory block 
+        // It is also used for storing both the preconditioner matrix and sys.v
+        res.D = &res.K[npf*nfe*ncu*npe*ncu*neb];
+        res.B = &res.K[npf*nfe*ncu*npe*ncu*neb + npe*ncu*npe*ncu*neb];
+        res.G = &res.K[npf*nfe*ncu*npe*ncu*neb + npe*ncu*npe*ncu*neb + npe*ncu*npe*ncq*neb];        
+        
+        if (common.coupledinterface>0) {
+          res.szRi = npf*ncu12*common.ncie;
+          res.szKi = npf*ncu12*npe*ncu*common.ncie;
+          res.szHi = npf*ncu12*npf*nfe*ncu*common.ncie;
+          TemplateMalloc(&res.Ri, res.szRi, backend);
+          TemplateMalloc(&res.Ki, res.szKi, backend);
+          TemplateMalloc(&res.Hi, res.szHi, backend);
+        }           
       }
-           
+
       if (common.mpiRank==0) 
         printf("Memory allocation ...\n");        
-
-// #ifdef HAVE_CUDA
-//       int n = npe*ncu;
-//       int batchSize = neb;
-//       TemplateMalloc(&res.ipiv, n * batchSize * sizeof(Int), backend);
-//       TemplateMalloc(&res.info,  batchSize * sizeof(Int), backend);     
-
-//       dstype **Dp_h = (dstype **)malloc(batchSize*sizeof(dstype *));
-//       cudaMalloc(&res.Dptr, batchSize*sizeof(dstype *));
-//       Dp_h[0] = res.D;
-//       for (Int i = 1; i < batchSize; i++)
-//         Dp_h[i] = Dp_h[i-1]+(n*n);
-//       cudaMemcpy(res.Dptr,Dp_h,batchSize*sizeof(dstype *),cudaMemcpyHostToDevice);
-      
-//       dstype **Dinvp_h = (dstype **)malloc(batchSize*sizeof(dstype *));      
-//       cudaMalloc(&res.Dinvptr,batchSize*sizeof(dstype *));
-//       Dinvp_h[0] = tmp.tempn;
-//       for (Int i = 1; i < batchSize; i++)
-//         Dinvp_h[i] = Dinvp_h[i-1] + (n*n);
-//       cudaMemcpy(res.Dinvptr, Dinvp_h, batchSize*sizeof(dstype *),cudaMemcpyHostToDevice);          
-
-//       free(Dp_h);
-//       free(Dinvp_h);
-// #endif
 
       // compute uhat by getting u on faces
         // std::cout <<"app.read_uh in discretization.cpp is : " << common.read_uh<<endl;
@@ -512,7 +512,7 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
         printf("Finish GetFaceNodes ... \n");        
 
       if (common.ncq > 0) {        
-        if (common.coupledinterface>0) {
+        if (common.coupledinterface>0 && !postprocessOnly) {
           res.szGi = npf*ncu12*npe*ncq*common.ncie;          
           TemplateMalloc(&res.Gi, res.szGi, backend);
         }
@@ -705,8 +705,17 @@ void CDiscretization::evalResidual(dstype* Ru, dstype* u, Int backend)
 // q evaluation
 void CDiscretization::evalQ(Int backend)
 {
-    // compute the flux q
-    ComputeQ(sol, res, app, driver_abi, master, mesh, tmp, common, common.cublasHandle, backend);
+    if (common.spatialScheme == 0) {
+        // LDG computes q through the model flux kernels.
+        ComputeQ(sol, res, app, driver_abi, master, mesh, tmp, common, common.cublasHandle, backend);
+    }
+    else if (common.spatialScheme == 1) {
+        // HDG recovers q from the element state and trace unknowns.
+        hdgGetQ(sol.udg, sol.uh, sol, res, mesh, tmp, common, backend);
+    }
+    else {
+        error("Spatial discretization scheme is not implemented");
+    }
 }
 
 void CDiscretization::evalQSer(Int backend)
@@ -722,8 +731,17 @@ void CDiscretization::evalQ(dstype* q, dstype* u, Int backend)
     ArrayInsert(sol.udg, u, common.npe, common.nc, common.ne, 0, common.npe, 
             0, common.ncu, 0, common.ne1);
 
-    // compute the flux q
-    ComputeQ(sol, res, app, driver_abi, master, mesh, tmp, common, common.cublasHandle, backend);
+    if (common.spatialScheme == 0) {
+        // LDG computes q through the model flux kernels.
+        ComputeQ(sol, res, app, driver_abi, master, mesh, tmp, common, common.cublasHandle, backend);
+    }
+    else if (common.spatialScheme == 1) {
+        // HDG recovers q from the element state and trace unknowns.
+        hdgGetQ(sol.udg, sol.uh, sol, res, mesh, tmp, common, backend);
+    }
+    else {
+        error("Spatial discretization scheme is not implemented");
+    }
 
     // get q from udg
     ArrayExtract(q, sol.udg, common.npe, common.nc, common.ne, 0, common.npe, 
