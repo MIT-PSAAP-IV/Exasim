@@ -1,8 +1,8 @@
-function [mesh] = mkmesh_isoq2d2(porder, dR)
+function mesh = mkmesh_isoq2d4(porder, dR)
 
-[xl, xu] = isoq();
+[xl, xu] = isoq2();
 
-x1 = -0.04;
+x1 = -0.02;
 x2 = 0.013;
 
 ind = (xu(:,1) <= x1);
@@ -17,9 +17,12 @@ xl1 = xl(ind,:);
 ind = (xl(:,1) > x2);
 xl2 = [xl1(end,:); xl(ind,:)];
 
-n1 = 48; m1 = 80; n2 = 36; m2 = 80;
-mesh1 = surfmesh2d(xl1, xu1, n1, m1, porder, [2.0 1.2], [4 0]);
-mesh2 = surfmesh2d(xl2, xu2, n2, m2, porder, [2.0 1.5], [4 0]);
+mesh1 = surfmesh2d(xl1, xu1, 20, 32, porder, [2.0 1.5], [4 0]);
+mesh2 = surfmesh2d(xl2, xu2, 14, 32, porder, [2.0 1.5], [4 0]);
+
+% n1 = 48; m1 = 80; n2 = 36; m2 = 80;
+% mesh1 = surfmesh2d(xl1, xu1, n1, m1, porder, [2.0 1.2], [5 0]);
+% mesh2 = surfmesh2d(xl2, xu2, n2, m2, porder, [2.0 1.5], [5 0]);
 
 [mesh1, mesh2] = rightleft2d(mesh1, mesh2);
 
@@ -40,7 +43,7 @@ mesh.telem = mesh.tlocal;
 
 figure(2); clf; meshplot(mesh);
 axis on; axis equal; axis tight;
-exportgraphics(gca,"mesh.png",'Resolution',200);
+%exportgraphics(gca,"mesh.png",'Resolution',200);
 
 deltay = min(mesh.p(2,:));
 L = max(mesh.p(1,:));
@@ -51,7 +54,6 @@ mesh.boundarycondition = [6, 2, 1, 3]; % Set boundary condition for each boundar
 mesh.f = facenumbering(mesh.p,mesh.t,1,mesh.boundaryexpr,[]);
 mesh.periodicboundary = [];
 mesh.periodicexpr = {};
-mesh.dist = meshdist3(mesh.f,mesh.dgnodes,mesh.perm,4); % distance to the wall
 
 figure(3); clf;
 boundaryplot(mesh,1);

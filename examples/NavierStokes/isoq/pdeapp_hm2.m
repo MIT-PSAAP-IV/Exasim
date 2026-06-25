@@ -24,7 +24,7 @@ pdehm.nd = 2;
 % Set discretization parameters, physical parameters, and solver parameters
 pdehm.porder = 2;             % polynomial degree
 pdehm.pgauss = 2*pdehm.porder;
-pdehm.physicsparam = 0.005;       
+pdehm.physicsparam = 0.001;       
 pdehm.tau = 1.0;              % DG stabilization parameter
 pde.GMRESrestart = 250;         %try 50
 pde.GMRESortho = 1;
@@ -35,6 +35,7 @@ pdehm.ppdegree = 1;          % degree of polynomial preconditioner
 pdehm.RBdim = 0;
 
 meshhm = mkmesh_isoq2d3(pdehm.porder, 1e-3);
+meshhm.dgnodes = mesh.dgnodes;
 meshhm.boundarycondition = [1;1;1;1]; 
 
 [~,cgelcon,rowent2elem,colent2elem,~] = mkcgent2dgent(meshhm.dgnodes,1e-8);
@@ -51,7 +52,7 @@ dis = limiting(dis,0,1,1e3,0.1);
 
 div = div/max(div(:));
 dis = dis/max(dis(:));
-meshhm.vdg = (div+dis);
+meshhm.vdg = (div+0*dis);
 % meshhm.vdg = dg2cg2(meshhm.vdg, cgelcon, colent2elem, rowent2elem);
 
 [~, ~, jac] = volgeom(master.shapent,permute(meshhm.dgnodes,[1 3 2]));

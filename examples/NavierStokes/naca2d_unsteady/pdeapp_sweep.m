@@ -1,17 +1,7 @@
-% Exported standalone app for an Eppler airfoil parameter sweep.
-%
-% Each row in pde.physicsparamsweep is one concrete physicsparam vector. The
-% exported app writes outputs to eppler-sweep/dataout/paramcase_0001,
-% eppler-sweep/dataout/paramcase_0002, ...
-
-% Add Exasim to Matlab search path
-cdir = pwd(); ii = strfind(cdir, "Exasim");
-run(cdir(1:(ii+5)) + "/install/setpath.m");
-
 porder = 4;                    % polynomial degree
 gam = 1.4;                     % gas constant
 Minf = 0.1;                    % freestream mach number
-tau = 8;                       % stabilization parameter
+tau = 12;                      % stabilization parameter
 rinf = 1.0;                    % freestream density
 pinf = 1/(gam*Minf^2);         % freestream pressure
 rEinf = 0.5+pinf/(gam-1);      % freestream energy
@@ -55,9 +45,9 @@ end
 
 % 
 tm = pde.physicsparamsweep;
-%pde.physicsparamsweep = tm(1:44,:);
-%pde.physicsparamsweep = tm(45:85,:);
-%pde.physicsparamsweep = tm(86:(85+41),:);
+%pde.physicsparamsweep = tm(1:42,:);
+%pde.physicsparamsweep = tm(43:84,:);
+%pde.physicsparamsweep = tm(85:(85+41),:);
 %pde.physicsparamsweep = tm(127:(126+41),:);
 %pde.physicsparamsweep = tm(168:(167+41),:);
 %pde.physicsparamsweep = tm(209:(208+41),:);
@@ -82,18 +72,19 @@ pde.saveSolBouFreq = 2;
 pde.ibs = 1;
 
 % Export a frontend-provider app that can run the entire sweep without MATLAB.
-pde.exportapp = "eppler-sweep7";
+pde.exportapp = "naca-sweep7";
 pde.frontendprovider = true;
 pde.buildandrun = false;
 if exist(pde.exportapp, 'dir')
     rmdir(pde.exportapp, 's');
 end
 
-% Eppler mesh
-mesh = mkmesh_epp387(porder,1,-6);
+% naca mesh
+mesh = mkmesh_naca0012(porder,1,3);
 
 % call exasim to preprocess, generate code, and export the standalone app
 exasim(pde,mesh);
 
-fprintf("Exported Eppler sweep app: %s\n", fullfile(pwd, pde.exportapp));
+fprintf("Exported NACA0012 sweep app: %s\n", fullfile(pwd, pde.exportapp));
 fprintf("Run with: EXASIM_ROOT=%s %s\n", char(exasim_install_prefix()), fullfile(pwd, pde.exportapp, "run.sh"));
+

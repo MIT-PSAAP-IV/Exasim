@@ -9,6 +9,7 @@ run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'frontends', 'M
 % Define a PDE model: governing equations, initial solutions, and boundary conditions
 pde.model = "ModelD";          % ModelC, ModelD, ModelW
 pde.modelfile = "pdemodel";    % name of a file defining the PDE model
+pde.saveParaview = 1;
 
 % Choose computing platform and set number of processors
 pde.platform = "cpu";         % choose this option if NVIDIA GPUs are available

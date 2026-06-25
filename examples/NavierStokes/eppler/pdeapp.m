@@ -4,15 +4,16 @@ run(cdir(1:(ii+5)) + "/install/setpath.m");
 
 porder = 4;                     % polynomial degree
 gam = 1.4;                      % gas constant
-Minf = 0.25;                    % freestream mach number
-tau = 1;                        % stabilization parameter
-alpha = 8*pi/180;               % angle of attack
+Minf = 0.1;                    % freestream mach number
+tau = 8;                        % stabilization parameter
+alpha = 0*pi/180;               % angle of attack
 rinf = 1.0;                     % freestream density
 ruinf = cos(alpha);             % freestream horizontal velocity
 rvinf = sin(alpha);             % freestream vertical velocity
 pinf = 1/(gam*Minf^2);          % freestream pressure
 rEinf = 0.5+pinf/(gam-1);       % freestream energy
 Re = 10000;                       % Reynolds number 
+Re = 5.0748e+03;
 Pr = 0.72;                      % Prandtl number 
 ui = [ 1, cos(alpha), sin(alpha), 0.5+pinf/(gam-1)];
 
@@ -55,7 +56,7 @@ mesh = mkmesh_epp387(porder,1,-6);
 % call exasim to generate and run C++ code to solve the PDE model
 pde.exportapp = "eppler";
 pde.frontendprovider = true;
-pde.buildandrun = false;
+pde.buildandrun = true;
 [sol,pde,mesh] = exasim(pde,mesh);
 
 

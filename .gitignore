@@ -442,3 +442,16 @@ examples/LinearElasticity/platebottomgaussian2d/deformedmeshzoom.png
 backend/Postprocessing/solution_io
 /examples/NavierStokes/naca2d/naca2d-sweep-exportapp
 /examples/NavierStokes/eppler/eppler-sweep
+/examples/NavierStokes/eppler/eppler-sweep2
+/examples/NavierStokes/eppler/eppler-sweep3
+/examples/NavierStokes/eppler/eppler-sweep4
+/examples/NavierStokes/eppler/eppler-sweep5
+/examples/NavierStokes/eppler/eppler-sweep6
+/examples/NavierStokes/eppler/eppler-sweep7
+/examples/NavierStokes/naca2d_unsteady/naca-sweep
+/examples/NavierStokes/naca2d_unsteady/naca-sweep2
+/examples/NavierStokes/naca2d_unsteady/naca-sweep3
+/examples/NavierStokes/naca2d_unsteady/naca-sweep4
+/examples/NavierStokes/naca2d_unsteady/naca-sweep5
+/examples/NavierStokes/naca2d_unsteady/naca-sweep6
+/examples/NavierStokes/naca2d_unsteady/naca-sweep7
