@@ -264,12 +264,18 @@ function rewritewarmstartsolfile(solfile, udgpart, wdgpart)
     wdgEnd = wdgStart + nsize[5] - 1;
 
     udgflat = Float64.(vec(udgpart));
+    if length(udgflat) != nsize[3]
+        error("Warm-start udg size mismatch in $solfile: got $(length(udgflat)) values, expected $(nsize[3]).");
+    end
     newnsize = copy(nsize);
     newnsize[3] = length(udgflat);
     wdgflat = data[wdgStart:wdgEnd];
 
     if wdgpart !== nothing
         wdgflat = Float64.(vec(wdgpart));
+        if nsize[5] != 0 && length(wdgflat) != nsize[5]
+            error("Warm-start wdg size mismatch in $solfile: got $(length(wdgflat)) values, expected $(nsize[5]).");
+        end
         newnsize[5] = length(wdgflat);
     end
     data = vcat(data[1:nsizeStart-1], Float64.(newnsize),
