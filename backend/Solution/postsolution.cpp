@@ -412,10 +412,14 @@ void CSolution::SaveParaview(Int backend, std::string fname_modifier, bool force
        }
 
        string baseName = disc.common.fileout + "vis" + fname_modifier;
-       if (disc.common.timeparams.tdep == 1) {
-           std::ostringstream ss; 
-           ss << std::setw(6) << std::setfill('0') << disc.common.timestate.currentstep+disc.common.outputparams.timestepOffset+1; 
-           baseName = baseName + "_" + ss.str();           
+       // A forced write (SaveParaviewStep / crash dump) is an explicit time-series
+       // frame, so include the step index even when the run is not marked tdep
+       // (e.g. a steady fluid re-solved each outer coupling step). Without this the
+       // parallel pvtu/vtu names omit the step and every frame overwrites the last.
+       if (disc.common.timeparams.tdep == 1 || force_tdep_write) {
+           std::ostringstream ss;
+           ss << std::setw(6) << std::setfill('0') << disc.common.timestate.currentstep+disc.common.outputparams.timestepOffset+1;
+           baseName = baseName + "_" + ss.str();
        }
        
        if (disc.common.mpiProcs==1)                

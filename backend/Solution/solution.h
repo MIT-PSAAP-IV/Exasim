@@ -140,10 +140,11 @@ public:
               Int nsca = 0, Int nvec = 0, Int nten = 0,
               Int nsurf = 0, Int nvqoi = 0,
               ExasimExecutionMode mode = ExasimExecutionMode::Solve,
-              const std::vector<dstype>* physicsparamOverride = nullptr)
+              const std::vector<dstype>* physicsparamOverride = nullptr,
+              Int saveParaview = 0)
        : disc(filein, fileout, exasimpath, mpiprocs, mpirank, fileoffset,
               omprank, backend, builtinmodelID, abi, nsca, nvec, nten, nsurf, nvqoi, mode,
-              physicsparamOverride),
+              physicsparamOverride, saveParaview),
          prec(disc, backend, mode), solv(disc, backend, mode), vis(disc, backend) 
     {   
         int ncx = disc.common.components.ncx;                            
@@ -178,33 +179,37 @@ public:
             outqoi.open(base + "qoi.txt", std::ios::out);
         }
 
-        open_and_write(outsol, "udg_np", rank, offset, npe, nc, ne, base);
+        const bool postprocessOnly = (mode == ExasimExecutionMode::Postprocess);
 
-        if (ncw > 0) {     
-            open_and_write(outwdg, "wdg_np", rank, offset, npe, ncw, ne, base);
-        }
+        if (!postprocessOnly) {
+            open_and_write(outsol, "udg_np", rank, offset, npe, nc, ne, base);
 
-        if (disc.common.spatialScheme==1) {         
-            open_and_write(outuhat, "uhat_np", rank, offset, ncu, npf, nf, base);
-        }
-
-        if ( disc.common.outputparams.saveSolBouFreq>0 ) {
-            Int nfbou = 0;
-            for (Int j=0; j<disc.common.meshsizes.nbf; j++) {
-                Int f1 = disc.common.fblks[3*j]-1;
-                Int f2 = disc.common.fblks[3*j+1];    
-                Int ib = disc.common.fblks[3*j+2];            
-                if (ib == disc.common.qoiparams.ibs) {     
-                    Int nf = f2-f1;
-                    nfbou += nf;
-                }
+            if (ncw > 0) {
+                open_and_write(outwdg, "wdg_np", rank, offset, npe, ncw, ne, base);
             }
 
-            open_and_write(outbouxdg, "bouxdg_np", rank, offset, npf, nfbou, ncx, base);
-            open_and_write(outboundg, "boundg_np", rank, offset, npf, nfbou, nd, base);
-            open_and_write(outbouudg, "bouudg_np", rank, offset, npf, nfbou, disc.common.components.nc, base);            
-            open_and_write(outbouuhat, "bouuhat_np", rank, offset, npf, nfbou, ncu, base);
-            if (ncw > 0) open_and_write(outbouwdg, "bouwdg_np", rank, offset, npf, nfbou, ncw, base);
+            if (disc.common.spatialScheme==1) {
+                open_and_write(outuhat, "uhat_np", rank, offset, ncu, npf, nf, base);
+            }
+
+            if ( disc.common.outputparams.saveSolBouFreq>0 ) {
+                Int nfbou = 0;
+                for (Int j=0; j<disc.common.meshsizes.nbf; j++) {
+                    Int f1 = disc.common.fblks[3*j]-1;
+                    Int f2 = disc.common.fblks[3*j+1];
+                    Int ib = disc.common.fblks[3*j+2];
+                    if (ib == disc.common.qoiparams.ibs) {
+                        Int nf = f2-f1;
+                        nfbou += nf;
+                    }
+                }
+
+                open_and_write(outbouxdg, "bouxdg_np", rank, offset, npf, nfbou, ncx, base);
+                open_and_write(outboundg, "boundg_np", rank, offset, npf, nfbou, nd, base);
+                open_and_write(outbouudg, "bouudg_np", rank, offset, npf, nfbou, disc.common.components.nc, base);
+                open_and_write(outbouuhat, "bouuhat_np", rank, offset, npf, nfbou, ncu, base);
+                if (ncw > 0) open_and_write(outbouwdg, "bouwdg_np", rank, offset, npf, nfbou, ncw, base);
+            }
         }
         
         // if (!outsol) error("Unable to open file " + filename);        
@@ -266,6 +271,69 @@ public:
     
     // save solutions in binary files
     void SaveNodesOnBoundary(Int backend);    
+
+    void ResetOutputFiles(const std::string& fileout)
+    {
+        if (outsol.is_open()) { outsol.close(); }
+        if (outwdg.is_open()) { outwdg.close(); }
+        if (outuhat.is_open()) { outuhat.close(); }
+        if (outbouxdg.is_open()) { outbouxdg.close(); }
+        if (outboundg.is_open()) { outboundg.close(); }
+        if (outbouudg.is_open()) { outbouudg.close(); }
+        if (outbouwdg.is_open()) { outbouwdg.close(); }
+        if (outbouuhat.is_open()) { outbouuhat.close(); }
+        if (outqoi.is_open()) { outqoi.close(); }
+
+        disc.common.fileout = fileout;
+
+        int ncx = disc.common.components.ncx;
+        int nd = disc.common.grid.nd;
+        int ncu = disc.common.components.ncu;
+        int nc = (disc.common.outputparams.saveSolOpt==0) ? disc.common.components.ncu : disc.common.components.nc;
+        int ncw = disc.common.components.ncw;
+        int npe = disc.common.grid.npe;
+        int npf = disc.common.grid.npf;
+        int ne = disc.common.meshsizes.ne1;
+        int nf = disc.common.meshsizes.nf;
+        int rank = disc.common.mpiRank;
+        int offset = disc.common.outputparams.fileoffset;
+
+        if (rank==0 && (disc.common.qoiparams.nvqoi > 0 || disc.common.qoiparams.nsurf > 0)) {
+            outqoi.open(fileout + "qoi.txt", std::ios::out);
+            outqoi << std::setw(16) << std::left << "Time";
+            for (size_t i = 0; i < disc.common.qoiparams.nvqoi; ++i)
+                outqoi << std::setw(16) << std::left << "Domain_QoI" + std::to_string(i + 1);
+            for (size_t i = 0; i < disc.common.qoiparams.nsurf; ++i)
+                outqoi << std::setw(16) << std::left << "Boundary_QoI" + std::to_string(i + 1);
+            outqoi << "\n";
+        }
+
+        open_and_write(outsol, "udg_np", rank, offset, npe, nc, ne, fileout);
+
+        if (ncw > 0)
+            open_and_write(outwdg, "wdg_np", rank, offset, npe, ncw, ne, fileout);
+
+        if (disc.common.spatialScheme==1)
+            open_and_write(outuhat, "uhat_np", rank, offset, ncu, npf, nf, fileout);
+
+        if (disc.common.outputparams.saveSolBouFreq>0) {
+            Int nfbou = 0;
+            for (Int j=0; j<disc.common.meshsizes.nbf; j++) {
+                Int f1 = disc.common.fblks[3*j]-1;
+                Int f2 = disc.common.fblks[3*j+1];
+                Int ib = disc.common.fblks[3*j+2];
+                if (ib == disc.common.qoiparams.ibs)
+                    nfbou += f2-f1;
+            }
+
+            open_and_write(outbouxdg, "bouxdg_np", rank, offset, npf, nfbou, ncx, fileout);
+            open_and_write(outboundg, "boundg_np", rank, offset, npf, nfbou, nd, fileout);
+            open_and_write(outbouudg, "bouudg_np", rank, offset, npf, nfbou, disc.common.components.nc, fileout);
+            open_and_write(outbouuhat, "bouuhat_np", rank, offset, npf, nfbou, ncu, fileout);
+            if (ncw > 0)
+                open_and_write(outbouwdg, "bouwdg_np", rank, offset, npf, nfbou, ncw, fileout);
+        }
+    }
     
     // read solutions from binary files
     void ReadSolutions(Int backend);        

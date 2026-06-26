@@ -4,6 +4,11 @@ Build Exasim on LLNL **Tuolumne** (AMD Instinct MI300A, `gfx942`, HPE Cray EX
 with the Flux scheduler). The dependency build is identical to
 [Frontier](frontier.md); only the parameters below differ.
 
+!!! warning "Use the platform guide for Tuolumne"
+    Tuolumne is an AMD GPU HPC system. Use this guide because the ROCm, Cray
+    MPI, GPU-aware MPI, Kokkos/HIP, and `gfx942` settings must match the
+    machine.
+
 ## Machine parameters
 
 | Parameter | Value |

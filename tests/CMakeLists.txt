@@ -116,6 +116,20 @@ add_test(NAME frontend_combined_export
 set_tests_properties(frontend_combined_export PROPERTIES
   TIMEOUT 2400 SKIP_RETURN_CODE 77)
 
+# Explicit standalone postprocess mode: solve a small frontend-generated
+# Poisson case, rerun the generated executable in postprocess mode on a copied
+# output tree, and assert the postprocessed QoI/VTK/solution files match.
+add_test(NAME frontend_python_postprocess
+  COMMAND ${CMAKE_COMMAND} -E env
+    "EXASIM_ROOT=${EXASIM_DIR}"
+    "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}"
+    "FRONTEND=python"
+    "POSTPROCESS_TEST=1"
+    "PYTHON3=${Python3_EXECUTABLE}"
+    bash "${EXASIM_DIR}/tests/frontends/run-frontend-test.sh")
+set_tests_properties(frontend_python_postprocess PROPERTIES
+  TIMEOUT 2400 SKIP_RETURN_CODE 77)
+
 # Builtin model 4 kernel equivalence: model 4 (CNS5air reacting NS) switched
 # from MATLAB-generated kernels to a text2code source (pdemodel4.txt). This
 # test compiles the legacy checked-in kernels (backend/Model/BuiltIn/model4/)

@@ -141,6 +141,7 @@ def initializepde(version):
     pde['factor'] = numpy.array([0.0, 0.0]);  # factors
     pde['physicsparam'] = numpy.array([0.0, 0.0]); # physical parameters
     pde['physicsparamsweep'] = [];
+    pde['physicsparamwarmstart'] = 0;
     pde['solversparam'] = numpy.array([0.0, 0.0]); # solvers parameters
     pde['stgdata'] = numpy.array([0.0, 0.0]); # synthetic turbulence
     pde['stgparam'] = numpy.array([0.0, 0.0]); # synthetic turbulence

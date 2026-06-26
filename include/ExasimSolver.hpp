@@ -128,6 +128,15 @@ public:
     int RunSteady(const int modelnumber);
     int RunSolveProblemOrPostprocess();
     int Postprocess();
+    // Write a single ParaView vis frame for `modelnumber` at 1-based `step`, forcing a
+    // time-series filename even when the model is steady (re-solved each outer step):
+    //   outvis<modifier>_<NNNNNN>{.vtu | .pvtu}
+    // where NNNNNN = step + common.timestepOffset, zero-padded to 6 digits (serial runs
+    // emit .vtu; parallel runs add a .pvtu over per-rank .vtu). Used by partitioned-
+    // coupling drivers to emit a per-outer-step fluid series. Returns 0 (no-op, state
+    // untouched) when savemode==0; returns 1 for an uninitialized solver, an out-of-range
+    // modelnumber, or step < 1.
+    int SaveParaviewStep(const int modelnumber, const int step, const std::string& modifier);
     int Solve();
     int Solve(const int modelnumber);
     int RunPhysicsParamSweep();
@@ -192,6 +201,7 @@ private:
     int nten_ = 0;
     int nsurf_ = 0;
     int nvqoi_ = 0;
+    int saveParaview_ = 0;
     std::vector<int> builtinmodelID_;
     int interface_modelnumber_ = -1;
 
@@ -209,9 +219,13 @@ private:
     bool HasPhysicsParamSweepFile() const;
     int ReadPhysicsParamSweepFile();
     int BuildModelsForCurrentCase();
+    bool PhysicsParamWarmStartEnabledFromCurrentModel() const;
+    int ApplyPhysicsParamToModels(const std::vector<dstype>& physicsparam);
+    int ResetModelOutputsForCurrentCase();
+    int RunCurrentPhysicsParamCase();
     void DestroyModelInstances();
     std::string PhysicsParamSweepFile() const;
     std::string CaseOutputPrefix(int icase) const;
     int WritePhysicsParamCaseMetadata(int icase, const std::string& outputPrefix) const;
-    int WritePhysicsParamSweepManifest() const;
+    int WritePhysicsParamSweepManifest(bool warmstart) const;
 };

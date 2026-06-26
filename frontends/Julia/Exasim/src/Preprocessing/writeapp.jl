@@ -1,7 +1,7 @@
 function writeapp(app,filename)
 
 appname = 0;
-app.flag = [app.tdep app.wave app.linearproblem app.debugmode app.matvecorder app.GMRESortho app.preconditioner app.precMatrixType app.NLMatrixType app.runmode app.tdfunc app.source app.modelnumber app.extFhat app.extUhat app.extStab app.subproblem app.saveParaview app.flag];
+app.flag = [app.tdep app.wave app.linearproblem app.debugmode app.matvecorder app.GMRESortho app.preconditioner app.precMatrixType app.NLMatrixType app.runmode app.tdfunc app.source app.modelnumber app.extFhat app.extUhat app.extStab app.subproblem app.saveParaview app.physicsparamwarmstart app.flag];
 # problem[0..27], then the coupling slots problem[28..31] (M1: reconcile to Matlab's app.bin
 # layout -- backend reads problem[28..31] as coupledinterface/coupledcondition/
 # coupledboundarycondition/AVdistfunction; previously the user's trailing app.problem collided

@@ -4,6 +4,12 @@ Build Exasim on OLCF **Frontier** (AMD Instinct MI250X, `gfx90a`, HPE Cray
 EX with Slurm). This page follows the shared [HPC build chain](hpc.md); only the
 values below are Frontier-specific.
 
+!!! warning "Use the platform guide for Frontier"
+    Frontier is an AMD GPU HPC system. Do not start with generic CPU
+    Superbuild instructions for production GPU runs. Use this guide because the
+    ROCm, Cray MPI, GPU-aware MPI, Kokkos/HIP, and `gfx90a` settings must match
+    the machine.
+
 ## Machine parameters
 
 | Parameter | Value |

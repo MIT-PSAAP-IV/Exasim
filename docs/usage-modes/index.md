@@ -1,4 +1,4 @@
-# Usage modes
+# Application Modes
 
 Once Exasim is [installed](../install/index.md), you consume it from C++ in one
 of three modes. All three ultimately satisfy the same
@@ -14,12 +14,36 @@ model kernels come from** and **how they are linked**.
 ## Choosing a mode
 
 - **Just run an existing physics model** (Poisson, advection, Navier–Stokes, …)
-  → [Built-in model](builtin.md). No code generation, only `find_package`.
+  → [Built-in model](builtin.md). No code
+  generation, only `find_package`.
 - **Add your own model to a C++ application** without modifying the installed
-  package → [External built-in model](external-builtin.md). Your provider
-  intercepts your model ID and falls through to the built-ins for all other IDs.
+  package → [External built-in model](external-builtin.md).
+  Your provider intercepts your model ID and falls through to the built-ins for
+  all other IDs.
 - **Author a model interactively from Python / Julia / MATLAB** and let the
-  toolchain build and run it → [Shared library](shared-library.md).
+  toolchain build and run it →
+  [Shared library](shared-library.md).
 
 All three read the same `pdeapp.txt` solver-setup file and produce identical
 results for the same physics.
+
+Before choosing a linking/application mode, choose the mathematical model
+formulation. The [Physics Models](../physics-models/index.md) section explains
+`ModelC`, `ModelD`, `ModelW`, auxiliary `w`, external `v`, EOS, artificial
+viscosity, and coupling patterns.
+
+## Common runtime workflows
+
+Postprocessing is shared by all usage modes. After any solve, Exasim can write
+VTK visualization files, integrated QoIs, residual histories, CG output fields,
+and boundary extracts; generated standalone apps can also replay saved solution
+records with a `postprocess` subcommand. See the
+[Postprocessing](postprocessing.md) guide for the output formats, frontend
+helpers, MPI behavior, and explicit replay syntax.
+
+Parameter sweeps are also shared across workflows when only `physicsparam`
+changes between cases. Frontend-driven sweeps loop in MATLAB/Python/Julia,
+whereas exported apps and `pdeapp.txt`/text2code apps can run sweeps directly
+inside the standalone C++ executable. See [Parameter sweeps](parameter-sweeps.md)
+for supported input forms, output layout, warm-start continuation, and current
+limitations.

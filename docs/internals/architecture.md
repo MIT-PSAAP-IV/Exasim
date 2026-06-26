@@ -1,252 +1,159 @@
 # Architecture
 
-This file explains the internal data flow from a user's `Model`
-struct + mesh + parameters to a converged solution.
+Exasim is organized around a stable backend runtime and several ways to
+author PDE applications. The implementation is designed so that MATLAB,
+Python, Julia, Text2Code, built-in libraries, shared libraries, and
+standalone C++ applications eventually drive the same solver classes and
+runtime data structures.
 
-## Layers
+## Design Philosophy
 
-```
-                        ┌── User code ──┐
-                        │ Model struct  │   (math: Flux, Source, Ubou, Initu, …)
-                        │ pdeapp.txt    │   (config: porder, tau, NewtonTol, …)
-                        │ grid.bin /    │   (mesh: vertices + connectivity)
-                        │ flat C arrays │
-                        └───────┬───────┘
-                                ↓
-              ┌─── Driver — pick one ───┐
-              │ <exasim/run.hpp>        │   ← legacy CLI driver
-              │ ExasimSolver<M>          │   ← embedded library API
-              └─────────────┬───────────┘
-                            ↓
-       ┌────────────── Preprocessing ──────────────┐
-       │ Mesh ingest (initializeMesh /            │
-       │   meshFromArrays / meshFromArraysDistributed) │
-       │ Master element (basis, quadrature)        │
-       │ ParMETIS partitioning (MPI only)          │
-       │ DMD (distributed mesh decomposition)      │
-       │ Connectivity (face/element neighbors)     │
-       │ Periodic node merging (MPI only)          │
-       └─────────────────┬─────────────────────────┘
-                         ↓
-       ┌─────────────── Runtime ───────────────────┐
-       │ CDiscretization<M>: residual, Jacobian    │
-       │ CPreconditioner<M>: ILU / RAS / RB        │
-       │ CSolver<M>: Newton + GMRES                │
-       │ DIRK time stepping (if tdep)              │
-       │ SaveSolutions / SaveQoI                   │
-       └───────────────────────────────────────────┘
-```
+### Separate physics from numerics
 
-The user code at the top is everything *outside* of `backend/`. The
-preprocessing layer is `backend/Preprocessing/`. The runtime is
-`backend/Discretization/` + `backend/Solution/`.
+Physics-specific code is supplied through a model provider. The backend
+expects model callbacks for fluxes, sources, boundary terms, initial
+conditions, visualization fields, equations of state, and related kernels.
+The discretization, time integration, Newton/GMRES solvers, preconditioners,
+MPI communication, and output logic are implemented in the backend and are
+not duplicated for each application.
 
-## Authoring paths and where they meet
+### Separate frontends from the backend
 
-The two authoring paths produce the same `Model` struct shape:
+Frontends own user input, mesh setup, preprocessing, code generation,
+compilation commands, and output fetching. The backend owns runtime
+execution. This separation is why the same generated executable can be run
+from MATLAB, Python, Julia, Text2Code, or directly from the command line.
 
-```
-Hand-written:                   Codegen:
-my_model.hpp (you write)        pdemodel.txt (you write)
-                                       │
-                                       ↓ text2code
-                                my_model.hpp (auto-generated)
-                                       │
-                                       ↓
-                          struct MyModel : ModelDefaults<MyModel> {
-                              KOKKOS_INLINE_FUNCTION static
-                              auto Flux(…)   { … }
-                              auto Source(…) { … }
-                              auto Ubou(…)   { … }
-                              …
-                          };
+### Prefer generated kernels over runtime interpretation
+
+Exasim uses code generation to turn model definitions into C++ kernels. This
+keeps runtime loops close to the numerical kernels and avoids evaluating
+symbolic expressions dynamically during a solve.
+
+### Keep execution modes additive
+
+Solve, postprocess, built-in-library, shared-library, frontend-generated,
+Text2Code-generated, CPU, GPU, and MPI workflows are selected by flags,
+providers, and CMake options. They should not fork the numerical algorithm
+unless the underlying discretization requires it.
+
+## Major Layers
+
+```mermaid
+flowchart TD
+  U["User application<br/>examples/, apps/, pdeapp.txt"] --> I["Frontend input structures<br/>pde, mesh, master, dmd"]
+  U --> T["Text2Code input<br/>pdeapp.txt, pdemodel.txt"]
+  I --> W["writeapp / exportapp"]
+  T --> X["text2code"]
+  W --> D["datain/*.bin<br/>runtime input files"]
+  X --> D
+  W --> K["Generated provider code"]
+  X --> K
+  K --> A["ExasimDriverABI provider"]
+  D --> R["ExasimSolver runtime"]
+  A --> R
+  R --> S["CSolution"]
+  S --> C["CDiscretization"]
+  S --> L["CSolver"]
+  S --> P["CPreconditioner"]
+  S --> O["Postprocessing and output"]
 ```
 
-The runtime instantiates `CSolution<MyModel>`. The full Model
-contract (every method, every signature, default semantics, and
-indexing layouts) is documented in
-[`model-contract.md`](../reference/model-contract.md).
+| Layer | Main locations | Responsibility |
+| --- | --- | --- |
+| Applications | `apps/`, `examples/` | User-facing cases and standalone driver examples. |
+| Frontends | `frontends/Matlab`, `frontends/Python`, `frontends/Julia` | User APIs, preprocessing orchestration, code generation, compile/run helpers. |
+| Text2Code | `text2code/`, `apps/*/pdeapp.txt` | Text-file PDE application parsing and generated model code. |
+| CMake app templates | `cmake/frontend-app`, `cmake/frontend-app-combined` | Installed templates for generated standalone applications. |
+| Public C++ API | `include/ExasimSolver.hpp`, `include/ExasimSolverSetup.hpp` | Runtime entry points and provider selection. |
+| Backend | `backend/` | Discretization, solvers, preprocessing, postprocessing, MPI, GPU data movement. |
+| Install/package logic | `CMakeLists.txt`, `install/CMakeLists.txt`, `install/` | Superbuild, installed package targets, runtime data, frontend setup. |
+| Tests and CI | `tests/`, `.github/workflows/` | Hygiene, package consumers, frontend tests, smoke builds, docs builds. |
 
-## Driving paths
+## Provider Architecture
 
-### Legacy CLI (`<exasim/run.hpp>`)
+The backend does not call a MATLAB, Python, Julia, or Text2Code function
+directly. Instead, a provider fills an `ExasimDriverABI` object with function
+pointers to the model kernels.
 
-```
-int main(int argc, char** argv) {
-    return exasim::run<MyModel>(argc, argv);
-}
-```
-
-`exasim::run` reads `argv[1]` as `pdeapp.txt`, parses it, runs
-preprocessing (writing per-rank `datain/*.bin` in MPI mode),
-constructs `CSolution<M>(filein, fileout, ...)` which reads the
-bins back, solves, and writes `dataout/*.bin`. Self-contained
-binary; configured by text file.
-
-### Embedded library (`ExasimSolver<M>`)
-
-```
-exasim::ExasimSolver<MyModel> solver;
-solver.set_mesh(p.data(), t.data(), nv, ne, nve);
-solver.add_boundary(tag, [](const double* x){ … });
-solver.set_polynomial_order(3);
-solver.set_physics_params({1.0});
-solver.solve();
-const double* udg = solver.udg();
+```mermaid
+flowchart LR
+  TG["Text2Code-generated provider"] --> ABI["ExasimDriverABI"]
+  FG["Frontend-generated provider"] --> ABI
+  BI["Built-in library provider"] --> ABI
+  SH["Shared-library provider"] --> ABI
+  ABI --> RT["ExasimSolver / backend runtime"]
 ```
 
-The mesh, boundary classifiers, polynomial order, and physics
-parameters all come from in-memory C++ values. The solve runs the
-same preprocessing pipeline (plus ParMETIS in MPI mode), but stays
-in memory throughout — no `datain/*.bin` round-trip.
+Provider selection is centralized in `include/ExasimSolverSetup.hpp`. The
+compile-time macros `_TEXT2CODE`, `_SHAREDLIBRARY`, `_BUILTINLIBRARY`,
+`_BUILTINMODEL`, `_KOKKOSKERNEL`, and frontend provider macros select which
+ABI getter is used. This keeps application modes independent from the solver
+implementation.
 
-Both drivers ultimately call `CSolution<M>::SolveProblem` after
-preprocessing. The runtime kernels are identical.
+## Runtime Data Flow
 
-## Preprocessing pipeline
+The runtime consumes binary input files and provider callbacks:
 
-### Single-rank (CPU or GPU)
-
-```
-SerialPreprocessing()
-├─ initializeMesh                  Mesh ← grid.bin / set_mesh arrays
-├─ initializeMaster                Master ← (porder, pgauss, elemtype)
-└─ writeBinaryFiles                writes datain/{app,master,mesh,sol}.bin
-                                   (legacy path) OR
-                                   builds Preprocessed bundle in memory
-                                   (facade path via CPreprocessing::take())
-
-CSolution<M>(filein, …) or         reads datain/*.bin or consumes
-CSolution<M>(struct, …)            in-memory Preprocessed bundle
-   ↓
-postInit: compGeometry,            face geometry, mass matrix,
-          compMassInverse,         residual scratch, qpoints
-          allocResidual…
+```mermaid
+flowchart TD
+  APP["app.bin<br/>flags, dimensions, parameters"] --> INIT["ExasimSolver::Initialize"]
+  MESH["mesh*.bin<br/>coordinates, connectivity, partition data"] --> INIT
+  MASTER["master.bin<br/>basis and quadrature"] --> INIT
+  SOL["sol*.bin<br/>initial or restart solution"] --> INIT
+  ABI["ExasimDriverABI<br/>model kernels"] --> INIT
+  INIT --> DISC["CDiscretization"]
+  INIT --> SOLN["CSolution"]
+  INIT --> SOLVER["CSolver"]
+  SOLN --> OUT["dataout, residuals, QoI, VTK"]
 ```
 
-### Multi-rank (MPI)
+The most important runtime objects are:
 
-```
-ParallelPreprocessing(comm) or     same dispatch with MPI side-effects
-takeParallel(comm)
-├─ initializeParMesh / meshFromArraysDistributed
-│                                  Mesh ← per-rank slice (global IDs)
-├─ initializeMaster
-├─ callParMetis(mesh, pde, comm)   ParMETIS partitions for load balance,
-│                                  populates dmd.elempart_local
-├─ initializeDMD                   builds DMD (distributed mesh decomposition):
-│                                  elempart, elempartpts, elemsend / elemrecv,
-│                                  nbsd, sendrecvpts, t2t with global IDs
-│                                  (cross-rank neighbors via nbinfo)
-│  ├─ mke2e_fill_first_neighbors
-│  ├─ setboundaryfaces             marks t2t with -k for boundary k
-│  ├─ compute_dgnodes               builds xdg from p
-│  ├─ mergePeriodicNodeIDs         ★ unifies global node IDs across periodic faces
-│  └─ setperiodicfaces              updates t2t with periodic neighbors
-└─ writemesh + writesol            (legacy path) writes per-rank
-                                   datain/{mesh,sol}<r+1>.bin OR
-                                   in-memory build via takeParallel()
+| Object | Role |
+| --- | --- |
+| `appstruct` | Application flags, dimensions, physics parameters, solver settings. |
+| `meshstruct` | Element geometry, connectivity, partition metadata. |
+| `masterstruct` | Reference element, basis, and quadrature data. |
+| `solstruct` | Solution fields such as `udg`, `wdg`, `uh`, coordinates, and auxiliary data. |
+| `commonstruct` | Runtime dimensions, counters, paths, backend flags, MPI rank metadata. |
+| `CSolution` | High-level solve, output, postprocess, and time integration ownership. |
+| `CDiscretization` | Residuals, element operators, geometry, and model-kernel evaluation. |
+| `CSolver` | Newton, pseudo-time, and GMRES solve state. |
+| `CPreconditioner` | Preconditioner storage and application. |
 
-CSolution<M>(…) → SolveProblem
-```
+## Solve and Postprocess Execution
 
-★ The `mergePeriodicNodeIDs` step is the fix for the periodic-MPI
-divergence: serial `setperiodicfaces` rewrites mesh connectivity `t`
-so periodic-paired vertices share IDs (so `mkf2e_hash` later finds
-the periodic faces as interior faces). The parallel version in
-`parmetisexasim.hpp` has to do the equivalent across rank
-boundaries: it Allgathers boundary node coords, q-coord-matches
-them via `xiny()`, and rewrites `mesh.nodeGlobalID` to canonical IDs
-(smaller of each pair). Without this, the runtime's `buildConn`
-treats periodic faces as physical boundaries.
+`ExasimSolver` owns the outer execution mode. Solve mode initializes models,
+opens output streams, and advances the solution. Postprocess mode reads saved
+solution data and writes derived outputs without rerunning the solver.
 
-## Runtime pipeline
-
-`CSolution<M>::SolveProblem` dispatches to:
-
-- `SteadyProblem` for `tdep == 0`
-- `DIRK` for `tdep == 1` (multi-stage time stepping)
-- `SteadyProblem_PTC` for runmode 10/11 (pseudo-transient continuation)
-
-Each calls `NewtonSolver` → `hdgAssembleResidual` /
-`hdgAssembleLinearSystem` → GMRES + preconditioner → `UpdateSolution`.
-
-### Time-dependent + DIRK
-
-```
-for (istep = 0 .. tsteps):
-    PreviousSolutions(sol, sys, common)        # capture u_prev
-    for (j = 0 .. tstages):
-        common.currentstage = j
-        common.time = time + dt[istep] * DIRKcoeff_t[j]
-        UpdateSource(sol, sys, app, res, common)
-        SteadyProblem(out, backend)
-        UpdateSolution<M>(sol, sys, app, res, tmp, common, backend)
-                                                # 7-arg overload —
-                                                # uses res.Rq as accumulator,
-                                                # leaves sys.u untouched.
-                                                # The 4-arg overload's
-                                                # UpdateSolutionDIRK extracts
-                                                # into sys.u and produces
-                                                # divergent trajectories on
-                                                # naca0012unsteady — don't use it.
-    SaveSolutions / SaveQoI / SaveParaview / …
-    time += dt[istep]
+```mermaid
+flowchart TD
+  START["main / RunExasimSolver"] --> PARSE["Parse command-line and input files"]
+  PARSE --> MODE{"execution mode"}
+  MODE -->|solve| BUILD["Build models and initialize solution"]
+  MODE -->|postprocess| POSTINIT["Initialize lightweight postprocess state"]
+  BUILD --> RUN["Run steady, time-dependent, or parameter-sweep solve"]
+  POSTINIT --> POST["Read saved solution and write postprocessing outputs"]
+  RUN --> FINAL["Finalize streams, Kokkos, MPI"]
+  POST --> FINAL
 ```
 
-## Key data structures
+## Implementation Boundaries
 
-| Struct | Lives in | Holds |
-|---|---|---|
-| `PDE` | `backend/Preprocessing/structs.hpp` | runtime config (porder, tau, NewtonTol, …) parsed from `pdeapp.txt` or set via facade |
-| `Mesh` | same | vertices `p`, connectivity `t`, boundary expressions, periodic mappings |
-| `Master` | same | basis functions, quadrature points, shape derivatives at element nodes |
-| `DMD` | same | distributed mesh decomposition: `elempart`, `nbinfo`, `elemsend`, `elemrecv` |
-| `commonstruct` / `appstruct` / `meshstruct` / `solstruct` | `backend/Common/common.h` | runtime structs (raw pointers, GPU-friendly); built from the preprocessing structs by `CPreprocessing::take()` |
+| Do this | Avoid this |
+| --- | --- |
+| Add new user input in frontends and Text2Code consistently. | Hard-code frontend-only behavior in backend solver loops. |
+| Add provider features through the ABI when they are model callbacks. | Calling generated files by relative paths from backend code. |
+| Keep generated artifacts out of source control unless intentionally curated. | Treating generated C++ as the primary source of truth. |
+| Use execution flags in runtime structs for behavior that must survive standalone execution. | Depending on MATLAB/Python/Julia state at runtime. |
+| Update CPU, CUDA, HIP, and MPI paths when changing runtime data ownership. | Assuming host-only memory when GPU builds are enabled. |
 
-The conversion from preprocessing structs (`vector<int>`, `vector<double>`)
-to runtime structs (`int*`, `dstype*`) happens in `buildAppStruct`,
-`buildMasterStruct`, `buildMeshStruct`, `buildSolStruct` (file
-`backend/Preprocessing/buildstructs.hpp`).
+## Related Documentation
 
-## In-memory MPI path
-
-By default the embedded `ExasimSolver<M>::solve(mpiprocs, mpirank)`
-runs `CPreprocessing::takeParallel(comm)` — same logic as
-`ParallelPreprocessing` but it builds the runtime structs directly
-in memory rather than via per-rank `datain/*.bin` files. The
-`CSolution<M>(Preprocessed&&, …)` constructor consumes the bundle
-and forwards to `CDiscretization<M>(P&&, …)`.
-
-The escape hatch `EXASIM_FACADE_INMEMORY_MPI=0` reverts to the
-file ABI for debugging — it writes per-rank
-`datain/{app,master,mesh,sol}.bin` via `ParallelPreprocessing`,
-then constructs `CSolution<M>(filein, …)` which reads them back.
-Same final answers (validated up to 1e-12 relative L2).
-
-## Per-target text2code output
-
-`text2code` emits `my_model.hpp` and compiles
-`libpdemodel{serial,cuda,hip}.so` directly into the consumer's
-codegen example directory (`apps/library_example/<name>_codegen/`),
-not a global `backend/Model/` shared singleton. This decouples
-parallel ctest gates: different examples never race on the same
-generated library, and the four backend ctests can run independently.
-
-The `--out-dir` flag on `text2code` controls where the generated
-files land; `apps/library_example/regenerate.sh` passes the example's
-own directory.
-
-## Where to look in the source
-
-| Topic | File |
-|---|---|
-| Embedded library API | `include/exasim/solver_facade.hpp` |
-| Legacy CLI driver | `include/exasim/run.hpp` |
-| Single-rank preprocessing | `backend/Preprocessing/preprocessing.hpp` |
-| MPI preprocessing | `backend/Preprocessing/preprocessing.hpp` (takeParallel) + `backend/Preprocessing/parmetisexasim.hpp` |
-| Runtime kernels | `backend/Discretization/discretization.hpp` |
-| Solver | `backend/Solution/solution.hpp` |
-| Output | `backend/Solution/postsolution.hpp` |
-| text2code | `text2code/text2code/` |
-| In-memory struct builders | `backend/Preprocessing/buildstructs.hpp` |
+- User workflows: [Application Modes](../usage-modes/index.md)
+- PDE formulation concepts: [Physics Models](../physics-models/index.md)
+- Numerical algorithms: [Theory](../theory/index.md)
+- Frontend user guide: [Frontends](../frontends/index.md)
+- C++ API user guide: [Driving the solver](../driving-the-solver.md)
