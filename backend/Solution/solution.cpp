@@ -251,7 +251,7 @@ Int CSolution::PTCsolver(ofstream &out, Int backend)
         for (Int attempt = 0; attempt < maxLinearAttempts; attempt++) {
             // solve the linear system: (lambda*B + J(u))x = -R(u)
             t0 = SolutionBenchmarkStart(backend);
-            status = LinearSolver(solv.sys, disc, prec, out, it, backend);
+            status = LinearSolver(solv.sys, solv.state, disc, prec, out, it, backend);
             linearSolverTime += SolutionBenchmarkStop(t0, backend);
 
             ArrayCopy(disc.common.cublasHandle, solv.sys.v, solv.sys.u, N, backend);
@@ -339,7 +339,7 @@ Int CSolution::PTCsolver(ofstream &out, Int backend)
                         
         // update the reduced basis
         if ((status==0) && (disc.common.solverparams.RBdim > 0)) // fix bug here 
-            UpdateRB(solv.sys, disc, prec, backend);      
+            UpdateRB(solv.sys, solv.state, disc, prec, backend);      
         
         // check convergence
         if (nrmr < tol) {            
@@ -429,7 +429,7 @@ Int CSolution::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int backend
     for (it=0; it<maxit; it++) {              
                       
         // solve the linear system:  J(u) x = -R(u)        
-        LinearSolver(solv.sys, disc, prec, out, N, spatialScheme, it, backend);
+        LinearSolver(solv.sys, solv.state, disc, prec, out, N, spatialScheme, it, backend);
               
         // int npf = disc.common.grid.npf;
         // int nfe = disc.common.meshsizes.nfe;        
@@ -511,7 +511,7 @@ Int CSolution::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int backend
         // update the reduced basis space
         ArrayMultiplyScalar(disc.common.cublasHandle, solv.sys.x, solv.sys.alpha, N, backend);   
                         
-        if (disc.common.solverparams.RBdim > 0) UpdateRB(solv.sys, disc, prec, N, backend);         
+        if (disc.common.solverparams.RBdim > 0) UpdateRB(solv.sys, solv.state, disc, prec, N, backend);         
                 
         if (disc.common.mpiRank==0)
           printf("Newton Iteration: %d, Alpha: %g, Original Norm: %g,  Updated Norm: %g\n", it+1, solv.sys.alpha, nrm0, nrmr);
@@ -978,7 +978,7 @@ void CSolution::SteadyProblem_PTC(ofstream &out, Int backend) {
             }
             else if (delta_monitor < 0.1 && solv.sys.alpha == 1.0)
             {
-                if (disc.common.solverstate.linearSolverIter < disc.common.solverparams.linearSolverMaxIter){
+                if (solv.state.linearSolverIter < disc.common.solverparams.linearSolverMaxIter){
                     // increase timestep by 2
                     disc.common.dt[istep+1] = disc.common.dt[istep]*2;
                     // std::cout << "Doubling timestep: " << disc.common.dt[istep+1] << std::endl;

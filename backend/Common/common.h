@@ -1655,18 +1655,19 @@ struct precondstruct {
 };
 
 // Grouped mutable transient state of the iterative solver + reduced-basis preconditioner.
-// Extracted from commonstruct (C1 of the concern-separation refactor) so the solver's runtime
-// state is named and isolated from the read-only configuration it used to ride with.
-// Access via common.solverstate.<field>.
+// Extracted from commonstruct (C1) and then OWNED BY CSolver (Stage 1 of the internal
+// separation): mutable runtime state lives in the solver object, not in the setup/config
+// commonstruct. Default-initialized (no setup read needed) so the CSolver member is valid
+// on construction on every backend. (The set-once PTC parameter moved to solverparams,
+// where the rest of the solver configuration lives.)
 struct solverstatestruct {
-    Int RBcurrentdim;  // current dimension of the reduced basis space
-    Int RBremovedind;  // RB vector to be removed and replaced with a new vector
-    Int Wcurrentdim;   // current dimension of W
-    Int linearSolverIter;     // current linear-solver iteration
-    Int nonlinearSolverIter;  // current nonlinear-solver iteration
+    Int RBcurrentdim = 0;  // current dimension of the reduced basis space
+    Int RBremovedind = 0;  // RB vector to be removed and replaced with a new vector
+    Int Wcurrentdim = 0;   // current dimension of W
+    Int linearSolverIter = 0;     // current linear-solver iteration
+    Int nonlinearSolverIter = 0;  // current nonlinear-solver iteration
     dstype linearSolverTolFactor = 1.0;  // adaptive linear-solver tolerance scaling
-    dstype linearSolverRelError;         // achieved linear-solver relative residual
-    dstype PTCparam;                     // pseudo-transient-continuation parameter
+    dstype linearSolverRelError = 0.0;   // achieved linear-solver relative residual
 };
 
 // One quantity-of-interest instance: a named QoI the backend computes and writes. Several
@@ -1752,6 +1753,7 @@ struct solverparamsstruct {
     dstype matvecTol;
     dstype linearSolverTol;
     dstype nonlinearSolverTol;
+    dstype PTCparam;             // pseudo-transient-continuation parameter (set-once config)
 };
 
 // QoI / visualization-output configuration: visualization component counts (scalar/vector/tensor),
@@ -1933,7 +1935,9 @@ struct commonstruct {
     timeparamsstruct timeparams;        // time-integration/problem-evolution config (see above)
     solverparamsstruct solverparams;    // iterative-solver configuration (see above)
     physicsparamsstruct physicsparams;  // physics/model configuration (see above)
-    solverstatestruct solverstate;  // mutable solver/preconditioner runtime state (see above)
+    // solverstate (mutable solver/preconditioner runtime state) was lifted out of commonstruct
+    // into CSolver (Stage 1 of the internal separation) -- setup/config stays here, runtime state
+    // lives in the owning solver object.
     timestatestruct timestate;      // mutable time-stepping runtime state (see above)
     // Runtime model ABI for the unified templated FEM code (M == AbiAdapter path): set by
     // CDiscretization to point at its driver_abi, so the no-driver_abi kernel-driver
@@ -2095,9 +2099,8 @@ struct commonstruct {
       printf("length of the stabilization: %d\n", components.ntau);   
 
       printf("maximum dimension of the reduced basis space: %d\n", solverparams.RBdim);
-      printf("current dimension of the reduced basis space: %d\n", solverstate.RBcurrentdim);
-      printf("the vector to be removed from the RB space and replaced with new vector: %d\n", solverstate.RBremovedind);
-     
+      // (runtime reduced-basis dimensions now live in CSolver::state, not commonstruct)
+
       printf("external uhat function flag: %d\n", couplingparams.extUhat);
       printf("external fhat function flag: %d\n", couplingparams.extFhat);
       printf("external stabilization function flag: %d\n", couplingparams.extStab);
@@ -2123,9 +2126,8 @@ struct commonstruct {
       printf("linear solver type: %d\n", solverparams.linearSolver);
       printf("nonlinear solver type: %d\n", solverparams.nonlinearSolver);
       printf("maximum linear solver iterations: %d\n", solverparams.linearSolverMaxIter);
-      printf("current linear solver iteration: %d\n", solverstate.linearSolverIter);
       printf("maximum nonlinear solver iterations: %d\n", solverparams.nonlinearSolverMaxIter);
-      printf("current nonlinear solver iteration: %d\n", solverstate.nonlinearSolverIter);
+      // (current linear/nonlinear iteration counts now live in CSolver::state, not commonstruct)
       printf("matrix-vector multiplication order: %d\n", solverparams.matvecOrder);
       printf("GMRES restart parameter: %d\n", solverparams.gmresRestart);
       printf("GMRES orthogonalization method: %d\n", solverparams.gmresOrthogMethod);
@@ -2137,11 +2139,10 @@ struct commonstruct {
       printf("current simulation time: %f\n", timestate.time);
       printf("matrix-vector multiplication tolerance: %f\n", solverparams.matvecTol);
       printf("linear solver tolerance: %f\n", solverparams.linearSolverTol);
-      printf("linear solver tolerance factor: %f\n", solverstate.linearSolverTolFactor);
       printf("nonlinear solver tolerance: %f\n", solverparams.nonlinearSolverTol);
-      printf("linear solver relative error: %f\n", solverstate.linearSolverRelError);
+      // (linear solver tolerance factor / relative error now live in CSolver::state)
       printf("artificial viscosity ramp factor: %f\n", physicsparams.rampFactor);
-      printf("PTC parameter: %f\n", solverstate.PTCparam);
+      printf("PTC parameter: %f\n", solverparams.PTCparam);
       printf("initial stabilization parameter: %f\n", physicsparams.tau0);
       printf("DAE alpha parameter: %f\n", timeparams.dae_alpha);
       printf("DAE beta parameter: %f\n", timeparams.dae_beta);

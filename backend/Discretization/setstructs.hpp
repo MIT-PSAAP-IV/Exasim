@@ -186,14 +186,12 @@ inline void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &
     common.couplingparams.coupledboundarycondition = app.problem[30];
     common.physicsparams.AVdistfunction = app.problem[31];
     
-    common.solverstate.RBcurrentdim = 0; // current dimension of the reduced basis space
-    common.solverstate.RBremovedind = 0; // the vector to be removed from the RB space and replaced with new vector
-    common.solverstate.Wcurrentdim = 0; // current dimension of the W space
-    
-    common.solverparams.nonlinearSolverTol = app.solversparam[0];    
+    // (mutable reduced-basis/solver runtime state now lives in CSolver::state, default-initialized)
+
+    common.solverparams.nonlinearSolverTol = app.solversparam[0];
     common.solverparams.linearSolverTol = app.solversparam[1];
     common.solverparams.matvecTol = app.solversparam[2];
-    common.solverstate.PTCparam = app.solversparam[3];
+    common.solverparams.PTCparam = app.solversparam[3];
     if (common.timeparams.tdep==1)
         common.timestate.time = app.factor[0];
     common.physicsparams.rampFactor = 1.0;   // Ramp factor for artificial viscosity flux        

@@ -28,7 +28,9 @@ class CSolver {
 private:
 public:
     sysstruct sys; // system struct
-    
+    solverstatestruct state; // mutable solver/reduced-basis runtime state (lifted out of
+                             // commonstruct in Stage 1; default-initialized on construction)
+
     int mpiRank;
     
     // constructor 
