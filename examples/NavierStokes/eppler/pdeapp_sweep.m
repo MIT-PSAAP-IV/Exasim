@@ -93,7 +93,7 @@ end
 mesh = mkmesh_epp387(porder,1,-6);
 
 % call exasim to preprocess, generate code, and export the standalone app
-exasim(pde,mesh);
+[sol,pde,mesh,master,dmd] = exasim(pde,mesh);
 
 fprintf("Exported Eppler sweep app: %s\n", fullfile(pwd, pde.exportapp));
 fprintf("Run with: EXASIM_ROOT=%s %s\n", char(exasim_install_prefix()), fullfile(pwd, pde.exportapp, "run.sh"));

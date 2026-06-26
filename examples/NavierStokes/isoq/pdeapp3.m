@@ -2,11 +2,10 @@
 % run('<prefix>/share/exasim/matlab/exasim_setup.m') instead.
 run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'frontends', 'Matlab', 'exasim_setup.m'));
 
-
 % initialize pde structure and mesh structure
 [pde,mesh] = initializeexasim();
 pde.model = "ModelD";  
-pde.modelfile = "pdemodel_axialns";
+pde.modelfile = "pdemodel_axialns2";
 
 % Choose computing platform and set number of processors
 pde.platform = "cpu";         % choose this option if NVIDIA GPUs are available
@@ -32,7 +31,8 @@ rvinf = sin(alpha);             % freestream vertical velocity
 pinf = 1/(gam*Minf^2);          % freestream pressure
 rEinf = 0.5+pinf/(gam-1);       % freestream energy
 
-pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf Tinf Tref Twall];
+nm = 1e2;
+pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf Tinf Tref Twall 0.0015 nm];
 pde.tau = 8.0;                  % DG stabilization parameter
 pde.GMRESrestart = 250;         %try 50
 pde.GMRESortho = 1;
@@ -53,9 +53,7 @@ master = Master(pde);
 
 % initial artificial viscosity
 dist = meshdist3(mesh.f,mesh.dgnodes,master.perm,[4]); % distance to the wall
-mesh.vdg = zeros(size(mesh.dgnodes,1),1,size(mesh.dgnodes,3));
-nm = 1e2;
-mesh.vdg(:,1,:) = 0.0015*tanh(nm*dist);
+mesh.vdg(:,1,:) = dist;
 
 mesh.porder = pde.porder;
 mesh.xpe = master.xpe;
@@ -73,34 +71,17 @@ mesh.udg = UDG;
 
 figure(3); clf; scaplot(mesh,TnearWall,[],1); axis on; axis equal; axis tight;
 
-pde.gencode = 1;
-[sol,pde,mesh,master,dmd] = exasim(pde,mesh);
-figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[0 Minf],1); colorbar;
+avparam = [0.0015 0.0011 0.0008];
+for i = 1:length(avparam)
+  pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf Tinf Tref Twall avparam(i) nm];
+  if (i==1) 
+    pde.gencode = 1;
+  else
+    pde.gencode = 0;
+  end
+  [sol,pde,mesh,master,dmd] = exasim(pde,mesh);
+  mesh.udg = sol;
+  figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[0 Minf],1); colorbar;
+  figure(2); clf; scaplot(mesh, mesh.vdg,[],1); colorbar;  
+end
 
-disp("Iter 2")
-mesh.vdg(:,1,:) = 0.0011*tanh(nm*dist);
-mesh.udg = sol;
-preprocessing(pde,mesh);
-runcode(pde, 1); % run C++ code
-sol = fetchsolution(pde,master,dmd, pwd() + "/dataout");
-figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[0 Minf],1); colorbar;
-
-disp("Iter 3")
-mesh.vdg(:,1,:) = 0.0008*tanh(nm*dist);
-mesh.udg = sol;
-preprocessing(pde,mesh);
-runcode(pde, 1); % run C++ code
-sol = fetchsolution(pde,master,dmd, pwd() + "/dataout");
-figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[0 Minf],1); colorbar;
-figure(2); clf; scaplot(mesh, mesh.vdg,[],1); colorbar;
-
-% disp("Iter 4")
-% nm = 70;
-% mesh.vdg(:,1,:) = 0.0005*tanh(nm*dist);
-% mesh.udg = sol;
-% preprocessing(pde,mesh);
-% runcode(pde, 1); % run C++ code
-% sol = fetchsolution(pde,master,dmd, pwd() + "/dataout");
-% figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[0 Minf],1); colorbar;
-% figure(2); clf; scaplot(mesh, mesh.vdg,[],1); colorbar;
-% 

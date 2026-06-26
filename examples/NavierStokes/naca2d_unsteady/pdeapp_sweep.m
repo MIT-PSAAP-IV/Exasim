@@ -83,7 +83,8 @@ end
 mesh = mkmesh_naca0012(porder,1,3);
 
 % call exasim to preprocess, generate code, and export the standalone app
-exasim(pde,mesh);
+[sol,pde,mesh,master,dmd] = exasim(pde,mesh);
+mesh.dgnodes = createdgnodes(mesh.p,mesh.t,mesh.f,mesh.curvedboundary,mesh.curvedboundaryexpr,pde.porder);    
 
 fprintf("Exported NACA0012 sweep app: %s\n", fullfile(pwd, pde.exportapp));
 fprintf("Run with: EXASIM_ROOT=%s %s\n", char(exasim_install_prefix()), fullfile(pwd, pde.exportapp, "run.sh"));

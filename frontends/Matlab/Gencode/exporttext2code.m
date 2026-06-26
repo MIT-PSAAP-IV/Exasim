@@ -39,10 +39,10 @@ pdeout = exporttext2code_infer_dimensions(pdeout, mesh);
 if (~isfield(pdeout, 'model') || isempty(pdeout.model)) && isfield(pdeout, 'pdemodel')
     pdeout.model = pdeout.pdemodel;
 end
-pdeout.modelfile = "pdemodel";
 
 % The model DSL is the source of generated kernels for Text2Code.
 genpdemodel(pdeout, dest + "/pdemodel.txt");
+pdeout.modelfile = "pdemodel";
 if isfield(pdeout, "physicsparamsweep") && ~isempty(pdeout.physicsparamsweep)
     pdeout.physicsparamcases = exporttext2code_sweepcases(pdeout.physicsparamsweep, numel(pdeout.physicsparam));
 end
