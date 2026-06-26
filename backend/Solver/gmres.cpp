@@ -25,7 +25,7 @@ Functions:
                              Int i, Int N, Int n, Int backend)
     - Updates the solution vector using the computed Krylov basis and coefficients.
 
-4. Int GMRES(sysstruct &sys, solverstatestruct& state, CDiscretization &disc, CPreconditioner& prec, Int backend)
+4. Int CSolver::gmres(CDiscretization &disc, CPreconditioner& prec, Int backend)
     - Main GMRES solver routine.
     - Handles initialization, polynomial preconditioning, orthogonalization, 
       convergence checks, and solution updates.
@@ -35,7 +35,7 @@ Functions:
                         sysstruct &sys, dstype *q, dstype *p, int N, Int spatialScheme, int backend)
     - Overloaded version of ApplyPoly with spatialScheme parameter for flexibility.
 
-6. Int GMRES(sysstruct &sys, solverstatestruct& state, CDiscretization &disc, CPreconditioner& prec, Int N, Int spatialScheme, Int backend)
+6. Int CSolver::gmres(CDiscretization &disc, CPreconditioner& prec, Int N, Int spatialScheme, Int backend)
     - Overloaded GMRES routine supporting additional spatial scheme parameter.
     - Provides detailed timing for matrix-vector products, preconditioning, 
       orthogonalization, and solution updates.
@@ -135,7 +135,7 @@ void UpdateSolution(cublasHandle_t handle, dstype *x, dstype *y, dstype *H, dsty
     PGEMNV(handle, N, i+1, &one, V, N, y, inc1, &one, x, inc1, backend);
 }
 
-Int GMRES(sysstruct &sys, solverstatestruct& state, CDiscretization &disc, CPreconditioner& prec, Int backend)
+Int CSolver::gmres(CDiscretization &disc, CPreconditioner& prec, Int backend)
 {
     INIT_TIMING;    
     
@@ -354,7 +354,7 @@ void ApplyPoly(dstype *w, CDiscretization &disc, CPreconditioner& prec,
         ArrayAXPBY(w, w, q, 1.0, 1.0/sr[m-1], N);                  
 }
 
-Int GMRES(sysstruct &sys, solverstatestruct& state, CDiscretization &disc, CPreconditioner& prec, Int N, Int spatialScheme, Int backend)
+Int CSolver::gmres(CDiscretization &disc, CPreconditioner& prec, Int N, Int spatialScheme, Int backend)
 {
     INIT_TIMING;    
     

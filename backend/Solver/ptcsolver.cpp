@@ -7,21 +7,21 @@
 
     Functions:
 
-    - int LinearSolver(sysstruct &sys, solverstatestruct& state, CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int it, Int backend)
+    - int CSolver::linearSolve(CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int it, Int backend)
         Solves the linear system arising in each nonlinear iteration. Evaluates the residual, constructs the preconditioner, 
         applies GMRES, and manages timing and logging. Handles reduced basis updates and checks for convergence.
 
-    - void UpdateRB(sysstruct &sys, solverstatestruct& state, CDiscretization& disc, CPreconditioner& prec, Int backend)
+    - void CSolver::updateRB(CDiscretization& disc, CPreconditioner& prec, Int backend)
         Updates the reduced basis vectors used for preconditioning if the current solution increment is significant.
 
     - Int PTCsolver(sysstruct &sys,  CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int backend)
         Implements the Pseudo-Time Continuation (PTC) nonlinear solver. Iteratively solves the nonlinear system R(u) = 0 
         using the linear solver, updates the solution, checks for divergence, logs residual norms, and manages reduced basis updates.
 
-    - void UpdateRB(sysstruct &sys, solverstatestruct& state, CDiscretization& disc, CPreconditioner& prec, Int N, Int backend)
+    - void CSolver::updateRB(CDiscretization& disc, CPreconditioner& prec, Int N, Int backend)
         Alternate version of UpdateRB with explicit dimension argument. Updates the reduced basis vectors for preconditioning.
 
-    - void LinearSolver(sysstruct &sys, solverstatestruct& state, CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int N, Int spatialScheme, Int it, Int backend)
+    - void CSolver::linearSolve(CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int N, Int spatialScheme, Int it, Int backend)
         Overloaded LinearSolver supporting different spatial discretization schemes. Assembles the linear system, constructs 
         the preconditioner, applies GMRES, and logs timing information.
 
@@ -47,7 +47,7 @@
 #ifndef __PTCSOLVER
 #define __PTCSOLVER
 
-int LinearSolver(sysstruct &sys, solverstatestruct& state, CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int it, Int backend)
+int CSolver::linearSolve(CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int it, Int backend)
 {    
         
 #ifdef TIMING    
@@ -117,7 +117,7 @@ int LinearSolver(sysstruct &sys, solverstatestruct& state, CDiscretization& disc
 #ifdef TIMING    
     begin = chrono::high_resolution_clock::now();      
 #endif    
-    state.linearSolverIter = GMRES(sys, state, disc, prec, backend);  
+    state.linearSolverIter = gmres(disc, prec, backend);  
     if (disc.common.mpiRank==0)             
         printf("GMRES converges to the tolerance %g within % d iterations and %d RB dimensions\n",disc.common.solverparams.linearSolverTol,state.linearSolverIter,state.RBcurrentdim);        
     
@@ -150,7 +150,7 @@ int LinearSolver(sysstruct &sys, solverstatestruct& state, CDiscretization& disc
     return 0;    
 }
 
-void UpdateRB(sysstruct &sys, solverstatestruct& state, CDiscretization& disc, CPreconditioner& prec, Int backend)
+void CSolver::updateRB(CDiscretization& disc, CPreconditioner& prec, Int backend)
 {
     Int N = disc.common.sizes.ndof1;
                     
@@ -171,7 +171,7 @@ void UpdateRB(sysstruct &sys, solverstatestruct& state, CDiscretization& disc, C
     }
 }
 
-void UpdateRB(sysstruct &sys, solverstatestruct& state, CDiscretization& disc, CPreconditioner& prec, Int N, Int backend)
+void CSolver::updateRB(CDiscretization& disc, CPreconditioner& prec, Int N, Int backend)
 {                       
     dstype nrmr = PNORM(disc.common.cublasHandle, N, sys.x, backend);
     if (nrmr>zero) {
@@ -190,7 +190,7 @@ void UpdateRB(sysstruct &sys, solverstatestruct& state, CDiscretization& disc, C
     }
 }
 
-void LinearSolver(sysstruct &sys, solverstatestruct& state, CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int N, Int spatialScheme, Int it, Int backend)
+void CSolver::linearSolve(CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int N, Int spatialScheme, Int it, Int backend)
 {            
     // evaluate the residual R(u) and set it to sys.b
     if (spatialScheme==0) {
@@ -227,7 +227,7 @@ void LinearSolver(sysstruct &sys, solverstatestruct& state, CDiscretization& dis
             
     auto begin = chrono::high_resolution_clock::now();   
         
-    state.linearSolverIter = GMRES(sys, state, disc, prec, N, spatialScheme, backend);  
+    state.linearSolverIter = gmres(disc, prec, N, spatialScheme, backend);  
 
     auto end = chrono::high_resolution_clock::now();
     double t1 = chrono::duration_cast<chrono::nanoseconds>(end-begin).count()/1e6;        
