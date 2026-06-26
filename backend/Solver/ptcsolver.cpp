@@ -190,16 +190,16 @@ void CSolver::updateRB(CDiscretization& disc, CPreconditioner& prec, Int N, Int 
     }
 }
 
-void CSolver::linearSolve(CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int N, Int spatialScheme, Int it, Int backend)
-{            
+void CSolver::linearSolve(CAssembler& assembler, CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int N, Int spatialScheme, Int it, Int backend)
+{
     // evaluate the residual R(u) and set it to sys.b
     if (spatialScheme==0) {
       disc.evalResidual(sys.b, sys.u, backend);
     }
-    else if (spatialScheme==1) {            
-      auto begin = chrono::high_resolution_clock::now();   
-            
-      disc.hdgAssembleLinearSystem(sys.b, backend);
+    else if (spatialScheme==1) {
+      auto begin = chrono::high_resolution_clock::now();
+
+      assembler.hdgAssembleLinearSystem(sys.b, backend);
               
       auto end = chrono::high_resolution_clock::now();
       double t1 = chrono::duration_cast<chrono::nanoseconds>(end-begin).count()/1e6;      

@@ -66,12 +66,11 @@ public:
     void compGeometry(Int backend);    
     
     // compute the mass inverse
-    void compMassInverse(Int backend);    
+    void compMassInverse(Int backend);
 
-    void hdgAssembleLinearSystem(dstype *b, Int backend);        
-    void hdgAssembleResidual(dstype *b, Int backend);        
+    // (hdgAssembleLinearSystem / hdgAssembleResidual moved to CAssembler in Stage 3)
 
-    // evaluate the residual vector 
+    // evaluate the residual vector
     void evalResidual(Int backend);
         
     // evaluate the residual vector at u

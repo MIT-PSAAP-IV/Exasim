@@ -95,6 +95,7 @@ using namespace std;
 
 #include "../Model/ModelDispatch/model_drivers_abi.cpp"
 #include "../Discretization/discretization.cpp"
+#include "../Discretization/assembler.cpp"
 #include "../Preconditioning/preconditioner.cpp"
 #include "../Solver/solver.cpp"
 #include "../Visualization/visualization.cpp"

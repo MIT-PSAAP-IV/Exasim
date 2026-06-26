@@ -27,6 +27,8 @@
 
 #include "exasim/execution_mode.hpp"
 
+class CAssembler;  // HDG global-system assembler (Stage 3); HDG linearSolve assembles via it
+
 class CSolver {
 private:
 public:
@@ -45,7 +47,7 @@ public:
 
     // one linear solve (preconditioner setup + GMRES); LDG returns the GMRES iteration count.
     int  linearSolve(CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int it, Int backend);
-    void linearSolve(CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int N, Int spatialScheme, Int it, Int backend);
+    void linearSolve(CAssembler& assembler, CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int N, Int spatialScheme, Int it, Int backend);
 
     // restarted GMRES (operates on this->sys / this->state)
     Int  gmres(CDiscretization &disc, CPreconditioner& prec, Int backend);

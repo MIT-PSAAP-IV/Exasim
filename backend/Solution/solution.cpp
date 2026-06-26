@@ -376,7 +376,7 @@ Int CSolution::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int backend
       if (disc.common.components.ncw > 0) GetW<exasim::detail::AbiAdapter>(disc.sol.wdg, disc.sol, disc.tmp, disc.app, disc.common, backend);
       
       // compute the residual vector R = [Ru; Rh]
-      disc.hdgAssembleResidual(solv.sys.b, backend);
+      assembler.hdgAssembleResidual(solv.sys.b, backend);
             
       nrmr = PNORM(disc.common.cublasHandle, N, disc.common.couplingparams.ndofuhatinterface, solv.sys.b, backend);       
       // cout<<"Rank = "<<disc.common.mpiRank<<", norm Rh = "<<NORM(disc.common.cublasHandle, N, solv.sys.b, backend)<<endl;          
@@ -429,7 +429,7 @@ Int CSolution::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int backend
     for (it=0; it<maxit; it++) {              
                       
         // solve the linear system:  J(u) x = -R(u)        
-        solv.linearSolve(disc, prec, out, N, spatialScheme, it, backend);
+        solv.linearSolve(assembler, disc, prec, out, N, spatialScheme, it, backend);
               
         // int npf = disc.common.grid.npf;
         // int nfe = disc.common.meshsizes.nfe;        
@@ -467,7 +467,7 @@ Int CSolution::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int backend
                               
           nrm0 = nrmr; // original norm          
           // compute the updated residual norm |[Ru; Rh]|
-          disc.hdgAssembleResidual(solv.sys.b, backend);          
+          assembler.hdgAssembleResidual(solv.sys.b, backend);          
           nrmr = PNORM(disc.common.cublasHandle, N, disc.common.couplingparams.ndofuhatinterface, solv.sys.b, backend);           
           nrmr += PNORM(disc.common.cublasHandle, disc.common.grid.npe*disc.common.components.ncu*disc.common.meshsizes.ne1, disc.res.Ru, backend);   
                     
@@ -502,7 +502,7 @@ Int CSolution::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int backend
             UpdateUDG(disc.sol.udg, solv.sys.v, -solv.sys.alpha, disc.common.grid.npe, disc.common.components.nc, disc.common.meshsizes.ne1, 0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.meshsizes.ne1);                    
             if (disc.common.components.ncq > 0) hdgGetQ<exasim::detail::AbiAdapter>(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common, backend);          
             if (disc.common.components.ncw > 0) GetW<exasim::detail::AbiAdapter>(disc.sol.wdg, disc.sol, disc.tmp, disc.app, disc.common, backend);
-            disc.hdgAssembleResidual(solv.sys.b, backend);
+            assembler.hdgAssembleResidual(solv.sys.b, backend);
             nrmr = PNORM(disc.common.cublasHandle, N, disc.common.couplingparams.ndofuhatinterface, solv.sys.b, backend); 
             nrmr += PNORM(disc.common.cublasHandle, disc.common.grid.npe*disc.common.components.ncu*disc.common.meshsizes.ne1, disc.res.Ru, backend);                       
           }          
@@ -997,7 +997,7 @@ void CSolution::SteadyProblem_PTC(ofstream &out, Int backend) {
                         if (disc.common.components.ncq > 0) hdgGetQ<exasim::detail::AbiAdapter>(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common, backend);          
             
                         // compute the residual vector R = [Ru; Rh]
-                        disc.hdgAssembleResidual(solv.sys.b, backend);
+                        assembler.hdgAssembleResidual(solv.sys.b, backend);
                                 
                         nrmr = PNORM(disc.common.cublasHandle, N, solv.sys.b, backend);       
                         nrmr += PNORM(disc.common.cublasHandle, disc.common.grid.npe*disc.common.components.ncu*disc.common.meshsizes.ne1, disc.res.Ru, backend); 

@@ -42,6 +42,7 @@
 #define __SOLUTION_H__
 
 #include "exasim/execution_mode.hpp"
+#include "../Discretization/assembler.h"
 
 // Common helper: open file and write 3-element header [a0, a1, a2]
 void open_and_write(std::ofstream& ofs,
@@ -120,7 +121,8 @@ private:
     PDEStateSnapshot snapshot;
 public:
     CDiscretization disc;  // spatial discretization class
-    CPreconditioner prec;  // precondtioner class 
+    CAssembler assembler;  // HDG global linear-system assembler (Stage 3; assembles from disc)
+    CPreconditioner prec;  // precondtioner class
     CSolver solv;          // linear and nonlinear solvers
     CVisualization vis;    // visualization class
     ofstream outsol;       // storing solutions
@@ -145,7 +147,8 @@ public:
        : disc(filein, fileout, exasimpath, mpiprocs, mpirank, fileoffset,
               omprank, backend, builtinmodelID, abi, nsca, nvec, nten, nsurf, nvqoi, mode,
               physicsparamOverride, saveParaview),
-         prec(disc, backend, mode), solv(disc, backend, mode), vis(disc, backend) 
+         assembler(disc),
+         prec(disc, backend, mode), solv(disc, backend, mode), vis(disc, backend)
     {   
         int ncx = disc.common.components.ncx;                            
         int nd = disc.common.grid.nd;     

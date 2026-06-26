@@ -78,11 +78,9 @@ public:
     void compMassInverse(Int backend);    
 
     // (ComputeLDGPreconditioner moved to CPreconditioner in C4)
+    // (hdgAssembleLinearSystem / hdgAssembleResidual moved to CAssembler in Stage 3)
 
-    void hdgAssembleLinearSystem(dstype *b, Int backend);
-    void hdgAssembleResidual(dstype *b, Int backend);        
-
-    // evaluate the residual vector 
+    // evaluate the residual vector
     void evalResidual(Int backend);
         
     // evaluate the residual vector at u

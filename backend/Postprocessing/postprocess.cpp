@@ -46,6 +46,7 @@ using namespace std;
 #include "../Common/pblas.h"         // wrappers for blas libaries and MPI     
 
 #include "../Discretization/postdiscretization.cpp" // discretization class
+#include "../Discretization/assembler.cpp"
 #include "../Preconditioning/postpreconditioner.cpp" // preconditioner class
 #include "../Solver/postsolver.cpp"                 // solver class
 #include "../Visualization/visualization.cpp"  //  visualization class
