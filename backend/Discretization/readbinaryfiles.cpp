@@ -334,7 +334,7 @@ void writemasterstruct(string filename, masterstruct &master)
 }
 
 
-void readmeshstruct(string filename, meshstruct &mesh, solstruct &sol, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, Int mpirank)
+void readmeshstruct(string filename, meshstruct &mesh, solstruct &sol, appstruct &app, masterstruct &master, Int mpirank)
 {
     // Open file to read
     ifstream in(filename.c_str(), ios::in | ios::binary);
@@ -674,7 +674,7 @@ void readInput(appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master
         readsolstruct(filesol, sol, app, driver_abi, master, filemesh, mpirank);
         
         if (mpirank==0) printf("Reading mesh from binary files \n");            
-        readmeshstruct(filemesh, mesh, sol, app, driver_abi, master, mpirank);                              
+        readmeshstruct(filemesh, mesh, sol, app, master, mpirank);                              
     }
     else {
         string filesol = filein + "sol.bin";              
@@ -684,7 +684,7 @@ void readInput(appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master
         readsolstruct(filesol, sol, app, driver_abi, master, filemesh, mpirank);
         
         if (mpirank==0) printf("Reading mesh from binary files \n");         
-        readmeshstruct(filemesh, mesh, sol, app, driver_abi, master, mpirank);                      
+        readmeshstruct(filemesh, mesh, sol, app, master, mpirank);                      
     }    
 }
 

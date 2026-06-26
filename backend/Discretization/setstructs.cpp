@@ -5,13 +5,13 @@
 
     Functions:
 
-    - setcommonstruct(commonstruct &common, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh, string filein, string fileout, Int curvedMesh, Int fileoffset)
+    - setcommonstruct(commonstruct &common, appstruct &app, masterstruct &master, meshstruct &mesh, string filein, string fileout, Int curvedMesh, Int fileoffset)
         Initializes the commonstruct with parameters from app, master, and mesh structures, as well as input/output file names and mesh curvature information. Sets up MPI-related fields, problem flags, solver parameters, and allocates memory for time integration coefficients and communication buffers.
 
-    - setresstruct(resstruct &res, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh, Int backend)
+    - setresstruct(resstruct &res, appstruct &app, masterstruct &master, meshstruct &mesh, Int backend)
         Allocates and initializes memory for residual arrays (Rq, Ru, Rh) and their sizes in the resstruct. Handles additional allocations if Enzyme AD is enabled.
 
-    - settempstruct(tempstruct &tmp, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh, Int backend)
+    - settempstruct(tempstruct &tmp, appstruct &app, masterstruct &master, meshstruct &mesh, Int backend)
         Allocates temporary arrays for intermediate computations, communication buffers for MPI, and sets their sizes in tempstruct. Handles different spatial schemes and backend types.
 
     - cpuInit(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh, tempstruct &tmp, commonstruct &common, string filein, string fileout, Int mpiprocs, Int mpirank, Int fileoffset, Int omprank)
@@ -42,7 +42,7 @@
 
 #include "ismeshcurved.cpp"
 
-void setcommonstruct(commonstruct &common, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh, 
+void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &master, meshstruct &mesh, 
         string filein, string fileout, Int curvedMesh, Int fileoffset)
 {                   
     common.filein = filein;
@@ -374,7 +374,7 @@ void setcommonstruct(commonstruct &common, appstruct &app, ExasimDriverABI& driv
     }                
 }
 
-void setresstruct(resstruct &res, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh, Int backend)
+void setresstruct(resstruct &res, appstruct &app, masterstruct &master, meshstruct &mesh, Int backend)
 {
     Int ncu = app.ndims[6];    // number of compoments of (u)
     Int ncq = app.ndims[7];    // number of compoments of (q)
@@ -413,7 +413,7 @@ void setresstruct(resstruct &res, appstruct &app, ExasimDriverABI& driver_abi, m
 #endif                   
 }
 
-void settempstruct(tempstruct &tmp, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh, Int backend)
+void settempstruct(tempstruct &tmp, appstruct &app, masterstruct &master, meshstruct &mesh, Int backend)
 {               
     Int nc = app.ndims[5]; // number of compoments of (u, q, p)
     Int ncu = app.ndims[6];// number of compoments of (u)        
@@ -556,17 +556,17 @@ void cpuInit(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& dr
 //     }
             
     if (mpirank==0) printf("Set res struct... \n");    
-    setresstruct(res, app, driver_abi, master, mesh, 0);
+    setresstruct(res, app, master, mesh, 0);
     
     if (mpirank==0) printf("Set temp struct... \n");    
-    settempstruct(tmp, app, driver_abi, master, mesh, 0);    
+    settempstruct(tmp, app, master, mesh, 0);    
         
     if (mpirank==0) printf("Run IsMeshCurved... \n");    
     int curvedmesh = IsMeshCurved(sol, app, master, mesh, tmp);
     if (mpirank==0) printf("IsMeshCurved = %d \n",curvedmesh);        
     
     if (mpirank==0) printf("Set common struct... \n");
-    setcommonstruct(common, app, driver_abi, master, mesh, filein, fileout, curvedmesh, fileoffset);            
+    setcommonstruct(common, app, master, mesh, filein, fileout, curvedmesh, fileoffset);            
     common.cublasHandle = 0;
     common.eventHandle = 0; 
     if (mpirank==0) printf("Finish setting common struct... \n");
@@ -1102,11 +1102,11 @@ void gpuInit(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& dr
     devmasterstruct(master, hmaster, hcommon);    
     devmeshstruct(mesh, hmesh, hcommon);
     devsolstruct(sol, hsol, hcommon);    
-    setresstruct(res, happ, driver_abi, hmaster, hmesh, hcommon.backend);
-    settempstruct(tmp, happ, driver_abi, hmaster, hmesh, hcommon.backend);
+    setresstruct(res, happ, hmaster, hmesh, hcommon.backend);
+    settempstruct(tmp, happ, hmaster, hmesh, hcommon.backend);
                 
     // set common struct
-    setcommonstruct(common, happ, driver_abi, hmaster, hmesh,
+    setcommonstruct(common, happ, hmaster, hmesh,
             hcommon.filein, hcommon.fileout, hcommon.grid.curvedMesh, hcommon.fileoffset);        
     
     int mpirank = hcommon.mpiRank;
