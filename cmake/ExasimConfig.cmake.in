@@ -1,5 +1,13 @@
 @PACKAGE_INIT@
 
+# Snapshot our own install prefix immediately. @PACKAGE_INIT@ sets
+# PACKAGE_PREFIX_DIR to THIS package's prefix, but a nested find_dependency()
+# below (e.g. Kokkos, whose own *Config.cmake re-runs @PACKAGE_INIT@) clobbers
+# the variable with its prefix. The Exasim_* paths set further down must derive
+# from Exasim's prefix, not whatever the last dependency left behind, so we
+# capture it here before any find_dependency() runs.
+set(_Exasim_PACKAGE_PREFIX_DIR "${PACKAGE_PREFIX_DIR}")
+
 # ExasimConfig.cmake.in — installed CMake config for Exasim.
 #
 # Downstream consumer:
@@ -56,11 +64,11 @@ include("${CMAKE_CURRENT_LIST_DIR}/ExasimTargets.cmake")
 #   Exasim_BUILTIN_DIR      — installed backend/Model/BuiltIn/ (model.hpp/model.cpp)
 #   Exasim_CMAKE_DIR        — directory of this file (ExternalModelProvider.cpp.in)
 #   Exasim_TEXT2CODE        — installed text2code binary (may not exist if not built)
-set(Exasim_ROOT             "${PACKAGE_PREFIX_DIR}")
-set(Exasim_TEXT2CODE_ROOT   "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_INCLUDEDIR@")
-set(Exasim_BUILTIN_DIR      "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_INCLUDEDIR@/backend/Model/BuiltIn")
+set(Exasim_ROOT             "${_Exasim_PACKAGE_PREFIX_DIR}")
+set(Exasim_TEXT2CODE_ROOT   "${_Exasim_PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_INCLUDEDIR@")
+set(Exasim_BUILTIN_DIR      "${_Exasim_PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_INCLUDEDIR@/backend/Model/BuiltIn")
 set(Exasim_CMAKE_DIR        "${CMAKE_CURRENT_LIST_DIR}")
-set(Exasim_TEXT2CODE        "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_BINDIR@/text2code")
+set(Exasim_TEXT2CODE        "${_Exasim_PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_BINDIR@/text2code")
 if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/ExasimExternalModel.cmake")
   include("${CMAKE_CURRENT_LIST_DIR}/ExasimExternalModel.cmake")
 endif()
