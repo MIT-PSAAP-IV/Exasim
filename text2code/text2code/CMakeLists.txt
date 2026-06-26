@@ -110,7 +110,7 @@ if(SymEngine_FOUND)
   # <boost/multiprecision/...>. An external/system SymEngine (apt, conda, brew)
   # resolves boost from system dirs; adding the vendored boost there could shadow
   # it with a different version, so this is gated on EXASIM_SYMENGINE_VENDORED.
-  if(EXASIM_SYMENGINE_VENDORED AND EXISTS "${EXASIM_ROOT}/deps/symengine/boost")
+  if(EXISTS "${EXASIM_ROOT}/deps/symengine/boost")
     string(APPEND _se_inc "-I${EXASIM_ROOT}/deps/symengine ")
   endif()
   if(TARGET symengine)
@@ -138,6 +138,9 @@ if(SymEngine_FOUND)
   ")
 
   message(STATUS "SymEngine                = found (${SYMENGINE_INCLUDE_DIRS})")
+  message(STATUS "EXASIM_SYMENGINE_FOUND   = 1")
+  message(STATUS "EXASIM_SYMENGINE_INCFLAGS = ${_se_inc}")
+  message(STATUS "EXASIM_SYMENGINE_LIB     = ${_se_lib}${_se_extra_libs}")
 else()
   file(GENERATE OUTPUT "${_se_header}" CONTENT
 "#pragma once
@@ -146,7 +149,12 @@ else()
 #define EXASIM_KOKKOS_BACKEND \"${EXASIM_KOKKOS_BACKEND}\"
 ")
   message(STATUS "SymEngine                = not found; text2code uses the vendored path at runtime")
+  message(STATUS "EXASIM_SYMENGINE_FOUND   = 0")
+  message(STATUS "EXASIM_SYMENGINE_INCFLAGS = ")
+  message(STATUS "EXASIM_SYMENGINE_LIB     = ")
 endif()
+message(STATUS "EXASIM_KOKKOS_DIR        = ${EXASIM_KOKKOS_DIR}")
+message(STATUS "EXASIM_KOKKOS_BACKEND    = ${EXASIM_KOKKOS_BACKEND}")
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
 set(MODEL_FILE "${CMAKE_CURRENT_SOURCE_DIR}/pdeapp.txt" CACHE FILEPATH "Input for text2code")

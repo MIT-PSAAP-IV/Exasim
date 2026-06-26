@@ -48,7 +48,7 @@ pde.NLtol = 1e-6;              % Newton tolerance
 pde.NLiter = 10;                % Newton iterations
 pde.matvectol=1e-6;             % tolerance for matrix-vector multiplication
 
-pde.dt = 1e-4*(1.2.^(0:27));
+pde.dt = 1e-4*(1.2.^(0:7));
 pde.nstage = 1;
 pde.torder = 1;
 pde.saveSolFreq = 4;

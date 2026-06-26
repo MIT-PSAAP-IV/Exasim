@@ -28,6 +28,7 @@ def initializepde(version):
     pde['modelnumber'] = 0;
     pde['builtinmodelID'] = 0;  # backend per-slot dispatch selector; 0 = use modelid
     pde['modelfile'] = "";
+    pde['exporttext2code'] = "";
     pde['platform'] = "cpu";
     #pde['cpuflags'] = "-O2 -Wall -ldl -lm -lblas -llapack";
     pde['cpuflags'] = "-O2 -ldl -lm -lblas -llapack";

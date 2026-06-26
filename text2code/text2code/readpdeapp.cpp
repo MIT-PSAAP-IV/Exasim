@@ -892,6 +892,11 @@ PDE initializePDE(InputParams& params, int mpirank=0)
         pde.exasimpath = trimToSubstringAtLastOccurence(rawpath, "Exasim");
       } else if (!rawpath.empty()) {
         pde.exasimpath = rawpath;   // honor an explicit path verbatim
+      } else if (const char* env_prefix = std::getenv("EXASIM_PREFIX");
+                 env_prefix && *env_prefix) {
+        pde.exasimpath = env_prefix;
+        if (mpirank==0) std::cout<<"exasimpath is not set in "<< params.pdeappfile
+                                <<" file.\nWe use EXASIM_PREFIX to define exasimpath.\n";
       } else {
         if (mpirank==0) std::cout<<"exasimpath is not set in "<< params.pdeappfile <<" file.\nWe use the working directory to define exasimpath.\n";
         std::filesystem::path cwd = std::filesystem::current_path();
