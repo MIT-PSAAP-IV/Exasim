@@ -78,40 +78,8 @@ public:
     void compMassInverse(Int backend);    
 
     // (ComputeLDGPreconditioner moved to CPreconditioner in C4)
-    // (hdgAssembleLinearSystem / hdgAssembleResidual moved to CAssembler in Stage 3)
-
-    // evaluate the residual vector
-    void evalResidual(Int backend);
-        
-    // evaluate the residual vector at u
-    void evalResidual(dstype* Ru, dstype* u, Int backend);
-    
-    // evaluate the flux q and store it in sol.udg
-    void evalQ(Int backend);
-    
-    // evaluate the flux q and store it in sol.udg
-    void evalQSer(Int backend);
-    
-    // evaluate the flux q at u
-    void evalQ(dstype* q, dstype* u, Int backend);
-        
-    // (evalMatVec -- the discrete operator-apply -- moved to CAssembler in Stage 3b)
-
-    // insert u into sol.udg and compute q
-    void updateUDG(dstype* u, Int backend);
-
-    // insert u into sol.udg
-    void updateU(dstype* u, Int backend);    
-    
-    // evaluate the artificial viscosity field at u
-    void evalAVfield(dstype* avField, dstype* u, Int backend);       
-        
-    // evaluate the artificial viscosity field at sol.udg
-    void evalAVfield(dstype* avField, Int backend);       
-    
-    // evaluate the artificial viscosity field at sol.udg
-    
-    // evaluate a monitor function to monitor changes in solution QoIs for pseudotime stepping
+    // (hdgAssembleLinearSystem / hdgAssembleResidual / evalMatVec moved to CAssembler)
+    // (evalResidual / evalQ / evalQSer / evalAVfield / updateUDG / updateU moved to CResidual)
 
     bool BuildWallModelData(Int ibc, dstype y1);
     

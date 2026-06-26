@@ -7,7 +7,7 @@
 
     Functions:
 
-    - int CSolver::linearSolve(CAssembler& assembler, CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int it, Int backend)
+    - int CSolver::linearSolve(CResidual& residual, CAssembler& assembler, CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int it, Int backend)
         Solves the linear system arising in each nonlinear iteration. Evaluates the residual, constructs the preconditioner, 
         applies GMRES, and manages timing and logging. Handles reduced basis updates and checks for convergence.
 
@@ -47,7 +47,7 @@
 #ifndef __PTCSOLVER
 #define __PTCSOLVER
 
-int CSolver::linearSolve(CAssembler& assembler, CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int it, Int backend)
+int CSolver::linearSolve(CResidual& residual, CAssembler& assembler, CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int it, Int backend)
 {    
         
 #ifdef TIMING    
@@ -59,7 +59,7 @@ int CSolver::linearSolve(CAssembler& assembler, CDiscretization& disc, CPrecondi
 //#endif
      
     // evaluate the residual R(u) and set it to sys.b
-    disc.evalResidual(sys.b, sys.u, backend);
+    residual.evalResidual(sys.b, sys.u, backend);
 
     int N = disc.common.sizes.ndof1;
 
@@ -82,7 +82,7 @@ int CSolver::linearSolve(CAssembler& assembler, CDiscretization& disc, CPrecondi
         // v = u + x 
         //int N = disc.common.sizes.ndof1;
         ArrayAXPBY(disc.common.cublasHandle, sys.v, sys.u, sys.x, one, one, N, backend);  
-        disc.evalResidual(sys.r, sys.v, backend);  
+        residual.evalResidual(sys.r, sys.v, backend);  
         dstype nrmr = PNORM(disc.common.cublasHandle, N, sys.r, backend);
                 
         if (nrmr>1.05*oldnrm) {
@@ -190,11 +190,11 @@ void CSolver::updateRB(CDiscretization& disc, CPreconditioner& prec, Int N, Int 
     }
 }
 
-void CSolver::linearSolve(CAssembler& assembler, CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int N, Int spatialScheme, Int it, Int backend)
+void CSolver::linearSolve(CResidual& residual, CAssembler& assembler, CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int N, Int spatialScheme, Int it, Int backend)
 {
     // evaluate the residual R(u) and set it to sys.b
     if (spatialScheme==0) {
-      disc.evalResidual(sys.b, sys.u, backend);
+      residual.evalResidual(sys.b, sys.u, backend);
     }
     else if (spatialScheme==1) {
       auto begin = chrono::high_resolution_clock::now();

@@ -41,11 +41,14 @@
 #ifndef __POSTSOLUTION_H__
 #define __POSTSOLUTION_H__
 
+#include "../Discretization/residualeval.h"
+
 class CSolution {
 private:
 public:
-    CDiscretization disc;  // spatial discretization class
-    CPreconditioner prec;  // precondtioner class 
+    CDiscretization disc;  // spatial discretization class (the function space)
+    CResidual residual;    // the discretized PDE residual R(u)/flux q (evaluates from disc)
+    CPreconditioner prec;  // precondtioner class
     CSolver solv;          // linear and nonlinear solvers
     CVisualization vis;    // visualization class
     ofstream outsol;       // storing solutions
@@ -63,6 +66,7 @@ public:
               Int fileoffset, Int omprank, Int backend, Int builtinmodelID,
               Int nsca, Int nvec, Int nten, Int nsurf, Int nvqoi)   
        : disc(filein, fileout, exasimpath, mpiprocs, mpirank, fileoffset, omprank, backend, builtinmodelID, nsca, nvec, nten, nsurf, nvqoi),
+         residual(disc),
          prec(disc, backend), solv(disc, backend), vis(disc, backend) 
     {   
         int ncx = disc.common.components.ncx;                            

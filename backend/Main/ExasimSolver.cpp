@@ -96,6 +96,7 @@ using namespace std;
 #include "../Model/ModelDispatch/model_drivers_abi.cpp"
 #include "../Discretization/discretization.cpp"
 #include "../Discretization/assembler.cpp"
+#include "../Discretization/residualeval.cpp"
 #include "../Preconditioning/preconditioner.cpp"
 #include "../Solver/solver.cpp"
 #include "../Visualization/visualization.cpp"
@@ -1297,7 +1298,7 @@ int ExasimSolver::RunSolveProblemOrPostprocess()
             models_[i]->disc.common.timestate.currentstep = -1;
             models_[i]->ReadSolutions(backend_);
             if (models_[i]->disc.common.components.ncq > 0)
-                models_[i]->disc.evalQ(backend_);
+                models_[i]->residual.evalQ(backend_);
             models_[i]->disc.common.outputparams.saveSolOpt = 1;
             models_[i]->SaveSolutions(backend_);
             models_[i]->SaveQoI(backend_);
@@ -1311,7 +1312,7 @@ int ExasimSolver::RunSolveProblemOrPostprocess()
                     models_[i]->disc.common.timestate.currentstep = istep;
                     models_[i]->ReadSolutions(backend_);
                     if (models_[i]->disc.common.components.ncq > 0)
-                        models_[i]->disc.evalQ(backend_);
+                        models_[i]->residual.evalQ(backend_);
                     models_[i]->SaveOutputCG(backend_);
                 }
             }
@@ -1331,7 +1332,7 @@ int ExasimSolver::RunSolveProblemOrPostprocess()
             models_[i]->SolveProblem(residual_outputs_[i], backend_);
         }
         else if (models_[i]->disc.common.runmode == 5) {
-            models_[i]->disc.evalQSer(backend_);
+            models_[i]->residual.evalQSer(backend_);
             models_[i]->disc.common.outputparams.saveSolOpt = 1;
             string filename = models_[i]->disc.common.fileout + "_np" +
                               NumberToString(models_[i]->disc.common.mpiRank) + ".bin";

@@ -28,6 +28,7 @@
 #include "exasim/execution_mode.hpp"
 
 class CAssembler;  // HDG global-system assembler (Stage 3); HDG linearSolve assembles via it
+class CResidual;   // the discretized PDE residual R(u) (full-split); HDG/LDG linearSolve evaluates R via it
 
 class CSolver {
 private:
@@ -46,8 +47,8 @@ public:
     ~CSolver();
 
     // one linear solve (preconditioner setup + GMRES); LDG returns the GMRES iteration count.
-    int  linearSolve(CAssembler& assembler, CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int it, Int backend);
-    void linearSolve(CAssembler& assembler, CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int N, Int spatialScheme, Int it, Int backend);
+    int  linearSolve(CResidual& residual, CAssembler& assembler, CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int it, Int backend);
+    void linearSolve(CResidual& residual, CAssembler& assembler, CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int N, Int spatialScheme, Int it, Int backend);
 
     // restarted GMRES (operates on this->sys / this->state)
     Int  gmres(CAssembler& assembler, CDiscretization &disc, CPreconditioner& prec, Int backend);

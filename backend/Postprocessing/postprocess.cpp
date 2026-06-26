@@ -47,6 +47,7 @@ using namespace std;
 
 #include "../Discretization/postdiscretization.cpp" // discretization class
 #include "../Discretization/assembler.cpp"
+#include "../Discretization/residualeval.cpp"
 #include "../Preconditioning/postpreconditioner.cpp" // preconditioner class
 #include "../Solver/postsolver.cpp"                 // solver class
 #include "../Visualization/visualization.cpp"  //  visualization class

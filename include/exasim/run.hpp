@@ -524,7 +524,7 @@ inline int run(int argc, char** argv) {
                 pdemodel[i]->disc.common.timestate.currentstep = -1;
                 pdemodel[i]->ReadSolutions(backend);
                 if (pdemodel[i]->disc.common.components.ncq>0)
-                    pdemodel[i]->disc.evalQ(backend);
+                    pdemodel[i]->residual.evalQ(backend);
                 pdemodel[i]->disc.common.outputparams.saveSolOpt = 1;
                 pdemodel[i]->SaveSolutions(backend);
                 pdemodel[i]->SaveQoI(backend);
@@ -539,7 +539,7 @@ inline int run(int argc, char** argv) {
                         pdemodel[i]->disc.common.timestate.currentstep = istep;
                         pdemodel[i]->ReadSolutions(backend);
                         if (pdemodel[i]->disc.common.components.ncq>0)
-                            pdemodel[i]->disc.evalQ(backend);
+                            pdemodel[i]->residual.evalQ(backend);
                         pdemodel[i]->SaveOutputCG(backend);
                     }
                 }
@@ -561,7 +561,7 @@ inline int run(int argc, char** argv) {
                 pdemodel[i]->SolveProblem(out[i], backend);
             }
             else if (pdemodel[i]->disc.common.runmode==5){
-                pdemodel[i]->disc.evalQSer(backend);
+                pdemodel[i]->residual.evalQSer(backend);
                 pdemodel[i]->disc.common.outputparams.saveSolOpt = 1;
                 std::string filename = pdemodel[i]->disc.common.fileout + "_np" + NumberToString(pdemodel[i]->disc.common.mpiRank) + ".bin";
                 writearray2file(filename, pdemodel[i]->disc.sol.udg, pdemodel[i]->disc.common.sizes.ndofudg1, backend);

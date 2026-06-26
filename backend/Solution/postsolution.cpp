@@ -344,7 +344,7 @@ void CSolution::GetSolutions(Int step, Int backend)
     }
 
     if ((disc.common.outputparams.saveSolOpt == 0) && (disc.common.components.ncq > 0))
-        disc.evalQ(backend);
+        residual.evalQ(backend);
 }
  
 void CSolution::SaveParaview(Int backend, std::string fname_modifier, bool force_tdep_write) 

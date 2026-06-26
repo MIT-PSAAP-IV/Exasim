@@ -217,7 +217,7 @@ Int CSolution::PTCsolver(ofstream &out, Int backend)
         cout<<"Newton Iteration: "<<it<<",  Solution Norm: "<<nrmr<<endl;                                                    
     
     // compute both the residual vector and sol.udg  
-    disc.evalResidual(solv.sys.r, solv.sys.u, backend);
+    residual.evalResidual(solv.sys.r, solv.sys.u, backend);
     nrmr = PNORM(disc.common.cublasHandle, N, solv.sys.r, backend);
     if (disc.common.mpiRank==0)
         cout<<"Newton Iteration: "<<it<<",  Residual Norm: "<<nrmr<<endl;                           
@@ -251,7 +251,7 @@ Int CSolution::PTCsolver(ofstream &out, Int backend)
         for (Int attempt = 0; attempt < maxLinearAttempts; attempt++) {
             // solve the linear system: (lambda*B + J(u))x = -R(u)
             t0 = SolutionBenchmarkStart(backend);
-            status = solv.linearSolve(assembler, disc, prec, out, it, backend);
+            status = solv.linearSolve(residual, assembler, disc, prec, out, it, backend);
             linearSolverTime += SolutionBenchmarkStop(t0, backend);
 
             ArrayCopy(disc.common.cublasHandle, solv.sys.v, solv.sys.u, N, backend);
@@ -261,7 +261,7 @@ Int CSolution::PTCsolver(ofstream &out, Int backend)
             ArrayAXPY(disc.common.cublasHandle, solv.sys.u, solv.sys.x, alpha, N, backend);
 
             // compute both the residual vector and sol.udg
-            disc.evalResidual(solv.sys.r, solv.sys.u, backend);
+            residual.evalResidual(solv.sys.r, solv.sys.u, backend);
             nrmr = PNORM(disc.common.cublasHandle, N, solv.sys.r, backend);
 
             while ((IS_NAN(nrmr) || nrmr > nrm0) && alpha > minAlpha) {
@@ -276,7 +276,7 @@ Int CSolution::PTCsolver(ofstream &out, Int backend)
                 alpha = newAlpha;
 
                 t0 = SolutionBenchmarkStart(backend);
-                disc.evalResidual(solv.sys.r, solv.sys.u, backend);
+                residual.evalResidual(solv.sys.r, solv.sys.u, backend);
                 nrmr = PNORM(disc.common.cublasHandle, N, solv.sys.r, backend);
                 residualEvalTime += SolutionBenchmarkStop(t0, backend);
             }
@@ -288,7 +288,7 @@ Int CSolution::PTCsolver(ofstream &out, Int backend)
             // Reject this direction and restore the base state before retrying.
             ArrayCopy(disc.common.cublasHandle, solv.sys.u, solv.sys.v, N, backend);
             t0 = SolutionBenchmarkStart(backend);
-            disc.evalResidual(solv.sys.r, solv.sys.u, backend);
+            residual.evalResidual(solv.sys.r, solv.sys.u, backend);
             nrmr = PNORM(disc.common.cublasHandle, N, solv.sys.r, backend);
             residualEvalTime += SolutionBenchmarkStop(t0, backend);
 
@@ -429,7 +429,7 @@ Int CSolution::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int backend
     for (it=0; it<maxit; it++) {              
                       
         // solve the linear system:  J(u) x = -R(u)        
-        solv.linearSolve(assembler, disc, prec, out, N, spatialScheme, it, backend);
+        solv.linearSolve(residual, assembler, disc, prec, out, N, spatialScheme, it, backend);
               
         // int npf = disc.common.grid.npf;
         // int nfe = disc.common.meshsizes.nfe;        
@@ -445,7 +445,7 @@ Int CSolution::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int backend
                 
         if (spatialScheme == 0) {          
           // compute both the residual vector and sol.udg  
-          disc.evalResidual(solv.sys.r, solv.sys.u, backend);          
+          residual.evalResidual(solv.sys.r, solv.sys.u, backend);          
           nrmr = PNORM(disc.common.cublasHandle, N, solv.sys.r, backend);          
         } 
         else if (spatialScheme == 1) {      
@@ -559,7 +559,7 @@ void CSolution::SteadyProblem(ofstream &out, Int backend)
         dstype *utm = &disc.res.Rq[npe*ncAV*ne];
 
         // evaluate AV field
-        disc.evalAVfield(avField, backend);
+        residual.evalAVfield(avField, backend);
 
         for (Int iav = 0; iav<disc.common.physicsparams.AVsmoothingIter; iav++){
             // printf("Solution AV smoothing iter: %i\n", iav);
@@ -1255,7 +1255,7 @@ void CSolution::GetSolutions(Int step, Int backend)
     }
 
     if ((disc.common.outputparams.saveSolOpt == 0) && (disc.common.components.ncq > 0))
-        disc.evalQ(backend);
+        residual.evalQ(backend);
 }
  
 void CSolution::SaveParaview(Int backend, std::string fname_modifier, bool force_tdep_write) 
