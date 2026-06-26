@@ -304,9 +304,14 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
                 physicsparamOverride);
                 
         // copy data from cpu memory to gpu memory
-        gpuInit(sol, res, app, driver_abi, master, mesh, tmp, common, 
-            hsol, hres, happ, hmaster, hmesh, htmp, hcommon);                
+        gpuInit(sol, res, app, driver_abi, master, mesh, tmp, common,
+            hsol, hres, happ, hmaster, hmesh, htmp, hcommon);
         app.read_uh = happ.read_uh;
+        // carry the needs-init signal onto the device solution; the model IC is computed below
+        // (post-copy) in the device execution space, so the same Kokkos init path serves GPU too.
+        sol.needudginit = hsol.needudginit;
+        sol.needodginit = hsol.needodginit;
+        sol.needwdginit = hsol.needwdginit;
         if (hmesh.bf != nullptr) {
           TemplateMalloc(&mesh.bf, hcommon.meshsizes.nfe*hcommon.meshsizes.ne, 0);
           for (int i=0; i<hcommon.meshsizes.nfe*hcommon.meshsizes.ne; i++) mesh.bf[i] = hmesh.bf[i];   
@@ -328,12 +333,18 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
         hcommon.freememory();             
 #endif        
     }
-    else  {// CPU        
-        cpuInit(sol, res, app, driver_abi, master, mesh, tmp, common, filein, fileout, 
+    else  {// CPU
+        cpuInit(sol, res, app, driver_abi, master, mesh, tmp, common, filein, fileout,
                 mpiprocs, mpirank, fileoffset, omprank,
                 physicsparamOverride);
     }
     common.read_uh = app.read_uh;
+
+    // Compute the model initial conditions for any field the reader could not supply, now that
+    // the solution is in its final execution space (host on CPU, device after the GPU copy). The
+    // single Kokkos init path (KokkosInitu via initializeSolution) serves both backends; this
+    // runs before the q/uh operator-state recovery below that depends on the initialized u.
+    initializeSolution(sol, app, driver_abi, common);
     const bool postprocessOnly = (mode == ExasimExecutionMode::Postprocess);
     // Apply caller-supplied visualization field counts whenever provided (>0). The
     // postprocess path passes these from CLI args; the solve path passes them from the

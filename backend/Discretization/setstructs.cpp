@@ -534,14 +534,14 @@ void initializeSolution(solstruct &sol, appstruct &app, ExasimDriverABI& driver_
 
     if (sol.needudginit) {
         if (app.flag[1]==0)  // steady/transient: initialize the primary unknowns u
-            cpuInituDriver(sol.udg, sol.xdg, driver_abi, app, ncx, nc, npe, ne, 0);
+            InituDriver(sol.udg, sol.xdg, driver_abi, app, ncx, nc, npe, ne, 0);
         else                 // wave problem: initialize the packed (u, q) directly
-            cpuInitudgDriver(sol.udg, sol.xdg, driver_abi, app, ncx, nc, npe, ne, 0);
+            InitudgDriver(sol.udg, sol.xdg, driver_abi, app, ncx, nc, npe, ne, 0);
     }
     if (sol.needodginit)
-        cpuInitodgDriver(sol.odg, sol.xdg, driver_abi, app, ncx, nco, npe, ne, 0);
+        InitodgDriver(sol.odg, sol.xdg, driver_abi, app, ncx, nco, npe, ne, 0);
     if (sol.needwdginit)
-        cpuInitwdgDriver(sol.wdg, sol.xdg, driver_abi, app, ncx, ncw, npe, ne, 0);
+        InitwdgDriver(sol.wdg, sol.xdg, driver_abi, app, ncx, ncw, npe, ne, 0);
 }
 
 void cpuInit(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master,
@@ -598,14 +598,11 @@ void cpuInit(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& dr
     common.cublasHandle = 0;
     common.eventHandle = 0;
     if (mpirank==0) printf("Finish setting common struct... \n");
+    // NB: model initial conditions are NOT computed here. cpuInit only reads/allocates and
+    // raises sol.need*init; the discretization constructor runs initializeSolution() once the
+    // data is in its final execution space (host on CPU, device after the GPU copy), so the
+    // single Kokkos init path (KokkosInitu) serves both backends -- no host-loop duplication.
 
-    // Initialize the solution from the model's initial conditions for any field the reader
-    // could not supply (need*init). Done here -- after common is built, so the solution-init
-    // can query the discretization for sizes/which-fields -- and before the operator-state
-    // (q/uh) recovery in the discretization constructor that depends on the initialized u.
-    if (mpirank==0) printf("Initialize solution... \n");
-    initializeSolution(sol, app, driver_abi, common);
-                        
     if (common.spatialScheme >= 0) {
       int nd = common.grid.nd;
       int npe = common.grid.npe;
