@@ -16,7 +16,7 @@ Functions:
     - Performs Classical Gram-Schmidt orthogonalization on Krylov vectors.
     - Computes the projection and normalization of the new vector.
 
-2. void ApplyPoly(dstype *w, CDiscretization &disc, CPreconditioner& prec,
+2. void ApplyPoly(dstype *w, CAssembler& assembler, CDiscretization &disc, CPreconditioner& prec,
                         sysstruct &sys, dstype *q, dstype *p, int N, int backend)
     - Applies a polynomial preconditioner to a vector using Ritz values.
     - Handles both real and complex Ritz values for improved convergence.
@@ -25,17 +25,17 @@ Functions:
                              Int i, Int N, Int n, Int backend)
     - Updates the solution vector using the computed Krylov basis and coefficients.
 
-4. Int CSolver::gmres(CDiscretization &disc, CPreconditioner& prec, Int backend)
+4. Int CSolver::gmres(CAssembler& assembler, CDiscretization &disc, CPreconditioner& prec, Int backend)
     - Main GMRES solver routine.
     - Handles initialization, polynomial preconditioning, orthogonalization, 
       convergence checks, and solution updates.
     - Supports restart and timing of key operations.
 
-5. void ApplyPoly(dstype *w, CDiscretization &disc, CPreconditioner& prec,
+5. void ApplyPoly(dstype *w, CAssembler& assembler, CDiscretization &disc, CPreconditioner& prec,
                         sysstruct &sys, dstype *q, dstype *p, int N, Int spatialScheme, int backend)
     - Overloaded version of ApplyPoly with spatialScheme parameter for flexibility.
 
-6. Int CSolver::gmres(CDiscretization &disc, CPreconditioner& prec, Int N, Int spatialScheme, Int backend)
+6. Int CSolver::gmres(CAssembler& assembler, CDiscretization &disc, CPreconditioner& prec, Int N, Int spatialScheme, Int backend)
     - Overloaded GMRES routine supporting additional spatial scheme parameter.
     - Provides detailed timing for matrix-vector products, preconditioning, 
       orthogonalization, and solution updates.
@@ -87,7 +87,7 @@ void CGS(cublasHandle_t handle, dstype *V, dstype *H, dstype *temp, Int N, Int m
     ArrayMultiplyScalar(&V[m*N], one/H[m], N);
 }
 
-void ApplyPoly(dstype *w, CDiscretization &disc, CPreconditioner& prec,
+void ApplyPoly(dstype *w, CAssembler& assembler, CDiscretization &disc, CPreconditioner& prec,
         sysstruct &sys, dstype *q, dstype *p, int N, int backend)
 {
     int m = disc.common.ppdegree;
@@ -103,7 +103,7 @@ void ApplyPoly(dstype *w, CDiscretization &disc, CPreconditioner& prec,
     while (i<(m-1)) {
         if (si[i] == 0) {
            ArrayAXPBY(w, w, q, 1.0, 1.0/sr[i], N);                
-           disc.evalMatVec(p, q, sys.u, sys.b, backend);      
+           assembler.evalMatVec(p, q, sys.u, sys.b, backend);      
            prec.ApplyPreconditioner(p, sys, disc, backend);
            ArrayAXPBY(q, q, p, 1.0, -1.0/sr[i], N);                   
            i = i + 1;            
@@ -112,12 +112,12 @@ void ApplyPoly(dstype *w, CDiscretization &disc, CPreconditioner& prec,
             a = sr[i];
             b = si[i];
             a2b2 = a*a + b*b;
-            disc.evalMatVec(p, q, sys.u, sys.b, backend);   
+            assembler.evalMatVec(p, q, sys.u, sys.b, backend);   
             prec.ApplyPreconditioner(p, sys, disc, backend);
             ArrayAXPBY(p, q, p, 2*a, -1.0, N);      
             ArrayAXPBY(w, w, p, 1.0, 1.0/a2b2, N);                
            if ( i < (m - 2) ) {
-               disc.evalMatVec(p, p, sys.u, sys.b, backend);      
+               assembler.evalMatVec(p, p, sys.u, sys.b, backend);      
                prec.ApplyPreconditioner(p, sys, disc, backend);
                ArrayAXPBY(q, q, p, 1.0, -1.0/a2b2, N);   
            }
@@ -135,7 +135,7 @@ void UpdateSolution(cublasHandle_t handle, dstype *x, dstype *y, dstype *H, dsty
     PGEMNV(handle, N, i+1, &one, V, N, y, inc1, &one, x, inc1, backend);
 }
 
-Int CSolver::gmres(CDiscretization &disc, CPreconditioner& prec, Int backend)
+Int CSolver::gmres(CAssembler& assembler, CDiscretization &disc, CPreconditioner& prec, Int backend)
 {
     INIT_TIMING;    
     
@@ -160,7 +160,7 @@ Int CSolver::gmres(CDiscretization &disc, CPreconditioner& prec, Int backend)
         
     // calculate Ritz values of polynomial preconditioner
     if  (disc.common.ppdegree > 1) {
-        getPoly(disc, prec, sys, sys.lam, sys.randvect, sys.ipiv, N, disc.common.ppdegree, backend);        
+        getPoly(assembler, disc, prec, sys, sys.lam, sys.randvect, sys.ipiv, N, disc.common.ppdegree, backend);        
         dstype lmin=1.0e10, lmax=-1.0e10, smax=0.0; 
         int m = disc.common.ppdegree;
         for (int i=0; i<m; i++) {
@@ -182,7 +182,7 @@ Int CSolver::gmres(CDiscretization &disc, CPreconditioner& prec, Int backend)
     scalar = PNORM(disc.common.cublasHandle, N, sys.x, backend);    
     if (scalar>1e-12) {
         // r = A*x
-        disc.evalMatVec(sys.r, sys.x, sys.u, sys.b, backend);
+        assembler.evalMatVec(sys.r, sys.x, sys.u, sys.b, backend);
 
         // compute the new RHS vector: r = -b - A*x
         ArrayAXPBY(sys.r, sys.b, sys.r, minusone, minusone, N);    
@@ -207,7 +207,7 @@ Int CSolver::gmres(CDiscretization &disc, CPreconditioner& prec, Int backend)
     if (disc.common.ppdegree>1) {
         prec.ApplyPreconditioner(sys.r, sys, disc, backend);
         //ApplyComponentNorm(disc, sys.normcu, sys.r, disc.res.Ru, ncu, ncu, npe, ne, backend);
-        ApplyPoly(sys.r, disc, prec, sys, sys.q, sys.p, N, backend);    
+        ApplyPoly(sys.r, assembler, disc, prec, sys, sys.q, sys.p, N, backend);    
     }
     else if (state.RBcurrentdim>=0) {
         prec.ApplyPreconditioner(sys.r, sys, disc, backend);
@@ -233,7 +233,7 @@ Int CSolver::gmres(CDiscretization &disc, CPreconditioner& prec, Int backend)
                         
             // compute v[m] = A*v[i]
             START_TIMING;                        
-            disc.evalMatVec(&sys.v[m*N], &sys.v[i*N], sys.u, sys.b, backend);            
+            assembler.evalMatVec(&sys.v[m*N], &sys.v[i*N], sys.u, sys.b, backend);            
             END_TIMING_DISC(0);    
                                                             
             START_TIMING;                                    
@@ -241,7 +241,7 @@ Int CSolver::gmres(CDiscretization &disc, CPreconditioner& prec, Int backend)
             if (disc.common.ppdegree>1) {
                 prec.ApplyPreconditioner(&sys.v[m*N], sys, disc, backend);   
                 //ApplyComponentNorm(disc, sys.normcu, &sys.v[m*N], disc.res.Ru, ncu, ncu, npe, ne, backend);
-                ApplyPoly(&sys.v[m*N], disc, prec, sys, sys.q, sys.p, N, backend);
+                ApplyPoly(&sys.v[m*N], assembler, disc, prec, sys, sys.q, sys.p, N, backend);
             }
             else if (state.RBcurrentdim>=0) {
                 prec.ApplyPreconditioner(&sys.v[m*N], sys, disc, backend);   
@@ -277,7 +277,7 @@ Int CSolver::gmres(CDiscretization &disc, CPreconditioner& prec, Int backend)
         UpdateSolution(disc.common.cublasHandle, sys.x, y, H, s, sys.v, nrest-1, N, n1, backend);
                
         // compute r = A*x
-        disc.evalMatVec(sys.r, sys.x, sys.u, sys.b, backend);
+        assembler.evalMatVec(sys.r, sys.x, sys.u, sys.b, backend);
                 
         // r = -b - A*x
         ArrayAXPBY(sys.r, sys.b, sys.r, minusone, minusone, N);
@@ -286,7 +286,7 @@ Int CSolver::gmres(CDiscretization &disc, CPreconditioner& prec, Int backend)
         if (disc.common.ppdegree>1) {
             prec.ApplyPreconditioner(sys.r, sys, disc, backend);            
             //ApplyComponentNorm(disc, sys.normcu, sys.r, disc.res.Ru, ncu, ncu, npe, ne, backend);
-            ApplyPoly(sys.r, disc, prec, sys, sys.q, sys.p, N, backend);
+            ApplyPoly(sys.r, assembler, disc, prec, sys, sys.q, sys.p, N, backend);
         }
         else if (state.RBcurrentdim>=0) {
             prec.ApplyPreconditioner(sys.r, sys, disc, backend);            
@@ -313,7 +313,7 @@ Int CSolver::gmres(CDiscretization &disc, CPreconditioner& prec, Int backend)
     return j;
 }
 
-void ApplyPoly(dstype *w, CDiscretization &disc, CPreconditioner& prec,
+void ApplyPoly(dstype *w, CAssembler& assembler, CDiscretization &disc, CPreconditioner& prec,
         sysstruct &sys, dstype *q, dstype *p, int N, Int spatialScheme, int backend)
 {
     int m = disc.common.ppdegree;
@@ -329,7 +329,7 @@ void ApplyPoly(dstype *w, CDiscretization &disc, CPreconditioner& prec,
     while (i<(m-1)) {
         if (si[i] == 0) {
            ArrayAXPBY(w, w, q, 1.0, 1.0/sr[i], N);                
-           disc.evalMatVec(p, q, sys.u, sys.b, spatialScheme, backend);      
+           assembler.evalMatVec(p, q, sys.u, sys.b, spatialScheme, backend);      
            prec.ApplyPreconditioner(p, sys, disc, spatialScheme, backend);
            ArrayAXPBY(q, q, p, 1.0, -1.0/sr[i], N);                   
            i = i + 1;            
@@ -338,12 +338,12 @@ void ApplyPoly(dstype *w, CDiscretization &disc, CPreconditioner& prec,
             a = sr[i];
             b = si[i];
             a2b2 = a*a + b*b;
-            disc.evalMatVec(p, q, sys.u, sys.b, spatialScheme, backend);   
+            assembler.evalMatVec(p, q, sys.u, sys.b, spatialScheme, backend);   
             prec.ApplyPreconditioner(p, sys, disc, spatialScheme, backend);
             ArrayAXPBY(p, q, p, 2*a, -1.0, N);      
             ArrayAXPBY(w, w, p, 1.0, 1.0/a2b2, N);                
            if ( i < (m - 2) ) {
-               disc.evalMatVec(p, p, sys.u, sys.b, spatialScheme, backend);      
+               assembler.evalMatVec(p, p, sys.u, sys.b, spatialScheme, backend);      
                prec.ApplyPreconditioner(p, sys, disc, spatialScheme, backend);
                ArrayAXPBY(q, q, p, 1.0, -1.0/a2b2, N);   
            }
@@ -354,7 +354,7 @@ void ApplyPoly(dstype *w, CDiscretization &disc, CPreconditioner& prec,
         ArrayAXPBY(w, w, q, 1.0, 1.0/sr[m-1], N);                  
 }
 
-Int CSolver::gmres(CDiscretization &disc, CPreconditioner& prec, Int N, Int spatialScheme, Int backend)
+Int CSolver::gmres(CAssembler& assembler, CDiscretization &disc, CPreconditioner& prec, Int N, Int spatialScheme, Int backend)
 {
     INIT_TIMING;    
     
@@ -379,7 +379,7 @@ Int CSolver::gmres(CDiscretization &disc, CPreconditioner& prec, Int N, Int spat
     
     // calculate Ritz values of polynomial preconditioner
     if  (disc.common.ppdegree > 1) {
-        getPoly(disc, prec, sys, sys.lam, sys.randvect, sys.ipiv, N, disc.common.ppdegree, spatialScheme, backend);        
+        getPoly(assembler, disc, prec, sys, sys.lam, sys.randvect, sys.ipiv, N, disc.common.ppdegree, spatialScheme, backend);        
         dstype lmin=1.0e10, lmax=-1.0e10, smax=0.0; 
         int m = disc.common.ppdegree;
         for (int i=0; i<m; i++) {
@@ -404,7 +404,7 @@ Int CSolver::gmres(CDiscretization &disc, CPreconditioner& prec, Int N, Int spat
     dstype alpha = spatialScheme == 0 ? minusone : one;
     if (scalar>1e-12) {
         // r = A*x
-        disc.evalMatVec(sys.r, sys.x, sys.u, sys.b, spatialScheme, backend);
+        assembler.evalMatVec(sys.r, sys.x, sys.u, sys.b, spatialScheme, backend);
         
         // compute the new RHS vector: r = -b - A*x
         ArrayAXPBY(sys.r, sys.b, sys.r, alpha, minusone, N);    
@@ -430,7 +430,7 @@ Int CSolver::gmres(CDiscretization &disc, CPreconditioner& prec, Int N, Int spat
     // compute r = P*r
     if (disc.common.ppdegree>1) {
         prec.ApplyPreconditioner(sys.r, sys, disc, spatialScheme, backend);
-        ApplyPoly(sys.r, disc, prec, sys, sys.q, sys.p, N, spatialScheme, backend);    
+        ApplyPoly(sys.r, assembler, disc, prec, sys, sys.q, sys.p, N, spatialScheme, backend);    
     }
     else if (state.RBcurrentdim>=0) {
         prec.ApplyPreconditioner(sys.r, sys, disc, spatialScheme, backend);
@@ -458,7 +458,7 @@ Int CSolver::gmres(CDiscretization &disc, CPreconditioner& prec, Int N, Int spat
             begin = chrono::high_resolution_clock::now();   
 
             // compute v[m] = A*v[i]
-            disc.evalMatVec(&sys.v[m*N], &sys.v[i*N], sys.u, sys.b, spatialScheme, backend);                        
+            assembler.evalMatVec(&sys.v[m*N], &sys.v[i*N], sys.u, sys.b, spatialScheme, backend);                        
             
 #ifdef HAVE_CUDA
     cudaDeviceSynchronize();
@@ -476,7 +476,7 @@ Int CSolver::gmres(CDiscretization &disc, CPreconditioner& prec, Int N, Int spat
             // compute v[m] = P*v[m]
             if (disc.common.ppdegree>1) {
                 prec.ApplyPreconditioner(&sys.v[m*N], sys, disc, spatialScheme, backend);   
-                ApplyPoly(&sys.v[m*N], disc, prec, sys, sys.q, sys.p, N, spatialScheme, backend);
+                ApplyPoly(&sys.v[m*N], assembler, disc, prec, sys, sys.q, sys.p, N, spatialScheme, backend);
             }
             else if (state.RBcurrentdim>=0) {
                 prec.ApplyPreconditioner(&sys.v[m*N], sys, disc, spatialScheme, backend);   
@@ -549,7 +549,7 @@ Int CSolver::gmres(CDiscretization &disc, CPreconditioner& prec, Int N, Int spat
         UpdateSolution(disc.common.cublasHandle, sys.x, y, H, s, sys.v, i-1, N, n1, backend);
                
         // compute r = A*x
-        disc.evalMatVec(sys.r, sys.x, sys.u, sys.b, spatialScheme, backend);
+        assembler.evalMatVec(sys.r, sys.x, sys.u, sys.b, spatialScheme, backend);
                 
         // r = -b - A*x
         ArrayAXPBY(sys.r, sys.b, sys.r, alpha, minusone, N);
@@ -557,7 +557,7 @@ Int CSolver::gmres(CDiscretization &disc, CPreconditioner& prec, Int N, Int spat
         // r = P*r = P*(-b-A*x)
         if (disc.common.ppdegree>1) {
             prec.ApplyPreconditioner(sys.r, sys, disc, spatialScheme, backend);            
-            ApplyPoly(sys.r, disc, prec, sys, sys.q, sys.p, N, spatialScheme, backend);
+            ApplyPoly(sys.r, assembler, disc, prec, sys, sys.q, sys.p, N, spatialScheme, backend);
         }
         else if (state.RBcurrentdim>=0) {
             prec.ApplyPreconditioner(sys.r, sys, disc, spatialScheme, backend);            

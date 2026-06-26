@@ -13,8 +13,8 @@
  * Methods:
  * - CPreconditioner(CDiscretization& disc, Int backend): Constructor that initializes the preconditioner with the given discretization and backend.
  * - ~CPreconditioner(): Destructor.
- * - ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CDiscretization& disc, Int backend): Computes the initial guess and constructs the preconditioner.
- * - ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CDiscretization& disc, Int N, Int spatialScheme, Int backend): Overloaded method to compute initial guess and preconditioner with additional parameters.
+ * - ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler& assembler, CDiscretization& disc, Int backend): Computes the initial guess and constructs the preconditioner.
+ * - ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler& assembler, CDiscretization& disc, Int N, Int spatialScheme, Int backend): Overloaded method to compute initial guess and preconditioner with additional parameters.
  * - ApplyPreconditioner(dstype* v, sysstruct& sys, CDiscretization& disc, Int backend): Applies the preconditioner to a vector.
  * - ApplyPreconditioner(dstype* v, sysstruct& sys, CDiscretization& disc, Int spatialScheme, Int backend): Overloaded method to apply the preconditioner with a specific spatial scheme.
  */
@@ -37,9 +37,9 @@ public:
     // destructor        
     ~CPreconditioner(); 
             
-    void ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CDiscretization& disc, Int backend);
+    void ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler& assembler, CDiscretization& disc, Int backend);
     
-    void ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CDiscretization& disc, Int N, Int spatialScheme, Int backend);
+    void ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler& assembler, CDiscretization& disc, Int N, Int spatialScheme, Int backend);
     
     // apply the precontioner: Pv = P(u)*v
     void ApplyPreconditioner(dstype* v, sysstruct& sys, CDiscretization& disc, Int backend);

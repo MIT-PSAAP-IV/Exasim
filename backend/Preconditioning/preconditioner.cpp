@@ -13,14 +13,14 @@
     - CPreconditioner::~CPreconditioner()
         Destructor: Frees memory allocated for the preconditioner.
 
-    - CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CDiscretization& disc, Int backend)
+    - CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler& assembler, CDiscretization& disc, Int backend)
         Computes the initial guess and sets up the preconditioner using reduced basis techniques.
         Involves matrix-vector multiplications and small matrix inversions.
 
     - CPreconditioner::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretization& disc, Int backend)
         Applies the preconditioner to the input vector x, storing the result in disc.res.Ru.
 
-    - CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CDiscretization& disc, Int N, Int spatialScheme, Int backend)
+    - CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler& assembler, CDiscretization& disc, Int N, Int spatialScheme, Int backend)
         Variant of the initial guess and preconditioner computation supporting different spatial schemes.
 
     - ApplyBlockILU0(double* x, double* A, double* b, double *B, double *C, commonstruct& common)
@@ -78,7 +78,7 @@ CPreconditioner::~CPreconditioner()
     if (mpiRank==0) printf("CPreconditioner destructor: precond memory is freed successfully.\n");
 }
 
-void CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CDiscretization& disc, Int backend)
+void CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler& assembler, CDiscretization& disc, Int backend)
 {       
     // P = B + V*W^T  
     // P*W = B*W + V*W^T*W = A*W -> V = (A-B)*W
@@ -98,9 +98,9 @@ void CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, solve
     //Int i = RBdim-1;
     int i = state.RBremovedind - 1;
     if (state.RBremovedind==0) i = RBdim-1;
-    disc.evalMatVec(&precond.U[i*N], &precond.W[i*N], sys.u, sys.b, backend);
+    assembler.evalMatVec(&precond.U[i*N], &precond.W[i*N], sys.u, sys.b, backend);
     
-    //disc.evalMatVec(view_1d Jv, view_1d v, view_1d u, view_1d Ru, Int backend);
+    //assembler.evalMatVec(view_1d Jv, view_1d v, view_1d u, view_1d Ru, Int backend);
     
     /* RBcoef_tmp = V^T b */
     PGEMTV(disc.common.cublasHandle, N, RBdim, &one, precond.U, N, sys.b, inc1, 
@@ -146,7 +146,7 @@ void CPreconditioner::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretiza
             disc.common.solverparams.preconditioner, disc.common.grid.curvedMesh, backend);
 }
 
-void CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CDiscretization& disc, Int N, Int spatialScheme, Int backend)
+void CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler& assembler, CDiscretization& disc, Int N, Int spatialScheme, Int backend)
 {     
     Int RBdim = state.RBcurrentdim;
     dstype *RBcoef = &disc.tmp.tempn[0];
@@ -158,9 +158,9 @@ void CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, solve
     //Int i = RBdim-1;
     int i = state.RBremovedind - 1;
     if (state.RBremovedind==0) i = RBdim-1;
-    disc.evalMatVec(&precond.U[i*N], &precond.W[i*N], sys.u, sys.b, spatialScheme, backend);
+    assembler.evalMatVec(&precond.U[i*N], &precond.W[i*N], sys.u, sys.b, spatialScheme, backend);
     
-    //disc.evalMatVec(view_1d Jv, view_1d v, view_1d u, view_1d Ru, Int backend);
+    //assembler.evalMatVec(view_1d Jv, view_1d v, view_1d u, view_1d Ru, Int backend);
     
     /* RBcoef_tmp = V^T b */
     PGEMTV(disc.common.cublasHandle, N, RBdim, &one, precond.U, N, sys.b, inc1, 

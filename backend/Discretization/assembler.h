@@ -27,6 +27,10 @@ public:
 
     // assemble the HDG global residual (writes disc.res.Rh / Ru)
     void hdgAssembleResidual(dstype *b, Int backend);
+
+    // apply the discrete operator: Jv = J(u)*v (LDG = matrix-free FD; HDG = apply res.H)
+    void evalMatVec(dstype* Jv, dstype* v, dstype* u, dstype* Ru, Int backend);
+    void evalMatVec(dstype* Jv, dstype* v, dstype* u, dstype* Ru, Int spatialScheme, Int backend);
 };
 
 #endif

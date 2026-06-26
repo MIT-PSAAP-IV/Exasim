@@ -85,11 +85,8 @@ public:
     // evaluate the flux q at u
     void evalQ(dstype* q, dstype* u, Int backend);
         
-    // evaluate the matrix-vector product Jv = J(u)*v
-    void evalMatVec(dstype* Jv, dstype* v, dstype* u, dstype* Ru, Int backend);   
+    // (evalMatVec -- the discrete operator-apply -- moved to CAssembler in Stage 3b)
 
-    void evalMatVec(dstype* Jv, dstype* v, dstype* u, dstype* Ru, Int spatialScheme, Int backend);   
-    
     // insert u into sol.udg and compute q
     void updateUDG(dstype* u, Int backend);
 

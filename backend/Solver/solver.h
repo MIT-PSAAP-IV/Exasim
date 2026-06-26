@@ -46,12 +46,12 @@ public:
     ~CSolver();
 
     // one linear solve (preconditioner setup + GMRES); LDG returns the GMRES iteration count.
-    int  linearSolve(CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int it, Int backend);
+    int  linearSolve(CAssembler& assembler, CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int it, Int backend);
     void linearSolve(CAssembler& assembler, CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int N, Int spatialScheme, Int it, Int backend);
 
     // restarted GMRES (operates on this->sys / this->state)
-    Int  gmres(CDiscretization &disc, CPreconditioner& prec, Int backend);
-    Int  gmres(CDiscretization &disc, CPreconditioner& prec, Int N, Int spatialScheme, Int backend);
+    Int  gmres(CAssembler& assembler, CDiscretization &disc, CPreconditioner& prec, Int backend);
+    Int  gmres(CAssembler& assembler, CDiscretization &disc, CPreconditioner& prec, Int N, Int spatialScheme, Int backend);
 
     // update the reduced-basis space after a nonlinear step
     void updateRB(CDiscretization& disc, CPreconditioner& prec, Int backend);

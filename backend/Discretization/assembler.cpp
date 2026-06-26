@@ -65,4 +65,27 @@ void CAssembler::hdgAssembleResidual(dstype *b, Int backend)
 #endif
 }
 
+// matrix-vector product Jv = J(u)*v
+void CAssembler::evalMatVec(dstype* Jv, dstype* v, dstype* u, dstype* Ru, Int backend)
+{
+    auto& sol = disc.sol; auto& res = disc.res; auto& app = disc.app;
+    auto& master = disc.master; auto& mesh = disc.mesh; auto& tmp = disc.tmp;
+    auto& common = disc.common;
+    MatVec<exasim::detail::AbiAdapter>(Jv, sol, res, app, master, mesh, tmp, common, common.cublasHandle, v, u, Ru, backend);
+}
+
+// matrix-vector product Jv = J(u)*v (LDG matrix-free FD, or HDG apply of the assembled res.H)
+void CAssembler::evalMatVec(dstype* Jv, dstype* v, dstype* u, dstype* Ru, Int spatialScheme, Int backend)
+{
+    auto& sol = disc.sol; auto& res = disc.res; auto& app = disc.app;
+    auto& master = disc.master; auto& mesh = disc.mesh; auto& tmp = disc.tmp;
+    auto& common = disc.common;
+    if (spatialScheme == 0) {// LDG
+      MatVec<exasim::detail::AbiAdapter>(Jv, sol, res, app, master, mesh, tmp, common, common.cublasHandle, v, u, Ru, backend);
+    }
+    else if (spatialScheme == 1) { // HDG
+      hdgMatVec<exasim::detail::AbiAdapter>(Jv, res.H, v, res.Rh, res.Rq, res, app, mesh, common, tmp, common.cublasHandle, backend);
+    }
+}
+
 #endif

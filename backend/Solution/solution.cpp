@@ -251,7 +251,7 @@ Int CSolution::PTCsolver(ofstream &out, Int backend)
         for (Int attempt = 0; attempt < maxLinearAttempts; attempt++) {
             // solve the linear system: (lambda*B + J(u))x = -R(u)
             t0 = SolutionBenchmarkStart(backend);
-            status = solv.linearSolve(disc, prec, out, it, backend);
+            status = solv.linearSolve(assembler, disc, prec, out, it, backend);
             linearSolverTime += SolutionBenchmarkStop(t0, backend);
 
             ArrayCopy(disc.common.cublasHandle, solv.sys.v, solv.sys.u, N, backend);

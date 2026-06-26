@@ -7,7 +7,7 @@
 
     Functions:
 
-    - int CSolver::linearSolve(CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int it, Int backend)
+    - int CSolver::linearSolve(CAssembler& assembler, CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int it, Int backend)
         Solves the linear system arising in each nonlinear iteration. Evaluates the residual, constructs the preconditioner, 
         applies GMRES, and manages timing and logging. Handles reduced basis updates and checks for convergence.
 
@@ -47,7 +47,7 @@
 #ifndef __PTCSOLVER
 #define __PTCSOLVER
 
-int CSolver::linearSolve(CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int it, Int backend)
+int CSolver::linearSolve(CAssembler& assembler, CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int it, Int backend)
 {    
         
 #ifdef TIMING    
@@ -77,7 +77,7 @@ int CSolver::linearSolve(CDiscretization& disc, CPreconditioner& prec, ofstream 
     // construct the preconditioner
     if (state.RBcurrentdim>0) {
         //prec.ConstructPreconditioner(sys, disc, backend);                  
-        prec.ComputeInitialGuessAndPreconditioner(sys, state, disc, backend); 
+        prec.ComputeInitialGuessAndPreconditioner(sys, state, assembler, disc, backend); 
         
         // v = u + x 
         //int N = disc.common.sizes.ndof1;
@@ -117,7 +117,7 @@ int CSolver::linearSolve(CDiscretization& disc, CPreconditioner& prec, ofstream 
 #ifdef TIMING    
     begin = chrono::high_resolution_clock::now();      
 #endif    
-    state.linearSolverIter = gmres(disc, prec, backend);  
+    state.linearSolverIter = gmres(assembler, disc, prec, backend);  
     if (disc.common.mpiRank==0)             
         printf("GMRES converges to the tolerance %g within % d iterations and %d RB dimensions\n",disc.common.solverparams.linearSolverTol,state.linearSolverIter,state.RBcurrentdim);        
     
@@ -219,7 +219,7 @@ void CSolver::linearSolve(CAssembler& assembler, CDiscretization& disc, CPrecond
     
     // construct the preconditioner
     if (state.RBcurrentdim>0) {
-        prec.ComputeInitialGuessAndPreconditioner(sys, state, disc, N, spatialScheme, backend);         
+        prec.ComputeInitialGuessAndPreconditioner(sys, state, assembler, disc, N, spatialScheme, backend);         
     }    
     else {
         ArraySetValue(sys.x, zero, N);     
@@ -227,7 +227,7 @@ void CSolver::linearSolve(CAssembler& assembler, CDiscretization& disc, CPrecond
             
     auto begin = chrono::high_resolution_clock::now();   
         
-    state.linearSolverIter = gmres(disc, prec, N, spatialScheme, backend);  
+    state.linearSolverIter = gmres(assembler, disc, prec, N, spatialScheme, backend);  
 
     auto end = chrono::high_resolution_clock::now();
     double t1 = chrono::duration_cast<chrono::nanoseconds>(end-begin).count()/1e6;        

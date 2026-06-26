@@ -268,22 +268,7 @@ void CDiscretization::evalQ(dstype* q, dstype* u, Int backend)
             common.components.ncu, common.components.ncu+common.components.ncq, 0, common.meshsizes.ne1);
 }
 
-// matrix-vector product
-void CDiscretization::evalMatVec(dstype* Jv, dstype* v, dstype* u, dstype* Ru, Int backend)
-{    
-    MatVec<exasim::detail::AbiAdapter>(Jv, sol, res, app, master, mesh, tmp, common, common.cublasHandle, v, u, Ru, backend); 
-}
-
-// matrix-vector product
-void CDiscretization::evalMatVec(dstype* Jv, dstype* v, dstype* u, dstype* Ru, Int spatialScheme, Int backend)
-{    
-    if (spatialScheme == 0) {// LDG
-      MatVec<exasim::detail::AbiAdapter>(Jv, sol, res, app, master, mesh, tmp, common, common.cublasHandle, v, u, Ru, backend); 
-    }
-    else if (spatialScheme == 1) { // HDG  
-      hdgMatVec<exasim::detail::AbiAdapter>(Jv, res.H, v, res.Rh, res.Rq, res, app, mesh, common, tmp, common.cublasHandle, backend);
-    }
-}
+// (evalMatVec -- the discrete operator-apply -- moved to CAssembler; see assembler.cpp)
 
 void CDiscretization::updateUDG(dstype* u, Int backend)
 {
