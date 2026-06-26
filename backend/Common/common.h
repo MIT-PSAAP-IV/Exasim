@@ -1172,11 +1172,20 @@ struct meshstruct {
     }            
 };
 
-struct solstruct {       
+struct solstruct {
     Int *lsize=nullptr;
     Int *nsize=nullptr;  // data size
     Int *ndims=nullptr;  // dimensions
-    
+
+    // needs-init signals: set by the file reader when a field was NOT supplied by the input
+    // (fresh start, no restart data) and must be filled by the model's initial conditions.
+    // The reader allocates+zeros the field and raises the flag; initializeSolution() consumes
+    // them (so the reader does pure file-read, the model-IC is a separate "initialize a
+    // solution" step that queries the discretization for which fields exist).
+    Int needudginit=0;   // udg (u, or wave-packed u,q) must be computed from initu/initudg
+    Int needodginit=0;   // odg must be computed from initodg
+    Int needwdginit=0;   // wdg must be computed from initwdg
+
     dstype *xdg=nullptr; // spatial coordinates
     dstype *udg=nullptr; // solution (u, q) 
     dstype *sdg=nullptr; // source term due to the previous solution

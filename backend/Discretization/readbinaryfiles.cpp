@@ -574,16 +574,11 @@ void readsolstruct(string filename, solstruct &sol, appstruct &app, ExasimDriver
         CPUFREE(tmp);
     }
     else if (sol.nsize[2] == 0) {
-        if (mpirank==0) printf("compute the initial solution \n");  
-        sol.udg = (dstype*) malloc (sizeof (dstype)*npe*nc*ne);    
+        // No solution supplied -> allocate, zero, and flag for model-IC (initializeSolution).
+        sol.udg = (dstype*) malloc (sizeof (dstype)*npe*nc*ne);
         cpuArraySetValue(sol.udg, zero, npe*nc*ne);
-        
-        if (app.flag[1]==0) { //            
-            cpuInituDriver(sol.udg, sol.xdg, driver_abi, app, ncx, nc, npe, ne, 0);    
-        }
-        else // wave problem
-            cpuInitudgDriver(sol.udg, sol.xdg, driver_abi, app, ncx, nc, npe, ne, 0);                    
-        sol.nsize[2] = npe*nc*ne;       
+        sol.needudginit = 1;
+        sol.nsize[2] = npe*nc*ne;
         sol.szudg = sol.nsize[2];
     }
     else
@@ -601,7 +596,8 @@ void readsolstruct(string filename, solstruct &sol, appstruct &app, ExasimDriver
     }
     else if (nco>0) {
         sol.odg = (dstype*) malloc (sizeof (dstype)*npe*nco*ne);
-        cpuInitodgDriver(sol.odg, sol.xdg, driver_abi, app, ncx, nco, npe, ne, 0);       
+        cpuArraySetValue(sol.odg, zero, npe*nco*ne);
+        sol.needodginit = 1;
         sol.nsize[3] = npe*nco*ne;
         sol.szodg = sol.nsize[3];
     }
@@ -616,8 +612,9 @@ void readsolstruct(string filename, solstruct &sol, appstruct &app, ExasimDriver
         sol.szwdg = sol.nsize[4];
     }
     else if (ncw>0) {
-        sol.wdg = (dstype*) malloc (sizeof (dstype)*npe*ncw*ne);    
-        cpuInitwdgDriver(sol.wdg, sol.xdg, driver_abi, app, ncx, ncw, npe, ne, 0);        
+        sol.wdg = (dstype*) malloc (sizeof (dstype)*npe*ncw*ne);
+        cpuArraySetValue(sol.wdg, zero, npe*ncw*ne);
+        sol.needwdginit = 1;
         sol.nsize[4] = npe*ncw*ne;
         sol.szwdg = sol.nsize[4];
     }

@@ -516,7 +516,35 @@ void settempstruct(tempstruct &tmp, appstruct &app, masterstruct &master, meshst
 #endif
 }
 
-void cpuInit(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, 
+// Initialize a solution from the model's initial conditions.
+// This is the "initialize a solution" step, separated from the binary-file reader: the reader
+// does pure file-read and raises sol.need*init for any field it could not supply; here we look
+// at the discretization (common) to decide WHICH fields exist and HOW to fill them, and call
+// the model's init kernels for exactly those. q is intentionally not initialized here -- it is
+// derived from u afterwards (operator state). For a restart (all fields read from file) the
+// flags are 0 and this is a no-op.
+void initializeSolution(solstruct &sol, appstruct &app, ExasimDriverABI& driver_abi, commonstruct &common)
+{
+    Int ncx = common.components.ncx;   // coordinate components
+    Int nc  = common.components.nc;     // (u, q) components
+    Int nco = common.components.nco;    // other/auxiliary components
+    Int ncw = common.components.ncw;    // wave/auxiliary components
+    Int npe = common.grid.npe;          // nodes per element
+    Int ne  = common.meshsizes.ne;      // elements
+
+    if (sol.needudginit) {
+        if (app.flag[1]==0)  // steady/transient: initialize the primary unknowns u
+            cpuInituDriver(sol.udg, sol.xdg, driver_abi, app, ncx, nc, npe, ne, 0);
+        else                 // wave problem: initialize the packed (u, q) directly
+            cpuInitudgDriver(sol.udg, sol.xdg, driver_abi, app, ncx, nc, npe, ne, 0);
+    }
+    if (sol.needodginit)
+        cpuInitodgDriver(sol.odg, sol.xdg, driver_abi, app, ncx, nco, npe, ne, 0);
+    if (sol.needwdginit)
+        cpuInitwdgDriver(sol.wdg, sol.xdg, driver_abi, app, ncx, ncw, npe, ne, 0);
+}
+
+void cpuInit(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master,
         meshstruct &mesh, tempstruct &tmp, commonstruct &common,
         string filein, string fileout, Int mpiprocs, Int mpirank, Int fileoffset, Int omprank,
         const std::vector<dstype>* physicsparamOverride = nullptr)
@@ -566,10 +594,17 @@ void cpuInit(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& dr
     if (mpirank==0) printf("IsMeshCurved = %d \n",curvedmesh);        
     
     if (mpirank==0) printf("Set common struct... \n");
-    setcommonstruct(common, app, master, mesh, filein, fileout, curvedmesh, fileoffset);            
+    setcommonstruct(common, app, master, mesh, filein, fileout, curvedmesh, fileoffset);
     common.cublasHandle = 0;
-    common.eventHandle = 0; 
+    common.eventHandle = 0;
     if (mpirank==0) printf("Finish setting common struct... \n");
+
+    // Initialize the solution from the model's initial conditions for any field the reader
+    // could not supply (need*init). Done here -- after common is built, so the solution-init
+    // can query the discretization for sizes/which-fields -- and before the operator-state
+    // (q/uh) recovery in the discretization constructor that depends on the initialized u.
+    if (mpirank==0) printf("Initialize solution... \n");
+    initializeSolution(sol, app, driver_abi, common);
                         
     if (common.spatialScheme >= 0) {
       int nd = common.grid.nd;
