@@ -146,6 +146,7 @@ function _t2c_write_pdeapp(pde, mesh, files, path)
     keys = [
         "model", "modelfile", "meshfile", "xdgfile", "udgfile", "vdgfile", "wdgfile",
         "discretization", "platform", "mpiprocs", "debugmode", "runmode", "modelnumber",
+        "builtinmodelID",
         "nodetype", "ncu", "ncv", "ncw", "neb", "nfb", "linearproblem", "subproblem",
         "saveParaview", "physicsparamwarmstart", "tdep", "wave", "porder", "pgauss",
         "temporalscheme", "torder", "nstage", "convStabMethod", "diffStabMethod",

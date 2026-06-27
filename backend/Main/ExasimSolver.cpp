@@ -117,6 +117,51 @@ static vector<CSolution*> ModelPointers(vector<unique_ptr<CSolution>>& models)
     return ptrs;
 }
 
+static int ReadBuiltinModelIDFromAppBin(const std::string& filein)
+{
+    std::filesystem::path appfile(filein);
+    appfile /= "app.bin";
+
+    std::ifstream in(appfile, std::ios::binary);
+    if (!in)
+        return 0;
+
+    double value = 0.0;
+    in.read(reinterpret_cast<char*>(&value), sizeof(value));
+    if (!in)
+        return 0;
+
+    const int lsize = static_cast<int>(std::llround(value));
+    if (lsize < 2)
+        return 0;
+
+    std::vector<int> nsize(static_cast<size_t>(lsize), 0);
+    for (int i = 0; i < lsize; i++) {
+        in.read(reinterpret_cast<char*>(&value), sizeof(value));
+        if (!in)
+            return 0;
+        nsize[static_cast<size_t>(i)] = static_cast<int>(std::llround(value));
+    }
+
+    const int ndimsSize = nsize[0];
+    const int flagSize = nsize[1];
+    if (ndimsSize < 0 || flagSize <= 19)
+        return 0;
+
+    in.seekg(static_cast<std::streamoff>(ndimsSize) * static_cast<std::streamoff>(sizeof(double)),
+             std::ios::cur);
+    if (!in)
+        return 0;
+
+    for (int i = 0; i <= 19; i++) {
+        in.read(reinterpret_cast<char*>(&value), sizeof(value));
+        if (!in)
+            return 0;
+    }
+
+    return static_cast<int>(std::llround(value));
+}
+
 static bool IsValidModelABI(const ExasimDriverABI& abi)
 {
     const std::uint32_t required_struct_size =
@@ -629,8 +674,14 @@ int ExasimSolver::ParseInputs(int argc, char** argv)
 #endif
     }
 
-    if (!preserveModelDefinitions && builtinmodelID_.empty())
+    if (!preserveModelDefinitions && builtinmodelID_.empty()) {
         builtinmodelID_.assign(NumModelDefinitions(), 0);
+        for (int i = 0; i < NumModelDefinitions(); i++) {
+            const int id = ReadBuiltinModelIDFromAppBin(filein_[static_cast<size_t>(i)]);
+            if (id > 0)
+                builtinmodelID_[static_cast<size_t>(i)] = id;
+        }
+    }
 
     if (!builtinmodelID_.empty() &&
         builtinmodelID_.size() != static_cast<size_t>(NumModelDefinitions())) {
@@ -748,8 +799,14 @@ int ExasimSolver::ParsePostprocessInputs(int argc, char** argv)
 #endif
     }
 
-    if (!preserveModelDefinitions && builtinmodelID_.empty())
+    if (!preserveModelDefinitions && builtinmodelID_.empty()) {
         builtinmodelID_.assign(NumModelDefinitions(), 0);
+        for (int i = 0; i < NumModelDefinitions(); i++) {
+            const int id = ReadBuiltinModelIDFromAppBin(filein_[static_cast<size_t>(i)]);
+            if (id > 0)
+                builtinmodelID_[static_cast<size_t>(i)] = id;
+        }
+    }
 
     if (!builtinmodelID_.empty() &&
         builtinmodelID_.size() != static_cast<size_t>(NumModelDefinitions())) {
