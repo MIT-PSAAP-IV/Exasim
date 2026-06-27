@@ -51,7 +51,7 @@ set(EXASIM_PACKAGE_VERSION "0.0.0")
 find_package(Git QUIET)
 set(EXASIM_GIT_COMMIT "unknown")
 set(EXASIM_GIT_BRANCH "unknown")
-if(GIT_FOUND AND EXISTS "${EXASIM_DIR}/.git")
+if(GIT_FOUND)
   execute_process(
     COMMAND ${GIT_EXECUTABLE} -C ${EXASIM_DIR} rev-parse HEAD
     OUTPUT_VARIABLE _exasim_git_commit
