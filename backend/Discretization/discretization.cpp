@@ -391,12 +391,8 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
         }
     }
     
-    // moved from InitSolution to here
-    if ((common.components.ncq>0) && (common.timeparams.wave==0) && (common.spatialScheme == 0)) {
-        GetUhat<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 0, common.meshsizes.nbf, backend);
-        GetQ<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 0, common.meshsizes.nbe, 0, common.meshsizes.nbf, backend);
-    } 
-    
+    // (LDG initial-q recovery moved to CResidual::recoverInitialState, called by CSolution)
+
     if (common.spatialScheme > 0)  { // HDG
       Int neb = common.meshsizes.neb; // maximum number of elements per block
       Int npe = common.grid.npe; // number of nodes on master element
@@ -517,41 +513,8 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
       if (common.mpiRank==0) 
         printf("Memory allocation ...\n");        
 
-      // compute uhat by getting u on faces
-        // std::cout <<"app.read_uh in discretization.cpp is : " << common.read_uh<<endl;
-      if (!common.read_uh){
-          if (common.mpiRank==0) 
-              printf("===============================Constructing uh==========================\n");
-          GetFaceNodes(sol.uh, sol.udg, mesh.f2e, mesh.perm, npf, ncu, npe, nc, nf);
-      }
-      else {
-          if (common.mpiRank==0) 
-              printf("================================Reading uh==============================\n");
-          // print2darray(sol.uh, npf*ncu*10, 2);
-      }
-
-      if (common.mpiRank==0) 
-        printf("Finish GetFaceNodes ... \n");        
-
-      if (common.components.ncq > 0) {        
-        if (common.couplingparams.coupledinterface>0 && !postprocessOnly) {
-          res.szGi = npf*ncu12*npe*ncq*common.couplingparams.ncie;          
-          TemplateMalloc(&res.Gi, res.szGi, backend);
-        }
-        
-        // compute M^{-1} * C and store it in res.C
-        // compute M^{-1} * E and store it in res.E
-        qEquation<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, backend);
-
-        if (common.mpiRank==0) 
-          printf("Finish qEquation ... \n");        
-
-        // compute the flux q = -nabla u and store it in sol.udg
-        if (common.timeparams.wave == 0 && sol.szudg != npe*nc*ne) {
-            hdgGetQ<exasim::detail::AbiAdapter>(sol.udg, sol.uh, sol, res, mesh, tmp, common, backend);
-            if (common.mpiRank==0) printf("Finish hdgGetQ ... \n");     
-        }        
-      }
+      // (HDG operator-state recovery -- uh via GetFaceNodes, q-matrices via qEquation, q via
+      //  hdgGetQ -- moved to CResidual::recoverInitialState, called by CSolution post-init)
     }
 
     if (common.wallmodelparams.nwm == 1) {

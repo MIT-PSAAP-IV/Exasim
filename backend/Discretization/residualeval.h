@@ -36,6 +36,13 @@ public:
     // evaluate the artificial-viscosity field
     void evalAVfield(dstype* avField, dstype* u, Int backend);
     void evalAVfield(dstype* avField, Int backend);
+
+    // Recover the initial operator state from the initialized u: the auxiliary flux q
+    // (LDG: GetUhat/GetQ; HDG: hdgGetQ) and the HDG trace uh (GetFaceNodes), plus the HDG
+    // q-matrices (qEquation). This is "the operator applying itself" (layer B/C of the init
+    // contract), distinct from the model initial conditions (layer A, initializeSolution).
+    // Run once, after the solution is initialized, before the initial solution is written.
+    void recoverInitialState(Int backend, bool postprocessOnly);
 };
 
 #endif

@@ -186,6 +186,11 @@ public:
 
         const bool postprocessOnly = (mode == ExasimExecutionMode::Postprocess);
 
+        // Recover the initial operator state (q / uh / q-matrices) from the model-initialized u
+        // before the initial solution is written. This is the operator applying itself, so it
+        // lives on CResidual, not the discretization constructor (the function space).
+        residual.recoverInitialState(backend, postprocessOnly);
+
         if (!postprocessOnly) {
             open_and_write(outsol, "udg_np", rank, offset, npe, nc, ne, base);
 

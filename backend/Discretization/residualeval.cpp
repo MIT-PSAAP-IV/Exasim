@@ -196,7 +196,51 @@ void CResidual::evalAVfield(dstype* avField, Int backend)
 #endif
   
     // compute the av field
-    AvfieldDriver(avField, sol.xdg, sol.udg, sol.odg, sol.wdg, driver_abi, mesh, master, app, sol, tmp, common, backend);           
+    AvfieldDriver(avField, sol.xdg, sol.udg, sol.odg, sol.wdg, driver_abi, mesh, master, app, sol, tmp, common, backend);
+}
+
+// Recover the initial operator state (q, uh, q-matrices) from the initialized u.
+// Extracted verbatim from the CDiscretization constructor (option 2): the q/uh recovery is
+// the operator applying itself, so it belongs to the operator (CResidual), not the function
+// space. Members are bound as disc.* references; the kernel calls are unchanged.
+void CResidual::recoverInitialState(Int backend, bool postprocessOnly)
+{
+    [[maybe_unused]] auto& sol = disc.sol; [[maybe_unused]] auto& res = disc.res; [[maybe_unused]] auto& app = disc.app;
+    [[maybe_unused]] auto& master = disc.master; [[maybe_unused]] auto& mesh = disc.mesh; [[maybe_unused]] auto& tmp = disc.tmp;
+    [[maybe_unused]] auto& common = disc.common;
+
+    if (common.spatialScheme == 0) {  // LDG: recover the auxiliary flux q from the initial u
+        if ((common.components.ncq>0) && (common.timeparams.wave==0)) {
+            GetUhat<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 0, common.meshsizes.nbf, backend);
+            GetQ<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 0, common.meshsizes.nbe, 0, common.meshsizes.nbf, backend);
+        }
+    }
+    else if (common.spatialScheme > 0) {  // HDG: recover the trace uh, q-matrices, and q
+        Int npe = common.grid.npe;
+        Int npf = common.grid.npf;
+        Int ncu = common.components.ncu;
+        Int nc  = common.components.nc;
+        Int nf  = common.meshsizes.nf;
+        Int ncq = common.components.ncq;
+        Int ne  = common.meshsizes.ne;
+        int ncu12 = common.szinterfacefluxmap;
+
+        // compute uhat by getting u on faces (unless it was read from a restart file)
+        if (!common.read_uh)
+            GetFaceNodes(sol.uh, sol.udg, mesh.f2e, mesh.perm, npf, ncu, npe, nc, nf);
+
+        if (ncq > 0) {
+            if (common.couplingparams.coupledinterface>0 && !postprocessOnly) {
+                res.szGi = npf*ncu12*npe*ncq*common.couplingparams.ncie;
+                TemplateMalloc(&res.Gi, res.szGi, backend);
+            }
+            // compute M^{-1} * C and M^{-1} * E (q-matrices) and store in res.C / res.E
+            qEquation<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, backend);
+            // compute the flux q = -nabla u and store it in sol.udg
+            if (common.timeparams.wave == 0 && sol.szudg != npe*nc*ne)
+                hdgGetQ<exasim::detail::AbiAdapter>(sol.udg, sol.uh, sol, res, mesh, tmp, common, backend);
+        }
+    }
 }
 
 #endif
