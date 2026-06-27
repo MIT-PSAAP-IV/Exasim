@@ -110,7 +110,7 @@ if(SymEngine_FOUND)
   # <boost/multiprecision/...>. An external/system SymEngine (apt, conda, brew)
   # resolves boost from system dirs; adding the vendored boost there could shadow
   # it with a different version, so this is gated on EXASIM_SYMENGINE_VENDORED.
-  if(EXISTS "${EXASIM_ROOT}/deps/symengine/boost")
+  if(EXASIM_SYMENGINE_VENDORED AND EXISTS "${EXASIM_ROOT}/deps/symengine/boost")
     string(APPEND _se_inc "-I${EXASIM_ROOT}/deps/symengine ")
   endif()
   if(TARGET symengine)
