@@ -30,17 +30,8 @@ void CAssembler::hdgAssembleLinearSystem(dstype *b, Int backend)
     uEquationHDG<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
     hdgAssembleRHS<exasim::detail::AbiAdapter>(b, res.Rh, mesh, common);
 #endif
-
-    if (common.solverparams.preconditioner==0) {
-      // fix bug here: tmp.tempn is not enough memory to store ncu*npf*ncu*npf*nf
-      hdgBlockJacobi<exasim::detail::AbiAdapter>(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);
-    }
-    else if (common.solverparams.preconditioner==1) {
-      hdgElementalAdditiveSchwarz<exasim::detail::AbiAdapter>(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);
-    }
-    else if (common.solverparams.preconditioner==2) {
-      hdgBlockILU0<exasim::detail::AbiAdapter>(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);
-    }
+    // (building the HDG preconditioner matrix K from the assembled H is a preconditioner
+    //  concern -- moved to CPreconditioner::ComputeHDGPreconditioner, called after assembly)
 }
 
 void CAssembler::hdgAssembleResidual(dstype *b, Int backend)

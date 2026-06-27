@@ -48,6 +48,11 @@ public:
     // compute the LDG block-Jacobi preconditioner matrix K from the discretization's state
     // (re-homed from CDiscretization in C4 -- computing the preconditioner is a preconditioner concern)
     void ComputeLDGPreconditioner(CDiscretization& disc, dstype* K, dstype* u, Int backend);
+
+    // compute the HDG preconditioner matrix K (block-Jacobi / additive-Schwarz / block-ILU0)
+    // from the assembled global system H. Re-homed from CAssembler::hdgAssembleLinearSystem so
+    // assembly (building H/Rh) and preconditioning (building K from H) live in separate classes.
+    void ComputeHDGPreconditioner(CDiscretization& disc, Int backend);
 };
 
 #endif        

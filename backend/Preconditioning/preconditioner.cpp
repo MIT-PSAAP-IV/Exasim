@@ -349,4 +349,23 @@ void CPreconditioner::ComputeLDGPreconditioner(CDiscretization& disc, dstype* K,
             disc.common.cublasHandle, backend);
 }
 
+// Build the HDG preconditioner matrix K from the assembled global system H.
+// (Re-homed from CAssembler::hdgAssembleLinearSystem: assembly builds H, the preconditioner
+//  builds K from H -- two separate concerns. Called after the assembler, before GMRES.)
+void CPreconditioner::ComputeHDGPreconditioner(CDiscretization& disc, Int backend)
+{
+    auto& res = disc.res; auto& mesh = disc.mesh; auto& tmp = disc.tmp; auto& common = disc.common;
+
+    if (common.solverparams.preconditioner==0) {
+      // fix bug here: tmp.tempn is not enough memory to store ncu*npf*ncu*npf*nf
+      hdgBlockJacobi<exasim::detail::AbiAdapter>(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);
+    }
+    else if (common.solverparams.preconditioner==1) {
+      hdgElementalAdditiveSchwarz<exasim::detail::AbiAdapter>(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);
+    }
+    else if (common.solverparams.preconditioner==2) {
+      hdgBlockILU0<exasim::detail::AbiAdapter>(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);
+    }
+}
+
 #endif

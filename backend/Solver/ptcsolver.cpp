@@ -200,9 +200,11 @@ void CSolver::linearSolve(CResidual& residual, CAssembler& assembler, CDiscretiz
       auto begin = chrono::high_resolution_clock::now();
 
       assembler.hdgAssembleLinearSystem(sys.b, backend);
-              
+      // build the HDG preconditioner K from the just-assembled H (preconditioner's job)
+      prec.ComputeHDGPreconditioner(disc, backend);
+
       auto end = chrono::high_resolution_clock::now();
-      double t1 = chrono::duration_cast<chrono::nanoseconds>(end-begin).count()/1e6;      
+      double t1 = chrono::duration_cast<chrono::nanoseconds>(end-begin).count()/1e6;
 
       if (disc.common.mpiRank==0) printf("hdgAssembleLinearSystem time: %g miliseconds\n", t1);
       
