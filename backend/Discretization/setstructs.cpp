@@ -1139,7 +1139,7 @@ void gpuInit(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& dr
                 
     // set common struct
     setcommonstruct(common, happ, hmaster, hmesh,
-            hcommon.filein, hcommon.fileout, hcommon.grid.curvedMesh, hcommon.fileoffset);        
+            hcommon.filein, hcommon.fileout, hcommon.grid.curvedMesh, hcommon.outputparams.fileoffset);        
     
     int mpirank = hcommon.mpiRank;
     if (mpirank==0) printf("Finish setting common struct... \n");
