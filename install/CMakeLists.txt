@@ -53,7 +53,7 @@ set(EXASIM_GIT_COMMIT "unknown")
 set(EXASIM_GIT_BRANCH "unknown")
 if(GIT_FOUND)
   execute_process(
-    COMMAND ${GIT_EXECUTABLE} -C ${EXASIM_DIR} rev-parse HEAD
+    COMMAND "${GIT_EXECUTABLE}" -C "${EXASIM_DIR}" rev-parse HEAD
     OUTPUT_VARIABLE _exasim_git_commit
     OUTPUT_STRIP_TRAILING_WHITESPACE
     ERROR_QUIET RESULT_VARIABLE _exasim_git_rc)
