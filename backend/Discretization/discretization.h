@@ -81,7 +81,7 @@ public:
     // (hdgAssembleLinearSystem / hdgAssembleResidual / evalMatVec moved to CAssembler)
     // (evalResidual / evalQ / evalQSer / evalAVfield / updateUDG / updateU moved to CResidual)
 
-    bool BuildWallModelData(Int ibc, dstype y1);
+    // (BuildWallModelData moved to CWallModel::build)
     
     // converge DG to CG (a basis transform on the function space; used by AV smoothing + output)
     void DG2CG(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, Int ncudg, Int ncu, Int backend);

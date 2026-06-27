@@ -55,6 +55,7 @@
 
 #include "discretization.h"
 #include "interfacesampler.h"   // CInterfaceSampler decl, needed early by the wall-model sampling
+#include "wallmodelbuild.h"     // CWallModel decl, used by the constructor
 #include "ioutilities.cpp"
 #include "../PointLocator/pointlocator.h"
 
@@ -521,7 +522,7 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
     if (common.wallmodelparams.nwm == 1) {
       if (common.mpiRank==0)
         printf("Build wall-model data for boundary condition %d ... \n", common.wallmodelparams.wmBoundaries[0]);
-      BuildWallModelData(common.wallmodelparams.wmBoundaries[0], common.wallmodelparams.wmDistances[0]);
+      CWallModel(*this).build(common.wallmodelparams.wmBoundaries[0], common.wallmodelparams.wmDistances[0]);
     }
     else if (common.wallmodelparams.nwm > 1) {
       error("Multiple wall-model configurations are not supported by the backend wallmodelstruct yet.");
@@ -542,21 +543,9 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
     }
 }
  
-bool CDiscretization::BuildWallModelData(Int ibc, dstype y1)
-{
-    if (common.backend > 1)
-        error("BuildWallModelData is not implemented for GPU/HIP backends because the point locator wall-model builder is host-only.");
+// (BuildWallModelData moved to CWallModel::build -- see wallmodelbuild.cpp)
 
-    CPointLocator locator;
-    const bool success = locator.BuildWallModelSamplingData(*this, ibc, y1);
-    if (!success)
-        error("BuildWallModelData failed while building wall-model sampling data.");
-
-    CopyWallModelSamplingData(wallmodel, locator.wm, common.backend);
-    return true;
-}
-
-// destructor 
+// destructor
 CDiscretization::~CDiscretization()
 {        
     app.freememory(common.backend);
@@ -666,5 +655,7 @@ void CDiscretization::DG2CG3(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, I
 
 // interface/boundary sampling methods (moved out of CDiscretization)
 #include "interfacesampler.cpp"
+// wall-model build (moved out of CDiscretization)
+#include "wallmodelbuild.cpp"
 
 #endif        
