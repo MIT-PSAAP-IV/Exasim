@@ -80,6 +80,33 @@ for dir in "$REPO"/tests/consumers/*/; do
     else
       echo "  FAIL[B4]: QoI[1]=$qoi1 >= $QOI_TOL"; fail=1
     fi
+
+    # B5: visualization gate. When a consumer enables saveParaview (and declares
+    # nsca/nvec), the solve must emit ParaView vis. This guards the external-model
+    # vis path: ParseInputs must propagate nsca/nvec/nten so savemode>0 (external
+    # models do not bake the vis counts into datain). Without it no outvis is written.
+    #
+    # The backend writes outvis only when (saveParaview != 0) AND (nsca+nvec+nten > 0)
+    # — see CVisualization's savemode. Mirror that exact condition here so the gate
+    # never demands vis the backend would not produce (e.g. a future consumer with
+    # saveParaview=1 but zero vis fields). A serial run emits only <name>.vtu; a
+    # parallel run adds <name>.pvtu — accept either. Count with find rather than
+    # `ls glob1 glob2`, whose exit status is non-zero when one glob has no match
+    # (the serial case, where no .pvtu exists), which would mis-flag a present .vtu.
+    visfields=0
+    for _k in nsca nvec nten; do
+      _v="$(grep -E "^[[:space:]]*${_k}[[:space:]]*=" "$rdir/pdeapp.txt" | head -1 | grep -oE '[0-9]+' | head -1)"
+      visfields=$(( visfields + ${_v:-0} ))
+    done
+    if grep -qE '^[[:space:]]*saveParaview[[:space:]]*=[[:space:]]*[1-9]' "$rdir/pdeapp.txt" \
+         && [ "$visfields" -gt 0 ]; then
+      nvis="$(find "$rdir/dataout" -maxdepth 1 \( -name 'outvis*.vtu' -o -name 'outvis*.pvtu' \) 2>/dev/null | wc -l | tr -d ' ')"
+      if [ "$nvis" -gt 0 ]; then
+        echo "  [B5] vis ok: $nvis outvis file(s)"
+      else
+        echo "  FAIL[B5]: saveParaview enabled (nsca+nvec+nten>0) but no outvis*.vtu/.pvtu written"; fail=1
+      fi
+    fi
   fi
 done
 

@@ -64,7 +64,8 @@ public:
                     Int nsca = 0, Int nvec = 0, Int nten = 0,
                     Int nsurf = 0, Int nvqoi = 0,
                     ExasimExecutionMode mode = ExasimExecutionMode::Solve,
-                    const std::vector<dstype>* physicsparamOverride = nullptr);
+                    const std::vector<dstype>* physicsparamOverride = nullptr,
+                    Int saveParaview = 0);
     
     // destructor        
     ~CDiscretization(); 
