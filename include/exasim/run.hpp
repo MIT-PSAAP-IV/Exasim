@@ -489,7 +489,7 @@ inline int run(int argc, char** argv) {
                     ArrayAddScalar(&pdemodel[i]->disc.sol.udgavg[pdemodel[i]->disc.common.sizes.ndofudg1], one, 1);
                 }
 
-                pdemodel[i]->disc.computeAverageSolutionsOnBoundary();
+                pdemodel[i]->sampler.computeAverageSolutionsOnBoundary();
 
                 pdemodel[i]->SaveSolutions(backend);
                 pdemodel[i]->SaveQoI(backend);

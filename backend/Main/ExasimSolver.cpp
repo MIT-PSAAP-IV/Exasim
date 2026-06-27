@@ -962,7 +962,7 @@ int ExasimSolver::IntializeMeshInterface(const int modelnumber,
     ncx = model.disc.common.components.ncx;
     npf = model.disc.common.grid.npf;
     ngf = model.disc.common.grid.ngf;
-    nfaces = model.disc.getFacesOnInterface(&faces, ibc + 1);
+    nfaces = model.sampler.getFacesOnInterface(&faces, ibc + 1);
 
     model.disc.common.couplingparams.ncuext = ncuext;
     TemplateMalloc(&model.disc.sol.uext, ngf * nfaces * ncuext,
@@ -980,11 +980,11 @@ int ExasimSolver::IntializeMeshInterface(const int modelnumber,
     TemplateMalloc(&flux_dev_, ngf * nfaces * _ncuint,
                    interfaceBackend);
 
-    model.disc.getDGNodesOnInterface(xdgint, faces, nfaces);
-    model.disc.getNormalVectorOnInterface(nlint, xdgint, nfaces);
-    model.disc.getFieldsAtGaussPointsOnInterface(xdggint, xdgint, nfaces,
+    model.sampler.getDGNodesOnInterface(xdgint, faces, nfaces);
+    model.sampler.getNormalVectorOnInterface(nlint, xdgint, nfaces);
+    model.sampler.getFieldsAtGaussPointsOnInterface(xdggint, xdgint, nfaces,
                                                  model.disc.common.components.ncx);
-    model.disc.getFieldsAtGaussPointsOnInterface(nlgint, nlint, nfaces,
+    model.sampler.getFieldsAtGaussPointsOnInterface(nlgint, nlint, nfaces,
                                                  model.disc.common.grid.nd);
 
     return 0;
@@ -1053,10 +1053,10 @@ void ExasimSolver::getInterfaceFluxes(std::vector<double>& send_flux) const
 
     CSolution& model = *models_[interface_modelnumber_];
     if (backend_ > 1) {
-        model.disc.getInterfaceFluxesAtGaussPoints(flux_dev_, xdggint, nlgint, faces, nfaces);
+        model.sampler.getInterfaceFluxesAtGaussPoints(flux_dev_, xdggint, nlgint, faces, nfaces);
         TemplateCopytoHost(send_flux.data(), flux_dev_, sz, backend_);
     } else {
-        model.disc.getInterfaceFluxesAtGaussPoints(send_flux.data(), xdggint, nlgint, faces, nfaces);
+        model.sampler.getInterfaceFluxesAtGaussPoints(send_flux.data(), xdggint, nlgint, faces, nfaces);
     }
 }
 
@@ -1160,7 +1160,7 @@ int ExasimSolver::RunTimeDependent(Int start, Int steps)
                     models_[i]->disc.common.sizes.ndofudg1], one, 1);
             }
 
-            models_[i]->disc.computeAverageSolutionsOnBoundary();
+            models_[i]->sampler.computeAverageSolutionsOnBoundary();
             models_[i]->SaveSolutions(backend_);
             models_[i]->SaveQoI(backend_);
             if (models_[i]->vis.savemode > 0)
@@ -1218,7 +1218,7 @@ int ExasimSolver::RunTimeDependent(const int i, Int start, Int steps)
                 models_[i]->disc.common.sizes.ndofudg1], one, 1);
         }
 
-        models_[i]->disc.computeAverageSolutionsOnBoundary();
+        models_[i]->sampler.computeAverageSolutionsOnBoundary();
         models_[i]->SaveSolutions(backend_);
         models_[i]->SaveQoI(backend_);
         if (models_[i]->vis.savemode > 0) models_[i]->SaveParaview(backend_);

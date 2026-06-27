@@ -44,6 +44,7 @@
 #include "exasim/execution_mode.hpp"
 #include "../Discretization/assembler.h"
 #include "../Discretization/residualeval.h"
+#include "../Discretization/interfacesampler.h"
 
 // Common helper: open file and write 3-element header [a0, a1, a2]
 void open_and_write(std::ofstream& ofs,
@@ -124,6 +125,7 @@ public:
     CDiscretization disc;  // spatial discretization class (the function space)
     CResidual residual;    // the discretized PDE residual R(u)/flux q (evaluates from disc)
     CAssembler assembler;  // HDG global linear-system assembler + operator-apply (from disc)
+    CInterfaceSampler sampler; // interface/boundary field sampling for coupling (from disc)
     CPreconditioner prec;  // precondtioner class
     CSolver solv;          // linear and nonlinear solvers
     CVisualization vis;    // visualization class
@@ -149,7 +151,7 @@ public:
        : disc(filein, fileout, exasimpath, mpiprocs, mpirank, fileoffset,
               omprank, backend, builtinmodelID, abi, nsca, nvec, nten, nsurf, nvqoi, mode,
               physicsparamOverride, saveParaview),
-         residual(disc), assembler(disc),
+         residual(disc), assembler(disc), sampler(disc),
          prec(disc, backend, mode), solv(disc, backend, mode), vis(disc, backend)
     {   
         int ncx = disc.common.components.ncx;                            

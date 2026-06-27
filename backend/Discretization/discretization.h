@@ -83,22 +83,12 @@ public:
 
     bool BuildWallModelData(Int ibc, dstype y1);
     
-    // converge DG to CG
+    // converge DG to CG (a basis transform on the function space; used by AV smoothing + output)
     void DG2CG(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, Int ncudg, Int ncu, Int backend);
     void DG2CG2(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, Int ncudg, Int ncu, Int backend);
     void DG2CG3(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, Int ncudg, Int ncu, Int backend);
 
-    Int getFacesOnInterface(Int **faces, const Int boundarycondition);    
-    void getDGNodesOnInterface(dstype* xdgint, const Int* faces, const Int nfaces);
-    void getUDGOnInterface(dstype* udgint, const Int* faces, const Int nfaces);
-    void getWDGOnInterface(dstype* wdgint, const Int* faces, const Int nfaces);
-    void getODGOnInterface(dstype* odgint, const Int* faces, const Int nfaces);
-    void getUHATOnInterface(dstype* uhint, const Int* faces, const Int nfaces);
-    void getNormalVectorOnInterface(dstype* nlint, dstype* xdgint, const Int nfaces);
-    void getFieldsAtGaussPointsOnInterface(dstype* xdggint, dstype* xdgint, const Int nfaces, const Int ncx);
-    void getInterfaceFluxesAtNodalPoints(dstype *flux, dstype* xdgint, dstype* nlint, const Int* faces, const Int nfaces);  
-    void getInterfaceFluxesAtGaussPoints(dstype *flux, dstype* xdggint, dstype* nlgint, const Int* faces, const Int nfaces);  
-    void computeAverageSolutionsOnBoundary();
+    // (interface/boundary sampling methods moved to CInterfaceSampler)
 };
 
 #endif        

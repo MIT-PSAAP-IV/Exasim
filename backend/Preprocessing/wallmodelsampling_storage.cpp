@@ -1,6 +1,7 @@
 #include "wallmodelsampling.h"
 
 #include "../Discretization/discretization.h"
+#include "../Discretization/interfacesampler.h"
 
 #include <cmath>
 #include <sstream>
@@ -37,8 +38,11 @@ void GatherWallGaussPointsAndNormals(
     wm.npf = disc.common.grid.npf;
     wm.ngf = disc.common.grid.ngf;
 
+    // interface sampling moved to CInterfaceSampler (a thin disc& wrapper); make a local one
+    CInterfaceSampler sampler(disc);
+
     Int* faces_raw = nullptr;
-    wm.nfaces = disc.getFacesOnInterface(&faces_raw, ibc);
+    wm.nfaces = sampler.getFacesOnInterface(&faces_raw, ibc);
     wm.npoints = wm.ngf * wm.nfaces;
 
     if (wm.nfaces <= 0) {
@@ -61,10 +65,10 @@ void GatherWallGaussPointsAndNormals(
     TemplateMalloc(&xdggint, wm.ngf * wm.nfaces * wm.ncx, backend);
     TemplateMalloc(&nlgint, wm.ngf * wm.nfaces * wm.nd, backend);
 
-    disc.getDGNodesOnInterface(xdgint, wm.faces.data(), wm.nfaces);
-    disc.getNormalVectorOnInterface(nlint, xdgint, wm.nfaces);
-    disc.getFieldsAtGaussPointsOnInterface(xdggint, xdgint, wm.nfaces, wm.ncx);
-    disc.getFieldsAtGaussPointsOnInterface(nlgint, nlint, wm.nfaces, wm.nd);
+    sampler.getDGNodesOnInterface(xdgint, wm.faces.data(), wm.nfaces);
+    sampler.getNormalVectorOnInterface(nlint, xdgint, wm.nfaces);
+    sampler.getFieldsAtGaussPointsOnInterface(xdggint, xdgint, wm.nfaces, wm.ncx);
+    sampler.getFieldsAtGaussPointsOnInterface(nlgint, nlint, wm.nfaces, wm.nd);
 
     std::vector<dstype> xg_full;
     std::vector<dstype> ng_full;
