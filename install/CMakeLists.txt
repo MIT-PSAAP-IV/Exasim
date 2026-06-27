@@ -61,7 +61,7 @@ if(GIT_FOUND)
     set(EXASIM_GIT_COMMIT "${_exasim_git_commit}")
   endif()
   execute_process(
-    COMMAND ${GIT_EXECUTABLE} -C ${EXASIM_DIR} rev-parse --abbrev-ref HEAD
+    COMMAND "${GIT_EXECUTABLE}" -C "${EXASIM_DIR}" rev-parse --abbrev-ref HEAD
     OUTPUT_VARIABLE _exasim_git_branch
     OUTPUT_STRIP_TRAILING_WHITESPACE
     ERROR_QUIET RESULT_VARIABLE _exasim_git_rc)
