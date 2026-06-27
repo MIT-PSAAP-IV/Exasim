@@ -452,7 +452,7 @@ inline int run(int argc, char** argv) {
         for (int i=0; i<nummodels; i++) {
             if (restart>0) {
                 pdemodel[i]->disc.common.timestate.currentstep = -1;
-                pdemodel[i]->ReadSolutions(backend);
+                pdemodel[i]->writer.ReadSolutions(backend);
             }
             pdemodel[i]->InitSolution(backend);
         }
@@ -491,12 +491,12 @@ inline int run(int argc, char** argv) {
 
                 pdemodel[i]->sampler.computeAverageSolutionsOnBoundary();
 
-                pdemodel[i]->SaveSolutions(backend);
-                pdemodel[i]->SaveQoI(backend);
-                if (pdemodel[i]->vis.savemode > 0) pdemodel[i]->SaveParaview(backend);
-                pdemodel[i]->SaveSolutionsOnBoundary(backend);
+                pdemodel[i]->writer.SaveSolutions(backend);
+                pdemodel[i]->writer.SaveQoI(backend);
+                if (pdemodel[i]->vis.savemode > 0) pdemodel[i]->writer.SaveParaview(backend);
+                pdemodel[i]->writer.SaveSolutionsOnBoundary(backend);
                 if (pdemodel[i]->disc.common.components.nce>0)
-                    pdemodel[i]->SaveOutputCG(backend);
+                    pdemodel[i]->writer.SaveOutputCG(backend);
             }
 
             time = time + pdemodel[0]->disc.common.dt[istep];
@@ -506,7 +506,7 @@ inline int run(int argc, char** argv) {
     else if ((pdemodel[0]->disc.common.timeparams.tdep==1) && (pdemodel[0]->disc.common.runmode==10 || pdemodel[0]->disc.common.runmode==11)) {
         if (restart>0) {
             pdemodel[0]->disc.common.timestate.currentstep = -1;
-            pdemodel[0]->ReadSolutions(backend);
+            pdemodel[0]->writer.ReadSolutions(backend);
         }
         pdemodel[0]->InitSolution(backend);
         pdemodel[0]->SteadyProblem_PTC(out[0], backend);
@@ -516,20 +516,20 @@ inline int run(int argc, char** argv) {
             if (pdemodel[i]->disc.common.runmode==0) {
                 if (restart>0) {
                     pdemodel[i]->disc.common.timestate.currentstep = -1;
-                    pdemodel[i]->ReadSolutions(backend);
+                    pdemodel[i]->writer.ReadSolutions(backend);
                 }
                 pdemodel[i]->SolveProblem(out[i], backend);
             }
             else if (pdemodel[i]->disc.common.runmode==1){
                 pdemodel[i]->disc.common.timestate.currentstep = -1;
-                pdemodel[i]->ReadSolutions(backend);
+                pdemodel[i]->writer.ReadSolutions(backend);
                 if (pdemodel[i]->disc.common.components.ncq>0)
                     pdemodel[i]->residual.evalQ(backend);
                 pdemodel[i]->disc.common.outputparams.saveSolOpt = 1;
-                pdemodel[i]->SaveSolutions(backend);
-                pdemodel[i]->SaveQoI(backend);
-                if (pdemodel[i]->vis.savemode > 0) pdemodel[i]->SaveParaview(backend);
-                pdemodel[i]->SaveOutputCG(backend);
+                pdemodel[i]->writer.SaveSolutions(backend);
+                pdemodel[i]->writer.SaveQoI(backend);
+                if (pdemodel[i]->vis.savemode > 0) pdemodel[i]->writer.SaveParaview(backend);
+                pdemodel[i]->writer.SaveOutputCG(backend);
             }
             else if (pdemodel[i]->disc.common.runmode==2){
                 for (Int istep=0; istep<pdemodel[i]->disc.common.timeparams.tsteps; istep++)
@@ -537,10 +537,10 @@ inline int run(int argc, char** argv) {
                     if (((istep+1) % pdemodel[i]->disc.common.outputparams.saveSolFreq) == 0)
                     {
                         pdemodel[i]->disc.common.timestate.currentstep = istep;
-                        pdemodel[i]->ReadSolutions(backend);
+                        pdemodel[i]->writer.ReadSolutions(backend);
                         if (pdemodel[i]->disc.common.components.ncq>0)
                             pdemodel[i]->residual.evalQ(backend);
-                        pdemodel[i]->SaveOutputCG(backend);
+                        pdemodel[i]->writer.SaveOutputCG(backend);
                     }
                 }
             }
@@ -550,14 +550,14 @@ inline int run(int argc, char** argv) {
                     if (((istep+1) % pdemodel[i]->disc.common.outputparams.saveSolFreq) == 0)
                     {
                         pdemodel[i]->disc.common.timestate.currentstep = istep;
-                        pdemodel[i]->ReadSolutions(backend);
-                        pdemodel[i]->SaveOutputCG(backend);
+                        pdemodel[i]->writer.ReadSolutions(backend);
+                        pdemodel[i]->writer.SaveOutputCG(backend);
                     }
                 }
             }
             else if (pdemodel[i]->disc.common.runmode==4) {
                 pdemodel[i]->disc.common.timestate.currentstep = -1;
-                pdemodel[i]->ReadSolutions(backend);
+                pdemodel[i]->writer.ReadSolutions(backend);
                 pdemodel[i]->SolveProblem(out[i], backend);
             }
             else if (pdemodel[i]->disc.common.runmode==5){

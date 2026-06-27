@@ -102,6 +102,7 @@ using namespace std;
 #include "../Visualization/visualization.cpp"
 #include "../PointLocator/pointlocator.cpp"
 #include "../Solution/solution.cpp"
+#include "../Solution/solutionwriter.cpp"
 
 #ifdef HAVE_BACKEND_PREPROCESSING
 #include "../Preprocessing/preprocessing.cpp"
@@ -1079,7 +1080,7 @@ int ExasimSolver::InitializeSolution()
     for (int i = 0; i < nummodels_; i++) {
         if (restart_ > 0) {
             models_[i]->disc.common.timestate.currentstep = -1;
-            models_[i]->ReadSolutions(backend_);
+            models_[i]->writer.ReadSolutions(backend_);
         }
         models_[i]->InitSolution(backend_);
     }
@@ -1091,7 +1092,7 @@ int ExasimSolver::InitializeSolution(const int i)
 {
     if (restart_ > 0) {
         models_[i]->disc.common.timestate.currentstep = -1;
-        models_[i]->ReadSolutions(backend_);
+        models_[i]->writer.ReadSolutions(backend_);
     }
     models_[i]->InitSolution(backend_);
 
@@ -1161,13 +1162,13 @@ int ExasimSolver::RunTimeDependent(Int start, Int steps)
             }
 
             models_[i]->sampler.computeAverageSolutionsOnBoundary();
-            models_[i]->SaveSolutions(backend_);
-            models_[i]->SaveQoI(backend_);
+            models_[i]->writer.SaveSolutions(backend_);
+            models_[i]->writer.SaveQoI(backend_);
             if (models_[i]->vis.savemode > 0)
-                models_[i]->SaveParaview(backend_);
-            models_[i]->SaveSolutionsOnBoundary(backend_);
+                models_[i]->writer.SaveParaview(backend_);
+            models_[i]->writer.SaveSolutionsOnBoundary(backend_);
             if (models_[i]->disc.common.components.nce > 0)
-                models_[i]->SaveOutputCG(backend_);
+                models_[i]->writer.SaveOutputCG(backend_);
         }
 
         time = time + models_[0]->disc.common.dt[istep];
@@ -1219,11 +1220,11 @@ int ExasimSolver::RunTimeDependent(const int i, Int start, Int steps)
         }
 
         models_[i]->sampler.computeAverageSolutionsOnBoundary();
-        models_[i]->SaveSolutions(backend_);
-        models_[i]->SaveQoI(backend_);
-        if (models_[i]->vis.savemode > 0) models_[i]->SaveParaview(backend_);
-        models_[i]->SaveSolutionsOnBoundary(backend_);
-        if (models_[i]->disc.common.components.nce > 0) models_[i]->SaveOutputCG(backend_);
+        models_[i]->writer.SaveSolutions(backend_);
+        models_[i]->writer.SaveQoI(backend_);
+        if (models_[i]->vis.savemode > 0) models_[i]->writer.SaveParaview(backend_);
+        models_[i]->writer.SaveSolutionsOnBoundary(backend_);
+        if (models_[i]->disc.common.components.nce > 0) models_[i]->writer.SaveOutputCG(backend_);
         
         time = time + models_[0]->disc.common.dt[istep];
     }
@@ -1259,11 +1260,11 @@ int ExasimSolver::RunSteady()
     for (int i = 0; i < nummodels_; i++) {
         models_[i]->SteadyProblem(residual_outputs_[i], backend_);
 
-        models_[i]->SaveSolutions(backend_);    
-        models_[i]->SaveQoI(backend_);
-        if (models_[i]->vis.savemode > 0) models_[i]->SaveParaview(backend_); 
-        models_[i]->SaveSolutionsOnBoundary(backend_);         
-        if (models_[i]->disc.common.components.nce>0) models_[i]->SaveOutputCG(backend_);            
+        models_[i]->writer.SaveSolutions(backend_);    
+        models_[i]->writer.SaveQoI(backend_);
+        if (models_[i]->vis.savemode > 0) models_[i]->writer.SaveParaview(backend_); 
+        models_[i]->writer.SaveSolutionsOnBoundary(backend_);         
+        if (models_[i]->disc.common.components.nce>0) models_[i]->writer.SaveOutputCG(backend_);            
     }
 
     return 0;
@@ -1275,11 +1276,11 @@ int ExasimSolver::RunSteady(const int modelnumber)
     if (status) return status;
     models_[modelnumber]->SteadyProblem(residual_outputs_[modelnumber], backend_);
 
-    models_[modelnumber]->SaveSolutions(backend_);    
-    models_[modelnumber]->SaveQoI(backend_);
-    if (models_[modelnumber]->vis.savemode > 0) models_[modelnumber]->SaveParaview(backend_); 
-    models_[modelnumber]->SaveSolutionsOnBoundary(backend_);         
-    if (models_[modelnumber]->disc.common.components.nce>0) models_[modelnumber]->SaveOutputCG(backend_);            
+    models_[modelnumber]->writer.SaveSolutions(backend_);    
+    models_[modelnumber]->writer.SaveQoI(backend_);
+    if (models_[modelnumber]->vis.savemode > 0) models_[modelnumber]->writer.SaveParaview(backend_); 
+    models_[modelnumber]->writer.SaveSolutionsOnBoundary(backend_);         
+    if (models_[modelnumber]->disc.common.components.nce>0) models_[modelnumber]->writer.SaveOutputCG(backend_);            
 
     return 0;
 }
@@ -1290,30 +1291,30 @@ int ExasimSolver::RunSolveProblemOrPostprocess()
         if (models_[i]->disc.common.runmode == 0) {
             if (restart_ > 0) {
                 models_[i]->disc.common.timestate.currentstep = -1;
-                models_[i]->ReadSolutions(backend_);
+                models_[i]->writer.ReadSolutions(backend_);
             }
             models_[i]->SolveProblem(residual_outputs_[i], backend_);
         }
         else if (models_[i]->disc.common.runmode == 1) {
             models_[i]->disc.common.timestate.currentstep = -1;
-            models_[i]->ReadSolutions(backend_);
+            models_[i]->writer.ReadSolutions(backend_);
             if (models_[i]->disc.common.components.ncq > 0)
                 models_[i]->residual.evalQ(backend_);
             models_[i]->disc.common.outputparams.saveSolOpt = 1;
-            models_[i]->SaveSolutions(backend_);
-            models_[i]->SaveQoI(backend_);
+            models_[i]->writer.SaveSolutions(backend_);
+            models_[i]->writer.SaveQoI(backend_);
             if (models_[i]->vis.savemode > 0)
-                models_[i]->SaveParaview(backend_);
-            models_[i]->SaveOutputCG(backend_);
+                models_[i]->writer.SaveParaview(backend_);
+            models_[i]->writer.SaveOutputCG(backend_);
         }
         else if (models_[i]->disc.common.runmode == 2) {
             for (Int istep = 0; istep < models_[i]->disc.common.timeparams.tsteps; istep++) {
                 if (((istep + 1) % models_[i]->disc.common.outputparams.saveSolFreq) == 0) {
                     models_[i]->disc.common.timestate.currentstep = istep;
-                    models_[i]->ReadSolutions(backend_);
+                    models_[i]->writer.ReadSolutions(backend_);
                     if (models_[i]->disc.common.components.ncq > 0)
                         models_[i]->residual.evalQ(backend_);
-                    models_[i]->SaveOutputCG(backend_);
+                    models_[i]->writer.SaveOutputCG(backend_);
                 }
             }
         }
@@ -1321,14 +1322,14 @@ int ExasimSolver::RunSolveProblemOrPostprocess()
             for (Int istep = 0; istep < models_[i]->disc.common.timeparams.tsteps; istep++) {
                 if (((istep + 1) % models_[i]->disc.common.outputparams.saveSolFreq) == 0) {
                     models_[i]->disc.common.timestate.currentstep = istep;
-                    models_[i]->ReadSolutions(backend_);
-                    models_[i]->SaveOutputCG(backend_);
+                    models_[i]->writer.ReadSolutions(backend_);
+                    models_[i]->writer.SaveOutputCG(backend_);
                 }
             }
         }
         else if (models_[i]->disc.common.runmode == 4) {
             models_[i]->disc.common.timestate.currentstep = -1;
-            models_[i]->ReadSolutions(backend_);
+            models_[i]->writer.ReadSolutions(backend_);
             models_[i]->SolveProblem(residual_outputs_[i], backend_);
         }
         else if (models_[i]->disc.common.runmode == 5) {
@@ -1352,24 +1353,24 @@ int ExasimSolver::Postprocess()
     for (int i = 0; i < nummodels_; i++) {
         if (postmode_ == 0) {
             models_[i]->disc.common.timestate.currentstep = -1;
-            models_[i]->ReadSolutions(backend_);
-            models_[i]->SaveQoI(backend_);
+            models_[i]->writer.ReadSolutions(backend_);
+            models_[i]->writer.SaveQoI(backend_);
             if (models_[i]->vis.savemode > 0)
-                models_[i]->SaveParaview(backend_);
-            models_[i]->SaveOutputCG(backend_);
+                models_[i]->writer.SaveParaview(backend_);
+            models_[i]->writer.SaveOutputCG(backend_);
         } else if (postmode_ == 1) {
             models_[i]->disc.common.timestate.currentstep = restart_;
-            models_[i]->GetSolutions(restart_, backend_);
-            models_[i]->SaveQoI(backend_);
-            if (models_[i]->vis.savemode > 0) models_[i]->SaveParaview(backend_);
-            models_[i]->SaveOutputCG(backend_);
+            models_[i]->writer.GetSolutions(restart_, backend_);
+            models_[i]->writer.SaveQoI(backend_);
+            if (models_[i]->vis.savemode > 0) models_[i]->writer.SaveParaview(backend_);
+            models_[i]->writer.SaveOutputCG(backend_);
         } else if (postmode_ > 1) {
             for (int j = 0; j < postmode_; j++) {
               models_[i]->disc.common.timestate.currentstep = restart_ + j;
-              models_[i]->GetSolutions(restart_ + j, backend_);
-              models_[i]->SaveQoI(backend_);
-              if (models_[i]->vis.savemode > 0) models_[i]->SaveParaview(backend_);
-              models_[i]->SaveOutputCG(backend_);
+              models_[i]->writer.GetSolutions(restart_ + j, backend_);
+              models_[i]->writer.SaveQoI(backend_);
+              if (models_[i]->vis.savemode > 0) models_[i]->writer.SaveParaview(backend_);
+              models_[i]->writer.SaveOutputCG(backend_);
             }
         }        
     }
@@ -1394,7 +1395,7 @@ int ExasimSolver::SaveParaviewStep(const int modelnumber, const int step, const 
     // solve/postprocess that reads common.currentstep.
     const auto savedstep = m.disc.common.timestate.currentstep;
     m.disc.common.timestate.currentstep = step - 1;
-    m.SaveParaview(backend_, modifier, true);
+    m.writer.SaveParaview(backend_, modifier, true);
     m.disc.common.timestate.currentstep = savedstep;
     return 0;
 }
@@ -1611,7 +1612,7 @@ int ExasimSolver::ResetModelOutputsForCurrentCase()
     for (int i = 0; i < nummodels_; ++i) {
         if (!models_[i])
             continue;
-        models_[i]->ResetOutputFiles(fileout_[i]);
+        models_[i]->writer.ResetOutputFiles(fileout_[i]);
     }
 
     return OpenOutputStreams();
