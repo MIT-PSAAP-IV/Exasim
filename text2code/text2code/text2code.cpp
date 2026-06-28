@@ -111,7 +111,12 @@ int main(int argc, char* argv[])
     spec.modelpath = out_dir_override.empty()
         ? make_path(pde.exasimpath, "/backend/Model/Text2codeGenerated/")
         : (out_dir_override.back() == '/' ? out_dir_override : out_dir_override + "/");
-    std::filesystem::create_directories(spec.modelpath);    
+    std::error_code ec;
+    std::filesystem::create_directories(spec.modelpath, ec);
+    if (ec) {
+        std::cerr << "Unable to create output directory " << spec.modelpath << ": " << ec.message() << "\n";
+        return 1;
+    }
     spec.symenginepath = make_path(pde.exasimpath, "/text2code/symengine");
     
     if (pde.gendatain == 1) {
