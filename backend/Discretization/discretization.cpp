@@ -309,6 +309,12 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
         gpuInit(sol, res, app, driver_abi, master, mesh, tmp, common,
             hsol, hres, happ, hmaster, hmesh, htmp, hcommon);
         app.read_uh = happ.read_uh;
+        // Mirror the builtin/multi-model dispatch id onto the device structs: the Kokkos init
+        // (and solve) drivers select the model via app.modelnumber (== builtinmodelID for builtin
+        // models, see readbinaryfiles.cpp). gpuInit does not copy it, so without this the device
+        // dispatch sees modelnumber=0 and aborts ("Unknown builtinmodelID=0 in KokkosInitu").
+        app.modelnumber = happ.modelnumber;
+        common.modelnumber = hcommon.modelnumber;
         // carry the needs-init signal onto the device solution; the model IC is computed below
         // (post-copy) in the device execution space, so the same Kokkos init path serves GPU too.
         sol.needudginit = hsol.needudginit;
