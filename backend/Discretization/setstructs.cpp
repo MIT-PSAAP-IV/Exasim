@@ -533,7 +533,10 @@ void initializeSolution(solstruct &sol, appstruct &app, ExasimDriverABI& driver_
     Int ne  = common.meshsizes.ne;      // elements
 
     if (sol.needudginit) {
-        if (app.flag[1]==0)  // steady/transient: initialize the primary unknowns u
+        // Use common.timeparams.wave (== app.flag[1], see setcommonstruct) instead of reading
+        // app.flag[1] directly: on the GPU path `app` is the device app, so app.flag is a device
+        // pointer and a host deref segfaults; common's scalar fields are host-resident on both backends.
+        if (common.timeparams.wave==0)  // steady/transient: initialize the primary unknowns u
             InituDriver(sol.udg, sol.xdg, driver_abi, app, ncx, nc, npe, ne, 0);
         else                 // wave problem: initialize the packed (u, q) directly
             InitudgDriver(sol.udg, sol.xdg, driver_abi, app, ncx, nc, npe, ne, 0);
