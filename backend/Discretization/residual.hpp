@@ -87,11 +87,11 @@ inline void GetQ(solstruct &sol, resstruct &res, appstruct &app, masterstruct &m
     Int N = npe*ncq*ne;
 
     // Element integrals
-    RqElem<M>(sol, res, app, master, mesh, tmp, common, handle, nbe1, nbe2, backend);
+    RqElem(sol, res, app, master, mesh, tmp, common, handle, nbe1, nbe2, backend);
         
     START_TIMING;
     // Face integrals
-    RqFace<M>(sol, res, app, master, mesh, tmp, common, handle, nbf1, nbf2, backend);
+    RqFace(sol, res, app, master, mesh, tmp, common, handle, nbf1, nbf2, backend);
     END_TIMING(16);       
         
     // elements in the range [e1, e2)
@@ -635,10 +635,10 @@ inline void GetdQ(solstruct &sol, resstruct &res, appstruct &app, masterstruct &
     Int N = npe*ncq*ne;
 
     // Element integrals
-    dRqElem<M>(sol, res, app, master, mesh, tmp, common, handle, nbe1, nbe2, backend);
+    dRqElem(sol, res, app, master, mesh, tmp, common, handle, nbe1, nbe2, backend);
         
     // Face integrals
-    dRqFace<M>(sol, res, app, master, mesh, tmp, common, handle, nbf1, nbf2, backend);
+    dRqFace(sol, res, app, master, mesh, tmp, common, handle, nbf1, nbf2, backend);
         
     // elements in the range [e1, e2)
     Int e1 = common.eblks[3*nbe1]-1;    
