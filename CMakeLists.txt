@@ -257,7 +257,8 @@ if(WITH_PARMETIS)
     foreach(_exasim_metis_header IN LISTS _exasim_metis_headers)
       if(EXISTS \"\${_exasim_metis_header}\")
         get_filename_component(_exasim_metis_header_name \"\${_exasim_metis_header}\" NAME)
-        if(NOT _exasim_metis_header_name IN_LIST _exasim_metis_installed_headers)
+        list(FIND _exasim_metis_installed_headers \"\${_exasim_metis_header_name}\" _exasim_metis_header_index)
+        if(_exasim_metis_header_index EQUAL -1)
           file(INSTALL
             DESTINATION \"\${_exasim_install_includedir}\"
             TYPE FILE
@@ -284,7 +285,8 @@ if(WITH_PARMETIS)
     foreach(_exasim_metis_archive IN LISTS _exasim_metis_archives)
       if(EXISTS \"\${_exasim_metis_archive}\")
         get_filename_component(_exasim_metis_archive_name \"\${_exasim_metis_archive}\" NAME)
-        if(NOT _exasim_metis_archive_name IN_LIST _exasim_metis_installed_archives)
+        list(FIND _exasim_metis_installed_archives \"\${_exasim_metis_archive_name}\" _exasim_metis_archive_index)
+        if(_exasim_metis_archive_index EQUAL -1)
           file(INSTALL
             DESTINATION \"\${_exasim_install_libdir}\"
             TYPE FILE
