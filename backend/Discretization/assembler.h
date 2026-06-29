@@ -13,8 +13,13 @@
 #ifndef __ASSEMBLER_H__
 #define __ASSEMBLER_H__
 
+#include <exasim/detail/abi_adapter.hpp>
+
 class CDiscretization;  // forward declaration (CAssembler only holds a reference)
 
+// Templated on the user Model type M (default = AbiAdapter): the HDG assembly threads M to its
+// model-dependent chain kernels (hdgAssemble*MPI<M>/uEquationHDG<M>/ResidualHDG<M>/MatVec<M>).
+template <class M = exasim::detail::AbiAdapter>
 class CAssembler {
 public:
     CDiscretization& disc;

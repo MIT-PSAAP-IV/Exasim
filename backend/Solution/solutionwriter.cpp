@@ -10,7 +10,8 @@
 #include "solutionwriter.h"
 
 // --- open the output streams and write the initial solution (was the CSolution constructor body) ---
-void CSolutionWriter::setup(bool postprocessOnly)
+template <class M>
+void CSolutionWriter<M>::setup(bool postprocessOnly)
 {
     int ncx = disc.common.components.ncx;
     int nd  = disc.common.grid.nd;
@@ -60,7 +61,8 @@ void CSolutionWriter::setup(bool postprocessOnly)
 }
 
 // --- crash teardown: optional "_CRASH" Paraview, close all streams (caller dumps the .bin) ---
-void CSolutionWriter::crashDump(Int backend)
+template <class M>
+void CSolutionWriter<M>::crashDump(Int backend)
 {
     if (vis.savemode > 0) this->SaveParaview(backend, "_CRASH", true);
     if (outsol.is_open()) { outsol.close(); }
@@ -75,7 +77,8 @@ void CSolutionWriter::crashDump(Int backend)
 }
 
 // --- close/reopen output streams under a new fileout prefix (parameter sweeps) ---
-void CSolutionWriter::ResetOutputFiles(const std::string& fileout)
+template <class M>
+void CSolutionWriter<M>::ResetOutputFiles(const std::string& fileout)
     {
         if (outsol.is_open()) { outsol.close(); }
         if (outwdg.is_open()) { outwdg.close(); }
@@ -139,7 +142,8 @@ void CSolutionWriter::ResetOutputFiles(const std::string& fileout)
     }
 
 // --- methods moved verbatim from CSolution ---
-void CSolutionWriter::evalMonitor(dstype* output, dstype* udg, dstype* wdg, Int nc, Int backend)
+template <class M>
+void CSolutionWriter<M>::evalMonitor(dstype* output, dstype* udg, dstype* wdg, Int nc, Int backend)
 {
     MonitorDriver(output, nc, disc.sol.xdg, udg, disc.sol.odg, wdg, disc.driver_abi,
                   disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common, backend);
@@ -147,7 +151,8 @@ void CSolutionWriter::evalMonitor(dstype* output, dstype* udg, dstype* wdg, Int 
 
 // Re-homed from CDiscretization (S4): computing the output field for I/O is an output concern.
 // MPI-halo-exchanges the owned disc's udg across neighbors, then calls the model OutputDriver.
-void CSolutionWriter::evalOutput(dstype* output, Int backend)
+template <class M>
+void CSolutionWriter<M>::evalOutput(dstype* output, Int backend)
 {
 #ifdef  HAVE_MPI
     Int bsz = disc.common.grid.npe*disc.common.components.nc;
@@ -202,7 +207,8 @@ void CSolutionWriter::evalOutput(dstype* output, Int backend)
 }
 
 
-void CSolutionWriter::SaveSolutions(Int backend) 
+template <class M>
+void CSolutionWriter<M>::SaveSolutions(Int backend) 
 {
     bool save = false;
     if (disc.common.timeparams.tdep==0) save = true;
@@ -306,7 +312,8 @@ void CSolutionWriter::SaveSolutions(Int backend)
    // }    
 }
 
-void CSolutionWriter::ReadSolutions(Int backend) 
+template <class M>
+void CSolutionWriter<M>::ReadSolutions(Int backend) 
 {
    if (disc.common.timeparams.tdep==1) { 
         if (((disc.common.timestate.currentstep+1) % disc.common.outputparams.saveRestart) == 0)             
@@ -355,7 +362,8 @@ void CSolutionWriter::ReadSolutions(Int backend)
    }    
 }
 
-void CSolutionWriter::GetSolutions(Int step, Int backend)
+template <class M>
+void CSolutionWriter<M>::GetSolutions(Int step, Int backend)
 {
     if (step < 0)
         error("GetSolutions: step must be nonnegative");
@@ -392,7 +400,8 @@ void CSolutionWriter::GetSolutions(Int step, Int backend)
         residual.evalQ(backend);
 }
  
-void CSolutionWriter::SaveParaview(Int backend, std::string fname_modifier, bool force_tdep_write) 
+template <class M>
+void CSolutionWriter<M>::SaveParaview(Int backend, std::string fname_modifier, bool force_tdep_write) 
 {
     // Decide whether we should write a file on this step
     bool writeSolution = false;
@@ -477,10 +486,11 @@ void CSolutionWriter::SaveParaview(Int backend, std::string fname_modifier, bool
    }
 }
 
-void CSolutionWriter::SaveQoI(Int backend) 
+template <class M>
+void CSolutionWriter<M>::SaveQoI(Int backend) 
 {
-    if (disc.common.qoiparams.nvqoi > 0) qoiElement<exasim::detail::AbiAdapter>(disc.sol, disc.res, disc.app, disc.master, disc.mesh, disc.tmp, disc.common);
-    if (disc.common.qoiparams.nsurf > 0) qoiFace<exasim::detail::AbiAdapter>(disc.sol, disc.res, disc.app, disc.master, disc.mesh, disc.tmp, disc.common);
+    if (disc.common.qoiparams.nvqoi > 0) qoiElement<M>(disc.sol, disc.res, disc.app, disc.master, disc.mesh, disc.tmp, disc.common);
+    if (disc.common.qoiparams.nsurf > 0) qoiFace<M>(disc.sol, disc.res, disc.app, disc.master, disc.mesh, disc.tmp, disc.common);
 
     if (disc.common.mpiRank==0 && (disc.common.qoiparams.nvqoi > 0 || disc.common.qoiparams.nsurf > 0)) {
         writeQoIHeaderOnce(outqoi, disc.common.qoiparams);
@@ -492,7 +502,8 @@ void CSolutionWriter::SaveQoI(Int backend)
     }
 }
 
-void CSolutionWriter::SaveOutputCG(Int backend) 
+template <class M>
+void CSolutionWriter<M>::SaveOutputCG(Int backend) 
 {
    if (disc.common.timeparams.tdep==1) { 
         if (((disc.common.timestate.currentstep+1) % disc.common.outputparams.saveSolFreq) == 0)             
@@ -519,7 +530,8 @@ void CSolutionWriter::SaveOutputCG(Int backend)
    }    
 }        
 
-void CSolutionWriter::SaveSolutionsOnBoundary(Int backend) 
+template <class M>
+void CSolutionWriter<M>::SaveSolutionsOnBoundary(Int backend) 
 {   
     if ( disc.common.outputparams.saveSolBouFreq>0 ) {
         if (((disc.common.timestate.currentstep+1) % disc.common.outputparams.saveSolBouFreq) == 0)             
@@ -553,7 +565,8 @@ void CSolutionWriter::SaveSolutionsOnBoundary(Int backend)
     }
 }
 
-void CSolutionWriter::SaveNodesOnBoundary(Int backend) 
+template <class M>
+void CSolutionWriter<M>::SaveNodesOnBoundary(Int backend) 
 {   
     if ( disc.common.outputparams.saveSolBouFreq>0 ) {
         for (Int j=0; j<disc.common.meshsizes.nbf; j++) {

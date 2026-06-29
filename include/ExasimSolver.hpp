@@ -58,6 +58,7 @@
 #include "driver_abi.hpp"
 #include "exasim/execution_mode.hpp"
 #include "modeldefaults.hpp"
+#include <exasim/detail/abi_adapter.hpp>
 
 #if defined(HAVE_MPI) || defined(_MPI)
 #include <mpi.h>
@@ -70,7 +71,11 @@ static constexpr MPI_Comm MPI_COMM_NULL = 0;
 
 // Forward declaration keeps this public header light. The implementation file
 // should include the full CSolution definition before defining the methods.
-class CSolution;
+// CSolution is now a class template (model-decoupling C2): the runtime-ABI backend uses the
+// default argument CSolution<> == CSolution<exasim::detail::AbiAdapter>. The default lives HERE
+// (the public forward declaration) so a consumer that only includes this header -- e.g. main.cpp --
+// can name CSolution<>; the primary definition in solution.h omits it to avoid a double default.
+template <class M = exasim::detail::AbiAdapter> class CSolution;
 
 struct ExasimPoint {
     dstype x = 0.0;
@@ -146,7 +151,7 @@ public:
     int NumModelDefinitions() const;
     int BuiltinModelID(const int modelnumber) const;
     int Backend() const;
-    CSolution* Model(int i);
+    CSolution<>* Model(int i);
 
     // Register / clear named QoI instances on a model. Call after Initialize and before
     // Solve. kind: 0 = volume (domain) QoI, 1 = boundary (surface) QoI. (offset, ncomp)
@@ -178,7 +183,7 @@ public:
     dstype *flux_dev_= nullptr;  // device buffer for interface fluxes
 
 private:
-    std::vector<std::unique_ptr<CSolution>> models_;
+    std::vector<std::unique_ptr<CSolution<>>> models_;
     std::vector<ExasimDriverABI> model_abis_;
     std::vector<std::ofstream> residual_outputs_;
     std::vector<std::string> filein_;

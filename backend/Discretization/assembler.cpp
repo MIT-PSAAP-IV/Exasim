@@ -9,7 +9,8 @@
 
 #include "assembler.h"
 
-void CAssembler::hdgAssembleLinearSystem(dstype *b, Int backend)
+template <class M>
+void CAssembler<M>::hdgAssembleLinearSystem(dstype *b, Int backend)
 {
     auto& sol = disc.sol; auto& res = disc.res; auto& app = disc.app;
     auto& master = disc.master; auto& mesh = disc.mesh; auto& tmp = disc.tmp;
@@ -25,16 +26,17 @@ void CAssembler::hdgAssembleLinearSystem(dstype *b, Int backend)
     ArraySetValue(res.F, zero, n*m*ne);
 
 #ifdef HAVE_MPI
-    hdgAssembleLinearSystemMPI<exasim::detail::AbiAdapter>(b, sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
+    hdgAssembleLinearSystemMPI<M>(b, sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
 #else
-    uEquationHDG<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
+    uEquationHDG<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
     hdgAssembleRHS(b, res.Rh, mesh, common);
 #endif
     // (building the HDG preconditioner matrix K from the assembled H is a preconditioner
     //  concern -- moved to CPreconditioner::ComputeHDGPreconditioner, called after assembly)
 }
 
-void CAssembler::hdgAssembleResidual(dstype *b, Int backend)
+template <class M>
+void CAssembler<M>::hdgAssembleResidual(dstype *b, Int backend)
 {
     auto& sol = disc.sol; auto& res = disc.res; auto& app = disc.app;
     auto& master = disc.master; auto& mesh = disc.mesh; auto& tmp = disc.tmp;
@@ -47,32 +49,34 @@ void CAssembler::hdgAssembleResidual(dstype *b, Int backend)
     ArraySetValue(res.Ru, zero, n*ne);
 
 #ifdef HAVE_MPI
-    hdgAssembleResidualMPI<exasim::detail::AbiAdapter>(b, sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
+    hdgAssembleResidualMPI<M>(b, sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
 #else
     // b, K, H, F, Ru
-    ResidualHDG<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
-    //uEquationHDG<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
+    ResidualHDG<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
+    //uEquationHDG<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
     hdgAssembleRHS(b, res.Rh, mesh, common);
 #endif
 }
 
 // matrix-vector product Jv = J(u)*v
-void CAssembler::evalMatVec(dstype* Jv, dstype* v, dstype* u, dstype* Ru, Int backend)
+template <class M>
+void CAssembler<M>::evalMatVec(dstype* Jv, dstype* v, dstype* u, dstype* Ru, Int backend)
 {
     auto& sol = disc.sol; auto& res = disc.res; auto& app = disc.app;
     auto& master = disc.master; auto& mesh = disc.mesh; auto& tmp = disc.tmp;
     auto& common = disc.common;
-    MatVec<exasim::detail::AbiAdapter>(Jv, sol, res, app, master, mesh, tmp, common, common.cublasHandle, v, u, Ru, backend);
+    MatVec<M>(Jv, sol, res, app, master, mesh, tmp, common, common.cublasHandle, v, u, Ru, backend);
 }
 
 // matrix-vector product Jv = J(u)*v (LDG matrix-free FD, or HDG apply of the assembled res.H)
-void CAssembler::evalMatVec(dstype* Jv, dstype* v, dstype* u, dstype* Ru, Int spatialScheme, Int backend)
+template <class M>
+void CAssembler<M>::evalMatVec(dstype* Jv, dstype* v, dstype* u, dstype* Ru, Int spatialScheme, Int backend)
 {
     auto& sol = disc.sol; auto& res = disc.res; auto& app = disc.app;
     auto& master = disc.master; auto& mesh = disc.mesh; auto& tmp = disc.tmp;
     auto& common = disc.common;
     if (spatialScheme == 0) {// LDG
-      MatVec<exasim::detail::AbiAdapter>(Jv, sol, res, app, master, mesh, tmp, common, common.cublasHandle, v, u, Ru, backend);
+      MatVec<M>(Jv, sol, res, app, master, mesh, tmp, common, common.cublasHandle, v, u, Ru, backend);
     }
     else if (spatialScheme == 1) { // HDG
       hdgMatVec(Jv, res.H, v, res.Rh, res.Rq, res, app, mesh, common, tmp, common.cublasHandle, backend);

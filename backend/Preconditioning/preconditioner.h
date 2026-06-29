@@ -22,7 +22,13 @@
 #define __PRECONDITIONER_H__
 
 #include "exasim/execution_mode.hpp"
+#include <exasim/detail/abi_adapter.hpp>
 
+template <class M> class CAssembler;  // forward decl (preconditioner only references it by ref)
+
+// Templated on the user Model type M (default = AbiAdapter): needs M only to name CAssembler<M>
+// in its method signatures; its own driver calls (BlockJacobianLDG) stay direct for now.
+template <class M = exasim::detail::AbiAdapter>
 class CPreconditioner {
 private:
 public:
@@ -37,9 +43,9 @@ public:
     // destructor        
     ~CPreconditioner(); 
             
-    void ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler& assembler, CDiscretization& disc, Int backend);
-    
-    void ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler& assembler, CDiscretization& disc, Int N, Int spatialScheme, Int backend);
+    void ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler<M>& assembler, CDiscretization& disc, Int backend);
+
+    void ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler<M>& assembler, CDiscretization& disc, Int N, Int spatialScheme, Int backend);
     
     // apply the precontioner: Pv = P(u)*v
     void ApplyPreconditioner(dstype* v, sysstruct& sys, CDiscretization& disc, Int backend);

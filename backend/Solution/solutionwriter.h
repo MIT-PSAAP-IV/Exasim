@@ -14,17 +14,22 @@
 #ifndef __SOLUTIONWRITER_H__
 #define __SOLUTIONWRITER_H__
 
-class CDiscretization;  // forward declarations (CSolutionWriter only holds references)
-class CResidual;
-class CVisualization;
-class CSolver;
+#include <exasim/detail/abi_adapter.hpp>
 
+class CDiscretization;  // forward declarations (CSolutionWriter only holds references)
+template <class M> class CResidual;
+class CVisualization;   // model-free (no driver calls) -> stays non-templated
+template <class M> class CSolver;
+
+// Templated on the user Model type M (default = AbiAdapter): M threads to its QoI chain kernels
+// (qoiElement<M>/qoiFace<M>) and to the typed members (residual/solv); vis is model-free.
+template <class M = exasim::detail::AbiAdapter>
 class CSolutionWriter {
 public:
     CDiscretization& disc;
-    CResidual& residual;
+    CResidual<M>& residual;
     CVisualization& vis;
-    CSolver& solv;
+    CSolver<M>& solv;
 
     ofstream outsol;       // storing solutions
     ofstream outwdg;
@@ -36,7 +41,7 @@ public:
     ofstream outbouuhat;
     ofstream outqoi;
 
-    CSolutionWriter(CDiscretization& disc_, CResidual& residual_, CVisualization& vis_, CSolver& solv_)
+    CSolutionWriter(CDiscretization& disc_, CResidual<M>& residual_, CVisualization& vis_, CSolver<M>& solv_)
         : disc(disc_), residual(residual_), vis(vis_), solv(solv_) {}
 
     ~CSolutionWriter() {

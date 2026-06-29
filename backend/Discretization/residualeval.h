@@ -12,8 +12,15 @@
 #ifndef __RESIDUALEVAL_H__
 #define __RESIDUALEVAL_H__
 
+#include <exasim/detail/abi_adapter.hpp>
+
 class CDiscretization;  // forward declaration (CResidual only holds a reference)
 
+// Templated on the user Model type M (default = AbiAdapter, the runtime-ABI build): the
+// residual is the *equation*, so it threads M to its model-dependent chain kernels
+// (Residual<M>/ComputeQ<M>/GetUhat<M>) via the EXASIM_DRIVER_CALL dispatch. For M=AbiAdapter
+// the build is byte-identical to the non-templated original.
+template <class M = exasim::detail::AbiAdapter>
 class CResidual {
 public:
     CDiscretization& disc;

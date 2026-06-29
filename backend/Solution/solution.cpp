@@ -116,7 +116,8 @@ double SolutionBenchmarkStop(const double start, const Int backend)
 
 }
 
-void CSolution::SaveState()
+template <class M>
+void CSolution<M>::SaveState()
 {
     Int backend = disc.common.backend;
 
@@ -147,7 +148,8 @@ void CSolution::SaveState()
     snapshot.initialized = true;
 }
 
-void CSolution::RestoreState()
+template <class M>
+void CSolution<M>::RestoreState()
 {
     Int backend = disc.common.backend;
 
@@ -178,7 +180,8 @@ void CSolution::RestoreState()
     }
 }
 
-void CSolution::ClearSavedState()
+template <class M>
+void CSolution<M>::ClearSavedState()
 {
     Int backend = disc.common.backend;
 
@@ -206,7 +209,8 @@ void CSolution::ClearSavedState()
 }
 
 // (PTCsolver / NewtonSolver moved to CNonlinearSolver -- see nonlinearsolver.cpp)
-void CSolution::SteadyProblem(ofstream &out, Int backend) 
+template <class M>
+void CSolution<M>::SteadyProblem(ofstream &out, Int backend) 
 {   
     INIT_TIMING;        
 #ifdef TIMING    
@@ -355,7 +359,8 @@ void CSolution::SteadyProblem(ofstream &out, Int backend)
 #endif    
 }
 
-void CSolution::InitSolution(Int backend) 
+template <class M>
+void CSolution<M>::InitSolution(Int backend) 
 {    
 //     // compute the geometry quantities
 //     disc.compGeometry(backend);
@@ -415,7 +420,8 @@ void CSolution::InitSolution(Int backend)
     }  
 }
 
-void CSolution::DIRK(ofstream &out, Int backend)
+template <class M>
+void CSolution<M>::DIRK(ofstream &out, Int backend)
 {    
     INIT_TIMING;        
     
@@ -511,7 +517,8 @@ void CSolution::DIRK(ofstream &out, Int backend)
 // Re-homed from CDiscretization (S4): the PTC monitor field is a solver-convergence artifact,
 // not a discretization quantity. Uses the owned disc's structs to call the model MonitorDriver.
 // (evalMonitor / evalOutput moved to CSolutionWriter)
-void CSolution::SteadyProblem_PTC(ofstream &out, Int backend) {
+template <class M>
+void CSolution<M>::SteadyProblem_PTC(ofstream &out, Int backend) {
 
     // initial time
     double time = disc.common.timestate.time;           
@@ -560,7 +567,7 @@ void CSolution::SteadyProblem_PTC(ofstream &out, Int backend) {
             this->SteadyProblem(out, backend);                             
 
             // update solution 
-            UpdateSolution(disc.sol, solv.sys, disc.app, disc.driver_abi, disc.res, disc.tmp, disc.common, backend);
+            UpdateSolution<M>(disc.sol, solv.sys, disc.app, disc.driver_abi, disc.res, disc.tmp, disc.common, backend);
             
             // TODO: input wprev
             writer.evalMonitor(disc.tmp.tempn,  disc.sol.udg, disc.sol.wdg, disc.common.components.nc, backend);
@@ -667,7 +674,8 @@ void CSolution::SteadyProblem_PTC(ofstream &out, Int backend) {
     }
 }
 
-void CSolution::SolveProblem(ofstream &out, Int backend) 
+template <class M>
+void CSolution<M>::SolveProblem(ofstream &out, Int backend) 
 {          
     this->InitSolution(backend); 
         

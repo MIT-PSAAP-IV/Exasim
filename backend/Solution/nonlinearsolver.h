@@ -15,24 +15,29 @@
 #ifndef __NONLINEARSOLVER_H__
 #define __NONLINEARSOLVER_H__
 
-class CDiscretization;   // forward declarations (CNonlinearSolver only holds references)
-class CResidual;
-class CAssembler;
-class CPreconditioner;
-class CSolver;
-class CSolutionWriter;
+#include <exasim/detail/abi_adapter.hpp>
 
+class CDiscretization;   // forward declarations (CNonlinearSolver only holds references)
+template <class M> class CResidual;
+template <class M> class CAssembler;
+template <class M> class CPreconditioner;
+template <class M> class CSolver;
+template <class M> class CSolutionWriter;
+
+// Templated on the user Model type M (default = AbiAdapter): holds the model-dependent pieces it
+// drives by reference; M threads through to its one model call (GetW<M>) and to the typed members.
+template <class M = exasim::detail::AbiAdapter>
 class CNonlinearSolver {
 public:
     CDiscretization& disc;
-    CResidual& residual;
-    CAssembler& assembler;
-    CPreconditioner& prec;
-    CSolver& solv;
-    CSolutionWriter& writer;
+    CResidual<M>& residual;
+    CAssembler<M>& assembler;
+    CPreconditioner<M>& prec;
+    CSolver<M>& solv;
+    CSolutionWriter<M>& writer;
 
-    CNonlinearSolver(CDiscretization& disc_, CResidual& residual_, CAssembler& assembler_,
-                     CPreconditioner& prec_, CSolver& solv_, CSolutionWriter& writer_)
+    CNonlinearSolver(CDiscretization& disc_, CResidual<M>& residual_, CAssembler<M>& assembler_,
+                     CPreconditioner<M>& prec_, CSolver<M>& solv_, CSolutionWriter<M>& writer_)
         : disc(disc_), residual(residual_), assembler(assembler_),
           prec(prec_), solv(solv_), writer(writer_) {}
 

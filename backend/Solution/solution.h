@@ -112,6 +112,12 @@ void printinterfaceinfo(CDiscretization &disc)
     // print2darray(disc.sol.udg, disc.common.grid.npe, disc.common.meshsizes.ne*disc.common.components.nc);                      
 }
 
+// Templated on the user Model type M (default = AbiAdapter, the runtime-ABI build). This is the
+// top of the model-dependent FEM stack: it owns the model-parameterized pieces by value, so M
+// threads from here (or from the header facade's run<M>()) down to every model call. For
+// M=AbiAdapter the build is byte-identical to the non-templated original; a concrete M makes the
+// solve fully inlined with no driver_abi. disc/sampler/vis are model-free and stay non-templated.
+template <class M>
 class CSolution {
 private:
     struct PDEStateSnapshot {
@@ -125,14 +131,14 @@ private:
     PDEStateSnapshot snapshot;
 public:
     CDiscretization disc;  // spatial discretization class (the function space)
-    CResidual residual;    // the discretized PDE residual R(u)/flux q (evaluates from disc)
-    CAssembler assembler;  // HDG global linear-system assembler + operator-apply (from disc)
+    CResidual<M> residual;    // the discretized PDE residual R(u)/flux q (evaluates from disc)
+    CAssembler<M> assembler;  // HDG global linear-system assembler + operator-apply (from disc)
     CInterfaceSampler sampler; // interface/boundary field sampling for coupling (from disc)
-    CPreconditioner prec;  // precondtioner class
-    CSolver solv;          // linear and nonlinear solvers
+    CPreconditioner<M> prec;  // precondtioner class
+    CSolver<M> solv;          // linear and nonlinear solvers
     CVisualization vis;    // visualization class
-    CSolutionWriter writer; // solution output (streams + Save*/Read*/Get*/evalOutput) -- the I/O half
-    CNonlinearSolver nonlinear; // PTC/Newton nonlinear iterations -- the nonlinear-solver half
+    CSolutionWriter<M> writer; // solution output (streams + Save*/Read*/Get*/evalOutput) -- the I/O half
+    CNonlinearSolver<M> nonlinear; // PTC/Newton nonlinear iterations -- the nonlinear-solver half
 
     // constructor 
     CSolution(string filein, string fileout, string exasimpath, Int mpiprocs,

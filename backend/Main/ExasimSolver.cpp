@@ -113,9 +113,9 @@ using namespace std;
 
 namespace {
 
-static vector<CSolution*> ModelPointers(vector<unique_ptr<CSolution>>& models)
+static vector<CSolution<>*> ModelPointers(vector<unique_ptr<CSolution<>>>& models)
 {
-    vector<CSolution*> ptrs(models.size(), nullptr);
+    vector<CSolution<>*> ptrs(models.size(), nullptr);
     for (size_t i = 0; i < models.size(); ++i)
         ptrs[i] = models[i].get();
     return ptrs;
@@ -391,7 +391,7 @@ int ExasimSolver::Backend() const
     return backend_;
 }
 
-CSolution* ExasimSolver::Model(int i)
+CSolution<>* ExasimSolver::Model(int i)
 {
     if (i < 0 || i >= static_cast<int>(models_.size()))
         return nullptr;
@@ -401,7 +401,7 @@ CSolution* ExasimSolver::Model(int i)
 int ExasimSolver::AddQoI(int modelindex, const std::string& name, int kind,
                          int boundary, int offset, int ncomp)
 {
-    CSolution* m = Model(modelindex);
+    CSolution<>* m = Model(modelindex);
     if (m == nullptr) return 1;
     commonstruct& common = m->disc.common;
     if (offset < 0 || ncomp <= 0) return 2;
@@ -419,7 +419,7 @@ int ExasimSolver::AddQoI(int modelindex, const std::string& name, int kind,
 
 int ExasimSolver::ClearQoI(int modelindex)
 {
-    CSolution* m = Model(modelindex);
+    CSolution<>* m = Model(modelindex);
     if (m == nullptr) return 1;
     m->disc.common.qoiparams.qoiinstances.clear();
     return 0;
@@ -830,7 +830,7 @@ int ExasimSolver::BuildModels()
             active_physicsparam_.empty() ? nullptr : &active_physicsparam_;
 
         if (mpiprocs0_ == 0) {
-            models_.push_back(std::make_unique<CSolution>(
+            models_.push_back(std::make_unique<CSolution<>>(
                 filein_[i], fileout_[i], exasimpath_, mpiprocs_, mpirank_,
                 fileoffset, gpuid, backend_, builtinmodelID_[modelDefinition],
                 model_abis_[modelDefinition], nsca_, nvec_, nten_, nsurf_, nvqoi_, executionMode_,
@@ -838,7 +838,7 @@ int ExasimSolver::BuildModels()
         }
         else if (mpiprocs0_ > 0) {
             if (mpirank_ < mpiprocs0_) {
-                models_.push_back(std::make_unique<CSolution>(
+                models_.push_back(std::make_unique<CSolution<>>(
                     filein_[0], fileout_[0], exasimpath_, mpiprocs_, mpirank_,
                     fileoffset, gpuid, backend_, builtinmodelID_[modelDefinition],
                     model_abis_[modelDefinition], nsca_, nvec_, nten_, nsurf_, nvqoi_, executionMode_,
@@ -848,7 +848,7 @@ int ExasimSolver::BuildModels()
                 fileoffset = mpiprocs0_;
                 cout << filein_[1] << endl;
                 cout << fileout_[1] << endl;
-                models_.push_back(std::make_unique<CSolution>(
+                models_.push_back(std::make_unique<CSolution<>>(
                     filein_[1], fileout_[1], exasimpath_, mpiprocs_, mpirank_,
                     fileoffset, gpuid, backend_, builtinmodelID_[modelDefinition],
                     model_abis_[modelDefinition], nsca_, nvec_, nten_, nsurf_, nvqoi_, executionMode_,
@@ -910,7 +910,7 @@ int ExasimSolver::IntializeMeshInterface(const int modelnumber,
         !models_[modelnumber])
         return 1;
 
-    CSolution& model = *models_[modelnumber];
+    CSolution<>& model = *models_[modelnumber];
     const int interfaceBackend = model.disc.common.backend;
 
     if (faces) {
@@ -1053,7 +1053,7 @@ void ExasimSolver::getInterfaceFluxes(std::vector<double>& send_flux) const
     const Int sz = ngf * nfaces * _ncuint;
     send_flux.resize(sz);
 
-    CSolution& model = *models_[interface_modelnumber_];
+    CSolution<>& model = *models_[interface_modelnumber_];
     if (backend_ > 1) {
         model.sampler.getInterfaceFluxesAtGaussPoints(flux_dev_, xdggint, nlgint, faces, nfaces);
         TemplateCopytoHost(send_flux.data(), flux_dev_, sz, backend_);
@@ -1064,14 +1064,14 @@ void ExasimSolver::getInterfaceFluxes(std::vector<double>& send_flux) const
 
 void ExasimSolver::setInterfaceFluxes(const std::vector<double>& recv_flux)
 {
-    CSolution& model = *models_[interface_modelnumber_];
+    CSolution<>& model = *models_[interface_modelnumber_];
     TemplateCopytoDevice(model.disc.sol.uext, recv_flux.data(), ngf * nfaces * model.disc.common.couplingparams.ncuext, backend_);
     model.disc.common.couplingparams.FextCall = _ibc + 1;
 }
 
 int ExasimSolver::RunAVDistanceFunction()
 {
-    vector<CSolution*> ptrs = ModelPointers(models_);
+    vector<CSolution<>*> ptrs = ModelPointers(models_);
     avdistfunc(ptrs.data(), residual_outputs_.data(), nummodels_, backend_);
     return 0;
 }
@@ -1385,7 +1385,7 @@ int ExasimSolver::SaveParaviewStep(const int modelnumber, const int step, const 
         return 1;
     if (step < 1)  // step is 1-based; step-1 must be a valid (>=0) index
         return 1;
-    CSolution& m = *models_[modelnumber];
+    CSolution<>& m = *models_[modelnumber];
     // Nothing to write — and nothing to perturb — when vis is disabled. Returning
     // before touching currentstep keeps this a true no-op for non-vis models.
     if (m.vis.savemode <= 0)

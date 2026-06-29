@@ -12,17 +12,19 @@
 
 #include "residualeval.h"
 
-void CResidual::evalResidual(Int backend)
+template <class M>
+void CResidual<M>::evalResidual(Int backend)
 {
     [[maybe_unused]] auto& sol = disc.sol; [[maybe_unused]] auto& res = disc.res; [[maybe_unused]] auto& app = disc.app;
     [[maybe_unused]] auto& master = disc.master; [[maybe_unused]] auto& mesh = disc.mesh; [[maybe_unused]] auto& tmp = disc.tmp;
     [[maybe_unused]] auto& common = disc.common; [[maybe_unused]] auto& driver_abi = disc.driver_abi;
     // compute the residual vector
-    Residual<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
+    Residual<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
 }
 
 // residual evaluation
-void CResidual::evalResidual(dstype* Ru, dstype* u, Int backend)
+template <class M>
+void CResidual<M>::evalResidual(dstype* Ru, dstype* u, Int backend)
 { 
     [[maybe_unused]] auto& sol = disc.sol; [[maybe_unused]] auto& res = disc.res; [[maybe_unused]] auto& app = disc.app;
     [[maybe_unused]] auto& master = disc.master; [[maybe_unused]] auto& mesh = disc.mesh; [[maybe_unused]] auto& tmp = disc.tmp;
@@ -32,21 +34,22 @@ void CResidual::evalResidual(dstype* Ru, dstype* u, Int backend)
             0, common.components.ncu, 0, common.meshsizes.ne1);  
 
     // compute the residual vector R(u)
-    Residual<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
+    Residual<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
 
     // copy the residual vector to Ru
     ArrayCopy(Ru, res.Ru, common.sizes.ndof1);
 }
 
 // q evaluation
-void CResidual::evalQ(Int backend)
+template <class M>
+void CResidual<M>::evalQ(Int backend)
 {
     [[maybe_unused]] auto& sol = disc.sol; [[maybe_unused]] auto& res = disc.res; [[maybe_unused]] auto& app = disc.app;
     [[maybe_unused]] auto& master = disc.master; [[maybe_unused]] auto& mesh = disc.mesh; [[maybe_unused]] auto& tmp = disc.tmp;
     [[maybe_unused]] auto& common = disc.common; [[maybe_unused]] auto& driver_abi = disc.driver_abi;
     if (common.spatialScheme == 0) {
         // LDG computes q through the model flux kernels.
-        ComputeQ<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
+        ComputeQ<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
     }
     else if (common.spatialScheme == 1) {
         // HDG recovers q from the element state and trace unknowns.
@@ -57,17 +60,19 @@ void CResidual::evalQ(Int backend)
     }
 }
 
-void CResidual::evalQSer(Int backend)
+template <class M>
+void CResidual<M>::evalQSer(Int backend)
 {
     [[maybe_unused]] auto& sol = disc.sol; [[maybe_unused]] auto& res = disc.res; [[maybe_unused]] auto& app = disc.app;
     [[maybe_unused]] auto& master = disc.master; [[maybe_unused]] auto& mesh = disc.mesh; [[maybe_unused]] auto& tmp = disc.tmp;
     [[maybe_unused]] auto& common = disc.common; [[maybe_unused]] auto& driver_abi = disc.driver_abi;
     // compute the flux q    
-    GetUhat<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 0, common.meshsizes.nbf, backend);        
+    GetUhat<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 0, common.meshsizes.nbf, backend);        
     GetQ(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 0, common.meshsizes.nbe, 0, common.meshsizes.nbf, backend);        
 }
 
-void CResidual::evalQ(dstype* q, dstype* u, Int backend)
+template <class M>
+void CResidual<M>::evalQ(dstype* q, dstype* u, Int backend)
 {
     [[maybe_unused]] auto& sol = disc.sol; [[maybe_unused]] auto& res = disc.res; [[maybe_unused]] auto& app = disc.app;
     [[maybe_unused]] auto& master = disc.master; [[maybe_unused]] auto& mesh = disc.mesh; [[maybe_unused]] auto& tmp = disc.tmp;
@@ -78,7 +83,7 @@ void CResidual::evalQ(dstype* q, dstype* u, Int backend)
 
     if (common.spatialScheme == 0) {
         // LDG computes q through the model flux kernels.
-        ComputeQ<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
+        ComputeQ<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
     }
     else if (common.spatialScheme == 1) {
         // HDG recovers q from the element state and trace unknowns.
@@ -94,7 +99,8 @@ void CResidual::evalQ(dstype* q, dstype* u, Int backend)
 }
 
 
-void CResidual::updateUDG(dstype* u, Int backend)
+template <class M>
+void CResidual<M>::updateUDG(dstype* u, Int backend)
 {
     [[maybe_unused]] auto& sol = disc.sol; [[maybe_unused]] auto& res = disc.res; [[maybe_unused]] auto& app = disc.app;
     [[maybe_unused]] auto& master = disc.master; [[maybe_unused]] auto& mesh = disc.mesh; [[maybe_unused]] auto& tmp = disc.tmp;
@@ -105,10 +111,11 @@ void CResidual::updateUDG(dstype* u, Int backend)
 
     if (common.components.ncq>0)
         // compute the flux q
-        ComputeQ<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
+        ComputeQ<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
 }
 
-void CResidual::updateU(dstype* u, Int backend)
+template <class M>
+void CResidual<M>::updateU(dstype* u, Int backend)
 {
     [[maybe_unused]] auto& sol = disc.sol; [[maybe_unused]] auto& res = disc.res; [[maybe_unused]] auto& app = disc.app;
     [[maybe_unused]] auto& master = disc.master; [[maybe_unused]] auto& mesh = disc.mesh; [[maybe_unused]] auto& tmp = disc.tmp;
@@ -118,7 +125,8 @@ void CResidual::updateU(dstype* u, Int backend)
             0, common.components.ncu, 0, common.meshsizes.ne1);
 }
 
-void CResidual::evalAVfield(dstype* avField, dstype* u, Int backend)
+template <class M>
+void CResidual<M>::evalAVfield(dstype* avField, dstype* u, Int backend)
 {
     [[maybe_unused]] auto& sol = disc.sol; [[maybe_unused]] auto& res = disc.res; [[maybe_unused]] auto& app = disc.app;
     [[maybe_unused]] auto& master = disc.master; [[maybe_unused]] auto& mesh = disc.mesh; [[maybe_unused]] auto& tmp = disc.tmp;
@@ -129,13 +137,14 @@ void CResidual::evalAVfield(dstype* avField, dstype* u, Int backend)
     
     // compute the flux q
     if (common.components.ncq>0)        
-        ComputeQ<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
+        ComputeQ<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
 
     // compute the av field
     AvfieldDriver(avField, sol.xdg, sol.udg, sol.odg, sol.wdg, driver_abi, mesh, master, app, sol, tmp, common, backend);    
 }
 
-void CResidual::evalAVfield(dstype* avField, Int backend)
+template <class M>
+void CResidual<M>::evalAVfield(dstype* avField, Int backend)
 {    
     [[maybe_unused]] auto& sol = disc.sol; [[maybe_unused]] auto& res = disc.res; [[maybe_unused]] auto& app = disc.app;
     [[maybe_unused]] auto& master = disc.master; [[maybe_unused]] auto& mesh = disc.mesh; [[maybe_unused]] auto& tmp = disc.tmp;
@@ -203,7 +212,8 @@ void CResidual::evalAVfield(dstype* avField, Int backend)
 // Thin entry over the free initializeSolution(); relocated out of the CDiscretization ctor so
 // the operator drives its own initialization. The free function reads disc.common's sizes and
 // dispatches the model init drivers in the solution's execution space (host on CPU, device on GPU).
-void CResidual::initializeSolution()
+template <class M>
+void CResidual<M>::initializeSolution()
 {
     ::initializeSolution(disc.sol, disc.app, disc.driver_abi, disc.common);
 }
@@ -212,7 +222,8 @@ void CResidual::initializeSolution()
 // Extracted verbatim from the CDiscretization constructor (option 2): the q/uh recovery is
 // the operator applying itself, so it belongs to the operator (CResidual), not the function
 // space. Members are bound as disc.* references; the kernel calls are unchanged.
-void CResidual::recoverInitialState(Int backend, bool postprocessOnly)
+template <class M>
+void CResidual<M>::recoverInitialState(Int backend, bool postprocessOnly)
 {
     [[maybe_unused]] auto& sol = disc.sol; [[maybe_unused]] auto& res = disc.res; [[maybe_unused]] auto& app = disc.app;
     [[maybe_unused]] auto& master = disc.master; [[maybe_unused]] auto& mesh = disc.mesh; [[maybe_unused]] auto& tmp = disc.tmp;
@@ -220,7 +231,7 @@ void CResidual::recoverInitialState(Int backend, bool postprocessOnly)
 
     if (common.spatialScheme == 0) {  // LDG: recover the auxiliary flux q from the initial u
         if ((common.components.ncq>0) && (common.timeparams.wave==0)) {
-            GetUhat<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 0, common.meshsizes.nbf, backend);
+            GetUhat<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 0, common.meshsizes.nbf, backend);
             GetQ(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 0, common.meshsizes.nbe, 0, common.meshsizes.nbf, backend);
         }
     }

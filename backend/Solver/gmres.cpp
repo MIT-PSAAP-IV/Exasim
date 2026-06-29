@@ -16,7 +16,7 @@ Functions:
     - Performs Classical Gram-Schmidt orthogonalization on Krylov vectors.
     - Computes the projection and normalization of the new vector.
 
-2. void ApplyPoly(dstype *w, CAssembler& assembler, CDiscretization &disc, CPreconditioner& prec,
+2. void ApplyPoly(dstype *w, CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& prec,
                         sysstruct &sys, dstype *q, dstype *p, int N, int backend)
     - Applies a polynomial preconditioner to a vector using Ritz values.
     - Handles both real and complex Ritz values for improved convergence.
@@ -25,17 +25,17 @@ Functions:
                              Int i, Int N, Int n, Int backend)
     - Updates the solution vector using the computed Krylov basis and coefficients.
 
-4. Int CSolver::gmres(CAssembler& assembler, CDiscretization &disc, CPreconditioner& prec, Int backend)
+4. Int CSolver::gmres(CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& prec, Int backend)
     - Main GMRES solver routine.
     - Handles initialization, polynomial preconditioning, orthogonalization, 
       convergence checks, and solution updates.
     - Supports restart and timing of key operations.
 
-5. void ApplyPoly(dstype *w, CAssembler& assembler, CDiscretization &disc, CPreconditioner& prec,
+5. void ApplyPoly(dstype *w, CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& prec,
                         sysstruct &sys, dstype *q, dstype *p, int N, Int spatialScheme, int backend)
     - Overloaded version of ApplyPoly with spatialScheme parameter for flexibility.
 
-6. Int CSolver::gmres(CAssembler& assembler, CDiscretization &disc, CPreconditioner& prec, Int N, Int spatialScheme, Int backend)
+6. Int CSolver::gmres(CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& prec, Int N, Int spatialScheme, Int backend)
     - Overloaded GMRES routine supporting additional spatial scheme parameter.
     - Provides detailed timing for matrix-vector products, preconditioning, 
       orthogonalization, and solution updates.
@@ -87,7 +87,8 @@ void CGS(cublasHandle_t handle, dstype *V, dstype *H, dstype *temp, Int N, Int m
     ArrayMultiplyScalar(&V[m*N], one/H[m], N);
 }
 
-void ApplyPoly(dstype *w, CAssembler& assembler, CDiscretization &disc, CPreconditioner& prec,
+template <class M>
+void ApplyPoly(dstype *w, CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& prec,
         sysstruct &sys, dstype *q, dstype *p, int N, int backend)
 {
     int m = disc.common.ppdegree;
@@ -135,7 +136,8 @@ void UpdateSolution(cublasHandle_t handle, dstype *x, dstype *y, dstype *H, dsty
     PGEMNV(handle, N, i+1, &one, V, N, y, inc1, &one, x, inc1, backend);
 }
 
-Int CSolver::gmres(CAssembler& assembler, CDiscretization &disc, CPreconditioner& prec, Int backend)
+template <class M>
+Int CSolver<M>::gmres(CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& prec, Int backend)
 {
     INIT_TIMING;    
     
@@ -313,7 +315,8 @@ Int CSolver::gmres(CAssembler& assembler, CDiscretization &disc, CPreconditioner
     return j;
 }
 
-void ApplyPoly(dstype *w, CAssembler& assembler, CDiscretization &disc, CPreconditioner& prec,
+template <class M>
+void ApplyPoly(dstype *w, CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& prec,
         sysstruct &sys, dstype *q, dstype *p, int N, Int spatialScheme, int backend)
 {
     int m = disc.common.ppdegree;
@@ -354,7 +357,8 @@ void ApplyPoly(dstype *w, CAssembler& assembler, CDiscretization &disc, CPrecond
         ArrayAXPBY(w, w, q, 1.0, 1.0/sr[m-1], N);                  
 }
 
-Int CSolver::gmres(CAssembler& assembler, CDiscretization &disc, CPreconditioner& prec, Int N, Int spatialScheme, Int backend)
+template <class M>
+Int CSolver<M>::gmres(CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& prec, Int N, Int spatialScheme, Int backend)
 {
     INIT_TIMING;    
     

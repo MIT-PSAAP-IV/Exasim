@@ -13,14 +13,14 @@
     - CPreconditioner::~CPreconditioner()
         Destructor: Frees memory allocated for the preconditioner.
 
-    - CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler& assembler, CDiscretization& disc, Int backend)
+    - CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler<M>& assembler, CDiscretization& disc, Int backend)
         Computes the initial guess and sets up the preconditioner using reduced basis techniques.
         Involves matrix-vector multiplications and small matrix inversions.
 
     - CPreconditioner::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretization& disc, Int backend)
         Applies the preconditioner to the input vector x, storing the result in disc.res.Ru.
 
-    - CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler& assembler, CDiscretization& disc, Int N, Int spatialScheme, Int backend)
+    - CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler<M>& assembler, CDiscretization& disc, Int N, Int spatialScheme, Int backend)
         Variant of the initial guess and preconditioner computation supporting different spatial schemes.
 
     - ApplyBlockILU0(double* x, double* A, double* b, double *B, double *C, commonstruct& common)
@@ -57,7 +57,8 @@
 
 
 // constructor
-CPreconditioner::CPreconditioner(CDiscretization& disc, Int backend, ExasimExecutionMode mode)
+template <class M>
+CPreconditioner<M>::CPreconditioner(CDiscretization& disc, Int backend, ExasimExecutionMode mode)
 {
     mpiRank = disc.common.mpiRank;
     precond.backend = backend;
@@ -72,13 +73,15 @@ CPreconditioner::CPreconditioner(CDiscretization& disc, Int backend, ExasimExecu
 }
 
 // destructor
-CPreconditioner::~CPreconditioner()
+template <class M>
+CPreconditioner<M>::~CPreconditioner()
 {            
     precond.freememory(precond.backend);
     if (mpiRank==0) printf("CPreconditioner destructor: precond memory is freed successfully.\n");
 }
 
-void CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler& assembler, CDiscretization& disc, Int backend)
+template <class M>
+void CPreconditioner<M>::ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler<M>& assembler, CDiscretization& disc, Int backend)
 {       
     // P = B + V*W^T  
     // P*W = B*W + V*W^T*W = A*W -> V = (A-B)*W
@@ -129,7 +132,8 @@ void CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, solve
             inc1, &zero, sys.x, inc1, backend);                                                 
 }
 
-void CPreconditioner::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretization& disc, Int backend)
+template <class M>
+void CPreconditioner<M>::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretization& disc, Int backend)
 {        
     Int N = disc.common.sizes.ndof1;        
 
@@ -146,7 +150,8 @@ void CPreconditioner::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretiza
             disc.common.solverparams.preconditioner, disc.common.grid.curvedMesh, backend);
 }
 
-void CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler& assembler, CDiscretization& disc, Int N, Int spatialScheme, Int backend)
+template <class M>
+void CPreconditioner<M>::ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler<M>& assembler, CDiscretization& disc, Int N, Int spatialScheme, Int backend)
 {     
     Int RBdim = state.RBcurrentdim;
     dstype *RBcoef = &disc.tmp.tempn[0];
@@ -278,7 +283,8 @@ void ApplyBlockILU0(double* x, double* A, double* b, double *B, double *C, commo
     }
 }
 
-void CPreconditioner::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretization& disc, Int spatialScheme, Int backend)
+template <class M>
+void CPreconditioner<M>::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretization& disc, Int spatialScheme, Int backend)
 {                
     if (spatialScheme==0) {
       Int N = disc.common.sizes.ndof1;        
@@ -336,7 +342,8 @@ void CPreconditioner::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretiza
 // from the discretization's structs but is a preconditioner responsibility. BlockJacobianLDG /
 // mpiBlockJacobianLDG are visible here via the unity build (discretization.cpp, which includes
 // ldgblockjacobian.cpp, precedes preconditioner.cpp in ExasimSolver.cpp).
-void CPreconditioner::ComputeLDGPreconditioner(CDiscretization& disc, dstype* K, dstype* u, Int backend)
+template <class M>
+void CPreconditioner<M>::ComputeLDGPreconditioner(CDiscretization& disc, dstype* K, dstype* u, Int backend)
 {
 #ifdef HAVE_MPI
     if (disc.common.mpiProcs > 1) {
@@ -352,7 +359,8 @@ void CPreconditioner::ComputeLDGPreconditioner(CDiscretization& disc, dstype* K,
 // Build the HDG preconditioner matrix K from the assembled global system H.
 // (Re-homed from CAssembler::hdgAssembleLinearSystem: assembly builds H, the preconditioner
 //  builds K from H -- two separate concerns. Called after the assembler, before GMRES.)
-void CPreconditioner::ComputeHDGPreconditioner(CDiscretization& disc, Int backend)
+template <class M>
+void CPreconditioner<M>::ComputeHDGPreconditioner(CDiscretization& disc, Int backend)
 {
     auto& res = disc.res; auto& mesh = disc.mesh; auto& tmp = disc.tmp; auto& common = disc.common;
 

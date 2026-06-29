@@ -9,7 +9,8 @@
 
 #include "nonlinearsolver.h"
 
-Int CNonlinearSolver::PTCsolver(ofstream &out, Int backend)       
+template <class M>
+Int CNonlinearSolver<M>::PTCsolver(ofstream &out, Int backend)       
 {
     Int N = disc.common.sizes.ndof1;     
     Int it = 0, maxit = disc.common.solverparams.nonlinearSolverMaxIter;  
@@ -145,7 +146,8 @@ Int CNonlinearSolver::PTCsolver(ofstream &out, Int backend)
     return it;
 }
 
-Int CNonlinearSolver::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int backend)       
+template <class M>
+Int CNonlinearSolver<M>::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int backend)       
 {
     Int it = 0, maxit = disc.common.solverparams.nonlinearSolverMaxIter;  
     dstype nrmr, nrm0, tol;
@@ -168,7 +170,7 @@ Int CNonlinearSolver::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int 
     if (spatialScheme == 1) { 
 
       if (disc.common.components.ncq > 0) hdgGetQ(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common, backend);                
-      if (disc.common.components.ncw > 0) GetW<exasim::detail::AbiAdapter>(disc.sol.wdg, disc.sol, disc.tmp, disc.app, disc.common, backend);
+      if (disc.common.components.ncw > 0) GetW<M>(disc.sol.wdg, disc.sol, disc.tmp, disc.app, disc.common, backend);
       
       // compute the residual vector R = [Ru; Rh]
       assembler.hdgAssembleResidual(solv.sys.b, backend);
@@ -249,7 +251,7 @@ Int CNonlinearSolver::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int 
           }          
                     
           if (disc.common.components.ncq > 0) hdgGetQ(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common, backend);          
-          if (disc.common.components.ncw > 0) GetW<exasim::detail::AbiAdapter>(disc.sol.wdg, disc.sol, disc.tmp, disc.app, disc.common, backend);
+          if (disc.common.components.ncw > 0) GetW<M>(disc.sol.wdg, disc.sol, disc.tmp, disc.app, disc.common, backend);
                               
           nrm0 = nrmr; // original norm          
           // compute the updated residual norm |[Ru; Rh]|
@@ -278,7 +280,7 @@ Int CNonlinearSolver::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int 
             ArrayCopy(disc.sol.uh, solv.sys.u, N);
             UpdateUDG(disc.sol.udg, solv.sys.v, -solv.sys.alpha, disc.common.grid.npe, disc.common.components.nc, disc.common.meshsizes.ne1, 0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.meshsizes.ne1);                    
             if (disc.common.components.ncq > 0) hdgGetQ(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common, backend);          
-            if (disc.common.components.ncw > 0) GetW<exasim::detail::AbiAdapter>(disc.sol.wdg, disc.sol, disc.tmp, disc.app, disc.common, backend);
+            if (disc.common.components.ncw > 0) GetW<M>(disc.sol.wdg, disc.sol, disc.tmp, disc.app, disc.common, backend);
             assembler.hdgAssembleResidual(solv.sys.b, backend);
             nrmr = PNORM(disc.common.cublasHandle, N, disc.common.couplingparams.ndofuhatinterface, solv.sys.b, backend); 
             nrmr += PNORM(disc.common.cublasHandle, disc.common.grid.npe*disc.common.components.ncu*disc.common.meshsizes.ne1, disc.res.Ru, backend);                       

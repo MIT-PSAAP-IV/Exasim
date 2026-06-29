@@ -26,10 +26,15 @@
 #define __SOLVER_H__
 
 #include "exasim/execution_mode.hpp"
+#include <exasim/detail/abi_adapter.hpp>
 
-class CAssembler;  // HDG global-system assembler (Stage 3); HDG linearSolve assembles via it
-class CResidual;   // the discretized PDE residual R(u) (full-split); HDG/LDG linearSolve evaluates R via it
+template <class M> class CAssembler;       // HDG global-system assembler (Stage 3); HDG linearSolve assembles via it
+template <class M> class CResidual;        // the discretized PDE residual R(u) (full-split); HDG/LDG linearSolve evaluates R via it
+template <class M> class CPreconditioner;  // referenced by ref in linearSolve/gmres/updateRB
 
+// Templated on the user Model type M (default = AbiAdapter): needs M only to name
+// CResidual<M>/CAssembler<M>/CPreconditioner<M> in its solve-surface signatures.
+template <class M = exasim::detail::AbiAdapter>
 class CSolver {
 private:
 public:
@@ -47,16 +52,16 @@ public:
     ~CSolver();
 
     // one linear solve (preconditioner setup + GMRES); LDG returns the GMRES iteration count.
-    int  linearSolve(CResidual& residual, CAssembler& assembler, CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int it, Int backend);
-    void linearSolve(CResidual& residual, CAssembler& assembler, CDiscretization& disc, CPreconditioner& prec, ofstream &out, Int N, Int spatialScheme, Int it, Int backend);
+    int  linearSolve(CResidual<M>& residual, CAssembler<M>& assembler, CDiscretization& disc, CPreconditioner<M>& prec, ofstream &out, Int it, Int backend);
+    void linearSolve(CResidual<M>& residual, CAssembler<M>& assembler, CDiscretization& disc, CPreconditioner<M>& prec, ofstream &out, Int N, Int spatialScheme, Int it, Int backend);
 
     // restarted GMRES (operates on this->sys / this->state)
-    Int  gmres(CAssembler& assembler, CDiscretization &disc, CPreconditioner& prec, Int backend);
-    Int  gmres(CAssembler& assembler, CDiscretization &disc, CPreconditioner& prec, Int N, Int spatialScheme, Int backend);
+    Int  gmres(CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& prec, Int backend);
+    Int  gmres(CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& prec, Int N, Int spatialScheme, Int backend);
 
     // update the reduced-basis space after a nonlinear step
-    void updateRB(CDiscretization& disc, CPreconditioner& prec, Int backend);
-    void updateRB(CDiscretization& disc, CPreconditioner& prec, Int N, Int backend);
+    void updateRB(CDiscretization& disc, CPreconditioner<M>& prec, Int backend);
+    void updateRB(CDiscretization& disc, CPreconditioner<M>& prec, Int N, Int backend);
 };
 
 #endif        

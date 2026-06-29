@@ -115,6 +115,7 @@ void UpdateSolution(solstruct &sol, sysstruct &sys, commonstruct &common, Int ba
 }
 
 
+template <class M = exasim::detail::AbiAdapter>
 void UpdateSolution(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriverABI& driver_abi, resstruct &res, tempstruct &tmp, commonstruct &common, Int backend)
 {                                   
     Int N = common.sizes.ndof1;
@@ -160,7 +161,7 @@ void UpdateSolution(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriver
                 GetElemNodes(udg, sol.udg, common.grid.npe, nc, 0, nc, e1, e2);
                 GetElemNodes(odg, sol.odg, common.grid.npe, nco, 0, nco, e1, e2);
                 GetElemNodes(sdg, sol.wsrc, common.grid.npe, ncw, 0, ncw, e1, e2);
-                wEquation<exasim::detail::AbiAdapter>(wdg, xdg, udg, odg, sdg, tmp.tempg, app, common, ng, common.backend);
+                wEquation<M>(wdg, xdg, udg, odg, sdg, tmp.tempg, app, common, ng, common.backend);
                 PutElemNodes(sol.wdg, wdg, common.grid.npe, ncw, 0, ncw, e1, e2);
             }   
         }

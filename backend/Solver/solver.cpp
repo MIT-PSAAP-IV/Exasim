@@ -14,11 +14,11 @@
         Destructor. Frees memory allocated for the system structure and prints a message
         if running on the root MPI rank.
 
-    - void PseudoTransientContinuation(CDiscretization& disc, CPreconditioner& prec, ofstream& out, Int backend)
+    - void PseudoTransientContinuation(CDiscretization& disc, CPreconditioner<M>& prec, ofstream& out, Int backend)
         Solves the nonlinear system using the Pseudo-Transient Continuation (PTC) method.
         Updates the solution vector and the discretization's UDG field.
 
-    - void NewtonSolver(CDiscretization& disc, CPreconditioner& prec, ofstream& out, Int N, Int spatialScheme, Int backend)
+    - void NewtonSolver(CDiscretization& disc, CPreconditioner<M>& prec, ofstream& out, Int N, Int spatialScheme, Int backend)
         Solves the nonlinear system using a Newton-based solver. The number of iterations (N)
         and the spatial discretization scheme can be specified. Updates the UDG field if
         spatialScheme is zero.
@@ -44,7 +44,8 @@
 #include "ptcsolver.cpp"
 
 // constructor
-CSolver::CSolver(CDiscretization& disc, Int backend, ExasimExecutionMode mode)
+template <class M>
+CSolver<M>::CSolver(CDiscretization& disc, Int backend, ExasimExecutionMode mode)
 {
     mpiRank = disc.common.mpiRank;
     sys.backend = backend;
@@ -60,7 +61,8 @@ CSolver::CSolver(CDiscretization& disc, Int backend, ExasimExecutionMode mode)
 }
 
 // destructor
-CSolver::~CSolver()
+template <class M>
+CSolver<M>::~CSolver()
 {        
     sys.freememory(sys.backend);    
     if (mpiRank==0) printf("CSolver destructor: sys memory is freed successfully.\n");
