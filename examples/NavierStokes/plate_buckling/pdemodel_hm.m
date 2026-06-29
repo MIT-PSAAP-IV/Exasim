@@ -6,6 +6,7 @@ pde.fbou = @fbou;
 pde.fbouhdg = @fbouhdg;
 pde.ubou = @ubou;
 pde.initu = @initu;
+pde.visscalars = @visscalars;
 end
 
 function f = flux(u, q, w, v, x, t, mu, eta)
@@ -34,4 +35,6 @@ f = flux(u, q, w, v, x, t, mu, eta);
 fb = f(1)*n(1) + f(2)*n(2) + tau*(u-uhat);
 end
 
-
+function s = visscalars(u, q, w, v, x, t, mu, eta)
+s = u;
+end

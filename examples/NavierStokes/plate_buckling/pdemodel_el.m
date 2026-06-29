@@ -5,6 +5,7 @@ pde.fbou = @fbou;
 pde.fbouhdg = @fbouhdg;
 pde.ubou = @ubou;
 pde.initu = @initu;
+pde.visvectors = @visvectors;
 end
 
 function f = flux(u, q, w, v, x, t, mu, eta)
@@ -48,4 +49,8 @@ ub_wall = u_bump * n(:);
 fb_wall = tau * (ub_wall - uhat(:));
 
 fb = [fb_fixed fb_wall];
+end
+
+function s = visvectors(u, q, w, v, x, t, mu, eta)
+s = u;
 end
