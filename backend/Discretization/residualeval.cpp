@@ -199,6 +199,15 @@ void CResidual::evalAVfield(dstype* avField, Int backend)
     AvfieldDriver(avField, sol.xdg, sol.udg, sol.odg, sol.wdg, driver_abi, mesh, master, app, sol, tmp, common, backend);
 }
 
+// Compute the model initial conditions (layer A) for the owned discretization's solution.
+// Thin entry over the free initializeSolution(); relocated out of the CDiscretization ctor so
+// the operator drives its own initialization. The free function reads disc.common's sizes and
+// dispatches the model init drivers in the solution's execution space (host on CPU, device on GPU).
+void CResidual::initializeSolution()
+{
+    ::initializeSolution(disc.sol, disc.app, disc.driver_abi, disc.common);
+}
+
 // Recover the initial operator state (q, uh, q-matrices) from the initialized u.
 // Extracted verbatim from the CDiscretization constructor (option 2): the q/uh recovery is
 // the operator applying itself, so it belongs to the operator (CResidual), not the function

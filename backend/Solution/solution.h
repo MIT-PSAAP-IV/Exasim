@@ -155,9 +155,11 @@ public:
 
         const bool postprocessOnly = (mode == ExasimExecutionMode::Postprocess);
 
-        // Recover the initial operator state (q / uh / q-matrices) from the model-initialized u
-        // before the initial solution is written. This is the operator applying itself, so it
-        // lives on CResidual, not the discretization constructor (the function space).
+        // The operator initializes its own solution: first the model initial conditions (layer A,
+        // fields the reader could not supply), then recover the operator state (q / uh / q-matrices)
+        // from that initialized u -- before the initial solution is written. Both were in the
+        // discretization constructor; they belong to the operator (CResidual), not the function space.
+        residual.initializeSolution();
         residual.recoverInitialState(backend, postprocessOnly);
 
         // Open the output streams and write the initial solution (the I/O half lives on the writer).

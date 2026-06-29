@@ -348,11 +348,8 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
     }
     common.read_uh = app.read_uh;
 
-    // Compute the model initial conditions for any field the reader could not supply, now that
-    // the solution is in its final execution space (host on CPU, device after the GPU copy). The
-    // single Kokkos init path (KokkosInitu via initializeSolution) serves both backends; this
-    // runs before the q/uh operator-state recovery below that depends on the initialized u.
-    initializeSolution(sol, app, driver_abi, common);
+    // (model initial conditions moved to CResidual::initializeSolution, driven by CSolution
+    //  after construction -- the operator initializes its own solution; see solution.h)
     const bool postprocessOnly = (mode == ExasimExecutionMode::Postprocess);
     // Apply caller-supplied visualization field counts whenever provided (>0). The
     // postprocess path passes these from CLI args; the solve path passes them from the

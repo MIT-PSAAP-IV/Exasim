@@ -37,6 +37,12 @@ public:
     void evalAVfield(dstype* avField, dstype* u, Int backend);
     void evalAVfield(dstype* avField, Int backend);
 
+    // Compute the model initial conditions (layer A): fill the fields the reader could not
+    // supply by calling the model init drivers (KokkosInitu/...). Driven by the operator (the
+    // model IC is the operator's concern), out of the discretization constructor. Run once,
+    // after the solution structs exist, before recoverInitialState (which derives q/uh from u).
+    void initializeSolution();
+
     // Recover the initial operator state from the initialized u: the auxiliary flux q
     // (LDG: GetUhat/GetQ; HDG: hdgGetQ) and the HDG trace uh (GetFaceNodes), plus the HDG
     // q-matrices (qEquation). This is "the operator applying itself" (layer B/C of the init
