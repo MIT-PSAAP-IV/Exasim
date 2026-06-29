@@ -724,25 +724,25 @@ install(DIRECTORY ${_exasim_fwd_dir}/
 # (Built-in model libraries are exported as real targets above, via the
 #  add_subdirectory(backend/Model/BuiltIn) build and the export set.)
 
-if(WITH_PARMETIS)
-  if(EXISTS "${METIS_INCLUDE_DIR}/metis.h")
-    install(FILES "${METIS_INCLUDE_DIR}/metis.h"
-      DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-  endif()
-  if(EXISTS "${PARMETIS_INCLUDE_DIR}/parmetis.h")
-    install(FILES "${PARMETIS_INCLUDE_DIR}/parmetis.h"
-      DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-  endif()
-  foreach(_metis_archive
-      "${PARMETIS_LIBRARY_DIR}/libparmetis.a"
-      "${METIS_LIBRARY_DIR}/libmetis.a"
-      "${GKLIB_LIBRARY_DIR}/libGKlib.a")
-    if(EXISTS "${_metis_archive}")
-      install(FILES "${_metis_archive}"
-        DESTINATION ${CMAKE_INSTALL_LIBDIR})
-    endif()
-  endforeach()
-endif()
+# if(WITH_PARMETIS)
+#   if(EXISTS "${METIS_INCLUDE_DIR}/metis.h")
+#     install(FILES "${METIS_INCLUDE_DIR}/metis.h"
+#       DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+#   endif()
+#   if(EXISTS "${PARMETIS_INCLUDE_DIR}/parmetis.h")
+#     install(FILES "${PARMETIS_INCLUDE_DIR}/parmetis.h"
+#       DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+#   endif()
+#   foreach(_metis_archive
+#       "${PARMETIS_LIBRARY_DIR}/libparmetis.a"
+#       "${METIS_LIBRARY_DIR}/libmetis.a"
+#       "${GKLIB_LIBRARY_DIR}/libGKlib.a")
+#     if(EXISTS "${_metis_archive}")
+#       install(FILES "${_metis_archive}"
+#         DESTINATION ${CMAKE_INSTALL_LIBDIR})
+#     endif()
+#   endforeach()
+# endif()
 
 install(EXPORT ExasimTargets
   NAMESPACE Exasim::

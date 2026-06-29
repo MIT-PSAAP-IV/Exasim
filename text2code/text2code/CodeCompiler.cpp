@@ -50,6 +50,9 @@
 #    include "symengine_config.h"
 #  endif
 #endif
+#ifndef EXASIM_INSTALL_PREFIX
+#  define EXASIM_INSTALL_PREFIX ""
+#endif
 #ifndef EXASIM_SYMENGINE_FOUND
 #  define EXASIM_SYMENGINE_FOUND 0
 #endif
