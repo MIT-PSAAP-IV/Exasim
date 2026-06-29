@@ -34,6 +34,7 @@ pinf = 1/(gam*Minf^2);          % freestream pressure
 rEinf = 0.5+pinf/(gam-1);       % freestream energy
 
 pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf Tinf Tref Twall];
+pde.saveParaview = 1;
 pde.tau = 4.0;                  % DG stabilization parameter
 pde.GMRESrestart = 250;         %try 50
 pde.GMRESortho = 1;

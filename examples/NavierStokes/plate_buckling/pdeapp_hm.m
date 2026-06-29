@@ -21,13 +21,14 @@ pdehm.nd = 2;
 pdehm.porder = mesh.porder;             % match NS polynomial degree
 pdehm.pgauss = 2*pdehm.porder;
 pdehm.physicsparam = kappa0^2*3e-3;
+pdehm.saveParaview = 1;
 pdehm.tau = 1.0;              % DG stabilization parameter
 pdehm.linearsolvertol = 1e-8; % GMRES tolerance
 pdehm.ppdegree = 1;          % degree of polynomial preconditioner
 pdehm.RBdim = 0;
 
 % Create a separate mesh for the Helmholtz solve (don't modify the NS mesh)
-meshhm = mkmesh_thermal_buckling(pdehm.porder, nx1, nxf, ny);
+meshhm = mesh; % copy ns mesh
 meshhm.boundarycondition = [1;1;1;1];
 
 div = divergence(sol, 1);
