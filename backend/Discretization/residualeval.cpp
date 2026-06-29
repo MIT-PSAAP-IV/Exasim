@@ -64,7 +64,7 @@ void CResidual::evalQSer(Int backend)
     [[maybe_unused]] auto& common = disc.common; [[maybe_unused]] auto& driver_abi = disc.driver_abi;
     // compute the flux q    
     GetUhat<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 0, common.meshsizes.nbf, backend);        
-    GetQ<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 0, common.meshsizes.nbe, 0, common.meshsizes.nbf, backend);        
+    GetQ(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 0, common.meshsizes.nbe, 0, common.meshsizes.nbf, backend);        
 }
 
 void CResidual::evalQ(dstype* q, dstype* u, Int backend)
@@ -221,7 +221,7 @@ void CResidual::recoverInitialState(Int backend, bool postprocessOnly)
     if (common.spatialScheme == 0) {  // LDG: recover the auxiliary flux q from the initial u
         if ((common.components.ncq>0) && (common.timeparams.wave==0)) {
             GetUhat<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 0, common.meshsizes.nbf, backend);
-            GetQ<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 0, common.meshsizes.nbe, 0, common.meshsizes.nbf, backend);
+            GetQ(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 0, common.meshsizes.nbe, 0, common.meshsizes.nbf, backend);
         }
     }
     else if (common.spatialScheme > 0) {  // HDG: recover the trace uh, q-matrices, and q

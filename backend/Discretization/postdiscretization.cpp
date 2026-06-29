@@ -88,7 +88,7 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
     // moved from InitSolution to here
     if ((common.components.ncq>0) && (common.timeparams.wave==0) && (common.spatialScheme == 0)) {
         GetUhat<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 0, common.meshsizes.nbf, backend);
-        GetQ<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 0, common.meshsizes.nbe, 0, common.meshsizes.nbf, backend);
+        GetQ(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 0, common.meshsizes.nbe, 0, common.meshsizes.nbf, backend);
     } 
     
     if (common.spatialScheme > 0)  { // HDG

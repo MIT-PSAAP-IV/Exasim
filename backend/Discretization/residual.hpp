@@ -50,7 +50,6 @@
 #include "uresidual.hpp"
 #include "getuhat.hpp"
 
-template <class M>
 inline void DG2CGAVField(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, meshstruct &mesh,
         tempstruct &tmp, commonstruct &common, dstype* avcg, dstype* avdg, Int backend)
 {
@@ -73,7 +72,6 @@ inline void DG2CGAVField(solstruct &sol, resstruct &res, appstruct &app, masters
     }
 }
 
-template <class M>
 inline void GetQ(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, meshstruct &mesh, 
         tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
         Int nbe1, Int nbe2, Int nbf1, Int nbf2, Int backend)
@@ -225,7 +223,7 @@ inline void GetAv(solstruct &sol, resstruct &res, appstruct &app, masterstruct &
     // note that the args imply avfield can depend on odg...not sure this is true.
     // This is true actually; but we need to be careful with autodiff. Might need a seperate avfield...
     for (Int iav = 0; iav<common.physicsparams.AVsmoothingIter; iav++){
-        DG2CGAVField<M>(sol, res, app, master, mesh, tmp, common, sol.odg, sol.odg, backend);
+        DG2CGAVField(sol, res, app, master, mesh, tmp, common, sol.odg, sol.odg, backend);
     }
 
     for (Int j=0; j<common.meshsizes.nbe; j++) {
@@ -262,7 +260,7 @@ inline void RuResidual(solstruct &sol, resstruct &res, appstruct &app, masterstr
     
     // compute q
     if (common.components.ncq>0)
-        GetQ<M>(sol, res, app, master, mesh, tmp, common, handle, nbe1q, nbe2q, nbf1, nbf2, backend);                
+        GetQ(sol, res, app, master, mesh, tmp, common, handle, nbe1q, nbe2q, nbf1, nbf2, backend);                
     
     // compute w
     if (common.components.ncw>0)
@@ -349,7 +347,7 @@ inline void GetQMPI(solstruct &sol, resstruct &res, appstruct &app, masterstruct
        
     // calculate q for interior elements
     if (common.components.ncq>0)         
-        GetQ<M>(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbe0, 0, common.meshsizes.nbf, backend);        
+        GetQ(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbe0, 0, common.meshsizes.nbf, backend);        
     
     // non-blocking receive solutions on exterior and outer elements from neighbors
     /* wait until all send and receive operations are completely done */
@@ -365,7 +363,7 @@ inline void GetQMPI(solstruct &sol, resstruct &res, appstruct &app, masterstruct
     
     // calculate q for interface and exterior elements
     if (common.components.ncq>0)         
-        GetQ<M>(sol, res, app, master, mesh, tmp, common, handle, common.meshsizes.nbe0, common.meshsizes.nbe2, 0, common.meshsizes.nbf, backend);                
+        GetQ(sol, res, app, master, mesh, tmp, common, handle, common.meshsizes.nbe0, common.meshsizes.nbe2, 0, common.meshsizes.nbf, backend);                
 }
 
 template <class M>
@@ -431,7 +429,7 @@ inline void RuResidualMPI(solstruct &sol, resstruct &res, appstruct &app, master
     START_TIMING;  
     // calculate q for interior elements
     if (common.components.ncq>0)         
-        GetQ<M>(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbe0, 0, common.meshsizes.nbf, backend);        
+        GetQ(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbe0, 0, common.meshsizes.nbf, backend);        
     if (common.components.ncw>0)         
         GetW<M>(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbe0, 0, common.meshsizes.nbf, backend);            
     END_TIMING(8);    
@@ -464,7 +462,7 @@ inline void RuResidualMPI(solstruct &sol, resstruct &res, appstruct &app, master
     START_TIMING; 
     // calculate q for interface and exterior elements
     if (common.components.ncq>0)         
-        GetQ<M>(sol, res, app, master, mesh, tmp, common, handle, common.meshsizes.nbe0, common.meshsizes.nbe2, 0, common.meshsizes.nbf, backend);        
+        GetQ(sol, res, app, master, mesh, tmp, common, handle, common.meshsizes.nbe0, common.meshsizes.nbe2, 0, common.meshsizes.nbf, backend);        
     if (common.components.ncw>0)         
         GetW<M>(sol, res, app, master, mesh, tmp, common, handle, common.meshsizes.nbe0, common.meshsizes.nbe2, 0, common.meshsizes.nbf, backend);        
     
@@ -555,7 +553,7 @@ inline void RuResidualMPI1(solstruct &sol, resstruct &res, appstruct &app, maste
     
     // calculate q for interior elements
     if (common.components.ncq>0)         
-        GetQ<M>(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbe0, 0, common.meshsizes.nbf, backend);        
+        GetQ(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbe0, 0, common.meshsizes.nbf, backend);        
     
     // calculate Ru for interior elements
     RuElem<M>(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbe0, backend);    
@@ -575,7 +573,7 @@ inline void RuResidualMPI1(solstruct &sol, resstruct &res, appstruct &app, maste
 
     // calculate q for interface and exterior elements
     if (common.components.ncq>0)
-        GetQ<M>(sol, res, app, master, mesh, tmp, common, handle, common.meshsizes.nbe0, common.meshsizes.nbe2, common.meshsizes.nbf0, common.meshsizes.nbf, backend);        
+        GetQ(sol, res, app, master, mesh, tmp, common, handle, common.meshsizes.nbe0, common.meshsizes.nbe2, common.meshsizes.nbf0, common.meshsizes.nbf, backend);        
                 
     // calculate Ru for interface elements
     RuElem<M>(sol, res, app, master, mesh, tmp, common, handle, common.meshsizes.nbe0, common.meshsizes.nbe1, backend);    
@@ -621,7 +619,6 @@ inline void Residual(solstruct &sol, resstruct &res, appstruct &app, masterstruc
 //// Calculate just dR(u)/du v, with u, q, uhat, R(u) already precalculated /////
 ///////////////////////////////////////////////////////////////////////////////////////////
 #ifdef HAVE_ENZYME
-template <class M>
 inline void GetdQ(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, meshstruct &mesh, 
         tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
         Int nbe1, Int nbe2, Int nbf1, Int nbf2, Int backend)
@@ -672,7 +669,7 @@ inline void GetdAv(solstruct &sol, resstruct &res, appstruct &app, masterstruct 
     EXASIM_DRIVER_CALL(AvfieldDriver, sol.odg, sol.dodg, sol.xdg, sol.udg, sol.dudg, sol.odg, sol.wdg, sol.dwdg, mesh, master, app, sol, tmp, common, backend); 
 
     for (Int iav = 0; iav<common.physicsparams.AVsmoothingIter; iav++){
-        DG2CGAVField<M>(sol, res, app, master, mesh, tmp, common, sol.dodg, sol.dodg, backend);
+        DG2CGAVField(sol, res, app, master, mesh, tmp, common, sol.dodg, sol.dodg, backend);
     }
 
     for (Int j=0; j<common.meshsizes.nbe; j++) {
@@ -712,8 +709,8 @@ inline void dRuResidual(solstruct &sol, resstruct &res, appstruct &app, masterst
     // compute dq
     if (common.components.ncq>0)
     { 
-        // GetQ<M>(sol, res, app, master, mesh, tmp, common, handle, nbe1q, nbe2q, nbf1, nbf2, backend);
-        GetdQ<M>(sol, res, app, master, mesh, tmp, common, handle, nbe1q, nbe2q, nbf1, nbf2, backend);
+        // GetQ(sol, res, app, master, mesh, tmp, common, handle, nbe1q, nbe2q, nbf1, nbf2, backend);
+        GetdQ(sol, res, app, master, mesh, tmp, common, handle, nbe1q, nbe2q, nbf1, nbf2, backend);
     }               
 
     if (common.physicsparams.ncAV>0 && common.physicsparams.frozenAVflag == 0)
@@ -789,7 +786,7 @@ inline void dRuResidualMPI(solstruct &sol, resstruct &res, appstruct &app, maste
     
     // calculate q for interior elements
     if (common.components.ncq>0)         
-        GetdQ<M>(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbe0, 0, common.meshsizes.nbf, backend);        
+        GetdQ(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbe0, 0, common.meshsizes.nbf, backend);        
     // TODO: DAE AD matvec
 
     // calculate Ru for interior elements
@@ -809,7 +806,7 @@ inline void dRuResidualMPI(solstruct &sol, resstruct &res, appstruct &app, maste
 
     // calculate q for interface and exterior elements
     if (common.components.ncq>0)         
-        GetdQ<M>(sol, res, app, master, mesh, tmp, common, handle, common.meshsizes.nbe0, common.meshsizes.nbe2, 0, common.meshsizes.nbf, backend);        
+        GetdQ(sol, res, app, master, mesh, tmp, common, handle, common.meshsizes.nbe0, common.meshsizes.nbe2, 0, common.meshsizes.nbf, backend);        
     // TODO: DAE AD Matvec    
 
     if (common.physicsparams.ncAV>0 && common.physicsparams.frozenAVflag == 0)
@@ -879,7 +876,7 @@ inline void ComputeQ(solstruct &sol, resstruct &res, appstruct &app, masterstruc
     else {
         // compute uhat
         GetUhat<M>(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbf, backend);
-        GetQ<M>(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbe, 0, common.meshsizes.nbf, backend);    
+        GetQ(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbe, 0, common.meshsizes.nbf, backend);    
     }        
     
     if (common.outputparams.debugMode==1) {

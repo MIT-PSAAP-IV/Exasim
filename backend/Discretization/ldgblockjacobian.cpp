@@ -1531,7 +1531,7 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
     // compute q
     if (common.components.ncq>0) {
         t0 = LDGBenchmarkStart(backend);
-        GetQ<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbe, 0, common.meshsizes.nbf, backend);                
+        GetQ(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbe, 0, common.meshsizes.nbf, backend);                
         tm.q += LDGBenchmarkStop(t0, backend);
     }
 
@@ -1702,7 +1702,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 
     if (common.components.ncq>0) {
         t0 = LDGBenchmarkStart(backend);
-        GetQ<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle,
+        GetQ(sol, res, app, master, mesh, tmp, common, handle,
              0, common.meshsizes.nbe0, 0, common.meshsizes.nbf, backend);
         tm.q += LDGBenchmarkStop(t0, backend);
     }
@@ -1726,7 +1726,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 
     if (common.components.ncq>0) {
         t0 = LDGBenchmarkStart(backend);
-        GetQ<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle,
+        GetQ(sol, res, app, master, mesh, tmp, common, handle,
              common.meshsizes.nbe0, common.meshsizes.nbe2, 0, common.meshsizes.nbf, backend);
         tm.q += LDGBenchmarkStop(t0, backend);
     }
@@ -1810,7 +1810,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 // 
 //     // compute q
 //     if (common.components.ncq>0)
-//         GetQ<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbe, 0, common.meshsizes.nbf, backend);                
+//         GetQ(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbe, 0, common.meshsizes.nbf, backend);                
 // 
 //     // compute w
 //     if (common.components.ncw>0)
