@@ -8,7 +8,7 @@ hessian
 
 batch x, uq, v, w, uhat, n, uext
 
-outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Fext, Initu
+outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Fext, Initu, VisVectors
 
 function Flux(x, uq, v, w, eta, mu, t)
   output_size(f) = 4;
@@ -67,4 +67,10 @@ end
 function Initu(x, eta, mu)
   output_size(ui) = 2;
   zeros(ui);
+end
+
+function VisVectors(x, uq, v, w, eta, mu, t)
+  output_size(s) = 2;
+  s[0] = uq[0];
+  s[1] = uq[1];
 end
