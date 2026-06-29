@@ -140,7 +140,7 @@ void CResidual<M>::evalAVfield(dstype* avField, dstype* u, Int backend)
         ComputeQ<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
 
     // compute the av field
-    AvfieldDriver(avField, sol.xdg, sol.udg, sol.odg, sol.wdg, driver_abi, mesh, master, app, sol, tmp, common, backend);    
+    EXASIM_DRIVER_CALL(AvfieldDriver, avField, sol.xdg, sol.udg, sol.odg, sol.wdg, mesh, master, app, sol, tmp, common, backend);    
 }
 
 template <class M>
@@ -205,7 +205,7 @@ void CResidual<M>::evalAVfield(dstype* avField, Int backend)
 #endif
   
     // compute the av field
-    AvfieldDriver(avField, sol.xdg, sol.udg, sol.odg, sol.wdg, driver_abi, mesh, master, app, sol, tmp, common, backend);
+    EXASIM_DRIVER_CALL(AvfieldDriver, avField, sol.xdg, sol.udg, sol.odg, sol.wdg, mesh, master, app, sol, tmp, common, backend);
 }
 
 // Compute the model initial conditions (layer A) for the owned discretization's solution.

@@ -145,7 +145,7 @@ void CSolutionWriter<M>::ResetOutputFiles(const std::string& fileout)
 template <class M>
 void CSolutionWriter<M>::evalMonitor(dstype* output, dstype* udg, dstype* wdg, Int nc, Int backend)
 {
-    MonitorDriver(output, nc, disc.sol.xdg, udg, disc.sol.odg, wdg, disc.driver_abi,
+    EXASIM_DRIVER_CALL(MonitorDriver, output, nc, disc.sol.xdg, udg, disc.sol.odg, wdg,
                   disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common, backend);
 }
 
@@ -202,7 +202,7 @@ void CSolutionWriter<M>::evalOutput(dstype* output, Int backend)
 #endif
 
     // compute the output field
-    OutputDriver(output, disc.sol.xdg, disc.sol.udg, disc.sol.odg, disc.sol.wdg, disc.driver_abi,
+    EXASIM_DRIVER_CALL(OutputDriver, output, disc.sol.xdg, disc.sol.udg, disc.sol.odg, disc.sol.wdg,
                  disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common, backend);
 }
 
@@ -453,15 +453,15 @@ void CSolutionWriter<M>::SaveParaview(Int backend, std::string fname_modifier, b
        if (ncw > 0) GetElemNodes(wdg, disc.sol.wdg, npe, ncw, 0, ncw, 0, ne);
     
        if (nsca > 0) {        
-            VisScalarsDriver(f, xdg, udg, vdg, wdg, disc.driver_abi, disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common, npe, 0, ne, backend);                                 
+            EXASIM_DRIVER_CALL(VisScalarsDriver, f, xdg, udg, vdg, wdg, disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common, npe, 0, ne, backend);                                 
             VisDG2CG(vis.scafields, f, disc.mesh.cgent2dgent, disc.mesh.colent2elem, disc.mesh.rowent2elem, ne, ncg, ndg, 1, 1, nsca);
        }    
        if (nvec > 0) {        
-            VisVectorsDriver(f, xdg, udg, vdg, wdg, disc.driver_abi, disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common, npe, 0, ne, backend);                                 
+            EXASIM_DRIVER_CALL(VisVectorsDriver, f, xdg, udg, vdg, wdg, disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common, npe, 0, ne, backend);                                 
             VisDG2CG(vis.vecfields, f, disc.mesh.cgent2dgent, disc.mesh.colent2elem, disc.mesh.rowent2elem, ne, ncg, ndg, 3, ncx, nvec);
        }
        if (nten > 0) {        
-            VisTensorsDriver(f, xdg, udg, vdg, wdg, disc.driver_abi, disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common, npe, 0, ne, backend);                                 
+            EXASIM_DRIVER_CALL(VisTensorsDriver, f, xdg, udg, vdg, wdg, disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common, npe, 0, ne, backend);                                 
             VisDG2CG(vis.tenfields, f, disc.mesh.cgent2dgent, disc.mesh.colent2elem, disc.mesh.rowent2elem, ne, ncg, ndg, vis.ntc, vis.ntc, nten);
        }
 
