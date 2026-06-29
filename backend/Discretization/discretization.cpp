@@ -346,6 +346,15 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
                 mpiprocs, mpirank, fileoffset, omprank,
                 physicsparamOverride);
     }
+    finalizeConstruction(backend, mode, nsca, nvec, nten, nsurf, nvqoi, saveParaview);
+}
+
+// Post-init construction tail: derive read_uh, apply vis-count/saveParaview overrides, compute
+// geometry + (LDG) mass inverse, and set up the HDG/coupling discretization. Factored out of the
+// file constructor so the in-memory (Preprocessed) constructor reuses the identical finalization.
+void CDiscretization::finalizeConstruction(Int backend, ExasimExecutionMode mode,
+        Int nsca, Int nvec, Int nten, Int nsurf, Int nvqoi, Int saveParaview)
+{
     common.read_uh = app.read_uh;
 
     // (model initial conditions moved to CResidual::initializeSolution, driven by CSolution
@@ -545,6 +554,7 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
       printf("finish CDiscretization constructor... \n");        
     }
 }
+
  
 // (BuildWallModelData moved to CWallModel::build -- see wallmodelbuild.cpp)
 

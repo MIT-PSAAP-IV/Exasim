@@ -550,45 +550,13 @@ void initializeSolution(solstruct &sol, appstruct &app, ExasimDriverABI& driver_
         InitwdgDriver(sol.wdg, sol.xdg, driver_abi, app, ncx, ncw, npe, ne, 0);
 }
 
-void cpuInit(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master,
+// Shared post-read setup: everything cpuInit does after readInput (allocate res/tmp, derive
+// common, build shape products + face maps, allocate sol scratch). Factored out so the
+// in-memory path (Preprocessed -> structs already populated) reuses it without reading files.
+void cpuInitSetup(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master,
         meshstruct &mesh, tempstruct &tmp, commonstruct &common,
-        string filein, string fileout, Int mpiprocs, Int mpirank, Int fileoffset, Int omprank,
-        const std::vector<dstype>* physicsparamOverride = nullptr)
+        string filein, string fileout, Int mpiprocs, Int mpirank, Int fileoffset, Int omprank)
 {
-     
-    if (mpirank==0)
-        printf("Reading data from binary files \n");
-    readInput(app, driver_abi, master, mesh, sol, filein, mpiprocs, mpirank, fileoffset, omprank,
-              physicsparamOverride);
-    
-    if (mpirank==0)
-        printf("Finish reading data from binary files \n");
-    
-//     if (mpiprocs != app.ndims[0]) {
-//         if (mpirank==0) {
-//             printf("# processors = %d, # subdomains = %d\n", mpiprocs, app.ndims[0]);
-//             error("Number of MPI processes is incorrect\n");
-//         }
-//     }
-         
-    // offset facecon
-//     for (Int i=0; i<mesh.nsize[1]; i++)
-//         mesh.facecon[i] = mesh.facecon[i] - 1;
-                
-//     if (mpiprocs > 1) {
-//         // offset nbsd
-//         for (Int i=0; i<mesh.nsize[4]; i++)
-//             mesh.nbsd[i] = mesh.nbsd[i] - 1;
-// 
-//         // offset elemsend
-//         for (Int i=0; i<mesh.nsize[5]; i++)
-//             mesh.elemsend[i] = mesh.elemsend[i] - 1;
-// 
-//         // offset elemrecv
-//         for (Int i=0; i<mesh.nsize[6]; i++)
-//             mesh.elemrecv[i] = mesh.elemrecv[i] - 1;
-//     }
-            
     if (mpirank==0) printf("Set res struct... \n");    
     setresstruct(res, app, master, mesh, 0);
     
@@ -833,6 +801,50 @@ void cpuInit(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& dr
         //print2darray(app.physicsparam,1,app.nsize[6]); 
         printf("finish cpuInit... \n");
     }
+}
+
+void cpuInit(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master,
+        meshstruct &mesh, tempstruct &tmp, commonstruct &common,
+        string filein, string fileout, Int mpiprocs, Int mpirank, Int fileoffset, Int omprank,
+        const std::vector<dstype>* physicsparamOverride = nullptr)
+{
+     
+    if (mpirank==0)
+        printf("Reading data from binary files \n");
+    readInput(app, driver_abi, master, mesh, sol, filein, mpiprocs, mpirank, fileoffset, omprank,
+              physicsparamOverride);
+    
+    if (mpirank==0)
+        printf("Finish reading data from binary files \n");
+    
+//     if (mpiprocs != app.ndims[0]) {
+//         if (mpirank==0) {
+//             printf("# processors = %d, # subdomains = %d\n", mpiprocs, app.ndims[0]);
+//             error("Number of MPI processes is incorrect\n");
+//         }
+//     }
+         
+    // offset facecon
+//     for (Int i=0; i<mesh.nsize[1]; i++)
+//         mesh.facecon[i] = mesh.facecon[i] - 1;
+                
+//     if (mpiprocs > 1) {
+//         // offset nbsd
+//         for (Int i=0; i<mesh.nsize[4]; i++)
+//             mesh.nbsd[i] = mesh.nbsd[i] - 1;
+// 
+//         // offset elemsend
+//         for (Int i=0; i<mesh.nsize[5]; i++)
+//             mesh.elemsend[i] = mesh.elemsend[i] - 1;
+// 
+//         // offset elemrecv
+//         for (Int i=0; i<mesh.nsize[6]; i++)
+//             mesh.elemrecv[i] = mesh.elemrecv[i] - 1;
+//     }
+            
+    // post-read setup (allocate/derive everything from the now-populated structs)
+    cpuInitSetup(sol, res, app, master, mesh, tmp, common, filein, fileout,
+                 mpiprocs, mpirank, fileoffset, omprank);
 }
 
 #ifdef HAVE_GPU

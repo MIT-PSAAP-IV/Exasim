@@ -43,6 +43,9 @@
 
 #include "exasim/execution_mode.hpp"
 
+namespace exasim { struct Preprocessed; }  // fwd decl: in-memory ctor input (buildstructs.hpp);
+                                           // the definition lives in discretization_inmemory.hpp (consumer-only)
+
 class CDiscretization {
 private:
 public:
@@ -78,8 +81,21 @@ public:
         : CDiscretization(filein, fileout, exasimpath, mpiprocs, mpirank, ompthreads, omprank,
                           backend, builtinmodelID, ExasimDriverABI{}) {}
 
+    // In-memory (no-ABI) constructor (P0): build the discretization from an already-preprocessed,
+    // in-memory mesh (exasim::Preprocessed from ExasimSolver<M>::set_mesh) instead of reading datain
+    // binaries -- no files, no driver_abi. DEFINED out-of-line and inline in
+    // <backend/Discretization/discretization_inmemory.hpp> (a consumer-only header included after
+    // buildstructs.hpp, where Preprocessed is complete); the backend unity build never instantiates it.
+    CDiscretization(exasim::Preprocessed&& pre, std::string fileout, std::string exasimpath, Int mpiprocs,
+                    Int mpirank, Int fileoffset, Int omprank, Int backend, Int builtinmodelID);
+
     // destructor
     ~CDiscretization();
+
+    // post-init construction tail (read_uh/vis/geometry/mass-inverse/HDG setup), shared by the
+    // file and in-memory constructors. Defined in discretization.cpp (no Preprocessed dependency).
+    void finalizeConstruction(Int backend, ExasimExecutionMode mode,
+                              Int nsca, Int nvec, Int nten, Int nsurf, Int nvqoi, Int saveParaview);
         
     // compute the geometry
     void compGeometry(Int backend);    
