@@ -103,6 +103,7 @@ using namespace std;
 #include "../PointLocator/pointlocator.cpp"
 #include "../Solution/solution.cpp"
 #include "../Solution/solutionwriter.cpp"
+#include "../Solution/nonlinearsolver.cpp"
 
 #ifdef HAVE_BACKEND_PREPROCESSING
 #include "../Preprocessing/preprocessing.cpp"

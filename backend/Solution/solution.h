@@ -46,6 +46,7 @@
 #include "../Discretization/residualeval.h"
 #include "../Discretization/interfacesampler.h"
 #include "solutionwriter.h"
+#include "nonlinearsolver.h"
 
 // Common helper: open file and write 3-element header [a0, a1, a2]
 void open_and_write(std::ofstream& ofs,
@@ -131,6 +132,7 @@ public:
     CSolver solv;          // linear and nonlinear solvers
     CVisualization vis;    // visualization class
     CSolutionWriter writer; // solution output (streams + Save*/Read*/Get*/evalOutput) -- the I/O half
+    CNonlinearSolver nonlinear; // PTC/Newton nonlinear iterations -- the nonlinear-solver half
 
     // constructor 
     CSolution(string filein, string fileout, string exasimpath, Int mpiprocs,
@@ -146,7 +148,8 @@ public:
               physicsparamOverride, saveParaview),
          residual(disc), assembler(disc), sampler(disc),
          prec(disc, backend, mode), solv(disc, backend, mode), vis(disc, backend),
-         writer(disc, residual, vis, solv)
+         writer(disc, residual, vis, solv),
+         nonlinear(disc, residual, assembler, prec, solv, writer)
     {
         if ((disc.common.couplingparams.nintfaces > 0) && (disc.common.couplingparams.coupledcondition>0)) disc.common.meshsizes.ne0 = disc.common.intepartpts[0];
 
@@ -197,8 +200,7 @@ public:
     void RestoreState();
     void ClearSavedState();
 
-    Int PTCsolver(ofstream &out, Int backend);
-    Int NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int backend);       
+    // (PTCsolver / NewtonSolver moved to CNonlinearSolver -- call via the `nonlinear` member)
 };
 
 #endif        
