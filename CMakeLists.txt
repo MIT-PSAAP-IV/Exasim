@@ -79,6 +79,16 @@ function(exasim_first_existing_dir outvar)
   set(${outvar} "${_fallback}" PARENT_SCOPE)
 endfunction()
 
+function(exasim_first_existing_file outvar)
+  foreach(_file ${ARGN})
+    if(EXISTS "${_file}")
+      set(${outvar} "${_file}" PARENT_SCOPE)
+      return()
+    endif()
+  endforeach()
+  set(${outvar} "" PARENT_SCOPE)
+endfunction()
+
 # ----------------------------------------------------------------------------
 # GMP: optional vendored build, installed directly into the final prefix.
 # Disabled by default to preserve the existing BoostMP SymEngine workflow.
@@ -189,7 +199,9 @@ if(WITH_PARMETIS)
   find_library(_sb_metis    metis)
   find_library(_sb_parmetis parmetis)
   set(EXASIM_METIS_C_COMPILER "" CACHE STRING
-    "C compiler used to build vendored GKlib/METIS/ParMETIS")
+    "C compiler used to build vendored GKlib/METIS")
+  set(EXASIM_PARMETIS_C_COMPILER "" CACHE STRING
+    "MPI C compiler used to build vendored ParMETIS")
   set(_exasim_metis_c_compiler "${EXASIM_METIS_C_COMPILER}")
   if(NOT _exasim_metis_c_compiler)
     if(EXASIM_HIP)
@@ -201,12 +213,43 @@ if(WITH_PARMETIS)
       set(_exasim_metis_c_compiler "${CMAKE_C_COMPILER}")
     endif()
   endif()
+  set(_exasim_parmetis_c_compiler "${EXASIM_PARMETIS_C_COMPILER}")
+  if(NOT _exasim_parmetis_c_compiler)
+    find_package(MPI QUIET COMPONENTS C)
+    if(MPI_C_FOUND AND MPI_C_COMPILER)
+      set(_exasim_parmetis_c_compiler "${MPI_C_COMPILER}")
+    else()
+      set(_exasim_parmetis_c_compiler "${_exasim_metis_c_compiler}")
+    endif()
+  endif()
   if(_sb_metis AND _sb_parmetis)
     message(STATUS "METIS: using installed (${_sb_metis})")
-  elseif(EXISTS "${EXASIM_ROOT}/deps/metis/METIS/build/libmetis/libmetis.a")
+  else()
+    exasim_first_existing_file(_exasim_vendored_gklib_archive
+      "${EXASIM_ROOT}/deps/metis/GKlib/lib/libGKlib.a"
+      "${EXASIM_ROOT}/deps/metis/GKlib/lib64/libGKlib.a"
+      "${EXASIM_ROOT}/deps/metis/GKlib/build/${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}/libGKlib.a"
+      "${EXASIM_ROOT}/deps/metis/GKlib/build/libGKlib.a")
+    exasim_first_existing_file(_exasim_vendored_metis_archive
+      "${EXASIM_ROOT}/deps/metis/METIS/lib/libmetis.a"
+      "${EXASIM_ROOT}/deps/metis/METIS/lib64/libmetis.a"
+      "${EXASIM_ROOT}/deps/metis/METIS/build/libmetis/libmetis.a")
+    exasim_first_existing_file(_exasim_vendored_parmetis_archive
+      "${EXASIM_ROOT}/deps/metis/ParMETIS/lib/libparmetis.a"
+      "${EXASIM_ROOT}/deps/metis/ParMETIS/lib64/libparmetis.a"
+      "${EXASIM_ROOT}/deps/metis/ParMETIS/build/${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}/libparmetis.a"
+      "${EXASIM_ROOT}/deps/metis/ParMETIS/build/${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}/libparmetis/libparmetis.a")
+  endif()
+  if(_sb_metis AND _sb_parmetis)
+    # Already handled above.
+  elseif(_exasim_vendored_gklib_archive
+      AND _exasim_vendored_metis_archive
+      AND _exasim_vendored_parmetis_archive)
     message(STATUS "METIS: using vendored deps/metis/ (already built)")
   else()
-    message(STATUS "METIS: building vendored with ${_exasim_metis_c_compiler}")
+    message(STATUS
+      "METIS: building vendored with ${_exasim_metis_c_compiler}; "
+      "ParMETIS with ${_exasim_parmetis_c_compiler}")
     ExternalProject_Add(metis_vendored
       SOURCE_DIR        "${EXASIM_ROOT}/deps/metis"
       DOWNLOAD_COMMAND  ""
@@ -215,7 +258,9 @@ if(WITH_PARMETIS)
       BUILD_COMMAND     ${CMAKE_COMMAND} -E env
         "CC=${_exasim_metis_c_compiler}"
         "CXX=${CMAKE_CXX_COMPILER}"
-        make metis "cc=${_exasim_metis_c_compiler}"
+        make metis
+          "cc=${_exasim_metis_c_compiler}"
+          "parmetis_cc=${_exasim_parmetis_c_compiler}"
       INSTALL_COMMAND   "")
     list(APPEND _exasim_deps metis_vendored)
   endif()
