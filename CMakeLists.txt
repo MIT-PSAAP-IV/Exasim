@@ -188,18 +188,34 @@ install(CODE "
 if(WITH_PARMETIS)
   find_library(_sb_metis    metis)
   find_library(_sb_parmetis parmetis)
+  set(EXASIM_METIS_C_COMPILER "" CACHE STRING
+    "C compiler used to build vendored GKlib/METIS/ParMETIS")
+  set(_exasim_metis_c_compiler "${EXASIM_METIS_C_COMPILER}")
+  if(NOT _exasim_metis_c_compiler)
+    if(EXASIM_HIP)
+      find_program(_exasim_amdclang amdclang)
+    endif()
+    if(_exasim_amdclang)
+      set(_exasim_metis_c_compiler "${_exasim_amdclang}")
+    else()
+      set(_exasim_metis_c_compiler "${CMAKE_C_COMPILER}")
+    endif()
+  endif()
   if(_sb_metis AND _sb_parmetis)
     message(STATUS "METIS: using installed (${_sb_metis})")
   elseif(EXISTS "${EXASIM_ROOT}/deps/metis/METIS/build/libmetis/libmetis.a")
     message(STATUS "METIS: using vendored deps/metis/ (already built)")
   else()
-    message(STATUS "METIS: building vendored")
+    message(STATUS "METIS: building vendored with ${_exasim_metis_c_compiler}")
     ExternalProject_Add(metis_vendored
       SOURCE_DIR        "${EXASIM_ROOT}/deps/metis"
       DOWNLOAD_COMMAND  ""
       CONFIGURE_COMMAND ""
       BUILD_IN_SOURCE   TRUE
-      BUILD_COMMAND     ${_envcxx} make metis
+      BUILD_COMMAND     ${CMAKE_COMMAND} -E env
+        "CC=${_exasim_metis_c_compiler}"
+        "CXX=${CMAKE_CXX_COMPILER}"
+        make metis "cc=${_exasim_metis_c_compiler}"
       INSTALL_COMMAND   "")
     list(APPEND _exasim_deps metis_vendored)
   endif()
