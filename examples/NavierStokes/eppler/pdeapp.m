@@ -12,8 +12,7 @@ ruinf = cos(alpha);             % freestream horizontal velocity
 rvinf = sin(alpha);             % freestream vertical velocity
 pinf = 1/(gam*Minf^2);          % freestream pressure
 rEinf = 0.5+pinf/(gam-1);       % freestream energy
-Re = 10000;                       % Reynolds number 
-Re = 5.0748e+03;
+Re = 5.0748e+03;                % Reynolds number
 Pr = 0.72;                      % Prandtl number 
 ui = [ 1, cos(alpha), sin(alpha), 0.5+pinf/(gam-1)];
 
