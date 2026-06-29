@@ -50,7 +50,7 @@ void CResidual::evalQ(Int backend)
     }
     else if (common.spatialScheme == 1) {
         // HDG recovers q from the element state and trace unknowns.
-        hdgGetQ<exasim::detail::AbiAdapter>(sol.udg, sol.uh, sol, res, mesh, tmp, common, backend);
+        hdgGetQ(sol.udg, sol.uh, sol, res, mesh, tmp, common, backend);
     }
     else {
         error("Spatial discretization scheme is not implemented");
@@ -82,7 +82,7 @@ void CResidual::evalQ(dstype* q, dstype* u, Int backend)
     }
     else if (common.spatialScheme == 1) {
         // HDG recovers q from the element state and trace unknowns.
-        hdgGetQ<exasim::detail::AbiAdapter>(sol.udg, sol.uh, sol, res, mesh, tmp, common, backend);
+        hdgGetQ(sol.udg, sol.uh, sol, res, mesh, tmp, common, backend);
     }
     else {
         error("Spatial discretization scheme is not implemented");
@@ -244,10 +244,10 @@ void CResidual::recoverInitialState(Int backend, bool postprocessOnly)
                 TemplateMalloc(&res.Gi, res.szGi, backend);
             }
             // compute M^{-1} * C and M^{-1} * E (q-matrices) and store in res.C / res.E
-            qEquation<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, backend);
+            qEquation(sol, res, app, master, mesh, tmp, common, backend);
             // compute the flux q = -nabla u and store it in sol.udg
             if (common.timeparams.wave == 0 && sol.szudg != npe*nc*ne)
-                hdgGetQ<exasim::detail::AbiAdapter>(sol.udg, sol.uh, sol, res, mesh, tmp, common, backend);
+                hdgGetQ(sol.udg, sol.uh, sol, res, mesh, tmp, common, backend);
         }
     }
 }

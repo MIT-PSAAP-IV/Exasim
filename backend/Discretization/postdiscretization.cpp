@@ -124,14 +124,14 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
       }
 
       if (common.components.ncq > 0) {                
-        qEquation<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, backend);      
+        qEquation(sol, res, app, master, mesh, tmp, common, backend);      
 
         if (common.mpiRank==0) 
           printf("Finish qEquation ... \n");        
 
         // compute the flux q = -nabla u and store it in sol.udg
         if (common.timeparams.wave == 0 && sol.szudg != npe*nc*ne) {
-            hdgGetQ<exasim::detail::AbiAdapter>(sol.udg, sol.uh, sol, res, mesh, tmp, common, backend);
+            hdgGetQ(sol.udg, sol.uh, sol, res, mesh, tmp, common, backend);
             if (common.mpiRank==0) printf("Finish hdgGetQ ... \n");     
         }        
       }

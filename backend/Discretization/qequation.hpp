@@ -79,7 +79,6 @@ inline void EnsureTemplateAllocation(T **data, Int &currentSize, Int requiredSiz
     }
 }
 
-template <class M>
 inline void qEquationElem(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
 {        
@@ -178,7 +177,6 @@ inline void qEquationElem(solstruct &sol, resstruct &res, appstruct &app, master
 }
 
 // Calculate Rqf = <uhat, v dot n>_F for a given uhat
-template <class M>
 inline void qEquationFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
         Int nd, Int nfe, Int npe, Int npf, Int ngf, Int ncx, Int f1, Int f2, Int ib, Int backend)
@@ -228,7 +226,6 @@ inline void qEquationFaceBlock(solstruct &sol, resstruct &res, appstruct &app, m
     }        
 }
 
-template <class M>
 inline void qEquationFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
 {    
@@ -250,7 +247,7 @@ inline void qEquationFace(solstruct &sol, resstruct &res, appstruct &app, master
         Int f2 = common.fblks[3*j+1];    
         Int ib = common.fblks[3*j+2];    
         std::cout<<f1<<" "<<f2<<" "<<ib<<std::endl;
-        qEquationFaceBlock<M>(sol, res, app, master, mesh, tmp, common, handle, 
+        qEquationFaceBlock(sol, res, app, master, mesh, tmp, common, handle, 
                 nd, nfe, npe, npf, ngf, ncx, f1, f2, ib, backend);
     }                       
 
@@ -260,7 +257,6 @@ inline void qEquationFace(solstruct &sol, resstruct &res, appstruct &app, master
 }
 
 // Calculate Rqf = <uhat, v dot n>_F for a given uhat
-template <class M>
 inline void qEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
         Int nd, Int nfe, Int npe, Int npf, Int ngf, Int ncx, Int e1, Int e2, Int backend)
@@ -333,7 +329,6 @@ inline void qEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
     TemplateFree(Etmp, backend);
 }
 
-template <class M>
 inline void qEquationElemFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
 {    
@@ -354,7 +349,7 @@ inline void qEquationElemFace(solstruct &sol, resstruct &res, appstruct &app, ma
     {
         Int e1 = common.eblks[3*j]-1;
         Int e2 = common.eblks[3*j+1];
-        qEquationElemFaceBlock<M>(sol, res, app, master, mesh, tmp, common, handle, 
+        qEquationElemFaceBlock(sol, res, app, master, mesh, tmp, common, handle, 
                 nd, nfe, npe, npf, ngf, ncx, e1, e2, backend);
     }    
 
@@ -369,15 +364,13 @@ inline void qEquationElemFace(solstruct &sol, resstruct &res, appstruct &app, ma
     }    
 }
 
-template <class M>
 inline void qEquation(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
         meshstruct &mesh, tempstruct &tmp, commonstruct &common, Int backend)
 {
-    qEquationElem<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
-    qEquationElemFace<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);    
+    qEquationElem(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
+    qEquationElemFace(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);    
 }
 
-template <class M>
 inline void hdgGetQ(dstype *udg, dstype *uhat, solstruct &sol, resstruct &res, meshstruct &mesh, tempstruct &tmp, commonstruct &common, Int backend)
 {
     Int nc = common.components.nc;// number of compoments of (udg)        

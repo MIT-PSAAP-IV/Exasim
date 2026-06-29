@@ -587,7 +587,7 @@ void CSolution::SteadyProblem_PTC(ofstream &out, Int backend) {
                 GetFaceNodes(disc.sol.uh, disc.sol.udg, disc.mesh.f2e, disc.mesh.perm, disc.common.grid.npf, disc.common.components.ncu, disc.common.grid.npe, disc.common.components.nc, disc.common.meshsizes.nf);
 
                 // Recompute gradient from udg old
-                hdgGetQ<exasim::detail::AbiAdapter>(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common, backend);
+                hdgGetQ(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common, backend);
 
                 // decrease timestep by 10
                 std::cout << "Current time step: " << disc.common.dt[istep] << std::endl;
@@ -616,7 +616,7 @@ void CSolution::SteadyProblem_PTC(ofstream &out, Int backend) {
                         std::cout << "Evaluate steady residual..." << std::endl;
                         disc.common.timeparams.tdep=0;
     
-                        if (disc.common.components.ncq > 0) hdgGetQ<exasim::detail::AbiAdapter>(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common, backend);          
+                        if (disc.common.components.ncq > 0) hdgGetQ(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common, backend);          
             
                         // compute the residual vector R = [Ru; Rh]
                         assembler.hdgAssembleResidual(solv.sys.b, backend);

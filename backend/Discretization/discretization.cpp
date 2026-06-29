@@ -380,7 +380,7 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
             if (common.mpiRank==0) printf("start qEquation... \n");
             BuildElementBlockBoundaryFaces(common, mesh, backend);        
             AllocateLDGBlockJacobianMemory(res, common, backend, scratch);
-            qEquation<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, backend);
+            qEquation(sol, res, app, master, mesh, tmp, common, backend);
             TemplateFree(res.Mass2, backend);
             TemplateFree(res.Minv2, backend);
             if (common.mpiRank==0) printf("finish qEquation... \n");            

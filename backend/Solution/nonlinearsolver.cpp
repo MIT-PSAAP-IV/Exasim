@@ -167,7 +167,7 @@ Int CNonlinearSolver::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int 
 
     if (spatialScheme == 1) { 
 
-      if (disc.common.components.ncq > 0) hdgGetQ<exasim::detail::AbiAdapter>(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common, backend);                
+      if (disc.common.components.ncq > 0) hdgGetQ(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common, backend);                
       if (disc.common.components.ncw > 0) GetW<exasim::detail::AbiAdapter>(disc.sol.wdg, disc.sol, disc.tmp, disc.app, disc.common, backend);
       
       // compute the residual vector R = [Ru; Rh]
@@ -248,7 +248,7 @@ Int CNonlinearSolver::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int 
             error("stop for debugging...");
           }          
                     
-          if (disc.common.components.ncq > 0) hdgGetQ<exasim::detail::AbiAdapter>(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common, backend);          
+          if (disc.common.components.ncq > 0) hdgGetQ(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common, backend);          
           if (disc.common.components.ncw > 0) GetW<exasim::detail::AbiAdapter>(disc.sol.wdg, disc.sol, disc.tmp, disc.app, disc.common, backend);
                               
           nrm0 = nrmr; // original norm          
@@ -277,7 +277,7 @@ Int CNonlinearSolver::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int 
             ArrayAXPY(disc.common.cublasHandle, solv.sys.u, solv.sys.x, -solv.sys.alpha, N, backend); 
             ArrayCopy(disc.sol.uh, solv.sys.u, N);
             UpdateUDG(disc.sol.udg, solv.sys.v, -solv.sys.alpha, disc.common.grid.npe, disc.common.components.nc, disc.common.meshsizes.ne1, 0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.meshsizes.ne1);                    
-            if (disc.common.components.ncq > 0) hdgGetQ<exasim::detail::AbiAdapter>(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common, backend);          
+            if (disc.common.components.ncq > 0) hdgGetQ(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common, backend);          
             if (disc.common.components.ncw > 0) GetW<exasim::detail::AbiAdapter>(disc.sol.wdg, disc.sol, disc.tmp, disc.app, disc.common, backend);
             assembler.hdgAssembleResidual(solv.sys.b, backend);
             nrmr = PNORM(disc.common.cublasHandle, N, disc.common.couplingparams.ndofuhatinterface, solv.sys.b, backend); 
