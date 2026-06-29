@@ -1887,6 +1887,42 @@ struct componentsstruct {
     Int ntau;  // stabilization length
 };
 
+// Model-local solution layout: the per-point field SHAPE the model determines -- the solution-field
+// component counts and (scaffolded) per-component names. This is the "data layout component of the
+// model": LOCAL/per-point and model-changing, distinct from geometry/mesh sizes (nd / npe / ne / ncx),
+// which change with the app and live in gridstruct / meshsizesstruct. Host-only descriptor; the
+// kernels still read the raw counts from common.components, so adding this costs zero kernel churn.
+// G4 of the model-decoupling plan: the counts are populated now; names are auto-labeled ("u0","u1",
+// ...) as a scaffold and will carry real model-supplied names once the wire format emits them (Phase D).
+struct solutionlayoutstruct {
+    // counts (mirrored from componentsstruct -- the solution's per-point field components)
+    Int nc=0;    // (u, q) packed
+    Int ncu=0;   // u    (primary unknowns)
+    Int ncq=0;   // q    (gradient/auxiliary, = ncu * nd)
+    Int ncw=0;   // w    (wave/auxiliary)
+    Int nco=0;   // o    (other read-only auxiliary)
+    Int nch=0;   // uhat (trace)
+    Int nce=0;   // output fields
+    // meaning: per-component names/roles (auto-labeled scaffold; Phase D fills real names)
+    std::vector<std::string> ufields, qfields, wfields, ofields, efields;
+};
+
+// Populate a solution layout from the raw component counts, auto-labeling each field's components.
+inline void buildSolutionLayout(solutionlayoutstruct& layout, const componentsstruct& c)
+{
+    layout.nc = c.nc; layout.ncu = c.ncu; layout.ncq = c.ncq; layout.ncw = c.ncw;
+    layout.nco = c.nco; layout.nch = c.nch; layout.nce = c.nce;
+    auto autolabel = [](std::vector<std::string>& v, const char* prefix, Int n) {
+        v.clear();
+        for (Int i = 0; i < n; ++i) v.push_back(std::string(prefix) + std::to_string(i));
+    };
+    autolabel(layout.ufields, "u", c.ncu);
+    autolabel(layout.qfields, "q", c.ncq);
+    autolabel(layout.wfields, "w", c.ncw);
+    autolabel(layout.ofields, "o", c.nco);
+    autolabel(layout.efields, "e", c.nce);
+}
+
 // Reference-element / discretization sizes: spatial dimension, element & node types, polynomial
 // and quadrature orders, and the per-element/face node & Gauss-point counts (the master-element
 // shape the kernels loop over). Grouped out of commonstruct (C3/S3) into an intermediate struct
@@ -1935,6 +1971,7 @@ struct commonstruct {
     meshsizesstruct meshsizes;              // mesh partition element/face/block counts (see above)
     gridstruct grid;                        // reference-element/discretization sizes (see above)
     componentsstruct components;            // DG-field component counts (see above)
+    solutionlayoutstruct layout;            // model-local solution layout: field counts + names (G4)
     sizesstruct sizes;                      // derived degree-of-freedom counts (see above)
     wallmodelparamsstruct wallmodelparams;  // wall-model configuration (see above)
     stgparamsstruct stgparams;              // synthetic-turbulence-generation config (see above)

@@ -72,6 +72,9 @@ void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &master,
     common.components.ncx = app.ndims[11];// number of compoments of (xdg)        
     common.components.nce = app.ndims[12];// number of compoments of (output)        
     common.components.ncw = app.ndims[13];//number of compoments of (w)
+    // Build the model-local solution layout (field counts + auto-labeled names) from the component
+    // counts just read. Host-only descriptor; kernels keep reading common.components (zero churn).
+    buildSolutionLayout(common.layout, common.components);
     common.qoiparams.nsca = app.ndims[14];// number of components of scalar fields for visualization
     common.qoiparams.nvec = app.ndims[15];// number of components of vector fields for visualization
     common.qoiparams.nten = app.ndims[16];// number of components of tensor fields for visualization
