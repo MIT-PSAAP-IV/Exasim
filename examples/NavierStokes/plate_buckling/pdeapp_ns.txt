@@ -1,0 +1,55 @@
+model = "ModelD";
+modelfile = "pdemodel_ns.txt";
+meshfile = "grid.bin";
+xdgfile = "xdg.bin";
+udgfile = "udg.bin";
+vdgfile = "vdg.bin";
+discretization = "hdg";
+platform = "cpu";
+
+mpiprocs = 16;
+debugmode = 0;
+runmode = 0;
+modelnumber = 0;
+
+porder = 2;
+pgauss = 4;
+torder = 1;
+nstage = 1;
+
+ncu = 4;
+ncw = 0;
+neb = 4096;
+nfb = 8192;
+
+NewtonIter = 10;
+NewtonTol = 1e-06;
+GMRESiter = 500;
+GMRESrestart = 250;
+GMREStol = 1e-06;
+GMRESortho = 1;
+ppdegree = 0;
+RBdim = 0;
+matvecorder = 1;
+matvectol = 1e-06;
+precMatrixType = 0;
+preconditioner = 1;
+
+time = 0;
+tau = [4];
+dt = [0];
+physicsparam = [1.451, 984000, 0.72, 7.7, 1, 1, 0, 0.52577, 0.025774, 477, 300];
+externalparam = [0, 0];
+
+boundaryconditions = [1, 2, 3, 5];
+wmModelIDs = [];
+wmBoundaries = [];
+wmDistances = [];
+boundaryexpressions = ["abs(y-((x<=-3.851085105396e-02)*sqrt(max(0,3.600000000000e-03-x^2))+(x>-3.851085105396e-02)*(4.600993752549e-02+8.370115919550e-01*(x--3.851085105396e-02))))<5.000000000000e-04", "abs(x-3.492000000000e-01)<5.000000000000e-04", "abs(y-((x<=6.840169692264e-03)*sqrt(max(0,2*1.000000000000e-02*x-x^2))+(x>6.840169692264e-03)*(9.487648413928e-03+3.330467329604e-01*(x-6.840169692264e-03))))<5.000000000000e-04&x>=0", "abs(y)<5.000000000000e-04&x<0"];
+curvedboundaries = [0, 0, 0, 0];
+curvedboundaryexprs = ["", "", "", ""];
+periodicboundaries1 = [];
+periodicexprs1 = [];
+periodicboundaries2 = [];
+periodicexprs2 = [];
+interfaceconditions = [];

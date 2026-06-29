@@ -16,14 +16,16 @@ mesh = mkmesh_thermal_buckling(porder, nx1, nxf, ny);
 figure(1); clf; meshplot(mesh);
 
 %% ---- 2. Elasticity mesh deformation ----
-bump_amp = 0.0;
+bump_amp = 0.012;
 bump_loc = 0.20;
 bump_width = 0.05;
 
 if abs(bump_amp) > 0
     [pde, ~] = initializeexasim();
     pde.porder = porder;
-    mesh = pdeapp_el(mesh, pde, bump_amp, bump_loc, bump_width);
+    [sol_el, pde_el, mesh_el] = pdeapp_el(mesh, pde, bump_amp, bump_loc, bump_width);
+    mesh.dgnodes = mesh.dgnodes - sol_el(:, 1:2, :);
+    figure(2);clf;meshplot(mesh);
 end
 
 %% ---- 3. Navier-Stokes solve + viscosity ramp ----
@@ -87,3 +89,10 @@ scaplot(mesh1, eulereval(sol, 'M', gam, Minf), [0 Minf], 1);
 colorbar; colormap("jet"); axis on; axis equal; axis tight; set(gca, "FontSize", 16);
 title("Mach");
 exportgraphics(gca, "mach.png", "Resolution", 200);
+
+%% ---- 6. Write input files for C++ driver ----
+if exist("pde_el", "var")
+    writeinputfile("pdeapp_el.txt", pde_el, mesh);
+end
+writeinputfile("pdeapp_hm.txt", pdehm, mesh);
+writeinputfile("pdeapp_ns.txt", pde, mesh);
