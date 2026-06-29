@@ -28,7 +28,7 @@ void CAssembler::hdgAssembleLinearSystem(dstype *b, Int backend)
     hdgAssembleLinearSystemMPI<exasim::detail::AbiAdapter>(b, sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
 #else
     uEquationHDG<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
-    hdgAssembleRHS<exasim::detail::AbiAdapter>(b, res.Rh, mesh, common);
+    hdgAssembleRHS(b, res.Rh, mesh, common);
 #endif
     // (building the HDG preconditioner matrix K from the assembled H is a preconditioner
     //  concern -- moved to CPreconditioner::ComputeHDGPreconditioner, called after assembly)
@@ -52,7 +52,7 @@ void CAssembler::hdgAssembleResidual(dstype *b, Int backend)
     // b, K, H, F, Ru
     ResidualHDG<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
     //uEquationHDG<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
-    hdgAssembleRHS<exasim::detail::AbiAdapter>(b, res.Rh, mesh, common);
+    hdgAssembleRHS(b, res.Rh, mesh, common);
 #endif
 }
 
@@ -75,7 +75,7 @@ void CAssembler::evalMatVec(dstype* Jv, dstype* v, dstype* u, dstype* Ru, Int sp
       MatVec<exasim::detail::AbiAdapter>(Jv, sol, res, app, master, mesh, tmp, common, common.cublasHandle, v, u, Ru, backend);
     }
     else if (spatialScheme == 1) { // HDG
-      hdgMatVec<exasim::detail::AbiAdapter>(Jv, res.H, v, res.Rh, res.Rq, res, app, mesh, common, tmp, common.cublasHandle, backend);
+      hdgMatVec(Jv, res.H, v, res.Rh, res.Rq, res, app, mesh, common, tmp, common.cublasHandle, backend);
     }
 }
 

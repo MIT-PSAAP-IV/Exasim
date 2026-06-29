@@ -100,7 +100,6 @@ inline void MatVec(dstype *w, solstruct &sol, resstruct &res, appstruct &app, ma
 #endif
 }
 
-template <class M>
 inline void hdgAssembleRHS(dstype *R, dstype *Rh, meshstruct &mesh, commonstruct &common)
 {   
     Int nf = common.meshsizes.nf; // number of faces in this subdomain
@@ -117,7 +116,6 @@ inline void hdgAssembleRHS(dstype *R, dstype *Rh, meshstruct &mesh, commonstruct
     }
 }
 
-template <class M>
 inline void hdgBlockILU0(dstype *BE, dstype *AE, resstruct &res, meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
 {
   Int ncu = common.components.ncu;// number of compoments of (u)
@@ -167,7 +165,6 @@ inline void hdgBlockILU0(dstype *BE, dstype *AE, resstruct &res, meshstruct &mes
 //   error("here");
 }
 
-template <class M>
 inline void hdgElementalAdditiveSchwarz(dstype *BE, dstype *AE, resstruct &res, meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
 {   
     Int nf = common.meshsizes.nf; // number of faces in this subdomain
@@ -190,7 +187,6 @@ inline void hdgElementalAdditiveSchwarz(dstype *BE, dstype *AE, resstruct &res, 
     }
 }
 
-template <class M>
 inline void hdgBlockJacobi(dstype *BE, dstype *AE, resstruct &res, meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
 {   
     Int nf = common.meshsizes.nf; // number of faces in this subdomain
@@ -220,7 +216,6 @@ inline void hdgBlockJacobi(dstype *BE, dstype *AE, resstruct &res, meshstruct &m
     }
 }
 
-template <class M>
 inline void hdgGetDUDG(dstype *w, dstype *F, dstype *duh, dstype *ve, meshstruct &mesh, 
         commonstruct &common,  Int backend)
 {   
@@ -242,7 +237,6 @@ inline void hdgGetDUDG(dstype *w, dstype *F, dstype *duh, dstype *ve, meshstruct
     }
 }
 
-template <class M>
 inline void hdgMatVec(dstype *w, dstype *AE, dstype *v, dstype *ve, dstype *we, resstruct &res, appstruct &app, 
         meshstruct &mesh, commonstruct &common, tempstruct &tmp, cublasHandle_t handle, Int backend)
 {   

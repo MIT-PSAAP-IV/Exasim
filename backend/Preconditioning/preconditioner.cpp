@@ -299,7 +299,7 @@ void CPreconditioner::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretiza
         PGEMNMStridedBached(disc.common.cublasHandle, ncf, 1, ncf, one, disc.res.K, ncf, disc.res.Rh, ncf, zero, x, ncf, nf, backend);         
       }
       else if (disc.common.solverparams.preconditioner==1) { // Elemental additive Schwarz preconditioner        
-        hdgMatVec<exasim::detail::AbiAdapter>(x, disc.res.K, x, disc.res.Rh, disc.res.Rq, disc.res, disc.app, disc.mesh, disc.common, disc.tmp, disc.common.cublasHandle, backend);
+        hdgMatVec(x, disc.res.K, x, disc.res.Rh, disc.res.Rq, disc.res, disc.app, disc.mesh, disc.common, disc.tmp, disc.common.cublasHandle, backend);
       }
       else if (disc.common.solverparams.preconditioner==2) { // super-element additive Schwarz preconditioner with BLIU0
         Int nf = disc.common.meshsizes.nf; // number of faces in this subdomain
@@ -358,13 +358,13 @@ void CPreconditioner::ComputeHDGPreconditioner(CDiscretization& disc, Int backen
 
     if (common.solverparams.preconditioner==0) {
       // fix bug here: tmp.tempn is not enough memory to store ncu*npf*ncu*npf*nf
-      hdgBlockJacobi<exasim::detail::AbiAdapter>(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);
+      hdgBlockJacobi(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);
     }
     else if (common.solverparams.preconditioner==1) {
-      hdgElementalAdditiveSchwarz<exasim::detail::AbiAdapter>(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);
+      hdgElementalAdditiveSchwarz(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);
     }
     else if (common.solverparams.preconditioner==2) {
-      hdgBlockILU0<exasim::detail::AbiAdapter>(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);
+      hdgBlockILU0(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);
     }
 }
 

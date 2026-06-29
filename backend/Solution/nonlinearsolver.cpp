@@ -236,7 +236,7 @@ Int CNonlinearSolver::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int 
         } 
         else if (spatialScheme == 1) {      
           ArrayCopy(disc.sol.uh, solv.sys.u, N);
-          hdgGetDUDG<exasim::detail::AbiAdapter>(disc.res.Ru, disc.res.F, solv.sys.x, disc.res.Rq, disc.mesh, disc.common, backend);          
+          hdgGetDUDG(disc.res.Ru, disc.res.F, solv.sys.x, disc.res.Rq, disc.mesh, disc.common, backend);          
           ArrayCopy(solv.sys.v, disc.res.Ru, disc.common.grid.npe*disc.common.components.ncu*disc.common.meshsizes.ne1);
           UpdateUDG(disc.sol.udg, disc.res.Ru, solv.sys.alpha, disc.common.grid.npe, disc.common.components.nc, disc.common.meshsizes.ne1, 0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.meshsizes.ne1);                    
                     
