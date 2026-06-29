@@ -252,6 +252,35 @@ endif()
 # ---- Option: link METIS / ParMETIS / GKlib -------------------------------
 option(WITH_PARMETIS "Build extra EXASIM executables that link metis libraries" OFF)
 
+function(exasim_first_existing_dir outvar)
+  foreach(_dir ${ARGN})
+    if(EXISTS "${_dir}" AND IS_DIRECTORY "${_dir}")
+      set(${outvar} "${_dir}" PARENT_SCOPE)
+      return()
+    endif()
+  endforeach()
+  list(GET ARGN 0 _fallback)
+  set(${outvar} "${_fallback}" PARENT_SCOPE)
+endfunction()
+
+function(exasim_first_existing_file_dir outvar filename)
+  foreach(_dir ${ARGN})
+    if(EXISTS "${_dir}/${filename}")
+      set(${outvar} "${_dir}" PARENT_SCOPE)
+      return()
+    endif()
+  endforeach()
+  list(GET ARGN 0 _fallback)
+  set(${outvar} "${_fallback}" PARENT_SCOPE)
+endfunction()
+
+function(exasim_refresh_cache_dir_if_needed var default_dir required_file doc)
+  set(${var} "${default_dir}" CACHE PATH "${doc}")
+  if(NOT EXISTS "${${var}}/${required_file}" AND EXISTS "${default_dir}/${required_file}")
+    set(${var} "${default_dir}" CACHE PATH "${doc}" FORCE)
+  endif()
+endfunction()
+
 # METIS: ParMETIS / METIS / GKlib roots (override if your layout differs)
 set(PARMETIS_ROOT "${EXASIM_DIR}/deps/metis/ParMETIS"
     CACHE PATH "Path to ParMETIS root")
@@ -261,21 +290,37 @@ set(GKLIB_ROOT    "${EXASIM_DIR}/deps/metis/GKlib"
     CACHE PATH "Path to GKlib root")
 
 # METIS: derived include/lib dirs (override if needed)
-set(PARMETIS_INCLUDE_DIR "${PARMETIS_ROOT}/include"
-    CACHE PATH "ParMETIS include dir")
-set(PARMETIS_LIBRARY_DIR "${PARMETIS_ROOT}/lib"
-    CACHE PATH "ParMETIS library dir")
+exasim_first_existing_dir(_parmetis_default_include
+  "${PARMETIS_ROOT}/include")
+exasim_first_existing_file_dir(_parmetis_default_libdir libparmetis.a
+  "${PARMETIS_ROOT}/lib"
+  "${PARMETIS_ROOT}/lib64"
+  "${PARMETIS_ROOT}/build/${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}/libparmetis")
+set(PARMETIS_INCLUDE_DIR "${_parmetis_default_include}" CACHE PATH "ParMETIS include dir")
+exasim_refresh_cache_dir_if_needed(PARMETIS_LIBRARY_DIR
+  "${_parmetis_default_libdir}" libparmetis.a "ParMETIS library dir")
 
 # METIS layout: public headers under build/xinclude, library under build/libmetis
-set(METIS_INCLUDE_DIR "${METIS_ROOT}/build/xinclude"
-    CACHE PATH "METIS public include dir")
-set(METIS_LIBRARY_DIR "${METIS_ROOT}/build/libmetis"
-    CACHE PATH "METIS library dir")
+exasim_first_existing_dir(_metis_default_include
+  "${METIS_ROOT}/build/xinclude"
+  "${METIS_ROOT}/include")
+exasim_first_existing_file_dir(_metis_default_libdir libmetis.a
+  "${METIS_ROOT}/lib"
+  "${METIS_ROOT}/lib64"
+  "${METIS_ROOT}/build/libmetis")
+set(METIS_INCLUDE_DIR "${_metis_default_include}" CACHE PATH "METIS public include dir")
+exasim_refresh_cache_dir_if_needed(METIS_LIBRARY_DIR
+  "${_metis_default_libdir}" libmetis.a "METIS library dir")
 
-set(GKLIB_INCLUDE_DIR "${GKLIB_ROOT}/include"
-    CACHE PATH "GKlib include dir")
-set(GKLIB_LIBRARY_DIR "${GKLIB_ROOT}/lib"
-    CACHE PATH "GKlib library dir")
+exasim_first_existing_dir(_gklib_default_include
+  "${GKLIB_ROOT}/include")
+exasim_first_existing_file_dir(_gklib_default_libdir libGKlib.a
+  "${GKLIB_ROOT}/lib"
+  "${GKLIB_ROOT}/lib64"
+  "${GKLIB_ROOT}/build/${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
+set(GKLIB_INCLUDE_DIR "${_gklib_default_include}" CACHE PATH "GKlib include dir")
+exasim_refresh_cache_dir_if_needed(GKLIB_LIBRARY_DIR
+  "${_gklib_default_libdir}" libGKlib.a "GKlib library dir")
 
 # Resolve METIS / ParMETIS / GKlib: prefer an installed copy (e.g.
 # `apt install libmetis-dev libparmetis-dev`, or any package-manager install on

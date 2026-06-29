@@ -44,11 +44,55 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${EXASIM_T2C_OUTPUT_DIR}")
 set(METIS_ROOT    "${EXASIM_ROOT}/deps/metis/METIS" CACHE PATH "Path to METIS root")
 set(GKLIB_ROOT    "${EXASIM_ROOT}/deps/metis/GKlib" CACHE PATH "Path to GKlib root")
 
+function(t2c_first_existing_dir outvar)
+  foreach(_dir ${ARGN})
+    if(EXISTS "${_dir}" AND IS_DIRECTORY "${_dir}")
+      set(${outvar} "${_dir}" PARENT_SCOPE)
+      return()
+    endif()
+  endforeach()
+  list(GET ARGN 0 _fallback)
+  set(${outvar} "${_fallback}" PARENT_SCOPE)
+endfunction()
+
+function(t2c_first_existing_file_dir outvar filename)
+  foreach(_dir ${ARGN})
+    if(EXISTS "${_dir}/${filename}")
+      set(${outvar} "${_dir}" PARENT_SCOPE)
+      return()
+    endif()
+  endforeach()
+  list(GET ARGN 0 _fallback)
+  set(${outvar} "${_fallback}" PARENT_SCOPE)
+endfunction()
+
+function(t2c_refresh_cache_dir_if_needed var default_dir required_file doc)
+  set(${var} "${default_dir}" CACHE PATH "${doc}")
+  if(NOT EXISTS "${${var}}/${required_file}" AND EXISTS "${default_dir}/${required_file}")
+    set(${var} "${default_dir}" CACHE PATH "${doc}" FORCE)
+  endif()
+endfunction()
+
 # Derived include/lib dirs (override if needed)
-set(METIS_INCLUDE_DIR "${METIS_ROOT}/build/xinclude" CACHE PATH "METIS public include dir")
-set(METIS_LIBRARY_DIR "${METIS_ROOT}/build/libmetis"  CACHE PATH "METIS library dir")
-set(GKLIB_INCLUDE_DIR "${GKLIB_ROOT}/include"         CACHE PATH "GKlib include dir")
-set(GKLIB_LIBRARY_DIR "${GKLIB_ROOT}/lib"             CACHE PATH "GKlib library dir")
+t2c_first_existing_dir(_metis_default_include
+  "${METIS_ROOT}/build/xinclude"
+  "${METIS_ROOT}/include")
+t2c_first_existing_file_dir(_metis_default_libdir libmetis.a
+  "${METIS_ROOT}/lib"
+  "${METIS_ROOT}/lib64"
+  "${METIS_ROOT}/build/libmetis")
+t2c_first_existing_dir(_gklib_default_include
+  "${GKLIB_ROOT}/include")
+t2c_first_existing_file_dir(_gklib_default_libdir libGKlib.a
+  "${GKLIB_ROOT}/lib"
+  "${GKLIB_ROOT}/lib64"
+  "${GKLIB_ROOT}/build/${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
+set(METIS_INCLUDE_DIR "${_metis_default_include}" CACHE PATH "METIS public include dir")
+t2c_refresh_cache_dir_if_needed(METIS_LIBRARY_DIR
+  "${_metis_default_libdir}" libmetis.a "METIS library dir")
+set(GKLIB_INCLUDE_DIR "${_gklib_default_include}" CACHE PATH "GKlib include dir")
+t2c_refresh_cache_dir_if_needed(GKLIB_LIBRARY_DIR
+  "${_gklib_default_libdir}" libGKlib.a "GKlib library dir")
 
 # Resolve METIS/GKlib robustly: find them on the system (conda/apt) OR fall back
 # to the vendored build dirs via HINTS — exactly like the main solver build.
