@@ -125,12 +125,30 @@ extern MPI_Comm EXASIM_COMM_LOCAL;
 #include <backend/Common/kokkosimpl.h>
 #include <backend/Common/pblas.h>
 
-#include <backend/Discretization/discretization.hpp>
-#include <backend/Preconditioning/preconditioner.hpp>
-#include <backend/Solver/solver.hpp>
-#include <backend/Visualization/visualization.hpp>
-#include <backend/PointLocator/pointlocator.hpp>
-#include <backend/Solution/solution.hpp>
+// The aggregated FEM implementation .cpp use unqualified std names (string, cout,
+// endl, ...) -- they were authored for the unity build (ExasimSolver.cpp), which
+// opens `using namespace std;` before including them. Mirror that here so the same
+// .cpp compile unchanged in the templated consumer TU.
+using namespace std;
+
+// Aggregate the FEM implementation the same way the in-tree unity build
+// (backend/Main/ExasimSolver.cpp) does: include the templated class .cpp
+// directly, in dependency order, rather than the per-class .hpp twins (those
+// were deleted as duplicates of the .cpp). model_drivers_abi.cpp supplies the
+// common-based global ::Name drivers used by the AbiAdapter dispatch branch;
+// it is codegen-free (no per-model KokkosFlux.cpp), so a concrete Model M
+// compiles with NO text2code kernels -- the templated exasim::Name<M> path.
+#include <backend/Model/ModelDispatch/model_drivers_abi.cpp>
+#include <backend/Discretization/discretization.cpp>
+#include <backend/Discretization/assembler.cpp>
+#include <backend/Discretization/residualeval.cpp>
+#include <backend/Preconditioning/preconditioner.cpp>
+#include <backend/Solver/solver.cpp>
+#include <backend/Visualization/visualization.cpp>
+#include <backend/PointLocator/pointlocator.cpp>
+#include <backend/Solution/solution.cpp>
+#include <backend/Solution/solutionwriter.cpp>
+#include <backend/Solution/nonlinearsolver.cpp>
 
 #ifdef HAVE_SHARED_MODEL_LIB
 #include <backend/Preprocessing/preprocessing.hpp>

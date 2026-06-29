@@ -215,7 +215,27 @@ void CResidual<M>::evalAVfield(dstype* avField, Int backend)
 template <class M>
 void CResidual<M>::initializeSolution()
 {
-    ::initializeSolution(disc.sol, disc.app, disc.driver_abi, disc.common);
+    if constexpr (std::is_same_v<M, exasim::detail::AbiAdapter>) {
+        // Runtime-ABI build: the free initializeSolution dispatches the model init drivers
+        // through driver_abi (the legacy/global ::Init*Driver). Byte-identical to before.
+        ::initializeSolution(disc.sol, disc.app, disc.driver_abi, disc.common);
+    } else {
+        // Concrete-model build (GAP3, C3): route the model initial conditions through the templated
+        // exasim::Init*Driver<M> kernels (which inline M::initu / M::initwdg / ...), with NO driver_abi.
+        // Mirrors the free initializeSolution() in setstructs.cpp (same needs/wave guards); the templated
+        // drivers read sizes from common, so no explicit ncx/nc/npe/ne arguments.
+        auto& sol = disc.sol; auto& app = disc.app; auto& common = disc.common;
+        if (sol.needudginit) {
+            if (common.timeparams.wave == 0)
+                exasim::InituDriver<M>(sol.udg, sol.xdg, app, common, common.backend);
+            else
+                exasim::InitudgDriver<M>(sol.udg, sol.xdg, app, common, common.backend);
+        }
+        if (sol.needodginit)
+            exasim::InitodgDriver<M>(sol.odg, sol.xdg, app, common, common.backend);
+        if (sol.needwdginit)
+            exasim::InitwdgDriver<M>(sol.wdg, sol.xdg, app, common, common.backend);
+    }
 }
 
 // Recover the initial operator state (q, uh, q-matrices) from the initialized u.

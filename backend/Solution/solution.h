@@ -170,20 +170,18 @@ public:
 
         // Open the output streams and write the initial solution (the I/O half lives on the writer).
         writer.setup(postprocessOnly);
+    };
 
-        // if (!outsol) error("Unable to open file " + filename);
-//           disc.common.printinfo();
-//           disc.app.printinfo();
-//           disc.res.printinfo();
-//           disc.tmp.printinfo();
-//           disc.sol.printinfo();
-//           disc.mesh.printinfo();
-//           disc.master.printinfo();       
-//           prec.precond.printinfo();
-//           solv.sys.printinfo();
-//           error("here");
-    };        
-    
+    // No-ABI constructor (C3): the concrete-model build (M != AbiAdapter) has no runtime ABI -- the
+    // solve is fully inlined through the templated exasim::Name<M> kernels. Matches run.hpp /
+    // solver_facade.hpp's 9-arg call; delegates to the ABI constructor with a default (all-null) ABI
+    // (its fn-pointers are only dereferenced by the discarded AbiAdapter branch, never for concrete M).
+    CSolution(string filein, string fileout, string exasimpath, Int mpiprocs,
+              Int mpirank, Int fileoffset, Int omprank, Int backend, Int builtinmodelID)
+        : CSolution(filein, fileout, exasimpath, mpiprocs, mpirank, fileoffset, omprank,
+                    backend, builtinmodelID, ExasimDriverABI{}) {}
+
+
     // destructor (output streams are owned by, and closed by, the writer)
     ~CSolution() {
         this->ClearSavedState();

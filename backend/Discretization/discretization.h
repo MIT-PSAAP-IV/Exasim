@@ -67,9 +67,19 @@ public:
                     ExasimExecutionMode mode = ExasimExecutionMode::Solve,
                     const std::vector<dstype>* physicsparamOverride = nullptr,
                     Int saveParaview = 0);
-    
-    // destructor        
-    ~CDiscretization(); 
+
+    // No-ABI constructor (C3): the concrete-model build (CSolution<M>, M != AbiAdapter) has no
+    // runtime ExasimDriverABI -- every model call is inlined through the templated exasim::Name<M>
+    // kernels. Delegate to the ABI constructor with a default (all-null) ABI; the fn-pointers are
+    // only dereferenced by the discarded AbiAdapter branch of EXASIM_DRIVER_CALL, never for concrete M.
+    // The temporary lives through the delegated constructor (which copies it into the driver_abi member).
+    CDiscretization(std::string filein, std::string fileout, std::string exasimpath, Int mpiprocs,
+                    Int mpirank, Int ompthreads, Int omprank, Int backend, Int builtinmodelID)
+        : CDiscretization(filein, fileout, exasimpath, mpiprocs, mpirank, ompthreads, omprank,
+                          backend, builtinmodelID, ExasimDriverABI{}) {}
+
+    // destructor
+    ~CDiscretization();
         
     // compute the geometry
     void compGeometry(Int backend);    

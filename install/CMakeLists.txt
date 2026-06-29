@@ -666,7 +666,11 @@ install(DIRECTORY ${EXASIM_INCLUDE_DIR}/
 # both <exasim/...> and backend/... .
 install(DIRECTORY ${EXASIM_DIR}/backend/
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/backend
-  FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp")
+  FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
+  # The templated consumer entry (exasim::run<M>) aggregates the FEM
+  # implementation .cpp directly (mirroring the ExasimSolver.cpp unity build)
+  # instead of the deleted per-class .hpp twins, so install the .cpp too.
+  PATTERN "*.cpp")
 
 # The templated path's discretization.hpp includes one model-driver
 # implementation (.cpp) selected by HAVE_TEXT2CODE / HAVE_BUILTINMODEL / else.
