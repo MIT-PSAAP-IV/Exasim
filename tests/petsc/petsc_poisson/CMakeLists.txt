@@ -46,7 +46,7 @@ set(ENV{PKG_CONFIG} "pkg-config --define-variable=PETSC_DIR=${PETSC_PREFIX}")
 pkg_check_modules(PETSC REQUIRED IMPORTED_TARGET petsc)
 
 add_executable(petsc_poisson main.cpp)
-target_include_directories(petsc_poisson PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories(petsc_poisson PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/../../models")
 target_link_libraries(petsc_poisson PRIVATE
     Exasim::headers Exasim::pre Kokkos::kokkos PkgConfig::PETSC)
 

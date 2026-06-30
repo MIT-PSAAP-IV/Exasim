@@ -19,7 +19,7 @@
 #include <exasim/operators.hpp>     // FEM aggregation + preprocessing + in-memory ctor
 #include <exasim/export.hpp>        // default_pde<M> / MeshSpec / make_preprocessed (no solver facade)
 
-#include "my_model.hpp"             // Poisson2D (hand-written, no codegen)
+#include "poisson2d.hpp"             // Poisson2D (hand-written, no codegen)
 
 #include <cmath>
 #include <cstdio>

@@ -37,7 +37,7 @@
 
 #include <exasim/operators.hpp>
 #include <exasim/export.hpp>
-#include "my_model.hpp"
+#include "poisson2d.hpp"
 
 #include <cmath>
 #include <cstdio>

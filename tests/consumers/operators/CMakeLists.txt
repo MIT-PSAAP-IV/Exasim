@@ -29,7 +29,8 @@ find_package(LAPACK REQUIRED)
 
 add_executable(consumer_operators main.cpp)
 target_include_directories(consumer_operators PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}")            # for #include "my_model.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../models")   # shared poisson2d.hpp
 target_link_libraries(consumer_operators PRIVATE
     Exasim::headers Exasim::pre Kokkos::kokkos
     ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})

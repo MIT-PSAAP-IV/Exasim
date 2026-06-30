@@ -43,7 +43,7 @@ set(OPENMPI_PREFIX "${PETSC_PREFIX}" CACHE PATH "open-mpi prefix (the one PETSc 
 
 add_executable(petsc_heat main.cpp)
 target_include_directories(petsc_heat PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}" "${OPENMPI_PREFIX}/include")
+    "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/../../models" "${OPENMPI_PREFIX}/include")
 target_link_directories(petsc_heat PRIVATE "${OPENMPI_PREFIX}/lib")
 target_link_libraries(petsc_heat PRIVATE
     Exasim::headers Kokkos::kokkos

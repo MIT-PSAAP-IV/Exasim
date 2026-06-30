@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: see Exasim LICENSE
 //
-// my_model.hpp — Poisson 2D PDE model, written by hand against the
+// poisson2d.hpp — Poisson 2D PDE model, written by hand against the
 // `<exasim/model.hpp>` contract. No DSL, no autodiff, no codegen.
+//
+// SHARED across the Poisson2D consumers (tests/consumers/operators, tests/consumers/facade,
+// tests/petsc/petsc_poisson, tests/petsc/petsc_heat) -- one canonical copy, pulled in via each
+// consumer's `../../models` include path. (The builtin/external-model consumers use a different
+// model and keep their own.)
 //
 // Solves   -∇·(μ∇u) = 2π² sin(πx) sin(πy)   on the unit square
 //                u = 0                       on the boundary
