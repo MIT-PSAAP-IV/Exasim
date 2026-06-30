@@ -166,6 +166,64 @@ inline std::vector<dstype> eval_qoi(CDiscretization& disc)
                                disc.common.qoiparams.qoivolume + nv);
 }
 
+// Write the current solution to a ParaView .vtu file, using Exasim's existing vis
+// pipeline (CVisualization + vtuwrite). The model's vis_scalars/vis_vectors/vis_tensors
+// supply the fields; the CG vis geometry (sol.xcg / mesh.cgelcon) is built in-memory by
+// buildConn. pde.nsca/nvec/nten must have been set before construction (so the counts
+// and CG geometry are wired). basename gets a ".vtu" suffix (serial) or per-rank .vtu +
+// .pvtu (MPI). Mirrors CSolutionWriter::SaveParaview's field computation.
+template <class M>
+inline void write_vtk(CDiscretization& disc, const std::string& basename, int backend)
+{
+    auto& c = disc.common;
+    const int nc=c.components.nc, ncx=c.components.ncx, nco=c.components.nco, ncw=c.components.ncw;
+    const int nsca=c.qoiparams.nsca, nvec=c.qoiparams.nvec, nten=c.qoiparams.nten;
+    const int npe=c.grid.npe, ne=c.meshsizes.ne1, ndg=npe*ne;
+
+    CVisualization vis(disc, backend);
+    const int ncg = vis.npoints;
+    // default field names if the pdeapp vis keys did not supply them
+    if ((int)vis.scalar_names.size() < nsca) { vis.scalar_names.clear();
+        for (int i=0;i<nsca;++i) vis.scalar_names.push_back("scalar" + std::to_string(i)); }
+    if ((int)vis.vector_names.size() < nvec) { vis.vector_names.clear();
+        for (int i=0;i<nvec;++i) vis.vector_names.push_back("vector" + std::to_string(i)); }
+    if ((int)vis.tensor_names.size() < nten) { vis.tensor_names.clear();
+        for (int i=0;i<nten;++i) vis.tensor_names.push_back("tensor" + std::to_string(i)); }
+
+    dstype* udg = disc.res.Rq;
+    dstype* wdg = disc.res.Ru;
+    const int nvis  = std::max(std::max(nsca, 3*nvec), vis.ntc*nten);
+    const int szvis = npe*(ncx+nco+nvis)*ne;
+    dstype* tempn = disc.tmp.tempn;
+    bool owns = false;
+    if (disc.tmp.sztempn + disc.tmp.sztempg < szvis) { TemplateMalloc(&tempn, szvis, backend); owns = true; }
+    dstype* xdg = &tempn[0];
+    dstype* vdg = &tempn[npe*ncx*ne];
+    dstype* f   = &tempn[npe*(ncx+nco)*ne];
+
+    GetElemNodes(xdg, disc.sol.xdg, npe, ncx, 0, ncx, 0, ne);
+    GetElemNodes(udg, disc.sol.udg, npe, nc, 0, nc, 0, ne);
+    if (nco > 0) GetElemNodes(vdg, disc.sol.odg, npe, nco, 0, nco, 0, ne);
+    if (ncw > 0) GetElemNodes(wdg, disc.sol.wdg, npe, ncw, 0, ncw, 0, ne);
+
+    if (nsca > 0) {
+        EXASIM_DRIVER_CALL(VisScalarsDriver, f, xdg, udg, vdg, wdg, disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common, npe, 0, ne, backend);
+        VisDG2CG(vis.scafields, f, disc.mesh.cgent2dgent, disc.mesh.colent2elem, disc.mesh.rowent2elem, ne, ncg, ndg, 1, 1, nsca);
+    }
+    if (nvec > 0) {
+        EXASIM_DRIVER_CALL(VisVectorsDriver, f, xdg, udg, vdg, wdg, disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common, npe, 0, ne, backend);
+        VisDG2CG(vis.vecfields, f, disc.mesh.cgent2dgent, disc.mesh.colent2elem, disc.mesh.rowent2elem, ne, ncg, ndg, 3, ncx, nvec);
+    }
+    if (nten > 0) {
+        EXASIM_DRIVER_CALL(VisTensorsDriver, f, xdg, udg, vdg, wdg, disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common, npe, 0, ne, backend);
+        VisDG2CG(vis.tenfields, f, disc.mesh.cgent2dgent, disc.mesh.colent2elem, disc.mesh.rowent2elem, ne, ncg, ndg, vis.ntc, vis.ntc, nten);
+    }
+
+    if (c.mpiProcs == 1) vis.vtuwrite(basename, vis.scafields, vis.vecfields, vis.tenfields);
+    else                 vis.vtuwrite_parallel(basename, c.mpiRank, c.mpiProcs, vis.scafields, vis.vecfields, vis.tenfields);
+    if (owns) TemplateFree(tempn, backend);
+}
+
 // One-shot sugar: build the in-memory discretization from a PDE config + mesh.
 // Returned by unique_ptr because CDiscretization owns malloc'd C arrays (non-copyable);
 // the operator classes (CResidual<M>/... ) bind a reference to *disc.

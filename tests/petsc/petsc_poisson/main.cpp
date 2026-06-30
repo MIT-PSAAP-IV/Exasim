@@ -115,6 +115,8 @@ int main(int argc, char** argv)
         pde.pgauss      = 6;
         pde.physicsparam = {1.0};
         pde.nvqoi       = 2;          // Poisson2D::qoi_volume outputs [ (u-u_exact)^2, u ]
+        pde.nsca        = 2;          // Poisson2D::vis_scalars outputs [ u, ux+uy ]
+        pde.nvec        = 1;          // Poisson2D::vis_vectors outputs the flux q
 
         // Mesh + boundary tags (all four sides Dirichlet, tag 1).
         exasim::MeshSpec mesh(p.data(), t.data(), np, ne, /*nve=*/4);
@@ -194,6 +196,9 @@ int main(int argc, char** argv)
           PetscCall(VecRestoreArrayReadAndMemType(U, &u)); }
         std::vector<dstype> qoi = exasim::eval_qoi<Poisson2D>(disc);   // qoi[0] = integral (u-u_exact)^2
         const double l2err = std::sqrt(qoi.empty() ? 1.0 : qoi[0]);   // L2 error of (u - u_exact)
+
+        // write the solution to ParaView (uses Exasim's vis pipeline; CG geometry built in-memory)
+        exasim::write_vtk<Poisson2D>(disc, "poisson_petsc", backend);
 
         std::printf("[petsc] (A) PETSc residual ||H*uh - b0||  = %.3e   (PETSc solved the exported system)\n", (double)fnorm);
         std::printf("[petsc] (B) L2 error ||u - u_exact||      = %.3e   (quadrature QoI)\n", l2err);
