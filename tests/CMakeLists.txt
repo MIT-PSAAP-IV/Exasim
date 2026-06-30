@@ -173,3 +173,23 @@ add_test(NAME sharedlibrary_app
     bash "${CMAKE_CURRENT_SOURCE_DIR}/run-sharedlibrary-test.sh")
 set_tests_properties(sharedlibrary_app PROPERTIES
   TIMEOUT 2400 SKIP_RETURN_CODE 77)
+
+# PETSc operator export: PETSc (SNES + KSP=GMRES + MatShell + PCShell) drives the
+# exported in-memory HDG operators for steady Poisson, validated against Exasim's
+# own GMRES on the identical operators. Installs Exasim to a temp prefix, builds
+# tests/petsc/petsc_poisson via find_package(Exasim) + PETSc (pkg-config), and runs
+# the self-checking consumer. Gated on PETSc: the wrapper exits 77 (clean ctest
+# SKIP) when no PETSc pkg-config module is found, so PETSc-less runners don't fail.
+# (The lighter operator-export build/run is already covered by run-consumer-tests.sh
+# via tests/consumers/operators, with no PETSc dependency.)
+add_test(NAME petsc_operator_export
+  COMMAND ${CMAKE_COMMAND} -E env
+    "EXASIM_BUILD=${CMAKE_BINARY_DIR}"
+    "KOKKOS_DIR=${Kokkos_DIR}"
+    "EXASIM_ROOT=${EXASIM_DIR}"
+    "CC=${CMAKE_C_COMPILER}"
+    "CXX=${CMAKE_CXX_COMPILER}"
+    "INSTALL_PREFIX=/tmp/exasim_install_petsc"
+    bash "${EXASIM_DIR}/tests/petsc/run-petsc-test.sh")
+set_tests_properties(petsc_operator_export PROPERTIES
+  TIMEOUT 1800 SKIP_RETURN_CODE 77)
