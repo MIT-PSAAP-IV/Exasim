@@ -185,6 +185,7 @@ int main(int argc, char** argv)
         PDE pde = exasim::default_pde<Poisson2D>();
         pde.porder=3; pde.pgauss=6; pde.physicsparam={1.0};
         pde.tdep=1; pde.torder=1; pde.nstage=1; pde.dt={dt};
+        pde.nsca=2; pde.nvec=1;   // Poisson2D vis fields: [u, ux+uy] + flux q  (for write_vtk)
         exasim::MeshSpec mesh(p.data(),t.data(),np,ne,4);
         mesh.add_boundary(1,[](const double* x){return std::abs(x[1])      <TOL;});
         mesh.add_boundary(1,[](const double* x){return std::abs(x[0]-1.0)  <TOL;});
@@ -195,23 +196,23 @@ int main(int argc, char** argv)
         // so the Exasim-native reference and the PETSc run never share state.
         auto freshPre = [&]() { return exasim::make_preprocessed<Poisson2D>(pde, mesh, mpirank, mpiprocs); };
 
+        // PETSc-driven path: the exported operators + a standalone operator-apply workspace
+        // (setsysstruct, NOT a CSolver). PETSc owns every solve.
         CDiscretization disc(freshPre(), backend);
         CResidual<Poisson2D> residual(disc);
         CAssembler<Poisson2D> assembler(disc);
         CPreconditioner<Poisson2D> prec(disc,backend,ExasimExecutionMode::Solve);
-        CSolver<Poisson2D> solv(disc,backend,ExasimExecutionMode::Solve);
         residual.initializeSolution(); residual.recoverInitialState(backend,false);
         TimestepCoefficents(disc.common);
-        // Tighten Exasim-native GMRES (default 1e-8) to match PETSc's KSP rtol so the
-        // per-step solves agree to machine precision and the trajectories don't drift.
-        disc.common.solverparams.linearSolverTol = 1e-12;
+        sysstruct sys;   // transient workspace (sys.udgprev etc.); NOT a solver
+        setsysstruct(sys, disc.common, disc.res, disc.mesh, disc.tmp, backend);
 
         const Int N = disc.common.sizes.ndofuhat;
         std::printf("[heat-ts] N=%lld, tdep=%d, ncs=%lld, dt=%g, nsteps=%d\n",
                     (long long)N,(int)disc.common.timeparams.tdep,(long long)disc.common.components.ncs,dt,nsteps);
 
         OpCtx ctx; ctx.disc=&disc; ctx.res=&residual; ctx.asmb=&assembler; ctx.prec=&prec;
-        ctx.sys=&solv.sys; ctx.N=N; ctx.backend=backend; ctx.dt=dt;
+        ctx.sys=&sys; ctx.N=N; ctx.backend=backend; ctx.dt=dt;
         ctx.b.assign((size_t)N,0.0); ctx.uh_n.assign((size_t)N,0.0); ctx.work.assign((size_t)N,0.0);
 
         // ================= Exasim-native BE reference (its OWN disc — no state shared with PETSc) =====
@@ -275,6 +276,9 @@ int main(int argc, char** argv)
         PetscInt steps; PetscReal ftime;
         PetscCall(TSGetStepNumber(ts,&steps)); PetscCall(TSGetTime(ts,&ftime));
         std::printf("[heat-ts] PETSc TS done: %lld steps, final t=%g\n",(long long)steps,(double)ftime);
+
+        // write the final-time heat field to ParaView (PostStep already recovered udg)
+        exasim::write_vtk<Poisson2D>(disc, "heat_petsc_final", backend);
 
         std::vector<dstype> uh_petsc((size_t)N);
         { const PetscScalar* u; PetscCall(VecGetArrayRead(U,&u));
