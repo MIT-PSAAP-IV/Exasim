@@ -17,11 +17,22 @@ project(exasim_petsc_poisson_mpi CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Exasim REQUIRED COMPONENTS cpumpi)
+# EXASIM_GPU=ON: combined GPU+MPI -- the CUDA+MPI Exasim (Exasim::gpumpi, _MPI;_CUDA;HAVE_PARMETIS)
+# + a CUDA+MPI PETSc; compile with Kokkos' nvcc_wrapper and run with EXASIM_BACKEND=2 so each rank
+# drives its own GPU (VECCUDA across ranks). OFF: CPU+MPI (Exasim::cpumpi + an MPI PETSc).
+option(EXASIM_GPU "Build against the CUDA+MPI Exasim + CUDA+MPI PETSc" OFF)
+if(EXASIM_GPU)
+  set(CMAKE_CXX_STANDARD 17)   # Kokkos CUDA tree is C++17
+  find_package(Exasim REQUIRED COMPONENTS gpumpi)
+  set(_petsc_default "/data/scratch/teoc/petsc/arch-cuda-mpi")
+else()
+  find_package(Exasim REQUIRED COMPONENTS cpumpi)
+  set(_petsc_default "/data/scratch/teoc/petsc/arch-mpi")
+endif()
 find_package(Kokkos REQUIRED)
 
-# MPI PETSc via pkg-config (ships petsc.pc; arch-mpi). petsc.pc references PETSC_DIR.
-set(PETSC_PREFIX "/data/scratch/teoc/petsc/arch-mpi" CACHE PATH "MPI PETSc install prefix")
+# MPI PETSc via pkg-config (ships petsc.pc). petsc.pc references PETSC_DIR.
+set(PETSC_PREFIX "${_petsc_default}" CACHE PATH "MPI PETSc install prefix")
 find_package(PkgConfig REQUIRED)
 set(ENV{PKG_CONFIG_PATH} "${PETSC_PREFIX}/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}")
 pkg_check_modules(PETSC REQUIRED IMPORTED_TARGET petsc)

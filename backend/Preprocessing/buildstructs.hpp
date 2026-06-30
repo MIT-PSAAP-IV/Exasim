@@ -740,6 +740,29 @@ inline solstruct buildSolStructParallel(const Master& master, const PDE& pde,
         sol.szxdg = sol.nsize[1];
     }
 
+    // The parallel mesh is generated in-memory, so there are no udg/vdg/wdg arrays to copy.
+    // Allocate + zero the state buffers (over the FULL element partition incl. ghosts) and
+    // flag them for the model initial condition, exactly as serial buildSolStruct's
+    // "no file supplied" branch does -- otherwise sol.udg is null and recoverInitialState's
+    // GetFaceNodes (uh <- udg) dereferences it (illegal access on GPU / SEGV on CPU).
+    const int npe = master.npe;
+    sol.nsize[2] = (Int)(npe * pde.nc * ne_full);
+    sol.udg = (dstype*)std::calloc((size_t)sol.nsize[2], sizeof(dstype));
+    sol.szudg = sol.nsize[2];
+    sol.needudginit = 1;
+    if (pde.ncv > 0) {
+        sol.nsize[3] = (Int)(npe * pde.ncv * ne_full);
+        sol.odg = (dstype*)std::calloc((size_t)sol.nsize[3], sizeof(dstype));
+        sol.szodg = sol.nsize[3];
+        sol.needodginit = 1;
+    }
+    if (pde.ncw > 0) {
+        sol.nsize[4] = (Int)(npe * pde.ncw * ne_full);
+        sol.wdg = (dstype*)std::calloc((size_t)sol.nsize[4], sizeof(dstype));
+        sol.szwdg = sol.nsize[4];
+        sol.needwdginit = 1;
+    }
+
     return sol;
 }
 

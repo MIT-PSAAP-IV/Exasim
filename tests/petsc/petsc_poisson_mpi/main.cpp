@@ -43,12 +43,12 @@ struct OpCtx {
 static PetscErrorCode MatMult_Exasim(Mat J, Vec V, Vec JV)
 {
     OpCtx* c; PetscCall(MatShellGetContext(J, &c));
-    const PetscScalar* v; PetscScalar* jv;
-    PetscCall(VecGetArrayRead(V, &v));
-    PetscCall(VecGetArray(JV, &jv));
+    const PetscScalar* v; PetscScalar* jv; PetscMemType mtv, mtj;
+    PetscCall(VecGetArrayReadAndMemType(V, &v, &mtv));
+    PetscCall(VecGetArrayWriteAndMemType(JV, &jv, &mtj));
     c->asmb->evalMatVec(jv, const_cast<dstype*>(v), c->sys->u, c->sys->b, /*spatialScheme=*/1, c->backend);
-    PetscCall(VecRestoreArray(JV, &jv));
-    PetscCall(VecRestoreArrayRead(V, &v));
+    PetscCall(VecRestoreArrayWriteAndMemType(JV, &jv));
+    PetscCall(VecRestoreArrayReadAndMemType(V, &v));
     return PETSC_SUCCESS;
 }
 
@@ -57,9 +57,9 @@ static PetscErrorCode PCApply_Exasim(PC pc, Vec V, Vec PV)
 {
     OpCtx* c; PetscCall(PCShellGetContext(pc, &c));
     PetscCall(VecCopy(V, PV));
-    PetscScalar* pv; PetscCall(VecGetArray(PV, &pv));
+    PetscScalar* pv; PetscMemType mt; PetscCall(VecGetArrayAndMemType(PV, &pv, &mt));
     c->prec->ApplyPreconditioner(pv, *c->sys, *c->disc, /*spatialScheme=*/1, c->backend);
-    PetscCall(VecRestoreArray(PV, &pv));
+    PetscCall(VecRestoreArrayAndMemType(PV, &pv));
     return PETSC_SUCCESS;
 }
 
@@ -67,12 +67,12 @@ static PetscErrorCode PCApply_Exasim(PC pc, Vec V, Vec PV)
 static PetscErrorCode FormFunction_Exasim(SNES, Vec U, Vec F, void* ctx)
 {
     OpCtx* c = static_cast<OpCtx*>(ctx);
-    const PetscScalar* u; PetscScalar* f;
-    PetscCall(VecGetArrayRead(U, &u));
-    PetscCall(VecGetArray(F, &f));
+    const PetscScalar* u; PetscScalar* f; PetscMemType mtu, mtf;
+    PetscCall(VecGetArrayReadAndMemType(U, &u, &mtu));
+    PetscCall(VecGetArrayWriteAndMemType(F, &f, &mtf));
     c->asmb->evalMatVec(f, const_cast<dstype*>(u), c->sys->u, c->sys->b, 1, c->backend);
-    PetscCall(VecRestoreArray(F, &f));
-    PetscCall(VecRestoreArrayRead(U, &u));
+    PetscCall(VecRestoreArrayWriteAndMemType(F, &f));
+    PetscCall(VecRestoreArrayReadAndMemType(U, &u));
     PetscCall(VecAXPY(F, -1.0, c->B0));
     return PETSC_SUCCESS;
 }
@@ -82,13 +82,21 @@ int main(int argc, char** argv)
 {
     PetscCall(PetscInitialize(&argc, &argv, nullptr,
               "Exasim HDG operators driven by PETSc IN PARALLEL (steady Poisson)\n"));
-    Kokkos::initialize(argc, argv);
+    int rank = 0, nprocs = 1;
+    MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
+    MPI_Comm_size(PETSC_COMM_WORLD, &nprocs);
+    // Exasim's inter-rank halo exchange (hdgMatVec) communicates over EXASIM_COMM_LOCAL;
+    // point both Exasim communicators at PETSc's world so the operator matvec is consistent.
+    EXASIM_COMM_WORLD = PETSC_COMM_WORLD;
+    EXASIM_COMM_LOCAL = PETSC_COMM_WORLD;
+    const int backend = std::getenv("EXASIM_BACKEND") ? std::atoi(std::getenv("EXASIM_BACKEND")) : 0;
+    // Bind one GPU per rank BEFORE Kokkos initializes so each rank drives its own device
+    // (single node: device id = rank). Harmless for the CPU (Serial) backend.
+    { Kokkos::InitializationSettings ks;
+      if (backend >= 2) ks.set_device_id(rank);
+      Kokkos::initialize(ks); }
     int rc = 0;
     {
-        int rank = 0, nprocs = 1;
-        MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
-        MPI_Comm_size(PETSC_COMM_WORLD, &nprocs);
-        const int backend = std::getenv("EXASIM_BACKEND") ? std::atoi(std::getenv("EXASIM_BACKEND")) : 0;
         constexpr double TOL = 1e-8;
 
         // ----- scalable distributed mesh: each rank builds ONLY its slice -----
@@ -145,12 +153,17 @@ int main(int argc, char** argv)
         assembler.hdgAssembleLinearSystem(sys.b, backend);
         prec.ComputeHDGPreconditioner(disc, backend);
 
-        // parallel RHS Vec aliasing sys.b (local part); parallel MatShell + SNES + GMRES.
-        Vec B0; PetscCall(VecCreateMPIWithArray(PETSC_COMM_WORLD, 1, N, PETSC_DECIDE, sys.b, &B0));
+        // parallel RHS Vec aliasing sys.b (local part). sys.b is a DEVICE buffer when gpu, so
+        // wrap it with the CUDA variant; both are zero-copy (PETSc + the operators share it).
+        const bool gpu = (backend >= 2);
+        Vec B0;
+        if (gpu) PetscCall(VecCreateMPICUDAWithArray(PETSC_COMM_WORLD, 1, N, PETSC_DECIDE, sys.b, &B0));
+        else     PetscCall(VecCreateMPIWithArray(PETSC_COMM_WORLD, 1, N, PETSC_DECIDE, sys.b, &B0));
         OpCtx ctx; ctx.disc=&disc; ctx.asmb=&assembler; ctx.prec=&prec; ctx.sys=&sys; ctx.B0=B0; ctx.backend=backend;
 
         Mat J; PetscCall(MatCreateShell(PETSC_COMM_WORLD, N, N, PETSC_DETERMINE, PETSC_DETERMINE, &ctx, &J));
         PetscCall(MatShellSetOperation(J, MATOP_MULT, (void(*)(void))MatMult_Exasim));
+        if (gpu) PetscCall(MatShellSetVecType(J, VECCUDA));
         Vec U, Fr; PetscCall(VecDuplicate(B0, &U)); PetscCall(VecDuplicate(B0, &Fr));
         PetscCall(VecSet(U, 0.0));
 
@@ -178,9 +191,9 @@ int main(int argc, char** argv)
             (int)reason, (long long)its, (double)fnorm));
 
         // ----- verification: recover volume, integrate QoI per rank, reduce to global L2 -----
-        { const PetscScalar* u; PetscCall(VecGetArrayRead(U, &u));
+        { const PetscScalar* u; PetscMemType mt; PetscCall(VecGetArrayReadAndMemType(U, &u, &mt));
           exasim::recover_volume(disc, const_cast<dstype*>(u), sys.x);
-          PetscCall(VecRestoreArrayRead(U, &u)); }
+          PetscCall(VecRestoreArrayReadAndMemType(U, &u)); }
         std::vector<dstype> qoi = exasim::eval_qoi<Poisson2D::QoI>(disc);  // local integral (u-u_exact)^2
         double local = qoi.empty() ? 0.0 : (double)qoi[0], global = 0.0;
         MPI_Allreduce(&local, &global, 1, MPI_DOUBLE, MPI_SUM, PETSC_COMM_WORLD);

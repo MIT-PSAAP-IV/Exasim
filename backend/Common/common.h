@@ -182,17 +182,20 @@ template <> bool is_nan_bitwise<float>(float x) {
 #define M_PI 3.14159265358979323846
 #endif
 
-// global variables for BLAS  
-dstype one = 1.0;
-dstype minusone = -1.0;
-dstype zero = 0.0;
-char chn = 'N';
-char cht = 'T';
-char chl = 'L';
-char chu = 'U';
-char chr = 'R';
-char chv = 'V';
-Int inc1 = 1;
+// global constants for BLAS. `inline` (C++17) so this header can be included in more than
+// one TU without multiple-definition link errors -- e.g. an external driver's main.cpp plus
+// the Exasim library both pull common.h (the MPI preprocessing path drags in ExasimSolver.o,
+// which also defines these). Without inline they are strong symbols and collide.
+inline dstype one = 1.0;
+inline dstype minusone = -1.0;
+inline dstype zero = 0.0;
+inline char chn = 'N';
+inline char cht = 'T';
+inline char chl = 'L';
+inline char chu = 'U';
+inline char chr = 'R';
+inline char chv = 'V';
+inline Int inc1 = 1;
 
 // global variables for CUBLAS  
 // dstype *cublasOne;

@@ -111,10 +111,15 @@
 
 #ifdef HAVE_MPI
 #include <mpi.h>
-// Exasim communicators (defined in the linked preprocessing library). Declared
-// here so the backend headers below compile in an out-of-tree consumer TU.
-extern MPI_Comm EXASIM_COMM_WORLD;
-extern MPI_Comm EXASIM_COMM_LOCAL;
+// Exasim communicators. `inline` (C++17) so an out-of-tree consumer TU (which aggregates
+// the backend headers via this file) DEFINES them itself instead of leaving an undefined
+// reference that drags the whole unity ExasimSolver.cpp.o out of the preprocessing library
+// -- which then multiply-defines every other header function the consumer also compiled.
+// The library still has its own (strong) definitions in postprocess.cpp; a parallel
+// consumer sets these to its MPI communicator (the halo exchange in hdgMatVec uses
+// EXASIM_COMM_LOCAL). A serial build never touches them (HAVE_MPI undefined).
+inline MPI_Comm EXASIM_COMM_WORLD = MPI_COMM_NULL;
+inline MPI_Comm EXASIM_COMM_LOCAL = MPI_COMM_NULL;
 #endif
 
 #include <Kokkos_Core.hpp>
