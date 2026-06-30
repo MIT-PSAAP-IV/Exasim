@@ -17,7 +17,7 @@
 // then drive SNES/KSP/PCShell matrix-free against them (P1b).
 
 #include <exasim/operators.hpp>     // FEM aggregation + preprocessing + in-memory ctor
-#include <exasim/solver_facade.hpp> // ExasimSolver<M>: curated PDE defaults + add_boundary
+#include <exasim/export.hpp>        // default_pde<M> / MeshSpec / make_preprocessed (no solver facade)
 
 #include "my_model.hpp"             // Poisson2D (hand-written, no codegen)
 
@@ -71,34 +71,22 @@ int main()
     unitSquareQuadMesh(/*n=*/8, p, t, np, ne);
     std::printf("[operators] mesh: %d verts, %d quad elements\n", np, ne);
 
-    // ---- 2. Curated PDE defaults + boundary conditions ----------------------
-    // Reuse ExasimSolver<M> purely for the (verified) PDE-default setup and the
-    // boundary-predicate plumbing; we do NOT call solve() (no Exasim solver).
-    exasim::ExasimSolver<Poisson2D> solver;
-    solver.set_polynomial_order(3);   // matches apps/poisson/poisson2d (porder=3)
-    solver.set_quadrature_order(6);
-    solver.set_physics_params({1.0}); // mu = 1
+    // ---- 2. PDE config + mesh/boundaries (export helpers; no solver facade) ----
+    PDE pde = exasim::default_pde<Poisson2D>();
+    pde.porder = 3;   // matches apps/poisson/poisson2d
+    pde.pgauss = 6;
+    pde.physicsparam = {1.0};   // mu = 1
     // All four sides Dirichlet (tag 1), mirroring the poisson2d pdeapp.
-    solver.add_boundary(1, [](const double* x){ return std::abs(x[1])       < TOL; }); // y=0
-    solver.add_boundary(1, [](const double* x){ return std::abs(x[0] - 1.0) < TOL; }); // x=1
-    solver.add_boundary(1, [](const double* x){ return std::abs(x[1] - 1.0) < TOL; }); // y=1
-    solver.add_boundary(1, [](const double* x){ return std::abs(x[0])       < TOL; }); // x=0
+    exasim::MeshSpec mesh(p.data(), t.data(), np, ne, /*nve=*/4);
+    mesh.add_boundary(1, [](const double* x){ return std::abs(x[1])       < TOL; }); // y=0
+    mesh.add_boundary(1, [](const double* x){ return std::abs(x[0] - 1.0) < TOL; }); // x=1
+    mesh.add_boundary(1, [](const double* x){ return std::abs(x[1] - 1.0) < TOL; }); // y=1
+    mesh.add_boundary(1, [](const double* x){ return std::abs(x[0])       < TOL; }); // x=0
 
-    // ---- 3. Preprocess into an in-memory Preprocessed bundle -----------------
-    // CPreprocessing's programmatic ctor consumes the curated pde/params/spec;
-    // meshFromArrays replaces the on-disk grid; take() runs master/DMD/struct
-    // assembly with NO datain binaries written.
-    CPreprocessing preproc(solver.pde(), solver.params(), solver.spec(), mpirank, mpiprocs);
-    preproc.mesh = meshFromArrays(p.data(), t.data(), np, ne, /*nve=*/4, Poisson2D::nd,
-                                  preproc.params, preproc.pde);
-    exasim::Preprocessed pre = preproc.take();
-    pre.save_outputs = false;
+    // ---- 3. In-memory discretization + operators (make_preprocessed: meshFromArrays
+    //         + master/DMD/struct assembly, NO datain binaries) ----------------
+    CDiscretization disc(exasim::make_preprocessed<Poisson2D>(pde, mesh), backend);
     std::printf("[operators] preprocessing done (in-memory Preprocessed built)\n");
-
-    // ---- 4. In-memory discretization + operators ----------------------------
-    CDiscretization disc(std::move(pre), /*fileout=*/"", solver.pde().exasimpath,
-                         mpiprocs, mpirank, fileoffset, omprank, backend,
-                         solver.pde().builtinmodelID);
     std::printf("[operators] CDiscretization(Preprocessed&&) constructed\n");
 
     CResidual<Poisson2D>      residual(disc);

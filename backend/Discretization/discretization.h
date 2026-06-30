@@ -89,6 +89,20 @@ public:
     CDiscretization(exasim::Preprocessed&& pre, std::string fileout, std::string exasimpath, Int mpiprocs,
                     Int mpirank, Int fileoffset, Int omprank, Int backend, Int builtinmodelID);
 
+    // Convenience in-memory ctor for the common serial operator-export case: just the
+    // preprocessed bundle + the backend. Defaults fileout="", serial (1 rank, no file
+    // offset). A hand-written templated model dispatches on M (not on a builtinmodelID),
+    // so the model id is not a parameter here. exasimpath="" relies on the baked data
+    // dir / $EXASIM_DATA_DIR for the master/gauss node files. Defined inline in
+    // discretization_inmemory.hpp (delegates to the full ctor).
+    CDiscretization(exasim::Preprocessed&& pre, Int backend, std::string exasimpath = "");
+
+    // MPI variant of the convenience ctor: adds ONLY the MPI rank/size (each rank passes its
+    // own per-rank bundle, e.g. from CPreprocessing::takeParallel). Everything else defaults
+    // as in the serial convenience ctor (no fileoffset/omprank/model-id in the call).
+    CDiscretization(exasim::Preprocessed&& pre, Int backend, Int mpiprocs, Int mpirank,
+                    std::string exasimpath = "");
+
     // destructor
     ~CDiscretization();
 

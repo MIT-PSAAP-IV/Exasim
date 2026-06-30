@@ -34,7 +34,7 @@
 #include <petscts.h>
 
 #include <exasim/operators.hpp>
-#include <exasim/solver_facade.hpp>
+#include <exasim/export.hpp>
 #include "my_model.hpp"
 
 #include <cmath>
@@ -94,14 +94,7 @@ static void prepareStep(OpCtx& c)
 static void recoverStep(OpCtx& c, const dstype* uh)
 {
     auto& disc = *c.disc;
-    for (Int i = 0; i < c.N; ++i) c.sys->x[i] = uh[i] - disc.sol.uh[i];   // duh = uh^{n+1}-uh^n
-    ArrayCopy(disc.sol.uh, const_cast<dstype*>(uh), c.N);
-    hdgGetDUDG(disc.res.Ru, disc.res.F, c.sys->x, disc.res.Rq, disc.mesh, disc.common, c.backend);
-    UpdateUDG(disc.sol.udg, disc.res.Ru, 1.0, disc.common.grid.npe, disc.common.components.nc,
-              disc.common.meshsizes.ne1, 0, disc.common.grid.npe, 0, disc.common.components.ncu,
-              0, disc.common.meshsizes.ne1);
-    if (disc.common.components.ncq > 0)
-        hdgGetQ(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common, c.backend);
+    exasim::recover_volume(disc, uh, c.sys->x, c.backend);   // hdgGetDUDG + UpdateUDG + hdgGetQ
     UpdateSolution(disc.sol, *c.sys, disc.app, disc.driver_abi, disc.res, disc.tmp, disc.common, c.backend);
 }
 
@@ -188,23 +181,21 @@ int main(int argc, char** argv)
         int np=0,ne=0; std::vector<double> p; std::vector<int> t;
         unitSquareQuadMesh(8,p,t,np,ne);
 
-        exasim::ExasimSolver<Poisson2D> solver;
-        solver.set_polynomial_order(3); solver.set_quadrature_order(6); solver.set_physics_params({1.0});
-        solver.add_boundary(1,[](const double* x){return std::abs(x[1])      <TOL;});
-        solver.add_boundary(1,[](const double* x){return std::abs(x[0]-1.0)  <TOL;});
-        solver.add_boundary(1,[](const double* x){return std::abs(x[1]-1.0)  <TOL;});
-        solver.add_boundary(1,[](const double* x){return std::abs(x[0])      <TOL;});
-        solver.pde().tdep=1; solver.pde().torder=1; solver.pde().nstage=1; solver.pde().dt={dt};
+        // PDE config + mesh/boundaries via the export helpers (no solver facade). Backward Euler.
+        PDE pde = exasim::default_pde<Poisson2D>();
+        pde.porder=3; pde.pgauss=6; pde.physicsparam={1.0};
+        pde.tdep=1; pde.torder=1; pde.nstage=1; pde.dt={dt};
+        exasim::MeshSpec mesh(p.data(),t.data(),np,ne,4);
+        mesh.add_boundary(1,[](const double* x){return std::abs(x[1])      <TOL;});
+        mesh.add_boundary(1,[](const double* x){return std::abs(x[0]-1.0)  <TOL;});
+        mesh.add_boundary(1,[](const double* x){return std::abs(x[1]-1.0)  <TOL;});
+        mesh.add_boundary(1,[](const double* x){return std::abs(x[0])      <TOL;});
 
-        // Build a fresh in-memory Preprocessed from the same mesh + config. Used twice (once per
-        // disc) so the Exasim-native reference and the PETSc run never share state.
-        auto freshPre = [&]() {
-            CPreprocessing pp(solver.pde(), solver.params(), solver.spec(), mpirank, mpiprocs);
-            pp.mesh = meshFromArrays(p.data(),t.data(),np,ne,4,Poisson2D::nd,pp.params,pp.pde);
-            exasim::Preprocessed pr = pp.take(); pr.save_outputs=false; return pr;
-        };
+        // A fresh in-memory Preprocessed from the same config. Used twice (once per disc)
+        // so the Exasim-native reference and the PETSc run never share state.
+        auto freshPre = [&]() { return exasim::make_preprocessed<Poisson2D>(pde, mesh, mpirank, mpiprocs); };
 
-        CDiscretization disc(freshPre(),"",solver.pde().exasimpath,mpiprocs,mpirank,fileoffset,omprank,backend,solver.pde().builtinmodelID);
+        CDiscretization disc(freshPre(), backend);
         CResidual<Poisson2D> residual(disc);
         CAssembler<Poisson2D> assembler(disc);
         CPreconditioner<Poisson2D> prec(disc,backend,ExasimExecutionMode::Solve);
@@ -228,7 +219,7 @@ int main(int argc, char** argv)
         // a separate discretization so the two runs cannot bleed time-history state into each other.
         std::vector<dstype> uh_native((size_t)N);
         {
-            CDiscretization nd(freshPre(),"",solver.pde().exasimpath,mpiprocs,mpirank,fileoffset,omprank,backend,solver.pde().builtinmodelID);
+            CDiscretization nd(freshPre(), backend);
             CResidual<Poisson2D> nr(nd); CAssembler<Poisson2D> na(nd);
             CPreconditioner<Poisson2D> npc(nd,backend,ExasimExecutionMode::Solve);
             CSolver<Poisson2D> ns(nd,backend,ExasimExecutionMode::Solve);

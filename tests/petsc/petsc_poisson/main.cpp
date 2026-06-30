@@ -23,7 +23,7 @@
 #include <petscsnes.h>
 
 #include <exasim/operators.hpp>      // FEM aggregation + preprocessing + in-memory ctor
-#include <exasim/solver_facade.hpp>  // ExasimSolver<M>: curated PDE *config* (no solve)
+#include <exasim/export.hpp>         // default_pde<M> / MeshSpec / make_preprocessed (no solver facade)
 
 #include "my_model.hpp"              // Poisson2D
 
@@ -109,23 +109,22 @@ int main(int argc, char** argv)
         int np=0, ne=0; std::vector<double> p; std::vector<int> t;
         unitSquareQuadMesh(8, p, t, np, ne);
 
-        exasim::ExasimSolver<Poisson2D> solver;
-        solver.set_polynomial_order(3);
-        solver.set_quadrature_order(6);
-        solver.set_physics_params({1.0});
-        solver.add_boundary(1, [](const double* x){ return std::abs(x[1])      < TOL; });
-        solver.add_boundary(1, [](const double* x){ return std::abs(x[0]-1.0)  < TOL; });
-        solver.add_boundary(1, [](const double* x){ return std::abs(x[1]-1.0)  < TOL; });
-        solver.add_boundary(1, [](const double* x){ return std::abs(x[0])      < TOL; });
+        // PDE config for the model (HDG defaults; override the few fields we care about).
+        PDE pde = exasim::default_pde<Poisson2D>();
+        pde.porder      = 3;
+        pde.pgauss      = 6;
+        pde.physicsparam = {1.0};
+        pde.nvqoi       = 2;          // Poisson2D::qoi_volume outputs [ (u-u_exact)^2, u ]
 
-        CPreprocessing preproc(solver.pde(), solver.params(), solver.spec(), mpirank, mpiprocs);
-        preproc.mesh = meshFromArrays(p.data(), t.data(), np, ne, 4, Poisson2D::nd,
-                                      preproc.params, preproc.pde);
-        exasim::Preprocessed pre = preproc.take(); pre.save_outputs = false;
+        // Mesh + boundary tags (all four sides Dirichlet, tag 1).
+        exasim::MeshSpec mesh(p.data(), t.data(), np, ne, /*nve=*/4);
+        mesh.add_boundary(1, [](const double* x){ return std::abs(x[1])      < TOL; });
+        mesh.add_boundary(1, [](const double* x){ return std::abs(x[0]-1.0)  < TOL; });
+        mesh.add_boundary(1, [](const double* x){ return std::abs(x[1]-1.0)  < TOL; });
+        mesh.add_boundary(1, [](const double* x){ return std::abs(x[0])      < TOL; });
 
         // the ONLY Exasim objects: discretization + exported operators (on `backend`)
-        CDiscretization disc(std::move(pre), "", solver.pde().exasimpath,
-                             mpiprocs, mpirank, fileoffset, omprank, backend, solver.pde().builtinmodelID);
+        CDiscretization disc(exasim::make_preprocessed<Poisson2D>(pde, mesh), backend);
         CResidual<Poisson2D>       residual(disc);
         CAssembler<Poisson2D>      assembler(disc);
         CPreconditioner<Poisson2D> prec(disc, backend, ExasimExecutionMode::Solve);
@@ -144,22 +143,13 @@ int main(int argc, char** argv)
         assembler.hdgAssembleLinearSystem(sys.b, backend);
         prec.ComputeHDGPreconditioner(disc, backend);
 
-        // b0 as a PETSc Vec (device when gpu). Fill from sys.b via a host staging copy
-        // (TemplateCopytoHost handles device->host for backend>=2, host->host otherwise);
-        // VecSetValues then moves it to wherever the Vec lives.
-        std::vector<dstype> b0_host((size_t)N);
-        TemplateCopytoHost(b0_host.data(), sys.b, N, backend);
-
-        auto makeVec = [&](Vec* v){
-            PetscCall(VecCreate(PETSC_COMM_SELF, v));
-            PetscCall(VecSetSizes(*v, N, N));
-            PetscCall(VecSetType(*v, gpu ? VECCUDA : VECSTANDARD));
-            return PETSC_SUCCESS;
-        };
-        Vec B0; PetscCallAbort(PETSC_COMM_SELF, makeVec(&B0));
-        { std::vector<PetscInt> idx((size_t)N); for (Int i=0;i<N;++i) idx[(size_t)i]=i;
-          PetscCall(VecSetValues(B0, N, idx.data(), b0_host.data(), INSERT_VALUES));
-          PetscCall(VecAssemblyBegin(B0)); PetscCall(VecAssemblyEnd(B0)); }
+        // b0 is the condensed RHS, already sitting in sys.b (a device buffer when gpu). Wrap it
+        // directly as a PETSc Vec -- zero copy; PETSc and the Exasim operators share the same
+        // buffer. sys.b lives for the whole scope and is not mutated after assembly, so the
+        // alias is safe (B0 is read-only: FormFunction/verification only VecAXPY against it).
+        Vec B0;
+        if (gpu) PetscCall(VecCreateSeqCUDAWithArray(PETSC_COMM_SELF, 1, N, sys.b, &B0));
+        else     PetscCall(VecCreateSeqWithArray(PETSC_COMM_SELF, 1, N, sys.b, &B0));
 
         OpCtx ctx; ctx.disc=&disc; ctx.asmb=&assembler; ctx.prec=&prec; ctx.sys=&sys;
         ctx.B0=B0; ctx.backend=backend;
@@ -191,52 +181,31 @@ int main(int argc, char** argv)
         PetscCall(SNESGetIterationNumber(snes, &its));
         std::printf("[petsc] SNES converged reason=%d, Newton iters=%lld\n", (int)reason, (long long)its);
 
-        // ================= self-contained verification (no Exasim solver) =================
-        // (A) linear-system residual ||H*uh - b0|| / ||b0||  via the exported MatVec -> ~0.
-        Vec R; PetscCall(VecDuplicate(B0, &R));
-        PetscCall(MatMult(J, U, R));            // R = H*uh
-        PetscCall(VecAXPY(R, -1.0, B0));        // R = H*uh - b0
-        PetscReal rnorm, bnorm; PetscCall(VecNorm(R, NORM_2, &rnorm)); PetscCall(VecNorm(B0, NORM_2, &bnorm));
-        const double linres = rnorm / (bnorm + 1e-300);
+        // ================= verification =================
+        // (A) PETSc already drove the residual to tolerance -- read its own ||G(U)|| = ||H*uh - b0||
+        //     (no need to recompute it ourselves; the converged reason + this norm are the gate).
+        PetscReal fnorm; PetscCall(SNESGetFunctionNorm(snes, &fnorm));
 
-        // (B) discretization error vs exact u = sin(pi x) sin(pi y). Recover the volume
-        //     field from the trace, then host-copy udg + xdg for the nodal comparison.
-        std::vector<dstype> uh_host((size_t)N);
-        { const PetscScalar* u; PetscCall(VecGetArrayRead(U, &u));       // host mirror of U
-          for (Int i=0;i<N;++i) uh_host[(size_t)i]=u[i]; PetscCall(VecRestoreArrayRead(U, &u)); }
-        // push uh onto disc.sol.uh (device or host) and back-substitute for udg
-        if (gpu) TemplateCopytoDevice(disc.sol.uh, uh_host.data(), N, backend);
-        else     for (Int i=0;i<N;++i) disc.sol.uh[i]=uh_host[(size_t)i];
-        hdgGetDUDG(disc.res.Ru, disc.res.F, disc.sol.uh, disc.res.Rq, disc.mesh, disc.common, backend);
-        UpdateUDG(disc.sol.udg, disc.res.Ru, 1.0, disc.common.grid.npe, disc.common.components.nc,
-                  disc.common.meshsizes.ne1, 0, disc.common.grid.npe, 0, disc.common.components.ncu,
-                  0, disc.common.meshsizes.ne1);
-        const int npe=disc.common.grid.npe, ncx=disc.common.components.ncx,
-                  nc=disc.common.components.nc, neL=disc.common.meshsizes.ne1;
-        std::vector<dstype> xdg_host((size_t)npe*ncx*neL), udg_host((size_t)npe*nc*neL);
-        TemplateCopytoHost(xdg_host.data(), disc.sol.xdg, (Int)xdg_host.size(), backend);
-        TemplateCopytoHost(udg_host.data(), disc.sol.udg, (Int)udg_host.size(), backend);
-        double enum_=0, eden=0;
-        for (int e=0;e<neL;++e) for (int i=0;i<npe;++i){
-            double x=xdg_host[i + 0*npe + (size_t)e*npe*ncx];
-            double y=xdg_host[i + 1*npe + (size_t)e*npe*ncx];
-            double u=udg_host[i + 0*npe + (size_t)e*npe*nc];
-            double ue=std::sin(PI*x)*std::sin(PI*y);
-            enum_+=(u-ue)*(u-ue); eden+=ue*ue;
-        }
-        const double exacterr = std::sqrt(enum_/(eden+1e-300));
+        // (B) discretization error vs the exact solution, as a proper QUADRATURE norm via the
+        //     model's exported volume QoI (qoi_volume[0] = (u - u_exact)^2). Recover the volume
+        //     field from the trace first (uh stays in its own memory space -- device ptr on GPU).
+        { const PetscScalar* u; PetscMemType mt; PetscCall(VecGetArrayReadAndMemType(U, &u, &mt));
+          exasim::recover_volume(disc, u, sys.x, backend);
+          PetscCall(VecRestoreArrayReadAndMemType(U, &u)); }
+        std::vector<dstype> qoi = exasim::eval_qoi<Poisson2D>(disc);   // qoi[0] = integral (u-u_exact)^2
+        const double l2err = std::sqrt(qoi.empty() ? 1.0 : qoi[0]);   // L2 error of (u - u_exact)
 
-        std::printf("[petsc] (A) ||H*uh - b0|| / ||b0||      = %.3e   (PETSc solved the exported system)\n", linres);
-        std::printf("[petsc] (B) ||u - u_exact|| / ||u_exact|| = %.3e   (discretization error, nodal)\n", exacterr);
+        std::printf("[petsc] (A) PETSc residual ||H*uh - b0||  = %.3e   (PETSc solved the exported system)\n", (double)fnorm);
+        std::printf("[petsc] (B) L2 error ||u - u_exact||      = %.3e   (quadrature QoI)\n", l2err);
 
-        bool finite = std::isfinite(linres) && std::isfinite(exacterr);
-        if (!finite)             { std::printf("[petsc] FAIL: non-finite result\n"); rc=1; }
-        else if (reason < 0)     { std::printf("[petsc] FAIL: SNES did not converge\n"); rc=1; }
-        else if (linres > 1e-8)  { std::printf("[petsc] FAIL: linear residual not driven to zero\n"); rc=1; }
-        else if (exacterr > 5e-3){ std::printf("[petsc] FAIL: solution far from exact (%.3e)\n", exacterr); rc=1; }
+        bool finite = std::isfinite((double)fnorm) && std::isfinite(l2err);
+        if (!finite)            { std::printf("[petsc] FAIL: non-finite result\n"); rc=1; }
+        else if (reason < 0)    { std::printf("[petsc] FAIL: SNES did not converge\n"); rc=1; }
+        else if (fnorm > 1e-8)  { std::printf("[petsc] FAIL: residual not driven to zero\n"); rc=1; }
+        else if (l2err > 1e-3)  { std::printf("[petsc] FAIL: solution far from exact (%.3e)\n", l2err); rc=1; }
         else  std::printf("[petsc] PASS: PETSc solved the exported HDG Poisson operators on %s\n", gpu?"GPU":"CPU");
 
-        PetscCall(VecDestroy(&U)); PetscCall(VecDestroy(&Fr)); PetscCall(VecDestroy(&R));
+        PetscCall(VecDestroy(&U)); PetscCall(VecDestroy(&Fr));
         PetscCall(VecDestroy(&B0)); PetscCall(MatDestroy(&J)); PetscCall(SNESDestroy(&snes));
     }
     Kokkos::finalize();
