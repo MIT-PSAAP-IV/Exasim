@@ -8,6 +8,41 @@
 # capture it here before any find_dependency() runs.
 set(_Exasim_PACKAGE_PREFIX_DIR "${PACKAGE_PREFIX_DIR}")
 
+# ---- Git provenance baked in at build time ---------------------------------
+# The commit + branch this package was built from. These are always defined;
+# they read "unknown" if Exasim was configured outside a git checkout.
+set(Exasim_GIT_COMMIT "@EXASIM_GIT_COMMIT@")
+set(Exasim_GIT_BRANCH "@EXASIM_GIT_BRANCH@")
+
+# Optional provenance pinning. A consumer may require a specific commit and/or
+# branch BEFORE find_package(); each requirement is independent and unset ones
+# are not checked:
+#
+#     set(Exasim_REQUIRE_COMMIT 2bd2dce1)   # full hash, or an abbreviated prefix
+#     set(Exasim_REQUIRE_BRANCH master)
+#     find_package(Exasim REQUIRED)
+#
+# A mismatch reports the package as not found via Exasim_NOT_FOUND_MESSAGE: with
+# REQUIRED this is a fatal error, otherwise Exasim_FOUND is simply left FALSE.
+if(DEFINED Exasim_REQUIRE_COMMIT AND NOT Exasim_REQUIRE_COMMIT STREQUAL "")
+  # Prefix match so an abbreviated hash validates against the full one.
+  string(FIND "${Exasim_GIT_COMMIT}" "${Exasim_REQUIRE_COMMIT}" _exasim_commit_pos)
+  if(NOT _exasim_commit_pos EQUAL 0)
+    set(Exasim_FOUND FALSE)
+    set(Exasim_NOT_FOUND_MESSAGE
+      "Exasim was built from commit ${Exasim_GIT_COMMIT}, but commit '${Exasim_REQUIRE_COMMIT}' was required (set Exasim_REQUIRE_COMMIT).")
+    return()
+  endif()
+endif()
+if(DEFINED Exasim_REQUIRE_BRANCH AND NOT Exasim_REQUIRE_BRANCH STREQUAL "")
+  if(NOT Exasim_GIT_BRANCH STREQUAL Exasim_REQUIRE_BRANCH)
+    set(Exasim_FOUND FALSE)
+    set(Exasim_NOT_FOUND_MESSAGE
+      "Exasim was built from branch '${Exasim_GIT_BRANCH}', but branch '${Exasim_REQUIRE_BRANCH}' was required (set Exasim_REQUIRE_BRANCH).")
+    return()
+  endif()
+endif()
+
 # ExasimConfig.cmake.in — installed CMake config for Exasim.
 #
 # Downstream consumer:

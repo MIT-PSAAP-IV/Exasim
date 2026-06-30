@@ -46,6 +46,35 @@ install(FILES "${EXASIM_GENINC_DIR}/exasim_paths.h"
 set(EXASIM_CMAKE_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/Exasim")
 set(EXASIM_PACKAGE_VERSION "0.0.0")
 
+# ---- Git provenance baked into the package ---------------------------------
+# Record the commit + branch this Exasim was built from. They are substituted
+# into the generated ExasimConfig.cmake so downstream find_package(Exasim) can
+# optionally pin to them (Exasim_REQUIRE_COMMIT / Exasim_REQUIRE_BRANCH). The
+# values resolve from the source tree at configure time and degrade to
+# "unknown" outside a git checkout (e.g. a tarball / installed-source build).
+find_package(Git QUIET)
+set(EXASIM_GIT_COMMIT "unknown")
+set(EXASIM_GIT_BRANCH "unknown")
+if(GIT_FOUND)
+  execute_process(
+    COMMAND "${GIT_EXECUTABLE}" -C "${EXASIM_DIR}" rev-parse HEAD
+    OUTPUT_VARIABLE _exasim_git_commit
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET RESULT_VARIABLE _exasim_git_rc)
+  if(_exasim_git_rc EQUAL 0 AND _exasim_git_commit)
+    set(EXASIM_GIT_COMMIT "${_exasim_git_commit}")
+  endif()
+  execute_process(
+    COMMAND "${GIT_EXECUTABLE}" -C "${EXASIM_DIR}" rev-parse --abbrev-ref HEAD
+    OUTPUT_VARIABLE _exasim_git_branch
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET RESULT_VARIABLE _exasim_git_rc)
+  if(_exasim_git_rc EQUAL 0 AND _exasim_git_branch)
+    set(EXASIM_GIT_BRANCH "${_exasim_git_branch}")
+  endif()
+endif()
+message(STATUS "Exasim git provenance     = ${EXASIM_GIT_BRANCH} @ ${EXASIM_GIT_COMMIT}")
+
 add_library(ExasimHeaders INTERFACE)
 add_library(Exasim::headers ALIAS ExasimHeaders)
 set_target_properties(ExasimHeaders PROPERTIES EXPORT_NAME headers)
