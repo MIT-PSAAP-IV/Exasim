@@ -19,13 +19,20 @@ project(exasim_petsc_poisson CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Exasim REQUIRED COMPONENTS cpu)
+# EXASIM_GPU=ON builds against the CUDA Exasim (Exasim::gpu) + a CUDA PETSc, and the
+# binary must be compiled by Kokkos' nvcc_wrapper (pass -DCMAKE_CXX_COMPILER=.../nvcc_wrapper).
+# The same main.cpp runs CPU (EXASIM_BACKEND=0) or CUDA (EXASIM_BACKEND=2) at runtime.
+option(EXASIM_GPU "Build against the CUDA Exasim + CUDA PETSc" OFF)
+if(EXASIM_GPU)
+  set(CMAKE_CXX_STANDARD 17)   # Kokkos CUDA tree here is C++17
+  find_package(Exasim REQUIRED COMPONENTS gpu)
+else()
+  find_package(Exasim REQUIRED COMPONENTS cpu)
+endif()
 find_package(Kokkos REQUIRED)
-find_package(BLAS   REQUIRED)
-find_package(LAPACK REQUIRED)
 
-# PETSc via pkg-config (ships PETSc.pc, no CMake config). Default to the conda env
-# (the toolchain Exasim was built with); override -DPETSC_PREFIX=... for another stack.
+# PETSc via pkg-config (ships PETSc.pc, no CMake config). CPU default: the conda env
+# (the toolchain Exasim was built with). GPU: pass -DPETSC_PREFIX=<cuda petsc prefix>.
 if(DEFINED ENV{CONDA_PREFIX})
   set(_petsc_default "$ENV{CONDA_PREFIX}")
 else()
@@ -34,18 +41,23 @@ endif()
 set(PETSC_PREFIX "${_petsc_default}" CACHE PATH "PETSc install prefix")
 find_package(PkgConfig REQUIRED)
 set(ENV{PKG_CONFIG_PATH} "${PETSC_PREFIX}/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}")
+# petsc.pc references the PETSC_DIR variable; define it so pkg-config resolves cleanly.
+set(ENV{PKG_CONFIG} "pkg-config --define-variable=PETSC_DIR=${PETSC_PREFIX}")
 pkg_check_modules(PETSC REQUIRED IMPORTED_TARGET petsc)
 
-# PETSC_COMM_SELF expands to &ompi_mpi_comm_self, so the binary references open-mpi
-# symbols directly -> link the SAME open-mpi PETSc was built against (conda's libmpi).
-# We do NOT use find_package(MPI) (could resolve a different MPI); point at the prefix.
-set(OPENMPI_PREFIX "${PETSC_PREFIX}" CACHE PATH "open-mpi prefix (the one PETSc uses)")
-
 add_executable(petsc_poisson main.cpp)
-target_include_directories(petsc_poisson PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}" "${OPENMPI_PREFIX}/include")
-target_link_directories(petsc_poisson PRIVATE "${OPENMPI_PREFIX}/lib")
+target_include_directories(petsc_poisson PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(petsc_poisson PRIVATE
-    Exasim::headers Kokkos::kokkos
-    ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}
-    PkgConfig::PETSC mpi)
+    Exasim::headers Exasim::pre Kokkos::kokkos PkgConfig::PETSC)
+
+if(NOT EXASIM_GPU)
+  # CPU: a CONDA PETSc built with open-mpi -> PETSC_COMM_SELF references ompi_mpi_comm_self,
+  # so link the same open-mpi explicitly. (A serial CUDA PETSc has no MPI, so the GPU path
+  # skips this.) BLAS/LAPACK for the FEM pblas calls.
+  find_package(BLAS REQUIRED)
+  find_package(LAPACK REQUIRED)
+  set(OPENMPI_PREFIX "${PETSC_PREFIX}" CACHE PATH "open-mpi prefix (the one PETSc uses)")
+  target_include_directories(petsc_poisson PRIVATE "${OPENMPI_PREFIX}/include")
+  target_link_directories(petsc_poisson PRIVATE "${OPENMPI_PREFIX}/lib")
+  target_link_libraries(petsc_poisson PRIVATE ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} mpi)
+endif()
