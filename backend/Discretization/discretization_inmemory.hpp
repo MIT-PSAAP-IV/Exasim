@@ -66,8 +66,54 @@ inline CDiscretization::CDiscretization(exasim::Preprocessed&& pre, std::string 
     common.builtinmodelID = builtinmodelID;
 
     if (backend > 1) {
-        error("CDiscretization(Preprocessed&&): in-memory GPU construction is not yet implemented "
-              "(CPU only for the initial PETSc operator-export path).");
+        // GPU: stage the preprocessed structs into HOST structs (cpuInitInMemory, the same path the
+        // CPU branch uses for the members), then copy host->device via gpuInit. Mirrors the file-path
+        // GPU branch in discretization.cpp, with cpuInitInMemory replacing the file-reading cpuInit.
+#ifdef HAVE_GPU
+        solstruct hsol; resstruct hres; appstruct happ;
+        masterstruct hmaster; meshstruct hmesh; tempstruct htmp; commonstruct hcommon;
+        hcommon.backend = backend;
+        hcommon.exasimpath = exasimpath;
+        hcommon.builtinmodelID = builtinmodelID;
+        happ.builtinmodelID = builtinmodelID;
+
+        cpuInitInMemory(pre, hsol, hres, happ, hmaster, hmesh, htmp, hcommon,
+                        /*filein=*/"", fileout, mpiprocs, mpirank, fileoffset, omprank);
+        happ.builtinmodelID = builtinmodelID; happ.modelnumber = 0; hcommon.modelnumber = 0;
+
+        gpuInit(sol, res, app, driver_abi, master, mesh, tmp, common,
+                hsol, hres, happ, hmaster, hmesh, htmp, hcommon);
+        app.read_uh     = happ.read_uh;
+        app.modelnumber = happ.modelnumber;
+        common.modelnumber = hcommon.modelnumber;
+        sol.needudginit = hsol.needudginit;
+        sol.needodginit = hsol.needodginit;
+        sol.needwdginit = hsol.needwdginit;
+        if (hmesh.bf != nullptr) {
+            TemplateMalloc(&mesh.bf, hcommon.meshsizes.nfe*hcommon.meshsizes.ne, 0);
+            for (int i=0; i<hcommon.meshsizes.nfe*hcommon.meshsizes.ne; i++) mesh.bf[i] = hmesh.bf[i];
+        }
+        sol.szxcg = hsol.szxcg;
+        if (sol.szxcg > 0) {
+            TemplateMalloc(&sol.xcg, sol.szxcg, 0);
+            TemplateCopytoHost(sol.xcg, hsol.xcg, sol.szxcg, 0);
+        }
+        // gpuInit overwrote common's scalars from hcommon; re-apply the model id and the device backend.
+        common.backend = backend;
+        common.exasimpath = exasimpath;
+        common.builtinmodelID = builtinmodelID;
+        app.builtinmodelID = builtinmodelID;
+
+        // release the host staging structs (gpuInit copied what it needs to device).
+        happ.freememory(1); hmaster.freememory(1); hmesh.freememory(1);
+        hsol.freememory(1); hres.freememory(1); htmp.freememory(1);
+
+        finalizeConstruction(backend, ExasimExecutionMode::Solve, 0, 0, 0, 0, 0, 0);
+        return;
+#else
+        error("CDiscretization(Preprocessed&&): GPU construction requested but this is not a GPU build "
+              "(define HAVE_GPU / build with _CUDA).");
+#endif
     }
 
     // CPU: build straight into the member structs (no host-staging needed without a device copy).

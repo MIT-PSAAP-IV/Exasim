@@ -18,12 +18,17 @@ namespace exasim {
 
 namespace detail {
 
-// Common scaffolding for every init kernel. The user method `Method`
-// takes (out, x, uinf, mu) and fills `OutputSize` components.
-template <class M, int OutputSize, class Method>
-KOKKOS_INLINE_FUNCTION
+// Common scaffolding for every init kernel. The model method is passed as a
+// COMPILE-TIME function pointer `Fn` (not a forwarded lambda): a KOKKOS_LAMBDA
+// that captures another lambda makes nvcc's CUDA device-stub generation fail
+// (__nv_dl_tag "wrong number of template arguments"). With Fn as a non-type
+// template parameter the device lambda captures only trivial pointers, and the
+// call resolves to the model's static method at compile time (and inlines).
+using InitFn = void (*)(double[], const double[], const double[], const double[]);
+
+template <class M, int OutputSize, InitFn Fn>
 void init_dispatch(dstype* f, const dstype* xdg, const dstype* uinf,
-                   const dstype* param, int ng, int npe, Method&& m)
+                   const dstype* param, int ng, int npe)
 {
     constexpr int nd = M::nd;
     Kokkos::parallel_for("exasim::init_kernel", ng, KOKKOS_LAMBDA(size_t i) {
@@ -37,7 +42,7 @@ void init_dispatch(dstype* f, const dstype* xdg, const dstype* uinf,
         }
 
         double out_local[OutputSize];
-        m(out_local, x, uinf, param);
+        Fn(out_local, x, uinf, param);
 
         for (int k = 0; k < OutputSize; ++k) {
             f[j + npe * k + npe * OutputSize * elem] = out_local[k];
@@ -53,10 +58,7 @@ void initu_kernel(dstype* f, const dstype* xdg, const dstype* uinf,
                   int /*ncx*/, int /*nce*/, int npe, int /*ne*/)
 {
     static_assert(is_init_model_v<M>);
-    detail::init_dispatch<M, M::ncu>(
-        f, xdg, uinf, param, ng, npe,
-        [](double out[], const double x[], const double uinf[], const double mu[])
- { M::initu(out, x, uinf, mu); });
+    detail::init_dispatch<M, M::ncu, &M::initu>(f, xdg, uinf, param, ng, npe);
 }
 
 template <class M>
@@ -65,10 +67,7 @@ void initq_kernel(dstype* f, const dstype* xdg, const dstype* uinf,
                   int /*ncx*/, int /*nce*/, int npe, int /*ne*/)
 {
     static_assert(is_init_model_v<M>);
-    detail::init_dispatch<M, M::ncu * M::nd>(
-        f, xdg, uinf, param, ng, npe,
-        [](double out[], const double x[], const double uinf[], const double mu[])
- { M::initq(out, x, uinf, mu); });
+    detail::init_dispatch<M, M::ncu * M::nd, &M::initq>(f, xdg, uinf, param, ng, npe);
 }
 
 template <class M>
@@ -78,10 +77,7 @@ void initudg_kernel(dstype* f, const dstype* xdg, const dstype* uinf,
 {
     static_assert(is_init_model_v<M>);
     constexpr int Nq = M::ncu * (1 + M::nd);
-    detail::init_dispatch<M, Nq>(
-        f, xdg, uinf, param, ng, npe,
-        [](double out[], const double x[], const double uinf[], const double mu[])
- { M::initudg(out, x, uinf, mu); });
+    detail::init_dispatch<M, Nq, &M::initudg>(f, xdg, uinf, param, ng, npe);
 }
 
 template <class M>
@@ -91,10 +87,7 @@ void initwdg_kernel(dstype* f, const dstype* xdg, const dstype* uinf,
 {
     static_assert(is_init_model_v<M>);
     if constexpr (M::ncw > 0) {
-        detail::init_dispatch<M, M::ncw>(
-            f, xdg, uinf, param, ng, npe,
-            [](double out[], const double x[], const double uinf[], const double mu[])
- { M::initwdg(out, x, uinf, mu); });
+        detail::init_dispatch<M, M::ncw, &M::initwdg>(f, xdg, uinf, param, ng, npe);
     } else {
         (void)f; (void)xdg; (void)uinf; (void)param; (void)ng; (void)npe;
     }
