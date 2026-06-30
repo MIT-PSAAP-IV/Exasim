@@ -131,6 +131,65 @@ inline Preprocessed make_preprocessed(const PDE& pde_in, const MeshSpec& mesh,
     return pre;
 }
 
+#if defined(HAVE_MPI) && defined(HAVE_PARMETIS)
+// Distributed-mesh spec for the scalable MPI path: each rank supplies ONLY its slice --
+// a contiguous block of global nodes (their coords in p_local) and a contiguous block of
+// global elements (t_local, using GLOBAL node indices in [0,np_global)). No rank holds the
+// whole mesh. ParMETIS (inside takeParallel) repartitions for locality regardless of the
+// initial split, and the node-request protocol fetches each rank's needed coordinates.
+struct MeshSpecDistributed {
+    const double* p_local = nullptr;   // nd x np_local (this rank's node-slice coords)
+    const int*    t_local = nullptr;   // nve x ne_local (this rank's elements, GLOBAL node ids)
+    int np_local = 0, ne_local = 0, np_global = 0, ne_global = 0, nve = 0;
+    std::vector<int>          boundary_tags;
+    std::vector<BoundaryPred> boundary_preds;
+
+    MeshSpecDistributed() = default;
+    MeshSpecDistributed(const double* p, const int* t, int npl, int nel,
+                        int npg, int neg, int nve_)
+        : p_local(p), t_local(t), np_local(npl), ne_local(nel),
+          np_global(npg), ne_global(neg), nve(nve_) {}
+
+    void add_boundary(int tag, BoundaryPred pred) {
+        boundary_tags.push_back(tag);
+        boundary_preds.push_back(std::move(pred));
+    }
+};
+
+// Scalable MPI counterpart of make_preprocessed: meshFromArraysDistributed (each rank's
+// slice) + CPreprocessing::takeParallel(comm) (ParMETIS repartition + DMD + per-rank
+// app/master/mesh/sol). Hand the result to the MPI in-memory ctor
+// CDiscretization(Preprocessed&&, backend, mpiprocs, mpirank).
+template <class M>
+inline Preprocessed make_preprocessed_distributed(const PDE& pde_in,
+                                                  const MeshSpecDistributed& mesh,
+                                                  MPI_Comm comm)
+{
+    static_assert(is_model_v<M>, "make_preprocessed_distributed<M>: M must satisfy the Model contract.");
+    int rank = 0, nprocs = 1;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &nprocs);
+
+    InputParams params;
+    ParsedSpec  spec;
+    for (std::size_t i = 0; i < mesh.boundary_tags.size(); ++i) {
+        params.boundaryConditions.push_back(mesh.boundary_tags[i]);
+        params.boundaryPreds.push_back(mesh.boundary_preds[i]);
+        params.curvedBoundaries.push_back(0);
+        params.curvedBoundaryExprs.push_back("");
+    }
+    PDE pde = pde_in;
+    CPreprocessing preproc(pde, params, spec, rank, nprocs);
+    preproc.mesh = meshFromArraysDistributed(mesh.p_local, mesh.t_local, mesh.np_local,
+                                             mesh.ne_local, mesh.nve, M::nd,
+                                             mesh.np_global, mesh.ne_global,
+                                             preproc.params, preproc.pde);
+    Preprocessed pre = preproc.takeParallel(comm);
+    pre.save_outputs = (pde.saveOutputs != 0);
+    return pre;
+}
+#endif // HAVE_MPI && HAVE_PARMETIS
+
 // Recover the volume state udg from a converged HDG trace uh (static-condensation
 // back-substitution), using the element factors from the most recent
 // hdgAssembleLinearSystem. Replaces the open-coded hdgGetDUDG + UpdateUDG (+ hdgGetQ)
