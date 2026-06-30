@@ -20,16 +20,18 @@
 // history sdg) -> hdgAssembleLinearSystem (time-augmented H,b) -> ComputeHDGPreconditioner.
 // IFunction: F = H*U - b.  IJacobian: J = MatShell(res.H).  PostStep: recover udg^{n+1}.
 //
-// Validation: run the IDENTICAL per-step sequence with Exasim-native gmres (a hand BE
-// loop) on a SEPARATE discretization, then PETSc TS on the main one; compare the final
-// trace. Result: rel ||uh_petsc - uh_native|| ~ 1.9e-15 over 10 backward-Euler steps.
+// No Exasim solver is constructed (no CSolver) -- PETSc owns every solve; the only Exasim
+// objects are the exported operators + a standalone setsysstruct workspace. Validation is
+// self-contained: the heat eq with this Poisson source has exact solution
+// u = (1 - e^{-2 pi^2 t}) sin(pi x) sin(pi y), and eval_qoi gives the quadrature L2 distance
+// to it (~5e-4 at t=0.5, the backward-Euler time-discretization error at dt=0.05).
 //
-// Two bugs were needed to make the multi-step loop correct (see prepareStep / the
-// separate-disc reference): (1) after UpdateSource the nodal history source sol.sdg must
-// be interpolated to Gauss points sol.sdgg (the assembly reads sdgg) — SteadyProblem does
-// this; without it the time term miscancels and the trajectory freezes after step 1.
-// (2) the native reference and the PETSc run must use separate disc instances — sharing
-// one bleeds time-history state (initializeSolution does not fully reset it after N steps).
+// One subtlety made the multi-step loop correct (see prepareStep): after UpdateSource the
+// nodal history source sol.sdg must be interpolated to Gauss points sol.sdgg (the assembly
+// reads sdgg) -- SteadyProblem does this; without it the time term miscancels the spatial
+// residual and the trajectory freezes after step 1. (During development this was confirmed
+// against an Exasim-native BE loop to rel ~1.9e-15; that solver reference has been removed
+// for the clean self-contained example.)
 
 #include <petscts.h>
 
@@ -186,6 +188,7 @@ int main(int argc, char** argv)
         pde.porder=3; pde.pgauss=6; pde.physicsparam={1.0};
         pde.tdep=1; pde.torder=1; pde.nstage=1; pde.dt={dt};
         pde.nsca=2; pde.nvec=1;   // Poisson2D vis fields: [u, ux+uy] + flux q  (for write_vtk)
+        pde.nvqoi=2;              // qoi_volume = [ (u-u_exact)^2, u ]  (for the self-contained L2 check)
         exasim::MeshSpec mesh(p.data(),t.data(),np,ne,4);
         mesh.add_boundary(1,[](const double* x){return std::abs(x[1])      <TOL;});
         mesh.add_boundary(1,[](const double* x){return std::abs(x[0]-1.0)  <TOL;});
@@ -214,31 +217,6 @@ int main(int argc, char** argv)
         OpCtx ctx; ctx.disc=&disc; ctx.res=&residual; ctx.asmb=&assembler; ctx.prec=&prec;
         ctx.sys=&sys; ctx.N=N; ctx.backend=backend; ctx.dt=dt;
         ctx.b.assign((size_t)N,0.0); ctx.uh_n.assign((size_t)N,0.0); ctx.work.assign((size_t)N,0.0);
-
-        // ================= Exasim-native BE reference (its OWN disc — no state shared with PETSc) =====
-        // Same per-step operator as the PETSc path but solved with Exasim's own GMRES end-to-end, on
-        // a separate discretization so the two runs cannot bleed time-history state into each other.
-        std::vector<dstype> uh_native((size_t)N);
-        {
-            CDiscretization nd(freshPre(), backend);
-            CResidual<Poisson2D> nr(nd); CAssembler<Poisson2D> na(nd);
-            CPreconditioner<Poisson2D> npc(nd,backend,ExasimExecutionMode::Solve);
-            CSolver<Poisson2D> ns(nd,backend,ExasimExecutionMode::Solve);
-            nr.initializeSolution(); nr.recoverInitialState(backend,false);
-            TimestepCoefficents(nd.common); nd.common.solverparams.linearSolverTol = 1e-12;
-            OpCtx nc; nc.disc=&nd; nc.res=&nr; nc.asmb=&na; nc.prec=&npc; nc.sys=&ns.sys;
-            nc.N=N; nc.backend=backend; nc.dt=dt;
-            nc.b.assign((size_t)N,0.0); nc.uh_n.assign((size_t)N,0.0); nc.work.assign((size_t)N,0.0);
-            for (int istep=0; istep<nsteps; ++istep) {
-                prepareStep(nc);                                  // PreviousSolutions+UpdateSource+sdgg+assemble
-                for (Int i=0;i<N;++i){ ns.sys.u[i]=nd.sol.uh[i]; ns.sys.x[i]=0.0; ns.sys.b[i]=nc.b[(size_t)i]; }
-                ns.gmres(na, nd, npc, N, 1, backend);             // H*x=b (duh); uh^{n+1}=uh^n+x
-                std::vector<dstype> uh_new((size_t)N);
-                for (Int i=0;i<N;++i) uh_new[(size_t)i]=nd.sol.uh[i]+ns.sys.x[i];
-                recoverStep(nc, uh_new.data());
-            }
-            for (Int i=0;i<N;++i) uh_native[(size_t)i]=nd.sol.uh[i];
-        }
 
         // ================= PETSc TS owns the loop (on the main disc, fresh) =================
         Mat J; PetscCall(MatCreateShell(PETSC_COMM_SELF,N,N,N,N,&ctx,&J));
@@ -280,25 +258,30 @@ int main(int argc, char** argv)
         // write the final-time heat field to ParaView (PostStep already recovered udg)
         exasim::write_vtk<Poisson2D>(disc, "heat_petsc_final", backend);
 
+        // ================= self-contained verification (no Exasim solver) =================
+        // The heat equation du/dt = mu*Lap(u) + f with this Poisson source (f = 2*pi^2 sin sin,
+        // mu=1) has the exact solution u(x,y,t) = (1 - e^{-2 pi^2 t}) sin(pi x) sin(pi y): the
+        // single mode sin(pi x) sin(pi y) (Laplacian eigenvalue -2 pi^2) relaxes to the steady
+        // Poisson solution. By t = nsteps*dt = 0.5 the amplitude a(t)=1-e^{-2 pi^2 t} ~ 1 - 5e-5,
+        // so the field has all but reached steady; eval_qoi gives the quadrature L2 distance to
+        // that exact field (qoi_volume[0] = (u - u_exact)^2).
         std::vector<dstype> uh_petsc((size_t)N);
         { const PetscScalar* u; PetscCall(VecGetArrayRead(U,&u));
           for (Int i=0;i<N;++i) uh_petsc[(size_t)i]=u[i]; PetscCall(VecRestoreArrayRead(U,&u)); }
+        bool finite=true; double nrm=0;
+        for (Int i=0;i<N;++i){ if(!std::isfinite(uh_petsc[(size_t)i])) finite=false; nrm+=uh_petsc[(size_t)i]*uh_petsc[(size_t)i]; }
+        nrm=std::sqrt(nrm);
 
-        double dnum=0,dden=0,npn=0,nnn=0; bool finite=true;
-        for (Int i=0;i<N;++i){
-            if(!std::isfinite(uh_petsc[(size_t)i])||!std::isfinite(uh_native[(size_t)i])) finite=false;
-            double d=uh_petsc[(size_t)i]-uh_native[(size_t)i];
-            dnum+=d*d; dden+=uh_native[(size_t)i]*uh_native[(size_t)i];
-            npn+=uh_petsc[(size_t)i]*uh_petsc[(size_t)i]; nnn+=uh_native[(size_t)i]*uh_native[(size_t)i]; }
-        double relerr=std::sqrt(dnum)/(std::sqrt(dden)+1e-300);
-        std::printf("[heat-ts] final ||uh_petsc||=%.8e  ||uh_native||=%.8e\n",std::sqrt(npn),std::sqrt(nnn));
-        std::printf("[heat-ts] rel ||uh_petsc - uh_native|| = %.3e\n",relerr);
+        std::vector<dstype> qoi = exasim::eval_qoi<Poisson2D>(disc);   // qoi[0] = integral (u-u_exact)^2
+        const double l2err = std::sqrt(qoi.empty() ? 1.0 : qoi[0]);
+        const double tfinal = dt*nsteps;
+        std::printf("[heat-ts] final ||uh|| = %.8e (steady ~ 1.131e+01)\n", nrm);
+        std::printf("[heat-ts] L2 ||u - u_exact|| = %.3e at t=%.2f (heat warmed to near-steady)\n", l2err, tfinal);
 
         if(!finite){ std::printf("[heat-ts] FAIL: non-finite\n"); rc=1; }
         else if((long long)steps!=nsteps){ std::printf("[heat-ts] FAIL: TS took %lld steps != %d\n",(long long)steps,nsteps); rc=1; }
-        else if(!(std::sqrt(nnn)>0)){ std::printf("[heat-ts] FAIL: native trace zero\n"); rc=1; }
-        else if(relerr>1e-6){ std::printf("[heat-ts] FAIL: PETSc TS vs native disagree\n"); rc=1; }
-        else std::printf("[heat-ts] PASS: PETSc TS owns the loop and matches Exasim-native BE\n");
+        else if(l2err>1e-3){ std::printf("[heat-ts] FAIL: solution far from exact (%.3e)\n", l2err); rc=1; }
+        else std::printf("[heat-ts] PASS: PETSc TS owns the heat time loop on the exported operators\n");
 
         PetscCall(VecDestroy(&U)); PetscCall(MatDestroy(&J)); PetscCall(TSDestroy(&ts));
     }
