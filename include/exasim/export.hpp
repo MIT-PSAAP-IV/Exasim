@@ -138,9 +138,10 @@ inline Preprocessed make_preprocessed(const PDE& pde_in, const MeshSpec& mesh,
 // operators (e.g. a sysstruct's sys.x); it receives the trace increment uh - sol.uh.
 // All ops are backend-dispatched, so this works on CPU and GPU (uh/scratch may be
 // device pointers when backend>=2).
-inline void recover_volume(CDiscretization& disc, const dstype* uh, dstype* scratch, int backend)
+inline void recover_volume(CDiscretization& disc, const dstype* uh, dstype* scratch)
 {
     auto& c = disc.common;
+    const int backend = c.backend;
     const Int N = c.sizes.ndofuhat;
     ArrayAXPBY(scratch, const_cast<dstype*>(uh), disc.sol.uh, 1.0, -1.0, N);  // duh = uh - sol.uh
     ArrayCopy(disc.sol.uh, const_cast<dstype*>(uh), N);                       // sol.uh <- uh
@@ -156,9 +157,16 @@ inline void recover_volume(CDiscretization& disc, const dstype* uh, dstype* scra
 // must have been set before construction so the QoI buffers were allocated. Returns the
 // integrated values (host). E.g. a model whose qoi_volume[0] = (u - u_exact)^2 yields
 // qoi[0] = the squared L2 error -- a proper quadrature norm, not a nodal sum.
+//
+// M is the QoI capability only -- a struct carrying the size config + qoi_volume/qoi_boundary
+// (e.g. Poisson2D::QoI), NOT the full physics model; its sizes must match the model the
+// discretization was built from.
 template <class M>
 inline std::vector<dstype> eval_qoi(CDiscretization& disc)
 {
+    static_assert(is_qoi_model_v<M>,
+        "eval_qoi: M must expose the QoI surface (size config + qoi_volume + qoi_boundary), "
+        "e.g. Poisson2D::QoI -- not the whole physics model.");
     const int nv = disc.common.qoiparams.nvqoi;
     if (nv <= 0) return {};
     qoiElement<M>(disc.sol, disc.res, disc.app, disc.master, disc.mesh, disc.tmp, disc.common);
@@ -172,10 +180,15 @@ inline std::vector<dstype> eval_qoi(CDiscretization& disc)
 // buildConn. pde.nsca/nvec/nten must have been set before construction (so the counts
 // and CG geometry are wired). basename gets a ".vtu" suffix (serial) or per-rank .vtu +
 // .pvtu (MPI). Mirrors CSolutionWriter::SaveParaview's field computation.
+//
+// M is the visualization capability only -- a struct carrying the size config +
+// vis_scalars/vis_vectors (and vis_tensors only if pde.nten>0), e.g. Poisson2D::Vis, NOT
+// the full physics model; its sizes must match the model the discretization was built from.
 template <class M>
-inline void write_vtk(CDiscretization& disc, const std::string& basename, int backend)
+inline void write_vtk(CDiscretization& disc, const std::string& basename)
 {
     auto& c = disc.common;
+    const int backend = c.backend;
     const int nc=c.components.nc, ncx=c.components.ncx, nco=c.components.nco, ncw=c.components.ncw;
     const int nsca=c.qoiparams.nsca, nvec=c.qoiparams.nvec, nten=c.qoiparams.nten;
     const int npe=c.grid.npe, ne=c.meshsizes.ne1, ndg=npe*ne;

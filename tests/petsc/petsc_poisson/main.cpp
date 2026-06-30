@@ -192,13 +192,13 @@ int main(int argc, char** argv)
         //     model's exported volume QoI (qoi_volume[0] = (u - u_exact)^2). Recover the volume
         //     field from the trace first (uh stays in its own memory space -- device ptr on GPU).
         { const PetscScalar* u; PetscMemType mt; PetscCall(VecGetArrayReadAndMemType(U, &u, &mt));
-          exasim::recover_volume(disc, u, sys.x, backend);
+          exasim::recover_volume(disc, u, sys.x);
           PetscCall(VecRestoreArrayReadAndMemType(U, &u)); }
-        std::vector<dstype> qoi = exasim::eval_qoi<Poisson2D>(disc);   // qoi[0] = integral (u-u_exact)^2
+        std::vector<dstype> qoi = exasim::eval_qoi<Poisson2D::QoI>(disc);   // qoi[0] = integral (u-u_exact)^2
         const double l2err = std::sqrt(qoi.empty() ? 1.0 : qoi[0]);   // L2 error of (u - u_exact)
 
         // write the solution to ParaView (uses Exasim's vis pipeline; CG geometry built in-memory)
-        exasim::write_vtk<Poisson2D>(disc, "poisson_petsc", backend);
+        exasim::write_vtk<Poisson2D::Vis>(disc, "poisson_petsc");
 
         std::printf("[petsc] (A) PETSc residual ||H*uh - b0||  = %.3e   (PETSc solved the exported system)\n", (double)fnorm);
         std::printf("[petsc] (B) L2 error ||u - u_exact||      = %.3e   (quadrature QoI)\n", l2err);

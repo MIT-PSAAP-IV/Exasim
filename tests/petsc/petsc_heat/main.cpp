@@ -96,7 +96,7 @@ static void prepareStep(OpCtx& c)
 static void recoverStep(OpCtx& c, const dstype* uh)
 {
     auto& disc = *c.disc;
-    exasim::recover_volume(disc, uh, c.sys->x, c.backend);   // hdgGetDUDG + UpdateUDG + hdgGetQ
+    exasim::recover_volume(disc, uh, c.sys->x);   // hdgGetDUDG + UpdateUDG + hdgGetQ
     UpdateSolution(disc.sol, *c.sys, disc.app, disc.driver_abi, disc.res, disc.tmp, disc.common, c.backend);
 }
 
@@ -256,7 +256,7 @@ int main(int argc, char** argv)
         std::printf("[heat-ts] PETSc TS done: %lld steps, final t=%g\n",(long long)steps,(double)ftime);
 
         // write the final-time heat field to ParaView (PostStep already recovered udg)
-        exasim::write_vtk<Poisson2D>(disc, "heat_petsc_final", backend);
+        exasim::write_vtk<Poisson2D::Vis>(disc, "heat_petsc_final");
 
         // ================= self-contained verification (no Exasim solver) =================
         // The heat equation du/dt = mu*Lap(u) + f with this Poisson source (f = 2*pi^2 sin sin,
@@ -272,7 +272,7 @@ int main(int argc, char** argv)
         for (Int i=0;i<N;++i){ if(!std::isfinite(uh_petsc[(size_t)i])) finite=false; nrm+=uh_petsc[(size_t)i]*uh_petsc[(size_t)i]; }
         nrm=std::sqrt(nrm);
 
-        std::vector<dstype> qoi = exasim::eval_qoi<Poisson2D>(disc);   // qoi[0] = integral (u-u_exact)^2
+        std::vector<dstype> qoi = exasim::eval_qoi<Poisson2D::QoI>(disc);   // qoi[0] = integral (u-u_exact)^2
         const double l2err = std::sqrt(qoi.empty() ? 1.0 : qoi[0]);
         const double tfinal = dt*nsteps;
         std::printf("[heat-ts] final ||uh|| = %.8e (steady ~ 1.131e+01)\n", nrm);
