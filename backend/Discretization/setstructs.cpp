@@ -550,6 +550,23 @@ void initializeSolution(solstruct &sol, appstruct &app, ExasimDriverABI& driver_
         InitwdgDriver(sol.wdg, sol.xdg, driver_abi, app, ncx, ncw, npe, ne, 0);
 }
 
+// Runtime app context (porder per master element + comm = [mpirank, mpiprocs]) that is NOT
+// serialized with the app struct -- it is derived from the master element and the MPI context.
+// Single source of truth shared by the file path (readInput, readbinaryfiles.cpp) and the
+// in-memory path (cpuInitInMemory, discretization_inmemory.hpp), so a new derived app field is
+// added in exactly one place. buildConn dereferences app.comm[1], so this must run before it.
+void setAppRuntimeContext(appstruct &app, const masterstruct &master, Int mpirank, Int mpiprocs)
+{
+    Int nd = master.ndims[0];
+    app.porder = (Int*) malloc(nd*sizeof(Int));
+    app.szporder = nd;
+    for (Int i=0; i<nd; i++) app.porder[i] = master.ndims[3];
+    app.comm = (Int*) malloc(2*sizeof(Int));
+    app.comm[0] = mpirank;
+    app.comm[1] = mpiprocs;
+    app.szcomm = 2;
+}
+
 // Shared post-read setup: everything cpuInit does after readInput (allocate res/tmp, derive
 // common, build shape products + face maps, allocate sol scratch). Factored out so the
 // in-memory path (Preprocessed -> structs already populated) reuses it without reading files.

@@ -24,137 +24,15 @@
 
 #pragma once
 
-#include <string>
-#include <fstream>
-#include <sstream>
-#include <iostream>
-#include <vector>
-#include <numeric>
-#include <filesystem>
-
-#include <cstdint>
-#include <cmath>
-#include <cstdlib>
-#include <cstring>
-
-#ifdef _OPENMP
-#define HAVE_OPENMP
-#else
-#define HAVE_ONETHREAD
-#endif
-
-#ifdef _CUDA
-#define HAVE_GPU
-#define HAVE_CUDA
-#endif
-
-#ifdef _HIP
-#define HAVE_GPU
-#define HAVE_HIP
-#endif
-
-#ifdef _TEXT2CODE
-#define HAVE_TEXT2CODE
-#endif
-
-#ifdef _KOKKOSKERNEL
-#define HAVE_KOKKOSKERNEL
-#endif
-
-#if defined(HAVE_TEXT2CODE) || defined(HAVE_BUILTINMODEL)
-#define HAVE_SHARED_MODEL_LIB
-#endif
-
-#ifdef _ENZYME
-#define HAVE_ENZYME
-#endif
-
-#ifdef _MUTATIONPP
-#define HAVE_MPP
-#endif
-
-#ifdef _MPI
-#define HAVE_MPI
-#endif
-
-#ifdef HAVE_OPENMP
-#include <omp.h>
-#endif
-
-#ifdef HAVE_CUDA
-#include <cuda_runtime.h>
-#include <cuda.h>
-#include "cublas_v2.h"
-#endif
-
-#ifdef HAVE_HIP
-#include <hip/hip_runtime.h>
-#include <hip/hip_runtime_api.h>
-#include <hipblas/hipblas.h>
-#include <rocblas/rocblas.h>
-#endif
-
-#ifdef HAVE_MPP
-#include <mutation++.h>
-#endif
-
-#ifdef HAVE_SHARED_MODEL_LIB
-#include <array>
-#include <regex>
-#include <unordered_map>
-#include <unordered_set>
-#endif
-
-#ifdef HAVE_MPI
-#include <mpi.h>
-// Exasim communicators (defined in the linked preprocessing library). Declared
-// here so the backend headers below compile in an out-of-tree consumer TU.
-extern MPI_Comm EXASIM_COMM_WORLD;
-extern MPI_Comm EXASIM_COMM_LOCAL;
-#endif
-
-#include <Kokkos_Core.hpp>
-
-// PR #73 review NB2: backend headers used to rely on a global
-// `using namespace std;` here, leaking the entire std namespace
-// into every consumer TU. That directive is gone — backend code
-// now qualifies `std::*` directly.
-
-#include <backend/Common/common.h>
-#include <backend/Common/cpuimpl.h>
-#include <backend/Common/kokkosimpl.h>
-#include <backend/Common/pblas.h>
-
-// The aggregated FEM implementation .cpp use unqualified std names (string, cout,
-// endl, ...) -- they were authored for the unity build (ExasimSolver.cpp), which
-// opens `using namespace std;` before including them. Mirror that here so the same
-// .cpp compile unchanged in the templated consumer TU.
-using namespace std;
-
-// Aggregate the FEM implementation the same way the in-tree unity build
-// (backend/Main/ExasimSolver.cpp) does: include the templated class .cpp
-// directly, in dependency order, rather than the per-class .hpp twins (those
-// were deleted as duplicates of the .cpp). model_drivers_abi.cpp supplies the
-// common-based global ::Name drivers used by the AbiAdapter dispatch branch;
-// it is codegen-free (no per-model KokkosFlux.cpp), so a concrete Model M
-// compiles with NO text2code kernels -- the templated exasim::Name<M> path.
-#include <backend/Model/ModelDispatch/model_drivers_abi.cpp>
-#include <backend/Discretization/discretization.cpp>
-#include <backend/Discretization/assembler.cpp>
-#include <backend/Discretization/residualeval.cpp>
-#include <backend/Preconditioning/preconditioner.cpp>
-#include <backend/Solver/solver.cpp>
-#include <backend/Visualization/visualization.cpp>
-#include <backend/PointLocator/pointlocator.cpp>
-#include <backend/Solution/solution.cpp>
-#include <backend/Solution/solutionwriter.cpp>
-#include <backend/Solution/nonlinearsolver.cpp>
-
-#ifdef HAVE_SHARED_MODEL_LIB
-#include <backend/Preprocessing/preprocessing.hpp>
-#endif
-
-#include "detail/abi_adapter.hpp"
+// The backend FEM aggregation (templated class .cpp), preprocessing entry
+// points, the in-memory CDiscretization ctor, the platform macro plumbing
+// (HAVE_OPENMP/CUDA/HIP/MPI/...), the std/Kokkos/MPI includes and the
+// `using namespace std;` the aggregated .cpp rely on, and detail/abi_adapter.hpp
+// all live in <exasim/operators.hpp>. run.hpp is the full legacy entry point:
+// operators.hpp's discretization + operators PLUS the MPI/Kokkos bootstrap and
+// the `exasim::run<M>()` time/Newton loop below. Sharing one aggregation header
+// keeps run.hpp and the operator-export path from drifting.
+#include <exasim/operators.hpp>
 
 namespace exasim {
 namespace detail {

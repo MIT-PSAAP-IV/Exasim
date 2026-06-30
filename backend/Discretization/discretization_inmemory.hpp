@@ -17,11 +17,14 @@
 #include "discretization.h"                          // CDiscretization (ctor declared, Preprocessed fwd-declared)
 
 // cpuInitSetup: the post-read setup factored out of cpuInit (allocate res/tmp, derive common, build
-// shape products + face maps, allocate sol scratch). Defined in setstructs.cpp (already in the TU via
-// the backend aggregation). Forward-declared here so this header is order-robust.
+// shape products + face maps, allocate sol scratch). setAppRuntimeContext: derives app.porder/app.comm
+// (the file path runs it inside readInput). Both are defined in setstructs.cpp (already in the TU via
+// the backend aggregation); forward-declared here so this header is order-robust and so the
+// in-memory path reuses the SAME derivations as the file path (no parallel copy to keep in sync).
 void cpuInitSetup(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master,
         meshstruct &mesh, tempstruct &tmp, commonstruct &common,
         std::string filein, std::string fileout, Int mpiprocs, Int mpirank, Int fileoffset, Int omprank);
+void setAppRuntimeContext(appstruct &app, const masterstruct &master, Int mpirank, Int mpiprocs);
 
 // In-memory analogue of cpuInit: instead of readInput()'ing datain binaries, transfer the structs
 // already populated by the preprocessor, build the element/face connectivity from the raw ti (the one
@@ -36,6 +39,11 @@ inline void cpuInitInMemory(exasim::Preprocessed& pre, solstruct &sol, resstruct
     master = pre.master;
     mesh   = pre.mesh;
     sol    = pre.sol;
+
+    // Post-transfer setup that readInput (readbinaryfiles.cpp) performs AFTER reading the structs
+    // but which buildAppStruct deliberately omits (see buildstructs.hpp: "the runtime sets app.porder
+    // + app.comm in readInput"). Same single source as the file path -- buildConn derefs app.comm[1].
+    setAppRuntimeContext(app, master, mpirank, mpiprocs);
 
     // Build element/face connectivity from the raw connectivity ti (readInput does this from file,
     // readbinaryfiles.hpp: buildConn when ti exists and facecon was not precomputed).

@@ -62,6 +62,11 @@
 #include <mutation++.h>
 #endif
 
+// Defined later in the same TU (setstructs.cpp); derives app.porder + app.comm. Shared with the
+// in-memory path (discretization_inmemory.hpp). Forward-declared here because this .cpp is
+// aggregated before setstructs.cpp in the unity/templated build.
+void setAppRuntimeContext(appstruct &app, const masterstruct &master, Int mpirank, Int mpiprocs);
+
 void readappstruct(string filename, appstruct &app)
 {
     // Open file to read
@@ -651,15 +656,9 @@ void readInput(appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master
     string filemaster = filein + "master.bin";           
     readmasterstruct(filemaster, master);
     
-    Int nd = master.ndims[0];    
-    app.porder = (Int*) malloc(nd*sizeof(Int));
-    app.szporder = nd;
-    for (Int i=0; i<nd; i++)
-        app.porder[i] = master.ndims[3];
-    app.comm = (Int*) malloc(2*sizeof(Int));
-    app.comm[0] = mpirank;
-    app.comm[1] = mpiprocs;
-    app.szcomm = 2;
+    // Derive app.porder + app.comm (not serialized with the app struct). Shared with the
+    // in-memory path via setAppRuntimeContext (defined in setstructs.cpp, same TU).
+    setAppRuntimeContext(app, master, mpirank, mpiprocs);
                     
     // read meshsol structure
     if (mpiprocs>1) {     

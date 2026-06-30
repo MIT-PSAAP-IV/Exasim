@@ -532,6 +532,17 @@ inline solstruct buildSolStruct(const Mesh& mesh, const Master& master,
         }
         sol.szudg = sol.nsize[2];
     }
+    else {
+        // No udg supplied: allocate the full (u,q) buffer, zero it, and flag for the
+        // model initial condition (CResidual::initializeSolution). Mirrors readsolstruct's
+        // sol.nsize[2]==0 branch (readbinaryfiles.cpp) so the in-memory and file paths hand
+        // CResidual the same post-condition -- without this the operator state buffer is null
+        // and recoverInitialState (GetFaceNodes uh<-udg) dereferences it.
+        sol.nsize[2] = (Int)(npe * pde.nc * ne_local);
+        sol.udg = (dstype*)std::calloc((size_t)sol.nsize[2], sizeof(dstype));
+        sol.szudg = sol.nsize[2];
+        sol.needudginit = 1;
+    }
     // The legacy ABI stores `vdg` (auxiliary scalar fields) under
     // `solstruct::odg` — see common.h: odg = auxilary term. Mesh
     // .vdg → solstruct.odg.
@@ -545,6 +556,13 @@ inline solstruct buildSolStruct(const Mesh& mesh, const Master& master,
         }
         sol.szodg = sol.nsize[3];
     }
+    else if (pde.ncv > 0) {
+        // No vdg supplied but the model needs odg: allocate+zero+flag (readsolstruct nco>0 branch).
+        sol.nsize[3] = (Int)(npe * pde.ncv * ne_local);
+        sol.odg = (dstype*)std::calloc((size_t)sol.nsize[3], sizeof(dstype));
+        sol.szodg = sol.nsize[3];
+        sol.needodginit = 1;
+    }
     if (!mesh.wdg.empty()) {
         const int row = npe * pde.ncw;
         sol.wdg = (dstype*)std::malloc(sizeof(dstype) * row * ne_local);
@@ -554,6 +572,13 @@ inline solstruct buildSolStruct(const Mesh& mesh, const Master& master,
                 sol.wdg[i + j*row] = (dstype)mesh.wdg[i + col*row];
         }
         sol.szwdg = sol.nsize[4];
+    }
+    else if (pde.ncw > 0) {
+        // No wdg supplied but the model needs wdg: allocate+zero+flag (readsolstruct ncw>0 branch).
+        sol.nsize[4] = (Int)(npe * pde.ncw * ne_local);
+        sol.wdg = (dstype*)std::calloc((size_t)sol.nsize[4], sizeof(dstype));
+        sol.szwdg = sol.nsize[4];
+        sol.needwdginit = 1;
     }
     if (!mesh.uhat.empty()) {
         sol.uh = (dstype*)std::malloc(sizeof(dstype) * mesh.uhat.size());
