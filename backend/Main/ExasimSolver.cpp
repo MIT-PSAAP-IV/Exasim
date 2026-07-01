@@ -871,8 +871,7 @@ int ExasimSolver::OpenOutputStreams()
 
 int ExasimSolver::InitializeMeshInterface(const int modelnumber,
                                           const int ncuext, const int ncuint,
-                                          const int ibc, const int comperm,
-                                          const int offset, MPI_Comm comm)
+                                          const int ibc, MPI_Comm comm)
 {
     if (modelnumber < 0 ||
         modelnumber >= static_cast<int>(models_.size()) ||
@@ -915,8 +914,6 @@ int ExasimSolver::InitializeMeshInterface(const int modelnumber,
     _ncuext = ncuext;
     _ncuint = ncuint;
     _ibc = ibc;
-    _comperm = comperm;
-    _offset = offset;
     _comm = comm;
     interface_modelnumber_ = modelnumber;
 

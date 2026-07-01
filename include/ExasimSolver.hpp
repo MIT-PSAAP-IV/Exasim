@@ -106,8 +106,7 @@ public:
 
     int InitializeMeshInterface(const int modelnumber,
                                 const int ncuext, const int ncuint,
-                                const int ibc, const int comperm,
-                                const int offset, MPI_Comm comm);
+                                const int ibc, MPI_Comm comm);
     int SaveState(const int modelnumber);
     int RestoreState(const int modelnumber);
     int ClearSavedState(const int modelnumber);
@@ -151,8 +150,6 @@ public:
     int _ncuext; // number of components of external fields
     int _ncuint; // number of components of internal fields
     int _ibc; // boundary condition index for the interface
-    int _comperm; // interface flux map
-    int _offset; // component offset in odg
     int _rank = 0;
     int _size = 1;
     MPI_Comm _comm = MPI_COMM_NULL;

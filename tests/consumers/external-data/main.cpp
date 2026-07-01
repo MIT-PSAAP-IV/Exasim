@@ -40,10 +40,8 @@ int main(int argc, char** argv)
     const int ncuext = 2;   // ux, uy supplied on boundary
     const int ncuint = 2;   // sigma.n recovered from Fint
     const int ibc     = 0;  // FextCall=1 for BC type 1
-    const int comperm = 0;  // no communication permutation
-    const int offset  = 0;  // no offset
 
-    err = solver.InitializeMeshInterface(0, ncuext, ncuint, ibc, comperm, offset, comm);
+    err = solver.InitializeMeshInterface(0, ncuext, ncuint, ibc, comm);
     if (err != 0) { std::fprintf(stderr, "FAIL: InitializeMeshInterface\n"); return err; }
 
     const auto points = solver.getInterfacePoints();
