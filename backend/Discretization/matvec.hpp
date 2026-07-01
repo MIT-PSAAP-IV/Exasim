@@ -145,7 +145,7 @@ inline void hdgBlockILU0(dstype *BE, dstype *AE, resstruct &res, meshstruct &mes
           int idx_ji = common.ind_ji[j + i * nn];          
           
           // Multiply all nse blocks: block_ji = block_ji * block_diag, in-place
-          double *block_ji = &BE[idx_ji * N];
+          dstype *block_ji = &BE[idx_ji * N];
           PGEMNMStridedBached(handle, ncf, ncf, ncf, one, block_ji, ncf, diag_blocks, ncf, zero, tmp.tempn, ncf, nse, backend);             
           ArrayCopy(block_ji, tmp.tempn, N);
 
@@ -154,8 +154,8 @@ inline void hdgBlockILU0(dstype *BE, dstype *AE, resstruct &res, meshstruct &mes
               int idx_jl = common.ind_jl[l + j * nn + i * nn * nn];
               int idx_il = common.ind_il[l + j * nn + i * nn * nn];
 
-              double *block_jl = &BE[idx_jl * N];
-              double *block_il = &BE[idx_il * N];
+              dstype *block_jl = &BE[idx_jl * N];
+              dstype *block_il = &BE[idx_il * N];
               PGEMNMStridedBached(handle, ncf, ncf, ncf, minusone, block_ji, ncf, block_il, ncf, one, block_jl, ncf, nse, backend);                             
           }
       }

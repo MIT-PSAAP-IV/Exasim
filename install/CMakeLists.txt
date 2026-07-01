@@ -83,6 +83,26 @@ target_include_directories(ExasimHeaders INTERFACE
   $<BUILD_INTERFACE:${EXASIM_INCLUDE_DIR}>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
+# Scalar/index precision (common.h: dstype = float under USE_FLOAT else double; Int = long
+# under USE_LONG else int). Put these on the INTERFACE headers target so the library AND every
+# consumer AND the exported package all agree -- a mismatch here is a silent ABI break. A PETSc
+# consumer must match its PetscScalar/PetscInt (build PETSc --with-precision=single / 64-bit-indices).
+option(EXASIM_FLOAT "Single-precision dstype (float); default double" OFF)
+option(EXASIM_INT64 "64-bit Int index type (long); default int"       OFF)
+if(EXASIM_FLOAT)
+  target_compile_definitions(ExasimHeaders INTERFACE USE_FLOAT)
+  set(_exasim_scalar "float")
+else()
+  set(_exasim_scalar "double")
+endif()
+if(EXASIM_INT64)
+  target_compile_definitions(ExasimHeaders INTERFACE USE_LONG)
+  set(_exasim_index "long")
+else()
+  set(_exasim_index "int")
+endif()
+message(STATUS "Exasim scalar/index       = ${_exasim_scalar} / ${_exasim_index}")
+
 # Exasim's main program is located here  
 set(EXASIM_MAIN_DIR ${EXASIM_DIR}/backend/Main)
 file(GLOB MAIN_SOURCES ${EXASIM_MAIN_DIR}/main.cpp)

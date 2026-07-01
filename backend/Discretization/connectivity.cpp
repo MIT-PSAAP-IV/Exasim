@@ -503,7 +503,7 @@ int equal_row(const double* a, const double* b, int dim, double tol) {
     return 1;
 }
 
-void get_node_coord(double* out, const double* dgnodes, int npe, int dim, int e, int a) {
+void get_node_coord(double* out, const dstype* dgnodes, int npe, int dim, int e, int a) {
     for (int d = 0; d < dim; ++d)
         out[d] = dgnodes[a + npe * (d + dim * e)];
 }
@@ -516,12 +516,12 @@ void get_node_coord(double* out, const double* dgnodes, int npe, int dim, int e,
  * @return number of unique CG nodes (i.e., used portion of cgnodes)
  */
 int mkelconcg(
-    double* cgnodes,        // [dim][max_nodes], user-allocated
+    dstype* cgnodes,        // [dim][max_nodes], user-allocated
     int* cgelcon,            // [npe][ne], user-allocated        
-    const double* dgnodes,  // [npe][dim][ne]
+    const dstype* dgnodes,  // [npe][dim][ne]
     int npe, int dim, int ne) 
 {
-    const double tol = 1e-8;
+    const dstype tol = 1e-8;
     int ncg = 0;  // number of unique CG nodes
     double node[3];  // supports up to 3D
 
@@ -559,7 +559,7 @@ static inline int equal_row_tol(const double* a, const double* b, int dim, doubl
 }
 
 static inline void fetch_node(double* out,
-                              const double* dgnodes,
+                              const dstype* dgnodes,
                               int npe, int dim, int ne,  // dims
                               int e, int a)              // element, local node
 {
@@ -617,11 +617,11 @@ static inline CellKey make_cell_key(const double* p, int dim, double inv_h) {
  * returns number of unique CG nodes
  */
 int mkelconcg_hashgrid(
-    double* cgnodes,       // [dim][max_nodes], user-allocated
+    dstype* cgnodes,       // [dim][max_nodes], user-allocated
     int*    cgelcon,       // [npe][ne], user-allocated
-    const double* dgnodes, // [npe][dim][ne]
+    const dstype* dgnodes, // [npe][dim][ne]
     int npe, int dim, int ne,
-    double tol = 1e-8)
+    dstype tol = 1e-8)
 {
     // Grid cell size. Using h = tol ensures any two points within tol
     // are in the same or neighboring cells (so we check neighbors).
@@ -811,8 +811,8 @@ void map_cgent2dgent(
     int*& cgent2dgent,        // [nnz], output mapping (same shape as colent2elem)
     int*& rowent2elem, // [nent+1]
     int*& colent2elem, // [nnz]    
-    const double* cgnodes,  // [nent * dim], row-major
-    const double* dgnodes,  // [npe * dim * ne], column-major
+    const dstype* cgnodes,  // [nent * dim], row-major
+    const dstype* dgnodes,  // [npe * dim * ne], column-major
     int npe, int dim, int nent) 
 {    
     //cgent2dgent.resize(rowent2elem[nent]);
@@ -1125,7 +1125,7 @@ void xiny2(int* out, const T* A, const T* B, int m, int n, int dim, double tol =
     }
 }
 
-int permindex(int*& permind, const double* plocfc, int npf, int dim, int elemtype) 
+int permindex(int*& permind, const dstype* plocfc, int npf, int dim, int elemtype) 
 {
     int ncols_out = 1;
     if (dim == 1) {         
