@@ -222,7 +222,12 @@ inline Mat assemble_matrix(CDiscretization& disc, MPI_Comm comm)
     Mat A;
     MatCreate(comm, &A);
     MatSetSizes(A, N, N, PETSC_DETERMINE, PETSC_DETERMINE);
-    MatSetType(A, MATAIJ);
+    // On GPU keep the assembled matrix DEVICE-resident (MATAIJCUSPARSE) so the downstream KSP /
+    // Vanka solve runs on-device with the device RHS -- no per-iteration host<->device round-trip.
+    // (The one-time res.H device->host stage below is inherent to the MatSetValues host API; a
+    // fully transfer-free assembly would use MatSetPreallocationCOO + MatSetValuesCOO on the
+    // device res.H arrays.) MATAIJCUSPARSE is only registered in a CUDA-enabled PETSc, so guard it.
+    MatSetType(A, backend >= 2 ? MATAIJCUSPARSE : MATAIJ);
     MatSetUp(A);
     MatSetOption(A, MAT_ROW_ORIENTED, PETSC_FALSE);   // AE blocks are column-major
 
