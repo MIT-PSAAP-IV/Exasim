@@ -1,0 +1,104 @@
+scalars t
+
+vectors x(2), uq(6), v(0), w(0), uhat(2), uext(2), n(2), tau(1), mu(2), eta(0)
+
+jacobian uq, w, uhat
+
+hessian
+
+batch x, uq, v, w, uhat, n, uext
+
+outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Fext, Initu, Fint, VisVectors, QoIvolume
+
+function ExactSolution(x)
+  output_size(ue) = 2;
+  ue[0] = x[0] + x[1];
+  ue[1] = x[0] - x[1];
+  return ue;
+end
+
+function Flux(x, uq, v, w, eta, mu, t)
+  output_size(f) = 4;
+  q11 = uq[2];
+  q21 = uq[3];
+  q12 = uq[4];
+  q22 = uq[5];
+  trq = q11 + q22;
+  f[0] = 2.0*mu[0]*q11 + mu[1]*trq;
+  f[1] = mu[0]*(q21 + q12);
+  f[2] = mu[0]*(q12 + q21);
+  f[3] = 2.0*mu[0]*q22 + mu[1]*trq;
+end
+
+function Source(x, uq, v, w, eta, mu, t)
+  output_size(s) = 2;
+  s[0] = 0.0;
+  s[1] = 0.0;
+end
+
+function Tdfunc(x, uq, v, w, eta, mu, t)
+  output_size(m) = 2;
+  ones(m);
+end
+
+function Fbou(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(fb) = 2;
+  fb[0] = 0.0;
+  fb[1] = 0.0;
+end
+
+function Ubou(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(ub) = 2;
+  ub[0] = 0.0;
+  ub[1] = 0.0;
+end
+
+function FbouHdg(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(fb) = 2;
+  fb[0] = tau[0]*(0.0 - uhat[0]);
+  fb[1] = tau[0]*(0.0 - uhat[1]);
+end
+
+function Fext(x, uq, v, w, uhat, n, uext, tau, eta, mu, t)
+  output_size(fb) = 2;
+  fb[0] = tau[0]*(uext[0] - uhat[0]);
+  fb[1] = tau[0]*(uext[1] - uhat[1]);
+end
+
+function Fint(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(f) = 2;
+  q11 = uq[2];
+  q21 = uq[3];
+  q12 = uq[4];
+  q22 = uq[5];
+  trq = q11 + q22;
+  s11 = 2.0*mu[0]*q11 + mu[1]*trq;
+  s12 = mu[0]*(q21 + q12);
+  s21 = mu[0]*(q12 + q21);
+  s22 = 2.0*mu[0]*q22 + mu[1]*trq;
+  f[0] = s11*n[0] + s12*n[1];
+  f[1] = s21*n[0] + s22*n[1];
+end
+
+function Initu(x, eta, mu)
+  output_size(ui) = 2;
+  ui[0] = x[0] + x[1];
+  ui[1] = x[0] - x[1];
+end
+
+function VisVectors(x, uq, v, w, eta, mu, t)
+  output_size(s) = 4;
+  ue = ExactSolution(x);
+  s[0] = uq[0];
+  s[1] = uq[1];
+  s[2] = uq[0] - ue[0];
+  s[3] = uq[1] - ue[1];
+end
+
+function QoIvolume(x, uq, v, w, eta, mu, t)
+  output_size(s) = 1;
+  x1 = x[0];
+  x2 = x[1];
+  ue = ExactSolution(x);
+  s[0] = (uq[0] - ue[0])*(uq[0] - ue[0]) + (uq[1] - ue[1])*(uq[1] - ue[1]);
+end
