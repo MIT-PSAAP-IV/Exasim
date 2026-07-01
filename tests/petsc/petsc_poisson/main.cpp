@@ -146,16 +146,35 @@ int main(int argc, char** argv)
             PetscCall(VecDestroy(&v)); PetscCall(VecDestroy(&y1)); PetscCall(VecDestroy(&y2));
         }
 
+        // (D) ASSEMBLED monolithic condensed matrix (res.H -> MATAIJ). MatMult against a random
+        //     vector must match the matrix-free operator to machine precision (same operator,
+        //     assembled via elemcon). This MATAIJ is what LU/ILU/AMG/Vanka consume.
+        double asm_diff = 0.0;
+        {
+            Mat A = exasim::petsc::assemble_matrix<Poisson2D>(disc, PETSC_COMM_SELF);
+            Vec v = op.make_vec(), y1 = op.make_vec(), y2 = op.make_vec();
+            PetscRandom rng; PetscCall(PetscRandomCreate(PETSC_COMM_SELF, &rng)); PetscCall(VecSetRandom(v, rng));
+            PetscCall(MatMult(op.mat(), v, y1));
+            PetscCall(MatMult(A,        v, y2));
+            PetscReal d, n1; PetscCall(VecAXPY(y2, -1.0, y1));
+            PetscCall(VecNorm(y2, NORM_2, &d)); PetscCall(VecNorm(y1, NORM_2, &n1));
+            asm_diff = (double)d / ((double)n1 + 1e-300);
+            PetscCall(PetscRandomDestroy(&rng));
+            PetscCall(VecDestroy(&v)); PetscCall(VecDestroy(&y1)); PetscCall(VecDestroy(&y2)); PetscCall(MatDestroy(&A));
+        }
+
         std::printf("[petsc] (A) PETSc residual ||H*uh - b0||  = %.3e   (PETSc solved the exported system)\n", (double)fnorm);
         std::printf("[petsc] (B) L2 error ||u - u_exact||      = %.3e   (quadrature QoI)\n", l2err);
         std::printf("[petsc] (C) ShellMat MatMult vs op.mat()  = %.3e   (operator-export primitive)\n", shell_diff);
+        std::printf("[petsc] (D) assembled MATAIJ vs matrix-free = %.3e   (monolithic condensed operator)\n", asm_diff);
 
-        bool finite = std::isfinite((double)fnorm) && std::isfinite(l2err) && std::isfinite(shell_diff);
+        bool finite = std::isfinite((double)fnorm) && std::isfinite(l2err) && std::isfinite(shell_diff) && std::isfinite(asm_diff);
         if (!finite)              { std::printf("[petsc] FAIL: non-finite result\n"); rc=1; }
         else if (reason < 0)      { std::printf("[petsc] FAIL: SNES did not converge\n"); rc=1; }
         else if (fnorm > 1e-8)    { std::printf("[petsc] FAIL: residual not driven to zero\n"); rc=1; }
         else if (l2err > 1e-3)    { std::printf("[petsc] FAIL: solution far from exact (%.3e)\n", l2err); rc=1; }
         else if (shell_diff>1e-10){ std::printf("[petsc] FAIL: ShellMat disagrees with op.mat() (%.3e)\n", shell_diff); rc=1; }
+        else if (asm_diff > 1e-10){ std::printf("[petsc] FAIL: assembled MATAIJ disagrees with matrix-free (%.3e)\n", asm_diff); rc=1; }
         else  std::printf("[petsc] PASS: PETSc solved the exported HDG Poisson operators on %s\n", gpu?"GPU":"CPU");
 
         PetscCall(VecDestroy(&U)); PetscCall(VecDestroy(&Fr)); PetscCall(SNESDestroy(&snes));

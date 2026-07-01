@@ -198,5 +198,46 @@ inline std::unique_ptr<ShellMat> make_mass_inverse(CDiscretization& disc, MPI_Co
         [&disc, ncr](dstype* y, const dstype* x){ exasim::apply_mass_inverse<M>(disc, x, y, ncr); }, gpu);
 }
 
+// Assemble the condensed HDG trace operator (res.H) into a real PETSc MATAIJ, so the full
+// PETSc arsenal that needs entries -- LU/ILU/AMG, and PCPATCH/Vanka -- can act on it. res.H
+// holds one m x m element block per element (m = ncu*npf*nfe, column-major, applied by
+// hdgMatVec); the local->global trace map is j + elemcon[i + e*ndf]*ncu. This is standard FE
+// scatter: A = sum_e P_e AE[e] P_e^T, identical operator to the matrix-free op.mat().
+// Assembly is a host operation (device res.H/elemcon are staged to host first).
+template <class M>
+inline Mat assemble_matrix(CDiscretization& disc, MPI_Comm comm)
+{
+    auto& c = disc.common;
+    const int backend = static_cast<int>(c.backend);
+    const int ncu = c.components.ncu, npf = c.grid.npf, nfe = static_cast<int>(c.meshsizes.nfe);
+    const int ndf = npf * nfe, m = ncu * ndf, ne = static_cast<int>(c.meshsizes.ne1);
+    const Int N = c.sizes.ndofuhat;
+
+    std::vector<dstype> H(static_cast<size_t>(m) * m * ne);
+    TemplateCopytoHost(H.data(), disc.res.H, (Int)H.size(), backend);
+    std::vector<int> elemcon(static_cast<size_t>(ndf) * ne);
+    if (backend >= 2) TemplateCopytoHost(elemcon.data(), disc.mesh.elemcon, (Int)elemcon.size(), backend);
+    else              std::copy(disc.mesh.elemcon, disc.mesh.elemcon + elemcon.size(), elemcon.begin());
+
+    Mat A;
+    MatCreate(comm, &A);
+    MatSetSizes(A, N, N, PETSC_DETERMINE, PETSC_DETERMINE);
+    MatSetType(A, MATAIJ);
+    MatSetUp(A);
+    MatSetOption(A, MAT_ROW_ORIENTED, PETSC_FALSE);   // AE blocks are column-major
+
+    std::vector<PetscInt> g(static_cast<size_t>(m));
+    for (int e = 0; e < ne; ++e) {
+        for (int i = 0; i < ndf; ++i) {
+            const int base = elemcon[i + e * ndf] * ncu;
+            for (int j = 0; j < ncu; ++j) g[j + ncu * i] = base + j;
+        }
+        MatSetValues(A, m, g.data(), m, g.data(), &H[static_cast<size_t>(e) * m * m], ADD_VALUES);
+    }
+    MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
+    return A;
+}
+
 } // namespace petsc
 } // namespace exasim

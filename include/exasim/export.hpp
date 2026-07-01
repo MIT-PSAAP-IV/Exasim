@@ -334,6 +334,36 @@ inline void apply_mass_inverse(CDiscretization& disc, const dstype* x, dstype* y
     ApplyMinv(y, disc.res.Minv, const_cast<dstype*>(x), 1.0, c.grid.curvedMesh, npe, ncr, 0, (int)ne);
 }
 
+// ---- Style-B: raw per-element block VIEWS ----------------------------------------------
+// Read-only handles to the element-local HDG operator blocks Exasim assembles (device pointers
+// when backend>=2), for a consumer that wants to build custom operators / assemble per block.
+// Per-element, column-major. NB: C/E already fold in M^{-1} (they are the recovery coefficients
+// q = -(C u + E uh)), so these are the *recovery* form, not a raw saddle-point. `nullptr` fields
+// were not allocated for this discretization/model.
+struct ElementBlocks {
+    const dstype *H = nullptr;     // condensed trace block AE: (ncu*npf*nfe)^2 per elem
+    const dstype *K = nullptr;     // preconditioner block
+    const dstype *Mass = nullptr;  // q-mass M           : npe^2 per elem  (res.Mass2)
+    const dstype *Minv = nullptr;  // M^{-1}             : npe^2 per elem  (res.Minv2)
+    const dstype *C = nullptr;     // u->q recovery      : npe^2 * nd
+    const dstype *E = nullptr;     // uh->q recovery
+    const dstype *D = nullptr;     // u-equation block
+    const dstype *F = nullptr, *G = nullptr;  // couplings
+    int npe=0, npf=0, nfe=0, ne=0, ncu=0, ncq=0, nd=0;   // dims to interpret the blocks
+    Int szH=0, szK=0, szMass=0, szMinv=0, szC=0, szE=0, szD=0;
+};
+
+inline ElementBlocks element_blocks(CDiscretization& disc)
+{
+    auto& r = disc.res; auto& c = disc.common;
+    ElementBlocks b;
+    b.H=r.H; b.K=r.K; b.Mass=r.Mass2; b.Minv=r.Minv2; b.C=r.C; b.E=r.E; b.D=r.D; b.F=r.F; b.G=r.G;
+    b.npe=c.grid.npe; b.npf=c.grid.npf; b.nfe=(int)c.meshsizes.nfe; b.ne=(int)c.meshsizes.ne1;
+    b.ncu=c.components.ncu; b.ncq=c.components.ncq; b.nd=c.grid.nd;
+    b.szH=r.szH; b.szK=r.szK; b.szMass=r.szMass2; b.szMinv=r.szMinv2; b.szC=r.szC; b.szE=r.szE; b.szD=r.szD;
+    return b;
+}
+
 // One-shot sugar: build the in-memory discretization from a PDE config + mesh.
 // Returned by unique_ptr because CDiscretization owns malloc'd C arrays (non-copyable);
 // the operator classes (CResidual<M>/... ) bind a reference to *disc.
