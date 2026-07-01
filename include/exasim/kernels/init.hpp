@@ -26,9 +26,13 @@ namespace detail {
 // call resolves to the model's static method at compile time (and inlines).
 using InitFn = void (*)(double[], const double[], const double[], const double[]);
 
+// fStride = the DESTINATION buffer's per-element component count. This is NOT always OutputSize:
+// initu writes ncu components into udg, whose packed width is nc = ncu+ncq (> ncu when there is a
+// flux q). Using OutputSize as the stride scatters the data into the wrong elements -- silently
+// masked whenever initu returns 0 (e.g. Poisson), but fatal for a nonzero IC (e.g. NS freestream).
 template <class M, int OutputSize, InitFn Fn>
 void init_dispatch(dstype* f, const dstype* xdg, const dstype* uinf,
-                   const dstype* param, int ng, int npe)
+                   const dstype* param, int ng, int npe, int fStride)
 {
     constexpr int nd = M::nd;
     Kokkos::parallel_for("exasim::init_kernel", ng, KOKKOS_LAMBDA(size_t i) {
@@ -45,7 +49,7 @@ void init_dispatch(dstype* f, const dstype* xdg, const dstype* uinf,
         Fn(out_local, x, uinf, param);
 
         for (int k = 0; k < OutputSize; ++k) {
-            f[j + npe * k + npe * OutputSize * elem] = out_local[k];
+            f[j + npe * k + npe * fStride * elem] = out_local[k];
         }
     });
 }
@@ -55,10 +59,11 @@ void init_dispatch(dstype* f, const dstype* xdg, const dstype* uinf,
 template <class M>
 void initu_kernel(dstype* f, const dstype* xdg, const dstype* uinf,
                   const dstype* param, int /*modelnumber*/, int ng,
-                  int /*ncx*/, int /*nce*/, int npe, int /*ne*/)
+                  int /*ncx*/, int /*nce*/, int npe, int /*ne*/, int nc)
 {
     static_assert(is_init_model_v<M>);
-    detail::init_dispatch<M, M::ncu, &M::initu>(f, xdg, uinf, param, ng, npe);
+    // udg is [npe x nc x ne] (nc = ncu+ncq); initu writes only the ncu u-components -> stride nc.
+    detail::init_dispatch<M, M::ncu, &M::initu>(f, xdg, uinf, param, ng, npe, nc);
 }
 
 template <class M>
@@ -67,7 +72,7 @@ void initq_kernel(dstype* f, const dstype* xdg, const dstype* uinf,
                   int /*ncx*/, int /*nce*/, int npe, int /*ne*/)
 {
     static_assert(is_init_model_v<M>);
-    detail::init_dispatch<M, M::ncu * M::nd, &M::initq>(f, xdg, uinf, param, ng, npe);
+    detail::init_dispatch<M, M::ncu * M::nd, &M::initq>(f, xdg, uinf, param, ng, npe, M::ncu * M::nd);
 }
 
 template <class M>
@@ -76,8 +81,8 @@ void initudg_kernel(dstype* f, const dstype* xdg, const dstype* uinf,
                     int /*ncx*/, int /*nce*/, int npe, int /*ne*/)
 {
     static_assert(is_init_model_v<M>);
-    constexpr int Nq = M::ncu * (1 + M::nd);
-    detail::init_dispatch<M, Nq, &M::initudg>(f, xdg, uinf, param, ng, npe);
+    constexpr int Nq = M::ncu * (1 + M::nd);   // initudg fills the whole [u,q] block: stride = Nq = nc
+    detail::init_dispatch<M, Nq, &M::initudg>(f, xdg, uinf, param, ng, npe, Nq);
 }
 
 template <class M>
@@ -86,8 +91,8 @@ void initwdg_kernel(dstype* f, const dstype* xdg, const dstype* uinf,
                     int /*ncx*/, int /*nce*/, int npe, int /*ne*/)
 {
     static_assert(is_init_model_v<M>);
-    if constexpr (M::ncw > 0) {
-        detail::init_dispatch<M, M::ncw, &M::initwdg>(f, xdg, uinf, param, ng, npe);
+    if constexpr (M::ncw > 0) {   // wdg is its own [npe x ncw x ne] buffer: stride = ncw
+        detail::init_dispatch<M, M::ncw, &M::initwdg>(f, xdg, uinf, param, ng, npe, M::ncw);
     } else {
         (void)f; (void)xdg; (void)uinf; (void)param; (void)ng; (void)npe;
     }

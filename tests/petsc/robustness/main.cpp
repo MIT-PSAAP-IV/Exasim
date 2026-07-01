@@ -159,7 +159,6 @@ static int check_ns_kernels()
     if (!(maxrel_bh<1e-4)) { std::printf("[robust] NavierStokes2D FAIL: fbou_hdg_jac_uh disagrees with FD (%.3e)\n", maxrel_bh); return 1; }
     return 0;
 }
-
 int main(int argc, char** argv)
 {
     PetscInitialize(&argc, &argv, nullptr, "Exasim operator robustness harness\n");

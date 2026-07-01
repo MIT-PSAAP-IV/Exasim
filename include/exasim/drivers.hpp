@@ -614,7 +614,8 @@ inline void InituDriver(dstype* f, const dstype* xg,
     Int numPoints = common.grid.npe * common.meshsizes.ne;
     initu_kernel<M>(f, xg, app.uinf, app.physicsparam,
                     common.modelnumber, numPoints,
-                    common.components.ncx, common.components.nce, common.grid.npe, common.meshsizes.ne);
+                    common.components.ncx, common.components.nce, common.grid.npe, common.meshsizes.ne,
+                    common.components.nc);   // udg packed width (ncu+ncq) -> correct init stride
 }
 
 template <class M>
