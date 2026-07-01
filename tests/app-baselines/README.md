@@ -12,5 +12,6 @@ native solver gives `rel_L2 = 0`.
 - Excluded from git (see `.gitignore`): the ~270M `naca0012unsteady` transient dump, and
   `nsmach8`/`sharpb2`/`isoq` (segfault on main as-shipped). Regenerate those locally if needed.
 
-Committed baselines (8 apps): poisson2d, poisson3d, periodic, lshape, orion, isoq3d, cone,
-naca0012steady.
+Committed baselines (11 apps): poisson2d, poisson3d, periodic, lshape, orion, isoq3d, cone,
+naca0012steady, nsmach8, sharpb2, isoq (the last three needed ncv=2 in pdeapp.txt -- the
+committed ncv=0 mismatched the builtin model and null-derefed; fixed in apps/).

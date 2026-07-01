@@ -20,7 +20,7 @@ torder = 1;
 nstage = 1;
 
 ncu = 4;
-ncv = 0;
+ncv = 2;
 ncw = 0;
 nsca = 5;
 nvec = 1;

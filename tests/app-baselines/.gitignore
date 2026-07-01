@@ -1,7 +1,3 @@
 # Excluded from git (regenerate locally via tests/gen-app-baselines.sh):
 #  - naca0012unsteady: ~270M transient dump (too large for shared LFS bandwidth)
-#  - nsmach8 / sharpb2 / isoq: segfault on main as-shipped (no valid baseline)
 navierstokes_naca0012unsteady/
-navierstokes_nsmach8/
-navierstokes_sharpb2/
-navierstokes_isoq/
