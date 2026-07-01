@@ -132,7 +132,15 @@ set(_exasim_bm_gpu     Exasim::builtinmodelcuda)
 set(_exasim_bm_gpumpi  Exasim::builtinmodelcuda)
 
 foreach(_c ${Exasim_FIND_COMPONENTS})
-  if(DEFINED _exasim_pre_${_c} AND TARGET ${_exasim_pre_${_c}})
+  if(_c STREQUAL "petsc")
+    # Optional PETSc shim (Exasim::petsc, <exasim/petsc.hpp>): present only if PETSc was found
+    # when Exasim was built. The consumer still finds + links its own PETSc.
+    if(TARGET Exasim::petsc)
+      set(Exasim_petsc_FOUND TRUE)
+    else()
+      set(Exasim_petsc_FOUND FALSE)
+    endif()
+  elseif(DEFINED _exasim_pre_${_c} AND TARGET ${_exasim_pre_${_c}})
     set(Exasim_${_c}_FOUND TRUE)
     # First requested variant defines the chooser targets (single-variant case).
     if(NOT TARGET Exasim::pre)

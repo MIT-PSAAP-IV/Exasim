@@ -24,6 +24,7 @@
 
 #include <exasim/operators.hpp>      // FEM aggregation + preprocessing + in-memory ctor
 #include <exasim/export.hpp>         // default_pde<M> / MeshSpec / make_preprocessed (no solver facade)
+#include <exasim/petsc.hpp>          // exasim::petsc::Operator (MatShell/PCShell/Vec/SNES glue)
 
 #include "poisson2d.hpp"              // Poisson2D
 
@@ -31,56 +32,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <vector>
-
-struct OpCtx {
-    CDiscretization*            disc = nullptr;
-    CAssembler<Poisson2D>*      asmb = nullptr;
-    CPreconditioner<Poisson2D>* prec = nullptr;
-    sysstruct*                  sys  = nullptr;   // operator-apply workspace (NOT a solver)
-    Vec                         B0   = nullptr;   // condensed RHS at uh=0 (device or host Vec)
-    Int                         backend = 0;
-};
-
-// JV = H * V   (the u/Ru args are ignored by the HDG matvec)
-static PetscErrorCode MatMult_Exasim(Mat J, Vec V, Vec JV)
-{
-    OpCtx* c; PetscCall(MatShellGetContext(J, &c));
-    const PetscScalar* v; PetscScalar* jv; PetscMemType mtv, mtj;
-    PetscCall(VecGetArrayReadAndMemType(V, &v, &mtv));
-    PetscCall(VecGetArrayWriteAndMemType(JV, &jv, &mtj));
-    c->asmb->evalMatVec(jv, const_cast<dstype*>(v), c->sys->u, c->sys->b, /*spatialScheme=*/1, c->backend);
-    PetscCall(VecRestoreArrayWriteAndMemType(JV, &jv));
-    PetscCall(VecRestoreArrayReadAndMemType(V, &v));
-    return PETSC_SUCCESS;
-}
-
-// PV = K^{-1} * V   (ApplyPreconditioner is in-place, so copy V->PV first)
-static PetscErrorCode PCApply_Exasim(PC pc, Vec V, Vec PV)
-{
-    OpCtx* c; PetscCall(PCShellGetContext(pc, &c));
-    PetscCall(VecCopy(V, PV));
-    PetscScalar* pv; PetscMemType mt;
-    PetscCall(VecGetArrayAndMemType(PV, &pv, &mt));
-    c->prec->ApplyPreconditioner(pv, *c->sys, *c->disc, /*spatialScheme=*/1, c->backend);
-    PetscCall(VecRestoreArrayAndMemType(PV, &pv));
-    return PETSC_SUCCESS;
-}
-
-// F = G(U) = H*U - b0   (steady Poisson is linear). VecAXPY keeps the subtraction
-// on whatever memory the vectors live in (host or device).
-static PetscErrorCode FormFunction_Exasim(SNES, Vec U, Vec F, void* ctx)
-{
-    OpCtx* c = static_cast<OpCtx*>(ctx);
-    const PetscScalar* u; PetscScalar* f; PetscMemType mtu, mtf;
-    PetscCall(VecGetArrayReadAndMemType(U, &u, &mtu));
-    PetscCall(VecGetArrayWriteAndMemType(F, &f, &mtf));
-    c->asmb->evalMatVec(f, const_cast<dstype*>(u), c->sys->u, c->sys->b, 1, c->backend); // F = H*U
-    PetscCall(VecRestoreArrayWriteAndMemType(F, &f));
-    PetscCall(VecRestoreArrayReadAndMemType(U, &u));
-    PetscCall(VecAXPY(F, -1.0, c->B0));                                                  // F -= b0
-    return PETSC_SUCCESS;
-}
-static PetscErrorCode FormJacobian_Exasim(SNES, Vec, Mat, Mat, void*) { return PETSC_SUCCESS; }
 
 static void unitSquareQuadMesh(int n, std::vector<double>& p, std::vector<int>& t, int& np, int& ne)
 {
@@ -145,38 +96,18 @@ int main(int argc, char** argv)
         assembler.hdgAssembleLinearSystem(sys.b, backend);
         prec.ComputeHDGPreconditioner(disc, backend);
 
-        // b0 is the condensed RHS, already sitting in sys.b (a device buffer when gpu). Wrap it
-        // directly as a PETSc Vec -- zero copy; PETSc and the Exasim operators share the same
-        // buffer. sys.b lives for the whole scope and is not mutated after assembly, so the
-        // alias is safe (B0 is read-only: FormFunction/verification only VecAXPY against it).
-        Vec B0;
-        if (gpu) PetscCall(VecCreateSeqCUDAWithArray(PETSC_COMM_SELF, 1, N, sys.b, &B0));
-        else     PetscCall(VecCreateSeqWithArray(PETSC_COMM_SELF, 1, N, sys.b, &B0));
-
-        OpCtx ctx; ctx.disc=&disc; ctx.asmb=&assembler; ctx.prec=&prec; ctx.sys=&sys;
-        ctx.B0=B0; ctx.backend=backend;
-
-        // ================= PETSc SNES + KSP(GMRES) + MatShell + PCShell =================
-        Mat J; PetscCall(MatCreateShell(PETSC_COMM_SELF, N, N, N, N, &ctx, &J));
-        PetscCall(MatShellSetOperation(J, MATOP_MULT, (void(*)(void))MatMult_Exasim));
-        if (gpu) PetscCall(MatShellSetVecType(J, VECCUDA));
-        Vec U, Fr; PetscCall(VecDuplicate(B0, &U)); PetscCall(VecDuplicate(B0, &Fr));
-        PetscCall(VecSet(U, 0.0));
-
-        SNES snes; PetscCall(SNESCreate(PETSC_COMM_SELF, &snes));
-        PetscCall(SNESSetFunction(snes, Fr, FormFunction_Exasim, &ctx));
-        PetscCall(SNESSetJacobian(snes, J, J, FormJacobian_Exasim, &ctx));
-        KSP ksp; PC pc;
-        PetscCall(SNESGetKSP(snes, &ksp));
+        // The PETSc glue: MatShell(res.H) + PCShell(res.K) + a zero-copy RHS Vec aliasing sys.b,
+        // all backend/comm-aware. PETSc still owns the solve; we just set type/tolerances.
+        exasim::petsc::Operator<Poisson2D> op(disc, assembler, prec, sys, PETSC_COMM_SELF);
+        Vec Fr = op.make_vec();
+        SNES snes = op.make_snes(Fr);
+        KSP ksp; PetscCall(SNESGetKSP(snes, &ksp));
         PetscCall(KSPSetType(ksp, KSPGMRES));
-        PetscCall(KSPGetPC(ksp, &pc));
-        PetscCall(PCSetType(pc, PCSHELL));
-        PetscCall(PCShellSetContext(pc, &ctx));
-        PetscCall(PCShellSetApply(pc, PCApply_Exasim));
         PetscCall(KSPSetTolerances(ksp, 1e-12, 1e-14, PETSC_DEFAULT, 500));
         PetscCall(SNESSetTolerances(snes, 1e-12, 1e-14, 1e-14, 50, 1000));
         PetscCall(SNESSetFromOptions(snes));
 
+        Vec U = op.make_vec(); PetscCall(VecSet(U, 0.0));
         PetscCall(SNESSolve(snes, nullptr, U));
         SNESConvergedReason reason; PetscInt its;
         PetscCall(SNESGetConvergedReason(snes, &reason));
@@ -184,16 +115,13 @@ int main(int argc, char** argv)
         std::printf("[petsc] SNES converged reason=%d, Newton iters=%lld\n", (int)reason, (long long)its);
 
         // ================= verification =================
-        // (A) PETSc already drove the residual to tolerance -- read its own ||G(U)|| = ||H*uh - b0||
-        //     (no need to recompute it ourselves; the converged reason + this norm are the gate).
+        // (A) PETSc already drove the residual to tolerance -- read its own ||G(U)|| = ||H*uh - b0||.
         PetscReal fnorm; PetscCall(SNESGetFunctionNorm(snes, &fnorm));
 
         // (B) discretization error vs the exact solution, as a proper QUADRATURE norm via the
         //     model's exported volume QoI (qoi_volume[0] = (u - u_exact)^2). Recover the volume
         //     field from the trace first (uh stays in its own memory space -- device ptr on GPU).
-        { const PetscScalar* u; PetscMemType mt; PetscCall(VecGetArrayReadAndMemType(U, &u, &mt));
-          exasim::recover_volume(disc, u, sys.x);
-          PetscCall(VecRestoreArrayReadAndMemType(U, &u)); }
+        op.recover(U);
         std::vector<dstype> qoi = exasim::eval_qoi<Poisson2D::QoI>(disc);   // qoi[0] = integral (u-u_exact)^2
         const double l2err = std::sqrt(qoi.empty() ? 1.0 : qoi[0]);   // L2 error of (u - u_exact)
 
@@ -210,8 +138,8 @@ int main(int argc, char** argv)
         else if (l2err > 1e-3)  { std::printf("[petsc] FAIL: solution far from exact (%.3e)\n", l2err); rc=1; }
         else  std::printf("[petsc] PASS: PETSc solved the exported HDG Poisson operators on %s\n", gpu?"GPU":"CPU");
 
-        PetscCall(VecDestroy(&U)); PetscCall(VecDestroy(&Fr));
-        PetscCall(VecDestroy(&B0)); PetscCall(MatDestroy(&J)); PetscCall(SNESDestroy(&snes));
+        PetscCall(VecDestroy(&U)); PetscCall(VecDestroy(&Fr)); PetscCall(SNESDestroy(&snes));
+        // op destructs here -- destroys its MatShell + the RHS Vec.
     }
     Kokkos::finalize();
     PetscCall(PetscFinalize());

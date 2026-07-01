@@ -21,6 +21,7 @@
 
 #include <exasim/operators.hpp>      // FEM aggregation + preprocessing + in-memory ctor
 #include <exasim/export.hpp>         // default_pde / MeshSpecDistributed / make_preprocessed_distributed
+#include <exasim/petsc.hpp>          // exasim::petsc::Operator (comm-aware MatShell/PCShell/Vec/SNES glue)
 
 #include "poisson2d.hpp"             // Poisson2D
 
@@ -29,54 +30,9 @@
 #include <cstdlib>
 #include <vector>
 
-struct OpCtx {
-    CDiscretization*            disc = nullptr;
-    CAssembler<Poisson2D>*      asmb = nullptr;
-    CPreconditioner<Poisson2D>* prec = nullptr;
-    sysstruct*                  sys  = nullptr;
-    Vec                         B0   = nullptr;
-    Int                         backend = 0;
-};
-
-// JV = H * V. evalMatVec -> hdgMatVec performs the inter-rank halo exchange internally,
-// so this is identical to the serial shim even though V/JV are parallel vectors.
-static PetscErrorCode MatMult_Exasim(Mat J, Vec V, Vec JV)
-{
-    OpCtx* c; PetscCall(MatShellGetContext(J, &c));
-    const PetscScalar* v; PetscScalar* jv; PetscMemType mtv, mtj;
-    PetscCall(VecGetArrayReadAndMemType(V, &v, &mtv));
-    PetscCall(VecGetArrayWriteAndMemType(JV, &jv, &mtj));
-    c->asmb->evalMatVec(jv, const_cast<dstype*>(v), c->sys->u, c->sys->b, /*spatialScheme=*/1, c->backend);
-    PetscCall(VecRestoreArrayWriteAndMemType(JV, &jv));
-    PetscCall(VecRestoreArrayReadAndMemType(V, &v));
-    return PETSC_SUCCESS;
-}
-
-// PV = K^{-1} V  (block-Jacobi: each rank applies its local res.K, in place).
-static PetscErrorCode PCApply_Exasim(PC pc, Vec V, Vec PV)
-{
-    OpCtx* c; PetscCall(PCShellGetContext(pc, &c));
-    PetscCall(VecCopy(V, PV));
-    PetscScalar* pv; PetscMemType mt; PetscCall(VecGetArrayAndMemType(PV, &pv, &mt));
-    c->prec->ApplyPreconditioner(pv, *c->sys, *c->disc, /*spatialScheme=*/1, c->backend);
-    PetscCall(VecRestoreArrayAndMemType(PV, &pv));
-    return PETSC_SUCCESS;
-}
-
-// F = G(U) = H*U - b0  (steady Poisson is linear).
-static PetscErrorCode FormFunction_Exasim(SNES, Vec U, Vec F, void* ctx)
-{
-    OpCtx* c = static_cast<OpCtx*>(ctx);
-    const PetscScalar* u; PetscScalar* f; PetscMemType mtu, mtf;
-    PetscCall(VecGetArrayReadAndMemType(U, &u, &mtu));
-    PetscCall(VecGetArrayWriteAndMemType(F, &f, &mtf));
-    c->asmb->evalMatVec(f, const_cast<dstype*>(u), c->sys->u, c->sys->b, 1, c->backend);
-    PetscCall(VecRestoreArrayWriteAndMemType(F, &f));
-    PetscCall(VecRestoreArrayReadAndMemType(U, &u));
-    PetscCall(VecAXPY(F, -1.0, c->B0));
-    return PETSC_SUCCESS;
-}
-static PetscErrorCode FormJacobian_Exasim(SNES, Vec, Mat, Mat, void*) { return PETSC_SUCCESS; }
+// The Operator's MatShell drives CAssembler::evalMatVec -> hdgMatVec, which does the inter-rank
+// halo exchange internally over EXASIM_COMM_LOCAL, so the same shim is correct in parallel;
+// the PCShell is block-Jacobi (each rank's local res.K).
 
 int main(int argc, char** argv)
 {
@@ -153,34 +109,19 @@ int main(int argc, char** argv)
         assembler.hdgAssembleLinearSystem(sys.b, backend);
         prec.ComputeHDGPreconditioner(disc, backend);
 
-        // parallel RHS Vec aliasing sys.b (local part). sys.b is a DEVICE buffer when gpu, so
-        // wrap it with the CUDA variant; both are zero-copy (PETSc + the operators share it).
-        const bool gpu = (backend >= 2);
-        Vec B0;
-        if (gpu) PetscCall(VecCreateMPICUDAWithArray(PETSC_COMM_WORLD, 1, N, PETSC_DECIDE, sys.b, &B0));
-        else     PetscCall(VecCreateMPIWithArray(PETSC_COMM_WORLD, 1, N, PETSC_DECIDE, sys.b, &B0));
-        OpCtx ctx; ctx.disc=&disc; ctx.asmb=&assembler; ctx.prec=&prec; ctx.sys=&sys; ctx.B0=B0; ctx.backend=backend;
-
-        Mat J; PetscCall(MatCreateShell(PETSC_COMM_WORLD, N, N, PETSC_DETERMINE, PETSC_DETERMINE, &ctx, &J));
-        PetscCall(MatShellSetOperation(J, MATOP_MULT, (void(*)(void))MatMult_Exasim));
-        if (gpu) PetscCall(MatShellSetVecType(J, VECCUDA));
-        Vec U, Fr; PetscCall(VecDuplicate(B0, &U)); PetscCall(VecDuplicate(B0, &Fr));
-        PetscCall(VecSet(U, 0.0));
-
-        SNES snes; PetscCall(SNESCreate(PETSC_COMM_WORLD, &snes));
-        PetscCall(SNESSetFunction(snes, Fr, FormFunction_Exasim, &ctx));
-        PetscCall(SNESSetJacobian(snes, J, J, FormJacobian_Exasim, &ctx));
-        KSP ksp; PC pc;
-        PetscCall(SNESGetKSP(snes, &ksp));
+        // The PETSc glue (parallel MatShell(res.H) + block-Jacobi PCShell(res.K) + a zero-copy
+        // MPI RHS Vec aliasing the local sys.b) -- the Operator picks the MPI/CUDA layout from comm
+        // + backend. Same object as the serial consumer; only the communicator differs.
+        exasim::petsc::Operator<Poisson2D> op(disc, assembler, prec, sys, PETSC_COMM_WORLD);
+        Vec Fr = op.make_vec();
+        SNES snes = op.make_snes(Fr);
+        KSP ksp; PetscCall(SNESGetKSP(snes, &ksp));
         PetscCall(KSPSetType(ksp, KSPGMRES));
-        PetscCall(KSPGetPC(ksp, &pc));
-        PetscCall(PCSetType(pc, PCSHELL));
-        PetscCall(PCShellSetContext(pc, &ctx));
-        PetscCall(PCShellSetApply(pc, PCApply_Exasim));
         PetscCall(KSPSetTolerances(ksp, 1e-10, 1e-12, PETSC_DEFAULT, 1000));
         PetscCall(SNESSetTolerances(snes, 1e-10, 1e-12, 1e-12, 50, 2000));
         PetscCall(SNESSetFromOptions(snes));
 
+        Vec U = op.make_vec(); PetscCall(VecSet(U, 0.0));
         PetscCall(SNESSolve(snes, nullptr, U));
         SNESConvergedReason reason; PetscInt its; PetscReal fnorm;
         PetscCall(SNESGetConvergedReason(snes, &reason));
@@ -191,9 +132,7 @@ int main(int argc, char** argv)
             (int)reason, (long long)its, (double)fnorm));
 
         // ----- verification: recover volume, integrate QoI per rank, reduce to global L2 -----
-        { const PetscScalar* u; PetscMemType mt; PetscCall(VecGetArrayReadAndMemType(U, &u, &mt));
-          exasim::recover_volume(disc, const_cast<dstype*>(u), sys.x);
-          PetscCall(VecRestoreArrayReadAndMemType(U, &u)); }
+        op.recover(U);
         std::vector<dstype> qoi = exasim::eval_qoi<Poisson2D::QoI>(disc);  // local integral (u-u_exact)^2
         double local = qoi.empty() ? 0.0 : (double)qoi[0], global = 0.0;
         MPI_Allreduce(&local, &global, 1, MPI_DOUBLE, MPI_SUM, PETSC_COMM_WORLD);
@@ -214,8 +153,8 @@ int main(int argc, char** argv)
         }
         rc = bad ? 1 : 0;
 
-        PetscCall(VecDestroy(&U)); PetscCall(VecDestroy(&Fr)); PetscCall(VecDestroy(&B0));
-        PetscCall(MatDestroy(&J)); PetscCall(SNESDestroy(&snes));
+        PetscCall(VecDestroy(&U)); PetscCall(VecDestroy(&Fr)); PetscCall(SNESDestroy(&snes));
+        // op destructs here -- destroys its parallel MatShell + RHS Vec.
     }
     Kokkos::finalize();
     PetscCall(PetscFinalize());

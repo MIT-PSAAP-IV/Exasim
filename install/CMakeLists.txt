@@ -684,6 +684,27 @@ register_exasim_export_target(builtinmodelserial builtinmodelserial FALSE)
 register_exasim_export_target(builtinmodelcuda   builtinmodelcuda   FALSE)
 register_exasim_export_target(builtinmodelhip    builtinmodelhip    FALSE)
 
+# Optional PETSc shim (Layer 1): <exasim/petsc.hpp> factors the MatShell/PCShell/Vec/KSP glue.
+# Exported as Exasim::petsc ONLY when PETSc is found at Exasim build time. It's a lightweight
+# INTERFACE target (defines EXASIM_HAVE_PETSC + carries the header via ExasimHeaders); the
+# CONSUMER links its own PETSc (find_package(PkgConfig)+pkg_check_modules(PETSC)), so we never
+# export a dangling imported target or pin a particular PETSc build/precision. Core Exasim never
+# depends on PETSc.
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+  pkg_check_modules(EXASIM_PETSC QUIET petsc)
+endif()
+if(EXASIM_PETSC_FOUND)
+  add_library(ExasimPetsc INTERFACE)
+  add_library(Exasim::petsc ALIAS ExasimPetsc)
+  target_link_libraries(ExasimPetsc INTERFACE ExasimHeaders)
+  target_compile_definitions(ExasimPetsc INTERFACE EXASIM_HAVE_PETSC)
+  register_exasim_export_target(ExasimPetsc petsc FALSE)
+  message(STATUS "Exasim::petsc shim        = ENABLED (PETSc ${EXASIM_PETSC_VERSION})")
+else()
+  message(STATUS "Exasim::petsc shim        = disabled (no PETSc at build time)")
+endif()
+
 list(LENGTH EXASIM_EXPORT_TARGETS EXASIM_NUM_EXPORT_TARGETS)
 if(EXASIM_NUM_EXPORT_TARGETS EQUAL 1)
   message(FATAL_ERROR "No Exasim static solver library target was built for packaging.")

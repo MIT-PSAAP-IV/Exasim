@@ -23,10 +23,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(EXASIM_GPU "Build against the CUDA+MPI Exasim + CUDA+MPI PETSc" OFF)
 if(EXASIM_GPU)
   set(CMAKE_CXX_STANDARD 17)   # Kokkos CUDA tree is C++17
-  find_package(Exasim REQUIRED COMPONENTS gpumpi)
+  find_package(Exasim REQUIRED COMPONENTS gpumpi petsc)
   set(_petsc_default "/data/scratch/teoc/petsc/arch-cuda-mpi")
 else()
-  find_package(Exasim REQUIRED COMPONENTS cpumpi)
+  find_package(Exasim REQUIRED COMPONENTS cpumpi petsc)
   set(_petsc_default "/data/scratch/teoc/petsc/arch-mpi")
 endif()
 find_package(Kokkos REQUIRED)
@@ -41,4 +41,4 @@ add_executable(petsc_poisson_mpi main.cpp)
 target_include_directories(petsc_poisson_mpi PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/../../models")
 target_link_libraries(petsc_poisson_mpi PRIVATE
-    Exasim::headers Exasim::pre Kokkos::kokkos PkgConfig::PETSC)
+    Exasim::headers Exasim::pre Exasim::petsc Kokkos::kokkos PkgConfig::PETSC)

@@ -25,9 +25,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(EXASIM_GPU "Build against the CUDA Exasim + CUDA PETSc" OFF)
 if(EXASIM_GPU)
   set(CMAKE_CXX_STANDARD 17)   # Kokkos CUDA tree here is C++17
-  find_package(Exasim REQUIRED COMPONENTS gpu)
+  find_package(Exasim REQUIRED COMPONENTS gpu petsc)
 else()
-  find_package(Exasim REQUIRED COMPONENTS cpu)
+  find_package(Exasim REQUIRED COMPONENTS cpu petsc)
 endif()
 find_package(Kokkos REQUIRED)
 
@@ -48,7 +48,7 @@ pkg_check_modules(PETSC REQUIRED IMPORTED_TARGET petsc)
 add_executable(petsc_poisson main.cpp)
 target_include_directories(petsc_poisson PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/../../models")
 target_link_libraries(petsc_poisson PRIVATE
-    Exasim::headers Exasim::pre Kokkos::kokkos PkgConfig::PETSC)
+    Exasim::headers Exasim::pre Exasim::petsc Kokkos::kokkos PkgConfig::PETSC)
 
 if(NOT EXASIM_GPU)
   # CPU: a CONDA PETSc built with open-mpi -> PETSC_COMM_SELF references ompi_mpi_comm_self,
