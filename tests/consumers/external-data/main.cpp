@@ -7,7 +7,6 @@
 #include <exasim/ExasimSolverSetup.hpp>
 #include <algorithm>
 #include <cmath>
-#include <cstdio>
 
 namespace {
     constexpr double mu = 0.5;    // shear modulus (mu[0] in physicsparam)
