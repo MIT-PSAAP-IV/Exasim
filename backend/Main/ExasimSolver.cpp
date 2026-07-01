@@ -869,10 +869,10 @@ int ExasimSolver::OpenOutputStreams()
     return 0;
 }
 
-int ExasimSolver::IntializeMeshInterface(const int modelnumber,
-                                         const int ncuext, const int ncuint,
-                                         const int ibc, const int comperm,
-                                         const int offset, MPI_Comm comm)
+int ExasimSolver::InitializeMeshInterface(const int modelnumber,
+                                          const int ncuext, const int ncuint,
+                                          const int ibc, const int comperm,
+                                          const int offset, MPI_Comm comm)
 {
     if (modelnumber < 0 ||
         modelnumber >= static_cast<int>(models_.size()) ||

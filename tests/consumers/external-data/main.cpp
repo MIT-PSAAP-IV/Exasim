@@ -1,5 +1,5 @@
 // Tests the HDG fext interface and recovers tractions via Fint.
-// IntializeMeshInterface/setInterfaceFluxes supply uext on the boundary
+// InitializeMeshInterface/setInterfaceFluxes supply uext on the boundary
 // (ncuext=2); getInterfaceFluxes recovers sigma.n after the solve
 // (ncuint=2).  Manufactured solution ux=x+y, uy=x-y on [0,1]^2
 // (zero body force, constant stress sigma = 2*mu*[[1,1],[1,-1]]).
@@ -43,8 +43,8 @@ int main(int argc, char** argv)
     const int comperm = 0;  // no communication permutation
     const int offset  = 0;  // no offset
 
-    err = solver.IntializeMeshInterface(0, ncuext, ncuint, ibc, comperm, offset, comm);
-    if (err != 0) { std::fprintf(stderr, "FAIL: IntializeMeshInterface\n"); return err; }
+    err = solver.InitializeMeshInterface(0, ncuext, ncuint, ibc, comperm, offset, comm);
+    if (err != 0) { std::fprintf(stderr, "FAIL: InitializeMeshInterface\n"); return err; }
 
     const auto points = solver.getInterfacePoints();
     const int npoints = static_cast<int>(points.size());

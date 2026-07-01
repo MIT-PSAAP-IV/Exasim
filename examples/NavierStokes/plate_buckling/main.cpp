@@ -17,7 +17,7 @@ void update_boundary_coordinates(ExasimSolver& solver)
     double nx = -dy / L;
     double ny =  dx / L;
 
-    solver.IntializeMeshInterface(
+    solver.InitializeMeshInterface(
         /*modelnumber=*/0, /*ncuext=*/2, /*ncuint=*/2,
         /*ibc=*/2, /*comperm=*/0, /*offset=*/0, MPI_COMM_NULL);
 

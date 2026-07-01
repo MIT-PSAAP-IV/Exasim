@@ -104,10 +104,10 @@ public:
     void FinalizeEnvironment();    
     int Finalize();
 
-    int IntializeMeshInterface(const int modelnumber,
-                               const int ncuext, const int ncuint,
-                               const int ibc, const int comperm,
-                               const int offset, MPI_Comm comm);
+    int InitializeMeshInterface(const int modelnumber,
+                                const int ncuext, const int ncuint,
+                                const int ibc, const int comperm,
+                                const int offset, MPI_Comm comm);
     int SaveState(const int modelnumber);
     int RestoreState(const int modelnumber);
     int ClearSavedState(const int modelnumber);
