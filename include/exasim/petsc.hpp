@@ -198,12 +198,16 @@ inline std::unique_ptr<ShellMat> make_mass_inverse(CDiscretization& disc, MPI_Co
         [&disc, ncr](dstype* y, const dstype* x){ exasim::apply_mass_inverse<M>(disc, x, y, ncr); }, gpu);
 }
 
-// Assemble the condensed HDG trace operator (res.H) into a real PETSc MATAIJ, so the full
-// PETSc arsenal that needs entries -- LU/ILU/AMG, and PCPATCH/Vanka -- can act on it. res.H
+// Assemble the condensed HDG trace operator (res.H) into a real PETSc MATAIJ(CUSPARSE), so the
+// full PETSc arsenal that needs entries -- LU/ILU/AMG, and PCPATCH/Vanka -- can act on it. res.H
 // holds one m x m element block per element (m = ncu*npf*nfe, column-major, applied by
 // hdgMatVec); the local->global trace map is j + elemcon[i + e*ndf]*ncu. This is standard FE
-// scatter: A = sum_e P_e AE[e] P_e^T, identical operator to the matrix-free op.mat().
-// Assembly is a host operation (device res.H/elemcon are staged to host first).
+// scatter: A = sum_e P_e AE[e] P_e^T, the identical operator to the matrix-free op.mat().
+//
+// TRANSFER-FREE: the sparsity pattern (row/col index arrays, one per res.H entry, in res.H's
+// column-major per-element order) is built on host from elemcon -- small integer metadata, once.
+// The VALUES are then set straight from disc.res.H via MatSetValuesCOO: on GPU res.H is a device
+// pointer and MATAIJCUSPARSE consumes it in place, so the numeric assembly never leaves the device.
 template <class M>
 inline Mat assemble_matrix(CDiscretization& disc, MPI_Comm comm)
 {
@@ -213,34 +217,35 @@ inline Mat assemble_matrix(CDiscretization& disc, MPI_Comm comm)
     const int ndf = npf * nfe, m = ncu * ndf, ne = static_cast<int>(c.meshsizes.ne1);
     const Int N = c.sizes.ndofuhat;
 
-    std::vector<dstype> H(static_cast<size_t>(m) * m * ne);
-    TemplateCopytoHost(H.data(), disc.res.H, (Int)H.size(), backend);
+    // elemcon -> host (small metadata) to build the COO (row,col) pattern.
     std::vector<int> elemcon(static_cast<size_t>(ndf) * ne);
     if (backend >= 2) TemplateCopytoHost(elemcon.data(), disc.mesh.elemcon, (Int)elemcon.size(), backend);
     else              std::copy(disc.mesh.elemcon, disc.mesh.elemcon + elemcon.size(), elemcon.begin());
 
-    Mat A;
-    MatCreate(comm, &A);
-    MatSetSizes(A, N, N, PETSC_DETERMINE, PETSC_DETERMINE);
-    // On GPU keep the assembled matrix DEVICE-resident (MATAIJCUSPARSE) so the downstream KSP /
-    // Vanka solve runs on-device with the device RHS -- no per-iteration host<->device round-trip.
-    // (The one-time res.H device->host stage below is inherent to the MatSetValues host API; a
-    // fully transfer-free assembly would use MatSetPreallocationCOO + MatSetValuesCOO on the
-    // device res.H arrays.) MATAIJCUSPARSE is only registered in a CUDA-enabled PETSc, so guard it.
-    MatSetType(A, backend >= 2 ? MATAIJCUSPARSE : MATAIJ);
-    MatSetUp(A);
-    MatSetOption(A, MAT_ROW_ORIENTED, PETSC_FALSE);   // AE blocks are column-major
-
+    // One COO entry per res.H entry, ordered k = e*m*m + lr + m*lc (res.H's column-major layout),
+    // so the values array below is exactly disc.res.H with no reordering or copy.
+    const PetscCount ncoo = static_cast<PetscCount>(ne) * m * m;
+    std::vector<PetscInt> ci(static_cast<size_t>(ncoo)), cj(static_cast<size_t>(ncoo));
     std::vector<PetscInt> g(static_cast<size_t>(m));
     for (int e = 0; e < ne; ++e) {
         for (int i = 0; i < ndf; ++i) {
             const int base = elemcon[i + e * ndf] * ncu;
             for (int j = 0; j < ncu; ++j) g[j + ncu * i] = base + j;
         }
-        MatSetValues(A, m, g.data(), m, g.data(), &H[static_cast<size_t>(e) * m * m], ADD_VALUES);
+        const size_t e0 = static_cast<size_t>(e) * m * m;
+        for (int lc = 0; lc < m; ++lc)
+            for (int lr = 0; lr < m; ++lr) {
+                const size_t k = e0 + lr + static_cast<size_t>(m) * lc;
+                ci[k] = g[lr]; cj[k] = g[lc];      // duplicate (row,col) across elements -> COO sums them
+            }
     }
-    MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
-    MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
+
+    Mat A;
+    MatCreate(comm, &A);
+    MatSetSizes(A, N, N, PETSC_DETERMINE, PETSC_DETERMINE);
+    MatSetType(A, backend >= 2 ? MATAIJCUSPARSE : MATAIJ);   // device-resident on GPU
+    MatSetPreallocationCOO(A, ncoo, ci.data(), cj.data());
+    MatSetValuesCOO(A, disc.res.H, ADD_VALUES);              // values straight from (device) res.H
     return A;
 }
 
