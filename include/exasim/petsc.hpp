@@ -239,5 +239,33 @@ inline Mat assemble_matrix(CDiscretization& disc, MPI_Comm comm)
     return A;
 }
 
+// Element (facet) patches for a Vanka-style preconditioner: one OVERLAPPING subdomain per
+// element = its ncu*npf*nfe trace DOFs (from elemcon; shared interface-face DOFs land in both
+// neighbours -> the overlap Vanka wants). Feed to PCASM via PCASMSetLocalSubdomains and set the
+// sub-solve to LU for exact patch solves. Caller owns the returned IS handles (ISDestroy each).
+inline std::vector<IS> element_patches(CDiscretization& disc, MPI_Comm comm)
+{
+    auto& c = disc.common;
+    const int backend = static_cast<int>(c.backend);
+    const int ncu = c.components.ncu, npf = c.grid.npf, nfe = static_cast<int>(c.meshsizes.nfe);
+    const int ndf = npf * nfe, m = ncu * ndf, ne = static_cast<int>(c.meshsizes.ne1);
+
+    std::vector<int> elemcon(static_cast<size_t>(ndf) * ne);
+    if (backend >= 2) TemplateCopytoHost(elemcon.data(), disc.mesh.elemcon, (Int)elemcon.size(), backend);
+    else              std::copy(disc.mesh.elemcon, disc.mesh.elemcon + elemcon.size(), elemcon.begin());
+
+    std::vector<IS> patches; patches.reserve(static_cast<size_t>(ne));
+    std::vector<PetscInt> dofs(static_cast<size_t>(m));
+    for (int e = 0; e < ne; ++e) {
+        for (int i = 0; i < ndf; ++i) {
+            const int base = elemcon[i + e * ndf] * ncu;
+            for (int j = 0; j < ncu; ++j) dofs[j + ncu * i] = base + j;
+        }
+        IS is; ISCreateGeneral(comm, m, dofs.data(), PETSC_COPY_VALUES, &is);
+        patches.push_back(is);
+    }
+    return patches;
+}
+
 } // namespace petsc
 } // namespace exasim
