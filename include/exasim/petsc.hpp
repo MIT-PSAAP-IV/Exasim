@@ -25,8 +25,11 @@
 #include <petscksp.h>
 #include <petscsnes.h>
 
+#include <functional>
+#include <memory>
+
 #include <exasim/operators.hpp>   // CDiscretization / CAssembler<M> / CPreconditioner<M> / sysstruct
-#include <exasim/export.hpp>      // recover_volume
+#include <exasim/export.hpp>      // recover_volume / apply_mass_inverse / recover_q / eval_residual
 
 namespace exasim {
 namespace petsc {
@@ -146,6 +149,54 @@ private:
     Mat                         J_  = nullptr;
     Vec                         b0_ = nullptr;
 };
+
+// Wrap ANY Exasim linear-operator apply (y = A*x, backend/memtype-aware) as a PETSc MatShell.
+// The extensibility primitive: the condensed Jacobian, the inverse mass, a custom block, etc.
+// are one std::function each. The apply closure captures whatever Exasim state it needs; the
+// caller keeps that state (and this ShellMat) alive for the Mat's lifetime.
+class ShellMat {
+public:
+    using Apply = std::function<void(dstype* y, const dstype* x)>;
+    ShellMat(MPI_Comm comm, Int n_local, Apply apply, bool gpu = false)
+        : apply_(std::move(apply))
+    {
+        MatCreateShell(comm, n_local, n_local, PETSC_DETERMINE, PETSC_DETERMINE, this, &mat_);
+        MatShellSetOperation(mat_, MATOP_MULT, (void(*)(void))mult);
+        if (gpu) MatShellSetVecType(mat_, VECCUDA);
+    }
+    ~ShellMat() { if (mat_) MatDestroy(&mat_); }
+    ShellMat(const ShellMat&) = delete;
+    ShellMat& operator=(const ShellMat&) = delete;
+
+    Mat mat() const { return mat_; }
+    Vec make_vec() const { Vec v; MatCreateVecs(mat_, &v, nullptr); return v; }
+
+private:
+    static PetscErrorCode mult(Mat A, Vec X, Vec Y)
+    {
+        ShellMat* c; MatShellGetContext(A, &c);
+        const PetscScalar* x; PetscScalar* y; PetscMemType a, b;
+        VecGetArrayReadAndMemType(X, &x, &a);
+        VecGetArrayWriteAndMemType(Y, &y, &b);
+        c->apply_(y, x);
+        VecRestoreArrayWriteAndMemType(Y, &y);
+        VecRestoreArrayReadAndMemType(X, &x);
+        return PETSC_SUCCESS;
+    }
+    Apply apply_;
+    Mat   mat_ = nullptr;
+};
+
+// A PETSc Mat applying the element block-diagonal inverse VOLUME mass M^{-1} (needs res.Minv,
+// e.g. after disc.compMassInverse()). Acts on the volume space (npe*ncr*ne), not the trace.
+template <class M>
+inline std::unique_ptr<ShellMat> make_mass_inverse(CDiscretization& disc, MPI_Comm comm, int ncr = M::ncu)
+{
+    const Int  nvol = disc.common.grid.npe * ncr * disc.common.meshsizes.ne1;
+    const bool gpu  = disc.common.backend >= 2;
+    return std::make_unique<ShellMat>(comm, nvol,
+        [&disc, ncr](dstype* y, const dstype* x){ exasim::apply_mass_inverse<M>(disc, x, y, ncr); }, gpu);
+}
 
 } // namespace petsc
 } // namespace exasim

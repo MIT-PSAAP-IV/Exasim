@@ -296,6 +296,44 @@ inline void write_vtk(CDiscretization& disc, const std::string& basename)
     if (owns) TemplateFree(tempn, backend);
 }
 
+// ---- Operator exports (style A: opaque apply-callbacks) --------------------------------
+// Exasim already computes the full HDG element-local operator (mass M, q-recovery C/E, the
+// u-equation blocks D/F/G, residuals) and Schur-reduces to the condensed trace H + K. These
+// helpers surface the pieces besides H/K that a PETSc driver may want. The raw per-element
+// block views (Mass/Minv/C/E/D/F/G) are left for a later "style B" export.
+
+// Recover the auxiliary flux q from the current (u on volume, uh on trace) into sol.udg's q
+// components: q = -M^{-1}(C u + E uh). Standalone form of the recovery hdgGetQ that
+// recover_volume runs as its last step.
+template <class M>
+inline void recover_q(CDiscretization& disc)
+{
+    if (disc.common.components.ncq > 0)
+        hdgGetQ(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common,
+                disc.common.backend);
+}
+
+// The full (possibly nonlinear) DG residual R(u): sets the volume unknown to u, runs the
+// residual assembly, and writes Ru (length common.sizes.ndof1). Thin pass-through to
+// CResidual<M>::evalResidual -- the operator PETSc's SNES FormFunction drives for a general model.
+template <class M>
+inline void eval_residual(CResidual<M>& residual, dstype* Ru, dstype* u, int backend)
+{
+    residual.evalResidual(Ru, u, backend);
+}
+
+// Apply the inverse VOLUME mass matrix: y = M^{-1} x, element block-diagonal (LDG mass, res.Minv;
+// requires it to have been computed, e.g. disc.compMassInverse()). ncr is the field width (M::ncu
+// for u, M::ncq for q). NB: HDG's q-equation uses its own internal mass (res.Minv2) inside
+// recover_q; this is the plain volume mass inverse.
+template <class M>
+inline void apply_mass_inverse(CDiscretization& disc, const dstype* x, dstype* y, int ncr = M::ncu)
+{
+    auto& c = disc.common;
+    const Int npe = c.grid.npe, ne = c.meshsizes.ne1;
+    ApplyMinv(y, disc.res.Minv, const_cast<dstype*>(x), 1.0, c.grid.curvedMesh, npe, ncr, 0, (int)ne);
+}
+
 // One-shot sugar: build the in-memory discretization from a PDE config + mesh.
 // Returned by unique_ptr because CDiscretization owns malloc'd C arrays (non-copyable);
 // the operator classes (CResidual<M>/... ) bind a reference to *disc.

@@ -128,14 +128,34 @@ int main(int argc, char** argv)
         // write the solution to ParaView (uses Exasim's vis pipeline; CG geometry built in-memory)
         exasim::write_vtk<Poisson2D::Vis>(disc, "poisson_petsc");
 
+        // (C) extended operator exports: recover the flux q (standalone), and wrap an arbitrary
+        //     Exasim apply as a PETSc Mat via ShellMat -- here the same condensed Jacobian as
+        //     op.mat(), so MatMult through both must agree (proves the extensibility primitive).
+        exasim::recover_q<Poisson2D>(disc);
+        double shell_diff = 0.0;
+        {
+            exasim::petsc::ShellMat H(PETSC_COMM_SELF, N,
+                [&](dstype* y, const dstype* x){ assembler.evalMatVec(y, const_cast<dstype*>(x), sys.u, sys.b, 1, backend); },
+                backend >= 2);
+            Vec v = op.make_vec(), y1 = op.make_vec(), y2 = op.make_vec();
+            PetscCall(VecSet(v, 1.0));
+            PetscCall(MatMult(op.mat(), v, y1));
+            PetscCall(MatMult(H.mat(),  v, y2));
+            PetscReal d; PetscCall(VecAXPY(y2, -1.0, y1)); PetscCall(VecNorm(y2, NORM_2, &d));
+            shell_diff = (double)d;
+            PetscCall(VecDestroy(&v)); PetscCall(VecDestroy(&y1)); PetscCall(VecDestroy(&y2));
+        }
+
         std::printf("[petsc] (A) PETSc residual ||H*uh - b0||  = %.3e   (PETSc solved the exported system)\n", (double)fnorm);
         std::printf("[petsc] (B) L2 error ||u - u_exact||      = %.3e   (quadrature QoI)\n", l2err);
+        std::printf("[petsc] (C) ShellMat MatMult vs op.mat()  = %.3e   (operator-export primitive)\n", shell_diff);
 
-        bool finite = std::isfinite((double)fnorm) && std::isfinite(l2err);
-        if (!finite)            { std::printf("[petsc] FAIL: non-finite result\n"); rc=1; }
-        else if (reason < 0)    { std::printf("[petsc] FAIL: SNES did not converge\n"); rc=1; }
-        else if (fnorm > 1e-8)  { std::printf("[petsc] FAIL: residual not driven to zero\n"); rc=1; }
-        else if (l2err > 1e-3)  { std::printf("[petsc] FAIL: solution far from exact (%.3e)\n", l2err); rc=1; }
+        bool finite = std::isfinite((double)fnorm) && std::isfinite(l2err) && std::isfinite(shell_diff);
+        if (!finite)              { std::printf("[petsc] FAIL: non-finite result\n"); rc=1; }
+        else if (reason < 0)      { std::printf("[petsc] FAIL: SNES did not converge\n"); rc=1; }
+        else if (fnorm > 1e-8)    { std::printf("[petsc] FAIL: residual not driven to zero\n"); rc=1; }
+        else if (l2err > 1e-3)    { std::printf("[petsc] FAIL: solution far from exact (%.3e)\n", l2err); rc=1; }
+        else if (shell_diff>1e-10){ std::printf("[petsc] FAIL: ShellMat disagrees with op.mat() (%.3e)\n", shell_diff); rc=1; }
         else  std::printf("[petsc] PASS: PETSc solved the exported HDG Poisson operators on %s\n", gpu?"GPU":"CPU");
 
         PetscCall(VecDestroy(&U)); PetscCall(VecDestroy(&Fr)); PetscCall(SNESDestroy(&snes));
