@@ -19,7 +19,7 @@ void update_boundary_coordinates(ExasimSolver& solver)
 
     solver.InitializeMeshInterface(
         /*modelnumber=*/0, /*ncuext=*/2, /*ncuint=*/2,
-        /*ibc=*/2, MPI_COMM_NULL);
+        /*ibc=*/2);
 
     auto pts = solver.getInterfacePoints();
     int npts = solver.ngf * solver.nfaces;

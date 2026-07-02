@@ -40,7 +40,7 @@ int main(int argc, char** argv)
     const int ncuint = 2;   // sigma.n recovered from Fint
     const int ibc     = 0;  // FextCall=1 for BC type 1
 
-    err = solver.InitializeMeshInterface(0, ncuext, ncuint, ibc, comm);
+    err = solver.InitializeMeshInterface(0, ncuext, ncuint, ibc);
     if (err != 0) { std::fprintf(stderr, "FAIL: InitializeMeshInterface\n"); return err; }
 
     const auto points = solver.getInterfacePoints();

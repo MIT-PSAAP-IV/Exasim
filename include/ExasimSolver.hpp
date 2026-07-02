@@ -106,7 +106,7 @@ public:
 
     int InitializeMeshInterface(const int modelnumber,
                                 const int ncuext, const int ncuint,
-                                const int ibc, MPI_Comm comm);
+                                const int ibc);
     int SaveState(const int modelnumber);
     int RestoreState(const int modelnumber);
     int ClearSavedState(const int modelnumber);
@@ -152,7 +152,6 @@ public:
     int _ibc; // boundary condition index for the interface
     int _rank = 0;
     int _size = 1;
-    MPI_Comm _comm = MPI_COMM_NULL;
     int *faces= nullptr;        // faces on the interface
     int ncx;          // number of compoments of (xdg)
     int nfaces;       // number of faces on the interface
