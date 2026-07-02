@@ -166,7 +166,38 @@ endif()
 
 set(_kokkos_for_exasim "")   # -DKokkos_DIR forwarded to the solver build
 find_package(Kokkos QUIET)
-if(Kokkos_FOUND)
+
+# A find_package "success" is not enough: a faulty/half-installed Kokkos (e.g. a
+# system package whose relocatable config collapsed _IMPORT_PREFIX to "") exports
+# a Kokkos::kokkos target with a non-existent include path such as "/include".
+# CMake only errors on that much later ("Imported target ... includes non-existent
+# path /include"), after it has already been forwarded to every consumer. Verify
+# the advertised include dirs actually exist; if not, reject this Kokkos and fall
+# through to the vendored tiers below.
+set(_kokkos_usable FALSE)
+if(Kokkos_FOUND AND TARGET Kokkos::kokkos)
+  set(_kokkos_usable TRUE)
+  set(_kk_incs "")
+  foreach(_kk_tgt Kokkos::kokkos Kokkos::kokkoscore)
+    if(TARGET ${_kk_tgt})
+      get_target_property(_kk_inc ${_kk_tgt} INTERFACE_INCLUDE_DIRECTORIES)
+      if(_kk_inc)
+        list(APPEND _kk_incs ${_kk_inc})
+      endif()
+    endif()
+  endforeach()
+  foreach(_kk_inc IN LISTS _kk_incs)
+    # Skip generator expressions (e.g. $<BUILD_INTERFACE:...>) we cannot resolve here.
+    if(NOT _kk_inc MATCHES "\\$<" AND NOT EXISTS "${_kk_inc}")
+      message(STATUS "Kokkos: ignoring installed ${Kokkos_DIR} "
+                     "(advertises non-existent include path '${_kk_inc}')")
+      set(_kokkos_usable FALSE)
+      break()
+    endif()
+  endforeach()
+endif()
+
+if(_kokkos_usable)
   message(STATUS "Kokkos: using installed (${Kokkos_DIR})")
   set(_kokkos_for_exasim "${Kokkos_DIR}")
 elseif(EXISTS "${_kk_dir}/KokkosConfig.cmake")
