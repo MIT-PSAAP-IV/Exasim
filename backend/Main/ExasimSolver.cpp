@@ -78,6 +78,12 @@ MPI_Comm EXASIM_COMM_LOCAL = MPI_COMM_NULL;
 #include <regex>
 #include <unordered_map>
 #include <unordered_set>
+#include "../../include/driver_abi.hpp"
+// SelectExasimDriverABI is defined by the provider module
+// (e.g. modelprovider.hpp) which is compiled into the executable, not
+// the backend library.  A forward declaration is sufficient here;
+// the linker resolves the symbol.
+const ExasimDriverABI& SelectExasimDriverABI();
 #endif
 
 #ifdef TIMING
@@ -543,6 +549,29 @@ int ExasimSolver::ParseInputs(int argc, char** argv)
 
     InputParams params = parseInputFile(argv[1], mpirank_);
     PDE pde = initializePDE(params, mpirank_);
+
+    // For built-in models, fill missing dimension sizes from the compiled
+    // ABI so they don't need to be specified in pdeapp.txt.
+    if (pde.builtinmodelID > 0) {
+        const auto& abi = SelectExasimDriverABI();
+        if (params.intParams.count("ncu") == 0 && abi.ncu > 0)
+            pde.ncu = abi.ncu;
+        if (params.intParams.count("ncv") == 0 && abi.nco > 0)
+            pde.ncv = abi.nco;
+        if (params.intParams.count("ncw") == 0 && abi.ncw > 0)
+            pde.ncw = abi.ncw;
+        if (params.intParams.count("nsca") == 0)
+            pde.nsca = abi.nsca;
+        if (params.intParams.count("nvec") == 0)
+            pde.nvec = abi.nvec;
+        if (params.intParams.count("nten") == 0)
+            pde.nten = abi.nten;
+        if (params.intParams.count("nsurf") == 0)
+            pde.nsurf = abi.nsurf;
+        if (params.intParams.count("nvqoi") == 0)
+            pde.nvqoi = abi.nvqoi;
+    }
+
     nummodels_ = 1;
     filein_.push_back(pde.datainpath + "/");
     fileout_.push_back(make_path(pde.dataoutpath, "out"));
@@ -561,7 +590,11 @@ int ExasimSolver::ParseInputs(int argc, char** argv)
         std::cout << "builtinmodelID = " << BuiltinModelID(0) << "\n";
 
     if (pde.gendatain == 0) {
-        CPreprocessing preproc(argv[1], mpirank_, mpiprocs_);
+        // Use the programmatic constructor so ABI-filled sizes (above)
+        // are propagated into the preprocessing pipeline instead of
+        // re-reading pdeapp.txt from disk with default values.
+        ParsedSpec empty_spec;
+        CPreprocessing preproc(pde, params, empty_spec, mpirank_, mpiprocs_);
         if (mpiprocs_ == 1)
             preproc.SerialPreprocessing();
         else {
