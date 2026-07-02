@@ -880,8 +880,6 @@ int ExasimSolver::InitializeMeshInterface(const int modelnumber,
 
     CSolution& model = *models_[modelnumber];
 
-    backend_ = model.disc.common.backend;
-
     if (faces) {
         TemplateFree(faces, backend_);
         faces = nullptr;
