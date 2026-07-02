@@ -47,6 +47,7 @@ backend/.DS_Store
 .DS_Store
 frontends/Julia/.DS_Store
 frontends/Matlab/.DS_Store
+frontends/Matlab/exasim_setup.m
 frontends/Python/.DS_Store
 kokkos/.DS_Store
 examples/ShallowWater/.DS_Store

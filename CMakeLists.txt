@@ -49,6 +49,7 @@ option(WITH_PARMETIS      "Link METIS/ParMETIS"                ON)
 option(WITH_TEXT2CODE     "Build text2code-linked executables" OFF)
 option(WITH_BUILTINMODEL  "Build the built-in model library"   ON)
 option(WITH_GMP           "Download/build GMP and use it for vendored SymEngine" OFF)
+option(EXASIM_BUILD_SHARED_APP "Build and install the shared-library exasimapp executable" ON)
 option(EXASIM_BUILD_TESTS "Register the ctest regression suite" OFF)
 option(EXASIM_FRONTENDS   "Install the Python/Julia/MATLAB frontends" ON)
 option(EXASIM_PIP_INSTALL "pip-install the exasim Python package at install time" OFF)
@@ -482,6 +483,42 @@ ExternalProject_Add(text2code_build
   DEPENDS ${_symengine_dep} ${_exasim_deps})
 list(APPEND _exasim_deps text2code_build)
 
+if(EXASIM_BUILD_SHARED_APP)
+  # Generate the shared-library model used by the installed exasimapp smoke case.
+  # This must complete before the solver layer is configured, because the app target
+  # links against the text2code-produced libt2cmodel{serial,cuda,hip}.
+  set(EXASIM_SHARED_APP_TEXT2CODE_CASE
+    "${EXASIM_ROOT}/apps/navierstokes/naca0012steady"
+    CACHE PATH "Text2Code case used to generate the shared-library exasimapp model")
+  ExternalProject_Add(exasim_shared_app_model
+    SOURCE_DIR  "${EXASIM_SHARED_APP_TEXT2CODE_CASE}"
+    DOWNLOAD_COMMAND ""
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND
+      ${CMAKE_COMMAND} -E make_directory "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}"
+      COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_INSTALL_PREFIX}/include"
+      COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${EXASIM_ROOT}/include" "${CMAKE_INSTALL_PREFIX}/include"
+      COMMAND ${CMAKE_COMMAND} -E make_directory
+        "${CMAKE_INSTALL_PREFIX}/backend/Model/Text2codeGenerated"
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${EXASIM_ROOT}/backend/Model/Text2codeGenerated/SymEngineFunctionWrappers.hpp"
+        "${CMAKE_INSTALL_PREFIX}/backend/Model/Text2codeGenerated/SymEngineFunctionWrappers.hpp"
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${EXASIM_ROOT}/backend/Model/Text2codeGenerated/libt2cmodel.cpp"
+        "${CMAKE_INSTALL_PREFIX}/backend/Model/Text2codeGenerated/libt2cmodel.cpp"
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${EXASIM_ROOT}/backend/Model/Text2codeGenerated/libt2cmodel.hpp"
+        "${CMAKE_INSTALL_PREFIX}/backend/Model/Text2codeGenerated/libt2cmodel.hpp"
+      COMMAND ${CMAKE_COMMAND} -E chdir "${EXASIM_SHARED_APP_TEXT2CODE_CASE}"
+        ${CMAKE_COMMAND} -E env "EXASIM_PREFIX=${CMAKE_INSTALL_PREFIX}"
+        "${EXASIM_TEXT2CODE}" pdeapp.txt
+    BUILD_ALWAYS TRUE
+    INSTALL_COMMAND ""
+    DEPENDS text2code_build)
+  list(APPEND _exasim_deps exasim_shared_app_model)
+endif()
+
 # ----------------------------------------------------------------------------
 # Exasim solver layer (install/). Its own CMake find-or-builds Kokkos/METIS, so it
 # locates whatever the steps above produced. Depends on everything.
@@ -512,6 +549,8 @@ ExternalProject_Add(exasim_build
     -DWITH_TEXT2CODE=${WITH_TEXT2CODE} -DWITH_BUILTINMODEL=${WITH_BUILTINMODEL}
     -DEXASIM_BUILD_TESTS=${EXASIM_BUILD_TESTS}
     -DEXASIM_TEXT2CODE=${EXASIM_TEXT2CODE}
+    -DEXASIM_BUILD_SHARED_APP=${EXASIM_BUILD_SHARED_APP}
+    -DEXASIM_SHARED_APP_PREFIX=${CMAKE_INSTALL_PREFIX}
     -DEXASIM_FRONTENDS=${EXASIM_FRONTENDS}
     -DEXASIM_PIP_INSTALL=${EXASIM_PIP_INSTALL}
     -DEXASIM_JULIA_DEVELOP=${EXASIM_JULIA_DEVELOP}

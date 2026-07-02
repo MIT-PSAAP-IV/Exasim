@@ -145,6 +145,10 @@ option(EXASIM_LIB "Build and install static libraries only; skip all EXASIM exec
 
 # ---- Option: build EXASIM variants that link text2code-generated libs ----
 option(WITH_TEXT2CODE "Build extra EXASIM executables that link text2code-generated dynamic libraries" OFF)
+option(EXASIM_BUILD_SHARED_APP
+  "Build and install the shared-library exasimapp executable" OFF)
+set(EXASIM_SHARED_APP_PREFIX "${CMAKE_INSTALL_PREFIX}" CACHE PATH
+  "Prefix containing the text2code-generated libt2cmodel backend for exasimapp")
 
 # logical names for text2code-produced shared libs (lib<name>.so/.dylib/.dll)
 set(T2C_CPU_LIB  t2cmodelserial)
@@ -705,6 +709,75 @@ register_exasim_export_target(builtinmodelserial builtinmodelserial FALSE)
 register_exasim_export_target(builtinmodelcuda   builtinmodelcuda   FALSE)
 register_exasim_export_target(builtinmodelhip    builtinmodelhip    FALSE)
 
+if(EXASIM_BUILD_SHARED_APP)
+  set(_exasimapp_model_lib ${T2C_CPU_LIB})
+  if(EXASIM_CUDA)
+    set(_exasimapp_model_lib ${T2C_CUDA_LIB})
+  elseif(EXASIM_HIP)
+    set(_exasimapp_model_lib ${T2C_HIP_LIB})
+  endif()
+
+  find_library(EXASIM_SHARED_APP_MODEL_LIBRARY
+    NAMES ${_exasimapp_model_lib}
+    HINTS
+      "${EXASIM_SHARED_APP_PREFIX}/${CMAKE_INSTALL_LIBDIR}"
+      "${EXASIM_SHARED_APP_PREFIX}/lib"
+      "${EXASIM_SHARED_APP_PREFIX}/lib64"
+    NO_DEFAULT_PATH)
+  if(NOT EXASIM_SHARED_APP_MODEL_LIBRARY)
+    message(FATAL_ERROR
+      "EXASIM_BUILD_SHARED_APP=ON but ${_exasimapp_model_lib} was not found "
+      "under ${EXASIM_SHARED_APP_PREFIX}. Run text2code for the target app "
+      "before configuring the Exasim solver layer.")
+  endif()
+
+  if(EXASIM_CUDA OR EXASIM_HIP)
+    if(EXASIM_MPI)
+      set(_exasimapp_pre_target gpumpipreEXASIM_static)
+    else()
+      set(_exasimapp_pre_target gpupreEXASIM_static)
+    endif()
+  elseif(EXASIM_MPI)
+    set(_exasimapp_pre_target cpumpipreEXASIM_static)
+  else()
+    set(_exasimapp_pre_target cpupreEXASIM_static)
+  endif()
+
+  if(NOT TARGET ${_exasimapp_pre_target})
+    message(FATAL_ERROR
+      "EXASIM_BUILD_SHARED_APP=ON requires preprocessing target "
+      "${_exasimapp_pre_target}. Keep EXASIM_LIB=ON or enable preprocessing "
+      "library generation.")
+  endif()
+
+  add_executable(exasimapp ${EXASIM_DIR}/apps/sharedlibrary/exasimsharedapp.cpp)
+  target_include_directories(exasimapp PRIVATE
+    ${EXASIM_DIR}/apps/sharedlibrary
+    ${EXASIM_INCLUDE_DIR})
+  target_compile_definitions(exasimapp PRIVATE _SHAREDLIBRARY)
+  if(EXASIM_MPI)
+    target_compile_definitions(exasimapp PRIVATE _MPI)
+  endif()
+  if(EXASIM_CUDA)
+    target_compile_definitions(exasimapp PRIVATE _CUDA)
+  endif()
+  if(EXASIM_HIP)
+    target_compile_definitions(exasimapp PRIVATE _HIP)
+  endif()
+  target_link_libraries(exasimapp PRIVATE
+    ${_exasimapp_pre_target}
+    ${EXASIM_SHARED_APP_MODEL_LIBRARY})
+
+  get_filename_component(_exasimapp_model_library_dir
+    "${EXASIM_SHARED_APP_MODEL_LIBRARY}" DIRECTORY)
+  set_target_properties(exasimapp PROPERTIES
+    BUILD_RPATH "${_exasimapp_model_library_dir}"
+    INSTALL_RPATH "${_exasimapp_model_library_dir}" 
+    BUILD_WITH_INSTALL_RPATH TRUE)
+  install(TARGETS exasimapp
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif()
+
 list(LENGTH EXASIM_EXPORT_TARGETS EXASIM_NUM_EXPORT_TARGETS)
 if(EXASIM_NUM_EXPORT_TARGETS EQUAL 1)
   message(FATAL_ERROR "No Exasim static solver library target was built for packaging.")
@@ -954,6 +1027,10 @@ if(EXASIM_FRONTENDS)
       string(CONFIGURE \"\${_exasim_setup_template}\" _exasim_setup_contents @ONLY)
       file(MAKE_DIRECTORY \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/share/exasim/matlab\")
       file(WRITE \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/share/exasim/matlab/exasim_setup.m\"
+        \"\${_exasim_setup_contents}\")
+      # Developer convenience: keep the source-tree MATLAB entry point in sync
+      # with the active install prefix, matching the installed setup file.
+      file(WRITE \"${EXASIM_DIR}/frontends/Matlab/exasim_setup.m\"
         \"\${_exasim_setup_contents}\")
     ")
   endif()
