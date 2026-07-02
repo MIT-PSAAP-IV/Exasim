@@ -2184,6 +2184,22 @@ void emitGenerateModelHeader(std::ostream& os, const ParsedSpec& spec) {
     os << "    hfile << \"    static constexpr int nco    = " << nco    << ";\\n\";\n";
     os << "    hfile << \"    static constexpr int nparam = " << nparam << ";\\n\";\n";
     os << "    hfile << \"    static constexpr int ntau   = " << ntau   << ";\\n\";\n";
+    // vis / QoI output sizes derived from parsed function specs
+    auto func_size = [&](const std::string& name) -> int {
+        for (const auto& f : spec.functions)
+            if (f.name == name) return f.outputsize;
+        return 0;
+    };
+    int nsca_   = func_size("VisScalars");
+    int nvec_   = nd ? func_size("VisVectors") / nd : 0;
+    int nten_   = (nd*nd) ? func_size("VisTensors") / (nd*nd) : 0;
+    int nsurf_  = func_size("QoIboundary");
+    int nvqoi_  = func_size("QoIvolume");
+    os << "    hfile << \"    static constexpr int nsca   = " << nsca_   << ";\\n\";\n";
+    os << "    hfile << \"    static constexpr int nvec   = " << nvec_   << ";\\n\";\n";
+    os << "    hfile << \"    static constexpr int nten   = " << nten_   << ";\\n\";\n";
+    os << "    hfile << \"    static constexpr int nsurf  = " << nsurf_  << ";\\n\";\n";
+    os << "    hfile << \"    static constexpr int nvqoi  = " << nvqoi_  << ";\\n\";\n";
     os << "    hfile << \"    static constexpr int Nq = ncu * (1 + nd);\\n\\n\";\n";
 
     // Volume value-only methods. Iterate over `outputfunctions` and

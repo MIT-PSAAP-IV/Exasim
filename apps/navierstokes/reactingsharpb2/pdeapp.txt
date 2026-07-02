@@ -20,15 +20,7 @@ pgauss = 4;
 torder = 1;
 nstage = 1;
 
-ncu = 8;
 nco = 1;
-ncv = 1;
-ncw = 1;
-nsca = 8;
-nvec = 3;
-nten = 1;
-nsurf = 0;
-nvqoi = 0;
 neb = 4096;
 nfb = 8192;
 

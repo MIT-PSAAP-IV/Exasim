@@ -15,8 +15,6 @@ pgauss = 8;
 torder = 1;
 nstage = 1;
 
-ncu = 4;
-ncw = 0;
 neb = 512;
 nfb = 8192;
 

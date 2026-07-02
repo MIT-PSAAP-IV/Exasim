@@ -582,7 +582,7 @@ int ExasimSolver::ParseInputs(int argc, char** argv)
     // (app.ndims[14..16]=0, app.flag[17]=0), so without this savemode stays 0 and no outvis
     // is written. CDiscretization applies these to disc.common before CVisualization (which
     // computes savemode) is constructed.
-    nsca_ = pde.nsca; nvec_ = pde.nvec; nten_ = pde.nten;
+    nsca_ = pde.nsca; nvec_ = pde.nvec; nten_ = pde.nten; nsurf_ = pde.nsurf; nvqoi_ = pde.nvqoi;
     saveParaview_ = pde.saveParaview;
     if (!preserveModelDefinitions)
         builtinmodelID_.assign(1, pde.builtinmodelID);
