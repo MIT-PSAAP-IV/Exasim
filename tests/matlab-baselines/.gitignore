@@ -1,0 +1,3 @@
+# Excluded from git (regenerate locally via tests/gen-matlab-baselines.sh):
+#  - Euler_EulerVortex: ~156M transient dump (too large for shared LFS bandwidth)
+Euler_EulerVortex/

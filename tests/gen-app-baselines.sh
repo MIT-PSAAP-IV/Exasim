@@ -14,8 +14,9 @@ INSTALL=${1:?usage: gen-app-baselines.sh <baseline-install> [kokkos]}
 KOKKOS=${2:-$(dirname "$INSTALL")/deps/kokkos/buildserial}
 DATA=$INSTALL/share/exasim
 BASE=$REPO/tests/app-baselines
-# All buildable apps. naca0012unsteady is ~270M (transient); nsmach8/sharpb2/isoq segfault on main
-# as-shipped. Those are generated locally but kept out of git (.gitignore) -- regenerate on demand.
+# All buildable apps. naca0012unsteady is ~270M (transient) -- generated locally, kept out of git.
+# nsmach8/sharpb2/isoq previously segfaulted (input ncv=0 vs model ncv=2 -> null deref); fixed by
+# setting ncv=2 in their pdeapp.txt, so their baselines are now generated + committed like the rest.
 APPS="poisson/poisson2d poisson/poisson3d poisson/periodic poisson/lshape poisson/orion poisson/isoq3d poisson/cone navierstokes/naca0012steady navierstokes/naca0012unsteady navierstokes/nsmach8 navierstokes/sharpb2 navierstokes/isoq"
 mkdir -p "$BASE"
 for app in $APPS; do
