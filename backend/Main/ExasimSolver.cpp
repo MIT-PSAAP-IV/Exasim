@@ -916,14 +916,6 @@ int ExasimSolver::InitializeMeshInterface(const int modelnumber,
     _ibc = ibc;
     interface_modelnumber_ = modelnumber;
 
-#ifdef HAVE_MPI
-    MPI_Comm_rank(world_comm_, &_rank);
-    MPI_Comm_size(world_comm_, &_size);
-#else
-    _rank = 0;
-    _size = 1;
-#endif
-
     backend_ = interfaceBackend;
     ncx = model.disc.common.ncx;
     npf = model.disc.common.npf;
