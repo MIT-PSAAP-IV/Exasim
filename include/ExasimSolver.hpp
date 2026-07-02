@@ -150,8 +150,6 @@ public:
     int _ncuext; // number of components of external fields
     int _ncuint; // number of components of internal fields
     int _ibc; // boundary condition index for the interface
-    int _rank = 0;
-    int _size = 1;
     int *faces= nullptr;        // faces on the interface
     int ncx;          // number of compoments of (xdg)
     int nfaces;       // number of faces on the interface
