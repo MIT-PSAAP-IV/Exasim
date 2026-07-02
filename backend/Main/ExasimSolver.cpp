@@ -879,34 +879,35 @@ int ExasimSolver::InitializeMeshInterface(const int modelnumber,
         return 1;
 
     CSolution& model = *models_[modelnumber];
-    const int interfaceBackend = model.disc.common.backend;
+
+    backend_ = model.disc.common.backend;
 
     if (faces) {
-        TemplateFree(faces, interfaceBackend);
+        TemplateFree(faces, backend_);
         faces = nullptr;
     }
     if (xdgint) {
-        TemplateFree(xdgint, interfaceBackend);
+        TemplateFree(xdgint, backend_);
         xdgint = nullptr;
     }
     if (nlint) {
-        TemplateFree(nlint, interfaceBackend);
+        TemplateFree(nlint, backend_);
         nlint = nullptr;
     }
     if (xdggint) {
-        TemplateFree(xdggint, interfaceBackend);
+        TemplateFree(xdggint, backend_);
         xdggint = nullptr;
     }
     if (nlgint) {
-        TemplateFree(nlgint, interfaceBackend);
+        TemplateFree(nlgint, backend_);
         nlgint = nullptr;
     }
     if (flux_dev_) {
-        TemplateFree(flux_dev_, interfaceBackend);
+        TemplateFree(flux_dev_, backend_);
         flux_dev_ = nullptr;
     }
     if (model.disc.sol.uext) {
-        TemplateFree(model.disc.sol.uext, interfaceBackend);
+        TemplateFree(model.disc.sol.uext, backend_);
         model.disc.sol.uext = nullptr;
         model.disc.sol.szuext = 0;
     }
@@ -916,7 +917,6 @@ int ExasimSolver::InitializeMeshInterface(const int modelnumber,
     _ibc = ibc;
     interface_modelnumber_ = modelnumber;
 
-    backend_ = interfaceBackend;
     ncx = model.disc.common.ncx;
     npf = model.disc.common.npf;
     ngf = model.disc.common.ngf;
@@ -924,19 +924,19 @@ int ExasimSolver::InitializeMeshInterface(const int modelnumber,
 
     model.disc.common.ncuext = ncuext;
     TemplateMalloc(&model.disc.sol.uext, ngf * nfaces * ncuext,
-                   interfaceBackend);
+                   backend_);
     model.disc.sol.szuext = ngf * nfaces * ncuext;
 
     TemplateMalloc(&xdgint, npf * nfaces * model.disc.common.ncx,
-                   interfaceBackend);
+                   backend_);
     TemplateMalloc(&nlint, npf * nfaces * model.disc.common.nd,
-                   interfaceBackend);
+                   backend_);
     TemplateMalloc(&xdggint, ngf * nfaces * model.disc.common.ncx,
-                   interfaceBackend);
+                   backend_);
     TemplateMalloc(&nlgint, ngf * nfaces * model.disc.common.nd,
-                   interfaceBackend);
+                   backend_);
     TemplateMalloc(&flux_dev_, ngf * nfaces * _ncuint,
-                   interfaceBackend);
+                   backend_);
 
     model.disc.getDGNodesOnInterface(xdgint, faces, nfaces);
     model.disc.getNormalVectorOnInterface(nlint, xdgint, nfaces);
