@@ -17,6 +17,9 @@
 # =============================================================================
 cmake_minimum_required(VERSION 3.16)
 project(ExasimSuperbuild C CXX)
+if(POLICY CMP0135)
+  cmake_policy(SET CMP0135 NEW)
+endif()
 include(ExternalProject)
 include(GNUInstallDirs)
 
@@ -45,7 +48,7 @@ option(EXASIM_LIB         "Build static libraries"             ON)
 option(WITH_PARMETIS      "Link METIS/ParMETIS"                ON)
 option(WITH_TEXT2CODE     "Build text2code-linked executables" OFF)
 option(WITH_BUILTINMODEL  "Build the built-in model library"   ON)
-option(WITH_GMP           "Build vendored GMP and use it for vendored SymEngine" OFF)
+option(WITH_GMP           "Download/build GMP and use it for vendored SymEngine" OFF)
 option(EXASIM_BUILD_TESTS "Register the ctest regression suite" OFF)
 option(EXASIM_FRONTENDS   "Install the Python/Julia/MATLAB frontends" ON)
 option(EXASIM_PIP_INSTALL "pip-install the exasim Python package at install time" OFF)
@@ -90,10 +93,16 @@ function(exasim_first_existing_file outvar)
 endfunction()
 
 # ----------------------------------------------------------------------------
-# GMP: optional vendored build, installed directly into the final prefix.
+# GMP: optional downloaded build, installed directly into the final prefix.
 # Disabled by default to preserve the existing BoostMP SymEngine workflow.
 # ----------------------------------------------------------------------------
-set(_gmp_source "${EXASIM_ROOT}/deps/gmp-6.3.0")
+set(EXASIM_GMP_VERSION "6.3.0" CACHE STRING "GMP version to download when WITH_GMP=ON")
+set(EXASIM_GMP_URLS
+  "https://gmplib.org/download/gmp/gmp-${EXASIM_GMP_VERSION}.tar.xz;https://ftp.gnu.org/gnu/gmp/gmp-${EXASIM_GMP_VERSION}.tar.xz"
+  CACHE STRING "Semicolon-separated official GMP source archive URLs")
+set(EXASIM_GMP_URL_HASH
+  "SHA256=a3c2b80201b89e68616f4ad30bc66aee4927c3ce50e33929ca819d5c43538898"
+  CACHE STRING "Hash for the GMP source archive")
 set(_gmp_install "${CMAKE_INSTALL_PREFIX}")
 set(_gmp_include_dir "${CMAKE_INSTALL_INCLUDEDIR}")
 if(NOT IS_ABSOLUTE "${_gmp_include_dir}")
@@ -104,18 +113,19 @@ if(NOT IS_ABSOLUTE "${_gmp_lib_dir}")
   set(_gmp_lib_dir "${CMAKE_INSTALL_PREFIX}/${_gmp_lib_dir}")
 endif()
 set(_gmp_dep "")
-if(WITH_GMP AND EXISTS "${_gmp_source}/configure")
+if(WITH_GMP)
   if(EXISTS "${_gmp_include_dir}/gmp.h"
       AND EXISTS "${_gmp_include_dir}/gmpxx.h"
       AND EXISTS "${_gmp_lib_dir}/libgmp.a"
       AND EXISTS "${_gmp_lib_dir}/libgmpxx.a")
-    message(STATUS "GMP: using vendored ${_gmp_install} (already built)")
+    message(STATUS "GMP: using ${_gmp_install} (already built)")
   else()
-    message(STATUS "GMP: building vendored -> ${_gmp_install}")
-    ExternalProject_Add(gmp_vendored
-      SOURCE_DIR  "${_gmp_source}"
+    message(STATUS "GMP: downloading from ${EXASIM_GMP_URLS}")
+    message(STATUS "GMP: building -> ${_gmp_install}")
+    ExternalProject_Add(gmp_downloaded
+      URL         ${EXASIM_GMP_URLS}
+      URL_HASH    "${EXASIM_GMP_URL_HASH}"
       BINARY_DIR  "${_dep_build}/gmp-build"
-      DOWNLOAD_COMMAND ""
       CONFIGURE_COMMAND ${CMAKE_COMMAND} -E env
         "CC=${CMAKE_C_COMPILER}"
         "CXX=${CMAKE_CXX_COMPILER}"
@@ -129,11 +139,9 @@ if(WITH_GMP AND EXISTS "${_gmp_source}/configure")
         --enable-static
       BUILD_COMMAND ${CMAKE_MAKE_PROGRAM}
       INSTALL_COMMAND ${CMAKE_MAKE_PROGRAM} install)
-    set(_gmp_dep gmp_vendored)
+    set(_gmp_dep gmp_downloaded)
     list(APPEND _exasim_deps ${_gmp_dep})
   endif()
-elseif(WITH_GMP)
-  message(FATAL_ERROR "WITH_GMP=ON but ${_gmp_source}/configure was not found.")
 endif()
 
 # ----------------------------------------------------------------------------

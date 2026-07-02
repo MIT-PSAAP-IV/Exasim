@@ -11,11 +11,11 @@ mpiprocs = 8;
 debugmode = 0;
 runmode = 0;
 modelnumber = 0;
-gendatain = 0;
 
 porder = 2;
 pgauss = 4;
 torder = 1;
+builtinmodelID = 0;
 nstage = 1;
 
 ncu = 5;
