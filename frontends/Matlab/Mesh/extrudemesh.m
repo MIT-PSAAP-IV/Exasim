@@ -1,5 +1,26 @@
 function mesh = extrudemesh(mesh2d,zz)
 
+if nargin < 2
+    error('extrudemesh requires mesh2d and zz.');
+end
+
+if ~isfield(mesh2d,'p') || ~isfield(mesh2d,'t') || ~isfield(mesh2d,'dgnodes')
+    error('mesh2d must contain p, t, and dgnodes.');
+end
+
+if ~isfield(mesh2d,'porder')
+    error('mesh2d must contain porder.');
+end
+
+if size(mesh2d.p,1) ~= 2
+    error('mesh2d.p must have two coordinate components.');
+end
+
+zz = zz(:).';
+if numel(zz) < 2
+    error('zz must contain at least two extrusion coordinates.');
+end
+
 porder = mesh2d.porder;
 plc1d = masternodes(porder,1,1);
 
@@ -11,7 +32,7 @@ for i = 1:nz
     dz(:,i) = (pz(2)-pz(1))*plc1d + pz(1);
 end
 
-nxy = size(mesh2d.p',1);
+nxy = size(mesh2d.p,2);
 pz = repmat(zz,[nxy 1]);
 mesh.p = [repmat(mesh2d.p',[nz+1 1]) pz(:)]';
 
@@ -24,15 +45,16 @@ for i = 1:nz
 end
 mesh.t = mesh.t';
 
-np2d = size(mesh2d.dgnodes,1);
-np1d = size(dz,1);
-mesh.dgnodes = zeros(np2d*np1d,3,ne2d,nz);
-for i = 1:nz
-    pm = repmat(dz(:,i)',[np2d 1]);
-    for j = 1:ne2d
-        mesh.dgnodes(:,:,j,i) = [repmat(mesh2d.dgnodes(:,1:2,j),[np1d 1]) pm(:)];
-    end
+[np2d,nd2d,ne2d_dg] = size(mesh2d.dgnodes);
+if nd2d ~= 2
+    error('mesh2d.dgnodes must have two coordinate components.');
 end
-mesh.dgnodes = reshape(mesh.dgnodes,[np2d*np1d,3,ne2d*nz]);
+if ne2d_dg ~= ne2d
+    error('mesh2d.t and mesh2d.dgnodes have inconsistent element counts.');
+end
 
+xy = extrudesol(mesh2d.dgnodes, porder, nz);
+zdg = extrudecoord(zz, porder, np2d, 1, ne2d);
+mesh.dgnodes = cat(2,xy,zdg);
 
+end

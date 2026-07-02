@@ -50,6 +50,9 @@
 #    include "symengine_config.h"
 #  endif
 #endif
+#ifndef EXASIM_INSTALL_PREFIX
+#  define EXASIM_INSTALL_PREFIX ""
+#endif
 #ifndef EXASIM_SYMENGINE_FOUND
 #  define EXASIM_SYMENGINE_FOUND 0
 #endif
@@ -289,7 +292,12 @@ int executeCppCode(ParsedSpec& spec)
     // regenerated per-target — include it from the static location
     // (HOT.7.14 added per-target spec.modelpath; without this the
     // generated SymbolicFunctions.hpp can't find the wrapper header).
-    std::string backend_model = make_path(spec.exasimpath, "backend/Model/Text2codeGenerated/");    
+    std::string backend_model = make_path(spec.exasimpath, "backend/Model/Text2codeGenerated/");
+    if (!fs::exists(make_path(backend_model, "SymEngineFunctionWrappers.hpp"))) {
+      std::string installed_backend_model = make_path(spec.exasimpath, "include/backend/Model/Text2codeGenerated/");
+      if (fs::exists(make_path(installed_backend_model, "SymEngineFunctionWrappers.hpp")))
+        backend_model = installed_backend_model;
+    }
     if (tc.kind == CompilerKind::MSVC) {    
       std::string symengine_lib = make_path(spec.symenginepath, "lib/symengine.lib");
       cmd << tc.cxx << " /std:c++17 /EHsc /W0 "
@@ -361,22 +369,40 @@ int buildDynamicLibraries(ParsedSpec& spec)
     // legacy in-source exasimpath/kokkos/build* layout for a standalone build.    
     const std::string _kk(EXASIM_KOKKOS_DIR), _kkb(EXASIM_KOKKOS_BACKEND);
 
-    const std::string kokkos_serial_path =
-        !_kk.empty() ? (_kkb == "serial" ? _kk : "")
-                     : make_path(spec.exasimpath, "deps/kokkos/buildserial");
-
-    const std::string kokkos_cuda_path =
-        !_kk.empty() ? (_kkb == "cuda" ? _kk : "")
-                     : make_path(spec.exasimpath, "deps/kokkos/buildcuda");
-
-    const std::string kokkos_hip_path =
-        !_kk.empty() ? (_kkb == "hip" ? _kk : "")
-                     : make_path(spec.exasimpath, "deps/kokkos/buildhip");
-
     auto getenv_string = [](const char* name) {
         const char* v = std::getenv(name);
         return (v && std::string(v).size() > 0) ? std::string(v) : std::string{};
     };
+
+    auto first_existing_dir = [](std::initializer_list<std::string> dirs) {
+        for (const auto& dir : dirs) {
+            if (!dir.empty() && fs::exists(dir) && fs::is_directory(dir)) {
+                return dir;
+            }
+        }
+        return std::string{};
+    };
+
+    const std::string kokkos_serial_path =
+        !_kk.empty() ? (_kkb == "serial" ? _kk : "")
+                     : first_existing_dir({
+                           make_path(spec.exasimpath, "deps/kokkos/buildserial"),
+                           make_path(spec.exasimpath, "build_local/deps/kokkos/buildserial"),
+                           make_path(spec.exasimpath, "local/deps/kokkos/buildserial")});
+
+    const std::string kokkos_cuda_path =
+        !_kk.empty() ? (_kkb == "cuda" ? _kk : "")
+                     : first_existing_dir({
+                           make_path(spec.exasimpath, "deps/kokkos/buildcuda"),
+                           make_path(spec.exasimpath, "build_local/deps/kokkos/buildcuda"),
+                           make_path(spec.exasimpath, "local/deps/kokkos/buildcuda")});
+
+    const std::string kokkos_hip_path =
+        !_kk.empty() ? (_kkb == "hip" ? _kk : "")
+                     : first_existing_dir({
+                           make_path(spec.exasimpath, "deps/kokkos/buildhip"),
+                           make_path(spec.exasimpath, "build_local/deps/kokkos/buildhip"),
+                           make_path(spec.exasimpath, "local/deps/kokkos/buildhip")});
   
     std::string exasim_lib_path = getenv_string("EXASIMLIB_DIR");    
     if (exasim_lib_path.empty()) {
@@ -386,7 +412,14 @@ int buildDynamicLibraries(ParsedSpec& spec)
             exasim_lib_path = make_path(exasim_prefix, "lib");
         }
         else {
-            exasim_lib_path = make_path(spec.exasimpath, "lib");
+            exasim_lib_path = first_existing_dir({
+                make_path(spec.exasimpath, "local/lib"),
+                make_path(spec.exasimpath, "local/lib64"),
+                make_path(spec.exasimpath, "lib"),
+                make_path(spec.exasimpath, "lib64")});
+            if (exasim_lib_path.empty()) {
+                exasim_lib_path = make_path(spec.exasimpath, "local/lib");
+            }
         }
     }    
     std::cout << "Using Exasim library directory: " << exasim_lib_path << "\n";
@@ -487,6 +520,21 @@ int buildDynamicLibraries(ParsedSpec& spec)
 
         return true;
     };
+
+    auto text2code_model_source = [&]() {
+        const std::string generated_src = make_path(spec.modelpath, "libt2cmodel.cpp");
+        if (fs::exists(generated_src)) {
+            return generated_src;
+        }
+
+        const std::string installed_src =
+            make_path(spec.exasimpath, "include/backend/Model/Text2codeGenerated/libt2cmodel.cpp");
+        if (fs::exists(installed_src)) {
+            return installed_src;
+        }
+
+        return generated_src;
+    };
         
     auto get_gpu_arch = [&](std::initializer_list<const char*> vars,
                             const std::string& backend) -> std::string
@@ -532,7 +580,7 @@ int buildDynamicLibraries(ParsedSpec& spec)
     // -------------------- SERIAL --------------------
     if (fs::exists(kokkos_serial_path) && fs::is_directory(kokkos_serial_path)) {
         const std::string inc_dir = make_path(kokkos_serial_path, "include");
-        const std::string src     = make_path(spec.modelpath, "libt2cmodel.cpp");
+        const std::string src     = text2code_model_source();
         const std::string out     = out_name("libt2cmodelserial");
 
         std::string lib_dir, lib_core, lib_cont;
@@ -589,7 +637,7 @@ int buildDynamicLibraries(ParsedSpec& spec)
         }
 
         const std::string inc_dir = make_path(kokkos_cuda_path, "include");
-        const std::string src     = make_path(spec.modelpath, "libt2cmodel.cpp");
+        const std::string src     = text2code_model_source();
         const std::string out     = out_name("libt2cmodelcuda");
 
         std::string lib_dir, lib_core, lib_cont;
@@ -646,7 +694,7 @@ int buildDynamicLibraries(ParsedSpec& spec)
         }
 
         const std::string inc_dir = make_path(kokkos_hip_path, "include");
-        const std::string src     = make_path(spec.modelpath, "libt2cmodel.cpp");
+        const std::string src     = text2code_model_source();
         const std::string out     = out_name("libt2cmodelhip");
 
         std::string lib_dir, lib_core, lib_cont;

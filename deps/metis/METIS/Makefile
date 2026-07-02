@@ -80,7 +80,7 @@ all clean install:
 	@if [ ! -f $(BUILDDIR)/Makefile ]; then \
 		more BUILD.txt; \
 	else \
-	  	make -C $(BUILDDIR) $@ $(MAKEFLAGS); \
+	  	make -C $(BUILDDIR) $@; \
 	fi
 
 uninstall:
