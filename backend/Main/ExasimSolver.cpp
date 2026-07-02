@@ -560,15 +560,15 @@ int ExasimSolver::ParseInputs(int argc, char** argv)
             pde.ncv = abi.nco;
         if (params.intParams.count("ncw") == 0 && abi.ncw > 0)
             pde.ncw = abi.ncw;
-        if (params.intParams.count("nsca") == 0)
+        if (params.intParams.count("nsca") == 0 && abi.nsca > 0)
             pde.nsca = abi.nsca;
-        if (params.intParams.count("nvec") == 0)
+        if (params.intParams.count("nvec") == 0 && abi.nvec > 0)
             pde.nvec = abi.nvec;
-        if (params.intParams.count("nten") == 0)
+        if (params.intParams.count("nten") == 0 && abi.nten > 0)
             pde.nten = abi.nten;
-        if (params.intParams.count("nsurf") == 0)
+        if (params.intParams.count("nsurf") == 0 && abi.nsurf > 0)
             pde.nsurf = abi.nsurf;
-        if (params.intParams.count("nvqoi") == 0)
+        if (params.intParams.count("nvqoi") == 0 && abi.nvqoi > 0)
             pde.nvqoi = abi.nvqoi;
     }
 
