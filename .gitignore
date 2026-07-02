@@ -27,7 +27,7 @@ datain1/
 dataout1/
 datain2/
 dataout2/
-build/*
+build/
 kokkos/buildserial/*
 kokkos/buildcuda/*
 kokkos/buildhip/*
