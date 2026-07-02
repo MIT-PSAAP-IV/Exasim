@@ -20,7 +20,7 @@ using dstype = float;
 using dstype = double;
 #endif
 
-inline constexpr std::uint32_t kExasimDriverABIVersion = 1;
+inline constexpr std::uint32_t kExasimDriverABIVersion = 2;
 
 struct ExasimDriverABI {
     using KokkosElementFn =
@@ -116,6 +116,19 @@ struct ExasimDriverABI {
 
     std::uint32_t abi_version = 0;
     std::uint32_t struct_size = 0;
+
+    // Model dimension constants (set by the provider).  These let the
+    // preprocessing layer obtain ncu / ncv / ncw / nsca / nvec / nten /
+    // nsurf / nvqoi from the compiled model instead of requiring them
+    // in pdeapp.txt.  0 means "not specified / use default".
+    int ncu  = 0;
+    int nco  = 0;   // "other DG" == pdeapp.txt's ncv
+    int ncw  = 0;
+    int nsca = 0;
+    int nvec = 0;
+    int nten = 0;
+    int nsurf = 0;
+    int nvqoi = 0;
 
     KokkosElementFn KokkosFlux = nullptr;
     KokkosElementFn KokkosSource = nullptr;
