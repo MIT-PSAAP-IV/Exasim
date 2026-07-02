@@ -1020,8 +1020,16 @@ Master initializeMaster(PDE& pde, Mesh& mesh)
 {    
     Master master;
     
+    auto existing_file = [](const std::string& filename) {
+        std::ifstream f(filename.c_str(), std::ios::binary);
+        return f.good();
+    };
     std::string fn1 = make_path(pde.exasimpath, "/text2code/text2code/masternodes.bin");
     std::string fn2 = make_path(pde.exasimpath, "/text2code/text2code/gaussnodes.bin");
+    if (!existing_file(fn1))
+        fn1 = make_path(pde.exasimpath, "/share/exasim/masternodes.bin");
+    if (!existing_file(fn2))
+        fn2 = make_path(pde.exasimpath, "/share/exasim/gaussnodes.bin");
     
     masternodes(master.xpe, master.telem, master.xpf, master.tface, master.perm, pde.porder, mesh.dim, mesh.elemtype, fn1);     
     gaussnodes(master.gpe, master.gwe, pde.pgauss, mesh.dim, mesh.elemtype, fn2); 

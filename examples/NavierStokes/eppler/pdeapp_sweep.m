@@ -25,7 +25,7 @@ Pr = 0.72;                     % Prandtl number
 alpha = 3;
 n = 17;
 reynoldsNumbers = logdec(linspace(1000,10000,n), alpha);
-anglesOfAttack  = logdec(linspace(0,10,n), alpha);
+anglesOfAttack  = logdec(linspace(0,10*pi/180,n), alpha);
 
 % initialize pde structure and mesh structure
 [pde,~] = initializeexasim();
@@ -54,11 +54,14 @@ for ialpha = 1:numel(anglesOfAttack)
 end
 
 % 
-% tm = pde.physicsparamsweep;
-% pde.physicsparamsweep = tm(1:72,:);
-% pde.physicsparamsweep = tm(73:144,:);
-% pde.physicsparamsweep = tm(145:216,:);
-% pde.physicsparamsweep = tm(217:289,:);
+tm = pde.physicsparamsweep;
+%pde.physicsparamsweep = tm(1:44,:);
+%pde.physicsparamsweep = tm(45:85,:);
+%pde.physicsparamsweep = tm(86:(85+41),:);
+%pde.physicsparamsweep = tm(127:(126+41),:);
+%pde.physicsparamsweep = tm(168:(167+41),:);
+%pde.physicsparamsweep = tm(209:(208+41),:);
+pde.physicsparamsweep = tm(250:289,:);
 
 pde.tau = tau;                 % DG stabilization parameter
 pde.GMRESrestart = 100;
@@ -79,7 +82,7 @@ pde.saveSolBouFreq = 2;
 pde.ibs = 1;
 
 % Export a frontend-provider app that can run the entire sweep without MATLAB.
-pde.exportapp = "eppler-sweep";
+pde.exportapp = "eppler-sweep7";
 pde.frontendprovider = true;
 pde.buildandrun = false;
 if exist(pde.exportapp, 'dir')
@@ -90,7 +93,7 @@ end
 mesh = mkmesh_epp387(porder,1,-6);
 
 % call exasim to preprocess, generate code, and export the standalone app
-exasim(pde,mesh);
+[sol,pde,mesh,master,dmd] = exasim(pde,mesh);
 
 fprintf("Exported Eppler sweep app: %s\n", fullfile(pwd, pde.exportapp));
 fprintf("Run with: EXASIM_ROOT=%s %s\n", char(exasim_install_prefix()), fullfile(pwd, pde.exportapp, "run.sh"));

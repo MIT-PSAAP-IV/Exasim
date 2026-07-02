@@ -29,6 +29,7 @@ using .Mesh
 using .Gencode
 
 export initializeexasim, preprocessing, exasim, vis, fetchsolution,
+       exportapp, exporttext2code,
        Preprocessing, Gencode, Mesh, Postprocessing
 
 end
