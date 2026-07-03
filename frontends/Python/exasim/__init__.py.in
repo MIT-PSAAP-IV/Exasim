@@ -20,6 +20,7 @@ from . import Postprocessing
 
 from .Preprocessing import initializeexasim, preprocessing
 from .Postprocessing import exasim, vis, fetchsolution
+from .Gencode import exportapp, exporttext2code
 
 if not os.environ.get("EXASIM_PREFIX"):
     os.environ["EXASIM_PREFIX"] = "@CMAKE_INSTALL_PREFIX@"

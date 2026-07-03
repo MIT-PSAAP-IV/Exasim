@@ -39,7 +39,7 @@ avs = 0.0;                      % shear viscosity parameter
 sb0 = 0.02;                     % cutoff  dilatation
 sb1 = 2.5;                      % maximum dilatation 
 
-pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf Tinf Tref Twall avb avk avs pde.porder sb0 sb1];
+pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf Tinf Tref Twall];
 pde.tau = 1.0;                  % DG stabilization parameter
 pde.GMRESrestart = 100;         %try 50
 pde.linearsolvertol = 1e-8; % GMRES tolerance

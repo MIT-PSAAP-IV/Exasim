@@ -39,7 +39,7 @@ mesh.telem = mesh.tlocal;
 
 figure(2); clf; meshplot(mesh);
 axis on; axis equal; axis tight;
-exportgraphics(gca,"mesh.png",'Resolution',200);
+%exportgraphics(gca,"mesh.png",'Resolution',200);
 
 deltay = min(mesh.p(2,:));
 L = max(mesh.p(1,:));

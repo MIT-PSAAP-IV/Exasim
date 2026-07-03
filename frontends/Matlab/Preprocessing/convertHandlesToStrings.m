@@ -1,11 +1,26 @@
 function strArray = convertHandlesToStrings(fhandleArray)
 % Convert a cell array of function handles into descriptive strings
 
+    if ischar(fhandleArray)
+        fhandleArray = {fhandleArray};
+    end
+
     n = numel(fhandleArray);
     strArray = strings(1, n);
     
     for i = 1:n
-        fstr = func2str(fhandleArray{i});  % e.g., '@(p)abs(p(2,:))<1e-8'
+        if iscell(fhandleArray)
+            item = fhandleArray{i};
+        else
+            item = fhandleArray(i);
+        end
+
+        if isstring(item) || ischar(item)
+            strArray(i) = string(item);
+            continue;
+        end
+
+        fstr = func2str(item);  % e.g., '@(p)abs(p(2,:))<1e-8'
         
         % Remove '@(p)' prefix
         fstr = erase(fstr, '@(p)');
@@ -25,6 +40,4 @@ function strArray = convertHandlesToStrings(fhandleArray)
         strArray(i) = fstr;
     end
 end
-
-
 

@@ -387,10 +387,14 @@ void writeBinaryFiles(PDE& pde, Mesh& mesh, const Master& master, const ParsedSp
         }    
     }
 
-    freeCharArray(mesh.boundaryExprs, mesh.nbndexpr);
-    freeCharArray(mesh.curvedBoundaryExprs, mesh.nbndexpr);
-    freeCharArray(mesh.periodicExprs1, mesh.nprdexpr*mesh.nprdcom);
-    freeCharArray(mesh.periodicExprs2, mesh.nprdexpr*mesh.nprdcom);                
+    // Keep ownership consistent with backend/Preprocessing/writebinaryfilesexasim.cpp:
+    // these expression arrays are attached to the Mesh object during setup and
+    // are not needed after this short-lived text2code process completes. Freeing
+    // them here has triggered Linux-only crashes after writing mesh.bin.
+    // freeCharArray(mesh.boundaryExprs, mesh.nbndexpr);
+    // freeCharArray(mesh.curvedBoundaryExprs, mesh.nbndexpr);
+    // freeCharArray(mesh.periodicExprs1, mesh.nprdexpr*mesh.nprdcom);
+    // freeCharArray(mesh.periodicExprs2, mesh.nprdexpr*mesh.nprdcom);
     
     std::cout << "Finished writeBinaryFiles.\n";
 }

@@ -51,6 +51,12 @@ if [ "${COMBINED_TEST:-0}" = "1" ] || [ "${COMBINED_EXPORT:-0}" = "1" ]; then
     *) echo "SKIP: combined tests only implemented for python"; exit "$SKIP" ;;
   esac
 fi
+if [ "${EXPORT_TEXT2CODE_TEST:-0}" = "1" ]; then
+  case "$FE" in
+    python) APP="pdeapp_exporttext2code.py" ;;
+    *) echo "SKIP: exporttext2code test only implemented for python"; exit "$SKIP" ;;
+  esac
+fi
 if [ ! -f "$SRC/$APP" ]; then
   echo "SKIP: $SRC/$APP does not exist (frontend test not implemented yet)"
   exit $SKIP
@@ -85,7 +91,7 @@ esac
 RUN="$(mktemp -d "${TMPDIR:-/tmp}/exasim_frontend_${FE}.XXXXXX")"
 trap 'rm -rf "$RUN"' EXIT
 mkdir -p "$RUN/a"
-cp "$SRC"/* "$RUN/a/"
+find "$SRC" -maxdepth 1 -type f -exec cp {} "$RUN/a/" \;
 cd "$RUN/a"
 
 # --- export-app mode (EXPORT_TEST=1): inject a pde.exportapp assignment just
@@ -137,6 +143,41 @@ esac
 if [ "$status" -ne 0 ]; then
   echo "FAIL: $APP exited with status $status"
   exit 1
+fi
+
+# --- Text2Code-source export assertions (EXPORT_TEXT2CODE_TEST=1) -----------
+# The frontend should export high-level Text2Code inputs only: pdemodel.txt,
+# pdeapp.txt, grid.bin, and optional field binaries. Then the installed
+# text2code executable must be able to regenerate datain from that package
+# without the Python frontend.
+if [ "${EXPORT_TEXT2CODE_TEST:-0}" = "1" ]; then
+  B="$(pwd)/text2code_package"
+  [ -d "$B" ] || { echo "FAIL: no Text2Code package at $B"; exit 1; }
+  for f in pdemodel.txt pdeapp.txt grid.bin xdg.bin udg.bin vdg.bin wdg.bin README.md; do
+    [ -f "$B/$f" ] || { echo "FAIL: Text2Code package missing $f"; exit 1; }
+  done
+  grep -q 'meshfile = "grid.bin";' "$B/pdeapp.txt" \
+    || { echo "FAIL: pdeapp.txt does not use relative grid.bin"; exit 1; }
+  grep -q 'vdgfile = "vdg.bin";' "$B/pdeapp.txt" \
+    || { echo "FAIL: pdeapp.txt missing vdgfile"; exit 1; }
+  grep -q 'wdgfile = "wdg.bin";' "$B/pdeapp.txt" \
+    || { echo "FAIL: pdeapp.txt missing wdgfile"; exit 1; }
+  grep -q 'physicsparamcases' "$B/pdeapp.txt" \
+    || { echo "FAIL: pdeapp.txt missing physicsparamcases"; exit 1; }
+  TEXT2CODE="${EXASIM_TEXT2CODE:-$INSTALL/bin/text2code}"
+  [ -x "$TEXT2CODE" ] \
+    || { echo "SKIP: text2code not found at $TEXT2CODE"; exit "$SKIP"; }
+  (
+    cd "$B"
+    EXASIM_PREFIX="$INSTALL" "$TEXT2CODE" pdeapp.txt --out-dir generated > text2code.log 2>&1
+  ) || { cat "$B/text2code.log"; echo "FAIL: text2code failed on exported package"; exit 1; }
+  for f in datain/app.bin datain/master.bin datain/mesh.bin datain/physicsparamcases.bin; do
+    [ -f "$B/$f" ] || { echo "FAIL: text2code did not produce $f"; exit 1; }
+  done
+  [ -f "$B/generated/SymbolicFunctions.cpp" ] \
+    || { echo "FAIL: text2code did not generate model sources"; exit 1; }
+  echo "frontend_python_exporttext2code: exported package parsed by text2code OK"
+  exit 0
 fi
 
 # --- export-app assertions (EXPORT_TEST=1) ----------------------------------

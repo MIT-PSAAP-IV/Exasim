@@ -42,6 +42,35 @@ install(FILES "${EXASIM_GENINC_DIR}/exasim_paths.h"
 set(EXASIM_CMAKE_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/Exasim")
 set(EXASIM_PACKAGE_VERSION "0.0.0")
 
+# ---- Git provenance baked into the package ---------------------------------
+# Record the commit + branch this Exasim was built from. They are substituted
+# into the generated ExasimConfig.cmake so downstream find_package(Exasim) can
+# optionally pin to them (Exasim_REQUIRE_COMMIT / Exasim_REQUIRE_BRANCH). The
+# values resolve from the source tree at configure time and degrade to
+# "unknown" outside a git checkout (e.g. a tarball / installed-source build).
+find_package(Git QUIET)
+set(EXASIM_GIT_COMMIT "unknown")
+set(EXASIM_GIT_BRANCH "unknown")
+if(GIT_FOUND)
+  execute_process(
+    COMMAND "${GIT_EXECUTABLE}" -C "${EXASIM_DIR}" rev-parse HEAD
+    OUTPUT_VARIABLE _exasim_git_commit
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET RESULT_VARIABLE _exasim_git_rc)
+  if(_exasim_git_rc EQUAL 0 AND _exasim_git_commit)
+    set(EXASIM_GIT_COMMIT "${_exasim_git_commit}")
+  endif()
+  execute_process(
+    COMMAND "${GIT_EXECUTABLE}" -C "${EXASIM_DIR}" rev-parse --abbrev-ref HEAD
+    OUTPUT_VARIABLE _exasim_git_branch
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET RESULT_VARIABLE _exasim_git_rc)
+  if(_exasim_git_rc EQUAL 0 AND _exasim_git_branch)
+    set(EXASIM_GIT_BRANCH "${_exasim_git_branch}")
+  endif()
+endif()
+message(STATUS "Exasim git provenance     = ${EXASIM_GIT_BRANCH} @ ${EXASIM_GIT_COMMIT}")
+
 add_library(ExasimHeaders INTERFACE)
 add_library(Exasim::headers ALIAS ExasimHeaders)
 set_target_properties(ExasimHeaders PROPERTIES EXPORT_NAME headers)
@@ -116,6 +145,10 @@ option(EXASIM_LIB "Build and install static libraries only; skip all EXASIM exec
 
 # ---- Option: build EXASIM variants that link text2code-generated libs ----
 option(WITH_TEXT2CODE "Build extra EXASIM executables that link text2code-generated dynamic libraries" OFF)
+option(EXASIM_BUILD_SHARED_APP
+  "Build and install the shared-library exasimapp executable" OFF)
+set(EXASIM_SHARED_APP_PREFIX "${CMAKE_INSTALL_PREFIX}" CACHE PATH
+  "Prefix containing the text2code-generated libt2cmodel backend for exasimapp")
 
 # logical names for text2code-produced shared libs (lib<name>.so/.dylib/.dll)
 set(T2C_CPU_LIB  t2cmodelserial)
@@ -223,6 +256,35 @@ endif()
 # ---- Option: link METIS / ParMETIS / GKlib -------------------------------
 option(WITH_PARMETIS "Build extra EXASIM executables that link metis libraries" OFF)
 
+function(exasim_first_existing_dir outvar)
+  foreach(_dir ${ARGN})
+    if(EXISTS "${_dir}" AND IS_DIRECTORY "${_dir}")
+      set(${outvar} "${_dir}" PARENT_SCOPE)
+      return()
+    endif()
+  endforeach()
+  list(GET ARGN 0 _fallback)
+  set(${outvar} "${_fallback}" PARENT_SCOPE)
+endfunction()
+
+function(exasim_first_existing_file_dir outvar filename)
+  foreach(_dir ${ARGN})
+    if(EXISTS "${_dir}/${filename}")
+      set(${outvar} "${_dir}" PARENT_SCOPE)
+      return()
+    endif()
+  endforeach()
+  list(GET ARGN 0 _fallback)
+  set(${outvar} "${_fallback}" PARENT_SCOPE)
+endfunction()
+
+function(exasim_refresh_cache_dir_if_needed var default_dir required_file doc)
+  set(${var} "${default_dir}" CACHE PATH "${doc}")
+  if(NOT EXISTS "${${var}}/${required_file}" AND EXISTS "${default_dir}/${required_file}")
+    set(${var} "${default_dir}" CACHE PATH "${doc}" FORCE)
+  endif()
+endfunction()
+
 # METIS: ParMETIS / METIS / GKlib roots (override if your layout differs)
 set(PARMETIS_ROOT "${EXASIM_DIR}/deps/metis/ParMETIS"
     CACHE PATH "Path to ParMETIS root")
@@ -232,21 +294,37 @@ set(GKLIB_ROOT    "${EXASIM_DIR}/deps/metis/GKlib"
     CACHE PATH "Path to GKlib root")
 
 # METIS: derived include/lib dirs (override if needed)
-set(PARMETIS_INCLUDE_DIR "${PARMETIS_ROOT}/include"
-    CACHE PATH "ParMETIS include dir")
-set(PARMETIS_LIBRARY_DIR "${PARMETIS_ROOT}/lib"
-    CACHE PATH "ParMETIS library dir")
+exasim_first_existing_dir(_parmetis_default_include
+  "${PARMETIS_ROOT}/include")
+exasim_first_existing_file_dir(_parmetis_default_libdir libparmetis.a
+  "${PARMETIS_ROOT}/lib"
+  "${PARMETIS_ROOT}/lib64"
+  "${PARMETIS_ROOT}/build/${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}/libparmetis")
+set(PARMETIS_INCLUDE_DIR "${_parmetis_default_include}" CACHE PATH "ParMETIS include dir")
+exasim_refresh_cache_dir_if_needed(PARMETIS_LIBRARY_DIR
+  "${_parmetis_default_libdir}" libparmetis.a "ParMETIS library dir")
 
 # METIS layout: public headers under build/xinclude, library under build/libmetis
-set(METIS_INCLUDE_DIR "${METIS_ROOT}/build/xinclude"
-    CACHE PATH "METIS public include dir")
-set(METIS_LIBRARY_DIR "${METIS_ROOT}/build/libmetis"
-    CACHE PATH "METIS library dir")
+exasim_first_existing_dir(_metis_default_include
+  "${METIS_ROOT}/build/xinclude"
+  "${METIS_ROOT}/include")
+exasim_first_existing_file_dir(_metis_default_libdir libmetis.a
+  "${METIS_ROOT}/lib"
+  "${METIS_ROOT}/lib64"
+  "${METIS_ROOT}/build/libmetis")
+set(METIS_INCLUDE_DIR "${_metis_default_include}" CACHE PATH "METIS public include dir")
+exasim_refresh_cache_dir_if_needed(METIS_LIBRARY_DIR
+  "${_metis_default_libdir}" libmetis.a "METIS library dir")
 
-set(GKLIB_INCLUDE_DIR "${GKLIB_ROOT}/include"
-    CACHE PATH "GKlib include dir")
-set(GKLIB_LIBRARY_DIR "${GKLIB_ROOT}/lib"
-    CACHE PATH "GKlib library dir")
+exasim_first_existing_dir(_gklib_default_include
+  "${GKLIB_ROOT}/include")
+exasim_first_existing_file_dir(_gklib_default_libdir libGKlib.a
+  "${GKLIB_ROOT}/lib"
+  "${GKLIB_ROOT}/lib64"
+  "${GKLIB_ROOT}/build/${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
+set(GKLIB_INCLUDE_DIR "${_gklib_default_include}" CACHE PATH "GKlib include dir")
+exasim_refresh_cache_dir_if_needed(GKLIB_LIBRARY_DIR
+  "${_gklib_default_libdir}" libGKlib.a "GKlib library dir")
 
 # Resolve METIS / ParMETIS / GKlib: prefer an installed copy (e.g.
 # `apt install libmetis-dev libparmetis-dev`, or any package-manager install on
@@ -631,6 +709,75 @@ register_exasim_export_target(builtinmodelserial builtinmodelserial FALSE)
 register_exasim_export_target(builtinmodelcuda   builtinmodelcuda   FALSE)
 register_exasim_export_target(builtinmodelhip    builtinmodelhip    FALSE)
 
+if(EXASIM_BUILD_SHARED_APP)
+  set(_exasimapp_model_lib ${T2C_CPU_LIB})
+  if(EXASIM_CUDA)
+    set(_exasimapp_model_lib ${T2C_CUDA_LIB})
+  elseif(EXASIM_HIP)
+    set(_exasimapp_model_lib ${T2C_HIP_LIB})
+  endif()
+
+  find_library(EXASIM_SHARED_APP_MODEL_LIBRARY
+    NAMES ${_exasimapp_model_lib}
+    HINTS
+      "${EXASIM_SHARED_APP_PREFIX}/${CMAKE_INSTALL_LIBDIR}"
+      "${EXASIM_SHARED_APP_PREFIX}/lib"
+      "${EXASIM_SHARED_APP_PREFIX}/lib64"
+    NO_DEFAULT_PATH)
+  if(NOT EXASIM_SHARED_APP_MODEL_LIBRARY)
+    message(FATAL_ERROR
+      "EXASIM_BUILD_SHARED_APP=ON but ${_exasimapp_model_lib} was not found "
+      "under ${EXASIM_SHARED_APP_PREFIX}. Run text2code for the target app "
+      "before configuring the Exasim solver layer.")
+  endif()
+
+  if(EXASIM_CUDA OR EXASIM_HIP)
+    if(EXASIM_MPI)
+      set(_exasimapp_pre_target gpumpipreEXASIM_static)
+    else()
+      set(_exasimapp_pre_target gpupreEXASIM_static)
+    endif()
+  elseif(EXASIM_MPI)
+    set(_exasimapp_pre_target cpumpipreEXASIM_static)
+  else()
+    set(_exasimapp_pre_target cpupreEXASIM_static)
+  endif()
+
+  if(NOT TARGET ${_exasimapp_pre_target})
+    message(FATAL_ERROR
+      "EXASIM_BUILD_SHARED_APP=ON requires preprocessing target "
+      "${_exasimapp_pre_target}. Keep EXASIM_LIB=ON or enable preprocessing "
+      "library generation.")
+  endif()
+
+  add_executable(exasimapp ${EXASIM_DIR}/apps/sharedlibrary/exasimsharedapp.cpp)
+  target_include_directories(exasimapp PRIVATE
+    ${EXASIM_DIR}/apps/sharedlibrary
+    ${EXASIM_INCLUDE_DIR})
+  target_compile_definitions(exasimapp PRIVATE _SHAREDLIBRARY)
+  if(EXASIM_MPI)
+    target_compile_definitions(exasimapp PRIVATE _MPI)
+  endif()
+  if(EXASIM_CUDA)
+    target_compile_definitions(exasimapp PRIVATE _CUDA)
+  endif()
+  if(EXASIM_HIP)
+    target_compile_definitions(exasimapp PRIVATE _HIP)
+  endif()
+  target_link_libraries(exasimapp PRIVATE
+    ${_exasimapp_pre_target}
+    ${EXASIM_SHARED_APP_MODEL_LIBRARY})
+
+  get_filename_component(_exasimapp_model_library_dir
+    "${EXASIM_SHARED_APP_MODEL_LIBRARY}" DIRECTORY)
+  set_target_properties(exasimapp PROPERTIES
+    BUILD_RPATH "${_exasimapp_model_library_dir}"
+    INSTALL_RPATH "${_exasimapp_model_library_dir}" 
+    BUILD_WITH_INSTALL_RPATH TRUE)
+  install(TARGETS exasimapp
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif()
+
 list(LENGTH EXASIM_EXPORT_TARGETS EXASIM_NUM_EXPORT_TARGETS)
 if(EXASIM_NUM_EXPORT_TARGETS EQUAL 1)
   message(FATAL_ERROR "No Exasim static solver library target was built for packaging.")
@@ -695,25 +842,25 @@ install(DIRECTORY ${_exasim_fwd_dir}/
 # (Built-in model libraries are exported as real targets above, via the
 #  add_subdirectory(backend/Model/BuiltIn) build and the export set.)
 
-if(WITH_PARMETIS)
-  if(EXISTS "${METIS_INCLUDE_DIR}/metis.h")
-    install(FILES "${METIS_INCLUDE_DIR}/metis.h"
-      DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-  endif()
-  if(EXISTS "${PARMETIS_INCLUDE_DIR}/parmetis.h")
-    install(FILES "${PARMETIS_INCLUDE_DIR}/parmetis.h"
-      DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-  endif()
-  foreach(_metis_archive
-      "${PARMETIS_LIBRARY_DIR}/libparmetis.a"
-      "${METIS_LIBRARY_DIR}/libmetis.a"
-      "${GKLIB_LIBRARY_DIR}/libGKlib.a")
-    if(EXISTS "${_metis_archive}")
-      install(FILES "${_metis_archive}"
-        DESTINATION ${CMAKE_INSTALL_LIBDIR})
-    endif()
-  endforeach()
-endif()
+# if(WITH_PARMETIS)
+#   if(EXISTS "${METIS_INCLUDE_DIR}/metis.h")
+#     install(FILES "${METIS_INCLUDE_DIR}/metis.h"
+#       DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+#   endif()
+#   if(EXISTS "${PARMETIS_INCLUDE_DIR}/parmetis.h")
+#     install(FILES "${PARMETIS_INCLUDE_DIR}/parmetis.h"
+#       DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+#   endif()
+#   foreach(_metis_archive
+#       "${PARMETIS_LIBRARY_DIR}/libparmetis.a"
+#       "${METIS_LIBRARY_DIR}/libmetis.a"
+#       "${GKLIB_LIBRARY_DIR}/libGKlib.a")
+#     if(EXISTS "${_metis_archive}")
+#       install(FILES "${_metis_archive}"
+#         DESTINATION ${CMAKE_INSTALL_LIBDIR})
+#     endif()
+#   endforeach()
+# endif()
 
 install(EXPORT ExasimTargets
   NAMESPACE Exasim::
@@ -880,6 +1027,10 @@ if(EXASIM_FRONTENDS)
       string(CONFIGURE \"\${_exasim_setup_template}\" _exasim_setup_contents @ONLY)
       file(MAKE_DIRECTORY \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/share/exasim/matlab\")
       file(WRITE \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/share/exasim/matlab/exasim_setup.m\"
+        \"\${_exasim_setup_contents}\")
+      # Developer convenience: keep the source-tree MATLAB entry point in sync
+      # with the active install prefix, matching the installed setup file.
+      file(WRITE \"${EXASIM_DIR}/frontends/Matlab/exasim_setup.m\"
         \"\${_exasim_setup_contents}\")
     ")
   endif()

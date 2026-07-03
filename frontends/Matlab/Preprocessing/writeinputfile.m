@@ -19,6 +19,9 @@ pde.dt = pde.dt(:)';
 pde.tau = pde.tau(:)';
 pde.physicsparam = pde.physicsparam(:)';
 pde.externalparam = pde.externalparam(:)';
+if isfield(pde, 'ncv') == 0 && isfield(pde, 'nco')
+  pde.ncv = pde.nco;
+end
 if isfield(pde, 'wmModelIDs') == 0, pde.wmModelIDs = []; end
 if isfield(pde, 'wmBoundaries') == 0, pde.wmBoundaries = []; end
 if isfield(pde, 'wmDistances') == 0, pde.wmDistances = []; end
@@ -35,6 +38,8 @@ else
 end
 if isfield(mesh, "curvedboundaryexprs")
   pde.curvedboundaryexprs = mesh.curvedboundaryexprs;
+elseif isfield(mesh, "curvedboundaryexpr")
+  pde.curvedboundaryexprs = mesh.curvedboundaryexpr;
 else
   pde.curvedboundaryexprs = [];
 end
@@ -63,7 +68,7 @@ else
   pde.periodicexprs2 = strings(1,m);
   for j = 1:m
     pde.periodicboundaries1(j) = periodicexpr{j,1};
-    pde.periodicboundaries1(j) = periodicexpr{j,3};    
+    pde.periodicboundaries2(j) = periodicexpr{j,3};
     tm = convertHandlesToStrings({periodicexpr{j,2}});    
     if tm == "xy"
       pde.periodicexprs1(2*j-1:2*j) = ["x", "y"];
@@ -123,9 +128,12 @@ fields = fieldnames(pde);
 requiredKeys = ["exasimpath", "datapath", "model", "modelfile", "meshfile", "xdgfile",...
   "udgfile", "vdgfile", "wdgfile", "discretization",...
   "platform", "mpiprocs", "debugmode", "runmode", "modelnumber", "porder", "pgauss","torder",...
-  "nstage","ncu", "ncw", "neb", "nfb", "NewtonIter", "NewtonTol", "GMRESiter", "GMRESrestart",...
+  "builtinmodelID",...
+  "nstage","ncu", "ncv", "ncw", "neb", "nfb", "NewtonIter", "NewtonTol", "GMRESiter", "GMRESrestart",...
   "GMREStol", "GMRESortho","ppdegree","RBdim", "matvecorder", "matvectol", "precMatrixType",...
-  "preconditioner", "time", "tau", "dt", "physicsparam", "externalparam", "boundaryconditions",...
+  "preconditioner", "saveSolFreq", "saveSolOpt", "saveSolBouFreq", "saveParaview",...
+  "physicsparamwarmstart", "time", "tau", "dt", "physicsparam",...
+  "physicsparamcases", "externalparam", "boundaryconditions",...
   "wmModelIDs", "wmBoundaries", "wmDistances",...
   "boundaryexpressions", "curvedboundaries", "curvedboundaryexprs", "periodicboundaries1",...
   "periodicexprs1", "periodicboundaries2","periodicexprs2", "interfaceconditions"];
@@ -151,6 +159,8 @@ for i = 1:length(requiredKeys)
           else
             fprintf(fid, '%s = %s;\n', key, mat2str(value));       
           end
+        elseif key == "physicsparamcases"
+          fprintf(fid, '%s = %s;\n', key, mat2str(value));
         else                       
           tm = num2str(value(1));
           for k = 2:length(value)

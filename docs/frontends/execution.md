@@ -124,6 +124,69 @@ standalone app entry point for use outside the interactive frontend.
 Use `exportapp` when moving a generated app to an HPC system or when you want a
 frontend-free standalone executable.
 
+## `exporttext2code`
+
+`exporttext2code` packages the higher-level Text2Code inputs for an application.
+Use it when you want to regenerate the application later with the `text2code`
+executable instead of shipping generated kernels and a ready-to-build C++ app.
+
+The exported directory contains:
+
+| File | Purpose |
+| --- | --- |
+| `pdemodel.txt` | Text2Code PDE model definition generated from the frontend model callbacks. |
+| `pdeapp.txt` | Application, solver, mesh, output, and runtime configuration. |
+| `grid.bin` | Mesh coordinates and connectivity. |
+| `xdg.bin` | Optional geometry variables when `mesh.dgnodes` is present. |
+| `udg.bin` | Optional initial solution when `mesh.udg` is present. |
+| `vdg.bin` | Optional external variables when `mesh.vdg` is present. Backend code also refers to these variables as `odg`. |
+| `wdg.bin` | Optional auxiliary ODE/ADE variables when `mesh.wdg` is present. |
+
+Unlike `exportapp`, this workflow does not export `kernels/`, `main.cpp`, or
+`CMakeLists.txt`. The receiving machine runs Text2Code to regenerate those
+files.
+
+=== "MATLAB"
+
+    ```matlab
+    exporttext2code(pde, mesh, "text2code_package");
+    ```
+
+=== "Python"
+
+    ```python
+    from exasim import exporttext2code
+    exporttext2code(pde, mesh, "text2code_package")
+    ```
+
+=== "Julia"
+
+    ```julia
+    Exasim.exporttext2code(pde, mesh, "text2code_package")
+    ```
+
+Regenerate the application from the exported package with:
+
+```sh
+cd text2code_package
+export EXASIM_PREFIX=/path/to/exasim-prefix
+/path/to/exasim-prefix/bin/text2code pdeapp.txt --out-dir generated
+```
+
+The exporter writes relative file names in `pdeapp.txt`, so the package can be
+copied to another machine. Set `EXASIM_PREFIX` when the package is outside an
+Exasim source checkout so Text2Code can locate installed runtime data and model
+headers. MATLAB can serialize boundary-expression function handles through the
+existing frontend conversion helper. Python and Julia exports require boundary,
+curved-boundary, and periodic expressions to already be strings, because
+arbitrary host-language callback functions cannot be represented safely in
+`pdeapp.txt`.
+
+A minimal Python example is available at
+`examples/Poisson/poisson2d/pdeapp_exporttext2code.py`. It exports a Poisson
+application with `grid.bin`, `xdg.bin`, `udg.bin`, `vdg.bin`, `wdg.bin`, and a
+two-case `physicsparam` sweep.
+
 ## Restart And Postprocess-Oriented Runs
 
 Restart behavior is controlled by saved solution files, time offsets, and
