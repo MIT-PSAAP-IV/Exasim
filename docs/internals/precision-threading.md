@@ -187,8 +187,10 @@ reduction `#ifdef USE_FLOAT` blocks (`PDOT`/`PGEMTV`/`PGEMTM`) and **34 halo-exc
 hardcoded `MPI_DOUBLE` even though the buffers are `dstype*`, so a single-precision (`USE_FLOAT`) build
 mis-typed every exchange — now `mpi_type<dstype>()` (byte-identical for double, correct for float,
 auto-becomes `mpi_type<T>()` with the `using dstype=T` shadow). ParMETIS `MPI_DOUBLE` left alone (its
-`real_t` weights are a separate concern). Verified: CPU-MPI full rebuild + multi-rank app-regression at
-unchanged rel_L2. GPU-MPI (dgx-b `petsc_poisson_mpi`) is the next check.
+`real_t` weights are a separate concern). Verified on both MPI paths: CPU-MPI full rebuild +
+multi-rank app-regression at unchanged rel_L2; **GPU-MPI** on dgx-b (`petsc_poisson_mpi`, CUDA build,
+`mpiexec -n 1/2/4` backend=2) PASS across all rank counts with real halo exchange + ParMETIS partition
+(SNES residual ~3e-12 each).
 
 ### Remaining Phase 3 (large, high-churn, mostly GPU-untestable locally)
 - Rest of `pblas.h`: `PGEMTM`/`PGEMNV`/`PGEMTV` (hot element-block GEMMs), `PGEMNMStridedBached`,
