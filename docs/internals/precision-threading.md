@@ -227,7 +227,7 @@ auto-activate into the real `T==dstype` guard (the `using dstype=T` shadow reach
   library and the petsc_poisson consumer; run with `EXASIM_BACKEND=2` is byte-identical (residual
   9.119e-14, ShellMat vs op.mat()=0, MATAIJ 2.622e-16).
 
-### pblas.h tail — DONE (CPU)
+### pblas.h tail — DONE (CPU + GPU)
 The `blas<T>` trait gained the level-1 ops (`dot`/`copy`/`scal`/`axpy`, s*/d* per specialization) and
 the remaining pblas wrappers are now `template <class T=dstype>` with a `using dstype=T;` body shadow:
 `Inverse`, `PDOT`, `PNORM` (both overloads), `DOT`, `ArrayCopy`, `ArrayMultiplyScalar`, `ArrayAXPY`,
@@ -236,7 +236,9 @@ the remaining pblas wrappers are now `template <class T=dstype>` with a `using d
 `MPI_Allreduce` in `PDOT` picks up `mpi_type<T>()` automatically via the shadow. GPU cublas/hipblas
 branches stay `#ifdef`. Callers pass `dstype*` so `T` deduces — no call-site changes. Verified: full
 rebuild+install+app-regression byte-identical (all golden rel_L2 unchanged, 10 pass / 2 pre-existing
-np=4 fails).
+np=4 fails). GPU-verified on dgx-b (V100): nvcc device-compiles the templated wrappers into the CUDA
+Exasim lib + petsc_poisson consumer; backend=2 byte-identical (residual 9.119e-14, ShellMat vs
+op.mat()=0, MATAIJ 2.622e-16).
 
 ### Remaining Phase 3
 - The `blas<T>` **GPU** trait methods (cublas/hipblas gemm/gemv/dot/copy/scal/axpy) so non-default GPU

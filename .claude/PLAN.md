@@ -14,6 +14,19 @@ static_assert(T==dstype) in EXASIM_DRIVER_CALL AbiAdapter branch; forward-activa
 - P3 blas<T> trait + CPU GEMM/GETRF wrappers (pblas.h): 338bb652
 - P3 cut stance A (EXASIM_DRIVER_CALL static_assert): 4e15bc5f
 - P3 mpi_type<T> trait + fix hardcoded MPI_DOUBLE halo-exchange bug (34 sites): 6f8013df
+- P3 pblas transpose GEMM/GEMV via blas<T>: ac4ebf8b
+- P3 cpuimpl.h 8 CPU primitives <T=dstype>: 5973ac67
+- P3 kokkosimpl.h all 137 Kokkos device kernels <Ty=dstype>: 4f227870 (GPU-verified aed7402d)
+- P3 Discretization/*.hpp HDG/LDG free-function layer <M,T=dstype,I=Int> (uequation/matvec/qequation/
+  wequation/residual/qoicalculation/massinv/getuhat/setstructs): 304d4a28 (GPU-verified c10f18fd)
+- P3 pblas tail (Inverse/PDOT/PNORM/DOT/Array*/NORM/PGEMNMStridedBached + blas<T> level-1 ops): 3461759a
+  (GPU-verified this commit)
+
+## Phase 3 status: COMPUTE + ORCHESTRATION COMPLETE
+The whole solve path is now templated + byte-identical on CPU/CPU-MPI/GPU/GPU-MPI: structs, FEM classes,
+compute primitives (pblas/cpuimpl/kokkosimpl), the Discretization HDG/LDG free-function layer, and the
+PETSc shim. ONLY remaining P3 tail: the blas<T> GPU trait methods (cublas/hipblas) for *non-default* GPU
+precision (default-dstype GPU path already verified). Then Phase 4 (codegen) + Phase 5 (mixed-prec test).
 
 ## Verified
 - CPU + CPU-MPI (EXASIM_MPI=ON local): build_robust ALL PASS + prec_fullverify app-regression at
