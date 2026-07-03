@@ -33,7 +33,7 @@ endif()
 set_property(GLOBAL PROPERTY EXASIM_BM_IDS "")
 set_property(GLOBAL PROPERTY EXASIM_BM_DIRS "")
 set_property(GLOBAL PROPERTY EXASIM_BM_GENFILES "")
-set_property(GLOBAL PROPERTY EXASIM_BM_SIZES "")
+# set_property(GLOBAL PROPERTY EXASIM_BM_SIZES "")   # no longer used
 
 # -----------------------------------------------------------------------------
 # exasim_add_builtin_model(<id> [SOURCE <pdemodel.txt>] [MODEL_DIR <dir>])
@@ -44,98 +44,7 @@ set_property(GLOBAL PROPERTY EXASIM_BM_SIZES "")
 function(exasim_add_builtin_model ID)
   cmake_parse_arguments(BM "" "SOURCE;MODEL_DIR" "" ${ARGN})
 
-  # Parse model sizes from pdeapp.txt for the auto-generated size table.
-  # Do this before the text2code availability check so the table is
-  # populated even when text2code is unavailable (legacy kernel fallback).
-  set(_ncu 0)
-  set(_nco 0)
-  set(_ncw 0)
-  set(_nsca 0)
-  set(_nvec 0)
-  set(_nten 0)
-  set(_nsurf 0)
-  set(_nvqoi 0)
-  if(BM_SOURCE AND EXISTS "${BM_SOURCE}")
-    file(STRINGS "${BM_SOURCE}" _lines)
-    foreach(_line IN LISTS _lines)
-      if(_line MATCHES "^[ \t]*ncu[ \t]*=[ \t]*([0-9]+)")
-        set(_ncu "${CMAKE_MATCH_1}")
-      elseif(_line MATCHES "^[ \t]*ncv[ \t]*=[ \t]*([0-9]+)")
-        set(_nco "${CMAKE_MATCH_1}")
-      elseif(_line MATCHES "^[ \t]*ncw[ \t]*=[ \t]*([0-9]+)")
-        set(_ncw "${CMAKE_MATCH_1}")
-      elseif(_line MATCHES "^[ \t]*nsca[ \t]*=[ \t]*([0-9]+)")
-        set(_nsca "${CMAKE_MATCH_1}")
-      elseif(_line MATCHES "^[ \t]*nvec[ \t]*=[ \t]*([0-9]+)")
-        set(_nvec "${CMAKE_MATCH_1}")
-      elseif(_line MATCHES "^[ \t]*nten[ \t]*=[ \t]*([0-9]+)")
-        set(_nten "${CMAKE_MATCH_1}")
-      elseif(_line MATCHES "^[ \t]*nsurf[ \t]*=[ \t]*([0-9]+)")
-        set(_nsurf "${CMAKE_MATCH_1}")
-      elseif(_line MATCHES "^[ \t]*nvqoi[ \t]*=[ \t]*([0-9]+)")
-        set(_nvqoi "${CMAKE_MATCH_1}")
-      endif()
-    endforeach()
-  endif()
-  # Fallback: parse vis/QoI sizes from pdemodel.txt when not in pdeapp.txt
-  set(_dep_model "")
-  if(BM_SOURCE MATCHES "^.*pdeapp")
-    string(REGEX REPLACE "pdeapp([0-9]+)\\.txt$" "pdemodel\\1.txt" _dep_model "${BM_SOURCE}")
-  endif()
-  if((_nsca EQUAL 0 OR _nvec EQUAL 0 OR _nten EQUAL 0 OR _nsurf EQUAL 0 OR _nvqoi EQUAL 0)
-     AND _dep_model AND EXISTS "${_dep_model}")
-    file(STRINGS "${_dep_model}" _model_lines)
-    set(_nd 0)
-    set(_saw_scalars FALSE)
-    set(_saw_vectors FALSE)
-    set(_saw_tensors FALSE)
-    set(_saw_qoiv FALSE)
-    set(_saw_qoib FALSE)
-    foreach(_line IN LISTS _model_lines)
-      if(_line MATCHES "^vectors[ \t]+.*x\\(([0-9]+)\\).*")
-        set(_nd "${CMAKE_MATCH_1}")
-      elseif(_line MATCHES "^function[ \t]+VisScalars")
-        set(_saw_scalars TRUE)
-      elseif(_line MATCHES "^function[ \t]+VisVectors")
-        set(_saw_vectors TRUE)
-      elseif(_line MATCHES "^function[ \t]+VisTensors")
-        set(_saw_tensors TRUE)
-      elseif(_line MATCHES "^function[ \t]+QoIvolume")
-        set(_saw_qoiv TRUE)
-      elseif(_line MATCHES "^function[ \t]+QoIboundary")
-        set(_saw_qoib TRUE)
-      elseif(_saw_scalars AND _line MATCHES "^[ \t]*output_size\\(s\\)[ \t]*=[ \t]*([0-9]+)")
-        if(_nsca EQUAL 0)
-          set(_nsca "${CMAKE_MATCH_1}")
-        endif()
-        set(_saw_scalars FALSE)
-      elseif(_saw_vectors AND _line MATCHES "^[ \t]*output_size\\(s\\)[ \t]*=[ \t]*([0-9]+)")
-        if(_nvec EQUAL 0 AND _nd GREATER 0)
-          math(EXPR _nvec "${CMAKE_MATCH_1} / ${_nd}")
-        endif()
-        set(_saw_vectors FALSE)
-      elseif(_saw_tensors AND _line MATCHES "^[ \t]*output_size\\(s\\)[ \t]*=[ \t]*([0-9]+)")
-        if(_nten EQUAL 0 AND _nd GREATER 0)
-          math(EXPR _nten "${CMAKE_MATCH_1} / ${_nd} / ${_nd}")
-        endif()
-        set(_saw_tensors FALSE)
-      elseif(_saw_qoiv AND _line MATCHES "^[ \t]*output_size\\(s\\)[ \t]*=[ \t]*([0-9]+)")
-        if(_nvqoi EQUAL 0)
-          set(_nvqoi "${CMAKE_MATCH_1}")
-        endif()
-        set(_saw_qoiv FALSE)
-      elseif(_saw_qoib AND _line MATCHES "^[ \t]*output_size\\(fb\\)[ \t]*=[ \t]*([0-9]+)")
-        if(_nsurf EQUAL 0)
-          set(_nsurf "${CMAKE_MATCH_1}")
-        endif()
-        set(_saw_qoib FALSE)
-      endif()
-    endforeach()
-  endif()
-  set_property(GLOBAL APPEND PROPERTY
-    EXASIM_BM_SIZES
-    "${ID}|${_ncu}|${_nco}|${_ncw}|${_nsca}|${_nvec}|${_nten}|${_nsurf}|${_nvqoi}")
-
+  # Model sizes are provided by text2code-generated model_sizes.hpp.
   if(BM_SOURCE AND NOT EXISTS "${EXASIM_TEXT2CODE}")
     message(STATUS "exasim_add_builtin_model(${ID}): text2code not found at "
                    "${EXASIM_TEXT2CODE}; using checked-in kernels in model${ID}.")
@@ -233,28 +142,26 @@ function(exasim_finalize_builtin_models)
     "${EXASIM_BUILTIN_INCDIR}/builtin_model_registry.h"
     @ONLY)
 
-  # --- generate the model size lookup table (.cpp, linked into the library) ---
-  get_property(_sizes GLOBAL PROPERTY EXASIM_BM_SIZES)
+    # --- generate the model size lookup table (.cpp, linked into the library) ---
+  # Sourced from text2code-generated model_sizes.hpp (one per model).
+  get_property(_ids GLOBAL PROPERTY EXASIM_BM_IDS)
   set(_sizes_file "${EXASIM_BUILTIN_GENROOT}/builtin_model_sizes.cpp")
   file(WRITE "${_sizes_file}"
-    "// Auto-generated by CMake. Do not edit.\n"
-    "#include \"driver_abi.hpp\"\n"
+    "// Auto-generated by CMake from text2code model_sizes.hpp headers.\n"
+    "#include \"driver_abi.hpp\"\n")
+  foreach(_id IN LISTS _ids)
+    file(APPEND "${_sizes_file}"
+      "namespace builtin_model_${_id} {\n"
+      "#include \"model${_id}/model_sizes.hpp\"\n"
+      "}\n")
+  endforeach()
+  file(APPEND "${_sizes_file}"
     "\n"
     "ModelSizes builtinGetModelSizes(int modelnumber) {\n"
     "    switch (modelnumber) {\n")
-  foreach(_entry IN LISTS _sizes)
-    string(REPLACE "|" ";" _parts "${_entry}")
-    list(GET _parts 0 _id)
-    list(GET _parts 1 _ncu)
-    list(GET _parts 2 _nco)
-    list(GET _parts 3 _ncw)
-    list(GET _parts 4 _nsca)
-    list(GET _parts 5 _nvec)
-    list(GET _parts 6 _nten)
-    list(GET _parts 7 _nsurf)
-    list(GET _parts 8 _nvqoi)
+  foreach(_id IN LISTS _ids)
     file(APPEND "${_sizes_file}"
-      "        case ${_id}: return {${_ncu}, ${_nco}, ${_ncw}, ${_nsca}, ${_nvec}, ${_nten}, ${_nsurf}, ${_nvqoi}};\n")
+      "        case ${_id}: return {builtin_model_${_id}::ncu, builtin_model_${_id}::nco, builtin_model_${_id}::ncw, builtin_model_${_id}::nsca, builtin_model_${_id}::nvec, builtin_model_${_id}::nten, builtin_model_${_id}::nsurf, builtin_model_${_id}::nvqoi};\n")
   endforeach()
   file(APPEND "${_sizes_file}"
     "        default: return {0, 0, 0, 0, 0, 0, 0, 0};\n"
