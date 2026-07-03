@@ -639,7 +639,9 @@ std::string trimToSubstringAtLastOccurence(const std::filesystem::path& fullPath
     return "";
 }
 
-struct appstruct {              
+template <class T = ::dstype, class I = ::Int>
+struct appstructT {
+    using dstype = T; using Int = I;
     Int *lsize=nullptr;
     Int *nsize=nullptr;  // data size
     Int *ndims=nullptr;  // dimensions
@@ -766,6 +768,7 @@ struct appstruct {
         TemplateFree(dtcoef_w, backend);
     }
 };
+using appstruct = appstructT<::dstype, ::Int>;
 
 struct wallmodelstruct {
     Int initialized = 0;
@@ -861,7 +864,9 @@ struct wallmodelstruct {
     }
 };
 
-struct masterstruct {       
+template <class T = ::dstype, class I = ::Int>
+struct masterstructT {
+    using dstype = T; using Int = I;
     
     Int *lsize=nullptr;
     Int *nsize=nullptr;  // data size
@@ -969,8 +974,11 @@ struct masterstruct {
         TemplateFree(shapfgwdotshapfg, backend);             
     }            
 };
+using masterstruct = masterstructT<::dstype, ::Int>;
   
-struct meshstruct {       
+template <class T = ::dstype, class I = ::Int>
+struct meshstructT {
+    using dstype = T; using Int = I;
     Int *lsize=nullptr;
     Int *nsize=nullptr;  // data size
     Int *ndims=nullptr;  // dimensions
@@ -1174,8 +1182,11 @@ struct meshstruct {
         TemplateFree(facerecvpts, backend);            
     }            
 };
+using meshstruct = meshstructT<::dstype, ::Int>;
 
-struct solstruct {
+template <class T = ::dstype, class I = ::Int>
+struct solstructT {
+    using dstype = T; using Int = I;
     Int *lsize=nullptr;
     Int *nsize=nullptr;  // data size
     Int *ndims=nullptr;  // dimensions
@@ -1308,6 +1319,7 @@ struct solstruct {
         TemplateFree(bouuhavg, backend); 
     }             
 };
+using solstruct = solstructT<::dstype, ::Int>;
 
 // Neutral scratch-arena owner (S5 step 3). Owns the big K backing buffer (grow-if-needed).
 // The residual struct (res.K + the D/B/F/G/H views) and the solver (sys.v) hold NON-owning
@@ -1650,7 +1662,9 @@ struct sysstructT {
 // Default instantiation keeps the name `sysstruct` meaning exactly what it did (double/int today).
 using sysstruct = sysstructT<::dstype, ::Int>;
 
-struct precondstruct {
+template <class T = ::dstype, class I = ::Int>
+struct precondstructT {
+    using dstype = T; using Int = I;
     Int backend;
     
     dstype *W=nullptr; 
@@ -1681,6 +1695,7 @@ struct precondstruct {
         TemplateFree(ipiv, backend); 
     }            
 };
+using precondstruct = precondstructT<::dstype, ::Int>;
 
 // Grouped mutable transient state of the iterative solver + reduced-basis preconditioner.
 // Extracted from commonstruct (C1) and then OWNED BY CSolver (Stage 1 of the internal
@@ -1986,7 +2001,9 @@ struct meshsizesstruct {
     Int nf0;     // interior faces
 };
 
-struct commonstruct {
+template <class T = ::dstype, class I = ::Int>
+struct commonstructT {
+    using dstype = T; using Int = I;
     meshsizesstruct meshsizes;              // mesh partition element/face/block counts (see above)
     gridstruct grid;                        // reference-element/discretization sizes (see above)
     componentsstruct components;            // DG-field component counts (see above)
@@ -2302,6 +2319,7 @@ struct commonstruct {
         if (qoiparams.nsurf > 0) CPUFREE(qoiparams.qoisurface);
     }
 };
+using commonstruct = commonstructT<::dstype, ::Int>;
 
 // --- QoI output helpers (instance-driven) ------------------------------------------------
 // Write the QoI column headers / one QoI value row by iterating the registered QoI instances.

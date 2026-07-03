@@ -56,10 +56,11 @@ ways: the robustness harness compiles it header-inline and PASSes, and a full li
 …). Nested struct members (e.g. `commonstruct` holding `sizesstruct`) stay the default alias for now —
 threading `T,I` into nested types is the tail of this phase / Phase 2.
 
-- **Done + verified:** `sysstruct`, `scratcharenastruct`, `resstruct`, `tempstruct`.
-- **Remaining:** `solstruct`, `masterstruct`, `meshstruct`, `appstruct`, `precondstruct`,
-  `commonstruct` (+ the mostly-int param structs, low value), and the `Kokkos::View<dstype*>` /
-  `view_1d` aliases → `view_1d<T>`.
+- **Done + verified:** `sysstruct`, `scratcharenastruct`, `resstruct`, `tempstruct`, `appstruct`,
+  `masterstruct`, `meshstruct`, `solstruct`, `precondstruct`, `commonstruct` (10 core structs).
+- **Remaining:** the mostly-int param structs (`sizesstruct`, `gridstruct`, `componentsstruct`, the
+  `*paramsstruct` family — low value, few/no `dstype*`), and the `Kokkos::View<dstype*>` / `view_1d`
+  aliases → `view_1d<T>`. Then thread `T,I` into nested struct members (currently default aliases).
 
 ## Phase 2 — Class templating
 Extend the already-`<M>`-templated FEM classes to `<M, T=dstype, I=Int>`:
