@@ -89,11 +89,26 @@ CDiscretizationT<::dstype,::Int>;`. Two mechanisms made it precision-preserving:
   *same* rel_L2 (poisson3d 9.99e-11, isoq3d 1.95e-9, poisson2d 2.29e-12). Landed on the first full
   build.
 
-**Remaining:** thread `<T,I>` into `CResidual<M>` → `CResidual<M,T,I>` (and `CAssembler`,
-`CPreconditioner`, `CSolver`) so they hold `CDiscretizationT<T,I>&` and their scratch is `T*`; then
-the `include/exasim` shim (`Operator`, `ShellMat`, `assemble_matrix`, `make_mass_inverse`) takes
-`Scalar`/`Idx` template args (default `floatTy`/`intTy`) and the zero-copy Vec/Mat wrapping uses them
-directly (dropping the ABI `static_assert` for a compile-time-selected match instead).
+**FEM classes — DONE + verified.** `CResidual<M>`, `CAssembler<M>`, `CPreconditioner<M>`, `CSolver<M>`
+are now `<M, T=::dstype, I=::Int>`. These were *much* easier than `CDiscretization`: they are already
+`<M>` templates (header-inline via the `operators.hpp` aggregation, so consumers instantiate them
+locally — no `extern template`/explicit-instantiation TU split) that only hold a *reference* to the
+owner. Same shadow-alias pattern (`using dstype=T; using Int=I; using CDiscretization =
+CDiscretizationT<T,I>;` + `sysstruct`/`precondstruct` where used) keeps member decls + out-of-line
+bodies byte-identical; the only explicit edits were the cross-references between them
+(`CAssembler<M>`→`CAssembler<M,T,I>` etc. in the solve-surface signatures) and the 15 forward
+declarations across the backend. One gotcha fixed: `CSolver::gmres` returns `Int` — the out-of-line
+return type is looked up in *namespace* scope (not the class), so it had to be spelled `I` (the
+template param) to match the in-class `Int`(=I); parameter types after the `CSolver<M,T,I>::` are in
+class scope and needed no change. `ptcsolver.cpp`/`gmres.cpp` also define `CSolver` methods; the
+`ApplyPoly<M>` free helpers in `gmres.cpp` stay `<M>` (their default-precision refs match under
+`T=dstype`). Verified: consumer robustness `ALL PASS` + full backend rebuild + app-regression through
+the real solver (gmres/PTC) at the same rel_L2 (naca0012 2.94e-13, poisson3d 9.99e-11, isoq3d 1.95e-9).
+
+**Remaining Phase 2:** the `include/exasim` shim (`Operator`, `ShellMat`, `assemble_matrix`,
+`make_mass_inverse`) takes `Scalar`/`Idx` template args (default `floatTy`/`intTy`) and the zero-copy
+Vec/Mat wrapping uses them directly (dropping the ABI `static_assert` for a compile-time-selected
+match instead) — this is what makes a chosen-precision export actually reachable by a consumer.
 
 ## Phase 3 — Kernels + BLAS + Kokkos dispatch
 - Compute kernels (`backend/Discretization/*.hpp`, `Common/{cpuimpl,kokkosimpl}.h`) take `T*`.

@@ -7,25 +7,25 @@
 
     Functions:
 
-    - int CSolver::linearSolve(CResidual<M>& residual, CAssembler<M>& assembler, CDiscretization& disc, CPreconditioner<M>& prec, ofstream &out, Int it, Int backend)
+    - int CSolver::linearSolve(CResidual<M, T, I>& residual, CAssembler<M, T, I>& assembler, CDiscretization& disc, CPreconditioner<M, T, I>& prec, ofstream &out, Int it, Int backend)
         Solves the linear system arising in each nonlinear iteration. Evaluates the residual, constructs the preconditioner, 
         applies GMRES, and manages timing and logging. Handles reduced basis updates and checks for convergence.
 
-    - void CSolver::updateRB(CDiscretization& disc, CPreconditioner<M>& prec, Int backend)
+    - void CSolver::updateRB(CDiscretization& disc, CPreconditioner<M, T, I>& prec, Int backend)
         Updates the reduced basis vectors used for preconditioning if the current solution increment is significant.
 
-    - Int PTCsolver(sysstruct &sys,  CDiscretization& disc, CPreconditioner<M>& prec, ofstream &out, Int backend)
+    - Int PTCsolver(sysstruct &sys,  CDiscretization& disc, CPreconditioner<M, T, I>& prec, ofstream &out, Int backend)
         Implements the Pseudo-Time Continuation (PTC) nonlinear solver. Iteratively solves the nonlinear system R(u) = 0 
         using the linear solver, updates the solution, checks for divergence, logs residual norms, and manages reduced basis updates.
 
-    - void CSolver::updateRB(CDiscretization& disc, CPreconditioner<M>& prec, Int N, Int backend)
+    - void CSolver::updateRB(CDiscretization& disc, CPreconditioner<M, T, I>& prec, Int N, Int backend)
         Alternate version of UpdateRB with explicit dimension argument. Updates the reduced basis vectors for preconditioning.
 
-    - void CSolver::linearSolve(CDiscretization& disc, CPreconditioner<M>& prec, ofstream &out, Int N, Int spatialScheme, Int it, Int backend)
+    - void CSolver::linearSolve(CDiscretization& disc, CPreconditioner<M, T, I>& prec, ofstream &out, Int N, Int spatialScheme, Int it, Int backend)
         Overloaded LinearSolver supporting different spatial discretization schemes. Assembles the linear system, constructs 
         the preconditioner, applies GMRES, and logs timing information.
 
-    - Int NonlinearSolver(sysstruct &sys,  CDiscretization& disc, CPreconditioner<M>& prec, ofstream &out, Int N, Int spatialScheme, Int backend)
+    - Int NonlinearSolver(sysstruct &sys,  CDiscretization& disc, CPreconditioner<M, T, I>& prec, ofstream &out, Int N, Int spatialScheme, Int backend)
         Implements Newton's method for nonlinear systems. Iteratively solves the linearized system, applies solution updates 
         with damping, computes residuals, manages reduced basis updates, and checks for convergence.
 
@@ -47,8 +47,8 @@
 #ifndef __PTCSOLVER
 #define __PTCSOLVER
 
-template <class M>
-int CSolver<M>::linearSolve(CResidual<M>& residual, CAssembler<M>& assembler, CDiscretization& disc, CPreconditioner<M>& prec, ofstream &out, Int it, Int backend)
+template <class M, class T, class I>
+int CSolver<M, T, I>::linearSolve(CResidual<M, T, I>& residual, CAssembler<M, T, I>& assembler, CDiscretization& disc, CPreconditioner<M, T, I>& prec, ofstream &out, Int it, Int backend)
 {    
         
 #ifdef TIMING    
@@ -151,8 +151,8 @@ int CSolver<M>::linearSolve(CResidual<M>& residual, CAssembler<M>& assembler, CD
     return 0;    
 }
 
-template <class M>
-void CSolver<M>::updateRB(CDiscretization& disc, CPreconditioner<M>& prec, Int backend)
+template <class M, class T, class I>
+void CSolver<M, T, I>::updateRB(CDiscretization& disc, CPreconditioner<M, T, I>& prec, Int backend)
 {
     Int N = disc.common.sizes.ndof1;
                     
@@ -173,8 +173,8 @@ void CSolver<M>::updateRB(CDiscretization& disc, CPreconditioner<M>& prec, Int b
     }
 }
 
-template <class M>
-void CSolver<M>::updateRB(CDiscretization& disc, CPreconditioner<M>& prec, Int N, Int backend)
+template <class M, class T, class I>
+void CSolver<M, T, I>::updateRB(CDiscretization& disc, CPreconditioner<M, T, I>& prec, Int N, Int backend)
 {                       
     dstype nrmr = PNORM(disc.common.cublasHandle, N, sys.x, backend);
     if (nrmr>zero) {
@@ -193,8 +193,8 @@ void CSolver<M>::updateRB(CDiscretization& disc, CPreconditioner<M>& prec, Int N
     }
 }
 
-template <class M>
-void CSolver<M>::linearSolve(CResidual<M>& residual, CAssembler<M>& assembler, CDiscretization& disc, CPreconditioner<M>& prec, ofstream &out, Int N, Int spatialScheme, Int it, Int backend)
+template <class M, class T, class I>
+void CSolver<M, T, I>::linearSolve(CResidual<M, T, I>& residual, CAssembler<M, T, I>& assembler, CDiscretization& disc, CPreconditioner<M, T, I>& prec, ofstream &out, Int N, Int spatialScheme, Int it, Int backend)
 {
     // evaluate the residual R(u) and set it to sys.b
     if (spatialScheme==0) {

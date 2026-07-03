@@ -12,8 +12,8 @@
 
 #include "residualeval.h"
 
-template <class M>
-void CResidual<M>::evalResidual(Int backend)
+template <class M, class T, class I>
+void CResidual<M, T, I>::evalResidual(Int backend)
 {
     [[maybe_unused]] auto& sol = disc.sol; [[maybe_unused]] auto& res = disc.res; [[maybe_unused]] auto& app = disc.app;
     [[maybe_unused]] auto& master = disc.master; [[maybe_unused]] auto& mesh = disc.mesh; [[maybe_unused]] auto& tmp = disc.tmp;
@@ -23,8 +23,8 @@ void CResidual<M>::evalResidual(Int backend)
 }
 
 // residual evaluation
-template <class M>
-void CResidual<M>::evalResidual(dstype* Ru, dstype* u, Int backend)
+template <class M, class T, class I>
+void CResidual<M, T, I>::evalResidual(dstype* Ru, dstype* u, Int backend)
 { 
     [[maybe_unused]] auto& sol = disc.sol; [[maybe_unused]] auto& res = disc.res; [[maybe_unused]] auto& app = disc.app;
     [[maybe_unused]] auto& master = disc.master; [[maybe_unused]] auto& mesh = disc.mesh; [[maybe_unused]] auto& tmp = disc.tmp;
@@ -41,8 +41,8 @@ void CResidual<M>::evalResidual(dstype* Ru, dstype* u, Int backend)
 }
 
 // q evaluation
-template <class M>
-void CResidual<M>::evalQ(Int backend)
+template <class M, class T, class I>
+void CResidual<M, T, I>::evalQ(Int backend)
 {
     [[maybe_unused]] auto& sol = disc.sol; [[maybe_unused]] auto& res = disc.res; [[maybe_unused]] auto& app = disc.app;
     [[maybe_unused]] auto& master = disc.master; [[maybe_unused]] auto& mesh = disc.mesh; [[maybe_unused]] auto& tmp = disc.tmp;
@@ -60,8 +60,8 @@ void CResidual<M>::evalQ(Int backend)
     }
 }
 
-template <class M>
-void CResidual<M>::evalQSer(Int backend)
+template <class M, class T, class I>
+void CResidual<M, T, I>::evalQSer(Int backend)
 {
     [[maybe_unused]] auto& sol = disc.sol; [[maybe_unused]] auto& res = disc.res; [[maybe_unused]] auto& app = disc.app;
     [[maybe_unused]] auto& master = disc.master; [[maybe_unused]] auto& mesh = disc.mesh; [[maybe_unused]] auto& tmp = disc.tmp;
@@ -71,8 +71,8 @@ void CResidual<M>::evalQSer(Int backend)
     GetQ(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 0, common.meshsizes.nbe, 0, common.meshsizes.nbf, backend);        
 }
 
-template <class M>
-void CResidual<M>::evalQ(dstype* q, dstype* u, Int backend)
+template <class M, class T, class I>
+void CResidual<M, T, I>::evalQ(dstype* q, dstype* u, Int backend)
 {
     [[maybe_unused]] auto& sol = disc.sol; [[maybe_unused]] auto& res = disc.res; [[maybe_unused]] auto& app = disc.app;
     [[maybe_unused]] auto& master = disc.master; [[maybe_unused]] auto& mesh = disc.mesh; [[maybe_unused]] auto& tmp = disc.tmp;
@@ -99,8 +99,8 @@ void CResidual<M>::evalQ(dstype* q, dstype* u, Int backend)
 }
 
 
-template <class M>
-void CResidual<M>::updateUDG(dstype* u, Int backend)
+template <class M, class T, class I>
+void CResidual<M, T, I>::updateUDG(dstype* u, Int backend)
 {
     [[maybe_unused]] auto& sol = disc.sol; [[maybe_unused]] auto& res = disc.res; [[maybe_unused]] auto& app = disc.app;
     [[maybe_unused]] auto& master = disc.master; [[maybe_unused]] auto& mesh = disc.mesh; [[maybe_unused]] auto& tmp = disc.tmp;
@@ -114,8 +114,8 @@ void CResidual<M>::updateUDG(dstype* u, Int backend)
         ComputeQ<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
 }
 
-template <class M>
-void CResidual<M>::updateU(dstype* u, Int backend)
+template <class M, class T, class I>
+void CResidual<M, T, I>::updateU(dstype* u, Int backend)
 {
     [[maybe_unused]] auto& sol = disc.sol; [[maybe_unused]] auto& res = disc.res; [[maybe_unused]] auto& app = disc.app;
     [[maybe_unused]] auto& master = disc.master; [[maybe_unused]] auto& mesh = disc.mesh; [[maybe_unused]] auto& tmp = disc.tmp;
@@ -125,8 +125,8 @@ void CResidual<M>::updateU(dstype* u, Int backend)
             0, common.components.ncu, 0, common.meshsizes.ne1);
 }
 
-template <class M>
-void CResidual<M>::evalAVfield(dstype* avField, dstype* u, Int backend)
+template <class M, class T, class I>
+void CResidual<M, T, I>::evalAVfield(dstype* avField, dstype* u, Int backend)
 {
     [[maybe_unused]] auto& sol = disc.sol; [[maybe_unused]] auto& res = disc.res; [[maybe_unused]] auto& app = disc.app;
     [[maybe_unused]] auto& master = disc.master; [[maybe_unused]] auto& mesh = disc.mesh; [[maybe_unused]] auto& tmp = disc.tmp;
@@ -143,8 +143,8 @@ void CResidual<M>::evalAVfield(dstype* avField, dstype* u, Int backend)
     EXASIM_DRIVER_CALL(AvfieldDriver, avField, sol.xdg, sol.udg, sol.odg, sol.wdg, mesh, master, app, sol, tmp, common, backend);    
 }
 
-template <class M>
-void CResidual<M>::evalAVfield(dstype* avField, Int backend)
+template <class M, class T, class I>
+void CResidual<M, T, I>::evalAVfield(dstype* avField, Int backend)
 {    
     [[maybe_unused]] auto& sol = disc.sol; [[maybe_unused]] auto& res = disc.res; [[maybe_unused]] auto& app = disc.app;
     [[maybe_unused]] auto& master = disc.master; [[maybe_unused]] auto& mesh = disc.mesh; [[maybe_unused]] auto& tmp = disc.tmp;
@@ -212,8 +212,8 @@ void CResidual<M>::evalAVfield(dstype* avField, Int backend)
 // Thin entry over the free initializeSolution(); relocated out of the CDiscretization ctor so
 // the operator drives its own initialization. The free function reads disc.common's sizes and
 // dispatches the model init drivers in the solution's execution space (host on CPU, device on GPU).
-template <class M>
-void CResidual<M>::initializeSolution()
+template <class M, class T, class I>
+void CResidual<M, T, I>::initializeSolution()
 {
     if constexpr (std::is_same_v<M, exasim::detail::AbiAdapter>) {
         // Runtime-ABI build: the free initializeSolution dispatches the model init drivers
@@ -242,8 +242,8 @@ void CResidual<M>::initializeSolution()
 // Extracted verbatim from the CDiscretization constructor (option 2): the q/uh recovery is
 // the operator applying itself, so it belongs to the operator (CResidual), not the function
 // space. Members are bound as disc.* references; the kernel calls are unchanged.
-template <class M>
-void CResidual<M>::recoverInitialState(Int backend, bool postprocessOnly)
+template <class M, class T, class I>
+void CResidual<M, T, I>::recoverInitialState(Int backend, bool postprocessOnly)
 {
     [[maybe_unused]] auto& sol = disc.sol; [[maybe_unused]] auto& res = disc.res; [[maybe_unused]] auto& app = disc.app;
     [[maybe_unused]] auto& master = disc.master; [[maybe_unused]] auto& mesh = disc.mesh; [[maybe_unused]] auto& tmp = disc.tmp;

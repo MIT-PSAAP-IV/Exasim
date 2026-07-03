@@ -18,10 +18,10 @@
 #include <exasim/detail/abi_adapter.hpp>
 
 template <class, class> class CDiscretizationT; using CDiscretization = CDiscretizationT<::dstype, ::Int>;   // forward declarations (CNonlinearSolver only holds references)
-template <class M> class CResidual;
-template <class M> class CAssembler;
-template <class M> class CPreconditioner;
-template <class M> class CSolver;
+template <class M, class T, class I> class CResidual;
+template <class M, class T, class I> class CAssembler;
+template <class M, class T, class I> class CPreconditioner;
+template <class M, class T, class I> class CSolver;
 template <class M> class CSolutionWriter;
 
 // Templated on the user Model type M (default = AbiAdapter): holds the model-dependent pieces it

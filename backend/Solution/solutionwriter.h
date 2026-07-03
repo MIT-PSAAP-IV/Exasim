@@ -17,9 +17,9 @@
 #include <exasim/detail/abi_adapter.hpp>
 
 template <class, class> class CDiscretizationT; using CDiscretization = CDiscretizationT<::dstype, ::Int>;  // forward declarations (CSolutionWriter only holds references)
-template <class M> class CResidual;
+template <class M, class T, class I> class CResidual;
 class CVisualization;   // model-free (no driver calls) -> stays non-templated
-template <class M> class CSolver;
+template <class M, class T, class I> class CSolver;
 
 // Templated on the user Model type M (default = AbiAdapter): M threads to its QoI chain kernels
 // (qoiElement<M>/qoiFace<M>) and to the typed members (residual/solv); vis is model-free.

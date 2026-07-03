@@ -20,8 +20,12 @@ template <class, class> class CDiscretizationT; using CDiscretization = CDiscret
 // residual is the *equation*, so it threads M to its model-dependent chain kernels
 // (Residual<M>/ComputeQ<M>/GetUhat<M>) via the EXASIM_DRIVER_CALL dispatch. For M=AbiAdapter
 // the build is byte-identical to the non-templated original.
-template <class M = exasim::detail::AbiAdapter>
+template <class M = exasim::detail::AbiAdapter, class T = ::dstype, class I = ::Int>
 class CResidual {
+    // Phase 2 precision shadowing: thread T/I while keeping every member decl + out-of-line body
+    // byte-identical. `using CDiscretization` makes the held reference the matching <T,I> owner.
+    using dstype = T; using Int = I;
+    using CDiscretization = CDiscretizationT<T, I>;
 public:
     CDiscretization& disc;
 

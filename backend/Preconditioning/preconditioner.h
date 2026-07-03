@@ -24,13 +24,20 @@
 #include "exasim/execution_mode.hpp"
 #include <exasim/detail/abi_adapter.hpp>
 
-template <class M> class CAssembler;  // forward decl (preconditioner only references it by ref)
+template <class, class> class CDiscretizationT;         // forward decl (referenced by ref via the class-scope alias)
+template <class M, class T, class I> class CAssembler;  // forward decl (preconditioner only references it by ref)
 
 // Templated on the user Model type M (default = AbiAdapter): needs M only to name CAssembler<M>
 // in its method signatures; its own driver calls (BlockJacobianLDG) stay direct for now.
-template <class M = exasim::detail::AbiAdapter>
+template <class M = exasim::detail::AbiAdapter, class T = ::dstype, class I = ::Int>
 class CPreconditioner {
 private:
+    // Phase 2 precision shadowing: thread T/I while keeping member decls + out-of-line bodies
+    // byte-identical (CDiscretization/sysstruct/precondstruct now resolve to their <T,I> forms).
+    using dstype = T; using Int = I;
+    using CDiscretization = CDiscretizationT<T, I>;
+    using sysstruct       = sysstructT<T, I>;
+    using precondstruct   = precondstructT<T, I>;
 public:
     precondstruct precond; // store precondioner struct
         
@@ -43,9 +50,9 @@ public:
     // destructor        
     ~CPreconditioner(); 
             
-    void ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler<M>& assembler, CDiscretization& disc, Int backend);
+    void ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler<M, T, I>& assembler, CDiscretization& disc, Int backend);
 
-    void ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler<M>& assembler, CDiscretization& disc, Int N, Int spatialScheme, Int backend);
+    void ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler<M, T, I>& assembler, CDiscretization& disc, Int N, Int spatialScheme, Int backend);
     
     // apply the precontioner: Pv = P(u)*v
     void ApplyPreconditioner(dstype* v, sysstruct& sys, CDiscretization& disc, Int backend);

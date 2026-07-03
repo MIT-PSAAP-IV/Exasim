@@ -136,8 +136,8 @@ void UpdateSolution(cublasHandle_t handle, dstype *x, dstype *y, dstype *H, dsty
     PGEMNV(handle, N, i+1, &one, V, N, y, inc1, &one, x, inc1, backend);
 }
 
-template <class M>
-Int CSolver<M>::gmres(CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& prec, Int backend)
+template <class M, class T, class I>
+I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc, CPreconditioner<M, T, I>& prec, Int backend)
 {
     INIT_TIMING;    
     
@@ -357,8 +357,8 @@ void ApplyPoly(dstype *w, CAssembler<M>& assembler, CDiscretization &disc, CPrec
         ArrayAXPBY(w, w, q, 1.0, 1.0/sr[m-1], N);                  
 }
 
-template <class M>
-Int CSolver<M>::gmres(CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& prec, Int N, Int spatialScheme, Int backend)
+template <class M, class T, class I>
+I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc, CPreconditioner<M, T, I>& prec, Int N, Int spatialScheme, Int backend)
 {
     INIT_TIMING;    
     
