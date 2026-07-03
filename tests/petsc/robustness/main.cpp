@@ -17,6 +17,7 @@
 #include <exasim/operators.hpp>
 #include <exasim/export.hpp>
 #include <exasim/petsc.hpp>
+#include <exasim/pointlocator.hpp>   // CPointLocator: point location + shape-function interpolation
 
 #include "poisson2d.hpp"
 #include "navierstokes2d.hpp"   // GeneratedModel: compressible Navier-Stokes, nd=2 ncu=4, HDG,
@@ -159,6 +160,69 @@ static int check_ns_kernels()
     if (!(maxrel_bh<1e-4)) { std::printf("[robust] NavierStokes2D FAIL: fbou_hdg_jac_uh disagrees with FD (%.3e)\n", maxrel_bh); return 1; }
     return 0;
 }
+// Round-trip point SAMPLING check: exercises CPointLocator end to end -- point location
+// (candidate elems -> ellipsoid grid -> per-element Newton for reference coords) + shape-function
+// interpolation, the PointLocator subsystem the app zoo never touches. Build a preprocessed Poisson
+// disc, run the sampling builder (locate points a small distance off boundary ibc), then verify the
+// GEOMETRIC round trip: the shape functions applied to the owner element's node coordinates must
+// reproduce the sampled point (sum_i N_i * x_node_i == x_sample) and be a partition of unity. A
+// wrong element pick, Newton solve, or shape function shows up as a large residual. No golden data.
+static int check_sampling()
+{
+    const int backend = 0, n = 8, porder = 3;
+    constexpr double TOL = 1e-8;
+    int np=0,ne=0; std::vector<double> p; std::vector<int> t;
+    unitSquareQuadMesh(n, p, t, np, ne);
+    PDE pde = exasim::default_pde<Poisson2D>();
+    pde.porder = porder; pde.pgauss = 2*porder; pde.physicsparam = {1.0};
+    exasim::MeshSpec mesh(p.data(), t.data(), np, ne, /*nve=*/4);
+    mesh.add_boundary(1, [](const double* x){ return std::abs(x[1])     < TOL; });
+    mesh.add_boundary(1, [](const double* x){ return std::abs(x[0]-1.0) < TOL; });
+    mesh.add_boundary(1, [](const double* x){ return std::abs(x[1]-1.0) < TOL; });
+    mesh.add_boundary(1, [](const double* x){ return std::abs(x[0])     < TOL; });
+    CDiscretization disc(exasim::make_preprocessed<Poisson2D>(pde, mesh), backend);
+
+    CPointLocator locator;
+    const dstype y1 = 0.05;                               // sample this far off the wall (interior)
+    const bool ok = locator.BuildWallModelSamplingData(disc, /*ibc=*/1, y1);
+    const auto& wm = locator.wm;
+    if (!ok || wm.npoints <= 0) {
+        std::printf("[robust] Sampling FAIL: BuildWallModelSamplingData ok=%d npoints=%lld (e2f/f2e missing?)\n",
+                    (int)ok, (long long)wm.npoints);
+        return 1;
+    }
+    const Int npe=wm.npe, nd=wm.nd, ncx=wm.ncx;
+    const dstype* xdg = disc.sol.xdg;                     // geometry dg nodes [npe, ncx, ne], host
+    double maxres=0.0, maxpou=0.0; Int located=0;
+    for (Int q=0; q<wm.npoints; ++q) {
+        const Int e = wm.elemsx1[q];
+        if (e < 0) continue;                             // point not located (sentinel -1)
+        ++located;
+        double s=0.0; for (Int i=0;i<npe;++i) s += (double)wm.shap1[i + q*npe];
+        maxpou = std::max(maxpou, std::abs(s-1.0));
+        for (int d=0; d<nd; ++d) {
+            double xr=0.0;
+            for (Int i=0;i<npe;++i) xr += (double)wm.shap1[i + q*npe] * (double)xdg[i + d*npe + e*npe*ncx];
+            maxres = std::max(maxres, std::abs(xr - (double)wm.x1[d + q*nd]));
+        }
+    }
+    std::printf("[robust] Sampling (round-trip): npoints=%lld located=%lld npe=%lld : roundtrip=%.3e  partition_of_unity=%.3e\n",
+                (long long)wm.npoints, (long long)located, (long long)npe, maxres, maxpou);
+    int rc=0;
+    if (located <= 0)       { std::printf("[robust] Sampling FAIL: no points located\n"); rc=1; }
+    else if (maxres > 1e-9) { std::printf("[robust] Sampling FAIL: round-trip residual %.3e (bad element/shape)\n", maxres); rc=1; }
+    else if (maxpou > 1e-9) { std::printf("[robust] Sampling FAIL: shape functions not partition-of-unity (%.3e)\n", maxpou); rc=1; }
+    return rc;
+}
+
+// NOTE: an in-memory C++ LDG assembly check was attempted here (build an LDG disc, call
+// ComputeLDGPreconditioner -> BlockJacobianLDG). It is NOT feasible via this harness: the header-only
+// in-memory preprocessing (make_preprocessed / default_pde, documented "HDG-friendly") does not build
+// LDG connectivity -- constructing a disc with discretization="ldg" segfaults inside preprocessing.
+// LDG is instead exercised end to end through the frontend (examples/ConvectionDiffusion/1D, an LDG
+// example that converges) in the MATLAB regression, which drives the full LDG backend
+// (ldgblockjacobian.cpp). Reviving a C++ LDG check requires teaching make_preprocessed the LDG path.
+
 int main(int argc, char** argv)
 {
     PetscInitialize(&argc, &argv, nullptr, "Exasim operator robustness harness\n");
@@ -171,6 +235,8 @@ int main(int argc, char** argv)
         rc |= check_model<Poisson2D>("Poisson2D", 12, 3, {1.0});   // finer mesh
         // Zoo point 2: compressible Navier-Stokes (ncu=4 system) -- auto-generated Jacobian check.
         rc |= check_ns_kernels();
+        // Zoo point 3: point-location + interpolation round trip (CPointLocator subsystem).
+        rc |= check_sampling();
         if (rc==0) std::printf("[robust] ALL PASS\n");
     }
     Kokkos::finalize();
