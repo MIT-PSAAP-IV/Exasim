@@ -138,12 +138,23 @@ frozen seam: everything reaches generated code through `common.driver_abi->…`
 templated on `T`, while the generated kernels + the ABI typedefs stay `dstype` and the frontends are
 untouched.
 
-**Caveat (deferred decision):** the generated kernels take raw `dstype*` buffers, so on the frontend
-(`AbiAdapter`) path `T` is pinned to `dstype` at the seam. Two stances, revisit later:
-(a) `static_assert(T==dstype)` on the `AbiAdapter` branch — simplest, mixed precision only on the
-concrete-model `exasim::Name<M>` path; (b) a `T*↔dstype*` conversion shim in the `AbiAdapter` branch
-of `EXASIM_DRIVER_CALL` — enables double-eval/single-solve mixed precision on the frontend path too.
-Phase 3 with the default `T=dstype` needs neither (raw-buffer passthrough is byte-identical).
+**Seam stance — (A) chosen + implemented.** The generated kernels take raw `dstype*` buffers, so on
+the frontend (`AbiAdapter`) path the caller's scalar type must equal the global `dstype`. We take
+stance **(A)**: a `static_assert(std::is_same_v<dstype, ::dstype>)` in the `AbiAdapter` branch of
+`EXASIM_DRIVER_CALL` (`include/exasim/detail/driver_dispatch.hpp`). It is *forward-activating* — today
+`dstype` there is the global (assert trivially true, byte-identical build); once a kernel is templated
+with a `using dstype = T;` shadow (rest of Phase 3), the SAME assert becomes the `T==dstype` guard for
+free, turning a raw `T*→dstype*` type error into a clear diagnostic. Mixed precision stays reachable
+where the export actually needs it — the **concrete-model** path (`exasim::Name<M>`, hand-written C++
+models like the PETSc consumers use), which never touches the frozen ABI.
+
+*Upgrade path (deferred, not built):* if frontend-*defined* PDEs ever need mixed precision, replace
+that single `static_assert` with **either** (B) a `T*↔dstype*` conversion shim in the same branch
+(double-eval / single-solve; costs per-eval copies + GPU-side conversion kernels — untestable locally)
+**or**, cleaner, **Phase 4** (template the codegen so the generated kernels are natively `T`-generic,
+no conversion). (B) is bridge-work Phase 4 would supersede; both are localized to this one macro
+branch, so (A) locks in nothing. Phase 3 with the default `T=dstype` needs none of this — raw-buffer
+passthrough is byte-identical.
 
 ### BLAS trait (`backend/Common/pblas.h`) — STARTED
 `blas<T>` replaces the per-function `#ifdef USE_FLOAT S.. #else D..` branches with a by-value,

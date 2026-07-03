@@ -34,9 +34,20 @@
 
 #include "abi_adapter.hpp"
 
+// Precision cut (Phase 3, stance "A"): the AbiAdapter branch dispatches to the frontend-generated
+// kernels, which are hard-typed `dstype` behind the ExasimDriverABI function pointers. So that path
+// requires the caller's scalar type == the global dstype. `dstype` below resolves to whatever it
+// means at the expansion site: today (kernels not yet precision-templated) it is the global ::dstype,
+// so the assert is trivially true and the build is byte-identical. Once a kernel is templated with a
+// `using dstype = T;` shadow (rest of Phase 3), the SAME assert automatically becomes the T==dstype
+// guard -- a clear diagnostic instead of a raw `T* -> dstype*` type error, and the documented hook to
+// later swap in a conversion shim / Phase-4 templated dispatch (see docs/internals/precision-threading.md).
 #define EXASIM_DRIVER_CALL(Name, ...)                                      \
     do {                                                                   \
         if constexpr (std::is_same_v<M, exasim::detail::AbiAdapter>) {     \
+            static_assert(std::is_same_v<dstype, ::dstype>,                \
+                "frontend-generated (AbiAdapter) kernels are dstype-only; " \
+                "instantiate a concrete Model M for T != dstype");         \
             Name(__VA_ARGS__);                                             \
         } else {                                                           \
             exasim::Name<M>(__VA_ARGS__);                                  \
