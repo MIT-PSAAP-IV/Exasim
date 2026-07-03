@@ -227,10 +227,24 @@ auto-activate into the real `T==dstype` guard (the `using dstype=T` shadow reach
   library and the petsc_poisson consumer; run with `EXASIM_BACKEND=2` is byte-identical (residual
   9.119e-14, ShellMat vs op.mat()=0, MATAIJ 2.622e-16).
 
+### pblas.h tail — DONE (CPU)
+The `blas<T>` trait gained the level-1 ops (`dot`/`copy`/`scal`/`axpy`, s*/d* per specialization) and
+the remaining pblas wrappers are now `template <class T=dstype>` with a `using dstype=T;` body shadow:
+`Inverse`, `PDOT`, `PNORM` (both overloads), `DOT`, `ArrayCopy`, `ArrayMultiplyScalar`, `ArrayAXPY`,
+`ArrayAXPBY`, `ArrayAX`, `NORM`, `PGEMNMStridedBached`. Each CPU branch that was a hand-rolled
+`#ifdef USE_FLOAT S* #else D*` is now a single `blas<T>::…` call (byte-identical under default), and the
+`MPI_Allreduce` in `PDOT` picks up `mpi_type<T>()` automatically via the shadow. GPU cublas/hipblas
+branches stay `#ifdef`. Callers pass `dstype*` so `T` deduces — no call-site changes. Verified: full
+rebuild+install+app-regression byte-identical (all golden rel_L2 unchanged, 10 pass / 2 pre-existing
+np=4 fails).
+
 ### Remaining Phase 3
-- Thread `using dstype=T` into the comm helpers so `mpi_type<dstype>()`→`mpi_type<T>()` auto-activates.
-- `pblas.h` tail: Array ops (`ArrayCopy`/`ArrayAXPY`/…), `PDOT`/`DOT`, `Inverse`, `PGEMNMStridedBached`
-  + the `blas<T>` GPU trait methods (cublas/hipblas), so non-default GPU precision works too.
+- The `blas<T>` **GPU** trait methods (cublas/hipblas gemm/gemv/dot/copy/scal/axpy) so non-default GPU
+  precision works too — the CPU path and default-`dstype` GPU path are already done and remote-verified;
+  this is the last GPU-only, non-default-precision tail.
+- Comm helpers: the halo `mpi_type<dstype>()` calls now sit inside templated kernels / class methods that
+  carry `using dstype=T`, so they auto-activate to `mpi_type<T>()`; the remaining `#ifdef USE_FLOAT`
+  reduction sites are already `mpi_type<dstype>()`.
 
 ## Phase 4 — Codegen kernels
 `text2code` / the model codegen (`backend/Model/**`, `frontends/*/Gencode`) emit `dstype`-typed

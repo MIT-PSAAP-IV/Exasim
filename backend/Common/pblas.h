@@ -66,6 +66,13 @@ template <> struct blas<double> {
     static void getrf(Int m, Int n, double* A, Int lda, Int* ipiv, Int& info) { DGETRF(&m, &n, A, &lda, ipiv, &info); }
     static void getri(Int n, double* A, Int lda, const Int* ipiv, double* work, Int lwork, Int& info)
         { DGETRI(&n, A, &lda, const_cast<Int*>(ipiv), work, &lwork, &info); }
+    static double dot(Int n, const double* x, Int incx, const double* y, Int incy)
+        { return DDOT(&n, const_cast<double*>(x), &incx, const_cast<double*>(y), &incy); }
+    static void copy(Int n, const double* x, Int incx, double* y, Int incy)
+        { DCOPY(&n, const_cast<double*>(x), &incx, y, &incy); }
+    static void scal(Int n, double a, double* x, Int incx) { DSCAL(&n, &a, x, &incx); }
+    static void axpy(Int n, double a, const double* x, Int incx, double* y, Int incy)
+        { DAXPY(&n, &a, const_cast<double*>(x), &incx, y, &incy); }
 };
 template <> struct blas<float> {
     static void gemm(char ta, char tb, Int m, Int n, Int k, float al, const float* A, Int lda,
@@ -77,6 +84,13 @@ template <> struct blas<float> {
     static void getrf(Int m, Int n, float* A, Int lda, Int* ipiv, Int& info) { SGETRF(&m, &n, A, &lda, ipiv, &info); }
     static void getri(Int n, float* A, Int lda, const Int* ipiv, float* work, Int lwork, Int& info)
         { SGETRI(&n, A, &lda, const_cast<Int*>(ipiv), work, &lwork, &info); }
+    static float dot(Int n, const float* x, Int incx, const float* y, Int incy)
+        { return SDOT(&n, const_cast<float*>(x), &incx, const_cast<float*>(y), &incy); }
+    static void copy(Int n, const float* x, Int incx, float* y, Int incy)
+        { SCOPY(&n, const_cast<float*>(x), &incx, y, &incy); }
+    static void scal(Int n, float a, float* x, Int incx) { SSCAL(&n, &a, x, &incx); }
+    static void axpy(Int n, float a, const float* x, Int incx, float* y, Int incy)
+        { SAXPY(&n, &a, const_cast<float*>(x), &incx, y, &incy); }
 };
 
 template <class T = dstype>
@@ -285,9 +299,11 @@ static void cpuComputeInverse(T* A, T* work, Int* ipiv, Int n)
     }
 }
    
-static void Inverse(cublasHandle_t handle, dstype* A, dstype *C, Int *ipiv, Int n, Int batchSize, Int backend)
-{    
-#ifdef HAVE_CUDA        
+template <class T=dstype>
+static void Inverse(cublasHandle_t handle, T* A, T *C, Int *ipiv, Int n, Int batchSize, Int backend)
+{
+    using dstype=T;
+#ifdef HAVE_CUDA
     if (backend == 2)   
         gpuComputeInverse(handle, A, C, n, batchSize);
 #endif       
@@ -303,20 +319,17 @@ static void Inverse(cublasHandle_t handle, dstype* A, dstype *C, Int *ipiv, Int 
     }    
 }
 
-static void PDOT(cublasHandle_t handle, Int m, dstype* x, Int incx, dstype* y, Int incy, 
-        dstype *global_dot, Int backend) 
-{           
+template <class T=dstype>
+static void PDOT(cublasHandle_t handle, Int m, T* x, Int incx, T* y, Int incy,
+        T *global_dot, Int backend)
+{
+    using dstype=T;
     dstype local_dot=zero;
 
-#ifdef USE_FLOAT    
-    if (backend <= 1) 
-        local_dot = SDOT(&m, x, &incx, y, &incy);
-#else   
-    if (backend <= 1) 
-        local_dot = DDOT(&m, x, &incx, y, &incy);
-#endif        
-    
-#ifdef HAVE_CUDA  
+    if (backend <= 1)
+        local_dot = blas<T>::dot(m, x, incx, y, incy);
+
+#ifdef HAVE_CUDA
 #ifdef USE_FLOAT  
     if (backend == 2)     
         cublasSdot(handle, m, x, incx, y, incy, &local_dot);    
@@ -344,33 +357,34 @@ static void PDOT(cublasHandle_t handle, Int m, dstype* x, Int incx, dstype* y, I
 #endif    
 }
 
-static dstype PNORM(cublasHandle_t handle, Int m, dstype* x, Int backend) 
-{            
+template <class T=dstype>
+static T PNORM(cublasHandle_t handle, Int m, T* x, Int backend)
+{
+    using dstype=T;
     dstype nrm;
-    PDOT(handle, m, x, inc1, x, inc1, &nrm, backend); 
-    return sqrt(nrm);    
+    PDOT(handle, m, x, inc1, x, inc1, &nrm, backend);
+    return sqrt(nrm);
 }
 
-static dstype PNORM(cublasHandle_t handle, Int m, Int n, dstype* x, Int backend) 
-{            
-    dstype nrm1=0.0, nrm;        
+template <class T=dstype>
+static T PNORM(cublasHandle_t handle, Int m, Int n, T* x, Int backend)
+{
+    using dstype=T;
+    dstype nrm1=0.0, nrm;
     if (n>0) PDOT(handle, n, x, inc1, x, inc1, &nrm1, backend); 
     PDOT(handle, m-n, &x[n], inc1, &x[n], inc1, &nrm, backend); 
     nrm = nrm + 0.5*nrm1;
     return sqrt(nrm);    
 }
 
-static void DOT(cublasHandle_t handle, Int m, dstype* x, Int incx, dstype* y, Int incy, dstype *dot, Int backend) 
-{               
-#ifdef USE_FLOAT    
-    if (backend <= 1) 
-        *dot = SDOT(&m, x, &incx, y, &incy);
-#else   
-    if (backend <= 1) 
-        *dot = DDOT(&m, x, &incx, y, &incy);
-#endif        
-    
-#ifdef HAVE_CUDA          
+template <class T=dstype>
+static void DOT(cublasHandle_t handle, Int m, T* x, Int incx, T* y, Int incy, T *dot, Int backend)
+{
+    using dstype=T;
+    if (backend <= 1)
+        *dot = blas<T>::dot(m, x, incx, y, incy);
+
+#ifdef HAVE_CUDA
 #ifdef USE_FLOAT  
     if (backend == 2)     
         cublasSdot(handle, m, x, incx, y, incy, dot);    
@@ -391,17 +405,14 @@ static void DOT(cublasHandle_t handle, Int m, dstype* x, Int incx, dstype* y, In
 #endif      
 }
 
-static void ArrayCopy(cublasHandle_t handle, dstype* y, dstype* x, Int m, Int backend) 
-{               
-#ifdef USE_FLOAT    
-    if (backend <= 1) 
-        SCOPY(&m, x, &inc1, y, &inc1);
-#else   
-    if (backend <= 1) 
-        DCOPY(&m, x, &inc1, y, &inc1);
-#endif        
-    
-#ifdef HAVE_CUDA          
+template <class T=dstype>
+static void ArrayCopy(cublasHandle_t handle, T* y, T* x, Int m, Int backend)
+{
+    using dstype=T;
+    if (backend <= 1)
+        blas<T>::copy(m, x, inc1, y, inc1);
+
+#ifdef HAVE_CUDA
 #ifdef USE_FLOAT  
     if (backend == 2)     
         cublasScopy(handle, m, x, inc1, y, inc1);    
@@ -422,17 +433,14 @@ static void ArrayCopy(cublasHandle_t handle, dstype* y, dstype* x, Int m, Int ba
 #endif                  
 }
 
-static void ArrayMultiplyScalar(cublasHandle_t handle, dstype* x, dstype alpha, Int m, Int backend) 
-{               
-#ifdef USE_FLOAT    
-    if (backend <= 1) 
-        SSCAL(&m, &alpha, x, &inc1);
-#else   
-    if (backend <= 1) 
-        DSCAL(&m, &alpha, x, &inc1);
-#endif        
-    
-#ifdef HAVE_CUDA          
+template <class T=dstype>
+static void ArrayMultiplyScalar(cublasHandle_t handle, T* x, T alpha, Int m, Int backend)
+{
+    using dstype=T;
+    if (backend <= 1)
+        blas<T>::scal(m, alpha, x, inc1);
+
+#ifdef HAVE_CUDA
 #ifdef USE_FLOAT  
     if (backend == 2)     
         cublasSscal(handle, m, &alpha, x, inc1);    
@@ -454,15 +462,12 @@ static void ArrayMultiplyScalar(cublasHandle_t handle, dstype* x, dstype alpha, 
 }
 
 //    cublasDaxpy(handle, n, &a, x, 1, z, 1);
-static void ArrayAXPY(cublasHandle_t handle, dstype* z, dstype* x, dstype a, Int m, Int backend) 
+template <class T=dstype>
+static void ArrayAXPY(cublasHandle_t handle, T* z, T* x, T a, Int m, Int backend)
 {
-#ifdef USE_FLOAT    
-    if (backend <= 1) 
-        SAXPY(&m, &a, x, &inc1, z, &inc1);
-#else
-    if (backend <= 1) 
-        DAXPY(&m, &a, x, &inc1, z, &inc1);
-#endif
+    using dstype=T;
+    if (backend <= 1)
+        blas<T>::axpy(m, a, x, inc1, z, inc1);
 
 #ifdef HAVE_CUDA
 #ifdef USE_FLOAT  
@@ -485,24 +490,28 @@ static void ArrayAXPY(cublasHandle_t handle, dstype* z, dstype* x, dstype a, Int
 #endif    
 }
 
-static void ArrayAXPBY(cublasHandle_t handle, dstype* z, dstype* x, dstype* y, dstype a, dstype b, Int m, Int backend) 
+template <class T=dstype>
+static void ArrayAXPBY(cublasHandle_t handle, T* z, T* x, T* y, T a, T b, Int m, Int backend)
 {
     ArrayCopy(handle, z, y, m, backend);
     ArrayMultiplyScalar(handle, z, b, m, backend);
     ArrayAXPY(handle, z, x, a, m, backend);
 }
 
-static void ArrayAX(cublasHandle_t handle, dstype* z, dstype* x, dstype a, Int m, Int backend) 
+template <class T=dstype>
+static void ArrayAX(cublasHandle_t handle, T* z, T* x, T a, Int m, Int backend)
 {
     ArrayCopy(handle, z, x, m, backend);
-    ArrayMultiplyScalar(handle, z, a, m, backend);    
+    ArrayMultiplyScalar(handle, z, a, m, backend);
 }
 
-static dstype NORM(cublasHandle_t handle, Int m, dstype* x, Int backend) 
-{            
+template <class T=dstype>
+static T NORM(cublasHandle_t handle, Int m, T* x, Int backend)
+{
+    using dstype=T;
     dstype nrm;
-    DOT(handle, m, x, inc1, x, inc1, &nrm, backend); 
-    return sqrt(nrm);    
+    DOT(handle, m, x, inc1, x, inc1, &nrm, backend);
+    return sqrt(nrm);
 }
 
 template <class T = dstype>
@@ -696,18 +705,14 @@ static void PGEMTM(cublasHandle_t handle, Int m, Int n, Int k, T *alpha, T* A, I
 #endif        
 }
 
-static void PGEMNMStridedBached(cublasHandle_t handle, Int m, Int n, Int k, dstype alpha, dstype* A, Int lda, 
-        dstype* B, Int ldb, dstype beta, dstype* C, Int ldc, Int batchCount, Int backend) 
+template <class T=dstype>
+static void PGEMNMStridedBached(cublasHandle_t handle, Int m, Int n, Int k, T alpha, T* A, Int lda,
+        T* B, Int ldb, T beta, T* C, Int ldc, Int batchCount, Int backend)
 {
-#ifdef USE_FLOAT     
-    if (backend <= 1)       
+    using dstype=T;
+    if (backend <= 1)
       for (int i=0; i<batchCount; i++)
-        SGEMM(&chn, &chn, &m, &n, &k, &alpha, &A[m*k*i], &lda, &B[k*n*i], &ldb, &beta, &C[m*n*i], &ldc);        
-#else
-    if (backend <= 1) 
-      for (int i=0; i<batchCount; i++)
-        DGEMM(&chn, &chn, &m, &n, &k, &alpha, &A[m*k*i], &lda, &B[k*n*i], &ldb, &beta, &C[m*n*i], &ldc);
-#endif
+        blas<T>::gemm(chn, chn, m, n, k, alpha, &A[m*k*i], lda, &B[k*n*i], ldb, beta, &C[m*n*i], ldc);
 
 #ifdef HAVE_CUDA          
 #ifdef USE_FLOAT  
