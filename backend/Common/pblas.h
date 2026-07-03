@@ -44,27 +44,55 @@
 #ifndef __PBLAS_H__
 #define __PBLAS_H__
 
-static void cpuNode2Gauss(dstype *ug, dstype *un, dstype *shapt, Int ng, Int np, Int nn)
-{    
-#ifdef USE_FLOAT        
-    SGEMM(&chn, &chn, &ng, &nn, &np, &one, shapt, &ng, un, &np, &zero, ug, &ng);   
-#else        
-    DGEMM(&chn, &chn, &ng, &nn, &np, &one, shapt, &ng, un, &np, &zero, ug, &ng);   
-#endif    
+// ------------------------------------------------------------------------------------------------
+// blas<T>: precision-dispatched CPU BLAS/LAPACK (Phase 3 of dstype->template threading, see
+// docs/internals/precision-threading.md). Replaces the per-function `#ifdef USE_FLOAT S.. #else D..`
+// branches with a by-value, type-dispatched interface so the pblas wrappers below can be templated
+// on the scalar type T. The primary template is left undefined -> an unsupported precision is a
+// compile error; `float`/`double` map to the s*/d* LAPACK symbols (the SGEMM/DGEMM/... macros from
+// common.h). Under the default T=dstype this selects EXACTLY the routine the old #ifdef did, so the
+// emitted call is identical (byte-for-byte numerics). The GPU (cublas/hipblas) branches are still
+// selected by the compile-time USE_FLOAT macro for now -- correct under the default T=dstype;
+// trait-ifying them for non-default GPU precision is the remote-verified tail of this phase.
+template <class T> struct blas;   // primary: unsupported precision -> compile error
+
+template <> struct blas<double> {
+    static void gemm(char ta, char tb, Int m, Int n, Int k, double al, const double* A, Int lda,
+                     const double* B, Int ldb, double be, double* C, Int ldc)
+        { DGEMM(&ta, &tb, &m, &n, &k, &al, const_cast<double*>(A), &lda, const_cast<double*>(B), &ldb, &be, C, &ldc); }
+    static void gemv(char t, Int m, Int n, double al, const double* A, Int lda, const double* x,
+                     Int incx, double be, double* y, Int incy)
+        { DGEMV(&t, &m, &n, &al, const_cast<double*>(A), &lda, const_cast<double*>(x), &incx, &be, y, &incy); }
+    static void getrf(Int m, Int n, double* A, Int lda, Int* ipiv, Int& info) { DGETRF(&m, &n, A, &lda, ipiv, &info); }
+    static void getri(Int n, double* A, Int lda, const Int* ipiv, double* work, Int lwork, Int& info)
+        { DGETRI(&n, A, &lda, const_cast<Int*>(ipiv), work, &lwork, &info); }
+};
+template <> struct blas<float> {
+    static void gemm(char ta, char tb, Int m, Int n, Int k, float al, const float* A, Int lda,
+                     const float* B, Int ldb, float be, float* C, Int ldc)
+        { SGEMM(&ta, &tb, &m, &n, &k, &al, const_cast<float*>(A), &lda, const_cast<float*>(B), &ldb, &be, C, &ldc); }
+    static void gemv(char t, Int m, Int n, float al, const float* A, Int lda, const float* x,
+                     Int incx, float be, float* y, Int incy)
+        { SGEMV(&t, &m, &n, &al, const_cast<float*>(A), &lda, const_cast<float*>(x), &incx, &be, y, &incy); }
+    static void getrf(Int m, Int n, float* A, Int lda, Int* ipiv, Int& info) { SGETRF(&m, &n, A, &lda, ipiv, &info); }
+    static void getri(Int n, float* A, Int lda, const Int* ipiv, float* work, Int lwork, Int& info)
+        { SGETRI(&n, A, &lda, const_cast<Int*>(ipiv), work, &lwork, &info); }
+};
+
+template <class T = dstype>
+static void cpuNode2Gauss(T *ug, T *un, T *shapt, Int ng, Int np, Int nn)
+{
+    blas<T>::gemm('N', 'N', ng, nn, np, T(1), shapt, ng, un, np, T(0), ug, ng);
 }
 
 
-static void Node2Gauss(cublasHandle_t handle, dstype *ug, dstype *un, dstype *shapt, Int ng, Int np, Int nn, Int backend)
-{            
-#ifdef USE_FLOAT        
-    if (backend <= 1) 
-        SGEMM(&chn, &chn, &ng, &nn, &np, &one, shapt, &ng, un, &np, &zero, ug, &ng);   
-#else        
-    if (backend <= 1) 
-        DGEMM(&chn, &chn, &ng, &nn, &np, &one, shapt, &ng, un, &np, &zero, ug, &ng);   
-#endif    
+template <class T = dstype>
+static void Node2Gauss(cublasHandle_t handle, T *ug, T *un, T *shapt, Int ng, Int np, Int nn, Int backend)
+{
+    if (backend <= 1)
+        blas<T>::gemm('N', 'N', ng, nn, np, T(1), shapt, ng, un, np, T(0), ug, ng);
 
-#ifdef HAVE_CUDA          
+#ifdef HAVE_CUDA
 #ifdef USE_FLOAT  
     if (backend == 2)     
         cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, ng, nn, np, 
@@ -89,17 +117,13 @@ static void Node2Gauss(cublasHandle_t handle, dstype *ug, dstype *un, dstype *sh
 #endif        
 }
 
-static void Gauss2Node(cublasHandle_t handle, dstype *un, dstype *ug, dstype *shapg, Int ng, Int np, Int nn, Int backend)
-{            
-#ifdef USE_FLOAT        
-    if (backend <= 1) 
-        SGEMM(&chn, &chn, &np, &nn, &ng, &one, shapg, &np, ug, &ng, &zero, un, &np);    
-#else        
-    if (backend <= 1) 
-        DGEMM(&chn, &chn, &np, &nn, &ng, &one, shapg, &np, ug, &ng, &zero, un, &np);    
-#endif    
+template <class T = dstype>
+static void Gauss2Node(cublasHandle_t handle, T *un, T *ug, T *shapg, Int ng, Int np, Int nn, Int backend)
+{
+    if (backend <= 1)
+        blas<T>::gemm('N', 'N', np, nn, ng, T(1), shapg, np, ug, ng, T(0), un, np);
 
-#ifdef HAVE_CUDA          
+#ifdef HAVE_CUDA
 #ifdef USE_FLOAT  
     if (backend == 2)     
         cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, np, nn, ng, 
@@ -244,7 +268,8 @@ static void hipComputeInverse(cublasHandle_t handle, dstype* A, dstype* C, Int n
 }
 #endif  
 
-static void cpuComputeInverse(dstype* A, dstype* work, Int* ipiv, Int n)
+template <class T = dstype>
+static void cpuComputeInverse(T* A, T* work, Int* ipiv, Int n)
 {
     // LAPACK GETRI requires workspace of at least max(1,n).  Some callers,
     // such as the polynomial-preconditioner setup, only provide O(n) scratch.
@@ -252,29 +277,16 @@ static void cpuComputeInverse(dstype* A, dstype* work, Int* ipiv, Int n)
     // and corrupt neighboring solver memory.
     Int lwork = (n > 0) ? n : 1;
     Int info;
-#ifdef USE_FLOAT           
-    SGETRF(&n,&n,A,&n,ipiv,&info);
+    blas<T>::getrf(n, n, A, n, ipiv, info);
     if (info != 0) {
-        printf("SGETRF failed in cpuComputeInverse with info = %d and n = %d\n", (int) info, (int) n);
+        printf("GETRF failed in cpuComputeInverse with info = %d and n = %d\n", (int) info, (int) n);
         error("cpuComputeInverse failed during LU factorization.");
     }
-    SGETRI(&n,A,&n,ipiv,work,&lwork,&info);    
+    blas<T>::getri(n, A, n, ipiv, work, lwork, info);
     if (info != 0) {
-        printf("SGETRI failed in cpuComputeInverse with info = %d and n = %d\n", (int) info, (int) n);
+        printf("GETRI failed in cpuComputeInverse with info = %d and n = %d\n", (int) info, (int) n);
         error("cpuComputeInverse failed during matrix inversion.");
     }
-#else            
-    DGETRF(&n,&n,A,&n,ipiv,&info);
-    if (info != 0) {
-        printf("DGETRF failed in cpuComputeInverse with info = %d and n = %d\n", (int) info, (int) n);
-        error("cpuComputeInverse failed during LU factorization.");
-    }
-    DGETRI(&n,A,&n,ipiv,work,&lwork,&info);
-    if (info != 0) {
-        printf("DGETRI failed in cpuComputeInverse with info = %d and n = %d\n", (int) info, (int) n);
-        error("cpuComputeInverse failed during matrix inversion.");
-    }
-#endif        
 }
    
 static void Inverse(cublasHandle_t handle, dstype* A, dstype *C, Int *ipiv, Int n, Int batchSize, Int backend)

@@ -126,11 +126,43 @@ identical to pre-shim.
 PETSc export shim now threads `<T,I>` with `dstype`/`Int` as default arguments — the whole stack is
 precision-parameterized and byte-identical under the defaults.
 
-## Phase 3 — Kernels + BLAS + Kokkos dispatch
-- Compute kernels (`backend/Discretization/*.hpp`, `Common/{cpuimpl,kokkosimpl}.h`) take `T*`.
-- BLAS dispatched by `T`: `dgemm`/`dgetrf` for `double`, `sgemm`/`sgetrf` for `float` (a small
-  `blas<T>` trait). `pblas.h` is the choke point.
-- `Kokkos::View<T*>` throughout; parallel kernels are already templated on the functor.
+## Phase 3 — Kernels + BLAS + Kokkos dispatch (IN PROGRESS)
+
+### The cut: the `ExasimDriverABI` function-pointer boundary keeps the frontends unchanged
+The frontends (Python/Matlab/Julia) emit the model kernels (`KokkosFlux`/`Source`/`Fbou`/…) as plain
+`dstype`-typed functions and register them as `void(*)(dstype*, …)` **function pointers** in
+`ExasimDriverABI` (`include/driver_abi.hpp`; populated in `frontendprovider.cpp`). That struct is the
+frozen seam: everything reaches generated code through `common.driver_abi->…`
+(`model_drivers_abi.cpp`). So **everything below the seam** — solver, preconditioner,
+`Discretization/*.hpp` HDG/LDG kernels, `matvec`/`massinv`, and the `pblas.h` BLAS layer — can be
+templated on `T`, while the generated kernels + the ABI typedefs stay `dstype` and the frontends are
+untouched.
+
+**Caveat (deferred decision):** the generated kernels take raw `dstype*` buffers, so on the frontend
+(`AbiAdapter`) path `T` is pinned to `dstype` at the seam. Two stances, revisit later:
+(a) `static_assert(T==dstype)` on the `AbiAdapter` branch — simplest, mixed precision only on the
+concrete-model `exasim::Name<M>` path; (b) a `T*↔dstype*` conversion shim in the `AbiAdapter` branch
+of `EXASIM_DRIVER_CALL` — enables double-eval/single-solve mixed precision on the frontend path too.
+Phase 3 with the default `T=dstype` needs neither (raw-buffer passthrough is byte-identical).
+
+### BLAS trait (`backend/Common/pblas.h`) — STARTED
+`blas<T>` replaces the per-function `#ifdef USE_FLOAT S.. #else D..` branches with a by-value,
+type-dispatched interface (`blas<double>` → `dgemm`/`dgetrf`/…, `blas<float>` → `sgemm`/`sgetrf`/…),
+so the `pblas` wrappers can be templated on `T`. Done + verified (robustness + app-regression at
+unchanged rel_L2): the trait itself and the GEMM node/Gauss transforms (`cpuNode2Gauss`, `Node2Gauss`,
+`Gauss2Node`) + the LAPACK inverse (`cpuComputeInverse`, `getrf`/`getri`). The GPU (cublas/hipblas)
+branches are still `#ifdef USE_FLOAT`-selected — correct under the default `T=dstype`; trait-ifying
+them for non-default GPU precision is the **remote-verified** tail (needs the dgx-b build).
+
+### Remaining Phase 3 (large, high-churn, mostly GPU-untestable locally)
+- Rest of `pblas.h`: `PGEMTM`/`PGEMNV`/`PGEMTV` (hot element-block GEMMs), `PGEMNMStridedBached`,
+  `PDOT`/`DOT`, `Inverse` — plus GPU trait methods (`blas<T>` cublas/hipblas gemm/gemv/dot/axpy/
+  scal/copy/getrf|getriBatched/gemmStridedBatched).
+- Compute kernels take `T*`: `backend/Discretization/*.hpp` (`uequation` 156, `wequation` 55,
+  `qequation` 43, `matvec`, `massinv`, …), `Common/cpuimpl.h` (37), `Common/kokkosimpl.h` (**880** —
+  the `Kokkos::View<dstype*>` → `View<T*>` monster).
+- These call the generated kernels via `EXASIM_DRIVER_CALL`; under default `T=dstype` the `T*`
+  buffers pass straight through (byte-identical), consistent with the cut above.
 
 ## Phase 4 — Codegen kernels
 `text2code` / the model codegen (`backend/Model/**`, `frontends/*/Gencode`) emit `dstype`-typed
