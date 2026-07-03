@@ -35,15 +35,31 @@ Establish the named types and the safety guard at the **exported interface** onl
 - `scalar_type` / `index_type` member aliases on `Operator` / `ShellMat` so a consumer can query the
   exported precision generically.
 
-## Phase 1 — Struct templating
-Template the core data structs on `<class T = dstype, class I = Int>`, keeping the current names as
-defaulted aliases so all existing code compiles unchanged:
+## Phase 1 — Struct templating (IN PROGRESS)
+Template the core data structs on `<class T = ::dstype, class I = ::Int>`, keeping the current names
+as defaulted aliases so all existing code compiles unchanged.
+
+**Proven low-risk pattern — shadow the typedefs, leave the body untouched.** Instead of editing every
+`dstype`/`Int` in a struct body, add two member `using` aliases that shadow the globals; the struct
+body is then *byte-for-byte unchanged* and, under the default args, the type is identical to before:
 ```cpp
-template <class T=dstype, class I=Int> struct solstructT { T* udg; T* uh; I* ...; ... };
-using solstruct = solstructT<dstype,Int>;   // unchanged for every current user
+template <class T = ::dstype, class I = ::Int>
+struct solstructT {
+    using dstype = T; using Int = I;   // <-- shadow; body below unchanged, resolves to T*/I*
+    dstype* udg = nullptr;  Int* elemcon = nullptr;  Int szudg = 0;  ...  // (verbatim)
+};
+using solstruct = solstructT<::dstype, ::Int>;   // unchanged for every current user
 ```
-Targets: `solstruct`, `resstruct`, `sysstruct`, `tempstruct`, `meshstruct`, `masterstruct`,
-`commonstruct`, plus the `Kokkos::View<dstype*>` / `view_1d` aliases → `view_1d<T>`.
+Each struct is a 3-line edit (template line + `using` line + alias line). Verified byte-identical two
+ways: the robustness harness compiles it header-inline and PASSes, and a full library rebuild +
+`run-app-regression.sh` gives the *same* rel_L2 values as before (poisson3d 9.99e-11, isoq3d 1.95e-9,
+…). Nested struct members (e.g. `commonstruct` holding `sizesstruct`) stay the default alias for now —
+threading `T,I` into nested types is the tail of this phase / Phase 2.
+
+- **Done + verified:** `sysstruct`, `scratcharenastruct`, `resstruct`, `tempstruct`.
+- **Remaining:** `solstruct`, `masterstruct`, `meshstruct`, `appstruct`, `precondstruct`,
+  `commonstruct` (+ the mostly-int param structs, low value), and the `Kokkos::View<dstype*>` /
+  `view_1d` aliases → `view_1d<T>`.
 
 ## Phase 2 — Class templating
 Extend the already-`<M>`-templated FEM classes to `<M, T=dstype, I=Int>`:

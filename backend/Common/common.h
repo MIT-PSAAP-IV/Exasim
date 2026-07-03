@@ -1315,7 +1315,9 @@ struct solstruct {
 // a dedicated arena concern, not entangled in the residual data. Lives as a CDiscretization
 // member (where the size is computed); res/solv/prec reach it only through res.K and the
 // reserve* API, so no functional class owns the allocation.
-struct scratcharenastruct {
+template <class T = ::dstype, class I = ::Int>
+struct scratcharenastructT {
+    using dstype = T; using Int = I;
     dstype* buffer = nullptr;
     Int sz = 0;
     dstype* allocate(Int n, Int backend) {
@@ -1328,8 +1330,11 @@ struct scratcharenastruct {
     }
     void freememory(Int backend) { TemplateFree(buffer, backend); buffer = nullptr; sz = 0; }
 };
+using scratcharenastruct = scratcharenastructT<::dstype, ::Int>;
 
-struct resstruct {
+template <class T = ::dstype, class I = ::Int>
+struct resstructT {
+    using dstype = T; using Int = I;
     //dstype *R=nullptr;    // shared memory for all residual vectors
     dstype *Rqe=nullptr;  // element residual vector for q
     dstype *Rqf=nullptr;  // face residual vector for q   
@@ -1475,9 +1480,12 @@ struct resstruct {
         TemplateFree(ipiv, backend);
     }                        
 };
+using resstruct = resstructT<::dstype, ::Int>;
 
-struct tempstruct {
-    dstype *tempn=nullptr; 
+template <class T = ::dstype, class I = ::Int>
+struct tempstructT {
+    using dstype = T; using Int = I;
+    dstype *tempn=nullptr;
     dstype *tempg=nullptr;
     dstype *buffrecv=nullptr;
     dstype *buffsend=nullptr;
@@ -1516,8 +1524,14 @@ struct tempstruct {
         TemplateFree(bufffacesend, backend); 
     }            
 };
+using tempstruct = tempstructT<::dstype, ::Int>;
 
-struct sysstruct {    
+// Templated on the scalar precision T and index type I (Phase 1 of dstype->template threading, see
+// docs/internals/precision-threading.md). The member `using` aliases shadow the global dstype/Int so
+// the struct body below is UNCHANGED; with the default args the type is byte-identical to before.
+template <class T = ::dstype, class I = ::Int>
+struct sysstructT {
+    using dstype = T; using Int = I;
     Int backend;
     Int *ipiv=nullptr;
 
@@ -1633,8 +1647,10 @@ struct sysstruct {
         TemplateFree(wprev3, backend);  
     }                
 };
+// Default instantiation keeps the name `sysstruct` meaning exactly what it did (double/int today).
+using sysstruct = sysstructT<::dstype, ::Int>;
 
-struct precondstruct {    
+struct precondstruct {
     Int backend;
     
     dstype *W=nullptr; 
