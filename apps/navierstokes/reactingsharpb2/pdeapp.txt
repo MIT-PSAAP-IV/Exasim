@@ -20,7 +20,6 @@ pgauss = 4;
 torder = 1;
 nstage = 1;
 
-nco = 1;
 neb = 4096;
 nfb = 8192;
 
