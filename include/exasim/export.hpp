@@ -120,8 +120,8 @@ struct MeshSpec {
 
 // Build the in-memory Preprocessed bundle (mesh + master element + runtime structs)
 // from a PDE config + mesh. No datain files are written. Serial (mpiprocs == 1).
-template <class M>
-inline Preprocessed make_preprocessed(const PDE& pde_in, const MeshSpec& mesh,
+template <class M, class T = floatTy, class I = intTy>
+inline PreprocessedT<T, I> make_preprocessed(const PDE& pde_in, const MeshSpec& mesh,
                                       int mpirank = 0, int mpiprocs = 1)
 {
     static_assert(is_model_v<M>, "make_preprocessed<M>: M must satisfy the Model contract.");
@@ -137,7 +137,7 @@ inline Preprocessed make_preprocessed(const PDE& pde_in, const MeshSpec& mesh,
     CPreprocessing preproc(pde, params, spec, mpirank, mpiprocs);
     preproc.mesh = meshFromArrays(mesh.p, mesh.t, mesh.np, mesh.ne, mesh.nve, M::nd,
                                   preproc.params, preproc.pde);
-    Preprocessed pre = preproc.take();
+    PreprocessedT<T, I> pre = preproc.template take<T, I>();
     pre.save_outputs = (pde.saveOutputs != 0);
     return pre;
 }

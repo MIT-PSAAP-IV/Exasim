@@ -43,8 +43,11 @@ class CPreprocessing {
     // HOT.7.3 — Run preprocessing into in-memory `Preprocessed`
     // bundle (no app.bin/master.bin/mesh.bin/sol.bin written). The
     // returned struct is consumed by `CSolution<M>(Preprocessed&&, ...)`.
-    // Serial path (mpiprocs == 1).
-    exasim::Preprocessed take();
+    // Serial path (mpiprocs == 1). Templated on the exported precision/index so a
+    // consumer can request a float (or long-indexed) Preprocessed with no rebuild;
+    // defaults reproduce the old dstype/Int signature exactly.
+    template <class T = dstype, class I = Int>
+    exasim::PreprocessedT<T, I> take();
 
     #if defined(HAVE_PARMETIS) && defined(HAVE_MPI)
     // HOT.7.8 — Parallel counterpart of take(). Each rank must have
@@ -52,7 +55,8 @@ class CPreprocessing {
     // calling. The pipeline runs initializeMaster, buildMesh,
     // callParMetis (ParMETIS repartition), initializeDMD, then
     // builds the per-rank app/master/mesh/sol structs.
-    exasim::Preprocessed takeParallel(MPI_Comm comm);
+    template <class T = dstype, class I = Int>
+    exasim::PreprocessedT<T, I> takeParallel(MPI_Comm comm);
     #endif
 };
 

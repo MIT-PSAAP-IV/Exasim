@@ -43,8 +43,8 @@
 
 #include "exasim/execution_mode.hpp"
 
-namespace exasim { struct Preprocessed; }  // fwd decl: in-memory ctor input (buildstructs.hpp);
-                                           // the definition lives in discretization_inmemory.hpp (consumer-only)
+namespace exasim { template <class, class> struct PreprocessedT; }  // fwd decl: in-memory ctor input
+                                           // (buildstructs.hpp); the ctor bodies live in discretization_inmemory.hpp (consumer-only)
 
 // Templated on scalar precision T and index type I (Phase 2 of dstype->template threading, see
 // docs/internals/precision-threading.md). Member `using` aliases shadow the global dstype/Int AND the
@@ -103,7 +103,7 @@ public:
     // binaries -- no files, no driver_abi. DEFINED out-of-line and inline in
     // <backend/Discretization/discretization_inmemory.hpp> (a consumer-only header included after
     // buildstructs.hpp, where Preprocessed is complete); the backend unity build never instantiates it.
-    CDiscretizationT(exasim::Preprocessed&& pre, std::string fileout, std::string exasimpath, Int mpiprocs,
+    CDiscretizationT(exasim::PreprocessedT<T, I>&& pre, std::string fileout, std::string exasimpath, Int mpiprocs,
                     Int mpirank, Int fileoffset, Int omprank, Int backend, Int builtinmodelID);
 
     // Convenience in-memory ctor for the common serial operator-export case: just the
@@ -112,12 +112,12 @@ public:
     // so the model id is not a parameter here. exasimpath="" relies on the baked data
     // dir / $EXASIM_DATA_DIR for the master/gauss node files. Defined inline in
     // discretization_inmemory.hpp (delegates to the full ctor).
-    CDiscretizationT(exasim::Preprocessed&& pre, Int backend, std::string exasimpath = "");
+    CDiscretizationT(exasim::PreprocessedT<T, I>&& pre, Int backend, std::string exasimpath = "");
 
     // MPI variant of the convenience ctor: adds ONLY the MPI rank/size (each rank passes its
     // own per-rank bundle, e.g. from CPreprocessing::takeParallel). Everything else defaults
     // as in the serial convenience ctor (no fileoffset/omprank/model-id in the call).
-    CDiscretizationT(exasim::Preprocessed&& pre, Int backend, Int mpiprocs, Int mpirank,
+    CDiscretizationT(exasim::PreprocessedT<T, I>&& pre, Int backend, Int mpiprocs, Int mpirank,
                     std::string exasimpath = "");
 
     // destructor

@@ -57,7 +57,7 @@ inline void cpuInitInMemory(exasim::Preprocessed& pre, solstruct &sol, resstruct
 }
 
 template <class T, class I>
-inline CDiscretizationT<T, I>::CDiscretizationT(exasim::Preprocessed&& pre, std::string fileout, std::string exasimpath,
+inline CDiscretizationT<T, I>::CDiscretizationT(exasim::PreprocessedT<T, I>&& pre, std::string fileout, std::string exasimpath,
         Int mpiprocs, Int mpirank, Int fileoffset, Int omprank, Int backend, Int builtinmodelID)
 {
     driver_abi = ExasimDriverABI{};            // concrete-M build: no runtime ABI (null fn-pointers)
@@ -134,14 +134,14 @@ inline CDiscretizationT<T, I>::CDiscretizationT(exasim::Preprocessed&& pre, std:
 // Convenience serial ctor: just the bundle + backend. A templated model dispatches on M, so
 // builtinmodelID is irrelevant (0); exasimpath defaults to "" (the baked data dir / $EXASIM_DATA_DIR).
 template <class T, class I>
-inline CDiscretizationT<T, I>::CDiscretizationT(exasim::Preprocessed&& pre, Int backend, std::string exasimpath)
+inline CDiscretizationT<T, I>::CDiscretizationT(exasim::PreprocessedT<T, I>&& pre, Int backend, std::string exasimpath)
     : CDiscretizationT<T, I>(std::move(pre), /*fileout=*/std::string{}, std::move(exasimpath),
                       /*mpiprocs=*/1, /*mpirank=*/0, /*fileoffset=*/0, /*omprank=*/0,
                       backend, /*builtinmodelID=*/0) {}
 
 // MPI convenience ctor: serial one + the MPI rank/size.
 template <class T, class I>
-inline CDiscretizationT<T, I>::CDiscretizationT(exasim::Preprocessed&& pre, Int backend, Int mpiprocs,
+inline CDiscretizationT<T, I>::CDiscretizationT(exasim::PreprocessedT<T, I>&& pre, Int backend, Int mpiprocs,
                                         Int mpirank, std::string exasimpath)
     : CDiscretizationT<T, I>(std::move(pre), /*fileout=*/std::string{}, std::move(exasimpath),
                       mpiprocs, mpirank, /*fileoffset=*/0, /*omprank=*/0,
