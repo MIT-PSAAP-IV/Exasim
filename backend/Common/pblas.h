@@ -148,15 +148,11 @@ static void Gauss2Node(cublasHandle_t handle, T *un, T *ug, T *shapg, Int ng, In
 #endif
 }
 
-static void Gauss2Node1(cublasHandle_t handle, dstype *un, dstype *ug, dstype *shapg, Int ng, Int np, Int nn, Int backend)
-{            
-#ifdef USE_FLOAT        
-    if (backend <= 1) 
-        SGEMM(&chn, &chn, &np, &nn, &ng, &one, shapg, &np, ug, &ng, &one, un, &np);    
-#else        
-    if (backend <= 1) 
-        DGEMM(&chn, &chn, &np, &nn, &ng, &one, shapg, &np, ug, &ng, &one, un, &np);    
-#endif    
+template <class T = dstype>
+static void Gauss2Node1(cublasHandle_t handle, T *un, T *ug, T *shapg, Int ng, Int np, Int nn, Int backend)
+{
+    if (backend <= 1)
+        blas<T>::gemm('N', 'N', np, nn, ng, T(1), shapg, np, ug, ng, T(1), un, np);
 
 #ifdef HAVE_CUDA          
 #ifdef USE_FLOAT  
@@ -509,17 +505,13 @@ static dstype NORM(cublasHandle_t handle, Int m, dstype* x, Int backend)
     return sqrt(nrm);    
 }
 
-static void PGEMNV(cublasHandle_t handle, Int m, Int n, dstype* alpha, dstype* A, Int lda, 
-        dstype* x, Int incx, dstype* beta, dstype* y, Int incy, Int backend) 
+template <class T = dstype>
+static void PGEMNV(cublasHandle_t handle, Int m, Int n, T* alpha, T* A, Int lda, 
+        T* x, Int incx, T* beta, T* y, Int incy, Int backend) 
 {
     /* y = alpha*A * x + beta y */
-#ifdef USE_FLOAT     
-    if (backend <= 1) 
-        SGEMV(&chn, &m, &n, alpha, A, &lda, x, &incx, beta, y, &incy);
-#else   
-    if (backend <= 1) 
-        DGEMV(&chn, &m, &n, alpha, A, &lda, x, &incx, beta, y, &incy);
-#endif
+    if (backend <= 1)
+        blas<T>::gemv('N', m, n, *alpha, A, lda, x, incx, *beta, y, incy);
     
 #ifdef HAVE_CUDA          
 #ifdef USE_FLOAT  
@@ -546,17 +538,13 @@ static void PGEMNV(cublasHandle_t handle, Int m, Int n, dstype* alpha, dstype* A
 #endif     
 }
 
-static void PGEMTV(cublasHandle_t handle, Int m, Int n, dstype *alpha, dstype* A, Int lda, 
-        dstype* x, Int incx, dstype *beta, dstype* y, Int incy, dstype* ylocal, Int backend) 
+template <class T = dstype>
+static void PGEMTV(cublasHandle_t handle, Int m, Int n, T *alpha, T* A, Int lda, 
+        T* x, Int incx, T *beta, T* y, Int incy, T* ylocal, Int backend) 
 {
     /* y = alpha*A^T * x + beta y */
-#ifdef USE_FLOAT     
-    if (backend <= 1) 
-        SGEMV(&cht, &m, &n, alpha, A, &lda, x, &incx, beta, ylocal, &incy);
-#else   
-    if (backend <= 1) 
-        DGEMV(&cht, &m, &n, alpha, A, &lda, x, &incx, beta, ylocal, &incy);
-#endif
+    if (backend <= 1)
+        blas<T>::gemv('T', m, n, *alpha, A, lda, x, incx, *beta, ylocal, incy);
     
 #ifdef HAVE_CUDA          
 #ifdef USE_FLOAT  
@@ -661,17 +649,13 @@ static void PGEMTV(cublasHandle_t handle, Int m, Int n, dstype *alpha, dstype* A
 // #endif                     
 // }
 
-static void PGEMTM(cublasHandle_t handle, Int m, Int n, Int k, dstype *alpha, dstype* A, Int lda, 
-        dstype* B, Int ldb, dstype *beta, dstype* C, Int ldc, dstype* Clocal, Int backend) 
+template <class T = dstype>
+static void PGEMTM(cublasHandle_t handle, Int m, Int n, Int k, T *alpha, T* A, Int lda, 
+        T* B, Int ldb, T *beta, T* C, Int ldc, T* Clocal, Int backend) 
 {
     /* C = alpha*A^T * B + beta C */
-#ifdef USE_FLOAT     
-    if (backend <= 1) 
-        SGEMM(&cht, &chn, &m, &n, &k, alpha, A, &lda, B, &ldb, beta, Clocal, &ldc);
-#else   
-    if (backend <= 1) 
-        DGEMM(&cht, &chn, &m, &n, &k, alpha, A, &lda, B, &ldb, beta, Clocal, &ldc);
-#endif
+    if (backend <= 1)
+        blas<T>::gemm('T', 'N', m, n, k, *alpha, A, lda, B, ldb, *beta, Clocal, ldc);
     
 #ifdef HAVE_CUDA          
 #ifdef USE_FLOAT  
