@@ -4,10 +4,11 @@
 #ifndef __QOICALCULATION
 #define __QOICALCULATION
 
-template <class M>
-inline void qoiElemBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int jth, Int backend)
-{        
+template <class M, class T=dstype, class I=Int>
+inline void qoiElemBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int jth, Int backend)
+{
+    using dstype=T;        
     Int nc = common.components.nc; // number of compoments of (u, q, p)
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int ncq = common.components.ncq;// number of compoments of (q)
@@ -58,10 +59,11 @@ inline void qoiElemBlock(solstruct &sol, resstruct &res, appstruct &app, masters
     }    
 }
 
-template <class M>
-inline void qoiElement(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common)
-{    
+template <class M, class T=dstype, class I=Int>
+inline void qoiElement(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common)
+{
+    using dstype=T;    
     for (int i = 0; i<common.qoiparams.nvqoi; i++) common.qoiparams.qoivolume[i] = 0.0;
     for (Int j=0; j<common.meshsizes.nbe; j++) {              
         Int e2 = common.eblks[3*j+1];            
@@ -69,11 +71,12 @@ inline void qoiElement(solstruct &sol, resstruct &res, appstruct &app, masterstr
     }                     
 }
 
-template <class M>
-inline void qoiFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, 
+template <class M, class T=dstype, class I=Int>
+inline void qoiFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, 
         cublasHandle_t handle, Int f1, Int f2, Int ib, Int backend)
-{            
+{
+    using dstype=T;            
     Int nc = common.components.nc; // number of compoments of (u, q, p)
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int nco = common.components.nco;// number of compoments of (o)
@@ -115,10 +118,11 @@ inline void qoiFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masters
     }        
 }
 
-template <class M>
-inline void qoiFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common)
-{    
+template <class M, class T=dstype, class I=Int>
+inline void qoiFace(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common)
+{
+    using dstype=T;    
     for (int i = 0; i<common.qoiparams.nsurf; i++) common.qoiparams.qoisurface[i] = 0.0;
     for (Int j=0; j<common.meshsizes.nbf; j++) {
         Int f1 = common.fblks[3*j]-1;

@@ -45,10 +45,11 @@
 #ifndef __UEQUATION
 #define __UEQUATION
 
-template <class M>
-inline void uEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int jth, Int backend)
-{        
+template <class M, class T=dstype, class I=Int>
+inline void uEquationElemBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int jth, Int backend)
+{
+    using dstype=T;        
     Int nc = common.components.nc; // number of compoments of (u, q, p)
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int ncq = common.components.ncq;// number of compoments of (q)
@@ -206,10 +207,11 @@ inline void uEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, m
     } 
 }
 
-template <class M>
-inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int jth, Int backend)
-{            
+template <class M, class T=dstype, class I=Int>
+inline void uEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int jth, Int backend)
+{
+    using dstype=T;            
     Int nc = common.components.nc; // number of compoments of (u, q, p)
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int ncq = common.components.ncq;// number of compoments of (q)
@@ -571,10 +573,11 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
   }
 }
 
-template <class M>
-inline void uEquationSchurBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int jth, Int backend)
-{        
+template <class M, class T=dstype, class I=Int>
+inline void uEquationSchurBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int jth, Int backend)
+{
+    using dstype=T;        
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int nd = common.grid.nd;     // spatial dimension    
     Int npe = common.grid.npe; // number of nodes on master element
@@ -791,11 +794,12 @@ inline void uEquationSchurBlock(solstruct &sol, resstruct &res, appstruct &app, 
     } 
 }
 
-template <class M>
-inline void uEquationHDG(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common,         
+template <class M, class T=dstype, class I=Int>
+inline void uEquationHDG(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,         
         cublasHandle_t handle, Int backend)
-{    
+{
+    using dstype=T;    
     for (Int j=0; j<common.meshsizes.nbe; j++) {         
         uEquationElemBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
         uEquationElemFaceBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
@@ -803,10 +807,11 @@ inline void uEquationHDG(solstruct &sol, resstruct &res, appstruct &app, masters
     }                     
 }
 
-template <class M>
-inline void RuEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int jth, Int backend)
-{        
+template <class M, class T=dstype, class I=Int>
+inline void RuEquationElemBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int jth, Int backend)
+{
+    using dstype=T;        
     Int nc = common.components.nc; // number of compoments of (u, q, p)
     Int ncu = common.components.ncu;// number of compoments of (u)
     //Int ncq = common.components.ncq;// number of compoments of (q)
@@ -896,10 +901,11 @@ inline void RuEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, 
     Gauss2Node(handle, &res.Ru[npe*ncu*e1], tmp.tempn, master.shapegw, nge*(nd+1), npe, ncu*ne, backend); // fixed bug here                   
 }
 
-template <class M>
-inline void RuEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int jth, Int backend)
-{            
+template <class M, class T=dstype, class I=Int>
+inline void RuEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int jth, Int backend)
+{
+    using dstype=T;            
     Int nc = common.components.nc; // number of compoments of (u, q, p)
     Int ncu = common.components.ncu;// number of compoments of (u)
     //Int ncq = common.components.ncq;// number of compoments of (q)
@@ -1102,11 +1108,12 @@ inline void RuEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &a
     }            
 }
 
-template <class M>
-inline void ResidualHDG(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common,         
+template <class M, class T=dstype, class I=Int>
+inline void ResidualHDG(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,         
         cublasHandle_t handle, Int backend)
-{    
+{
+    using dstype=T;    
     for (Int j=0; j<common.meshsizes.nbe; j++) {        
         RuEquationElemBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
         RuEquationElemFaceBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);        

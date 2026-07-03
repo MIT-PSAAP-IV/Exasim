@@ -37,11 +37,12 @@
 #define __MATVEC
 
 #include "ioutilities.hpp"
-template <class M>
-inline void MatVec(dstype *w, solstruct &sol, resstruct &res, appstruct &app, masterstruct &master,
-      meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, dstype *v, 
-      dstype *u, dstype *Ru, Int backend)
-{   
+template <class M, class T=dstype, class I=Int>
+inline void MatVec(T *w, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master,
+      meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, T *v, 
+      T *u, T *Ru, Int backend)
+{
+    using dstype=T;   
     Int nc = common.components.nc; // number of compoments of (u, q, p)
     Int ncu = common.components.ncu;// number of compoments of (u)    
     Int npe = common.grid.npe; // number of nodes on master element    
@@ -100,8 +101,10 @@ inline void MatVec(dstype *w, solstruct &sol, resstruct &res, appstruct &app, ma
 #endif
 }
 
-inline void hdgAssembleRHS(dstype *R, dstype *Rh, meshstruct &mesh, commonstruct &common)
-{   
+template <class T=dstype, class I=Int>
+inline void hdgAssembleRHS(T *R, T *Rh, meshstructT<T,I> &mesh, commonstructT<T,I> &common)
+{
+    using dstype=T;   
     Int nf = common.meshsizes.nf; // number of faces in this subdomain
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int npf = common.grid.npf; // number of nodes on master face           
@@ -116,8 +119,10 @@ inline void hdgAssembleRHS(dstype *R, dstype *Rh, meshstruct &mesh, commonstruct
     }
 }
 
-inline void hdgBlockILU0(dstype *BE, dstype *AE, resstruct &res, meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
+template <class T=dstype, class I=Int>
+inline void hdgBlockILU0(T *BE, T *AE, resstructT<T,I> &res, meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
 {
+    using dstype=T;
   Int ncu = common.components.ncu;// number of compoments of (u)
   Int npf = common.grid.npf; // number of nodes on master face           
   Int nfe = common.meshsizes.nfe; // number of faces in each element
@@ -165,8 +170,10 @@ inline void hdgBlockILU0(dstype *BE, dstype *AE, resstruct &res, meshstruct &mes
 //   error("here");
 }
 
-inline void hdgElementalAdditiveSchwarz(dstype *BE, dstype *AE, resstruct &res, meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
-{   
+template <class T=dstype, class I=Int>
+inline void hdgElementalAdditiveSchwarz(T *BE, T *AE, resstructT<T,I> &res, meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
+{
+    using dstype=T;   
     Int nf = common.meshsizes.nf; // number of faces in this subdomain
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int npf = common.grid.npf; // number of nodes on master face           
@@ -187,8 +194,10 @@ inline void hdgElementalAdditiveSchwarz(dstype *BE, dstype *AE, resstruct &res, 
     }
 }
 
-inline void hdgBlockJacobi(dstype *BE, dstype *AE, resstruct &res, meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
-{   
+template <class T=dstype, class I=Int>
+inline void hdgBlockJacobi(T *BE, T *AE, resstructT<T,I> &res, meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
+{
+    using dstype=T;   
     Int nf = common.meshsizes.nf; // number of faces in this subdomain
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int npf = common.grid.npf; // number of nodes on master face           
@@ -216,9 +225,11 @@ inline void hdgBlockJacobi(dstype *BE, dstype *AE, resstruct &res, meshstruct &m
     }
 }
 
-inline void hdgGetDUDG(dstype *w, dstype *F, dstype *duh, dstype *ve, meshstruct &mesh, 
-        commonstruct &common,  Int backend)
-{   
+template <class T=dstype, class I=Int>
+inline void hdgGetDUDG(T *w, T *F, T *duh, T *ve, meshstructT<T,I> &mesh, 
+        commonstructT<T,I> &common,  Int backend)
+{
+    using dstype=T;   
     Int ne = common.meshsizes.ne1; // number of elements in this subdomain 
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int npf = common.grid.npf; // number of nodes on master face           
@@ -237,9 +248,11 @@ inline void hdgGetDUDG(dstype *w, dstype *F, dstype *duh, dstype *ve, meshstruct
     }
 }
 
-inline void hdgMatVec(dstype *w, dstype *AE, dstype *v, dstype *ve, dstype *we, resstruct &res, appstruct &app, 
-        meshstruct &mesh, commonstruct &common, tempstruct &tmp, cublasHandle_t handle, Int backend)
-{   
+template <class T=dstype, class I=Int>
+inline void hdgMatVec(T *w, T *AE, T *v, T *ve, T *we, resstructT<T,I> &res, appstructT<T,I> &app, 
+        meshstructT<T,I> &mesh, commonstructT<T,I> &common, tempstructT<T,I> &tmp, cublasHandle_t handle, Int backend)
+{
+    using dstype=T;   
     Int ne1 = common.meshsizes.ne1; // number of elements in this subdomain 
     Int nf = common.meshsizes.nf; // number of faces in this subdomain
     Int ncu = common.components.ncu;// number of compoments of (u)
@@ -389,10 +402,11 @@ inline void hdgMatVec(dstype *w, dstype *AE, dstype *v, dstype *ve, dstype *we, 
 }
 
 #ifdef  HAVE_MPI     
-template <class M>
-inline void hdgAssembleLinearSystemMPI(dstype *b, solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common,  cublasHandle_t handle, Int backend)
+template <class M, class T=dstype, class I=Int>
+inline void hdgAssembleLinearSystemMPI(T *b, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,  cublasHandle_t handle, Int backend)
 {
+    using dstype=T;
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int npf = common.grid.npf; // number of nodes on master face           
     Int npe = common.grid.npe; // number of nodes on master element
@@ -542,10 +556,11 @@ inline void hdgAssembleLinearSystemMPI(dstype *b, solstruct &sol, resstruct &res
     PutElementFaceNodes(b, res.Rh, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.meshsizes.nf0);    
 }
 
-template <class M>
-inline void hdgAssembleResidualMPI(dstype *b, solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common,  cublasHandle_t handle, Int backend)
+template <class M, class T=dstype, class I=Int>
+inline void hdgAssembleResidualMPI(T *b, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,  cublasHandle_t handle, Int backend)
 {
+    using dstype=T;
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int npf = common.grid.npf; // number of nodes on master face           
     Int npe = common.grid.npe; // number of nodes on master element

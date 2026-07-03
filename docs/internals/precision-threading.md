@@ -204,10 +204,27 @@ multi-rank app-regression at unchanged rel_L2; **GPU-MPI** on dgx-b (`petsc_pois
   device-compiles all 137 templated lambdas and petsc_poisson (backend=2) is byte-identical
   (residual 9.119e-14, ShellMat vs op.mat()=0, MATAIJ 2.62e-16).
 
+### Discretization free-function layer — DONE + verified (CPU)
+All HDG/LDG orchestration free functions in `backend/Discretization/*.hpp` are now
+`template <class M, class T=dstype, class I=Int>` (or `<class T=dstype, class I=Int>` for the
+model-independent ones): signatures retype the struct params to `XxxstructT<T,I>&` and `dstype*`→`T*`,
+and each body opens with `using dstype=T;` so the body is **untouched** (byte-identical by construction).
+Callers already hold `solstructT<T,I>` members and invoke `foo<M>(sol, …)`, so `T`/`I` **deduce** from
+the struct args — no call-site changes. This is the layer that makes the stance-A seam `static_assert`
+auto-activate into the real `T==dstype` guard (the `using dstype=T` shadow reaches `EXASIM_DRIVER_CALL`).
+- Compute kernels: `uequation.hpp` (7 fns), `matvec.hpp` (12), `qequation.hpp` (7 + the pre-existing
+  generic `EnsureTemplateAllocation<T>` left as-is), `wequation.hpp` (4), `residual.hpp` (15),
+  `qoicalculation.hpp` (4), `massinv.hpp` (2), `getuhat.hpp` (5).
+- In-memory struct-setup: `setstructs.hpp` (11 fns: `setcommonstruct`/`setresstruct`/`settempstruct`/
+  `cpuInit*`/`devappstruct`/`devsolstruct`/`devmasterstruct`), called by `CDiscretizationT<T,I>`
+  construction — needed so a non-`dstype` discretization can set up its own structs.
+- Left alone (byte-format boundary, not compute): `readbinaryfiles`/`ioutilities`/`connectivity`/
+  `ismeshcurved` (no driver, no compute; file precision is a separate concern from solve precision).
+- Verified: full Exasim rebuild + install + multi-app regression at **unchanged rel_L2** (naca0012
+  2.94e-13, nsmach8 3.63e-15, poisson3d 9.99e-11, isoq3d 1.95e-9, poisson2d 2.29e-12; 10 pass, 2
+  pre-existing np=4 RUN_FAILs).
+
 ### Remaining Phase 3
-- `backend/Discretization/*.hpp` compute kernels take `T*` (`uequation` 156, `wequation` 55,
-  `qequation` 43, `matvec`, `massinv`, …) — these call the generated kernels via `EXASIM_DRIVER_CALL`
-  (under default `T=dstype` the `T*` buffers pass straight through, consistent with the cut).
 - Thread `using dstype=T` into the comm helpers so `mpi_type<dstype>()`→`mpi_type<T>()` auto-activates.
 - `pblas.h` tail: Array ops (`ArrayCopy`/`ArrayAXPY`/…), `PDOT`/`DOT`, `Inverse`, `PGEMNMStridedBached`
   + the `blas<T>` GPU trait methods (cublas/hipblas), so non-default GPU precision works too.

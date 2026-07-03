@@ -31,10 +31,12 @@
 #ifndef __WEQUATION
 #define __WEQUATION
 
-static void ReportNanInHdgSourcewonlyOutput(const char* field, const dstype* data,
-      const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg,
+template <class T=dstype, class I=Int>
+static void ReportNanInHdgSourcewonlyOutput(const char* field, const T* data,
+      const T* xdg, const T* udg, const T* odg, const T* wdg,
       Int ng, Int ncomp, Int nc, Int nco, Int ncw, Int nd, Int mpiRank, Int iter)
 {
+    using dstype=T;
     for (Int comp = 0; comp < ncomp; ++comp) {
         for (Int i = 0; i < ng; ++i) {
             dstype value = data[i + ng * comp];
@@ -80,10 +82,11 @@ static void ReportNanInHdgSourcewonlyOutput(const char* field, const dstype* dat
     }
 }
 
-template <class M>
-inline void wEquation(dstype *wdg, dstype *xdg, dstype *udg, dstype *odg, dstype *wsrc, 
-      dstype *tempg, appstruct &app, commonstruct &common, Int ng, Int backend)
-{        
+template <class M, class T=dstype, class I=Int>
+inline void wEquation(T *wdg, T *xdg, T *udg, T *odg, T *wsrc, 
+      T *tempg, appstructT<T,I> &app, commonstructT<T,I> &common, Int ng, Int backend)
+{
+    using dstype=T;        
     Int ncu = common.components.ncu; // number of compoments of (u)
     Int nd = common.grid.nd; // spatial dimension
     Int nc = common.components.nc; // number of compoments of (u, q)
@@ -168,10 +171,11 @@ inline void wEquation(dstype *wdg, dstype *xdg, dstype *udg, dstype *odg, dstype
     }            
 }
 
-template <class M>
-inline void wEquation(dstype *wdg, dstype *wdg_udg, dstype *xdg, dstype *udg, dstype *odg, dstype *wsrc, 
-       dstype *tempg, appstruct &app, commonstruct &common, Int ng, Int backend)
-{        
+template <class M, class T=dstype, class I=Int>
+inline void wEquation(T *wdg, T *wdg_udg, T *xdg, T *udg, T *odg, T *wsrc, 
+       T *tempg, appstructT<T,I> &app, commonstructT<T,I> &common, Int ng, Int backend)
+{
+    using dstype=T;        
     Int ncu = common.components.ncu; // number of compoments of (u)
     Int nd = common.grid.nd; // spatial dimension
     Int nc = common.components.nc; // number of compoments of (u, q)
@@ -275,9 +279,10 @@ inline void wEquation(dstype *wdg, dstype *wdg_udg, dstype *xdg, dstype *udg, ds
     }            
 }
 
-template <class M>
-inline void GetW(dstype *w, solstruct &sol, tempstruct &tmp, appstruct &app, commonstruct &common, Int backend)
+template <class M, class T=dstype, class I=Int>
+inline void GetW(T *w, solstructT<T,I> &sol, tempstructT<T,I> &tmp, appstructT<T,I> &app, commonstructT<T,I> &common, Int backend)
 {
+    using dstype=T;
   for (Int j=0; j<common.meshsizes.nbe; j++) {         
       Int e1 = common.eblks[3*j]-1;
       Int e2 = common.eblks[3*j+1];

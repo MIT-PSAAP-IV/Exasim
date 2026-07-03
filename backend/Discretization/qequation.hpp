@@ -79,9 +79,11 @@ inline void EnsureTemplateAllocation(T **data, Int &currentSize, Int requiredSiz
     }
 }
 
-inline void qEquationElem(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
-{        
+template <class T=dstype, class I=Int>
+inline void qEquationElem(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
+{
+    using dstype=T;        
     Int ncx = common.components.ncx;// number of compoments of (xdg) 
     Int nd = common.grid.nd;     // spatial dimension    
     Int npe = common.grid.npe; // number of nodes on master element
@@ -177,10 +179,12 @@ inline void qEquationElem(solstruct &sol, resstruct &res, appstruct &app, master
 }
 
 // Calculate Rqf = <uhat, v dot n>_F for a given uhat
-inline void qEquationFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
+template <class T=dstype, class I=Int>
+inline void qEquationFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, 
         Int nd, Int nfe, Int npe, Int npf, Int ngf, Int ncx, Int f1, Int f2, Int ib, Int backend)
-{        
+{
+    using dstype=T;        
     Int nf = f2-f1;
     Int nga = ngf*nf;   
     Int n1 = nga*ncx;                           // nlg
@@ -226,9 +230,11 @@ inline void qEquationFaceBlock(solstruct &sol, resstruct &res, appstruct &app, m
     }        
 }
 
-inline void qEquationFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
-{    
+template <class T=dstype, class I=Int>
+inline void qEquationFace(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
+{
+    using dstype=T;    
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
     Int nd = common.grid.nd;     // spatial dimension    
     Int npe = common.grid.npe; // number of nodes on master element
@@ -257,10 +263,12 @@ inline void qEquationFace(solstruct &sol, resstruct &res, appstruct &app, master
 }
 
 // Calculate Rqf = <uhat, v dot n>_F for a given uhat
-inline void qEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
+template <class T=dstype, class I=Int>
+inline void qEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, 
         Int nd, Int nfe, Int npe, Int npf, Int ngf, Int ncx, Int e1, Int e2, Int backend)
-{          
+{
+    using dstype=T;          
     Int ns = e2-e1;
     Int nga = ngf*nfe*ns;   
     Int n1 = nga*ncx;                           // nlg
@@ -329,9 +337,11 @@ inline void qEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
     TemplateFree(Etmp, backend);
 }
 
-inline void qEquationElemFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
-{    
+template <class T=dstype, class I=Int>
+inline void qEquationElemFace(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
+{
+    using dstype=T;    
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
     Int nd = common.grid.nd;     // spatial dimension    
     Int npe = common.grid.npe; // number of nodes on master element
@@ -364,15 +374,19 @@ inline void qEquationElemFace(solstruct &sol, resstruct &res, appstruct &app, ma
     }    
 }
 
-inline void qEquation(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, Int backend)
+template <class T=dstype, class I=Int>
+inline void qEquation(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, Int backend)
 {
+    using dstype=T;
     qEquationElem(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
     qEquationElemFace(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);    
 }
 
-inline void hdgGetQ(dstype *udg, dstype *uhat, solstruct &sol, resstruct &res, meshstruct &mesh, tempstruct &tmp, commonstruct &common, Int backend)
+template <class T=dstype, class I=Int>
+inline void hdgGetQ(T *udg, T *uhat, solstructT<T,I> &sol, resstructT<T,I> &res, meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, Int backend)
 {
+    using dstype=T;
     Int nc = common.components.nc;// number of compoments of (udg)        
     Int ncu = common.components.ncu; // number of compoments of (u)
     Int ncq = common.components.ncq; // number of compoments of (q)

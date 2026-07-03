@@ -50,9 +50,11 @@
 #include "uresidual.hpp"
 #include "getuhat.hpp"
 
-inline void DG2CGAVField(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, meshstruct &mesh,
-        tempstruct &tmp, commonstruct &common, dstype* avcg, dstype* avdg, Int backend)
+template <class T=dstype, class I=Int>
+inline void DG2CGAVField(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh,
+        tempstructT<T,I> &tmp, commonstructT<T,I> &common, T* avcg, T* avdg, Int backend)
 {
+    using dstype=T;
     Int ncavdg = common.components.nco;
     Int ncavcg = common.components.nco;
 
@@ -72,10 +74,12 @@ inline void DG2CGAVField(solstruct &sol, resstruct &res, appstruct &app, masters
     }
 }
 
-inline void GetQ(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, meshstruct &mesh, 
-        tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
+template <class T=dstype, class I=Int>
+inline void GetQ(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh, 
+        tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, 
         Int nbe1, Int nbe2, Int nbf1, Int nbf2, Int backend)
-{    
+{
+    using dstype=T;    
     Int nc = common.components.nc; // number of compoments of (u, q, p)
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int ncq = common.components.ncq;// number of compoments of (q)
@@ -127,11 +131,12 @@ inline void GetQ(solstruct &sol, resstruct &res, appstruct &app, masterstruct &m
     // END_TIMING(18);       
 }
 
-template <class M>
-inline void GetW(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, meshstruct &mesh, 
-        tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
+template <class M, class T=dstype, class I=Int>
+inline void GetW(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh, 
+        tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, 
         Int nbe1, Int nbe2, Int nbf1, Int nbf2, Int backend)
-{        
+{
+    using dstype=T;        
     if (common.timeparams.subproblem==0) {
     Int nc = common.components.nc; // number of compoments of (u, q, p)
     Int ncw = common.components.ncw;// number of compoments of (w)
@@ -215,10 +220,11 @@ inline void GetW(solstruct &sol, resstruct &res, appstruct &app, masterstruct &m
     }
 }
 
-template <class M>
-inline void GetAv(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, meshstruct &mesh, 
-        tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
+template <class M, class T=dstype, class I=Int>
+inline void GetAv(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh, 
+        tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
 {
+    using dstype=T;
     EXASIM_DRIVER_CALL(AvfieldDriver, sol.odg, sol.xdg, sol.udg, sol.odg, sol.wdg, mesh, master, app, sol, tmp, common, backend); 
     // note that the args imply avfield can depend on odg...not sure this is true.
     // This is true actually; but we need to be careful with autodiff. Might need a seperate avfield...
@@ -250,11 +256,12 @@ inline void GetAv(solstruct &sol, resstruct &res, appstruct &app, masterstruct &
     }       
 }
 
-template <class M>
-inline void RuResidual(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, meshstruct &mesh, 
-   tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
+template <class M, class T=dstype, class I=Int>
+inline void RuResidual(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh, 
+   tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, 
    Int nbe1u, Int nbe2u, Int nbe1q, Int nbe2q, Int nbf1, Int nbf2, Int backend)
-{    
+{
+    using dstype=T;    
     // compute uhat
     GetUhat<M>(sol, res, app, master, mesh, tmp, common, handle, nbf1, nbf2, backend);
     
@@ -293,10 +300,11 @@ inline void RuResidual(solstruct &sol, resstruct &res, appstruct &app, masterstr
 
 #ifdef  HAVE_MPI
 
-template <class M>
-inline void GetQMPI(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, meshstruct &mesh, 
-   tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
-{  
+template <class M, class T=dstype, class I=Int>
+inline void GetQMPI(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh, 
+   tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
+{
+    using dstype=T;  
     // non-blocking send and receive solutions on exterior and outer elements to neighbors
     
     Int bsz = common.grid.npe*common.components.ncu;
@@ -366,10 +374,11 @@ inline void GetQMPI(solstruct &sol, resstruct &res, appstruct &app, masterstruct
         GetQ(sol, res, app, master, mesh, tmp, common, handle, common.meshsizes.nbe0, common.meshsizes.nbe2, 0, common.meshsizes.nbf, backend);                
 }
 
-template <class M>
-inline void RuResidualMPI(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, meshstruct &mesh, 
-   tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
-{      
+template <class M, class T=dstype, class I=Int>
+inline void RuResidualMPI(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh, 
+   tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
+{
+    using dstype=T;      
     // non-blocking send and receive solutions on exterior and outer elements to neighbors    
     Int bsz = common.grid.npe*common.components.ncu;
     Int nudg = common.grid.npe*common.components.nc;
@@ -502,10 +511,11 @@ inline void RuResidualMPI(solstruct &sol, resstruct &res, appstruct &app, master
     //ArrayMultiplyScalar(res.Ru, minusone, common.sizes.ndof1, backend);      
 }
 
-template <class M>
-inline void RuResidualMPI1(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, meshstruct &mesh,
-   tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
-{      
+template <class M, class T=dstype, class I=Int>
+inline void RuResidualMPI1(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh,
+   tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
+{
+    using dstype=T;      
     // non-blocking send and receive solutions on exterior and outer elements to neighbors    
     Int bsz = common.grid.npe*common.components.ncu;
     Int nudg = common.grid.npe*common.components.nc;
@@ -587,10 +597,11 @@ inline void RuResidualMPI1(solstruct &sol, resstruct &res, appstruct &app, maste
 
 #endif
 
-template <class M>
-inline void Residual(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
-{    
+template <class M, class T=dstype, class I=Int>
+inline void Residual(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
+{
+    using dstype=T;    
     if (common.mpiProcs>1) { // mpi processes
 #ifdef  HAVE_MPI        
         RuResidualMPI<M>(sol, res, app, master, mesh, tmp, common, handle, backend);
@@ -619,10 +630,12 @@ inline void Residual(solstruct &sol, resstruct &res, appstruct &app, masterstruc
 //// Calculate just dR(u)/du v, with u, q, uhat, R(u) already precalculated /////
 ///////////////////////////////////////////////////////////////////////////////////////////
 #ifdef HAVE_ENZYME
-inline void GetdQ(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, meshstruct &mesh, 
-        tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
+template <class T=dstype, class I=Int>
+inline void GetdQ(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh, 
+        tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, 
         Int nbe1, Int nbe2, Int nbf1, Int nbf2, Int backend)
-{    
+{
+    using dstype=T;    
     Int nc = common.components.nc; // number of compoments of (u, q, p)
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int ncq = common.components.ncq;// number of compoments of (q)
@@ -662,10 +675,11 @@ inline void GetdQ(solstruct &sol, resstruct &res, appstruct &app, masterstruct &
     ArrayInsert(sol.dudg, &res.dRq[N], npe, nc, ne, 0, npe, ncu, ncu+ncq, e1, e2);           
 }
 
-template <class M>
-inline void GetdAv(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, meshstruct &mesh, 
-        tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
+template <class M, class T=dstype, class I=Int>
+inline void GetdAv(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh, 
+        tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
 {
+    using dstype=T;
     EXASIM_DRIVER_CALL(AvfieldDriver, sol.odg, sol.dodg, sol.xdg, sol.udg, sol.dudg, sol.odg, sol.wdg, sol.dwdg, mesh, master, app, sol, tmp, common, backend); 
 
     for (Int iav = 0; iav<common.physicsparams.AVsmoothingIter; iav++){
@@ -697,11 +711,12 @@ inline void GetdAv(solstruct &sol, resstruct &res, appstruct &app, masterstruct 
 }
 
 
-template <class M>
-inline void dRuResidual(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, meshstruct &mesh, 
-   tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
+template <class M, class T=dstype, class I=Int>
+inline void dRuResidual(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh, 
+   tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, 
    Int nbe1u, Int nbe2u, Int nbe1q, Int nbe2q, Int nbf1, Int nbf2, Int backend)
-{   
+{
+    using dstype=T;   
     // compute (duhat/du v)
     // GetUhat<M>(sol, res, app, master, mesh, tmp, common, handle, nbf1, nbf2, backend);
     GetdUhat<M>(sol, res, app, master, mesh, tmp, common, handle, nbf1, nbf2, backend);
@@ -736,10 +751,11 @@ inline void dRuResidual(solstruct &sol, resstruct &res, appstruct &app, masterst
 
 #ifdef  HAVE_MPI
 
-template <class M>
-inline void dRuResidualMPI(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, meshstruct &mesh, 
-   tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
-{      
+template <class M, class T=dstype, class I=Int>
+inline void dRuResidualMPI(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh, 
+   tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
+{
+    using dstype=T;      
     // non-blocking send and receive solutions on exterior and outer elements to neighbors    
     Int bsz = common.grid.npe*common.components.ncu;
     Int nudg = common.grid.npe*common.components.nc;
@@ -835,10 +851,11 @@ inline void dRuResidualMPI(solstruct &sol, resstruct &res, appstruct &app, maste
 
 #endif
 
-template <class M>
-inline void dResidual(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
-{    
+template <class M, class T=dstype, class I=Int>
+inline void dResidual(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
+{
+    using dstype=T;    
     
     if (common.mpiProcs>1) { // mpi processes
 #ifdef  HAVE_MPI        
@@ -864,10 +881,11 @@ inline void dResidual(solstruct &sol, resstruct &res, appstruct &app, masterstru
 
 #endif
 
-template <class M>
-inline void ComputeQ(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
+template <class M, class T=dstype, class I=Int>
+inline void ComputeQ(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
 {
+    using dstype=T;
     if (common.mpiProcs>1) {
 #ifdef  HAVE_MPI        
         GetQMPI<M>(sol, res, app, master, mesh, tmp, common, handle, backend);

@@ -42,9 +42,11 @@
 
 #include "ismeshcurved.hpp"
 
-inline void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &master, meshstruct &mesh, 
+template <class T=dstype, class I=Int>
+inline void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh, 
         std::string filein, std::string fileout, Int curvedMesh, Int fileoffset)
-{                   
+{
+    using dstype=T;                   
     common.filein = filein;
     common.fileout = fileout;
             
@@ -349,8 +351,10 @@ inline void setcommonstruct(commonstruct &common, appstruct &app, masterstruct &
     }                
 }
 
-inline void setresstruct(resstruct &res, appstruct &app, masterstruct &master, meshstruct &mesh, Int backend)
+template <class T=dstype, class I=Int>
+inline void setresstruct(resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh, Int backend)
 {
+    using dstype=T;
     Int ncu = app.ndims[6];    // number of compoments of (u)
     Int ncq = app.ndims[7];    // number of compoments of (q)
     //Int ncp = app.ndims[8];    // number of compoments of (p)
@@ -388,8 +392,10 @@ inline void setresstruct(resstruct &res, appstruct &app, masterstruct &master, m
 #endif                   
 }
 
-inline void settempstruct(tempstruct &tmp, appstruct &app, masterstruct &master, meshstruct &mesh, Int backend)
-{               
+template <class T=dstype, class I=Int>
+inline void settempstruct(tempstructT<T,I> &tmp, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh, Int backend)
+{
+    using dstype=T;               
     Int nc = app.ndims[5]; // number of compoments of (u, q, p)
     Int ncu = app.ndims[6];// number of compoments of (u)        
     Int ncq = app.ndims[7];    // number of compoments of (q)
@@ -473,10 +479,12 @@ inline void cpuInitTail(solstruct &sol, resstruct &res, appstruct &app, masterst
         std::string filein, std::string fileout, Int mpiprocs, Int mpirank,
         Int fileoffset, Int omprank);
 
-inline void cpuInit(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master,
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common,
+template <class T=dstype, class I=Int>
+inline void cpuInit(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master,
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,
         std::string filein, std::string fileout, Int mpiprocs, Int mpirank, Int fileoffset, Int omprank)
 {
+    using dstype=T;
     if (mpirank==0)
         printf("Reading data from binary files \n");
     readInput(app, master, mesh, sol, filein, mpiprocs, mpirank, fileoffset, omprank);
@@ -488,11 +496,13 @@ inline void cpuInit(solstruct &sol, resstruct &res, appstruct &app, masterstruct
                 mpiprocs, mpirank, fileoffset, omprank);
 }
 
-inline void cpuInitTail(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master,
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common,
+template <class T=dstype, class I=Int>
+inline void cpuInitTail(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master,
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,
         std::string filein, std::string fileout, Int mpiprocs, Int mpirank,
         Int fileoffset, Int omprank)
 {
+    using dstype=T;
     
 //     if (mpiprocs != app.ndims[0]) {
 //         if (mpirank==0) {
@@ -769,11 +779,13 @@ inline void cpuInitTail(solstruct &sol, resstruct &res, appstruct &app, masterst
 // `ti` is mesh.t reordered by elempart (produced by buildMeshStruct).
 // On entry app.porder / app.comm are unset — populated here as the
 // legacy readInput would.
-inline void cpuInitFromStructs(solstruct &sol, resstruct &res, appstruct &app,
-        masterstruct &master, meshstruct &mesh, tempstruct &tmp,
-        commonstruct &common, std::vector<int>& ti, std::string fileout,
+template <class T=dstype, class I=Int>
+inline void cpuInitFromStructs(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app,
+        masterstructT<T,I> &master, meshstructT<T,I> &mesh, tempstructT<T,I> &tmp,
+        commonstructT<T,I> &common, std::vector<int>& ti, std::string fileout,
         Int mpiprocs, Int mpirank, Int fileoffset, Int omprank)
 {
+    using dstype=T;
     // 1) app.porder + app.comm — done inside readInput today (lines
     //    634-641 of readbinaryfiles.hpp). We replicate it here so
     //    cpuInitTail sees the same app state.
@@ -839,8 +851,10 @@ inline void cpuInitFromStructs(solstruct &sol, resstruct &res, appstruct &app,
 
 #ifdef HAVE_GPU
 
-inline void devappstruct(appstruct &dapp, appstruct &app, commonstruct &common)
-{        
+template <class T=dstype, class I=Int>
+inline void devappstruct(appstructT<T,I> &dapp, appstructT<T,I> &app, commonstructT<T,I> &common)
+{
+    using dstype=T;        
     TemplateMalloc(&dapp.nsize, app.lsize[0], common.backend);
     TemplateMalloc(&dapp.ndims, app.nsize[0], common.backend);
     TemplateMalloc(&dapp.flag, app.nsize[1], common.backend);    
@@ -917,8 +931,10 @@ inline void devappstruct(appstruct &dapp, appstruct &app, commonstruct &common)
     }                    
 }
 
-inline void devsolstruct(solstruct &dsol, solstruct &sol, commonstruct &common)
-{    
+template <class T=dstype, class I=Int>
+inline void devsolstruct(solstructT<T,I> &dsol, solstructT<T,I> &sol, commonstructT<T,I> &common)
+{
+    using dstype=T;    
     TemplateMalloc(&dsol.nsize, sol.lsize[0], common.backend);
     TemplateMalloc(&dsol.ndims, sol.nsize[0], common.backend);
     TemplateMalloc(&dsol.xdg, sol.nsize[1], common.backend);    
@@ -950,8 +966,10 @@ inline void devsolstruct(solstruct &dsol, solstruct &sol, commonstruct &common)
     #endif
 }
 
-inline void devmasterstruct(masterstruct &dmaster, masterstruct &master, commonstruct &common)
-{    
+template <class T=dstype, class I=Int>
+inline void devmasterstruct(masterstructT<T,I> &dmaster, masterstructT<T,I> &master, commonstructT<T,I> &common)
+{
+    using dstype=T;    
     TemplateMalloc(&dmaster.nsize, master.lsize[0], common.backend);
     TemplateMalloc(&dmaster.ndims, master.nsize[0], common.backend);
     TemplateMalloc(&dmaster.shapegt, master.nsize[1], common.backend);    
@@ -1001,8 +1019,10 @@ inline void devmasterstruct(masterstruct &dmaster, masterstruct &master, commons
     TemplateCopytoDevice( dmaster.gw1d, master.gw1d, master.nsize[21], common.backend );          
 }
 
-inline void devmeshstruct(meshstruct &dmesh, meshstruct &mesh, commonstruct &common)
+template <class T=dstype, class I=Int>
+inline void devmeshstruct(meshstructT<T,I> &dmesh, meshstructT<T,I> &mesh, commonstructT<T,I> &common)
 {
+    using dstype=T;
     TemplateMalloc(&dmesh.nsize, mesh.lsize[0], common.backend);
     TemplateMalloc(&dmesh.ndims, mesh.nsize[0], common.backend);
     TemplateMalloc(&dmesh.facecon, mesh.nsize[1], common.backend);
@@ -1132,10 +1152,12 @@ inline void devmeshstruct(meshstruct &dmesh, meshstruct &mesh, commonstruct &com
     }
 }
 
-inline void gpuInit(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-       meshstruct &mesh, tempstruct &tmp, commonstruct &common, solstruct &hsol, resstruct &hres, 
-       appstruct &happ, masterstruct &hmaster, meshstruct &hmesh, tempstruct &htmp, commonstruct &hcommon) 
-{    
+template <class T=dstype, class I=Int>
+inline void gpuInit(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+       meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, solstructT<T,I> &hsol, resstructT<T,I> &hres, 
+       appstructT<T,I> &happ, masterstructT<T,I> &hmaster, meshstructT<T,I> &hmesh, tempstructT<T,I> &htmp, commonstructT<T,I> &hcommon) 
+{
+    using dstype=T;    
     devappstruct(app, happ, hcommon);
     devmasterstruct(master, hmaster, hcommon);    
     devmeshstruct(mesh, hmesh, hcommon);
