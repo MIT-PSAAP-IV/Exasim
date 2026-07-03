@@ -105,10 +105,26 @@ class scope and needed no change. `ptcsolver.cpp`/`gmres.cpp` also define `CSolv
 `T=dstype`). Verified: consumer robustness `ALL PASS` + full backend rebuild + app-regression through
 the real solver (gmres/PTC) at the same rel_L2 (naca0012 2.94e-13, poisson3d 9.99e-11, isoq3d 1.95e-9).
 
-**Remaining Phase 2:** the `include/exasim` shim (`Operator`, `ShellMat`, `assemble_matrix`,
-`make_mass_inverse`) takes `Scalar`/`Idx` template args (default `floatTy`/`intTy`) and the zero-copy
-Vec/Mat wrapping uses them directly (dropping the ABI `static_assert` for a compile-time-selected
-match instead) — this is what makes a chosen-precision export actually reachable by a consumer.
+**Shim — DONE + verified.** The `include/exasim` PETSc shim now carries the exported precision as
+template parameters: `Operator<M, Scalar=floatTy, Idx=intTy>`, `ShellMat<Scalar=floatTy>`, and
+`make_mass_inverse<M,Scalar,Idx>` / `assemble_matrix<M,Scalar,Idx>`. `Operator` holds
+`CDiscretizationT<Scalar,Idx>&` + `CAssembler<M,Scalar,Idx>&` + `CPreconditioner<M,Scalar,Idx>&` +
+`sysstructT<Scalar,Idx>&`, exposes `scalar_type = Scalar` / `index_type = Idx`, and the zero-copy
+Vec/Mat wrapping reinterprets PETSc's `PetscScalar`/`PetscInt` arrays as `Scalar`/`Idx`. The old
+*global* ABI `static_assert(sizeof(PetscScalar)==sizeof(floatTy))` is gone — each wrapper carries its
+own `static_assert(sizeof(PetscScalar)==sizeof(Scalar))`, so it fires only for the precision you
+actually instantiate and including the header no longer forces a TU-wide precision match. (`floatTy`
+*is* `dstype`, so the default `Operator<M>` = `Operator<M,dstype,Int>` stays byte-identical; the
+threading makes precision an explicit, queryable property of the exported type.) Consumers spell bare
+`ShellMat` as `ShellMat<>` (it is now a template; CTAD can't deduce `Scalar` from the apply lambda).
+Verified: robustness `ALL PASS` + petsc_poisson (SNES resid 9.08e-14, ShellMat vs matrix-free 0.0,
+MATAIJ vs matrix-free 2.65e-16) + petsc_heat (PETSc TS drives the heat loop) — all PASS, values
+identical to pre-shim.
+
+**Phase 2 is complete:** every layer from the data structs (Phase 1) up through the struct owner
+(`CDiscretization`), the FEM classes (`CResidual`/`CAssembler`/`CPreconditioner`/`CSolver`), and the
+PETSc export shim now threads `<T,I>` with `dstype`/`Int` as default arguments — the whole stack is
+precision-parameterized and byte-identical under the defaults.
 
 ## Phase 3 — Kernels + BLAS + Kokkos dispatch
 - Compute kernels (`backend/Discretization/*.hpp`, `Common/{cpuimpl,kokkosimpl}.h`) take `T*`.

@@ -39,24 +39,31 @@ namespace petsc {
 // zero-copy Vec/Mat wrapping below reinterprets a wrong-width buffer. This turns the previously
 // silent precision mismatch into a build error. Fix by matching one to the other: build PETSc
 // --with-precision=single / --with-64-bit-indices, or build Exasim -DEXASIM_FLOAT / -DEXASIM_INT64.
-static_assert(sizeof(PetscScalar) == sizeof(exasim::floatTy),
-              "PetscScalar precision != Exasim floatTy: rebuild one to match (single vs double).");
-static_assert(sizeof(PetscInt) == sizeof(exasim::intTy),
-              "PetscInt width != Exasim intTy: rebuild one to match (32- vs 64-bit indices).");
+// (Phase 2) The ABI precision guard is no longer a global static_assert on floatTy/intTy: precision
+// is a template property of each exported wrapper (Operator<M,Scalar,Idx> / ShellMat<Scalar>), so the
+// sizeof(PetscScalar)==sizeof(Scalar) / sizeof(PetscInt)==sizeof(Idx) checks live INSIDE those types
+// and fire only for the precision you actually instantiate. Including this header no longer forces a
+// TU-wide precision match.
 
 // Wraps Exasim's exported HDG operators (Jacobian-apply res.H + preconditioner res.K) as PETSc
 // MatShell + PCShell, plus a zero-copy RHS Vec aliasing the condensed b in sys.b. Templated on
 // the model M only because CAssembler<M>/CPreconditioner<M> are; the PETSc side is model-agnostic.
-template <class M>
+template <class M, class Scalar = exasim::floatTy, class Idx = exasim::intTy>
 class Operator {
+    static_assert(sizeof(PetscScalar) == sizeof(Scalar),
+                  "PetscScalar precision != exported Scalar: rebuild PETSc (--with-precision) or "
+                  "Exasim (-DEXASIM_FLOAT), or instantiate Operator with the matching Scalar.");
+    static_assert(sizeof(PetscInt) == sizeof(Idx),
+                  "PetscInt width != exported Idx: match --with-64-bit-indices / -DEXASIM_INT64.");
+    using disc_t = CDiscretizationT<Scalar, Idx>;
 public:
-    using scalar_type = exasim::floatTy;   // exported precision (matches PetscScalar, see static_assert)
-    using index_type  = exasim::intTy;     // exported index type (matches PetscInt)
+    using scalar_type = Scalar;   // exported precision (bit-compatible with PetscScalar, see static_assert)
+    using index_type  = Idx;      // exported index type  (bit-compatible with PetscInt)
     // disc/asmb/prec/sys are borrowed (must outlive this). comm is the PETSc/MPI communicator;
     // layout (serial vs MPI, host vs CUDA) is derived from it + disc.common.backend. The condensed
     // system (res.H, res.K, sys.b) must already be assembled by the caller.
-    Operator(CDiscretization& disc, CAssembler<M>& asmb, CPreconditioner<M>& prec,
-             sysstruct& sys, MPI_Comm comm, int spatialScheme = 1)
+    Operator(disc_t& disc, CAssembler<M, Scalar, Idx>& asmb, CPreconditioner<M, Scalar, Idx>& prec,
+             sysstructT<Scalar, Idx>& sys, MPI_Comm comm, int spatialScheme = 1)
         : disc_(&disc), asmb_(&asmb), prec_(&prec), sys_(&sys), comm_(comm),
           backend_(static_cast<int>(disc.common.backend)),
           scheme_(spatialScheme), N_(disc.common.sizes.ndofuhat),
@@ -121,7 +128,7 @@ public:
     {
         const PetscScalar* u; PetscMemType mt;
         VecGetArrayReadAndMemType(U, &u, &mt);
-        exasim::recover_volume(*disc_, const_cast<dstype*>(u), sys_->x);
+        exasim::recover_volume(*disc_, const_cast<Scalar*>(u), sys_->x);
         VecRestoreArrayReadAndMemType(U, const_cast<const PetscScalar**>(&u));
     }
 
@@ -132,7 +139,7 @@ private:
         const PetscScalar* v; PetscScalar* jv; PetscMemType a, b;
         VecGetArrayReadAndMemType(V, &v, &a);
         VecGetArrayWriteAndMemType(JV, &jv, &b);
-        c->asmb_->evalMatVec(jv, const_cast<dstype*>(v), c->sys_->u, c->sys_->b, c->scheme_, c->backend_);
+        c->asmb_->evalMatVec(jv, const_cast<Scalar*>(v), c->sys_->u, c->sys_->b, c->scheme_, c->backend_);
         VecRestoreArrayWriteAndMemType(JV, &jv);
         VecRestoreArrayReadAndMemType(V, &v);
         return PETSC_SUCCESS;
@@ -156,13 +163,13 @@ private:
     }
     static PetscErrorCode formjacobian(SNES, Vec, Mat, Mat, void*) { return PETSC_SUCCESS; }
 
-    CDiscretization*            disc_;
-    CAssembler<M>*              asmb_;
-    CPreconditioner<M>*         prec_;
-    sysstruct*                  sys_;
+    disc_t*                     disc_;
+    CAssembler<M, Scalar, Idx>* asmb_;
+    CPreconditioner<M, Scalar, Idx>* prec_;
+    sysstructT<Scalar, Idx>*    sys_;
     MPI_Comm                    comm_;
     int                         backend_, scheme_;
-    Int                         N_;
+    Idx                         N_;
     bool                        gpu_;
     Mat                         J_  = nullptr;
     Vec                         b0_ = nullptr;
@@ -172,12 +179,15 @@ private:
 // The extensibility primitive: the condensed Jacobian, the inverse mass, a custom block, etc.
 // are one std::function each. The apply closure captures whatever Exasim state it needs; the
 // caller keeps that state (and this ShellMat) alive for the Mat's lifetime.
+template <class Scalar = exasim::floatTy>
 class ShellMat {
+    static_assert(sizeof(PetscScalar) == sizeof(Scalar),
+                  "PetscScalar precision != exported Scalar (ShellMat): match PETSc / Exasim precision.");
 public:
-    using scalar_type = exasim::floatTy;   // exported precision (matches PetscScalar, see static_assert)
+    using scalar_type = Scalar;            // exported precision (bit-compatible with PetscScalar)
     using index_type  = exasim::intTy;     // exported index type (matches PetscInt)
-    using Apply = std::function<void(floatTy* y, const floatTy* x)>;
-    ShellMat(MPI_Comm comm, Int n_local, Apply apply, bool gpu = false)
+    using Apply = std::function<void(Scalar* y, const Scalar* x)>;
+    ShellMat(MPI_Comm comm, exasim::intTy n_local, Apply apply, bool gpu = false)
         : apply_(std::move(apply))
     {
         MatCreateShell(comm, n_local, n_local, PETSC_DETERMINE, PETSC_DETERMINE, this, &mat_);
@@ -209,13 +219,13 @@ private:
 
 // A PETSc Mat applying the element block-diagonal inverse VOLUME mass M^{-1} (needs res.Minv,
 // e.g. after disc.compMassInverse()). Acts on the volume space (npe*ncr*ne), not the trace.
-template <class M>
-inline std::unique_ptr<ShellMat> make_mass_inverse(CDiscretization& disc, MPI_Comm comm, int ncr = M::ncu)
+template <class M, class Scalar = exasim::floatTy, class Idx = exasim::intTy>
+inline std::unique_ptr<ShellMat<Scalar>> make_mass_inverse(CDiscretizationT<Scalar, Idx>& disc, MPI_Comm comm, int ncr = M::ncu)
 {
-    const Int  nvol = disc.common.grid.npe * ncr * disc.common.meshsizes.ne1;
+    const Idx  nvol = disc.common.grid.npe * ncr * disc.common.meshsizes.ne1;
     const bool gpu  = disc.common.backend >= 2;
-    return std::make_unique<ShellMat>(comm, nvol,
-        [&disc, ncr](dstype* y, const dstype* x){ exasim::apply_mass_inverse<M>(disc, x, y, ncr); }, gpu);
+    return std::make_unique<ShellMat<Scalar>>(comm, nvol,
+        [&disc, ncr](Scalar* y, const Scalar* x){ exasim::apply_mass_inverse<M>(disc, x, y, ncr); }, gpu);
 }
 
 // Assemble the condensed HDG trace operator (res.H) into a real PETSc MATAIJ(CUSPARSE), so the
@@ -228,14 +238,14 @@ inline std::unique_ptr<ShellMat> make_mass_inverse(CDiscretization& disc, MPI_Co
 // column-major per-element order) is built on host from elemcon -- small integer metadata, once.
 // The VALUES are then set straight from disc.res.H via MatSetValuesCOO: on GPU res.H is a device
 // pointer and MATAIJCUSPARSE consumes it in place, so the numeric assembly never leaves the device.
-template <class M>
-inline Mat assemble_matrix(CDiscretization& disc, MPI_Comm comm)
+template <class M, class Scalar = exasim::floatTy, class Idx = exasim::intTy>
+inline Mat assemble_matrix(CDiscretizationT<Scalar, Idx>& disc, MPI_Comm comm)
 {
     auto& c = disc.common;
     const int backend = static_cast<int>(c.backend);
     const int ncu = c.components.ncu, npf = c.grid.npf, nfe = static_cast<int>(c.meshsizes.nfe);
     const int ndf = npf * nfe, m = ncu * ndf, ne = static_cast<int>(c.meshsizes.ne1);
-    const Int N = c.sizes.ndofuhat;
+    const Idx N = c.sizes.ndofuhat;
 
     // elemcon -> host (small metadata) to build the COO (row,col) pattern.
     std::vector<int> elemcon(static_cast<size_t>(ndf) * ne);

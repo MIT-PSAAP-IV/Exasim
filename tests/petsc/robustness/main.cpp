@@ -76,7 +76,7 @@ static int check_model(const char* name, int n, int porder, const std::vector<do
     { Mat A = exasim::petsc::assemble_matrix<M>(disc, PETSC_COMM_SELF);
       Vec x,y1,y2; MatCreateVecs(A,&x,&y1); VecDuplicate(x,&y2);
       for (Int i=0;i<N;++i){ PetscScalar val=v[i]; VecSetValue(x,i,val,INSERT_VALUES);} VecAssemblyBegin(x);VecAssemblyEnd(x);
-      exasim::petsc::ShellMat Hs(PETSC_COMM_SELF, N,
+      exasim::petsc::ShellMat<> Hs(PETSC_COMM_SELF, N,
           [&](dstype* yy, const dstype* xx){ assembler.evalMatVec(yy, const_cast<dstype*>(xx), sys.u, sys.b, 1, backend); }, false);
       MatMult(Hs.mat(),x,y1); MatMult(A,x,y2);
       PetscReal d,nn; VecAXPY(y2,-1.0,y1); VecNorm(y2,NORM_2,&d); VecNorm(y1,NORM_2,&nn);

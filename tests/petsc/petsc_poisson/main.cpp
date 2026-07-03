@@ -134,7 +134,7 @@ int main(int argc, char** argv)
         exasim::recover_q<Poisson2D>(disc);
         double shell_diff = 0.0;
         {
-            exasim::petsc::ShellMat H(PETSC_COMM_SELF, N,
+            exasim::petsc::ShellMat<> H(PETSC_COMM_SELF, N,
                 [&](dstype* y, const dstype* x){ assembler.evalMatVec(y, const_cast<dstype*>(x), sys.u, sys.b, 1, backend); },
                 backend >= 2);
             Vec v = op.make_vec(), y1 = op.make_vec(), y2 = op.make_vec();
