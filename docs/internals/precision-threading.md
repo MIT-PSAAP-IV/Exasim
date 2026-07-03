@@ -192,15 +192,25 @@ multi-rank app-regression at unchanged rel_L2; **GPU-MPI** on dgx-b (`petsc_pois
 `mpiexec -n 1/2/4` backend=2) PASS across all rank counts with real halo exchange + ParMETIS partition
 (SNES residual ~3e-12 each).
 
-### Remaining Phase 3 (large, high-churn, mostly GPU-untestable locally)
-- Rest of `pblas.h`: `PGEMTM`/`PGEMNV`/`PGEMTV` (hot element-block GEMMs), `PGEMNMStridedBached`,
-  `PDOT`/`DOT`, `Inverse` — plus GPU trait methods (`blas<T>` cublas/hipblas gemm/gemv/dot/axpy/
-  scal/copy/getrf|getriBatched/gemmStridedBatched).
-- Compute kernels take `T*`: `backend/Discretization/*.hpp` (`uequation` 156, `wequation` 55,
-  `qequation` 43, `matvec`, `massinv`, …), `Common/cpuimpl.h` (37), `Common/kokkosimpl.h` (**880** —
-  the `Kokkos::View<dstype*>` → `View<T*>` monster).
-- These call the generated kernels via `EXASIM_DRIVER_CALL`; under default `T=dstype` the `T*`
-  buffers pass straight through (byte-identical), consistent with the cut above.
+### Compute-primitive layer — DONE + verified (CPU + GPU)
+- `pblas.h` GEMM/GEMV wrappers (`cpuNode2Gauss`/`Node2Gauss`/`Gauss2Node`/`Gauss2Node1`/`PGEMNV`/
+  `PGEMTV`/`PGEMTM`) + `cpuComputeInverse` → `blas<T>` (CPU branches; GPU cublas/hipblas branches
+  still `#ifdef`).
+- `Common/cpuimpl.h` — the 8 CPU array/geometry primitives, `template<class T=dstype>`.
+- `Common/kokkosimpl.h` — **all 137 Kokkos device compute kernels** (flux/stabilization/geometry/
+  array ops/thermo/wall-model + 9 `KOKKOS_INLINE_FUNCTION` helpers), `template<class Ty=dstype>` (param
+  named `Ty` because several kernels use `T` as temperature). No functor structs / no `View<>` (raw
+  pointers), so the shadow-alias pattern applied uniformly via script. **GPU-verified:** nvcc
+  device-compiles all 137 templated lambdas and petsc_poisson (backend=2) is byte-identical
+  (residual 9.119e-14, ShellMat vs op.mat()=0, MATAIJ 2.62e-16).
+
+### Remaining Phase 3
+- `backend/Discretization/*.hpp` compute kernels take `T*` (`uequation` 156, `wequation` 55,
+  `qequation` 43, `matvec`, `massinv`, …) — these call the generated kernels via `EXASIM_DRIVER_CALL`
+  (under default `T=dstype` the `T*` buffers pass straight through, consistent with the cut).
+- Thread `using dstype=T` into the comm helpers so `mpi_type<dstype>()`→`mpi_type<T>()` auto-activates.
+- `pblas.h` tail: Array ops (`ArrayCopy`/`ArrayAXPY`/…), `PDOT`/`DOT`, `Inverse`, `PGEMNMStridedBached`
+  + the `blas<T>` GPU trait methods (cublas/hipblas), so non-default GPU precision works too.
 
 ## Phase 4 — Codegen kernels
 `text2code` / the model codegen (`backend/Model/**`, `frontends/*/Gencode`) emit `dstype`-typed
