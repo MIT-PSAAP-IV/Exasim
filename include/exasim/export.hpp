@@ -36,6 +36,17 @@
 
 namespace exasim {
 
+// ---- Exported precision types --------------------------------------------------------------
+// Canonical names for the scalar/index precision Exasim was built with. Today they alias the
+// build-time-selected global typedefs (dstype = double, or float under USE_FLOAT/-DEXASIM_FLOAT;
+// Int = int, or long under USE_LONG/-DEXASIM_INT64). Consumers of the exported operators should
+// spell precision as exasim::floatTy / exasim::intTy rather than the internal dstype / Int, so the
+// interface reads in terms of a named type. This is the boundary of the (future) template-precision
+// threading -- see the incremental plan in docs/internals/precision-threading.md; the backend itself is still
+// a single build-time precision (692 files use dstype directly).
+using floatTy = dstype;   // exported scalar precision  (float | double)
+using intTy   = Int;      // exported index/size type    (int   | long)
+
 // HDG-friendly default PDE config for a hand-written model M. Every field can be
 // overridden on the returned struct before preprocessing. This is the single
 // source of the curated defaults (ExasimSolver applies the same ones).

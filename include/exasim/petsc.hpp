@@ -35,12 +35,23 @@
 namespace exasim {
 namespace petsc {
 
+// Compile-time ABI guard: PETSc's scalar/index widths MUST match Exasim's exported precision, or the
+// zero-copy Vec/Mat wrapping below reinterprets a wrong-width buffer. This turns the previously
+// silent precision mismatch into a build error. Fix by matching one to the other: build PETSc
+// --with-precision=single / --with-64-bit-indices, or build Exasim -DEXASIM_FLOAT / -DEXASIM_INT64.
+static_assert(sizeof(PetscScalar) == sizeof(exasim::floatTy),
+              "PetscScalar precision != Exasim floatTy: rebuild one to match (single vs double).");
+static_assert(sizeof(PetscInt) == sizeof(exasim::intTy),
+              "PetscInt width != Exasim intTy: rebuild one to match (32- vs 64-bit indices).");
+
 // Wraps Exasim's exported HDG operators (Jacobian-apply res.H + preconditioner res.K) as PETSc
 // MatShell + PCShell, plus a zero-copy RHS Vec aliasing the condensed b in sys.b. Templated on
 // the model M only because CAssembler<M>/CPreconditioner<M> are; the PETSc side is model-agnostic.
 template <class M>
 class Operator {
 public:
+    using scalar_type = exasim::floatTy;   // exported precision (matches PetscScalar, see static_assert)
+    using index_type  = exasim::intTy;     // exported index type (matches PetscInt)
     // disc/asmb/prec/sys are borrowed (must outlive this). comm is the PETSc/MPI communicator;
     // layout (serial vs MPI, host vs CUDA) is derived from it + disc.common.backend. The condensed
     // system (res.H, res.K, sys.b) must already be assembled by the caller.
@@ -163,7 +174,9 @@ private:
 // caller keeps that state (and this ShellMat) alive for the Mat's lifetime.
 class ShellMat {
 public:
-    using Apply = std::function<void(dstype* y, const dstype* x)>;
+    using scalar_type = exasim::floatTy;   // exported precision (matches PetscScalar, see static_assert)
+    using index_type  = exasim::intTy;     // exported index type (matches PetscInt)
+    using Apply = std::function<void(floatTy* y, const floatTy* x)>;
     ShellMat(MPI_Comm comm, Int n_local, Apply apply, bool gpu = false)
         : apply_(std::move(apply))
     {
