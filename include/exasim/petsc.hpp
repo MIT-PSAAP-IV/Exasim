@@ -27,7 +27,6 @@
 
 #include <functional>
 #include <memory>
-#include <set>
 #include <vector>
 
 #include <exasim/operators.hpp>   // CDiscretization / CAssembler<M> / CPreconditioner<M> / sysstruct
@@ -207,7 +206,7 @@ inline std::unique_ptr<ShellMat> make_mass_inverse(CDiscretization& disc, MPI_Co
 }
 
 // Assemble the condensed HDG trace operator (res.H) into a real PETSc MATAIJ(CUSPARSE), so the
-// full PETSc arsenal that needs entries -- LU/ILU/AMG, and PCPATCH/Vanka -- can act on it. res.H
+// full PETSc arsenal that needs entries (LU/ILU/AMG, ...) can act on it. res.H
 // holds one m x m element block per element (m = ncu*npf*nfe, column-major, applied by
 // hdgMatVec); the local->global trace map is j + elemcon[i + e*ndf]*ncu. This is standard FE
 // scatter: A = sum_e P_e AE[e] P_e^T, the identical operator to the matrix-free op.mat().
@@ -255,77 +254,6 @@ inline Mat assemble_matrix(CDiscretization& disc, MPI_Comm comm)
     MatSetPreallocationCOO(A, ncoo, ci.data(), cj.data());
     MatSetValuesCOO(A, disc.res.H, ADD_VALUES);              // values straight from (device) res.H
     return A;
-}
-
-// Element (facet) patches for a Vanka-style preconditioner: one OVERLAPPING subdomain per
-// element = its ncu*npf*nfe trace DOFs (from elemcon; shared interface-face DOFs land in both
-// neighbours -> the overlap Vanka wants). Feed to PCASM via PCASMSetLocalSubdomains and set the
-// sub-solve to LU for exact patch solves. Caller owns the returned IS handles (ISDestroy each).
-inline std::vector<IS> element_patches(CDiscretization& disc, MPI_Comm comm)
-{
-    auto& c = disc.common;
-    const int backend = static_cast<int>(c.backend);
-    const int ncu = c.components.ncu, npf = c.grid.npf, nfe = static_cast<int>(c.meshsizes.nfe);
-    const int ndf = npf * nfe, m = ncu * ndf, ne = static_cast<int>(c.meshsizes.ne1);
-
-    std::vector<int> elemcon(static_cast<size_t>(ndf) * ne);
-    if (backend >= 2) TemplateCopytoHost(elemcon.data(), disc.mesh.elemcon, (Int)elemcon.size(), backend);
-    else              std::copy(disc.mesh.elemcon, disc.mesh.elemcon + elemcon.size(), elemcon.begin());
-
-    std::vector<IS> patches; patches.reserve(static_cast<size_t>(ne));
-    std::vector<PetscInt> dofs(static_cast<size_t>(m));
-    for (int e = 0; e < ne; ++e) {
-        for (int i = 0; i < ndf; ++i) {
-            const int base = elemcon[i + e * ndf] * ncu;
-            for (int j = 0; j < ncu; ++j) dofs[j + ncu * i] = base + j;
-        }
-        IS is; ISCreateGeneral(comm, m, dofs.data(), PETSC_COPY_VALUES, &is);
-        patches.push_back(is);
-    }
-    return patches;
-}
-
-// VERTEX-STAR patches: one overlapping subdomain per CG node = the trace DOFs of ALL elements
-// touching that node. rowent2elem/colent2elem is the CG-node -> element adjacency (CRS, built by
-// buildConn), elemcon the element -> trace-DOF map. Larger and more overlapping than
-// element_patches, so a stronger Vanka (fewer Krylov iters at higher per-apply cost). This is a
-// manual build of exactly what PCPATCH would form from a DM's vertex star -- no DM/DMPlex needed,
-// because Exasim already carries the topology. (Same PCASM wiring; edge/face/custom groupings are
-// the same pattern over a different adjacency.) Caller owns the returned IS handles.
-inline std::vector<IS> vertex_patches(CDiscretization& disc, MPI_Comm comm)
-{
-    auto& c = disc.common; auto& mesh = disc.mesh;
-    const int backend = static_cast<int>(c.backend);
-    const int ncu = c.components.ncu, npf = c.grid.npf, nfe = static_cast<int>(c.meshsizes.nfe);
-    const int ndf = npf * nfe, ne = static_cast<int>(c.meshsizes.ne1);
-    const int ncgdof = static_cast<int>(mesh.szrowent2elem) - 1;   // number of CG nodes (vertices)
-    const int nnz    = static_cast<int>(mesh.szcolent2elem);
-
-    auto to_host = [&](std::vector<Int>& h, Int* d, int n) {
-        h.resize(static_cast<size_t>(n));
-        if (backend >= 2) TemplateCopytoHost(h.data(), d, (Int)n, backend);
-        else              std::copy(d, d + n, h.begin());
-    };
-    std::vector<Int> row, col, elemcon;
-    to_host(row, mesh.rowent2elem, ncgdof + 1);
-    to_host(col, mesh.colent2elem, nnz);
-    to_host(elemcon, mesh.elemcon, ndf * ne);
-
-    std::vector<IS> patches; patches.reserve(static_cast<size_t>(ncgdof));
-    for (int v = 0; v < ncgdof; ++v) {
-        std::set<PetscInt> s;
-        for (Int p = row[v]; p < row[v + 1]; ++p) {
-            const Int e = col[p];
-            for (int i = 0; i < ndf; ++i) {
-                const Int base = elemcon[i + e * ndf] * ncu;
-                for (int j = 0; j < ncu; ++j) s.insert(static_cast<PetscInt>(base + j));
-            }
-        }
-        std::vector<PetscInt> dofs(s.begin(), s.end());
-        IS is; ISCreateGeneral(comm, (PetscInt)dofs.size(), dofs.data(), PETSC_COPY_VALUES, &is);
-        patches.push_back(is);
-    }
-    return patches;
 }
 
 } // namespace petsc

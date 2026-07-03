@@ -148,7 +148,7 @@ int main(int argc, char** argv)
 
         // (D) ASSEMBLED monolithic condensed matrix (res.H -> MATAIJ). MatMult against a random
         //     vector must match the matrix-free operator to machine precision (same operator,
-        //     assembled via elemcon). This MATAIJ is what LU/ILU/AMG/Vanka consume.
+        //     assembled via elemcon). This MATAIJ is what LU/ILU/AMG consume.
         double asm_diff = 0.0;
         {
             Mat A = exasim::petsc::assemble_matrix<Poisson2D>(disc, PETSC_COMM_SELF);
@@ -163,57 +163,19 @@ int main(int argc, char** argv)
             PetscCall(VecDestroy(&v)); PetscCall(VecDestroy(&y1)); PetscCall(VecDestroy(&y2)); PetscCall(MatDestroy(&A));
         }
 
-        // (E,F) VANKA: PCASM with per-patch LU on the assembled matrix. A structural preconditioner
-        //     PETSc could NOT build without the operator assembled + the patches exposed; it must
-        //     converge to the SAME solution as the shim's res.K-preconditioned SNES. Run it for
-        //     element (facet) patches AND vertex-star patches -- the larger, more-overlapping vertex
-        //     patches are a stronger preconditioner (fewer Krylov iters at higher per-apply cost).
-        auto run_vanka = [&](std::vector<IS> patches, PetscInt* its, double* diff) -> PetscErrorCode {
-            Mat A = exasim::petsc::assemble_matrix<Poisson2D>(disc, PETSC_COMM_SELF);
-            KSP kv; PetscCall(KSPCreate(PETSC_COMM_SELF, &kv));
-            PetscCall(KSPSetOperators(kv, A, A));
-            PetscCall(KSPSetType(kv, KSPGMRES));
-            PC pcv; PetscCall(KSPGetPC(kv, &pcv));
-            PetscCall(PCSetType(pcv, PCASM));
-            PetscCall(PCASMSetLocalSubdomains(pcv, (PetscInt)patches.size(), patches.data(), nullptr));
-            PetscCall(PCASMSetType(pcv, PC_ASM_BASIC));
-            PetscCall(KSPSetTolerances(kv, 1e-10, 1e-14, PETSC_DEFAULT, 500));
-            PetscCall(KSPSetUp(kv));
-            KSP* sub; PetscInt nsub;                      // exact patch solves: sub-KSP = preonly + LU
-            PetscCall(PCASMGetSubKSP(pcv, &nsub, nullptr, &sub));
-            for (PetscInt s = 0; s < nsub; ++s) { PC spc; PetscCall(KSPSetType(sub[s], KSPPREONLY));
-                PetscCall(KSPGetPC(sub[s], &spc)); PetscCall(PCSetType(spc, PCLU)); }
-            Vec Uv = op.make_vec(); PetscCall(VecSet(Uv, 0.0));
-            PetscCall(KSPSolve(kv, op.rhs(), Uv));
-            PetscCall(KSPGetIterationNumber(kv, its));
-            PetscReal d, nu; PetscCall(VecAXPY(Uv, -1.0, U));
-            PetscCall(VecNorm(Uv, NORM_2, &d)); PetscCall(VecNorm(U, NORM_2, &nu));
-            *diff = (double)d / ((double)nu + 1e-300);
-            for (IS& is : patches) ISDestroy(&is);
-            PetscCall(VecDestroy(&Uv)); PetscCall(KSPDestroy(&kv)); PetscCall(MatDestroy(&A));
-            return PETSC_SUCCESS;
-        };
-        double vanka_diff = 0.0, vvanka_diff = 0.0; PetscInt vanka_its = 0, vvanka_its = 0;
-        PetscCall(run_vanka(exasim::petsc::element_patches(disc, PETSC_COMM_SELF), &vanka_its,  &vanka_diff));
-        PetscCall(run_vanka(exasim::petsc::vertex_patches (disc, PETSC_COMM_SELF), &vvanka_its, &vvanka_diff));
-
         std::printf("[petsc] (A) PETSc residual ||H*uh - b0||  = %.3e   (PETSc solved the exported system)\n", (double)fnorm);
         std::printf("[petsc] (B) L2 error ||u - u_exact||      = %.3e   (quadrature QoI)\n", l2err);
-        std::printf("[petsc] (C) ShellMat MatMult vs op.mat()  = %.3e   (operator-export primitive)\n", shell_diff);
-        std::printf("[petsc] (D) assembled MATAIJ vs matrix-free = %.3e   (monolithic condensed operator)\n", asm_diff);
-        std::printf("[petsc] (E) element-patch Vanka (PCASM): %lld iters, rel diff vs shim = %.3e\n", (long long)vanka_its, vanka_diff);
-        std::printf("[petsc] (F) vertex-patch  Vanka (PCASM): %lld iters, rel diff vs shim = %.3e\n", (long long)vvanka_its, vvanka_diff);
+        std::printf("[petsc] (C) ShellMat MatMult vs op.mat()  = %.3e   (matrix-free operator primitive)\n", shell_diff);
+        std::printf("[petsc] (D) assembled MATAIJ vs matrix-free = %.3e   (monolithic condensed matrix)\n", asm_diff);
 
         bool finite = std::isfinite((double)fnorm) && std::isfinite(l2err) && std::isfinite(shell_diff)
-                   && std::isfinite(asm_diff) && std::isfinite(vanka_diff) && std::isfinite(vvanka_diff);
+                   && std::isfinite(asm_diff);
         if (!finite)              { std::printf("[petsc] FAIL: non-finite result\n"); rc=1; }
         else if (reason < 0)      { std::printf("[petsc] FAIL: SNES did not converge\n"); rc=1; }
         else if (fnorm > 1e-8)    { std::printf("[petsc] FAIL: residual not driven to zero\n"); rc=1; }
         else if (l2err > 1e-3)    { std::printf("[petsc] FAIL: solution far from exact (%.3e)\n", l2err); rc=1; }
         else if (shell_diff>1e-10){ std::printf("[petsc] FAIL: ShellMat disagrees with op.mat() (%.3e)\n", shell_diff); rc=1; }
         else if (asm_diff > 1e-10){ std::printf("[petsc] FAIL: assembled MATAIJ disagrees with matrix-free (%.3e)\n", asm_diff); rc=1; }
-        else if (vanka_diff>1e-6) { std::printf("[petsc] FAIL: element-patch Vanka disagrees with shim solve (%.3e)\n", vanka_diff); rc=1; }
-        else if (vvanka_diff>1e-6){ std::printf("[petsc] FAIL: vertex-patch Vanka disagrees with shim solve (%.3e)\n", vvanka_diff); rc=1; }
         else  std::printf("[petsc] PASS: PETSc solved the exported HDG Poisson operators on %s\n", gpu?"GPU":"CPU");
 
         PetscCall(VecDestroy(&U)); PetscCall(VecDestroy(&Fr)); PetscCall(SNESDestroy(&snes));

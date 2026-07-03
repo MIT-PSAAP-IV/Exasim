@@ -37,7 +37,7 @@
 
 #include <exasim/operators.hpp>
 #include <exasim/export.hpp>
-#include <exasim/petsc.hpp>          // exasim::petsc::Operator / ShellMat / assemble_matrix / *_patches
+#include <exasim/petsc.hpp>          // exasim::petsc::Operator / ShellMat / assemble_matrix
 #include "poisson2d.hpp"
 
 #include <cmath>
@@ -274,12 +274,9 @@ int main(int argc, char** argv)
         std::printf("[heat-ts] final ||uh|| = %.8e (steady ~ 1.131e+01)\n", nrm);
         std::printf("[heat-ts] L2 ||u - u_exact|| = %.3e at t=%.2f (heat warmed to near-steady)\n", l2err, tfinal);
 
-        // ============ exported-primitive showcase on the FINAL step's operator ==================
-        // res.H/res.K/sys.b (and ctx.bVec) are the last backward-Euler step, still assembled. Exercise
-        // the SAME exported pieces the steady petsc_poisson example does -- monolithic MATAIJ assembly
-        // and PCASM Vanka -- so the transient example is as complete: assemble_matrix must match the
-        // matrix-free op.mat(), and per-patch-LU Vanka must solve H*x=b to the shim's answer.
-        double asm_diff=0.0; PetscInt vanka_its=0, vvanka_its=0; double vanka_diff=0.0, vvanka_diff=0.0;
+        // Exported-matrix check on the FINAL step's operator: the monolithic assembled MATAIJ must
+        // match the matrix-free op.mat() -- the same assemble_matrix primitive the steady example uses.
+        double asm_diff=0.0;
         {
             Vec v=op.make_vec(), y1=op.make_vec(), y2=op.make_vec();
             for (Int i=0;i<N;++i) PetscCall(VecSetValue(v,i,std::sin(0.7*i+0.1),INSERT_VALUES));
@@ -289,45 +286,14 @@ int main(int argc, char** argv)
             PetscCall(VecAXPY(y2,-1.0,y1)); PetscCall(VecNorm(y2,NORM_2,&d)); PetscCall(VecNorm(y1,NORM_2,&nn));
             asm_diff=(double)d/((double)nn+1e-300);
             PetscCall(MatDestroy(&A)); PetscCall(VecDestroy(&v)); PetscCall(VecDestroy(&y1)); PetscCall(VecDestroy(&y2));
-
-            // (E,F) Vanka vs shim: solve H*x=b via PCASM(patches)+per-patch LU, compare to op.make_ksp().
-            Vec xref=op.make_vec();
-            { KSP kr=op.make_ksp(); PetscCall(KSPSetType(kr,KSPGMRES));
-              PetscCall(KSPSetTolerances(kr,1e-11,1e-13,PETSC_DEFAULT,1000));
-              PetscCall(KSPSolve(kr,ctx.bVec,xref)); PetscCall(KSPDestroy(&kr)); }
-            auto run_vanka=[&](std::vector<IS> patches, PetscInt* its, double* diff)->PetscErrorCode{
-                Mat A=exasim::petsc::assemble_matrix<Poisson2D>(disc, PETSC_COMM_SELF);
-                KSP kv; PetscCall(KSPCreate(PETSC_COMM_SELF,&kv)); PetscCall(KSPSetOperators(kv,A,A));
-                PetscCall(KSPSetType(kv,KSPGMRES));
-                PC pcv; PetscCall(KSPGetPC(kv,&pcv)); PetscCall(PCSetType(pcv,PCASM));
-                PetscCall(PCASMSetLocalSubdomains(pcv,(PetscInt)patches.size(),patches.data(),nullptr));
-                PetscCall(PCASMSetType(pcv,PC_ASM_BASIC));
-                PetscCall(KSPSetTolerances(kv,1e-11,1e-13,PETSC_DEFAULT,1000)); PetscCall(KSPSetUp(kv));
-                KSP* sub; PetscInt nsub; PetscCall(PCASMGetSubKSP(pcv,&nsub,nullptr,&sub));
-                for (PetscInt s=0;s<nsub;++s){ PC spc; PetscCall(KSPSetType(sub[s],KSPPREONLY));
-                    PetscCall(KSPGetPC(sub[s],&spc)); PetscCall(PCSetType(spc,PCLU)); }
-                Vec x=op.make_vec(); PetscCall(KSPSolve(kv,ctx.bVec,x)); PetscCall(KSPGetIterationNumber(kv,its));
-                PetscReal d2,n2; PetscCall(VecAXPY(x,-1.0,xref)); PetscCall(VecNorm(x,NORM_2,&d2)); PetscCall(VecNorm(xref,NORM_2,&n2));
-                *diff=(double)d2/((double)n2+1e-300);
-                for (auto is : patches) PetscCall(ISDestroy(&is));
-                PetscCall(VecDestroy(&x)); PetscCall(KSPDestroy(&kv)); PetscCall(MatDestroy(&A));
-                return PETSC_SUCCESS;
-            };
-            PetscCall(run_vanka(exasim::petsc::element_patches(disc,PETSC_COMM_SELF), &vanka_its,  &vanka_diff));
-            PetscCall(run_vanka(exasim::petsc::vertex_patches (disc,PETSC_COMM_SELF), &vvanka_its, &vvanka_diff));
-            PetscCall(VecDestroy(&xref));
             std::printf("[heat-ts] (D) assembled MATAIJ vs matrix-free       = %.3e\n", asm_diff);
-            std::printf("[heat-ts] (E) element-patch Vanka (PCASM): %lld iters, rel diff vs shim = %.3e\n",(long long)vanka_its, vanka_diff);
-            std::printf("[heat-ts] (F) vertex-patch  Vanka (PCASM): %lld iters, rel diff vs shim = %.3e\n",(long long)vvanka_its, vvanka_diff);
         }
 
         if(!finite){ std::printf("[heat-ts] FAIL: non-finite\n"); rc=1; }
         else if((long long)steps!=nsteps){ std::printf("[heat-ts] FAIL: TS took %lld steps != %d\n",(long long)steps,nsteps); rc=1; }
         else if(l2err>1e-3){ std::printf("[heat-ts] FAIL: solution far from exact (%.3e)\n", l2err); rc=1; }
         else if(asm_diff>1e-10){ std::printf("[heat-ts] FAIL: assembled MATAIJ disagrees with matrix-free (%.3e)\n", asm_diff); rc=1; }
-        else if(vanka_diff>1e-6){ std::printf("[heat-ts] FAIL: element-patch Vanka disagrees with shim solve (%.3e)\n", vanka_diff); rc=1; }
-        else if(vvanka_diff>1e-6){ std::printf("[heat-ts] FAIL: vertex-patch Vanka disagrees with shim solve (%.3e)\n", vvanka_diff); rc=1; }
-        else std::printf("[heat-ts] PASS: PETSc TS owns the heat time loop on the exported operators (+ MATAIJ & Vanka)\n");
+        else std::printf("[heat-ts] PASS: PETSc TS owns the heat time loop on the exported operators (+ MATAIJ)\n");
 
         PetscCall(VecDestroy(&U)); PetscCall(VecDestroy(&ctx.bVec)); PetscCall(VecDestroy(&ctx.workVec)); PetscCall(TSDestroy(&ts));
     }

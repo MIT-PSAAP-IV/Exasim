@@ -1,5 +1,5 @@
 # P2 — PETSc TS owns the time loop for the heat equation, driving Exasim's exported HDG operators
-#      (MatShell res.H + PCShell res.K + assemble_matrix + Vanka), same as steady petsc_poisson.
+#      (MatShell res.H + PCShell res.K + assemble_matrix), same as steady petsc_poisson.
 #
 # Build (CI wires this via tests/petsc/run-petsc-test.sh):
 #   cmake -S tests/petsc/petsc_heat -B /tmp/petsc_heat_build \
