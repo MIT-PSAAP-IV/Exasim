@@ -22,6 +22,17 @@ using dstype = double;
 
 inline constexpr std::uint32_t kExasimDriverABIVersion = 2;
 
+struct ModelSizes {
+    int ncu  = 0;
+    int nco  = 0;   // "other DG" == pdeapp.txt's ncv
+    int ncw  = 0;
+    int nsca = 0;
+    int nvec = 0;
+    int nten = 0;
+    int nsurf = 0;
+    int nvqoi = 0;
+};
+
 struct ExasimDriverABI {
     using KokkosElementFn =
         void (*)(dstype* f, const dstype* xdg, const dstype* udg,
@@ -175,6 +186,15 @@ struct ExasimDriverABI {
     HdgBoundaryStateFn HdgFintonly = nullptr;
     HdgBoundaryExternalJacFn HdgFext = nullptr;
     HdgBoundaryExternalStateFn HdgFextonly = nullptr;
+
+    // Optional per-model size query (v2 extension).  If non-null, the
+    // solver calls this with the builtinmodelID to obtain compile-time
+    // model dimension constants instead of requiring them in pdeapp.txt.
+    // Providers that return a model-agnostic ABI (e.g. BuiltInLibrary)
+    // use this to dispatch to model-specific sizes; per-model providers
+    // (e.g. KokkosKernel) can leave this null since they set ncu/nco/...
+    // directly.
+    ModelSizes (*GetModelSizes)(int modelnumber) = nullptr;
 };
 
 #endif

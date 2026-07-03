@@ -590,18 +590,6 @@ inline bool useBuiltInAppMetadata(const PDE& pde)
     return (pde.builtinmodelID > 0);
 }
 
-inline void applyBuiltInABIMetadata(PDE& pde, const ExasimDriverABI& abi)
-{
-    if (pde.ncu == 0 && abi.ncu > 0)   pde.ncu = abi.ncu;
-    if (pde.ncv == 0 && abi.nco > 0)   pde.ncv = abi.nco;
-    if (pde.ncw == 0 && abi.ncw > 0)   pde.ncw = abi.ncw;
-    if (pde.nsca == 0 && abi.nsca > 0) pde.nsca = abi.nsca;
-    if (pde.nvec == 0 && abi.nvec > 0) pde.nvec = abi.nvec;
-    if (pde.nten == 0 && abi.nten > 0) pde.nten = abi.nten;
-    if (pde.nsurf == 0 && abi.nsurf > 0) pde.nsurf = abi.nsurf;
-    if (pde.nvqoi == 0 && abi.nvqoi > 0) pde.nvqoi = abi.nvqoi;
-}
-
 inline void applyParsedSpecMetadata(PDE& pde, const ParsedSpec& spec)
 {
     for (const auto& vec : spec.vectors) {

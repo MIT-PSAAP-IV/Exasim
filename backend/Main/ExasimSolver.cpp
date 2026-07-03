@@ -599,22 +599,28 @@ int ExasimSolver::ParseInputs(int argc, char** argv)
     // ABI so they don't need to be specified in pdeapp.txt.
     if (pde.builtinmodelID > 0) {
         const auto& abi = SelectExasimDriverABI();
-        if (params.intParams.count("ncu") == 0 && abi.ncu > 0)
-            pde.ncu = abi.ncu;
-        if (params.intParams.count("ncv") == 0 && abi.nco > 0)
-            pde.ncv = abi.nco;
-        if (params.intParams.count("ncw") == 0 && abi.ncw > 0)
-            pde.ncw = abi.ncw;
-        if (params.intParams.count("nsca") == 0 && abi.nsca > 0)
-            pde.nsca = abi.nsca;
-        if (params.intParams.count("nvec") == 0 && abi.nvec > 0)
-            pde.nvec = abi.nvec;
-        if (params.intParams.count("nten") == 0 && abi.nten > 0)
-            pde.nten = abi.nten;
-        if (params.intParams.count("nsurf") == 0 && abi.nsurf > 0)
-            pde.nsurf = abi.nsurf;
-        if (params.intParams.count("nvqoi") == 0 && abi.nvqoi > 0)
-            pde.nvqoi = abi.nvqoi;
+        // Use per-model query (BuiltInLibrary) or direct fields (KokkosKernel)
+        ModelSizes ms;
+        if (abi.GetModelSizes)
+            ms = abi.GetModelSizes(pde.builtinmodelID);
+        else
+            ms = {abi.ncu, abi.nco, abi.ncw, abi.nsca, abi.nvec, abi.nten, abi.nsurf, abi.nvqoi};
+        if (params.intParams.count("ncu") == 0 && ms.ncu > 0)
+            pde.ncu = ms.ncu;
+        if (params.intParams.count("ncv") == 0 && ms.nco > 0)
+            pde.ncv = ms.nco;
+        if (params.intParams.count("ncw") == 0 && ms.ncw > 0)
+            pde.ncw = ms.ncw;
+        if (params.intParams.count("nsca") == 0 && ms.nsca > 0)
+            pde.nsca = ms.nsca;
+        if (params.intParams.count("nvec") == 0 && ms.nvec > 0)
+            pde.nvec = ms.nvec;
+        if (params.intParams.count("nten") == 0 && ms.nten > 0)
+            pde.nten = ms.nten;
+        if (params.intParams.count("nsurf") == 0 && ms.nsurf > 0)
+            pde.nsurf = ms.nsurf;
+        if (params.intParams.count("nvqoi") == 0 && ms.nvqoi > 0)
+            pde.nvqoi = ms.nvqoi;
     }
 
     nummodels_ = 1;
@@ -638,8 +644,15 @@ int ExasimSolver::ParseInputs(int argc, char** argv)
         // Use the programmatic constructor so ABI-filled sizes (above)
         // are propagated into the preprocessing pipeline instead of
         // re-reading pdeapp.txt from disk with default values.
-        ParsedSpec empty_spec;
-        CPreprocessing preproc(pde, params, empty_spec, mpirank_, mpiprocs_);
+        // For builtinmodelID == 0 (e.g. shared library), parse the
+        // pdemodel.txt so applyParsedSpecMetadata can set vis/QoI sizes.
+        ParsedSpec spec;
+        if (pde.builtinmodelID == 0 && !pde.modelfile.empty()) {
+            spec = TextParser::parseFile(make_path(pde.datapath, pde.modelfile));
+            spec.exasimpath = pde.exasimpath;
+            applyParsedSpecMetadata(pde, spec);
+        }
+        CPreprocessing preproc(pde, params, spec, mpirank_, mpiprocs_);
         if (mpiprocs_ == 1)
             preproc.SerialPreprocessing();
         else {
