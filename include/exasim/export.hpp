@@ -208,13 +208,14 @@ inline Preprocessed make_preprocessed_distributed(const PDE& pde_in,
 // operators (e.g. a sysstruct's sys.x); it receives the trace increment uh - sol.uh.
 // All ops are backend-dispatched, so this works on CPU and GPU (uh/scratch may be
 // device pointers when backend>=2).
-inline void recover_volume(CDiscretization& disc, const dstype* uh, dstype* scratch)
+template <class T = floatTy, class I = intTy>
+inline void recover_volume(CDiscretizationT<T,I>& disc, const T* uh, T* scratch)
 {
     auto& c = disc.common;
     const int backend = c.backend;
-    const Int N = c.sizes.ndofuhat;
-    ArrayAXPBY(scratch, const_cast<dstype*>(uh), disc.sol.uh, 1.0, -1.0, N);  // duh = uh - sol.uh
-    ArrayCopy(disc.sol.uh, const_cast<dstype*>(uh), N);                       // sol.uh <- uh
+    const ::Int N = c.sizes.ndofuhat;
+    ArrayAXPBY(scratch, const_cast<T*>(uh), disc.sol.uh, (T)1.0, (T)-1.0, N);  // duh = uh - sol.uh
+    ArrayCopy(disc.sol.uh, const_cast<T*>(uh), N);                             // sol.uh <- uh
     hdgGetDUDG(disc.res.Ru, disc.res.F, scratch, disc.res.Rq, disc.mesh, c, backend);
     UpdateUDG(disc.sol.udg, disc.res.Ru, 1.0, c.grid.npe, c.components.nc, c.meshsizes.ne1,
               0, c.grid.npe, 0, c.components.ncu, 0, c.meshsizes.ne1);
@@ -231,8 +232,8 @@ inline void recover_volume(CDiscretization& disc, const dstype* uh, dstype* scra
 // M is the QoI capability only -- a struct carrying the size config + qoi_volume/qoi_boundary
 // (e.g. Poisson2D::QoI), NOT the full physics model; its sizes must match the model the
 // discretization was built from.
-template <class M>
-inline std::vector<dstype> eval_qoi(CDiscretization& disc)
+template <class M, class T = floatTy, class I = intTy>
+inline std::vector<T> eval_qoi(CDiscretizationT<T,I>& disc)
 {
     static_assert(is_qoi_model_v<M>,
         "eval_qoi: M must expose the QoI surface (size config + qoi_volume + qoi_boundary), "
@@ -240,8 +241,8 @@ inline std::vector<dstype> eval_qoi(CDiscretization& disc)
     const int nv = disc.common.qoiparams.nvqoi;
     if (nv <= 0) return {};
     qoiElement<M>(disc.sol, disc.res, disc.app, disc.master, disc.mesh, disc.tmp, disc.common);
-    return std::vector<dstype>(disc.common.qoiparams.qoivolume,
-                               disc.common.qoiparams.qoivolume + nv);
+    return std::vector<T>(disc.common.qoiparams.qoivolume,
+                          disc.common.qoiparams.qoivolume + nv);
 }
 
 // Write the current solution to a ParaView .vtu file, using Exasim's existing vis

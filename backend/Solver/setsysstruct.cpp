@@ -51,8 +51,10 @@ Notes:
 #ifndef __SETSYSSTRUCT
 #define __SETSYSSTRUCT
 
-dstype rand_normal(dstype mean, dstype stddev)
-{   //Box muller method
+template <class T=dstype, class I=Int>
+T rand_normal(T mean, T stddev)
+{
+    using dstype=T;   //Box muller method
     static dstype n2 = 0.0;
     static int n2_cached = 0;
     if (!n2_cached)
@@ -81,8 +83,10 @@ dstype rand_normal(dstype mean, dstype stddev)
     }
 }
 
-void randomfield(dstype *randvect, commonstruct &common, resstruct res, meshstruct mesh, tempstruct tmp, Int backend)
+template <class T=dstype, class I=Int>
+void randomfield(T *randvect, commonstructT<T,I> &common, resstructT<T,I> res, meshstructT<T,I> mesh, tempstructT<T,I> tmp, Int backend)
 {
+    using dstype=T;
     int N = common.grid.npe*common.components.ncu*common.meshsizes.ne;          
     
     dstype *rvec = (dstype *) malloc((N)*sizeof(dstype));
@@ -202,8 +206,10 @@ void randomfield(dstype *randvect, commonstruct &common, resstruct res, meshstru
 #endif        
 }
 
-void setsysstruct(sysstruct &sys, commonstruct &common, resstruct res, meshstruct mesh, tempstruct tmp, Int backend)
+template <class T=dstype, class I=Int>
+void setsysstruct(sysstructT<T,I> &sys, commonstructT<T,I> &common, resstructT<T,I> res, meshstructT<T,I> mesh, tempstructT<T,I> tmp, Int backend)
 {
+    using dstype=T;
     Int ncu = common.components.ncu;// number of compoments of (u)    
     Int npe = common.grid.npe; // number of nodes on master element    
     Int ne = common.meshsizes.ne1; // number of elements in this subdomain 

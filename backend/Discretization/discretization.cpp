@@ -166,8 +166,10 @@ void crs_init(commonstruct& common, meshstruct& mesh, int *elem, int nse, int ne
     CPUFREE(f2e);
 }
       
-void BuildElementBlockBoundaryFaces(commonstruct& common, meshstruct& mesh, Int backend)
+template <class T = ::dstype, class I = ::Int>
+void BuildElementBlockBoundaryFaces(commonstructT<T,I>& common, meshstructT<T,I>& mesh, ::Int backend)
 {
+    using dstype = T; using Int = I;
     Int nfe = common.meshsizes.nfe;
     Int ne = common.meshsizes.ne;
     Int nbe = common.meshsizes.nbe;
@@ -203,8 +205,10 @@ void BuildElementBlockBoundaryFaces(commonstruct& common, meshstruct& mesh, Int 
     }
 }
 
-void AllocateLDGBlockJacobianMemory(resstruct& res, commonstruct& common, Int backend, scratcharenastruct& scratch)
+template <class T = ::dstype, class I = ::Int>
+void AllocateLDGBlockJacobianMemory(resstructT<T,I>& res, commonstructT<T,I>& common, ::Int backend, scratcharenastructT<T,I>& scratch)
 {
+    using dstype = T; using Int = I;
     Int npe = common.grid.npe;
     Int npf = common.grid.npf;
     Int nfe = common.meshsizes.nfe;

@@ -582,16 +582,16 @@ int mkelconcg(
 }
 
 // reuses your equal_row
-template <class T=dstype, class I=Int>
-static inline int equal_row_tol(const double* a, const double* b, int dim, double tol) {
-    using dstype=T;
+template <class T>
+static inline int equal_row_tol(const T* a, const T* b, int dim, double tol) {
     for (int i = 0; i < dim; ++i)
         if (std::fabs(a[i] - b[i]) > tol) return 0;
     return 1;
 }
 
-static inline void fetch_node(double* out,
-                              const dstype* dgnodes,
+template <class T>
+static inline void fetch_node(T* out,
+                              const T* dgnodes,
                               int npe, int dim, int ne,  // dims
                               int e, int a)              // element, local node
 {
