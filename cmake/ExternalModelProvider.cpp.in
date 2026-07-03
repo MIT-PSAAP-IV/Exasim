@@ -24,6 +24,14 @@ extern ModelSizes builtinGetModelSizes(int modelnumber);
 @EXT_MODEL_INCLUDES@
 @EXT_MODEL_IDS_MACRO@
 
+// Frontend-generated models produce model_sizes.hpp; make its per-model
+// dimension constants available through the ABI so they can be omitted
+// from pdeapp.txt.
+#if __has_include("model_sizes.hpp")
+#include "model_sizes.hpp"
+#define EXASIM_HAS_FRONTEND_MODEL_SIZES 1
+#endif
+
 // For PDEMODEL-generated models a per-model TU exposes each model's constexpr
 // PdeModel sizes via a C-linkage function (see _model_sizes_<ID>.cpp).  Hand-
 // written models (SOURCES / KERNELS_DIRS) lack my_model.hpp so EXT_MODEL_HAS_MY_MODEL
@@ -619,10 +627,21 @@ void extHdgFextonly(
             modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
 }
 
+#ifdef EXASIM_HAS_FRONTEND_MODEL_SIZES
+const ModelSizes kFrontendModelSizes = {
+    exasim_model_sizes::ncu, exasim_model_sizes::nco,
+    exasim_model_sizes::ncw, exasim_model_sizes::nsca,
+    exasim_model_sizes::nvec, exasim_model_sizes::nten,
+    exasim_model_sizes::nsurf, exasim_model_sizes::nvqoi
+};
+#endif
+
 ModelSizes extGetModelSizes(int modelnumber)
 {
     // For text2code-generated models the constexpr sizes from each model's
     // PdeModel struct are exposed by a per-model TU (_model_sizes_<ID>.cpp).
+    // For frontend-generated models (KERNELS/KERNELS_DIRS path) the sizes
+    // come from model_sizes.hpp (captured in kFrontendModelSizes above).
     // Fall through to builtinGetModelSizes for standard IDs (1-15) and for
     // hand-written models without my_model.hpp.
 #if @EXT_MODEL_HAS_MY_MODEL@
@@ -633,6 +652,10 @@ ModelSizes extGetModelSizes(int modelnumber)
         default: return builtinGetModelSizes(modelnumber);
     }
 #else
+#if defined(EXASIM_HAS_FRONTEND_MODEL_SIZES)
+    if (modelnumber >= 100)
+        return kFrontendModelSizes;
+#endif
     return builtinGetModelSizes(modelnumber);
 #endif
 }
@@ -708,6 +731,18 @@ const ExasimDriverABI& getBuiltInLibraryExasimDriverABI()
         value.HdgFext           = &extHdgFext;
         value.HdgFextonly       = &extHdgFextonly;
         value.GetModelSizes      = &extGetModelSizes;
+
+#ifdef EXASIM_HAS_FRONTEND_MODEL_SIZES
+        value.ncu  = exasim_model_sizes::ncu;
+        value.nco  = exasim_model_sizes::nco;
+        value.ncw  = exasim_model_sizes::ncw;
+        value.nsca = exasim_model_sizes::nsca;
+        value.nvec = exasim_model_sizes::nvec;
+        value.nten = exasim_model_sizes::nten;
+        value.nsurf = exasim_model_sizes::nsurf;
+        value.nvqoi = exasim_model_sizes::nvqoi;
+#endif
+
         return value;
     }();
     if (!IsValidExternalModelABI(abi))
