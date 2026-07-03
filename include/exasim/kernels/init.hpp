@@ -30,10 +30,11 @@ using InitFn = void (*)(double[], const double[], const double[], const double[]
 // initu writes ncu components into udg, whose packed width is nc = ncu+ncq (> ncu when there is a
 // flux q). Using OutputSize as the stride scatters the data into the wrong elements -- silently
 // masked whenever initu returns 0 (e.g. Poisson), but fatal for a nonzero IC (e.g. NS freestream).
-template <class M, int OutputSize, InitFn Fn>
-void init_dispatch(dstype* f, const dstype* xdg, const dstype* uinf,
-                   const dstype* param, int ng, int npe, int fStride)
+template <class M, int OutputSize, InitFn Fn, class T=dstype, class I=Int>
+void init_dispatch(T* f, const T* xdg, const T* uinf,
+                   const T* param, int ng, int npe, int fStride)
 {
+    using dstype=T;
     constexpr int nd = M::nd;
     Kokkos::parallel_for("exasim::init_kernel", ng, KOKKOS_LAMBDA(size_t i) {
         const int j    = static_cast<int>(i % npe);
@@ -56,40 +57,44 @@ void init_dispatch(dstype* f, const dstype* xdg, const dstype* uinf,
 
 } // namespace detail
 
-template <class M>
-void initu_kernel(dstype* f, const dstype* xdg, const dstype* uinf,
-                  const dstype* param, int /*modelnumber*/, int ng,
+template <class M, class T=dstype, class I=Int>
+void initu_kernel(T* f, const T* xdg, const T* uinf,
+                  const T* param, int /*modelnumber*/, int ng,
                   int /*ncx*/, int /*nce*/, int npe, int /*ne*/, int nc)
 {
+    using dstype=T;
     static_assert(is_init_model_v<M>);
     // udg is [npe x nc x ne] (nc = ncu+ncq); initu writes only the ncu u-components -> stride nc.
     detail::init_dispatch<M, M::ncu, &M::initu>(f, xdg, uinf, param, ng, npe, nc);
 }
 
-template <class M>
-void initq_kernel(dstype* f, const dstype* xdg, const dstype* uinf,
-                  const dstype* param, int /*modelnumber*/, int ng,
+template <class M, class T=dstype, class I=Int>
+void initq_kernel(T* f, const T* xdg, const T* uinf,
+                  const T* param, int /*modelnumber*/, int ng,
                   int /*ncx*/, int /*nce*/, int npe, int /*ne*/)
 {
+    using dstype=T;
     static_assert(is_init_model_v<M>);
     detail::init_dispatch<M, M::ncu * M::nd, &M::initq>(f, xdg, uinf, param, ng, npe, M::ncu * M::nd);
 }
 
-template <class M>
-void initudg_kernel(dstype* f, const dstype* xdg, const dstype* uinf,
-                    const dstype* param, int /*modelnumber*/, int ng,
+template <class M, class T=dstype, class I=Int>
+void initudg_kernel(T* f, const T* xdg, const T* uinf,
+                    const T* param, int /*modelnumber*/, int ng,
                     int /*ncx*/, int /*nce*/, int npe, int /*ne*/)
 {
+    using dstype=T;
     static_assert(is_init_model_v<M>);
     constexpr int Nq = M::ncu * (1 + M::nd);   // initudg fills the whole [u,q] block: stride = Nq = nc
     detail::init_dispatch<M, Nq, &M::initudg>(f, xdg, uinf, param, ng, npe, Nq);
 }
 
-template <class M>
-void initwdg_kernel(dstype* f, const dstype* xdg, const dstype* uinf,
-                    const dstype* param, int /*modelnumber*/, int ng,
+template <class M, class T=dstype, class I=Int>
+void initwdg_kernel(T* f, const T* xdg, const T* uinf,
+                    const T* param, int /*modelnumber*/, int ng,
                     int /*ncx*/, int /*nce*/, int npe, int /*ne*/)
 {
+    using dstype=T;
     static_assert(is_init_model_v<M>);
     if constexpr (M::ncw > 0) {   // wdg is its own [npe x ncw x ne] buffer: stride = ncw
         detail::init_dispatch<M, M::ncw, &M::initwdg>(f, xdg, uinf, param, ng, npe, M::ncw);
@@ -100,11 +105,12 @@ void initwdg_kernel(dstype* f, const dstype* xdg, const dstype* uinf,
 
 // initodg's output count is determined by the discretization (`nco`),
 // not by Self. The runtime nce arg carries the count.
-template <class M>
-void initodg_kernel(dstype* f, const dstype* xdg, const dstype* uinf,
-                    const dstype* param, int /*modelnumber*/, int ng,
+template <class M, class T=dstype, class I=Int>
+void initodg_kernel(T* f, const T* xdg, const T* uinf,
+                    const T* param, int /*modelnumber*/, int ng,
                     int /*ncx*/, int nce, int npe, int /*ne*/)
 {
+    using dstype=T;
     static_assert(is_init_model_v<M>);
     Kokkos::parallel_for("exasim::initodg_kernel", ng, KOKKOS_LAMBDA(size_t i) {
         const int j    = static_cast<int>(i % npe);

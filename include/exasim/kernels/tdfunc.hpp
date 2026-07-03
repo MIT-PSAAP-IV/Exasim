@@ -14,13 +14,14 @@
 
 namespace exasim {
 
-template <class M>
-void tdfunc_kernel(dstype* f,
-                   const dstype* xdg, const dstype* udg, const dstype* odg,
-                   const dstype* wdg, const dstype* /*uinf*/, const dstype* param,
-                   dstype t, int /*modelnumber*/, int ng,
+template <class M, class T=dstype, class I=Int>
+void tdfunc_kernel(T* f,
+                   const T* xdg, const T* udg, const T* odg,
+                   const T* wdg, const T* /*uinf*/, const T* param,
+                   T t, int /*modelnumber*/, int ng,
                    int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/, int /*ncw*/)
 {
+    using dstype=T;
     static_assert(is_tdfunc_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);

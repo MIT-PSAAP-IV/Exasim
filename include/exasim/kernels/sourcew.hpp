@@ -14,14 +14,15 @@
 
 namespace exasim {
 
-template <class M>
-void sourcew_kernel(dstype* sw,
-                    const dstype* xdg, const dstype* udg, const dstype* odg,
-                    const dstype* wdg, const dstype* /*uinf*/, const dstype* param,
-                    dstype t, int /*modelnumber*/, int ng,
+template <class M, class T=dstype, class I=Int>
+void sourcew_kernel(T* sw,
+                    const T* xdg, const T* udg, const T* odg,
+                    const T* wdg, const T* /*uinf*/, const T* param,
+                    T t, int /*modelnumber*/, int ng,
                     int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/,
                     int /*ncw_runtime*/, int /*nce*/, int /*npe*/, int /*ne*/)
 {
+    using dstype=T;
     static_assert(is_sourcew_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);
@@ -45,14 +46,15 @@ void sourcew_kernel(dstype* sw,
     }
 }
 
-template <class M>
-void hdg_sourcew_kernel(dstype* sw, dstype* sw_udg, dstype* sw_wdg,
-                        const dstype* xdg, const dstype* udg, const dstype* odg,
-                        const dstype* wdg, const dstype* /*uinf*/, const dstype* param,
-                        dstype t, int /*modelnumber*/, int ng,
+template <class M, class T=dstype, class I=Int>
+void hdg_sourcew_kernel(T* sw, T* sw_udg, T* sw_wdg,
+                        const T* xdg, const T* udg, const T* odg,
+                        const T* wdg, const T* /*uinf*/, const T* param,
+                        T t, int /*modelnumber*/, int ng,
                         int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/,
                         int /*ncw_runtime*/)
 {
+    using dstype=T;
     static_assert(is_sourcew_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);

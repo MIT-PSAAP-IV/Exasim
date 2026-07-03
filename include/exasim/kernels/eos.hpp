@@ -19,12 +19,13 @@
 
 namespace exasim {
 
-template <class M>
-void eos_kernel(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg,
-                const dstype* wdg, const dstype* /*uinf*/, const dstype* param, dstype t,
+template <class M, class T=dstype, class I=Int>
+void eos_kernel(T* f, const T* xdg, const T* udg, const T* odg,
+                const T* wdg, const T* /*uinf*/, const T* param, T t,
                 int /*modelnumber*/, int ng, int /*nc*/, int /*ncu*/, int /*nd*/,
                 int /*ncx*/, int /*nco*/, int /*ncw*/, int /*nce*/, int /*npe*/, int /*ne*/)
 {
+    using dstype=T;
     static_assert(is_eos_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);
@@ -45,12 +46,13 @@ void eos_kernel(dstype* f, const dstype* xdg, const dstype* udg, const dstype* o
     });
 }
 
-template <class M>
-void eos_du_kernel(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg,
-                   const dstype* wdg, const dstype* /*uinf*/, const dstype* param, dstype t,
+template <class M, class T=dstype, class I=Int>
+void eos_du_kernel(T* f, const T* xdg, const T* udg, const T* odg,
+                   const T* wdg, const T* /*uinf*/, const T* param, T t,
                    int /*modelnumber*/, int ng, int /*nc*/, int /*ncu*/, int /*nd*/,
                    int /*ncx*/, int /*nco*/, int /*ncw*/, int /*nce*/, int /*npe*/, int /*ne*/)
 {
+    using dstype=T;
     static_assert(is_eos_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);
@@ -71,12 +73,13 @@ void eos_du_kernel(dstype* f, const dstype* xdg, const dstype* udg, const dstype
     });
 }
 
-template <class M>
-void eos_dw_kernel(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg,
-                   const dstype* wdg, const dstype* /*uinf*/, const dstype* param, dstype t,
+template <class M, class T=dstype, class I=Int>
+void eos_dw_kernel(T* f, const T* xdg, const T* udg, const T* odg,
+                   const T* wdg, const T* /*uinf*/, const T* param, T t,
                    int /*modelnumber*/, int ng, int /*nc*/, int /*ncu*/, int /*nd*/,
                    int /*ncx*/, int /*nco*/, int /*ncw*/, int /*nce*/, int /*npe*/, int /*ne*/)
 {
+    using dstype=T;
     static_assert(is_eos_model_v<M>);
     if constexpr (M::ncw > 0) {
         constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
@@ -100,12 +103,13 @@ void eos_dw_kernel(dstype* f, const dstype* xdg, const dstype* udg, const dstype
     }
 }
 
-template <class M>
-void avfield_kernel(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg,
-                    const dstype* wdg, const dstype* /*uinf*/, const dstype* param, dstype t,
+template <class M, class T=dstype, class I=Int>
+void avfield_kernel(T* f, const T* xdg, const T* udg, const T* odg,
+                    const T* wdg, const T* /*uinf*/, const T* param, T t,
                     int /*modelnumber*/, int ng, int /*nc*/, int /*ncu*/, int /*nd*/,
                     int /*ncx*/, int /*nco*/, int /*ncw*/, int /*nce*/, int /*npe*/, int /*ne*/)
 {
+    using dstype=T;
     static_assert(is_avfield_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);

@@ -19,15 +19,15 @@
 namespace exasim {
 
 // Forward path — value only.
-template <class M>
-void source_kernel(dstype*       s,
-                   const dstype* xdg,
-                   const dstype* udg,
-                   const dstype* odg,
-                   const dstype* wdg,
-                   const dstype* /*uinf*/,
-                   const dstype* param,
-                   dstype        t,
+template <class M, class T=dstype, class I=Int>
+void source_kernel(T*       s,
+                   const T* xdg,
+                   const T* udg,
+                   const T* odg,
+                   const T* wdg,
+                   const T* /*uinf*/,
+                   const T* param,
+                   T        t,
                    int           /*modelnumber*/,
                    int           ng,
                    int           /*nc*/,
@@ -37,6 +37,7 @@ void source_kernel(dstype*       s,
                    int           /*nco*/,
                    int           ncw_runtime)
 {
+    using dstype=T;
     static_assert(is_source_model_v<M>, "source_kernel<M>: M must satisfy the Model contract.");
 
     constexpr int nd  = M::nd;
@@ -53,10 +54,10 @@ void source_kernel(dstype*       s,
     Kokkos::parallel_for("exasim::source_kernel", ng,
         KOKKOS_LAMBDA(const size_t i) {
             (void)odg; (void)wdg;  // HOT.6.2 nvcc force-capture: see /tmp/patch_constexpr_capture.py
-            double x [nd];
-            double uq[Nq];
-            double v [nco_buf];
-            double w [ncw_buf];
+            T x [nd];
+            T uq[Nq];
+            T v [nco_buf];
+            T w [ncw_buf];
 
             for (int k = 0; k < nd; ++k) x [k] = xdg[k * ng + i];
             for (int k = 0; k < Nq; ++k) uq[k] = udg[k * ng + i];
@@ -67,7 +68,7 @@ void source_kernel(dstype*       s,
                 for (int k = 0; k < ncw; ++k) w[k] = wdg[k * ng + i];
             }
 
-            double s_local[ncu];
+            T s_local[ncu];
             M::source(s_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
 
             for (int k = 0; k < ncu; ++k) s[k * ng + i] = s_local[k];
@@ -75,17 +76,17 @@ void source_kernel(dstype*       s,
 }
 
 // HDG path — value + ∂s/∂uq + ∂s/∂w.
-template <class M>
-void hdg_source_kernel(dstype*       s,
-                       dstype*       s_udg,
-                       dstype*       s_wdg,
-                       const dstype* xdg,
-                       const dstype* udg,
-                       const dstype* odg,
-                       const dstype* wdg,
-                       const dstype* /*uinf*/,
-                       const dstype* param,
-                       dstype        t,
+template <class M, class T=dstype, class I=Int>
+void hdg_source_kernel(T*       s,
+                       T*       s_udg,
+                       T*       s_wdg,
+                       const T* xdg,
+                       const T* udg,
+                       const T* odg,
+                       const T* wdg,
+                       const T* /*uinf*/,
+                       const T* param,
+                       T        t,
                        int           /*modelnumber*/,
                        int           ng,
                        int           /*nc*/,
@@ -95,6 +96,7 @@ void hdg_source_kernel(dstype*       s,
                        int           /*nco*/,
                        int           ncw_runtime)
 {
+    using dstype=T;
     static_assert(is_source_model_v<M>, "hdg_source_kernel<M>: M must satisfy the Model contract.");
 
     constexpr int nd  = M::nd;
@@ -111,10 +113,10 @@ void hdg_source_kernel(dstype*       s,
     Kokkos::parallel_for("exasim::hdg_source_kernel", ng,
         KOKKOS_LAMBDA(const size_t i) {
             (void)odg; (void)wdg; (void)s_wdg;  // HOT.6.2 nvcc force-capture: see /tmp/patch_constexpr_capture.py
-            double x [nd];
-            double uq[Nq];
-            double v [nco_buf];
-            double w [ncw_buf];
+            T x [nd];
+            T uq[Nq];
+            T v [nco_buf];
+            T w [ncw_buf];
 
             for (int k = 0; k < nd; ++k) x [k] = xdg[k * ng + i];
             for (int k = 0; k < Nq; ++k) uq[k] = udg[k * ng + i];
@@ -126,18 +128,18 @@ void hdg_source_kernel(dstype*       s,
             }
 
             // Value
-            double s_local[ncu];
+            T s_local[ncu];
             M::source(s_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
             for (int k = 0; k < ncu; ++k) s[k * ng + i] = s_local[k];
 
             // ∂s/∂uq
-            double s_uq[ncu * Nq];
+            T s_uq[ncu * Nq];
             M::source_jac_uq(s_uq, x, uq, v, w, param, /*uinf=*/nullptr, t);
             for (int k = 0; k < ncu * Nq; ++k) s_udg[k * ng + i] = s_uq[k];
 
             // ∂s/∂w (only when present)
             if constexpr (ncw > 0) {
-                double s_w[ncu * ncw];
+                T s_w[ncu * ncw];
                 M::source_jac_w(s_w, x, uq, v, w, param, /*uinf=*/nullptr, t);
                 for (int k = 0; k < ncu * ncw; ++k) s_wdg[k * ng + i] = s_w[k];
             }

@@ -19,14 +19,15 @@
 
 namespace exasim {
 
-template <class M>
-void vis_scalars_kernel(dstype* f, const dstype* xdg, const dstype* udg,
-                        const dstype* odg, const dstype* wdg,
-                        const dstype* /*uinf*/, const dstype* param, dstype t,
+template <class M, class T=dstype, class I=Int>
+void vis_scalars_kernel(T* f, const T* xdg, const T* udg,
+                        const T* odg, const T* wdg,
+                        const T* /*uinf*/, const T* param, T t,
                         int /*modelnumber*/, int ng,
                         int nc_runtime, int /*ncu*/, int /*nd*/,
                         int /*ncx*/, int /*nco*/, int /*ncw*/)
 {
+    using dstype=T;
     static_assert(is_vis_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);
@@ -48,14 +49,15 @@ void vis_scalars_kernel(dstype* f, const dstype* xdg, const dstype* udg,
     });
 }
 
-template <class M>
-void vis_vectors_kernel(dstype* f, const dstype* xdg, const dstype* udg,
-                        const dstype* odg, const dstype* wdg,
-                        const dstype* /*uinf*/, const dstype* param, dstype t,
+template <class M, class T=dstype, class I=Int>
+void vis_vectors_kernel(T* f, const T* xdg, const T* udg,
+                        const T* odg, const T* wdg,
+                        const T* /*uinf*/, const T* param, T t,
                         int /*modelnumber*/, int ng,
                         int nc_runtime, int /*ncu*/, int /*nd*/,
                         int /*ncx*/, int /*nco*/, int /*ncw*/)
 {
+    using dstype=T;
     static_assert(is_vis_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);
@@ -77,14 +79,15 @@ void vis_vectors_kernel(dstype* f, const dstype* xdg, const dstype* udg,
     });
 }
 
-template <class M>
-void vis_tensors_kernel(dstype* f, const dstype* xdg, const dstype* udg,
-                        const dstype* odg, const dstype* wdg,
-                        const dstype* /*uinf*/, const dstype* param, dstype t,
+template <class M, class T=dstype, class I=Int>
+void vis_tensors_kernel(T* f, const T* xdg, const T* udg,
+                        const T* odg, const T* wdg,
+                        const T* /*uinf*/, const T* param, T t,
                         int /*modelnumber*/, int ng,
                         int nc_runtime, int /*ncu*/, int /*nd*/,
                         int /*ncx*/, int /*nco*/, int /*ncw*/)
 {
+    using dstype=T;
     static_assert(is_vis_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);

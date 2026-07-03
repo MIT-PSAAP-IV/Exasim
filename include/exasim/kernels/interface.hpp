@@ -16,16 +16,17 @@
 
 namespace exasim {
 
-template <class M>
-void fhat_kernel(dstype* f, const dstype* xdg,
-                 const dstype* udg1, const dstype* udg2,
-                 const dstype* odg1, const dstype* odg2,
-                 const dstype* wdg1,  const dstype* wdg2,
-                 const dstype* uhg,   const dstype* nlg, const dstype* tau,
-                 const dstype* /*uinf*/, const dstype* param,
-                 dstype t, int /*modelnumber*/, int ng,
+template <class M, class T=dstype, class I=Int>
+void fhat_kernel(T* f, const T* xdg,
+                 const T* udg1, const T* udg2,
+                 const T* odg1, const T* odg2,
+                 const T* wdg1,  const T* wdg2,
+                 const T* uhg,   const T* nlg, const T* tau,
+                 const T* /*uinf*/, const T* param,
+                 T t, int /*modelnumber*/, int ng,
                  int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/, int /*ncw*/)
 {
+    using dstype=T;
     static_assert(is_interface_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);
@@ -58,16 +59,17 @@ void fhat_kernel(dstype* f, const dstype* xdg,
     });
 }
 
-template <class M>
-void uhat_kernel(dstype* f, const dstype* xdg,
-                 const dstype* udg1, const dstype* udg2,
-                 const dstype* odg1, const dstype* odg2,
-                 const dstype* wdg1,  const dstype* wdg2,
-                 const dstype* uhg,   const dstype* nlg, const dstype* tau,
-                 const dstype* /*uinf*/, const dstype* param,
-                 dstype t, int /*modelnumber*/, int ng,
+template <class M, class T=dstype, class I=Int>
+void uhat_kernel(T* f, const T* xdg,
+                 const T* udg1, const T* udg2,
+                 const T* odg1, const T* odg2,
+                 const T* wdg1,  const T* wdg2,
+                 const T* uhg,   const T* nlg, const T* tau,
+                 const T* /*uinf*/, const T* param,
+                 T t, int /*modelnumber*/, int ng,
                  int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/, int /*ncw*/)
 {
+    using dstype=T;
     static_assert(is_interface_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);
@@ -100,16 +102,17 @@ void uhat_kernel(dstype* f, const dstype* xdg,
     });
 }
 
-template <class M>
-void stab_kernel(dstype* f, const dstype* xdg,
-                 const dstype* udg1, const dstype* udg2,
-                 const dstype* odg1, const dstype* odg2,
-                 const dstype* wdg1,  const dstype* wdg2,
-                 const dstype* uhg,   const dstype* nlg, const dstype* tau,
-                 const dstype* /*uinf*/, const dstype* param,
-                 dstype t, int /*modelnumber*/, int ng,
+template <class M, class T=dstype, class I=Int>
+void stab_kernel(T* f, const T* xdg,
+                 const T* udg1, const T* udg2,
+                 const T* odg1, const T* odg2,
+                 const T* wdg1,  const T* wdg2,
+                 const T* uhg,   const T* nlg, const T* tau,
+                 const T* /*uinf*/, const T* param,
+                 T t, int /*modelnumber*/, int ng,
                  int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/, int /*ncw*/)
 {
+    using dstype=T;
     static_assert(is_interface_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);

@@ -75,14 +75,15 @@ inline DriverShape compute_shape(commonstruct& common, Int nge, Int e1, Int e2) 
 // ===== Volume drivers =====
 
 // LDG flux: f only.
-template <class M>
-inline void FluxDriver(dstype* f, const dstype* xg, const dstype* udg,
-                       const dstype* odg, const dstype* wdg,
-                       meshstruct& /*mesh*/, masterstruct& /*master*/,
-                       appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
-                       commonstruct& common, Int nge, Int e1, Int e2,
+template <class M, class T=dstype, class I=Int>
+inline void FluxDriver(T* f, const T* xg, const T* udg,
+                       const T* odg, const T* wdg,
+                       meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                       appstructT<T,I>& app, solstructT<T,I>& /*sol*/, tempstructT<T,I>& /*temp*/,
+                       commonstructT<T,I>& common, Int nge, Int e1, Int e2,
                        Int /*backend*/)
 {
+    using dstype=T;
     auto s = detail::compute_shape(common, nge, e1, e2);
     flux_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                    s.time, s.modelnumber, s.numPoints, s.nc, s.ncu,
@@ -90,15 +91,16 @@ inline void FluxDriver(dstype* f, const dstype* xg, const dstype* udg,
 }
 
 // HDG flux: f + ∂f/∂uq + ∂f/∂w.
-template <class M>
-inline void FluxDriver(dstype* f, dstype* f_udg, dstype* f_wdg,
-                       const dstype* xg, const dstype* udg,
-                       const dstype* odg, const dstype* wdg,
-                       meshstruct& /*mesh*/, masterstruct& /*master*/,
-                       appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
-                       commonstruct& common, Int nge, Int e1, Int e2,
+template <class M, class T=dstype, class I=Int>
+inline void FluxDriver(T* f, T* f_udg, T* f_wdg,
+                       const T* xg, const T* udg,
+                       const T* odg, const T* wdg,
+                       meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                       appstructT<T,I>& app, solstructT<T,I>& /*sol*/, tempstructT<T,I>& /*temp*/,
+                       commonstructT<T,I>& common, Int nge, Int e1, Int e2,
                        Int /*backend*/)
 {
+    using dstype=T;
     auto s = detail::compute_shape(common, nge, e1, e2);
     hdg_flux_kernel<M>(f, f_udg, f_wdg, xg, udg, odg, wdg,
                        app.uinf, app.physicsparam,
@@ -107,14 +109,15 @@ inline void FluxDriver(dstype* f, dstype* f_udg, dstype* f_wdg,
 }
 
 // LDG source.
-template <class M>
-inline void SourceDriver(dstype* f, const dstype* xg, const dstype* udg,
-                         const dstype* odg, const dstype* wdg,
-                         meshstruct& /*mesh*/, masterstruct& /*master*/,
-                         appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
-                         commonstruct& common, Int nge, Int e1, Int e2,
+template <class M, class T=dstype, class I=Int>
+inline void SourceDriver(T* f, const T* xg, const T* udg,
+                         const T* odg, const T* wdg,
+                         meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                         appstructT<T,I>& app, solstructT<T,I>& /*sol*/, tempstructT<T,I>& /*temp*/,
+                         commonstructT<T,I>& common, Int nge, Int e1, Int e2,
                          Int /*backend*/)
 {
+    using dstype=T;
     auto s = detail::compute_shape(common, nge, e1, e2);
     source_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                      s.time, s.modelnumber, s.numPoints, s.nc, s.ncu,
@@ -122,15 +125,16 @@ inline void SourceDriver(dstype* f, const dstype* xg, const dstype* udg,
 }
 
 // HDG source: f + ∂s/∂uq + ∂s/∂w.
-template <class M>
-inline void SourceDriver(dstype* f, dstype* f_udg, dstype* f_wdg,
-                         const dstype* xg, const dstype* udg,
-                         const dstype* odg, const dstype* wdg,
-                         meshstruct& /*mesh*/, masterstruct& /*master*/,
-                         appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
-                         commonstruct& common, Int nge, Int e1, Int e2,
+template <class M, class T=dstype, class I=Int>
+inline void SourceDriver(T* f, T* f_udg, T* f_wdg,
+                         const T* xg, const T* udg,
+                         const T* odg, const T* wdg,
+                         meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                         appstructT<T,I>& app, solstructT<T,I>& /*sol*/, tempstructT<T,I>& /*temp*/,
+                         commonstructT<T,I>& common, Int nge, Int e1, Int e2,
                          Int /*backend*/)
 {
+    using dstype=T;
     auto s = detail::compute_shape(common, nge, e1, e2);
     hdg_source_kernel<M>(f, f_udg, f_wdg, xg, udg, odg, wdg,
                          app.uinf, app.physicsparam,
@@ -138,27 +142,29 @@ inline void SourceDriver(dstype* f, dstype* f_udg, dstype* f_wdg,
                          s.nd, s.ncx, s.nco, s.ncw);
 }
 
-template <class M>
-inline void TdfuncDriver(dstype* f, const dstype* xg, const dstype* udg,
-                         const dstype* odg, const dstype* wdg,
-                         meshstruct& /*mesh*/, masterstruct& /*master*/,
-                         appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
-                         commonstruct& common, Int nge, Int e1, Int e2,
+template <class M, class T=dstype, class I=Int>
+inline void TdfuncDriver(T* f, const T* xg, const T* udg,
+                         const T* odg, const T* wdg,
+                         meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                         appstructT<T,I>& app, solstructT<T,I>& /*sol*/, tempstructT<T,I>& /*temp*/,
+                         commonstructT<T,I>& common, Int nge, Int e1, Int e2,
                          Int /*backend*/)
 {
+    using dstype=T;
     auto s = detail::compute_shape(common, nge, e1, e2);
     tdfunc_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                      s.time, s.modelnumber, s.numPoints, s.nc, s.ncu,
                      s.nd, s.ncx, s.nco, s.ncw);
 }
 
-template <class M>
-inline void AvfieldDriver(dstype* f, const dstype* xg, const dstype* udg,
-                          const dstype* odg, const dstype* wdg,
-                          meshstruct& /*mesh*/, masterstruct& /*master*/,
-                          appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
-                          commonstruct& common, Int /*backend*/)
+template <class M, class T=dstype, class I=Int>
+inline void AvfieldDriver(T* f, const T* xg, const T* udg,
+                          const T* odg, const T* wdg,
+                          meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                          appstructT<T,I>& app, solstructT<T,I>& /*sol*/, tempstructT<T,I>& /*temp*/,
+                          commonstructT<T,I>& common, Int /*backend*/)
 {
+    using dstype=T;
     Int numPoints = common.grid.npe * common.meshsizes.ne;
     avfield_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                       common.timestate.time, common.modelnumber, numPoints,
@@ -166,13 +172,14 @@ inline void AvfieldDriver(dstype* f, const dstype* xg, const dstype* udg,
                       common.components.nco, common.components.ncw, common.components.nce, common.grid.npe, common.meshsizes.ne);
 }
 
-template <class M>
-inline void OutputDriver(dstype* f, const dstype* xg, const dstype* udg,
-                         const dstype* odg, const dstype* wdg,
-                         meshstruct& /*mesh*/, masterstruct& /*master*/,
-                         appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
-                         commonstruct& common, Int /*backend*/)
+template <class M, class T=dstype, class I=Int>
+inline void OutputDriver(T* f, const T* xg, const T* udg,
+                         const T* odg, const T* wdg,
+                         meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                         appstructT<T,I>& app, solstructT<T,I>& /*sol*/, tempstructT<T,I>& /*temp*/,
+                         commonstructT<T,I>& common, Int /*backend*/)
 {
+    using dstype=T;
     Int numPoints = common.grid.npe * common.meshsizes.ne;
     output_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                      common.timestate.time, common.modelnumber, numPoints,
@@ -180,13 +187,14 @@ inline void OutputDriver(dstype* f, const dstype* xg, const dstype* udg,
                      common.components.nco, common.components.ncw, common.components.nce, common.grid.npe, common.meshsizes.ne);
 }
 
-template <class M>
-inline void MonitorDriver(dstype* f, Int nc_sol, const dstype* xg, const dstype* udg,
-                          const dstype* odg, const dstype* wdg,
-                          meshstruct& /*mesh*/, masterstruct& /*master*/,
-                          appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
-                          commonstruct& common, Int /*backend*/)
+template <class M, class T=dstype, class I=Int>
+inline void MonitorDriver(T* f, Int nc_sol, const T* xg, const T* udg,
+                          const T* odg, const T* wdg,
+                          meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                          appstructT<T,I>& app, solstructT<T,I>& /*sol*/, tempstructT<T,I>& /*temp*/,
+                          commonstructT<T,I>& common, Int /*backend*/)
 {
+    using dstype=T;
     Int numPoints = common.grid.npe * common.meshsizes.ne;
     monitor_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                       common.timestate.time, common.modelnumber, numPoints,
@@ -196,13 +204,14 @@ inline void MonitorDriver(dstype* f, Int nc_sol, const dstype* xg, const dstype*
 
 // ===== EoS drivers =====
 
-template <class M>
-inline void EosDriver(dstype* f, const dstype* xg, const dstype* udg,
-                      const dstype* odg, const dstype* wdg,
-                      meshstruct& /*mesh*/, masterstruct& /*master*/,
-                      appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
-                      commonstruct& common, Int npe, Int e1, Int e2, Int /*backend*/)
+template <class M, class T=dstype, class I=Int>
+inline void EosDriver(T* f, const T* xg, const T* udg,
+                      const T* odg, const T* wdg,
+                      meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                      appstructT<T,I>& app, solstructT<T,I>& /*sol*/, tempstructT<T,I>& /*temp*/,
+                      commonstructT<T,I>& common, Int npe, Int e1, Int e2, Int /*backend*/)
 {
+    using dstype=T;
     Int numPoints = npe * (e2 - e1);
     eos_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                   common.timestate.time, common.modelnumber, numPoints,
@@ -210,13 +219,14 @@ inline void EosDriver(dstype* f, const dstype* xg, const dstype* udg,
                   common.components.nco, common.components.ncw, common.components.nce, npe, e2 - e1);
 }
 
-template <class M>
-inline void EosduDriver(dstype* f, const dstype* xg, const dstype* udg,
-                        const dstype* odg, const dstype* wdg,
-                        meshstruct& /*mesh*/, masterstruct& /*master*/,
-                        appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
-                        commonstruct& common, Int npe, Int e1, Int e2, Int /*backend*/)
+template <class M, class T=dstype, class I=Int>
+inline void EosduDriver(T* f, const T* xg, const T* udg,
+                        const T* odg, const T* wdg,
+                        meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                        appstructT<T,I>& app, solstructT<T,I>& /*sol*/, tempstructT<T,I>& /*temp*/,
+                        commonstructT<T,I>& common, Int npe, Int e1, Int e2, Int /*backend*/)
 {
+    using dstype=T;
     Int numPoints = npe * (e2 - e1);
     eos_du_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                      common.timestate.time, common.modelnumber, numPoints,
@@ -224,13 +234,14 @@ inline void EosduDriver(dstype* f, const dstype* xg, const dstype* udg,
                      common.components.nco, common.components.ncw, common.components.nce, npe, e2 - e1);
 }
 
-template <class M>
-inline void EosdwDriver(dstype* f, const dstype* xg, const dstype* udg,
-                        const dstype* odg, const dstype* wdg,
-                        meshstruct& /*mesh*/, masterstruct& /*master*/,
-                        appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
-                        commonstruct& common, Int npe, Int e1, Int e2, Int /*backend*/)
+template <class M, class T=dstype, class I=Int>
+inline void EosdwDriver(T* f, const T* xg, const T* udg,
+                        const T* odg, const T* wdg,
+                        meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                        appstructT<T,I>& app, solstructT<T,I>& /*sol*/, tempstructT<T,I>& /*temp*/,
+                        commonstructT<T,I>& common, Int npe, Int e1, Int e2, Int /*backend*/)
 {
+    using dstype=T;
     Int numPoints = npe * (e2 - e1);
     eos_dw_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                      common.timestate.time, common.modelnumber, numPoints,
@@ -240,13 +251,14 @@ inline void EosdwDriver(dstype* f, const dstype* xg, const dstype* udg,
 
 // ===== Sourcew drivers (auxiliary `w` field) =====
 
-template <class M>
-inline void SourcewDriver(dstype* f, const dstype* xg, const dstype* udg,
-                          const dstype* odg, const dstype* wdg,
-                          meshstruct& /*mesh*/, masterstruct& /*master*/,
-                          appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
-                          commonstruct& common, Int npe, Int e1, Int e2, Int /*backend*/)
+template <class M, class T=dstype, class I=Int>
+inline void SourcewDriver(T* f, const T* xg, const T* udg,
+                          const T* odg, const T* wdg,
+                          meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                          appstructT<T,I>& app, solstructT<T,I>& /*sol*/, tempstructT<T,I>& /*temp*/,
+                          commonstructT<T,I>& common, Int npe, Int e1, Int e2, Int /*backend*/)
 {
+    using dstype=T;
     Int numPoints = npe * (e2 - e1);
     sourcew_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                       common.timestate.time, common.modelnumber, numPoints,
@@ -256,70 +268,75 @@ inline void SourcewDriver(dstype* f, const dstype* xg, const dstype* udg,
 
 // ===== Visualization & QoI drivers =====
 
-template <class M>
-inline void VisScalarsDriver(dstype* f, const dstype* xg, const dstype* udg,
-                             const dstype* odg, const dstype* wdg,
-                             meshstruct& /*mesh*/, masterstruct& /*master*/,
-                             appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
-                             commonstruct& common, Int nge, Int e1, Int e2,
+template <class M, class T=dstype, class I=Int>
+inline void VisScalarsDriver(T* f, const T* xg, const T* udg,
+                             const T* odg, const T* wdg,
+                             meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                             appstructT<T,I>& app, solstructT<T,I>& /*sol*/, tempstructT<T,I>& /*temp*/,
+                             commonstructT<T,I>& common, Int nge, Int e1, Int e2,
                              Int /*backend*/)
 {
+    using dstype=T;
     auto s = detail::compute_shape(common, nge, e1, e2);
     vis_scalars_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                           s.time, s.modelnumber, s.numPoints, s.nc, s.ncu,
                           s.nd, s.ncx, s.nco, s.ncw);
 }
 
-template <class M>
-inline void VisVectorsDriver(dstype* f, const dstype* xg, const dstype* udg,
-                             const dstype* odg, const dstype* wdg,
-                             meshstruct& /*mesh*/, masterstruct& /*master*/,
-                             appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
-                             commonstruct& common, Int nge, Int e1, Int e2,
+template <class M, class T=dstype, class I=Int>
+inline void VisVectorsDriver(T* f, const T* xg, const T* udg,
+                             const T* odg, const T* wdg,
+                             meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                             appstructT<T,I>& app, solstructT<T,I>& /*sol*/, tempstructT<T,I>& /*temp*/,
+                             commonstructT<T,I>& common, Int nge, Int e1, Int e2,
                              Int /*backend*/)
 {
+    using dstype=T;
     auto s = detail::compute_shape(common, nge, e1, e2);
     vis_vectors_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                           s.time, s.modelnumber, s.numPoints, s.nc, s.ncu,
                           s.nd, s.ncx, s.nco, s.ncw);
 }
 
-template <class M>
-inline void VisTensorsDriver(dstype* f, const dstype* xg, const dstype* udg,
-                             const dstype* odg, const dstype* wdg,
-                             meshstruct& /*mesh*/, masterstruct& /*master*/,
-                             appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
-                             commonstruct& common, Int nge, Int e1, Int e2,
+template <class M, class T=dstype, class I=Int>
+inline void VisTensorsDriver(T* f, const T* xg, const T* udg,
+                             const T* odg, const T* wdg,
+                             meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                             appstructT<T,I>& app, solstructT<T,I>& /*sol*/, tempstructT<T,I>& /*temp*/,
+                             commonstructT<T,I>& common, Int nge, Int e1, Int e2,
                              Int /*backend*/)
 {
+    using dstype=T;
     auto s = detail::compute_shape(common, nge, e1, e2);
     vis_tensors_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                           s.time, s.modelnumber, s.numPoints, s.nc, s.ncu,
                           s.nd, s.ncx, s.nco, s.ncw);
 }
 
-template <class M>
-inline void QoIvolumeDriver(dstype* f, const dstype* xg, const dstype* udg,
-                            const dstype* odg, const dstype* wdg,
-                            meshstruct& /*mesh*/, masterstruct& /*master*/,
-                            appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
-                            commonstruct& common, Int nge, Int e1, Int e2,
+template <class M, class T=dstype, class I=Int>
+inline void QoIvolumeDriver(T* f, const T* xg, const T* udg,
+                            const T* odg, const T* wdg,
+                            meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                            appstructT<T,I>& app, solstructT<T,I>& /*sol*/, tempstructT<T,I>& /*temp*/,
+                            commonstructT<T,I>& common, Int nge, Int e1, Int e2,
                             Int /*backend*/)
 {
+    using dstype=T;
     auto s = detail::compute_shape(common, nge, e1, e2);
     qoi_volume_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                          s.time, s.modelnumber, s.numPoints, s.nc, s.ncu,
                          s.nd, s.ncx, s.nco, s.ncw);
 }
 
-template <class M>
-inline void QoIboundaryDriver(dstype* fb, const dstype* xg, const dstype* udg,
-                              const dstype* odg, const dstype* wdg,
-                              const dstype* uhg, const dstype* nl,
-                              meshstruct& /*mesh*/, masterstruct& /*master*/,
-                              appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
-                              commonstruct& common, Int ngf, Int f1, Int f2, Int ib, Int /*backend*/)
+template <class M, class T=dstype, class I=Int>
+inline void QoIboundaryDriver(T* fb, const T* xg, const T* udg,
+                              const T* odg, const T* wdg,
+                              const T* uhg, const T* nl,
+                              meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                              appstructT<T,I>& app, solstructT<T,I>& /*sol*/, tempstructT<T,I>& /*temp*/,
+                              commonstructT<T,I>& common, Int ngf, Int f1, Int f2, Int ib, Int /*backend*/)
 {
+    using dstype=T;
     Int ng = ngf * (f2 - f1);
     qoi_boundary_kernel<M>(fb, xg, udg, odg, wdg, uhg, nl, app.tau,
                            app.uinf, app.physicsparam,
@@ -331,14 +348,15 @@ inline void QoIboundaryDriver(dstype* fb, const dstype* xg, const dstype* udg,
 // ===== Surface drivers =====
 
 // LDG boundary flux (no Jacobians — `KokkosFbou`).
-template <class M>
-inline void FbouDriver(dstype* fb, const dstype* xg, const dstype* udg,
-                       const dstype* odg, const dstype* wdg,
-                       const dstype* uhg, const dstype* nl,
-                       meshstruct& /*mesh*/, masterstruct& /*master*/,
-                       appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
-                       commonstruct& common, Int ngf, Int f1, Int f2, Int ib, Int /*backend*/)
+template <class M, class T=dstype, class I=Int>
+inline void FbouDriver(T* fb, const T* xg, const T* udg,
+                       const T* odg, const T* wdg,
+                       const T* uhg, const T* nl,
+                       meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                       appstructT<T,I>& app, solstructT<T,I>& /*sol*/, tempstructT<T,I>& /*temp*/,
+                       commonstructT<T,I>& common, Int ngf, Int f1, Int f2, Int ib, Int /*backend*/)
 {
+    using dstype=T;
     Int ng = ngf * (f2 - f1);
     fbou_kernel<M>(fb, xg, udg, odg, wdg, uhg, nl, app.tau,
                    app.uinf, app.physicsparam,
@@ -349,15 +367,16 @@ inline void FbouDriver(dstype* fb, const dstype* xg, const dstype* udg,
 
 // HDG boundary residual + 3 Jacobians — calls M::fbou_hdg, NOT M::fbou.
 // Single-block form takes `nga, ib, backend`.
-template <class M>
-inline void FbouDriver(dstype* fb, dstype* fb_udg, dstype* fb_wdg, dstype* fb_uhg,
-                       const dstype* xg, const dstype* udg,
-                       const dstype* odg, const dstype* wdg,
-                       const dstype* uhg, const dstype* nl,
-                       meshstruct& /*mesh*/, masterstruct& /*master*/,
-                       appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
-                       commonstruct& common, Int nga, Int ib, Int /*backend*/)
+template <class M, class T=dstype, class I=Int>
+inline void FbouDriver(T* fb, T* fb_udg, T* fb_wdg, T* fb_uhg,
+                       const T* xg, const T* udg,
+                       const T* odg, const T* wdg,
+                       const T* uhg, const T* nl,
+                       meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                       appstructT<T,I>& app, solstructT<T,I>& /*sol*/, tempstructT<T,I>& /*temp*/,
+                       commonstructT<T,I>& common, Int nga, Int ib, Int /*backend*/)
 {
+    using dstype=T;
     hdg_fbou_kernel<M>(fb, fb_udg, fb_wdg, fb_uhg, xg, udg, odg, wdg,
                        uhg, nl, app.tau, app.uinf, app.physicsparam,
                        common.timestate.time, common.modelnumber, ib, nga,
@@ -365,14 +384,15 @@ inline void FbouDriver(dstype* fb, dstype* fb_udg, dstype* fb_wdg, dstype* fb_uh
                        common.components.nco, common.components.ncw);
 }
 
-template <class M>
-inline void UbouDriver(dstype* ub, const dstype* xg, const dstype* udg,
-                       const dstype* odg, const dstype* wdg,
-                       const dstype* uhg, const dstype* nl,
-                       meshstruct& /*mesh*/, masterstruct& /*master*/,
-                       appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
-                       commonstruct& common, Int ngf, Int f1, Int f2, Int ib, Int /*backend*/)
+template <class M, class T=dstype, class I=Int>
+inline void UbouDriver(T* ub, const T* xg, const T* udg,
+                       const T* odg, const T* wdg,
+                       const T* uhg, const T* nl,
+                       meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                       appstructT<T,I>& app, solstructT<T,I>& /*sol*/, tempstructT<T,I>& /*temp*/,
+                       commonstructT<T,I>& common, Int ngf, Int f1, Int f2, Int ib, Int /*backend*/)
 {
+    using dstype=T;
     Int ng = ngf * (f2 - f1);
     ubou_kernel<M>(ub, xg, udg, odg, wdg, uhg, nl, app.tau,
                    app.uinf, app.physicsparam,
@@ -382,16 +402,17 @@ inline void UbouDriver(dstype* ub, const dstype* xg, const dstype* udg,
 }
 
 // FhatDriver — LDG path (interior faces): `ngf, f1, f2, backend`.
-template <class M>
-inline void FhatDriver(dstype* fg, const dstype* xg,
-                       const dstype* ug1, const dstype* ug2,
-                       const dstype* og1, const dstype* og2,
-                       const dstype* wg1, const dstype* wg2,
-                       const dstype* uh, const dstype* nl,
-                       meshstruct& /*mesh*/, masterstruct& /*master*/,
-                       appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
-                       commonstruct& common, Int ngf, Int f1, Int f2, Int /*backend*/)
+template <class M, class T=dstype, class I=Int>
+inline void FhatDriver(T* fg, const T* xg,
+                       const T* ug1, const T* ug2,
+                       const T* og1, const T* og2,
+                       const T* wg1, const T* wg2,
+                       const T* uh, const T* nl,
+                       meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                       appstructT<T,I>& app, solstructT<T,I>& /*sol*/, tempstructT<T,I>& /*temp*/,
+                       commonstructT<T,I>& common, Int ngf, Int f1, Int f2, Int /*backend*/)
 {
+    using dstype=T;
     Int ng = ngf * (f2 - f1);
     fhat_kernel<M>(fg, xg, ug1, ug2, og1, og2, wg1, wg2,
                    uh, nl, app.tau, app.uinf, app.physicsparam,
@@ -401,16 +422,17 @@ inline void FhatDriver(dstype* fg, const dstype* xg,
 }
 
 // FhatDriver — single-block form (HDG path): `nga, backend`.
-template <class M>
-inline void FhatDriver(dstype* fg, const dstype* xg,
-                       const dstype* ug1, const dstype* ug2,
-                       const dstype* og1, const dstype* og2,
-                       const dstype* wg1, const dstype* wg2,
-                       const dstype* uh, const dstype* nl,
-                       meshstruct& /*mesh*/, masterstruct& /*master*/,
-                       appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
-                       commonstruct& common, Int nga, Int /*backend*/)
+template <class M, class T=dstype, class I=Int>
+inline void FhatDriver(T* fg, const T* xg,
+                       const T* ug1, const T* ug2,
+                       const T* og1, const T* og2,
+                       const T* wg1, const T* wg2,
+                       const T* uh, const T* nl,
+                       meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                       appstructT<T,I>& app, solstructT<T,I>& /*sol*/, tempstructT<T,I>& /*temp*/,
+                       commonstructT<T,I>& common, Int nga, Int /*backend*/)
 {
+    using dstype=T;
     fhat_kernel<M>(fg, xg, ug1, ug2, og1, og2, wg1, wg2,
                    uh, nl, app.tau, app.uinf, app.physicsparam,
                    common.timestate.time, common.modelnumber, nga,
@@ -429,15 +451,16 @@ inline void FhatDriver(dstype* fg, const dstype* xg,
 // numerical flux — the user does NOT define a separate `M::fhat`
 // for it; instead it's built from `M::flux` + `M::flux_jac_uq`
 // (which are already required) plus a fixed stabilization term.
-template <class M>
-inline void FhatDriver(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
-                       const dstype* xg, dstype* udg,
-                       const dstype* odg, const dstype* wdg,
-                       const dstype* uhg, dstype* nl,
-                       meshstruct& /*mesh*/, masterstruct& /*master*/,
-                       appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
-                       commonstruct& common, Int nga, Int /*backend*/)
+template <class M, class T=dstype, class I=Int>
+inline void FhatDriver(T* f, T* f_udg, T* f_wdg, T* f_uhg,
+                       const T* xg, T* udg,
+                       const T* odg, const T* wdg,
+                       const T* uhg, T* nl,
+                       meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                       appstructT<T,I>& app, solstructT<T,I>& /*sol*/, tempstructT<T,I>& /*temp*/,
+                       commonstructT<T,I>& common, Int nga, Int /*backend*/)
 {
+    using dstype=T;
     Int nc = common.components.nc;
     Int ncu = common.components.ncu;
     Int ncw = common.components.ncw;
@@ -488,14 +511,15 @@ inline void FhatDriver(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
 // HDG numerical flux Fhat = Flux(uhat, q) · n + tau * (u - uhat).
 // The `u` argument is workspace for stashing udg's u-component while
 // the flux is evaluated at (uhat, q).
-template <class M>
-inline void FhatDriver(dstype* fh, dstype* u, const dstype* xg,
-                       dstype* udg, const dstype* odg, const dstype* wdg,
-                       const dstype* uhg, dstype* nlg,
-                       meshstruct& /*mesh*/, masterstruct& /*master*/,
-                       appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
-                       commonstruct& common, Int nga, Int /*backend*/)
+template <class M, class T=dstype, class I=Int>
+inline void FhatDriver(T* fh, T* u, const T* xg,
+                       T* udg, const T* odg, const T* wdg,
+                       const T* uhg, T* nlg,
+                       meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                       appstructT<T,I>& app, solstructT<T,I>& /*sol*/, tempstructT<T,I>& /*temp*/,
+                       commonstructT<T,I>& common, Int nga, Int /*backend*/)
 {
+    using dstype=T;
     Int nc  = common.components.nc;
     Int ncu = common.components.ncu;
     Int ncw = common.components.ncw;
@@ -526,14 +550,15 @@ inline void FhatDriver(dstype* fh, dstype* u, const dstype* xg,
 // Calls `M::fbou_hdg` (boundary condition like `-tau*uhat`), matching
 // legacy `HdgFbouonly` from `backend/Model/HdgFbouonly.cpp`. NOT
 // `M::fbou`, which is the LDG numerical flux used by the LDG path.
-template <class M>
-inline void FbouDriver(dstype* fb, const dstype* xg, const dstype* udg,
-                       const dstype* odg, const dstype* wdg,
-                       const dstype* uhg, const dstype* nl,
-                       meshstruct& /*mesh*/, masterstruct& /*master*/,
-                       appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
-                       commonstruct& common, Int nga, Int ib, Int /*backend*/)
+template <class M, class T=dstype, class I=Int>
+inline void FbouDriver(T* fb, const T* xg, const T* udg,
+                       const T* odg, const T* wdg,
+                       const T* uhg, const T* nl,
+                       meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                       appstructT<T,I>& app, solstructT<T,I>& /*sol*/, tempstructT<T,I>& /*temp*/,
+                       commonstructT<T,I>& common, Int nga, Int ib, Int /*backend*/)
 {
+    using dstype=T;
     hdg_fbou_only_kernel<M>(fb, xg, udg, odg, wdg, uhg, nl, app.tau,
                             app.uinf, app.physicsparam,
                             common.timestate.time, common.modelnumber, ib, nga,
@@ -541,16 +566,17 @@ inline void FbouDriver(dstype* fb, const dstype* xg, const dstype* udg,
                             common.components.nco, common.components.ncw);
 }
 
-template <class M>
-inline void UhatDriver(dstype* fg, const dstype* xg,
-                       const dstype* ug1, const dstype* ug2,
-                       const dstype* og1, const dstype* og2,
-                       const dstype* wg1, const dstype* wg2,
-                       const dstype* uh, const dstype* nl,
-                       meshstruct& /*mesh*/, masterstruct& /*master*/,
-                       appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
-                       commonstruct& common, Int ng, Int /*backend*/)
+template <class M, class T=dstype, class I=Int>
+inline void UhatDriver(T* fg, const T* xg,
+                       const T* ug1, const T* ug2,
+                       const T* og1, const T* og2,
+                       const T* wg1, const T* wg2,
+                       const T* uh, const T* nl,
+                       meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                       appstructT<T,I>& app, solstructT<T,I>& /*sol*/, tempstructT<T,I>& /*temp*/,
+                       commonstructT<T,I>& common, Int ng, Int /*backend*/)
 {
+    using dstype=T;
     uhat_kernel<M>(fg, xg, ug1, ug2, og1, og2, wg1, wg2,
                    uh, nl, app.tau, app.uinf, app.physicsparam,
                    common.timestate.time, common.modelnumber, ng,
@@ -558,16 +584,17 @@ inline void UhatDriver(dstype* fg, const dstype* xg,
                    common.components.nco, common.components.ncw);
 }
 
-template <class M>
-inline void StabDriver(dstype* fg, const dstype* xg,
-                       const dstype* ug1, const dstype* ug2,
-                       const dstype* og1, const dstype* og2,
-                       const dstype* wg1, const dstype* wg2,
-                       const dstype* uh, const dstype* nl,
-                       meshstruct& /*mesh*/, masterstruct& /*master*/,
-                       appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
-                       commonstruct& common, Int ng, Int /*backend*/)
+template <class M, class T=dstype, class I=Int>
+inline void StabDriver(T* fg, const T* xg,
+                       const T* ug1, const T* ug2,
+                       const T* og1, const T* og2,
+                       const T* wg1, const T* wg2,
+                       const T* uh, const T* nl,
+                       meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                       appstructT<T,I>& app, solstructT<T,I>& /*sol*/, tempstructT<T,I>& /*temp*/,
+                       commonstructT<T,I>& common, Int ng, Int /*backend*/)
 {
+    using dstype=T;
     stab_kernel<M>(fg, xg, ug1, ug2, og1, og2, wg1, wg2,
                    uh, nl, app.tau, app.uinf, app.physicsparam,
                    common.timestate.time, common.modelnumber, ng,
@@ -577,40 +604,44 @@ inline void StabDriver(dstype* fg, const dstype* xg,
 
 // ===== Initialization drivers =====
 
-template <class M>
-inline void InitodgDriver(dstype* f, const dstype* xg,
-                          appstruct& app, commonstruct& common, Int /*backend*/)
+template <class M, class T=dstype, class I=Int>
+inline void InitodgDriver(T* f, const T* xg,
+                          appstructT<T,I>& app, commonstructT<T,I>& common, Int /*backend*/)
 {
+    using dstype=T;
     Int numPoints = common.grid.npe * common.meshsizes.ne;
     initodg_kernel<M>(f, xg, app.uinf, app.physicsparam,
                       common.modelnumber, numPoints,
                       common.components.ncx, common.components.nce, common.grid.npe, common.meshsizes.ne);
 }
 
-template <class M>
-inline void InitqDriver(dstype* f, const dstype* xg,
-                        appstruct& app, commonstruct& common, Int /*backend*/)
+template <class M, class T=dstype, class I=Int>
+inline void InitqDriver(T* f, const T* xg,
+                        appstructT<T,I>& app, commonstructT<T,I>& common, Int /*backend*/)
 {
+    using dstype=T;
     Int numPoints = common.grid.npe * common.meshsizes.ne;
     initq_kernel<M>(f, xg, app.uinf, app.physicsparam,
                     common.modelnumber, numPoints,
                     common.components.ncx, common.components.nce, common.grid.npe, common.meshsizes.ne);
 }
 
-template <class M>
-inline void InitudgDriver(dstype* f, const dstype* xg,
-                          appstruct& app, commonstruct& common, Int /*backend*/)
+template <class M, class T=dstype, class I=Int>
+inline void InitudgDriver(T* f, const T* xg,
+                          appstructT<T,I>& app, commonstructT<T,I>& common, Int /*backend*/)
 {
+    using dstype=T;
     Int numPoints = common.grid.npe * common.meshsizes.ne;
     initudg_kernel<M>(f, xg, app.uinf, app.physicsparam,
                       common.modelnumber, numPoints,
                       common.components.ncx, common.components.nce, common.grid.npe, common.meshsizes.ne);
 }
 
-template <class M>
-inline void InituDriver(dstype* f, const dstype* xg,
-                        appstruct& app, commonstruct& common, Int /*backend*/)
+template <class M, class T=dstype, class I=Int>
+inline void InituDriver(T* f, const T* xg,
+                        appstructT<T,I>& app, commonstructT<T,I>& common, Int /*backend*/)
 {
+    using dstype=T;
     Int numPoints = common.grid.npe * common.meshsizes.ne;
     initu_kernel<M>(f, xg, app.uinf, app.physicsparam,
                     common.modelnumber, numPoints,
@@ -618,10 +649,11 @@ inline void InituDriver(dstype* f, const dstype* xg,
                     common.components.nc);   // udg packed width (ncu+ncq) -> correct init stride
 }
 
-template <class M>
-inline void InitwdgDriver(dstype* f, const dstype* xg,
-                          appstruct& app, commonstruct& common, Int /*backend*/)
+template <class M, class T=dstype, class I=Int>
+inline void InitwdgDriver(T* f, const T* xg,
+                          appstructT<T,I>& app, commonstructT<T,I>& common, Int /*backend*/)
 {
+    using dstype=T;
     Int numPoints = common.grid.npe * common.meshsizes.ne;
     initwdg_kernel<M>(f, xg, app.uinf, app.physicsparam,
                       common.modelnumber, numPoints,
@@ -673,13 +705,15 @@ struct multidomain_forward {
 
 namespace exasim {
 
-template <class M, class... Args>
+template <class M, class... Args, class T=dstype, class I=Int>
 inline void FintDriver(Args&&... args) {
+    using dstype=T;
     ::exasim::detail::multidomain_forward<M>::Fint(std::forward<Args>(args)...);
 }
 
-template <class M, class... Args>
+template <class M, class... Args, class T=dstype, class I=Int>
 inline void FextDriver(Args&&... args) {
+    using dstype=T;
     ::exasim::detail::multidomain_forward<M>::Fext(std::forward<Args>(args)...);
 }
 

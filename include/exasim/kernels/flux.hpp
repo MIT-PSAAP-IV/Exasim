@@ -38,15 +38,15 @@ namespace exasim {
 // compatibility but are *not* read — the kernel uses `M::ncu` /
 // `M::nd` / `M::ncw` (compile-time constants) instead. A debug-only
 // assert verifies they agree.
-template <class M>
-void flux_kernel(dstype*       f,
-                 const dstype* xdg,
-                 const dstype* udg,
-                 const dstype* odg,
-                 const dstype* wdg,
-                 const dstype* /*uinf*/,
-                 const dstype* param,
-                 dstype        t,
+template <class M, class T=dstype, class I=Int>
+void flux_kernel(T*       f,
+                 const T* xdg,
+                 const T* udg,
+                 const T* odg,
+                 const T* wdg,
+                 const T* /*uinf*/,
+                 const T* param,
+                 T        t,
                  int           /*modelnumber*/,
                  int           ng,
                  int           /*nc*/,
@@ -56,6 +56,7 @@ void flux_kernel(dstype*       f,
                  int           /*nco*/,
                  int           ncw_runtime)
 {
+    using dstype=T;
     static_assert(is_flux_model_v<M>,
                   "flux_kernel<M>: M must satisfy the Model contract — "
                   "see <exasim/model.hpp>.");
@@ -79,10 +80,10 @@ void flux_kernel(dstype*       f,
     Kokkos::parallel_for("exasim::flux_kernel", ng,
         KOKKOS_LAMBDA(const size_t i) {
             (void)odg; (void)wdg;  // HOT.6.2 nvcc force-capture: see /tmp/patch_constexpr_capture.py
-            double x [nd];
-            double uq[Nq];
-            double v [nco_buf];
-            double w [ncw_buf];
+            T x [nd];
+            T uq[Nq];
+            T v [nco_buf];
+            T w [ncw_buf];
 
             for (int k = 0; k < nd;  ++k) x [k] = xdg[k * ng + i];
             for (int k = 0; k < Nq;  ++k) uq[k] = udg[k * ng + i];
@@ -93,7 +94,7 @@ void flux_kernel(dstype*       f,
                 for (int k = 0; k < ncw; ++k) w[k] = wdg[k * ng + i];
             }
 
-            double f_local[ncu * nd];
+            T f_local[ncu * nd];
             M::flux(f_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
 
             for (int k = 0; k < ncu * nd; ++k) f[k * ng + i] = f_local[k];
@@ -113,17 +114,17 @@ void flux_kernel(dstype*       f,
 //                                           index = (out * Nq) + j
 //   f_wdg[k * ng + i]                       k in [0, ncu*nd*ncw)
 //                                           index = (out * ncw) + j
-template <class M>
-void hdg_flux_kernel(dstype*       f,
-                     dstype*       f_udg,
-                     dstype*       f_wdg,
-                     const dstype* xdg,
-                     const dstype* udg,
-                     const dstype* odg,
-                     const dstype* wdg,
-                     const dstype* /*uinf*/,
-                     const dstype* param,
-                     dstype        t,
+template <class M, class T=dstype, class I=Int>
+void hdg_flux_kernel(T*       f,
+                     T*       f_udg,
+                     T*       f_wdg,
+                     const T* xdg,
+                     const T* udg,
+                     const T* odg,
+                     const T* wdg,
+                     const T* /*uinf*/,
+                     const T* param,
+                     T        t,
                      int           /*modelnumber*/,
                      int           ng,
                      int           /*nc*/,
@@ -133,6 +134,7 @@ void hdg_flux_kernel(dstype*       f,
                      int           /*nco*/,
                      int           ncw_runtime)
 {
+    using dstype=T;
     static_assert(is_flux_model_v<M>,
                   "hdg_flux_kernel<M>: M must satisfy the Model contract.");
 
@@ -151,10 +153,10 @@ void hdg_flux_kernel(dstype*       f,
     Kokkos::parallel_for("exasim::hdg_flux_kernel", ng,
         KOKKOS_LAMBDA(const size_t i) {
             (void)odg; (void)wdg; (void)f_wdg;  // HOT.6.2 nvcc force-capture: see /tmp/patch_constexpr_capture.py
-            double x [nd];
-            double uq[Nq];
-            double v [nco_buf];
-            double w [ncw_buf];
+            T x [nd];
+            T uq[Nq];
+            T v [nco_buf];
+            T w [ncw_buf];
 
             for (int k = 0; k < nd; ++k) x [k] = xdg[k * ng + i];
             for (int k = 0; k < Nq; ++k) uq[k] = udg[k * ng + i];
@@ -166,18 +168,18 @@ void hdg_flux_kernel(dstype*       f,
             }
 
             // Value
-            double f_local[ncu * nd];
+            T f_local[ncu * nd];
             M::flux(f_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
             for (int k = 0; k < ncu * nd; ++k) f[k * ng + i] = f_local[k];
 
             // ∂f/∂uq
-            double f_uq[ncu * nd * Nq];
+            T f_uq[ncu * nd * Nq];
             M::flux_jac_uq(f_uq, x, uq, v, w, param, /*uinf=*/nullptr, t);
             for (int k = 0; k < ncu * nd * Nq; ++k) f_udg[k * ng + i] = f_uq[k];
 
             // ∂f/∂w (only when present)
             if constexpr (ncw > 0) {
-                double f_w[ncu * nd * ncw];
+                T f_w[ncu * nd * ncw];
                 M::flux_jac_w(f_w, x, uq, v, w, param, /*uinf=*/nullptr, t);
                 for (int k = 0; k < ncu * nd * ncw; ++k) f_wdg[k * ng + i] = f_w[k];
             }
