@@ -595,9 +595,9 @@ int ExasimSolver::ParseInputs(int argc, char** argv)
     InputParams params = parseInputFile(argv[1], mpirank_);
     PDE pde = initializePDE(params, mpirank_);
 
-    // For built-in models, fill missing dimension sizes from the compiled
-    // ABI so they don't need to be specified in pdeapp.txt.
-    if (pde.builtinmodelID > 0) {
+    // Fill missing dimension sizes from the compiled ABI so they don't
+    // need to be specified in pdeapp.txt.
+    {
         const auto& abi = SelectExasimDriverABI();
         // Use per-model query (BuiltInLibrary) or direct fields (KokkosKernel)
         ModelSizes ms;

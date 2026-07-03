@@ -333,9 +333,41 @@ def gencode(app):
     with open(os.path.join(foldername, "HdgFextonly" + str(strn) + ".cpp"), "w") as fid:
         fid.write("void HdgFextonly" + str(strn) + "(" + fextonly_sig + ")\n{\n}\n")
 
+    # Write model_sizes.hpp so the FrontendGenerated provider can get
+    # compile-time size constants without requiring them in pdeapp.txt.
+    _write_model_sizes(app, foldername)
+
     _sync_kernels(foldername, kernelsdir)
 
     return 0;
+
+
+def _write_model_sizes(app, foldername):
+    ncu = app.get('ncu', 0)
+    nco = app.get('nco', 0)
+    ncw = app.get('ncw', 0)
+    nsca = app.get('nsca', 0)
+    nvec = app.get('nvec', 0)
+    nten = app.get('nten', 0)
+    nsurf = app.get('nbqoi', 0)
+    nvqoi = app.get('nvqoi', 0)
+    with open(os.path.join(foldername, "model_sizes.hpp"), "w") as f:
+        f.write(f"""#ifndef EXASIM_MODEL_SIZES_HPP
+#define EXASIM_MODEL_SIZES_HPP
+
+namespace exasim_model_sizes {{
+    static constexpr int ncu   = {ncu};
+    static constexpr int nco   = {nco};
+    static constexpr int ncw   = {ncw};
+    static constexpr int nsca  = {nsca};
+    static constexpr int nvec  = {nvec};
+    static constexpr int nten  = {nten};
+    static constexpr int nsurf = {nsurf};
+    static constexpr int nvqoi = {nvqoi};
+}}
+
+#endif
+""")
 
 
 def _sync_kernels(srcdir, dstdir):
