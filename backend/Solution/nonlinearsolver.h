@@ -17,7 +17,7 @@
 
 #include <exasim/detail/abi_adapter.hpp>
 
-class CDiscretization;   // forward declarations (CNonlinearSolver only holds references)
+template <class, class> class CDiscretizationT; using CDiscretization = CDiscretizationT<::dstype, ::Int>;   // forward declarations (CNonlinearSolver only holds references)
 template <class M> class CResidual;
 template <class M> class CAssembler;
 template <class M> class CPreconditioner;

@@ -4,7 +4,7 @@
 #include "../Common/common.h"
 #include <vector>
 
-class CDiscretization;
+template <class, class> class CDiscretizationT; using CDiscretization = CDiscretizationT<::dstype, ::Int>;
 
 struct WallModelSamplingData {
     Int ibc = -1;

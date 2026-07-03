@@ -257,7 +257,8 @@ void AllocateLDGBlockJacobianMemory(resstruct& res, commonstruct& common, Int ba
 }
 
 // Both CPU and GPU constructor
-CDiscretization::CDiscretization(string filein, string fileout, string exasimpath, Int mpiprocs, Int mpirank, 
+template <class T, class I>
+CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string exasimpath, Int mpiprocs, Int mpirank, 
         Int fileoffset, Int omprank, Int backend, Int builtinmodelID,
         const ExasimDriverABI& abi, Int nsca, Int nvec, Int nten, Int nsurf, Int nvqoi,
         ExasimExecutionMode mode, const std::vector<dstype>* physicsparamOverride,
@@ -352,7 +353,8 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
 // Post-init construction tail: derive read_uh, apply vis-count/saveParaview overrides, compute
 // geometry + (LDG) mass inverse, and set up the HDG/coupling discretization. Factored out of the
 // file constructor so the in-memory (Preprocessed) constructor reuses the identical finalization.
-void CDiscretization::finalizeConstruction(Int backend, ExasimExecutionMode mode,
+template <class T, class I>
+void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMode mode,
         Int nsca, Int nvec, Int nten, Int nsurf, Int nvqoi, Int saveParaview)
 {
     common.read_uh = app.read_uh;
@@ -559,7 +561,8 @@ void CDiscretization::finalizeConstruction(Int backend, ExasimExecutionMode mode
 // (BuildWallModelData moved to CWallModel::build -- see wallmodelbuild.cpp)
 
 // destructor
-CDiscretization::~CDiscretization()
+template <class T, class I>
+CDiscretizationT<T, I>::~CDiscretizationT()
 {        
     app.freememory(common.backend);
     if (common.mpiRank==0) printf("CDiscretization destructor: app memory is freed successfully.\n");
@@ -595,7 +598,8 @@ CDiscretization::~CDiscretization()
 }
 
 // Compute and store the geometry
-void CDiscretization::compGeometry(Int backend) {
+template <class T, class I>
+void CDiscretizationT<T, I>::compGeometry(Int backend) {
     if (common.mpiRank==0) printf("start ElemGeom... \n");
     ElemGeom(sol, master, mesh, tmp, common, common.cublasHandle, backend);   
     if (common.mpiRank==0) printf("Finish ElemGeom... \n");
@@ -605,7 +609,8 @@ void CDiscretization::compGeometry(Int backend) {
 }
 
 // Compute and store the inverse of the mass matrix
-void CDiscretization::compMassInverse(Int backend) {
+template <class T, class I>
+void CDiscretizationT<T, I>::compMassInverse(Int backend) {
     ComputeMinv(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);    
 }
 
@@ -621,7 +626,8 @@ void CDiscretization::compMassInverse(Int backend) {
 
 // evalMonitor re-homed to CSolution (S4).
 
-void CDiscretization::DG2CG(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, Int ncudg, Int ncu, Int backend)
+template <class T, class I>
+void CDiscretizationT<T, I>::DG2CG(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, Int ncudg, Int ncu, Int backend)
 {
     for (Int i=0; i<ncu; i++) {
         // extract the ith component of udg and store it in utm
@@ -638,7 +644,8 @@ void CDiscretization::DG2CG(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, In
     }
 }
 
-void CDiscretization::DG2CG2(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, Int ncudg, Int ncu, Int backend)
+template <class T, class I>
+void CDiscretizationT<T, I>::DG2CG2(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, Int ncudg, Int ncu, Int backend)
 {
     for (Int i=0; i<ncu; i++) {
         // extract the ith component of udg and store it in utm
@@ -655,7 +662,8 @@ void CDiscretization::DG2CG2(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, I
     }
 }
 
-void CDiscretization::DG2CG3(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, Int ncudg, Int ncu, Int backend)
+template <class T, class I>
+void CDiscretizationT<T, I>::DG2CG3(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, Int ncudg, Int ncu, Int backend)
 {
     for (Int i=0; i<ncu; i++) {
         // extract the ith component of udg and store it in utm
@@ -671,4 +679,24 @@ void CDiscretization::DG2CG3(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, I
 // wall-model build (moved out of CDiscretization)
 #include "wallmodelbuild.cpp"
 
-#endif        
+// ---- Phase 2: explicit instantiation of the backend-defined members (default precision) ----------
+// These members (file ctor, dtor, geometry/mass/DG2CG) are DEFINED in this TU (part of the unity
+// ExasimSolver.cpp build). Other separately-compiled TUs -- notably main.cpp, whose CSolution<M>
+// inline ctor/dtor construct and destroy a `CDiscretization disc` by value -- use them through the
+// (now templated) CDiscretization alias but never see these out-of-line definitions. Instantiate
+// them once here; the matching `extern template` declarations in discretization.h suppress implicit
+// instantiation in those other TUs so they link to this single definition. See
+// docs/internals/precision-threading.md (Phase 2).
+template CDiscretizationT<::dstype, ::Int>::CDiscretizationT(
+    std::string, std::string, std::string, Int, Int, Int, Int, Int, Int, const ExasimDriverABI&,
+    Int, Int, Int, Int, Int, ExasimExecutionMode, const std::vector<dstype>*, Int);
+template CDiscretizationT<::dstype, ::Int>::~CDiscretizationT();
+template void CDiscretizationT<::dstype, ::Int>::finalizeConstruction(
+    Int, ExasimExecutionMode, Int, Int, Int, Int, Int, Int);
+template void CDiscretizationT<::dstype, ::Int>::compGeometry(Int);
+template void CDiscretizationT<::dstype, ::Int>::compMassInverse(Int);
+template void CDiscretizationT<::dstype, ::Int>::DG2CG(dstype*, dstype*, dstype*, Int, Int, Int, Int);
+template void CDiscretizationT<::dstype, ::Int>::DG2CG2(dstype*, dstype*, dstype*, Int, Int, Int, Int);
+template void CDiscretizationT<::dstype, ::Int>::DG2CG3(dstype*, dstype*, dstype*, Int, Int, Int, Int);
+
+#endif

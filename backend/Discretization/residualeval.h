@@ -14,7 +14,7 @@
 
 #include <exasim/detail/abi_adapter.hpp>
 
-class CDiscretization;  // forward declaration (CResidual only holds a reference)
+template <class, class> class CDiscretizationT; using CDiscretization = CDiscretizationT<::dstype, ::Int>;  // forward declaration (CResidual only holds a reference)
 
 // Templated on the user Model type M (default = AbiAdapter, the runtime-ABI build): the
 // residual is the *equation*, so it threads M to its model-dependent chain kernels

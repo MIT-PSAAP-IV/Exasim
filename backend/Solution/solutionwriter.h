@@ -16,7 +16,7 @@
 
 #include <exasim/detail/abi_adapter.hpp>
 
-class CDiscretization;  // forward declarations (CSolutionWriter only holds references)
+template <class, class> class CDiscretizationT; using CDiscretization = CDiscretizationT<::dstype, ::Int>;  // forward declarations (CSolutionWriter only holds references)
 template <class M> class CResidual;
 class CVisualization;   // model-free (no driver calls) -> stays non-templated
 template <class M> class CSolver;

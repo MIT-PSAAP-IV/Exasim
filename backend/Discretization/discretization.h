@@ -15,8 +15,8 @@
  * - common: Common parameters shared across computations.
  *
  * Methods:
- * - CDiscretization(...): Constructor initializing the discretization with input/output files and parallelization parameters.
- * - ~CDiscretization(): Destructor for cleanup.
+ * - CDiscretizationT(...): Constructor initializing the discretization with input/output files and parallelization parameters.
+ * - ~CDiscretizationT(): Destructor for cleanup.
  * - compGeometry(...): Computes geometry-related quantities.
  * - compMassInverse(...): Computes the inverse of the mass matrix.
  * - hdgAssembleLinearSystem(...): Assembles the linear system for HDG methods.
@@ -46,8 +46,25 @@
 namespace exasim { struct Preprocessed; }  // fwd decl: in-memory ctor input (buildstructs.hpp);
                                            // the definition lives in discretization_inmemory.hpp (consumer-only)
 
-class CDiscretization {
+// Templated on scalar precision T and index type I (Phase 2 of dstype->template threading, see
+// docs/internals/precision-threading.md). Member `using` aliases shadow the global dstype/Int AND the
+// Phase-1 struct aliases, so every member declaration and every out-of-line method body below is
+// UNCHANGED yet now resolves to the <T,I> struct instantiations; with the default args the type is
+// byte-identical to the pre-Phase-2 concrete class.
+template <class T = ::dstype, class I = ::Int>
+class CDiscretizationT {
 private:
+    using dstype             = T;
+    using Int                = I;
+    using solstruct          = solstructT<T, I>;
+    using resstruct          = resstructT<T, I>;
+    using appstruct          = appstructT<T, I>;
+    using masterstruct       = masterstructT<T, I>;
+    using meshstruct         = meshstructT<T, I>;
+    using tempstruct         = tempstructT<T, I>;
+    using commonstruct       = commonstructT<T, I>;
+    using scratcharenastruct = scratcharenastructT<T, I>;
+    // wallmodelstruct is not templated (Phase 1) -> stays the global type
 public:
     solstruct sol;
     resstruct res;
@@ -62,7 +79,7 @@ public:
     // solstruct hsol;
 
     // constructor for both CPU and GPU
-    CDiscretization(std::string filein, std::string fileout, std::string exasimpath, Int mpiprocs, 
+    CDiscretizationT(std::string filein, std::string fileout, std::string exasimpath, Int mpiprocs, 
                     Int mpirank, Int ompthreads, Int omprank, Int backend,
                     Int builtinmodelID, const ExasimDriverABI& abi,
                     Int nsca = 0, Int nvec = 0, Int nten = 0,
@@ -76,9 +93,9 @@ public:
     // kernels. Delegate to the ABI constructor with a default (all-null) ABI; the fn-pointers are
     // only dereferenced by the discarded AbiAdapter branch of EXASIM_DRIVER_CALL, never for concrete M.
     // The temporary lives through the delegated constructor (which copies it into the driver_abi member).
-    CDiscretization(std::string filein, std::string fileout, std::string exasimpath, Int mpiprocs,
+    CDiscretizationT(std::string filein, std::string fileout, std::string exasimpath, Int mpiprocs,
                     Int mpirank, Int ompthreads, Int omprank, Int backend, Int builtinmodelID)
-        : CDiscretization(filein, fileout, exasimpath, mpiprocs, mpirank, ompthreads, omprank,
+        : CDiscretizationT(filein, fileout, exasimpath, mpiprocs, mpirank, ompthreads, omprank,
                           backend, builtinmodelID, ExasimDriverABI{}) {}
 
     // In-memory (no-ABI) constructor (P0): build the discretization from an already-preprocessed,
@@ -86,7 +103,7 @@ public:
     // binaries -- no files, no driver_abi. DEFINED out-of-line and inline in
     // <backend/Discretization/discretization_inmemory.hpp> (a consumer-only header included after
     // buildstructs.hpp, where Preprocessed is complete); the backend unity build never instantiates it.
-    CDiscretization(exasim::Preprocessed&& pre, std::string fileout, std::string exasimpath, Int mpiprocs,
+    CDiscretizationT(exasim::Preprocessed&& pre, std::string fileout, std::string exasimpath, Int mpiprocs,
                     Int mpirank, Int fileoffset, Int omprank, Int backend, Int builtinmodelID);
 
     // Convenience in-memory ctor for the common serial operator-export case: just the
@@ -95,16 +112,16 @@ public:
     // so the model id is not a parameter here. exasimpath="" relies on the baked data
     // dir / $EXASIM_DATA_DIR for the master/gauss node files. Defined inline in
     // discretization_inmemory.hpp (delegates to the full ctor).
-    CDiscretization(exasim::Preprocessed&& pre, Int backend, std::string exasimpath = "");
+    CDiscretizationT(exasim::Preprocessed&& pre, Int backend, std::string exasimpath = "");
 
     // MPI variant of the convenience ctor: adds ONLY the MPI rank/size (each rank passes its
     // own per-rank bundle, e.g. from CPreprocessing::takeParallel). Everything else defaults
     // as in the serial convenience ctor (no fileoffset/omprank/model-id in the call).
-    CDiscretization(exasim::Preprocessed&& pre, Int backend, Int mpiprocs, Int mpirank,
+    CDiscretizationT(exasim::Preprocessed&& pre, Int backend, Int mpiprocs, Int mpirank,
                     std::string exasimpath = "");
 
     // destructor
-    ~CDiscretization();
+    ~CDiscretizationT();
 
     // post-init construction tail (read_uh/vis/geometry/mass-inverse/HDG setup), shared by the
     // file and in-memory constructors. Defined in discretization.cpp (no Preprocessed dependency).
@@ -130,5 +147,25 @@ public:
 
     // (interface/boundary sampling methods moved to CInterfaceSampler)
 };
+using CDiscretization = CDiscretizationT<::dstype, ::Int>;
+
+// Phase 2: the backend-path members below are defined in discretization.cpp (compiled once in the
+// unity ExasimSolver.cpp build) and explicitly instantiated there for the default precision. Declare
+// them extern here so other TUs -- e.g. main.cpp instantiating CSolution<M>, whose inline ctor/dtor
+// construct/destroy a `CDiscretization disc` by value -- link to that single definition instead of
+// failing to implicitly instantiate an out-of-line body they cannot see. The in-memory ctors
+// (discretization_inmemory.hpp) are deliberately NOT listed: consumer TUs that include that header
+// see their definitions and instantiate them locally. See docs/internals/precision-threading.md.
+extern template CDiscretizationT<::dstype, ::Int>::CDiscretizationT(
+    std::string, std::string, std::string, Int, Int, Int, Int, Int, Int, const ExasimDriverABI&,
+    Int, Int, Int, Int, Int, ExasimExecutionMode, const std::vector<dstype>*, Int);
+extern template CDiscretizationT<::dstype, ::Int>::~CDiscretizationT();
+extern template void CDiscretizationT<::dstype, ::Int>::finalizeConstruction(
+    Int, ExasimExecutionMode, Int, Int, Int, Int, Int, Int);
+extern template void CDiscretizationT<::dstype, ::Int>::compGeometry(Int);
+extern template void CDiscretizationT<::dstype, ::Int>::compMassInverse(Int);
+extern template void CDiscretizationT<::dstype, ::Int>::DG2CG(dstype*, dstype*, dstype*, Int, Int, Int, Int);
+extern template void CDiscretizationT<::dstype, ::Int>::DG2CG2(dstype*, dstype*, dstype*, Int, Int, Int, Int);
+extern template void CDiscretizationT<::dstype, ::Int>::DG2CG3(dstype*, dstype*, dstype*, Int, Int, Int, Int);
 
 #endif        

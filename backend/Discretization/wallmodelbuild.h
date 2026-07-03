@@ -11,7 +11,7 @@
 #ifndef __WALLMODELBUILD_H__
 #define __WALLMODELBUILD_H__
 
-class CDiscretization;  // forward declaration (CWallModel only holds a reference)
+template <class, class> class CDiscretizationT; using CDiscretization = CDiscretizationT<::dstype, ::Int>;  // forward declaration (CWallModel only holds a reference)
 
 class CWallModel {
 public:

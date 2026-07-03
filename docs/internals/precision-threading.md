@@ -62,13 +62,38 @@ threading `T,I` into nested types is the tail of this phase / Phase 2.
   `*paramsstruct` family — low value, few/no `dstype*`), and the `Kokkos::View<dstype*>` / `view_1d`
   aliases → `view_1d<T>`. Then thread `T,I` into nested struct members (currently default aliases).
 
-## Phase 2 — Class templating
-Extend the already-`<M>`-templated FEM classes to `<M, T=dstype, I=Int>`:
-`CDiscretization`, `CResidual<M>`, `CAssembler<M>`, `CPreconditioner<M>`, `CSolver`. They hold the
-Phase-1 structs; thread `T`/`I` through. The `include/exasim` shim (`Operator`, `ShellMat`,
-`assemble_matrix`, `make_mass_inverse`) then takes `Scalar`/`Idx` template args (default
-`floatTy`/`intTy`) and the zero-copy Vec/Mat wrapping uses them directly (dropping the `static_assert`
-for a compile-time-selected match instead).
+## Phase 2 — Class templating (IN PROGRESS)
+Extend the FEM classes to carry `T=dstype, I=Int` so they hold the *Phase-1 `<T,I>` structs* rather
+than the fixed-precision aliases.
+
+**`CDiscretization` — DONE + verified.** This was the hard one: unlike `CResidual`/`CAssembler`/
+`CPreconditioner`/`CSolver` (already `<M>` templates that only hold a *reference* to it), it is the
+struct *owner* (holds `solstruct`/`resstruct`/`commonstruct`/… **by value**) and was a plain
+non-template class with out-of-line methods split across two places. It is now
+`template<class T=::dstype,class I=::Int> class CDiscretizationT`, with `using CDiscretization =
+CDiscretizationT<::dstype,::Int>;`. Two mechanisms made it precision-preserving:
+- **Shadow aliases inside the class** (`using dstype=T; using Int=I;` **and** `using solstruct =
+  solstructT<T,I>;` … for every Phase-1 struct) so every member declaration and every out-of-line
+  method body is *byte-for-byte unchanged* yet now resolves to the `<T,I>` struct instantiations.
+- **`extern template` (in `discretization.h`) + explicit instantiation (in `discretization.cpp`)**
+  for the backend-defined members (file ctor, dtor, `finalizeConstruction`, `compGeometry`,
+  `compMassInverse`, `DG2CG{,2,3}`). This preserves the *compile-once* TU split: `main.cpp` builds
+  `CSolution<M>`, whose inline ctor/dtor construct/destroy a `CDiscretization disc` **by value**, but
+  it never sees those out-of-line bodies (they live only in the unity `ExasimSolver.cpp`). The
+  in-memory ctors (`discretization_inmemory.hpp`, consumer-only) are deliberately left to implicit
+  instantiation — consumer TUs that include that header see their definitions. The 8 `class
+  CDiscretization;` forward declarations across the backend became `template<class,class> class
+  CDiscretizationT; using CDiscretization = …;`.
+- Verified: consumer path (in-memory ctor, pure implicit) robustness `ALL PASS`; **backend path**
+  (file ctor via `extern template`→ library) full rebuild + `main.cpp` link + app-regression at the
+  *same* rel_L2 (poisson3d 9.99e-11, isoq3d 1.95e-9, poisson2d 2.29e-12). Landed on the first full
+  build.
+
+**Remaining:** thread `<T,I>` into `CResidual<M>` → `CResidual<M,T,I>` (and `CAssembler`,
+`CPreconditioner`, `CSolver`) so they hold `CDiscretizationT<T,I>&` and their scratch is `T*`; then
+the `include/exasim` shim (`Operator`, `ShellMat`, `assemble_matrix`, `make_mass_inverse`) takes
+`Scalar`/`Idx` template args (default `floatTy`/`intTy`) and the zero-copy Vec/Mat wrapping uses them
+directly (dropping the ABI `static_assert` for a compile-time-selected match instead).
 
 ## Phase 3 — Kernels + BLAS + Kokkos dispatch
 - Compute kernels (`backend/Discretization/*.hpp`, `Common/{cpuimpl,kokkosimpl}.h`) take `T*`.

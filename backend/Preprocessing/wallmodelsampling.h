@@ -4,7 +4,7 @@
 
 #include "../Common/common.h"
 
-class CDiscretization;
+template <class, class> class CDiscretizationT; using CDiscretization = CDiscretizationT<::dstype, ::Int>;
 
 namespace exasim {
 namespace wm {

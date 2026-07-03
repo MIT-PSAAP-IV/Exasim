@@ -10,7 +10,7 @@
 #ifndef __INTERFACESAMPLER_H__
 #define __INTERFACESAMPLER_H__
 
-class CDiscretization;  // forward declaration (CInterfaceSampler only holds a reference)
+template <class, class> class CDiscretizationT; using CDiscretization = CDiscretizationT<::dstype, ::Int>;  // forward declaration (CInterfaceSampler only holds a reference)
 
 class CInterfaceSampler {
 public:

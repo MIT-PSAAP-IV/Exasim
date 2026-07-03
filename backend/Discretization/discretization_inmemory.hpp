@@ -56,7 +56,8 @@ inline void cpuInitInMemory(exasim::Preprocessed& pre, solstruct &sol, resstruct
                  filein, fileout, mpiprocs, mpirank, fileoffset, omprank);
 }
 
-inline CDiscretization::CDiscretization(exasim::Preprocessed&& pre, std::string fileout, std::string exasimpath,
+template <class T, class I>
+inline CDiscretizationT<T, I>::CDiscretizationT(exasim::Preprocessed&& pre, std::string fileout, std::string exasimpath,
         Int mpiprocs, Int mpirank, Int fileoffset, Int omprank, Int backend, Int builtinmodelID)
 {
     driver_abi = ExasimDriverABI{};            // concrete-M build: no runtime ABI (null fn-pointers)
@@ -132,15 +133,17 @@ inline CDiscretization::CDiscretization(exasim::Preprocessed&& pre, std::string 
 
 // Convenience serial ctor: just the bundle + backend. A templated model dispatches on M, so
 // builtinmodelID is irrelevant (0); exasimpath defaults to "" (the baked data dir / $EXASIM_DATA_DIR).
-inline CDiscretization::CDiscretization(exasim::Preprocessed&& pre, Int backend, std::string exasimpath)
-    : CDiscretization(std::move(pre), /*fileout=*/std::string{}, std::move(exasimpath),
+template <class T, class I>
+inline CDiscretizationT<T, I>::CDiscretizationT(exasim::Preprocessed&& pre, Int backend, std::string exasimpath)
+    : CDiscretizationT<T, I>(std::move(pre), /*fileout=*/std::string{}, std::move(exasimpath),
                       /*mpiprocs=*/1, /*mpirank=*/0, /*fileoffset=*/0, /*omprank=*/0,
                       backend, /*builtinmodelID=*/0) {}
 
 // MPI convenience ctor: serial one + the MPI rank/size.
-inline CDiscretization::CDiscretization(exasim::Preprocessed&& pre, Int backend, Int mpiprocs,
+template <class T, class I>
+inline CDiscretizationT<T, I>::CDiscretizationT(exasim::Preprocessed&& pre, Int backend, Int mpiprocs,
                                         Int mpirank, std::string exasimpath)
-    : CDiscretization(std::move(pre), /*fileout=*/std::string{}, std::move(exasimpath),
+    : CDiscretizationT<T, I>(std::move(pre), /*fileout=*/std::string{}, std::move(exasimpath),
                       mpiprocs, mpirank, /*fileoffset=*/0, /*omprank=*/0,
                       backend, /*builtinmodelID=*/0) {}
 
