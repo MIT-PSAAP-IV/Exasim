@@ -21,19 +21,23 @@
 // (the file path runs it inside readInput). Both are defined in setstructs.cpp (already in the TU via
 // the backend aggregation); forward-declared here so this header is order-robust and so the
 // in-memory path reuses the SAME derivations as the file path (no parallel copy to keep in sync).
-void cpuInitSetup(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master,
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common,
-        std::string filein, std::string fileout, Int mpiprocs, Int mpirank, Int fileoffset, Int omprank);
-void setAppRuntimeContext(appstruct &app, const masterstruct &master, Int mpirank, Int mpiprocs);
+// forward decls (definitions + default template args live in setstructs.cpp) -- no defaults here
+template <class T, class I>
+void cpuInitSetup(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master,
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,
+        std::string filein, std::string fileout, ::Int mpiprocs, ::Int mpirank, ::Int fileoffset, ::Int omprank);
+template <class T, class I>
+void setAppRuntimeContext(appstructT<T,I> &app, const masterstructT<T,I> &master, ::Int mpirank, ::Int mpiprocs);
 
 // In-memory analogue of cpuInit: instead of readInput()'ing datain binaries, transfer the structs
 // already populated by the preprocessor, build the element/face connectivity from the raw ti (the one
 // post-read step readInput does), then run the shared cpuInitSetup. Pointer ownership of the struct
 // arrays moves to the destination structs; `pre` is a transient (std::move'd in by the caller) whose
 // POD structs are never freed, so there is no double free.
-inline void cpuInitInMemory(exasim::Preprocessed& pre, solstruct &sol, resstruct &res, appstruct &app,
-        masterstruct &master, meshstruct &mesh, tempstruct &tmp, commonstruct &common,
-        std::string filein, std::string fileout, Int mpiprocs, Int mpirank, Int fileoffset, Int omprank)
+template <class T = ::dstype, class I = ::Int>
+inline void cpuInitInMemory(exasim::PreprocessedT<T,I>& pre, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app,
+        masterstructT<T,I> &master, meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,
+        std::string filein, std::string fileout, ::Int mpiprocs, ::Int mpirank, ::Int fileoffset, ::Int omprank)
 {
     app    = pre.app;
     master = pre.master;

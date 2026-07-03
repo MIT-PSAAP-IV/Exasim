@@ -65,7 +65,8 @@
 // Defined later in the same TU (setstructs.cpp); derives app.porder + app.comm. Shared with the
 // in-memory path (discretization_inmemory.hpp). Forward-declared here because this .cpp is
 // aggregated before setstructs.cpp in the unity/templated build.
-void setAppRuntimeContext(appstruct &app, const masterstruct &master, Int mpirank, Int mpiprocs);
+template <class T, class I>
+void setAppRuntimeContext(appstructT<T,I> &app, const masterstructT<T,I> &master, Int mpirank, Int mpiprocs);
 
 void readappstruct(string filename, appstruct &app)
 {
