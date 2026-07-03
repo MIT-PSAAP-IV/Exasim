@@ -273,16 +273,44 @@ pick float32 with no Exasim rebuild** (the payoff of the whole effort):
 (generated code is the bulk of the 692 files); the hand-written path above is the proven template.
 
 ## Phase 5 — Cutover (full float32 *solve*)
-The float32 *model-kernel path* is proven (above). A full float32 **solve** as a consumer additionally
-needs the **export/preprocessing boundary** crossed — currently the explicit `dstype` boundary
-(`include/exasim/export.hpp` says so): `exasim::Preprocessed` (in `backend/Preprocessing/buildstructs.hpp`)
-holds `double` `appstruct`/`meshstruct`/`solstruct`, and the in-memory `CDiscretizationT<T,I>` ctor
-does struct **assignment** (`app = pre.app`) — so a `float` disc can't be built from a `double`
-`Preprocessed` without templating `Preprocessed` + `make_preprocessed` + `CPreprocessing`/`meshFromArrays`
-(or converting field-by-field in the ctor: "preprocess in double, solve in float"). Separately, the
-PETSc `Operator`/`ShellMat` do **zero-copy** `Vec` reinterpret guarded by
-`static_assert(sizeof(PetscScalar)==sizeof(Scalar))`, so the PETSc-driven float path also needs a
-float-built PETSc (or a converting, non-zero-copy Vec bridge). Both are deferred.
+
+### Preprocessing / in-memory-construction boundary — DONE (conversion-free), double byte-identical
+The export/preprocessing boundary that used to pin `dstype` is now threaded, with **no conversion shim**:
+- `exasim::Preprocessed` → `PreprocessedT<T=dstype,I=Int>` (holds `XxxstructT<T,I>`); the 6 struct
+  builders + the double-array malloc helpers are `<T,I>` and cast the (still-`double`) `Mesh`/`Master`
+  intermediates straight into the `T` solve structs — geometry stays double, only the materialized
+  solve-precision structs are `T`.
+- `CPreprocessing::take()`/`takeParallel()` are member templates; `make_preprocessed<M,T,I>` returns
+  `PreprocessedT<T,I>`; the in-memory `CDiscretizationT<T,I>` ctor takes `PreprocessedT<T,I>&&`.
+- The compiled-core setup chain the ctor drives is templated too (the consumer aggregates the source
+  via `operators.hpp`, so this instantiates from source — no lib rebuild, no explicit `float`
+  instantiation; the `extern template` only pins `dstype`): `setstructs.cpp`
+  (`setcommonstruct`/`cpuInitSetup`/`setAppRuntimeContext`/…), `connectivity.cpp` (`buildConn` +
+  coord helpers `fetch_node`/`equal_row_tol`), `preprocessing.cpp`, `setsysstruct.cpp`,
+  `ismeshcurved.cpp`, `BuildElementBlockBoundaryFaces`/`AllocateLDGBlockJacobianMemory`, and the
+  `export.hpp` helpers `recover_volume`/`eval_qoi`.
+- Verified: full lib rebuild + app-regression **12/12 PASS** (isoq/sharpb2 np=4 now build+run from the
+  consistent source); `petsc_poisson` consumer byte-identical (9.084e-14 / 0 / 2.651e-16).
+
+### What a full float32 *solve* still needs — a backend-wide precision-mixing cutover
+Building a consumer that instantiates `CDiscretizationT<float>` **end-to-end** (a full native solve)
+surfaces **~167 precision-mixing sites across the whole backend** — not a bounded tail:
+`ArraySetValue` (48), `PGEMNMStridedBached` (34), `ArrayAXPBY`/`ArrayAXY`/`ArrayMultiplyScalar`/…, the
+geometry (`ElemGeom`/`FaceGeom`/`ElemFaceGeom`), every model kernel (`eos`/`ubou`/`avfield`/`sourcew`/
+`hdg_fbou`/…), the residual (`Ru/Rq Elem/Face`), STG inflow, the preconditioner (`setprecondstruct`),
+and the still-un-templated **`CWallModel`** class. Each is a *templated caller passing a `double`
+literal/constant (e.g. `zero`, `1.0`, a `dstype` tolerance) mixed with `T` buffers*, so the pblas/kernel
+overload can't deduce a single `T`. Resolving them is mechanical-ish per site but pervasive and
+non-trivial (each needs a geometry-vs-solve precision decision), i.e. a genuine full-backend cutover —
+the real remaining body of Phase 5, larger than the "one lib rebuild" the boundary work suggested.
+The intended consumer shape (in-memory disc + assemble condensed `H*uh=b` + LAPACK solve + `eval_qoi`
+L2 error, at `<T>` for both `float` and `double`) is validated for `double`; the `float` instantiation
+is what enumerates the 167 sites.
+
+### PETSc-driven float path
+Separately, `Operator`/`ShellMat` do **zero-copy** `Vec` reinterpret guarded by
+`static_assert(sizeof(PetscScalar)==sizeof(Scalar))`, so a PETSc-driven float solve also needs a
+float-built PETSc (or a converting, non-zero-copy Vec bridge). Deferred.
 
 ## Strategy & verification
 - **Bottom-up**: structs → classes → kernels → codegen. Each phase leaves `dstype`/`Int` as defaulted
