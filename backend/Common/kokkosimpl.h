@@ -67,17 +67,21 @@
 
 static constexpr int BFWM_MAX_WIDTH = 15;
 
+template <class Ty = dstype>
 KOKKOS_INLINE_FUNCTION
-void bfwm_first_layer(dstype* out, const dstype* W1, const dstype* b1, const dstype x, const int width)
+void bfwm_first_layer(Ty* out, const Ty* W1, const Ty* b1, const Ty x, const int width)
 {
+    using dstype = Ty;
     const dstype xm = x - 1.0;
     for (int row = 0; row < width; row++)
         out[row] = tanh(W1[row] * xm + b1[row]);
 }
 
+template <class Ty = dstype>
 KOKKOS_INLINE_FUNCTION
-void bfwm_dense_tanh(dstype* out, const dstype* W, const dstype* b, const dstype* in, const int width)
+void bfwm_dense_tanh(Ty* out, const Ty* W, const Ty* b, const Ty* in, const int width)
 {
+    using dstype = Ty;
     for (int row = 0; row < width; row++) {
         dstype z = b[row];
         for (int col = 0; col < width; col++)
@@ -86,18 +90,22 @@ void bfwm_dense_tanh(dstype* out, const dstype* W, const dstype* b, const dstype
     }
 }
 
+template <class Ty = dstype>
 KOKKOS_INLINE_FUNCTION
-dstype bfwm_output_layer(const dstype* W5, const dstype* b5, const dstype* in, const int width)
+Ty bfwm_output_layer(const Ty* W5, const Ty* b5, const Ty* in, const int width)
 {
+    using dstype = Ty;
     dstype y = b5[0];
     for (int col = 0; col < width; col++)
         y += W5[col] * in[col];
     return y;
 }
 
+template <class Ty = dstype>
 KOKKOS_INLINE_FUNCTION
-dstype bfwm_eval_network(const dstype x, const dstype* coeffs, const int width, dstype* a, dstype* b)
+Ty bfwm_eval_network(const Ty x, const Ty* coeffs, const int width, Ty* a, Ty* b)
 {
+    using dstype = Ty;
     const dstype* W1 = coeffs; coeffs += width;
     const dstype* b1 = coeffs; coeffs += width;
     const dstype* W2 = coeffs; coeffs += width * width;
@@ -117,29 +125,35 @@ dstype bfwm_eval_network(const dstype x, const dstype* coeffs, const int width, 
     return bfwm_output_layer(W5, b5, b, width);
 }
 
+template <class Ty = dstype>
 KOKKOS_INLINE_FUNCTION
-dstype bfwm_tauw_coeff(const dstype xwm, const dstype* coeffs, const int width, dstype* a, dstype* b)
+Ty bfwm_tauw_coeff(const Ty xwm, const Ty* coeffs, const int width, Ty* a, Ty* b)
 {
+    using dstype = Ty;
     const dstype x = (xwm - 2.50448284551451) * 0.00115614271744045;
     const dstype y = bfwm_eval_network(x, coeffs, width, a, b);
     return ((y - 0.27162919345476555) + 1.0) / 0.215239962076297
            + 0.857229907609472;
 }
 
+template <class Ty = dstype>
 KOKKOS_INLINE_FUNCTION
-dstype bfwm_qw_coeff(const dstype xwm, const dstype* coeffs, const int width, dstype* a, dstype* b)
+Ty bfwm_qw_coeff(const Ty xwm, const Ty* coeffs, const int width, Ty* a, Ty* b)
 {
+    using dstype = Ty;
     const dstype x = (xwm - 2.50448284551451) * 0.00115614271744045;
     const dstype y = bfwm_eval_network(x, coeffs, width, a, b);
     return ((y - 0.10043784176980131) + 1.0) / 0.123172557848166
            + 1.02308352666465;
 }
 
-void BFWMxwm(dstype* xwm, const dstype* udg, const Int* elemsx1,
-             const dstype* shap1, const dstype* nw, const dstype y1,
-             const dstype* param, const Int npe, const Int nc,
+template <class Ty = dstype>
+void BFWMxwm(Ty* xwm, const Ty* udg, const Int* elemsx1,
+             const Ty* shap1, const Ty* nw, const Ty y1,
+             const Ty* param, const Int npe, const Int nc,
              const Int nd, const Int npoints)
 {
+    using dstype = Ty;
     const dstype gam = param[0];
     const dstype Re = param[1];
     const dstype Pr = param[2];
@@ -213,10 +227,12 @@ void BFWMxwm(dstype* xwm, const dstype* udg, const Int* elemsx1,
     });
 }
 
-void BFWMcoefficients(dstype* ctau, dstype* cq, const dstype* xwm,
-                      const dstype* tauwCoeffs, const dstype* qwCoeffs,
+template <class Ty = dstype>
+void BFWMcoefficients(Ty* ctau, Ty* cq, const Ty* xwm,
+                      const Ty* tauwCoeffs, const Ty* qwCoeffs,
                       const int width, const int n)
 {
+    using dstype = Ty;
     Kokkos::parallel_for("BFWMcoefficients", n, KOKKOS_LAMBDA(const size_t i) {
         dstype a[BFWM_MAX_WIDTH];
         dstype b[BFWM_MAX_WIDTH];
@@ -226,15 +242,19 @@ void BFWMcoefficients(dstype* ctau, dstype* cq, const dstype* xwm,
     });
 }
 
-void AverageFlux(dstype* fg, const int N)
-{	
+template <class Ty = dstype>
+void AverageFlux(Ty* fg, const int N)
+{
+    using dstype = Ty;	
     Kokkos::parallel_for("AverageFlux", N, KOKKOS_LAMBDA(const size_t tid) {
         fg[tid+N] = 0.5*(fg[tid] + fg[tid+N]);            
     });
 }
 
-void AverageFluxDotNormal(dstype* fg, const dstype* nl, const int N, const int M, const int numPoints, const int nd)
-{	
+template <class Ty = dstype>
+void AverageFluxDotNormal(Ty* fg, const Ty* nl, const int N, const int M, const int numPoints, const int nd)
+{
+    using dstype = Ty;	
     Kokkos::parallel_for("AverageFluxDotNormal", M, KOKKOS_LAMBDA(const size_t tid) {
         int i = tid%numPoints;                
         dstype sum = fg[N + 0*M + tid] * nl[i + 0 * numPoints];   
@@ -244,8 +264,10 @@ void AverageFluxDotNormal(dstype* fg, const dstype* nl, const int N, const int M
     });
 }
 
-void FluxDotNormal(dstype* fh, dstype* fg, const dstype* nl, const int M, const int numPoints, const int nd)
-{	
+template <class Ty = dstype>
+void FluxDotNormal(Ty* fh, Ty* fg, const Ty* nl, const int M, const int numPoints, const int nd)
+{
+    using dstype = Ty;	
     Kokkos::parallel_for("FluxDotNormal", M, KOKKOS_LAMBDA(const size_t tid) {
         int i = tid%numPoints;                
         dstype sum = fg[0*M + tid] * nl[i + 0 * numPoints];   
@@ -268,15 +290,19 @@ void FluxDotNormal(dstype* fh, dstype* fg, const dstype* nl, const int M, const 
 //     });
 // }
 
-void AddStabilization1(dstype* fg, const dstype* ug1, const dstype* ug2, const dstype* tau, const int M)
-{	
+template <class Ty = dstype>
+void AddStabilization1(Ty* fg, const Ty* ug1, const Ty* ug2, const Ty* tau, const int M)
+{
+    using dstype = Ty;	
     Kokkos::parallel_for("AddStabilization1", M, KOKKOS_LAMBDA(const size_t tid) {
         fg[tid] += tau[0] * (ug1[tid] - ug2[tid]);        
     });
 }
 
-void AddStabilization1(dstype* fg, dstype* fg1, dstype* fg2, const dstype* ug1, const dstype* ug2, const dstype* tau, const int M, const int numPoints)
-{	
+template <class Ty = dstype>
+void AddStabilization1(Ty* fg, Ty* fg1, Ty* fg2, const Ty* ug1, const Ty* ug2, const Ty* tau, const int M, const int numPoints)
+{
+    using dstype = Ty;	
     Kokkos::parallel_for("AddStabilization1", M, KOKKOS_LAMBDA(const size_t tid) {
         int i = tid%numPoints;
         int n = tid/numPoints;
@@ -286,8 +312,10 @@ void AddStabilization1(dstype* fg, dstype* fg1, dstype* fg2, const dstype* ug1, 
     });
 }
 
-void AddStabilization2(dstype* fg, const dstype* ug1, const dstype* ug2, const dstype* tau, const int M, const int numPoints)
-{	
+template <class Ty = dstype>
+void AddStabilization2(Ty* fg, const Ty* ug1, const Ty* ug2, const Ty* tau, const int M, const int numPoints)
+{
+    using dstype = Ty;	
     Kokkos::parallel_for("AddStabilization2", M, KOKKOS_LAMBDA(const size_t tid) {
         int i = tid%numPoints;   
         int j = (tid-i)/numPoints;
@@ -295,8 +323,10 @@ void AddStabilization2(dstype* fg, const dstype* ug1, const dstype* ug2, const d
     });
 }
 
-void AddStabilization3(dstype* fg, const dstype* ug1, const dstype* ug2, const dstype* tau, const int M, const int numPoints, const int ncu)
-{	
+template <class Ty = dstype>
+void AddStabilization3(Ty* fg, const Ty* ug1, const Ty* ug2, const Ty* tau, const int M, const int numPoints, const int ncu)
+{
+    using dstype = Ty;	
     Kokkos::parallel_for("AddStabilization3", M, KOKKOS_LAMBDA(const size_t tid) {
         int i = tid%numPoints;   
         int j = (tid-i)/numPoints;
@@ -308,36 +338,46 @@ void AddStabilization3(dstype* fg, const dstype* ug1, const dstype* ug2, const d
     });
 }
 
-void GetArrayAtIndex(dstype* y, const dstype* x, const int* ind, const int n)
-{    
+template <class Ty = dstype>
+void GetArrayAtIndex(Ty* y, const Ty* x, const int* ind, const int n)
+{
+    using dstype = Ty;    
     Kokkos::parallel_for("GetArrayAtIndex", n, KOKKOS_LAMBDA(const size_t i) {
         y[i] = x[ind[i]];
     });
 }
 
-void PutArrayAtIndex(dstype* y, const dstype* x, const int* ind, const int n)
-{    
+template <class Ty = dstype>
+void PutArrayAtIndex(Ty* y, const Ty* x, const int* ind, const int n)
+{
+    using dstype = Ty;    
     Kokkos::parallel_for("PutArrayAtIndex", n, KOKKOS_LAMBDA(const size_t i) {
         y[ind[i]] = x[i];
     });
 }
 
-void AddColumns(dstype* y, const dstype* x, const int m, const int n)
-{    
+template <class Ty = dstype>
+void AddColumns(Ty* y, const Ty* x, const int m, const int n)
+{
+    using dstype = Ty;    
     Kokkos::parallel_for("GetCollumnAtIndex", m, KOKKOS_LAMBDA(const size_t idx) {        
       for (int j=0; j<n; j++) y[idx] += x[idx + m*j];
     });
 }
 
-void SubtractColumns(dstype* y, const dstype* x, const int m, const int n)
-{    
+template <class Ty = dstype>
+void SubtractColumns(Ty* y, const Ty* x, const int m, const int n)
+{
+    using dstype = Ty;    
     Kokkos::parallel_for("GetCollumnAtIndex", m, KOKKOS_LAMBDA(const size_t idx) {        
       for (int j=0; j<n; j++) y[idx] -= x[idx + m*j];
     });
 }
 
-void GetCollumnAtIndex(dstype* y, const dstype* x, const int* ind, const int m, const int n)
-{    
+template <class Ty = dstype>
+void GetCollumnAtIndex(Ty* y, const Ty* x, const int* ind, const int m, const int n)
+{
+    using dstype = Ty;    
     int N = m*n;
     Kokkos::parallel_for("GetCollumnAtIndex", N, KOKKOS_LAMBDA(const size_t idx) {
         int i = idx%m;
@@ -346,8 +386,10 @@ void GetCollumnAtIndex(dstype* y, const dstype* x, const int* ind, const int m, 
     });
 }
 
-void PutCollumnAtIndex(dstype* y, const dstype* x, const int* ind, const int m, const int n)
-{    
+template <class Ty = dstype>
+void PutCollumnAtIndex(Ty* y, const Ty* x, const int* ind, const int m, const int n)
+{
+    using dstype = Ty;    
     int N = m*n;
     Kokkos::parallel_for("GetCollumnAtIndex", N, KOKKOS_LAMBDA(const size_t idx) {
         int i = idx%m;
@@ -356,8 +398,10 @@ void PutCollumnAtIndex(dstype* y, const dstype* x, const int* ind, const int m, 
     });
 }
 
-void PutCollumnAtIndexAtomicAdd(dstype* y, const dstype* x, const int* ind, const int m, const int n)
-{    
+template <class Ty = dstype>
+void PutCollumnAtIndexAtomicAdd(Ty* y, const Ty* x, const int* ind, const int m, const int n)
+{
+    using dstype = Ty;    
     int N = m*n;
     Kokkos::parallel_for("GetCollumnAtIndex", N, KOKKOS_LAMBDA(const size_t idx) {
         int i = idx%m;
@@ -367,8 +411,10 @@ void PutCollumnAtIndexAtomicAdd(dstype* y, const dstype* x, const int* ind, cons
     });
 }
 
-void GetCollumnAtIndex(dstype* y, const dstype* x, const int* ind, const int i0, const int k, const int m, const int n)
-{    
+template <class Ty = dstype>
+void GetCollumnAtIndex(Ty* y, const Ty* x, const int* ind, const int i0, const int k, const int m, const int n)
+{
+    using dstype = Ty;    
     int N = m*n;
     Kokkos::parallel_for("GetCollumnAtIndex", N, KOKKOS_LAMBDA(const size_t idx) {
         int i = idx%m;
@@ -377,8 +423,10 @@ void GetCollumnAtIndex(dstype* y, const dstype* x, const int* ind, const int i0,
     });
 }
 
-void PutCollumnAtIndex(dstype* y, const dstype* x, const int* ind, const int i0, const int k, const int m, const int n)
-{    
+template <class Ty = dstype>
+void PutCollumnAtIndex(Ty* y, const Ty* x, const int* ind, const int i0, const int k, const int m, const int n)
+{
+    using dstype = Ty;    
     int N = m*n;
     Kokkos::parallel_for("GetCollumnAtIndex", N, KOKKOS_LAMBDA(const size_t idx) {
         int i = idx%m;
@@ -387,65 +435,83 @@ void PutCollumnAtIndex(dstype* y, const dstype* x, const int* ind, const int i0,
     });
 }
 
-void ArrayCopy(dstype* y, const dstype* x, const int n)
-{    
+template <class Ty = dstype>
+void ArrayCopy(Ty* y, const Ty* x, const int n)
+{
+    using dstype = Ty;    
     Kokkos::parallel_for("ArrayCopy", n, KOKKOS_LAMBDA(const size_t i) {
         y[i] = x[i];
     });
 }
 
-void ArraySetValue(dstype* y, const dstype a, const int n)
-{    
+template <class Ty = dstype>
+void ArraySetValue(Ty* y, const Ty a, const int n)
+{
+    using dstype = Ty;    
     Kokkos::parallel_for("ArraySetValue", n, KOKKOS_LAMBDA(const size_t i) {
         y[i] = a;
     });
 }
 
-void ArrayAddScalar(dstype* y, const dstype a, const int n)
-{    
+template <class Ty = dstype>
+void ArrayAddScalar(Ty* y, const Ty a, const int n)
+{
+    using dstype = Ty;    
     Kokkos::parallel_for("ArraySetValue", n, KOKKOS_LAMBDA(const size_t i) {
         y[i] += a;
     });
 }
 
-void ArrayMultiplyScalar(dstype* y, const dstype a, const int n)
-{    
+template <class Ty = dstype>
+void ArrayMultiplyScalar(Ty* y, const Ty a, const int n)
+{
+    using dstype = Ty;    
     Kokkos::parallel_for("ArrayMultiplyScalar", n, KOKKOS_LAMBDA(const size_t i) {
         y[i] = a*y[i];
     });
 }
 
-void ArrayAXPB(dstype* y, dstype* x, const dstype a, const dstype b, const int N) 
+template <class Ty = dstype>
+void ArrayAXPB(Ty* y, Ty* x, const Ty a, const Ty b, const int N)
 {
+    using dstype = Ty;
     Kokkos::parallel_for("ArrayAXPBY", N, KOKKOS_LAMBDA(const size_t idx) {
         y[idx] = a * x[idx] + b;
     });
 }
 
-void ArrayAXPBY(dstype* y, dstype* x, const dstype* z, const dstype a, const dstype b, const int N) 
+template <class Ty = dstype>
+void ArrayAXPBY(Ty* y, Ty* x, const Ty* z, const Ty a, const Ty b, const int N)
 {
+    using dstype = Ty;
     Kokkos::parallel_for("ArrayAXPBY", N, KOKKOS_LAMBDA(const size_t idx) {
         y[idx] = a * x[idx] + b * z[idx];
     });
 }
 
-void ArrayAXY(dstype* y, dstype* x, const dstype* z, const dstype a, const int N) 
+template <class Ty = dstype>
+void ArrayAXY(Ty* y, Ty* x, const Ty* z, const Ty a, const int N)
 {
+    using dstype = Ty;
     Kokkos::parallel_for("ArrayAXY", N, KOKKOS_LAMBDA(const size_t idx) {
         y[idx] = a * x[idx] * z[idx];
     });
 }
 
-void ArrayAdd3Vectors(dstype* s, dstype* x, dstype* y, dstype* z, dstype a, dstype b, dstype c, int N)
-{    
+template <class Ty = dstype>
+void ArrayAdd3Vectors(Ty* s, Ty* x, Ty* y, Ty* z, Ty a, Ty b, Ty c, int N)
+{
+    using dstype = Ty;    
     Kokkos::parallel_for("ArrayAXY", N, KOKKOS_LAMBDA(const size_t idx) {
         s[idx] = a*x[idx] + b*y[idx] + c*z[idx];   
     });
 }
 
-void ArrayExtract(dstype* un, const dstype* u, const int I, const int J, const int K, 
+template <class Ty = dstype>
+void ArrayExtract(Ty* un, const Ty* u, const int I, const int J, const int K, 
         const int i1, const int i2, const int j1, const int j2, const int k1, const int k2)
-{        
+{
+    using dstype = Ty;        
     int ni = i2-i1;
     int nj = j2-j1;
     int nk = k2-k1;    
@@ -461,9 +527,11 @@ void ArrayExtract(dstype* un, const dstype* u, const int I, const int J, const i
     });
 }
 
-void ArrayInsert(dstype* u, const dstype* un, const int I, const int J, const int K, 
+template <class Ty = dstype>
+void ArrayInsert(Ty* u, const Ty* un, const int I, const int J, const int K, 
         const int i1, const int i2, const int j1, const int j2, const int k1, const int k2)
-{        
+{
+    using dstype = Ty;        
     int ni = i2-i1;
     int nj = j2-j1;
     int nk = k2-k1;    
@@ -480,9 +548,11 @@ void ArrayInsert(dstype* u, const dstype* un, const int I, const int J, const in
 }
 
 
-void UpdateUDG(dstype* u, const dstype* un, const dstype alpha, const int I, const int J, const int K, 
+template <class Ty = dstype>
+void UpdateUDG(Ty* u, const Ty* un, const Ty alpha, const int I, const int J, const int K, 
         const int i1, const int i2, const int j1, const int j2, const int k1, const int k2)
-{        
+{
+    using dstype = Ty;        
     int ni = i2-i1;
     int nj = j2-j1;
     int nk = k2-k1;    
@@ -498,8 +568,10 @@ void UpdateUDG(dstype* u, const dstype* un, const dstype alpha, const int I, con
     });
 }
 
-void columnwiseMultiply(dstype* C, const dstype* A, const dstype* b, const int N, const int M)
-{    
+template <class Ty = dstype>
+void columnwiseMultiply(Ty* C, const Ty* A, const Ty* b, const int N, const int M)
+{
+    using dstype = Ty;    
     int K = N*M;
     Kokkos::parallel_for("columnwiseMultiply", K, KOKKOS_LAMBDA(const size_t idx) {
         int i = idx%N;   // [1, N]         
@@ -507,8 +579,10 @@ void columnwiseMultiply(dstype* C, const dstype* A, const dstype* b, const int N
     });    
 }
 
-void ArrayGemmBatch(dstype* C, const dstype* A, const dstype* B, const int I, const int J, const int K, const int S)
-{        
+template <class Ty = dstype>
+void ArrayGemmBatch(Ty* C, const Ty* A, const Ty* B, const int I, const int J, const int K, const int S)
+{
+    using dstype = Ty;        
     // C[I*J*S] = A[I*K*S] x B[K*J*S]
     int M = I*J;
     int N = M*S;
@@ -524,8 +598,10 @@ void ArrayGemmBatch(dstype* C, const dstype* A, const dstype* B, const int I, co
     });
 }
 
-void ArrayGemmBatch1(dstype* C, const dstype* A, const dstype* B, const int I, const int J, const int K, const int S)
-{        
+template <class Ty = dstype>
+void ArrayGemmBatch1(Ty* C, const Ty* A, const Ty* B, const int I, const int J, const int K, const int S)
+{
+    using dstype = Ty;        
     // C[I*J*S] = A[I*K*S] x B[K*J*S] + C[I*J*S]
     int M = I*J;
     int N = M*S;
@@ -543,8 +619,10 @@ void ArrayGemmBatch1(dstype* C, const dstype* A, const dstype* B, const int I, c
     });
 }
 
-void ArrayGemmBatch2(dstype* C, const dstype* A, const dstype* B, dstype alpha, const int I, const int J, const int K, const int S)
-{        
+template <class Ty = dstype>
+void ArrayGemmBatch2(Ty* C, const Ty* A, const Ty* B, Ty alpha, const int I, const int J, const int K, const int S)
+{
+    using dstype = Ty;        
     // C[S*I*J] = A[S*I*K] x B[S*K*J] + C[S*I*J]
     int M = I*J;
     int N = M*S;
@@ -562,8 +640,10 @@ void ArrayGemmBatch2(dstype* C, const dstype* A, const dstype* B, dstype alpha, 
     });
 }
 
-void VisDG2CG(float* ucg, const dstype* udg, const int* cgent2dgent, const int* colent2elem, const int* rowent2elem, int ne1, const int ncg, int ndg, int na, int nb, int nc)
-{        
+template <class Ty = dstype>
+void VisDG2CG(float* ucg, const Ty* udg, const int* cgent2dgent, const int* colent2elem, const int* rowent2elem, int ne1, const int ncg, int ndg, int na, int nb, int nc)
+{
+    using dstype = Ty;        
     int N = nb * ncg * nc;
     Kokkos::parallel_for("VisDG2CG", N, KOKKOS_LAMBDA(const size_t idx) {
         int i1 = idx%nb; 
@@ -586,8 +666,10 @@ void VisDG2CG(float* ucg, const dstype* udg, const int* cgent2dgent, const int* 
     });
 }
 
-void ArrayDG2CG(dstype* ucg, const dstype* udg, const int* cgent2dgent, const int* rowent2elem, const int nent)
-{        
+template <class Ty = dstype>
+void ArrayDG2CG(Ty* ucg, const Ty* udg, const int* cgent2dgent, const int* rowent2elem, const int nent)
+{
+    using dstype = Ty;        
     Kokkos::parallel_for("ArrayDG2CG", nent, KOKKOS_LAMBDA(const size_t i) {
         dstype sum = 0.0;
         int nelem = rowent2elem[i+1]-rowent2elem[i];
@@ -598,8 +680,10 @@ void ArrayDG2CG(dstype* ucg, const dstype* udg, const int* cgent2dgent, const in
     });
 }
 
-void ArrayDG2CG2(dstype* ucg, const dstype* udg, const int* colent2elem, const int* rowent2elem, const int nent, const int npe)
-{        
+template <class Ty = dstype>
+void ArrayDG2CG2(Ty* ucg, const Ty* udg, const int* colent2elem, const int* rowent2elem, const int nent, const int npe)
+{
+    using dstype = Ty;        
     Kokkos::parallel_for("ArrayDG2CG2", nent, KOKKOS_LAMBDA(const size_t i) {        
         int nelem = rowent2elem[i+1]-rowent2elem[i];
         dstype fac = 1.0/((dstype) (nelem*npe));
@@ -613,8 +697,10 @@ void ArrayDG2CG2(dstype* ucg, const dstype* udg, const int* colent2elem, const i
     });
 }
 
-void computeQTv(dstype* p, const dstype* Q, const dstype* v, const int M, const int N)
+template <class Ty = dstype>
+void computeQTv(Ty* p, const Ty* Q, const Ty* v, const int M, const int N)
 {
+    using dstype = Ty;
     // Compute p = Q^T v
     Kokkos::parallel_for("ComputeQTv", Kokkos::TeamPolicy<>(N, Kokkos::AUTO),
         KOKKOS_LAMBDA(const Kokkos::TeamPolicy<>::member_type& team) {
@@ -633,8 +719,10 @@ void computeQTv(dstype* p, const dstype* Q, const dstype* v, const int M, const 
     });
 }
 
-void ArrayMatrixMultiplication(dstype* C, const dstype* A, const dstype* B, const int I, const int J, const int K)
-{        
+template <class Ty = dstype>
+void ArrayMatrixMultiplication(Ty* C, const Ty* A, const Ty* B, const int I, const int J, const int K)
+{
+    using dstype = Ty;        
     // C[I*J] = A[I*K] x B[K*J]
     int N = I*J;    
     Kokkos::parallel_for("ArrayMatrixMultiplication", N, KOKKOS_LAMBDA(const size_t idx) {
@@ -647,8 +735,10 @@ void ArrayMatrixMultiplication(dstype* C, const dstype* A, const dstype* B, cons
     });
 }
 
-void ArrayMatrixMultiplication1(dstype* C, const dstype* A, const dstype* B, const int I, const int J, const int K)
-{        
+template <class Ty = dstype>
+void ArrayMatrixMultiplication1(Ty* C, const Ty* A, const Ty* B, const int I, const int J, const int K)
+{
+    using dstype = Ty;        
     // C[I*J] += A[I*K] x B[K*J]
     int N = I*J;    
     Kokkos::parallel_for("ArrayMatrixMultiplication", N, KOKKOS_LAMBDA(const size_t idx) {
@@ -661,8 +751,10 @@ void ArrayMatrixMultiplication1(dstype* C, const dstype* A, const dstype* B, con
     });
 }
 
-void ArrayEosInverseMatrix11(dstype* A, const int npe, const int ncw, const int ne)
-{            
+template <class Ty = dstype>
+void ArrayEosInverseMatrix11(Ty* A, const int npe, const int ncw, const int ne)
+{
+    using dstype = Ty;            
     int N = npe*ne;
     Kokkos::parallel_for("ArrayEosInverseMatrix11", N, KOKKOS_LAMBDA(const size_t i) {
         A[i] = 1.0/A[i];    
@@ -679,8 +771,10 @@ void ArrayEosInverseMatrix11(dstype* A, const int npe, const int ncw, const int 
 //     });
 // }
 
-void ArrayEosInverseMatrix22(dstype* A, const int npe, const int ncw, const int ne)
-{        
+template <class Ty = dstype>
+void ArrayEosInverseMatrix22(Ty* A, const int npe, const int ncw, const int ne)
+{
+    using dstype = Ty;        
     int N = npe*ne;
     int M = npe*ncw*ncw;
     Kokkos::parallel_for("ArrayEosInverseMatrix22", N, KOKKOS_LAMBDA(const size_t i) {
@@ -699,8 +793,10 @@ void ArrayEosInverseMatrix22(dstype* A, const int npe, const int ncw, const int 
     });
 }
 
-void ArrayEosInverseMatrix33(dstype* A, const int npe, const int ncw, const int ne)
-{            
+template <class Ty = dstype>
+void ArrayEosInverseMatrix33(Ty* A, const int npe, const int ncw, const int ne)
+{
+    using dstype = Ty;            
     int N = npe*ne;
     int M = npe*ncw*ncw;
     Kokkos::parallel_for("ArrayEosInverseMatrix33", N, KOKKOS_LAMBDA(const size_t i) {
@@ -730,8 +826,10 @@ void ArrayEosInverseMatrix33(dstype* A, const int npe, const int ncw, const int 
     });
 }
 
-void ArrayEosMatrixMultiplication(dstype* C, const dstype* A, const dstype* B, const int npe, const int ncw, const int ne, const int ncu)
-{        
+template <class Ty = dstype>
+void ArrayEosMatrixMultiplication(Ty* C, const Ty* A, const Ty* B, const int npe, const int ncw, const int ne, const int ncu)
+{
+    using dstype = Ty;        
     // C[npe*ncw*ncu*ne] = A[npe*ncw*ncw*ne] x B[npe*ncw*ncu*ne]
     int N = npe*ne;
     int K = npe*ncw;
@@ -750,8 +848,10 @@ void ArrayEosMatrixMultiplication(dstype* C, const dstype* A, const dstype* B, c
     });
 }
 
-void SmallMatrixSolve11(dstype *b, dstype* A, const int N, const int nrhs)
-{                
+template <class Ty = dstype>
+void SmallMatrixSolve11(Ty *b, Ty* A, const int N, const int nrhs)
+{
+    using dstype = Ty;                
     Kokkos::parallel_for("SmallMatrixSolve11", N, KOKKOS_LAMBDA(const size_t i) {        
         dstype c1 = 1.0/A[i];
         for (int j=0; j<nrhs; j++)
@@ -760,8 +860,10 @@ void SmallMatrixSolve11(dstype *b, dstype* A, const int N, const int nrhs)
 }
 
 
-void SmallMatrixSolve22(dstype *b, dstype* A, const int N, const int nrhs)
-{                
+template <class Ty = dstype>
+void SmallMatrixSolve22(Ty *b, Ty* A, const int N, const int nrhs)
+{
+    using dstype = Ty;                
     Kokkos::parallel_for("SmallMatrixSolve22", N, KOKKOS_LAMBDA(const size_t i) {        
         dstype a11 = A[i + N*0];
         dstype a21 = A[i + N*1];
@@ -781,8 +883,10 @@ void SmallMatrixSolve22(dstype *b, dstype* A, const int N, const int nrhs)
     });
 }
 
-void SmallMatrixSolve33(dstype *b, dstype* A, const int N, const int nrhs)
-{                
+template <class Ty = dstype>
+void SmallMatrixSolve33(Ty *b, Ty* A, const int N, const int nrhs)
+{
+    using dstype = Ty;                
     Kokkos::parallel_for("SmallMatrixSolve22", N, KOKKOS_LAMBDA(const size_t i) {      
 
         dstype a11 = A[i + N*0];
@@ -828,8 +932,10 @@ void SmallMatrixSolve33(dstype *b, dstype* A, const int N, const int nrhs)
     });
 }
 
-void SmallMatrixSolve44(dstype *b, dstype* A, const int N, const int nrhs)
-{                
+template <class Ty = dstype>
+void SmallMatrixSolve44(Ty *b, Ty* A, const int N, const int nrhs)
+{
+    using dstype = Ty;                
   Kokkos::parallel_for("SmallMatrixSolve44", N, KOKKOS_LAMBDA(const size_t i) {      
 
     dstype a11 = A[i + N*0];
@@ -896,8 +1002,10 @@ void SmallMatrixSolve44(dstype *b, dstype* A, const int N, const int nrhs)
   });
 }
 
-void SmallMatrixSolve55(dstype *b, dstype* A, const int N, const int nrhs)
-{                
+template <class Ty = dstype>
+void SmallMatrixSolve55(Ty *b, Ty* A, const int N, const int nrhs)
+{
+    using dstype = Ty;                
   Kokkos::parallel_for("SmallMatrixSolve55", N, KOKKOS_LAMBDA(const size_t i) {      
 
     dstype a11 = A[i + N*0];
@@ -1002,8 +1110,10 @@ void SmallMatrixSolve55(dstype *b, dstype* A, const int N, const int nrhs)
   });
 }
 
-void GetElemNodes(dstype* unView, const dstype* uView, const int np, const int nc, const int nc1, const int nc2, const int e1, const int e2) 
+template <class Ty = dstype>
+void GetElemNodes(Ty* unView, const Ty* uView, const int np, const int nc, const int nc1, const int nc2, const int e1, const int e2)
 {
+    using dstype = Ty;
     int nn = np * (e2 - e1);
     int ncu = nc2 - nc1;
     int N = nn * ncu;
@@ -1018,8 +1128,10 @@ void GetElemNodes(dstype* unView, const dstype* uView, const int np, const int n
     });
 }
 
-void GetFaceNodesHDG(dstype* unView, const dstype* uView, const int np, const int nc, const int nc1, const int nc2, const int e1, const int e2) 
+template <class Ty = dstype>
+void GetFaceNodesHDG(Ty* unView, const Ty* uView, const int np, const int nc, const int nc1, const int nc2, const int e1, const int e2)
 {
+    using dstype = Ty;
     int nn = np * (e2 - e1);
     int ncu = nc2 - nc1;
     int N = nn * ncu;
@@ -1034,8 +1146,10 @@ void GetFaceNodesHDG(dstype* unView, const dstype* uView, const int np, const in
     });
 }
 
-void PutElemNodes(dstype* u, const dstype* un, const int np, const int nc, const int nc1, const int nc2, const int e1, const int e2) 
+template <class Ty = dstype>
+void PutElemNodes(Ty* u, const Ty* un, const int np, const int nc, const int nc1, const int nc2, const int e1, const int e2)
 {
+    using dstype = Ty;
     int nn = np * (e2 - e1);
     int ncu = nc2 - nc1;
     int N = nn * ncu;
@@ -1049,8 +1163,10 @@ void PutElemNodes(dstype* u, const dstype* un, const int np, const int nc, const
     });
 }
 
-void GetFaceNodes(dstype* uh, const dstype* udg, const int* facecon, const int npf, const int ncu, const int npe, const int nc, const int f1, const int f2, const int opts) 
+template <class Ty = dstype>
+void GetFaceNodes(Ty* uh, const Ty* udg, const int* facecon, const int npf, const int ncu, const int npe, const int nc, const int f1, const int f2, const int opts)
 {
+    using dstype = Ty;
     int nf = f2-f1;
     int ndf = npf*nf;
     int N = ndf*ncu;
@@ -1075,8 +1191,10 @@ void GetFaceNodes(dstype* uh, const dstype* udg, const int* facecon, const int n
     });
 }
 
-void GetFaceNodes(dstype* uh, const dstype* udg, const int* f2e, const int* perm, const int npf, const int ncu, const int npe, const int nc, const int nf) 
+template <class Ty = dstype>
+void GetFaceNodes(Ty* uh, const Ty* udg, const int* f2e, const int* perm, const int npf, const int ncu, const int npe, const int nc, const int nf)
 {
+    using dstype = Ty;
     int N = npf*nf*ncu;
     int M = npe*nc;
     Kokkos::parallel_for("GetFaceNodes", N, KOKKOS_LAMBDA(const size_t idx) {
@@ -1091,8 +1209,10 @@ void GetFaceNodes(dstype* uh, const dstype* udg, const int* f2e, const int* perm
     });
 }
 
-void GetBoudaryNodes(dstype* ub, const dstype* uh, const int* boufaces, const int* elemcon, const int nfe, const int npf, const int ncu, const int nf) 
+template <class Ty = dstype>
+void GetBoudaryNodes(Ty* ub, const Ty* uh, const int* boufaces, const int* elemcon, const int nfe, const int npf, const int ncu, const int nf)
 {
+    using dstype = Ty;
     int K = npf*nf;
     int N = K*ncu;
     int ndf = npf*nfe;   
@@ -1107,8 +1227,10 @@ void GetBoudaryNodes(dstype* ub, const dstype* uh, const int* boufaces, const in
     });
 }
 
-void GetBoudaryNodes(dstype* ub, const dstype* udg, const int* boufaces, const int* perm, const int nfe, const int npf, const int npe, const int ncu, const int nc, const int nf) 
+template <class Ty = dstype>
+void GetBoudaryNodes(Ty* ub, const Ty* udg, const int* boufaces, const int* perm, const int nfe, const int npf, const int npe, const int ncu, const int nc, const int nf)
 {
+    using dstype = Ty;
     int K = npf*nf;
     int N = K*ncu;
     int M = npe*nc;
@@ -1124,8 +1246,10 @@ void GetBoudaryNodes(dstype* ub, const dstype* udg, const int* boufaces, const i
     });
 }
 
-void PutBoudaryNodes(dstype* udg, const dstype* ub, const int* boufaces, const int* perm, const int nfe, const int npf, const int npe, const int ncu, const int nc, const int nf) 
+template <class Ty = dstype>
+void PutBoudaryNodes(Ty* udg, const Ty* ub, const int* boufaces, const int* perm, const int nfe, const int npf, const int npe, const int ncu, const int nc, const int nf)
 {
+    using dstype = Ty;
     int K = npf*nf;
     int N = K*ncu;
     int M = npe*nc;
@@ -1141,8 +1265,10 @@ void PutBoudaryNodes(dstype* udg, const dstype* ub, const int* boufaces, const i
     });
 }
 
-void PutBoudaryNodes(dstype* uh, const dstype* ub, const int* boufaces, const int* faceperm, const int* comperm, const int nfe, const int npf, const int ncu, const int nc, const int nf) 
+template <class Ty = dstype>
+void PutBoudaryNodes(Ty* uh, const Ty* ub, const int* boufaces, const int* faceperm, const int* comperm, const int nfe, const int npf, const int ncu, const int nc, const int nf)
 {
+    using dstype = Ty;
     int K = npf*nf;
     int N = K*ncu;
     int M = nc*npf;
@@ -1158,8 +1284,10 @@ void PutBoudaryNodes(dstype* uh, const dstype* ub, const int* boufaces, const in
     });
 }
 
-void GetElementFaceNodes(dstype* uh, const dstype* udg, const int* perm, const int ndf, const int ncu, const int npe, const int nc, const int e1, const int e2) 
+template <class Ty = dstype>
+void GetElementFaceNodes(Ty* uh, const Ty* udg, const int* perm, const int ndf, const int ncu, const int npe, const int nc, const int e1, const int e2)
 {
+    using dstype = Ty;
     int ne = e2-e1;
     int N = ndf*ne*ncu;
     int M = npe*nc;
@@ -1173,8 +1301,10 @@ void GetElementFaceNodes(dstype* uh, const dstype* udg, const int* perm, const i
     });
 }
 
-void GetElementFaceNodes(dstype* uhe, const dstype* uhf, const int* elemcon, const int ndf, const int ncu, const int e1, const int e2, const int opt) 
+template <class Ty = dstype>
+void GetElementFaceNodes(Ty* uhe, const Ty* uhf, const int* elemcon, const int ndf, const int ncu, const int e1, const int e2, const int opt)
 {
+    using dstype = Ty;
     int ne = e2-e1;
     int N = ndf*ne*ncu;
     if (opt==0) { // uhe = npf*nfe*ne*ncu
@@ -1206,8 +1336,10 @@ void GetElementFaceNodes(dstype* uhe, const dstype* uhf, const int* elemcon, con
     }
 }
 
-void PutElementFaceNodes(dstype* uhf, const dstype* uhe, const int* f2e, const int npf, const int nfe, const int ncu, const int nf) 
+template <class Ty = dstype>
+void PutElementFaceNodes(Ty* uhf, const Ty* uhe, const int* f2e, const int npf, const int nfe, const int ncu, const int nf)
 {
+    using dstype = Ty;
     int L = ncu*npf;
     int M = ncu*npf*nfe;
     int N = ncu*npf*nf;
@@ -1222,8 +1354,10 @@ void PutElementFaceNodes(dstype* uhf, const dstype* uhe, const int* f2e, const i
     });
 }
 
-void PutElementFaceNodes(dstype* uhf, const dstype* uhe, const int* f2e, const int* elcon, const int npf, const int nfe, const int ncu, const int nf) 
+template <class Ty = dstype>
+void PutElementFaceNodes(Ty* uhf, const Ty* uhe, const int* f2e, const int* elcon, const int npf, const int nfe, const int ncu, const int nf)
 {
+    using dstype = Ty;
     int L = ncu*npf;
     int M = ncu*npf*nfe;
     int N = ncu*npf*nf;
@@ -1241,8 +1375,10 @@ void PutElementFaceNodes(dstype* uhf, const dstype* uhe, const int* f2e, const i
     });
 }
 
-void BlockJacobi(dstype* BE, const dstype* AE, const int* f2e, const int npf, const int nfe, const int ncu, const int nf) 
+template <class Ty = dstype>
+void BlockJacobi(Ty* BE, const Ty* AE, const int* f2e, const int npf, const int nfe, const int ncu, const int nf)
 {
+    using dstype = Ty;
     int ncf = ncu*npf;
     int M = ncf*nfe;
     int P = M*ncf;
@@ -1259,8 +1395,10 @@ void BlockJacobi(dstype* BE, const dstype* AE, const int* f2e, const int npf, co
     });
 }
 
-void BlockJacobi(dstype* BE, const dstype* AE, const int* f2e, const int* elcon, const int npf, const int nfe, const int ncu, const int nf) 
+template <class Ty = dstype>
+void BlockJacobi(Ty* BE, const Ty* AE, const int* f2e, const int* elcon, const int npf, const int nfe, const int ncu, const int nf)
 {
+    using dstype = Ty;
     int ncf = ncu*npf;
     int M = ncf*nfe;
     int P = M*ncf;
@@ -1287,8 +1425,10 @@ void BlockJacobi(dstype* BE, const dstype* AE, const int* f2e, const int* elcon,
     });
 }
 
-void ElementalAdditiveSchwarz(dstype* BE, const dstype* AE, const int* f2e, const int* elcon, const int npf, const int nfe, const int ncu, const int nf) 
+template <class Ty = dstype>
+void ElementalAdditiveSchwarz(Ty* BE, const Ty* AE, const int* f2e, const int* elcon, const int npf, const int nfe, const int ncu, const int nf)
 {
+    using dstype = Ty;
     int ncf = ncu*npf;
     int M = ncf*nfe;
     int P = M*ncf;
@@ -1319,11 +1459,13 @@ void ElementalAdditiveSchwarz(dstype* BE, const dstype* AE, const int* f2e, cons
     });
 }
 
-void PathAdditiveSchwarz(dstype* A, dstype* B1, dstype* C1, dstype* B2, dstype* C2, dstype* D1, dstype* D2,
-        dstype* DL, dstype* DU, const dstype* AE, const int* f2e, const int* elcon, const int* epath, 
+template <class Ty = dstype>
+void PathAdditiveSchwarz(Ty* A, Ty* B1, Ty* C1, Ty* B2, Ty* C2, Ty* D1, Ty* D2,
+        Ty* DL, Ty* DU, const Ty* AE, const int* f2e, const int* elcon, const int* epath, 
         const int* fpath, const int* lpath, const int* fintf, const int* lintf, const int npf, 
-        const int nfe, const int ncu, const int ne) 
+        const int nfe, const int ncu, const int ne)
 {
+    using dstype = Ty;
     int nintf = nfe - 2;
     int ncf = ncu*npf;
     int ndf = npf*nfe;
@@ -1438,8 +1580,10 @@ void PathAdditiveSchwarz(dstype* A, dstype* B1, dstype* C1, dstype* B2, dstype* 
     });
 }
 
-void AssembleBlockILU0(dstype* BE, const dstype* AE, const int* f2e, const int* elcon, const int* face, const int* row_ptr, const int* col_ind, const int npf, const int nfe, const int ncu, const int nf, const int nb) 
+template <class Ty = dstype>
+void AssembleBlockILU0(Ty* BE, const Ty* AE, const int* f2e, const int* elcon, const int* face, const int* row_ptr, const int* col_ind, const int npf, const int nfe, const int ncu, const int nf, const int nb)
 {
+    using dstype = Ty;
     int ncf = ncu*npf;
     int ndf = npf*nfe;
     int M = ncf*nfe;
@@ -1578,8 +1722,10 @@ void AssembleBlockILU0(dstype* BE, const dstype* AE, const int* f2e, const int* 
 //     });
 // }
 
-void AssembleJacobianMatrix(dstype* BE, const dstype* AE, const int* f2e, const int* f2f, const int* f2l, const int* elcon, const int npf, const int nfe, const int ncu, const int nf) 
+template <class Ty = dstype>
+void AssembleJacobianMatrix(Ty* BE, const Ty* AE, const int* f2e, const int* f2f, const int* f2l, const int* elcon, const int npf, const int nfe, const int ncu, const int nf)
 {
+    using dstype = Ty;
     int nfe2 = 2*(nfe-1);
     int ncf = ncu*npf;
     int M = ncf*nfe;
@@ -1688,8 +1834,10 @@ void AssembleJacobianMatrix(dstype* BE, const dstype* AE, const int* f2e, const 
 //     });
 // }
 
-void ApplyFace2Face(dstype* Rf, const dstype* Rh, const int* f2f, const int npf, const int nfe, const int ncu, const int nf, const int offset) 
+template <class Ty = dstype>
+void ApplyFace2Face(Ty* Rf, const Ty* Rh, const int* f2f, const int npf, const int nfe, const int ncu, const int nf, const int offset)
 {
+    using dstype = Ty;
     int nfe1 = nfe-1;
     int nfe2 = 2*(nfe-1);
     int ncf = ncu*npf;    
@@ -1704,8 +1852,10 @@ void ApplyFace2Face(dstype* Rf, const dstype* Rh, const int* f2f, const int npf,
     });
 }
 
-void ApplyFace2Face(dstype* Rf, const dstype* Rh, const int* f2f, const int npf, const int nfe, const int ncu, const int nf) 
+template <class Ty = dstype>
+void ApplyFace2Face(Ty* Rf, const Ty* Rh, const int* f2f, const int npf, const int nfe, const int ncu, const int nf)
 {
+    using dstype = Ty;
     int nfe1 = 2*nfe-1;
     int nfe2 = 2*(nfe-1);
     int ncf = ncu*npf;    
@@ -1720,8 +1870,10 @@ void ApplyFace2Face(dstype* Rf, const dstype* Rh, const int* f2f, const int npf,
     });
 }
 
-void GetBoundaryNodes(dstype* uh, const dstype* udg, const int* boufaces, const int ngf, const int nfe, const int ne, const int nc, const int nfaces) 
+template <class Ty = dstype>
+void GetBoundaryNodes(Ty* uh, const Ty* udg, const int* boufaces, const int ngf, const int nfe, const int ne, const int nc, const int nfaces)
 {
+    using dstype = Ty;
     int N = ngf*nfaces*nc;
     int M = ngf*nfe*ne;
     Kokkos::parallel_for("GetBoundaryNodes", N, KOKKOS_LAMBDA(const size_t idx) {
@@ -1735,8 +1887,10 @@ void GetBoundaryNodes(dstype* uh, const dstype* udg, const int* boufaces, const 
 }
 
 
-void PutBoundaryNodes(dstype* udg, const dstype* uh, const int* boufaces, const int ngf, const int nfe, const int ne, const int nc, const int nfaces) 
+template <class Ty = dstype>
+void PutBoundaryNodes(Ty* udg, const Ty* uh, const int* boufaces, const int ngf, const int nfe, const int ne, const int nc, const int nfaces)
 {
+    using dstype = Ty;
     int N = ngf*nfaces*nc;
     int M = ngf*nfe*ne;
     Kokkos::parallel_for("PutBoundaryNodes", N, KOKKOS_LAMBDA(const size_t idx) {
@@ -1749,8 +1903,10 @@ void PutBoundaryNodes(dstype* udg, const dstype* uh, const int* boufaces, const 
     });
 }
 
-void PutFaceNodes(dstype* udg, const dstype* uh, const int* facecon, const int npf, const int ncu, const int npe, const int nc, const int f1, const int f2)
+template <class Ty = dstype>
+void PutFaceNodes(Ty* udg, const Ty* uh, const int* facecon, const int npf, const int ncu, const int npe, const int nc, const int f1, const int f2)
 {
+    using dstype = Ty;
     int nf = f2-f1;
     int ndf = npf*nf;
     int N = ndf*ncu;
@@ -1779,8 +1935,10 @@ void PutFaceNodes(dstype* udg, const dstype* uh, const int* facecon, const int n
     });                        
 }
 
-void assembleMatrixE(dstype* E, const dstype* Etmp, const int* facecon, const int* f2e, const int npf, const int npe, const int nfe, const int f1, const int f2)
+template <class Ty = dstype>
+void assembleMatrixE(Ty* E, const Ty* Etmp, const int* facecon, const int* f2e, const int npf, const int npe, const int nfe, const int f1, const int f2)
 {
+    using dstype = Ty;
     int nf = f2-f1;    
     int N = npf*npf*nf;    
     Kokkos::parallel_for("assembleMatrixE", N, KOKKOS_LAMBDA(const size_t idx) {
@@ -1808,8 +1966,10 @@ void assembleMatrixE(dstype* E, const dstype* Etmp, const int* facecon, const in
     });                        
 }
 
-void assembleMatrixE(dstype* E, const dstype* Etmp, const int* perm, const int npf, const int npe, const int nfe, const int ne)
-{    
+template <class Ty = dstype>
+void assembleMatrixE(Ty* E, const Ty* Etmp, const int* perm, const int npf, const int npe, const int nfe, const int ne)
+{
+    using dstype = Ty;    
     int M = npe*npf*nfe;
     int N = npf*npf*nfe*ne;    
     Kokkos::parallel_for("assembleMatrixE", N, KOKKOS_LAMBDA(const size_t idx) {
@@ -1824,8 +1984,10 @@ void assembleMatrixE(dstype* E, const dstype* Etmp, const int* perm, const int n
     });                        
 }
 
-void assembleRu(dstype* Ru, const dstype* Rutmp, const int* perm, const int npe, const int ndf, const int ne)
-{        
+template <class Ty = dstype>
+void assembleRu(Ty* Ru, const Ty* Rutmp, const int* perm, const int npe, const int ndf, const int ne)
+{
+    using dstype = Ty;        
     int N = ndf*ne;    
     Kokkos::parallel_for("assembleRu", N, KOKKOS_LAMBDA(const size_t idx) {
         int k = idx%ndf; // [0, ndf)                  
@@ -1835,8 +1997,10 @@ void assembleRu(dstype* Ru, const dstype* Rutmp, const int* perm, const int npe,
     });                        
 }
 
-void assembleMatrixBD(dstype* D, const dstype* Dtmp, const int* perm, const int npe, const int npf, const int nfe, const int ne)
-{        
+template <class Ty = dstype>
+void assembleMatrixBD(Ty* D, const Ty* Dtmp, const int* perm, const int npe, const int npf, const int nfe, const int ne)
+{
+    using dstype = Ty;        
     int M = npe*npe;    
     int N = npf*npf*nfe*ne;    
     Kokkos::parallel_for("assembleMatrixBD", N, KOKKOS_LAMBDA(const size_t idx) {
@@ -1854,8 +2018,10 @@ void assembleMatrixBD(dstype* D, const dstype* Dtmp, const int* perm, const int 
 
 // npf*npf*nfe*ne*ncu*ncu -> npf*nfe*npe*ne*ncu*ncu
 // assembleMatrixGK(res.K, Dtmp, mesh.perm, npe, npf, nfe, ne*ncu*ncu);
-void assembleMatrixGK(dstype* K, const dstype* Ktmp, const int* perm, const int npe, const int npf, const int nfe, const int ne)
-{        
+template <class Ty = dstype>
+void assembleMatrixGK(Ty* K, const Ty* Ktmp, const int* perm, const int npe, const int npf, const int nfe, const int ne)
+{
+    using dstype = Ty;        
     int ndf = npf*nfe; 
     int M = npf*nfe*npe;    
     int N = npf*npf*nfe*ne;    
@@ -1871,8 +2037,10 @@ void assembleMatrixGK(dstype* K, const dstype* Ktmp, const int* perm, const int 
     });                        
 }
 
-void assembleMatrixF(dstype* F, const dstype* Ftmp, const int* perm, const int npe, const int npf, const int nfe, const int ne)
-{        
+template <class Ty = dstype>
+void assembleMatrixF(Ty* F, const Ty* Ftmp, const int* perm, const int npe, const int npf, const int nfe, const int ne)
+{
+    using dstype = Ty;        
     int M = npe*npf;
     int K = M*nfe;    
     int N = npf*npf*nfe*ne;    
@@ -1888,8 +2056,10 @@ void assembleMatrixF(dstype* F, const dstype* Ftmp, const int* perm, const int n
     });                        
 }
 
-void assembleMatrixH(dstype* H, const dstype* Htmp, const int* perm, const int npe, const int npf, const int nfe, const int ne)
-{        
+template <class Ty = dstype>
+void assembleMatrixH(Ty* H, const Ty* Htmp, const int* perm, const int npe, const int npf, const int nfe, const int ne)
+{
+    using dstype = Ty;        
     int ndf = npf*nfe;
     int L = ndf*npf;  
     int M = ndf*ndf;    
@@ -1906,8 +2076,10 @@ void assembleMatrixH(dstype* H, const dstype* Htmp, const int* perm, const int n
 }
 
 // npf*npf*nfaces*ncu12*ncu -> ncu12*npf*npe*ncu*nfaces        
-void assembleMatrixKint(dstype* udg, const dstype* uh, const int* boufaces, const int* perm, const int npe, const int npf, const int nfe, const int ncu12, const int ncu, const int nfaces)
+template <class Ty = dstype>
+void assembleMatrixKint(Ty* udg, const Ty* uh, const int* boufaces, const int* perm, const int npe, const int npf, const int nfe, const int ncu12, const int ncu, const int nfaces)
 {
+    using dstype = Ty;
     int N = npf*npf*nfaces*ncu12*ncu; 
     int M2 = ncu12*npf;
     int M3 = ncu12*npf*npe;
@@ -1928,8 +2100,10 @@ void assembleMatrixKint(dstype* udg, const dstype* uh, const int* boufaces, cons
 }
 
 // npf*npf*nfaces*ncu12*ncq ->  npf*npe*nfaces*ncu12*ncq
-void assembleMatrixGint(dstype* udg, const dstype* uh, const int* boufaces, const int* perm, const int npe, const int npf, const int nfe, const int ncu12, const int ncq, const int nfaces)
+template <class Ty = dstype>
+void assembleMatrixGint(Ty* udg, const Ty* uh, const int* boufaces, const int* perm, const int npe, const int npf, const int nfe, const int ncu12, const int ncq, const int nfaces)
 {
+    using dstype = Ty;
     int N = npf*npf*nfaces*ncu12*ncq; 
     int M2 = npf*npe;
     int M3 = npf*npe*nfaces;
@@ -1950,8 +2124,10 @@ void assembleMatrixGint(dstype* udg, const dstype* uh, const int* boufaces, cons
 }
 
 // npf*npf*nfaces*ncu12*ncu -> ncu12*npf*ncu*npf*nfe*nfaces        
-void assembleMatrixHint(dstype* udg, const dstype* uh, const int* boufaces, const int npe, const int npf, const int nfe, const int ncu12, const int ncu, const int nfaces)
+template <class Ty = dstype>
+void assembleMatrixHint(Ty* udg, const Ty* uh, const int* boufaces, const int npe, const int npf, const int nfe, const int ncu12, const int ncu, const int nfaces)
 {
+    using dstype = Ty;
     int N = npf*npf*nfaces*ncu12*ncu; 
     int M2 = ncu12*npf;
     int M3 = ncu12*npf*ncu;
@@ -1971,8 +2147,10 @@ void assembleMatrixHint(dstype* udg, const dstype* uh, const int* boufaces, cons
 }
 
 // npe*npe*ne*ncu*ncu -> npe*ncu*npe*ncu*ne
-void schurMatrixD(dstype* D, const dstype* Dtmp,  const int npe, const int ncu, const int ne)
-{        
+template <class Ty = dstype>
+void schurMatrixD(Ty* D, const Ty* Dtmp,  const int npe, const int ncu, const int ne)
+{
+    using dstype = Ty;        
     int M = npe*npe;    
     int L = npe*npe*ne;
     int K = npe*npe*ne*ncu;
@@ -1991,8 +2169,10 @@ void schurMatrixD(dstype* D, const dstype* Dtmp,  const int npe, const int ncu, 
 }
 
 // [npe*npe*ne*ncu*ncu] x [npe*npe*ne] -> npe*ncu*npe*ncu*ne
-void schurMatrixBMinvC(dstype* D, const dstype *B, const dstype *MinvC, dstype scalar, const int npe, const int ncu, const int ne)
-{        
+template <class Ty = dstype>
+void schurMatrixBMinvC(Ty* D, const Ty *B, const Ty *MinvC, Ty scalar, const int npe, const int ncu, const int ne)
+{
+    using dstype = Ty;        
     int M = npe*npe;    
     int L = npe*npe*ne;
     int K = npe*npe*ne*ncu;
@@ -2014,8 +2194,10 @@ void schurMatrixBMinvC(dstype* D, const dstype *B, const dstype *MinvC, dstype s
 }
 
 // npe*(npf*nfe)*ne*(ncu*ncu) -> npe*(ncu*ncu)*(npf*nfe)*ne
-void schurMatrixF(dstype* F, const dstype* Ftmp,  const int npe, const int ncu, const int npf, const int nfe, const int ne)
-{        
+template <class Ty = dstype>
+void schurMatrixF(Ty* F, const Ty* Ftmp,  const int npe, const int ncu, const int npf, const int nfe, const int ne)
+{
+    using dstype = Ty;        
     int ncu2 = ncu*ncu;
     int ndf = npf*nfe;
     int M = npe*ndf;    
@@ -2033,8 +2215,10 @@ void schurMatrixF(dstype* F, const dstype* Ftmp,  const int npe, const int ncu, 
 }
 
 // [npe*npe*ne*(ncu*ncu)] x [npe*(npf*nfe)*ne] -> npe*(ncu*ncu)*(npf*nfe)*ne
-void schurMatrixBMinvE(dstype* F, const dstype *B, const dstype *MinvE, dstype scalar, const int npe, const int ncu, const int npf, const int nfe, const int ne)
-{        
+template <class Ty = dstype>
+void schurMatrixBMinvE(Ty* F, const Ty *B, const Ty *MinvE, Ty scalar, const int npe, const int ncu, const int npf, const int nfe, const int ne)
+{
+    using dstype = Ty;        
     int ncu2 = ncu*ncu;
     int ndf = npf*nfe;
     int M = npe*ndf;    
@@ -2055,8 +2239,10 @@ void schurMatrixBMinvE(dstype* F, const dstype *B, const dstype *MinvE, dstype s
 }
 
 // (npf*nfe)*npe*ne*ncu*ncu -> ncu*(npf*nfe)*npe*ncu*ne
-void schurMatrixK(dstype* K, const dstype* Ktmp,  const int npe, const int ncu12, const int ncu, const int npf, const int nfe, const int ne)
-{        
+template <class Ty = dstype>
+void schurMatrixK(Ty* K, const Ty* Ktmp,  const int npe, const int ncu12, const int ncu, const int npf, const int nfe, const int ne)
+{
+    using dstype = Ty;        
     int ndf = npf*nfe;
     int M = npe*ndf;    
     int L = npe*ndf*ne; 
@@ -2076,8 +2262,10 @@ void schurMatrixK(dstype* K, const dstype* Ktmp,  const int npe, const int ncu12
 }
 
 // [(npf*nfe)*npe*ne*ncu*ncu] x [npe*npe*ne] -> ncu*(npf*nfe)*npe*ncu*ne
-void schurMatrixGMinvC(dstype* K, const dstype *G, const dstype *MinvC, dstype scalar, const int npe, const int ncu12, const int ncu, const int npf, const int nfe, const int ne)
-{        
+template <class Ty = dstype>
+void schurMatrixGMinvC(Ty* K, const Ty *G, const Ty *MinvC, Ty scalar, const int npe, const int ncu12, const int ncu, const int npf, const int nfe, const int ne)
+{
+    using dstype = Ty;        
     int ndf = npf*nfe;
     int Q = npe*npe;
     int M = npe*ndf;    
@@ -2101,8 +2289,10 @@ void schurMatrixGMinvC(dstype* K, const dstype *G, const dstype *MinvC, dstype s
 }
 
 // (npf*nfe)*(npf*nfe)*ne*ncu*ncu -> ncu*(npf*nfe)*ncu*(npf*nfe)*ne
-void schurMatrixH(dstype* H, const dstype* Htmp,  const int ncu12, const int ncu, const int npf, const int nfe, const int ne)
-{        
+template <class Ty = dstype>
+void schurMatrixH(Ty* H, const Ty* Htmp,  const int ncu12, const int ncu, const int npf, const int nfe, const int ne)
+{
+    using dstype = Ty;        
     int ndf = npf*nfe;
     int M = ndf*ndf;    
     int L = ndf*ndf*ne; 
@@ -2122,8 +2312,10 @@ void schurMatrixH(dstype* H, const dstype* Htmp,  const int ncu12, const int ncu
 }
 
 // [(npf*nfe)*npe*ne*ncu*ncu] x [npe*(npf*nfe)*ne] -> ncu*(npf*nfe)*ncu*(npf*nfe)*ne
-void schurMatrixGMinvE(dstype* H, const dstype *G, const dstype *MinvE, dstype scalar, const int npe, const int ncu12, const int ncu, const int npf, const int nfe, const int ne)
-{        
+template <class Ty = dstype>
+void schurMatrixGMinvE(Ty* H, const Ty *G, const Ty *MinvE, Ty scalar, const int npe, const int ncu12, const int ncu, const int npf, const int nfe, const int ne)
+{
+    using dstype = Ty;        
     int ndf = npf*nfe;
     int M = ndf*npe;    
     int L = ndf*npe*ne; 
@@ -2145,8 +2337,10 @@ void schurMatrixGMinvE(dstype* H, const dstype *G, const dstype *MinvE, dstype s
     });                        
 }
 
-void schurMatrixGintMinvE(dstype* H, const dstype *G, const dstype *MinvE, dstype scalar, const int npe, const int ncu12, const int ncu, const int npf, const int nfe, const int ne)
-{        
+template <class Ty = dstype>
+void schurMatrixGintMinvE(Ty* H, const Ty *G, const Ty *MinvE, Ty scalar, const int npe, const int ncu12, const int ncu, const int npf, const int nfe, const int ne)
+{
+    using dstype = Ty;        
     int ndf = npf*nfe;
     int Q = npe*ndf;
     int M = npf*npe;    
@@ -2170,8 +2364,10 @@ void schurMatrixGintMinvE(dstype* H, const dstype *G, const dstype *MinvE, dstyp
 }
 
 // npe*ne*ncu-> npe*ncu*ne
-void schurVectorRu(dstype* Ru, const dstype* Rutmp,  const int npe, const int ncu, const int ne)
-{            
+template <class Ty = dstype>
+void schurVectorRu(Ty* Ru, const Ty* Rutmp,  const int npe, const int ncu, const int ne)
+{
+    using dstype = Ty;            
     int L = npe*ne;    
     int N = npe*ncu*ne;    
     Kokkos::parallel_for("schurVectorRu", N, KOKKOS_LAMBDA(const size_t idx) {
@@ -2184,8 +2380,10 @@ void schurVectorRu(dstype* Ru, const dstype* Rutmp,  const int npe, const int nc
 }
 
 // ndf*ne*ncu-> ncu*ndf*ne
-void schurVectorRh(dstype* Rh, const dstype* Rhtmp,  const int ndf, const int ncu, const int ne)
-{            
+template <class Ty = dstype>
+void schurVectorRh(Ty* Rh, const Ty* Rhtmp,  const int ndf, const int ncu, const int ne)
+{
+    using dstype = Ty;            
     int L = ndf*ne;    
     int N = ndf*ncu*ne;    
     Kokkos::parallel_for("schurVectorRh", N, KOKKOS_LAMBDA(const size_t idx) {
@@ -2197,9 +2395,11 @@ void schurVectorRh(dstype* Rh, const dstype* Rhtmp,  const int ndf, const int nc
     });                        
 }
 
-void PutFaceNodes(dstype* udg, const dstype* uh, const int* rowe2f1, const int* cole2f1, const int* ent2ind1,
+template <class Ty = dstype>
+void PutFaceNodes(Ty* udg, const Ty* uh, const int* rowe2f1, const int* cole2f1, const int* ent2ind1,
         const int* rowe2f2, const int* cole2f2, const int* ent2ind2, const int npf, const int npe, const int nc, const int e1, const int e2, const int opts)
 {
+    using dstype = Ty;
     int ne = e2-e1;
     int K = npf*nc;
     int M = npe*nc;
@@ -2254,8 +2454,10 @@ void PutFaceNodes(dstype* udg, const dstype* uh, const int* rowe2f1, const int* 
     }
 }
 
-void ApplyXx4(dstype* rg, const dstype* sg, const dstype* fg, const dstype* Xx, const dstype* jac, const int nge, const int nd, const int ncu, const int ne)
+template <class Ty = dstype>
+void ApplyXx4(Ty* rg, const Ty* sg, const Ty* fg, const Ty* Xx, const Ty* jac, const int nge, const int nd, const int ncu, const int ne)
 {
+    using dstype = Ty;
     int M = nge*ne;
     int N = M*ncu;
     int P = M*nd;
@@ -2279,8 +2481,10 @@ void ApplyXx4(dstype* rg, const dstype* sg, const dstype* fg, const dstype* Xx, 
     });    
 }
 
-void ApplyXxJac(dstype* rg, const dstype* sg, const dstype* fg, const dstype* Xx, const dstype* jac, const int nge, const int nd, const int ncu, const int ne)
+template <class Ty = dstype>
+void ApplyXxJac(Ty* rg, const Ty* sg, const Ty* fg, const Ty* Xx, const Ty* jac, const int nge, const int nd, const int ncu, const int ne)
 {
+    using dstype = Ty;
     int M = nge*ne;
     int N = M*ncu;
     int P = M*nd;
@@ -2304,8 +2508,10 @@ void ApplyXxJac(dstype* rg, const dstype* sg, const dstype* fg, const dstype* Xx
     });    
 }
 
-void ApplyXxJac(dstype* rg, const dstype* sg_udg, const dstype* fg_udg, const dstype* Xx, const dstype* jac, const int nge, const int nd, const int ncu, const int nc, const int ne)
+template <class Ty = dstype>
+void ApplyXxJac(Ty* rg, const Ty* sg_udg, const Ty* fg_udg, const Ty* Xx, const Ty* jac, const int nge, const int nd, const int ncu, const int nc, const int ne)
 {
+    using dstype = Ty;
     int M = nge*ne;
     int L = M*ncu;
     int N = M*ncu*nc;
@@ -2335,8 +2541,10 @@ void ApplyXxJac(dstype* rg, const dstype* sg_udg, const dstype* fg_udg, const ds
 }
 
 // (nge * ne * ncu) x (nge * ne) x (npe * nge) -> (npe * ncu * ne) 
-void RuSource(dstype* Ru, const dstype* sg, const dstype* jac, const dstype* testshap, const int nge, const int npe, const int ncu, const int ne)
+template <class Ty = dstype>
+void RuSource(Ty* Ru, const Ty* sg, const Ty* jac, const Ty* testshap, const int nge, const int npe, const int ncu, const int ne)
 {
+    using dstype = Ty;
     int N = npe*ncu*ne;
     int M = nge*ne;
     Kokkos::parallel_for("RuSource", N, KOKKOS_LAMBDA(const size_t idx) {
@@ -2353,8 +2561,10 @@ void RuSource(dstype* Ru, const dstype* sg, const dstype* jac, const dstype* tes
 }
 
 // (nge * ne * ncu * nd) x (nge * ne * nd * nd) x (npe * nge * nd) -> (npe * ncu * ne) 
-void RuFlux(dstype* Ru, const dstype* fg, const dstype* Xx, const dstype* testshapderiv, const int nge, const int npe, const int ncu,  int nd, const int ne)
+template <class Ty = dstype>
+void RuFlux(Ty* Ru, const Ty* fg, const Ty* Xx, const Ty* testshapderiv, const int nge, const int npe, const int ncu,  int nd, const int ne)
 {
+    using dstype = Ty;
     int N = npe*ncu*ne;
     int M = nge*ne;
     int K = nge*ne*ncu;
@@ -2378,8 +2588,10 @@ void RuFlux(dstype* Ru, const dstype* fg, const dstype* Xx, const dstype* testsh
 }
 
 // (nge * ne * ncu * nc) x (nge * ne) x (npe * nge) x (nge * npe) -> (npe * ncu * npe * nc * ne) 
-void JuSource(dstype* Ju, const dstype* sg_udg, const dstype* jac, const dstype* testshap, const dstype* trialshap, const int nge, const int npe, const int ncu, const int nc, const int ne)
+template <class Ty = dstype>
+void JuSource(Ty* Ju, const Ty* sg_udg, const Ty* jac, const Ty* testshap, const Ty* trialshap, const int nge, const int npe, const int ncu, const int nc, const int ne)
 {
+    using dstype = Ty;
     int N = npe*ncu*ne;
     int M = nge*ne;
     Kokkos::parallel_for("RuSource", N, KOKKOS_LAMBDA(const size_t idx) {
@@ -2399,8 +2611,10 @@ void JuSource(dstype* Ju, const dstype* sg_udg, const dstype* jac, const dstype*
     });    
 }
 
-void ApplyXx3(dstype* sg, const dstype* ug, const dstype* Xx, const int nge, const int nd, const int ncu, const int ne)
+template <class Ty = dstype>
+void ApplyXx3(Ty* sg, const Ty* ug, const Ty* Xx, const int nge, const int nd, const int ncu, const int ne)
 {
+    using dstype = Ty;
     int M = nge*ne;
     int N = M*ncu;
     int P = M*nd;
@@ -2418,8 +2632,10 @@ void ApplyXx3(dstype* sg, const dstype* ug, const dstype* Xx, const int nge, con
     });    
 }
 
-void ApplyJacNormal(dstype* fqg, const dstype* uhg, const dstype* nlg, const dstype* jac, const int nga, const int ncu, const int nd, const int ngf)
+template <class Ty = dstype>
+void ApplyJacNormal(Ty* fqg, const Ty* uhg, const Ty* nlg, const Ty* jac, const int nga, const int ncu, const int nd, const int ngf)
 {
+    using dstype = Ty;
     int N = nga*ncu;
     int M = ngf*ncu;
     int P = M*nd; 
@@ -2433,8 +2649,10 @@ void ApplyJacNormal(dstype* fqg, const dstype* uhg, const dstype* nlg, const dst
     });            
 }
 
-void ApplyJacFhat(dstype* sg, const dstype* fhg, const dstype* jac, const int nga, const int ncu, const int ngf)
+template <class Ty = dstype>
+void ApplyJacFhat(Ty* sg, const Ty* fhg, const Ty* jac, const int nga, const int ncu, const int ngf)
 {
+    using dstype = Ty;
     int M = ngf*ncu;
     int N = nga*ncu;
     Kokkos::parallel_for("ApplyJac", N, KOKKOS_LAMBDA(const size_t idx) {
@@ -2446,8 +2664,10 @@ void ApplyJacFhat(dstype* sg, const dstype* fhg, const dstype* jac, const int ng
     });
 }
 
-void ApplyDtcoef(dstype* sg_u, dstype* fg, dstype dtcoeff, const int nga, const int ncu)
-{    
+template <class Ty = dstype>
+void ApplyDtcoef(Ty* sg_u, Ty* fg, Ty dtcoeff, const int nga, const int ncu)
+{
+    using dstype = Ty;    
     int N = nga*ncu;
     Kokkos::parallel_for("ApplyJac", N, KOKKOS_LAMBDA(const size_t idx) {
         int i = idx%nga; // [1, nga]  
@@ -2456,8 +2676,10 @@ void ApplyDtcoef(dstype* sg_u, dstype* fg, dstype dtcoeff, const int nga, const 
     });
 }
 
-void ApplyJac(dstype* R, const dstype* jac, const int M, const int N)
+template <class Ty = dstype>
+void ApplyJac(Ty* R, const Ty* jac, const int M, const int N)
 {
+    using dstype = Ty;
     // M = npe*ncr
     // N = npe*ncr*ne
     // R:   [npe*ncr*ne]
@@ -2469,8 +2691,10 @@ void ApplyJac(dstype* R, const dstype* jac, const int M, const int N)
     });                        
 }
 
-void ApplyJacInv(dstype* R, const dstype* jac, const int M, const int N)
+template <class Ty = dstype>
+void ApplyJacInv(Ty* R, const Ty* jac, const int M, const int N)
 {
+    using dstype = Ty;
     // M = npe*ncr
     // N = npe*ncr*ne
     // R:   [npe*ncr*ne]
@@ -2482,8 +2706,10 @@ void ApplyJacInv(dstype* R, const dstype* jac, const int M, const int N)
     });                        
 }
 
-void ShapJac(dstype* shapjac, const dstype* shapegt, const dstype* jac, const int nge, const int npe, const int ne)
+template <class Ty = dstype>
+void ShapJac(Ty* shapjac, const Ty* shapegt, const Ty* jac, const int nge, const int npe, const int ne)
 {
+    using dstype = Ty;
     int M = nge*npe;
     int N = nge*npe*ne;
     Kokkos::parallel_for("ShapJac", N, KOKKOS_LAMBDA(const size_t i) {
@@ -2495,17 +2721,21 @@ void ShapJac(dstype* shapjac, const dstype* shapegt, const dstype* jac, const in
     });    
 }
 
-void ElemGeom1D(dstype* jac, dstype* Xx, const dstype* Jg, const int ngv)
+template <class Ty = dstype>
+void ElemGeom1D(Ty* jac, Ty* Xx, const Ty* Jg, const int ngv)
 {
+    using dstype = Ty;
     Kokkos::parallel_for("ElemGeom1D", ngv, KOKKOS_LAMBDA(const size_t i) {
         jac[i] = Jg[i];
         Xx[i] = 1.0;
     });
 }
 
-void ElemGeom2D(dstype* jac, dstype* Xx11, dstype* Xx12, dstype* Xx21, dstype* Xx22,
-                 const dstype* Jg11, const dstype* Jg12, const dstype* Jg21, const dstype* Jg22, const int ngv)
+template <class Ty = dstype>
+void ElemGeom2D(Ty* jac, Ty* Xx11, Ty* Xx12, Ty* Xx21, Ty* Xx22,
+                 const Ty* Jg11, const Ty* Jg12, const Ty* Jg21, const Ty* Jg22, const int ngv)
 {
+    using dstype = Ty;
     Kokkos::parallel_for("ElemGeom2D", ngv, KOKKOS_LAMBDA(const size_t i) {
         jac[i] = Jg11[i]*Jg22[i] - Jg12[i]*Jg21[i];
         Xx11[i] = Jg22[i]; // dxi/dx
@@ -2515,11 +2745,13 @@ void ElemGeom2D(dstype* jac, dstype* Xx11, dstype* Xx12, dstype* Xx21, dstype* X
     });
 }
 
-void ElemGeom3D(dstype* jac, dstype* Xx11, dstype* Xx12, dstype* Xx13, dstype* Xx21, 
-                dstype* Xx22, dstype* Xx23, dstype* Xx31, dstype* Xx32, dstype* Xx33,
-                const dstype* Jg11, const dstype* Jg12, const dstype* Jg13, const dstype* Jg21, const dstype* Jg22, 
-                const dstype* Jg23, const dstype* Jg31, const dstype* Jg32, const dstype* Jg33, const int ngv)
+template <class Ty = dstype>
+void ElemGeom3D(Ty* jac, Ty* Xx11, Ty* Xx12, Ty* Xx13, Ty* Xx21, 
+                Ty* Xx22, Ty* Xx23, Ty* Xx31, Ty* Xx32, Ty* Xx33,
+                const Ty* Jg11, const Ty* Jg12, const Ty* Jg13, const Ty* Jg21, const Ty* Jg22, 
+                const Ty* Jg23, const Ty* Jg31, const Ty* Jg32, const Ty* Jg33, const int ngv)
 {
+    using dstype = Ty;
     Kokkos::parallel_for("ElemGeom3D", ngv, KOKKOS_LAMBDA(const size_t i) {
         jac[i] = Jg11[i]*Jg22[i]*Jg33[i] - Jg11[i]*Jg32[i]*Jg23[i] +
                  Jg21[i]*Jg32[i]*Jg13[i] - Jg21[i]*Jg12[i]*Jg33[i] +
@@ -2536,32 +2768,40 @@ void ElemGeom3D(dstype* jac, dstype* Xx11, dstype* Xx12, dstype* Xx13, dstype* X
     });
 }
 
-void FaceGeom1D(dstype* jacg, dstype* nlg, const dstype* Jg, const int na)
-{       
+template <class Ty = dstype>
+void FaceGeom1D(Ty* jacg, Ty* nlg, const Ty* Jg, const int na)
+{
+    using dstype = Ty;       
     Kokkos::parallel_for("FaceGeom1D", na, KOKKOS_LAMBDA(const size_t i) {
         jacg[i] = 1.0;
         nlg[i] = 1.0;
     });
 }
 
-void FixNormal1D(dstype* nlg, const int* facecon, const int na)
-{       
+template <class Ty = dstype>
+void FixNormal1D(Ty* nlg, const int* facecon, const int na)
+{
+    using dstype = Ty;       
     Kokkos::parallel_for("FixNormal1D", na, KOKKOS_LAMBDA(const size_t i) {
         if (facecon[2*i]==0)
             nlg[i] = -1.0;
     });
 }
 
-void FixNormal1D(dstype* nlg, const int na)
-{       
+template <class Ty = dstype>
+void FixNormal1D(Ty* nlg, const int na)
+{
+    using dstype = Ty;       
     Kokkos::parallel_for("FixNormal1D", na, KOKKOS_LAMBDA(const size_t i) {
         if (i%2 == 0)
             nlg[i] = -1.0;
     });
 }
 
-void FaceGeom2D(dstype* jacg, dstype* nlg, const dstype* Jg, const int na)
-{       
+template <class Ty = dstype>
+void FaceGeom2D(Ty* jacg, Ty* nlg, const Ty* Jg, const int na)
+{
+    using dstype = Ty;       
     Kokkos::parallel_for("FaceGeom2D", na, KOKKOS_LAMBDA(const size_t i) {
         int j = i+na;
         jacg[i] = sqrt(Jg[i]*Jg[i] + Jg[j]*Jg[j]);
@@ -2570,8 +2810,10 @@ void FaceGeom2D(dstype* jacg, dstype* nlg, const dstype* Jg, const int na)
     });
 }
 
-void FaceGeom3D(dstype* jacg, dstype* nlg, const dstype* Jg, const int na)
-{       
+template <class Ty = dstype>
+void FaceGeom3D(Ty* jacg, Ty* nlg, const Ty* Jg, const int na)
+{
+    using dstype = Ty;       
     int n11 = 0;
     int n21 = na;
     int n31 = 2*na;
@@ -2591,8 +2833,10 @@ void FaceGeom3D(dstype* jacg, dstype* nlg, const dstype* Jg, const int na)
     });
 }
 
-void StgHomoTurb2D(dstype *up, dstype *xdg, dstype *stgdata, dstype *uc, dstype t, int M, int N)
-{	
+template <class Ty = dstype>
+void StgHomoTurb2D(Ty *up, Ty *xdg, Ty *stgdata, Ty *uc, Ty t, int M, int N)
+{
+    using dstype = Ty;	
     Kokkos::parallel_for("StgHomoTurb2D", M, KOKKOS_LAMBDA(const size_t m) {
         dstype un = 0.0;
         dstype vn = 0.0;
@@ -2628,8 +2872,10 @@ void StgHomoTurb2D(dstype *up, dstype *xdg, dstype *stgdata, dstype *uc, dstype 
     });
 }
 
-void StgInflow2D(dstype *fb, dstype *up, dstype *xdg, dstype *vdg, dstype *uhg, dstype *param, dstype *stgdata, dstype *uc, dstype t, int M, int N)
+template <class Ty = dstype>
+void StgInflow2D(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *param, Ty *stgdata, Ty *uc, Ty t, int M, int N)
 {
+    using dstype = Ty;
     StgHomoTurb2D(up, xdg, stgdata, uc, t, M, N);
 
     Kokkos::parallel_for("StgInflow2D", M, KOKKOS_LAMBDA(const size_t m) {
@@ -2651,9 +2897,11 @@ void StgInflow2D(dstype *fb, dstype *up, dstype *xdg, dstype *vdg, dstype *uhg, 
     });
 }
 
+template <class Ty = dstype>
 KOKKOS_INLINE_FUNCTION
-dstype StgAir5Mw(const int i)
+Ty StgAir5Mw(const int i)
 {
+    using dstype = Ty;
     if (i == 0) return 14.0067e-3;
     if (i == 1) return 15.9994e-3;
     if (i == 2) return 30.0061e-3;
@@ -2661,9 +2909,11 @@ dstype StgAir5Mw(const int i)
     return 31.9988e-3;
 }
 
+template <class Ty = dstype>
 KOKKOS_INLINE_FUNCTION
-dstype StgAir5NasaH(const int species, const int range, const dstype T)
+Ty StgAir5NasaH(const int species, const int range, const Ty T)
 {
+    using dstype = Ty;
     dstype a1 = 0.0, a2 = 0.0, a3 = 0.0, a4 = 0.0, a5 = 0.0, a6 = 0.0, a7 = 0.0, b1 = 0.0;
 
     if (species == 0) {
@@ -2742,9 +2992,11 @@ dstype StgAir5NasaH(const int species, const int range, const dstype T)
     return -a1/(T2) + a2*log(T)/T + a3 + a4*T*0.5 + a5*T2/3.0 + a6*T3*0.25 + a7*T4*0.2 + b1/T;
 }
 
+template <class Ty = dstype>
 KOKKOS_INLINE_FUNCTION
-dstype StgAir5InternalEnergyMass(const int species, const dstype T)
+Ty StgAir5InternalEnergyMass(const int species, const Ty T)
 {
+    using dstype = Ty;
     const dstype Ru = 8.314471468617452;
     const dstype alpha = 1.0e4;
     const dstype pi = 3.14159265358979323846;
@@ -2755,8 +3007,10 @@ dstype StgAir5InternalEnergyMass(const int species, const dstype T)
     return (H - 1.0)*Ru*T/StgAir5Mw(species);
 }
 
-void StgInFlow2Dchem(dstype *fb, dstype *up, dstype *xdg, dstype *vdg, dstype *uhg, dstype *physicsparam, dstype *externalparam, dstype *stgdata, dstype *uc, dstype t, int M, int N)
+template <class Ty = dstype>
+void StgInFlow2Dchem(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *physicsparam, Ty *externalparam, Ty *stgdata, Ty *uc, Ty t, int M, int N)
 {
+    using dstype = Ty;
     StgHomoTurb2D(up, xdg, stgdata, uc, t, M, N);
 
     Kokkos::parallel_for("StgInFlow2Dchem", M, KOKKOS_LAMBDA(const size_t m) {
@@ -2798,8 +3052,10 @@ void StgInFlow2Dchem(dstype *fb, dstype *up, dstype *xdg, dstype *vdg, dstype *u
     });
 }
 
-void StgHomoTurb3D(dstype *up, dstype *xdg, dstype *stgdata, dstype *uc, dstype t, int M, int N)
-{	
+template <class Ty = dstype>
+void StgHomoTurb3D(Ty *up, Ty *xdg, Ty *stgdata, Ty *uc, Ty t, int M, int N)
+{
+    using dstype = Ty;	
     Kokkos::parallel_for("StgHomoTurb3D", M, KOKKOS_LAMBDA(const size_t m) {
         dstype un = 0.0;
         dstype vn = 0.0;
@@ -2841,8 +3097,10 @@ void StgHomoTurb3D(dstype *up, dstype *xdg, dstype *stgdata, dstype *uc, dstype 
     });
 }
 
-void StgInFlow3Dchem(dstype *fb, dstype *up, dstype *xdg, dstype *vdg, dstype *uhg, dstype *physicsparam, dstype *externalparam, dstype *stgdata, dstype *uc, dstype t, int M, int N)
+template <class Ty = dstype>
+void StgInFlow3Dchem(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *physicsparam, Ty *externalparam, Ty *stgdata, Ty *uc, Ty t, int M, int N)
 {
+    using dstype = Ty;
     StgHomoTurb3D(up, xdg, stgdata, uc, t, M, N);
 
     Kokkos::parallel_for("StgInFlow3Dchem", M, KOKKOS_LAMBDA(const size_t m) {
@@ -2887,8 +3145,10 @@ void StgInFlow3Dchem(dstype *fb, dstype *up, dstype *xdg, dstype *vdg, dstype *u
     });
 }
 
-void StgInflow3D(dstype *fb, dstype *up, dstype *xdg, dstype *vdg, dstype *uhg, dstype *param, dstype *stgdata, dstype *uc, dstype t, int M, int N)
+template <class Ty = dstype>
+void StgInflow3D(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *param, Ty *stgdata, Ty *uc, Ty t, int M, int N)
 {
+    using dstype = Ty;
     StgHomoTurb3D(up, xdg, stgdata, uc, t, M, N);
 
     Kokkos::parallel_for("StgInflow3D", M, KOKKOS_LAMBDA(const size_t m) {
@@ -2913,8 +3173,10 @@ void StgInflow3D(dstype *fb, dstype *up, dstype *xdg, dstype *vdg, dstype *uhg, 
     });
 }
 
-void StgInFlowHDGchem(dstype *fb, dstype *up, dstype *xdg, dstype *vdg, dstype *uhg, dstype *physicsparam, dstype *externalparam, dstype *stgdata, dstype *uc, dstype t, int M, int N, int nd)
+template <class Ty = dstype>
+void StgInFlowHDGchem(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *physicsparam, Ty *externalparam, Ty *stgdata, Ty *uc, Ty t, int M, int N, int nd)
 {
+    using dstype = Ty;
 	if (nd == 1) {
 	}
 	else if (nd == 2) {
@@ -2925,8 +3187,10 @@ void StgInFlowHDGchem(dstype *fb, dstype *up, dstype *xdg, dstype *vdg, dstype *
     }
 }
 
-void StgInFlowHDGchem(dstype *fb, dstype *fb_uq, dstype *fb_w, dstype* fb_uh, dstype *up, dstype *xdg, dstype *vdg, dstype *uhg, dstype *physicsparam, dstype *externalparam, dstype *stgdata, dstype *uc, dstype t, int M, int N, int nd, int ncu, int nc, int ncw)
+template <class Ty = dstype>
+void StgInFlowHDGchem(Ty *fb, Ty *fb_uq, Ty *fb_w, Ty* fb_uh, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *physicsparam, Ty *externalparam, Ty *stgdata, Ty *uc, Ty t, int M, int N, int nd, int ncu, int nc, int ncw)
 {
+    using dstype = Ty;
 	if (nd == 1) {
 	}
 	else if (nd == 2) {
@@ -2942,8 +3206,10 @@ void StgInFlowHDGchem(dstype *fb, dstype *fb_uq, dstype *fb_w, dstype* fb_uh, ds
     if (ncw > 0) ArraySetValue(fb_w, 0.0, M*ncu*ncw);
 }
 
-void StgInflowHDG(dstype *fb, dstype *up, dstype *xdg, dstype *vdg, dstype *uhg, dstype *param, dstype *stgdata, dstype *uc, dstype t, int M, int N, int nd)
+template <class Ty = dstype>
+void StgInflowHDG(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *param, Ty *stgdata, Ty *uc, Ty t, int M, int N, int nd)
 {
+    using dstype = Ty;
 	if (nd == 1) {
 	}
 	else if (nd == 2) {
@@ -2954,8 +3220,10 @@ void StgInflowHDG(dstype *fb, dstype *up, dstype *xdg, dstype *vdg, dstype *uhg,
     }
 }
 
-void StgInflowHDG(dstype *fb, dstype *fb_uq, dstype *fb_w, dstype* fb_uh, dstype *up, dstype *xdg, dstype *vdg, dstype *uhg, dstype *param, dstype *stgdata, dstype *uc, dstype t, int M, int N, int nd, int ncu, int nc, int ncw)
+template <class Ty = dstype>
+void StgInflowHDG(Ty *fb, Ty *fb_uq, Ty *fb_w, Ty* fb_uh, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *param, Ty *stgdata, Ty *uc, Ty t, int M, int N, int nd, int ncu, int nc, int ncw)
 {
+    using dstype = Ty;
 	if (nd == 1) {
 	}
 	else if (nd == 2) {
@@ -2971,8 +3239,10 @@ void StgInflowHDG(dstype *fb, dstype *fb_uq, dstype *fb_w, dstype* fb_uh, dstype
     if (ncw > 0) ArraySetValue(fb_w, 0.0, M*ncu*ncw);    
 }
 
-void StgInflowLDG2D(dstype *fb, dstype *up, dstype *xdg, dstype *vdg, dstype *param, dstype *stgdata, dstype *uc, dstype t, int M, int N)
+template <class Ty = dstype>
+void StgInflowLDG2D(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *param, Ty *stgdata, Ty *uc, Ty t, int M, int N)
 {
+    using dstype = Ty;
     StgHomoTurb2D(up, xdg, stgdata, uc, t, M, N);
 
     Kokkos::parallel_for("StgInflowLDG2D", M, KOKKOS_LAMBDA(const size_t m) {
@@ -2994,8 +3264,10 @@ void StgInflowLDG2D(dstype *fb, dstype *up, dstype *xdg, dstype *vdg, dstype *pa
     });
 }
 
-void StgInflowLDG3D(dstype *fb, dstype *up, dstype *xdg, dstype *vdg, dstype *param, dstype *stgdata, dstype *uc, dstype t, int M, int N)
+template <class Ty = dstype>
+void StgInflowLDG3D(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *param, Ty *stgdata, Ty *uc, Ty t, int M, int N)
 {
+    using dstype = Ty;
     StgHomoTurb3D(up, xdg, stgdata, uc, t, M, N);
 
     Kokkos::parallel_for("StgInflowLDG3D", M, KOKKOS_LAMBDA(const size_t m) {
@@ -3020,8 +3292,10 @@ void StgInflowLDG3D(dstype *fb, dstype *up, dstype *xdg, dstype *vdg, dstype *pa
     });
 }
 
-void StgInflowLDG(dstype *fb, dstype *xdg, dstype *vdg, dstype *param, dstype *stgdata, dstype *uc, dstype t, int M, int N, int nd)
+template <class Ty = dstype>
+void StgInflowLDG(Ty *fb, Ty *xdg, Ty *vdg, Ty *param, Ty *stgdata, Ty *uc, Ty t, int M, int N, int nd)
 {
+    using dstype = Ty;
 	if (nd == 1) {
 	}
 	else if (nd == 2) {
