@@ -22,6 +22,18 @@ static_assert(T==dstype) in EXASIM_DRIVER_CALL AbiAdapter branch; forward-activa
 - P3 pblas tail (Inverse/PDOT/PNORM/DOT/Array*/NORM/PGEMNMStridedBached + blas<T> level-1 ops): 3461759a
   (GPU-verified this commit)
 
+- P4 concrete-model path <M,T=dstype,I=Int> (drivers.hpp + kernels/*.hpp storage+locals; model as
+  struct template Poisson2DT<T>) + tests/consumers/model_fp32 float32 test: 2fa9ab13, 25157d18
+  → float32 PASS as a CONSUMER, no Exasim rebuild: CPU (Serial) + GPU (CUDA V100),
+    max|float-double|/|double|=1.6e-07; double petsc_poisson still byte-identical (9.084e-14/0/2.65e-16).
+
+## float32 = one global precision choice, DEMONSTRATED (consumer-side, no rebuild)
+The point of ⑤: precision is a type-level choice, NOT the EXASIM_FLOAT build macro. model_fp32 proves
+it for the model-kernel path on CPU+GPU. A full float32 SOLVE still needs the export/preprocessing
+boundary templated (Preprocessed holds double structs; in-mem ctor does struct assignment) + a float
+PETSc (zero-copy PetscScalar static_assert) — Phase 5, deferred. Do NOT re-add an EXASIM_FLOAT rebuild
+path (that is objective ①, the old build-time switch; it defeats the templates).
+
 ## Phase 3 status: COMPUTE + ORCHESTRATION COMPLETE
 The whole solve path is now templated + byte-identical on CPU/CPU-MPI/GPU/GPU-MPI: structs, FEM classes,
 compute primitives (pblas/cpuimpl/kokkosimpl), the Discretization HDG/LDG free-function layer, and the
