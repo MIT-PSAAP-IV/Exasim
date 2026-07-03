@@ -277,7 +277,7 @@ inline void hdgMatVec(dstype *w, dstype *AE, dstype *v, dstype *ve, dstype *we, 
         neighbor = common.nbsd[n];
         nsend = common.elemsendpts[n]*bsz;
         if (nsend>0) {
-            MPI_Isend(&tmp.buffsend[psend], nsend, MPI_DOUBLE, neighbor, 0,
+            MPI_Isend(&tmp.buffsend[psend], nsend, mpi_type<dstype>(), neighbor, 0,
                   EXASIM_COMM_LOCAL, &common.requests[request_counter]);
             psend += nsend;
             request_counter += 1;
@@ -290,7 +290,7 @@ inline void hdgMatVec(dstype *w, dstype *AE, dstype *v, dstype *ve, dstype *we, 
         neighbor = common.nbsd[n];
         nrecv = common.elemrecvpts[n]*bsz;
         if (nrecv>0) {
-            MPI_Irecv(&tmp.buffrecv[precv], nrecv, MPI_DOUBLE, neighbor, 0,
+            MPI_Irecv(&tmp.buffrecv[precv], nrecv, mpi_type<dstype>(), neighbor, 0,
                   EXASIM_COMM_LOCAL, &common.requests[request_counter]);
             precv += nrecv;
             request_counter += 1;
@@ -325,7 +325,7 @@ inline void hdgMatVec(dstype *w, dstype *AE, dstype *v, dstype *ve, dstype *we, 
           neighbor = common.nbintf[n];
           nsend = common.facesendpts[n]*szRi;
           if (nsend>0) {
-              MPI_Isend(&tmp.bufffacesend[psend], nsend, MPI_DOUBLE, neighbor, 0,
+              MPI_Isend(&tmp.bufffacesend[psend], nsend, mpi_type<dstype>(), neighbor, 0,
                     EXASIM_COMM_WORLD, &common.requests[request_counter]);
               psend += nsend;
               request_counter += 1;
@@ -338,7 +338,7 @@ inline void hdgMatVec(dstype *w, dstype *AE, dstype *v, dstype *ve, dstype *we, 
           neighbor = common.nbintf[n];
           nrecv = common.facerecvpts[n]*szRi;
           if (nrecv>0) {
-              MPI_Irecv(&tmp.bufffacerecv[precv], nrecv, MPI_DOUBLE, neighbor, 0,
+              MPI_Irecv(&tmp.bufffacerecv[precv], nrecv, mpi_type<dstype>(), neighbor, 0,
                     EXASIM_COMM_WORLD, &common.requests[request_counter]);
               precv += nrecv;
               request_counter += 1;
@@ -433,7 +433,7 @@ inline void hdgAssembleLinearSystemMPI(dstype *b, solstruct &sol, resstruct &res
         neighbor = common.nbsd[n];
         nsend = common.elemsendpts[n]*bsz;
         if (nsend>0) {
-            MPI_Isend(&tmp.buffsend[psend], nsend, MPI_DOUBLE, neighbor, 0,
+            MPI_Isend(&tmp.buffsend[psend], nsend, mpi_type<dstype>(), neighbor, 0,
                   EXASIM_COMM_LOCAL, &common.requests[request_counter]);
             psend += nsend;
             request_counter += 1;
@@ -446,7 +446,7 @@ inline void hdgAssembleLinearSystemMPI(dstype *b, solstruct &sol, resstruct &res
         neighbor = common.nbsd[n];
         nrecv = common.elemrecvpts[n]*bsz;
         if (nrecv>0) {
-            MPI_Irecv(&tmp.buffrecv[precv], nrecv, MPI_DOUBLE, neighbor, 0,
+            MPI_Irecv(&tmp.buffrecv[precv], nrecv, mpi_type<dstype>(), neighbor, 0,
                   EXASIM_COMM_LOCAL, &common.requests[request_counter]);
             precv += nrecv;
             request_counter += 1;
@@ -481,7 +481,7 @@ inline void hdgAssembleLinearSystemMPI(dstype *b, solstruct &sol, resstruct &res
           neighbor = common.nbintf[n];
           nsend = common.facesendpts[n]*szRi;
           if (nsend>0) {
-              MPI_Isend(&tmp.bufffacesend[psend], nsend, MPI_DOUBLE, neighbor, 0,
+              MPI_Isend(&tmp.bufffacesend[psend], nsend, mpi_type<dstype>(), neighbor, 0,
                     EXASIM_COMM_WORLD, &common.requests[request_counter]);
               psend += nsend;
               request_counter += 1;
@@ -494,7 +494,7 @@ inline void hdgAssembleLinearSystemMPI(dstype *b, solstruct &sol, resstruct &res
           neighbor = common.nbintf[n];
           nrecv = common.facerecvpts[n]*szRi;
           if (nrecv>0) {
-              MPI_Irecv(&tmp.bufffacerecv[precv], nrecv, MPI_DOUBLE, neighbor, 0,
+              MPI_Irecv(&tmp.bufffacerecv[precv], nrecv, mpi_type<dstype>(), neighbor, 0,
                     EXASIM_COMM_WORLD, &common.requests[request_counter]);
               precv += nrecv;
               request_counter += 1;
@@ -580,7 +580,7 @@ inline void hdgAssembleResidualMPI(dstype *b, solstruct &sol, resstruct &res, ap
         neighbor = common.nbsd[n];
         nsend = common.elemsendpts[n]*bsz;
         if (nsend>0) {
-            MPI_Isend(&tmp.buffsend[psend], nsend, MPI_DOUBLE, neighbor, 0,
+            MPI_Isend(&tmp.buffsend[psend], nsend, mpi_type<dstype>(), neighbor, 0,
                   EXASIM_COMM_LOCAL, &common.requests[request_counter]);
             psend += nsend;
             request_counter += 1;
@@ -593,7 +593,7 @@ inline void hdgAssembleResidualMPI(dstype *b, solstruct &sol, resstruct &res, ap
         neighbor = common.nbsd[n];
         nrecv = common.elemrecvpts[n]*bsz;
         if (nrecv>0) {
-            MPI_Irecv(&tmp.buffrecv[precv], nrecv, MPI_DOUBLE, neighbor, 0,
+            MPI_Irecv(&tmp.buffrecv[precv], nrecv, mpi_type<dstype>(), neighbor, 0,
                   EXASIM_COMM_LOCAL, &common.requests[request_counter]);
             precv += nrecv;
             request_counter += 1;
@@ -623,7 +623,7 @@ inline void hdgAssembleResidualMPI(dstype *b, solstruct &sol, resstruct &res, ap
           neighbor = common.nbintf[n];
           nsend = common.facesendpts[n]*szRi;
           if (nsend>0) {
-              MPI_Isend(&tmp.bufffacesend[psend], nsend, MPI_DOUBLE, neighbor, 0,
+              MPI_Isend(&tmp.bufffacesend[psend], nsend, mpi_type<dstype>(), neighbor, 0,
                     EXASIM_COMM_WORLD, &common.requests[request_counter]);
               psend += nsend;
               request_counter += 1;
@@ -636,7 +636,7 @@ inline void hdgAssembleResidualMPI(dstype *b, solstruct &sol, resstruct &res, ap
           neighbor = common.nbintf[n];
           nrecv = common.facerecvpts[n]*szRi;
           if (nrecv>0) {
-              MPI_Irecv(&tmp.bufffacerecv[precv], nrecv, MPI_DOUBLE, neighbor, 0,
+              MPI_Irecv(&tmp.bufffacerecv[precv], nrecv, mpi_type<dstype>(), neighbor, 0,
                     EXASIM_COMM_WORLD, &common.requests[request_counter]);
               precv += nrecv;
               request_counter += 1;

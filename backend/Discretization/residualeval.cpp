@@ -174,7 +174,7 @@ void CResidual<M, T, I>::evalAVfield(dstype* avField, Int backend)
         neighbor = common.nbsd[n];
         nsend = common.elemsendpts[n]*bsz;
         if (nsend>0) {
-            MPI_Isend(&tmp.buffsend[psend], nsend, MPI_DOUBLE, neighbor, 0,
+            MPI_Isend(&tmp.buffsend[psend], nsend, mpi_type<dstype>(), neighbor, 0,
                    EXASIM_COMM_LOCAL, &common.requests[request_counter]);
             psend += nsend;
             request_counter += 1;
@@ -187,7 +187,7 @@ void CResidual<M, T, I>::evalAVfield(dstype* avField, Int backend)
         neighbor = common.nbsd[n];
         nrecv = common.elemrecvpts[n]*bsz;
         if (nrecv>0) {
-            MPI_Irecv(&tmp.buffrecv[precv], nrecv, MPI_DOUBLE, neighbor, 0,
+            MPI_Irecv(&tmp.buffrecv[precv], nrecv, mpi_type<dstype>(), neighbor, 0,
                    EXASIM_COMM_LOCAL, &common.requests[request_counter]);
             precv += nrecv;
             request_counter += 1;

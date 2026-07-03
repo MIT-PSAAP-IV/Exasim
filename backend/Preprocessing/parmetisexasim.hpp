@@ -2213,18 +2213,8 @@ inline void buildElemsend(const Mesh& mesh, DMD& dmd, MPI_Comm comm)
     }
 }
 
-// Helper: map C++ type to MPI_Datatype
-template<typename T>
-MPI_Datatype mpi_type();
-
-template<>
-inline MPI_Datatype mpi_type<double>() { return MPI_DOUBLE; }
-
-template<>
-inline MPI_Datatype mpi_type<float>()  { return MPI_FLOAT; }
-
-template<>
-inline MPI_Datatype mpi_type<int>()    { return MPI_INT; }
+// Helper mpi_type<T>() -> MPI_Datatype is now defined ONCE in backend/Common/common.h (Phase 3),
+// early enough to be visible to the halo-exchange + reduction sites too. (Was duplicated here.)
 
 template<typename T>
 inline void sendrecvdata(

@@ -322,7 +322,7 @@ inline void GetQMPI(solstruct &sol, resstruct &res, appstruct &app, masterstruct
         neighbor = common.nbsd[n];
         nsend = common.elemsendpts[n]*bsz;
         if (nsend>0) {
-            MPI_Isend(&tmp.buffsend[psend], nsend, MPI_DOUBLE, neighbor, 0,
+            MPI_Isend(&tmp.buffsend[psend], nsend, mpi_type<dstype>(), neighbor, 0,
                    EXASIM_COMM_LOCAL, &common.requests[request_counter]);
             psend += nsend;
             request_counter += 1;
@@ -335,7 +335,7 @@ inline void GetQMPI(solstruct &sol, resstruct &res, appstruct &app, masterstruct
         neighbor = common.nbsd[n];
         nrecv = common.elemrecvpts[n]*bsz;
         if (nrecv>0) {
-            MPI_Irecv(&tmp.buffrecv[precv], nrecv, MPI_DOUBLE, neighbor, 0,
+            MPI_Irecv(&tmp.buffrecv[precv], nrecv, mpi_type<dstype>(), neighbor, 0,
                    EXASIM_COMM_LOCAL, &common.requests[request_counter]);
             precv += nrecv;
             request_counter += 1;
@@ -400,7 +400,7 @@ inline void RuResidualMPI(solstruct &sol, resstruct &res, appstruct &app, master
         neighbor = common.nbsd[n];
         nsend = common.elemsendpts[n]*bsz;
         if (nsend>0) {
-            MPI_Isend(&tmp.buffsend[psend], nsend, MPI_DOUBLE, neighbor, 0,
+            MPI_Isend(&tmp.buffsend[psend], nsend, mpi_type<dstype>(), neighbor, 0,
                    EXASIM_COMM_LOCAL, &common.requests[request_counter]);
             psend += nsend;
             request_counter += 1;
@@ -413,7 +413,7 @@ inline void RuResidualMPI(solstruct &sol, resstruct &res, appstruct &app, master
         neighbor = common.nbsd[n];
         nrecv = common.elemrecvpts[n]*bsz;
         if (nrecv>0) {
-            MPI_Irecv(&tmp.buffrecv[precv], nrecv, MPI_DOUBLE, neighbor, 0,
+            MPI_Irecv(&tmp.buffrecv[precv], nrecv, mpi_type<dstype>(), neighbor, 0,
                    EXASIM_COMM_LOCAL, &common.requests[request_counter]);
             precv += nrecv;
             request_counter += 1;
@@ -528,7 +528,7 @@ inline void RuResidualMPI1(solstruct &sol, resstruct &res, appstruct &app, maste
         neighbor = common.nbsd[n];
         nsend = common.elemsendpts[n]*bsz;
         if (nsend>0) {
-            MPI_Isend(&tmp.buffsend[psend], nsend, MPI_DOUBLE, neighbor, 0,
+            MPI_Isend(&tmp.buffsend[psend], nsend, mpi_type<dstype>(), neighbor, 0,
                    EXASIM_COMM_LOCAL, &common.requests[request_counter]);
             psend += nsend;
             request_counter += 1;
@@ -541,7 +541,7 @@ inline void RuResidualMPI1(solstruct &sol, resstruct &res, appstruct &app, maste
         neighbor = common.nbsd[n];
         nrecv = common.elemrecvpts[n]*bsz;
         if (nrecv>0) {
-            MPI_Irecv(&tmp.buffrecv[precv], nrecv, MPI_DOUBLE, neighbor, 0,
+            MPI_Irecv(&tmp.buffrecv[precv], nrecv, mpi_type<dstype>(), neighbor, 0,
                    EXASIM_COMM_LOCAL, &common.requests[request_counter]);
             precv += nrecv;
             request_counter += 1;
@@ -762,7 +762,7 @@ inline void dRuResidualMPI(solstruct &sol, resstruct &res, appstruct &app, maste
         neighbor = common.nbsd[n];
         nsend = common.elemsendpts[n]*bsz;
         if (nsend>0) {
-            MPI_Isend(&tmp.buffsend[psend], nsend, MPI_DOUBLE, neighbor, 0,
+            MPI_Isend(&tmp.buffsend[psend], nsend, mpi_type<dstype>(), neighbor, 0,
                    EXASIM_COMM_LOCAL, &common.requests[request_counter]);
             psend += nsend;
             request_counter += 1;
@@ -775,7 +775,7 @@ inline void dRuResidualMPI(solstruct &sol, resstruct &res, appstruct &app, maste
         neighbor = common.nbsd[n];
         nrecv = common.elemrecvpts[n]*bsz;
         if (nrecv>0) {
-            MPI_Irecv(&tmp.buffrecv[precv], nrecv, MPI_DOUBLE, neighbor, 0,
+            MPI_Irecv(&tmp.buffrecv[precv], nrecv, mpi_type<dstype>(), neighbor, 0,
                    EXASIM_COMM_LOCAL, &common.requests[request_counter]);
             precv += nrecv;
             request_counter += 1;

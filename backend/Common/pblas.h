@@ -341,11 +341,7 @@ static void PDOT(cublasHandle_t handle, Int m, dstype* x, Int incx, dstype* y, I
 #endif  
     
 #ifdef HAVE_MPI        
-#ifdef USE_FLOAT        
-    MPI_Allreduce(&local_dot, global_dot, 1, MPI_FLOAT, MPI_SUM, EXASIM_COMM_WORLD);
-#else        
-    MPI_Allreduce(&local_dot, global_dot, 1, MPI_DOUBLE, MPI_SUM, EXASIM_COMM_WORLD);
-#endif         
+    MPI_Allreduce(&local_dot, global_dot, 1, mpi_type<dstype>(), MPI_SUM, EXASIM_COMM_WORLD);
 #else    
     //ArrayCopy(global_dot, local_dot, 1, backend);
     *global_dot = local_dot;
@@ -593,11 +589,7 @@ static void PGEMTV(cublasHandle_t handle, Int m, Int n, dstype *alpha, dstype* A
 #ifdef HAVE_HIP
     hipDeviceSynchronize();
 #endif        
-#ifdef USE_FLOAT         
-    MPI_Allreduce(ylocal, y, n, MPI_FLOAT, MPI_SUM, EXASIM_COMM_WORLD);
-#else            
-    MPI_Allreduce(ylocal, y, n, MPI_DOUBLE, MPI_SUM, EXASIM_COMM_WORLD);
-#endif    
+    MPI_Allreduce(ylocal, y, n, mpi_type<dstype>(), MPI_SUM, EXASIM_COMM_WORLD);
 #else
     ArrayCopy(y, ylocal, n);
 #endif    
@@ -714,11 +706,7 @@ static void PGEMTM(cublasHandle_t handle, Int m, Int n, Int k, dstype *alpha, ds
 #ifdef HAVE_HIP
     hipDeviceSynchronize();
 #endif            
-#ifdef USE_FLOAT         
-    MPI_Allreduce(Clocal, C, p, MPI_FLOAT, MPI_SUM, EXASIM_COMM_WORLD);
-#else            
-    MPI_Allreduce(Clocal, C, p, MPI_DOUBLE, MPI_SUM, EXASIM_COMM_WORLD);
-#endif    
+    MPI_Allreduce(Clocal, C, p, mpi_type<dstype>(), MPI_SUM, EXASIM_COMM_WORLD);
 #else
     ArrayCopy(C, Clocal, p);
 #endif        

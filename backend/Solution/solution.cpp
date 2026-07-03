@@ -274,7 +274,7 @@ void CSolution<M>::SteadyProblem(ofstream &out, Int backend)
                 neighbor = disc.common.nbsd[n];
                 nsend = disc.common.elemsendpts[n]*bsz;
                 if (nsend>0) {
-                    MPI_Isend(&disc.tmp.buffsend[psend], nsend, MPI_DOUBLE, neighbor, 0,
+                    MPI_Isend(&disc.tmp.buffsend[psend], nsend, mpi_type<dstype>(), neighbor, 0,
                         EXASIM_COMM_LOCAL, &disc.common.requests[request_counter]);
                     psend += nsend;
                     request_counter += 1;
@@ -286,7 +286,7 @@ void CSolution<M>::SteadyProblem(ofstream &out, Int backend)
                 neighbor = disc.common.nbsd[n];
                 nrecv = disc.common.elemrecvpts[n]*bsz;
                 if (nrecv>0) {
-                    MPI_Irecv(&disc.tmp.buffrecv[precv], nrecv, MPI_DOUBLE, neighbor, 0,
+                    MPI_Irecv(&disc.tmp.buffrecv[precv], nrecv, mpi_type<dstype>(), neighbor, 0,
                         EXASIM_COMM_LOCAL, &disc.common.requests[request_counter]);
                     precv += nrecv;
                     request_counter += 1;

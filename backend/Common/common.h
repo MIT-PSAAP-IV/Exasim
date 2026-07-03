@@ -81,10 +81,24 @@ typedef double dstype; //  double is default precision
 #ifdef USE_LONG
 typedef long Int;
 #else
-typedef int Int; 
+typedef int Int;
 #endif
 
-#ifndef HAVE_CUDA    
+#ifdef HAVE_MPI
+// mpi_type<T>(): the MPI_Datatype for a scalar/index type (Phase 3 -- the MPI companion to blas<T>).
+// Replaces hardcoded MPI_DOUBLE and `#ifdef USE_FLOAT MPI_FLOAT/DOUBLE` branches so MPI halo exchange
+// + reductions carry the element type by T. Spelled mpi_type<dstype>() today (byte-identical for the
+// default double build); becomes mpi_type<T>() once the comm helpers are templated. NB this also
+// FIXES a latent bug: the halo-exchange MPI_Isend/Irecv hardcoded MPI_DOUBLE while the buffers are
+// dstype*, so a single-precision (USE_FLOAT) build mis-typed every exchange (float* sent as double).
+template <class T> inline MPI_Datatype mpi_type();
+template <> inline MPI_Datatype mpi_type<double>() { return MPI_DOUBLE; }
+template <> inline MPI_Datatype mpi_type<float>()  { return MPI_FLOAT;  }
+template <> inline MPI_Datatype mpi_type<int>()    { return MPI_INT;    }
+template <> inline MPI_Datatype mpi_type<long>()   { return MPI_LONG;   }
+#endif
+
+#ifndef HAVE_CUDA
 #ifdef HAVE_HIP    
 #define cublasHandle_t hipblasHandle_t
 #define cudaEvent_t hipEvent_t

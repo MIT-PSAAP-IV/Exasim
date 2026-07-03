@@ -156,6 +156,18 @@ no conversion). (B) is bridge-work Phase 4 would supersede; both are localized t
 branch, so (A) locks in nothing. Phase 3 with the default `T=dstype` needs none of this — raw-buffer
 passthrough is byte-identical.
 
+### GPU verification loop (dgx-b, Tesla V100)
+The whole Phase 0-3 stack is verified on GPU, not just CPU. Sync committed HEAD with
+`remote/sync.sh dgx` (git-archive), rebuild the CUDA Exasim with `build-dgx.sh` (nvcc + prebuilt
+Kokkos CUDA sm_70 → `exasim-teoc-install-cuda`), then `build-petsc-gpu-consumer.sh` +
+`EXASIM_BACKEND=2 ./petsc_poisson`. As of `4e15bc5f` the templated `CDiscretization`/FEM
+classes/`blas<T>` trait/seam `static_assert` all compile under nvcc and the exported shim solves the
+HDG Poisson operators on a V100 (SNES 1 Newton iter, ShellMat vs `op.mat()` = 0, MATAIJ vs
+matrix-free = 2.6e-16 — matching the CPU run). NB: a GPU build run with `EXASIM_BACKEND=0` (serial CPU
+on a CUDA-configured Kokkos) is an unsupported cross-combo and fails in `cpuComputeInverse`; the
+supported pairing is CPU build→backend 0, GPU build→backend 2. Remaining Phase-3 GPU-touching work
+(pblas GPU trait, `kokkosimpl` device views) is verified through this same loop.
+
 ### BLAS trait (`backend/Common/pblas.h`) — STARTED
 `blas<T>` replaces the per-function `#ifdef USE_FLOAT S.. #else D..` branches with a by-value,
 type-dispatched interface (`blas<double>` → `dgemm`/`dgetrf`/…, `blas<float>` → `sgemm`/`sgetrf`/…),
@@ -164,6 +176,19 @@ unchanged rel_L2): the trait itself and the GEMM node/Gauss transforms (`cpuNode
 `Gauss2Node`) + the LAPACK inverse (`cpuComputeInverse`, `getrf`/`getri`). The GPU (cublas/hipblas)
 branches are still `#ifdef USE_FLOAT`-selected — correct under the default `T=dstype`; trait-ifying
 them for non-default GPU precision is the **remote-verified** tail (needs the dgx-b build).
+
+### MPI datatypes (`mpi_type<T>`) — STARTED + a latent bug fixed
+The MPI companion to `blas<T>`: `mpi_type<T>()` in `common.h` (`double→MPI_DOUBLE`, `float→MPI_FLOAT`,
+`int→MPI_INT`, `long→MPI_LONG`) — consolidated from a duplicate that lived late in
+`parmetisexasim` (invisible to the earlier halo/reduction sites). Applied to: the `pblas.h`
+reduction `#ifdef USE_FLOAT` blocks (`PDOT`/`PGEMTV`/`PGEMTM`) and **34 halo-exchange sites** across
+`matvec.hpp`, `residual.hpp`, `residualeval.cpp`, `ldgblockjacobian.cpp`, `solution.cpp`,
+`postsolution.cpp`, `solutionwriter.cpp`, `setsysstruct.cpp`. **Bug fixed:** those halo `MPI_Isend/Irecv`
+hardcoded `MPI_DOUBLE` even though the buffers are `dstype*`, so a single-precision (`USE_FLOAT`) build
+mis-typed every exchange — now `mpi_type<dstype>()` (byte-identical for double, correct for float,
+auto-becomes `mpi_type<T>()` with the `using dstype=T` shadow). ParMETIS `MPI_DOUBLE` left alone (its
+`real_t` weights are a separate concern). Verified: CPU-MPI full rebuild + multi-rank app-regression at
+unchanged rel_L2. GPU-MPI (dgx-b `petsc_poisson_mpi`) is the next check.
 
 ### Remaining Phase 3 (large, high-churn, mostly GPU-untestable locally)
 - Rest of `pblas.h`: `PGEMTM`/`PGEMNV`/`PGEMTV` (hot element-block GEMMs), `PGEMNMStridedBached`,
