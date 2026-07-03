@@ -958,7 +958,7 @@ if(EXASIM_FRONTENDS)
     install(CODE "
       message(STATUS \"pip install ${EXASIM_DIR}/frontends/Python (into ${Python3_EXECUTABLE})\")
       execute_process(
-        COMMAND ${Python3_EXECUTABLE} -m pip install --quiet --break-system-packages ${EXASIM_DIR}/frontends/Python
+        COMMAND ${Python3_EXECUTABLE} -m pip install --quiet ${EXASIM_DIR}/frontends/Python
         RESULT_VARIABLE _pipres)
       if(NOT _pipres EQUAL 0)
         message(FATAL_ERROR \"pip install failed (is the interpreter pip-writable?)\")
