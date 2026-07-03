@@ -204,7 +204,7 @@ multi-rank app-regression at unchanged rel_L2; **GPU-MPI** on dgx-b (`petsc_pois
   device-compiles all 137 templated lambdas and petsc_poisson (backend=2) is byte-identical
   (residual 9.119e-14, ShellMat vs op.mat()=0, MATAIJ 2.62e-16).
 
-### Discretization free-function layer — DONE + verified (CPU)
+### Discretization free-function layer — DONE + verified (CPU + GPU)
 All HDG/LDG orchestration free functions in `backend/Discretization/*.hpp` are now
 `template <class M, class T=dstype, class I=Int>` (or `<class T=dstype, class I=Int>` for the
 model-independent ones): signatures retype the struct params to `XxxstructT<T,I>&` and `dstype*`→`T*`,
@@ -220,9 +220,12 @@ auto-activate into the real `T==dstype` guard (the `using dstype=T` shadow reach
   construction — needed so a non-`dstype` discretization can set up its own structs.
 - Left alone (byte-format boundary, not compute): `readbinaryfiles`/`ioutilities`/`connectivity`/
   `ismeshcurved` (no driver, no compute; file precision is a separate concern from solve precision).
-- Verified: full Exasim rebuild + install + multi-app regression at **unchanged rel_L2** (naca0012
+- Verified CPU: full Exasim rebuild + install + multi-app regression at **unchanged rel_L2** (naca0012
   2.94e-13, nsmach8 3.63e-15, poisson3d 9.99e-11, isoq3d 1.95e-9, poisson2d 2.29e-12; 10 pass, 2
   pre-existing np=4 RUN_FAILs).
+- Verified GPU (dgx-b V100): nvcc device-compiles the templated headers into both the CUDA Exasim
+  library and the petsc_poisson consumer; run with `EXASIM_BACKEND=2` is byte-identical (residual
+  9.119e-14, ShellMat vs op.mat()=0, MATAIJ 2.622e-16).
 
 ### Remaining Phase 3
 - Thread `using dstype=T` into the comm helpers so `mpi_type<dstype>()`→`mpi_type<T>()` auto-activates.
