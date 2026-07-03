@@ -73,15 +73,23 @@ public:
     Vec rhs()  const { return b0_; }        // the condensed RHS b0 (aliases sys.b)
     Vec make_vec() const { Vec v; VecDuplicate(b0_, &v); return v; }
 
+    // Configure an EXTERNALLY-owned PC (e.g. from PETSc TS's internally-created KSP) as our PCShell
+    // applying res.K -- so a KSP/SNES/TS the caller (not this Operator) created can still drive the
+    // exported preconditioner. make_ksp/make_snes below are thin wrappers over this.
+    void configure_pc(PC pc)
+    {
+        PCSetType(pc, PCSHELL);
+        PCShellSetContext(pc, this);
+        PCShellSetApply(pc, pcapply);
+    }
+
     // A KSP with our MatShell + a PCShell applying res.K. Caller sets type/tol/options.
     KSP make_ksp()
     {
         KSP ksp; KSPCreate(comm_, &ksp);
         KSPSetOperators(ksp, J_, J_);
         PC pc; KSPGetPC(ksp, &pc);
-        PCSetType(pc, PCSHELL);
-        PCShellSetContext(pc, this);
-        PCShellSetApply(pc, pcapply);
+        configure_pc(pc);
         return ksp;
     }
 
@@ -94,9 +102,7 @@ public:
         SNESSetJacobian(snes, J_, J_, formjacobian, this);
         KSP ksp; SNESGetKSP(snes, &ksp);
         PC pc; KSPGetPC(ksp, &pc);
-        PCSetType(pc, PCSHELL);
-        PCShellSetContext(pc, this);
-        PCShellSetApply(pc, pcapply);
+        configure_pc(pc);
         return snes;
     }
 

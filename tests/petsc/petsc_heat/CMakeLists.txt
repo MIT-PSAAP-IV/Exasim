@@ -1,4 +1,5 @@
-# P1b — PETSc drives Exasim's exported HDG operators (steady Poisson).
+# P2 — PETSc TS owns the time loop for the heat equation, driving Exasim's exported HDG operators
+#      (MatShell res.H + PCShell res.K + assemble_matrix + Vanka), same as steady petsc_poisson.
 #
 # Build (CI wires this via tests/petsc/run-petsc-test.sh):
 #   cmake -S tests/petsc/petsc_heat -B /tmp/petsc_heat_build \
@@ -19,7 +20,7 @@ project(exasim_petsc_heat CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Exasim REQUIRED COMPONENTS cpu)
+find_package(Exasim REQUIRED COMPONENTS cpu petsc)
 find_package(Kokkos REQUIRED)
 find_package(BLAS   REQUIRED)
 find_package(LAPACK REQUIRED)
@@ -46,6 +47,6 @@ target_include_directories(petsc_heat PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/../../models" "${OPENMPI_PREFIX}/include")
 target_link_directories(petsc_heat PRIVATE "${OPENMPI_PREFIX}/lib")
 target_link_libraries(petsc_heat PRIVATE
-    Exasim::headers Kokkos::kokkos
+    Exasim::headers Exasim::petsc Kokkos::kokkos
     ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}
     PkgConfig::PETSC mpi)
