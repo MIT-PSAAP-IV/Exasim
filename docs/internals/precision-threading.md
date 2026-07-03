@@ -248,15 +248,41 @@ op.mat()=0, MATAIJ 2.622e-16).
   carry `using dstype=T`, so they auto-activate to `mpi_type<T>()`; the remaining `#ifdef USE_FLOAT`
   reduction sites are already `mpi_type<dstype>()`.
 
-## Phase 4 — Codegen kernels
-`text2code` / the model codegen (`backend/Model/**`, `frontends/*/Gencode`) emit `dstype`-typed
-kernels. Either template the generated signatures on `T` or generate a per-precision set. This is the
-last mile (generated code is the bulk of the 692 files) and the highest-churn.
+## Phase 4 — Model-kernel path
 
-## Phase 5 — Cutover
-Once everything is templated with `dstype`/`Int` as *default* args, mixed precision is available:
-instantiate a `float` solve inside a `double` build, or let the PETSc consumer pick. The global
-`dstype`/`Int` typedefs remain only as the default arguments.
+### Concrete-model path (`include/exasim/`) — DONE + float32-verified (CPU + GPU)
+The consumer-facing templated model path is now precision-generic, which is what lets a **consumer
+pick float32 with no Exasim rebuild** (the payoff of the whole effort):
+- `include/exasim/drivers.hpp` (`*Driver<M>`) and `include/exasim/kernels/*.hpp` (`*_kernel<M>`) are now
+  `<M, T=dstype, I=Int>`; the SoA storage buffers **and** the per-point gather/scatter locals were
+  retyped `dstype`/`double` → `T`, so a `float` instantiation is pure-float32 (byte-identical at the
+  default `T=dstype`). The stance-A seam `static_assert` does not block this — it lives in the
+  *AbiAdapter* branch, whereas this is the concrete-`exasim::Name<M>` path.
+- The model becomes a **struct template** (pattern: `tests/models/poisson2d.hpp` →
+  `Poisson2DT<T>` with `using Poisson2D = Poisson2DT<double>`). Methods stay non-template so the
+  `is_flux_model_v` `decltype(&M::flux)` trait still detects them and the double path is unchanged.
+- **`tests/consumers/model_fp32`**: a consumer that instantiates the Poisson2D flux/source/qoi Kokkos
+  kernels at **float AND double** against the double-default install. CPU (Serial) and GPU (CUDA, dgx-b
+  V100) both PASS: `max |float−double|/|double| = 1.6e-07` (fp32 limit), double vs analytic ≤5e-16.
+  The double `petsc_poisson` consumer recompiles byte-identical (9.084e-14 / 0 / 2.651e-16).
+
+### Remaining Phase 4 — generated codegen
+`text2code` / `frontends/*/Gencode` emit `dstype`-typed kernels + a non-template model. To let the
+*generated* apps (not just hand-written test models) pick precision, emit the model as a `struct XT<T>`
++ template the generated kernel signatures on `T` (or generate a per-precision set). Highest-churn
+(generated code is the bulk of the 692 files); the hand-written path above is the proven template.
+
+## Phase 5 — Cutover (full float32 *solve*)
+The float32 *model-kernel path* is proven (above). A full float32 **solve** as a consumer additionally
+needs the **export/preprocessing boundary** crossed — currently the explicit `dstype` boundary
+(`include/exasim/export.hpp` says so): `exasim::Preprocessed` (in `backend/Preprocessing/buildstructs.hpp`)
+holds `double` `appstruct`/`meshstruct`/`solstruct`, and the in-memory `CDiscretizationT<T,I>` ctor
+does struct **assignment** (`app = pre.app`) — so a `float` disc can't be built from a `double`
+`Preprocessed` without templating `Preprocessed` + `make_preprocessed` + `CPreprocessing`/`meshFromArrays`
+(or converting field-by-field in the ctor: "preprocess in double, solve in float"). Separately, the
+PETSc `Operator`/`ShellMat` do **zero-copy** `Vec` reinterpret guarded by
+`static_assert(sizeof(PetscScalar)==sizeof(Scalar))`, so the PETSc-driven float path also needs a
+float-built PETSc (or a converting, non-zero-copy Vec bridge). Both are deferred.
 
 ## Strategy & verification
 - **Bottom-up**: structs → classes → kernels → codegen. Each phase leaves `dstype`/`Int` as defaulted

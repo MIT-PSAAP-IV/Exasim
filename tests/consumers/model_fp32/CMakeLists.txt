@@ -15,7 +15,15 @@ project(exasim_model_fp32 CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Exasim REQUIRED COMPONENTS cpu)
+# EXASIM_GPU=ON builds against the CUDA Exasim (Exasim::gpu) and must be compiled by
+# Kokkos' nvcc_wrapper (-DCMAKE_CXX_COMPILER=.../nvcc_wrapper). The float32 kernels then
+# run on the device. CPU default uses the serial/OpenMP install.
+option(EXASIM_GPU "Build against the CUDA Exasim" OFF)
+if(EXASIM_GPU)
+  find_package(Exasim REQUIRED COMPONENTS gpu)
+else()
+  find_package(Exasim REQUIRED COMPONENTS cpu)
+endif()
 find_package(Kokkos REQUIRED)
 find_package(BLAS   REQUIRED)
 find_package(LAPACK REQUIRED)

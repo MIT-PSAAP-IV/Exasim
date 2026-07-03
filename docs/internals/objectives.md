@@ -35,5 +35,11 @@ lets the PETSc consumer pick precision and keeps the operator export clean.
 Phase 5 cutover + the GPU `blas<T>` trait). **Decision: bank at single-global-precision granularity** —
 the whole tree flips together via the one `dstype` choice (`EXASIM_FLOAT`); mixed-precision is deferred.
 This keeps ⑤ a completed, verified foundation and leaves **③ (PETSc export surface)** and **⑥C (lint
-gate)** as the forward objectives, not the mixed-precision rabbit hole. The single-precision (`float32`)
-build is validated end-to-end on all four targets with a dedicated `poisson2d` fp32 test.
+gate)** as the forward objectives, not the mixed-precision rabbit hole.
+
+**float32 demonstrated as a consumer choice (no rebuild).** `tests/consumers/model_fp32` instantiates
+the Poisson2D model + its flux/source/qoi Kokkos kernels at `float` (and `double`) against the
+double-default install — proving precision is a *type-level* choice, not `EXASIM_FLOAT` at build time.
+PASS on CPU (Serial) and GPU (CUDA V100): `max |float−double|/|double| = 1.6e-07`. A full float32
+*solve* additionally needs the export/preprocessing boundary templated (`Preprocessed` holds double
+structs) + a float PETSc — deferred to Phase 5 (see `precision-threading.md`).
