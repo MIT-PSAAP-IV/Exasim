@@ -34,9 +34,15 @@ static Fields<T> run(int ng, const std::vector<double>& X, const std::vector<dou
 {
     using Model = Poisson2DT<T>;
     constexpr int nd = Model::nd, ncu = Model::ncu, Nq = ncu * (1 + nd);
+    // Number of QoI outputs the qoi_volume kernel writes: Poisson2D::QoI::qoi_volume
+    // writes s[0]=(u-uexact)^2 and s[1]=u -> 2. This is the kernel's write count
+    // (nc_runtime); it is NOT Nq (the udg component count). Passing Nq here made the
+    // kernel write a 3rd component past q's end -> heap overflow (benign on macOS,
+    // fatal on glibc/Linux).
+    constexpr int nqoi = 2;
 
     Kokkos::View<T*> xdg("xdg", ng * nd), udg("udg", ng * Nq), param("param", 1);
-    Kokkos::View<T*> f("f", ng * ncu * nd), s("s", ng * ncu), q("q", ng * 2);
+    Kokkos::View<T*> f("f", ng * ncu * nd), s("s", ng * ncu), q("q", ng * nqoi);
 
     auto hx = Kokkos::create_mirror_view(xdg);
     auto hu = Kokkos::create_mirror_view(udg);
@@ -59,7 +65,7 @@ static Fields<T> run(int ng, const std::vector<double>& X, const std::vector<dou
                                       nullptr, param.data(), t, 0, ng, Nq, ncu, nd, nd, 0, 0);
     exasim::qoi_volume_kernel<typename Model::QoI, T>
                                      (q.data(), xdg.data(), udg.data(), nullptr, nullptr,
-                                      nullptr, param.data(), t, 0, ng, Nq, ncu, nd, nd, 0, 0);
+                                      nullptr, param.data(), t, 0, ng, nqoi, ncu, nd, nd, 0, 0);
     Kokkos::fence();
 
     auto hf = Kokkos::create_mirror_view(f);
