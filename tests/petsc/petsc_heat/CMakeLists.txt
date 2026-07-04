@@ -39,14 +39,22 @@ pkg_check_modules(PETSC REQUIRED IMPORTED_TARGET petsc)
 
 # PETSC_COMM_SELF expands to &ompi_mpi_comm_self, so the binary references open-mpi
 # symbols directly -> link the SAME open-mpi PETSc was built against (conda's libmpi).
-# We do NOT use find_package(MPI) (could resolve a different MPI); point at the prefix.
-set(OPENMPI_PREFIX "${PETSC_PREFIX}" CACHE PATH "open-mpi prefix (the one PETSc uses)")
-
+# conda/summit: mpi.h shares PETSC_PREFIX -> point at the prefix (keeps PETSc's exact
+# open-mpi). System PETSc (e.g. Debian petsc-real, on the summit buildbot) keeps mpi.h in
+# a separate MPI package outside PETSC_PREFIX -> locate it via find_package(MPI).
 add_executable(petsc_heat main.cpp)
 target_include_directories(petsc_heat PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/../../models" "${OPENMPI_PREFIX}/include")
-target_link_directories(petsc_heat PRIVATE "${OPENMPI_PREFIX}/lib")
-target_link_libraries(petsc_heat PRIVATE
-    Exasim::headers Exasim::petsc Kokkos::kokkos
-    ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}
-    PkgConfig::PETSC mpi)
+    "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/../../models")
+if(EXISTS "${PETSC_PREFIX}/include/mpi.h")
+  set(OPENMPI_PREFIX "${PETSC_PREFIX}" CACHE PATH "open-mpi prefix (the one PETSc uses)")
+  target_include_directories(petsc_heat PRIVATE "${OPENMPI_PREFIX}/include")
+  target_link_directories(petsc_heat PRIVATE "${OPENMPI_PREFIX}/lib")
+  target_link_libraries(petsc_heat PRIVATE
+      Exasim::headers Exasim::petsc Kokkos::kokkos
+      ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} PkgConfig::PETSC mpi)
+else()
+  find_package(MPI REQUIRED COMPONENTS CXX)
+  target_link_libraries(petsc_heat PRIVATE
+      Exasim::headers Exasim::petsc Kokkos::kokkos
+      ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} PkgConfig::PETSC MPI::MPI_CXX)
+endif()

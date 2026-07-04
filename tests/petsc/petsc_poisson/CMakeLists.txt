@@ -51,13 +51,20 @@ target_link_libraries(petsc_poisson PRIVATE
     Exasim::headers Exasim::pre Exasim::petsc Kokkos::kokkos PkgConfig::PETSC)
 
 if(NOT EXASIM_GPU)
-  # CPU: a CONDA PETSc built with open-mpi -> PETSC_COMM_SELF references ompi_mpi_comm_self,
-  # so link the same open-mpi explicitly. (A serial CUDA PETSc has no MPI, so the GPU path
-  # skips this.) BLAS/LAPACK for the FEM pblas calls.
+  # CPU: an MPI-built PETSc's headers include <mpi.h> and PETSC_COMM_SELF references the
+  # MPI runtime, so we must supply the SAME MPI. Two layouts:
+  #  - conda/summit: PETSc + its open-mpi share a prefix -> mpi.h at PETSC_PREFIX/include.
+  #  - system (e.g. Debian petsc-real): mpi.h lives in a separate MPI package, NOT under
+  #    PETSC_PREFIX -> locate it via find_package(MPI). (Seen on the summit buildbot.)
   find_package(BLAS REQUIRED)
   find_package(LAPACK REQUIRED)
-  set(OPENMPI_PREFIX "${PETSC_PREFIX}" CACHE PATH "open-mpi prefix (the one PETSc uses)")
-  target_include_directories(petsc_poisson PRIVATE "${OPENMPI_PREFIX}/include")
-  target_link_directories(petsc_poisson PRIVATE "${OPENMPI_PREFIX}/lib")
-  target_link_libraries(petsc_poisson PRIVATE ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} mpi)
+  if(EXISTS "${PETSC_PREFIX}/include/mpi.h")
+    set(OPENMPI_PREFIX "${PETSC_PREFIX}" CACHE PATH "open-mpi prefix (the one PETSc uses)")
+    target_include_directories(petsc_poisson PRIVATE "${OPENMPI_PREFIX}/include")
+    target_link_directories(petsc_poisson PRIVATE "${OPENMPI_PREFIX}/lib")
+    target_link_libraries(petsc_poisson PRIVATE ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} mpi)
+  else()
+    find_package(MPI REQUIRED COMPONENTS CXX)
+    target_link_libraries(petsc_poisson PRIVATE ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} MPI::MPI_CXX)
+  endif()
 endif()
