@@ -72,9 +72,23 @@ endforeach()
 
 # Cheap extra Poisson app-regression cases through the Python frontend -- bring app
 # numerical coverage into CI beyond the default 2D HDG case. CASE=<name> selects
-# pdeapp_<name>.py + pdemodel_<name>.py; each gates the analytic (u-uexact)^2 QoI so
-# no golden baseline is needed. Python-only (the harness SKIPs 77 for julia/matlab).
+# pdeapp_<name>.py (+ pdemodel_<name>.py if present); each gates the analytic
+# (u-uexact)^2 QoI so no golden baseline is needed. Python-only (SKIPs 77 otherwise).
 #
+# LDG (hybrid=0): exercises the LDG discretization end-to-end through the frontend --
+# coverage nothing else in CI provides (CPU LDG app-regression + GPU LDG are
+# local/remote only). Reuses pdemodel.py; same cheap 16x16 p3 mesh -> tight 1e-8 gate.
+add_test(NAME frontend_python_ldg
+  COMMAND ${CMAKE_COMMAND} -E env
+    "EXASIM_ROOT=${EXASIM_DIR}"
+    "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}"
+    "FRONTEND=python"
+    "CASE=ldg"
+    "PYTHON3=${Python3_EXECUTABLE}"
+    bash "${EXASIM_DIR}/tests/frontends/run-frontend-test.sh")
+set_tests_properties(frontend_python_ldg PROPERTIES
+  TIMEOUT 2400 SKIP_RETURN_CODE 77)
+
 # 3D coverage (the other frontend cases are 2D SquareMesh). Small 6^3 hex mesh at
 # porder 3; the coarser 3D discretization leaves error^2 ~ 6e-7, so gate at 1e-6 (a
 # real broken 3D solve gives O(1) error and still fails loudly).
