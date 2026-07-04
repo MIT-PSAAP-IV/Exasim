@@ -16,7 +16,7 @@ mostly-low-risk backlog captured below.
 ## Test result — CHEFSI-apps coupling still works ✅
 
 Rebuilt + installed Exasim from this branch **out of tree** into
-`/Users/teoc/projects/psaap4/Exasim-build` (install prefix
+`<repo>/../Exasim-build` (install prefix
 `Exasim-build/install`), then ran
 `~/projects/psaap4/remote/test-coupling.sh` with `EXASIM_INSTALL` pointed at it.
 
