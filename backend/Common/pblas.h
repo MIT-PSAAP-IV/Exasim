@@ -84,8 +84,12 @@ template <> struct blas<float> {
     static void getrf(Int m, Int n, float* A, Int lda, Int* ipiv, Int& info) { SGETRF(&m, &n, A, &lda, ipiv, &info); }
     static void getri(Int n, float* A, Int lda, const Int* ipiv, float* work, Int lwork, Int& info)
         { SGETRI(&n, A, &lda, const_cast<Int*>(ipiv), work, &lwork, &info); }
+    // NB: do NOT call the BLAS sdot_ here. On several platforms (macOS Accelerate, f2c/CLAPACK)
+    // the F77 single-precision REAL function sdot_ returns a *double* in the ABI, but it is
+    // declared `float SDOT(...)` in common.h -> the return is misread as garbage (~1e-19). A manual
+    // loop is correct and ABI-safe; accumulate in double to keep the reduction well-conditioned.
     static float dot(Int n, const float* x, Int incx, const float* y, Int incy)
-        { return SDOT(&n, const_cast<float*>(x), &incx, const_cast<float*>(y), &incy); }
+        { double s = 0.0; for (Int i = 0; i < n; ++i) s += (double)x[i*incx] * (double)y[i*incy]; return (float)s; }
     static void copy(Int n, const float* x, Int incx, float* y, Int incy)
         { SCOPY(&n, const_cast<float*>(x), &incx, y, &incy); }
     static void scal(Int n, float a, float* x, Int incx) { SSCAL(&n, &a, x, &incx); }

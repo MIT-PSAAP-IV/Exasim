@@ -56,7 +56,7 @@ inline void qoiElemBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<
         dstype dotprod = 0;
         PDOT(handle, ne, tmp.tempg, inc1, &tmp.tempn[i*ne], inc1, &dotprod, backend);
         common.qoiparams.qoivolume[i] += dotprod;
-    }    
+    }
 }
 
 template <class M, class T=dstype, class I=Int>
