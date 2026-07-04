@@ -24,7 +24,10 @@
 #pragma once
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdlib>
+#include <cstring>
+#include <fstream>
 #include <memory>
 #include <string>
 #include <utility>
@@ -117,6 +120,28 @@ struct MeshSpec {
         boundary_preds.push_back(std::move(pred));
     }
 };
+
+// ---- Mesh loading from a file into the pure-C++ path -----------------------
+// Load a mesh from a file into a Mesh, using the backend's readMeshFromFile
+// dispatch (by extension: .bin Exasim-binary / .msh Gmsh v2+v4 / .vtk / .vtu /
+// .txt), so a consumer can drive the in-memory path from an on-disk mesh without
+// pdeapp.txt/pdemodel.txt or any frontend. The Mesh's p/t already use the same
+// column-major, 0-based layout MeshSpec expects.
+inline Mesh read_mesh(const std::string& path)
+{
+    Mesh m;
+    readMeshFromFile(path, m);
+    return m;
+}
+
+// View a loaded Mesh as a MeshSpec for make_preprocessed. The MeshSpec does NOT
+// own the arrays -- `m` must outlive the returned spec and any make_preprocessed
+// call consuming it. Boundary tagging remains the caller's job (add_boundary
+// predicates on the returned spec), exactly as for an array-built MeshSpec.
+inline MeshSpec as_mesh_spec(const Mesh& m)
+{
+    return MeshSpec(m.p.data(), m.t.data(), m.np, m.ne, m.nve);
+}
 
 // Build the in-memory Preprocessed bundle (mesh + master element + runtime structs)
 // from a PDE config + mesh. No datain files are written. Serial (mpiprocs == 1).
@@ -243,6 +268,86 @@ inline std::vector<T> eval_qoi(CDiscretizationT<T,I>& disc)
     qoiElement<M>(disc.sol, disc.res, disc.app, disc.master, disc.mesh, disc.tmp, disc.common);
     return std::vector<T>(disc.common.qoiparams.qoivolume,
                           disc.common.qoiparams.qoivolume + nv);
+}
+
+// ---- Solution persistence -------------------------------------------------
+// save_solution / load_solution: dump and restore the DG solve state
+// (sol.udg, sol.uh, sol.wdg, sol.odg) to a self-describing binary file, purely
+// programmatically -- no datain/dataout layout, no pdeapp.txt, no frontend.
+// The on-disk format stores the *native* scalar T (so a float file and a double
+// file are distinct, and a precision-mismatched reload errors loudly) plus each
+// array's element count, which load_solution checks against the live
+// discretization. Backend-agnostic: on a device backend the arrays are staged
+// through host buffers with TemplateCopytoHost/Device.
+//
+// File layout:  "EXASOL1\0" (8B) | int32 sizeof(T) | int32 reserved(=0) |
+//               int64[4] {szudg,szuh,szwdg,szodg} | T[szudg] | T[szuh] | ...
+namespace detail {
+static constexpr char kSolMagic[8] = {'E','X','A','S','O','L','1','\0'};
+}
+
+template <class T = floatTy, class I = intTy>
+inline void save_solution(CDiscretizationT<T,I>& disc, const std::string& path)
+{
+    auto& s = disc.sol;
+    const int backend = disc.common.backend;
+    const int64_t sz[4]   = { (int64_t)s.szudg, (int64_t)s.szuh, (int64_t)s.szwdg, (int64_t)s.szodg };
+    T* const      arr[4]  = { s.udg, s.uh, s.wdg, s.odg };
+
+    std::ofstream out(path.c_str(), std::ios::out | std::ios::binary);
+    if (!out) error("save_solution: cannot open " + path);
+    const int32_t ssize = (int32_t)sizeof(T), reserved = 0;
+    out.write(detail::kSolMagic, 8);
+    out.write(reinterpret_cast<const char*>(&ssize),    sizeof(ssize));
+    out.write(reinterpret_cast<const char*>(&reserved), sizeof(reserved));
+    out.write(reinterpret_cast<const char*>(sz),        sizeof(sz));
+
+    std::vector<T> h;
+    for (int k = 0; k < 4; ++k) {
+        if (sz[k] <= 0) continue;
+        h.resize((size_t)sz[k]);
+        if (backend > 1) TemplateCopytoHost(h.data(), arr[k], (::Int)sz[k], backend);
+        else             std::copy(arr[k], arr[k] + sz[k], h.data());
+        out.write(reinterpret_cast<const char*>(h.data()), (std::streamsize)(sz[k] * sizeof(T)));
+    }
+    if (!out) error("save_solution: write failed for " + path);
+}
+
+template <class T = floatTy, class I = intTy>
+inline void load_solution(CDiscretizationT<T,I>& disc, const std::string& path)
+{
+    auto& s = disc.sol;
+    const int backend = disc.common.backend;
+    const int64_t live[4] = { (int64_t)s.szudg, (int64_t)s.szuh, (int64_t)s.szwdg, (int64_t)s.szodg };
+    T* const      arr[4]  = { s.udg, s.uh, s.wdg, s.odg };
+    static const char* const nm[4] = { "udg", "uh", "wdg", "odg" };
+
+    std::ifstream in(path.c_str(), std::ios::in | std::ios::binary);
+    if (!in) error("load_solution: cannot open " + path);
+    char magic[8] = {0};
+    in.read(magic, 8);
+    if (std::memcmp(magic, detail::kSolMagic, 8) != 0) error("load_solution: bad magic in " + path);
+    int32_t ssize = 0, reserved = 0;
+    in.read(reinterpret_cast<char*>(&ssize),    sizeof(ssize));
+    in.read(reinterpret_cast<char*>(&reserved), sizeof(reserved));
+    if (ssize != (int32_t)sizeof(T))
+        error("load_solution: scalar-size mismatch (file " + std::to_string(ssize) +
+              "B vs live " + std::to_string(sizeof(T)) + "B) in " + path);
+    int64_t sz[4] = {0,0,0,0};
+    in.read(reinterpret_cast<char*>(sz), sizeof(sz));
+
+    std::vector<T> h;
+    for (int k = 0; k < 4; ++k) {
+        if (sz[k] != live[k])
+            error(std::string("load_solution: ") + nm[k] + " size mismatch (file " +
+                  std::to_string(sz[k]) + " vs live " + std::to_string(live[k]) + ") in " + path);
+        if (sz[k] <= 0) continue;
+        h.resize((size_t)sz[k]);
+        in.read(reinterpret_cast<char*>(h.data()), (std::streamsize)(sz[k] * sizeof(T)));
+        if (!in) error(std::string("load_solution: short read for ") + nm[k] + " in " + path);
+        if (backend > 1) TemplateCopytoDevice(arr[k], h.data(), (::Int)sz[k], backend);
+        else             std::copy(h.begin(), h.end(), arr[k]);
+    }
 }
 
 // Write the current solution to a ParaView .vtu file, using Exasim's existing vis
