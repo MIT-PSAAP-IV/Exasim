@@ -320,9 +320,13 @@ LAPACK-solves, and compares the float trace solution to the double one — `||uh
 1.01e-4` (fp32 dense-LU accuracy). Double path fully intact (app-regression 12/12, petsc_poisson
 byte-identical).
 
-**Known follow-up:** the float32 `eval_qoi` volume-integral readback underflows to ~0 (`qoi[1]=1e-19`
-vs `0.405`) — a post-processing quadrature-precision quirk; the *solve* is correct (float `||uh||`
-matches double to fp32). Tracked separately.
+**Latent BLAS bug fixed along the way:** the float32 `eval_qoi` volume integral first read ~0
+(`qoi[1]=1e-19` vs `0.405`). Root cause: `blas<float>::dot` called the BLAS `sdot_`, but on several
+platforms (macOS Accelerate, f2c/CLAPACK) the F77 single-precision REAL function `sdot_` returns a
+*double* in the ABI while `common.h` declares `float SDOT(...)`, so the return was misread as garbage —
+silently zeroing every single-precision `PDOT`/`DOT`/`NORM`. Fixed by computing `blas<float>::dot` with
+a manual loop (double accumulation), sidestepping the `sdot_` ABI landmine; `DDOT` (double) is untouched
+so the default path stays byte-identical. Float32 QoI is now correct (`qoi[1]=0.405249` vs `0.405285`).
 
 ### PETSc-driven float path
 Separately, `Operator`/`ShellMat` do **zero-copy** `Vec` reinterpret guarded by

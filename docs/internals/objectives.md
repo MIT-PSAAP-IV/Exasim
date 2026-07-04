@@ -14,7 +14,7 @@ heat-equation / Poisson consumer is the reference). Everything below is in servi
 | ② | **PETSc Layer-1 shim** — `Exasim::petsc` library exposing `Operator` / `ShellMat` | ✅ done |
 | ③ | **Export surface** — residual + assembled matrix (MATAIJ) + matrix-free MatMult + block matrices as the concrete API a PETSc app calls | 🔶 in progress (the live thread) |
 | ④ | **Robustness / equivalence harness** — consistency checks + a harness proving exported operators match the native solve | ✅ done |
-| ⑤ | **Precision→template threading** — thread `T=dstype, I=Int` through the whole backend so precision is *type-level*, byte-identical under defaults, frontends untouched | ✅ compute+orchestration complete |
+| ⑤ | **Precision→template threading** — thread `T=dstype, I=Int` through the whole backend so precision is *type-level*, byte-identical under defaults, frontends untouched | ✅ done — full float32 **solve** works as a consumer type-choice (no rebuild) |
 | ⑥A/B | **Coverage** — llvm-cov report + coverage-guided baseline test expansion | ✅ done |
 | ⑥C | **Quality gate** — clang-format + clang-tidy | ⚪ pending |
 
@@ -30,16 +30,26 @@ Decompose the frontend into FEM-like layered objects — Model + QoI, split the 
 as a git submodule, reconcile to Matlab. Precision threading (⑤) is the C++-side foundation that
 lets the PETSc consumer pick precision and keeps the operator export clean.
 
-## Precision decision: banked at "one global choice"
-⑤ had a stretch goal — **mixed precision** (a `float` solve inside a `double` build: Phase 4 codegen +
-Phase 5 cutover + the GPU `blas<T>` trait). **Decision: bank at single-global-precision granularity** —
-the whole tree flips together via the one `dstype` choice (`EXASIM_FLOAT`); mixed-precision is deferred.
-This keeps ⑤ a completed, verified foundation and leaves **③ (PETSc export surface)** and **⑥C (lint
-gate)** as the forward objectives, not the mixed-precision rabbit hole.
+## Precision: full float32 solve achieved as a *consumer type choice* (no rebuild)
+⑤ is done end-to-end: precision is a **type-level choice a consumer makes**, not the `EXASIM_FLOAT`
+build macro. Two consumers prove it against the double-default install, no Exasim rebuild, no conversion:
+- `tests/consumers/model_fp32` — the Poisson2D model + its flux/source/qoi Kokkos kernels at `float`
+  (and `double`), CPU (Serial) + GPU (CUDA V100): `max |float−double|/|double| = 1.6e-07`.
+- `tests/consumers/solve_fp32` — a **full HDG Poisson SOLVE**: instantiate the in-memory stack at
+  `float`, condense to `H·uh=b`, LAPACK-solve, recover, `eval_qoi`. The float trace solution reproduces
+  the double one to `1.01e-4` (fp32 dense-LU accuracy); float QoI `∫u = 0.405249` vs double `0.405285`.
 
-**float32 demonstrated as a consumer choice (no rebuild).** `tests/consumers/model_fp32` instantiates
-the Poisson2D model + its flux/source/qoi Kokkos kernels at `float` (and `double`) against the
-double-default install — proving precision is a *type-level* choice, not `EXASIM_FLOAT` at build time.
-PASS on CPU (Serial) and GPU (CUDA V100): `max |float−double|/|double| = 1.6e-07`. A full float32
-*solve* additionally needs the export/preprocessing boundary templated (`Preprocessed` holds double
-structs) + a float PETSc — deferred to Phase 5 (see `precision-threading.md`).
+Getting the full solve there required the **preprocessing/in-memory-construction boundary** threaded
+conversion-free (`Preprocessed<T,I>`, builders, `make_preprocessed<M,T,I>`, the compiled-core setup
+chain) **plus a ~167-site backend-wide precision-mixing cutover** (mostly one trick: `noDeduce_t<T>` so
+`double` constants next to `float` buffers convert instead of forcing a conflicting deduction). See
+`precision-threading.md` §Phase 5. Along the way it surfaced a latent BLAS bug: `blas<float>::dot`
+misread `sdot_`'s ABI return type (fixed).
+
+**Invariant held throughout:** the default `dstype` path is byte-identical — app-regression 12/12,
+`petsc_poisson` consumer 9.084e-14 / 0 / 2.651e-16. Frontends untouched.
+
+**Remaining precision tail (deferred):** a PETSc-*driven* float solve still needs a float-built PETSc
+(the `Operator`/`ShellMat` zero-copy `Vec` reinterpret is guarded by `sizeof(PetscScalar)==sizeof(Scalar)`);
+and the generated-codegen models (vs the hand-written `Poisson2DT<T>`) would need the same struct-template
++ `T`-kernel treatment to let *generated* apps pick precision.
