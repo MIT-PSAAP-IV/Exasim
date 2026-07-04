@@ -51,6 +51,16 @@ if [ "${COMBINED_TEST:-0}" = "1" ] || [ "${COMBINED_EXPORT:-0}" = "1" ]; then
     *) echo "SKIP: combined tests only implemented for python"; exit "$SKIP" ;;
   esac
 fi
+# Extra cheap app-regression cases: CASE=<name> runs pdeapp_<name>.py (its
+# pdemodel_<name>.py is copied to the scratch dir with everything else). Used to add
+# cheap numerical coverage to CI (e.g. LDG, 3D) beyond the default Poisson 2D.
+if [ -n "${CASE:-}" ]; then
+  case "$FE" in
+    python) APP="pdeapp_${CASE}.py" ;;
+    *) echo "SKIP: CASE only implemented for python"; exit "$SKIP" ;;
+  esac
+fi
+
 if [ ! -f "$SRC/$APP" ]; then
   echo "SKIP: $SRC/$APP does not exist (frontend test not implemented yet)"
   exit $SKIP
