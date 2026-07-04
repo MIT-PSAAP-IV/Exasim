@@ -101,9 +101,20 @@ Remaining smells (ranked by cleanup value):
    corrupt the solve).
 2. **Every struct is a hand-rolled malloc bag** — parallel `sz*` fields +
    `printinfo/sizeof*/freememory` boilerplate, no RAII. Correctness depends on
-   hand-matched alloc/free lists and alias guards (`res.fhAliasesK`,
-   `K=nullptr`). An owning `DeviceArray<T>` (size + backend + RAII) would kill
-   these hazards structurally.
+   hand-matched alloc/free lists and alias guards (`res.fhAliasesK`, `K=nullptr`).
+   **Investigated 2026-07-04: an owning `DeviceArray<T>` does NOT fit — deferred.**
+   The struct family has ~176 raw-pointer fields and, decisively, **~447
+   intentional aliasing sites**: the HDG/LDG assembly deliberately shares scratch
+   *arenas* — `res.F`/`res.H` alias into `res.K`, `sys.v` aliases `K`, locals like
+   `dstype *D = res.D` view into `res`/`tmp`. An *owning* array can't have two
+   owners of the same memory, so a full RAII conversion would either break the
+   arena aliasing (perf/semantics change, not byte-identical) or re-introduce
+   owning-vs-view flags — i.e. exactly the `fhAliasesK` bookkeeping it aimed to
+   remove, just wrapped in a class. The `fhAliasesK`/`K=nullptr` guards exist
+   *because* of the deliberate arena sharing, not by accident. A clean RAII model
+   would require first redesigning the arena strategy; out of scope for a
+   byte-identical cleanup. (The recent LDG memory-safety fix already added the
+   `sz>0` free guards that close the concrete double-free hazard here.)
 3. **`commonstruct` still large** (`backend/Common/common.h:2032`) — sub-structs
    *plus* ~40 loose top-level fields (`ind_*`, comm arrays, DIRK/BDF coeffs,
    `timing[128]`). **Partially drained 2026-07-04:** the LDG block-Jacobian CRS
@@ -348,8 +359,11 @@ baseline). So do **not** delete them. The only real lever left is a git-LFS
 *migration* of the large `.bin` snapshots (history rewrite — a separate,
 deliberate operation, not a routine cleanup); left for an explicit decision.
 
-**Structural (larger, future):** `appstruct` named fields (kill the magic-index
-decode); owning `DeviceArray<T>` to replace the malloc-bag pattern.
+**Structural:** ✅ `appstruct` — `app.ndims` decode named via `AppNdims` enum
+(2026-07-04); the rest of the wire arrays are frozen-ABI-constrained. ⚠️ owning
+`DeviceArray<T>` — **deferred**: collides with ~447 intentional shared-arena
+aliasing sites (see smell #2); needs an arena-strategy redesign first, out of
+scope for a byte-identical cleanup.
 
 **CI (future):** add app-regression + PETSc lanes; scheduled GPU lane; fix the
 stale registered-tests comment.
