@@ -25,6 +25,20 @@
 #include <cstdio>
 #include <vector>
 
+// Gap 2 compile-proof: force the CONCRETE-M interface-flux sampler path
+// (CInterfaceSampler::getInterfaceFluxesAt{Gauss,Nodal}PointsFor<M>, the templated
+// no-loaded-ABI extraction added for the concrete coupling path) to instantiate
+// end-to-end for a concrete Model, so any regression in that `else` branch
+// (exasim::FintDriver<M> + the templated field-sampling plumbing) fails this
+// consumer build. Poisson2D is single-domain (has_external_coupling == false), so
+// the emitted exasim::FintDriver<Poisson2D> is a no-op, but the full sampler
+// dispatch is compiled. The numerical concrete-vs-ABI flux equivalence is checked
+// separately by tests/coupling-models/compare_interface_sampler.cpp.
+template void CInterfaceSampler::getInterfaceFluxesAtGaussPointsFor<Poisson2D>(
+    dstype*, dstype*, dstype*, const Int*, const Int);
+template void CInterfaceSampler::getInterfaceFluxesAtNodalPointsFor<Poisson2D>(
+    dstype*, dstype*, dstype*, const Int*, const Int);
+
 // Build a uniform n x n quad mesh of the unit square [0,1]^2.
 //   p : nd(=2) x np column-major vertex coords
 //   t : nve(=4) x ne column-major, 0-based, CCW corners

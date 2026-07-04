@@ -255,6 +255,31 @@ if(TARGET Kokkos::kokkos)
 endif()
 
 
+# Templated interface-flux sampler equivalence (Gap 2): CInterfaceSampler's interface
+# flux EXTRACTION now has a concrete-model path (getInterfaceFluxesAt*For<M>) that routes
+# through exasim::FintDriver<M> / fint_only_kernel<M> with NO loaded ABI, while the
+# AbiAdapter path stays byte-identical. The sampler's field-sampling half is model-free, so
+# the concrete-vs-ABI flux equivalence reduces to fint_only_kernel<M> == the ABI HdgFintonly
+# (the value-only kernel the ABI sampler calls) on the same interface-Gauss buffers. Drives
+# the GENERATED coupled PdeModels through fint_only_kernel<M> and asserts equality to the
+# checked-in ABI HdgFintonly references (tests/coupling-models/reference/*_HdgFintonly.cpp).
+# The concrete-M sampler dispatch itself is compile-locked by tests/consumers/operators
+# (explicit instantiation, built under consumer_builtin_cpu).
+# See tests/coupling-models/compare_interface_sampler.cpp.
+if(TARGET Kokkos::kokkos)
+  add_executable(interface_sampler_equivalence_exe
+    "${EXASIM_DIR}/tests/coupling-models/compare_interface_sampler.cpp")
+  target_include_directories(interface_sampler_equivalence_exe PRIVATE
+    "${EXASIM_INCLUDE_DIR}" "${EXASIM_DIR}"
+    "${EXASIM_DIR}/tests/coupling-models")
+  target_link_libraries(interface_sampler_equivalence_exe PRIVATE Kokkos::kokkos)
+  target_compile_features(interface_sampler_equivalence_exe PRIVATE cxx_std_17)
+  add_test(NAME interface_sampler_equivalence
+    COMMAND interface_sampler_equivalence_exe)
+  set_tests_properties(interface_sampler_equivalence PROPERTIES TIMEOUT 120)
+endif()
+
+
 # Implicit HDG w-equation source (Sourcew) kernel equivalence: prove the
 # templated exasim::hdg_sourcew_kernel<M> / hdg_sourcewonly_kernel<M> assemble
 # byte-identical value + ∂sw/∂udg + ∂sw/∂w buffers to the libpdemodel ABI

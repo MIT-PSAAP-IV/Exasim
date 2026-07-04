@@ -11,6 +11,14 @@
 
 #include "interfacesampler.h"
 
+// Concrete-model (templated) interface-flux extraction needs the templated
+// exasim::FintDriver<M> forwarder and the AbiAdapter tag. This file is
+// #included late (end of discretization.cpp) so the driver + struct chain are
+// already visible; the includes are idempotent (pragma once).
+#include <type_traits>
+#include <exasim/detail/abi_adapter.hpp>
+#include <exasim/drivers.hpp>
+
 Int CInterfaceSampler::getFacesOnInterface(Int **faces, const Int boundarycondition)
 {
     [[maybe_unused]] auto& sol = disc.sol; [[maybe_unused]] auto& res = disc.res; [[maybe_unused]] auto& app = disc.app;
@@ -123,8 +131,26 @@ void CInterfaceSampler::getFieldsAtGaussPointsOnInterface(dstype* xdggint, dstyp
     Node2Gauss(common.cublasHandle, xdggint, xdgint, master.shapfgt, common.grid.ngf, common.grid.npf, nfaces*ncx, common.backend);    
 }
 
-void CInterfaceSampler::getInterfaceFluxesAtNodalPoints(dstype *flux, dstype* xdgint, dstype* nlint, const Int* faces, const Int nfaces)  
-{    
+// ABI-only entry points (used by the runtime solver, ExasimSolver / CSolution<>=AbiAdapter).
+// They delegate to the templated implementation instantiated for the AbiAdapter tag, whose
+// `if constexpr` AbiAdapter branch is the exact former body -> byte-identical.
+void CInterfaceSampler::getInterfaceFluxesAtNodalPoints(dstype *flux, dstype* xdgint, dstype* nlint, const Int* faces, const Int nfaces)
+{
+    this->getInterfaceFluxesAtNodalPointsFor<exasim::detail::AbiAdapter>(flux, xdgint, nlint, faces, nfaces);
+}
+
+void CInterfaceSampler::getInterfaceFluxesAtGaussPoints(dstype *flux, dstype* xdggint, dstype* nlgint, const Int* faces, const Int nfaces)
+{
+    this->getInterfaceFluxesAtGaussPointsFor<exasim::detail::AbiAdapter>(flux, xdggint, nlgint, faces, nfaces);
+}
+
+// Templated interface-flux extraction. The field sampling (getUDG/ODG/WDG/UHAT +
+// getFieldsAtGaussPointsOnInterface) is model-free and identical to the former ABI body;
+// only the final FintDriver call is dispatched on M: AbiAdapter -> loaded ABI (byte-identical
+// to before), concrete M -> exasim::FintDriver<M> value-only (fint_only_kernel<M>, no ABI).
+template <class M>
+void CInterfaceSampler::getInterfaceFluxesAtNodalPointsFor(dstype *flux, dstype* xdgint, dstype* nlint, const Int* faces, const Int nfaces)
+{
     [[maybe_unused]] auto& sol = disc.sol; [[maybe_unused]] auto& res = disc.res; [[maybe_unused]] auto& app = disc.app;
     [[maybe_unused]] auto& master = disc.master; [[maybe_unused]] auto& mesh = disc.mesh; [[maybe_unused]] auto& tmp = disc.tmp;
     [[maybe_unused]] auto& common = disc.common; [[maybe_unused]] auto& driver_abi = disc.driver_abi;
@@ -133,18 +159,24 @@ void CInterfaceSampler::getInterfaceFluxesAtNodalPoints(dstype *flux, dstype* xd
     dstype *odgint = &tmp.tempn[npf * nfaces * common.components.nc];
     dstype *wdgint = &tmp.tempn[npf * nfaces * common.components.nc + npf * nfaces * common.components.nco];
     dstype *uhint = &tmp.tempn[npf * nfaces * common.components.nc + npf * nfaces * common.components.nco + npf * nfaces * common.components.ncw];
-    
+
     this->getUDGOnInterface(udgint, faces, nfaces);
     this->getODGOnInterface(odgint, faces, nfaces);
     this->getWDGOnInterface(wdgint, faces, nfaces);
     this->getUHATOnInterface(uhint, faces, nfaces);
-    
-    FintDriver(flux, xdgint, udgint, odgint, wdgint, uhint, nlint, driver_abi, mesh, 
-        master, app, sol, tmp, common, nfaces*npf, 1, common.backend);        
+
+    if constexpr (std::is_same_v<M, exasim::detail::AbiAdapter>) {
+        FintDriver(flux, xdgint, udgint, odgint, wdgint, uhint, nlint, driver_abi, mesh,
+            master, app, sol, tmp, common, nfaces*npf, 1, common.backend);
+    } else {
+        exasim::FintDriver<M>(flux, xdgint, udgint, odgint, wdgint, uhint, nlint, mesh,
+            master, app, sol, tmp, common, nfaces*npf, 1, common.backend);
+    }
 }
 
-void CInterfaceSampler::getInterfaceFluxesAtGaussPoints(dstype *flux, dstype* xdggint, dstype* nlgint, const Int* faces, const Int nfaces)  
-{    
+template <class M>
+void CInterfaceSampler::getInterfaceFluxesAtGaussPointsFor(dstype *flux, dstype* xdggint, dstype* nlgint, const Int* faces, const Int nfaces)
+{
     [[maybe_unused]] auto& sol = disc.sol; [[maybe_unused]] auto& res = disc.res; [[maybe_unused]] auto& app = disc.app;
     [[maybe_unused]] auto& master = disc.master; [[maybe_unused]] auto& mesh = disc.mesh; [[maybe_unused]] auto& tmp = disc.tmp;
     [[maybe_unused]] auto& common = disc.common; [[maybe_unused]] auto& driver_abi = disc.driver_abi;
@@ -155,7 +187,7 @@ void CInterfaceSampler::getInterfaceFluxesAtGaussPoints(dstype *flux, dstype* xd
     dstype *odgint = &tmp.tempn[npf * nfaces * common.components.nc];
     dstype *wdgint = &tmp.tempn[npf * nfaces * common.components.nc + npf * nfaces * common.components.nco];
     dstype *uhint = &tmp.tempn[npf * nfaces * common.components.nc + npf * nfaces * common.components.nco + npf * nfaces * common.components.ncw];
-    
+
     this->getUDGOnInterface(udgint, faces, nfaces);
     this->getODGOnInterface(odgint, faces, nfaces);
     this->getWDGOnInterface(wdgint, faces, nfaces);
@@ -170,9 +202,14 @@ void CInterfaceSampler::getInterfaceFluxesAtGaussPoints(dstype *flux, dstype* xd
     this->getFieldsAtGaussPointsOnInterface(odggint, odgint, nfaces, common.components.nco);
     this->getFieldsAtGaussPointsOnInterface(wdggint, wdgint, nfaces, common.components.ncw);
     this->getFieldsAtGaussPointsOnInterface(uhgint, uhint, nfaces, common.components.ncu);
-    
-    FintDriver(flux, xdggint, udggint, odggint, wdggint, uhgint, nlgint, driver_abi, mesh, 
-        master, app, sol, tmp, common, nfaces*ngf, 1, common.backend);        
+
+    if constexpr (std::is_same_v<M, exasim::detail::AbiAdapter>) {
+        FintDriver(flux, xdggint, udggint, odggint, wdggint, uhgint, nlgint, driver_abi, mesh,
+            master, app, sol, tmp, common, nfaces*ngf, 1, common.backend);
+    } else {
+        exasim::FintDriver<M>(flux, xdggint, udggint, odggint, wdggint, uhgint, nlgint, mesh,
+            master, app, sol, tmp, common, nfaces*ngf, 1, common.backend);
+    }
 }
 
 void CInterfaceSampler::computeAverageSolutionsOnBoundary() 
