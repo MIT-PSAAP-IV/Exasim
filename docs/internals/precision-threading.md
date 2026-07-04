@@ -292,20 +292,37 @@ The export/preprocessing boundary that used to pin `dstype` is now threaded, wit
 - Verified: full lib rebuild + app-regression **12/12 PASS** (isoq/sharpb2 np=4 now build+run from the
   consistent source); `petsc_poisson` consumer byte-identical (9.084e-14 / 0 / 2.651e-16).
 
-### What a full float32 *solve* still needs — a backend-wide precision-mixing cutover
-Building a consumer that instantiates `CDiscretizationT<float>` **end-to-end** (a full native solve)
-surfaces **~167 precision-mixing sites across the whole backend** — not a bounded tail:
-`ArraySetValue` (48), `PGEMNMStridedBached` (34), `ArrayAXPBY`/`ArrayAXY`/`ArrayMultiplyScalar`/…, the
-geometry (`ElemGeom`/`FaceGeom`/`ElemFaceGeom`), every model kernel (`eos`/`ubou`/`avfield`/`sourcew`/
-`hdg_fbou`/…), the residual (`Ru/Rq Elem/Face`), STG inflow, the preconditioner (`setprecondstruct`),
-and the still-un-templated **`CWallModel`** class. Each is a *templated caller passing a `double`
-literal/constant (e.g. `zero`, `1.0`, a `dstype` tolerance) mixed with `T` buffers*, so the pblas/kernel
-overload can't deduce a single `T`. Resolving them is mechanical-ish per site but pervasive and
-non-trivial (each needs a geometry-vs-solve precision decision), i.e. a genuine full-backend cutover —
-the real remaining body of Phase 5, larger than the "one lib rebuild" the boundary work suggested.
-The intended consumer shape (in-memory disc + assemble condensed `H*uh=b` + LAPACK solve + `eval_qoi`
-L2 error, at `<T>` for both `float` and `double`) is validated for `double`; the `float` instantiation
-is what enumerates the 167 sites.
+### Full float32 *solve* — DONE (the ~167-site backend-wide cutover)
+A consumer now instantiates `CDiscretizationT<float>` **end-to-end** and runs a full HDG Poisson
+**solve**, choosing precision purely via templates (no Exasim rebuild, no conversion). Getting there
+resolved ~167 precision-mixing sites across the whole backend (`ArraySetValue`/`PGEMNMStridedBached`/
+`ArrayAXPBY`/…, geometry `ElemGeom`/`FaceGeom`, every model kernel, residual `Ru/Rq Elem/Face`, STG,
+`setprecondstruct`, `CWallModel`). The root causes and their fixes:
+- **`noDeduce_t<T>` (`common.h`)** — the dominant one. A scalar param spelled `noDeduce_t<T>` deduces
+  `T` **only from the buffer args**, so a `double` literal/constant (`0.0`, `zero`, `minusone`, a
+  tolerance) passed next to a `float*` buffer converts instead of forcing a conflicting `T=double`
+  deduction. Applied across the pblas/kokkosimpl array+blas ops. (This one trick cleared ~110 sites.)
+- **drivers**: `*_kernel<M>`→`<M,T>` (with an explicit `<M>`, `T` was silently defaulting to `dstype`);
+  `compute_shape` templated; the interface `Fint`/`Fext` forwarders deduce the scalar from the first
+  buffer arg (a trailing template param after a variadic pack is *never* deducible) and compile out for
+  non-`dstype` (coupling is double-only; single-model solves never touch an interface face).
+- **kernel/model bodies**: retype the `double` gather/scatter locals →`T` in the remaining kernels;
+  `InitFn`→`InitFn_t<T>`; the **`ModelDefaults` mixin hierarchy** (8 structs) + `zero_fill` templated on
+  scalar so a float model's *inherited* defaults are float-typed.
+- **`.hpp` vs `.cpp` gotcha**: `geometry.hpp` (not `.cpp`) is the live consumer-aggregated file — the
+  duality bit here as it did for `setstructs`/`connectivity`. `thread_disc.py` misses `template<...>`
+  (no space) heads and doesn't retype `double`, so coord helpers (`xiny`/`fetch_node`/`equal_row_tol`/
+  `make_cell_key`/`permindex`) needed hand fixes.
+- **sub-structs**: `qoiparamsstruct`/`wallmodelparamsstruct` → templated.
+
+**Verified:** `tests/consumers/solve_fp32` builds the stack at double AND float, condenses to `H·uh=b`,
+LAPACK-solves, and compares the float trace solution to the double one — `||uh_f32−uh_f64||/||uh_f64|| =
+1.01e-4` (fp32 dense-LU accuracy). Double path fully intact (app-regression 12/12, petsc_poisson
+byte-identical).
+
+**Known follow-up:** the float32 `eval_qoi` volume-integral readback underflows to ~0 (`qoi[1]=1e-19`
+vs `0.405`) — a post-processing quadrature-precision quirk; the *solve* is correct (float `||uh||`
+matches double to fp32). Tracked separately.
 
 ### PETSc-driven float path
 Separately, `Operator`/`ShellMat` do **zero-copy** `Vec` reinterpret guarded by
