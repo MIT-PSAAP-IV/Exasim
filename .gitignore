@@ -456,3 +456,7 @@ backend/Postprocessing/solution_io
 /examples/NavierStokes/naca2d_unsteady/naca-sweep5
 /examples/NavierStokes/naca2d_unsteady/naca-sweep6
 /examples/NavierStokes/naca2d_unsteady/naca-sweep7
+
+# Claude Code local working files (keep locally, never commit)
+.claude/PLAN.md
+.claude/worktrees/
