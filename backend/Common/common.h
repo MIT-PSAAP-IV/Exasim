@@ -1385,15 +1385,15 @@ struct resstruct {
         TemplateFree(dRu, backend);   
         TemplateFree(dRh, backend);   
       #endif                                                
-        TemplateFree(Mass, backend);      
-        TemplateFree(Minv, backend);      
-        TemplateFree(Mass2, backend);      
-        TemplateFree(Minv2, backend);      
+        if (szMass > 0) TemplateFree(Mass, backend);      
+        if (szMinv > 0) TemplateFree(Minv, backend);      
+        if (szMass2 > 0) TemplateFree(Mass2, backend);      
+        if (szMinv2 > 0) TemplateFree(Minv2, backend);      
         TemplateFree(C, backend);      
         TemplateFree(E, backend);      
-        TemplateFree(F, backend);
-        TemplateFree(K, backend);
-        TemplateFree(H, backend);
+        if (szF > 0) TemplateFree(F, backend);
+        if (szK > 0) TemplateFree(K, backend);
+        if (szH > 0) TemplateFree(H, backend);
         TemplateFree(Gi, backend);
         TemplateFree(Ki, backend);
         TemplateFree(Hi, backend);

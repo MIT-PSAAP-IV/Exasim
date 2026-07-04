@@ -359,9 +359,11 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
             if (common.mpiRank==0) printf("start qEquation... \n");
             BuildElementBlockBoundaryFaces(common, mesh, backend);        
             AllocateLDGBlockJacobianMemory(res, common, backend);        
-            qEquation(sol, res, app, master, mesh, tmp, common, backend);
+            qEquation(sol, res, app, master, mesh, tmp, common, backend);          
             TemplateFree(res.Mass2, backend);
             TemplateFree(res.Minv2, backend);
+            res.szMass2 = 0;
+            res.szMinv2 = 0;
             if (common.mpiRank==0) printf("finish qEquation... \n");            
         }
         else if (!postprocessOnly) {
@@ -376,7 +378,9 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
     }
     
     // moved from InitSolution to here
-    if ((common.ncq>0) && (common.wave==0) && (common.spatialScheme == 0)) evalQSer(backend); 
+    if ((common.ncq>0) && (common.wave==0) && (common.spatialScheme == 0)) {
+        evalQSer(backend);
+    }
     
     if (common.spatialScheme > 0)  { // HDG
       Int neb = common.neb; // maximum number of elements per block
@@ -529,6 +533,11 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
             hdgGetQ(sol.udg, sol.uh, sol, res, mesh, tmp, common, backend);
             if (common.mpiRank==0) printf("Finish hdgGetQ ... \n");     
         }        
+
+        TemplateFree(res.Mass2, backend);
+        TemplateFree(res.Minv2, backend);
+        res.szMass2 = 0;
+        res.szMinv2 = 0;        
       }
     }
 

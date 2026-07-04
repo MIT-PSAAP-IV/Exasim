@@ -1,7 +1,7 @@
 model = "ModelD";
 modelfile = "pdemodel.txt";
 meshfile = "grid.bin";
-discretization = "hdg";
+discretization = "ldg";
 platform = "cpu";
 
 builtinmodelID = 12;
@@ -11,8 +11,8 @@ debugmode = 0;
 runmode = 0;
 modelnumber = 0;
 
-porder = 4;
-pgauss = 8;
+porder = 2;
+pgauss = 4;
 torder = 1;
 nstage = 1;
 
@@ -28,11 +28,11 @@ neb = 512;
 nfb = 8192;
 
 NewtonIter = 20;
-NewtonTol = 1e-06;
-GMRESiter = 400;
-GMRESrestart = 400;
-GMREStol = 1e-07;
-GMRESortho = 0;
+NewtonTol = 1e-08;
+GMRESiter = 1000;
+GMRESrestart = 200;
+GMREStol = 1e-06;
+GMRESortho = 1;
 ppdegree = 0;
 RBdim = 0;
 matvecorder = 1;
@@ -41,9 +41,9 @@ precMatrixType = 0;
 preconditioner = 1;
 
 time = 0;
-tau = [3];
+tau = [2.4];
 dt = [0];
-physicsparam = [1.4, 1000, 0.72, 0.2, 1, 1, 0, 45.1429];
+physicsparam = [1.4, 100, 0.72, 0.25, 1, 1, 0, 29.0714285714];
 externalparam = [0, 0];
 
 boundaryconditions = [1, 2];
