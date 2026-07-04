@@ -22,8 +22,10 @@ name: smoke (CPU)
 #   builtin_model4_kernel_equivalence — text2code model-4 kernels match the checked-in
 #     ones to machine precision (35 comparisons incl. all 9 HDG BCs + jacobians).
 #   sharedlibrary_app — installed shared-library app via text2code.
-#   petsc_operator_export + petsc/{heat,poisson,poisson_mpi,robustness} — SKIP here (the petsc
-#     consumer needs a CUDA+MPI PETSc; the apt CPU-real PETSc can't build petsc.hpp). Run on dgx-b.
+#   petsc_operator_export + petsc/{heat,poisson,poisson_mpi,robustness} — RUN here against the
+#     apt CPU-real PETSc (petsc.hpp guards CUDA Vec symbols behind PETSC_HAVE_CUDA; the consumers
+#     locate mpi.h via find_package(MPI)). Needs PETSc >= 3.17 (PetscCall/PETSC_SUCCESS/
+#     VecGetArrayWriteAndMemType) -> the 24.04 runner ships 3.19. Also run on dgx-b (CUDA+MPI).
 #
 # Heavy deps are taken off the hot path: METIS/ParMETIS, BLAS/LAPACK and MPI
 # from the system (apt); the vendored serial Kokkos and SymEngine are built from
@@ -48,7 +50,7 @@ jobs:
   # Fast pre-build check: no .DS_Store, no prebuilt binaries, no gitignore bypass.
   # Runs on every push; cheap (git only, no build tools needed).
   hygiene:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Repo hygiene check
@@ -56,9 +58,10 @@ jobs:
 
   build-and-test:
     # Standard GitHub-hosted runner — always available with no org configuration.
-    # Pinned to 22.04 (jammy): the externalized deps below are reliably packaged
-    # there. If a larger runner is enabled for the repo, bump this.
-    runs-on: ubuntu-22.04
+    # 24.04 (noble): its externalized deps are reliably packaged AND it ships
+    # PETSc 3.19 (>= 3.17), which the petsc consumers require. 22.04's PETSc 3.15
+    # lacks PetscCall/PETSC_SUCCESS/VecGetArrayWriteAndMemType.
+    runs-on: ubuntu-24.04
     env:
       # Out-of-tree: the repo is checked out into src/, the build lives in
       # build/ beside it (both inside the workspace — actions/cache cannot
