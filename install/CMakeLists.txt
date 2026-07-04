@@ -243,13 +243,34 @@ elseif(EXASIM_HIP)
   find_package(Kokkos REQUIRED)
 else()
   if(NOT Kokkos_DIR)
-    find_package(Kokkos QUIET)
+    # Version floor: skip an old/broken system Kokkos (e.g. Debian's 3.7.01, whose
+    # package exports a bogus "/include") so the vendored 4.x is used instead.
+    find_package(Kokkos 4.0 QUIET)
   endif()
   if(NOT Kokkos_FOUND)
     if(NOT Kokkos_DIR)
       exasim_set_default_kokkos_dir(serial)
     endif()
     find_package(Kokkos REQUIRED)
+  endif()
+endif()
+
+# Defensive: drop any non-existent entry (e.g. a bogus "/include" from a badly
+# packaged Kokkos) from Kokkos::kokkos so CMake's generate step does not hard-fail
+# when it is linked (e.g. by the BuiltIn model library).
+if(TARGET Kokkos::kokkos)
+  get_target_property(_kk_inc Kokkos::kokkos INTERFACE_INCLUDE_DIRECTORIES)
+  if(_kk_inc)
+    set(_kk_inc_ok "")
+    foreach(_d IN LISTS _kk_inc)
+      if(EXISTS "${_d}")
+        list(APPEND _kk_inc_ok "${_d}")
+      else()
+        message(STATUS "Kokkos: dropping non-existent include dir '${_d}'")
+      endif()
+    endforeach()
+    set_target_properties(Kokkos::kokkos PROPERTIES
+      INTERFACE_INCLUDE_DIRECTORIES "${_kk_inc_ok}")
   endif()
 endif()
 

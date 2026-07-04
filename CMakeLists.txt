@@ -89,10 +89,34 @@ else()
 endif()
 
 set(_kokkos_for_exasim "")   # -DKokkos_DIR forwarded to the solver build
-find_package(Kokkos QUIET)
+# Require a modern Kokkos (the vendored one is 4.7). Some distros ship an old
+# libkokkos-dev -- e.g. Debian's 3.7.01 -- whose CMake package ALSO exports a
+# bogus "/include" in Kokkos::kokkos INTERFACE_INCLUDE_DIRECTORIES, which hard-
+# fails CMake's generate step ("includes non-existent path /include"). Pinning a
+# minimum version makes such a stale/incompatible system Kokkos be ignored so the
+# vendored one is built instead (seen on the summit buildbot; dgx-b/GitHub have no
+# system Kokkos and were unaffected).
+find_package(Kokkos 4.0 QUIET)
 if(Kokkos_FOUND)
-  message(STATUS "Kokkos: using installed (${Kokkos_DIR})")
+  message(STATUS "Kokkos: using installed (${Kokkos_DIR}, ${Kokkos_VERSION})")
   set(_kokkos_for_exasim "${Kokkos_DIR}")
+  # Defensive: drop any non-existent entry (e.g. a bogus "/include" from a badly
+  # packaged / mis-relocated Kokkos) so CMake's generate step does not hard-fail.
+  if(TARGET Kokkos::kokkos)
+    get_target_property(_kk_inc Kokkos::kokkos INTERFACE_INCLUDE_DIRECTORIES)
+    if(_kk_inc)
+      set(_kk_inc_ok "")
+      foreach(_d IN LISTS _kk_inc)
+        if(EXISTS "${_d}")
+          list(APPEND _kk_inc_ok "${_d}")
+        else()
+          message(STATUS "Kokkos: dropping non-existent include dir '${_d}'")
+        endif()
+      endforeach()
+      set_target_properties(Kokkos::kokkos PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${_kk_inc_ok}")
+    endif()
+  endif()
 elseif(EXISTS "${_kk_dir}/KokkosConfig.cmake")
   message(STATUS "Kokkos: using vendored ${_kk_dir} (already built)")
   set(_kokkos_for_exasim "${_kk_dir}")
