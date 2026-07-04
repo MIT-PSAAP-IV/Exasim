@@ -76,7 +76,8 @@ jobs:
             build-essential cmake git \
             libblas-dev liblapack-dev \
             libmetis-dev libparmetis-dev \
-            libopenmpi-dev openmpi-bin
+            libopenmpi-dev openmpi-bin \
+            petsc-dev pkg-config
 
       # The two from-source deps are built once and cached (build/deps/...);
       # the superbuild detects them on a hit. cache-warm.yml keeps these
@@ -111,10 +112,20 @@ jobs:
         env:
           JOBS: "2"
         run: |
-          # NOTE: petsc_operator_export SKIPs here -- the petsc consumer (petsc.hpp) uses
-          # CUDA Vec symbols + MPI and does not build against the apt CPU-real PETSc, so it
-          # needs a CUDA+MPI PETSc (dgx-b), not a GitHub runner. It SKIPs (77) when no PETSc
-          # is found, which is the case here.
+          # PETSc (apt petsc-dev, CPU-real) now runs here: petsc.hpp guards its CUDA Vec
+          # symbols behind PETSC_HAVE_CUDA and the petsc consumers locate mpi.h via
+          # find_package(MPI), so they build against the CPU-real PETSc. Discover its prefix
+          # + expose a lowercase 'petsc.pc' (Ubuntu ships 'PETSc.pc') so the harness'
+          # `pkg-config --exists petsc` succeeds instead of SKIPping.
+          PETSC_PC=$(find /usr/lib/petscdir -iname 'petsc.pc' 2>/dev/null | grep -i real | head -1)
+          if [ -n "$PETSC_PC" ]; then
+            PCDIR=$(dirname "$PETSC_PC")
+            [ -f "$PCDIR/petsc.pc" ] || sudo ln -sf "$PETSC_PC" "$PCDIR/petsc.pc"
+            export PETSC_PREFIX=$(cd "$PCDIR/../.." && pwd)
+            echo "PETSc: PETSC_PREFIX=$PETSC_PREFIX ($(PKG_CONFIG_PATH="$PCDIR" pkg-config --modversion petsc 2>/dev/null))"
+          else
+            echo "PETSc: no apt petsc.pc found -> petsc tests will SKIP"
+          fi
           ctest --test-dir "$BUILD_DIR/exasim_build-prefix/src/exasim_build-build" \
                 --output-on-failure \
                 --output-junit "$RUNNER_TEMP/ctest-results.xml"

@@ -72,9 +72,15 @@ public:
         int nprocs = 1; MPI_Comm_size(comm_, &nprocs);
         const bool par = nprocs > 1;
         // Zero-copy RHS: wrap sys.b (device buffer when gpu) directly as a Vec.
+        // The CUDA Vec constructors only EXIST in a CUDA-enabled PETSc, so guard them
+        // at compile time (the runtime gpu_ check can't rescue a missing symbol) --
+        // this lets petsc.hpp build against a CPU-only PETSc (e.g. GitHub CI's apt PETSc).
+#if defined(PETSC_HAVE_CUDA)
         if      (gpu_ && par) VecCreateMPICUDAWithArray(comm_, 1, N_, PETSC_DECIDE, sys.b, &b0_);
         else if (gpu_)        VecCreateSeqCUDAWithArray(comm_, 1, N_, sys.b, &b0_);
-        else if (par)         VecCreateMPIWithArray(comm_, 1, N_, PETSC_DECIDE, sys.b, &b0_);
+        else
+#endif
+        if      (par)         VecCreateMPIWithArray(comm_, 1, N_, PETSC_DECIDE, sys.b, &b0_);
         else                  VecCreateSeqWithArray(comm_, 1, N_, sys.b, &b0_);
         // Matrix-free Jacobian.
         MatCreateShell(comm_, N_, N_, PETSC_DETERMINE, PETSC_DETERMINE, this, &J_);
@@ -135,7 +141,7 @@ public:
 private:
     static PetscErrorCode matmult(Mat J, Vec V, Vec JV)
     {
-        Operator* c; MatShellGetContext(J, &c);
+        Operator* c; MatShellGetContext(J, reinterpret_cast<void**>(&c));
         const PetscScalar* v; PetscScalar* jv; PetscMemType a, b;
         VecGetArrayReadAndMemType(V, &v, &a);
         VecGetArrayWriteAndMemType(JV, &jv, &b);
@@ -146,7 +152,7 @@ private:
     }
     static PetscErrorCode pcapply(PC pc, Vec V, Vec PV)
     {
-        Operator* c; PCShellGetContext(pc, &c);
+        Operator* c; PCShellGetContext(pc, reinterpret_cast<void**>(&c));
         VecCopy(V, PV);
         PetscScalar* pv; PetscMemType m;
         VecGetArrayAndMemType(PV, &pv, &m);
@@ -204,7 +210,7 @@ public:
 private:
     static PetscErrorCode mult(Mat A, Vec X, Vec Y)
     {
-        ShellMat* c; MatShellGetContext(A, &c);
+        ShellMat* c; MatShellGetContext(A, reinterpret_cast<void**>(&c));
         const PetscScalar* x; PetscScalar* y; PetscMemType a, b;
         VecGetArrayReadAndMemType(X, &x, &a);
         VecGetArrayWriteAndMemType(Y, &y, &b);
