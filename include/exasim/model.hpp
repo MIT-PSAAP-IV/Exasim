@@ -140,6 +140,8 @@
 
 #pragma once
 
+#include <type_traits>
+
 #include <Kokkos_Core.hpp>
 
 #include "common.h"   // dstype + Int
@@ -203,6 +205,26 @@ struct ModelConstants {
     // override.
     static constexpr int nco = 0;
 
+    // ---- Multi-domain HDG interface coupling (Fint / Fext) ----
+    //
+    // Off by default: single-domain HDG models (Poisson, Navier-Stokes,
+    // …) never reach the `fint`/`fext` kernels, so the whole coupling
+    // surface is disabled and their assembled residual/Jacobian is
+    // byte-identical to the pre-coupling build. A coupled model turns it
+    // on with `static constexpr bool has_external_coupling = true;`.
+    static constexpr bool has_external_coupling = false;
+
+    // Interface-residual widths — the text2code `Fint`/`Fext`
+    // `output_size`, i.e. the ABI's `common.szinterfacefluxmap`
+    // (`ncu12`) and `common.ncuext` — are read through the
+    // `nfint_v<M>` / `nfext_v<M>` / `ncuext_v<M>` traits declared after
+    // the mixin chain, which fall back to `M::ncu`. They are deliberately
+    // NOT defaulted here: referencing `Self::ncu` in a `static constexpr`
+    // member initializer of a CRTP base is fragile (the base is
+    // instantiated while `Self` is still incomplete). So a coupled model
+    // whose interface residual matches `ncu` needs no extra members, and
+    // one that differs (e.g. pdemodel2's 2-component `Fint` with ncu==1)
+    // just adds `static constexpr int nfint = 2;`.
 };
 
 // Per-concern default mixins (a C3-style split of the model "god-base"): each adds the
@@ -563,6 +585,112 @@ struct HDGJacobianDefaults : OutputDefaults<Self, T> {
             for (int k = 0; k < Self::ncu * Self::ncw; ++k) fb_w[k] = 0.0;
         }
     }
+
+    // ---- Multi-domain HDG interface residuals (Fint / Fext) ----
+    //
+    // These mirror the libpdemodel ABI's `HdgFint` / `HdgFext` (see
+    // backend/Discretization/KokkosDrivers.cpp and the text2code
+    // `HdgFint.cpp` / `HdgFext.cpp`). They are only ever instantiated for
+    // models with `has_external_coupling == true` (the `fint_kernel<M>` /
+    // `fext_kernel<M>` calls in <exasim/kernels/boundary.hpp> are gated
+    // on it), so single-domain models keep these zero-fill defaults and
+    // pay nothing.
+    //
+    // `fint` is the HDG trace residual on an internal model interface;
+    // `fext` adds the neighbour model's injected trace `uext` (SoA, like
+    // `uh`) so the user writes coupling residuals such as
+    // `fb[0] = uext[0] - uh[0]`. The output width is `nfint_v<Self>` /
+    // `nfext_v<Self>` (defaults to `ncu`); `uext` has `ncuext_v<Self>`
+    // components.
+    //
+    // Jacobian local layout is TRACE/INPUT-index-outer to match the ABI
+    // byte layout exactly (kernel scatters it linearly):
+    //   fb_uq[j*nf + o] = ∂fb[o]/∂uq[j]   (j in [0,Nq), o in [0,nf))
+    //   fb_w [j*nf + o] = ∂fb[o]/∂w [j]
+    //   fb_uh[j*nf + o] = ∂fb[o]/∂uh[j]
+    // (This differs from `fbou_hdg`'s output-index-outer convention; the
+    // Fint/Fext generated kernels emit input-outer, so we follow them.)
+
+    KOKKOS_INLINE_FUNCTION static
+    void fint(double fb[], int /*ib*/,
+              const double /*x*/[],  const double /*uq*/[],
+              const double /*v*/[],  const double /*w*/[],  const double /*uh*/[],
+              const double /*n*/[],  const double /*tau*/[],
+              const double /*mu*/[], const double /*uinf*/[], double /*t*/) {
+        detail::zero_fill<Self::ncu>(fb);
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void fint_jac_uq(double fb_uq[], int /*ib*/,
+                     const double /*x*/[],  const double /*uq*/[],
+                     const double /*v*/[],  const double /*w*/[],  const double /*uh*/[],
+                     const double /*n*/[],  const double /*tau*/[],
+                     const double /*mu*/[], const double /*uinf*/[], double /*t*/) {
+        constexpr int Nq = Self::ncu * (1 + Self::nd);
+        for (int k = 0; k < Self::ncu * Nq; ++k) fb_uq[k] = 0.0;
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void fint_jac_w(double fb_w[], int /*ib*/,
+                    const double /*x*/[],  const double /*uq*/[],
+                    const double /*v*/[],  const double /*w*/[],  const double /*uh*/[],
+                    const double /*n*/[],  const double /*tau*/[],
+                    const double /*mu*/[], const double /*uinf*/[], double /*t*/) {
+        if constexpr (Self::ncw > 0) {
+            for (int k = 0; k < Self::ncu * Self::ncw; ++k) fb_w[k] = 0.0;
+        }
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void fint_jac_uh(double fb_uh[], int /*ib*/,
+                     const double /*x*/[],  const double /*uq*/[],
+                     const double /*v*/[],  const double /*w*/[],  const double /*uh*/[],
+                     const double /*n*/[],  const double /*tau*/[],
+                     const double /*mu*/[], const double /*uinf*/[], double /*t*/) {
+        for (int k = 0; k < Self::ncu * Self::ncu; ++k) fb_uh[k] = 0.0;
+    }
+
+    // `fext` and its Jacobians take the extra `uext` argument (the
+    // neighbour trace) between `n` and `tau`, matching the ABI
+    // `HdgFext(..., nlg, uext, tau, ...)`.
+    KOKKOS_INLINE_FUNCTION static
+    void fext(double fb[], int /*ib*/,
+              const double /*x*/[],  const double /*uq*/[],
+              const double /*v*/[],  const double /*w*/[],  const double /*uh*/[],
+              const double /*n*/[],  const double /*uext*/[], const double /*tau*/[],
+              const double /*mu*/[], const double /*uinf*/[], double /*t*/) {
+        detail::zero_fill<Self::ncu>(fb);
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void fext_jac_uq(double fb_uq[], int /*ib*/,
+                     const double /*x*/[],  const double /*uq*/[],
+                     const double /*v*/[],  const double /*w*/[],  const double /*uh*/[],
+                     const double /*n*/[],  const double /*uext*/[], const double /*tau*/[],
+                     const double /*mu*/[], const double /*uinf*/[], double /*t*/) {
+        constexpr int Nq = Self::ncu * (1 + Self::nd);
+        for (int k = 0; k < Self::ncu * Nq; ++k) fb_uq[k] = 0.0;
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void fext_jac_w(double fb_w[], int /*ib*/,
+                    const double /*x*/[],  const double /*uq*/[],
+                    const double /*v*/[],  const double /*w*/[],  const double /*uh*/[],
+                    const double /*n*/[],  const double /*uext*/[], const double /*tau*/[],
+                    const double /*mu*/[], const double /*uinf*/[], double /*t*/) {
+        if constexpr (Self::ncw > 0) {
+            for (int k = 0; k < Self::ncu * Self::ncw; ++k) fb_w[k] = 0.0;
+        }
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void fext_jac_uh(double fb_uh[], int /*ib*/,
+                     const double /*x*/[],  const double /*uq*/[],
+                     const double /*v*/[],  const double /*w*/[],  const double /*uh*/[],
+                     const double /*n*/[],  const double /*uext*/[], const double /*tau*/[],
+                     const double /*mu*/[], const double /*uinf*/[], double /*t*/) {
+        for (int k = 0; k < Self::ncu * Self::ncu; ++k) fb_uh[k] = 0.0;
+    }
     // (fhat_jac_*, stab_jac_*, eos_jac_* follow the same shape; added
     // when the corresponding kernel template is wired up.)
 };
@@ -574,42 +702,75 @@ struct HDGJacobianDefaults : OutputDefaults<Self, T> {
 template <class Self, class T = double>
 struct ModelDefaults : HDGJacobianDefaults<Self, T> {};
 
+// ---- Interface-coupling traits (read by kernels; defaults handled here) ----
+//
+// A model may omit `nfint` / `nfext` / `ncuext`; the trait then falls
+// back to `M::ncu`. `has_external_coupling` is always present on models
+// that inherit `ModelDefaults`, but the trait tolerates ones that do not.
+namespace detail {
+
+template <class M, class = void> struct nfint_trait  { static constexpr int value = M::ncu; };
+template <class M> struct nfint_trait<M, std::void_t<decltype(M::nfint)>>   { static constexpr int value = M::nfint; };
+
+template <class M, class = void> struct nfext_trait  { static constexpr int value = M::ncu; };
+template <class M> struct nfext_trait<M, std::void_t<decltype(M::nfext)>>   { static constexpr int value = M::nfext; };
+
+template <class M, class = void> struct ncuext_trait { static constexpr int value = M::ncu; };
+template <class M> struct ncuext_trait<M, std::void_t<decltype(M::ncuext)>> { static constexpr int value = M::ncuext; };
+
+template <class M, class = void> struct ext_coupling_trait { static constexpr bool value = false; };
+template <class M> struct ext_coupling_trait<M, std::void_t<decltype(M::has_external_coupling)>>
+    { static constexpr bool value = M::has_external_coupling; };
+
+} // namespace detail
+
+template <class M> inline constexpr int  nfint_v  = detail::nfint_trait<M>::value;
+template <class M> inline constexpr int  nfext_v  = detail::nfext_trait<M>::value;
+template <class M> inline constexpr int  ncuext_v = detail::ncuext_trait<M>::value;
+template <class M> inline constexpr bool has_external_coupling_v = detail::ext_coupling_trait<M>::value;
+
 // ===========================================================================
-// Deferred surface — recorded for v2 / multi-domain coupling
+// Multi-domain HDG interface coupling — IMPLEMENTED (v2, array-sourced uext)
 // ===========================================================================
 //
 // `apps/poisson/poisson2d/pdemodel2.txt` and the `HdgFint*` / `HdgFext*`
-// libpdemodel.hpp ABI symbols document a multi-domain HDG path that the
-// header-only port does not yet cover:
+// libpdemodel.hpp ABI symbols define a multi-domain HDG path now mirrored
+// by the header-only (concrete-template) port:
 //
-//   M::fint        (out, ib, x, uq, w, uh, n, tau, mu, uinf, t)
+//   M::fint        (out, ib, x, uq, v, w, uh, n, tau, mu, uinf, t)
 //   M::fint_jac_uq (...)
 //   M::fint_jac_w  (...)
 //   M::fint_jac_uh (...)
-//   M::fext        (out, ib, x, uq, w, uh, n, uext, tau, mu, uinf, t)
+//   M::fext        (out, ib, x, uq, v, w, uh, n, uext, tau, mu, uinf, t)
 //   M::fext_jac_uq (...)
 //   M::fext_jac_w  (...)
 //   M::fext_jac_uh (...)
 //
+// (The `v`/odg argument is carried through to match `fbou_hdg`'s shape;
+// the ABI kernels take odg as well.)
+//
 // `Fint` is the HDG trace residual on internal model interfaces; `Fext`
 // adds an extra input array `uext` carrying the trace from a
 // neighbouring PDE model so the user can write coupling residuals like
-// `fb[0] = uext[0] - uh[0]`.
+// `fb[0] = uext[0] - uh[0]`. See the zero-fill defaults + Jacobian layout
+// note in `ModelDefaults` above, the `has_external_coupling` trait, and
+// the `fint_kernel<M>` / `fext_kernel<M>` templates in
+// <exasim/kernels/boundary.hpp>. The kernels are gated behind
+// `has_external_coupling` (default false) so single-domain models keep a
+// byte-identical residual/Jacobian.
 //
-// Out of scope for v1 because:
-//   - single-domain HDG (Poisson, single Navier-Stokes, etc.) does not
-//     reach these code paths;
-//   - `uext` requires plumbing a foreign-model trace through the kernel
-//     dispatch, which interacts with how multiple `CSolution<Model>`
-//     instances are orchestrated by the runtime;
-//   - none of the canonical apps in apps/poisson/* or apps/navierstokes/*
-//     except poisson2d/pdemodel2.txt define `Fint`/`Fext`.
+// Sourcing of `uext` (implemented): the ARRAY form, exactly like the ABI
+// `HdgFext`. The coupler writes the neighbour trace into `disc.sol.uext`
+// (SoA, `ncuext_v<M>` components per face point); the HDG boundary
+// assembly reads it under `disc.common.couplingparams.FextCall` /
+// `common.FextCall` and passes it to `fext_kernel<M>` as a plain array.
 //
-// When implementing: add `static constexpr bool has_external_coupling`
-// to the contract, gate the `fext`-related kernel calls behind it, and
-// extend `<exasim/kernels/boundary.hpp>` with `fint_kernel<M>` /
-// `fext_kernel<M, OtherModel>` (the second template arg supplies the
-// foreign model whose trace lands in `uext`).
+// Further extension (NOT implemented): a `fext_kernel<M, OtherModel>`
+// overload that pulls the neighbour trace directly from a foreign
+// `CSolution<OtherModel>` instead of a pre-populated array, which would
+// let two templated models be orchestrated without the coupler staging
+// `uext` into `disc.sol.uext`. The array form above already covers the
+// real driver (isoq2d CHT).
 //
 // Also deferred to v2:
 //   - `hessian` declarations from text2code's DSL: second-derivative

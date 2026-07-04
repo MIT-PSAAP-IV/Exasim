@@ -23,8 +23,6 @@
 
 #pragma once
 
-#include <utility>   // std::forward (for Fint/Fext stubs)
-
 #include <Kokkos_Core.hpp>
 
 #include "common.h"
@@ -663,20 +661,22 @@ inline void InitwdgDriver(T* f, const T* xg,
 
 } // namespace exasim — end of templated *Driver<M> wrappers
 
-// ===== Fint / Fext (multi-domain coupling, deferred to v2) =====
+// ===== Fint / Fext (multi-domain HDG interface coupling) =====
 //
-// Variadic stubs that forward to whatever ::FintDriver / ::FextDriver
-// overload exists at the call site (resolved at instantiation time
-// once Model/ModelDrivers.cpp has provided definitions).
-//
-// The real templated kernels for multi-domain coupling are recorded
-// in <exasim/model.hpp>'s "Deferred surface" notes; until then, the
-// stubs keep the templating cascade compilable so single-domain
-// models (which never reach the multi-domain code paths at runtime)
-// still build and run unchanged.
+// Mirror the ABI `FintDriver` / `FextDriver` in
+// backend/Discretization/KokkosDrivers.cpp, routing through the templated
+// `fint_kernel<M>` / `fext_kernel<M>` (and value-only variants) in
+// <exasim/kernels/boundary.hpp>. Every call is gated on
+// `has_external_coupling_v<M>`: for a single-domain model (the default)
+// these compile to no-ops and the kernels are never instantiated, so the
+// assembled residual/Jacobian is byte-identical to the pre-coupling build
+// (single-domain runs never reach these code paths at runtime anyway —
+// `coupledcondition`/`FextCall` are 0 — but the `if constexpr` also keeps
+// `fint_kernel<M>` from being instantiated for models that lack the
+// interface math).
 
-// Forward-declare the global Fint/Fext drivers so the variadic stubs
-// below can reference them. Declaration order: callers in
+// Forward-declare the global Fint/Fext drivers so the variadic precision
+// fallbacks below can reference them. Declaration order: callers in
 // backend/Discretization/*.hpp will see them via the discretization.hpp
 // chain (Model/ModelDrivers.cpp included before residual.hpp etc).
 // We skip declaring exact signatures here — the actual overloads
@@ -689,7 +689,8 @@ namespace exasim::detail {
 // FintDriver / FextDriver and forwards via a helper that is
 // instantiation-dependent on M. This delays name lookup until
 // instantiation time, by which point Model/ModelDrivers.cpp has
-// provided the global definitions.
+// provided the global definitions. (Only reachable on the non-default
+// precision path; the default-precision path uses the typed overloads.)
 template <class M>
 struct multidomain_forward {
     template <class... Args>
@@ -706,13 +707,22 @@ struct multidomain_forward {
 
 namespace exasim {
 
-// Interface/external-flux drivers are multidomain-coupling only: they forward to the global
-// (codegen/legacy) ::FintDriver / ::FextDriver, which are dstype-typed. Coupling is a double-only
-// concern for now, and single-model solves (e.g. Poisson) never hit an interface face at runtime,
-// so for non-default precision the forward is compiled out (the call is dead but must not instantiate
-// the dstype-only global with T buffers).
-// The scalar precision is deduced from the first (buffer) argument, NOT a trailing template param
-// (which, sitting after the variadic pack, could never be deduced and would always be dstype).
+// ---- Precision fallback (T != dstype) ----
+//
+// The typed `FintDriver<M>` / `FextDriver<M>` overloads below are the real
+// (v2) concrete-template coupling drivers; they take `dstype*` buffers and
+// route through `fint_kernel<M>` / `fext_kernel<M>`. But they only match the
+// default (dstype) precision. For a non-default-precision consumer (T !=
+// dstype, e.g. a float32 build) the call sites pass `T*` buffers, which the
+// dstype-only overloads cannot bind. These variadic fallbacks catch that
+// case. Coupling is a double-only concern (single-model float32 solves never
+// hit an interface face at runtime), so the body is compiled out for T !=
+// dstype and forwards to the global `::FintDriver` / `::FextDriver` only when
+// the scalar IS dstype (a path that, in practice, the more-specialized typed
+// overloads below win by partial ordering). The scalar precision is deduced
+// from the first (buffer) argument, NOT a trailing template param (which,
+// sitting after the variadic pack, could never be deduced and would always be
+// dstype).
 template <class M, class First, class... Rest>
 inline void FintDriver(First&& first, Rest&&... rest) {
     using Scalar = std::remove_cv_t<std::remove_pointer_t<std::remove_reference_t<First>>>;
@@ -727,4 +737,90 @@ inline void FextDriver(First&& first, Rest&&... rest) {
         ::exasim::detail::multidomain_forward<M>::Fext(std::forward<First>(first), std::forward<Rest>(rest)...);
 }
 
-} // namespace exasim — end of Fint/Fext stubs
+// FintDriver — HDG interface residual + 3 Jacobians (mirrors `HdgFint`).
+// Typed (dstype) overload; more specialized than the variadic fallback above,
+// so it wins for the default-precision path.
+template <class M>
+inline void FintDriver(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
+                       dstype* xg, const dstype* udg, const dstype* odg,
+                       const dstype* wdg, dstype* uhg, const dstype* nl,
+                       meshstruct& /*mesh*/, masterstruct& /*master*/,
+                       appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
+                       commonstruct& common, Int nga, Int ib, Int /*backend*/)
+{
+    if constexpr (has_external_coupling_v<M>) {
+        fint_kernel<M>(f, f_udg, f_wdg, f_uhg, xg, udg, odg, wdg, uhg, nl,
+                       app.tau, app.uinf, app.physicsparam, common.timestate.time,
+                       common.modelnumber, ib, nga, common.components.nc, common.components.ncu,
+                       common.grid.nd, common.components.ncx, common.components.nco, common.components.ncw);
+    } else {
+        (void)f; (void)f_udg; (void)f_wdg; (void)f_uhg; (void)xg; (void)udg;
+        (void)odg; (void)wdg; (void)uhg; (void)nl; (void)app; (void)common;
+        (void)nga; (void)ib;
+    }
+}
+
+// FintDriver — value-only (mirrors `HdgFintonly`).
+template <class M>
+inline void FintDriver(dstype* f, dstype* xg, const dstype* udg,
+                       const dstype* odg, const dstype* wdg, dstype* uhg,
+                       const dstype* nl,
+                       meshstruct& /*mesh*/, masterstruct& /*master*/,
+                       appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
+                       commonstruct& common, Int nga, Int ib, Int /*backend*/)
+{
+    if constexpr (has_external_coupling_v<M>) {
+        fint_only_kernel<M>(f, xg, udg, odg, wdg, uhg, nl,
+                            app.tau, app.uinf, app.physicsparam, common.timestate.time,
+                            common.modelnumber, ib, nga, common.components.nc, common.components.ncu,
+                            common.grid.nd, common.components.ncx, common.components.nco, common.components.ncw);
+    } else {
+        (void)f; (void)xg; (void)udg; (void)odg; (void)wdg; (void)uhg;
+        (void)nl; (void)app; (void)common; (void)nga; (void)ib;
+    }
+}
+
+// FextDriver — HDG external-interface residual + 3 Jacobians. Takes the
+// injected neighbour trace `uext` (array form, like `HdgFext`).
+template <class M>
+inline void FextDriver(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
+                       dstype* xg, const dstype* udg, const dstype* odg,
+                       const dstype* wdg, dstype* uhg, const dstype* nl,
+                       const dstype* uext,
+                       meshstruct& /*mesh*/, masterstruct& /*master*/,
+                       appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
+                       commonstruct& common, Int nga, Int ib, Int /*backend*/)
+{
+    if constexpr (has_external_coupling_v<M>) {
+        fext_kernel<M>(f, f_udg, f_wdg, f_uhg, xg, udg, odg, wdg, uhg, nl, uext,
+                       app.tau, app.uinf, app.physicsparam, common.timestate.time,
+                       common.modelnumber, ib, nga, common.components.nc, common.components.ncu,
+                       common.grid.nd, common.components.ncx, common.components.nco, common.components.ncw);
+    } else {
+        (void)f; (void)f_udg; (void)f_wdg; (void)f_uhg; (void)xg; (void)udg;
+        (void)odg; (void)wdg; (void)uhg; (void)nl; (void)uext; (void)app;
+        (void)common; (void)nga; (void)ib;
+    }
+}
+
+// FextDriver — value-only (mirrors `HdgFextonly`).
+template <class M>
+inline void FextDriver(dstype* f, dstype* xg, const dstype* udg,
+                       const dstype* odg, const dstype* wdg, dstype* uhg,
+                       const dstype* nl, const dstype* uext,
+                       meshstruct& /*mesh*/, masterstruct& /*master*/,
+                       appstruct& app, solstruct& /*sol*/, tempstruct& /*temp*/,
+                       commonstruct& common, Int nga, Int ib, Int /*backend*/)
+{
+    if constexpr (has_external_coupling_v<M>) {
+        fext_only_kernel<M>(f, xg, udg, odg, wdg, uhg, nl, uext,
+                            app.tau, app.uinf, app.physicsparam, common.timestate.time,
+                            common.modelnumber, ib, nga, common.components.nc, common.components.ncu,
+                            common.grid.nd, common.components.ncx, common.components.nco, common.components.ncw);
+    } else {
+        (void)f; (void)xg; (void)udg; (void)odg; (void)wdg; (void)uhg;
+        (void)nl; (void)uext; (void)app; (void)common; (void)nga; (void)ib;
+    }
+}
+
+} // namespace exasim — end of Fint/Fext drivers

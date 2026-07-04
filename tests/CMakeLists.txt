@@ -211,6 +211,26 @@ if(_bm_genroot AND EXISTS "${EXASIM_TEXT2CODE}"
 endif()
 
 
+# Multi-domain HDG interface-coupling (Fint/Fext) kernel equivalence: prove the
+# templated exasim::fint_kernel<M>/fext_kernel<M> assemble byte-identical
+# residual + Jacobian buffers to the libpdemodel ABI HdgFint/HdgFext for a
+# coupled model (apps/poisson/poisson2d/pdemodel2.txt + a non-trivial-Jacobian
+# probe). Links real Kokkos; the ABI reference kernels are checked in under
+# tests/coupling-models/reference/. See tests/coupling-models/compare_fint_fext.cpp.
+if(TARGET Kokkos::kokkos)
+  add_executable(fint_fext_equivalence
+    "${EXASIM_DIR}/tests/coupling-models/compare_fint_fext.cpp")
+  target_include_directories(fint_fext_equivalence PRIVATE
+    "${EXASIM_INCLUDE_DIR}" "${EXASIM_DIR}"
+    "${EXASIM_DIR}/tests/coupling-models")
+  target_link_libraries(fint_fext_equivalence PRIVATE Kokkos::kokkos)
+  target_compile_features(fint_fext_equivalence PRIVATE cxx_std_17)
+  add_test(NAME coupling_fint_fext_equivalence
+    COMMAND fint_fext_equivalence)
+  set_tests_properties(coupling_fint_fext_equivalence PROPERTIES TIMEOUT 120)
+endif()
+
+
 # Shared-library app test: install Exasim, build apps/sharedlibrary against the
 # installed package, generate libt2cmodelserial with the installed text2code,
 # and run a small Poisson text2code fixture through the shared-library ABI path.
