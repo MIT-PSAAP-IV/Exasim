@@ -231,6 +231,30 @@ if(TARGET Kokkos::kokkos)
 endif()
 
 
+# Generated-model coupling equivalence (Gap 1): prove text2code EMITS the Fint/Fext
+# coupling surface into the generated `PdeModel` (has_external_coupling +
+# nfint/nfext/ncuext + concrete fint/fext + Jacobians) so a text2code-GENERATED
+# coupled model runs pure-template with NO loaded ABI. Drives the GENERATED PdeModel
+# (checked in under tests/coupling-models/generated/, regenerated from pdemodel2.txt
+# + probe_model.txt) through the templated exasim::fint_kernel<M>/fext_kernel<M> and
+# asserts byte-identical residual + Jacobian buffers vs the SAME ABI HdgFint/HdgFext
+# references in tests/coupling-models/reference/. The generated-model analog of
+# coupling_fint_fext_equivalence (which used hand-written coupled models).
+# See tests/coupling-models/compare_generated_fint_fext.cpp.
+if(TARGET Kokkos::kokkos)
+  add_executable(generated_fint_fext_equivalence
+    "${EXASIM_DIR}/tests/coupling-models/compare_generated_fint_fext.cpp")
+  target_include_directories(generated_fint_fext_equivalence PRIVATE
+    "${EXASIM_INCLUDE_DIR}" "${EXASIM_DIR}"
+    "${EXASIM_DIR}/tests/coupling-models")
+  target_link_libraries(generated_fint_fext_equivalence PRIVATE Kokkos::kokkos)
+  target_compile_features(generated_fint_fext_equivalence PRIVATE cxx_std_17)
+  add_test(NAME generated_coupling_equivalence
+    COMMAND generated_fint_fext_equivalence)
+  set_tests_properties(generated_coupling_equivalence PROPERTIES TIMEOUT 120)
+endif()
+
+
 # Implicit HDG w-equation source (Sourcew) kernel equivalence: prove the
 # templated exasim::hdg_sourcew_kernel<M> / hdg_sourcewonly_kernel<M> assemble
 # byte-identical value + ∂sw/∂udg + ∂sw/∂w buffers to the libpdemodel ABI
