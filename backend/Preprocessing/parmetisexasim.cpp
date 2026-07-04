@@ -3121,11 +3121,11 @@ inline void writemesh(Mesh& mesh, const DMD& dmd, const PDE& pde, const Master& 
     writeVectorAsDoubles(out, dmd.elempart);
     writeVectorAsDoubles(out, dmd.elempartpts);
 
-    if (pde.hybrid > 0) {
-        writeVectorAsDoubles(out, master.perm);  
-        writeVectorAsDoubles(out, mesh.bf);      
-        writeVectorAsDoubles(out, mesh.cartGridPart);
-    }
+    // Always write connectivity metadata (perm/bf/cartGridPart): the backend needs it for LDG
+    // (hybrid==0) as well as HDG, so gating on hybrid left LDG runs without required data.
+    writeVectorAsDoubles(out, master.perm);
+    writeVectorAsDoubles(out, mesh.bf);
+    writeVectorAsDoubles(out, mesh.cartGridPart);
 
     writeVectorAsDoubles(out, mesh.tg);
     writeVectorAsDoubles(out, mesh.boundaryConditions);

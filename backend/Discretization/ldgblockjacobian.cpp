@@ -1472,7 +1472,7 @@ void RuFaceCrossDerivOptimized(dstype* A, solstruct &sol,
         LDGBuildFaceEForCrossBlockOptimized(Ef, res.E, mesh.f2e,
                 mesh.perm, res.ipiv, 1, f1, nfb, npe, npf, common.meshsizes.nfe,
                 nd, common.meshsizes.ne);
-        ArrayMultiplyScalar(common.cublasHandle, Ef, 0.5*scalar*minusone,
+        ArrayMultiplyScalar(common.cublasHandle, Ef, 0.5*scalar,
                 szEf, backend);
         PGEMNMStridedBached(common.cublasHandle, npf*ncu*ncu, npf,
                 npf*nd, one, B, npf*ncu*ncu, Ef, npf*nd, 0.0,
@@ -1493,7 +1493,7 @@ void RuFaceCrossDerivOptimized(dstype* A, solstruct &sol,
         LDGBuildFaceEForCrossBlockOptimized(Ef, res.E, mesh.f2e,
                 mesh.perm, res.ipiv, 2, f1, nfb, npe, npf, common.meshsizes.nfe,
                 nd, common.meshsizes.ne);
-        ArrayMultiplyScalar(common.cublasHandle, Ef, 0.5*scalar*one,
+        ArrayMultiplyScalar(common.cublasHandle, Ef, 0.5*scalar*minusone,
                 szEf, backend);
         PGEMNMStridedBached(common.cublasHandle, npf*ncu*ncu, npf,
                 npf*nd, one, B, npf*ncu*ncu, Ef, npf*nd, 0.0,

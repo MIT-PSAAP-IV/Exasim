@@ -1502,17 +1502,19 @@ struct resstructT {
         TemplateFree(dRu, backend);   
         TemplateFree(dRh, backend);   
       #endif                                                
-        TemplateFree(Mass, backend);      
-        TemplateFree(Minv, backend);      
-        TemplateFree(Mass2, backend);      
-        TemplateFree(Minv2, backend);      
-        TemplateFree(C, backend);      
-        TemplateFree(E, backend);      
+        // Size-guarded frees: temporary mass matrices are freed early (massinv/qEquation clear the
+        // size marker), so skip here when already released to avoid a double free of a dangling ptr.
+        if (szMass > 0)  TemplateFree(Mass, backend);
+        if (szMinv > 0)  TemplateFree(Minv, backend);
+        if (szMass2 > 0) TemplateFree(Mass2, backend);
+        if (szMinv2 > 0) TemplateFree(Minv2, backend);
+        TemplateFree(C, backend);
+        TemplateFree(E, backend);
         // F and H are owned only in the HDG layout; in the LDG block-Jacobi arena they alias into
         // K (fhAliasesK==1) and must not be freed (freeing K reclaims the whole block).
-        if (!fhAliasesK) TemplateFree(F, backend); else F = nullptr;
+        if (!fhAliasesK && szF > 0) TemplateFree(F, backend); else F = nullptr;
         K = nullptr;  // non-owning view into the scratch arena (owned/freed by CDiscretization::scratch, S5 step 3)
-        if (!fhAliasesK) TemplateFree(H, backend); else H = nullptr;
+        if (!fhAliasesK && szH > 0) TemplateFree(H, backend); else H = nullptr;
         TemplateFree(Gi, backend);
         TemplateFree(Ki, backend);
         TemplateFree(Hi, backend);

@@ -120,10 +120,12 @@ inline void ComputeMinv(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T
             Inverse(handle, &res.Minv[npe*npe*mm], work, ipiv, npe, ns, backend);
         }
         mm = mm+ns;
-    }                
-    
-    TemplateFree(work, backend);   
-    TemplateFree(ipiv, backend);        
+    }
+
+    TemplateFree(res.Mass, backend);
+    res.szMass = 0;
+    TemplateFree(work, backend);
+    TemplateFree(ipiv, backend);
 }
 
 template <class T=dstype, class I=Int>

@@ -26,6 +26,7 @@ APPS=${APPS:-"poisson/poisson2d poisson/poisson3d poisson/periodic poisson/lshap
 # <app>__<suffix>/ and carries a variant.sed so run-app-regression.sh reproduces the same flip.
 VARIANTS=(
   "poisson/poisson2d|ppdeg4|s/ppdegree = 1;/ppdegree = 4;/"   # native polynomial preconditioner (getpoly/ApplyPoly)
+  "poisson/poisson2d|ldg|s/discretization = \"hdg\";/discretization = \"ldg\";/"   # LDG (hybrid=0) path: block-Jacobian + always-write connectivity
 )
 mkdir -p "$BASE"
 

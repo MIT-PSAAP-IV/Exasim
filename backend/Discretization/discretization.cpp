@@ -400,7 +400,9 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
             qEquation(sol, res, app, master, mesh, tmp, common, backend);
             TemplateFree(res.Mass2, backend);
             TemplateFree(res.Minv2, backend);
-            if (common.mpiRank==0) printf("finish qEquation... \n");            
+            res.szMass2 = 0;
+            res.szMinv2 = 0;
+            if (common.mpiRank==0) printf("finish qEquation... \n");
         }
         else if (!postprocessOnly) {
             res.szP = 0;
