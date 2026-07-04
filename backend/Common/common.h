@@ -1390,14 +1390,20 @@ struct resstructT {
     dstype *Minv=nullptr; // store the inverse of the mass matrix
     dstype *Mass2=nullptr; // store the mass matrix
     dstype *Minv2=nullptr; // store the inverse of the mass matrix
-    dstype *C=nullptr; // store the convection matrix
-    dstype *E=nullptr; // store the convection matrix
-    dstype *D=nullptr; // store the diffusion matrix
-    dstype *B=nullptr; // store the diffusion matrix
-    dstype *F=nullptr; // store the diffusion matrix
-    dstype *G=nullptr; // store the diffusion matrix
-    dstype *K=nullptr; // store the diffusion matrix
-    dstype *H=nullptr; // store the diffusion matrix
+    // --- HDG/LDG local element-Jacobian blocks (the compact notation the assembly is written in) ---
+    // The condensed local system per element is [D F; K H] [du; duh] = [Ru; Rh]; the LDG auxiliary q
+    // (mass matrix Minv above) is eliminated by Schur substitution q = Minv*(C*u + E*uh), giving
+    //   D += B*Minv*C,  F -= B*Minv*E,  K += G*Minv*C,  H -= G*Minv*E   (see uequation.hpp,
+    // qequation.hpp, and docs/theory/block-diagonal-jacobian.md). C/E/B/G carry one slab per spatial
+    // dimension (Cx,Cy,Cz ... indexed by e1 + d*ne). Sizes: n=npe*ncu (element-u), m=npf*nfe*ncu (trace).
+    dstype *C=nullptr; // dq/du       block, per dim  [npe*npe*ne * nd]      (q from element u)
+    dstype *E=nullptr; // dq/duhat    block, per dim  [npe*npf*nfe*ne * nd]  (q from trace uhat)
+    dstype *D=nullptr; // dRue/du     block (n x n)   -- element-u vs element-u  (diagonal block)
+    dstype *B=nullptr; // dRue/dq     block, per dim  -- element-u vs q  (contracts with Minv*C into D)
+    dstype *F=nullptr; // dRue/duhat  block (n x m)   -- element-u vs trace
+    dstype *G=nullptr; // dRh/dq      block, per dim  -- trace vs q  (contracts with Minv*C into K)
+    dstype *K=nullptr; // dRh/du      block (m x n)   -- trace vs element-u
+    dstype *H=nullptr; // dRh/duhat   block (m x m)   -- trace vs trace (the Schur-complemented diagonal)
 
     dstype *Ri=nullptr; // residual vector for uhat    
     dstype *Gi=nullptr; // store the diffusion matrix
