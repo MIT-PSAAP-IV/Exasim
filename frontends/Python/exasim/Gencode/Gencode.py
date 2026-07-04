@@ -9,6 +9,7 @@ from .setcompilers import setcompilers
 from .compilecode import compilecode
 from .cmakecompile import cmakecompile, cmakecompile_combined
 from .exportapp import exportapp, exportapp_combined
+from .exporttext2code import exporttext2code
 from .compilepdemodel import compilepdemodel
 from .runcode import runcode, runcode_combined
 from .syminit import syminit

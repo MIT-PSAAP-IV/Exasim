@@ -168,6 +168,20 @@ set_tests_properties(frontend_python_postprocess PROPERTIES
 # path needs debugging in the frontend before this can be a CI gate. The README /
 # smoke-cpu.yml previously claimed it ran -- that was documentation drift.
 
+# Frontend Text2Code-source export: Python exports pdemodel.txt, pdeapp.txt,
+# grid.bin, and optional field binaries; installed text2code must parse the
+# package and regenerate datain without any frontend runtime.
+add_test(NAME frontend_python_exporttext2code
+  COMMAND ${CMAKE_COMMAND} -E env
+    "EXASIM_ROOT=${EXASIM_DIR}"
+    "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}"
+    "FRONTEND=python"
+    "EXPORT_TEXT2CODE_TEST=1"
+    "PYTHON3=${Python3_EXECUTABLE}"
+    bash "${EXASIM_DIR}/tests/frontends/run-frontend-test.sh")
+set_tests_properties(frontend_python_exporttext2code PROPERTIES
+  TIMEOUT 2400 SKIP_RETURN_CODE 77)
+
 # Builtin model 4 kernel equivalence: model 4 (CNS5air reacting NS) switched
 # from MATLAB-generated kernels to a text2code source (pdemodel4.txt). This
 # test compiles the legacy checked-in kernels (backend/Model/BuiltIn/model4/)

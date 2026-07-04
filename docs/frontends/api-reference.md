@@ -18,17 +18,19 @@ Detailed behavior is implemented in the language-specific frontend directories:
 | Compile | `cmakecompile(pde)` | `cmakecompile(pde)` | `Exasim.cmakecompile(pde)` | Configure/build generated CMake app. |
 | Run executable | `runcode(pde, numpde)` | `runcode(pde, numpde)` | `Exasim.runcode(pde, numpde)` | Launch solve or postprocess executable. |
 | Export app | `exportapp(pde, dest)` | `exportapp(pde, dest)` | `Exasim.exportapp(pde, dest)` | Create standalone app bundle. |
+| Export Text2Code package | `exporttext2code(pde, mesh, dest)` | `exporttext2code(pde, mesh, dest)` | `Exasim.exporttext2code(pde, mesh, dest)` | Create `pdeapp.txt`, `pdemodel.txt`, mesh, and optional field binaries for Text2Code regeneration. |
 | Visualize | `vis(visfields, app, mesh)` | `vis(visfields, app, mesh)` | `Exasim.vis(visfields, app, mesh)` | Write frontend visualization output. |
 
 Example:
 
 ```python
-from exasim import initializeexasim, exasim, exportapp
+from exasim import initializeexasim, exasim, exportapp, exporttext2code
 
 pde, mesh = initializeexasim()
 pde["modelfile"] = "pdemodel"
 sol, pde, mesh = exasim(pde, mesh)
 exportapp(pde, "standalone_app")
+exporttext2code(pde, mesh, "text2code_package")
 ```
 
 ## Common `pde` Fields
@@ -74,7 +76,8 @@ flow.
 | Field access | `pde.field` | `pde["field"]` | `pde.field` |
 | Package setup | `exasim_setup.m` | Python package/import path | `using Exasim` |
 | Array convention | MATLAB column-major arrays | NumPy arrays; Exasim data follows backend layout | Julia column-major arrays |
-| Export setting | `exportapp(pde, dest)` | `exportapp(pde, dest)` | `Exasim.exportapp(pde, dest)` |
+| Export standalone app | `exportapp(pde, dest)` | `exportapp(pde, dest)` | `Exasim.exportapp(pde, dest)` |
+| Export Text2Code package | `exporttext2code(pde, mesh, dest)` | `exporttext2code(pde, mesh, dest)` | `Exasim.exporttext2code(pde, mesh, dest)` |
 
 ## Text Frontend Compatibility
 

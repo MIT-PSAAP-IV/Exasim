@@ -12,11 +12,17 @@ option(WITH_METIS "Build text2code with METIS/GKlib" ON)
 # Default guesses two levels up from this CMakeLists.txt; override if needed.
 set(EXASIM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../" CACHE PATH "Path to Exasim root")
 
+# Exasim prefix location forwarded by the superbuild. Baked into the binary
+# so buildDynamicLibraries() compiles the runtime model .so against the right
+# metis, kokkos, and symengine libaries
+set(EXASIM_INSTALL_PREFIX "" CACHE PATH "Exasim install prefix used by installed text2code")
+
 # Where the superbuild installed the vendored SymEngine (out of the source tree),
 # and whether the resolved SymEngine is that vendored one. Both forwarded by the
 # superbuild; empty/OFF for a standalone build (falls back to the in-source dep).
 set(EXASIM_SYMENGINE_DIR "" CACHE PATH "Vendored SymEngine install dir (from superbuild)")
 option(EXASIM_SYMENGINE_VENDORED "Resolved SymEngine is the vendored one" OFF)
+option(EXASIM_SYMENGINE_WITH_GMP "Resolved SymEngine was built with GMP" OFF)
 
 # Kokkos location + backend, forwarded by the superbuild (it builds Kokkos out of
 # the source tree). Baked into the binary so buildDynamicLibraries() compiles the
@@ -38,11 +44,55 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${EXASIM_T2C_OUTPUT_DIR}")
 set(METIS_ROOT    "${EXASIM_ROOT}/deps/metis/METIS" CACHE PATH "Path to METIS root")
 set(GKLIB_ROOT    "${EXASIM_ROOT}/deps/metis/GKlib" CACHE PATH "Path to GKlib root")
 
+function(t2c_first_existing_dir outvar)
+  foreach(_dir ${ARGN})
+    if(EXISTS "${_dir}" AND IS_DIRECTORY "${_dir}")
+      set(${outvar} "${_dir}" PARENT_SCOPE)
+      return()
+    endif()
+  endforeach()
+  list(GET ARGN 0 _fallback)
+  set(${outvar} "${_fallback}" PARENT_SCOPE)
+endfunction()
+
+function(t2c_first_existing_file_dir outvar filename)
+  foreach(_dir ${ARGN})
+    if(EXISTS "${_dir}/${filename}")
+      set(${outvar} "${_dir}" PARENT_SCOPE)
+      return()
+    endif()
+  endforeach()
+  list(GET ARGN 0 _fallback)
+  set(${outvar} "${_fallback}" PARENT_SCOPE)
+endfunction()
+
+function(t2c_refresh_cache_dir_if_needed var default_dir required_file doc)
+  set(${var} "${default_dir}" CACHE PATH "${doc}")
+  if(NOT EXISTS "${${var}}/${required_file}" AND EXISTS "${default_dir}/${required_file}")
+    set(${var} "${default_dir}" CACHE PATH "${doc}" FORCE)
+  endif()
+endfunction()
+
 # Derived include/lib dirs (override if needed)
-set(METIS_INCLUDE_DIR "${METIS_ROOT}/build/xinclude" CACHE PATH "METIS public include dir")
-set(METIS_LIBRARY_DIR "${METIS_ROOT}/build/libmetis"  CACHE PATH "METIS library dir")
-set(GKLIB_INCLUDE_DIR "${GKLIB_ROOT}/include"         CACHE PATH "GKlib include dir")
-set(GKLIB_LIBRARY_DIR "${GKLIB_ROOT}/lib"             CACHE PATH "GKlib library dir")
+t2c_first_existing_dir(_metis_default_include
+  "${METIS_ROOT}/build/xinclude"
+  "${METIS_ROOT}/include")
+t2c_first_existing_file_dir(_metis_default_libdir libmetis.a
+  "${METIS_ROOT}/lib"
+  "${METIS_ROOT}/lib64"
+  "${METIS_ROOT}/build/libmetis")
+t2c_first_existing_dir(_gklib_default_include
+  "${GKLIB_ROOT}/include")
+t2c_first_existing_file_dir(_gklib_default_libdir libGKlib.a
+  "${GKLIB_ROOT}/lib"
+  "${GKLIB_ROOT}/lib64"
+  "${GKLIB_ROOT}/build/${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
+set(METIS_INCLUDE_DIR "${_metis_default_include}" CACHE PATH "METIS public include dir")
+t2c_refresh_cache_dir_if_needed(METIS_LIBRARY_DIR
+  "${_metis_default_libdir}" libmetis.a "METIS library dir")
+set(GKLIB_INCLUDE_DIR "${_gklib_default_include}" CACHE PATH "GKlib include dir")
+t2c_refresh_cache_dir_if_needed(GKLIB_LIBRARY_DIR
+  "${_gklib_default_libdir}" libGKlib.a "GKlib library dir")
 
 # Resolve METIS/GKlib robustly: find them on the system (conda/apt) OR fall back
 # to the vendored build dirs via HINTS — exactly like the main solver build.
@@ -119,17 +169,29 @@ if(SymEngine_FOUND)
     string(REPLACE ";" " " _se_lib "${SYMENGINE_LIBRARIES}")
   endif()
   
-  # Add GMP dependencies required by GMP-based static SymEngine.
+  # Add GMP dependencies required by GMP-based static SymEngine. The superbuild
+  # installs GMP into EXASIM_INSTALL_PREFIX, while SymEngine itself is installed
+  # in EXASIM_SYMENGINE_DIR, so check both lib and lib64 layouts.
   set(_se_extra_libs "")
-  if(EXISTS "${EXASIM_SYMENGINE_DIR}/lib/libgmpxx.a")
-    string(APPEND _se_extra_libs " ${EXASIM_SYMENGINE_DIR}/lib/libgmpxx.a")
-  endif()
-  if(EXISTS "${EXASIM_SYMENGINE_DIR}/lib/libgmp.a")
-    string(APPEND _se_extra_libs " ${EXASIM_SYMENGINE_DIR}/lib/libgmp.a")
+  if(EXASIM_SYMENGINE_WITH_GMP)
+    foreach(_se_gmp_lib
+        "${EXASIM_SYMENGINE_DIR}/lib/libgmpxx.a"
+        "${EXASIM_SYMENGINE_DIR}/lib64/libgmpxx.a"
+        "${EXASIM_INSTALL_PREFIX}/lib/libgmpxx.a"
+        "${EXASIM_INSTALL_PREFIX}/lib64/libgmpxx.a"
+        "${EXASIM_SYMENGINE_DIR}/lib/libgmp.a"
+        "${EXASIM_SYMENGINE_DIR}/lib64/libgmp.a"
+        "${EXASIM_INSTALL_PREFIX}/lib/libgmp.a"
+        "${EXASIM_INSTALL_PREFIX}/lib64/libgmp.a")
+      if(EXISTS "${_se_gmp_lib}")
+        string(APPEND _se_extra_libs " ${_se_gmp_lib}")
+      endif()
+    endforeach()
   endif()
   
   file(GENERATE OUTPUT "${_se_header}" CONTENT
   "#pragma once
+  #define EXASIM_INSTALL_PREFIX \"${EXASIM_INSTALL_PREFIX}\"
   #define EXASIM_SYMENGINE_FOUND 1
   #define EXASIM_SYMENGINE_INCFLAGS \"${_se_inc}\"
   #define EXASIM_SYMENGINE_LIB \"${_se_lib}${_se_extra_libs}\"
@@ -138,6 +200,9 @@ if(SymEngine_FOUND)
   ")
 
   message(STATUS "SymEngine                = found (${SYMENGINE_INCLUDE_DIRS})")
+  message(STATUS "EXASIM_SYMENGINE_FOUND   = 1")
+  message(STATUS "EXASIM_SYMENGINE_INCFLAGS = ${_se_inc}")
+  message(STATUS "EXASIM_SYMENGINE_LIB     = ${_se_lib}${_se_extra_libs}")
 else()
   file(GENERATE OUTPUT "${_se_header}" CONTENT
 "#pragma once
@@ -146,7 +211,12 @@ else()
 #define EXASIM_KOKKOS_BACKEND \"${EXASIM_KOKKOS_BACKEND}\"
 ")
   message(STATUS "SymEngine                = not found; text2code uses the vendored path at runtime")
+  message(STATUS "EXASIM_SYMENGINE_FOUND   = 0")
+  message(STATUS "EXASIM_SYMENGINE_INCFLAGS = ")
+  message(STATUS "EXASIM_SYMENGINE_LIB     = ")
 endif()
+message(STATUS "EXASIM_KOKKOS_DIR        = ${EXASIM_KOKKOS_DIR}")
+message(STATUS "EXASIM_KOKKOS_BACKEND    = ${EXASIM_KOKKOS_BACKEND}")
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
 set(MODEL_FILE "${CMAKE_CURRENT_SOURCE_DIR}/pdeapp.txt" CACHE FILEPATH "Input for text2code")
@@ -238,6 +308,7 @@ endif()
 message(STATUS "==================== text2code CONFIGURATION ==================")
 
 message(STATUS "EXASIM_ROOT              = ${EXASIM_ROOT}")
+message(STATUS "EXASIM_INSTALL_PREFIX    = ${EXASIM_INSTALL_PREFIX}")
 message(STATUS "WITH_METIS               = ${WITH_METIS}")
 
 message(STATUS "METIS_ROOT               = ${METIS_ROOT}")

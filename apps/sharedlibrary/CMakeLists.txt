@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(exasim_app CXX)
 
+include(GNUInstallDirs)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -114,3 +116,6 @@ get_filename_component(EXASIM_APP_MODEL_LIBRARY_DIR
 set_target_properties(exasimapp PROPERTIES
   BUILD_RPATH "${EXASIM_APP_MODEL_LIBRARY_DIR}"
   INSTALL_RPATH "${EXASIM_APP_MODEL_LIBRARY_DIR}")
+
+install(TARGETS exasimapp
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

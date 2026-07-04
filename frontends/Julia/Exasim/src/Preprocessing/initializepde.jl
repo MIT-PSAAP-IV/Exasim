@@ -23,6 +23,7 @@ mutable struct PDEStruct
     modelfile::String;# PDE model file name
     modelnumber::IntP;
     exportapp::String; # destination dir for a relocatable data-transfer app bundle ("" = off)
+    exporttext2code::String; # destination dir for a Text2Code source package ("" = off)
     buildandrun::IntP; # when exporting: 1 = build+run the bundle to verify it, 0 = export only
 
     usecmake::IntP; 
@@ -102,6 +103,7 @@ mutable struct PDEStruct
     extStab::IntP;
     saveParaview::IntP;
     physicsparamwarmstart::IntP;
+    builtinmodelID::IntP;
     executionmode::IntP;
     saveResNorm::IntP; # option for how the solution be saved: 0 -> u only, 1 -> u and q
 
@@ -222,6 +224,7 @@ function initializepde(version)
     pde.model="ModelD";
     pde.modelnumber = 0;
     pde.exportapp = ""; # off by default; set to a dir to export a data-transfer app bundle
+    pde.exporttext2code = ""; # off by default; pass a dir to exporttext2code or set this field
     pde.buildandrun = 1; # when exporting, default to build+run the bundle to verify it
 
     pde.hybrid = 0;
@@ -275,6 +278,7 @@ function initializepde(version)
     pde.extStab = 0;
     pde.saveParaview = 0;
     pde.physicsparamwarmstart = 0;
+    pde.builtinmodelID = 0;
     pde.executionmode = 0;
     pde.saveResNorm = 0;
 

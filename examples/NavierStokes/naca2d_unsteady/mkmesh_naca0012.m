@@ -40,10 +40,10 @@ if nargin<1, porder=1;   end
 if nargin<2, elemtype=1; end
 if nargin<3, gridNum=1;  end
 
-n1=gridNum*8*porder+1; n2=gridNum*4*porder+1; n3=gridNum*8*porder+1;    
+n1=gridNum*8*porder+1; n2=gridNum*4*porder+1; n3=gridNum*7*porder+1;    
 [x,y] = cmeshparam6(n1, n2, n2, n2, n2, n3, ...
                     [20, 10, 4, 4, 10, 1, 1, 1, 1, 1, 1], ...
-                    [10, 10, 10, 10, 10, 10, 10]*4);   
+                    [10, 10, 10, 10, 10, 10, 10]*5);   
 
 thick = 12;
 th = (pi:-pi/200:pi/2)';

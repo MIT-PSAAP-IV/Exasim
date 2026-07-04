@@ -15,7 +15,7 @@
         - parseList<T>: Parses a list of numbers from a std::string buffer enclosed in square brackets.
         - parseStringList: Parses a list of strings from a buffer, extracting quoted strings.
         - trim: Removes leading and trailing whitespace from a std::string.
-        - tokenizeBraceList: Tokenizes a comma-separated list, respecting parentheses nesting.
+        - tokenizeBraceList: Tokenizes comma- or whitespace-separated numeric lists, respecting parentheses nesting.
         - parseExpression: Parses a list of doubles, supporting "repeat(value, count)" syntax for repeated values.
 
     3. parseInputFile:
@@ -139,8 +139,11 @@ inline std::vector<std::string> tokenizeBraceList(const std::string& input) {
     int parenLevel = 0;
 
     for (char ch : input) {
-        if (ch == ',' && parenLevel == 0) {
-            tokens.push_back(trim(current));
+        const bool isSpace = (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r');
+        if ((ch == ',' || isSpace) && parenLevel == 0) {
+            std::string token = trim(current);
+            if (!token.empty())
+                tokens.push_back(token);
             current.clear();
         } else {
             if (ch == '(') ++parenLevel;
@@ -148,7 +151,9 @@ inline std::vector<std::string> tokenizeBraceList(const std::string& input) {
             current += ch;
         }
     }
-    if (!current.empty()) tokens.push_back(trim(current));
+    std::string token = trim(current);
+    if (!token.empty())
+        tokens.push_back(token);
     return tokens;
 }
 
@@ -566,7 +571,7 @@ inline void pdeFinalizeDerived(PDE& pde)
         pde.tdep, pde.wave, pde.linearproblem, pde.debugmode, pde.matvecorder, pde.GMRESortho,
         pde.preconditioner, pde.precMatrixType, pde.NLMatrixType, pde.runmode, pde.tdfunc, pde.sourcefunc,
         pde.modelnumber, pde.extFhat, pde.extUhat, pde.extStab, pde.subproblem, pde.saveParaview,
-        pde.physicsparamwarmstart
+        pde.physicsparamwarmstart, pde.builtinmodelID
     );
     pde.problem = makeDoubleVector(
         pde.hybrid, 0, pde.temporalscheme, pde.torder, pde.nstage, pde.convStabMethod,

@@ -9,50 +9,6 @@
 
 #include <exasim/ExasimSolverSetup.hpp>
 
-namespace {
-
-int RunExasimPostprocess(ExasimSolver& solver, int argc, char** argv, MPI_Comm comm)
-{
-    const std::vector<int> modelIds = {@MODEL_ID@};
-
-    int err = solver.InitializeEnvironment(argc, argv, comm);
-    if (err)
-        return err;
-
-    err = solver.ParsePostprocessInputs(argc, argv);
-    if (err) {
-        solver.Finalize();
-        return err;
-    }
-
-    err = ConfigureModelDefinitions(solver, modelIds);
-    if (err) {
-        solver.Finalize();
-        return err;
-    }
-
-    err = solver.InitializeModels();
-    if (err) {
-        solver.Finalize();
-        return err;
-    }
-
-    err = solver.Postprocess();
-    if (err) {
-        solver.Finalize();
-        return err;
-    }
-
-    return solver.Finalize();
-}
-
-int RunExasimSolve(ExasimSolver& solver, int argc, char** argv, MPI_Comm comm)
-{
-    return RunExasimSolver(solver, argc, argv, comm, {@MODEL_ID@});
-}
-
-} // namespace
-
 int main(int argc, char** argv)
 {
 #ifdef HAVE_MPI
@@ -67,7 +23,7 @@ int main(int argc, char** argv)
         shifted.push_back(argv[0]);
         for (int i = 2; i < argc; i++)
             shifted.push_back(argv[i]);
-        return RunExasimPostprocess(solver, static_cast<int>(shifted.size()), shifted.data(), comm);
+        return RunExasimPostprocess(solver, static_cast<int>(shifted.size()), shifted.data(), comm, {@MODEL_ID@});
     }
 
     if (argc > 1 && std::string(argv[1]) == "solve") {
@@ -75,8 +31,8 @@ int main(int argc, char** argv)
         shifted.push_back(argv[0]);
         for (int i = 2; i < argc; i++)
             shifted.push_back(argv[i]);
-        return RunExasimSolve(solver, static_cast<int>(shifted.size()), shifted.data(), comm);
+        return RunExasimSolver(solver, static_cast<int>(shifted.size()), shifted.data(), comm, {@MODEL_ID@});
     }
 
-    return RunExasimSolve(solver, argc, argv, comm);
+    return RunExasimSolver(solver, argc, argv, comm, {@MODEL_ID@});
 }

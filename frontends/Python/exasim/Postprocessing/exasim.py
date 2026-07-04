@@ -301,7 +301,7 @@ def _write_physicsparam_sweep_manifest(baseout, cases, outdirs, warmstart):
 
 def _writeapp_template(app):
     template = pycopy.deepcopy(app)
-    template['flag'] = numpy.asarray(template['flag']).reshape(-1, order='F')[19:]
+    template['flag'] = numpy.asarray(template['flag']).reshape(-1, order='F')[20:]
     template['problem'] = numpy.asarray(template['problem']).reshape(-1, order='F')[28:]
     template['factor'] = numpy.asarray(template['factor']).reshape(-1, order='F')[5:]
     template['solversparam'] = numpy.asarray(template['solversparam']).reshape(-1, order='F')[4:]

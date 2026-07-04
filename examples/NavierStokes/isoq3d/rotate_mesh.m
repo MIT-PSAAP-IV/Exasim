@@ -1,10 +1,7 @@
 function [p, t, xdg] = rotate_mesh(p0, t0, ns, xdg0)
 
 dth = 0.5*pi/ns;
-%p0 = mesh.p;
 p0 = cat(1, p0, p0(1,:)*0);
-
-%t0 = mesh.t;
 np = size(p0,2);
 
 p = p0;

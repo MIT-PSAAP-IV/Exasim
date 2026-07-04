@@ -34,7 +34,7 @@ pde.preconditioner = 1;
 pdehm.ppdegree = 1;          % degree of polynomial preconditioner
 pdehm.RBdim = 0;
 
-meshhm = mkmesh_isoq(pdehm.porder);
+meshhm = mkmesh_isoq2d3(pdehm.porder, 1e-3);
 meshhm.boundarycondition = [1;1;1;1]; 
 
 [~,cgelcon,rowent2elem,colent2elem,~] = mkcgent2dgent(meshhm.dgnodes,1e-8);
@@ -70,7 +70,7 @@ s = s/max(s(:));
 
 S0 = 0.05; gamma = 1e3;
 av = (s-S0).*(atan(gamma*(s-S0))/pi + 0.5) - atan(gamma)/pi + 0.5;    
-av = av.*tanh(5e3*dist);
+av = av.*tanh(1e2*dist);
 
 % plot solution
 figure(1); clf; scaplot(meshhm,div(:,1,:)); axis on; axis equal;

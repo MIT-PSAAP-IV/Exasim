@@ -18,8 +18,8 @@ ind = (xl(:,1) > x2);
 xl2 = [xl1(end,:); xl(ind,:)];
 
 n1 = 48; m1 = 80; n2 = 36; m2 = 80;
-mesh1 = surfmesh2d(xl1, xu1, n1, m1, porder, [2.0 1.2], [5 0]);
-mesh2 = surfmesh2d(xl2, xu2, n2, m2, porder, [2.0 1.5], [5 0]);
+mesh1 = surfmesh2d(xl1, xu1, n1, m1, porder, [2.0 1.2], [4 0]);
+mesh2 = surfmesh2d(xl2, xu2, n2, m2, porder, [2.0 1.5], [4 0]);
 
 [mesh1, mesh2] = rightleft2d(mesh1, mesh2);
 
