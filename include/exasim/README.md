@@ -59,9 +59,11 @@ include/exasim/
 ## What a user writes
 
 The minimum is two files: `my_model.hpp` (the math) and `main.cpp`
-(the entry point). See `apps/library_example/poisson2d/` for a hand-
-written example, or any `apps/library_example/<name>_codegen/` for a
-text2code-generated one. main.cpp in either case:
+(the entry point). See `tests/consumers/` (e.g. `solve_fp32/` or
+`facade/`, which pair a hand-written model in `tests/models/` with a
+`main.cpp`) for hand-written library consumers, or `apps/poisson/poisson2d/`
+for a text2code-driven app (`main.cpp` + `pdeapp.txt`). main.cpp in either
+case:
 
 ```cpp
 #include <exasim/run.hpp>
