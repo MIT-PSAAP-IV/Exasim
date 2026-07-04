@@ -88,9 +88,8 @@ GPU implementation.
 
 ## Exasim Internal Notes
 
-The repository also contains implementation-focused internal notes under
-`old/docs/03-internals/`, including LDG implementation and block-diagonal
-Jacobian derivations. The web-facing versions are:
+Implementation-focused internal notes, including LDG implementation and
+block-diagonal Jacobian derivations, are available as web pages:
 
 - [LDG implementation deep dive](ldg-formulation.md)
 - [Block-diagonal Jacobian](block-diagonal-jacobian.md)

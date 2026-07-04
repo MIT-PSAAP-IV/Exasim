@@ -8,9 +8,7 @@
 # This catches export/packaging regressions a normal in-tree build would miss.
 #
 # Run everything with `bash tests/run-tests.sh` (configures with
-# EXASIM_BUILD_TESTS=ON, builds, runs ctest). The superseded in-tree consumers
-# (install_consumer / multi_tu_consumer) and bespoke runners now live under
-# tests/archive/ — see tests/archive/README.md.
+# EXASIM_BUILD_TESTS=ON, builds, runs ctest).
 cmake_minimum_required(VERSION 3.16)
 
 # CPU-only consumer (non-MPI, single process).
