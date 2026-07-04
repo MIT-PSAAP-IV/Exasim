@@ -19,7 +19,7 @@ BASE=$REPO/tests/app-baselines
 # setting ncv=2 in their pdeapp.txt, so their baselines are now generated + committed like the rest.
 # Override with env APPS="..." to (re)baseline only a subset (e.g. when adding output families to a
 # few apps without re-running the whole suite / the 270M transient).
-APPS=${APPS:-"poisson/poisson2d poisson/poisson3d poisson/periodic poisson/lshape poisson/orion poisson/isoq3d poisson/cone navierstokes/naca0012steady navierstokes/naca0012unsteady navierstokes/nsmach8 navierstokes/sharpb2 navierstokes/isoq"}
+APPS=${APPS:-"poisson/poisson2d poisson/poisson3d poisson/periodic poisson/lshape poisson/orion poisson/isoq3d poisson/cone navierstokes/naca0012steady navierstokes/naca0012unsteady navierstokes/nsmach8 navierstokes/sharpb2 navierstokes/isoq navierstokes/naca2d_test"}
 # Solver-variant baselines (modest, coverage-guided axis b): pure-runtime input flips on an existing
 # app (same mesh, no frontend re-preprocess) that exercise cold native solver/preconditioner code.
 # Format: "<app>|<variant-suffix>|<sed-expr applied to pdeapp.txt>". The variant baseline lands in
