@@ -231,6 +231,27 @@ if(TARGET Kokkos::kokkos)
 endif()
 
 
+# Implicit HDG w-equation source (Sourcew) kernel equivalence: prove the
+# templated exasim::hdg_sourcew_kernel<M> / hdg_sourcewonly_kernel<M> assemble
+# byte-identical value + ∂sw/∂udg + ∂sw/∂w buffers to the libpdemodel ABI
+# HdgSourcew / HdgSourcewonly for an ncw>0 model (a 2-w probe that locks the
+# input-index-outer Jacobian SoA layout). Links real Kokkos; the ABI reference
+# kernels are checked in under tests/w-models/reference/.
+# See tests/w-models/compare_hdg_sourcew.cpp.
+if(TARGET Kokkos::kokkos)
+  add_executable(hdg_sourcew_equivalence
+    "${EXASIM_DIR}/tests/w-models/compare_hdg_sourcew.cpp")
+  target_include_directories(hdg_sourcew_equivalence PRIVATE
+    "${EXASIM_INCLUDE_DIR}" "${EXASIM_DIR}"
+    "${EXASIM_DIR}/tests/w-models")
+  target_link_libraries(hdg_sourcew_equivalence PRIVATE Kokkos::kokkos)
+  target_compile_features(hdg_sourcew_equivalence PRIVATE cxx_std_17)
+  add_test(NAME hdg_sourcew_equivalence
+    COMMAND hdg_sourcew_equivalence)
+  set_tests_properties(hdg_sourcew_equivalence PROPERTIES TIMEOUT 120)
+endif()
+
+
 # Shared-library app test: install Exasim, build apps/sharedlibrary against the
 # installed package, generate libt2cmodelserial with the installed text2code,
 # and run a small Poisson text2code fixture through the shared-library ABI path.

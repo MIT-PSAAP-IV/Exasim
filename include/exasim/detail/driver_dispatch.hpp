@@ -54,18 +54,21 @@
         }                                                                  \
     } while (0)
 
-// For a few legacy kernels still called directly (not yet routed through a
-// templated exasim::*<M>) -- currently the HDG w-equation source. Call the
-// legacy global for the AbiAdapter ABI; for a real Model M, require the feature
-// be absent (ncw == 0) until the templated version is implemented. The legacy
-// call must still be DECLARED (backend/Model/driver_decls.hpp) so the discarded
-// branch parses.
-#define EXASIM_LEGACY_W_CALL(...)                                           \
+// HDG w-equation source dispatch (backend/Discretization/wequation.hpp).
+// `Name` is the ABI symbol under `driver_abi->hdgjac` (HdgSourcew /
+// HdgSourcewonly). For the AbiAdapter build we call the frontend-generated
+// ABI function pointer; for a real Model `M` we call the templated
+// `exasim::Name<M>` forwarder in <exasim/kernels/sourcew.hpp>, which routes
+// through `hdg_sourcew_kernel<M>` / `hdg_sourcewonly_kernel<M>` and compiles
+// to a no-op when `M::ncw == 0` (the whole HDG w-equation is only reached for
+// ncw>0 models). The discarded branch must still parse: `driver_abi->hdgjac`
+// exists on commonstruct, and `exasim::Name<M>` is a dependent call not
+// instantiated for AbiAdapter.
+#define EXASIM_LEGACY_W_CALL(Name, ...)                                    \
     do {                                                                   \
         if constexpr (std::is_same_v<M, exasim::detail::AbiAdapter>) {     \
-            common.driver_abi->__VA_ARGS__;                                                   \
+            common.driver_abi->hdgjac.Name(__VA_ARGS__);                   \
         } else {                                                           \
-            static_assert(M::ncw == 0,                                     \
-                "templated HDG w-equation (ncw>0) not yet implemented");   \
+            exasim::Name<M>(__VA_ARGS__);                                  \
         }                                                                  \
     } while (0)

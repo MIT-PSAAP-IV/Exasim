@@ -516,6 +516,44 @@ struct HDGJacobianDefaults : OutputDefaults<Self, T> {
         }
     }
 
+    // ---- Auxiliary `w`-field source Jacobians (HDG w-equation) ----
+    //
+    // Companions to `sourcew` (the auxiliary-field forcing, output width
+    // `ncw`). Consumed by `hdg_sourcew_kernel<M>` / `hdg_sourcewonly_kernel<M>`
+    // in <exasim/kernels/sourcew.hpp>, mirroring the libpdemodel ABI
+    // `HdgSourcew` (value + ∂sw/∂udg + ∂sw/∂w) and `HdgSourcewonly`
+    // (value + ∂sw/∂w) driven by the implicit w-solve in
+    // backend/Discretization/wequation.hpp. Only ever instantiated for
+    // `ncw > 0` models, so single-domain / ncw==0 models keep these
+    // zero-fill defaults (guarded by `if constexpr`) and pay nothing.
+    //
+    // Jacobian local layout is INPUT-index-outer, exactly like the volume
+    // `f_udg`/`f_wdg` the generated `HdgSourcew` emits (the kernel scatters
+    // it linearly and the wequation.hpp `SmallMatrixSolve` reads `nc`
+    // right-hand-side columns of the `ncw × ncw` w-block):
+    //   s_uq[j*ncw + o] = ∂sw[o]/∂uq[j]   (j in [0,Nq),  o in [0,ncw))
+    //   s_w [j*ncw + o] = ∂sw[o]/∂w [j]   (j in [0,ncw), o in [0,ncw))
+    KOKKOS_INLINE_FUNCTION static
+    void sourcew_jac_uq(T sw_uq[],
+                        const T /*x*/[],  const T /*uq*/[],
+                        const T /*v*/[],  const T /*w*/[],  const T /*mu*/[],
+                        const T /*uinf*/[], T /*t*/) {
+        if constexpr (Self::ncw > 0) {
+            constexpr int Nq = Self::ncu * (1 + Self::nd);
+            for (int k = 0; k < Self::ncw * Nq; ++k) sw_uq[k] = 0.0;
+        }
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void sourcew_jac_w(T sw_w[],
+                       const T /*x*/[],  const T /*uq*/[],
+                       const T /*v*/[],  const T /*w*/[],  const T /*mu*/[],
+                       const T /*uinf*/[], T /*t*/) {
+        if constexpr (Self::ncw > 0) {
+            for (int k = 0; k < Self::ncw * Self::ncw; ++k) sw_w[k] = 0.0;
+        }
+    }
+
     // LDG-path boundary Jacobians. These are not currently consumed by
     // any kernel — text2code's libpdemodel.hpp ABI has `KokkosFbou`
     // (LDG, value-only) and `HdgFbou` (HDG, value + Jacobians) but no
