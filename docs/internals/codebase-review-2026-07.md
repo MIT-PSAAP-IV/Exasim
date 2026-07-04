@@ -296,7 +296,7 @@ No committed `.o`/`.a`/`.so` build outputs found in the index.
 | app golden regression (`run-app-regression.sh`, 12 baselines) | **local-only** (not a ctest) |
 | MATLAB / Julia frontends + regression | local-only (SKIP 77 on CI) |
 | GPU (`tests/remote/consumers/builtin-gpu*`) | remote-only (dgx-b), never automatic |
-| LDG (hybrid=0) | **none** (known broken on non-MATLAB paths) |
+| LDG (hybrid=0) | **FIXED + tested 2026-07-04** — `poisson2d(ldg)` app-regression variant (CPU + CPU-MPI, np=2) + `tests/remote/gpu-ldg-test.sh` (GPU + GPU+MPI on dgx-b); all four converge to `∫u = 0.4052847` |
 
 **Most valuable missing surfaces (ranked):**
 1. **Wire `run-app-regression.sh` into CI** — biggest single guard for the
@@ -308,7 +308,10 @@ No committed `.o`/`.a`/`.so` build outputs found in the index.
 3. **Scheduled GPU lane** (dgx-b) running `builtin-gpu*` + `model_fp32`/
    `solve_fp32` to make the "CPU/GPU byte-identical" claim testable, not
    asserted. Effort: medium-high.
-4. **LDG xfail marker** so the known gap is explicit. Effort: low.
+4. ~~**LDG xfail marker**~~ — **done better 2026-07-04**: LDG is now *fixed*
+   (upstream `6723d7b` port) and *tested* on all four backends, not just marked
+   broken. `poisson2d(ldg)` is in the app-regression; wire
+   `tests/remote/gpu-ldg-test.sh` into the scheduled GPU lane (#3).
 5. **Fix the stale "Registered tests" comment** in
    `.github/workflows/smoke-cpu.yml:13` — it omits `sharedlibrary_app`,
    `petsc_operator_export`, and the `frontend_*_export`/`combined`/`postprocess`
