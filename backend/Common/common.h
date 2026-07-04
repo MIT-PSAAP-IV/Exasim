@@ -661,6 +661,31 @@ std::string trimToSubstringAtLastOccurence(const std::filesystem::path& fullPath
     return "";
 }
 
+// Named offsets into appstruct::ndims -- the app.bin wire format written by the (frozen) Matlab/
+// Python/Julia frontends. The packed layout must stay fixed to keep reading app.bin; these constants
+// only make the decode self-documenting: app.ndims[AppNdims::nc] instead of a bare app.ndims[5].
+// Indices 2..4 are unused padding. Meanings mirror the decode in setstructs.cpp / buildstructs.hpp.
+struct AppNdims {
+    enum {
+        mpiprocs = 0,  // number of MPI ranks
+        nd       = 1,  // spatial dimension
+        nc       = 5,  // components of (u, q)
+        ncu      = 6,  // components of u
+        ncq      = 7,  // components of q
+        ncp      = 8,  // components of p (mostly unused)
+        nco      = 9,  // components of o (auxiliary)
+        nch      = 10, // components of uhat (trace)
+        ncx      = 11, // components of xdg (coordinates)
+        nce      = 12, // components of output fields
+        ncw      = 13, // components of w (wave/auxiliary)
+        nsca     = 14, // scalar vis fields
+        nvec     = 15, // vector vis fields
+        nten     = 16, // tensor vis fields
+        nsurf    = 17, // surface vis/storage/QoI fields
+        nvqoi    = 18  // volume quantities of interest
+    };
+};
+
 template <class T = ::dstype, class I = ::Int>
 struct appstructT {
     using dstype = T; using Int = I;

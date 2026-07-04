@@ -88,9 +88,17 @@ per-concern sub-structs and gave ownership to `CDiscretization` (owns
 
 Remaining smells (ranked by cleanup value):
 1. **`appstruct` magic-index decode** — raw `ndims/nsize/lsize/flag` int arrays
-   decoded by literal offset (`backend/Discretization/setstructs.cpp:68`), ~341
-   brittle reads. It is a serialization blob, not a domain type. *(highest
-   value, highest risk)*
+   decoded by literal offset (`backend/Discretization/setstructs.cpp:68`). It is
+   a **serialization blob** whose packed layout matches `app.bin`, written by the
+   *frozen* Matlab/Python/Julia frontends — so the arrays **cannot** be replaced
+   with named fields without breaking the frontend ABI (an explicit invariant).
+   **Partially addressed 2026-07-04:** the fully-documented `app.ndims` decode
+   (100 sites, 9 files) now uses a named-offset enum — `app.ndims[AppNdims::nc]`
+   instead of a bare `app.ndims[5]` — self-documenting while preserving the wire
+   layout; byte-identical (app-regression 13/13). **Left as-is:** `nsize`
+   (serialization sizes, read sequentially), and `flag`/`problem` (partly
+   undocumented / overloaded across structs — guessing an offset would silently
+   corrupt the solve).
 2. **Every struct is a hand-rolled malloc bag** — parallel `sz*` fields +
    `printinfo/sizeof*/freememory` boilerplate, no RAII. Correctness depends on
    hand-matched alloc/free lists and alias guards (`res.fhAliasesK`,

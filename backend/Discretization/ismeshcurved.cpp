@@ -20,7 +20,7 @@ int IsMeshCurved(solstructT<T,I> &sol, appstructT<T,I> &app, masterstructT<T,I> 
     using dstype=T;            
     dstype *xn, *Xx, *jac, *Jg;  
     
-    Int ncx = app.ndims[11];// number of compoments of (xdg)        
+    Int ncx = app.ndims[AppNdims::ncx];// number of compoments of (xdg)        
     Int nd = master.ndims[0];     // spatial dimension    
     Int npe = master.ndims[5]; // number of nodes on master element
     Int nge = master.ndims[7]; // number of gauss points on master element    

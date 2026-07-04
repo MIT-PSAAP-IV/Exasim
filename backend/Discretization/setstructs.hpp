@@ -65,20 +65,20 @@ inline void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, ma
     common.enzyme = 1;
 #endif            
     common.read_uh = app.read_uh;
-    common.components.nc = app.ndims[5]; // number of compoments of (u, q)
-    common.components.ncu = app.ndims[6];// number of compoments of (u)        
-    common.components.ncq = app.ndims[7];// number of compoments of (q)
-    //common.ncp = app.ndims[8];// number of compoments of (p)    
-    common.components.nco = app.ndims[9];// number of compoments of (o)    
-    common.components.nch = app.ndims[10];// number of compoments of (uhat)
-    common.components.ncx = app.ndims[11];// number of compoments of (xdg)        
-    common.components.nce = app.ndims[12];// number of compoments of (output)        
-    common.components.ncw = app.ndims[13];//number of compoments of (w)
-    common.qoiparams.nsca = app.ndims[14];// number of components of scalar fields for visualization
-    common.qoiparams.nvec = app.ndims[15];// number of components of vector fields for visualization
-    common.qoiparams.nten = app.ndims[16];// number of components of tensor fields for visualization
-    common.qoiparams.nsurf = app.ndims[17];// number of components of surface fields for visualization, storage, and QoIs
-    common.qoiparams.nvqoi = app.ndims[18];// number of volume quantities of interest (QoIs)    
+    common.components.nc = app.ndims[AppNdims::nc]; // number of compoments of (u, q)
+    common.components.ncu = app.ndims[AppNdims::ncu];// number of compoments of (u)        
+    common.components.ncq = app.ndims[AppNdims::ncq];// number of compoments of (q)
+    //common.ncp = app.ndims[AppNdims::ncp];// number of compoments of (p)    
+    common.components.nco = app.ndims[AppNdims::nco];// number of compoments of (o)    
+    common.components.nch = app.ndims[AppNdims::nch];// number of compoments of (uhat)
+    common.components.ncx = app.ndims[AppNdims::ncx];// number of compoments of (xdg)        
+    common.components.nce = app.ndims[AppNdims::nce];// number of compoments of (output)        
+    common.components.ncw = app.ndims[AppNdims::ncw];//number of compoments of (w)
+    common.qoiparams.nsca = app.ndims[AppNdims::nsca];// number of components of scalar fields for visualization
+    common.qoiparams.nvec = app.ndims[AppNdims::nvec];// number of components of vector fields for visualization
+    common.qoiparams.nten = app.ndims[AppNdims::nten];// number of components of tensor fields for visualization
+    common.qoiparams.nsurf = app.ndims[AppNdims::nsurf];// number of components of surface fields for visualization, storage, and QoIs
+    common.qoiparams.nvqoi = app.ndims[AppNdims::nvqoi];// number of volume quantities of interest (QoIs)    
 
     common.components.ncm = 1;//number of components of monitor function    
     if (app.flag[1]==1)
@@ -355,9 +355,9 @@ template <class T=dstype, class I=Int>
 inline void setresstruct(resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh, Int backend)
 {
     using dstype=T;
-    Int ncu = app.ndims[6];    // number of compoments of (u)
-    Int ncq = app.ndims[7];    // number of compoments of (q)
-    //Int ncp = app.ndims[8];    // number of compoments of (p)
+    Int ncu = app.ndims[AppNdims::ncu];    // number of compoments of (u)
+    Int ncq = app.ndims[AppNdims::ncq];    // number of compoments of (q)
+    //Int ncp = app.ndims[AppNdims::ncp];    // number of compoments of (p)
     Int nd = master.ndims[0];  // spatial dimension    
     Int npe = master.ndims[5]; // number of nodes on master element    
     Int ne = mesh.ndims[1];    // number of elements in this subdomain 
@@ -396,12 +396,12 @@ template <class T=dstype, class I=Int>
 inline void settempstruct(tempstructT<T,I> &tmp, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh, Int backend)
 {
     using dstype=T;               
-    Int nc = app.ndims[5]; // number of compoments of (u, q, p)
-    Int ncu = app.ndims[6];// number of compoments of (u)        
-    Int ncq = app.ndims[7];    // number of compoments of (q)
-    Int nco = app.ndims[9];// number of compoments of (o)    
-    Int ncx = app.ndims[11];// number of compoments of (xdg)    
-    Int ncw = app.ndims[13];// number of compoments of (u)       
+    Int nc = app.ndims[AppNdims::nc]; // number of compoments of (u, q, p)
+    Int ncu = app.ndims[AppNdims::ncu];// number of compoments of (u)        
+    Int ncq = app.ndims[AppNdims::ncq];    // number of compoments of (q)
+    Int nco = app.ndims[AppNdims::nco];// number of compoments of (o)    
+    Int ncx = app.ndims[AppNdims::ncx];// number of compoments of (xdg)    
+    Int ncw = app.ndims[AppNdims::ncw];// number of compoments of (u)       
     Int nd = master.ndims[0];     // spatial dimension        
     Int npe = master.ndims[5]; // number of nodes on master element
     Int npf = master.ndims[6]; // number of nodes on master face       
@@ -504,9 +504,9 @@ inline void cpuInitTail(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T
 {
     using dstype=T;
     
-//     if (mpiprocs != app.ndims[0]) {
+//     if (mpiprocs != app.ndims[AppNdims::mpiprocs]) {
 //         if (mpirank==0) {
-//             printf("# processors = %d, # subdomains = %d\n", mpiprocs, app.ndims[0]);
+//             printf("# processors = %d, # subdomains = %d\n", mpiprocs, app.ndims[AppNdims::mpiprocs]);
 //             error("Number of MPI processes is incorrect\n");
 //         }
 //     }
@@ -801,11 +801,11 @@ inline void cpuInitFromStructs(solstructT<T,I> &sol, resstructT<T,I> &res, appst
     // 2) Initial udg/odg/wdg via cpuInit*Driver if not supplied —
     //    mirrors readsolstruct (lines 559-606 of readbinaryfiles.hpp).
     Int npe = master.ndims[5];
-    Int nc  = app.ndims[5];
-    Int ncu = app.ndims[6];
-    Int nco = app.ndims[9];
-    Int ncx = app.ndims[11];
-    Int ncw = app.ndims[13];
+    Int nc  = app.ndims[AppNdims::nc];
+    Int ncu = app.ndims[AppNdims::ncu];
+    Int nco = app.ndims[AppNdims::nco];
+    Int ncx = app.ndims[AppNdims::ncx];
+    Int ncw = app.ndims[AppNdims::ncw];
     Int ne  = mesh.ndims[1];
 
     if (sol.szudg == 0) {
@@ -908,9 +908,9 @@ inline void devappstruct(appstructT<T,I> &dapp, appstructT<T,I> &app, commonstru
     dapp.szavparam = app.nsize[15];
     
     Int ncu, ncq, ncw;
-    ncu = app.ndims[6];// number of compoments of (u)
-    ncq = app.ndims[7];// number of compoments of (q)
-    ncw = app.ndims[13];// number of compoments of (w)    
+    ncu = app.ndims[AppNdims::ncu];// number of compoments of (u)
+    ncq = app.ndims[AppNdims::ncq];// number of compoments of (q)
+    ncw = app.ndims[AppNdims::ncw];// number of compoments of (w)    
     if (ncu>0) {
         TemplateMalloc(&dapp.fc_u, ncu, common.backend); 
         TemplateCopytoDevice( dapp.fc_u, app.fc_u, ncu, common.backend );          

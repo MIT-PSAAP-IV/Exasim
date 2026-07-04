@@ -132,9 +132,9 @@ inline void readappstruct(std::string filename, appstruct &app)
     #endif 
 
     Int i, ncu, ncq, ncw;
-    ncu = app.ndims[6];// number of compoments of (u)
-    ncq = app.ndims[7];// number of compoments of (q)
-    ncw = app.ndims[13];// number of compoments of (w)
+    ncu = app.ndims[AppNdims::ncu];// number of compoments of (u)
+    ncq = app.ndims[AppNdims::ncq];// number of compoments of (q)
+    ncw = app.ndims[AppNdims::ncw];// number of compoments of (w)
     
     if (ncu>0) {
         app.fc_u = (dstype*) malloc(sizeof(dstype)*ncu);
@@ -519,11 +519,11 @@ inline void readsolstruct(std::string filename, solstruct &sol, appstruct &app, 
     //dstype *tmp; // = (dstype*) malloc (sizeof (dstype)*common.grid.nge*common.components.nco*common.meshsizes.ne);
     Int npe = master.ndims[5];
     Int npf = master.ndims[6];
-    Int nc = app.ndims[5];
-    Int ncu = app.ndims[6];
-    Int nco = app.ndims[9];
-    Int ncx = app.ndims[11];
-    Int ncw = app.ndims[13];
+    Int nc = app.ndims[AppNdims::nc];
+    Int ncu = app.ndims[AppNdims::ncu];
+    Int nco = app.ndims[AppNdims::nco];
+    Int ncx = app.ndims[AppNdims::ncx];
+    Int ncw = app.ndims[AppNdims::ncw];
     
     sol.lsize = readiarrayfromdouble(in, 1);
     sol.nsize = readiarrayfromdouble(in, sol.lsize[0]);

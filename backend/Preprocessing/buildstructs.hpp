@@ -120,22 +120,22 @@ inline appstructT<T,I> buildAppStruct(const PDE& pde)
     // ---- ndims (40 entries, dimensions) ----
     constexpr Int kNDims = 40;
     app.ndims = (Int*)std::calloc(kNDims, sizeof(Int));
-    app.ndims[0]  = pde.mpiprocs;
-    app.ndims[1]  = pde.nd;
-    app.ndims[5]  = pde.nc;
-    app.ndims[6]  = pde.ncu;
-    app.ndims[7]  = pde.ncq;
-    app.ndims[8]  = pde.ncp;
-    app.ndims[9]  = pde.ncv;
-    app.ndims[10] = pde.nch;
-    app.ndims[11] = pde.ncx;
-    app.ndims[12] = pde.nce;
-    app.ndims[13] = pde.ncw;
-    app.ndims[14] = pde.nsca;
-    app.ndims[15] = pde.nvec;
-    app.ndims[16] = pde.nten;
-    app.ndims[17] = pde.nsurf;
-    app.ndims[18] = pde.nvqoi;
+    app.ndims[AppNdims::mpiprocs]  = pde.mpiprocs;
+    app.ndims[AppNdims::nd]  = pde.nd;
+    app.ndims[AppNdims::nc]  = pde.nc;
+    app.ndims[AppNdims::ncu]  = pde.ncu;
+    app.ndims[AppNdims::ncq]  = pde.ncq;
+    app.ndims[AppNdims::ncp]  = pde.ncp;
+    app.ndims[AppNdims::nco]  = pde.ncv;
+    app.ndims[AppNdims::nch] = pde.nch;
+    app.ndims[AppNdims::ncx] = pde.ncx;
+    app.ndims[AppNdims::nce] = pde.nce;
+    app.ndims[AppNdims::ncw] = pde.ncw;
+    app.ndims[AppNdims::nsca] = pde.nsca;
+    app.ndims[AppNdims::nvec] = pde.nvec;
+    app.ndims[AppNdims::nten] = pde.nten;
+    app.ndims[AppNdims::nsurf] = pde.nsurf;
+    app.ndims[AppNdims::nvqoi] = pde.nvqoi;
 
     // ---- nsize (30 entries, sub-array sizes) ----
     constexpr Int kNSize = 30;
@@ -209,9 +209,9 @@ inline appstructT<T,I> buildAppStruct(const PDE& pde)
     app.szavparam          = app.nsize[15];
 
     // ---- derived fc_u/fc_q/fc_w (mirrors readappstruct lines 134-168) ----
-    Int ncu = app.ndims[6];
-    Int ncq = app.ndims[7];
-    Int ncw = app.ndims[13];
+    Int ncu = app.ndims[AppNdims::ncu];
+    Int ncq = app.ndims[AppNdims::ncq];
+    Int ncw = app.ndims[AppNdims::ncw];
     if (ncu > 0) {
         app.fc_u     = (dstype*)std::malloc(sizeof(dstype) * ncu);
         app.dtcoef_u = (dstype*)std::malloc(sizeof(dstype) * ncu);

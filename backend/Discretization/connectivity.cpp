@@ -1463,7 +1463,7 @@ void buildConn(Conn& conn, meshstructT<T,I>& mesh, solstructT<T,I>& sol, const a
 
     int hybrid = app.problem[0];
     //int mpiprocs = app.comm[1];
-    int mpiprocs = app.ndims[1];
+    int mpiprocs = app.ndims[AppNdims::nd];
     int coupledinterface = app.problem[28];
 
     int ne1 = ne;    
