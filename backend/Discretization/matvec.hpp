@@ -139,25 +139,25 @@ inline void hdgBlockILU0(T *BE, T *AE, resstructT<T,I> &res, meshstructT<T,I> &m
   
   int nn = 2*(common.meshsizes.nfe-1);
   for (int i = 0; i < nfse; ++i) {      
-      int diag_idx = common.ind_ii[i];
+      int diag_idx = common.bjindex.ind_ii[i];
       
       // Invert all diagonal blocks at diag_idx, in-place (batched)
       dstype *diag_blocks = &BE[diag_idx * N];
       Inverse(handle, diag_blocks, tmp.tempn, res.ipiv, ncf, nse, backend); 
             
-      int nj = common.num_ji[i];
+      int nj = common.bjindex.num_ji[i];
       for (int j = 0; j < nj; ++j) {          
-          int idx_ji = common.ind_ji[j + i * nn];          
+          int idx_ji = common.bjindex.ind_ji[j + i * nn];          
           
           // Multiply all nse blocks: block_ji = block_ji * block_diag, in-place
           dstype *block_ji = &BE[idx_ji * N];
           PGEMNMStridedBached(handle, ncf, ncf, ncf, one, block_ji, ncf, diag_blocks, ncf, zero, tmp.tempn, ncf, nse, backend);             
           ArrayCopy(block_ji, tmp.tempn, N);
 
-          int nl = common.num_jl[j + i * nn];
+          int nl = common.bjindex.num_jl[j + i * nn];
           for (int l = 0; l < nl; ++l) {
-              int idx_jl = common.ind_jl[l + j * nn + i * nn * nn];
-              int idx_il = common.ind_il[l + j * nn + i * nn * nn];
+              int idx_jl = common.bjindex.ind_jl[l + j * nn + i * nn * nn];
+              int idx_il = common.bjindex.ind_il[l + j * nn + i * nn * nn];
 
               dstype *block_jl = &BE[idx_jl * N];
               dstype *block_il = &BE[idx_il * N];

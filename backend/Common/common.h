@@ -2035,6 +2035,24 @@ struct meshsizesstruct {
     Int nf0;     // interior faces
 };
 
+// CRS index/numbering arrays for the LDG block-Jacobian preconditioner assembly:
+// ind_* map element/face block entries into the sparse operator; num_* are per-row
+// counts; L*/U* are the lower/upper-triangular block-factorization index+count
+// arrays. Allocated in crs_init (discretization.cpp). Grouped out of commonstruct
+// (S3-style) into one named concern; access via common.bjindex.<field>.
+struct blockjacindexstruct {
+    Int* ind_ii=nullptr;
+    Int* ind_ji=nullptr;
+    Int* ind_il=nullptr;
+    Int* ind_jl=nullptr;
+    Int* num_ji=nullptr;
+    Int* num_jl=nullptr;
+    Int* Lnum_ji=nullptr;
+    Int* Lind_ji=nullptr;
+    Int* Unum_ji=nullptr;
+    Int* Uind_ji=nullptr;
+};
+
 template <class T = ::dstype, class I = ::Int>
 struct commonstructT {
     using dstype = T; using Int = I;
@@ -2130,17 +2148,8 @@ struct commonstructT {
     Int* facesendpts=nullptr;
     Int* facerecvpts=nullptr;        
         
-    Int* ind_ii=nullptr;
-    Int* ind_ji=nullptr;
-    Int* ind_il=nullptr;
-    Int* ind_jl=nullptr;
-    Int* num_ji=nullptr;
-    Int* num_jl=nullptr;
-    Int* Lnum_ji=nullptr;
-    Int* Lind_ji=nullptr;
-    Int* Unum_ji=nullptr;
-    Int* Uind_ji=nullptr;
-        
+    blockjacindexstruct bjindex;  // LDG block-Jacobian CRS index/numbering arrays (see above)
+
     dstype  timing[128];
     dstype* dt=nullptr;
     dstype* dae_dt=nullptr;

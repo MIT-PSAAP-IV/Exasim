@@ -210,33 +210,33 @@ void ApplyBlockILU0(double* x, double* A, double* b, double *B, double *C, commo
     // Forward solve: L*y = b (unit diagonal)
     for (int i = 0; i < nfse; ++i) {
 //         double *yi = &b[Q*i];
-//         int k = common.Lnum_ji[0 + i*2];
+//         int k = common.bjindex.Lnum_ji[0 + i*2];
 //         for (int l = 0; l < k; ++l) {
-//             int ptr = common.Lind_ji[l + 0*M + i*2*M];
-//             int j   = common.Lind_ji[l + 1*M + i*2*M];                
+//             int ptr = common.bjindex.Lind_ji[l + 0*M + i*2*M];
+//             int j   = common.bjindex.Lind_ji[l + 1*M + i*2*M];                
 //             PGEMNMStridedBached(common.cublasHandle, ncf, 1, ncf, minusone, &A[ptr*N], ncf, &b[Q*j], ncf, one, yi, ncf, nse, common.backend);         
 //         }
       
         double *yi = &b[Q*i];                        
-        int k = common.Lnum_ji[0 + i*2];
-        int flag_seq = common.Lnum_ji[1 + i*2];
+        int k = common.bjindex.Lnum_ji[0 + i*2];
+        int flag_seq = common.bjindex.Lnum_ji[1 + i*2];
         
         if (flag_seq == 1 && k > 1) {
                       
             for (int l = 0; l < k; ++l) {
-              int ji = common.Lind_ji[l + 1*M + i*2*M];
+              int ji = common.bjindex.Lind_ji[l + 1*M + i*2*M];
               ArrayCopy(&B[Q*l], &b[Q*ji], Q);
             }                        
             
-            int p1 = common.Lind_ji[0 + 0*M + i*2*M];
+            int p1 = common.bjindex.Lind_ji[0 + 0*M + i*2*M];
             PGEMNMStridedBached(common.cublasHandle, ncf, 1, ncf, one, &A[N*p1], ncf, B, ncf, zero, C, ncf, nse*k, common.backend);         
             
             SubtractColumns(yi, C, Q, k);                        
         } else {          
             // Non-sequential: direct pointer access to y(:,:,j)
             for (int l = 0; l < k; ++l) {
-                int ptr = common.Lind_ji[l + 0*M + i*2*M];
-                int j   = common.Lind_ji[l + 1*M + i*2*M];                
+                int ptr = common.bjindex.Lind_ji[l + 0*M + i*2*M];
+                int j   = common.bjindex.Lind_ji[l + 1*M + i*2*M];                
                 PGEMNMStridedBached(common.cublasHandle, ncf, 1, ncf, minusone, &A[ptr*N], ncf, &b[Q*j], ncf, one, yi, ncf, nse, common.backend);         
             }
         }
@@ -245,35 +245,35 @@ void ApplyBlockILU0(double* x, double* A, double* b, double *B, double *C, commo
     // Backward solve: U*x = y
     for (int i = nfse-1; i >= 0; --i) {
 //         double *yi = &b[Q*i];
-//         int k = common.Unum_ji[0 + i*3];
-//         int rstart = common.Unum_ji[1 + i*3];
+//         int k = common.bjindex.Unum_ji[0 + i*3];
+//         int rstart = common.bjindex.Unum_ji[1 + i*3];
 //         for (int l = 0; l < k; ++l) {
-//             int ptr = common.Uind_ji[l + 0*M + i*2*M];
-//             int j   = common.Uind_ji[l + 1*M + i*2*M];                                
+//             int ptr = common.bjindex.Uind_ji[l + 0*M + i*2*M];
+//             int j   = common.bjindex.Uind_ji[l + 1*M + i*2*M];                                
 //             PGEMNMStridedBached(common.cublasHandle, ncf, 1, ncf, minusone, &A[ptr*N], ncf, &x[Q*j], ncf, one, yi, ncf, nse, common.backend);         
 //         }
       
         double *yi = &b[Q*i];
-        int k = common.Unum_ji[0 + i*3];
-        int rstart = common.Unum_ji[1 + i*3];
-        int flag_seq = common.Unum_ji[2 + i*3];
+        int k = common.bjindex.Unum_ji[0 + i*3];
+        int rstart = common.bjindex.Unum_ji[1 + i*3];
+        int flag_seq = common.bjindex.Unum_ji[2 + i*3];
 
         if (flag_seq == 1 && k > 1) {
                         
             for (int l = 0; l < k; ++l) {
-              int ji = common.Uind_ji[l + 1*M + i*2*M];
+              int ji = common.bjindex.Uind_ji[l + 1*M + i*2*M];
               ArrayCopy(&B[Q*l], &x[Q*ji], Q);
             }                        
             
-            int p1 = common.Uind_ji[0 + 0*M + i*2*M];
+            int p1 = common.bjindex.Uind_ji[0 + 0*M + i*2*M];
             PGEMNMStridedBached(common.cublasHandle, ncf, 1, ncf, one, &A[N*p1], ncf, B, ncf, zero, C, ncf, nse*k, common.backend);         
             
             SubtractColumns(yi, C, Q, k);                  
         } else {
             // Non-sequential: direct pointer access to x(:,:,j)
             for (int l = 0; l < k; ++l) {
-                int ptr = common.Uind_ji[l + 0*M + i*2*M];
-                int j   = common.Uind_ji[l + 1*M + i*2*M];                                
+                int ptr = common.bjindex.Uind_ji[l + 0*M + i*2*M];
+                int j   = common.bjindex.Uind_ji[l + 1*M + i*2*M];                                
                 PGEMNMStridedBached(common.cublasHandle, ncf, 1, ncf, minusone, &A[ptr*N], ncf, &x[Q*j], ncf, one, yi, ncf, nse, common.backend);         
             }
         }

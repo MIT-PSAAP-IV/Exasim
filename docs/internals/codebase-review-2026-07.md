@@ -98,8 +98,16 @@ Remaining smells (ranked by cleanup value):
    these hazards structurally.
 3. **`commonstruct` still large** (`backend/Common/common.h:2032`) — sub-structs
    *plus* ~40 loose top-level fields (`ind_*`, comm arrays, DIRK/BDF coeffs,
-   `timing[128]`). Finish draining into `haloexchangestruct` /
-   `timeintegratorstruct`.
+   `timing[128]`). **Partially drained 2026-07-04:** the LDG block-Jacobian CRS
+   index cluster (`ind_ii/ind_ji/ind_il/ind_jl/num_ji/num_jl/Lnum_ji/Lind_ji/
+   Unum_ji/Uind_ji`) moved into `blockjacindexstruct bjindex` — a cohesive,
+   common-only concern contained in 4 files (96 uniform `common.X` sites),
+   verified byte-identical (app-regression 12/12). **Remaining, deferred:** the
+   halo/MPI-exchange cluster (`nbsd/elemsend/…`, ~450 sites) and the
+   time-integrator coeffs (`dt/dae_dt/DIRK*/BDF*`, ~125 sites) — larger and
+   collision-prone (`dt`/`dae_dt` also live on `appstruct`), each wants its own
+   careful pass. Note: `bjindex` arrays are allocated in `crs_init` but never
+   freed (pre-existing leak, preserved as-is).
 4. ~~**Duplicated state**~~ — **investigated 2026-07-04: false positive, no
    change.** `PDEStateSnapshot` (`backend/Solution/solution.h:123`) is a
    load-bearing checkpoint buffer (`SaveState`/`RestoreState`, coupling rollback

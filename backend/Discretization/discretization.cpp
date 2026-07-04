@@ -98,43 +98,43 @@ void crs_init(commonstructT<T,I>& common, meshstructT<T,I>& mesh, int *elem, int
     common.nnz = row_ptr[common.nfse];      
         
     int n = 2*(common.meshsizes.nfe-1);
-    TemplateMalloc(&common.ind_ii, nfelem, 0);
-    TemplateMalloc(&common.ind_ji, nfelem*n, 0);
-    TemplateMalloc(&common.ind_jl, nfelem*n*n, 0);
-    TemplateMalloc(&common.ind_il, nfelem*n*n, 0);
-    TemplateMalloc(&common.num_ji, nfelem, 0);
-    TemplateMalloc(&common.num_jl, nfelem*n, 0);
-    TemplateMalloc(&common.Lind_ji, nfelem*n*2, 0);
-    TemplateMalloc(&common.Uind_ji, nfelem*n*2, 0);
-    TemplateMalloc(&common.Lnum_ji, nfelem*2, 0);
-    TemplateMalloc(&common.Unum_ji, nfelem*3, 0);
-    for (int i=0; i<nfelem; i++) common.ind_ii[i] = -1;
-    for (int i=0; i<nfelem*n; i++) common.ind_ji[i] = -1;
-    for (int i=0; i<nfelem*n*n; i++) common.ind_jl[i] = -1;
-    for (int i=0; i<nfelem*n*n; i++) common.ind_il[i] = -1;
-    for (int i=0; i<nfelem; i++) common.num_ji[i] = 0;
-    for (int i=0; i<nfelem*n; i++) common.num_jl[i] = 0;
-    for (int i=0; i<nfelem*n*2; i++) common.Lind_ji[i] = -1;
-    for (int i=0; i<nfelem*n*2; i++) common.Uind_ji[i] = -1;
-    for (int i=0; i<nfelem*2; i++) common.Lnum_ji[i] = 0;
-    for (int i=0; i<nfelem*3; i++) common.Unum_ji[i] = 0;    
+    TemplateMalloc(&common.bjindex.ind_ii, nfelem, 0);
+    TemplateMalloc(&common.bjindex.ind_ji, nfelem*n, 0);
+    TemplateMalloc(&common.bjindex.ind_jl, nfelem*n*n, 0);
+    TemplateMalloc(&common.bjindex.ind_il, nfelem*n*n, 0);
+    TemplateMalloc(&common.bjindex.num_ji, nfelem, 0);
+    TemplateMalloc(&common.bjindex.num_jl, nfelem*n, 0);
+    TemplateMalloc(&common.bjindex.Lind_ji, nfelem*n*2, 0);
+    TemplateMalloc(&common.bjindex.Uind_ji, nfelem*n*2, 0);
+    TemplateMalloc(&common.bjindex.Lnum_ji, nfelem*2, 0);
+    TemplateMalloc(&common.bjindex.Unum_ji, nfelem*3, 0);
+    for (int i=0; i<nfelem; i++) common.bjindex.ind_ii[i] = -1;
+    for (int i=0; i<nfelem*n; i++) common.bjindex.ind_ji[i] = -1;
+    for (int i=0; i<nfelem*n*n; i++) common.bjindex.ind_jl[i] = -1;
+    for (int i=0; i<nfelem*n*n; i++) common.bjindex.ind_il[i] = -1;
+    for (int i=0; i<nfelem; i++) common.bjindex.num_ji[i] = 0;
+    for (int i=0; i<nfelem*n; i++) common.bjindex.num_jl[i] = 0;
+    for (int i=0; i<nfelem*n*2; i++) common.bjindex.Lind_ji[i] = -1;
+    for (int i=0; i<nfelem*n*2; i++) common.bjindex.Uind_ji[i] = -1;
+    for (int i=0; i<nfelem*2; i++) common.bjindex.Lnum_ji[i] = 0;
+    for (int i=0; i<nfelem*3; i++) common.bjindex.Unum_ji[i] = 0;    
     
-    crs_indexingilu0(common.ind_ii, common.ind_ji, common.ind_jl, common.ind_il, common.num_ji, common.num_jl, 
-            common.Lind_ji, common.Uind_ji, common.Lnum_ji, common.Unum_ji, row_ptr, col_ind, common.meshsizes.nfe, nfelem);
+    crs_indexingilu0(common.bjindex.ind_ii, common.bjindex.ind_ji, common.bjindex.ind_jl, common.bjindex.ind_il, common.bjindex.num_ji, common.bjindex.num_jl, 
+            common.bjindex.Lind_ji, common.bjindex.Uind_ji, common.bjindex.Lnum_ji, common.bjindex.Unum_ji, row_ptr, col_ind, common.meshsizes.nfe, nfelem);
 
 //     print2iarray(f2eelem, common.meshsizes.nfe, nfelem);
 //     print2iarray(row_ptr, 1, nfelem+1);
 //     print2iarray(col_ind, 1, row_ptr[nfelem]);    
-//     print2iarray(common.ind_ii, 1, nfelem);
-//     print2iarray(common.ind_ji, n, nfelem);
-//     print2iarray(common.ind_jl, n*n, nfelem);
-//     print2iarray(common.ind_il, n*n, nfelem);
-//     print2iarray(common.num_ji, 1, nfelem);
-//     print2iarray(common.num_jl, n, nfelem);
-//     print2iarray(common.Lind_ji, n*2, nfelem);
-//     print2iarray(common.Uind_ji, n*2, nfelem);
-//     print2iarray(common.Lnum_ji, 2, nfelem);
-//     print2iarray(common.Unum_ji, 3, nfelem);
+//     print2iarray(common.bjindex.ind_ii, 1, nfelem);
+//     print2iarray(common.bjindex.ind_ji, n, nfelem);
+//     print2iarray(common.bjindex.ind_jl, n*n, nfelem);
+//     print2iarray(common.bjindex.ind_il, n*n, nfelem);
+//     print2iarray(common.bjindex.num_ji, 1, nfelem);
+//     print2iarray(common.bjindex.num_jl, n, nfelem);
+//     print2iarray(common.bjindex.Lind_ji, n*2, nfelem);
+//     print2iarray(common.bjindex.Uind_ji, n*2, nfelem);
+//     print2iarray(common.bjindex.Lnum_ji, 2, nfelem);
+//     print2iarray(common.bjindex.Unum_ji, 3, nfelem);
 
     TemplateMalloc(&mesh.row_ptr, nfelem+1, common.backend);
     TemplateMalloc(&mesh.col_ind, row_ptr[nfelem],common.backend);
@@ -146,16 +146,16 @@ void crs_init(commonstructT<T,I>& common, meshstructT<T,I>& mesh, int *elem, int
 //     writearray2file(common.fileout + "elem.bin", elem, nse*nese, 0);
 //     writearray2file(common.fileout + "f2e.bin", f2e, 4*common.meshsizes.nf, 0);
 //     
-//     writearray2file(common.fileout + "ind_ii.bin", common.ind_ii, nfelem, 0);
-//     writearray2file(common.fileout + "ind_ji.bin", common.ind_ji, n*nfelem, 0);
-//     writearray2file(common.fileout + "ind_jl.bin", common.ind_jl, n*n*nfelem, 0);
-//     writearray2file(common.fileout + "ind_il.bin", common.ind_il, n*n*nfelem, 0);
-//     writearray2file(common.fileout + "num_ji.bin", common.num_ji, nfelem, 0);
-//     writearray2file(common.fileout + "num_jl.bin", common.num_jl, n*nfelem, 0);
-//     writearray2file(common.fileout + "Lind_ji.bin", common.Lind_ji, 2*n*nfelem, 0);
-//     writearray2file(common.fileout + "Uind_ji.bin", common.Uind_ji, 2*n*nfelem, 0);
-//     writearray2file(common.fileout + "Lnum_ji.bin", common.Lnum_ji, 2*nfelem, 0);
-//     writearray2file(common.fileout + "Unum_ji.bin", common.Unum_ji, 3*nfelem, 0);
+//     writearray2file(common.fileout + "ind_ii.bin", common.bjindex.ind_ii, nfelem, 0);
+//     writearray2file(common.fileout + "ind_ji.bin", common.bjindex.ind_ji, n*nfelem, 0);
+//     writearray2file(common.fileout + "ind_jl.bin", common.bjindex.ind_jl, n*n*nfelem, 0);
+//     writearray2file(common.fileout + "ind_il.bin", common.bjindex.ind_il, n*n*nfelem, 0);
+//     writearray2file(common.fileout + "num_ji.bin", common.bjindex.num_ji, nfelem, 0);
+//     writearray2file(common.fileout + "num_jl.bin", common.bjindex.num_jl, n*nfelem, 0);
+//     writearray2file(common.fileout + "Lind_ji.bin", common.bjindex.Lind_ji, 2*n*nfelem, 0);
+//     writearray2file(common.fileout + "Uind_ji.bin", common.bjindex.Uind_ji, 2*n*nfelem, 0);
+//     writearray2file(common.fileout + "Lnum_ji.bin", common.bjindex.Lnum_ji, 2*nfelem, 0);
+//     writearray2file(common.fileout + "Unum_ji.bin", common.bjindex.Unum_ji, 3*nfelem, 0);
 //     
 //     writearray2file(common.fileout + "row_ptr.bin", mesh.row_ptr, nfelem+1, common.backend);
 //     writearray2file(common.fileout + "col_ind.bin", mesh.col_ind, row_ptr[nfelem], common.backend);
