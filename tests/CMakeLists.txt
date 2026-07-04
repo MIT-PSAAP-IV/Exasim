@@ -128,6 +128,12 @@ add_test(NAME frontend_python_postprocess
 set_tests_properties(frontend_python_postprocess PROPERTIES
   TIMEOUT 2400 SKIP_RETURN_CODE 77)
 
+# NOTE: frontend_python_modelcache (CACHE_TEST=1 in run-frontend-test.sh) is
+# intentionally NOT wired: the second app dir does not currently hit the model
+# cache ("FAIL: second app dir did not hit the model cache"), so the cache-hit
+# path needs debugging in the frontend before this can be a CI gate. The README /
+# smoke-cpu.yml previously claimed it ran -- that was documentation drift.
+
 # Builtin model 4 kernel equivalence: model 4 (CNS5air reacting NS) switched
 # from MATLAB-generated kernels to a text2code source (pdemodel4.txt). This
 # test compiles the legacy checked-in kernels (backend/Model/BuiltIn/model4/)
