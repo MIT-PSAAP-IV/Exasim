@@ -24,7 +24,7 @@
 #include <exasim/model.hpp>
 
 template <class T = double>
-struct Poisson2DT : exasim::ModelDefaults<Poisson2DT<T>> {
+struct Poisson2DT : exasim::ModelDefaults<Poisson2DT<T>, T> {
     // ---- Compile-time configuration -------------------------------
     static constexpr int nd     = 2;   // spatial dimension
     static constexpr int ncu    = 1;   // # primary unknowns

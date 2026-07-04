@@ -434,7 +434,7 @@ static void ArrayCopy(cublasHandle_t handle, T* y, T* x, Int m, Int backend)
 }
 
 template <class T=dstype>
-static void ArrayMultiplyScalar(cublasHandle_t handle, T* x, T alpha, Int m, Int backend)
+static void ArrayMultiplyScalar(cublasHandle_t handle, T* x, noDeduce_t<T> alpha, Int m, Int backend)
 {
     using dstype=T;
     if (backend <= 1)
@@ -463,7 +463,7 @@ static void ArrayMultiplyScalar(cublasHandle_t handle, T* x, T alpha, Int m, Int
 
 //    cublasDaxpy(handle, n, &a, x, 1, z, 1);
 template <class T=dstype>
-static void ArrayAXPY(cublasHandle_t handle, T* z, T* x, T a, Int m, Int backend)
+static void ArrayAXPY(cublasHandle_t handle, T* z, T* x, noDeduce_t<T> a, Int m, Int backend)
 {
     using dstype=T;
     if (backend <= 1)
@@ -491,7 +491,7 @@ static void ArrayAXPY(cublasHandle_t handle, T* z, T* x, T a, Int m, Int backend
 }
 
 template <class T=dstype>
-static void ArrayAXPBY(cublasHandle_t handle, T* z, T* x, T* y, T a, T b, Int m, Int backend)
+static void ArrayAXPBY(cublasHandle_t handle, T* z, T* x, T* y, noDeduce_t<T> a, noDeduce_t<T> b, Int m, Int backend)
 {
     ArrayCopy(handle, z, y, m, backend);
     ArrayMultiplyScalar(handle, z, b, m, backend);
@@ -499,7 +499,7 @@ static void ArrayAXPBY(cublasHandle_t handle, T* z, T* x, T* y, T a, T b, Int m,
 }
 
 template <class T=dstype>
-static void ArrayAX(cublasHandle_t handle, T* z, T* x, T a, Int m, Int backend)
+static void ArrayAX(cublasHandle_t handle, T* z, T* x, noDeduce_t<T> a, Int m, Int backend)
 {
     ArrayCopy(handle, z, x, m, backend);
     ArrayMultiplyScalar(handle, z, a, m, backend);
@@ -706,8 +706,8 @@ static void PGEMTM(cublasHandle_t handle, Int m, Int n, Int k, T *alpha, T* A, I
 }
 
 template <class T=dstype>
-static void PGEMNMStridedBached(cublasHandle_t handle, Int m, Int n, Int k, T alpha, T* A, Int lda,
-        T* B, Int ldb, T beta, T* C, Int ldc, Int batchCount, Int backend)
+static void PGEMNMStridedBached(cublasHandle_t handle, Int m, Int n, Int k, noDeduce_t<T> alpha, T* A, Int lda,
+        T* B, Int ldb, noDeduce_t<T> beta, T* C, Int ldc, Int batchCount, Int backend)
 {
     using dstype=T;
     if (backend <= 1)

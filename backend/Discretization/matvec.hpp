@@ -142,7 +142,7 @@ inline void hdgBlockILU0(T *BE, T *AE, resstructT<T,I> &res, meshstructT<T,I> &m
       int diag_idx = common.ind_ii[i];
       
       // Invert all diagonal blocks at diag_idx, in-place (batched)
-      double *diag_blocks = &BE[diag_idx * N];
+      dstype *diag_blocks = &BE[diag_idx * N];
       Inverse(handle, diag_blocks, tmp.tempn, res.ipiv, ncf, nse, backend); 
             
       int nj = common.num_ji[i];

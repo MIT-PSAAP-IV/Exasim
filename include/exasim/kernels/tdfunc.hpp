@@ -30,13 +30,13 @@ void tdfunc_kernel(T* f,
 
     Kokkos::parallel_for("exasim::tdfunc_kernel", ng, KOKKOS_LAMBDA(size_t i) {
         (void)odg; (void)wdg;  // HOT.6.2 nvcc force-capture: see /tmp/patch_constexpr_capture.py
-        double x[nd], uq[Nq], v[nco_buf], w[ncw_buf];
+        T x[nd], uq[Nq], v[nco_buf], w[ncw_buf];
         for (int k = 0; k < nd; ++k) x [k] = xdg[k * ng + i];
         for (int k = 0; k < Nq; ++k) uq[k] = udg[k * ng + i];
         if (nco > 0) for (int k = 0; k < nco; ++k) v[k] = odg[k * ng + i];
         if (ncw > 0) for (int k = 0; k < ncw; ++k) w[k] = wdg[k * ng + i];
 
-        double m_local[ncu];
+        T m_local[ncu];
         M::tdfunc(m_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
         for (int k = 0; k < ncu; ++k) f[k * ng + i] = m_local[k];
     });

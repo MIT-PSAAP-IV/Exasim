@@ -628,7 +628,8 @@ struct CellKeyHash {
 };
 
 // Build a cell key from a point by snapping to a grid of size h (≈ tol)
-static inline CellKey make_cell_key(const double* p, int dim, double inv_h) {
+template <class T>
+static inline CellKey make_cell_key(const T* p, int dim, double inv_h) {
     CellKey key; key.dim = static_cast<uint8_t>(dim);
     // Use floor(p/h) to avoid rounding-edge inconsistencies; we will still check neighbors.
     for (int d = 0; d < dim; ++d) {
@@ -668,7 +669,7 @@ int mkelconcg_hashgrid(
     grid.reserve(static_cast<size_t>(ne) * static_cast<size_t>(npe));
 
     int ncg = 0;
-    double p[3]; // up to 3D
+    T p[3]; // up to 3D
 
     // Neighbor cell offsets: all combinations in {-1,0,1}^dim
     std::array<int,27> off; // max 3^3
@@ -828,7 +829,7 @@ int mkent2elem(
 
 // Helper function to match a point xcg to a row in xdg: returns 0-based index
 template <class T=dstype, class I=Int>
-int xiny(const double* xcg, const double* xdg, int npe, int dim) 
+int xiny(const T* xcg, const T* xdg, int npe, int dim)
 {
     using dstype=T;
     for (int i = 0; i < npe; ++i) {
@@ -861,10 +862,10 @@ void map_cgent2dgent(
     for (int i = 0; i < nent; ++i) {
         int start = rowent2elem[i];
         int end = rowent2elem[i + 1];
-        const double* xcg = &cgnodes[i * dim];
+        const dstype* xcg = &cgnodes[i * dim];
         for (int j = start; j < end; ++j) {
             int elem = colent2elem[j];
-            const double* xdg = &dgnodes[npe * dim * elem];
+            const dstype* xdg = &dgnodes[npe * dim * elem];
             int in = xiny(xcg, xdg, npe, dim);
             if (in==-1) {
               for (int k = 0; k < npe; ++k) 
@@ -1193,63 +1194,63 @@ int permindex(int*& permind, const T* plocfc, int npf, int dim, int elemtype)
     else if (dim == 3 && elemtype == 0) {
         ncols_out = 3;        
         TemplateMalloc(&permind, npf*3, 0);
-        double* plocfc2 = (double*) malloc(sizeof(double) * npf * 2);
+        T* plocfc2 = (T*) malloc(sizeof(T) * npf * 2);
 
         // [1 3 2]: swap columns
         for (int i = 0; i < npf; ++i) {
             plocfc2[i + 0*npf] = plocfc[i + 1*npf];
             plocfc2[i + 1*npf] = plocfc[i + 0*npf];
         }
-        xiny2<double>(&permind[0], plocfc, plocfc2, npf, npf, 2, 1e-8);
+        xiny2<T>(&permind[0], plocfc, plocfc2, npf, npf, 2, 1e-8);
 
         // [2 1 3]: 1 - xi - eta in col 1
         for (int i = 0; i < npf; ++i) {
             plocfc2[i + 0*npf] = 1.0 - plocfc[i + 0*npf] - plocfc[i + 1*npf];
             plocfc2[i + 1*npf] = plocfc[i + 1*npf];
         }
-        xiny2<double>(&permind[npf], plocfc, plocfc2, npf, npf, 2, 1e-8);
+        xiny2<T>(&permind[npf], plocfc, plocfc2, npf, npf, 2, 1e-8);
 
         // [3 2 1]: 1 - xi - eta in col 2
         for (int i = 0; i < npf; ++i) {
             plocfc2[i + 0*npf] = plocfc[i + 0*npf];
             plocfc2[i + 1*npf] = 1.0 - plocfc[i + 0*npf] - plocfc[i + 1*npf];
         }
-        xiny2<double>(&permind[2*npf], plocfc, plocfc2, npf, npf, 2, 1e-8);
+        xiny2<T>(&permind[2*npf], plocfc, plocfc2, npf, npf, 2, 1e-8);
 
         CPUFREE(plocfc2);
     } 
     else if (dim == 3 && elemtype == 1) {
         ncols_out = 4;        
         TemplateMalloc(&permind, npf*4, 0);
-        double* plocfc2 = (double*) malloc(sizeof(double) * npf * 2);
+        T* plocfc2 = (T*) malloc(sizeof(T) * npf * 2);
 
         // [1 4 3 2]: swap columns
         for (int i = 0; i < npf; ++i) {
             plocfc2[i + 0*npf] = plocfc[i + 1*npf];
             plocfc2[i + 1*npf] = plocfc[i + 0*npf];
         }
-        xiny2<double>(&permind[0], plocfc, plocfc2, npf, npf, 2, 1e-8);
+        xiny2<T>(&permind[0], plocfc, plocfc2, npf, npf, 2, 1e-8);
         
         // [2 1 4 3]: eta = 1 - eta
         for (int i = 0; i < npf; ++i) {
             plocfc2[i + 0*npf] = plocfc[i + 0*npf];
             plocfc2[i + 1*npf] = 1.0 - plocfc[i + 1*npf];
         }
-        xiny2<double>(&permind[npf], plocfc, plocfc2, npf, npf, 2, 1e-8);
+        xiny2<T>(&permind[npf], plocfc, plocfc2, npf, npf, 2, 1e-8);
 
         // [3 2 1 4]: xi = 1 - eta, eta = 1 - xi
         for (int i = 0; i < npf; ++i) {
             plocfc2[i + 0*npf] = 1.0 - plocfc[i + 1*npf];
             plocfc2[i + 1*npf] = 1.0 - plocfc[i + 0*npf];
         }
-        xiny2<double>(&permind[2*npf], plocfc, plocfc2, npf, npf, 2, 1e-8);
+        xiny2<T>(&permind[2*npf], plocfc, plocfc2, npf, npf, 2, 1e-8);
 
         // [4 3 2 1]: xi = 1 - xi
         for (int i = 0; i < npf; ++i) {
             plocfc2[i + 0*npf] = 1.0 - plocfc[i + 0*npf];
             plocfc2[i + 1*npf] = plocfc[i + 1*npf];
         }
-        xiny2<double>(&permind[3*npf], plocfc, plocfc2, npf, npf, 2, 1e-8);
+        xiny2<T>(&permind[3*npf], plocfc, plocfc2, npf, npf, 2, 1e-8);
 
         CPUFREE(plocfc2);
     }    

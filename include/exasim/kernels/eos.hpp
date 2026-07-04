@@ -34,13 +34,13 @@ void eos_kernel(T* f, const T* xdg, const T* udg, const T* odg,
 
     Kokkos::parallel_for("exasim::eos_kernel", ng, KOKKOS_LAMBDA(size_t i) {
         (void)odg; (void)wdg;
-        double x[nd], uq[Nq], v[nco_buf], w[ncw_buf];
+        T x[nd], uq[Nq], v[nco_buf], w[ncw_buf];
         for (int k = 0; k < nd; ++k) x [k] = xdg[k * ng + i];
         for (int k = 0; k < Nq; ++k) uq[k] = udg[k * ng + i];
         if (nco > 0) for (int k = 0; k < nco; ++k) v[k] = odg[k * ng + i];
         if (ncw > 0) for (int k = 0; k < ncw; ++k) w[k] = wdg[k * ng + i];
 
-        double out_local[ncu];
+        T out_local[ncu];
         M::eos(out_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
         for (int k = 0; k < ncu; ++k) f[k * ng + i] = out_local[k];
     });
@@ -61,13 +61,13 @@ void eos_du_kernel(T* f, const T* xdg, const T* udg, const T* odg,
 
     Kokkos::parallel_for("exasim::eos_du_kernel", ng, KOKKOS_LAMBDA(size_t i) {
         (void)odg; (void)wdg;
-        double x[nd], uq[Nq], v[nco_buf], w[ncw_buf];
+        T x[nd], uq[Nq], v[nco_buf], w[ncw_buf];
         for (int k = 0; k < nd; ++k) x [k] = xdg[k * ng + i];
         for (int k = 0; k < Nq; ++k) uq[k] = udg[k * ng + i];
         if (nco > 0) for (int k = 0; k < nco; ++k) v[k] = odg[k * ng + i];
         if (ncw > 0) for (int k = 0; k < ncw; ++k) w[k] = wdg[k * ng + i];
 
-        double out_local[ncu * Nq];
+        T out_local[ncu * Nq];
         M::eos_du(out_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
         for (int k = 0; k < ncu * Nq; ++k) f[k * ng + i] = out_local[k];
     });
@@ -88,13 +88,13 @@ void eos_dw_kernel(T* f, const T* xdg, const T* udg, const T* odg,
 
         Kokkos::parallel_for("exasim::eos_dw_kernel", ng, KOKKOS_LAMBDA(size_t i) {
             (void)odg; (void)wdg;
-            double x[nd], uq[Nq], v[nco_buf], w[ncw];
+            T x[nd], uq[Nq], v[nco_buf], w[ncw];
             for (int k = 0; k < nd; ++k) x [k] = xdg[k * ng + i];
             for (int k = 0; k < Nq; ++k) uq[k] = udg[k * ng + i];
             if (nco > 0) for (int k = 0; k < nco; ++k) v[k] = odg[k * ng + i];
             for (int k = 0; k < ncw; ++k) w[k] = wdg[k * ng + i];
 
-            double out_local[ncu * ncw];
+            T out_local[ncu * ncw];
             M::eos_dw(out_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
             for (int k = 0; k < ncu * ncw; ++k) f[k * ng + i] = out_local[k];
         });
@@ -118,13 +118,13 @@ void avfield_kernel(T* f, const T* xdg, const T* udg, const T* odg,
 
     Kokkos::parallel_for("exasim::avfield_kernel", ng, KOKKOS_LAMBDA(size_t i) {
         (void)odg; (void)wdg;
-        double x[nd], uq[Nq], v[nco_buf], w[ncw_buf];
+        T x[nd], uq[Nq], v[nco_buf], w[ncw_buf];
         for (int k = 0; k < nd; ++k) x [k] = xdg[k * ng + i];
         for (int k = 0; k < Nq; ++k) uq[k] = udg[k * ng + i];
         if (nco > 0) for (int k = 0; k < nco; ++k) v[k] = odg[k * ng + i];
         if (ncw > 0) for (int k = 0; k < ncw; ++k) w[k] = wdg[k * ng + i];
 
-        double out_local[ncu];
+        T out_local[ncu];
         M::avfield(out_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
         for (int k = 0; k < ncu; ++k) f[k * ng + i] = out_local[k];
     });

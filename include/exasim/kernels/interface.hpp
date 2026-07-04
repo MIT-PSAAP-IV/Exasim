@@ -35,9 +35,9 @@ void fhat_kernel(T* f, const T* xdg,
 
     Kokkos::parallel_for("exasim::fhat_kernel", ng, KOKKOS_LAMBDA(size_t i) {
         (void)odg1; (void)odg2; (void)wdg1; (void)wdg2;  // HOT.6.2 nvcc force-capture: see /tmp/patch_constexpr_capture.py
-        double x[nd], uq1[Nq], uq2[Nq];
-        double v1[nco_buf], v2[nco_buf], w1[ncw_buf], w2[ncw_buf];
-        double uh[ncu], n[nd], t_[ncu];
+        T x[nd], uq1[Nq], uq2[Nq];
+        T v1[nco_buf], v2[nco_buf], w1[ncw_buf], w2[ncw_buf];
+        T uh[ncu], n[nd], t_[ncu];
         for (int k = 0; k < nd; ++k)  x  [k] = xdg [k * ng + i];
         for (int k = 0; k < Nq; ++k)  uq1[k] = udg1[k * ng + i];
         for (int k = 0; k < Nq; ++k)  uq2[k] = udg2[k * ng + i];
@@ -53,7 +53,7 @@ void fhat_kernel(T* f, const T* xdg,
         for (int k = 0; k < nd;  ++k) n [k] = nlg[k * ng + i];
         for (int k = 0; k < ncu; ++k) t_[k] = tau[k];
 
-        double f_local[ncu];
+        T f_local[ncu];
         M::fhat(f_local, x, uq1, uq2, v1, v2, w1, w2, uh, n, t_, param, /*uinf=*/nullptr, t);
         for (int k = 0; k < ncu; ++k) f[k * ng + i] = f_local[k];
     });
@@ -78,9 +78,9 @@ void uhat_kernel(T* f, const T* xdg,
 
     Kokkos::parallel_for("exasim::uhat_kernel", ng, KOKKOS_LAMBDA(size_t i) {
         (void)odg1; (void)odg2; (void)wdg1; (void)wdg2;  // HOT.6.2 nvcc force-capture: see /tmp/patch_constexpr_capture.py
-        double x[nd], uq1[Nq], uq2[Nq];
-        double v1[nco_buf], v2[nco_buf], w1[ncw_buf], w2[ncw_buf];
-        double uh[ncu], n[nd], t_[ncu];
+        T x[nd], uq1[Nq], uq2[Nq];
+        T v1[nco_buf], v2[nco_buf], w1[ncw_buf], w2[ncw_buf];
+        T uh[ncu], n[nd], t_[ncu];
         for (int k = 0; k < nd; ++k)  x  [k] = xdg [k * ng + i];
         for (int k = 0; k < Nq; ++k)  uq1[k] = udg1[k * ng + i];
         for (int k = 0; k < Nq; ++k)  uq2[k] = udg2[k * ng + i];
@@ -96,7 +96,7 @@ void uhat_kernel(T* f, const T* xdg,
         for (int k = 0; k < nd;  ++k) n [k] = nlg[k * ng + i];
         for (int k = 0; k < ncu; ++k) t_[k] = tau[k];
 
-        double f_local[ncu];
+        T f_local[ncu];
         M::uhat(f_local, x, uq1, uq2, v1, v2, w1, w2, uh, n, t_, param, /*uinf=*/nullptr, t);
         for (int k = 0; k < ncu; ++k) f[k * ng + i] = f_local[k];
     });
@@ -121,9 +121,9 @@ void stab_kernel(T* f, const T* xdg,
 
     Kokkos::parallel_for("exasim::stab_kernel", ng, KOKKOS_LAMBDA(size_t i) {
         (void)odg1; (void)odg2; (void)wdg1; (void)wdg2;  // HOT.6.2 nvcc force-capture: see /tmp/patch_constexpr_capture.py
-        double x[nd], uq1[Nq], uq2[Nq];
-        double v1[nco_buf], v2[nco_buf], w1[ncw_buf], w2[ncw_buf];
-        double uh[ncu], n[nd], t_[ncu];
+        T x[nd], uq1[Nq], uq2[Nq];
+        T v1[nco_buf], v2[nco_buf], w1[ncw_buf], w2[ncw_buf];
+        T uh[ncu], n[nd], t_[ncu];
         for (int k = 0; k < nd; ++k)  x  [k] = xdg [k * ng + i];
         for (int k = 0; k < Nq; ++k)  uq1[k] = udg1[k * ng + i];
         for (int k = 0; k < Nq; ++k)  uq2[k] = udg2[k * ng + i];
@@ -139,7 +139,7 @@ void stab_kernel(T* f, const T* xdg,
         for (int k = 0; k < nd;  ++k) n [k] = nlg[k * ng + i];
         for (int k = 0; k < ncu; ++k) t_[k] = tau[k];
 
-        double f_local[ncu];
+        T f_local[ncu];
         M::stab(f_local, x, uq1, uq2, v1, v2, w1, w2, uh, n, t_, param, /*uinf=*/nullptr, t);
         for (int k = 0; k < ncu; ++k) f[k * ng + i] = f_local[k];
     });

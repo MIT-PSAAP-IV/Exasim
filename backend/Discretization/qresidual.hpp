@@ -60,10 +60,12 @@
 
 
 // Calculate Rqe = (u, nabla dot v)_K for a given u
-inline void RqElemBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int nd, 
+template <class T=dstype, class I=Int>
+inline void RqElemBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int nd, 
         Int npe, Int nge, Int nc, Int ncu, Int ncx, Int e1, Int e2, Int backend)
-{            
+{
+    using dstype=T;            
     Int ncq = ncu*nd;
     Int ne = e2-e1;
     Int nn =  npe*ne; 
@@ -90,10 +92,12 @@ inline void RqElemBlock(solstruct &sol, resstruct &res, appstruct &app, masterst
 #endif              
 }
 
-inline void RqElem(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
+template <class T=dstype, class I=Int>
+inline void RqElem(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, 
         Int nbe1, Int nbe2, Int backend)
 {
+    using dstype=T;
     Int nc = common.components.nc; // number of compoments of (u, q, p)
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
@@ -111,10 +115,12 @@ inline void RqElem(solstruct &sol, resstruct &res, appstruct &app, masterstruct 
 }
 
 // Calculate Rqf = <uhat, v dot n>_F for a given uhat
-inline void RqFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
+template <class T=dstype, class I=Int>
+inline void RqFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, 
         Int nd, Int npe, Int npf, Int ngf, Int nc, Int ncu, Int ncx, Int f1, Int f2, Int ib, Int backend)
-{        
+{
+    using dstype=T;        
     Int ncq = ncu*nd;
     Int nf = f2-f1;
     //Int nn =  npf*nf; 
@@ -143,9 +149,11 @@ inline void RqFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masterst
 #endif              
 }
 
-inline void RqFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int nbf1, Int nbf2, Int backend)
-{    
+template <class T=dstype, class I=Int>
+inline void RqFace(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int nbf1, Int nbf2, Int backend)
+{
+    using dstype=T;    
     Int nc = common.components.nc; // number of compoments of (u, q, p)
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
@@ -166,10 +174,12 @@ inline void RqFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct 
 }
 
 #ifdef HAVE_ENZYME
-inline void dRqElemBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int nd, 
+template <class T=dstype, class I=Int>
+inline void dRqElemBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int nd, 
         Int npe, Int nge, Int nc, Int ncu, Int ncx, Int e1, Int e2, Int backend)
-{            
+{
+    using dstype=T;            
     Int ncq = ncu*nd;
     Int ne = e2-e1;
     Int nn =  npe*ne; 
@@ -196,10 +206,12 @@ inline void dRqElemBlock(solstruct &sol, resstruct &res, appstruct &app, masters
 #endif              
 }
 
-inline void dRqElem(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
+template <class T=dstype, class I=Int>
+inline void dRqElem(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, 
         Int nbe1, Int nbe2, Int backend)
 {
+    using dstype=T;
     Int nc = common.components.nc; // number of compoments of (u, q, p)
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
@@ -217,10 +229,12 @@ inline void dRqElem(solstruct &sol, resstruct &res, appstruct &app, masterstruct
 }
 
 // Calculate Rqf = <uhat, v dot n>_F for a given uhat
-inline void dRqFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
+template <class T=dstype, class I=Int>
+inline void dRqFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, 
         Int nd, Int npe, Int npf, Int ngf, Int nc, Int ncu, Int ncx, Int f1, Int f2, Int ib, Int backend)
-{        
+{
+    using dstype=T;        
     Int ncq = ncu*nd;
     Int nf = f2-f1;
     //Int nn =  npf*nf; 
@@ -250,9 +264,11 @@ inline void dRqFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masters
 }
 
 
-inline void dRqFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int nbf1, Int nbf2, Int backend)
-{    
+template <class T=dstype, class I=Int>
+inline void dRqFace(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int nbf1, Int nbf2, Int backend)
+{
+    using dstype=T;    
     Int nc = common.components.nc; // number of compoments of (u, q, p)
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int ncx = common.components.ncx;// number of compoments of (xdg)        

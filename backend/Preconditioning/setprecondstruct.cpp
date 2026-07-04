@@ -20,8 +20,10 @@
 #ifndef __SETPRECSTRUCT
 #define __SETPRECSTRUCT
 
-void setprecondstruct(precondstruct &precond, CDiscretization& disc, Int backend)
-{    
+template <class T = ::dstype, class I = ::Int>
+void setprecondstruct(precondstructT<T,I> &precond, CDiscretizationT<T,I>& disc, ::Int backend)
+{
+    using dstype = T; using Int = I;
     Int N = max(disc.common.sizes.ndof1, disc.common.sizes.ndofuhat);
     Int M = disc.common.solverparams.RBdim;    
     

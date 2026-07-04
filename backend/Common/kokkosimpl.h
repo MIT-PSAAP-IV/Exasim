@@ -445,7 +445,7 @@ void ArrayCopy(Ty* y, const Ty* x, const int n)
 }
 
 template <class Ty = dstype>
-void ArraySetValue(Ty* y, const Ty a, const int n)
+void ArraySetValue(Ty* y, const noDeduce_t<Ty> a, const int n)
 {
     using dstype = Ty;    
     Kokkos::parallel_for("ArraySetValue", n, KOKKOS_LAMBDA(const size_t i) {
@@ -454,7 +454,7 @@ void ArraySetValue(Ty* y, const Ty a, const int n)
 }
 
 template <class Ty = dstype>
-void ArrayAddScalar(Ty* y, const Ty a, const int n)
+void ArrayAddScalar(Ty* y, const noDeduce_t<Ty> a, const int n)
 {
     using dstype = Ty;    
     Kokkos::parallel_for("ArraySetValue", n, KOKKOS_LAMBDA(const size_t i) {
@@ -463,7 +463,7 @@ void ArrayAddScalar(Ty* y, const Ty a, const int n)
 }
 
 template <class Ty = dstype>
-void ArrayMultiplyScalar(Ty* y, const Ty a, const int n)
+void ArrayMultiplyScalar(Ty* y, const noDeduce_t<Ty> a, const int n)
 {
     using dstype = Ty;    
     Kokkos::parallel_for("ArrayMultiplyScalar", n, KOKKOS_LAMBDA(const size_t i) {
@@ -472,7 +472,7 @@ void ArrayMultiplyScalar(Ty* y, const Ty a, const int n)
 }
 
 template <class Ty = dstype>
-void ArrayAXPB(Ty* y, Ty* x, const Ty a, const Ty b, const int N)
+void ArrayAXPB(Ty* y, Ty* x, const noDeduce_t<Ty> a, const noDeduce_t<Ty> b, const int N)
 {
     using dstype = Ty;
     Kokkos::parallel_for("ArrayAXPBY", N, KOKKOS_LAMBDA(const size_t idx) {
@@ -481,7 +481,7 @@ void ArrayAXPB(Ty* y, Ty* x, const Ty a, const Ty b, const int N)
 }
 
 template <class Ty = dstype>
-void ArrayAXPBY(Ty* y, Ty* x, const Ty* z, const Ty a, const Ty b, const int N)
+void ArrayAXPBY(Ty* y, Ty* x, const Ty* z, const noDeduce_t<Ty> a, const noDeduce_t<Ty> b, const int N)
 {
     using dstype = Ty;
     Kokkos::parallel_for("ArrayAXPBY", N, KOKKOS_LAMBDA(const size_t idx) {
@@ -490,7 +490,7 @@ void ArrayAXPBY(Ty* y, Ty* x, const Ty* z, const Ty a, const Ty b, const int N)
 }
 
 template <class Ty = dstype>
-void ArrayAXY(Ty* y, Ty* x, const Ty* z, const Ty a, const int N)
+void ArrayAXY(Ty* y, Ty* x, const Ty* z, const noDeduce_t<Ty> a, const int N)
 {
     using dstype = Ty;
     Kokkos::parallel_for("ArrayAXY", N, KOKKOS_LAMBDA(const size_t idx) {
@@ -499,7 +499,7 @@ void ArrayAXY(Ty* y, Ty* x, const Ty* z, const Ty a, const int N)
 }
 
 template <class Ty = dstype>
-void ArrayAdd3Vectors(Ty* s, Ty* x, Ty* y, Ty* z, Ty a, Ty b, Ty c, int N)
+void ArrayAdd3Vectors(Ty* s, Ty* x, Ty* y, Ty* z, noDeduce_t<Ty> a, noDeduce_t<Ty> b, noDeduce_t<Ty> c, int N)
 {
     using dstype = Ty;    
     Kokkos::parallel_for("ArrayAXY", N, KOKKOS_LAMBDA(const size_t idx) {
@@ -549,7 +549,7 @@ void ArrayInsert(Ty* u, const Ty* un, const int I, const int J, const int K,
 
 
 template <class Ty = dstype>
-void UpdateUDG(Ty* u, const Ty* un, const Ty alpha, const int I, const int J, const int K, 
+void UpdateUDG(Ty* u, const Ty* un, const noDeduce_t<Ty> alpha, const int I, const int J, const int K, 
         const int i1, const int i2, const int j1, const int j2, const int k1, const int k2)
 {
     using dstype = Ty;        
@@ -620,7 +620,7 @@ void ArrayGemmBatch1(Ty* C, const Ty* A, const Ty* B, const int I, const int J, 
 }
 
 template <class Ty = dstype>
-void ArrayGemmBatch2(Ty* C, const Ty* A, const Ty* B, Ty alpha, const int I, const int J, const int K, const int S)
+void ArrayGemmBatch2(Ty* C, const Ty* A, const Ty* B, noDeduce_t<Ty> alpha, const int I, const int J, const int K, const int S)
 {
     using dstype = Ty;        
     // C[S*I*J] = A[S*I*K] x B[S*K*J] + C[S*I*J]
@@ -2170,7 +2170,7 @@ void schurMatrixD(Ty* D, const Ty* Dtmp,  const int npe, const int ncu, const in
 
 // [npe*npe*ne*ncu*ncu] x [npe*npe*ne] -> npe*ncu*npe*ncu*ne
 template <class Ty = dstype>
-void schurMatrixBMinvC(Ty* D, const Ty *B, const Ty *MinvC, Ty scalar, const int npe, const int ncu, const int ne)
+void schurMatrixBMinvC(Ty* D, const Ty *B, const Ty *MinvC, noDeduce_t<Ty> scalar, const int npe, const int ncu, const int ne)
 {
     using dstype = Ty;        
     int M = npe*npe;    
@@ -2216,7 +2216,7 @@ void schurMatrixF(Ty* F, const Ty* Ftmp,  const int npe, const int ncu, const in
 
 // [npe*npe*ne*(ncu*ncu)] x [npe*(npf*nfe)*ne] -> npe*(ncu*ncu)*(npf*nfe)*ne
 template <class Ty = dstype>
-void schurMatrixBMinvE(Ty* F, const Ty *B, const Ty *MinvE, Ty scalar, const int npe, const int ncu, const int npf, const int nfe, const int ne)
+void schurMatrixBMinvE(Ty* F, const Ty *B, const Ty *MinvE, noDeduce_t<Ty> scalar, const int npe, const int ncu, const int npf, const int nfe, const int ne)
 {
     using dstype = Ty;        
     int ncu2 = ncu*ncu;
@@ -2263,7 +2263,7 @@ void schurMatrixK(Ty* K, const Ty* Ktmp,  const int npe, const int ncu12, const 
 
 // [(npf*nfe)*npe*ne*ncu*ncu] x [npe*npe*ne] -> ncu*(npf*nfe)*npe*ncu*ne
 template <class Ty = dstype>
-void schurMatrixGMinvC(Ty* K, const Ty *G, const Ty *MinvC, Ty scalar, const int npe, const int ncu12, const int ncu, const int npf, const int nfe, const int ne)
+void schurMatrixGMinvC(Ty* K, const Ty *G, const Ty *MinvC, noDeduce_t<Ty> scalar, const int npe, const int ncu12, const int ncu, const int npf, const int nfe, const int ne)
 {
     using dstype = Ty;        
     int ndf = npf*nfe;
@@ -2313,7 +2313,7 @@ void schurMatrixH(Ty* H, const Ty* Htmp,  const int ncu12, const int ncu, const 
 
 // [(npf*nfe)*npe*ne*ncu*ncu] x [npe*(npf*nfe)*ne] -> ncu*(npf*nfe)*ncu*(npf*nfe)*ne
 template <class Ty = dstype>
-void schurMatrixGMinvE(Ty* H, const Ty *G, const Ty *MinvE, Ty scalar, const int npe, const int ncu12, const int ncu, const int npf, const int nfe, const int ne)
+void schurMatrixGMinvE(Ty* H, const Ty *G, const Ty *MinvE, noDeduce_t<Ty> scalar, const int npe, const int ncu12, const int ncu, const int npf, const int nfe, const int ne)
 {
     using dstype = Ty;        
     int ndf = npf*nfe;
@@ -2338,7 +2338,7 @@ void schurMatrixGMinvE(Ty* H, const Ty *G, const Ty *MinvE, Ty scalar, const int
 }
 
 template <class Ty = dstype>
-void schurMatrixGintMinvE(Ty* H, const Ty *G, const Ty *MinvE, Ty scalar, const int npe, const int ncu12, const int ncu, const int npf, const int nfe, const int ne)
+void schurMatrixGintMinvE(Ty* H, const Ty *G, const Ty *MinvE, noDeduce_t<Ty> scalar, const int npe, const int ncu12, const int ncu, const int npf, const int nfe, const int ne)
 {
     using dstype = Ty;        
     int ndf = npf*nfe;
@@ -2665,7 +2665,7 @@ void ApplyJacFhat(Ty* sg, const Ty* fhg, const Ty* jac, const int nga, const int
 }
 
 template <class Ty = dstype>
-void ApplyDtcoef(Ty* sg_u, Ty* fg, Ty dtcoeff, const int nga, const int ncu)
+void ApplyDtcoef(Ty* sg_u, Ty* fg, noDeduce_t<Ty> dtcoeff, const int nga, const int ncu)
 {
     using dstype = Ty;    
     int N = nga*ncu;
@@ -2834,7 +2834,7 @@ void FaceGeom3D(Ty* jacg, Ty* nlg, const Ty* Jg, const int na)
 }
 
 template <class Ty = dstype>
-void StgHomoTurb2D(Ty *up, Ty *xdg, Ty *stgdata, Ty *uc, Ty t, int M, int N)
+void StgHomoTurb2D(Ty *up, Ty *xdg, Ty *stgdata, Ty *uc, noDeduce_t<Ty> t, int M, int N)
 {
     using dstype = Ty;	
     Kokkos::parallel_for("StgHomoTurb2D", M, KOKKOS_LAMBDA(const size_t m) {
@@ -2873,7 +2873,7 @@ void StgHomoTurb2D(Ty *up, Ty *xdg, Ty *stgdata, Ty *uc, Ty t, int M, int N)
 }
 
 template <class Ty = dstype>
-void StgInflow2D(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *param, Ty *stgdata, Ty *uc, Ty t, int M, int N)
+void StgInflow2D(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *param, Ty *stgdata, Ty *uc, noDeduce_t<Ty> t, int M, int N)
 {
     using dstype = Ty;
     StgHomoTurb2D(up, xdg, stgdata, uc, t, M, N);
@@ -3008,7 +3008,7 @@ Ty StgAir5InternalEnergyMass(const int species, const Ty T)
 }
 
 template <class Ty = dstype>
-void StgInFlow2Dchem(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *physicsparam, Ty *externalparam, Ty *stgdata, Ty *uc, Ty t, int M, int N)
+void StgInFlow2Dchem(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *physicsparam, Ty *externalparam, Ty *stgdata, Ty *uc, noDeduce_t<Ty> t, int M, int N)
 {
     using dstype = Ty;
     StgHomoTurb2D(up, xdg, stgdata, uc, t, M, N);
@@ -3053,7 +3053,7 @@ void StgInFlow2Dchem(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *physicsparam
 }
 
 template <class Ty = dstype>
-void StgHomoTurb3D(Ty *up, Ty *xdg, Ty *stgdata, Ty *uc, Ty t, int M, int N)
+void StgHomoTurb3D(Ty *up, Ty *xdg, Ty *stgdata, Ty *uc, noDeduce_t<Ty> t, int M, int N)
 {
     using dstype = Ty;	
     Kokkos::parallel_for("StgHomoTurb3D", M, KOKKOS_LAMBDA(const size_t m) {
@@ -3098,7 +3098,7 @@ void StgHomoTurb3D(Ty *up, Ty *xdg, Ty *stgdata, Ty *uc, Ty t, int M, int N)
 }
 
 template <class Ty = dstype>
-void StgInFlow3Dchem(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *physicsparam, Ty *externalparam, Ty *stgdata, Ty *uc, Ty t, int M, int N)
+void StgInFlow3Dchem(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *physicsparam, Ty *externalparam, Ty *stgdata, Ty *uc, noDeduce_t<Ty> t, int M, int N)
 {
     using dstype = Ty;
     StgHomoTurb3D(up, xdg, stgdata, uc, t, M, N);
@@ -3146,7 +3146,7 @@ void StgInFlow3Dchem(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *physicsparam
 }
 
 template <class Ty = dstype>
-void StgInflow3D(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *param, Ty *stgdata, Ty *uc, Ty t, int M, int N)
+void StgInflow3D(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *param, Ty *stgdata, Ty *uc, noDeduce_t<Ty> t, int M, int N)
 {
     using dstype = Ty;
     StgHomoTurb3D(up, xdg, stgdata, uc, t, M, N);
@@ -3174,7 +3174,7 @@ void StgInflow3D(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *param, Ty *stgda
 }
 
 template <class Ty = dstype>
-void StgInFlowHDGchem(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *physicsparam, Ty *externalparam, Ty *stgdata, Ty *uc, Ty t, int M, int N, int nd)
+void StgInFlowHDGchem(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *physicsparam, Ty *externalparam, Ty *stgdata, Ty *uc, noDeduce_t<Ty> t, int M, int N, int nd)
 {
     using dstype = Ty;
 	if (nd == 1) {
@@ -3188,7 +3188,7 @@ void StgInFlowHDGchem(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *physicspara
 }
 
 template <class Ty = dstype>
-void StgInFlowHDGchem(Ty *fb, Ty *fb_uq, Ty *fb_w, Ty* fb_uh, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *physicsparam, Ty *externalparam, Ty *stgdata, Ty *uc, Ty t, int M, int N, int nd, int ncu, int nc, int ncw)
+void StgInFlowHDGchem(Ty *fb, Ty *fb_uq, Ty *fb_w, Ty* fb_uh, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *physicsparam, Ty *externalparam, Ty *stgdata, Ty *uc, noDeduce_t<Ty> t, int M, int N, int nd, int ncu, int nc, int ncw)
 {
     using dstype = Ty;
 	if (nd == 1) {
@@ -3207,7 +3207,7 @@ void StgInFlowHDGchem(Ty *fb, Ty *fb_uq, Ty *fb_w, Ty* fb_uh, Ty *up, Ty *xdg, T
 }
 
 template <class Ty = dstype>
-void StgInflowHDG(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *param, Ty *stgdata, Ty *uc, Ty t, int M, int N, int nd)
+void StgInflowHDG(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *param, Ty *stgdata, Ty *uc, noDeduce_t<Ty> t, int M, int N, int nd)
 {
     using dstype = Ty;
 	if (nd == 1) {
@@ -3221,7 +3221,7 @@ void StgInflowHDG(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *param, Ty *stgd
 }
 
 template <class Ty = dstype>
-void StgInflowHDG(Ty *fb, Ty *fb_uq, Ty *fb_w, Ty* fb_uh, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *param, Ty *stgdata, Ty *uc, Ty t, int M, int N, int nd, int ncu, int nc, int ncw)
+void StgInflowHDG(Ty *fb, Ty *fb_uq, Ty *fb_w, Ty* fb_uh, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *param, Ty *stgdata, Ty *uc, noDeduce_t<Ty> t, int M, int N, int nd, int ncu, int nc, int ncw)
 {
     using dstype = Ty;
 	if (nd == 1) {
@@ -3240,7 +3240,7 @@ void StgInflowHDG(Ty *fb, Ty *fb_uq, Ty *fb_w, Ty* fb_uh, Ty *up, Ty *xdg, Ty *v
 }
 
 template <class Ty = dstype>
-void StgInflowLDG2D(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *param, Ty *stgdata, Ty *uc, Ty t, int M, int N)
+void StgInflowLDG2D(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *param, Ty *stgdata, Ty *uc, noDeduce_t<Ty> t, int M, int N)
 {
     using dstype = Ty;
     StgHomoTurb2D(up, xdg, stgdata, uc, t, M, N);
@@ -3265,7 +3265,7 @@ void StgInflowLDG2D(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *param, Ty *stgdata, Ty
 }
 
 template <class Ty = dstype>
-void StgInflowLDG3D(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *param, Ty *stgdata, Ty *uc, Ty t, int M, int N)
+void StgInflowLDG3D(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *param, Ty *stgdata, Ty *uc, noDeduce_t<Ty> t, int M, int N)
 {
     using dstype = Ty;
     StgHomoTurb3D(up, xdg, stgdata, uc, t, M, N);
@@ -3293,7 +3293,7 @@ void StgInflowLDG3D(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *param, Ty *stgdata, Ty
 }
 
 template <class Ty = dstype>
-void StgInflowLDG(Ty *fb, Ty *xdg, Ty *vdg, Ty *param, Ty *stgdata, Ty *uc, Ty t, int M, int N, int nd)
+void StgInflowLDG(Ty *fb, Ty *xdg, Ty *vdg, Ty *param, Ty *stgdata, Ty *uc, noDeduce_t<Ty> t, int M, int N, int nd)
 {
     using dstype = Ty;
 	if (nd == 1) {

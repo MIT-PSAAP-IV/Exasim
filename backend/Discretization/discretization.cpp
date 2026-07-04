@@ -77,8 +77,10 @@
 #include "qoicalculation.hpp"  // unified templated QoI; production instantiates <AbiAdapter>
 #include "wallmodel.cpp"
 
-void crs_init(commonstruct& common, meshstruct& mesh, int *elem, int nse, int nese)
-{            
+template <class T = ::dstype, class I = ::Int>
+void crs_init(commonstructT<T,I>& common, meshstructT<T,I>& mesh, int *elem, int nse, int nese)
+{
+    using dstype = T; using Int = I;
     common.nse = nse;
     common.nese = nese;
     
@@ -537,13 +539,18 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
       //  hdgGetQ -- moved to CResidual::recoverInitialState, called by CSolution post-init)
     }
 
-    if (common.wallmodelparams.nwm == 1) {
-      if (common.mpiRank==0)
-        printf("Build wall-model data for boundary condition %d ... \n", common.wallmodelparams.wmBoundaries[0]);
-      CWallModel(*this).build(common.wallmodelparams.wmBoundaries[0], common.wallmodelparams.wmDistances[0]);
-    }
-    else if (common.wallmodelparams.nwm > 1) {
-      error("Multiple wall-model configurations are not supported by the backend wallmodelstruct yet.");
+    // Wall-model build is a host-only, double-geometry concern (CWallModel + CPointLocator run on
+    // the double mesh). It is dead for non-default precision (a float solve never uses it), so guard
+    // the whole branch on T==dstype so CWallModel is not instantiated at float.
+    if constexpr (std::is_same_v<T, ::dstype> && std::is_same_v<I, ::Int>) {
+      if (common.wallmodelparams.nwm == 1) {
+        if (common.mpiRank==0)
+          printf("Build wall-model data for boundary condition %d ... \n", common.wallmodelparams.wmBoundaries[0]);
+        CWallModel(*this).build(common.wallmodelparams.wmBoundaries[0], common.wallmodelparams.wmDistances[0]);
+      }
+      else if (common.wallmodelparams.nwm > 1) {
+        error("Multiple wall-model configurations are not supported by the backend wallmodelstruct yet.");
+      }
     }
 
     if (common.mpiRank==0) {

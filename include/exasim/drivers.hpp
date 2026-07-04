@@ -60,7 +60,8 @@ struct DriverShape {
     Int modelnumber;
 };
 
-inline DriverShape compute_shape(commonstruct& common, Int nge, Int e1, Int e2) {
+template <class T = dstype, class I = Int>
+inline DriverShape compute_shape(commonstructT<T,I>& common, Int nge, Int e1, Int e2) {
     return DriverShape{
         common.components.nc, common.components.ncu, common.components.ncw, common.components.nco,
         common.components.ncx, common.grid.nd,
@@ -85,7 +86,7 @@ inline void FluxDriver(T* f, const T* xg, const T* udg,
 {
     using dstype=T;
     auto s = detail::compute_shape(common, nge, e1, e2);
-    flux_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
+    flux_kernel<M, T>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                    s.time, s.modelnumber, s.numPoints, s.nc, s.ncu,
                    s.nd, s.ncx, s.nco, s.ncw);
 }
@@ -102,7 +103,7 @@ inline void FluxDriver(T* f, T* f_udg, T* f_wdg,
 {
     using dstype=T;
     auto s = detail::compute_shape(common, nge, e1, e2);
-    hdg_flux_kernel<M>(f, f_udg, f_wdg, xg, udg, odg, wdg,
+    hdg_flux_kernel<M, T>(f, f_udg, f_wdg, xg, udg, odg, wdg,
                        app.uinf, app.physicsparam,
                        s.time, s.modelnumber, s.numPoints, s.nc, s.ncu,
                        s.nd, s.ncx, s.nco, s.ncw);
@@ -119,7 +120,7 @@ inline void SourceDriver(T* f, const T* xg, const T* udg,
 {
     using dstype=T;
     auto s = detail::compute_shape(common, nge, e1, e2);
-    source_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
+    source_kernel<M, T>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                      s.time, s.modelnumber, s.numPoints, s.nc, s.ncu,
                      s.nd, s.ncx, s.nco, s.ncw);
 }
@@ -136,7 +137,7 @@ inline void SourceDriver(T* f, T* f_udg, T* f_wdg,
 {
     using dstype=T;
     auto s = detail::compute_shape(common, nge, e1, e2);
-    hdg_source_kernel<M>(f, f_udg, f_wdg, xg, udg, odg, wdg,
+    hdg_source_kernel<M, T>(f, f_udg, f_wdg, xg, udg, odg, wdg,
                          app.uinf, app.physicsparam,
                          s.time, s.modelnumber, s.numPoints, s.nc, s.ncu,
                          s.nd, s.ncx, s.nco, s.ncw);
@@ -152,7 +153,7 @@ inline void TdfuncDriver(T* f, const T* xg, const T* udg,
 {
     using dstype=T;
     auto s = detail::compute_shape(common, nge, e1, e2);
-    tdfunc_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
+    tdfunc_kernel<M, T>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                      s.time, s.modelnumber, s.numPoints, s.nc, s.ncu,
                      s.nd, s.ncx, s.nco, s.ncw);
 }
@@ -166,7 +167,7 @@ inline void AvfieldDriver(T* f, const T* xg, const T* udg,
 {
     using dstype=T;
     Int numPoints = common.grid.npe * common.meshsizes.ne;
-    avfield_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
+    avfield_kernel<M, T>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                       common.timestate.time, common.modelnumber, numPoints,
                       common.components.nc, common.components.ncu, common.grid.nd, common.components.ncx,
                       common.components.nco, common.components.ncw, common.components.nce, common.grid.npe, common.meshsizes.ne);
@@ -181,7 +182,7 @@ inline void OutputDriver(T* f, const T* xg, const T* udg,
 {
     using dstype=T;
     Int numPoints = common.grid.npe * common.meshsizes.ne;
-    output_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
+    output_kernel<M, T>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                      common.timestate.time, common.modelnumber, numPoints,
                      common.components.nc, common.components.ncu, common.grid.nd, common.components.ncx,
                      common.components.nco, common.components.ncw, common.components.nce, common.grid.npe, common.meshsizes.ne);
@@ -196,7 +197,7 @@ inline void MonitorDriver(T* f, Int nc_sol, const T* xg, const T* udg,
 {
     using dstype=T;
     Int numPoints = common.grid.npe * common.meshsizes.ne;
-    monitor_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
+    monitor_kernel<M, T>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                       common.timestate.time, common.modelnumber, numPoints,
                       nc_sol, common.components.ncu, common.grid.nd, common.components.ncx,
                       common.components.nco, common.components.ncw, common.components.nce, common.grid.npe, common.meshsizes.ne);
@@ -213,7 +214,7 @@ inline void EosDriver(T* f, const T* xg, const T* udg,
 {
     using dstype=T;
     Int numPoints = npe * (e2 - e1);
-    eos_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
+    eos_kernel<M, T>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                   common.timestate.time, common.modelnumber, numPoints,
                   common.components.nc, common.components.ncu, common.grid.nd, common.components.ncx,
                   common.components.nco, common.components.ncw, common.components.nce, npe, e2 - e1);
@@ -228,7 +229,7 @@ inline void EosduDriver(T* f, const T* xg, const T* udg,
 {
     using dstype=T;
     Int numPoints = npe * (e2 - e1);
-    eos_du_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
+    eos_du_kernel<M, T>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                      common.timestate.time, common.modelnumber, numPoints,
                      common.components.nc, common.components.ncu, common.grid.nd, common.components.ncx,
                      common.components.nco, common.components.ncw, common.components.nce, npe, e2 - e1);
@@ -243,7 +244,7 @@ inline void EosdwDriver(T* f, const T* xg, const T* udg,
 {
     using dstype=T;
     Int numPoints = npe * (e2 - e1);
-    eos_dw_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
+    eos_dw_kernel<M, T>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                      common.timestate.time, common.modelnumber, numPoints,
                      common.components.nc, common.components.ncu, common.grid.nd, common.components.ncx,
                      common.components.nco, common.components.ncw, common.components.nce, npe, e2 - e1);
@@ -260,7 +261,7 @@ inline void SourcewDriver(T* f, const T* xg, const T* udg,
 {
     using dstype=T;
     Int numPoints = npe * (e2 - e1);
-    sourcew_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
+    sourcew_kernel<M, T>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                       common.timestate.time, common.modelnumber, numPoints,
                       common.components.nc, common.components.ncu, common.grid.nd, common.components.ncx,
                       common.components.nco, common.components.ncw, common.components.nce, npe, e2 - e1);
@@ -278,7 +279,7 @@ inline void VisScalarsDriver(T* f, const T* xg, const T* udg,
 {
     using dstype=T;
     auto s = detail::compute_shape(common, nge, e1, e2);
-    vis_scalars_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
+    vis_scalars_kernel<M, T>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                           s.time, s.modelnumber, s.numPoints, s.nc, s.ncu,
                           s.nd, s.ncx, s.nco, s.ncw);
 }
@@ -293,7 +294,7 @@ inline void VisVectorsDriver(T* f, const T* xg, const T* udg,
 {
     using dstype=T;
     auto s = detail::compute_shape(common, nge, e1, e2);
-    vis_vectors_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
+    vis_vectors_kernel<M, T>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                           s.time, s.modelnumber, s.numPoints, s.nc, s.ncu,
                           s.nd, s.ncx, s.nco, s.ncw);
 }
@@ -308,7 +309,7 @@ inline void VisTensorsDriver(T* f, const T* xg, const T* udg,
 {
     using dstype=T;
     auto s = detail::compute_shape(common, nge, e1, e2);
-    vis_tensors_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
+    vis_tensors_kernel<M, T>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                           s.time, s.modelnumber, s.numPoints, s.nc, s.ncu,
                           s.nd, s.ncx, s.nco, s.ncw);
 }
@@ -323,7 +324,7 @@ inline void QoIvolumeDriver(T* f, const T* xg, const T* udg,
 {
     using dstype=T;
     auto s = detail::compute_shape(common, nge, e1, e2);
-    qoi_volume_kernel<M>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
+    qoi_volume_kernel<M, T>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                          s.time, s.modelnumber, s.numPoints, s.nc, s.ncu,
                          s.nd, s.ncx, s.nco, s.ncw);
 }
@@ -338,7 +339,7 @@ inline void QoIboundaryDriver(T* fb, const T* xg, const T* udg,
 {
     using dstype=T;
     Int ng = ngf * (f2 - f1);
-    qoi_boundary_kernel<M>(fb, xg, udg, odg, wdg, uhg, nl, app.tau,
+    qoi_boundary_kernel<M, T>(fb, xg, udg, odg, wdg, uhg, nl, app.tau,
                            app.uinf, app.physicsparam,
                            common.timestate.time, common.modelnumber, ib, ng,
                            common.components.nc, common.components.ncu, common.grid.nd, common.components.ncx,
@@ -358,7 +359,7 @@ inline void FbouDriver(T* fb, const T* xg, const T* udg,
 {
     using dstype=T;
     Int ng = ngf * (f2 - f1);
-    fbou_kernel<M>(fb, xg, udg, odg, wdg, uhg, nl, app.tau,
+    fbou_kernel<M, T>(fb, xg, udg, odg, wdg, uhg, nl, app.tau,
                    app.uinf, app.physicsparam,
                    common.timestate.time, common.modelnumber, ib, ng,
                    common.components.nc, common.components.ncu, common.grid.nd, common.components.ncx,
@@ -377,7 +378,7 @@ inline void FbouDriver(T* fb, T* fb_udg, T* fb_wdg, T* fb_uhg,
                        commonstructT<T,I>& common, Int nga, Int ib, Int /*backend*/)
 {
     using dstype=T;
-    hdg_fbou_kernel<M>(fb, fb_udg, fb_wdg, fb_uhg, xg, udg, odg, wdg,
+    hdg_fbou_kernel<M, T>(fb, fb_udg, fb_wdg, fb_uhg, xg, udg, odg, wdg,
                        uhg, nl, app.tau, app.uinf, app.physicsparam,
                        common.timestate.time, common.modelnumber, ib, nga,
                        common.components.nc, common.components.ncu, common.grid.nd, common.components.ncx,
@@ -394,7 +395,7 @@ inline void UbouDriver(T* ub, const T* xg, const T* udg,
 {
     using dstype=T;
     Int ng = ngf * (f2 - f1);
-    ubou_kernel<M>(ub, xg, udg, odg, wdg, uhg, nl, app.tau,
+    ubou_kernel<M, T>(ub, xg, udg, odg, wdg, uhg, nl, app.tau,
                    app.uinf, app.physicsparam,
                    common.timestate.time, common.modelnumber, ib, ng,
                    common.components.nc, common.components.ncu, common.grid.nd, common.components.ncx,
@@ -414,7 +415,7 @@ inline void FhatDriver(T* fg, const T* xg,
 {
     using dstype=T;
     Int ng = ngf * (f2 - f1);
-    fhat_kernel<M>(fg, xg, ug1, ug2, og1, og2, wg1, wg2,
+    fhat_kernel<M, T>(fg, xg, ug1, ug2, og1, og2, wg1, wg2,
                    uh, nl, app.tau, app.uinf, app.physicsparam,
                    common.timestate.time, common.modelnumber, ng,
                    common.components.nc, common.components.ncu, common.grid.nd, common.components.ncx,
@@ -433,7 +434,7 @@ inline void FhatDriver(T* fg, const T* xg,
                        commonstructT<T,I>& common, Int nga, Int /*backend*/)
 {
     using dstype=T;
-    fhat_kernel<M>(fg, xg, ug1, ug2, og1, og2, wg1, wg2,
+    fhat_kernel<M, T>(fg, xg, ug1, ug2, og1, og2, wg1, wg2,
                    uh, nl, app.tau, app.uinf, app.physicsparam,
                    common.timestate.time, common.modelnumber, nga,
                    common.components.nc, common.components.ncu, common.grid.nd, common.components.ncx,
@@ -478,7 +479,7 @@ inline void FhatDriver(T* f, T* f_udg, T* f_wdg, T* f_uhg,
     ArrayCopy(udg,   uhg, numPoints * ncu);
 
     // f, f_udg, f_wdg via templated HDG flux kernel at (uh, q).
-    hdg_flux_kernel<M>(f, f_udg, f_wdg, xg, udg, odg, wdg,
+    hdg_flux_kernel<M, T>(f, f_udg, f_wdg, xg, udg, odg, wdg,
                        app.uinf, app.physicsparam, time,
                        common.modelnumber, numPoints, nc, ncu, nd,
                        ncx, nco, ncw);
@@ -535,7 +536,7 @@ inline void FhatDriver(T* fh, T* u, const T* xg,
     ArrayCopy(udg, uhg, numPoints * ncu);
 
     // Flux at (uh, q), value-only.
-    flux_kernel<M>(fh, xg, udg, odg, wdg, app.uinf, app.physicsparam, time,
+    flux_kernel<M, T>(fh, xg, udg, odg, wdg, app.uinf, app.physicsparam, time,
                    common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);
 
     // Restore u-component.
@@ -559,7 +560,7 @@ inline void FbouDriver(T* fb, const T* xg, const T* udg,
                        commonstructT<T,I>& common, Int nga, Int ib, Int /*backend*/)
 {
     using dstype=T;
-    hdg_fbou_only_kernel<M>(fb, xg, udg, odg, wdg, uhg, nl, app.tau,
+    hdg_fbou_only_kernel<M, T>(fb, xg, udg, odg, wdg, uhg, nl, app.tau,
                             app.uinf, app.physicsparam,
                             common.timestate.time, common.modelnumber, ib, nga,
                             common.components.nc, common.components.ncu, common.grid.nd, common.components.ncx,
@@ -577,7 +578,7 @@ inline void UhatDriver(T* fg, const T* xg,
                        commonstructT<T,I>& common, Int ng, Int /*backend*/)
 {
     using dstype=T;
-    uhat_kernel<M>(fg, xg, ug1, ug2, og1, og2, wg1, wg2,
+    uhat_kernel<M, T>(fg, xg, ug1, ug2, og1, og2, wg1, wg2,
                    uh, nl, app.tau, app.uinf, app.physicsparam,
                    common.timestate.time, common.modelnumber, ng,
                    common.components.nc, common.components.ncu, common.grid.nd, common.components.ncx,
@@ -595,7 +596,7 @@ inline void StabDriver(T* fg, const T* xg,
                        commonstructT<T,I>& common, Int ng, Int /*backend*/)
 {
     using dstype=T;
-    stab_kernel<M>(fg, xg, ug1, ug2, og1, og2, wg1, wg2,
+    stab_kernel<M, T>(fg, xg, ug1, ug2, og1, og2, wg1, wg2,
                    uh, nl, app.tau, app.uinf, app.physicsparam,
                    common.timestate.time, common.modelnumber, ng,
                    common.components.nc, common.components.ncu, common.grid.nd, common.components.ncx,
@@ -610,7 +611,7 @@ inline void InitodgDriver(T* f, const T* xg,
 {
     using dstype=T;
     Int numPoints = common.grid.npe * common.meshsizes.ne;
-    initodg_kernel<M>(f, xg, app.uinf, app.physicsparam,
+    initodg_kernel<M, T>(f, xg, app.uinf, app.physicsparam,
                       common.modelnumber, numPoints,
                       common.components.ncx, common.components.nce, common.grid.npe, common.meshsizes.ne);
 }
@@ -621,7 +622,7 @@ inline void InitqDriver(T* f, const T* xg,
 {
     using dstype=T;
     Int numPoints = common.grid.npe * common.meshsizes.ne;
-    initq_kernel<M>(f, xg, app.uinf, app.physicsparam,
+    initq_kernel<M, T>(f, xg, app.uinf, app.physicsparam,
                     common.modelnumber, numPoints,
                     common.components.ncx, common.components.nce, common.grid.npe, common.meshsizes.ne);
 }
@@ -632,7 +633,7 @@ inline void InitudgDriver(T* f, const T* xg,
 {
     using dstype=T;
     Int numPoints = common.grid.npe * common.meshsizes.ne;
-    initudg_kernel<M>(f, xg, app.uinf, app.physicsparam,
+    initudg_kernel<M, T>(f, xg, app.uinf, app.physicsparam,
                       common.modelnumber, numPoints,
                       common.components.ncx, common.components.nce, common.grid.npe, common.meshsizes.ne);
 }
@@ -643,7 +644,7 @@ inline void InituDriver(T* f, const T* xg,
 {
     using dstype=T;
     Int numPoints = common.grid.npe * common.meshsizes.ne;
-    initu_kernel<M>(f, xg, app.uinf, app.physicsparam,
+    initu_kernel<M, T>(f, xg, app.uinf, app.physicsparam,
                     common.modelnumber, numPoints,
                     common.components.ncx, common.components.nce, common.grid.npe, common.meshsizes.ne,
                     common.components.nc);   // udg packed width (ncu+ncq) -> correct init stride
@@ -655,7 +656,7 @@ inline void InitwdgDriver(T* f, const T* xg,
 {
     using dstype=T;
     Int numPoints = common.grid.npe * common.meshsizes.ne;
-    initwdg_kernel<M>(f, xg, app.uinf, app.physicsparam,
+    initwdg_kernel<M, T>(f, xg, app.uinf, app.physicsparam,
                       common.modelnumber, numPoints,
                       common.components.ncx, common.components.nce, common.grid.npe, common.meshsizes.ne);
 }
@@ -705,16 +706,25 @@ struct multidomain_forward {
 
 namespace exasim {
 
-template <class M, class... Args, class T=dstype, class I=Int>
-inline void FintDriver(Args&&... args) {
-    using dstype=T;
-    ::exasim::detail::multidomain_forward<M>::Fint(std::forward<Args>(args)...);
+// Interface/external-flux drivers are multidomain-coupling only: they forward to the global
+// (codegen/legacy) ::FintDriver / ::FextDriver, which are dstype-typed. Coupling is a double-only
+// concern for now, and single-model solves (e.g. Poisson) never hit an interface face at runtime,
+// so for non-default precision the forward is compiled out (the call is dead but must not instantiate
+// the dstype-only global with T buffers).
+// The scalar precision is deduced from the first (buffer) argument, NOT a trailing template param
+// (which, sitting after the variadic pack, could never be deduced and would always be dstype).
+template <class M, class First, class... Rest>
+inline void FintDriver(First&& first, Rest&&... rest) {
+    using Scalar = std::remove_cv_t<std::remove_pointer_t<std::remove_reference_t<First>>>;
+    if constexpr (std::is_same_v<Scalar, ::dstype>)
+        ::exasim::detail::multidomain_forward<M>::Fint(std::forward<First>(first), std::forward<Rest>(rest)...);
 }
 
-template <class M, class... Args, class T=dstype, class I=Int>
-inline void FextDriver(Args&&... args) {
-    using dstype=T;
-    ::exasim::detail::multidomain_forward<M>::Fext(std::forward<Args>(args)...);
+template <class M, class First, class... Rest>
+inline void FextDriver(First&& first, Rest&&... rest) {
+    using Scalar = std::remove_cv_t<std::remove_pointer_t<std::remove_reference_t<First>>>;
+    if constexpr (std::is_same_v<Scalar, ::dstype>)
+        ::exasim::detail::multidomain_forward<M>::Fext(std::forward<First>(first), std::forward<Rest>(rest)...);
 }
 
 } // namespace exasim — end of Fint/Fext stubs

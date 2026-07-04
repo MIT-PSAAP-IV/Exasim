@@ -184,13 +184,13 @@ namespace detail {
 // Zero-fill an output buffer of size N at compile time. A free helper (formerly a
 // ModelDefaults member) so the per-concern default mixins below can all call it
 // without depending on a shared base class (avoids two-phase-lookup on a dependent base).
-template <int N>
-KOKKOS_INLINE_FUNCTION void zero_fill(double f[]) {
+template <int N, class T = double>
+KOKKOS_INLINE_FUNCTION void zero_fill(T f[]) {
     for (int k = 0; k < N; ++k) f[k] = 0.0;
 }
 } // namespace detail
 
-template <class Self>
+template <class Self, class T = double>
 struct ModelConstants {
     // Default discretization tag. Override by `static constexpr auto
     // disc = exasim::Discretization::HDG;` in the derived struct.
@@ -209,8 +209,8 @@ struct ModelConstants {
 // zero/identity defaults for ONE concern, chained so the composite ModelDefaults below
 // supplies everything. Each mixin can be referenced on its own to express that a kernel
 // or class needs only that concern's surface.
-template <class Self>
-struct VolumeDefaults : ModelConstants<Self> {
+template <class Self, class T = double>
+struct VolumeDefaults : ModelConstants<Self, T> {
     // ---- Volume terms (default: zero) ----
     //
     // Volume pointwise methods take 8 args after the output buffer:
@@ -220,62 +220,62 @@ struct VolumeDefaults : ModelConstants<Self> {
     // methods that need free-stream values dereference at their own risk.
 
     KOKKOS_INLINE_FUNCTION static
-    void source(double s[],
-                const double /*x*/[],  const double /*uq*/[],
-                const double /*v*/[],  const double /*w*/[],  const double /*mu*/[],
-                const double /*uinf*/[], double /*t*/) {
+    void source(T s[],
+                const T /*x*/[],  const T /*uq*/[],
+                const T /*v*/[],  const T /*w*/[],  const T /*mu*/[],
+                const T /*uinf*/[], T /*t*/) {
         detail::zero_fill<Self::ncu>(s);
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void sourcew(double sw[],
-                 const double /*x*/[],  const double /*uq*/[],
-                 const double /*v*/[],  const double /*w*/[],  const double /*mu*/[],
-                 const double /*uinf*/[], double /*t*/) {
+    void sourcew(T sw[],
+                 const T /*x*/[],  const T /*uq*/[],
+                 const T /*v*/[],  const T /*w*/[],  const T /*mu*/[],
+                 const T /*uinf*/[], T /*t*/) {
         if constexpr (Self::ncw > 0) detail::zero_fill<Self::ncw>(sw);
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void tdfunc(double m[],
-                const double /*x*/[],  const double /*uq*/[],
-                const double /*v*/[],  const double /*w*/[],  const double /*mu*/[],
-                const double /*uinf*/[], double /*t*/) {
+    void tdfunc(T m[],
+                const T /*x*/[],  const T /*uq*/[],
+                const T /*v*/[],  const T /*w*/[],  const T /*mu*/[],
+                const T /*uinf*/[], T /*t*/) {
         // Identity mass weighting by default.
         for (int k = 0; k < Self::ncu; ++k) m[k] = 1.0;
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void avfield(double av[],
-                 const double /*x*/[],  const double /*uq*/[],
-                 const double /*v*/[],  const double /*w*/[],  const double /*mu*/[],
-                 const double /*uinf*/[], double /*t*/) {
+    void avfield(T av[],
+                 const T /*x*/[],  const T /*uq*/[],
+                 const T /*v*/[],  const T /*w*/[],  const T /*mu*/[],
+                 const T /*uinf*/[], T /*t*/) {
         detail::zero_fill<Self::ncu>(av);
     }
 
 };
 
-template <class Self>
-struct BoundaryDefaults : VolumeDefaults<Self> {
+template <class Self, class T = double>
+struct BoundaryDefaults : VolumeDefaults<Self, T> {
     // ---- Boundary terms (default: zero) ----
 
     // Boundary kernels: pointwise functions seen by every kernel call from
     // <exasim/kernels/boundary.hpp>. Args (after ub/fb output and `ib` tag):
     //   x[nd], uq[Nq], v[nco], w[ncw], uh[ncu], n[nd], tau[ncu], mu[nparam], uinf, t
     KOKKOS_INLINE_FUNCTION static
-    void ubou(double ub[], int /*ib*/,
-              const double /*x*/[],  const double /*uq*/[],
-              const double /*v*/[],  const double /*w*/[],  const double /*uh*/[],
-              const double /*n*/[],  const double /*tau*/[],
-              const double /*mu*/[], const double /*uinf*/[], double /*t*/) {
+    void ubou(T ub[], int /*ib*/,
+              const T /*x*/[],  const T /*uq*/[],
+              const T /*v*/[],  const T /*w*/[],  const T /*uh*/[],
+              const T /*n*/[],  const T /*tau*/[],
+              const T /*mu*/[], const T /*uinf*/[], T /*t*/) {
         detail::zero_fill<Self::ncu>(ub);
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void fbou(double fb[], int /*ib*/,
-              const double /*x*/[],  const double /*uq*/[],
-              const double /*v*/[],  const double /*w*/[],  const double /*uh*/[],
-              const double /*n*/[],  const double /*tau*/[],
-              const double /*mu*/[], const double /*uinf*/[], double /*t*/) {
+    void fbou(T fb[], int /*ib*/,
+              const T /*x*/[],  const T /*uq*/[],
+              const T /*v*/[],  const T /*w*/[],  const T /*uh*/[],
+              const T /*n*/[],  const T /*tau*/[],
+              const T /*mu*/[], const T /*uinf*/[], T /*t*/) {
         detail::zero_fill<Self::ncu>(fb);
     }
 
@@ -289,11 +289,11 @@ struct BoundaryDefaults : VolumeDefaults<Self> {
     // through `fbou_hdg` and its three companion Jacobians:
     //   fbou_hdg_jac_uq, fbou_hdg_jac_w, fbou_hdg_jac_uh
     KOKKOS_INLINE_FUNCTION static
-    void fbou_hdg(double fb[], int /*ib*/,
-                  const double /*x*/[],  const double /*uq*/[],
-                  const double /*v*/[],  const double /*w*/[],  const double /*uh*/[],
-                  const double /*n*/[],  const double /*tau*/[],
-                  const double /*mu*/[], const double /*uinf*/[], double /*t*/) {
+    void fbou_hdg(T fb[], int /*ib*/,
+                  const T /*x*/[],  const T /*uq*/[],
+                  const T /*v*/[],  const T /*w*/[],  const T /*uh*/[],
+                  const T /*n*/[],  const T /*tau*/[],
+                  const T /*mu*/[], const T /*uinf*/[], T /*t*/) {
         detail::zero_fill<Self::ncu>(fb);
     }
 
@@ -302,63 +302,63 @@ struct BoundaryDefaults : VolumeDefaults<Self> {
     // pointer-passed and may be nullptr — model methods that need
     // free-stream values dereference at their own risk.
     KOKKOS_INLINE_FUNCTION static
-    void fhat(double fh[],     const double /*x*/[],
-              const double /*uq1*/[],  const double /*uq2*/[],
-              const double /*v1*/[],   const double /*v2*/[],
-              const double /*w1*/[],   const double /*w2*/[],
-              const double /*uh*/[],   const double /*n*/[],   const double /*tau*/[],
-              const double /*mu*/[],   const double /*uinf*/[], double /*t*/) {
+    void fhat(T fh[],     const T /*x*/[],
+              const T /*uq1*/[],  const T /*uq2*/[],
+              const T /*v1*/[],   const T /*v2*/[],
+              const T /*w1*/[],   const T /*w2*/[],
+              const T /*uh*/[],   const T /*n*/[],   const T /*tau*/[],
+              const T /*mu*/[],   const T /*uinf*/[], T /*t*/) {
         detail::zero_fill<Self::ncu>(fh);
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void uhat(double uh[],     const double /*x*/[],
-              const double /*uq1*/[],  const double /*uq2*/[],
-              const double /*v1*/[],   const double /*v2*/[],
-              const double /*w1*/[],   const double /*w2*/[],
-              const double /*trace*/[],const double /*n*/[],   const double /*tau*/[],
-              const double /*mu*/[],   const double /*uinf*/[], double /*t*/) {
+    void uhat(T uh[],     const T /*x*/[],
+              const T /*uq1*/[],  const T /*uq2*/[],
+              const T /*v1*/[],   const T /*v2*/[],
+              const T /*w1*/[],   const T /*w2*/[],
+              const T /*trace*/[],const T /*n*/[],   const T /*tau*/[],
+              const T /*mu*/[],   const T /*uinf*/[], T /*t*/) {
         detail::zero_fill<Self::ncu>(uh);
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void stab(double tau[],    const double /*x*/[],
-              const double /*uq1*/[],  const double /*uq2*/[],
-              const double /*v1*/[],   const double /*v2*/[],
-              const double /*w1*/[],   const double /*w2*/[],
-              const double /*uh*/[],   const double /*n*/[],   const double /*tau_in*/[],
-              const double /*mu*/[],   const double /*uinf*/[], double /*t*/) {
+    void stab(T tau[],    const T /*x*/[],
+              const T /*uq1*/[],  const T /*uq2*/[],
+              const T /*v1*/[],   const T /*v2*/[],
+              const T /*w1*/[],   const T /*w2*/[],
+              const T /*uh*/[],   const T /*n*/[],   const T /*tau_in*/[],
+              const T /*mu*/[],   const T /*uinf*/[], T /*t*/) {
         for (int k = 0; k < Self::ncu; ++k) tau[k] = 1.0;
     }
 
 };
 
-template <class Self>
-struct EoSDefaults : BoundaryDefaults<Self> {
+template <class Self, class T = double>
+struct EoSDefaults : BoundaryDefaults<Self, T> {
     // ---- Equation of state (default: identity / zero) ----
 
     KOKKOS_INLINE_FUNCTION static
-    void eos(double e[],
-             const double /*x*/[],  const double /*uq*/[],
-             const double /*v*/[],  const double /*w*/[],  const double /*mu*/[],
-             const double /*uinf*/[], double /*t*/) {
+    void eos(T e[],
+             const T /*x*/[],  const T /*uq*/[],
+             const T /*v*/[],  const T /*w*/[],  const T /*mu*/[],
+             const T /*uinf*/[], T /*t*/) {
         detail::zero_fill<Self::ncu>(e);
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void eos_du(double ed[],
-                const double /*x*/[],  const double /*uq*/[],
-                const double /*v*/[],  const double /*w*/[],  const double /*mu*/[],
-                const double /*uinf*/[], double /*t*/) {
+    void eos_du(T ed[],
+                const T /*x*/[],  const T /*uq*/[],
+                const T /*v*/[],  const T /*w*/[],  const T /*mu*/[],
+                const T /*uinf*/[], T /*t*/) {
         constexpr int Nq = Self::ncu * (1 + Self::nd);
         for (int k = 0; k < Self::ncu * Nq; ++k) ed[k] = 0.0;
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void eos_dw(double ew[],
-                const double /*x*/[],  const double /*uq*/[],
-                const double /*v*/[],  const double /*w*/[],  const double /*mu*/[],
-                const double /*uinf*/[], double /*t*/) {
+    void eos_dw(T ew[],
+                const T /*x*/[],  const T /*uq*/[],
+                const T /*v*/[],  const T /*w*/[],  const T /*mu*/[],
+                const T /*uinf*/[], T /*t*/) {
         if constexpr (Self::ncw > 0) {
             for (int k = 0; k < Self::ncu * Self::ncw; ++k) ew[k] = 0.0;
         }
@@ -366,28 +366,28 @@ struct EoSDefaults : BoundaryDefaults<Self> {
 
 };
 
-template <class Self>
-struct InitDefaults : EoSDefaults<Self> {
+template <class Self, class T = double>
+struct InitDefaults : EoSDefaults<Self, T> {
     // ---- Initial conditions (default: zero, except `initu` which is required) ----
 
     KOKKOS_INLINE_FUNCTION static
-    void initq(double q[], const double[], const double[], const double[]) {
+    void initq(T q[], const T[], const T[], const T[]) {
         detail::zero_fill<Self::ncu * Self::nd>(q);
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void initwdg(double w[], const double[], const double[], const double[]) {
+    void initwdg(T w[], const T[], const T[], const T[]) {
         if constexpr (Self::ncw > 0) detail::zero_fill<Self::ncw>(w);
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void initudg(double udg[], const double[], const double[], const double[]) {
+    void initudg(T udg[], const T[], const T[], const T[]) {
         constexpr int Nq = Self::ncu * (1 + Self::nd);
         detail::zero_fill<Nq>(udg);
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void initodg(double odg[], const double[], const double[], const double[]) {
+    void initodg(T odg[], const T[], const T[], const T[]) {
         // No default; `nco` is determined by the discretization, not by Self.
         // Concrete kernels pass the correct count in.
         (void)odg;
@@ -395,8 +395,8 @@ struct InitDefaults : EoSDefaults<Self> {
 
 };
 
-template <class Self>
-struct OutputDefaults : InitDefaults<Self> {
+template <class Self, class T = double>
+struct OutputDefaults : InitDefaults<Self, T> {
     // ---- Visualization, QoI, monitor/output (default: empty / zero) ----
     //
     // Volume-shape methods (`vis_*`, `qoi_volume`, `monitor`, `output`)
@@ -406,46 +406,46 @@ struct OutputDefaults : InitDefaults<Self> {
     // (uh, n, tau).
 
     KOKKOS_INLINE_FUNCTION static
-    void vis_scalars(double[], const double /*x*/[], const double /*uq*/[],
-                     const double /*v*/[], const double /*w*/[], const double /*mu*/[],
-                     const double /*uinf*/[], double /*t*/) { }
+    void vis_scalars(T[], const T /*x*/[], const T /*uq*/[],
+                     const T /*v*/[], const T /*w*/[], const T /*mu*/[],
+                     const T /*uinf*/[], T /*t*/) { }
 
     KOKKOS_INLINE_FUNCTION static
-    void vis_vectors(double[], const double /*x*/[], const double /*uq*/[],
-                     const double /*v*/[], const double /*w*/[], const double /*mu*/[],
-                     const double /*uinf*/[], double /*t*/) { }
+    void vis_vectors(T[], const T /*x*/[], const T /*uq*/[],
+                     const T /*v*/[], const T /*w*/[], const T /*mu*/[],
+                     const T /*uinf*/[], T /*t*/) { }
 
     KOKKOS_INLINE_FUNCTION static
-    void vis_tensors(double[], const double /*x*/[], const double /*uq*/[],
-                     const double /*v*/[], const double /*w*/[], const double /*mu*/[],
-                     const double /*uinf*/[], double /*t*/) { }
+    void vis_tensors(T[], const T /*x*/[], const T /*uq*/[],
+                     const T /*v*/[], const T /*w*/[], const T /*mu*/[],
+                     const T /*uinf*/[], T /*t*/) { }
 
     KOKKOS_INLINE_FUNCTION static
-    void qoi_volume(double[], const double /*x*/[], const double /*uq*/[],
-                    const double /*v*/[], const double /*w*/[], const double /*mu*/[],
-                    const double /*uinf*/[], double /*t*/) { }
+    void qoi_volume(T[], const T /*x*/[], const T /*uq*/[],
+                    const T /*v*/[], const T /*w*/[], const T /*mu*/[],
+                    const T /*uinf*/[], T /*t*/) { }
 
     KOKKOS_INLINE_FUNCTION static
-    void qoi_boundary(double[], int /*ib*/,
-                      const double /*x*/[],  const double /*uq*/[],
-                      const double /*v*/[],  const double /*w*/[],  const double /*uh*/[],
-                      const double /*n*/[],  const double /*tau*/[],
-                      const double /*mu*/[], const double /*uinf*/[], double /*t*/) { }
+    void qoi_boundary(T[], int /*ib*/,
+                      const T /*x*/[],  const T /*uq*/[],
+                      const T /*v*/[],  const T /*w*/[],  const T /*uh*/[],
+                      const T /*n*/[],  const T /*tau*/[],
+                      const T /*mu*/[], const T /*uinf*/[], T /*t*/) { }
 
     KOKKOS_INLINE_FUNCTION static
-    void monitor(double[], const double /*x*/[], const double /*uq*/[],
-                 const double /*v*/[], const double /*w*/[], const double /*mu*/[],
-                 const double /*uinf*/[], double /*t*/) { }
+    void monitor(T[], const T /*x*/[], const T /*uq*/[],
+                 const T /*v*/[], const T /*w*/[], const T /*mu*/[],
+                 const T /*uinf*/[], T /*t*/) { }
 
     KOKKOS_INLINE_FUNCTION static
-    void output(double[], const double /*x*/[], const double /*uq*/[],
-                const double /*v*/[], const double /*w*/[], const double /*mu*/[],
-                const double /*uinf*/[], double /*t*/) { }
+    void output(T[], const T /*x*/[], const T /*uq*/[],
+                const T /*v*/[], const T /*w*/[], const T /*mu*/[],
+                const T /*uinf*/[], T /*t*/) { }
 
 };
 
-template <class Self>
-struct HDGJacobianDefaults : OutputDefaults<Self> {
+template <class Self, class T = double>
+struct HDGJacobianDefaults : OutputDefaults<Self, T> {
     // ---- HDG Jacobians (default: zero) ----
     //
     // For HDG models these MUST be overridden by the user — the
@@ -457,38 +457,38 @@ struct HDGJacobianDefaults : OutputDefaults<Self> {
     // Volume Jacobians: same arg shape as the value methods —
     //   (out, x, uq, v, w, mu, uinf, t)
     KOKKOS_INLINE_FUNCTION static
-    void flux_jac_uq(double f_uq[],
-                     const double /*x*/[],  const double /*uq*/[],
-                     const double /*v*/[],  const double /*w*/[],  const double /*mu*/[],
-                     const double /*uinf*/[], double /*t*/) {
+    void flux_jac_uq(T f_uq[],
+                     const T /*x*/[],  const T /*uq*/[],
+                     const T /*v*/[],  const T /*w*/[],  const T /*mu*/[],
+                     const T /*uinf*/[], T /*t*/) {
         constexpr int Nq = Self::ncu * (1 + Self::nd);
         for (int k = 0; k < Self::ncu * Self::nd * Nq; ++k) f_uq[k] = 0.0;
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void flux_jac_w(double f_w[],
-                    const double /*x*/[],  const double /*uq*/[],
-                    const double /*v*/[],  const double /*w*/[],  const double /*mu*/[],
-                    const double /*uinf*/[], double /*t*/) {
+    void flux_jac_w(T f_w[],
+                    const T /*x*/[],  const T /*uq*/[],
+                    const T /*v*/[],  const T /*w*/[],  const T /*mu*/[],
+                    const T /*uinf*/[], T /*t*/) {
         if constexpr (Self::ncw > 0) {
             for (int k = 0; k < Self::ncu * Self::nd * Self::ncw; ++k) f_w[k] = 0.0;
         }
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void source_jac_uq(double s_uq[],
-                       const double /*x*/[],  const double /*uq*/[],
-                       const double /*v*/[],  const double /*w*/[],  const double /*mu*/[],
-                       const double /*uinf*/[], double /*t*/) {
+    void source_jac_uq(T s_uq[],
+                       const T /*x*/[],  const T /*uq*/[],
+                       const T /*v*/[],  const T /*w*/[],  const T /*mu*/[],
+                       const T /*uinf*/[], T /*t*/) {
         constexpr int Nq = Self::ncu * (1 + Self::nd);
         for (int k = 0; k < Self::ncu * Nq; ++k) s_uq[k] = 0.0;
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void source_jac_w(double s_w[],
-                      const double /*x*/[],  const double /*uq*/[],
-                      const double /*v*/[],  const double /*w*/[],  const double /*mu*/[],
-                      const double /*uinf*/[], double /*t*/) {
+    void source_jac_w(T s_w[],
+                      const T /*x*/[],  const T /*uq*/[],
+                      const T /*v*/[],  const T /*w*/[],  const T /*mu*/[],
+                      const T /*uinf*/[], T /*t*/) {
         if constexpr (Self::ncw > 0) {
             for (int k = 0; k < Self::ncu * Self::ncw; ++k) s_w[k] = 0.0;
         }
@@ -500,30 +500,30 @@ struct HDGJacobianDefaults : OutputDefaults<Self> {
     // LDG-path Jacobians. Kept in the contract for completeness in
     // case a future numerical scheme needs them.
     KOKKOS_INLINE_FUNCTION static
-    void fbou_jac_uq(double fb_uq[], int /*ib*/,
-                     const double /*x*/[],  const double /*uq*/[],
-                     const double /*v*/[],  const double /*w*/[],  const double /*uh*/[],
-                     const double /*n*/[],  const double /*tau*/[],
-                     const double /*mu*/[], const double /*uinf*/[], double /*t*/) {
+    void fbou_jac_uq(T fb_uq[], int /*ib*/,
+                     const T /*x*/[],  const T /*uq*/[],
+                     const T /*v*/[],  const T /*w*/[],  const T /*uh*/[],
+                     const T /*n*/[],  const T /*tau*/[],
+                     const T /*mu*/[], const T /*uinf*/[], T /*t*/) {
         constexpr int Nq = Self::ncu * (1 + Self::nd);
         for (int k = 0; k < Self::ncu * Nq; ++k) fb_uq[k] = 0.0;
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void fbou_jac_uh(double fb_uh[], int /*ib*/,
-                     const double /*x*/[],  const double /*uq*/[],
-                     const double /*v*/[],  const double /*w*/[],  const double /*uh*/[],
-                     const double /*n*/[],  const double /*tau*/[],
-                     const double /*mu*/[], const double /*uinf*/[], double /*t*/) {
+    void fbou_jac_uh(T fb_uh[], int /*ib*/,
+                     const T /*x*/[],  const T /*uq*/[],
+                     const T /*v*/[],  const T /*w*/[],  const T /*uh*/[],
+                     const T /*n*/[],  const T /*tau*/[],
+                     const T /*mu*/[], const T /*uinf*/[], T /*t*/) {
         for (int k = 0; k < Self::ncu * Self::ncu; ++k) fb_uh[k] = 0.0;
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void fbou_jac_w(double fb_w[], int /*ib*/,
-                    const double /*x*/[],  const double /*uq*/[],
-                    const double /*v*/[],  const double /*w*/[],  const double /*uh*/[],
-                    const double /*n*/[],  const double /*tau*/[],
-                    const double /*mu*/[], const double /*uinf*/[], double /*t*/) {
+    void fbou_jac_w(T fb_w[], int /*ib*/,
+                    const T /*x*/[],  const T /*uq*/[],
+                    const T /*v*/[],  const T /*w*/[],  const T /*uh*/[],
+                    const T /*n*/[],  const T /*tau*/[],
+                    const T /*mu*/[], const T /*uinf*/[], T /*t*/) {
         if constexpr (Self::ncw > 0) {
             for (int k = 0; k < Self::ncu * Self::ncw; ++k) fb_w[k] = 0.0;
         }
@@ -535,30 +535,30 @@ struct HDGJacobianDefaults : OutputDefaults<Self> {
     // get a converging HDG Newton solve. Defaults zero-fill so that
     // LDG-only models compile without writing empty stubs.
     KOKKOS_INLINE_FUNCTION static
-    void fbou_hdg_jac_uq(double fb_uq[], int /*ib*/,
-                         const double /*x*/[],  const double /*uq*/[],
-                         const double /*v*/[],  const double /*w*/[],  const double /*uh*/[],
-                         const double /*n*/[],  const double /*tau*/[],
-                         const double /*mu*/[], const double /*uinf*/[], double /*t*/) {
+    void fbou_hdg_jac_uq(T fb_uq[], int /*ib*/,
+                         const T /*x*/[],  const T /*uq*/[],
+                         const T /*v*/[],  const T /*w*/[],  const T /*uh*/[],
+                         const T /*n*/[],  const T /*tau*/[],
+                         const T /*mu*/[], const T /*uinf*/[], T /*t*/) {
         constexpr int Nq = Self::ncu * (1 + Self::nd);
         for (int k = 0; k < Self::ncu * Nq; ++k) fb_uq[k] = 0.0;
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void fbou_hdg_jac_uh(double fb_uh[], int /*ib*/,
-                         const double /*x*/[],  const double /*uq*/[],
-                         const double /*v*/[],  const double /*w*/[],  const double /*uh*/[],
-                         const double /*n*/[],  const double /*tau*/[],
-                         const double /*mu*/[], const double /*uinf*/[], double /*t*/) {
+    void fbou_hdg_jac_uh(T fb_uh[], int /*ib*/,
+                         const T /*x*/[],  const T /*uq*/[],
+                         const T /*v*/[],  const T /*w*/[],  const T /*uh*/[],
+                         const T /*n*/[],  const T /*tau*/[],
+                         const T /*mu*/[], const T /*uinf*/[], T /*t*/) {
         for (int k = 0; k < Self::ncu * Self::ncu; ++k) fb_uh[k] = 0.0;
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void fbou_hdg_jac_w(double fb_w[], int /*ib*/,
-                        const double /*x*/[],  const double /*uq*/[],
-                        const double /*v*/[],  const double /*w*/[],  const double /*uh*/[],
-                        const double /*n*/[],  const double /*tau*/[],
-                        const double /*mu*/[], const double /*uinf*/[], double /*t*/) {
+    void fbou_hdg_jac_w(T fb_w[], int /*ib*/,
+                        const T /*x*/[],  const T /*uq*/[],
+                        const T /*v*/[],  const T /*w*/[],  const T /*uh*/[],
+                        const T /*n*/[],  const T /*tau*/[],
+                        const T /*mu*/[], const T /*uinf*/[], T /*t*/) {
         if constexpr (Self::ncw > 0) {
             for (int k = 0; k < Self::ncu * Self::ncw; ++k) fb_w[k] = 0.0;
         }
@@ -571,8 +571,8 @@ struct HDGJacobianDefaults : OutputDefaults<Self> {
 // ModelDefaults<Self> and inherit every default; each default now lives in the mixin for
 // its concern (mirrors the commonstruct -> per-concern-struct split). A future refinement
 // can have a kernel/class derive a constraint from just the mixin it needs.
-template <class Self>
-struct ModelDefaults : HDGJacobianDefaults<Self> {};
+template <class Self, class T = double>
+struct ModelDefaults : HDGJacobianDefaults<Self, T> {};
 
 // ===========================================================================
 // Deferred surface — recorded for v2 / multi-domain coupling

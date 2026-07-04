@@ -41,10 +41,12 @@
 #ifndef __GEOMETRY
 #define __GEOMETRY
 
-inline void ElemGeomBlock(solstruct &sol, masterstruct &master, meshstruct &mesh, tempstruct &tmp, 
-        commonstruct &common, cublasHandle_t handle, Int nd, 
+template <class T=dstype, class I=Int>
+inline void ElemGeomBlock(solstructT<T,I> &sol, masterstructT<T,I> &master, meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, 
+        commonstructT<T,I> &common, cublasHandle_t handle, Int nd, 
         Int npe, Int nge, Int ncx, Int e1, Int e2, Int backend)
-{            
+{
+    using dstype=T;            
     Int ne = e2-e1;
     //Int nn =  npe*ne; 
     Int nga = nge*ne;   
@@ -79,9 +81,11 @@ inline void ElemGeomBlock(solstruct &sol, masterstruct &master, meshstruct &mesh
     }
 }
 
-inline void ElemGeom(solstruct &sol, masterstruct &master, meshstruct &mesh, tempstruct &tmp, 
-        commonstruct &common, cublasHandle_t handle, Int backend)
-{    
+template <class T=dstype, class I=Int>
+inline void ElemGeom(solstructT<T,I> &sol, masterstructT<T,I> &master, meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, 
+        commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
+{
+    using dstype=T;    
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
     Int nd = common.grid.nd;     // spatial dimension    
     Int npe = common.grid.npe; // number of nodes on master element
@@ -98,9 +102,11 @@ inline void ElemGeom(solstruct &sol, masterstruct &master, meshstruct &mesh, tem
     }                     
 }
 
-inline void FaceGeomBlock(solstruct &sol, masterstruct &master, meshstruct &mesh, tempstruct &tmp, 
-        commonstruct &common, cublasHandle_t handle, Int f1, Int f2, Int backend)
-{            
+template <class T=dstype, class I=Int>
+inline void FaceGeomBlock(solstructT<T,I> &sol, masterstructT<T,I> &master, meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, 
+        commonstructT<T,I> &common, cublasHandle_t handle, Int f1, Int f2, Int backend)
+{
+    using dstype=T;            
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
     Int nd = common.grid.nd;     // spatial dimension    
     Int npe = common.grid.npe; // number of nodes on master element
@@ -134,9 +140,11 @@ inline void FaceGeomBlock(solstruct &sol, masterstruct &master, meshstruct &mesh
     }
 }
 
-inline void FaceGeom(solstruct &sol, masterstruct &master, meshstruct &mesh, tempstruct &tmp, commonstruct &common,
+template <class T=dstype, class I=Int>
+inline void FaceGeom(solstructT<T,I> &sol, masterstructT<T,I> &master, meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,
         cublasHandle_t handle, Int backend)
-{           
+{
+    using dstype=T;           
     
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
     Int nd = common.grid.nd;     // spatial dimension    
@@ -155,9 +163,11 @@ inline void FaceGeom(solstruct &sol, masterstruct &master, meshstruct &mesh, tem
     }        
 }
 
-inline void ElemFaceGeomBlock(solstruct &sol, masterstruct &master, meshstruct &mesh, tempstruct &tmp, 
-        commonstruct &common, cublasHandle_t handle, Int e1, Int e2, Int backend)
-{            
+template <class T=dstype, class I=Int>
+inline void ElemFaceGeomBlock(solstructT<T,I> &sol, masterstructT<T,I> &master, meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, 
+        commonstructT<T,I> &common, cublasHandle_t handle, Int e1, Int e2, Int backend)
+{
+    using dstype=T;            
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
     Int nd = common.grid.nd;     // spatial dimension    
     Int npe = common.grid.npe; // number of nodes on master element
@@ -192,9 +202,11 @@ inline void ElemFaceGeomBlock(solstruct &sol, masterstruct &master, meshstruct &
     }
 }
 
-inline void ElemFaceGeom(solstruct &sol, masterstruct &master, meshstruct &mesh, tempstruct &tmp, 
-        commonstruct &common, cublasHandle_t handle, Int backend)
-{    
+template <class T=dstype, class I=Int>
+inline void ElemFaceGeom(solstructT<T,I> &sol, masterstructT<T,I> &master, meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, 
+        commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
+{
+    using dstype=T;    
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
     Int nd = common.grid.nd;     // spatial dimension        
     Int ngf = common.grid.ngf; // number of gauss poInts on master face    

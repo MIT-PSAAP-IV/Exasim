@@ -84,6 +84,14 @@ typedef long Int;
 typedef int Int;
 #endif
 
+// Non-deduced type wrapper. A scalar function parameter spelled `noDeduce_t<T>` deduces T ONLY from
+// the buffer arguments, so a double literal/constant (0.0, `zero`, `minusone`) passed alongside a
+// float* buffer converts to float instead of forcing a conflicting T=double deduction. This is the
+// pblas/array-op fix for the precision-template cutover (drivers/kernels/geometry pass dstype
+// constants next to T buffers).
+template <class U> struct noDeduce_ { using type = U; };
+template <class U> using noDeduce_t = typename noDeduce_<U>::type;
+
 #ifdef HAVE_MPI
 // mpi_type<T>(): the MPI_Datatype for a scalar/index type (Phase 3 -- the MPI companion to blas<T>).
 // Replaces hardcoded MPI_DOUBLE and `#ifdef USE_FLOAT MPI_FLOAT/DOUBLE` branches so MPI halo exchange
@@ -1817,7 +1825,9 @@ struct solverparamsstruct {
 // surface/volume QoI counts, the Paraview flag, the boundary-to-save index, the QoI accumulation
 // buffers, and the registered QoI-instance list (C2). Grouped out of commonstruct (C3). Access via
 // common.qoiparams.<field>.
-struct qoiparamsstruct {
+template <class T = ::dstype, class I = ::Int>
+struct qoiparamsstructT {
+    using dstype = T; using Int = I;
     Int nsca;             // visualization scalar-field components
     Int nvec;             // visualization vector-field components
     Int nten;             // visualization tensor-field components
@@ -1829,6 +1839,7 @@ struct qoiparamsstruct {
     dstype* qoisurface=nullptr; // surface-QoI accumulation buffer
     std::vector<qoiinstancestruct> qoiinstances;  // registered QoI instances (default: 1 domain + 1 boundary)
 };
+using qoiparamsstruct = qoiparamsstructT<::dstype, ::Int>;
 
 // Interface-coupling configuration: coupled interface/condition/boundary flags, external
 // uhat/fhat/stabilization function flags, the external-force call flag, and interface/coupled-
@@ -1870,7 +1881,9 @@ struct outputparamsstruct {
 // Wall-model configuration: model-ID / boundary / distance tables and their sizes (the working
 // copies; the raw tables are mirrored in appstruct). Grouped out of commonstruct (C3). Access via
 // common.wallmodelparams.<field>.
-struct wallmodelparamsstruct {
+template <class T = ::dstype, class I = ::Int>
+struct wallmodelparamsstructT {
+    using dstype = T; using Int = I;
     Int nwm=0;               // number of wall-model configurations
     Int szwmModelIDs=0;
     Int szwmBoundaries=0;
@@ -1879,6 +1892,7 @@ struct wallmodelparamsstruct {
     Int *wmBoundaries=nullptr;
     dstype* wmDistances=nullptr;
 };
+using wallmodelparamsstruct = wallmodelparamsstructT<::dstype, ::Int>;
 
 // Synthetic-turbulence-generation (STG) configuration: number of modes, inlet-boundary count, and
 // the inlet-boundary index table (working copy; raw STG data lives in appstruct). Grouped out of
@@ -2018,6 +2032,8 @@ struct meshsizesstruct {
 template <class T = ::dstype, class I = ::Int>
 struct commonstructT {
     using dstype = T; using Int = I;
+    using qoiparamsstruct       = qoiparamsstructT<T, I>;
+    using wallmodelparamsstruct = wallmodelparamsstructT<T, I>;
     meshsizesstruct meshsizes;              // mesh partition element/face/block counts (see above)
     gridstruct grid;                        // reference-element/discretization sizes (see above)
     componentsstruct components;            // DG-field component counts (see above)

@@ -37,13 +37,13 @@ void vis_scalars_kernel(T* f, const T* xdg, const T* udg,
 
     Kokkos::parallel_for("exasim::vis_scalars_kernel", ng, KOKKOS_LAMBDA(size_t i) {
         (void)odg; (void)wdg;
-        double x[nd], uq[Nq], v[nco_buf], w[ncw_buf];
+        T x[nd], uq[Nq], v[nco_buf], w[ncw_buf];
         for (int k = 0; k < nd; ++k) x [k] = xdg[k * ng + i];
         for (int k = 0; k < Nq; ++k) uq[k] = udg[k * ng + i];
         if (nco > 0) for (int k = 0; k < nco; ++k) v[k] = odg[k * ng + i];
         if (ncw > 0) for (int k = 0; k < ncw; ++k) w[k] = wdg[k * ng + i];
 
-        double out_local[kMax];
+        T out_local[kMax];
         M::vis_scalars(out_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
         for (int k = 0; k < nc_runtime; ++k) f[k * ng + i] = out_local[k];
     });
@@ -67,13 +67,13 @@ void vis_vectors_kernel(T* f, const T* xdg, const T* udg,
 
     Kokkos::parallel_for("exasim::vis_vectors_kernel", ng, KOKKOS_LAMBDA(size_t i) {
         (void)odg; (void)wdg;
-        double x[nd], uq[Nq], v[nco_buf], w[ncw_buf];
+        T x[nd], uq[Nq], v[nco_buf], w[ncw_buf];
         for (int k = 0; k < nd; ++k) x [k] = xdg[k * ng + i];
         for (int k = 0; k < Nq; ++k) uq[k] = udg[k * ng + i];
         if (nco > 0) for (int k = 0; k < nco; ++k) v[k] = odg[k * ng + i];
         if (ncw > 0) for (int k = 0; k < ncw; ++k) w[k] = wdg[k * ng + i];
 
-        double out_local[kMax];
+        T out_local[kMax];
         M::vis_vectors(out_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
         for (int k = 0; k < nc_runtime; ++k) f[k * ng + i] = out_local[k];
     });
@@ -97,13 +97,13 @@ void vis_tensors_kernel(T* f, const T* xdg, const T* udg,
 
     Kokkos::parallel_for("exasim::vis_tensors_kernel", ng, KOKKOS_LAMBDA(size_t i) {
         (void)odg; (void)wdg;
-        double x[nd], uq[Nq], v[nco_buf], w[ncw_buf];
+        T x[nd], uq[Nq], v[nco_buf], w[ncw_buf];
         for (int k = 0; k < nd; ++k) x [k] = xdg[k * ng + i];
         for (int k = 0; k < Nq; ++k) uq[k] = udg[k * ng + i];
         if (nco > 0) for (int k = 0; k < nco; ++k) v[k] = odg[k * ng + i];
         if (ncw > 0) for (int k = 0; k < ncw; ++k) w[k] = wdg[k * ng + i];
 
-        double out_local[kMax];
+        T out_local[kMax];
         M::vis_tensors(out_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
         for (int k = 0; k < nc_runtime; ++k) f[k * ng + i] = out_local[k];
     });

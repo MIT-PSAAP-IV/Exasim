@@ -31,13 +31,13 @@ void sourcew_kernel(T* sw,
     if constexpr (ncw > 0) {
         Kokkos::parallel_for("exasim::sourcew_kernel", ng, KOKKOS_LAMBDA(size_t i) {
             (void)odg; (void)wdg;  // HOT.6.2 nvcc force-capture: see /tmp/patch_constexpr_capture.py
-            double x[nd], uq[Nq], v[nco_buf], w[ncw];
+            T x[nd], uq[Nq], v[nco_buf], w[ncw];
             for (int k = 0; k < nd;  ++k) x [k] = xdg[k * ng + i];
             for (int k = 0; k < Nq;  ++k) uq[k] = udg[k * ng + i];
             if (nco > 0) for (int k = 0; k < nco; ++k) v[k] = odg[k * ng + i];
             for (int k = 0; k < ncw; ++k) w [k] = wdg[k * ng + i];
 
-            double sw_local[ncw];
+            T sw_local[ncw];
             M::sourcew(sw_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
             for (int k = 0; k < ncw; ++k) sw[k * ng + i] = sw_local[k];
         });
@@ -63,13 +63,13 @@ void hdg_sourcew_kernel(T* sw, T* sw_udg, T* sw_wdg,
     if constexpr (ncw > 0) {
         Kokkos::parallel_for("exasim::hdg_sourcew_kernel", ng, KOKKOS_LAMBDA(size_t i) {
             (void)odg; (void)wdg;  // HOT.6.2 nvcc force-capture: see /tmp/patch_constexpr_capture.py
-            double x[nd], uq[Nq], v[nco_buf], w[ncw];
+            T x[nd], uq[Nq], v[nco_buf], w[ncw];
             for (int k = 0; k < nd;  ++k) x [k] = xdg[k * ng + i];
             for (int k = 0; k < Nq;  ++k) uq[k] = udg[k * ng + i];
             if (nco > 0) for (int k = 0; k < nco; ++k) v[k] = odg[k * ng + i];
             for (int k = 0; k < ncw; ++k) w [k] = wdg[k * ng + i];
 
-            double sw_local[ncw];
+            T sw_local[ncw];
             M::sourcew(sw_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
             for (int k = 0; k < ncw; ++k) sw[k * ng + i] = sw_local[k];
 

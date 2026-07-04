@@ -46,11 +46,12 @@
 #ifndef __URESIDUAL
 #define __URESIDUAL
 
-template <class M>
-inline void RuElemBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
+template <class M, class T=dstype, class I=Int>
+inline void RuElemBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, 
         Int e1, Int e2, Int backend)
-{        
+{
+    using dstype=T;        
     Int nc = common.components.nc; // number of compoments of (u, q, p)
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int nco = common.components.nco;// number of compoments of (o)
@@ -133,11 +134,12 @@ inline void RuElemBlock(solstruct &sol, resstruct &res, appstruct &app, masterst
 #endif                  
 }
 
-template <class M>
-inline void RuElem(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common,         
+template <class M, class T=dstype, class I=Int>
+inline void RuElem(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,         
         cublasHandle_t handle, Int nbe1, Int nbe2, Int backend)
-{    
+{
+    using dstype=T;    
     for (Int j=nbe1; j<nbe2; j++) {
         Int e1 = common.eblks[3*j]-1;
         Int e2 = common.eblks[3*j+1];            
@@ -147,11 +149,12 @@ inline void RuElem(solstruct &sol, resstruct &res, appstruct &app, masterstruct 
 
 #ifdef HAVE_ENZYME
 //// Method 2
-template <class M>
-inline void dRuElemBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
+template <class M, class T=dstype, class I=Int>
+inline void dRuElemBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, 
         Int e1, Int e2, Int backend)
-{        
+{
+    using dstype=T;        
     Int nc = common.components.nc; // number of compoments of (u, q, p)
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int nco = common.components.nco;// number of compoments of (o)
@@ -246,11 +249,12 @@ inline void dRuElemBlock(solstruct &sol, resstruct &res, appstruct &app, masters
 #endif                  
 }
 
-template <class M>
-inline void dRuElem(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common,         
+template <class M, class T=dstype, class I=Int>
+inline void dRuElem(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,         
         cublasHandle_t handle, Int nbe1, Int nbe2, Int backend)
-{    
+{
+    using dstype=T;    
     for (Int j=nbe1; j<nbe2; j++) {
         Int e1 = common.eblks[3*j]-1;
         Int e2 = common.eblks[3*j+1];            
@@ -261,11 +265,12 @@ inline void dRuElem(solstruct &sol, resstruct &res, appstruct &app, masterstruct
 
 
 // Calculate Ruf = <fhat(xdg, uhat, udg, odg, nl), w>_F 
-template <class M>
-inline void RuFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, 
+template <class M, class T=dstype, class I=Int>
+inline void RuFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, 
         cublasHandle_t handle, Int f1, Int f2, Int ib, Int backend)
-{            
+{
+    using dstype=T;            
     Int nc = common.components.nc; // number of compoments of (u, q, p)
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int nco = common.components.nco;// number of compoments of (o)
@@ -337,11 +342,12 @@ inline void RuFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masterst
 #endif              
 }
 
-template <class M>
-inline void RuFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common,
+template <class M, class T=dstype, class I=Int>
+inline void RuFace(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,
         cublasHandle_t handle, Int nbf1, Int nbf2, Int backend)
-{    
+{
+    using dstype=T;    
     for (Int j=nbf1; j<nbf2; j++) {
         Int f1 = common.fblks[3*j]-1;
         Int f2 = common.fblks[3*j+1];    
@@ -353,11 +359,12 @@ inline void RuFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct 
 #ifdef HAVE_ENZYME
 //// Method 2
 // Calculate Ruf = <fhat(xdg, uhat, udg, odg, nl), w>_F 
-template <class M>
-inline void dRuFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, 
+template <class M, class T=dstype, class I=Int>
+inline void dRuFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, 
         cublasHandle_t handle, Int f1, Int f2, Int ib, Int backend)
-{            
+{
+    using dstype=T;            
     Int nc = common.components.nc; // number of compoments of (u, q, p)
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int nco = common.components.nco;// number of compoments of (o)
@@ -459,11 +466,12 @@ inline void dRuFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masters
 #endif              
 }
 
-template <class M>
-inline void dRuFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common,
+template <class M, class T=dstype, class I=Int>
+inline void dRuFace(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,
         cublasHandle_t handle, Int nbf1, Int nbf2, Int backend)
-{    
+{
+    using dstype=T;    
     for (Int j=nbf1; j<nbf2; j++) {
         Int f1 = common.fblks[3*j]-1;
         Int f2 = common.fblks[3*j+1];    
