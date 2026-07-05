@@ -1534,8 +1534,13 @@ static void LDGDebugCompareRuFaceCrossDeriv(dstype* K, solstruct &sol,
     TemplateCopytoHost(href, Aref, szA, backend);
     TemplateCopytoHost(hopt, Aopt, szA, backend);
 
+#ifdef USE_FLOAT
+    const dstype atol = 1.0e-5f;
+    const dstype rtol = 1.0e-5f;
+#else
     const dstype atol = 1.0e-10;
     const dstype rtol = 1.0e-10;
+#endif
     for (Int idx = 0; idx < szA; idx++) {
         dstype ref = href[idx];
         dstype opt = hopt[idx];
