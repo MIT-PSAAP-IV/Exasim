@@ -121,7 +121,8 @@ void ComputeMinv(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI
     }                
     
     TemplateFree(res.Mass, backend);
-    res.szMass = 0;  
+    res.Mass = nullptr;
+    res.szMass = 0;
     TemplateFree(work, backend);   
     TemplateFree(ipiv, backend);        
 }
