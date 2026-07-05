@@ -53,6 +53,9 @@ tm = pde.physicsparamsweep;
 %pde.physicsparamsweep = tm(209:(208+41),:);
 pde.physicsparamsweep = tm(250:289,:);
 
+missingcases = [207 208 209 248 249 250 287 288 289];
+pde.physicsparamsweep = tm(missingcases,:);
+
 pde.tau = tau;                 % DG stabilization parameter
 pde.GMRESrestart = 100;
 pde.GMRESortho = 1;
@@ -72,7 +75,7 @@ pde.saveSolBouFreq = 2;
 pde.ibs = 1;
 
 % Export a frontend-provider app that can run the entire sweep without MATLAB.
-pde.exportapp = "naca-sweep7";
+pde.exportapp = "naca-sweep8";
 pde.frontendprovider = true;
 pde.buildandrun = false;
 if exist(pde.exportapp, 'dir')

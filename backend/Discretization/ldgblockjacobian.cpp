@@ -1321,18 +1321,18 @@ void RuFaceCrossDeriv(dstype* A, solstruct &sol,
 
         //print3darray(bufq, npf*npf, nfb, ncu*ncq, "Rf_qm", EXASIM_COMM_WORLD);
         //print3darray(bufq, npf*npf, nfb, ncu*ncq);
-        {
-            Int szEf = npf*nd*npf*nfb;
-            dstype *EfRef = &tmp.tempn[M*ncq + npf*npf*nfb*ncu*ncq];
-            dstype *EfOpt = &EfRef[szEf];
-            dstype *EfDiff = &EfOpt[szEf];
-            LDGValidateBuildFaceEForCrossBlock(EfRef, EfOpt, EfDiff, res.E,
-                                               mesh.facecon, mesh.f2e, mesh.elemcon,
-                                               mesh.perm, res.ipiv, 1,
-                                               f1, nfb, npe, npf, nfe, nd, common.ne,
-                                               common.cublasHandle, backend, common.mpiRank);
-        }
-
+        // {
+        //     Int szEf = npf*nd*npf*nfb;
+        //     dstype *EfRef = &tmp.tempn[M*ncq + npf*npf*nfb*ncu*ncq];
+        //     dstype *EfOpt = &EfRef[szEf];
+        //     dstype *EfDiff = &EfOpt[szEf];
+        //     LDGValidateBuildFaceEForCrossBlock(EfRef, EfOpt, EfDiff, res.E,
+        //                                        mesh.facecon, mesh.f2e, mesh.elemcon,
+        //                                        mesh.perm, res.ipiv, 1,
+        //                                        f1, nfb, npe, npf, nfe, nd, common.ne,
+        //                                        common.cublasHandle, backend, common.mpiRank);
+        // }
+         
         t0 = LDGBenchmarkStart(backend);
         ArraySetValue(fw, 0.0, fluxWSize);
         FluxDriver(flux, flux_udg, fw, xg, ug2, og2, wg2, driver_abi, mesh, 
@@ -1355,20 +1355,20 @@ void RuFaceCrossDeriv(dstype* A, solstruct &sol,
         //print3darray(bufq, npf*npf, nfb, ncu*ncq, "Rf_qp", EXASIM_COMM_WORLD);
         //print3darray(bufq, npf*npf, nfb, ncu*ncq);
 
-        {
-            Int szEf = npf*nd*npf*nfb;
-            dstype *EfRef = &tmp.tempn[M*ncq + npf*npf*nfb*ncu*ncq];
-            dstype *EfOpt = &EfRef[szEf];
-            dstype *EfDiff = &EfOpt[szEf];
-            LDGValidateBuildFaceEForCrossBlock(EfRef, EfOpt, EfDiff, res.E,
-                    mesh.facecon, mesh.f2e, mesh.elemcon, mesh.perm, res.ipiv, 2,
-                    f1, nfb, npe, npf, nfe, nd, common.ne,
-                    common.cublasHandle, backend, common.mpiRank);
-        }
+        // {
+        //     Int szEf = npf*nd*npf*nfb;
+        //     dstype *EfRef = &tmp.tempn[M*ncq + npf*npf*nfb*ncu*ncq];
+        //     dstype *EfOpt = &EfRef[szEf];
+        //     dstype *EfDiff = &EfOpt[szEf];
+        //     LDGValidateBuildFaceEForCrossBlock(EfRef, EfOpt, EfDiff, res.E,
+        //             mesh.facecon, mesh.f2e, mesh.elemcon, mesh.perm, res.ipiv, 2,
+        //             f1, nfb, npe, npf, nfe, nd, common.ne,
+        //             common.cublasHandle, backend, common.mpiRank);
+        // }
     }
 
     tm.total = LDGBenchmarkStop(tTotal, backend);
-    LDGPrintRuFaceCrossBenchmark(tm, common);
+    //LDGPrintRuFaceCrossBenchmark(tm, common);
 
     // if (common.mpiRank==0) {
     //     cout<<"+++++++++++++++++++++\n";
@@ -1473,7 +1473,7 @@ void RuFaceCrossDerivOptimized(dstype* A, solstruct &sol,
         LDGBuildFaceEForCrossBlockOptimized(Ef, res.E, mesh.f2e,
                 mesh.perm, res.ipiv, 1, f1, nfb, npe, npf, common.nfe,
                 nd, common.ne);
-        ArrayMultiplyScalar(common.cublasHandle, Ef, 0.5*scalar*minusone,
+        ArrayMultiplyScalar(common.cublasHandle, Ef, 0.5*scalar,
                 szEf, backend);
         PGEMNMStridedBached(common.cublasHandle, npf*ncu*ncu, npf,
                 npf*nd, one, B, npf*ncu*ncu, Ef, npf*nd, 0.0,
@@ -1494,7 +1494,7 @@ void RuFaceCrossDerivOptimized(dstype* A, solstruct &sol,
         LDGBuildFaceEForCrossBlockOptimized(Ef, res.E, mesh.f2e,
                 mesh.perm, res.ipiv, 2, f1, nfb, npe, npf, common.nfe,
                 nd, common.ne);
-        ArrayMultiplyScalar(common.cublasHandle, Ef, 0.5*scalar*one,
+        ArrayMultiplyScalar(common.cublasHandle, Ef, 0.5*scalar*minusone,
                 szEf, backend);
         PGEMNMStridedBached(common.cublasHandle, npf*ncu*ncu, npf,
                 npf*nd, one, B, npf*ncu*ncu, Ef, npf*nd, 0.0,
@@ -1506,6 +1506,92 @@ void RuFaceCrossDerivOptimized(dstype* A, solstruct &sol,
         //(void)szAf;
     }
 }
+
+#ifdef DEBUG
+static void LDGDebugCompareRuFaceCrossDeriv(dstype* K, solstruct &sol,
+        resstruct &res, appstruct &app, ExasimDriverABI& driver_abi,
+        masterstruct &master, meshstruct &mesh, tempstruct &tmp,
+        commonstruct &common)
+{
+    if (common.ncq <= 0)
+        return;
+
+    Int nlocu = common.npe*common.ncu;
+    Int szA = nlocu*nlocu*common.ne1;
+    Int backend = common.backend;
+    dstype *Aref = nullptr, *Aopt = nullptr;
+    TemplateMalloc(&Aref, szA, backend);
+    TemplateMalloc(&Aopt, szA, backend);
+
+    ArrayCopy(common.cublasHandle, Aref, K, szA, backend);
+    ArrayCopy(common.cublasHandle, Aopt, K, szA, backend);
+
+    RuFaceCrossDeriv(Aref, sol, res, app, driver_abi, master, mesh, tmp, common);
+    RuFaceCrossDerivOptimized(Aopt, sol, res, app, driver_abi, master, mesh, tmp, common);
+
+    dstype *href = (dstype*) malloc(sizeof(dstype)*szA);
+    dstype *hopt = (dstype*) malloc(sizeof(dstype)*szA);
+    TemplateCopytoHost(href, Aref, szA, backend);
+    TemplateCopytoHost(hopt, Aopt, szA, backend);
+
+#ifdef USE_FLOAT
+    const dstype atol = 1.0e-5f;
+    const dstype rtol = 1.0e-5f;
+#else
+    const dstype atol = 1.0e-10;
+    const dstype rtol = 1.0e-10;
+#endif
+    for (Int idx = 0; idx < szA; idx++) {
+        dstype ref = href[idx];
+        dstype opt = hopt[idx];
+        dstype diff = opt - ref;
+        if (diff < 0.0) diff = -diff;
+        dstype scale = ref;
+        if (scale < 0.0) scale = -scale;
+
+        if (diff > atol + rtol*scale) {
+            Int row = idx % nlocu;
+            Int t = idx / nlocu;
+            Int col = t % nlocu;
+            Int e = t / nlocu;
+            Int rowNode = row % common.npe;
+            Int rowComp = row / common.npe;
+            Int colNode = col % common.npe;
+            Int colComp = col / common.npe;
+
+            if (common.mpiRank == 0) {
+                std::cout << "RuFaceCrossDerivOptimized mismatch"
+                          << ": element = " << e
+                          << ", local row = " << row
+                          << " (node " << rowNode << ", comp " << rowComp << ")"
+                          << ", local col = " << col
+                          << " (node " << colNode << ", comp " << colComp << ")"
+                          << ", global row block = " << e*nlocu + row
+                          << ", global col block = " << e*nlocu + col
+                          << ", reference = " << ref
+                          << ", optimized = " << opt
+                          << ", abs diff = " << diff
+                          << std::endl;
+            }
+
+            CPUFREE(href);
+            CPUFREE(hopt);
+            TemplateFree(Aref, backend);
+            TemplateFree(Aopt, backend);
+            error("RuFaceCrossDerivOptimized DEBUG comparison failed.");
+        }
+    }
+
+    if (common.mpiRank == 0)
+        std::cout << "RuFaceCrossDerivOptimized DEBUG comparison passed for "
+                  << szA << " entries." << std::endl;
+
+    CPUFREE(href);
+    CPUFREE(hopt);
+    TemplateFree(Aref, backend);
+    TemplateFree(Aopt, backend);
+}
+#endif
 
 void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, appstruct &app,
                   ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh,
@@ -1583,7 +1669,11 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
     }
 
     t0 = LDGBenchmarkStart(backend);
+#ifdef DEBUG
+    LDGDebugCompareRuFaceCrossDeriv(K, sol, res, app, driver_abi, master, mesh, tmp, common);
+#endif
     RuFaceCrossDerivOptimized(K, sol, res, app, driver_abi, master, mesh, tmp, common);
+    //RuFaceCrossDeriv(K, sol, res, app, driver_abi, master, mesh, tmp, common);
     tm.cross += LDGBenchmarkStop(t0, backend);
 
     // if (common.tdep == 1)
@@ -1638,7 +1728,7 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
     }
 
     tm.total = LDGBenchmarkStop(tTotal, backend);
-    LDGPrintBenchmark("serial", tm, common);
+    //LDGPrintBenchmark("serial", tm, common);
 }
 
 void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, appstruct &app,
@@ -1777,6 +1867,9 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
     }
 
     t0 = LDGBenchmarkStart(backend);
+#ifdef DEBUG
+    LDGDebugCompareRuFaceCrossDeriv(K, sol, res, app, driver_abi, master, mesh, tmp, common);
+#endif
     RuFaceCrossDerivOptimized(K, sol, res, app, driver_abi, master, mesh, tmp, common);
     tm.cross += LDGBenchmarkStop(t0, backend);
 

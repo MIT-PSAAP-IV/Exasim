@@ -13,13 +13,13 @@ pde.saveParaview = 1;
 
 % Choose computing platform and set number of processors
 pde.platform = "cpu";         % choose this option if NVIDIA GPUs are available
-pde.mpiprocs = 4;             % number of MPI processors
+pde.mpiprocs = 1;             % number of MPI processors
 pde.hybrid = 1;               % 0 -> LDG, 1 -> HDG
 pde.debugmode = 0;
 pde.nd = 2;
 
 % Set discretization parameters, physical parameters, and solver parameters
-pde.porder = 3;             % polynomial degree
+pde.porder = 2;             % polynomial degree
 pde.pgauss = 2*pde.porder;
 pde.physicsparam = 1;       % unit thermal conductivity
 pde.tau = 1.0;              % DG stabilization parameter
@@ -28,6 +28,7 @@ pde.ppdegree = 1;          % degree of polynomial preconditioner
 pde.RBdim = 0;
 pde.GMRESrestart = 50;
 pde.saveSolBouFreq = 1;
+pde.preconditioner = 1;
 pde.ibs = 1;
 
 % create a grid of 8 by 8 on the unit square
