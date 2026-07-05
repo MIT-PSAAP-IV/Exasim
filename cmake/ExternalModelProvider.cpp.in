@@ -732,6 +732,10 @@ const ExasimDriverABI& getBuiltInLibraryExasimDriverABI()
         value.hdgjac.HdgFextonly       = &extHdgFextonly;
         // Model-owned sizes (PR #33): route external-model dimensions through GetModelSizes.
         value.GetModelSizes = &extGetModelSizes;
+        // The exasim_model_sizes:: constants only exist for frontend-generated models that ship
+        // model_sizes.hpp; hand-written / builtin-fallthrough external models don't have them, so
+        // guard the direct size fields (GetModelSizes above already covers all IDs dynamically).
+#ifdef EXASIM_HAS_FRONTEND_MODEL_SIZES
         value.ncu   = exasim_model_sizes::ncu;
         value.nco   = exasim_model_sizes::nco;
         value.ncw   = exasim_model_sizes::ncw;
@@ -740,6 +744,7 @@ const ExasimDriverABI& getBuiltInLibraryExasimDriverABI()
         value.nten  = exasim_model_sizes::nten;
         value.nsurf = exasim_model_sizes::nsurf;
         value.nvqoi = exasim_model_sizes::nvqoi;
+#endif
         return value;
     }();
     if (!IsValidExternalModelABI(abi))
