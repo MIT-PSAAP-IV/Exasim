@@ -14,7 +14,7 @@ pde.saveParaview = 1;
 % Choose computing platform and set number of processors
 pde.platform = "cpu";         % choose this option if NVIDIA GPUs are available
 pde.mpiprocs = 1;             % number of MPI processors
-pde.hybrid = 0;               % 0 -> LDG, 1 -> HDG
+pde.hybrid = 1;               % 0 -> LDG, 1 -> HDG
 pde.debugmode = 0;
 pde.nd = 2;
 
