@@ -255,6 +255,29 @@ if(TARGET Kokkos::kokkos)
 endif()
 
 
+# Gap-3 dispatch regression: prove exasim::FintDriver<M>/FextDriver<M> (the OVERLOAD
+# SET the concrete assembly sites call via EXASIM_DRIVER_CALL, uequation.hpp:409/1030)
+# select the TYPED dstype* overload -- not the variadic precision fallback -- for the
+# non-const dstype* buffers those sites pass. Without the Gap-3 SFINAE constraint the
+# variadic wins overload resolution and forwards to the No-ABI multidomain stub, so the
+# coupling residual is never assembled (SEGV / silent no-op). This test drives
+# FintDriver<M>/FextDriver<M> for a GENERATED coupled model (has_external_coupling=true)
+# and asserts the dispatched buffers equal the direct fint_kernel<M>/fext_kernel<M>
+# output -- it FAILS without the fix. See tests/coupling-models/compare_dispatch_fint_fext.cpp.
+if(TARGET Kokkos::kokkos)
+  add_executable(dispatch_fint_fext_equivalence
+    "${EXASIM_DIR}/tests/coupling-models/compare_dispatch_fint_fext.cpp")
+  target_include_directories(dispatch_fint_fext_equivalence PRIVATE
+    "${EXASIM_INCLUDE_DIR}" "${EXASIM_DIR}"
+    "${EXASIM_DIR}/tests/coupling-models")
+  target_link_libraries(dispatch_fint_fext_equivalence PRIVATE Kokkos::kokkos)
+  target_compile_features(dispatch_fint_fext_equivalence PRIVATE cxx_std_17)
+  add_test(NAME dispatch_coupling_equivalence
+    COMMAND dispatch_fint_fext_equivalence)
+  set_tests_properties(dispatch_coupling_equivalence PROPERTIES TIMEOUT 120)
+endif()
+
+
 # Templated interface-flux sampler equivalence (Gap 2): CInterfaceSampler's interface
 # flux EXTRACTION now has a concrete-model path (getInterfaceFluxesAt*For<M>) that routes
 # through exasim::FintDriver<M> / fint_only_kernel<M> with NO loaded ABI, while the

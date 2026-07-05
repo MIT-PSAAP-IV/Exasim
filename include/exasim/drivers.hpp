@@ -723,14 +723,23 @@ namespace exasim {
 // from the first (buffer) argument, NOT a trailing template param (which,
 // sitting after the variadic pack, could never be deduced and would always be
 // dstype).
-template <class M, class First, class... Rest>
+// Gap-3: SFINAE these fallbacks OUT for the dstype* path. A non-const dstype*
+// lvalue binds the forwarding-ref `First` by identity, which outranks the typed
+// overload's qualification conversion (dstype* -> const dstype*), so WITHOUT this
+// constraint the variadic wins overload resolution for the default-precision
+// concrete path and forwards to the (possibly null) ABI -> SEGV on the No-ABI
+// path. Restrict the fallback to its documented purpose (Scalar != dstype, i.e.
+// the float32 consumer path) so the typed overloads below own the dstype* path.
+template <class M, class First, class... Rest,
+          std::enable_if_t<!std::is_same_v<std::remove_cv_t<std::remove_pointer_t<std::remove_reference_t<First>>>, ::dstype>, int> = 0>
 inline void FintDriver(First&& first, Rest&&... rest) {
     using Scalar = std::remove_cv_t<std::remove_pointer_t<std::remove_reference_t<First>>>;
     if constexpr (std::is_same_v<Scalar, ::dstype>)
         ::exasim::detail::multidomain_forward<M>::Fint(std::forward<First>(first), std::forward<Rest>(rest)...);
 }
 
-template <class M, class First, class... Rest>
+template <class M, class First, class... Rest,
+          std::enable_if_t<!std::is_same_v<std::remove_cv_t<std::remove_pointer_t<std::remove_reference_t<First>>>, ::dstype>, int> = 0>
 inline void FextDriver(First&& first, Rest&&... rest) {
     using Scalar = std::remove_cv_t<std::remove_pointer_t<std::remove_reference_t<First>>>;
     if constexpr (std::is_same_v<Scalar, ::dstype>)
