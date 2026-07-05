@@ -55,7 +55,7 @@ for bdir in "$BASE"/*/; do
   # differing only by a runtime pdeapp.txt flag. Key the build on app+mpi (not the
   # baseline name) and don't wipe it: cmake --build is a near no-op for later variants.
   build=/tmp/gpureg_app_$(echo "${app}_mpi${mpi}" | tr '/ ' '__')
-  exe=$(find "$build" -maxdepth 1 -name exasimapp -type f 2>/dev/null | head -1)
+  exe=$(find "$build" -maxdepth 1 -name exasimapp -type f 2>/dev/null | head -1 || true)
   if [ -z "$exe" ]; then
     cmake -S "$adir" -B "$build" -DCMAKE_PREFIX_PATH="$INSTALL;$KOKKOS" \
           -DEXASIM_GPU=ON -DEXASIM_MPI="$mpi" >/tmp/gpureg_cfg_$name.log 2>&1 \
@@ -79,7 +79,7 @@ for bdir in "$BASE"/*/; do
       || { echo "$label[gpu]  RUN_FAIL (gpu+mpi np=$np, see /tmp/gpureg_run_$name.log)"; FAIL=$((FAIL+1)); continue; }
   fi
 
-  res=$(python3 "$REPO/tests/compare_app_l2.py" "$bdir" "$run/dataout" "$TOL" 2>&1)
+  res=$(python3 "$REPO/tests/compare_app_l2.py" "$bdir" "$run/dataout" "$TOL" 2>&1 || true)
   printf "%-34s %s\n" "$label[gpu np=$np]" "$res"
   echo "$res" | grep -q PASS && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
 done
