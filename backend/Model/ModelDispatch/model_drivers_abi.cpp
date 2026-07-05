@@ -938,7 +938,7 @@ static inline ExasimDriverABI& require_driver_abi(const commonstruct& common) {
                              "null (AbiAdapter path did not initialize the driver ABI)\n");
         std::abort();
     }
-    return require_driver_abi(common);
+    return *common.driver_abi;
 }
 
 // --- No-driver_abi overloads (auto-generated) --------------------------------------------
