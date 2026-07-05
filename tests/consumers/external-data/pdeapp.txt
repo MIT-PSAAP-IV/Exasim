@@ -1,34 +1,36 @@
-exasimpath = "/path/to/Exasim";
 model = "ModelD";
-modelfile = "pdemodel2.txt";
+modelfile = "pdemodel.txt";
 meshfile = "grid.bin";
-xdgfile = "xdg.bin";
 discretization = "hdg";
 platform = "cpu";
 
-builtinmodelID = 2;
+builtinmodelID = 200;
 gendatain = 0;
 mpiprocs = 1;
 debugmode = 0;
 runmode = 0;
 modelnumber = 0;
 
-porder = 3;
-pgauss = 6;
+porder = 1;
+pgauss = 2;
 torder = 1;
 nstage = 1;
 
-neb = 4096;
-nfb = 8192;
+saveParaview = 1;
+neb = 1024;
+nfb = 512;
+
+saveSolBouFreq = 1;
+ibs = 1;
 
 NewtonIter = 20;
 NewtonTol = 1e-06;
 GMRESiter = 200;
-GMRESrestart = 25;
-GMREStol = 1e-06;
+GMRESrestart = 50;
+GMREStol = 1e-08;
 GMRESortho = 0;
-ppdegree = 0;
-RBdim = 5;
+ppdegree = 1;
+RBdim = 0;
 matvecorder = 1;
 matvectol = 0.001;
 precMatrixType = 0;
@@ -37,13 +39,13 @@ preconditioner = 0;
 time = 0;
 tau = [1];
 dt = [0];
-physicsparam = [1, 0];
+physicsparam = [0.5, 1.0];
 externalparam = [0, 0];
 
-boundaryconditions = [1, 1, 1, 1, 1, 1];
-boundaryexpressions = ["abs(z)<1e-8", "abs(z-1)<1e-8", "abs(y)<1e-8", "abs(x-1)<1e-8", "abs(y-1)<1e-8", "abs(x)<1e-8"];
-curvedboundaries = [0, 0, 0, 0, 0, 0];
-curvedboundaryexprs = ["", "", "", "", "", ""];
+boundaryconditions = [1, 1, 1, 1];
+boundaryexpressions = ["abs(y)<1e-8", "abs(x-1)<1e-8", "abs(y-1)<1e-8", "abs(x)<1e-8"];
+curvedboundaries = [0, 0, 0, 0];
+curvedboundaryexprs = ["", "", "", ""];
 periodicboundaries1 = [];
 periodicexprs1 = [];
 periodicboundaries2 = [];

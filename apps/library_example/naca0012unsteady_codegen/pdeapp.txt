@@ -16,8 +16,6 @@ torder = 2;
 nstage = 2;
 saveSolFreq = 2;
 
-ncu = 4;
-ncw = 0;
 neb = 4096;
 nfb = 8192;
 

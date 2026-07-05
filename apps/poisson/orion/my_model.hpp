@@ -13,6 +13,9 @@ struct PdeModel : ModelDefaults<PdeModel> {
     static constexpr int ncw    = 0;
     static constexpr int nco    = 0;
     static constexpr int nparam = 4;
+    static constexpr int nsca   = 2;
+    static constexpr int nvec   = 1;
+    static constexpr int nvqoi  = 1;
     static constexpr int Nq = ncu * (1 + nd);
 
     KOKKOS_INLINE_FUNCTION static
