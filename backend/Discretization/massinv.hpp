@@ -29,23 +29,25 @@
 #ifndef __MASSINV
 #define __MASSINV
 
-inline void ComputeMinv(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle,  Int backend)
-{   
+template <class T=dstype, class I=Int>
+inline void ComputeMinv(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle,  Int backend)
+{
+    using dstype=T;   
     dstype *work=NULL;  
     Int *ipiv=NULL;
     
-    Int ncx = common.ncx;// number of compoments of (xdg)        
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int nge = common.nge; // number of gauss points on master element    
-    Int ne = common.ne; // number of elements in this subdomain 
-    Int nbe = common.nbe; // number of blocks for elements   
-    Int neb = common.neb; // maximum number of elements per block
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int nge = common.grid.nge; // number of gauss points on master element    
+    Int ne = common.meshsizes.ne; // number of elements in this subdomain 
+    Int nbe = common.meshsizes.nbe; // number of blocks for elements   
+    Int neb = common.meshsizes.neb; // maximum number of elements per block
             
-    printf("common.curvedMesh = %d\n", common.curvedMesh);
+    printf("common.grid.curvedMesh = %d\n", common.grid.curvedMesh);
 
-    if (common.curvedMesh==0) { //straight mesh                        
+    if (common.grid.curvedMesh==0) { //straight mesh                        
         TemplateMalloc(&res.Mass, npe*npe+ne, backend);        
         TemplateMalloc(&res.Minv, npe*npe+ne, backend);
         TemplateMalloc(&work, npe*npe, backend);        
@@ -105,7 +107,7 @@ inline void ComputeMinv(solstruct &sol, resstruct &res, appstruct &app, masterst
             &tmp.tempg[n3+6*nga], &tmp.tempg[n3+7*nga], &tmp.tempg[n3+8*nga], nga);
         }
                 
-        if (common.curvedMesh==0) {
+        if (common.grid.curvedMesh==0) {
             ArrayExtract(&res.Minv[npe*npe+mm], &tmp.tempg[n2], 
                             nge, ns, 1, 0, 1, 0, ns, 0, 1);
             
@@ -118,14 +120,18 @@ inline void ComputeMinv(solstruct &sol, resstruct &res, appstruct &app, masterst
             Inverse(handle, &res.Minv[npe*npe*mm], work, ipiv, npe, ns, backend);
         }
         mm = mm+ns;
-    }                
-    
-    TemplateFree(work, backend);   
-    TemplateFree(ipiv, backend);        
+    }
+
+    TemplateFree(res.Mass, backend);
+    res.szMass = 0;
+    TemplateFree(work, backend);
+    TemplateFree(ipiv, backend);
 }
 
-inline void ApplyMinv(dstype* MinvR, dstype* Minv, dstype* R, dstype scalar, Int curvedmesh, Int npe, Int ncr, Int e1, Int e2)
-{    
+template <class T=dstype, class I=Int>
+inline void ApplyMinv(T* MinvR, T* Minv, T* R, T scalar, Int curvedmesh, Int npe, Int ncr, Int e1, Int e2)
+{
+    using dstype=T;    
     Int ns = e2-e1;
     Int N = npe*ncr*ns;        
     

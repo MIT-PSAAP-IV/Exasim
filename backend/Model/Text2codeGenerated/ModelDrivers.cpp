@@ -4,14 +4,14 @@ inline void FluxDriver(dstype* f, const dstype* xg, const dstype* udg, const dst
         masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
         commonstruct &common, Int nge, Int e1, Int e2, Int backend)
 { 
-  Int nc = common.nc; // number of compoments of (u, q)
-  Int ncu = common.ncu;// number of compoments of (u)
-  Int ncw = common.ncw;// number of compoments of (w)
-  Int nco = common.nco;// number of compoments of (o)
-  Int ncx = common.ncx;// number of compoments of (xdg)        
-  Int nd = common.nd;     // spatial dimension    
+  Int nc = common.components.nc; // number of compoments of (u, q)
+  Int ncu = common.components.ncu;// number of compoments of (u)
+  Int ncw = common.components.ncw;// number of compoments of (w)
+  Int nco = common.components.nco;// number of compoments of (o)
+  Int ncx = common.components.ncx;// number of compoments of (xdg)        
+  Int nd = common.grid.nd;     // spatial dimension    
   Int numPoints = nge*(e2-e1);              
-  dstype time = common.time;
+  dstype time = common.timestate.time;
 
   KokkosFlux(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time,
                 common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);                
@@ -21,14 +21,14 @@ inline void SourceDriver(dstype* f, const dstype* xg, const dstype* udg, const d
         masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
         commonstruct &common, Int nge, Int e1, Int e2, Int backend)
 { 
-  Int nc = common.nc; // number of compoments of (u, q)
-  Int ncu = common.ncu;// number of compoments of (u)
-  Int ncw = common.ncw;// number of compoments of (w)
-  Int nco = common.nco;// number of compoments of (o)
-  Int ncx = common.ncx;// number of compoments of (xdg)        
-  Int nd = common.nd;     // spatial dimension    
+  Int nc = common.components.nc; // number of compoments of (u, q)
+  Int ncu = common.components.ncu;// number of compoments of (u)
+  Int ncw = common.components.ncw;// number of compoments of (w)
+  Int nco = common.components.nco;// number of compoments of (o)
+  Int ncx = common.components.ncx;// number of compoments of (xdg)        
+  Int nd = common.grid.nd;     // spatial dimension    
   Int numPoints = nge*(e2-e1);              
-  dstype time = common.time;
+  dstype time = common.timestate.time;
             
   KokkosSource(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, 
               common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);                       
@@ -38,15 +38,15 @@ inline void SourcewDriver(dstype* f, const dstype* xg, const dstype* udg, const 
         masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
         commonstruct &common, Int npe, Int e1, Int e2, Int backend)
 { 
-  Int nc = common.nc; // number of compoments of (u, q)
-  Int ncu = common.ncu;// number of compoments of (u)
-  Int ncw = common.ncw;// number of compoments of (w)
-  Int nco = common.nco;// number of compoments of (o)
-  Int ncx = common.ncx;// number of compoments of (xdg)        
-  Int nd = common.nd;     // spatial dimension    
+  Int nc = common.components.nc; // number of compoments of (u, q)
+  Int ncu = common.components.ncu;// number of compoments of (u)
+  Int ncw = common.components.ncw;// number of compoments of (w)
+  Int nco = common.components.nco;// number of compoments of (o)
+  Int ncx = common.components.ncx;// number of compoments of (xdg)        
+  Int nd = common.grid.nd;     // spatial dimension    
   Int ne = e2-e1;
   Int numPoints = npe*ne;              
-  dstype time = common.time;            
+  dstype time = common.timestate.time;            
   
   KokkosSourcew(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, common.modelnumber,
               numPoints, nc, ncu, nd, ncx, nco, ncw, ncw, npe, ne);                
@@ -56,18 +56,18 @@ inline void OutputDriver(dstype* f, const dstype* xg, const dstype* udg, const d
         masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
         commonstruct &common, Int backend)
 { 
-  Int nc = common.nc; // number of compoments of (u, q)
-  Int ncu = common.ncu;// number of compoments of (u)
-  Int ncw = common.ncw;// number of compoments of (w)
-  Int nco = common.nco;// number of compoments of (o)
-  Int ncx = common.ncx;// number of compoments of (xdg)     
-  Int nce = common.nce;// number of compoments of (e)
-  Int nd = common.nd;     // spatial dimension    
-  Int npe = common.npe;
-  Int ne = common.ne;
+  Int nc = common.components.nc; // number of compoments of (u, q)
+  Int ncu = common.components.ncu;// number of compoments of (u)
+  Int ncw = common.components.ncw;// number of compoments of (w)
+  Int nco = common.components.nco;// number of compoments of (o)
+  Int ncx = common.components.ncx;// number of compoments of (xdg)     
+  Int nce = common.components.nce;// number of compoments of (e)
+  Int nd = common.grid.nd;     // spatial dimension    
+  Int npe = common.grid.npe;
+  Int ne = common.meshsizes.ne;
   Int numPoints = npe*ne;              
 
-  dstype time = common.time;
+  dstype time = common.timestate.time;
 
   KokkosOutput(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, 
               common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne);                
@@ -77,18 +77,18 @@ inline void MonitorDriver(dstype* f, Int nc_sol, const dstype* xg, const dstype*
   masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
   commonstruct &common, Int backend)
 { 
-  //Int nc = common.nc; // number of compoments of (u, q)
-  Int ncu = common.ncu;// number of compoments of (u)
-  Int ncw = common.ncw;// number of compoments of (w)
-  Int nco = common.nco;// number of compoments of (o)
-  Int ncx = common.ncx;// number of compoments of (xdg)     
-  Int ncm = common.ncm;// number of compoments of (e)
-  Int nd = common.nd;     // spatial dimension    
-  Int npe = common.npe;
-  Int ne = common.ne;
+  //Int nc = common.components.nc; // number of compoments of (u, q)
+  Int ncu = common.components.ncu;// number of compoments of (u)
+  Int ncw = common.components.ncw;// number of compoments of (w)
+  Int nco = common.components.nco;// number of compoments of (o)
+  Int ncx = common.components.ncx;// number of compoments of (xdg)     
+  Int ncm = common.components.ncm;// number of compoments of (e)
+  Int nd = common.grid.nd;     // spatial dimension    
+  Int npe = common.grid.npe;
+  Int ne = common.meshsizes.ne;
   Int numPoints = npe*ne;              
 
-  dstype time = common.time;
+  dstype time = common.timestate.time;
 
   KokkosMonitor(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, 
           common.modelnumber, numPoints, nc_sol, ncu, nd, ncx, nco, ncw, ncm, npe, ne);                
@@ -98,18 +98,18 @@ inline void AvfieldDriver(dstype* f, const dstype* xg, const dstype* udg, const 
         masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
         commonstruct &common, Int backend)
 { 
-  Int nc = common.nc; // number of compoments of (u, q)
-  Int ncu = common.ncu;// number of compoments of (u)
-  Int ncw = common.ncw;// number of compoments of (w)
-  Int nco = common.nco;// number of compoments of (o)
-  //Int nce = common.nce;// number of compoments of (e)
-  Int ncx = common.ncx;// number of compoments of (xdg)        
-  Int nd = common.nd;     // spatial dimension    
-  Int npe = common.npe;
-  Int ne = common.ne;
+  Int nc = common.components.nc; // number of compoments of (u, q)
+  Int ncu = common.components.ncu;// number of compoments of (u)
+  Int ncw = common.components.ncw;// number of compoments of (w)
+  Int nco = common.components.nco;// number of compoments of (o)
+  //Int nce = common.components.nce;// number of compoments of (e)
+  Int ncx = common.components.ncx;// number of compoments of (xdg)        
+  Int nd = common.grid.nd;     // spatial dimension    
+  Int npe = common.grid.npe;
+  Int ne = common.meshsizes.ne;
   Int numPoints = npe*ne;              
 
-  dstype time = common.time;
+  dstype time = common.timestate.time;
 
   KokkosAvfield(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, common.modelnumber, 
               numPoints, nc, ncu, nd, ncx, nco, ncw, nco, npe, ne);                
@@ -119,15 +119,15 @@ inline void EosDriver(dstype* f, const dstype* xg, const dstype* udg, const dsty
         masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
         commonstruct &common, Int npe, Int e1, Int e2, Int backend)
 { 
-  Int nc = common.nc; // number of compoments of (u, q)
-  Int ncu = common.ncu;// number of compoments of (u)
-  Int ncw = common.ncw;// number of compoments of (w)
-  Int nco = common.nco;// number of compoments of (o)
-  Int ncx = common.ncx;// number of compoments of (xdg)        
-  Int nd = common.nd;     // spatial dimension    
+  Int nc = common.components.nc; // number of compoments of (u, q)
+  Int ncu = common.components.ncu;// number of compoments of (u)
+  Int ncw = common.components.ncw;// number of compoments of (w)
+  Int nco = common.components.nco;// number of compoments of (o)
+  Int ncx = common.components.ncx;// number of compoments of (xdg)        
+  Int nd = common.grid.nd;     // spatial dimension    
   Int ne = e2-e1;
   Int numPoints = npe*ne;              
-  dstype time = common.time;            
+  dstype time = common.timestate.time;            
   
   KokkosEoS(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, common.modelnumber,
               numPoints, nc, ncu, nd, ncx, nco, ncw, ncw, npe, ne);                                          
@@ -137,15 +137,15 @@ inline void EosduDriver(dstype* f, const dstype* xg, const dstype* udg, const ds
         masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
         commonstruct &common, Int npe, Int e1, Int e2, Int backend)
 { 
-  Int nc = common.nc; // number of compoments of (u, q)
-  Int ncu = common.ncu;// number of compoments of (u)
-  Int ncw = common.ncw;// number of compoments of (w)
-  Int nco = common.nco;// number of compoments of (o)
-  Int ncx = common.ncx;// number of compoments of (xdg)        
-  Int nd = common.nd;     // spatial dimension    
+  Int nc = common.components.nc; // number of compoments of (u, q)
+  Int ncu = common.components.ncu;// number of compoments of (u)
+  Int ncw = common.components.ncw;// number of compoments of (w)
+  Int nco = common.components.nco;// number of compoments of (o)
+  Int ncx = common.components.ncx;// number of compoments of (xdg)        
+  Int nd = common.grid.nd;     // spatial dimension    
   Int ne = e2-e1;
   Int numPoints = npe*ne;              
-  dstype time = common.time;            
+  dstype time = common.timestate.time;            
   
   KokkosEoSdu(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, common.modelnumber,
               numPoints, nc, ncu, nd, ncx, nco, ncw, ncw*ncu, npe, ne);                  
@@ -155,15 +155,15 @@ inline void EosdwDriver(dstype* f, const dstype* xg, const dstype* udg, const ds
         masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
         commonstruct &common, Int npe, Int e1, Int e2, Int backend)
 { 
-  Int nc = common.nc; // number of compoments of (u, q)
-  Int ncu = common.ncu;// number of compoments of (u)
-  Int ncw = common.ncw;// number of compoments of (w)
-  Int nco = common.nco;// number of compoments of (o)
-  Int ncx = common.ncx;// number of compoments of (xdg)        
-  Int nd = common.nd;     // spatial dimension    
+  Int nc = common.components.nc; // number of compoments of (u, q)
+  Int ncu = common.components.ncu;// number of compoments of (u)
+  Int ncw = common.components.ncw;// number of compoments of (w)
+  Int nco = common.components.nco;// number of compoments of (o)
+  Int ncx = common.components.ncx;// number of compoments of (xdg)        
+  Int nd = common.grid.nd;     // spatial dimension    
   Int ne = e2-e1;
   Int numPoints = npe*ne;              
-  dstype time = common.time;            
+  dstype time = common.timestate.time;            
   
   KokkosEoSdw(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, common.modelnumber,
               numPoints, nc, ncu, nd, ncx, nco, ncw, ncw*ncw, npe, ne);                        
@@ -173,14 +173,14 @@ inline void TdfuncDriver(dstype* f, const dstype* xg, const dstype* udg, const d
         masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
         commonstruct &common, Int nge, Int e1, Int e2, Int backend)
 { 
-  Int nc = common.nc; // number of compoments of (u, q)
-  Int ncu = common.ncu;// number of compoments of (u)
-  Int ncw = common.ncw;// number of compoments of (w)
-  Int nco = common.nco;// number of compoments of (o)
-  Int ncx = common.ncx;// number of compoments of (xdg)        
-  Int nd = common.nd;     // spatial dimension    
+  Int nc = common.components.nc; // number of compoments of (u, q)
+  Int ncu = common.components.ncu;// number of compoments of (u)
+  Int ncw = common.components.ncw;// number of compoments of (w)
+  Int nco = common.components.nco;// number of compoments of (o)
+  Int ncx = common.components.ncx;// number of compoments of (xdg)        
+  Int nd = common.grid.nd;     // spatial dimension    
   Int numPoints = nge*(e2-e1);              
-  dstype time = common.time;
+  dstype time = common.timestate.time;
 
   KokkosTdfunc(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, 
               common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);                
@@ -190,19 +190,19 @@ inline void FhatDriver(dstype* fg, const dstype* xg, const dstype* ug1, const ds
     const dstype* wg1, const dstype* wg2, const dstype* uh, const dstype* nl, meshstruct &mesh, masterstruct &master, appstruct &app, 
     solstruct &sol, tempstruct &tmp, commonstruct &common, Int ngf, Int f1, Int f2, Int backend)
 {
-  Int nc = common.nc; // number of compoments of (u, q, p)
-  Int ncu = common.ncu;// number of compoments of (u)
-  Int ncw = common.ncw;// number of compoments of (w)
-  Int nco = common.nco;// number of compoments of (o)
-  Int ncx = common.ncx;// number of compoments of (xdg)        
-  Int nd = common.nd;     // spatial dimension            
+  Int nc = common.components.nc; // number of compoments of (u, q, p)
+  Int ncu = common.components.ncu;// number of compoments of (u)
+  Int ncw = common.components.ncw;// number of compoments of (w)
+  Int nco = common.components.nco;// number of compoments of (o)
+  Int ncx = common.components.ncx;// number of compoments of (xdg)        
+  Int nd = common.grid.nd;     // spatial dimension            
   Int numPoints = ngf*(f2-f1);
   Int M = numPoints * ncu;
   Int N = numPoints*ncu*nd;
-  Int ntau = common.ntau;
-  dstype time = common.time; 
+  Int ntau = common.components.ntau;
+  dstype time = common.timestate.time; 
   
-  if (common.extFhat==1) { 
+  if (common.couplingparams.extFhat==1) { 
     KokkosFhat(fg, xg, ug1, ug2, og1, og2, wg1, wg2, uh, nl, app.tau, app.uinf, app.physicsparam, 
             time, common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);
   }
@@ -221,7 +221,7 @@ inline void FhatDriver(dstype* fg, const dstype* xg, const dstype* ug1, const ds
     AverageFluxDotNormal(fg, nl, N, M, numPoints, nd);            
 
     // Part 2: Contribution due to tau*(U-UH)
-    if (common.extStab>=1) { 
+    if (common.couplingparams.extStab>=1) { 
       KokkosStab(fg, xg, ug1, ug2, og1, og2, wg1, wg2, uh, nl, app.tau, app.uinf, app.physicsparam, 
               time, common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);
     }
@@ -248,14 +248,14 @@ inline void FbouDriver(dstype* fb, const dstype* xg, const dstype* udg, const ds
         meshstruct &mesh, masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
         commonstruct &common, Int ngf, Int f1, Int f2, Int ib, Int backend)
 {
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int ncw = common.ncw;// number of compoments of (w)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
-    Int nd = common.nd;     // spatial dimension        
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int ncw = common.components.ncw;// number of compoments of (w)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
+    Int nd = common.grid.nd;     // spatial dimension        
     Int numPoints = ngf*(f2-f1);
-    dstype time = common.time;    
+    dstype time = common.timestate.time;    
 
     KokkosFbou(fb, xg, udg, odg, wdg, uhg, nl, app.tau, app.uinf, app.physicsparam, time, 
                       common.modelnumber, ib, numPoints, nc, ncu, nd, ncx, nco, ncw);
@@ -266,21 +266,21 @@ inline void UhatDriver(dstype* fg, dstype* xg, dstype* ug1, dstype* ug2, const d
      tempstruct &tmp, commonstruct &common, Int ngf, Int f1, Int f2, Int backend)
 {        
     
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int ncw = common.ncw;// number of compoments of (w)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
-    Int nd = common.nd;     // spatial dimension            
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int ncw = common.components.ncw;// number of compoments of (w)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
+    Int nd = common.grid.nd;     // spatial dimension            
     Int numPoints = ngf*(f2-f1);
-    dstype time = common.time; 
+    dstype time = common.timestate.time; 
     
-    if (common.extUhat==1) { 
+    if (common.couplingparams.extUhat==1) { 
       KokkosUhat(fg, xg, ug1, ug2, og1, og2, wg1, wg2, uh, nl, app.tau, app.uinf, app.physicsparam, 
               time, common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);
     }
     else {         
-      ArrayAXPBY(fg, ug1, ug2, (dstype) 0.5, (dstype) 0.5, ngf*common.ncu*(f2-f1));
+      ArrayAXPBY(fg, ug1, ug2, (dstype) 0.5, (dstype) 0.5, ngf*common.components.ncu*(f2-f1));
     }
 }
 
@@ -288,14 +288,14 @@ inline void UbouDriver(dstype* ub, const dstype* xg, const dstype* udg, const ds
         meshstruct &mesh, masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
         commonstruct &common, Int ngf, Int f1, Int f2, Int ib, Int backend)
 {
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int ncw = common.ncw;// number of compoments of (w)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
-    Int nd = common.nd;     // spatial dimension        
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int ncw = common.components.ncw;// number of compoments of (w)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
+    Int nd = common.grid.nd;     // spatial dimension        
     Int numPoints = ngf*(f2-f1);
-    dstype time = common.time;    
+    dstype time = common.timestate.time;    
 
     KokkosUbou(ub, xg, udg, odg, wdg, uhg, nl, app.tau, app.uinf, app.physicsparam, time, 
                       common.modelnumber, ib, numPoints, nc, ncu, nd, ncx, nco, ncw);
@@ -387,14 +387,14 @@ inline void FluxDriver(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xg
         masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
         commonstruct &common, Int nge, Int e1, Int e2, Int backend)
 { 
-  Int nc = common.nc; // number of compoments of (u, q)
-  Int ncu = common.ncu;// number of compoments of (u)
-  Int ncw = common.ncw;// number of compoments of (w)
-  Int nco = common.nco;// number of compoments of (o)
-  Int ncx = common.ncx;// number of compoments of (xdg)        
-  Int nd = common.nd;     // spatial dimension    
+  Int nc = common.components.nc; // number of compoments of (u, q)
+  Int ncu = common.components.ncu;// number of compoments of (u)
+  Int ncw = common.components.ncw;// number of compoments of (w)
+  Int nco = common.components.nco;// number of compoments of (o)
+  Int ncx = common.components.ncx;// number of compoments of (xdg)        
+  Int nd = common.grid.nd;     // spatial dimension    
   Int numPoints = nge*(e2-e1);              
-  dstype time = common.time;
+  dstype time = common.timestate.time;
 
   HdgFlux(f, f_udg, f_wdg, xg, udg, odg, wdg, app.uinf, app.physicsparam, time,
                 common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);         
@@ -404,14 +404,14 @@ inline void SourceDriver(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* 
         masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
         commonstruct &common, Int nge, Int e1, Int e2, Int backend)
 { 
-  Int nc = common.nc; // number of compoments of (u, q)
-  Int ncu = common.ncu;// number of compoments of (u)
-  Int ncw = common.ncw;// number of compoments of (w)
-  Int nco = common.nco;// number of compoments of (o)
-  Int ncx = common.ncx;// number of compoments of (xdg)        
-  Int nd = common.nd;     // spatial dimension    
+  Int nc = common.components.nc; // number of compoments of (u, q)
+  Int ncu = common.components.ncu;// number of compoments of (u)
+  Int ncw = common.components.ncw;// number of compoments of (w)
+  Int nco = common.components.nco;// number of compoments of (o)
+  Int ncx = common.components.ncx;// number of compoments of (xdg)        
+  Int nd = common.grid.nd;     // spatial dimension    
   Int numPoints = nge*(e2-e1);              
-  dstype time = common.time;
+  dstype time = common.timestate.time;
             
   HdgSource(f, f_udg, f_wdg, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, 
               common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);                       
@@ -421,14 +421,14 @@ inline void SourcewDriver(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype*
         masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
         commonstruct &common, Int nge, Int e1, Int e2, Int backend)
 { 
-  Int nc = common.nc; // number of compoments of (u, q)
-  Int ncu = common.ncu;// number of compoments of (u)
-  Int ncw = common.ncw;// number of compoments of (w)
-  Int nco = common.nco;// number of compoments of (o)
-  Int ncx = common.ncx;// number of compoments of (xdg)        
-  Int nd = common.nd;     // spatial dimension    
+  Int nc = common.components.nc; // number of compoments of (u, q)
+  Int ncu = common.components.ncu;// number of compoments of (u)
+  Int ncw = common.components.ncw;// number of compoments of (w)
+  Int nco = common.components.nco;// number of compoments of (o)
+  Int ncx = common.components.ncx;// number of compoments of (xdg)        
+  Int nd = common.grid.nd;     // spatial dimension    
   Int numPoints = nge*(e2-e1);    
-  dstype time = common.time;            
+  dstype time = common.timestate.time;            
   
   HdgSourcew(f, f_udg, f_wdg, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, 
               common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);                       
@@ -438,14 +438,14 @@ inline void SourcewDriver(dstype* f, dstype* f_wdg, const dstype* xg, const dsty
         masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
         commonstruct &common, Int nge, Int e1, Int e2, Int backend)
 { 
-  Int nc = common.nc; // number of compoments of (u, q)
-  Int ncu = common.ncu;// number of compoments of (u)
-  Int ncw = common.ncw;// number of compoments of (w)
-  Int nco = common.nco;// number of compoments of (o)
-  Int ncx = common.ncx;// number of compoments of (xdg)        
-  Int nd = common.nd;     // spatial dimension    
+  Int nc = common.components.nc; // number of compoments of (u, q)
+  Int ncu = common.components.ncu;// number of compoments of (u)
+  Int ncw = common.components.ncw;// number of compoments of (w)
+  Int nco = common.components.nco;// number of compoments of (o)
+  Int ncx = common.components.ncx;// number of compoments of (xdg)        
+  Int nd = common.grid.nd;     // spatial dimension    
   Int numPoints = nge*(e2-e1);    
-  dstype time = common.time;            
+  dstype time = common.timestate.time;            
   
   HdgSourcewonly(f, f_wdg, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, 
               common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);                       
@@ -455,14 +455,14 @@ inline void EosDriver(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xg,
         masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
         commonstruct &common, Int nge, Int e1, Int e2, Int backend)
 { 
-  Int nc = common.nc; // number of compoments of (u, q)
-  Int ncu = common.ncu;// number of compoments of (u)
-  Int ncw = common.ncw;// number of compoments of (w)
-  Int nco = common.nco;// number of compoments of (o)
-  Int ncx = common.ncx;// number of compoments of (xdg)        
-  Int nd = common.nd;     // spatial dimension    
+  Int nc = common.components.nc; // number of compoments of (u, q)
+  Int ncu = common.components.ncu;// number of compoments of (u)
+  Int ncw = common.components.ncw;// number of compoments of (w)
+  Int nco = common.components.nco;// number of compoments of (o)
+  Int ncx = common.components.ncx;// number of compoments of (xdg)        
+  Int nd = common.grid.nd;     // spatial dimension    
   Int numPoints = nge*(e2-e1);    
-  dstype time = common.time;            
+  dstype time = common.timestate.time;            
   
   HdgEoS(f, f_udg, f_wdg, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, 
               common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);                           
@@ -472,14 +472,14 @@ inline void FbouDriver(dstype* f,  dstype* f_udg, dstype* f_wdg, dstype* f_uhg, 
         const dstype*  odg, const dstype*  wdg, dstype* uhg, const dstype* nl, meshstruct &mesh, 
         masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, commonstruct &common, Int nga, Int ib, Int backend)
 {
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int ncw = common.ncw;// number of compoments of (w)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
-    Int nd = common.nd;     // spatial dimension        
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int ncw = common.components.ncw;// number of compoments of (w)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
+    Int nd = common.grid.nd;     // spatial dimension        
     Int numPoints = nga;
-    dstype time = common.time;    
+    dstype time = common.timestate.time;    
 
 
     HdgFbou(f, f_udg, f_wdg, f_uhg, xg, udg, odg, wdg, uhg, nl, app.tau, app.uinf, app.physicsparam, time, 
@@ -491,14 +491,14 @@ inline void FbouDriver(dstype* f, dstype* xg, const dstype* udg, const dstype*  
         const dstype* nl, meshstruct &mesh, masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
         commonstruct &common, Int nga, Int ib, Int backend)
 {
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int ncw = common.ncw;// number of compoments of (w)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
-    Int nd = common.nd;     // spatial dimension        
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int ncw = common.components.ncw;// number of compoments of (w)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
+    Int nd = common.grid.nd;     // spatial dimension        
     Int numPoints = nga;
-    dstype time = common.time;    
+    dstype time = common.timestate.time;    
 
     HdgFbouonly(f, xg, udg, odg, wdg, uhg, nl, app.tau, app.uinf, app.physicsparam, time, 
                       common.modelnumber, ib, numPoints, nc, ncu, nd, ncx, nco, ncw);
@@ -508,14 +508,14 @@ inline void FintDriver(dstype* f,  dstype* f_udg, dstype* f_wdg, dstype* f_uhg, 
         const dstype*  odg, const dstype*  wdg, dstype* uhg, const dstype* nl, meshstruct &mesh, 
         masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, commonstruct &common, Int nga, Int ib, Int backend)
 {
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int ncw = common.ncw;// number of compoments of (w)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
-    Int nd = common.nd;     // spatial dimension        
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int ncw = common.components.ncw;// number of compoments of (w)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
+    Int nd = common.grid.nd;     // spatial dimension        
     Int numPoints = nga;
-    dstype time = common.time;    
+    dstype time = common.timestate.time;    
 
 
     HdgFint(f, f_udg, f_wdg, f_uhg, xg, udg, odg, wdg, uhg, nl, app.tau, app.uinf, app.physicsparam, time, 
@@ -526,14 +526,14 @@ inline void FintDriver(dstype* f, dstype* xg, const dstype* udg, const dstype*  
         const dstype* nl, meshstruct &mesh, masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
         commonstruct &common, Int nga, Int ib, Int backend)
 {
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int ncw = common.ncw;// number of compoments of (w)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
-    Int nd = common.nd;     // spatial dimension        
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int ncw = common.components.ncw;// number of compoments of (w)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
+    Int nd = common.grid.nd;     // spatial dimension        
     Int numPoints = nga;
-    dstype time = common.time;    
+    dstype time = common.timestate.time;    
 
     HdgFintonly(f, xg, udg, odg, wdg, uhg, nl, app.tau, app.uinf, app.physicsparam, time, 
                       common.modelnumber, ib, numPoints, nc, ncu, nd, ncx, nco, ncw);
@@ -543,33 +543,33 @@ inline void FextDriver(dstype* f,  dstype* f_udg, dstype* f_wdg, dstype* f_uhg, 
         const dstype*  odg, const dstype*  wdg, dstype* uhg, const dstype* nl, const dstype* uext, meshstruct &mesh, 
         masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, commonstruct &common, Int nga, Int ib, Int backend)
 {
-    HdgFext(f, f_udg, f_wdg, f_uhg, xg, udg, odg, wdg, uhg, nl, uext, app.tau, app.uinf, app.physicsparam, common.time, 
-              common.modelnumber, ib, nga, common.nc, common.ncu, common.nd, common.ncx, common.nco, common.ncw);
+    HdgFext(f, f_udg, f_wdg, f_uhg, xg, udg, odg, wdg, uhg, nl, uext, app.tau, app.uinf, app.physicsparam, common.timestate.time, 
+              common.modelnumber, ib, nga, common.components.nc, common.components.ncu, common.grid.nd, common.components.ncx, common.components.nco, common.components.ncw);
 }
 
 inline void FextDriver(dstype* f, dstype* xg, const dstype* udg, const dstype*  odg, const dstype*  wdg, dstype* uhg, 
         const dstype* nl, const dstype* uext, meshstruct &mesh, masterstruct &master, appstruct &app, 
         solstruct &sol, tempstruct &temp, commonstruct &common, Int nga, Int ib, Int backend)
 {
-    HdgFextonly(f, xg, udg, odg, wdg, uhg, nl, uext, app.tau, app.uinf, app.physicsparam, common.time, 
-              common.modelnumber, ib, nga, common.nc, common.ncu, common.nd, common.ncx, common.nco, common.ncw);
+    HdgFextonly(f, xg, udg, odg, wdg, uhg, nl, uext, app.tau, app.uinf, app.physicsparam, common.timestate.time, 
+              common.modelnumber, ib, nga, common.components.nc, common.components.ncu, common.grid.nd, common.components.ncx, common.components.nco, common.components.ncw);
 }
 
 inline void FhatDriver(dstype* f,  dstype* f_udg, dstype* f_wdg, dstype* f_uhg, const dstype* xg, dstype* udg, 
         const dstype*  odg, const dstype*  wdg, const dstype* uhg,  dstype* nl, meshstruct &mesh, 
         masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, commonstruct &common, Int nga, Int backend)
 {
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int ncw = common.ncw;// number of compoments of (w)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
-    Int nd = common.nd;     // spatial dimension        
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int ncw = common.components.ncw;// number of compoments of (w)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
+    Int nd = common.grid.nd;     // spatial dimension        
     Int numPoints = nga;
     Int M = numPoints * ncu;
     Int N = numPoints*ncu*nd;
 
-    dstype time = common.time;    
+    dstype time = common.timestate.time;    
     
     // copy u-compoment of udg to f_uhg
     ArrayCopy(f_uhg, udg, numPoints*ncu);
@@ -595,7 +595,7 @@ inline void FhatDriver(dstype* f,  dstype* f_udg, dstype* f_wdg, dstype* f_uhg, 
     }
 
     // f_wdg = ng * ncu * ncw
-    if ((ncw>0) & (common.wave==0)) {
+    if ((ncw>0) & (common.timeparams.wave==0)) {
       for (int n=0; n< ncw; n++) {
         FluxDotNormal(&f_wdg[M*n], &f_wdg[N*n], nl, M, numPoints, nd);    
       }      
@@ -615,17 +615,17 @@ inline void FhatDriver(dstype* f, dstype* u, const dstype* xg, dstype* udg, cons
         dstype* nl, meshstruct &mesh, masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
         commonstruct &common, Int nga, Int backend)
 {
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int ncw = common.ncw;// number of compoments of (w)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
-    Int nd = common.nd;     // spatial dimension        
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int ncw = common.components.ncw;// number of compoments of (w)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
+    Int nd = common.grid.nd;     // spatial dimension        
     Int numPoints = nga;
     Int M = numPoints * ncu;
     //Int N = numPoints*ncu*nd;
 
-    dstype time = common.time;    
+    dstype time = common.timestate.time;    
 
     // copy u-compoment of udg to u
     ArrayCopy(u, udg, numPoints*ncu);
@@ -651,14 +651,14 @@ inline void VisScalarsDriver(dstype* f, const dstype* xg, const dstype* udg, con
         masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
         commonstruct &common, Int nge, Int e1, Int e2, Int backend)
 { 
-  Int nc = common.nc; // number of compoments of (u, q)
-  Int ncu = common.ncu;// number of compoments of (u)
-  Int ncw = common.ncw;// number of compoments of (w)
-  Int nco = common.nco;// number of compoments of (o)
-  Int ncx = common.ncx;// number of compoments of (xdg)        
-  Int nd = common.nd;     // spatial dimension    
+  Int nc = common.components.nc; // number of compoments of (u, q)
+  Int ncu = common.components.ncu;// number of compoments of (u)
+  Int ncw = common.components.ncw;// number of compoments of (w)
+  Int nco = common.components.nco;// number of compoments of (o)
+  Int ncx = common.components.ncx;// number of compoments of (xdg)        
+  Int nd = common.grid.nd;     // spatial dimension    
   Int numPoints = nge*(e2-e1);              
-  dstype time = common.time;
+  dstype time = common.timestate.time;
             
   KokkosVisScalars(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, 
               common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);                       
@@ -668,14 +668,14 @@ inline void VisVectorsDriver(dstype* f, const dstype* xg, const dstype* udg, con
         masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
         commonstruct &common, Int nge, Int e1, Int e2, Int backend)
 { 
-  Int nc = common.nc; // number of compoments of (u, q)
-  Int ncu = common.ncu;// number of compoments of (u)
-  Int ncw = common.ncw;// number of compoments of (w)
-  Int nco = common.nco;// number of compoments of (o)
-  Int ncx = common.ncx;// number of compoments of (xdg)        
-  Int nd = common.nd;     // spatial dimension    
+  Int nc = common.components.nc; // number of compoments of (u, q)
+  Int ncu = common.components.ncu;// number of compoments of (u)
+  Int ncw = common.components.ncw;// number of compoments of (w)
+  Int nco = common.components.nco;// number of compoments of (o)
+  Int ncx = common.components.ncx;// number of compoments of (xdg)        
+  Int nd = common.grid.nd;     // spatial dimension    
   Int numPoints = nge*(e2-e1);              
-  dstype time = common.time;
+  dstype time = common.timestate.time;
             
   KokkosVisVectors(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, 
               common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);                       
@@ -685,14 +685,14 @@ inline void VisTensorsDriver(dstype* f, const dstype* xg, const dstype* udg, con
         masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
         commonstruct &common, Int nge, Int e1, Int e2, Int backend)
 { 
-  Int nc = common.nc; // number of compoments of (u, q)
-  Int ncu = common.ncu;// number of compoments of (u)
-  Int ncw = common.ncw;// number of compoments of (w)
-  Int nco = common.nco;// number of compoments of (o)
-  Int ncx = common.ncx;// number of compoments of (xdg)        
-  Int nd = common.nd;     // spatial dimension    
+  Int nc = common.components.nc; // number of compoments of (u, q)
+  Int ncu = common.components.ncu;// number of compoments of (u)
+  Int ncw = common.components.ncw;// number of compoments of (w)
+  Int nco = common.components.nco;// number of compoments of (o)
+  Int ncx = common.components.ncx;// number of compoments of (xdg)        
+  Int nd = common.grid.nd;     // spatial dimension    
   Int numPoints = nge*(e2-e1);              
-  dstype time = common.time;
+  dstype time = common.timestate.time;
             
   KokkosVisTensors(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, 
               common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);                       
@@ -702,14 +702,14 @@ inline void QoIvolumeDriver(dstype* f, const dstype* xg, const dstype* udg, cons
         masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
         commonstruct &common, Int nge, Int e1, Int e2, Int backend)
 { 
-  Int nc = common.nc; // number of compoments of (u, q)
-  Int ncu = common.ncu;// number of compoments of (u)
-  Int ncw = common.ncw;// number of compoments of (w)
-  Int nco = common.nco;// number of compoments of (o)
-  Int ncx = common.ncx;// number of compoments of (xdg)        
-  Int nd = common.nd;     // spatial dimension    
+  Int nc = common.components.nc; // number of compoments of (u, q)
+  Int ncu = common.components.ncu;// number of compoments of (u)
+  Int ncw = common.components.ncw;// number of compoments of (w)
+  Int nco = common.components.nco;// number of compoments of (o)
+  Int ncx = common.components.ncx;// number of compoments of (xdg)        
+  Int nd = common.grid.nd;     // spatial dimension    
   Int numPoints = nge*(e2-e1);              
-  dstype time = common.time;
+  dstype time = common.timestate.time;
             
   KokkosQoIvolume(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time, 
               common.modelnumber, numPoints, nc, ncu, nd, ncx, nco, ncw);                       
@@ -719,14 +719,14 @@ inline void QoIboundaryDriver(dstype* fb, const dstype* xg, const dstype* udg, c
         meshstruct &mesh, masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
         commonstruct &common, Int ngf, Int f1, Int f2, Int ib, Int backend)
 {
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int ncw = common.ncw;// number of compoments of (w)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
-    Int nd = common.nd;     // spatial dimension        
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int ncw = common.components.ncw;// number of compoments of (w)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
+    Int nd = common.grid.nd;     // spatial dimension        
     Int numPoints = ngf*(f2-f1);
-    dstype time = common.time;    
+    dstype time = common.timestate.time;    
 
     KokkosQoIboundary(fb, xg, udg, odg, wdg, uhg, nl, app.tau, app.uinf, app.physicsparam, time, 
                       common.modelnumber, ib, numPoints, nc, ncu, nd, ncx, nco, ncw);

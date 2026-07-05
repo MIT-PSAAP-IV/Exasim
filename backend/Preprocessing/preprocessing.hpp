@@ -134,9 +134,10 @@ inline CPreprocessing::~CPreprocessing()
 // the bundle to `CSolution<M>(Preprocessed&&, ...)`.
 //
 // Currently serial-only (mpiprocs == 1). MPI variant lands in 7.6.
-inline exasim::Preprocessed CPreprocessing::take()
+template <class T, class I>
+inline exasim::PreprocessedT<T, I> CPreprocessing::take()
 {
-    using exasim::Preprocessed;
+    using Preprocessed = exasim::PreprocessedT<T, I>;
 
     // Mesh + master setup (file-driven path runs these inside
     // SerialPreprocessing; the programmatic path can pre-populate
@@ -173,11 +174,11 @@ inline exasim::Preprocessed CPreprocessing::take()
 
     // Build the four runtime structs directly from typed sources.
     Preprocessed out;
-    out.app    = exasim::buildAppStruct(pde);
-    out.master = exasim::buildMasterStruct(mas);
-    out.mesh   = exasim::buildMeshStruct(mesh, mas, dmd_local, bf,
+    out.app    = exasim::buildAppStruct<T, I>(pde);
+    out.master = exasim::buildMasterStruct<T, I>(mas);
+    out.mesh   = exasim::buildMeshStruct<T, I>(mesh, mas, dmd_local, bf,
                                          pde.hybrid, pde.mpiprocs, out.ti);
-    out.sol    = exasim::buildSolStruct(mesh, mas, pde, dmd_local);
+    out.sol    = exasim::buildSolStruct<T, I>(mesh, mas, pde, dmd_local);
     out.save_outputs = (pde.saveOutputs != 0);
 
     // Free the char-array boundary expression buffers — they were
@@ -199,9 +200,10 @@ inline exasim::Preprocessed CPreprocessing::take()
 // **global** node indices and rank r owning global element indices
 // `[elmdist[r], elmdist[r+1])`. ParMETIS will repartition for load
 // balance regardless of the initial split.
-inline exasim::Preprocessed CPreprocessing::takeParallel(MPI_Comm comm)
+template <class T, class I>
+inline exasim::PreprocessedT<T, I> CPreprocessing::takeParallel(MPI_Comm comm)
 {
-    using exasim::Preprocessed;
+    using Preprocessed = exasim::PreprocessedT<T, I>;
 
     if (mesh.np == 0)
         error("CPreprocessing::takeParallel: caller must populate `mesh` "
@@ -306,11 +308,11 @@ inline exasim::Preprocessed CPreprocessing::takeParallel(MPI_Comm comm)
 
     // Now build the four runtime structs.
     Preprocessed out;
-    out.app    = exasim::buildAppStruct(pde);
-    out.master = exasim::buildMasterStruct(mas);
-    out.mesh   = exasim::buildMeshStructParallel(mesh, mas, dmd_local, bf_full,
+    out.app    = exasim::buildAppStruct<T, I>(pde);
+    out.master = exasim::buildMasterStruct<T, I>(mas);
+    out.mesh   = exasim::buildMeshStructParallel<T, I>(mesh, mas, dmd_local, bf_full,
                                                  tg_full, pde.hybrid);
-    out.sol    = exasim::buildSolStructParallel(mas, pde, dmd_local, xdg_full, mesh.dim);
+    out.sol    = exasim::buildSolStructParallel<T, I>(mas, pde, dmd_local, xdg_full, mesh.dim);
     out.ti     = std::move(tg_full);   // cpuInitFromStructs / buildConn read this
     out.save_outputs = (pde.saveOutputs != 0);
 

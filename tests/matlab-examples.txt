@@ -1,0 +1,14 @@
+# MATLAB-frontend regression example list (one Family/Case per line, '#' comments ignored).
+# Each runs examples/<Family>/<Case>/pdeapp.m through the MATLAB frontend exasim(pde,mesh),
+# which does codegen + mesh + preprocessing + native solve, writing dataout/outudg_np*.bin.
+# Baselines (from main) live in tests/matlab-baselines/<Family>_<Case>/.
+#
+# Small, fast Poisson-family + Advection cases -- committed baselines, run in CI-lite.
+Advection/GaussianTransport
+Poisson/Nonlinear2
+Poisson/Periodic
+Poisson/poisson2d
+Poisson/poisson3d
+# Heavy transient (156M dump) -- baseline kept out of git (see matlab-baselines/.gitignore),
+# regenerate on demand. Uncomment to include when running locally.
+#Euler/EulerVortex

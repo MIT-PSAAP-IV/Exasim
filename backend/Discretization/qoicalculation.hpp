@@ -4,20 +4,21 @@
 #ifndef __QOICALCULATION
 #define __QOICALCULATION
 
-template <class M>
-inline void qoiElemBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int jth, Int backend)
-{        
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int ncq = common.ncq;// number of compoments of (q)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg) 
-    Int ncs = common.ncs;// number of compoments of (sdg) 
-    Int ncw = common.ncw;// number of compoments of (wdg) 
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int nge = common.nge; // number of gauss points on master element        
+template <class M, class T=dstype, class I=Int>
+inline void qoiElemBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int jth, Int backend)
+{
+    using dstype=T;        
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int ncq = common.components.ncq;// number of compoments of (q)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg) 
+    Int ncs = common.components.ncs;// number of compoments of (sdg) 
+    Int ncw = common.components.ncw;// number of compoments of (wdg) 
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int nge = common.grid.nge; // number of gauss points on master element        
 
     Int e1 = common.eblks[3*jth]-1;
     Int e2 = common.eblks[3*jth+1];            
@@ -38,12 +39,12 @@ inline void qoiElemBlock(solstruct &sol, resstruct &res, appstruct &app, masters
             
     GetElemNodes(tmp.tempn, sol.udg, npe, nc, 0, nc, e1, e2);   
     Node2Gauss(handle, uqg, tmp.tempn, master.shapegt, nge, npe, ne*nc, backend);        
-    if ((ncw>0) & (common.wave==0)) {
+    if ((ncw>0) & (common.timeparams.wave==0)) {
         GetElemNodes(tmp.tempn, sol.wdg, npe, ncw, 0, ncw, e1, e2);    
         Node2Gauss(handle, wg, tmp.tempn, master.shapegt, nge, npe, ne*ncw, backend);        
     }
     
-    int nvqoi = common.nvqoi;     
+    int nvqoi = common.qoiparams.nvqoi;     
     ArraySetValue(sg, 0.0, nga*nvqoi);     
     EXASIM_DRIVER_CALL(QoIvolumeDriver, sg, xg, uqg, og, wg, mesh, master, app, sol, tmp, common, nge, e1, e2, backend);    
     
@@ -54,35 +55,37 @@ inline void qoiElemBlock(solstruct &sol, resstruct &res, appstruct &app, masters
     for (int i = 0; i<nvqoi; i++) {
         dstype dotprod = 0;
         PDOT(handle, ne, tmp.tempg, inc1, &tmp.tempn[i*ne], inc1, &dotprod, backend);
-        common.qoivolume[i] += dotprod;
-    }    
+        common.qoiparams.qoivolume[i] += dotprod;
+    }
 }
 
-template <class M>
-inline void qoiElement(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common)
-{    
-    for (int i = 0; i<common.nvqoi; i++) common.qoivolume[i] = 0.0;
-    for (Int j=0; j<common.nbe; j++) {              
+template <class M, class T=dstype, class I=Int>
+inline void qoiElement(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common)
+{
+    using dstype=T;    
+    for (int i = 0; i<common.qoiparams.nvqoi; i++) common.qoiparams.qoivolume[i] = 0.0;
+    for (Int j=0; j<common.meshsizes.nbe; j++) {              
         Int e2 = common.eblks[3*j+1];            
-        if (e2 <= common.ne1) qoiElemBlock<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, j, common.backend);        
+        if (e2 <= common.meshsizes.ne1) qoiElemBlock<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, j, common.backend);        
     }                     
 }
 
-template <class M>
-inline void qoiFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, 
+template <class M, class T=dstype, class I=Int>
+inline void qoiFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, 
         cublasHandle_t handle, Int f1, Int f2, Int ib, Int backend)
-{            
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
-    Int ncw = common.ncw;
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int npf = common.npf; // number of nodes on master face           
-    Int ngf = common.ngf; // number of gauss poInts on master face              
+{
+    using dstype=T;            
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
+    Int ncw = common.components.ncw;
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int npf = common.grid.npf; // number of nodes on master face           
+    Int ngf = common.grid.ngf; // number of gauss poInts on master face              
 
     Int nf = f2-f1;
     Int nn =  npf*nf; 
@@ -98,7 +101,7 @@ inline void qoiFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masters
         GetFaceNodes(&tmp.tempn[nn*(ncu+nc)], sol.wdg, mesh.facecon, npf, ncw, npe, ncw, f1, f2, 1);             
     Node2Gauss(handle, tmp.tempg, tmp.tempn, master.shapfgt, ngf, npf, nf*(ncu+nc+ncw), backend);
         
-    int nsurf = common.nsurf;     
+    int nsurf = common.qoiparams.nsurf;     
     ArraySetValue(tmp.tempn, 0.0, nga*nsurf);     
     EXASIM_DRIVER_CALL(QoIboundaryDriver, tmp.tempn, &sol.faceg[nm], &tmp.tempg[nga*ncu], &sol.og1[ngf*nco*f1], 
             &tmp.tempg[nga*(ncu+nc)], &tmp.tempg[0], &sol.faceg[nm+n1], mesh, master, app, 
@@ -111,20 +114,21 @@ inline void qoiFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masters
     for (int i = 0; i<nsurf; i++) {
         dstype dotprod = 0;
         PDOT(handle, nf, tmp.tempn, inc1, &tmp.tempg[i*nf], inc1, &dotprod, backend);
-        common.qoisurface[i] += dotprod;
+        common.qoiparams.qoisurface[i] += dotprod;
     }        
 }
 
-template <class M>
-inline void qoiFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common)
-{    
-    for (int i = 0; i<common.nsurf; i++) common.qoisurface[i] = 0.0;
-    for (Int j=0; j<common.nbf; j++) {
+template <class M, class T=dstype, class I=Int>
+inline void qoiFace(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common)
+{
+    using dstype=T;    
+    for (int i = 0; i<common.qoiparams.nsurf; i++) common.qoiparams.qoisurface[i] = 0.0;
+    for (Int j=0; j<common.meshsizes.nbf; j++) {
         Int f1 = common.fblks[3*j]-1;
         Int f2 = common.fblks[3*j+1];    
         Int ib = common.fblks[3*j+2];    
-        if ((common.ibs > 0) && (ib == common.ibs))
+        if ((common.qoiparams.ibs > 0) && (ib == common.qoiparams.ibs))
             qoiFaceBlock<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, f1, f2, 1, common.backend);
     }                          
 }

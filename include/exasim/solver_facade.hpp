@@ -38,6 +38,7 @@
 
 #include <exasim/run.hpp>                         // pulls common.h, all backend headers, `using namespace std;`
 #include <exasim/model.hpp>                       // exasim::ModelDefaults, is_model_v
+#include <exasim/export.hpp>                      // exasim::default_pde<M> (shared HDG defaults)
 #include <backend/Preprocessing/structs.hpp>
 #include <backend/Preprocessing/buildstructs.hpp>
 
@@ -51,46 +52,10 @@ class ExasimSolver {
 public:
     ExasimSolver()
     {
-        // HDG-friendly defaults. The user's PDE may override any of
-        // these via pde() / params() before solve().
-        pde_.discretization = "hdg";
-        pde_.platform       = "cpu";
-        pde_.gendatain      = 1;
-        pde_.builtinmodelID = 1;
-        pde_.saveOutputs    = 0;        // façade users default to in-memory
-        pde_.porder         = 1;
-        pde_.pgauss         = 2;
-        pde_.torder         = 1;
-        pde_.nstage         = 1;
-        pde_.tdep           = 0;
-        pde_.NewtonIter     = 20;
-        pde_.NewtonTol      = 1e-6;
-        pde_.GMRESiter      = 200;
-        pde_.GMRESrestart   = 50;
-        pde_.GMREStol       = 1e-8;
-        pde_.tau            = {1.0};
-        pde_.dt             = {0.0};
-        pde_.neb            = 4096;
-        pde_.nfb            = 8192;
-        pde_.ibs            = 1;
-
-        // Compile-time dimensions from the Model.
-        pde_.nd  = M::nd;
-        pde_.ncu = M::ncu;
-        pde_.ncw = M::ncw;
-        pde_.nc  = M::ncu * (1 + M::nd);   // ModelD layout
-        pde_.physicsparam.assign(/*size=*/std::max(1, M::nparam), 0.0);
-
-        // exasimpath default: env var `EXASIM_DIR` if set, else ".".
-        // setcommonstruct expects this to point at the source/install
-        // tree containing `backend/Preprocessing/{master,gauss}nodes.bin`.
-        if (const char* d = std::getenv("EXASIM_DIR")) pde_.exasimpath = d;
-        else                                            pde_.exasimpath = ".";
-        pde_.datapath    = ".";
-        pde_.datainpath  = "./datain";
-        pde_.dataoutpath = "./dataout";
-        pde_.modelfile   = "";              // unused; Model is hand-supplied
-        pde_.meshfile    = "";              // unused; mesh comes from set_mesh()
+        // HDG-friendly defaults for the model — shared with the operator-export
+        // helpers (exasim::default_pde<M>) so the facade and the bare-helper path
+        // cannot drift. Override any field via pde() / params() before solve().
+        pde_ = exasim::default_pde<M>();
     }
 
     // --- Required setters --------------------------------------------------
@@ -327,7 +292,7 @@ public:
         // Storage lives on the facade, not on solver_, so reusing the
         // facade across multiple solve() calls doesn't leak.
         solver_->disc.common.nomodels = 1;
-        ncarray_storage_  = { solver_->disc.common.nc };
+        ncarray_storage_  = { solver_->disc.common.components.nc };
         udgarray_storage_ = { &solver_->disc.sol.udg[0] };
         solver_->disc.common.ncarray  = ncarray_storage_.data();
         solver_->disc.sol.udgarray    = udgarray_storage_.data();

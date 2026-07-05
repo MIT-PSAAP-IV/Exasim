@@ -26,10 +26,19 @@ from numpy import *
 
 def preprocessing(app,mesh):
 
+    # LDG (hybrid=0) is solved matrix-free (preconditioner=0), exactly like the
+    # native C++ LDG regression: its element-local block-Jacobi preconditioner
+    # (preconditioner=1, the default) assembles a singular local block for a
+    # generated model, so cpuComputeInverse aborts the solve during LU
+    # factorization. Force the matrix-free preconditioner for LDG; HDG
+    # (hybrid=1) keeps its nonsingular trace block-Jacobi preconditioner.
+    if app.get('hybrid', 0) == 0 and app.get('preconditioner', 1) == 1:
+        app['preconditioner'] = 0;
+
     if app['modelnumber']==0:
         strn = "";
     else:
-        strn = str(app['modelnumber']);    
+        strn = str(app['modelnumber']);
      
     datain_path = os.path.join(app['datapath'], "datain", strn)
     dataout_path = os.path.join(app['datapath'], "dataout", strn)

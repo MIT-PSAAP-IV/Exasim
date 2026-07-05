@@ -2163,6 +2163,7 @@ void emitGenerateModelHeader(std::ostream& os, const ParsedSpec& spec) {
     int nco    = get_size("v");
     int nparam = get_size("mu");
     int ntau   = get_size("tau");
+    int nuext  = get_size("uext");   // injected neighbour trace width (Fext); 0 if no coupling
 
     os << "void SymbolicScalarsVectors::generateModelHeader(const std::string& filename) {\n";
     os << "    std::ofstream hfile(filename, std::ios::out | std::ios::trunc);\n\n";
@@ -2201,6 +2202,33 @@ void emitGenerateModelHeader(std::ostream& os, const ParsedSpec& spec) {
     os << "    hfile << \"    static constexpr int nsurf  = " << nsurf_  << ";\\n\";\n";
     os << "    hfile << \"    static constexpr int nvqoi  = " << nvqoi_  << ";\\n\";\n";
     os << "    hfile << \"    static constexpr int Nq = ncu * (1 + nd);\\n\\n\";\n";
+
+    // ----- Multi-domain HDG interface coupling constants (Fint / Fext) -----
+    // Emit `has_external_coupling = true` plus the interface-residual widths
+    // ONLY when this PDE defines Fint/Fext. A single-domain model (no Fint/Fext)
+    // emits nothing here, so it inherits `has_external_coupling = false` and the
+    // zero-fill fint/fext defaults from ModelDefaults -> byte-identical build.
+    // `nfint`/`nfext` are the Fint/Fext output_size (may differ from ncu, e.g.
+    // pdemodel2's 2-component Fint with ncu==1); `ncuext` is the declared uext
+    // width. These `static constexpr` members shadow the ModelConstants defaults
+    // and are read through the nfint_v/nfext_v/ncuext_v traits by the kernels.
+    os << "    {\n";
+    os << "        int nfint_sz = -1, nfext_sz = -1;\n";
+    os << "        { auto it = std::find(funcnames.begin(), funcnames.end(), std::string(\"Fint\"));\n";
+    os << "          if (it != funcnames.end()) { int idx = it - funcnames.begin();\n";
+    os << "            if (outputfunctions[idx]) nfint_sz = (int)evaluateSymbolicFunctions(idx).size(); } }\n";
+    os << "        { auto it = std::find(funcnames.begin(), funcnames.end(), std::string(\"Fext\"));\n";
+    os << "          if (it != funcnames.end()) { int idx = it - funcnames.begin();\n";
+    os << "            if (outputfunctions[idx]) nfext_sz = (int)evaluateSymbolicFunctions(idx).size(); } }\n";
+    os << "        if (nfint_sz >= 0 || nfext_sz >= 0) {\n";
+    os << "            hfile << \"    static constexpr bool has_external_coupling = true;\\n\";\n";
+    os << "            if (nfint_sz >= 0) hfile << \"    static constexpr int nfint  = \" << nfint_sz << \";\\n\";\n";
+    os << "            if (nfext_sz >= 0) hfile << \"    static constexpr int nfext  = \" << nfext_sz << \";\\n\";\n";
+    if (nuext > 0)
+        os << "            hfile << \"    static constexpr int ncuext = " << nuext << ";\\n\";\n";
+    os << "            hfile << \"\\n\";\n";
+    os << "        }\n";
+    os << "    }\n\n";
 
     // Volume value-only methods. Iterate over `outputfunctions` and
     // emit the matching pointwise method body for each that is
@@ -2380,6 +2408,65 @@ void emitGenerateModelHeader(std::ostream& os, const ParsedSpec& spec) {
     os << "            }\n";
     os << "            emit_pointwise_value_per_ib(hfile, jac_names[k],\n";
     os << "                boundary_sig, jac_all, idx, jblock);\n";
+    os << "        }\n";
+    os << "    }\n\n";
+
+    // ----- Multi-domain HDG interface coupling methods (Fint / Fext) -----
+    // Mirror the libpdemodel ABI HdgFint/HdgFext (see tests/coupling-models/
+    // reference/*). The legacy per-kernel emitter treats Fint/Fext as a SINGLE
+    // interface block (nbc==1, see the `funcname == "Fint"/"Fext"` arms above),
+    // so here the whole Fint/Fext output is one PLAIN pointwise method (no per-ib
+    // `if (ib==1)` slicing). The concrete `fint`/`fext` methods ignore `ib` and
+    // always evaluate, exactly like the hand-written coupled models in
+    // tests/coupling-models/compare_fint_fext.cpp.
+    //
+    // Jacobian SoA layout is TRACE/INPUT-index-outer to match the ABI byte
+    // layout: `diff_to_exprs(f, input)` yields `J[j*nf + o] = d f[o]/d in[j]`
+    // (j outer over the input, o inner over the nf outputs), which is exactly
+    // what fint_kernel<M>/fext_kernel<M> scatter linearly. jacobianInputs order
+    // is (uq, w, uhat); the w slot is skipped when empty (ncw==0).
+    //
+    // `fint` shares boundary_sig; `fext` inserts `const dstype uext[]` between
+    // n[] and tau[], matching M::fext in <exasim/model.hpp> and the ABI HdgFext.
+    os << "    const std::string fext_sig =\n";
+    os << "        \"dstype f[], int ib, const dstype x[], const dstype uq[], const dstype v[],\"\n";
+    os << "        \" const dstype w[], const dstype uh[], const dstype n[], const dstype uext[],\"\n";
+    os << "        \" const dstype tau[], const dstype mu[], const dstype uinf[], dstype t\";\n";
+    os << "    {\n";
+    os << "        auto it = std::find(funcnames.begin(), funcnames.end(), std::string(\"Fint\"));\n";
+    os << "        if (it != funcnames.end()) {\n";
+    os << "            int idx = it - funcnames.begin();\n";
+    os << "            if (outputfunctions[idx]) {\n";
+    os << "                std::vector<Expression> f = evaluateSymbolicFunctions(idx);\n";
+    os << "                emit_pointwise_value(hfile, \"fint\", boundary_sig, f, idx);\n";
+    os << "                const auto& jac_inputs = jacobianInputs[idx];\n";
+    os << "                static const std::vector<std::string> fint_jac_names = {\n";
+    os << "                    \"fint_jac_uq\", \"fint_jac_w\", \"fint_jac_uh\"};\n";
+    os << "                for (size_t k = 0; k < jac_inputs.size() && k < fint_jac_names.size(); ++k) {\n";
+    os << "                    if (jac_inputs[k].empty()) continue;\n";
+    os << "                    std::vector<Expression> jac = diff_to_exprs(f, jac_inputs[k]);\n";
+    os << "                    emit_pointwise_value(hfile, fint_jac_names[k], boundary_sig, jac, idx);\n";
+    os << "                }\n";
+    os << "            }\n";
+    os << "        }\n";
+    os << "    }\n\n";
+
+    os << "    {\n";
+    os << "        auto it = std::find(funcnames.begin(), funcnames.end(), std::string(\"Fext\"));\n";
+    os << "        if (it != funcnames.end()) {\n";
+    os << "            int idx = it - funcnames.begin();\n";
+    os << "            if (outputfunctions[idx]) {\n";
+    os << "                std::vector<Expression> f = evaluateSymbolicFunctions(idx);\n";
+    os << "                emit_pointwise_value(hfile, \"fext\", fext_sig, f, idx);\n";
+    os << "                const auto& jac_inputs = jacobianInputs[idx];\n";
+    os << "                static const std::vector<std::string> fext_jac_names = {\n";
+    os << "                    \"fext_jac_uq\", \"fext_jac_w\", \"fext_jac_uh\"};\n";
+    os << "                for (size_t k = 0; k < jac_inputs.size() && k < fext_jac_names.size(); ++k) {\n";
+    os << "                    if (jac_inputs[k].empty()) continue;\n";
+    os << "                    std::vector<Expression> jac = diff_to_exprs(f, jac_inputs[k]);\n";
+    os << "                    emit_pointwise_value(hfile, fext_jac_names[k], fext_sig, jac, idx);\n";
+    os << "                }\n";
+    os << "            }\n";
     os << "        }\n";
     os << "    }\n\n";
 

@@ -16,6 +16,7 @@ pgauss = 4;
 torder = 1;
 nstage = 1;
 
+<<<<<<<< HEAD:apps/navierstokes/naca2d_test/pdeapp.txt
 ncu = 4;
 ncv = 0;
 ncw = 0;
@@ -25,6 +26,9 @@ nten = 0;
 nsurf = 0;
 nvqoi = 0;
 neb = 512;
+========
+neb = 4096;
+>>>>>>>> origin/master:apps/library_example/naca0012unsteady_codegen/pdeapp.txt
 nfb = 8192;
 
 NewtonIter = 20;

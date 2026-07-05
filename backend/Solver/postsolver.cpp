@@ -48,7 +48,7 @@ CSolver::CSolver(CDiscretization& disc, Int backend)
 {
     mpiRank = disc.common.mpiRank;
     //setsysstruct(sys, disc.common, disc.res, disc.mesh, disc.tmp, backend);   
-    if ((disc.common.mpiRank==0) && (disc.common.debugMode==1)) sys.printinfo(); 
+    if ((disc.common.mpiRank==0) && (disc.common.outputparams.debugMode==1)) sys.printinfo(); 
 
     if (disc.common.mpiRank == 0) printf("finish CSolver constructor... \n");    
 }

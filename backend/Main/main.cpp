@@ -540,15 +540,15 @@ int main(int argc, char** argv)
 //         pdemodel[i]->disc.common.ncarray = new Int[nummodels]; 
 //         pdemodel[i]->disc.sol.udgarray = new dstype*[nummodels]; // array of pointers pointing to udg
 // 
-//         if (pdemodel[i]->disc.common.timestepOffset>0)
-//             restart = pdemodel[i]->disc.common.timestepOffset;    
+//         if (pdemodel[i]->disc.common.outputparams.timestepOffset>0)
+//             restart = pdemodel[i]->disc.common.outputparams.timestepOffset;    
 // 
 //         if (restart>0) {
-//             pdemodel[i]->disc.common.timestepOffset = restart;
-//             pdemodel[i]->disc.common.time = restart*pdemodel[i]->disc.common.dt[0];            
+//             pdemodel[i]->disc.common.outputparams.timestepOffset = restart;
+//             pdemodel[i]->disc.common.timestate.time = restart*pdemodel[i]->disc.common.dt[0];            
 //         }        
 // 
-//         if (pdemodel[i]->disc.common.mpiRank==0 && pdemodel[i]->disc.common.saveResNorm==1) {
+//         if (pdemodel[i]->disc.common.mpiRank==0 && pdemodel[i]->disc.common.outputparams.saveResNorm==1) {
 //             string filename = pdemodel[i]->disc.common.fileout + "_residualnorms" + NumberToString(i) + ".bin";
 //             out[i].open(filename.c_str(), ios::out | ios::binary);            
 //             if (!out[i]) error("Unable to open file " + filename);        
@@ -558,51 +558,51 @@ int main(int argc, char** argv)
 //     // set ncarray and udgarray for each PDE model
 //     for (int i=0; i<nummodels; i++) 
 //         for (int j=0; j<nummodels; j++) {
-//             pdemodel[i]->disc.common.ncarray[j] = pdemodel[j]->disc.common.nc;            
+//             pdemodel[i]->disc.common.ncarray[j] = pdemodel[j]->disc.common.components.nc;            
 //             pdemodel[i]->disc.sol.udgarray[j] = &pdemodel[j]->disc.sol.udg[0]; // model[i], model[j]
 //         }    
 // 
 // 
-//     if (pdemodel[0]->disc.common.AVdistfunction==1) {
+//     if (pdemodel[0]->disc.common.physicsparams.AVdistfunction==1) {
 //       avdistfunc(pdemodel, out, nummodels, backend);
 //     }    
-//     else if ((pdemodel[0]->disc.common.tdep==1) && (pdemodel[0]->disc.common.runmode==0)) {
+//     else if ((pdemodel[0]->disc.common.timeparams.tdep==1) && (pdemodel[0]->disc.common.runmode==0)) {
 // 
 //         // initialize 
 //         for (int i=0; i<nummodels; i++) {
 //             if (restart>0) {
-//                 pdemodel[i]->disc.common.currentstep = -1;
+//                 pdemodel[i]->disc.common.timestate.currentstep = -1;
 //                 pdemodel[i]->ReadSolutions(backend);  
 //             }            
 //             pdemodel[i]->InitSolution(backend);             
 //         }
 // 
 //         // initial time
-//         dstype time = pdemodel[0]->disc.common.time;           
+//         dstype time = pdemodel[0]->disc.common.timestate.time;           
 // 
 //         // time stepping with DIRK schemes
-//         for (Int istep=0; istep<pdemodel[0]->disc.common.tsteps; istep++)            
+//         for (Int istep=0; istep<pdemodel[0]->disc.common.timeparams.tsteps; istep++)            
 //         {            
 //             for (int i=0; i<nummodels; i++) {
 //                 // current timestep        
-//                 pdemodel[i]->disc.common.currentstep = istep;
+//                 pdemodel[i]->disc.common.timestate.currentstep = istep;
 // 
 //                 // store previous solutions to calculate the source term        
 //                 PreviousSolutions(pdemodel[i]->disc.sol, pdemodel[i]->solv.sys, pdemodel[i]->disc.common, backend);
 //             }
 // 
 //             // compute the solution at the next step
-//             for (Int j=0; j<pdemodel[0]->disc.common.tstages; j++) {     
+//             for (Int j=0; j<pdemodel[0]->disc.common.timeparams.tstages; j++) {     
 // 
 //                 if (pdemodel[0]->disc.common.mpiRank==0)
 //                     printf("\nTimestep :  %d,  Timestage :  %d,   Time : %g\n",istep+1,j+1,time + pdemodel[0]->disc.common.dt[istep]*pdemodel[0]->disc.common.DIRKcoeff_t[j]);                                
 // 
 //                 for (int i=0; i<nummodels; i++) {
 //                     // current timestage
-//                     pdemodel[i]->disc.common.currentstage = j;
+//                     pdemodel[i]->disc.common.timestate.currentstage = j;
 // 
 //                     // current time
-//                     pdemodel[i]->disc.common.time = time + pdemodel[i]->disc.common.dt[istep]*pdemodel[i]->disc.common.DIRKcoeff_t[j];
+//                     pdemodel[i]->disc.common.timestate.time = time + pdemodel[i]->disc.common.dt[istep]*pdemodel[i]->disc.common.DIRKcoeff_t[j];
 // 
 //                     // update source term             
 //                     UpdateSource(pdemodel[i]->disc.sol, pdemodel[i]->solv.sys, pdemodel[i]->disc.app, pdemodel[i]->disc.res, pdemodel[i]->disc.common, backend);
@@ -618,9 +618,9 @@ int main(int argc, char** argv)
 // 
 //             for (int i=0; i<nummodels; i++) {
 //                 //compute time-average solution
-//                 if (pdemodel[i]->disc.common.compudgavg == 1) {
-//                     ArrayAXPBY(pdemodel[i]->disc.sol.udgavg, pdemodel[i]->disc.sol.udgavg, pdemodel[i]->disc.sol.udg, one, one, pdemodel[i]->disc.common.ndofudg1);            
-//                     ArrayAddScalar(&pdemodel[i]->disc.sol.udgavg[pdemodel[i]->disc.common.ndofudg1], one, 1);
+//                 if (pdemodel[i]->disc.common.outputparams.compudgavg == 1) {
+//                     ArrayAXPBY(pdemodel[i]->disc.sol.udgavg, pdemodel[i]->disc.sol.udgavg, pdemodel[i]->disc.sol.udg, one, one, pdemodel[i]->disc.common.sizes.ndofudg1);            
+//                     ArrayAddScalar(&pdemodel[i]->disc.sol.udgavg[pdemodel[i]->disc.common.sizes.ndofudg1], one, 1);
 //                 }
 // 
 //                 pdemodel[i]->disc.computeAverageSolutionsOnBoundary(); 
@@ -630,7 +630,7 @@ int main(int argc, char** argv)
 //                 pdemodel[i]->SaveQoI(backend); 
 //                 if (pdemodel[i]->vis.savemode > 0) pdemodel[i]->SaveParaview(backend); 
 //                 pdemodel[i]->SaveSolutionsOnBoundary(backend); 
-//                 if (pdemodel[i]->disc.common.nce>0)
+//                 if (pdemodel[i]->disc.common.components.nce>0)
 //                     pdemodel[i]->SaveOutputCG(backend);                
 //             }
 // 
@@ -643,9 +643,9 @@ int main(int argc, char** argv)
 //     ///////////////////// Start Pseudo-time step //////////////////////
 //     ///////////////////////////////////////////////////////////////////
 //     // NOTE: Only works for 1 model
-//     else if ((pdemodel[0]->disc.common.tdep==1) && (pdemodel[0]->disc.common.runmode==10 || pdemodel[0]->disc.common.runmode==11)) {
+//     else if ((pdemodel[0]->disc.common.timeparams.tdep==1) && (pdemodel[0]->disc.common.runmode==10 || pdemodel[0]->disc.common.runmode==11)) {
 //         if (restart>0) {
-//             pdemodel[0]->disc.common.currentstep = -1;
+//             pdemodel[0]->disc.common.timestate.currentstep = -1;
 //             pdemodel[0]->ReadSolutions(backend);  
 //         }    
 //         pdemodel[0]->InitSolution(backend);    
@@ -658,63 +658,63 @@ int main(int argc, char** argv)
 //         for (int i=0; i<nummodels; i++) {                                
 //             if (pdemodel[i]->disc.common.runmode==0) {
 //                 if (restart>0) {
-//                     pdemodel[i]->disc.common.currentstep = -1;
+//                     pdemodel[i]->disc.common.timestate.currentstep = -1;
 //                     pdemodel[i]->ReadSolutions(backend);  
 //                 }
 //                 pdemodel[i]->SolveProblem(out[i], backend);           
 //             }
 //             else if (pdemodel[i]->disc.common.runmode==1){
-//                 pdemodel[i]->disc.common.currentstep = -1;
+//                 pdemodel[i]->disc.common.timestate.currentstep = -1;
 //                 pdemodel[i]->ReadSolutions(backend);   
-//                 if (pdemodel[i]->disc.common.ncq>0)
+//                 if (pdemodel[i]->disc.common.components.ncq>0)
 //                     pdemodel[i]->disc.evalQ(backend);
-//                 pdemodel[i]->disc.common.saveSolOpt = 1;
+//                 pdemodel[i]->disc.common.outputparams.saveSolOpt = 1;
 //                 pdemodel[i]->SaveSolutions(backend);      
 //                 pdemodel[i]->SaveQoI(backend);
 //                 if (pdemodel[i]->vis.savemode > 0) pdemodel[i]->SaveParaview(backend); 
 //                 pdemodel[i]->SaveOutputCG(backend);            
 //             }
 //             else if (pdemodel[i]->disc.common.runmode==2){
-//                 for (Int istep=0; istep<pdemodel[i]->disc.common.tsteps; istep++)            
+//                 for (Int istep=0; istep<pdemodel[i]->disc.common.timeparams.tsteps; istep++)            
 //                 {                                            
-//                     if (((istep+1) % pdemodel[i]->disc.common.saveSolFreq) == 0)  
+//                     if (((istep+1) % pdemodel[i]->disc.common.outputparams.saveSolFreq) == 0)  
 //                     {
-//                         pdemodel[i]->disc.common.currentstep = istep;
+//                         pdemodel[i]->disc.common.timestate.currentstep = istep;
 //                         pdemodel[i]->ReadSolutions(backend);                    
-//                         if (pdemodel[i]->disc.common.ncq>0)
+//                         if (pdemodel[i]->disc.common.components.ncq>0)
 //                             pdemodel[i]->disc.evalQ(backend);
 //                         pdemodel[i]->SaveOutputCG(backend);            
 //                     }
 //                 }
 //             }    
 //             else if (pdemodel[i]->disc.common.runmode==3){
-//                 for (Int istep=0; istep<pdemodel[i]->disc.common.tsteps; istep++)            
+//                 for (Int istep=0; istep<pdemodel[i]->disc.common.timeparams.tsteps; istep++)            
 //                 {                                            
-//                     if (((istep+1) % pdemodel[i]->disc.common.saveSolFreq) == 0)  
+//                     if (((istep+1) % pdemodel[i]->disc.common.outputparams.saveSolFreq) == 0)  
 //                     {
-//                         pdemodel[i]->disc.common.currentstep = istep;
+//                         pdemodel[i]->disc.common.timestate.currentstep = istep;
 //                         pdemodel[i]->ReadSolutions(backend);                    
 //                         pdemodel[i]->SaveOutputCG(backend);            
 //                     }
 //                 }
 //             }
 //             else if (pdemodel[i]->disc.common.runmode==4) {
-//                 pdemodel[i]->disc.common.currentstep = -1;
+//                 pdemodel[i]->disc.common.timestate.currentstep = -1;
 //                 pdemodel[i]->ReadSolutions(backend);
 //                 pdemodel[i]->SolveProblem(out[i], backend);   
 //             }
 //             else if (pdemodel[i]->disc.common.runmode==5){
 //                 pdemodel[i]->disc.evalQSer(backend);
-//                 pdemodel[i]->disc.common.saveSolOpt = 1;
+//                 pdemodel[i]->disc.common.outputparams.saveSolOpt = 1;
 //                 string filename = pdemodel[i]->disc.common.fileout + "_np" + NumberToString(pdemodel[i]->disc.common.mpiRank) + ".bin";                    
 //                 //string filename = pdemodel[i]->disc.common.fileout + "_np" + NumberToString(pdemodel[i]->disc.common.mpiRank) + ".bin";
-//                 writearray2file(filename, pdemodel[i]->disc.sol.udg, pdemodel[i]->disc.common.ndofudg1, backend);   
+//                 writearray2file(filename, pdemodel[i]->disc.sol.udg, pdemodel[i]->disc.common.sizes.ndofudg1, backend);   
 //             }                
 //         }
 //     }
 // 
 //     for (int i=0; i<nummodels; i++) {                
-//         if (pdemodel[i]->disc.common.mpiRank==0 && pdemodel[i]->disc.common.saveResNorm==1)             
+//         if (pdemodel[i]->disc.common.mpiRank==0 && pdemodel[i]->disc.common.outputparams.saveResNorm==1)             
 //             out[i].close();                                
 //     }
 // 

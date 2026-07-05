@@ -1,0 +1,2 @@
+tests/app-baselines/**/*.bin filter=lfs diff=lfs merge=lfs -text
+tests/matlab-baselines/**/*.bin filter=lfs diff=lfs merge=lfs -text

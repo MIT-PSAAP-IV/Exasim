@@ -13,14 +13,14 @@
     - CPreconditioner::~CPreconditioner()
         Destructor: Frees memory allocated for the preconditioner.
 
-    - CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, CDiscretization& disc, Int backend)
+    - CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler<M, T, I>& assembler, CDiscretization& disc, Int backend)
         Computes the initial guess and sets up the preconditioner using reduced basis techniques.
         Involves matrix-vector multiplications and small matrix inversions.
 
     - CPreconditioner::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretization& disc, Int backend)
         Applies the preconditioner to the input vector x, storing the result in disc.res.Ru.
 
-    - CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, CDiscretization& disc, Int N, Int spatialScheme, Int backend)
+    - CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler<M, T, I>& assembler, CDiscretization& disc, Int N, Int spatialScheme, Int backend)
         Variant of the initial guess and preconditioner computation supporting different spatial schemes.
 
     - ApplyBlockILU0(double* x, double* A, double* b, double *B, double *C, commonstruct& common)
@@ -57,7 +57,8 @@
 
 
 // constructor
-CPreconditioner::CPreconditioner(CDiscretization& disc, Int backend, ExasimExecutionMode mode)
+template <class M, class T, class I>
+CPreconditioner<M, T, I>::CPreconditioner(CDiscretization& disc, Int backend, ExasimExecutionMode mode)
 {
     mpiRank = disc.common.mpiRank;
     precond.backend = backend;
@@ -67,18 +68,20 @@ CPreconditioner::CPreconditioner(CDiscretization& disc, Int backend, ExasimExecu
     }
 
     setprecondstruct(precond, disc, backend);    
-    if ((disc.common.mpiRank==0) && (disc.common.debugMode==1)) precond.printinfo();
+    if ((disc.common.mpiRank==0) && (disc.common.outputparams.debugMode==1)) precond.printinfo();
     if (disc.common.mpiRank == 0) printf("finish CPreconditioner constructor... \n");    
 }
 
 // destructor
-CPreconditioner::~CPreconditioner()
+template <class M, class T, class I>
+CPreconditioner<M, T, I>::~CPreconditioner()
 {            
     precond.freememory(precond.backend);
     if (mpiRank==0) printf("CPreconditioner destructor: precond memory is freed successfully.\n");
 }
 
-void CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, CDiscretization& disc, Int backend)
+template <class M, class T, class I>
+void CPreconditioner<M, T, I>::ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler<M, T, I>& assembler, CDiscretization& disc, Int backend)
 {       
     // P = B + V*W^T  
     // P*W = B*W + V*W^T*W = A*W -> V = (A-B)*W
@@ -87,8 +90,8 @@ void CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, CDisc
     // U = invB*V = C*V = C*(A-B)*W = C*A*W - W = Q - W, with Q = C*A*W
     // H = I + W^T*U = I + W^T C*V = I + W^T C*(A-B)*W = I + W^T invB*(A-B)*W = W^T*C*A*W = W^T*Q
     
-    Int N = disc.common.ndof1;
-    Int RBdim = disc.common.RBcurrentdim;
+    Int N = disc.common.sizes.ndof1;
+    Int RBdim = state.RBcurrentdim;
     dstype *RBcoef = &disc.tmp.tempn[0];
     dstype *RBcoef_tmp = &disc.tmp.tempn[RBdim];
     dstype *H = &disc.tmp.tempg[0];
@@ -96,11 +99,11 @@ void CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, CDisc
     
     // compute V = J(u)*W        
     //Int i = RBdim-1;
-    int i = disc.common.RBremovedind - 1;
-    if (disc.common.RBremovedind==0) i = RBdim-1;
-    disc.evalMatVec(&precond.U[i*N], &precond.W[i*N], sys.u, sys.b, backend);
+    int i = state.RBremovedind - 1;
+    if (state.RBremovedind==0) i = RBdim-1;
+    assembler.evalMatVec(&precond.U[i*N], &precond.W[i*N], sys.u, sys.b, backend);
     
-    //disc.evalMatVec(view_1d Jv, view_1d v, view_1d u, view_1d Ru, Int backend);
+    //assembler.evalMatVec(view_1d Jv, view_1d v, view_1d u, view_1d Ru, Int backend);
     
     /* RBcoef_tmp = V^T b */
     PGEMTV(disc.common.cublasHandle, N, RBdim, &one, precond.U, N, sys.b, inc1, 
@@ -129,26 +132,28 @@ void CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, CDisc
             inc1, &zero, sys.x, inc1, backend);                                                 
 }
 
-void CPreconditioner::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretization& disc, Int backend)
+template <class M, class T, class I>
+void CPreconditioner<M, T, I>::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretization& disc, Int backend)
 {        
-    Int N = disc.common.ndof1;        
+    Int N = disc.common.sizes.ndof1;        
 
     ArrayCopy(disc.common.cublasHandle, disc.res.Ru, x, N, backend);
-    if ((disc.common.spatialScheme == 0) && (disc.common.preconditioner == 1) && (disc.res.K != nullptr)) {
-        Int n = disc.common.npe*disc.common.ncu;
-        Int ne = disc.common.ne1;
+    if ((disc.common.spatialScheme == 0) && (disc.common.solverparams.preconditioner == 1) && (disc.res.K != nullptr)) {
+        Int n = disc.common.grid.npe*disc.common.components.ncu;
+        Int ne = disc.common.meshsizes.ne1;
         PGEMNMStridedBached(disc.common.cublasHandle, n, 1, n, one,
                 disc.res.K, n, disc.res.Ru, n, zero, x, n, ne, backend);
     }
     else 
         ApplyMatrix(disc.common.cublasHandle, x, disc.res.Minv, disc.res.Ru,
-            disc.common.npe, disc.common.ncu, disc.common.ne1,
-            disc.common.preconditioner, disc.common.curvedMesh, backend);
+            disc.common.grid.npe, disc.common.components.ncu, disc.common.meshsizes.ne1,
+            disc.common.solverparams.preconditioner, disc.common.grid.curvedMesh, backend);
 }
 
-void CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, CDiscretization& disc, Int N, Int spatialScheme, Int backend)
+template <class M, class T, class I>
+void CPreconditioner<M, T, I>::ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler<M, T, I>& assembler, CDiscretization& disc, Int N, Int spatialScheme, Int backend)
 {     
-    Int RBdim = disc.common.RBcurrentdim;
+    Int RBdim = state.RBcurrentdim;
     dstype *RBcoef = &disc.tmp.tempn[0];
     dstype *RBcoef_tmp = &disc.tmp.tempn[RBdim];
     dstype *H = &disc.tmp.tempg[0];
@@ -156,11 +161,11 @@ void CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, CDisc
     
     // compute V = J(u)*W        
     //Int i = RBdim-1;
-    int i = disc.common.RBremovedind - 1;
-    if (disc.common.RBremovedind==0) i = RBdim-1;
-    disc.evalMatVec(&precond.U[i*N], &precond.W[i*N], sys.u, sys.b, spatialScheme, backend);
+    int i = state.RBremovedind - 1;
+    if (state.RBremovedind==0) i = RBdim-1;
+    assembler.evalMatVec(&precond.U[i*N], &precond.W[i*N], sys.u, sys.b, spatialScheme, backend);
     
-    //disc.evalMatVec(view_1d Jv, view_1d v, view_1d u, view_1d Ru, Int backend);
+    //assembler.evalMatVec(view_1d Jv, view_1d v, view_1d u, view_1d Ru, Int backend);
     
     /* RBcoef_tmp = V^T b */
     PGEMTV(disc.common.cublasHandle, N, RBdim, &one, precond.U, N, sys.b, inc1, 
@@ -192,9 +197,9 @@ void CPreconditioner::ComputeInitialGuessAndPreconditioner(sysstruct& sys, CDisc
 
 void ApplyBlockILU0(double* x, double* A, double* b, double *B, double *C, commonstruct& common) 
 {    
-    Int nfe = common.nfe; 
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int npf = common.npf; // number of nodes on master face           
+    Int nfe = common.meshsizes.nfe; 
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int npf = common.grid.npf; // number of nodes on master face           
     Int ncf = ncu*npf;    
     Int nse = common.nse;
     Int nfse = common.nfse;
@@ -205,33 +210,33 @@ void ApplyBlockILU0(double* x, double* A, double* b, double *B, double *C, commo
     // Forward solve: L*y = b (unit diagonal)
     for (int i = 0; i < nfse; ++i) {
 //         double *yi = &b[Q*i];
-//         int k = common.Lnum_ji[0 + i*2];
+//         int k = common.bjindex.Lnum_ji[0 + i*2];
 //         for (int l = 0; l < k; ++l) {
-//             int ptr = common.Lind_ji[l + 0*M + i*2*M];
-//             int j   = common.Lind_ji[l + 1*M + i*2*M];                
+//             int ptr = common.bjindex.Lind_ji[l + 0*M + i*2*M];
+//             int j   = common.bjindex.Lind_ji[l + 1*M + i*2*M];                
 //             PGEMNMStridedBached(common.cublasHandle, ncf, 1, ncf, minusone, &A[ptr*N], ncf, &b[Q*j], ncf, one, yi, ncf, nse, common.backend);         
 //         }
       
         double *yi = &b[Q*i];                        
-        int k = common.Lnum_ji[0 + i*2];
-        int flag_seq = common.Lnum_ji[1 + i*2];
+        int k = common.bjindex.Lnum_ji[0 + i*2];
+        int flag_seq = common.bjindex.Lnum_ji[1 + i*2];
         
         if (flag_seq == 1 && k > 1) {
                       
             for (int l = 0; l < k; ++l) {
-              int ji = common.Lind_ji[l + 1*M + i*2*M];
+              int ji = common.bjindex.Lind_ji[l + 1*M + i*2*M];
               ArrayCopy(&B[Q*l], &b[Q*ji], Q);
             }                        
             
-            int p1 = common.Lind_ji[0 + 0*M + i*2*M];
+            int p1 = common.bjindex.Lind_ji[0 + 0*M + i*2*M];
             PGEMNMStridedBached(common.cublasHandle, ncf, 1, ncf, one, &A[N*p1], ncf, B, ncf, zero, C, ncf, nse*k, common.backend);         
             
             SubtractColumns(yi, C, Q, k);                        
         } else {          
             // Non-sequential: direct pointer access to y(:,:,j)
             for (int l = 0; l < k; ++l) {
-                int ptr = common.Lind_ji[l + 0*M + i*2*M];
-                int j   = common.Lind_ji[l + 1*M + i*2*M];                
+                int ptr = common.bjindex.Lind_ji[l + 0*M + i*2*M];
+                int j   = common.bjindex.Lind_ji[l + 1*M + i*2*M];                
                 PGEMNMStridedBached(common.cublasHandle, ncf, 1, ncf, minusone, &A[ptr*N], ncf, &b[Q*j], ncf, one, yi, ncf, nse, common.backend);         
             }
         }
@@ -240,35 +245,35 @@ void ApplyBlockILU0(double* x, double* A, double* b, double *B, double *C, commo
     // Backward solve: U*x = y
     for (int i = nfse-1; i >= 0; --i) {
 //         double *yi = &b[Q*i];
-//         int k = common.Unum_ji[0 + i*3];
-//         int rstart = common.Unum_ji[1 + i*3];
+//         int k = common.bjindex.Unum_ji[0 + i*3];
+//         int rstart = common.bjindex.Unum_ji[1 + i*3];
 //         for (int l = 0; l < k; ++l) {
-//             int ptr = common.Uind_ji[l + 0*M + i*2*M];
-//             int j   = common.Uind_ji[l + 1*M + i*2*M];                                
+//             int ptr = common.bjindex.Uind_ji[l + 0*M + i*2*M];
+//             int j   = common.bjindex.Uind_ji[l + 1*M + i*2*M];                                
 //             PGEMNMStridedBached(common.cublasHandle, ncf, 1, ncf, minusone, &A[ptr*N], ncf, &x[Q*j], ncf, one, yi, ncf, nse, common.backend);         
 //         }
       
         double *yi = &b[Q*i];
-        int k = common.Unum_ji[0 + i*3];
-        int rstart = common.Unum_ji[1 + i*3];
-        int flag_seq = common.Unum_ji[2 + i*3];
+        int k = common.bjindex.Unum_ji[0 + i*3];
+        int rstart = common.bjindex.Unum_ji[1 + i*3];
+        int flag_seq = common.bjindex.Unum_ji[2 + i*3];
 
         if (flag_seq == 1 && k > 1) {
                         
             for (int l = 0; l < k; ++l) {
-              int ji = common.Uind_ji[l + 1*M + i*2*M];
+              int ji = common.bjindex.Uind_ji[l + 1*M + i*2*M];
               ArrayCopy(&B[Q*l], &x[Q*ji], Q);
             }                        
             
-            int p1 = common.Uind_ji[0 + 0*M + i*2*M];
+            int p1 = common.bjindex.Uind_ji[0 + 0*M + i*2*M];
             PGEMNMStridedBached(common.cublasHandle, ncf, 1, ncf, one, &A[N*p1], ncf, B, ncf, zero, C, ncf, nse*k, common.backend);         
             
             SubtractColumns(yi, C, Q, k);                  
         } else {
             // Non-sequential: direct pointer access to x(:,:,j)
             for (int l = 0; l < k; ++l) {
-                int ptr = common.Uind_ji[l + 0*M + i*2*M];
-                int j   = common.Uind_ji[l + 1*M + i*2*M];                                
+                int ptr = common.bjindex.Uind_ji[l + 0*M + i*2*M];
+                int j   = common.bjindex.Uind_ji[l + 1*M + i*2*M];                                
                 PGEMNMStridedBached(common.cublasHandle, ncf, 1, ncf, minusone, &A[ptr*N], ncf, &x[Q*j], ncf, one, yi, ncf, nse, common.backend);         
             }
         }
@@ -278,19 +283,20 @@ void ApplyBlockILU0(double* x, double* A, double* b, double *B, double *C, commo
     }
 }
 
-void CPreconditioner::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretization& disc, Int spatialScheme, Int backend)
+template <class M, class T, class I>
+void CPreconditioner<M, T, I>::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretization& disc, Int spatialScheme, Int backend)
 {                
     if (spatialScheme==0) {
-      Int N = disc.common.ndof1;        
+      Int N = disc.common.sizes.ndof1;        
       ArrayCopy(disc.common.cublasHandle, disc.res.Ru, x, N, backend);
-      ApplyMatrix(disc.common.cublasHandle, x, disc.res.Minv, disc.res.Ru, disc.common.npe, disc.common.ncu, 
-          disc.common.ne1, disc.common.precMatrixType, disc.common.curvedMesh, backend);                
+      ApplyMatrix(disc.common.cublasHandle, x, disc.res.Minv, disc.res.Ru, disc.common.grid.npe, disc.common.components.ncu, 
+          disc.common.meshsizes.ne1, disc.common.solverparams.precMatrixType, disc.common.grid.curvedMesh, backend);                
     }
     else if (spatialScheme==1) {      
-      if (disc.common.preconditioner==0) { // Block Jacobi preconditioner
-        Int nf = disc.common.nf; // number of faces in this subdomain
-        Int ncu = disc.common.ncu;// number of compoments of (u)
-        Int npf = disc.common.npf; // number of nodes on master face           
+      if (disc.common.solverparams.preconditioner==0) { // Block Jacobi preconditioner
+        Int nf = disc.common.meshsizes.nf; // number of faces in this subdomain
+        Int ncu = disc.common.components.ncu;// number of compoments of (u)
+        Int npf = disc.common.grid.npf; // number of nodes on master face           
         Int ncf = ncu*npf;  
 
         ArrayCopy(disc.common.cublasHandle, disc.res.Rh, x, ncf*nf, backend);
@@ -298,13 +304,13 @@ void CPreconditioner::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretiza
         // (ncf)  * (ncf) * nf x (ncf) * nf -> (ncf) * nf
         PGEMNMStridedBached(disc.common.cublasHandle, ncf, 1, ncf, one, disc.res.K, ncf, disc.res.Rh, ncf, zero, x, ncf, nf, backend);         
       }
-      else if (disc.common.preconditioner==1) { // Elemental additive Schwarz preconditioner        
+      else if (disc.common.solverparams.preconditioner==1) { // Elemental additive Schwarz preconditioner        
         hdgMatVec(x, disc.res.K, x, disc.res.Rh, disc.res.Rq, disc.res, disc.app, disc.mesh, disc.common, disc.tmp, disc.common.cublasHandle, backend);
       }
-      else if (disc.common.preconditioner==2) { // super-element additive Schwarz preconditioner with BLIU0
-        Int nf = disc.common.nf; // number of faces in this subdomain
-        Int ncu = disc.common.ncu;// number of compoments of (u)
-        Int npf = disc.common.npf; // number of nodes on master face           
+      else if (disc.common.solverparams.preconditioner==2) { // super-element additive Schwarz preconditioner with BLIU0
+        Int nf = disc.common.meshsizes.nf; // number of faces in this subdomain
+        Int ncu = disc.common.components.ncu;// number of compoments of (u)
+        Int npf = disc.common.grid.npf; // number of nodes on master face           
         Int ncf = ncu*npf;          
         Int nse = disc.common.nse;
         Int nfse = disc.common.nfse;
@@ -332,4 +338,42 @@ void CPreconditioner::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretiza
     }
 }
 
-#endif        
+// Re-homed from CDiscretization (C4): the LDG block-Jacobi preconditioner matrix is computed
+// from the discretization's structs but is a preconditioner responsibility. BlockJacobianLDG /
+// mpiBlockJacobianLDG are visible here via the unity build (discretization.cpp, which includes
+// ldgblockjacobian.cpp, precedes preconditioner.cpp in ExasimSolver.cpp).
+template <class M, class T, class I>
+void CPreconditioner<M, T, I>::ComputeLDGPreconditioner(CDiscretization& disc, dstype* K, dstype* u, Int backend)
+{
+#ifdef HAVE_MPI
+    if (disc.common.mpiProcs > 1) {
+        mpiBlockJacobianLDG(K, u, disc.sol, disc.res, disc.app, disc.driver_abi, disc.master, disc.mesh, disc.tmp,
+                disc.common, disc.common.cublasHandle, backend);
+        return;
+    }
+#endif
+    BlockJacobianLDG(K, u, disc.sol, disc.res, disc.app, disc.driver_abi, disc.master, disc.mesh, disc.tmp, disc.common,
+            disc.common.cublasHandle, backend);
+}
+
+// Build the HDG preconditioner matrix K from the assembled global system H.
+// (Re-homed from CAssembler::hdgAssembleLinearSystem: assembly builds H, the preconditioner
+//  builds K from H -- two separate concerns. Called after the assembler, before GMRES.)
+template <class M, class T, class I>
+void CPreconditioner<M, T, I>::ComputeHDGPreconditioner(CDiscretization& disc, Int backend)
+{
+    auto& res = disc.res; auto& mesh = disc.mesh; auto& tmp = disc.tmp; auto& common = disc.common;
+
+    if (common.solverparams.preconditioner==0) {
+      // fix bug here: tmp.tempn is not enough memory to store ncu*npf*ncu*npf*nf
+      hdgBlockJacobi(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);
+    }
+    else if (common.solverparams.preconditioner==1) {
+      hdgElementalAdditiveSchwarz(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);
+    }
+    else if (common.solverparams.preconditioner==2) {
+      hdgBlockILU0(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);
+    }
+}
+
+#endif

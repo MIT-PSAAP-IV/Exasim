@@ -20,8 +20,10 @@ using dstype = float;
 using dstype = double;
 #endif
 
-inline constexpr std::uint32_t kExasimDriverABIVersion = 2;
+inline constexpr std::uint32_t kExasimDriverABIVersion = 2;  // v2: kernels grouped into per-concern sub-structs + model-owned ModelSizes
 
+// Model dimension constants carried by the model (PR #33): lets preprocessing obtain
+// ncu/ncv/ncw/nsca/nvec/nten/nsurf/nvqoi from the compiled model instead of pdeapp.txt.
 struct ModelSizes {
     int ncu  = 0;
     int nco  = 0;   // "other DG" == pdeapp.txt's ncv
@@ -128,10 +130,8 @@ struct ExasimDriverABI {
     std::uint32_t abi_version = 0;
     std::uint32_t struct_size = 0;
 
-    // Model dimension constants (set by the provider).  These let the
-    // preprocessing layer obtain ncu / ncv / ncw / nsca / nvec / nten /
-    // nsurf / nvqoi from the compiled model instead of requiring them
-    // in pdeapp.txt.  0 means "not specified / use default".
+    // Model dimension constants (PR #33): model-owned sizes, read by preprocessing
+    // instead of pdeapp.txt. 0 = not specified / use default.
     int ncu  = 0;
     int nco  = 0;   // "other DG" == pdeapp.txt's ncv
     int ncw  = 0;
@@ -141,59 +141,73 @@ struct ExasimDriverABI {
     int nsurf = 0;
     int nvqoi = 0;
 
-    KokkosElementFn KokkosFlux = nullptr;
-    KokkosElementFn KokkosSource = nullptr;
-    KokkosGlobalElementFn KokkosSourcew = nullptr;
-    KokkosElementFn KokkosTdfunc = nullptr;
-    KokkosGlobalElementFn KokkosAvfield = nullptr;
-    KokkosGlobalElementFn KokkosEoS = nullptr;
-    KokkosGlobalElementFn KokkosEoSdu = nullptr;
-    KokkosGlobalElementFn KokkosEoSdw = nullptr;
-    KokkosBoundaryFn KokkosFbou = nullptr;
-    KokkosBoundaryFn KokkosUbou = nullptr;
-    KokkosBoundaryJacFn KokkosFbouJac = nullptr;
-    KokkosBoundaryJacFn KokkosUbouJac = nullptr;
-    KokkosFaceCoupledFn KokkosFhat = nullptr;
-    KokkosFaceCoupledFn KokkosUhat = nullptr;
-    KokkosFaceCoupledFn KokkosStab = nullptr;
-    KokkosGlobalElementFn KokkosOutput = nullptr;
-    KokkosGlobalElementFn KokkosMonitor = nullptr;
-    KokkosElementFn KokkosVisScalars = nullptr;
-    KokkosElementFn KokkosVisVectors = nullptr;
-    KokkosElementFn KokkosVisTensors = nullptr;
-    KokkosElementFn KokkosQoIvolume = nullptr;
-    KokkosBoundaryFn KokkosQoIboundary = nullptr;
-
-    KokkosInitFn KokkosInitu = nullptr;
-    KokkosInitFn KokkosInitq = nullptr;
-    KokkosInitFn KokkosInitudg = nullptr;
-    KokkosInitFn KokkosInitwdg = nullptr;
-    KokkosInitFn KokkosInitodg = nullptr;
-    CpuInitFn cpuInitu = nullptr;
-    CpuInitFn cpuInitq = nullptr;
-    CpuInitFn cpuInitudg = nullptr;
-    CpuInitFn cpuInitwdg = nullptr;
-    CpuInitFn cpuInitodg = nullptr;
-
-    HdgElementJacFn HdgFlux = nullptr;
-    HdgElementJacFn HdgSource = nullptr;
-    HdgElementJacFn HdgSourcew = nullptr;
-    HdgSourcewOnlyFn HdgSourcewonly = nullptr;
-    HdgElementJacFn HdgEoS = nullptr;
-    HdgBoundaryJacFn HdgFbou = nullptr;
-    HdgBoundaryStateFn HdgFbouonly = nullptr;
-    HdgBoundaryJacFn HdgFint = nullptr;
-    HdgBoundaryStateFn HdgFintonly = nullptr;
-    HdgBoundaryExternalJacFn HdgFext = nullptr;
-    HdgBoundaryExternalStateFn HdgFextonly = nullptr;
-
-    // Optional per-model size query (v2 extension).  If non-null, the
-    // solver calls this with the builtinmodelID to obtain compile-time
-    // model dimension constants instead of requiring them in pdeapp.txt.
-    // Providers that return a model-agnostic ABI (e.g. BuiltInLibrary)
-    // use this to dispatch to model-specific sizes; per-model providers
-    // (e.g. KokkosKernel) can leave this null since they set ncu/nco/...
-    // directly.
+    // The model's kernel dispatch table, grouped by concern to mirror the compile-time model
+    // decomposition (the ModelDefaults mixins / is_*_model_v traits). Each sub-struct is a
+    // self-contained, COPYABLE unit: a consumer can compose a model from sub-parts of different
+    // providers (e.g. one model's `volume` physics with another's `boundary`), as long as the
+    // parts share the same dimensional contract (nc/ncu/nd, which come from app.bin). (ABI v2.)
+    struct VolumeDriverABI {        // flux/source/sourcew/tdfunc/avfield (the volume terms)
+        KokkosElementFn       KokkosFlux    = nullptr;
+        KokkosElementFn       KokkosSource  = nullptr;
+        KokkosGlobalElementFn KokkosSourcew = nullptr;
+        KokkosElementFn       KokkosTdfunc  = nullptr;
+        KokkosGlobalElementFn KokkosAvfield = nullptr;
+    } volume;
+    struct EoSDriverABI {           // equation of state
+        KokkosGlobalElementFn KokkosEoS   = nullptr;
+        KokkosGlobalElementFn KokkosEoSdu = nullptr;
+        KokkosGlobalElementFn KokkosEoSdw = nullptr;
+    } eos;
+    struct BoundaryDriverABI {      // boundary terms + LDG jacobians
+        KokkosBoundaryFn    KokkosFbou    = nullptr;
+        KokkosBoundaryFn    KokkosUbou    = nullptr;
+        KokkosBoundaryJacFn KokkosFbouJac = nullptr;
+        KokkosBoundaryJacFn KokkosUbouJac = nullptr;
+    } boundary;
+    struct InterfaceDriverABI {     // fhat/uhat/stab
+        KokkosFaceCoupledFn KokkosFhat = nullptr;
+        KokkosFaceCoupledFn KokkosUhat = nullptr;
+        KokkosFaceCoupledFn KokkosStab = nullptr;
+    } iface;
+    struct OutputDriverABI {        // output/monitor + visualization
+        KokkosGlobalElementFn KokkosOutput     = nullptr;
+        KokkosGlobalElementFn KokkosMonitor    = nullptr;
+        KokkosElementFn       KokkosVisScalars = nullptr;
+        KokkosElementFn       KokkosVisVectors = nullptr;
+        KokkosElementFn       KokkosVisTensors = nullptr;
+    } output;
+    struct QoIDriverABI {           // quantities of interest
+        KokkosElementFn  KokkosQoIvolume   = nullptr;
+        KokkosBoundaryFn KokkosQoIboundary = nullptr;
+    } qoi;
+    struct InitDriverABI {          // initial conditions (device + host)
+        KokkosInitFn KokkosInitu   = nullptr;
+        KokkosInitFn KokkosInitq   = nullptr;
+        KokkosInitFn KokkosInitudg = nullptr;
+        KokkosInitFn KokkosInitwdg = nullptr;
+        KokkosInitFn KokkosInitodg = nullptr;
+        CpuInitFn    cpuInitu      = nullptr;
+        CpuInitFn    cpuInitq      = nullptr;
+        CpuInitFn    cpuInitudg    = nullptr;
+        CpuInitFn    cpuInitwdg    = nullptr;
+        CpuInitFn    cpuInitodg    = nullptr;
+    } init;
+    struct HdgJacDriverABI {        // HDG pointwise jacobians
+        HdgElementJacFn            HdgFlux        = nullptr;
+        HdgElementJacFn            HdgSource      = nullptr;
+        HdgElementJacFn            HdgSourcew     = nullptr;
+        HdgSourcewOnlyFn           HdgSourcewonly = nullptr;
+        HdgElementJacFn            HdgEoS         = nullptr;
+        HdgBoundaryJacFn           HdgFbou        = nullptr;
+        HdgBoundaryStateFn         HdgFbouonly    = nullptr;
+        HdgBoundaryJacFn           HdgFint        = nullptr;
+        HdgBoundaryStateFn         HdgFintonly    = nullptr;
+        HdgBoundaryExternalJacFn   HdgFext        = nullptr;
+        HdgBoundaryExternalStateFn HdgFextonly    = nullptr;
+    } hdgjac;
+    // Optional per-model size query (PR #33): if non-null the solver calls this with the
+    // builtinmodelID to get model dimension constants instead of pdeapp.txt (per-model
+    // providers set ncu/nco/... directly and leave this null).
     ModelSizes (*GetModelSizes)(int modelnumber) = nullptr;
 };
 

@@ -40,15 +40,19 @@
 #ifndef __CPUIMPL_H__
 #define __CPUIMPL_H__
 
-void cpuArraySetValue(dstype *udg, dstype a, int N)
+template <class T = dstype>
+void cpuArraySetValue(T *udg, T a, int N)
 {
+    using dstype = T;
   for (int i=0; i<N; i++)
     udg[i] = a;
 }
 
-void cpuArrayInsert(dstype* u, const dstype* un, const int I, const int J, const int K, 
+template <class T = dstype>
+void cpuArrayInsert(T* u, const T* un, const int I, const int J, const int K, 
         const int i1, const int i2, const int j1, const int j2, const int k1, const int k2)
-{        
+{
+    using dstype = T;        
     int ni = i2-i1;
     int nj = j2-j1;
     int nk = k2-k1;    
@@ -65,8 +69,10 @@ void cpuArrayInsert(dstype* u, const dstype* un, const int I, const int J, const
 }
 
 
-dstype cpuArrayMin(dstype *a, int n)
+template <class T = dstype>
+T cpuArrayMin(T *a, int n)
 {
+    using dstype = T;
     dstype b = a[0];
     for (int i=1; i<n; i++)
         if (a[i]<b)
@@ -74,8 +80,10 @@ dstype cpuArrayMin(dstype *a, int n)
     return b;
 }
 
-dstype cpuArrayMax(dstype *a, int n)
+template <class T = dstype>
+T cpuArrayMax(T *a, int n)
 {
+    using dstype = T;
     dstype b = a[0];
     for (int i=1; i<n; i++)
         if (a[i]>b)
@@ -83,8 +91,10 @@ dstype cpuArrayMax(dstype *a, int n)
     return b;
 }
 
-void cpuElemGeom(dstype *Xx, dstype *jac, dstype *Jg, int ne, int ng, int nd)
-{        
+template <class T = dstype>
+void cpuElemGeom(T *Xx, T *jac, T *Jg, int ne, int ng, int nd)
+{
+    using dstype = T;        
     dstype *Jg11, *Jg12, *Jg13, *Jg21, *Jg22, *Jg23, *Jg31, *Jg32, *Jg33;
     dstype *Xx11, *Xx12, *Xx13, *Xx21, *Xx22, *Xx23, *Xx31, *Xx32, *Xx33;
     int ngv = ng*ne;
@@ -148,8 +158,10 @@ void cpuElemGeom(dstype *Xx, dstype *jac, dstype *Jg, int ne, int ng, int nd)
     }
 }
 
-void cpuGetElemNodes(dstype* unView, const dstype* uView, const int np, const int nc, const int nc1, const int nc2, const int e1, const int e2) 
+template <class T = dstype>
+void cpuGetElemNodes(T* unView, const T* uView, const int np, const int nc, const int nc1, const int nc2, const int e1, const int e2)
 {
+    using dstype = T;
     int nn = np * (e2 - e1);
     int ncu = nc2 - nc1;
     int N = nn * ncu;
@@ -164,8 +176,10 @@ void cpuGetElemNodes(dstype* unView, const dstype* uView, const int np, const in
     }
 }
 
-void cpuApplyGivensRotation(dstype *H, dstype *s, dstype *cs, dstype *sn,  int i)
-{        
+template <class T = dstype>
+void cpuApplyGivensRotation(T *H, T *s, T *cs, T *sn,  int i)
+{
+    using dstype = T;        
     dstype temp;    
     for (int k=0; k<i; k++) {
         temp       =  cs[k]*H[k] + sn[k]*H[k+1];
@@ -195,8 +209,10 @@ void cpuApplyGivensRotation(dstype *H, dstype *s, dstype *cs, dstype *sn,  int i
     H[i+1] = 0.0;
 }
 
-void cpuBackSolve(dstype *y, dstype *H, dstype *s, int i, int n)
+template <class T = dstype>
+void cpuBackSolve(T *y, T *H, T *s, int i, int n)
 {
+    using dstype = T;
     for (int j=i; j>=0; j--)
         y[j] = s[j];    
     

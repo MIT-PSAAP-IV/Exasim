@@ -45,20 +45,21 @@
 #ifndef __UEQUATION
 #define __UEQUATION
 
-template <class M>
-inline void uEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int jth, Int backend)
-{        
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int ncq = common.ncq;// number of compoments of (q)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg) 
-    Int ncs = common.ncs;// number of compoments of (sdg) 
-    Int ncw = common.ncw;// number of compoments of (wdg) 
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int nge = common.nge; // number of gauss points on master element        
+template <class M, class T=dstype, class I=Int>
+inline void uEquationElemBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int jth, Int backend)
+{
+    using dstype=T;        
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int ncq = common.components.ncq;// number of compoments of (q)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg) 
+    Int ncs = common.components.ncs;// number of compoments of (sdg) 
+    Int ncw = common.components.ncw;// number of compoments of (wdg) 
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int nge = common.grid.nge; // number of gauss points on master element        
 
     Int e1 = common.eblks[3*jth]-1;
     Int e2 = common.eblks[3*jth+1];            
@@ -106,7 +107,7 @@ inline void uEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, m
     //GetArrayAtIndex(tmp.tempn, sol.udg, &mesh.eindudg1[npe*nc*e1], nn*nc); // npe x ne x nc
     Node2Gauss(handle, uqg, tmp.tempn, master.shapegt, nge, npe, ne*nc, backend);    
     
-    if ((ncw>0) & (common.wave==0)) {
+    if ((ncw>0) & (common.timeparams.wave==0)) {
         GetElemNodes(tmp.tempn, sol.wdg, npe, ncw, 0, ncw, e1, e2);    
         Node2Gauss(handle, wg, tmp.tempn, master.shapegt, nge, npe, ne*ncw, backend);        
 
@@ -124,14 +125,14 @@ inline void uEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, m
     // calculate the source term Source(xdg, udg, odg, wdg)
     ArraySetValue(sg, 0.0, nga*ncu);
     ArraySetValue(sg_uq, 0.0, nga*ncu*nc);
-    if ((ncw>0) & (common.wave==0)) ArraySetValue(sg_w, 0.0, nga*ncu*ncw);
+    if ((ncw>0) & (common.timeparams.wave==0)) ArraySetValue(sg_w, 0.0, nga*ncu*ncw);
     EXASIM_DRIVER_CALL(SourceDriver, sg, sg_uq, sg_w, xg, uqg, og, wg, mesh, master, app, sol, tmp, common, nge, e1, e2, backend);                 
     
-    if (common.tdep) { // for time-dependent problem                
+    if (common.timeparams.tdep) { // for time-dependent problem                
         // calculate sdg - udg*dtfactor
-        ArrayAXPBY(fg, &sol.sdgg[nge*ncs*e1], uqg, one, -common.dtfactor, nga*ncu);                    
+        ArrayAXPBY(fg, &sol.sdgg[nge*ncs*e1], uqg, one, -common.timestate.dtfactor, nga*ncu);                    
       
-        if (common.tdfunc==1) {
+        if (common.timeparams.tdfunc==1) {
             // calculate the time derivative function Tdfunc(xdg, udg, odg)
             EXASIM_DRIVER_CALL(TdfuncDriver, fg_uq, xg, uqg, og, wg, mesh, master, app, sol, tmp, common, nge, e1, e2, backend);            
         }
@@ -145,22 +146,22 @@ inline void uEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, m
         ArrayAXPBY(sg, sg, fg, one, one, nga*ncu);     
         
         // calculate sg_u = source_u  - dtfactor*Tdfunc(xdg, udg, odg) 
-        ApplyDtcoef(sg_uq, fg_uq, -common.dtfactor, nga, ncu);                
+        ApplyDtcoef(sg_uq, fg_uq, -common.timestate.dtfactor, nga, ncu);                
         
 //         // calculate sg = source + (sdgg - udg*dtfactor)*Tdfunc(xdg, udg, odg) 
-//         ArrayAdd3Vectors(sg, sg, &sol.sdgg[nge*ncs*e1], uqg, one, one, -common.dtfactor, nga*ncu);        
+//         ArrayAdd3Vectors(sg, sg, &sol.sdgg[nge*ncs*e1], uqg, one, one, -common.timestate.dtfactor, nga*ncu);        
 //         
 //         // calculate sg_u = source_u  - dtfactor*Tdfunc(xdg, udg, odg) 
-//         ApplyDtcoef(sg_uq, -common.dtfactor, nga, ncu);                
+//         ApplyDtcoef(sg_uq, -common.timestate.dtfactor, nga, ncu);                
     }
                 
     // fg = nga*ncu*nd, sg = nga*ncu, fg_uq = nga*ncu*nd*nc, sg_uq = nga*ncu*nc
     ArraySetValue(fg, 0.0, nga*ncu*nd);
     ArraySetValue(fg_uq, 0.0, nga*ncu*nd*nc);
-    if ((ncw>0) & (common.wave==0)) ArraySetValue(fg_w, 0.0, nga*ncu*nd*ncw); 
+    if ((ncw>0) & (common.timeparams.wave==0)) ArraySetValue(fg_w, 0.0, nga*ncu*nd*ncw); 
     EXASIM_DRIVER_CALL(FluxDriver, fg, fg_uq, fg_w, xg, uqg, og, wg, mesh, master, app, sol, tmp, common, nge, e1, e2, backend);    
     
-    if ((ncw>0) & (common.wave==0)) {
+    if ((ncw>0) & (common.timeparams.wave==0)) {
         // sg_uq = sg_uq + sg_w * wg_uq -> ng * ncu * nc = ng * ncu * nc + (ng * ncu * ncw) * (ng * ncw * nc)
         ArrayGemmBatch2(sg_uq, sg_w, wg_uq, 1.0, ncu, nc, ncw, nga);
         // fg_uq = fg_uq + fg_w * wg_uq -> ng * ncu*nd * nc = ng * ncu*nd * nc + (ng * ncu*nd * ncw) * (ng * ncw * nc)
@@ -183,7 +184,7 @@ inline void uEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, m
       ArrayMultiplyScalar(res.B, minusone, npe * npe * ne * ncu * ncq );         
     }    
 
-    if (common.debugMode==1) {      
+    if (common.outputparams.debugMode==1) {      
       std::string filename;
       if (common.mpiProcs==1)
         filename = common.fileout;
@@ -206,21 +207,22 @@ inline void uEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, m
     } 
 }
 
-template <class M>
-inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int jth, Int backend)
-{            
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int ncq = common.ncq;// number of compoments of (q)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
-    Int ncw = common.ncw;
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int npf = common.npf; // number of nodes on master face           
-    Int ngf = common.ngf; // number of gauss poInts on master face              
-    Int nfe = common.nfe; // number of faces in each element
+template <class M, class T=dstype, class I=Int>
+inline void uEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int jth, Int backend)
+{
+    using dstype=T;            
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int ncq = common.components.ncq;// number of compoments of (q)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
+    Int ncw = common.components.ncw;
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int npf = common.grid.npf; // number of nodes on master face           
+    Int ngf = common.grid.ngf; // number of gauss poInts on master face              
+    Int nfe = common.meshsizes.nfe; // number of faces in each element
 
     Int e1 = common.eblks[3*jth]-1;
     Int e2 = common.eblks[3*jth+1];            
@@ -263,14 +265,14 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
 
     if (nco>0) GetElementFaceNodes(&tmp.tempn[nn*(ncu+nc)], sol.odg, mesh.perm, npf*nfe, nco, npe, nco, e1, e2);      
 
-    if ((ncw>0) & (common.wave==0)) {
+    if ((ncw>0) & (common.timeparams.wave==0)) {
       GetElementFaceNodes(&tmp.tempn[nn*(ncu+nc+nco)], sol.wsrc, mesh.perm, npf*nfe, ncw, npe, ncw, e1, e2); 
       GetElementFaceNodes(&tmp.tempn[nn*(ncu+nc+nco+ncw)], sol.wdg, mesh.perm, npf*nfe, ncw, npe, ncw, e1, e2); // fix bug here
     }
     
     Node2Gauss(handle, tmp.tempg, tmp.tempn, master.shapfgt, ngf, npf, nfe*ne*(ncu+nc+nco+ncw+ncw), backend); // fix bug here
         
-    if ((ncw>0) & (common.wave==0)) {
+    if ((ncw>0) & (common.timeparams.wave==0)) {
         // copy udg to tmp.tempn
         ArrayCopy(tmp.tempn, udg, nga*nc);
         
@@ -296,14 +298,14 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
     EXASIM_DRIVER_CALL(FhatDriver, fh, fh_uq, fh_w, fh_uh, xg, udg, odg, wdg, uhg, nlg, 
         mesh, master, app, sol, tmp, common, nga, backend);      
         
-    if ((ncw>0) & (common.wave==0)) {
+    if ((ncw>0) & (common.timeparams.wave==0)) {
       ArrayGemmBatch2(fh_uh, fh_w, wdg_uq, one, ncu, ncu, ncw, nga); // fix bug here       
       
       ArraySetValue(wdg_uq, 0.0, nga*ncu*ncu);
       ArrayGemmBatch2(fh_uq, fh_w, wdg_uq, one, ncu, nc, ncw, nga); // fix bug here       
     }
     
-//     if (common.debugMode==1) {    
+//     if (common.outputparams.debugMode==1) {    
 //       writearray2file(common.fileout + "uEquationElemFace_fh.bin", fh, nga*ncu, backend);
 //       writearray2file(common.fileout + "uEquationElemFace_fh_udg.bin", fh_uq, nga*ncu, backend);
 //     }
@@ -321,7 +323,7 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
     // npf*nfe*ne*ncu
     Gauss2Node(handle, Rutmp, fh, master.shapfgw, ngf, npf, nf*ncu, backend);                
 
-    // if (common.debugMode==1) {    
+    // if (common.outputparams.debugMode==1) {    
     //   writearray2file(common.fileout + "uEquationElemFace_Rutmp.bin", Rutmp, npf*nfe*ne*ncu, backend);
     // }
 
@@ -347,9 +349,9 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
     assembleMatrixF(&res.F[npe*npf*nfe*ncu*ncu*e1], Ftmp, mesh.perm, npe, npf, nfe, ne*ncu*ncu);
 
     // impose boundary conditions
-    for (int ibc=0; ibc<common.maxnbc; ibc++)
+    for (int ibc=0; ibc<common.meshsizes.maxnbc; ibc++)
     {
-      int n = ibc + common.maxnbc*jth;
+      int n = ibc + common.meshsizes.maxnbc*jth;
       int start = common.nboufaces[n];
       int nfaces = common.nboufaces[n + 1] - start;
       if (nfaces>0) {        
@@ -376,7 +378,7 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
         GetBoundaryNodes(uhb, uhg, &mesh.boufaces[start], ngf, nfe, ne, ncu, nfaces);
         GetBoundaryNodes(nlb, nlg, &mesh.boufaces[start], ngf, nfe, ne, nd, nfaces);
 
-        if ((ncw>0) & (common.wave==0)) {
+        if ((ncw>0) & (common.timeparams.wave==0)) {
           // copy (u, q) to res.K
           ArrayCopy(res.K, ugb, ngb*nc);
         
@@ -395,15 +397,15 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
         if (ncw > 0) ArraySetValue(fhb_w, 0.0, ngb*ncu*ncw);      
         if (ibc+1 == 1000) {
             StgInflowHDG(fhb, fhb_uq, fhb_w, fhb_uh, res.K, xgb, ogb, uhb, 
-                         app.physicsparam, app.stgdata, app.stgparam, common.time, 
-                         ngb, common.stgNmode, nd, ncu, nc, ncw);
+                         app.physicsparam, app.stgdata, app.stgparam, common.timestate.time, 
+                         ngb, common.stgparams.stgNmode, nd, ncu, nc, ncw);
         } else if (ibc+1 == 1001) {
             StgInFlowHDGchem(fhb, fhb_uq, fhb_w, fhb_uh, res.K, xgb, ogb, uhb,
-                             app.physicsparam, app.uinf, app.stgdata, app.stgparam, common.time,
-                             ngb, common.stgNmode, nd, ncu, nc, ncw);
+                             app.physicsparam, app.uinf, app.stgdata, app.stgparam, common.timestate.time,
+                             ngb, common.stgparams.stgNmode, nd, ncu, nc, ncw);
         } else {     
-          if (common.ncuext > 0 && sol.szuext > 0 && (ibc+1 == common.FextCall)) {
-            ArrayExtract(res.K, sol.uext, ngf, common.nextfaces[common.nbe1], common.ncuext, 0, ngf, common.nextfaces[jth], common.nextfaces[jth+1], 0, common.ncuext);  
+          if (common.couplingparams.ncuext > 0 && sol.szuext > 0 && (ibc+1 == common.couplingparams.FextCall)) {
+            ArrayExtract(res.K, sol.uext, ngf, common.nextfaces[common.meshsizes.nbe1], common.couplingparams.ncuext, 0, ngf, common.nextfaces[jth], common.nextfaces[jth+1], 0, common.couplingparams.ncuext);  
             EXASIM_DRIVER_CALL(FextDriver, fhb, fhb_uq, fhb_w, fhb_uh, xgb, ugb, ogb, wgb, uhb, nlb, res.K, 
                  mesh, master, app, sol, tmp, common, ngb, 1, backend);                       
           }          
@@ -412,7 +414,7 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
                  mesh, master, app, sol, tmp, common, ngb, ibc+1, backend);    
         }
 
-        if ((ncw>0) & (common.wave==0)) {      
+        if ((ncw>0) & (common.timeparams.wave==0)) {      
           // void ArrayGemmBatch2(dstype* C, const dstype* A, const dstype* B, dstype alpha, const int I, const int J, const int K, const int S)
           // C[S*I*J] = A[S*I*K] x B[S*K*J] + C[S*I*J]
           ArrayGemmBatch2(fhb_uh, fhb_w, wgb_uq, one, ncu, ncu, ncw, ngb);  // fix bug here             
@@ -462,15 +464,15 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
     assembleMatrixH(&res.H[npf*nfe*npf*nfe*ncu*ncu*e1], Ftmp, mesh.perm, npe, npf, nfe, ne*ncu*ncu);
 
     // impose interface conditions
-    for (int ibc=0; ibc<common.maxnbc; ibc++)
+    for (int ibc=0; ibc<common.meshsizes.maxnbc; ibc++)
     {
-      int n = ibc + common.maxnbc*jth;
+      int n = ibc + common.meshsizes.maxnbc*jth;
       int start = common.nboufaces[n];
       int nfaces = common.nboufaces[n + 1] - start;
-      if ((nfaces>0) && (common.eblks[3*jth+2]==-1) && (common.coupledboundarycondition == ibc+1) && (common.coupledcondition>0)) {        
+      if ((nfaces>0) && (common.eblks[3*jth+2]==-1) && (common.couplingparams.coupledboundarycondition == ibc+1) && (common.couplingparams.coupledcondition>0)) {        
         int ncu12 = common.szinterfacefluxmap;
         
-        //printf("%d %d %d %d %d %d %d %d %d %d %d\n", common.mpiRank, common.eblks[3*jth], common.eblks[3*jth+1], common.eblks[3*jth+2], ibc, common.coupledinterface, common.coupledcondition, common.coupledboundarycondition, common.ncie, ne, ncu12);
+        //printf("%d %d %d %d %d %d %d %d %d %d %d\n", common.mpiRank, common.eblks[3*jth], common.eblks[3*jth+1], common.eblks[3*jth+2], ibc, common.couplingparams.coupledinterface, common.couplingparams.coupledcondition, common.couplingparams.coupledboundarycondition, common.couplingparams.ncie, ne, ncu12);
                         
         int ngb = nfaces*ngf;
         dstype *xgb = &tmp.tempg[n8];
@@ -496,7 +498,7 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
 
         // transfer summit's boundary data to ogb  
 
-        if ((ncw>0) & (common.wave==0)) {
+        if ((ncw>0) & (common.timeparams.wave==0)) {
           dstype *temp1 =  &tmp.tempn[0];
           dstype *temp2 =  &tmp.tempn[ngb*nc];
           
@@ -515,9 +517,9 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
         ArraySetValue(fhb_uh, 0.0, ngb*ncu12*ncu);
         if (ncw > 0) ArraySetValue(fhb_w, 0.0, ngb*ncu12*ncw);        
         EXASIM_DRIVER_CALL(FintDriver, fhb, fhb_uq, fhb_w, fhb_uh, xgb, ugb, ogb, wgb, uhb, nlb, 
-             mesh, master, app, sol, tmp, common, ngb, common.coupledcondition, backend);    
+             mesh, master, app, sol, tmp, common, ngb, common.couplingparams.coupledcondition, backend);    
                         
-        if ((ncw>0) & (common.wave==0)) {          
+        if ((ncw>0) & (common.timeparams.wave==0)) {          
           ArrayGemmBatch2(fhb_uh, fhb_w, wgb_uq, one, ncu12, ncu, ncw, ngb);  // fix bug here             
           ArraySetValue(wgb_uq, 0.0, ngb*ncw*ncu);          
           ArrayGemmBatch2(fhb_uq, fhb_w, wgb_uq, one, ncu12, nc, ncw, ngb);  // fix bug here                      
@@ -554,7 +556,7 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
       }      
     }
     
-  if (common.debugMode==1) {    
+  if (common.outputparams.debugMode==1) {    
     std::string filename;
     if (common.mpiProcs==1)
       filename = common.fileout;
@@ -571,15 +573,16 @@ inline void uEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
   }
 }
 
-template <class M>
-inline void uEquationSchurBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int jth, Int backend)
-{        
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int npf = common.npf; // number of nodes on master face           
-    Int nfe = common.nfe; // number of faces in each element
+template <class M, class T=dstype, class I=Int>
+inline void uEquationSchurBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int jth, Int backend)
+{
+    using dstype=T;        
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int npf = common.grid.npf; // number of nodes on master face           
+    Int nfe = common.meshsizes.nfe; // number of faces in each element
 
     Int e1 = common.eblks[3*jth]-1;
     Int e2 = common.eblks[3*jth+1];            
@@ -628,10 +631,10 @@ inline void uEquationSchurBlock(solstruct &sol, resstruct &res, appstruct &app, 
     ArrayCopy(F, tmp.tempn, n * m * ne);
         
     dstype scalar = 1.0;
-    if (common.wave==1)
-        scalar = 1.0/common.dtfactor;    
+    if (common.timeparams.wave==1)
+        scalar = 1.0/common.timestate.dtfactor;    
     
-    if (common.ncq > 0) {      
+    if (common.components.ncq > 0) {      
       if (nd == 1) {
         // D = D + B * Minv * C
         schurMatrixBMinvC(D, res.B, &res.C[npe*npe*e1], scalar, npe, ncu, ne);
@@ -644,9 +647,9 @@ inline void uEquationSchurBlock(solstruct &sol, resstruct &res, appstruct &app, 
       } 
       else if (nd == 2) {
         dstype *Cx = &res.C[npe*npe*e1]; // fix bug here
-        dstype *Cy = &res.C[npe*npe*common.ne + npe*npe*e1]; // fix bug here
+        dstype *Cy = &res.C[npe*npe*common.meshsizes.ne + npe*npe*e1]; // fix bug here
         dstype *Ex = &res.E[npe*npf*nfe*e1]; // fix bug here
-        dstype *Ey = &res.E[npe*npf*nfe*common.ne + npe*npf*nfe*e1]; // fix bug here
+        dstype *Ey = &res.E[npe*npf*nfe*common.meshsizes.ne + npe*npf*nfe*e1]; // fix bug here
         dstype *Bx = res.B; // npe * npe * ne * ncu * ncu
         dstype *By = &res.B[npe*npe*ncu*ncu*ne]; // npe * npe * ne * ncu * ncu
         dstype *Gx = res.G; // npf*nfe*npe*ne*ncu*ncu
@@ -666,11 +669,11 @@ inline void uEquationSchurBlock(solstruct &sol, resstruct &res, appstruct &app, 
       }
       else if (nd == 3) {
         dstype *Cx = &res.C[npe*npe*e1]; // fixed bug here
-        dstype *Cy = &res.C[npe*npe*common.ne + npe*npe*e1]; // fixed bug here
-        dstype *Cz = &res.C[npe*npe*common.ne*2 + npe*npe*e1]; // fixed bug here
+        dstype *Cy = &res.C[npe*npe*common.meshsizes.ne + npe*npe*e1]; // fixed bug here
+        dstype *Cz = &res.C[npe*npe*common.meshsizes.ne*2 + npe*npe*e1]; // fixed bug here
         dstype *Ex = &res.E[npe*npf*nfe*e1]; // fixed bug here
-        dstype *Ey = &res.E[npe*npf*nfe*common.ne + npe*npf*nfe*e1]; // fixed bug here
-        dstype *Ez = &res.E[npe*npf*nfe*common.ne*2 + npe*npf*nfe*e1]; // fixed bug here
+        dstype *Ey = &res.E[npe*npf*nfe*common.meshsizes.ne + npe*npf*nfe*e1]; // fixed bug here
+        dstype *Ez = &res.E[npe*npf*nfe*common.meshsizes.ne*2 + npe*npf*nfe*e1]; // fixed bug here
         dstype *Bx = res.B;
         dstype *By = &res.B[npe*npe*ncu*ncu*ne];
         dstype *Bz = &res.B[npe*npe*ncu*ncu*ne*2];
@@ -696,7 +699,7 @@ inline void uEquationSchurBlock(solstruct &sol, resstruct &res, appstruct &app, 
       }
     }
 
-    if (common.debugMode==1) {    
+    if (common.outputparams.debugMode==1) {    
       std::string filename;
       if (common.mpiProcs==1)
         filename = common.fileout;
@@ -728,20 +731,20 @@ inline void uEquationSchurBlock(solstruct &sol, resstruct &res, appstruct &app, 
     ArrayCopy(Rh, tmp.tempn, m*ne);
     PGEMNMStridedBached(handle, m, 1, n, minusone, K, m, Ru, n, one, Rh, m, ne, backend);     
     
-    if ((common.eblks[3*jth+2]==-1) && (common.coupledcondition>0) && (common.coupledinterface>0)) {      
+    if ((common.eblks[3*jth+2]==-1) && (common.couplingparams.coupledcondition>0) && (common.couplingparams.coupledinterface>0)) {      
       int ncu12 = common.szinterfacefluxmap;
       Int m12 = npf*ncu12;
       
-      if (common.ncq > 0) {      
+      if (common.components.ncq > 0) {      
         if (nd == 1) {
           schurMatrixGMinvC(res.Ki, res.Gi, &res.C[npe*npe*e1], scalar, npe, ncu12, ncu, npf, 1, ne);
           schurMatrixGintMinvE(res.Hi, res.Gi, &res.E[npe*npf*nfe*e1], scalar, npe, ncu12, ncu, npf, nfe, ne);
         } 
         else if (nd == 2) {
           dstype *Cx = &res.C[npe*npe*e1]; // fix bug here
-          dstype *Cy = &res.C[npe*npe*common.ne + npe*npe*e1]; // fix bug here
+          dstype *Cy = &res.C[npe*npe*common.meshsizes.ne + npe*npe*e1]; // fix bug here
           dstype *Ex = &res.E[npe*npf*nfe*e1]; // fix bug here
-          dstype *Ey = &res.E[npe*npf*nfe*common.ne + npe*npf*nfe*e1]; // fix bug here
+          dstype *Ey = &res.E[npe*npf*nfe*common.meshsizes.ne + npe*npf*nfe*e1]; // fix bug here
           dstype *Gx = res.Gi; // npf*npe*ne*ncu12*ncu
           dstype *Gy = &res.Gi[npf*npe*ncu12*ncu*ne]; // npf*npe*ne*ncu12*ncu
           
@@ -753,11 +756,11 @@ inline void uEquationSchurBlock(solstruct &sol, resstruct &res, appstruct &app, 
         }
         else if (nd == 3) {
           dstype *Cx = &res.C[npe*npe*e1]; // fixed bug here
-          dstype *Cy = &res.C[npe*npe*common.ne + npe*npe*e1]; // fixed bug here
-          dstype *Cz = &res.C[npe*npe*common.ne*2 + npe*npe*e1]; // fixed bug here
+          dstype *Cy = &res.C[npe*npe*common.meshsizes.ne + npe*npe*e1]; // fixed bug here
+          dstype *Cz = &res.C[npe*npe*common.meshsizes.ne*2 + npe*npe*e1]; // fixed bug here
           dstype *Ex = &res.E[npe*npf*nfe*e1]; // fixed bug here
-          dstype *Ey = &res.E[npe*npf*nfe*common.ne + npe*npf*nfe*e1]; // fixed bug here
-          dstype *Ez = &res.E[npe*npf*nfe*common.ne*2 + npe*npf*nfe*e1]; // fixed bug here
+          dstype *Ey = &res.E[npe*npf*nfe*common.meshsizes.ne + npe*npf*nfe*e1]; // fixed bug here
+          dstype *Ez = &res.E[npe*npf*nfe*common.meshsizes.ne*2 + npe*npf*nfe*e1]; // fixed bug here
           dstype *Gx = res.Gi;
           dstype *Gy = &res.Gi[npf*npe*ncu12*ncu*ne];
           dstype *Gz = &res.Gi[npf*npe*ncu12*ncu*ne*2];
@@ -778,7 +781,7 @@ inline void uEquationSchurBlock(solstruct &sol, resstruct &res, appstruct &app, 
       PGEMNMStridedBached(handle, m12, 1, n, minusone, res.Ki, m12, Ru, n, one, res.Ri, m12, ne, backend);                 
     }
     
-    if (common.debugMode==1) {    
+    if (common.outputparams.debugMode==1) {    
       std::string filename;
       if (common.mpiProcs==1)
         filename = common.fileout;
@@ -791,32 +794,34 @@ inline void uEquationSchurBlock(solstruct &sol, resstruct &res, appstruct &app, 
     } 
 }
 
-template <class M>
-inline void uEquationHDG(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common,         
+template <class M, class T=dstype, class I=Int>
+inline void uEquationHDG(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,         
         cublasHandle_t handle, Int backend)
-{    
-    for (Int j=0; j<common.nbe; j++) {         
+{
+    using dstype=T;    
+    for (Int j=0; j<common.meshsizes.nbe; j++) {         
         uEquationElemBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
         uEquationElemFaceBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
         uEquationSchurBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
     }                     
 }
 
-template <class M>
-inline void RuEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int jth, Int backend)
-{        
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    //Int ncq = common.ncq;// number of compoments of (q)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg) 
-    Int ncs = common.ncs;// number of compoments of (sdg) 
-    Int ncw = common.ncw;// number of compoments of (wdg) 
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int nge = common.nge; // number of gauss points on master element        
+template <class M, class T=dstype, class I=Int>
+inline void RuEquationElemBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int jth, Int backend)
+{
+    using dstype=T;        
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    //Int ncq = common.components.ncq;// number of compoments of (q)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg) 
+    Int ncs = common.components.ncs;// number of compoments of (sdg) 
+    Int ncw = common.components.ncw;// number of compoments of (wdg) 
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int nge = common.grid.nge; // number of gauss points on master element        
 
     Int e1 = common.eblks[3*jth]-1;
     Int e2 = common.eblks[3*jth+1];            
@@ -846,7 +851,7 @@ inline void RuEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, 
     GetArrayAtIndex(tmp.tempn, sol.udg, &mesh.eindudg1[npe*nc*e1], nn*nc);
     Node2Gauss(handle, uqg, tmp.tempn, master.shapegt, nge, npe, ne*nc, backend);
     
-    if ((ncw>0) & (common.wave==0)) {
+    if ((ncw>0) & (common.timeparams.wave==0)) {
         GetElemNodes(tmp.tempn, sol.wdg, npe, ncw, 0, ncw, e1, e2);    
         Node2Gauss(handle, wg, tmp.tempn, master.shapegt, nge, npe, ne*ncw, backend);        
         
@@ -861,11 +866,11 @@ inline void RuEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, 
 //         error("here");
     }
     
-    if (common.tdep) { // for time-dependent problem                
+    if (common.timeparams.tdep) { // for time-dependent problem                
         // calculate sdg = sdg-udg*dtfactor
-        ArrayAXPBY(sg, &sol.sdgg[nge*ncs*e1], uqg, one, -common.dtfactor, nga*ncu);            
+        ArrayAXPBY(sg, &sol.sdgg[nge*ncs*e1], uqg, one, -common.timestate.dtfactor, nga*ncu);            
         
-        if (common.tdfunc==1) {
+        if (common.timeparams.tdfunc==1) {
             // calculate the time derivative function Tdfunc(xdg, udg, odg)
             EXASIM_DRIVER_CALL(TdfuncDriver, fg, xg, uqg, og, wg, mesh, master, app, sol, tmp, common, nge, e1, e2, backend);
 
@@ -873,7 +878,7 @@ inline void RuEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, 
             ArrayAXY(sg, sg, fg, one, nga*ncu);                
         }
         
-        if (common.source==1) {            
+        if (common.physicsparams.source==1) {            
             ArraySetValue(fg, 0.0, nga*ncu);
             // calculate the source term Source(xdg, udg, odg, wdg)
             EXASIM_DRIVER_CALL(SourceDriver, fg, xg, uqg, og, wg, mesh, master, app, sol, tmp, common, nge, e1, e2, backend);
@@ -896,21 +901,22 @@ inline void RuEquationElemBlock(solstruct &sol, resstruct &res, appstruct &app, 
     Gauss2Node(handle, &res.Ru[npe*ncu*e1], tmp.tempn, master.shapegw, nge*(nd+1), npe, ncu*ne, backend); // fixed bug here                   
 }
 
-template <class M>
-inline void RuEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int jth, Int backend)
-{            
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    //Int ncq = common.ncq;// number of compoments of (q)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
-    Int ncw = common.ncw;
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int npf = common.npf; // number of nodes on master face           
-    Int ngf = common.ngf; // number of gauss poInts on master face              
-    Int nfe = common.nfe; // number of faces in each element
+template <class M, class T=dstype, class I=Int>
+inline void RuEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int jth, Int backend)
+{
+    using dstype=T;            
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    //Int ncq = common.components.ncq;// number of compoments of (q)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
+    Int ncw = common.components.ncw;
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int npf = common.grid.npf; // number of nodes on master face           
+    Int ngf = common.grid.ngf; // number of gauss poInts on master face              
+    Int nfe = common.meshsizes.nfe; // number of faces in each element
 
     Int e1 = common.eblks[3*jth]-1;
     Int e2 = common.eblks[3*jth+1];            
@@ -949,14 +955,14 @@ inline void RuEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &a
     if (nco>0) GetElementFaceNodes(&tmp.tempn[nn*(ncu+nc)], sol.odg, mesh.perm, npf*nfe, nco, npe, nco, e1, e2);      
 
     // fix bug here
-    if ((ncw>0) & (common.wave==0)) {
+    if ((ncw>0) & (common.timeparams.wave==0)) {
       GetElementFaceNodes(&tmp.tempn[nn*(ncu+nc+nco)], sol.wdg, mesh.perm, npf*nfe, ncw, npe, ncw, e1, e2); 
       GetElementFaceNodes(&tmp.tempn[nn*(ncu+nc+nco+ncw)], sol.wsrc, mesh.perm, npf*nfe, ncw, npe, ncw, e1, e2); 
     }
     
     Node2Gauss(handle, tmp.tempg, tmp.tempn, master.shapfgt, ngf, npf, nfe*ne*(ncu+nc+nco+ncw+ncw), backend);
     
-    if ((ncw>0) & (common.wave==0)) {
+    if ((ncw>0) & (common.timeparams.wave==0)) {
         // copy udg to tmp.tempn
         ArrayCopy(tmp.tempn, udg, nga*nc);
         
@@ -978,9 +984,9 @@ inline void RuEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &a
     assembleRu(&res.Ru[npe*ncu*e1], Rutmp, mesh.perm, npe, npf*nfe, ne*ncu);
 
     // impose boundary conditions
-    for (int ibc=0; ibc<common.maxnbc; ibc++)
+    for (int ibc=0; ibc<common.meshsizes.maxnbc; ibc++)
     {
-      int n = ibc + common.maxnbc*jth;
+      int n = ibc + common.meshsizes.maxnbc*jth;
       int start = common.nboufaces[n];
       int nfaces = common.nboufaces[n + 1] - start;
       if (nfaces>0) {
@@ -1003,7 +1009,7 @@ inline void RuEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &a
         GetBoundaryNodes(uhb, uhg, &mesh.boufaces[start], ngf, nfe, ne, ncu, nfaces);
         GetBoundaryNodes(nlb, nlg, &mesh.boufaces[start], ngf, nfe, ne, nd, nfaces);
 
-        if ((ncw>0) & (common.wave==0)) {
+        if ((ncw>0) & (common.timeparams.wave==0)) {
           // copy ugb to tmp.tempn
           ArrayCopy(Rb, ugb, ngb*nc);
         
@@ -1015,12 +1021,12 @@ inline void RuEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &a
         }
         
         if (ibc+1 == 1000) StgInflowHDG(fhb, &tmp.tempg[n8], xgb, ogb, uhb, app.physicsparam, app.stgdata, 
-                                app.stgparam, common.time, ngb, common.stgNmode, nd);          
+                                app.stgparam, common.timestate.time, ngb, common.stgparams.stgNmode, nd);          
         else if (ibc+1 == 1001) StgInFlowHDGchem(fhb, &tmp.tempg[n8], xgb, ogb, uhb, app.physicsparam, app.uinf,
-                                app.stgdata, app.stgparam, common.time, ngb, common.stgNmode, nd);
+                                app.stgdata, app.stgparam, common.timestate.time, ngb, common.stgparams.stgNmode, nd);
         else {
-          if (common.ncuext > 0 && sol.szuext > 0  && (ibc+1 == common.FextCall)) {
-            ArrayExtract(Rb, sol.uext, ngf, common.nextfaces[common.nbe1], common.ncuext, 0, ngf, common.nextfaces[jth], common.nextfaces[jth+1], 0, common.ncuext);  
+          if (common.couplingparams.ncuext > 0 && sol.szuext > 0  && (ibc+1 == common.couplingparams.FextCall)) {
+            ArrayExtract(Rb, sol.uext, ngf, common.nextfaces[common.meshsizes.nbe1], common.couplingparams.ncuext, 0, ngf, common.nextfaces[jth], common.nextfaces[jth+1], 0, common.couplingparams.ncuext);  
             EXASIM_DRIVER_CALL(FextDriver, fhb, xgb, ugb, ogb, wgb, uhb, nlb, Rb, mesh, master, app, sol, tmp, common, ngb, 1, backend);    
           }                       
           else
@@ -1048,12 +1054,12 @@ inline void RuEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &a
     ArrayCopy(&res.Rh[npf*nfe*ncu*e1], tmp.tempn, npf*nfe*ncu*ne);
     
     // impose interface conditions
-    for (int ibc=0; ibc<common.maxnbc; ibc++)
+    for (int ibc=0; ibc<common.meshsizes.maxnbc; ibc++)
     {
-      int n = ibc + common.maxnbc*jth;
+      int n = ibc + common.meshsizes.maxnbc*jth;
       int start = common.nboufaces[n];
       int nfaces = common.nboufaces[n + 1] - start;
-      if ((nfaces>0) && (common.eblks[3*jth+2]==-1) && (common.coupledboundarycondition == ibc+1) && (common.coupledcondition>0))
+      if ((nfaces>0) && (common.eblks[3*jth+2]==-1) && (common.couplingparams.coupledboundarycondition == ibc+1) && (common.couplingparams.coupledcondition>0))
       {
         int ncu12 = common.szinterfacefluxmap;
         int ngb = nfaces*ngf;
@@ -1075,7 +1081,7 @@ inline void RuEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &a
         GetBoundaryNodes(uhb, uhg, &mesh.boufaces[start], ngf, nfe, ne, ncu, nfaces);
         GetBoundaryNodes(nlb, nlg, &mesh.boufaces[start], ngf, nfe, ne, nd, nfaces);
 
-        if ((ncw>0) & (common.wave==0)) {
+        if ((ncw>0) & (common.timeparams.wave==0)) {
           // copy ugb to tmp.tempn
           ArrayCopy(Rb, ugb, ngb*nc);
         
@@ -1087,7 +1093,7 @@ inline void RuEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &a
         }
         
         EXASIM_DRIVER_CALL(FintDriver, fhb, xgb, ugb, ogb, wgb, uhb, nlb, 
-             mesh, master, app, sol, tmp, common, ngb, common.coupledcondition, backend);    
+             mesh, master, app, sol, tmp, common, ngb, common.couplingparams.coupledcondition, backend);    
 
         dstype *jacb = &tmp.tempg[n8];
         GetBoundaryNodes(jacb, jac, &mesh.boufaces[start], ngf, nfe, ne, 1, nfaces);
@@ -1102,12 +1108,13 @@ inline void RuEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &a
     }            
 }
 
-template <class M>
-inline void ResidualHDG(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common,         
+template <class M, class T=dstype, class I=Int>
+inline void ResidualHDG(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,         
         cublasHandle_t handle, Int backend)
-{    
-    for (Int j=0; j<common.nbe; j++) {        
+{
+    using dstype=T;    
+    for (Int j=0; j<common.meshsizes.nbe; j++) {        
         RuEquationElemBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
         RuEquationElemFaceBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);        
     }                     

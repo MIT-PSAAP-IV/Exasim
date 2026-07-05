@@ -47,6 +47,8 @@
 #include <string>
 #include <vector>
 #include <filesystem>
+#include <iomanip>
+#include <ostream>
 #include <cstdint>
 #include <cstring>
 
@@ -79,10 +81,32 @@ typedef double dstype; //  double is default precision
 #ifdef USE_LONG
 typedef long Int;
 #else
-typedef int Int; 
+typedef int Int;
 #endif
 
-#ifndef HAVE_CUDA    
+// Non-deduced type wrapper. A scalar function parameter spelled `noDeduce_t<T>` deduces T ONLY from
+// the buffer arguments, so a double literal/constant (0.0, `zero`, `minusone`) passed alongside a
+// float* buffer converts to float instead of forcing a conflicting T=double deduction. This is the
+// pblas/array-op fix for the precision-template cutover (drivers/kernels/geometry pass dstype
+// constants next to T buffers).
+template <class U> struct noDeduce_ { using type = U; };
+template <class U> using noDeduce_t = typename noDeduce_<U>::type;
+
+#ifdef HAVE_MPI
+// mpi_type<T>(): the MPI_Datatype for a scalar/index type (Phase 3 -- the MPI companion to blas<T>).
+// Replaces hardcoded MPI_DOUBLE and `#ifdef USE_FLOAT MPI_FLOAT/DOUBLE` branches so MPI halo exchange
+// + reductions carry the element type by T. Spelled mpi_type<dstype>() today (byte-identical for the
+// default double build); becomes mpi_type<T>() once the comm helpers are templated. NB this also
+// FIXES a latent bug: the halo-exchange MPI_Isend/Irecv hardcoded MPI_DOUBLE while the buffers are
+// dstype*, so a single-precision (USE_FLOAT) build mis-typed every exchange (float* sent as double).
+template <class T> inline MPI_Datatype mpi_type();
+template <> inline MPI_Datatype mpi_type<double>() { return MPI_DOUBLE; }
+template <> inline MPI_Datatype mpi_type<float>()  { return MPI_FLOAT;  }
+template <> inline MPI_Datatype mpi_type<int>()    { return MPI_INT;    }
+template <> inline MPI_Datatype mpi_type<long>()   { return MPI_LONG;   }
+#endif
+
+#ifndef HAVE_CUDA
 #ifdef HAVE_HIP    
 #define cublasHandle_t hipblasHandle_t
 #define cudaEvent_t hipEvent_t
@@ -180,17 +204,20 @@ template <> bool is_nan_bitwise<float>(float x) {
 #define M_PI 3.14159265358979323846
 #endif
 
-// global variables for BLAS  
-dstype one = 1.0;
-dstype minusone = -1.0;
-dstype zero = 0.0;
-char chn = 'N';
-char cht = 'T';
-char chl = 'L';
-char chu = 'U';
-char chr = 'R';
-char chv = 'V';
-Int inc1 = 1;
+// global constants for BLAS. `inline` (C++17) so this header can be included in more than
+// one TU without multiple-definition link errors -- e.g. an external driver's main.cpp plus
+// the Exasim library both pull common.h (the MPI preprocessing path drags in ExasimSolver.o,
+// which also defines these). Without inline they are strong symbols and collide.
+inline dstype one = 1.0;
+inline dstype minusone = -1.0;
+inline dstype zero = 0.0;
+inline char chn = 'N';
+inline char cht = 'T';
+inline char chl = 'L';
+inline char chu = 'U';
+inline char chr = 'R';
+inline char chv = 'V';
+inline Int inc1 = 1;
 
 // global variables for CUBLAS  
 // dstype *cublasOne;
@@ -634,7 +661,34 @@ std::string trimToSubstringAtLastOccurence(const std::filesystem::path& fullPath
     return "";
 }
 
-struct appstruct {              
+// Named offsets into appstruct::ndims -- the app.bin wire format written by the (frozen) Matlab/
+// Python/Julia frontends. The packed layout must stay fixed to keep reading app.bin; these constants
+// only make the decode self-documenting: app.ndims[AppNdims::nc] instead of a bare app.ndims[5].
+// Indices 2..4 are unused padding. Meanings mirror the decode in setstructs.cpp / buildstructs.hpp.
+struct AppNdims {
+    enum {
+        mpiprocs = 0,  // number of MPI ranks
+        nd       = 1,  // spatial dimension
+        nc       = 5,  // components of (u, q)
+        ncu      = 6,  // components of u
+        ncq      = 7,  // components of q
+        ncp      = 8,  // components of p (mostly unused)
+        nco      = 9,  // components of o (auxiliary)
+        nch      = 10, // components of uhat (trace)
+        ncx      = 11, // components of xdg (coordinates)
+        nce      = 12, // components of output fields
+        ncw      = 13, // components of w (wave/auxiliary)
+        nsca     = 14, // scalar vis fields
+        nvec     = 15, // vector vis fields
+        nten     = 16, // tensor vis fields
+        nsurf    = 17, // surface vis/storage/QoI fields
+        nvqoi    = 18  // volume quantities of interest
+    };
+};
+
+template <class T = ::dstype, class I = ::Int>
+struct appstructT {
+    using dstype = T; using Int = I;
     Int *lsize=nullptr;
     Int *nsize=nullptr;  // data size
     Int *ndims=nullptr;  // dimensions
@@ -761,6 +815,7 @@ struct appstruct {
         TemplateFree(dtcoef_w, backend);
     }
 };
+using appstruct = appstructT<::dstype, ::Int>;
 
 struct wallmodelstruct {
     Int initialized = 0;
@@ -856,7 +911,9 @@ struct wallmodelstruct {
     }
 };
 
-struct masterstruct {       
+template <class T = ::dstype, class I = ::Int>
+struct masterstructT {
+    using dstype = T; using Int = I;
     
     Int *lsize=nullptr;
     Int *nsize=nullptr;  // data size
@@ -964,8 +1021,11 @@ struct masterstruct {
         TemplateFree(shapfgwdotshapfg, backend);             
     }            
 };
+using masterstruct = masterstructT<::dstype, ::Int>;
   
-struct meshstruct {       
+template <class T = ::dstype, class I = ::Int>
+struct meshstructT {
+    using dstype = T; using Int = I;
     Int *lsize=nullptr;
     Int *nsize=nullptr;  // data size
     Int *ndims=nullptr;  // dimensions
@@ -1169,12 +1229,24 @@ struct meshstruct {
         TemplateFree(facerecvpts, backend);            
     }            
 };
+using meshstruct = meshstructT<::dstype, ::Int>;
 
-struct solstruct {       
+template <class T = ::dstype, class I = ::Int>
+struct solstructT {
+    using dstype = T; using Int = I;
     Int *lsize=nullptr;
     Int *nsize=nullptr;  // data size
     Int *ndims=nullptr;  // dimensions
-    
+
+    // needs-init signals: set by the file reader when a field was NOT supplied by the input
+    // (fresh start, no restart data) and must be filled by the model's initial conditions.
+    // The reader allocates+zeros the field and raises the flag; initializeSolution() consumes
+    // them (so the reader does pure file-read, the model-IC is a separate "initialize a
+    // solution" step that queries the discretization for which fields exist).
+    Int needudginit=0;   // udg (u, or wave-packed u,q) must be computed from initu/initudg
+    Int needodginit=0;   // odg must be computed from initodg
+    Int needwdginit=0;   // wdg must be computed from initwdg
+
     dstype *xdg=nullptr; // spatial coordinates
     dstype *udg=nullptr; // solution (u, q) 
     dstype *sdg=nullptr; // source term due to the previous solution
@@ -1294,8 +1366,34 @@ struct solstruct {
         TemplateFree(bouuhavg, backend); 
     }             
 };
+using solstruct = solstructT<::dstype, ::Int>;
 
-struct resstruct {
+// Neutral scratch-arena owner (S5 step 3). Owns the big K backing buffer (grow-if-needed).
+// The residual struct (res.K + the D/B/F/G/H views) and the solver (sys.v) hold NON-owning
+// pointers/reserves into this buffer rather than owning it -- so the scratch memory is owned by
+// a dedicated arena concern, not entangled in the residual data. Lives as a CDiscretization
+// member (where the size is computed); res/solv/prec reach it only through res.K and the
+// reserve* API, so no functional class owns the allocation.
+template <class T = ::dstype, class I = ::Int>
+struct scratcharenastructT {
+    using dstype = T; using Int = I;
+    dstype* buffer = nullptr;
+    Int sz = 0;
+    dstype* allocate(Int n, Int backend) {
+        if (buffer == nullptr || sz != n) {   // grow-if-needed (same policy as EnsureTemplateAllocation)
+            TemplateFree(buffer, backend);
+            TemplateMalloc(&buffer, n, backend);
+            sz = n;
+        }
+        return buffer;
+    }
+    void freememory(Int backend) { TemplateFree(buffer, backend); buffer = nullptr; sz = 0; }
+};
+using scratcharenastruct = scratcharenastructT<::dstype, ::Int>;
+
+template <class T = ::dstype, class I = ::Int>
+struct resstructT {
+    using dstype = T; using Int = I;
     //dstype *R=nullptr;    // shared memory for all residual vectors
     dstype *Rqe=nullptr;  // element residual vector for q
     dstype *Rqf=nullptr;  // face residual vector for q   
@@ -1317,14 +1415,20 @@ struct resstruct {
     dstype *Minv=nullptr; // store the inverse of the mass matrix
     dstype *Mass2=nullptr; // store the mass matrix
     dstype *Minv2=nullptr; // store the inverse of the mass matrix
-    dstype *C=nullptr; // store the convection matrix
-    dstype *E=nullptr; // store the convection matrix
-    dstype *D=nullptr; // store the diffusion matrix
-    dstype *B=nullptr; // store the diffusion matrix
-    dstype *F=nullptr; // store the diffusion matrix
-    dstype *G=nullptr; // store the diffusion matrix
-    dstype *K=nullptr; // store the diffusion matrix
-    dstype *H=nullptr; // store the diffusion matrix
+    // --- HDG/LDG local element-Jacobian blocks (the compact notation the assembly is written in) ---
+    // The condensed local system per element is [D F; K H] [du; duh] = [Ru; Rh]; the LDG auxiliary q
+    // (mass matrix Minv above) is eliminated by Schur substitution q = Minv*(C*u + E*uh), giving
+    //   D += B*Minv*C,  F -= B*Minv*E,  K += G*Minv*C,  H -= G*Minv*E   (see uequation.hpp,
+    // qequation.hpp, and docs/theory/block-diagonal-jacobian.md). C/E/B/G carry one slab per spatial
+    // dimension (Cx,Cy,Cz ... indexed by e1 + d*ne). Sizes: n=npe*ncu (element-u), m=npf*nfe*ncu (trace).
+    dstype *C=nullptr; // dq/du       block, per dim  [npe*npe*ne * nd]      (q from element u)
+    dstype *E=nullptr; // dq/duhat    block, per dim  [npe*npf*nfe*ne * nd]  (q from trace uhat)
+    dstype *D=nullptr; // dRue/du     block (n x n)   -- element-u vs element-u  (diagonal block)
+    dstype *B=nullptr; // dRue/dq     block, per dim  -- element-u vs q  (contracts with Minv*C into D)
+    dstype *F=nullptr; // dRue/duhat  block (n x m)   -- element-u vs trace
+    dstype *G=nullptr; // dRh/dq      block, per dim  -- trace vs q  (contracts with Minv*C into K)
+    dstype *K=nullptr; // dRh/du      block (m x n)   -- trace vs element-u
+    dstype *H=nullptr; // dRh/duhat   block (m x m)   -- trace vs trace (the Schur-complemented diagonal)
 
     dstype *Ri=nullptr; // residual vector for uhat    
     dstype *Gi=nullptr; // store the diffusion matrix
@@ -1335,7 +1439,12 @@ struct resstruct {
     
     Int szRi=0, szHi=0, szKi=0, szGi=0, szP=0, szV=0;
     Int szipiv=0, szH=0, szK=0, szG=0, szF=0, szB=0, szD=0, szE=0, szC=0, szMass=0, szMinv=0, szMass2=0, szMinv2=0;
-    Int szRq=0, szRu=0, szRh=0, szRuf=0, szRue=0, szRqf=0, szRqe=0;  
+    Int szRq=0, szRu=0, szRh=0, szRuf=0, szRue=0, szRqf=0, szRqe=0;
+    // 1 when F and H alias INTO the K block (the LDG block-Jacobi arena, AllocateLDGBlockJacobianMemory).
+    // In that layout K is the only owned allocation; freememory must NOT TemplateFree(F)/(H) (they are
+    // interior pointers of K -> freeing them is undefined behavior / a double free). 0 (default) in the
+    // HDG layout, where H/F/K are each malloc'd separately and all three are freed.
+    Int fhAliasesK = 0;
 
     int sizeofint() {return szipiv;}
     int sizeoffloat() {
@@ -1375,6 +1484,39 @@ struct resstruct {
       printf("size of float: %d\n", sizeoffloat());
     }
 
+    // --- K-block as a scratch arena: callers RESERVE views instead of hard-coding offsets ---
+    // The single owned K allocation doubles as a scratch arena: [0, szP) holds the
+    // preconditioner; the [szP, szK) tail is shared scratch -- the assembly views
+    // (D/B/F/G/H) live there during assembly, the GMRES Krylov vectors during the solve
+    // (the two phases are temporally disjoint, which is why they may share the bytes).
+    // Reserving the Krylov view through this method (rather than &res.K[res.szP] at the call
+    // site) means no other class needs to know this layout: it decouples CSolver's sys.v from
+    // CDiscretization's res, and lets a future change hand back a separate buffer transparently.
+    // Non-owning: the returned pointer aliases K and must never be freed (keep sys.szv == 0).
+    dstype* reserveKrylovScratch(Int szRequest)
+    {
+        if (K != nullptr && szP + szRequest > szK)
+            printf("WARNING: reserveKrylovScratch overruns the res.K arena (szP=%d + req=%d > szK=%d)\n",
+                   (int)szP, (int)szRequest, (int)szK);
+        return &K[szP];
+    }
+
+    // Cursor-based reservation for the sequential assembly views (D/B/F/G/H) laid out in the K
+    // arena. resetKArena(start) sets the cursor, then each reserveView(size) returns the next
+    // slice and advances -- centralizing the offset arithmetic that used to be spelled out
+    // inline as &K[start + dSize + bSize + ...] at every assignment, and warning on overrun.
+    // Non-owning views into K (freed with K). See AllocateLDGBlockJacobianMemory / the HDG branch.
+    Int kArenaCursor = 0;
+    void resetKArena(Int start) { kArenaCursor = start; }
+    dstype* reserveView(Int size)
+    {
+        dstype* p = &K[kArenaCursor];
+        kArenaCursor += size;
+        if (K != nullptr && kArenaCursor > szK)
+            printf("WARNING: K arena view overruns (cursor=%d > szK=%d)\n", (int)kArenaCursor, (int)szK);
+        return p;
+    }
+
     void freememory(Int backend)
     {
         TemplateFree(Rq, backend);    
@@ -1385,15 +1527,19 @@ struct resstruct {
         TemplateFree(dRu, backend);   
         TemplateFree(dRh, backend);   
       #endif                                                
-        if (szMass > 0) TemplateFree(Mass, backend);      
-        if (szMinv > 0) TemplateFree(Minv, backend);      
-        if (szMass2 > 0) TemplateFree(Mass2, backend);      
-        if (szMinv2 > 0) TemplateFree(Minv2, backend);      
-        TemplateFree(C, backend);      
-        TemplateFree(E, backend);      
-        if (szF > 0) TemplateFree(F, backend);
-        if (szK > 0) TemplateFree(K, backend);
-        if (szH > 0) TemplateFree(H, backend);
+        // Size-guarded frees: temporary mass matrices are freed early (massinv/qEquation clear the
+        // size marker), so skip here when already released to avoid a double free of a dangling ptr.
+        if (szMass > 0)  TemplateFree(Mass, backend);
+        if (szMinv > 0)  TemplateFree(Minv, backend);
+        if (szMass2 > 0) TemplateFree(Mass2, backend);
+        if (szMinv2 > 0) TemplateFree(Minv2, backend);
+        TemplateFree(C, backend);
+        TemplateFree(E, backend);
+        // F and H are owned only in the HDG layout; in the LDG block-Jacobi arena they alias into
+        // K (fhAliasesK==1) and must not be freed (freeing K reclaims the whole block).
+        if (!fhAliasesK && szF > 0) TemplateFree(F, backend); else F = nullptr;
+        K = nullptr;  // non-owning view into the scratch arena (owned/freed by CDiscretization::scratch, S5 step 3)
+        if (!fhAliasesK && szH > 0) TemplateFree(H, backend); else H = nullptr;
         TemplateFree(Gi, backend);
         TemplateFree(Ki, backend);
         TemplateFree(Hi, backend);
@@ -1401,9 +1547,12 @@ struct resstruct {
         TemplateFree(ipiv, backend);
     }                        
 };
+using resstruct = resstructT<::dstype, ::Int>;
 
-struct tempstruct {
-    dstype *tempn=nullptr; 
+template <class T = ::dstype, class I = ::Int>
+struct tempstructT {
+    using dstype = T; using Int = I;
+    dstype *tempn=nullptr;
     dstype *tempg=nullptr;
     dstype *buffrecv=nullptr;
     dstype *buffsend=nullptr;
@@ -1442,8 +1591,14 @@ struct tempstruct {
         TemplateFree(bufffacesend, backend); 
     }            
 };
+using tempstruct = tempstructT<::dstype, ::Int>;
 
-struct sysstruct {    
+// Templated on the scalar precision T and index type I (Phase 1 of dstype->template threading, see
+// docs/internals/precision-threading.md). The member `using` aliases shadow the global dstype/Int so
+// the struct body below is UNCHANGED; with the default args the type is byte-identical to before.
+template <class T = ::dstype, class I = ::Int>
+struct sysstructT {
+    using dstype = T; using Int = I;
     Int backend;
     Int *ipiv=nullptr;
 
@@ -1559,8 +1714,12 @@ struct sysstruct {
         TemplateFree(wprev3, backend);  
     }                
 };
+// Default instantiation keeps the name `sysstruct` meaning exactly what it did (double/int today).
+using sysstruct = sysstructT<::dstype, ::Int>;
 
-struct precondstruct {    
+template <class T = ::dstype, class I = ::Int>
+struct precondstructT {
+    using dstype = T; using Int = I;
     Int backend;
     
     dstype *W=nullptr; 
@@ -1591,187 +1750,399 @@ struct precondstruct {
         TemplateFree(ipiv, backend); 
     }            
 };
+using precondstruct = precondstructT<::dstype, ::Int>;
 
-struct commonstruct {         
-    std::string exasimpath = "";  
+// Grouped mutable transient state of the iterative solver + reduced-basis preconditioner.
+// Extracted from commonstruct (C1) and then OWNED BY CSolver (Stage 1 of the internal
+// separation): mutable runtime state lives in the solver object, not in the setup/config
+// commonstruct. Default-initialized (no setup read needed) so the CSolver member is valid
+// on construction on every backend. (The set-once PTC parameter moved to solverparams,
+// where the rest of the solver configuration lives.)
+struct solverstatestruct {
+    Int RBcurrentdim = 0;  // current dimension of the reduced basis space
+    Int RBremovedind = 0;  // RB vector to be removed and replaced with a new vector
+    Int Wcurrentdim = 0;   // current dimension of W
+    Int linearSolverIter = 0;     // current linear-solver iteration
+    Int nonlinearSolverIter = 0;  // current nonlinear-solver iteration
+    dstype linearSolverTolFactor = 1.0;  // adaptive linear-solver tolerance scaling
+    dstype linearSolverRelError = 0.0;   // achieved linear-solver relative residual
+};
+
+// One quantity-of-interest instance: a named QoI the backend computes and writes. Several
+// instances may coexist in a single program (the "QoI template, many instances" model). Each
+// instance owns a contiguous [offset, offset+ncomp) slice of its model QoI-kernel output;
+// volume instances integrate over the domain, boundary instances over one boundary id.
+struct qoiinstancestruct {
+    std::string name = "QoI";  // output-column header prefix
+    Int kind = 0;              // 0: volume (domain) QoI; 1: boundary (surface) QoI
+    Int boundary = 0;          // boundary id to integrate over (kind==1); unused for volume
+    Int offset = 0;            // first component in the model QoI-kernel output vector
+    Int ncomp = 0;             // number of components this instance owns
+};
+
+// Mutable time-stepping runtime state, advanced in the step/stage loop. Grouped out of
+// commonstruct (C3) alongside solverstate so the simulation's mutable state is named and
+// isolated from the read-only configuration. Access via common.timestate.<field>.
+struct timestatestruct {
+    Int currentstep;   // current time step (loop counter)
+    Int currentstage;  // current time stage (loop counter)
+    dstype dtfactor;   // time-derivative factor for udg (set per stage)
+    dstype time;       // current simulation time
+};
+
+// Physics / model configuration: stabilization, viscosity/SGS, ALE, artificial viscosity,
+// rotating frame, source/model-type flags, plus the AV ramp factor. Grouped out of
+// commonstruct (C3). Access via common.physicsparams.<field>.
+struct physicsparamsstruct {
+    Int appname;          // model identifier (0: Euler; 1: Compressible Navier-Stokes; ...)
+    Int source;           // source function flag
+    Int convStabMethod;   // convective stabilization (0 const tau, 1 Lax-Friedrichs, 2 Roe)
+    Int diffStabMethod;   // diffusive stabilization
+    Int rotatingFrame;    // rotating-frame flag
+    Int viscosityModel;   // viscosity law
+    Int SGSmodel;         // sub-grid-scale model
+    Int ALEflag;          // Arbitrary Lagrangian-Eulerian formulation flag
+    Int ncAV;             // number of artificial-viscosity components
+    Int AVsmoothingIter;  // AV smoothing iterations
+    Int frozenAVflag;     // freeze AV per nonlinear solve
+    Int AVdistfunction=0; // AV distance-function flag
+    dstype rampFactor;    // AV flux ramp factor (advanced over steps)
+    dstype tau0=0.0;      // initial stabilization parameter
+};
+
+// Time-integration / problem-evolution configuration: temporal scheme + order + stages, time-step
+// count, dual-time (DAE) parameters, and the problem-character flags (time-dependent, wave, linear,
+// sub-problem, time-derivative function). Grouped out of commonstruct (C3). Access via
+// common.timeparams.<field>. (The mutable step/stage counters live in timestate.)
+struct timeparamsstruct {
+    Int temporalScheme;  // 0: DIRK; 1: BDF; 2: ERK
+    Int torder;          // temporal accuracy order
+    Int tstages;         // DIRK stages
+    Int tsteps;          // number of time steps
+    Int dae_steps=0;     // number of dual time steps
+    Int tdep;            // 0: steady-state; 1: time-dependent
+    Int wave;            // wave problem
+    Int tdfunc;          // time-derivative function flag
+    Int linearProblem;   // 0: nonlinear; 1: linear
+    Int subproblem=0;
+    dstype dae_alpha=1.0;
+    dstype dae_beta=0.0;
+    dstype dae_gamma=0.0;
+    dstype dae_epsilon=0.0;
+};
+
+// Iterative-solver configuration: linear/nonlinear solver type, iteration caps, tolerances,
+// GMRES/matvec/preconditioner settings, and reduced-basis/W max dimensions. Grouped out of
+// commonstruct (C3). Access via common.solverparams.<field>. (The mutable per-solve counters
+// live in solverstate.)
+struct solverparamsstruct {
+    Int linearSolver;            // 0: GMRES; 1: CG; ...
+    Int nonlinearSolver;
+    Int linearSolverMaxIter;
+    Int nonlinearSolverMaxIter;
+    Int matvecOrder;
+    Int gmresRestart;
+    Int gmresOrthogMethod;
+    Int preconditioner;          // 0: low-rank; 1: reduced basis
+    Int precMatrixType;          // 0: identity; 1: inverse mass matrix
+    Int ptcMatrixType;           // 0: identity; 1: mass matrix
+    Int RBdim;                   // max dimension of the reduced-basis space
+    Int Wdim;                    // max dimension of W
+    dstype matvecTol;
+    dstype linearSolverTol;
+    dstype nonlinearSolverTol;
+    dstype PTCparam;             // pseudo-transient-continuation parameter (set-once config)
+};
+
+// QoI / visualization-output configuration: visualization component counts (scalar/vector/tensor),
+// surface/volume QoI counts, the Paraview flag, the boundary-to-save index, the QoI accumulation
+// buffers, and the registered QoI-instance list (C2). Grouped out of commonstruct (C3). Access via
+// common.qoiparams.<field>.
+template <class T = ::dstype, class I = ::Int>
+struct qoiparamsstructT {
+    using dstype = T; using Int = I;
+    Int nsca;             // visualization scalar-field components
+    Int nvec;             // visualization vector-field components
+    Int nten;             // visualization tensor-field components
+    Int nsurf;            // surface QoI / storage components
+    Int nvqoi;            // volume QoI components
+    Int saveParaview = 0; // enable Paraview output
+    Int ibs;              // boundary index to save solution
+    dstype* qoivolume=nullptr;  // volume-QoI accumulation buffer
+    dstype* qoisurface=nullptr; // surface-QoI accumulation buffer
+    std::vector<qoiinstancestruct> qoiinstances;  // registered QoI instances (default: 1 domain + 1 boundary)
+};
+using qoiparamsstruct = qoiparamsstructT<::dstype, ::Int>;
+
+// Interface-coupling configuration: coupled interface/condition/boundary flags, external
+// uhat/fhat/stabilization function flags, the external-force call flag, and interface/coupled-
+// element counts. Grouped out of commonstruct (C3). Access via common.couplingparams.<field>.
+// (The raw interface arrays vindx/interfacefluxmap/intepartpts are shared with appstruct and
+// left in place; the wall-model and synthetic-turbulence fields are separate concerns.)
+struct couplingparamsstruct {
+    Int ncuext;                   // number of components of uext (external/coupling)
+    Int coupledinterface;
+    Int coupledcondition;
+    Int coupledboundarycondition;
+    Int FextCall=0;               // external-force call flag
+    Int ncie;                     // number of coupled interface elements
+    Int extUhat=0;                // external uhat function flag
+    Int extFhat=0;                // external fhat function flag
+    Int extStab=0;                // external stabilization function flag
+    Int ninterfacefaces=0;        // number of interface faces
+    Int ndofuhatinterface=0;
+    Int nintfaces;
+    Int nvindx;
+};
+
+// Output / checkpoint / IO configuration: solution-save frequencies and options, restart offset,
+// time-averaged-solution flags, residual-norm logging, file offset, and debug mode. Grouped out of
+// commonstruct (C3). Access via common.outputparams.<field>.
+struct outputparamsstruct {
+    Int saveSolFreq;       // steps between solution saves
+    Int saveSolOpt;        // solution-save option
+    Int saveRestart=200;   // steps between restart saves
+    Int saveSolBouFreq=0;  // steps between boundary-solution saves
+    Int timestepOffset=0;  // timestep offset to restart the simulation
+    Int compudgavg=1;      // compute time-averaged solution
+    Int readudgavg=0;      // read time-averaged solution from file
+    Int saveResNorm=0;     // log residual norms
+    Int fileoffset;        // file/rank offset for IO
+    Int debugMode;         // debug output flag
+};
+
+// Wall-model configuration: model-ID / boundary / distance tables and their sizes (the working
+// copies; the raw tables are mirrored in appstruct). Grouped out of commonstruct (C3). Access via
+// common.wallmodelparams.<field>.
+template <class T = ::dstype, class I = ::Int>
+struct wallmodelparamsstructT {
+    using dstype = T; using Int = I;
+    Int nwm=0;               // number of wall-model configurations
+    Int szwmModelIDs=0;
+    Int szwmBoundaries=0;
+    Int szwmDistances=0;
+    Int *wmModelIDs=nullptr;
+    Int *wmBoundaries=nullptr;
+    dstype* wmDistances=nullptr;
+};
+using wallmodelparamsstruct = wallmodelparamsstructT<::dstype, ::Int>;
+
+// Synthetic-turbulence-generation (STG) configuration: number of modes, inlet-boundary count, and
+// the inlet-boundary index table (working copy; raw STG data lives in appstruct). Grouped out of
+// commonstruct (C3). Access via common.stgparams.<field>.
+struct stgparamsstruct {
+    Int stgNmode=0;          // number of synthetic-turbulence modes
+    Int nstgib;              // number of STG inlet boundaries
+    Int* stgib=nullptr;      // STG inlet-boundary index table
+};
+
+// Derived size "view": degree-of-freedom counts that are cross-products of the base dimensions
+// (npe/npf x nc-family x ne/nf), computed once in setstructs and read throughout the solver. Grouped
+// out of commonstruct (C3) so the ~17 derived ndof* counts have one home distinct from the base
+// dimensions (nd, nc-family, npe, ne, ...), which stay top-level as the fundamental shape. Access
+// via common.sizes.<field>. NOTE: these are stored, not recomputed on access -- ndof1* switch
+// between ne1 and ne by mesh branch (setstructs.cpp), and ndofucg/ndofbou are not simple products,
+// so a naive computed view would be incorrect.
+struct sizesstruct {
+    Int ndof;       // dofs of u   = npe*ncu*ne
+    Int ndofq;      // dofs of q   = npe*ncq*ne
+    Int ndofw;      // dofs of w   = npe*ncw*ne
+    Int ndofuhat;   // dofs of uhat= npf*ncu*nf
+    Int ndofudg;    // dofs of udg = npe*nc*ne
+    Int ndofsdg;    // dofs of sdg = npe*ncs*ne
+    Int ndofodg;    // dofs of odg = npe*nco*ne
+    Int ndofedg;    // dofs of edg = npe*nce*ne
+    Int ndofbou=0;  // dofs on saved boundary (conditional)
+    Int ndofucg;    // dofs of ucg = mesh.nsize[12]-1
+    Int ndof1;      // interior(+interface) variant of ndof   (ne1 or ne by mesh branch)
+    Int ndofq1;     // interior(+interface) variant of ndofq
+    Int ndofw1;     // interior(+interface) variant of ndofw
+    Int ndofudg1;   // interior(+interface) variant of ndofudg
+    Int ndofsdg1;   // interior(+interface) variant of ndofsdg
+    Int ndofodg1;   // interior(+interface) variant of ndofodg
+    Int ndofedg1;   // interior(+interface) variant of ndofedg
+};
+
+// Component counts of the DG fields: how many scalar components each field (u, q, w, o/odg, uhat,
+// xdg, sdg, edg, PTC monitor) carries, plus the stabilization length. The fundamental "field shape"
+// the kernels/drivers template their loops on. Grouped out of commonstruct (C3/S3) into an
+// intermediate struct so driver/kernel signatures can take just the component counts instead of the
+// whole commonstruct. Access via common.components.<field>.
+struct componentsstruct {
+    Int nc;    // components of (u, q) packed
+    Int ncu;   // components of u
+    Int ncq;   // components of q
+    Int ncw;   // components of w
+    Int nco;   // components of o (odg / auxiliary "other DG")
+    Int nch;   // components of uhat
+    Int ncx;   // components of xdg (coordinates)
+    Int ncs;   // components of sdg (source)
+    Int nce;   // components of edg (outputs)
+    Int ncm;   // components of the PTC monitor function
+    Int ntau;  // stabilization length
+};
+
+// Model-local solution layout: the per-point field SHAPE the model determines -- the solution-field
+// component counts and (scaffolded) per-component names. This is the "data layout component of the
+// model": LOCAL/per-point and model-changing, distinct from geometry/mesh sizes (nd / npe / ne / ncx),
+// which change with the app and live in gridstruct / meshsizesstruct. Host-only descriptor; the
+// kernels still read the raw counts from common.components, so adding this costs zero kernel churn.
+// G4 of the model-decoupling plan: the counts are populated now; names are auto-labeled ("u0","u1",
+// ...) as a scaffold and will carry real model-supplied names once the wire format emits them (Phase D).
+struct solutionlayoutstruct {
+    // counts (mirrored from componentsstruct -- the solution's per-point field components)
+    Int nc=0;    // (u, q) packed
+    Int ncu=0;   // u    (primary unknowns)
+    Int ncq=0;   // q    (gradient/auxiliary, = ncu * nd)
+    Int ncw=0;   // w    (wave/auxiliary)
+    Int nco=0;   // o    (other read-only auxiliary)
+    Int nch=0;   // uhat (trace)
+    Int nce=0;   // output fields
+    // meaning: per-component names/roles (auto-labeled scaffold; Phase D fills real names)
+    std::vector<std::string> ufields, qfields, wfields, ofields, efields;
+};
+
+// Populate a solution layout from the raw component counts, auto-labeling each field's components.
+inline void buildSolutionLayout(solutionlayoutstruct& layout, const componentsstruct& c)
+{
+    layout.nc = c.nc; layout.ncu = c.ncu; layout.ncq = c.ncq; layout.ncw = c.ncw;
+    layout.nco = c.nco; layout.nch = c.nch; layout.nce = c.nce;
+    auto autolabel = [](std::vector<std::string>& v, const char* prefix, Int n) {
+        v.clear();
+        for (Int i = 0; i < n; ++i) v.push_back(std::string(prefix) + std::to_string(i));
+    };
+    autolabel(layout.ufields, "u", c.ncu);
+    autolabel(layout.qfields, "q", c.ncq);
+    autolabel(layout.wfields, "w", c.ncw);
+    autolabel(layout.ofields, "o", c.nco);
+    autolabel(layout.efields, "e", c.nce);
+}
+
+// Reference-element / discretization sizes: spatial dimension, element & node types, polynomial
+// and quadrature orders, and the per-element/face node & Gauss-point counts (the master-element
+// shape the kernels loop over). Grouped out of commonstruct (C3/S3) into an intermediate struct
+// alongside componentsstruct. Access via common.grid.<field>.
+struct gridstruct {
+    Int nd;          // spatial dimension
+    Int elemtype;
+    Int nodetype;
+    Int porder;      // solution polynomial degree
+    Int pgauss;      // Gauss-quadrature degree
+    Int npe;         // nodes on master element
+    Int npf;         // nodes on master face
+    Int nge;         // Gauss points on master element
+    Int ngf;         // Gauss points on master face
+    Int np1d;
+    Int ng1d;
+    Int curvedMesh;  // curved-mesh flag
+};
+
+// Mesh partition sizes: element / face / vertex counts and the block counts the kernels iterate
+// over, including the interior / interior+interface / +exterior splits used by the coupling and
+// halo paths. Grouped out of commonstruct (C3/S3) into an intermediate struct. Access via
+// common.meshsizes.<field>.
+struct meshsizesstruct {
+    Int maxnbc;  // max number of boundary conditions
+    Int ne;      // total elements
+    Int nf;      // total faces
+    Int nv;      // vertices
+    Int nfe;     // faces per element
+    Int nbe;     // element blocks
+    Int neb;     // max elements per block
+    Int nbf;     // face blocks
+    Int nfb;     // max faces per block
+    Int nbe0;    // element blocks: interior
+    Int nbe1;    // element blocks: interior+interface
+    Int nbe2;    // element blocks: interior+interface+exterior
+    Int nbf0;    // face blocks: interior
+    Int nbf1;    // face blocks: interior+interface
+    Int ne0;     // interior elements
+    Int ne1;     // interior+interface elements
+    Int ne2;     // interior+interface+exterior elements
+    Int nf0;     // interior faces
+};
+
+// CRS index/numbering arrays for the LDG block-Jacobian preconditioner assembly:
+// ind_* map element/face block entries into the sparse operator; num_* are per-row
+// counts; L*/U* are the lower/upper-triangular block-factorization index+count
+// arrays. Allocated in crs_init (discretization.cpp). Grouped out of commonstruct
+// (S3-style) into one named concern; access via common.bjindex.<field>.
+struct blockjacindexstruct {
+    Int* ind_ii=nullptr;
+    Int* ind_ji=nullptr;
+    Int* ind_il=nullptr;
+    Int* ind_jl=nullptr;
+    Int* num_ji=nullptr;
+    Int* num_jl=nullptr;
+    Int* Lnum_ji=nullptr;
+    Int* Lind_ji=nullptr;
+    Int* Unum_ji=nullptr;
+    Int* Uind_ji=nullptr;
+};
+
+template <class T = ::dstype, class I = ::Int>
+struct commonstructT {
+    using dstype = T; using Int = I;
+    using qoiparamsstruct       = qoiparamsstructT<T, I>;
+    using wallmodelparamsstruct = wallmodelparamsstructT<T, I>;
+    meshsizesstruct meshsizes;              // mesh partition element/face/block counts (see above)
+    gridstruct grid;                        // reference-element/discretization sizes (see above)
+    componentsstruct components;            // DG-field component counts (see above)
+    solutionlayoutstruct layout;            // model-local solution layout: field counts + names (G4)
+    sizesstruct sizes;                      // derived degree-of-freedom counts (see above)
+    wallmodelparamsstruct wallmodelparams;  // wall-model configuration (see above)
+    stgparamsstruct stgparams;              // synthetic-turbulence-generation config (see above)
+    outputparamsstruct outputparams;      // output/checkpoint/IO configuration (see above)
+    couplingparamsstruct couplingparams;  // interface-coupling configuration (see above)
+    qoiparamsstruct qoiparams;          // QoI/visualization-output configuration (see above)
+    timeparamsstruct timeparams;        // time-integration/problem-evolution config (see above)
+    solverparamsstruct solverparams;    // iterative-solver configuration (see above)
+    physicsparamsstruct physicsparams;  // physics/model configuration (see above)
+    // solverstate (mutable solver/preconditioner runtime state) was lifted out of commonstruct
+    // into CSolver (Stage 1 of the internal separation) -- setup/config stays here, runtime state
+    // lives in the owning solver object.
+    timestatestruct timestate;      // mutable time-stepping runtime state (see above)
+    // Runtime model ABI for the unified templated FEM code (M == AbiAdapter path): set by
+    // CDiscretization to point at its driver_abi, so the no-driver_abi kernel-driver
+    // overloads can reach the ABI without threading it through every call.
+    ExasimDriverABI* driver_abi = nullptr;
+    std::string exasimpath = "";
     std::string filein;       // Name of binary file with input data
     std::string fileout;      // Name of binary file to write the solution            
     
     Int backend;   // 0: Serial; 1: OpenMP; 2: CUDA  
-    Int maxnbc;    // maximum number of boundary conditions
     
     Int mpiRank;  // MPI rank      
     Int mpiProcs;    // number of MPI ranks
     Int nomodels; // number of models
     Int enzyme=0;
     
-    Int nc; // number of compoments of (u, q)
-    Int ncu;// number of compoments of (u)
-    Int ncq;// number of compoments of (q)
-    Int ncw;// number of compoments of (w)
-    Int nco;// number of compoments of (o)
-    Int nch;// number of compoments of (uhat)
-    Int ncx;// number of compoments of (xdg)
-    Int ncs;// number of compoments of (sdg)
-    Int nce;// number of compoments of (edg)
-    Int ncuext; // number of compoments of uext
-    Int ncm;// number of compoments of PTC monitor function
-    Int nsca; // number of components of scalar fields for visualization
-    Int nvec; // number of components of vector fields for visualization
-    Int nten; // number of components of tensur fields for visualization
-    Int nsurf; // number of components of surface fields for visualization, storage, and QoIs
-    Int nvqoi;  // number of volume quantities of interest (QoIs)    
-    Int saveParaview = 0; // flag to enable Paraview visualization output
 
-    Int nd; // spatial dimension    
-    Int elemtype;
-    Int nodetype;
-    Int porder; // polynomial degree for solution approximation
-    Int pgauss; // polynomial degree for Gauss quadrature
-    Int npe;  // number of nodes on master element
-    Int npf;  // number of nodes on master face       
-    Int nge;  // number of gauss poInts on master element
-    Int ngf;  // number of gauss poInts on master face                    
-    Int np1d;
-    Int ng1d;    
     Int ppdegree=0; // polynomial preconditioner degree
-    Int coupledinterface;
-    Int coupledcondition;
-    Int coupledboundarycondition;
-    Int FextCall=0;
     Int isd=0; 
             
-    Int ne; // number of elements
-    Int nf; // number of faces
-    Int nv; // number of vertices      
-    Int nfe; // number of faces per element        
-    Int nbe; // number of blocks for elements 
-    Int neb; // maximum number of elements per block
-    Int nbf; // number of blocks for faces   
-    Int nfb; // maximum number of faces per block
-    Int nbe0; // number of blocks for interior elements 
-    Int nbe1; // number of blocks for interior+interface elements 
-    Int nbe2; // number of blocks for interior+interface+exterior elements 
-    Int nbf0; // number of blocks for interior faces
-    Int nbf1; // number of blocks for interior+interface faces
-    Int ncie; // number of coupled interface elements
     Int nse=0;  // number of superelements
     Int nese=0; // number of elements per superelement
     Int nfse=0; // number of faces per superelement
     Int nnz=0;
     
-    Int ndof; // number of degrees of freedom of u
-    Int ndofq; // number of degrees of freedom of q
-    Int ndofw; // number of degrees of freedom of w
-    Int ndofuhat; // number of degrees of freedom of uhat
-    Int ndofudg; // number of degrees of freedom of udg
-    Int ndofsdg; // number of degrees of freedom of sdg
-    Int ndofodg; // number of degrees of freedom of odg
-    Int ndofedg; // number of degrees of freedom of edg
-    Int ndofbou=0;
-    Int ntau; // length of the stabilization
     
-    Int ne0;  // number of interior elements
-    Int ne1;  // number of interior+interface elements
-    Int ne2;  // number of interior+interface+exterior elements
-    Int nf0;  // number of interior faces
-    Int ndof1; // number of degrees of freedom of u
-    Int ndofq1; // number of degrees of freedom of q
-    Int ndofw1; // number of degrees of freedom of w
-    Int ndofudg1; // number of degrees of freedom of udg
-    Int ndofsdg1; // number of degrees of freedom of sdg
-    Int ndofodg1; // number of degrees of freedom of odg
-    Int ndofedg1; // number of degrees of freedom of edg
-    Int ndofucg;
         
-    Int RBdim; // maximum dimension of the reduced basis space
-    Int RBcurrentdim; // current dimension of the reduced basis space
-    Int RBremovedind; // the vector to be removed from the RB space and replaced with new vector    
-    Int Wdim; // maxium dimension of W
-    Int Wcurrentdim;
     
-    Int extUhat=0; // external uhat function flag
-    Int extFhat=0; // external fhat function flag
-    Int extStab=0; // external stabilization function flag
-    Int curvedMesh;// curved mesh   
-    Int fileoffset;
-    Int debugMode; // 1: save data to binary files for debugging
-    Int appname;   /* 0: Euler; 1: Compressible Navier-Stokes; etc. */
-    Int tdep;      // 0: steady-state; 1: time-dependent;  
-    Int wave;      // wave problem    
-    Int linearProblem; // 0: nonlinear problem;  1: linear problem
-    Int subproblem=0;
-    Int saveSolFreq;      // number of time steps to save the solution
-    Int saveSolOpt;       // option to save the solution
-    Int saveRestart=200;  // number of time steps to save the solution for restarting
-    Int timestepOffset=0; // timestep offset to restart the simulation 
-    Int stgNmode=0;       // number of synthetic turbulence generation modes
-    Int tdfunc;           // time-derivative function flag
-    Int source;           // source function flag
     Int modelnumber;      // model number
     Int builtinmodelID=0; // model ID
-    Int ibs;              // boundary index to save solution 
-    Int saveSolBouFreq=0; // number of time steps to save the solution on the boundary
-    Int compudgavg=1;     // compute time-averaged solution udg
-    Int readudgavg=0;     // flag to read time-averaged solution udg from file
-    Int saveResNorm=0;   
     Int matrixformat=0;
     
     Int spatialScheme;   /* 0: HDG; 1: EDG; 2: IEDG, HEDG */
-    Int temporalScheme;  // 0: DIRK; 1: BDF; 2: ERK
-    Int torder;    /* temporal accuracy order */
-    Int tstages;    /* DIRK stages */
-    Int tsteps;    /* number of time steps */
-    Int dae_steps=0; /* number of dual time steps */
-    Int currentstep;  // current time step
-    Int currentstage; // curent time stage
-    Int convStabMethod;  // Flag for convective stabilization tensor. 0: Constant tau, 1: Lax-Friedrichs; 2: Roe.
-    Int diffStabMethod;  // Flag for diffusive stabilization tensor. 0: No diffusive stabilization.
-    Int rotatingFrame;   // Flag for rotating frame. Options: 0: Velocities are respect to a non-rotating frame. 1: Velocities are respect to a rotating frame.
-    Int viscosityModel;  // Flag for viscosity model. 0: Constant kinematic viscosity; 1: Sutherland's law. 2: Hack for viscosity for compressible HIT case in (Johnsen, 2010)
-    Int SGSmodel;        // Flag for sub-grid scale (SGS) model. Only available for 3D solver.
                                         //  0: No SGS model. 1: Static Smagorinsky/Yoshizawa/Knight model. 
                                         //  2: Static WALE/Yoshizawa/Knight model. 3: Static Vreman/Yoshizawa/Knight model.
                                         //  4: Dynamic Smagorinsky/Yoshizawa/Knight model.        
-    Int ALEflag;                    // Flag for Arbitrary Lagrangian-Eulerian (ALE) formulation. 0: No ALE; 1: Translation; 2: Translation + rotation; 3: Translation + rotation + deformation
-    Int ncAV;                     // Number of components for artificial viscosity; formulation specified in symbolic code as pde.avfield function   
-    Int AVsmoothingIter;           //Number of times artificial viscosity is smoothed
-    Int frozenAVflag;    // Flag deciding if artificial viscosity is calculated once per non-linear solve or in every residual evluation
                                 //   0: AV not frozen, evaluated as part of residual
                                 //   1: AV frozen, evluated once per solve (default)   
-    Int AVdistfunction=0;
     Int read_uh = 0;
 
-    Int linearSolver;  /* 0: GMRES; 1: CG; etc. */      
-    Int nonlinearSolver;
-    Int linearSolverMaxIter;   
-    Int linearSolverIter;   // current iteration
-    Int nonlinearSolverMaxIter;                
-    Int nonlinearSolverIter;                
-    Int matvecOrder;    
-    Int gmresRestart;    
-    Int gmresOrthogMethod;        
-    Int preconditioner; // 0: low-rank; 1: reduced basis
-    Int precMatrixType; // 0: identity; 1: inverse mass matrix
-    Int ptcMatrixType;  // 0: identity; 1: mass matrix
     Int runmode;
-    Int ninterfacefaces=0; // number of interface faces
-    Int ndofuhatinterface=0;
     
-    dstype dtfactor; // factor asssociated with udg for temporal discretization
-    dstype time; // current simulation time    
-    dstype matvecTol;
-    dstype linearSolverTol;
-    dstype linearSolverTolFactor=1.0;
-    dstype nonlinearSolverTol;
-    dstype linearSolverRelError;
-    dstype rampFactor;               // Ramp factor for artificial viscosity flux
-    dstype PTCparam;
-    dstype tau0=0.0;
-    dstype dae_alpha=1.0;
-    dstype dae_beta=0.0;
-    dstype dae_gamma=0.0;
-    dstype dae_epsilon=0.0;
             
     Int* eblks=nullptr; // element blocks
     Int* fblks=nullptr; // face blocks   
@@ -1779,28 +2150,18 @@ struct commonstruct {
     Int* nboufaces=nullptr;
     Int* nextfaces=nullptr;
     
-    Int nintfaces;
-    Int nstgib;
     Int nnbsd; // number of neighboring subdomains
     Int nelemsend;
     Int nelemrecv;
-    Int nvindx;
     Int szinterfacefluxmap;
-    Int nwm=0;
-    Int szwmModelIDs=0;
-    Int szwmBoundaries=0;
-    Int szwmDistances=0;
     Int szcartgridpart;
     Int* nbsd=nullptr; // neighboring subdomains
     Int* elemsend=nullptr;
     Int* elemrecv=nullptr;       
     Int* elemsendpts=nullptr;
     Int* elemrecvpts=nullptr;        
-    Int* stgib=nullptr;
     Int *vindx=nullptr;
     Int *interfacefluxmap=nullptr;
-    Int *wmModelIDs=nullptr;
-    Int *wmBoundaries=nullptr;
     Int *cartgridpart=nullptr;
     Int *boundaryConditions=nullptr;
     Int *intepartpts=nullptr;
@@ -1814,28 +2175,16 @@ struct commonstruct {
     Int* facesendpts=nullptr;
     Int* facerecvpts=nullptr;        
         
-    Int* ind_ii=nullptr;
-    Int* ind_ji=nullptr;
-    Int* ind_il=nullptr;
-    Int* ind_jl=nullptr;
-    Int* num_ji=nullptr;
-    Int* num_jl=nullptr;
-    Int* Lnum_ji=nullptr;
-    Int* Lind_ji=nullptr;
-    Int* Unum_ji=nullptr;
-    Int* Uind_ji=nullptr;
-        
+    blockjacindexstruct bjindex;  // LDG block-Jacobian CRS index/numbering arrays (see above)
+
     dstype  timing[128];
     dstype* dt=nullptr;
     dstype* dae_dt=nullptr;
-    dstype* wmDistances=nullptr;
     dstype* DIRKcoeff_c=nullptr;
     dstype* DIRKcoeff_d=nullptr;
     dstype* DIRKcoeff_t=nullptr;
     dstype* BDFcoeff_c=nullptr;
     dstype* BDFcoeff_t=nullptr;    
-    dstype* qoivolume=nullptr;
-    dstype* qoisurface=nullptr;
 
     cudaEvent_t eventHandle;
     cublasHandle_t cublasHandle;
@@ -1851,137 +2200,134 @@ struct commonstruct {
       printf("backend: %d\n", backend);   
       printf("number of MPI ranks: %d\n", mpiProcs);   
       printf("number of models: %d\n", nomodels);               
-      printf("number of compoments of (u, q): %d\n", nc);   
-      printf("number of compoments of u: %d\n", ncu);   
-      printf("number of compoments of q: %d\n", ncq);   
-      printf("number of compoments of w: %d\n", ncw);   
-      printf("number of compoments of v: %d\n", nco);   
-      printf("number of compoments of uhat: %d\n", nch);   
-      printf("number of compoments of x: %d\n", ncx);   
-      printf("number of compoments of s: %d\n", ncs);   
-      printf("number of compoments of outputs: %d\n", nce);    
-      printf("spatial dimension: %d\n", nd);   
+      printf("number of compoments of (u, q): %d\n", components.nc);   
+      printf("number of compoments of u: %d\n", components.ncu);   
+      printf("number of compoments of q: %d\n", components.ncq);   
+      printf("number of compoments of w: %d\n", components.ncw);   
+      printf("number of compoments of v: %d\n", components.nco);   
+      printf("number of compoments of uhat: %d\n", components.nch);   
+      printf("number of compoments of x: %d\n", components.ncx);   
+      printf("number of compoments of s: %d\n", components.ncs);   
+      printf("number of compoments of outputs: %d\n", components.nce);    
+      printf("spatial dimension: %d\n", grid.nd);   
       printf("spatial scheme: %d\n", spatialScheme);        
-      printf("element type: %d\n", elemtype);   
+      printf("element type: %d\n", grid.elemtype);   
       printf("node type: %d\n", 1);   
-      printf("polynomial degree: %d\n", porder);   
-      printf("gauss quadrature degree: %d\n", pgauss); 
-      printf("number of nodes on master element: %d\n", npe); 
-      printf("number of gauss points on master element: %d\n", nge); 
-      printf("number of nodes on master face: %d\n", npf); 
-      printf("number of gauss points on master face: %d\n", ngf); 
-      printf("temporal scheme: %d\n", temporalScheme);   
-      printf("temporal order: %d\n", torder);   
-      printf("number of DIRK stages: %d\n", tstages);   
-      printf("number of time steps: %d\n", tsteps);   
+      printf("polynomial degree: %d\n", grid.porder);   
+      printf("gauss quadrature degree: %d\n", grid.pgauss); 
+      printf("number of nodes on master element: %d\n", grid.npe); 
+      printf("number of gauss points on master element: %d\n", grid.nge); 
+      printf("number of nodes on master face: %d\n", grid.npf); 
+      printf("number of gauss points on master face: %d\n", grid.ngf); 
+      printf("temporal scheme: %d\n", timeparams.temporalScheme);   
+      printf("temporal order: %d\n", timeparams.torder);   
+      printf("number of DIRK stages: %d\n", timeparams.tstages);   
+      printf("number of time steps: %d\n", timeparams.tsteps);   
       
-      printf("total number of elements: %d\n", ne);   
-      printf("number of interior elements: %d\n", ne0);   
-      printf("number of interior+interface elements: %d\n", ne1);   
-      printf("number of interior+interface+exterior elements: %d\n", ne2);   
-      printf("total number of faces: %d\n", nf);   
-      printf("number of interior faces: %d\n", nf0);   
+      printf("total number of elements: %d\n", meshsizes.ne);   
+      printf("number of interior elements: %d\n", meshsizes.ne0);   
+      printf("number of interior+interface elements: %d\n", meshsizes.ne1);   
+      printf("number of interior+interface+exterior elements: %d\n", meshsizes.ne2);   
+      printf("total number of faces: %d\n", meshsizes.nf);   
+      printf("number of interior faces: %d\n", meshsizes.nf0);   
       
-      printf("number of faces per elements: %d\n", nfe);
-      printf("number of blocks for elements: %d\n", nbe);
-      printf("number of blocks for faces: %d\n", nbf);        
-      printf("maximum number of faces per block: %d\n", nfb);
-      printf("number of blocks for interior elements: %d\n", nbe0);
-      printf("number of blocks for interior+interface elements: %d\n", nbe1);
-      printf("number of blocks for interior+interface+exterior elements: %d\n", nbe2);
-      printf("number of blocks for interior faces: %d\n", nbf0);
-      printf("number of blocks for interior+interface faces: %d\n", nbf1);
-      printf("number of interface faces: %d\n", ninterfacefaces);
+      printf("number of faces per elements: %d\n", meshsizes.nfe);
+      printf("number of blocks for elements: %d\n", meshsizes.nbe);
+      printf("number of blocks for faces: %d\n", meshsizes.nbf);        
+      printf("maximum number of faces per block: %d\n", meshsizes.nfb);
+      printf("number of blocks for interior elements: %d\n", meshsizes.nbe0);
+      printf("number of blocks for interior+interface elements: %d\n", meshsizes.nbe1);
+      printf("number of blocks for interior+interface+exterior elements: %d\n", meshsizes.nbe2);
+      printf("number of blocks for interior faces: %d\n", meshsizes.nbf0);
+      printf("number of blocks for interior+interface faces: %d\n", meshsizes.nbf1);
+      printf("number of interface faces: %d\n", couplingparams.ninterfacefaces);
 
-      printf("number of degrees of freedom of u: %d\n", ndof);   
-      printf("number of degrees of freedom of q: %d\n", ndofq);   
-      printf("number of degrees of freedom of w: %d\n", ndofw);   
-      printf("number of degrees of freedom of uhat: %d\n", ndofuhat);   
-      printf("number of degrees of freedom of udg: %d\n", ndofudg);   
-      printf("number of degrees of freedom of sdg: %d\n", ndofsdg);   
-      printf("number of degrees of freedom of odg: %d\n", ndofodg);   
-      printf("number of degrees of freedom of edg: %d\n", ndofedg);   
-      printf("length of the stabilization: %d\n", ntau);   
+      printf("number of degrees of freedom of u: %d\n", sizes.ndof);   
+      printf("number of degrees of freedom of q: %d\n", sizes.ndofq);   
+      printf("number of degrees of freedom of w: %d\n", sizes.ndofw);   
+      printf("number of degrees of freedom of uhat: %d\n", sizes.ndofuhat);   
+      printf("number of degrees of freedom of udg: %d\n", sizes.ndofudg);   
+      printf("number of degrees of freedom of sdg: %d\n", sizes.ndofsdg);   
+      printf("number of degrees of freedom of odg: %d\n", sizes.ndofodg);   
+      printf("number of degrees of freedom of edg: %d\n", sizes.ndofedg);   
+      printf("length of the stabilization: %d\n", components.ntau);   
 
-      printf("maximum dimension of the reduced basis space: %d\n", RBdim);
-      printf("current dimension of the reduced basis space: %d\n", RBcurrentdim);
-      printf("the vector to be removed from the RB space and replaced with new vector: %d\n", RBremovedind);
-     
-      printf("external uhat function flag: %d\n", extUhat);
-      printf("external fhat function flag: %d\n", extFhat);
-      printf("external stabilization function flag: %d\n", extStab);
-      printf("curved mesh flag: %d\n", curvedMesh);
-      printf("debug mode flag: %d\n", debugMode);
-      printf("time-dependent problem flag: %d\n", tdep);
-      printf("wave problem flag: %d\n", wave);
-      printf("linear problem flag: %d\n", linearProblem);
-      printf("save solution frequency: %d\n", saveSolFreq);
-      printf("save solution option: %d\n", saveSolOpt);
-      printf("timestep offset to restart simulation: %d\n", timestepOffset);
-      printf("time-derivative function flag: %d\n", tdfunc);
-      printf("source function flag: %d\n", source);
+      printf("maximum dimension of the reduced basis space: %d\n", solverparams.RBdim);
+      // (runtime reduced-basis dimensions now live in CSolver::state, not commonstruct)
+
+      printf("external uhat function flag: %d\n", couplingparams.extUhat);
+      printf("external fhat function flag: %d\n", couplingparams.extFhat);
+      printf("external stabilization function flag: %d\n", couplingparams.extStab);
+      printf("curved mesh flag: %d\n", grid.curvedMesh);
+      printf("debug mode flag: %d\n", outputparams.debugMode);
+      printf("time-dependent problem flag: %d\n", timeparams.tdep);
+      printf("wave problem flag: %d\n", timeparams.wave);
+      printf("linear problem flag: %d\n", timeparams.linearProblem);
+      printf("save solution frequency: %d\n", outputparams.saveSolFreq);
+      printf("save solution option: %d\n", outputparams.saveSolOpt);
+      printf("timestep offset to restart simulation: %d\n", outputparams.timestepOffset);
+      printf("time-derivative function flag: %d\n", timeparams.tdfunc);
+      printf("source function flag: %d\n", physicsparams.source);
       printf("model number: %d\n", modelnumber);
-      printf("boundary index to save solution: %d\n", ibs);
-      printf("save solution boundary frequency: %d\n", saveSolBouFreq);
-      printf("compute time-averaged solution flag: %d\n", compudgavg);
-      printf("read time-averaged solution flag: %d\n", readudgavg);
+      printf("boundary index to save solution: %d\n", qoiparams.ibs);
+      printf("save solution boundary frequency: %d\n", outputparams.saveSolBouFreq);
+      printf("compute time-averaged solution flag: %d\n", outputparams.compudgavg);
+      printf("read time-averaged solution flag: %d\n", outputparams.readudgavg);
     
-      printf("number of components of artificial viscosity: %d\n", ncAV);
-      printf("number of artificial viscosity smoothing iterations: %d\n", AVsmoothingIter);
-      printf("frozen artificial viscosity flag: %d\n", frozenAVflag);
-      printf("linear solver type: %d\n", linearSolver);
-      printf("nonlinear solver type: %d\n", nonlinearSolver);
-      printf("maximum linear solver iterations: %d\n", linearSolverMaxIter);
-      printf("current linear solver iteration: %d\n", linearSolverIter);
-      printf("maximum nonlinear solver iterations: %d\n", nonlinearSolverMaxIter);
-      printf("current nonlinear solver iteration: %d\n", nonlinearSolverIter);
-      printf("matrix-vector multiplication order: %d\n", matvecOrder);
-      printf("GMRES restart parameter: %d\n", gmresRestart);
-      printf("GMRES orthogonalization method: %d\n", gmresOrthogMethod);
-      printf("preconditioner type: %d\n", preconditioner);
-      printf("preconditioner matrix type: %d\n", precMatrixType);
-      printf("PTC matrix type: %d\n", ptcMatrixType);
+      printf("number of components of artificial viscosity: %d\n", physicsparams.ncAV);
+      printf("number of artificial viscosity smoothing iterations: %d\n", physicsparams.AVsmoothingIter);
+      printf("frozen artificial viscosity flag: %d\n", physicsparams.frozenAVflag);
+      printf("linear solver type: %d\n", solverparams.linearSolver);
+      printf("nonlinear solver type: %d\n", solverparams.nonlinearSolver);
+      printf("maximum linear solver iterations: %d\n", solverparams.linearSolverMaxIter);
+      printf("maximum nonlinear solver iterations: %d\n", solverparams.nonlinearSolverMaxIter);
+      // (current linear/nonlinear iteration counts now live in CSolver::state, not commonstruct)
+      printf("matrix-vector multiplication order: %d\n", solverparams.matvecOrder);
+      printf("GMRES restart parameter: %d\n", solverparams.gmresRestart);
+      printf("GMRES orthogonalization method: %d\n", solverparams.gmresOrthogMethod);
+      printf("preconditioner type: %d\n", solverparams.preconditioner);
+      printf("preconditioner matrix type: %d\n", solverparams.precMatrixType);
+      printf("PTC matrix type: %d\n", solverparams.ptcMatrixType);
       printf("run mode: %d\n", runmode);
-      printf("time step factor: %f\n", dtfactor);
-      printf("current simulation time: %f\n", time);
-      printf("matrix-vector multiplication tolerance: %f\n", matvecTol);
-      printf("linear solver tolerance: %f\n", linearSolverTol);
-      printf("linear solver tolerance factor: %f\n", linearSolverTolFactor);
-      printf("nonlinear solver tolerance: %f\n", nonlinearSolverTol);
-      printf("linear solver relative error: %f\n", linearSolverRelError);
-      printf("artificial viscosity ramp factor: %f\n", rampFactor);
-      printf("PTC parameter: %f\n", PTCparam);
-      printf("initial stabilization parameter: %f\n", tau0);
-      printf("DAE alpha parameter: %f\n", dae_alpha);
-      printf("DAE beta parameter: %f\n", dae_beta);
-      printf("DAE gamma parameter: %f\n", dae_gamma);
-      printf("DAE epsilon parameter: %f\n", dae_epsilon);
+      printf("time step factor: %f\n", timestate.dtfactor);
+      printf("current simulation time: %f\n", timestate.time);
+      printf("matrix-vector multiplication tolerance: %f\n", solverparams.matvecTol);
+      printf("linear solver tolerance: %f\n", solverparams.linearSolverTol);
+      printf("nonlinear solver tolerance: %f\n", solverparams.nonlinearSolverTol);
+      // (linear solver tolerance factor / relative error now live in CSolver::state)
+      printf("artificial viscosity ramp factor: %f\n", physicsparams.rampFactor);
+      printf("PTC parameter: %f\n", solverparams.PTCparam);
+      printf("initial stabilization parameter: %f\n", physicsparams.tau0);
+      printf("DAE alpha parameter: %f\n", timeparams.dae_alpha);
+      printf("DAE beta parameter: %f\n", timeparams.dae_beta);
+      printf("DAE gamma parameter: %f\n", timeparams.dae_gamma);
+      printf("DAE epsilon parameter: %f\n", timeparams.dae_epsilon);
       
-      printf("number of boundary conditions: %d\n", maxnbc);
-      printf("number of wall-model configurations: %d\n", nwm);
+      printf("number of boundary conditions: %d\n", meshsizes.maxnbc);
+      printf("number of wall-model configurations: %d\n", wallmodelparams.nwm);
       printf("number of neighboring subdomains: %d\n", nnbsd);      
       printf("number of elements to send: %d\n", nelemsend);
       printf("number of elements to receive: %d\n", nelemrecv);
       
-      printf("eblks array: %d by %d\n", 3, nbe);
+      printf("eblks array: %d by %d\n", 3, meshsizes.nbe);
       for (int j=0; j<3; j++) {
-        for (int i=0; i<nbe; i++)
+        for (int i=0; i<meshsizes.nbe; i++)
           printf("%d  ", eblks[j+3*i]);
         printf("\n");  
       }
 
-      printf("fblks array: %d by %d\n", 3, nbf);
+      printf("fblks array: %d by %d\n", 3, meshsizes.nbf);
       for (int j=0; j<3; j++) {
-        for (int i=0; i<nbf; i++)
+        for (int i=0; i<meshsizes.nbf; i++)
           printf("%d  ", fblks[j+3*i]);
         printf("\n");  
       }
 
       if (spatialScheme==1) {
-        printf("nboufaces array: %d by %d\n", maxnbc, nbe);
-        for (int j=0; j<maxnbc; j++) {
-          for (int i=0; i<nbe; i++)
-            printf("%d  ", nboufaces[1+j+maxnbc*i]);
+        printf("nboufaces array: %d by %d\n", meshsizes.maxnbc, meshsizes.nbe);
+        for (int j=0; j<meshsizes.maxnbc; j++) {
+          for (int i=0; i<meshsizes.nbe; i++)
+            printf("%d  ", nboufaces[1+j+meshsizes.maxnbc*i]);
           printf("\n");  
         }        
       }
@@ -2025,25 +2371,56 @@ struct commonstruct {
         CPUFREE(elemrecv); 
         CPUFREE(elemsendpts); 
         CPUFREE(elemrecvpts); 
-        if (nstgib > 0) CPUFREE(stgib); 
+        if (stgparams.nstgib > 0) CPUFREE(stgparams.stgib); 
         CPUFREE(vindx); 
         CPUFREE(interfacefluxmap); 
-        CPUFREE(wmModelIDs);
-        CPUFREE(wmBoundaries);
+        CPUFREE(wallmodelparams.wmModelIDs);
+        CPUFREE(wallmodelparams.wmBoundaries);
         CPUFREE(cartgridpart); 
         CPUFREE(boundaryConditions); 
         CPUFREE(intepartpts);         
         CPUFREE(dt); 
         CPUFREE(dae_dt); 
-        CPUFREE(wmDistances);
+        CPUFREE(wallmodelparams.wmDistances);
         CPUFREE(DIRKcoeff_c); 
         CPUFREE(DIRKcoeff_d); 
         CPUFREE(DIRKcoeff_t); 
         CPUFREE(BDFcoeff_c); 
         CPUFREE(BDFcoeff_t);  
-        if (nvqoi > 0) CPUFREE(qoivolume);  
-        if (nsurf > 0) CPUFREE(qoisurface);  
-    }                         
+        if (qoiparams.nvqoi > 0) CPUFREE(qoiparams.qoivolume);
+        if (qoiparams.nsurf > 0) CPUFREE(qoiparams.qoisurface);
+    }
 };
+using commonstruct = commonstructT<::dstype, ::Int>;
 
-#endif  
+// --- QoI output helpers (instance-driven) ------------------------------------------------
+// Write the QoI column headers / one QoI value row by iterating the registered QoI instances.
+// With the default single-domain + single-boundary instances this reproduces the historical
+// "Domain_QoI<i>" / "Boundary_QoI<i>" columns and values byte-for-byte.
+inline void writeQoIHeader(std::ostream& outqoi, const qoiparamsstruct& qoiparams)
+{
+    for (const auto& q : qoiparams.qoiinstances)
+        for (Int j = 0; j < q.ncomp; ++j)
+            outqoi << std::setw(16) << std::left << (q.name + std::to_string(j + 1));
+}
+inline void writeQoIRow(std::ostream& outqoi, const qoiparamsstruct& qoiparams)
+{
+    for (const auto& q : qoiparams.qoiinstances) {
+        const dstype* buf = (q.kind == 0) ? qoiparams.qoivolume : qoiparams.qoisurface;
+        for (Int j = 0; j < q.ncomp; ++j)
+            outqoi << std::setw(16) << std::scientific << std::setprecision(6) << buf[q.offset + j];
+    }
+}
+// Write the "Time" + QoI-instance header line exactly once, on the first row (while the
+// stream is still empty). Writing the header lazily (rather than at file-open) lets QoI
+// instances registered after model init (ExasimSolver::AddQoI) be reflected in the columns.
+inline void writeQoIHeaderOnce(std::ostream& outqoi, const qoiparamsstruct& qoiparams)
+{
+    if (outqoi.tellp() == std::streampos(0)) {
+        outqoi << std::setw(16) << std::left << "Time";
+        writeQoIHeader(outqoi, qoiparams);
+        outqoi << "\n";
+    }
+}
+
+#endif

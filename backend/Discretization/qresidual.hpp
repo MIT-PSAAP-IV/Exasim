@@ -60,11 +60,12 @@
 
 
 // Calculate Rqe = (u, nabla dot v)_K for a given u
-template <class M>
-inline void RqElemBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int nd, 
+template <class T=dstype, class I=Int>
+inline void RqElemBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int nd, 
         Int npe, Int nge, Int nc, Int ncu, Int ncx, Int e1, Int e2, Int backend)
-{            
+{
+    using dstype=T;            
     Int ncq = ncu*nd;
     Int ne = e2-e1;
     Int nn =  npe*ne; 
@@ -87,37 +88,39 @@ inline void RqElemBlock(solstruct &sol, resstruct &res, appstruct &app, masterst
 #ifdef EXADEBUG                       
     writearray2file(common.fileout + "RqElem_uge.bin", &tmp.tempg[n0], nge*ncu*ne, backend);  
     writearray2file(common.fileout + "RqElem_fge.bin", &tmp.tempg[n1], nge*ncq*ne, backend);  
-    writearray2file(common.fileout + "RqElem_rqe.bin", res.Rqe, npe*ncq*common.ne1, backend);
+    writearray2file(common.fileout + "RqElem_rqe.bin", res.Rqe, npe*ncq*common.meshsizes.ne1, backend);
 #endif              
 }
 
-template <class M>
-inline void RqElem(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
+template <class T=dstype, class I=Int>
+inline void RqElem(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, 
         Int nbe1, Int nbe2, Int backend)
 {
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int nge = common.nge; // number of gauss points on master element    
-    //Int ne = common.ne; // number of elements in this subdomain 
+    using dstype=T;
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int nge = common.grid.nge; // number of gauss points on master element    
+    //Int ne = common.meshsizes.ne; // number of elements in this subdomain 
     
     for (Int j=nbe1; j<nbe2; j++) {
         Int e1 = common.eblks[3*j]-1;
         Int e2 = common.eblks[3*j+1];    
-        RqElemBlock<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, nd, npe, nge, nc, 
+        RqElemBlock(sol, res, app, master, mesh, tmp, common, common.cublasHandle, nd, npe, nge, nc, 
             ncu, ncx, e1, e2, backend);
     }                     
 }
 
 // Calculate Rqf = <uhat, v dot n>_F for a given uhat
-template <class M>
-inline void RqFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
+template <class T=dstype, class I=Int>
+inline void RqFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, 
         Int nd, Int npe, Int npf, Int ngf, Int nc, Int ncu, Int ncx, Int f1, Int f2, Int ib, Int backend)
-{        
+{
+    using dstype=T;        
     Int ncq = ncu*nd;
     Int nf = f2-f1;
     //Int nn =  npf*nf; 
@@ -142,39 +145,41 @@ inline void RqFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masterst
     writearray2file(common.fileout + NumberToString(ib) + "RqFace_uhgf.bin", &tmp.tempg[n3], ngf*ncu*nf, backend);  
     writearray2file(common.fileout + NumberToString(ib) + "RqFace_fgf.bin", &tmp.tempg[n4], ngf*ncq*nf, backend);  
     writearray2file(common.fileout + NumberToString(ib) + "RqFace_rnf.bin", tmp.tempn, npf*ncq*nf, backend);
-    writearray2file(common.fileout + NumberToString(ib) + "RqFace_rqf.bin", res.Rqf, npe*ncq*common.ne1, backend);
+    writearray2file(common.fileout + NumberToString(ib) + "RqFace_rqf.bin", res.Rqf, npe*ncq*common.meshsizes.ne1, backend);
 #endif              
 }
 
-template <class M>
-inline void RqFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int nbf1, Int nbf2, Int backend)
-{    
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int npf = common.npf; // number of nodes on master face           
-    Int ngf = common.ngf; // number of gauss poInts on master face          
-    //Int ne = common.ne; // number of elements in this subdomain 
+template <class T=dstype, class I=Int>
+inline void RqFace(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int nbf1, Int nbf2, Int backend)
+{
+    using dstype=T;    
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int npf = common.grid.npf; // number of nodes on master face           
+    Int ngf = common.grid.ngf; // number of gauss poInts on master face          
+    //Int ne = common.meshsizes.ne; // number of elements in this subdomain 
     
     for (Int j=nbf1; j<nbf2; j++) {
         Int f1 = common.fblks[3*j]-1;
         Int f2 = common.fblks[3*j+1];    
         Int ib = common.fblks[3*j+2];    
         //printf("%i %i %i\n", f1, f2, ib);
-        RqFaceBlock<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 
+        RqFaceBlock(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 
                 nd, npe, npf, ngf, nc, ncu, ncx, f1, f2, ib, backend);
     }                       
 }
 
 #ifdef HAVE_ENZYME
-template <class M>
-inline void dRqElemBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int nd, 
+template <class T=dstype, class I=Int>
+inline void dRqElemBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int nd, 
         Int npe, Int nge, Int nc, Int ncu, Int ncx, Int e1, Int e2, Int backend)
-{            
+{
+    using dstype=T;            
     Int ncq = ncu*nd;
     Int ne = e2-e1;
     Int nn =  npe*ne; 
@@ -197,37 +202,39 @@ inline void dRqElemBlock(solstruct &sol, resstruct &res, appstruct &app, masters
 #ifdef EXADEBUG                       
     writearray2file(common.fileout + "RqElem_uge.bin", &tmp.tempg[n0], nge*ncu*ne, backend);  
     writearray2file(common.fileout + "RqElem_fge.bin", &tmp.tempg[n1], nge*ncq*ne, backend);  
-    writearray2file(common.fileout + "RqElem_rqe.bin", res.Rqe, npe*ncq*common.ne1, backend);
+    writearray2file(common.fileout + "RqElem_rqe.bin", res.Rqe, npe*ncq*common.meshsizes.ne1, backend);
 #endif              
 }
 
-template <class M>
-inline void dRqElem(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
+template <class T=dstype, class I=Int>
+inline void dRqElem(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, 
         Int nbe1, Int nbe2, Int backend)
 {
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int nge = common.nge; // number of gauss points on master element    
-    //Int ne = common.ne; // number of elements in this subdomain 
+    using dstype=T;
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int nge = common.grid.nge; // number of gauss points on master element    
+    //Int ne = common.meshsizes.ne; // number of elements in this subdomain 
     
     for (Int j=nbe1; j<nbe2; j++) {
         Int e1 = common.eblks[3*j]-1;
         Int e2 = common.eblks[3*j+1];    
-        dRqElemBlock<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, nd, npe, nge, nc, 
+        dRqElemBlock(sol, res, app, master, mesh, tmp, common, common.cublasHandle, nd, npe, nge, nc, 
             ncu, ncx, e1, e2, backend);
     }                     
 }
 
 // Calculate Rqf = <uhat, v dot n>_F for a given uhat
-template <class M>
-inline void dRqFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
+template <class T=dstype, class I=Int>
+inline void dRqFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, 
         Int nd, Int npe, Int npf, Int ngf, Int nc, Int ncu, Int ncx, Int f1, Int f2, Int ib, Int backend)
-{        
+{
+    using dstype=T;        
     Int ncq = ncu*nd;
     Int nf = f2-f1;
     //Int nn =  npf*nf; 
@@ -252,30 +259,31 @@ inline void dRqFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masters
     writearray2file(common.fileout + NumberToString(ib) + "RqFace_uhgf.bin", &tmp.tempg[n3], ngf*ncu*nf, backend);  
     writearray2file(common.fileout + NumberToString(ib) + "RqFace_fgf.bin", &tmp.tempg[n4], ngf*ncq*nf, backend);  
     writearray2file(common.fileout + NumberToString(ib) + "RqFace_rnf.bin", tmp.tempn, npf*ncq*nf, backend);
-    writearray2file(common.fileout + NumberToString(ib) + "RqFace_rqf.bin", res.Rqf, npe*ncq*common.ne1, backend);
+    writearray2file(common.fileout + NumberToString(ib) + "RqFace_rqf.bin", res.Rqf, npe*ncq*common.meshsizes.ne1, backend);
 #endif              
 }
 
 
-template <class M>
-inline void dRqFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int nbf1, Int nbf2, Int backend)
-{    
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int npf = common.npf; // number of nodes on master face           
-    Int ngf = common.ngf; // number of gauss poInts on master face          
-    //Int ne = common.ne; // number of elements in this subdomain 
+template <class T=dstype, class I=Int>
+inline void dRqFace(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int nbf1, Int nbf2, Int backend)
+{
+    using dstype=T;    
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int npf = common.grid.npf; // number of nodes on master face           
+    Int ngf = common.grid.ngf; // number of gauss poInts on master face          
+    //Int ne = common.meshsizes.ne; // number of elements in this subdomain 
     
     for (Int j=nbf1; j<nbf2; j++) {
         Int f1 = common.fblks[3*j]-1;
         Int f2 = common.fblks[3*j+1];    
         Int ib = common.fblks[3*j+2];    
         //printf("%i %i %i\n", f1, f2, ib);
-        dRqFaceBlock<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 
+        dRqFaceBlock(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 
                 nd, npe, npf, ngf, nc, ncu, ncx, f1, f2, ib, backend);
     }                       
 }

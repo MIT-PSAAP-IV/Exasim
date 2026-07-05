@@ -13,49 +13,49 @@ bool IsValidBuiltInLibraryABI(const ExasimDriverABI& abi)
 {
     return abi.abi_version == kExasimDriverABIVersion &&
            abi.struct_size == sizeof(ExasimDriverABI) &&
-           abi.KokkosFlux &&
-           abi.KokkosSource &&
-           abi.KokkosSourcew &&
-           abi.KokkosTdfunc &&
-           abi.KokkosAvfield &&
-           abi.KokkosEoS &&
-           abi.KokkosEoSdu &&
-           abi.KokkosEoSdw &&
-           abi.KokkosFbou &&
-           abi.KokkosUbou &&
-           abi.KokkosFbouJac &&
-           abi.KokkosUbouJac &&
-           abi.KokkosFhat &&
-           abi.KokkosUhat &&
-           abi.KokkosStab &&
-           abi.KokkosOutput &&
-           abi.KokkosMonitor &&
-           abi.KokkosVisScalars &&
-           abi.KokkosVisVectors &&
-           abi.KokkosVisTensors &&
-           abi.KokkosQoIvolume &&
-           abi.KokkosQoIboundary &&
-           abi.KokkosInitu &&
-           abi.KokkosInitq &&
-           abi.KokkosInitudg &&
-           abi.KokkosInitwdg &&
-           abi.KokkosInitodg &&
-           abi.cpuInitu &&
-           abi.cpuInitq &&
-           abi.cpuInitudg &&
-           abi.cpuInitwdg &&
-           abi.cpuInitodg &&
-           abi.HdgFlux &&
-           abi.HdgSource &&
-           abi.HdgSourcew &&
-           abi.HdgSourcewonly &&
-           abi.HdgEoS &&
-           abi.HdgFbou &&
-           abi.HdgFbouonly &&
-           abi.HdgFint &&
-           abi.HdgFintonly &&
-           abi.HdgFext &&
-           abi.HdgFextonly;
+           abi.volume.KokkosFlux &&
+           abi.volume.KokkosSource &&
+           abi.volume.KokkosSourcew &&
+           abi.volume.KokkosTdfunc &&
+           abi.volume.KokkosAvfield &&
+           abi.eos.KokkosEoS &&
+           abi.eos.KokkosEoSdu &&
+           abi.eos.KokkosEoSdw &&
+           abi.boundary.KokkosFbou &&
+           abi.boundary.KokkosUbou &&
+           abi.boundary.KokkosFbouJac &&
+           abi.boundary.KokkosUbouJac &&
+           abi.iface.KokkosFhat &&
+           abi.iface.KokkosUhat &&
+           abi.iface.KokkosStab &&
+           abi.output.KokkosOutput &&
+           abi.output.KokkosMonitor &&
+           abi.output.KokkosVisScalars &&
+           abi.output.KokkosVisVectors &&
+           abi.output.KokkosVisTensors &&
+           abi.qoi.KokkosQoIvolume &&
+           abi.qoi.KokkosQoIboundary &&
+           abi.init.KokkosInitu &&
+           abi.init.KokkosInitq &&
+           abi.init.KokkosInitudg &&
+           abi.init.KokkosInitwdg &&
+           abi.init.KokkosInitodg &&
+           abi.init.cpuInitu &&
+           abi.init.cpuInitq &&
+           abi.init.cpuInitudg &&
+           abi.init.cpuInitwdg &&
+           abi.init.cpuInitodg &&
+           abi.hdgjac.HdgFlux &&
+           abi.hdgjac.HdgSource &&
+           abi.hdgjac.HdgSourcew &&
+           abi.hdgjac.HdgSourcewonly &&
+           abi.hdgjac.HdgEoS &&
+           abi.hdgjac.HdgFbou &&
+           abi.hdgjac.HdgFbouonly &&
+           abi.hdgjac.HdgFint &&
+           abi.hdgjac.HdgFintonly &&
+           abi.hdgjac.HdgFext &&
+           abi.hdgjac.HdgFextonly;
 }
 
 } // namespace
@@ -67,51 +67,51 @@ const ExasimDriverABI& getBuiltInLibraryExasimDriverABI()
         value.abi_version = kExasimDriverABIVersion;
         value.struct_size = sizeof(ExasimDriverABI);
 
-        value.KokkosFlux = &::builtinKokkosFlux;
-        value.KokkosSource = &::builtinKokkosSource;
-        value.KokkosSourcew = &::builtinKokkosSourcew;
-        value.KokkosTdfunc = &::builtinKokkosTdfunc;
-        value.KokkosAvfield = &::builtinKokkosAvfield;
-        value.KokkosEoS = &::builtinKokkosEoS;
-        value.KokkosEoSdu = &::builtinKokkosEoSdu;
-        value.KokkosEoSdw = &::builtinKokkosEoSdw;
-        value.KokkosFbou = &::builtinKokkosFbou;
-        value.KokkosUbou = &::builtinKokkosUbou;
-        value.KokkosFbouJac = &::builtinKokkosFbouJac;
-        value.KokkosUbouJac = &::builtinKokkosUbouJac;
-        value.KokkosFhat = &::builtinKokkosFhat;
-        value.KokkosUhat = &::builtinKokkosUhat;
-        value.KokkosStab = &::builtinKokkosStab;
-        value.KokkosOutput = &::builtinKokkosOutput;
-        value.KokkosMonitor = &::builtinKokkosMonitor;
-        value.KokkosVisScalars = &::builtinKokkosVisScalars;
-        value.KokkosVisVectors = &::builtinKokkosVisVectors;
-        value.KokkosVisTensors = &::builtinKokkosVisTensors;
-        value.KokkosQoIvolume = &::builtinKokkosQoIvolume;
-        value.KokkosQoIboundary = &::builtinKokkosQoIboundary;
+        value.volume.KokkosFlux = &::builtinKokkosFlux;
+        value.volume.KokkosSource = &::builtinKokkosSource;
+        value.volume.KokkosSourcew = &::builtinKokkosSourcew;
+        value.volume.KokkosTdfunc = &::builtinKokkosTdfunc;
+        value.volume.KokkosAvfield = &::builtinKokkosAvfield;
+        value.eos.KokkosEoS = &::builtinKokkosEoS;
+        value.eos.KokkosEoSdu = &::builtinKokkosEoSdu;
+        value.eos.KokkosEoSdw = &::builtinKokkosEoSdw;
+        value.boundary.KokkosFbou = &::builtinKokkosFbou;
+        value.boundary.KokkosUbou = &::builtinKokkosUbou;
+        value.boundary.KokkosFbouJac = &::builtinKokkosFbouJac;
+        value.boundary.KokkosUbouJac = &::builtinKokkosUbouJac;
+        value.iface.KokkosFhat = &::builtinKokkosFhat;
+        value.iface.KokkosUhat = &::builtinKokkosUhat;
+        value.iface.KokkosStab = &::builtinKokkosStab;
+        value.output.KokkosOutput = &::builtinKokkosOutput;
+        value.output.KokkosMonitor = &::builtinKokkosMonitor;
+        value.output.KokkosVisScalars = &::builtinKokkosVisScalars;
+        value.output.KokkosVisVectors = &::builtinKokkosVisVectors;
+        value.output.KokkosVisTensors = &::builtinKokkosVisTensors;
+        value.qoi.KokkosQoIvolume = &::builtinKokkosQoIvolume;
+        value.qoi.KokkosQoIboundary = &::builtinKokkosQoIboundary;
 
-        value.KokkosInitu = &::builtinKokkosInitu;
-        value.KokkosInitq = &::builtinKokkosInitq;
-        value.KokkosInitudg = &::builtinKokkosInitudg;
-        value.KokkosInitwdg = &::builtinKokkosInitwdg;
-        value.KokkosInitodg = &::builtinKokkosInitodg;
-        value.cpuInitu = &::builtincpuInitu;
-        value.cpuInitq = &::builtincpuInitq;
-        value.cpuInitudg = &::builtincpuInitudg;
-        value.cpuInitwdg = &::builtincpuInitwdg;
-        value.cpuInitodg = &::builtincpuInitodg;
+        value.init.KokkosInitu = &::builtinKokkosInitu;
+        value.init.KokkosInitq = &::builtinKokkosInitq;
+        value.init.KokkosInitudg = &::builtinKokkosInitudg;
+        value.init.KokkosInitwdg = &::builtinKokkosInitwdg;
+        value.init.KokkosInitodg = &::builtinKokkosInitodg;
+        value.init.cpuInitu = &::builtincpuInitu;
+        value.init.cpuInitq = &::builtincpuInitq;
+        value.init.cpuInitudg = &::builtincpuInitudg;
+        value.init.cpuInitwdg = &::builtincpuInitwdg;
+        value.init.cpuInitodg = &::builtincpuInitodg;
 
-        value.HdgFlux = &::builtinHdgFlux;
-        value.HdgSource = &::builtinHdgSource;
-        value.HdgSourcew = &::builtinHdgSourcew;
-        value.HdgSourcewonly = &::builtinHdgSourcewonly;
-        value.HdgEoS = &::builtinHdgEoS;
-        value.HdgFbou = &::builtinHdgFbou;
-        value.HdgFbouonly = &::builtinHdgFbouonly;
-        value.HdgFint = &::builtinHdgFint;
-        value.HdgFintonly = &::builtinHdgFintonly;
-        value.HdgFext = &::builtinHdgFext;
-        value.HdgFextonly = &::builtinHdgFextonly;
+        value.hdgjac.HdgFlux = &::builtinHdgFlux;
+        value.hdgjac.HdgSource = &::builtinHdgSource;
+        value.hdgjac.HdgSourcew = &::builtinHdgSourcew;
+        value.hdgjac.HdgSourcewonly = &::builtinHdgSourcewonly;
+        value.hdgjac.HdgEoS = &::builtinHdgEoS;
+        value.hdgjac.HdgFbou = &::builtinHdgFbou;
+        value.hdgjac.HdgFbouonly = &::builtinHdgFbouonly;
+        value.hdgjac.HdgFint = &::builtinHdgFint;
+        value.hdgjac.HdgFintonly = &::builtinHdgFintonly;
+        value.hdgjac.HdgFext = &::builtinHdgFext;
+        value.hdgjac.HdgFextonly = &::builtinHdgFextonly;
 
         value.GetModelSizes = &builtinGetModelSizes;
 

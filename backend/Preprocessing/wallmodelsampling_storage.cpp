@@ -1,6 +1,7 @@
 #include "wallmodelsampling.h"
 
 #include "../Discretization/discretization.h"
+#include "../Discretization/interfacesampler.h"
 
 #include <cmath>
 #include <sstream>
@@ -18,7 +19,7 @@ void CopyFieldToHost(std::vector<dstype>& host, dstype* data, Int n, Int backend
 
 void CopyVolumeCoordinatesToHost(std::vector<dstype>& xdg_host, CDiscretization& disc)
 {
-    const Int n = disc.common.npe * disc.common.ncx * disc.common.ne;
+    const Int n = disc.common.grid.npe * disc.common.components.ncx * disc.common.meshsizes.ne;
     xdg_host.resize(static_cast<size_t>(n));
     TemplateCopytoHost(xdg_host.data(), disc.sol.xdg, n, disc.common.backend);
 }
@@ -31,14 +32,17 @@ void GatherWallGaussPointsAndNormals(
     const Int ibc)
 {
     wm.ibc = ibc;
-    wm.nd = disc.common.nd;
-    wm.ncx = disc.common.ncx;
-    wm.npe = disc.common.npe;
-    wm.npf = disc.common.npf;
-    wm.ngf = disc.common.ngf;
+    wm.nd = disc.common.grid.nd;
+    wm.ncx = disc.common.components.ncx;
+    wm.npe = disc.common.grid.npe;
+    wm.npf = disc.common.grid.npf;
+    wm.ngf = disc.common.grid.ngf;
+
+    // interface sampling moved to CInterfaceSampler (a thin disc& wrapper); make a local one
+    CInterfaceSampler sampler(disc);
 
     Int* faces_raw = nullptr;
-    wm.nfaces = disc.getFacesOnInterface(&faces_raw, ibc);
+    wm.nfaces = sampler.getFacesOnInterface(&faces_raw, ibc);
     wm.npoints = wm.ngf * wm.nfaces;
 
     if (wm.nfaces <= 0) {
@@ -61,10 +65,10 @@ void GatherWallGaussPointsAndNormals(
     TemplateMalloc(&xdggint, wm.ngf * wm.nfaces * wm.ncx, backend);
     TemplateMalloc(&nlgint, wm.ngf * wm.nfaces * wm.nd, backend);
 
-    disc.getDGNodesOnInterface(xdgint, wm.faces.data(), wm.nfaces);
-    disc.getNormalVectorOnInterface(nlint, xdgint, wm.nfaces);
-    disc.getFieldsAtGaussPointsOnInterface(xdggint, xdgint, wm.nfaces, wm.ncx);
-    disc.getFieldsAtGaussPointsOnInterface(nlgint, nlint, wm.nfaces, wm.nd);
+    sampler.getDGNodesOnInterface(xdgint, wm.faces.data(), wm.nfaces);
+    sampler.getNormalVectorOnInterface(nlint, xdgint, wm.nfaces);
+    sampler.getFieldsAtGaussPointsOnInterface(xdggint, xdgint, wm.nfaces, wm.ncx);
+    sampler.getFieldsAtGaussPointsOnInterface(nlgint, nlint, wm.nfaces, wm.nd);
 
     std::vector<dstype> xg_full;
     std::vector<dstype> ng_full;
@@ -107,15 +111,15 @@ void BuildWallModelSamplingData(
     FindContainingElements(
         wm.e1, wm.xi1, wm.x1, wm.faces, xdg_host.data(),
         disc.mesh, master_host, opts, wm.nd, wm.ncx, wm.npe,
-        disc.common.ne, wm.ngf, disc.common.elemtype, disc.common.porder);
+        disc.common.meshsizes.ne, wm.ngf, disc.common.grid.elemtype, disc.common.grid.porder);
 
     EvaluateVolumeBasisBatch(
-        wm.shap1, wm.xi1, master_host, wm.nd, disc.common.elemtype,
-        disc.common.porder, wm.npe, wm.npoints);
+        wm.shap1, wm.xi1, master_host, wm.nd, disc.common.grid.elemtype,
+        disc.common.grid.porder, wm.npe, wm.npoints);
 
     ValidateWallModelSamplingData(
-        wm, xdg_host.data(), master_host, wm.ncx, disc.common.elemtype,
-        disc.common.porder, opts.insideTol);
+        wm, xdg_host.data(), master_host, wm.ncx, disc.common.grid.elemtype,
+        disc.common.grid.porder, opts.insideTol);
 }
 
 void ValidateWallModelSamplingData(

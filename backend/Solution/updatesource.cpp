@@ -31,29 +31,29 @@
 
 void UpdateSourceDIRK(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriverABI& driver_abi, resstruct &res, commonstruct &common, Int backend)
 {   
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncs = common.ncs;// number of compoments of (s)    
-    Int npe = common.npe; // number of nodes on master element    
-    Int ne = common.ne2; // number of elements in this subdomain 
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncs = common.components.ncs;// number of compoments of (s)    
+    Int npe = common.grid.npe; // number of nodes on master element    
+    Int ne = common.meshsizes.ne2; // number of elements in this subdomain 
     Int N = npe*ncs*ne;
-    Int dirkStage = common.tstages;
+    Int dirkStage = common.timeparams.tstages;
     
     dstype *dirkd = &common.DIRKcoeff_d[0];    
-    dstype dt = common.dt[common.currentstep];
+    dstype dt = common.dt[common.timestate.currentstep];
     
     /* Update fc_u and fc_q */                
-    dstype scalar = dirkd[common.currentstage*dirkStage+common.currentstage]/dt;
-    common.dtfactor = scalar;
+    dstype scalar = dirkd[common.timestate.currentstage*dirkStage+common.timestate.currentstage]/dt;
+    common.timestate.dtfactor = scalar;
     // fc_u = scalar*dtcoef_u
-    ArrayAXPB(app.fc_u, app.dtcoef_u, scalar, zero, common.ncu);
-    if (common.wave==1) 
-        ArrayAXPB(app.fc_q, app.dtcoef_q, scalar, zero, common.ncq);              
+    ArrayAXPB(app.fc_u, app.dtcoef_u, scalar, zero, common.components.ncu);
+    if (common.timeparams.wave==1) 
+        ArrayAXPB(app.fc_q, app.dtcoef_q, scalar, zero, common.components.ncq);              
     
     // extract the current stage solution to res.Rq
     ArrayExtract(res.Rq, sol.udg, npe, nc, ne, 0, npe, 0, ncs, 0, ne);          
              
     // update the source term due to the time derivative
-    switch (common.currentstage) {
+    switch (common.timestate.currentstage) {
         case 0:
             // source term for the first stage: sdg = (dirkd[0]/dt)*udg
             ArrayAXPB(sol.sdg, res.Rq, dirkd[0]/dt, zero, N);
@@ -76,11 +76,11 @@ void UpdateSourceDIRK(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriv
     }       
     
     // update the source term due to the time derivative for differential algebraic equations
-    if (common.ncw>0) { 
-        Int ncw = common.ncw;
+    if (common.components.ncw>0) { 
+        Int ncw = common.components.ncw;
         N = npe*ncw*ne;
         // update the source term
-        switch (common.currentstage) {
+        switch (common.timestate.currentstage) {
             case 0:
                 ArrayAXPB(sol.wsrc, sol.wdg, dirkd[0]/dt, zero, N);
                 break;
@@ -103,23 +103,23 @@ void UpdateSourceDIRK(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriv
 
 void UpdateSourceBDF(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriverABI& driver_abi, resstruct &res, commonstruct &common, Int backend)
 {   
-    //Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncs = common.ncs;// number of compoments of (s)    
-    Int npe = common.npe; // number of nodes on master element    
-    Int ne = common.ne2; // number of elements in this subdomain 
+    //Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncs = common.components.ncs;// number of compoments of (s)    
+    Int npe = common.grid.npe; // number of nodes on master element    
+    Int ne = common.meshsizes.ne2; // number of elements in this subdomain 
     Int N = npe*ncs*ne;
-    dstype dt = common.dt[common.currentstep];
+    dstype dt = common.dt[common.timestate.currentstep];
     
     /* Update fc_u and fc_q */            
     dstype scalar = common.BDFcoeff_c[0]/dt;
-    common.dtfactor = scalar;
+    common.timestate.dtfactor = scalar;
     // fc_u = scalar*dtcoef_u
-    ArrayAXPB(app.fc_u, app.dtcoef_u, scalar, zero, common.ncu);
-    if (common.wave==1) 
-        ArrayAXPB(app.fc_q, app.dtcoef_q, scalar, zero, common.ncq);              
+    ArrayAXPB(app.fc_u, app.dtcoef_u, scalar, zero, common.components.ncu);
+    if (common.timeparams.wave==1) 
+        ArrayAXPB(app.fc_q, app.dtcoef_q, scalar, zero, common.components.ncq);              
 
     // update the source term
-    switch (common.torder) {
+    switch (common.timeparams.torder) {
         case 1:
             // source term for the BDF1 scheme: sdg = -(BDFcoeff_c[1]/dt)*udgprev1
             ArrayAXPB(sol.sdg, sys.udgprev1, -common.BDFcoeff_c[1]/dt, zero, N);
@@ -140,7 +140,7 @@ void UpdateSourceBDF(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDrive
 
 void UpdateSource(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriverABI& driver_abi, resstruct &res, commonstruct &common, Int backend)
 {           
-    if (common.temporalScheme==0) // DIRK
+    if (common.timeparams.temporalScheme==0) // DIRK
         UpdateSourceDIRK(sol, sys, app, driver_abi, res, common, backend);
     else // BDF
         UpdateSourceBDF(sol, sys, app, driver_abi, res, common, backend);

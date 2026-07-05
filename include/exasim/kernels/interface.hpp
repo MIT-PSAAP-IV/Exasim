@@ -16,17 +16,18 @@
 
 namespace exasim {
 
-template <class M>
-void fhat_kernel(dstype* f, const dstype* xdg,
-                 const dstype* udg1, const dstype* udg2,
-                 const dstype* odg1, const dstype* odg2,
-                 const dstype* wdg1,  const dstype* wdg2,
-                 const dstype* uhg,   const dstype* nlg, const dstype* tau,
-                 const dstype* /*uinf*/, const dstype* param,
-                 dstype t, int /*modelnumber*/, int ng,
+template <class M, class T=dstype, class I=Int>
+void fhat_kernel(T* f, const T* xdg,
+                 const T* udg1, const T* udg2,
+                 const T* odg1, const T* odg2,
+                 const T* wdg1,  const T* wdg2,
+                 const T* uhg,   const T* nlg, const T* tau,
+                 const T* /*uinf*/, const T* param,
+                 T t, int /*modelnumber*/, int ng,
                  int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/, int /*ncw*/)
 {
-    static_assert(is_model_v<M>);
+    using dstype=T;
+    static_assert(is_interface_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);
     constexpr int ncw_buf = (ncw > 0) ? ncw : 1;
@@ -34,9 +35,9 @@ void fhat_kernel(dstype* f, const dstype* xdg,
 
     Kokkos::parallel_for("exasim::fhat_kernel", ng, KOKKOS_LAMBDA(size_t i) {
         (void)odg1; (void)odg2; (void)wdg1; (void)wdg2;  // HOT.6.2 nvcc force-capture: see /tmp/patch_constexpr_capture.py
-        double x[nd], uq1[Nq], uq2[Nq];
-        double v1[nco_buf], v2[nco_buf], w1[ncw_buf], w2[ncw_buf];
-        double uh[ncu], n[nd], t_[ncu];
+        T x[nd], uq1[Nq], uq2[Nq];
+        T v1[nco_buf], v2[nco_buf], w1[ncw_buf], w2[ncw_buf];
+        T uh[ncu], n[nd], t_[ncu];
         for (int k = 0; k < nd; ++k)  x  [k] = xdg [k * ng + i];
         for (int k = 0; k < Nq; ++k)  uq1[k] = udg1[k * ng + i];
         for (int k = 0; k < Nq; ++k)  uq2[k] = udg2[k * ng + i];
@@ -52,23 +53,24 @@ void fhat_kernel(dstype* f, const dstype* xdg,
         for (int k = 0; k < nd;  ++k) n [k] = nlg[k * ng + i];
         for (int k = 0; k < ncu; ++k) t_[k] = tau[k];
 
-        double f_local[ncu];
+        T f_local[ncu];
         M::fhat(f_local, x, uq1, uq2, v1, v2, w1, w2, uh, n, t_, param, /*uinf=*/nullptr, t);
         for (int k = 0; k < ncu; ++k) f[k * ng + i] = f_local[k];
     });
 }
 
-template <class M>
-void uhat_kernel(dstype* f, const dstype* xdg,
-                 const dstype* udg1, const dstype* udg2,
-                 const dstype* odg1, const dstype* odg2,
-                 const dstype* wdg1,  const dstype* wdg2,
-                 const dstype* uhg,   const dstype* nlg, const dstype* tau,
-                 const dstype* /*uinf*/, const dstype* param,
-                 dstype t, int /*modelnumber*/, int ng,
+template <class M, class T=dstype, class I=Int>
+void uhat_kernel(T* f, const T* xdg,
+                 const T* udg1, const T* udg2,
+                 const T* odg1, const T* odg2,
+                 const T* wdg1,  const T* wdg2,
+                 const T* uhg,   const T* nlg, const T* tau,
+                 const T* /*uinf*/, const T* param,
+                 T t, int /*modelnumber*/, int ng,
                  int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/, int /*ncw*/)
 {
-    static_assert(is_model_v<M>);
+    using dstype=T;
+    static_assert(is_interface_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);
     constexpr int ncw_buf = (ncw > 0) ? ncw : 1;
@@ -76,9 +78,9 @@ void uhat_kernel(dstype* f, const dstype* xdg,
 
     Kokkos::parallel_for("exasim::uhat_kernel", ng, KOKKOS_LAMBDA(size_t i) {
         (void)odg1; (void)odg2; (void)wdg1; (void)wdg2;  // HOT.6.2 nvcc force-capture: see /tmp/patch_constexpr_capture.py
-        double x[nd], uq1[Nq], uq2[Nq];
-        double v1[nco_buf], v2[nco_buf], w1[ncw_buf], w2[ncw_buf];
-        double uh[ncu], n[nd], t_[ncu];
+        T x[nd], uq1[Nq], uq2[Nq];
+        T v1[nco_buf], v2[nco_buf], w1[ncw_buf], w2[ncw_buf];
+        T uh[ncu], n[nd], t_[ncu];
         for (int k = 0; k < nd; ++k)  x  [k] = xdg [k * ng + i];
         for (int k = 0; k < Nq; ++k)  uq1[k] = udg1[k * ng + i];
         for (int k = 0; k < Nq; ++k)  uq2[k] = udg2[k * ng + i];
@@ -94,23 +96,24 @@ void uhat_kernel(dstype* f, const dstype* xdg,
         for (int k = 0; k < nd;  ++k) n [k] = nlg[k * ng + i];
         for (int k = 0; k < ncu; ++k) t_[k] = tau[k];
 
-        double f_local[ncu];
+        T f_local[ncu];
         M::uhat(f_local, x, uq1, uq2, v1, v2, w1, w2, uh, n, t_, param, /*uinf=*/nullptr, t);
         for (int k = 0; k < ncu; ++k) f[k * ng + i] = f_local[k];
     });
 }
 
-template <class M>
-void stab_kernel(dstype* f, const dstype* xdg,
-                 const dstype* udg1, const dstype* udg2,
-                 const dstype* odg1, const dstype* odg2,
-                 const dstype* wdg1,  const dstype* wdg2,
-                 const dstype* uhg,   const dstype* nlg, const dstype* tau,
-                 const dstype* /*uinf*/, const dstype* param,
-                 dstype t, int /*modelnumber*/, int ng,
+template <class M, class T=dstype, class I=Int>
+void stab_kernel(T* f, const T* xdg,
+                 const T* udg1, const T* udg2,
+                 const T* odg1, const T* odg2,
+                 const T* wdg1,  const T* wdg2,
+                 const T* uhg,   const T* nlg, const T* tau,
+                 const T* /*uinf*/, const T* param,
+                 T t, int /*modelnumber*/, int ng,
                  int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/, int /*ncw*/)
 {
-    static_assert(is_model_v<M>);
+    using dstype=T;
+    static_assert(is_interface_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
     constexpr int Nq = ncu * (1 + nd);
     constexpr int ncw_buf = (ncw > 0) ? ncw : 1;
@@ -118,9 +121,9 @@ void stab_kernel(dstype* f, const dstype* xdg,
 
     Kokkos::parallel_for("exasim::stab_kernel", ng, KOKKOS_LAMBDA(size_t i) {
         (void)odg1; (void)odg2; (void)wdg1; (void)wdg2;  // HOT.6.2 nvcc force-capture: see /tmp/patch_constexpr_capture.py
-        double x[nd], uq1[Nq], uq2[Nq];
-        double v1[nco_buf], v2[nco_buf], w1[ncw_buf], w2[ncw_buf];
-        double uh[ncu], n[nd], t_[ncu];
+        T x[nd], uq1[Nq], uq2[Nq];
+        T v1[nco_buf], v2[nco_buf], w1[ncw_buf], w2[ncw_buf];
+        T uh[ncu], n[nd], t_[ncu];
         for (int k = 0; k < nd; ++k)  x  [k] = xdg [k * ng + i];
         for (int k = 0; k < Nq; ++k)  uq1[k] = udg1[k * ng + i];
         for (int k = 0; k < Nq; ++k)  uq2[k] = udg2[k * ng + i];
@@ -136,7 +139,7 @@ void stab_kernel(dstype* f, const dstype* xdg,
         for (int k = 0; k < nd;  ++k) n [k] = nlg[k * ng + i];
         for (int k = 0; k < ncu; ++k) t_[k] = tau[k];
 
-        double f_local[ncu];
+        T f_local[ncu];
         M::stab(f_local, x, uq1, uq2, v1, v2, w1, w2, uh, n, t_, param, /*uinf=*/nullptr, t);
         for (int k = 0; k < ncu; ++k) f[k * ng + i] = f_local[k];
     });

@@ -128,9 +128,17 @@ int main(int argc, char* argv[])
 #ifdef USE_CMAKE
     if (pde.gencode==1) {
         generateCppCode(spec);
+        // An explicit --out-dir means the caller wants the concrete-model header
+        // (my_model.hpp) emitted into that dir -- e.g. a standalone C++ app that
+        // compiles PdeModel. That header is written by running the generated
+        // Code2Cpp (executeCppCode). Without this, USE_CMAKE builds only emitted
+        // the kernel sources + Code2Cpp and silently skipped my_model.hpp.
+        // The builtin-model build (no --out-dir) keeps the generate-only behaviour.
+        if (!out_dir_override.empty() && !gen_only) executeCppCode(spec);
+        // Emit the model-owned sizes header (PR #33: ncu/ncv/... from the model).
         { CodeGenerator _gen(spec); _gen.generateModelSizesHpp(spec.modelpath); }
     }
-#else    
+#else
     if (pde.gencode==1) {
         generateCppCode(spec);
         { CodeGenerator _gen(spec); _gen.generateModelSizesHpp(spec.modelpath); }

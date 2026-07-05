@@ -46,6 +46,8 @@ using namespace std;
 #include "../Common/pblas.h"         // wrappers for blas libaries and MPI     
 
 #include "../Discretization/postdiscretization.cpp" // discretization class
+#include "../Discretization/assembler.cpp"
+#include "../Discretization/residualeval.cpp"
 #include "../Preconditioning/postpreconditioner.cpp" // preconditioner class
 #include "../Solver/postsolver.cpp"                 // solver class
 #include "../Visualization/visualization.cpp"  //  visualization class
@@ -235,18 +237,18 @@ int main(int argc, char** argv)
         pdemodel[i]->disc.common.ncarray = new Int[nummodels]; 
         pdemodel[i]->disc.sol.udgarray = new dstype*[nummodels]; // array of pointers pointing to udg
         
-        if (pdemodel[i]->disc.common.timestepOffset>0)
-            restart = pdemodel[i]->disc.common.timestepOffset;    
+        if (pdemodel[i]->disc.common.outputparams.timestepOffset>0)
+            restart = pdemodel[i]->disc.common.outputparams.timestepOffset;    
         
         if (restart>0) {
-            pdemodel[i]->disc.common.timestepOffset = restart;
-            pdemodel[i]->disc.common.time = restart*pdemodel[i]->disc.common.dt[0];            
+            pdemodel[i]->disc.common.outputparams.timestepOffset = restart;
+            pdemodel[i]->disc.common.timestate.time = restart*pdemodel[i]->disc.common.dt[0];            
         }              
     }            
                
     for (int i=0; i<nummodels; i++) {                                
         if (postmode == 0) {
-            pdemodel[i]->disc.common.currentstep = -1;
+            pdemodel[i]->disc.common.timestate.currentstep = -1;
             pdemodel[i]->ReadSolutions(backend);   
             pdemodel[i]->SaveQoI(backend);
             if (mpirank==0) cout<<"save paraview = "<<pdemodel[i]->vis.savemode<<endl;

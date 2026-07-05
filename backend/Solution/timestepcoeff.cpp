@@ -131,14 +131,14 @@ void BDFcoeff(dstype * c, dstype * t, Int torder)
 
 void TimestepCoefficents(commonstruct common) 
 {    
-    if (common.temporalScheme==0)  // DIRK 
+    if (common.timeparams.temporalScheme==0)  // DIRK 
     {
-        DIRKcoeff(common.DIRKcoeff_c, common.DIRKcoeff_d, common.DIRKcoeff_t, common.tstages, common.torder);     
+        DIRKcoeff(common.DIRKcoeff_c, common.DIRKcoeff_d, common.DIRKcoeff_t, common.timeparams.tstages, common.timeparams.torder);     
     }
     else // BDF 
     {
-        BDFcoeff(common.BDFcoeff_c, common.BDFcoeff_t, common.torder); 
-        common.tstages = 1;
+        BDFcoeff(common.BDFcoeff_c, common.BDFcoeff_t, common.timeparams.torder); 
+        common.timeparams.tstages = 1;
     }        
 }
 

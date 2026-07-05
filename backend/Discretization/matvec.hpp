@@ -37,20 +37,21 @@
 #define __MATVEC
 
 #include "ioutilities.hpp"
-template <class M>
-inline void MatVec(dstype *w, solstruct &sol, resstruct &res, appstruct &app, masterstruct &master,
-      meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, dstype *v, 
-      dstype *u, dstype *Ru, Int backend)
-{   
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)    
-    Int npe = common.npe; // number of nodes on master element    
-    Int ne = common.ne1; // number of elements in this subdomain 
-    //Int nd = common.nd;
+template <class M, class T=dstype, class I=Int>
+inline void MatVec(T *w, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master,
+      meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, T *v, 
+      T *u, T *Ru, Int backend)
+{
+    using dstype=T;   
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)    
+    Int npe = common.grid.npe; // number of nodes on master element    
+    Int ne = common.meshsizes.ne1; // number of elements in this subdomain 
+    //Int nd = common.grid.nd;
     Int N = npe*ncu*ne;
     
-    Int order = common.matvecOrder;
-    dstype epsilon = common.matvecTol;
+    Int order = common.solverparams.matvecOrder;
+    dstype epsilon = common.solverparams.matvecTol;
 #ifdef HAVE_ENZYME
 //TODO: there might be a cleaner way to do this...matvecAD v. matvecFD functions? 
     ArrayInsert(sol.dudg, v, npe, nc, ne, 0, npe, 0, ncu, 0, ne); //insert v into dudgs
@@ -100,29 +101,31 @@ inline void MatVec(dstype *w, solstruct &sol, resstruct &res, appstruct &app, ma
 #endif
 }
 
-template <class M>
-inline void hdgAssembleRHS(dstype *R, dstype *Rh, meshstruct &mesh, commonstruct &common)
-{   
-    Int nf = common.nf; // number of faces in this subdomain
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int npf = common.npf; // number of nodes on master face           
-    Int nfe = common.nfe; // number of faces in each element
+template <class T=dstype, class I=Int>
+inline void hdgAssembleRHS(T *R, T *Rh, meshstructT<T,I> &mesh, commonstructT<T,I> &common)
+{
+    using dstype=T;   
+    Int nf = common.meshsizes.nf; // number of faces in this subdomain
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int npf = common.grid.npf; // number of nodes on master face           
+    Int nfe = common.meshsizes.nfe; // number of faces in each element
 
      // ncu * npf * nfe * ne -> ncu * npf * nf
     PutElementFaceNodes(R, Rh, mesh.f2e, npf, nfe, ncu, nf);
-    PutElementFaceNodes(R, Rh, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.nf0);    
+    PutElementFaceNodes(R, Rh, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.meshsizes.nf0);    
 
-    if (common.debugMode == 1) {
+    if (common.outputparams.debugMode == 1) {
       writearray2file(common.fileout + "hdgAssembleRHS.bin", R, ncu * npf * nf, common.backend);
     }
 }
 
-template <class M>
-inline void hdgBlockILU0(dstype *BE, dstype *AE, resstruct &res, meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
+template <class T=dstype, class I=Int>
+inline void hdgBlockILU0(T *BE, T *AE, resstructT<T,I> &res, meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
 {
-  Int ncu = common.ncu;// number of compoments of (u)
-  Int npf = common.npf; // number of nodes on master face           
-  Int nfe = common.nfe; // number of faces in each element
+    using dstype=T;
+  Int ncu = common.components.ncu;// number of compoments of (u)
+  Int npf = common.grid.npf; // number of nodes on master face           
+  Int nfe = common.meshsizes.nfe; // number of faces in each element
   Int nfse = common.nfse; // number of faces in each superelement
   Int nse  = common.nse;  // number of superelements
   Int ncf = ncu*npf;
@@ -131,33 +134,33 @@ inline void hdgBlockILU0(dstype *BE, dstype *AE, resstruct &res, meshstruct &mes
 //  std::cout<<"AssembleBlockILU0\n";
   AssembleBlockILU0(BE, AE, mesh.f2e, mesh.elemcon, mesh.face, mesh.row_ptr, mesh.col_ind, npf, nfe, ncu, nfse, nse);
   
-//   writearray2file(common.fileout + "AE.bin", AE, npf*npf*nfe*nfe*ncu*ncu*common.ne1, backend);  
+//   writearray2file(common.fileout + "AE.bin", AE, npf*npf*nfe*nfe*ncu*ncu*common.meshsizes.ne1, backend);  
 //   writearray2file(common.fileout + "BE.bin", BE, ncf*ncf*nse*common.nnz, backend);  
   
-  int nn = 2*(common.nfe-1);
+  int nn = 2*(common.meshsizes.nfe-1);
   for (int i = 0; i < nfse; ++i) {      
-      int diag_idx = common.ind_ii[i];
+      int diag_idx = common.bjindex.ind_ii[i];
       
       // Invert all diagonal blocks at diag_idx, in-place (batched)
-      double *diag_blocks = &BE[diag_idx * N];
+      dstype *diag_blocks = &BE[diag_idx * N];
       Inverse(handle, diag_blocks, tmp.tempn, res.ipiv, ncf, nse, backend); 
             
-      int nj = common.num_ji[i];
+      int nj = common.bjindex.num_ji[i];
       for (int j = 0; j < nj; ++j) {          
-          int idx_ji = common.ind_ji[j + i * nn];          
+          int idx_ji = common.bjindex.ind_ji[j + i * nn];          
           
           // Multiply all nse blocks: block_ji = block_ji * block_diag, in-place
-          double *block_ji = &BE[idx_ji * N];
+          dstype *block_ji = &BE[idx_ji * N];
           PGEMNMStridedBached(handle, ncf, ncf, ncf, one, block_ji, ncf, diag_blocks, ncf, zero, tmp.tempn, ncf, nse, backend);             
           ArrayCopy(block_ji, tmp.tempn, N);
 
-          int nl = common.num_jl[j + i * nn];
+          int nl = common.bjindex.num_jl[j + i * nn];
           for (int l = 0; l < nl; ++l) {
-              int idx_jl = common.ind_jl[l + j * nn + i * nn * nn];
-              int idx_il = common.ind_il[l + j * nn + i * nn * nn];
+              int idx_jl = common.bjindex.ind_jl[l + j * nn + i * nn * nn];
+              int idx_il = common.bjindex.ind_il[l + j * nn + i * nn * nn];
 
-              double *block_jl = &BE[idx_jl * N];
-              double *block_il = &BE[idx_il * N];
+              dstype *block_jl = &BE[idx_jl * N];
+              dstype *block_il = &BE[idx_il * N];
               PGEMNMStridedBached(handle, ncf, ncf, ncf, minusone, block_ji, ncf, block_il, ncf, one, block_jl, ncf, nse, backend);                             
           }
       }
@@ -167,44 +170,46 @@ inline void hdgBlockILU0(dstype *BE, dstype *AE, resstruct &res, meshstruct &mes
 //   error("here");
 }
 
-template <class M>
-inline void hdgElementalAdditiveSchwarz(dstype *BE, dstype *AE, resstruct &res, meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
-{   
-    Int nf = common.nf; // number of faces in this subdomain
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int npf = common.npf; // number of nodes on master face           
-    Int nfe = common.nfe; // number of faces in each element
+template <class T=dstype, class I=Int>
+inline void hdgElementalAdditiveSchwarz(T *BE, T *AE, resstructT<T,I> &res, meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
+{
+    using dstype=T;   
+    Int nf = common.meshsizes.nf; // number of faces in this subdomain
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int npf = common.grid.npf; // number of nodes on master face           
+    Int nfe = common.meshsizes.nfe; // number of faces in each element
     Int ncf = ncu*npf;
 
-    ArrayCopy(BE, AE, ncf*nfe*ncf*nfe*common.ne); 
+    ArrayCopy(BE, AE, ncf*nfe*ncf*nfe*common.meshsizes.ne); 
     ElementalAdditiveSchwarz(BE, AE, mesh.f2e, mesh.elemcon, npf, nfe, ncu, nf);       
     
-    for (Int j=0; j<common.nbe; j++) {              
+    for (Int j=0; j<common.meshsizes.nbe; j++) {              
       Int e1 = common.eblks[3*j]-1;
       Int e2 = common.eblks[3*j+1];          
       Inverse(handle, &BE[ncf*nfe*ncf*nfe*e1], tmp.tempn, res.ipiv, ncf*nfe, e2-e1, backend); 
     }
     
-    if (common.debugMode == 1) {
+    if (common.outputparams.debugMode == 1) {
       writearray2file(common.fileout + "hdgElementalAdditiveSchwarz.bin", BE, ncf*nfe*ncf*nfe*nf, backend);
     }
 }
 
-template <class M>
-inline void hdgBlockJacobi(dstype *BE, dstype *AE, resstruct &res, meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
-{   
-    Int nf = common.nf; // number of faces in this subdomain
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int npf = common.npf; // number of nodes on master face           
-    Int nfe = common.nfe; // number of faces in each element
+template <class T=dstype, class I=Int>
+inline void hdgBlockJacobi(T *BE, T *AE, resstructT<T,I> &res, meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
+{
+    using dstype=T;   
+    Int nf = common.meshsizes.nf; // number of faces in this subdomain
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int npf = common.grid.npf; // number of nodes on master face           
+    Int nfe = common.meshsizes.nfe; // number of faces in each element
     Int ncf = ncu*npf;
 
      // ncf * nfe * ncf * nfe * ne -> ncf * ncf * nf
     BlockJacobi(BE, AE, mesh.f2e, npf, nfe, ncu, nf);
-    BlockJacobi(BE, AE, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.nf0);        
+    BlockJacobi(BE, AE, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.meshsizes.nf0);        
     
     //Inverse(handle, BE, res.tempn, res.ipiv, ncf, nf, backend);         
-    for (Int j=0; j<common.nbf; j++) {              
+    for (Int j=0; j<common.meshsizes.nbf; j++) {              
       Int f1 = common.fblks[3*j]-1;
       Int f2 = common.fblks[3*j+1];          
       Inverse(handle, &BE[ncf*ncf*f1], tmp.tempn, res.ipiv, ncf, f2-f1, backend); 
@@ -215,21 +220,22 @@ inline void hdgBlockJacobi(dstype *BE, dstype *AE, resstruct &res, meshstruct &m
 //     print3darray(AE, ncf*nfe, ncf*nfe, 2);
 //     print3darray(BEtmp, ncf, ncf, 14);
     
-    if (common.debugMode == 1) {
+    if (common.outputparams.debugMode == 1) {
       writearray2file(common.fileout + "hdgBlockJacobi.bin", BE, ncf * ncf * nf, backend);
     }
 }
 
-template <class M>
-inline void hdgGetDUDG(dstype *w, dstype *F, dstype *duh, dstype *ve, meshstruct &mesh, 
-        commonstruct &common,  Int backend)
-{   
-    Int ne = common.ne1; // number of elements in this subdomain 
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int npf = common.npf; // number of nodes on master face           
-    Int nfe = common.nfe; // number of faces in each element
+template <class T=dstype, class I=Int>
+inline void hdgGetDUDG(T *w, T *F, T *duh, T *ve, meshstructT<T,I> &mesh, 
+        commonstructT<T,I> &common,  Int backend)
+{
+    using dstype=T;   
+    Int ne = common.meshsizes.ne1; // number of elements in this subdomain 
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int npf = common.grid.npf; // number of nodes on master face           
+    Int nfe = common.meshsizes.nfe; // number of faces in each element
     Int m = ncu*npf*nfe;  
-    Int n = common.npe*ncu;
+    Int n = common.grid.npe*ncu;
 
     // ncu * npf * nf -> ncu * npf * nfe * ne
     GetElementFaceNodes(ve, duh, mesh.elemcon, npf*nfe, ncu, 0, ne, 2);
@@ -237,27 +243,28 @@ inline void hdgGetDUDG(dstype *w, dstype *F, dstype *duh, dstype *ve, meshstruct
     // (npe * ncu)  * (ncu * npf * nfe) * ne x (ncu * npf * nfe) * ne -> (npe * ncu) * ne
     PGEMNMStridedBached(common.cublasHandle, n, 1, m, one, F, n, ve, m, one, w, n, ne, backend); 
 
-    if (common.debugMode == 1) {
+    if (common.outputparams.debugMode == 1) {
       writearray2file(common.fileout + "hdgGetDUDG.bin", w, n * ne, backend);
     }
 }
 
-template <class M>
-inline void hdgMatVec(dstype *w, dstype *AE, dstype *v, dstype *ve, dstype *we, resstruct &res, appstruct &app, 
-        meshstruct &mesh, commonstruct &common, tempstruct &tmp, cublasHandle_t handle, Int backend)
-{   
-    Int ne1 = common.ne1; // number of elements in this subdomain 
-    Int nf = common.nf; // number of faces in this subdomain
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int npf = common.npf; // number of nodes on master face           
-    Int nfe = common.nfe; // number of faces in each element
+template <class T=dstype, class I=Int>
+inline void hdgMatVec(T *w, T *AE, T *v, T *ve, T *we, resstructT<T,I> &res, appstructT<T,I> &app, 
+        meshstructT<T,I> &mesh, commonstructT<T,I> &common, tempstructT<T,I> &tmp, cublasHandle_t handle, Int backend)
+{
+    using dstype=T;   
+    Int ne1 = common.meshsizes.ne1; // number of elements in this subdomain 
+    Int nf = common.meshsizes.nf; // number of faces in this subdomain
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int npf = common.grid.npf; // number of nodes on master face           
+    Int nfe = common.meshsizes.nfe; // number of faces in each element
     Int m = ncu*npf*nfe;  
 
     // ncu * npf * nf -> ncu * npf * nfe * ne1
     GetElementFaceNodes(ve, v, mesh.elemcon, npf*nfe, ncu, 0, ne1, 2);
 
 #ifdef HAVE_MPI     
-    Int ne0 = common.ne0; // number of interior elements in this subdomain
+    Int ne0 = common.meshsizes.ne0; // number of interior elements in this subdomain
     Int bsz = ncu*npf*nfe;  
 
     // perform matrix-vector products for interface elements
@@ -283,7 +290,7 @@ inline void hdgMatVec(dstype *w, dstype *AE, dstype *v, dstype *ve, dstype *we, 
         neighbor = common.nbsd[n];
         nsend = common.elemsendpts[n]*bsz;
         if (nsend>0) {
-            MPI_Isend(&tmp.buffsend[psend], nsend, MPI_DOUBLE, neighbor, 0,
+            MPI_Isend(&tmp.buffsend[psend], nsend, mpi_type<dstype>(), neighbor, 0,
                   EXASIM_COMM_LOCAL, &common.requests[request_counter]);
             psend += nsend;
             request_counter += 1;
@@ -296,17 +303,17 @@ inline void hdgMatVec(dstype *w, dstype *AE, dstype *v, dstype *ve, dstype *we, 
         neighbor = common.nbsd[n];
         nrecv = common.elemrecvpts[n]*bsz;
         if (nrecv>0) {
-            MPI_Irecv(&tmp.buffrecv[precv], nrecv, MPI_DOUBLE, neighbor, 0,
+            MPI_Irecv(&tmp.buffrecv[precv], nrecv, mpi_type<dstype>(), neighbor, 0,
                   EXASIM_COMM_LOCAL, &common.requests[request_counter]);
             precv += nrecv;
             request_counter += 1;
         }
     }
 
-    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.coupledcondition>0)) {
+    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.couplingparams.coupledcondition>0)) {
       int ncu12 = common.szinterfacefluxmap;
       int szRi = ncu12*npf;  
-      int neI = common.nintfaces;
+      int neI = common.couplingparams.nintfaces;
 
       // perform  matrix-vector products for interface elements
       // (ncu12 * npf) * (ncu * npf * nfe ) * neI x (ncu * npf * nfe ) * neI  = (ncu12 * npf) * neI    
@@ -331,7 +338,7 @@ inline void hdgMatVec(dstype *w, dstype *AE, dstype *v, dstype *ve, dstype *we, 
           neighbor = common.nbintf[n];
           nsend = common.facesendpts[n]*szRi;
           if (nsend>0) {
-              MPI_Isend(&tmp.bufffacesend[psend], nsend, MPI_DOUBLE, neighbor, 0,
+              MPI_Isend(&tmp.bufffacesend[psend], nsend, mpi_type<dstype>(), neighbor, 0,
                     EXASIM_COMM_WORLD, &common.requests[request_counter]);
               psend += nsend;
               request_counter += 1;
@@ -344,7 +351,7 @@ inline void hdgMatVec(dstype *w, dstype *AE, dstype *v, dstype *ve, dstype *we, 
           neighbor = common.nbintf[n];
           nrecv = common.facerecvpts[n]*szRi;
           if (nrecv>0) {
-              MPI_Irecv(&tmp.bufffacerecv[precv], nrecv, MPI_DOUBLE, neighbor, 0,
+              MPI_Irecv(&tmp.bufffacerecv[precv], nrecv, mpi_type<dstype>(), neighbor, 0,
                     EXASIM_COMM_WORLD, &common.requests[request_counter]);
               precv += nrecv;
               request_counter += 1;
@@ -362,7 +369,7 @@ inline void hdgMatVec(dstype *w, dstype *AE, dstype *v, dstype *ve, dstype *we, 
 //     }
     PutCollumnAtIndex(we, tmp.buffrecv, mesh.elemrecv, bsz, common.nelemrecv);   
 
-    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.coupledcondition>0)) {
+    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.couplingparams.coupledcondition>0)) {
       int ncu12 = common.szinterfacefluxmap;
       int szRi = ncu12*npf;  
 
@@ -371,7 +378,7 @@ inline void hdgMatVec(dstype *w, dstype *AE, dstype *v, dstype *ve, dstype *we, 
 //       }      
       PutCollumnAtIndex(res.Ri, tmp.bufffacerecv, mesh.facerecv, szRi, common.nfacerecv);   
 
-      PutBoudaryNodes(we, res.Ri, mesh.intfaces, mesh.faceperm, app.interfacefluxmap, nfe, npf, ncu12, ncu, common.nintfaces); 
+      PutBoudaryNodes(we, res.Ri, mesh.intfaces, mesh.faceperm, app.interfacefluxmap, nfe, npf, ncu12, ncu, common.couplingparams.nintfaces); 
     }
 
     // ncu * npf * nfe * ne -> ncu * npf * nf
@@ -379,39 +386,40 @@ inline void hdgMatVec(dstype *w, dstype *AE, dstype *v, dstype *ve, dstype *we, 
     PutElementFaceNodes(w, we, mesh.f2e, npf, nfe, ncu, nf);
 
     // assemble vector w from we using the SECOND elements in mesh.f2e
-    PutElementFaceNodes(w, we, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.nf0);           
+    PutElementFaceNodes(w, we, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.meshsizes.nf0);           
 #else 
     // (ncu * npf * nfe)  * (ncu * npf * nfe) * ne x (ncu * npf * nfe) * ne -> (ncu * npf * nfe) * ne
     PGEMNMStridedBached(handle, m, 1, m, one, AE, m, ve, m, zero, we, m, ne1, backend); 
 
      // ncu * npf * nfe * ne -> ncu * npf * nf
     PutElementFaceNodes(w, we, mesh.f2e, npf, nfe, ncu, nf);
-    PutElementFaceNodes(w, we, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.nf0);    
+    PutElementFaceNodes(w, we, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.meshsizes.nf0);    
 
-    if (common.debugMode == 1) {
+    if (common.outputparams.debugMode == 1) {
       writearray2file(common.fileout + "hdgMatVec.bin", w, ncu * npf * nf, backend);
     }
 #endif
 }
 
 #ifdef  HAVE_MPI     
-template <class M>
-inline void hdgAssembleLinearSystemMPI(dstype *b, solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common,  cublasHandle_t handle, Int backend)
+template <class M, class T=dstype, class I=Int>
+inline void hdgAssembleLinearSystemMPI(T *b, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,  cublasHandle_t handle, Int backend)
 {
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int npf = common.npf; // number of nodes on master face           
-    Int npe = common.npe; // number of nodes on master element
-    Int nfe = common.nfe; // number of faces in each element
+    using dstype=T;
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int npf = common.grid.npf; // number of nodes on master face           
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int nfe = common.meshsizes.nfe; // number of faces in each element
     Int ncf = ncu*npf;
     Int szR = ncu*npf*nfe;  
     Int szH = szR*szR;
     Int bsz = szH + szR; // send and receive H and Rh together   
 
-    //printf("hdgAssembleLinearSystemMPI: %d %d %d %d\n", common.nbe0, common.nbe1, common.nelemsend, common.nnbsd);
+    //printf("hdgAssembleLinearSystemMPI: %d %d %d %d\n", common.meshsizes.nbe0, common.meshsizes.nbe1, common.nelemsend, common.nnbsd);
     
     // perform HDG descrization for interface elements
-    for (Int j=common.nbe0; j<common.nbe1; j++) {     // fixed bug here             
+    for (Int j=common.meshsizes.nbe0; j<common.meshsizes.nbe1; j++) {     // fixed bug here             
       uEquationElemBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
       uEquationElemFaceBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
       uEquationSchurBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
@@ -439,7 +447,7 @@ inline void hdgAssembleLinearSystemMPI(dstype *b, solstruct &sol, resstruct &res
         neighbor = common.nbsd[n];
         nsend = common.elemsendpts[n]*bsz;
         if (nsend>0) {
-            MPI_Isend(&tmp.buffsend[psend], nsend, MPI_DOUBLE, neighbor, 0,
+            MPI_Isend(&tmp.buffsend[psend], nsend, mpi_type<dstype>(), neighbor, 0,
                   EXASIM_COMM_LOCAL, &common.requests[request_counter]);
             psend += nsend;
             request_counter += 1;
@@ -452,14 +460,14 @@ inline void hdgAssembleLinearSystemMPI(dstype *b, solstruct &sol, resstruct &res
         neighbor = common.nbsd[n];
         nrecv = common.elemrecvpts[n]*bsz;
         if (nrecv>0) {
-            MPI_Irecv(&tmp.buffrecv[precv], nrecv, MPI_DOUBLE, neighbor, 0,
+            MPI_Irecv(&tmp.buffrecv[precv], nrecv, mpi_type<dstype>(), neighbor, 0,
                   EXASIM_COMM_LOCAL, &common.requests[request_counter]);
             precv += nrecv;
             request_counter += 1;
         }
     }
 
-    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.coupledcondition>0)) {
+    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.couplingparams.coupledcondition>0)) {
       int ncu12 = common.szinterfacefluxmap;
       int szRi = ncu12*npf;  
       
@@ -471,7 +479,7 @@ inline void hdgAssembleLinearSystemMPI(dstype *b, solstruct &sol, resstruct &res
 //       }
       GetCollumnAtIndex(tmp.bufffacesend, res.Ri, mesh.facesend, szRi, common.nfacesend);   
 
-      //printf("hdgAssembleLinearSystemMPI: %d %d %d %d %d %d %d %d %d %d %d\n", common.mpiRank, common.nnbintf, common.nbintf[0], common.facesendpts[0], common.facerecvpts[0], common.nfacesend, common.nelemsend, szRi, common.coupledcondition, common.coupledboundarycondition, app.interfacefluxmap[0]);
+      //printf("hdgAssembleLinearSystemMPI: %d %d %d %d %d %d %d %d %d %d %d\n", common.mpiRank, common.nnbintf, common.nbintf[0], common.facesendpts[0], common.facerecvpts[0], common.nfacesend, common.nelemsend, szRi, common.couplingparams.coupledcondition, common.couplingparams.coupledboundarycondition, app.interfacefluxmap[0]);
       
 #ifdef HAVE_CUDA
     cudaDeviceSynchronize();
@@ -487,7 +495,7 @@ inline void hdgAssembleLinearSystemMPI(dstype *b, solstruct &sol, resstruct &res
           neighbor = common.nbintf[n];
           nsend = common.facesendpts[n]*szRi;
           if (nsend>0) {
-              MPI_Isend(&tmp.bufffacesend[psend], nsend, MPI_DOUBLE, neighbor, 0,
+              MPI_Isend(&tmp.bufffacesend[psend], nsend, mpi_type<dstype>(), neighbor, 0,
                     EXASIM_COMM_WORLD, &common.requests[request_counter]);
               psend += nsend;
               request_counter += 1;
@@ -500,7 +508,7 @@ inline void hdgAssembleLinearSystemMPI(dstype *b, solstruct &sol, resstruct &res
           neighbor = common.nbintf[n];
           nrecv = common.facerecvpts[n]*szRi;
           if (nrecv>0) {
-              MPI_Irecv(&tmp.bufffacerecv[precv], nrecv, MPI_DOUBLE, neighbor, 0,
+              MPI_Irecv(&tmp.bufffacerecv[precv], nrecv, mpi_type<dstype>(), neighbor, 0,
                     EXASIM_COMM_WORLD, &common.requests[request_counter]);
               precv += nrecv;
               request_counter += 1;
@@ -509,7 +517,7 @@ inline void hdgAssembleLinearSystemMPI(dstype *b, solstruct &sol, resstruct &res
     }
       
     // perform HDG descrization for interior elements
-    for (Int j=0; j<common.nbe0; j++) {                  
+    for (Int j=0; j<common.meshsizes.nbe0; j++) {                  
       uEquationElemBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
       uEquationElemFaceBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
       uEquationSchurBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
@@ -524,7 +532,7 @@ inline void hdgAssembleLinearSystemMPI(dstype *b, solstruct &sol, resstruct &res
     PutCollumnAtIndex(res.H, tmp.buffrecv, mesh.elemrecv, 0, bsz, szH, common.nelemrecv);
     PutCollumnAtIndex(res.Rh, tmp.buffrecv, mesh.elemrecv, szH, bsz, szR, common.nelemrecv);
     
-    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.coupledcondition>0)) {
+    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.couplingparams.coupledcondition>0)) {
       int ncu12 = common.szinterfacefluxmap;
       int szRi = ncu12*npf;  
       
@@ -533,35 +541,36 @@ inline void hdgAssembleLinearSystemMPI(dstype *b, solstruct &sol, resstruct &res
 //       }      
       PutCollumnAtIndex(res.Ri, tmp.bufffacerecv, mesh.facerecv, szRi, common.nfacerecv);  
       
-      PutBoudaryNodes(res.Rh, res.Ri, mesh.intfaces, mesh.faceperm, app.interfacefluxmap, nfe, npf, ncu12, ncu, common.nintfaces); 
+      PutBoudaryNodes(res.Rh, res.Ri, mesh.intfaces, mesh.faceperm, app.interfacefluxmap, nfe, npf, ncu12, ncu, common.couplingparams.nintfaces); 
       
 //       if (common.mpiRank==1)
 //         print2darray(res.Ri, szRi, common.nfacerecv);
     }
     
-    ArraySetValue(b, 0.0, ncu*npf*common.nf); // fix bug here
+    ArraySetValue(b, 0.0, ncu*npf*common.meshsizes.nf); // fix bug here
 
     // assemble RHS vector b from res.Rh using the FIRST elements in mesh.f2e
-    PutElementFaceNodes(b, res.Rh, mesh.f2e, npf, nfe, ncu, common.nf);
+    PutElementFaceNodes(b, res.Rh, mesh.f2e, npf, nfe, ncu, common.meshsizes.nf);
 
     // assemble RHS vector b from res.Rh using the SECOND elements in mesh.f2e
-    PutElementFaceNodes(b, res.Rh, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.nf0);    
+    PutElementFaceNodes(b, res.Rh, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.meshsizes.nf0);    
 }
 
-template <class M>
-inline void hdgAssembleResidualMPI(dstype *b, solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common,  cublasHandle_t handle, Int backend)
+template <class M, class T=dstype, class I=Int>
+inline void hdgAssembleResidualMPI(T *b, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,  cublasHandle_t handle, Int backend)
 {
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int npf = common.npf; // number of nodes on master face           
-    Int npe = common.npe; // number of nodes on master element
-    Int nfe = common.nfe; // number of faces in each element
+    using dstype=T;
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int npf = common.grid.npf; // number of nodes on master face           
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int nfe = common.meshsizes.nfe; // number of faces in each element
     Int ncf = ncu*npf;
     Int szR = ncu*npf*nfe;  
     Int bsz = szR; // send and receive H and Rh together   
     
     // perform HDG descrization for interface elements
-    for (Int j=common.nbe0; j<common.nbe1; j++) {     // fixed bug here             
+    for (Int j=common.meshsizes.nbe0; j<common.meshsizes.nbe1; j++) {     // fixed bug here             
       RuEquationElemBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
       RuEquationElemFaceBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);        
     }                             
@@ -586,7 +595,7 @@ inline void hdgAssembleResidualMPI(dstype *b, solstruct &sol, resstruct &res, ap
         neighbor = common.nbsd[n];
         nsend = common.elemsendpts[n]*bsz;
         if (nsend>0) {
-            MPI_Isend(&tmp.buffsend[psend], nsend, MPI_DOUBLE, neighbor, 0,
+            MPI_Isend(&tmp.buffsend[psend], nsend, mpi_type<dstype>(), neighbor, 0,
                   EXASIM_COMM_LOCAL, &common.requests[request_counter]);
             psend += nsend;
             request_counter += 1;
@@ -599,14 +608,14 @@ inline void hdgAssembleResidualMPI(dstype *b, solstruct &sol, resstruct &res, ap
         neighbor = common.nbsd[n];
         nrecv = common.elemrecvpts[n]*bsz;
         if (nrecv>0) {
-            MPI_Irecv(&tmp.buffrecv[precv], nrecv, MPI_DOUBLE, neighbor, 0,
+            MPI_Irecv(&tmp.buffrecv[precv], nrecv, mpi_type<dstype>(), neighbor, 0,
                   EXASIM_COMM_LOCAL, &common.requests[request_counter]);
             precv += nrecv;
             request_counter += 1;
         }
     }
 
-    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.coupledcondition>0)) {
+    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.couplingparams.coupledcondition>0)) {
       int ncu12 = common.szinterfacefluxmap;
       int szRi = ncu12*npf;  
 
@@ -629,7 +638,7 @@ inline void hdgAssembleResidualMPI(dstype *b, solstruct &sol, resstruct &res, ap
           neighbor = common.nbintf[n];
           nsend = common.facesendpts[n]*szRi;
           if (nsend>0) {
-              MPI_Isend(&tmp.bufffacesend[psend], nsend, MPI_DOUBLE, neighbor, 0,
+              MPI_Isend(&tmp.bufffacesend[psend], nsend, mpi_type<dstype>(), neighbor, 0,
                     EXASIM_COMM_WORLD, &common.requests[request_counter]);
               psend += nsend;
               request_counter += 1;
@@ -642,7 +651,7 @@ inline void hdgAssembleResidualMPI(dstype *b, solstruct &sol, resstruct &res, ap
           neighbor = common.nbintf[n];
           nrecv = common.facerecvpts[n]*szRi;
           if (nrecv>0) {
-              MPI_Irecv(&tmp.bufffacerecv[precv], nrecv, MPI_DOUBLE, neighbor, 0,
+              MPI_Irecv(&tmp.bufffacerecv[precv], nrecv, mpi_type<dstype>(), neighbor, 0,
                     EXASIM_COMM_WORLD, &common.requests[request_counter]);
               precv += nrecv;
               request_counter += 1;
@@ -651,7 +660,7 @@ inline void hdgAssembleResidualMPI(dstype *b, solstruct &sol, resstruct &res, ap
     }
 
     // perform HDG descrization for interior elements
-    for (Int j=0; j<common.nbe0; j++) {                  
+    for (Int j=0; j<common.meshsizes.nbe0; j++) {                  
       RuEquationElemBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
       RuEquationElemFaceBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);        
     }                        
@@ -663,7 +672,7 @@ inline void hdgAssembleResidualMPI(dstype *b, solstruct &sol, resstruct &res, ap
 //     }
     PutCollumnAtIndex(res.Rh, tmp.buffrecv, mesh.elemrecv, szR, common.nelemrecv);         
 
-    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.coupledcondition>0)) {
+    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.couplingparams.coupledcondition>0)) {
       int ncu12 = common.szinterfacefluxmap;
       int szRi = ncu12*npf;  
 
@@ -672,14 +681,14 @@ inline void hdgAssembleResidualMPI(dstype *b, solstruct &sol, resstruct &res, ap
 //       }      
       PutCollumnAtIndex(res.Ri, tmp.bufffacerecv, mesh.facerecv, szRi, common.nfacerecv);  
 
-      PutBoudaryNodes(res.Rh, res.Ri, mesh.intfaces, mesh.faceperm, app.interfacefluxmap, nfe, npf, ncu12, ncu, common.nintfaces);       
+      PutBoudaryNodes(res.Rh, res.Ri, mesh.intfaces, mesh.faceperm, app.interfacefluxmap, nfe, npf, ncu12, ncu, common.couplingparams.nintfaces);       
     }
 
     // assemble RHS vector b from res.Rh using the FIRST elements in mesh.f2e
-    PutElementFaceNodes(b, res.Rh, mesh.f2e, npf, nfe, ncu, common.nf);
+    PutElementFaceNodes(b, res.Rh, mesh.f2e, npf, nfe, ncu, common.meshsizes.nf);
 
     // assemble RHS vector b from res.Rh using the SECOND elements in mesh.f2e
-    PutElementFaceNodes(b, res.Rh, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.nf0);    
+    PutElementFaceNodes(b, res.Rh, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.meshsizes.nf0);    
 
 }
 

@@ -62,6 +62,12 @@
 #include <mutation++.h>
 #endif
 
+// Defined later in the same TU (setstructs.cpp); derives app.porder + app.comm. Shared with the
+// in-memory path (discretization_inmemory.hpp). Forward-declared here because this .cpp is
+// aggregated before setstructs.cpp in the unity/templated build.
+template <class T, class I>
+void setAppRuntimeContext(appstructT<T,I> &app, const masterstructT<T,I> &master, Int mpirank, Int mpiprocs);
+
 void readappstruct(string filename, appstruct &app)
 {
     // Open file to read
@@ -144,9 +150,9 @@ void readappstruct(string filename, appstruct &app)
     #endif 
 
     Int i, ncu, ncq, ncw;
-    ncu = app.ndims[6];// number of compoments of (u)
-    ncq = app.ndims[7];// number of compoments of (q)
-    ncw = app.ndims[13];// number of compoments of (w)
+    ncu = app.ndims[AppNdims::ncu];// number of compoments of (u)
+    ncq = app.ndims[AppNdims::ncq];// number of compoments of (q)
+    ncw = app.ndims[AppNdims::ncw];// number of compoments of (w)
     
     if (ncu>0) {
         app.fc_u = (dstype*) malloc(sizeof(dstype)*ncu);
@@ -334,7 +340,7 @@ void writemasterstruct(string filename, masterstruct &master)
 }
 
 
-void readmeshstruct(string filename, meshstruct &mesh, solstruct &sol, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, Int mpirank)
+void readmeshstruct(string filename, meshstruct &mesh, solstruct &sol, appstruct &app, masterstruct &master, Int mpirank)
 {
     // Open file to read
     ifstream in(filename.c_str(), ios::in | ios::binary);
@@ -533,14 +539,14 @@ void readsolstruct(string filename, solstruct &sol, appstruct &app, ExasimDriver
     
     //printf("Read sol struct from files...\n");  
 
-    //dstype *tmp; // = (dstype*) malloc (sizeof (dstype)*common.nge*common.nco*common.ne);
+    //dstype *tmp; // = (dstype*) malloc (sizeof (dstype)*common.grid.nge*common.components.nco*common.meshsizes.ne);
     Int npe = master.ndims[5];
     Int npf = master.ndims[6];
-    Int nc = app.ndims[5];
-    Int ncu = app.ndims[6];
-    Int nco = app.ndims[9];
-    Int ncx = app.ndims[11];
-    Int ncw = app.ndims[13];
+    Int nc = app.ndims[AppNdims::nc];
+    Int ncu = app.ndims[AppNdims::ncu];
+    Int nco = app.ndims[AppNdims::nco];
+    Int ncx = app.ndims[AppNdims::ncx];
+    Int ncw = app.ndims[AppNdims::ncw];
     
     sol.lsize = readiarrayfromdouble(in, 1);
     sol.nsize = readiarrayfromdouble(in, sol.lsize[0]);
@@ -574,16 +580,11 @@ void readsolstruct(string filename, solstruct &sol, appstruct &app, ExasimDriver
         CPUFREE(tmp);
     }
     else if (sol.nsize[2] == 0) {
-        if (mpirank==0) printf("compute the initial solution \n");  
-        sol.udg = (dstype*) malloc (sizeof (dstype)*npe*nc*ne);    
+        // No solution supplied -> allocate, zero, and flag for model-IC (initializeSolution).
+        sol.udg = (dstype*) malloc (sizeof (dstype)*npe*nc*ne);
         cpuArraySetValue(sol.udg, zero, npe*nc*ne);
-        
-        if (app.flag[1]==0) { //            
-            cpuInituDriver(sol.udg, sol.xdg, driver_abi, app, ncx, nc, npe, ne, 0);    
-        }
-        else // wave problem
-            cpuInitudgDriver(sol.udg, sol.xdg, driver_abi, app, ncx, nc, npe, ne, 0);                    
-        sol.nsize[2] = npe*nc*ne;       
+        sol.needudginit = 1;
+        sol.nsize[2] = npe*nc*ne;
         sol.szudg = sol.nsize[2];
     }
     else
@@ -601,7 +602,8 @@ void readsolstruct(string filename, solstruct &sol, appstruct &app, ExasimDriver
     }
     else if (nco>0) {
         sol.odg = (dstype*) malloc (sizeof (dstype)*npe*nco*ne);
-        cpuInitodgDriver(sol.odg, sol.xdg, driver_abi, app, ncx, nco, npe, ne, 0);       
+        cpuArraySetValue(sol.odg, zero, npe*nco*ne);
+        sol.needodginit = 1;
         sol.nsize[3] = npe*nco*ne;
         sol.szodg = sol.nsize[3];
     }
@@ -616,8 +618,9 @@ void readsolstruct(string filename, solstruct &sol, appstruct &app, ExasimDriver
         sol.szwdg = sol.nsize[4];
     }
     else if (ncw>0) {
-        sol.wdg = (dstype*) malloc (sizeof (dstype)*npe*ncw*ne);    
-        cpuInitwdgDriver(sol.wdg, sol.xdg, driver_abi, app, ncx, ncw, npe, ne, 0);        
+        sol.wdg = (dstype*) malloc (sizeof (dstype)*npe*ncw*ne);
+        cpuArraySetValue(sol.wdg, zero, npe*ncw*ne);
+        sol.needwdginit = 1;
         sol.nsize[4] = npe*ncw*ne;
         sol.szwdg = sol.nsize[4];
     }
@@ -654,15 +657,9 @@ void readInput(appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master
     string filemaster = filein + "master.bin";           
     readmasterstruct(filemaster, master);
     
-    Int nd = master.ndims[0];    
-    app.porder = (Int*) malloc(nd*sizeof(Int));
-    app.szporder = nd;
-    for (Int i=0; i<nd; i++)
-        app.porder[i] = master.ndims[3];
-    app.comm = (Int*) malloc(2*sizeof(Int));
-    app.comm[0] = mpirank;
-    app.comm[1] = mpiprocs;
-    app.szcomm = 2;
+    // Derive app.porder + app.comm (not serialized with the app struct). Shared with the
+    // in-memory path via setAppRuntimeContext (defined in setstructs.cpp, same TU).
+    setAppRuntimeContext(app, master, mpirank, mpiprocs);
                     
     // read meshsol structure
     if (mpiprocs>1) {     
@@ -674,7 +671,7 @@ void readInput(appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master
         readsolstruct(filesol, sol, app, driver_abi, master, filemesh, mpirank);
         
         if (mpirank==0) printf("Reading mesh from binary files \n");            
-        readmeshstruct(filemesh, mesh, sol, app, driver_abi, master, mpirank);                              
+        readmeshstruct(filemesh, mesh, sol, app, master, mpirank);                              
     }
     else {
         string filesol = filein + "sol.bin";              
@@ -684,7 +681,7 @@ void readInput(appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master
         readsolstruct(filesol, sol, app, driver_abi, master, filemesh, mpirank);
         
         if (mpirank==0) printf("Reading mesh from binary files \n");         
-        readmeshstruct(filemesh, mesh, sol, app, driver_abi, master, mpirank);                      
+        readmeshstruct(filemesh, mesh, sol, app, master, mpirank);                      
     }    
 }
 

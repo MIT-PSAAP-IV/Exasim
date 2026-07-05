@@ -94,16 +94,16 @@ inline void uJacobianLDGDirect(dstype* AU, dstype* AQ, dstype* AW,
     (void)res;
     (void)tmp;
 
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncq = common.ncq;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
-    Int ncs = common.ncs;
-    Int ncw = common.ncw;
-    Int nd = common.nd;
-    Int npe = common.npe;
-    Int nge = common.nge;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncq = common.components.ncq;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
+    Int ncs = common.components.ncs;
+    Int ncw = common.components.ncw;
+    Int nd = common.grid.nd;
+    Int npe = common.grid.npe;
+    Int nge = common.grid.nge;
 
     Int ne = e2-e1;
     Int nn = npe*ne;
@@ -146,7 +146,7 @@ inline void uJacobianLDGDirect(dstype* AU, dstype* AQ, dstype* AW,
         TemplateMalloc(&sg_w, nga*ncu*ncw, backend);
         TemplateMalloc(&fg_w, nga*ncu*nd*ncw, backend);
     }
-    if (common.tdep) TemplateMalloc(&td, nga*ncu, backend);
+    if (common.timeparams.tdep) TemplateMalloc(&td, nga*ncu, backend);
 
     Int maxcol = ncu;
     if (ncq > maxcol) maxcol = ncq;
@@ -171,17 +171,17 @@ inline void uJacobianLDGDirect(dstype* AU, dstype* AQ, dstype* AW,
     SourceDriver(sg, sg_uq, sg_w, xg, uqg, og, wg, driver_abi, mesh, master,
             app, sol, tmp, common, nge, e1, e2, backend);
 
-    if (common.tdep) {
-        ArrayAXPBY(td, &sol.sdgg[nge*ncs*e1], uqg, one, -common.dtfactor, nga*ncu);
+    if (common.timeparams.tdep) {
+        ArrayAXPBY(td, &sol.sdgg[nge*ncs*e1], uqg, one, -common.timestate.dtfactor, nga*ncu);
 
-        if (common.tdfunc==1)
+        if (common.timeparams.tdfunc==1)
             TdfuncDriver(fg, xg, uqg, og, wg, driver_abi, mesh, master, app, sol, tmp, common, nge, e1, e2, backend);
         else
             ArraySetValue(fg, one, nga*ncu);
 
         ArrayAXY(td, td, fg, one, nga*ncu);
         ArrayAXPBY(sg, sg, td, one, one, nga*ncu);
-        ApplyDtcoef(sg_uq, fg, -common.dtfactor, nga, ncu);
+        ApplyDtcoef(sg_uq, fg, -common.timestate.dtfactor, nga, ncu);
     }
 
     ArraySetValue(fg, zero, nga*ncu*nd);
@@ -230,10 +230,10 @@ inline void uJacobianLDGCompose(dstype* JU, const dstype* AU, const dstype* AQ,
     if ((JU == nullptr) || (AU == nullptr))
         return;
 
-    Int npe = common.npe;
-    Int ncu = common.ncu;
-    Int ncq = common.ncq;
-    Int ncw = common.ncw;
+    Int npe = common.grid.npe;
+    Int ncu = common.components.ncu;
+    Int ncq = common.components.ncq;
+    Int ncw = common.components.ncw;
     Int ne = e2 - e1;
     Int nlocr = npe*ncu;
     Int nlocu = npe*ncu;
@@ -260,9 +260,9 @@ inline void uJacobianLDGAssembleFaceSide(dstype* A, const dstype* Atmp,
     if ((A == nullptr) || (Atmp == nullptr) || (ncol <= 0))
         return;
 
-    Int npe = common.npe;
-    Int npf = common.npf;
-    Int ncu = common.ncu;
+    Int npe = common.grid.npe;
+    Int npf = common.grid.npf;
+    Int ncu = common.components.ncu;
     Int nf = f2 - f1;
     Int ne = e2 - e1;
     Int nlocu = npe*ncu;
@@ -311,13 +311,13 @@ inline void uJacobianLDGFace(dstype* JU, dstype* JQ, dstype* JW,
     (void)res;
     (void)tmp;
 
-    Int npe = common.npe;
-    Int npf = common.npf;
-    Int ncu = common.ncu;
-    Int nc = common.nc;
-    Int ncq = common.ncq;
-    Int nco = common.nco;
-    Int ncw = common.ncw;
+    Int npe = common.grid.npe;
+    Int npf = common.grid.npf;
+    Int ncu = common.components.ncu;
+    Int nc = common.components.nc;
+    Int ncq = common.components.ncq;
+    Int nco = common.components.nco;
+    Int ncw = common.components.ncw;
     Int nlocu = npe*ncu;
     Int nlocq = npe*ncq;
     Int nlocw = npe*ncw;
@@ -327,16 +327,16 @@ inline void uJacobianLDGFace(dstype* JU, dstype* JQ, dstype* JW,
     if ((JQ != nullptr) && (ncq > 0)) ArraySetValue(JQ, zero, nlocu*nlocq*ne);
     if ((JW != nullptr) && (ncw > 0)) ArraySetValue(JW, zero, nlocu*nlocw*ne);
 
-    for (Int j = 0; j < common.nbf; ++j) {
+    for (Int j = 0; j < common.meshsizes.nbf; ++j) {
         Int f1 = common.fblks[3*j] - 1;
         Int f2 = common.fblks[3*j + 1];
         Int ib = common.fblks[3*j + 2];
         Int nf = f2 - f1;
         Int nn = npf*nf;
-        Int ngf = common.ngf;
+        Int ngf = common.grid.ngf;
         Int nga = ngf*nf;
-        Int ncx = common.ncx;
-        Int nd = common.nd;
+        Int ncx = common.components.ncx;
+        Int nd = common.grid.nd;
 
         Int nodalCols = (ib == 0) ? (ncu + 2*nc + 2*ncw) : (ncu + nc + ncw);
         dstype* fn = nullptr;
@@ -499,10 +499,10 @@ inline void uJacobianLDG(dstype* JU, dstype* AU, dstype* AQ, dstype* AW,
         meshstruct& mesh, tempstruct& tmp, commonstruct& common,
         cublasHandle_t handle, Int e1, Int e2, Int backend)
 {
-    Int npe = common.npe;
-    Int ncu = common.ncu;
-    Int ncq = common.ncq;
-    Int ncw = common.ncw;
+    Int npe = common.grid.npe;
+    Int ncu = common.components.ncu;
+    Int ncq = common.components.ncq;
+    Int ncw = common.components.ncw;
     Int ne = e2 - e1;
     Int nlocu = npe*ncu;
     Int nlocq = npe*ncq;
@@ -593,7 +593,7 @@ inline void uJacobianLDG(dstype* JU, solstruct& sol, resstruct& res,
         cublasHandle_t handle, Int backend)
 {
     uJacobianLDG(JU, nullptr, nullptr, nullptr, nullptr, nullptr, sol, res, app,
-            driver_abi, master, mesh, tmp, common, handle, 0, common.ne, backend);
+            driver_abi, master, mesh, tmp, common, handle, 0, common.meshsizes.ne, backend);
 }
 
 #endif

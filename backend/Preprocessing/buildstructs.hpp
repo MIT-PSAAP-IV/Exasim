@@ -56,8 +56,10 @@ inline Int* mallocIntArrayShifted(const std::vector<double>& src, double shift)
     return a;
 }
 
-inline dstype* mallocDoubleArray(const std::vector<double>& src)
+template <class T=dstype>
+inline T* mallocDoubleArray(const std::vector<double>& src)
 {
+    using dstype=T;
     Int n = (Int)src.size();
     if (n <= 0) return nullptr;
     dstype* a = (dstype*)std::malloc(sizeof(dstype) * n);
@@ -73,8 +75,10 @@ inline Int* mallocIntArrayN(const Int* src, Int n)
     return a;
 }
 
-inline dstype* mallocDoubleArrayN(const dstype* src, Int n)
+template <class T=dstype>
+inline T* mallocDoubleArrayN(const T* src, Int n)
 {
+    using dstype=T;
     if (n <= 0) return nullptr;
     dstype* a = (dstype*)std::malloc(sizeof(dstype) * n);
     for (Int i = 0; i < n; ++i) a[i] = src[i];
@@ -104,29 +108,34 @@ inline dstype* mallocDoubleArrayN(const dstype* src, Int n)
 // app.uinf is sourced from pde.externalparam (this is the legacy ABI;
 // see readappstruct line 81: app.uinf <- nsize[3] = externalparam.size()).
 // ---------------------------------------------------------------
-inline appstruct buildAppStruct(const PDE& pde)
+template <class T=dstype, class I=Int>
+inline appstructT<T,I> buildAppStruct(const PDE& pde)
 {
+    using dstype=T; using Int=I;
+    using appstruct=appstructT<T,I>; using masterstruct=masterstructT<T,I>;
+    using meshstruct=meshstructT<T,I>; using solstruct=solstructT<T,I>;
+
     appstruct app{};
 
     // ---- ndims (40 entries, dimensions) ----
     constexpr Int kNDims = 40;
     app.ndims = (Int*)std::calloc(kNDims, sizeof(Int));
-    app.ndims[0]  = pde.mpiprocs;
-    app.ndims[1]  = pde.nd;
-    app.ndims[5]  = pde.nc;
-    app.ndims[6]  = pde.ncu;
-    app.ndims[7]  = pde.ncq;
-    app.ndims[8]  = pde.ncp;
-    app.ndims[9]  = pde.ncv;
-    app.ndims[10] = pde.nch;
-    app.ndims[11] = pde.ncx;
-    app.ndims[12] = pde.nce;
-    app.ndims[13] = pde.ncw;
-    app.ndims[14] = pde.nsca;
-    app.ndims[15] = pde.nvec;
-    app.ndims[16] = pde.nten;
-    app.ndims[17] = pde.nsurf;
-    app.ndims[18] = pde.nvqoi;
+    app.ndims[AppNdims::mpiprocs]  = pde.mpiprocs;
+    app.ndims[AppNdims::nd]  = pde.nd;
+    app.ndims[AppNdims::nc]  = pde.nc;
+    app.ndims[AppNdims::ncu]  = pde.ncu;
+    app.ndims[AppNdims::ncq]  = pde.ncq;
+    app.ndims[AppNdims::ncp]  = pde.ncp;
+    app.ndims[AppNdims::nco]  = pde.ncv;
+    app.ndims[AppNdims::nch] = pde.nch;
+    app.ndims[AppNdims::ncx] = pde.ncx;
+    app.ndims[AppNdims::nce] = pde.nce;
+    app.ndims[AppNdims::ncw] = pde.ncw;
+    app.ndims[AppNdims::nsca] = pde.nsca;
+    app.ndims[AppNdims::nvec] = pde.nvec;
+    app.ndims[AppNdims::nten] = pde.nten;
+    app.ndims[AppNdims::nsurf] = pde.nsurf;
+    app.ndims[AppNdims::nvqoi] = pde.nvqoi;
 
     // ---- nsize (30 entries, sub-array sizes) ----
     constexpr Int kNSize = 30;
@@ -158,17 +167,17 @@ inline appstruct buildAppStruct(const PDE& pde)
     // ---- typed payloads ----
     app.flag             = mallocIntArray(pde.flag);
     app.problem          = mallocIntArray(pde.problem);
-    app.uinf             = mallocDoubleArray(pde.externalparam);
-    app.dt               = mallocDoubleArray(pde.dt);
-    app.factor           = mallocDoubleArray(pde.factor);
-    app.physicsparam     = mallocDoubleArray(pde.physicsparam);
-    app.solversparam     = mallocDoubleArray(pde.solversparam);
-    app.tau              = mallocDoubleArray(pde.tau);
-    app.stgdata          = mallocDoubleArray(pde.stgdata);
-    app.stgparam         = mallocDoubleArray(pde.stgparam);
+    app.uinf             = mallocDoubleArray<T>(pde.externalparam);
+    app.dt               = mallocDoubleArray<T>(pde.dt);
+    app.factor           = mallocDoubleArray<T>(pde.factor);
+    app.physicsparam     = mallocDoubleArray<T>(pde.physicsparam);
+    app.solversparam     = mallocDoubleArray<T>(pde.solversparam);
+    app.tau              = mallocDoubleArray<T>(pde.tau);
+    app.stgdata          = mallocDoubleArray<T>(pde.stgdata);
+    app.stgparam         = mallocDoubleArray<T>(pde.stgparam);
     app.stgib            = mallocIntArray(pde.stgib);
     app.vindx            = mallocIntArrayShifted(pde.vindx, -1.0);   // legacy `-1` on write, restored on read
-    app.dae_dt           = mallocDoubleArray(pde.dae_dt);
+    app.dae_dt           = mallocDoubleArray<T>(pde.dae_dt);
     {
         // pde.interfaceFluxmap is std::vector<int>; the on-disk write
         // serializes it as doubles via writeiarraytodouble, then read
@@ -180,7 +189,7 @@ inline appstruct buildAppStruct(const PDE& pde)
                 app.interfacefluxmap[i] = (Int)pde.interfaceFluxmap[i];
         }
     }
-    app.avparam          = mallocDoubleArray(avparam);
+    app.avparam          = mallocDoubleArray<T>(avparam);
 
     // ---- size fields (mirrors readappstruct lines 95-109) ----
     app.szflag             = app.nsize[1];
@@ -200,9 +209,9 @@ inline appstruct buildAppStruct(const PDE& pde)
     app.szavparam          = app.nsize[15];
 
     // ---- derived fc_u/fc_q/fc_w (mirrors readappstruct lines 134-168) ----
-    Int ncu = app.ndims[6];
-    Int ncq = app.ndims[7];
-    Int ncw = app.ndims[13];
+    Int ncu = app.ndims[AppNdims::ncu];
+    Int ncq = app.ndims[AppNdims::ncq];
+    Int ncw = app.ndims[AppNdims::ncw];
     if (ncu > 0) {
         app.fc_u     = (dstype*)std::malloc(sizeof(dstype) * ncu);
         app.dtcoef_u = (dstype*)std::malloc(sizeof(dstype) * ncu);
@@ -237,8 +246,13 @@ inline appstruct buildAppStruct(const PDE& pde)
 // same data as `dstype*` arrays for solver consumption. This is a
 // straight copy.
 // ---------------------------------------------------------------
-inline masterstruct buildMasterStruct(const Master& master)
+template <class T=dstype, class I=Int>
+inline masterstructT<T,I> buildMasterStruct(const Master& master)
 {
+    using dstype=T; using Int=I;
+    using appstruct=appstructT<T,I>; using masterstruct=masterstructT<T,I>;
+    using meshstruct=meshstructT<T,I>; using solstruct=solstructT<T,I>;
+
     masterstruct ms{};
 
     // ---- ndims (20 entries) ----
@@ -286,27 +300,27 @@ inline masterstruct buildMasterStruct(const Master& master)
     ms.lsize[0] = kNSize;
 
     // ---- typed payloads ----
-    ms.shapegt   = mallocDoubleArray(master.shapegt);
-    ms.shapegw   = mallocDoubleArray(master.shapegw);
-    ms.shapfgt   = mallocDoubleArray(master.shapfgt);
-    ms.shapfgw   = mallocDoubleArray(master.shapfgw);
-    ms.shapent   = mallocDoubleArray(master.shapent);
-    ms.shapen    = mallocDoubleArray(master.shapen);
-    ms.shapfnt   = mallocDoubleArray(master.shapfnt);
-    ms.shapfn    = mallocDoubleArray(master.shapfn);
-    ms.xpe       = mallocDoubleArray(master.xpe);
-    ms.gpe       = mallocDoubleArray(master.gpe);
-    ms.gwe       = mallocDoubleArray(master.gwe);
-    ms.xpf       = mallocDoubleArray(master.xpf);
-    ms.gpf       = mallocDoubleArray(master.gpf);
-    ms.gwf       = mallocDoubleArray(master.gwf);
-    ms.shap1dgt  = mallocDoubleArray(master.shap1dgt);
-    ms.shap1dgw  = mallocDoubleArray(master.shap1dgw);
-    ms.shap1dnt  = mallocDoubleArray(master.shap1dnt);
-    ms.shap1dnl  = mallocDoubleArray(master.shap1dn);   // name change: shap1dn → shap1dnl
-    ms.xp1d      = mallocDoubleArray(master.xp1d);
-    ms.gp1d      = mallocDoubleArray(master.gp1d);
-    ms.gw1d      = mallocDoubleArray(master.gw1d);
+    ms.shapegt   = mallocDoubleArray<T>(master.shapegt);
+    ms.shapegw   = mallocDoubleArray<T>(master.shapegw);
+    ms.shapfgt   = mallocDoubleArray<T>(master.shapfgt);
+    ms.shapfgw   = mallocDoubleArray<T>(master.shapfgw);
+    ms.shapent   = mallocDoubleArray<T>(master.shapent);
+    ms.shapen    = mallocDoubleArray<T>(master.shapen);
+    ms.shapfnt   = mallocDoubleArray<T>(master.shapfnt);
+    ms.shapfn    = mallocDoubleArray<T>(master.shapfn);
+    ms.xpe       = mallocDoubleArray<T>(master.xpe);
+    ms.gpe       = mallocDoubleArray<T>(master.gpe);
+    ms.gwe       = mallocDoubleArray<T>(master.gwe);
+    ms.xpf       = mallocDoubleArray<T>(master.xpf);
+    ms.gpf       = mallocDoubleArray<T>(master.gpf);
+    ms.gwf       = mallocDoubleArray<T>(master.gwf);
+    ms.shap1dgt  = mallocDoubleArray<T>(master.shap1dgt);
+    ms.shap1dgw  = mallocDoubleArray<T>(master.shap1dgw);
+    ms.shap1dnt  = mallocDoubleArray<T>(master.shap1dnt);
+    ms.shap1dnl  = mallocDoubleArray<T>(master.shap1dn);   // name change: shap1dn → shap1dnl
+    ms.xp1d      = mallocDoubleArray<T>(master.xp1d);
+    ms.gp1d      = mallocDoubleArray<T>(master.gp1d);
+    ms.gw1d      = mallocDoubleArray<T>(master.gw1d);
 
     // ---- size fields ----
     ms.szshapegt   = ms.nsize[1];
@@ -352,11 +366,16 @@ inline masterstruct buildMasterStruct(const Master& master)
 //
 // Outputs `ti_out` for the caller — needed by buildConn().
 // ---------------------------------------------------------------
-inline meshstruct buildMeshStruct(const Mesh& mesh, const Master& master,
+template <class T=dstype, class I=Int>
+inline meshstructT<T,I> buildMeshStruct(const Mesh& mesh, const Master& master,
                                   const DMD& dmd, const std::vector<int>& bf,
                                   int hybrid, int mpiprocs,
                                   std::vector<int>& ti_out)
 {
+    using dstype=T; using Int=I;
+    using appstruct=appstructT<T,I>; using masterstruct=masterstructT<T,I>;
+    using meshstruct=meshstructT<T,I>; using solstruct=solstructT<T,I>;
+
     meshstruct ms{};
 
     const int ne   = (int)dmd.elempart.size();
@@ -463,9 +482,14 @@ inline meshstruct buildMeshStruct(const Mesh& mesh, const Master& master,
 // `ncudg`   is the legacy heuristic from writesol: `mesh.udg.size()
 // / (mesh.ne * master.npe)` if udg is nonempty, else `pde.nc`.
 // ---------------------------------------------------------------
-inline solstruct buildSolStruct(const Mesh& mesh, const Master& master,
+template <class T=dstype, class I=Int>
+inline solstructT<T,I> buildSolStruct(const Mesh& mesh, const Master& master,
                                 const PDE& pde, const DMD& dmd)
 {
+    using dstype=T; using Int=I;
+    using appstruct=appstructT<T,I>; using masterstruct=masterstructT<T,I>;
+    using meshstruct=meshstructT<T,I>; using solstruct=solstructT<T,I>;
+
     solstruct sol{};
 
     const int ne_local = (int)dmd.elempart.size();
@@ -532,6 +556,17 @@ inline solstruct buildSolStruct(const Mesh& mesh, const Master& master,
         }
         sol.szudg = sol.nsize[2];
     }
+    else {
+        // No udg supplied: allocate the full (u,q) buffer, zero it, and flag for the
+        // model initial condition (CResidual::initializeSolution). Mirrors readsolstruct's
+        // sol.nsize[2]==0 branch (readbinaryfiles.cpp) so the in-memory and file paths hand
+        // CResidual the same post-condition -- without this the operator state buffer is null
+        // and recoverInitialState (GetFaceNodes uh<-udg) dereferences it.
+        sol.nsize[2] = (Int)(npe * pde.nc * ne_local);
+        sol.udg = (dstype*)std::calloc((size_t)sol.nsize[2], sizeof(dstype));
+        sol.szudg = sol.nsize[2];
+        sol.needudginit = 1;
+    }
     // The legacy ABI stores `vdg` (auxiliary scalar fields) under
     // `solstruct::odg` — see common.h: odg = auxilary term. Mesh
     // .vdg → solstruct.odg.
@@ -545,6 +580,13 @@ inline solstruct buildSolStruct(const Mesh& mesh, const Master& master,
         }
         sol.szodg = sol.nsize[3];
     }
+    else if (pde.ncv > 0) {
+        // No vdg supplied but the model needs odg: allocate+zero+flag (readsolstruct nco>0 branch).
+        sol.nsize[3] = (Int)(npe * pde.ncv * ne_local);
+        sol.odg = (dstype*)std::calloc((size_t)sol.nsize[3], sizeof(dstype));
+        sol.szodg = sol.nsize[3];
+        sol.needodginit = 1;
+    }
     if (!mesh.wdg.empty()) {
         const int row = npe * pde.ncw;
         sol.wdg = (dstype*)std::malloc(sizeof(dstype) * row * ne_local);
@@ -554,6 +596,13 @@ inline solstruct buildSolStruct(const Mesh& mesh, const Master& master,
                 sol.wdg[i + j*row] = (dstype)mesh.wdg[i + col*row];
         }
         sol.szwdg = sol.nsize[4];
+    }
+    else if (pde.ncw > 0) {
+        // No wdg supplied but the model needs wdg: allocate+zero+flag (readsolstruct ncw>0 branch).
+        sol.nsize[4] = (Int)(npe * pde.ncw * ne_local);
+        sol.wdg = (dstype*)std::calloc((size_t)sol.nsize[4], sizeof(dstype));
+        sol.szwdg = sol.nsize[4];
+        sol.needwdginit = 1;
     }
     if (!mesh.uhat.empty()) {
         sol.uh = (dstype*)std::malloc(sizeof(dstype) * mesh.uhat.size());
@@ -569,11 +618,12 @@ inline solstruct buildSolStruct(const Mesh& mesh, const Master& master,
 // Bundle of the four runtime structs ready for CDiscretization /
 // CSolution to consume directly. See HOT.7.3 plan.
 // ---------------------------------------------------------------
-struct Preprocessed {
-    appstruct    app;
-    masterstruct master;
-    meshstruct   mesh;
-    solstruct    sol;
+template <class T=dstype, class I=Int>
+struct PreprocessedT {
+    appstructT<T,I>    app;
+    masterstructT<T,I> master;
+    meshstructT<T,I>   mesh;
+    solstructT<T,I>    sol;
     // ti retained for buildConn() inside CDiscretization's setup.
     std::vector<int> ti;
     // HOT.7.4 — when false, CSolution<M> skips opening output
@@ -581,6 +631,7 @@ struct Preprocessed {
     // solve and can be pulled via host_udg() / host_uhat() / etc.
     bool save_outputs = true;
 };
+using Preprocessed = PreprocessedT<dstype, Int>;
 
 // ---------------------------------------------------------------
 // buildMeshStructParallel — mirrors writemesh()/readmeshstruct()
@@ -597,12 +648,17 @@ struct Preprocessed {
 //
 // `pde.hybrid > 0` toggles whether perm/bf/cartGridPart go in.
 // ---------------------------------------------------------------
-inline meshstruct buildMeshStructParallel(const Mesh& mesh, const Master& master,
+template <class T=dstype, class I=Int>
+inline meshstructT<T,I> buildMeshStructParallel(const Mesh& mesh, const Master& master,
                                           const DMD& dmd,
                                           const std::vector<int>& bf_full,
                                           const std::vector<int>& tg_full,
                                           int hybrid)
 {
+    using dstype=T; using Int=I;
+    using appstruct=appstructT<T,I>; using masterstruct=masterstructT<T,I>;
+    using meshstruct=meshstructT<T,I>; using solstruct=solstructT<T,I>;
+
     meshstruct ms{};
 
     const int ne_full = (int)dmd.elempart.size();   // owned + ghosts
@@ -678,11 +734,16 @@ inline meshstruct buildMeshStructParallel(const Mesh& mesh, const Master& master
 // We don't read udg/vdg/wdg from any optional file — they default
 // to zero and are computed in `cpuInitFromStructs` via cpuInit*Driver.
 // ---------------------------------------------------------------
-inline solstruct buildSolStructParallel(const Master& master, const PDE& pde,
+template <class T=dstype, class I=Int>
+inline solstructT<T,I> buildSolStructParallel(const Master& master, const PDE& pde,
                                         const DMD& dmd,
                                         const std::vector<double>& xdg_full,
                                         int dim)
 {
+    using dstype=T; using Int=I;
+    using appstruct=appstructT<T,I>; using masterstruct=masterstructT<T,I>;
+    using meshstruct=meshstructT<T,I>; using solstruct=solstructT<T,I>;
+
     solstruct sol{};
     const int ne_full = (int)dmd.elempart.size();
 
@@ -713,6 +774,29 @@ inline solstruct buildSolStructParallel(const Master& master, const PDE& pde,
         sol.xdg = (dstype*)std::malloc(sizeof(dstype) * row * ne_full);
         for (int i = 0; i < row * ne_full; ++i) sol.xdg[i] = (dstype)xdg_full[i];
         sol.szxdg = sol.nsize[1];
+    }
+
+    // The parallel mesh is generated in-memory, so there are no udg/vdg/wdg arrays to copy.
+    // Allocate + zero the state buffers (over the FULL element partition incl. ghosts) and
+    // flag them for the model initial condition, exactly as serial buildSolStruct's
+    // "no file supplied" branch does -- otherwise sol.udg is null and recoverInitialState's
+    // GetFaceNodes (uh <- udg) dereferences it (illegal access on GPU / SEGV on CPU).
+    const int npe = master.npe;
+    sol.nsize[2] = (Int)(npe * pde.nc * ne_full);
+    sol.udg = (dstype*)std::calloc((size_t)sol.nsize[2], sizeof(dstype));
+    sol.szudg = sol.nsize[2];
+    sol.needudginit = 1;
+    if (pde.ncv > 0) {
+        sol.nsize[3] = (Int)(npe * pde.ncv * ne_full);
+        sol.odg = (dstype*)std::calloc((size_t)sol.nsize[3], sizeof(dstype));
+        sol.szodg = sol.nsize[3];
+        sol.needodginit = 1;
+    }
+    if (pde.ncw > 0) {
+        sol.nsize[4] = (Int)(npe * pde.ncw * ne_full);
+        sol.wdg = (dstype*)std::calloc((size_t)sol.nsize[4], sizeof(dstype));
+        sol.szwdg = sol.nsize[4];
+        sol.needwdginit = 1;
     }
 
     return sol;

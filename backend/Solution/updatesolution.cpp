@@ -47,47 +47,47 @@
 
 void UpdateSolutionDIRK(solstruct &sol, sysstruct &sys, commonstruct &common, Int backend)
 {                                   
-    Int N = common.ndof1;
-    Int N2 = common.npe*common.nc*common.ne2;            
+    Int N = common.sizes.ndof1;
+    Int N2 = common.grid.npe*common.components.nc*common.meshsizes.ne2;            
     
     // update sys.u
-    ArrayExtract(sys.u, sol.udg, common.npe, common.nc, common.ne1, 0, common.npe, 0, common.ncu, 0, common.ne1);                                                  
+    ArrayExtract(sys.u, sol.udg, common.grid.npe, common.components.nc, common.meshsizes.ne1, 0, common.grid.npe, 0, common.components.ncu, 0, common.meshsizes.ne1);                                                  
     
     // update the solution at each DIRK stage
-    if (common.wave==1)
-        ArrayAXPBY(sys.utmp, sol.udg, sys.utmp, common.DIRKcoeff_c[common.currentstage], one, N2);                    
+    if (common.timeparams.wave==1)
+        ArrayAXPBY(sys.utmp, sol.udg, sys.utmp, common.DIRKcoeff_c[common.timestate.currentstage], one, N2);                    
     else
-        ArrayAXPBY(sys.utmp, sys.u, sys.utmp, common.DIRKcoeff_c[common.currentstage], one, N);                    
+        ArrayAXPBY(sys.utmp, sys.u, sys.utmp, common.DIRKcoeff_c[common.timestate.currentstage], one, N);                    
     
     // after the last DIRK stage
-    if (common.currentstage == common.tstages-1) {
+    if (common.timestate.currentstage == common.timeparams.tstages-1) {
        // copy utmp to udg
-        if (common.wave==1)
+        if (common.timeparams.wave==1)
             ArrayCopy(sol.udg, sys.utmp, N2);
         else
-            ArrayInsert(sol.udg, sys.utmp, common.npe, common.nc, common.ne1, 0, common.npe, 0, common.ncu, 0, common.ne1);                                                  
+            ArrayInsert(sol.udg, sys.utmp, common.grid.npe, common.components.nc, common.meshsizes.ne1, 0, common.grid.npe, 0, common.components.ncu, 0, common.meshsizes.ne1);                                                  
     }   
 
     // update the solution w at each DIRK stage
-    if (common.ncw>0) {
-        N2 = common.npe*common.ncw*common.ne2;            
-        ArrayAXPBY(sys.wtmp, sol.wdg, sys.wtmp, common.DIRKcoeff_c[common.currentstage], one, N2);                
+    if (common.components.ncw>0) {
+        N2 = common.grid.npe*common.components.ncw*common.meshsizes.ne2;            
+        ArrayAXPBY(sys.wtmp, sol.wdg, sys.wtmp, common.DIRKcoeff_c[common.timestate.currentstage], one, N2);                
         // after the last DIRK stage
-        if (common.currentstage == common.tstages-1) 
+        if (common.timestate.currentstage == common.timeparams.tstages-1) 
             ArrayCopy(sol.wdg, sys.wtmp, N2);                                 
     }    
 }
 
 void UpdateSolutionBDF(solstruct &sol, sysstruct &sys, commonstruct &common, Int backend)
 {       
-    Int N = common.ndof1;
+    Int N = common.sizes.ndof1;
     
     // solve dw/dt = u for wave problems
-    if (common.wave==1) {          
-        dstype dt = common.dt[common.currentstep];
+    if (common.timeparams.wave==1) {          
+        dstype dt = common.dt[common.timestate.currentstep];
         
         // update the source term
-        switch (common.torder) {
+        switch (common.timeparams.torder) {
             case 1:
                 ArrayAXPB(sol.wsrc, sys.wprev1, -common.BDFcoeff_c[1]/dt, zero, N);
                 break;
@@ -108,67 +108,68 @@ void UpdateSolutionBDF(solstruct &sol, sysstruct &sys, commonstruct &common, Int
 
 void UpdateSolution(solstruct &sol, sysstruct &sys, commonstruct &common, Int backend)
 {           
-    if (common.temporalScheme==0) // DIRK
+    if (common.timeparams.temporalScheme==0) // DIRK
         UpdateSolutionDIRK(sol, sys, common, backend);
     else // BDF
         UpdateSolutionBDF(sol, sys, common, backend);
 }
 
 
+template <class M = exasim::detail::AbiAdapter>
 void UpdateSolution(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriverABI& driver_abi, resstruct &res, tempstruct &tmp, commonstruct &common, Int backend)
 {                                   
-    Int N = common.ndof1;
-    Int N2 = common.npe*common.nc*common.ne2;                        
+    Int N = common.sizes.ndof1;
+    Int N2 = common.grid.npe*common.components.nc*common.meshsizes.ne2;                        
     
     // update the solution at each DIRK stage
-    if (common.wave==1) {
-        ArrayAXPBY(sys.utmp, sol.udg, sys.utmp, common.DIRKcoeff_c[common.currentstage], one, N2);                    
+    if (common.timeparams.wave==1) {
+        ArrayAXPBY(sys.utmp, sol.udg, sys.utmp, common.DIRKcoeff_c[common.timestate.currentstage], one, N2);                    
     }
     else {
-        ArrayExtract(res.Rq, sol.udg, common.npe, common.nc, common.ne1, 0, common.npe, 0, common.ncu, 0, common.ne1);                                                  
-        ArrayAXPBY(sys.utmp, res.Rq, sys.utmp, common.DIRKcoeff_c[common.currentstage], one, N);                    
+        ArrayExtract(res.Rq, sol.udg, common.grid.npe, common.components.nc, common.meshsizes.ne1, 0, common.grid.npe, 0, common.components.ncu, 0, common.meshsizes.ne1);                                                  
+        ArrayAXPBY(sys.utmp, res.Rq, sys.utmp, common.DIRKcoeff_c[common.timestate.currentstage], one, N);                    
     }
 
     // after the last DIRK stage
-    if (common.currentstage == common.tstages-1) {
+    if (common.timestate.currentstage == common.timeparams.tstages-1) {
        // copy utmp to udg
-        if (common.wave==1)
+        if (common.timeparams.wave==1)
             ArrayCopy(sol.udg, sys.utmp, N2);
         else
-            ArrayInsert(sol.udg, sys.utmp, common.npe, common.nc, common.ne1, 0, common.npe, 0, common.ncu, 0, common.ne1);                                                  
+            ArrayInsert(sol.udg, sys.utmp, common.grid.npe, common.components.nc, common.meshsizes.ne1, 0, common.grid.npe, 0, common.components.ncu, 0, common.meshsizes.ne1);                                                  
     }   
 
     // update the solution w at each DIRK stage
-    if (common.ncw>0) {
+    if (common.components.ncw>0) {
         if (common.spatialScheme > 0)  { // HDG
-            for (Int j=0; j<common.nbe; j++) {         
+            for (Int j=0; j<common.meshsizes.nbe; j++) {         
                 Int e1 = common.eblks[3*j]-1;
                 Int e2 = common.eblks[3*j+1];
                 Int ns = e2-e1;        
-                Int ng = common.npe*ns;
-                Int ncw = common.ncw;
-                Int ncx = common.ncx;
-                Int nc = common.nc;
-                Int nco = common.nco;
+                Int ng = common.grid.npe*ns;
+                Int ncw = common.components.ncw;
+                Int ncx = common.components.ncx;
+                Int nc = common.components.nc;
+                Int nco = common.components.nco;
                 dstype* wdg = &tmp.tempn[0];
                 dstype* xdg = &tmp.tempn[ng*ncw];
                 dstype* udg = &tmp.tempn[ng*(ncw+ncx)];
                 dstype* odg = &tmp.tempn[ng*(ncw+ncx+nc)];
                 dstype* sdg = &tmp.tempn[ng*(ncw+ncx+nc+nco)];
-                GetElemNodes(wdg, sol.wdg, common.npe, ncw, 0, ncw, e1, e2);
-                GetElemNodes(xdg, sol.xdg, common.npe, ncx, 0, ncx, e1, e2);
-                GetElemNodes(udg, sol.udg, common.npe, nc, 0, nc, e1, e2);
-                GetElemNodes(odg, sol.odg, common.npe, nco, 0, nco, e1, e2);
-                GetElemNodes(sdg, sol.wsrc, common.npe, ncw, 0, ncw, e1, e2);
-                wEquation(wdg, xdg, udg, odg, sdg, tmp.tempg, app, driver_abi, common, ng, common.backend);
-                PutElemNodes(sol.wdg, wdg, common.npe, ncw, 0, ncw, e1, e2);
+                GetElemNodes(wdg, sol.wdg, common.grid.npe, ncw, 0, ncw, e1, e2);
+                GetElemNodes(xdg, sol.xdg, common.grid.npe, ncx, 0, ncx, e1, e2);
+                GetElemNodes(udg, sol.udg, common.grid.npe, nc, 0, nc, e1, e2);
+                GetElemNodes(odg, sol.odg, common.grid.npe, nco, 0, nco, e1, e2);
+                GetElemNodes(sdg, sol.wsrc, common.grid.npe, ncw, 0, ncw, e1, e2);
+                wEquation<M>(wdg, xdg, udg, odg, sdg, tmp.tempg, app, common, ng, common.backend);
+                PutElemNodes(sol.wdg, wdg, common.grid.npe, ncw, 0, ncw, e1, e2);
             }   
         }
 
-        N2 = common.npe*common.ncw*common.ne2;            
-        ArrayAXPBY(sys.wtmp, sol.wdg, sys.wtmp, common.DIRKcoeff_c[common.currentstage], one, N2);                
+        N2 = common.grid.npe*common.components.ncw*common.meshsizes.ne2;            
+        ArrayAXPBY(sys.wtmp, sol.wdg, sys.wtmp, common.DIRKcoeff_c[common.timestate.currentstage], one, N2);                
         // after the last DIRK stage
-        if (common.currentstage == common.tstages-1) 
+        if (common.timestate.currentstage == common.timeparams.tstages-1) 
             ArrayCopy(sol.wdg, sys.wtmp, N2);                                 
     }    
 }

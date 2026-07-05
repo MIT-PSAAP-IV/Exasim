@@ -46,20 +46,21 @@
 #ifndef __URESIDUAL
 #define __URESIDUAL
 
-template <class M>
-inline void RuElemBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
+template <class M, class T=dstype, class I=Int>
+inline void RuElemBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, 
         Int e1, Int e2, Int backend)
-{        
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg) 
-    Int ncs = common.ncs;// number of compoments of (sdg) 
-    Int ncw = common.ncw;// number of compoments of (wdg) 
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int nge = common.nge; // number of gauss points on master element        
+{
+    using dstype=T;        
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg) 
+    Int ncs = common.components.ncs;// number of compoments of (sdg) 
+    Int ncw = common.components.ncw;// number of compoments of (wdg) 
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int nge = common.grid.nge; // number of gauss points on master element        
 
     Int ne = e2-e1;
     Int nn =  npe*ne; 
@@ -82,11 +83,11 @@ inline void RuElemBlock(solstruct &sol, resstruct &res, appstruct &app, masterst
         Node2Gauss(handle, &tmp.tempg[n6], tmp.tempn, master.shapegt, nge, npe, ne*ncw, backend);
     }
     
-    if (common.tdep) { // for time-dependent problem                
+    if (common.timeparams.tdep) { // for time-dependent problem                
         // calculate sdg = sdg-udg*dtfactor
-        ArrayAXPBY(&tmp.tempg[n4], &sol.sdgg[nge*ncs*e1], &tmp.tempg[n3], one, -common.dtfactor, nga*ncu);            
+        ArrayAXPBY(&tmp.tempg[n4], &sol.sdgg[nge*ncs*e1], &tmp.tempg[n3], one, -common.timestate.dtfactor, nga*ncu);            
         
-        if (common.tdfunc==1) {
+        if (common.timeparams.tdfunc==1) {
             // calculate the time derivative function Tdfunc(xdg, udg, odg)
             EXASIM_DRIVER_CALL(TdfuncDriver, &tmp.tempg[n5], &sol.elemg[nm], &tmp.tempg[n3], &sol.odgg[nge*nco*e1], 
                 &tmp.tempg[n6], mesh, master, app, sol, tmp, common, nge, e1, e2, backend);
@@ -95,7 +96,7 @@ inline void RuElemBlock(solstruct &sol, resstruct &res, appstruct &app, masterst
             ArrayAXY(&tmp.tempg[n4], &tmp.tempg[n4], &tmp.tempg[n5], one, nga*ncu);                
         }
         
-        if (common.source==1) {            
+        if (common.physicsparams.source==1) {            
             // calculate the source term Source(xdg, udg, odg, wdg)
             EXASIM_DRIVER_CALL(SourceDriver, &tmp.tempg[n5], &sol.elemg[nm], &tmp.tempg[n3], &sol.odgg[nge*nco*e1], 
                 &tmp.tempg[n6], mesh, master, app, sol, tmp, common, nge, e1, e2, backend);
@@ -129,15 +130,16 @@ inline void RuElemBlock(solstruct &sol, resstruct &res, appstruct &app, masterst
     writearray2file(common.fileout + "RuElem_uge.bin", &tmp.tempg[n3], nge*nc*ne, backend);  
     writearray2file(common.fileout + "RuElem_fge.bin", &tmp.tempg[n4], nge*ncu*nd*ne, backend);  
     writearray2file(common.fileout + "RuElem_rne.bin", tmp.tempn, npe*ncu*ne, backend);
-    writearray2file(common.fileout + "RuElem_rqe.bin", res.Rue, npe*ncu*common.ne1, backend);
+    writearray2file(common.fileout + "RuElem_rqe.bin", res.Rue, npe*ncu*common.meshsizes.ne1, backend);
 #endif                  
 }
 
-template <class M>
-inline void RuElem(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common,         
+template <class M, class T=dstype, class I=Int>
+inline void RuElem(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,         
         cublasHandle_t handle, Int nbe1, Int nbe2, Int backend)
-{    
+{
+    using dstype=T;    
     for (Int j=nbe1; j<nbe2; j++) {
         Int e1 = common.eblks[3*j]-1;
         Int e2 = common.eblks[3*j+1];            
@@ -147,20 +149,21 @@ inline void RuElem(solstruct &sol, resstruct &res, appstruct &app, masterstruct 
 
 #ifdef HAVE_ENZYME
 //// Method 2
-template <class M>
-inline void dRuElemBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
+template <class M, class T=dstype, class I=Int>
+inline void dRuElemBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, 
         Int e1, Int e2, Int backend)
-{        
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg) 
-    Int ncs = common.ncs;// number of compoments of (sdg) 
-    Int ncw = common.ncw;// number of compoments of (wdg) 
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int nge = common.nge; // number of gauss points on master element        
+{
+    using dstype=T;        
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg) 
+    Int ncs = common.components.ncs;// number of compoments of (sdg) 
+    Int ncw = common.components.ncw;// number of compoments of (wdg) 
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int nge = common.grid.nge; // number of gauss points on master element        
 
     Int ne = e2-e1;
     Int nn =  npe*ne; 
@@ -192,14 +195,14 @@ inline void dRuElemBlock(solstruct &sol, resstruct &res, appstruct &app, masters
         Node2Gauss(handle, &tmp.tempg[n0], tmp.tempn, master.shapegt, nge, npe, ne*ncw, backend);
     }
 
-    if (common.tdep) { // for time-dependent problem                
-        ArrayAXPBY(&tmp.tempg[n4], &sol.sdgg[nge*ncs*e1], &tmp.tempg[n3], one, -common.dtfactor, nga*ncu);
+    if (common.timeparams.tdep) { // for time-dependent problem                
+        ArrayAXPBY(&tmp.tempg[n4], &sol.sdgg[nge*ncs*e1], &tmp.tempg[n3], one, -common.timestate.dtfactor, nga*ncu);
 
         // ArrayCopy(&tmp.tempg[n8], &tmp.tempg[n9], nga*ncu, backend);
-        // ArrayMultiplyScalar(&tmp.tempg[n8], -common.dtfactor, nga*ncu, backend); 
-        ArrayAXPBY(&tmp.tempg[n8], &tmp.tempg[n8], &tmp.tempg[n9], one, -common.dtfactor, nga*ncu);
+        // ArrayMultiplyScalar(&tmp.tempg[n8], -common.timestate.dtfactor, nga*ncu, backend); 
+        ArrayAXPBY(&tmp.tempg[n8], &tmp.tempg[n8], &tmp.tempg[n9], one, -common.timestate.dtfactor, nga*ncu);
         
-        if (common.tdfunc==1) {
+        if (common.timeparams.tdfunc==1) {
             // calculate the time derivative function Tdfunc(xdg, udg, odg)
             EXASIM_DRIVER_CALL(TdfuncDriver, &tmp.tempg[n5], &sol.elemg[nm], &tmp.tempg[n3], &sol.odgg[nge*nco*e1], 
                 &tmp.tempg[n6], mesh, master, app, sol, tmp, common, nge, e1, e2, backend);
@@ -210,7 +213,7 @@ inline void dRuElemBlock(solstruct &sol, resstruct &res, appstruct &app, masters
             ArrayAXY(&tmp.tempg[n8], &tmp.tempg[n8], &tmp.tempg[n5], one, nga*ncu);                
         }
         
-        if (common.source==1) {            
+        if (common.physicsparams.source==1) {            
             // calculate the source term Source(xdg, udg, odg, wdg) and dSource
             EXASIM_DRIVER_CALL(SourceDriver, &tmp.tempg[n5], &tmp.tempg[n7], &sol.elemg[nm], &tmp.tempg[n3], &tmp.tempg[n9], &sol.odgg[nge*nco*e1], 
                 &tmp.tempg[n6], &tmp.tempg[n0], mesh, master, app, sol, tmp, common, nge, e1, e2, backend);
@@ -241,16 +244,17 @@ inline void dRuElemBlock(solstruct &sol, resstruct &res, appstruct &app, masters
     writearray2file(common.fileout + "EnzymeRuElem_uge.bin", &tmp.tempg[n3], nge*nc*ne, backend);  
     writearray2file(common.fileout + "EnzymeRuElem_fge.bin", &tmp.tempg[n4], nge*ncu*nd*ne, backend);  
     writearray2file(common.fileout + "EnzymeRuElem_rne.bin", tmp.tempn, npe*ncu*ne, backend);
-    writearray2file(common.fileout + "EnzymeRuElem_rqe.bin", res.Rue, npe*ncu*common.ne1, backend);
-    writearray2file(common.fileout + "EnzymedRuElem_rqe.bin", res.dRue, npe*ncu*common.ne1, backend);
+    writearray2file(common.fileout + "EnzymeRuElem_rqe.bin", res.Rue, npe*ncu*common.meshsizes.ne1, backend);
+    writearray2file(common.fileout + "EnzymedRuElem_rqe.bin", res.dRue, npe*ncu*common.meshsizes.ne1, backend);
 #endif                  
 }
 
-template <class M>
-inline void dRuElem(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common,         
+template <class M, class T=dstype, class I=Int>
+inline void dRuElem(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,         
         cublasHandle_t handle, Int nbe1, Int nbe2, Int backend)
-{    
+{
+    using dstype=T;    
     for (Int j=nbe1; j<nbe2; j++) {
         Int e1 = common.eblks[3*j]-1;
         Int e2 = common.eblks[3*j+1];            
@@ -261,20 +265,21 @@ inline void dRuElem(solstruct &sol, resstruct &res, appstruct &app, masterstruct
 
 
 // Calculate Ruf = <fhat(xdg, uhat, udg, odg, nl), w>_F 
-template <class M>
-inline void RuFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, 
+template <class M, class T=dstype, class I=Int>
+inline void RuFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, 
         cublasHandle_t handle, Int f1, Int f2, Int ib, Int backend)
-{            
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
-    Int ncw = common.ncw;
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int npf = common.npf; // number of nodes on master face           
-    Int ngf = common.ngf; // number of gauss poInts on master face              
+{
+    using dstype=T;            
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
+    Int ncw = common.components.ncw;
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int npf = common.grid.npf; // number of nodes on master face           
+    Int ngf = common.grid.ngf; // number of gauss poInts on master face              
 
     Int nf = f2-f1;
     Int nn =  npf*nf; 
@@ -333,15 +338,16 @@ inline void RuFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masterst
     writearray2file(common.fileout + NumberToString(ib) + "RuFace_uhgf.bin", &tmp.tempg[n3], ngf*ncu*nf, backend);  
     writearray2file(common.fileout + NumberToString(ib) + "RuFace_fgf.bin", &tmp.tempg[n4], ngf*ncu*nf, backend);  
     writearray2file(common.fileout + NumberToString(ib) + "RuFace_rnf.bin", tmp.tempn, npf*ncu*nf, backend);
-    writearray2file(common.fileout + NumberToString(ib) + "RuFace_ruf.bin", res.Ruf, npe*ncu*common.ne1, backend);
+    writearray2file(common.fileout + NumberToString(ib) + "RuFace_ruf.bin", res.Ruf, npe*ncu*common.meshsizes.ne1, backend);
 #endif              
 }
 
-template <class M>
-inline void RuFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common,
+template <class M, class T=dstype, class I=Int>
+inline void RuFace(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,
         cublasHandle_t handle, Int nbf1, Int nbf2, Int backend)
-{    
+{
+    using dstype=T;    
     for (Int j=nbf1; j<nbf2; j++) {
         Int f1 = common.fblks[3*j]-1;
         Int f2 = common.fblks[3*j+1];    
@@ -353,20 +359,21 @@ inline void RuFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct 
 #ifdef HAVE_ENZYME
 //// Method 2
 // Calculate Ruf = <fhat(xdg, uhat, udg, odg, nl), w>_F 
-template <class M>
-inline void dRuFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, 
+template <class M, class T=dstype, class I=Int>
+inline void dRuFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, 
         cublasHandle_t handle, Int f1, Int f2, Int ib, Int backend)
-{            
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
-    Int ncw = common.ncw;
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int npf = common.npf; // number of nodes on master face           
-    Int ngf = common.ngf; // number of gauss poInts on master face              
+{
+    using dstype=T;            
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
+    Int ncw = common.components.ncw;
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int npf = common.grid.npf; // number of nodes on master face           
+    Int ngf = common.grid.ngf; // number of gauss poInts on master face              
 
     Int nf = f2-f1;
     Int nn =  npf*nf; 
@@ -455,15 +462,16 @@ inline void dRuFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masters
     writearray2file(common.fileout + NumberToString(ib) + "RuFace_uhgf.bin", &tmp.tempg[n3], ngf*ncu*nf, backend);  
     writearray2file(common.fileout + NumberToString(ib) + "RuFace_fgf.bin", &tmp.tempg[n4], ngf*ncu*nf, backend);  
     writearray2file(common.fileout + NumberToString(ib) + "RuFace_rnf.bin", tmp.tempn, npf*ncu*nf, backend);
-    writearray2file(common.fileout + NumberToString(ib) + "RuFace_ruf.bin", res.Ruf, npe*ncu*common.ne1, backend);
+    writearray2file(common.fileout + NumberToString(ib) + "RuFace_ruf.bin", res.Ruf, npe*ncu*common.meshsizes.ne1, backend);
 #endif              
 }
 
-template <class M>
-inline void dRuFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common,
+template <class M, class T=dstype, class I=Int>
+inline void dRuFace(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,
         cublasHandle_t handle, Int nbf1, Int nbf2, Int backend)
-{    
+{
+    using dstype=T;    
     for (Int j=nbf1; j<nbf2; j++) {
         Int f1 = common.fblks[3*j]-1;
         Int f2 = common.fblks[3*j+1];    
