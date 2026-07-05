@@ -362,6 +362,8 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
             qEquation(sol, res, app, master, mesh, tmp, common, backend);          
             TemplateFree(res.Mass2, backend);
             TemplateFree(res.Minv2, backend);
+            res.Mass2 = nullptr;
+            res.Minv2 = nullptr;
             res.szMass2 = 0;
             res.szMinv2 = 0;
             if (common.mpiRank==0) printf("finish qEquation... \n");            
