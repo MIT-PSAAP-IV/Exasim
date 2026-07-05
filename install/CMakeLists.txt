@@ -87,8 +87,22 @@ target_include_directories(ExasimHeaders INTERFACE
 # under USE_LONG else int). Put these on the INTERFACE headers target so the library AND every
 # consumer AND the exported package all agree -- a mismatch here is a silent ABI break. A PETSc
 # consumer must match its PetscScalar/PetscInt (build PETSc --with-precision=single / 64-bit-indices).
-option(EXASIM_FLOAT "Single-precision dstype (float); default double" OFF)
-option(EXASIM_INT64 "64-bit Int index type (long); default int"       OFF)
+# EXPERIMENTAL / UNVERIFIED. The precision CONTRACT (dstype/Int threading + the INTERFACE defines
+# below, so the library, generated models, PETSc consumers and the exported package all agree) is
+# in place, but a full single-precision / 64-bit-index BUILD is NOT yet a verified configuration:
+# generated kernels, binary I/O, the PETSc shims and Text2Code assumptions still carry
+# double/int-default paths that have not been smoke-tested end to end (tracked as a follow-on
+# precision-hardening phase). Until then these are opt-in-at-your-own-risk, and the guard below
+# warns loudly so a consumer cannot silently ship against an unverified precision ABI.
+option(EXASIM_FLOAT "Single-precision dstype (float); EXPERIMENTAL/unverified, default double" OFF)
+option(EXASIM_INT64 "64-bit Int index type (long);   EXPERIMENTAL/unverified, default int"     OFF)
+if(EXASIM_FLOAT OR EXASIM_INT64)
+  message(WARNING
+    "EXASIM_FLOAT/EXASIM_INT64 are EXPERIMENTAL and NOT verified end to end: generated kernels, "
+    "binary I/O, the PETSc shims and Text2Code may still assume the default double/int path. Use "
+    "only for development -- do not ship a consumer built against a non-default Exasim precision "
+    "without your own end-to-end validation.")
+endif()
 if(EXASIM_FLOAT)
   target_compile_definitions(ExasimHeaders INTERFACE USE_FLOAT)
   set(_exasim_scalar "float")

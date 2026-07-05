@@ -180,7 +180,22 @@ add_test(NAME frontend_python_exporttext2code
     "PYTHON3=${Python3_EXECUTABLE}"
     bash "${EXASIM_DIR}/tests/frontends/run-frontend-test.sh")
 set_tests_properties(frontend_python_exporttext2code PROPERTIES
-  TIMEOUT 2400 SKIP_RETURN_CODE 77)
+  TIMEOUT 2400 SKIP_RETURN_CODE 77 RESOURCE_LOCK exasim_text2code_install)
+
+# Direct Text2Code CLI regression (FRONTEND-INDEPENDENT): `text2code pdeapp.txt --out-dir <dir>`
+# must emit the concrete-model header my_model.hpp + the generated symbolic sources. Run on a
+# checked-in builtin fixture (Poisson / pdemodel1.txt) with no frontend, so a MATLAB/Julia or
+# hand-written pdeapp cannot regress this CLI contract while frontend_python_exporttext2code (which
+# only reaches --out-dir via the Python export) stays green. Shares the install-prefix write lock
+# with that test (both build libt2cmodel*.{so,dylib} into the install).
+add_test(NAME text2code_cli_out_dir
+  COMMAND ${CMAKE_COMMAND} -E env
+    "EXASIM_ROOT=${EXASIM_DIR}"
+    "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}"
+    "EXASIM_TEXT2CODE=${EXASIM_TEXT2CODE}"
+    bash "${EXASIM_DIR}/tests/text2code/cli-out-dir-test.sh")
+set_tests_properties(text2code_cli_out_dir PROPERTIES
+  TIMEOUT 1200 SKIP_RETURN_CODE 77 RESOURCE_LOCK exasim_text2code_install)
 
 # Builtin model 4 kernel equivalence: model 4 (CNS5air reacting NS) switched
 # from MATLAB-generated kernels to a text2code source (pdemodel4.txt). This
