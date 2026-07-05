@@ -74,6 +74,11 @@
 //   static constexpr int nco;      // # "other DG" auxiliary fields
 //                                  // (the `v` / `odg` arrays in
 //                                  // libpdemodel and text2code's DSL)
+//   static constexpr int nsca;     // # scalar vis fields (VisScalars)
+//   static constexpr int nvec;     // # vector vis fields (VisVectors)
+//   static constexpr int nten;     // # tensor vis fields (VisTensors)
+//   static constexpr int nsurf;    // # surface QoI fields (QoIboundary)
+//   static constexpr int nvqoi;    // # volume QoI fields (QoIvolume)
 //
 //   // Derived (provided by ModelDefaults<Self>; users may override):
 //   static constexpr int Nq = ncu * (1 + nd);
@@ -155,6 +160,17 @@ struct ModelDefaults {
     // Default number of stabilization parameters in tau[]. Models with
     // vector or matrix stabilization data should override this value.
     static constexpr int ntau = 1;
+
+    // Visualization and QoI output sizes.  Models that define
+    // vis_scalars / vis_vectors / vis_tensors / qoi_volume /
+    // qoi_boundary should set these to the actual number of output
+    // fields so the preprocessing layer can size ParaView buffers
+    // without requiring the values in pdeapp.txt.  Default 0 = none.
+    static constexpr int nsca  = 0;
+    static constexpr int nvec  = 0;
+    static constexpr int nten  = 0;
+    static constexpr int nsurf = 0;
+    static constexpr int nvqoi = 0;
 
     // Helper: zero-fill an output buffer of size N at compile time.
     template <int N>

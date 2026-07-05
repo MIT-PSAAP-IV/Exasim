@@ -59,7 +59,9 @@ using ::PdeModel;
 #include "HdgFextonly.cpp"
 #include "HdgEoS.cpp"
 
-} 
+}
+
+using ::PdeModel;
 
 const ExasimDriverABI& getUserDefinedExasimDriverABI()
 {
@@ -113,6 +115,20 @@ const ExasimDriverABI& getUserDefinedExasimDriverABI()
         value.hdgjac.HdgFintonly = &user_defined_source::HdgFintonly;
         value.hdgjac.HdgFext = &user_defined_source::HdgFext;
         value.hdgjac.HdgFextonly = &user_defined_source::HdgFextonly;
+
+        value.ncu  = PdeModel::ncu;
+        value.nco  = PdeModel::nco;
+        value.ncw  = PdeModel::ncw;
+        value.nsca = PdeModel::nsca;
+        value.nvec = PdeModel::nvec;
+        value.nten = PdeModel::nten;
+        value.nsurf = PdeModel::nsurf;
+        value.nvqoi = PdeModel::nvqoi;
+        value.GetModelSizes = [](int) -> ModelSizes {
+            return {PdeModel::ncu, PdeModel::nco, PdeModel::ncw,
+                    PdeModel::nsca, PdeModel::nvec, PdeModel::nten,
+                    PdeModel::nsurf, PdeModel::nvqoi};
+        };
 
         return value;
     }();

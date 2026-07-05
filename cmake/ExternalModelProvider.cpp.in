@@ -13,12 +13,34 @@
 // Extern-C declarations of the 43 built-in dispatcher functions.
 #include <backend/Model/BuiltIn/libbuiltinmodel.hpp>
 
+// Per-model size query — falls through to the built-in model library's
+// auto-generated size table so providers need not duplicate it.
+extern ModelSizes builtinGetModelSizes(int modelnumber);
+
 // Per-model namespaces + the X-macro list of registered IDs, both rendered
 // by CMake (configure_file @ONLY). EXASIM_EXT_MODEL_INCLUDES pulls in each
 // model<ID>/model.{hpp,cpp}; EXASIM_EXT_MODEL_IDS(X) expands X(id1) X(id2)...
 #define EXASIM_BUILTIN_MODEL_IMPL
 @EXT_MODEL_INCLUDES@
 @EXT_MODEL_IDS_MACRO@
+
+// Frontend-generated models produce model_sizes.hpp; make its per-model
+// dimension constants available through the ABI so they can be omitted
+// from pdeapp.txt.
+#if defined(__has_include) && __has_include("model_sizes.hpp")
+#include "model_sizes.hpp"
+#define EXASIM_HAS_FRONTEND_MODEL_SIZES 1
+#endif
+
+// For PDEMODEL-generated models a per-model TU exposes each model's constexpr
+// PdeModel sizes via a C-linkage function (see _model_sizes_<ID>.cpp).  Hand-
+// written models (SOURCES / KERNELS_DIRS) lack my_model.hpp so EXT_MODEL_HAS_MY_MODEL
+// is 0 and the size functions below are omitted — only builtinGetModelSizes is used.
+#if @EXT_MODEL_HAS_MY_MODEL@
+#define EXASIM_EXT_DECL_SIZE(ID) extern "C" ModelSizes extGetModelSizes_##ID();
+EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DECL_SIZE)
+#undef EXASIM_EXT_DECL_SIZE
+#endif
 
 namespace {
 
@@ -605,6 +627,39 @@ void extHdgFextonly(
             modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
 }
 
+#ifdef EXASIM_HAS_FRONTEND_MODEL_SIZES
+const ModelSizes kFrontendModelSizes = {
+    exasim_model_sizes::ncu, exasim_model_sizes::nco,
+    exasim_model_sizes::ncw, exasim_model_sizes::nsca,
+    exasim_model_sizes::nvec, exasim_model_sizes::nten,
+    exasim_model_sizes::nsurf, exasim_model_sizes::nvqoi
+};
+#endif
+
+ModelSizes extGetModelSizes(int modelnumber)
+{
+    // For text2code-generated models the constexpr sizes from each model's
+    // PdeModel struct are exposed by a per-model TU (_model_sizes_<ID>.cpp).
+    // For frontend-generated models (KERNELS/KERNELS_DIRS path) the sizes
+    // come from model_sizes.hpp (captured in kFrontendModelSizes above).
+    // Fall through to builtinGetModelSizes for standard IDs (1-15) and for
+    // hand-written models without my_model.hpp.
+#if @EXT_MODEL_HAS_MY_MODEL@
+#define EXASIM_EXT_CASE(ID) case (ID): return ::extGetModelSizes_##ID();
+    switch (modelnumber) {
+        EXASIM_EXT_MODEL_IDS(EXASIM_EXT_CASE)
+#undef EXASIM_EXT_CASE
+        default: return builtinGetModelSizes(modelnumber);
+    }
+#else
+#if defined(EXASIM_HAS_FRONTEND_MODEL_SIZES)
+    if (modelnumber >= 100)
+        return kFrontendModelSizes;
+#endif
+    return builtinGetModelSizes(modelnumber);
+#endif
+}
+
 bool IsValidExternalModelABI(const ExasimDriverABI& abi)
 {
     return abi.abi_version == kExasimDriverABIVersion &&
@@ -675,6 +730,16 @@ const ExasimDriverABI& getBuiltInLibraryExasimDriverABI()
         value.hdgjac.HdgFintonly       = &extHdgFintonly;
         value.hdgjac.HdgFext           = &extHdgFext;
         value.hdgjac.HdgFextonly       = &extHdgFextonly;
+        // Model-owned sizes (PR #33): route external-model dimensions through GetModelSizes.
+        value.GetModelSizes = &extGetModelSizes;
+        value.ncu   = exasim_model_sizes::ncu;
+        value.nco   = exasim_model_sizes::nco;
+        value.ncw   = exasim_model_sizes::ncw;
+        value.nsca  = exasim_model_sizes::nsca;
+        value.nvec  = exasim_model_sizes::nvec;
+        value.nten  = exasim_model_sizes::nten;
+        value.nsurf = exasim_model_sizes::nsurf;
+        value.nvqoi = exasim_model_sizes::nvqoi;
         return value;
     }();
     if (!IsValidExternalModelABI(abi))

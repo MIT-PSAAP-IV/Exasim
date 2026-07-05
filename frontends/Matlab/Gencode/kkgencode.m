@@ -239,6 +239,33 @@ else
     end
 end 
 
+% Write model_sizes.hpp so the FrontendGenerated provider can get
+% compile-time size constants without requiring them in pdeapp.txt.
+ncu_   = app.ncu;
+nco_   = app.nco;
+ncw_   = app.ncw;
+nsca_  = app.nsca;
+nvec_  = app.nvec;
+nten_  = app.nten;
+nsurf_ = app.nbqoi;
+nvqoi_ = app.nvqoi;
+fid = fopen(kkdir + "/model_sizes.hpp", "w");
+fprintf(fid, "#ifndef EXASIM_MODEL_SIZES_HPP\n");
+fprintf(fid, "#define EXASIM_MODEL_SIZES_HPP\n");
+fprintf(fid, "\n");
+fprintf(fid, "namespace exasim_model_sizes {\n");
+fprintf(fid, "    static constexpr int ncu   = %d;\n", ncu_);
+fprintf(fid, "    static constexpr int nco   = %d;\n", nco_);
+fprintf(fid, "    static constexpr int ncw   = %d;\n", ncw_);
+fprintf(fid, "    static constexpr int nsca  = %d;\n", nsca_);
+fprintf(fid, "    static constexpr int nvec  = %d;\n", nvec_);
+fprintf(fid, "    static constexpr int nten  = %d;\n", nten_);
+fprintf(fid, "    static constexpr int nsurf = %d;\n", nsurf_);
+fprintf(fid, "    static constexpr int nvqoi = %d;\n", nvqoi_);
+fprintf(fid, "}\n");
+fprintf(fid, "\n");
+fprintf(fid, "#endif\n");
+fclose(fid);
 
 exasim_sync_kernels(kkdir, mbdir + "/kernels");
 end

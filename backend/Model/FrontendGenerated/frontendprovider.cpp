@@ -7,7 +7,10 @@
  * therefore stays independent of mesh/master/sol/temp/common runtime state.
  */
 
-//#include "../ModelDispatch/driver_abi.h"
+#if defined(__has_include) && __has_include("model_sizes.hpp")
+#include "model_sizes.hpp"
+#define EXASIM_HAS_FRONTEND_MODEL_SIZES 1
+#endif
 
 namespace frontend_generated_source {
 
@@ -109,6 +112,23 @@ const ExasimDriverABI& getFrontendGeneratedExasimDriverABI()
         value.hdgjac.HdgFintonly = &frontend_generated_source::HdgFintonly;
         value.hdgjac.HdgFext = &frontend_generated_source::HdgFext;
         value.hdgjac.HdgFextonly = &frontend_generated_source::HdgFextonly;
+
+#ifdef EXASIM_HAS_FRONTEND_MODEL_SIZES
+        value.ncu  = exasim_model_sizes::ncu;
+        value.nco  = exasim_model_sizes::nco;
+        value.ncw  = exasim_model_sizes::ncw;
+        value.nsca = exasim_model_sizes::nsca;
+        value.nvec = exasim_model_sizes::nvec;
+        value.nten = exasim_model_sizes::nten;
+        value.nsurf = exasim_model_sizes::nsurf;
+        value.nvqoi = exasim_model_sizes::nvqoi;
+        value.GetModelSizes = [](int) -> ModelSizes {
+            return {exasim_model_sizes::ncu, exasim_model_sizes::nco,
+                    exasim_model_sizes::ncw, exasim_model_sizes::nsca,
+                    exasim_model_sizes::nvec, exasim_model_sizes::nten,
+                    exasim_model_sizes::nsurf, exasim_model_sizes::nvqoi};
+        };
+#endif
 
         return value;
     }();

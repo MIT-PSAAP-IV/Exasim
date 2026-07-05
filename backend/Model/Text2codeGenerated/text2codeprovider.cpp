@@ -10,7 +10,10 @@
 
 //#include "../ModelDispatch/driver_abi.h"
 
+#include "my_model.hpp"
+
 namespace text2code_generated_source {
+using ::PdeModel;
 
 #include <cmath>
 #include <Kokkos_Core.hpp>
@@ -121,6 +124,20 @@ const ExasimDriverABI& getText2codeGeneratedExasimDriverABI()
         value.hdgjac.HdgFintonly = &text2code_generated_source::HdgFintonly;
         value.hdgjac.HdgFext = &text2code_generated_source::HdgFext;
         value.hdgjac.HdgFextonly = &text2code_generated_source::HdgFextonly;
+
+        value.ncu  = PdeModel::ncu;
+        value.nco  = PdeModel::nco;
+        value.ncw  = PdeModel::ncw;
+        value.nsca = PdeModel::nsca;
+        value.nvec = PdeModel::nvec;
+        value.nten = PdeModel::nten;
+        value.nsurf = PdeModel::nsurf;
+        value.nvqoi = PdeModel::nvqoi;
+        value.GetModelSizes = [](int) -> ModelSizes {
+            return {PdeModel::ncu, PdeModel::nco, PdeModel::ncw,
+                    PdeModel::nsca, PdeModel::nvec, PdeModel::nten,
+                    PdeModel::nsurf, PdeModel::nvqoi};
+        };
 
         return value;
     }();

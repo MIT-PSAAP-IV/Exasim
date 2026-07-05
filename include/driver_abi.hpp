@@ -20,7 +20,20 @@ using dstype = float;
 using dstype = double;
 #endif
 
-inline constexpr std::uint32_t kExasimDriverABIVersion = 2;  // v2: kernels grouped into per-concern sub-structs
+inline constexpr std::uint32_t kExasimDriverABIVersion = 2;  // v2: kernels grouped into per-concern sub-structs + model-owned ModelSizes
+
+// Model dimension constants carried by the model (PR #33): lets preprocessing obtain
+// ncu/ncv/ncw/nsca/nvec/nten/nsurf/nvqoi from the compiled model instead of pdeapp.txt.
+struct ModelSizes {
+    int ncu  = 0;
+    int nco  = 0;   // "other DG" == pdeapp.txt's ncv
+    int ncw  = 0;
+    int nsca = 0;
+    int nvec = 0;
+    int nten = 0;
+    int nsurf = 0;
+    int nvqoi = 0;
+};
 
 struct ExasimDriverABI {
     using KokkosElementFn =
@@ -117,6 +130,17 @@ struct ExasimDriverABI {
     std::uint32_t abi_version = 0;
     std::uint32_t struct_size = 0;
 
+    // Model dimension constants (PR #33): model-owned sizes, read by preprocessing
+    // instead of pdeapp.txt. 0 = not specified / use default.
+    int ncu  = 0;
+    int nco  = 0;   // "other DG" == pdeapp.txt's ncv
+    int ncw  = 0;
+    int nsca = 0;
+    int nvec = 0;
+    int nten = 0;
+    int nsurf = 0;
+    int nvqoi = 0;
+
     // The model's kernel dispatch table, grouped by concern to mirror the compile-time model
     // decomposition (the ModelDefaults mixins / is_*_model_v traits). Each sub-struct is a
     // self-contained, COPYABLE unit: a consumer can compose a model from sub-parts of different
@@ -181,6 +205,10 @@ struct ExasimDriverABI {
         HdgBoundaryExternalJacFn   HdgFext        = nullptr;
         HdgBoundaryExternalStateFn HdgFextonly    = nullptr;
     } hdgjac;
+    // Optional per-model size query (PR #33): if non-null the solver calls this with the
+    // builtinmodelID to get model dimension constants instead of pdeapp.txt (per-model
+    // providers set ncu/nco/... directly and leave this null).
+    ModelSizes (*GetModelSizes)(int modelnumber) = nullptr;
 };
 
 #endif

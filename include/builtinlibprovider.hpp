@@ -1,7 +1,12 @@
 #pragma once
 
+#include "driver_abi.hpp"
 #include "libbuiltinmodel.hpp"
 #include <stdexcept>
+
+// Provided by the auto-generated builtin_model_sizes.cpp (part of the builtin
+// model library).  Returns compile-time model dimension constants.
+extern ModelSizes builtinGetModelSizes(int modelnumber);
 
 namespace {
 
@@ -108,6 +113,8 @@ const ExasimDriverABI& getBuiltInLibraryExasimDriverABI()
         value.hdgjac.HdgFintonly = &::builtinHdgFintonly;
         value.hdgjac.HdgFext = &::builtinHdgFext;
         value.hdgjac.HdgFextonly = &::builtinHdgFextonly;
+
+        value.GetModelSizes = &builtinGetModelSizes;
 
         return value;
     }();

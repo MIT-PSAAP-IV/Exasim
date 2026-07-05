@@ -57,6 +57,7 @@ public:
     void generateEmptyQoIboundaryCpp(std::string modelpath) const;
     void generateLibPDEModelHpp(std::string modelpath) const;
     void generateLibPDEModelCpp(std::string modelpath) const;
+    void generateModelSizesHpp(const std::string& modelpath) const;
     
 private:
     const ParsedSpec& spec;

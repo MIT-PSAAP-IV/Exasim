@@ -18,9 +18,6 @@ torder = 1;
 builtinmodelID = 0;
 nstage = 1;
 
-ncu = 5;
-ncv = 1;
-ncw = 0;
 neb = 4096;
 nfb = 8192;
 

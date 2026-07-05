@@ -480,6 +480,26 @@ open(joinpath(foldername, "HdgFextonly" * strn * ".cpp"), "w") do fid
     write(fid, "void HdgFextonly" * strn * "(" * fextonly_sig * ")\n{\n}\n")
 end
 
+# Write model_sizes.hpp so the FrontendGenerated provider can get
+# compile-time size constants without requiring them in pdeapp.txt.
+open(joinpath(foldername, "model_sizes.hpp"), "w") do fid
+    println(fid, "#ifndef EXASIM_MODEL_SIZES_HPP")
+    println(fid, "#define EXASIM_MODEL_SIZES_HPP")
+    println(fid)
+    println(fid, "namespace exasim_model_sizes {")
+    println(fid, "    static constexpr int ncu   = $(app.ncu);")
+    println(fid, "    static constexpr int nco   = $(app.nco);")
+    println(fid, "    static constexpr int ncw   = $(app.ncw);")
+    println(fid, "    static constexpr int nsca  = $(app.nsca);")
+    println(fid, "    static constexpr int nvec  = $(app.nvec);")
+    println(fid, "    static constexpr int nten  = $(app.nten);")
+    println(fid, "    static constexpr int nsurf = $(app.nbqoi);")
+    println(fid, "    static constexpr int nvqoi = $(app.nvqoi);")
+    println(fid, "}")
+    println(fid)
+    println(fid, "#endif")
+end
+
 synckernels(foldername, kernelsdir)
 
 end

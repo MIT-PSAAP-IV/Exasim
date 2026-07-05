@@ -79,6 +79,21 @@ inline const ExasimDriverABI& getKokkosKernelExasimDriverABI()
         value.abi_version = kExasimDriverABIVersion;
         value.struct_size = sizeof(ExasimDriverABI);
 
+        value.ncu  = PdeModel::ncu;
+        value.nco  = PdeModel::nco;
+        value.ncw  = PdeModel::ncw;
+        value.nsca = PdeModel::nsca;
+        value.nvec = PdeModel::nvec;
+        value.nten = PdeModel::nten;
+        value.nsurf = PdeModel::nsurf;
+        value.nvqoi = PdeModel::nvqoi;
+
+        value.GetModelSizes = [](int) -> ModelSizes {
+            return {PdeModel::ncu, PdeModel::nco, PdeModel::ncw,
+                    PdeModel::nsca, PdeModel::nvec, PdeModel::nten,
+                    PdeModel::nsurf, PdeModel::nvqoi};
+        };
+
         value.volume.KokkosFlux = &kokkos_kernel_source::KokkosFlux;
         value.volume.KokkosSource = &kokkos_kernel_source::KokkosSource;
         value.volume.KokkosSourcew = &kokkos_kernel_source::KokkosSourcew;

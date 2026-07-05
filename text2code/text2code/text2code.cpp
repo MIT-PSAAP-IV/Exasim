@@ -135,14 +135,17 @@ int main(int argc, char* argv[])
         // the kernel sources + Code2Cpp and silently skipped my_model.hpp.
         // The builtin-model build (no --out-dir) keeps the generate-only behaviour.
         if (!out_dir_override.empty() && !gen_only) executeCppCode(spec);
+        // Emit the model-owned sizes header (PR #33: ncu/ncv/... from the model).
+        { CodeGenerator _gen(spec); _gen.generateModelSizesHpp(spec.modelpath); }
     }
 #else
     if (pde.gencode==1) {
         generateCppCode(spec);
+        { CodeGenerator _gen(spec); _gen.generateModelSizesHpp(spec.modelpath); }
         executeCppCode(spec);
         if (!gen_only) buildDynamicLibraries(spec);
     }
-#endif        
+#endif
     
     std::cout << "\n******** Done with generating input files and dynamic libraries for EXASIM ********\n";
 
