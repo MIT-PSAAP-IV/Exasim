@@ -1,7 +1,7 @@
 model = "ModelD";
 modelfile = "pdemodel.txt";
 meshfile = "grid.bin";
-discretization = "ldg";
+discretization = "hdg";
 platform = "cpu";
 
 builtinmodelID = 12;
