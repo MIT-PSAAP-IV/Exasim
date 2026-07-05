@@ -35,6 +35,28 @@
 namespace exasim {
 namespace petsc {
 
+// PETSc device Vec/Mat type for the active Exasim GPU backend (backend 2 = CUDA, 3 = HIP).
+// Returns the device type only when PETSc actually supports that device; nullptr means the
+// backend is not a supported GPU (caller must NOT wrap a device pointer as host memory).
+static inline const char* petsc_device_vectype(int backend) {
+#if defined(PETSC_HAVE_CUDA)
+    if (backend == 2) return VECCUDA;
+#endif
+#if defined(PETSC_HAVE_HIP)
+    if (backend == 3) return VECHIP;
+#endif
+    return nullptr;
+}
+static inline const char* petsc_device_mattype(int backend) {
+#if defined(PETSC_HAVE_CUDA)
+    if (backend == 2) return MATAIJCUSPARSE;
+#endif
+#if defined(PETSC_HAVE_HIP)
+    if (backend == 3) return MATAIJHIPSPARSE;
+#endif
+    return MATAIJ;   // host
+}
+
 // Compile-time ABI guard: PETSc's scalar/index widths MUST match Exasim's exported precision, or the
 // zero-copy Vec/Mat wrapping below reinterprets a wrong-width buffer. This turns the previously
 // silent precision mismatch into a build error. Fix by matching one to the other: build PETSc
@@ -75,9 +97,19 @@ public:
         // The CUDA Vec constructors only EXIST in a CUDA-enabled PETSc, so guard them
         // at compile time (the runtime gpu_ check can't rescue a missing symbol) --
         // this lets petsc.hpp build against a CPU-only PETSc (e.g. GitHub CI's apt PETSc).
+        // A GPU backend whose PETSc lacks matching device support would silently wrap the
+        // device pointer sys.b as HOST memory below -- abort instead of corrupting memory.
+        if (gpu_ && !petsc_device_vectype(backend_))
+            SETERRABORT(comm_, PETSC_ERR_SUP,
+                "Exasim GPU backend has no matching PETSc device (backend 2 needs CUDA PETSc, backend 3 needs HIP PETSc)");
 #if defined(PETSC_HAVE_CUDA)
-        if      (gpu_ && par) VecCreateMPICUDAWithArray(comm_, 1, N_, PETSC_DECIDE, sys.b, &b0_);
-        else if (gpu_)        VecCreateSeqCUDAWithArray(comm_, 1, N_, sys.b, &b0_);
+        if      (backend_ == 2 && par) VecCreateMPICUDAWithArray(comm_, 1, N_, PETSC_DECIDE, sys.b, &b0_);
+        else if (backend_ == 2)        VecCreateSeqCUDAWithArray(comm_, 1, N_, sys.b, &b0_);
+        else
+#endif
+#if defined(PETSC_HAVE_HIP)
+        if      (backend_ == 3 && par) VecCreateMPIHIPWithArray(comm_, 1, N_, PETSC_DECIDE, sys.b, &b0_);
+        else if (backend_ == 3)        VecCreateSeqHIPWithArray(comm_, 1, N_, sys.b, &b0_);
         else
 #endif
         if      (par)         VecCreateMPIWithArray(comm_, 1, N_, PETSC_DECIDE, sys.b, &b0_);
@@ -85,7 +117,7 @@ public:
         // Matrix-free Jacobian.
         MatCreateShell(comm_, N_, N_, PETSC_DETERMINE, PETSC_DETERMINE, this, &J_);
         MatShellSetOperation(J_, MATOP_MULT, (void(*)(void))matmult);
-        if (gpu_) MatShellSetVecType(J_, VECCUDA);
+        if (const char* vt = petsc_device_vectype(backend_)) MatShellSetVecType(J_, vt);
     }
 
     ~Operator() { if (J_) MatDestroy(&J_); if (b0_) VecDestroy(&b0_); }
@@ -193,12 +225,13 @@ public:
     using scalar_type = Scalar;            // exported precision (bit-compatible with PetscScalar)
     using index_type  = exasim::intTy;     // exported index type (matches PetscInt)
     using Apply = std::function<void(Scalar* y, const Scalar* x)>;
-    ShellMat(MPI_Comm comm, exasim::intTy n_local, Apply apply, bool gpu = false)
+    // backend: 0/1 = host, 2 = CUDA, 3 = HIP (Exasim's disc.common.backend).
+    ShellMat(MPI_Comm comm, exasim::intTy n_local, Apply apply, int backend = 0)
         : apply_(std::move(apply))
     {
         MatCreateShell(comm, n_local, n_local, PETSC_DETERMINE, PETSC_DETERMINE, this, &mat_);
         MatShellSetOperation(mat_, MATOP_MULT, (void(*)(void))mult);
-        if (gpu) MatShellSetVecType(mat_, VECCUDA);
+        if (const char* vt = petsc_device_vectype(backend)) MatShellSetVecType(mat_, vt);
     }
     ~ShellMat() { if (mat_) MatDestroy(&mat_); }
     ShellMat(const ShellMat&) = delete;
@@ -229,9 +262,9 @@ template <class M, class Scalar = exasim::floatTy, class Idx = exasim::intTy>
 inline std::unique_ptr<ShellMat<Scalar>> make_mass_inverse(CDiscretizationT<Scalar, Idx>& disc, MPI_Comm comm, int ncr = M::ncu)
 {
     const Idx  nvol = disc.common.grid.npe * ncr * disc.common.meshsizes.ne1;
-    const bool gpu  = disc.common.backend >= 2;
     return std::make_unique<ShellMat<Scalar>>(comm, nvol,
-        [&disc, ncr](Scalar* y, const Scalar* x){ exasim::apply_mass_inverse<M>(disc, x, y, ncr); }, gpu);
+        [&disc, ncr](Scalar* y, const Scalar* x){ exasim::apply_mass_inverse<M>(disc, x, y, ncr); },
+        static_cast<int>(disc.common.backend));
 }
 
 // Assemble the condensed HDG trace operator (res.H) into a real PETSc MATAIJ(CUSPARSE), so the
@@ -279,7 +312,7 @@ inline Mat assemble_matrix(CDiscretizationT<Scalar, Idx>& disc, MPI_Comm comm)
     Mat A;
     MatCreate(comm, &A);
     MatSetSizes(A, N, N, PETSC_DETERMINE, PETSC_DETERMINE);
-    MatSetType(A, backend >= 2 ? MATAIJCUSPARSE : MATAIJ);   // device-resident on GPU
+    MatSetType(A, petsc_device_mattype(backend));   // device-resident on GPU (CUDA/HIP), host otherwise
     MatSetPreallocationCOO(A, ncoo, ci.data(), cj.data());
     MatSetValuesCOO(A, disc.res.H, ADD_VALUES);              // values straight from (device) res.H
     return A;

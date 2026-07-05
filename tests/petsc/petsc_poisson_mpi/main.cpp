@@ -133,16 +133,17 @@ int main(int argc, char** argv)
 
         // ----- verification: recover volume, integrate QoI per rank, reduce to global L2 -----
         op.recover(U);
-        std::vector<dstype> qoi = exasim::eval_qoi<Poisson2D::QoI>(disc);  // local integral (u-u_exact)^2
-        double local = qoi.empty() ? 0.0 : (double)qoi[0], global = 0.0;
-        MPI_Allreduce(&local, &global, 1, MPI_DOUBLE, MPI_SUM, PETSC_COMM_WORLD);
-        const double l2err = std::sqrt(global);
+        std::vector<dstype> qoi = exasim::eval_qoi<Poisson2D::QoI>(disc);
+        // qoi[0] is ALREADY the global integral: eval_qoi -> qoiElemBlock -> PDOT does an
+        // MPI_Allreduce over EXASIM_COMM_WORLD under HAVE_MPI. Reducing again would double-
+        // count it (L2 error would scale like sqrt(nprocs)).
+        const double l2err = std::sqrt(qoi.empty() ? 0.0 : (double)qoi[0]);
 
         // parallel ParaView output (per-rank .vtu + .pvtu)
         exasim::write_vtk<Poisson2D::Vis>(disc, "poisson_petsc_mpi");
 
         PetscCall(PetscPrintf(PETSC_COMM_WORLD,
-            "[mpi] global L2 error ||u - u_exact|| = %.3e (quadrature QoI, summed over ranks)\n", l2err));
+            "[mpi] global L2 error ||u - u_exact|| = %.3e (quadrature QoI, global via PDOT allreduce)\n", l2err));
 
         bool finite = std::isfinite((double)fnorm) && std::isfinite(l2err);
         int bad = (!finite) || (reason < 0) || (fnorm > 1e-6) || (l2err > 1e-3);

@@ -68,8 +68,12 @@ def writeapp(app,filename):
     # slot-4 (read by the backend as app.uinf): Matlab/Julia write `externalparam` here, Python
     # historically wrote `uinf`. M1 reconciliation -> prefer externalparam for cross-frontend
     # consistency, falling back to uinf when externalparam is unset/all-zero (backward-compat).
+    # Match MATLAB/Julia: write `externalparam` whenever it is present (an all-zero
+    # externalparam is VALID data, not "unset"), falling back to `uinf` only when it is
+    # genuinely absent/empty. The previous `(_ep != 0).any()` test made Python serialize a
+    # different app.bin than MATLAB/Julia for an intentionally all-zero externalparam.
     _ep = array(app['externalparam']).flatten(order='F') if ('externalparam' in app) else array([]);
-    _slot4 = _ep if (_ep.size > 0 and (_ep != 0).any()) else array(app['uinf']).flatten(order='F');
+    _slot4 = _ep if (_ep.size > 0) else array(app['uinf']).flatten(order='F');
     app['_slot4'] = _slot4;
     nsize[4-1] = size(_slot4); # boundary data (externalparam, uinf fallback)
     nsize[5-1] = size(app['dt']); # number of time steps

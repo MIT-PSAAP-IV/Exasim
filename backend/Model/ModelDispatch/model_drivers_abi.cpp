@@ -10,6 +10,8 @@
 #ifndef __EXASIM_MODEL_DRIVERS_ABI
 #define __EXASIM_MODEL_DRIVERS_ABI
 
+#include <cstdio>
+#include <cstdlib>
 #include "driver_abi.h"
 
 void FluxDriver(dstype* f, const dstype* xg, const dstype* udg,
@@ -927,6 +929,18 @@ void QoIboundaryDriver(dstype* fb, const dstype* xg, const dstype* udg,
                           numPoints, nc, ncu, nd, ncx, nco, ncw);
 }
 
+// Recover the runtime ABI from common.driver_abi for the no-driver (AbiAdapter) overloads
+// below. Fails loudly instead of null-dereferencing deep in kernel dispatch if an AbiAdapter
+// path reached here without initializing common.driver_abi.
+static inline ExasimDriverABI& require_driver_abi(const commonstruct& common) {
+    if (!common.driver_abi) {
+        std::fprintf(stderr, "[exasim] FATAL: unified driver invoked but common.driver_abi is "
+                             "null (AbiAdapter path did not initialize the driver ABI)\n");
+        std::abort();
+    }
+    return require_driver_abi(common);
+}
+
 // --- No-driver_abi overloads (auto-generated) --------------------------------------------
 // The unified templated FEM code invokes kernel drivers via EXASIM_DRIVER_CALL without
 // threading driver_abi. For the AbiAdapter path these overloads recover the ABI from
@@ -936,182 +950,182 @@ void QoIboundaryDriver(dstype* fb, const dstype* xg, const dstype* udg,
 
 inline void FluxDriver(dstype* f, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int nge, Int e1, Int e2, Int backend)
 {
-    FluxDriver(f, xg, udg, odg, wdg, *common.driver_abi, mesh, master, app, sol, temp, common, nge, e1, e2, backend);
+    FluxDriver(f, xg, udg, odg, wdg, require_driver_abi(common), mesh, master, app, sol, temp, common, nge, e1, e2, backend);
 }
 
 inline void SourceDriver(dstype* f, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int nge, Int e1, Int e2, Int backend)
 {
-    SourceDriver(f, xg, udg, odg, wdg, *common.driver_abi, mesh, master, app, sol, temp, common, nge, e1, e2, backend);
+    SourceDriver(f, xg, udg, odg, wdg, require_driver_abi(common), mesh, master, app, sol, temp, common, nge, e1, e2, backend);
 }
 
 inline void SourcewDriver(dstype* f, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int npe, Int e1, Int e2, Int backend)
 {
-    SourcewDriver(f, xg, udg, odg, wdg, *common.driver_abi, mesh, master, app, sol, temp, common, npe, e1, e2, backend);
+    SourcewDriver(f, xg, udg, odg, wdg, require_driver_abi(common), mesh, master, app, sol, temp, common, npe, e1, e2, backend);
 }
 
 inline void OutputDriver(dstype* f, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int backend)
 {
-    OutputDriver(f, xg, udg, odg, wdg, *common.driver_abi, mesh, master, app, sol, temp, common, backend);
+    OutputDriver(f, xg, udg, odg, wdg, require_driver_abi(common), mesh, master, app, sol, temp, common, backend);
 }
 
 inline void MonitorDriver(dstype* f, Int nc_sol, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int backend)
 {
-    MonitorDriver(f, nc_sol, xg, udg, odg, wdg, *common.driver_abi, mesh, master, app, sol, temp, common, backend);
+    MonitorDriver(f, nc_sol, xg, udg, odg, wdg, require_driver_abi(common), mesh, master, app, sol, temp, common, backend);
 }
 
 inline void AvfieldDriver(dstype* f, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int backend)
 {
-    AvfieldDriver(f, xg, udg, odg, wdg, *common.driver_abi, mesh, master, app, sol, temp, common, backend);
+    AvfieldDriver(f, xg, udg, odg, wdg, require_driver_abi(common), mesh, master, app, sol, temp, common, backend);
 }
 
 inline void EosDriver(dstype* f, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int npe, Int e1, Int e2, Int backend)
 {
-    EosDriver(f, xg, udg, odg, wdg, *common.driver_abi, mesh, master, app, sol, temp, common, npe, e1, e2, backend);
+    EosDriver(f, xg, udg, odg, wdg, require_driver_abi(common), mesh, master, app, sol, temp, common, npe, e1, e2, backend);
 }
 
 inline void EosduDriver(dstype* f, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int npe, Int e1, Int e2, Int backend)
 {
-    EosduDriver(f, xg, udg, odg, wdg, *common.driver_abi, mesh, master, app, sol, temp, common, npe, e1, e2, backend);
+    EosduDriver(f, xg, udg, odg, wdg, require_driver_abi(common), mesh, master, app, sol, temp, common, npe, e1, e2, backend);
 }
 
 inline void EosdwDriver(dstype* f, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int npe, Int e1, Int e2, Int backend)
 {
-    EosdwDriver(f, xg, udg, odg, wdg, *common.driver_abi, mesh, master, app, sol, temp, common, npe, e1, e2, backend);
+    EosdwDriver(f, xg, udg, odg, wdg, require_driver_abi(common), mesh, master, app, sol, temp, common, npe, e1, e2, backend);
 }
 
 inline void TdfuncDriver(dstype* f, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int nge, Int e1, Int e2, Int backend)
 {
-    TdfuncDriver(f, xg, udg, odg, wdg, *common.driver_abi, mesh, master, app, sol, temp, common, nge, e1, e2, backend);
+    TdfuncDriver(f, xg, udg, odg, wdg, require_driver_abi(common), mesh, master, app, sol, temp, common, nge, e1, e2, backend);
 }
 
 inline void FhatDriver(dstype* fg, const dstype* xg, const dstype* ug1, const dstype* ug2, const dstype* og1, const dstype* og2, const dstype* wg1, const dstype* wg2, const dstype* uh, const dstype* nl, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& tmp, commonstruct& common, Int ngf, Int f1, Int f2, Int backend)
 {
-    FhatDriver(fg, xg, ug1, ug2, og1, og2, wg1, wg2, uh, nl, *common.driver_abi, mesh, master, app, sol, tmp, common, ngf, f1, f2, backend);
+    FhatDriver(fg, xg, ug1, ug2, og1, og2, wg1, wg2, uh, nl, require_driver_abi(common), mesh, master, app, sol, tmp, common, ngf, f1, f2, backend);
 }
 
 inline void FbouDriver(dstype* fb, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nl, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int ngf, Int f1, Int f2, Int ib, Int backend)
 {
-    FbouDriver(fb, xg, udg, odg, wdg, uhg, nl, *common.driver_abi, mesh, master, app, sol, temp, common, ngf, f1, f2, ib, backend);
+    FbouDriver(fb, xg, udg, odg, wdg, uhg, nl, require_driver_abi(common), mesh, master, app, sol, temp, common, ngf, f1, f2, ib, backend);
 }
 
 inline void FbouJacDriver(dstype* fb, dstype* fb_udg, dstype* fb_wdg, dstype* fb_uhg, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nl, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int nga, Int ib, Int backend)
 {
-    FbouJacDriver(fb, fb_udg, fb_wdg, fb_uhg, xg, udg, odg, wdg, uhg, nl, *common.driver_abi, mesh, master, app, sol, temp, common, nga, ib, backend);
+    FbouJacDriver(fb, fb_udg, fb_wdg, fb_uhg, xg, udg, odg, wdg, uhg, nl, require_driver_abi(common), mesh, master, app, sol, temp, common, nga, ib, backend);
 }
 
 inline void FbouJacDriver(dstype* fb, dstype* fb_udg, dstype* fb_wdg, dstype* fb_uhg, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nl, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int ngf, Int f1, Int f2, Int ib, Int backend)
 {
-    FbouJacDriver(fb, fb_udg, fb_wdg, fb_uhg, xg, udg, odg, wdg, uhg, nl, *common.driver_abi, mesh, master, app, sol, temp, common, ngf, f1, f2, ib, backend);
+    FbouJacDriver(fb, fb_udg, fb_wdg, fb_uhg, xg, udg, odg, wdg, uhg, nl, require_driver_abi(common), mesh, master, app, sol, temp, common, ngf, f1, f2, ib, backend);
 }
 
 inline void UhatDriver(dstype* fg, dstype* xg, dstype* ug1, dstype* ug2, const dstype* og1, const dstype* og2, const dstype* wg1, const dstype* wg2, const dstype* uh, const dstype* nl, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& tmp, commonstruct& common, Int ngf, Int f1, Int f2, Int backend)
 {
-    UhatDriver(fg, xg, ug1, ug2, og1, og2, wg1, wg2, uh, nl, *common.driver_abi, mesh, master, app, sol, tmp, common, ngf, f1, f2, backend);
+    UhatDriver(fg, xg, ug1, ug2, og1, og2, wg1, wg2, uh, nl, require_driver_abi(common), mesh, master, app, sol, tmp, common, ngf, f1, f2, backend);
 }
 
 inline void UbouDriver(dstype* ub, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nl, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int ngf, Int f1, Int f2, Int ib, Int backend)
 {
-    UbouDriver(ub, xg, udg, odg, wdg, uhg, nl, *common.driver_abi, mesh, master, app, sol, temp, common, ngf, f1, f2, ib, backend);
+    UbouDriver(ub, xg, udg, odg, wdg, uhg, nl, require_driver_abi(common), mesh, master, app, sol, temp, common, ngf, f1, f2, ib, backend);
 }
 
 inline void UbouJacDriver(dstype* ub, dstype* ub_udg, dstype* ub_wdg, dstype* ub_uhg, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nl, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int nga, Int ib, Int backend)
 {
-    UbouJacDriver(ub, ub_udg, ub_wdg, ub_uhg, xg, udg, odg, wdg, uhg, nl, *common.driver_abi, mesh, master, app, sol, temp, common, nga, ib, backend);
+    UbouJacDriver(ub, ub_udg, ub_wdg, ub_uhg, xg, udg, odg, wdg, uhg, nl, require_driver_abi(common), mesh, master, app, sol, temp, common, nga, ib, backend);
 }
 
 inline void UbouJacDriver(dstype* ub, dstype* ub_udg, dstype* ub_wdg, dstype* ub_uhg, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nl, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int ngf, Int f1, Int f2, Int ib, Int backend)
 {
-    UbouJacDriver(ub, ub_udg, ub_wdg, ub_uhg, xg, udg, odg, wdg, uhg, nl, *common.driver_abi, mesh, master, app, sol, temp, common, ngf, f1, f2, ib, backend);
+    UbouJacDriver(ub, ub_udg, ub_wdg, ub_uhg, xg, udg, odg, wdg, uhg, nl, require_driver_abi(common), mesh, master, app, sol, temp, common, ngf, f1, f2, ib, backend);
 }
 
 inline void FluxDriver(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xg, dstype* udg, const dstype* odg, const dstype* wdg, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int nge, Int e1, Int e2, Int backend)
 {
-    FluxDriver(f, f_udg, f_wdg, xg, udg, odg, wdg, *common.driver_abi, mesh, master, app, sol, temp, common, nge, e1, e2, backend);
+    FluxDriver(f, f_udg, f_wdg, xg, udg, odg, wdg, require_driver_abi(common), mesh, master, app, sol, temp, common, nge, e1, e2, backend);
 }
 
 inline void SourceDriver(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int nge, Int e1, Int e2, Int backend)
 {
-    SourceDriver(f, f_udg, f_wdg, xg, udg, odg, wdg, *common.driver_abi, mesh, master, app, sol, temp, common, nge, e1, e2, backend);
+    SourceDriver(f, f_udg, f_wdg, xg, udg, odg, wdg, require_driver_abi(common), mesh, master, app, sol, temp, common, nge, e1, e2, backend);
 }
 
 inline void SourcewDriver(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int nge, Int e1, Int e2, Int backend)
 {
-    SourcewDriver(f, f_udg, f_wdg, xg, udg, odg, wdg, *common.driver_abi, mesh, master, app, sol, temp, common, nge, e1, e2, backend);
+    SourcewDriver(f, f_udg, f_wdg, xg, udg, odg, wdg, require_driver_abi(common), mesh, master, app, sol, temp, common, nge, e1, e2, backend);
 }
 
 inline void SourcewDriver(dstype* f, dstype* f_wdg, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int nge, Int e1, Int e2, Int backend)
 {
-    SourcewDriver(f, f_wdg, xg, udg, odg, wdg, *common.driver_abi, mesh, master, app, sol, temp, common, nge, e1, e2, backend);
+    SourcewDriver(f, f_wdg, xg, udg, odg, wdg, require_driver_abi(common), mesh, master, app, sol, temp, common, nge, e1, e2, backend);
 }
 
 inline void EosDriver(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int nge, Int e1, Int e2, Int backend)
 {
-    EosDriver(f, f_udg, f_wdg, xg, udg, odg, wdg, *common.driver_abi, mesh, master, app, sol, temp, common, nge, e1, e2, backend);
+    EosDriver(f, f_udg, f_wdg, xg, udg, odg, wdg, require_driver_abi(common), mesh, master, app, sol, temp, common, nge, e1, e2, backend);
 }
 
 inline void FbouDriver(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg, dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, dstype* uhg, const dstype* nl, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int nga, Int ib, Int backend)
 {
-    FbouDriver(f, f_udg, f_wdg, f_uhg, xg, udg, odg, wdg, uhg, nl, *common.driver_abi, mesh, master, app, sol, temp, common, nga, ib, backend);
+    FbouDriver(f, f_udg, f_wdg, f_uhg, xg, udg, odg, wdg, uhg, nl, require_driver_abi(common), mesh, master, app, sol, temp, common, nga, ib, backend);
 }
 
 inline void FbouDriver(dstype* f, dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, dstype* uhg, const dstype* nl, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int nga, Int ib, Int backend)
 {
-    FbouDriver(f, xg, udg, odg, wdg, uhg, nl, *common.driver_abi, mesh, master, app, sol, temp, common, nga, ib, backend);
+    FbouDriver(f, xg, udg, odg, wdg, uhg, nl, require_driver_abi(common), mesh, master, app, sol, temp, common, nga, ib, backend);
 }
 
 inline void FintDriver(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg, dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, dstype* uhg, const dstype* nl, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int nga, Int ib, Int backend)
 {
-    FintDriver(f, f_udg, f_wdg, f_uhg, xg, udg, odg, wdg, uhg, nl, *common.driver_abi, mesh, master, app, sol, temp, common, nga, ib, backend);
+    FintDriver(f, f_udg, f_wdg, f_uhg, xg, udg, odg, wdg, uhg, nl, require_driver_abi(common), mesh, master, app, sol, temp, common, nga, ib, backend);
 }
 
 inline void FintDriver(dstype* f, dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, dstype* uhg, const dstype* nl, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int nga, Int ib, Int backend)
 {
-    FintDriver(f, xg, udg, odg, wdg, uhg, nl, *common.driver_abi, mesh, master, app, sol, temp, common, nga, ib, backend);
+    FintDriver(f, xg, udg, odg, wdg, uhg, nl, require_driver_abi(common), mesh, master, app, sol, temp, common, nga, ib, backend);
 }
 
 inline void FextDriver(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg, dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, dstype* uhg, const dstype* nl, const dstype* uext, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int nga, Int ib, Int backend)
 {
-    FextDriver(f, f_udg, f_wdg, f_uhg, xg, udg, odg, wdg, uhg, nl, uext, *common.driver_abi, mesh, master, app, sol, temp, common, nga, ib, backend);
+    FextDriver(f, f_udg, f_wdg, f_uhg, xg, udg, odg, wdg, uhg, nl, uext, require_driver_abi(common), mesh, master, app, sol, temp, common, nga, ib, backend);
 }
 
 inline void FextDriver(dstype* f, dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, dstype* uhg, const dstype* nl, const dstype* uext, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int nga, Int ib, Int backend)
 {
-    FextDriver(f, xg, udg, odg, wdg, uhg, nl, uext, *common.driver_abi, mesh, master, app, sol, temp, common, nga, ib, backend);
+    FextDriver(f, xg, udg, odg, wdg, uhg, nl, uext, require_driver_abi(common), mesh, master, app, sol, temp, common, nga, ib, backend);
 }
 
 inline void FhatDriver(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg, const dstype* xg, dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, dstype* nl, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int nga, Int backend)
 {
-    FhatDriver(f, f_udg, f_wdg, f_uhg, xg, udg, odg, wdg, uhg, nl, *common.driver_abi, mesh, master, app, sol, temp, common, nga, backend);
+    FhatDriver(f, f_udg, f_wdg, f_uhg, xg, udg, odg, wdg, uhg, nl, require_driver_abi(common), mesh, master, app, sol, temp, common, nga, backend);
 }
 
 inline void FhatDriver(dstype* f, dstype* u, const dstype* xg, dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, dstype* nl, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int nga, Int backend)
 {
-    FhatDriver(f, u, xg, udg, odg, wdg, uhg, nl, *common.driver_abi, mesh, master, app, sol, temp, common, nga, backend);
+    FhatDriver(f, u, xg, udg, odg, wdg, uhg, nl, require_driver_abi(common), mesh, master, app, sol, temp, common, nga, backend);
 }
 
 inline void VisScalarsDriver(dstype* f, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int nge, Int e1, Int e2, Int backend)
 {
-    VisScalarsDriver(f, xg, udg, odg, wdg, *common.driver_abi, mesh, master, app, sol, temp, common, nge, e1, e2, backend);
+    VisScalarsDriver(f, xg, udg, odg, wdg, require_driver_abi(common), mesh, master, app, sol, temp, common, nge, e1, e2, backend);
 }
 
 inline void VisVectorsDriver(dstype* f, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int nge, Int e1, Int e2, Int backend)
 {
-    VisVectorsDriver(f, xg, udg, odg, wdg, *common.driver_abi, mesh, master, app, sol, temp, common, nge, e1, e2, backend);
+    VisVectorsDriver(f, xg, udg, odg, wdg, require_driver_abi(common), mesh, master, app, sol, temp, common, nge, e1, e2, backend);
 }
 
 inline void VisTensorsDriver(dstype* f, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int nge, Int e1, Int e2, Int backend)
 {
-    VisTensorsDriver(f, xg, udg, odg, wdg, *common.driver_abi, mesh, master, app, sol, temp, common, nge, e1, e2, backend);
+    VisTensorsDriver(f, xg, udg, odg, wdg, require_driver_abi(common), mesh, master, app, sol, temp, common, nge, e1, e2, backend);
 }
 
 inline void QoIvolumeDriver(dstype* f, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int nge, Int e1, Int e2, Int backend)
 {
-    QoIvolumeDriver(f, xg, udg, odg, wdg, *common.driver_abi, mesh, master, app, sol, temp, common, nge, e1, e2, backend);
+    QoIvolumeDriver(f, xg, udg, odg, wdg, require_driver_abi(common), mesh, master, app, sol, temp, common, nge, e1, e2, backend);
 }
 
 inline void QoIboundaryDriver(dstype* fb, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nl, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int ngf, Int f1, Int f2, Int ib, Int backend)
 {
-    QoIboundaryDriver(fb, xg, udg, odg, wdg, uhg, nl, *common.driver_abi, mesh, master, app, sol, temp, common, ngf, f1, f2, ib, backend);
+    QoIboundaryDriver(fb, xg, udg, odg, wdg, uhg, nl, require_driver_abi(common), mesh, master, app, sol, temp, common, ngf, f1, f2, ib, backend);
 }
 
 #endif

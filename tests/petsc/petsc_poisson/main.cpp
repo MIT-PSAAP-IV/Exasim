@@ -136,7 +136,7 @@ int main(int argc, char** argv)
         {
             exasim::petsc::ShellMat<> H(PETSC_COMM_SELF, N,
                 [&](dstype* y, const dstype* x){ assembler.evalMatVec(y, const_cast<dstype*>(x), sys.u, sys.b, 1, backend); },
-                backend >= 2);
+                backend);
             Vec v = op.make_vec(), y1 = op.make_vec(), y2 = op.make_vec();
             PetscCall(VecSet(v, 1.0));
             PetscCall(MatMult(op.mat(), v, y1));

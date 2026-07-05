@@ -220,6 +220,12 @@ inline Preprocessed make_preprocessed_distributed(const PDE& pde_in,
                                              mesh.ne_local, mesh.nve, M::nd,
                                              mesh.np_global, mesh.ne_global,
                                              preproc.params, preproc.pde);
+    // Point Exasim's runtime communicator globals at `comm`: the backend's collectives and
+    // halo exchanges (PDOT / PGEMTV / PGEMTM, residual + matvec exchanges) use EXASIM_COMM_WORLD
+    // / EXASIM_COMM_LOCAL directly. Without this a consumer that only passes `comm` here would
+    // run those over MPI_COMM_NULL (the tests only worked by setting the globals by hand first).
+    EXASIM_COMM_WORLD = comm;
+    EXASIM_COMM_LOCAL = comm;
     Preprocessed pre = preproc.takeParallel(comm);
     pre.save_outputs = (pde.saveOutputs != 0);
     return pre;
