@@ -2,7 +2,7 @@
 % run('<prefix>/share/exasim/matlab/exasim_setup.m') instead.
 run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'frontends', 'Matlab', 'exasim_setup.m'));
 
-porder = 3;                     % polynomial degree
+porder = 2;                     % polynomial degree
 gam = 1.4;                      % gas constant
 Minf = 0.25;                   % freestream mach number
 tau = 0.6/Minf;                 % stabilization parameter
@@ -24,26 +24,27 @@ pde.modelfile = "pdemodel";    % name of a file defining the PDE model
 
 % Choose computing platform and set number of processors
 pde.platform = "cpu";         % choose this option if NVIDIA GPUs are available
-pde.mpiprocs = 4;              % number of MPI processors
-pde.hybrid = 1;
+pde.mpiprocs = 1;              % number of MPI processors
+pde.hybrid = 0;
 pde.debugmode = 0;
 pde.porder = porder;
 pde.pgauss = 2*porder;
 
 pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf];
 pde.tau = tau;              % DG stabilization parameter
-pde.GMRESrestart = 100;
+pde.GMRESrestart = 200;
 pde.GMRESortho = 1;
 pde.linearsolvertol = 1e-6; % GMRES tolerance
 pde.linearsolveriter = 1000;
 pde.preconditioner = 1;
 pde.NLtol = 1e-8;
-pde.ppdegree = 10;
+pde.ppdegree = 0;
 pde.RBdim = 0;
 pde.gencode = 1;
+pde.matvec = 1e-3;
 
 % naca mesh
-mesh = mkmesh_naca0012(porder,1,2);  
+mesh = mkmesh_naca0012(porder,1,1);  
 
 % call exasim to generate and run C++ code to solve the PDE model
 [sol,pde,mesh] = exasim(pde,mesh);
