@@ -30,6 +30,7 @@ pdehm.RBdim = 0;
 % Create a separate mesh for the Helmholtz solve (don't modify the NS mesh)
 meshhm = mesh; % copy ns mesh
 meshhm.boundarycondition = [1;1;1;1];
+meshhm.udg = zeros(size(meshhm.dgnodes,1), 1, size(meshhm.dgnodes,3));
 
 div = divergence(sol, 1);
 meshhm.vdg = limiting(div,0,3,1e3,0);

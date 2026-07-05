@@ -1,4 +1,4 @@
-function [sol_el, pde_el, mesh_el] = pdeapp_el(mesh, pde, bump_amp, bump_loc, bump_width)
+function [mesh] = pdeapp_el(mesh, pde, bump_amp, bump_loc, bump_width)
 % Linear elasticity mesh deformation for wall bump
 
 pde_el = pde;
@@ -27,5 +27,17 @@ mesh_el.boundarycondition = [1, 1, 2, 1];
 [sol_el, ~, ~, ~, ~] = exasim(pde_el, mesh_el);
 figure(1);scaplot(mesh_el, -sol_el(:,1,:), [-0.012, 0.012]);
 figure(2);scaplot(mesh_el, -sol_el(:,2,:), [-0.012, 0.012]);
+
+% Update the mesh with the new deformations
+% [~, cgelcon, rowent2elem, colent2elem, ~] = mkcgent2dgent(mesh.dgnodes, 1e-8);
+% disp_cg = dg2cg2(sol_el(:, 1:2, :), cgelcon, colent2elem, rowent2elem);
+% mesh.dgnodes = mesh.dgnodes - disp_cg;
+% figure(3);clf;meshplot(mesh, [0, 1]);
+
+
+[~, cgelcon, rowent2elem, ~, cgent2dgent] = mkcgent2dgent(mesh.dgnodes, 1e-8);                                                                                               
+disp_cg = dg2cg(sol_el(:, 1:2, :), cgelcon, cgent2dgent, rowent2elem);                                                                                                       
+mesh.dgnodes = mesh.dgnodes - disp_cg;                                                                                                                                       
+figure(3);clf;meshplot(mesh, [0, 1]);
 
 end

@@ -10,7 +10,7 @@
 run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'frontends', 'Matlab', 'exasim_setup.m'));
 
 %% ---- 1. Setup and mesh generation ----
-porder = 2;
+porder = 4;
 nx1 = 10; nxf = 30; ny = 20;
 mesh = mkmesh_thermal_buckling(porder, nx1, nxf, ny);
 figure(1); clf; meshplot(mesh);
@@ -23,9 +23,7 @@ bump_width = 0.05;
 if abs(bump_amp) > 0
     [pde, ~] = initializeexasim();
     pde.porder = porder;
-    [sol_el, pde_el, mesh_el] = pdeapp_el(mesh, pde, bump_amp, bump_loc, bump_width);
-    mesh.dgnodes = mesh.dgnodes - sol_el(:, 1:2, :);
-    figure(2);clf;meshplot(mesh);
+    [mesh] = pdeapp_el(mesh, pde, bump_amp, bump_loc, bump_width);
 end
 
 %% ---- 3. Navier-Stokes solve + viscosity ramp ----
@@ -33,13 +31,13 @@ pdeapp_ns;
 mesh.dist = dist;
 
 %% ---- 4. Helmholtz AV field + final NS solve ----
-S0 = 0.2; gamma_hm = 1e3; lambda0 = 0.04; kappa0 = 4; eta = 0.9;
+S0 = 0.2; gamma_hm = 1e3; lambda0 = 0.004; kappa0 = 4; eta = 0.9;
 pdeapp_hm;
 
 s = solhm(:,1,:);
 s = s/max(s(:));
 av = (s-S0).*(atan(gamma_hm*(s-S0))/pi + 0.5) - atan(gamma_hm)/pi + 0.5;
-distav = tanh(mesh.dist*5);
+distav = tanh(mesh.dist*100);
 av = lambda0*(av.*distav);
 figure(); clf; scaplot(mesh, av);
 
