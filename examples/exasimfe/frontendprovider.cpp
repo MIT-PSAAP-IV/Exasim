@@ -9,7 +9,7 @@
 
 //#include "kernels/../ModelDispatch/driver_abi.h"
 
-#if __has_include("model_sizes.hpp")
+#if defined(__has_include) && __has_include("model_sizes.hpp")
 #include "model_sizes.hpp"
 #define EXASIM_HAS_FRONTEND_MODEL_SIZES 1
 #endif
