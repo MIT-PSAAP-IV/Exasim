@@ -19,14 +19,6 @@ pgauss = 4;
 torder = 1;
 nstage = 1;
 
-ncu = 4;
-ncv = 2;
-ncw = 0;
-nsca = 7;
-nvec = 1;
-nten = 0;
-nsurf = 0;
-nvqoi = 0;
 neb = 4096;
 nfb = 8192;
 

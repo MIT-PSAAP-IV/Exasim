@@ -3131,11 +3131,9 @@ inline void writemesh(Mesh& mesh, const DMD& dmd, const PDE& pde, const Master& 
     writeVectorAsDoubles(out, dmd.elempart);
     writeVectorAsDoubles(out, dmd.elempartpts);
 
-    if (pde.hybrid > 0) {
-        writeVectorAsDoubles(out, master.perm);  
-        writeVectorAsDoubles(out, mesh.bf);      
-        writeVectorAsDoubles(out, mesh.cartGridPart);
-    }
+    writeVectorAsDoubles(out, master.perm);
+    writeVectorAsDoubles(out, mesh.bf);
+    writeVectorAsDoubles(out, mesh.cartGridPart);
 
     writeVectorAsDoubles(out, mesh.tg);
     writeVectorAsDoubles(out, mesh.boundaryConditions);

@@ -126,14 +126,18 @@ int main(int argc, char* argv[])
     }
     
 #ifdef USE_CMAKE
-    if (pde.gencode==1) generateCppCode(spec);
+    if (pde.gencode==1) {
+        generateCppCode(spec);
+        { CodeGenerator _gen(spec); _gen.generateModelSizesHpp(spec.modelpath); }
+    }
 #else    
     if (pde.gencode==1) {
         generateCppCode(spec);
+        { CodeGenerator _gen(spec); _gen.generateModelSizesHpp(spec.modelpath); }
         executeCppCode(spec);
         if (!gen_only) buildDynamicLibraries(spec);
     }
-#endif        
+#endif
     
     std::cout << "\n******** Done with generating input files and dynamic libraries for EXASIM ********\n";
 

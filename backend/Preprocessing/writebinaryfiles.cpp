@@ -245,13 +245,11 @@ void writemesh(const PDE& pde,
     writeVectorAsDoubles(out, conn.cole2f2);     //
     writeVectorAsDoubles(out, conn.ent2ind2);    //
 
-    if (pde.hybrid > 0) {
-        writeVectorAsDoubles(out, conn.f2t);     //
-        writeVectorAsDoubles(out, conn.elemcon); //
-        writeVectorAsDoubles(out, master.perm);  
-        writeVectorAsDoubles(out, conn.bf);      
-        writeVectorAsDoubles(out, mesh.cartGridPart);
-    }
+    writeVectorAsDoubles(out, conn.f2t);     //
+    writeVectorAsDoubles(out, conn.elemcon); //
+    writeVectorAsDoubles(out, master.perm);
+    writeVectorAsDoubles(out, conn.bf);
+    writeVectorAsDoubles(out, mesh.cartGridPart);
 
     vector<int> ti(nve*ne); 
     select_columns(ti.data(), mesh.t.data(), dmd.elempart.data(), nve, ne); 

@@ -27,7 +27,7 @@ datain1/
 dataout1/
 datain2/
 dataout2/
-build/*
+build/
 kokkos/buildserial/*
 kokkos/buildcuda/*
 kokkos/buildhip/*
@@ -456,3 +456,6 @@ backend/Postprocessing/solution_io
 /examples/NavierStokes/naca2d_unsteady/naca-sweep5
 /examples/NavierStokes/naca2d_unsteady/naca-sweep6
 /examples/NavierStokes/naca2d_unsteady/naca-sweep7
+/examples/NavierStokes/eppler/eppler-sweep8
+/examples/NavierStokes/naca2d_unsteady/naca-sweep8
+/examples/NavierStokes/eppler3d/eppler3dp2

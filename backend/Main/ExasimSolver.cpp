@@ -78,6 +78,12 @@ MPI_Comm EXASIM_COMM_LOCAL = MPI_COMM_NULL;
 #include <regex>
 #include <unordered_map>
 #include <unordered_set>
+#include "../../include/driver_abi.hpp"
+// SelectExasimDriverABI is defined by the provider module
+// (e.g. modelprovider.hpp) which is compiled into the executable, not
+// the backend library.  A forward declaration is sufficient here;
+// the linker resolves the symbol.
+const ExasimDriverABI& SelectExasimDriverABI();
 #endif
 
 #ifdef TIMING
@@ -588,6 +594,35 @@ int ExasimSolver::ParseInputs(int argc, char** argv)
 
     InputParams params = parseInputFile(argv[1], mpirank_);
     PDE pde = initializePDE(params, mpirank_);
+
+    // Fill missing dimension sizes from the compiled ABI so they don't
+    // need to be specified in pdeapp.txt.
+    {
+        const auto& abi = SelectExasimDriverABI();
+        // Use per-model query (BuiltInLibrary) or direct fields (KokkosKernel)
+        ModelSizes ms;
+        if (abi.GetModelSizes)
+            ms = abi.GetModelSizes(pde.builtinmodelID);
+        else
+            ms = {abi.ncu, abi.nco, abi.ncw, abi.nsca, abi.nvec, abi.nten, abi.nsurf, abi.nvqoi};
+        if (params.intParams.count("ncu") == 0 && ms.ncu > 0)
+            pde.ncu = ms.ncu;
+        if (params.intParams.count("ncv") == 0 && ms.nco > 0)
+            pde.ncv = ms.nco;
+        if (params.intParams.count("ncw") == 0 && ms.ncw > 0)
+            pde.ncw = ms.ncw;
+        if (params.intParams.count("nsca") == 0 && ms.nsca > 0)
+            pde.nsca = ms.nsca;
+        if (params.intParams.count("nvec") == 0 && ms.nvec > 0)
+            pde.nvec = ms.nvec;
+        if (params.intParams.count("nten") == 0 && ms.nten > 0)
+            pde.nten = ms.nten;
+        if (params.intParams.count("nsurf") == 0 && ms.nsurf > 0)
+            pde.nsurf = ms.nsurf;
+        if (params.intParams.count("nvqoi") == 0 && ms.nvqoi > 0)
+            pde.nvqoi = ms.nvqoi;
+    }
+
     nummodels_ = 1;
     filein_.push_back(pde.datainpath + "/");
     fileout_.push_back(make_path(pde.dataoutpath, "out"));
@@ -598,7 +633,7 @@ int ExasimSolver::ParseInputs(int argc, char** argv)
     // (app.ndims[14..16]=0, app.flag[17]=0), so without this savemode stays 0 and no outvis
     // is written. CDiscretization applies these to disc.common before CVisualization (which
     // computes savemode) is constructed.
-    nsca_ = pde.nsca; nvec_ = pde.nvec; nten_ = pde.nten;
+    nsca_ = pde.nsca; nvec_ = pde.nvec; nten_ = pde.nten; nsurf_ = pde.nsurf; nvqoi_ = pde.nvqoi;
     saveParaview_ = pde.saveParaview;
     if (!preserveModelDefinitions)
         builtinmodelID_.assign(1, pde.builtinmodelID);
@@ -606,7 +641,18 @@ int ExasimSolver::ParseInputs(int argc, char** argv)
         std::cout << "builtinmodelID = " << BuiltinModelID(0) << "\n";
 
     if (pde.gendatain == 0) {
-        CPreprocessing preproc(argv[1], mpirank_, mpiprocs_);
+        // Use the programmatic constructor so ABI-filled sizes (above)
+        // are propagated into the preprocessing pipeline instead of
+        // re-reading pdeapp.txt from disk with default values.
+        // For builtinmodelID == 0 (e.g. shared library), parse the
+        // pdemodel.txt so applyParsedSpecMetadata can set vis/QoI sizes.
+        ParsedSpec spec;
+        if (pde.builtinmodelID == 0 && !pde.modelfile.empty()) {
+            spec = TextParser::parseFile(make_path(pde.datapath, pde.modelfile));
+            spec.exasimpath = pde.exasimpath;
+            applyParsedSpecMetadata(pde, spec);
+        }
+        CPreprocessing preproc(pde, params, spec, mpirank_, mpiprocs_);
         if (mpiprocs_ == 1)
             preproc.SerialPreprocessing();
         else {

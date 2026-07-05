@@ -26,7 +26,7 @@ pde.ppdegree=20;
 % Choose computing platform and set number of processors
 %pde.platform = "gpu";      % choose this option if you want to run the C++ code on Nvidia GPUs
 pde.mpiprocs = 4;           % number of MPI processors
-pde.hybrid = 1;             % 0 -> LDG, 1-> HDG
+pde.hybrid = 0;             % 0 -> LDG, 1-> HDG
 
 % use Gmsh to generate a mesh
 nd = 3; elemtype = 0;

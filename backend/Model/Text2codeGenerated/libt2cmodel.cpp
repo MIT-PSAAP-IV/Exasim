@@ -1,6 +1,8 @@
 #include <cmath>
 #include <Kokkos_Core.hpp>
 #include <driver_abi.hpp>
+#include <modeldefaults.hpp>
+#include "my_model.hpp"
 
 #ifdef USE_FLOAT
 typedef float dstype;
@@ -11,6 +13,7 @@ typedef double dstype; //  double is default precision
 using namespace std;
 
 namespace text2code_shared_lib {
+using ::PdeModel;
 
 #include "KokkosFlux.cpp"
 #include "KokkosFhat.cpp"
@@ -110,6 +113,20 @@ extern "C" const ExasimDriverABI* GetText2CodeExasimDriverABI()
         value.HdgFintonly = &text2code_shared_lib::HdgFintonly;
         value.HdgFext = &text2code_shared_lib::HdgFext;
         value.HdgFextonly = &text2code_shared_lib::HdgFextonly;
+
+        value.ncu  = PdeModel::ncu;
+        value.nco  = PdeModel::nco;
+        value.ncw  = PdeModel::ncw;
+        value.nsca = PdeModel::nsca;
+        value.nvec = PdeModel::nvec;
+        value.nten = PdeModel::nten;
+        value.nsurf = PdeModel::nsurf;
+        value.nvqoi = PdeModel::nvqoi;
+        value.GetModelSizes = [](int) -> ModelSizes {
+            return {PdeModel::ncu, PdeModel::nco, PdeModel::ncw,
+                    PdeModel::nsca, PdeModel::nvec, PdeModel::nten,
+                    PdeModel::nsurf, PdeModel::nvqoi};
+        };
 
         return value;
     }();

@@ -25,6 +25,10 @@ struct Poisson2D : exasim::ModelDefaults<Poisson2D> {
     static constexpr int ncw    = 0;   // # auxiliary scalar fields
     static constexpr int nco    = 0;   // # other DG fields (`v` / `odg`)
     static constexpr int nparam = 1;   // # physics parameters
+    static constexpr int nsca   = 2;
+    static constexpr int nvec   = 1;
+    static constexpr int nsurf  = 1;
+    static constexpr int nvqoi  = 2;
 
     static constexpr auto disc = exasim::Discretization::HDG;
 

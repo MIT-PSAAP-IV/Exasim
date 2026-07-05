@@ -613,8 +613,8 @@ inline void applyParsedSpecMetadata(PDE& pde, const ParsedSpec& spec)
 
 inline void validateBuiltInAppMetadata(const PDE& pde)
 {
-    if (pde.ncu <= 0)
-        error("builtinmodelID > 0 requires ncu > 0 in pdeapp.txt.");
+    if (pde.ncu < 0)
+        error("builtinmodelID > 0 requires ncu >= 0 in pdeapp.txt.");
     if (pde.ncv < 0)
         error("builtinmodelID > 0 requires ncv >= 0 in pdeapp.txt.");
     if (pde.ncw < 0)
