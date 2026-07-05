@@ -37,8 +37,10 @@
 #ifndef __CONNECTIVITY
 #define __CONNECTIVITY
     
+template <class T=dstype, class I=Int>
 void select_columns(int* a_new, const int* a, const int* ind, int m, int k) 
 {
+    using dstype=T;
     for (int j = 0; j < k; ++j) {
         int col = ind[j];
         for (int i = 0; i < m; ++i) {
@@ -47,8 +49,10 @@ void select_columns(int* a_new, const int* a, const int* ind, int m, int k)
     }
 }
 
+template <class T=dstype, class I=Int>
 int find(const int* a, int b, int m, int n, int k, int opts) 
 {
+    using dstype=T;
     int count = 0;
     if (opts==0) {
       for (int i = 0; i < n; ++i) {
@@ -68,8 +72,10 @@ int find(const int* a, int b, int m, int n, int k, int opts)
     return count;
 }
 
+template <class T=dstype, class I=Int>
 int find(int* indices, const int* a, int b, int m, int n, int k, int opts) 
 {
+    using dstype=T;
     int count = 0;
     if (opts==0) {
       for (int i = 0; i < n; ++i) {
@@ -96,8 +102,10 @@ int find(int* indices, const int* a, int b, int m, int n, int k, int opts)
     return count;
 }
 
+template <class T=dstype, class I=Int>
 int unique_count(int *b, int *c, const int *a, int n)
 {
+    using dstype=T;
     if (n == 0) return 0;
 
     int uniq = 0;          /* index in b/c */
@@ -126,8 +134,10 @@ int unique_count(int *b, int *c, const int *a, int n)
     return uniq;              /* number of unique values */
 }
 
+template <class T=dstype, class I=Int>
 void permute_columns(int* a, const int* ind, int m, int k) 
-{    
+{
+    using dstype=T;    
   if ((k > 0) && (m > 0)) {
     int* a_new = (int*)malloc(m * k * sizeof(int));
     
@@ -146,7 +156,9 @@ void permute_columns(int* a, const int* ind, int m, int k)
   }
 }
 
+template <class T=dstype, class I=Int>
 int unique_ints(int* arr, int n) {
+    using dstype=T;
     if (n <= 1) return n;
     std::sort(arr, arr + n);                       // introsort (quick+heap+insertion)
     int* last = std::unique(arr, arr + n);         // compacts uniques to front
@@ -179,10 +191,12 @@ struct FaceKeyHash {
     }
 };
 
+template <class T=dstype, class I=Int>
 int mkf2e_hash(int* f2e,
                const int* e2n, const int* local_faces,
                int ne, int nne, int nnf, int nfe)
 {
+    using dstype=T;
     using Val = std::pair<int,int>; // (elem, lf)
     std::unordered_map<FaceKey, Val, FaceKeyHash> map;
     map.reserve(static_cast<size_t>(ne) * nfe * 1.3);
@@ -230,11 +244,13 @@ int mkf2e_hash(int* f2e,
 
 // ---- Build e2e: for each element 'e' and local face 'lf', write neighbor element id or -1 ----
 // e2e must be sized to ne * nfe (ints).
+template <class T=dstype, class I=Int>
 int mke2e_hash(int* e2e,
                const int* e2n,          // [ne * nne] global node ids per element
                const int* local_faces,  // [nfe * nnf] local node indices per local face
                int ne, int nne, int nnf, int nfe)
 {
+    using dstype=T;
     using Val = std::pair<int,int>; // (elem, lf) of the first owner of the face
 
     // init all neighbors to -1 (assume boundary until proven otherwise)
@@ -282,8 +298,10 @@ int mke2e_hash(int* e2e,
     return out; 
 }
 
+template <class T=dstype, class I=Int>
 void apply_bcm(int* bf, const int* fi, const int* bcm, int n, int nbcm) 
 {
+    using dstype=T;
     // initialize bf to 0
     for (int i = 0; i < n; ++i)
         bf[i] = 0;
@@ -298,8 +316,10 @@ void apply_bcm(int* bf, const int* fi, const int* bcm, int n, int nbcm)
     }
 }
 
+template <class T=dstype, class I=Int>
 void fix_f2t_consistency(int* f2t, const int* elempart, int nf) 
 {
+    using dstype=T;
     for (int n = 0; n < nf; ++n) {
         int e1 = f2t[0 + 4 * n];
         int e2 = f2t[2 + 4 * n];
@@ -334,9 +354,11 @@ void fix_f2t_consistency(int* f2t, const int* elempart, int nf)
     }
 }
   
+template <class T=dstype, class I=Int>
 void build_connectivity(int* elemcon, int* facecon, const int* f2t, const int* face, const int* t,        
                         const int* perm, const int* permind, int dim, int elemtype, int npf, int nfe, int npe, int ne, int nf) 
 {
+    using dstype=T;
     int* facenode1 = (int*) malloc(sizeof(int) * npf);
     int* facenode2 = (int*) malloc(sizeof(int) * npf);
     for (int i = 0; i < npf; ++i) {
@@ -423,12 +445,14 @@ void build_connectivity(int* elemcon, int* facecon, const int* f2t, const int* f
     CPUFREE(facenode2);
 }
 
+template <class T=dstype, class I=Int>
 int connectivity(int*& elemcon, int*& facecon, int*& f2t, int*& facepartpts, int*& facepartbnd, 
                  int* sizes, const int* bf, const int* ti, const int* elempart, 
                  const int* localfaces,  const int* perm, const int* permind,  
                  const int* bcm, int dim, int elemtype, int nve, int nvf, int nfe, 
                  int npf, int npe, int ne, int ne1, int nbcm) 
-{          
+{
+    using dstype=T;          
     int* f2t_tmp = (int*)malloc(4 * nfe * ne * sizeof(int));
     int nf1 = mkf2e_hash(f2t_tmp, ti, localfaces, ne, nve, nvf, nfe);       
     
@@ -496,14 +520,18 @@ int connectivity(int*& elemcon, int*& facecon, int*& f2t, int*& facepartpts, int
     return nf;      
 }
 
+template <class T=dstype, class I=Int>
 int equal_row(const double* a, const double* b, int dim, double tol) {
+    using dstype=T;
     for (int i = 0; i < dim; ++i)
         if (fabs(a[i] - b[i]) > tol)
             return 0;
     return 1;
 }
 
-void get_node_coord(double* out, const double* dgnodes, int npe, int dim, int e, int a) {
+template <class T=dstype, class I=Int>
+void get_node_coord(double* out, const T* dgnodes, int npe, int dim, int e, int a) {
+    using dstype=T;
     for (int d = 0; d < dim; ++d)
         out[d] = dgnodes[a + npe * (d + dim * e)];
 }
@@ -515,13 +543,15 @@ void get_node_coord(double* out, const double* dgnodes, int npe, int dim, int e,
  * @param cgelcon   - output array [npe][ne], preallocated by user
  * @return number of unique CG nodes (i.e., used portion of cgnodes)
  */
+template <class T=dstype, class I=Int>
 int mkelconcg(
-    double* cgnodes,        // [dim][max_nodes], user-allocated
+    T* cgnodes,        // [dim][max_nodes], user-allocated
     int* cgelcon,            // [npe][ne], user-allocated        
-    const double* dgnodes,  // [npe][dim][ne]
+    const T* dgnodes,  // [npe][dim][ne]
     int npe, int dim, int ne) 
 {
-    const double tol = 1e-8;
+    using dstype=T;
+    const dstype tol = 1e-8;
     int ncg = 0;  // number of unique CG nodes
     double node[3];  // supports up to 3D
 
@@ -552,14 +582,16 @@ int mkelconcg(
 }
 
 // reuses your equal_row
-static inline int equal_row_tol(const double* a, const double* b, int dim, double tol) {
+template <class T>
+static inline int equal_row_tol(const T* a, const T* b, int dim, double tol) {
     for (int i = 0; i < dim; ++i)
         if (std::fabs(a[i] - b[i]) > tol) return 0;
     return 1;
 }
 
-static inline void fetch_node(double* out,
-                              const double* dgnodes,
+template <class T>
+static inline void fetch_node(T* out,
+                              const T* dgnodes,
                               int npe, int dim, int ne,  // dims
                               int e, int a)              // element, local node
 {
@@ -596,7 +628,8 @@ struct CellKeyHash {
 };
 
 // Build a cell key from a point by snapping to a grid of size h (≈ tol)
-static inline CellKey make_cell_key(const double* p, int dim, double inv_h) {
+template <class T>
+static inline CellKey make_cell_key(const T* p, int dim, double inv_h) {
     CellKey key; key.dim = static_cast<uint8_t>(dim);
     // Use floor(p/h) to avoid rounding-edge inconsistencies; we will still check neighbors.
     for (int d = 0; d < dim; ++d) {
@@ -616,13 +649,15 @@ static inline CellKey make_cell_key(const double* p, int dim, double inv_h) {
  * cgelcon   - [npe][ne] indices into cgnodes
  * returns number of unique CG nodes
  */
+template <class T=dstype, class I=Int>
 int mkelconcg_hashgrid(
-    double* cgnodes,       // [dim][max_nodes], user-allocated
+    T* cgnodes,       // [dim][max_nodes], user-allocated
     int*    cgelcon,       // [npe][ne], user-allocated
-    const double* dgnodes, // [npe][dim][ne]
+    const T* dgnodes, // [npe][dim][ne]
     int npe, int dim, int ne,
-    double tol = 1e-8)
+    T tol = 1e-8)
 {
+    using dstype=T;
     // Grid cell size. Using h = tol ensures any two points within tol
     // are in the same or neighboring cells (so we check neighbors).
     const double h = tol;
@@ -634,7 +669,7 @@ int mkelconcg_hashgrid(
     grid.reserve(static_cast<size_t>(ne) * static_cast<size_t>(npe));
 
     int ncg = 0;
-    double p[3]; // up to 3D
+    T p[3]; // up to 3D
 
     // Neighbor cell offsets: all combinations in {-1,0,1}^dim
     std::array<int,27> off; // max 3^3
@@ -706,6 +741,7 @@ int mkelconcg_hashgrid(
     return ncg;
 }
 
+template <class T=dstype, class I=Int>
 int mkent2elem(
     int*& rowent2elem, // output [ndof+1], allocated inside
     int*& colent2elem,  // output [nnz], allocated inside        
@@ -713,6 +749,7 @@ int mkent2elem(
     int nrow,
     int ne
 ) {
+    using dstype=T;
     int total = nrow * ne;
     int entmax = 0;
     for (int i = 0; i < total; ++i)
@@ -791,8 +828,10 @@ int mkent2elem(
 }
 
 // Helper function to match a point xcg to a row in xdg: returns 0-based index
-int xiny(const double* xcg, const double* xdg, int npe, int dim) 
+template <class T=dstype, class I=Int>
+int xiny(const T* xcg, const T* xdg, int npe, int dim)
 {
+    using dstype=T;
     for (int i = 0; i < npe; ++i) {
         int match = 1;
         for (int d = 0; d < dim; ++d) {
@@ -807,24 +846,26 @@ int xiny(const double* xcg, const double* xdg, int npe, int dim)
 }
 
 // Maps CG node to corresponding DG node via CRS connectivity
+template <class T=dstype, class I=Int>
 void map_cgent2dgent(
     int*& cgent2dgent,        // [nnz], output mapping (same shape as colent2elem)
     int*& rowent2elem, // [nent+1]
     int*& colent2elem, // [nnz]    
-    const double* cgnodes,  // [nent * dim], row-major
-    const double* dgnodes,  // [npe * dim * ne], column-major
+    const T* cgnodes,  // [nent * dim], row-major
+    const T* dgnodes,  // [npe * dim * ne], column-major
     int npe, int dim, int nent) 
-{    
+{
+    using dstype=T;    
     //cgent2dgent.resize(rowent2elem[nent]);
     //reallocate(cgent2dgent, rowent2elem[nent]);
     TemplateMalloc(&cgent2dgent, rowent2elem[nent], 0);
     for (int i = 0; i < nent; ++i) {
         int start = rowent2elem[i];
         int end = rowent2elem[i + 1];
-        const double* xcg = &cgnodes[i * dim];
+        const dstype* xcg = &cgnodes[i * dim];
         for (int j = start; j < end; ++j) {
             int elem = colent2elem[j];
-            const double* xdg = &dgnodes[npe * dim * elem];
+            const dstype* xdg = &dgnodes[npe * dim * elem];
             int in = xiny(xcg, xdg, npe, dim);
             if (in==-1) {
               for (int k = 0; k < npe; ++k) 
@@ -837,9 +878,11 @@ void map_cgent2dgent(
     }
 }
 
+template <class T=dstype, class I=Int>
 int mkdge2dgf(int*& rowdge2dgf, int*& coldge2dgf, int*& ent2ind,
               const int* facecon, int ndgf, int entmax) 
 {
+    using dstype=T;
     // Step 1: Extract positive entries from facecon
     int* tmp = (int*)malloc(ndgf * sizeof(int));
     int count = 0;
@@ -902,8 +945,10 @@ int mkdge2dgf(int*& rowdge2dgf, int*& coldge2dgf, int*& ent2ind,
     return nent;
 }
 
+template <class T=dstype, class I=Int>
 int removeBoundaryFaces(int* facecon, const int* fblks, int m, int npf, int nf) 
 {
+    using dstype=T;
     std::vector<bool> keep(nf, true);
 
     // Step 1: Identify columns to remove
@@ -945,8 +990,10 @@ int removeBoundaryFaces(int* facecon, const int* fblks, int m, int npf, int nf)
     return new_nf;
 }
 
+template <class T=dstype, class I=Int>
 int divide_interval(int*& intervals, int n, int m) 
 {
+    using dstype=T;
     if (n <= 0 || m <= 0) return 0;
 
     int num_intervals = (n + m - 1) / m; // ceil(n/m)        
@@ -967,8 +1014,10 @@ int divide_interval(int*& intervals, int n, int m)
     return num_intervals;
 }
 
+template <class T=dstype, class I=Int>
 int mkfaceblocks(int*& nm, const int* mf, const int* bcm, int nmf_len, int ns) 
 {
+    using dstype=T;
     if (ns <= 0) ns = 2048;  // default value
 
     int max_blocks = 0;
@@ -1007,8 +1056,10 @@ int mkfaceblocks(int*& nm, const int* mf, const int* bcm, int nmf_len, int ns)
  * @return           int* (column-major face matrix of size nvf × nfe)
  *                   Caller must free() the returned pointer.
  */
+template <class T=dstype, class I=Int>
 void getelemface(int* face, int dim, int elemtype)
 {
+    using dstype=T;
     int nvf = (dim == 3) ? (dim + elemtype) : dim;     
     int nfe = dim + (dim-1)*elemtype + 1;    
           
@@ -1107,6 +1158,7 @@ void getelemface(int* face, int dim, int elemtype)
 
 template<typename T>
 void xiny2(int* out, const T* A, const T* B, int m, int n, int dim, double tol = 1e-12) {
+    using dstype=T;
     for (int i = 0; i < m; ++i) {
         out[i] = -1;
         for (int j = 0; j < n; ++j) {
@@ -1125,8 +1177,10 @@ void xiny2(int* out, const T* A, const T* B, int m, int n, int dim, double tol =
     }
 }
 
-int permindex(int*& permind, const double* plocfc, int npf, int dim, int elemtype) 
+template <class T=dstype, class I=Int>
+int permindex(int*& permind, const T* plocfc, int npf, int dim, int elemtype) 
 {
+    using dstype=T;
     int ncols_out = 1;
     if (dim == 1) {         
         TemplateMalloc(&permind, 1, 0);
@@ -1140,63 +1194,63 @@ int permindex(int*& permind, const double* plocfc, int npf, int dim, int elemtyp
     else if (dim == 3 && elemtype == 0) {
         ncols_out = 3;        
         TemplateMalloc(&permind, npf*3, 0);
-        double* plocfc2 = (double*) malloc(sizeof(double) * npf * 2);
+        T* plocfc2 = (T*) malloc(sizeof(T) * npf * 2);
 
         // [1 3 2]: swap columns
         for (int i = 0; i < npf; ++i) {
             plocfc2[i + 0*npf] = plocfc[i + 1*npf];
             plocfc2[i + 1*npf] = plocfc[i + 0*npf];
         }
-        xiny2<double>(&permind[0], plocfc, plocfc2, npf, npf, 2, 1e-8);
+        xiny2<T>(&permind[0], plocfc, plocfc2, npf, npf, 2, 1e-8);
 
         // [2 1 3]: 1 - xi - eta in col 1
         for (int i = 0; i < npf; ++i) {
             plocfc2[i + 0*npf] = 1.0 - plocfc[i + 0*npf] - plocfc[i + 1*npf];
             plocfc2[i + 1*npf] = plocfc[i + 1*npf];
         }
-        xiny2<double>(&permind[npf], plocfc, plocfc2, npf, npf, 2, 1e-8);
+        xiny2<T>(&permind[npf], plocfc, plocfc2, npf, npf, 2, 1e-8);
 
         // [3 2 1]: 1 - xi - eta in col 2
         for (int i = 0; i < npf; ++i) {
             plocfc2[i + 0*npf] = plocfc[i + 0*npf];
             plocfc2[i + 1*npf] = 1.0 - plocfc[i + 0*npf] - plocfc[i + 1*npf];
         }
-        xiny2<double>(&permind[2*npf], plocfc, plocfc2, npf, npf, 2, 1e-8);
+        xiny2<T>(&permind[2*npf], plocfc, plocfc2, npf, npf, 2, 1e-8);
 
         CPUFREE(plocfc2);
     } 
     else if (dim == 3 && elemtype == 1) {
         ncols_out = 4;        
         TemplateMalloc(&permind, npf*4, 0);
-        double* plocfc2 = (double*) malloc(sizeof(double) * npf * 2);
+        T* plocfc2 = (T*) malloc(sizeof(T) * npf * 2);
 
         // [1 4 3 2]: swap columns
         for (int i = 0; i < npf; ++i) {
             plocfc2[i + 0*npf] = plocfc[i + 1*npf];
             plocfc2[i + 1*npf] = plocfc[i + 0*npf];
         }
-        xiny2<double>(&permind[0], plocfc, plocfc2, npf, npf, 2, 1e-8);
+        xiny2<T>(&permind[0], plocfc, plocfc2, npf, npf, 2, 1e-8);
         
         // [2 1 4 3]: eta = 1 - eta
         for (int i = 0; i < npf; ++i) {
             plocfc2[i + 0*npf] = plocfc[i + 0*npf];
             plocfc2[i + 1*npf] = 1.0 - plocfc[i + 1*npf];
         }
-        xiny2<double>(&permind[npf], plocfc, plocfc2, npf, npf, 2, 1e-8);
+        xiny2<T>(&permind[npf], plocfc, plocfc2, npf, npf, 2, 1e-8);
 
         // [3 2 1 4]: xi = 1 - eta, eta = 1 - xi
         for (int i = 0; i < npf; ++i) {
             plocfc2[i + 0*npf] = 1.0 - plocfc[i + 1*npf];
             plocfc2[i + 1*npf] = 1.0 - plocfc[i + 0*npf];
         }
-        xiny2<double>(&permind[2*npf], plocfc, plocfc2, npf, npf, 2, 1e-8);
+        xiny2<T>(&permind[2*npf], plocfc, plocfc2, npf, npf, 2, 1e-8);
 
         // [4 3 2 1]: xi = 1 - xi
         for (int i = 0; i < npf; ++i) {
             plocfc2[i + 0*npf] = 1.0 - plocfc[i + 0*npf];
             plocfc2[i + 1*npf] = plocfc[i + 1*npf];
         }
-        xiny2<double>(&permind[3*npf], plocfc, plocfc2, npf, npf, 2, 1e-8);
+        xiny2<T>(&permind[3*npf], plocfc, plocfc2, npf, npf, 2, 1e-8);
 
         CPUFREE(plocfc2);
     }    
@@ -1204,14 +1258,18 @@ int permindex(int*& permind, const double* plocfc, int npf, int dim, int elemtyp
     return ncols_out;
 }
 
+template <class T=dstype, class I=Int>
 void compare(int a, int b, string s)
 {
+    using dstype=T;
     cout<<s<<": ("<<a<<", " <<b<<")\n";
 }
 
-void buildConn(meshstruct& mesh, solstruct& sol, const appstruct& app, const masterstruct& master, 
+template <class T=dstype, class I=Int>
+void buildConn(meshstructT<T,I>& mesh, solstructT<T,I>& sol, const appstructT<T,I>& app, const masterstructT<T,I>& master, 
                int* ti, int* boundaryConditions, int* intepartpts, int nbcm)
-{                  
+{
+    using dstype=T;                  
     int nd = master.ndims[0];     // spatial dimension    
     int elemtype = master.ndims[1]; 
     int npe = master.ndims[5]; // number of nodes on master element
@@ -1384,9 +1442,11 @@ struct Conn
     //int ncgnodes, ncgdof, nbe, nbf, neb, nfb, nf;
 };
 
-void buildConn(Conn& conn, meshstruct& mesh, solstruct& sol, const appstruct& app, const masterstruct& master, 
+template <class T=dstype, class I=Int>
+void buildConn(Conn& conn, meshstructT<T,I>& mesh, solstructT<T,I>& sol, const appstructT<T,I>& app, const masterstructT<T,I>& master, 
                int* ti, int* boundaryConditions, int* intepartpts, int nbcm)
-{                  
+{
+    using dstype=T;                  
     int nd = master.ndims[0];     // spatial dimension    
     int elemtype = master.ndims[1]; 
     int npe = master.ndims[5]; // number of nodes on master element
@@ -1403,7 +1463,7 @@ void buildConn(Conn& conn, meshstruct& mesh, solstruct& sol, const appstruct& ap
 
     int hybrid = app.problem[0];
     //int mpiprocs = app.comm[1];
-    int mpiprocs = app.ndims[1];
+    int mpiprocs = app.ndims[AppNdims::nd];
     int coupledinterface = app.problem[28];
 
     int ne1 = ne;    
@@ -1524,8 +1584,10 @@ void buildConn(Conn& conn, meshstruct& mesh, solstruct& sol, const appstruct& ap
     CPUFREE(facepartbnd);
 }
 
-void maxdiff(const dstype *a, const dstype *b, int n, string s)
+template <class T=dstype, class I=Int>
+void maxdiff(const T *a, const T *b, int n, string s)
 {
+    using dstype=T;
     dstype e = 0.0;
     for (int i = 0; i < n; i++) {
         dstype d = fabs(a[i] - b[i]);
@@ -1534,8 +1596,10 @@ void maxdiff(const dstype *a, const dstype *b, int n, string s)
     cout<<"Maximum error in "<<s<<" = "<<e<<", length = "<<n<<endl;
 }
 
+template <class T=dstype, class I=Int>
 void maxdiff(const int *a, const int *b, int n, string s)
 {
+    using dstype=T;
     int e = 0;
     for (int i = 0; i < n; i++) {
         int d = abs(a[i] - b[i]);
@@ -1544,9 +1608,11 @@ void maxdiff(const int *a, const int *b, int n, string s)
     cout<<"Maximum error in "<<s<<" = "<<e<<", length = "<<n<<endl;
 }
 
-void checkConn(meshstruct& mesh, solstruct& sol, const appstruct& app, const masterstruct& master, 
+template <class T=dstype, class I=Int>
+void checkConn(meshstructT<T,I>& mesh, solstructT<T,I>& sol, const appstructT<T,I>& app, const masterstructT<T,I>& master, 
                int* ti, int* boundaryConditions, int* intepartpts, int nbcm)
 {
+    using dstype=T;
     Conn conn;
     buildConn(conn, mesh, sol, app, master, ti, boundaryConditions, intepartpts, nbcm);
 

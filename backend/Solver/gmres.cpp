@@ -3,7 +3,7 @@
 GMRES Solver Implementation
 ================================================================================
 
-This file implements the Generalized Minimal Residual (GMRES) iterative solver 
+This file implements the Generalized Minimal Residual<exasim::detail::AbiAdapter>(GMRES) iterative solver 
 with support for polynomial preconditioning and restart functionality. The solver 
 is designed for use with CUDA/cuBLAS and supports both classical and modified 
 Gram-Schmidt orthogonalization methods.
@@ -16,7 +16,7 @@ Functions:
     - Performs Classical Gram-Schmidt orthogonalization on Krylov vectors.
     - Computes the projection and normalization of the new vector.
 
-2. void ApplyPoly(dstype *w, CDiscretization &disc, CPreconditioner& prec,
+2. void ApplyPoly(dstype *w, CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& prec,
                         sysstruct &sys, dstype *q, dstype *p, int N, int backend)
     - Applies a polynomial preconditioner to a vector using Ritz values.
     - Handles both real and complex Ritz values for improved convergence.
@@ -25,17 +25,17 @@ Functions:
                              Int i, Int N, Int n, Int backend)
     - Updates the solution vector using the computed Krylov basis and coefficients.
 
-4. Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int backend)
+4. Int CSolver::gmres(CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& prec, Int backend)
     - Main GMRES solver routine.
     - Handles initialization, polynomial preconditioning, orthogonalization, 
       convergence checks, and solution updates.
     - Supports restart and timing of key operations.
 
-5. void ApplyPoly(dstype *w, CDiscretization &disc, CPreconditioner& prec,
+5. void ApplyPoly(dstype *w, CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& prec,
                         sysstruct &sys, dstype *q, dstype *p, int N, Int spatialScheme, int backend)
     - Overloaded version of ApplyPoly with spatialScheme parameter for flexibility.
 
-6. Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int N, Int spatialScheme, Int backend)
+6. Int CSolver::gmres(CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& prec, Int N, Int spatialScheme, Int backend)
     - Overloaded GMRES routine supporting additional spatial scheme parameter.
     - Provides detailed timing for matrix-vector products, preconditioning, 
       orthogonalization, and solution updates.
@@ -87,7 +87,8 @@ void CGS(cublasHandle_t handle, dstype *V, dstype *H, dstype *temp, Int N, Int m
     ArrayMultiplyScalar(&V[m*N], one/H[m], N);
 }
 
-void ApplyPoly(dstype *w, CDiscretization &disc, CPreconditioner& prec,
+template <class M>
+void ApplyPoly(dstype *w, CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& prec,
         sysstruct &sys, dstype *q, dstype *p, int N, int backend)
 {
     int m = disc.common.ppdegree;
@@ -103,7 +104,7 @@ void ApplyPoly(dstype *w, CDiscretization &disc, CPreconditioner& prec,
     while (i<(m-1)) {
         if (si[i] == 0) {
            ArrayAXPBY(w, w, q, 1.0, 1.0/sr[i], N);                
-           disc.evalMatVec(p, q, sys.u, sys.b, backend);      
+           assembler.evalMatVec(p, q, sys.u, sys.b, backend);      
            prec.ApplyPreconditioner(p, sys, disc, backend);
            ArrayAXPBY(q, q, p, 1.0, -1.0/sr[i], N);                   
            i = i + 1;            
@@ -112,12 +113,12 @@ void ApplyPoly(dstype *w, CDiscretization &disc, CPreconditioner& prec,
             a = sr[i];
             b = si[i];
             a2b2 = a*a + b*b;
-            disc.evalMatVec(p, q, sys.u, sys.b, backend);   
+            assembler.evalMatVec(p, q, sys.u, sys.b, backend);   
             prec.ApplyPreconditioner(p, sys, disc, backend);
             ArrayAXPBY(p, q, p, 2*a, -1.0, N);      
             ArrayAXPBY(w, w, p, 1.0, 1.0/a2b2, N);                
            if ( i < (m - 2) ) {
-               disc.evalMatVec(p, p, sys.u, sys.b, backend);      
+               assembler.evalMatVec(p, p, sys.u, sys.b, backend);      
                prec.ApplyPreconditioner(p, sys, disc, backend);
                ArrayAXPBY(q, q, p, 1.0, -1.0/a2b2, N);   
            }
@@ -135,20 +136,21 @@ void UpdateSolution(cublasHandle_t handle, dstype *x, dstype *y, dstype *H, dsty
     PGEMNV(handle, N, i+1, &one, V, N, y, inc1, &one, x, inc1, backend);
 }
 
-Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int backend)
+template <class M, class T, class I>
+I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc, CPreconditioner<M, T, I>& prec, Int backend)
 {
     INIT_TIMING;    
     
     Int maxit, nrest, orthogMethod, n1, i, k, j = 0;
-    Int ncu = disc.common.ncu;
-    Int npe = disc.common.npe;
-    Int ne = disc.common.ne1;
+    Int ncu = disc.common.components.ncu;
+    Int npe = disc.common.grid.npe;
+    Int ne = disc.common.meshsizes.ne1;
     Int N = npe*ncu*ne;
     dstype nrmb, nrmr, tol, scalar;
-    tol = std::min(0.01,disc.common.linearSolverTol*disc.common.linearSolverTolFactor);
-    maxit = disc.common.linearSolverMaxIter;
-    nrest = disc.common.gmresRestart;
-    orthogMethod = disc.common.gmresOrthogMethod;
+    tol = std::min(0.01,disc.common.solverparams.linearSolverTol*state.linearSolverTolFactor);
+    maxit = disc.common.solverparams.linearSolverMaxIter;
+    nrest = disc.common.solverparams.gmresRestart;
+    orthogMethod = disc.common.solverparams.gmresOrthogMethod;
     n1 = nrest + 1;
                 
     dstype *s, *y, *cs, *sn, *H;
@@ -160,7 +162,7 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int back
         
     // calculate Ritz values of polynomial preconditioner
     if  (disc.common.ppdegree > 1) {
-        getPoly(disc, prec, sys, sys.lam, sys.randvect, sys.ipiv, N, disc.common.ppdegree, backend);        
+        getPoly(assembler, disc, prec, sys, sys.lam, sys.randvect, sys.ipiv, N, disc.common.ppdegree, backend);        
         dstype lmin=1.0e10, lmax=-1.0e10, smax=0.0; 
         int m = disc.common.ppdegree;
         for (int i=0; i<m; i++) {
@@ -182,7 +184,7 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int back
     scalar = PNORM(disc.common.cublasHandle, N, sys.x, backend);    
     if (scalar>1e-12) {
         // r = A*x
-        disc.evalMatVec(sys.r, sys.x, sys.u, sys.b, backend);
+        assembler.evalMatVec(sys.r, sys.x, sys.u, sys.b, backend);
 
         // compute the new RHS vector: r = -b - A*x
         ArrayAXPBY(sys.r, sys.b, sys.r, minusone, minusone, N);    
@@ -198,8 +200,8 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int back
     if (disc.common.mpiRank==0)
         cout<<"Old RHS Norm: "<<nrmb<<",  New RHS Norm: "<<nrmr<<endl; 
     
-    disc.common.linearSolverTolFactor = nrmb/nrmr;
-    tol = std::min(0.1,disc.common.linearSolverTol*disc.common.linearSolverTolFactor);
+    state.linearSolverTolFactor = nrmb/nrmr;
+    tol = std::min(0.1,disc.common.solverparams.linearSolverTol*state.linearSolverTolFactor);
         
     //disc.common.ppdegree = 0;
     
@@ -207,9 +209,9 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int back
     if (disc.common.ppdegree>1) {
         prec.ApplyPreconditioner(sys.r, sys, disc, backend);
         //ApplyComponentNorm(disc, sys.normcu, sys.r, disc.res.Ru, ncu, ncu, npe, ne, backend);
-        ApplyPoly(sys.r, disc, prec, sys, sys.q, sys.p, N, backend);    
+        ApplyPoly(sys.r, assembler, disc, prec, sys, sys.q, sys.p, N, backend);    
     }
-    else if (disc.common.RBcurrentdim>=0) {
+    else if (state.RBcurrentdim>=0) {
         prec.ApplyPreconditioner(sys.r, sys, disc, backend);
         //ApplyComponentNorm(disc, sys.normcu, sys.r, disc.res.Ru, ncu, ncu, npe, ne, backend);
     }
@@ -233,7 +235,7 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int back
                         
             // compute v[m] = A*v[i]
             START_TIMING;                        
-            disc.evalMatVec(&sys.v[m*N], &sys.v[i*N], sys.u, sys.b, backend);            
+            assembler.evalMatVec(&sys.v[m*N], &sys.v[i*N], sys.u, sys.b, backend);            
             END_TIMING_DISC(0);    
                                                             
             START_TIMING;                                    
@@ -241,9 +243,9 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int back
             if (disc.common.ppdegree>1) {
                 prec.ApplyPreconditioner(&sys.v[m*N], sys, disc, backend);   
                 //ApplyComponentNorm(disc, sys.normcu, &sys.v[m*N], disc.res.Ru, ncu, ncu, npe, ne, backend);
-                ApplyPoly(&sys.v[m*N], disc, prec, sys, sys.q, sys.p, N, backend);
+                ApplyPoly(&sys.v[m*N], assembler, disc, prec, sys, sys.q, sys.p, N, backend);
             }
-            else if (disc.common.RBcurrentdim>=0) {
+            else if (state.RBcurrentdim>=0) {
                 prec.ApplyPreconditioner(&sys.v[m*N], sys, disc, backend);   
                 //ApplyComponentNorm(disc, sys.normcu, &sys.v[m*N], disc.res.Ru, ncu, ncu, npe, ne, backend);
             }
@@ -263,10 +265,10 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int back
             cpuApplyGivensRotation(&H[n1*i], s, cs, sn, i);           
                         
             // compute relative error
-            disc.common.linearSolverRelError = fabs(s[i+1])/nrmb;
+            state.linearSolverRelError = fabs(s[i+1])/nrmb;
             
             // check convergence and update solution: x = x + v*s
-            if (disc.common.linearSolverRelError < tol) {                
+            if (state.linearSolverRelError < tol) {                
                 UpdateSolution(disc.common.cublasHandle, sys.x, y, H, s, sys.v, i, N, n1, backend);
                 return j;
             }                        
@@ -277,7 +279,7 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int back
         UpdateSolution(disc.common.cublasHandle, sys.x, y, H, s, sys.v, nrest-1, N, n1, backend);
                
         // compute r = A*x
-        disc.evalMatVec(sys.r, sys.x, sys.u, sys.b, backend);
+        assembler.evalMatVec(sys.r, sys.x, sys.u, sys.b, backend);
                 
         // r = -b - A*x
         ArrayAXPBY(sys.r, sys.b, sys.r, minusone, minusone, N);
@@ -286,34 +288,35 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int back
         if (disc.common.ppdegree>1) {
             prec.ApplyPreconditioner(sys.r, sys, disc, backend);            
             //ApplyComponentNorm(disc, sys.normcu, sys.r, disc.res.Ru, ncu, ncu, npe, ne, backend);
-            ApplyPoly(sys.r, disc, prec, sys, sys.q, sys.p, N, backend);
+            ApplyPoly(sys.r, assembler, disc, prec, sys, sys.q, sys.p, N, backend);
         }
-        else if (disc.common.RBcurrentdim>=0) {
+        else if (state.RBcurrentdim>=0) {
             prec.ApplyPreconditioner(sys.r, sys, disc, backend);            
             //ApplyComponentNorm(disc, sys.normcu, sys.r, disc.res.Ru, ncu, ncu, npe, ne, backend);
         }
         
         // compute relative error
         nrmr = PNORM(disc.common.cublasHandle, N, sys.r, backend);
-        disc.common.linearSolverRelError = nrmr/nrmb;
+        state.linearSolverRelError = nrmr/nrmb;
         
         // check convergence
-        if (disc.common.linearSolverRelError < tol) {
+        if (state.linearSolverRelError < tol) {
             return j;
         }
     }       
     
-    if (disc.common.linearSolverRelError > tol) {
+    if (state.linearSolverRelError > tol) {
         if (disc.common.mpiRank==0) {
             printf("Warning: GMRES(%d) does not converge to the tolerance %g within % d iterations\n",nrest,tol,maxit);
-            printf("Warning: The current relative error is %g \n",disc.common.linearSolverRelError);
+            printf("Warning: The current relative error is %g \n",state.linearSolverRelError);
         }
     }
         
     return j;
 }
 
-void ApplyPoly(dstype *w, CDiscretization &disc, CPreconditioner& prec,
+template <class M>
+void ApplyPoly(dstype *w, CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& prec,
         sysstruct &sys, dstype *q, dstype *p, int N, Int spatialScheme, int backend)
 {
     int m = disc.common.ppdegree;
@@ -329,7 +332,7 @@ void ApplyPoly(dstype *w, CDiscretization &disc, CPreconditioner& prec,
     while (i<(m-1)) {
         if (si[i] == 0) {
            ArrayAXPBY(w, w, q, 1.0, 1.0/sr[i], N);                
-           disc.evalMatVec(p, q, sys.u, sys.b, spatialScheme, backend);      
+           assembler.evalMatVec(p, q, sys.u, sys.b, spatialScheme, backend);      
            prec.ApplyPreconditioner(p, sys, disc, spatialScheme, backend);
            ArrayAXPBY(q, q, p, 1.0, -1.0/sr[i], N);                   
            i = i + 1;            
@@ -338,12 +341,12 @@ void ApplyPoly(dstype *w, CDiscretization &disc, CPreconditioner& prec,
             a = sr[i];
             b = si[i];
             a2b2 = a*a + b*b;
-            disc.evalMatVec(p, q, sys.u, sys.b, spatialScheme, backend);   
+            assembler.evalMatVec(p, q, sys.u, sys.b, spatialScheme, backend);   
             prec.ApplyPreconditioner(p, sys, disc, spatialScheme, backend);
             ArrayAXPBY(p, q, p, 2*a, -1.0, N);      
             ArrayAXPBY(w, w, p, 1.0, 1.0/a2b2, N);                
            if ( i < (m - 2) ) {
-               disc.evalMatVec(p, p, sys.u, sys.b, spatialScheme, backend);      
+               assembler.evalMatVec(p, p, sys.u, sys.b, spatialScheme, backend);      
                prec.ApplyPreconditioner(p, sys, disc, spatialScheme, backend);
                ArrayAXPBY(q, q, p, 1.0, -1.0/a2b2, N);   
            }
@@ -354,15 +357,16 @@ void ApplyPoly(dstype *w, CDiscretization &disc, CPreconditioner& prec,
         ArrayAXPBY(w, w, q, 1.0, 1.0/sr[m-1], N);                  
 }
 
-Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int N, Int spatialScheme, Int backend)
+template <class M, class T, class I>
+I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc, CPreconditioner<M, T, I>& prec, Int N, Int spatialScheme, Int backend)
 {
     INIT_TIMING;    
     
     Int maxit, nrest, orthogMethod, n1, i, k, j = 0;
     dstype nrmb, nrmr, tol, scalar;
-    maxit = disc.common.linearSolverMaxIter;
-    nrest = disc.common.gmresRestart;
-    orthogMethod = disc.common.gmresOrthogMethod;
+    maxit = disc.common.solverparams.linearSolverMaxIter;
+    nrest = disc.common.solverparams.gmresRestart;
+    orthogMethod = disc.common.solverparams.gmresOrthogMethod;
     n1 = nrest + 1;
                 
     dstype *s, *y, *cs, *sn, *H;
@@ -379,7 +383,7 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int N, I
     
     // calculate Ritz values of polynomial preconditioner
     if  (disc.common.ppdegree > 1) {
-        getPoly(disc, prec, sys, sys.lam, sys.randvect, sys.ipiv, N, disc.common.ppdegree, spatialScheme, backend);        
+        getPoly(assembler, disc, prec, sys, sys.lam, sys.randvect, sys.ipiv, N, disc.common.ppdegree, spatialScheme, backend);        
         dstype lmin=1.0e10, lmax=-1.0e10, smax=0.0; 
         int m = disc.common.ppdegree;
         for (int i=0; i<m; i++) {
@@ -394,25 +398,25 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int N, I
         }        
     }    
     
-    nrmb = PNORM(disc.common.cublasHandle, N, disc.common.ndofuhatinterface, sys.b, backend);       
-    if (nrmb < disc.common.nonlinearSolverTol) {
+    nrmb = PNORM(disc.common.cublasHandle, N, disc.common.couplingparams.ndofuhatinterface, sys.b, backend);       
+    if (nrmb < disc.common.solverparams.nonlinearSolverTol) {
         ArraySetValue(sys.x, zero, N);
         return 0;
     }
-    scalar = PNORM(disc.common.cublasHandle, N, disc.common.ndofuhatinterface, sys.x, backend);      
+    scalar = PNORM(disc.common.cublasHandle, N, disc.common.couplingparams.ndofuhatinterface, sys.x, backend);      
     
     dstype alpha = spatialScheme == 0 ? minusone : one;
     if (scalar>1e-12) {
         // r = A*x
-        disc.evalMatVec(sys.r, sys.x, sys.u, sys.b, spatialScheme, backend);
+        assembler.evalMatVec(sys.r, sys.x, sys.u, sys.b, spatialScheme, backend);
         
         // compute the new RHS vector: r = -b - A*x
         ArrayAXPBY(sys.r, sys.b, sys.r, alpha, minusone, N);    
         
         // norm of the new RHS vector
-        nrmr = PNORM(disc.common.cublasHandle, N, disc.common.ndofuhatinterface, sys.r, backend);
+        nrmr = PNORM(disc.common.cublasHandle, N, disc.common.couplingparams.ndofuhatinterface, sys.r, backend);
         // if (disc.common.mpiProcs>1 && disc.common.spatialScheme==1) {
-        //   nrm = PNORM(disc.common.cublasHandle, disc.common.ncu*disc.common.npf*disc.common.ninterfacefaces, sys.b, backend);
+        //   nrm = PNORM(disc.common.cublasHandle, disc.common.components.ncu*disc.common.grid.npf*disc.common.couplingparams.ninterfacefaces, sys.b, backend);
         //   nrmr = sqrt(nrmr*nrmr - 0.5*nrm*nrm);
         // }                
     }
@@ -424,23 +428,23 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int N, I
     if (disc.common.mpiRank==0)
         cout<<"Old RHS Norm: "<<nrmb<<",  New RHS Norm: "<<nrmr<<endl; 
     
-    disc.common.linearSolverTolFactor = nrmb/nrmr;
-    tol = min(0.1,disc.common.linearSolverTol*disc.common.linearSolverTolFactor);
+    state.linearSolverTolFactor = nrmb/nrmr;
+    tol = min(0.1,disc.common.solverparams.linearSolverTol*state.linearSolverTolFactor);
             
     // compute r = P*r
     if (disc.common.ppdegree>1) {
         prec.ApplyPreconditioner(sys.r, sys, disc, spatialScheme, backend);
-        ApplyPoly(sys.r, disc, prec, sys, sys.q, sys.p, N, spatialScheme, backend);    
+        ApplyPoly(sys.r, assembler, disc, prec, sys, sys.q, sys.p, N, spatialScheme, backend);    
     }
-    else if (disc.common.RBcurrentdim>=0) {
+    else if (state.RBcurrentdim>=0) {
         prec.ApplyPreconditioner(sys.r, sys, disc, spatialScheme, backend);
     }
     
     // compute ||r||
-    nrmb = PNORM(disc.common.cublasHandle, N, disc.common.ndofuhatinterface, sys.r, backend);    
+    nrmb = PNORM(disc.common.cublasHandle, N, disc.common.couplingparams.ndofuhatinterface, sys.r, backend);    
     nrmr = nrmb;
                 
-    //printf("%d %d %d %d %g\n", N, disc.common.nf, disc.common.ne, disc.common.ninterfacefaces, nrmr);
+    //printf("%d %d %d %d %g\n", N, disc.common.meshsizes.nf, disc.common.meshsizes.ne, disc.common.couplingparams.ninterfacefaces, nrmr);
     
     j = 0;
     while (j < maxit) {
@@ -458,7 +462,7 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int N, I
             begin = chrono::high_resolution_clock::now();   
 
             // compute v[m] = A*v[i]
-            disc.evalMatVec(&sys.v[m*N], &sys.v[i*N], sys.u, sys.b, spatialScheme, backend);                        
+            assembler.evalMatVec(&sys.v[m*N], &sys.v[i*N], sys.u, sys.b, spatialScheme, backend);                        
             
 #ifdef HAVE_CUDA
     cudaDeviceSynchronize();
@@ -476,9 +480,9 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int N, I
             // compute v[m] = P*v[m]
             if (disc.common.ppdegree>1) {
                 prec.ApplyPreconditioner(&sys.v[m*N], sys, disc, spatialScheme, backend);   
-                ApplyPoly(&sys.v[m*N], disc, prec, sys, sys.q, sys.p, N, spatialScheme, backend);
+                ApplyPoly(&sys.v[m*N], assembler, disc, prec, sys, sys.q, sys.p, N, spatialScheme, backend);
             }
-            else if (disc.common.RBcurrentdim>=0) {
+            else if (state.RBcurrentdim>=0) {
                 prec.ApplyPreconditioner(&sys.v[m*N], sys, disc, spatialScheme, backend);   
             }
             
@@ -497,7 +501,7 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int N, I
             begin = chrono::high_resolution_clock::now();   
             //CGS(disc.common.cublasHandle, sys.v, &H[n1*i], y, N, m, backend);
             if (orthogMethod == 0)
-                MGS(disc.common.cublasHandle, sys.v, &H[n1*i], N, m, disc.common.ndofuhatinterface, backend);
+                MGS(disc.common.cublasHandle, sys.v, &H[n1*i], N, m, disc.common.couplingparams.ndofuhatinterface, backend);
                 //MGS(disc.common.cublasHandle, sys.v, &H[n1*i], N, m, backend);
             else
                 CGS(disc.common.cublasHandle, sys.v, &H[n1*i], y, N, m, backend);
@@ -518,7 +522,7 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int N, I
             cpuApplyGivensRotation(&H[n1*i], s, cs, sn, i);
             
             // compute relative error
-            disc.common.linearSolverRelError = fabs(s[i+1])/nrmb;           
+            state.linearSolverRelError = fabs(s[i+1])/nrmb;           
 
 #ifdef HAVE_CUDA
     cudaDeviceSynchronize();
@@ -528,12 +532,12 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int N, I
     hipDeviceSynchronize();
 #endif
             
-            //cout<<i<<"  "<<j<<"  "<<disc.common.linearSolverRelError<<endl;                         
+            //cout<<i<<"  "<<j<<"  "<<state.linearSolverRelError<<endl;                         
             end = chrono::high_resolution_clock::now();   
             tm[3] += chrono::duration_cast<chrono::nanoseconds>(end-begin).count()/1e6;                                
                         
             // check convergence and update solution: x = x + v*y
-            if (disc.common.linearSolverRelError < tol) {                
+            if (state.linearSolverRelError < tol) {                
               UpdateSolution(disc.common.cublasHandle, sys.x, y, H, s, sys.v, i, N, n1, backend);                
               if (disc.common.mpiRank==0) {
                 printf("Matrix-vector product time: %g miliseconds\n", tm[0]);
@@ -549,7 +553,7 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int N, I
         UpdateSolution(disc.common.cublasHandle, sys.x, y, H, s, sys.v, i-1, N, n1, backend);
                
         // compute r = A*x
-        disc.evalMatVec(sys.r, sys.x, sys.u, sys.b, spatialScheme, backend);
+        assembler.evalMatVec(sys.r, sys.x, sys.u, sys.b, spatialScheme, backend);
                 
         // r = -b - A*x
         ArrayAXPBY(sys.r, sys.b, sys.r, alpha, minusone, N);
@@ -557,18 +561,18 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int N, I
         // r = P*r = P*(-b-A*x)
         if (disc.common.ppdegree>1) {
             prec.ApplyPreconditioner(sys.r, sys, disc, spatialScheme, backend);            
-            ApplyPoly(sys.r, disc, prec, sys, sys.q, sys.p, N, spatialScheme, backend);
+            ApplyPoly(sys.r, assembler, disc, prec, sys, sys.q, sys.p, N, spatialScheme, backend);
         }
-        else if (disc.common.RBcurrentdim>=0) {
+        else if (state.RBcurrentdim>=0) {
             prec.ApplyPreconditioner(sys.r, sys, disc, spatialScheme, backend);            
         }
         
         // compute relative error
-        nrmr = PNORM(disc.common.cublasHandle, N, disc.common.ndofuhatinterface, sys.r, backend);
-        disc.common.linearSolverRelError = nrmr/nrmb;
+        nrmr = PNORM(disc.common.cublasHandle, N, disc.common.couplingparams.ndofuhatinterface, sys.r, backend);
+        state.linearSolverRelError = nrmr/nrmb;
         
         // check convergence
-        if (disc.common.linearSolverRelError < tol) {
+        if (state.linearSolverRelError < tol) {
           if (disc.common.mpiRank==0) {
             printf("Matrix-vector product time: %g miliseconds\n", tm[0]);
             printf("Applying preconditioner time: %g miliseconds\n", tm[1]);
@@ -579,14 +583,14 @@ Int GMRES(sysstruct &sys, CDiscretization &disc, CPreconditioner& prec, Int N, I
         }
     }       
     
-    if (disc.common.linearSolverRelError > tol) {
+    if (state.linearSolverRelError > tol) {
         if (disc.common.mpiRank==0) {
             printf("Matrix-vector product time: %g miliseconds\n", tm[0]);
             printf("Applying preconditioner time: %g miliseconds\n", tm[1]);
             printf("Orthgonalization time: %g miliseconds\n", tm[2]);    
             printf("Solution update time: %g miliseconds\n", tm[3]);          
             printf("Warning: GMRES(%d) does not converge to the tolerance %g within % d iterations\n",nrest,tol,maxit);
-            printf("Warning: The current relative error is %g \n",disc.common.linearSolverRelError);
+            printf("Warning: The current relative error is %g \n",state.linearSolverRelError);
         }
     }
         

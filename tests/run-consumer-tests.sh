@@ -107,6 +107,24 @@ for dir in "$REPO"/tests/consumers/*/; do
         echo "  FAIL[B5]: saveParaview enabled (nsca+nvec+nten>0) but no outvis*.vtu/.pvtu written"; fail=1
       fi
     fi
+  else
+    # B4-self: no pdeapp.txt -> the consumer is a self-checking executable that
+    # builds its own fixture in memory and returns 0 on success / nonzero on
+    # failure (e.g. tests/consumers/operators exercises the in-memory operator
+    # export + HDG residual/assembly). Run it directly, with no args, so CI
+    # covers paths that have no datain/pdeapp fixture. EXASIM_DATA_DIR points at
+    # the installed master/gauss node data (share/exasim). A consumer whose
+    # main() trivially returns 0 (e.g. an install-layout check) passes harmlessly.
+    exe="$(find "$bdir" -maxdepth 1 -type f -perm -u+x ! -name '*.cmake' | head -1)"
+    if [ -n "$exe" ]; then
+      rdir="/tmp/consumer_${name}_run"; rm -rf "$rdir"; mkdir -p "$rdir"
+      if ( cd "$rdir" && EXASIM_DATA_DIR="$INSTALL_PREFIX/share/exasim" "$exe" > run.log 2>&1 ); then
+        echo "  [B4-self] self-check run ok"
+      else
+        echo "  FAIL[B4-self]: $name returned nonzero (see $rdir/run.log)"
+        sed 's/^/  | /' "$rdir/run.log"; fail=1
+      fi
+    fi
   fi
 done
 

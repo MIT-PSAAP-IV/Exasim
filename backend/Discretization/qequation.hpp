@@ -53,7 +53,7 @@
     - NumberToString: Converts numbers to strings.
 
   Debugging:
-    - If common.debugMode==1, intermediate matrices and solution vectors are written to binary files for inspection.
+    - If common.outputparams.debugMode==1, intermediate matrices and solution vectors are written to binary files for inspection.
 
   Notes:
     - The code is designed to work with both CPU and GPU backends.
@@ -63,17 +63,34 @@
 #ifndef __QEQUATION
 #define __QEQUATION
 
-template <class M>
-inline void qEquationElem(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
-{        
-    Int ncx = common.ncx;// number of compoments of (xdg) 
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int nge = common.nge; // number of gauss points on master element        
-    Int ne = common.ne; // number of elements in this subdomain
-    Int nbe = common.nbe1; // number of blocks for elements   
-    Int neb = common.neb; // maximum number of elements per block
+// Generic grow-if-needed allocation helper. Originally lived in qequation.cpp (and was used
+// across the discretization); restored here during the twin unification so its users (e.g.
+// CDiscretization) still see it after the .cpp twins were removed.
+template <typename T>
+inline void EnsureTemplateAllocation(T **data, Int &currentSize, Int requiredSize, Int backend)
+{
+    if (requiredSize <= 0)
+        return;
+
+    if ((*data == nullptr) || (currentSize != requiredSize)) {
+        TemplateFree(*data, backend);
+        TemplateMalloc(data, requiredSize, backend);
+        currentSize = requiredSize;
+    }
+}
+
+template <class T=dstype, class I=Int>
+inline void qEquationElem(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
+{
+    using dstype=T;        
+    Int ncx = common.components.ncx;// number of compoments of (xdg) 
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int nge = common.grid.nge; // number of gauss points on master element        
+    Int ne = common.meshsizes.ne; // number of elements in this subdomain
+    Int nbe = common.meshsizes.nbe1; // number of blocks for elements   
+    Int neb = common.meshsizes.neb; // maximum number of elements per block
 
     TemplateMalloc(&res.Mass2, npe*npe*ne, backend);
     TemplateMalloc(&res.Minv2, npe*npe*ne, backend);
@@ -143,7 +160,7 @@ inline void qEquationElem(solstruct &sol, resstruct &res, appstruct &app, master
         }
     }
 
-    if (common.debugMode==1) {
+    if (common.outputparams.debugMode==1) {
 
       std::string filename;
       if (common.mpiProcs==1)
@@ -162,11 +179,12 @@ inline void qEquationElem(solstruct &sol, resstruct &res, appstruct &app, master
 }
 
 // Calculate Rqf = <uhat, v dot n>_F for a given uhat
-template <class M>
-inline void qEquationFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
+template <class T=dstype, class I=Int>
+inline void qEquationFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, 
         Int nd, Int nfe, Int npe, Int npf, Int ngf, Int ncx, Int f1, Int f2, Int ib, Int backend)
-{        
+{
+    using dstype=T;        
     Int nf = f2-f1;
     Int nga = ngf*nf;   
     Int n1 = nga*ncx;                           // nlg
@@ -183,7 +201,7 @@ inline void qEquationFaceBlock(solstruct &sol, resstruct &res, appstruct &app, m
     }
     else if (nd==2) {
       dstype *Ex = res.E;
-      dstype *Ey = &res.E[npe*npf*nfe*common.ne];
+      dstype *Ey = &res.E[npe*npf*nfe*common.meshsizes.ne];
 
       ArrayAXY(tmp.tempg, nlg, jac, one, nga);
       Gauss2Node(handle, Etmp, tmp.tempg, master.shapfgwdotshapfg, ngf, npf*npf, nf, backend);
@@ -195,8 +213,8 @@ inline void qEquationFaceBlock(solstruct &sol, resstruct &res, appstruct &app, m
     }
     else if (nd==3) {
       dstype *Ex = res.E;
-      dstype *Ey = &res.E[npe*npf*nfe*common.ne];
-      dstype *Ez = &res.E[npe*npf*nfe*common.ne*2];
+      dstype *Ey = &res.E[npe*npf*nfe*common.meshsizes.ne];
+      dstype *Ez = &res.E[npe*npf*nfe*common.meshsizes.ne*2];
 
       ArrayAXY(tmp.tempg, nlg, jac, one, nga);
       Gauss2Node(handle, Etmp, tmp.tempg, master.shapfgwdotshapfg, ngf, npf*npf, nf, backend);
@@ -212,18 +230,19 @@ inline void qEquationFaceBlock(solstruct &sol, resstruct &res, appstruct &app, m
     }        
 }
 
-template <class M>
-inline void qEquationFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
-{    
-    Int ncx = common.ncx;// number of compoments of (xdg)        
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int npf = common.npf; // number of nodes on master face           
-    Int ngf = common.ngf; // number of gauss poInts on master face
-    Int nbf = common.nbf; // number of blocks for faces 
-    Int nfe = common.nfe; // number of faces per element
-    Int ne = common.ne; // number of elements in this subdomain
+template <class T=dstype, class I=Int>
+inline void qEquationFace(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
+{
+    using dstype=T;    
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int npf = common.grid.npf; // number of nodes on master face           
+    Int ngf = common.grid.ngf; // number of gauss poInts on master face
+    Int nbf = common.meshsizes.nbf; // number of blocks for faces 
+    Int nfe = common.meshsizes.nfe; // number of faces per element
+    Int ne = common.meshsizes.ne; // number of elements in this subdomain
 
     TemplateMalloc(&res.E, npe*npf*nfe*ne*nd, backend);         
     ArraySetValue(res.E, zero, npe*npf*nfe*ne*nd);
@@ -234,21 +253,22 @@ inline void qEquationFace(solstruct &sol, resstruct &res, appstruct &app, master
         Int f2 = common.fblks[3*j+1];    
         Int ib = common.fblks[3*j+2];    
         std::cout<<f1<<" "<<f2<<" "<<ib<<std::endl;
-        qEquationFaceBlock<M>(sol, res, app, master, mesh, tmp, common, handle, 
+        qEquationFaceBlock(sol, res, app, master, mesh, tmp, common, handle, 
                 nd, nfe, npe, npf, ngf, ncx, f1, f2, ib, backend);
     }                       
 
-    if (common.debugMode==1) {
-      writearray2file(common.fileout + "qEquationFace_E.bin", res.E, npe*npf*nfe*nd*common.ne, backend);  
+    if (common.outputparams.debugMode==1) {
+      writearray2file(common.fileout + "qEquationFace_E.bin", res.E, npe*npf*nfe*nd*common.meshsizes.ne, backend);  
     }    
 }
 
 // Calculate Rqf = <uhat, v dot n>_F for a given uhat
-template <class M>
-inline void qEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
+template <class T=dstype, class I=Int>
+inline void qEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, 
         Int nd, Int nfe, Int npe, Int npf, Int ngf, Int ncx, Int e1, Int e2, Int backend)
-{          
+{
+    using dstype=T;          
     Int ns = e2-e1;
     Int nga = ngf*nfe*ns;   
     Int n1 = nga*ncx;                           // nlg
@@ -275,7 +295,7 @@ inline void qEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
     }
     else if (nd==2) {
       dstype *Ex = res.E;
-      dstype *Ey = &res.E[npe*npf*nfe*common.ne];
+      dstype *Ey = &res.E[npe*npf*nfe*common.meshsizes.ne];
 
       ArrayAXY(tmp.tempg, nlg, jac, one, nga);
       Gauss2Node(handle, Etmp, tmp.tempg, master.shapfgwdotshapfg, ngf, npf*npf, nfe*ns, backend);
@@ -291,8 +311,8 @@ inline void qEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
     }
     else if (nd==3) {
       dstype *Ex = res.E;
-      dstype *Ey = &res.E[npe*npf*nfe*common.ne];
-      dstype *Ez = &res.E[npe*npf*nfe*common.ne*2];
+      dstype *Ey = &res.E[npe*npf*nfe*common.meshsizes.ne];
+      dstype *Ez = &res.E[npe*npf*nfe*common.meshsizes.ne*2];
 
       ArrayAXY(tmp.tempg, nlg, jac, one, nga);
       Gauss2Node(handle, Etmp, tmp.tempg, master.shapfgwdotshapfg, ngf, npf*npf, nfe*ns, backend);
@@ -317,18 +337,19 @@ inline void qEquationElemFaceBlock(solstruct &sol, resstruct &res, appstruct &ap
     TemplateFree(Etmp, backend);
 }
 
-template <class M>
-inline void qEquationElemFace(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
-{    
-    Int ncx = common.ncx;// number of compoments of (xdg)        
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int npf = common.npf; // number of nodes on master face           
-    Int ngf = common.ngf; // number of gauss poInts on master face
-    Int nbe = common.nbe1; // number of blocks for elements 
-    Int nfe = common.nfe; // number of faces per element
-    Int ne = common.ne; // number of elements in this subdomain
+template <class T=dstype, class I=Int>
+inline void qEquationElemFace(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
+{
+    using dstype=T;    
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int npf = common.grid.npf; // number of nodes on master face           
+    Int ngf = common.grid.ngf; // number of gauss poInts on master face
+    Int nbe = common.meshsizes.nbe1; // number of blocks for elements 
+    Int nfe = common.meshsizes.nfe; // number of faces per element
+    Int ne = common.meshsizes.ne; // number of elements in this subdomain
 
     TemplateMalloc(&res.E, npe*npf*nfe*ne*nd, backend);         
     ArraySetValue(res.E, zero, npe*npf*nfe*ne*nd);
@@ -338,47 +359,49 @@ inline void qEquationElemFace(solstruct &sol, resstruct &res, appstruct &app, ma
     {
         Int e1 = common.eblks[3*j]-1;
         Int e2 = common.eblks[3*j+1];
-        qEquationElemFaceBlock<M>(sol, res, app, master, mesh, tmp, common, handle, 
+        qEquationElemFaceBlock(sol, res, app, master, mesh, tmp, common, handle, 
                 nd, nfe, npe, npf, ngf, ncx, e1, e2, backend);
     }    
 
-    if (common.debugMode==1) {
+    if (common.outputparams.debugMode==1) {
       std::string filename;
       if (common.mpiProcs==1)
         filename = common.fileout;
       else
         filename = common.fileout + NumberToString(common.mpiRank);      
 
-      writearray2file(filename + "qEquationFace_E.bin", res.E, npe*npf*nfe*nd*common.ne, backend);  
+      writearray2file(filename + "qEquationFace_E.bin", res.E, npe*npf*nfe*nd*common.meshsizes.ne, backend);  
     }    
 }
 
-template <class M>
-inline void qEquation(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, Int backend)
+template <class T=dstype, class I=Int>
+inline void qEquation(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, Int backend)
 {
-    qEquationElem<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
-    qEquationElemFace<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);    
+    using dstype=T;
+    qEquationElem(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
+    qEquationElemFace(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);    
 }
 
-template <class M>
-inline void hdgGetQ(dstype *udg, dstype *uhat, solstruct &sol, resstruct &res, meshstruct &mesh, tempstruct &tmp, commonstruct &common, Int backend)
+template <class T=dstype, class I=Int>
+inline void hdgGetQ(T *udg, T *uhat, solstructT<T,I> &sol, resstructT<T,I> &res, meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, Int backend)
 {
-    Int nc = common.nc;// number of compoments of (udg)        
-    Int ncu = common.ncu; // number of compoments of (u)
-    Int ncq = common.ncq; // number of compoments of (q)
-    Int nd = common.nd;     // spatial dimension    
-    Int npe = common.npe; // number of nodes on master element
-    Int npf = common.npf; // number of nodes on master face           
-    //Int ngf = common.ngf; // number of gauss poInts on master face
-    Int nbe = common.nbe1; // number of blocks for elements 
-    Int nfe = common.nfe; // number of faces per element
-    Int ne = common.ne; // number of elements in this subdomain
+    using dstype=T;
+    Int nc = common.components.nc;// number of compoments of (udg)        
+    Int ncu = common.components.ncu; // number of compoments of (u)
+    Int ncq = common.components.ncq; // number of compoments of (q)
+    Int nd = common.grid.nd;     // spatial dimension    
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int npf = common.grid.npf; // number of nodes on master face           
+    //Int ngf = common.grid.ngf; // number of gauss poInts on master face
+    Int nbe = common.meshsizes.nbe1; // number of blocks for elements 
+    Int nfe = common.meshsizes.nfe; // number of faces per element
+    Int ne = common.meshsizes.ne; // number of elements in this subdomain
     Int ndf = npf*nfe; // number of dofs on a face
 
     dstype scalar = 1.0;
-    if (common.wave==1)
-        scalar = 1.0/common.dtfactor;    
+    if (common.timeparams.wave==1)
+        scalar = 1.0/common.timestate.dtfactor;    
     
     // Solve: dtfactor * M * q = C * u - E * uhat + M * s
     //        q = (1/dtfactor) * (Minv * C * u - Minv * E * uhat + s)
@@ -398,26 +421,26 @@ inline void hdgGetQ(dstype *udg, dstype *uhat, solstruct &sol, resstruct &res, m
       dstype *s = res.Rq;
       ArraySetValue(s, zero, npe*ncq*ns);
       
-      // print3darray(uhat, common.ncu, common.npf, common.nf);
-      //print3darray(uh, npf*nfe, common.ncu, ns);            
+      // print3darray(uhat, common.components.ncu, common.grid.npf, common.meshsizes.nf);
+      //print3darray(uh, npf*nfe, common.components.ncu, ns);            
       dstype *Cx = res.C;        
       dstype *Ex = res.E;              
       if (nd==1) {        
         PGEMNMStridedBached(common.cublasHandle, npe, ncu, npe, one, &Cx[npe*npe*e1], npe, u, npe, zero, q, npe, ns, backend);
         PGEMNMStridedBached(common.cublasHandle, npe, ncu, npf*nfe, minusone, &Ex[npe*npf*nfe*e1], npe, uh, ndf, one, q, npe, ns, backend);        
-        if (common.wave==1) {// get the source term due to the time derivative 
+        if (common.timeparams.wave==1) {// get the source term due to the time derivative 
           ArrayExtract(s, sol.sdg, npe, nc, ne, 0, npe, ncu, ncu+ncq, e1, e2);          
           ArrayAXPBY(q, q, s, scalar, scalar, npe*ncu*ns); // scalar*(q + s)                   
         }
         ArrayInsert(udg, q, npe, nc, ne, 0, npe, ncu, 2*ncu, e1, e2);
       }
       else if (nd==2) {        
-        dstype *Cy = &res.C[npe*npe*common.ne];
-        dstype *Ey = &res.E[npe*npf*nfe*common.ne];
+        dstype *Cy = &res.C[npe*npe*common.meshsizes.ne];
+        dstype *Ey = &res.E[npe*npf*nfe*common.meshsizes.ne];
         
         PGEMNMStridedBached(common.cublasHandle, npe, ncu, npe, one, &Cx[npe*npe*e1], npe, u, npe, zero, q, npe, ns, backend);
         PGEMNMStridedBached(common.cublasHandle, npe, ncu, npf*nfe, minusone, &Ex[npe*npf*nfe*e1], npe, uh, ndf, one, q, npe, ns, backend);
-        if (common.wave==1) {
+        if (common.timeparams.wave==1) {
           ArrayExtract(s, sol.sdg, npe, nc, ne, 0, npe, ncu, 2*ncu, e1, e2);          
           ArrayAXPBY(q, q, s, scalar, scalar, npe*ncu*ns); // scalar*(q + s)
         }
@@ -425,22 +448,22 @@ inline void hdgGetQ(dstype *udg, dstype *uhat, solstruct &sol, resstruct &res, m
 
         PGEMNMStridedBached(common.cublasHandle, npe, ncu, npe, one, &Cy[npe*npe*e1], npe, u, npe, zero, q, npe, ns, backend);
         PGEMNMStridedBached(common.cublasHandle, npe, ncu, npf*nfe, minusone, &Ey[npe*npf*nfe*e1], npe, uh, ndf, one, q, npe, ns, backend);
-        if (common.wave==1) {
+        if (common.timeparams.wave==1) {
           ArrayExtract(s, sol.sdg, npe, nc, ne, 0, npe, 2*ncu, 3*ncu, e1, e2);          
           ArrayAXPBY(q, q, s, scalar, scalar, npe*ncu*ns); // scalar*(q + s)
         }
         ArrayInsert(udg, q, npe, nc, ne, 0, npe, 2*ncu, 3*ncu, e1, e2);
-        //print3darray(q, npe, common.ncu, ns);         
+        //print3darray(q, npe, common.components.ncu, ns);         
       }
       else if (nd==3) {
-        dstype *Cy = &res.C[npe*npe*common.ne];
-        dstype *Cz = &res.C[npe*npe*common.ne*2];
-        dstype *Ey = &res.E[npe*npf*nfe*common.ne];
-        dstype *Ez = &res.E[npe*npf*nfe*common.ne*2];
+        dstype *Cy = &res.C[npe*npe*common.meshsizes.ne];
+        dstype *Cz = &res.C[npe*npe*common.meshsizes.ne*2];
+        dstype *Ey = &res.E[npe*npf*nfe*common.meshsizes.ne];
+        dstype *Ez = &res.E[npe*npf*nfe*common.meshsizes.ne*2];
 
         PGEMNMStridedBached(common.cublasHandle, npe, ncu, npe, one, &Cx[npe*npe*e1], npe, u, npe, zero, q, npe, ns, backend);
         PGEMNMStridedBached(common.cublasHandle, npe, ncu, npf*nfe, minusone, &Ex[npe*npf*nfe*e1], npe, uh, ndf, one, q, npe, ns, backend);
-        if (common.wave==1) {
+        if (common.timeparams.wave==1) {
           ArrayExtract(s, sol.sdg, npe, nc, ne, 0, npe, ncu, 2*ncu, e1, e2);          
           ArrayAXPBY(q, q, s, scalar, scalar, npe*ncu*ns); // scalar*(q + s)
         }
@@ -448,7 +471,7 @@ inline void hdgGetQ(dstype *udg, dstype *uhat, solstruct &sol, resstruct &res, m
 
         PGEMNMStridedBached(common.cublasHandle, npe, ncu, npe, one, &Cy[npe*npe*e1], npe, u, npe, zero, q, npe, ns, backend);
         PGEMNMStridedBached(common.cublasHandle, npe, ncu, npf*nfe, minusone, &Ey[npe*npf*nfe*e1], npe, uh, ndf, one, q, npe, ns, backend);
-        if (common.wave==1) {
+        if (common.timeparams.wave==1) {
           ArrayExtract(s, sol.sdg, npe, nc, ne, 0, npe, 2*ncu, 3*ncu, e1, e2);          
           ArrayAXPBY(q, q, s, scalar, scalar, npe*ncu*ns); // scalar*(q + s)
         }
@@ -456,7 +479,7 @@ inline void hdgGetQ(dstype *udg, dstype *uhat, solstruct &sol, resstruct &res, m
 
         PGEMNMStridedBached(common.cublasHandle, npe, ncu, npe, one, &Cz[npe*npe*e1], npe, u, npe, zero, q, npe, ns, backend);                        
         PGEMNMStridedBached(common.cublasHandle, npe, ncu, npf*nfe, minusone, &Ez[npe*npf*nfe*e1], npe, uh, ndf, one, q, npe, ns, backend);
-        if (common.wave==1) {
+        if (common.timeparams.wave==1) {
           ArrayExtract(s, sol.sdg, npe, nc, ne, 0, npe, 3*ncu, 4*ncu, e1, e2);          
           ArrayAXPBY(q, q, s, scalar, scalar, npe*ncu*ns); // scalar*(q + s)
         }
@@ -464,15 +487,15 @@ inline void hdgGetQ(dstype *udg, dstype *uhat, solstruct &sol, resstruct &res, m
       }                
     }    
     
-    if (common.debugMode==1) {
+    if (common.outputparams.debugMode==1) {
       std::string filename;
       if (common.mpiProcs==1)
         filename = common.fileout;
       else
         filename = common.fileout + NumberToString(common.mpiRank);      
 
-      writearray2file(filename + "qEquation_uhat.bin", uhat, ncu*npf*common.nf, backend);  
-      writearray2file(filename + "qEquation_udg.bin", udg, npe*nc*common.ne, backend);  
+      writearray2file(filename + "qEquation_uhat.bin", uhat, ncu*npf*common.meshsizes.nf, backend);  
+      writearray2file(filename + "qEquation_udg.bin", udg, npe*nc*common.meshsizes.ne, backend);  
     }       
 }
 

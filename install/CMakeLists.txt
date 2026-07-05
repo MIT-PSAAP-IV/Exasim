@@ -21,6 +21,10 @@ set(EXASIM_INCLUDE_DIR ${EXASIM_DIR}/include)
 set(EXASIM_LIB_DIR ${CMAKE_BINARY_DIR}/lib)
 file(MAKE_DIRECTORY ${EXASIM_LIB_DIR})
 include_directories(${EXASIM_INCLUDE_DIR})
+# Repo root on the include path so the unified templated FEM headers (which include
+# <exasim/...> umbrellas that forward to <backend/Common/common.h>) resolve in the in-tree
+# build, matching how out-of-tree consumers see them.
+include_directories(${EXASIM_DIR})
 
 # ---- Runtime data location (replaces exasimpath for master/gauss node files) ----
 # Install the precomputed node data and bake its install location into the build
@@ -78,6 +82,40 @@ target_compile_features(ExasimHeaders INTERFACE cxx_std_20)
 target_include_directories(ExasimHeaders INTERFACE
   $<BUILD_INTERFACE:${EXASIM_INCLUDE_DIR}>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+
+# Scalar/index precision (common.h: dstype = float under USE_FLOAT else double; Int = long
+# under USE_LONG else int). Put these on the INTERFACE headers target so the library AND every
+# consumer AND the exported package all agree -- a mismatch here is a silent ABI break. A PETSc
+# consumer must match its PetscScalar/PetscInt (build PETSc --with-precision=single / 64-bit-indices).
+# EXPERIMENTAL / UNVERIFIED. The precision CONTRACT (dstype/Int threading + the INTERFACE defines
+# below, so the library, generated models, PETSc consumers and the exported package all agree) is
+# in place, but a full single-precision / 64-bit-index BUILD is NOT yet a verified configuration:
+# generated kernels, binary I/O, the PETSc shims and Text2Code assumptions still carry
+# double/int-default paths that have not been smoke-tested end to end (tracked as a follow-on
+# precision-hardening phase). Until then these are opt-in-at-your-own-risk, and the guard below
+# warns loudly so a consumer cannot silently ship against an unverified precision ABI.
+option(EXASIM_FLOAT "Single-precision dstype (float); EXPERIMENTAL/unverified, default double" OFF)
+option(EXASIM_INT64 "64-bit Int index type (long);   EXPERIMENTAL/unverified, default int"     OFF)
+if(EXASIM_FLOAT OR EXASIM_INT64)
+  message(WARNING
+    "EXASIM_FLOAT/EXASIM_INT64 are EXPERIMENTAL and NOT verified end to end: generated kernels, "
+    "binary I/O, the PETSc shims and Text2Code may still assume the default double/int path. Use "
+    "only for development -- do not ship a consumer built against a non-default Exasim precision "
+    "without your own end-to-end validation.")
+endif()
+if(EXASIM_FLOAT)
+  target_compile_definitions(ExasimHeaders INTERFACE USE_FLOAT)
+  set(_exasim_scalar "float")
+else()
+  set(_exasim_scalar "double")
+endif()
+if(EXASIM_INT64)
+  target_compile_definitions(ExasimHeaders INTERFACE USE_LONG)
+  set(_exasim_index "long")
+else()
+  set(_exasim_index "int")
+endif()
+message(STATUS "Exasim scalar/index       = ${_exasim_scalar} / ${_exasim_index}")
 
 # Exasim's main program is located here  
 set(EXASIM_MAIN_DIR ${EXASIM_DIR}/backend/Main)
@@ -223,13 +261,34 @@ elseif(EXASIM_HIP)
   find_package(Kokkos REQUIRED)
 else()
   if(NOT Kokkos_DIR)
-    find_package(Kokkos QUIET)
+    # Version floor: skip an old/broken system Kokkos (e.g. Debian's 3.7.01, whose
+    # package exports a bogus "/include") so the vendored 4.x is used instead.
+    find_package(Kokkos 4.0 QUIET)
   endif()
   if(NOT Kokkos_FOUND)
     if(NOT Kokkos_DIR)
       exasim_set_default_kokkos_dir(serial)
     endif()
     find_package(Kokkos REQUIRED)
+  endif()
+endif()
+
+# Defensive: drop any non-existent entry (e.g. a bogus "/include" from a badly
+# packaged Kokkos) from Kokkos::kokkos so CMake's generate step does not hard-fail
+# when it is linked (e.g. by the BuiltIn model library).
+if(TARGET Kokkos::kokkos)
+  get_target_property(_kk_inc Kokkos::kokkos INTERFACE_INCLUDE_DIRECTORIES)
+  if(_kk_inc)
+    set(_kk_inc_ok "")
+    foreach(_d IN LISTS _kk_inc)
+      if(EXISTS "${_d}")
+        list(APPEND _kk_inc_ok "${_d}")
+      else()
+        message(STATUS "Kokkos: dropping non-existent include dir '${_d}'")
+      endif()
+    endforeach()
+    set_target_properties(Kokkos::kokkos PROPERTIES
+      INTERFACE_INCLUDE_DIRECTORIES "${_kk_inc_ok}")
   endif()
 endif()
 
@@ -709,6 +768,27 @@ register_exasim_export_target(builtinmodelserial builtinmodelserial FALSE)
 register_exasim_export_target(builtinmodelcuda   builtinmodelcuda   FALSE)
 register_exasim_export_target(builtinmodelhip    builtinmodelhip    FALSE)
 
+# Optional PETSc shim (Layer 1): <exasim/petsc.hpp> factors the MatShell/PCShell/Vec/KSP glue.
+# Exported as Exasim::petsc ONLY when PETSc is found at Exasim build time. It's a lightweight
+# INTERFACE target (defines EXASIM_HAVE_PETSC + carries the header via ExasimHeaders); the
+# CONSUMER links its own PETSc (find_package(PkgConfig)+pkg_check_modules(PETSC)), so we never
+# export a dangling imported target or pin a particular PETSc build/precision. Core Exasim never
+# depends on PETSc.
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+  pkg_check_modules(EXASIM_PETSC QUIET petsc)
+endif()
+if(EXASIM_PETSC_FOUND)
+  add_library(ExasimPetsc INTERFACE)
+  add_library(Exasim::petsc ALIAS ExasimPetsc)
+  target_link_libraries(ExasimPetsc INTERFACE ExasimHeaders)
+  target_compile_definitions(ExasimPetsc INTERFACE EXASIM_HAVE_PETSC)
+  register_exasim_export_target(ExasimPetsc petsc FALSE)
+  message(STATUS "Exasim::petsc shim        = ENABLED (PETSc ${EXASIM_PETSC_VERSION})")
+else()
+  message(STATUS "Exasim::petsc shim        = disabled (no PETSc at build time)")
+endif()
+
 if(EXASIM_BUILD_SHARED_APP)
   set(_exasimapp_model_lib ${T2C_CPU_LIB})
   if(EXASIM_CUDA)
@@ -809,7 +889,11 @@ install(DIRECTORY ${EXASIM_INCLUDE_DIR}/
 # both <exasim/...> and backend/... .
 install(DIRECTORY ${EXASIM_DIR}/backend/
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/backend
-  FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp")
+  FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
+  # The templated consumer entry (exasim::run<M>) aggregates the FEM
+  # implementation .cpp directly (mirroring the ExasimSolver.cpp unity build)
+  # instead of the deleted per-class .hpp twins, so install the .cpp too.
+  PATTERN "*.cpp")
 
 # The templated path's discretization.hpp includes one model-driver
 # implementation (.cpp) selected by HAVE_TEXT2CODE / HAVE_BUILTINMODEL / else.

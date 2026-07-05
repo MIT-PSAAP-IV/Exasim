@@ -16,7 +16,7 @@
 // layout, so it stays narrow.
 
 #include <exasim/model.hpp>
-#include "my_model.hpp"
+#include "poisson2d.hpp"
 
 static_assert(exasim::is_model_v<Poisson2D>,
               "Poisson2D should satisfy the Exasim Model contract");

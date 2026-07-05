@@ -42,6 +42,11 @@
 #define __SOLUTION_H__
 
 #include "exasim/execution_mode.hpp"
+#include "../Discretization/assembler.h"
+#include "../Discretization/residualeval.h"
+#include "../Discretization/interfacesampler.h"
+#include "solutionwriter.h"
+#include "nonlinearsolver.h"
 
 // Common helper: open file and write 3-element header [a0, a1, a2]
 void open_and_write(std::ofstream& ofs,
@@ -67,16 +72,16 @@ void printinterfaceinfo(CDiscretization &disc)
     int nfacesend = disc.common.nfacesend;
     int nfacerecv = disc.common.nfacerecv;
         
-  //printf("%d %d %d %d %d %d %d %d\n", common.mpiRank, common.coupledboundarycondition, common.nintfaces, common.nfacerecv, common.nfacesend, common.ncie, common.ne, ncu12);
-    printf("coupled boundary condition: %d\n", disc.common.coupledboundarycondition);      
-    printf("coupled interface condition: %d\n", disc.common.coupledcondition);      
+  //printf("%d %d %d %d %d %d %d %d\n", common.mpiRank, common.couplingparams.coupledboundarycondition, common.couplingparams.nintfaces, common.nfacerecv, common.nfacesend, common.couplingparams.ncie, common.meshsizes.ne, ncu12);
+    printf("coupled boundary condition: %d\n", disc.common.couplingparams.coupledboundarycondition);      
+    printf("coupled interface condition: %d\n", disc.common.couplingparams.coupledcondition);      
     printf("szinterfacefluxmap: %d\n", disc.common.szinterfacefluxmap);      
     printf("number of neighboring interface subdomains: %d\n", nnbintf);      
     printf("number of faces to send: %d\n", nfacesend);
     printf("number of faces to receive: %d\n", nfacerecv);
-    printf("number of interior elements: %d\n", disc.common.ne0);
-    printf("number of interior+interface elements: %d\n", disc.common.ne1);
-    printf("number of interior+interface+exterior elements: %d\n", disc.common.ne);
+    printf("number of interior elements: %d\n", disc.common.meshsizes.ne0);
+    printf("number of interior+interface elements: %d\n", disc.common.meshsizes.ne1);
+    printf("number of interior+interface+exterior elements: %d\n", disc.common.meshsizes.ne);
   
     printf("nbintf array: %d by %d\n", 1, nnbintf);  
     print2iarray(disc.common.nbintf, 1, nnbintf);   
@@ -93,20 +98,26 @@ void printinterfaceinfo(CDiscretization &disc)
     print2iarray(disc.app.interfacefluxmap, 1, disc.common.szinterfacefluxmap);     
     printf("faceperm array: %d by %d\n", 1, disc.mesh.szfaceperm);  
     print2iarray(disc.mesh.faceperm, 1, disc.mesh.szfaceperm);     
-    printf("intfaces array: %d by %d\n", 1, disc.common.nintfaces);  
-    print2iarray(disc.mesh.intfaces, 1, disc.common.nintfaces);     
-    printf("bf array: %d by %d\n", disc.common.nfe, disc.common.ne);  
-    print2iarray(disc.mesh.bf, disc.common.nfe, disc.common.ne);     
-    printf("eblks array: %d by %d\n", 3, disc.common.nbe);  
-    print2iarray(disc.common.eblks, 3, disc.common.nbe);    
-    printf("xdgint array: %d by %d\n", disc.common.npf, disc.common.nintfaces*disc.common.ncx);  
-    print2darray(disc.sol.xdgint, disc.common.npf, disc.common.nintfaces*disc.common.ncx);                      
-    printf("xdg array: %d by %d\n", disc.common.npe, disc.common.ne*disc.common.ncx);  
-    print2darray(disc.sol.xdg, disc.common.npe, disc.common.ne*disc.common.ncx);                      
-    // printf("udg array: %d by %d\n", disc.common.npe, disc.common.ne*disc.common.nc);  
-    // print2darray(disc.sol.udg, disc.common.npe, disc.common.ne*disc.common.nc);                      
+    printf("intfaces array: %d by %d\n", 1, disc.common.couplingparams.nintfaces);  
+    print2iarray(disc.mesh.intfaces, 1, disc.common.couplingparams.nintfaces);     
+    printf("bf array: %d by %d\n", disc.common.meshsizes.nfe, disc.common.meshsizes.ne);  
+    print2iarray(disc.mesh.bf, disc.common.meshsizes.nfe, disc.common.meshsizes.ne);     
+    printf("eblks array: %d by %d\n", 3, disc.common.meshsizes.nbe);  
+    print2iarray(disc.common.eblks, 3, disc.common.meshsizes.nbe);    
+    printf("xdgint array: %d by %d\n", disc.common.grid.npf, disc.common.couplingparams.nintfaces*disc.common.components.ncx);  
+    print2darray(disc.sol.xdgint, disc.common.grid.npf, disc.common.couplingparams.nintfaces*disc.common.components.ncx);                      
+    printf("xdg array: %d by %d\n", disc.common.grid.npe, disc.common.meshsizes.ne*disc.common.components.ncx);  
+    print2darray(disc.sol.xdg, disc.common.grid.npe, disc.common.meshsizes.ne*disc.common.components.ncx);                      
+    // printf("udg array: %d by %d\n", disc.common.grid.npe, disc.common.meshsizes.ne*disc.common.components.nc);  
+    // print2darray(disc.sol.udg, disc.common.grid.npe, disc.common.meshsizes.ne*disc.common.components.nc);                      
 }
 
+// Templated on the user Model type M (default = AbiAdapter, the runtime-ABI build). This is the
+// top of the model-dependent FEM stack: it owns the model-parameterized pieces by value, so M
+// threads from here (or from the header facade's run<M>()) down to every model call. For
+// M=AbiAdapter the build is byte-identical to the non-templated original; a concrete M makes the
+// solve fully inlined with no driver_abi. disc/sampler/vis are model-free and stay non-templated.
+template <class M>
 class CSolution {
 private:
     struct PDEStateSnapshot {
@@ -119,20 +130,16 @@ private:
 
     PDEStateSnapshot snapshot;
 public:
-    CDiscretization disc;  // spatial discretization class
-    CPreconditioner prec;  // precondtioner class 
-    CSolver solv;          // linear and nonlinear solvers
+    CDiscretization disc;  // spatial discretization class (the function space)
+    CResidual<M> residual;    // the discretized PDE residual R(u)/flux q (evaluates from disc)
+    CAssembler<M> assembler;  // HDG global linear-system assembler + operator-apply (from disc)
+    CInterfaceSampler sampler; // interface/boundary field sampling for coupling (from disc)
+    CPreconditioner<M> prec;  // precondtioner class
+    CSolver<M> solv;          // linear and nonlinear solvers
     CVisualization vis;    // visualization class
-    ofstream outsol;       // storing solutions
-    ofstream outwdg;  
-    ofstream outuhat;  
-    ofstream outbouxdg;  
-    ofstream outboundg;  
-    ofstream outbouudg;  
-    ofstream outbouwdg;  
-    ofstream outbouuhat;  
-    ofstream outqoi;
-    
+    CSolutionWriter<M> writer; // solution output (streams + Save*/Read*/Get*/evalOutput) -- the I/O half
+    CNonlinearSolver<M> nonlinear; // PTC/Newton nonlinear iterations -- the nonlinear-solver half
+
     // constructor 
     CSolution(string filein, string fileout, string exasimpath, Int mpiprocs,
               Int mpirank, Int fileoffset, Int omprank, Int backend,
@@ -145,209 +152,61 @@ public:
        : disc(filein, fileout, exasimpath, mpiprocs, mpirank, fileoffset,
               omprank, backend, builtinmodelID, abi, nsca, nvec, nten, nsurf, nvqoi, mode,
               physicsparamOverride, saveParaview),
-         prec(disc, backend, mode), solv(disc, backend, mode), vis(disc, backend) 
-    {   
-        int ncx = disc.common.ncx;                            
-        int nd = disc.common.nd;     
-        int ncu = disc.common.ncu;     
-        int nc = (disc.common.saveSolOpt==0) ? disc.common.ncu : disc.common.nc;        
-        int ncw = disc.common.ncw;
-        int npe = disc.common.npe;
-        int npf = disc.common.npf;
-        int ne = disc.common.ne1;     
-        int nf = disc.common.nf;     
-        int rank = disc.common.mpiRank;
-        int offset = disc.common.fileoffset;
-        std::string base = disc.common.fileout;
-
-        if ((disc.common.nintfaces > 0) && (disc.common.coupledcondition>0)) disc.common.ne0 = disc.common.intepartpts[0];
-
-        //this->ReadSolutions(backend);
-        // for (int k = 0; k<mpiprocs; k++) {
-        //   MPI_Barrier(MPI_COMM_WORLD);
-        //   if (k==rank) {
-        //     cout<<rank<<endl;
-        //     printinterfaceinfo(disc);
-        //     cout<<rank<<endl;
-        //   }
-        //   MPI_Barrier(MPI_COMM_WORLD);
-        // }                 
-
-        if (mpirank==0 && (disc.common.nvqoi > 0 || disc.common.nsurf > 0)) {
-            outqoi.open(base + "qoi.txt", std::ios::out);                         
-            outqoi << std::setw(16) << std::left << "Time";
-            for (size_t i = 0; i < disc.common.nvqoi; ++i) {                
-                outqoi << std::setw(16) << std::left << "Domain_QoI" + std::to_string(i + 1);
-            }
-            for (size_t i = 0; i < disc.common.nsurf; ++i) {                
-                outqoi << std::setw(16) << std::left << "Boundary_QoI" + std::to_string(i + 1);
-            }
-            outqoi << "\n";
-        }
+         residual(disc), assembler(disc), sampler(disc),
+         prec(disc, backend, mode), solv(disc, backend, mode), vis(disc, backend),
+         writer(disc, residual, vis, solv),
+         nonlinear(disc, residual, assembler, prec, solv, writer)
+    {
+        if ((disc.common.couplingparams.nintfaces > 0) && (disc.common.couplingparams.coupledcondition>0)) disc.common.meshsizes.ne0 = disc.common.intepartpts[0];
 
         const bool postprocessOnly = (mode == ExasimExecutionMode::Postprocess);
 
-        if (!postprocessOnly) {
-            open_and_write(outsol, "udg_np", rank, offset, npe, nc, ne, base);
+        // The operator initializes its own solution: first the model initial conditions (layer A,
+        // fields the reader could not supply), then recover the operator state (q / uh / q-matrices)
+        // from that initialized u -- before the initial solution is written. Both were in the
+        // discretization constructor; they belong to the operator (CResidual), not the function space.
+        residual.initializeSolution();
+        residual.recoverInitialState(backend, postprocessOnly);
 
-            if (ncw > 0) {
-                open_and_write(outwdg, "wdg_np", rank, offset, npe, ncw, ne, base);
-            }
+        // Open the output streams and write the initial solution (the I/O half lives on the writer).
+        writer.setup(postprocessOnly);
+    };
 
-            if (disc.common.spatialScheme==1) {
-                open_and_write(outuhat, "uhat_np", rank, offset, ncu, npf, nf, base);
-            }
+    // No-ABI constructor (C3): the concrete-model build (M != AbiAdapter) has no runtime ABI -- the
+    // solve is fully inlined through the templated exasim::Name<M> kernels. Matches run.hpp /
+    // solver_facade.hpp's 9-arg call; delegates to the ABI constructor with a default (all-null) ABI
+    // (its fn-pointers are only dereferenced by the discarded AbiAdapter branch, never for concrete M).
+    CSolution(string filein, string fileout, string exasimpath, Int mpiprocs,
+              Int mpirank, Int fileoffset, Int omprank, Int backend, Int builtinmodelID)
+        : CSolution(filein, fileout, exasimpath, mpiprocs, mpirank, fileoffset, omprank,
+                    backend, builtinmodelID, ExasimDriverABI{}) {}
 
-            if ( disc.common.saveSolBouFreq>0 ) {
-                Int nfbou = 0;
-                for (Int j=0; j<disc.common.nbf; j++) {
-                    Int f1 = disc.common.fblks[3*j]-1;
-                    Int f2 = disc.common.fblks[3*j+1];
-                    Int ib = disc.common.fblks[3*j+2];
-                    if (ib == disc.common.ibs) {
-                        Int nf = f2-f1;
-                        nfbou += nf;
-                    }
-                }
 
-                open_and_write(outbouxdg, "bouxdg_np", rank, offset, npf, nfbou, ncx, base);
-                open_and_write(outboundg, "boundg_np", rank, offset, npf, nfbou, nd, base);
-                open_and_write(outbouudg, "bouudg_np", rank, offset, npf, nfbou, disc.common.nc, base);
-                open_and_write(outbouuhat, "bouuhat_np", rank, offset, npf, nfbou, ncu, base);
-                if (ncw > 0) open_and_write(outbouwdg, "bouwdg_np", rank, offset, npf, nfbou, ncw, base);
-            }
-        }
-        
-        // if (!outsol) error("Unable to open file " + filename);        
-//           disc.common.printinfo();
-//           disc.app.printinfo();
-//           disc.res.printinfo();
-//           disc.tmp.printinfo();
-//           disc.sol.printinfo();
-//           disc.mesh.printinfo();
-//           disc.master.printinfo();       
-//           prec.precond.printinfo();
-//           solv.sys.printinfo();
-//           error("here");
-    };        
-    
-    // destructor        
-    ~CSolution() { 
+    // destructor (output streams are owned by, and closed by, the writer)
+    ~CSolution() {
         this->ClearSavedState();
-        if (outsol.is_open()) { outsol.close(); }
-        if (outwdg.is_open()) { outwdg.close(); }
-        if (outuhat.is_open()) { outuhat.close(); }
-        if (outbouxdg.is_open()) { outbouxdg.close(); }
-        if (outboundg.is_open()) { outboundg.close(); }
-        if (outbouudg.is_open()) { outbouudg.close(); }
-        if (outbouwdg.is_open()) { outbouwdg.close(); }
-        if (outbouuhat.is_open()) { outbouuhat.close(); }
-        if (outqoi.is_open()) { outqoi.close(); }
-    }; 
-    
-    void SteadyProblem(ofstream &out, Int backend);    
+    };
 
-    void SteadyProblem_PTC(ofstream &out, Int backend);    
-                                    
-    void DIRK(ofstream &out, Int backend);    
-    
+    void SteadyProblem(ofstream &out, Int backend);
+
+    void SteadyProblem_PTC(ofstream &out, Int backend);
+
+    // (evalMonitor / evalOutput / SaveSolutions / SaveQoI / SaveParaview / SaveSolutionsOnBoundary /
+    //  SaveNodesOnBoundary / ResetOutputFiles / ReadSolutions / GetSolutions / SaveOutputCG moved to
+    //  CSolutionWriter -- call them via the `writer` member)
+
+    void DIRK(ofstream &out, Int backend);
+
     // precompute some quantities
-    void InitSolution(Int backend);    
-        
-    void SolveProblem(ofstream &out, Int backend);    
-        
-    // save solutions in binary files
-    void SaveSolutions(Int backend);    
+    void InitSolution(Int backend);
 
-    void SaveQoI(Int backend);    
-
-    // save fields in VTU files
-    void SaveParaview(Int backend, std::string fname_modifier = "", bool force_tdep_write = false);    
-    
-    // save solutions in binary files
-    void SaveSolutionsOnBoundary(Int backend);    
-    
-    // save solutions in binary files
-    void SaveNodesOnBoundary(Int backend);    
-
-    void ResetOutputFiles(const std::string& fileout)
-    {
-        if (outsol.is_open()) { outsol.close(); }
-        if (outwdg.is_open()) { outwdg.close(); }
-        if (outuhat.is_open()) { outuhat.close(); }
-        if (outbouxdg.is_open()) { outbouxdg.close(); }
-        if (outboundg.is_open()) { outboundg.close(); }
-        if (outbouudg.is_open()) { outbouudg.close(); }
-        if (outbouwdg.is_open()) { outbouwdg.close(); }
-        if (outbouuhat.is_open()) { outbouuhat.close(); }
-        if (outqoi.is_open()) { outqoi.close(); }
-
-        disc.common.fileout = fileout;
-
-        int ncx = disc.common.ncx;
-        int nd = disc.common.nd;
-        int ncu = disc.common.ncu;
-        int nc = (disc.common.saveSolOpt==0) ? disc.common.ncu : disc.common.nc;
-        int ncw = disc.common.ncw;
-        int npe = disc.common.npe;
-        int npf = disc.common.npf;
-        int ne = disc.common.ne1;
-        int nf = disc.common.nf;
-        int rank = disc.common.mpiRank;
-        int offset = disc.common.fileoffset;
-
-        if (rank==0 && (disc.common.nvqoi > 0 || disc.common.nsurf > 0)) {
-            outqoi.open(fileout + "qoi.txt", std::ios::out);
-            outqoi << std::setw(16) << std::left << "Time";
-            for (size_t i = 0; i < disc.common.nvqoi; ++i)
-                outqoi << std::setw(16) << std::left << "Domain_QoI" + std::to_string(i + 1);
-            for (size_t i = 0; i < disc.common.nsurf; ++i)
-                outqoi << std::setw(16) << std::left << "Boundary_QoI" + std::to_string(i + 1);
-            outqoi << "\n";
-        }
-
-        open_and_write(outsol, "udg_np", rank, offset, npe, nc, ne, fileout);
-
-        if (ncw > 0)
-            open_and_write(outwdg, "wdg_np", rank, offset, npe, ncw, ne, fileout);
-
-        if (disc.common.spatialScheme==1)
-            open_and_write(outuhat, "uhat_np", rank, offset, ncu, npf, nf, fileout);
-
-        if (disc.common.saveSolBouFreq>0) {
-            Int nfbou = 0;
-            for (Int j=0; j<disc.common.nbf; j++) {
-                Int f1 = disc.common.fblks[3*j]-1;
-                Int f2 = disc.common.fblks[3*j+1];
-                Int ib = disc.common.fblks[3*j+2];
-                if (ib == disc.common.ibs)
-                    nfbou += f2-f1;
-            }
-
-            open_and_write(outbouxdg, "bouxdg_np", rank, offset, npf, nfbou, ncx, fileout);
-            open_and_write(outboundg, "boundg_np", rank, offset, npf, nfbou, nd, fileout);
-            open_and_write(outbouudg, "bouudg_np", rank, offset, npf, nfbou, disc.common.nc, fileout);
-            open_and_write(outbouuhat, "bouuhat_np", rank, offset, npf, nfbou, ncu, fileout);
-            if (ncw > 0)
-                open_and_write(outbouwdg, "bouwdg_np", rank, offset, npf, nfbou, ncw, fileout);
-        }
-    }
-    
-    // read solutions from binary files
-    void ReadSolutions(Int backend);        
-
-    // read a saved solution record from the appended solution files
-    void GetSolutions(Int step, Int backend);
-        
-    // save output in binary files
-    void SaveOutputCG(Int backend);   
+    void SolveProblem(ofstream &out, Int backend);
 
     void SaveState();
     void RestoreState();
     void ClearSavedState();
 
-    Int PTCsolver(ofstream &out, Int backend);
-    Int NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int backend);       
+    // (PTCsolver / NewtonSolver moved to CNonlinearSolver -- call via the `nonlinear` member)
 };
 
 #endif        

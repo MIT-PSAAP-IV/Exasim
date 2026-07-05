@@ -46,9 +46,10 @@
 #ifndef __GETUHAT
 #define __GETUHAT
 
-template <class M>
+template <class M, class T=dstype, class I=Int>
 inline bool isin(Int ib, Int *a, Int n)
 {
+    using dstype=T;
     bool in = false;
     for (int i=0; i<n; i++) {        
         if (ib == a[i]) {
@@ -60,12 +61,13 @@ inline bool isin(Int ib, Int *a, Int n)
     return in;
 }        
 
-template <class M>
-inline void UhatBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
+template <class M, class T=dstype, class I=Int>
+inline void UhatBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, 
         Int nd, Int npe, Int npf, Int nc, Int ncu, Int ncx, Int nco, Int f1, Int f2, Int ib, Int backend)
-{        
-    Int ncw = common.ncw;
+{
+    using dstype=T;        
+    Int ncw = common.components.ncw;
     //Int ncq = ncu*nd;
     Int nf = f2-f1;
     Int nn = npf*nf; 
@@ -82,7 +84,7 @@ inline void UhatBlock(solstruct &sol, resstruct &res, appstruct &app, masterstru
         GetFaceNodes(tmp.tempn, sol.udg, mesh.facecon, npf, ncu, npe, nc, f1, f2, 0);
         PutElemNodes(sol.uh, tmp.tempn, npf, ncu, 0, ncu, f1, f2);
     }
-    else if (isin<M>(ib, common.stgib, common.nstgib)) {        
+    else if (isin<M>(ib, common.stgparams.stgib, common.stgparams.nstgib)) {        
         //if (common.mpiRank==0 && ib > 0) printf("ib = %d \n", ib);
         dstype *xgb = &tmp.tempg[0];
         dstype *ogb = &tmp.tempg[nga*ncx];
@@ -94,7 +96,7 @@ inline void UhatBlock(solstruct &sol, resstruct &res, appstruct &app, masterstru
         }
         
         StgInflowLDG(tmp.tempn, xgb, ogb, app.physicsparam, app.stgdata, 
-                          app.stgparam, common.time, nga, common.stgNmode, common.nd);          
+                          app.stgparam, common.timestate.time, nga, common.stgparams.stgNmode, common.grid.nd);          
 
         PutElemNodes(sol.uh, tmp.tempn, npf, ncu, 0, ncu, f1, f2);
     }
@@ -132,18 +134,19 @@ inline void UhatBlock(solstruct &sol, resstruct &res, appstruct &app, masterstru
     }
 }
 
-template <class M>
-inline void GetUhat(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
+template <class M, class T=dstype, class I=Int>
+inline void GetUhat(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, 
         Int nbf1, Int nbf2, Int backend)
-{        
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg)   
-    Int nd = common.nd;     // spatial dimension        
-    Int npe = common.npe; // number of nodes on master element
-    Int npf = common.npf; // number of nodes on master face      
+{
+    using dstype=T;        
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)   
+    Int nd = common.grid.nd;     // spatial dimension        
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int npf = common.grid.npf; // number of nodes on master face      
     
     for (Int j=nbf1; j<nbf2; j++) {
         Int f1 = common.fblks[3*j]-1;
@@ -157,12 +160,13 @@ inline void GetUhat(solstruct &sol, resstruct &res, appstruct &app, masterstruct
 
 #ifdef HAVE_ENZYME
 //// Method 2
-template <class M>
-inline void dUhatBlock(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
+template <class M, class T=dstype, class I=Int>
+inline void dUhatBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, 
         Int nd, Int npe, Int npf, Int nc, Int ncu, Int ncx, Int nco, Int f1, Int f2, Int ib, Int backend)
-{        
-    Int ncw = common.ncw;
+{
+    using dstype=T;        
+    Int ncw = common.components.ncw;
     //Int ncq = ncu*nd;
     Int nf = f2-f1;
     Int nn = npf*nf; 
@@ -223,18 +227,19 @@ inline void dUhatBlock(solstruct &sol, resstruct &res, appstruct &app, masterstr
     }
 }
 
-template <class M>
-inline void GetdUhat(solstruct &sol, resstruct &res, appstruct &app, masterstruct &master, 
-        meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, 
+template <class M, class T=dstype, class I=Int>
+inline void GetdUhat(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, 
         Int nbf1, Int nbf2, Int backend)
-{        
-    Int nc = common.nc; // number of compoments of (u, q, p)
-    Int ncu = common.ncu;// number of compoments of (u)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg)   
-    Int nd = common.nd;     // spatial dimension        
-    Int npe = common.npe; // number of nodes on master element
-    Int npf = common.npf; // number of nodes on master face      
+{
+    using dstype=T;        
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)   
+    Int nd = common.grid.nd;     // spatial dimension        
+    Int npe = common.grid.npe; // number of nodes on master element
+    Int npf = common.grid.npf; // number of nodes on master face      
     
     for (Int j=nbf1; j<nbf2; j++) {
         Int f1 = common.fblks[3*j]-1;

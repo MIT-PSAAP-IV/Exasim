@@ -24,119 +24,15 @@
 
 #pragma once
 
-#include <string>
-#include <fstream>
-#include <sstream>
-#include <iostream>
-#include <vector>
-#include <numeric>
-#include <filesystem>
-
-#include <cstdint>
-#include <cmath>
-#include <cstdlib>
-#include <cstring>
-
-#ifdef _OPENMP
-#define HAVE_OPENMP
-#else
-#define HAVE_ONETHREAD
-#endif
-
-#ifdef _CUDA
-#define HAVE_GPU
-#define HAVE_CUDA
-#endif
-
-#ifdef _HIP
-#define HAVE_GPU
-#define HAVE_HIP
-#endif
-
-#ifdef _TEXT2CODE
-#define HAVE_TEXT2CODE
-#endif
-
-#ifdef _KOKKOSKERNEL
-#define HAVE_KOKKOSKERNEL
-#endif
-
-#if defined(HAVE_TEXT2CODE) || defined(HAVE_BUILTINMODEL)
-#define HAVE_SHARED_MODEL_LIB
-#endif
-
-#ifdef _ENZYME
-#define HAVE_ENZYME
-#endif
-
-#ifdef _MUTATIONPP
-#define HAVE_MPP
-#endif
-
-#ifdef _MPI
-#define HAVE_MPI
-#endif
-
-#ifdef HAVE_OPENMP
-#include <omp.h>
-#endif
-
-#ifdef HAVE_CUDA
-#include <cuda_runtime.h>
-#include <cuda.h>
-#include "cublas_v2.h"
-#endif
-
-#ifdef HAVE_HIP
-#include <hip/hip_runtime.h>
-#include <hip/hip_runtime_api.h>
-#include <hipblas/hipblas.h>
-#include <rocblas/rocblas.h>
-#endif
-
-#ifdef HAVE_MPP
-#include <mutation++.h>
-#endif
-
-#ifdef HAVE_SHARED_MODEL_LIB
-#include <array>
-#include <regex>
-#include <unordered_map>
-#include <unordered_set>
-#endif
-
-#ifdef HAVE_MPI
-#include <mpi.h>
-// Exasim communicators (defined in the linked preprocessing library). Declared
-// here so the backend headers below compile in an out-of-tree consumer TU.
-extern MPI_Comm EXASIM_COMM_WORLD;
-extern MPI_Comm EXASIM_COMM_LOCAL;
-#endif
-
-#include <Kokkos_Core.hpp>
-
-// PR #73 review NB2: backend headers used to rely on a global
-// `using namespace std;` here, leaking the entire std namespace
-// into every consumer TU. That directive is gone — backend code
-// now qualifies `std::*` directly.
-
-#include <backend/Common/common.h>
-#include <backend/Common/cpuimpl.h>
-#include <backend/Common/kokkosimpl.h>
-#include <backend/Common/pblas.h>
-
-#include <backend/Discretization/discretization.hpp>
-#include <backend/Preconditioning/preconditioner.hpp>
-#include <backend/Solver/solver.hpp>
-#include <backend/Visualization/visualization.hpp>
-#include <backend/PointLocator/pointlocator.hpp>
-#include <backend/Solution/solution.hpp>
-
-#ifdef HAVE_SHARED_MODEL_LIB
-#include <backend/Preprocessing/preprocessing.hpp>
-#endif
-
-#include "detail/abi_adapter.hpp"
+// The backend FEM aggregation (templated class .cpp), preprocessing entry
+// points, the in-memory CDiscretization ctor, the platform macro plumbing
+// (HAVE_OPENMP/CUDA/HIP/MPI/...), the std/Kokkos/MPI includes and the
+// `using namespace std;` the aggregated .cpp rely on, and detail/abi_adapter.hpp
+// all live in <exasim/operators.hpp>. run.hpp is the full legacy entry point:
+// operators.hpp's discretization + operators PLUS the MPI/Kokkos bootstrap and
+// the `exasim::run<M>()` time/Newton loop below. Sharing one aggregation header
+// keeps run.hpp and the operator-export path from drifting.
+#include <exasim/operators.hpp>
 
 namespace exasim {
 namespace detail {
@@ -422,15 +318,15 @@ inline int run(int argc, char** argv) {
         pdemodel[i]->disc.common.ncarray = new Int[nummodels];
         pdemodel[i]->disc.sol.udgarray = new dstype*[nummodels];
 
-        if (pdemodel[i]->disc.common.timestepOffset>0)
-            restart = pdemodel[i]->disc.common.timestepOffset;
+        if (pdemodel[i]->disc.common.outputparams.timestepOffset>0)
+            restart = pdemodel[i]->disc.common.outputparams.timestepOffset;
 
         if (restart>0) {
-            pdemodel[i]->disc.common.timestepOffset = restart;
-            pdemodel[i]->disc.common.time = restart*pdemodel[i]->disc.common.dt[0];
+            pdemodel[i]->disc.common.outputparams.timestepOffset = restart;
+            pdemodel[i]->disc.common.timestate.time = restart*pdemodel[i]->disc.common.dt[0];
         }
 
-        if (pdemodel[i]->disc.common.mpiRank==0 && pdemodel[i]->disc.common.saveResNorm==1) {
+        if (pdemodel[i]->disc.common.mpiRank==0 && pdemodel[i]->disc.common.outputparams.saveResNorm==1) {
             std::string filename = pdemodel[i]->disc.common.fileout + "_residualnorms" + NumberToString(i) + ".bin";
             out[i].open(filename.c_str(), std::ios::out | std::ios::binary);
             if (!out[i]) error("Unable to open file " + filename);
@@ -439,41 +335,41 @@ inline int run(int argc, char** argv) {
 
     for (int i=0; i<nummodels; i++)
         for (int j=0; j<nummodels; j++) {
-            pdemodel[i]->disc.common.ncarray[j] = pdemodel[j]->disc.common.nc;
+            pdemodel[i]->disc.common.ncarray[j] = pdemodel[j]->disc.common.components.nc;
             pdemodel[i]->disc.sol.udgarray[j] = &pdemodel[j]->disc.sol.udg[0];
         }
 
 
-    if (pdemodel[0]->disc.common.AVdistfunction==1) {
+    if (pdemodel[0]->disc.common.physicsparams.AVdistfunction==1) {
       avdistfunc(pdemodel, out, nummodels, backend);
     }
-    else if ((pdemodel[0]->disc.common.tdep==1) && (pdemodel[0]->disc.common.runmode==0)) {
+    else if ((pdemodel[0]->disc.common.timeparams.tdep==1) && (pdemodel[0]->disc.common.runmode==0)) {
 
         for (int i=0; i<nummodels; i++) {
             if (restart>0) {
-                pdemodel[i]->disc.common.currentstep = -1;
-                pdemodel[i]->ReadSolutions(backend);
+                pdemodel[i]->disc.common.timestate.currentstep = -1;
+                pdemodel[i]->writer.ReadSolutions(backend);
             }
             pdemodel[i]->InitSolution(backend);
         }
 
-        dstype time = pdemodel[0]->disc.common.time;
+        dstype time = pdemodel[0]->disc.common.timestate.time;
 
-        for (Int istep=0; istep<pdemodel[0]->disc.common.tsteps; istep++)
+        for (Int istep=0; istep<pdemodel[0]->disc.common.timeparams.tsteps; istep++)
         {
             for (int i=0; i<nummodels; i++) {
-                pdemodel[i]->disc.common.currentstep = istep;
+                pdemodel[i]->disc.common.timestate.currentstep = istep;
                 PreviousSolutions(pdemodel[i]->disc.sol, pdemodel[i]->solv.sys, pdemodel[i]->disc.common, backend);
             }
 
-            for (Int j=0; j<pdemodel[0]->disc.common.tstages; j++) {
+            for (Int j=0; j<pdemodel[0]->disc.common.timeparams.tstages; j++) {
 
                 if (pdemodel[0]->disc.common.mpiRank==0)
                     printf("\nTimestep :  %d,  Timestage :  %d,   Time : %g\n",istep+1,j+1,time + pdemodel[0]->disc.common.dt[istep]*pdemodel[0]->disc.common.DIRKcoeff_t[j]);
 
                 for (int i=0; i<nummodels; i++) {
-                    pdemodel[i]->disc.common.currentstage = j;
-                    pdemodel[i]->disc.common.time = time + pdemodel[i]->disc.common.dt[istep]*pdemodel[i]->disc.common.DIRKcoeff_t[j];
+                    pdemodel[i]->disc.common.timestate.currentstage = j;
+                    pdemodel[i]->disc.common.timestate.time = time + pdemodel[i]->disc.common.dt[istep]*pdemodel[i]->disc.common.DIRKcoeff_t[j];
 
                     UpdateSource(pdemodel[i]->disc.sol, pdemodel[i]->solv.sys, pdemodel[i]->disc.app, pdemodel[i]->disc.res, pdemodel[i]->disc.common, backend);
 
@@ -484,29 +380,29 @@ inline int run(int argc, char** argv) {
             }
 
             for (int i=0; i<nummodels; i++) {
-                if (pdemodel[i]->disc.common.compudgavg == 1) {
-                    ArrayAXPBY(pdemodel[i]->disc.sol.udgavg, pdemodel[i]->disc.sol.udgavg, pdemodel[i]->disc.sol.udg, one, one, pdemodel[i]->disc.common.ndofudg1);
-                    ArrayAddScalar(&pdemodel[i]->disc.sol.udgavg[pdemodel[i]->disc.common.ndofudg1], one, 1);
+                if (pdemodel[i]->disc.common.outputparams.compudgavg == 1) {
+                    ArrayAXPBY(pdemodel[i]->disc.sol.udgavg, pdemodel[i]->disc.sol.udgavg, pdemodel[i]->disc.sol.udg, one, one, pdemodel[i]->disc.common.sizes.ndofudg1);
+                    ArrayAddScalar(&pdemodel[i]->disc.sol.udgavg[pdemodel[i]->disc.common.sizes.ndofudg1], one, 1);
                 }
 
-                pdemodel[i]->disc.computeAverageSolutionsOnBoundary();
+                pdemodel[i]->sampler.computeAverageSolutionsOnBoundary();
 
-                pdemodel[i]->SaveSolutions(backend);
-                pdemodel[i]->SaveQoI(backend);
-                if (pdemodel[i]->vis.savemode > 0) pdemodel[i]->SaveParaview(backend);
-                pdemodel[i]->SaveSolutionsOnBoundary(backend);
-                if (pdemodel[i]->disc.common.nce>0)
-                    pdemodel[i]->SaveOutputCG(backend);
+                pdemodel[i]->writer.SaveSolutions(backend);
+                pdemodel[i]->writer.SaveQoI(backend);
+                if (pdemodel[i]->vis.savemode > 0) pdemodel[i]->writer.SaveParaview(backend);
+                pdemodel[i]->writer.SaveSolutionsOnBoundary(backend);
+                if (pdemodel[i]->disc.common.components.nce>0)
+                    pdemodel[i]->writer.SaveOutputCG(backend);
             }
 
             time = time + pdemodel[0]->disc.common.dt[istep];
         }
     }
     // Pseudo-time stepping (single model only).
-    else if ((pdemodel[0]->disc.common.tdep==1) && (pdemodel[0]->disc.common.runmode==10 || pdemodel[0]->disc.common.runmode==11)) {
+    else if ((pdemodel[0]->disc.common.timeparams.tdep==1) && (pdemodel[0]->disc.common.runmode==10 || pdemodel[0]->disc.common.runmode==11)) {
         if (restart>0) {
-            pdemodel[0]->disc.common.currentstep = -1;
-            pdemodel[0]->ReadSolutions(backend);
+            pdemodel[0]->disc.common.timestate.currentstep = -1;
+            pdemodel[0]->writer.ReadSolutions(backend);
         }
         pdemodel[0]->InitSolution(backend);
         pdemodel[0]->SteadyProblem_PTC(out[0], backend);
@@ -515,62 +411,62 @@ inline int run(int argc, char** argv) {
         for (int i=0; i<nummodels; i++) {
             if (pdemodel[i]->disc.common.runmode==0) {
                 if (restart>0) {
-                    pdemodel[i]->disc.common.currentstep = -1;
-                    pdemodel[i]->ReadSolutions(backend);
+                    pdemodel[i]->disc.common.timestate.currentstep = -1;
+                    pdemodel[i]->writer.ReadSolutions(backend);
                 }
                 pdemodel[i]->SolveProblem(out[i], backend);
             }
             else if (pdemodel[i]->disc.common.runmode==1){
-                pdemodel[i]->disc.common.currentstep = -1;
-                pdemodel[i]->ReadSolutions(backend);
-                if (pdemodel[i]->disc.common.ncq>0)
-                    pdemodel[i]->disc.evalQ(backend);
-                pdemodel[i]->disc.common.saveSolOpt = 1;
-                pdemodel[i]->SaveSolutions(backend);
-                pdemodel[i]->SaveQoI(backend);
-                if (pdemodel[i]->vis.savemode > 0) pdemodel[i]->SaveParaview(backend);
-                pdemodel[i]->SaveOutputCG(backend);
+                pdemodel[i]->disc.common.timestate.currentstep = -1;
+                pdemodel[i]->writer.ReadSolutions(backend);
+                if (pdemodel[i]->disc.common.components.ncq>0)
+                    pdemodel[i]->residual.evalQ(backend);
+                pdemodel[i]->disc.common.outputparams.saveSolOpt = 1;
+                pdemodel[i]->writer.SaveSolutions(backend);
+                pdemodel[i]->writer.SaveQoI(backend);
+                if (pdemodel[i]->vis.savemode > 0) pdemodel[i]->writer.SaveParaview(backend);
+                pdemodel[i]->writer.SaveOutputCG(backend);
             }
             else if (pdemodel[i]->disc.common.runmode==2){
-                for (Int istep=0; istep<pdemodel[i]->disc.common.tsteps; istep++)
+                for (Int istep=0; istep<pdemodel[i]->disc.common.timeparams.tsteps; istep++)
                 {
-                    if (((istep+1) % pdemodel[i]->disc.common.saveSolFreq) == 0)
+                    if (((istep+1) % pdemodel[i]->disc.common.outputparams.saveSolFreq) == 0)
                     {
-                        pdemodel[i]->disc.common.currentstep = istep;
-                        pdemodel[i]->ReadSolutions(backend);
-                        if (pdemodel[i]->disc.common.ncq>0)
-                            pdemodel[i]->disc.evalQ(backend);
-                        pdemodel[i]->SaveOutputCG(backend);
+                        pdemodel[i]->disc.common.timestate.currentstep = istep;
+                        pdemodel[i]->writer.ReadSolutions(backend);
+                        if (pdemodel[i]->disc.common.components.ncq>0)
+                            pdemodel[i]->residual.evalQ(backend);
+                        pdemodel[i]->writer.SaveOutputCG(backend);
                     }
                 }
             }
             else if (pdemodel[i]->disc.common.runmode==3){
-                for (Int istep=0; istep<pdemodel[i]->disc.common.tsteps; istep++)
+                for (Int istep=0; istep<pdemodel[i]->disc.common.timeparams.tsteps; istep++)
                 {
-                    if (((istep+1) % pdemodel[i]->disc.common.saveSolFreq) == 0)
+                    if (((istep+1) % pdemodel[i]->disc.common.outputparams.saveSolFreq) == 0)
                     {
-                        pdemodel[i]->disc.common.currentstep = istep;
-                        pdemodel[i]->ReadSolutions(backend);
-                        pdemodel[i]->SaveOutputCG(backend);
+                        pdemodel[i]->disc.common.timestate.currentstep = istep;
+                        pdemodel[i]->writer.ReadSolutions(backend);
+                        pdemodel[i]->writer.SaveOutputCG(backend);
                     }
                 }
             }
             else if (pdemodel[i]->disc.common.runmode==4) {
-                pdemodel[i]->disc.common.currentstep = -1;
-                pdemodel[i]->ReadSolutions(backend);
+                pdemodel[i]->disc.common.timestate.currentstep = -1;
+                pdemodel[i]->writer.ReadSolutions(backend);
                 pdemodel[i]->SolveProblem(out[i], backend);
             }
             else if (pdemodel[i]->disc.common.runmode==5){
-                pdemodel[i]->disc.evalQSer(backend);
-                pdemodel[i]->disc.common.saveSolOpt = 1;
+                pdemodel[i]->residual.evalQSer(backend);
+                pdemodel[i]->disc.common.outputparams.saveSolOpt = 1;
                 std::string filename = pdemodel[i]->disc.common.fileout + "_np" + NumberToString(pdemodel[i]->disc.common.mpiRank) + ".bin";
-                writearray2file(filename, pdemodel[i]->disc.sol.udg, pdemodel[i]->disc.common.ndofudg1, backend);
+                writearray2file(filename, pdemodel[i]->disc.sol.udg, pdemodel[i]->disc.common.sizes.ndofudg1, backend);
             }
         }
     }
 
     for (int i=0; i<nummodels; i++) {
-        if (pdemodel[i]->disc.common.mpiRank==0 && pdemodel[i]->disc.common.saveResNorm==1)
+        if (pdemodel[i]->disc.common.mpiRank==0 && pdemodel[i]->disc.common.outputparams.saveResNorm==1)
             out[i].close();
     }
 

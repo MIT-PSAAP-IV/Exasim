@@ -80,7 +80,11 @@ mutable struct PDEStruct
     GMRESortho::IntP; # GMRES orthogonalization method
     preconditioner::IntP; # flag for preconditioner method
     precMatrixType::IntP; # flag for type of preconditioner matrix
-    ppdegree::IntP; # polynomial preconditioner 
+    ppdegree::IntP; # polynomial preconditioner
+    coupledinterface::IntP;        # app.bin problem[28] (M1: match Matlab layout)
+    coupledcondition::IntP;        # app.bin problem[29]
+    coupledboundarycondition::IntP;# app.bin problem[30]
+    AVdistfunction::IntP;          # app.bin problem[31]
     NLMatrixType::IntP;
     runmode::IntP; # flag for run mode
     tdfunc::IntP; # flag for time-dependent function associated with time-derivative
@@ -253,6 +257,10 @@ function initializepde(version)
     pde.preconditioner = 1;
     pde.precMatrixType = 0;
     pde.ppdegree = 0;
+    pde.coupledinterface = 0;
+    pde.coupledcondition = 0;
+    pde.coupledboundarycondition = 0;
+    pde.AVdistfunction = 0;
     pde.NLMatrixType = 0;
     pde.runmode = 0;
     pde.tdfunc = 1;

@@ -83,20 +83,20 @@ static inline Int getFacesOnInterface(
     const Int boundarycondition)
 {
     const Int nintfaces = getinterfacefaces(
-        disc.mesh.bf, disc.common.nfe, disc.common.ne1, boundarycondition);
+        disc.mesh.bf, disc.common.meshsizes.nfe, disc.common.meshsizes.ne1, boundarycondition);
 
     faces.resize(static_cast<size_t>(nintfaces));
     getinterfacefaces(
-        faces.data(), disc.mesh.bf, disc.common.nfe, disc.common.ne1,
+        faces.data(), disc.mesh.bf, disc.common.meshsizes.nfe, disc.common.meshsizes.ne1,
         boundarycondition, nintfaces);
 
-    nextfaces.resize(static_cast<size_t>(disc.common.nbe1 + 1));
+    nextfaces.resize(static_cast<size_t>(disc.common.meshsizes.nbe1 + 1));
     Int nfacestotal = 0;
     nextfaces[0] = nfacestotal;
-    for (Int j = 0; j < disc.common.nbe1; ++j) {
+    for (Int j = 0; j < disc.common.meshsizes.nbe1; ++j) {
         const Int e1 = disc.common.eblks[3 * j] - 1;
         const Int e2 = disc.common.eblks[3 * j + 1];
-        const Int nfe = disc.common.nfe;
+        const Int nfe = disc.common.meshsizes.nfe;
         const Int nfaces = getinterfacefaces(
             &disc.mesh.bf[nfe * e1], nfe, e2 - e1, boundarycondition);
         nfacestotal += nfaces;
@@ -145,7 +145,7 @@ static inline void getFieldsAtGaussPointsOnInterface(
 {
     Node2Gauss(
         disc.common.cublasHandle, ugint, uint, disc.master.shapfgt,
-        disc.common.ngf, disc.common.npf, nfaces * ncomp, 0);
+        disc.common.grid.ngf, disc.common.grid.npf, nfaces * ncomp, 0);
 }
 
 static inline void getNormalVectorOnInterface(
@@ -154,8 +154,8 @@ static inline void getNormalVectorOnInterface(
     CDiscretization& disc,
     const Int nfaces)
 {  
-    const Int nd = disc.common.nd;
-    const Int npf = disc.common.npf;
+    const Int nd = disc.common.grid.nd;
+    const Int npf = disc.common.grid.npf;
     const Int nn = npf * nfaces;
     const Int n2 = 0;
     const Int n3 = nn;
@@ -193,13 +193,13 @@ static inline void GatherWallGaussPointsAndNormals(
     const Int ibc)
 {
     wm.ibc = ibc;
-    wm.nd = disc.common.nd;
-    wm.ncx = disc.common.ncx;
-    wm.npe = disc.common.npe;
-    wm.npf = disc.common.npf;
-    wm.ngf = disc.common.ngf;
-    wm.nfe = disc.common.nfe;
-    wm.nbe1 = disc.common.nbe1;
+    wm.nd = disc.common.grid.nd;
+    wm.ncx = disc.common.components.ncx;
+    wm.npe = disc.common.grid.npe;
+    wm.npf = disc.common.grid.npf;
+    wm.ngf = disc.common.grid.ngf;
+    wm.nfe = disc.common.meshsizes.nfe;
+    wm.nbe1 = disc.common.meshsizes.nbe1;
 
     wm.nfaces = getFacesOnInterface(wm.faces, wm.nextfaces, disc, ibc);
     wm.npoints = wm.ngf * wm.nfaces;
@@ -223,8 +223,8 @@ static inline void GatherWallGaussPointsAndNormals(
     TemplateMalloc(&nlint, wm.npf * wm.nfaces * wm.nd, 0);
 
     getNodesOnInterface(
-        xdgint, disc.sol.xdg, wm.faces.data(), disc.mesh.perm, disc.common.nfe,
-        disc.common.npf, disc.common.npe, disc.common.ncx, disc.common.ncx, wm.nfaces);
+        xdgint, disc.sol.xdg, wm.faces.data(), disc.mesh.perm, disc.common.meshsizes.nfe,
+        disc.common.grid.npf, disc.common.grid.npe, disc.common.components.ncx, disc.common.components.ncx, wm.nfaces);
     getNormalVectorOnInterface(nlint, xdgint, disc, wm.nfaces);
 
     wm.xw.resize(static_cast<size_t>(wm.npoints * wm.nd));
@@ -259,7 +259,7 @@ static inline bool ComputeXi1AndShapeFunctionsFromElementFaces(
     wm.xi1.resize(static_cast<size_t>(wm.nd * wm.npoints));
     wm.shap1.resize(static_cast<size_t>(wm.npe * wm.npoints));
 
-    const Int maxCandidates = disc.common.ne;
+    const Int maxCandidates = disc.common.meshsizes.ne;
     if (maxCandidates <= 0)
         return false;
 
@@ -284,8 +284,8 @@ static inline bool ComputeXi1AndShapeFunctionsFromElementFaces(
         wm.nd,
         wm.npe,
         wm.ncx,
-        disc.common.elemtype,
-        disc.common.porder,
+        disc.common.grid.elemtype,
+        disc.common.grid.porder,
         maxNewtonIter,
         newtonTol,
         insideTol);

@@ -61,9 +61,3 @@ Exit 77 = dependency missing = ctest SKIP.
 `INSTALL_PREFIX`, `KOKKOS_DIR`, `EXASIM_ROOT`, `CC`/`CXX`. `run-tests.sh`
 honours `EXASIM_BUILD_DIR` (superbuild dir) and `CMAKE_ARGS` (extra configure
 flags), and forwards trailing args to `ctest` (e.g. `-R`, `-V`).
-
-## Archived
-
-Superseded in-tree consumers and bespoke runners are under `archive/` — see
-`archive/README.md`. The legacy numerical baseline lives in `../old/baseline/`
-(kept only for the historical port notes; superseded by the B4 QoI gate).

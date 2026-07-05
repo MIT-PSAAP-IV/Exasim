@@ -101,11 +101,15 @@ using namespace std;
 
 #include "../Model/ModelDispatch/model_drivers_abi.cpp"
 #include "../Discretization/discretization.cpp"
+#include "../Discretization/assembler.cpp"
+#include "../Discretization/residualeval.cpp"
 #include "../Preconditioning/preconditioner.cpp"
 #include "../Solver/solver.cpp"
 #include "../Visualization/visualization.cpp"
 #include "../PointLocator/pointlocator.cpp"
 #include "../Solution/solution.cpp"
+#include "../Solution/solutionwriter.cpp"
+#include "../Solution/nonlinearsolver.cpp"
 
 #ifdef HAVE_BACKEND_PREPROCESSING
 #include "../Preprocessing/preprocessing.cpp"
@@ -115,9 +119,9 @@ using namespace std;
 
 namespace {
 
-static vector<CSolution*> ModelPointers(vector<unique_ptr<CSolution>>& models)
+static vector<CSolution<>*> ModelPointers(vector<unique_ptr<CSolution<>>>& models)
 {
-    vector<CSolution*> ptrs(models.size(), nullptr);
+    vector<CSolution<>*> ptrs(models.size(), nullptr);
     for (size_t i = 0; i < models.size(); ++i)
         ptrs[i] = models[i].get();
     return ptrs;
@@ -171,52 +175,52 @@ static int ReadBuiltinModelIDFromAppBin(const std::string& filein)
 static bool IsValidModelABI(const ExasimDriverABI& abi)
 {
     const std::uint32_t required_struct_size =
-        static_cast<std::uint32_t>(offsetof(ExasimDriverABI, HdgFextonly) +
-                                  sizeof(abi.HdgFextonly));
+        static_cast<std::uint32_t>(offsetof(ExasimDriverABI, hdgjac.HdgFextonly) +
+                                  sizeof(abi.hdgjac.HdgFextonly));
 
     return abi.abi_version == kExasimDriverABIVersion &&
            abi.struct_size >= required_struct_size &&
-           abi.KokkosFlux &&
-           abi.KokkosSource &&
-           abi.KokkosSourcew &&
-           abi.KokkosTdfunc &&
-           abi.KokkosAvfield &&
-           abi.KokkosEoS &&
-           abi.KokkosEoSdu &&
-           abi.KokkosEoSdw &&
-           abi.KokkosFbou &&
-           abi.KokkosUbou &&
-           abi.KokkosFhat &&
-           abi.KokkosUhat &&
-           abi.KokkosStab &&
-           abi.KokkosOutput &&
-           abi.KokkosMonitor &&
-           abi.KokkosVisScalars &&
-           abi.KokkosVisVectors &&
-           abi.KokkosVisTensors &&
-           abi.KokkosQoIvolume &&
-           abi.KokkosQoIboundary &&
-           abi.KokkosInitu &&
-           abi.KokkosInitq &&
-           abi.KokkosInitudg &&
-           abi.KokkosInitwdg &&
-           abi.KokkosInitodg &&
-           abi.cpuInitu &&
-           abi.cpuInitq &&
-           abi.cpuInitudg &&
-           abi.cpuInitwdg &&
-           abi.cpuInitodg &&
-           abi.HdgFlux &&
-           abi.HdgSource &&
-           abi.HdgSourcew &&
-           abi.HdgSourcewonly &&
-           abi.HdgEoS &&
-           abi.HdgFbou &&
-           abi.HdgFbouonly &&
-           abi.HdgFint &&
-           abi.HdgFintonly &&
-           abi.HdgFext &&
-           abi.HdgFextonly;
+           abi.volume.KokkosFlux &&
+           abi.volume.KokkosSource &&
+           abi.volume.KokkosSourcew &&
+           abi.volume.KokkosTdfunc &&
+           abi.volume.KokkosAvfield &&
+           abi.eos.KokkosEoS &&
+           abi.eos.KokkosEoSdu &&
+           abi.eos.KokkosEoSdw &&
+           abi.boundary.KokkosFbou &&
+           abi.boundary.KokkosUbou &&
+           abi.iface.KokkosFhat &&
+           abi.iface.KokkosUhat &&
+           abi.iface.KokkosStab &&
+           abi.output.KokkosOutput &&
+           abi.output.KokkosMonitor &&
+           abi.output.KokkosVisScalars &&
+           abi.output.KokkosVisVectors &&
+           abi.output.KokkosVisTensors &&
+           abi.qoi.KokkosQoIvolume &&
+           abi.qoi.KokkosQoIboundary &&
+           abi.init.KokkosInitu &&
+           abi.init.KokkosInitq &&
+           abi.init.KokkosInitudg &&
+           abi.init.KokkosInitwdg &&
+           abi.init.KokkosInitodg &&
+           abi.init.cpuInitu &&
+           abi.init.cpuInitq &&
+           abi.init.cpuInitudg &&
+           abi.init.cpuInitwdg &&
+           abi.init.cpuInitodg &&
+           abi.hdgjac.HdgFlux &&
+           abi.hdgjac.HdgSource &&
+           abi.hdgjac.HdgSourcew &&
+           abi.hdgjac.HdgSourcewonly &&
+           abi.hdgjac.HdgEoS &&
+           abi.hdgjac.HdgFbou &&
+           abi.hdgjac.HdgFbouonly &&
+           abi.hdgjac.HdgFint &&
+           abi.hdgjac.HdgFintonly &&
+           abi.hdgjac.HdgFext &&
+           abi.hdgjac.HdgFextonly;
 }
 
 static int ParseIntegerArgument(const char* text, const char* name, const int rank, bool& ok)
@@ -354,16 +358,16 @@ int ExasimSolver::Solve()
     int status = 0;
     commonstruct& common = models_[0]->disc.common;
 
-    if (common.AVdistfunction == 1) {
+    if (common.physicsparams.AVdistfunction == 1) {
         status = RunAVDistanceFunction();
     }
-    else if ((common.tdep == 1) && (common.runmode == 0)) {
+    else if ((common.timeparams.tdep == 1) && (common.runmode == 0)) {
         status = RunTimeDependent();
     }
-    else if ((common.tdep == 1) && (common.runmode == 10 || common.runmode == 11)) {
+    else if ((common.timeparams.tdep == 1) && (common.runmode == 10 || common.runmode == 11)) {
         status = RunPseudoTime();
     }
-    else if ((common.tdep == 0) && (common.runmode == 0)) {
+    else if ((common.timeparams.tdep == 0) && (common.runmode == 0)) {
         status = RunSteady();
     }
     else {
@@ -381,13 +385,13 @@ int ExasimSolver::Solve(const int i)
     int status = 0;
     commonstruct& common = models_[i]->disc.common;
 
-    if ((common.tdep == 1) && (common.runmode == 0)) {
+    if ((common.timeparams.tdep == 1) && (common.runmode == 0)) {
         status = RunTimeDependent(i);
     }
-    else if ((common.tdep == 1) && (common.runmode == 10 || common.runmode == 11)) {
+    else if ((common.timeparams.tdep == 1) && (common.runmode == 10 || common.runmode == 11)) {
         status = RunPseudoTime(i);
     }
-    else if ((common.tdep == 0) && (common.runmode == 0)) {
+    else if ((common.timeparams.tdep == 0) && (common.runmode == 0)) {
         status = RunSteady(i);
     }
     else {
@@ -438,11 +442,38 @@ int ExasimSolver::Backend() const
     return backend_;
 }
 
-CSolution* ExasimSolver::Model(int i)
+CSolution<>* ExasimSolver::Model(int i)
 {
     if (i < 0 || i >= static_cast<int>(models_.size()))
         return nullptr;
     return models_[i].get();
+}
+
+int ExasimSolver::AddQoI(int modelindex, const std::string& name, int kind,
+                         int boundary, int offset, int ncomp)
+{
+    CSolution<>* m = Model(modelindex);
+    if (m == nullptr) return 1;
+    commonstruct& common = m->disc.common;
+    if (offset < 0 || ncomp <= 0) return 2;
+    if (kind == 0 && offset + ncomp > common.qoiparams.nvqoi) return 2;  // volume slice out of range
+    if (kind == 1 && offset + ncomp > common.qoiparams.nsurf) return 2;  // boundary slice out of range
+    qoiinstancestruct q;
+    q.name = name;
+    q.kind = kind;
+    q.boundary = (kind == 1 && boundary <= 0) ? common.qoiparams.ibs : boundary;
+    q.offset = offset;
+    q.ncomp = ncomp;
+    common.qoiparams.qoiinstances.push_back(q);
+    return 0;
+}
+
+int ExasimSolver::ClearQoI(int modelindex)
+{
+    CSolution<>* m = Model(modelindex);
+    if (m == nullptr) return 1;
+    m->disc.common.qoiparams.qoiinstances.clear();
+    return 0;
 }
 
 int ExasimSolver::InitializeEnvironment(int argc, char** argv, MPI_Comm comm)
@@ -902,7 +933,7 @@ int ExasimSolver::BuildModels()
             active_physicsparam_.empty() ? nullptr : &active_physicsparam_;
 
         if (mpiprocs0_ == 0) {
-            models_.push_back(std::make_unique<CSolution>(
+            models_.push_back(std::make_unique<CSolution<>>(
                 filein_[i], fileout_[i], exasimpath_, mpiprocs_, mpirank_,
                 fileoffset, gpuid, backend_, builtinmodelID_[modelDefinition],
                 model_abis_[modelDefinition], nsca_, nvec_, nten_, nsurf_, nvqoi_, executionMode_,
@@ -910,7 +941,7 @@ int ExasimSolver::BuildModels()
         }
         else if (mpiprocs0_ > 0) {
             if (mpirank_ < mpiprocs0_) {
-                models_.push_back(std::make_unique<CSolution>(
+                models_.push_back(std::make_unique<CSolution<>>(
                     filein_[0], fileout_[0], exasimpath_, mpiprocs_, mpirank_,
                     fileoffset, gpuid, backend_, builtinmodelID_[modelDefinition],
                     model_abis_[modelDefinition], nsca_, nvec_, nten_, nsurf_, nvqoi_, executionMode_,
@@ -920,7 +951,7 @@ int ExasimSolver::BuildModels()
                 fileoffset = mpiprocs0_;
                 cout << filein_[1] << endl;
                 cout << fileout_[1] << endl;
-                models_.push_back(std::make_unique<CSolution>(
+                models_.push_back(std::make_unique<CSolution<>>(
                     filein_[1], fileout_[1], exasimpath_, mpiprocs_, mpirank_,
                     fileoffset, gpuid, backend_, builtinmodelID_[modelDefinition],
                     model_abis_[modelDefinition], nsca_, nvec_, nten_, nsurf_, nvqoi_, executionMode_,
@@ -932,12 +963,12 @@ int ExasimSolver::BuildModels()
         models_[i]->disc.common.ncarray = new Int[nummodels_];
         models_[i]->disc.sol.udgarray = new dstype*[nummodels_];
 
-        if (models_[i]->disc.common.timestepOffset > 0)
-            restart_ = models_[i]->disc.common.timestepOffset;
+        if (models_[i]->disc.common.outputparams.timestepOffset > 0)
+            restart_ = models_[i]->disc.common.outputparams.timestepOffset;
 
         if (restart_ > 0) {
-            models_[i]->disc.common.timestepOffset = restart_;
-            models_[i]->disc.common.time = restart_ * models_[i]->disc.common.dt[0];
+            models_[i]->disc.common.outputparams.timestepOffset = restart_;
+            models_[i]->disc.common.timestate.time = restart_ * models_[i]->disc.common.dt[0];
         }
     }
 
@@ -948,7 +979,7 @@ int ExasimSolver::CoupleModels()
 {
     for (int i = 0; i < nummodels_; i++) {
         for (int j = 0; j < nummodels_; j++) {
-            models_[i]->disc.common.ncarray[j] = models_[j]->disc.common.nc;
+            models_[i]->disc.common.ncarray[j] = models_[j]->disc.common.components.nc;
             models_[i]->disc.sol.udgarray[j] = &models_[j]->disc.sol.udg[0];
         }
     }
@@ -960,7 +991,7 @@ int ExasimSolver::OpenOutputStreams()
 {
     for (int i = 0; i < nummodels_; i++) {
         if (models_[i]->disc.common.mpiRank == 0 &&
-            models_[i]->disc.common.saveResNorm == 1) {
+            models_[i]->disc.common.outputparams.saveResNorm == 1) {
             string filename = models_[i]->disc.common.fileout +
                               "_residualnorms" + NumberToString(i) + ".bin";
             residual_outputs_[i].open(filename.c_str(), ios::out | ios::binary);
@@ -982,7 +1013,7 @@ int ExasimSolver::IntializeMeshInterface(const int modelnumber,
         !models_[modelnumber])
         return 1;
 
-    CSolution& model = *models_[modelnumber];
+    CSolution<>& model = *models_[modelnumber];
     const int interfaceBackend = model.disc.common.backend;
 
     if (faces) {
@@ -1033,33 +1064,33 @@ int ExasimSolver::IntializeMeshInterface(const int modelnumber,
 #endif
 
     backend_ = interfaceBackend;
-    ncx = model.disc.common.ncx;
-    npf = model.disc.common.npf;
-    ngf = model.disc.common.ngf;
-    nfaces = model.disc.getFacesOnInterface(&faces, ibc + 1);
+    ncx = model.disc.common.components.ncx;
+    npf = model.disc.common.grid.npf;
+    ngf = model.disc.common.grid.ngf;
+    nfaces = model.sampler.getFacesOnInterface(&faces, ibc + 1);
 
-    model.disc.common.ncuext = ncuext;
+    model.disc.common.couplingparams.ncuext = ncuext;
     TemplateMalloc(&model.disc.sol.uext, ngf * nfaces * ncuext,
                    interfaceBackend);
     model.disc.sol.szuext = ngf * nfaces * ncuext;
 
-    TemplateMalloc(&xdgint, npf * nfaces * model.disc.common.ncx,
+    TemplateMalloc(&xdgint, npf * nfaces * model.disc.common.components.ncx,
                    interfaceBackend);
-    TemplateMalloc(&nlint, npf * nfaces * model.disc.common.nd,
+    TemplateMalloc(&nlint, npf * nfaces * model.disc.common.grid.nd,
                    interfaceBackend);
-    TemplateMalloc(&xdggint, ngf * nfaces * model.disc.common.ncx,
+    TemplateMalloc(&xdggint, ngf * nfaces * model.disc.common.components.ncx,
                    interfaceBackend);
-    TemplateMalloc(&nlgint, ngf * nfaces * model.disc.common.nd,
+    TemplateMalloc(&nlgint, ngf * nfaces * model.disc.common.grid.nd,
                    interfaceBackend);
     TemplateMalloc(&flux_dev_, ngf * nfaces * _ncuint,
                    interfaceBackend);
 
-    model.disc.getDGNodesOnInterface(xdgint, faces, nfaces);
-    model.disc.getNormalVectorOnInterface(nlint, xdgint, nfaces);
-    model.disc.getFieldsAtGaussPointsOnInterface(xdggint, xdgint, nfaces,
-                                                 model.disc.common.ncx);
-    model.disc.getFieldsAtGaussPointsOnInterface(nlgint, nlint, nfaces,
-                                                 model.disc.common.nd);
+    model.sampler.getDGNodesOnInterface(xdgint, faces, nfaces);
+    model.sampler.getNormalVectorOnInterface(nlint, xdgint, nfaces);
+    model.sampler.getFieldsAtGaussPointsOnInterface(xdggint, xdgint, nfaces,
+                                                 model.disc.common.components.ncx);
+    model.sampler.getFieldsAtGaussPointsOnInterface(nlgint, nlint, nfaces,
+                                                 model.disc.common.grid.nd);
 
     return 0;
 }
@@ -1125,25 +1156,25 @@ void ExasimSolver::getInterfaceFluxes(std::vector<double>& send_flux) const
     const Int sz = ngf * nfaces * _ncuint;
     send_flux.resize(sz);
 
-    CSolution& model = *models_[interface_modelnumber_];
+    CSolution<>& model = *models_[interface_modelnumber_];
     if (backend_ > 1) {
-        model.disc.getInterfaceFluxesAtGaussPoints(flux_dev_, xdggint, nlgint, faces, nfaces);
+        model.sampler.getInterfaceFluxesAtGaussPoints(flux_dev_, xdggint, nlgint, faces, nfaces);
         TemplateCopytoHost(send_flux.data(), flux_dev_, sz, backend_);
     } else {
-        model.disc.getInterfaceFluxesAtGaussPoints(send_flux.data(), xdggint, nlgint, faces, nfaces);
+        model.sampler.getInterfaceFluxesAtGaussPoints(send_flux.data(), xdggint, nlgint, faces, nfaces);
     }
 }
 
 void ExasimSolver::setInterfaceFluxes(const std::vector<double>& recv_flux)
 {
-    CSolution& model = *models_[interface_modelnumber_];
-    TemplateCopytoDevice(model.disc.sol.uext, recv_flux.data(), ngf * nfaces * model.disc.common.ncuext, backend_);
-    model.disc.common.FextCall = _ibc + 1;
+    CSolution<>& model = *models_[interface_modelnumber_];
+    TemplateCopytoDevice(model.disc.sol.uext, recv_flux.data(), ngf * nfaces * model.disc.common.couplingparams.ncuext, backend_);
+    model.disc.common.couplingparams.FextCall = _ibc + 1;
 }
 
 int ExasimSolver::RunAVDistanceFunction()
 {
-    vector<CSolution*> ptrs = ModelPointers(models_);
+    vector<CSolution<>*> ptrs = ModelPointers(models_);
     avdistfunc(ptrs.data(), residual_outputs_.data(), nummodels_, backend_);
     return 0;
 }
@@ -1152,8 +1183,8 @@ int ExasimSolver::InitializeSolution()
 {
     for (int i = 0; i < nummodels_; i++) {
         if (restart_ > 0) {
-            models_[i]->disc.common.currentstep = -1;
-            models_[i]->ReadSolutions(backend_);
+            models_[i]->disc.common.timestate.currentstep = -1;
+            models_[i]->writer.ReadSolutions(backend_);
         }
         models_[i]->InitSolution(backend_);
     }
@@ -1164,8 +1195,8 @@ int ExasimSolver::InitializeSolution()
 int ExasimSolver::InitializeSolution(const int i)
 {
     if (restart_ > 0) {
-        models_[i]->disc.common.currentstep = -1;
-        models_[i]->ReadSolutions(backend_);
+        models_[i]->disc.common.timestate.currentstep = -1;
+        models_[i]->writer.ReadSolutions(backend_);
     }
     models_[i]->InitSolution(backend_);
 
@@ -1177,7 +1208,7 @@ int ExasimSolver::RunTimeDependent()
     int status = InitializeSolution();
     if (status) return status;
 
-    return RunTimeDependent(0, models_[0]->disc.common.tsteps);
+    return RunTimeDependent(0, models_[0]->disc.common.timeparams.tsteps);
 }
 
 int ExasimSolver::RunTimeDependent(const int modelnumber)
@@ -1185,20 +1216,20 @@ int ExasimSolver::RunTimeDependent(const int modelnumber)
     int status = InitializeSolution(modelnumber);
     if (status) return status;
 
-    return RunTimeDependent(modelnumber, 0, models_[0]->disc.common.tsteps);
+    return RunTimeDependent(modelnumber, 0, models_[0]->disc.common.timeparams.tsteps);
 }
 
 int ExasimSolver::RunTimeDependent(Int start, Int steps)
 {
-    dstype time = models_[0]->disc.common.time;
+    dstype time = models_[0]->disc.common.timestate.time;
     for (Int istep = start; istep < start+steps; istep++) {
         for (int i = 0; i < nummodels_; i++) {
-            models_[i]->disc.common.currentstep = istep;
+            models_[i]->disc.common.timestate.currentstep = istep;
             PreviousSolutions(models_[i]->disc.sol, models_[i]->solv.sys,
                               models_[i]->disc.common, backend_);
         }
 
-        for (Int j = 0; j < models_[0]->disc.common.tstages; j++) {
+        for (Int j = 0; j < models_[0]->disc.common.timeparams.tstages; j++) {
             if (models_[0]->disc.common.mpiRank == 0)
                 printf("\nTimestep :  %d,  Timestage :  %d,   Time : %g\n",
                        istep + 1, j + 1,
@@ -1206,8 +1237,8 @@ int ExasimSolver::RunTimeDependent(Int start, Int steps)
                        models_[0]->disc.common.DIRKcoeff_t[j]);
 
             for (int i = 0; i < nummodels_; i++) {
-                models_[i]->disc.common.currentstage = j;
-                models_[i]->disc.common.time =
+                models_[i]->disc.common.timestate.currentstage = j;
+                models_[i]->disc.common.timestate.time =
                     time + models_[i]->disc.common.dt[istep] *
                     models_[i]->disc.common.DIRKcoeff_t[j];
 
@@ -1225,23 +1256,23 @@ int ExasimSolver::RunTimeDependent(Int start, Int steps)
         }
 
         for (int i = 0; i < nummodels_; i++) {
-            if (models_[i]->disc.common.compudgavg == 1) {
+            if (models_[i]->disc.common.outputparams.compudgavg == 1) {
                 ArrayAXPBY(models_[i]->disc.sol.udgavg,
                            models_[i]->disc.sol.udgavg,
                            models_[i]->disc.sol.udg, one, one,
-                           models_[i]->disc.common.ndofudg1);
+                           models_[i]->disc.common.sizes.ndofudg1);
                 ArrayAddScalar(&models_[i]->disc.sol.udgavg[
-                    models_[i]->disc.common.ndofudg1], one, 1);
+                    models_[i]->disc.common.sizes.ndofudg1], one, 1);
             }
 
-            models_[i]->disc.computeAverageSolutionsOnBoundary();
-            models_[i]->SaveSolutions(backend_);
-            models_[i]->SaveQoI(backend_);
+            models_[i]->sampler.computeAverageSolutionsOnBoundary();
+            models_[i]->writer.SaveSolutions(backend_);
+            models_[i]->writer.SaveQoI(backend_);
             if (models_[i]->vis.savemode > 0)
-                models_[i]->SaveParaview(backend_);
-            models_[i]->SaveSolutionsOnBoundary(backend_);
-            if (models_[i]->disc.common.nce > 0)
-                models_[i]->SaveOutputCG(backend_);
+                models_[i]->writer.SaveParaview(backend_);
+            models_[i]->writer.SaveSolutionsOnBoundary(backend_);
+            if (models_[i]->disc.common.components.nce > 0)
+                models_[i]->writer.SaveOutputCG(backend_);
         }
 
         time = time + models_[0]->disc.common.dt[istep];
@@ -1252,21 +1283,21 @@ int ExasimSolver::RunTimeDependent(Int start, Int steps)
 
 int ExasimSolver::RunTimeDependent(const int i, Int start, Int steps)
 {
-    dstype time = models_[i]->disc.common.time;
+    dstype time = models_[i]->disc.common.timestate.time;
     for (Int istep = start; istep < start+steps; istep++) {
-        models_[i]->disc.common.currentstep = istep;
+        models_[i]->disc.common.timestate.currentstep = istep;
         PreviousSolutions(models_[i]->disc.sol, models_[i]->solv.sys,
                           models_[i]->disc.common, backend_);
         
-        for (Int j = 0; j < models_[0]->disc.common.tstages; j++) {
+        for (Int j = 0; j < models_[0]->disc.common.timeparams.tstages; j++) {
             if (models_[0]->disc.common.mpiRank == 0)
                 printf("\nTimestep :  %d,  Timestage :  %d,   Time : %g\n",
                        istep + 1, j + 1,
                        time + models_[0]->disc.common.dt[istep] *
                        models_[0]->disc.common.DIRKcoeff_t[j]);
             
-            models_[i]->disc.common.currentstage = j;
-            models_[i]->disc.common.time =
+            models_[i]->disc.common.timestate.currentstage = j;
+            models_[i]->disc.common.timestate.time =
                 time + models_[i]->disc.common.dt[istep] *
                 models_[i]->disc.common.DIRKcoeff_t[j];
 
@@ -1283,21 +1314,21 @@ int ExasimSolver::RunTimeDependent(const int i, Int start, Int steps)
             
         }
         
-        if (models_[i]->disc.common.compudgavg == 1) {
+        if (models_[i]->disc.common.outputparams.compudgavg == 1) {
             ArrayAXPBY(models_[i]->disc.sol.udgavg,
                        models_[i]->disc.sol.udgavg,
                        models_[i]->disc.sol.udg, one, one,
-                       models_[i]->disc.common.ndofudg1);
+                       models_[i]->disc.common.sizes.ndofudg1);
             ArrayAddScalar(&models_[i]->disc.sol.udgavg[
-                models_[i]->disc.common.ndofudg1], one, 1);
+                models_[i]->disc.common.sizes.ndofudg1], one, 1);
         }
 
-        models_[i]->disc.computeAverageSolutionsOnBoundary();
-        models_[i]->SaveSolutions(backend_);
-        models_[i]->SaveQoI(backend_);
-        if (models_[i]->vis.savemode > 0) models_[i]->SaveParaview(backend_);
-        models_[i]->SaveSolutionsOnBoundary(backend_);
-        if (models_[i]->disc.common.nce > 0) models_[i]->SaveOutputCG(backend_);
+        models_[i]->sampler.computeAverageSolutionsOnBoundary();
+        models_[i]->writer.SaveSolutions(backend_);
+        models_[i]->writer.SaveQoI(backend_);
+        if (models_[i]->vis.savemode > 0) models_[i]->writer.SaveParaview(backend_);
+        models_[i]->writer.SaveSolutionsOnBoundary(backend_);
+        if (models_[i]->disc.common.components.nce > 0) models_[i]->writer.SaveOutputCG(backend_);
         
         time = time + models_[0]->disc.common.dt[istep];
     }
@@ -1333,11 +1364,11 @@ int ExasimSolver::RunSteady()
     for (int i = 0; i < nummodels_; i++) {
         models_[i]->SteadyProblem(residual_outputs_[i], backend_);
 
-        models_[i]->SaveSolutions(backend_);    
-        models_[i]->SaveQoI(backend_);
-        if (models_[i]->vis.savemode > 0) models_[i]->SaveParaview(backend_); 
-        models_[i]->SaveSolutionsOnBoundary(backend_);         
-        if (models_[i]->disc.common.nce>0) models_[i]->SaveOutputCG(backend_);            
+        models_[i]->writer.SaveSolutions(backend_);    
+        models_[i]->writer.SaveQoI(backend_);
+        if (models_[i]->vis.savemode > 0) models_[i]->writer.SaveParaview(backend_); 
+        models_[i]->writer.SaveSolutionsOnBoundary(backend_);         
+        if (models_[i]->disc.common.components.nce>0) models_[i]->writer.SaveOutputCG(backend_);            
     }
 
     return 0;
@@ -1349,11 +1380,11 @@ int ExasimSolver::RunSteady(const int modelnumber)
     if (status) return status;
     models_[modelnumber]->SteadyProblem(residual_outputs_[modelnumber], backend_);
 
-    models_[modelnumber]->SaveSolutions(backend_);    
-    models_[modelnumber]->SaveQoI(backend_);
-    if (models_[modelnumber]->vis.savemode > 0) models_[modelnumber]->SaveParaview(backend_); 
-    models_[modelnumber]->SaveSolutionsOnBoundary(backend_);         
-    if (models_[modelnumber]->disc.common.nce>0) models_[modelnumber]->SaveOutputCG(backend_);            
+    models_[modelnumber]->writer.SaveSolutions(backend_);    
+    models_[modelnumber]->writer.SaveQoI(backend_);
+    if (models_[modelnumber]->vis.savemode > 0) models_[modelnumber]->writer.SaveParaview(backend_); 
+    models_[modelnumber]->writer.SaveSolutionsOnBoundary(backend_);         
+    if (models_[modelnumber]->disc.common.components.nce>0) models_[modelnumber]->writer.SaveOutputCG(backend_);            
 
     return 0;
 }
@@ -1363,55 +1394,55 @@ int ExasimSolver::RunSolveProblemOrPostprocess()
     for (int i = 0; i < nummodels_; i++) {
         if (models_[i]->disc.common.runmode == 0) {
             if (restart_ > 0) {
-                models_[i]->disc.common.currentstep = -1;
-                models_[i]->ReadSolutions(backend_);
+                models_[i]->disc.common.timestate.currentstep = -1;
+                models_[i]->writer.ReadSolutions(backend_);
             }
             models_[i]->SolveProblem(residual_outputs_[i], backend_);
         }
         else if (models_[i]->disc.common.runmode == 1) {
-            models_[i]->disc.common.currentstep = -1;
-            models_[i]->ReadSolutions(backend_);
-            if (models_[i]->disc.common.ncq > 0)
-                models_[i]->disc.evalQ(backend_);
-            models_[i]->disc.common.saveSolOpt = 1;
-            models_[i]->SaveSolutions(backend_);
-            models_[i]->SaveQoI(backend_);
+            models_[i]->disc.common.timestate.currentstep = -1;
+            models_[i]->writer.ReadSolutions(backend_);
+            if (models_[i]->disc.common.components.ncq > 0)
+                models_[i]->residual.evalQ(backend_);
+            models_[i]->disc.common.outputparams.saveSolOpt = 1;
+            models_[i]->writer.SaveSolutions(backend_);
+            models_[i]->writer.SaveQoI(backend_);
             if (models_[i]->vis.savemode > 0)
-                models_[i]->SaveParaview(backend_);
-            models_[i]->SaveOutputCG(backend_);
+                models_[i]->writer.SaveParaview(backend_);
+            models_[i]->writer.SaveOutputCG(backend_);
         }
         else if (models_[i]->disc.common.runmode == 2) {
-            for (Int istep = 0; istep < models_[i]->disc.common.tsteps; istep++) {
-                if (((istep + 1) % models_[i]->disc.common.saveSolFreq) == 0) {
-                    models_[i]->disc.common.currentstep = istep;
-                    models_[i]->ReadSolutions(backend_);
-                    if (models_[i]->disc.common.ncq > 0)
-                        models_[i]->disc.evalQ(backend_);
-                    models_[i]->SaveOutputCG(backend_);
+            for (Int istep = 0; istep < models_[i]->disc.common.timeparams.tsteps; istep++) {
+                if (((istep + 1) % models_[i]->disc.common.outputparams.saveSolFreq) == 0) {
+                    models_[i]->disc.common.timestate.currentstep = istep;
+                    models_[i]->writer.ReadSolutions(backend_);
+                    if (models_[i]->disc.common.components.ncq > 0)
+                        models_[i]->residual.evalQ(backend_);
+                    models_[i]->writer.SaveOutputCG(backend_);
                 }
             }
         }
         else if (models_[i]->disc.common.runmode == 3) {
-            for (Int istep = 0; istep < models_[i]->disc.common.tsteps; istep++) {
-                if (((istep + 1) % models_[i]->disc.common.saveSolFreq) == 0) {
-                    models_[i]->disc.common.currentstep = istep;
-                    models_[i]->ReadSolutions(backend_);
-                    models_[i]->SaveOutputCG(backend_);
+            for (Int istep = 0; istep < models_[i]->disc.common.timeparams.tsteps; istep++) {
+                if (((istep + 1) % models_[i]->disc.common.outputparams.saveSolFreq) == 0) {
+                    models_[i]->disc.common.timestate.currentstep = istep;
+                    models_[i]->writer.ReadSolutions(backend_);
+                    models_[i]->writer.SaveOutputCG(backend_);
                 }
             }
         }
         else if (models_[i]->disc.common.runmode == 4) {
-            models_[i]->disc.common.currentstep = -1;
-            models_[i]->ReadSolutions(backend_);
+            models_[i]->disc.common.timestate.currentstep = -1;
+            models_[i]->writer.ReadSolutions(backend_);
             models_[i]->SolveProblem(residual_outputs_[i], backend_);
         }
         else if (models_[i]->disc.common.runmode == 5) {
-            models_[i]->disc.evalQSer(backend_);
-            models_[i]->disc.common.saveSolOpt = 1;
+            models_[i]->residual.evalQSer(backend_);
+            models_[i]->disc.common.outputparams.saveSolOpt = 1;
             string filename = models_[i]->disc.common.fileout + "_np" +
                               NumberToString(models_[i]->disc.common.mpiRank) + ".bin";
             writearray2file(filename, models_[i]->disc.sol.udg,
-                            models_[i]->disc.common.ndofudg1, backend_);
+                            models_[i]->disc.common.sizes.ndofudg1, backend_);
         }
     }
 
@@ -1425,25 +1456,25 @@ int ExasimSolver::Postprocess()
 
     for (int i = 0; i < nummodels_; i++) {
         if (postmode_ == 0) {
-            models_[i]->disc.common.currentstep = -1;
-            models_[i]->ReadSolutions(backend_);
-            models_[i]->SaveQoI(backend_);
+            models_[i]->disc.common.timestate.currentstep = -1;
+            models_[i]->writer.ReadSolutions(backend_);
+            models_[i]->writer.SaveQoI(backend_);
             if (models_[i]->vis.savemode > 0)
-                models_[i]->SaveParaview(backend_);
-            models_[i]->SaveOutputCG(backend_);
+                models_[i]->writer.SaveParaview(backend_);
+            models_[i]->writer.SaveOutputCG(backend_);
         } else if (postmode_ == 1) {
-            models_[i]->disc.common.currentstep = restart_;
-            models_[i]->GetSolutions(restart_, backend_);
-            models_[i]->SaveQoI(backend_);
-            if (models_[i]->vis.savemode > 0) models_[i]->SaveParaview(backend_);
-            models_[i]->SaveOutputCG(backend_);
+            models_[i]->disc.common.timestate.currentstep = restart_;
+            models_[i]->writer.GetSolutions(restart_, backend_);
+            models_[i]->writer.SaveQoI(backend_);
+            if (models_[i]->vis.savemode > 0) models_[i]->writer.SaveParaview(backend_);
+            models_[i]->writer.SaveOutputCG(backend_);
         } else if (postmode_ > 1) {
             for (int j = 0; j < postmode_; j++) {
-              models_[i]->disc.common.currentstep = restart_ + j;
-              models_[i]->GetSolutions(restart_ + j, backend_);
-              models_[i]->SaveQoI(backend_);
-              if (models_[i]->vis.savemode > 0) models_[i]->SaveParaview(backend_);
-              models_[i]->SaveOutputCG(backend_);
+              models_[i]->disc.common.timestate.currentstep = restart_ + j;
+              models_[i]->writer.GetSolutions(restart_ + j, backend_);
+              models_[i]->writer.SaveQoI(backend_);
+              if (models_[i]->vis.savemode > 0) models_[i]->writer.SaveParaview(backend_);
+              models_[i]->writer.SaveOutputCG(backend_);
             }
         }        
     }
@@ -1457,7 +1488,7 @@ int ExasimSolver::SaveParaviewStep(const int modelnumber, const int step, const 
         return 1;
     if (step < 1)  // step is 1-based; step-1 must be a valid (>=0) index
         return 1;
-    CSolution& m = *models_[modelnumber];
+    CSolution<>& m = *models_[modelnumber];
     // Nothing to write — and nothing to perturb — when vis is disabled. Returning
     // before touching currentstep keeps this a true no-op for non-vis models.
     if (m.vis.savemode <= 0)
@@ -1466,10 +1497,10 @@ int ExasimSolver::SaveParaviewStep(const int modelnumber, const int step, const 
     // currentstep = step-1 so a 1-based step maps to outvis<modifier>_<step+offset>.
     // Save and restore currentstep so this scratch index never leaks into a later
     // solve/postprocess that reads common.currentstep.
-    const auto savedstep = m.disc.common.currentstep;
-    m.disc.common.currentstep = step - 1;
-    m.SaveParaview(backend_, modifier, true);
-    m.disc.common.currentstep = savedstep;
+    const auto savedstep = m.disc.common.timestate.currentstep;
+    m.disc.common.timestate.currentstep = step - 1;
+    m.writer.SaveParaview(backend_, modifier, true);
+    m.disc.common.timestate.currentstep = savedstep;
     return 0;
 }
 
@@ -1685,7 +1716,7 @@ int ExasimSolver::ResetModelOutputsForCurrentCase()
     for (int i = 0; i < nummodels_; ++i) {
         if (!models_[i])
             continue;
-        models_[i]->ResetOutputFiles(fileout_[i]);
+        models_[i]->writer.ResetOutputFiles(fileout_[i]);
     }
 
     return OpenOutputStreams();
@@ -1777,8 +1808,8 @@ int ExasimSolver::RunPhysicsParamSweep()
             std::cout << "Physicsparam warm-start is enabled; building the model once."
                       << std::endl;
 
-        const dstype initialTime = models_[0]->disc.common.time;
-        const Int initialTimestepOffset = models_[0]->disc.common.timestepOffset;
+        const dstype initialTime = models_[0]->disc.common.timestate.time;
+        const Int initialTimestepOffset = models_[0]->disc.common.outputparams.timestepOffset;
 
         for (size_t icase = 0; icase < physicsparamcases_.size(); ++icase) {
             if (icase > 0) {
@@ -1797,10 +1828,10 @@ int ExasimSolver::RunPhysicsParamSweep()
                 status = ApplyPhysicsParamToModels(active_physicsparam_);
                 if (status) break;
 
-                models_[0]->disc.common.time = initialTime;
-                models_[0]->disc.common.timestepOffset = initialTimestepOffset;
-                models_[0]->disc.common.currentstep = -1;
-                models_[0]->disc.common.currentstage = 0;
+                models_[0]->disc.common.timestate.time = initialTime;
+                models_[0]->disc.common.outputparams.timestepOffset = initialTimestepOffset;
+                models_[0]->disc.common.timestate.currentstep = -1;
+                models_[0]->disc.common.timestate.currentstage = 0;
 
                 status = ResetModelOutputsForCurrentCase();
                 if (status) break;
@@ -1848,13 +1879,13 @@ int ExasimSolver::RunPhysicsParamSweep()
 int ExasimSolver::RunCurrentPhysicsParamCase()
 {
     commonstruct& common = models_[0]->disc.common;
-    if (common.AVdistfunction == 1)
+    if (common.physicsparams.AVdistfunction == 1)
         return RunAVDistanceFunction();
-    if ((common.tdep == 1) && (common.runmode == 0))
+    if ((common.timeparams.tdep == 1) && (common.runmode == 0))
         return RunTimeDependent();
-    if ((common.tdep == 1) && (common.runmode == 10 || common.runmode == 11))
+    if ((common.timeparams.tdep == 1) && (common.runmode == 10 || common.runmode == 11))
         return RunPseudoTime();
-    if ((common.tdep == 0) && (common.runmode == 0))
+    if ((common.timeparams.tdep == 0) && (common.runmode == 0))
         return RunSteady();
     return RunSolveProblemOrPostprocess();
 }
@@ -1866,7 +1897,7 @@ void ExasimSolver::CloseOutputStreams()
                     i < static_cast<int>(residual_outputs_.size()); i++) {
         if (models_[i] &&
             models_[i]->disc.common.mpiRank == 0 &&
-            models_[i]->disc.common.saveResNorm == 1 &&
+            models_[i]->disc.common.outputparams.saveResNorm == 1 &&
             residual_outputs_[i].is_open()) {
             residual_outputs_[i].close();
         }

@@ -1,5 +1,7 @@
-int IsElemCurved(dstype *jac, int ns, int nge)
+template <class T=dstype, class I=Int>
+int IsElemCurved(T *jac, int ns, int nge)
 {
+    using dstype=T;
     int curvedmesh = 0;
     for (int i=0; i<ns; i++) {
         dstype minjac = cpuArrayMin(&jac[i*nge], nge);
@@ -12,11 +14,13 @@ int IsElemCurved(dstype *jac, int ns, int nge)
     return curvedmesh;
 }
 
-int IsMeshCurved(solstruct &sol, appstruct &app, masterstruct &master, meshstruct &mesh, tempstruct &tmp)
-{            
+template <class T=dstype, class I=Int>
+int IsMeshCurved(solstructT<T,I> &sol, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh, tempstructT<T,I> &tmp)
+{
+    using dstype=T;            
     dstype *xn, *Xx, *jac, *Jg;  
     
-    Int ncx = app.ndims[11];// number of compoments of (xdg)        
+    Int ncx = app.ndims[AppNdims::ncx];// number of compoments of (xdg)        
     Int nd = master.ndims[0];     // spatial dimension    
     Int npe = master.ndims[5]; // number of nodes on master element
     Int nge = master.ndims[7]; // number of gauss points on master element    

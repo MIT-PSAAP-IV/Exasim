@@ -48,13 +48,29 @@ fi
 if [ "${COMBINED_TEST:-0}" = "1" ] || [ "${COMBINED_EXPORT:-0}" = "1" ]; then
   case "$FE" in
     python) APP="pdeapp_combined.py" ;;
-    *) echo "SKIP: combined tests only implemented for python"; exit "$SKIP" ;;
+    matlab) APP="pdeapp_combined.m" ;;
+    julia)  APP="pdeapp_combined.jl" ;;
+    *) echo "SKIP: combined tests not implemented for $FE"; exit "$SKIP" ;;
   esac
 fi
+# Extra cheap app-regression cases: CASE=<name> runs pdeapp_<name>.py (its
+# pdemodel_<name>.py is copied to the scratch dir with everything else). Used to add
+# cheap numerical coverage to CI (e.g. LDG, 3D) beyond the default Poisson 2D.
+if [ -n "${CASE:-}" ]; then
+  case "$FE" in
+    python) APP="pdeapp_${CASE}.py" ;;
+    matlab) APP="pdeapp_${CASE}.m" ;;
+    julia)  APP="pdeapp_${CASE}.jl" ;;
+    *) echo "SKIP: CASE not implemented for $FE"; exit "$SKIP" ;;
+  esac
+fi
+
 if [ "${EXPORT_TEXT2CODE_TEST:-0}" = "1" ]; then
   case "$FE" in
     python) APP="pdeapp_exporttext2code.py" ;;
-    *) echo "SKIP: exporttext2code test only implemented for python"; exit "$SKIP" ;;
+    matlab) APP="pdeapp_exporttext2code.m" ;;
+    julia)  APP="pdeapp_exporttext2code.jl" ;;
+    *) echo "SKIP: exporttext2code test not implemented for $FE"; exit "$SKIP" ;;
   esac
 fi
 if [ ! -f "$SRC/$APP" ]; then

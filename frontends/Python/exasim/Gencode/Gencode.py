@@ -219,8 +219,13 @@ def gencode(app):
             hdgnocodeface("Fint" + str(strn), foldername)
             hdgnocodeface2("Fintonly" + str(strn), foldername)    
     else:
+        # LDG (hybrid != 1): the HDG face kernels are never called, but model.cpp still #includes
+        # HdgFbou/HdgFint, so emit empty stubs for BOTH (Fint was previously missing -> LDG models
+        # failed to compile with "HdgFint.cpp file not found").
         hdgnocodeface("Fbou" + str(strn), foldername)
-        hdgnocodeface2("Fbouonly" + str(strn), foldername)    
+        hdgnocodeface2("Fbouonly" + str(strn), foldername)
+        hdgnocodeface("Fint" + str(strn), foldername)
+        hdgnocodeface2("Fintonly" + str(strn), foldername)
     if hasattr(pde, 'fbou'):
         #f = pde.fbou(xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time);
         f = pde.fbou(u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, tau);

@@ -48,6 +48,17 @@ return getText2codeGeneratedExasimDriverABI();
 #endif
 }
 
+// SelectExasimDriverABI() is header-inline (dispatched by the provider macros), but the core
+// backend library's ExasimSolver.cpp references it via an `extern` declaration (the ModelSizes
+// ParseInputs path under HAVE_BACKEND_PREPROCESSING). Because it is fully inlined into each app's
+// call chain, no out-of-line copy would otherwise survive for the library to link against. Taking
+// its address in each including (provider) TU forces an out-of-line weak definition to be emitted;
+// the weak copies merge at link time. This is what makes the provider "define" the symbol.
+namespace {
+[[gnu::used]] const void* const _exasim_emit_select_driver_abi =
+    reinterpret_cast<const void*>(&SelectExasimDriverABI);
+}
+
 inline const char* SelectExasimDriverProviderName()
 {
 #if defined(HAVE_SHAREDLIBRARY)

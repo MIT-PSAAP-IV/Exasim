@@ -663,20 +663,20 @@ ModelSizes extGetModelSizes(int modelnumber)
 bool IsValidExternalModelABI(const ExasimDriverABI& abi)
 {
     return abi.abi_version == kExasimDriverABIVersion &&
-            abi.struct_size == sizeof(ExasimDriverABI) &&
-           abi.KokkosFlux && abi.KokkosSource && abi.KokkosSourcew && abi.KokkosTdfunc &&
-           abi.KokkosAvfield && abi.KokkosEoS && abi.KokkosEoSdu && abi.KokkosEoSdw &&
-           abi.KokkosFbou && abi.KokkosUbou && abi.KokkosFbouJac && abi.KokkosUbouJac &&
-           abi.KokkosFhat && abi.KokkosUhat && abi.KokkosStab &&
-           abi.KokkosOutput && abi.KokkosMonitor &&
-           abi.KokkosVisScalars && abi.KokkosVisVectors && abi.KokkosVisTensors &&
-           abi.KokkosQoIvolume && abi.KokkosQoIboundary &&
-           abi.KokkosInitu && abi.KokkosInitq && abi.KokkosInitudg &&
-           abi.KokkosInitwdg && abi.KokkosInitodg &&
-           abi.cpuInitu && abi.cpuInitq && abi.cpuInitudg && abi.cpuInitwdg && abi.cpuInitodg &&
-           abi.HdgFlux && abi.HdgSource && abi.HdgSourcew && abi.HdgSourcewonly && abi.HdgEoS &&
-           abi.HdgFbou && abi.HdgFbouonly && abi.HdgFint && abi.HdgFintonly &&
-           abi.HdgFext && abi.HdgFextonly;
+           abi.struct_size == sizeof(ExasimDriverABI) &&
+           abi.volume.KokkosFlux && abi.volume.KokkosSource && abi.volume.KokkosSourcew && abi.volume.KokkosTdfunc &&
+           abi.volume.KokkosAvfield && abi.eos.KokkosEoS && abi.eos.KokkosEoSdu && abi.eos.KokkosEoSdw &&
+           abi.boundary.KokkosFbou && abi.boundary.KokkosUbou && abi.boundary.KokkosFbouJac && abi.boundary.KokkosUbouJac &&
+           abi.iface.KokkosFhat && abi.iface.KokkosUhat && abi.iface.KokkosStab &&
+           abi.output.KokkosOutput && abi.output.KokkosMonitor &&
+           abi.output.KokkosVisScalars && abi.output.KokkosVisVectors && abi.output.KokkosVisTensors &&
+           abi.qoi.KokkosQoIvolume && abi.qoi.KokkosQoIboundary &&
+           abi.init.KokkosInitu && abi.init.KokkosInitq && abi.init.KokkosInitudg &&
+           abi.init.KokkosInitwdg && abi.init.KokkosInitodg &&
+           abi.init.cpuInitu && abi.init.cpuInitq && abi.init.cpuInitudg && abi.init.cpuInitwdg && abi.init.cpuInitodg &&
+           abi.hdgjac.HdgFlux && abi.hdgjac.HdgSource && abi.hdgjac.HdgSourcew && abi.hdgjac.HdgSourcewonly && abi.hdgjac.HdgEoS &&
+           abi.hdgjac.HdgFbou && abi.hdgjac.HdgFbouonly && abi.hdgjac.HdgFint && abi.hdgjac.HdgFintonly &&
+           abi.hdgjac.HdgFext && abi.hdgjac.HdgFextonly;
 }
 
 } // namespace
@@ -687,62 +687,64 @@ const ExasimDriverABI& getBuiltInLibraryExasimDriverABI()
         ExasimDriverABI value;
         value.abi_version = kExasimDriverABIVersion;
         value.struct_size = sizeof(ExasimDriverABI);
-        value.KokkosFlux        = &extKokkosFlux;
-        value.KokkosSource      = &extKokkosSource;
-        value.KokkosSourcew     = &extKokkosSourcew;
-        value.KokkosTdfunc      = &extKokkosTdfunc;
-        value.KokkosAvfield     = &extKokkosAvfield;
-        value.KokkosEoS         = &extKokkosEoS;
-        value.KokkosEoSdu       = &extKokkosEoSdu;
-        value.KokkosEoSdw       = &extKokkosEoSdw;
-        value.KokkosFbou        = &extKokkosFbou;
-        value.KokkosUbou        = &extKokkosUbou;
-        value.KokkosFbouJac     = &extKokkosFbouJac;
-        value.KokkosUbouJac     = &extKokkosUbouJac;
-        value.KokkosFhat        = &extKokkosFhat;
-        value.KokkosUhat        = &extKokkosUhat;
-        value.KokkosStab        = &extKokkosStab;
-        value.KokkosOutput      = &extKokkosOutput;
-        value.KokkosMonitor     = &extKokkosMonitor;
-        value.KokkosVisScalars  = &extKokkosVisScalars;
-        value.KokkosVisVectors  = &extKokkosVisVectors;
-        value.KokkosVisTensors  = &extKokkosVisTensors;
-        value.KokkosQoIvolume   = &extKokkosQoIvolume;
-        value.KokkosQoIboundary = &extKokkosQoIboundary;
-        value.KokkosInitu       = &extKokkosInitu;
-        value.KokkosInitq       = &extKokkosInitq;
-        value.KokkosInitudg     = &extKokkosInitudg;
-        value.KokkosInitwdg     = &extKokkosInitwdg;
-        value.KokkosInitodg     = &extKokkosInitodg;
-        value.cpuInitu          = &extcpuInitu;
-        value.cpuInitq          = &extcpuInitq;
-        value.cpuInitudg        = &extcpuInitudg;
-        value.cpuInitwdg        = &extcpuInitwdg;
-        value.cpuInitodg        = &extcpuInitodg;
-        value.HdgFlux           = &extHdgFlux;
-        value.HdgSource         = &extHdgSource;
-        value.HdgSourcew        = &extHdgSourcew;
-        value.HdgSourcewonly    = &extHdgSourcewonly;
-        value.HdgEoS            = &extHdgEoS;
-        value.HdgFbou           = &extHdgFbou;
-        value.HdgFbouonly       = &extHdgFbouonly;
-        value.HdgFint           = &extHdgFint;
-        value.HdgFintonly       = &extHdgFintonly;
-        value.HdgFext           = &extHdgFext;
-        value.HdgFextonly       = &extHdgFextonly;
-        value.GetModelSizes      = &extGetModelSizes;
-
+        value.volume.KokkosFlux        = &extKokkosFlux;
+        value.volume.KokkosSource      = &extKokkosSource;
+        value.volume.KokkosSourcew     = &extKokkosSourcew;
+        value.volume.KokkosTdfunc      = &extKokkosTdfunc;
+        value.volume.KokkosAvfield     = &extKokkosAvfield;
+        value.eos.KokkosEoS         = &extKokkosEoS;
+        value.eos.KokkosEoSdu       = &extKokkosEoSdu;
+        value.eos.KokkosEoSdw       = &extKokkosEoSdw;
+        value.boundary.KokkosFbou        = &extKokkosFbou;
+        value.boundary.KokkosUbou        = &extKokkosUbou;
+        value.boundary.KokkosFbouJac     = &extKokkosFbouJac;
+        value.boundary.KokkosUbouJac     = &extKokkosUbouJac;
+        value.iface.KokkosFhat        = &extKokkosFhat;
+        value.iface.KokkosUhat        = &extKokkosUhat;
+        value.iface.KokkosStab        = &extKokkosStab;
+        value.output.KokkosOutput      = &extKokkosOutput;
+        value.output.KokkosMonitor     = &extKokkosMonitor;
+        value.output.KokkosVisScalars  = &extKokkosVisScalars;
+        value.output.KokkosVisVectors  = &extKokkosVisVectors;
+        value.output.KokkosVisTensors  = &extKokkosVisTensors;
+        value.qoi.KokkosQoIvolume   = &extKokkosQoIvolume;
+        value.qoi.KokkosQoIboundary = &extKokkosQoIboundary;
+        value.init.KokkosInitu       = &extKokkosInitu;
+        value.init.KokkosInitq       = &extKokkosInitq;
+        value.init.KokkosInitudg     = &extKokkosInitudg;
+        value.init.KokkosInitwdg     = &extKokkosInitwdg;
+        value.init.KokkosInitodg     = &extKokkosInitodg;
+        value.init.cpuInitu          = &extcpuInitu;
+        value.init.cpuInitq          = &extcpuInitq;
+        value.init.cpuInitudg        = &extcpuInitudg;
+        value.init.cpuInitwdg        = &extcpuInitwdg;
+        value.init.cpuInitodg        = &extcpuInitodg;
+        value.hdgjac.HdgFlux           = &extHdgFlux;
+        value.hdgjac.HdgSource         = &extHdgSource;
+        value.hdgjac.HdgSourcew        = &extHdgSourcew;
+        value.hdgjac.HdgSourcewonly    = &extHdgSourcewonly;
+        value.hdgjac.HdgEoS            = &extHdgEoS;
+        value.hdgjac.HdgFbou           = &extHdgFbou;
+        value.hdgjac.HdgFbouonly       = &extHdgFbouonly;
+        value.hdgjac.HdgFint           = &extHdgFint;
+        value.hdgjac.HdgFintonly       = &extHdgFintonly;
+        value.hdgjac.HdgFext           = &extHdgFext;
+        value.hdgjac.HdgFextonly       = &extHdgFextonly;
+        // Model-owned sizes (PR #33): route external-model dimensions through GetModelSizes.
+        value.GetModelSizes = &extGetModelSizes;
+        // The exasim_model_sizes:: constants only exist for frontend-generated models that ship
+        // model_sizes.hpp; hand-written / builtin-fallthrough external models don't have them, so
+        // guard the direct size fields (GetModelSizes above already covers all IDs dynamically).
 #ifdef EXASIM_HAS_FRONTEND_MODEL_SIZES
-        value.ncu  = exasim_model_sizes::ncu;
-        value.nco  = exasim_model_sizes::nco;
-        value.ncw  = exasim_model_sizes::ncw;
-        value.nsca = exasim_model_sizes::nsca;
-        value.nvec = exasim_model_sizes::nvec;
-        value.nten = exasim_model_sizes::nten;
+        value.ncu   = exasim_model_sizes::ncu;
+        value.nco   = exasim_model_sizes::nco;
+        value.ncw   = exasim_model_sizes::ncw;
+        value.nsca  = exasim_model_sizes::nsca;
+        value.nvec  = exasim_model_sizes::nvec;
+        value.nten  = exasim_model_sizes::nten;
         value.nsurf = exasim_model_sizes::nsurf;
         value.nvqoi = exasim_model_sizes::nvqoi;
 #endif
-
         return value;
     }();
     if (!IsValidExternalModelABI(abi))

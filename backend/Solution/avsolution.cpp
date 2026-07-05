@@ -1,4 +1,4 @@
-void avdistfunc(CSolution** pdemodel, ofstream* out, Int nummodels, Int backend)
+void avdistfunc(CSolution<exasim::detail::AbiAdapter>** pdemodel, ofstream* out, Int nummodels, Int backend)
 {  
   for (int i=0; i<nummodels; i++) 
     pdemodel[i]->InitSolution(backend); 
@@ -16,10 +16,10 @@ void avdistfunc(CSolution** pdemodel, ofstream* out, Int nummodels, Int backend)
   }
   
   for (int i=0; i<nummodels; i++) {        
-    pdemodel[i]->SaveSolutions(backend);    
-    pdemodel[i]->SaveSolutionsOnBoundary(backend);         
-    if (pdemodel[i]->disc.common.nce>0)
-      pdemodel[i]->SaveOutputCG(backend);            
+    pdemodel[i]->writer.SaveSolutions(backend);    
+    pdemodel[i]->writer.SaveSolutionsOnBoundary(backend);         
+    if (pdemodel[i]->disc.common.components.nce>0)
+      pdemodel[i]->writer.SaveOutputCG(backend);            
   }
 }
 

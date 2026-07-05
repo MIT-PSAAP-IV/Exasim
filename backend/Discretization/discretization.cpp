@@ -54,6 +54,8 @@
 #endif
 
 #include "discretization.h"
+#include "interfacesampler.h"   // CInterfaceSampler decl, needed early by the wall-model sampling
+#include "wallmodelbuild.h"     // CWallModel decl, used by the constructor
 #include "ioutilities.cpp"
 #include "../PointLocator/pointlocator.h"
 
@@ -68,15 +70,17 @@
 #include "connectivity.cpp"
 #include "readbinaryfiles.cpp"
 #include "setstructs.cpp"
-#include "residual.cpp"
+#include "residual.hpp"  // unified (U)
 //#include "ldgjactest.cpp"
 #include "ldgblockjacobian.cpp"
-#include "matvec.cpp"
-#include "qoicalculation.cpp"
+#include "matvec.hpp"  // unified (U)
+#include "qoicalculation.hpp"  // unified templated QoI; production instantiates <AbiAdapter>
 #include "wallmodel.cpp"
 
-void crs_init(commonstruct& common, meshstruct& mesh, int *elem, int nse, int nese)
-{            
+template <class T = ::dstype, class I = ::Int>
+void crs_init(commonstructT<T,I>& common, meshstructT<T,I>& mesh, int *elem, int nse, int nese)
+{
+    using dstype = T; using Int = I;
     common.nse = nse;
     common.nese = nese;
     
@@ -85,52 +89,52 @@ void crs_init(commonstruct& common, meshstruct& mesh, int *elem, int nse, int ne
     int *face = NULL; 
     int *f2eelem = NULL; 
     int *f2e = NULL; 
-    TemplateMalloc(&f2e, 4*common.nf, 0);
-    TemplateCopytoHost(f2e, mesh.f2e, 4*common.nf, common.backend); 
+    TemplateMalloc(&f2e, 4*common.meshsizes.nf, 0);
+    TemplateCopytoHost(f2e, mesh.f2e, 4*common.meshsizes.nf, common.backend); 
     
-    int nfelem = crs_faceordering(&row_ptr, &col_ind, &face, &f2eelem, elem, f2e, common.nse, common.nese, common.nfe, common.nf);
+    int nfelem = crs_faceordering(&row_ptr, &col_ind, &face, &f2eelem, elem, f2e, common.nse, common.nese, common.meshsizes.nfe, common.meshsizes.nf);
 
     common.nfse = nfelem;
     common.nnz = row_ptr[common.nfse];      
         
-    int n = 2*(common.nfe-1);
-    TemplateMalloc(&common.ind_ii, nfelem, 0);
-    TemplateMalloc(&common.ind_ji, nfelem*n, 0);
-    TemplateMalloc(&common.ind_jl, nfelem*n*n, 0);
-    TemplateMalloc(&common.ind_il, nfelem*n*n, 0);
-    TemplateMalloc(&common.num_ji, nfelem, 0);
-    TemplateMalloc(&common.num_jl, nfelem*n, 0);
-    TemplateMalloc(&common.Lind_ji, nfelem*n*2, 0);
-    TemplateMalloc(&common.Uind_ji, nfelem*n*2, 0);
-    TemplateMalloc(&common.Lnum_ji, nfelem*2, 0);
-    TemplateMalloc(&common.Unum_ji, nfelem*3, 0);
-    for (int i=0; i<nfelem; i++) common.ind_ii[i] = -1;
-    for (int i=0; i<nfelem*n; i++) common.ind_ji[i] = -1;
-    for (int i=0; i<nfelem*n*n; i++) common.ind_jl[i] = -1;
-    for (int i=0; i<nfelem*n*n; i++) common.ind_il[i] = -1;
-    for (int i=0; i<nfelem; i++) common.num_ji[i] = 0;
-    for (int i=0; i<nfelem*n; i++) common.num_jl[i] = 0;
-    for (int i=0; i<nfelem*n*2; i++) common.Lind_ji[i] = -1;
-    for (int i=0; i<nfelem*n*2; i++) common.Uind_ji[i] = -1;
-    for (int i=0; i<nfelem*2; i++) common.Lnum_ji[i] = 0;
-    for (int i=0; i<nfelem*3; i++) common.Unum_ji[i] = 0;    
+    int n = 2*(common.meshsizes.nfe-1);
+    TemplateMalloc(&common.bjindex.ind_ii, nfelem, 0);
+    TemplateMalloc(&common.bjindex.ind_ji, nfelem*n, 0);
+    TemplateMalloc(&common.bjindex.ind_jl, nfelem*n*n, 0);
+    TemplateMalloc(&common.bjindex.ind_il, nfelem*n*n, 0);
+    TemplateMalloc(&common.bjindex.num_ji, nfelem, 0);
+    TemplateMalloc(&common.bjindex.num_jl, nfelem*n, 0);
+    TemplateMalloc(&common.bjindex.Lind_ji, nfelem*n*2, 0);
+    TemplateMalloc(&common.bjindex.Uind_ji, nfelem*n*2, 0);
+    TemplateMalloc(&common.bjindex.Lnum_ji, nfelem*2, 0);
+    TemplateMalloc(&common.bjindex.Unum_ji, nfelem*3, 0);
+    for (int i=0; i<nfelem; i++) common.bjindex.ind_ii[i] = -1;
+    for (int i=0; i<nfelem*n; i++) common.bjindex.ind_ji[i] = -1;
+    for (int i=0; i<nfelem*n*n; i++) common.bjindex.ind_jl[i] = -1;
+    for (int i=0; i<nfelem*n*n; i++) common.bjindex.ind_il[i] = -1;
+    for (int i=0; i<nfelem; i++) common.bjindex.num_ji[i] = 0;
+    for (int i=0; i<nfelem*n; i++) common.bjindex.num_jl[i] = 0;
+    for (int i=0; i<nfelem*n*2; i++) common.bjindex.Lind_ji[i] = -1;
+    for (int i=0; i<nfelem*n*2; i++) common.bjindex.Uind_ji[i] = -1;
+    for (int i=0; i<nfelem*2; i++) common.bjindex.Lnum_ji[i] = 0;
+    for (int i=0; i<nfelem*3; i++) common.bjindex.Unum_ji[i] = 0;    
     
-    crs_indexingilu0(common.ind_ii, common.ind_ji, common.ind_jl, common.ind_il, common.num_ji, common.num_jl, 
-            common.Lind_ji, common.Uind_ji, common.Lnum_ji, common.Unum_ji, row_ptr, col_ind, common.nfe, nfelem);
+    crs_indexingilu0(common.bjindex.ind_ii, common.bjindex.ind_ji, common.bjindex.ind_jl, common.bjindex.ind_il, common.bjindex.num_ji, common.bjindex.num_jl, 
+            common.bjindex.Lind_ji, common.bjindex.Uind_ji, common.bjindex.Lnum_ji, common.bjindex.Unum_ji, row_ptr, col_ind, common.meshsizes.nfe, nfelem);
 
-//     print2iarray(f2eelem, common.nfe, nfelem);
+//     print2iarray(f2eelem, common.meshsizes.nfe, nfelem);
 //     print2iarray(row_ptr, 1, nfelem+1);
 //     print2iarray(col_ind, 1, row_ptr[nfelem]);    
-//     print2iarray(common.ind_ii, 1, nfelem);
-//     print2iarray(common.ind_ji, n, nfelem);
-//     print2iarray(common.ind_jl, n*n, nfelem);
-//     print2iarray(common.ind_il, n*n, nfelem);
-//     print2iarray(common.num_ji, 1, nfelem);
-//     print2iarray(common.num_jl, n, nfelem);
-//     print2iarray(common.Lind_ji, n*2, nfelem);
-//     print2iarray(common.Uind_ji, n*2, nfelem);
-//     print2iarray(common.Lnum_ji, 2, nfelem);
-//     print2iarray(common.Unum_ji, 3, nfelem);
+//     print2iarray(common.bjindex.ind_ii, 1, nfelem);
+//     print2iarray(common.bjindex.ind_ji, n, nfelem);
+//     print2iarray(common.bjindex.ind_jl, n*n, nfelem);
+//     print2iarray(common.bjindex.ind_il, n*n, nfelem);
+//     print2iarray(common.bjindex.num_ji, 1, nfelem);
+//     print2iarray(common.bjindex.num_jl, n, nfelem);
+//     print2iarray(common.bjindex.Lind_ji, n*2, nfelem);
+//     print2iarray(common.bjindex.Uind_ji, n*2, nfelem);
+//     print2iarray(common.bjindex.Lnum_ji, 2, nfelem);
+//     print2iarray(common.bjindex.Unum_ji, 3, nfelem);
 
     TemplateMalloc(&mesh.row_ptr, nfelem+1, common.backend);
     TemplateMalloc(&mesh.col_ind, row_ptr[nfelem],common.backend);
@@ -140,18 +144,18 @@ void crs_init(commonstruct& common, meshstruct& mesh, int *elem, int nse, int ne
     TemplateCopytoDevice(mesh.face, face, nse*nfelem, common.backend);      
     
 //     writearray2file(common.fileout + "elem.bin", elem, nse*nese, 0);
-//     writearray2file(common.fileout + "f2e.bin", f2e, 4*common.nf, 0);
+//     writearray2file(common.fileout + "f2e.bin", f2e, 4*common.meshsizes.nf, 0);
 //     
-//     writearray2file(common.fileout + "ind_ii.bin", common.ind_ii, nfelem, 0);
-//     writearray2file(common.fileout + "ind_ji.bin", common.ind_ji, n*nfelem, 0);
-//     writearray2file(common.fileout + "ind_jl.bin", common.ind_jl, n*n*nfelem, 0);
-//     writearray2file(common.fileout + "ind_il.bin", common.ind_il, n*n*nfelem, 0);
-//     writearray2file(common.fileout + "num_ji.bin", common.num_ji, nfelem, 0);
-//     writearray2file(common.fileout + "num_jl.bin", common.num_jl, n*nfelem, 0);
-//     writearray2file(common.fileout + "Lind_ji.bin", common.Lind_ji, 2*n*nfelem, 0);
-//     writearray2file(common.fileout + "Uind_ji.bin", common.Uind_ji, 2*n*nfelem, 0);
-//     writearray2file(common.fileout + "Lnum_ji.bin", common.Lnum_ji, 2*nfelem, 0);
-//     writearray2file(common.fileout + "Unum_ji.bin", common.Unum_ji, 3*nfelem, 0);
+//     writearray2file(common.fileout + "ind_ii.bin", common.bjindex.ind_ii, nfelem, 0);
+//     writearray2file(common.fileout + "ind_ji.bin", common.bjindex.ind_ji, n*nfelem, 0);
+//     writearray2file(common.fileout + "ind_jl.bin", common.bjindex.ind_jl, n*n*nfelem, 0);
+//     writearray2file(common.fileout + "ind_il.bin", common.bjindex.ind_il, n*n*nfelem, 0);
+//     writearray2file(common.fileout + "num_ji.bin", common.bjindex.num_ji, nfelem, 0);
+//     writearray2file(common.fileout + "num_jl.bin", common.bjindex.num_jl, n*nfelem, 0);
+//     writearray2file(common.fileout + "Lind_ji.bin", common.bjindex.Lind_ji, 2*n*nfelem, 0);
+//     writearray2file(common.fileout + "Uind_ji.bin", common.bjindex.Uind_ji, 2*n*nfelem, 0);
+//     writearray2file(common.fileout + "Lnum_ji.bin", common.bjindex.Lnum_ji, 2*nfelem, 0);
+//     writearray2file(common.fileout + "Unum_ji.bin", common.bjindex.Unum_ji, 3*nfelem, 0);
 //     
 //     writearray2file(common.fileout + "row_ptr.bin", mesh.row_ptr, nfelem+1, common.backend);
 //     writearray2file(common.fileout + "col_ind.bin", mesh.col_ind, row_ptr[nfelem], common.backend);
@@ -164,11 +168,13 @@ void crs_init(commonstruct& common, meshstruct& mesh, int *elem, int nse, int ne
     CPUFREE(f2e);
 }
       
-void BuildElementBlockBoundaryFaces(commonstruct& common, meshstruct& mesh, Int backend)
+template <class T = ::dstype, class I = ::Int>
+void BuildElementBlockBoundaryFaces(commonstructT<T,I>& common, meshstructT<T,I>& mesh, ::Int backend)
 {
-    Int nfe = common.nfe;
-    Int ne = common.ne;
-    Int nbe = common.nbe;
+    using dstype = T; using Int = I;
+    Int nfe = common.meshsizes.nfe;
+    Int ne = common.meshsizes.ne;
+    Int nbe = common.meshsizes.nbe;
 
     int nboufaces = 0;
     int maxbc = 0;
@@ -177,7 +183,7 @@ void BuildElementBlockBoundaryFaces(commonstruct& common, meshstruct& mesh, Int 
             nboufaces++;
         maxbc = max(maxbc, mesh.bf[i]);
     }
-    common.maxnbc = maxbc;
+    common.meshsizes.maxnbc = maxbc;
 
     CPUFREE(common.nboufaces);
     TemplateFree(mesh.boufaces, backend);
@@ -201,40 +207,42 @@ void BuildElementBlockBoundaryFaces(commonstruct& common, meshstruct& mesh, Int 
     }
 }
 
-void AllocateLDGBlockJacobianMemory(resstruct& res, commonstruct& common, Int backend)
+template <class T = ::dstype, class I = ::Int>
+void AllocateLDGBlockJacobianMemory(resstructT<T,I>& res, commonstructT<T,I>& common, ::Int backend, scratcharenastructT<T,I>& scratch)
 {
-    Int npe = common.npe;
-    Int npf = common.npf;
-    Int nfe = common.nfe;
-    Int ncu = common.ncu;
-    Int ncq = common.ncq;
-    Int nd = common.nd;
-    Int ne = common.ne;
-    Int neb = common.neb;
+    using dstype = T; using Int = I;
+    Int npe = common.grid.npe;
+    Int npf = common.grid.npf;
+    Int nfe = common.meshsizes.nfe;
+    Int ncu = common.components.ncu;
+    Int ncq = common.components.ncq;
+    Int nd = common.grid.nd;
+    Int ne = common.meshsizes.ne;
+    Int neb = common.meshsizes.neb;
 
     Int n = npe*ncu;
     Int m = npf*nfe*ncu;
     Int nq = npe*ncq;
-    Int ndofu = npe*ncu*common.ne1;
-    Int M = max(common.gmresRestart+1, common.RBdim);
+    Int ndofu = npe*ncu*common.meshsizes.ne1;
+    Int M = max(common.solverparams.gmresRestart+1, common.solverparams.RBdim);
 
     Int tempn_uface = npf*npf*nfe*neb*ncu*(2*ncu + ncq);
     Int tempn_schur = max(n*n*neb, n*m*neb);
-    Int szFq = common.ngf*nd*ncu*ncu*common.nfb;
-    Int szBufq = npf*npf*nd*ncu*ncu*common.nfb;
-    Int szEf = npf*nd*npf*common.nfb;
-    Int szAf = npf*npf*ncu*ncu*common.nfb;
+    Int szFq = common.grid.ngf*nd*ncu*ncu*common.meshsizes.nfb;
+    Int szBufq = npf*npf*nd*ncu*ncu*common.meshsizes.nfb;
+    Int szEf = npf*nd*npf*common.meshsizes.nfb;
+    Int szAf = npf*npf*ncu*ncu*common.meshsizes.nfb;
     Int tempn_cross = max(szFq, szBufq) + max(szBufq, szEf) + szAf;
     Int hSize = max(max(tempn_schur, tempn_uface), tempn_cross);
 
-    Int kInvSize = n*n*common.ne1;
+    Int kInvSize = n*n*common.meshsizes.ne1;
     Int dSize = n*n*neb;
     Int bSize = n*nq*neb;
     Int fSize = m*n*neb;
     Int kSize = kInvSize + max(dSize + bSize + 2*fSize + hSize, M*ndofu);
     res.szP = kInvSize;
 
-    EnsureTemplateAllocation(&res.K, res.szK, kSize, backend);
+    res.K = scratch.allocate(kSize, backend); res.szK = kSize;  // K owned by the arena (S5 step 3)
     EnsureTemplateAllocation(&res.ipiv, res.szipiv, n*neb, backend);
     if (ncq > 0) {
         EnsureTemplateAllocation(&res.Mass2, res.szMass2, npe*npe*ne, backend);
@@ -243,21 +251,27 @@ void AllocateLDGBlockJacobianMemory(resstruct& res, commonstruct& common, Int ba
         EnsureTemplateAllocation(&res.E, res.szE, npe*npf*nfe*ne*nd, backend);
     }
 
-    res.D = &res.K[kInvSize];
-    res.B = &res.K[kInvSize + dSize];
-    res.F = &res.K[kInvSize + dSize + bSize];
-    res.G = &res.K[kInvSize + dSize + bSize + fSize];
-    res.H = &res.K[kInvSize + dSize + bSize + 2*fSize];
+    // Assembly views reserved sequentially from the K arena (the shared tail after the
+    // preconditioner region szP==kInvSize). Replaces the inline &K[kInvSize + dSize + ...] math.
+    res.resetKArena(kInvSize);
+    res.D = res.reserveView(dSize);
+    res.B = res.reserveView(bSize);
+    res.F = res.reserveView(fSize);
+    res.G = res.reserveView(fSize);
+    res.H = res.reserveView(hSize);
+    res.fhAliasesK = 1;  // F and H alias into K here; freememory must not free them (see resstruct)
 }
 
 // Both CPU and GPU constructor
-CDiscretization::CDiscretization(string filein, string fileout, string exasimpath, Int mpiprocs, Int mpirank, 
+template <class T, class I>
+CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string exasimpath, Int mpiprocs, Int mpirank, 
         Int fileoffset, Int omprank, Int backend, Int builtinmodelID,
         const ExasimDriverABI& abi, Int nsca, Int nvec, Int nten, Int nsurf, Int nvqoi,
         ExasimExecutionMode mode, const std::vector<dstype>* physicsparamOverride,
         Int saveParaview)
 {
     driver_abi = abi;
+    common.driver_abi = &driver_abi;  // expose the ABI to the unified templated FEM code (AbiAdapter path)
     common.backend = backend;
     common.exasimpath = exasimpath;
     common.builtinmodelID = builtinmodelID;
@@ -299,12 +313,23 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
                 physicsparamOverride);
                 
         // copy data from cpu memory to gpu memory
-        gpuInit(sol, res, app, driver_abi, master, mesh, tmp, common, 
-            hsol, hres, happ, hmaster, hmesh, htmp, hcommon);                
+        gpuInit(sol, res, app, driver_abi, master, mesh, tmp, common,
+            hsol, hres, happ, hmaster, hmesh, htmp, hcommon);
         app.read_uh = happ.read_uh;
+        // Mirror the builtin/multi-model dispatch id onto the device structs: the Kokkos init
+        // (and solve) drivers select the model via app.modelnumber (== builtinmodelID for builtin
+        // models, see readbinaryfiles.cpp). gpuInit does not copy it, so without this the device
+        // dispatch sees modelnumber=0 and aborts ("Unknown builtinmodelID=0 in KokkosInitu").
+        app.modelnumber = happ.modelnumber;
+        common.modelnumber = hcommon.modelnumber;
+        // carry the needs-init signal onto the device solution; the model IC is computed below
+        // (post-copy) in the device execution space, so the same Kokkos init path serves GPU too.
+        sol.needudginit = hsol.needudginit;
+        sol.needodginit = hsol.needodginit;
+        sol.needwdginit = hsol.needwdginit;
         if (hmesh.bf != nullptr) {
-          TemplateMalloc(&mesh.bf, hcommon.nfe*hcommon.ne, 0);
-          for (int i=0; i<hcommon.nfe*hcommon.ne; i++) mesh.bf[i] = hmesh.bf[i];   
+          TemplateMalloc(&mesh.bf, hcommon.meshsizes.nfe*hcommon.meshsizes.ne, 0);
+          for (int i=0; i<hcommon.meshsizes.nfe*hcommon.meshsizes.ne; i++) mesh.bf[i] = hmesh.bf[i];   
         }
 
        // copy hsol.xcg to sol.xcg for paraview visualization
@@ -323,27 +348,40 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
         hcommon.freememory();             
 #endif        
     }
-    else  {// CPU        
-        cpuInit(sol, res, app, driver_abi, master, mesh, tmp, common, filein, fileout, 
+    else  {// CPU
+        cpuInit(sol, res, app, driver_abi, master, mesh, tmp, common, filein, fileout,
                 mpiprocs, mpirank, fileoffset, omprank,
                 physicsparamOverride);
     }
+    finalizeConstruction(backend, mode, nsca, nvec, nten, nsurf, nvqoi, saveParaview);
+}
+
+// Post-init construction tail: derive read_uh, apply vis-count/saveParaview overrides, compute
+// geometry + (LDG) mass inverse, and set up the HDG/coupling discretization. Factored out of the
+// file constructor so the in-memory (Preprocessed) constructor reuses the identical finalization.
+template <class T, class I>
+void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMode mode,
+        Int nsca, Int nvec, Int nten, Int nsurf, Int nvqoi, Int saveParaview)
+{
     common.read_uh = app.read_uh;
+
+    // (model initial conditions moved to CResidual::initializeSolution, driven by CSolution
+    //  after construction -- the operator initializes its own solution; see solution.h)
     const bool postprocessOnly = (mode == ExasimExecutionMode::Postprocess);
     // Apply caller-supplied visualization field counts whenever provided (>0). The
     // postprocess path passes these from CLI args; the solve path passes them from the
     // pdeapp nsca/nvec/nten keys so external/builtin-library models (gendatain=0, which
     // do not bake the vis counts into datain) can still write ParaView vis inline.
-    if (nsca > 0) common.nsca = nsca;
-    if (nvec > 0) common.nvec = nvec;
-    if (nten > 0) common.nten = nten;
-    if (nsurf > 0) common.nsurf = nsurf;
-    if (nvqoi > 0) common.nvqoi = nvqoi;
+    if (nsca > 0) common.qoiparams.nsca = nsca;
+    if (nvec > 0) common.qoiparams.nvec = nvec;
+    if (nten > 0) common.qoiparams.nten = nten;
+    if (nsurf > 0) common.qoiparams.nsurf = nsurf;
+    if (nvqoi > 0) common.qoiparams.nvqoi = nvqoi;
     // Likewise honor the pdeapp saveParaview key on the solve path (external models do
     // not bake app.flag[17] into datain). Only force-enable; never disable a datain that
     // already requested vis.
     if (!postprocessOnly && saveParaview != 0)
-        common.saveParaview = saveParaview;
+        common.qoiparams.saveParaview = saveParaview;
 
     // compute the geometry quantities
     if (common.mpiRank==0) printf("start compGeometry... \n");
@@ -355,47 +393,42 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
         if (common.mpiRank==0) printf("start compMassInverse... \n");
         compMassInverse(backend);    
         if (common.mpiRank==0) printf("finish compMassInverse... \n");
-        if (!postprocessOnly && common.preconditioner == 1) {
+        if (!postprocessOnly && common.solverparams.preconditioner == 1) {
             if (common.mpiRank==0) printf("start qEquation... \n");
             BuildElementBlockBoundaryFaces(common, mesh, backend);        
-            AllocateLDGBlockJacobianMemory(res, common, backend);        
-            qEquation(sol, res, app, master, mesh, tmp, common, backend);          
+            AllocateLDGBlockJacobianMemory(res, common, backend, scratch);
+            qEquation(sol, res, app, master, mesh, tmp, common, backend);
             TemplateFree(res.Mass2, backend);
             TemplateFree(res.Minv2, backend);
-            res.Mass2 = nullptr;
-            res.Minv2 = nullptr;
             res.szMass2 = 0;
             res.szMinv2 = 0;
-            if (common.mpiRank==0) printf("finish qEquation... \n");            
+            if (common.mpiRank==0) printf("finish qEquation... \n");
         }
         else if (!postprocessOnly) {
             res.szP = 0;
-            Int ndofu = common.npe*common.ncu*common.ne1;
-            Int M = max(common.gmresRestart+1, common.RBdim);
-            EnsureTemplateAllocation(&res.K, res.szK, M*ndofu, backend);
+            Int ndofu = common.grid.npe*common.components.ncu*common.meshsizes.ne1;
+            Int M = max(common.solverparams.gmresRestart+1, common.solverparams.RBdim);
+            res.K = scratch.allocate(M*ndofu, backend); res.szK = M*ndofu;  // K owned by the arena (S5 step 3)
         }
         else {
             res.szP = 0;
         }
     }
     
-    // moved from InitSolution to here
-    if ((common.ncq>0) && (common.wave==0) && (common.spatialScheme == 0)) {
-        evalQSer(backend);
-    }
-    
+    // (LDG initial-q recovery moved to CResidual::recoverInitialState, called by CSolution)
+
     if (common.spatialScheme > 0)  { // HDG
-      Int neb = common.neb; // maximum number of elements per block
-      Int npe = common.npe; // number of nodes on master element
-      Int npf = common.npf; // number of nodes on master face
-      Int nfe = common.nfe; // number of faces on master element
-      Int ne = common.ne; // number of elements in this subdomain
-      Int nf = common.nf; // number of faces in this subdomain
-      Int ncx = common.ncx; // number of compoments of (xdg)
-      Int nc = common.nc; // number of compoments of (u, q)
-      Int ncu = common.ncu; // number of compoments of (u)
-      Int ncq = common.ncq; // number of compoments of (q)      
-      Int nbe = common.nbe; // number of blocks for elements
+      Int neb = common.meshsizes.neb; // maximum number of elements per block
+      Int npe = common.grid.npe; // number of nodes on master element
+      Int npf = common.grid.npf; // number of nodes on master face
+      Int nfe = common.meshsizes.nfe; // number of faces on master element
+      Int ne = common.meshsizes.ne; // number of elements in this subdomain
+      Int nf = common.meshsizes.nf; // number of faces in this subdomain
+      Int ncx = common.components.ncx; // number of compoments of (xdg)
+      Int nc = common.components.nc; // number of compoments of (u, q)
+      Int ncu = common.components.ncu; // number of compoments of (u)
+      Int ncq = common.components.ncq; // number of compoments of (q)      
+      Int nbe = common.meshsizes.nbe; // number of blocks for elements
       int ncu12 = common.szinterfacefluxmap;
       
       if (common.mpiRank==0) 
@@ -407,24 +440,24 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
         if (mesh.bf[i] > 0) nboufaces++;
         maxbc = max(maxbc, mesh.bf[i]);
       }
-      common.maxnbc = maxbc;      
+      common.meshsizes.maxnbc = maxbc;      
       
-      if (common.coupledboundarycondition>0) {
-        //common.nintfaces = getinterfacefaces(mesh.bf, common.eblks, nbe-1, nfe, common.coupledboundarycondition);
-        common.nintfaces = getinterfacefaces(mesh.bf, nfe, common.ne1, common.coupledboundarycondition);
+      if (common.couplingparams.coupledboundarycondition>0) {
+        //common.couplingparams.nintfaces = getinterfacefaces(mesh.bf, common.eblks, nbe-1, nfe, common.couplingparams.coupledboundarycondition);
+        common.couplingparams.nintfaces = getinterfacefaces(mesh.bf, nfe, common.meshsizes.ne1, common.couplingparams.coupledboundarycondition);
         int *intfaces = nullptr; // store interface faces
-        TemplateMalloc(&intfaces, common.nintfaces, 0);
-        //getinterfacefaces(intfaces, mesh.bf, common.eblks, nbe-1, nfe, common.coupledboundarycondition, common.nintfaces);
-        getinterfacefaces(intfaces, mesh.bf, nfe, common.ne1, common.coupledboundarycondition, common.nintfaces);
-        TemplateMalloc(&mesh.intfaces, common.nintfaces, common.backend);
-        TemplateCopytoDevice(mesh.intfaces, intfaces, common.nintfaces, common.backend);                       
-        mesh.szintfaces = common.nintfaces;
+        TemplateMalloc(&intfaces, common.couplingparams.nintfaces, 0);
+        //getinterfacefaces(intfaces, mesh.bf, common.eblks, nbe-1, nfe, common.couplingparams.coupledboundarycondition, common.couplingparams.nintfaces);
+        getinterfacefaces(intfaces, mesh.bf, nfe, common.meshsizes.ne1, common.couplingparams.coupledboundarycondition, common.couplingparams.nintfaces);
+        TemplateMalloc(&mesh.intfaces, common.couplingparams.nintfaces, common.backend);
+        TemplateCopytoDevice(mesh.intfaces, intfaces, common.couplingparams.nintfaces, common.backend);                       
+        mesh.szintfaces = common.couplingparams.nintfaces;
         
         CPUFREE(intfaces);
         
-        TemplateMalloc(&sol.xdgint, ncx*npf*common.nintfaces, common.backend);
-        GetBoudaryNodes(sol.xdgint, sol.xdg, mesh.intfaces, mesh.perm, nfe, npf, npe, ncx, ncx, common.nintfaces);
-        sol.szxdgint = ncx*npf*common.nintfaces;                 
+        TemplateMalloc(&sol.xdgint, ncx*npf*common.couplingparams.nintfaces, common.backend);
+        GetBoudaryNodes(sol.xdgint, sol.xdg, mesh.intfaces, mesh.perm, nfe, npf, npe, ncx, ncx, common.couplingparams.nintfaces);
+        sol.szxdgint = ncx*npf*common.couplingparams.nintfaces;                 
       }
       
       // GetBoudaryNodes(xdgb.data(), &sol.xdg[0], &mesh.boufaces[start], mesh.perm, nfe, npf, npe, ncx, ncx, nfaces);
@@ -446,7 +479,7 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
       CPUFREE(boufaces);
       //CPUFREE(mesh.bf);            
                           
-      if (!postprocessOnly && (common.preconditioner==2) && (common.szcartgridpart > 0)) {              
+      if (!postprocessOnly && (common.solverparams.preconditioner==2) && (common.szcartgridpart > 0)) {              
         if (common.cartgridpart[0]==2) {          
           int *elem = NULL;                
           int nse  = gridpartition2d(&elem, common.cartgridpart[1], common.cartgridpart[2], common.cartgridpart[3], common.cartgridpart[4], common.cartgridpart[5]);       
@@ -464,34 +497,37 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
       }
       
       if (!postprocessOnly) {
-        res.szH = npf*nfe*ncu*npf*nfe*ncu*common.ne; // HDG elemental matrices     
+        res.szH = npf*nfe*ncu*npf*nfe*ncu*common.meshsizes.ne; // HDG elemental matrices     
         res.szK = (npe*ncu*npe*ncu + npe*ncu*npe*ncq + npf*nfe*ncu*npe*ncq + npf*nfe*ncu*npe*ncu)*neb;                        
-        if (common.preconditioner==0)      // Block Jacobition preconditioner
+        if (common.solverparams.preconditioner==0)      // Block Jacobition preconditioner
           res.szP = ncu*npf*ncu*npf*nf;
-        else if (common.preconditioner==1) // Elemental additive Schwarz preconditioner
-          res.szP = npf*nfe*ncu*npf*nfe*ncu*common.ne;        
-        else if (common.preconditioner==2) // Superelement additive Schwarz preconditioner
+        else if (common.solverparams.preconditioner==1) // Elemental additive Schwarz preconditioner
+          res.szP = npf*nfe*ncu*npf*nfe*ncu*common.meshsizes.ne;        
+        else if (common.solverparams.preconditioner==2) // Superelement additive Schwarz preconditioner
           res.szP = npf*ncu*npf*ncu*common.nse*common.nnz;        
-        res.szV = ncu*npf*nf*(common.gmresRestart+1); // Krylov vectors in GMRES
+        res.szV = ncu*npf*nf*(common.solverparams.gmresRestart+1); // Krylov vectors in GMRES
         res.szK = max(res.szK, res.szP + res.szV);              
-        res.szF = npe*ncu*npf*nfe*ncu*common.ne;      
-        res.szipiv = max(max(npf*nfe,npe)*ncu*neb, ncu*npf*common.nfb);
+        res.szF = npe*ncu*npf*nfe*ncu*common.meshsizes.ne;      
+        res.szipiv = max(max(npf*nfe,npe)*ncu*neb, ncu*npf*common.meshsizes.nfb);
               
         TemplateMalloc(&res.H, res.szH, backend);
-        TemplateMalloc(&res.K, res.szK, backend);      
+        res.K = scratch.allocate(res.szK, backend);  // K owned by the arena (S5 step 3)
         TemplateMalloc(&res.F, res.szF, backend);
-        TemplateMalloc(&res.ipiv, res.szipiv, backend); // fix big here     
+        TemplateMalloc(&res.ipiv, res.szipiv, backend); // fix big here
+        res.fhAliasesK = 0;  // HDG: H/F/K each owned -> freememory frees all three
               
-        // B, D, G, K share the same memmory block 
-        // It is also used for storing both the preconditioner matrix and sys.v
-        res.D = &res.K[npf*nfe*ncu*npe*ncu*neb];
-        res.B = &res.K[npf*nfe*ncu*npe*ncu*neb + npe*ncu*npe*ncu*neb];
-        res.G = &res.K[npf*nfe*ncu*npe*ncu*neb + npe*ncu*npe*ncu*neb + npe*ncu*npe*ncq*neb];        
+        // B, D, G share the K block (and it also holds the preconditioner matrix + sys.v
+        // Krylov vectors -- see resstruct). Assembly views reserved sequentially after the
+        // leading npf*nfe*ncu*npe*ncu*neb block; replaces the inline &K[off + ...] math.
+        res.resetKArena(npf*nfe*ncu*npe*ncu*neb);
+        res.D = res.reserveView(npe*ncu*npe*ncu*neb);
+        res.B = res.reserveView(npe*ncu*npe*ncq*neb);
+        res.G = res.reserveView(npf*nfe*ncu*npe*ncq*neb);
         
-        if (common.coupledinterface>0) {
-          res.szRi = npf*ncu12*common.ncie;
-          res.szKi = npf*ncu12*npe*ncu*common.ncie;
-          res.szHi = npf*ncu12*npf*nfe*ncu*common.ncie;
+        if (common.couplingparams.coupledinterface>0) {
+          res.szRi = npf*ncu12*common.couplingparams.ncie;
+          res.szKi = npf*ncu12*npe*ncu*common.couplingparams.ncie;
+          res.szHi = npf*ncu12*npf*nfe*ncu*common.couplingparams.ncie;
           TemplateMalloc(&res.Ri, res.szRi, backend);
           TemplateMalloc(&res.Ki, res.szKi, backend);
           TemplateMalloc(&res.Hi, res.szHi, backend);
@@ -501,61 +537,26 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
       if (common.mpiRank==0) 
         printf("Memory allocation ...\n");        
 
-      // compute uhat by getting u on faces
-        // std::cout <<"app.read_uh in discretization.cpp is : " << common.read_uh<<endl;
-      if (!common.read_uh){
-          if (common.mpiRank==0) 
-              printf("===============================Constructing uh==========================\n");
-          GetFaceNodes(sol.uh, sol.udg, mesh.f2e, mesh.perm, npf, ncu, npe, nc, nf);
-      }
-      else {
-          if (common.mpiRank==0) 
-              printf("================================Reading uh==============================\n");
-          // print2darray(sol.uh, npf*ncu*10, 2);
-      }
-
-      if (common.mpiRank==0) 
-        printf("Finish GetFaceNodes ... \n");        
-
-      if (common.ncq > 0) {        
-        if (common.coupledinterface>0 && !postprocessOnly) {
-          res.szGi = npf*ncu12*npe*ncq*common.ncie;          
-          TemplateMalloc(&res.Gi, res.szGi, backend);
-        }
-        
-        // compute M^{-1} * C and store it in res.C
-        // compute M^{-1} * E and store it in res.E
-        qEquation(sol, res, app, master, mesh, tmp, common, backend);
-
-        if (common.mpiRank==0) 
-          printf("Finish qEquation ... \n");        
-
-        // compute the flux q = -nabla u and store it in sol.udg
-        if (common.wave == 0 && sol.szudg != npe*nc*ne) {
-            hdgGetQ(sol.udg, sol.uh, sol, res, mesh, tmp, common, backend);
-            if (common.mpiRank==0) printf("Finish hdgGetQ ... \n");     
-        }        
-
-        TemplateFree(res.Mass2, backend);
-        TemplateFree(res.Minv2, backend);
-        res.Mass2 = nullptr;
-        res.Minv2 = nullptr;
-        res.szMass2 = 0;
-        res.szMinv2 = 0;
-      }
+      // (HDG operator-state recovery -- uh via GetFaceNodes, q-matrices via qEquation, q via
+      //  hdgGetQ -- moved to CResidual::recoverInitialState, called by CSolution post-init)
     }
 
-    if (common.nwm == 1) {
-      if (common.mpiRank==0)
-        printf("Build wall-model data for boundary condition %d ... \n", common.wmBoundaries[0]);
-      BuildWallModelData(common.wmBoundaries[0], common.wmDistances[0]);
-    }
-    else if (common.nwm > 1) {
-      error("Multiple wall-model configurations are not supported by the backend wallmodelstruct yet.");
+    // Wall-model build is a host-only, double-geometry concern (CWallModel + CPointLocator run on
+    // the double mesh). It is dead for non-default precision (a float solve never uses it), so guard
+    // the whole branch on T==dstype so CWallModel is not instantiated at float.
+    if constexpr (std::is_same_v<T, ::dstype> && std::is_same_v<I, ::Int>) {
+      if (common.wallmodelparams.nwm == 1) {
+        if (common.mpiRank==0)
+          printf("Build wall-model data for boundary condition %d ... \n", common.wallmodelparams.wmBoundaries[0]);
+        CWallModel(*this).build(common.wallmodelparams.wmBoundaries[0], common.wallmodelparams.wmDistances[0]);
+      }
+      else if (common.wallmodelparams.nwm > 1) {
+        error("Multiple wall-model configurations are not supported by the backend wallmodelstruct yet.");
+      }
     }
 
     if (common.mpiRank==0) {
-      if (common.debugMode==1) {
+      if (common.outputparams.debugMode==1) {
         common.printinfo();
         app.printinfo();
         res.printinfo();
@@ -568,23 +569,13 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
       printf("finish CDiscretization constructor... \n");        
     }
 }
+
  
-bool CDiscretization::BuildWallModelData(Int ibc, dstype y1)
-{
-    if (common.backend > 1)
-        error("BuildWallModelData is not implemented for GPU/HIP backends because the point locator wall-model builder is host-only.");
+// (BuildWallModelData moved to CWallModel::build -- see wallmodelbuild.cpp)
 
-    CPointLocator locator;
-    const bool success = locator.BuildWallModelSamplingData(*this, ibc, y1);
-    if (!success)
-        error("BuildWallModelData failed while building wall-model sampling data.");
-
-    CopyWallModelSamplingData(wallmodel, locator.wm, common.backend);
-    return true;
-}
-
-// destructor 
-CDiscretization::~CDiscretization()
+// destructor
+template <class T, class I>
+CDiscretizationT<T, I>::~CDiscretizationT()
 {        
     app.freememory(common.backend);
     if (common.mpiRank==0) printf("CDiscretization destructor: app memory is freed successfully.\n");
@@ -598,6 +589,7 @@ CDiscretization::~CDiscretization()
     if (common.mpiRank==0) printf("CDiscretization destructor: tmp memory is freed successfully.\n");
     res.freememory(common.backend);
     if (common.mpiRank==0) printf("CDiscretization destructor: res memory is freed successfully.\n");
+    scratch.freememory(common.backend);  // owns the K backing buffer (res.K was a non-owning view) -- S5 step 3
     wallmodel.freememory(common.backend);
     if (common.mpiRank==0) printf("CDiscretization destructor: wallmodel memory is freed successfully.\n");
     common.freememory();
@@ -619,7 +611,8 @@ CDiscretization::~CDiscretization()
 }
 
 // Compute and store the geometry
-void CDiscretization::compGeometry(Int backend) {
+template <class T, class I>
+void CDiscretizationT<T, I>::compGeometry(Int backend) {
     if (common.mpiRank==0) printf("start ElemGeom... \n");
     ElemGeom(sol, master, mesh, tmp, common, common.cublasHandle, backend);   
     if (common.mpiRank==0) printf("Finish ElemGeom... \n");
@@ -629,528 +622,94 @@ void CDiscretization::compGeometry(Int backend) {
 }
 
 // Compute and store the inverse of the mass matrix
-void CDiscretization::compMassInverse(Int backend) {
-    ComputeMinv(sol, res, app, driver_abi, master, mesh, tmp, common, common.cublasHandle, backend);    
+template <class T, class I>
+void CDiscretizationT<T, I>::compMassInverse(Int backend) {
+    ComputeMinv(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);    
 }
 
-void CDiscretization::ComputeLDGPreconditioner(dstype* K, dstype* u, Int backend)
-{
-#ifdef HAVE_MPI
-    if (common.mpiProcs > 1) {
-        mpiBlockJacobianLDG(K, u, sol, res, app, driver_abi, master, mesh, tmp,
-                common, common.cublasHandle, backend);
-        return;
-    }
-#endif
-    BlockJacobianLDG(K, u, sol, res, app, driver_abi, master, mesh, tmp, common,
-            common.cublasHandle, backend);
-}
+// ComputeLDGPreconditioner re-homed to CPreconditioner (C4).
 
-void CDiscretization::hdgAssembleLinearSystem(dstype *b, Int backend)
-{
-    int n = common.npe*common.ncu;
-    int m = common.npf*common.nfe*common.ncu;
-    int ne = common.ne1;
-
-    ArraySetValue(res.H, zero, m*m*ne);
-    ArraySetValue(res.Rh, zero, m*ne);
-    ArraySetValue(res.Ru, zero, n*ne);
-    ArraySetValue(res.F, zero, n*m*ne);    
-
-#ifdef HAVE_MPI     
-    hdgAssembleLinearSystemMPI(b, sol, res, app, driver_abi, master, mesh, tmp, common, common.cublasHandle, backend);    
-#else    
-    uEquationHDG(sol, res, app, driver_abi, master, mesh, tmp, common, common.cublasHandle, backend);    
-    hdgAssembleRHS(b, res.Rh, mesh, common);
-#endif
-
-    if (common.preconditioner==0) {
-      // fix bug here: tmp.tempn is not enough memory to store ncu*npf*ncu*npf*nf 
-      hdgBlockJacobi(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);      
-    }
-    else if (common.preconditioner==1) {
-      hdgElementalAdditiveSchwarz(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);      
-    }
-    else if (common.preconditioner==2) {
-      hdgBlockILU0(res.K, res.H, res, mesh, tmp, common, common.cublasHandle, backend);
-    }        
-}
-
-void CDiscretization::hdgAssembleResidual(dstype *b, Int backend)
-{
-    int n = common.npe*common.ncu;
-    int m = common.npf*common.nfe*common.ncu;
-    int ne = common.ne1;
-    ArraySetValue(res.Rh, zero, m*ne);
-    ArraySetValue(res.Ru, zero, n*ne);
-
-#ifdef HAVE_MPI     
-    hdgAssembleResidualMPI(b, sol, res, app, driver_abi, master, mesh, tmp, common, common.cublasHandle, backend);    
-#else    
-    // b, K, H, F, Ru    
-    ResidualHDG(sol, res, app, driver_abi, master, mesh, tmp, common, common.cublasHandle, backend);
-    //uEquationHDG(sol, res, app, driver_abi, master, mesh, tmp, common, common.cublasHandle, backend);
-    hdgAssembleRHS(b, res.Rh, mesh, common);      
-#endif
-}
+// (hdgAssembleLinearSystem / hdgAssembleResidual moved to CAssembler -- see assembler.cpp)
 
 // residual evaluation
-void CDiscretization::evalResidual(Int backend)
-{
-    // compute the residual vector
-    Residual(sol, res, app, driver_abi, master, mesh, tmp, common, common.cublasHandle, backend);
-}
+// (evalResidual / evalQ / evalQSer / evalAVfield / updateUDG / updateU moved to CResidual -- see residualeval.cpp)
 
-// residual evaluation
-void CDiscretization::evalResidual(dstype* Ru, dstype* u, Int backend)
-{ 
-    // insert u into udg
-    ArrayInsert(sol.udg, u, common.npe, common.nc, common.ne, 0, common.npe, 
-            0, common.ncu, 0, common.ne1);  
-
-    // compute the residual vector R(u)
-    Residual(sol, res, app, driver_abi, master, mesh, tmp, common, common.cublasHandle, backend);
-
-    // copy the residual vector to Ru
-    ArrayCopy(Ru, res.Ru, common.ndof1);
-}
-
-// q evaluation
-void CDiscretization::evalQ(Int backend)
-{
-    if (common.spatialScheme == 0) {
-        // LDG computes q through the model flux kernels.
-        ComputeQ(sol, res, app, driver_abi, master, mesh, tmp, common, common.cublasHandle, backend);
-    }
-    else if (common.spatialScheme == 1) {
-        // HDG recovers q from the element state and trace unknowns.
-        hdgGetQ(sol.udg, sol.uh, sol, res, mesh, tmp, common, backend);
-    }
-    else {
-        error("Spatial discretization scheme is not implemented");
-    }
-}
-
-void CDiscretization::evalQSer(Int backend)
-{
-    // compute the flux q    
-    GetUhat(sol, res, app, driver_abi, master, mesh, tmp, common, common.cublasHandle, 0, common.nbf, backend);        
-    GetQ(sol, res, app, driver_abi, master, mesh, tmp, common, common.cublasHandle, 0, common.nbe, 0, common.nbf, backend);        
-}
-
-void CDiscretization::evalQ(dstype* q, dstype* u, Int backend)
-{
-    // insert u into udg
-    ArrayInsert(sol.udg, u, common.npe, common.nc, common.ne, 0, common.npe, 
-            0, common.ncu, 0, common.ne1);
-
-    if (common.spatialScheme == 0) {
-        // LDG computes q through the model flux kernels.
-        ComputeQ(sol, res, app, driver_abi, master, mesh, tmp, common, common.cublasHandle, backend);
-    }
-    else if (common.spatialScheme == 1) {
-        // HDG recovers q from the element state and trace unknowns.
-        hdgGetQ(sol.udg, sol.uh, sol, res, mesh, tmp, common, backend);
-    }
-    else {
-        error("Spatial discretization scheme is not implemented");
-    }
-
-    // get q from udg
-    ArrayExtract(q, sol.udg, common.npe, common.nc, common.ne, 0, common.npe, 
-            common.ncu, common.ncu+common.ncq, 0, common.ne1);
-}
-
-// matrix-vector product
-void CDiscretization::evalMatVec(dstype* Jv, dstype* v, dstype* u, dstype* Ru, Int backend)
-{    
-    MatVec(Jv, sol, res, app, driver_abi, master, mesh, tmp, common, common.cublasHandle, v, u, Ru, backend); 
-}
-
-// matrix-vector product
-void CDiscretization::evalMatVec(dstype* Jv, dstype* v, dstype* u, dstype* Ru, Int spatialScheme, Int backend)
-{    
-    if (spatialScheme == 0) {// LDG
-      MatVec(Jv, sol, res, app, driver_abi, master, mesh, tmp, common, common.cublasHandle, v, u, Ru, backend); 
-    }
-    else if (spatialScheme == 1) { // HDG  
-      hdgMatVec(Jv, res.H, v, res.Rh, res.Rq, res, app, mesh, common, tmp, common.cublasHandle, backend);
-    }
-}
-
-void CDiscretization::updateUDG(dstype* u, Int backend)
-{
-    // insert u into udg
-    ArrayInsert(sol.udg, u, common.npe, common.nc, common.ne, 0, common.npe, 
-            0, common.ncu, 0, common.ne1);
-
-    if (common.ncq>0)
-        // compute the flux q
-        ComputeQ(sol, res, app, driver_abi, master, mesh, tmp, common, common.cublasHandle, backend);
-}
-
-void CDiscretization::updateU(dstype* u, Int backend)
-{
-    // insert u into udg
-    ArrayInsert(sol.udg, u, common.npe, common.nc, common.ne, 0, common.npe, 
-            0, common.ncu, 0, common.ne1);
-}
-
-void CDiscretization::evalAVfield(dstype* avField, dstype* u, Int backend)
-{
-    // insert u into udg
-    ArrayInsert(sol.udg, u, common.npe, common.nc, common.ne, 0, common.npe, 
-            0, common.ncu, 0, common.ne);
-    
-    // compute the flux q
-    if (common.ncq>0)        
-        ComputeQ(sol, res, app, driver_abi, master, mesh, tmp, common, common.cublasHandle, backend);
-
-    // compute the av field
-    AvfieldDriver(avField, sol.xdg, sol.udg, sol.odg, sol.wdg, driver_abi, mesh, master, app, sol, tmp, common, backend);    
-}
-
-void CDiscretization::evalAVfield(dstype* avField, Int backend)
-{    
-    
-#ifdef  HAVE_MPI    
-    Int bsz = common.npe*common.nc;
-    Int nudg = common.npe*common.nc;
-    Int n;
-    
-    /* copy some portion of u to buffsend */
-    //for (n=0; n<common.nelemsend; n++)         
-    //    ArrayCopy(&tmp.buffsend[bsz*n], &sol.udg[nudg*common.elemsend[n]], bsz, backend);           
-    GetArrayAtIndex(tmp.buffsend, sol.udg, mesh.elemsendudg, bsz*common.nelemsend);
-
-#ifdef HAVE_CUDA
-    cudaDeviceSynchronize();
-#endif
-
-#ifdef HAVE_HIP
-    hipDeviceSynchronize();
-#endif
-    
-    /* non-blocking send */
-    Int neighbor, nsend, psend = 0, request_counter = 0;
-    for (n=0; n<common.nnbsd; n++) {
-        neighbor = common.nbsd[n];
-        nsend = common.elemsendpts[n]*bsz;
-        if (nsend>0) {
-            MPI_Isend(&tmp.buffsend[psend], nsend, MPI_DOUBLE, neighbor, 0,
-                   EXASIM_COMM_LOCAL, &common.requests[request_counter]);
-            psend += nsend;
-            request_counter += 1;
-        }
-    }
-
-    /* non-blocking receive */
-    Int nrecv, precv = 0;
-    for (n=0; n<common.nnbsd; n++) {
-        neighbor = common.nbsd[n];
-        nrecv = common.elemrecvpts[n]*bsz;
-        if (nrecv>0) {
-            MPI_Irecv(&tmp.buffrecv[precv], nrecv, MPI_DOUBLE, neighbor, 0,
-                   EXASIM_COMM_LOCAL, &common.requests[request_counter]);
-            precv += nrecv;
-            request_counter += 1;
-        }
-    }
-
-    // non-blocking receive solutions on exterior and outer elements from neighbors
-    /* wait until all send and receive operations are completely done */
-    MPI_Waitall(request_counter, common.requests, common.statuses);
-
-    /* copy buffrecv to udg */
-    //for (n=0; n<common.nelemrecv; n++) 
-    //    ArrayCopy(&sol.udg[nudg*common.elemrecv[n]], &tmp.buffrecv[bsz*n], bsz, backend);        
-    PutArrayAtIndex(sol.udg, tmp.buffrecv, mesh.elemrecvudg, bsz*common.nelemrecv);
-#endif
-  
-    // compute the av field
-    AvfieldDriver(avField, sol.xdg, sol.udg, sol.odg, sol.wdg, driver_abi, mesh, master, app, sol, tmp, common, backend);           
-}
-
-void CDiscretization::evalOutput(dstype* output, Int backend)
-{
-#ifdef  HAVE_MPI    
-    Int bsz = common.npe*common.nc;
-    Int nudg = common.npe*common.nc;
-    Int n;
-    
-    /* copy some portion of u to buffsend */
-    GetArrayAtIndex(tmp.buffsend, sol.udg, mesh.elemsendudg, bsz*common.nelemsend);
-
-#ifdef HAVE_CUDA
-    cudaDeviceSynchronize();
-#endif
-
-#ifdef HAVE_HIP
-    hipDeviceSynchronize();
-#endif
-    
-    /* non-blocking send */
-    Int neighbor, nsend, psend = 0, request_counter = 0;
-    for (n=0; n<common.nnbsd; n++) {
-        neighbor = common.nbsd[n];
-        nsend = common.elemsendpts[n]*bsz;
-        if (nsend>0) {
-            MPI_Isend(&tmp.buffsend[psend], nsend, MPI_DOUBLE, neighbor, 0,
-                   EXASIM_COMM_LOCAL, &common.requests[request_counter]);
-            psend += nsend;
-            request_counter += 1;
-        }
-    }
-
-    /* non-blocking receive */
-    Int nrecv, precv = 0;
-    for (n=0; n<common.nnbsd; n++) {
-        neighbor = common.nbsd[n];
-        nrecv = common.elemrecvpts[n]*bsz;
-        if (nrecv>0) {
-            MPI_Irecv(&tmp.buffrecv[precv], nrecv, MPI_DOUBLE, neighbor, 0,
-                   EXASIM_COMM_LOCAL, &common.requests[request_counter]);
-            precv += nrecv;
-            request_counter += 1;
-        }
-    }
-
-    // non-blocking receive solutions on exterior and outer elements from neighbors
-    /* wait until all send and receive operations are completely done */
-    MPI_Waitall(request_counter, common.requests, common.statuses);
-        
-    /* copy buffrecv to udg */
-    PutArrayAtIndex(sol.udg, tmp.buffrecv, mesh.elemrecvudg, bsz*common.nelemrecv);
-#endif
-            
-    // compute the output field
-    OutputDriver(output, sol.xdg, sol.udg, sol.odg, sol.wdg, driver_abi, mesh, master, app, sol, tmp, common, backend);    
-//     void OutputDriver(dstype *f, dstype *xg, dstype *udg, dstype *odg, dstype *wdg, meshstruct &mesh, 
-//         masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
-//         commonstruct &common, Int nge, Int e1, Int e2, Int backend)
-
-}
+// evalOutput re-homed to CSolution (S4).
 
 
-void CDiscretization::evalMonitor(dstype* output,  dstype* udg, dstype* wdg, Int nc, Int backend)
-{
-    // compute the output field
-    MonitorDriver(output, nc, sol.xdg, udg, sol.odg, wdg, driver_abi, mesh, master, app, sol, tmp, common, backend);    
-}
+// evalMonitor re-homed to CSolution (S4).
 
-void CDiscretization::DG2CG(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, Int ncudg, Int ncu, Int backend)
+template <class T, class I>
+void CDiscretizationT<T, I>::DG2CG(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, Int ncudg, Int ncu, Int backend)
 {
     for (Int i=0; i<ncu; i++) {
         // extract the ith component of udg and store it in utm
-        ArrayExtract(utm, udg, common.npe, ncudg, common.ne, 0, common.npe, i, i+1, 0, common.ne);
+        ArrayExtract(utm, udg, common.grid.npe, ncudg, common.meshsizes.ne, 0, common.grid.npe, i, i+1, 0, common.meshsizes.ne);
         
         // make it a CG field and store in res.Ru
-        ArrayDG2CG(res.Ru, utm, mesh.cgent2dgent, mesh.rowent2elem, common.ndofucg);
+        ArrayDG2CG(res.Ru, utm, mesh.cgent2dgent, mesh.rowent2elem, common.sizes.ndofucg);
         
         // convert CG field to DG field
-        GetArrayAtIndex(utm, res.Ru, mesh.cgelcon, common.npe*common.ne);
+        GetArrayAtIndex(utm, res.Ru, mesh.cgelcon, common.grid.npe*common.meshsizes.ne);
         
         // insert utm into ucg
-        ArrayInsert(ucg, utm, common.npe, ncucg, common.ne, 0, common.npe, i, i+1, 0, common.ne);
+        ArrayInsert(ucg, utm, common.grid.npe, ncucg, common.meshsizes.ne, 0, common.grid.npe, i, i+1, 0, common.meshsizes.ne);
     }
 }
 
-void CDiscretization::DG2CG2(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, Int ncudg, Int ncu, Int backend)
+template <class T, class I>
+void CDiscretizationT<T, I>::DG2CG2(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, Int ncudg, Int ncu, Int backend)
 {
     for (Int i=0; i<ncu; i++) {
         // extract the ith component of udg and store it in utm
-        ArrayExtract(utm, udg, common.npe, ncudg, common.ne, 0, common.npe, i, i+1, 0, common.ne);
+        ArrayExtract(utm, udg, common.grid.npe, ncudg, common.meshsizes.ne, 0, common.grid.npe, i, i+1, 0, common.meshsizes.ne);
 
         // make it a CG field and store in res.Ru
-        ArrayDG2CG2(res.Ru, utm, mesh.colent2elem, mesh.rowent2elem, common.ndofucg, common.npe);
+        ArrayDG2CG2(res.Ru, utm, mesh.colent2elem, mesh.rowent2elem, common.sizes.ndofucg, common.grid.npe);
         
         // convert CG field to DG field
-        GetArrayAtIndex(utm, res.Ru, mesh.cgelcon, common.npe*common.ne);
+        GetArrayAtIndex(utm, res.Ru, mesh.cgelcon, common.grid.npe*common.meshsizes.ne);
         
         // insert utm into ucg
-        ArrayInsert(ucg, utm, common.npe, ncucg, common.ne, 0, common.npe, i, i+1, 0, common.ne);
+        ArrayInsert(ucg, utm, common.grid.npe, ncucg, common.meshsizes.ne, 0, common.grid.npe, i, i+1, 0, common.meshsizes.ne);
     }
 }
 
-void CDiscretization::DG2CG3(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, Int ncudg, Int ncu, Int backend)
+template <class T, class I>
+void CDiscretizationT<T, I>::DG2CG3(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, Int ncudg, Int ncu, Int backend)
 {
     for (Int i=0; i<ncu; i++) {
         // extract the ith component of udg and store it in utm
-        ArrayExtract(utm, udg, common.npe, ncudg, common.ne, 0, common.npe, i, i+1, 0, common.ne);
+        ArrayExtract(utm, udg, common.grid.npe, ncudg, common.meshsizes.ne, 0, common.grid.npe, i, i+1, 0, common.meshsizes.ne);
         
         // make it a CG field and store in res.Ru
-        ArrayDG2CG(&ucg[i*common.ndofucg], utm, mesh.cgent2dgent, mesh.rowent2elem, common.ndofucg);
+        ArrayDG2CG(&ucg[i*common.sizes.ndofucg], utm, mesh.cgent2dgent, mesh.rowent2elem, common.sizes.ndofucg);
     }
 }
 
-Int CDiscretization::getFacesOnInterface(Int **faces, const Int boundarycondition)
-{
-    int nintfaces = getinterfacefaces(mesh.bf, common.nfe, common.ne1, boundarycondition);
-    int *intfaces = nullptr; 
-    TemplateMalloc(&intfaces, nintfaces, 0);
+// interface/boundary sampling methods (moved out of CDiscretization)
+#include "interfacesampler.cpp"
+// wall-model build (moved out of CDiscretization)
+#include "wallmodelbuild.cpp"
 
-    getinterfacefaces(intfaces, mesh.bf, common.nfe, common.ne1, boundarycondition, nintfaces);
+// ---- Phase 2: explicit instantiation of the backend-defined members (default precision) ----------
+// These members (file ctor, dtor, geometry/mass/DG2CG) are DEFINED in this TU (part of the unity
+// ExasimSolver.cpp build). Other separately-compiled TUs -- notably main.cpp, whose CSolution<M>
+// inline ctor/dtor construct and destroy a `CDiscretization disc` by value -- use them through the
+// (now templated) CDiscretization alias but never see these out-of-line definitions. Instantiate
+// them once here; the matching `extern template` declarations in discretization.h suppress implicit
+// instantiation in those other TUs so they link to this single definition. See
+// docs/internals/precision-threading.md (Phase 2).
+template CDiscretizationT<::dstype, ::Int>::CDiscretizationT(
+    std::string, std::string, std::string, Int, Int, Int, Int, Int, Int, const ExasimDriverABI&,
+    Int, Int, Int, Int, Int, ExasimExecutionMode, const std::vector<dstype>*, Int);
+template CDiscretizationT<::dstype, ::Int>::~CDiscretizationT();
+template void CDiscretizationT<::dstype, ::Int>::finalizeConstruction(
+    Int, ExasimExecutionMode, Int, Int, Int, Int, Int, Int);
+template void CDiscretizationT<::dstype, ::Int>::compGeometry(Int);
+template void CDiscretizationT<::dstype, ::Int>::compMassInverse(Int);
+template void CDiscretizationT<::dstype, ::Int>::DG2CG(dstype*, dstype*, dstype*, Int, Int, Int, Int);
+template void CDiscretizationT<::dstype, ::Int>::DG2CG2(dstype*, dstype*, dstype*, Int, Int, Int, Int);
+template void CDiscretizationT<::dstype, ::Int>::DG2CG3(dstype*, dstype*, dstype*, Int, Int, Int, Int);
 
-    TemplateMalloc(&common.nextfaces, common.nbe1+1, 0);    
-    Int nfacestotal = 0;
-    common.nextfaces[0] = nfacestotal;
-    for (Int j=0; j<common.nbe1; j++) {    
-        Int e1 = common.eblks[3*j]-1;
-        Int e2 = common.eblks[3*j+1];                    
-        Int nfe = common.nfe;      
-        int nfaces = getinterfacefaces(&mesh.bf[nfe*e1], nfe, e2-e1, boundarycondition);  
-        nfacestotal += nfaces;
-        common.nextfaces[j+1] = nfacestotal;
-    }                                         
-    if (nfacestotal != nintfaces) error("getFacesOnInterface is wrong because the numbers of faces do not match.");
-  
-    TemplateMalloc(faces, nintfaces, common.backend);
-    TemplateCopytoDevice(*faces, intfaces, nintfaces, common.backend);                           
-
-    CPUFREE(intfaces);
-
-    return nintfaces;
-}
-
-void CDiscretization::getDGNodesOnInterface(dstype* xdgint, const Int* faces, const Int nfaces)
-{
-    // npf * nfaces * ncx
-    GetBoudaryNodes(xdgint, sol.xdg, faces, mesh.perm, common.nfe, 
-                  common.npf, common.npe, common.ncx, common.ncx, nfaces);
-}
-
-void CDiscretization::getUDGOnInterface(dstype* udgint, const Int* faces, const Int nfaces)
-{
-    GetBoudaryNodes(udgint, sol.udg, faces, mesh.perm, common.nfe, 
-                  common.npf, common.npe, common.nc, common.nc, nfaces);
-}
-
-void CDiscretization::getWDGOnInterface(dstype* wdgint, const Int* faces, const Int nfaces)
-{
-    GetBoudaryNodes(wdgint, sol.wdg, faces, mesh.perm, common.nfe, 
-                  common.npf, common.npe, common.ncw, common.ncw, nfaces);
-}
-
-void CDiscretization::getODGOnInterface(dstype* odgint, const Int* faces, const Int nfaces)
-{
-    GetBoudaryNodes(odgint, sol.odg, faces, mesh.perm, common.nfe, 
-                  common.npf, common.npe, common.nco, common.nco, nfaces);
-}
-
-void CDiscretization::getUHATOnInterface(dstype* uhint, const Int* faces, const Int nfaces)
-{
-    GetBoudaryNodes(uhint, sol.uh, faces, mesh.elemcon, common.nfe, 
-                  common.npf, common.ncu, nfaces);
-}
-
-void CDiscretization::getNormalVectorOnInterface(dstype* nlint, dstype* xdgint, const Int nfaces)
-{  
-    Int nd = common.nd; 
-    Int npf = common.npf; 
-    Int nn = npf*nfaces; 
-    Int ncx = common.ncx;    
-    Int n2 = 0;    // jac
-    Int n3 = nn;   // Jg
-  
-    if (nd==1) {
-        FaceGeom1D(&tmp.tempn[n2], nlint, xdgint, nn);    
-    }
-    else if (nd==2){
-        Node2Gauss(common.cublasHandle, &tmp.tempn[n3], xdgint, &master.shapfnt[npf*npf], npf, npf, nfaces*nd, common.backend);                
-        FaceGeom2D(&tmp.tempn[n2], nlint, &tmp.tempn[n3], nn);
-    }
-    else if (nd==3) {
-        Node2Gauss(common.cublasHandle, &tmp.tempn[n3], xdgint, &master.shapfnt[npf*npf], npf, npf, nfaces*nd, common.backend);                     
-        Node2Gauss(common.cublasHandle, &tmp.tempn[n3+nn*nd], xdgint, &master.shapfnt[2*npf*npf], npf, npf, nfaces*nd, common.backend);                
-        FaceGeom3D(&tmp.tempn[n2], nlint, &tmp.tempn[n3], nn);
-    }
-}
-
-void CDiscretization::getFieldsAtGaussPointsOnInterface(dstype* xdggint, dstype* xdgint, const Int nfaces, const Int ncx)
-{
-    Node2Gauss(common.cublasHandle, xdggint, xdgint, master.shapfgt, common.ngf, common.npf, nfaces*ncx, common.backend);    
-}
-
-void CDiscretization::getInterfaceFluxesAtNodalPoints(dstype *flux, dstype* xdgint, dstype* nlint, const Int* faces, const Int nfaces)  
-{    
-    Int npf = common.npf;
-    dstype *udgint = &tmp.tempn[0]; // reuse tempg for udgint
-    dstype *odgint = &tmp.tempn[npf * nfaces * common.nc];
-    dstype *wdgint = &tmp.tempn[npf * nfaces * common.nc + npf * nfaces * common.nco];
-    dstype *uhint = &tmp.tempn[npf * nfaces * common.nc + npf * nfaces * common.nco + npf * nfaces * common.ncw];
-    
-    this->getUDGOnInterface(udgint, faces, nfaces);
-    this->getODGOnInterface(odgint, faces, nfaces);
-    this->getWDGOnInterface(wdgint, faces, nfaces);
-    this->getUHATOnInterface(uhint, faces, nfaces);
-    
-    FintDriver(flux, xdgint, udgint, odgint, wdgint, uhint, nlint, driver_abi, mesh, 
-        master, app, sol, tmp, common, nfaces*npf, 1, common.backend);        
-}
-
-void CDiscretization::getInterfaceFluxesAtGaussPoints(dstype *flux, dstype* xdggint, dstype* nlgint, const Int* faces, const Int nfaces)  
-{    
-    Int npf = common.npf;
-    Int ngf = common.ngf;
-
-    dstype *udgint = &tmp.tempn[0]; // reuse tempg for udgint
-    dstype *odgint = &tmp.tempn[npf * nfaces * common.nc];
-    dstype *wdgint = &tmp.tempn[npf * nfaces * common.nc + npf * nfaces * common.nco];
-    dstype *uhint = &tmp.tempn[npf * nfaces * common.nc + npf * nfaces * common.nco + npf * nfaces * common.ncw];
-    
-    this->getUDGOnInterface(udgint, faces, nfaces);
-    this->getODGOnInterface(odgint, faces, nfaces);
-    this->getWDGOnInterface(wdgint, faces, nfaces);
-    this->getUHATOnInterface(uhint, faces, nfaces);
-
-    dstype *udggint = &tmp.tempg[0]; // reuse tempg2 for udggint
-    dstype *odggint = &tmp.tempg[ngf * nfaces * common.nc];
-    dstype *wdggint = &tmp.tempg[ngf * nfaces * (common.nc + common.nco)];
-    dstype *uhgint = &tmp.tempg[ngf * nfaces * (common.nc + common.nco + common.ncw)];
-
-    this->getFieldsAtGaussPointsOnInterface(udggint, udgint, nfaces, common.nc);
-    this->getFieldsAtGaussPointsOnInterface(odggint, odgint, nfaces, common.nco);
-    this->getFieldsAtGaussPointsOnInterface(wdggint, wdgint, nfaces, common.ncw);
-    this->getFieldsAtGaussPointsOnInterface(uhgint, uhint, nfaces, common.ncu);
-    
-    FintDriver(flux, xdggint, udggint, odggint, wdggint, uhgint, nlgint, driver_abi, mesh, 
-        master, app, sol, tmp, common, nfaces*ngf, 1, common.backend);        
-}
-
-void CDiscretization::computeAverageSolutionsOnBoundary() 
-{   
-    if ( common.saveSolBouFreq>0 ) {
-        for (Int j=0; j<common.nbf; j++) {
-            Int ib = common.fblks[3*j+2];            
-            if (ib == common.ibs) {     
-                Int f1 = common.fblks[3*j]-1;
-                Int f2 = common.fblks[3*j+1];                      
-                Int npf = common.npf; // number of nodes on master face      
-                Int npe = common.npe; // number of nodes on master face      
-                Int nf = f2-f1;
-                Int nn = npf*nf; 
-                Int nc = common.nc; // number of compoments of (u, q, p)            
-                Int ncu = common.ncu;
-                Int ncw = common.ncw;
-                GetArrayAtIndex(tmp.tempn, sol.udg, &mesh.findudg1[npf*nc*f1], nn*nc);                
-                ArrayAXPBY(sol.bouudgavg, sol.bouudgavg, tmp.tempn, one, one, nn*nc);            
-                ArrayAddScalar(&sol.bouudgavg[nn*nc], one, 1);
-              
-                if (common.spatialScheme==1)
-                  GetFaceNodesHDG(tmp.tempn, sol.uh, npf, ncu, 0, ncu, f1, f2);
-                else
-                  GetElemNodes(tmp.tempn, sol.uh, npf, ncu, 0, ncu, f1, f2);
-                ArrayAXPBY(sol.bouuhavg, sol.bouuhavg, tmp.tempn, one, one, nn*ncu);            
-                ArrayAddScalar(&sol.bouuhavg[nn*ncu], one, 1);                              
-
-                if (ncw>0) {
-                    GetFaceNodes(tmp.tempn, sol.wdg, mesh.facecon, npf, ncw, npe, ncw, f1, f2, 1);      
-                    ArrayAXPBY(sol.bouwdgavg, sol.bouwdgavg, tmp.tempn, one, one, nn*ncw);            
-                    ArrayAddScalar(&sol.bouwdgavg[nn*ncw], one, 1);                                  
-                }
-            }
-        }                                        
-    }
-}
-
-#endif        
+#endif

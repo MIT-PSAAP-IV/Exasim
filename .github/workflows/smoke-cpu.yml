@@ -10,17 +10,22 @@ name: smoke (CPU)
 #   2. Test               — ctest; every registered test listed below
 #   3. Test summary       — per-test pass/fail/skip table in the run summary
 #
-# Registered tests (see tests/README.md):
-#   consumer_builtin_cpu   — out-of-tree find_package consumer, CPU (NP=1)
-#   consumer_builtin_mpi   — same, CPU+MPI (mpirun -np 2)
-#   frontend_python        — Poisson 2D via the installed exasim package (RUNS here)
-#   frontend_julia         — same via Exasim.jl (SKIPs here: no julia on runner)
-#   frontend_matlab        — same via the MATLAB frontend (SKIPs here: no MATLAB)
-#   frontend_python_modelcache — per-user model cache reuse (RUNS here)
-#   builtin_model4_kernel_equivalence — text2code-regenerated model 4 kernels
-#                            match the legacy checked-in ones to machine
-#                            precision: 35 comparisons incl. all 9 HDG BCs and
-#                            the analytic jacobians (RUNS here)
+# CI runs the WHOLE ctest suite unfiltered; each test self-decides RUN vs SKIP
+# (SKIP_RETURN_CODE 77). What actually runs here (see tests/README.md):
+#   consumer_builtin_cpu / _mpi — out-of-tree find_package consumer, CPU NP=1 / mpirun -np 2.
+#     Each sweeps ALL of tests/consumers/* (builtin, external-model, facade, operators,
+#     model_fp32, solve_fp32, solio, meshload) — pdeapp-driven or self-checking binaries.
+#   frontend_python (+ _export, _coexistence, _combined_multimodel, _combined_export,
+#     _postprocess) — the Python frontend paths (all RUN). (_modelcache is NOT wired:
+#     its cache-hit path currently fails; see tests/CMakeLists.txt.)
+#   frontend_julia / _matlab (+ exports) — SKIP (no julia / no MATLAB on the runner).
+#   builtin_model4_kernel_equivalence — text2code model-4 kernels match the checked-in
+#     ones to machine precision (35 comparisons incl. all 9 HDG BCs + jacobians).
+#   sharedlibrary_app — installed shared-library app via text2code.
+#   petsc_operator_export + petsc/{heat,poisson,poisson_mpi,robustness} — RUN here against the
+#     apt CPU-real PETSc (petsc.hpp guards CUDA Vec symbols behind PETSC_HAVE_CUDA; the consumers
+#     locate mpi.h via find_package(MPI)). Needs PETSc >= 3.17 (PetscCall/PETSC_SUCCESS/
+#     VecGetArrayWriteAndMemType) -> the 24.04 runner ships 3.19. Also run on dgx-b (CUDA+MPI).
 #
 # Heavy deps are taken off the hot path: METIS/ParMETIS, BLAS/LAPACK and MPI
 # from the system (apt); the vendored serial Kokkos and SymEngine are built from
@@ -31,7 +36,7 @@ name: smoke (CPU)
 
 on:
   push:
-    branches: [master, teoc-Kitesurf-Coupling-build-and-test, teoc-other-frontends-and-misc-cleanup, teoc-examples-migration]
+    branches: [master, teoc-Kitesurf-Coupling-build-and-test, teoc-other-frontends-and-misc-cleanup, teoc-examples-migration, teoc-properly-separate-out]
   pull_request:
     branches: [master, Kitesurf-Coupling, teoc-Kitesurf-Coupling-build-and-test]
   workflow_dispatch:
@@ -45,7 +50,7 @@ jobs:
   # Fast pre-build check: no .DS_Store, no prebuilt binaries, no gitignore bypass.
   # Runs on every push; cheap (git only, no build tools needed).
   hygiene:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Repo hygiene check
@@ -53,9 +58,10 @@ jobs:
 
   build-and-test:
     # Standard GitHub-hosted runner — always available with no org configuration.
-    # Pinned to 22.04 (jammy): the externalized deps below are reliably packaged
-    # there. If a larger runner is enabled for the repo, bump this.
-    runs-on: ubuntu-22.04
+    # 24.04 (noble): its externalized deps are reliably packaged AND it ships
+    # PETSc 3.19 (>= 3.17), which the petsc consumers require. 22.04's PETSc 3.15
+    # lacks PetscCall/PETSC_SUCCESS/VecGetArrayWriteAndMemType.
+    runs-on: ubuntu-24.04
     env:
       # Out-of-tree: the repo is checked out into src/, the build lives in
       # build/ beside it (both inside the workspace — actions/cache cannot
@@ -73,7 +79,8 @@ jobs:
             build-essential cmake git \
             libblas-dev liblapack-dev \
             libmetis-dev libparmetis-dev \
-            libopenmpi-dev openmpi-bin
+            libopenmpi-dev openmpi-bin \
+            petsc-dev pkg-config
 
       # The two from-source deps are built once and cached (build/deps/...);
       # the superbuild detects them on a hit. cache-warm.yml keeps these
@@ -108,6 +115,20 @@ jobs:
         env:
           JOBS: "2"
         run: |
+          # PETSc (apt petsc-dev, CPU-real) now runs here: petsc.hpp guards its CUDA Vec
+          # symbols behind PETSC_HAVE_CUDA and the petsc consumers locate mpi.h via
+          # find_package(MPI), so they build against the CPU-real PETSc. Discover its prefix
+          # + expose a lowercase 'petsc.pc' (Ubuntu ships 'PETSc.pc') so the harness'
+          # `pkg-config --exists petsc` succeeds instead of SKIPping.
+          PETSC_PC=$(find /usr/lib/petscdir -iname 'petsc.pc' 2>/dev/null | grep -i real | head -1)
+          if [ -n "$PETSC_PC" ]; then
+            PCDIR=$(dirname "$PETSC_PC")
+            [ -f "$PCDIR/petsc.pc" ] || sudo ln -sf "$PETSC_PC" "$PCDIR/petsc.pc"
+            export PETSC_PREFIX=$(cd "$PCDIR/../.." && pwd)
+            echo "PETSc: PETSC_PREFIX=$PETSC_PREFIX ($(PKG_CONFIG_PATH="$PCDIR" pkg-config --modversion petsc 2>/dev/null))"
+          else
+            echo "PETSc: no apt petsc.pc found -> petsc tests will SKIP"
+          fi
           ctest --test-dir "$BUILD_DIR/exasim_build-prefix/src/exasim_build-build" \
                 --output-on-failure \
                 --output-junit "$RUNNER_TEMP/ctest-results.xml"

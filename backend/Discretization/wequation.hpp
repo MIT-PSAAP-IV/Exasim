@@ -1,3 +1,6 @@
+#include <exasim/drivers.hpp>
+#include <exasim/detail/driver_dispatch.hpp>
+
 /*
   wequation.cpp
 
@@ -28,10 +31,12 @@
 #ifndef __WEQUATION
 #define __WEQUATION
 
-static void ReportNanInHdgSourcewonlyOutput(const char* field, const dstype* data,
-      const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg,
+template <class T=dstype, class I=Int>
+static void ReportNanInHdgSourcewonlyOutput(const char* field, const T* data,
+      const T* xdg, const T* udg, const T* odg, const T* wdg,
       Int ng, Int ncomp, Int nc, Int nco, Int ncw, Int nd, Int mpiRank, Int iter)
 {
+    using dstype=T;
     for (Int comp = 0; comp < ncomp; ++comp) {
         for (Int i = 0; i < ng; ++i) {
             dstype value = data[i + ng * comp];
@@ -77,26 +82,27 @@ static void ReportNanInHdgSourcewonlyOutput(const char* field, const dstype* dat
     }
 }
 
-template <class M>
-inline void wEquation(dstype *wdg, dstype *xdg, dstype *udg, dstype *odg, dstype *wsrc, 
-      dstype *tempg, appstruct &app, commonstruct &common, Int ng, Int backend)
-{        
-    Int ncu = common.ncu; // number of compoments of (u)
-    Int nd = common.nd; // spatial dimension
-    Int nc = common.nc; // number of compoments of (u, q)
-    Int ncw = common.ncw;// number of compoments of (w)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
-    //Int npe = common.npe; // number of nodes on master element    
+template <class M, class T=dstype, class I=Int>
+inline void wEquation(T *wdg, T *xdg, T *udg, T *odg, T *wsrc, 
+      T *tempg, appstructT<T,I> &app, commonstructT<T,I> &common, Int ng, Int backend)
+{
+    using dstype=T;        
+    Int ncu = common.components.ncu; // number of compoments of (u)
+    Int nd = common.grid.nd; // spatial dimension
+    Int nc = common.components.nc; // number of compoments of (u, q)
+    Int ncw = common.components.ncw;// number of compoments of (w)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
+    //Int npe = common.grid.npe; // number of nodes on master element    
     Int modelnumber = common.modelnumber;
     if  (common.builtinmodelID > 0) modelnumber = common.builtinmodelID;
-    dstype time = common.time;                
+    dstype time = common.timestate.time;                
     dstype *uinf = app.uinf;
     dstype *physicsparam = app.physicsparam;    
 
-    if (common.wave==1) {
+    if (common.timeparams.wave==1) {
         // dw/dt = u -> (dtfactor * w - wsrc) = u -> w = (1/dtfactor) * (u + wsrc)
-        dstype scalar = one/common.dtfactor;
+        dstype scalar = one/common.timestate.dtfactor;
         ArrayAXPBY(wdg, udg, wsrc, scalar, scalar, ng*ncw);
     }        
     else {         
@@ -109,17 +115,17 @@ inline void wEquation(dstype *wdg, dstype *xdg, dstype *udg, dstype *odg, dstype
           // ->  (alpha * dtfactor + beta) w - alpha * wsrc - sourcew(u,q,w) = 0              
 
           // calculate the source term Sourcew(xdg, udg, odg, wdg)
-          EXASIM_LEGACY_W_CALL(HdgSourcewonly(s, s_wdg, xdg, udg, odg, wdg, uinf, physicsparam, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw));
+          EXASIM_LEGACY_W_CALL(HdgSourcewonly, s, s_wdg, xdg, udg, odg, wdg, uinf, physicsparam, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
           // if (backend <= 1) {
           //     ReportNanInHdgSourcewonlyOutput("f", s, xdg, udg, odg, wdg, ng, ncw, nc, nco, ncw, nd, common.mpiRank, iter);
           //     ReportNanInHdgSourcewonlyOutput("f_wdg", s_wdg, xdg, udg, odg, wdg, ng, ncw*ncw, nc, nco, ncw, nd, common.mpiRank, iter);
           // }
                     
           // alpha*dirkd/dt + beta
-          dstype scalar = common.dae_alpha*common.dtfactor + common.dae_beta;
+          dstype scalar = common.timeparams.dae_alpha*common.timestate.dtfactor + common.timeparams.dae_beta;
 
           // calculate residual vector = sourcew(u,q,w) + alpha * wsrc - (alpha * dtfactor + beta) w
-          ArrayAdd3Vectors(s, s, wsrc, wdg, one, common.dae_alpha, -scalar, ng*ncw);                           
+          ArrayAdd3Vectors(s, s, wsrc, wdg, one, common.timeparams.dae_alpha, -scalar, ng*ncw);                           
 
           // compute jacobian matrix = (alpha * dtfactor + beta) - s_wdg
           ArrayAXPB(s_wdg, s_wdg, minusone, scalar, ng*ncw*ncw);                
@@ -129,7 +135,7 @@ inline void wEquation(dstype *wdg, dstype *xdg, dstype *udg, dstype *odg, dstype
           if (nrm < 1e-6) {
             // if (common.mpiRank==2) {
             //   std::cout << std::fixed << std::setprecision(15);
-            //   std::cout<<common.dae_alpha<<"  "<<common.dae_beta<<"  "<<scalar<<std::endl;
+            //   std::cout<<common.timeparams.dae_alpha<<"  "<<common.timeparams.dae_beta<<"  "<<scalar<<std::endl;
             //   std::cout<<"Iter = "<<iter<<", norm = "<<nrm<<", s[0] = "<<s[0]<<std::endl;
             //   std::cout<<wdg[0];
             //   for (int m=0; m<8; m++)
@@ -165,26 +171,27 @@ inline void wEquation(dstype *wdg, dstype *xdg, dstype *udg, dstype *odg, dstype
     }            
 }
 
-template <class M>
-inline void wEquation(dstype *wdg, dstype *wdg_udg, dstype *xdg, dstype *udg, dstype *odg, dstype *wsrc, 
-       dstype *tempg, appstruct &app, commonstruct &common, Int ng, Int backend)
-{        
-    Int ncu = common.ncu; // number of compoments of (u)
-    Int nd = common.nd; // spatial dimension
-    Int nc = common.nc; // number of compoments of (u, q)
-    Int ncw = common.ncw;// number of compoments of (w)
-    Int nco = common.nco;// number of compoments of (o)
-    Int ncx = common.ncx;// number of compoments of (xdg)        
-    //Int npe = common.npe; // number of nodes on master element    
+template <class M, class T=dstype, class I=Int>
+inline void wEquation(T *wdg, T *wdg_udg, T *xdg, T *udg, T *odg, T *wsrc, 
+       T *tempg, appstructT<T,I> &app, commonstructT<T,I> &common, Int ng, Int backend)
+{
+    using dstype=T;        
+    Int ncu = common.components.ncu; // number of compoments of (u)
+    Int nd = common.grid.nd; // spatial dimension
+    Int nc = common.components.nc; // number of compoments of (u, q)
+    Int ncw = common.components.ncw;// number of compoments of (w)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
+    //Int npe = common.grid.npe; // number of nodes on master element    
     Int modelnumber = common.modelnumber;
     if  (common.builtinmodelID > 0) modelnumber = common.builtinmodelID;
-    dstype time = common.time;                
+    dstype time = common.timestate.time;                
     dstype *uinf = app.uinf;
     dstype *physicsparam = app.physicsparam;
 
-    if (common.wave==1) {
+    if (common.timeparams.wave==1) {
         // dw/dt = u -> (dtfactor * w - wsrc) = u -> w = (1/dtfactor) * (u + wsrc)
-        dstype scalar = one/common.dtfactor;
+        dstype scalar = one/common.timestate.dtfactor;
         ArrayAXPBY(wdg, udg, wsrc, scalar, scalar, ng*ncw);
         ArraySetValue(wdg_udg, scalar, ng*ncw*nc);
     }        
@@ -198,13 +205,13 @@ inline void wEquation(dstype *wdg, dstype *wdg_udg, dstype *xdg, dstype *udg, ds
           // ->  (alpha * dtfactor + beta) w - alpha * wsrc - sourcew(u,q,w) = 0              
 
           // calculate the source term Sourcew(xdg, udg, odg, wdg)
-          EXASIM_LEGACY_W_CALL(HdgSourcewonly(s, s_wdg, xdg, udg, odg, wdg, uinf, physicsparam, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw));            
+          EXASIM_LEGACY_W_CALL(HdgSourcewonly, s, s_wdg, xdg, udg, odg, wdg, uinf, physicsparam, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);            
           
           // alpha*dirkd/dt + beta
-          dstype scalar = common.dae_alpha*common.dtfactor + common.dae_beta;
+          dstype scalar = common.timeparams.dae_alpha*common.timestate.dtfactor + common.timeparams.dae_beta;
 
           // calculate residual vector = sourcew(u,q,w) + alpha * wsrc - (alpha * dtfactor + beta) w
-          ArrayAdd3Vectors(s, s, wsrc, wdg, one, common.dae_alpha, -scalar, ng*ncw);                           
+          ArrayAdd3Vectors(s, s, wsrc, wdg, one, common.timeparams.dae_alpha, -scalar, ng*ncw);                           
 
           // compute jacobian matrix = (alpha * dtfactor + beta) - s_wdg
           ArrayAXPB(s_wdg, s_wdg, minusone, scalar, ng*ncw*ncw);                
@@ -236,7 +243,7 @@ inline void wEquation(dstype *wdg, dstype *wdg_udg, dstype *xdg, dstype *udg, ds
           dstype nrm = NORM(common.cublasHandle, ng*ncw, s, backend);
           if (nrm < 1e-8) {     
             // wdg_udg is actually s_udg 
-            EXASIM_LEGACY_W_CALL(HdgSourcew(s, wdg_udg, s_wdg, xdg, udg, odg, wdg, uinf, physicsparam, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw));
+            EXASIM_LEGACY_W_CALL(HdgSourcew, s, wdg_udg, s_wdg, xdg, udg, odg, wdg, uinf, physicsparam, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
             
             // fix bug here
             // compute jacobian matrix = (alpha * dtfactor + beta) - s_wdg
@@ -272,30 +279,31 @@ inline void wEquation(dstype *wdg, dstype *wdg_udg, dstype *xdg, dstype *udg, ds
     }            
 }
 
-template <class M>
-inline void GetW(dstype *w, solstruct &sol, tempstruct &tmp, appstruct &app, commonstruct &common, Int backend)
+template <class M, class T=dstype, class I=Int>
+inline void GetW(T *w, solstructT<T,I> &sol, tempstructT<T,I> &tmp, appstructT<T,I> &app, commonstructT<T,I> &common, Int backend)
 {
-  for (Int j=0; j<common.nbe; j++) {         
+    using dstype=T;
+  for (Int j=0; j<common.meshsizes.nbe; j++) {         
       Int e1 = common.eblks[3*j]-1;
       Int e2 = common.eblks[3*j+1];
       Int ns = e2-e1;        
-      Int ng = common.npe*ns;
-      Int ncw = common.ncw;
-      Int ncx = common.ncx;
-      Int nc = common.nc;
-      Int nco = common.nco;
+      Int ng = common.grid.npe*ns;
+      Int ncw = common.components.ncw;
+      Int ncx = common.components.ncx;
+      Int nc = common.components.nc;
+      Int nco = common.components.nco;
       dstype* wdg = &tmp.tempn[0];
       dstype* xdg = &tmp.tempn[ng*ncw];
       dstype* udg = &tmp.tempn[ng*(ncw+ncx)];
       dstype* odg = &tmp.tempn[ng*(ncw+ncx+nc)];
       dstype* sdg = &tmp.tempn[ng*(ncw+ncx+nc+nco)];
-      GetElemNodes(wdg, w, common.npe, ncw, 0, ncw, e1, e2);
-      GetElemNodes(xdg, sol.xdg, common.npe, ncx, 0, ncx, e1, e2);
-      GetElemNodes(udg, sol.udg, common.npe, nc, 0, nc, e1, e2);
-      GetElemNodes(odg, sol.odg, common.npe, nco, 0, nco, e1, e2);
-      GetElemNodes(sdg, sol.wsrc, common.npe, ncw, 0, ncw, e1, e2);
+      GetElemNodes(wdg, w, common.grid.npe, ncw, 0, ncw, e1, e2);
+      GetElemNodes(xdg, sol.xdg, common.grid.npe, ncx, 0, ncx, e1, e2);
+      GetElemNodes(udg, sol.udg, common.grid.npe, nc, 0, nc, e1, e2);
+      GetElemNodes(odg, sol.odg, common.grid.npe, nco, 0, nco, e1, e2);
+      GetElemNodes(sdg, sol.wsrc, common.grid.npe, ncw, 0, ncw, e1, e2);
       wEquation<M>(wdg, xdg, udg, odg, sdg, tmp.tempg, app, common, ng, common.backend);
-      PutElemNodes(w, wdg, common.npe, ncw, 0, ncw, e1, e2);
+      PutElemNodes(w, wdg, common.grid.npe, ncw, 0, ncw, e1, e2);
   }   
 }
 

@@ -41,11 +41,14 @@
 #ifndef __POSTSOLUTION_H__
 #define __POSTSOLUTION_H__
 
+#include "../Discretization/residualeval.h"
+
 class CSolution {
 private:
 public:
-    CDiscretization disc;  // spatial discretization class
-    CPreconditioner prec;  // precondtioner class 
+    CDiscretization disc;  // spatial discretization class (the function space)
+    CResidual residual;    // the discretized PDE residual R(u)/flux q (evaluates from disc)
+    CPreconditioner prec;  // precondtioner class
     CSolver solv;          // linear and nonlinear solvers
     CVisualization vis;    // visualization class
     ofstream outsol;       // storing solutions
@@ -63,32 +66,28 @@ public:
               Int fileoffset, Int omprank, Int backend, Int builtinmodelID,
               Int nsca, Int nvec, Int nten, Int nsurf, Int nvqoi)   
        : disc(filein, fileout, exasimpath, mpiprocs, mpirank, fileoffset, omprank, backend, builtinmodelID, nsca, nvec, nten, nsurf, nvqoi),
+         residual(disc),
          prec(disc, backend), solv(disc, backend), vis(disc, backend) 
     {   
-        int ncx = disc.common.ncx;                            
-        int nd = disc.common.nd;     
-        int ncu = disc.common.ncu;     
-        int nc = (disc.common.saveSolOpt==0) ? disc.common.ncu : disc.common.nc;        
-        int ncw = disc.common.ncw;
-        int npe = disc.common.npe;
-        int npf = disc.common.npf;
-        int ne = disc.common.ne1;     
-        int nf = disc.common.nf;     
+        int ncx = disc.common.components.ncx;                            
+        int nd = disc.common.grid.nd;     
+        int ncu = disc.common.components.ncu;     
+        int nc = (disc.common.outputparams.saveSolOpt==0) ? disc.common.components.ncu : disc.common.components.nc;        
+        int ncw = disc.common.components.ncw;
+        int npe = disc.common.grid.npe;
+        int npf = disc.common.grid.npf;
+        int ne = disc.common.meshsizes.ne1;     
+        int nf = disc.common.meshsizes.nf;     
         int rank = disc.common.mpiRank;
-        int offset = disc.common.fileoffset;
+        int offset = disc.common.outputparams.fileoffset;
         std::string base = disc.common.fileout;
 
-        if ((disc.common.nintfaces > 0) && (disc.common.coupledcondition>0)) disc.common.ne0 = disc.common.intepartpts[0];            
+        if ((disc.common.couplingparams.nintfaces > 0) && (disc.common.couplingparams.coupledcondition>0)) disc.common.meshsizes.ne0 = disc.common.intepartpts[0];            
 
-        if (mpirank==0 && (disc.common.nvqoi > 0 || disc.common.nsurf > 0)) {
+        if (mpirank==0 && (disc.common.qoiparams.nvqoi > 0 || disc.common.qoiparams.nsurf > 0)) {
             outqoi.open(base + "qoi.txt", std::ios::out);                         
             outqoi << std::setw(16) << std::left << "Time";
-            for (size_t i = 0; i < disc.common.nvqoi; ++i) {                
-                outqoi << std::setw(16) << std::left << "Domain_QoI" + std::to_string(i + 1);
-            }
-            for (size_t i = 0; i < disc.common.nsurf; ++i) {                
-                outqoi << std::setw(16) << std::left << "Boundary_QoI" + std::to_string(i + 1);
-            }
+            writeQoIHeader(outqoi, disc.common.qoiparams);
             outqoi << "\n";
         }        
     };        
@@ -98,8 +97,14 @@ public:
         if (outqoi.is_open()) { outqoi.close(); }
     }; 
 
+    // PTC convergence monitor (re-homed from CDiscretization in S4; mirrors the main CSolution).
+    void evalMonitor(dstype* output, dstype* udg, dstype* wdg, Int nc, Int backend);
+
+    // Output field for I/O (re-homed from CDiscretization in S4; mirrors the main CSolution).
+    void evalOutput(dstype* output, Int backend);
+
     // precompute some quantities
-    void InitSolution(Int backend);    
+    void InitSolution(Int backend);
         
     // save solutions in binary files
     void SaveSolutions(Int backend);    

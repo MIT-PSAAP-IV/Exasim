@@ -18,7 +18,12 @@ def writeapp(app,filename):
     appname = 0;
     tmp = array([app['tdep'], app['wave'], app['linearproblem'], app['debugmode'], app['matvecorder'], app['GMRESortho'], app['preconditioner'], app['precMatrixType'], app['NLMatrixType'], app['runmode'], app['tdfunc'], app['source'], app['modelnumber'], app['extFhat'], app['extUhat'], app['extStab'], app['subproblem'], app['saveParaview'], app['physicsparamwarmstart'], app['builtinmodelID']]);
     app['flag'] =  concatenate([tmp,app['flag']]);
-    tmp = array([app['hybrid'], appname, app['temporalscheme'], app['torder'], app['nstage'], app['convStabMethod'], app['diffStabMethod'], app['rotatingFrame'], app['viscosityModel'], app['SGSmodel'], app['ALE'], app['AV'], app['linearsolver'], app['NLiter'], app['linearsolveriter'], app['GMRESrestart'], app['RBdim'], app['saveSolFreq'], app['saveSolOpt'], app['timestepOffset'], app['stgNmode'], app['saveSolBouFreq'], app['ibs'], app['dae_steps'], app['saveResNorm'], app['AVsmoothingIter'], app['frozenAVflag'], app['ppdegree']]);
+    # problem[0..27] then the coupling slots problem[28..31] (M1: reconcile to Matlab's app.bin
+    # layout -- backend reads problem[28..31] as coupledinterface/coupledcondition/
+    # coupledboundarycondition/AVdistfunction in setstructs; omitting them made the user's
+    # trailing app['problem'] params collide with the coupling slots). Defensive .get so this
+    # works whether or not the pde->app flow populated the fields (default 0 = no coupling).
+    tmp = array([app['hybrid'], appname, app['temporalscheme'], app['torder'], app['nstage'], app['convStabMethod'], app['diffStabMethod'], app['rotatingFrame'], app['viscosityModel'], app['SGSmodel'], app['ALE'], app['AV'], app['linearsolver'], app['NLiter'], app['linearsolveriter'], app['GMRESrestart'], app['RBdim'], app['saveSolFreq'], app['saveSolOpt'], app['timestepOffset'], app['stgNmode'], app['saveSolBouFreq'], app['ibs'], app['dae_steps'], app['saveResNorm'], app['AVsmoothingIter'], app['frozenAVflag'], app['ppdegree'], app.get('coupledinterface', 0), app.get('coupledcondition', 0), app.get('coupledboundarycondition', 0), app.get('AVdistfunction', 0)]);
     app['problem'] = concatenate([tmp, app['problem']]);
     tmp = array([app['time'], app['dae_alpha'], app['dae_beta'], app['dae_gamma'], app['dae_epsilon']])    
     app['factor'] = concatenate([tmp, app['factor']]);
@@ -60,7 +65,17 @@ def writeapp(app,filename):
     nsize[1-1] = size(ndims);
     nsize[2-1] = size(app['flag']);  # size of flag
     nsize[3-1] = size(app['problem']); # size of physics
-    nsize[4-1] = size(app['uinf']); # boundary data
+    # slot-4 (read by the backend as app.uinf): Matlab/Julia write `externalparam` here, Python
+    # historically wrote `uinf`. M1 reconciliation -> prefer externalparam for cross-frontend
+    # consistency, falling back to uinf when externalparam is unset/all-zero (backward-compat).
+    # Match MATLAB/Julia: write `externalparam` whenever it is present (an all-zero
+    # externalparam is VALID data, not "unset"), falling back to `uinf` only when it is
+    # genuinely absent/empty. The previous `(_ep != 0).any()` test made Python serialize a
+    # different app.bin than MATLAB/Julia for an intentionally all-zero externalparam.
+    _ep = array(app['externalparam']).flatten(order='F') if ('externalparam' in app) else array([]);
+    _slot4 = _ep if (_ep.size > 0) else array(app['uinf']).flatten(order='F');
+    app['_slot4'] = _slot4;
+    nsize[4-1] = size(_slot4); # boundary data (externalparam, uinf fallback)
     nsize[5-1] = size(app['dt']); # number of time steps
     nsize[6-1] = size(app['factor']); # size of factor
     nsize[7-1] = size(app['physicsparam']); # number of physical parameters
@@ -90,8 +105,7 @@ def writeapp(app,filename):
         app['problem'] = array(app['problem']).flatten(order = 'F');
         app['problem'].astype('float64').tofile(fileID);
     if nsize[4-1] > 0:
-        app['uinf'] = array(app['uinf']).flatten(order = 'F');
-        app['uinf'].astype('float64').tofile(fileID);
+        app['_slot4'].astype('float64').tofile(fileID);  # externalparam (uinf fallback) -- M1
     if nsize[5-1] > 0:
         app['dt'] = array(app['dt']).flatten(order = 'F');
         app['dt'].astype('float64').tofile(fileID);

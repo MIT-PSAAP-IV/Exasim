@@ -793,15 +793,15 @@ void uhatEquationElemFaceBlockLDG(solstruct &sol, resstruct &res, appstruct &app
 {
     Int e1 = common.eblks[3*jth]-1;
     Int e2 = common.eblks[3*jth+1];
-    Int npe = common.npe;
-    Int npf = common.npf;
-    Int nfe = common.nfe;
-    Int ncu = common.ncu;
-    Int nc = common.nc;
-    Int nco = common.nco;
-    Int ncw = common.ncw;
-    Int ncx = common.ncx;
-    Int nd = common.nd;
+    Int npe = common.grid.npe;
+    Int npf = common.grid.npf;
+    Int nfe = common.meshsizes.nfe;
+    Int ncu = common.components.ncu;
+    Int nc = common.components.nc;
+    Int nco = common.components.nco;
+    Int ncw = common.components.ncw;
+    Int ncx = common.components.ncx;
+    Int nd = common.grid.nd;
     Int ne = e2 - e1;
     Int ndf = npf*nfe;
     Int nlocu = npe*ncu;
@@ -848,8 +848,8 @@ void uhatEquationElemFaceBlockLDG(solstruct &sol, resstruct &res, appstruct &app
         FaceGeom3D(jacfn, nlfn, Jfn, nfn);
     }
     
-    for (Int ibc = 0; ibc < common.maxnbc; ibc++) {
-        Int n = ibc + common.maxnbc*jth;
+    for (Int ibc = 0; ibc < common.meshsizes.maxnbc; ibc++) {
+        Int n = ibc + common.meshsizes.maxnbc*jth;
         Int start = common.nboufaces[n];
         Int nfaces = common.nboufaces[n + 1] - start;
         if (nfaces > 0) {
@@ -894,17 +894,17 @@ void uEquationElemFaceBlockLDG(solstruct &sol, resstruct &res, appstruct &app,
         tempstruct &tmp, commonstruct &common, cublasHandle_t handle,
         Int jth, Int backend)
 {
-    Int nc = common.nc;
-    Int ncu = common.ncu;
-    Int ncq = common.ncq;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
-    Int ncw = common.ncw;
-    Int nd = common.nd;
-    Int npe = common.npe;
-    Int npf = common.npf;
-    Int ngf = common.ngf;
-    Int nfe = common.nfe;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncq = common.components.ncq;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
+    Int ncw = common.components.ncw;
+    Int nd = common.grid.nd;
+    Int npe = common.grid.npe;
+    Int npf = common.grid.npf;
+    Int ngf = common.grid.ngf;
+    Int nfe = common.meshsizes.nfe;
 
     Int e1 = common.eblks[3*jth]-1;
     Int e2 = common.eblks[3*jth+1];
@@ -940,7 +940,7 @@ void uEquationElemFaceBlockLDG(solstruct &sol, resstruct &res, appstruct &app,
     GetElementFaceNodes(&tmp.tempn[nn*ncu], sol.udg, mesh.perm, npf*nfe, nc, npe, nc, e1, e2);
     if (nco > 0)
         GetElementFaceNodes(&tmp.tempn[nn*(ncu+nc)], sol.odg, mesh.perm, npf*nfe, nco, npe, nco, e1, e2);
-    if ((ncw > 0) && (common.wave == 0)) {
+    if ((ncw > 0) && (common.timeparams.wave == 0)) {
         GetElementFaceNodes(&tmp.tempn[nn*(ncu+nc+nco)], sol.wsrc, mesh.perm, npf*nfe, ncw, npe, ncw, e1, e2);
         GetElementFaceNodes(&tmp.tempn[nn*(ncu+nc+nco+ncw)], sol.wdg, mesh.perm, npf*nfe, ncw, npe, ncw, e1, e2);
     }
@@ -948,9 +948,8 @@ void uEquationElemFaceBlockLDG(solstruct &sol, resstruct &res, appstruct &app,
     Node2Gauss(handle, tmp.tempg, tmp.tempn, master.shapfgt,
             ngf, npf, nf*(ncu+nc+nco+ncw+ncw), backend);
 
-    if ((ncw > 0) && (common.wave == 0)) {
-        wEquation(wdg, wdg_uq, xg, udg, odg, wsrc, tmp.tempn, app,
-                driver_abi, common, nga, backend);
+    if ((ncw > 0) && (common.timeparams.wave == 0)) {
+        wEquation<exasim::detail::AbiAdapter>(wdg, wdg_uq, xg, udg, odg, wsrc, tmp.tempn, app, common, nga, backend);
     }
 
     ArraySetValue(fg, 0.0, nga*ncu*nd);
@@ -965,13 +964,13 @@ void uEquationElemFaceBlockLDG(solstruct &sol, resstruct &res, appstruct &app,
     LDGFluxDerivativeDotNormal(tmp.tempn, fg_uq, nlg, 0.5, nga, ncu, nd, nc);
     ArrayCopy(fg_uq, tmp.tempn, nga*ncu*nc);
 
-    if ((ncw > 0) && (common.wave == 0)) {
+    if ((ncw > 0) && (common.timeparams.wave == 0)) {
         LDGFluxDerivativeDotNormal(tmp.tempn, fg_w, nlg, 0.5, nga, ncu, nd, ncw);
         ArrayCopy(fg_w, tmp.tempn, nga*ncu*ncw);
         ArrayGemmBatch2(fg_uq, fg_w, wdg_uq, one, ncu, nc, ncw, nga);
     }
 
-    LDGAddTraceStabilizationDerivatives(fg_uq, fh_uh, app.tau, common.ntau,
+    LDGAddTraceStabilizationDerivatives(fg_uq, fh_uh, app.tau, common.components.ntau,
             nga, ncu, nc);
 
     columnwiseMultiply(fg_uq, fg_uq, jac, nga, ncu*nc);
@@ -992,8 +991,8 @@ void uEquationElemFaceBlockLDG(solstruct &sol, resstruct &res, appstruct &app,
     Gauss2Node(handle, Ftmp, fh_uh, master.shapfgwdotshapfg,
             ngf, npf*npf, nf*ncu*ncu, backend);
 
-    for (Int ibc = 0; ibc < common.maxnbc; ibc++) {
-        Int n = ibc + common.maxnbc*jth;
+    for (Int ibc = 0; ibc < common.meshsizes.maxnbc; ibc++) {
+        Int n = ibc + common.meshsizes.maxnbc*jth;
         Int start = common.nboufaces[n];
         Int nfaces = common.nboufaces[n + 1] - start;
         if (nfaces > 0) {
@@ -1019,11 +1018,11 @@ void uEquationElemFaceBlockLDG(solstruct &sol, resstruct &res, appstruct &app,
             GetBoundaryNodes(uhb, uhg, &mesh.boufaces[start], ngf, nfe, ne, ncu, nfaces);
             GetBoundaryNodes(nlb, nlg, &mesh.boufaces[start], ngf, nfe, ne, nd, nfaces);
 
-            if ((ncw > 0) && (common.wave == 0)) {
+            if ((ncw > 0) && (common.timeparams.wave == 0)) {
                 ArrayCopy(res.F, ugb, ngb*nc);
                 ArrayCopy(res.F, uhb, ngb*ncu);
-                wEquation(wgb, wgb_uq, xgb, res.F, ogb, wsb, &res.F[ngb*nc],
-                        app, driver_abi, common, ngb, backend);
+                wEquation<exasim::detail::AbiAdapter>(wgb, wgb_uq, xgb, res.F, ogb, wsb, &res.F[ngb*nc],
+                        app, common, ngb, backend);
             }
 
             ArraySetValue(fhb, 0.0, ngb*ncu);
@@ -1035,7 +1034,7 @@ void uEquationElemFaceBlockLDG(solstruct &sol, resstruct &res, appstruct &app,
                           wgb, uhb, nlb, driver_abi, mesh, master, app,
                           sol, tmp, common, ngb, ibc+1, backend);
 
-            if ((ncw > 0) && (common.wave == 0)) {
+            if ((ncw > 0) && (common.timeparams.wave == 0)) {
                 ArrayGemmBatch2(fhb_uh, fhb_w, wgb_uq, one, ncu, ncu, ncw, ngb);
                 ArraySetValue(wgb_uq, 0.0, ngb*ncw*ncu);
                 ArrayGemmBatch2(fhb_uq, fhb_w, wgb_uq, one, ncu, nc, ncw, ngb);
@@ -1086,11 +1085,11 @@ void uEquationSchurBlockLDG(solstruct &sol, resstruct &res, appstruct &app,
     (void)master;
     (void)mesh;
 
-    Int ncu = common.ncu;
-    Int nd = common.nd;
-    Int npe = common.npe;
-    Int npf = common.npf;
-    Int nfe = common.nfe;
+    Int ncu = common.components.ncu;
+    Int nd = common.grid.nd;
+    Int npe = common.grid.npe;
+    Int npf = common.grid.npf;
+    Int nfe = common.meshsizes.nfe;
 
     Int e1 = common.eblks[3*jth]-1;
     Int e2 = common.eblks[3*jth+1];
@@ -1124,10 +1123,10 @@ void uEquationSchurBlockLDG(solstruct &sol, resstruct &res, appstruct &app,
         benchmark->layoutF += LDGBenchmarkStop(t0, backend);
 
     dstype scalar = 1.0;
-    if (common.wave == 1)
-        scalar = 1.0/common.dtfactor;
+    if (common.timeparams.wave == 1)
+        scalar = 1.0/common.timestate.dtfactor;
 
-    if (common.ncq > 0) {
+    if (common.components.ncq > 0) {
         if (nd == 1) {
             if (benchmark != nullptr)
                 t0 = LDGBenchmarkStart(backend);
@@ -1147,9 +1146,9 @@ void uEquationSchurBlockLDG(solstruct &sol, resstruct &res, appstruct &app,
         }
         else if (nd == 2) {
             dstype *Cx = &res.C[npe*npe*e1];
-            dstype *Cy = &res.C[npe*npe*common.ne + npe*npe*e1];
+            dstype *Cy = &res.C[npe*npe*common.meshsizes.ne + npe*npe*e1];
             dstype *Ex = &res.E[npe*npf*nfe*e1];
-            dstype *Ey = &res.E[npe*npf*nfe*common.ne + npe*npf*nfe*e1];
+            dstype *Ey = &res.E[npe*npf*nfe*common.meshsizes.ne + npe*npf*nfe*e1];
             dstype *Bx = res.B;
             dstype *By = &res.B[npe*npe*ncu*ncu*ne];
 
@@ -1173,11 +1172,11 @@ void uEquationSchurBlockLDG(solstruct &sol, resstruct &res, appstruct &app,
         }
         else if (nd == 3) {
             dstype *Cx = &res.C[npe*npe*e1];
-            dstype *Cy = &res.C[npe*npe*common.ne + npe*npe*e1];
-            dstype *Cz = &res.C[npe*npe*common.ne*2 + npe*npe*e1];
+            dstype *Cy = &res.C[npe*npe*common.meshsizes.ne + npe*npe*e1];
+            dstype *Cz = &res.C[npe*npe*common.meshsizes.ne*2 + npe*npe*e1];
             dstype *Ex = &res.E[npe*npf*nfe*e1];
-            dstype *Ey = &res.E[npe*npf*nfe*common.ne + npe*npf*nfe*e1];
-            dstype *Ez = &res.E[npe*npf*nfe*common.ne*2 + npe*npf*nfe*e1];
+            dstype *Ey = &res.E[npe*npf*nfe*common.meshsizes.ne + npe*npf*nfe*e1];
+            dstype *Ez = &res.E[npe*npf*nfe*common.meshsizes.ne*2 + npe*npf*nfe*e1];
             dstype *Bx = res.B;
             dstype *By = &res.B[npe*npe*ncu*ncu*ne];
             dstype *Bz = &res.B[npe*npe*ncu*ncu*ne*2];
@@ -1220,37 +1219,37 @@ void RuFaceCrossDeriv(dstype* A, solstruct &sol,
         masterstruct &master, meshstruct &mesh, tempstruct &tmp,
         commonstruct &common)
 {
-    if (common.ncq <= 0)
+    if (common.components.ncq <= 0)
         return;
 
     Int backend = common.backend;
-    Int npe = common.npe;
-    Int npf = common.npf;
-    Int ngf = common.ngf;
-    Int nfe = common.nfe;
-    Int ncu = common.ncu;
-    Int ncq = common.ncq;
-    Int nc = common.nc;
-    Int nco = common.nco;
-    Int ncw = common.ncw;
-    Int ncx = common.ncx;
-    Int nd = common.nd;
-    Int ne = common.ne1;
+    Int npe = common.grid.npe;
+    Int npf = common.grid.npf;
+    Int ngf = common.grid.ngf;
+    Int nfe = common.meshsizes.nfe;
+    Int ncu = common.components.ncu;
+    Int ncq = common.components.ncq;
+    Int nc = common.components.nc;
+    Int nco = common.components.nco;
+    Int ncw = common.components.ncw;
+    Int ncx = common.components.ncx;
+    Int nd = common.grid.nd;
+    Int ne = common.meshsizes.ne1;
     LDGRuFaceCrossBenchmarkTimes tm;
     double tTotal = LDGBenchmarkStart(backend);
     double t0;
 
-    //cout<<common.mpiRank<<", "<<ne<<", "<<common.ne<<endl;
+    //cout<<common.mpiRank<<", "<<ne<<", "<<common.meshsizes.ne<<endl;
 
     dstype scalar = 1.0;
-    if (common.wave == 1)
-        scalar = 1.0/common.dtfactor;
+    if (common.timeparams.wave == 1)
+        scalar = 1.0/common.timestate.dtfactor;
     
-    //print2iarray(common.fblks, 3, common.nbf, "fblks", EXASIM_COMM_WORLD);
+    //print2iarray(common.fblks, 3, common.meshsizes.nbf, "fblks", EXASIM_COMM_WORLD);
 
     //if (common.mpiRank==0) print3darray(A, npe, npe, ne);
 
-    for (Int jblk = 0; jblk < common.nbf; jblk++) {
+    for (Int jblk = 0; jblk < common.meshsizes.nbf; jblk++) {
         Int f1 = common.fblks[3*jblk]-1;
         Int f2 = common.fblks[3*jblk+1];
         Int ib = common.fblks[3*jblk+2];
@@ -1316,23 +1315,23 @@ void RuFaceCrossDeriv(dstype* A, solstruct &sol,
         t0 = LDGBenchmarkStart(backend);
         LDGAssembleFaceQToElementCrossBlock(A, bufq, res.E,
                 mesh.facecon, mesh.f2e, mesh.elemcon, scalar, 2, 1,
-                minusone, f1, nfb, npe, npf, nfe, ncu, ncq, ne, common.ne, common.mpiRank);
+                minusone, f1, nfb, npe, npf, nfe, ncu, ncq, ne, common.meshsizes.ne, common.mpiRank);
         tm.assemble_m += LDGBenchmarkStop(t0, backend);
 
         //print3darray(bufq, npf*npf, nfb, ncu*ncq, "Rf_qm", EXASIM_COMM_WORLD);
         //print3darray(bufq, npf*npf, nfb, ncu*ncq);
-        // {
-        //     Int szEf = npf*nd*npf*nfb;
-        //     dstype *EfRef = &tmp.tempn[M*ncq + npf*npf*nfb*ncu*ncq];
-        //     dstype *EfOpt = &EfRef[szEf];
-        //     dstype *EfDiff = &EfOpt[szEf];
-        //     LDGValidateBuildFaceEForCrossBlock(EfRef, EfOpt, EfDiff, res.E,
-        //                                        mesh.facecon, mesh.f2e, mesh.elemcon,
-        //                                        mesh.perm, res.ipiv, 1,
-        //                                        f1, nfb, npe, npf, nfe, nd, common.ne,
-        //                                        common.cublasHandle, backend, common.mpiRank);
-        // }
-         
+        {
+            Int szEf = npf*nd*npf*nfb;
+            dstype *EfRef = &tmp.tempn[M*ncq + npf*npf*nfb*ncu*ncq];
+            dstype *EfOpt = &EfRef[szEf];
+            dstype *EfDiff = &EfOpt[szEf];
+            LDGValidateBuildFaceEForCrossBlock(EfRef, EfOpt, EfDiff, res.E,
+                                               mesh.facecon, mesh.f2e, mesh.elemcon,
+                                               mesh.perm, res.ipiv, 1,
+                                               f1, nfb, npe, npf, nfe, nd, common.meshsizes.ne,
+                                               common.cublasHandle, backend, common.mpiRank);
+        }
+
         t0 = LDGBenchmarkStart(backend);
         ArraySetValue(fw, 0.0, fluxWSize);
         FluxDriver(flux, flux_udg, fw, xg, ug2, og2, wg2, driver_abi, mesh, 
@@ -1349,26 +1348,26 @@ void RuFaceCrossDeriv(dstype* A, solstruct &sol,
         t0 = LDGBenchmarkStart(backend);
         LDGAssembleFaceQToElementCrossBlock(A, bufq, res.E,
                 mesh.facecon, mesh.f2e, mesh.elemcon, scalar, 1, 2, one,
-                f1, nfb, npe, npf, nfe, ncu, ncq, ne, common.ne, common.mpiRank);
+                f1, nfb, npe, npf, nfe, ncu, ncq, ne, common.meshsizes.ne, common.mpiRank);
         tm.assemble_p += LDGBenchmarkStop(t0, backend);
 
         //print3darray(bufq, npf*npf, nfb, ncu*ncq, "Rf_qp", EXASIM_COMM_WORLD);
         //print3darray(bufq, npf*npf, nfb, ncu*ncq);
 
-        // {
-        //     Int szEf = npf*nd*npf*nfb;
-        //     dstype *EfRef = &tmp.tempn[M*ncq + npf*npf*nfb*ncu*ncq];
-        //     dstype *EfOpt = &EfRef[szEf];
-        //     dstype *EfDiff = &EfOpt[szEf];
-        //     LDGValidateBuildFaceEForCrossBlock(EfRef, EfOpt, EfDiff, res.E,
-        //             mesh.facecon, mesh.f2e, mesh.elemcon, mesh.perm, res.ipiv, 2,
-        //             f1, nfb, npe, npf, nfe, nd, common.ne,
-        //             common.cublasHandle, backend, common.mpiRank);
-        // }
+        {
+            Int szEf = npf*nd*npf*nfb;
+            dstype *EfRef = &tmp.tempn[M*ncq + npf*npf*nfb*ncu*ncq];
+            dstype *EfOpt = &EfRef[szEf];
+            dstype *EfDiff = &EfOpt[szEf];
+            LDGValidateBuildFaceEForCrossBlock(EfRef, EfOpt, EfDiff, res.E,
+                    mesh.facecon, mesh.f2e, mesh.elemcon, mesh.perm, res.ipiv, 2,
+                    f1, nfb, npe, npf, nfe, nd, common.meshsizes.ne,
+                    common.cublasHandle, backend, common.mpiRank);
+        }
     }
 
     tm.total = LDGBenchmarkStop(tTotal, backend);
-    //LDGPrintRuFaceCrossBenchmark(tm, common);
+    LDGPrintRuFaceCrossBenchmark(tm, common);
 
     // if (common.mpiRank==0) {
     //     cout<<"+++++++++++++++++++++\n";
@@ -1381,27 +1380,27 @@ void RuFaceCrossDerivOptimized(dstype* A, solstruct &sol,
         masterstruct &master, meshstruct &mesh, tempstruct &tmp,
         commonstruct &common)
 {
-    if (common.ncq <= 0)
+    if (common.components.ncq <= 0)
         return;
 
     Int backend = common.backend;
-    Int npe = common.npe;
-    Int npf = common.npf;
-    Int ngf = common.ngf;
-    Int ncu = common.ncu;
-    //Int ncq = common.ncq;
-    Int nc = common.nc;
-    Int nco = common.nco;
-    Int ncw = common.ncw;
-    Int ncx = common.ncx;
-    Int nd = common.nd;
-    Int ne = common.ne1;
+    Int npe = common.grid.npe;
+    Int npf = common.grid.npf;
+    Int ngf = common.grid.ngf;
+    Int ncu = common.components.ncu;
+    //Int ncq = common.components.ncq;
+    Int nc = common.components.nc;
+    Int nco = common.components.nco;
+    Int ncw = common.components.ncw;
+    Int ncx = common.components.ncx;
+    Int nd = common.grid.nd;
+    Int ne = common.meshsizes.ne1;
 
     dstype scalar = 1.0;
-    if (common.wave == 1)
-        scalar = 1.0/common.dtfactor;
+    if (common.timeparams.wave == 1)
+        scalar = 1.0/common.timestate.dtfactor;
 
-    for (Int jblk = 0; jblk < common.nbf; jblk++) {
+    for (Int jblk = 0; jblk < common.meshsizes.nbf; jblk++) {
         Int f1 = common.fblks[3*jblk]-1;
         Int f2 = common.fblks[3*jblk+1];
         Int ib = common.fblks[3*jblk+2];
@@ -1469,10 +1468,10 @@ void RuFaceCrossDerivOptimized(dstype* A, solstruct &sol,
                 ngf, npf*npf, nfb*nd*ncu*ncu, backend);
         LDGPackFaceQForCrossGEMM(B, bufq, npf, ncu, nd, nfb);
         LDGBuildFaceSlotQMap(res.ipiv, mesh.f2e, mesh.elemcon, 1,
-                f1, nfb, npf, common.nfe);
+                f1, nfb, npf, common.meshsizes.nfe);
         LDGBuildFaceEForCrossBlockOptimized(Ef, res.E, mesh.f2e,
-                mesh.perm, res.ipiv, 1, f1, nfb, npe, npf, common.nfe,
-                nd, common.ne);
+                mesh.perm, res.ipiv, 1, f1, nfb, npe, npf, common.meshsizes.nfe,
+                nd, common.meshsizes.ne);
         ArrayMultiplyScalar(common.cublasHandle, Ef, 0.5*scalar,
                 szEf, backend);
         PGEMNMStridedBached(common.cublasHandle, npf*ncu*ncu, npf,
@@ -1490,10 +1489,10 @@ void RuFaceCrossDerivOptimized(dstype* A, solstruct &sol,
                 ngf, npf*npf, nfb*nd*ncu*ncu, backend);
         LDGPackFaceQForCrossGEMM(B, bufq, npf, ncu, nd, nfb);
         LDGBuildFaceSlotQMap(res.ipiv, mesh.f2e, mesh.elemcon, 2,
-                f1, nfb, npf, common.nfe);
+                f1, nfb, npf, common.meshsizes.nfe);
         LDGBuildFaceEForCrossBlockOptimized(Ef, res.E, mesh.f2e,
-                mesh.perm, res.ipiv, 2, f1, nfb, npe, npf, common.nfe,
-                nd, common.ne);
+                mesh.perm, res.ipiv, 2, f1, nfb, npe, npf, common.meshsizes.nfe,
+                nd, common.meshsizes.ne);
         ArrayMultiplyScalar(common.cublasHandle, Ef, 0.5*scalar*minusone,
                 szEf, backend);
         PGEMNMStridedBached(common.cublasHandle, npf*ncu*ncu, npf,
@@ -1506,92 +1505,6 @@ void RuFaceCrossDerivOptimized(dstype* A, solstruct &sol,
         //(void)szAf;
     }
 }
-
-#ifdef DEBUG
-static void LDGDebugCompareRuFaceCrossDeriv(dstype* K, solstruct &sol,
-        resstruct &res, appstruct &app, ExasimDriverABI& driver_abi,
-        masterstruct &master, meshstruct &mesh, tempstruct &tmp,
-        commonstruct &common)
-{
-    if (common.ncq <= 0)
-        return;
-
-    Int nlocu = common.npe*common.ncu;
-    Int szA = nlocu*nlocu*common.ne1;
-    Int backend = common.backend;
-    dstype *Aref = nullptr, *Aopt = nullptr;
-    TemplateMalloc(&Aref, szA, backend);
-    TemplateMalloc(&Aopt, szA, backend);
-
-    ArrayCopy(common.cublasHandle, Aref, K, szA, backend);
-    ArrayCopy(common.cublasHandle, Aopt, K, szA, backend);
-
-    RuFaceCrossDeriv(Aref, sol, res, app, driver_abi, master, mesh, tmp, common);
-    RuFaceCrossDerivOptimized(Aopt, sol, res, app, driver_abi, master, mesh, tmp, common);
-
-    dstype *href = (dstype*) malloc(sizeof(dstype)*szA);
-    dstype *hopt = (dstype*) malloc(sizeof(dstype)*szA);
-    TemplateCopytoHost(href, Aref, szA, backend);
-    TemplateCopytoHost(hopt, Aopt, szA, backend);
-
-#ifdef USE_FLOAT
-    const dstype atol = 1.0e-5f;
-    const dstype rtol = 1.0e-5f;
-#else
-    const dstype atol = 1.0e-10;
-    const dstype rtol = 1.0e-10;
-#endif
-    for (Int idx = 0; idx < szA; idx++) {
-        dstype ref = href[idx];
-        dstype opt = hopt[idx];
-        dstype diff = opt - ref;
-        if (diff < 0.0) diff = -diff;
-        dstype scale = ref;
-        if (scale < 0.0) scale = -scale;
-
-        if (diff > atol + rtol*scale) {
-            Int row = idx % nlocu;
-            Int t = idx / nlocu;
-            Int col = t % nlocu;
-            Int e = t / nlocu;
-            Int rowNode = row % common.npe;
-            Int rowComp = row / common.npe;
-            Int colNode = col % common.npe;
-            Int colComp = col / common.npe;
-
-            if (common.mpiRank == 0) {
-                std::cout << "RuFaceCrossDerivOptimized mismatch"
-                          << ": element = " << e
-                          << ", local row = " << row
-                          << " (node " << rowNode << ", comp " << rowComp << ")"
-                          << ", local col = " << col
-                          << " (node " << colNode << ", comp " << colComp << ")"
-                          << ", global row block = " << e*nlocu + row
-                          << ", global col block = " << e*nlocu + col
-                          << ", reference = " << ref
-                          << ", optimized = " << opt
-                          << ", abs diff = " << diff
-                          << std::endl;
-            }
-
-            CPUFREE(href);
-            CPUFREE(hopt);
-            TemplateFree(Aref, backend);
-            TemplateFree(Aopt, backend);
-            error("RuFaceCrossDerivOptimized DEBUG comparison failed.");
-        }
-    }
-
-    if (common.mpiRank == 0)
-        std::cout << "RuFaceCrossDerivOptimized DEBUG comparison passed for "
-                  << szA << " entries." << std::endl;
-
-    CPUFREE(href);
-    CPUFREE(hopt);
-    TemplateFree(Aref, backend);
-    TemplateFree(Aopt, backend);
-}
-#endif
 
 void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, appstruct &app,
                   ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh,
@@ -1606,44 +1519,44 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
 
     // insert u into udg
     t0 = LDGBenchmarkStart(backend);
-    ArrayInsert(sol.udg, u, common.npe, common.nc, common.ne, 0, common.npe, 
-                0, common.ncu, 0, common.ne);  
+    ArrayInsert(sol.udg, u, common.grid.npe, common.components.nc, common.meshsizes.ne, 0, common.grid.npe, 
+                0, common.components.ncu, 0, common.meshsizes.ne);  
     tm.insert += LDGBenchmarkStop(t0, backend);
 
     // compute uhat
     t0 = LDGBenchmarkStart(backend);
-    GetUhat(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbf, backend);
+    GetUhat<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbf, backend);
     tm.uhat += LDGBenchmarkStop(t0, backend);
 
     // compute q
-    if (common.ncq>0) {
+    if (common.components.ncq>0) {
         t0 = LDGBenchmarkStart(backend);
-        GetQ(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbe, 0, common.nbf, backend);                
+        GetQ(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbe, 0, common.meshsizes.nbf, backend);                
         tm.q += LDGBenchmarkStop(t0, backend);
     }
 
     // compute w
-    if (common.ncw>0) {
+    if (common.components.ncw>0) {
         t0 = LDGBenchmarkStart(backend);
-        GetW(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbe, 0, common.nbf, backend);                
+        GetW<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbe, 0, common.meshsizes.nbf, backend);                
         tm.w += LDGBenchmarkStop(t0, backend);
     }
 
-    if (common.ncAV>0 && common.frozenAVflag == 0) {
+    if (common.physicsparams.ncAV>0 && common.physicsparams.frozenAVflag == 0) {
         t0 = LDGBenchmarkStart(backend);
-        GetAv(sol, res, app, driver_abi, master, mesh, tmp, common, handle, backend);
+        GetAv<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, backend);
         tm.av += LDGBenchmarkStop(t0, backend);
     }
 
-    Int n = common.npe*common.ncu;
-    Int m = common.npf*common.nfe*common.ncu;
-    for (Int j = 0; j < common.nbe; j++) {
+    Int n = common.grid.npe*common.components.ncu;
+    Int m = common.grid.npf*common.meshsizes.nfe*common.components.ncu;
+    for (Int j = 0; j < common.meshsizes.nbe; j++) {
         Int e1 = common.eblks[3*j]-1;
         Int e2 = common.eblks[3*j+1];
         Int ne = e2-e1;        
 
         t0 = LDGBenchmarkStart(backend);
-        uEquationElemBlock(sol, res, app, driver_abi, master, mesh, tmp,
+        uEquationElemBlock<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp,
                 common, handle, j, backend);
         tm.elem += LDGBenchmarkStop(t0, backend);
 
@@ -1669,32 +1582,28 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
     }
 
     t0 = LDGBenchmarkStart(backend);
-#ifdef DEBUG
-    LDGDebugCompareRuFaceCrossDeriv(K, sol, res, app, driver_abi, master, mesh, tmp, common);
-#endif
     RuFaceCrossDerivOptimized(K, sol, res, app, driver_abi, master, mesh, tmp, common);
-    //RuFaceCrossDeriv(K, sol, res, app, driver_abi, master, mesh, tmp, common);
     tm.cross += LDGBenchmarkStop(t0, backend);
 
-    // if (common.tdep == 1)
-    //     ArrayMultiplyScalar(handle, K, minusone/common.dtfactor, n*n*common.ne1, backend);
+    // if (common.timeparams.tdep == 1)
+    //     ArrayMultiplyScalar(handle, K, minusone/common.timestate.dtfactor, n*n*common.meshsizes.ne1, backend);
     
-    // print3darray(sol.xdg, common.npe, common.ncx, common.ne1);
-    // print3darray(K, n, n, common.ne1);
+    // print3darray(sol.xdg, common.grid.npe, common.components.ncx, common.meshsizes.ne1);
+    // print3darray(K, n, n, common.meshsizes.ne1);
 
     // VerifyRuDerivFromUFiniteDifference(K, u, sol, res, app, driver_abi, master, mesh, tmp, common, 1e-6);
     // error("here");
 
-    //common.debugMode = 1;
-    // if (common.debugMode == 1) {
-    //     Int szA = n*n*common.ne1;
+    //common.outputparams.debugMode = 1;
+    // if (common.outputparams.debugMode == 1) {
+    //     Int szA = n*n*common.meshsizes.ne1;
     //     dstype *A = nullptr;
     //     TemplateMalloc(&A, szA, backend);
     // 
     //     //RuElemDeriv(A, u, sol, res, app, driver_abi, master, mesh, tmp, common);
     //     RuDerivFromU(A, u, sol, res, app, driver_abi, master, mesh, tmp, common);
     // 
-    //     for (int i=0; i <common.ne1; i++) {
+    //     for (int i=0; i <common.meshsizes.ne1; i++) {
     //         dstype *diff = tmp.tempn;
     //         dstype residualScale = one;
     //         ArrayAXPBY(diff, &K[n*n*i], &A[n*n*i], one, -residualScale, n*n);
@@ -1718,7 +1627,7 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
     //     error("here");
     // }
 
-    for (Int j = 0; j < common.nbe; j++) {
+    for (Int j = 0; j < common.meshsizes.nbe; j++) {
         Int e1 = common.eblks[3*j]-1;
         Int e2 = common.eblks[3*j+1];
         Int ne = e2-e1;
@@ -1728,7 +1637,7 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
     }
 
     tm.total = LDGBenchmarkStop(tTotal, backend);
-    //LDGPrintBenchmark("serial", tm, common);
+    LDGPrintBenchmark("serial", tm, common);
 }
 
 void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, appstruct &app,
@@ -1740,16 +1649,16 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
     double tTotal = LDGBenchmarkStart(backend);
     double t0;
 
-    Int bsz = common.npe*common.ncu;
+    Int bsz = common.grid.npe*common.components.ncu;
     Int n;
 
     // Insert owned primal unknowns. Neighbor/exterior primal values are received below.
     t0 = LDGBenchmarkStart(backend);
-    ArrayInsert(sol.udg, u, common.npe, common.nc, common.ne, 0, common.npe,
-                0, common.ncu, 0, common.ne1);
+    ArrayInsert(sol.udg, u, common.grid.npe, common.components.nc, common.meshsizes.ne, 0, common.grid.npe,
+                0, common.components.ncu, 0, common.meshsizes.ne1);
     tm.insert += LDGBenchmarkStop(t0, backend);
 
-    // Non-blocking exchange of owned primal unknowns, matching RuResidualMPI().
+    // Non-blocking exchange of owned primal unknowns, matching RuResidualMPI<exasim::detail::AbiAdapter>().
     t0 = LDGBenchmarkStart(backend);
     GetArrayAtIndex(tmp.buffsend, sol.udg, mesh.elemsendind, bsz*common.nelemsend);
 
@@ -1766,7 +1675,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
         neighbor = common.nbsd[n];
         nsend = common.elemsendpts[n]*bsz;
         if (nsend>0) {
-            MPI_Isend(&tmp.buffsend[psend], nsend, MPI_DOUBLE, neighbor, 0,
+            MPI_Isend(&tmp.buffsend[psend], nsend, mpi_type<dstype>(), neighbor, 0,
                    EXASIM_COMM_LOCAL, &common.requests[request_counter]);
             psend += nsend;
             request_counter += 1;
@@ -1778,7 +1687,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
         neighbor = common.nbsd[n];
         nrecv = common.elemrecvpts[n]*bsz;
         if (nrecv>0) {
-            MPI_Irecv(&tmp.buffrecv[precv], nrecv, MPI_DOUBLE, neighbor, 0,
+            MPI_Irecv(&tmp.buffrecv[precv], nrecv, mpi_type<dstype>(), neighbor, 0,
                    EXASIM_COMM_LOCAL, &common.requests[request_counter]);
             precv += nrecv;
             request_counter += 1;
@@ -1788,20 +1697,20 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 
     // Interior q and w can be computed while neighbor values are in flight.
     t0 = LDGBenchmarkStart(backend);
-    GetUhat(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbf, backend);
+    GetUhat<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbf, backend);
     tm.uhat += LDGBenchmarkStop(t0, backend);
 
-    if (common.ncq>0) {
+    if (common.components.ncq>0) {
         t0 = LDGBenchmarkStart(backend);
-        GetQ(sol, res, app, driver_abi, master, mesh, tmp, common, handle,
-             0, common.nbe0, 0, common.nbf, backend);
+        GetQ(sol, res, app, master, mesh, tmp, common, handle,
+             0, common.meshsizes.nbe0, 0, common.meshsizes.nbf, backend);
         tm.q += LDGBenchmarkStop(t0, backend);
     }
 
-    if (common.ncw>0) {
+    if (common.components.ncw>0) {
         t0 = LDGBenchmarkStart(backend);
-        GetW(sol, res, app, driver_abi, master, mesh, tmp, common, handle,
-             0, common.nbe0, 0, common.nbf, backend);
+        GetW<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle,
+             0, common.meshsizes.nbe0, 0, common.meshsizes.nbf, backend);
         tm.w += LDGBenchmarkStop(t0, backend);
     }
 
@@ -1812,37 +1721,37 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 
     // Recompute traces with up-to-date exterior states, then update interface/exterior q and w.
     t0 = LDGBenchmarkStart(backend);
-    GetUhat(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbf, backend);
+    GetUhat<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbf, backend);
     tm.uhat += LDGBenchmarkStop(t0, backend);
 
-    if (common.ncq>0) {
+    if (common.components.ncq>0) {
         t0 = LDGBenchmarkStart(backend);
-        GetQ(sol, res, app, driver_abi, master, mesh, tmp, common, handle,
-             common.nbe0, common.nbe2, 0, common.nbf, backend);
+        GetQ(sol, res, app, master, mesh, tmp, common, handle,
+             common.meshsizes.nbe0, common.meshsizes.nbe2, 0, common.meshsizes.nbf, backend);
         tm.q += LDGBenchmarkStop(t0, backend);
     }
 
-    if (common.ncw>0) {
+    if (common.components.ncw>0) {
         t0 = LDGBenchmarkStart(backend);
-        GetW(sol, res, app, driver_abi, master, mesh, tmp, common, handle,
-             common.nbe0, common.nbe2, 0, common.nbf, backend);
+        GetW<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle,
+             common.meshsizes.nbe0, common.meshsizes.nbe2, 0, common.meshsizes.nbf, backend);
         tm.w += LDGBenchmarkStop(t0, backend);
     }
 
-    if (common.ncAV>0 && common.frozenAVflag == 0) {
+    if (common.physicsparams.ncAV>0 && common.physicsparams.frozenAVflag == 0) {
         t0 = LDGBenchmarkStart(backend);
-        GetAv(sol, res, app, driver_abi, master, mesh, tmp, common, handle, backend);
+        GetAv<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, backend);
         tm.av += LDGBenchmarkStop(t0, backend);
     }
 
-    Int nlocu = common.npe*common.ncu;
-    for (Int j = 0; j < common.nbe1; j++) {
+    Int nlocu = common.grid.npe*common.components.ncu;
+    for (Int j = 0; j < common.meshsizes.nbe1; j++) {
         Int e1 = common.eblks[3*j]-1;
         Int e2 = common.eblks[3*j+1];
         Int ne = e2-e1;
 
         t0 = LDGBenchmarkStart(backend);
-        uEquationElemBlock(sol, res, app, driver_abi, master, mesh, tmp,
+        uEquationElemBlock<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp,
                 common, handle, j, backend);
         tm.elem += LDGBenchmarkStop(t0, backend);
 
@@ -1867,16 +1776,13 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
     }
 
     t0 = LDGBenchmarkStart(backend);
-#ifdef DEBUG
-    LDGDebugCompareRuFaceCrossDeriv(K, sol, res, app, driver_abi, master, mesh, tmp, common);
-#endif
     RuFaceCrossDerivOptimized(K, sol, res, app, driver_abi, master, mesh, tmp, common);
     tm.cross += LDGBenchmarkStop(t0, backend);
 
-    // if (common.tdep == 1)
-    //     ArrayMultiplyScalar(handle, K, one/common.dtfactor, nlocu*nlocu*common.ne1, backend);
+    // if (common.timeparams.tdep == 1)
+    //     ArrayMultiplyScalar(handle, K, one/common.timestate.dtfactor, nlocu*nlocu*common.meshsizes.ne1, backend);
 
-    for (Int j = 0; j < common.nbe1; j++) {
+    for (Int j = 0; j < common.meshsizes.nbe1; j++) {
         Int e1 = common.eblks[3*j]-1;
         Int e2 = common.eblks[3*j+1];
         Int ne = e2-e1;
@@ -1896,35 +1802,35 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 //                              tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
 // {    
 //     // insert u into udg
-//     ArrayInsert(sol.udg, u, common.npe, common.nc, common.ne, 0, common.npe, 
-//                 0, common.ncu, 0, common.ne);  
+//     ArrayInsert(sol.udg, u, common.grid.npe, common.components.nc, common.meshsizes.ne, 0, common.grid.npe, 
+//                 0, common.components.ncu, 0, common.meshsizes.ne);  
 // 
 //     // compute uhat
-//     GetUhat(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbf, backend);
+//     GetUhat<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbf, backend);
 // 
 //     // compute q
-//     if (common.ncq>0)
-//         GetQ(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbe, 0, common.nbf, backend);                
+//     if (common.components.ncq>0)
+//         GetQ(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbe, 0, common.meshsizes.nbf, backend);                
 // 
 //     // compute w
-//     if (common.ncw>0)
-//         GetW(sol, res, app, driver_abi, master, mesh, tmp, common, handle, 0, common.nbe, 0, common.nbf, backend);                
+//     if (common.components.ncw>0)
+//         GetW<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbe, 0, common.meshsizes.nbf, backend);                
 // 
-//     if (common.ncAV>0 && common.frozenAVflag == 0)
-//         GetAv(sol, res, app, driver_abi, master, mesh, tmp, common, handle, backend);
+//     if (common.physicsparams.ncAV>0 && common.physicsparams.frozenAVflag == 0)
+//         GetAv<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp, common, handle, backend);
 // 
-//     Int n = common.npe*common.ncu;
-//     Int szA = n*n*common.ne1;
+//     Int n = common.grid.npe*common.components.ncu;
+//     Int szA = n*n*common.meshsizes.ne1;
 //     dstype *K = nullptr;
 //     TemplateMalloc(&K, szA, backend);
 // 
-//     for (Int j = 0; j < common.nbe; j++) {
+//     for (Int j = 0; j < common.meshsizes.nbe; j++) {
 //         Int e1 = common.eblks[3*j]-1;
 //         Int e2 = common.eblks[3*j+1];
 //         Int ne = e2-e1;        
 // 
 //         ArraySetValue(res.D, 0.0, n*n*ne);
-//         ArraySetValue(res.B, 0.0, n*common.npe*common.ncq*ne);
+//         ArraySetValue(res.B, 0.0, n*common.grid.npe*common.components.ncq*ne);
 //         uEquationElemFaceBlockLDG(sol, res, app, driver_abi, master, mesh,
 //                                   tmp, common, handle, j, backend);
 // 
@@ -1943,7 +1849,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 //     TemplateMalloc(&A, szA, backend);    
 //     RuFaceDerivFromU(A, u, sol, res, app, driver_abi, master, mesh, tmp, common);
 // 
-//     for (int i=0; i <common.ne1; i++) {
+//     for (int i=0; i <common.meshsizes.ne1; i++) {
 //         dstype *diff = tmp.tempn;
 //         ArrayAXPBY(diff, &K[n*n*i], &A[n*n*i], one, minusone, n*n);
 //         dstype normA = NORM(handle, n*n, &A[n*n*i], backend);
@@ -1970,18 +1876,18 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 //         tempstruct &tmp, commonstruct &common, cublasHandle_t handle,
 //         Int backend)
 // {
-//     Int n = common.npe*common.ncu;
-//     Int m = common.npf*common.nfe*common.ncu;
+//     Int n = common.grid.npe*common.components.ncu;
+//     Int m = common.grid.npf*common.meshsizes.nfe*common.components.ncu;
 // 
-//     // common.debugMode = 1;
-//     // if (common.debugMode == 1) {
+//     // common.outputparams.debugMode = 1;
+//     // if (common.outputparams.debugMode == 1) {
 //     //     VerifyUEquationElemFiniteDifference(sol.udg, sol, res, app,
 //     //             driver_abi, master, mesh, tmp, common, 1e-6);
 //     // 
 //     //     dstype* u = nullptr;
-//     //     TemplateMalloc(&u, common.npe*common.ncu*common.ne1, backend);
-//     //     ArrayExtract(u, sol.udg, common.npe, common.nc, common.ne,
-//     //             0, common.npe, 0, common.ncu, 0, common.ne1);
+//     //     TemplateMalloc(&u, common.grid.npe*common.components.ncu*common.meshsizes.ne1, backend);
+//     //     ArrayExtract(u, sol.udg, common.grid.npe, common.components.nc, common.meshsizes.ne,
+//     //             0, common.grid.npe, 0, common.components.ncu, 0, common.meshsizes.ne1);
 //     //     VerifyRuElemDerivFromUFiniteDifference(u, sol, res, app,
 //     //             driver_abi, master, mesh, tmp, common, 1e-6);
 //     //     VerifyRuFaceDerivFromUFiniteDifference(u, sol, res, app,
@@ -1992,16 +1898,16 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 //     // }
 // 
 //     RuDerivFromU(K, u, sol, res, app, driver_abi, master, mesh, tmp, common);    
-//     Inverse(handle, K, tmp.tempn, res.ipiv, n, common.ne1, backend);    
-//     //ArrayMultiplyScalar(K, minusone, n*n*common.ne1);      
+//     Inverse(handle, K, tmp.tempn, res.ipiv, n, common.meshsizes.ne1, backend);    
+//     //ArrayMultiplyScalar(K, minusone, n*n*common.meshsizes.ne1);      
 // 
 //     // dstype *A = nullptr;
-//     // TemplateMalloc(&A, n*n*common.ne1, backend);
+//     // TemplateMalloc(&A, n*n*common.meshsizes.ne1, backend);
 //     // 
 //     // RuDerivFromU(A, u, sol, res, app, driver_abi, master, mesh, tmp, common);
-//     // ArrayCopy(K, A, n*n*common.ne1);
-//     // Inverse(handle, K, A, res.ipiv, n, common.ne1, backend);    
-//     // ArrayMultiplyScalar(K, minusone, n*n*common.ne1);      
+//     // ArrayCopy(K, A, n*n*common.meshsizes.ne1);
+//     // Inverse(handle, K, A, res.ipiv, n, common.meshsizes.ne1, backend);    
+//     // ArrayMultiplyScalar(K, minusone, n*n*common.meshsizes.ne1);      
 //     // 
 //     // // print3darray(A, n, n, 2);
 //     // // print3darray(K, n, n, 2);
@@ -2009,15 +1915,15 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 //     // 
 //     // if (A != nullptr) TemplateFree(A, backend);
 // 
-//     // for (Int j = 0; j < common.nbe; j++) {
+//     // for (Int j = 0; j < common.meshsizes.nbe; j++) {
 //     //     Int e1 = common.eblks[3*j]-1;
 //     //     Int e2 = common.eblks[3*j+1];
 //     //     Int ne = e2-e1;
 //     // 
-//     //     uEquationElemBlock(sol, res, app, driver_abi, master, mesh, tmp,
+//     //     uEquationElemBlock<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp,
 //     //             common, handle, j, backend);
 //     // 
-//     //     // print3darray(res.B, n, n*common.nd, ne);
+//     //     // print3darray(res.B, n, n*common.grid.nd, ne);
 //     // 
 //     //     uEquationElemFaceBlockLDG0(sol, res, app, driver_abi, master, mesh,
 //     //             tmp, common, handle, j, backend);
@@ -2056,17 +1962,17 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 // void uEquationElemFaceBlockLDG0(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, 
 //         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int jth, Int backend)
 // {            
-//     Int nc = common.nc; // number of compoments of (u, q, p)
-//     Int ncu = common.ncu;// number of compoments of (u)
-//     Int ncq = common.ncq;// number of compoments of (q)
-//     Int nco = common.nco;// number of compoments of (o)
-//     Int ncx = common.ncx;// number of compoments of (xdg)        
-//     Int ncw = common.ncw;
-//     Int nd = common.nd;     // spatial dimension    
-//     Int npe = common.npe; // number of nodes on master element
-//     Int npf = common.npf; // number of nodes on master face           
-//     Int ngf = common.ngf; // number of gauss poInts on master face              
-//     Int nfe = common.nfe; // number of faces in each element
+//     Int nc = common.components.nc; // number of compoments of (u, q, p)
+//     Int ncu = common.components.ncu;// number of compoments of (u)
+//     Int ncq = common.components.ncq;// number of compoments of (q)
+//     Int nco = common.components.nco;// number of compoments of (o)
+//     Int ncx = common.components.ncx;// number of compoments of (xdg)        
+//     Int ncw = common.components.ncw;
+//     Int nd = common.grid.nd;     // spatial dimension    
+//     Int npe = common.grid.npe; // number of nodes on master element
+//     Int npf = common.grid.npf; // number of nodes on master face           
+//     Int ngf = common.grid.ngf; // number of gauss poInts on master face              
+//     Int nfe = common.meshsizes.nfe; // number of faces in each element
 // 
 //     Int e1 = common.eblks[3*jth]-1;
 //     Int e2 = common.eblks[3*jth+1];            
@@ -2109,14 +2015,14 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 // 
 //     if (nco>0) GetElementFaceNodes(&tmp.tempn[nn*(ncu+nc)], sol.odg, mesh.perm, npf*nfe, nco, npe, nco, e1, e2);      
 // 
-//     if ((ncw>0) & (common.wave==0)) {
+//     if ((ncw>0) & (common.timeparams.wave==0)) {
 //       GetElementFaceNodes(&tmp.tempn[nn*(ncu+nc+nco)], sol.wsrc, mesh.perm, npf*nfe, ncw, npe, ncw, e1, e2); 
 //       GetElementFaceNodes(&tmp.tempn[nn*(ncu+nc+nco+ncw)], sol.wdg, mesh.perm, npf*nfe, ncw, npe, ncw, e1, e2); // fix bug here
 //     }
 // 
 //     Node2Gauss(handle, tmp.tempg, tmp.tempn, master.shapfgt, ngf, npf, nfe*ne*(ncu+nc+nco+ncw+ncw), backend); // fix bug here
 // 
-//     if ((ncw>0) & (common.wave==0)) {
+//     if ((ncw>0) & (common.timeparams.wave==0)) {
 //         // copy udg to tmp.tempn
 //         ArrayCopy(tmp.tempn, udg, nga*nc);
 // 
@@ -2124,7 +2030,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 //         ArrayCopy(tmp.tempn, uhg, nga*ncu);
 // 
 //         // solve the w equation to get wg and wg_uq
-//         wEquation(wdg, wdg_uq, xg, tmp.tempn, odg, wsrc, &tmp.tempn[nga*nc], app, driver_abi, common, nga, backend);                
+//         wEquation<exasim::detail::AbiAdapter>(wdg, wdg_uq, xg, tmp.tempn, odg, wsrc, &tmp.tempn[nga*nc], app, common, nga, backend);                
 //     }
 // 
 //     ArraySetValue(fh, 0.0, nga*ncu);    
@@ -2136,7 +2042,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 //     FhatDriver(fh, fh_uq, fh_w, fh_uh, xg, udg, odg, wdg, uhg, nlg,
 //         driver_abi, mesh, master, app, sol, tmp, common, nga, backend);
 // 
-//     if ((ncw>0) & (common.wave==0)) {
+//     if ((ncw>0) & (common.timeparams.wave==0)) {
 //       ArrayGemmBatch2(fh_uh, fh_w, wdg_uq, one, ncu, ncu, ncw, nga); // fix bug here       
 // 
 //       ArraySetValue(wdg_uq, 0.0, nga*ncu*ncu);
@@ -2172,11 +2078,11 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 // void uEquationSchurBlockLDG0(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, 
 //         meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int jth, Int backend)
 // {        
-//     Int ncu = common.ncu;// number of compoments of (u)
-//     Int nd = common.nd;     // spatial dimension    
-//     Int npe = common.npe; // number of nodes on master element
-//     Int npf = common.npf; // number of nodes on master face           
-//     Int nfe = common.nfe; // number of faces in each element
+//     Int ncu = common.components.ncu;// number of compoments of (u)
+//     Int nd = common.grid.nd;     // spatial dimension    
+//     Int npe = common.grid.npe; // number of nodes on master element
+//     Int npf = common.grid.npf; // number of nodes on master face           
+//     Int nfe = common.meshsizes.nfe; // number of faces in each element
 // 
 //     Int e1 = common.eblks[3*jth]-1;
 //     Int e2 = common.eblks[3*jth+1];            
@@ -2196,10 +2102,10 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 //     ArrayCopy(F, tmp.tempn, n * m * ne);
 // 
 //     dstype scalar = 1.0;
-//     if (common.wave==1)
-//         scalar = 1.0/common.dtfactor;    
+//     if (common.timeparams.wave==1)
+//         scalar = 1.0/common.timestate.dtfactor;    
 // 
-//     if (common.ncq > 0) {      
+//     if (common.components.ncq > 0) {      
 //       if (nd == 1) {
 //         // D = D + B * Minv * C
 //         schurMatrixBMinvC(D, res.B, &res.C[npe*npe*e1], scalar, npe, ncu, ne);
@@ -2208,9 +2114,9 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 //       } 
 //       else if (nd == 2) {
 //         dstype *Cx = &res.C[npe*npe*e1]; // fix bug here
-//         dstype *Cy = &res.C[npe*npe*common.ne + npe*npe*e1]; // fix bug here
+//         dstype *Cy = &res.C[npe*npe*common.meshsizes.ne + npe*npe*e1]; // fix bug here
 //         dstype *Ex = &res.E[npe*npf*nfe*e1]; // fix bug here
-//         dstype *Ey = &res.E[npe*npf*nfe*common.ne + npe*npf*nfe*e1]; // fix bug here
+//         dstype *Ey = &res.E[npe*npf*nfe*common.meshsizes.ne + npe*npf*nfe*e1]; // fix bug here
 //         dstype *Bx = res.B; // npe * npe * ne * ncu * ncu
 //         dstype *By = &res.B[npe*npe*ncu*ncu*ne]; // npe * npe * ne * ncu * ncu
 // 
@@ -2222,11 +2128,11 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 //       }
 //       else if (nd == 3) {
 //         dstype *Cx = &res.C[npe*npe*e1]; // fixed bug here
-//         dstype *Cy = &res.C[npe*npe*common.ne + npe*npe*e1]; // fixed bug here
-//         dstype *Cz = &res.C[npe*npe*common.ne*2 + npe*npe*e1]; // fixed bug here
+//         dstype *Cy = &res.C[npe*npe*common.meshsizes.ne + npe*npe*e1]; // fixed bug here
+//         dstype *Cz = &res.C[npe*npe*common.meshsizes.ne*2 + npe*npe*e1]; // fixed bug here
 //         dstype *Ex = &res.E[npe*npf*nfe*e1]; // fixed bug here
-//         dstype *Ey = &res.E[npe*npf*nfe*common.ne + npe*npf*nfe*e1]; // fixed bug here
-//         dstype *Ez = &res.E[npe*npf*nfe*common.ne*2 + npe*npf*nfe*e1]; // fixed bug here
+//         dstype *Ey = &res.E[npe*npf*nfe*common.meshsizes.ne + npe*npf*nfe*e1]; // fixed bug here
+//         dstype *Ez = &res.E[npe*npf*nfe*common.meshsizes.ne*2 + npe*npf*nfe*e1]; // fixed bug here
 //         dstype *Bx = res.B;
 //         dstype *By = &res.B[npe*npe*ncu*ncu*ne];
 //         dstype *Bz = &res.B[npe*npe*ncu*ncu*ne*2];

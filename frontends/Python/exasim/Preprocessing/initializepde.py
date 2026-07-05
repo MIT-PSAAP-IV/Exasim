@@ -93,6 +93,11 @@ def initializepde(version):
     pde['precMatrixType'] = 0;
     pde['NLMatrixType'] = 0;
     pde['ppdegree'] = 0;
+    # coupling / AV-distance flags written to app.bin problem[28..31] (M1: match Matlab's layout)
+    pde['coupledinterface'] = 0;
+    pde['coupledcondition'] = 0;
+    pde['coupledboundarycondition'] = 0;
+    pde['AVdistfunction'] = 0;
     pde['runmode'] = 0;
     pde['tdfunc'] = 1;
     pde['source'] = 1;

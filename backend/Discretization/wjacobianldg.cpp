@@ -10,7 +10,7 @@
   and W_K contains the degrees of freedom of w_h, with local size
       npe * ncw.
 
-  The implementation matches the active GetW(...) branches in residual.cpp:
+  The implementation matches the active GetW<exasim::detail::AbiAdapter>(...) branches in residual.cpp:
 
   1. wave == 1
        w = (1/dtfactor) * (u + wsrc)
@@ -20,7 +20,7 @@
        dw/du = - (dEos/dw)^{-1} (dEos/du)
 
   3. wave == 0 and not (dae_alpha == dae_beta == 0)
-       explicit update used by GetW(...):
+       explicit update used by GetW<exasim::detail::AbiAdapter>(...):
 
          if dae_steps == 0:
              w = scalar * (dae_alpha * wsrc + Sourcew(x,u,o,w))
@@ -46,9 +46,9 @@ inline void wJacobianLDGZero(dstype* DWDU, commonstruct& common, Int e1, Int e2)
     if (DWDU == nullptr)
         return;
 
-    Int npe = common.npe;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
+    Int npe = common.grid.npe;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
     Int ne = e2 - e1;
     ArraySetValue(DWDU, zero, npe*ncw*npe*ncu*ne);
 }
@@ -59,9 +59,9 @@ inline void wJacobianLDGInsertPointwise(dstype* DWDU, const dstype* dwdudg,
     if ((DWDU == nullptr) || (dwdudg == nullptr))
         return;
 
-    Int npe = common.npe;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
+    Int npe = common.grid.npe;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
     Int ne = e2 - e1;
     Int nn = npe*ne;
     Int nlocu = npe*ncu;
@@ -93,13 +93,13 @@ inline void wJacobianLDGWave(dstype* DWDU, commonstruct& common, Int e1, Int e2)
     if (DWDU == nullptr)
         return;
 
-    Int npe = common.npe;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
+    Int npe = common.grid.npe;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
     Int ne = e2 - e1;
     Int nlocu = npe*ncu;
     Int nlocw = npe*ncw;
-    dstype scalar = one/common.dtfactor;
+    dstype scalar = one/common.timestate.dtfactor;
 
     ArraySetValue(DWDU, zero, nlocw*nlocu*ne);
 
@@ -127,12 +127,12 @@ inline void wJacobianLDGEos(dstype* DWDU, dstype* Fu, dstype* Fw,
     if (DWDU == nullptr)
         return;
 
-    Int npe = common.npe;
-    Int ncu = common.ncu;
-    Int ncw = common.ncw;
-    Int nc = common.nc;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int npe = common.grid.npe;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nc = common.components.nc;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int ne = e2 - e1;
     Int nn = npe*ne;
 
@@ -172,11 +172,11 @@ inline void wJacobianLDGSourcew(dstype* DWDU, dstype* Su, dstype* Sw,
     if (DWDU == nullptr)
         return;
 
-    Int npe = common.npe;
-    Int nc = common.nc;
-    Int ncw = common.ncw;
-    Int nco = common.nco;
-    Int ncx = common.ncx;
+    Int npe = common.grid.npe;
+    Int nc = common.components.nc;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
     Int ne = e2 - e1;
     Int nn = npe*ne;
 
@@ -185,13 +185,13 @@ inline void wJacobianLDGSourcew(dstype* DWDU, dstype* Su, dstype* Sw,
             app, sol, tmp, common, npe, e1, e2, backend);
 
     dstype scalar = zero;
-    if (common.dae_steps==0)
-        scalar = one/(common.dae_alpha*common.dtfactor + common.dae_beta);
+    if (common.timeparams.dae_steps==0)
+        scalar = one/(common.timeparams.dae_alpha*common.timestate.dtfactor + common.timeparams.dae_beta);
     else
-        scalar = one/(common.dae_alpha*common.dtfactor + common.dae_beta + common.dae_gamma);
+        scalar = one/(common.timeparams.dae_alpha*common.timestate.dtfactor + common.timeparams.dae_beta + common.timeparams.dae_gamma);
 
     ArrayMultiplyScalar(Su, scalar, nn*ncw*nc);
-    wJacobianLDGInsertPointwise(DWDU, Su, common, e1, e2, common.ncu);
+    wJacobianLDGInsertPointwise(DWDU, Su, common, e1, e2, common.components.ncu);
 }
 
 inline void wJacobianLDG(dstype* DWDU, solstruct& sol, resstruct& res,
@@ -204,24 +204,24 @@ inline void wJacobianLDG(dstype* DWDU, solstruct& sol, resstruct& res,
     if (DWDU == nullptr)
         return;
 
-    if ((common.subproblem != 0) || (common.ncw <= 0)) {
+    if ((common.timeparams.subproblem != 0) || (common.components.ncw <= 0)) {
         wJacobianLDGZero(DWDU, common, e1, e2);
         return;
     }
 
-    if (common.wave == 1) {
+    if (common.timeparams.wave == 1) {
         wJacobianLDGWave(DWDU, common, e1, e2);
         return;
     }
 
-    Int npe = common.npe;
-    Int ncu = common.ncu;
-    Int nc = common.nc;
-    Int ncw = common.ncw;
+    Int npe = common.grid.npe;
+    Int ncu = common.components.ncu;
+    Int nc = common.components.nc;
+    Int ncw = common.components.ncw;
     Int ne = e2 - e1;
     Int nn = npe*ne;
 
-    if ((fabs(common.dae_alpha) < 1e-10) && (fabs(common.dae_beta) < 1e-10)) {
+    if ((fabs(common.timeparams.dae_alpha) < 1e-10) && (fabs(common.timeparams.dae_beta) < 1e-10)) {
         dstype* Fu = nullptr;
         dstype* Fw = nullptr;
         TemplateMalloc(&Fu, nn*ncw*ncu, backend);
@@ -253,7 +253,7 @@ inline void wJacobianLDG(dstype* DWDU, solstruct& sol, resstruct& res,
         cublasHandle_t handle, Int backend)
 {
     wJacobianLDG(DWDU, sol, res, app, driver_abi, master, mesh, tmp, common,
-            handle, 0, common.ne, backend);
+            handle, 0, common.meshsizes.ne, backend);
 }
 
 #endif
