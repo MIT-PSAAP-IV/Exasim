@@ -47,10 +47,11 @@ int main(int argc, char** argv)
     int err = solver.InitializeEnvironment(argc, argv, MPI_COMM_NULL);
     if (err) return err;
 
-    err = solver.ParseInputs(argc, argv);
+    const ExasimDriverABI& abi = getBuiltInLibraryExasimDriverABI();
+
+    err = solver.ParseInputs(argc, argv, abi);
     if (err) return solver.Finalize();
 
-    const ExasimDriverABI& abi = getBuiltInLibraryExasimDriverABI();
     for (int i = 0; i < solver.NumModelDefinitions(); i++)
         if (solver.SetModelDefinition(i, solver.BuiltinModelID(i), abi))
             return solver.Finalize();

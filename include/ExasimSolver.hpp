@@ -1,6 +1,7 @@
 #pragma once
 
 #include <fstream>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -91,7 +92,10 @@ public:
 
     int InitializeEnvironment(int argc, char** argv, MPI_Comm comm);
     int Initialize(int argc, char** argv, MPI_Comm comm);    
-    int ParseInputs(int argc, char** argv);
+    int Initialize(int argc, char** argv, MPI_Comm comm, const ExasimDriverABI& abi);
+    int ParseInputs(int argc, char** argv, const ExasimDriverABI& abi);
+    int ParseInputs(int argc, char** argv,
+                    const std::function<const ExasimDriverABI&(int)>& resolveABI);
     int ParsePostprocessInputs(int argc, char** argv);
     int SetModelDefinition(const int modelnumber, const int builtinmodelID,
                            const ExasimDriverABI& abi);

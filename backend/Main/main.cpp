@@ -98,7 +98,7 @@ int main(int argc, char** argv)
     int err = solver.InitializeEnvironment(argc, argv, comm);
     if (err) return err;
 
-    err = solver.ParseInputs(argc, argv);
+    err = solver.ParseInputs(argc, argv, SelectExasimDriverABI);
     if (err) {
         solver.Finalize();
         return err;

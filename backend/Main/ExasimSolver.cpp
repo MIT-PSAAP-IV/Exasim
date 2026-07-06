@@ -75,15 +75,11 @@ MPI_Comm EXASIM_COMM_LOCAL = MPI_COMM_NULL;
 
 #ifdef HAVE_BACKEND_PREPROCESSING
 #include <array>
+#include <functional>
 #include <regex>
 #include <unordered_map>
 #include <unordered_set>
 #include "../../include/driver_abi.hpp"
-// SelectExasimDriverABI is defined by the provider module
-// (e.g. modelprovider.hpp) which is compiled into the executable, not
-// the backend library.  A forward declaration is sufficient here;
-// the linker resolves the symbol.
-const ExasimDriverABI& SelectExasimDriverABI();
 #endif
 
 #ifdef TIMING
@@ -272,13 +268,25 @@ ExasimSolver::~ExasimSolver()
 
 int ExasimSolver::Initialize(int argc, char** argv, MPI_Comm comm)
 {
+    if (model_abis_.empty()) {
+        if (mpirank_ == 0)
+            std::cerr << "ExasimSolver::Initialize requires a model ABI. "
+                      << "Use Initialize(argc, argv, comm, abi) or the setup helpers." << std::endl;
+        return 1;
+    }
+
+    return Initialize(argc, argv, comm, model_abis_[0]);
+}
+
+int ExasimSolver::Initialize(int argc, char** argv, MPI_Comm comm, const ExasimDriverABI& abi)
+{
     if (initialized_)
         return 0;
 
     int err = InitializeEnvironment(argc, argv, comm);
     if (err) return err;
 
-    err = ParseInputs(argc, argv);
+    err = ParseInputs(argc, argv, abi);
     if (err) {
         FinalizeEnvironment();
         return err;
@@ -564,7 +572,14 @@ int ExasimSolver::InitializeEnvironment(int argc, char** argv, MPI_Comm comm)
     return 0;
 }
 
-int ExasimSolver::ParseInputs(int argc, char** argv)
+int ExasimSolver::ParseInputs(int argc, char** argv, const ExasimDriverABI& abi)
+{
+    return ParseInputs(argc, argv,
+        [&abi](int) -> const ExasimDriverABI& { return abi; });
+}
+
+int ExasimSolver::ParseInputs(int argc, char** argv,
+                              const std::function<const ExasimDriverABI&(int)>& resolveABI)
 {
     filein_.clear();
     fileout_.clear();
@@ -578,6 +593,10 @@ int ExasimSolver::ParseInputs(int argc, char** argv)
     executionMode_ = ExasimExecutionMode::Solve;
     const bool preserveModelDefinitions =
         !builtinmodelID_.empty() || !model_abis_.empty();
+
+#ifndef HAVE_BACKEND_PREPROCESSING
+    (void) resolveABI;
+#endif
 
 #ifdef HAVE_BACKEND_PREPROCESSING
     if (argc < 2) {
@@ -598,7 +617,7 @@ int ExasimSolver::ParseInputs(int argc, char** argv)
     // Fill missing dimension sizes from the compiled ABI so they don't
     // need to be specified in pdeapp.txt.
     {
-        const auto& abi = SelectExasimDriverABI();
+        const auto& abi = resolveABI(pde.builtinmodelID);
         // Use per-model query (BuiltInLibrary) or direct fields (KokkosKernel)
         ModelSizes ms;
         if (abi.GetModelSizes)
