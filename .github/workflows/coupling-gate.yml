@@ -1,0 +1,192 @@
+name: coupling gate (CHEFSI vs Exasim)
+
+# Merge gate for master: proves the out-of-tree CHEFSI coupled apps
+# (sumMIT + KiteSurf + Exasim) still BUILD and RUN against the Exasim in THIS
+# pull request -- not against a pre-published prefix. This is the "internal
+# build bot" check: it runs on the self-hosted sumMIT-workstation runner
+# (nimble.mit.edu), which is the only place the closed-source coupling
+# dependencies (summit, KiteSurf, pyre) and the LFS coupling meshes live.
+#
+# Flow (one job, so Exasim is built exactly once and both apps reuse it):
+#   1. Check out this PR's Exasim and build+install it CPU+MPI, out of tree,
+#      to a throwaway prefix. This install carries the coupling built-in models
+#      (IDs 7-15, text2code-generated at build time) + ExasimExternalModel.cmake
+#      + text2code that the coupled apps need.
+#   2. Check out MIT-PSAAP-IV/CHEFSI-apps (with LFS: the coupled apps ship binary
+#      mesh/udg/vdg/xdg inputs as pointers).
+#   3. For each coupled app: configure + compile against THIS PR's Exasim prefix
+#      (every other dependency stays at the buildbot-published prefix), then run
+#      a short coupling smoke and check the app's own committed gate.
+#
+# The two apps use their own repo-provided checks:
+#   poisson2d-new-architecture-with-kitesurf  np=2   reproduce_check.py (D-N fixed
+#       point on dataout/outqoi.txt vs the manufactured solution; no golden file)
+#   isoq2d-with-kitesurf                      np=16  smoke_metric.py --check against
+#       the committed test/smoke/reference_metric.json (needs numpy + pyvista)
+#
+# Prerequisites (one-time, outside this file):
+#   - the self-hosted [self-hosted, sumMIT-workstation] runner must be granted to
+#     the Exasim repo (repo-level registration or a shared org runner group); it
+#     is currently registered on MIT-PSAAP-IV/CHEFSI-apps only.
+#   - repo secret COUPLING_CHECKOUT_TOKEN: a token that can read CHEFSI-apps and
+#     pull its Git LFS objects (fine-grained PAT with contents:read, or a GitHub
+#     App installation token).
+#   - branch protection on master must REQUIRE the "coupling-gate" check (this
+#     workflow only produces the signal; it does not enforce it).
+
+on:
+  pull_request:
+    branches: [master]
+  workflow_dispatch: {}
+
+# Only read this repo; CHEFSI-apps is fetched with an explicit token below.
+permissions:
+  contents: read
+
+# One in-flight gate per ref; a newer push supersedes an older run.
+concurrency:
+  group: coupling-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  coupling-gate:
+    runs-on: [self-hosted, sumMIT-workstation]
+    # Cold Exasim build (vendored SymEngine ~20-30 min) + two coupled builds +
+    # two smokes. Generous cap so a wedged step can't park the shared runner.
+    timeout-minutes: 120
+    env:
+      # Buildbot-published dependency prefixes -- identical to the CHEFSI-apps
+      # CI, EXCEPT Exasim, which we build fresh from this PR (see EXASIM_PREFIX).
+      SUMMIT_PREFIX: /home/buildbot/tools/cmake/GCC/rel-linux-x86_64/main
+      KITESURF_PREFIX: /home/buildbot/tools/KiteSurf
+      PYRE_PREFIX: /mnt/data2/tools/pyre
+      SUMMIT_SRC: /home/buildbot/dv/sumMIT
+      # Fresh Exasim built from this PR (out of tree, sibling of the checkout).
+      EXASIM_BUILD: ${{ github.workspace }}/exasim-build
+      EXASIM_PREFIX: ${{ github.workspace }}/exasim-prefix
+
+    steps:
+      - name: Runner / environment info
+        run: |
+          echo "Runner host : $(hostname)"
+          echo "User        : $(whoami)"
+          echo "CPU cores   : $(nproc)"
+          echo
+          echo "Buildbot dependency prefixes (must exist):"
+          for p in "summit:${SUMMIT_PREFIX}" "KiteSurf:${KITESURF_PREFIX}" \
+                   "pyre:${PYRE_PREFIX}" "summit-src:${SUMMIT_SRC}"; do
+            name="${p%%:*}"; dir="${p#*:}"
+            printf '  %-11s %s : %s\n' "$name" "$dir" \
+              "$([ -e "$dir" ] && echo OK || echo MISSING)"
+          done
+
+      - name: Checkout Exasim (this PR)
+        uses: actions/checkout@v4
+        with:
+          path: exasim-src
+
+      - name: Build + install Exasim from this PR (CPU + MPI)
+        run: |
+          set -eo pipefail
+          # Out of tree (sibling dirs): the superbuild builds vendored serial
+          # Kokkos + SymEngine, finds system METIS/ParMETIS/MPI, generates the
+          # coupling built-in models via text2code, and installs the solver +
+          # builtinmodel libraries and the cmake package.
+          cmake -S exasim-src -B "${EXASIM_BUILD}" \
+            -DEXASIM_CUDA=OFF \
+            -DEXASIM_MPI=ON \
+            -DEXASIM_NOMPI=ON \
+            -DWITH_PARMETIS=ON \
+            -DCMAKE_INSTALL_PREFIX="${EXASIM_PREFIX}"
+          cmake --build "${EXASIM_BUILD}" -j"$(nproc)"
+          cmake --install "${EXASIM_BUILD}"
+          test -f "${EXASIM_PREFIX}/lib/cmake/Exasim/ExasimConfig.cmake" \
+            || { echo "Exasim install incomplete: no ExasimConfig.cmake"; exit 1; }
+          echo "Exasim (this PR) installed to ${EXASIM_PREFIX}"
+
+      - name: Checkout CHEFSI-apps (with LFS inputs)
+        uses: actions/checkout@v4
+        with:
+          repository: MIT-PSAAP-IV/CHEFSI-apps
+          token: ${{ secrets.COUPLING_CHECKOUT_TOKEN }}
+          path: chefsi-apps
+          lfs: true
+          persist-credentials: false
+
+      - name: Build + smoke each coupled app against this PR's Exasim
+        id: coupling
+        run: |
+          set -uo pipefail
+          APPROOT="${GITHUB_WORKSPACE}/chefsi-apps/FSP-1/ExaSim-SumMIT"
+          FAIL=0
+
+          # Configure recipe mirrors the CHEFSI-apps CI exactly (find_package over
+          # CMAKE_PREFIX_PATH + summit's vendored find-modules); only the Exasim
+          # entry is repointed at this PR's fresh install.
+          run_app() {
+            local app="$1" np="$2" run_args="$3" check="$4"
+            local dir="${APPROOT}/${app}"
+            echo ""
+            echo "==================== ${app} ===================="
+            [ -d "${dir}" ] || { echo "MISSING app dir: ${dir}"; return 1; }
+            cd "${dir}"
+
+            echo "---- configure ----"
+            rm -f build/CMakeCache.txt
+            cmake -B build -S . \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DEXASIM_MPI=ON -DEXASIM_GPU=OFF \
+              -DCMAKE_PREFIX_PATH="${EXASIM_PREFIX};${SUMMIT_PREFIX};${KITESURF_PREFIX};${PYRE_PREFIX}" \
+              -DCMAKE_MODULE_PATH="${SUMMIT_SRC}/.cmake/cmake-modules" \
+              || { echo "FAIL: configure ${app}"; return 1; }
+
+            echo "---- build ----"
+            cmake --build build -j"$(nproc)" || { echo "FAIL: build ${app}"; return 1; }
+            local exe="./build/${app}"
+            [ -x "${exe}" ] || { echo "FAIL: no executable ${exe}"; return 1; }
+
+            echo "---- run (mpirun -np ${np}) ----"
+            # Clear stale outputs so a check can't pass on a previous run's data.
+            rm -rf OUTPUT dataout coupling_convergence.csv
+            # shellcheck disable=SC2086
+            mpirun -np "${np}" "${exe}" ${run_args} || { echo "FAIL: run ${app}"; return 1; }
+
+            echo "---- check ----"
+            eval "${check}" || { echo "FAIL: check ${app}"; return 1; }
+            echo "PASS: ${app}"
+          }
+
+          run_app "poisson2d-new-architecture-with-kitesurf" 2 \
+                  "pdeapp.txt input.yaml" \
+                  "python3 reproduce_check.py --tol 0.05" || FAIL=1
+
+          # isoq2d smoke needs numpy + pyvista for smoke_metric.py; fail loudly
+          # if the runner env lost them rather than emit a raw ImportError.
+          if ! python3 -c "import numpy, pyvista" 2>/dev/null; then
+            echo "FAIL: isoq2d check needs python numpy + pyvista on the runner"
+            FAIL=1
+          else
+            run_app "isoq2d-with-kitesurf" 16 \
+                    "pdeapp.txt input.yaml coupling_config.smoke.yaml" \
+                    "python3 smoke_metric.py OUTPUT/Thermal --check test/smoke/reference_metric.json" || FAIL=1
+          fi
+
+          echo ""
+          if [ "${FAIL}" -ne 0 ]; then
+            echo "coupling gate FAILED — one or more coupled apps did not build/run against this PR's Exasim"
+            exit 1
+          fi
+          echo "coupling gate PASSED — all coupled apps built + smoked against this PR's Exasim"
+
+      - name: Forensics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coupling-gate-forensics-${{ github.run_id }}
+          path: |
+            ${{ github.workspace }}/chefsi-apps/FSP-1/ExaSim-SumMIT/*/build/CMakeCache.txt
+            ${{ github.workspace }}/chefsi-apps/FSP-1/ExaSim-SumMIT/*/build/CMakeFiles/CMakeConfigureLog.yaml
+            ${{ github.workspace }}/chefsi-apps/FSP-1/ExaSim-SumMIT/*/build/CMakeFiles/CMakeError.log
+            ${{ github.workspace }}/chefsi-apps/FSP-1/ExaSim-SumMIT/*/dataout/outqoi.txt
+          if-no-files-found: warn
+          retention-days: 14
