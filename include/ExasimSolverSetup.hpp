@@ -40,23 +40,12 @@ inline const ExasimDriverABI& SelectExasimDriverABI()
 #elif defined(HAVE_KOKKOSKERNEL)
     return getKokkosKernelExasimDriverABI();
 #elif defined(HAVE_TEXT2CODE)
-return getText2codeGeneratedExasimDriverABI();
+    return getText2codeGeneratedExasimDriverABI();
 #elif defined(HAVE_UDERDEFINED) || defined(HAVE_USERDEFINED)
     return getUserDefinedExasimDriverABI();
 #else
     return getFrontendGeneratedExasimDriverABI();
 #endif
-}
-
-// SelectExasimDriverABI() is header-inline (dispatched by the provider macros), but the core
-// backend library's ExasimSolver.cpp references it via an `extern` declaration (the ModelSizes
-// ParseInputs path under HAVE_BACKEND_PREPROCESSING). Because it is fully inlined into each app's
-// call chain, no out-of-line copy would otherwise survive for the library to link against. Taking
-// its address in each including (provider) TU forces an out-of-line weak definition to be emitted;
-// the weak copies merge at link time. This is what makes the provider "define" the symbol.
-namespace {
-[[gnu::used]] const void* const _exasim_emit_select_driver_abi =
-    reinterpret_cast<const void*>(&SelectExasimDriverABI);
 }
 
 inline const char* SelectExasimDriverProviderName()
@@ -93,14 +82,13 @@ inline void PrintModelProvider(const int modelnumber, const int builtinmodelID)
     }
 }
 
-inline int ConfigureModelDefinitions(ExasimSolver& solver)
+inline int ConfigureModelDefinitions(ExasimSolver& solver, const ExasimDriverABI& abi)
 {
     const int numModelDefinitions = solver.NumModelDefinitions();
 
     for (int i = 0; i < numModelDefinitions; i++) {
         const int builtinmodelID = solver.BuiltinModelID(i);
-        const int err = solver.SetModelDefinition(
-            i, builtinmodelID, SelectExasimDriverABI());
+        const int err = solver.SetModelDefinition(i, builtinmodelID, abi);
         if (err)
             return err;
         PrintModelProvider(i, builtinmodelID);
@@ -109,7 +97,9 @@ inline int ConfigureModelDefinitions(ExasimSolver& solver)
     return 0;
 }
 
-inline int ConfigureModelDefinitions(ExasimSolver& solver, const std::vector<int>& vecBuiltinModelID)
+inline int ConfigureModelDefinitions(ExasimSolver& solver,
+                                     const ExasimDriverABI& abi,
+                                     const std::vector<int>& vecBuiltinModelID)
 {
     const int numModelDefinitions = solver.NumModelDefinitions();
 
@@ -122,8 +112,7 @@ inline int ConfigureModelDefinitions(ExasimSolver& solver, const std::vector<int
         if (builtinmodelID <= 0)
             builtinmodelID = solver.BuiltinModelID(i);
 
-        const int err = solver.SetModelDefinition(
-            i, builtinmodelID, SelectExasimDriverABI());
+        const int err = solver.SetModelDefinition(i, builtinmodelID, abi);
         if (err)
             return err;
         PrintModelProvider(i, builtinmodelID);
@@ -138,13 +127,15 @@ inline int InitializeExasimSolver(ExasimSolver& solver, int argc, char** argv, M
     if (err)
         return err;
 
-    err = solver.ParseInputs(argc, argv);
+    const auto& abi = SelectExasimDriverABI();
+
+    err = solver.ParseInputs(argc, argv, abi);
     if (err) {
         solver.Finalize();
         return err;
     }
 
-    err = ConfigureModelDefinitions(solver);
+    err = ConfigureModelDefinitions(solver, abi);
     if (err) {
         solver.Finalize();
         return err;
@@ -163,13 +154,15 @@ inline int InitializeExasimPostprocessor(ExasimSolver& solver, int argc, char** 
     if (err)
         return err;
 
+    const auto& abi = SelectExasimDriverABI();
+
     err = solver.ParsePostprocessInputs(argc, argv);
     if (err) {
         solver.Finalize();
         return err;
     }
 
-    err = ConfigureModelDefinitions(solver);
+    err = ConfigureModelDefinitions(solver, abi);
     if (err) {
         solver.Finalize();
         return err;
@@ -189,13 +182,15 @@ inline int InitializeExasimPostprocessor(ExasimSolver& solver, int argc, char** 
     if (err)
         return err;
 
+    const auto& abi = SelectExasimDriverABI();
+
     err = solver.ParsePostprocessInputs(argc, argv);
     if (err) {
         solver.Finalize();
         return err;
     }
 
-    err = ConfigureModelDefinitions(solver, vecBuiltinModelID);
+    err = ConfigureModelDefinitions(solver, abi, vecBuiltinModelID);
     if (err) {
         solver.Finalize();
         return err;
@@ -215,13 +210,15 @@ inline int InitializeExasimSolver(ExasimSolver& solver, int argc, char** argv,
     if (err)
         return err;
 
-    err = solver.ParseInputs(argc, argv);
+    const auto& abi = SelectExasimDriverABI();
+
+    err = solver.ParseInputs(argc, argv, abi);
     if (err) {
         solver.Finalize();
         return err;
     }
 
-    err = ConfigureModelDefinitions(solver, vecBuiltinModelID);
+    err = ConfigureModelDefinitions(solver, abi, vecBuiltinModelID);
     if (err) {
         solver.Finalize();
         return err;
@@ -240,13 +237,15 @@ inline int RunExasimSolver(ExasimSolver& solver, int argc, char** argv, MPI_Comm
     if (err)
         return err;
 
-    err = solver.ParseInputs(argc, argv);
+    const auto& abi = SelectExasimDriverABI();
+
+    err = solver.ParseInputs(argc, argv, abi);
     if (err) {
         solver.Finalize();
         return err;
     }
 
-    err = ConfigureModelDefinitions(solver);
+    err = ConfigureModelDefinitions(solver, abi);
     if (err) {
         solver.Finalize();
         return err;
@@ -307,13 +306,15 @@ inline int RunExasimSolver(ExasimSolver& solver, int argc, char** argv,
     if (err)
         return err;
 
-    err = solver.ParseInputs(argc, argv);
+    const auto& abi = SelectExasimDriverABI();
+
+    err = solver.ParseInputs(argc, argv, abi);
     if (err) {
         solver.Finalize();
         return err;
     }
 
-    err = ConfigureModelDefinitions(solver, vecBuiltinModelID);
+    err = ConfigureModelDefinitions(solver, abi, vecBuiltinModelID);
     if (err) {
         solver.Finalize();
         return err;

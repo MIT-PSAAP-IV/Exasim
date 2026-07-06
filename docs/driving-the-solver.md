@@ -20,8 +20,8 @@ calls):
 | Step | Method | Purpose |
 |---|---|---|
 | 1 | `InitializeEnvironment(argc, argv, comm)` | MPI / Kokkos init |
-| 2 | `ParseInputs(argc, argv)` | read `pdeapp.txt` |
-| 3 | `SetModelDefinition(...)` | attach the model provider (done by `ConfigureModelDefinitions`) |
+| 2 | `ParseInputs(argc, argv, abi)` | read `pdeapp.txt` and use the selected model ABI to fill missing model sizes |
+| 3 | `SetModelDefinition(...)` | attach the same model provider ABI (done by `ConfigureModelDefinitions`) |
 | 4 | `InitializeModels()` | build preprocessing data, allocate solution |
 | 5 | `Solve()` | run to completion (time stepping / steady / pseudo-time) |
 | 6 | `Finalize()` | flush output, finalize MPI / Kokkos |
