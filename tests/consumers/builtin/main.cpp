@@ -19,9 +19,10 @@ int main(int argc, char** argv)
     // the public ExasimSolver API (no knowledge of model internals); out-of-range
     // registrations are rejected by AddQoI, so blind registration is safe.
     if (std::getenv("EXASIM_QOI_DEMO")) {
+        const auto& abi = SelectExasimDriverABI();
         int err = solver.InitializeEnvironment(argc, argv, comm);
-        if (!err) err = solver.ParseInputs(argc, argv);
-        if (!err) err = ConfigureModelDefinitions(solver);
+        if (!err) err = solver.ParseInputs(argc, argv, abi);
+        if (!err) err = ConfigureModelDefinitions(solver, abi);
         if (!err) err = solver.InitializeModels();
         if (!err) {
             solver.ClearQoI(0);

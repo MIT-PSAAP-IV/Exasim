@@ -23,16 +23,17 @@ Most paths include `ExasimSolverSetup.hpp` and call a helper such as
 ```mermaid
 flowchart TD
   MAIN["main(argc, argv)"] --> ENV["InitializeEnvironment<br/>MPI and Kokkos"]
-  ENV --> PARSE["ParseInputs or ParsePostprocessInputs"]
-  PARSE --> PROVIDER["SelectExasimDriverABI"]
-  PROVIDER --> MODEL["Configure model definitions"]
+  ENV --> PROVIDER["SelectExasimDriverABI<br/>in setup/app layer"]
+  PROVIDER --> PARSE["ParseInputs(..., abi)<br/>or ParsePostprocessInputs"]
+  PARSE --> MODEL["Configure model definitions<br/>with the same ABI"]
   MODEL --> INIT["Initialize / InitializeModels"]
   INIT --> MODE{"Solve or Postprocess"}
 ```
 
-The runtime initializes MPI and Kokkos once, configures model providers,
-loads runtime input files, and constructs model-specific `CSolution`
-instances.
+The runtime initializes MPI and Kokkos once, selects the model-provider ABI in
+the setup/application layer, loads runtime input files, and constructs
+model-specific `CSolution` instances. `ExasimSolver.cpp` consumes the ABI but
+does not select the provider.
 
 ## Solve Flow
 
@@ -120,7 +121,7 @@ error paths.
 
 | Symptom | Check |
 | --- | --- |
-| App starts but uses wrong provider | Compile macros and `SelectExasimDriverABI`. |
+| App starts but uses wrong provider | Compile macros and setup-layer `SelectExasimDriverABI` call. |
 | Postprocess produces empty output | `executionmode`, `postmode`, saved solution records, and output flags. |
 | Sweep second case uses first case parameters | Host/device physics parameter refresh. |
 | MPI ranks clobber files | Rank-local output path and file suffix logic. |

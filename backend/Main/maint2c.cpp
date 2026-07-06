@@ -24,10 +24,8 @@ void PrintModelProvider(const int modelnumber, const int builtinmodelID)
     }
 }
 
-int ConfigureModelDefinitions(ExasimSolver& solver)
+int ConfigureModelDefinitions(ExasimSolver& solver, const ExasimDriverABI& abi)
 {
-    const ExasimDriverABI& abi = getText2codeLibraryExasimDriverABI();
-
     for (int i = 0; i < solver.NumModelDefinitions(); i++) {
         const int builtinmodelID = solver.BuiltinModelID(i);
         const int err = solver.SetModelDefinition(i, builtinmodelID, abi);
@@ -53,13 +51,15 @@ int main(int argc, char** argv)
     int err = solver.InitializeEnvironment(argc, argv, comm);
     if (err) return err;
 
-    err = solver.ParseInputs(argc, argv);
+    const ExasimDriverABI& abi = getText2codeLibraryExasimDriverABI();
+
+    err = solver.ParseInputs(argc, argv, abi);
     if (err) {
         solver.Finalize();
         return err;
     }
 
-    err = ConfigureModelDefinitions(solver);
+    err = ConfigureModelDefinitions(solver, abi);
     if (err) {
         solver.Finalize();
         return err;

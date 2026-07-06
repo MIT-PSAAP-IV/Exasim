@@ -53,7 +53,7 @@ preprocessing and compilation.
 
 | Value | Frontend command behavior | Backend behavior |
 |---:|---|---|
-| `0` | Run the executable with the historical solve CLI: `exasimapp <nmodels> <datain/> <dataout/out>`. | `ExasimSolver::ParseInputs()` sets `ExasimExecutionMode::Solve`; the solver advances the PDE and writes configured solution/postprocessing outputs. |
+| `0` | Run the executable with the historical solve CLI: `exasimapp <nmodels> <datain/> <dataout/out>`. | `ExasimSolver::ParseInputs(..., abi)` sets `ExasimExecutionMode::Solve`; the solver advances the PDE and writes configured solution/postprocessing outputs. |
 | `1` | Insert the `postprocess` subcommand: `exasimapp postprocess <nmodels> <datain/> <dataout/out>`. | `ExasimSolver::ParsePostprocessInputs()` sets `ExasimExecutionMode::Postprocess`; the backend reads existing saved solutions and writes derived outputs. |
 
 Defaults:
