@@ -1,6 +1,11 @@
-function ttp = distribute(m,spx,spy,n)
+function ttp = distribute(m,spx,spy,n,k)
+
+if nargin < 5
+  k = 50;
+end
+
 ttp = 0:(n-1)/m:n-1;
-for iter = 1:50
+for iter = 1:k
  xp = fnval(spx,ttp);
  yp = fnval(spy,ttp);
  dis = sqrt((xp(2:end)-xp(1:end-1)).^2+(yp(2:end)-yp(1:end-1)).^2);

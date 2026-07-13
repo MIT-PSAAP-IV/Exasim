@@ -124,14 +124,17 @@ else
           for m = 1:nmodels
             kkgencode(pde{m});
           end
-          kkgencodeall(nmodels, pde{1}.backendpath + "/Model");
+
+          mbdir = string(pde{1}.builddir);
+          kkdir = mbdir + "/kernels";
+          kkgencodeall(nmodels, kkdir);
           compilerstr = cmakecompile(pde{1}, mpiprocs);
         end
 
         runstr = runcode(pde{1}, nummodels, mpiprocs);
 
         for m = 1:nmodels
-            sol{m} = fetchsolution(pde{m},master{m},dmd{m}, pde{m}.buildpath + "/dataout" + num2str(m));
+            sol{m} = fetchsolution(pde{m},master{m},dmd{m}, pde{m}.datapath + "/dataout" + num2str(m));
         end
     else
         % ---- combined multi-PDE through the external-model path -----------

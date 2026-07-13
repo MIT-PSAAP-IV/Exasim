@@ -140,7 +140,7 @@ pb = p(ilb,:);
 pb = pb(ind(:,1),:);
 nx = size(pt,1)-1;
 
-nlw = 8;
+nlw = 1;
 pw = pb;
 for i = 1:nlw
     pw = [pw; i*pt/nlw + (nlw-i)*pb/nlw];
