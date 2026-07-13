@@ -103,11 +103,22 @@ inline int ConfigureModelDefinitions(ExasimSolver& solver,
 {
     const int numModelDefinitions = solver.NumModelDefinitions();
 
-    if (static_cast<int>(vecBuiltinModelID.size()) != numModelDefinitions)
+    if (vecBuiltinModelID.empty())
         return 1;
 
     for (int i = 0; i < numModelDefinitions; i++) {
-        int builtinmodelID = vecBuiltinModelID[i];
+        int builtinmodelID = 0;
+        if (static_cast<int>(vecBuiltinModelID.size()) == numModelDefinitions) {
+            builtinmodelID = vecBuiltinModelID[i];
+        }
+        else if (vecBuiltinModelID.size() == 1) {
+            // Legacy split-domain frontend apps pass one external provider ID
+            // while the runtime creates one model definition per domain.
+            builtinmodelID = vecBuiltinModelID[0];
+        }
+        else {
+            return 1;
+        }
 
         if (builtinmodelID <= 0)
             builtinmodelID = solver.BuiltinModelID(i);
