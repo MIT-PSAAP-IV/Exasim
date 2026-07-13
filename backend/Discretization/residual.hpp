@@ -191,6 +191,9 @@ inline void GetW(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &ap
             else {
                 // alpha * dw/dt + beta w = sourcew(u,q,v)
                 // calculate the source term Sourcew(xdg, udg, odg, wdg)
+                // Sourcew is optional. Text2Code emits an empty no-op kernel when
+                // it is absent, so define the contribution as zero before dispatch.
+                ArraySetValue(tmp.tempn, zero, npe*ncw*(e2-e1));
                 EXASIM_DRIVER_CALL(SourcewDriver, tmp.tempn, &sol.xdg[npe*ncx*e1], &sol.udg[npe*nc*e1], &sol.odg[npe*nco*e1], 
                         &sol.wdg[npe*ncw*e1], mesh, master, app, sol, tmp, common, npe, e1, e2, backend);            
                 if (common.timeparams.dae_steps==0) { // alpha * dw/dt + beta w = sourcew(u,q,v)
@@ -903,5 +906,4 @@ inline void ComputeQ(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I>
 }
 
 #endif
-
 

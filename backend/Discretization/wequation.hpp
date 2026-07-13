@@ -95,7 +95,7 @@ inline void wEquation(T *wdg, T *xdg, T *udg, T *odg, T *wsrc,
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
     //Int npe = common.grid.npe; // number of nodes on master element    
     Int modelnumber = common.modelnumber;
-    if  (common.builtinmodelID > 0) modelnumber = common.builtinmodelID;
+    if ((modelnumber <= 0) && (common.builtinmodelID > 0)) modelnumber = common.builtinmodelID;
     dstype time = common.timestate.time;                
     dstype *uinf = app.uinf;
     dstype *physicsparam = app.physicsparam;    
@@ -184,7 +184,7 @@ inline void wEquation(T *wdg, T *wdg_udg, T *xdg, T *udg, T *odg, T *wsrc,
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
     //Int npe = common.grid.npe; // number of nodes on master element    
     Int modelnumber = common.modelnumber;
-    if  (common.builtinmodelID > 0) modelnumber = common.builtinmodelID;
+    if ((modelnumber <= 0) && (common.builtinmodelID > 0)) modelnumber = common.builtinmodelID;
     dstype time = common.timestate.time;                
     dstype *uinf = app.uinf;
     dstype *physicsparam = app.physicsparam;

@@ -83,9 +83,11 @@ void readappstruct(string filename, appstruct &app)
     app.nsize = readiarrayfromdouble(in, app.lsize[0]);
     app.ndims = readiarrayfromdouble(in, app.nsize[0]);
     app.flag = readiarrayfromdouble(in, app.nsize[1]);
-    app.modelnumber = app.flag[12];
-    if (app.builtinmodelID > 0) app.modelnumber = app.builtinmodelID;
     app.problem = readiarrayfromdouble(in, app.nsize[2]);
+    app.modelnumber = app.flag[12];
+    const Int coupledinterface = (app.nsize[2] > 28) ? app.problem[28] : 0;
+    if ((coupledinterface <= 0) && (app.builtinmodelID > 0))
+        app.modelnumber = app.builtinmodelID;
     readarray(in, &app.uinf, app.nsize[3]);
     readarray(in, &app.dt, app.nsize[4]);                
     readarray(in, &app.factor, app.nsize[5]);       

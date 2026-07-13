@@ -140,7 +140,7 @@ inline void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, ma
     common.runmode = app.flag[9];
     common.timeparams.tdfunc = app.flag[10];
     common.physicsparams.source = app.flag[11]; 
-    common.modelnumber = app.flag[12]; 
+    common.modelnumber = app.modelnumber;
     common.couplingparams.extFhat = app.flag[13];
     common.couplingparams.extUhat = app.flag[14];
     common.couplingparams.extStab = app.flag[15];
@@ -962,7 +962,7 @@ inline void devsolstruct(solstructT<T,I> &dsol, solstructT<T,I> &sol, commonstru
     TemplateCopytoDevice( dsol.dudg, sol.dudg, sol.nsize[2], common.backend );   
     //CHECK( cudaMemcpy( dsol.uh, sol.uh, sol.nsize[3]*sizeof(dstype), cudaMemcpyHostToDevice ) );      
     TemplateCopytoDevice( dsol.dodg, sol.dodg, sol.nsize[3], common.backend );   
-    TemplateCopytoDevice( dsol.wdg, sol.dwdg, sol.nsize[4], common.backend );   
+    TemplateCopytoDevice( dsol.dwdg, sol.dwdg, sol.nsize[4], common.backend );
     #endif
 }
 

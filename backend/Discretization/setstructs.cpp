@@ -991,7 +991,7 @@ void devsolstruct(solstructT<T,I> &dsol, solstructT<T,I> &sol, commonstructT<T,I
     TemplateCopytoDevice( dsol.dudg, sol.dudg, sol.nsize[2], common.backend );   
     //CHECK( cudaMemcpy( dsol.uh, sol.uh, sol.nsize[3]*sizeof(dstype), cudaMemcpyHostToDevice ) );      
     TemplateCopytoDevice( dsol.dodg, sol.dodg, sol.nsize[3], common.backend );   
-    TemplateCopytoDevice( dsol.wdg, sol.dwdg, sol.nsize[4], common.backend );   
+    TemplateCopytoDevice( dsol.dwdg, sol.dwdg, sol.nsize[4], common.backend );
     #endif
 }
 
