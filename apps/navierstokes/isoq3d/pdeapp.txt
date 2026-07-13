@@ -11,6 +11,7 @@ mpiprocs = 8;
 debugmode = 0;
 runmode = 0;
 modelnumber = 0;
+gendatain = 0;
 
 porder = 2;
 pgauss = 4;
@@ -46,9 +47,6 @@ physicsparam = [1.4, 183500, 0.71, 7, 1, 1, 0, 0, 0.53644, 0.036443, 124.49, 294
 externalparam = [0, 0];
 
 boundaryconditions = [4, 4, 2, 4, 3, 1];
-wmModelIDs = [];
-wmBoundaries = [];
-wmDistances = [];
 boundaryexpressions = ["abs(y-(1.2246467991473531e-19))<1e-08", "abs(z-(0))<1e-08", "abs(x-(0.059999999999999998))<1e-08", "abs(y^2+z^2-(0.002)^2)<1e-08", "(-1e-3<x)&&(x<(0.059999999999999998)+1e-3)&&(sqrt(y^2+z^2)<0.06+(0.002))", "abs(x)<20+1e-6"];
 curvedboundaries = [0, 0, 0, 0, 0, 0];
 curvedboundaryexprs = ["", "", "", "", "", ""];
