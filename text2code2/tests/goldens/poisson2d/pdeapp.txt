@@ -1,0 +1,65 @@
+// Runtime configuration for poisson2d-new-architecture-with-kitesurf
+// Following tutorial/03-generated-embedded pattern.
+
+model = "ModelD";
+modelfile = "pdemodel.txt";
+meshfile = "mesh/half_square_left.bin";
+discretization = "hdg";
+platform = "cpu";
+
+builtinmodelID = 8;
+gendatain = 0;
+mpiprocs = 1;
+debugmode = 0;
+runmode = 0;
+modelnumber = 0;
+
+porder = 3;
+pgauss = 6;
+torder = 1;
+nstage = 1;
+
+nsca = 2;
+nvec = 1;
+nten = 0;
+
+ncu = 1;
+ncv = 0;
+ncw = 0;
+nsca = 2;
+nvec = 1;
+nten = 0;
+nsurf = 1;
+nvqoi = 2;
+neb = 4096;
+nfb = 8192;
+
+NewtonIter = 20;
+NewtonTol = 1e-08;
+GMRESiter = 50;
+GMRESrestart = 25;
+GMREStol = 1e-08;
+GMRESortho = 1;
+ppdegree = 1;
+RBdim = 0;
+matvecorder = 1;
+matvectol = 0.001;
+precMatrixType = 0;
+preconditioner = 1;
+
+time = 0;
+tau = [1];
+dt = [1];
+physicsparam = [1.0];
+externalparam = [0, 0];
+
+// Dirichlet (tag 1): right(x=0), bottom(y=0), top(y=1)
+// Interface (tag 2): left(x=0.5) — coupled with Summit via kitesurf
+boundaryconditions = [1, 1, 1, 2];
+boundaryexpressions = ["abs(y)<1e-8", "abs(x)<1e-8", "abs(y-1)<1e-8", "abs(x-0.5)<1e-8"];
+curvedboundaries = [0, 0, 0, 0];
+curvedboundaryexprs = ["", "", "", ""];
+periodicboundaries1 = [];
+periodicexprs1 = [];
+periodicboundaries2 = [];
+periodicexprs2 = [];

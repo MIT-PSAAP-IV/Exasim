@@ -54,10 +54,15 @@ Deliverables (1) and (3) overlap: the app scaffold (driver `.cc`, solver header,
 ## Status
 
 - [x] Branch + module scaffold + plan (this file)
-- [ ] Design doc: codegen spec extracted from CodeGenerator.cpp
-- [ ] pyt2c: pdemodel.txt parser
-- [ ] pyt2c: symengine codegen → my_model.hpp (match isoq2d + poisson goldens)
-- [ ] Benchmark harness + numbers
+- [x] Design doc: codegen spec (`docs/codegen-spec.md`) + reference intermediates
+- [x] pyt2c: pdemodel.txt parser (`pyt2c/parser.py`)
+- [x] pyt2c: DSL interpreter (`pyt2c/interp.py`)
+- [x] pyt2c: symengine codegen → my_model.hpp (`pyt2c/codegen.py`)
+- [x] **Numeric equivalence PROVEN**: pyt2c output is byte-identical to the C++
+      text2code golden kernels for poisson2d AND isoq2d compressible-NS model 100
+      (`tests/run_equiv.sh`, `tests/equiv_harness.cpp`). Only textual diff is CSE
+      temp ordering (pip SymEngine vs vendored SymEngine).
+- [ ] Benchmark harness + numbers (py one-stage vs C++ generate+compile+run)
 - [ ] exasim/petsc.hpp: factor a `solve_steady` helper (thin the app)
 - [ ] App scaffolder (header-only CHEFSI-style emitter)
 - [ ] Wire into C++ text2code (`--emit-app`) and/or Python CLI
