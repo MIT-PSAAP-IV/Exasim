@@ -317,9 +317,13 @@ inline int solve_steady(CDiscretizationT<Scalar, Idx>& disc,
     Operator<M, Scalar, Idx> op(disc, asmb, prec, sys, comm);
 
     Vec U = op.make_vec();
-    { PetscScalar* u; VecGetArray(U, &u);
-      for (Idx i = 0; i < N; ++i) u[i] = disc.sol.uh[i];
-      VecRestoreArray(U, &u); }
+    // Seed U <- disc.sol.uh with a memtype-aware copy: on a GPU backend both the Vec
+    // storage and disc.sol.uh are device memory, so a host for-loop would touch invalid
+    // memory. ArrayCopy(cublasHandle, dst, src, N, backend) is the backend-dispatched
+    // device/host copy the native path uses (solution.cpp: sys.u <- sol.uh).
+    { PetscScalar* u; PetscMemType mt; VecGetArrayWriteAndMemType(U, &u, &mt);
+      ArrayCopy(disc.common.cublasHandle, reinterpret_cast<Scalar*>(u), disc.sol.uh, N, backend);
+      VecRestoreArrayWriteAndMemType(U, &u); }
 
     Vec work = op.make_vec();
     SNES snes = op.make_snes_nonlinear(work, o.sign);

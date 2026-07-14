@@ -86,6 +86,11 @@ def _make_namespace():
         "transpose": lambda M: Mat(dense=M.m.transpose()),
         "det": lambda M: M.m.det(),
         "trace": lambda M: M.m.trace(),
+        # Lock down eval/exec: `pdemodel.txt` bodies are evaluated with this dict as
+        # globals; an empty __builtins__ blocks `__import__`/`open`/etc. so a model
+        # file cannot run arbitrary Python at codegen time. DSL bodies only need the
+        # helpers above plus arithmetic/indexing, none of which are builtins.
+        "__builtins__": {},
     }
     return ns
 

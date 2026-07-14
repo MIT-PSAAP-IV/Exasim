@@ -51,12 +51,23 @@ function(exasim_emit_app)
   # Run in the pdeapp's directory so text2code resolves `modelfile` (the referenced
   # pdemodel*.txt) relative to it -- the default datapath is the working directory.
   get_filename_component(_pdeapp_dir "${EA_PDEAPP}" DIRECTORY)
+  # Also depend on the referenced model file so editing pdemodel*.txt (without touching
+  # the pdeapp) still triggers a rebuild. Parse `modelfile = "..."` from the pdeapp and
+  # resolve it relative to the pdeapp dir.
+  set(_dep_model "")
+  if(EXISTS "${EA_PDEAPP}")
+    file(READ "${EA_PDEAPP}" _pdeapp_txt)
+    string(REGEX MATCH "modelfile[ \t]*=[ \t]*\"([^\"]+)\"" _m "${_pdeapp_txt}")
+    if(CMAKE_MATCH_1)
+      get_filename_component(_dep_model "${_pdeapp_dir}/${CMAKE_MATCH_1}" ABSOLUTE)
+    endif()
+  endif()
   add_custom_command(
     OUTPUT "${_stamp}"
     COMMAND "${_t2c}" "${EA_PDEAPP}" --emit-app "${EA_DEST}"
             --app-name "${EA_APP_NAME}" --model-id "${EA_MODEL_ID}"
     COMMAND ${CMAKE_COMMAND} -E touch "${_stamp}"
-    DEPENDS "${EA_PDEAPP}"
+    DEPENDS "${EA_PDEAPP}" "$<$<BOOL:${_dep_model}>:${_dep_model}>"
     WORKING_DIRECTORY "${_pdeapp_dir}"
     COMMENT "text2code --emit-app: standalone header-only app '${EA_APP_NAME}' -> ${EA_DEST}"
     VERBATIM)

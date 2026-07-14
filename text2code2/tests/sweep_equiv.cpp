@@ -57,19 +57,55 @@ int main(){
     if (PY::PdeModel::nd!=CX::PdeModel::nd || PY::PdeModel::ncu!=CX::PdeModel::ncu){
         std::printf("    SIZE MISMATCH\n"); return 2; }
 
+    const int ncw=PY::PdeModel::ncw;
+    // Always-present: the 6 mandatory value kernels + their guaranteed Jacobians.
     Z(); PY::PdeModel::flux(fp,x,uq,v,w,mu,uinf,t);  CX::PdeModel::flux(fc,x,uq,v,w,mu,uinf,t);  cmp("flux",fp,fc,ncu*(1+nd));
     Z(); PY::PdeModel::source(fp,x,uq,v,w,mu,uinf,t);CX::PdeModel::source(fc,x,uq,v,w,mu,uinf,t);cmp("source",fp,fc,ncu);
     Z(); PY::PdeModel::tdfunc(fp,x,uq,v,w,mu,uinf,t);CX::PdeModel::tdfunc(fc,x,uq,v,w,mu,uinf,t);cmp("tdfunc",fp,fc,ncu);
-    Z(); PY::PdeModel::initu(fp,x,uinf,mu);          CX::PdeModel::initu(fc,x,uinf,mu);          cmp("initu",fp,fc,ncu);
     for(int ib=1;ib<=8;++ib){
       Z(); PY::PdeModel::fbou_hdg(fp,ib,x,uq,v,w,uh,n,tau,mu,uinf,t); CX::PdeModel::fbou_hdg(fc,ib,x,uq,v,w,uh,n,tau,mu,uinf,t); cmp("fbou_hdg",fp,fc,ncu);
+      Z(); PY::PdeModel::fbou(fp,ib,x,uq,v,w,uh,n,tau,mu,uinf,t);     CX::PdeModel::fbou(fc,ib,x,uq,v,w,uh,n,tau,mu,uinf,t);     cmp("fbou",fp,fc,ncu);
+      Z(); PY::PdeModel::ubou(fp,ib,x,uq,v,w,uh,n,tau,mu,uinf,t);     CX::PdeModel::ubou(fc,ib,x,uq,v,w,uh,n,tau,mu,uinf,t);     cmp("ubou",fp,fc,ncu);
     }
     Z(); PY::PdeModel::flux_jac_uq(fp,x,uq,v,w,mu,uinf,t);  CX::PdeModel::flux_jac_uq(fc,x,uq,v,w,mu,uinf,t);  cmp("flux_jac_uq",fp,fc,ncu*Nq);
     Z(); PY::PdeModel::source_jac_uq(fp,x,uq,v,w,mu,uinf,t);CX::PdeModel::source_jac_uq(fc,x,uq,v,w,mu,uinf,t);cmp("source_jac_uq",fp,fc,ncu*Nq);
     for(int ib=1;ib<=8;++ib){
       Z(); PY::PdeModel::fbou_hdg_jac_uq(fp,ib,x,uq,v,w,uh,n,tau,mu,uinf,t); CX::PdeModel::fbou_hdg_jac_uq(fc,ib,x,uq,v,w,uh,n,tau,mu,uinf,t); cmp("fbou_hdg_jac_uq",fp,fc,ncu*Nq);
       Z(); PY::PdeModel::fbou_hdg_jac_uh(fp,ib,x,uq,v,w,uh,n,tau,mu,uinf,t); CX::PdeModel::fbou_hdg_jac_uh(fc,ib,x,uq,v,w,uh,n,tau,mu,uinf,t); cmp("fbou_hdg_jac_uh",fp,fc,ncu*ncu);
+      Z(); PY::PdeModel::fbou_jac_uq(fp,ib,x,uq,v,w,uh,n,tau,mu,uinf,t); CX::PdeModel::fbou_jac_uq(fc,ib,x,uq,v,w,uh,n,tau,mu,uinf,t); cmp("fbou_jac_uq",fp,fc,ncu*Nq);
+      Z(); PY::PdeModel::fbou_jac_uh(fp,ib,x,uq,v,w,uh,n,tau,mu,uinf,t); CX::PdeModel::fbou_jac_uh(fc,ib,x,uq,v,w,uh,n,tau,mu,uinf,t); cmp("fbou_jac_uh",fp,fc,ncu*ncu);
+      Z(); PY::PdeModel::ubou_jac_uq(fp,ib,x,uq,v,w,uh,n,tau,mu,uinf,t); CX::PdeModel::ubou_jac_uq(fc,ib,x,uq,v,w,uh,n,tau,mu,uinf,t); cmp("ubou_jac_uq",fp,fc,ncu*Nq);
+      Z(); PY::PdeModel::ubou_jac_uh(fp,ib,x,uq,v,w,uh,n,tau,mu,uinf,t); CX::PdeModel::ubou_jac_uh(fc,ib,x,uq,v,w,uh,n,tau,mu,uinf,t); cmp("ubou_jac_uh",fp,fc,ncu*ncu);
     }
+    // Optional methods — presence-guarded by the sweep script (a method present in only
+    // one header is a STRUCTURAL failure caught separately; here we compare where both have it).
+#ifdef HAS_INITU
+    Z(); PY::PdeModel::initu(fp,x,uinf,mu); CX::PdeModel::initu(fc,x,uinf,mu); cmp("initu",fp,fc,ncu);
+#endif
+#ifdef HAS_VISSC
+    Z(); PY::PdeModel::vis_scalars(fp,x,uq,v,w,mu,uinf,t); CX::PdeModel::vis_scalars(fc,x,uq,v,w,mu,uinf,t); cmp("vis_scalars",fp,fc,64);
+#endif
+#ifdef HAS_VISVEC
+    Z(); PY::PdeModel::vis_vectors(fp,x,uq,v,w,mu,uinf,t); CX::PdeModel::vis_vectors(fc,x,uq,v,w,mu,uinf,t); cmp("vis_vectors",fp,fc,64);
+#endif
+#ifdef HAS_QOIV
+    Z(); PY::PdeModel::qoi_volume(fp,x,uq,v,w,mu,uinf,t); CX::PdeModel::qoi_volume(fc,x,uq,v,w,mu,uinf,t); cmp("qoi_volume",fp,fc,64);
+#endif
+#ifdef HAS_QOIB
+    for(int ib=1;ib<=8;++ib){ Z();
+      PY::PdeModel::qoi_boundary(fp,ib,x,uq,v,w,uh,n,tau,mu,uinf,t); CX::PdeModel::qoi_boundary(fc,ib,x,uq,v,w,uh,n,tau,mu,uinf,t); cmp("qoi_boundary",fp,fc,64); }
+#endif
+#ifdef HAS_FINT
+    Z(); PY::PdeModel::fint(fp,3,x,uq,v,w,uh,n,tau,mu,uinf,t); CX::PdeModel::fint(fc,3,x,uq,v,w,uh,n,tau,mu,uinf,t); cmp("fint",fp,fc,64);
+    Z(); PY::PdeModel::fint_jac_uq(fp,3,x,uq,v,w,uh,n,tau,mu,uinf,t); CX::PdeModel::fint_jac_uq(fc,3,x,uq,v,w,uh,n,tau,mu,uinf,t); cmp("fint_jac_uq",fp,fc,64);
+    Z(); PY::PdeModel::fint_jac_uh(fp,3,x,uq,v,w,uh,n,tau,mu,uinf,t); CX::PdeModel::fint_jac_uh(fc,3,x,uq,v,w,uh,n,tau,mu,uinf,t); cmp("fint_jac_uh",fp,fc,64);
+#endif
+#ifdef HAS_FEXT
+    Z(); PY::PdeModel::fext(fp,3,x,uq,v,w,uh,n,uinf,tau,mu,uinf,t); CX::PdeModel::fext(fc,3,x,uq,v,w,uh,n,uinf,tau,mu,uinf,t); cmp("fext",fp,fc,64);
+#endif
+#ifdef HAS_FLUXJACW
+    Z(); PY::PdeModel::flux_jac_w(fp,x,uq,v,w,mu,uinf,t); CX::PdeModel::flux_jac_w(fc,x,uq,v,w,mu,uinf,t); cmp("flux_jac_w",fp,fc,ncu*ncw*(1+nd));
+#endif
     std::printf("    checked=%d mismatches=%d\n", checked, mism);
     return mism==0 ? 0 : 1;
 }

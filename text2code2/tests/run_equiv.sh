@@ -22,7 +22,10 @@ compare() {  # name  golden_hpp  pdemodel  extra_defs
         echo "  $name: NUMERICALLY IDENTICAL to C++ text2code golden"
         pass=$((pass+1))
     else
-        echo "  $name: DIFFERS"; diff "$work/$name.g.txt" "$work/$name.p.txt" | head; fail=$((fail+1))
+        # `|| true`: under `set -e`, diff returning 1 (differences) must not abort the
+        # script before we record the failure and print the summary.
+        echo "  $name: DIFFERS"; { diff "$work/$name.g.txt" "$work/$name.p.txt" | head; } || true
+        fail=$((fail+1))
     fi
 }
 
