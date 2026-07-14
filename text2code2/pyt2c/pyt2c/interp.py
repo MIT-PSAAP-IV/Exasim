@@ -76,6 +76,10 @@ def _make_namespace():
         "abs": se.Abs, "fabs": se.Abs,
         "erf": se.erf, "erfc": se.erfc,
         "pi": se.pi,
+        "integer": lambda n: se.Integer(int(n)),
+        "rational": lambda a, b: se.Rational(int(a), int(b)),
+        "Integer": lambda n: se.Integer(int(n)),
+        "Rational": lambda a, b: se.Rational(int(a), int(b)),
         "Expression": lambda v: se.sympify(v),
         "mul": lambda a, b: (a * b),
         "inv": lambda M: Mat(dense=M.m.inv()),
@@ -95,6 +99,10 @@ _FILL_RE = re.compile(r"^\s*(zeros|ones|fill)\s*\((.*)\)\s*;?\s*$")
 
 def _strip(line: str) -> str:
     line = line.split("//", 1)[0]
+    # Some model bodies write raw C++ SymEngine calls (e.g. `SymEngine::integer(2)`,
+    # `SymEngine::pi`); the C++ text2code compiles them verbatim. Strip the namespace
+    # so the same tokens resolve against our symengine-backed helper namespace.
+    line = line.replace("SymEngine::", "")
     line = line.rstrip()
     if line.endswith(";"):
         line = line[:-1]
