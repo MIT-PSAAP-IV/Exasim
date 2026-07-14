@@ -29,7 +29,7 @@ KOKKOS_DIR="${KOKKOS_DIR:-}"
 [ -n "$KOKKOS_DIR" ] || skip "KOKKOS_DIR not set"
 # The mesh preprocessing (gendatain) reads master/gauss node data from the SOURCE tree
 # (text2code/text2code/*.bin), so exasimpath must be the source, not the install.
-EXASIM_ROOT="${EXASIM_ROOT:-$(cd "$HERE/../../.." && pwd)}"
+EXASIM_ROOT="${EXASIM_ROOT:-$(cd "$HERE/../.." && pwd)}"
 [ -f "${EXASIM_ROOT}/text2code/text2code/masternodes.bin" ] || skip "EXASIM_ROOT source tree not found"
 
 # ---- 1. generate datain from the tracked mesh (gendatain=1, gencode=0) ----

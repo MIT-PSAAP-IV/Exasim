@@ -51,7 +51,7 @@ add_test(NAME consumer_mms_reactdiff
     "EXASIM_ROOT=${EXASIM_DIR}"
     "KOKKOS_DIR=${Kokkos_DIR}"
     "CXX=${CMAKE_CXX_COMPILER}"
-    bash "${CMAKE_CURRENT_SOURCE_DIR}/consumers/mms-reactdiff/run.sh")
+    bash "${CMAKE_CURRENT_SOURCE_DIR}/mms-reactdiff/run.sh")
 set_tests_properties(consumer_mms_reactdiff PROPERTIES TIMEOUT 1200 SKIP_RETURN_CODE 77)
 
 # Language-frontend end-to-end tests (Poisson 2D via the installed packages).
