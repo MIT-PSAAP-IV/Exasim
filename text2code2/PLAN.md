@@ -62,11 +62,33 @@ Deliverables (1) and (3) overlap: the app scaffold (driver `.cc`, solver header,
       text2code golden kernels for poisson2d AND isoq2d compressible-NS model 100
       (`tests/run_equiv.sh`, `tests/equiv_harness.cpp`). Only textual diff is CSE
       temp ordering (pip SymEngine vs vendored SymEngine).
-- [ ] Benchmark harness + numbers (py one-stage vs C++ generate+compile+run)
-- [ ] exasim/petsc.hpp: factor a `solve_steady` helper (thin the app)
-- [ ] App scaffolder (header-only CHEFSI-style emitter)
-- [ ] Wire into C++ text2code (`--emit-app`) and/or Python CLI
-- [ ] End-to-end: generate an app, build it, run it
+- [x] Benchmark: pyt2c ~32x faster end-to-end than C++ text2code (`bench/RESULTS.md`)
+- [x] exasim/petsc.hpp: `SteadyOptions` + `solve_steady(disc,...)` +
+      `prepare_steady(CSolution<M>)` + `solve_steady(CSolution<M>,...)` — factors the
+      CHEFSI app's ~90 lines of PETSc glue into Exasim. Syntax-checked against the real
+      backend + PETSc 3.24 + Kokkos with a pyt2c-generated model (full templated
+      instantiation compiles clean).
+- [x] App scaffolder (`pyt2c/appgen.py`, `--emit-app`): standalone header-only
+      CHEFSI-style app (driver + CMakeLists + build.sh + README + generated model).
+      Model-agnostic scaffold; only my_model.hpp is model-specific. Owns NO PETSc glue.
+      Both the poisson AND isoq2d model-100 generated drivers syntax-check clean.
+- [x] Python CLI wired (`--emit-app`). Part 3 (Python app generation) done.
+- [~] End-to-end build+run of a generated app: PENDING a petsc-enabled Exasim install
+      (the local install predates the petsc export). Fully compile-validated
+      (`-fsyntax-only` on the whole templated path). Next: fresh petsc Exasim install
+      (local or remote dgx-b) + datain/ + link+run.
+- [ ] OPTIONAL: also add `--emit-app` to the C++ text2code binary (Python covers it now).
+- [x] `--emit-app --from-header`: scaffold from an existing my_model.hpp, NO .txt needed.
+
+## Summary of what shipped
+
+Three deliverables, all on branch `teoc-text2code-headeronly-and-py`:
+1. **Python model codegen (`pyt2c`)** — pip-symengine, single-stage, proven
+   NUMERICALLY BYTE-IDENTICAL to C++ text2code (poisson + isoq2d NS model 100) and
+   ~32x faster.
+2. **Header-only app generation** — `exasim/petsc.hpp` `solve_steady` helpers (the
+   app-side PETSc solver code, moved into Exasim) + `pyt2c --emit-app` scaffolder.
+3. **Python app generation** — the `--emit-app` scaffolder is pure Python.
 
 ## Notes / gotchas
 
