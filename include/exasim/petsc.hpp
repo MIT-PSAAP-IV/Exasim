@@ -270,6 +270,146 @@ private:
     Vec                         b0_ = nullptr;
 };
 
+// Options for solve_steady (below). Defaults reproduce the tuned steady HDG solve the
+// CHEFSI isoq2d_cht-petsc-fluid app hand-rolled: a genuine PETSc SNES over the nonlinear
+// condensed trace residual, GMRES on res.H (MatShell) left-preconditioned by res.K (PCShell).
+// The condensed HDG trace system is near-singular, so ksp_rtol is a deliberately loose,
+// inexact tolerance -- early stopping regularizes the solve (converging it tightly pumps the
+// near-unconstrained mode into the solution). Every field is overridable at runtime via
+// -ksp_*/-snes_* (KSPSetFromOptions/SNESSetFromOptions are called).
+struct SteadyOptions {
+    double snes_rtol = 1e-9;
+    double snes_atol = 1e-7;
+    double snes_stol = 1e-12;
+    int    snes_max_it = 0;          // 0 => disc.common.solverparams.nonlinearSolverMaxIter
+    double ksp_rtol = 1e-4;          // loose on purpose (regularizes the near-singular trace)
+    double ksp_atol = 1e-14;
+    int    ksp_max_it = 1000;
+    int    gmres_restart = 250;
+    double sign = -1.0;              // F = sign * condensed residual (native convention: -1)
+    bool   ksp_error_if_not_converged = false;  // accept the inexact (regularizing) solve
+};
+
+// Drive ONE steady nonlinear HDG solve on the exported operators via a genuine PETSc SNES +
+// GMRES, warm-started from disc.sol.uh; on return disc.sol.udg is the converged volume state.
+// This factors the ~50-line PETSc boilerplate every consumer would otherwise hand-roll (the
+// pre-assembly of res.H/res.K/sys.b, the zero-copy trace vector, the SNES/KSP wiring and the
+// static-condensation recover). The caller has already run any pre-solve setup (InitSolution,
+// odg->Gauss interpolation). Returns the SNESConvergedReason. Requires the condensed system's
+// components to be present (this assembles them). Backend-portable (serial / MPI / CUDA / HIP).
+template <class M, class Scalar = exasim::floatTy, class Idx = exasim::intTy>
+inline int solve_steady(CDiscretizationT<Scalar, Idx>& disc,
+                        CAssembler<M, Scalar, Idx>& asmb,
+                        CPreconditioner<M, Scalar, Idx>& prec,
+                        sysstructT<Scalar, Idx>& sys,
+                        MPI_Comm comm, const SteadyOptions& o = {})
+{
+    const int backend = static_cast<int>(disc.common.backend);
+    const Idx N = disc.common.sizes.ndofuhat;
+
+    // Assemble the operators once at the warm-started trace: the Operator ctor requires res.H
+    // (evalMatVec), res.K and sys.b to already exist. hdgGetQ recovers q first when ncq>0.
+    if (disc.common.components.ncq > 0)
+        hdgGetQ(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common, backend);
+    asmb.hdgAssembleLinearSystem(sys.b, backend);
+    prec.ComputeHDGPreconditioner(disc, backend);
+
+    Operator<M, Scalar, Idx> op(disc, asmb, prec, sys, comm);
+
+    Vec U = op.make_vec();
+    { PetscScalar* u; VecGetArray(U, &u);
+      for (Idx i = 0; i < N; ++i) u[i] = disc.sol.uh[i];
+      VecRestoreArray(U, &u); }
+
+    Vec work = op.make_vec();
+    SNES snes = op.make_snes_nonlinear(work, o.sign);
+
+    KSP ksp; SNESGetKSP(snes, &ksp);
+    KSPSetType(ksp, KSPGMRES);
+    KSPGMRESSetRestart(ksp, o.gmres_restart);
+    KSPGMRESSetOrthogonalization(ksp, KSPGMRESModifiedGramSchmidtOrthogonalization);
+    KSPSetTolerances(ksp, o.ksp_rtol, o.ksp_atol, PETSC_DEFAULT, o.ksp_max_it);
+    KSPSetFromOptions(ksp);
+    KSPSetErrorIfNotConverged(ksp, o.ksp_error_if_not_converged ? PETSC_TRUE : PETSC_FALSE);
+    SNESSetMaxLinearSolveFailures(snes, 100000);
+    const int nlMax = o.snes_max_it > 0 ? o.snes_max_it
+                                        : static_cast<int>(disc.common.solverparams.nonlinearSolverMaxIter);
+    SNESSetTolerances(snes, o.snes_atol, o.snes_rtol, o.snes_stol, nlMax, 100 * nlMax);
+    SNESSetFromOptions(snes);
+
+    SNESSolve(snes, nullptr, U);
+    SNESConvergedReason reason; SNESGetConvergedReason(snes, &reason);
+    op.recover(U);   // trace -> final volume state udg
+
+    VecDestroy(&U); VecDestroy(&work); SNESDestroy(&snes);
+    return static_cast<int>(reason);
+}
+
+// Pre-Newton setup a hand-driven SNES must run that the native SteadyProblem does internally:
+// seed sys.u from sol.uh (InitSolution), (re)compute the dynamic artificial-viscosity field if
+// the model uses one, and interpolate the odg auxiliary field to the element/face Gauss points
+// (odgg/og1/og2). The volume/face kernels read those Gauss buffers; without this they are
+// uninitialized -> NaN residual. Lifted from the CHEFSI isoq2d_cht-petsc-fluid app's prepareSolve
+// so consumers no longer carry it. Single-rank AV halo smoothing is a no-op at np=1.
+template <class M, class Scalar = exasim::floatTy, class Idx = exasim::intTy>
+inline void prepare_steady(CSolution<M>& model, int backend)
+{
+    auto& disc = model.disc;
+    model.InitSolution(backend);   // HDG: ArrayCopy(sys.u, sol.uh) + boundary-avg zeroing
+
+    if (disc.common.physicsparams.ncAV > 0 && disc.common.physicsparams.frozenAVflag > 0) {
+        Idx nco  = disc.common.components.nco;
+        Idx ncAV = disc.common.physicsparams.ncAV;
+        Idx npe  = disc.common.grid.npe;
+        Idx ne   = disc.common.meshsizes.ne;
+        Scalar* avField = &disc.res.Rq[0];
+        Scalar* utm     = &disc.res.Rq[npe * ncAV * ne];
+        model.residual.evalAVfield(avField, backend);
+        for (Idx iav = 0; iav < disc.common.physicsparams.AVsmoothingIter; iav++)
+            disc.DG2CG2(avField, avField, utm, ncAV, ncAV, ncAV, backend);
+        ArrayInsert(disc.sol.odg, avField, npe, nco, ne, 0, npe, nco - ncAV, nco, 0, ne);
+    }
+
+    if (disc.common.components.nco > 0) {
+        for (Idx j = 0; j < disc.common.meshsizes.nbe; j++) {
+            Idx e1 = disc.common.eblks[3 * j] - 1, e2 = disc.common.eblks[3 * j + 1];
+            GetElemNodes(disc.tmp.tempn, disc.sol.odg, disc.common.grid.npe, disc.common.components.nco,
+                         0, disc.common.components.nco, e1, e2);
+            Node2Gauss(disc.common.cublasHandle,
+                       &disc.sol.odgg[disc.common.grid.nge * disc.common.components.nco * e1],
+                       disc.tmp.tempn, disc.master.shapegt, disc.common.grid.nge, disc.common.grid.npe,
+                       (e2 - e1) * disc.common.components.nco, backend);
+        }
+        for (Idx j = 0; j < disc.common.meshsizes.nbf; j++) {
+            Idx f1 = disc.common.fblks[3 * j] - 1, f2 = disc.common.fblks[3 * j + 1];
+            GetFaceNodes(disc.tmp.tempn, disc.sol.odg, disc.mesh.facecon, disc.common.grid.npf,
+                         disc.common.components.nco, disc.common.grid.npe, disc.common.components.nco, f1, f2, 1);
+            Node2Gauss(disc.common.cublasHandle,
+                       &disc.sol.og1[disc.common.grid.ngf * disc.common.components.nco * f1],
+                       disc.tmp.tempn, disc.master.shapfgt, disc.common.grid.ngf, disc.common.grid.npf,
+                       (f2 - f1) * disc.common.components.nco, backend);
+            GetFaceNodes(disc.tmp.tempn, disc.sol.odg, disc.mesh.facecon, disc.common.grid.npf,
+                         disc.common.components.nco, disc.common.grid.npe, disc.common.components.nco, f1, f2, 2);
+            Node2Gauss(disc.common.cublasHandle,
+                       &disc.sol.og2[disc.common.grid.ngf * disc.common.components.nco * f1],
+                       disc.tmp.tempn, disc.master.shapfgt, disc.common.grid.ngf, disc.common.grid.npf,
+                       (f2 - f1) * disc.common.components.nco, backend);
+        }
+    }
+}
+
+// Convenience: prepare + one steady nonlinear HDG solve on a CSolution<M> built from datain (the
+// header-only concrete-model path). This is the whole solver a generated standalone app needs --
+// prepare_steady then solve_steady over the exported operators -- so the app owns no PETSc glue.
+// Warm-started from sol.uh; on return sol.udg is the converged volume state. Returns the reason.
+template <class M>
+inline int solve_steady(CSolution<M>& model, MPI_Comm comm, const SteadyOptions& o = {})
+{
+    const int backend = static_cast<int>(model.disc.common.backend);
+    prepare_steady<M>(model, backend);
+    return solve_steady<M>(model.disc, model.assembler, model.prec, model.solv.sys, comm, o);
+}
+
 // Wrap ANY Exasim linear-operator apply (y = A*x, backend/memtype-aware) as a PETSc MatShell.
 // The extensibility primitive: the condensed Jacobian, the inverse mass, a custom block, etc.
 // are one std::function each. The apply closure captures whatever Exasim state it needs; the
