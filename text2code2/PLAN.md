@@ -76,6 +76,11 @@ Deliverables (1) and (3) overlap: the app scaffold (driver `.cc`, solver header,
 - [x] End-to-end build+run of a generated app (`tests/run_e2e.sh`): pyt2c model + app
       scaffold + solve_steady, compiled + linked (unity backend, NO Exasim install) +
       RAN to SNES convergence, correct output. Nothing outside the work dir touched.
+- [x] **Built-in model run on dgx-b (real PETSc 3.25.3)**: emit-app app for the builtin
+      consumer model (ModelD, ncu=1/nd=2), built against the synced branch's Exasim
+      headers (solve_steady) + PETSc arch-mpi + Kokkos, RAN to SNESConvergedReason=2 and
+      **recovers the manufactured solution u=sin(pi x)sin(pi y)** (u in [0,1], mean 0.4043
+      ~= (2/pi)^2, gradient +-pi) — numerically correct, not just finite.
 - [x] `--emit-app` added to the C++ text2code binary (`AppScaffold.hpp`): same scaffold
       as pyt2c; generated/ cleaned to my_model.hpp+model_sizes.hpp; Exasim/lib untouched;
       emitted driver syntax-checks clean; emitted header numerically identical to golden.
