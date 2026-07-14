@@ -69,15 +69,22 @@ using namespace std;
 #include "writebinaryfiles.cpp"
 #include "CodeGenerator.cpp"
 #include "CodeCompiler.cpp"
+#include "AppScaffold.hpp"
 
 int main(int argc, char* argv[]) 
 {
     if (argc < 2) {
-        std::cerr << "Usage: ./text2code <pdeapp.txt> [--out-dir <path>]\n"
+        std::cerr << "Usage: ./text2code <pdeapp.txt> [--out-dir <path>] [--emit-app <dir>]\n"
             "  --out-dir overrides where my_model.hpp + libpdemodel*.{so,dylib}\n"
             "    are written. Default: <exasimpath>/backend/Model/Text2codeGenerated/\n"
             "    Per-target dirs let multiple text2code runs avoid clobbering\n"
-            "    each other (HOT.7.14 — drops the test-matrix RESOURCE_LOCK).\n";
+            "    each other (HOT.7.14 — drops the test-matrix RESOURCE_LOCK).\n"
+            "  --emit-app <dir> also writes a standalone header-only, C++-driven app\n"
+            "    (driver + CMakeLists.txt + build.sh + README.md) into <dir>, with the\n"
+            "    concrete model header at <dir>/generated/my_model.hpp. The app builds\n"
+            "    CSolution<PdeModel> from datain/ and solves via exasim::petsc::solve_steady\n"
+            "    -- no runtime .so model ABI, no hand-rolled PETSc glue. Optional companions:\n"
+            "    --app-name <name> (default: basename of <dir>), --model-id <n> (default: 100).\n";
         return 1;
     }    
 
@@ -93,13 +100,40 @@ int main(int argc, char* argv[])
     // dynamic model library. Used by the built-in model CMake build, which
     // compiles the generated kernels into libbuiltinmodel itself.
     bool gen_only = false;
+    // --emit-app <dir> also writes a standalone header-only, C++-driven app scaffold
+    // (driver + CMakeLists + build.sh + README) into <dir>, with the concrete model
+    // header routed to <dir>/generated/my_model.hpp. See AppScaffold.hpp.
+    std::string emit_app_dir;
+    std::string app_name;
+    int app_model_id = 100;
     for (int i = 2; i < argc; ++i) {
         if (std::string(argv[i]) == "--out-dir" && i + 1 < argc) {
             out_dir_override = argv[i + 1];
             ++i;
         } else if (std::string(argv[i]) == "--gen-only") {
             gen_only = true;
+        } else if (std::string(argv[i]) == "--emit-app" && i + 1 < argc) {
+            emit_app_dir = argv[i + 1];
+            ++i;
+        } else if (std::string(argv[i]) == "--app-name" && i + 1 < argc) {
+            app_name = argv[i + 1];
+            ++i;
+        } else if (std::string(argv[i]) == "--model-id" && i + 1 < argc) {
+            app_model_id = std::stoi(argv[i + 1]);
+            ++i;
         }
+    }
+    // --emit-app routes the model header into <appdir>/generated/ (so the app is
+    // self-contained) unless the caller also gave an explicit --out-dir.
+    if (!emit_app_dir.empty() && out_dir_override.empty()) {
+        out_dir_override = (emit_app_dir.back() == '/' ? emit_app_dir : emit_app_dir + "/") + "generated/";
+    }
+    if (!emit_app_dir.empty() && app_name.empty()) {
+        std::string d = emit_app_dir;
+        while (!d.empty() && d.back() == '/') d.pop_back();
+        auto slash = d.find_last_of('/');
+        app_name = (slash == std::string::npos) ? d : d.substr(slash + 1);
+        if (app_name.empty()) app_name = "exasim_app";
     }
 
     InputParams params = parseInputFile(argv[1]);                           
@@ -147,6 +181,12 @@ int main(int argc, char* argv[])
     }
 #endif
     
+    // Emit the standalone header-only C++-driven app scaffold (driver + CMakeLists +
+    // build.sh + README) alongside the generated model header in <appdir>/generated/.
+    if (!emit_app_dir.empty()) {
+        appscaffold::writeAppScaffold(spec, emit_app_dir, app_name, app_model_id);
+    }
+
     std::cout << "\n******** Done with generating input files and dynamic libraries for EXASIM ********\n";
 
     return 0;

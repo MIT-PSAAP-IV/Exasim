@@ -89,6 +89,33 @@ build/exasimapp datain/ dataout/out
 If the package config is installed under a standard CMake prefix, passing the
 install prefix through `Exasim_DIR` or `CMAKE_PREFIX_PATH` may not be needed.
 
+## Standalone header-only app (`--emit-app`)
+
+```bash
+/path/to/exasim-prefix/bin/text2code pdeapp.txt --emit-app myapp --app-name myapp --model-id 100
+```
+
+Writes a self-contained, C++-driven app into `myapp/`:
+
+| File | Purpose |
+| --- | --- |
+| `myapp.cc` | Driver: builds `CSolution<PdeModel>` from `datain/` and solves via `exasim::petsc::solve_steady`. |
+| `generated/my_model.hpp` | The concrete templated model (also `model_sizes.hpp`). |
+| `CMakeLists.txt`, `build.sh` | Build against a petsc-enabled Exasim install. |
+| `README.md` | Build/run instructions. |
+
+The app has **no** runtime-loaded `.so` model ABI and **no** hand-rolled PETSc
+solver code — the whole solve lives in `<exasim/petsc.hpp>`. Build + run:
+
+```bash
+EXASIM_INSTALL=/path/to/petsc-enabled-exasim ./myapp/build.sh
+mpirun -np 1 myapp/build/myapp datain/ dataout/out
+```
+
+The same scaffold is available from the Python codegen: `python -m pyt2c pdemodel.txt
+--emit-app myapp` (and `--from-header generated/my_model.hpp` to scaffold from an
+existing model header with no `.txt` input).
+
 ## Parameter Sweeps
 
 When `physicsparamcases` is present, Text2Code writes the shared sweep file
