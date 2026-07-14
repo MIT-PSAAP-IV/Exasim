@@ -67,8 +67,21 @@ already uses to regenerate their kernels.
 
 ## Testing
 
-- `tests/run_builtin_sweep.sh` — pyt2c vs C++ text2code across all 15 built-in
-  models (in-process, NaN/Inf-aware); currently 15/15 byte-numerically identical.
-- `tests/run_e2e.sh` — generate → build → run a generated app to convergence.
+- `tests/run_model_sweep.sh` — pyt2c vs C++ text2code across **all 47 models** with a
+  pdemodel+pdeapp (examples/ + backend/Model/BuiltIn + apps/ + the text2code sample):
+  a STRUCTURAL check (identical set of generated methods) + an EXTENDED NUMERIC check
+  over every value method + Jacobian (in-process, NaN/Inf-aware). 47/47 byte-identical,
+  incl. reactingsharpb2 (reacting flow), isoq3d (3D), nsmach8 (hypersonic), Riemann models.
+- `tests/run_appgen_sweep.sh` — emit a standalone app for **all 47 models** and compile
+  each emitted driver + my_model.hpp against the real backend + PETSc + Kokkos (full
+  templated instantiation). 47/47 compile clean.
+- `tests/run_builtin_sweep.sh` — the built-in-only subset (kept for a quick check).
+- `tests/run_e2e.sh` — generate → build → run a generated app to convergence (local).
+- `tests/run_e2e` on dgx-b — a built-in model app built against real PETSc recovers the
+  manufactured solution u=sin(pi x)sin(pi y) (u in [0,1], gradient +-pi).
 - `tests/cmake-emit-app/` — minimal project proving `exasim_emit_app()` drives the
   emit at build time.
+
+Note: `my_model.hpp` is a pure function of `pdemodel.txt` in **both** the C++ and Python
+paths — `pdeapp.txt` switches (platform, discretization, model=ModelC/D, tdep, wave, ...)
+do not change the generated model. The sweeps confirm this holds across the whole corpus.
