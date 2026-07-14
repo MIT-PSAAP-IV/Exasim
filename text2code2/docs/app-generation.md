@@ -34,6 +34,33 @@ This is the C++-driven, PETSc-driven form (the "latest CHEFSI app" style).
 Both take the same high-level inputs and neither needs the other; they emit
 different drivers over the same generated model.
 
+## Quickstart from a CMake install (just run it)
+
+After `cmake --install` of a PETSc-enabled Exasim, everything below is on the prefix —
+`bin/text2code` (with `--emit-app`), the `pyt2c` Python package (on the install's
+site-packages), the full backend + `<exasim/petsc.hpp>` headers, and the mesh
+preprocessing data — so a model goes to a running app in three commands:
+
+```sh
+# 1. generate datain (mesh preprocessing) + emit the standalone app
+text2code pdeapp.txt                       # gendatain=1  -> datain/
+text2code pdeapp.txt --emit-app myapp      # -> myapp/{main.cc, CMakeLists.txt, build.sh, generated/}
+
+# 2. build the app against the install
+EXASIM_INSTALL=<prefix> ./myapp/build.sh
+
+# 3. run it
+mpirun -np 1 myapp/build/myapp datain/ dataout/out
+```
+
+The Python codegen is equally runnable from the install (needs `pip install symengine`):
+
+```sh
+python -m pyt2c pdemodel.txt --emit-app myapp     # or --from-header generated/my_model.hpp
+```
+
+The CI `consumer_mms_reactdiff` smoke exercises exactly this install→build→run→verify path.
+
 ## Ways to invoke `--emit-app`
 
 ```sh
