@@ -113,12 +113,17 @@ else
         mpiprocs = pde{1}.mpiprocs + pde{2}.mpiprocs;
 
         for m = 1:nmodels
+            % A model may have been run earlier through the single-model
+            % external-provider path, which sets combinedmodel=true.  Legacy
+            % interface coupling must use the shared suffixed-kernel layout
+            % assembled by kkgencodeall, not the per-model isolated layout.
+            pde{m}.combinedmodel = false;
             [pde{m},mesh{m},master{m},dmd{m}] = preprocessing(pde{m},mesh{m});
         end
 
-        [dmd{1},dmd{2},isd1,isd2]=interfacepartition(mesh{1}, dmd{1}, mesh{2}, dmd{2});
-        writedmd(dmd{1}, pde{1}, isd1);
-        writedmd(dmd{2}, pde{2}, isd2);
+        % [dmd{1},dmd{2},isd1,isd2]=interfacepartition(mesh{1}, dmd{1}, mesh{2}, dmd{2});
+        % writedmd(dmd{1}, pde{1}, isd1);
+        % writedmd(dmd{2}, pde{2}, isd2);
 
         if pde{1}.gencode==1
           for m = 1:nmodels

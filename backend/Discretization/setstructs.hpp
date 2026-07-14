@@ -41,6 +41,7 @@
 #define __SETSTRUCTS
 
 #include "ismeshcurved.hpp"
+#include "interfacepartition.hpp"
 
 template <class T=dstype, class I=Int>
 inline void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh, 
@@ -488,6 +489,8 @@ inline void cpuInit(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> 
     if (mpirank==0)
         printf("Reading data from binary files \n");
     readInput(app, master, mesh, sol, filein, mpiprocs, mpirank, fileoffset, omprank);
+    exasim::interfacepartition::build_runtime_interface_partition(app, master, mesh, sol,
+            mpiprocs, mpirank, fileoffset);
 
     if (mpirank==0)
         printf("Finish reading data from binary files \n");
