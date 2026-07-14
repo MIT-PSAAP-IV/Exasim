@@ -73,11 +73,12 @@ Deliverables (1) and (3) overlap: the app scaffold (driver `.cc`, solver header,
       Model-agnostic scaffold; only my_model.hpp is model-specific. Owns NO PETSc glue.
       Both the poisson AND isoq2d model-100 generated drivers syntax-check clean.
 - [x] Python CLI wired (`--emit-app`). Part 3 (Python app generation) done.
-- [~] End-to-end build+run of a generated app: PENDING a petsc-enabled Exasim install
-      (the local install predates the petsc export). Fully compile-validated
-      (`-fsyntax-only` on the whole templated path). Next: fresh petsc Exasim install
-      (local or remote dgx-b) + datain/ + link+run.
-- [ ] OPTIONAL: also add `--emit-app` to the C++ text2code binary (Python covers it now).
+- [x] End-to-end build+run of a generated app (`tests/run_e2e.sh`): pyt2c model + app
+      scaffold + solve_steady, compiled + linked (unity backend, NO Exasim install) +
+      RAN to SNES convergence, correct output. Nothing outside the work dir touched.
+- [x] `--emit-app` added to the C++ text2code binary (`AppScaffold.hpp`): same scaffold
+      as pyt2c; generated/ cleaned to my_model.hpp+model_sizes.hpp; Exasim/lib untouched;
+      emitted driver syntax-checks clean; emitted header numerically identical to golden.
 - [x] `--emit-app --from-header`: scaffold from an existing my_model.hpp, NO .txt needed.
 
 ## Summary of what shipped
