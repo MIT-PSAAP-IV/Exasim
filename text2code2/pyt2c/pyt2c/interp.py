@@ -33,7 +33,7 @@ class _Row:
 
 
 class Mat:
-    def __init__(self, rows, cols=None, dense=None):
+    def __init__(self, rows=None, cols=None, dense=None):
         if dense is not None:
             self.m = dense
         else:
@@ -118,14 +118,22 @@ class ModelEvaluator:
         self._cache: dict[str, list] = {}
 
     def _make_callable(self, name: str):
-        # Bodies call e.g. Flux(x, uq, v, w, eta, mu, t); the args are always the
-        # standard global symbol vectors, so we ignore them and re-evaluate the
-        # named function against the globals (memoized).
-        def _call(*_args, **_kw):
-            return list(self.evaluate(name))
+        # A body may call another model function with NON-standard arguments, e.g.
+        # `ui = Vortex(x, t0c, mu)` binds Vortex's time param to the constant t0c
+        # (not the global `t` symbol). So bind the called function's params to the
+        # PASSED arguments positionally and evaluate its body under that binding.
+        def _call(*args):
+            fdef = self.spec.function(name)
+            if fdef is None:
+                raise KeyError(f"function {name!r} not found in model")
+            env: dict = {}
+            for param, val in zip(fdef.args, args):
+                env[param] = list(val) if isinstance(val, list) else val
+            return self._eval_body(fdef, env)
         return _call
 
     def evaluate(self, name: str) -> list:
+        """Top-level evaluation: bind the function's args to the global symbols."""
         if name in self._cache:
             return self._cache[name]
         fdef = self.spec.function(name)
@@ -142,14 +150,17 @@ class ModelEvaluator:
                     f"function {name}: argument {arg!r} is neither a declared "
                     "scalar nor vector"
                 )
+        out = self._eval_body(fdef, env)
+        self._cache[name] = out
+        return out
+
+    def _eval_body(self, fdef: FunctionDef, env: dict) -> list:
         stmts = [_strip(b) for b in fdef.body]
         stmts = [s for s in stmts if s != "" and s != "end"]
         self._run(stmts, env, fdef)
         if fdef.output not in env:
-            raise ValueError(f"function {name}: output {fdef.output!r} never set")
-        out = list(env[fdef.output])
-        self._cache[name] = out
-        return out
+            raise ValueError(f"function {fdef.name}: output {fdef.output!r} never set")
+        return list(env[fdef.output])
 
     # ------------------------------------------------------------------
     def _run(self, stmts: list[str], env: dict, fdef: FunctionDef):
@@ -165,7 +176,7 @@ class ModelEvaluator:
                 j = self._find_endfor(stmts, i)
                 body = stmts[i + 1:j]
                 for k in range(a, b + 1):
-                    env[var] = se.Integer(k)
+                    env[var] = k   # a plain int, so `arr[i]` indexing works
                     self._run(body, env, fdef)
                 i = j + 1
                 continue
