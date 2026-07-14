@@ -307,6 +307,16 @@ inline int solve_steady(CDiscretizationT<Scalar, Idx>& disc,
     const int backend = static_cast<int>(disc.common.backend);
     const Idx N = disc.common.sizes.ndofuhat;
 
+    // Raise explicitly on a non-HDG problem: solve_steady drives the condensed HDG trace
+    // system (res.H / res.K / hdgAssembleLinearSystem), which only exists for HDG
+    // (spatialScheme=1). LDG datain (spatialScheme=0) would otherwise fail cryptically (the
+    // HDG connectivity build's DOF-consistency check) or silently produce garbage.
+    if (disc.common.spatialScheme != 1)
+        SETERRABORT(comm, PETSC_ERR_ARG_WRONG,
+            "exasim::petsc::solve_steady is HDG-only, but this problem is not HDG "
+            "(spatialScheme != 1; 0 = LDG). Preprocess the mesh with discretization=\"hdg\" "
+            "(hybrid=1), or use the frontend exportapp path for an LDG / ExasimSolver app.");
+
     // Assemble the operators once at the warm-started trace: the Operator ctor requires res.H
     // (evalMatVec), res.K and sys.b to already exist. hdgGetQ recovers q first when ncq>0.
     if (disc.common.components.ncq > 0)
@@ -410,6 +420,13 @@ template <class M>
 inline int solve_steady(CSolution<M>& model, MPI_Comm comm, const SteadyOptions& o = {})
 {
     const int backend = static_cast<int>(model.disc.common.backend);
+    // Guard before prepare_steady (HDG-only pre-solve setup) so an LDG problem raises here
+    // with a clear message rather than misbehaving downstream.
+    if (model.disc.common.spatialScheme != 1)
+        SETERRABORT(comm, PETSC_ERR_ARG_WRONG,
+            "exasim::petsc::solve_steady is HDG-only, but this problem is not HDG "
+            "(spatialScheme != 1; 0 = LDG). Preprocess the mesh with discretization=\"hdg\" "
+            "(hybrid=1), or use the frontend exportapp path for an LDG / ExasimSolver app.");
     prepare_steady<M>(model, backend);
     return solve_steady<M>(model.disc, model.assembler, model.prec, model.solv.sys, comm, o);
 }

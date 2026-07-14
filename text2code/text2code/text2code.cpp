@@ -106,6 +106,10 @@ int main(int argc, char* argv[])
     std::string emit_app_dir;
     std::string app_name;
     int app_model_id = 100;
+    // The emitted app is HDG-only (its driver solves the condensed HDG trace system via
+    // exasim::petsc::solve_steady). Refuse to emit for an LDG-configured model unless the
+    // caller explicitly overrides (they must then supply HDG datain to run it).
+    bool allow_ldg = false;
     for (int i = 2; i < argc; ++i) {
         if (std::string(argv[i]) == "--out-dir" && i + 1 < argc) {
             out_dir_override = argv[i + 1];
@@ -121,6 +125,8 @@ int main(int argc, char* argv[])
         } else if (std::string(argv[i]) == "--model-id" && i + 1 < argc) {
             app_model_id = std::stoi(argv[i + 1]);
             ++i;
+        } else if (std::string(argv[i]) == "--allow-ldg") {
+            allow_ldg = true;
         }
     }
     // --emit-app routes the model header into <appdir>/generated/ (so the app is
@@ -184,6 +190,22 @@ int main(int argc, char* argv[])
     // Emit the standalone header-only C++-driven app scaffold (driver + CMakeLists +
     // build.sh + README) alongside the generated model header in <appdir>/generated/.
     if (!emit_app_dir.empty()) {
+        // The emitted app drives a steady HDG solve (exasim::petsc::solve_steady on the
+        // condensed trace system). Emitting it for an LDG-configured model produces an app
+        // that cannot run this model's LDG datain (the backend's HDG connectivity build
+        // rejects it). Raise explicitly rather than emit a silently-unusable app.
+        if (pde.hybrid != 1 && !allow_ldg) {
+            std::cerr << "\nError: --emit-app produces an HDG-only app "
+                         "(exasim::petsc::solve_steady solves the condensed HDG trace system), "
+                         "but this pdeapp is configured discretization=\""
+                      << pde.discretization << "\" (LDG). The emitted app could not run this "
+                         "model's datain.\n"
+                         "  Fix: set discretization=\"hdg\" (hybrid=1) in the pdeapp, or use the "
+                         "frontend exportapp path for an LDG/ExasimSolver app.\n"
+                         "  Override (advanced): pass --allow-ldg to emit anyway (you must then "
+                         "supply HDG datain to run it).\n";
+            return 1;
+        }
         appscaffold::writeAppScaffold(spec, emit_app_dir, app_name, app_model_id);
     }
 

@@ -33,10 +33,13 @@ the **condensed HDG trace system** (res.H MatShell + res.K PCShell). So:
 
 - **Model codegen** (`my_model.hpp`) is discretization-agnostic — it is byte-identical for
   HDG and LDG models (the 4 LDG models pass the equivalence sweep).
-- **The emitted app** is HDG-driven. Running an LDG-configured model with the emitted app
-  requires HDG `datain` (set `discretization = "hdg"` / `hybrid = 1` when preprocessing);
-  feeding it LDG `datain` trips the backend's HDG DOF-consistency check. This matches the
-  "latest CHEFSI app" style, which is HDG throughout.
+- **The emitted app** is HDG-driven. This is now enforced explicitly:
+  - `text2code --emit-app` **refuses** to emit for an LDG-configured pdeapp
+    (`discretization="ldg"`) with a clear error, unless `--allow-ldg` is passed.
+  - `exasim::petsc::solve_steady` **raises** (`SETERRABORT`) if handed a non-HDG problem
+    (`spatialScheme != 1`), instead of failing cryptically.
+  Running an LDG model with the emitted app requires HDG `datain` (`discretization="hdg"` /
+  `hybrid=1`). This matches the "latest CHEFSI app" style, which is HDG throughout.
 
 ## End-to-end runs (dgx-b, real PETSc 3.25.3)
 
