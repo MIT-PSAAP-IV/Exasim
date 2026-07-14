@@ -80,6 +80,13 @@ Deliverables (1) and (3) overlap: the app scaffold (driver `.cc`, solver header,
       as pyt2c; generated/ cleaned to my_model.hpp+model_sizes.hpp; Exasim/lib untouched;
       emitted driver syntax-checks clean; emitted header numerically identical to golden.
 - [x] `--emit-app --from-header`: scaffold from an existing my_model.hpp, NO .txt needed.
+- [x] Broad test: full built-in-model sweep (all 15, pyt2c vs C++ text2code, in-process
+      NaN/Inf-aware) — `tests/run_builtin_sweep.sh`; 15/15 byte-equal after fixing 3
+      interp bugs the sweep found.
+- [x] CMake wiring: `cmake/ExasimEmitApp.cmake` (`exasim_emit_app()`) + opt-in
+      `EXASIM_EMIT_BUILTIN_APPS` → `builtin-apps` target; tested in isolation
+      (`tests/cmake-emit-app/`, + models 1/12 emitted via cmake and syntax-checked).
+- [x] Docs: `docs/app-generation.md` frames --emit-app vs the existing `exportapp`.
 
 ## Summary of what shipped
 
