@@ -13,6 +13,11 @@
 //   KSPSolve(ksp, op.rhs(), u);            // op.rhs() aliases sys.b (zero-copy)
 //   op.recover(u);                         // trace -> volume (recover_volume)
 //
+// For a NONLINEAR steady problem (state-dependent kernels, or a coupling BC re-applied every
+// eval), use make_snes_nonlinear -- it re-assembles res.H + sys.b + res.K on each Newton step:
+//   SNES snes = op.make_snes_nonlinear(op.make_vec());   // F = -sys.b; caller sets snes/ksp tol
+//   SNESSolve(snes, nullptr, u); op.recover(u);
+//
 // AVAILABILITY: this header + the Exasim::petsc CMake target are only present when PETSc was
 // found at Exasim build time. Consumers request it via find_package(Exasim COMPONENTS petsc)
 // and link their own PETSc; EXASIM_HAVE_PETSC then gates this header.
@@ -161,6 +166,28 @@ public:
         return snes;
     }
 
+    // A SNES for the NONLINEAR condensed HDG trace residual F(U) = sign * G(U), where G is the
+    // condensed residual assembled by hdgAssembleLinearSystem. Unlike make_snes (which is affine
+    // -- F = H*U - b0, one Newton step, empty Jacobian), this RE-ASSEMBLES res.H + sys.b + res.K
+    // on every residual/Jacobian eval, so state-dependent kernels and any coupling boundary term
+    // (e.g. an interface Fext re-applied by hdgAssembleLinearSystem) track U, and it advances the
+    // volume state udg from the trace increment (recover_volume) each eval -- the same static-
+    // condensation recovery the native Newton does. The same MatShell (res.H) + PCShell (res.K)
+    // back it; the caller sets SNES/KSP type, tolerances and options. `work` must outlive the SNES.
+    // `sign` relates the condensed residual to res.H: the native convention res.H*d = -sys.b gives
+    // d(sys.b)/dU = -res.H, so sign defaults to -1 => dF/dU = res.H = the MatShell.
+    SNES make_snes_nonlinear(Vec work, double sign = -1.0)
+    {
+        nlsign_ = sign;
+        SNES snes; SNESCreate(comm_, &snes);
+        SNESSetFunction(snes, work, nl_formfunction, this);
+        SNESSetJacobian(snes, J_, J_, nl_formjacobian, this);
+        KSP ksp; SNESGetKSP(snes, &ksp);
+        PC pc; KSPGetPC(ksp, &pc);
+        configure_pc(pc);
+        return snes;
+    }
+
     // Recover the volume state udg from a converged trace vector U (uses sys.x as scratch).
     void recover(Vec U)
     {
@@ -201,6 +228,35 @@ private:
     }
     static PetscErrorCode formjacobian(SNES, Vec, Mat, Mat, void*) { return PETSC_SUCCESS; }
 
+    // Nonlinear residual: advance udg from the trace U, re-assemble res.H + the condensed
+    // residual sys.b (re-applying any coupling BCs), and return F = sign * sys.b -- all
+    // backend-dispatched, so U/sys.b may be device pointers when backend>=2.
+    static PetscErrorCode nl_formfunction(SNES, Vec U, Vec F, void* ctx)
+    {
+        Operator* c = static_cast<Operator*>(ctx);
+        const PetscScalar* u; PetscMemType mt; VecGetArrayReadAndMemType(U, &u, &mt);
+        exasim::recover_volume(*c->disc_, reinterpret_cast<const Scalar*>(u), c->sys_->x);
+        c->asmb_->hdgAssembleLinearSystem(c->sys_->b, c->backend_);
+        VecRestoreArrayReadAndMemType(U, const_cast<const PetscScalar**>(&u));
+        PetscScalar* f; PetscMemType fm; VecGetArrayWriteAndMemType(F, &f, &fm);
+        // F = sign * sys.b  (the second term is 0*sys.b, kept valid for device safety)
+        ArrayAXPBY(reinterpret_cast<Scalar*>(f), c->sys_->b, c->sys_->b,
+                   static_cast<Scalar>(c->nlsign_), static_cast<Scalar>(0), c->N_);
+        VecRestoreArrayWriteAndMemType(F, &f);
+        return PETSC_SUCCESS;
+    }
+    // Nonlinear Jacobian: refresh res.H at U (the MatShell operator) and res.K (the PCShell).
+    static PetscErrorCode nl_formjacobian(SNES, Vec U, Mat, Mat, void* ctx)
+    {
+        Operator* c = static_cast<Operator*>(ctx);
+        const PetscScalar* u; PetscMemType mt; VecGetArrayReadAndMemType(U, &u, &mt);
+        exasim::recover_volume(*c->disc_, reinterpret_cast<const Scalar*>(u), c->sys_->x);
+        c->asmb_->hdgAssembleLinearSystem(c->sys_->b, c->backend_);
+        VecRestoreArrayReadAndMemType(U, const_cast<const PetscScalar**>(&u));
+        c->prec_->ComputeHDGPreconditioner(*c->disc_, c->backend_);
+        return PETSC_SUCCESS;
+    }
+
     disc_t*                     disc_;
     CAssembler<M, Scalar, Idx>* asmb_;
     CPreconditioner<M, Scalar, Idx>* prec_;
@@ -209,6 +265,7 @@ private:
     int                         backend_, scheme_;
     Idx                         N_;
     bool                        gpu_;
+    double                      nlsign_ = -1.0;   // F = nlsign * sys.b in the nonlinear SNES path
     Mat                         J_  = nullptr;
     Vec                         b0_ = nullptr;
 };
