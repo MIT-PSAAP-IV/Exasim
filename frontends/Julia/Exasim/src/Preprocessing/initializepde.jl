@@ -104,6 +104,7 @@ mutable struct PDEStruct
     saveParaview::IntP;
     physicsparamwarmstart::IntP;
     builtinmodelID::IntP;
+    frontendgenerated::IntP;
     executionmode::IntP;
     saveResNorm::IntP; # option for how the solution be saved: 0 -> u only, 1 -> u and q
 
@@ -279,6 +280,7 @@ function initializepde(version)
     pde.saveParaview = 0;
     pde.physicsparamwarmstart = 0;
     pde.builtinmodelID = 0;
+    pde.frontendgenerated = 1;
     pde.executionmode = 0;
     pde.saveResNorm = 0;
 
