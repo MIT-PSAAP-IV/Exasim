@@ -1032,6 +1032,22 @@ if(EXASIM_FRONTENDS)
     install(CODE "message(STATUS \"exasim Python package: add \${CMAKE_INSTALL_PREFIX}/${EXASIM_PYTHON_SITEDIR} to PYTHONPATH unless that prefix is already on the interpreter's sys.path\")")
   endif()
 
+  # pyt2c: the pip-symengine model codegen + header-only app scaffolder (the Python
+  # sibling of `text2code --emit-app`). Installed alongside the exasim package so
+  # `python -m pyt2c <pdemodel.txt> --emit-app <dir>` runs from the install (needs
+  # `pip install symengine`; add the sitedir to PYTHONPATH unless the prefix is on sys.path).
+  if(Python3_FOUND AND EXISTS ${EXASIM_DIR}/text2code2/pyt2c/pyt2c/__init__.py)
+    if(NOT DEFINED EXASIM_PYTHON_SITEDIR)
+      set(EXASIM_PYTHON_SITEDIR
+        lib/python${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}/site-packages
+        CACHE STRING "Install dir for Exasim Python packages (relative to the prefix)")
+    endif()
+    install(DIRECTORY ${EXASIM_DIR}/text2code2/pyt2c/pyt2c
+      DESTINATION ${EXASIM_PYTHON_SITEDIR}
+      PATTERN "__pycache__" EXCLUDE)
+    install(CODE "message(STATUS \"pyt2c: python -m pyt2c <pdemodel.txt> --emit-app <dir>  (pip install symengine; PYTHONPATH += \${CMAKE_INSTALL_PREFIX}/${EXASIM_PYTHON_SITEDIR})\")")
+  endif()
+
   # Optionally pip-install the package into the configured interpreter at
   # install time, so `import exasim` works with no PYTHONPATH at all. Off by
   # default because it mutates the interpreter's environment; requires a
