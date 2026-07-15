@@ -194,6 +194,8 @@ private:
     std::vector<std::string> fileout_;
     std::vector<std::string> base_fileout_;
     std::vector<std::vector<dstype>> physicsparamcases_;
+    std::vector<int> requested_physicsparam_cases_;
+    std::vector<int> physicsparamcase_indices_;
     std::vector<dstype> active_physicsparam_;
     std::string exasimpath_;
 
@@ -227,6 +229,9 @@ private:
 
     bool HasPhysicsParamSweepFile() const;
     int ReadPhysicsParamSweepFile();
+    int ParseSolveOptions(int firstArg, int argc, char** argv);
+    int SetPhysicsParamCaseSelection(const std::string& text);
+    int BuildPhysicsParamCaseSelection();
     int BuildModelsForCurrentCase();
     bool PhysicsParamWarmStartEnabledFromCurrentModel() const;
     int ApplyPhysicsParamToModels(const std::vector<dstype>& physicsparam);
