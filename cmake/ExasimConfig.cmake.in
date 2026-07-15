@@ -64,8 +64,10 @@ endif()
 #   - Exasim::gpumpiprelib (libgpumpipreEXASIM.a, when built)
 #
 # Each exported library target carries the transitive link interface of its
-# solver variant. Kokkos is always required; MPI is required whenever any
-# exported MPI library variant is present in the package.
+# solver variant. Kokkos is always required; MPI is required only when the
+# requested package component selects an MPI solver variant. This allows
+# non-MPI consumers to use cpu/gpu/header targets from an install that also
+# contains MPI variants, even on machines without a working MPI compiler.
 
 include(CMakeFindDependencyMacro)
 
@@ -83,7 +85,14 @@ if(NOT TARGET Kokkos::kokkos)
     find_dependency(Kokkos REQUIRED)
   endif()
 endif()
-if(@EXASIM_PACKAGE_HAS_MPI@)
+
+set(_Exasim_REQUIRE_MPI FALSE)
+foreach(_c ${Exasim_FIND_COMPONENTS})
+  if(_c STREQUAL "cpumpi" OR _c STREQUAL "gpumpi")
+    set(_Exasim_REQUIRE_MPI TRUE)
+  endif()
+endforeach()
+if(@EXASIM_PACKAGE_HAS_MPI@ AND _Exasim_REQUIRE_MPI)
   find_dependency(MPI REQUIRED)
 endif()
 
