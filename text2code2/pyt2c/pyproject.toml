@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyt2c"
+version = "0.1.0"
+description = "pip-symengine reimplementation of Exasim text2code model codegen (pdemodel.txt -> my_model.hpp)"
+requires-python = ">=3.9"
+dependencies = ["symengine>=0.11"]
+
+[project.scripts]
+pyt2c = "pyt2c.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["pyt2c*"]

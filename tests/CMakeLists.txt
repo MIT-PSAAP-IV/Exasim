@@ -39,6 +39,21 @@ add_test(NAME consumer_builtin_mpi
     bash "${CMAKE_CURRENT_SOURCE_DIR}/run-consumer-tests.sh")
 set_tests_properties(consumer_builtin_mpi PROPERTIES TIMEOUT 1200)
 
+# MMS analytical-solution smoke for the header-only emit-app / solve_steady path:
+# a small 2-species coupled reaction-diffusion model whose exact (manufactured)
+# solution is u0=sin(pi x)sin(pi y), u1=0.5 sin(pi x)sin(pi y). run.sh generates datain,
+# builds a solve_steady verify harness via find_package(Exasim), runs it, and checks the
+# field against the exact solution. PETSc-gated: exits 77 (clean SKIP) when text2code /
+# PETSc / a complete install is unavailable, like the other petsc consumer tests.
+add_test(NAME consumer_mms_reactdiff
+  COMMAND ${CMAKE_COMMAND} -E env
+    "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}"
+    "EXASIM_ROOT=${EXASIM_DIR}"
+    "KOKKOS_DIR=${Kokkos_DIR}"
+    "CXX=${CMAKE_CXX_COMPILER}"
+    bash "${CMAKE_CURRENT_SOURCE_DIR}/mms-reactdiff/run.sh")
+set_tests_properties(consumer_mms_reactdiff PROPERTIES TIMEOUT 1200 SKIP_RETURN_CODE 77)
+
 # Language-frontend end-to-end tests (Poisson 2D via the installed packages).
 # Each builds a small app against this build's install (CMAKE_INSTALL_PREFIX)
 # through the external-model path and gates the QoI. The wrapper exits 77 —

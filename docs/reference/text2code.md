@@ -89,6 +89,43 @@ build/exasimapp datain/ dataout/out
 If the package config is installed under a standard CMake prefix, passing the
 install prefix through `Exasim_DIR` or `CMAKE_PREFIX_PATH` may not be needed.
 
+## Standalone header-only app (`--emit-app`)
+
+```bash
+/path/to/exasim-prefix/bin/text2code pdeapp.txt --emit-app myapp --app-name myapp --model-id 100
+```
+
+Writes a self-contained, C++-driven app into `myapp/`:
+
+| File | Purpose |
+| --- | --- |
+| `myapp.cc` | Driver: builds `CSolution<PdeModel>` from `datain/` and solves via `exasim::petsc::solve_steady`. |
+| `generated/my_model.hpp` | The concrete templated model (also `model_sizes.hpp`). |
+| `CMakeLists.txt`, `build.sh` | Build against a petsc-enabled Exasim install. |
+| `README.md` | Build/run instructions. |
+
+The app has **no** runtime-loaded `.so` model ABI and **no** hand-rolled PETSc
+solver code — the whole solve lives in `<exasim/petsc.hpp>`.
+
+> **HDG-only (current limitation).** The generated app solves through the exported HDG
+> PETSc operator (`exasim::petsc::solve_steady`, the condensed trace system), so it
+> requires HDG preprocessing: set `discretization = "hdg"` (`hybrid = 1`) in `pdeapp.txt`.
+> `text2code --emit-app` **refuses** an LDG-configured model (with a clear message) unless
+> `--allow-ldg` is passed, and `solve_steady` raises on a non-HDG problem at runtime. For
+> LDG, use the existing frontend / `ExasimSolver` runtime path (or `exportapp`) instead.
+> The scaffold is also **CPU/PETSc-only** for now — no GPU (CUDA/HIP) backend is generated.
+
+Build + run:
+
+```bash
+EXASIM_INSTALL=/path/to/petsc-enabled-exasim ./myapp/build.sh
+mpirun -np 1 myapp/build/myapp datain/ dataout/out
+```
+
+The same scaffold is available from the Python codegen: `python -m pyt2c pdemodel.txt
+--emit-app myapp` (and `--from-header generated/my_model.hpp` to scaffold from an
+existing model header with no `.txt` input).
+
 ## Parameter Sweeps
 
 When `physicsparamcases` is present, Text2Code writes the shared sweep file

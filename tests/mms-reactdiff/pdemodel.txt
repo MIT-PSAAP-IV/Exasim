@@ -1,0 +1,86 @@
+scalars t
+
+vectors x(2), uq(6), v(0), w(0), uhat(2), uext(1), n(2), tau(1), mu(3), eta(0)
+
+jacobian uq, w, uhat
+
+hessian
+
+batch x, uq, v, w, uhat, n, uext
+
+outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Initu, VisScalars, VisVectors, QoIvolume
+
+function Flux(x, uq, v, w, eta, mu, t)
+  output_size(f) = 4;
+  kap0 = mu[0];
+  kap1 = mu[1];
+  f[0] = kap0*uq[2];
+  f[1] = kap1*uq[3];
+  f[2] = kap0*uq[4];
+  f[3] = kap1*uq[5];
+end
+
+function Source(x, uq, v, w, eta, mu, t)
+  output_size(s) = 2;
+  kap0 = mu[0];
+  kap1 = mu[1];
+  aa   = mu[2];
+  pp   = Expression(pi);
+  pi2  = pp*pp;
+  S = sin(pp*x[0])*sin(pp*x[1]);
+  reac = aa*(uq[0] - uq[1]);
+  s[0] = -reac + (2.0*pi2*kap0 + 0.5*aa)*S;
+  s[1] =  reac + (1.0*pi2*kap1 - 0.5*aa)*S;
+end
+
+function Tdfunc(x, uq, v, w, eta, mu, t)
+  output_size(m) = 2;
+  ones(m);
+end
+
+function Fbou(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(fb) = 2;
+  f = Flux(x, uq, v, w, eta, mu, t);
+  fb[0] = f[0]*n[0] + f[2]*n[1] + tau[0]*(uq[0]-uhat[0]);
+  fb[1] = f[1]*n[0] + f[3]*n[1] + tau[0]*(uq[1]-uhat[1]);
+end
+
+function Ubou(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(ub) = 2;
+  ub[0] = 0.0;
+  ub[1] = 0.0;
+end
+
+function FbouHdg(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(fb) = 2;
+  fb[0] = tau[0]*(0.0 - uhat[0]);
+  fb[1] = tau[0]*(0.0 - uhat[1]);
+end
+
+function Initu(x, eta, mu)
+  output_size(ui) = 2;
+  ui[0] = 0.0;
+  ui[1] = 0.0;
+end
+
+function VisScalars(x, uq, v, w, eta, mu, t)
+  output_size(s) = 2;
+  s[0] = uq[0];
+  s[1] = uq[1];
+end
+
+function VisVectors(x, uq, v, w, eta, mu, t)
+  output_size(s) = 2;
+  s[0] = uq[2];
+  s[1] = uq[4];
+end
+
+function QoIvolume(x, uq, v, w, eta, mu, t)
+  output_size(s) = 2;
+  pp = Expression(pi);
+  S = sin(pp*x[0])*sin(pp*x[1]);
+  e0 = uq[0] - S;
+  e1 = uq[1] - 0.5*S;
+  s[0] = e0*e0;
+  s[1] = e1*e1;
+end
