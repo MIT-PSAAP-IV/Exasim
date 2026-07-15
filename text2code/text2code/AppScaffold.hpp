@@ -55,7 +55,7 @@ inline std::string mainCc(const std::string& app, int modelID) {
     s += "    MPI_Comm_size(MPI_COMM_WORLD, &size);\n\n";
     s += "    const std::string filein  = (argc > 1) ? argv[1] : \"datain/\";\n";
     s += "    const std::string fileout = (argc > 2) ? argv[2] : \"dataout/out\";\n";
-    s += "    const int backend = 0;  // 0/1 = host CPU (set 2 for CUDA / 3 for HIP builds)\n\n";
+    s += "    const int backend = 0;  // host CPU (this scaffold is CPU/PETSc-only; no GPU backend yet)\n\n";
     s += "    {\n";
     s += "        // No-ABI concrete-model CSolution, built straight from preprocessed datain/.\n";
     s += "        CSolution<PdeModel> model(filein, fileout, \"\", (Int)size, (Int)rank,\n";
@@ -90,11 +90,12 @@ inline std::string cmakeLists(const std::string& app) {
     s += "      get_filename_component(CHEFSI_FIND_MODULES \"${_cand}\" ABSOLUTE)\n";
     s += "      break()\n    endif()\n  endforeach()\nendif()\n";
     s += "if(CHEFSI_FIND_MODULES)\n  list(PREPEND CMAKE_MODULE_PATH \"${CHEFSI_FIND_MODULES}\")\nendif()\n\n";
+    // CPU/PETSc-only scaffold: the driver uses the host backend (backend=0) and solve_steady
+    // runs on the CPU. GPU (CUDA/HIP) backend selection + the _CUDA/_HIP compile macros are not
+    // generated yet, so no EXASIM_GPU option is exposed (it would let you build a GPU Exasim
+    // variant while the app still ran on CPU).
     s += "option(EXASIM_MPI \"Use the MPI-enabled Exasim variant\" ON)\n";
-    s += "option(EXASIM_GPU \"Use the GPU-enabled Exasim variant\" OFF)\n";
-    s += "if(EXASIM_GPU AND EXASIM_MPI)\n  set(EXASIM_VARIANT gpumpi)\n";
-    s += "elseif(EXASIM_GPU)\n  set(EXASIM_VARIANT gpu)\n";
-    s += "elseif(EXASIM_MPI)\n  set(EXASIM_VARIANT cpumpi)\nelse()\n  set(EXASIM_VARIANT cpu)\nendif()\n\n";
+    s += "if(EXASIM_MPI)\n  set(EXASIM_VARIANT cpumpi)\nelse()\n  set(EXASIM_VARIANT cpu)\nendif()\n\n";
     s += "find_package(Exasim REQUIRED COMPONENTS ${EXASIM_VARIANT})\n";
     s += "find_package(Kokkos REQUIRED)\nfind_package(MPI REQUIRED)\n\n";
     s += "find_package(PkgConfig REQUIRED)\n";
@@ -123,7 +124,7 @@ inline std::string buildSh(const std::string& app) {
     s += "BUILD=\"${BUILD:-$HERE/build}\"\n\n";
     s += "cmake -S \"$HERE\" -B \"$BUILD\" \\\n";
     s += "  -DCMAKE_BUILD_TYPE=Release \\\n";
-    s += "  -DEXASIM_MPI=ON -DEXASIM_GPU=OFF \\\n";
+    s += "  -DEXASIM_MPI=ON \\\n";
     s += "  -DCMAKE_PREFIX_PATH=\"$EXASIM_INSTALL\" \\\n";
     s += "  -DExasim_DIR=\"$EXASIM_INSTALL/lib/cmake/Exasim\" \\\n";
     s += "  -DKokkos_DIR=\"$KOKKOS_DIR\" \\\n";
@@ -143,6 +144,9 @@ inline std::string readme(const std::string& app, const ParsedSpec& spec) {
     s += "(the whole solver is `exasim::petsc::solve_steady`). The solve is HDG (condensed trace\n";
     s += "system): preprocess the mesh with `discretization = \"hdg\"` / `hybrid = 1`. The model\n";
     s += "header itself is discretization-agnostic.\n\n";
+    s += "**Scope:** this scaffold is **CPU/PETSc-only** — the driver uses the host backend and the\n";
+    s += "CMake builds the `cpu`/`cpumpi` Exasim variant. GPU (CUDA/HIP) backend selection is not\n";
+    s += "generated yet, so there is no `EXASIM_GPU` option.\n\n";
     s += "Model sizes: nd=" + std::to_string(vsize(spec, "x")) +
          ", ncu=" + std::to_string(vsize(spec, "uhat")) +
          ", nco=" + std::to_string(vsize(spec, "v")) +

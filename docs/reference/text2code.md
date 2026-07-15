@@ -105,7 +105,17 @@ Writes a self-contained, C++-driven app into `myapp/`:
 | `README.md` | Build/run instructions. |
 
 The app has **no** runtime-loaded `.so` model ABI and **no** hand-rolled PETSc
-solver code — the whole solve lives in `<exasim/petsc.hpp>`. Build + run:
+solver code — the whole solve lives in `<exasim/petsc.hpp>`.
+
+> **HDG-only (current limitation).** The generated app solves through the exported HDG
+> PETSc operator (`exasim::petsc::solve_steady`, the condensed trace system), so it
+> requires HDG preprocessing: set `discretization = "hdg"` (`hybrid = 1`) in `pdeapp.txt`.
+> `text2code --emit-app` **refuses** an LDG-configured model (with a clear message) unless
+> `--allow-ldg` is passed, and `solve_steady` raises on a non-HDG problem at runtime. For
+> LDG, use the existing frontend / `ExasimSolver` runtime path (or `exportapp`) instead.
+> The scaffold is also **CPU/PETSc-only** for now — no GPU (CUDA/HIP) backend is generated.
+
+Build + run:
 
 ```bash
 EXASIM_INSTALL=/path/to/petsc-enabled-exasim ./myapp/build.sh

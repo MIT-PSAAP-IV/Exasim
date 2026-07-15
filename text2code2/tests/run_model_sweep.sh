@@ -16,6 +16,10 @@ work="$(mktemp -d)"; trap 'rm -rf "$work"' EXIT
 printf '#pragma once\n' > "$work/Kokkos_Core.hpp"
 
 methods() { grep -oE "void [a-z_]+\(" "$1" | sort -u; }
+# static model-size metadata (nd/ncu/.../nsca/nvec/nten/nsurf/nvqoi + coupling constants),
+# normalized to name=value so whitespace differences don't register.
+sizes() { grep -oE "static constexpr (int|bool)[ ]+[A-Za-z_]+[ ]*=[ ]*[^;]+" "$1" \
+            | sed -E 's/static constexpr (int|bool)[ ]+//; s/[ ]*=[ ]*/=/' | sort; }
 has() { grep -q "void $2(" "$1"; }
 
 # Search examples/, built-ins, and apps/ (the complex real-world NS/reacting models),
@@ -48,9 +52,12 @@ for m in $models; do
     cxh="$cdir/gen/my_model.hpp"
     [ -f "$cxh" ] || { echo "SKIP $tag (C++ text2code produced no header; see log)"; skip=$((skip+1)); continue; }
 
-    # 1. structural: identical method sets
+    # 1. structural: identical method sets AND identical static size metadata
     if ! diff <(methods "$pyh") <(methods "$cxh") >"$work/struct$i.diff"; then
         echo "FAIL $tag :: STRUCTURAL method-set mismatch:"; sed 's/^/       /' "$work/struct$i.diff" | head; fail=$((fail+1)); continue
+    fi
+    if ! diff <(sizes "$pyh") <(sizes "$cxh") >"$work/sizes$i.diff"; then
+        echo "FAIL $tag :: STATIC SIZE metadata mismatch:"; sed 's/^/       /' "$work/sizes$i.diff" | head; fail=$((fail+1)); continue
     fi
 
     # 2. numeric: guard optional methods by presence

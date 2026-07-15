@@ -89,7 +89,7 @@ int main(int argc, char** argv)
 
     const std::string filein  = (argc > 1) ? argv[1] : "datain/";
     const std::string fileout = (argc > 2) ? argv[2] : "dataout/out";
-    const int backend = 0;  // 0/1 = host CPU (set 2 for CUDA / 3 for HIP builds)
+    const int backend = 0;  // host CPU (this scaffold is CPU/PETSc-only; no GPU backend yet)
 
     {{
         // No-ABI concrete-model CSolution, built straight from preprocessed datain/.
@@ -141,13 +141,12 @@ if(CHEFSI_FIND_MODULES)
   list(PREPEND CMAKE_MODULE_PATH "${{CHEFSI_FIND_MODULES}}")
 endif()
 
+# This scaffold is CPU/PETSc-only: the driver constructs CSolution with the host backend
+# (backend=0) and solve_steady runs on the CPU. GPU (CUDA/HIP) backend selection + the
+# _CUDA/_HIP compile macros are not generated yet, so no EXASIM_GPU option is exposed
+# (offering one would let you build a GPU Exasim variant while the app still runs on CPU).
 option(EXASIM_MPI "Use the MPI-enabled Exasim variant" ON)
-option(EXASIM_GPU "Use the GPU-enabled Exasim variant" OFF)
-if(EXASIM_GPU AND EXASIM_MPI)
-  set(EXASIM_VARIANT gpumpi)
-elseif(EXASIM_GPU)
-  set(EXASIM_VARIANT gpu)
-elseif(EXASIM_MPI)
+if(EXASIM_MPI)
   set(EXASIM_VARIANT cpumpi)
 else()
   set(EXASIM_VARIANT cpu)
@@ -198,7 +197,7 @@ BUILD="${{BUILD:-$HERE/build}}"
 
 cmake -S "$HERE" -B "$BUILD" \\
   -DCMAKE_BUILD_TYPE=Release \\
-  -DEXASIM_MPI=ON -DEXASIM_GPU=OFF \\
+  -DEXASIM_MPI=ON \\
   -DCMAKE_PREFIX_PATH="$EXASIM_INSTALL" \\
   -DExasim_DIR="$EXASIM_INSTALL/lib/cmake/Exasim" \\
   -DKokkos_DIR="$KOKKOS_DIR" \\
@@ -220,6 +219,10 @@ runtime-loaded model `.so`, and **no** hand-rolled PETSc solver code in the app 
 whole solver is `exasim::petsc::solve_steady`). The solve is HDG (condensed trace
 system), so preprocess the mesh with `discretization = "hdg"` / `hybrid = 1`; the model
 header itself is discretization-agnostic.
+
+**Scope:** this scaffold is **CPU/PETSc-only** — the driver uses the host backend and the
+CMake builds the `cpu`/`cpumpi` Exasim variant. GPU (CUDA/HIP) backend selection is not
+generated yet, so there is no `EXASIM_GPU` option.
 
 Model sizes: nd={sizes["nd"]}, ncu={sizes["ncu"]}, nco={sizes["nco"]},
 ncw={sizes["ncw"]}, nparam={sizes["nparam"]}{"  (has external coupling: Fint/Fext)" if coupling else ""}.

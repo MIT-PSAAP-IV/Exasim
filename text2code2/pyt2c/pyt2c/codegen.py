@@ -178,6 +178,24 @@ class HeaderGenerator:
         out.append(f"    static constexpr int nco    = {nco};")
         out.append(f"    static constexpr int nparam = {nparam};")
         out.append(f"    static constexpr int ntau   = {ntau};")
+
+        # Visualization / QoI output-size metadata (provider paths read these off PdeModel).
+        # Matches the C++ text2code generateModelSizesHpp: from the declared output_size of
+        # the Vis*/QoI functions. nvec/nten are per-point counts (divide out the nd / nd*nd
+        # spatial components).
+        def _osz(name):
+            f = s.function(name)
+            return f.outputsize if (f is not None and s.is_output(name)) else 0
+        nsca = _osz("VisScalars")
+        nvec = (_osz("VisVectors") // nd) if nd else 0
+        nten = (_osz("VisTensors") // (nd * nd)) if nd else 0
+        nsurf = _osz("QoIboundary")
+        nvqoi = _osz("QoIvolume")
+        out.append(f"    static constexpr int nsca   = {nsca};")
+        out.append(f"    static constexpr int nvec   = {nvec};")
+        out.append(f"    static constexpr int nten   = {nten};")
+        out.append(f"    static constexpr int nsurf  = {nsurf};")
+        out.append(f"    static constexpr int nvqoi  = {nvqoi};")
         out.append("    static constexpr int Nq = ncu * (1 + nd);")
 
         has_fint = s.is_output("Fint")
