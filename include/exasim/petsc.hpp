@@ -27,8 +27,24 @@
 #error "<exasim/petsc.hpp> requires the Exasim::petsc component (find_package(Exasim COMPONENTS petsc)) + a linked PETSc."
 #endif
 
+// PETSc's PetscDefined(HAVE_CUDA) macro-expands its argument before token-pasting PETSC_ onto
+// it. Exasim's backend defines bare HAVE_CUDA / HAVE_HIP / HAVE_GPU (from _CUDA / _HIP), so if
+// operators.hpp was included before this header those names expand to 1 and PetscDefined(HAVE_CUDA)
+// becomes PetscDefined(1) -> PETSC_1 (undefined) -> 0. petscvec.h then compiles the *stub*
+// VecCreateSeqCUDAWithArray (SETERR "configure PETSc with cuda") while our #if defined(PETSC_HAVE_CUDA)
+// code below still calls it. Hide the colliding bare names across the PETSc includes only, then
+// restore them for the backend that follows. Order-independent, local to this header.
+#pragma push_macro("HAVE_CUDA")
+#pragma push_macro("HAVE_HIP")
+#pragma push_macro("HAVE_GPU")
+#undef HAVE_CUDA
+#undef HAVE_HIP
+#undef HAVE_GPU
 #include <petscksp.h>
 #include <petscsnes.h>
+#pragma pop_macro("HAVE_GPU")
+#pragma pop_macro("HAVE_HIP")
+#pragma pop_macro("HAVE_CUDA")
 
 #include <functional>
 #include <memory>
