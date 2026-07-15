@@ -571,7 +571,7 @@ inline void pdeFinalizeDerived(PDE& pde)
         pde.tdep, pde.wave, pde.linearproblem, pde.debugmode, pde.matvecorder, pde.GMRESortho,
         pde.preconditioner, pde.precMatrixType, pde.NLMatrixType, pde.runmode, pde.tdfunc, pde.sourcefunc,
         pde.modelnumber, pde.extFhat, pde.extUhat, pde.extStab, pde.subproblem, pde.saveParaview,
-        pde.physicsparamwarmstart, pde.builtinmodelID
+        pde.physicsparamwarmstart, pde.builtinmodelID, pde.frontendgenerated
     );
     pde.problem = makeDoubleVector(
         pde.hybrid, 0, pde.temporalscheme, pde.torder, pde.nstage, pde.convStabMethod,

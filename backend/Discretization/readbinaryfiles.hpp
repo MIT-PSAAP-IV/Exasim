@@ -78,6 +78,10 @@ inline void readappstruct(std::string filename, appstruct &app)
     app.ndims = readiarrayfromdouble(in, app.nsize[0]);
     app.flag = readiarrayfromdouble(in, app.nsize[1]);
     app.problem = readiarrayfromdouble(in, app.nsize[2]);
+    app.modelnumber = app.flag[12];
+    app.frontendgenerated = (app.nsize[1] > 20) ? app.flag[20] : 0;
+    if ((app.frontendgenerated == 0) && (app.builtinmodelID > 0))
+        app.modelnumber = app.builtinmodelID;
     readarray(in, &app.uinf, app.nsize[3]);
     readarray(in, &app.dt, app.nsize[4]);                
     readarray(in, &app.factor, app.nsize[5]);       
@@ -693,4 +697,3 @@ inline void writeOutput(appstruct &app, masterstruct &master, meshstruct &mesh, 
 }
 
 #endif    
-

@@ -731,6 +731,7 @@ struct appstructT {
     Int read_uh = 0;
     Int modelnumber = 0;
     Int builtinmodelID = 0;
+    Int frontendgenerated = 0;
 
     int sizeofint() {
       int sz = szflag + szproblem + szcomm + szporder + szstgib + szvindx + szinterfacefluxmap
@@ -2130,7 +2131,7 @@ struct commonstructT {
         
     
     Int modelnumber;      // model number
-    Int builtinmodelID=0; // model ID
+    Int builtinmodelID=0; // model ID    
     Int matrixformat=0;
     
     Int spatialScheme;   /* 0: HDG; 1: EDG; 2: IEDG, HEDG */
