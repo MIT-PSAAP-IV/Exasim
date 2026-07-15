@@ -8,6 +8,26 @@
 #define __SOLUTIONWRITER
 
 #include "solutionwriter.h"
+#include <filesystem>
+
+namespace {
+inline int count_model_mesh_partitions(const std::string& filein)
+{
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    const fs::path dir(filein);
+    int count = 0;
+    if (fs::exists(dir, ec) && fs::is_directory(dir, ec)) {
+        for (const auto& entry : fs::directory_iterator(dir, ec)) {
+            if (ec) break;
+            const std::string name = entry.path().filename().generic_string();
+            if (name.rfind("mesh", 0) == 0 && entry.path().extension() == ".bin")
+                count++;
+        }
+    }
+    return count;
+}
+}
 
 // --- open the output streams and write the initial solution (was the CSolution constructor body) ---
 template <class M>
@@ -406,9 +426,14 @@ void CSolutionWriter<M>::SaveParaview(Int backend, std::string fname_modifier, b
     // Decide whether we should write a file on this step
     bool writeSolution = false;
     
+    const int localRank = disc.common.mpiRank - disc.common.outputparams.fileoffset;
+    int localProcs = (disc.common.mpiProcs > 1) ? count_model_mesh_partitions(disc.common.filein) : 1;
+    if (localProcs <= 0)
+        localProcs = disc.common.mpiProcs;
+
     if (disc.common.timeparams.tdep == 1) {
-       if (disc.common.timestate.currentstep==0 && disc.common.mpiRank==0) {
-          string ext = (disc.common.mpiProcs==1) ? "vtu" : "pvtu";                                  
+       if (disc.common.timestate.currentstep==0 && localRank==0) {
+          string ext = (localProcs==1) ? "vtu" : "pvtu";                                  
           vis.pvdwrite_series(disc.common.fileout + "vis", disc.common.dt, disc.common.timeparams.tsteps, disc.common.outputparams.saveSolFreq, ext);                          
        }
         
@@ -476,10 +501,10 @@ void CSolutionWriter<M>::SaveParaview(Int backend, std::string fname_modifier, b
            baseName = baseName + "_" + ss.str();
        }
 
-       if (disc.common.mpiProcs==1)
+       if (localProcs==1)
             vis.vtuwrite(baseName, vis.scafields, vis.vecfields, vis.tenfields);
        else
-            vis.vtuwrite_parallel(baseName, disc.common.mpiRank, disc.common.mpiProcs, vis.scafields, vis.vecfields, vis.tenfields);
+            vis.vtuwrite_parallel(baseName, localRank, localProcs, vis.scafields, vis.vecfields, vis.tenfields);
 
        if (ownsTempn)
          TemplateFree(tempn, backend);

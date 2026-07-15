@@ -876,6 +876,10 @@ int ExasimSolver::ParsePostprocessInputs(int argc, char** argv)
         nvqoi_ = ParseIntegerArgument(argv[2 * nummodels_ + 8], "nvqoi", mpirank_, ok);
         if (!ok) return 1;
     }
+    if (argc >= (2 * nummodels_ + 10)) {
+        saveParaview_ = ParseIntegerArgument(argv[2 * nummodels_ + 9], "saveParaview", mpirank_, ok);
+        if (!ok) return 1;
+    }
 
     std::filesystem::path cwd = std::filesystem::current_path();
     exasimpath_ = trimToSubstringAtLastOccurence(cwd, "Exasim");

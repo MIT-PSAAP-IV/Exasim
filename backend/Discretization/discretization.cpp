@@ -383,6 +383,36 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
     if (!postprocessOnly && saveParaview != 0)
         common.qoiparams.saveParaview = saveParaview;
 
+    const bool needsVisualizationConnectivity =
+        (common.qoiparams.saveParaview != 0) &&
+        (common.qoiparams.nsca + common.qoiparams.nvec + common.qoiparams.nten > 0) &&
+        (sol.szxcg == 0 || mesh.szcgelcon == 0 || mesh.szrowent2elem == 0 ||
+         mesh.szcgent2dgent == 0 || mesh.szcolent2elem == 0);
+    if (needsVisualizationConnectivity) {
+        const Int npe = common.grid.npe;
+        const Int nd = common.grid.nd;
+        const Int ne = common.meshsizes.ne;
+
+        dstype* xcg = nullptr;
+        TemplateMalloc(&xcg, npe * nd * ne, 0);
+        TemplateMalloc(&mesh.cgelcon, npe * ne, 0);
+        const Int ncgnodes = mkelconcg_hashgrid(xcg, mesh.cgelcon, sol.xdg, npe, nd, ne);
+        const Int ncgdof = mkent2elem(mesh.rowent2elem, mesh.colent2elem, mesh.cgelcon, npe, ne);
+        map_cgent2dgent(mesh.cgent2dgent, mesh.rowent2elem, mesh.colent2elem, xcg, sol.xdg, npe, nd, ncgdof);
+
+        TemplateMalloc(&sol.xcg, nd * ncgnodes, 0);
+        for (Int i = 0; i < nd * ncgnodes; i++)
+            sol.xcg[i] = xcg[i];
+        sol.szxcg = nd * ncgnodes;
+
+        mesh.szcgelcon = mesh.nsize[11] = npe * ne;
+        mesh.szrowent2elem = mesh.nsize[12] = ncgdof + 1;
+        mesh.szcgent2dgent = mesh.nsize[13] = mesh.rowent2elem[ncgdof];
+        mesh.szcolent2elem = mesh.nsize[14] = mesh.rowent2elem[ncgdof];
+
+        CPUFREE(xcg);
+    }
+
     // compute the geometry quantities
     if (common.mpiRank==0) printf("start compGeometry... \n");
     compGeometry(backend);        
