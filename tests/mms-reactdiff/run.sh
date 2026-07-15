@@ -40,11 +40,18 @@ printf '\nexasimpath = "%s";\ndatapath = "%s";\n' "$EXASIM_ROOT" "$WORK" >> "$WO
 [ -f "$WORK/datain/mesh.bin" ] || skip "datain incomplete"
 
 # ---- 2. configure + build the verify harness ----
+# GPU mode (EXASIM_GPU=1): build the CUDA variant + verify the manufactured solution on-device.
+# Needs a GPU-built install (CUDA Kokkos + CUDA PETSc) and nvcc_wrapper as the C++ compiler.
+CMAKE_EXTRA=( -DEXASIM_MPI=ON -DPKG_CONFIG_USE_CMAKE_PREFIX_PATH=ON )
+if [ "${EXASIM_GPU:-0}" = 1 ]; then
+  NVCC_WRAPPER="${NVCC_WRAPPER:-}"; [ -x "$NVCC_WRAPPER" ] || skip "EXASIM_GPU=1 but NVCC_WRAPPER not set/executable"
+  CMAKE_EXTRA+=( -DEXASIM_GPU=ON -DCMAKE_CXX_COMPILER="$NVCC_WRAPPER" -DEXASIM_GPU_ARCH="${EXASIM_GPU_ARCH:-}" )
+fi
 cmake -S "$HERE" -B "$WORK/build" \
   -DCMAKE_PREFIX_PATH="${EXASIM_INSTALL}" \
   -DExasim_DIR="${EXASIM_INSTALL}/lib/cmake/Exasim" \
   -DKokkos_DIR="${KOKKOS_DIR}" \
-  -DEXASIM_MPI=ON -DPKG_CONFIG_USE_CMAKE_PREFIX_PATH=ON >/dev/null || skip "configure failed (deps?)"
+  "${CMAKE_EXTRA[@]}" >/dev/null || skip "configure failed (deps?)"
 cmake --build "$WORK/build" --parallel 2 || { echo "FAIL: build"; exit 1; }
 
 # ---- 3. run + verify (main.cpp returns non-zero if the field is wrong) ----
