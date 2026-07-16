@@ -76,6 +76,11 @@ else
   printf '\nexasimpath = "%s";\ndatapath = "%s";\n' "${REPO}" "$WORK" >> "$WORK/pdeapp.txt"
   ( cd "$WORK" && "$T2C" pdeapp.txt --emit-app "$WORK/app" --app-name mmsgpu --model-id 100 ) \
     && [ -f "$WORK/app/CMakeLists.txt" ] || { echo "B: FAIL (emit-app)"; fail=1; }
+  # This test exercises the emitted GPU SCAFFOLD (CMake/build.sh/driver), not text2code's live
+  # model codegen (which needs the -DUSE_CMAKE Code2Cpp toolchain, covered by the CPU tests). If
+  # the emit run did not produce the model header, drop in the tracked one.
+  [ -f "$WORK/app/generated/my_model.hpp" ] || \
+    { mkdir -p "$WORK/app/generated"; cp "${SRC}/generated/my_model.hpp" "$WORK/app/generated/"; }
   if [ -f "$WORK/app/CMakeLists.txt" ]; then
     # datain lives at $WORK/datain (from the emit run); run the app from there.
     ( cd "$WORK/app" \
