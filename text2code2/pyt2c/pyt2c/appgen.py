@@ -82,10 +82,28 @@ int main(int argc, char** argv)
     PetscInitialize(&argc, &argv, nullptr, nullptr);
     if (!Kokkos::is_initialized()) Kokkos::initialize(argc, argv);
     EXASIM_COMM_WORLD = MPI_COMM_WORLD;
+    // Single-model app: the backend's distributed HDG trace exchange (hdgMatVec / the MPI
+    // assembly) communicates over EXASIM_COMM_LOCAL, which defaults to MPI_COMM_NULL and is
+    // otherwise only set by ExasimSolver. Without this, np>1 hangs on the halo exchange. For a
+    // single model it is just MPI_COMM_WORLD.
+    EXASIM_COMM_LOCAL = MPI_COMM_WORLD;
 
     int rank = 0, size = 1;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+#if defined(_CUDA)
+    // Pin each rank to a distinct GPU on its node (device = node-local rank % deviceCount),
+    // mirroring Exasim's native run.hpp. CSolution does not set the device, so without this
+    // every rank would share GPU 0 (correct but unscalable).
+    {{
+        MPI_Comm shmcomm; int shmrank = 0;
+        MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &shmcomm);
+        MPI_Comm_rank(shmcomm, &shmrank); MPI_Comm_free(&shmcomm);
+        int deviceCount = 0; cudaGetDeviceCount(&deviceCount);
+        if (deviceCount > 0) cudaSetDevice(shmrank % deviceCount);
+    }}
+#endif
 
     const std::string filein  = (argc > 1) ? argv[1] : "datain/";
     const std::string fileout = (argc > 2) ? argv[2] : "dataout/out";

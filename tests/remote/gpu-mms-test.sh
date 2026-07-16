@@ -5,13 +5,16 @@
 # Two checks on the CUDA backend, both on the small 2-species manufactured-solution model
 # u0 = sin(pi x) sin(pi y), u1 = 0.5 sin(pi x) sin(pi y):
 #
-#   A. VERIFY harness  — build tests/mms-reactdiff with -DEXASIM_GPU=ON and confirm the
-#      solution recovered ON THE DEVICE matches the exact field (max|u-u_exact| < 2e-2).
-#   B. EMITTED scaffold — run `text2code --emit-app` on the same model, build the generated
-#      app with EXASIM_GPU=1 ./build.sh, run it, and confirm it converges (SNESConvergedReason=2).
+#   A.  VERIFY harness (single GPU) — build tests/mms-reactdiff with -DEXASIM_GPU=ON and confirm
+#       the solution recovered ON THE DEVICE matches the exact field (max|u-u_exact| < 2e-2).
+#   A2. VERIFY harness (GPU + MPI)   — same, np=2 across 2 GPUs (partitioned datain); checks the
+#       distributed trace solve (owned-element error reduced across ranks).
+#   B.  EMITTED scaffold — run `text2code --emit-app` on the same model, build the generated
+#       app with EXASIM_GPU=1 ./build.sh, run it, and confirm it converges (SNESConvergedReason=2).
 #
 # This exercises the PETSc-CUDA device Vec path (the petsc.hpp push_macro/undef HAVE_CUDA
-# fix around the PETSc includes) + the scaffold's compile-time backend selection (_CUDA -> 2).
+# fix around the PETSc includes), the scaffold's compile-time backend selection (_CUDA -> 2),
+# and the GPU+MPI halo exchange (EXASIM_COMM_LOCAL + per-rank device pinning).
 #
 # Prereqs (run on dgx-b, after syncing the branch):
 #   bash tests/remote/build-dgx.sh          # builds the CUDA gpu+gpumpi install
@@ -48,6 +51,16 @@ if EXASIM_INSTALL="${INSTALL}" KOKKOS_DIR="${KOKKOS}" EXASIM_GPU=1 \
   echo "A: PASS"
 else
   rc=$?; [ "$rc" = 77 ] && { echo "A: SKIP"; } || { echo "A: FAIL (rc=$rc)"; fail=1; }
+fi
+
+# ---- A2. on-device verify harness, GPU + MPI (np=2) --------------------------------------
+echo "== A2. mms verify harness on GPU + MPI, np=2 (EXASIM_GPU=1 NP=2) =="
+if EXASIM_INSTALL="${INSTALL}" KOKKOS_DIR="${KOKKOS}" EXASIM_GPU=1 NP=2 \
+   NVCC_WRAPPER="${NVCC_WRAPPER}" EXASIM_GPU_ARCH="${GPU_ARCH}" \
+   bash "${REPO}/tests/mms-reactdiff/run.sh"; then
+  echo "A2: PASS"
+else
+  rc=$?; [ "$rc" = 77 ] && { echo "A2: SKIP"; } || { echo "A2: FAIL (rc=$rc)"; fail=1; }
 fi
 
 # ---- B. emitted scaffold build+run on GPU -----------------------------------------------

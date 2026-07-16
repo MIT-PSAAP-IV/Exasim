@@ -16,6 +16,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 WORK="${WORK:-$(mktemp -d)}"
 mkdir -p "$WORK"
+NP="${NP:-1}"   # MPI ranks; NP>1 generates a partitioned datain and runs mpirun -np NP
 
 skip() { echo "SKIP: $*"; exit 77; }
 
@@ -33,11 +34,14 @@ EXASIM_ROOT="${EXASIM_ROOT:-$(cd "$HERE/../.." && pwd)}"
 [ -f "${EXASIM_ROOT}/text2code/text2code/masternodes.bin" ] || skip "EXASIM_ROOT source tree not found"
 
 # ---- 1. generate datain from the tracked mesh (gendatain=1, gencode=0) ----
+# For NP>1 set mpiprocs=NP so text2code partitions the mesh (mesh<rank+1>.bin per rank).
 cp "$HERE/pdemodel.txt" "$HERE/grid.bin" "$WORK/"
-sed -e "s#exasimpath[ \t]*=[ \t]*\"[^\"]*\"##" "$HERE/pdeapp.txt" > "$WORK/pdeapp.txt"
+sed -e "s#exasimpath[ \t]*=[ \t]*\"[^\"]*\"##" \
+    -e "s#mpiprocs[ \t]*=[ \t]*[0-9]*#mpiprocs = ${NP}#" "$HERE/pdeapp.txt" > "$WORK/pdeapp.txt"
 printf '\nexasimpath = "%s";\ndatapath = "%s";\n' "$EXASIM_ROOT" "$WORK" >> "$WORK/pdeapp.txt"
 ( cd "$WORK" && "$T2C" pdeapp.txt ) || skip "datain generation failed"
-[ -f "$WORK/datain/mesh.bin" ] || skip "datain incomplete"
+mesh0="$WORK/datain/mesh.bin"; [ "$NP" -gt 1 ] && mesh0="$WORK/datain/mesh1.bin"
+[ -f "$mesh0" ] || skip "datain incomplete"
 
 # ---- 2. configure + build the verify harness ----
 # GPU mode (EXASIM_GPU=1): build the CUDA variant + verify the manufactured solution on-device.
@@ -55,8 +59,14 @@ cmake -S "$HERE" -B "$WORK/build" \
 cmake --build "$WORK/build" --parallel 2 || { echo "FAIL: build"; exit 1; }
 
 # ---- 3. run + verify (main.cpp returns non-zero if the field is wrong) ----
+# main.cpp reduces the owned-element error across ranks and only rank 0 prints PASS/FAIL.
 mkdir -p "$WORK/dataout"
-( cd "$WORK" && "$WORK/build/consumer_mms" datain/ )
+if [ "$NP" -gt 1 ]; then
+  command -v mpirun >/dev/null || skip "NP>1 but mpirun not found"
+  ( cd "$WORK" && mpirun -np "$NP" "$WORK/build/consumer_mms" datain/ )
+else
+  ( cd "$WORK" && "$WORK/build/consumer_mms" datain/ )
+fi
 rc=$?
-[ "$rc" -eq 0 ] && echo "consumer_mms: PASS" || echo "consumer_mms: FAIL (rc=$rc)"
+[ "$rc" -eq 0 ] && echo "consumer_mms (np=$NP): PASS" || echo "consumer_mms (np=$NP): FAIL (rc=$rc)"
 exit "$rc"

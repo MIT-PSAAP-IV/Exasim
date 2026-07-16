@@ -114,12 +114,18 @@ solver code — the whole solve lives in `<exasim/petsc.hpp>`.
 > `--allow-ldg` is passed, and `solve_steady` raises on a non-HDG problem at runtime. For
 > LDG, use the existing frontend / `ExasimSolver` runtime path (or `exportapp`) instead.
 
-The scaffold builds on **CPU or GPU**. CPU (`cpu`/`cpumpi` variant) is the default. Pass
-`-DEXASIM_GPU=ON` to build the CUDA `gpu`/`gpumpi` variant: the driver selects the device
-backend at compile time (`_CUDA` → backend 2) and `solve_steady` wraps device pointers
+The scaffold builds on **CPU or GPU**, **serial or MPI**. CPU (`cpu`/`cpumpi` variant) is the
+default. Pass `-DEXASIM_GPU=ON` to build the CUDA `gpu`/`gpumpi` variant: the driver selects the
+device backend at compile time (`_CUDA` → backend 2) and `solve_steady` wraps device pointers
 zero-copy into PETSc's CUDA `Vec`. A GPU build needs a GPU-built Exasim install (CUDA Kokkos
 + CUDA PETSc) and `nvcc_wrapper` as the C++ compiler (`build.sh` sets this). HIP (`_HIP` →
 backend 3) follows the same shape.
+
+Multi-rank (`mpirun -np N`) works on both backends: the generated driver sets `EXASIM_COMM_LOCAL`
+(needed for the distributed HDG trace halo exchange) and, on GPU, pins each rank to a distinct
+device (`shmrank % deviceCount`). Preprocess the mesh with `mpiprocs = N` so `text2code` writes the
+`N`-way partition. Validated to the manufactured-solution tolerance at np=2 on CPU and across 2 GPUs
+(`tests/remote/gpu-mms-test.sh`).
 
 Build + run:
 
