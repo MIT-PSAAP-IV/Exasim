@@ -12,9 +12,9 @@ function [p,t] = lesmesh2d(xf, yf, dlay, dwall, nx, ny, xref, yref)
 % dlay=0.1; dwall=2e-5; nx=96; ny = 25;
 % [p,t] = lesmesh2d(xf, yf, dlay, dwall, nx, ny, [1.3 2; 1.55 1.78], [0.03 0.01 0.003]);
 
-% if size(xref,2)~=2
-%     error('xref must have dimension Nx times 2');
-% end
+if size(xref,2)~=2
+    error('xref must have dimension Nx times 2');
+end
 
 % calculate the mesh ratio
 c = 1 - dlay/dwall;
