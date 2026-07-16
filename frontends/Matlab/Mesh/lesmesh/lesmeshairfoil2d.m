@@ -184,7 +184,6 @@ end
 % last intervals the one-sided TE tangent dominates; away from the cusp the
 % mapping smoothly recovers the original map2foil spline tangent.
 blendWidth = min([8, max(3, 0.05*nn), 0.25*nn]);
-blendWidth = 2;
 left = s < blendWidth;
 right = s > (nn - blendWidth);
 if any(left)
