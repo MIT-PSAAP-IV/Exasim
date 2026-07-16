@@ -625,6 +625,9 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     if (params.intParams.count("builtinmodelID")) {
         pde.builtinmodelID = params.intParams["builtinmodelID"];
     }
+    if (params.intParams.count("frontendgenerated")) {
+        pde.frontendgenerated = params.intParams["frontendgenerated"];
+    }
     if (params.intParams.count("nodetype")) {
         pde.nodetype = params.intParams["nodetype"];
     }
