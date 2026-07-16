@@ -108,7 +108,7 @@ Cf = -2*cfOrdered;
 Ch = chOrdered/(deltaT*gamma);
 
 if nd == 3
-    [Cp2d,Cf2d,x2d,Ch2d] = spanwiseProjectSurfaceData(Cp,Cf,x,Ch,proftype);
+    [Cp2d,Cf2d,x2d,Ch2d] = spanwiseProjectSurfaceData(Cp,Cf,x,Ch,proftype,xyMidChord);
 else
     Cp2d = [];
     Cf2d = [];
