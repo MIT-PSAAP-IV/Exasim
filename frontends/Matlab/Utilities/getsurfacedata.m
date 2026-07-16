@@ -428,7 +428,7 @@ switch proftype
 end
 end
 
-function [Cp2d,Cf2d,x2d,Ch2d] = spanwiseProjectSurfaceData(Cp,Cf,x,Ch,proftype)
+function [Cp2d,Cf2d,x2d,Ch2d] = spanwiseProjectSurfaceData(Cp,Cf,x,Ch,proftype,xyMidChord)
 snap = 1.0e-9;
 xy = unique(round(x(:,1:2)/snap)*snap,'rows');
 
