@@ -102,14 +102,14 @@ std::vector<T> parseList(const std::string& buffer) {
 
     if (std::regex_search(buffer, match, brace_content)) {
         std::string content = match[1];
-        std::istringstream ss(content);
-        std::string item;
-        while (std::getline(ss, item, ',')) {
-            std::istringstream converter(item);
-            T value;
-            converter >> value;
-            result.push_back(value);
+        for (char& ch : content) {
+            if (ch == ',' || ch == ';')
+                ch = ' ';
         }
+        std::istringstream ss(content);
+        T value;
+        while (ss >> value)
+            result.push_back(value);
     }
     return result;
 }
@@ -769,7 +769,10 @@ inline PDE initializePDE(InputParams& params, int mpirank=0)
     }
     if (params.intParams.count("pgauss")) {
         pde.pgauss = params.intParams["pgauss"];
-    }        
+    }
+    if (pde.pgauss < 2 * pde.porder) {
+        pde.pgauss = 2 * pde.porder;
+    }
     if (params.intParams.count("stgNmode")) {
         pde.stgNmode = params.intParams["stgNmode"];
     }

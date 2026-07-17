@@ -10,7 +10,7 @@ runmode = 0;
 modelnumber = 2;
 
 porder = 3;
-pgauss = 2;
+pgauss = 6;
 torder = 1;
 builtinmodelID = 101;
 nstage = 1;

@@ -3,6 +3,7 @@
 //   mpirun -np <sum ranks> build/exasimapp pdeapp1.txt <ranks1> pdeapp2.txt <ranks2>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <numeric>
 #include <string>
@@ -36,6 +37,44 @@ int size_world()
 #else
     return 1;
 #endif
+}
+
+int count_model_mesh_partitions(const std::filesystem::path& datain)
+{
+    std::error_code ec;
+    if (!std::filesystem::is_directory(datain, ec))
+        return 0;
+
+    int count = 0;
+    for (const auto& entry : std::filesystem::directory_iterator(datain, ec)) {
+        if (ec)
+            break;
+        const std::string name = entry.path().filename().generic_string();
+        if (name.rfind("mesh", 0) == 0 && entry.path().extension() == ".bin")
+            ++count;
+    }
+    return count;
+}
+
+int write_runtime_pdeapp(const std::filesystem::path& source,
+                         const std::filesystem::path& generated,
+                         const int ranks,
+                         const int modelIndex)
+{
+    std::ifstream in(source);
+    if (!in)
+        return 1;
+    std::ofstream out(generated);
+    if (!out)
+        return 1;
+
+    out << in.rdbuf();
+    out << "\n";
+    out << "datapath = " << quote(source.parent_path()) << ";\n";
+    out << "datainpath = \"datain" << modelIndex << "\";\n";
+    out << "dataoutpath = \"dataout" << modelIndex << "\";\n";
+    out << "mpiprocs = " << ranks << ";\n";
+    return 0;
 }
 
 int run_text2code(const std::filesystem::path& pdeapp)
@@ -104,9 +143,23 @@ int main(int argc, char** argv)
             const auto& pdeapp = pdeapps[m];
             const auto dir = pdeapp.parent_path();
             const std::string suffix = std::to_string(m + 1);
-            if (std::filesystem::exists(dir / ("datain" + suffix) / "app.bin"))
+            const auto datain = dir / ("datain" + suffix);
+            if (std::filesystem::exists(datain / "app.bin") &&
+                count_model_mesh_partitions(datain) == ranks[m])
                 continue;
-            const int err = run_text2code(pdeapp);
+            std::filesystem::remove_all(datain);
+            const auto generatedPdeapp =
+                dir / (".exasim_runtime_pdeapp" + suffix + "_np" + std::to_string(ranks[m]) + ".txt");
+            int err = write_runtime_pdeapp(pdeapp, generatedPdeapp, ranks[m], m + 1);
+            if (err != 0) {
+                std::cerr << "failed to write runtime pdeapp " << generatedPdeapp << "\n";
+#ifdef HAVE_MPI
+                MPI_Abort(MPI_COMM_WORLD, err);
+#endif
+                return err;
+            }
+            err = run_text2code(generatedPdeapp);
+            std::filesystem::remove(generatedPdeapp);
             if (err != 0) {
                 std::cerr << "text2code failed for " << pdeapp << " with code " << err << "\n";
 #ifdef HAVE_MPI
@@ -143,4 +196,3 @@ int main(int argc, char** argv)
 #endif
     return err;
 }
-

@@ -37,17 +37,18 @@ pde{2}.interfacefluxmap = [1]; % this is 1 because the heat equation has only on
 if pde{1}.mpiprocs == 1
   mesh1 = mesh{1};
   mesh1.dgnodes = mesh1.dgnodes(:,:,dmd{1}{1}.elempart);
-  figure(3); clf;scaplot(mesh1, (Tref/Tinf)*eulereval(sol{1}, 't',gam,Minf),[]);
+  figure(3); clf;scaplot(mesh1, eulereval(sol{1}, 't',gam,Minf),[]);
 else
-  figure(3); scaplot(mesh{1}, (Tref/Tinf)*eulereval(sol{1}, 't',gam,Minf),[]);
+  figure(3); clf; scaplot(mesh{1}, eulereval(sol{1}, 't',gam,Minf),[]);
 end
 hold on;
 if pde{2}.mpiprocs == 1
   mesh2 = mesh{2};
   mesh2.dgnodes = mesh2.dgnodes(:,:,dmd{2}{1}.elempart);  
-  scaplot(mesh2, (Tref/Tinf)*sol{2}(:,1,:),[]);
+  scaplot(mesh2, sol{2}(:,1,:),[]);
 else
-  scaplot(mesh{2}, (Tref/Tinf)*sol{2}(:,1,:),[]);  
+  scaplot(mesh{2}, sol{2}(:,1,:),[]);  
 end
-set(gca,'FontSize',20); axis equal; axis tight;
+set(gca,'FontSize',20); axis equal; axis tight; colorbar;
+
 

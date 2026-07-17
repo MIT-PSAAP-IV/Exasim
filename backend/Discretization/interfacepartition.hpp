@@ -38,6 +38,37 @@ inline bool same_point(const T* a, const T* b, const int nd, const T tol2)
 }
 
 template <class T, class I>
+inline bool same_face_nodes(const T* localNodes, const T* remoteNodes,
+        const I npf, const I nd, const T tol2)
+{
+    std::vector<char> used(static_cast<std::size_t>(npf), 0);
+    for (I n = 0; n < npf; n++) {
+        I matchNode = -1;
+        for (I m = 0; m < npf; m++) {
+            if (used[static_cast<std::size_t>(m)])
+                continue;
+            bool equal = true;
+            for (I d = 0; d < nd; d++) {
+                const T* a = localNodes + n + d * npf;
+                const T* b = remoteNodes + m + d * npf;
+                if (!same_point(a, b, 1, tol2)) {
+                    equal = false;
+                    break;
+                }
+            }
+            if (!equal)
+                continue;
+            matchNode = m;
+            break;
+        }
+        if (matchNode < 0)
+            return false;
+        used[static_cast<std::size_t>(matchNode)] = 1;
+    }
+    return true;
+}
+
+template <class T, class I>
 inline I mesh_nsize(const meshstructT<T, I>& mesh, const I slot)
 {
     return (mesh.nsize && mesh.lsize && mesh.lsize[0] > slot) ? mesh.nsize[slot] : 0;
@@ -246,6 +277,9 @@ inline void build_runtime_interface_partition(appstructT<T, I>& app,
 
             const T* remoteCenter = allCoords.data() + j * (nd + npf * nd);
             if (!same_point(localCenter, remoteCenter, static_cast<int>(nd), tol2))
+                continue;
+            const T* remoteNodes = allCoords.data() + j * (nd + npf * nd) + nd;
+            if (!same_face_nodes(localNodes, remoteNodes, npf, nd, tol2))
                 continue;
 
             if (matchedGlobal >= 0) {

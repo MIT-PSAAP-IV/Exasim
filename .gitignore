@@ -463,3 +463,12 @@ backend/Postprocessing/solution_io
 /examples/NavierStokes/eppler/eppler-sweep8
 /examples/NavierStokes/naca2d_unsteady/naca-sweep8
 /examples/NavierStokes/eppler3d/eppler3dp2
+/apps/navierstokes/nshtmach8/build_verify
+/apps/poisson/coupledproblem/build_verify
+/examples/NavierStokes/eppler/eppler-test1
+/examples/NavierStokes/eppler/eppler-test2
+/examples/NavierStokes/eppler/eppler-test3
+/examples/NavierStokes/isoq3d/isoq3d-fine
+/examples/NavierStokes/naca2d_unsteady/naca-test1
+/examples/NavierStokes/naca2d_unsteady/naca-test2
+/examples/NavierStokes/naca2d_unsteady/naca-test3

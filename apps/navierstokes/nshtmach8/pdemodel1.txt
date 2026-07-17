@@ -92,9 +92,12 @@ function Initu(x, eta, mu)
 end
 
 function VisScalars(x, uq, v, w, eta, mu, t)
-  output_size(s) = 4;
+  output_size(s) = 5;
   s[0] = uq[0];
-  s[1] = uq[1];
-  s[2] = uq[2];
+  s[1] = uq[1]/uq[0];
+  s[2] = uq[2]/uq[0];
   s[3] = uq[3];
+  ke = 0.5*(uq[1]*s[1] + uq[2]*s[2]);
+  p = (mu[0]-1.0)*(s[3] - ke);
+  s[4] = p/((mu[0]-1.0)*s[0]);
 end
