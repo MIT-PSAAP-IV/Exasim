@@ -8,7 +8,7 @@ nr = 81;
 nt = 120;
 a = R;
 b = 4.5*a;
-c = 5.0*a;
+c = 4.5*a;
 
 rho1d = logdec(linspace(0,1,nr)',4);
 theta1d = linspace(3*pi/2,-pi/2,nt+1);
