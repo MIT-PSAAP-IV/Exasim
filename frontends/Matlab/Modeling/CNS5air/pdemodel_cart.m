@@ -34,15 +34,11 @@ function s = source(u, q, w, v, x, t, mu, eta)
 end
 
 function ub = ubou(u, q, w, v, x, t, mu, eta, uhat, n, tau)
-    ns = 5;
-    ndim = numel(x);
-    ub = sym(ones(ns + ndim + 1, 1));
+    ub = ubound(u, q, w, v, x, t, mu, eta, uhat, n, tau, eta, mu, 0);
 end
 
 function fb = fbou(u, q, w, v, x, t, mu, eta, uhat, n, tau)
-    ns = 5;
-    ndim = numel(x);
-    fb = sym(ones(ns + ndim + 1, 1));
+    fb = fbound(u, q, w, v, x, t, mu, eta, uhat, n, tau, eta, mu, 0);
 end
 
 function u0 = initu(x, mu, eta)
@@ -66,4 +62,3 @@ end
 function fb = fbouhdg(u, q, w, v, x, t, mu, eta, uhat, n, tau)
   fb = fbouhdgnd(u, q, w, v, x, t, mu, eta, uhat, n, tau);
 end
-
