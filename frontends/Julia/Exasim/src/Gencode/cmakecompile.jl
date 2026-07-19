@@ -53,7 +53,7 @@ function cmakecompile(pde)
     bdir = joinpath(builddir, "build")
     exe = joinpath(bdir, "exasimapp")
     cmake = cmake_command()
-    cfg = `$cmake -S $builddir -B $bdir -DExasim_DIR=$(cmake_dir())`
+    cfg = `$cmake -S $builddir -B $bdir -DExasim_DIR=$(cmake_dir()) -DEXASIM_VARIANT=$variant`
 
     # Hash the model inputs (kernels + rendered app sources + the install);
     # if nothing changed since the last successful build, skip cmake entirely.

@@ -43,7 +43,7 @@ function cmakecompile_combined(pdes)
     bdir = joinpath(builddir, "build")
     exe = joinpath(bdir, "exasimapp")
     cmake = cmake_command()
-    cfg = `$cmake -S $builddir -B $bdir -DExasim_DIR=$(cmake_dir())`
+    cfg = `$cmake -S $builddir -B $bdir -DExasim_DIR=$(cmake_dir()) -DEXASIM_VARIANT=$variant`
     run(cfg)
     jobs = get(ENV, "JOBS", string(Sys.CPU_THREADS))
     run(`$cmake --build $bdir --parallel $jobs`)

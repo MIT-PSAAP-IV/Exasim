@@ -64,9 +64,9 @@ wr = zr.^2;
 xgf = (xgf+shift)*chord/(2.0*(1.0+shift)) + xmo;
 ygf = ygf*chord/(2.0*(1.0+shift)) + ymo;
 
-figure(2);clf;
-surf(xgf, ygf, 0*xgf);
-view(2), axis equal;
+% figure(2);clf;
+% surf(xgf, ygf, 0*xgf);
+% view(2), axis equal;
 
 function [x,y] = trefftz( x1, y1, n, cx, cy)
 z1 = complex( x1, y1);
