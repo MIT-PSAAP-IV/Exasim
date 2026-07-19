@@ -472,3 +472,12 @@ backend/Postprocessing/solution_io
 /examples/NavierStokes/naca2d_unsteady/naca-test1
 /examples/NavierStokes/naca2d_unsteady/naca-test2
 /examples/NavierStokes/naca2d_unsteady/naca-test3
+examples/NavierStokes/eppler3d/getsol.m
+examples/NavierStokes/eppler3d/load_Eppler387_Re300000_alpha4_computational_Cp.m
+examples/NavierStokes/eppler3d/load_Eppler387_Re300000_alpha4_Cp.m
+examples/NavierStokes/eppler3d/mkmesh_airfoil2d_test.m
+examples/NavierStokes/eppler3d/pdeapp2d_sweep.m
+examples/NavierStokes/eppler3d/pdeapp3d.m
+examples/NavierStokes/eppler3d/plot_CpEppler300k_v3.m
+examples/NavierStokes/eppler3d/result.m
+examples/NavierStokes/eppler3d/testmesh.m

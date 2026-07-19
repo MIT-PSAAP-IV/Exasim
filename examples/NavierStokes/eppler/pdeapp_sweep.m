@@ -64,8 +64,19 @@ tm = pde.physicsparamsweep;
 %pde.physicsparamsweep = tm(209:(208+41),:);
 %pde.physicsparamsweep = tm(250:289,:);
 
-missingcases = [46 85 126 166 167 168 207 208 209 248 249 250 287 288 289];
-pde.physicsparamsweep = tm(missingcases,:);
+% missingcases = [46 85 126 166 167 168 207 208 209 248 249 250 287 288 289];
+% pde.physicsparamsweep = tm(missingcases,:);
+
+% param = randomSamples2D(33, 1000, 10000, 0, 10*pi/180);
+% param = randomSamples2D(33, 1000, 10000, 0, 10*pi/180);
+param = randomSamples2D(34, 1000, 10000, 0, 10*pi/180);
+
+pde.physicsparamsweep = zeros(size(param,1), numel(basePhysicsParam));
+for icase = 1:size(param,1)    
+    reynoldsNumbers = param(icase,1);
+    alpha = param(icase,2);
+    pde.physicsparamsweep(icase,:) = [gam reynoldsNumbers Pr Minf rinf cos(alpha) sin(alpha) rEinf];    
+end
 
 pde.tau = tau;                 % DG stabilization parameter
 pde.GMRESrestart = 100;
@@ -86,7 +97,7 @@ pde.saveSolBouFreq = 2;
 pde.ibs = 1;
 
 % Export a frontend-provider app that can run the entire sweep without MATLAB.
-pde.exportapp = "eppler-sweep8";
+pde.exportapp = "eppler-test3";
 pde.frontendprovider = true;
 pde.buildandrun = false;
 if exist(pde.exportapp, 'dir')
