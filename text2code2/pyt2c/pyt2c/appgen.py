@@ -82,14 +82,42 @@ int main(int argc, char** argv)
     PetscInitialize(&argc, &argv, nullptr, nullptr);
     if (!Kokkos::is_initialized()) Kokkos::initialize(argc, argv);
     EXASIM_COMM_WORLD = MPI_COMM_WORLD;
+    // Single-model app: the backend's distributed HDG trace exchange (hdgMatVec / the MPI
+    // assembly) communicates over EXASIM_COMM_LOCAL, which defaults to MPI_COMM_NULL and is
+    // otherwise only set by ExasimSolver. Without this, np>1 hangs on the halo exchange. For a
+    // single model it is just MPI_COMM_WORLD.
+    EXASIM_COMM_LOCAL = MPI_COMM_WORLD;
 
     int rank = 0, size = 1;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
+#if defined(_CUDA)
+    // Pin each rank to a distinct GPU on its node (device = node-local rank % deviceCount),
+    // mirroring Exasim's native run.hpp. CSolution does not set the device, so without this
+    // every rank would share GPU 0 (correct but unscalable).
+    {{
+        MPI_Comm shmcomm; int shmrank = 0;
+        MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &shmcomm);
+        MPI_Comm_rank(shmcomm, &shmrank); MPI_Comm_free(&shmcomm);
+        int deviceCount = 0; cudaGetDeviceCount(&deviceCount);
+        if (deviceCount > 0) cudaSetDevice(shmrank % deviceCount);
+    }}
+#endif
+
     const std::string filein  = (argc > 1) ? argv[1] : "datain/";
     const std::string fileout = (argc > 2) ? argv[2] : "dataout/out";
-    const int backend = 0;  // host CPU (this scaffold is CPU/PETSc-only; no GPU backend yet)
+    // Backend is chosen at compile time from the Exasim variant macros the build sets:
+    // _CUDA -> CUDA device (2), _HIP -> HIP device (3), otherwise host CPU (0, serial or MPI).
+    // solve_steady + CSolution then run entirely on that backend (device pointers wrapped
+    // zero-copy into PETSc's device Vec when GPU). See CMakeLists EXASIM_GPU.
+#if defined(_CUDA)
+    const int backend = 2;  // CUDA device
+#elif defined(_HIP)
+    const int backend = 3;  // HIP device
+#else
+    const int backend = 0;  // host CPU (serial or MPI)
+#endif
 
     {{
         // No-ABI concrete-model CSolution, built straight from preprocessed datain/.
@@ -141,15 +169,27 @@ if(CHEFSI_FIND_MODULES)
   list(PREPEND CMAKE_MODULE_PATH "${{CHEFSI_FIND_MODULES}}")
 endif()
 
-# This scaffold is CPU/PETSc-only: the driver constructs CSolution with the host backend
-# (backend=0) and solve_steady runs on the CPU. GPU (CUDA/HIP) backend selection + the
-# _CUDA/_HIP compile macros are not generated yet, so no EXASIM_GPU option is exposed
-# (offering one would let you build a GPU Exasim variant while the app still runs on CPU).
+# Backend selection. CPU (cpu/cpumpi) is the default; EXASIM_GPU switches to the CUDA
+# variant (gpu/gpumpi) + the _CUDA unity macro, so the driver's compile-time backend
+# becomes 2 (device) and solve_steady wraps device pointers zero-copy into PETSc's CUDA Vec.
+# A GPU build requires a GPU-built Exasim install (CUDA Kokkos + CUDA PETSc) AND nvcc_wrapper
+# as CMAKE_CXX_COMPILER (build.sh sets this); configure with -DEXASIM_GPU=ON.
 option(EXASIM_MPI "Use the MPI-enabled Exasim variant" ON)
-if(EXASIM_MPI)
-  set(EXASIM_VARIANT cpumpi)
+option(EXASIM_GPU "Build the CUDA GPU Exasim variant (needs a GPU-built Exasim install + nvcc_wrapper as CMAKE_CXX_COMPILER)" OFF)
+set(EXASIM_GPU_ARCH "" CACHE STRING "CUDA arch for the GPU build, e.g. sm_70 / 70 (blank = let Kokkos decide)")
+
+if(EXASIM_GPU)
+  if(EXASIM_MPI)
+    set(EXASIM_VARIANT gpumpi)
+  else()
+    set(EXASIM_VARIANT gpu)
+  endif()
 else()
-  set(EXASIM_VARIANT cpu)
+  if(EXASIM_MPI)
+    set(EXASIM_VARIANT cpumpi)
+  else()
+    set(EXASIM_VARIANT cpu)
+  endif()
 endif()
 
 find_package(Exasim REQUIRED COMPONENTS ${{EXASIM_VARIANT}})
@@ -159,7 +199,7 @@ find_package(MPI REQUIRED)
 # PETSc — the app drives the solve via <exasim/petsc.hpp>, so link PETSc directly.
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(PETSC REQUIRED IMPORTED_TARGET PETSc)
-message(STATUS "PETSc: ${{PETSC_VERSION}}")
+message(STATUS "PETSc: ${{PETSC_VERSION}}  (Exasim variant: ${{EXASIM_VARIANT}})")
 
 # The unity-compiled backend needs BLAS/LAPACK (normally transitive via the prelib).
 find_package(BLAS REQUIRED)
@@ -169,6 +209,9 @@ find_package(LAPACK REQUIRED)
 set(_UNITY_DEFS EXASIM_HAVE_PETSC HAVE_BACKEND_PREPROCESSING)
 if(EXASIM_MPI)
   list(APPEND _UNITY_DEFS _MPI)
+endif()
+if(EXASIM_GPU)
+  list(APPEND _UNITY_DEFS _CUDA)
 endif()
 
 add_executable(${{PROJECT_NAME}} {app_name}.cc)
@@ -181,6 +224,18 @@ target_link_libraries(${{PROJECT_NAME}} PRIVATE
     LAPACK::LAPACK
     BLAS::BLAS)
 target_include_directories(${{PROJECT_NAME}} PRIVATE "${{CMAKE_CURRENT_SOURCE_DIR}}")
+
+if(EXASIM_GPU)
+  # CUDA runtime + driver (device-management calls) and the arch. Kokkos::kokkos (CUDA)
+  # already propagates --expt-extended-lambda / --expt-relaxed-constexpr and the arch when
+  # built for CUDA; EXASIM_GPU_ARCH lets you pin it explicitly if the install did not.
+  find_package(CUDAToolkit REQUIRED)
+  target_link_libraries(${{PROJECT_NAME}} PRIVATE CUDA::cudart CUDA::cublas CUDA::cuda_driver)
+  if(EXASIM_GPU_ARCH)
+    string(REGEX REPLACE "^[Ss][Mm]_?" "" _arch_num "${{EXASIM_GPU_ARCH}}")
+    target_compile_options(${{PROJECT_NAME}} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-arch=sm_${{_arch_num}}>)
+  endif()
+endif()
 '''
 
 
@@ -188,21 +243,43 @@ def _build_sh(app_name: str) -> str:
     return f'''\
 #!/usr/bin/env bash
 # Configure + build the standalone header-only app against a petsc-enabled Exasim install.
+#
+#   CPU (default):  EXASIM_INSTALL=/path/to/exasim ./build.sh
+#   GPU (CUDA):     EXASIM_GPU=1 EXASIM_INSTALL=/path/to/gpu-exasim \\
+#                   NVCC_WRAPPER=/path/to/kokkos/bin/nvcc_wrapper EXASIM_GPU_ARCH=sm_70 ./build.sh
+# A GPU build needs a GPU-built Exasim install (CUDA Kokkos + CUDA PETSc on PKG_CONFIG_PATH)
+# and nvcc_wrapper as the C++ compiler (its host compiler should be your MPI C++ wrapper:
+# export NVCC_WRAPPER_DEFAULT_COMPILER=mpicxx).
 set -eo pipefail
 HERE="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
 
 EXASIM_INSTALL="${{EXASIM_INSTALL:?set EXASIM_INSTALL to a petsc-enabled Exasim install prefix}}"
-KOKKOS_DIR="${{KOKKOS_DIR:-$EXASIM_INSTALL/../Exasim-build/deps/kokkos/buildserial}}"
+EXASIM_GPU="${{EXASIM_GPU:-0}}"
 BUILD="${{BUILD:-$HERE/build}}"
 
-cmake -S "$HERE" -B "$BUILD" \\
-  -DCMAKE_BUILD_TYPE=Release \\
-  -DEXASIM_MPI=ON \\
-  -DCMAKE_PREFIX_PATH="$EXASIM_INSTALL" \\
-  -DExasim_DIR="$EXASIM_INSTALL/lib/cmake/Exasim" \\
-  -DKokkos_DIR="$KOKKOS_DIR" \\
+CMAKE_ARGS=(
+  -DCMAKE_BUILD_TYPE=Release
+  -DEXASIM_MPI=ON
+  -DCMAKE_PREFIX_PATH="$EXASIM_INSTALL"
+  -DExasim_DIR="$EXASIM_INSTALL/lib/cmake/Exasim"
   -DPKG_CONFIG_USE_CMAKE_PREFIX_PATH=ON
+)
 
+if [ "$EXASIM_GPU" = 1 ]; then
+  NVCC_WRAPPER="${{NVCC_WRAPPER:?set NVCC_WRAPPER to kokkos .../bin/nvcc_wrapper for a GPU build}}"
+  KOKKOS_DIR="${{KOKKOS_DIR:-$EXASIM_INSTALL/../Exasim-build/deps/kokkos/buildcuda}}"
+  CMAKE_ARGS+=(
+    -DEXASIM_GPU=ON
+    -DCMAKE_CXX_COMPILER="$NVCC_WRAPPER"
+    -DEXASIM_GPU_ARCH="${{EXASIM_GPU_ARCH:-}}"
+    -DKokkos_DIR="$KOKKOS_DIR"
+  )
+else
+  KOKKOS_DIR="${{KOKKOS_DIR:-$EXASIM_INSTALL/../Exasim-build/deps/kokkos/buildserial}}"
+  CMAKE_ARGS+=( -DKokkos_DIR="$KOKKOS_DIR" )
+fi
+
+cmake -S "$HERE" -B "$BUILD" "${{CMAKE_ARGS[@]}}"
 cmake --build "$BUILD" -j 4
 echo "built: $BUILD/{app_name}"
 '''
@@ -220,9 +297,12 @@ whole solver is `exasim::petsc::solve_steady`). The solve is HDG (condensed trac
 system), so preprocess the mesh with `discretization = "hdg"` / `hybrid = 1`; the model
 header itself is discretization-agnostic.
 
-**Scope:** this scaffold is **CPU/PETSc-only** — the driver uses the host backend and the
-CMake builds the `cpu`/`cpumpi` Exasim variant. GPU (CUDA/HIP) backend selection is not
-generated yet, so there is no `EXASIM_GPU` option.
+**Backends:** CPU by default (`cpu`/`cpumpi` Exasim variant, host backend). Pass
+`-DEXASIM_GPU=ON` (or `EXASIM_GPU=1 ./build.sh`) to build the CUDA `gpu`/`gpumpi` variant:
+the driver then selects the device backend at compile time (`_CUDA` -> backend 2) and
+`solve_steady` wraps device pointers zero-copy into PETSc's CUDA `Vec`. A GPU build needs
+a GPU-built Exasim install (CUDA Kokkos + CUDA PETSc) and `nvcc_wrapper` as the C++
+compiler (build.sh sets this). HIP (`_HIP` -> backend 3) follows the same shape.
 
 Model sizes: nd={sizes["nd"]}, ncu={sizes["ncu"]}, nco={sizes["nco"]},
 ncw={sizes["ncw"]}, nparam={sizes["nparam"]}{"  (has external coupling: Fint/Fext)" if coupling else ""}.
@@ -237,7 +317,13 @@ ncw={sizes["ncw"]}, nparam={sizes["nparam"]}{"  (has external coupling: Fint/Fex
 ## Build & run (no `.txt` needed)
 
 ```sh
+# CPU
 EXASIM_INSTALL=/path/to/petsc-enabled-exasim ./build.sh
+mpirun -np 1 build/{app_name} datain/ dataout/out
+
+# GPU (CUDA)
+EXASIM_GPU=1 EXASIM_INSTALL=/path/to/gpu-exasim \\
+  NVCC_WRAPPER=/path/to/kokkos/bin/nvcc_wrapper EXASIM_GPU_ARCH=sm_70 ./build.sh
 mpirun -np 1 build/{app_name} datain/ dataout/out
 ```
 
