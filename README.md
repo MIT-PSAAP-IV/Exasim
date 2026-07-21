@@ -39,9 +39,9 @@ frontends are built and installed:
 
 ```bash
 # build directories must be OUTSIDE the source tree (the repo stays pristine)
-cmake -S Exasim -B Exasim-build      # add -DEXASIM_CUDA=ON or -DEXASIM_HIP=ON for GPUs
+cmake -S Exasim -B Exasim-build -DCMAKE_INSTALL_PREFIX=/path/to/prefix  # add -DEXASIM_CUDA=ON or -DEXASIM_HIP=ON for GPUs
 cmake --build Exasim-build -j
-cmake --install Exasim-build --prefix /path/to/prefix
+cmake --install Exasim-build 
 ```
 
 After downloading the source code, make sure the folder is named `Exasim` and
