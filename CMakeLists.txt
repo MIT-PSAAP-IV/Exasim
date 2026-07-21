@@ -51,7 +51,7 @@ option(EXASIM_INT64       "64-bit Int index type (long); default int"        OFF
 option(WITH_TEXT2CODE     "Build text2code-linked executables" OFF)
 option(WITH_BUILTINMODEL  "Build the built-in model library"   ON)
 option(WITH_GMP           "Download/build GMP and use it for vendored SymEngine" OFF)
-option(EXASIM_BUILD_SHARED_APP "Build and install the shared-library exasimapp executable" ON)
+option(EXASIM_BUILD_SHARED_APP "Build and install the shared-library exasimapp executable" OFF)
 option(EXASIM_BUILD_TESTS "Register the ctest regression suite" OFF)
 option(EXASIM_FRONTENDS   "Install the Python/Julia/MATLAB frontends" ON)
 option(EXASIM_PIP_INSTALL "pip-install the exasim Python package at install time" OFF)
