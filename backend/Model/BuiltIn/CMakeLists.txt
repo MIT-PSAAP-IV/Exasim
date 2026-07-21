@@ -254,3 +254,50 @@ if(NOT DEFINED EXASIM_BUILTIN_SKIP_DEFAULTS)
   endforeach()
   exasim_finalize_builtin_models()
 endif()
+
+# -----------------------------------------------------------------------------
+# Optional: also emit standalone header-only, C++-driven apps for the built-in
+# models via `text2code --emit-app` (the same text2code already used to
+# regenerate kernels above). Off by default; build the aggregate `builtin-apps`
+# target to produce them. No-op when text2code is unavailable. Demonstrates the
+# emit-app path over the whole built-in corpus and gives a runnable app per model.
+# -----------------------------------------------------------------------------
+option(EXASIM_EMIT_BUILTIN_APPS
+       "Emit standalone header-only apps for the built-in models (needs text2code)" OFF)
+if(EXASIM_EMIT_BUILTIN_APPS)
+  include("${EXASIM_DIR}/cmake/ExasimEmitApp.cmake")
+  set(_bapps "")
+  foreach(_id RANGE 1 15)
+    set(_src "${EXASIM_BUILTIN_DIR}/pdeapp${_id}.txt")
+    if(EXISTS "${_src}")
+      set(_adir "${EXASIM_BUILTIN_GENROOT}/apps/model${_id}")
+      file(MAKE_DIRECTORY "${_adir}")
+      # Rewrite exasimpath to this tree + force gendatain=0 (the emitted app reads
+      # datain/ at run time; codegen here needs no mesh), mirroring the kernel path.
+      file(READ "${_src}" _pde)
+      string(REGEX REPLACE "exasimpath[ \t]*=[ \t]*\"[^\"]*\""
+             "exasimpath = \"${EXASIM_DIR}\"" _pde "${_pde}")
+      if(NOT _pde MATCHES "exasimpath[ \t]*=")
+        set(_pde "exasimpath = \"${EXASIM_DIR}\";\n${_pde}")
+      endif()
+      string(REGEX REPLACE "gendatain[ \t]*=[ \t]*[0-9]+" "gendatain = 0" _pde "${_pde}")
+      if(NOT _pde MATCHES "gendatain[ \t]*=")
+        set(_pde "gendatain = 0;\n${_pde}")
+      endif()
+      file(WRITE "${_adir}/pdeapp.txt" "${_pde}")
+      file(COPY "${EXASIM_BUILTIN_DIR}/pdemodel${_id}.txt" DESTINATION "${_adir}")
+      exasim_emit_app(NAME builtin_app_${_id}
+                      PDEAPP "${_adir}/pdeapp.txt"
+                      DEST   "${_adir}/app"
+                      MODEL_ID ${_id} APP_NAME builtin${_id}
+                      TEXT2CODE "${EXASIM_TEXT2CODE}")
+      if(TARGET builtin_app_${_id})
+        list(APPEND _bapps builtin_app_${_id})
+      endif()
+    endif()
+  endforeach()
+  if(_bapps)
+    add_custom_target(builtin-apps DEPENDS ${_bapps})
+    message(STATUS "EXASIM_EMIT_BUILTIN_APPS: 'builtin-apps' target emits ${_bapps}")
+  endif()
+endif()

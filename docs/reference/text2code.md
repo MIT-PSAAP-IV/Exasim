@@ -89,6 +89,61 @@ build/exasimapp datain/ dataout/out
 If the package config is installed under a standard CMake prefix, passing the
 install prefix through `Exasim_DIR` or `CMAKE_PREFIX_PATH` may not be needed.
 
+## Standalone header-only app (`--emit-app`)
+
+```bash
+/path/to/exasim-prefix/bin/text2code pdeapp.txt --emit-app myapp --app-name myapp --model-id 100
+```
+
+Writes a self-contained, C++-driven app into `myapp/`:
+
+| File | Purpose |
+| --- | --- |
+| `myapp.cc` | Driver: builds `CSolution<PdeModel>` from `datain/` and solves via `exasim::petsc::solve_steady`. |
+| `generated/my_model.hpp` | The concrete templated model (also `model_sizes.hpp`). |
+| `CMakeLists.txt`, `build.sh` | Build against a petsc-enabled Exasim install. |
+| `README.md` | Build/run instructions. |
+
+The app has **no** runtime-loaded `.so` model ABI and **no** hand-rolled PETSc
+solver code — the whole solve lives in `<exasim/petsc.hpp>`.
+
+> **HDG-only (current limitation).** The generated app solves through the exported HDG
+> PETSc operator (`exasim::petsc::solve_steady`, the condensed trace system), so it
+> requires HDG preprocessing: set `discretization = "hdg"` (`hybrid = 1`) in `pdeapp.txt`.
+> `text2code --emit-app` **refuses** an LDG-configured model (with a clear message) unless
+> `--allow-ldg` is passed, and `solve_steady` raises on a non-HDG problem at runtime. For
+> LDG, use the existing frontend / `ExasimSolver` runtime path (or `exportapp`) instead.
+
+The scaffold builds on **CPU or GPU**, **serial or MPI**. CPU (`cpu`/`cpumpi` variant) is the
+default. Pass `-DEXASIM_GPU=ON` to build the CUDA `gpu`/`gpumpi` variant: the driver selects the
+device backend at compile time (`_CUDA` → backend 2) and `solve_steady` wraps device pointers
+zero-copy into PETSc's CUDA `Vec`. A GPU build needs a GPU-built Exasim install (CUDA Kokkos
++ CUDA PETSc) and `nvcc_wrapper` as the C++ compiler (`build.sh` sets this). HIP (`_HIP` →
+backend 3) follows the same shape.
+
+Multi-rank (`mpirun -np N`) works on both backends: the generated driver sets `EXASIM_COMM_LOCAL`
+(needed for the distributed HDG trace halo exchange) and, on GPU, pins each rank to a distinct
+device (`shmrank % deviceCount`). Preprocess the mesh with `mpiprocs = N` so `text2code` writes the
+`N`-way partition. Validated to the manufactured-solution tolerance at np=2 on CPU and across 2 GPUs
+(`tests/remote/gpu-mms-test.sh`).
+
+Build + run:
+
+```bash
+# CPU
+EXASIM_INSTALL=/path/to/petsc-enabled-exasim ./myapp/build.sh
+mpirun -np 1 myapp/build/myapp datain/ dataout/out
+
+# GPU (CUDA)
+EXASIM_GPU=1 EXASIM_INSTALL=/path/to/gpu-exasim \
+  NVCC_WRAPPER=/path/to/kokkos/bin/nvcc_wrapper EXASIM_GPU_ARCH=sm_70 ./myapp/build.sh
+mpirun -np 1 myapp/build/myapp datain/ dataout/out
+```
+
+The same scaffold is available from the Python codegen: `python -m pyt2c pdemodel.txt
+--emit-app myapp` (and `--from-header generated/my_model.hpp` to scaffold from an
+existing model header with no `.txt` input).
+
 ## Parameter Sweeps
 
 When `physicsparamcases` is present, Text2Code writes the shared sweep file
