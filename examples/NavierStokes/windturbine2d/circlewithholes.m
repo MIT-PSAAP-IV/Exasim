@@ -1,5 +1,5 @@
 
-load('/Users/cuongnguyen/Documents/GitHub/PSAAP/Exasim/examples/NavierStokes/windturbine2d/circlewithholes.mat');
+load(fullfile(fileparts(mfilename('fullpath')), 'circlewithholes.mat'));
 
 % R = 10;
 nc = 125;
@@ -29,4 +29,3 @@ title('Gmsh boundary loops');
 % windturbine2d_plot(wt);
 % hold on; 
 % simpplot(p', t');
-
