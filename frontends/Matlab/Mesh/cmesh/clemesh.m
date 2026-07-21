@@ -60,7 +60,7 @@ mesh.boundarycondition = [1;2];
 mesh.curvedboundary = [0 0];
 mesh.curvedboundaryexpr = {@(p) 0*p(1,:), @(p) 0*p(1,:)};
 mesh.periodicexpr = {};
-mesh.f = facenumbering(mesh.p,mesh.t,mesh.elemtype, mesh.boundaryexpr,mesh.periodicexpr);
+mesh.f = local_facenumbering(mesh.p, mesh.t, mesh.elemtype, mesh.boundaryexpr);
 
 end
 
@@ -127,12 +127,82 @@ end
 
 function local_check_final_mesh(mesh)
 area = local_signed_area(mesh.p, mesh.t, mesh.elemtype);
-if any(area <= 0)
+if any(area <= 0)    
     error('clemesh generated %d inverted or zero-area elements.', nnz(area <= 0));
 end
 if size(mesh.dgnodes, 3) ~= size(mesh.t, 1)
     error('clemesh generated inconsistent mesh.t and mesh.dgnodes sizes.');
 end
+end
+
+function f = local_facenumbering(p,t,elemtype,bndexpr)
+%LOCAL_FACENUMBERING Path-independent boundary numbering for CLE meshes.
+dim = size(p,1);
+ne = size(t,2);
+if dim ~= 2 || elemtype ~= 1
+    error('clemesh local_facenumbering currently expects 2-D quadrilateral meshes.');
+end
+
+face = [1 2; 2 3; 3 4; 4 1]';
+[nvf,nfe] = size(face);
+t2fl = reshape(t(face,:),[nvf nfe*ne]);
+pf = reshape(p(:,t2fl),[dim nvf nfe ne]);
+f = zeros(nfe,ne);
+[f2t, ~] = local_mkf2e(t, elemtype, dim);
+boundaryFaces = find(f2t(3,:)==0);
+
+for i = 1:numel(boundaryFaces)
+    e = f2t(1,boundaryFaces(i));
+    l = f2t(2,boundaryFaces(i));
+    for k = 1:numel(bndexpr)
+        if bndexpr{k}(pf(:,1,l,e)) && bndexpr{k}(pf(:,2,l,e))
+            f(l,e) = k;
+            break;
+        end
+    end
+end
+end
+
+function [f2e, e2e] = local_mkf2e(t,elemtype,nd)
+if nd ~= 2 || elemtype ~= 1
+    error('clemesh local_mkf2e currently expects 2-D quadrilateral meshes.');
+end
+
+[~,ne] = size(t);
+face = [1 2; 2 3; 3 4; 4 1]';
+[nvf,nfe] = size(face);
+tf = sort(reshape(t(face,:),[nvf nfe*ne]),1);
+
+[tf, jx] = sortrows(tf');
+tf = tf';
+dx = sum((tf(:,2:end)-tf(:,1:end-1)).^2,1);
+in1 = find(dx==0);
+in2 = in1+1;
+in0 = setdiff((1:length(jx))',unique([in1(:); in2(:)]));
+
+nf = length(in0)+length(in1);
+f2e = zeros(4,nf);
+e2e = zeros(nfe,ne);
+
+e1 = ceil(jx(in1)/nfe);
+l1 = jx(in1) - (e1-1)*nfe;
+e2 = ceil(jx(in2)/nfe);
+l2 = jx(in2) - (e2-1)*nfe;
+g = 1:length(in1);
+f2e(1,g) = e1;
+f2e(2,g) = l1;
+f2e(3,g) = e2;
+f2e(4,g) = l2;
+for i = 1:length(e1)
+    e2e(l1(i),e1(i)) = e2(i);
+    e2e(l2(i),e2(i)) = e1(i);
+end
+
+e1 = ceil(jx(in0)/nfe);
+l1 = jx(in0) - (e1-1)*nfe;
+g = (length(in1)+1):nf;
+f2e(1,g) = e1;
+f2e(2,g) = l1;
 end
 
 function nmatch = local_count_matches(p1, p2, tol)
