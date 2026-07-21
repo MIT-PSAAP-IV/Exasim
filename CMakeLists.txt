@@ -660,6 +660,12 @@ set(_exasim_fwd -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DCMAKE_CXX_COMPILER=${_e
 if(CMAKE_BUILD_TYPE)
   list(APPEND _exasim_fwd -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE})
 endif()
+if(DEFINED BLAS_LIBRARIES)
+  list(APPEND _exasim_fwd -DBLAS_LIBRARIES=${BLAS_LIBRARIES})
+endif()
+if(DEFINED LAPACK_LIBRARIES)
+  list(APPEND _exasim_fwd -DLAPACK_LIBRARIES=${LAPACK_LIBRARIES})
+endif()
 
 ExternalProject_Add(exasim_build
   SOURCE_DIR  "${EXASIM_ROOT}/install"

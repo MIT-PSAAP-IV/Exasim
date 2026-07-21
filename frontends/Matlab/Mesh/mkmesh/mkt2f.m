@@ -57,7 +57,7 @@ end
 
 t2t = mkt2t(t,elemtype);
 nb = sum(sum(t2t <= 0));
-f = zeros((nfv*nt+nb)/2,npf+2);
+f = zeros(round((nfv*nt+nb)/2),npf+2);
 t2f = zeros(nt,nfv);
 jf = 0;
 for i=1:nt
@@ -82,7 +82,7 @@ for i=1:nt
         end
     end
 end
-
+f = f(1:jf,:);
 
 % Reorder faces - First interior then boundary
 

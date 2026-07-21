@@ -41,6 +41,7 @@
 #define __SETSTRUCTS
 
 #include "ismeshcurved.cpp"
+#include "interfacepartition.hpp"
 
 template <class T=dstype, class I=Int>
 void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh, 
@@ -844,6 +845,8 @@ void cpuInit(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, E
         printf("Reading data from binary files \n");
     readInput(app, driver_abi, master, mesh, sol, filein, mpiprocs, mpirank, fileoffset, omprank,
               physicsparamOverride);
+    exasim::interfacepartition::build_runtime_interface_partition(app, master, mesh, sol,
+            mpiprocs, mpirank, fileoffset);
     
     if (mpirank==0)
         printf("Finish reading data from binary files \n");
@@ -991,7 +994,7 @@ void devsolstruct(solstructT<T,I> &dsol, solstructT<T,I> &sol, commonstructT<T,I
     TemplateCopytoDevice( dsol.dudg, sol.dudg, sol.nsize[2], common.backend );   
     //CHECK( cudaMemcpy( dsol.uh, sol.uh, sol.nsize[3]*sizeof(dstype), cudaMemcpyHostToDevice ) );      
     TemplateCopytoDevice( dsol.dodg, sol.dodg, sol.nsize[3], common.backend );   
-    TemplateCopytoDevice( dsol.wdg, sol.dwdg, sol.nsize[4], common.backend );   
+    TemplateCopytoDevice( dsol.dwdg, sol.dwdg, sol.nsize[4], common.backend );
     #endif
 }
 

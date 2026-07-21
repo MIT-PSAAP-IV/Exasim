@@ -113,25 +113,33 @@ else
         mpiprocs = pde{1}.mpiprocs + pde{2}.mpiprocs;
 
         for m = 1:nmodels
+            % A model may have been run earlier through the single-model
+            % external-provider path, which sets combinedmodel=true.  Legacy
+            % interface coupling must use the shared suffixed-kernel layout
+            % assembled by kkgencodeall, not the per-model isolated layout.
+            pde{m}.combinedmodel = false;
             [pde{m},mesh{m},master{m},dmd{m}] = preprocessing(pde{m},mesh{m});
         end
 
-        [dmd{1},dmd{2},isd1,isd2]=interfacepartition(mesh{1}, dmd{1}, mesh{2}, dmd{2});
-        writedmd(dmd{1}, pde{1}, isd1);
-        writedmd(dmd{2}, pde{2}, isd2);
+        % [dmd{1},dmd{2},isd1,isd2]=interfacepartition(mesh{1}, dmd{1}, mesh{2}, dmd{2});
+        % writedmd(dmd{1}, pde{1}, isd1);
+        % writedmd(dmd{2}, pde{2}, isd2);
 
         if pde{1}.gencode==1
           for m = 1:nmodels
             kkgencode(pde{m});
           end
-          kkgencodeall(nmodels, pde{1}.backendpath + "/Model");
+
+          mbdir = string(pde{1}.builddir);
+          kkdir = mbdir + "/kernels";
+          kkgencodeall(nmodels, kkdir);
           compilerstr = cmakecompile(pde{1}, mpiprocs);
         end
 
         runstr = runcode(pde{1}, nummodels, mpiprocs);
 
         for m = 1:nmodels
-            sol{m} = fetchsolution(pde{m},master{m},dmd{m}, pde{m}.buildpath + "/dataout" + num2str(m));
+            sol{m} = fetchsolution(pde{m},master{m},dmd{m}, pde{m}.datapath + "/dataout" + num2str(m));
         end
     else
         % ---- combined multi-PDE through the external-model path -----------

@@ -1029,7 +1029,7 @@ int mkfaceblocks(int*& nm, const int* mf, const int* bcm, int nmf_len, int ns)
 
     for (int i = 0; i < nmf_len - 1; ++i) {
         int nf = mf[i + 1] - mf[i];
-        int* intervals; 
+        int* intervals = nullptr; 
         int nblocks = divide_interval(intervals, nf, ns);
 
         for (int j = 0; j < nblocks; ++j) {
@@ -1040,7 +1040,8 @@ int mkfaceblocks(int*& nm, const int* mf, const int* bcm, int nmf_len, int ns)
             nm[3 * count + 2] = bcm[i];  // boundary code
             count++;
         }
-        free(intervals);
+        if (intervals != nullptr)
+            free(intervals);
     }
 
     return count; 
@@ -1640,4 +1641,3 @@ void checkConn(meshstructT<T,I>& mesh, solstructT<T,I>& sol, const appstructT<T,
 }
 
 #endif
-

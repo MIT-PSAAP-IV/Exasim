@@ -60,7 +60,8 @@ def cmakecompile(pde):
     exe = os.path.join(bdir, "exasimapp")
     cmake = config.cmake_command()
     cfg = [cmake, "-S", builddir, "-B", bdir,
-           "-DExasim_DIR=" + str(config.cmake_dir())]
+           "-DExasim_DIR=" + str(config.cmake_dir()),
+           "-DEXASIM_VARIANT=" + variant]
 
     # Hash the model inputs (kernels + app templates + substitution values +
     # the install). Templates rather than rendered files: the rendered sources
@@ -154,7 +155,8 @@ def cmakecompile_combined(pdes):
     exe = os.path.join(bdir, "exasimapp")
     cmake = config.cmake_command()
     cfg = [cmake, "-S", builddir, "-B", bdir,
-           "-DExasim_DIR=" + str(config.cmake_dir())]
+           "-DExasim_DIR=" + str(config.cmake_dir()),
+           "-DEXASIM_VARIANT=" + variant]
     subprocess.run(cfg, check=True)
     jobs = os.environ.get("JOBS") or str(os.cpu_count() or 4)
     subprocess.run([cmake, "--build", bdir, "--parallel", jobs], check=True)

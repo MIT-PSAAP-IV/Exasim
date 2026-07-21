@@ -37,9 +37,10 @@ tn = (u(:,14,:) - (u(:,4,:)./u(:,1,:)).*u(:,11,:))./u(:,1,:);
 q = q - tm.*tn;
 
 % normalize 
-qmin = min(q(:));
-qmax = max(q(:));
-q = 2*(q-qmin)/(qmax-qmin) - 1;
+% qmin = min(q(:));
+% qmax = max(q(:));
+% [qmin qmax]
+%q = 2*(q-qmin)/(qmax-qmin) - 1;
 
 
 

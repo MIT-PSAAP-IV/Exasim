@@ -5,7 +5,7 @@ if app.modelnumber==0
 else
     strn = num2str(app.modelnumber);
 end
-filename = app.buildpath + "/datain" + strn + "/";
+filename = app.datapath + "/datain" + strn + "/";
 
 for i = 1:length(isd)
   d = isd(i);  

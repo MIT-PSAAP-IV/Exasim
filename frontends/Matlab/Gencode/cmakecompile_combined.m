@@ -48,7 +48,8 @@ rendertemplate(tmpl + "/main.cpp.in", builddir + "/main.cpp", subs);
 bdir = builddir + "/build";
 exe = bdir + "/exasimapp";
 comstr = cmakecmd + " -S " + builddir + " -B " + bdir + ...
-         " -DExasim_DIR=" + prefix + "/lib/cmake/Exasim";
+         " -DExasim_DIR=" + prefix + "/lib/cmake/Exasim" + ...
+         " -DEXASIM_VARIANT=" + variant;
 runchecked(comstr);
 
 jobs = getenv('JOBS');

@@ -119,6 +119,7 @@ function _t2c_write_pdeapp(pde, mesh, files, path)
     app["GMRESiter"] = get(app, "linearsolveriter", get(app, "GMRESiter", 200))
     app["GMREStol"] = get(app, "linearsolvertol", get(app, "GMREStol", 1e-3))
     app["ncv"] = get(app, "nco", get(app, "ncv", 0))
+    app["frontendgenerated"] = 0
     if haskey(app, "physicsparamsweep") && !_t2c_empty(app["physicsparamsweep"])
         app["physicsparamcases"] = _t2c_normalize_sweep_cases(app["physicsparamsweep"], length(vec(app["physicsparam"])))
     end
@@ -146,7 +147,7 @@ function _t2c_write_pdeapp(pde, mesh, files, path)
     keys = [
         "model", "modelfile", "meshfile", "xdgfile", "udgfile", "vdgfile", "wdgfile",
         "discretization", "platform", "mpiprocs", "debugmode", "runmode", "modelnumber",
-        "builtinmodelID",
+        "builtinmodelID", "frontendgenerated",
         "nodetype", "ncu", "ncv", "ncw", "neb", "nfb", "linearproblem", "subproblem",
         "saveParaview", "physicsparamwarmstart", "tdep", "wave", "porder", "pgauss",
         "temporalscheme", "torder", "nstage", "convStabMethod", "diffStabMethod",

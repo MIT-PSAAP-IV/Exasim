@@ -12,9 +12,9 @@ function [p,t] = lesmesh2d(xf, yf, dlay, dwall, nx, ny, xref, yref)
 % dlay=0.1; dwall=2e-5; nx=96; ny = 25;
 % [p,t] = lesmesh2d(xf, yf, dlay, dwall, nx, ny, [1.3 2; 1.55 1.78], [0.03 0.01 0.003]);
 
-if size(xref,2)~=2
-    error('xref must have dimension Nx times 2');
-end
+% if size(xref,2)~=2
+%     error('xref must have dimension Nx times 2');
+% end
 
 % calculate the mesh ratio
 c = 1 - dlay/dwall;
@@ -37,9 +37,13 @@ ns = length(xf);
 t = 0:ns-1;
 spx = spline(t,xf);
 spy = spline(t,yf);
-ttp = distribute(nx,spx,spy,ns);
+ttp = distribute(nx,spx,spy,ns,10);
 xv = zeros(nx+1,1);
 xv(1:nx+1,1) = 2*ttp/(ns-1);
+
+%xv = linspace(0,2,nx+1)';
+
+figure(1); clf; plot(xf, yf, '-o'); axis equal; axis tight;
 
 % refine according to xref
 for i = 1:size(xref,1)
@@ -56,12 +60,10 @@ for i = 1:size(xref,1)
     xv = unique([x1; x2; x3]);
 end
 
-size(xv)
-
 % make the grid from points
 [p,t] = quadgrid(xv,yv);
 
-size(t)
+figure(2);clf;simpplot(p,t);axis on;
 
 % refine according to yref
 n = length(yref);
@@ -76,12 +78,12 @@ end
 [p,t] = removeelemement(p, t, ['y>' num2str(dlay/1.75)]);
 
 % plot grid 
-figure(1);clf;simpplot(p,t);axis on;
+figure(3);clf;simpplot(p,t);axis on;
 
 % map rect to foil
 p = map2foil(p,xf,yf);
 
 % plot grid 
-figure(2);clf;simpplot(p,t);axis on;
+figure(4);clf;simpplot(p,t);axis on;
 
 

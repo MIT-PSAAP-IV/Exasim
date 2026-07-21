@@ -103,14 +103,14 @@ std::vector<T> parseList(const std::string& buffer) {
 
     if (std::regex_search(buffer, match, brace_content)) {
         std::string content = match[1];
-        std::istringstream ss(content);
-        std::string item;
-        while (std::getline(ss, item, ',')) {
-            std::istringstream converter(item);
-            T value;
-            converter >> value;
-            result.push_back(value);
+        for (char& ch : content) {
+            if (ch == ',' || ch == ';')
+                ch = ' ';
         }
+        std::istringstream ss(content);
+        T value;
+        while (ss >> value)
+            result.push_back(value);
     }
     return result;
 }
@@ -429,6 +429,8 @@ struct PDE {
     int gencode = 1; // 1 for code generation, 0 for no code generation
     int writemeshsol = 1; // 1 for writing mesh solution, 0 for no writing
     int modelnumber = 0;
+    int builtinmodelID = 0;
+    int frontendgenerated = 0;
     int mpiprocs = 1;
     int nd = 1, nc = 1, ncu = 1, ncq = 0, ncp = 0, ncv = 0;
     int nch = 1, ncx = 1, ncw = 0, nce = 0, np=0, nve=0, ne=0;
@@ -620,6 +622,9 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     if (params.intParams.count("modelnumber")) {
         pde.modelnumber = params.intParams["modelnumber"];
     }
+    if (params.intParams.count("builtinmodelID")) {
+        pde.builtinmodelID = params.intParams["builtinmodelID"];
+    }
     if (params.intParams.count("nodetype")) {
         pde.nodetype = params.intParams["nodetype"];
     }
@@ -667,7 +672,10 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     }
     if (params.intParams.count("pgauss")) {
         pde.pgauss = params.intParams["pgauss"];
-    }        
+    }
+    if (pde.pgauss < 2 * pde.porder) {
+        pde.pgauss = 2 * pde.porder;
+    }
     if (params.intParams.count("stgNmode")) {
         pde.stgNmode = params.intParams["stgNmode"];
     }
@@ -864,7 +872,7 @@ PDE initializePDE(InputParams& params, int mpirank=0)
         pde.tdep, pde.wave, pde.linearproblem, pde.debugmode, pde.matvecorder, pde.GMRESortho,
         pde.preconditioner, pde.precMatrixType, pde.NLMatrixType, pde.runmode, pde.tdfunc, pde.sourcefunc,
         pde.modelnumber, pde.extFhat, pde.extUhat, pde.extStab, pde.subproblem, pde.saveParaview,
-        pde.physicsparamwarmstart
+        pde.physicsparamwarmstart, pde.builtinmodelID, pde.frontendgenerated
     );        
     pde.problem = makeDoubleVector(
         pde.hybrid, 0, pde.temporalscheme, pde.torder, pde.nstage, pde.convStabMethod,

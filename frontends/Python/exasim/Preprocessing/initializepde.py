@@ -27,6 +27,7 @@ def initializepde(version):
     pde['model'] = "ModelD";
     pde['modelnumber'] = 0;
     pde['builtinmodelID'] = 0;  # backend per-slot dispatch selector; 0 = use modelid
+    pde['frontendgenerated'] = 1;
     pde['modelfile'] = "";
     pde['exporttext2code'] = "";
     pde['platform'] = "cpu";

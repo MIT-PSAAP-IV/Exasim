@@ -14,9 +14,11 @@ def writeapp(app,filename):
         app['physicsparamwarmstart'] = 0;
     if 'builtinmodelID' not in app:
         app['builtinmodelID'] = 0;
+    if 'frontendgenerated' not in app:
+        app['frontendgenerated'] = 1;
 
     appname = 0;
-    tmp = array([app['tdep'], app['wave'], app['linearproblem'], app['debugmode'], app['matvecorder'], app['GMRESortho'], app['preconditioner'], app['precMatrixType'], app['NLMatrixType'], app['runmode'], app['tdfunc'], app['source'], app['modelnumber'], app['extFhat'], app['extUhat'], app['extStab'], app['subproblem'], app['saveParaview'], app['physicsparamwarmstart'], app['builtinmodelID']]);
+    tmp = array([app['tdep'], app['wave'], app['linearproblem'], app['debugmode'], app['matvecorder'], app['GMRESortho'], app['preconditioner'], app['precMatrixType'], app['NLMatrixType'], app['runmode'], app['tdfunc'], app['source'], app['modelnumber'], app['extFhat'], app['extUhat'], app['extStab'], app['subproblem'], app['saveParaview'], app['physicsparamwarmstart'], app['builtinmodelID'], app['frontendgenerated']]);
     app['flag'] =  concatenate([tmp,app['flag']]);
     # problem[0..27] then the coupling slots problem[28..31] (M1: reconcile to Matlab's app.bin
     # layout -- backend reads problem[28..31] as coupledinterface/coupledcondition/

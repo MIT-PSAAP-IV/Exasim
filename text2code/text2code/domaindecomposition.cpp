@@ -37,7 +37,7 @@
  *   - Partitions elements into interior, interface, exterior, and outer categories.
  *   - Populates communication structures for parallel exchange.
  *
- * void build_dmdhdg(std::vector<DMD>& dmd, const int* e2e, const int* elem2cpu, const int* inte, int nfe, int ne, const PDE& pde)
+ * void build_dmdhdg(std::vector<DMD>& dmd, const int* e2e, const int* elem2cpu, const int* inte, int ninte, int nfe, int ne, const PDE& pde)
  *   - Builds domain decomposition for HDG schemes, supporting coupled interfaces.
  *   - Partitions elements into interior, interface1, interface2, and exterior categories.
  *   - Populates communication structures for parallel exchange.
@@ -297,10 +297,16 @@ void build_dmdldg(std::vector<DMD>& dmd, const int* e2e, const int* elem2cpu, in
     std::cout << "Finished build_dmdldg.\n";
 }
 
-void build_dmdhdg(std::vector<DMD>& dmd, const int* e2e, const int* elem2cpu, const int* inte, int nfe, int ne, const PDE& pde) 
+void build_dmdhdg(std::vector<DMD>& dmd, const int* e2e, const int* elem2cpu, const int* inte, int ninte, int nfe, int ne, const PDE& pde) 
 {
     int coupledinterface = pde.coupledinterface;
     int nproc = static_cast<int>(dmd.size());
+    std::vector<int> interfaceElements;
+    if (coupledinterface > 0 && inte != nullptr && ninte > 0) {
+        interfaceElements.assign(inte, inte + ninte);
+        std::sort(interfaceElements.begin(), interfaceElements.end());
+        interfaceElements.erase(std::unique(interfaceElements.begin(), interfaceElements.end()), interfaceElements.end());
+    }
 
     for (int i = 0; i < nproc; ++i) {
         std::vector<int> intelem;
@@ -319,32 +325,47 @@ void build_dmdhdg(std::vector<DMD>& dmd, const int* e2e, const int* elem2cpu, co
         bndelem.reserve(elem.size());
         std::set_intersection(elem.begin(), elem.end(), intelem.begin(), intelem.end(), std::back_inserter(bndelem));
 
-        std::vector<int> bndelem1, bndelem2;
-        if (coupledinterface > 0) {
-            bndelem1.reserve(bndelem.size());
-            bndelem2.reserve(bndelem.size());
-            std::set_intersection(bndelem.begin(), bndelem.end(), inte, inte + ne, std::back_inserter(bndelem1));
-            std::set_difference(bndelem.begin(), bndelem.end(), bndelem1.begin(), bndelem1.end(), std::back_inserter(bndelem2));
-            bndelem = bndelem1;
-            bndelem.insert(bndelem.end(), bndelem2.begin(), bndelem2.end());
-        }
-
-        std::vector<int> part1, part2;
-        part1.reserve(intelem.size());
-        part2 = bndelem;
-        std::set_difference(intelem.begin(), intelem.end(), bndelem.begin(), bndelem.end(), std::back_inserter(part1));
         std::vector<int>& part3 = extelem;
-
-        dmd[i].elempart.clear();
-        dmd[i].elempart.reserve(part1.size() + part2.size() + part3.size());
-        dmd[i].elempart.insert(dmd[i].elempart.end(), part1.begin(), part1.end());
-        dmd[i].elempart.insert(dmd[i].elempart.end(), part2.begin(), part2.end());
-        dmd[i].elempart.insert(dmd[i].elempart.end(), part3.begin(), part3.end());
-
-        dmd[i].elempartpts = {static_cast<int>(part1.size()), static_cast<int>(part2.size()), static_cast<int>(part3.size())};
-
         if (coupledinterface > 0) {
-            dmd[i].intepartpts = {static_cast<int>(part1.size()), static_cast<int>(bndelem1.size()), static_cast<int>(bndelem2.size()), static_cast<int>(part3.size())};
+            std::vector<int> interface, part0, part1, part2, part4, part5;
+            interface.reserve(intelem.size());
+            part0.reserve(intelem.size());
+            part1.reserve(intelem.size());
+            part2.reserve(intelem.size());
+            part4.reserve(bndelem.size());
+            part5.reserve(bndelem.size());
+
+            std::set_intersection(intelem.begin(), intelem.end(), interfaceElements.begin(), interfaceElements.end(), std::back_inserter(interface));
+            std::set_union(interface.begin(), interface.end(), bndelem.begin(), bndelem.end(), std::back_inserter(part0));
+            std::set_difference(intelem.begin(), intelem.end(), part0.begin(), part0.end(), std::back_inserter(part1));
+            std::set_difference(interface.begin(), interface.end(), bndelem.begin(), bndelem.end(), std::back_inserter(part2));
+            std::set_intersection(interface.begin(), interface.end(), bndelem.begin(), bndelem.end(), std::back_inserter(part4));
+            std::set_difference(bndelem.begin(), bndelem.end(), part4.begin(), part4.end(), std::back_inserter(part5));
+
+            dmd[i].elempart.clear();
+            dmd[i].elempart.reserve(part1.size() + part2.size() + part4.size() + part5.size() + part3.size());
+            dmd[i].elempart.insert(dmd[i].elempart.end(), part1.begin(), part1.end());
+            dmd[i].elempart.insert(dmd[i].elempart.end(), part2.begin(), part2.end());
+            dmd[i].elempart.insert(dmd[i].elempart.end(), part4.begin(), part4.end());
+            dmd[i].elempart.insert(dmd[i].elempart.end(), part5.begin(), part5.end());
+            dmd[i].elempart.insert(dmd[i].elempart.end(), part3.begin(), part3.end());
+
+            dmd[i].elempartpts = {static_cast<int>(intelem.size() - bndelem.size()), static_cast<int>(bndelem.size()), static_cast<int>(part3.size())};
+            dmd[i].intepartpts = {static_cast<int>(part1.size()), static_cast<int>(interface.size()), static_cast<int>(intelem.size() - part1.size() - interface.size()), static_cast<int>(part3.size())};
+        }
+        else {
+            std::vector<int> part1, part2;
+            part1.reserve(intelem.size());
+            part2 = bndelem;
+            std::set_difference(intelem.begin(), intelem.end(), bndelem.begin(), bndelem.end(), std::back_inserter(part1));
+
+            dmd[i].elempart.clear();
+            dmd[i].elempart.reserve(part1.size() + part2.size() + part3.size());
+            dmd[i].elempart.insert(dmd[i].elempart.end(), part1.begin(), part1.end());
+            dmd[i].elempart.insert(dmd[i].elempart.end(), part2.begin(), part2.end());
+            dmd[i].elempart.insert(dmd[i].elempart.end(), part3.begin(), part3.end());
+
+            dmd[i].elempartpts = {static_cast<int>(part1.size()), static_cast<int>(part2.size()), static_cast<int>(part3.size())};
         }
 
         dmd[i].elem2cpu.resize(dmd[i].elempart.size());
@@ -357,7 +378,7 @@ void build_dmdhdg(std::vector<DMD>& dmd, const int* e2e, const int* elem2cpu, co
 
         dmd[i].elemrecv.clear();
         dmd[i].elemrecv.reserve(recvelem.size());
-        int offset = part1.size() + part2.size();
+        int offset = dmd[i].elempartpts[0] + dmd[i].elempartpts[1];
         for (int j = 0; j < recvelem.size(); ++j) {
             if (ind[j] >= 0) {
                 dmd[i].elemrecv.push_back({dmd[i].elem2cpu[ind[j]], static_cast<int>(offset + j), recvelem[j]});
@@ -413,4 +434,3 @@ void build_dmdhdg(std::vector<DMD>& dmd, const int* e2e, const int* elem2cpu, co
 }
 
 #endif
-

@@ -33,7 +33,7 @@ c23 = 2.0/3.0;
 % regularization mueters
 alpha = 1.0e3;
 rmin = 1.0e-2;
-pmin = 1.0e-3;
+pmin = 1.0e-4;
 
 av = v(1);
 
@@ -183,12 +183,15 @@ function fb = fbouhdg(u, q, w, v, x, t, mu, eta, uhat, n, tau)
     f1(2) = 0.0  - uhat(2); % zero velocity
     f1(3) = 0.0  - uhat(3); % zero velocity           
     f1(4) = -uhat(4) + uhat(1)*TisoW;
+    % p = (gamma-1)*rho (E - 0.5 v^2)
+    % T = p/((gamma-1)*rho) = E - 0.5*v^2
+    % rho T = rho * E - 0.5*rho*v^2
 
     % slip wall boundary conditions   
-    [dutdn, dTdn, lambda] = wallstate(uhat, q, mu, n);
+    [dutdn, dTdn, lambda] = wallstate(u, q, mu, n);
     uslip = sigmaV*lambda*dutdn;
     Tslip = sigmaT*lambda*dTdn;
-    Tgaswall = (Twall/Tref + Tslip) * Tinf;      
+    Tgaswall = TisoW + Tslip;      
     nx = n(1);
     ny = n(2);
     tx = -ny;
@@ -197,7 +200,13 @@ function fb = fbouhdg(u, q, w, v, x, t, mu, eta, uhat, n, tau)
     f4(1) = u(1) - uhat(1); % extrapolate density
     f4(2) = uhat(1)*uslip*tx  - uhat(2); 
     f4(3) = uhat(1)*uslip*ty  - uhat(3); 
-    f4(4) = uhat(1)*(Tgaswall + 0.5*uslip*uslip) - uhat(4);    
+    f4(4) = uhat(1)*(Tgaswall + 0.5*uslip*uslip) - uhat(4);        
+    % T = p/(gam1*r) = E - 0.5*v^2
+    % Tphys = Tref/Tinf * T = Tref/Tinf * (E - 0.5*v^2)
+    % Tphys = Twall + Tslip * Tref/Tinf
+    % Tref/Tinf * (E - 0.5*v^2) = Twall + Tslip * Tref/Tinf
+    % (E - 0.5*v^2) = Twall * Tinf/Tref + Tslip
+    % rhoE = rho * (Twall * Tinf/Tref + Tslip + 0.5*v^2) 
 
     fb = [f1 f_in f_out f4];
 end
@@ -220,6 +229,7 @@ mu_ref = mu(13);
 Tmu_ref = mu(14);
 omega = mu(15); 
 R = mu(16);
+rho_ref = mu(19);
 Tinf = 1/(gam*gam1*Minf^2);
 
 r = u(1);
@@ -235,7 +245,12 @@ ruy = q(6);
 rvy = q(7);
 rEy = q(8);
 
-dr=1;
+alpha = 1.0e3;
+rmin = 1.0e-2;
+pmin = 1.0e-4;
+r = rmin + lmax(r-rmin,alpha);
+dr = atan(alpha*(r - rmin))/pi + (alpha*(r - rmin))/(pi*(alpha^2*(r - rmin)^2 + 1)) + 1/2;
+
 rx = rx*dr;
 ry = ry*dr;
 r1 = 1/r;
@@ -243,7 +258,9 @@ uv = ru*r1;
 vv = rv*r1;
 q = 0.5*(uv*uv+vv*vv);
 p = gam1*(rE-r*q);
-dp = 1;
+p = pmin + lmax(p-pmin,alpha);
+dp = atan(alpha*(p - pmin))/pi + (alpha*(p - pmin))/(pi*(alpha^2*(p - pmin)^2 + 1)) + 1/2;
+
 ux = (rux - rx*uv)*r1;
 vx = (rvx - rx*vv)*r1;
 qx = uv*ux + vv*vx;
@@ -259,7 +276,7 @@ Ty = 1/gam1*(py*r - p*ry)*r1^2;
 
 T = p/(gam1*r);
 Tphys = Tref/Tinf * T;
-rphys = r*rinf;
+rphys = r*rho_ref;
 
 mu_phys = mu_ref * (Tphys  / Tmu_ref)^omega;
 lambda = (mu_phys/rphys) * sqrt(pi/(2 * R * Tphys)); 

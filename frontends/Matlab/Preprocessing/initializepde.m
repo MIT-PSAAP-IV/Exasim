@@ -38,6 +38,7 @@ pde.gpulibflags = "";
 pde.pdemodel="ModelD";
 pde.modelnumber = 0;
 pde.builtinmodelID = 0;
+pde.frontendgenerated = 1;
 
 pde.Cxxpreprocessing = 1;
 pde.preprocessmode = 1;
@@ -162,4 +163,3 @@ pde.fbou = "fbou";
 pde.fhat = "fhat";
 pde.source = "source";
 pde.arg = {};
-

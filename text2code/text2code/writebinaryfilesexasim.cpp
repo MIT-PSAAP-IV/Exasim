@@ -345,7 +345,7 @@ void writeBinaryFiles(PDE& pde, Mesh& mesh, const Master& master, const ParsedSp
             //cout<<mesh.nf<<", "<<pde.coupledinterface<<": here 1"<<endl;
             vector<DMD> dmd(pde.mpiprocs);            
             if (pde.hybrid==1)         
-                build_dmdhdg(dmd, mesh.t2t.data(), mesh.elem2cpu.data(), mesh.inte.data(), mesh.nfe, mesh.ne, pde);
+                build_dmdhdg(dmd, mesh.t2t.data(), mesh.elem2cpu.data(), mesh.inte.data(), static_cast<int>(mesh.inte.size()), mesh.nfe, mesh.ne, pde);
             else build_dmdldg(dmd, mesh.t2t.data(), mesh.elem2cpu.data(), mesh.nfe, mesh.ne, pde);                
             
             for (int n=0; n<pde.mpiprocs; n++) {

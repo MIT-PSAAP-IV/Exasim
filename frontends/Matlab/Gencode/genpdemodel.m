@@ -104,6 +104,13 @@ f = pdem.fbouhdg(u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, tau);
 blocks(end+1) = emit_function("FbouHdg", faceArgs, "fb", f);
 present(end+1) = "FbouHdg";
 
+% ----- Fint (interface coupling; optional for single-domain models) -----
+if isfield(pdem, 'fint')
+    f = pdem.fint(u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, tau);
+    blocks(end+1) = emit_function("Fint", faceArgs, "fi", f);
+    present(end+1) = "Fint";
+end
+
 % ----- Initu (required) -----
 if ~isfield(pdem, 'initu')
     error("genpdemodel: pde.initu is not defined");
@@ -292,7 +299,7 @@ function ln = outputs_line(present)
 % requirement (Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg) followed by any
 % optional functions actually emitted.
 order = ["Flux", "Source", "Tdfunc", "Ubou", "Fbou", "FbouHdg", ...
-         "Initu", "VisScalars", "VisVectors", "VisTensors", ...
+         "Fint", "Initu", "VisScalars", "VisVectors", "VisTensors", ...
          "QoIvolume", "QoIboundary"];
 outs = order(ismember(order, present));
 ln = "outputs " + strjoin(outs, ", ");

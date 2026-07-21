@@ -1,0 +1,65 @@
+model = "ModelD";
+modelfile = "pdemodel2.txt";
+meshfile = "grid2.bin";
+xdgfile = "xdg2.bin";
+udgfile = "udg2.bin";
+discretization = "hdg";
+platform = "cpu";
+
+mpiprocs = 2;
+debugmode = 0;
+runmode = 0;
+modelnumber = 2;
+
+porder = 4;
+pgauss = 8;
+torder = 1;
+builtinmodelID = 101;
+nstage = 1;
+
+ncu = 1;
+ncv = 0;
+ncw = 0;
+nsca = 1;
+nvec = 0;
+nten = 0;
+neb = 4096;
+nfb = 8192;
+
+NewtonIter = 30;
+NewtonTol = 1e-06;
+GMRESiter = 100;
+GMRESrestart = 100;
+GMREStol = 1e-08;
+GMRESortho = 0;
+ppdegree = 20;
+RBdim = 0;
+matvecorder = 1;
+matvectol = 1e-06;
+precMatrixType = 0;
+preconditioner = 1;
+
+saveSolFreq = 1;
+saveSolOpt = 1;
+saveSolBouFreq = 0;
+saveParaview = 1;
+physicsparamwarmstart = 0;
+time = 0;
+tau = [1];
+dt = [0];
+physicsparam = [0.2, 0.0655];
+externalparam = [0, 0];
+
+boundaryconditions = [3, 2, 1];
+wmModelIDs = [];
+wmBoundaries = [];
+wmDistances = [];
+boundaryexpressions = ["sqrt(x^2+y^2)>1-1e-6", "x>-1e-7", "abs(x)<20"];
+curvedboundaries = [0, 0, 0];
+curvedboundaryexprs = ["", "", ""];
+periodicboundaries1 = [];
+periodicexprs1 = [];
+periodicboundaries2 = [];
+periodicexprs2 = [];
+interfaceconditions = [1; 0; 0];
+interfacefluxmap = [1];

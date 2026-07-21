@@ -42,6 +42,13 @@ EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DECL_SIZE)
 #undef EXASIM_EXT_DECL_SIZE
 #endif
 
+#define EXASIM_FRONTEND_AGGREGATE_MODEL @EXT_MODEL_FRONTEND_AGGREGATE@
+#if EXASIM_FRONTEND_AGGREGATE_MODEL
+#define EXASIM_EXT_MATCH(ID, MODELNUMBER) true
+#else
+#define EXASIM_EXT_MATCH(ID, MODELNUMBER) ((MODELNUMBER) == (ID))
+#endif
+
 namespace {
 
 // --- Kokkos element kernels ---
@@ -52,7 +59,7 @@ void extKokkosFlux(
     const int modelnumber, const int ng, const int nc, const int ncu, const int nd,
     const int ncx, const int nco, const int ncw)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::KokkosFlux(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosFlux(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinKokkosFlux(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber,
@@ -65,7 +72,7 @@ void extKokkosSource(
     const int modelnumber, const int ng, const int nc, const int ncu, const int nd,
     const int ncx, const int nco, const int ncw)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::KokkosSource(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosSource(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinKokkosSource(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber,
@@ -78,7 +85,7 @@ void extKokkosSourcew(
     const int modelnumber, const int ng, const int nc, const int ncu, const int nd,
     const int ncx, const int nco, const int ncw, const int nce, const int npe, const int ne)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::KokkosSourcew(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosSourcew(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinKokkosSourcew(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber,
@@ -91,7 +98,7 @@ void extKokkosTdfunc(
     const int modelnumber, const int ng, const int nc, const int ncu, const int nd,
     const int ncx, const int nco, const int ncw)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::KokkosTdfunc(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosTdfunc(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinKokkosTdfunc(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber,
@@ -104,7 +111,7 @@ void extKokkosAvfield(
     const int modelnumber, const int ng, const int nc, const int ncu, const int nd,
     const int ncx, const int nco, const int ncw, const int nce, const int npe, const int ne)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::KokkosAvfield(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosAvfield(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinKokkosAvfield(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber,
@@ -119,7 +126,7 @@ void extKokkosEoS(
     const int modelnumber, const int ng, const int nc, const int ncu, const int nd,
     const int ncx, const int nco, const int ncw, const int nce, const int npe, const int ne)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::KokkosEoS(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosEoS(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinKokkosEoS(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber,
@@ -132,7 +139,7 @@ void extKokkosEoSdu(
     const int modelnumber, const int ng, const int nc, const int ncu, const int nd,
     const int ncx, const int nco, const int ncw, const int nce, const int npe, const int ne)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::KokkosEoSdu(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosEoSdu(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinKokkosEoSdu(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber,
@@ -145,7 +152,7 @@ void extKokkosEoSdw(
     const int modelnumber, const int ng, const int nc, const int ncu, const int nd,
     const int ncx, const int nco, const int ncw, const int nce, const int npe, const int ne)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::KokkosEoSdw(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosEoSdw(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinKokkosEoSdw(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber,
@@ -161,7 +168,7 @@ void extKokkosFbou(
     const int modelnumber, const int ib, const int ng, const int nc, const int ncu,
     const int nd, const int ncx, const int nco, const int ncw)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::KokkosFbou(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosFbou(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinKokkosFbou(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time,
@@ -176,7 +183,7 @@ void extKokkosFbouJac(
     const int modelnumber, const int ib, const int ng, const int nc, const int ncu,
     const int nd, const int ncx, const int nco, const int ncw)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::KokkosFbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosFbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinKokkosFbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau,
@@ -191,7 +198,7 @@ void extKokkosFhat(
     const int modelnumber, const int ng, const int nc, const int ncu, const int nd,
     const int ncx, const int nco, const int ncw)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::KokkosFhat(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosFhat(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinKokkosFhat(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau,
@@ -205,7 +212,7 @@ void extKokkosUbou(
     const int modelnumber, const int ib, const int ng, const int nc, const int ncu,
     const int nd, const int ncx, const int nco, const int ncw)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::KokkosUbou(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosUbou(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinKokkosUbou(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time,
@@ -220,7 +227,7 @@ void extKokkosUbouJac(
     const int modelnumber, const int ib, const int ng, const int nc, const int ncu,
     const int nd, const int ncx, const int nco, const int ncw)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::KokkosUbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosUbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinKokkosUbouJac(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau,
@@ -235,7 +242,7 @@ void extKokkosUhat(
     const int modelnumber, const int ng, const int nc, const int ncu, const int nd,
     const int ncx, const int nco, const int ncw)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::KokkosUhat(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosUhat(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinKokkosUhat(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau,
@@ -250,7 +257,7 @@ void extKokkosStab(
     const int modelnumber, const int ng, const int nc, const int ncu, const int nd,
     const int ncx, const int nco, const int ncw)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::KokkosStab(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosStab(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinKokkosStab(f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau,
@@ -264,7 +271,7 @@ void extKokkosInitu(
     const int modelnumber, const int ng, const int ncx,
     const int nce, const int npe, const int ne)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::KokkosInitu(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosInitu(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinKokkosInitu(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
@@ -275,7 +282,7 @@ void extKokkosInitq(
     const int modelnumber, const int ng, const int ncx,
     const int nce, const int npe, const int ne)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::KokkosInitq(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosInitq(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinKokkosInitq(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
@@ -286,7 +293,7 @@ void extKokkosInitudg(
     const int modelnumber, const int ng, const int ncx,
     const int nce, const int npe, const int ne)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::KokkosInitudg(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosInitudg(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinKokkosInitudg(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
@@ -297,7 +304,7 @@ void extKokkosInitwdg(
     const int modelnumber, const int ng, const int ncx,
     const int nce, const int npe, const int ne)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::KokkosInitwdg(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosInitwdg(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinKokkosInitwdg(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
@@ -308,7 +315,7 @@ void extKokkosInitodg(
     const int modelnumber, const int ng, const int ncx,
     const int nce, const int npe, const int ne)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::KokkosInitodg(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosInitodg(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinKokkosInitodg(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
@@ -322,7 +329,7 @@ void extKokkosOutput(
     const int modelnumber, const int ng, const int nc, const int ncu, const int nd,
     const int ncx, const int nco, const int ncw, const int nce, const int npe, const int ne)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::KokkosOutput(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosOutput(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinKokkosOutput(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber,
@@ -335,7 +342,7 @@ void extKokkosMonitor(
     const int modelnumber, const int ng, const int nc, const int ncu, const int nd,
     const int ncx, const int nco, const int ncw, const int nce, const int npe, const int ne)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::KokkosMonitor(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosMonitor(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinKokkosMonitor(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber,
@@ -348,7 +355,7 @@ void extKokkosVisScalars(
     const int modelnumber, const int ng, const int nc, const int ncu, const int nd,
     const int ncx, const int nco, const int ncw)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::KokkosVisScalars(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosVisScalars(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinKokkosVisScalars(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber,
@@ -361,7 +368,7 @@ void extKokkosVisVectors(
     const int modelnumber, const int ng, const int nc, const int ncu, const int nd,
     const int ncx, const int nco, const int ncw)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::KokkosVisVectors(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosVisVectors(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinKokkosVisVectors(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber,
@@ -374,7 +381,7 @@ void extKokkosVisTensors(
     const int modelnumber, const int ng, const int nc, const int ncu, const int nd,
     const int ncx, const int nco, const int ncw)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::KokkosVisTensors(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosVisTensors(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinKokkosVisTensors(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber,
@@ -387,7 +394,7 @@ void extKokkosQoIvolume(
     const int modelnumber, const int ng, const int nc, const int ncu, const int nd,
     const int ncx, const int nco, const int ncw)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::KokkosQoIvolume(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosQoIvolume(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinKokkosQoIvolume(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber,
@@ -401,7 +408,7 @@ void extKokkosQoIboundary(
     const int modelnumber, const int ib, const int ng, const int nc, const int ncu,
     const int nd, const int ncx, const int nco, const int ncw)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::KokkosQoIboundary(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosQoIboundary(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinKokkosQoIboundary(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time,
@@ -415,7 +422,7 @@ void extcpuInitu(
     const int modelnumber, const int ng, const int ncx,
     const int nce, const int npe, const int ne)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::cpuInitu(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::cpuInitu(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtincpuInitu(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
@@ -426,7 +433,7 @@ void extcpuInitq(
     const int modelnumber, const int ng, const int ncx,
     const int nce, const int npe, const int ne)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::cpuInitq(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::cpuInitq(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtincpuInitq(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
@@ -437,7 +444,7 @@ void extcpuInitudg(
     const int modelnumber, const int ng, const int ncx,
     const int nce, const int npe, const int ne)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::cpuInitudg(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::cpuInitudg(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtincpuInitudg(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
@@ -448,7 +455,7 @@ void extcpuInitwdg(
     const int modelnumber, const int ng, const int ncx,
     const int nce, const int npe, const int ne)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::cpuInitwdg(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::cpuInitwdg(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtincpuInitwdg(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
@@ -459,7 +466,7 @@ void extcpuInitodg(
     const int modelnumber, const int ng, const int ncx,
     const int nce, const int npe, const int ne)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::cpuInitodg(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::cpuInitodg(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtincpuInitodg(f, xdg, uinf, param, modelnumber, ng, ncx, nce, npe, ne);
@@ -474,7 +481,7 @@ void extHdgFlux(
     const int modelnumber, const int ng, const int nc, const int ncu, const int nd,
     const int ncx, const int nco, const int ncw)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::HdgFlux(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::HdgFlux(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinHdgFlux(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, modelnumber,
@@ -488,7 +495,7 @@ void extHdgSource(
     const int modelnumber, const int ng, const int nc, const int ncu, const int nd,
     const int ncx, const int nco, const int ncw)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::HdgSource(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::HdgSource(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinHdgSource(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, modelnumber,
@@ -502,7 +509,7 @@ void extHdgSourcew(
     const int modelnumber, const int ng, const int nc, const int ncu, const int nd,
     const int ncx, const int nco, const int ncw)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::HdgSourcew(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::HdgSourcew(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinHdgSourcew(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, modelnumber,
@@ -516,7 +523,7 @@ void extHdgSourcewonly(
     const int modelnumber, const int ng, const int nc, const int ncu, const int nd,
     const int ncx, const int nco, const int ncw)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::HdgSourcewonly(f, f_wdg, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::HdgSourcewonly(f, f_wdg, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinHdgSourcewonly(f, f_wdg, xdg, udg, odg, wdg, uinf, param, time, modelnumber,
@@ -530,7 +537,7 @@ void extHdgEoS(
     const int modelnumber, const int ng, const int nc, const int ncu, const int nd,
     const int ncx, const int nco, const int ncw)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::HdgEoS(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::HdgEoS(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinHdgEoS(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, modelnumber,
@@ -545,7 +552,7 @@ void extHdgFbou(
     const int modelnumber, const int ib, const int ng, const int nc, const int ncu,
     const int nd, const int ncx, const int nco, const int ncw)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::HdgFbou(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::HdgFbou(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinHdgFbou(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param,
@@ -560,7 +567,7 @@ void extHdgFbouonly(
     const int modelnumber, const int ib, const int ng, const int nc, const int ncu,
     const int nd, const int ncx, const int nco, const int ncw)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::HdgFbouonly(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::HdgFbouonly(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinHdgFbouonly(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber,
@@ -575,7 +582,7 @@ void extHdgFint(
     const int modelnumber, const int ib, const int ng, const int nc, const int ncu,
     const int nd, const int ncx, const int nco, const int ncw)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::HdgFint(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::HdgFint(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinHdgFint(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param,
@@ -590,7 +597,7 @@ void extHdgFintonly(
     const int modelnumber, const int ib, const int ng, const int nc, const int ncu,
     const int nd, const int ncx, const int nco, const int ncw)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::HdgFintonly(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::HdgFintonly(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinHdgFintonly(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber,
@@ -605,7 +612,7 @@ void extHdgFext(
     const int modelnumber, const int ib, const int ng, const int nc, const int ncu,
     const int nd, const int ncx, const int nco, const int ncw)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::HdgFext(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::HdgFext(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinHdgFext(f, f_udg, f_wdg, f_uhg, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf,
@@ -620,7 +627,7 @@ void extHdgFextonly(
     const int modelnumber, const int ib, const int ng, const int nc, const int ncu,
     const int nd, const int ncx, const int nco, const int ncw)
 {
-#define EXASIM_EXT_DISPATCH(ID) if (modelnumber == (ID)) return exasim_model_##ID::HdgFextonly(f, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::HdgFextonly(f, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
     EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
 #undef EXASIM_EXT_DISPATCH
     ::builtinHdgFextonly(f, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time,
@@ -653,7 +660,7 @@ ModelSizes extGetModelSizes(int modelnumber)
     }
 #else
 #if defined(EXASIM_HAS_FRONTEND_MODEL_SIZES)
-    if (modelnumber >= 100)
+    if (EXASIM_FRONTEND_AGGREGATE_MODEL || modelnumber >= 100)
         return kFrontendModelSizes;
 #endif
     return builtinGetModelSizes(modelnumber);

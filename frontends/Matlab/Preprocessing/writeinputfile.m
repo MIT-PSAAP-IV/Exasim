@@ -103,22 +103,22 @@ if isfield(pde, 'meshfile') == 0
   writebin(pde.meshfile, [size(mesh.p) size(mesh.t) mesh.p(:)' mesh.t(:)']);
 end
 
-if isfield(mesh, 'dgnodes') == 1
+if isfield(mesh, 'dgnodes') == 1 && isfield(pde, 'xdgfile') == 0
   pde.xdgfile = "xdg.bin";  
   writebin(pde.xdgfile, [size(mesh.dgnodes) mesh.dgnodes(:)']);
 end
 
-if isfield(mesh, 'udg') == 1
+if isfield(mesh, 'udg') == 1 && isfield(pde, 'udgfile') == 0
   pde.udgfile = "udg.bin";  
   writebin(pde.udgfile, [size(mesh.udg) mesh.udg(:)']);
 end
 
-if isfield(mesh, 'vdg') == 1
+if isfield(mesh, 'vdg') == 1 && isfield(pde, 'vdgfile') == 0
   pde.vdgfile = "vdg.bin";  
   writebin(pde.vdgfile, [size(mesh.vdg) mesh.vdg(:)']);
 end
 
-if isfield(mesh, 'wdg') == 1
+if isfield(mesh, 'wdg') == 1 && isfield(pde, 'wdgfile') == 0
   pde.wdgfile = "wdg.bin";  
   writebin(pde.wdgfile, [size(mesh.wdg) mesh.wdg(:)']);
 end
@@ -128,7 +128,7 @@ fields = fieldnames(pde);
 requiredKeys = ["exasimpath", "datapath", "model", "modelfile", "meshfile", "xdgfile",...
   "udgfile", "vdgfile", "wdgfile", "discretization",...
   "platform", "mpiprocs", "debugmode", "runmode", "modelnumber", "porder", "pgauss","torder",...
-  "builtinmodelID",...
+  "builtinmodelID", "frontendgenerated",...
   "nstage","ncu", "ncv", "ncw", "neb", "nfb", "NewtonIter", "NewtonTol", "GMRESiter", "GMRESrestart",...
   "GMREStol", "GMRESortho","ppdegree","RBdim", "matvecorder", "matvectol", "precMatrixType",...
   "preconditioner", "saveSolFreq", "saveSolOpt", "saveSolBouFreq", "saveParaview",...
@@ -136,7 +136,7 @@ requiredKeys = ["exasimpath", "datapath", "model", "modelfile", "meshfile", "xdg
   "physicsparamcases", "externalparam", "boundaryconditions",...
   "wmModelIDs", "wmBoundaries", "wmDistances",...
   "boundaryexpressions", "curvedboundaries", "curvedboundaryexprs", "periodicboundaries1",...
-  "periodicexprs1", "periodicboundaries2","periodicexprs2", "interfaceconditions"];
+  "periodicexprs1", "periodicboundaries2","periodicexprs2", "interfaceconditions", "interfacefluxmap"];
   
 for i = 1:length(requiredKeys)
     key = requiredKeys(i);    
@@ -154,7 +154,7 @@ for i = 1:length(requiredKeys)
         if isempty(value)
           fprintf(fid, '%s = [];\n', key);       
         elseif length(value)==1
-          if key == "dt" || key == "tau" || key == "physicsparam" || key == "externalparam" || key == "boundaryconditions" || key == "wmModelIDs" || key == "wmBoundaries" || key == "wmDistances" || key == "curvedboundaries" || key == "periodicboundaries1" || key == "periodicboundaries2"
+          if key == "dt" || key == "tau" || key == "physicsparam" || key == "externalparam" || key == "boundaryconditions" || key == "wmModelIDs" || key == "wmBoundaries" || key == "wmDistances" || key == "curvedboundaries" || key == "periodicboundaries1" || key == "periodicboundaries2" || key == "interfacefluxmap"
             fprintf(fid, '%s = [%s];\n', key, mat2str(value));       
           else
             fprintf(fid, '%s = %s;\n', key, mat2str(value));       
@@ -163,8 +163,12 @@ for i = 1:length(requiredKeys)
           fprintf(fid, '%s = %s;\n', key, mat2str(value));
         else                       
           tm = num2str(value(1));
+          sep = ", ";
+          if key == "interfaceconditions" && size(value,2) == 1
+            sep = "; ";
+          end
           for k = 2:length(value)
-            tm = tm +  ", " + num2str(value(k));            
+            tm = tm +  sep + num2str(value(k));            
           end          
           tm = "[" + tm + "]";          
           fprintf(fid, '%s = %s;\n', key, char(tm));         

@@ -102,6 +102,7 @@ def _write_pdeapp(pde, mesh, files, path):
     app["GMRESiter"] = app.get("linearsolveriter", app.get("GMRESiter", 200))
     app["GMREStol"] = app.get("linearsolvertol", app.get("GMREStol", 1e-3))
     app["ncv"] = app.get("nco", app.get("ncv", 0))
+    app["frontendgenerated"] = 0
     if not _empty(app.get("physicsparamsweep", [])):
         app["physicsparamcases"] = _normalize_sweep_cases(app["physicsparamsweep"], len(_as_1d(app.get("physicsparam", []))))
 
@@ -126,7 +127,7 @@ def _write_pdeapp(pde, mesh, files, path):
     keys = [
         "model", "modelfile", "meshfile", "xdgfile", "udgfile", "vdgfile", "wdgfile",
         "discretization", "platform", "mpiprocs", "debugmode", "runmode", "modelnumber",
-        "builtinmodelID",
+        "builtinmodelID", "frontendgenerated",
         "nodetype", "ncu", "ncv", "ncw", "neb", "nfb", "linearproblem", "subproblem",
         "saveParaview", "physicsparamwarmstart", "tdep", "wave", "porder", "pgauss",
         "temporalscheme", "torder", "nstage", "convStabMethod", "diffStabMethod",

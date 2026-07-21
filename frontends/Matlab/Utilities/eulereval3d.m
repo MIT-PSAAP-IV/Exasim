@@ -11,7 +11,7 @@ function sca = eulereval3d(u,str,gam,mach)
 %                      - STR: 'M' Density
 %                      - STR; 's' Entropy
 %      GAM:            Value of Gamma
-%      SCA(npl,4,nt):  Scalar field requested by STR 
+%      SCA(npl,4,nt):  Scalar field requested by STR
 %
 if strcmp(str,'r')
     sca = u(:,1,:);
@@ -20,6 +20,11 @@ elseif strcmp(str,'p')
     vv = u(:,3,:)./u(:,1,:);
     wv = u(:,4,:)./u(:,1,:);
     sca = (gam-1)*(u(:,5,:) - 0.5*(u(:,2,:).*uv + u(:,3,:).*vv+ u(:,4,:).*wv));
+elseif strcmp(str,'vm')
+    uv = u(:,2,:)./u(:,1,:);
+    vv = u(:,3,:)./u(:,1,:);
+    wv = u(:,4,:)./u(:,1,:);
+    sca = sqrt(uv.*uv + vv.*vv + wv.*wv);
 elseif strcmp(str,'c')
     uv = u(:,2,:)./u(:,1,:);
     vv = u(:,3,:)./u(:,1,:);
@@ -32,7 +37,7 @@ elseif strcmp(str,'M')
     vv = u(:,3,:)./u(:,1,:);
     wv = u(:,4,:)./u(:,1,:);
     u2 = sqrt(uv.^2+vv.^2+wv.^2);
-    p = abs((gam-1)*(u(:,5,:) - 0.5*(u(:,2,:).*uv + u(:,3,:).*vv+ u(:,4,:).*wv)));    
+    p = abs((gam-1)*(u(:,5,:) - 0.5*(u(:,2,:).*uv + u(:,3,:).*vv+ u(:,4,:).*wv)));
     sca = u2./sqrt(gam*p./u(:,1,:));
 elseif strcmp(str,'s')
     uv = u(:,2,:)./u(:,1,:);
@@ -45,7 +50,7 @@ elseif strcmp(str,'u')
 elseif strcmp(str,'v')
     sca = u(:,3,:)./u(:,1,:);
 elseif strcmp(str,'w')
-    sca = u(:,4,:)./u(:,1,:);    
+    sca = u(:,4,:)./u(:,1,:);
 elseif strcmp(str,'c2')
     uv = u(:,2,:)./u(:,1,:);
     vv = u(:,3,:)./u(:,1,:);
@@ -57,7 +62,7 @@ elseif strcmp(str,'ss')
 
     r   = u(:,1,:);
     rx  = u(:,5,:);
-    rux = u(:,6,:); 
+    rux = u(:,6,:);
     ry  = u(:,9,:);
     rvy = u(:,11,:);
 
@@ -72,15 +77,15 @@ elseif strcmp(str,'t')
     uv = u(:,2,:)./u(:,1,:);
     vv = u(:,3,:)./u(:,1,:);
     wv = u(:,4,:)./u(:,1,:);
-    p = (gam-1)*(u(:,5,:) - 0.5*(u(:,2,:).*uv + u(:,3,:).*vv+ u(:,4,:).*wv));    
+    p = (gam-1)*(u(:,5,:) - 0.5*(u(:,2,:).*uv + u(:,3,:).*vv+ u(:,4,:).*wv));
     sca = (gam*mach^2)*p./r;
 elseif strcmp(str,'h')
     r  = u(:,1,:);
     uv = u(:,2,:)./u(:,1,:);
     vv = u(:,3,:)./u(:,1,:);
     wv = u(:,4,:)./u(:,1,:);
-    p = (gam-1)*(u(:,5,:) - 0.5*(u(:,2,:).*uv + u(:,3,:).*vv+ u(:,4,:).*wv));        
-    sca = u(:,4,:)./u(:,1,:)+p./r;    
+    p = (gam-1)*(u(:,5,:) - 0.5*(u(:,2,:).*uv + u(:,3,:).*vv+ u(:,4,:).*wv));
+    sca = u(:,4,:)./u(:,1,:)+p./r;
 else
     error('unknonw case');
 end

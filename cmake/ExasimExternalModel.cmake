@@ -129,6 +129,24 @@ extern \"C\" ModelSizes extGetModelSizes_${_id}() {
   else()
     set(EXT_MODEL_HAS_MY_MODEL "0")
   endif()
+  # Legacy coupled frontend generation writes one aggregate KERNELS directory
+  # with suffixed kernels (KokkosFlux1.cpp, KokkosFlux2.cpp, ...).  In that
+  # mode the external provider ID selects the ABI, while app.flag[12] remains
+  # the inner model selector passed to the aggregate kernels.
+  set(EXT_MODEL_FRONTEND_AGGREGATE "0")
+  if(EXT_KERNELS_DIRS AND _nids EQUAL 1)
+    list(GET EXT_KERNELS_DIRS 0 _aggregate_probe_dir)
+    set(_aggregate_probe_flux "${_aggregate_probe_dir}/KokkosFlux.cpp")
+    if(EXISTS "${_aggregate_probe_dir}/KokkosFlux1.cpp")
+      set(EXT_MODEL_FRONTEND_AGGREGATE "1")
+    elseif(EXISTS "${_aggregate_probe_flux}")
+      file(READ "${_aggregate_probe_flux}" _aggregate_probe_flux_text)
+      if(_aggregate_probe_flux_text MATCHES "modelnumber[ \t]*==[ \t]*1" AND
+         _aggregate_probe_flux_text MATCHES "modelnumber[ \t]*==[ \t]*2")
+        set(EXT_MODEL_FRONTEND_AGGREGATE "1")
+      endif()
+    endif()
+  endif()
   set(EXT_MODEL_INCLUDES "${_includes}")
 
   configure_file(

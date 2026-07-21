@@ -11,10 +11,16 @@ kkgencodeelemface("KokkosEoSdw", npm, 2, foldername);
 
 kkgencodeelemface("KokkosAvfield", npm, 2, foldername);
 kkgencodeelemface("KokkosOutput", npm, 2, foldername);
+kkgencodeelemface("KokkosMonitor", npm, 2, foldername);
 kkgencodeelemface("KokkosSourcew", npm, 2, foldername);
+kkgencodeelemface("KokkosVisScalars", npm, 1, foldername);
+kkgencodeelemface("KokkosVisVectors", npm, 1, foldername);
+kkgencodeelemface("KokkosVisTensors", npm, 1, foldername);
+kkgencodeelemface("KokkosQoIvolume", npm, 1, foldername);
 
 kkgencodeelemface("KokkosFbou", npm, 3, foldername);
 kkgencodeelemface("KokkosUbou", npm, 3, foldername);
+kkgencodeelemface("KokkosQoIboundary", npm, 3, foldername);
 
 kkgencodeelemface("KokkosFhat", npm, 4, foldername);
 kkgencodeelemface("KokkosUhat", npm, 4, foldername);
@@ -41,7 +47,8 @@ kkgencodeelemface("HdgFbou", npm, 8, foldername);
 kkgencodeelemface("HdgFbouonly", npm, 9, foldername);
 kkgencodeelemface("HdgFint", npm, 8, foldername);
 kkgencodeelemface("HdgFintonly", npm, 9, foldername);
+kkgencodeelemface("HdgFext", npm, 10, foldername);
+kkgencodeelemface("HdgFextonly", npm, 11, foldername);
 
 end
-
 

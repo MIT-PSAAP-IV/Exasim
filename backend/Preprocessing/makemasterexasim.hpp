@@ -1266,7 +1266,9 @@ inline void buildMesh(Mesh& mesh, const PDE& pde, const Master& master)
     //print2iarray(mesh.t.data(), mesh.nve, mesh.ne);
     
     if (pde.coupledinterface>0) {
-        interface_elements(mesh.inte, mesh.intl, mesh.f, mesh.nfe, mesh.ne, pde.coupledinterface);
+        // mesh.f stores zero-based boundary-expression IDs, while pde.coupledinterface
+        // follows the one-based frontend/Text2Code application convention.
+        interface_elements(mesh.inte, mesh.intl, mesh.f, mesh.nfe, mesh.ne, pde.coupledinterface - 1);
         std::cout << "Finished interface_elements.\n";
     }
          

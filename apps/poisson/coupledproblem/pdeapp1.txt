@@ -1,0 +1,60 @@
+model = "ModelD";
+modelfile = "pdemodel1.txt";
+meshfile = "grid1.bin";
+discretization = "hdg";
+platform = "cpu";
+
+mpiprocs = 3;
+debugmode = 0;
+runmode = 0;
+modelnumber = 1;
+
+porder = 3;
+pgauss = 6;
+torder = 1;
+builtinmodelID = 100;
+nstage = 1;
+
+ncu = 1;
+ncv = 0;
+ncw = 0;
+neb = 4096;
+nfb = 8192;
+
+NewtonIter = 1;
+NewtonTol = 1e-06;
+GMRESiter = 200;
+GMRESrestart = 100;
+GMREStol = 1e-06;
+GMRESortho = 0;
+ppdegree = 0;
+RBdim = 0;
+matvecorder = 1;
+matvectol = 0.001;
+precMatrixType = 0;
+preconditioner = 1;
+
+saveSolFreq = 1;
+saveSolOpt = 1;
+saveSolBouFreq = 0;
+saveParaview = 0;
+physicsparamwarmstart = 0;
+time = 0;
+tau = [1];
+dt = [0];
+physicsparam = [1];
+externalparam = [0, 0];
+
+boundaryconditions = [1, 2, 1, 1];
+wmModelIDs = [];
+wmBoundaries = [];
+wmDistances = [];
+boundaryexpressions = ["abs(y)<1e-8", "abs(x-0.5)<1e-8", "abs(y-1)<1e-8", "abs(x)<1e-8"];
+curvedboundaries = [0, 0, 0, 0];
+curvedboundaryexprs = ["", "", "", ""];
+periodicboundaries1 = [];
+periodicexprs1 = [];
+periodicboundaries2 = [];
+periodicexprs2 = [];
+interfaceconditions = [0; 1; 0; 0];
+interfacefluxmap = [1];
