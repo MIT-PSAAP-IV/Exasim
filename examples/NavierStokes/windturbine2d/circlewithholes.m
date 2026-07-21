@@ -1,5 +1,11 @@
 
-load(fullfile(fileparts(mfilename('fullpath')), 'circlewithholes.mat'));
+datafile = fullfile(fileparts(mfilename('fullpath')), 'circlewithholes.mat');
+if exist(datafile, 'file')
+    load(datafile);
+else
+    R = 10;
+    ph = local_three_circular_holes(5, 0.7, 64);
+end
 
 % R = 10;
 nc = 125;
@@ -29,3 +35,15 @@ title('Gmsh boundary loops');
 % windturbine2d_plot(wt);
 % hold on; 
 % simpplot(p', t');
+
+function ph = local_three_circular_holes(Rrotor, Rhole, npts)
+theta = linspace(0, 2*pi, npts+1)';
+theta = theta(1:end-1);
+angles = 2*pi*(0:2)/3;
+ph = cell(1, numel(angles));
+for i = 1:numel(angles)
+    center = Rrotor*[cos(angles(i)), sin(angles(i))];
+    loop = center + Rhole*[cos(theta), sin(theta)];
+    ph{i} = flipud(loop);
+end
+end

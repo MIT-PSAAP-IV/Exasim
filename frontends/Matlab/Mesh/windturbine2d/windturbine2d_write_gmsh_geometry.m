@@ -3,14 +3,15 @@ function [geofile, gmshInfo] = windturbine2d_write_gmsh_geometry(filename, farLo
 
 opts = windturbine2d_background_mesh_options(opts);
 
+filename = string(filename);
 [folder,~,ext] = fileparts(filename);
 if ~isempty(folder) && ~exist(folder, 'dir')
     mkdir(folder);
 end
-if ext == ""
+if strlength(ext) == 0
     geofile = filename + ".geo";
 else
-    geofile = string(filename);
+    geofile = filename;
 end
 
 fid = fopen(geofile, 'w');

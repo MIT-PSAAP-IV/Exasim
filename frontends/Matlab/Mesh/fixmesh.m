@@ -40,6 +40,7 @@ elseif nd == 2 && nv == 4
     flip = v < 0;
     t(flip,[1,2,3,4]) = t(flip,[4,3,2,1]);
 end
+end
 
 function v = elementmeasure(p,t)
 nv = size(t,2);
@@ -51,8 +52,10 @@ elseif nd == 2 && nv == 4
 else
     error('fixmesh not valid for this type of elements.');
 end
+end
 
 function v = quadarea2d(p,t)
 x = reshape(p(t',1), size(t,2), [])';
 y = reshape(p(t',2), size(t,2), [])';
 v = 0.5*sum(x.*y(:,[2:end 1]) - y.*x(:,[2:end 1]), 2);
+end

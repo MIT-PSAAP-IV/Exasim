@@ -57,6 +57,7 @@ else
 end
 
 if any(flip); warning('Some vertices in mesh.t have been reordered to meet code requirements.'); end
+end
 
 function v = elementmeasure(p,t)
 %ELEMENTMEASURE Signed area/volume measure used to detect collapsed cells.
@@ -73,9 +74,11 @@ elseif (size(t,2) == 8 && size(p,2) == 3)      % Hex
 else
     error('fixmesh not valid for this type of elements.');
 end
+end
 
 function v = quadarea2d(p,t)
 %QUADAREA2D Signed polygon area for 2-D quadrilateral elements.
 x = reshape(p(t',1), size(t,2), [])';
 y = reshape(p(t',2), size(t,2), [])';
 v = 0.5*sum(x.*y(:,[2:end 1]) - y.*x(:,[2:end 1]), 2);
+end
