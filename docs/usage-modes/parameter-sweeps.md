@@ -282,6 +282,20 @@ For `exportapp` and `pdeapp.txt` workflows, the executable detects
 `datain/physicsparamcases.bin` and runs all cases internally. It is still a
 sequential case loop, but it does not require MATLAB/Python/Julia at runtime.
 
+To run only selected cases at runtime, pass `--parameter-cases` followed by a
+one-based list:
+
+```bash
+build/exasimapp 1 datain/ dataout/out --parameter-cases 7
+build/exasimapp 1 datain/ dataout/out --parameter-cases 2,5,9
+build/exasimapp 1 datain/ dataout/out --parameter-cases 10-20
+build/exasimapp 1 datain/ dataout/out --parameter-cases 1,4-7,12
+```
+
+The executable preserves the order specified by the user and keeps the original
+case numbers for output directories, metadata, and manifest entries. Omitting
+`--parameter-cases` runs every case exactly as before.
+
 Cold-start mode (`physicsparamwarmstart = 0`) rebuilds the model for each case
 after replacing `physicsparam`. This preserves parameter-dependent initial
 condition behavior from callbacks such as `initu`, `initq`/`initudg`, `initv`,

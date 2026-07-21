@@ -5,12 +5,14 @@
 #include <iomanip>
 #include <vector>
 #include <numeric>
+#include <algorithm>
 #include <filesystem>
 #include <cstddef>
 #include <cstdint>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <cctype>
 
 #ifdef _CUDA
 #define HAVE_GPU
@@ -229,6 +231,122 @@ static int ParseIntegerArgument(const char* text, const char* name, const int ra
         ok = false;
         return 0;
     }
+}
+
+static bool IsNamedOption(const char* text)
+{
+    return text && std::strncmp(text, "--", 2) == 0;
+}
+
+static std::string TrimString(const std::string& text)
+{
+    size_t first = 0;
+    while (first < text.size() &&
+           std::isspace(static_cast<unsigned char>(text[first])))
+        ++first;
+    size_t last = text.size();
+    while (last > first &&
+           std::isspace(static_cast<unsigned char>(text[last - 1])))
+        --last;
+    return text.substr(first, last - first);
+}
+
+static bool ParsePositiveIntegerStrict(const std::string& text, int& value)
+{
+    if (text.empty())
+        return false;
+    size_t pos = 0;
+    try {
+        value = std::stoi(text, &pos);
+    } catch (...) {
+        return false;
+    }
+    return pos == text.size() && value > 0;
+}
+
+static std::vector<int> ParseParameterCasesArgument(const std::string& text,
+                                                    const int rank, bool& ok)
+{
+    std::vector<int> cases;
+    if (text.empty()) {
+        if (rank == 0)
+            std::cerr << "Invalid --parameter-cases: empty value." << std::endl;
+        ok = false;
+        return cases;
+    }
+
+    size_t start = 0;
+    while (start <= text.size()) {
+        const size_t comma = text.find(',', start);
+        const size_t end = (comma == std::string::npos) ? text.size() : comma;
+        const std::string token = TrimString(text.substr(start, end - start));
+        if (token.empty()) {
+            if (rank == 0)
+                std::cerr << "Invalid --parameter-cases: empty case entry." << std::endl;
+            ok = false;
+            return cases;
+        }
+
+        const size_t dash = token.find('-');
+        if (dash == std::string::npos) {
+            int value = 0;
+            if (!ParsePositiveIntegerStrict(token, value)) {
+                if (rank == 0)
+                    std::cerr << "Invalid --parameter-cases entry: " << token << std::endl;
+                ok = false;
+                return cases;
+            }
+            if (std::find(cases.begin(), cases.end(), value) != cases.end()) {
+                if (rank == 0)
+                    std::cerr << "Invalid --parameter-cases: duplicate case "
+                              << value << "." << std::endl;
+                ok = false;
+                return cases;
+            }
+            cases.push_back(value);
+        }
+        else {
+            if (token.find('-', dash + 1) != std::string::npos ||
+                dash == 0 || dash + 1 >= token.size()) {
+                if (rank == 0)
+                    std::cerr << "Invalid --parameter-cases range: " << token << std::endl;
+                ok = false;
+                return cases;
+            }
+            int first = 0;
+            int last = 0;
+            if (!ParsePositiveIntegerStrict(TrimString(token.substr(0, dash)), first) ||
+                !ParsePositiveIntegerStrict(TrimString(token.substr(dash + 1)), last)) {
+                if (rank == 0)
+                    std::cerr << "Invalid --parameter-cases range: " << token << std::endl;
+                ok = false;
+                return cases;
+            }
+            if (last < first) {
+                if (rank == 0)
+                    std::cerr << "Invalid --parameter-cases: descending range "
+                              << token << "." << std::endl;
+                ok = false;
+                return cases;
+            }
+            for (int value = first; value <= last; ++value) {
+                if (std::find(cases.begin(), cases.end(), value) != cases.end()) {
+                    if (rank == 0)
+                        std::cerr << "Invalid --parameter-cases: duplicate case "
+                                  << value << "." << std::endl;
+                    ok = false;
+                    return cases;
+                }
+                cases.push_back(value);
+            }
+        }
+
+        if (comma == std::string::npos)
+            break;
+        start = comma + 1;
+    }
+
+    return cases;
 }
 
 static std::string ParentDirectoryFromOutputPrefix(const std::string& prefix)
@@ -616,6 +734,7 @@ int ExasimSolver::ParseInputs(int argc, char** argv,
     fileout_.clear();
     base_fileout_.clear();
     physicsparamcases_.clear();
+    selected_physicsparamcases_.clear();
     active_physicsparam_.clear();
     exasimpath_.clear();
     nummodels_ = 1;
@@ -711,6 +830,34 @@ int ExasimSolver::ParseInputs(int argc, char** argv,
 #endif
         }
     }
+
+    bool parameterCasesOptionSeen = false;
+    for (int i = 2; i < argc; ++i) {
+        const std::string option(argv[i]);
+        if (option == "--parameter-cases") {
+            if (parameterCasesOptionSeen) {
+                if (mpirank_ == 0)
+                    std::cerr << "Duplicate --parameter-cases option." << std::endl;
+                return 1;
+            }
+            if (i + 1 >= argc || IsNamedOption(argv[i + 1])) {
+                if (mpirank_ == 0)
+                    std::cerr << "Missing value for --parameter-cases." << std::endl;
+                return 1;
+            }
+            bool ok = true;
+            selected_physicsparamcases_ =
+                ParseParameterCasesArgument(argv[++i], mpirank_, ok);
+            if (!ok)
+                return 1;
+            parameterCasesOptionSeen = true;
+        }
+        else if (IsNamedOption(argv[i])) {
+            if (mpirank_ == 0)
+                std::cerr << "Unknown solve option: " << option << std::endl;
+            return 1;
+        }
+    }
 #else
     if (argc < 3) {
         printf("Usage: ./cppfile nummodels InputFile(s) OutputFile(s) [restart]\n");
@@ -741,12 +888,42 @@ int ExasimSolver::ParseInputs(int argc, char** argv,
         fileout_.push_back(string(argv[2 * i + 3]));
     }
 
-    if (argc >= (2 * nummodels_ + 3)) {
+    int nextArg = 2 * nummodels_ + 2;
+    if (argc > nextArg && !IsNamedOption(argv[nextArg])) {
         mystr = string(argv[2 * nummodels_ + 2]);
         try {
             restart_ = stoi(mystr);
         } catch (...) {
             if (mpirank_ == 0) std::cerr << "Invalid restart value: " << mystr << std::endl;
+            return 1;
+        }
+        ++nextArg;
+    }
+
+    bool parameterCasesOptionSeen = false;
+    for (int i = nextArg; i < argc; ++i) {
+        const std::string option(argv[i]);
+        if (option == "--parameter-cases") {
+            if (parameterCasesOptionSeen) {
+                if (mpirank_ == 0)
+                    std::cerr << "Duplicate --parameter-cases option." << std::endl;
+                return 1;
+            }
+            if (i + 1 >= argc || IsNamedOption(argv[i + 1])) {
+                if (mpirank_ == 0)
+                    std::cerr << "Missing value for --parameter-cases." << std::endl;
+                return 1;
+            }
+            bool ok = true;
+            selected_physicsparamcases_ =
+                ParseParameterCasesArgument(argv[++i], mpirank_, ok);
+            if (!ok)
+                return 1;
+            parameterCasesOptionSeen = true;
+        }
+        else if (IsNamedOption(argv[i])) {
+            if (mpirank_ == 0)
+                std::cerr << "Unknown solve option: " << option << std::endl;
             return 1;
         }
     }
@@ -790,6 +967,13 @@ int ExasimSolver::ParseInputs(int argc, char** argv,
     if (HasPhysicsParamSweepFile()) {
         int err = ReadPhysicsParamSweepFile();
         if (err) return err;
+        err = ValidateSelectedPhysicsParamCases();
+        if (err) return err;
+    }
+    else if (!selected_physicsparamcases_.empty()) {
+        if (mpirank_ == 0)
+            std::cerr << "--parameter-cases requires physicsparamcases.bin." << std::endl;
+        return 1;
     }
 
     return 0;
@@ -1617,6 +1801,20 @@ int ExasimSolver::ReadPhysicsParamSweepFile()
     return 0;
 }
 
+int ExasimSolver::ValidateSelectedPhysicsParamCases() const
+{
+    const int ncases = static_cast<int>(physicsparamcases_.size());
+    for (int icase : selected_physicsparamcases_) {
+        if (icase < 1 || icase > ncases) {
+            if (mpirank_ == 0)
+                std::cerr << "Invalid --parameter-cases index " << icase
+                          << "; valid range is 1-" << ncases << "." << std::endl;
+            return 1;
+        }
+    }
+    return 0;
+}
+
 std::string ExasimSolver::CaseOutputPrefix(int icase) const
 {
     std::ostringstream ss;
@@ -1682,14 +1880,18 @@ int ExasimSolver::WritePhysicsParamSweepManifest(bool warmstart) const
         return 1;
     }
 
-    out << "ncases " << physicsparamcases_.size() << "\n";
+    const size_t ncases = selected_physicsparamcases_.empty() ?
+        physicsparamcases_.size() : selected_physicsparamcases_.size();
+    out << "ncases " << ncases << "\n";
     out << "nparam " << physicsparamcases_[0].size() << "\n";
     out << "physicsparamwarmstart " << (warmstart ? 1 : 0) << "\n";
     out << std::setprecision(17);
-    for (size_t i = 0; i < physicsparamcases_.size(); ++i) {
-        const std::filesystem::path caseDir = std::filesystem::path(CaseOutputPrefix(static_cast<int>(i) + 1)).parent_path();
-        out << "case " << (i + 1) << " " << caseDir.string();
-        for (dstype value : physicsparamcases_[i])
+    for (size_t i = 0; i < ncases; ++i) {
+        const int caseNumber = selected_physicsparamcases_.empty() ?
+            static_cast<int>(i) + 1 : selected_physicsparamcases_[i];
+        const std::filesystem::path caseDir = std::filesystem::path(CaseOutputPrefix(caseNumber)).parent_path();
+        out << "case " << caseNumber << " " << caseDir.string();
+        for (dstype value : physicsparamcases_[static_cast<size_t>(caseNumber - 1)])
             out << " " << value;
         out << "\n";
     }
@@ -1799,15 +2001,25 @@ int ExasimSolver::RunPhysicsParamSweep()
     const std::vector<std::string> savedFileout = fileout_;
     int status = 0;
 
-    active_physicsparam_ = physicsparamcases_[0];
+    std::vector<int> caseNumbers;
+    if (selected_physicsparamcases_.empty()) {
+        caseNumbers.resize(physicsparamcases_.size());
+        std::iota(caseNumbers.begin(), caseNumbers.end(), 1);
+    }
+    else {
+        caseNumbers = selected_physicsparamcases_;
+    }
+
+    const int firstCaseNumber = caseNumbers[0];
+    active_physicsparam_ = physicsparamcases_[static_cast<size_t>(firstCaseNumber - 1)];
     fileout_ = base_fileout_;
-    fileout_[0] = CaseOutputPrefix(1);
+    fileout_[0] = CaseOutputPrefix(firstCaseNumber);
 
     if (mpirank_ == 0)
-        std::cout << "\nRunning physicsparam case 1 of "
+        std::cout << "\nRunning physicsparam case " << firstCaseNumber << " of "
                   << physicsparamcases_.size() << "...\n";
 
-    status = WritePhysicsParamCaseMetadata(1, fileout_[0]);
+    status = WritePhysicsParamCaseMetadata(firstCaseNumber, fileout_[0]);
     if (!status)
         status = BuildModelsForCurrentCase();
     if (status) {
@@ -1834,18 +2046,19 @@ int ExasimSolver::RunPhysicsParamSweep()
         const dstype initialTime = models_[0]->disc.common.timestate.time;
         const Int initialTimestepOffset = models_[0]->disc.common.outputparams.timestepOffset;
 
-        for (size_t icase = 0; icase < physicsparamcases_.size(); ++icase) {
+        for (size_t icase = 0; icase < caseNumbers.size(); ++icase) {
             if (icase > 0) {
-                active_physicsparam_ = physicsparamcases_[icase];
+                const int caseNumber = caseNumbers[icase];
+                active_physicsparam_ = physicsparamcases_[static_cast<size_t>(caseNumber - 1)];
                 fileout_ = base_fileout_;
-                fileout_[0] = CaseOutputPrefix(static_cast<int>(icase) + 1);
+                fileout_[0] = CaseOutputPrefix(caseNumber);
 
                 if (mpirank_ == 0)
-                    std::cout << "\nRunning physicsparam case " << (icase + 1)
+                    std::cout << "\nRunning physicsparam case " << caseNumber
                               << " of " << physicsparamcases_.size()
                               << " with warm-start...\n";
 
-                status = WritePhysicsParamCaseMetadata(static_cast<int>(icase) + 1, fileout_[0]);
+                status = WritePhysicsParamCaseMetadata(caseNumber, fileout_[0]);
                 if (status) break;
 
                 status = ApplyPhysicsParamToModels(active_physicsparam_);
@@ -1868,16 +2081,17 @@ int ExasimSolver::RunPhysicsParamSweep()
         status = RunCurrentPhysicsParamCase();
 
         DestroyModelInstances();
-        for (size_t icase = 1; !status && icase < physicsparamcases_.size(); ++icase) {
-            active_physicsparam_ = physicsparamcases_[icase];
+        for (size_t icase = 1; !status && icase < caseNumbers.size(); ++icase) {
+            const int caseNumber = caseNumbers[icase];
+            active_physicsparam_ = physicsparamcases_[static_cast<size_t>(caseNumber - 1)];
             fileout_ = base_fileout_;
-            fileout_[0] = CaseOutputPrefix(static_cast<int>(icase) + 1);
+            fileout_[0] = CaseOutputPrefix(caseNumber);
 
             if (mpirank_ == 0)
-                std::cout << "\nRunning physicsparam case " << (icase + 1)
+                std::cout << "\nRunning physicsparam case " << caseNumber
                           << " of " << physicsparamcases_.size() << "...\n";
 
-            status = WritePhysicsParamCaseMetadata(static_cast<int>(icase) + 1, fileout_[0]);
+            status = WritePhysicsParamCaseMetadata(caseNumber, fileout_[0]);
             if (status) break;
 
             status = BuildModelsForCurrentCase();
