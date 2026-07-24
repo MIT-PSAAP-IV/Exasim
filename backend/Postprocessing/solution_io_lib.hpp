@@ -1,7 +1,22 @@
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+#include <fstream>
 #include <string>
 #include <vector>
+
+void readDoubles(std::ifstream& in,
+                 double* dst,
+                 std::size_t count,
+                 const std::string& fname);
+
+void writeDoubles(std::ofstream& out,
+                  const double* values,
+                  std::size_t count,
+                  const std::string& fname);
+
+std::int64_t fileSizeBytes(const std::string& fname);
 
 std::vector<int> parseCSVInts(const std::string& s);
 

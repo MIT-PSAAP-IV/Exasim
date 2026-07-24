@@ -11,32 +11,6 @@
 
 namespace {
 
-void readDoubles(std::ifstream& in,
-                 double* dst,
-                 std::size_t count,
-                 const std::string& fname)
-{
-    in.read(reinterpret_cast<char*>(dst),
-            static_cast<std::streamsize>(count * sizeof(double)));
-    if (!in) {
-        throw std::runtime_error("Failed to read doubles from file: " + fname);
-    }
-}
-
-std::int64_t fileSizeBytes(const std::string& fname)
-{
-    std::ifstream in(fname, std::ios::binary | std::ios::ate);
-    if (!in) {
-        throw std::runtime_error("Cannot open file: " + fname);
-    }
-
-    const std::streamoff size = in.tellg();
-    if (size < 0) {
-        throw std::runtime_error("Failed to get file size for: " + fname);
-    }
-    return static_cast<std::int64_t>(size);
-}
-
 std::vector<int> readIntArrayFromDouble(std::ifstream& in,
                                         int count,
                                         const std::string& fname)
@@ -142,6 +116,44 @@ std::size_t idx4(int a, int b, int c, int d, int n1, int n2, int n3)
 
 } // namespace
 
+void readDoubles(std::ifstream& in,
+                 double* dst,
+                 std::size_t count,
+                 const std::string& fname)
+{
+    in.read(reinterpret_cast<char*>(dst),
+            static_cast<std::streamsize>(count * sizeof(double)));
+    if (!in) {
+        throw std::runtime_error("Failed to read doubles from file: " + fname);
+    }
+}
+
+void writeDoubles(std::ofstream& out,
+                  const double* values,
+                  std::size_t count,
+                  const std::string& fname)
+{
+    out.write(reinterpret_cast<const char*>(values),
+              static_cast<std::streamsize>(count * sizeof(double)));
+    if (!out) {
+        throw std::runtime_error("Failed to write file " + fname);
+    }
+}
+
+std::int64_t fileSizeBytes(const std::string& fname)
+{
+    std::ifstream in(fname, std::ios::binary | std::ios::ate);
+    if (!in) {
+        throw std::runtime_error("Cannot open file: " + fname);
+    }
+
+    const std::streamoff size = in.tellg();
+    if (size < 0) {
+        throw std::runtime_error("Failed to get file size for: " + fname);
+    }
+    return static_cast<std::int64_t>(size);
+}
+
 std::vector<int> parseCSVInts(const std::string& s)
 {
     std::vector<int> values;
@@ -167,11 +179,7 @@ void writearray2file(const std::string& filename, const double* values, int coun
     if (!out) {
         throw std::runtime_error("Unable to open file " + filename);
     }
-
-    out.write(reinterpret_cast<const char*>(values), sizeof(double) * count);
-    if (!out) {
-        throw std::runtime_error("Failed to write file " + filename);
-    }
+    writeDoubles(out, values, static_cast<std::size_t>(count), filename);
 }
 
 void readelempart(const std::string& base,
