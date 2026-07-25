@@ -1,14 +1,14 @@
-% Put the Exasim MATLAB frontend on the path. For an installed Exasim use
-% run('<prefix>/share/exasim/matlab/exasim_setup.m') instead.
-run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'frontends', 'Matlab', 'exasim_setup.m'));
+% Add Exasim to Matlab search path
+cdir = pwd(); ii = strfind(cdir, "Exasim");
+ii = ii(end);
+run(cdir(1:(ii+5)) + "/install/setpath.m");
 
-load solp2.mat
+load solmach12.mat
 
 % initialize pde structure and mesh structure
 [pde,~] = initializeexasim();
 % pde.buildpath=string(pwd());
 % pde.exasimpath = string(pwd());
-srcdir = fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'frontends', 'Matlab');
 addpath(char(srcdir + "/Modeling/CNS5air/"));
 
 % Define a PDE model: governing equations, initial solutions, and boundary conditions
@@ -25,7 +25,7 @@ pde.porder = 2;               % polynomial degree
 pde.pgauss = 2*(pde.porder);
 pde.nd = 2;
 pde.elemtype = 1;
-pde.tau = 5.0;  % We nondimensionalize by the free-stream speed of sound, so tau should be greater than the free-stream Mach (~26 here)
+pde.tau = 10.0;  % We nondimensionalize by the free-stream speed of sound, so tau should be greater than the free-stream Mach (~26 here)
 pde.gencode = 1;
 
 pde.GMRESrestart = 250;         %try 50
@@ -42,16 +42,16 @@ pde.dae_alpha = 0;
 pde.dae_beta = 0;
 pde.dae_gamma = 0;
 
-pde.dt = []; % 1e-3*(1.2.^(0:35));
+pde.dt = 1e-3*(1.25.^(0:31));
 pde.nstage = 1;
 pde.torder = 1;
 pde.saveSolFreq = 1;
 
 L_ref    = 1;
 T_wall   = 1400;
-rho_phys_inf = 0.00235;
-v_phys_inf  = 6921;
-T_phys_inf  = 260.6;
+rho_phys_inf = 0.004;
+v_phys_inf  = 4000;
+T_phys_inf  = 250;
 p_phys_inf  = 287*rho_phys_inf*T_phys_inf;
 
 [rho_species_inf, rho_phys_inf, rhov_phys_inf, rhoE_phys_inf] = getEquilibriumState(p_phys_inf, T_phys_inf, v_phys_inf);
@@ -79,12 +79,12 @@ mesh.udg(:,8,:) = rhoE_phys/rhoe_ref;
 mesh.wdg = T_phys/T_ref;
 %mesh.vdg = 1.0*mesh.vdg;
 dist = meshdist3(mesh.f,mesh.dgnodes,master.perm,4); % distance to the wall
-mesh.vdg = 1e-4*tanh(dist*100);
+mesh.vdg = 5e-4*tanh(dist*100);
 % qdg = gradu(permute(master.shapen(:,:,2:3),[2 1 3]), mesh.dgnodes, -udg);
 
-load reactingsol.mat
-mesh.udg = udg;
-mesh.wdg = wdg;
+% load reactingsol.mat
+% mesh.udg = udg;
+% mesh.wdg = wdg;
 
 % generate input files and store them in datain folder
 [pde,mesh,master,dmd] = preprocessing(pde,mesh);
@@ -94,12 +94,11 @@ kkgencode(pde);
 compilerstr = cmakecompile(pde);
 runcode(pde,1);
 
-sol1 = getsolutions(pde.datapath + "/dataout/outudg", dmd);
-wdg1 = getsolutions(pde.datapath + "/dataout/outwdg", dmd);
-% sol2 = getsolution(pde.datapath + "/dataout/out",dmd,9);
-% wdg2 = getsolution(pde.datapath + "/dataout/out_wdg",dmd,9);
+soludg = getsolutions(pde.buildpath + "/dataout/outudg", dmd);
+solwdg = getsolutions(pde.buildpath + "/dataout/outwdg", dmd);
+udg = soludg(:,:,:,32);
+wdg = solwdg(:,:,:,32);
 
-udg = sol1(:,:,:,end);
 rho = sum(udg(:,1:5,:),2);
 for i = 1:5
   figure(i); clf; scaplot(mesh, udg(:,i,:)./rho(:,1,:), [], 1); colorbar; colormap('jet')
@@ -109,5 +108,34 @@ figure(6); clf; scaplot(mesh, rho(:,1,:), [], 1); colorbar; colormap('jet');
 figure(7); clf; scaplot(mesh, udg(:,6,:)./rho(:,1,:), [], 1); colorbar; colormap('jet')
 figure(8); clf; scaplot(mesh, udg(:,7,:)./rho(:,1,:), [], 1); colorbar; colormap('jet')
 figure(9); clf; scaplot(mesh, udg(:,8,:), [], 1); colorbar; colormap('jet');
-figure(10); clf; scaplot(mesh, wdg1(:,1,:,end), [], 1); colorbar; colormap('jet');
+figure(10); clf; scaplot(mesh, wdg(:,1,:), [], 1); colorbar; colormap('jet');
 
+r1 = 1./rho;
+rx = sum(udg(:,9:13,:),2);
+rux = udg(:,14,:);
+ry = sum(udg(:,17:21,:),2);
+rvy = udg(:,23,:);
+u = udg(:,6,:)./rho;
+v = udg(:,7,:)./rho;
+
+ux  = (rux - rx.*u).*r1;
+vy  = (rvy - ry.*v).*r1;
+div = ux + vy - v./mesh.dgnodes(:,2,:);
+figure(11); clf; scaplot(mesh, div, [-100 100], 1); colorbar; colormap('jet');
+
+[~,cgelcon,rowent2elem,colent2elem,~] = mkcgent2dgent(mesh.dgnodes,1e-8);
+[~, ~, jac] = volgeom(master.shapent,permute(mesh.dgnodes,[1 3 2]));
+jac = reshape(jac,[],1,size(mesh.dgnodes,3));
+jac = dg2cg2(jac, cgelcon, colent2elem, rowent2elem);
+jac = dg2cg2(jac, cgelcon, colent2elem, rowent2elem);
+hm = jac.^0.5;
+
+% limit compression
+sigm = 100.0;
+comp = limiting(div,0,sigm,1e3,0);
+DucrosRatio = 1.0;
+c_star = 1.0;
+sb = (hm./porder).^0.25 .* (comp/c_star) * DucrosRatio;
+avField = 6e-4*limiting(sb,0,4,1e3,0.1);
+
+figure(12); clf; scaplot(mesh, avField, [], 1); colorbar; colormap('jet');

@@ -481,3 +481,5 @@ examples/NavierStokes/eppler3d/pdeapp3d.m
 examples/NavierStokes/eppler3d/plot_CpEppler300k_v3.m
 examples/NavierStokes/eppler3d/result.m
 examples/NavierStokes/eppler3d/testmesh.m
+/examples/ReactingFlows/reactingisoq2d/hm2d
+/examples/ReactingFlows/reactingisoq2d/le2d
