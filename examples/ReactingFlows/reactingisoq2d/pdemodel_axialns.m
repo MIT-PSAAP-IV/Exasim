@@ -27,7 +27,7 @@ pinf = 1/(gam*Minf^2);
 Tinf = pinf/(gam-1);
 c23 = 2.0/3.0;
 
-% regularization mueters
+% regularization parameters
 alpha = 4.0e3;
 rmin = 5.0e-2;
 pmin = 2.0e-3;
