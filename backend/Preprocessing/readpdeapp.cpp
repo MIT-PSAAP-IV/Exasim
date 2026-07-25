@@ -493,7 +493,7 @@ inline void printInputParams(InputParams& params)
 //     double NewtonTol = 1e-6;
 //     double GMREStol = 1e-3;
 //     double matvectol = 1e-3;
-//     double dae_alpha = 1.0;
+//     double dae_alpha = 0.0;
 //     double dae_beta = 0.0;
 //     double dae_gamma = 0.0;
 //     double dae_epsilon = 0.0;    
