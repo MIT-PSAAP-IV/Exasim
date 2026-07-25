@@ -5,8 +5,7 @@ if nargin < 2, elemtype = 1;   end
 if nargin < 3, gridNum = -6;   end
 if nargin < 4, nz = 4;         end
 if nargin < 5, span = 0.1;     end
-
-%mesh2d = mkmesh_epp387(porder, elemtype, gridNum);
+if nargin < 6, mesh2d = mkmesh_epp387(porder, elemtype, gridNum); end
 zz = linspace(0, span, nz + 1);
 mesh = extrudemesh(mesh2d, zz);
 
