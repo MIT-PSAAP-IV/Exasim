@@ -88,10 +88,50 @@ wdg = wdg(:,:,:,end);
 
 rho = sum(udg(:,1:5,:),2);
 for i = 1:5
-  figure(i); clf; scaplot(mesh, udg(:,i,:)./rho(:,1,:), [], 1); colorbar; colormap('jet')
+  figure(i); clf; scaplot(mesh, udg(:,i,:)./rho(:,1,:), [], 1); colorbar; colormap('jet'); axis tight;
 end
-figure(6); clf; scaplot(mesh, rho(:,1,:), [], 1); colorbar; colormap('jet');
-figure(7); clf; scaplot(mesh, udg(:,6,:)./rho(:,1,:), [], 1); colorbar; colormap('jet')
-figure(8); clf; scaplot(mesh, udg(:,7,:)./rho(:,1,:), [], 1); colorbar; colormap('jet')
-figure(9); clf; scaplot(mesh, udg(:,8,:), [], 1); colorbar; colormap('jet');
-figure(10); clf; scaplot(mesh, wdg(:,1,:,end), [], 1); colorbar; colormap('jet');
+figure(6); clf; scaplot(mesh, rho(:,1,:), [], 1); colorbar; colormap('jet'); axis tight;
+figure(7); clf; scaplot(mesh, v_ref*udg(:,6,:)./rho(:,1,:), [], 1); colorbar; colormap('jet'); axis tight;
+figure(8); clf; scaplot(mesh, v_ref*udg(:,7,:)./rho(:,1,:), [], 1); colorbar; colormap('jet'); axis tight;
+figure(9); clf; scaplot(mesh, T_ref*wdg(:,1,:,end), [], 1); colorbar; colormap('jet'); axis tight;
+
+rho = sum(udg(:,1:5,:), 2);
+
+figure(1); clf;
+set(gcf, 'Color', 'w');
+for i = 1:5
+    subplot(2, 3, i);
+    scaplot(mesh, udg(:,i,:)./rho(:,1,:), [], 1);
+    colorbar;
+    colormap('jet');
+    axis tight;
+    title(sprintf('Y_%d', i));
+    set(gca,'FontSize',16); axis tight;
+end
+subplot(2, 3, 6);
+meshplot(mesh,1); axis on; axis equal; axis tight;
+title("Mesh");
+set(gca,'FontSize',16); axis tight;
+exportgraphics(gcf, 'species_mass_fractions.png', 'Resolution', 300);
+
+figure(10); clf;
+subplot(1,3,1);
+scaplot(mesh, v_ref*udg(:,6,:)./rho(:,1,:), [], 1);
+colorbar; colormap('jet'); axis tight;
+title('u');
+set(gca,'FontSize',16); axis tight;
+
+subplot(1,3,2);
+scaplot(mesh, v_ref*udg(:,7,:)./rho(:,1,:), [], 1);
+colorbar; colormap('jet'); axis tight;
+title('v');
+set(gca,'FontSize',16); axis tight;
+
+subplot(1,3,3);
+scaplot(mesh, T_ref*wdg(:,1,:,end), [], 1);
+colorbar; colormap('jet'); axis tight;
+title('T');
+set(gca,'FontSize',16); axis tight;
+
+set(gcf, 'Color', 'w');
+exportgraphics(gcf, 'flow_fields.png', 'Resolution', 300);
