@@ -34,9 +34,9 @@
 //
 // Extra input components c >= 5 are ignored. The implementation streams one
 // snapshot at a time and throws std::runtime_error on invalid files, invalid
-// starting offsets, invalid gamma, aliasing file paths, or nonpositive density
-// states. If stepoffsets + nsteps exceeds the available snapshot count, the
-// average is taken over stepoffsets through the last available snapshot.
+// starting offsets, invalid gamma, aliasing file paths, or zero density after
+// applying fabs() to rho. If stepoffsets + nsteps exceeds the available snapshot
+// count, the average is taken over stepoffsets through the last available snapshot.
 void ReynoldsAverages3D(const std::string& fileout,
                         const std::string& filein,
                         int nsteps,
