@@ -135,7 +135,7 @@ sigm = 100.0;
 comp = limiting(div,0,sigm,1e3,0);
 DucrosRatio = 1.0;
 c_star = 1.0;
-sb = (hm./porder).^0.25 .* (comp/c_star) * DucrosRatio;
+sb = (hm./pde.porder).^0.25 .* (comp/c_star) * DucrosRatio;
 avField = 6e-4*limiting(sb,0,4,1e3,0.1);
 
 figure(12); clf; scaplot(mesh, avField, [], 1); colorbar; colormap('jet');
