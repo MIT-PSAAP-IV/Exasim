@@ -322,7 +322,7 @@ function initializepde(version)
     pde.soltime = [1];
     pde.visdt = 1.0;
 
-    pde.dae_alpha = 1.0;
+    pde.dae_alpha = 0.0;
     pde.dae_beta = 0.0;
     pde.dae_gamma = 0.0;
     pde.dae_epsilon = 0.0;
