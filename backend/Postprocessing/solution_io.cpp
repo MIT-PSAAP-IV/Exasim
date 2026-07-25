@@ -1,5 +1,6 @@
 // c++ -std=c++17 -Wall -Wextra -pedantic -O3 solution_io.cpp -o solution_io
-// /lustre/orion/ard196/proj-shared/Exasim/backend/Postprocessing/ioandes ReynoldsAverages/eppler3dsweep1/paramcase_0001/outudg_avg  eppler3dsweep1/datain/mesh SpanwiseReynoldsAverages/eppler3dsweep1/paramcase_0001/sol2davg 736 --average2d 9 18
+// Example:
+//   ./solution_io dataout/outudg datain/mesh sol2davg 736 --average2d 9 18
 
 #include <cstdlib>
 #include <iostream>
