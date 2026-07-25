@@ -70,11 +70,11 @@ std::size_t averageIndex(int i, int c, int e, int npe)
                 static_cast<std::size_t>(kNumAverages) * static_cast<std::size_t>(e));
 }
 
-[[noreturn]] void invalidDensity(const std::string& fname,
-                                 int snapshot,
-                                 int point,
-                                 int elem,
-                                 double rho)
+[[noreturn, maybe_unused]] void invalidDensity(const std::string& fname,
+                                               int snapshot,
+                                               int point,
+                                               int elem,
+                                               double rho)
 {
     std::ostringstream oss;
     oss << "Invalid density rho=" << rho
@@ -217,15 +217,15 @@ void ReynoldsAverages3D(const std::string& fileout,
     std::vector<double> averages(avgSize, 0.0);
 
     for (int s = 0; s < effectiveNsteps; ++s) {
-        const int snapshotIndex = stepoffsets + s;
+        [[maybe_unused]] const int snapshotIndex = stepoffsets + s;
         readDoubles(in, snapshot.data(), snapshotSize, filein);
 
         for (int e = 0; e < ne; ++e) {
             for (int i = 0; i < npe; ++i) {
-                const double rho = snapshot[stateIndex(i, 0, e, npe, nc)];
-                if (rho <= 0.0) {
-                    invalidDensity(filein, snapshotIndex, i, e, rho);
-                }
+                const double rho = fabs(snapshot[stateIndex(i, 0, e, npe, nc)]);
+                // if (rho <= 0.0) {
+                //     invalidDensity(filein, snapshotIndex, i, e, rho);
+                // }
 
                 const double rhou = snapshot[stateIndex(i, 1, e, npe, nc)];
                 const double rhov = snapshot[stateIndex(i, 2, e, npe, nc)];

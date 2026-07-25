@@ -1,4 +1,5 @@
 // c++ -std=c++17 -Wall -Wextra -pedantic -O3 solution_io.cpp -o solution_io
+// /lustre/orion/ard196/proj-shared/Exasim/backend/Postprocessing/ioandes ReynoldsAverages/eppler3dsweep1/paramcase_0001/outudg_avg  eppler3dsweep1/datain/mesh SpanwiseReynoldsAverages/eppler3dsweep1/paramcase_0001/sol2davg 736 --average2d 9 18
 
 #include <cstdlib>
 #include <iostream>
@@ -15,15 +16,21 @@ void printUsage(const char* program)
     std::cerr
         << "Usage:\n"
         << "  " << program
-        << " <sol_base> <elempart_base> <nprocs> [nsteps] [stepoffsets]\n"
+        << " <sol_base> <elempart_base> <out_base> <nprocs> [nsteps] [stepoffsets]\n"
         << "  " << program
-        << " <sol_base> <elempart_base> <nprocs>"
+        << " <sol_base> <elempart_base> <out_base> <nprocs>"
         << " --extract2d <npe2d> <ne_z> <i_matlab_csv> <j_matlab_csv>"
+        << " [nsteps] [stepoffsets]\n"
+        << "  " << program
+        << " <sol_base> <elempart_base> <out_base> <nprocs>"
+        << " --average2d <npe2d> <ne_z>"
         << " [nsteps] [stepoffsets]\n\n"
         << "Examples:\n"
-        << "  " << program << " dataout/outudg datain/mesh 4\n"
+        << "  " << program << " dataout/outudg datain/mesh sol 4\n"
         << "  " << program
-        << " dataout/outudg datain/mesh 4 --extract2d 9 80 2,2,2 20,40,60\n";
+        << " dataout/outudg datain/mesh sol2d 4 --extract2d 9 80 2,2,2 20,40,60\n"
+        << "  " << program
+        << " dataout/outudg datain/mesh sol2davg 4 --average2d 9 80\n";
 }
 
 int parsePositiveInt(const char* text, const std::string& name)
@@ -52,6 +59,11 @@ void writeVector(const std::string& filename, std::vector<double>& values)
     writearray2file(filename, values.data(), static_cast<int>(values.size()));
 }
 
+std::string stepFilename(const std::string& out_base, int step)
+{
+    return out_base + "_step_" + std::to_string(step) + ".bin";
+}
+
 void checkMatlabIndices(const std::vector<int>& i_matlab,
                         const std::vector<int>& j_matlab,
                         int p1,
@@ -78,22 +90,76 @@ void checkMatlabIndices(const std::vector<int>& i_matlab,
     }
 }
 
+std::size_t avg2dIndex(int a, int b, int c, int npe2d, int nc)
+{
+    return static_cast<std::size_t>(a) +
+           static_cast<std::size_t>(npe2d) *
+               (static_cast<std::size_t>(b) +
+                static_cast<std::size_t>(nc) * static_cast<std::size_t>(c));
+}
+
+std::vector<double> averageSol2D(const std::vector<double>& sol3d_flat,
+                                 int npe2d,
+                                 int p1,
+                                 int nc,
+                                 int ne2d,
+                                 int ne_z)
+{
+    const std::size_t expected =
+        static_cast<std::size_t>(npe2d) *
+        static_cast<std::size_t>(p1) *
+        static_cast<std::size_t>(nc) *
+        static_cast<std::size_t>(ne2d) *
+        static_cast<std::size_t>(ne_z);
+    if (sol3d_flat.size() != expected) {
+        throw std::runtime_error("averageSol2D: sol3d_flat has unexpected size.");
+    }
+
+    std::vector<double> sol2davg(static_cast<std::size_t>(npe2d) *
+                                 static_cast<std::size_t>(nc) *
+                                 static_cast<std::size_t>(ne2d),
+                                 0.0);
+
+    for (int j = 0; j < ne_z; ++j) {
+        for (int c = 0; c < ne2d; ++c) {
+            for (int b = 0; b < nc; ++b) {
+                for (int i = 0; i < p1; ++i) {
+                    for (int a = 0; a < npe2d; ++a) {
+                        sol2davg[avg2dIndex(a, b, c, npe2d, nc)] +=
+                            sol3d_flat[idx5(a, i, b, c, j, npe2d, p1, nc, ne2d)];
+                    }
+                }
+            }
+        }
+    }
+
+    const double scale =
+        1.0 / (static_cast<double>(p1) * static_cast<double>(ne_z));
+    for (double& value : sol2davg) {
+        value *= scale;
+    }
+
+    return sol2davg;
+}
+
 } // namespace
 
 int main(int argc, char** argv)
 {
     try {
-        if (argc < 4) {
+        if (argc < 5) {
             printUsage(argv[0]);
             return 1;
         }
 
         const std::string sol_base = argv[1];
         const std::string elempart_base = argv[2];
-        const int nprocs = parsePositiveInt(argv[3], "nprocs");
+        const std::string out_base = argv[3];
+        const int nprocs = parsePositiveInt(argv[4], "nprocs");
 
         bool extract2d = false;
-        int arg = 4;
+        bool average2d = false;
+        int arg = 5;
 
         int npe2d = 0;
         int ne_z = 0;
@@ -112,6 +178,16 @@ int main(int argc, char** argv)
             i_matlab = parseCSVInts(argv[arg + 3]);
             j_matlab = parseCSVInts(argv[arg + 4]);
             arg += 5;
+        } else if (arg < argc && std::string(argv[arg]) == "--average2d") {
+            average2d = true;
+            if (argc < arg + 3) {
+                printUsage(argv[0]);
+                return 1;
+            }
+
+            npe2d = parsePositiveInt(argv[arg + 1], "npe2d");
+            ne_z = parsePositiveInt(argv[arg + 2], "ne_z");
+            arg += 3;
         }
 
         const int nsteps = (arg < argc) ? parsePositiveInt(argv[arg++], "nsteps") : 1;
@@ -142,9 +218,8 @@ int main(int argc, char** argv)
                          n2,
                          ne);
 
-            if (!extract2d) {
-                const std::string out =
-                    "sol_step_" + std::to_string(stepoffsets + step) + ".bin";
+            if (!extract2d && !average2d) {
+                const std::string out = stepFilename(out_base, stepoffsets + step);
                 writeVector(out, sol3dGlobal);
                 std::cout << "Wrote " << out
                           << " (sol.size()=" << sol3dGlobal.size() << ")\n";
@@ -162,6 +237,22 @@ int main(int argc, char** argv)
             const int p1 = n1 / npe2d;
             const int ne2 = ne / ne_z;
 
+            if (average2d) {
+                std::vector<double> sol2davg =
+                    averageSol2D(sol3dGlobal,
+                                 npe2d,
+                                 p1,
+                                 nc,
+                                 ne2,
+                                 ne_z);
+
+                const std::string out = stepFilename(out_base, stepoffsets + step);
+                writeVector(out, sol2davg);
+                std::cout << "Wrote " << out
+                          << " (sol2davg.size()=" << sol2davg.size() << ")\n";
+                continue;
+            }
+
             checkMatlabIndices(i_matlab, j_matlab, p1, ne_z);
 
             std::vector<double> sol2d =
@@ -174,8 +265,7 @@ int main(int argc, char** argv)
                              i_matlab,
                              j_matlab);
 
-            const std::string out =
-                "sol2d_step_" + std::to_string(stepoffsets + step) + ".bin";
+            const std::string out = stepFilename(out_base, stepoffsets + step);
             writeVector(out, sol2d);
             std::cout << "Wrote " << out
                       << " (sol2d.size()=" << sol2d.size() << ")\n";
