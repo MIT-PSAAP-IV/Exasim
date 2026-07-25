@@ -62,7 +62,11 @@ comp = -divu;
 sigm = 100.0;
 comp = limiting(comp,0,sigm,alpha,0);
 
-avField = drhov_dr;
+DucrosRatio = 1.0;
+c_star = 1.0;
+
+sb = sqrt(hm./porder) * (comp/c_star) * DucrosRatio;
+avField = avcoeff * limiting(sb, 0, 4, alpha, 0.1);
 
 % Optional Ducros-type shear suppression:
 % vort_theta = duz_dr - dur_dz;
