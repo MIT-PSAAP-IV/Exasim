@@ -70,6 +70,14 @@ if nargin < 3 || isempty(ncu)
     ncu = nc / 3;
 end
 
+if nargin < 4 || isempty(maxdiv)
+    maxdiv = 100.0;
+end
+if ~isscalar(maxdiv) || ~isfinite(maxdiv) || maxdiv <= 0
+    error('computeavfield2dchem:InvalidMaxDiv', ...
+          'maxdiv must be a positive finite scalar.');
+end
+
 if ncu <= 3 || floor(ncu) ~= ncu
     error('computeavfield2dchem:InvalidNcu', ...
           'ncu must be a positive integer greater than 3.');
