@@ -886,25 +886,21 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     pde.solversparam = {pde.NewtonTol, pde.GMREStol, pde.matvectol, pde.NLparam};
     
                     
-    // Normalize a path that contains an "Exasim" component (e.g. .../Exasim/backend)
-    // down to the Exasim root. But an explicitly-set exasimpath must be honored even
-    // when its directory name does not literally contain "Exasim" (the checkout may
-    // live at e.g. /data/scratch/.../exasim-teoc): only fall back to the cwd when no
-    // exasimpath was provided at all.
+    // Honor explicit exasimpath values verbatim. Installed layouts commonly live
+    // below a checkout path such as .../Exasim/Exasim/build/install; trimming that
+    // at the last "Exasim" component points text2code back at the workspace root
+    // instead of the install prefix. Only normalize the narrow legacy case where
+    // users pass the backend directory itself.
     {
       const std::string rawpath = pde.exasimpath;
-      // An explicitly-set path that already looks like an Exasim root (has a
-      // backend/ component) is honored verbatim — trimming at the last
-      // "Exasim" substring would mangle checkouts like .../Exasim/Exasim/src
-      // (CI) or paths that merely contain "Exasim" in a parent directory.
-      if (!rawpath.empty() && std::filesystem::is_directory(
-              std::filesystem::path(rawpath) / "backend")) {
-        pde.exasimpath = rawpath;
-      } else if (!rawpath.empty() &&
-                 !trimToSubstringAtLastOccurence(rawpath, "Exasim").empty()) {
-        pde.exasimpath = trimToSubstringAtLastOccurence(rawpath, "Exasim");
-      } else if (!rawpath.empty()) {
-        pde.exasimpath = rawpath;   // honor an explicit path verbatim
+      if (!rawpath.empty()) {
+        const std::filesystem::path path = std::filesystem::path(rawpath).lexically_normal();
+        if (path.filename() == "backend" &&
+            std::filesystem::is_directory(path.parent_path() / "backend")) {
+          pde.exasimpath = path.parent_path().string();
+        } else {
+          pde.exasimpath = rawpath;
+        }
       } else if (const char* env_prefix = std::getenv("EXASIM_PREFIX");
                  env_prefix && *env_prefix) {
         pde.exasimpath = env_prefix;
