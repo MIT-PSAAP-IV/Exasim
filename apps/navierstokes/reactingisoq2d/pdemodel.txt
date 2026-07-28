@@ -534,8 +534,9 @@ function Fext(x, uq, v, w, uhat, n, uext, tau, eta, mu, t)
   fnw4 = jw[4]*n[0] + jw[9]*n[1];
   mdc4 = eta[17]*sqt*16.119459584022767*uq[4]/mu[1];
   fb[4] = fnw4 - mdc4 + tau[0]*(uq[4] - uhat[4]);
-  fb[5] = -tau[0]*(uhat[5]-uext[1]);
-  fb[6] = -tau[0]*(uhat[6]-uext[2]);
+  rvref = mu[0]*mu[1];
+  fb[5] = -tau[0]*(uhat[5]-uext[1]/rvref);
+  fb[6] = -tau[0]*(uhat[6]-uext[2]/rvref);
   fb[7] = tau[0]*(rew - uhat[7]);
 end
 
