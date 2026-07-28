@@ -114,6 +114,7 @@ using namespace std;
 #endif
 
 #include "ExasimSolver.hpp"
+#include <exasim/interface_coupling.hpp>
 
 namespace {
 
@@ -1223,36 +1224,6 @@ int ExasimSolver::IntializeMeshInterface(const int modelnumber,
     CSolution<>& model = *models_[modelnumber];
     const int interfaceBackend = model.disc.common.backend;
 
-    if (faces) {
-        TemplateFree(faces, interfaceBackend);
-        faces = nullptr;
-    }
-    if (xdgint) {
-        TemplateFree(xdgint, interfaceBackend);
-        xdgint = nullptr;
-    }
-    if (nlint) {
-        TemplateFree(nlint, interfaceBackend);
-        nlint = nullptr;
-    }
-    if (xdggint) {
-        TemplateFree(xdggint, interfaceBackend);
-        xdggint = nullptr;
-    }
-    if (nlgint) {
-        TemplateFree(nlgint, interfaceBackend);
-        nlgint = nullptr;
-    }
-    if (flux_dev_) {
-        TemplateFree(flux_dev_, interfaceBackend);
-        flux_dev_ = nullptr;
-    }
-    if (model.disc.sol.uext) {
-        TemplateFree(model.disc.sol.uext, interfaceBackend);
-        model.disc.sol.uext = nullptr;
-        model.disc.sol.szuext = 0;
-    }
-
     _ncuext = ncuext;
     _ncuint = ncuint;
     _ibc = ibc;
@@ -1271,34 +1242,11 @@ int ExasimSolver::IntializeMeshInterface(const int modelnumber,
 #endif
 
     backend_ = interfaceBackend;
-    ncx = model.disc.common.components.ncx;
-    npf = model.disc.common.grid.npf;
-    ngf = model.disc.common.grid.ngf;
-    nfaces = model.sampler.getFacesOnInterface(&faces, ibc + 1);
-
-    model.disc.common.couplingparams.ncuext = ncuext;
-    TemplateMalloc(&model.disc.sol.uext, ngf * nfaces * ncuext,
-                   interfaceBackend);
-    model.disc.sol.szuext = ngf * nfaces * ncuext;
-
-    TemplateMalloc(&xdgint, npf * nfaces * model.disc.common.components.ncx,
-                   interfaceBackend);
-    TemplateMalloc(&nlint, npf * nfaces * model.disc.common.grid.nd,
-                   interfaceBackend);
-    TemplateMalloc(&xdggint, ngf * nfaces * model.disc.common.components.ncx,
-                   interfaceBackend);
-    TemplateMalloc(&nlgint, ngf * nfaces * model.disc.common.grid.nd,
-                   interfaceBackend);
-    TemplateMalloc(&flux_dev_, ngf * nfaces * _ncuint,
-                   interfaceBackend);
-
-    model.sampler.getDGNodesOnInterface(xdgint, faces, nfaces);
-    model.sampler.getNormalVectorOnInterface(nlint, xdgint, nfaces);
-    model.sampler.getFieldsAtGaussPointsOnInterface(xdggint, xdgint, nfaces,
-                                                 model.disc.common.components.ncx);
-    model.sampler.getFieldsAtGaussPointsOnInterface(nlgint, nlint, nfaces,
-                                                 model.disc.common.grid.nd);
-
+    if (!iface_)
+        iface_ = std::make_unique<exasim::InterfaceCoupling<exasim::detail::AbiAdapter>>();
+    const int rc_iface = iface_->initialize(model, ncuext, ncuint, ibc);
+    ncx = iface_->ncx; npf = iface_->npf; ngf = iface_->ngf; nfaces = iface_->nfaces;
+    if (rc_iface != 0) return rc_iface;
     return 0;
 }
 
@@ -1337,47 +1285,22 @@ int ExasimSolver::ClearSavedState(const int modelnumber)
 
 std::vector<ExasimPoint> ExasimSolver::getInterfacePoints() const
 {
-    std::vector<ExasimPoint> interfacePoints;
-
-    const int ngb = nfaces * ngf;
-    if (ngb <= 0 || xdggint == nullptr)
-        return interfacePoints;
-
-    std::vector<double> xdggHost(ncx * ngb);
-    TemplateCopytoHost(xdggHost.data(), xdggint, ncx * ngb, backend_);
-
-    interfacePoints.reserve(ngb);
-    for (int i = 0; i < ngb; ++i) {
-        ExasimPoint p{};
-        p.x = xdggHost[0 * ngb + i];
-        p.y = (ncx > 1) ? xdggHost[1 * ngb + i] : 0.0;
-        p.z = (ncx > 2) ? xdggHost[2 * ngb + i] : 0.0;
-        interfacePoints.push_back(p);
-    }
-
-    return interfacePoints;
+    std::vector<ExasimPoint> out;
+    if (!iface_) return out;
+    for (const auto& p : iface_->points()) out.push_back(ExasimPoint{p.x, p.y, p.z});
+    return out;
 }
 
 void ExasimSolver::getInterfaceFluxes(std::vector<double>& send_flux) const
-{    
-    const Int sz = ngf * nfaces * _ncuint;
-    send_flux.resize(sz);
-
-    CSolution<>& model = *models_[interface_modelnumber_];
-    if (backend_ > 1) {
-        model.sampler.getInterfaceFluxesAtGaussPoints(flux_dev_, xdggint, nlgint, faces, nfaces);
-        TemplateCopytoHost(send_flux.data(), flux_dev_, sz, backend_);
-    } else {
-        model.sampler.getInterfaceFluxesAtGaussPoints(send_flux.data(), xdggint, nlgint, faces, nfaces);
-    }
+{
+    if (iface_) iface_->fluxes_out(send_flux);
 }
 
 void ExasimSolver::setInterfaceFluxes(const std::vector<double>& recv_flux)
 {
-    CSolution<>& model = *models_[interface_modelnumber_];
-    TemplateCopytoDevice(model.disc.sol.uext, recv_flux.data(), ngf * nfaces * model.disc.common.couplingparams.ncuext, backend_);
-    model.disc.common.couplingparams.FextCall = _ibc + 1;
+    if (iface_) iface_->fluxes_in(recv_flux);
 }
+
 
 int ExasimSolver::RunAVDistanceFunction()
 {
@@ -1700,14 +1623,9 @@ int ExasimSolver::SaveParaviewStep(const int modelnumber, const int step, const 
     // before touching currentstep keeps this a true no-op for non-vis models.
     if (m.vis.savemode <= 0)
         return 0;
-    // SaveParaview names the file outvis<modifier>_<currentstep+timestepOffset+1>; set
-    // currentstep = step-1 so a 1-based step maps to outvis<modifier>_<step+offset>.
-    // Save and restore currentstep so this scratch index never leaks into a later
-    // solve/postprocess that reads common.currentstep.
-    const auto savedstep = m.disc.common.timestate.currentstep;
-    m.disc.common.timestate.currentstep = step - 1;
-    m.writer.SaveParaview(backend_, modifier, true);
-    m.disc.common.timestate.currentstep = savedstep;
+    // The currentstep save/restore this used to spell out lives in the writer now
+    // (CSolutionWriter::SaveParaviewAt), shared with consumers that were copying it.
+    m.writer.SaveParaviewAt(step, backend_, modifier);
     return 0;
 }
 
@@ -1951,15 +1869,7 @@ void ExasimSolver::DestroyModelInstances()
 {
     CloseOutputStreams();
 
-    if (!models_.empty() && models_[0]) {
-        const int interfaceBackend = models_[0]->disc.common.backend;
-        if (faces) { TemplateFree(faces, interfaceBackend); faces = nullptr; }
-        if (xdgint) { TemplateFree(xdgint, interfaceBackend); xdgint = nullptr; }
-        if (nlint) { TemplateFree(nlint, interfaceBackend); nlint = nullptr; }
-        if (xdggint) { TemplateFree(xdggint, interfaceBackend); xdggint = nullptr; }
-        if (nlgint) { TemplateFree(nlgint, interfaceBackend); nlgint = nullptr; }
-        if (flux_dev_) { TemplateFree(flux_dev_, interfaceBackend); flux_dev_ = nullptr; }
-    }
+    iface_.reset();   // frees the interface buffers (RAII)
 
     for (auto& model : models_) {
         if (model) {
@@ -2143,33 +2053,7 @@ void ExasimSolver::CloseOutputStreams()
 
 void ExasimSolver::DestroyModels()
 {
-    if (!models_.empty() && models_[0]) {
-        const int interfaceBackend = models_[0]->disc.common.backend;
-        if (faces) {
-            TemplateFree(faces, interfaceBackend);
-            faces = nullptr;
-        }
-        if (xdgint) {
-            TemplateFree(xdgint, interfaceBackend);
-            xdgint = nullptr;
-        }
-        if (nlint) {
-            TemplateFree(nlint, interfaceBackend);
-            nlint = nullptr;
-        }
-        if (xdggint) {
-            TemplateFree(xdggint, interfaceBackend);
-            xdggint = nullptr;
-        }
-        if (nlgint) {
-            TemplateFree(nlgint, interfaceBackend);
-            nlgint = nullptr;
-        }
-        if (flux_dev_) {
-            TemplateFree(flux_dev_, interfaceBackend);
-            flux_dev_ = nullptr;
-        }
-    }
+    iface_.reset();   // frees the interface buffers (RAII)
 
     for (auto& model : models_) {
         if (model) {
