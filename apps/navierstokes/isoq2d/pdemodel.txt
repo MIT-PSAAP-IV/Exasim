@@ -306,7 +306,12 @@ function Fext(x, uq, v, w, uhat, n, uext, tau, eta, mu, t)
     fb[0] = uq[0] - uhat[0]; 
     fb[1] = -mdot*n[0] - uhat[1]; 
     fb[2] = -mdot*n[1] - uhat[2]; 
-    fb[3] = uhat[0]*Ewall - uhat[3];               
+
+    r = uhat[0];
+    ru = -mdot*n[0];
+    rv = -mdot*n[1];
+    ke = 0.5*(ru*ru + rv*rv)/r;
+    fb[3] = uhat[0]*Ewall + ke - uhat[3];
 end
 
 function VisScalars(x, uq, v, w, eta, mu, t)  
@@ -373,4 +378,3 @@ function VisVectors(x, uq, v, w, eta, mu, t)
   s[0] = uq[1];
   s[1] = uq[2];  
 end
-

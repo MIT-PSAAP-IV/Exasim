@@ -1,6 +1,6 @@
 scalars t
 
-vectors x(2), uq(24), v(1), w(1), uhat(8), uext(1), n(2), tau(1), mu(12), eta(18)
+vectors x(2), uq(24), v(1), w(1), uhat(8), uext(2), n(2), tau(1), mu(12), eta(18)
 
 jacobian uq, w, uhat
 
@@ -483,7 +483,7 @@ function Fbou(x, uq, v, w, uhat, n, tau, eta, mu, t)
 end
 
 function Fint(x, uq, v, w, uhat, n, tau, eta, mu, t)
-  output_size(fi) = 9;
+  output_size(fi) = 5;
   tdim = w[0]*mu[3];
   pdim = tdim*8.314471468617452*(mu[0]*uq[0]*71.39440410660612 + mu[0]*uq[1]*62.50234383789392 + mu[0]*uq[2]*33.32655693342354 + mu[0]*uq[3]*35.69720205330306 + mu[0]*uq[4]*31.25117191894696);
   tg = TGrad(uq, mu, tdim);
@@ -501,14 +501,18 @@ function Fint(x, uq, v, w, uhat, n, tau, eta, mu, t)
   edim = mu[0]*mu[1]*mu[1]*mu[1];
   sdim = mu[4]*mu[1]/mu[7];
   fi[0] = pdim;
-  fi[1] = -qdim*kap*tg[0];
-  fi[2] = -qdim*kap*tg[1];
-  fi[3] = edim*(hm0*jd[0] + hm1*jd[1] + hm2*jd[2] + hm3*jd[3] + hm4*jd[4]);
-  fi[4] = edim*(hm0*jd[5] + hm1*jd[6] + hm2*jd[7] + hm3*jd[8] + hm4*jd[9]);
-  fi[5] = sdim*st[0];
-  fi[6] = sdim*st[1];
-  fi[7] = sdim*st[1];
-  fi[8] = sdim*st[2];
+  qz = -qdim*kap*tg[0];
+  qr = -qdim*kap*tg[1];
+  fi[1] = qz*n[0] + qr*n[1];
+  cz = edim*(hm0*jd[0] + hm1*jd[1] + hm2*jd[2] + hm3*jd[3] + hm4*jd[4]);
+  cr = edim*(hm0*jd[5] + hm1*jd[6] + hm2*jd[7] + hm3*jd[8] + hm4*jd[9]);
+  fi[2] = cz*n[0] + cr*n[1];
+  tauzz = sdim*st[0] - pdim;
+  tauzr = sdim*st[1];
+  taurz = sdim*st[1];
+  taurr = sdim*st[2] - pdim;
+  fi[3] = tauzz*n[0] + tauzr*n[1];
+  fi[4] = taurz*n[0] + taurr*n[1];
 end
 
 function Fext(x, uq, v, w, uhat, n, uext, tau, eta, mu, t)
@@ -535,9 +539,14 @@ function Fext(x, uq, v, w, uhat, n, uext, tau, eta, mu, t)
   mdc4 = eta[17]*sqt*16.119459584022767*uq[4]/mu[1];
   fb[4] = fnw4 - mdc4 + tau[0]*(uq[4] - uhat[4]);
   rvref = mu[0]*mu[1];
-  fb[5] = -tau[0]*(uhat[5]-uext[1]/rvref);
-  fb[6] = -tau[0]*(uhat[6]-uext[2]/rvref);
-  fb[7] = tau[0]*(rew - uhat[7]);
+  fb[5] = -tau[0]*(uhat[5]+uext[1]*n[0]/rvref);
+  fb[6] = -tau[0]*(uhat[6]+uext[1]*n[1]/rvref);
+
+  rhoz = -uext[1]*n[0]/rvref;
+  rhor = -uext[1]*n[1]/rvref;
+  rho = uhat[0] + uhat[1] + uhat[2] + uhat[3] + uhat[4];
+  ke = 0.5*(rhoz*rhoz + rhor*rhor)/rho;
+  fb[7] = tau[0]*(rew + ke - uhat[7]);
 end
 
 function FbouHdg(x, uq, v, w, uhat, n, tau, eta, mu, t)
