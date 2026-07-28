@@ -420,6 +420,18 @@ void CSolutionWriter<M>::GetSolutions(Int step, Int backend)
         residual.evalQ(backend);
 }
  
+// Write a specific 1-based step, restoring currentstep afterwards. See the header for why
+// the save/restore is necessary rather than incidental.
+template <class M>
+void CSolutionWriter<M>::SaveParaviewAt(Int step, Int backend, std::string fname_modifier)
+{
+    if (step < 1) return;
+    const auto savedstep = disc.common.timestate.currentstep;
+    disc.common.timestate.currentstep = step - 1;
+    this->SaveParaview(backend, fname_modifier, true);
+    disc.common.timestate.currentstep = savedstep;
+}
+
 template <class M>
 void CSolutionWriter<M>::SaveParaview(Int backend, std::string fname_modifier, bool force_tdep_write) 
 {
