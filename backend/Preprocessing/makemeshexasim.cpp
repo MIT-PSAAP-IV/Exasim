@@ -917,13 +917,23 @@ inline void project_dgnodes_onto_curved_boundaries(double* dgnodes, const int* f
     if (factor == - 1) {
       for (int k = 0; k < nfe * ne; ++k) {
           const int b = -f[k] - 1;
+          // Same diagnostic as the factor>0 branch below: the guard makes this safe,
+          // but under EXASIM_BOUNDS_CHECK we want to hear about ids the mesh produces
+          // that the configured boundary list cannot explain.
+          if (f[k] <= -1) EXASIM_CHECK_INDEX(b, ncurved, "curvedboundary[-f[k]-1]");
           if (f[k] <= -1 && b >= 0 && b < ncurved && curvedboundary[b] != 0)
               has_curved = 1;
       }
     } else {
-       for (int k = 0; k < nfe * ne; ++k)
+       for (int k = 0; k < nfe * ne; ++k) {
+          // Diagnostic only: the `f[k] < ncurved` guard below already makes this safe.
+          // Under EXASIM_BOUNDS_CHECK we want to be TOLD that the mesh is producing
+          // boundary ids outside the configured list, rather than silently skipping
+          // them, because that usually means the input or the decomposition is wrong.
+          EXASIM_CHECK_INDEX(f[k] > -1 ? f[k] : 0, ncurved, "curvedboundary[f[k]]");
           if (f[k] > -1 && f[k] < ncurved && curvedboundary[f[k]] != 0)
               has_curved = 1;
+       }
     }       
 
     if (!has_curved) return;
@@ -943,6 +953,7 @@ inline void project_dgnodes_onto_curved_boundaries(double* dgnodes, const int* f
             // The face array can carry ids outside the configured boundary list
             // (this varies with the MPI decomposition). Without this bound the reads
             // below run off the end of curvedboundary/fd_exprs.
+            EXASIM_CHECK_INDEX(k, ncurved, "curvedboundary[k] / fd_exprs[k]");
             if (k >= ncurved) continue;
             if (curvedboundary[k] != 1) continue;
 

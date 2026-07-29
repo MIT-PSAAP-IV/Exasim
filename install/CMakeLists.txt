@@ -109,6 +109,14 @@ if(EXASIM_FLOAT)
 else()
   set(_exasim_scalar "double")
 endif()
+option(EXASIM_BOUNDS_CHECK "Rank-aware bounds checks on partition-derived indices (debug/CI)" OFF)
+if(EXASIM_BOUNDS_CHECK)
+  # Diagnostic build: abort at an out-of-range partition-derived index instead of
+  # reading out of bounds and crashing later somewhere unrelated. See
+  # backend/Common/boundscheck.h. No effect on a default build.
+  target_compile_definitions(ExasimHeaders INTERFACE EXASIM_BOUNDS_CHECK)
+endif()
+
 if(EXASIM_INT64)
   target_compile_definitions(ExasimHeaders INTERFACE USE_LONG)
   set(_exasim_index "long")

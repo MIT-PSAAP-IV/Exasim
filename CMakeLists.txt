@@ -48,6 +48,7 @@ option(EXASIM_LIB         "Build static libraries"             ON)
 option(WITH_PARMETIS      "Link METIS/ParMETIS"                ON)
 option(EXASIM_FLOAT       "Single-precision dstype (float); default double"  OFF)
 option(EXASIM_INT64       "64-bit Int index type (long); default int"        OFF)
+option(EXASIM_BOUNDS_CHECK "Rank-aware bounds checks on partition-derived indices (debug/CI)" OFF)
 option(WITH_TEXT2CODE     "Build text2code-linked executables" OFF)
 option(WITH_BUILTINMODEL  "Build the built-in model library"   ON)
 option(WITH_GMP           "Download/build GMP and use it for vendored SymEngine" OFF)
@@ -676,6 +677,7 @@ ExternalProject_Add(exasim_build
     -DEXASIM_CUDA=${EXASIM_CUDA} -DEXASIM_HIP=${EXASIM_HIP}
     -DEXASIM_LIB=${EXASIM_LIB} -DWITH_PARMETIS=${WITH_PARMETIS}
     -DEXASIM_FLOAT=${EXASIM_FLOAT} -DEXASIM_INT64=${EXASIM_INT64}
+    -DEXASIM_BOUNDS_CHECK=${EXASIM_BOUNDS_CHECK}
     -DWITH_TEXT2CODE=${WITH_TEXT2CODE} -DWITH_BUILTINMODEL=${WITH_BUILTINMODEL}
     -DEXASIM_BUILD_TESTS=${EXASIM_BUILD_TESTS}
     -DEXASIM_TEXT2CODE=${EXASIM_TEXT2CODE}

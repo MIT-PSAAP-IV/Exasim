@@ -44,6 +44,7 @@
 // Standard headers used directly below (filesystem path/dir helpers, string,
 // containers). Included here so common.h is self-contained for consumers that
 // reach it without run.hpp's preamble (e.g. <exasim/model.hpp>).
+#include "boundscheck.h"   // rank-aware bounds checks (no-op unless EXASIM_BOUNDS_CHECK)
 #include <string>
 #include <vector>
 #include <filesystem>
