@@ -908,19 +908,21 @@ inline void compute_dgnodes(double* dgnodes, const double* p, const int* t,
     }        
 }
 
-inline void project_dgnodes_onto_curved_boundaries(double* dgnodes, const int* f, const int* perm, const int* curvedboundary,
+inline void project_dgnodes_onto_curved_boundaries(double* dgnodes, const int* f, const int* perm, const int* curvedboundary, int ncurved,
                          char** fd_exprs, int nd, int porder, int npe, int npf, int nfe, int ne, int factor=1) 
 {
     if (porder <= 1) return;
 
     int has_curved = 0;   
     if (factor == - 1) {
-      for (int k = 0; k < nfe * ne; ++k)
-          if (f[k] <= -1 && curvedboundary[-f[k]-1] != 0)
+      for (int k = 0; k < nfe * ne; ++k) {
+          const int b = -f[k] - 1;
+          if (f[k] <= -1 && b >= 0 && b < ncurved && curvedboundary[b] != 0)
               has_curved = 1;
+      }
     } else {
        for (int k = 0; k < nfe * ne; ++k)
-          if (f[k] > -1 && curvedboundary[f[k]] != 0)
+          if (f[k] > -1 && f[k] < ncurved && curvedboundary[f[k]] != 0)
               has_curved = 1;
     }       
 
@@ -938,9 +940,14 @@ inline void project_dgnodes_onto_curved_boundaries(double* dgnodes, const int* f
             if (fid < 0) continue;
 
             int k = fid;
+            // The face array can carry ids outside the configured boundary list
+            // (this varies with the MPI decomposition). Without this bound the reads
+            // below run off the end of curvedboundary/fd_exprs.
+            if (k >= ncurved) continue;
             if (curvedboundary[k] != 1) continue;
 
-            const char* expr_str = fd_exprs[k];
+            const char* expr_str = fd_exprs ? fd_exprs[k] : nullptr;
+            if (expr_str == nullptr || expr_str[0] == '\0') continue;
             double x=0, y=0, z=0;
             
             te_parser tep;
@@ -1045,7 +1052,7 @@ inline void project_dgnodes_onto_curved_boundaries(double* dgnodes, const int* f
 // are skipped regardless.
 inline void project_dgnodes_onto_curved_boundaries(
     double* dgnodes, const int* f, const int* perm,
-    const int* curvedboundary,
+    const int* curvedboundary, int ncurved,
     const std::vector<BoundaryLevelSet>& level_sets,
     int nd, int porder, int npe, int npf, int nfe, int ne, int factor = 1)
 {
@@ -1053,11 +1060,13 @@ inline void project_dgnodes_onto_curved_boundaries(
 
     int has_curved = 0;
     if (factor == -1) {
-        for (int k = 0; k < nfe * ne; ++k)
-            if (f[k] <= -1 && curvedboundary[-f[k]-1] != 0) has_curved = 1;
+        for (int k = 0; k < nfe * ne; ++k) {
+            const int b = -f[k] - 1;
+            if (f[k] <= -1 && b >= 0 && b < ncurved && curvedboundary[b] != 0) has_curved = 1;
+        }
     } else {
         for (int k = 0; k < nfe * ne; ++k)
-            if (f[k] >  -1 && curvedboundary[ f[k]   ] != 0) has_curved = 1;
+            if (f[k] >  -1 && f[k] < ncurved && curvedboundary[ f[k] ] != 0) has_curved = 1;
     }
     if (!has_curved) return;
 
@@ -1071,6 +1080,7 @@ inline void project_dgnodes_onto_curved_boundaries(
             if (factor == -1) fid = fid - 1;
             if (fid < 0) continue;
             int k = fid;
+            if (k >= ncurved) continue;
             if (curvedboundary[k] != 1) continue;
             if (k >= (int)level_sets.size() || !level_sets[k]) continue;
             const auto& level_set = level_sets[k];

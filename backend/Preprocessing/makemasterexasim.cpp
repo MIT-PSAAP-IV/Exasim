@@ -1277,12 +1277,12 @@ inline void buildMesh(Mesh& mesh, const PDE& pde, const Master& master)
         // Programmatic level-set path (HOT.7.2). Skips tinyexpr.
         project_dgnodes_onto_curved_boundaries(
             mesh.xdg.data(), mesh.f.data(), master.perm.data(),
-            mesh.curvedBoundaries.data(), mesh.curvedBoundaryLevelSets,
+            mesh.curvedBoundaries.data(), (int)mesh.curvedBoundaries.size(), mesh.curvedBoundaryLevelSets,
             mesh.dim, master.porder, master.npe, master.npf, mesh.nfe, mesh.ne);
       } else {
         project_dgnodes_onto_curved_boundaries(
             mesh.xdg.data(), mesh.f.data(), master.perm.data(),
-            mesh.curvedBoundaries.data(), mesh.curvedBoundaryExprs,
+            mesh.curvedBoundaries.data(), (int)mesh.curvedBoundaries.size(), mesh.curvedBoundaryExprs,
             mesh.dim, master.porder, master.npe, master.npf, mesh.nfe, mesh.ne);
       }
       std::cout << "Finished project_dgnodes_onto_curved_boundaries.\n";

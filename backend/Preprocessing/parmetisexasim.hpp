@@ -2993,11 +2993,11 @@ DMD initializeDMD(Mesh& mesh, const Master& master, const PDE& pde, MPI_Comm com
         compute_dgnodes(mesh.xdg.data(), mesh.p.data(), mesh.t.data(), master.phielem.data(), master.npe, mesh.dim, mesh.ne, mesh.nve);
         if (!mesh.curvedBoundaryLevelSets.empty()) {
             project_dgnodes_onto_curved_boundaries(mesh.xdg.data(), mesh.t2t.data(), master.perm.data(),
-                    mesh.curvedBoundaries.data(), mesh.curvedBoundaryLevelSets,
+                    mesh.curvedBoundaries.data(), (int)mesh.curvedBoundaries.size(), mesh.curvedBoundaryLevelSets,
                     mesh.dim, master.porder, master.npe, master.npf, mesh.nfe, mesh.ne, -1);
         } else {
             project_dgnodes_onto_curved_boundaries(mesh.xdg.data(), mesh.t2t.data(), master.perm.data(),
-                    mesh.curvedBoundaries.data(),
+                    mesh.curvedBoundaries.data(), (int)mesh.curvedBoundaries.size(),
                     mesh.curvedBoundaryExprs, mesh.dim, master.porder, master.npe, master.npf,
                     mesh.nfe, mesh.ne, -1);
         }
