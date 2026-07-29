@@ -1,6 +1,10 @@
 // c++ -std=c++17 -Wall -Wextra -pedantic -O3 solution_io.cpp -o solution_io
 // Example:
 //   ./solution_io dataout/outudg datain/mesh sol2davg 736 --average2d 9 18
+//   ./solution_io dataout/outxg xg 4
+//   ./solution_io dataout/outuf uf 4 --getufavg 9 8
+//   ./solution_io dataout/outudg udgf 4 --getudgf 2 10
+//   ./solution_io dataout/outudg udgavg 4 --averageudgf 10 20
 
 #include <cstdlib>
 #include <iostream>
@@ -17,6 +21,14 @@ void printUsage(const char* program)
     std::cerr
         << "Usage:\n"
         << "  " << program
+        << " <in_base> <out_base> <nprocs>\n"
+        << "  " << program
+        << " <in_base> <out_base> <nprocs> --getufavg <npf> <ncu>\n"
+        << "  " << program
+        << " <in_base> <out_base> <nprocs> --getudgf [nsteps] [stepoffsets]\n"
+        << "  " << program
+        << " <in_base> <out_base> <nprocs> --averageudgf [nsteps] [stepoffsets]\n"
+        << "  " << program
         << " <sol_base> <elempart_base> <out_base> <nprocs> [nsteps] [stepoffsets]\n"
         << "  " << program
         << " <sol_base> <elempart_base> <out_base> <nprocs>"
@@ -27,6 +39,10 @@ void printUsage(const char* program)
         << " --average2d <npe2d> <ne_z>"
         << " [nsteps] [stepoffsets]\n\n"
         << "Examples:\n"
+        << "  " << program << " dataout/outxg xg 4\n"
+        << "  " << program << " dataout/outuf uf 4 --getufavg 9 8\n"
+        << "  " << program << " dataout/outudg udgf 4 --getudgf 2 10\n"
+        << "  " << program << " dataout/outudg udgavg 4 --averageudgf 10 20\n"
         << "  " << program << " dataout/outudg datain/mesh sol 4\n"
         << "  " << program
         << " dataout/outudg datain/mesh sol2d 4 --extract2d 9 80 2,2,2 20,40,60\n"
@@ -63,6 +79,16 @@ void writeVector(const std::string& filename, std::vector<double>& values)
 std::string stepFilename(const std::string& out_base, int step)
 {
     return out_base + "_step_" + std::to_string(step) + ".bin";
+}
+
+std::string binFilename(const std::string& out_base)
+{
+    const std::string suffix = ".bin";
+    if (out_base.size() >= suffix.size() &&
+        out_base.compare(out_base.size() - suffix.size(), suffix.size(), suffix) == 0) {
+        return out_base;
+    }
+    return out_base + suffix;
 }
 
 void checkMatlabIndices(const std::vector<int>& i_matlab,
@@ -148,6 +174,97 @@ std::vector<double> averageSol2D(const std::vector<double>& sol3d_flat,
 int main(int argc, char** argv)
 {
     try {
+        if (argc == 4) {
+            const std::string in_base = argv[1];
+            const std::string out_base = argv[2];
+            const int nprocs = parsePositiveInt(argv[3], "nprocs");
+
+            std::vector<double> xf;
+            int n1 = 0;
+            int n2 = 0;
+            int n3 = 0;
+            getxf(in_base, nprocs, xf, n1, n2, n3);
+            writeFieldWithHeader(out_base, xf, n1, n2, n3);
+
+            std::cout << "Wrote " << binFilename(out_base)
+                      << " (n1=" << n1
+                      << ", n2=" << n2
+                      << ", n3=" << n3
+                      << ", xf.size()=" << xf.size() << ")\n";
+            return 0;
+        }
+
+        if (argc >= 5 && argc <= 7 && std::string(argv[4]) == "--getudgf") {
+            const std::string in_base = argv[1];
+            const std::string out_base = argv[2];
+            const int nprocs = parsePositiveInt(argv[3], "nprocs");
+            const int nsteps = (argc >= 6) ? parsePositiveInt(argv[5], "nsteps") : 1;
+            const int stepoffsets =
+                (argc >= 7) ? parseNonnegativeInt(argv[6], "stepoffsets") : 0;
+
+            std::vector<double> udgf;
+            int n1 = 0;
+            int n2 = 0;
+            int n3 = 0;
+            int n4 = 0;
+            getudgf(in_base, nprocs, nsteps, stepoffsets, udgf, n1, n2, n3, n4);
+            writeFieldWithHeader4(out_base, udgf, n1, n2, n3, n4);
+
+            std::cout << "Wrote " << binFilename(out_base)
+                      << " (n1=" << n1
+                      << ", n2=" << n2
+                      << ", n3=" << n3
+                      << ", nsteps=" << n4
+                      << ", udgf.size()=" << udgf.size() << ")\n";
+            return 0;
+        }
+
+        if (argc >= 5 && argc <= 7 && std::string(argv[4]) == "--averageudgf") {
+            const std::string in_base = argv[1];
+            const std::string out_base = argv[2];
+            const int nprocs = parsePositiveInt(argv[3], "nprocs");
+            const int nsteps = (argc >= 6) ? parsePositiveInt(argv[5], "nsteps") : 1;
+            const int stepoffsets =
+                (argc >= 7) ? parseNonnegativeInt(argv[6], "stepoffsets") : 0;
+
+            std::vector<double> udgf;
+            int n1 = 0;
+            int n2 = 0;
+            int n3 = 0;
+            averageudgf(in_base, nprocs, nsteps, stepoffsets, udgf, n1, n2, n3);
+            writeFieldWithHeader(out_base, udgf, n1, n2, n3);
+
+            std::cout << "Wrote " << binFilename(out_base)
+                      << " (n1=" << n1
+                      << ", n2=" << n2
+                      << ", n3=" << n3
+                      << ", averaged_steps=" << nsteps
+                      << ", udgf.size()=" << udgf.size() << ")\n";
+            return 0;
+        }
+
+        if (argc == 7 && std::string(argv[4]) == "--getufavg") {
+            const std::string in_base = argv[1];
+            const std::string out_base = argv[2];
+            const int nprocs = parsePositiveInt(argv[3], "nprocs");
+            const int npf = parsePositiveInt(argv[5], "npf");
+            const int ncu = parsePositiveInt(argv[6], "ncu");
+
+            std::vector<double> uf;
+            int n1 = 0;
+            int n2 = 0;
+            int n3 = 0;
+            getufavg(in_base, nprocs, npf, ncu, uf, n1, n2, n3);
+            writeFieldWithHeader(out_base, uf, n1, n2, n3);
+
+            std::cout << "Wrote " << binFilename(out_base)
+                      << " (npf=" << n1
+                      << ", nf=" << n2
+                      << ", ncu=" << n3
+                      << ", uf.size()=" << uf.size() << ")\n";
+            return 0;
+        }
+
         if (argc < 5) {
             printUsage(argv[0]);
             return 1;

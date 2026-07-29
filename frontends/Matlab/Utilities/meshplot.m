@@ -52,17 +52,15 @@ elseif dim == 2 || surface==1
         e1=segcollect(e);        
         axis equal,axis off
         nt=size(mesh.dgnodes,3);
-        hh=zeros(nt,1);
-        for it=1:nt
-            px=mesh.dgnodes(:,1,it);
-            py=mesh.dgnodes(:,2,it);
-            if surface==1  
-                pz=mesh.dgnodes(:,3,it);
-            else
-                pz=0*px;
-            end
-            hh(it)=patch(px(e1{1}'),py(e1{1}'),pz(e1{1}'),0.0*e1{1}',pars{:});
-        end        
+        npl=size(mesh.dgnodes,1);
+        bnd=double(e1{1}(:)');
+        faces=repmat(bnd,nt,1) + (0:nt-1)'*npl;
+        if surface==1
+            vertices=reshape(permute(mesh.dgnodes(:,1:3,:),[1 3 2]),npl*nt,3);
+        else
+            vertices=reshape(permute(mesh.dgnodes(:,1:2,:),[1 3 2]),npl*nt,2);
+        end
+        hh=patch('faces',faces,'vertices',vertices,pars{:});
     end
     if surface==0
         view(2),axis equal;
@@ -81,24 +79,26 @@ elseif dim ==3
         e1=segcollect(e);        
         axis equal,axis off        
         nt=length(bf);
-        hh=zeros(nt,1);
+        nfp=size(mesh.perm,1);
+        bnd=double(e1{1}(:)');
+        vertices=zeros(nfp*nt,3);
+        faces=repmat(bnd,nt,1) + (0:nt-1)'*nfp;
         for it=1:nt
             el = f(bf(it),end-1);
             fc = mesh.t2f(el,:);
             fi = find(fc==bf(it));
-            px=mesh.dgnodes(mesh.perm(:,fi),1,el);
-            py=mesh.dgnodes(mesh.perm(:,fi),2,el);
-            pz=mesh.dgnodes(mesh.perm(:,fi),3,el);
+            row=(it-1)*nfp+(1:nfp);
+            vertices(row,:)=mesh.dgnodes(mesh.perm(:,fi),1:3,el);
             %if mean(pz(:))>=45            
             %pw=udg(mesh.perm(:,fi),1,el);                        
             %if max(abs(py))<1e-10
             %hh(it)=patch(px(e1{1}'),py(e1{1}'),pz(e1{1}'),pw(e1{1}'),pars{:});
-            hh(it)=patch(px(e1{1}'),py(e1{1}'),pz(e1{1}'),0*pz(e1{1}'),pars{:});
             %hh(it)=patch(px(e1{1}'),py(e1{1}'),pz(e1{1}'),pw(e1{1}'));
             %end
             %hh(it)=patch(px,py,pz,0.0*px,pars{:});
             %end
         end
+        hh=patch('faces',faces,'vertices',vertices,pars{:});
     end        
     view(3),axis equal; % colorbar;
     %set(gca,'clim',[-2 2]);
@@ -214,7 +214,5 @@ while ~isempty(e)
   e(ix,:)=[];
 end
 e1={e1};
-
-
 
 
