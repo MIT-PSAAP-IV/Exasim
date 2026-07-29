@@ -324,9 +324,15 @@ static void Inverse(cublasHandle_t handle, T* A, T *C, Int *ipiv, Int n, Int bat
 }
 
 template <class T=dstype>
-static void PDOT(cublasHandle_t handle, Int m, T* x, Int incx, T* y, Int incy,
-        T *global_dot, Int backend)
+static void LDOT(cublasHandle_t handle, Int m, T* x, Int incx, T* y, Int incy,
+        T *local_out, Int backend)
 {
+    // LOCAL (non-collective) dot product -- the dispatch half of PDOT with no
+    // MPI_Allreduce. Exists so callers that run inside a loop whose trip count is
+    // PARTITION-DEPENDENT can accumulate locally and reduce ONCE afterwards. Calling
+    // the collective PDOT from such a loop makes the number of MPI_Allreduce calls
+    // differ between ranks, which deadlocks (see qoicalculation.hpp).
+
     using dstype=T;
     dstype local_dot=zero;
 
@@ -353,12 +359,22 @@ static void PDOT(cublasHandle_t handle, Int m, T* x, Int incx, T* y, Int incy,
 #endif
 #endif  
     
-#ifdef HAVE_MPI        
+    *local_out = local_dot;
+}
+
+template <class T=dstype>
+static void PDOT(cublasHandle_t handle, Int m, T* x, Int incx, T* y, Int incy,
+        T *global_dot, Int backend)
+{
+    using dstype=T;
+    dstype local_dot=zero;
+    LDOT<T>(handle, m, x, incx, y, incy, &local_dot, backend);
+
+#ifdef HAVE_MPI
     MPI_Allreduce(&local_dot, global_dot, 1, mpi_type<dstype>(), MPI_SUM, EXASIM_COMM_WORLD);
-#else    
-    //ArrayCopy(global_dot, local_dot, 1, backend);
+#else
     *global_dot = local_dot;
-#endif    
+#endif
 }
 
 template <class T=dstype>
