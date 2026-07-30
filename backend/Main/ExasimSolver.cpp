@@ -1287,13 +1287,20 @@ std::vector<ExasimPoint> ExasimSolver::getInterfacePoints() const
 {
     std::vector<ExasimPoint> out;
     if (!iface_) return out;
-    for (const auto& p : iface_->points()) out.push_back(ExasimPoint{p.x, p.y, p.z});
+    const auto pts = iface_->points();
+    out.reserve(pts.size());   // one allocation instead of growing during the copy
+    for (const auto& p : pts) out.push_back(ExasimPoint{p.x, p.y, p.z});
     return out;
 }
 
 void ExasimSolver::getInterfaceFluxes(std::vector<double>& send_flux) const
 {
+    // Clear when there is no interface. Leaving the caller's vector untouched would let a
+    // reused buffer silently re-send the PREVIOUS step's flux -- wrong numbers rather than
+    // an obvious failure (review #44). fluxes_out() clears on its own uninitialised path
+    // too, so both routes agree.
     if (iface_) iface_->fluxes_out(send_flux);
+    else        send_flux.clear();
 }
 
 void ExasimSolver::setInterfaceFluxes(const std::vector<double>& recv_flux)

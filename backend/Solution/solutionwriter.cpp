@@ -425,7 +425,15 @@ void CSolutionWriter<M>::GetSolutions(Int step, Int backend)
 template <class M>
 void CSolutionWriter<M>::SaveParaviewAt(Int step, Int backend, std::string fname_modifier)
 {
-    if (step < 1) return;
+    // step is 1-BASED by contract. Silently returning on a bad value hides the caller's
+    // bug and surfaces much later as missing visualization output with no explanation,
+    // so say something (review #44). Still non-fatal: a bad step must not take down a
+    // solve that is otherwise fine.
+    if (step < 1) {
+        std::cerr << "[exasim] SaveParaviewAt: step must be >= 1 (1-based), got "
+                  << step << "; no output written.\n" << std::flush;
+        return;
+    }
     const auto savedstep = disc.common.timestate.currentstep;
     disc.common.timestate.currentstep = step - 1;
     this->SaveParaview(backend, fname_modifier, true);

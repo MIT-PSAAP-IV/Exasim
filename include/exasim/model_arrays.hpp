@@ -25,6 +25,16 @@
 // instead of silently (freed).
 #pragma once
 
+// Review feedback (#44): uses Int and dstype; include the umbrella so this header is
+// self-contained rather than dependent on the caller's include order.
+// <exasim/common.h> is the PUBLIC umbrella (it forwards to backend/Common/common.h).
+// Use it rather than reaching into backend/ directly: the relative depth of
+// backend/ differs between the source tree and the INSTALLED layout, so a direct
+// relative include compiles in-tree and then fails for installed consumers -- which
+// is exactly the include fragility this change is meant to remove.
+#include "common.h"
+
+#include <cstdio>
 #include <vector>
 
 template <class M> class CSolution;
@@ -49,6 +59,14 @@ public:
     void attach(CSolution<M>& model)
     {
         detach();
+        // sol.udg must already be allocated: publishing &udg[0] from an empty/unallocated
+        // solution hands the kernels a dangling pointer that nothing else diagnoses.
+        if (model.disc.sol.udg == nullptr) {
+            std::fprintf(stderr, "[exasim] ModelArrays::attach: sol.udg is not allocated; "
+                                 "refusing to publish ncarray/udgarray.\n");
+            std::fflush(stderr);
+            return;
+        }
         model_ = &model;
         model.disc.common.nomodels = 1;
         nc_  = { model.disc.common.components.nc };

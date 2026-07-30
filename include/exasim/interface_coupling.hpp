@@ -30,6 +30,18 @@
 // ExasimSolver's include chain); only CSolution<M>'s `disc` and `sampler` members are used.
 #pragma once
 
+// Review feedback (#44): this header uses dstype, Int and the Template*/Array* APIs.
+// Including the umbrella makes it self-contained instead of compiling only when the
+// caller happened to include it first -- the include-order fragility the review flagged
+// for no-ABI consumers.
+// <exasim/common.h> is the PUBLIC umbrella (it forwards to backend/Common/common.h).
+// Use it rather than reaching into backend/ directly: the relative depth of
+// backend/ differs between the source tree and the INSTALLED layout, so a direct
+// relative include compiles in-tree and then fails for installed consumers -- which
+// is exactly the include fragility this change is meant to remove.
+#include "common.h"
+
+#include <cstdio>
 #include <vector>
 
 // Declared in solution.h / solution.hpp; only ever used through a pointer here.
@@ -67,6 +79,10 @@ public:
     // Geometry, valid after initialize(). Coupled drivers size their arrays as nb = ngf*nfaces.
     int ngf = 0, nfaces = 0, npf = 0, ncx = 0;
 
+    // True between a successful initialize() and release(). The flux methods check this
+    // so a default-constructed or released object cannot null-deref (review #44).
+    bool initialized() const { return model_ != nullptr; }
+
     // Allocate the interface buffers and sample the geometry for boundary condition `ibc`.
     //   ncuext — components of the EXTERNAL state pushed in (sizes sol.uext)
     //   ncuint — components of the INTERNAL flux pulled out
@@ -97,14 +113,17 @@ public:
         const Int nd = disc.common.grid.nd;
 
         disc.common.couplingparams.ncuext = ncuext;
-        TemplateMalloc(&disc.sol.uext, ngf * nfaces * ncuext, backend_);
-        disc.sol.szuext = ngf * nfaces * ncuext;
+        // Sizes as size_t: these are products of three ints and overflow silently on a
+        // large interface mesh, which would under-allocate rather than fail (review #44).
+        const size_t sngf = (size_t)ngf, snpf = (size_t)npf, snf = (size_t)nfaces;
+        TemplateMalloc(&disc.sol.uext, (Int)(sngf * snf * (size_t)ncuext), backend_);
+        disc.sol.szuext = (Int)(sngf * snf * (size_t)ncuext);
 
-        TemplateMalloc(&xdgint_,   npf * nfaces * ncx,    backend_);
-        TemplateMalloc(&nlint_,    npf * nfaces * nd,     backend_);
-        TemplateMalloc(&xdggint_,  ngf * nfaces * ncx,    backend_);
-        TemplateMalloc(&nlgint_,   ngf * nfaces * nd,     backend_);
-        TemplateMalloc(&flux_dev_, ngf * nfaces * ncuint, backend_);
+        TemplateMalloc(&xdgint_,   (Int)(snpf * snf * (size_t)ncx),    backend_);
+        TemplateMalloc(&nlint_,    (Int)(snpf * snf * (size_t)nd),     backend_);
+        TemplateMalloc(&xdggint_,  (Int)(sngf * snf * (size_t)ncx),    backend_);
+        TemplateMalloc(&nlgint_,   (Int)(sngf * snf * (size_t)nd),     backend_);
+        TemplateMalloc(&flux_dev_, (Int)(sngf * snf * (size_t)ncuint), backend_);
 
         // Order matters: nodes -> normals (needs nodes) -> Gauss interpolation of each.
         model.sampler.getDGNodesOnInterface(xdgint_, faces_, nfaces);
@@ -135,8 +154,13 @@ public:
 
     // Extract the interface flux this model produces (the "send" half of the exchange).
     // Threaded on M: AbiAdapter -> loaded ABI, concrete model -> templated FintDriver<M>.
+    // Safe to call on a default-constructed or released object: it clears the caller's
+    // buffer and returns rather than dereferencing a null model_. Clearing matters --
+    // leaving the vector untouched would let a caller re-send whatever a previous step
+    // put there, i.e. silently transmit stale flux instead of failing.
     void fluxes_out(std::vector<dstype>& send_flux) const
     {
+        if (!initialized()) { send_flux.clear(); return; }
         const Int sz = ngf * nfaces * ncuint_;
         send_flux.resize(static_cast<size_t>(sz));
         if (backend_ > 1) {
@@ -154,9 +178,23 @@ public:
     // it is ibc+1, a convention that used to be an unexplained magic number at each call site.
     void fluxes_in(const std::vector<dstype>& recv_flux)
     {
+        if (!initialized()) return;
         auto& disc = model_->disc;
+        const size_t need = static_cast<size_t>(ngf) * static_cast<size_t>(nfaces)
+                          * static_cast<size_t>(disc.common.couplingparams.ncuext);
+        // A short buffer here would read past the caller's vector and push garbage into
+        // the boundary condition -- wrong numbers, not a crash. Refuse loudly instead.
+        if (recv_flux.size() < need) {
+            std::fprintf(stderr,
+                "[exasim] InterfaceCoupling::fluxes_in: recv_flux has %zu entries, "
+                "need %zu (ngf=%d nfaces=%d ncuext=%d). Refusing to read past it.\n",
+                recv_flux.size(), need, ngf, nfaces,
+                (int)disc.common.couplingparams.ncuext);
+            std::fflush(stderr);
+            return;
+        }
         TemplateCopytoDevice(disc.sol.uext, recv_flux.data(),
-                             ngf * nfaces * disc.common.couplingparams.ncuext, backend_);
+                             static_cast<Int>(need), backend_);
         disc.common.couplingparams.FextCall = ibc_ + 1;
     }
 
@@ -181,8 +219,8 @@ public:
         // exactly what happened when this helper first took ownership of it: poisson2d
         // segfaulted on exit while isoq2d happened to survive. The original
         // ExasimSolver::IntializeMeshInterface freed uext only when RE-initialising (to
-        // drop the previous allocation before making a new one), never at destruction;
-        // free_uext_for_reinit() below reproduces exactly that.
+        // drop the previous allocation before making a new one), never at destruction.
+        // initialize() reproduces exactly that, by freeing any previous uext up front.
         model_ = nullptr;
         ngf = nfaces = npf = ncx = 0;
     }
