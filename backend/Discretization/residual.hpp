@@ -501,9 +501,13 @@ inline void RuResidualMPI(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT
     END_TIMING(12);    
         
     // assemble face residual vector into element residual vector
-    Int f1 = common.fblks[3*0]-1;
-    Int f2 = common.fblks[3*(common.meshsizes.nbf-1)+1];        
-    PutFaceNodes(res.Ru, res.Rh,  mesh.facecon, common.grid.npf, common.components.ncu, common.grid.npe, common.components.ncu, f1, f2);            
+    // Accessors: both are 0 on a rank owning no face blocks, so the assemble
+    // below is naturally skipped rather than indexing fblks[-2].
+    if (common.hasFaceBlocks()) {
+    Int f1 = common.firstFace();
+    Int f2 = common.lastFace();
+    PutFaceNodes(res.Ru, res.Rh,  mesh.facecon, common.grid.npf, common.components.ncu, common.grid.npe, common.components.ncu, f1, f2);
+    }            
 
     // Int e1 = common.eblks[3*0]-1;    
     // Int e2 = common.eblks[3*(common.meshsizes.nbe1-1)+1];       
@@ -845,10 +849,13 @@ inline void dRuResidualMPI(solstructT<T,I> &sol, resstructT<T,I> &res, appstruct
     dRuFace<M>(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbf, backend);
         
     // assemble face residual vector into element residual vector
-    Int e1 = common.eblks[3*0]-1;    
-    Int e2 = common.eblks[3*(common.meshsizes.nbe1-1)+1];       
+    // Same for element blocks.
+    if (common.hasInteriorElemBlocks()) {
+    Int e1 = common.firstElem();
+    Int e2 = common.lastInteriorElem();
     PutFaceNodes(res.dRu, res.dRh, mesh.rowe2f1, mesh.cole2f1, mesh.ent2ind1, mesh.rowe2f2, mesh.cole2f2, 
             mesh.ent2ind2, common.grid.npf, common.grid.npe, common.components.ncu, e1, e2, 0, backend);
+    }
 }
 
 

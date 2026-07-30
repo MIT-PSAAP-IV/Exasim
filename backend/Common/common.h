@@ -2151,6 +2151,55 @@ struct commonstructT {
     Int* ncarray=nullptr;
     Int* nboufaces=nullptr;
     Int* nextfaces=nullptr;
+
+    // ---- partition-aware block accessors ------------------------------------
+    //
+    // A rank can legitimately own ZERO element or face blocks: the mesh is finite,
+    // so past some rank count at least one rank gets none of it. The raw idioms
+    //
+    //     fblks[3*(meshsizes.nbf-1)+1]     // "one past my last face"
+    //     fblks[3*0]                       // "my first face"
+    //
+    // then evaluate to fblks[-2] / read through a null base. That is exactly how
+    // poisson2d died at np=48: AddressSanitizer reported SEGV at
+    // 0xfffffffffffffff8, i.e. -8, which is fblks[-2] for a 4-byte Int.
+    //
+    // Prefer these accessors to indexing eblks/fblks directly. They put the
+    // empty-rank check in ONE place instead of at every call site, and cost one
+    // predictable integer compare at setup / per-assembly granularity -- never
+    // inside a Kokkos kernel or an inner loop.
+    //
+    // Convention: an empty rank yields first==last==0, so a loop written as
+    // `for (i = r.first; i < r.last; ++i)` is naturally a no-op there.
+
+    struct BlockRange {
+        Int  first = 0;    // first entity (already converted from 1-based)
+        Int  last  = 0;    // one past the last entity
+        Int  ib    = 0;    // boundary/interface tag
+        bool valid = false;
+        Int  count() const { return last - first; }
+    };
+
+    bool hasFaceBlocks() const { return fblks != nullptr && meshsizes.nbf  > 0; }
+    bool hasElemBlocks() const { return eblks != nullptr && meshsizes.nbe  > 0; }
+    bool hasInteriorElemBlocks() const { return eblks != nullptr && meshsizes.nbe1 > 0; }
+
+    BlockRange faceBlock(Int j) const {
+        if (!hasFaceBlocks() || j < 0 || j >= meshsizes.nbf) return BlockRange{};
+        return BlockRange{ fblks[3*j]-1, fblks[3*j+1], fblks[3*j+2], true };
+    }
+    BlockRange elemBlock(Int j) const {
+        if (!hasElemBlocks() || j < 0 || j >= meshsizes.nbe) return BlockRange{};
+        return BlockRange{ eblks[3*j]-1, eblks[3*j+1], eblks[3*j+2], true };
+    }
+
+    // Span of everything this rank owns; all zero when it owns nothing.
+    Int firstFace() const { return hasFaceBlocks() ? fblks[0]-1 : 0; }
+    Int lastFace()  const { return hasFaceBlocks() ? fblks[3*(meshsizes.nbf-1)+1] : 0; }
+    Int firstElem() const { return hasElemBlocks() ? eblks[0]-1 : 0; }
+    Int lastInteriorElem() const {
+        return hasInteriorElemBlocks() ? eblks[3*(meshsizes.nbe1-1)+1] : 0;
+    }
     
     Int nnbsd; // number of neighboring subdomains
     Int nelemsend;

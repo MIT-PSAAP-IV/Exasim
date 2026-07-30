@@ -670,6 +670,15 @@ template <class Ty = dstype>
 void ArrayDG2CG(Ty* ucg, const Ty* udg, const int* cgent2dgent, const int* rowent2elem, const int nent)
 {
     using dstype = Ty;        
+    // A rank owning no elements has no CG/DG connectivity: rowent2elem and
+    // cgent2dgent are null there while nent can still be non-zero. The kernel below
+    // dereferences rowent2elem at i=0, which is the null read (address 0x0) that
+    // AddressSanitizer reports for poisson2d at np=48.
+    //
+    // Guarded here rather than at each of the five call sites: with nothing to
+    // gather, doing nothing is the correct result for such a rank.
+    if (nent <= 0 || ucg == nullptr || udg == nullptr ||
+        cgent2dgent == nullptr || rowent2elem == nullptr) return;
     Kokkos::parallel_for("ArrayDG2CG", nent, KOKKOS_LAMBDA(const size_t i) {
         dstype sum = 0.0;
         int nelem = rowent2elem[i+1]-rowent2elem[i];
@@ -684,6 +693,9 @@ template <class Ty = dstype>
 void ArrayDG2CG2(Ty* ucg, const Ty* udg, const int* colent2elem, const int* rowent2elem, const int nent, const int npe)
 {
     using dstype = Ty;        
+    // Same as ArrayDG2CG: no connectivity on a rank owning no elements.
+    if (nent <= 0 || ucg == nullptr || udg == nullptr ||
+        colent2elem == nullptr || rowent2elem == nullptr) return;
     Kokkos::parallel_for("ArrayDG2CG2", nent, KOKKOS_LAMBDA(const size_t i) {        
         int nelem = rowent2elem[i+1]-rowent2elem[i];
         dstype fac = 1.0/((dstype) (nelem*npe));

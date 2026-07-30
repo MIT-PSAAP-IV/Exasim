@@ -109,6 +109,20 @@ if(EXASIM_FLOAT)
 else()
   set(_exasim_scalar "double")
 endif()
+option(EXASIM_ASAN "Build with AddressSanitizer (debug/CI)" OFF)
+if(EXASIM_ASAN)
+  # This is the INNER superbuild project -- the one that actually compiles the solver
+  # libraries. Setting the flags only in the top-level CMakeLists leaves this project
+  # uninstrumented, which silently produces an ASan-free build (verified: the option
+  # reached both CMake caches while `nm` found no ASan symbols in the library).
+  set(EXASIM_ASAN_FLAGS "-fsanitize=address -fno-omit-frame-pointer -g")
+  set(CMAKE_C_FLAGS             "${CMAKE_C_FLAGS} ${EXASIM_ASAN_FLAGS}")
+  set(CMAKE_CXX_FLAGS           "${CMAKE_CXX_FLAGS} ${EXASIM_ASAN_FLAGS}")
+  set(CMAKE_EXE_LINKER_FLAGS    "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
+  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fsanitize=address")
+  message(STATUS "EXASIM_ASAN=ON (inner build): AddressSanitizer enabled")
+endif()
+
 option(EXASIM_BOUNDS_CHECK "Rank-aware bounds checks on partition-derived indices (debug/CI)" OFF)
 if(EXASIM_BOUNDS_CHECK)
   # Diagnostic build: abort at an out-of-range partition-derived index instead of
