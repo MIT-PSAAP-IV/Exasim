@@ -133,12 +133,12 @@ uTFavreCovariance = uTFavre - uFavre .* TFavre;
 vTFavreCovariance = vTFavre - vFavre .* TFavre;
 wTFavreCovariance = wTFavre - wFavre .* TFavre;
 
-tau11 = -rhoBar .* uuFavreVariance;
-tau22 = -rhoBar .* vvFavreVariance;
-tau33 = -rhoBar .* wwFavreVariance;
-tau12 = -rhoBar .* uvFavreCovariance;
-tau13 = -rhoBar .* uwFavreCovariance;
-tau23 = -rhoBar .* vwFavreCovariance;
+tau11 = rhoBar .* uuFavreVariance;
+tau22 = rhoBar .* vvFavreVariance;
+tau33 = rhoBar .* wwFavreVariance;
+tau12 = rhoBar .* uvFavreCovariance;
+tau13 = rhoBar .* uwFavreCovariance;
+tau23 = rhoBar .* vwFavreCovariance;
 
 turbulentKineticEnergy = 0.5 * ...
     (uuFavreVariance + vvFavreVariance + wwFavreVariance);

@@ -11,7 +11,6 @@ N  = n1 * n2 * n3;
 
 if nargout > 3 
     payload = fread(fid, 'double');
-    fclose(fid);
     
     if mod(numel(payload), N) ~= 0
         error('Payload size is not a multiple of n1*n2*n3 in %s', fname);

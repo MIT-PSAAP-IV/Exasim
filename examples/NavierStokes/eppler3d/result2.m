@@ -67,7 +67,7 @@ xlabel('$x$','Interpreter','latex'); ylabel('$y$','Interpreter','latex'); title(
 colormap('jet'); colorbar; axis([-0.05 1.5 -0.2 0.3]); set(gca,'FontSize',20);
 
 UDG = getsolution("dataout/outudg_t4000",dmd,n3);
-UDGavg = getmeansolution("dataout/outreavg",dmd,n3);
+UDGavg = getmeansolution("dataout/outsolavg",dmd,n3);
 [UDGspm,UDG2d] = spanwiseaverage(UDGavg,n1,nz,UDG,2,10);
 
 pde.visscalars = {"qcrit", 1, "u", 2, "p", 3};
@@ -94,6 +94,8 @@ data = load('Eppler387_Re300000_alpha4_experimental_Cp.mat');
 
 upper = [data.upper_x_over_c, data.upper_Cp];
 lower = [data.lower_x_over_c, data.lower_Cp];
+
+figure(1);clf;plot(x(:,1),-Cf);axis tight
 
 % figure;
 % xlabel('x/c');

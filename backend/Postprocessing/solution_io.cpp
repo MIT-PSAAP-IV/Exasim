@@ -5,6 +5,33 @@
 //   ./solution_io dataout/outuf uf 4 --getufavg 9 8
 //   ./solution_io dataout/outudg udgf 4 --getudgf 2 10
 //   ./solution_io dataout/outudg udgavg 4 --averageudgf 10 20
+//   ./solution_io dataout/outudgavg datain/mesh udgavg 4 --getudgavg 9
+//   ./solution_io dataout/outudgavg datain/mesh udg2davg 4 --averageudgavg 27 9 80
+
+// input="case${caseid}/dataout/outbouxdg"
+// output="outbou/case${caseid}/outbouxdg"
+// "$IOANDES" "$input" "$output" 736
+
+// input="case${caseid}/dataout/outboundg"
+// output="outbou/case${caseid}/outboundg"
+// "$IOANDES" "$input" "$output" 736
+
+// input="case${caseid}/dataout/outbouuhavg"
+// output="outbou/case${caseid}/outbouuhavg"
+// "$IOANDES" "$input" "$output" 736 --getufavg 9 5
+
+// input="case${caseid}/dataout/outbouudgavg"
+// output="outbou/case${caseid}/outbouudgavg"
+// "$IOANDES" "$input" "$output" 736 --getufavg 9 20
+
+// input="case${caseid}/dataout/outbouuhat"
+// output="outbou/case${caseid}/outbouuhmean"
+// "$IOANDES" "$input" "$output" 736 --averageudgf 500 1500
+
+// input="case${caseid}/dataout/outbouudg"
+// output="outbou/case${caseid}/outbouudgmean"
+// "$IOANDES" "$input" "$output" 736 --averageudgf 500 1500
+
 
 #include <cstdlib>
 #include <iostream>
@@ -31,6 +58,11 @@ void printUsage(const char* program)
         << "  " << program
         << " <sol_base> <elempart_base> <out_base> <nprocs> [nsteps] [stepoffsets]\n"
         << "  " << program
+        << " <in_base> <elempart_base> <out_base> <nprocs> --getudgavg <npe>\n"
+        << "  " << program
+        << " <in_base> <elempart_base> <out_base> <nprocs>"
+        << " --averageudgavg <npe> <npe2d> <ne_z>\n"
+        << "  " << program
         << " <sol_base> <elempart_base> <out_base> <nprocs>"
         << " --extract2d <npe2d> <ne_z> <i_matlab_csv> <j_matlab_csv>"
         << " [nsteps] [stepoffsets]\n"
@@ -44,6 +76,9 @@ void printUsage(const char* program)
         << "  " << program << " dataout/outudg udgf 4 --getudgf 2 10\n"
         << "  " << program << " dataout/outudg udgavg 4 --averageudgf 10 20\n"
         << "  " << program << " dataout/outudg datain/mesh sol 4\n"
+        << "  " << program << " dataout/outudgavg datain/mesh udgavg 4 --getudgavg 9\n"
+        << "  " << program
+        << " dataout/outudgavg datain/mesh udg2davg 4 --averageudgavg 27 9 80\n"
         << "  " << program
         << " dataout/outudg datain/mesh sol2d 4 --extract2d 9 80 2,2,2 20,40,60\n"
         << "  " << program
@@ -277,14 +312,37 @@ int main(int argc, char** argv)
 
         bool extract2d = false;
         bool average2d = false;
+        bool getUdgAvg = false;
+        bool averageUdgAvg = false;
         int arg = 5;
 
+        int npe = 0;
         int npe2d = 0;
         int ne_z = 0;
         std::vector<int> i_matlab;
         std::vector<int> j_matlab;
 
-        if (arg < argc && std::string(argv[arg]) == "--extract2d") {
+        if (arg < argc && std::string(argv[arg]) == "--getudgavg") {
+            getUdgAvg = true;
+            if (argc != arg + 2) {
+                printUsage(argv[0]);
+                return 1;
+            }
+
+            npe = parsePositiveInt(argv[arg + 1], "npe");
+            arg += 2;
+        } else if (arg < argc && std::string(argv[arg]) == "--averageudgavg") {
+            averageUdgAvg = true;
+            if (argc != arg + 4) {
+                printUsage(argv[0]);
+                return 1;
+            }
+
+            npe = parsePositiveInt(argv[arg + 1], "npe");
+            npe2d = parsePositiveInt(argv[arg + 2], "npe2d");
+            ne_z = parsePositiveInt(argv[arg + 3], "ne_z");
+            arg += 4;
+        } else if (arg < argc && std::string(argv[arg]) == "--extract2d") {
             extract2d = true;
             if (argc < arg + 5) {
                 printUsage(argv[0]);
@@ -308,16 +366,61 @@ int main(int argc, char** argv)
             arg += 3;
         }
 
+        std::vector<std::vector<int>> elempartpts(nprocs);
+        std::vector<std::vector<int>> elempart(nprocs);
+        readelempart(elempart_base, elempart, elempartpts, nprocs);
+
+        if (getUdgAvg) {
+            std::vector<double> udgavg;
+            int n1 = 0;
+            int n2 = 0;
+            int ne = 0;
+            getudgavg(sol_base, elempartpts, elempart, npe, udgavg, n1, n2, ne);
+            writeFieldWithHeader(out_base, udgavg, n1, n2, ne);
+
+            std::cout << "Wrote " << binFilename(out_base)
+                      << " (npe=" << n1
+                      << ", nc=" << n2
+                      << ", ne=" << ne
+                      << ", udgavg.size()=" << udgavg.size() << ")\n";
+            return 0;
+        }
+
+        if (averageUdgAvg) {
+            std::vector<double> udgavg;
+            int n1 = 0;
+            int n2 = 0;
+            int ne = 0;
+            getudgavg(sol_base, elempartpts, elempart, npe, udgavg, n1, n2, ne);
+
+            if (n1 % npe2d != 0) {
+                throw std::runtime_error("npe is not divisible by npe2d.");
+            }
+            if (ne % ne_z != 0) {
+                throw std::runtime_error("ne is not divisible by ne_z.");
+            }
+
+            const int nc = n2;
+            const int p1 = n1 / npe2d;
+            const int ne2 = ne / ne_z;
+            std::vector<double> udg2davg =
+                averageSol2D(udgavg, npe2d, p1, nc, ne2, ne_z);
+            writeFieldWithHeader(out_base, udg2davg, npe2d, nc, ne2);
+
+            std::cout << "Wrote " << binFilename(out_base)
+                      << " (npe2d=" << npe2d
+                      << ", nc=" << nc
+                      << ", ne2d=" << ne2
+                      << ", udg2davg.size()=" << udg2davg.size() << ")\n";
+            return 0;
+        }
+
         const int nsteps = (arg < argc) ? parsePositiveInt(argv[arg++], "nsteps") : 1;
         const int stepoffsets = (arg < argc) ? parseNonnegativeInt(argv[arg++], "stepoffsets") : 0;
         if (arg != argc) {
             printUsage(argv[0]);
             return 1;
         }
-
-        std::vector<std::vector<int>> elempartpts(nprocs);
-        std::vector<std::vector<int>> elempart(nprocs);
-        readelempart(elempart_base, elempart, elempartpts, nprocs);
 
         std::vector<double> sol3dGlobal;
         for (int step = 0; step < nsteps; ++step) {

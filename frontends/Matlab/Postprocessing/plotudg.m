@@ -34,6 +34,8 @@ if nref>0
     A0=tensorproduct(plocal(:,1:2),porder);
     m = porder*(nref+1)+1;
     [plocal,tlocal]=squaremesh(m,m,0,1);
+    plocal = plocal';
+    tlocal = tlocal';
     A=tensorproduct(plocal(:,1:2),porder)/A0;  
   end
   npln=size(plocal,1);
@@ -44,9 +46,11 @@ end
 
 npln=size(plocal,1);
 nodesvis=reshape(permute(dgnodes,[1,3,2]),npln*nt,[]);
+
+tlocal = double(tlocal);
 tvis=kron(ones(nt,1),tlocal)+kron(npln*(0:nt-1)',0*tlocal+1);
 
-patch('vertices',nodesvis,'faces',tvis,'cdata',u, ...
+patch('vertices',nodesvis,'faces',tvis,'cdata',u(:), ...
            'facecol','interp','edgec','none');
       
 if ~isempty(clim)

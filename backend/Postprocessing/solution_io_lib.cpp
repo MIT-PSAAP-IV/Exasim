@@ -322,15 +322,20 @@ void getxf(const std::string& base,
 
         double hdr[3] = {0.0, 0.0, 0.0};
         readDoubles(in, hdr, 3, fname);
-        for (int k = 0; k < 3; ++k) {
-            if (!isPositiveIntegerDouble(hdr[k])) {
-                throw std::runtime_error("Invalid header value in: " + fname);
-            }
-        }
+        // std::cout<<hdr[0]<<"   "<<hdr[1]<<"   "<<hdr[2]<<std::endl;
+        // if (hdr[1] == 0.0) 
+        // for (int k = 0; k < 3; ++k) {
+        //     if (!isPositiveIntegerDouble(hdr[k])) {
+        //         throw std::runtime_error("Invalid header value in: " + fname);
+        //     }
+        // }
 
         const int n1 = static_cast<int>(hdr[0]);
         const int n2 = static_cast<int>(hdr[1]);
         const int n3 = static_cast<int>(hdr[2]);
+
+        if (n2 == 0) continue;
+
         const std::size_t nvalues = checkedProduct3(n1, n2, n3, fname);
 
         const std::int64_t bytes = fileSizeBytes(fname);
@@ -441,15 +446,18 @@ void getudgf(const std::string& base,
 
         double hdr[3] = {0.0, 0.0, 0.0};
         readDoubles(in, hdr, 3, fname);
-        for (int k = 0; k < 3; ++k) {
-            if (!isPositiveIntegerDouble(hdr[k])) {
-                throw std::runtime_error("Invalid header value in: " + fname);
-            }
-        }
+        // for (int k = 0; k < 3; ++k) {
+        //     if (!isPositiveIntegerDouble(hdr[k])) {
+        //         throw std::runtime_error("Invalid header value in: " + fname);
+        //     }
+        // }
 
         const int n1 = static_cast<int>(hdr[0]);
         const int n2 = static_cast<int>(hdr[1]);
         const int n3 = static_cast<int>(hdr[2]);
+
+        if (n2 == 0) continue;
+      
         const std::size_t nvalues = checkedProduct3(n1, n2, n3, fname);
 
         const std::int64_t bytes = fileSizeBytes(fname);
@@ -692,6 +700,138 @@ void averageudgf(const std::string& base,
     for (double& value : udgf) {
         value *= scale;
     }
+}
+
+void getudgavg(const std::string& base,
+               const std::vector<std::vector<int>>& elempartpts,
+               const std::vector<std::vector<int>>& elempart,
+               int npe,
+               std::vector<double>& udg,
+               int& n1_out,
+               int& n2_out,
+               int& ne_out)
+{
+    const int nprocs = static_cast<int>(elempartpts.size());
+    if (nprocs <= 0) {
+        throw std::runtime_error("getudgavg: elempartpts is empty.");
+    }
+    if (static_cast<int>(elempart.size()) != nprocs) {
+        throw std::runtime_error("getudgavg: elempart size mismatch.");
+    }
+    if (npe <= 0) {
+        throw std::runtime_error("getudgavg: npe must be positive.");
+    }
+
+    std::vector<int> nei(static_cast<std::size_t>(nprocs), 0);
+    std::int64_t neTotal = 0;
+    for (int r = 0; r < nprocs; ++r) {
+        if (elempartpts[static_cast<std::size_t>(r)].size() < 2) {
+            throw std::runtime_error("getudgavg: elempartpts[" + std::to_string(r) +
+                                     "] has fewer than 2 entries.");
+        }
+
+        if (nprocs == 1) {
+            nei[static_cast<std::size_t>(r)] =
+                static_cast<int>(elempart[static_cast<std::size_t>(r)].size());
+        } else {
+            nei[static_cast<std::size_t>(r)] =
+                elempartpts[static_cast<std::size_t>(r)][0] +
+                elempartpts[static_cast<std::size_t>(r)][1];
+        }
+
+        if (nei[static_cast<std::size_t>(r)] <= 0) {
+            throw std::runtime_error("getudgavg: rank " + std::to_string(r) +
+                                     " has zero owned elements.");
+        }
+        if (static_cast<int>(elempart[static_cast<std::size_t>(r)].size()) <
+            nei[static_cast<std::size_t>(r)]) {
+            throw std::runtime_error("getudgavg: elempart[" + std::to_string(r) +
+                                     "] shorter than owned element count.");
+        }
+
+        neTotal += nei[static_cast<std::size_t>(r)];
+        if (neTotal > static_cast<std::int64_t>(std::numeric_limits<int>::max())) {
+            throw std::runtime_error("getudgavg: total element count exceeds int range.");
+        }
+    }
+
+    const int ne = static_cast<int>(neTotal);
+    int nc = 0;
+    udg.clear();
+
+    for (int r = 0; r < nprocs; ++r) {
+        const std::string fname = base + "_np" + std::to_string(r) + ".bin";
+        std::ifstream in(fname, std::ios::binary);
+        if (!in) {
+            throw std::runtime_error("Cannot open mean solution file: " + fname);
+        }
+
+        const std::int64_t bytes = fileSizeBytes(fname);
+        if (bytes % static_cast<std::int64_t>(sizeof(double)) != 0) {
+            throw std::runtime_error("File size not multiple of 8 in: " + fname);
+        }
+
+        const std::int64_t ndoubles =
+            bytes / static_cast<std::int64_t>(sizeof(double));
+        if (ndoubles <= 1) {
+            throw std::runtime_error("Mean solution file is empty or missing sample count: " +
+                                     fname);
+        }
+
+        std::vector<double> tmp(static_cast<std::size_t>(ndoubles));
+        readDoubles(in, tmp.data(), tmp.size(), fname);
+
+        const double samples = tmp.back();
+        if (!std::isfinite(samples) || samples <= 0.0) {
+            throw std::runtime_error("Mean solution file has invalid accumulated samples: " +
+                                     fname);
+        }
+
+        const std::int64_t payload = ndoubles - 1;
+        const int rankNe = nei[static_cast<std::size_t>(r)];
+        const std::int64_t denom =
+            static_cast<std::int64_t>(npe) * static_cast<std::int64_t>(rankNe);
+        if (payload % denom != 0) {
+            throw std::runtime_error("getudgavg: mean solution size mismatch on rank " +
+                                     std::to_string(r) + " in file: " + fname);
+        }
+
+        const int rankNc = static_cast<int>(payload / denom);
+        if (rankNc <= 0) {
+            throw std::runtime_error("getudgavg: rank " + std::to_string(r) +
+                                     " has zero solution components.");
+        }
+
+        if (r == 0) {
+            nc = rankNc;
+            udg.assign(checkedProduct3(npe, nc, ne, base), 0.0);
+        } else if (rankNc != nc) {
+            throw std::runtime_error("getudgavg: rank " + std::to_string(r) +
+                                     " has " + std::to_string(rankNc) +
+                                     " components, expected " + std::to_string(nc) + ".");
+        }
+
+        const std::size_t slice =
+            static_cast<std::size_t>(npe) * static_cast<std::size_t>(nc);
+        for (int e = 0; e < rankNe; ++e) {
+            const int globalElem = (nprocs == 1) ? e :
+                elempart[static_cast<std::size_t>(r)][static_cast<std::size_t>(e)];
+            if (globalElem < 0 || globalElem >= ne) {
+                throw std::runtime_error("getudgavg: elempart out of range in rank " +
+                                         std::to_string(r));
+            }
+
+            const double* src = tmp.data() + static_cast<std::size_t>(e) * slice;
+            double* dst = udg.data() + sliceOffset4(npe, nc, ne, globalElem, 0);
+            for (std::size_t k = 0; k < slice; ++k) {
+                dst[k] = src[k] / samples;
+            }
+        }
+    }
+
+    n1_out = npe;
+    n2_out = nc;
+    ne_out = ne;
 }
 
 void readelempart(const std::string& base,
