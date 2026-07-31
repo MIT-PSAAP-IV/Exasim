@@ -151,7 +151,12 @@ void FaceGeom(solstructT<T,I> &sol, masterstructT<T,I> &master, meshstructT<T,I>
     Int ngf = common.grid.ngf; // number of gauss points on master face                      
     // Accessor form: lastFace() returns 0 for a rank owning no face blocks,
     // instead of indexing fblks[-2]. See commonstructT for the rationale.
-    if (!common.hasFaceBlocks()) { sol.faceg = nullptr; sol.szfaceg = 0; return; }
+    if (!common.hasFaceBlocks()) {
+        fprintf(stderr, "[GUARDDBG] rank %d FaceGeom SKIP nbf=%d fblks=%s\n",
+                (int)common.mpiRank, (int)common.meshsizes.nbf,
+                common.fblks ? "nonnull" : "NULL"); fflush(stderr);
+        sol.faceg = nullptr; sol.szfaceg = 0; return;
+    }
     Int nf = common.lastFace();
     
     TemplateMalloc(&sol.faceg, ngf*nf*(ncx+nd+1), backend);        

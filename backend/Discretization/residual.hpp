@@ -503,6 +503,11 @@ inline void RuResidualMPI(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT
     // assemble face residual vector into element residual vector
     // Accessors: both are 0 on a rank owning no face blocks, so the assemble
     // below is naturally skipped rather than indexing fblks[-2].
+    if (!common.hasFaceBlocks()) {
+        fprintf(stderr, "[GUARDDBG] rank %d resFace SKIP nbf=%d fblks=%s\n",
+                (int)common.mpiRank, (int)common.meshsizes.nbf,
+                common.fblks ? "nonnull" : "NULL"); fflush(stderr);
+    }
     if (common.hasFaceBlocks()) {
     Int f1 = common.firstFace();
     Int f2 = common.lastFace();
@@ -850,6 +855,11 @@ inline void dRuResidualMPI(solstructT<T,I> &sol, resstructT<T,I> &res, appstruct
         
     // assemble face residual vector into element residual vector
     // Same for element blocks.
+    if (!common.hasInteriorElemBlocks()) {
+        fprintf(stderr, "[GUARDDBG] rank %d resElem SKIP nbe1=%d eblks=%s\n",
+                (int)common.mpiRank, (int)common.meshsizes.nbe1,
+                common.eblks ? "nonnull" : "NULL"); fflush(stderr);
+    }
     if (common.hasInteriorElemBlocks()) {
     Int e1 = common.firstElem();
     Int e2 = common.lastInteriorElem();
