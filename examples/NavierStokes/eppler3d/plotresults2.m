@@ -20,7 +20,9 @@ mesh2d.telem = mesh2d.tlocal;
 % mesh = mkmesh_eppler3d(porder, 1, -2, nz, 0.1, mesh2d);
 % mesh.xpe = master.xpe;
 
-reavg = readbin("/Users/cuongnguyen/Documents/Exasim/tmp/epplerdns/sra/case3/sol2davg_step_0.bin");
+base = fullfile('tmp', 'epplerdns');
+
+reavg = readbin(fullfile(base, 'sra', 'case3', 'sol2davg_step_0.bin'));
 reavg = reshape(reavg, n1, 30, []);
 faavg = FavreAverages(reavg);
 figure(1); clf; scaplot(mesh2d, faavg(:,44,:), [],2);
@@ -72,12 +74,12 @@ xlabel('$x$','Interpreter','latex'); ylabel('$y$','Interpreter','latex'); title(
 colormap('jet'); colorbar; axis([-0.05 1.5 -0.2 0.3]); set(gca,'FontSize',20);
 
 
-[n1, n2, n3, nsteps, xf] = read_rank("/Users/cuongnguyen/Documents/Exasim/tmp/epplerdns/outbou/case4/outbouxdg.bin");
-[n1, n2, n3, nsteps, nlf] = read_rank("/Users/cuongnguyen/Documents/Exasim/tmp/epplerdns/outbou/case4/outboundg.bin");
-[n1, n2, n3, nsteps, uhf] = read_rank("/Users/cuongnguyen/Documents/Exasim/tmp/epplerdns/outbou/case4/outbouuhmean.bin");
-[n1, n2, n3, nsteps, udgf] = read_rank("/Users/cuongnguyen/Documents/Exasim/tmp/epplerdns/outbou/case4/outbouudgmean.bin");
+[n1, n2, n3, nsteps, xf] = read_rank(fullfile(base, 'outbou', 'case4', 'outbouxdg.bin'));
+[n1, n2, n3, nsteps, nlf] = read_rank(fullfile(base, 'outbou', 'case4', 'outboundg.bin'));
+[n1, n2, n3, nsteps, uhf] = read_rank(fullfile(base, 'outbou', 'case4', 'outbouuhmean.bin'));
+[n1, n2, n3, nsteps, udgf] = read_rank(fullfile(base, 'outbou', 'case4', 'outbouudgmean.bin'));
 
-% [n1, n2, n3, nsteps, udgavg] = read_rank("/Users/cuongnguyen/Documents/Exasim/tmp/epplerdns/udgavg/case4/spanwiseudgavg.bin");
+% [n1, n2, n3, nsteps, udgavg] = read_rank(fullfile(base, 'udgavg', 'case4', 'spanwiseudgavg.bin'));
 % figure(3); clf; scaplot(mesh2d, eulereval3d(udgavg,'p',gamma,Ma), [],2);
 % xlabel('$x$','Interpreter','latex'); ylabel('$y$','Interpreter','latex'); title('RMS of Pressure fluctuations');
 % colormap('jet'); colorbar; axis([-0.05 1.5 -0.2 0.3]); set(gca,'FontSize',20);

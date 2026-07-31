@@ -96,7 +96,7 @@ fileapp = filename + "app.bin";
 writeapp(pde,fileapp,endian);
 
 % % call exasim to generate and run C++ code to solve the PDE model
-% pde.exportapp = "/Users/cuongnguyen/Documents/Exasim/tmp/epplerdns/case" + num2str(kn);
+% pde.exportapp = fullfile('tmp', 'epplerdns', "case" + num2str(kn));
 % pde.frontendprovider = true;
 % pde.buildandrun = false;
 % if kn==1

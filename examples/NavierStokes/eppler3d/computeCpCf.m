@@ -11,7 +11,7 @@ function [xSurf, ySurf, Cp, Cf, CL, CD] = computeCpCf(base, physicparams)
 % p1 x nface2d array after spanwise averaging the 3D boundary data.
 
 if nargin < 1 || isempty(base)
-    base = "/Users/cuongnguyen/Documents/Exasim/tmp/epplerdns";
+    base = fullfile('tmp', 'epplerdns');
 end
 base = char(base);
 

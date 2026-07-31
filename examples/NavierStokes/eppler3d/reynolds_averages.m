@@ -11,7 +11,7 @@ function reynolds_averages(base, mesh2d, physicparams)
 % size 4 x 9 and is used only for case labels.
 
 if nargin < 1 || isempty(base)
-    base = "/Users/cuongnguyen/Documents/Exasim/tmp/epplerdns";
+    base = fullfile('tmp', 'epplerdns');
 end
 base = char(base);
 
