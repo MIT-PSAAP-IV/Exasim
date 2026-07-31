@@ -199,8 +199,8 @@ function s = qoivolume(u, q, w, v, x, t, mu, eta)
     divu = ux + vy + wz;
 
     s(1) = 0.5*r*(uv*uv + vv*vv + wv*wv)/(rhoRef*Omega);
-    s(2) = mut*curl2/(rhoRef*Re);
-    s(3) = (4.0/3.0)*mut*divu^2/(rhoRef*Re);
+    s(2) = mut*curl2/(rhoRef*Re*Omega);
+    s(3) = (4.0/3.0)*mut*divu^2/(rhoRef*Re*Omega);
 end
 
 function avField = getavfield3d(u, q, hm, gam, avcoeff, porder)
