@@ -77,6 +77,7 @@ static constexpr MPI_Comm MPI_COMM_NULL = 0;
 // (the public forward declaration) so a consumer that only includes this header -- e.g. main.cpp --
 // can name CSolution<>; the primary definition in solution.h omits it to avoid a double default.
 template <class M = exasim::detail::AbiAdapter> class CSolution;
+namespace exasim { template <class M> class InterfaceCoupling; }
 
 struct ExasimPoint {
     dstype x = 0.0;
@@ -175,19 +176,15 @@ public:
     int _rank = 0;
     int _size = 1;
     MPI_Comm _comm = MPI_COMM_NULL;
-    int *faces= nullptr;        // faces on the interface
-    int ncx;          // number of compoments of (xdg)
+    int ncx;          // number of components of (xdg)
     int nfaces;       // number of faces on the interface
-    int npf;          // number of nodes on master face           
-    int ngf;          // number of gauss poInts on master face
-    dstype *xdgint= nullptr;   // XDG nodes on the interface
-    dstype *nlint= nullptr;    // normal vectors on the interface
-    dstype *xdggint= nullptr;  // XDG gauss nodes on the interface
-    dstype *nlgint= nullptr;   // normal vectors at Gauss nodes on the interface
-    dstype *flux_dev_= nullptr;  // device buffer for interface fluxes
+    int npf;          // number of nodes on master face
+    int ngf;          // number of gauss points on master face
 
 private:
     std::vector<std::unique_ptr<CSolution<>>> models_;
+    // Declared AFTER models_ so it is destroyed BEFORE them.
+    std::unique_ptr<exasim::InterfaceCoupling<exasim::detail::AbiAdapter>> iface_;
     std::vector<ExasimDriverABI> model_abis_;
     std::vector<std::ofstream> residual_outputs_;
     std::vector<std::string> filein_;
