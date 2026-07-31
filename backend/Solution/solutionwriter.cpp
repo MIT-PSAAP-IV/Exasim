@@ -420,6 +420,26 @@ void CSolutionWriter<M>::GetSolutions(Int step, Int backend)
         residual.evalQ(backend);
 }
  
+// Write a specific 1-based step, restoring currentstep afterwards. See the header for why
+// the save/restore is necessary rather than incidental.
+template <class M>
+void CSolutionWriter<M>::SaveParaviewAt(Int step, Int backend, std::string fname_modifier)
+{
+    // step is 1-BASED by contract. Silently returning on a bad value hides the caller's
+    // bug and surfaces much later as missing visualization output with no explanation,
+    // so say something (review #44). Still non-fatal: a bad step must not take down a
+    // solve that is otherwise fine.
+    if (step < 1) {
+        std::cerr << "[exasim] SaveParaviewAt: step must be >= 1 (1-based), got "
+                  << step << "; no output written.\n" << std::flush;
+        return;
+    }
+    const auto savedstep = disc.common.timestate.currentstep;
+    disc.common.timestate.currentstep = step - 1;
+    this->SaveParaview(backend, fname_modifier, true);
+    disc.common.timestate.currentstep = savedstep;
+}
+
 template <class M>
 void CSolutionWriter<M>::SaveParaview(Int backend, std::string fname_modifier, bool force_tdep_write) 
 {

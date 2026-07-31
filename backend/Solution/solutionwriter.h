@@ -74,6 +74,17 @@ public:
     void SaveSolutions(Int backend);
     void SaveQoI(Int backend);
     void SaveParaview(Int backend, std::string fname_modifier = "", bool force_tdep_write = false);
+
+    // Write the ParaView output for an EXPLICIT 1-based step, without disturbing the
+    // solver's own step counter.
+    //
+    // SaveParaview names the file outvis<modifier>_<currentstep+timestepOffset+1>, so a
+    // caller that wants to name a specific step has to set common.timestate.currentstep =
+    // step-1, write, and put it back — otherwise the scratch index leaks into a later
+    // solve/postprocess that reads currentstep. That save/restore dance was written out by
+    // hand in ExasimSolver::SaveParaviewStep AND copied into the CHEFSI
+    // isoq2d_cht-petsc-fluid app. It belongs here, once.
+    void SaveParaviewAt(Int step, Int backend, std::string fname_modifier = "");
     void SaveSolutionsOnBoundary(Int backend);
     void SaveNodesOnBoundary(Int backend);
     void SaveOutputCG(Int backend);
