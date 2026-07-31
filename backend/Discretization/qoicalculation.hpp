@@ -54,7 +54,7 @@ inline void qoiElemBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<
     ArraySetValue(tmp.tempg, 1.0, ne);
     for (int i = 0; i<nvqoi; i++) {
         dstype dotprod = 0;
-        PDOT(handle, ne, tmp.tempg, inc1, &tmp.tempn[i*ne], inc1, &dotprod, backend);
+        LDOT(handle, ne, tmp.tempg, inc1, &tmp.tempn[i*ne], inc1, &dotprod, backend);
         common.qoiparams.qoivolume[i] += dotprod;
     }
 }
@@ -69,6 +69,26 @@ inline void qoiElement(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,
         Int e2 = common.eblks[3*j+1];            
         if (e2 <= common.meshsizes.ne1) qoiElemBlock<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, j, common.backend);        
     }                     
+
+    // ONE global reduction for the whole QoI vector, AFTER the block loop.
+    //
+    // PDOT is COLLECTIVE (pblas.h: MPI_Allreduce over EXASIM_COMM_WORLD). It used to be
+    // called from inside qoiElemBlock, i.e. once per block per QoI component. The
+    // number of blocks passing the guard above is PARTITION-DEPENDENT, so different
+    // ranks issued different numbers of MPI_Allreduce calls -- a collective count
+    // mismatch. Ranks with fewer blocks left this function early and ran on into the
+    // next communication, while ranks with more blocks waited forever for peers that
+    // were never coming. Reproduced as a hard deadlock at np=17 on poisson2d (17 is
+    // prime, so the mesh does not divide evenly and the block counts diverge).
+    //
+    // Accumulating locally with LDOT and reducing once here makes the collective count
+    // exactly one per call, independent of the partition -- and removes a latency-bound
+    // global barrier from an inner loop.
+#ifdef HAVE_MPI
+    if (common.qoiparams.nvqoi > 0)
+        MPI_Allreduce(MPI_IN_PLACE, common.qoiparams.qoivolume, common.qoiparams.nvqoi,
+                      mpi_type<dstype>(), MPI_SUM, EXASIM_COMM_WORLD);
+#endif
 }
 
 template <class M, class T=dstype, class I=Int>
@@ -113,7 +133,7 @@ inline void qoiFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<
     ArraySetValue(tmp.tempn, 1.0, nf);
     for (int i = 0; i<nsurf; i++) {
         dstype dotprod = 0;
-        PDOT(handle, nf, tmp.tempn, inc1, &tmp.tempg[i*nf], inc1, &dotprod, backend);
+        LDOT(handle, nf, tmp.tempn, inc1, &tmp.tempg[i*nf], inc1, &dotprod, backend);
         common.qoiparams.qoisurface[i] += dotprod;
     }        
 }
@@ -131,6 +151,26 @@ inline void qoiFace(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> 
         if ((common.qoiparams.ibs > 0) && (ib == common.qoiparams.ibs))
             qoiFaceBlock<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, f1, f2, 1, common.backend);
     }                          
+
+    // ONE global reduction for the whole QoI vector, AFTER the block loop.
+    //
+    // PDOT is COLLECTIVE (pblas.h: MPI_Allreduce over EXASIM_COMM_WORLD). It used to be
+    // called from inside qoiFaceBlock, i.e. once per block per QoI component. The
+    // number of blocks passing the guard above is PARTITION-DEPENDENT, so different
+    // ranks issued different numbers of MPI_Allreduce calls -- a collective count
+    // mismatch. Ranks with fewer blocks left this function early and ran on into the
+    // next communication, while ranks with more blocks waited forever for peers that
+    // were never coming. Reproduced as a hard deadlock at np=17 on poisson2d (17 is
+    // prime, so the mesh does not divide evenly and the block counts diverge).
+    //
+    // Accumulating locally with LDOT and reducing once here makes the collective count
+    // exactly one per call, independent of the partition -- and removes a latency-bound
+    // global barrier from an inner loop.
+#ifdef HAVE_MPI
+    if (common.qoiparams.nsurf > 0)
+        MPI_Allreduce(MPI_IN_PLACE, common.qoiparams.qoisurface, common.qoiparams.nsurf,
+                      mpi_type<dstype>(), MPI_SUM, EXASIM_COMM_WORLD);
+#endif
 }
 
 #endif

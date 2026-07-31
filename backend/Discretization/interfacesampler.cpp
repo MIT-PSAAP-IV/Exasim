@@ -30,6 +30,10 @@ Int CInterfaceSampler::getFacesOnInterface(Int **faces, const Int boundarycondit
 
     getinterfacefaces(intfaces, mesh.bf, common.meshsizes.nfe, common.meshsizes.ne1, boundarycondition, nintfaces);
 
+    // Free any previous allocation first: this function is called again on every
+    // re-initialise of the interface coupling (which is documented as safe to repeat),
+    // and without this each call leaked the last nextfaces buffer (review #44).
+    if (common.nextfaces != nullptr) { TemplateFree(common.nextfaces, 0); common.nextfaces = nullptr; }
     TemplateMalloc(&common.nextfaces, common.meshsizes.nbe1+1, 0);    
     Int nfacestotal = 0;
     common.nextfaces[0] = nfacestotal;
