@@ -678,12 +678,7 @@ void ArrayDG2CG(Ty* ucg, const Ty* udg, const int* cgent2dgent, const int* rowen
     // Guarded here rather than at each of the five call sites: with nothing to
     // gather, doing nothing is the correct result for such a rank.
     if (nent <= 0 || ucg == nullptr || udg == nullptr ||
-        cgent2dgent == nullptr || rowent2elem == nullptr) {
-        fprintf(stderr, "[GUARDDBG] ArrayDG2CG SKIP nent=%d ucg=%d udg=%d cg=%d row=%d\n",
-                (int)nent, ucg!=nullptr, udg!=nullptr,
-                cgent2dgent!=nullptr, rowent2elem!=nullptr); fflush(stderr);
-        return;
-    }
+        cgent2dgent == nullptr || rowent2elem == nullptr) return;
     Kokkos::parallel_for("ArrayDG2CG", nent, KOKKOS_LAMBDA(const size_t i) {
         dstype sum = 0.0;
         int nelem = rowent2elem[i+1]-rowent2elem[i];
