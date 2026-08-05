@@ -1,4 +1,4 @@
-function [p, txx, txy, txz, tyy, tyz, tzz, Qx, Qy, Qz] = nsfluxcart3d(u, q, gam, Re, Pr)
+function [p, txx, txy, txz, tyy, tyz, tzz, Qx, Qy, Qz, qcriterion, vortx, vorty, vortz, divv] = nsfluxcart3d(u, q, gam, Re, Pr)
 
     gam1 = gam - 1.0;
     Minf = 1.0;
@@ -69,4 +69,21 @@ function [p, txx, txy, txz, tyy, tyz, tzz, Qx, Qy, Qz] = nsfluxcart3d(u, q, gam,
     Qx = fc*Tx; 
     Qy = fc*Ty;
     Qz = fc*Tz;
+
+    divv = ux + vy + wz;
+
+    vortx = wy - vz;
+    vorty = uz - wx;
+    vortz = vx - uy;
+
+    s11 = ux;
+    s22 = vy;
+    s33 = wz;
+    s12 = 0.5*(uy + vx);
+    s13 = 0.5*(uz + wx);
+    s23 = 0.5*(vz + wy);
+    strain2 = s11.*s11 + s22.*s22 + s33.*s33 + ...
+              2.0*(s12.*s12 + s13.*s13 + s23.*s23);
+    rotation2 = 0.5*(vortx.*vortx + vorty.*vorty + vortz.*vortz);
+    qcriterion = 0.5*(rotation2 - strain2);
 end

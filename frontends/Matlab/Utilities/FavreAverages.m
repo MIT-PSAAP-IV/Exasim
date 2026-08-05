@@ -9,16 +9,16 @@ function faavg = FavreAverages(reavg)
 %       The second dimension stores the following Reynolds-averaged
 %       quantities:
 %
-%        1 mean(rho)        2 mean(rho*u)      3 mean(rho*v)
-%        4 mean(rho*w)      5 mean(rho*E)      6 mean(u)
-%        7 mean(v)          8 mean(w)          9 mean(p)
-%       10 mean(T)         11 mean(rho*u^2)   12 mean(rho*v^2)
-%       13 mean(rho*w^2)   14 mean(rho*u*v)   15 mean(rho*u*w)
-%       16 mean(rho*v*w)   17 mean(u^2)       18 mean(v^2)
-%       19 mean(w^2)       20 mean(u*v)       21 mean(u*w)
-%       22 mean(v*w)       23 mean(rho^2)     24 mean(p^2)
-%       25 mean(T^2)       26 mean(rho*T)     27 mean(rho*T^2)
-%       28 mean(rho*u*T)   29 mean(rho*v*T)   30 mean(rho*w*T)
+      %  1 mean(rho)        2 mean(rho*u)      3 mean(rho*v)
+      %  4 mean(rho*w)      5 mean(rho*E)      6 mean(u)
+      %  7 mean(v)          8 mean(w)          9 mean(p)
+      % 10 mean(T)         11 mean(rho*u^2)   12 mean(rho*v^2)
+      % 13 mean(rho*w^2)   14 mean(rho*u*v)   15 mean(rho*u*w)
+      % 16 mean(rho*v*w)   17 mean(u^2)       18 mean(v^2)
+      % 19 mean(w^2)       20 mean(u*v)       21 mean(u*w)
+      % 22 mean(v*w)       23 mean(rho^2)     24 mean(p^2)
+      % 25 mean(T^2)       26 mean(rho*T)     27 mean(rho*T^2)
+      % 28 mean(rho*u*T)   29 mean(rho*v*T)   30 mean(rho*w*T)
 %
 %   Reynolds averages use overbars, for example mean(u) = \bar{u}.
 %   Favre averages use density weighting, for example
