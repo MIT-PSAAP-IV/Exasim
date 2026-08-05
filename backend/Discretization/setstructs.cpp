@@ -51,9 +51,47 @@ void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, masterstr
     common.filein = filein;
     common.fileout = fileout;
             
-    common.mpiRank = app.comm[0];  // MPI rank      
-    common.mpiProcs = app.comm[1]; // number of MPI ranks           
-    
+    common.mpiRank = app.comm[0];  // MPI rank
+    common.mpiProcs = app.comm[1]; // number of MPI ranks
+
+#ifdef HAVE_MPI
+    // ---------------------------------------------------------------------------------
+    // Fail HERE, by name, if the backend's communicators were never set.
+    //
+    // A consumer that builds CSolution directly instead of going through ExasimSolver has
+    // to assign both globals itself (ExasimSolver::InitializeEnvironment does it at
+    // ExasimSolver.cpp:621-622). Miss EXASIM_COMM_LOCAL and nothing complains until the
+    // first halo exchange, which dies as `MPI_ERR_COMM: invalid communicator` inside
+    // MPI_Isend -- a diagnostic that names neither the variable nor the omission, in a file
+    // the consumer never wrote. That cost a full debugging cycle on the PETSc fluid driver.
+    //
+    // This check runs at SETUP, once, and does not depend on a rank having a neighbour --
+    // so unlike the failure it replaces, it is visible at every rank count above one.
+    //
+    // Note the message cannot go through error()/PrintErrorAndExit: that calls
+    // MPI_Comm_rank(EXASIM_COMM_WORLD) BEFORE printing (common.h:577), so with a null comm
+    // it would abort inside the rank query and swallow this text entirely.
+    if (common.mpiProcs > 1) {
+        if (EXASIM_COMM_LOCAL == MPI_COMM_NULL || EXASIM_COMM_WORLD == MPI_COMM_NULL) {
+            fprintf(stderr,
+                "Exasim FATAL: %s is MPI_COMM_NULL with mpiProcs = %d.\n"
+                "  Both EXASIM_COMM_WORLD and EXASIM_COMM_LOCAL must be set before building\n"
+                "  CSolution. ExasimSolver::InitializeEnvironment does this for you; a direct\n"
+                "  CSolution consumer must do it itself, e.g.\n"
+                "      EXASIM_COMM_WORLD = my_comm;   // collectives (PDOT/PNORM), coupling, errors\n"
+                "      EXASIM_COMM_LOCAL = my_comm;   // intra-model halo exchange\n"
+                "  They are NOT interchangeable: LOCAL carries the halo exchange (peers from\n"
+                "  common.nbsd), WORLD carries cross-model coupling (peers from common.nbintf)\n"
+                "  and every Allreduce in the linear solve.\n",
+                (EXASIM_COMM_LOCAL == MPI_COMM_NULL) ? "EXASIM_COMM_LOCAL"
+                                                     : "EXASIM_COMM_WORLD",
+                (int) common.mpiProcs);
+            fflush(stderr);
+            MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+        }
+    }
+#endif
+
     // common.exasimpath = trimToSubstringAtLastOccurence(common.exasimpath, "Exasim");     
     // if (common.exasimpath == "") {      
     //   std::filesystem::path cwd = std::filesystem::current_path();
@@ -361,9 +399,47 @@ void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, masterstr
 #endif        
     }
     else {
+        // ---------------------------------------------------------------------------
+        // SERIAL BRANCH: mpiProcs == 1 for THIS Exasim group.
+        //
+        // Note this is reached in MPI builds too -- mpiProcs is the size of the Exasim
+        // communicator, not of MPI_COMM_WORLD. A coupled app that splits COMM_WORLD in
+        // half and runs at np=2 gives Exasim a ONE-rank group and lands here.
+        //
+        // Every field the MPI branch sets must be given a value here as well. Several
+        // were previously left untouched, and because commonstructT default-initializes
+        // (discretization.h:76) they were INDETERMINATE rather than zero -- while being
+        // read unconditionally:
+        //
+        //   nbf0       a loop bound in residual.hpp:579  RuFace(..., 0, nbf0, ...)
+        //   nnbintf    loop bound / guard in matvec.hpp:313,372,470,535
+        //   nfacesend  same guard, alongside coupledcondition > 0
+        //
+        // Serial correctness of nbf0 was an accident of fresh heap pages reading as
+        // zero: at 0 the two RuFace calls partition the range correctly, and at any
+        // garbage value > nbf they swap roles. This is the mirror image of the
+        // EXASIM_COMM_LOCAL bug -- that one is invisible when a rank has no neighbour,
+        // this one is invisible whenever it has any. A test matrix of np=2 and np=8 has
+        // a blind spot at each end.
+        // ---------------------------------------------------------------------------
         common.nnbsd = 0;
         common.nelemsend = 0;
-        common.nelemrecv = 0;            
+        common.nelemrecv = 0;
+        // No intra-group halo exchange: no neighbours, nothing to send or receive.
+        common.meshsizes.nbf0 = 0;                       // no interior-only face blocks
+        common.meshsizes.nbf1 = common.meshsizes.nbf;    // all face blocks are "mine"
+        // No cross-model interface exchange from this group either. matvec.hpp guards on
+        // (nnbintf>0 && nfacesend>0 && coupledcondition>0); zeroing these makes that
+        // guard decide on values rather than on whatever was on the stack.
+        common.nnbintf = 0;
+        common.nfacesend = 0;
+        common.nfacerecv = 0;
+#ifdef HAVE_MPI
+        // The MPI branch mallocs these; with no exchange the counts passed to MPI_Waitall
+        // are 0, but the pointers are still read, so give them a defined value.
+        common.requests = nullptr;
+        common.statuses = nullptr;
+#endif
         common.meshsizes.nbe0 = common.meshsizes.nbe;
         common.meshsizes.nbe1 = common.meshsizes.nbe;
         common.meshsizes.nbe2 = common.meshsizes.nbe;

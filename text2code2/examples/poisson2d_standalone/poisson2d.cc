@@ -26,7 +26,13 @@ int main(int argc, char** argv)
     PETSC_COMM_WORLD = MPI_COMM_WORLD;
     PetscInitialize(&argc, &argv, nullptr, nullptr);
     if (!Kokkos::is_initialized()) Kokkos::initialize(argc, argv);
+    // BOTH globals, always. EXASIM_COMM_LOCAL carries every halo-exchange MPI_Isend in the
+    // backend; leaving it MPI_COMM_NULL runs correctly on one rank -- no neighbours, so the
+    // exchange is never reached -- and dies with `MPI_ERR_COMM: invalid communicator` the
+    // moment this example is run on two. Both code generators (AppScaffold.hpp,
+    // pyt2c/appgen.py) emit both; this committed example predated them.
     EXASIM_COMM_WORLD = MPI_COMM_WORLD;
+    EXASIM_COMM_LOCAL = MPI_COMM_WORLD;
 
     int rank = 0, size = 1;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
