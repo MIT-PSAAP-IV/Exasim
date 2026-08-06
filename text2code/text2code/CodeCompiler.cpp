@@ -311,7 +311,10 @@ int executeCppCode(ParsedSpec& spec)
 #if EXASIM_SYMENGINE_FOUND
       // Use the SymEngine resolved at build time (installed copy preferred,
       // vendored fallback) — baked into symengine_config.h.
-      cmd << tc.cxx << " -std=c++17 -w "
+      // -Wno-template-body: Red Hat GCC 13.3.1 backports this diagnostic from
+      // GCC 14 and treats it as an error; the vendored Boost headers trigger it.
+      // GCC silently accepts unknown -Wno-* flags, so this is safe everywhere.
+      cmd << tc.cxx << " -std=c++17 -w -Wno-template-body "
           << EXASIM_SYMENGINE_INCFLAGS << " "
           << "-I" << quote(backend_model) << " "
           << quote(sourcefile) << " "
@@ -319,7 +322,7 @@ int executeCppCode(ParsedSpec& spec)
           << quote(exefile);
 #else
       std::string symengine_lib = make_path(spec.symenginepath, "lib/libsymengine.a");
-      cmd << tc.cxx << " -std=c++17 -w "
+      cmd << tc.cxx << " -std=c++17 -w -Wno-template-body "
           << "-I" << quote(spec.symenginepath) << " "
           << "-I" << quote(symengine_include) << " "
           << "-I" << quote(backend_model) << " "
