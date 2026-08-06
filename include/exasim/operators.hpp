@@ -167,3 +167,10 @@ using namespace std;
 #include <backend/Discretization/discretization_inmemory.hpp>
 
 #include "detail/abi_adapter.hpp"
+
+// Interface coupling helper: buffer-owning geometry + flux exchange for one coupled
+// boundary. Included last because it needs CSolution<M> (solution.cpp, above) and is
+// instantiated at AbiAdapter by ExasimSolver as well as at a concrete model by
+// no-ABI consumers.
+#include "interface_coupling.hpp"
+#include "model_arrays.hpp"
