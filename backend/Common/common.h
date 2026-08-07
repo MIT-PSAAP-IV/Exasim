@@ -1895,20 +1895,24 @@ using qoiparamsstruct = qoiparamsstructT<::dstype, ::Int>;
 // element counts. Grouped out of commonstruct (C3). Access via common.couplingparams.<field>.
 // (The raw interface arrays vindx/interfacefluxmap/intepartpts are shared with appstruct and
 // left in place; the wall-model and synthetic-turbulence fields are separate concerns.)
+// Same reasoning as commonstruct/meshsizesstruct above: every field gets a default member
+// initializer, because an unassigned one is INDETERMINATE rather than zero, and several of
+// these are read on paths that do not assign them. ncie in particular sizes four
+// allocations and was set only on the mpiProcs>1 path.
 struct couplingparamsstruct {
-    Int ncuext;                   // number of components of uext (external/coupling)
-    Int coupledinterface;
-    Int coupledcondition;
-    Int coupledboundarycondition;
+    Int ncuext = 0;               // number of components of uext (external/coupling)
+    Int coupledinterface = 0;
+    Int coupledcondition = 0;
+    Int coupledboundarycondition = 0;
     Int FextCall=0;               // external-force call flag
-    Int ncie;                     // number of coupled interface elements
+    Int ncie = 0;                 // number of coupled interface elements
     Int extUhat=0;                // external uhat function flag
     Int extFhat=0;                // external fhat function flag
     Int extStab=0;                // external stabilization function flag
     Int ninterfacefaces=0;        // number of interface faces
     Int ndofuhatinterface=0;
-    Int nintfaces;
-    Int nvindx;
+    Int nintfaces = 0;
+    Int nvindx = 0;
 };
 
 // Output / checkpoint / IO configuration: solution-save frequencies and options, restart offset,

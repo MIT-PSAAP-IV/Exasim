@@ -388,3 +388,22 @@ add_test(NAME petsc_operator_export
     bash "${EXASIM_DIR}/tests/petsc/run-petsc-test.sh")
 set_tests_properties(petsc_operator_export PROPERTIES
   TIMEOUT 1800 SKIP_RETURN_CODE 77)
+
+# ---------------------------------------------------------------------------------------
+# Unit test: commonstruct default-initialization.
+#
+# In-tree and cheap (no solve, no mesh), unlike the consumer tests above. It exists because
+# fields assigned only on the mpiProcs>1 path of setstructs.cpp are INDETERMINATE on the
+# serial path, and one of them (couplingparams.ncie, which sizes four allocations) was
+# caught in review rather than by a test. A field added without a default member
+# initializer now fails here instead of surfacing later as a wrong allocation size.
+add_executable(unit_struct_defaults ${CMAKE_CURRENT_SOURCE_DIR}/unit/struct_defaults.cpp)
+target_link_libraries(unit_struct_defaults PRIVATE Kokkos::kokkos)
+target_include_directories(unit_struct_defaults PRIVATE ${EXASIM_DIR})
+if(EXASIM_MPI)
+  find_package(MPI REQUIRED)
+  target_link_libraries(unit_struct_defaults PRIVATE MPI::MPI_CXX)
+  target_compile_definitions(unit_struct_defaults PRIVATE HAVE_MPI)
+endif()
+add_test(NAME unit_struct_defaults COMMAND unit_struct_defaults)
+set_tests_properties(unit_struct_defaults PROPERTIES TIMEOUT 120)

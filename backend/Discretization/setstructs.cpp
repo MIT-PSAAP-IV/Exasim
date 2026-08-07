@@ -425,6 +425,16 @@ void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, masterstr
         common.nnbsd = 0;
         common.nelemsend = 0;
         common.nelemrecv = 0;
+        // COMPUTED, not zeroed. ncie sizes res.szRi/szKi/szHi (discretization.cpp:558-560)
+        // and res.szGi (residualeval.cpp:274), and it is read whenever coupledinterface > 0
+        // -- which is exactly the case that reaches this branch: a coupled app that splits
+        // COMM_WORLD and hands Exasim a ONE-RANK group still owns -1-tagged interface
+        // blocks. Zeroing it here would under-allocate those four buffers rather than fix
+        // anything; leaving it unassigned (as before) made the sizes indeterminate.
+        common.couplingparams.ncie = 0;
+        for (Int j = 0; j < common.meshsizes.nbe; j++)
+            if (common.eblks[3*j+2] == -1)
+                common.couplingparams.ncie += common.eblks[3*j+1] - common.eblks[3*j+0] + 1;
         // No intra-group halo exchange: no neighbours, nothing to send or receive.
         common.meshsizes.nbf0 = 0;                       // no interior-only face blocks
         common.meshsizes.nbf1 = common.meshsizes.nbf;    // all face blocks are "mine"

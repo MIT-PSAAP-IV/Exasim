@@ -48,32 +48,17 @@ inline void qoiElemBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<
     ArraySetValue(sg, 0.0, nga*nvqoi);
     EXASIM_DRIVER_CALL(QoIvolumeDriver, sg, xg, uqg, og, wg, mesh, master, app, sol, tmp, common, nge, e1, e2, backend);
 
-    // Weight each Gauss point by ITS OWN Jacobian, not by one scalar per component.
+    // INVARIANT: each Gauss point is weighted by its OWN Jacobian.
     //
-    // This used to read ApplyJac(sg, jac, nge*ne, nge*ne*nvqoi). ApplyJac is
-    // (kokkosimpl.h:2692) `R[n] *= jac[n/M]` -- a broadcast whose jac is indexed by the
-    // SLOW dimension, documented there as one entry per ELEMENT. Here jac is
-    // &sol.elemg[...], one entry per GAUSS POINT (nga = nge*ne of them), and M was passed
-    // as nga, so n/M ranged over [0, nvqoi): the whole of QoI component k was scaled by
-    // the single number jac[k] -- the Jacobian at Gauss point k of the block's FIRST
-    // element -- instead of each point being scaled by its own.
+    // jac here is &sol.elemg[...], one entry per Gauss point (nga = nge*ne of them), so the
+    // weighting must index by the Gauss point. columnwiseMultiply(C, A, b, N, M) is
+    // `C[i] = A[i]*b[i%N]` with N = nga, the idiom used for this elsewhere in the backend
+    // (uequation.hpp:314, ldgblockjacobian.cpp:976).
     //
-    // What that looked like: on a uniform affine mesh every jac is the same number, so the
-    // wrong expression is arithmetically the right one and the QoI is correct and
-    // partition-invariant -- which is why poisson2d-new-architecture reproduces
-    // 1.806679e-01 / 3.871878e-01 bit-for-bit at np = 2..48. On a graded or curved mesh it
-    // is not: the reported QoI becomes (an arbitrary element's Jacobian) x (an unweighted
-    // sum), and WHICH element is first in each block is decided by the partition and the
-    // element-block split. isoq3d-poisson (curved 3D cone mesh) therefore reported
-    // int u = 3.932279e-04 on one rank and 5.723467e-04 on two, from a bit-identical
-    // solution field -- same residual (1.78972e-03), same GMRES history, same interface
-    // flux to six digits. The two components scaled by DIFFERENT factors (jac[0] and
-    // jac[1]), so even the QoI2/QoI1 ratio moved, which is what rules out a
-    // "different set of elements" explanation.
-    //
-    // columnwiseMultiply(C, A, b, N, M) is `C[i] = A[i]*b[i%N]` and is the idiom used for
-    // exactly this everywhere else in the backend (uequation.hpp:314,
-    // ldgblockjacobian.cpp:976). N = nga selects the Gauss-point index.
+    // Do NOT use ApplyJac here: it is `R[n] *= jac[n/M]`, indexed by the SLOW dimension and
+    // documented for one jac entry per ELEMENT. With a per-Gauss-point jac it weights a
+    // whole QoI component by one element's Jacobian, which is correct only on a uniform
+    // affine mesh and partition-dependent on any other. See PR #48 for the measurements.
     columnwiseMultiply(sg, sg, jac, nga, nvqoi);
     Gauss2Node(handle, tmp.tempn, sg, master.gwe, nge, 1, nvqoi*ne, backend);
     
