@@ -1,5 +1,7 @@
-#ifndef __EXASIM_BOUNDSCHECK
-#define __EXASIM_BOUNDSCHECK
+// Not __EXASIM_BOUNDSCHECK: leading double underscores are reserved to the
+// implementation in C/C++. Older headers here use that form; new ones should not.
+#ifndef EXASIM_BOUNDSCHECK_H
+#define EXASIM_BOUNDSCHECK_H
 
 // Rank-aware bounds checking for indices derived from the LOCAL MESH PARTITION.
 //
@@ -101,4 +103,4 @@ inline void exasim_index_fail(long idx, long n, const char* what,
 
 #endif  // EXASIM_BOUNDS_CHECK
 
-#endif  // __EXASIM_BOUNDSCHECK
+#endif  // EXASIM_BOUNDSCHECK_H

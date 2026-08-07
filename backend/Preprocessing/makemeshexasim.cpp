@@ -930,7 +930,12 @@ inline void project_dgnodes_onto_curved_boundaries(double* dgnodes, const int* f
           // Under EXASIM_BOUNDS_CHECK we want to be TOLD that the mesh is producing
           // boundary ids outside the configured list, rather than silently skipping
           // them, because that usually means the input or the decomposition is wrong.
-          EXASIM_CHECK_INDEX(f[k] > -1 ? f[k] : 0, ncurved, "curvedboundary[f[k]]");
+          // Only when f[k] is ACTUALLY used as an index. The earlier form passed 0 for
+          // interior faces (f[k] <= -1), so a mesh with no curved boundaries configured
+          // (ncurved == 0) aborted an EXASIM_BOUNDS_CHECK build on a code path that is
+          // provably safe -- the `f[k] > -1 && f[k] < ncurved` guard below never reads.
+          // A checker that fires on correct code is one people switch off.
+          if (f[k] > -1) EXASIM_CHECK_INDEX(f[k], ncurved, "curvedboundary[f[k]]");
           if (f[k] > -1 && f[k] < ncurved && curvedboundary[f[k]] != 0)
               has_curved = 1;
        }
