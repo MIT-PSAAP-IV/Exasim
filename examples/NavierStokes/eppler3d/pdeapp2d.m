@@ -2,7 +2,7 @@
 cdir = pwd(); ii = strfind(cdir, "Exasim");
 run(cdir(1:(ii+5)) + "/install/setpath.m");
 
-porder = 3;                     % polynomial degree
+porder = 2;                     % polynomial degree
 gam = 1.4;                      % gas constant
 Minf = 0.09;                    % freestream Mach number
 tau = 10;                        % stabilization parameter
@@ -24,7 +24,7 @@ pde.modelfile = "pdemodel2d";
 
 % Choose computing platform and set number of processors
 pde.platform = "cpu";
-pde.mpiprocs = 8;
+pde.mpiprocs = 4;
 pde.hybrid = 1;
 pde.debugmode = 0;
 pde.nd = 2;
@@ -50,13 +50,31 @@ pde.dt = [1e-4 2e-4 4e-4 8e-4 1.6e-3 3.2e-3 0.005*ones(1,4000)];
 pde.saveSolFreq = 100;
 
 % Spanwise extrusion of the Eppler 387 C-grid.
-mesh = mkmesh_epp387(porder, 1, -2);
+% mesh = mkmesh_epp387(porder, 1, -2);
+
+TEC = 15;
+sps = [TEC, 1, 1, 1, 1, TEC, 1, 1, 1, 1, TEC];
+spr = [10, 10, 10, 10, 10, 10, 10]*70;
+yref = [0.0025 0.008 0.02 0.036];
+lw = 10;
+ll = 10;
+nxw = 21;
+nflr = 11;
+nflf = 11;
+nfuf = 15;
+nfur = 21;
+nr   = 41;
+mesh = clemesh_airfoil(xf, yf, nxw, nflr, nflf, nfuf, nfur, nr, sps, spr, yref, lw, ll, porder);
+
+[pde,mesh,master,dmd] = preprocessing(pde,mesh);
+UDG = getsolution("eppler2d/dataout/paramcase_0004/outudg_t5000",dmd,9);
+figure(1); clf; scaplot(mesh, UDG(:,2,:)./UDG(:,1,:),[],2); colormap('jet'); colorbar;
 
 % call exasim to generate and run C++ code to solve the PDE model
-pde.exportapp = "eppler2d";
-pde.frontendprovider = true;
-pde.buildandrun = false;
-[sol,pde,mesh,master,dmd] = exasim(pde,mesh);
+% pde.exportapp = "eppler2d";
+% pde.frontendprovider = true;
+% pde.buildandrun = false;
+% [sol,pde,mesh,master,dmd] = exasim(pde,mesh);
 
 %UDG1 = dgprojection(master1,mesh1,UDG,porder)
 % UDG = getsolution("eppler2d/dataout/outudg_t4000",dmd,9);
@@ -67,4 +85,3 @@ pde.buildandrun = false;
 % figure(1); clf;
 % scaplot3d(mesh, sol(:,1,:,end), [], 1);
 % colorbar; axis equal; axis tight;
-

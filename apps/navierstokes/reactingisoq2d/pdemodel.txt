@@ -1,6 +1,6 @@
 scalars t
 
-vectors x(2), uq(24), v(1), w(1), uhat(8), uext(1), n(2), tau(1), mu(12), eta(18)
+vectors x(2), uq(24), v(1), w(1), uhat(8), uext(2), n(2), tau(1), mu(12), eta(18)
 
 jacobian uq, w, uhat
 
@@ -8,7 +8,7 @@ hessian
 
 batch x, uq, v, w, uhat, n, uext
 
-outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Sourcew, Initu, Initw, EoS, VisScalars, VisVectors, VisTensors
+outputs Flux, Source, Tdfunc, Ubou, Fbou, Fint, Fext, FbouHdg, Sourcew, Initu, Initw, EoS, VisScalars, VisVectors, VisTensors
 
 function Hspec(t)
   output_size(hs) = 5;
@@ -480,6 +480,73 @@ end
 function Fbou(x, uq, v, w, uhat, n, tau, eta, mu, t)
   output_size(fb) = 8;
   ones(fb);
+end
+
+function Fint(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(fi) = 5;
+  tdim = w[0]*mu[3];
+  pdim = tdim*8.314471468617452*(mu[0]*uq[0]*71.39440410660612 + mu[0]*uq[1]*62.50234383789392 + mu[0]*uq[2]*33.32655693342354 + mu[0]*uq[3]*35.69720205330306 + mu[0]*uq[4]*31.25117191894696);
+  tg = TGrad(uq, mu, tdim);
+  km = KappaMix(uq, mu, tdim);
+  kap = km[0]/mu[5];
+  jd = Jdiff(uq, mu, tdim);
+  hs = Hspec(tdim);
+  hm0 = hs[0]*tdim*593.6067359633212/(mu[1]*mu[1]);
+  hm1 = hs[1]*tdim*519.6739545618868/(mu[1]*mu[1]);
+  hm2 = hs[2]*tdim*277.0927067702051/(mu[1]*mu[1]);
+  hm3 = hs[3]*tdim*296.8033679816606/(mu[1]*mu[1]);
+  hm4 = hs[4]*tdim*259.8369772809434/(mu[1]*mu[1]);
+  st = Stress(x, uq, mu, tdim);
+  qdim = mu[5]*mu[3]/mu[7];
+  edim = mu[0]*mu[1]*mu[1]*mu[1];
+  sdim = mu[4]*mu[1]/mu[7];
+  fi[0] = pdim;
+  qz = -qdim*kap*tg[0];
+  qr = -qdim*kap*tg[1];
+  fi[1] = qz*n[0] + qr*n[1];
+  cz = edim*(hm0*jd[0] + hm1*jd[1] + hm2*jd[2] + hm3*jd[3] + hm4*jd[4]);
+  cr = edim*(hm0*jd[5] + hm1*jd[6] + hm2*jd[7] + hm3*jd[8] + hm4*jd[9]);
+  fi[2] = cz*n[0] + cr*n[1];
+  tauzz = sdim*st[0] - pdim;
+  tauzr = sdim*st[1];
+  taurz = sdim*st[1];
+  taurr = sdim*st[2] - pdim;
+  fi[3] = tauzz*n[0] + tauzr*n[1];
+  fi[4] = taurz*n[0] + taurr*n[1];
+end
+
+function Fext(x, uq, v, w, uhat, n, uext, tau, eta, mu, t)
+  output_size(fb) = 8;
+  twall = uext[0];
+  ew = Emass(twall);
+  rew = (mu[0]*uq[0]*ew[0] + mu[0]*uq[1]*ew[1] + mu[0]*uq[2]*ew[2] + mu[0]*uq[3]*ew[3] + mu[0]*uq[4]*ew[4])/mu[2];
+  pival = Expression(pi);
+  jw = Jdiff(uq, mu, twall);
+  sqt = sqrt(twall/(2.0*pival));
+  fnw0 = jw[0]*n[0] + jw[5]*n[1];
+  mdc0 = eta[13]*sqt*24.36404596866705*uq[0]/mu[1];
+  fb[0] = fnw0 - mdc0 + tau[0]*(uq[0] - uhat[0]);
+  fnw1 = jw[1]*n[0] + jw[6]*n[1];
+  mdc1 = eta[14]*sqt*22.796358361849965*uq[1]/mu[1];
+  fb[1] = fnw1 - mdc1 + tau[0]*(uq[1] - uhat[1]);
+  fnw2 = jw[2]*n[0] + jw[7]*n[1];
+  mdc2 = eta[15]*sqt*16.646101849087824*uq[2]/mu[1];
+  fb[2] = fnw2 - mdc2 + tau[0]*(uq[2] - uhat[2]);
+  fnw3 = jw[3]*n[0] + jw[8]*n[1];
+  mdc3 = eta[16]*sqt*17.22798212158524*uq[3]/mu[1];
+  fb[3] = fnw3 - mdc3 + tau[0]*(uq[3] - uhat[3]);
+  fnw4 = jw[4]*n[0] + jw[9]*n[1];
+  mdc4 = eta[17]*sqt*16.119459584022767*uq[4]/mu[1];
+  fb[4] = fnw4 - mdc4 + tau[0]*(uq[4] - uhat[4]);
+  rvref = mu[0]*mu[1];
+  fb[5] = -tau[0]*(uhat[5]+uext[1]*n[0]/rvref);
+  fb[6] = -tau[0]*(uhat[6]+uext[1]*n[1]/rvref);
+
+  rhoz = -uext[1]*n[0]/rvref;
+  rhor = -uext[1]*n[1]/rvref;
+  rho = uhat[0] + uhat[1] + uhat[2] + uhat[3] + uhat[4];
+  ke = 0.5*(rhoz*rhoz + rhor*rhor)/rho;
+  fb[7] = tau[0]*(rew + ke - uhat[7]);
 end
 
 function FbouHdg(x, uq, v, w, uhat, n, tau, eta, mu, t)
