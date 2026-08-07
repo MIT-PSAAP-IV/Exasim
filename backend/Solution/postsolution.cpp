@@ -434,6 +434,10 @@ void CSolution::SaveParaview(Int backend, std::string fname_modifier, bool force
 
 void CSolution::SaveQoI(Int backend) 
 {
+    if (disc.common.timeparams.tdep==1 &&
+        ((disc.common.timestate.currentstep+1) % disc.common.outputparams.saveSolFreq) != 0)
+        return;
+
     if (disc.common.qoiparams.nvqoi > 0) qoiElement<exasim::detail::AbiAdapter>(disc.sol, disc.res, disc.app, disc.master, disc.mesh, disc.tmp, disc.common);
     if (disc.common.qoiparams.nsurf > 0) qoiFace<exasim::detail::AbiAdapter>(disc.sol, disc.res, disc.app, disc.master, disc.mesh, disc.tmp, disc.common);
 

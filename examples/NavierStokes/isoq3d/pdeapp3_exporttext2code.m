@@ -5,15 +5,21 @@
 
 run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'frontends', 'Matlab', 'exasim_setup.m'));
 
-load('solp2coarse.mat');
-mesh2d = mesh; udg2d = sol(:,1:4,:); vdg2d = mesh.vdg;
+% load('solp2coarse.mat');
+% mesh2d = mesh; udg2d = sol(:,1:4,:); vdg2d = mesh.vdg;
+
+% load("../isoq/solp2.mat");
+% mesh2d = mesh;
+% mesh2d.dgnodes(:,2,:) = mesh2d.dgnodes(:,2,:) - 0.0015;
+% mesh2d.p(2,:) = mesh2d.p(2,:) - 0.0015;
+% udg2d = sol(:,1:4,:); vdg2d = mesh.vdg;
 
 [pde,~] = initializeexasim();
 pde.model = "ModelD";
 pde.modelfile = "pdemodel";
 
 pde.platform = "cpu";
-pde.mpiprocs = 8;
+pde.mpiprocs = 16;
 pde.porder = 2;
 pde.pgauss = 2*pde.porder;
 pde.hybrid = 1;
@@ -37,10 +43,10 @@ rEinf = 0.5+pinf/(gam-1);
 
 pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rwinf rEinf Tinf Tref Twall];
 pde.tau = 10.0;
-pde.GMRESrestart = 200;
+pde.GMRESrestart = 400;
 pde.GMRESortho = 1;
 pde.linearsolvertol = 1e-6;
-pde.linearsolveriter = 200;
+pde.linearsolveriter = 400;
 pde.preconditioner = 1;
 pde.RBdim = 0;
 pde.ppdegree = 0;
@@ -53,7 +59,7 @@ pde.nstage = 1;
 pde.torder = 1;
 pde.saveSolFreq = 4;
 
-nz = 4;
+nz = 8;
 mesh = mkmesh_isoq3d3(mesh2d, nz);
 mesh.boundarycondition = [4, 4, 2, 4, 3, 1];
 
