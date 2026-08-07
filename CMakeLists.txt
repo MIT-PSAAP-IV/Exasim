@@ -681,7 +681,8 @@ if(DEFINED CMAKE_INSTALL_LIBDIR)
   list(APPEND _exasim_fwd -DCMAKE_INSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR})
 endif()
 if(CMAKE_CXX_FLAGS)
-  list(APPEND _exasim_fwd -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS})
+  string(REPLACE ";" "\\;" _escaped_cxx_flags "${CMAKE_CXX_FLAGS}")
+  list(APPEND _exasim_fwd "-DCMAKE_CXX_FLAGS=${_escaped_cxx_flags}")
 endif()
 
 ExternalProject_Add(exasim_build
