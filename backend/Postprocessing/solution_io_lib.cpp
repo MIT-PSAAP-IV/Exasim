@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstddef>
+#include <limits>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
@@ -114,6 +115,49 @@ std::size_t idx4(int a, int b, int c, int d, int n1, int n2, int n3)
                      static_cast<std::size_t>(n3) * static_cast<std::size_t>(d)));
 }
 
+bool isPositiveIntegerDouble(double value)
+{
+    return std::isfinite(value) &&
+           value > 0.0 &&
+           std::floor(value) == value &&
+           value <= static_cast<double>(std::numeric_limits<int>::max());
+}
+
+std::size_t checkedProduct3(int n1, int n2, int n3, const std::string& context)
+{
+    const std::size_t a = static_cast<std::size_t>(n1);
+    const std::size_t b = static_cast<std::size_t>(n2);
+    const std::size_t c = static_cast<std::size_t>(n3);
+    if (a > std::numeric_limits<std::size_t>::max() / b) {
+        throw std::runtime_error("Size overflow in " + context);
+    }
+    const std::size_t ab = a * b;
+    if (ab > std::numeric_limits<std::size_t>::max() / c) {
+        throw std::runtime_error("Size overflow in " + context);
+    }
+    return ab * c;
+}
+
+std::size_t checkedProduct4(int n1, int n2, int n3, int n4, const std::string& context)
+{
+    const std::size_t abc = checkedProduct3(n1, n2, n3, context);
+    const std::size_t d = static_cast<std::size_t>(n4);
+    if (abc > std::numeric_limits<std::size_t>::max() / d) {
+        throw std::runtime_error("Size overflow in " + context);
+    }
+    return abc * d;
+}
+
+std::string withBinSuffix(const std::string& base)
+{
+    const std::string suffix = ".bin";
+    if (base.size() >= suffix.size() &&
+        base.compare(base.size() - suffix.size(), suffix.size(), suffix) == 0) {
+        return base;
+    }
+    return base + suffix;
+}
+
 } // namespace
 
 void readDoubles(std::ifstream& in,
@@ -180,6 +224,614 @@ void writearray2file(const std::string& filename, const double* values, int coun
         throw std::runtime_error("Unable to open file " + filename);
     }
     writeDoubles(out, values, static_cast<std::size_t>(count), filename);
+}
+
+void writeFieldWithHeader(const std::string& filename,
+                          const std::vector<double>& values,
+                          int n1,
+                          int n2,
+                          int n3)
+{
+    if (n1 <= 0 || n2 <= 0 || n3 <= 0) {
+        throw std::runtime_error("writeFieldWithHeader: dimensions must be positive for " + filename);
+    }
+
+    const std::size_t expected = checkedProduct3(n1, n2, n3, filename);
+    if (values.size() != expected) {
+        throw std::runtime_error("writeFieldWithHeader: payload size does not match header for " +
+                                 filename);
+    }
+
+    const std::string output = withBinSuffix(filename);
+    std::ofstream out(output, std::ios::out | std::ios::binary);
+    if (!out) {
+        throw std::runtime_error("Unable to open file " + output);
+    }
+
+    const double hdr[3] = {
+        static_cast<double>(n1),
+        static_cast<double>(n2),
+        static_cast<double>(n3)
+    };
+    writeDoubles(out, hdr, 3, output);
+    writeDoubles(out, values.data(), values.size(), output);
+}
+
+void writeFieldWithHeader4(const std::string& filename,
+                           const std::vector<double>& values,
+                           int n1,
+                           int n2,
+                           int n3,
+                           int n4)
+{
+    if (n1 <= 0 || n2 <= 0 || n3 <= 0 || n4 <= 0) {
+        throw std::runtime_error("writeFieldWithHeader4: dimensions must be positive for " +
+                                 filename);
+    }
+
+    const std::size_t expected = checkedProduct4(n1, n2, n3, n4, filename);
+    if (values.size() != expected) {
+        throw std::runtime_error("writeFieldWithHeader4: payload size does not match header for " +
+                                 filename);
+    }
+
+    const std::string output = withBinSuffix(filename);
+    std::ofstream out(output, std::ios::out | std::ios::binary);
+    if (!out) {
+        throw std::runtime_error("Unable to open file " + output);
+    }
+
+    const double hdr[4] = {
+        static_cast<double>(n1),
+        static_cast<double>(n2),
+        static_cast<double>(n3),
+        static_cast<double>(n4)
+    };
+    writeDoubles(out, hdr, 4, output);
+    writeDoubles(out, values.data(), values.size(), output);
+}
+
+void getxf(const std::string& base,
+           int nprocs,
+           std::vector<double>& xf,
+           int& n1_out,
+           int& n2_out,
+           int& n3_out)
+{
+    if (nprocs <= 0) {
+        throw std::runtime_error("getxf: nprocs must be positive.");
+    }
+
+    struct RankHeader {
+        int n1 = 0;
+        int n2 = 0;
+        int n3 = 0;
+    };
+
+    std::vector<RankHeader> headers(static_cast<std::size_t>(nprocs));
+    int n1Global = 0;
+    int n3Global = 0;
+    std::int64_t n2Total = 0;
+
+    for (int r = 0; r < nprocs; ++r) {
+        const std::string fname = base + "_np" + std::to_string(r) + ".bin";
+        std::ifstream in(fname, std::ios::binary);
+        if (!in) {
+            throw std::runtime_error("Cannot open file: " + fname);
+        }
+
+        double hdr[3] = {0.0, 0.0, 0.0};
+        readDoubles(in, hdr, 3, fname);
+        // std::cout<<hdr[0]<<"   "<<hdr[1]<<"   "<<hdr[2]<<std::endl;
+        // if (hdr[1] == 0.0) 
+        // for (int k = 0; k < 3; ++k) {
+        //     if (!isPositiveIntegerDouble(hdr[k])) {
+        //         throw std::runtime_error("Invalid header value in: " + fname);
+        //     }
+        // }
+
+        const int n1 = static_cast<int>(hdr[0]);
+        const int n2 = static_cast<int>(hdr[1]);
+        const int n3 = static_cast<int>(hdr[2]);
+
+        if (n2 == 0) continue;
+
+        const std::size_t nvalues = checkedProduct3(n1, n2, n3, fname);
+
+        const std::int64_t bytes = fileSizeBytes(fname);
+        if (bytes % static_cast<std::int64_t>(sizeof(double)) != 0) {
+            throw std::runtime_error("File size not multiple of 8 in: " + fname);
+        }
+        const std::int64_t ndoubles =
+            bytes / static_cast<std::int64_t>(sizeof(double));
+        if (ndoubles != static_cast<std::int64_t>(3 + nvalues)) {
+            throw std::runtime_error("Unexpected payload size in: " + fname);
+        }
+
+        if (r == 0) {
+            n1Global = n1;
+            n3Global = n3;
+        } else if (n1 != n1Global || n3 != n3Global) {
+            throw std::runtime_error("n1/n3 mismatch across rank files at: " + fname);
+        }
+
+        headers[static_cast<std::size_t>(r)] = {n1, n2, n3};
+        n2Total += n2;
+        if (n2Total > static_cast<std::int64_t>(std::numeric_limits<int>::max())) {
+            throw std::runtime_error("getxf: total n2 exceeds int range.");
+        }
+    }
+
+    const int n2Global = static_cast<int>(n2Total);
+    const std::size_t total = checkedProduct3(n1Global, n2Global, n3Global, base);
+    xf.assign(total, 0.0);
+
+    int n2Offset = 0;
+    for (int r = 0; r < nprocs; ++r) {
+        const std::string fname = base + "_np" + std::to_string(r) + ".bin";
+        const RankHeader h = headers[static_cast<std::size_t>(r)];
+        const std::size_t localSize = checkedProduct3(h.n1, h.n2, h.n3, fname);
+
+        std::ifstream in(fname, std::ios::binary);
+        if (!in) {
+            throw std::runtime_error("Cannot open file: " + fname);
+        }
+        double hdr[3] = {0.0, 0.0, 0.0};
+        readDoubles(in, hdr, 3, fname);
+
+        std::vector<double> local(localSize);
+        readDoubles(in, local.data(), local.size(), fname);
+
+        for (int k = 0; k < h.n3; ++k) {
+            for (int j = 0; j < h.n2; ++j) {
+                const std::size_t src =
+                    static_cast<std::size_t>(h.n1) *
+                    (static_cast<std::size_t>(j) +
+                     static_cast<std::size_t>(h.n2) * static_cast<std::size_t>(k));
+                const std::size_t dst =
+                    static_cast<std::size_t>(n1Global) *
+                    (static_cast<std::size_t>(n2Offset + j) +
+                     static_cast<std::size_t>(n2Global) * static_cast<std::size_t>(k));
+                std::copy(local.data() + src,
+                          local.data() + src + static_cast<std::size_t>(h.n1),
+                          xf.data() + dst);
+            }
+        }
+
+        n2Offset += h.n2;
+    }
+
+    n1_out = n1Global;
+    n2_out = n2Global;
+    n3_out = n3Global;
+}
+
+void getudgf(const std::string& base,
+             int nprocs,
+             int nsteps,
+             int stepoffsets,
+             std::vector<double>& udgf,
+             int& n1_out,
+             int& n2_out,
+             int& n3_out,
+             int& n4_out)
+{
+    if (nprocs <= 0) {
+        throw std::runtime_error("getudgf: nprocs must be positive.");
+    }
+    if (nsteps <= 0) {
+        throw std::runtime_error("getudgf: nsteps must be positive.");
+    }
+    if (stepoffsets < 0) {
+        throw std::runtime_error("getudgf: stepoffsets must be nonnegative.");
+    }
+
+    struct RankHeader {
+        int n1 = 0;
+        int n2 = 0;
+        int n3 = 0;
+    };
+
+    std::vector<RankHeader> headers(static_cast<std::size_t>(nprocs));
+    int n1Global = 0;
+    int n3Global = 0;
+    std::int64_t n2Total = 0;
+
+    for (int r = 0; r < nprocs; ++r) {
+        const std::string fname = base + "_np" + std::to_string(r) + ".bin";
+        std::ifstream in(fname, std::ios::binary);
+        if (!in) {
+            throw std::runtime_error("Cannot open file: " + fname);
+        }
+
+        double hdr[3] = {0.0, 0.0, 0.0};
+        readDoubles(in, hdr, 3, fname);
+        // for (int k = 0; k < 3; ++k) {
+        //     if (!isPositiveIntegerDouble(hdr[k])) {
+        //         throw std::runtime_error("Invalid header value in: " + fname);
+        //     }
+        // }
+
+        const int n1 = static_cast<int>(hdr[0]);
+        const int n2 = static_cast<int>(hdr[1]);
+        const int n3 = static_cast<int>(hdr[2]);
+
+        if (n2 == 0) continue;
+      
+        const std::size_t nvalues = checkedProduct3(n1, n2, n3, fname);
+
+        const std::int64_t bytes = fileSizeBytes(fname);
+        if (bytes % static_cast<std::int64_t>(sizeof(double)) != 0) {
+            throw std::runtime_error("File size not multiple of 8 in: " + fname);
+        }
+        const std::int64_t ndoubles =
+            bytes / static_cast<std::int64_t>(sizeof(double));
+        if (ndoubles < 3) {
+            throw std::runtime_error("File too small in: " + fname);
+        }
+        if ((ndoubles - 3) % static_cast<std::int64_t>(nvalues) != 0) {
+            throw std::runtime_error("Payload not divisible by snapshot size in: " + fname);
+        }
+
+        const std::int64_t availableSteps =
+            (ndoubles - 3) / static_cast<std::int64_t>(nvalues);
+        if (static_cast<std::int64_t>(stepoffsets) + static_cast<std::int64_t>(nsteps) >
+            availableSteps) {
+            throw std::runtime_error("Requested steps exceed available timesteps in: " + fname);
+        }
+
+        if (r == 0) {
+            n1Global = n1;
+            n3Global = n3;
+        } else if (n1 != n1Global || n3 != n3Global) {
+            throw std::runtime_error("n1/n3 mismatch across rank files at: " + fname);
+        }
+
+        headers[static_cast<std::size_t>(r)] = {n1, n2, n3};
+        n2Total += n2;
+        if (n2Total > static_cast<std::int64_t>(std::numeric_limits<int>::max())) {
+            throw std::runtime_error("getudgf: total n2 exceeds int range.");
+        }
+    }
+
+    const int n2Global = static_cast<int>(n2Total);
+    const std::size_t total = checkedProduct4(n1Global, n2Global, n3Global, nsteps, base);
+    udgf.assign(total, 0.0);
+
+    int n2Offset = 0;
+    for (int r = 0; r < nprocs; ++r) {
+        const std::string fname = base + "_np" + std::to_string(r) + ".bin";
+        const RankHeader h = headers[static_cast<std::size_t>(r)];
+        const std::size_t rankValues = checkedProduct3(h.n1, h.n2, h.n3, fname);
+        const std::size_t localSize =
+            rankValues * static_cast<std::size_t>(nsteps);
+
+        std::ifstream in(fname, std::ios::binary);
+        if (!in) {
+            throw std::runtime_error("Cannot open file: " + fname);
+        }
+        double hdr[3] = {0.0, 0.0, 0.0};
+        readDoubles(in, hdr, 3, fname);
+
+        const std::streamoff skipBytes =
+            static_cast<std::streamoff>(stepoffsets) *
+            static_cast<std::streamoff>(rankValues) *
+            static_cast<std::streamoff>(sizeof(double));
+        if (skipBytes > 0) {
+            in.seekg(skipBytes, std::ios::cur);
+            if (!in) {
+                throw std::runtime_error("seekg failed in: " + fname);
+            }
+        }
+
+        std::vector<double> local(localSize);
+        readDoubles(in, local.data(), local.size(), fname);
+
+        for (int s = 0; s < nsteps; ++s) {
+            for (int k = 0; k < h.n3; ++k) {
+                for (int j = 0; j < h.n2; ++j) {
+                    const std::size_t src =
+                        static_cast<std::size_t>(h.n1) *
+                        (static_cast<std::size_t>(j) +
+                         static_cast<std::size_t>(h.n2) *
+                             (static_cast<std::size_t>(k) +
+                              static_cast<std::size_t>(h.n3) * static_cast<std::size_t>(s)));
+                    const std::size_t dst =
+                        static_cast<std::size_t>(n1Global) *
+                        (static_cast<std::size_t>(n2Offset + j) +
+                         static_cast<std::size_t>(n2Global) *
+                             (static_cast<std::size_t>(k) +
+                              static_cast<std::size_t>(n3Global) * static_cast<std::size_t>(s)));
+                    std::copy(local.data() + src,
+                              local.data() + src + static_cast<std::size_t>(h.n1),
+                              udgf.data() + dst);
+                }
+            }
+        }
+
+        n2Offset += h.n2;
+    }
+
+    n1_out = n1Global;
+    n2_out = n2Global;
+    n3_out = n3Global;
+    n4_out = nsteps;
+}
+
+void getufavg(const std::string& base,
+              int nprocs,
+              int npf,
+              int ncu,
+              std::vector<double>& uf,
+              int& n1_out,
+              int& n2_out,
+              int& n3_out)
+{
+    if (nprocs <= 0) {
+        throw std::runtime_error("getufavg: nprocs must be positive.");
+    }
+    if (npf <= 0) {
+        throw std::runtime_error("getufavg: npf must be positive.");
+    }
+    if (ncu <= 0) {
+        throw std::runtime_error("getufavg: ncu must be positive.");
+    }
+
+    struct RankData {
+        int nf = 0;
+        std::vector<double> values;
+    };
+
+    std::vector<RankData> ranks;
+    ranks.reserve(static_cast<std::size_t>(nprocs));
+    std::int64_t nfTotal = 0;
+
+    const std::size_t block = static_cast<std::size_t>(npf) * static_cast<std::size_t>(ncu);
+    for (int r = 0; r < nprocs; ++r) {
+        const std::string fname = base + "_np" + std::to_string(r) + ".bin";
+        std::ifstream in(fname, std::ios::binary);
+        if (!in) {
+            continue;
+        }
+
+        const std::int64_t bytes = fileSizeBytes(fname);
+        if (bytes % static_cast<std::int64_t>(sizeof(double)) != 0) {
+            throw std::runtime_error("File size not multiple of 8 in: " + fname);
+        }
+
+        const std::int64_t ndoubles =
+            bytes / static_cast<std::int64_t>(sizeof(double));
+        if (ndoubles < 2) {
+            throw std::runtime_error("getufavg: file must contain data and nsteps: " + fname);
+        }
+
+        std::vector<double> tm(static_cast<std::size_t>(ndoubles));
+        readDoubles(in, tm.data(), tm.size(), fname);
+
+        const double nsteps = tm.back();
+        if (!std::isfinite(nsteps) || nsteps <= 0.0) {
+            throw std::runtime_error("getufavg: invalid nsteps in: " + fname);
+        }
+
+        const std::size_t payload = tm.size() - 1;
+        if (payload % block != 0) {
+            throw std::runtime_error("getufavg: payload size is incompatible with npf and ncu in: " +
+                                     fname);
+        }
+
+        const int nf = static_cast<int>(payload / block);
+        for (std::size_t i = 0; i < payload; ++i) {
+            tm[i] /= nsteps;
+        }
+        tm.resize(payload);
+
+        ranks.push_back({nf, std::move(tm)});
+        nfTotal += nf;
+        if (nfTotal > static_cast<std::int64_t>(std::numeric_limits<int>::max())) {
+            throw std::runtime_error("getufavg: total face count exceeds int range.");
+        }
+    }
+
+    if (ranks.empty()) {
+        throw std::runtime_error("getufavg: no input rank files could be opened for base: " + base);
+    }
+
+    const int nfGlobal = static_cast<int>(nfTotal);
+    const std::size_t total = checkedProduct3(npf, nfGlobal, ncu, base);
+    uf.assign(total, 0.0);
+
+    int nfOffset = 0;
+    for (const RankData& rank : ranks) {
+        for (int c = 0; c < ncu; ++c) {
+            for (int f = 0; f < rank.nf; ++f) {
+                const std::size_t src =
+                    static_cast<std::size_t>(npf) *
+                    (static_cast<std::size_t>(f) +
+                     static_cast<std::size_t>(rank.nf) * static_cast<std::size_t>(c));
+                const std::size_t dst =
+                    static_cast<std::size_t>(npf) *
+                    (static_cast<std::size_t>(nfOffset + f) +
+                     static_cast<std::size_t>(nfGlobal) * static_cast<std::size_t>(c));
+                std::copy(rank.values.data() + src,
+                          rank.values.data() + src + static_cast<std::size_t>(npf),
+                          uf.data() + dst);
+            }
+        }
+        nfOffset += rank.nf;
+    }
+
+    n1_out = npf;
+    n2_out = nfGlobal;
+    n3_out = ncu;
+}
+
+void averageudgf(const std::string& base,
+                 int nprocs,
+                 int nsteps,
+                 int stepoffsets,
+                 std::vector<double>& udgf,
+                 int& n1_out,
+                 int& n2_out,
+                 int& n3_out)
+{
+    std::vector<double> snapshots;
+    int n4 = 0;
+    getudgf(base,
+            nprocs,
+            nsteps,
+            stepoffsets,
+            snapshots,
+            n1_out,
+            n2_out,
+            n3_out,
+            n4);
+
+    const std::size_t slice = checkedProduct3(n1_out, n2_out, n3_out, base);
+    udgf.assign(slice, 0.0);
+
+    for (int s = 0; s < n4; ++s) {
+        const double* src = snapshots.data() + slice * static_cast<std::size_t>(s);
+        for (std::size_t i = 0; i < slice; ++i) {
+            udgf[i] += src[i];
+        }
+    }
+
+    const double scale = 1.0 / static_cast<double>(n4);
+    for (double& value : udgf) {
+        value *= scale;
+    }
+}
+
+void getudgavg(const std::string& base,
+               const std::vector<std::vector<int>>& elempartpts,
+               const std::vector<std::vector<int>>& elempart,
+               int npe,
+               std::vector<double>& udg,
+               int& n1_out,
+               int& n2_out,
+               int& ne_out)
+{
+    const int nprocs = static_cast<int>(elempartpts.size());
+    if (nprocs <= 0) {
+        throw std::runtime_error("getudgavg: elempartpts is empty.");
+    }
+    if (static_cast<int>(elempart.size()) != nprocs) {
+        throw std::runtime_error("getudgavg: elempart size mismatch.");
+    }
+    if (npe <= 0) {
+        throw std::runtime_error("getudgavg: npe must be positive.");
+    }
+
+    std::vector<int> nei(static_cast<std::size_t>(nprocs), 0);
+    std::int64_t neTotal = 0;
+    for (int r = 0; r < nprocs; ++r) {
+        if (elempartpts[static_cast<std::size_t>(r)].size() < 2) {
+            throw std::runtime_error("getudgavg: elempartpts[" + std::to_string(r) +
+                                     "] has fewer than 2 entries.");
+        }
+
+        if (nprocs == 1) {
+            nei[static_cast<std::size_t>(r)] =
+                static_cast<int>(elempart[static_cast<std::size_t>(r)].size());
+        } else {
+            nei[static_cast<std::size_t>(r)] =
+                elempartpts[static_cast<std::size_t>(r)][0] +
+                elempartpts[static_cast<std::size_t>(r)][1];
+        }
+
+        if (nei[static_cast<std::size_t>(r)] <= 0) {
+            throw std::runtime_error("getudgavg: rank " + std::to_string(r) +
+                                     " has zero owned elements.");
+        }
+        if (static_cast<int>(elempart[static_cast<std::size_t>(r)].size()) <
+            nei[static_cast<std::size_t>(r)]) {
+            throw std::runtime_error("getudgavg: elempart[" + std::to_string(r) +
+                                     "] shorter than owned element count.");
+        }
+
+        neTotal += nei[static_cast<std::size_t>(r)];
+        if (neTotal > static_cast<std::int64_t>(std::numeric_limits<int>::max())) {
+            throw std::runtime_error("getudgavg: total element count exceeds int range.");
+        }
+    }
+
+    const int ne = static_cast<int>(neTotal);
+    int nc = 0;
+    udg.clear();
+
+    for (int r = 0; r < nprocs; ++r) {
+        const std::string fname = base + "_np" + std::to_string(r) + ".bin";
+        std::ifstream in(fname, std::ios::binary);
+        if (!in) {
+            throw std::runtime_error("Cannot open mean solution file: " + fname);
+        }
+
+        const std::int64_t bytes = fileSizeBytes(fname);
+        if (bytes % static_cast<std::int64_t>(sizeof(double)) != 0) {
+            throw std::runtime_error("File size not multiple of 8 in: " + fname);
+        }
+
+        const std::int64_t ndoubles =
+            bytes / static_cast<std::int64_t>(sizeof(double));
+        if (ndoubles <= 1) {
+            throw std::runtime_error("Mean solution file is empty or missing sample count: " +
+                                     fname);
+        }
+
+        std::vector<double> tmp(static_cast<std::size_t>(ndoubles));
+        readDoubles(in, tmp.data(), tmp.size(), fname);
+
+        const double samples = tmp.back();
+        if (!std::isfinite(samples) || samples <= 0.0) {
+            throw std::runtime_error("Mean solution file has invalid accumulated samples: " +
+                                     fname);
+        }
+
+        const std::int64_t payload = ndoubles - 1;
+        const int rankNe = nei[static_cast<std::size_t>(r)];
+        const std::int64_t denom =
+            static_cast<std::int64_t>(npe) * static_cast<std::int64_t>(rankNe);
+        if (payload % denom != 0) {
+            throw std::runtime_error("getudgavg: mean solution size mismatch on rank " +
+                                     std::to_string(r) + " in file: " + fname);
+        }
+
+        const int rankNc = static_cast<int>(payload / denom);
+        if (rankNc <= 0) {
+            throw std::runtime_error("getudgavg: rank " + std::to_string(r) +
+                                     " has zero solution components.");
+        }
+
+        if (r == 0) {
+            nc = rankNc;
+            udg.assign(checkedProduct3(npe, nc, ne, base), 0.0);
+        } else if (rankNc != nc) {
+            throw std::runtime_error("getudgavg: rank " + std::to_string(r) +
+                                     " has " + std::to_string(rankNc) +
+                                     " components, expected " + std::to_string(nc) + ".");
+        }
+
+        const std::size_t slice =
+            static_cast<std::size_t>(npe) * static_cast<std::size_t>(nc);
+        for (int e = 0; e < rankNe; ++e) {
+            const int globalElem = (nprocs == 1) ? e :
+                elempart[static_cast<std::size_t>(r)][static_cast<std::size_t>(e)];
+            if (globalElem < 0 || globalElem >= ne) {
+                throw std::runtime_error("getudgavg: elempart out of range in rank " +
+                                         std::to_string(r));
+            }
+
+            const double* src = tmp.data() + static_cast<std::size_t>(e) * slice;
+            double* dst = udg.data() + sliceOffset4(npe, nc, ne, globalElem, 0);
+            for (std::size_t k = 0; k < slice; ++k) {
+                dst[k] = src[k] / samples;
+            }
+        }
+    }
+
+    n1_out = npe;
+    n2_out = nc;
+    ne_out = ne;
 }
 
 void readelempart(const std::string& base,
