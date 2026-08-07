@@ -2,17 +2,21 @@
 % run('<prefix>/share/exasim/matlab/exasim_setup.m') instead.
 run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'frontends', 'Matlab', 'exasim_setup.m'));
 
-load('solp2coarse.mat');
-mesh2d = mesh; udg2d = sol(:,1:4,:); vdg2d = mesh.vdg;
+% load('solp2coarse.mat');
+load("../isoq/solp2.mat");
+mesh2d = mesh;
+mesh2d.dgnodes(:,2,:) = mesh2d.dgnodes(:,2,:) - 0.001;
+mesh2d.p(2,:) = mesh2d.p(2,:) - 0.001;
+udg2d = sol(:,1:4,:); vdg2d = mesh.vdg;
 
 % initialize pde structure and mesh structure
 [pde,~] = initializeexasim();
-pde.model = "ModelD";  
+pde.model = "ModelD";
 pde.modelfile = "pdemodel";
 
 % Choose computing platform and set number of processors
 pde.platform = "cpu";         % choose this option if NVIDIA GPUs are available
-pde.mpiprocs = 8;             % number of MPI processors
+pde.mpiprocs = 16;             % number of MPI processors
 pde.porder = 2;          % polynomial degree
 pde.pgauss = 2*pde.porder;
 pde.hybrid = 1;               % 0 -> LDG, 1 -> HDG
@@ -21,7 +25,7 @@ pde.nd = 3;
 
 gam = 1.4;                      % specific heat ratio
 Re = 1.835e5;                     % Reynolds number
-Pr = 0.71;                      % Prandtl number    
+Pr = 0.71;                      % Prandtl number
 Minf = 7;                       % Mach number
 Tref  = 124.49;
 Twall = 294.44;
@@ -53,7 +57,7 @@ pde.nstage = 1;
 pde.torder = 1;
 pde.saveSolFreq = 4;
 
-nz = 4;
+nz = 8;
 mesh = mkmesh_isoq3d3(mesh2d, nz);
 % symmetry, symmetry, outflow, symmetry, wall, inflow
 mesh.boundarycondition = [4, 4, 2, 4, 3, 1]; % Set boundary condition for each boundary
@@ -68,19 +72,34 @@ mesh.udg(:,3,:) = vx3d;
 mesh.udg(:,4,:) = vy3d;
 mesh.udg(:,5,:) = udg3d(:,4,:);
 
-pde.gencode = 1;
+% Export a frontend-provider app that can run the entire sweep without MATLAB.
+pde.exportapp = "isoq3d-fine";
+pde.frontendprovider = true;
+pde.buildandrun = false;
+if exist(pde.exportapp, 'dir')
+    rmdir(pde.exportapp, 's');
+end
+
+% call exasim to preprocess, generate code, and export the standalone app
 [sol,pde,mesh,master,dmd] = exasim(pde,mesh);
 
-visfield = sol(:,1:5,:,end);
-pres = eulereval3d(visfield,'p',1.4,Minf);
-mach = eulereval3d(visfield,'M',1.4,Minf);
-visfield(:,2:4,:) = visfield(:,2:4,:)./visfield(:,1,:);
-visfield(:,5,:) = pres;
-visfield(:,6,:) = mach;
-pde.visscalars = {"density", 1, "pressure", 5, "mach", 6};                % list of scalar fields for visualization
-pde.visvectors = {"velocity", [2 3 4]}; % list of vector fields for visualization
-pde.paraview = "/Applications/ParaView-6.0.0.app/Contents/MacOS/paraview";
-vis(visfield,pde,mesh);                        % visualize the numerical solution
+fprintf("Exported isoq3d app: %s\n", fullfile(pwd, pde.exportapp));
+fprintf("Run with: EXASIM_ROOT=%s %s\n", char(exasim_install_prefix()), fullfile(pwd, pde.exportapp, "run.sh"));
+
+
+% pde.gencode = 1;
+% [sol,pde,mesh,master,dmd] = exasim(pde,mesh);
+%
+% visfield = sol(:,1:5,:,end);
+% pres = eulereval3d(visfield,'p',1.4,Minf);
+% mach = eulereval3d(visfield,'M',1.4,Minf);
+% visfield(:,2:4,:) = visfield(:,2:4,:)./visfield(:,1,:);
+% visfield(:,5,:) = pres;
+% visfield(:,6,:) = mach;
+% pde.visscalars = {"density", 1, "pressure", 5, "mach", 6};                % list of scalar fields for visualization
+% pde.visvectors = {"velocity", [2 3 4]}; % list of vector fields for visualization
+% pde.paraview = "/Applications/ParaView-6.0.0.app/Contents/MacOS/paraview";
+% vis(visfield,pde,mesh);                        % visualize the numerical solution
 
 % visfield = mesh.udg;
 % pres = eulereval3d(visfield,'p',1.4,Minf);
@@ -101,28 +120,28 @@ vis(visfield,pde,mesh);                        % visualize the numerical solutio
 % mesh.vdg = zeros(size(mesh.dgnodes,1),1,size(mesh.dgnodes,3));
 % nm = 200;
 % mesh.vdg(:,1,:) = 0.001*tanh(nm*dist);
-% 
+%
 % % intial solution
 % ui = [rinf ruinf rvinf rwinf rEinf];
-% UDG = initu(mesh,{ui(1),ui(2),ui(3),ui(4),ui(5)}); % freestream 
+% UDG = initu(mesh,{ui(1),ui(2),ui(3),ui(4),ui(5)}); % freestream
 % UDG(:,2,:) = UDG(:,2,:).*tanh(nm*dist);
 % TnearWall = Tinf * (Twall/Tref-1) * exp(-nm*dist) + Tinf;
 % UDG(:,5,:) = TnearWall + 0.5*(UDG(:,2,:).*UDG(:,2,:) + UDG(:,3,:).*UDG(:,3,:) + UDG(:,4,:).*UDG(:,4,:));
 % mesh.udg = UDG;
-% 
+%
 % [pde,mesh,master,dmd] = preprocessing(pde,mesh);
 
 % kkgencode(pde);
-% compilerstr = cmakecompile(pde); % use cmake to compile C++ source codes 
+% compilerstr = cmakecompile(pde); % use cmake to compile C++ source codes
 % runcode(pde, 1); % run C++ code
 % sol = fetchsolution(pde,master,dmd, pde.buildpath + '/dataout');
 
 % mesh.xpe = master.xpe;
 % pde.visscalars = {"av", 1};
 % pde.visvectors = {};
-% vis(mesh.vdg,pde,mesh);    
+% vis(mesh.vdg,pde,mesh);
 
 % pde.visscalars = {"density", 1, "vx", 2, "vy", 3, "vz", 4, "energy", 5};
 % pde.visvectors = {};
-% vis(mesh.udg,pde,mesh);    
-% 
+% vis(mesh.udg,pde,mesh);
+%

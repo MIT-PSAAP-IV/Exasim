@@ -1,7 +1,7 @@
-function [Cp,Cf,x,Cp2d,Cf2d,x2d,Ch,Ch2d] = getsurfacedata(master,mesh,UDG,param,wid,elemAvg,deltaT,xyMidChord)
+function [Cp,Cf,x,Cp2d,Cf2d,x2d,Ch,Ch2d,stressData,Cx,Cy] = getsurfacedata(master,mesh,UDG,param,wid,elemAvg,deltaT,xyMidChord)
 %GETSURFACEDATA Extract aerodynamic surface data from an Exasim solution.
 %
-%   [Cp,Cf,x,Cp2d,Cf2d,x2d,Ch,Ch2d] =
+%   [Cp,Cf,x,Cp2d,Cf2d,x2d,Ch,Ch2d,stressData,Cx,Cy] =
 %       getsurfacedata(master,mesh,UDG,param,wid,elemAvg,deltaT,proftype)
 %
 % The function uses current Exasim mesh/master fields:
@@ -10,6 +10,9 @@ function [Cp,Cf,x,Cp2d,Cf2d,x2d,Ch,Ch2d] = getsurfacedata(master,mesh,UDG,param,
 %
 % wid may contain one or more wall boundary markers. If mesh.boundarycondition
 % is present, wid may also refer to boundary-condition values.
+%
+% Cx and Cy are integrated force coefficients over chord = 1. For 3D data,
+% they are computed from the spanwise-projected Cp2d/Cf2d distributions.
 
 proftype = 1;
 if nargin < 6 || isempty(elemAvg); elemAvg = 0; end
@@ -35,6 +38,7 @@ zc = [];
 cpData = [];
 cfData = [];
 chData = [];
+stressData = [];
 
 for elem = 1:size(UDG,3)
     xdg = mesh.dgnodes(:,1:nd,elem);
@@ -54,7 +58,7 @@ for elem = 1:size(UDG,3)
         [nlg,jac] = surfaceGeometry(xface,dshapft,ngf,nd);
         nlg = orientNormalsOutward(nlg,xg,xdg);
 
-        [pressure,tauWall,heatFlux] = wallQuantities(ug,nlg,param,nd);
+        [pressure,tauWall,heatFlux,stress] = wallQuantities(ug,nlg,param,nd);
 
         if elemAvg == 0
             xNew = xg(:,1);
@@ -64,7 +68,8 @@ for elem = 1:size(UDG,3)
             end
             cpNew = pressure;
             cfNew = tauWall;
-            chNew = heatFlux;
+            chNew = heatFlux;            
+            stressnew = stress;
         elseif elemAvg == 1
             wjac = abs(jac).*gwf(:);
             denom = sum(wjac);
@@ -76,9 +81,15 @@ for elem = 1:size(UDG,3)
             cpNew = sum(wjac.*pressure)/denom;
             cfNew = sum(wjac.*tauWall)/denom;
             chNew = sum(wjac.*heatFlux)/denom;
+            stressnew = zeros(1,size(stress,2),size(stress,3));
+            for i = 1:size(stress,2)
+              for j = 1:size(stress,3)
+                stressnew(1,i,j) = sum(wjac.*stress(:,i,j))/denom;
+              end
+            end
         else
             error('elemAvg must be 0 or 1.');
-        end
+        end        
 
         xc = [xc; xNew];
         yc = [yc; yNew];
@@ -88,6 +99,7 @@ for elem = 1:size(UDG,3)
         cpData = [cpData; cpNew];
         cfData = [cfData; cfNew];
         chData = [chData; chNew];
+        stressData = [stressData; reshape(stressnew, [], size(stressnew,2)*size(stressnew,3))];
     end
 end
 
@@ -101,7 +113,7 @@ else
     xraw = [xc(:) yc(:) zc(:)];
 end
 
-[x,cpOrdered,cfOrdered,chOrdered] = orderSurfaceData(xraw,cpData,cfData,chData,proftype,xyMidChord);
+[x,cpOrdered,cfOrdered,chOrdered,stressData] = orderSurfaceData(xraw,cpData,cfData,chData,stressData,proftype,xyMidChord);
 
 Cp = -2*(cpOrdered - pinf);
 Cf = -2*cfOrdered;
@@ -109,11 +121,13 @@ Ch = chOrdered/(deltaT*gamma);
 
 if nd == 3
     [Cp2d,Cf2d,x2d,Ch2d] = spanwiseProjectSurfaceData(Cp,Cf,x,Ch,proftype,xyMidChord);
+    [Cx,Cy] = surfaceForceCoefficients(Cp2d,Cf2d,x2d);
 else
     Cp2d = [];
     Cf2d = [];
     x2d = [];
     Ch2d = [];
+    [Cx,Cy] = surfaceForceCoefficients(Cp,Cf,x);   
 end
 
 end
@@ -256,7 +270,7 @@ if dot(mean(nlg,1),faceCenter - elemCenter) < 0
 end
 end
 
-function [pressure,tauWall,heatFlux] = wallQuantities(ug,nlg,param,nd)
+function [pressure,tauWall,heatFlux,stress] = wallQuantities(ug,nlg,param,nd)
 gamma = param(1);
 nc = size(ug,2);
 [ncu,stateDim,gradDim] = inferStateLayout(nc,nd);
@@ -269,7 +283,8 @@ pressure = (gamma-1)*(rhoE - 0.5*sum(mom.*vel,2));
 
 tauWall = zeros(size(rho));
 heatFlux = zeros(size(rho));
-if nc == ncu
+stress = zeros(size(rho,1),stateDim,stateDim);
+if nc == ncu    
     return;
 end
 
@@ -396,7 +411,7 @@ end
 thermalFlux = kappa.*gradT;
 end
 
-function [xout,cpout,cfout,chout] = orderSurfaceData(x,cp,cf,ch,proftype,xyMidChord)
+function [xout,cpout,cfout,chout,stressout] = orderSurfaceData(x,cp,cf,ch,stress,proftype,xyMidChord)
 [lower] = lowerSurfaceMask(x(:,1),x(:,2),proftype,xyMidChord);
 
 xl = x(lower,:);
@@ -408,6 +423,9 @@ cfu = cf(~lower);
 chl = ch(lower);
 chu = ch(~lower);
 
+stressl = stress(lower,:);
+stressu = stress(~lower,:);
+
 [~,il] = sortrows(xl,[1 min(3,size(x,2))]);
 [~,iu] = sortrows(xu,[1 min(3,size(x,2))]);
 
@@ -415,6 +433,7 @@ xout = [flipud(xl(il,:)); xu(iu,:)];
 cpout = [flipud(cpl(il)); cpu(iu)];
 cfout = [flipud(cfl(il)); cfu(iu)];
 chout = [flipud(chl(il)); chu(iu)];
+stressout = [flipud(stressl(il,:)); stressu(iu,:)];
 end
 
 function lower = lowerSurfaceMask(x,y,proftype, xyMidChord)
@@ -443,7 +462,48 @@ for i = 1:size(xy,1)
     Ch2d(i) = mean(Ch(ids));
 end
 
-[x2d,Cp2d,Cf2d,Ch2d] = orderSurfaceData(xy,Cp2d,Cf2d,Ch2d,proftype,xyMidChord);
+dummyStress = zeros(size(xy,1),0);
+[x2d,Cp2d,Cf2d,Ch2d] = orderSurfaceData(xy,Cp2d,Cf2d,Ch2d,dummyStress,proftype,xyMidChord);
+end
+
+function [Cx,Cy] = surfaceForceCoefficients(Cp,Cf,x)
+xy = x(:,1:2);
+Cp = Cp(:);
+Cf = Cf(:);
+if size(xy,1) < 2
+    error('At least two surface points are required to compute force coefficients.');
+end
+
+next = [(2:size(xy,1))'; 1];
+dxy = xy(next,:) - xy;
+ds = hypot(dxy(:,1),dxy(:,2));
+valid = ds > eps(max(ds));
+if ~any(valid)
+    error('Surface arc length is zero; cannot compute force coefficients.');
+end
+
+CpMid = 0.5*(Cp + Cp(next));
+CfMid = 0.5*(Cf + Cf(next));
+sx = zeros(size(ds));
+sy = zeros(size(ds));
+sx(valid) = dxy(valid,1)./ds(valid);
+sy(valid) = dxy(valid,2)./ds(valid);
+
+% orderSurfaceData returns an airfoil loop; use its orientation to choose
+% the outward normal. The force convention here matches Cp = -2*(p-pinf).
+signedArea = 0.5*sum(xy(:,1).*xy(next,2) - xy(next,1).*xy(:,2));
+if signedArea < 0
+    nx = -sy;
+    ny = sx;
+else
+    nx = sy;
+    ny = -sx;
+end
+
+forceX = CpMid.*nx + CfMid.*sx;
+forceY = CpMid.*ny + CfMid.*sy;
+Cx = sum(forceX(valid).*ds(valid));
+Cy = sum(forceY(valid).*ds(valid));
 end
 
 function yMeanLine = getMeanLine(x, xyMidChord)

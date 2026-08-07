@@ -32,7 +32,7 @@ pinf = 1/(gam*Minf^2);          % freestream pressure
 rEinf = 0.5+pinf/(gam-1);       % freestream energy
 
 nm = 1e2;
-pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf Tinf Tref Twall 0.0015 nm];
+pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf Tinf Tref Twall];
 pde.tau = 8.0;                  % DG stabilization parameter
 pde.GMRESrestart = 250;         %try 50
 pde.GMRESortho = 1;
@@ -71,9 +71,10 @@ mesh.udg = UDG;
 
 figure(3); clf; scaplot(mesh,TnearWall,[],1); axis on; axis equal; axis tight;
 
-avparam = [0.002 0.0011 0.0008 0.0005];
+avparam = [0.002 0.0011 0.0007 0.0004];
 for i = 1:length(avparam)
-  pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf Tinf Tref Twall avparam(i) nm];
+   %pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf Tinf Tref Twall avparam(i) nm];
+   mesh.vdg = avparam(i)*tanh(dist*nm);
   if (i==1)
     pde.gencode = 1;
   else
@@ -84,3 +85,8 @@ for i = 1:length(avparam)
   figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[0 Minf],1,1); colorbar;
   figure(2); clf; scaplot(mesh, mesh.vdg,[],1); colorbar;
 end
+
+%pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf Tinf Tref Twall];
+% exasimroot = fullfile(fileparts(mfilename('fullpath')), '..', '..', '..');
+% exportdir = fullfile(exasimroot, 'apps', 'navierstokes', 'isoq2d');
+% exporttext2code(pde, mesh, exportdir);

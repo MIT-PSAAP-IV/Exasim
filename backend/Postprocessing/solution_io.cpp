@@ -1,6 +1,37 @@
 // c++ -std=c++17 -Wall -Wextra -pedantic -O3 solution_io.cpp -o solution_io
 // Example:
 //   ./solution_io dataout/outudg datain/mesh sol2davg 736 --average2d 9 18
+//   ./solution_io dataout/outxg xg 4
+//   ./solution_io dataout/outuf uf 4 --getufavg 9 8
+//   ./solution_io dataout/outudg udgf 4 --getudgf 2 10
+//   ./solution_io dataout/outudg udgavg 4 --averageudgf 10 20
+//   ./solution_io dataout/outudgavg datain/mesh udgavg 4 --getudgavg 9
+//   ./solution_io dataout/outudgavg datain/mesh udg2davg 4 --averageudgavg 27 9 80
+
+// input="case${caseid}/dataout/outbouxdg"
+// output="outbou/case${caseid}/outbouxdg"
+// "$IOANDES" "$input" "$output" 736
+
+// input="case${caseid}/dataout/outboundg"
+// output="outbou/case${caseid}/outboundg"
+// "$IOANDES" "$input" "$output" 736
+
+// input="case${caseid}/dataout/outbouuhavg"
+// output="outbou/case${caseid}/outbouuhavg"
+// "$IOANDES" "$input" "$output" 736 --getufavg 9 5
+
+// input="case${caseid}/dataout/outbouudgavg"
+// output="outbou/case${caseid}/outbouudgavg"
+// "$IOANDES" "$input" "$output" 736 --getufavg 9 20
+
+// input="case${caseid}/dataout/outbouuhat"
+// output="outbou/case${caseid}/outbouuhmean"
+// "$IOANDES" "$input" "$output" 736 --averageudgf 500 1500
+
+// input="case${caseid}/dataout/outbouudg"
+// output="outbou/case${caseid}/outbouudgmean"
+// "$IOANDES" "$input" "$output" 736 --averageudgf 500 1500
+
 
 #include <cstdlib>
 #include <iostream>
@@ -17,7 +48,20 @@ void printUsage(const char* program)
     std::cerr
         << "Usage:\n"
         << "  " << program
+        << " <in_base> <out_base> <nprocs>\n"
+        << "  " << program
+        << " <in_base> <out_base> <nprocs> --getufavg <npf> <ncu>\n"
+        << "  " << program
+        << " <in_base> <out_base> <nprocs> --getudgf [nsteps] [stepoffsets]\n"
+        << "  " << program
+        << " <in_base> <out_base> <nprocs> --averageudgf [nsteps] [stepoffsets]\n"
+        << "  " << program
         << " <sol_base> <elempart_base> <out_base> <nprocs> [nsteps] [stepoffsets]\n"
+        << "  " << program
+        << " <in_base> <elempart_base> <out_base> <nprocs> --getudgavg <npe>\n"
+        << "  " << program
+        << " <in_base> <elempart_base> <out_base> <nprocs>"
+        << " --averageudgavg <npe> <npe2d> <ne_z>\n"
         << "  " << program
         << " <sol_base> <elempart_base> <out_base> <nprocs>"
         << " --extract2d <npe2d> <ne_z> <i_matlab_csv> <j_matlab_csv>"
@@ -27,7 +71,14 @@ void printUsage(const char* program)
         << " --average2d <npe2d> <ne_z>"
         << " [nsteps] [stepoffsets]\n\n"
         << "Examples:\n"
+        << "  " << program << " dataout/outxg xg 4\n"
+        << "  " << program << " dataout/outuf uf 4 --getufavg 9 8\n"
+        << "  " << program << " dataout/outudg udgf 4 --getudgf 2 10\n"
+        << "  " << program << " dataout/outudg udgavg 4 --averageudgf 10 20\n"
         << "  " << program << " dataout/outudg datain/mesh sol 4\n"
+        << "  " << program << " dataout/outudgavg datain/mesh udgavg 4 --getudgavg 9\n"
+        << "  " << program
+        << " dataout/outudgavg datain/mesh udg2davg 4 --averageudgavg 27 9 80\n"
         << "  " << program
         << " dataout/outudg datain/mesh sol2d 4 --extract2d 9 80 2,2,2 20,40,60\n"
         << "  " << program
@@ -63,6 +114,16 @@ void writeVector(const std::string& filename, std::vector<double>& values)
 std::string stepFilename(const std::string& out_base, int step)
 {
     return out_base + "_step_" + std::to_string(step) + ".bin";
+}
+
+std::string binFilename(const std::string& out_base)
+{
+    const std::string suffix = ".bin";
+    if (out_base.size() >= suffix.size() &&
+        out_base.compare(out_base.size() - suffix.size(), suffix.size(), suffix) == 0) {
+        return out_base;
+    }
+    return out_base + suffix;
 }
 
 void checkMatlabIndices(const std::vector<int>& i_matlab,
@@ -148,6 +209,97 @@ std::vector<double> averageSol2D(const std::vector<double>& sol3d_flat,
 int main(int argc, char** argv)
 {
     try {
+        if (argc == 4) {
+            const std::string in_base = argv[1];
+            const std::string out_base = argv[2];
+            const int nprocs = parsePositiveInt(argv[3], "nprocs");
+
+            std::vector<double> xf;
+            int n1 = 0;
+            int n2 = 0;
+            int n3 = 0;
+            getxf(in_base, nprocs, xf, n1, n2, n3);
+            writeFieldWithHeader(out_base, xf, n1, n2, n3);
+
+            std::cout << "Wrote " << binFilename(out_base)
+                      << " (n1=" << n1
+                      << ", n2=" << n2
+                      << ", n3=" << n3
+                      << ", xf.size()=" << xf.size() << ")\n";
+            return 0;
+        }
+
+        if (argc >= 5 && argc <= 7 && std::string(argv[4]) == "--getudgf") {
+            const std::string in_base = argv[1];
+            const std::string out_base = argv[2];
+            const int nprocs = parsePositiveInt(argv[3], "nprocs");
+            const int nsteps = (argc >= 6) ? parsePositiveInt(argv[5], "nsteps") : 1;
+            const int stepoffsets =
+                (argc >= 7) ? parseNonnegativeInt(argv[6], "stepoffsets") : 0;
+
+            std::vector<double> udgf;
+            int n1 = 0;
+            int n2 = 0;
+            int n3 = 0;
+            int n4 = 0;
+            getudgf(in_base, nprocs, nsteps, stepoffsets, udgf, n1, n2, n3, n4);
+            writeFieldWithHeader4(out_base, udgf, n1, n2, n3, n4);
+
+            std::cout << "Wrote " << binFilename(out_base)
+                      << " (n1=" << n1
+                      << ", n2=" << n2
+                      << ", n3=" << n3
+                      << ", nsteps=" << n4
+                      << ", udgf.size()=" << udgf.size() << ")\n";
+            return 0;
+        }
+
+        if (argc >= 5 && argc <= 7 && std::string(argv[4]) == "--averageudgf") {
+            const std::string in_base = argv[1];
+            const std::string out_base = argv[2];
+            const int nprocs = parsePositiveInt(argv[3], "nprocs");
+            const int nsteps = (argc >= 6) ? parsePositiveInt(argv[5], "nsteps") : 1;
+            const int stepoffsets =
+                (argc >= 7) ? parseNonnegativeInt(argv[6], "stepoffsets") : 0;
+
+            std::vector<double> udgf;
+            int n1 = 0;
+            int n2 = 0;
+            int n3 = 0;
+            averageudgf(in_base, nprocs, nsteps, stepoffsets, udgf, n1, n2, n3);
+            writeFieldWithHeader(out_base, udgf, n1, n2, n3);
+
+            std::cout << "Wrote " << binFilename(out_base)
+                      << " (n1=" << n1
+                      << ", n2=" << n2
+                      << ", n3=" << n3
+                      << ", averaged_steps=" << nsteps
+                      << ", udgf.size()=" << udgf.size() << ")\n";
+            return 0;
+        }
+
+        if (argc == 7 && std::string(argv[4]) == "--getufavg") {
+            const std::string in_base = argv[1];
+            const std::string out_base = argv[2];
+            const int nprocs = parsePositiveInt(argv[3], "nprocs");
+            const int npf = parsePositiveInt(argv[5], "npf");
+            const int ncu = parsePositiveInt(argv[6], "ncu");
+
+            std::vector<double> uf;
+            int n1 = 0;
+            int n2 = 0;
+            int n3 = 0;
+            getufavg(in_base, nprocs, npf, ncu, uf, n1, n2, n3);
+            writeFieldWithHeader(out_base, uf, n1, n2, n3);
+
+            std::cout << "Wrote " << binFilename(out_base)
+                      << " (npf=" << n1
+                      << ", nf=" << n2
+                      << ", ncu=" << n3
+                      << ", uf.size()=" << uf.size() << ")\n";
+            return 0;
+        }
+
         if (argc < 5) {
             printUsage(argv[0]);
             return 1;
@@ -160,14 +312,37 @@ int main(int argc, char** argv)
 
         bool extract2d = false;
         bool average2d = false;
+        bool getUdgAvg = false;
+        bool averageUdgAvg = false;
         int arg = 5;
 
+        int npe = 0;
         int npe2d = 0;
         int ne_z = 0;
         std::vector<int> i_matlab;
         std::vector<int> j_matlab;
 
-        if (arg < argc && std::string(argv[arg]) == "--extract2d") {
+        if (arg < argc && std::string(argv[arg]) == "--getudgavg") {
+            getUdgAvg = true;
+            if (argc != arg + 2) {
+                printUsage(argv[0]);
+                return 1;
+            }
+
+            npe = parsePositiveInt(argv[arg + 1], "npe");
+            arg += 2;
+        } else if (arg < argc && std::string(argv[arg]) == "--averageudgavg") {
+            averageUdgAvg = true;
+            if (argc != arg + 4) {
+                printUsage(argv[0]);
+                return 1;
+            }
+
+            npe = parsePositiveInt(argv[arg + 1], "npe");
+            npe2d = parsePositiveInt(argv[arg + 2], "npe2d");
+            ne_z = parsePositiveInt(argv[arg + 3], "ne_z");
+            arg += 4;
+        } else if (arg < argc && std::string(argv[arg]) == "--extract2d") {
             extract2d = true;
             if (argc < arg + 5) {
                 printUsage(argv[0]);
@@ -191,16 +366,61 @@ int main(int argc, char** argv)
             arg += 3;
         }
 
+        std::vector<std::vector<int>> elempartpts(nprocs);
+        std::vector<std::vector<int>> elempart(nprocs);
+        readelempart(elempart_base, elempart, elempartpts, nprocs);
+
+        if (getUdgAvg) {
+            std::vector<double> udgavg;
+            int n1 = 0;
+            int n2 = 0;
+            int ne = 0;
+            getudgavg(sol_base, elempartpts, elempart, npe, udgavg, n1, n2, ne);
+            writeFieldWithHeader(out_base, udgavg, n1, n2, ne);
+
+            std::cout << "Wrote " << binFilename(out_base)
+                      << " (npe=" << n1
+                      << ", nc=" << n2
+                      << ", ne=" << ne
+                      << ", udgavg.size()=" << udgavg.size() << ")\n";
+            return 0;
+        }
+
+        if (averageUdgAvg) {
+            std::vector<double> udgavg;
+            int n1 = 0;
+            int n2 = 0;
+            int ne = 0;
+            getudgavg(sol_base, elempartpts, elempart, npe, udgavg, n1, n2, ne);
+
+            if (n1 % npe2d != 0) {
+                throw std::runtime_error("npe is not divisible by npe2d.");
+            }
+            if (ne % ne_z != 0) {
+                throw std::runtime_error("ne is not divisible by ne_z.");
+            }
+
+            const int nc = n2;
+            const int p1 = n1 / npe2d;
+            const int ne2 = ne / ne_z;
+            std::vector<double> udg2davg =
+                averageSol2D(udgavg, npe2d, p1, nc, ne2, ne_z);
+            writeFieldWithHeader(out_base, udg2davg, npe2d, nc, ne2);
+
+            std::cout << "Wrote " << binFilename(out_base)
+                      << " (npe2d=" << npe2d
+                      << ", nc=" << nc
+                      << ", ne2d=" << ne2
+                      << ", udg2davg.size()=" << udg2davg.size() << ")\n";
+            return 0;
+        }
+
         const int nsteps = (arg < argc) ? parsePositiveInt(argv[arg++], "nsteps") : 1;
         const int stepoffsets = (arg < argc) ? parseNonnegativeInt(argv[arg++], "stepoffsets") : 0;
         if (arg != argc) {
             printUsage(argv[0]);
             return 1;
         }
-
-        std::vector<std::vector<int>> elempartpts(nprocs);
-        std::vector<std::vector<int>> elempart(nprocs);
-        readelempart(elempart_base, elempart, elempartpts, nprocs);
 
         std::vector<double> sol3dGlobal;
         for (int step = 0; step < nsteps; ++step) {

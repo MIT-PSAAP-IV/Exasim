@@ -64,10 +64,21 @@ end
 if nargin>=5 && ~isempty(pltmesh) && pltmesh
   if pltmesh==2
     % Plot curved mesh
-    e=boundedges(nodesvis,tvis);
-    dgnodesltx=nodesvis(:,1);
-    dgnodeslty=nodesvis(:,2);
-    line(dgnodesltx(e'),dgnodeslty(e'),'color',[0,0,0],'LineWidth',1);    
+    % e=boundedges(nodesvis,tvis);
+    % dgnodesltx=nodesvis(:,1);
+    % dgnodeslty=nodesvis(:,2);
+    % %line(dgnodesltx(e'),dgnodeslty(e'),'color',[0,0,0],'LineWidth',1);
+    % xline = [dgnodesltx(e(:,1)) dgnodesltx(e(:,2)) nan(size(e,1),1)]';
+    % yline = [dgnodeslty(e(:,1)) dgnodeslty(e(:,2)) nan(size(e,1),1)]';
+    % line(xline(:), yline(:), 'Color', [0,0,0], 'LineWidth', 1);
+    e=boundedges2(mesh.xpe,mesh.telem,mesh.elemtype);
+    e1=segcollect(e);
+    nt=size(mesh.dgnodes,3);
+    npl=size(mesh.dgnodes,1);
+    bnd=double(e1{1}(:)');
+    faces=repmat(bnd,nt,1) + (0:nt-1)'*npl;
+    vertices=reshape(permute(mesh.dgnodes(:,1:2,:),[1 3 2]),npl*nt,2);
+    patch('faces',faces,'vertices',vertices,'facecolor','none','edgecolor',[0,0,0],'LineWidth',0.5);
   else
     patch('vertices',mesh.p','faces',mesh.t', ...
           'facecolor','none','edgecolor',[0,0,0],'LineWidth',0.5);
@@ -102,3 +113,63 @@ v1=p(e(:,2),:)-p(e(:,1),:);
 v2=p(node3,:)-p(e(:,1),:);
 ix=find(v1(:,1).*v2(:,2)-v1(:,2).*v2(:,1)>0);
 e(ix,[1,2])=e(ix,[2,1]);
+
+function e=boundedges2(p,t,elemtype)
+%BOUNDEDGES Find boundary edges from triangular mesh
+%   E=BOUNDEDGES(P,T)
+
+% Form all edges, non-duplicates are boundary edges
+
+if elemtype==0
+    edges=[t(:,[1,2]);
+           t(:,[1,3]);
+           t(:,[2,3])];
+    node3=[t(:,3);t(:,2);t(:,1)];
+else
+    edges=[t(:,[1,2]);
+           t(:,[2,3]);
+           t(:,[3,4]);
+           t(:,[4,1]);];
+    node3=[t(:,4);t(:,3);t(:,2);t(:,1)];
+end
+edges=sort(edges,2);
+[foo,ix,jx]=unique(edges,'rows');
+vec=histc(jx,1:max(jx));
+qx=find(vec==1);
+e=edges(ix(qx),:);
+node3=node3(ix(qx));
+
+% Orientation
+v1=p(e(:,2),:)-p(e(:,1),:);
+v2=p(node3,:)-p(e(:,1),:);
+ix=find(v1(:,1).*v2(:,2)-v1(:,2).*v2(:,1)>0);
+e(ix,[1,2])=e(ix,[2,1]);
+
+
+function e1=segcollect(e)
+%SEGCOLLECT Collect polygons from edge segments.
+
+ue=unique(e(:));
+he=histcounts(e(:),ue);
+current=ue(min(find(he==1))); % Find an endpoint
+if isempty(current) % Closed curve
+  current=e(1,1);
+end
+e1=current;
+while ~isempty(e)
+  ix=min(find(e(:,1)==e1(end)));
+  if isempty(ix)
+    ix=min(find(e(:,2)==e1(end)));
+    if isempty(ix) % >1 disjoint curves, recur
+      rest=segcollect(e);
+      e1={e1,rest{:}};
+      return;
+    end
+    next=e(ix,1);
+  else
+    next=e(ix,2);
+  end
+  e1=[e1,next];
+  e(ix,:)=[];
+end
+e1={e1};
