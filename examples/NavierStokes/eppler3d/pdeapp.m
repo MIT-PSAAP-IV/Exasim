@@ -53,16 +53,32 @@ pde.saveSolBouFreq = 2;
 pde.ibs = 1;
 
 % Spanwise extrusion of the Eppler 387 C-grid.
-nz = 12;
-mesh = mkmesh_eppler3d(porder, 1, -2, nz, 0.1);
-if porder == 3
-  load sol2d.mat
-elseif porder == 2
-  load sol2dp2.mat
-end
-mesh.udg = extrudesol(sol2d(:,1:4,:), porder, nz);
-mesh.udg(:,5,:) = mesh.udg(:,4,:);
-mesh.udg(:,4,:) = 0;
+% nz = 12;
+% mesh = mkmesh_eppler3d(porder, 1, -2, nz, 0.1);
+% if porder == 3
+%   load sol2d.mat
+% elseif porder == 2
+%   load sol2dp2.mat
+% end
+% mesh.udg = extrudesol(sol2d(:,1:4,:), porder, nz);
+% mesh.udg(:,5,:) = mesh.udg(:,4,:);
+% mesh.udg(:,4,:) = 0;
+
+TEC = 15;
+sps = [TEC, 1, 1, 1, 1, TEC, 1, 1, 1, 1, TEC];
+spr = [10, 10, 10, 10, 10, 10, 10]*70;
+yref = [0.0025 0.008 0.02 0.036];
+lw = 10;
+ll = 10;
+nxw = 21;
+nflr = 11;
+nflf = 11;
+nfuf = 15;
+nfur = 21;
+nr   = 41;
+mesh2d = clemesh_airfoil(xf, yf, nxw, nflr, nflf, nfuf, nfur, nr, sps, spr, yref, lw, ll, porder);
+nz = 32;
+mesh = mkmesh_eppler3d(porder, 1, -2, nz, 0.1, mesh2d);
 
 % call exasim to generate and run C++ code to solve the PDE model
 pde.exportapp = "eppler3dp2";

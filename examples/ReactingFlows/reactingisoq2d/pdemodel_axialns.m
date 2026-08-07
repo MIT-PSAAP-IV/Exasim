@@ -32,7 +32,8 @@ alpha = 4.0e3;
 rmin = 5.0e-2;
 pmin = 2.0e-3;
 
-av = mu(12)*tanh(mu(13)*v(1));
+%av = mu(12)*tanh(mu(13)*v(1));
+av = v(1);
 
 r = u(1);
 ru = u(2);
@@ -125,7 +126,8 @@ alpha = 4.0e3;
 rmin = 5.0e-2;
 pmin = 2.0e-3;
 
-av = mu(12)*tanh(mu(13)*v(1));
+%av = mu(12)*tanh(mu(13)*v(1));
+av = v(1);
 
 r = u(1);
 ru = u(2);
