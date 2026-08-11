@@ -149,8 +149,10 @@ inline void FaceGeom(solstructT<T,I> &sol, masterstructT<T,I> &master, meshstruc
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
     Int nd = common.grid.nd;     // spatial dimension    
     Int ngf = common.grid.ngf; // number of gauss points on master face                      
-    Int nbf = common.meshsizes.nbf;
-    Int nf = common.fblks[3*(nbf-1)+1];    
+    // Accessor form: lastFace() returns 0 for a rank owning no face blocks,
+    // instead of indexing fblks[-2]. See commonstructT for the rationale.
+    if (!common.hasFaceBlocks()) { sol.faceg = nullptr; sol.szfaceg = 0; return; }
+    Int nf = common.lastFace();
     
     TemplateMalloc(&sol.faceg, ngf*nf*(ncx+nd+1), backend);        
     sol.szfaceg = ngf*nf*(ncx+nd+1);

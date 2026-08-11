@@ -409,9 +409,20 @@ inline void uEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, a
             EXASIM_DRIVER_CALL(FextDriver, fhb, fhb_uq, fhb_w, fhb_uh, xgb, ugb, ogb, wgb, uhb, nlb, res.K, 
                  mesh, master, app, sol, tmp, common, ngb, 1, backend);                       
           }          
-          else
+          else {
+            // The generated boundary kernel dereferences these; a NULL among them
+            // faults deep inside generated code whose frame names nothing useful.
+            // Under EXASIM_BOUNDS_CHECK, say which one it is.
+            EXASIM_CHECK_PTR(app.tau,          "app.tau (FbouDriver)");
+            EXASIM_CHECK_PTR(app.uinf,         "app.uinf (FbouDriver)");
+            EXASIM_CHECK_PTR(app.physicsparam, "app.physicsparam (FbouDriver)");
+            EXASIM_CHECK_PTR(xgb,              "xgb (FbouDriver)");
+            EXASIM_CHECK_PTR(ugb,              "ugb (FbouDriver)");
+            EXASIM_CHECK_PTR(uhb,              "uhb (FbouDriver)");
+            EXASIM_CHECK_PTR(nlb,              "nlb (FbouDriver)");
             EXASIM_DRIVER_CALL(FbouDriver, fhb, fhb_uq, fhb_w, fhb_uh, xgb, ugb, ogb, wgb, uhb, nlb, 
-                 mesh, master, app, sol, tmp, common, ngb, ibc+1, backend);    
+                 mesh, master, app, sol, tmp, common, ngb, ibc+1, backend);
+          }
         }
 
         if ((ncw>0) & (common.timeparams.wave==0)) {      

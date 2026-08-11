@@ -44,6 +44,7 @@
 // Standard headers used directly below (filesystem path/dir helpers, string,
 // containers). Included here so common.h is self-contained for consumers that
 // reach it without run.hpp's preamble (e.g. <exasim/model.hpp>).
+#include "boundscheck.h"   // rank-aware bounds checks (no-op unless EXASIM_BOUNDS_CHECK)
 #include <string>
 #include <vector>
 #include <filesystem>
@@ -573,9 +574,20 @@ static inline void PrintErrorAndExit(const std::string& errmsg, const char* file
     int rank = 0;
 
 #ifdef HAVE_MPI
-    MPI_Comm_rank(EXASIM_COMM_WORLD, &rank);
+    // Fall back to MPI_COMM_WORLD when the Exasim comm was never set.
+    //
+    // This used to query EXASIM_COMM_WORLD unconditionally, which is circular: a consumer
+    // that failed to set the communicators is exactly the one whose errors need reporting,
+    // and MPI_Comm_rank on MPI_COMM_NULL aborts under the default MPI_ERRORS_ARE_FATAL --
+    // BEFORE the fprintf below. The message was swallowed and the user saw only a bare
+    // MPI_ERR_COMM, which describes the error handler rather than the error.
+    MPI_Comm errcomm = (EXASIM_COMM_WORLD != MPI_COMM_NULL) ? EXASIM_COMM_WORLD
+                                                            : MPI_COMM_WORLD;
+    int mpi_ready = 0;
+    MPI_Initialized(&mpi_ready);
+    if (mpi_ready) MPI_Comm_rank(errcomm, &rank);
 #endif
-    
+
     fprintf(stderr,
             "\n==============================================\n"
             "[Rank %d] ERROR: %s\n"
@@ -587,7 +599,10 @@ static inline void PrintErrorAndExit(const std::string& errmsg, const char* file
 #ifdef HAVE_MPI
     // Abort the entire MPI job instead of trying to finalize gracefully.
     // MPI_Finalize() is unsafe after a runtime error and can hang.
-    MPI_Abort(EXASIM_COMM_WORLD, EXIT_FAILURE);
+    // Same fallback as above -- aborting on a null comm is itself an error, and it would
+    // replace the message just printed with a less useful one.
+    if (mpi_ready) MPI_Abort(errcomm, EXIT_FAILURE);
+    else exit(EXIT_FAILURE);
 #else
     exit(EXIT_FAILURE);
 #endif
@@ -1880,20 +1895,24 @@ using qoiparamsstruct = qoiparamsstructT<::dstype, ::Int>;
 // element counts. Grouped out of commonstruct (C3). Access via common.couplingparams.<field>.
 // (The raw interface arrays vindx/interfacefluxmap/intepartpts are shared with appstruct and
 // left in place; the wall-model and synthetic-turbulence fields are separate concerns.)
+// Same reasoning as commonstruct/meshsizesstruct above: every field gets a default member
+// initializer, because an unassigned one is INDETERMINATE rather than zero, and several of
+// these are read on paths that do not assign them. ncie in particular sizes four
+// allocations and was set only on the mpiProcs>1 path.
 struct couplingparamsstruct {
-    Int ncuext;                   // number of components of uext (external/coupling)
-    Int coupledinterface;
-    Int coupledcondition;
-    Int coupledboundarycondition;
+    Int ncuext = 0;               // number of components of uext (external/coupling)
+    Int coupledinterface = 0;
+    Int coupledcondition = 0;
+    Int coupledboundarycondition = 0;
     Int FextCall=0;               // external-force call flag
-    Int ncie;                     // number of coupled interface elements
+    Int ncie = 0;                 // number of coupled interface elements
     Int extUhat=0;                // external uhat function flag
     Int extFhat=0;                // external fhat function flag
     Int extStab=0;                // external stabilization function flag
     Int ninterfacefaces=0;        // number of interface faces
     Int ndofuhatinterface=0;
-    Int nintfaces;
-    Int nvindx;
+    Int nintfaces = 0;
+    Int nvindx = 0;
 };
 
 // Output / checkpoint / IO configuration: solution-save frequencies and options, restart offset,
@@ -2042,25 +2061,34 @@ struct gridstruct {
 // over, including the interior / interior+interface / +exterior splits used by the coupling and
 // halo paths. Grouped out of commonstruct (C3/S3) into an intermediate struct. Access via
 // common.meshsizes.<field>.
+// Every field carries a default member initializer ON PURPOSE.
+//
+// commonstructT is a plain member, default-initialized (discretization.h:76), so any field
+// without an initializer here is INDETERMINATE until something assigns it -- and several of
+// these are assigned only on the mpiProcs>1 path in setstructs.cpp while being read
+// unconditionally (nbf0 is a loop bound in residual.hpp:579). Reading as zero on a fresh
+// heap page is allocator luck, not an invariant, and it made a whole class of defect
+// invisible until a rank count happened to expose it. Zero here is also the correct serial
+// value for every one of them.
 struct meshsizesstruct {
-    Int maxnbc;  // max number of boundary conditions
-    Int ne;      // total elements
-    Int nf;      // total faces
-    Int nv;      // vertices
-    Int nfe;     // faces per element
-    Int nbe;     // element blocks
-    Int neb;     // max elements per block
-    Int nbf;     // face blocks
-    Int nfb;     // max faces per block
-    Int nbe0;    // element blocks: interior
-    Int nbe1;    // element blocks: interior+interface
-    Int nbe2;    // element blocks: interior+interface+exterior
-    Int nbf0;    // face blocks: interior
-    Int nbf1;    // face blocks: interior+interface
-    Int ne0;     // interior elements
-    Int ne1;     // interior+interface elements
-    Int ne2;     // interior+interface+exterior elements
-    Int nf0;     // interior faces
+    Int maxnbc = 0;  // max number of boundary conditions
+    Int ne = 0;      // total elements
+    Int nf = 0;      // total faces
+    Int nv = 0;      // vertices
+    Int nfe = 0;     // faces per element
+    Int nbe = 0;     // element blocks
+    Int neb = 0;     // max elements per block
+    Int nbf = 0;     // face blocks
+    Int nfb = 0;     // max faces per block
+    Int nbe0 = 0;    // element blocks: interior
+    Int nbe1 = 0;    // element blocks: interior+interface
+    Int nbe2 = 0;    // element blocks: interior+interface+exterior
+    Int nbf0 = 0;    // face blocks: interior
+    Int nbf1 = 0;    // face blocks: interior+interface
+    Int ne0 = 0;     // interior elements
+    Int ne1 = 0;     // interior+interface elements
+    Int ne2 = 0;     // interior+interface+exterior elements
+    Int nf0 = 0;     // interior faces
 };
 
 // CRS index/numbering arrays for the LDG block-Jacobian preconditioner assembly:
@@ -2111,11 +2139,11 @@ struct commonstructT {
     std::string filein;       // Name of binary file with input data
     std::string fileout;      // Name of binary file to write the solution            
     
-    Int backend;   // 0: Serial; 1: OpenMP; 2: CUDA  
+    Int backend = 0;   // 0: Serial; 1: OpenMP; 2: CUDA  
     
-    Int mpiRank;  // MPI rank      
-    Int mpiProcs;    // number of MPI ranks
-    Int nomodels; // number of models
+    Int mpiRank = 0;  // MPI rank      
+    Int mpiProcs = 1;    // number of MPI ranks
+    Int nomodels = 0; // number of models
     Int enzyme=0;
     
 
@@ -2150,12 +2178,61 @@ struct commonstructT {
     Int* ncarray=nullptr;
     Int* nboufaces=nullptr;
     Int* nextfaces=nullptr;
+
+    // ---- partition-aware block accessors ------------------------------------
+    //
+    // A rank can legitimately own ZERO element or face blocks: the mesh is finite,
+    // so past some rank count at least one rank gets none of it. The raw idioms
+    //
+    //     fblks[3*(meshsizes.nbf-1)+1]     // "one past my last face"
+    //     fblks[3*0]                       // "my first face"
+    //
+    // then evaluate to fblks[-2] / read through a null base. That is exactly how
+    // poisson2d died at np=48: AddressSanitizer reported SEGV at
+    // 0xfffffffffffffff8, i.e. -8, which is fblks[-2] for a 4-byte Int.
+    //
+    // Prefer these accessors to indexing eblks/fblks directly. They put the
+    // empty-rank check in ONE place instead of at every call site, and cost one
+    // predictable integer compare at setup / per-assembly granularity -- never
+    // inside a Kokkos kernel or an inner loop.
+    //
+    // Convention: an empty rank yields first==last==0, so a loop written as
+    // `for (i = r.first; i < r.last; ++i)` is naturally a no-op there.
+
+    struct BlockRange {
+        Int  first = 0;    // first entity (already converted from 1-based)
+        Int  last  = 0;    // one past the last entity
+        Int  ib    = 0;    // boundary/interface tag
+        bool valid = false;
+        Int  count() const { return last - first; }
+    };
+
+    bool hasFaceBlocks() const { return fblks != nullptr && meshsizes.nbf  > 0; }
+    bool hasElemBlocks() const { return eblks != nullptr && meshsizes.nbe  > 0; }
+    bool hasInteriorElemBlocks() const { return eblks != nullptr && meshsizes.nbe1 > 0; }
+
+    BlockRange faceBlock(Int j) const {
+        if (!hasFaceBlocks() || j < 0 || j >= meshsizes.nbf) return BlockRange{};
+        return BlockRange{ fblks[3*j]-1, fblks[3*j+1], fblks[3*j+2], true };
+    }
+    BlockRange elemBlock(Int j) const {
+        if (!hasElemBlocks() || j < 0 || j >= meshsizes.nbe) return BlockRange{};
+        return BlockRange{ eblks[3*j]-1, eblks[3*j+1], eblks[3*j+2], true };
+    }
+
+    // Span of everything this rank owns; all zero when it owns nothing.
+    Int firstFace() const { return hasFaceBlocks() ? fblks[0]-1 : 0; }
+    Int lastFace()  const { return hasFaceBlocks() ? fblks[3*(meshsizes.nbf-1)+1] : 0; }
+    Int firstElem() const { return hasElemBlocks() ? eblks[0]-1 : 0; }
+    Int lastInteriorElem() const {
+        return hasInteriorElemBlocks() ? eblks[3*(meshsizes.nbe1-1)+1] : 0;
+    }
     
-    Int nnbsd; // number of neighboring subdomains
-    Int nelemsend;
-    Int nelemrecv;
-    Int szinterfacefluxmap;
-    Int szcartgridpart;
+    Int nnbsd = 0; // number of neighboring subdomains
+    Int nelemsend = 0;
+    Int nelemrecv = 0;
+    Int szinterfacefluxmap = 0;
+    Int szcartgridpart = 0;
     Int* nbsd=nullptr; // neighboring subdomains
     Int* elemsend=nullptr;
     Int* elemrecv=nullptr;       
@@ -2167,9 +2244,9 @@ struct commonstructT {
     Int *boundaryConditions=nullptr;
     Int *intepartpts=nullptr;
     
-    Int nnbintf;
-    Int nfacesend;
-    Int nfacerecv;
+    Int nnbintf = 0;
+    Int nfacesend = 0;
+    Int nfacerecv = 0;
     Int* nbintf=nullptr;
     Int* facesend=nullptr;
     Int* facerecv=nullptr;       
@@ -2191,8 +2268,8 @@ struct commonstructT {
     cublasHandle_t cublasHandle;
     
 #ifdef  HAVE_MPI
-    MPI_Request * requests;
-    MPI_Status * statuses;
+    MPI_Request * requests = nullptr;
+    MPI_Status * statuses = nullptr;
 #endif
     
     void printinfo()

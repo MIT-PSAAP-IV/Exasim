@@ -44,12 +44,23 @@ inline void qoiElemBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<
         Node2Gauss(handle, wg, tmp.tempn, master.shapegt, nge, npe, ne*ncw, backend);        
     }
     
-    int nvqoi = common.qoiparams.nvqoi;     
-    ArraySetValue(sg, 0.0, nga*nvqoi);     
-    EXASIM_DRIVER_CALL(QoIvolumeDriver, sg, xg, uqg, og, wg, mesh, master, app, sol, tmp, common, nge, e1, e2, backend);    
-    
-    ApplyJac(sg, jac, nge*ne, nge*ne*nvqoi);     
-    Gauss2Node(handle, tmp.tempn, sg, master.gwe, nge, 1, nvqoi*ne, backend); 
+    int nvqoi = common.qoiparams.nvqoi;
+    ArraySetValue(sg, 0.0, nga*nvqoi);
+    EXASIM_DRIVER_CALL(QoIvolumeDriver, sg, xg, uqg, og, wg, mesh, master, app, sol, tmp, common, nge, e1, e2, backend);
+
+    // INVARIANT: each Gauss point is weighted by its OWN Jacobian.
+    //
+    // jac here is &sol.elemg[...], one entry per Gauss point (nga = nge*ne of them), so the
+    // weighting must index by the Gauss point. columnwiseMultiply(C, A, b, N, M) is
+    // `C[i] = A[i]*b[i%N]` with N = nga, the idiom used for this elsewhere in the backend
+    // (uequation.hpp:314, ldgblockjacobian.cpp:976).
+    //
+    // Do NOT use ApplyJac here: it is `R[n] *= jac[n/M]`, indexed by the SLOW dimension and
+    // documented for one jac entry per ELEMENT. With a per-Gauss-point jac it weights a
+    // whole QoI component by one element's Jacobian, which is correct only on a uniform
+    // affine mesh and partition-dependent on any other. See PR #48 for the measurements.
+    columnwiseMultiply(sg, sg, jac, nga, nvqoi);
+    Gauss2Node(handle, tmp.tempn, sg, master.gwe, nge, 1, nvqoi*ne, backend);
     
     ArraySetValue(tmp.tempg, 1.0, ne);
     for (int i = 0; i<nvqoi; i++) {
@@ -127,8 +138,13 @@ inline void qoiFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<
             &tmp.tempg[nga*(ncu+nc)], &tmp.tempg[0], &sol.faceg[nm+n1], mesh, master, app, 
             sol, tmp, common, ngf, f1, f2, ib, backend);        
 
-    ApplyJac(tmp.tempn, &sol.faceg[nm+n2], nga, nga*nsurf);
-    Gauss2Node(handle, tmp.tempg, tmp.tempn, master.gwf, ngf, 1, nsurf*nf, backend); 
+    // Same defect as in qoiElemBlock above, on the surface QoI: &sol.faceg[nm+n2] is the
+    // face Jacobian at each of the nga = ngf*nf face Gauss points, but ApplyJac indexed it
+    // by the component, so component k of the boundary QoI was scaled by jac[k] alone.
+    // Invisible with nsurf == 1 on a mesh of identical faces; wrong on any curved or
+    // graded boundary, and partition-dependent because the block's first face changes.
+    columnwiseMultiply(tmp.tempn, tmp.tempn, &sol.faceg[nm+n2], nga, nsurf);
+    Gauss2Node(handle, tmp.tempg, tmp.tempn, master.gwf, ngf, 1, nsurf*nf, backend);
 
     ArraySetValue(tmp.tempn, 1.0, nf);
     for (int i = 0; i<nsurf; i++) {
