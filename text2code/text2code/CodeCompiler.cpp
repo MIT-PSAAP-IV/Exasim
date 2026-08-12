@@ -233,12 +233,12 @@ static Toolchain detect_toolchain()
         tc.cxx17_flag = {"-std=c++17"};
     }
 
-    if (tc.kind != CompilerKind::MSVC &&
-        compiler_supports_flag(tc.cxx,
-                               "-Wno-inconsistent-missing-override"))
-    {
-        tc.warn_squelch.push_back(
-            "-Wno-inconsistent-missing-override");
+    if (tc.kind != CompilerKind::MSVC) {
+        for (const auto& flag : {"-Wno-inconsistent-missing-override",
+                                 "-Wno-template-body"}) {
+            if (compiler_supports_flag(tc.cxx, flag))
+                tc.warn_squelch.push_back(flag);
+        }
     }
 
     std::cout << "Detected C++ compiler: "
@@ -309,9 +309,7 @@ int executeCppCode(ParsedSpec& spec)
           << "/Fe:" << quote(exefile);
     } else {
 #if EXASIM_SYMENGINE_FOUND
-      // Use the SymEngine resolved at build time (installed copy preferred,
-      // vendored fallback) — baked into symengine_config.h.
-      cmd << tc.cxx << " -std=c++17 -w "
+      cmd << tc.cxx << " -std=c++17 -w " << join(tc.warn_squelch) << " "
           << EXASIM_SYMENGINE_INCFLAGS << " "
           << "-I" << quote(backend_model) << " "
           << quote(sourcefile) << " "
@@ -319,7 +317,7 @@ int executeCppCode(ParsedSpec& spec)
           << quote(exefile);
 #else
       std::string symengine_lib = make_path(spec.symenginepath, "lib/libsymengine.a");
-      cmd << tc.cxx << " -std=c++17 -w "
+      cmd << tc.cxx << " -std=c++17 -w " << join(tc.warn_squelch) << " "
           << "-I" << quote(spec.symenginepath) << " "
           << "-I" << quote(symengine_include) << " "
           << "-I" << quote(backend_model) << " "

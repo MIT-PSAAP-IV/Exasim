@@ -48,6 +48,21 @@ option(EXASIM_LIB         "Build static libraries"             ON)
 option(WITH_PARMETIS      "Link METIS/ParMETIS"                ON)
 option(EXASIM_FLOAT       "Single-precision dstype (float); default double"  OFF)
 option(EXASIM_INT64       "64-bit Int index type (long); default int"        OFF)
+option(EXASIM_BOUNDS_CHECK "Rank-aware bounds checks on partition-derived indices (debug/CI)" OFF)
+option(EXASIM_ASAN "Build with AddressSanitizer (debug/CI; needs the WHOLE binary instrumented)" OFF)
+
+# AddressSanitizer. Applied as CMAKE_*_FLAGS rather than to one target because a
+# partially-instrumented binary reports little: ASan must see the allocation AND the
+# bad access. -fno-omit-frame-pointer keeps the report readable; -g gives it line
+# numbers. Off by default; a default build is unaffected.
+if(EXASIM_ASAN)
+  set(EXASIM_ASAN_FLAGS "-fsanitize=address -fno-omit-frame-pointer -g")
+  set(CMAKE_C_FLAGS            "${CMAKE_C_FLAGS} ${EXASIM_ASAN_FLAGS}")
+  set(CMAKE_CXX_FLAGS          "${CMAKE_CXX_FLAGS} ${EXASIM_ASAN_FLAGS}")
+  set(CMAKE_EXE_LINKER_FLAGS   "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
+  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fsanitize=address")
+  message(STATUS "EXASIM_ASAN=ON: building with AddressSanitizer")
+endif()
 option(WITH_TEXT2CODE     "Build text2code-linked executables" OFF)
 option(WITH_BUILTINMODEL  "Build the built-in model library"   ON)
 option(WITH_GMP           "Download/build GMP and use it for vendored SymEngine" OFF)
@@ -666,6 +681,24 @@ endif()
 if(DEFINED LAPACK_LIBRARIES)
   list(APPEND _exasim_fwd -DLAPACK_LIBRARIES=${LAPACK_LIBRARIES})
 endif()
+if(EXASIM_MPI)
+  if(DEFINED MPI_C_COMPILER)
+    list(APPEND _exasim_fwd -DMPI_C_COMPILER=${MPI_C_COMPILER})
+  endif()
+  if(DEFINED MPI_CXX_COMPILER)
+    list(APPEND _exasim_fwd -DMPI_CXX_COMPILER=${MPI_CXX_COMPILER})
+  endif()
+  if(DEFINED MPI_HOME)
+    list(APPEND _exasim_fwd -DMPI_HOME=${MPI_HOME})
+  endif()
+endif()
+if(DEFINED CMAKE_INSTALL_LIBDIR)
+  list(APPEND _exasim_fwd -DCMAKE_INSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR})
+endif()
+if(CMAKE_CXX_FLAGS)
+  string(REPLACE ";" "\\;" _escaped_cxx_flags "${CMAKE_CXX_FLAGS}")
+  list(APPEND _exasim_fwd "-DCMAKE_CXX_FLAGS=${_escaped_cxx_flags}")
+endif()
 
 ExternalProject_Add(exasim_build
   SOURCE_DIR  "${EXASIM_ROOT}/install"
@@ -676,6 +709,8 @@ ExternalProject_Add(exasim_build
     -DEXASIM_CUDA=${EXASIM_CUDA} -DEXASIM_HIP=${EXASIM_HIP}
     -DEXASIM_LIB=${EXASIM_LIB} -DWITH_PARMETIS=${WITH_PARMETIS}
     -DEXASIM_FLOAT=${EXASIM_FLOAT} -DEXASIM_INT64=${EXASIM_INT64}
+    -DEXASIM_BOUNDS_CHECK=${EXASIM_BOUNDS_CHECK}
+    -DEXASIM_ASAN=${EXASIM_ASAN}
     -DWITH_TEXT2CODE=${WITH_TEXT2CODE} -DWITH_BUILTINMODEL=${WITH_BUILTINMODEL}
     -DEXASIM_BUILD_TESTS=${EXASIM_BUILD_TESTS}
     -DEXASIM_TEXT2CODE=${EXASIM_TEXT2CODE}

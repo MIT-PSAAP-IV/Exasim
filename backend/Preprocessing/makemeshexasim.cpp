@@ -908,20 +908,37 @@ inline void compute_dgnodes(double* dgnodes, const double* p, const int* t,
     }        
 }
 
-inline void project_dgnodes_onto_curved_boundaries(double* dgnodes, const int* f, const int* perm, const int* curvedboundary,
+inline void project_dgnodes_onto_curved_boundaries(double* dgnodes, const int* f, const int* perm, const int* curvedboundary, int ncurved,
                          char** fd_exprs, int nd, int porder, int npe, int npf, int nfe, int ne, int factor=1) 
 {
     if (porder <= 1) return;
 
     int has_curved = 0;   
     if (factor == - 1) {
-      for (int k = 0; k < nfe * ne; ++k)
-          if (f[k] <= -1 && curvedboundary[-f[k]-1] != 0)
+      for (int k = 0; k < nfe * ne; ++k) {
+          const int b = -f[k] - 1;
+          // Same diagnostic as the factor>0 branch below: the guard makes this safe,
+          // but under EXASIM_BOUNDS_CHECK we want to hear about ids the mesh produces
+          // that the configured boundary list cannot explain.
+          if (f[k] <= -1) EXASIM_CHECK_INDEX(b, ncurved, "curvedboundary[-f[k]-1]");
+          if (f[k] <= -1 && b >= 0 && b < ncurved && curvedboundary[b] != 0)
               has_curved = 1;
+      }
     } else {
-       for (int k = 0; k < nfe * ne; ++k)
-          if (f[k] > -1 && curvedboundary[f[k]] != 0)
+       for (int k = 0; k < nfe * ne; ++k) {
+          // Diagnostic only: the `f[k] < ncurved` guard below already makes this safe.
+          // Under EXASIM_BOUNDS_CHECK we want to be TOLD that the mesh is producing
+          // boundary ids outside the configured list, rather than silently skipping
+          // them, because that usually means the input or the decomposition is wrong.
+          // Only when f[k] is ACTUALLY used as an index. The earlier form passed 0 for
+          // interior faces (f[k] <= -1), so a mesh with no curved boundaries configured
+          // (ncurved == 0) aborted an EXASIM_BOUNDS_CHECK build on a code path that is
+          // provably safe -- the `f[k] > -1 && f[k] < ncurved` guard below never reads.
+          // A checker that fires on correct code is one people switch off.
+          if (f[k] > -1) EXASIM_CHECK_INDEX(f[k], ncurved, "curvedboundary[f[k]]");
+          if (f[k] > -1 && f[k] < ncurved && curvedboundary[f[k]] != 0)
               has_curved = 1;
+       }
     }       
 
     if (!has_curved) return;
@@ -938,9 +955,15 @@ inline void project_dgnodes_onto_curved_boundaries(double* dgnodes, const int* f
             if (fid < 0) continue;
 
             int k = fid;
+            // The face array can carry ids outside the configured boundary list
+            // (this varies with the MPI decomposition). Without this bound the reads
+            // below run off the end of curvedboundary/fd_exprs.
+            EXASIM_CHECK_INDEX(k, ncurved, "curvedboundary[k] / fd_exprs[k]");
+            if (k >= ncurved) continue;
             if (curvedboundary[k] != 1) continue;
 
-            const char* expr_str = fd_exprs[k];
+            const char* expr_str = fd_exprs ? fd_exprs[k] : nullptr;
+            if (expr_str == nullptr || expr_str[0] == '\0') continue;
             double x=0, y=0, z=0;
             
             te_parser tep;
@@ -1045,7 +1068,7 @@ inline void project_dgnodes_onto_curved_boundaries(double* dgnodes, const int* f
 // are skipped regardless.
 inline void project_dgnodes_onto_curved_boundaries(
     double* dgnodes, const int* f, const int* perm,
-    const int* curvedboundary,
+    const int* curvedboundary, int ncurved,
     const std::vector<BoundaryLevelSet>& level_sets,
     int nd, int porder, int npe, int npf, int nfe, int ne, int factor = 1)
 {
@@ -1053,11 +1076,13 @@ inline void project_dgnodes_onto_curved_boundaries(
 
     int has_curved = 0;
     if (factor == -1) {
-        for (int k = 0; k < nfe * ne; ++k)
-            if (f[k] <= -1 && curvedboundary[-f[k]-1] != 0) has_curved = 1;
+        for (int k = 0; k < nfe * ne; ++k) {
+            const int b = -f[k] - 1;
+            if (f[k] <= -1 && b >= 0 && b < ncurved && curvedboundary[b] != 0) has_curved = 1;
+        }
     } else {
         for (int k = 0; k < nfe * ne; ++k)
-            if (f[k] >  -1 && curvedboundary[ f[k]   ] != 0) has_curved = 1;
+            if (f[k] >  -1 && f[k] < ncurved && curvedboundary[ f[k] ] != 0) has_curved = 1;
     }
     if (!has_curved) return;
 
@@ -1071,6 +1096,7 @@ inline void project_dgnodes_onto_curved_boundaries(
             if (factor == -1) fid = fid - 1;
             if (fid < 0) continue;
             int k = fid;
+            if (k >= ncurved) continue;
             if (curvedboundary[k] != 1) continue;
             if (k >= (int)level_sets.size() || !level_sets[k]) continue;
             const auto& level_set = level_sets[k];
