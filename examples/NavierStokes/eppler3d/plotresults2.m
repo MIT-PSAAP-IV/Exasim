@@ -41,7 +41,7 @@ master2d = Master(pde1);
 mesh2d.xpe = mesh2d.plocal;
 mesh2d.telem = mesh2d.tlocal;
 
-base = "/Users/cuongnguyen/Documents/Exasim/tmp/epplerdns";
+base = fullfile("tmp", "epplerdns");
 
 reynolds_averages(base, mesh2d, physicparams);
 [xSurf, ySurf, Cp, Cf, CL, CD] = computeCpCf(base, physicparams);
@@ -52,11 +52,11 @@ m = 501;
 alpha = 0;
 computeBLthicknesses(base, mesh2d, master2d, physicparams, wid, delta, m, alpha);
 
-base = "/Users/cuongnguyen/Documents/Exasim/tmp/epplerdns/outudg";
+base = fullfile(base, "outudg");
 qcritvort(base, pde, mesh, dmd, mesh2d, master2d, physicparams);
 
-% fileout = "/Users/cuongnguyen/Documents/Exasim/tmp/epplerdns/outudg/case2/qcrit.vtu";
-% filein = "/Users/cuongnguyen/Documents/Exasim/tmp/epplerdns/outudg/case2/outudg_t4000";
+% fileout = fullfile(base, "case2", "qcrit.vtu");
+% filein = fullfile(base, "case2", "outudg_t4000");
 % pde.paraview = "/Applications/ParaView-6.0.0.app/Contents/MacOS/paraview";
 % UDG = paraviewqcrit(fileout, filein, pde, mesh, dmd);
 % UDG = reshape(UDG, [master2d.npe master2d.npf 20 mesh2d.ne nz]);
