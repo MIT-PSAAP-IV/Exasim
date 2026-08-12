@@ -5,9 +5,13 @@
 //   ./solution_io dataout/outuf uf 4 --getufavg 9 8
 //   ./solution_io dataout/outudg udgf 4 --getudgf 2 10
 //   ./solution_io dataout/outudg udgavg 4 --averageudgf 10 20
+//   ./solution_io dataout/outudg datain/mesh udg 4 --getudg 9
+//   ./solution_io dataout/outudg datain/mesh qcrit 4 --qcriterion 9
+//     writes fields: qcrit, u, pressure, Mach, |grad rho|
 //   ./solution_io dataout/outudgavg datain/mesh udgavg 4 --getudgavg 9
 //   ./solution_io dataout/outudgavg datain/mesh udg2davg 4 --averageudgavg 27 9 80
 
+// IOANDES=/lustre/orion/ard196/proj-shared/Exasim/backend/Postprocessing/ioandes
 // input="case${caseid}/dataout/outbouxdg"
 // output="outbou/case${caseid}/outbouxdg"
 // "$IOANDES" "$input" "$output" 736
@@ -34,6 +38,7 @@
 
 
 #include <cstdlib>
+#include <cmath>
 #include <iostream>
 #include <limits>
 #include <string>
@@ -58,6 +63,10 @@ void printUsage(const char* program)
         << "  " << program
         << " <sol_base> <elempart_base> <out_base> <nprocs> [nsteps] [stepoffsets]\n"
         << "  " << program
+        << " <in_base> <elempart_base> <out_base> <nprocs> --getudg <npe>\n"
+        << "  " << program
+        << " <in_base> <elempart_base> <out_base> <nprocs> --qcriterion <npe>\n"
+        << "  " << program
         << " <in_base> <elempart_base> <out_base> <nprocs> --getudgavg <npe>\n"
         << "  " << program
         << " <in_base> <elempart_base> <out_base> <nprocs>"
@@ -76,6 +85,8 @@ void printUsage(const char* program)
         << "  " << program << " dataout/outudg udgf 4 --getudgf 2 10\n"
         << "  " << program << " dataout/outudg udgavg 4 --averageudgf 10 20\n"
         << "  " << program << " dataout/outudg datain/mesh sol 4\n"
+        << "  " << program << " dataout/outudg datain/mesh udg 4 --getudg 9\n"
+        << "  " << program << " dataout/outudg datain/mesh qcrit 4 --qcriterion 9\n"
         << "  " << program << " dataout/outudgavg datain/mesh udgavg 4 --getudgavg 9\n"
         << "  " << program
         << " dataout/outudgavg datain/mesh udg2davg 4 --averageudgavg 27 9 80\n"
@@ -204,6 +215,111 @@ std::vector<double> averageSol2D(const std::vector<double>& sol3d_flat,
     return sol2davg;
 }
 
+std::size_t fieldIndex(int i, int c, int e, int npe, int nc)
+{
+    return static_cast<std::size_t>(i) +
+           static_cast<std::size_t>(npe) *
+               (static_cast<std::size_t>(c) +
+                static_cast<std::size_t>(nc) * static_cast<std::size_t>(e));
+}
+
+std::vector<double> qcriterionVisField(const std::vector<double>& udg,
+                                       int npe,
+                                       int nc,
+                                       int ne)
+{
+    constexpr double gamma = 1.4;
+    constexpr int nfields = 5;
+
+    if (nc < 20) {
+        throw std::runtime_error(
+            "UDG must contain at least 20 components to compute qcriterion.");
+    }
+
+    const std::size_t expected =
+        static_cast<std::size_t>(npe) *
+        static_cast<std::size_t>(nc) *
+        static_cast<std::size_t>(ne);
+    if (udg.size() != expected) {
+        throw std::runtime_error("qcriterionVisField: UDG size mismatch.");
+    }
+
+    std::vector<double> visfield(static_cast<std::size_t>(npe) *
+                                 static_cast<std::size_t>(nfields) *
+                                 static_cast<std::size_t>(ne),
+                                 0.0);
+
+    for (int e = 0; e < ne; ++e) {
+        for (int i = 0; i < npe; ++i) {
+            const double rho = udg[fieldIndex(i, 0, e, npe, nc)];
+            if (!std::isfinite(rho) || rho == 0.0) {
+                throw std::runtime_error(
+                    "qcriterionVisField: invalid density at point " +
+                    std::to_string(i) + ", element " + std::to_string(e) + ".");
+            }
+
+            const double rhou = udg[fieldIndex(i, 1, e, npe, nc)];
+            const double rhov = udg[fieldIndex(i, 2, e, npe, nc)];
+            const double rhow = udg[fieldIndex(i, 3, e, npe, nc)];
+            const double rhoE = udg[fieldIndex(i, 4, e, npe, nc)];
+
+            const double rx  = udg[fieldIndex(i, 5,  e, npe, nc)];
+            const double rux = udg[fieldIndex(i, 6,  e, npe, nc)];
+            const double rvx = udg[fieldIndex(i, 7,  e, npe, nc)];
+            const double rwx = udg[fieldIndex(i, 8,  e, npe, nc)];
+
+            const double ry  = udg[fieldIndex(i, 10, e, npe, nc)];
+            const double ruy = udg[fieldIndex(i, 11, e, npe, nc)];
+            const double rvy = udg[fieldIndex(i, 12, e, npe, nc)];
+            const double rwy = udg[fieldIndex(i, 13, e, npe, nc)];
+
+            const double rz  = udg[fieldIndex(i, 15, e, npe, nc)];
+            const double ruz = udg[fieldIndex(i, 16, e, npe, nc)];
+            const double rvz = udg[fieldIndex(i, 17, e, npe, nc)];
+            const double rwz = udg[fieldIndex(i, 18, e, npe, nc)];
+
+            const double invrho = 1.0 / rho;
+            const double u = rhou * invrho;
+            const double v = rhov * invrho;
+            const double w = rhow * invrho;
+            const double velocityMagnitude = std::sqrt(u * u + v * v + w * w);
+            const double pressure = std::abs(
+                (gamma - 1.0) *
+                (rhoE - 0.5 * (rhou * u + rhov * v + rhow * w)));
+            const double mach = velocityMagnitude / std::sqrt(gamma * pressure * invrho);
+
+            const double ux = (rux - u * rx) * invrho;
+            const double vx = (rvx - v * rx) * invrho;
+            const double wx = (rwx - w * rx) * invrho;
+
+            const double uy = (ruy - u * ry) * invrho;
+            const double vy = (rvy - v * ry) * invrho;
+            const double wy = (rwy - w * ry) * invrho;
+
+            const double uz = (ruz - u * rz) * invrho;
+            const double vz = (rvz - v * rz) * invrho;
+            const double wz = (rwz - w * rz) * invrho;
+
+            const double qcrit =
+                -0.5 * ux * ux
+                -0.5 * vy * vy
+                -0.5 * wz * wz
+                - uy * vx
+                - uz * wx
+                - vz * wy;
+            const double gradRhoMagnitude = std::sqrt(rx * rx + ry * ry + rz * rz);
+
+            visfield[fieldIndex(i, 0, e, npe, nfields)] = qcrit;
+            visfield[fieldIndex(i, 1, e, npe, nfields)] = u;
+            visfield[fieldIndex(i, 2, e, npe, nfields)] = pressure;
+            visfield[fieldIndex(i, 3, e, npe, nfields)] = mach;
+            visfield[fieldIndex(i, 4, e, npe, nfields)] = gradRhoMagnitude;
+        }
+    }
+
+    return visfield;
+}
+
 } // namespace
 
 int main(int argc, char** argv)
@@ -312,6 +428,8 @@ int main(int argc, char** argv)
 
         bool extract2d = false;
         bool average2d = false;
+        bool getUdg = false;
+        bool qCriterion = false;
         bool getUdgAvg = false;
         bool averageUdgAvg = false;
         int arg = 5;
@@ -322,7 +440,25 @@ int main(int argc, char** argv)
         std::vector<int> i_matlab;
         std::vector<int> j_matlab;
 
-        if (arg < argc && std::string(argv[arg]) == "--getudgavg") {
+        if (arg < argc && std::string(argv[arg]) == "--getudg") {
+            getUdg = true;
+            if (argc != arg + 2) {
+                printUsage(argv[0]);
+                return 1;
+            }
+
+            npe = parsePositiveInt(argv[arg + 1], "npe");
+            arg += 2;
+        } else if (arg < argc && std::string(argv[arg]) == "--qcriterion") {
+            qCriterion = true;
+            if (argc != arg + 2) {
+                printUsage(argv[0]);
+                return 1;
+            }
+
+            npe = parsePositiveInt(argv[arg + 1], "npe");
+            arg += 2;
+        } else if (arg < argc && std::string(argv[arg]) == "--getudgavg") {
             getUdgAvg = true;
             if (argc != arg + 2) {
                 printUsage(argv[0]);
@@ -369,6 +505,40 @@ int main(int argc, char** argv)
         std::vector<std::vector<int>> elempartpts(nprocs);
         std::vector<std::vector<int>> elempart(nprocs);
         readelempart(elempart_base, elempart, elempartpts, nprocs);
+
+        if (getUdg) {
+            std::vector<double> udg;
+            int n1 = 0;
+            int n2 = 0;
+            int ne = 0;
+            getudg(sol_base, elempartpts, elempart, npe, udg, n1, n2, ne);
+            writeFieldWithHeader(out_base, udg, n1, n2, ne);
+
+            std::cout << "Wrote " << binFilename(out_base)
+                      << " (npe=" << n1
+                      << ", nc=" << n2
+                      << ", ne=" << ne
+                      << ", udg.size()=" << udg.size() << ")\n";
+            return 0;
+        }
+
+        if (qCriterion) {
+            std::vector<double> udg;
+            int n1 = 0;
+            int n2 = 0;
+            int ne = 0;
+            getudg(sol_base, elempartpts, elempart, npe, udg, n1, n2, ne);
+
+            std::vector<double> visfield = qcriterionVisField(udg, n1, n2, ne);
+            writeFieldWithHeader(out_base, visfield, n1, 5, ne);
+
+            std::cout << "Wrote " << binFilename(out_base)
+                      << " (npe=" << n1
+                      << ", nfields=5"
+                      << ", ne=" << ne
+                      << ", visfield.size()=" << visfield.size() << ")\n";
+            return 0;
+        }
 
         if (getUdgAvg) {
             std::vector<double> udgavg;

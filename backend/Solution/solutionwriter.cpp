@@ -534,9 +534,9 @@ void CSolutionWriter<M>::SaveParaview(Int backend, std::string fname_modifier, b
 template <class M>
 void CSolutionWriter<M>::SaveQoI(Int backend) 
 {
-    if (disc.common.timeparams.tdep==1 &&
-        ((disc.common.timestate.currentstep+1) % disc.common.outputparams.saveSolFreq) != 0)
-        return;
+    // if (disc.common.timeparams.tdep==1 &&
+    //     ((disc.common.timestate.currentstep+1) % disc.common.outputparams.saveSolFreq) != 0)
+    //     return;
 
     if (disc.common.qoiparams.nvqoi > 0) qoiElement<M>(disc.sol, disc.res, disc.app, disc.master, disc.mesh, disc.tmp, disc.common);
     if (disc.common.qoiparams.nsurf > 0) qoiFace<M>(disc.sol, disc.res, disc.app, disc.master, disc.mesh, disc.tmp, disc.common);
