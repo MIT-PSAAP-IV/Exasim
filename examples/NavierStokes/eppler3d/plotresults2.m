@@ -31,6 +31,7 @@ nflf = 11;
 nfuf = 15;
 nfur = 21;
 nr   = 41;
+porder = 2;
 mesh2d = clemesh_airfoil(xf, yf, nxw, nflr, nflf, nfuf, nfur, nr, sps, spr, yref, lw, ll, porder);
 pde1.nd = 2;
 pde1.porder = 2;
