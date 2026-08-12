@@ -3,6 +3,9 @@ cdir = pwd(); ii = strfind(cdir, "Exasim");
 ii = ii(end);
 run(cdir(1:(ii+5)) + "/install/setpath.m");
 
+% This case-specific restart driver requires external solution/AV data
+% (solp2.mat, iter7final.mat, fixed_av.mat) and local chemistry helpers.
+% It is intended for the Caltech cone workflow, not as a standalone example.
 load solp2.mat
 load iter7final.mat
 load fixed_av.mat
@@ -54,7 +57,7 @@ pde.gencode = 1;
 % pde.linearsolveriter = 500; %try 100
 % pde.preconditioner = 1;
 % pde.precMatrixType = 2;
-% app.ptcMatrixType=0;
+% pde.ptcMatrixType=0;
 % pde.RBdim = 0%5;
 % pde.ppdegree = 0;
 % pde.NLtol = 1e-14;              % Newton tolerance
@@ -68,7 +71,7 @@ pde.linearsolvertol = 1e-6; % GMRES tolerance
 pde.linearsolveriter = 100;%500; %try 100
 pde.preconditioner = 1;
 pde.precMatrixType = 2;
-pde.ptcMatrixType=0;
+pde.ptcMatrixType=0;
 pde.RBdim = 0;
 pde.ppdegree = 0;
 pde.NLtol = 1e-6;              % Newton tolerance

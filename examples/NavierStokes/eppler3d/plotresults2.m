@@ -1,3 +1,4 @@
+porder = 2;
 nz = 32;
 gam = 1.4;                      % gas constant
 Minf = 0.09;                    % freestream Mach number

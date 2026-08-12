@@ -11,7 +11,9 @@ function [time, qoi] = plotqoi(base, qoidesc, latexmode)
 %   column 1 equal to time and columns 2:end equal to QoIs.
 %
 %   qoidesc is a string array or cell array of character vectors containing
-%   one y-axis label per QoI. latexmode explicitly controls whether these
+%   one y-axis label per QoI. If qoidesc contains only the raw QoI labels and
+%   at least two QoIs are present, plotqoi appends "Total dissipation" as the
+%   sum of the last two QoIs. latexmode explicitly controls whether these
 %   labels use MATLAB's LaTeX interpreter. Legend entries always use LaTeX.
 
 if nargin ~= 3
@@ -58,7 +60,18 @@ for i = 1:nfiles
     qoi{i} = data(:, 2:end);
 end
 
-if numel(qoidesc) ~= nqoi
+if nqoi >= 2 && numel(qoidesc) == nqoi
+    qoidesc{end+1, 1} = 'Total dissipation';
+    for i = 1:nfiles
+        qoi{i}(:, end+1) = qoi{i}(:, end-1) + qoi{i}(:, end);
+    end
+    nqoi = nqoi + 1;
+elseif nqoi >= 2 && numel(qoidesc) == nqoi + 1
+    for i = 1:nfiles
+        qoi{i}(:, end+1) = qoi{i}(:, end-1) + qoi{i}(:, end);
+    end
+    nqoi = nqoi + 1;
+elseif numel(qoidesc) ~= nqoi
     error('plotqoi:QoIDescriptionMismatch', ...
           'qoidesc has %d entries, but the files contain %d QoIs.', ...
           numel(qoidesc), nqoi);

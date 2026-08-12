@@ -15,7 +15,6 @@ end
 if isfield(mesh, 'dgnodes')
     visorder = app.porder;
 end
-visorder = 3;
 
 [xpe,telem] = masternodes(visorder,app.nd,app.elemtype);
 shape = mkshape(app.porder,mesh.xpe,xpe,app.elemtype);
@@ -53,4 +52,3 @@ else
         eval(char("!" + str));
     end    
 end
-
