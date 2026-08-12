@@ -15,6 +15,7 @@ end
 if isfield(mesh, 'dgnodes')
     visorder = app.porder;
 end
+visorder = 3;
 
 [xpe,telem] = masternodes(visorder,app.nd,app.elemtype);
 shape = mkshape(app.porder,mesh.xpe,xpe,app.elemtype);
@@ -26,7 +27,9 @@ if isfield(mesh, 'dgnodes')
 else
     dgnodes = createdgnodes(mesh.p,mesh.t(:,app.viselem),mesh.f(:,app.viselem),mesh.curvedboundary,mesh.curvedboundaryexpr,visorder);    
     [cgnodes, cgelcon, cgcells, celltype] = createcggrid(dgnodes,telem);
-    dgnodes = createdgnodes(mesh.p,mesh.t(:,app.viselem),mesh.f(:,app.viselem),mesh.curvedboundary,mesh.curvedboundaryexpr,app.porder);    
+    if visorder ~= app.porder
+      dgnodes = createdgnodes(mesh.p,mesh.t(:,app.viselem),mesh.f(:,app.viselem),mesh.curvedboundary,mesh.curvedboundaryexpr,app.porder);    
+    end
 end
 
 % find paraview executable

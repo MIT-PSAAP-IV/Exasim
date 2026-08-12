@@ -85,15 +85,15 @@ mesh.udg = extrudesol(sol2d(:,1:4,:), porder, nz);
 mesh.udg(:,5,:) = mesh.udg(:,4,:);
 mesh.udg(:,4,:) = 0;
 
-%[pde,mesh,master,dmd] = preprocessing(pde,mesh);
+[pde,mesh,master,dmd] = preprocessing(pde,mesh);
 
-pde.physicsparam(2) = 3e5;
-pde.linearsolveriter = 78;
-pde.RBdim = 5;
-endian = 'native';
-filename = pde.datapath + "/datain/";
-fileapp = filename + "app.bin";
-writeapp(pde,fileapp,endian);
+% pde.physicsparam(2) = 3e5;
+% pde.linearsolveriter = 78;
+% pde.RBdim = 5;
+% endian = 'native';
+% filename = pde.datapath + "/datain/";
+% fileapp = filename + "app.bin";
+% writeapp(pde,fileapp,endian);
 
 % % call exasim to generate and run C++ code to solve the PDE model
 % pde.exportapp = fullfile('tmp', 'epplerdns', "case" + num2str(kn));
