@@ -130,6 +130,15 @@ sol = fetchsolution(pde,master,dmd, pde.datapath + "/dataout" + model_strn(pde))
 figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[],2);colormap('jet'); colorbar;
 figure(2); clf; scaplot(mesh, T_scale*eulereval(sol, 't',gam,Minf),[],2); colormap('jet'); colorbar;
 
+disp("Iter 7")
+mesh.vdg(:,1,:) = 0.0006.*tanh(dist*nm);
+mesh.udg = sol;
+[pde,mesh,master,dmd] = preprocessing(pde,mesh);
+runcode(pde, 1); % run C++ code
+sol = fetchsolution(pde,master,dmd, pde.datapath + "/dataout" + model_strn(pde));
+figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[],2);colormap('jet'); colorbar;
+figure(2); clf; scaplot(mesh, T_scale*eulereval(sol, 't',gam,Minf),[],2); colormap('jet'); colorbar;
+
 Tphys = T_scale*eulereval(sol, 't',gam,Minf);
 X = mesh.dgnodes(:,1,:);
 Y = mesh.dgnodes(:,2,:);
@@ -153,11 +162,11 @@ figure(3); clf; plot(2*X0/D+1, T0);
 
 sol0 = sol;
 
-disp("Iter 7")
+disp("Iter 8")
 sigmaV = 0.2;
 sigmaT = 0.2;
 pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf Tinf Tref Twall mu_inf mu_ref Tmu_ref omega R sigmaV sigmaT rho_ref];
-mesh.vdg(:,1,:) = 0.001.*tanh(dist*nm);
+mesh.vdg(:,1,:) = 0.0006.*tanh(dist*nm);
 mesh.udg = sol;
 [pde,mesh,master,dmd] = preprocessing(pde,mesh);
 runcode(pde, 1); % run C++ code
@@ -165,11 +174,11 @@ sol = fetchsolution(pde,master,dmd, pde.datapath + "/dataout" + model_strn(pde))
 figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[],2);colormap('jet'); colorbar;
 figure(2); clf; scaplot(mesh, T_scale*eulereval(sol, 't',gam,Minf),[],2); colormap('jet'); colorbar;
 
-disp("Iter 8")
+disp("Iter 9")
 sigmaV = 0.5;
 sigmaT = 0.5;
 pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf Tinf Tref Twall mu_inf mu_ref Tmu_ref omega R sigmaV sigmaT rho_ref];
-mesh.vdg(:,1,:) = 0.0008.*tanh(dist*nm);
+mesh.vdg(:,1,:) = 0.0006.*tanh(dist*nm);
 mesh.udg = sol;
 [pde,mesh,master,dmd] = preprocessing(pde,mesh);
 runcode(pde, 1); % run C++ code
@@ -177,7 +186,7 @@ sol = fetchsolution(pde,master,dmd, pde.datapath + "/dataout" + model_strn(pde))
 figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[],2);colormap('jet'); colorbar;
 figure(2); clf; scaplot(mesh, T_scale*eulereval(sol, 't',gam,Minf),[],2); colormap('jet'); colorbar;
 
-disp("Iter 8")
+disp("Iter 10")
 sigmaV = 1.0;
 sigmaT = 1.875;
 pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf Tinf Tref Twall mu_inf mu_ref Tmu_ref omega R sigmaV sigmaT rho_ref];
