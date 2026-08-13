@@ -834,6 +834,128 @@ void getudgavg(const std::string& base,
     ne_out = ne;
 }
 
+void getudg(const std::string& base,
+            const std::vector<std::vector<int>>& elempartpts,
+            const std::vector<std::vector<int>>& elempart,
+            int npe,
+            std::vector<double>& udg,
+            int& n1_out,
+            int& n2_out,
+            int& ne_out)
+{
+    const int nprocs = static_cast<int>(elempartpts.size());
+    if (nprocs <= 0) {
+        throw std::runtime_error("getudg: elempartpts is empty.");
+    }
+    if (static_cast<int>(elempart.size()) != nprocs) {
+        throw std::runtime_error("getudg: elempart size mismatch.");
+    }
+    if (npe <= 0) {
+        throw std::runtime_error("getudg: npe must be positive.");
+    }
+
+    std::vector<int> nei(static_cast<std::size_t>(nprocs), 0);
+    std::int64_t neTotal = 0;
+    for (int r = 0; r < nprocs; ++r) {
+        if (elempartpts[static_cast<std::size_t>(r)].size() < 2) {
+            throw std::runtime_error("getudg: elempartpts[" + std::to_string(r) +
+                                     "] has fewer than 2 entries.");
+        }
+
+        if (nprocs == 1) {
+            nei[static_cast<std::size_t>(r)] =
+                static_cast<int>(elempart[static_cast<std::size_t>(r)].size());
+        } else {
+            nei[static_cast<std::size_t>(r)] =
+                elempartpts[static_cast<std::size_t>(r)][0] +
+                elempartpts[static_cast<std::size_t>(r)][1];
+        }
+
+        if (nei[static_cast<std::size_t>(r)] <= 0) {
+            throw std::runtime_error("getudg: rank " + std::to_string(r) +
+                                     " has zero owned elements.");
+        }
+        if (static_cast<int>(elempart[static_cast<std::size_t>(r)].size()) <
+            nei[static_cast<std::size_t>(r)]) {
+            throw std::runtime_error("getudg: elempart[" + std::to_string(r) +
+                                     "] shorter than owned element count.");
+        }
+
+        neTotal += nei[static_cast<std::size_t>(r)];
+        if (neTotal > static_cast<std::int64_t>(std::numeric_limits<int>::max())) {
+            throw std::runtime_error("getudg: total element count exceeds int range.");
+        }
+    }
+
+    const int ne = static_cast<int>(neTotal);
+    int nc = 0;
+    udg.clear();
+
+    for (int r = 0; r < nprocs; ++r) {
+        const std::string fname = base + "_np" + std::to_string(r) + ".bin";
+        std::ifstream in(fname, std::ios::binary);
+        if (!in) {
+            throw std::runtime_error("Cannot open solution file: " + fname);
+        }
+
+        const std::int64_t bytes = fileSizeBytes(fname);
+        if (bytes % static_cast<std::int64_t>(sizeof(double)) != 0) {
+            throw std::runtime_error("File size not multiple of 8 in: " + fname);
+        }
+
+        const std::int64_t ndoubles =
+            bytes / static_cast<std::int64_t>(sizeof(double));
+        if (ndoubles <= 0) {
+            throw std::runtime_error("Solution file is empty: " + fname);
+        }
+
+        const int rankNe = nei[static_cast<std::size_t>(r)];
+        const std::int64_t denom =
+            static_cast<std::int64_t>(npe) * static_cast<std::int64_t>(rankNe);
+        if (ndoubles % denom != 0) {
+            throw std::runtime_error("getudg: solution size mismatch on rank " +
+                                     std::to_string(r) + " in file: " + fname);
+        }
+
+        const int rankNc = static_cast<int>(ndoubles / denom);
+        if (rankNc <= 0) {
+            throw std::runtime_error("getudg: rank " + std::to_string(r) +
+                                     " has zero solution components.");
+        }
+
+        if (r == 0) {
+            nc = rankNc;
+            udg.assign(checkedProduct3(npe, nc, ne, base), 0.0);
+        } else if (rankNc != nc) {
+            throw std::runtime_error("getudg: rank " + std::to_string(r) +
+                                     " has " + std::to_string(rankNc) +
+                                     " components, expected " + std::to_string(nc) + ".");
+        }
+
+        std::vector<double> tmp(static_cast<std::size_t>(ndoubles));
+        readDoubles(in, tmp.data(), tmp.size(), fname);
+
+        const std::size_t slice =
+            static_cast<std::size_t>(npe) * static_cast<std::size_t>(nc);
+        for (int e = 0; e < rankNe; ++e) {
+            const int globalElem = (nprocs == 1) ? e :
+                elempart[static_cast<std::size_t>(r)][static_cast<std::size_t>(e)];
+            if (globalElem < 0 || globalElem >= ne) {
+                throw std::runtime_error("getudg: elempart out of range in rank " +
+                                         std::to_string(r));
+            }
+
+            const double* src = tmp.data() + static_cast<std::size_t>(e) * slice;
+            double* dst = udg.data() + sliceOffset4(npe, nc, ne, globalElem, 0);
+            std::copy(src, src + slice, dst);
+        }
+    }
+
+    n1_out = npe;
+    n2_out = nc;
+    ne_out = ne;
+}
+
 void readelempart(const std::string& base,
                   std::vector<std::vector<int>>& elempart,
                   std::vector<std::vector<int>>& elempartpts,

@@ -30,12 +30,19 @@ clear; clc;
 % User inputs
 %% ------------------------------------------------------------------------
 
-U_inf   = 6585.0;             % freestream velocity [m/s]
-M_inf   = 25.0;               % freestream Mach number [-]
-Kn_inf  = 0.25;               % freestream Knudsen number based on D [-]
+% U_inf   = 6585.0;             % freestream velocity [m/s]
+% M_inf   = 25.0;               % freestream Mach number [-]
+% Kn_inf  = 0.25;               % freestream Knudsen number based on D [-]
+% D       = 12.0 * 0.0254;      % cylinder diameter [m], 12 inches
+% rho_inf = 1.127e-6;           % freestream density [kg/m^3]
+% T_wall  = 1500.0;             % wall temperature [K]
+
+U_inf   = 2624.0;             % freestream velocity [m/s]
+M_inf   = 10.0;               % freestream Mach number [-]
+Kn_inf  = 0.05;               % freestream Knudsen number based on D [-]
 D       = 12.0 * 0.0254;      % cylinder diameter [m], 12 inches
-rho_inf = 1.127e-6;           % freestream density [kg/m^3]
-T_wall  = 1500.0;             % wall temperature [K]
+rho_inf = 5.636e-6;           % freestream density [kg/m^3]
+T_wall  = 500.0;             % wall temperature [K]
 
 omega   = 0.734;              % VHS temperature exponent [-]
 d_ref   = 3.595e-10;          % VHS reference diameter [m]

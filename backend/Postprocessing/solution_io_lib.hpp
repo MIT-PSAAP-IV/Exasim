@@ -79,6 +79,15 @@ void getudgavg(const std::string& base,
                int& n2_out,
                int& ne_out);
 
+void getudg(const std::string& base,
+            const std::vector<std::vector<int>>& elempartpts,
+            const std::vector<std::vector<int>>& elempart,
+            int npe,
+            std::vector<double>& udg,
+            int& n1_out,
+            int& n2_out,
+            int& ne_out);
+
 void readelempart(const std::string& base,
                   std::vector<std::vector<int>>& elempart,
                   std::vector<std::vector<int>>& elempartpts,
