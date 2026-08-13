@@ -32,7 +32,6 @@ elseif strcmp(str,'c')
     p = (gam-1)*(u(:,5,:) - 0.5*(u(:,2,:).*uv + u(:,3,:).*vv+ u(:,4,:).*wv));
     sca = sqrt(gam*p./u(:,1,:));
 elseif strcmp(str,'M')
-    u(:,1,:) = max(u(:,1,:),0.3);
     uv = u(:,2,:)./u(:,1,:);
     vv = u(:,3,:)./u(:,1,:);
     wv = u(:,4,:)./u(:,1,:);
