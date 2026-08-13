@@ -304,6 +304,20 @@ int executeCppCode(ParsedSpec& spec)
         }
     }
 
+    // Recompute toolchain heuristics for the selected host compiler so we don't
+    // pass warning-suppression flags that were only validated on the GPU wrapper,
+    // and so the MSVC vs non-MSVC branch matches the actual compiler in use.
+    if (host_cxx != tc.cxx) {
+        tc.kind = detect_kind(host_cxx);
+        tc.warn_squelch.clear();
+        if (tc.kind != CompilerKind::MSVC) {
+            for (const auto& flag : {"-Wno-inconsistent-missing-override",
+                                     "-Wno-template-body"}) {
+                if (compiler_supports_flag(host_cxx, flag))
+                    tc.warn_squelch.push_back(flag);
+            }
+        }
+    }
     std::cout<<"Compiling " + sourcefile + " (host compiler: " + host_cxx + ")\n";
     
     // Construct compile command using text2code_path
