@@ -470,7 +470,13 @@ template <typename T> static void TemplateMalloc(T **data, Int n, Int backend)
 #endif    
 }
 
-template <typename T> static void TemplateFree(T *data,  Int backend)
+// data taken BY REFERENCE so the CPUFREE/GPUFREE/HIPFREE macros (which set
+// data=nullptr) null the CALLER's pointer too. Otherwise a by-value copy leaves
+// the caller's struct member dangling-but-non-null, and a later free of the same
+// member (a coupled-app teardown path) hits hipFree/cudaFree with a stale pointer
+// -> "invalid argument" abort (rc=1) after an otherwise-correct run. By-reference
+// makes the double-free a no-op via the macros' `!= nullptr` guard.
+template <typename T> static void TemplateFree(T *&data,  Int backend)
 {
     if (backend <= 1)  CPUFREE(data);
         
