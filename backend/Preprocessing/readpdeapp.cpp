@@ -910,15 +910,23 @@ inline PDE initializePDE(InputParams& params, int mpirank=0)
     }
     if (params.doubleParams.count("dae_alpha")) {
         pde.dae_alpha = params.doubleParams["dae_alpha"];
+    } else if (params.intParams.count("dae_alpha")) {
+        pde.dae_alpha = static_cast<double>(params.intParams["dae_alpha"]);
     }
     if (params.doubleParams.count("dae_beta")) {
         pde.dae_beta = params.doubleParams["dae_beta"];
+    } else if (params.intParams.count("dae_beta")) {
+        pde.dae_beta = static_cast<double>(params.intParams["dae_beta"]);
     }
     if (params.doubleParams.count("dae_gamma")) {
         pde.dae_gamma = params.doubleParams["dae_gamma"];
+    } else if (params.intParams.count("dae_gamma")) {
+        pde.dae_gamma = static_cast<double>(params.intParams["dae_gamma"]);
     }
     if (params.doubleParams.count("dae_epsilon")) {
         pde.dae_epsilon = params.doubleParams["dae_epsilon"];
+    } else if (params.intParams.count("dae_epsilon")) {
+        pde.dae_epsilon = static_cast<double>(params.intParams["dae_epsilon"]);
     }
      
     pde.dt = params.dt;
@@ -974,18 +982,24 @@ inline PDE initializePDE(InputParams& params, int mpirank=0)
     pdeFinalizeDerived(pde);
     
                     
-    // Normalize a path that contains an "Exasim" component down to the Exasim
-    // root, but honor an explicitly-set exasimpath verbatim even when its
-    // directory name does not literally contain "Exasim" (the checkout may live
-    // at e.g. /data/scratch/.../exasim-teoc). Only fall back to the cwd when no
-    // exasimpath was provided at all. (Mirrors text2code/readpdeapp.cpp.)
+    // Honor an explicitly-set path verbatim unless it is the legacy backend
+    // directory path. If no path is provided, prefer the installed prefix from
+    // EXASIM_PREFIX and use the cwd only as a final fallback.
     {
       const std::string rawpath = pde.exasimpath;
-      const std::string trimmed = trimToSubstringAtLastOccurence(rawpath, "Exasim");
-      if (!trimmed.empty()) {
-        pde.exasimpath = trimmed;
-      } else if (!rawpath.empty()) {
-        pde.exasimpath = rawpath;   // honor an explicit path verbatim
+      if (!rawpath.empty()) {
+        const std::filesystem::path path = std::filesystem::path(rawpath).lexically_normal();
+        if (path.filename() == "backend" &&
+            std::filesystem::is_directory(path.parent_path() / "backend")) {
+          pde.exasimpath = path.parent_path().string();
+        } else {
+          pde.exasimpath = rawpath;
+        }
+      } else if (const char* env_prefix = std::getenv("EXASIM_PREFIX");
+                 env_prefix && *env_prefix) {
+        pde.exasimpath = env_prefix;
+        if (mpirank==0) std::cout<<"exasimpath is not set in "<< params.pdeappfile
+                                <<" file.\nWe use EXASIM_PREFIX to define exasimpath.\n";
       } else {
         if (mpirank==0) std::cout<<"exasimpath is not set in "<< params.pdeappfile <<" file.\nWe use the working directory to define exasimpath.\n";
         std::filesystem::path cwd = std::filesystem::current_path();
