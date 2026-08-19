@@ -283,7 +283,42 @@ int executeCppCode(ParsedSpec& spec)
 
     Toolchain tc = detect_toolchain();
 
-    std::cout<<"Compiling " + sourcefile + "\n";
+    // Code2Cpp.cpp is a HOST code-generation tool (it pulls in boost/symengine and
+    // runs on the CPU to emit the model source). It must NOT be compiled by a GPU
+    // compiler wrapper: hipcc/nvcc treat a .cpp as device code (adding -x hip /
+    // --offload-arch), which drags in device math overloads and fails on e.g.
+    // ambiguous std::frexp inside boost/multiprecision. When CXX is such a wrapper
+    // (as it is for a GPU app build), compile the generator with a host compiler:
+    // EXASIM_HOST_CXX if set, else the first working g++/clang++/c++. The model
+    // variants below still use tc.cxx (the GPU compiler) with the arch flags.
+    std::string host_cxx = tc.cxx;
+    {
+        const char* env_host = std::getenv("EXASIM_HOST_CXX");
+        if (env_host && *env_host) {
+            host_cxx = env_host;
+        } else if (host_cxx.find("hipcc") != std::string::npos ||
+                   host_cxx.find("nvcc")  != std::string::npos) {
+            for (const char* cand : {"g++", "clang++", "c++"}) {
+                if (probe_compiler(cand)) { host_cxx = cand; break; }
+            }
+        }
+    }
+
+    // Recompute toolchain heuristics for the selected host compiler so we don't
+    // pass warning-suppression flags that were only validated on the GPU wrapper,
+    // and so the MSVC vs non-MSVC branch matches the actual compiler in use.
+    if (host_cxx != tc.cxx) {
+        tc.kind = detect_kind(host_cxx);
+        tc.warn_squelch.clear();
+        if (tc.kind != CompilerKind::MSVC) {
+            for (const auto& flag : {"-Wno-inconsistent-missing-override",
+                                     "-Wno-template-body"}) {
+                if (compiler_supports_flag(host_cxx, flag))
+                    tc.warn_squelch.push_back(flag);
+            }
+        }
+    }
+    std::cout<<"Compiling " + sourcefile + " (host compiler: " + host_cxx + ")\n";
     
     // Construct compile command using text2code_path
     std::stringstream cmd;
@@ -300,7 +335,7 @@ int executeCppCode(ParsedSpec& spec)
     }
     if (tc.kind == CompilerKind::MSVC) {    
       std::string symengine_lib = make_path(spec.symenginepath, "lib/symengine.lib");
-      cmd << tc.cxx << " /std:c++17 /EHsc /W0 "
+      cmd << host_cxx << " /std:c++17 /EHsc /W0 "
           << "/I" << quote(spec.symenginepath) << " "
           << "/I" << quote(symengine_include) << " "
           << "/I" << quote(backend_model) << " "
@@ -309,7 +344,7 @@ int executeCppCode(ParsedSpec& spec)
           << "/Fe:" << quote(exefile);
     } else {
 #if EXASIM_SYMENGINE_FOUND
-      cmd << tc.cxx << " -std=c++17 -w " << join(tc.warn_squelch) << " "
+      cmd << host_cxx << " -std=c++17 -w " << join(tc.warn_squelch) << " "
           << EXASIM_SYMENGINE_INCFLAGS << " "
           << "-I" << quote(backend_model) << " "
           << quote(sourcefile) << " "
@@ -317,7 +352,7 @@ int executeCppCode(ParsedSpec& spec)
           << quote(exefile);
 #else
       std::string symengine_lib = make_path(spec.symenginepath, "lib/libsymengine.a");
-      cmd << tc.cxx << " -std=c++17 -w " << join(tc.warn_squelch) << " "
+      cmd << host_cxx << " -std=c++17 -w " << join(tc.warn_squelch) << " "
           << "-I" << quote(spec.symenginepath) << " "
           << "-I" << quote(symengine_include) << " "
           << "-I" << quote(backend_model) << " "

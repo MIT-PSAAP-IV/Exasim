@@ -433,11 +433,27 @@ template <typename T> static void cudaCopytoHost(T *h_data, T *d_data, Int n)
     }                                                                          \
 }
 
+// Tolerate hipErrorInvalidValue at free: a benign teardown double-free (an
+// aliased pointer freed a second time, which the by-reference TemplateFree cannot
+// null) otherwise aborts an ALREADY-CORRECT run with rc=1. Clear the sticky error
+// and continue; any OTHER hipFree error stays fatal. Warn once so a real invalid
+// free is still visible.
 #define HIPFREE(x)                                                       \
 {                                                                         \
     if (x != nullptr) {                                                      \
-        CHECK( hipFree(x) );                                              \
-        x = nullptr;                                                         \
+        hipError_t _hipfree_e = hipFree(x);                              \
+        if (_hipfree_e == hipErrorInvalidValue) {                        \
+            fprintf(stderr, "warning: %s:%d hipFree invalid value "      \
+                    "(benign double-free at teardown), ignoring\n",      \
+                    __FILE__, __LINE__);                                 \
+            (void) hipGetLastError();                                    \
+        } else if (_hipfree_e != hipSuccess) {                           \
+            fprintf(stderr, "Error: %s:%d, code: %d, reason: %s\n",      \
+                    __FILE__, __LINE__, _hipfree_e,                      \
+                    hipGetErrorString(_hipfree_e));                      \
+            exit(1);                                                     \
+        }                                                                \
+        x = nullptr;                                                        \
     }                                                                     \
 }
 
@@ -470,7 +486,13 @@ template <typename T> static void TemplateMalloc(T **data, Int n, Int backend)
 #endif    
 }
 
-template <typename T> static void TemplateFree(T *data,  Int backend)
+// data taken BY REFERENCE so the CPUFREE/GPUFREE/HIPFREE macros (which set
+// data=nullptr) null the CALLER's pointer too. Otherwise a by-value copy leaves
+// the caller's struct member dangling-but-non-null, and a later free of the same
+// member (a coupled-app teardown path) hits hipFree/cudaFree with a stale pointer
+// -> "invalid argument" abort (rc=1) after an otherwise-correct run. By-reference
+// makes the double-free a no-op via the macros' `!= nullptr` guard.
+template <typename T> static void TemplateFree(T *&data,  Int backend)
 {
     if (backend <= 1)  CPUFREE(data);
         
