@@ -1,0 +1,310 @@
+scalars t
+
+vectors x(3), uq(20), v(1), w(0), uhat(5), n(3), tau(1), mu(8), eta(2)
+
+jacobian uq, w, uhat
+
+hessian
+
+batch x, uq, v, w, uhat, n
+
+outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Initu, Initv, Avfield, QoIvolume
+
+function Flux(x, uq, v, w, eta, mu, t)
+  output_size(f) = 15;
+
+  gam = mu[0];
+  gam1 = gam - 1.0;
+  Re = mu[1];
+  Pr = mu[2];
+  Minf = mu[3];
+  Re1 = 1.0/Re;
+  M2 = Minf*Minf;
+  c23 = 2.0/3.0;
+  av = v[0];
+
+  r = uq[0];
+  ru = uq[1];
+  rv = uq[2];
+  rw = uq[3];
+  rE = uq[4];
+  rx = uq[5];
+  rux = uq[6];
+  rvx = uq[7];
+  rwx = uq[8];
+  rEx = uq[9];
+  ry = uq[10];
+  ruy = uq[11];
+  rvy = uq[12];
+  rwy = uq[13];
+  rEy = uq[14];
+  rz = uq[15];
+  ruz = uq[16];
+  rvz = uq[17];
+  rwz = uq[18];
+  rEz = uq[19];
+
+  r1 = 1.0/r;
+  uv = ru*r1;
+  vv = rv*r1;
+  wv = rw*r1;
+  E = rE*r1;
+  ke = 0.5*(uv*uv + vv*vv + wv*wv);
+  p = gam1*(rE - r*ke);
+  T = gam*M2*p*r1;
+  mut = 1.4042*T*sqrt(T)/(T + 0.40417);
+  fc = mut/(gam1*M2*Re*Pr);
+  h = E + p*r1;
+
+  ux = (rux - rx*uv)*r1;
+  vx = (rvx - rx*vv)*r1;
+  wx = (rwx - rx*wv)*r1;
+  kex = uv*ux + vv*vx + wv*wx;
+  px = gam1*(rEx - rx*ke - r*kex);
+  Tx = gam*M2*(px*r - p*rx)*r1*r1;
+
+  uy = (ruy - ry*uv)*r1;
+  vy = (rvy - ry*vv)*r1;
+  wy = (rwy - ry*wv)*r1;
+  key = uv*uy + vv*vy + wv*wy;
+  py = gam1*(rEy - ry*ke - r*key);
+  Ty = gam*M2*(py*r - p*ry)*r1*r1;
+
+  uz = (ruz - rz*uv)*r1;
+  vz = (rvz - rz*vv)*r1;
+  wz = (rwz - rz*wv)*r1;
+  kez = uv*uz + vv*vz + wv*wz;
+  pz = gam1*(rEz - rz*ke - r*kez);
+  Tz = gam*M2*(pz*r - p*rz)*r1*r1;
+
+  txx = mut*Re1*c23*(2.0*ux - vy - wz);
+  txy = mut*Re1*(uy + vx);
+  txz = mut*Re1*(uz + wx);
+  tyy = mut*Re1*c23*(2.0*vy - ux - wz);
+  tyz = mut*Re1*(vz + wy);
+  tzz = mut*Re1*c23*(2.0*wz - ux - vy);
+
+  f[0] = ru + av*rx;
+  f[1] = ru*uv + p + txx + av*rux;
+  f[2] = rv*uv + txy + av*rvx;
+  f[3] = rw*uv + txz + av*rwx;
+  f[4] = ru*h + uv*txx + vv*txy + wv*txz + fc*Tx + av*rEx;
+
+  f[5] = rv + av*ry;
+  f[6] = ru*vv + txy + av*ruy;
+  f[7] = rv*vv + p + tyy + av*rvy;
+  f[8] = rw*vv + tyz + av*rwy;
+  f[9] = rv*h + uv*txy + vv*tyy + wv*tyz + fc*Ty + av*rEy;
+
+  f[10] = rw + av*rz;
+  f[11] = ru*wv + txz + av*ruz;
+  f[12] = rv*wv + tyz + av*rvz;
+  f[13] = rw*wv + p + tzz + av*rwz;
+  f[14] = rw*h + uv*txz + vv*tyz + wv*tzz + fc*Tz + av*rEz;
+end
+
+function Source(x, uq, v, w, eta, mu, t)
+  output_size(s) = 5;
+  zeros(s);
+end
+
+function Tdfunc(x, uq, v, w, eta, mu, t)
+  output_size(m) = 5;
+  ones(m);
+end
+
+function Fbou(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(fb) = 5;
+  f = Flux(x, uq, v, w, eta, mu, t);
+  fb[0] = f[0]*n[0] + f[5]*n[1] + f[10]*n[2] + tau[0]*(uq[0] - uhat[0]);
+  fb[1] = f[1]*n[0] + f[6]*n[1] + f[11]*n[2] + tau[0]*(uq[1] - uhat[1]);
+  fb[2] = f[2]*n[0] + f[7]*n[1] + f[12]*n[2] + tau[0]*(uq[2] - uhat[2]);
+  fb[3] = f[3]*n[0] + f[8]*n[1] + f[13]*n[2] + tau[0]*(uq[3] - uhat[3]);
+  fb[4] = f[4]*n[0] + f[9]*n[1] + f[14]*n[2] + tau[0]*(uq[4] - uhat[4]);
+end
+
+function FbouHdg(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(fb) = 5;
+  f = Flux(x, uq, v, w, eta, mu, t);
+  fb[0] = f[0]*n[0] + f[5]*n[1] + f[10]*n[2] + tau[0]*(uq[0] - uhat[0]);
+  fb[1] = f[1]*n[0] + f[6]*n[1] + f[11]*n[2] + tau[0]*(uq[1] - uhat[1]);
+  fb[2] = f[2]*n[0] + f[7]*n[1] + f[12]*n[2] + tau[0]*(uq[2] - uhat[2]);
+  fb[3] = f[3]*n[0] + f[8]*n[1] + f[13]*n[2] + tau[0]*(uq[3] - uhat[3]);
+  fb[4] = f[4]*n[0] + f[9]*n[1] + f[14]*n[2] + tau[0]*(uq[4] - uhat[4]);
+end
+
+function Ubou(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(ub) = 5;
+  zeros(ub);
+end
+
+function Initu(x, eta, mu)
+  output_size(ui) = 5;
+  L = 1.0;
+  gam = mu[0];
+  gam1 = gam - 1.0;
+  Minf = mu[3];
+  M2 = Minf*Minf;
+
+  x1 = x[0];
+  x2 = x[1];
+  x3 = x[2];
+  p0 = 1.0/(gam*M2);
+  uv = sin(x1/L)*cos(x2/L)*cos(x3/L);
+  vv = -cos(x1/L)*sin(x2/L)*cos(x3/L);
+  wv = 0.0;
+  p = p0 + 0.0625*(cos(2.0*x1/L) + cos(2.0*x2/L))*(2.0 + cos(2.0*x3/L));
+  r = gam*M2*p;
+  ui[0] = r;
+  ui[1] = r*uv;
+  ui[2] = r*vv;
+  ui[3] = r*wv;
+  ui[4] = p/gam1 + 0.5*r*(uv*uv + vv*vv + wv*wv);
+end
+
+function Initv(x, eta, mu)
+  output_size(vi) = 1;
+  vi[0] = 0.0;
+end
+
+function Avfield(x, uq, v, w, eta, mu, t)
+  output_size(avField) = 1;
+
+  gam = mu[0];
+  gam1 = gam - 1.0;
+  hm = mu[5];
+  avcoeff = mu[6];
+  porder = mu[7];
+  alpha = 1.0e3;
+  rmin = 1.0e-3;
+  Hmin = 1.0e-4;
+  divmax = 50.0;
+  sbmax = 4.0;
+  sb0 = 0.1;
+  pival = Expression(pi);
+
+  r0 = uq[0];
+  ru = uq[1];
+  rv = uq[2];
+  rw = uq[3];
+  rE = uq[4];
+  rx = uq[5];
+  rux = uq[6];
+  rvx = uq[7];
+  rwx = uq[8];
+  ry = uq[10];
+  ruy = uq[11];
+  rvy = uq[12];
+  rwy = uq[13];
+  rz = uq[15];
+  ruz = uq[16];
+  rvz = uq[17];
+  rwz = uq[18];
+
+  rarg = r0 - rmin;
+  r = rmin + rarg*(atan(alpha*rarg)/pival + 0.5) - atan(alpha)/pival + 0.5;
+  r1 = 1.0/r;
+  uv = ru*r1;
+  vv = rv*r1;
+  wv = rw*r1;
+  E = rE*r1;
+  ke = 0.5*(uv*uv + vv*vv + wv*wv);
+  H0 = gam*E - gam1*ke;
+  Harg = H0 - Hmin;
+  H = Hmin + Harg*(atan(alpha*Harg)/pival + 0.5) - atan(alpha)/pival + 0.5;
+  cstarinv = sqrt((gam + 1.0)/(2.0*gam1*H));
+
+  ux = (rux - rx*uv)*r1;
+  vx = (rvx - rx*vv)*r1;
+  wx = (rwx - rx*wv)*r1;
+  uy = (ruy - ry*uv)*r1;
+  vy = (rvy - ry*vv)*r1;
+  wy = (rwy - ry*wv)*r1;
+  uz = (ruz - rz*uv)*r1;
+  vz = (rvz - rz*vv)*r1;
+  wz = (rwz - rz*wv)*r1;
+
+  divu0 = ux + vy + wz;
+  vortx = wy - vz;
+  vorty = uz - wx;
+  vortz = vx - uy;
+  vort0 = sqrt(vortx*vortx + vorty*vorty + vortz*vortz);
+  divarg1 = divu0 - 5.0;
+  divtmp = divarg1*(atan(alpha*divarg1)/pival + 0.5) - atan(alpha)/pival + 0.5;
+  divarg2 = divtmp - divmax;
+  divlmax2 = divarg2*(atan(alpha*divarg2)/pival + 0.5) - atan(alpha)/pival + 0.5;
+  divu = divarg2 - divlmax2 + divmax;
+
+  vortarg1 = vort0;
+  vorttmp = vortarg1*(atan(alpha*vortarg1)/pival + 0.5) - atan(alpha)/pival + 0.5;
+  vortarg2 = vorttmp - divmax;
+  vortlmax2 = vortarg2*(atan(alpha*vortarg2)/pival + 0.5) - atan(alpha)/pival + 0.5;
+  vort = vortarg2 - vortlmax2 + divmax;
+
+  ducros = divu*divu/(divu*divu + vort*vort + 1.0e-16);
+  sb = sqrt(hm/porder)*divu*cstarinv*ducros;
+  sbarg1 = sb - sb0;
+  sbtmp = sbarg1*(atan(alpha*sbarg1)/pival + 0.5) - atan(alpha)/pival + 0.5;
+  sbarg2 = sbtmp - sbmax;
+  sblmax2 = sbarg2*(atan(alpha*sbarg2)/pival + 0.5) - atan(alpha)/pival + 0.5;
+  sblim = sbarg2 - sblmax2 + sbmax;
+  avField[0] = avcoeff*sblim;
+end
+
+function QoIvolume(x, uq, v, w, eta, mu, t)
+  output_size(s) = 3;
+
+  gam = mu[0];
+  gam1 = gam - 1.0;
+  Re = mu[1];
+  Minf = mu[3];
+  rhoRef = mu[4];
+  M2 = Minf*Minf;
+  pival = Expression(pi);
+  twopi = 2.0*pival;
+  Omega = twopi*twopi*twopi;
+
+  r = uq[0];
+  ru = uq[1];
+  rv = uq[2];
+  rw = uq[3];
+  rE = uq[4];
+  rx = uq[5];
+  rux = uq[6];
+  rvx = uq[7];
+  rwx = uq[8];
+  ry = uq[10];
+  ruy = uq[11];
+  rvy = uq[12];
+  rwy = uq[13];
+  rz = uq[15];
+  ruz = uq[16];
+  rvz = uq[17];
+  rwz = uq[18];
+
+  r1 = 1.0/r;
+  uv = ru*r1;
+  vv = rv*r1;
+  wv = rw*r1;
+  ke = 0.5*(uv*uv + vv*vv + wv*wv);
+  p = gam1*(rE - r*ke);
+  T = gam*M2*p*r1;
+  mut = 1.4042*T*sqrt(T)/(T + 0.40417);
+
+  ux = (rux - rx*uv)*r1;
+  vx = (rvx - rx*vv)*r1;
+  wx = (rwx - rx*wv)*r1;
+  uy = (ruy - ry*uv)*r1;
+  vy = (rvy - ry*vv)*r1;
+  wy = (rwy - ry*wv)*r1;
+  uz = (ruz - rz*uv)*r1;
+  vz = (rvz - rz*vv)*r1;
+  wz = (rwz - rz*wv)*r1;
+
+  curl2 = (wy - vz)*(wy - vz) + (uz - wx)*(uz - wx) + (vx - uy)*(vx - uy);
+  divu = ux + vy + wz;
+
+  s[0] = 0.5*r*(uv*uv + vv*vv + wv*wv)/(rhoRef*Omega);
+  s[1] = mut*curl2/(rhoRef*Re*Omega);
+  s[2] = (4.0/3.0)*mut*divu*divu/(rhoRef*Re*Omega);
+end

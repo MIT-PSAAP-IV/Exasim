@@ -6,7 +6,7 @@ import ..install_prefix, ..cmake_dir, ..frontend_app_template_dir, ..text2code_p
 import ..model_strn, ..model_builddir, ..resolve_modelid, ..frontend_app_combined_template_dir
 
 #export syminit, gencode, compilecode
-export syminit, gencode, gencodeall, compilecode, cmakecompile, cmakecompile_combined, runcode, runcode_combined, exportapp, exporttext2code, checkcompilers, setcompilers, string2cmd
+export syminit, gencode, gencodeall, compilecode, cmakecompile, cmakecompile_combined, runcode, runcode_combined, exportapp, exporttext2code, exporttext2codemesh, checkcompilers, setcompilers, string2cmd
 
 include("syminit.jl");
 include("contains.jl");
@@ -52,6 +52,7 @@ include("runcode_combined.jl");
 include("genpdemodel.jl");
 include("exportapp.jl");
 include("exporttext2code.jl");
+include("exporttext2codemesh.jl");
 
 function gencode(app)
 
