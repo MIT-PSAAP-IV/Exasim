@@ -1,0 +1,68 @@
+model = "ModelD";
+modelfile = "pdemodel.txt";
+meshfile = "grid.bin";
+discretization = "hdg";
+platform = "cpu";
+
+mpiprocs = 1;
+debugmode = 0;
+runmode = 0;
+modelnumber = 0;
+
+porder = 2;
+pgauss = 4;
+torder = 3;
+builtinmodelID = 0;
+frontendgenerated = 1;
+nstage = 3;
+gendatain = 0;
+
+ncu = 5;
+ncv = 1;
+ncw = 0;
+neb = 4096;
+nfb = 8192;
+
+NewtonIter = 1;
+NewtonTol = 1e-08;
+GMRESiter = 24;
+GMRESrestart = 24;
+GMREStol = 1e-07;
+GMRESortho = 1;
+ppdegree = 0;
+RBdim = 5;
+matvecorder = 1;
+matvectol = 0.001;
+precMatrixType = 2;
+preconditioner = 1;
+
+saveSolFreq = 20;
+saveSolOpt = 0;
+saveSolBouFreq = 0;
+saveParaview = 0;
+physicsparamwarmstart = 0;
+time = 0;
+tau = [5];
+AV = 1;
+AVsmoothingIter = 2;
+frozenAVflag = 1;
+dt = [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01];
+physicsparam = [1.4, 1600, 0.71, 1.25, 1, 0.1, 0.002, 2];
+externalparam = [0, 0];
+
+boundaryconditions = [1, 1, 1, 1, 1, 1];
+dae_alpha = 0;
+dae_beta = 0;
+dae_gamma = 0;
+wmModelIDs = [];
+wmBoundaries = [];
+wmDistances = [];
+boundaryexpressions = ["abs(y)<1e-8", "abs(x-2*pi)<1e-8", "abs(y-2*pi)<1e-8", "abs(x)<1e-8", "abs(z)<1e-8", "abs(z-2*pi)<1e-8"];
+curvedboundaries = [0, 0, 0, 0, 0, 0];
+curvedboundaryexprs = ["", "", "", "", "", ""];
+periodicboundaries1 = [2, 1, 5];
+periodicexprs1 = ["y", "z", "x", "z", "x", "y"];
+periodicboundaries2 = [4, 3, 6];
+periodicexprs2 = ["y", "z", "x", "z", "x", "y"];
+interfaceconditions = [];
+interfacefluxmap = [];

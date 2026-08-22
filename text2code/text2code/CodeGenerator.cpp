@@ -206,6 +206,8 @@ void CodeGenerator::generateCode2Cpp(const std::string& filename) const {
     os << "          if (funcname == \"Initw\") kname = \"Initwdg\";\n"; 
     os << "          ssv.initfunc2cppfiles(f, ssv.modelpath + \"cpu\" + kname, \"cpu\" + kname, i, false, 0);\n";
     os << "          ssv.initfunc2cppfiles(f, ssv.modelpath + \"Kokkos\" + kname, \"Kokkos\" + kname, i, false, 1);\n";
+    os << "        } else if (funcname == \"Avfield\") {\n";
+    os << "          ssv.dgfunc2cppfiles(f, ssv.modelpath + fname, fname, i, false);\n";
     os << "        } else {\n";
     os << "          ssv.func2cppfiles(f, ssv.modelpath + fname, fname, i, false);\n";
     os << "          if (ssv.jacobianInputs[i].size() > 0) ssv.funcjac2cppfiles(f, ssv.modelpath + jname, jname, i, false);\n";

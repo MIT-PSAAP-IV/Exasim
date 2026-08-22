@@ -483,3 +483,14 @@ examples/NavierStokes/eppler3d/result.m
 examples/NavierStokes/eppler3d/testmesh.m
 /examples/ReactingFlows/reactingisoq2d/hm2d
 /examples/ReactingFlows/reactingisoq2d/le2d
+backend/Model/Text2codeGenerated/Code2Cpp.cpp
+backend/Model/Text2codeGenerated/cpuInitodg.cpp
+backend/Model/Text2codeGenerated/HdgFext.cpp
+backend/Model/Text2codeGenerated/HdgFextonly.cpp
+backend/Model/Text2codeGenerated/HdgFint.cpp
+backend/Model/Text2codeGenerated/HdgFintonly.cpp
+backend/Model/Text2codeGenerated/HdgQoIvolume.cpp
+backend/Model/Text2codeGenerated/KokkosAvfield.cpp
+backend/Model/Text2codeGenerated/KokkosInitodg.cpp
+backend/Model/Text2codeGenerated/KokkosQoIvolume.cpp
+backend/Model/Text2codeGenerated/model_sizes.hpp
