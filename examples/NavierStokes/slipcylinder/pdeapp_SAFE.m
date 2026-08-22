@@ -8,7 +8,7 @@ No-slip phase:
   └─ SAVE: sol0 and T0 (no-slip result)
 
 Slip phase:
-  ├─ Iter 7-9: Use sol from Iter 6 as initial guess
+  ├─ Iter 10-12: Use sol from Iter 9 as initial guess
   ├─ Change sigmaV, sigmaT in pde.physicsparam
   ├─ Keep mesh and spatial discretization same
   ├─ Solver converges quickly (warm start)
