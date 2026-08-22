@@ -1,5 +1,5 @@
 model = "ModelD";
-modelfile = "pdemodel.txt";
+modelfile = "pdemodel1.txt";
 meshfile = "grid.bin";
 discretization = "hdg";
 platform = "cpu";
