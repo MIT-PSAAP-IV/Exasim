@@ -38,7 +38,7 @@ def main():
     pde["saveSolFreq"] = 20
     pde["saveSolOpt"] = 0
 
-    nspatial = 32
+    nspatial = 16
     gam = 1.4
     Re = 1600.0
     Pr = 0.71
@@ -88,8 +88,7 @@ def main():
     ]
 
     exportdir = exasimroot / "apps" / "navierstokes" / "supersonicTGV"
-    #exasim.exporttext2code(pde, mesh, exportdir)
-    exasim.exporttext2codemesh(mesh, exportdir, str(nspatial))
+    exasim.exporttext2code(pde, mesh, exportdir)
 
 
 if __name__ == "__main__":
