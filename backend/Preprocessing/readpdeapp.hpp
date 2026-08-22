@@ -983,7 +983,10 @@ inline PDE initializePDE(InputParams& params, int mpirank=0)
     {
       const std::string rawpath = pde.exasimpath;
       if (!rawpath.empty()) {
-        const std::filesystem::path path = std::filesystem::path(rawpath).lexically_normal();
+        std::filesystem::path path = std::filesystem::path(rawpath).lexically_normal();
+        if (path.filename().empty()) {
+          path = path.parent_path();  // handle trailing slash
+        }
         if (path.filename() == "backend" &&
             std::filesystem::is_directory(path.parent_path() / "backend")) {
           pde.exasimpath = path.parent_path().string();
