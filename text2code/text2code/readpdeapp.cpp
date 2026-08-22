@@ -808,15 +808,23 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     }
     if (params.doubleParams.count("dae_alpha")) {
         pde.dae_alpha = params.doubleParams["dae_alpha"];
+    } else if (params.intParams.count("dae_alpha")) {
+        pde.dae_alpha = static_cast<double>(params.intParams["dae_alpha"]);
     }
     if (params.doubleParams.count("dae_beta")) {
         pde.dae_beta = params.doubleParams["dae_beta"];
+    } else if (params.intParams.count("dae_beta")) {
+        pde.dae_beta = static_cast<double>(params.intParams["dae_beta"]);
     }
     if (params.doubleParams.count("dae_gamma")) {
         pde.dae_gamma = params.doubleParams["dae_gamma"];
+    } else if (params.intParams.count("dae_gamma")) {
+        pde.dae_gamma = static_cast<double>(params.intParams["dae_gamma"]);
     }
     if (params.doubleParams.count("dae_epsilon")) {
         pde.dae_epsilon = params.doubleParams["dae_epsilon"];
+    } else if (params.intParams.count("dae_epsilon")) {
+        pde.dae_epsilon = static_cast<double>(params.intParams["dae_epsilon"]);
     }
      
     pde.dt = params.dt;

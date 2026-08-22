@@ -905,15 +905,23 @@ inline PDE initializePDE(InputParams& params, int mpirank=0)
     }
     if (params.doubleParams.count("dae_alpha")) {
         pde.dae_alpha = params.doubleParams["dae_alpha"];
+    } else if (params.intParams.count("dae_alpha")) {
+        pde.dae_alpha = static_cast<double>(params.intParams["dae_alpha"]);
     }
     if (params.doubleParams.count("dae_beta")) {
         pde.dae_beta = params.doubleParams["dae_beta"];
+    } else if (params.intParams.count("dae_beta")) {
+        pde.dae_beta = static_cast<double>(params.intParams["dae_beta"]);
     }
     if (params.doubleParams.count("dae_gamma")) {
         pde.dae_gamma = params.doubleParams["dae_gamma"];
+    } else if (params.intParams.count("dae_gamma")) {
+        pde.dae_gamma = static_cast<double>(params.intParams["dae_gamma"]);
     }
     if (params.doubleParams.count("dae_epsilon")) {
         pde.dae_epsilon = params.doubleParams["dae_epsilon"];
+    } else if (params.intParams.count("dae_epsilon")) {
+        pde.dae_epsilon = static_cast<double>(params.intParams["dae_epsilon"]);
     }
      
     pde.dt = params.dt;
@@ -969,13 +977,35 @@ inline PDE initializePDE(InputParams& params, int mpirank=0)
     pdeFinalizeDerived(pde);
     
                     
-    pde.exasimpath = trimToSubstringAtLastOccurence(pde.exasimpath, "Exasim");     
-    if (pde.exasimpath == "") {      
-      if (mpirank==0) std::cout<<"exasimpath is not set in "<< params.pdeappfile <<" file.\nWe use the working directory to define exasimpath.\n";
-      std::filesystem::path cwd = std::filesystem::current_path();
-      pde.exasimpath = trimToSubstringAtLastOccurence(cwd, "Exasim");            
-      if (pde.exasimpath == "") 
-        error("exasimpath is not valid. Please set exasimpath to the correct path of the Exasim source code in pdeapp.txt file.");     
+    // Honor an explicitly-set path verbatim unless it is the legacy backend
+    // directory path. If no path is provided, prefer the installed prefix from
+    // EXASIM_PREFIX and use the cwd only as a final fallback.
+    {
+      const std::string rawpath = pde.exasimpath;
+      if (!rawpath.empty()) {
+        std::filesystem::path path = std::filesystem::path(rawpath).lexically_normal();
+        if (path.filename().empty()) {
+          path = path.parent_path();  // handle trailing slash
+        }
+        if (path.filename() == "backend" &&
+            std::filesystem::is_directory(path.parent_path() / "backend")) {
+          pde.exasimpath = path.parent_path().string();
+        } else {
+          pde.exasimpath = rawpath;
+        }
+      } else if (const char* env_prefix = std::getenv("EXASIM_PREFIX");
+                 env_prefix && *env_prefix) {
+        pde.exasimpath = env_prefix;
+        if (mpirank==0) std::cout<<"exasimpath is not set in "<< params.pdeappfile
+                                <<" file.\nWe use EXASIM_PREFIX to define exasimpath.\n";
+      } else {
+        if (mpirank==0) std::cout<<"exasimpath is not set in "<< params.pdeappfile <<" file.\nWe use the working directory to define exasimpath.\n";
+        std::filesystem::path cwd = std::filesystem::current_path();
+        std::string cwdtrim = trimToSubstringAtLastOccurence(cwd, "Exasim");
+        pde.exasimpath = cwdtrim.empty() ? cwd.string() : cwdtrim;
+        if (pde.exasimpath == "")
+          error("exasimpath is not valid. Please set exasimpath to the correct path of the Exasim source code in pdeapp.txt file.");
+      }
     }
     if (mpirank==0) std::cout << "exasimpath = "<<pde.exasimpath<<std::endl;
     

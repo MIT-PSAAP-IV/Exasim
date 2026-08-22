@@ -69,6 +69,9 @@ pde.externalparam = U_inf;
 pde.externalparam(9:13) = U_inf(1:5);
 pde.externalparam(14:18) = 0;
 
+master = Master(pde);
+dist = meshdist3(mesh.f,mesh.dgnodes,master.perm,[4]); % distance to the wall
+
 mesh.boundarycondition = [5 2 1 8]; % symmetry, outflow, inflow, wall
 %fb = [f_in, f_out, f_iso, f_slip, f_grad, f_noncat, f_cat, f_cat_gam, f_cat_gam_consistent];
 mesh.vdg = 1e-4*tanh(dist*100);
