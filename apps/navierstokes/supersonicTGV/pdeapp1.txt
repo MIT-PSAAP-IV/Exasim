@@ -4,7 +4,7 @@ meshfile = "grid.bin";
 discretization = "hdg";
 platform = "cpu";
 
-mpiprocs = 1;
+mpiprocs = 8;
 debugmode = 0;
 runmode = 0;
 modelnumber = 0;
@@ -15,7 +15,7 @@ torder = 3;
 builtinmodelID = 0;
 frontendgenerated = 1;
 nstage = 3;
-gendatain = 0;
+gendatain = 1;
 
 ncu = 5;
 ncv = 1;

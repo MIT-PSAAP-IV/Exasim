@@ -29,7 +29,7 @@ pde.saveSolFreq = 20;
 pde.saveSolOpt = 0;
 % [8e-3, 4e-3, 2e-3, 1.6e-3, 1.5e-3, 1.4e-3, 1.34e-3]
 
-nspatial = 16;
+nspatial = 128;
 gam = 1.4;                      % specific heat ratio
 Re = 1600;                      % Reynolds number
 Pr = 0.71;                      % Prandtl number    
@@ -67,7 +67,8 @@ mesh.periodicexpr = {2, @(p) p([2 3],:), 4, @(p) p([2 3],:); 1, @(p) p([1 3],:),
 
 exasimroot = fullfile(fileparts(mfilename('fullpath')), '..', '..', '..');
 exportdir = fullfile(exasimroot, 'apps', 'navierstokes', 'supersonicTGV');
-exporttext2code(pde, mesh, exportdir);
+%exporttext2code(pde, mesh, exportdir);
+exporttext2codemesh(mesh, exportdir, num2str(nspatial));
 
 %[sol,pde,mesh] = exasim(pde,mesh);
 

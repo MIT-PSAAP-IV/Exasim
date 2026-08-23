@@ -748,14 +748,61 @@ void setperiodicfaces(int* f, int* t, const double* p, const int* t2fl,
         // Match and permute vertices
         int* in = (int*)malloc(v1len * sizeof(int));
         xiny<double>(in, q1, q2, v1len, v2len, ncomp);
+
+        // Legacy behavior applies matched vertex replacements in v1 order and
+        // scans the full connectivity for every match.  For the common periodic
+        // case the source and target vertex sets are disjoint and each source
+        // appears once, so this is exactly equivalent to a single remap pass
+        // over t.  Fall back to the legacy loop if a mapping could be affected
+        // by replacement ordering.
+        std::vector<int> remap(np, -1);
+        std::vector<int> targets;
+        targets.reserve(v1len);
+        bool useRemapPass = true;
         for (int j = 0; j < v1len; ++j) {
-          if (in[j]>=0) {
-            int old_val = v2[in[j]];
-            int new_val = v1[j];
-            for (int k = 0; k < nve * ne; ++k) {
-                if (t[k] == old_val) t[k] = new_val;
+            if (in[j] >= 0) {
+                int old_val = v2[in[j]];
+                int new_val = v1[j];
+                if (old_val < 0 || old_val >= np || new_val < 0 || new_val >= np) {
+                    useRemapPass = false;
+                    break;
+                }
+                if (remap[old_val] == -1) {
+                    remap[old_val] = new_val;
+                    targets.push_back(new_val);
+                } else if (remap[old_val] != new_val) {
+                    useRemapPass = false;
+                    break;
+                }
             }
-          }
+        }
+
+        if (useRemapPass) {
+            for (int new_val : targets) {
+                if (remap[new_val] != -1) {
+                    useRemapPass = false;
+                    break;
+                }
+            }
+        }
+
+        if (useRemapPass) {
+            for (int k = 0; k < nve * ne; ++k) {
+                int old_val = t[k];
+                if (old_val >= 0 && old_val < np && remap[old_val] != -1) {
+                    t[k] = remap[old_val];
+                }
+            }
+        } else {
+            for (int j = 0; j < v1len; ++j) {
+              if (in[j]>=0) {
+                int old_val = v2[in[j]];
+                int new_val = v1[j];
+                for (int k = 0; k < nve * ne; ++k) {
+                    if (t[k] == old_val) t[k] = new_val;
+                }
+              }
+            }
         }
 
 //         te_free(ex1);
@@ -1063,4 +1110,3 @@ Mesh initializeMesh(InputParams& params, PDE& pde)
 
 
 #endif
-
