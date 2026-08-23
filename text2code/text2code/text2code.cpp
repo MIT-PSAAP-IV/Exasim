@@ -43,7 +43,6 @@
 #include <unordered_set>
 #include <cstdlib>
 #include <cmath>
-#include <chrono>
 
 #ifdef HAVE_METIS
 #include <metis.h>

@@ -594,9 +594,6 @@ void setperiodicfaces(int* f, int* t, const double* p, const int* t2fl,
     const int* prd_f1, const int* prd_f2, char** expr1, char** expr2,    
     int dim, int elemtype, int np, int ne, int nprd, int ncomp) 
 {  
-    const char* timing = std::getenv("EXASIM_TIMING_SET_PERIODIC_FACES");
-    auto timeStart = std::chrono::high_resolution_clock::now();
-
     int nve = (elemtype==0) ? (dim + 1) : std::pow(2, dim);    
     int nvf = (dim == 3) ? (dim + elemtype) : dim;     
     int nfe = dim + (dim-1)*elemtype + 1;
@@ -812,12 +809,6 @@ void setperiodicfaces(int* f, int* t, const double* p, const int* t2fl,
 //         te_free(ex2);
 
         CPUFREE(i1); CPUFREE(i2); CPUFREE(v1); CPUFREE(v2); CPUFREE(p1); CPUFREE(p2); CPUFREE(q1); CPUFREE(q2); CPUFREE(in);
-    }
-
-    if (timing && timing[0] != '\0') {
-        auto timeEnd = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> elapsed = timeEnd - timeStart;
-        std::cout << "setperiodicfaces time: " << elapsed.count() << " seconds\n";
     }
 }
 
