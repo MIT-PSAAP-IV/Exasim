@@ -494,3 +494,4 @@ backend/Model/Text2codeGenerated/KokkosAvfield.cpp
 backend/Model/Text2codeGenerated/KokkosInitodg.cpp
 backend/Model/Text2codeGenerated/KokkosQoIvolume.cpp
 backend/Model/Text2codeGenerated/model_sizes.hpp
+/examples/NavierStokes/auplate_transient2d
