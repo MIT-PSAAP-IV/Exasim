@@ -151,7 +151,7 @@ public:
     //   U1      [npe_target * nc * ne]  out
     //   U       [npe_s      * nc * ne]  in (source basis)
     //   shapegs [nge * npe_s]           source shape values at the target Gauss points
-    void projectField(dstype* U1, const dstype* U, const dstype* shapegs, Int npe_s, Int nc, Int backend);
+    void projectField(dstype* U1, dstype* U, dstype* shapegs, Int npe_s, Int nc, Int backend);
     // On-device validation of the batched projection: an identity projection
     // (source basis == target basis) must reproduce a real field to ~machine
     // precision on every MPI rank. Runs on the active backend; gated by the
@@ -177,7 +177,7 @@ extern template void CDiscretizationT<::dstype, ::Int>::finalizeConstruction(
     Int, ExasimExecutionMode, Int, Int, Int, Int, Int, Int);
 extern template void CDiscretizationT<::dstype, ::Int>::compGeometry(Int);
 extern template void CDiscretizationT<::dstype, ::Int>::compMassInverse(Int);
-extern template void CDiscretizationT<::dstype, ::Int>::projectField(dstype*, const dstype*, const dstype*, Int, Int, Int);
+extern template void CDiscretizationT<::dstype, ::Int>::projectField(dstype*, dstype*, dstype*, Int, Int, Int);
 extern template void CDiscretizationT<::dstype, ::Int>::projectionSelfTest(Int);
 extern template void CDiscretizationT<::dstype, ::Int>::DG2CG(dstype*, dstype*, dstype*, Int, Int, Int, Int);
 extern template void CDiscretizationT<::dstype, ::Int>::DG2CG2(dstype*, dstype*, dstype*, Int, Int, Int, Int);

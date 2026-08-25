@@ -36,8 +36,11 @@
 #ifndef __DGPROJECTION_BACKEND
 #define __DGPROJECTION_BACKEND
 
+// NB: U and shapegs are non-const because the backend BLAS wrappers
+// (Gauss2Node/Node2Gauss) take mutable T* for all matrix operands, matching the
+// rest of the backend (ComputeMinv et al.). They are not modified here.
 template <class T=dstype, class I=Int>
-inline void DGProjection(T* U1, const T* U, const T* shapegs, Int npe_s, Int nc,
+inline void DGProjection(T* U1, T* U, T* shapegs, Int npe_s, Int nc,
         solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master,
         meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
 {

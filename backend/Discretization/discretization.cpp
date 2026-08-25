@@ -665,7 +665,7 @@ void CDiscretizationT<T, I>::compMassInverse(Int backend) {
 // Batched L2 projection between nodal bases -- thin wrapper over the backend
 // primitive so callers get the CPU/CUDA/HIP + MPI (element-local) path.
 template <class T, class I>
-void CDiscretizationT<T, I>::projectField(dstype* U1, const dstype* U, const dstype* shapegs,
+void CDiscretizationT<T, I>::projectField(dstype* U1, dstype* U, dstype* shapegs,
         Int npe_s, Int nc, Int backend) {
     DGProjection(U1, U, shapegs, npe_s, nc, sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
 }
@@ -804,7 +804,7 @@ template void CDiscretizationT<::dstype, ::Int>::finalizeConstruction(
     Int, ExasimExecutionMode, Int, Int, Int, Int, Int, Int);
 template void CDiscretizationT<::dstype, ::Int>::compGeometry(Int);
 template void CDiscretizationT<::dstype, ::Int>::compMassInverse(Int);
-template void CDiscretizationT<::dstype, ::Int>::projectField(dstype*, const dstype*, const dstype*, Int, Int, Int);
+template void CDiscretizationT<::dstype, ::Int>::projectField(dstype*, dstype*, dstype*, Int, Int, Int);
 template void CDiscretizationT<::dstype, ::Int>::projectionSelfTest(Int);
 template void CDiscretizationT<::dstype, ::Int>::DG2CG(dstype*, dstype*, dstype*, Int, Int, Int, Int);
 template void CDiscretizationT<::dstype, ::Int>::DG2CG2(dstype*, dstype*, dstype*, Int, Int, Int, Int);
