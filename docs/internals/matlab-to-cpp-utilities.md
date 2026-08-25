@@ -198,6 +198,20 @@ The gather is an integer-exact index copy on every backend; the rotation check's
 tolerance scales with `sizeof(dstype)` because the builtin consumer runs both a
 double and a single-precision model.
 
+**`l2eprojection`** is validated by `l2eProjectionSelfTest` (`EXASIM_TEST_L2EPROJ`),
+which projects the coordinate field `f=x` and checks reproduction at the nodes
+(`κ(M)`-limited, like the projection identity):
+
+| target | backend | identity relerr |
+|---|---|---|
+| laptop CPU (np=1, np=2 MPI) | 1 | PASS (100%) |
+| CSAIL dgx-b, **NVIDIA V100** | 2 (CUDA) | **1.887e-15** |
+| LLNL tuolumne, **AMD MI300A** | 3 (HIP) | pending (RSA token re-arm) |
+
+The MI300A run is only gated by the one-time RSA SecurID re-arm (`ssh -fN tol-b`);
+the HIP path itself is already exercised on that machine by the projection and
+extrusion self-tests.
+
 ### Next step
 
 A registered ctest (rather than an env-gated hook) and a `C≠M` cross-order
