@@ -576,6 +576,45 @@ CSolution<>* ExasimSolver::Model(int i)
     return models_[i].get();
 }
 
+// Persist / reload a model solution to per-rank binary files for coupled-run
+// restart. These sit ALONGSIDE the streamed dataout/outudg output but write a
+// caller-named directory and a single deterministic frame, so a coupling driver
+// can snapshot the exact end-of-step fluid state and reload it byte-for-byte on
+// resume. writearray2file/readarrayfromfile move device<->host as needed, so the
+// same code path serves the cpu and hip backends. Same partition/rank count is
+// assumed (per-rank, no re-scatter); the read reuses the existing buffers.
+int ExasimSolver::WriteSolution(const int modelnumber, const std::string& dir)
+{
+    if (!IsInitialized()) return 1;
+    CSolution<>* m = Model(modelnumber);
+    if (m == nullptr) return 1;
+    commonstruct& common = m->disc.common;
+    const Int rank = common.mpiRank - common.outputparams.fileoffset;
+    const std::string base = dir + "/fluid_np" + NumberToString(rank);
+    writearray2file(base + "_udg.bin", m->disc.sol.udg, common.sizes.ndofudg1, backend_);
+    if (common.components.ncw > 0)
+        writearray2file(base + "_wdg.bin", m->disc.sol.wdg, common.sizes.ndofw1, backend_);
+    if (common.spatialScheme == 1)
+        writearray2file(base + "_uh.bin", m->disc.sol.uh, common.sizes.ndofuhat, backend_);
+    return 0;
+}
+
+int ExasimSolver::ReadSolution(const int modelnumber, const std::string& dir)
+{
+    if (!IsInitialized()) return 1;
+    CSolution<>* m = Model(modelnumber);
+    if (m == nullptr) return 1;
+    commonstruct& common = m->disc.common;
+    const Int rank = common.mpiRank - common.outputparams.fileoffset;
+    const std::string base = dir + "/fluid_np" + NumberToString(rank);
+    readarrayfromfile(base + "_udg.bin", &m->disc.sol.udg, common.sizes.ndofudg1, backend_, (Int)0);
+    if (common.components.ncw > 0)
+        readarrayfromfile(base + "_wdg.bin", &m->disc.sol.wdg, common.sizes.ndofw1, backend_, (Int)0);
+    if (common.spatialScheme == 1)
+        readarrayfromfile(base + "_uh.bin", &m->disc.sol.uh, common.sizes.ndofuhat, backend_, (Int)0);
+    return 0;
+}
+
 int ExasimSolver::AddQoI(int modelindex, const std::string& name, int kind,
                          int boundary, int offset, int ncomp)
 {
