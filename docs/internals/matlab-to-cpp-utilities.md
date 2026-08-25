@@ -135,13 +135,40 @@ Ranked by value × tractability for maneuvering solutions.
   `DGProjection` straight and curved algorithms, asserting they match the scalar
   oracle (including a curved element where the Jacobian genuinely varies). Both
   tests compile and pass under `-Wall -Wextra`.
+- `CDiscretizationT::projectField(...)` and `projectionSelfTest(...)`
+  (`discretization.{h,cpp}`) — expose the batched projection as a discretization
+  method and run an on-device identity self-test (gated by
+  `EXASIM_TEST_PROJECTION`) during construction, per MPI rank.
 
-### Validation status / next step
+### On-device validation (done)
 
-The batched **decomposition** (strides, layouts, straight/curved split, jac
-weighting, accumulate-vs-overwrite) is pinned to the oracle by
-`dgprojection_backend_test.cpp` on the host. `DGProjection` calls the real
-primitives with identical arguments. What remains is on-device numerical
-validation in the Kokkos build — best done by exposing `DGProjection` as a
-`CDiscretizationT` method (source-order master + output buffer) and adding a
-ctest that projects a known field and compares to the reference.
+`projectionSelfTest` runs an **identity** projection (source basis == target
+basis) of a real field during `finalizeConstruction`, on whatever backend/device
+the solver is on, independently per MPI rank. For identity `C == M` exactly, so
+`U1 = M⁻¹(M U)` and the residual is bounded by the mass-matrix conditioning
+`κ(M)·ε` — machine precision when `jac` is constant (straight), larger on curved
+high-order elements (the projection is exact; this is inversion conditioning, and
+the `C≠M` math is pinned to machine precision by the host oracle). The gate is
+tight on the straight path (`1e-9`) and conditioning-tolerant on curved (`1e-3`).
+
+Measured on the `dgprojection` pass (builtin consumer, 256 elements):
+
+| target | backend | mesh | identity relerr |
+|---|---|---|---|
+| laptop CPU (np=1) | 1 | straight | 4.4e-16 |
+| laptop CPU (np=1) | 1 | curved p3 | 4.8e-7 |
+| laptop CPU (np=2, MPI) | 1 | both | PASS (each rank) |
+| CSAIL dgx-b, **NVIDIA V100** | 2 (CUDA) | straight | **1.332e-15** |
+| LLNL tuolumne, **AMD MI300A** | 3 (HIP) | straight | **1.221e-15** |
+
+The GPU runs are real Exasim GPU solves (`CUDA Device: 0` / `HIP Device: 0`, then
+Newton converging) with the projection self-test firing at construction. The
+batched path therefore runs correctly on both GPU vendors and, being
+element-local, on every MPI rank without communication.
+
+### Next step
+
+A registered ctest (rather than an env-gated hook) and a `C≠M` cross-order
+on-device check (needs a second-order master, i.e. `mkmasternodes` + `mkshape` in
+the backend) would tighten the on-device coverage from "identity + host-oracle
+math" to "device cross-order vs reference".
