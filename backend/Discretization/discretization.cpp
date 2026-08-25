@@ -454,6 +454,9 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
     // Optional: validate the 2D->3D extrusion kernels on this backend/rank.
     if (getenv("EXASIM_TEST_EXTRUDE") != nullptr)
         extrusionSelfTest(backend);
+    // Optional: validate the L2 (analytic->DG) projection on this backend/rank.
+    if (getenv("EXASIM_TEST_L2EPROJ") != nullptr)
+        l2eProjectionSelfTest(backend);
 
     if (common.spatialScheme > 0)  { // HDG
       Int neb = common.meshsizes.neb; // maximum number of elements per block
@@ -818,6 +821,54 @@ void CDiscretizationT<T, I>::extrusionSelfTest(Int backend) {
     if (!ok) error("Extrude self-test FAILED");
 }
 
+// On-device validation of the L2 (analytic->DG) projection. Projects the
+// coordinate field f = x (sampled at the Gauss points, fg = shapegt * x_nodes)
+// and checks it is reproduced at the nodes. Because x is exactly representable
+// in the porder basis, the load satisfies F = M * x_nodes, so U1 = M^{-1}F =
+// x_nodes up to mass-matrix conditioning -- machine precision on straight
+// elements, larger on curved high-order ones (same kappa(M) behaviour as the
+// projection identity; the analytic-f exactness is pinned by the host oracle).
+template <class T, class I>
+void CDiscretizationT<T, I>::l2eProjectionSelfTest(Int backend) {
+    Int npe = common.grid.npe;
+    Int nge = common.grid.nge;
+    Int ncx = common.components.ncx;
+    Int ne  = common.meshsizes.ne;
+    if (ne <= 0 || npe <= 0 || nge <= 0 || ncx <= 0) return;
+    Int Nn = npe * ne;   // nodal field (nc = 1)
+    Int Ng = nge * ne;   // Gauss field
+
+    dstype *xnod=nullptr, *fg=nullptr, *U1=nullptr, *hd=nullptr, *hu=nullptr;
+    TemplateMalloc(&xnod, Nn, backend);
+    TemplateMalloc(&fg,   Ng, backend);
+    TemplateMalloc(&U1,   Nn, backend);
+    ArrayExtract(xnod, sol.xdg, npe, ncx, ne, 0, npe, 0, 1, 0, ne);          // x at nodes
+    Node2Gauss(common.cublasHandle, fg, xnod, master.shapegt, nge, npe, ne, backend); // x at Gauss pts
+    L2eProjection(U1, fg, (Int)1, sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
+
+    TemplateMalloc(&hd, Nn, 0);
+    TemplateMalloc(&hu, Nn, 0);
+    TemplateCopytoHost(hd, U1,   Nn, backend);
+    TemplateCopytoHost(hu, xnod, Nn, backend);
+    dstype emax = (dstype)0, umax = (dstype)0;
+    for (Int i = 0; i < Nn; i++) {
+        dstype a = hd[i] - hu[i]; if (a < 0) a = -a;
+        dstype b = hu[i] < 0 ? -hu[i] : hu[i];
+        if (a > emax) emax = a;
+        if (b > umax) umax = b;
+    }
+    dstype relerr = (umax > (dstype)0) ? emax / umax : emax;
+    dstype tol = (common.grid.curvedMesh == 0) ? (dstype)1e-9 : (dstype)1e-3;
+    printf("[rank %d] L2eProjection self-test: elems=%d relerr=%.3e (curvedMesh=%d backend=%d) -> %s\n",
+           (int)common.mpiRank, (int)ne, (double)relerr, (int)common.grid.curvedMesh, (int)backend,
+           (relerr < tol) ? "PASS" : "FAIL");
+
+    TemplateFree(hd, 0); TemplateFree(hu, 0);
+    TemplateFree(xnod, backend); TemplateFree(fg, backend); TemplateFree(U1, backend);
+
+    if (!(relerr < tol)) error("L2eProjection self-test FAILED (relerr exceeds tolerance)");
+}
+
 // ComputeLDGPreconditioner re-homed to CPreconditioner (C4).
 
 // (hdgAssembleLinearSystem / hdgAssembleResidual moved to CAssembler -- see assembler.cpp)
@@ -902,6 +953,7 @@ template void CDiscretizationT<::dstype, ::Int>::compMassInverse(Int);
 template void CDiscretizationT<::dstype, ::Int>::projectField(dstype*, dstype*, dstype*, Int, Int, Int);
 template void CDiscretizationT<::dstype, ::Int>::projectionSelfTest(Int);
 template void CDiscretizationT<::dstype, ::Int>::extrusionSelfTest(Int);
+template void CDiscretizationT<::dstype, ::Int>::l2eProjectionSelfTest(Int);
 template void CDiscretizationT<::dstype, ::Int>::DG2CG(dstype*, dstype*, dstype*, Int, Int, Int, Int);
 template void CDiscretizationT<::dstype, ::Int>::DG2CG2(dstype*, dstype*, dstype*, Int, Int, Int, Int);
 template void CDiscretizationT<::dstype, ::Int>::DG2CG3(dstype*, dstype*, dstype*, Int, Int, Int, Int);

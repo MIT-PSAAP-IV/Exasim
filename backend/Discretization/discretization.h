@@ -162,6 +162,11 @@ public:
     // the active backend and checks the gather map + rotation per MPI rank.
     // Needs no mesh (pure index/data-parallel op); gated by EXASIM_TEST_EXTRUDE.
     void extrusionSelfTest(Int backend);
+    // On-device validation of the L2 (analytic->DG) projection kernel
+    // (L2eProjection, l2eprojection_backend.hpp): projects the coordinate field
+    // (f = x, sampled at the Gauss points) and checks it is reproduced at the
+    // nodes per MPI rank. Gated by EXASIM_TEST_L2EPROJ.
+    void l2eProjectionSelfTest(Int backend);
 
     // (interface/boundary sampling methods moved to CInterfaceSampler)
 };
@@ -185,6 +190,7 @@ extern template void CDiscretizationT<::dstype, ::Int>::compMassInverse(Int);
 extern template void CDiscretizationT<::dstype, ::Int>::projectField(dstype*, dstype*, dstype*, Int, Int, Int);
 extern template void CDiscretizationT<::dstype, ::Int>::projectionSelfTest(Int);
 extern template void CDiscretizationT<::dstype, ::Int>::extrusionSelfTest(Int);
+extern template void CDiscretizationT<::dstype, ::Int>::l2eProjectionSelfTest(Int);
 extern template void CDiscretizationT<::dstype, ::Int>::DG2CG(dstype*, dstype*, dstype*, Int, Int, Int, Int);
 extern template void CDiscretizationT<::dstype, ::Int>::DG2CG2(dstype*, dstype*, dstype*, Int, Int, Int, Int);
 extern template void CDiscretizationT<::dstype, ::Int>::DG2CG3(dstype*, dstype*, dstype*, Int, Int, Int, Int);

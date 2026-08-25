@@ -86,7 +86,7 @@ Ranked by value × tractability for maneuvering solutions.
 |---|---|---|---|---|
 | **1** | `dgprojection` | projection | ✳️ **this PR** | Order-to-order L2 projection on a fixed mesh: `M\(C·U)` with cross-mass `C=∫φ_tgt φ_src`. The C++ backend had `M`, `M⁻¹`, `ApplyMinv`, `mkshape`, `volgeom` — but **no cross-mass and no `M\(C·U)` glue**. Shipped as a scalar reference (`dgprojection.{hpp,cpp}`) **and** a batched, GPU/MPI-ready backend path (`dgprojection_backend.hpp`, `DGProjection<T,I>`). |
 | 2 | `volgeom` (standalone, with `Xx`) | geometry | 🟡 partial | `volgeom_det` landed in this PR (determinant path). A full standalone returning inverse-Jacobian `Xx` would retire the 6 nested copies. Vectorized C++ exists as `ElemGeomBlock` but not as a self-contained utility. |
-| 3 | `l2eprojection` | projection | 🔴 missing | L2-project an **analytic** `func(x,param,t)` onto the DG space (init / MMS / error setup). Same `M` machinery as #1 plus a load vector `F=∫φ f`; needs a callback mechanism. |
+| 3 | `l2eprojection` | projection | ✳️ **this PR** | L2-project a function onto the DG space (init / MMS / error setup). Same `M` machinery as #1 plus a load vector `F=∫φ f jac`. Shipped as scalar reference (`l2eprojection.{hpp,cpp}`) + backend Kokkos kernel (`l2eprojection_backend.hpp`, `L2eProjection`); the func→`fg` (f at Gauss points) step is the caller's, so the device path is pure linear algebra. |
 | 4 | `gradu` | gradient | 🔴 missing | Physical gradient of a DG field at nodes (chain rule + inverse Jacobian). Only the LDG auxiliary `q=∇u` exists in C++; a direct nodal-gradient utility is absent. |
 | 5 | `graduface` | gradient | 🔴 missing | HDG face-lifted gradient `∫(u−uhat)·n·jac`. Intricate (nested `facegeom`, HDG face indexing) but self-contained. |
 | 6 | `extrudesol`, `extrudecoord`, `extrudevelocity` | extrusion | ✳️ **this PR** | 2D→3D solution/coordinate extrusion (z-layers × slabs) and radial→Cartesian velocity rotation. Was entirely absent in C++. Shipped as a scalar reference (`extrudesol.{hpp,cpp}`) **and** backend-portable Kokkos kernels (`extrudesol_backend.hpp`, `ExtrudeSolution`/`ExtrudeCoord`/`ExtrudeVelocity`) — one `parallel_for` each, GPU/CPU, element-local (MPI-ready). |
@@ -148,6 +148,12 @@ Ranked by value × tractability for maneuvering solutions.
   included via `residual.hpp`. `CDiscretizationT::extrusionSelfTest(...)` runs a
   mesh-free on-device check (synthetic 2D field: exact gather + `vx²+vy²==1`
   rotation) per MPI rank, gated by `EXASIM_TEST_EXTRUDE`.
+- `backend/Discretization/l2eprojection.{hpp,cpp}` + `l2eprojection_test.cpp` +
+  `l2eprojection_backend.hpp` (`L2eProjection`) — L2 projection of a Gauss-sampled
+  load onto the DG space (`M⁻¹F`, `F=∫φ f jac`), scalar reference + Kokkos kernel
+  (straight fast path + curved). `CDiscretizationT::l2eProjectionSelfTest(...)`
+  projects the coordinate field `f=x` and checks reproduction at the nodes per
+  rank, gated by `EXASIM_TEST_L2EPROJ`.
 
 ### On-device validation (done)
 
