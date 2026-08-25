@@ -29,6 +29,18 @@ g++ -std=c++17 -O2 backend/Discretization/dgprojection.cpp \
 routine is proven, a thin Kokkos/`CDiscretizationT` entry point can call it (or
 mirror it as a device kernel) without re-litigating the math.
 
+For a routine that runs over the whole mesh (not a one-off), the scalar
+reference is the **oracle**, not the shipping implementation. The performant
+version is written in the backend idiom (`massinv.hpp` / `getuhat.hpp`): a
+templated `<T=dstype,I=Int>` function that block-iterates `common.eblks` and
+expresses the math as batched calls to the existing primitives
+(`ShapJac`, `Node2Gauss`, `Gauss2Node`, `Inverse`, `ArrayGemmBatch1`, …), which
+already dispatch CPU / CUDA / HIP by the `backend` argument. Because these
+operations are element-local, running them on this rank's blocks is inherently
+MPI-ready — no halo exchange. `dgprojection` ships both: the scalar reference
+(`dgprojection.*`) and the batched backend path (`dgprojection_backend.hpp`),
+cross-checked against each other by `dgprojection_backend_test.cpp`.
+
 **Do `volgeom` early.** The Jacobian/determinant kernel is copy-pasted as a
 nested function inside `dgprojection.m`, `l2eprojection.m`, `massinv.m`,
 `averagevector.m`, `calerror.m`, and `gradu.m`. `dgprojection.cpp` exposes it as
@@ -72,7 +84,7 @@ Ranked by value × tractability for maneuvering solutions.
 
 | # | MATLAB | category | status | notes / plan |
 |---|---|---|---|---|
-| **1** | `dgprojection` | projection | ✳️ **this PR** | Order-to-order L2 projection on a fixed mesh: `M\(C·U)` with cross-mass `C=∫φ_tgt φ_src`. The C++ backend had `M`, `M⁻¹`, `ApplyMinv`, `mkshape`, `volgeom` — but **no cross-mass and no `M\(C·U)` glue**. Ported as `backend/Discretization/dgprojection.{hpp,cpp}` + `dgprojection_test.cpp`. |
+| **1** | `dgprojection` | projection | ✳️ **this PR** | Order-to-order L2 projection on a fixed mesh: `M\(C·U)` with cross-mass `C=∫φ_tgt φ_src`. The C++ backend had `M`, `M⁻¹`, `ApplyMinv`, `mkshape`, `volgeom` — but **no cross-mass and no `M\(C·U)` glue**. Shipped as a scalar reference (`dgprojection.{hpp,cpp}`) **and** a batched, GPU/MPI-ready backend path (`dgprojection_backend.hpp`, `DGProjection<T,I>`). |
 | 2 | `volgeom` (standalone, with `Xx`) | geometry | 🟡 partial | `volgeom_det` landed in this PR (determinant path). A full standalone returning inverse-Jacobian `Xx` would retire the 6 nested copies. Vectorized C++ exists as `ElemGeomBlock` but not as a self-contained utility. |
 | 3 | `l2eprojection` | projection | 🔴 missing | L2-project an **analytic** `func(x,param,t)` onto the DG space (init / MMS / error setup). Same `M` machinery as #1 plus a load vector `F=∫φ f`; needs a callback mechanism. |
 | 4 | `gradu` | gradient | 🔴 missing | Physical gradient of a DG field at nodes (chain rule + inverse Jacobian). Only the LDG auxiliary `q=∇u` exists in C++; a direct nodal-gradient utility is absent. |
@@ -107,10 +119,29 @@ Ranked by value × tractability for maneuvering solutions.
 
 ## Done in this PR
 
-- `backend/Discretization/dgprojection.hpp` — clean host-side declarations.
-- `backend/Discretization/dgprojection.cpp` — `dgprojection` (order-to-order L2
-  projection) and `volgeom_det`.
-- `backend/Discretization/dgprojection_test.cpp` — standalone test:
-  `volgeom_det` determinants (1D/2D/3D), an identity round-trip on curved,
-  multi-element geometry, and cross-basis p1→p2 linear exactness with a p2→p1
-  round trip. Compiles and passes with `-Wall -Wextra`.
+- `backend/Discretization/dgprojection.{hpp,cpp}` — portable **scalar reference**
+  (`dgprojection`) and `volgeom_det`.
+- `backend/Discretization/dgprojection_backend.hpp` — **performant backend path**
+  `DGProjection<T,I>`: batched, CPU/CUDA/HIP-portable, MPI-ready (element-local
+  over `common.eblks`), reusing `ShapJac` / `Gauss2Node` / `Inverse` /
+  `ArrayGemmBatch1` exactly as `ComputeMinv` does. Straight meshes use a single
+  shared master operator `P0 = M0⁻¹C0` (the Jacobian cancels); curved meshes take
+  the per-element path. Included via `residual.hpp` alongside `massinv.hpp`.
+- `backend/Discretization/dgprojection_test.cpp` — oracle test: `volgeom_det`
+  determinants (1D/2D/3D), identity round-trip on curved multi-element geometry,
+  cross-basis p1→p2 exactness + p2→p1 round trip.
+- `backend/Discretization/dgprojection_backend_test.cpp` — reimplements the
+  backend primitives with their exact semantics/layouts and replays the
+  `DGProjection` straight and curved algorithms, asserting they match the scalar
+  oracle (including a curved element where the Jacobian genuinely varies). Both
+  tests compile and pass under `-Wall -Wextra`.
+
+### Validation status / next step
+
+The batched **decomposition** (strides, layouts, straight/curved split, jac
+weighting, accumulate-vs-overwrite) is pinned to the oracle by
+`dgprojection_backend_test.cpp` on the host. `DGProjection` calls the real
+primitives with identical arguments. What remains is on-device numerical
+validation in the Kokkos build — best done by exposing `DGProjection` as a
+`CDiscretizationT` method (source-order master + output buffer) and adding a
+ctest that projects a known field and compares to the reference.

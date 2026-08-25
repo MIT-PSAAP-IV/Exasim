@@ -43,6 +43,7 @@
 
 #include "geometry.hpp"
 #include "massinv.hpp"
+#include "dgprojection_backend.hpp"
 #include "qequation.hpp"
 #include "wequation.hpp"
 #include "uequation.hpp"

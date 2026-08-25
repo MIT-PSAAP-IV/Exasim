@@ -39,6 +39,13 @@
 // The routine is deliberately self-contained (no Kokkos / solver structs, no
 // BLAS dependency), mirroring the eulereval.* / reynolds_averages_3d.* utility
 // ports: it can be compiled and unit-tested on its own.
+//
+// This host version is the portable SCALAR REFERENCE / oracle. The performant,
+// backend-portable (CPU / CUDA / HIP) and MPI-ready implementation is
+// DGProjection() in dgprojection_backend.hpp, which expresses the same math as
+// batched calls to the existing backend primitives (ShapJac / Gauss2Node /
+// Inverse / ArrayGemmBatch1) over this rank's element blocks. The two are kept
+// in lockstep by dgprojection_backend_test.cpp.
 
 // Determinant of the nd x nd Jacobian J with layout J[a*nd + b] = dx_b/dxi_a,
 // matching frontends/Matlab/Utilities/volgeom.m (nd = 1, 2, 3). Throws
