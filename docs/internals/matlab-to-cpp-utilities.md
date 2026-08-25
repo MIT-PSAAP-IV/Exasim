@@ -175,6 +175,23 @@ Newton converging) with the projection self-test firing at construction. The
 batched path therefore runs correctly on both GPU vendors and, being
 element-local, on every MPI rank without communication.
 
+The **extrusion** kernels (`ExtrudeSolution`/`ExtrudeVelocity`) are validated the
+same way by `extrusionSelfTest` (`EXASIM_TEST_EXTRUDE`): a synthetic 2D field
+gives an exact gather (`gather_maxmiss=0`) and a `vx²+vy²==1` rotation identity
+within precision, per rank:
+
+| target | backend | gather miss | rotation err |
+|---|---|---|---|
+| laptop CPU (np=1) double model | 1 | 0 | 2.2e-16 |
+| laptop CPU (np=1) single model | 1 | 0 | 6.0e-8 (float; prec-scaled PASS) |
+| laptop CPU (np=2, MPI) | 1 | 0 | PASS (each rank) |
+| CSAIL dgx-b, **NVIDIA V100** | 2 (CUDA) | 0 | 0.0 |
+| LLNL tuolumne, **AMD MI300A** | 3 (HIP) | 0 | 1.1e-16 |
+
+The gather is an integer-exact index copy on every backend; the rotation check's
+tolerance scales with `sizeof(dstype)` because the builtin consumer runs both a
+double and a single-precision model.
+
 ### Next step
 
 A registered ctest (rather than an env-gated hook) and a `C≠M` cross-order
