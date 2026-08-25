@@ -48,6 +48,7 @@
 #define __DISCRETIZATION
 
 #include <cstring>
+#include <cstdlib>
 
 #ifdef HAVE_CUDA
 #include "gpuDeviceInfo.cpp"
@@ -447,6 +448,10 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
     
     // (LDG initial-q recovery moved to CResidual::recoverInitialState, called by CSolution)
 
+    // Optional: validate the batched DGProjection path on this backend/rank.
+    if (getenv("EXASIM_TEST_PROJECTION") != nullptr)
+        projectionSelfTest(backend);
+
     if (common.spatialScheme > 0)  { // HDG
       Int neb = common.meshsizes.neb; // maximum number of elements per block
       Int npe = common.grid.npe; // number of nodes on master element
@@ -654,7 +659,68 @@ void CDiscretizationT<T, I>::compGeometry(Int backend) {
 // Compute and store the inverse of the mass matrix
 template <class T, class I>
 void CDiscretizationT<T, I>::compMassInverse(Int backend) {
-    ComputeMinv(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);    
+    ComputeMinv(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
+}
+
+// Batched L2 projection between nodal bases -- thin wrapper over the backend
+// primitive so callers get the CPU/CUDA/HIP + MPI (element-local) path.
+template <class T, class I>
+void CDiscretizationT<T, I>::projectField(dstype* U1, const dstype* U, const dstype* shapegs,
+        Int npe_s, Int nc, Int backend) {
+    DGProjection(U1, U, shapegs, npe_s, nc, sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
+}
+
+// On-device validation of DGProjection: an identity projection (source basis ==
+// target basis, so shapegs is the target master's Gauss-point shape values) must
+// reproduce a real field to ~machine precision. This exercises the whole batched
+// pipeline -- geometry/jac, ShapJac, Gauss2Node, Inverse, ArrayGemmBatch1, the
+// straight/curved dispatch, device memory and the blas handle -- on the active
+// backend, and independently on every MPI rank (the projection is element-local).
+// The C != M *math* is validated separately on the host analytic oracle
+// (backend/Discretization/dgprojection_backend_test.cpp).
+template <class T, class I>
+void CDiscretizationT<T, I>::projectionSelfTest(Int backend) {
+    Int npe = common.grid.npe;
+    Int ncx = common.components.ncx;
+    Int ne  = common.meshsizes.ne;   // rank-local element count
+    if (ne <= 0 || npe <= 0 || ncx <= 0) return;
+    Int N = npe * ne;                // nc = 1 (project the x-coordinate field)
+
+    dstype *U=nullptr, *U1=nullptr, *hd=nullptr, *hu=nullptr;
+    TemplateMalloc(&U,  N, backend);
+    TemplateMalloc(&U1, N, backend);
+    // U = component 0 of xdg  ->  a real, spatially varying field on the target basis
+    ArrayExtract(U, sol.xdg, npe, ncx, ne, 0, npe, 0, 1, 0, ne);
+
+    // identity projection: source basis == target basis (shapegs = master.shapegt values block)
+    projectField(U1, U, master.shapegt, npe, 1, backend);
+
+    // U1 <- U1 - U   (should be ~0 elementwise)
+    ArrayAXPBY(U1, U1, U, (dstype)1.0, (dstype)(-1.0), N);
+
+    // check per rank on the host (validates each rank's element-local projection)
+    TemplateMalloc(&hd, N, 0);
+    TemplateMalloc(&hu, N, 0);
+    TemplateCopytoHost(hd, U1, N, backend);
+    TemplateCopytoHost(hu, U,  N, backend);
+    dstype emax = (dstype)0, umax = (dstype)0;
+    for (Int i = 0; i < N; i++) {
+        dstype a = hd[i] < 0 ? -hd[i] : hd[i];
+        dstype b = hu[i] < 0 ? -hu[i] : hu[i];
+        if (a > emax) emax = a;
+        if (b > umax) umax = b;
+    }
+    dstype relerr = (umax > (dstype)0) ? emax / umax : emax;
+    printf("[rank %d] DGProjection identity self-test: elems=%d relerr=%.3e (curvedMesh=%d backend=%d)\n",
+           (int)common.mpiRank, (int)ne, (double)relerr, (int)common.grid.curvedMesh, (int)backend);
+
+    TemplateFree(hd, 0);
+    TemplateFree(hu, 0);
+    TemplateFree(U,  backend);
+    TemplateFree(U1, backend);
+
+    if (!(relerr < (dstype)1e-8))
+        error("DGProjection self-test FAILED (relerr too large)");
 }
 
 // ComputeLDGPreconditioner re-homed to CPreconditioner (C4).
@@ -738,6 +804,8 @@ template void CDiscretizationT<::dstype, ::Int>::finalizeConstruction(
     Int, ExasimExecutionMode, Int, Int, Int, Int, Int, Int);
 template void CDiscretizationT<::dstype, ::Int>::compGeometry(Int);
 template void CDiscretizationT<::dstype, ::Int>::compMassInverse(Int);
+template void CDiscretizationT<::dstype, ::Int>::projectField(dstype*, const dstype*, const dstype*, Int, Int, Int);
+template void CDiscretizationT<::dstype, ::Int>::projectionSelfTest(Int);
 template void CDiscretizationT<::dstype, ::Int>::DG2CG(dstype*, dstype*, dstype*, Int, Int, Int, Int);
 template void CDiscretizationT<::dstype, ::Int>::DG2CG2(dstype*, dstype*, dstype*, Int, Int, Int, Int);
 template void CDiscretizationT<::dstype, ::Int>::DG2CG3(dstype*, dstype*, dstype*, Int, Int, Int, Int);
