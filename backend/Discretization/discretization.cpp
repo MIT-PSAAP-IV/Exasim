@@ -801,9 +801,14 @@ void CDiscretizationT<T, I>::extrusionSelfTest(Int backend) {
         if (e < 0) e = -e; if (e > vmax) vmax = e;
     }
 
-    bool ok = (gmax == 0) && (vmax < (dstype)1e-10);
-    printf("[rank %d] Extrude self-test: 3Delems=%d gather_maxmiss=%d rot_err=%.3e (backend=%d) -> %s\n",
-           (int)common.mpiRank, (int)NE3, (int)gmax, (double)vmax, (int)backend, ok ? "PASS" : "FAIL");
+    // Gather must be exact (integer index copy). The rotation identity
+    // vx^2+vy^2==1 is a cos/sin round-off check, so its tolerance must scale with
+    // the build precision: ~1e-16 in double, ~1e-7 in single (USE_FLOAT) -- the
+    // builtin consumer runs both a double and a single-precision model.
+    const dstype rot_tol = (sizeof(dstype) < 8) ? (dstype)1e-4 : (dstype)1e-10;
+    bool ok = (gmax == 0) && (vmax < rot_tol);
+    printf("[rank %d] Extrude self-test: 3Delems=%d gather_maxmiss=%d rot_err=%.3e prec=%dB (backend=%d) -> %s\n",
+           (int)common.mpiRank, (int)NE3, (int)gmax, (double)vmax, (int)sizeof(dstype), (int)backend, ok ? "PASS" : "FAIL");
 
     TemplateFree(hu2, 0); TemplateFree(hvr, 0); TemplateFree(htt, 0); TemplateFree(hplc, 0);
     TemplateFree(h3, 0); TemplateFree(hvx, 0); TemplateFree(hvy, 0);
