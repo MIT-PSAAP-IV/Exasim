@@ -89,7 +89,7 @@ Ranked by value × tractability for maneuvering solutions.
 | 3 | `l2eprojection` | projection | 🔴 missing | L2-project an **analytic** `func(x,param,t)` onto the DG space (init / MMS / error setup). Same `M` machinery as #1 plus a load vector `F=∫φ f`; needs a callback mechanism. |
 | 4 | `gradu` | gradient | 🔴 missing | Physical gradient of a DG field at nodes (chain rule + inverse Jacobian). Only the LDG auxiliary `q=∇u` exists in C++; a direct nodal-gradient utility is absent. |
 | 5 | `graduface` | gradient | 🔴 missing | HDG face-lifted gradient `∫(u−uhat)·n·jac`. Intricate (nested `facegeom`, HDG face indexing) but self-contained. |
-| 6 | `extrudesol`, `extrudecoord`, `extrudevelocity` | extrusion | 🔴 missing | 2D→3D solution/coordinate extrusion (z-layers × slabs) and radial→Cartesian velocity rotation. **Entirely absent** in C++ (grep of the whole backend finds nothing). Pure indexing, LOW difficulty. |
+| 6 | `extrudesol`, `extrudecoord`, `extrudevelocity` | extrusion | ✳️ **this PR** | 2D→3D solution/coordinate extrusion (z-layers × slabs) and radial→Cartesian velocity rotation. Was entirely absent in C++. Shipped as a scalar reference (`extrudesol.{hpp,cpp}`) **and** backend-portable Kokkos kernels (`extrudesol_backend.hpp`, `ExtrudeSolution`/`ExtrudeCoord`/`ExtrudeVelocity`) — one `parallel_for` each, GPU/CPU, element-local (MPI-ready). |
 | 7 | `fieldatdgnodes`, `fieldatuniquedgnodes` | interpolation | 🟡 partial | Exact mesh-to-mesh transfer (locate + eval). The C++ pieces exist (`CPointLocator` + `InterpolateFieldBatch`); the missing part is a turnkey "field on mesh A → field on mesh B nodes" driver. ⚠ `fieldatuniquedgnodes.m` has a bug: nd==3 sets `z = dgnodes1(:,2,:)` (should be `(:,3,:)`) — do not carry it over. |
 | 8 | `surfacefield`, `surfacenormal`, `getsolonsurface` | surface-extraction | 🔴 missing | Interpolate solution to boundary-face quadrature points (+ coords, normals) and nodal surface extraction. Clean, modern, 2D/3D in MATLAB; directly useful for coupling/BC sampling. `interfacesampler.*` is adjacent but not the same op. |
 | 9 | `averagevector` | mass-matrix | 🔴 missing | Lumped integral vector `L=∫φ jac` (mass-weighted node volumes). LOW; reuses `volgeom`. |
@@ -139,6 +139,15 @@ Ranked by value × tractability for maneuvering solutions.
   (`discretization.{h,cpp}`) — expose the batched projection as a discretization
   method and run an on-device identity self-test (gated by
   `EXASIM_TEST_PROJECTION`) during construction, per MPI rank.
+- `backend/Discretization/extrudesol.{hpp,cpp}` + `extrudesol_test.cpp` — scalar
+  reference + standalone oracle for the 2D→3D extrusion family (gather map,
+  coordinate field, velocity rotation), hand-verified against `extrudesol.m`'s
+  permute/reshape semantics.
+- `backend/Discretization/extrudesol_backend.hpp` — Kokkos kernels
+  `ExtrudeSolution`/`ExtrudeCoord`/`ExtrudeVelocity` (GPU/CPU, element-local),
+  included via `residual.hpp`. `CDiscretizationT::extrusionSelfTest(...)` runs a
+  mesh-free on-device check (synthetic 2D field: exact gather + `vx²+vy²==1`
+  rotation) per MPI rank, gated by `EXASIM_TEST_EXTRUDE`.
 
 ### On-device validation (done)
 

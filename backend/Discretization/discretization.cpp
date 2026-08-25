@@ -451,6 +451,9 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
     // Optional: validate the batched DGProjection path on this backend/rank.
     if (getenv("EXASIM_TEST_PROJECTION") != nullptr)
         projectionSelfTest(backend);
+    // Optional: validate the 2D->3D extrusion kernels on this backend/rank.
+    if (getenv("EXASIM_TEST_EXTRUDE") != nullptr)
+        extrusionSelfTest(backend);
 
     if (common.spatialScheme > 0)  { // HDG
       Int neb = common.meshsizes.neb; // maximum number of elements per block
@@ -732,6 +735,84 @@ void CDiscretizationT<T, I>::projectionSelfTest(Int backend) {
         error("DGProjection self-test FAILED (relerr exceeds tolerance)");
 }
 
+// On-device validation of the 2D->3D extrusion kernels. Extrusion is a pure
+// data-parallel index/gather op with no mesh dependency, so this fabricates a
+// synthetic 2D field, extrudes it on the active backend (CPU/CUDA/HIP), and
+// checks the result on the host, independently per MPI rank:
+//   (1) ExtrudeSolution gather: fill U2d[k]=k, then every 3D entry must equal
+//       the 2D flat index it gathers from (exact).
+//   (2) ExtrudeVelocity rotation: vr==1 => vx^2+vy^2==1 everywhere (exercises
+//       the device cos/sin + coordinate path).
+template <class T, class I>
+void CDiscretizationT<T, I>::extrusionSelfTest(Int backend) {
+    const Int np2d = 6, nc = 2, ne2d = 4, porder = 2, nz = 3;
+    const Int np1d = porder + 1;
+    const Int N2 = np2d * nc * ne2d;
+    const Int N3nodes = np2d * np1d;
+    const Int NE3 = ne2d * nz;
+    const Int N3 = N3nodes * nc * NE3;
+    const double PI = 3.14159265358979323846;
+
+    // host inputs
+    dstype *hu2=nullptr, *hvr=nullptr, *htt=nullptr, *hplc=nullptr;
+    TemplateMalloc(&hu2, N2, 0);
+    TemplateMalloc(&hvr, N2, 0);
+    TemplateMalloc(&htt, nz + 1, 0);
+    TemplateMalloc(&hplc, np1d, 0);
+    for (Int k = 0; k < N2; k++) { hu2[k] = (dstype)k; hvr[k] = (dstype)1; }
+    for (Int e = 0; e <= nz; e++) htt[e] = (dstype)(e * (PI / 2));           // 0, pi/2, pi, 3pi/2
+    for (Int d = 0; d < np1d; d++) hplc[d] = (dstype)d / (dstype)(np1d - 1); // 0, .5, 1
+
+    // device buffers
+    dstype *U2=nullptr, *U3=nullptr, *vr=nullptr, *tt=nullptr, *plc=nullptr, *vx=nullptr, *vy=nullptr;
+    TemplateMalloc(&U2, N2, backend);  TemplateCopytoDevice(U2, hu2, N2, backend);
+    TemplateMalloc(&vr, N2, backend);  TemplateCopytoDevice(vr, hvr, N2, backend);
+    TemplateMalloc(&tt, nz + 1, backend); TemplateCopytoDevice(tt, htt, nz + 1, backend);
+    TemplateMalloc(&plc, np1d, backend);  TemplateCopytoDevice(plc, hplc, np1d, backend);
+    TemplateMalloc(&U3, N3, backend);
+    TemplateMalloc(&vx, N3, backend);
+    TemplateMalloc(&vy, N3, backend);
+
+    ExtrudeSolution(U3, U2, (int)np2d, (int)nc, (int)ne2d, (int)np1d, (int)nz);
+    ExtrudeVelocity(vx, vy, vr, tt, plc, (int)np2d, (int)nc, (int)ne2d, (int)np1d, (int)nz);
+
+    // pull back
+    dstype *h3=nullptr, *hvx=nullptr, *hvy=nullptr;
+    TemplateMalloc(&h3, N3, 0);
+    TemplateMalloc(&hvx, N3, 0);
+    TemplateMalloc(&hvy, N3, 0);
+    TemplateCopytoHost(h3, U3, N3, backend);
+    TemplateCopytoHost(hvx, vx, N3, backend);
+    TemplateCopytoHost(hvy, vy, N3, backend);
+
+    // (1) gather map must be exact
+    Int gmax = 0;
+    for (Int idx = 0; idx < N3; idx++) {
+        Int n3 = idx % N3nodes, r = idx / N3nodes, b = r % nc, e3 = r / nc;
+        Int a = n3 % np2d, c = e3 % ne2d;
+        Int expect = a + np2d * (b + nc * c);
+        Int diff = (Int)h3[idx] - expect; if (diff < 0) diff = -diff;
+        if (diff > gmax) gmax = diff;
+    }
+    // (2) rotation: vx^2 + vy^2 == 1 (vr == 1)
+    dstype vmax = (dstype)0;
+    for (Int idx = 0; idx < N3; idx++) {
+        dstype e = hvx[idx] * hvx[idx] + hvy[idx] * hvy[idx] - (dstype)1;
+        if (e < 0) e = -e; if (e > vmax) vmax = e;
+    }
+
+    bool ok = (gmax == 0) && (vmax < (dstype)1e-10);
+    printf("[rank %d] Extrude self-test: 3Delems=%d gather_maxmiss=%d rot_err=%.3e (backend=%d) -> %s\n",
+           (int)common.mpiRank, (int)NE3, (int)gmax, (double)vmax, (int)backend, ok ? "PASS" : "FAIL");
+
+    TemplateFree(hu2, 0); TemplateFree(hvr, 0); TemplateFree(htt, 0); TemplateFree(hplc, 0);
+    TemplateFree(h3, 0); TemplateFree(hvx, 0); TemplateFree(hvy, 0);
+    TemplateFree(U2, backend); TemplateFree(U3, backend); TemplateFree(vr, backend);
+    TemplateFree(tt, backend); TemplateFree(plc, backend); TemplateFree(vx, backend); TemplateFree(vy, backend);
+
+    if (!ok) error("Extrude self-test FAILED");
+}
+
 // ComputeLDGPreconditioner re-homed to CPreconditioner (C4).
 
 // (hdgAssembleLinearSystem / hdgAssembleResidual moved to CAssembler -- see assembler.cpp)
@@ -815,6 +896,7 @@ template void CDiscretizationT<::dstype, ::Int>::compGeometry(Int);
 template void CDiscretizationT<::dstype, ::Int>::compMassInverse(Int);
 template void CDiscretizationT<::dstype, ::Int>::projectField(dstype*, dstype*, dstype*, Int, Int, Int);
 template void CDiscretizationT<::dstype, ::Int>::projectionSelfTest(Int);
+template void CDiscretizationT<::dstype, ::Int>::extrusionSelfTest(Int);
 template void CDiscretizationT<::dstype, ::Int>::DG2CG(dstype*, dstype*, dstype*, Int, Int, Int, Int);
 template void CDiscretizationT<::dstype, ::Int>::DG2CG2(dstype*, dstype*, dstype*, Int, Int, Int, Int);
 template void CDiscretizationT<::dstype, ::Int>::DG2CG3(dstype*, dstype*, dstype*, Int, Int, Int, Int);

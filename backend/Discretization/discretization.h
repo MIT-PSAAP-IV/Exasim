@@ -157,6 +157,11 @@ public:
     // precision on every MPI rank. Runs on the active backend; gated by the
     // EXASIM_TEST_PROJECTION env var during construction.
     void projectionSelfTest(Int backend);
+    // On-device validation of the 2D->3D extrusion kernels (ExtrudeSolution /
+    // ExtrudeVelocity, extrudesol_backend.hpp): extrudes a synthetic 2D field on
+    // the active backend and checks the gather map + rotation per MPI rank.
+    // Needs no mesh (pure index/data-parallel op); gated by EXASIM_TEST_EXTRUDE.
+    void extrusionSelfTest(Int backend);
 
     // (interface/boundary sampling methods moved to CInterfaceSampler)
 };
@@ -179,6 +184,7 @@ extern template void CDiscretizationT<::dstype, ::Int>::compGeometry(Int);
 extern template void CDiscretizationT<::dstype, ::Int>::compMassInverse(Int);
 extern template void CDiscretizationT<::dstype, ::Int>::projectField(dstype*, dstype*, dstype*, Int, Int, Int);
 extern template void CDiscretizationT<::dstype, ::Int>::projectionSelfTest(Int);
+extern template void CDiscretizationT<::dstype, ::Int>::extrusionSelfTest(Int);
 extern template void CDiscretizationT<::dstype, ::Int>::DG2CG(dstype*, dstype*, dstype*, Int, Int, Int, Int);
 extern template void CDiscretizationT<::dstype, ::Int>::DG2CG2(dstype*, dstype*, dstype*, Int, Int, Int, Int);
 extern template void CDiscretizationT<::dstype, ::Int>::DG2CG3(dstype*, dstype*, dstype*, Int, Int, Int, Int);
