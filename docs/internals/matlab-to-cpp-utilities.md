@@ -160,12 +160,15 @@ Ranked by value × tractability for maneuvering solutions.
   isoparametric map at the child node positions, so curvature is preserved
   exactly. A *new* util (not a direct MATLAB port — closest are the Python
   `refine_dg_hexmesh.py` p2-hex refiner and MATLAB `uniref`), built as a
-  shared-operator batched apply `refined_c = P_c · dgnodes` (`P_c` from `mkshape`
+  shared-operator batched apply `refined_c = P_c · dgnodes` (`P_c` = parent basis
   at the child nodes) — the same fast path as the straight-mesh projection, so
   it is GPU/CPU + MPI-ready, and the *same* `P_c` prolongs a DG field onto the
-  children. `CDiscretizationT::refineSelfTest(...)` checks operator
-  partition-of-unity + device-vs-host-reference apply per rank
-  (`EXASIM_TEST_REFINE`); the host oracle pins the geometric high-order exactness.
+  children. `CDiscretizationT::refineSelfTest(...)` (tensor elements) builds `P_c`
+  from `master.xpe` as a tensor-product Lagrange basis (the unique nodal basis for
+  the node set, so it equals Exasim's basis without needing `mkshape`), refines
+  the mesh on-device, and checks operator partition-of-unity + device-vs-host-
+  reference apply per rank (`EXASIM_TEST_REFINE`); the host oracle pins the
+  geometric high-order exactness.
 
 ### On-device validation (done)
 

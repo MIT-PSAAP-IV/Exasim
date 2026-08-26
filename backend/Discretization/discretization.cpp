@@ -49,6 +49,8 @@
 
 #include <cstring>
 #include <cstdlib>
+#include <cmath>
+#include <algorithm>
 
 #ifdef HAVE_CUDA
 #include "gpuDeviceInfo.cpp"
@@ -68,7 +70,6 @@
 // #include "../Model/FrontendGenerated/KokkosDrivers.cpp"
 // #endif
 
-#include "../Preprocessing/makemaster.hpp"   // mkshape: parent basis at child nodes (refineSelfTest)
 #include "connectivity.cpp"
 #include "readbinaryfiles.cpp"
 #include "setstructs.cpp"
@@ -892,10 +893,14 @@ void CDiscretizationT<T, I>::refineSelfTest(Int backend) {
     Int porder = common.grid.porder;
     Int elemtype = common.grid.elemtype;
     if (ne <= 0 || npe <= 0 || nd < 1 || ncx < nd) return;
+    if (elemtype != 1) {   // child-subcell tiling is defined for tensor (quad/hex) elements
+        printf("[rank %d] Refine self-test: SKIP (elemtype=%d, tensor-only)\n", (int)common.mpiRank, (int)elemtype);
+        return;
+    }
     Int nref = 2, nchild = 1;
     for (Int d = 0; d < nd; d++) nchild *= nref;
 
-    // plocal = master.xpe (element-wise to double for mkshape)
+    // plocal = master.xpe (element-wise to double)
     dstype *hxpe=nullptr; TemplateMalloc(&hxpe, npe*nd, 0);
     TemplateCopytoHost(hxpe, master.xpe, npe*nd, backend);
     std::vector<double> plocal(npe*nd), xic(npe*nd*nchild);
@@ -909,20 +914,45 @@ void CDiscretizationT<T, I>::refineSelfTest(Int backend) {
                 xic[i + npe*(d + nd*c)] = (off[d] + plocal[i + npe*d]) / (double)nref;
     }
 
-    // P_c[i + npe*(a + npe*c)] = phi_a(xi_child_c[i]) via mkshape; partition-of-unity check
+    // Build the refinement operator P_c[i + npe*(a + npe*c)] = phi_a(xi_child_c[i])
+    // from the parent's own reference nodes, WITHOUT mkshape (whose header has an
+    // unrelated compile issue in this TU). For a tensor element the nodal basis is
+    // a tensor product of 1D Lagrange polynomials through the per-axis nodes, and
+    // the nodal basis is UNIQUE for the given nodes + polynomial space, so this
+    // equals Exasim's basis exactly. Recover the 1D nodes and each node's
+    // multi-index from master.xpe (order-agnostic).
+    std::vector<double> node1d;                       // distinct reference coords along axis 0
+    for (Int a = 0; a < npe; a++) {
+        double v = plocal[a + npe*0]; bool found = false;
+        for (double u : node1d) if (std::fabs(u - v) < 1e-9) { found = true; break; }
+        if (!found) node1d.push_back(v);
+    }
+    std::sort(node1d.begin(), node1d.end());
+    const int np1d = (int)node1d.size();
+    std::vector<int> midx(npe*nd);                    // midx[a + npe*d] = 1D index of node a in axis d
+    for (Int a = 0; a < npe; a++)
+        for (Int d = 0; d < nd; d++) {
+            double v = plocal[a + npe*d]; int kk = 0;
+            for (int m = 0; m < np1d; m++) if (std::fabs(node1d[m] - v) < 1e-9) { kk = m; break; }
+            midx[a + npe*d] = kk;
+        }
+    auto lag1d = [&](int k, double t) -> double {
+        double p = 1.0;
+        for (int m = 0; m < np1d; m++) if (m != k) p *= (t - node1d[m]) / (node1d[k] - node1d[m]);
+        return p;
+    };
     std::vector<double> Pc(npe*npe*nchild);
     double pou_max = 0.0;
-    for (Int c = 0; c < nchild; c++) {
-        std::vector<double> pts(npe*nd);
-        for (Int i = 0; i < npe*nd; i++) pts[i] = xic[i + npe*nd*c];
-        std::vector<double> shap((std::size_t)npe*npe*(nd+1), 0.0);
-        mkshape(shap, plocal, pts, (int)npe, (int)elemtype, (int)porder, (int)nd, (int)npe);
+    for (Int c = 0; c < nchild; c++)
         for (Int i = 0; i < npe; i++) {
             double rs = 0.0;
-            for (Int a = 0; a < npe; a++) { double v = shap[a + npe*i]; Pc[i + npe*(a + npe*c)] = v; rs += v; }
+            for (Int a = 0; a < npe; a++) {
+                double v = 1.0;
+                for (Int d = 0; d < nd; d++) v *= lag1d(midx[a + npe*d], xic[i + npe*(d + nd*c)]);
+                Pc[i + npe*(a + npe*c)] = v; rs += v;
+            }
             double e = rs - 1.0; if (e < 0) e = -e; if (e > pou_max) pou_max = e;
         }
-    }
 
     // host reference refinement (double)
     dstype *hxdg=nullptr; TemplateMalloc(&hxdg, npe*ncx*ne, 0);
