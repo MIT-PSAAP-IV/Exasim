@@ -21,8 +21,8 @@ standalone `*_test.cpp` that has its own `main()` and hand-verified assertions.
 These compile and run on their own —
 
 ```sh
-g++ -std=c++17 -O2 backend/Discretization/dgprojection.cpp \
-                   backend/Discretization/dgprojection_test.cpp -o /tmp/t && /tmp/t
+g++ -std=c++17 -O2 backend/Utility/dgprojection.cpp \
+                   backend/Utility/dgprojection_test.cpp -o /tmp/t && /tmp/t
 ```
 
 — so correctness is pinned before any wiring into `CDiscretization`. Once a
@@ -119,18 +119,18 @@ Ranked by value × tractability for maneuvering solutions.
 
 ## Done in this PR
 
-- `backend/Discretization/dgprojection.{hpp,cpp}` — portable **scalar reference**
+- `backend/Utility/dgprojection.{hpp,cpp}` — portable **scalar reference**
   (`dgprojection`) and `volgeom_det`.
-- `backend/Discretization/dgprojection_backend.hpp` — **performant backend path**
+- `backend/Utility/dgprojection_backend.hpp` — **performant backend path**
   `DGProjection<T,I>`: batched, CPU/CUDA/HIP-portable, MPI-ready (element-local
   over `common.eblks`), reusing `ShapJac` / `Gauss2Node` / `Inverse` /
   `ArrayGemmBatch1` exactly as `ComputeMinv` does. Straight meshes use a single
   shared master operator `P0 = M0⁻¹C0` (the Jacobian cancels); curved meshes take
   the per-element path. Included via `residual.hpp` alongside `massinv.hpp`.
-- `backend/Discretization/dgprojection_test.cpp` — oracle test: `volgeom_det`
+- `backend/Utility/dgprojection_test.cpp` — oracle test: `volgeom_det`
   determinants (1D/2D/3D), identity round-trip on curved multi-element geometry,
   cross-basis p1→p2 exactness + p2→p1 round trip.
-- `backend/Discretization/dgprojection_backend_test.cpp` — reimplements the
+- `backend/Utility/dgprojection_backend_test.cpp` — reimplements the
   backend primitives with their exact semantics/layouts and replays the
   `DGProjection` straight and curved algorithms, asserting they match the scalar
   oracle (including a curved element where the Jacobian genuinely varies). Both
@@ -139,22 +139,22 @@ Ranked by value × tractability for maneuvering solutions.
   (`discretization.{h,cpp}`) — expose the batched projection as a discretization
   method and run an on-device identity self-test (gated by
   `EXASIM_TEST_PROJECTION`) during construction, per MPI rank.
-- `backend/Discretization/extrudesol.{hpp,cpp}` + `extrudesol_test.cpp` — scalar
+- `backend/Utility/extrudesol.{hpp,cpp}` + `extrudesol_test.cpp` — scalar
   reference + standalone oracle for the 2D→3D extrusion family (gather map,
   coordinate field, velocity rotation), hand-verified against `extrudesol.m`'s
   permute/reshape semantics.
-- `backend/Discretization/extrudesol_backend.hpp` — Kokkos kernels
+- `backend/Utility/extrudesol_backend.hpp` — Kokkos kernels
   `ExtrudeSolution`/`ExtrudeCoord`/`ExtrudeVelocity` (GPU/CPU, element-local),
   included via `residual.hpp`. `CDiscretizationT::extrusionSelfTest(...)` runs a
   mesh-free on-device check (synthetic 2D field: exact gather + `vx²+vy²==1`
   rotation) per MPI rank, gated by `EXASIM_TEST_EXTRUDE`.
-- `backend/Discretization/l2eprojection.{hpp,cpp}` + `l2eprojection_test.cpp` +
+- `backend/Utility/l2eprojection.{hpp,cpp}` + `l2eprojection_test.cpp` +
   `l2eprojection_backend.hpp` (`L2eProjection`) — L2 projection of a Gauss-sampled
   load onto the DG space (`M⁻¹F`, `F=∫φ f jac`), scalar reference + Kokkos kernel
   (straight fast path + curved). `CDiscretizationT::l2eProjectionSelfTest(...)`
   projects the coordinate field `f=x` and checks reproduction at the nodes per
   rank, gated by `EXASIM_TEST_L2EPROJ`.
-- `backend/Discretization/refinemesh.{hpp,cpp}` + `refinemesh_test.cpp` +
+- `backend/Utility/refinemesh.{hpp,cpp}` + `refinemesh_test.cpp` +
   `refinemesh_backend.hpp` (`RefineMeshHighOrder`) — **high-order uniform mesh
   refinement** (tensor elements): each child's geometry is the parent's
   isoparametric map at the child node positions, so curvature is preserved

@@ -688,7 +688,7 @@ void CDiscretizationT<T, I>::projectField(dstype* U1, dstype* U, dstype* shapegs
 // straight/curved dispatch, device memory and the blas handle -- on the active
 // backend, and independently on every MPI rank (the projection is element-local).
 // The C != M *math* is validated separately on the host analytic oracle
-// (backend/Discretization/dgprojection_backend_test.cpp).
+// (backend/Utility/dgprojection_backend_test.cpp).
 template <class T, class I>
 void CDiscretizationT<T, I>::projectionSelfTest(Int backend) {
     Int npe = common.grid.npe;
