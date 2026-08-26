@@ -169,6 +169,17 @@ Ranked by value × tractability for maneuvering solutions.
   the mesh on-device, and checks operator partition-of-unity + device-vs-host-
   reference apply per rank (`EXASIM_TEST_REFINE`); the host oracle pins the
   geometric high-order exactness.
+- `backend/Utility/unirefpt.{hpp,cpp}` + `unirefpt_test.cpp` — uniform refinement
+  of the **linear mesh** (`p` vertices + `t` connectivity), the topological
+  companion to `refinemesh` (which refines the high-order DG nodes). Ports
+  `frontends/Matlab/Mesh/mkmesh/{uniref (tri), unirefquad (quad), uniref3d (tet)}`
+  and **adds hex** (no MATLAB version; generated from the tensor corner ordering).
+  New vertices (edge midpoints; face + cell centers for quad/hex) are shared
+  between neighbours by **topological dedup** (keyed on the sorted parent-vertex
+  tuple), so the result is conforming exactly — no coordinate-tolerance merge.
+  This is a **serial host / preprocessing** util (irregular hash-based dedup), not
+  a data-parallel GPU kernel; the standalone test (child/vertex counts, new-vertex
+  coords, cross-element conformity, hex octant geometry) is its validation.
 
 ### On-device validation (done)
 
