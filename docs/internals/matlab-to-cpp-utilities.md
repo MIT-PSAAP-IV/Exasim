@@ -206,11 +206,10 @@ which projects the coordinate field `f=x` and checks reproduction at the nodes
 |---|---|---|
 | laptop CPU (np=1, np=2 MPI) | 1 | PASS (100%) |
 | CSAIL dgx-b, **NVIDIA V100** | 2 (CUDA) | **1.887e-15** |
-| LLNL tuolumne, **AMD MI300A** | 3 (HIP) | pending (RSA token re-arm) |
+| LLNL tuolumne, **AMD MI300A** | 3 (HIP) | **1.776e-15** |
 
-The MI300A run is only gated by the one-time RSA SecurID re-arm (`ssh -fN tol-b`);
-the HIP path itself is already exercised on that machine by the projection and
-extrusion self-tests.
+All three ports (dgprojection, extrusion, l2eprojection) are therefore validated
+on-device on both GPU vendors (NVIDIA V100 / AMD MI300A) and under CPU-MPI.
 
 ### Next step
 
