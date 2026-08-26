@@ -121,6 +121,13 @@ public:
     int SaveState(const int modelnumber);
     int RestoreState(const int modelnumber);
     int ClearSavedState(const int modelnumber);
+    // Disk checkpoint of a model solution for coupled-run restart. WriteSolution
+    // dumps model modelnumber full in-memory state (udg, plus wdg/uh when present)
+    // to per-rank binaries under dir; ReadSolution reloads them into the live
+    // buffers (same partition/rank count/backend as the run that wrote them).
+    // Backend-safe (device<->host handled internally). Returns 0 on success.
+    int WriteSolution(const int modelnumber, const std::string& dir);
+    int ReadSolution(const int modelnumber, const std::string& dir);
     std::vector<ExasimPoint> getInterfacePoints() const;
     void getInterfaceFluxes(std::vector<dstype>& send_flux) const;
     void setInterfaceFluxes(const std::vector<dstype>& recv_flux);
