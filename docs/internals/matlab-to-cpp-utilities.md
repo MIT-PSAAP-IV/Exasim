@@ -237,6 +237,20 @@ which projects the coordinate field `f=x` and checks reproduction at the nodes
 All three ports (dgprojection, extrusion, l2eprojection) are therefore validated
 on-device on both GPU vendors (NVIDIA V100 / AMD MI300A) and under CPU-MPI.
 
+**High-order mesh refinement** (`RefineMeshHighOrder`) is validated the same way by
+`refineSelfTest` (`EXASIM_TEST_REFINE`) — operator partition-of-unity + a
+device-vs-host-reference apply, per rank (256 quads → 1024 children):
+
+| target | backend | pou_err | dev_vs_ref |
+|---|---|---|---|
+| CSAIL dgx-b, **NVIDIA V100** | 2 (CUDA) | 4.4e-16 | **4.4e-16** |
+| LLNL tuolumne, **AMD MI300A** | 3 (HIP) | 3.3e-16 | **4.4e-16** |
+
+The host oracle (`refinemesh_test.cpp`) additionally pins the geometric high-order
+exactness (a refined curved element follows the parent's curved map, not a chord).
+The **`unirefpt`** linear-mesh (`p`/`t`) refiner is a serial host util validated by
+its own standalone test (no device run).
+
 ### Next step
 
 A registered ctest (rather than an env-gated hook) and a `C≠M` cross-order
