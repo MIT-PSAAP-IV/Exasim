@@ -18,7 +18,7 @@ from . import Gencode
 from . import Postprocessing
 
 from .Preprocessing import initializeexasim, preprocessing
-from .Gencode import exportapp, exporttext2code
+from .Gencode import exportapp, exporttext2code, exporttext2codemesh
 from .Postprocessing import exasim, vis, fetchsolution
 
 __version__ = "1.0.0"

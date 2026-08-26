@@ -1,0 +1,69 @@
+model = "ModelD";
+modelfile = "pdemodel100.txt";
+meshfile = "grid.bin";
+xdgfile = "xdg.bin";
+udgfile = "udg.bin";
+vdgfile = "vdg.bin";
+wdgfile = "wdg.bin";
+discretization = "hdg";
+platform = "cpu";
+
+mpiprocs = 16;
+debugmode = 0;
+runmode = 0;
+modelnumber = 0;
+
+porder = 2;
+pgauss = 4;
+torder = 1;
+gendatain = 0;
+builtinmodelID = 0;
+frontendgenerated = 0;
+nstage = 1;
+
+ncu = 9;
+ncv = 1;
+ncw = 1;
+neb = 4096;
+nfb = 8192;
+
+NewtonIter = 10;
+NewtonTol = 1e-06;
+GMRESiter = 500;
+GMRESrestart = 500;
+GMREStol = 1e-06;
+GMRESortho = 1;
+ppdegree = 0;
+RBdim = 0;
+matvecorder = 1;
+matvectol = 1e-06;
+precMatrixType = 0;
+preconditioner = 1;
+
+saveSolFreq = 1;
+saveSolOpt = 1;
+saveSolBouFreq = 0;
+saveParaview = 0;
+physicsparamwarmstart = 0;
+time = 0;
+tau = [8];
+dt = [0.0001, 0.001, repeat(0.002, 15)];
+physicsparam = [0.0010463, 2500, 6539.369, 266.5, 1.8253e-05, 0.024927, 1010.135, 1, 23.2169, 0.7397, 143304.6898, 300];
+externalparam = [3.5209e-89, 1.4967e-45, 2.4227e-18, 0.76708, 0.23292, 1, 0, 0, 0.48259, 3.5209e-89, 1.4967e-45, 2.4227e-18, 0.76708, 0.23292, 0, 0, 0, 0, 0];
+
+boundaryconditions = [5, 5, 2, 5, 8, 1];
+dae_alpha = 0.0;
+dae_beta = 0.0;
+dae_gamma = 0.0;
+wmModelIDs = [];
+wmBoundaries = [];
+wmDistances = [];
+boundaryexpressions = ["abs(y-(3.0616169978683829e-20))<1e-08", "abs(z-(0))<1e-08", "abs(x-(0.059999999999999998))<1e-08", "abs(y^2+z^2-(0.00049997533569669944)^2)<1e-08", "(-1e-3<x)&&(x<(0.059999999999999998)+1e-3)&&(sqrt(y^2+z^2)<0.06+(0.00049997533569669944))", "abs(x)<20+1e-6"];
+curvedboundaries = [0, 0, 0, 0, 0, 0];
+curvedboundaryexprs = ["", "", "", "", "", ""];
+periodicboundaries1 = [];
+periodicexprs1 = [];
+periodicboundaries2 = [];
+periodicexprs2 = [];
+interfaceconditions = [];
+interfacefluxmap = [];

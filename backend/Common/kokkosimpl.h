@@ -3070,10 +3070,10 @@ void StgInFlow2Dchem(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *physicsparam
 
         dstype rhoj[5];
         dstype emixPhys = 0.0;
-        dstype rho_scale = externalparam[0];
-        dstype u_scale = externalparam[1];
-        dstype rhoe_scale = externalparam[2];
-        dstype T_scale = externalparam[3];
+        dstype rho_scale = physicsparam[0];
+        dstype u_scale = physicsparam[1];
+        dstype rhoe_scale = physicsparam[2];
+        dstype T_scale = physicsparam[3];
         dstype rhoPhys = rjn*rho_scale;
         dstype Tphys = Tjn*T_scale;
         for (int s=0; s<5; s++) {
@@ -3162,10 +3162,10 @@ void StgInFlow3Dchem(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *physicsparam
 
         dstype rhoj[5];
         dstype emixPhys = 0.0;
-        dstype rho_scale = externalparam[0];
-        dstype u_scale = externalparam[1];
-        dstype rhoe_scale = externalparam[2];
-        dstype T_scale = externalparam[3];
+        dstype rho_scale = physicsparam[0];
+        dstype u_scale = physicsparam[1];
+        dstype rhoe_scale = physicsparam[2];
+        dstype T_scale = physicsparam[3];
         dstype rhoPhys = rjn*rho_scale;
         dstype Tphys = Tjn*T_scale;
         for (int s=0; s<5; s++) {

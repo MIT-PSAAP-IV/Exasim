@@ -181,7 +181,7 @@ def _outputs_line(present):
     by any optional functions actually emitted."""
     order = [
         "Flux", "Source", "Tdfunc", "Ubou", "Fbou", "FbouHdg",
-        "Initu", "VisScalars", "VisVectors", "VisTensors",
+        "Initu", "Initv", "Avfield", "VisScalars", "VisVectors", "VisTensors",
         "QoIvolume", "QoIboundary",
     ]
     outs = [o for o in order if o in present]
@@ -274,6 +274,16 @@ def genpdemodel(pde, dest_path):
     f = model.initu(xdg, param, uinf)
     blocks.append(_emit_function("Initu", _INIT_ARGS, "ui", _flatten_F(f), pr))
     present.add("Initu")
+
+    # ----- Initv / Avfield (optional external/AV variables) -----
+    if hasattr(model, "initv"):
+        f = model.initv(xdg, param, uinf)
+        blocks.append(_emit_function("Initv", _INIT_ARGS, "vi", _flatten_F(f), pr))
+        present.add("Initv")
+    if hasattr(model, "avfield"):
+        f = call("avfield", u, q, wdg, odg, xdg, time, param, uinf)
+        blocks.append(_emit_function("Avfield", _ELEM_ARGS, "avField", _flatten_F(f), pr))
+        present.add("Avfield")
 
     # ----- optional visualization / QoI functions -----
     if hasattr(model, "visscalars"):

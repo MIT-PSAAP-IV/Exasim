@@ -722,7 +722,7 @@ inline void cpuInitTail(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T
                 mesh.elemsendind[bsz*i+j] = nudg*common.elemsend[i] + j;            
       
         bsz = common.grid.npe*common.physicsparams.ncAV;
-        nudg = common.grid.npe*common.components.nco;
+        nudg = common.grid.npe*common.physicsparams.ncAV;
         mesh.elemsendodg = (Int*) malloc (sizeof (Int)*bsz*common.nelemsend);
         mesh.szelemsendodg = bsz*common.nelemsend;
         for (Int i=0; i<common.nelemsend; i++)
@@ -749,7 +749,7 @@ inline void cpuInitTail(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T
                 mesh.elemrecvind[bsz*i+j] = nudg*common.elemrecv[i] + j;            
     
         bsz = common.grid.npe*common.physicsparams.ncAV;
-        nudg = common.grid.npe*common.components.nco;
+        nudg = common.grid.npe*common.physicsparams.ncAV;
         mesh.elemrecvodg = (Int*) malloc (sizeof (Int)*bsz*common.nelemrecv);
         mesh.szelemrecvodg = bsz*common.nelemrecv;
         for (Int i=0; i<common.nelemrecv; i++)

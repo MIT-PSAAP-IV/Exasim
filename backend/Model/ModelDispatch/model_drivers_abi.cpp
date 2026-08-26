@@ -138,7 +138,7 @@ void AvfieldDriver(dstype* f, const dstype* xg, const dstype* udg,
 
     abi.volume.KokkosAvfield(f, xg, udg, odg, wdg, app.uinf, app.physicsparam, time,
                       common.modelnumber, numPoints, nc, ncu, nd, ncx, nco,
-                      ncw, nco, npe, ne);
+                      ncw, common.physicsparams.ncAV, npe, ne);
 }
 
 void EosDriver(dstype* f, const dstype* xg, const dstype* udg,

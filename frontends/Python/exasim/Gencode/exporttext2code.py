@@ -52,7 +52,7 @@ def _write_binaries(mesh, dest):
     ]
     for mesh_key, app_key, filename in optional:
         value = _mesh_get(mesh, mesh_key)
-        if value is not None:
+        if value is not None and not _empty(value):
             _writebin(os.path.join(dest, filename), np.concatenate((_shape_as_double(value), _flat(value))))
             files[app_key] = filename
     return files
@@ -79,10 +79,10 @@ def _infer_dimensions(app, mesh):
     app["ncq"] = max(app["nc"] - ncu, 0)
 
     vdg = _mesh_get(mesh, "vdg")
-    if vdg is not None:
+    if vdg is not None and not _empty(vdg):
         app["nco"] = int(np.shape(vdg)[1])
     wdg = _mesh_get(mesh, "wdg")
-    if wdg is not None:
+    if wdg is not None and not _empty(wdg):
         app["ncw"] = int(np.shape(wdg)[1])
 
 
