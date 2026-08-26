@@ -328,6 +328,7 @@ extern \"C\" ModelSizes extGetModelSizes_${_id}() {
       INSTALL_NAME_DIR "@rpath")
     target_include_directories(${_tgt} PRIVATE
       $<TARGET_PROPERTY:Kokkos::kokkos,INTERFACE_INCLUDE_DIRECTORIES>)
+    target_compile_definitions(${_tgt} PRIVATE KOKKOS_DEPENDENCE)
     target_compile_options(${_tgt} PRIVATE
       $<TARGET_PROPERTY:Kokkos::kokkos,INTERFACE_COMPILE_OPTIONS>)
     target_link_libraries(${_tgt} PRIVATE "${_bm_lib}")

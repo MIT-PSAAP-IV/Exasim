@@ -44,151 +44,151 @@
 #include "interfacepartition.hpp"
 
 template <class T=dstype, class I=Int>
-inline void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh, 
+inline void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh,
         std::string filein, std::string fileout, Int curvedMesh, Int fileoffset)
 {
-    using dstype=T;                   
+    using dstype=T;
     common.filein = filein;
     common.fileout = fileout;
-            
-    common.mpiRank = app.comm[0];  // MPI rank      
-    common.mpiProcs = app.comm[1]; // number of MPI ranks           
-    
-    // common.exasimpath = trimToSubstringAtLastOccurence(common.exasimpath, "Exasim");     
-    // if (common.exasimpath == "") {      
+
+    common.mpiRank = app.comm[0];  // MPI rank
+    common.mpiProcs = app.comm[1]; // number of MPI ranks
+
+    // common.exasimpath = trimToSubstringAtLastOccurence(common.exasimpath, "Exasim");
+    // if (common.exasimpath == "") {
     //   std::filesystem::path cwd = std::filesystem::current_path();
-    //   common.exasimpath = trimToSubstringAtLastOccurence(cwd, "Exasim");            
-    //   if (common.exasimpath == "") common.exasimpath = trimToSubstringAtLastOccurence(common.fileout, "Exasim");       
+    //   common.exasimpath = trimToSubstringAtLastOccurence(cwd, "Exasim");
+    //   if (common.exasimpath == "") common.exasimpath = trimToSubstringAtLastOccurence(common.fileout, "Exasim");
     // }
     // if (common.mpiRank==0) std::cout << "exasimpath = "<<common.exasimpath<<std::endl;
-    
-#ifdef HAVE_ENZYME    
+
+#ifdef HAVE_ENZYME
     common.enzyme = 1;
-#endif            
+#endif
     common.read_uh = app.read_uh;
     common.components.nc = app.ndims[AppNdims::nc]; // number of compoments of (u, q)
-    common.components.ncu = app.ndims[AppNdims::ncu];// number of compoments of (u)        
+    common.components.ncu = app.ndims[AppNdims::ncu];// number of compoments of (u)
     common.components.ncq = app.ndims[AppNdims::ncq];// number of compoments of (q)
-    //common.ncp = app.ndims[AppNdims::ncp];// number of compoments of (p)    
-    common.components.nco = app.ndims[AppNdims::nco];// number of compoments of (o)    
+    //common.ncp = app.ndims[AppNdims::ncp];// number of compoments of (p)
+    common.components.nco = app.ndims[AppNdims::nco];// number of compoments of (o)
     common.components.nch = app.ndims[AppNdims::nch];// number of compoments of (uhat)
-    common.components.ncx = app.ndims[AppNdims::ncx];// number of compoments of (xdg)        
-    common.components.nce = app.ndims[AppNdims::nce];// number of compoments of (output)        
+    common.components.ncx = app.ndims[AppNdims::ncx];// number of compoments of (xdg)
+    common.components.nce = app.ndims[AppNdims::nce];// number of compoments of (output)
     common.components.ncw = app.ndims[AppNdims::ncw];//number of compoments of (w)
     common.qoiparams.nsca = app.ndims[AppNdims::nsca];// number of components of scalar fields for visualization
     common.qoiparams.nvec = app.ndims[AppNdims::nvec];// number of components of vector fields for visualization
     common.qoiparams.nten = app.ndims[AppNdims::nten];// number of components of tensor fields for visualization
     common.qoiparams.nsurf = app.ndims[AppNdims::nsurf];// number of components of surface fields for visualization, storage, and QoIs
-    common.qoiparams.nvqoi = app.ndims[AppNdims::nvqoi];// number of volume quantities of interest (QoIs)    
+    common.qoiparams.nvqoi = app.ndims[AppNdims::nvqoi];// number of volume quantities of interest (QoIs)
 
-    common.components.ncm = 1;//number of components of monitor function    
+    common.components.ncm = 1;//number of components of monitor function
     if (app.flag[1]==1)
         common.components.ncs = common.components.nc;  // wave problem
     else if (app.flag[0]==1)
         common.components.ncs = common.components.ncu; // time-dependent problem
     else
         common.components.ncs = 0; // steady-state problem
-        
+
     common.couplingparams.ncuext = 0;
     common.couplingparams.FextCall = 0;
-  
-    common.grid.nd = master.ndims[0];     // spatial dimension    
-    common.grid.elemtype = master.ndims[1]; 
-    common.grid.nodetype = master.ndims[2]; 
-    common.grid.porder = master.ndims[3]; 
-    common.grid.pgauss = master.ndims[4]; 
+
+    common.grid.nd = master.ndims[0];     // spatial dimension
+    common.grid.elemtype = master.ndims[1];
+    common.grid.nodetype = master.ndims[2];
+    common.grid.porder = master.ndims[3];
+    common.grid.pgauss = master.ndims[4];
     common.grid.npe = master.ndims[5]; // number of nodes on master element
-    common.grid.npf = master.ndims[6]; // number of nodes on master face       
+    common.grid.npf = master.ndims[6]; // number of nodes on master face
     common.grid.nge = master.ndims[7]; // number of gauss points on master element
-    common.grid.ngf = master.ndims[8]; // number of gauss poInts on master face          
+    common.grid.ngf = master.ndims[8]; // number of gauss poInts on master face
     common.grid.np1d = master.ndims[9]; // number of node points on 1D element
-    common.grid.ng1d = master.ndims[10]; // number of gauss poInts on 1D element          
-    
-    common.meshsizes.ne = mesh.ndims[1]; // number of elements in this subdomain 
-    common.meshsizes.nf = mesh.ndims[2]; // number of faces in this subdomain 
-    common.meshsizes.nv = mesh.ndims[3]; // number of vertices in this subdomain       
-    common.meshsizes.nfe = mesh.ndims[4]; // number of faces per element        
-    common.meshsizes.nbe = mesh.ndims[5]; // number of blocks for elements 
+    common.grid.ng1d = master.ndims[10]; // number of gauss poInts on 1D element
+
+    common.meshsizes.ne = mesh.ndims[1]; // number of elements in this subdomain
+    common.meshsizes.nf = mesh.ndims[2]; // number of faces in this subdomain
+    common.meshsizes.nv = mesh.ndims[3]; // number of vertices in this subdomain
+    common.meshsizes.nfe = mesh.ndims[4]; // number of faces per element
+    common.meshsizes.nbe = mesh.ndims[5]; // number of blocks for elements
     common.meshsizes.neb = mesh.ndims[6]; // maximum number of elements per block
-    common.meshsizes.nbf = mesh.ndims[7]; // number of blocks for faces   
-    common.meshsizes.nfb = mesh.ndims[8]; // maximum number of faces per block     
-    
+    common.meshsizes.nbf = mesh.ndims[7]; // number of blocks for faces
+    common.meshsizes.nfb = mesh.ndims[8]; // maximum number of faces per block
+
     common.sizes.ndof = common.grid.npe*common.components.ncu*common.meshsizes.ne; // number of degrees of freedom of u
     common.sizes.ndofq = common.grid.npe*common.components.ncq*common.meshsizes.ne; // number of degrees of freedom of q
     common.sizes.ndofw = common.grid.npe*common.components.ncw*common.meshsizes.ne; // number of degrees of freedom of w
     common.sizes.ndofuhat = common.grid.npf*common.components.ncu*common.meshsizes.nf; // number of degrees of freedom of uhat
-    common.sizes.ndofudg = common.grid.npe*common.components.nc*common.meshsizes.ne; // number of degrees of freedom of udg    
-    common.sizes.ndofsdg = common.grid.npe*common.components.ncs*common.meshsizes.ne; // number of degrees of freedom of sdg    
-    common.sizes.ndofodg = common.grid.npe*common.components.nco*common.meshsizes.ne; // number of degrees of freedom of odg               
-    common.sizes.ndofedg = common.grid.npe*common.components.nce*common.meshsizes.ne; // number of degrees of freedom of edg               
+    common.sizes.ndofudg = common.grid.npe*common.components.nc*common.meshsizes.ne; // number of degrees of freedom of udg
+    common.sizes.ndofsdg = common.grid.npe*common.components.ncs*common.meshsizes.ne; // number of degrees of freedom of sdg
+    common.sizes.ndofodg = common.grid.npe*common.components.nco*common.meshsizes.ne; // number of degrees of freedom of odg
+    common.sizes.ndofedg = common.grid.npe*common.components.nce*common.meshsizes.ne; // number of degrees of freedom of edg
     common.sizes.ndofucg = mesh.nsize[12]-1;
-            
+
     common.components.ntau = app.nsize[8];
     if (common.components.ntau>0) common.physicsparams.tau0 = app.tau[0];
-		
-    common.grid.curvedMesh = curvedMesh;        
+
+    common.grid.curvedMesh = curvedMesh;
     common.outputparams.fileoffset = fileoffset;
 
-    common.timeparams.tdep = app.flag[0];      // 0: steady-state; 1: time-dependent;  
+    common.timeparams.tdep = app.flag[0];      // 0: steady-state; 1: time-dependent;
     common.timeparams.wave = app.flag[1];
     common.timeparams.linearProblem = app.flag[2]; // 0: nonlinear problem;  1: linear problem
     common.outputparams.debugMode = app.flag[3]; // 1: save data to binary files for debugging
-    common.solverparams.matvecOrder = app.flag[4];        
-    common.solverparams.gmresOrthogMethod = app.flag[5];            
+    common.solverparams.matvecOrder = app.flag[4];
+    common.solverparams.gmresOrthogMethod = app.flag[5];
     common.solverparams.preconditioner = app.flag[6];
     common.solverparams.precMatrixType = app.flag[7];
     common.solverparams.ptcMatrixType = app.flag[8];
     common.runmode = app.flag[9];
     common.timeparams.tdfunc = app.flag[10];
-    common.physicsparams.source = app.flag[11]; 
+    common.physicsparams.source = app.flag[11];
     common.modelnumber = app.modelnumber;
     common.couplingparams.extFhat = app.flag[13];
     common.couplingparams.extUhat = app.flag[14];
     common.couplingparams.extStab = app.flag[15];
     common.timeparams.subproblem = app.flag[16];
     common.qoiparams.saveParaview = (app.nsize[1] > 17) ? app.flag[17] : 0;
-    
-    common.timeparams.tsteps = app.nsize[4];  // number of time steps          
+
+    common.timeparams.tsteps = app.nsize[4];  // number of time steps
     common.spatialScheme = app.problem[0];   /* 0: HDG; 1: EDG; 2: IEDG, HEDG */
-    common.physicsparams.appname = app.problem[1];   /* 0: Euler; 1: Compressible Navier-Stokes; etc. */    
+    common.physicsparams.appname = app.problem[1];   /* 0: Euler; 1: Compressible Navier-Stokes; etc. */
     common.timeparams.temporalScheme = app.problem[2];  // 0: DIRK; 1: BDF; 2: ERK
     common.timeparams.torder = app.problem[3];    /* temporal accuracy order */
-    common.timeparams.tstages = app.problem[4];    /* DIRK stages */    
+    common.timeparams.tstages = app.problem[4];    /* DIRK stages */
     common.physicsparams.convStabMethod = app.problem[5];  // Flag for convective stabilization tensor. 0: Constant tau, 1: Lax-Friedrichs; 2: Roe.
     common.physicsparams.diffStabMethod = app.problem[6];  // Flag for diffusive stabilization tensor. 0: No diffusive stabilization.
     common.physicsparams.rotatingFrame = app.problem[7];   // Flag for rotating frame. Options: 0: Velocities are respect to a non-rotating frame. 1: Velocities are respect to a rotating frame.
     common.physicsparams.viscosityModel = app.problem[8];  // Flag for viscosity model. 0: Constant kinematic viscosity; 1: Sutherland's law. 2: Hack for viscosity for compressible HIT case in (Johnsen, 2010)
     common.physicsparams.SGSmodel = app.problem[9];        // Flag for sub-grid scale (SGS) model. Only available for 3D solver.
-                                        //  0: No SGS model. 1: Static Smagorinsky/Yoshizawa/Knight model. 
+                                        //  0: No SGS model. 1: Static Smagorinsky/Yoshizawa/Knight model.
                                         //  2: Static WALE/Yoshizawa/Knight model. 3: Static Vreman/Yoshizawa/Knight model.
-                                        //  4: Dynamic Smagorinsky/Yoshizawa/Knight model.        
+                                        //  4: Dynamic Smagorinsky/Yoshizawa/Knight model.
     common.physicsparams.ALEflag = app.problem[10];   // Flag for Arbitrary Lagrangian-Eulerian (ALE) formulation. 0: No ALE; 1: Translation; 2: Translation + rotation; 3: Translation + rotation + deformation
     common.physicsparams.ncAV = app.problem[11];    // Flag for artificial viscosity. 0: No artificial viscosity; 1: Homogeneous artificial viscosity (C. Nguyen's formulation); 2: Hypersonic homogeneous artificial viscosity (C. Nguyen's formulation)
                                         //                                3: Isotropic artificial viscosity (D. Moro's formulation). 4: Latest version of the model (taking the best of all previous models)
-                                        //                                8: Density smoothness sensor (Per's approach)    
-    common.solverparams.linearSolver = app.problem[12];  /* 0: GMRES; 1: CG; etc. */      
-    common.solverparams.nonlinearSolverMaxIter = app.problem[13];                
-    common.solverparams.linearSolverMaxIter = app.problem[14];        
-    common.solverparams.gmresRestart = app.problem[15];    
-    common.solverparams.RBdim = app.problem[16];  
-    common.outputparams.saveSolFreq = app.problem[17];    
-    common.outputparams.saveSolOpt = app.problem[18];    
-    common.outputparams.timestepOffset = app.problem[19];    
-    common.stgparams.stgNmode = app.problem[20];    
-    common.outputparams.saveSolBouFreq = app.problem[21];   
-    common.qoiparams.ibs = app.problem[22];   
-    common.timeparams.dae_steps = app.problem[23];  // number of dual time steps      
-    common.outputparams.saveResNorm = app.problem[24];   
+                                        //                                8: Density smoothness sensor (Per's approach)
+    common.solverparams.linearSolver = app.problem[12];  /* 0: GMRES; 1: CG; etc. */
+    common.solverparams.nonlinearSolverMaxIter = app.problem[13];
+    common.solverparams.linearSolverMaxIter = app.problem[14];
+    common.solverparams.gmresRestart = app.problem[15];
+    common.solverparams.RBdim = app.problem[16];
+    common.outputparams.saveSolFreq = app.problem[17];
+    common.outputparams.saveSolOpt = app.problem[18];
+    common.outputparams.timestepOffset = app.problem[19];
+    common.stgparams.stgNmode = app.problem[20];
+    common.outputparams.saveSolBouFreq = app.problem[21];
+    common.qoiparams.ibs = app.problem[22];
+    common.timeparams.dae_steps = app.problem[23];  // number of dual time steps
+    common.outputparams.saveResNorm = app.problem[24];
     common.physicsparams.AVsmoothingIter = app.problem[25]; //Number of times artificial viscosity is smoothed
     common.physicsparams.frozenAVflag = app.problem[26]; // Flag deciding if artificial viscosity is calculated once per non-linear solve or in every residual evluation
                                            //   0: AV not frozen, evaluated every iteration
-                                           //   1: AV frozen, evluated once per solve (default)          
+                                           //   1: AV frozen, evluated once per solve (default)
     common.ppdegree = app.problem[27]; // degree of polynomial preconditioner
-    common.couplingparams.coupledinterface = app.problem[28]; 
-    common.couplingparams.coupledcondition = app.problem[29]; 
+    common.couplingparams.coupledinterface = app.problem[28];
+    common.couplingparams.coupledcondition = app.problem[29];
     common.couplingparams.coupledboundarycondition = app.problem[30];
     common.physicsparams.AVdistfunction = app.problem[31];
-    
+
     // (mutable reduced-basis/solver runtime state now lives in CSolver::state, default-initialized)
 
     common.solverparams.nonlinearSolverTol = app.solversparam[0];
@@ -197,27 +197,27 @@ inline void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, ma
     common.solverparams.PTCparam = app.solversparam[3];
     if (common.timeparams.tdep==1)
         common.timestate.time = app.factor[0];
-    common.physicsparams.rampFactor = 1.0;   // Ramp factor for artificial viscosity flux        
+    common.physicsparams.rampFactor = 1.0;   // Ramp factor for artificial viscosity flux
     common.timeparams.dae_alpha = app.factor[1];
     common.timeparams.dae_beta = app.factor[2];
     common.timeparams.dae_gamma = app.factor[3];
     common.timeparams.dae_epsilon = app.factor[4];
-    
+
     common.stgparams.nstgib = app.nsize[11];
-    if (common.stgparams.nstgib > 0) common.stgparams.stgib = copyarray(app.stgib,app.nsize[11]); 
+    if (common.stgparams.nstgib > 0) common.stgparams.stgib = copyarray(app.stgib,app.nsize[11]);
 
     //common.eblks = &mesh.eblks[0]; // element blocks
-    //common.fblks = &mesh.fblks[0]; // face blocks        
-    //common.dt = &app.dt[0]; // face blocks     
+    //common.fblks = &mesh.fblks[0]; // face blocks
+    //common.dt = &app.dt[0]; // face blocks
     common.eblks = copyarray(mesh.eblks,mesh.nsize[2]); // element blocks
-    common.fblks = copyarray(mesh.fblks,mesh.nsize[3]); // face blocks            
-    common.dt = copyarray(app.dt,app.nsize[4]); // timestep sizes       
+    common.fblks = copyarray(mesh.fblks,mesh.nsize[3]); // face blocks
+    common.dt = copyarray(app.dt,app.nsize[4]); // timestep sizes
     common.couplingparams.nvindx = app.nsize[12];
-    common.vindx = copyarray(app.vindx,app.nsize[12]); 
-    common.dae_dt = copyarray(app.dae_dt,app.nsize[13]); // dual timestep sizes           
+    common.vindx = copyarray(app.vindx,app.nsize[12]);
+    common.dae_dt = copyarray(app.dae_dt,app.nsize[13]); // dual timestep sizes
     common.szinterfacefluxmap = app.nsize[14];
-    common.interfacefluxmap = copyarray(app.interfacefluxmap,app.nsize[14]); 
-    common.cartgridpart = copyarray(mesh.cartgridpart,mesh.nsize[25]); 
+    common.interfacefluxmap = copyarray(app.interfacefluxmap,app.nsize[14]);
+    common.cartgridpart = copyarray(mesh.cartgridpart,mesh.nsize[25]);
     common.szcartgridpart = mesh.nsize[25];
 
     common.boundaryConditions = copyarray(mesh.boundaryConditions, mesh.nsize[27]);
@@ -226,9 +226,9 @@ inline void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, ma
     // if (mesh.nsize[27] > 0) TemplateFree(mesh.boundaryConditions, 0);
     if (mesh.nsize[28] > 0) {
         if (common.intepartpts[1] > 0) common.isd = 1;
-        //TemplateFree(mesh.intepartpts, 0);        
+        //TemplateFree(mesh.intepartpts, 0);
     }
-    
+
     if (common.qoiparams.nvqoi > 0) common.qoiparams.qoivolume = (dstype*) malloc(common.qoiparams.nvqoi*sizeof(dstype));
     if (common.qoiparams.nsurf > 0) common.qoiparams.qoisurface = (dstype*) malloc(common.qoiparams.nsurf*sizeof(dstype));
 
@@ -246,25 +246,25 @@ inline void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, ma
     }
 
     if ( common.outputparams.saveSolBouFreq>0 ) {
-        common.sizes.ndofbou = 0; 
-        for (Int j=0; j<common.meshsizes.nbf; j++) {            
-            if (common.fblks[3*j+2] == common.qoiparams.ibs) {     
+        common.sizes.ndofbou = 0;
+        for (Int j=0; j<common.meshsizes.nbf; j++) {
+            if (common.fblks[3*j+2] == common.qoiparams.ibs) {
                 Int f1 = common.fblks[3*j]-1;
-                Int f2 = common.fblks[3*j+1];                                  
-                common.sizes.ndofbou += common.grid.npf*(f2-f1); 
+                Int f2 = common.fblks[3*j+1];
+                common.sizes.ndofbou += common.grid.npf*(f2-f1);
             }
-        }                                           
-    }  
+        }
+    }
 
     common.meshsizes.nf0 = 0;
     for (Int j=0; j<common.meshsizes.nbf; j++) {
         Int f1 = common.fblks[3*j]-1;
-        Int f2 = common.fblks[3*j+1];    
-        Int ib = common.fblks[3*j+2];    
-        if (ib==0) common.meshsizes.nf0 += f2 - f1; // number of interior faces        
+        Int f2 = common.fblks[3*j+1];
+        Int ib = common.fblks[3*j+2];
+        if (ib==0) common.meshsizes.nf0 += f2 - f1; // number of interior faces
     }
-    
-    Int tstages = common.timeparams.tstages;  
+
+    Int tstages = common.timeparams.tstages;
     if (tstages>0) {
         common.DIRKcoeff_c = (dstype*) malloc(tstages*sizeof(dstype));
         common.DIRKcoeff_d = (dstype*) malloc(tstages*tstages*sizeof(dstype));
@@ -273,25 +273,25 @@ inline void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, ma
     if (common.timeparams.torder>0) {
         common.BDFcoeff_c = (dstype*) malloc((common.timeparams.torder+1)*sizeof(dstype));
         common.BDFcoeff_t = (dstype*) malloc(sizeof(dstype));
-    }    
-        
+    }
+
     if (common.mpiProcs>1) { // MPI
         common.meshsizes.ne0 = mesh.elempartpts[0]; // number of interior elements
         common.meshsizes.ne1 = mesh.elempartpts[0]+mesh.elempartpts[1]; // added with number of interface elements
-        common.meshsizes.ne2 = mesh.elempartpts[0]+mesh.elempartpts[1]+mesh.elempartpts[2]; // added with number of exterior elements        
+        common.meshsizes.ne2 = mesh.elempartpts[0]+mesh.elempartpts[1]+mesh.elempartpts[2]; // added with number of exterior elements
         common.sizes.ndof1 = common.grid.npe*common.components.ncu*common.meshsizes.ne1; // number of degrees of freedom
         common.sizes.ndofq1 = common.grid.npe*common.components.ncq*common.meshsizes.ne1; // number of degrees of freedom of q
         common.sizes.ndofw1 = common.grid.npe*common.components.ncw*common.meshsizes.ne1; // number of degrees of freedom of w
-        common.sizes.ndofudg1 = common.grid.npe*common.components.nc*common.meshsizes.ne1; // number of degrees of freedom of udg    
-        common.sizes.ndofsdg1 = common.grid.npe*common.components.ncs*common.meshsizes.ne1; // number of degrees of freedom of sdg    
-        common.sizes.ndofodg1 = common.grid.npe*common.components.nco*common.meshsizes.ne1; // number of degrees of freedom of odg           
-        common.sizes.ndofedg1 = common.grid.npe*common.components.nce*common.meshsizes.ne1; // number of degrees of freedom of edg           
-               
+        common.sizes.ndofudg1 = common.grid.npe*common.components.nc*common.meshsizes.ne1; // number of degrees of freedom of udg
+        common.sizes.ndofsdg1 = common.grid.npe*common.components.ncs*common.meshsizes.ne1; // number of degrees of freedom of sdg
+        common.sizes.ndofodg1 = common.grid.npe*common.components.nco*common.meshsizes.ne1; // number of degrees of freedom of odg
+        common.sizes.ndofedg1 = common.grid.npe*common.components.nce*common.meshsizes.ne1; // number of degrees of freedom of edg
+
         common.meshsizes.nbe0 = 0;
         common.meshsizes.nbe1 = 0;
         common.meshsizes.nbe2 = 0;
         common.couplingparams.ncie = 0; // number of coupled interface elements
-        for (Int j=0; j<common.meshsizes.nbe; j++) {           
+        for (Int j=0; j<common.meshsizes.nbe; j++) {
             if (common.eblks[3*j+2] == 0)
                 common.meshsizes.nbe0 += 1;
             if (common.eblks[3*j+2] <= 1)
@@ -300,42 +300,42 @@ inline void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, ma
                 common.meshsizes.nbe2 += 1;
             if (common.eblks[3*j+2] == -1)
               common.couplingparams.ncie += common.eblks[3*j+1] - common.eblks[3*j+0] + 1;
-        }        
-        
-        common.meshsizes.nbf0 = mesh.ndims[9]; // number of blocks for faces   
-        common.meshsizes.nbf1 = mesh.ndims[10]; // number of blocks for faces   
-        
+        }
+
+        common.meshsizes.nbf0 = mesh.ndims[9]; // number of blocks for faces
+        common.meshsizes.nbf1 = mesh.ndims[10]; // number of blocks for faces
+
         common.nnbsd = mesh.nsize[4];
         common.nelemsend = mesh.nsize[5];
-        common.nelemrecv = mesh.nsize[6];    
-        common.nbsd = copyarray(mesh.nbsd,mesh.nsize[4]); 
-        common.elemsend = copyarray(mesh.elemsend,mesh.nsize[5]); 
-        common.elemrecv = copyarray(mesh.elemrecv,mesh.nsize[6]); 
-        common.elemsendpts = copyarray(mesh.elemsendpts,mesh.nsize[7]); 
-        common.elemrecvpts = copyarray(mesh.elemrecvpts,mesh.nsize[8]); 
-                                
+        common.nelemrecv = mesh.nsize[6];
+        common.nbsd = copyarray(mesh.nbsd,mesh.nsize[4]);
+        common.elemsend = copyarray(mesh.elemsend,mesh.nsize[5]);
+        common.elemrecv = copyarray(mesh.elemrecv,mesh.nsize[6]);
+        common.elemsendpts = copyarray(mesh.elemsendpts,mesh.nsize[7]);
+        common.elemrecvpts = copyarray(mesh.elemrecvpts,mesh.nsize[8]);
+
         common.nnbintf = mesh.sznbintf;
         common.nfacesend = mesh.szfacesend;
-        common.nfacerecv = mesh.szfacerecv;            
-        common.nbintf = copyarray(mesh.nbintf,mesh.sznbintf); 
-        common.facesend = copyarray(mesh.facesend,mesh.szfacesend); 
-        common.facesendpts = copyarray(mesh.facesendpts,mesh.szfacesendpts); 
-        common.facerecv = copyarray(mesh.facerecv,mesh.szfacerecv);         
-        common.facerecvpts = copyarray(mesh.facerecvpts,mesh.szfacerecvpts); 
-        
+        common.nfacerecv = mesh.szfacerecv;
+        common.nbintf = copyarray(mesh.nbintf,mesh.sznbintf);
+        common.facesend = copyarray(mesh.facesend,mesh.szfacesend);
+        common.facesendpts = copyarray(mesh.facesendpts,mesh.szfacesendpts);
+        common.facerecv = copyarray(mesh.facerecv,mesh.szfacerecv);
+        common.facerecvpts = copyarray(mesh.facerecvpts,mesh.szfacerecvpts);
+
 #ifdef  HAVE_MPI
         common.requests = (MPI_Request *) malloc( 2*(common.nnbsd + common.nnbintf) * sizeof(MPI_Request) );
-        common.statuses = (MPI_Status *) malloc( 2*(common.nnbsd + common.nnbintf) * sizeof(MPI_Status) );     
+        common.statuses = (MPI_Status *) malloc( 2*(common.nnbsd + common.nnbintf) * sizeof(MPI_Status) );
         if (common.spatialScheme==1) {
           //common.couplingparams.ninterfacefaces = getinterfacefaces(mesh.f2e, common.meshsizes.ne1, common.meshsizes.nf);
           //common.couplingparams.ndofuhatinterface = common.components.ncu*common.grid.npf*common.couplingparams.ninterfacefaces;
         }
-#endif        
+#endif
     }
     else {
         common.nnbsd = 0;
         common.nelemsend = 0;
-        common.nelemrecv = 0;            
+        common.nelemrecv = 0;
         common.meshsizes.nbe0 = common.meshsizes.nbe;
         common.meshsizes.nbe1 = common.meshsizes.nbe;
         common.meshsizes.nbe2 = common.meshsizes.nbe;
@@ -345,11 +345,11 @@ inline void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, ma
         common.sizes.ndof1 = common.grid.npe*common.components.ncu*common.meshsizes.ne; // number of degrees of freedom
         common.sizes.ndofq1 = common.grid.npe*common.components.ncq*common.meshsizes.ne; // number of degrees of freedom of q
         common.sizes.ndofw1 = common.grid.npe*common.components.ncw*common.meshsizes.ne; // number of degrees of freedom of w
-        common.sizes.ndofudg1 = common.grid.npe*common.components.nc*common.meshsizes.ne; // number of degrees of freedom of udg    
-        common.sizes.ndofsdg1 = common.grid.npe*common.components.ncs*common.meshsizes.ne; // number of degrees of freedom of sdg    
-        common.sizes.ndofodg1 = common.grid.npe*common.components.nco*common.meshsizes.ne; // number of degrees of freedom of odg                   
-        common.sizes.ndofedg1 = common.grid.npe*common.components.nce*common.meshsizes.ne; // number of degrees of freedom of edg                   
-    }                
+        common.sizes.ndofudg1 = common.grid.npe*common.components.nc*common.meshsizes.ne; // number of degrees of freedom of udg
+        common.sizes.ndofsdg1 = common.grid.npe*common.components.ncs*common.meshsizes.ne; // number of degrees of freedom of sdg
+        common.sizes.ndofodg1 = common.grid.npe*common.components.nco*common.meshsizes.ne; // number of degrees of freedom of odg
+        common.sizes.ndofedg1 = common.grid.npe*common.components.nce*common.meshsizes.ne; // number of degrees of freedom of edg
+    }
 }
 
 template <class T=dstype, class I=Int>
@@ -359,95 +359,95 @@ inline void setresstruct(resstructT<T,I> &res, appstructT<T,I> &app, masterstruc
     Int ncu = app.ndims[AppNdims::ncu];    // number of compoments of (u)
     Int ncq = app.ndims[AppNdims::ncq];    // number of compoments of (q)
     //Int ncp = app.ndims[AppNdims::ncp];    // number of compoments of (p)
-    Int nd = master.ndims[0];  // spatial dimension    
-    Int npe = master.ndims[5]; // number of nodes on master element    
-    Int ne = mesh.ndims[1];    // number of elements in this subdomain 
-    Int npf = master.ndims[6]; // number of nodes on master face   
-    Int nf = mesh.ndims[2];    // number of elements in this subdomain 
-    Int nfe = mesh.ndims[4]; // number of faces per element            
-   
-    TemplateMalloc(&res.Rq, 2*npe*ncu*nd*ne, backend);   
+    Int nd = master.ndims[0];  // spatial dimension
+    Int npe = master.ndims[5]; // number of nodes on master element
+    Int ne = mesh.ndims[1];    // number of elements in this subdomain
+    Int npf = master.ndims[6]; // number of nodes on master face
+    Int nf = mesh.ndims[2];    // number of elements in this subdomain
+    Int nfe = mesh.ndims[4]; // number of faces per element
+
+    TemplateMalloc(&res.Rq, 2*npe*ncu*nd*ne, backend);
     TemplateMalloc(&res.Ru, npe*ncu*ne, backend);
     TemplateMalloc(&res.Rh, std::max(npf*std::max(ncu,ncq)*nf, npf*nfe*ncu*ne), backend);
     res.szRq = 2*npe*ncu*nd*ne;
     res.szRu = npe*ncu*ne;
     res.szRh = std::max(npf*std::max(ncu,ncq)*nf, npf*nfe*ncu*ne);
-    
+
 #ifdef HAVE_ENZYME
-    TemplateMalloc(&res.dRq, 2*npe*ncu*nd*ne, backend);   
+    TemplateMalloc(&res.dRq, 2*npe*ncu*nd*ne, backend);
     TemplateMalloc(&res.dRu, npe*ncu*ne, backend);
     TemplateMalloc(&res.dRh, npf*std::max(ncu,ncq)*nf, backend);
 #endif
-    
-    // set pointers    
+
+    // set pointers
     res.Rqe = &res.Rq[0];
-    res.Rqf = &res.Rq[0];        
+    res.Rqf = &res.Rq[0];
     res.Rue = &res.Ru[0];
     res.Ruf = &res.Ru[0];
-    
-#ifdef HAVE_ENZYME                        
+
+#ifdef HAVE_ENZYME
     res.dRqe = &res.dRq[0];
-    res.dRqf = &res.dRq[0];        
+    res.dRqf = &res.dRq[0];
     res.dRue = &res.dRu[0];
     res.dRuf = &res.dRu[0];
-#endif                   
+#endif
 }
 
 template <class T=dstype, class I=Int>
 inline void settempstruct(tempstructT<T,I> &tmp, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh, Int backend)
 {
-    using dstype=T;               
+    using dstype=T;
     Int nc = app.ndims[AppNdims::nc]; // number of compoments of (u, q, p)
-    Int ncu = app.ndims[AppNdims::ncu];// number of compoments of (u)        
+    Int ncu = app.ndims[AppNdims::ncu];// number of compoments of (u)
     Int ncq = app.ndims[AppNdims::ncq];    // number of compoments of (q)
-    Int nco = app.ndims[AppNdims::nco];// number of compoments of (o)    
-    Int ncx = app.ndims[AppNdims::ncx];// number of compoments of (xdg)    
-    Int ncw = app.ndims[AppNdims::ncw];// number of compoments of (u)       
-    Int nd = master.ndims[0];     // spatial dimension        
+    Int nco = app.ndims[AppNdims::nco];// number of compoments of (o)
+    Int ncx = app.ndims[AppNdims::ncx];// number of compoments of (xdg)
+    Int ncw = app.ndims[AppNdims::ncw];// number of compoments of (u)
+    Int nd = master.ndims[0];     // spatial dimension
     Int npe = master.ndims[5]; // number of nodes on master element
-    Int npf = master.ndims[6]; // number of nodes on master face       
+    Int npf = master.ndims[6]; // number of nodes on master face
     Int nge = master.ndims[7]; // number of gauss points on master element
     Int ngf = master.ndims[8]; // number of gauss poInts on master face
-    Int nfe = mesh.ndims[4]; // number of faces per element                        
+    Int nfe = mesh.ndims[4]; // number of faces per element
     Int neb = mesh.ndims[6]; // maximum number of elements per block
-    Int nfb = mesh.ndims[8]; // maximum number of faces per block   
-    Int ne = mesh.ndims[1]; // number of elements in this subdomain 
-    //Int nf = mesh.ndims[2]; // number of faces in this subdomain 
+    Int nfb = mesh.ndims[8]; // maximum number of faces per block
+    Int ne = mesh.ndims[1]; // number of elements in this subdomain
+    //Int nf = mesh.ndims[2]; // number of faces in this subdomain
     Int ndofucg = mesh.nsize[12]-1;; //total DOFs for CG field
     Int spatialScheme = app.problem[0];   /* 0: LDG; 1: HDG */
 
-    Int n0 = std::max(npe*std::max(nc+ncw,ncx)*neb, npf*(ncu+2*nc+2*ncw)*nfb);                        
+    Int n0 = std::max(npe*std::max(nc+ncw,ncx)*neb, npf*(ncu+2*nc+2*ncw)*nfb);
     n0 = 2*std::max(n0, nco*ne*npe);
     Int n1 = std::max(ncx+2*nd*nd+1, ncu*nd+ncu+ncw+std::max(nc,ncu*(nd+1)));
-    Int n2 = std::max(ncx+nd+1+nd*(nd-1), ncu+2*ncu*nd+2*nc+2*ncw);    
+    Int n2 = std::max(ncx+nd+1+nd*(nd-1), ncu+2*ncu*nd+2*nc+2*ncw);
     Int n3 = std::max(nge*n1*neb, ngf*n2*nfb);
     n3 = 2*std::max(n3, ndofucg);
-    
+
     if (spatialScheme > 0) {
       //Int k1 = npe*ncu*npe*ncu*neb + npe*npf*nfe*ncu*ncu*neb + npe*npf*nfe*ncu*ncu*neb + npf*nfe*npf*nfe*ncu*ncu*neb;
       Int k1 = std::max(npe*ncu*npe*ncu*neb, npf*nfe*npf*nfe*ncu*ncu*neb);
       Int k2 = npf*nfe*neb*ncu + npf*npf*nfe*neb*ncu*ncu + npf*npf*nfe*neb*ncu*ncq + npf*npf*nfe*neb*ncu*ncu;
       Int k3 = npf*ncu*npf*ncu*nfb;
-      Int k4 = nge*(nd+1)*ncu*std::max(ncu,ncq)*neb;       
+      Int k4 = nge*(nd+1)*ncu*std::max(ncu,ncq)*neb;
       n0 = std::max(n0, k1);
-      n0 = std::max(n0, k2);      
-      n0 = std::max(n0, k3);  
-      n0 = std::max(n0, k4);  
+      n0 = std::max(n0, k2);
+      n0 = std::max(n0, k3);
+      n0 = std::max(n0, k4);
 
       int nga = nge*neb;
-      k1 = nga*ncu*nd + nga*ncu + nga*nc + nga*ncw + nga*ncu*nd*nc + nga*ncu*nd*ncw + nga*ncu*nc + nga*ncu*ncw + nga*ncw*nc; 
-      nga = ngf*neb*nfe; 
-      k2 = nga*(ncu + nc + nco + ncw + ncw + ncu*nd + ncu*nd*nc + ncu*nd*ncu + ncu*nd*ncw + ncw*nc); 
+      k1 = nga*ncu*nd + nga*ncu + nga*nc + nga*ncw + nga*ncu*nd*nc + nga*ncu*nd*ncw + nga*ncu*nc + nga*ncu*ncw + nga*ncw*nc;
+      nga = ngf*neb*nfe;
+      k2 = nga*(ncu + nc + nco + ncw + ncw + ncu*nd + ncu*nd*nc + ncu*nd*ncu + ncu*nd*ncw + ncw*nc);
       n3 = std::max(n3, k1);
       n3 = std::max(n3, k2);
     }
-        
-    TemplateMalloc(&tmp.tempn, n0+n3, backend); 
+
+    TemplateMalloc(&tmp.tempn, n0+n3, backend);
     tmp.tempg = &tmp.tempn[n0];
-    //TemplateMalloc(&tmp.tempg, n3, backend); 
+    //TemplateMalloc(&tmp.tempg, n3, backend);
     tmp.sztempn = n0;
-    tmp.sztempg = n3;       
-#ifdef HAVE_MPI     
+    tmp.sztempg = n3;
+#ifdef HAVE_MPI
     if (spatialScheme == 0) {
       TemplateMalloc(&tmp.buffsend, std::max(nc,nco)*npe*mesh.nsize[5], backend);
       TemplateMalloc(&tmp.buffrecv, std::max(nc,nco)*npe*mesh.nsize[6], backend);
@@ -455,13 +455,13 @@ inline void settempstruct(tempstructT<T,I> &tmp, appstructT<T,I> &app, masterstr
       tmp.szbuffrecv = std::max(nc,nco)*npe*mesh.nsize[6];
     }
     else if (spatialScheme == 1) {
-      int m = ncu*npf*nfe; 
+      int m = ncu*npf*nfe;
       int n = std::max(nc,nco)*npe; // fix bug here
       TemplateMalloc(&tmp.buffsend, std::max(m*m + m, n)*mesh.nsize[5], backend);
       TemplateMalloc(&tmp.buffrecv, std::max(m*m + m, n)*mesh.nsize[6], backend);
       tmp.szbuffsend = std::max(m*m + m, n)*mesh.nsize[5];
       tmp.szbuffrecv = std::max(m*m + m, n)*mesh.nsize[6];
-      
+
       TemplateMalloc(&tmp.bufffacesend, app.nsize[14]*npf*mesh.szfacesend, backend);
       TemplateMalloc(&tmp.bufffacerecv, app.nsize[14]*npf*mesh.szfacerecv, backend);
       tmp.szbufffacesend = app.nsize[14]*npf*mesh.szfacesend;
@@ -506,63 +506,63 @@ inline void cpuInitTail(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T
         Int fileoffset, Int omprank)
 {
     using dstype=T;
-    
+
 //     if (mpiprocs != app.ndims[AppNdims::mpiprocs]) {
 //         if (mpirank==0) {
 //             printf("# processors = %d, # subdomains = %d\n", mpiprocs, app.ndims[AppNdims::mpiprocs]);
 //             error("Number of MPI processes is incorrect\n");
 //         }
 //     }
-         
+
     // offset facecon
 //     for (Int i=0; i<mesh.nsize[1]; i++)
 //         mesh.facecon[i] = mesh.facecon[i] - 1;
-                
+
 //     if (mpiprocs > 1) {
 //         // offset nbsd
 //         for (Int i=0; i<mesh.nsize[4]; i++)
 //             mesh.nbsd[i] = mesh.nbsd[i] - 1;
-// 
+//
 //         // offset elemsend
 //         for (Int i=0; i<mesh.nsize[5]; i++)
 //             mesh.elemsend[i] = mesh.elemsend[i] - 1;
-// 
+//
 //         // offset elemrecv
 //         for (Int i=0; i<mesh.nsize[6]; i++)
 //             mesh.elemrecv[i] = mesh.elemrecv[i] - 1;
 //     }
-            
-    if (mpirank==0) printf("Set res struct... \n");    
+
+    if (mpirank==0) printf("Set res struct... \n");
     setresstruct(res, app, master, mesh, 0);
-    
-    if (mpirank==0) printf("Set temp struct... \n");    
-    settempstruct(tmp, app, master, mesh, 0);    
-        
-    if (mpirank==0) printf("Run IsMeshCurved... \n");    
-    int curvedmesh = IsMeshCurved(sol, app, master, mesh, tmp);       
-    if (mpirank==0) printf("IsMeshCurved = %d \n",curvedmesh);        
-    
+
+    if (mpirank==0) printf("Set temp struct... \n");
+    settempstruct(tmp, app, master, mesh, 0);
+
+    if (mpirank==0) printf("Run IsMeshCurved... \n");
+    int curvedmesh = IsMeshCurved(sol, app, master, mesh, tmp);
+    if (mpirank==0) printf("IsMeshCurved = %d \n",curvedmesh);
+
     if (mpirank==0) printf("Set common struct... \n");
-    setcommonstruct(common, app, master, mesh, filein, fileout, curvedmesh, fileoffset);            
+    setcommonstruct(common, app, master, mesh, filein, fileout, curvedmesh, fileoffset);
     common.cublasHandle = 0;
-    common.eventHandle = 0; 
+    common.eventHandle = 0;
     if (mpirank==0) printf("Finish setting common struct... \n");
-                        
-    if (common.spatialScheme > 0) {      
+
+    if (common.spatialScheme > 0) {
       int nd = common.grid.nd;
       int npe = common.grid.npe;
       int nge = common.grid.nge;
-      master.shapegwdotshapeg = (dstype*) malloc (sizeof (dstype)*npe*npe*nge*(nd+1));      
+      master.shapegwdotshapeg = (dstype*) malloc (sizeof (dstype)*npe*npe*nge*(nd+1));
       master.szshapegwdotshapeg = npe*npe*nge*(nd+1);
       for (int d=0; d<nd+1; d++) {
         for (int g=0; g<nge; g++) {
           for (int i=0; i<npe; i++) {
-            for (int j=0; j<npe; j++) {            
-              master.shapegwdotshapeg[j+i*npe+g*npe*npe+d*npe*npe*nge] = master.shapegw[j+g*npe+d*npe*nge]*master.shapegt[g+i*nge];              
-            }            
+            for (int j=0; j<npe; j++) {
+              master.shapegwdotshapeg[j+i*npe+g*npe*npe+d*npe*npe*nge] = master.shapegw[j+g*npe+d*npe*nge]*master.shapegt[g+i*nge];
+            }
           }
         }
-      }      
+      }
       int npf = common.grid.npf;
       int ngf = common.grid.ngf;
       master.shapfgwdotshapfg = (dstype*) malloc (sizeof (dstype)*npf*npf*ngf*nd);
@@ -570,18 +570,18 @@ inline void cpuInitTail(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T
       for (int d=0; d<nd; d++) {
         for (int g=0; g<ngf; g++) {
           for (int i=0; i<npf; i++) {
-            for (int j=0; j<npf; j++) {            
-              master.shapfgwdotshapfg[j+i*npf+g*npf*npf+d*npf*npf*ngf] = master.shapfgw[j+g*npf+d*npf*ngf]*master.shapfgt[g+i*ngf]; // fix bug here             
-            }            
+            for (int j=0; j<npf; j++) {
+              master.shapfgwdotshapfg[j+i*npf+g*npf*npf+d*npf*npf*ngf] = master.shapfgw[j+g*npf+d*npf*ngf]*master.shapfgt[g+i*ngf]; // fix bug here
+            }
           }
         }
-      }              
+      }
       // if (common.nelemsend>0) {
-      //     mesh.interfacefaces = (Int*) malloc (sizeof (Int)*common.nelemsend);          
+      //     mesh.interfacefaces = (Int*) malloc (sizeof (Int)*common.nelemsend);
       //     int n = getsubdomaininterfaces(mesh.interfacefaces, mesh.f2e, common.meshsizes.ne1, common.meshsizes.nf);
       //     if (n != common.nelemsend) error("Number of interfaces mismatch");
       // }
-      
+
       Int nf = common.meshsizes.nf;
       Int ne = common.meshsizes.ne;
       Int nfe = common.meshsizes.nfe;
@@ -589,12 +589,12 @@ inline void cpuInitTail(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T
       mesh.f2f = (Int*) malloc (sizeof (Int)*2*(nfe-1)*nf);
       mesh.f2l = (Int*) malloc (sizeof (Int)*2*(nfe-1)*nf);
       mke2f(mesh.e2f, mesh.f2e, nf, nfe, ne);
-      mkf2f(mesh.f2f, mesh.f2l, mesh.f2e, mesh.e2f, nf, nfe, ne);       
-      
+      mkf2f(mesh.f2f, mesh.f2l, mesh.f2e, mesh.e2f, nf, nfe, ne);
+
 //       for (int i = 0; i < common.nelemsend; i++) {
 //         int esend = common.elemsend[i];
 //         int erecv = common.elemrecv[i];
-//         for (int j = 0; j < nfe; j++) 
+//         for (int j = 0; j < nfe; j++)
 //           for (int k = 0; k < nfe; k++) {
 //             if (mesh.e2f[j + nfe*esend] == mesh.e2f[k + nfe*erecv]) {
 //               int f = mesh.e2f[j + nfe*esend];
@@ -605,55 +605,55 @@ inline void cpuInitTail(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T
 //             }
 //         }
 //       }
-      
+
 //       int n = getsubdomaininterfaces(mesh.f2e, common.meshsizes.ne1, common.meshsizes.nf);
-//       int *interfacefaces = (Int*) malloc (sizeof (Int)*n);          
+//       int *interfacefaces = (Int*) malloc (sizeof (Int)*n);
 //       getsubdomaininterfaces(interfacefaces, mesh.f2e, common.meshsizes.ne1, common.meshsizes.nf);
 //       print2iarray(interfacefaces, 1, n);
 //       print2iarray(mesh.f2e, 4, n);
 //       print2iarray(mesh.f2f, 2*(nfe-1), n);
 //       print2iarray(mesh.f2l, 2*(nfe-1), n);
-//       CPUFREE(interfacefaces);      
-      
+//       CPUFREE(interfacefaces);
+
 //       print2iarray(mesh.f2e, 4, nf);
 //       print2iarray(mesh.e2f, nfe, ne);
 //       print2iarray(mesh.f2f, 2*(nfe-1), nf);
 //       print2iarray(mesh.f2l, 2*(nfe-1), nf);
-//      CPUFREE(e2f);      
+//      CPUFREE(e2f);
     }
 
     if (common.components.ncs>0) {
         // initialize source term
         Int N = common.grid.npe*common.components.ncs*common.meshsizes.ne;
-        sol.sdg = (dstype*) malloc (sizeof (dstype)*N);        
+        sol.sdg = (dstype*) malloc (sizeof (dstype)*N);
         for (Int i=0; i<N; i++)
-            sol.sdg[i] = 0.0;               
-        sol.sdgg = (dstype*) malloc (sizeof (dstype)*common.grid.nge*common.components.ncs*common.meshsizes.ne);     
+            sol.sdg[i] = 0.0;
+        sol.sdgg = (dstype*) malloc (sizeof (dstype)*common.grid.nge*common.components.ncs*common.meshsizes.ne);
         sol.szsdg = N;
         sol.szsdgg = common.grid.nge*common.components.ncs*common.meshsizes.ne;
-    }            
-    
-    if (common.components.ncw>0) {        
+    }
+
+    if (common.components.ncw>0) {
         Int N = common.grid.npe*common.components.ncw*common.meshsizes.ne;
         sol.wsrc = (dstype*) malloc (sizeof (dstype)*N);
         sol.szwsrc = N;
         for (Int i=0; i<N; i++)
-            sol.wsrc[i] = 0.0;               
+            sol.wsrc[i] = 0.0;
         if (common.timeparams.dae_steps>0) {
             sol.wdual = (dstype*) malloc (sizeof (dstype)*N);
             sol.szwdual = N;
         }
     }
-    
+
     if (common.outputparams.compudgavg>0) {
-        sol.udgavg = (dstype*) malloc (sizeof (dstype)*(common.grid.npe*common.components.nc*common.meshsizes.ne1+1));  
+        sol.udgavg = (dstype*) malloc (sizeof (dstype)*(common.grid.npe*common.components.nc*common.meshsizes.ne1+1));
         sol.szudgavg = common.grid.npe*common.components.nc*common.meshsizes.ne1+1;
     }
-    
+
     if (common.sizes.ndofbou>0) {
-        sol.bouudgavg = (dstype*) malloc (sizeof (dstype)*(common.sizes.ndofbou*common.components.nc+1));  
-        if (common.components.ncw > 0) sol.bouwdgavg = (dstype*) malloc (sizeof (dstype)*(common.sizes.ndofbou*common.components.ncw+1));  
-        sol.bouuhavg = (dstype*) malloc (sizeof (dstype)*(common.sizes.ndofbou*common.components.ncu+1));                
+        sol.bouudgavg = (dstype*) malloc (sizeof (dstype)*(common.sizes.ndofbou*common.components.nc+1));
+        if (common.components.ncw > 0) sol.bouwdgavg = (dstype*) malloc (sizeof (dstype)*(common.sizes.ndofbou*common.components.ncw+1));
+        sol.bouuhavg = (dstype*) malloc (sizeof (dstype)*(common.sizes.ndofbou*common.components.ncu+1));
     }
 
     // allocate memory for uh
@@ -661,7 +661,7 @@ inline void cpuInitTail(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T
     sol.uh = (dstype*) malloc (sizeof (dstype)*common.grid.npf*common.components.ncu*common.meshsizes.nf);
     }
     sol.szuh = common.grid.npf*common.components.ncu*common.meshsizes.nf;
-    
+
     #ifdef HAVE_ENZYME
         sol.duh = (dstype*) malloc (sizeof (dstype)*common.grid.npf*common.components.ncu*common.meshsizes.nf);
     #endif
@@ -674,7 +674,7 @@ inline void cpuInitTail(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T
         sol.szodgg = common.grid.nge*common.components.nco*common.meshsizes.ne;
         sol.szog1 = common.grid.ngf*common.components.nco*common.meshsizes.nf;
         sol.szog2 = common.grid.ngf*common.components.nco*common.meshsizes.nf;
-        
+
         #ifdef HAVE_ENZYME
             sol.dodgg = (dstype*) malloc (sizeof (dstype)*common.grid.nge*common.components.nco*common.meshsizes.ne);
             ArraySetValue(sol.dodgg, zero, common.grid.nge*common.components.nco*common.meshsizes.ne, 0);
@@ -684,11 +684,11 @@ inline void cpuInitTail(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T
             ArraySetValue(sol.dog2, zero, common.grid.ngf*common.components.nco*common.meshsizes.nf, 0);
         #endif
     }
-            
-    if (mpirank==0) printf("Precompute index arrays... \n");    
-    //mesh.index = (Int*) malloc (sizeof (Int)*(1024));            
-    
-    // allocate memory 
+
+    if (mpirank==0) printf("Precompute index arrays... \n");
+    //mesh.index = (Int*) malloc (sizeof (Int)*(1024));
+
+    // allocate memory
     mesh.findxdg1 = (Int*) malloc (sizeof (Int)*common.grid.npf*common.components.ncx*common.meshsizes.nf);
     mesh.findxdgp = (Int*) malloc (sizeof (Int)*(common.meshsizes.nbf+1));
     mesh.findudg1 = (Int*) malloc (sizeof (Int)*common.grid.npf*common.components.nc*common.meshsizes.nf);
@@ -696,7 +696,7 @@ inline void cpuInitTail(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T
     mesh.findudgp = (Int*) malloc (sizeof (Int)*(common.meshsizes.nbf+1));
     mesh.eindudg1 = (Int*) malloc (sizeof (Int)*common.grid.npe*common.components.nc*common.meshsizes.ne);
     mesh.eindudgp = (Int*) malloc (sizeof (Int)*(common.meshsizes.nbe+1));
-    
+
     mesh.szfindxdg1 = common.grid.npf*common.components.ncx*common.meshsizes.nf;
     mesh.szfindxdgp = (common.meshsizes.nbf+1);
     mesh.szfindudg1 = common.grid.npf * common.components.nc * common.meshsizes.nf;
@@ -704,23 +704,23 @@ inline void cpuInitTail(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T
     mesh.szfindudgp = common.meshsizes.nbf + 1;
     mesh.szeindudg1 = common.grid.npe * common.components.nc * common.meshsizes.ne;
     mesh.szeindudgp = common.meshsizes.nbe + 1;
-            
+
     faceperm1(mesh.findxdg1, mesh.findxdgp, mesh.facecon, mesh.fblks,
              common.grid.npf, common.components.ncx, common.grid.npe, common.components.ncx, common.meshsizes.nbf);
     faceperm(mesh.findudg1, mesh.findudg2, mesh.findudgp, mesh.facecon, mesh.fblks,
              common.grid.npf, common.components.nc, common.grid.npe, common.components.nc, common.meshsizes.nbf);
-    elemperm(mesh.eindudg1, mesh.eindudgp, mesh.eblks, 
-             common.grid.npe, common.components.nc, common.components.nc, common.meshsizes.nbe);   
-    
+    elemperm(mesh.eindudg1, mesh.eindudgp, mesh.eblks,
+             common.grid.npe, common.components.nc, common.components.nc, common.meshsizes.nbe);
+
     if (common.nelemsend>0) {
         Int bsz = common.grid.npe*common.components.ncu;
         Int nudg = common.grid.npe*common.components.nc;
-        mesh.elemsendind = (Int*) malloc (sizeof (Int)*bsz*common.nelemsend);                        
+        mesh.elemsendind = (Int*) malloc (sizeof (Int)*bsz*common.nelemsend);
         mesh.szelemsendind = bsz*common.nelemsend;
         for (Int i=0; i<common.nelemsend; i++)
-            for (Int j=0; j<bsz; j++) 
-                mesh.elemsendind[bsz*i+j] = nudg*common.elemsend[i] + j;            
-      
+            for (Int j=0; j<bsz; j++)
+                mesh.elemsendind[bsz*i+j] = nudg*common.elemsend[i] + j;
+
         bsz = common.grid.npe*common.physicsparams.ncAV;
         nudg = common.grid.npe*common.physicsparams.ncAV;
         mesh.elemsendodg = (Int*) malloc (sizeof (Int)*bsz*common.nelemsend);
@@ -728,7 +728,7 @@ inline void cpuInitTail(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T
         for (Int i=0; i<common.nelemsend; i++)
             for (Int j=0; j<bsz; j++)
                 mesh.elemsendodg[bsz*i+j] = nudg*common.elemsend[i] + j;
-       
+
         bsz = common.grid.npe*common.components.nc;
         nudg = common.grid.npe*common.components.nc;
         mesh.elemsendudg = (Int*) malloc (sizeof (Int)*bsz*common.nelemsend);
@@ -738,24 +738,24 @@ inline void cpuInitTail(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T
                 mesh.elemsendudg[bsz*i+j] = nudg*common.elemsend[i] + j;
 
     }
-    
+
     if (common.nelemrecv>0) {
         Int bsz = common.grid.npe*common.components.ncu;
         Int nudg = common.grid.npe*common.components.nc;
-        mesh.elemrecvind = (Int*) malloc (sizeof (Int)*bsz*common.nelemrecv);                        
+        mesh.elemrecvind = (Int*) malloc (sizeof (Int)*bsz*common.nelemrecv);
         mesh.szelemrecvind = bsz*common.nelemrecv;
         for (Int i=0; i<common.nelemrecv; i++)
-            for (Int j=0; j<bsz; j++) 
-                mesh.elemrecvind[bsz*i+j] = nudg*common.elemrecv[i] + j;            
-    
+            for (Int j=0; j<bsz; j++)
+                mesh.elemrecvind[bsz*i+j] = nudg*common.elemrecv[i] + j;
+
         bsz = common.grid.npe*common.physicsparams.ncAV;
         nudg = common.grid.npe*common.physicsparams.ncAV;
         mesh.elemrecvodg = (Int*) malloc (sizeof (Int)*bsz*common.nelemrecv);
         mesh.szelemrecvodg = bsz*common.nelemrecv;
         for (Int i=0; i<common.nelemrecv; i++)
             for (Int j=0; j<bsz; j++)
-                mesh.elemrecvodg[bsz*i+j] = nudg*common.elemrecv[i] + j;  
-    
+                mesh.elemrecvodg[bsz*i+j] = nudg*common.elemrecv[i] + j;
+
         bsz = common.grid.npe*common.components.nc;
         nudg = common.grid.npe*common.components.nc;
         mesh.elemrecvudg = (Int*) malloc (sizeof (Int)*bsz*common.nelemrecv);
@@ -763,8 +763,8 @@ inline void cpuInitTail(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T
         for (Int i=0; i<common.nelemrecv; i++)
             for (Int j=0; j<bsz; j++)
                 mesh.elemrecvudg[bsz*i+j] = nudg*common.elemrecv[i] + j;
-    }            
-    
+    }
+
     if (mpirank==0) {
         //print2darray(app.physicsparam,1,app.nsize[6]);
         printf("finish cpuInit... \n");
@@ -857,43 +857,43 @@ inline void cpuInitFromStructs(solstructT<T,I> &sol, resstructT<T,I> &res, appst
 template <class T=dstype, class I=Int>
 inline void devappstruct(appstructT<T,I> &dapp, appstructT<T,I> &app, commonstructT<T,I> &common)
 {
-    using dstype=T;        
+    using dstype=T;
     TemplateMalloc(&dapp.nsize, app.lsize[0], common.backend);
     TemplateMalloc(&dapp.ndims, app.nsize[0], common.backend);
-    TemplateMalloc(&dapp.flag, app.nsize[1], common.backend);    
-    TemplateMalloc(&dapp.problem, app.nsize[2], common.backend);    
-    TemplateMalloc(&dapp.uinf, app.nsize[3], common.backend);    
-    TemplateMalloc(&dapp.dt, app.nsize[4], common.backend);    
-    TemplateMalloc(&dapp.factor, app.nsize[5], common.backend);    
-    TemplateMalloc(&dapp.physicsparam, app.nsize[6], common.backend);    
-    TemplateMalloc(&dapp.solversparam, app.nsize[7], common.backend);  
-    TemplateMalloc(&dapp.tau, app.nsize[8], common.backend);  
-    TemplateMalloc(&dapp.stgdata, app.nsize[9], common.backend);  
-    TemplateMalloc(&dapp.stgparam, app.nsize[10], common.backend);  
-    TemplateMalloc(&dapp.stgib, app.nsize[11], common.backend);  
-    TemplateMalloc(&dapp.vindx, app.nsize[12], common.backend);  
-    TemplateMalloc(&dapp.dae_dt, app.nsize[13], common.backend);  
-    TemplateMalloc(&dapp.interfacefluxmap, app.nsize[14], common.backend);  
-    TemplateMalloc(&dapp.avparam, app.nsize[15], common.backend);  
-    
-    TemplateCopytoDevice( dapp.nsize, app.nsize, app.lsize[0], common.backend );      
-    TemplateCopytoDevice( dapp.ndims, app.ndims, app.nsize[0], common.backend );      
-    TemplateCopytoDevice( dapp.flag, app.flag, app.nsize[1], common.backend );      
-    TemplateCopytoDevice( dapp.problem, app.problem, app.nsize[2], common.backend );      
-    TemplateCopytoDevice( dapp.uinf, app.uinf, app.nsize[3], common.backend );      
-    TemplateCopytoDevice( dapp.dt, app.dt, app.nsize[4], common.backend );      
-    TemplateCopytoDevice( dapp.factor, app.factor, app.nsize[5], common.backend );      
-    TemplateCopytoDevice( dapp.physicsparam, app.physicsparam, app.nsize[6], common.backend );      
-    TemplateCopytoDevice( dapp.solversparam, app.solversparam, app.nsize[7], common.backend );          
-    TemplateCopytoDevice( dapp.tau, app.tau, app.nsize[8], common.backend );          
-    TemplateCopytoDevice( dapp.stgdata, app.stgdata, app.nsize[9], common.backend );          
-    TemplateCopytoDevice( dapp.stgparam, app.stgparam, app.nsize[10], common.backend );          
-    TemplateCopytoDevice( dapp.stgib, app.stgib, app.nsize[11], common.backend );   
-    TemplateCopytoDevice( dapp.vindx, app.vindx, app.nsize[12], common.backend );   
-    TemplateCopytoDevice( dapp.dae_dt, app.dae_dt, app.nsize[13], common.backend );   
-    TemplateCopytoDevice( dapp.interfacefluxmap, app.interfacefluxmap, app.nsize[14], common.backend );   
-    TemplateCopytoDevice( dapp.avparam, app.avparam, app.nsize[15], common.backend );   
-    
+    TemplateMalloc(&dapp.flag, app.nsize[1], common.backend);
+    TemplateMalloc(&dapp.problem, app.nsize[2], common.backend);
+    TemplateMalloc(&dapp.uinf, app.nsize[3], common.backend);
+    TemplateMalloc(&dapp.dt, app.nsize[4], common.backend);
+    TemplateMalloc(&dapp.factor, app.nsize[5], common.backend);
+    TemplateMalloc(&dapp.physicsparam, app.nsize[6], common.backend);
+    TemplateMalloc(&dapp.solversparam, app.nsize[7], common.backend);
+    TemplateMalloc(&dapp.tau, app.nsize[8], common.backend);
+    TemplateMalloc(&dapp.stgdata, app.nsize[9], common.backend);
+    TemplateMalloc(&dapp.stgparam, app.nsize[10], common.backend);
+    TemplateMalloc(&dapp.stgib, app.nsize[11], common.backend);
+    TemplateMalloc(&dapp.vindx, app.nsize[12], common.backend);
+    TemplateMalloc(&dapp.dae_dt, app.nsize[13], common.backend);
+    TemplateMalloc(&dapp.interfacefluxmap, app.nsize[14], common.backend);
+    TemplateMalloc(&dapp.avparam, app.nsize[15], common.backend);
+
+    TemplateCopytoDevice( dapp.nsize, app.nsize, app.lsize[0], common.backend );
+    TemplateCopytoDevice( dapp.ndims, app.ndims, app.nsize[0], common.backend );
+    TemplateCopytoDevice( dapp.flag, app.flag, app.nsize[1], common.backend );
+    TemplateCopytoDevice( dapp.problem, app.problem, app.nsize[2], common.backend );
+    TemplateCopytoDevice( dapp.uinf, app.uinf, app.nsize[3], common.backend );
+    TemplateCopytoDevice( dapp.dt, app.dt, app.nsize[4], common.backend );
+    TemplateCopytoDevice( dapp.factor, app.factor, app.nsize[5], common.backend );
+    TemplateCopytoDevice( dapp.physicsparam, app.physicsparam, app.nsize[6], common.backend );
+    TemplateCopytoDevice( dapp.solversparam, app.solversparam, app.nsize[7], common.backend );
+    TemplateCopytoDevice( dapp.tau, app.tau, app.nsize[8], common.backend );
+    TemplateCopytoDevice( dapp.stgdata, app.stgdata, app.nsize[9], common.backend );
+    TemplateCopytoDevice( dapp.stgparam, app.stgparam, app.nsize[10], common.backend );
+    TemplateCopytoDevice( dapp.stgib, app.stgib, app.nsize[11], common.backend );
+    TemplateCopytoDevice( dapp.vindx, app.vindx, app.nsize[12], common.backend );
+    TemplateCopytoDevice( dapp.dae_dt, app.dae_dt, app.nsize[13], common.backend );
+    TemplateCopytoDevice( dapp.interfacefluxmap, app.interfacefluxmap, app.nsize[14], common.backend );
+    TemplateCopytoDevice( dapp.avparam, app.avparam, app.nsize[15], common.backend );
+
     dapp.szflag = app.nsize[1];
     dapp.szproblem = app.nsize[2];
     dapp.szuinf = app.nsize[3];
@@ -909,62 +909,62 @@ inline void devappstruct(appstructT<T,I> &dapp, appstructT<T,I> &app, commonstru
     dapp.szdae_dt = app.nsize[13];
     dapp.szinterfacefluxmap = app.nsize[14];
     dapp.szavparam = app.nsize[15];
-    
+
     Int ncu, ncq, ncw;
     ncu = app.ndims[AppNdims::ncu];// number of compoments of (u)
     ncq = app.ndims[AppNdims::ncq];// number of compoments of (q)
-    ncw = app.ndims[AppNdims::ncw];// number of compoments of (w)    
+    ncw = app.ndims[AppNdims::ncw];// number of compoments of (w)
     if (ncu>0) {
-        TemplateMalloc(&dapp.fc_u, ncu, common.backend); 
-        TemplateCopytoDevice( dapp.fc_u, app.fc_u, ncu, common.backend );          
-        TemplateMalloc(&dapp.dtcoef_u, ncu, common.backend); 
-        TemplateCopytoDevice( dapp.dtcoef_u, app.dtcoef_u, ncu, common.backend );          
-    }        
+        TemplateMalloc(&dapp.fc_u, ncu, common.backend);
+        TemplateCopytoDevice( dapp.fc_u, app.fc_u, ncu, common.backend );
+        TemplateMalloc(&dapp.dtcoef_u, ncu, common.backend);
+        TemplateCopytoDevice( dapp.dtcoef_u, app.dtcoef_u, ncu, common.backend );
+    }
     if (ncq>0) {
-        TemplateMalloc(&dapp.fc_q, ncq, common.backend); 
-        TemplateCopytoDevice( dapp.fc_q, app.fc_q, ncq, common.backend );           
-        TemplateMalloc(&dapp.dtcoef_q, ncq, common.backend); 
-        TemplateCopytoDevice( dapp.dtcoef_q, app.dtcoef_q, ncq, common.backend );          
-    }        
+        TemplateMalloc(&dapp.fc_q, ncq, common.backend);
+        TemplateCopytoDevice( dapp.fc_q, app.fc_q, ncq, common.backend );
+        TemplateMalloc(&dapp.dtcoef_q, ncq, common.backend);
+        TemplateCopytoDevice( dapp.dtcoef_q, app.dtcoef_q, ncq, common.backend );
+    }
     if (ncw>0) {
-        TemplateMalloc(&dapp.fc_w, ncw, common.backend); 
-        TemplateCopytoDevice( dapp.fc_w, app.fc_w, ncw, common.backend );          
-        TemplateMalloc(&dapp.dtcoef_w, ncw, common.backend); 
-        TemplateCopytoDevice( dapp.dtcoef_w, app.dtcoef_w, ncw, common.backend );          
-    }                    
+        TemplateMalloc(&dapp.fc_w, ncw, common.backend);
+        TemplateCopytoDevice( dapp.fc_w, app.fc_w, ncw, common.backend );
+        TemplateMalloc(&dapp.dtcoef_w, ncw, common.backend);
+        TemplateCopytoDevice( dapp.dtcoef_w, app.dtcoef_w, ncw, common.backend );
+    }
 }
 
 template <class T=dstype, class I=Int>
 inline void devsolstruct(solstructT<T,I> &dsol, solstructT<T,I> &sol, commonstructT<T,I> &common)
 {
-    using dstype=T;    
+    using dstype=T;
     TemplateMalloc(&dsol.nsize, sol.lsize[0], common.backend);
     TemplateMalloc(&dsol.ndims, sol.nsize[0], common.backend);
-    TemplateMalloc(&dsol.xdg, sol.nsize[1], common.backend);    
-    TemplateMalloc(&dsol.udg, sol.nsize[2], common.backend);    
-    //TemplateMalloc(&dsol.uh, sol.nsize[3], common.backend);    
-    TemplateMalloc(&dsol.odg, sol.nsize[3], common.backend);          
+    TemplateMalloc(&dsol.xdg, sol.nsize[1], common.backend);
+    TemplateMalloc(&dsol.udg, sol.nsize[2], common.backend);
+    //TemplateMalloc(&dsol.uh, sol.nsize[3], common.backend);
+    TemplateMalloc(&dsol.odg, sol.nsize[3], common.backend);
     TemplateMalloc(&dsol.wdg, sol.nsize[4], common.backend);
 
     #ifdef HAVE_ENZYME
-    TemplateMalloc(&dsol.dudg, sol.nsize[2], common.backend);    
-    //TemplateMalloc(&dsol.uh, sol.nsize[3], common.backend);    
-    TemplateMalloc(&dsol.dodg, sol.nsize[3], common.backend);          
+    TemplateMalloc(&dsol.dudg, sol.nsize[2], common.backend);
+    //TemplateMalloc(&dsol.uh, sol.nsize[3], common.backend);
+    TemplateMalloc(&dsol.dodg, sol.nsize[3], common.backend);
     TemplateMalloc(&dsol.dwdg, sol.nsize[4], common.backend);
-    #endif          
-    
-    TemplateCopytoDevice( dsol.nsize, sol.nsize, sol.lsize[0], common.backend );          
-    TemplateCopytoDevice( dsol.ndims, sol.ndims, sol.nsize[0], common.backend );      
-    TemplateCopytoDevice( dsol.xdg, sol.xdg, sol.nsize[1], common.backend );      
-    TemplateCopytoDevice( dsol.udg, sol.udg, sol.nsize[2], common.backend );      
-    //TemplateCopytoDevice( dsol.uh, sol.uh, sol.nsize[3], common.backend );      
-    TemplateCopytoDevice( dsol.odg, sol.odg, sol.nsize[3], common.backend );      
-    TemplateCopytoDevice( dsol.wdg, sol.wdg, sol.nsize[4], common.backend );   
+    #endif
+
+    TemplateCopytoDevice( dsol.nsize, sol.nsize, sol.lsize[0], common.backend );
+    TemplateCopytoDevice( dsol.ndims, sol.ndims, sol.nsize[0], common.backend );
+    TemplateCopytoDevice( dsol.xdg, sol.xdg, sol.nsize[1], common.backend );
+    TemplateCopytoDevice( dsol.udg, sol.udg, sol.nsize[2], common.backend );
+    //TemplateCopytoDevice( dsol.uh, sol.uh, sol.nsize[3], common.backend );
+    TemplateCopytoDevice( dsol.odg, sol.odg, sol.nsize[3], common.backend );
+    TemplateCopytoDevice( dsol.wdg, sol.wdg, sol.nsize[4], common.backend );
 
     #ifdef HAVE_ENZYME
-    TemplateCopytoDevice( dsol.dudg, sol.dudg, sol.nsize[2], common.backend );   
-    //CHECK( cudaMemcpy( dsol.uh, sol.uh, sol.nsize[3]*sizeof(dstype), cudaMemcpyHostToDevice ) );      
-    TemplateCopytoDevice( dsol.dodg, sol.dodg, sol.nsize[3], common.backend );   
+    TemplateCopytoDevice( dsol.dudg, sol.dudg, sol.nsize[2], common.backend );
+    //CHECK( cudaMemcpy( dsol.uh, sol.uh, sol.nsize[3]*sizeof(dstype), cudaMemcpyHostToDevice ) );
+    TemplateCopytoDevice( dsol.dodg, sol.dodg, sol.nsize[3], common.backend );
     TemplateCopytoDevice( dsol.dwdg, sol.dwdg, sol.nsize[4], common.backend );
     #endif
 }
@@ -972,60 +972,78 @@ inline void devsolstruct(solstructT<T,I> &dsol, solstructT<T,I> &sol, commonstru
 template <class T=dstype, class I=Int>
 inline void devmasterstruct(masterstructT<T,I> &dmaster, masterstructT<T,I> &master, commonstructT<T,I> &common)
 {
-    using dstype=T;    
+    using dstype=T;
     TemplateMalloc(&dmaster.nsize, master.lsize[0], common.backend);
     TemplateMalloc(&dmaster.ndims, master.nsize[0], common.backend);
-    TemplateMalloc(&dmaster.shapegt, master.nsize[1], common.backend);    
-    TemplateMalloc(&dmaster.shapegw, master.nsize[2], common.backend);    
-    TemplateMalloc(&dmaster.shapfgt, master.nsize[3], common.backend);    
-    TemplateMalloc(&dmaster.shapfgw, master.nsize[4], common.backend);    
-    TemplateMalloc(&dmaster.shapent, master.nsize[5], common.backend);    
-    TemplateMalloc(&dmaster.shapen, master.nsize[6], common.backend);    
-    TemplateMalloc(&dmaster.shapfnt, master.nsize[7], common.backend);    
-    TemplateMalloc(&dmaster.shapfn, master.nsize[8], common.backend);        
-    TemplateMalloc(&dmaster.xpe, master.nsize[9], common.backend);    
-    TemplateMalloc(&dmaster.gpe, master.nsize[10], common.backend);    
-    TemplateMalloc(&dmaster.gwe, master.nsize[11], common.backend);    
-    TemplateMalloc(&dmaster.xpf, master.nsize[12], common.backend);    
-    TemplateMalloc(&dmaster.gpf, master.nsize[13], common.backend);    
-    TemplateMalloc(&dmaster.gwf, master.nsize[14], common.backend);    
-    TemplateMalloc(&dmaster.shap1dgt, master.nsize[15], common.backend);    
-    TemplateMalloc(&dmaster.shap1dgw, master.nsize[16], common.backend);    
-    TemplateMalloc(&dmaster.shap1dnt, master.nsize[17], common.backend);    
-    TemplateMalloc(&dmaster.shap1dnl, master.nsize[18], common.backend);    
-    TemplateMalloc(&dmaster.xp1d, master.nsize[19], common.backend);    
-    TemplateMalloc(&dmaster.gp1d, master.nsize[20], common.backend);    
-    TemplateMalloc(&dmaster.gw1d, master.nsize[21], common.backend);    
-    
-    TemplateCopytoDevice( dmaster.nsize, master.nsize, master.lsize[0], common.backend);    
-    TemplateCopytoDevice( dmaster.ndims, master.ndims, master.nsize[0], common.backend );      
-    TemplateCopytoDevice( dmaster.shapegt, master.shapegt, master.nsize[1], common.backend );      
-    TemplateCopytoDevice( dmaster.shapegw, master.shapegw, master.nsize[2], common.backend );      
-    TemplateCopytoDevice( dmaster.shapfgt, master.shapfgt, master.nsize[3], common.backend );      
-    TemplateCopytoDevice( dmaster.shapfgw, master.shapfgw, master.nsize[4], common.backend );      
-    TemplateCopytoDevice( dmaster.shapent, master.shapent, master.nsize[5], common.backend );      
-    TemplateCopytoDevice( dmaster.shapen, master.shapen, master.nsize[6], common.backend );      
-    TemplateCopytoDevice( dmaster.shapfnt, master.shapfnt, master.nsize[7], common.backend );      
-    TemplateCopytoDevice( dmaster.shapfn, master.shapfn, master.nsize[8], common.backend );      
-    TemplateCopytoDevice( dmaster.xpe, master.xpe, master.nsize[9], common.backend );      
-    TemplateCopytoDevice( dmaster.gpe, master.gpe, master.nsize[10], common.backend );      
-    TemplateCopytoDevice( dmaster.gwe, master.gwe, master.nsize[11], common.backend );      
-    TemplateCopytoDevice( dmaster.xpf, master.xpf, master.nsize[12], common.backend );      
-    TemplateCopytoDevice( dmaster.gpf, master.gpf, master.nsize[13], common.backend );      
-    TemplateCopytoDevice( dmaster.gwf, master.gwf, master.nsize[14], common.backend );          
-    TemplateCopytoDevice( dmaster.shap1dgt, master.shap1dgt, master.nsize[15], common.backend );          
-    TemplateCopytoDevice( dmaster.shap1dgw, master.shap1dgw, master.nsize[16], common.backend );          
-    TemplateCopytoDevice( dmaster.shap1dnt, master.shap1dnt, master.nsize[17], common.backend );          
-    TemplateCopytoDevice( dmaster.shap1dnl, master.shap1dnl, master.nsize[18], common.backend );          
-    TemplateCopytoDevice( dmaster.xp1d, master.xp1d, master.nsize[19], common.backend );          
-    TemplateCopytoDevice( dmaster.gp1d, master.gp1d, master.nsize[20], common.backend );          
-    TemplateCopytoDevice( dmaster.gw1d, master.gw1d, master.nsize[21], common.backend );          
+    TemplateMalloc(&dmaster.shapegt, master.nsize[1], common.backend);
+    TemplateMalloc(&dmaster.shapegw, master.nsize[2], common.backend);
+    TemplateMalloc(&dmaster.shapfgt, master.nsize[3], common.backend);
+    TemplateMalloc(&dmaster.shapfgw, master.nsize[4], common.backend);
+    TemplateMalloc(&dmaster.shapent, master.nsize[5], common.backend);
+    TemplateMalloc(&dmaster.shapen, master.nsize[6], common.backend);
+    TemplateMalloc(&dmaster.shapfnt, master.nsize[7], common.backend);
+    TemplateMalloc(&dmaster.shapfn, master.nsize[8], common.backend);
+    TemplateMalloc(&dmaster.xpe, master.nsize[9], common.backend);
+    TemplateMalloc(&dmaster.gpe, master.nsize[10], common.backend);
+    TemplateMalloc(&dmaster.gwe, master.nsize[11], common.backend);
+    TemplateMalloc(&dmaster.xpf, master.nsize[12], common.backend);
+    TemplateMalloc(&dmaster.gpf, master.nsize[13], common.backend);
+    TemplateMalloc(&dmaster.gwf, master.nsize[14], common.backend);
+    TemplateMalloc(&dmaster.shap1dgt, master.nsize[15], common.backend);
+    TemplateMalloc(&dmaster.shap1dgw, master.nsize[16], common.backend);
+    TemplateMalloc(&dmaster.shap1dnt, master.nsize[17], common.backend);
+    TemplateMalloc(&dmaster.shap1dnl, master.nsize[18], common.backend);
+    TemplateMalloc(&dmaster.xp1d, master.nsize[19], common.backend);
+    TemplateMalloc(&dmaster.gp1d, master.nsize[20], common.backend);
+    TemplateMalloc(&dmaster.gw1d, master.nsize[21], common.backend);
+
+    TemplateCopytoDevice( dmaster.nsize, master.nsize, master.lsize[0], common.backend);
+    TemplateCopytoDevice( dmaster.ndims, master.ndims, master.nsize[0], common.backend );
+    TemplateCopytoDevice( dmaster.shapegt, master.shapegt, master.nsize[1], common.backend );
+    TemplateCopytoDevice( dmaster.shapegw, master.shapegw, master.nsize[2], common.backend );
+    TemplateCopytoDevice( dmaster.shapfgt, master.shapfgt, master.nsize[3], common.backend );
+    TemplateCopytoDevice( dmaster.shapfgw, master.shapfgw, master.nsize[4], common.backend );
+    TemplateCopytoDevice( dmaster.shapent, master.shapent, master.nsize[5], common.backend );
+    TemplateCopytoDevice( dmaster.shapen, master.shapen, master.nsize[6], common.backend );
+    TemplateCopytoDevice( dmaster.shapfnt, master.shapfnt, master.nsize[7], common.backend );
+    TemplateCopytoDevice( dmaster.shapfn, master.shapfn, master.nsize[8], common.backend );
+    TemplateCopytoDevice( dmaster.xpe, master.xpe, master.nsize[9], common.backend );
+    TemplateCopytoDevice( dmaster.gpe, master.gpe, master.nsize[10], common.backend );
+    TemplateCopytoDevice( dmaster.gwe, master.gwe, master.nsize[11], common.backend );
+    TemplateCopytoDevice( dmaster.xpf, master.xpf, master.nsize[12], common.backend );
+    TemplateCopytoDevice( dmaster.gpf, master.gpf, master.nsize[13], common.backend );
+    TemplateCopytoDevice( dmaster.gwf, master.gwf, master.nsize[14], common.backend );
+    TemplateCopytoDevice( dmaster.shap1dgt, master.shap1dgt, master.nsize[15], common.backend );
+    TemplateCopytoDevice( dmaster.shap1dgw, master.shap1dgw, master.nsize[16], common.backend );
+    TemplateCopytoDevice( dmaster.shap1dnt, master.shap1dnt, master.nsize[17], common.backend );
+    TemplateCopytoDevice( dmaster.shap1dnl, master.shap1dnl, master.nsize[18], common.backend );
+    TemplateCopytoDevice( dmaster.xp1d, master.xp1d, master.nsize[19], common.backend );
+    TemplateCopytoDevice( dmaster.gp1d, master.gp1d, master.nsize[20], common.backend );
+    TemplateCopytoDevice( dmaster.gw1d, master.gw1d, master.nsize[21], common.backend );
 }
 
 template <class T=dstype, class I=Int>
 inline void devmeshstruct(meshstructT<T,I> &dmesh, meshstructT<T,I> &mesh, commonstructT<T,I> &common)
 {
     using dstype=T;
+    dmesh.szfacecon = mesh.szfacecon;
+    dmesh.szeblks = mesh.szeblks;
+    dmesh.szfblks = mesh.szfblks;
+    dmesh.szcgelcon = mesh.szcgelcon;
+    dmesh.szrowent2elem = mesh.szrowent2elem;
+    dmesh.szcgent2dgent = mesh.szcgent2dgent;
+    dmesh.szcolent2elem = mesh.szcolent2elem;
+    dmesh.szrowe2f1 = mesh.szrowe2f1;
+    dmesh.szcole2f1 = mesh.szcole2f1;
+    dmesh.szent2ind1 = mesh.szent2ind1;
+    dmesh.szrowe2f2 = mesh.szrowe2f2;
+    dmesh.szcole2f2 = mesh.szcole2f2;
+    dmesh.szent2ind2 = mesh.szent2ind2;
+    dmesh.szf2e = mesh.szf2e;
+    dmesh.szelemcon = mesh.szelemcon;
+    dmesh.szperm = mesh.szperm;
+    dmesh.szbf = mesh.szbf;
+
     TemplateMalloc(&dmesh.nsize, mesh.lsize[0], common.backend);
     TemplateMalloc(&dmesh.ndims, mesh.nsize[0], common.backend);
     TemplateMalloc(&dmesh.facecon, mesh.nsize[1], common.backend);
@@ -1071,43 +1089,43 @@ inline void devmeshstruct(meshstructT<T,I> &dmesh, meshstructT<T,I> &mesh, commo
     TemplateCopytoDevice(dmesh.rowe2f2, mesh.rowe2f2, mesh.nsize[18], common.backend);
     TemplateCopytoDevice(dmesh.cole2f2, mesh.cole2f2, mesh.nsize[19], common.backend);
     TemplateCopytoDevice(dmesh.ent2ind2, mesh.ent2ind2, mesh.nsize[20], common.backend);
-    
-    if (common.spatialScheme > 0) {      
+
+    if (common.spatialScheme > 0) {
         TemplateMalloc(&dmesh.f2e, mesh.nsize[21], common.backend);
         TemplateMalloc(&dmesh.elemcon, mesh.nsize[22], common.backend);
         TemplateMalloc(&dmesh.perm, mesh.nsize[23], common.backend);
         TemplateCopytoDevice(dmesh.f2e, mesh.f2e, mesh.nsize[21], common.backend);
         TemplateCopytoDevice(dmesh.elemcon, mesh.elemcon, mesh.nsize[22], common.backend);
         TemplateCopytoDevice(dmesh.perm, mesh.perm, mesh.nsize[23], common.backend);
-        
+
         if (mesh.szfaceperm>0) {
           TemplateMalloc(&dmesh.faceperm, mesh.szfaceperm, common.backend);
           TemplateCopytoDevice(dmesh.faceperm, mesh.faceperm, mesh.szfaceperm, common.backend);
-        }          
+        }
         if (mesh.sznbintf>0) {
           TemplateMalloc(&dmesh.nbintf, mesh.sznbintf, common.backend);
           TemplateCopytoDevice(dmesh.nbintf, mesh.nbintf, mesh.sznbintf, common.backend);
-        }          
+        }
         if (mesh.szfacesend>0) {
           TemplateMalloc(&dmesh.facesend, mesh.szfacesend, common.backend);
           TemplateCopytoDevice(dmesh.facesend, mesh.facesend, mesh.szfacesend, common.backend);
-        }          
+        }
         if (mesh.szfacesendpts>0) {
           TemplateMalloc(&dmesh.facesendpts, mesh.szfacesendpts, common.backend);
           TemplateCopytoDevice(dmesh.facesendpts, mesh.facesendpts, mesh.szfacesendpts, common.backend);
-        }          
+        }
         if (mesh.szfacerecv>0) {
           TemplateMalloc(&dmesh.facerecv, mesh.szfacerecv, common.backend);
           TemplateCopytoDevice(dmesh.facerecv, mesh.facerecv, mesh.szfacerecv, common.backend);
-        }          
+        }
         if (mesh.szfacerecvpts>0) {
           TemplateMalloc(&dmesh.facerecvpts, mesh.szfacerecvpts, common.backend);
           TemplateCopytoDevice(dmesh.facerecvpts, mesh.facerecvpts, mesh.szfacerecvpts, common.backend);
-        }          
+        }
     }
 
     //cudaTemplateMalloc(&dmesh.index, 1024);
-    
+
     Int nbe = mesh.ndims[5];
     Int nbf = mesh.ndims[7];
     TemplateMalloc(&dmesh.findxdg1, mesh.findxdgp[nbf], common.backend);
@@ -1117,7 +1135,7 @@ inline void devmeshstruct(meshstructT<T,I> &dmesh, meshstructT<T,I> &mesh, commo
     TemplateMalloc(&dmesh.findudgp, nbf+1, common.backend);
     TemplateMalloc(&dmesh.eindudg1, mesh.eindudgp[nbe], common.backend);
     TemplateMalloc(&dmesh.eindudgp, nbe+1, common.backend);
-            
+
     TemplateCopytoDevice(dmesh.findxdg1, mesh.findxdg1, mesh.findxdgp[nbf], common.backend);
     TemplateCopytoDevice(dmesh.findxdgp, mesh.findxdgp, nbf+1, common.backend);
     TemplateCopytoDevice(dmesh.findudg1, mesh.findudg1, mesh.findudgp[nbf], common.backend);
@@ -1125,30 +1143,30 @@ inline void devmeshstruct(meshstructT<T,I> &dmesh, meshstructT<T,I> &mesh, commo
     TemplateCopytoDevice(dmesh.findudgp, mesh.findudgp, nbf+1, common.backend);
     TemplateCopytoDevice(dmesh.eindudg1, mesh.eindudg1, mesh.eindudgp[nbe], common.backend);
     TemplateCopytoDevice(dmesh.eindudgp, mesh.eindudgp, nbe+1, common.backend);
-        
+
     if (common.nelemsend>0) {
         Int bsz = common.grid.npe*common.components.ncu*common.nelemsend;
         TemplateMalloc(&dmesh.elemsendind, bsz, common.backend);
         TemplateCopytoDevice(dmesh.elemsendind, mesh.elemsendind, bsz, common.backend);
-    
+
         bsz = common.grid.npe*common.components.nc*common.nelemsend;
         TemplateMalloc(&dmesh.elemsendudg, bsz, common.backend);
         TemplateCopytoDevice(dmesh.elemsendudg, mesh.elemsendudg, bsz, common.backend);
-    
+
         bsz = common.grid.npe*common.physicsparams.ncAV*common.nelemsend;
         TemplateMalloc(&dmesh.elemsendodg, bsz, common.backend);
         TemplateCopytoDevice(dmesh.elemsendodg, mesh.elemsendodg, bsz, common.backend);
     }
-    
+
     if (common.nelemrecv>0) {
         Int bsz = common.grid.npe*common.components.ncu*common.nelemrecv;
         TemplateMalloc(&dmesh.elemrecvind, bsz, common.backend);
         TemplateCopytoDevice(dmesh.elemrecvind, mesh.elemrecvind, bsz, common.backend);
-    
+
         bsz = common.grid.npe*common.components.nc*common.nelemrecv;
         TemplateMalloc(&dmesh.elemrecvudg, bsz, common.backend);
         TemplateCopytoDevice(dmesh.elemrecvudg, mesh.elemrecvudg, bsz, common.backend);
-     
+
         bsz = common.grid.npe*common.physicsparams.ncAV*common.nelemrecv;
         TemplateMalloc(&dmesh.elemrecvodg, bsz, common.backend);
         TemplateCopytoDevice(dmesh.elemrecvodg, mesh.elemrecvodg, bsz, common.backend);
@@ -1156,93 +1174,93 @@ inline void devmeshstruct(meshstructT<T,I> &dmesh, meshstructT<T,I> &mesh, commo
 }
 
 template <class T=dstype, class I=Int>
-inline void gpuInit(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
-       meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, solstructT<T,I> &hsol, resstructT<T,I> &hres, 
-       appstructT<T,I> &happ, masterstructT<T,I> &hmaster, meshstructT<T,I> &hmesh, tempstructT<T,I> &htmp, commonstructT<T,I> &hcommon) 
+inline void gpuInit(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master,
+       meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, solstructT<T,I> &hsol, resstructT<T,I> &hres,
+       appstructT<T,I> &happ, masterstructT<T,I> &hmaster, meshstructT<T,I> &hmesh, tempstructT<T,I> &htmp, commonstructT<T,I> &hcommon)
 {
-    using dstype=T;    
+    using dstype=T;
     devappstruct(app, happ, hcommon);
-    devmasterstruct(master, hmaster, hcommon);    
+    devmasterstruct(master, hmaster, hcommon);
     devmeshstruct(mesh, hmesh, hcommon);
-    devsolstruct(sol, hsol, hcommon);    
-    setresstruct(res, happ, hmaster, hmesh, hcommon.backend);    
-    settempstruct(tmp, happ, hmaster, hmesh, hcommon.backend);            
-                
+    devsolstruct(sol, hsol, hcommon);
+    setresstruct(res, happ, hmaster, hmesh, hcommon.backend);
+    settempstruct(tmp, happ, hmaster, hmesh, hcommon.backend);
+
     // set common struct
-    setcommonstruct(common, happ, hmaster, hmesh, 
-            hcommon.filein, hcommon.fileout, hcommon.grid.curvedMesh, hcommon.outputparams.fileoffset);        
-    
+    setcommonstruct(common, happ, hmaster, hmesh,
+            hcommon.filein, hcommon.fileout, hcommon.grid.curvedMesh, hcommon.outputparams.fileoffset);
+
     int mpirank = hcommon.mpiRank;
     if (mpirank==0) printf("Finish setting common struct... \n");
 
     if (common.spatialScheme > 0) {
 //       if (common.nelemsend > 0) {
-//         TemplateMalloc(&mesh.interfacefaces, common.nelemsend, common.backend);       
-//         TemplateCopytoDevice(mesh.interfacefaces, hmesh.interfacefaces, common.nelemsend, common.backend);          
+//         TemplateMalloc(&mesh.interfacefaces, common.nelemsend, common.backend);
+//         TemplateCopytoDevice(mesh.interfacefaces, hmesh.interfacefaces, common.nelemsend, common.backend);
 //       }
 
       int M = common.grid.npe*common.grid.npe*common.grid.nge*(common.grid.nd+1);
-      TemplateMalloc(&master.shapegwdotshapeg, M, common.backend);       
+      TemplateMalloc(&master.shapegwdotshapeg, M, common.backend);
       TemplateCopytoDevice(master.shapegwdotshapeg, hmaster.shapegwdotshapeg, M, common.backend);
 
       M = common.grid.npf*common.grid.npf*common.grid.ngf*(common.grid.nd);
-      TemplateMalloc(&master.shapfgwdotshapfg, M, common.backend);       
-      TemplateCopytoDevice(master.shapfgwdotshapfg, hmaster.shapfgwdotshapfg, M, common.backend);        
-      
+      TemplateMalloc(&master.shapfgwdotshapfg, M, common.backend);
+      TemplateCopytoDevice(master.shapfgwdotshapfg, hmaster.shapfgwdotshapfg, M, common.backend);
+
       M = 2*(common.meshsizes.nfe-1)*common.meshsizes.nf;
-      TemplateMalloc(&mesh.f2f, M, common.backend);       
-      TemplateMalloc(&mesh.f2l, M, common.backend);       
+      TemplateMalloc(&mesh.f2f, M, common.backend);
+      TemplateMalloc(&mesh.f2l, M, common.backend);
       TemplateCopytoDevice(mesh.f2f, hmesh.f2f, M, common.backend);
       TemplateCopytoDevice(mesh.f2l, hmesh.f2l, M, common.backend);
       TemplateMalloc(&mesh.e2f, common.meshsizes.nfe*common.meshsizes.ne, common.backend);
       TemplateCopytoDevice(mesh.e2f, hmesh.e2f, common.meshsizes.nfe*common.meshsizes.ne, common.backend);
     }
 
-#ifdef HAVE_CUDA    
+#ifdef HAVE_CUDA
     // create cuda event handle
     CHECK(cudaEventCreate(&common.eventHandle));
-    
+
     // create cublas handle
     CHECK_CUBLAS(cublasCreate(&common.cublasHandle));
-    CHECK_CUBLAS(cublasSetPointerMode(common.cublasHandle, CUBLAS_POINTER_MODE_HOST));                     //     CHECK_CUBLAS(cublasSetPointerMode(common.cublasHandle, CUBLAS_POINTER_MODE_DEVICE));    
-#endif        
+    CHECK_CUBLAS(cublasSetPointerMode(common.cublasHandle, CUBLAS_POINTER_MODE_HOST));                     //     CHECK_CUBLAS(cublasSetPointerMode(common.cublasHandle, CUBLAS_POINTER_MODE_DEVICE));
+#endif
 
-#ifdef HAVE_HIP    
+#ifdef HAVE_HIP
     // create cuda event handle
     CHECK(hipEventCreate(&common.eventHandle));
-    
+
     // create cublas handle
     CHECK_HIPBLAS(hipblasCreate(&common.cublasHandle));
-    CHECK_HIPBLAS(hipblasSetPointerMode(common.cublasHandle, HIPBLAS_POINTER_MODE_HOST));                     //     CHECK_CUBLAS(cublasSetPointerMode(common.cublasHandle, CUBLAS_POINTER_MODE_DEVICE));    
-#endif        
-    
+    CHECK_HIPBLAS(hipblasSetPointerMode(common.cublasHandle, HIPBLAS_POINTER_MODE_HOST));                     //     CHECK_CUBLAS(cublasSetPointerMode(common.cublasHandle, CUBLAS_POINTER_MODE_DEVICE));
+#endif
+
     if (common.components.ncs>0) {
         // initialize source term
         Int N = common.grid.npe*common.components.ncs*common.meshsizes.ne;
-        TemplateMalloc(&sol.sdg, N, common.backend);       
+        TemplateMalloc(&sol.sdg, N, common.backend);
         TemplateCopytoDevice(sol.sdg, hsol.sdg, N, common.backend);
-        TemplateMalloc(&sol.sdgg, common.grid.nge*common.components.ncs*common.meshsizes.ne, common.backend);              
-    }          
-    
-    if (common.components.ncw>0) {        
+        TemplateMalloc(&sol.sdgg, common.grid.nge*common.components.ncs*common.meshsizes.ne, common.backend);
+    }
+
+    if (common.components.ncw>0) {
         Int N = common.grid.npe*common.components.ncw*common.meshsizes.ne;
-        TemplateMalloc(&sol.wsrc, N, common.backend);       
+        TemplateMalloc(&sol.wsrc, N, common.backend);
         TemplateCopytoDevice(sol.wsrc, hsol.wsrc, N, common.backend);
         if (common.timeparams.dae_steps>0)
-            TemplateMalloc(&sol.wdual, N, common.backend);                 
-    }          
-    
+            TemplateMalloc(&sol.wdual, N, common.backend);
+    }
+
     if (common.outputparams.compudgavg>0) {
         TemplateMalloc(&sol.udgavg, common.grid.npe*common.components.nc*common.meshsizes.ne1+1, common.backend);
     }
-    
+
     if (common.sizes.ndofbou>0) {
         TemplateMalloc(&sol.bouudgavg, common.sizes.ndofbou*common.components.nc+1, common.backend);
         if (common.components.ncw > 0) TemplateMalloc(&sol.bouwdgavg, common.sizes.ndofbou*common.components.ncw+1, common.backend);
         TemplateMalloc(&sol.bouuhavg, common.sizes.ndofbou*common.components.ncu+1, common.backend);
     }
-  
-    TemplateMalloc(&sol.uh, common.grid.npf*common.components.ncu*common.meshsizes.nf, common.backend);    
+
+    TemplateMalloc(&sol.uh, common.grid.npf*common.components.ncu*common.meshsizes.nf, common.backend);
     if (common.read_uh) {
         TemplateCopytoDevice(sol.uh, hsol.uh, common.grid.npf*common.components.ncu*common.meshsizes.nf, common.backend);
     }
@@ -1250,26 +1268,26 @@ inline void gpuInit(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> 
     #ifdef HAVE_ENZYME
         TemplateMalloc(&sol.duh, common.grid.npf*common.components.ncu*common.meshsizes.nf, common.backend);
     #endif
-    //cudaTemplateMalloc(&sol.uhg, common.grid.ngf*common.components.ncu*common.meshsizes.nf);   
-    //cudaTemplateMalloc(&sol.udgg, common.grid.nge*common.components.nc*common.meshsizes.ne);   
+    //cudaTemplateMalloc(&sol.uhg, common.grid.ngf*common.components.ncu*common.meshsizes.nf);
+    //cudaTemplateMalloc(&sol.udgg, common.grid.nge*common.components.nc*common.meshsizes.ne);
     if (common.components.nco>0) {
         TemplateMalloc(&sol.odgg, common.grid.nge*common.components.nco*common.meshsizes.ne, common.backend);
-        TemplateMalloc(&sol.og1, common.grid.ngf*common.components.nco*common.meshsizes.nf, common.backend);    
-        TemplateMalloc(&sol.og2, common.grid.ngf*common.components.nco*common.meshsizes.nf, common.backend);    
+        TemplateMalloc(&sol.og1, common.grid.ngf*common.components.nco*common.meshsizes.nf, common.backend);
+        TemplateMalloc(&sol.og2, common.grid.ngf*common.components.nco*common.meshsizes.nf, common.backend);
         #ifdef HAVE_ENZYME
         TemplateMalloc(&sol.dodgg, common.grid.nge*common.components.nco*common.meshsizes.ne, common.backend);
         TemplateCopytoDevice(sol.dodgg, hsol.dodgg, common.grid.nge*common.components.nco*common.meshsizes.ne, common.backend);
 
-        TemplateMalloc(&sol.dog1, common.grid.ngf*common.components.nco*common.meshsizes.nf, common.backend);    
+        TemplateMalloc(&sol.dog1, common.grid.ngf*common.components.nco*common.meshsizes.nf, common.backend);
         TemplateCopytoDevice(sol.dog1, hsol.dog1, common.grid.ngf*common.components.nco*common.meshsizes.nf, common.backend);
 
-        TemplateMalloc(&sol.dog2, common.grid.ngf*common.components.nco*common.meshsizes.nf, common.backend); 
+        TemplateMalloc(&sol.dog2, common.grid.ngf*common.components.nco*common.meshsizes.nf, common.backend);
         TemplateCopytoDevice(sol.dog2, hsol.dog2, common.grid.ngf*common.components.nco*common.meshsizes.nf, common.backend);
         #endif
     }
-    
-    if (common.mpiRank==0) 
-        printf("finish gpuInit... \n");    
+
+    if (common.mpiRank==0)
+        printf("finish gpuInit... \n");
 }
 #endif
 
