@@ -51,6 +51,9 @@
 #include <cstdlib>
 #include <cmath>
 #include <algorithm>
+#include <vector>
+#include <string>
+#include <map>
 
 #ifdef HAVE_CUDA
 #include "gpuDeviceInfo.cpp"
