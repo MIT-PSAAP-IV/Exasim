@@ -46,6 +46,7 @@
 #include "dgprojection_backend.hpp"
 #include "extrudesol_backend.hpp"
 #include "l2eprojection_backend.hpp"
+#include "refinemesh_backend.hpp"
 #include "qequation.hpp"
 #include "wequation.hpp"
 #include "uequation.hpp"

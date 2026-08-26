@@ -154,6 +154,18 @@ Ranked by value × tractability for maneuvering solutions.
   (straight fast path + curved). `CDiscretizationT::l2eProjectionSelfTest(...)`
   projects the coordinate field `f=x` and checks reproduction at the nodes per
   rank, gated by `EXASIM_TEST_L2EPROJ`.
+- `backend/Discretization/refinemesh.{hpp,cpp}` + `refinemesh_test.cpp` +
+  `refinemesh_backend.hpp` (`RefineMeshHighOrder`) — **high-order uniform mesh
+  refinement** (tensor elements): each child's geometry is the parent's
+  isoparametric map at the child node positions, so curvature is preserved
+  exactly. A *new* util (not a direct MATLAB port — closest are the Python
+  `refine_dg_hexmesh.py` p2-hex refiner and MATLAB `uniref`), built as a
+  shared-operator batched apply `refined_c = P_c · dgnodes` (`P_c` from `mkshape`
+  at the child nodes) — the same fast path as the straight-mesh projection, so
+  it is GPU/CPU + MPI-ready, and the *same* `P_c` prolongs a DG field onto the
+  children. `CDiscretizationT::refineSelfTest(...)` checks operator
+  partition-of-unity + device-vs-host-reference apply per rank
+  (`EXASIM_TEST_REFINE`); the host oracle pins the geometric high-order exactness.
 
 ### On-device validation (done)
 

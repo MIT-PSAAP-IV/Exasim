@@ -68,6 +68,7 @@
 // #include "../Model/FrontendGenerated/KokkosDrivers.cpp"
 // #endif
 
+#include "../Preprocessing/makemaster.hpp"   // mkshape: parent basis at child nodes (refineSelfTest)
 #include "connectivity.cpp"
 #include "readbinaryfiles.cpp"
 #include "setstructs.cpp"
@@ -457,6 +458,9 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
     // Optional: validate the L2 (analytic->DG) projection on this backend/rank.
     if (getenv("EXASIM_TEST_L2EPROJ") != nullptr)
         l2eProjectionSelfTest(backend);
+    // Optional: validate high-order mesh refinement on this backend/rank.
+    if (getenv("EXASIM_TEST_REFINE") != nullptr)
+        refineSelfTest(backend);
 
     if (common.spatialScheme > 0)  { // HDG
       Int neb = common.meshsizes.neb; // maximum number of elements per block
@@ -869,6 +873,99 @@ void CDiscretizationT<T, I>::l2eProjectionSelfTest(Int backend) {
     if (!(relerr < tol)) error("L2eProjection self-test FAILED (relerr exceeds tolerance)");
 }
 
+// On-device validation of the high-order mesh refinement kernel. Builds the
+// refinement operator P_c (parent basis at the child node positions) via mkshape,
+// refines this rank's mesh on the active backend, and checks, per rank:
+//   (1) partition of unity: each row of every P_c sums to 1 (valid operator);
+//   (2) the device apply RefineMeshHighOrder matches the host scalar reference
+//       refinemesh() bit-for-bit up to precision.
+// The high-order *geometric* exactness (children follow the curve) is pinned by
+// the host oracle (refinemesh_test.cpp). nref = 2. The child-subcell tiling is
+// meaningful for tensor elements; the kernel/operator checks here are valid for
+// any element the mesh uses.
+template <class T, class I>
+void CDiscretizationT<T, I>::refineSelfTest(Int backend) {
+    Int npe = common.grid.npe;
+    Int nd  = common.grid.nd;
+    Int ncx = common.components.ncx;
+    Int ne  = common.meshsizes.ne;
+    Int porder = common.grid.porder;
+    Int elemtype = common.grid.elemtype;
+    if (ne <= 0 || npe <= 0 || nd < 1 || ncx < nd) return;
+    Int nref = 2, nchild = 1;
+    for (Int d = 0; d < nd; d++) nchild *= nref;
+
+    // plocal = master.xpe (element-wise to double for mkshape)
+    dstype *hxpe=nullptr; TemplateMalloc(&hxpe, npe*nd, 0);
+    TemplateCopytoHost(hxpe, master.xpe, npe*nd, backend);
+    std::vector<double> plocal(npe*nd), xic(npe*nd*nchild);
+    for (Int i = 0; i < npe*nd; i++) plocal[i] = (double)hxpe[i];
+    // child node positions in the parent reference: xi = (subcell offset + plocal)/nref
+    for (Int c = 0; c < nchild; c++) {
+        int off[3] = {0,0,0}, t = (int)c;
+        for (Int d = 0; d < nd; d++) { off[d] = t % (int)nref; t /= (int)nref; }
+        for (Int d = 0; d < nd; d++)
+            for (Int i = 0; i < npe; i++)
+                xic[i + npe*(d + nd*c)] = (off[d] + plocal[i + npe*d]) / (double)nref;
+    }
+
+    // P_c[i + npe*(a + npe*c)] = phi_a(xi_child_c[i]) via mkshape; partition-of-unity check
+    std::vector<double> Pc(npe*npe*nchild);
+    double pou_max = 0.0;
+    for (Int c = 0; c < nchild; c++) {
+        std::vector<double> pts(npe*nd);
+        for (Int i = 0; i < npe*nd; i++) pts[i] = xic[i + npe*nd*c];
+        std::vector<double> shap((std::size_t)npe*npe*(nd+1), 0.0);
+        mkshape(shap, plocal, pts, (int)npe, (int)elemtype, (int)porder, (int)nd, (int)npe);
+        for (Int i = 0; i < npe; i++) {
+            double rs = 0.0;
+            for (Int a = 0; a < npe; a++) { double v = shap[a + npe*i]; Pc[i + npe*(a + npe*c)] = v; rs += v; }
+            double e = rs - 1.0; if (e < 0) e = -e; if (e > pou_max) pou_max = e;
+        }
+    }
+
+    // host reference refinement (double)
+    dstype *hxdg=nullptr; TemplateMalloc(&hxdg, npe*ncx*ne, 0);
+    TemplateCopytoHost(hxdg, sol.xdg, npe*ncx*ne, backend);
+    std::vector<double> xdgd(npe*ncx*ne), refref((std::size_t)npe*ncx*ne*nchild);
+    for (Int i = 0; i < npe*ncx*ne; i++) xdgd[i] = (double)hxdg[i];
+    // host reference refinement: refref(:,:,c*ne+e) = P_c * xdg(:,:,e)  (matches refinemesh.cpp)
+    for (Int c = 0; c < nchild; c++)
+        for (Int e = 0; e < ne; e++)
+            for (Int j = 0; j < ncx; j++)
+                for (Int i = 0; i < npe; i++) {
+                    double s = 0.0;
+                    for (Int a = 0; a < npe; a++) s += Pc[i + npe*(a + npe*c)] * xdgd[a + npe*(j + ncx*e)];
+                    refref[i + npe*(j + ncx*((std::size_t)c*ne + e))] = s;
+                }
+
+    // device refinement, then compare to the host reference
+    std::vector<dstype> Pcd((std::size_t)npe*npe*nchild);
+    for (std::size_t i = 0; i < Pcd.size(); i++) Pcd[i] = (dstype)Pc[i];
+    dstype *Pcdev=nullptr, *refdev=nullptr, *hrefdev=nullptr;
+    TemplateMalloc(&Pcdev, npe*npe*nchild, backend); TemplateCopytoDevice(Pcdev, Pcd.data(), npe*npe*nchild, backend);
+    TemplateMalloc(&refdev, npe*ncx*ne*nchild, backend);
+    RefineMeshHighOrder(refdev, sol.xdg, Pcdev, npe, ncx, ne, nchild, common.cublasHandle, backend);
+    TemplateMalloc(&hrefdev, npe*ncx*ne*nchild, 0);
+    TemplateCopytoHost(hrefdev, refdev, npe*ncx*ne*nchild, backend);
+
+    double dmax = 0.0, rmax = 0.0;
+    for (Int i = 0; i < npe*ncx*ne*nchild; i++) {
+        double d = (double)hrefdev[i] - refref[i]; if (d < 0) d = -d;
+        double r = refref[i]; if (r < 0) r = -r;
+        if (d > dmax) dmax = d; if (r > rmax) rmax = r;
+    }
+    double relerr = (rmax > 0.0) ? dmax / rmax : dmax;
+    double reltol = (sizeof(dstype) < 8) ? 1e-5 : 1e-11;
+    bool ok = (pou_max < 1e-10) && (relerr < reltol);
+    printf("[rank %d] Refine self-test: nchild=%d refined_elems=%d pou_err=%.3e dev_vs_ref=%.3e (elemtype=%d backend=%d) -> %s\n",
+           (int)common.mpiRank, (int)nchild, (int)(ne*nchild), pou_max, relerr, (int)elemtype, (int)backend, ok ? "PASS" : "FAIL");
+
+    TemplateFree(hxpe, 0); TemplateFree(hxdg, 0); TemplateFree(hrefdev, 0);
+    TemplateFree(Pcdev, backend); TemplateFree(refdev, backend);
+    if (!ok) error("Refine self-test FAILED");
+}
+
 // ComputeLDGPreconditioner re-homed to CPreconditioner (C4).
 
 // (hdgAssembleLinearSystem / hdgAssembleResidual moved to CAssembler -- see assembler.cpp)
@@ -954,6 +1051,7 @@ template void CDiscretizationT<::dstype, ::Int>::projectField(dstype*, dstype*, 
 template void CDiscretizationT<::dstype, ::Int>::projectionSelfTest(Int);
 template void CDiscretizationT<::dstype, ::Int>::extrusionSelfTest(Int);
 template void CDiscretizationT<::dstype, ::Int>::l2eProjectionSelfTest(Int);
+template void CDiscretizationT<::dstype, ::Int>::refineSelfTest(Int);
 template void CDiscretizationT<::dstype, ::Int>::DG2CG(dstype*, dstype*, dstype*, Int, Int, Int, Int);
 template void CDiscretizationT<::dstype, ::Int>::DG2CG2(dstype*, dstype*, dstype*, Int, Int, Int, Int);
 template void CDiscretizationT<::dstype, ::Int>::DG2CG3(dstype*, dstype*, dstype*, Int, Int, Int, Int);

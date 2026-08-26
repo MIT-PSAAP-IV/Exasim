@@ -167,6 +167,11 @@ public:
     // (f = x, sampled at the Gauss points) and checks it is reproduced at the
     // nodes per MPI rank. Gated by EXASIM_TEST_L2EPROJ.
     void l2eProjectionSelfTest(Int backend);
+    // On-device validation of high-order uniform mesh refinement
+    // (RefineMeshHighOrder, refinemesh_backend.hpp): builds the refinement
+    // operator via mkshape, refines this rank's mesh, and checks operator
+    // partition-of-unity + device-vs-host-reference apply. Gated by EXASIM_TEST_REFINE.
+    void refineSelfTest(Int backend);
 
     // (interface/boundary sampling methods moved to CInterfaceSampler)
 };
@@ -191,6 +196,7 @@ extern template void CDiscretizationT<::dstype, ::Int>::projectField(dstype*, ds
 extern template void CDiscretizationT<::dstype, ::Int>::projectionSelfTest(Int);
 extern template void CDiscretizationT<::dstype, ::Int>::extrusionSelfTest(Int);
 extern template void CDiscretizationT<::dstype, ::Int>::l2eProjectionSelfTest(Int);
+extern template void CDiscretizationT<::dstype, ::Int>::refineSelfTest(Int);
 extern template void CDiscretizationT<::dstype, ::Int>::DG2CG(dstype*, dstype*, dstype*, Int, Int, Int, Int);
 extern template void CDiscretizationT<::dstype, ::Int>::DG2CG2(dstype*, dstype*, dstype*, Int, Int, Int, Int);
 extern template void CDiscretizationT<::dstype, ::Int>::DG2CG3(dstype*, dstype*, dstype*, Int, Int, Int, Int);
