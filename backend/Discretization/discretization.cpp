@@ -48,6 +48,12 @@
 #define __DISCRETIZATION
 
 #include <cstring>
+#include <cstdlib>
+#include <cmath>
+#include <algorithm>
+#include <vector>
+#include <string>
+#include <map>
 
 #ifdef HAVE_CUDA
 #include "gpuDeviceInfo.cpp"
@@ -462,6 +468,19 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
 
     // (LDG initial-q recovery moved to CResidual::recoverInitialState, called by CSolution)
 
+    // Optional: validate the batched DGProjection path on this backend/rank.
+    if (getenv("EXASIM_TEST_PROJECTION") != nullptr)
+        projectionSelfTest(backend);
+    // Optional: validate the 2D->3D extrusion kernels on this backend/rank.
+    if (getenv("EXASIM_TEST_EXTRUDE") != nullptr)
+        extrusionSelfTest(backend);
+    // Optional: validate the L2 (analytic->DG) projection on this backend/rank.
+    if (getenv("EXASIM_TEST_L2EPROJ") != nullptr)
+        l2eProjectionSelfTest(backend);
+    // Optional: validate high-order mesh refinement on this backend/rank.
+    if (getenv("EXASIM_TEST_REFINE") != nullptr)
+        refineSelfTest(backend);
+
     if (common.spatialScheme > 0)  { // HDG
       Int neb = common.meshsizes.neb; // maximum number of elements per block
       Int npe = common.grid.npe; // number of nodes on master element
@@ -753,6 +772,11 @@ template void CDiscretizationT<::dstype, ::Int>::finalizeConstruction(
     Int, ExasimExecutionMode, Int, Int, Int, Int, Int, Int);
 template void CDiscretizationT<::dstype, ::Int>::compGeometry(Int);
 template void CDiscretizationT<::dstype, ::Int>::compMassInverse(Int);
+template void CDiscretizationT<::dstype, ::Int>::projectField(dstype*, dstype*, dstype*, Int, Int, Int);
+template void CDiscretizationT<::dstype, ::Int>::projectionSelfTest(Int);
+template void CDiscretizationT<::dstype, ::Int>::extrusionSelfTest(Int);
+template void CDiscretizationT<::dstype, ::Int>::l2eProjectionSelfTest(Int);
+template void CDiscretizationT<::dstype, ::Int>::refineSelfTest(Int);
 template void CDiscretizationT<::dstype, ::Int>::DG2CG(dstype*, dstype*, dstype*, Int, Int, Int, Int);
 template void CDiscretizationT<::dstype, ::Int>::DG2CG2(dstype*, dstype*, dstype*, Int, Int, Int, Int);
 template void CDiscretizationT<::dstype, ::Int>::DG2CG3(dstype*, dstype*, dstype*, Int, Int, Int, Int);

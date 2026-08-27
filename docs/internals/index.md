@@ -62,6 +62,7 @@ The key implementation idea is separation of concerns:
 | [Known divergences](known-divergences.md) | How to track expected and unexpected numerical differences. |
 | [Development workflow](development-workflow.md) | Contributor workflow and AI-assisted development guidance. |
 | [Coding guidelines](coding-guidelines.md) | Minimal-change, GPU-aware, MPI-aware coding rules. |
+| [MATLAB → C++ utilities](matlab-to-cpp-utilities.md) | Tracker for porting MATLAB solution-maneuvering utilities to the backend. |
 | [CI and validation](ci-and-validation.md) | Current GitHub Actions workflows and local equivalents. |
 | [References](references.md) | Source files and related documentation entry points. |
 

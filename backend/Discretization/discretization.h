@@ -145,6 +145,34 @@ public:
     void DG2CG2(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, Int ncudg, Int ncu, Int backend);
     void DG2CG3(dstype* ucg, dstype* udg, dstype *utm, Int ncucg, Int ncudg, Int ncu, Int backend);
 
+    // Batched, backend-portable (CPU/CUDA/HIP), MPI-ready L2 projection of a DG
+    // field from a source nodal basis onto the target (this pass's) basis, one
+    // element at a time. Thin wrapper over DGProjection (dgprojection_backend.hpp).
+    //   U1      [npe_target * nc * ne]  out
+    //   U       [npe_s      * nc * ne]  in (source basis)
+    //   shapegs [nge * npe_s]           source shape values at the target Gauss points
+    void projectField(dstype* U1, dstype* U, dstype* shapegs, Int npe_s, Int nc, Int backend);
+    // On-device validation of the batched projection: an identity projection
+    // (source basis == target basis) must reproduce a real field to ~machine
+    // precision on every MPI rank. Runs on the active backend; gated by the
+    // EXASIM_TEST_PROJECTION env var during construction.
+    void projectionSelfTest(Int backend);
+    // On-device validation of the 2D->3D extrusion kernels (ExtrudeSolution /
+    // ExtrudeVelocity, extrudesol_backend.hpp): extrudes a synthetic 2D field on
+    // the active backend and checks the gather map + rotation per MPI rank.
+    // Needs no mesh (pure index/data-parallel op); gated by EXASIM_TEST_EXTRUDE.
+    void extrusionSelfTest(Int backend);
+    // On-device validation of the L2 (analytic->DG) projection kernel
+    // (L2eProjection, l2eprojection_backend.hpp): projects the coordinate field
+    // (f = x, sampled at the Gauss points) and checks it is reproduced at the
+    // nodes per MPI rank. Gated by EXASIM_TEST_L2EPROJ.
+    void l2eProjectionSelfTest(Int backend);
+    // On-device validation of high-order uniform mesh refinement
+    // (RefineMeshHighOrder, refinemesh_backend.hpp): builds the refinement
+    // operator via mkshape, refines this rank's mesh, and checks operator
+    // partition-of-unity + device-vs-host-reference apply. Gated by EXASIM_TEST_REFINE.
+    void refineSelfTest(Int backend);
+
     // (interface/boundary sampling methods moved to CInterfaceSampler)
 };
 using CDiscretization = CDiscretizationT<::dstype, ::Int>;
@@ -164,6 +192,11 @@ extern template void CDiscretizationT<::dstype, ::Int>::finalizeConstruction(
     Int, ExasimExecutionMode, Int, Int, Int, Int, Int, Int);
 extern template void CDiscretizationT<::dstype, ::Int>::compGeometry(Int);
 extern template void CDiscretizationT<::dstype, ::Int>::compMassInverse(Int);
+extern template void CDiscretizationT<::dstype, ::Int>::projectField(dstype*, dstype*, dstype*, Int, Int, Int);
+extern template void CDiscretizationT<::dstype, ::Int>::projectionSelfTest(Int);
+extern template void CDiscretizationT<::dstype, ::Int>::extrusionSelfTest(Int);
+extern template void CDiscretizationT<::dstype, ::Int>::l2eProjectionSelfTest(Int);
+extern template void CDiscretizationT<::dstype, ::Int>::refineSelfTest(Int);
 extern template void CDiscretizationT<::dstype, ::Int>::DG2CG(dstype*, dstype*, dstype*, Int, Int, Int, Int);
 extern template void CDiscretizationT<::dstype, ::Int>::DG2CG2(dstype*, dstype*, dstype*, Int, Int, Int, Int);
 extern template void CDiscretizationT<::dstype, ::Int>::DG2CG3(dstype*, dstype*, dstype*, Int, Int, Int, Int);
