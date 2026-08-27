@@ -43,6 +43,10 @@
 
 #include "geometry.hpp"
 #include "massinv.hpp"
+#include "../Utility/dgprojection_backend.hpp"
+#include "../Utility/extrudesol_backend.hpp"
+#include "../Utility/l2eprojection_backend.hpp"
+#include "../Utility/refinemesh_backend.hpp"
 #include "qequation.hpp"
 #include "wequation.hpp"
 #include "uequation.hpp"
