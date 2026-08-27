@@ -137,6 +137,17 @@ function(_exasim_append_existing_archives outvar)
   set(${outvar} "${_libs}" PARENT_SCOPE)
 endfunction()
 
+function(_exasim_append_target_property target property)
+  get_target_property(_existing ${target} ${property})
+  if(NOT _existing)
+    set(_existing)
+  endif()
+  set(_merged ${_existing} ${ARGN})
+  list(REMOVE_DUPLICATES _merged)
+  set_target_properties(${target} PROPERTIES
+    ${property} "${_merged}")
+endfunction()
+
 function(_exasim_set_archive_interface target backend is_mpi is_pre)
   if(NOT TARGET ${target})
     return()
@@ -178,9 +189,8 @@ function(_exasim_set_archive_interface target backend is_mpi is_pre)
     list(APPEND _libs Exasim::builtinmodelserial)
   endif()
   _exasim_append_existing_archives(_libs libparmetis.a libmetis.a libGKlib.a)
-  set_target_properties(${target} PROPERTIES
-    INTERFACE_COMPILE_DEFINITIONS "${_defs}"
-    INTERFACE_LINK_LIBRARIES "${_libs}")
+  _exasim_append_target_property(${target} INTERFACE_COMPILE_DEFINITIONS ${_defs})
+  _exasim_append_target_property(${target} INTERFACE_LINK_LIBRARIES ${_libs})
 endfunction()
 
 foreach(_c ${Exasim_FIND_COMPONENTS})
