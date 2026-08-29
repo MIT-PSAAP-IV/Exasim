@@ -338,10 +338,13 @@ CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string e
           for (int i=0; i<hcommon.meshsizes.nfe*hcommon.meshsizes.ne; i++) mesh.bf[i] = hmesh.bf[i];
         }
 
-       // copy hsol.xcg to sol.xcg for paraview visualization
-        sol.szxcg = hsol.szxcg;
-        TemplateMalloc(&sol.xcg, sol.szxcg, 0);
-        TemplateCopytoHost(sol.xcg, hsol.xcg, sol.szxcg, 0);
+        // copy hsol.xcg to sol.xcg for paraview visualization
+        if (hsol.szxcg > 0) {
+            sol.szxcg = hsol.szxcg;
+            TemplateMalloc(&sol.xcg, sol.szxcg, 0);
+            TemplateCopytoHost(sol.xcg, hsol.xcg, sol.szxcg, 0);
+        }
+
         if (common.mpiRank==0) printf("free CPU memory \n");
 
         // release CPU memory

@@ -232,26 +232,47 @@ function(exasim_finalize_builtin_models)
 endfunction()
 
 # -----------------------------------------------------------------------------
-# Register the default model set: models 1-6 use text2code when a pdeapp*.txt
-# source exists alongside the checked-in kernels, otherwise fall back to legacy
-# checked-in kernels. Models 7-15 are always text2code-generated.
+# Register the default model set. The library used to build all 15 built-in
+# models by default, which made ordinary builds pay for application models that
+# the test suite does not exercise. Keep the tested minimum as the default and
+# let release/application builds opt into additional models through the cache.
 # Skipped if the caller opts to register models itself.
 # -----------------------------------------------------------------------------
+set(EXASIM_BUILTIN_MODEL_IDS "1;4" CACHE STRING
+    "Built-in model IDs to compile into libbuiltinmodel, or ALL for models 1-15.")
+
+function(exasim_add_default_builtin_model ID)
+  if(EXISTS "${EXASIM_BUILTIN_DIR}/pdeapp${ID}.txt")
+    exasim_add_builtin_model(${ID} SOURCE "${EXASIM_BUILTIN_DIR}/pdeapp${ID}.txt")
+  else()
+    exasim_add_builtin_model(${ID})
+  endif()
+endfunction()
+
 if(NOT DEFINED EXASIM_BUILTIN_SKIP_DEFAULTS)
-  foreach(_id RANGE 1 6)
-    if(EXISTS "${EXASIM_BUILTIN_DIR}/pdeapp${_id}.txt")
-      exasim_add_builtin_model(${_id} SOURCE "${EXASIM_BUILTIN_DIR}/pdeapp${_id}.txt")
-    else()
-      exasim_add_builtin_model(${_id})
+  if(EXASIM_BUILTIN_MODEL_IDS STREQUAL "ALL")
+    set(_exasim_builtin_model_ids 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15)
+  else()
+    set(_exasim_builtin_model_ids ${EXASIM_BUILTIN_MODEL_IDS})
+  endif()
+
+  if(NOT _exasim_builtin_model_ids)
+    message(FATAL_ERROR "EXASIM_BUILTIN_MODEL_IDS must not be empty.")
+  endif()
+
+  foreach(_id IN LISTS _exasim_builtin_model_ids)
+    if(NOT _id MATCHES "^[0-9]+$")
+      message(FATAL_ERROR
+        "Invalid EXASIM_BUILTIN_MODEL_IDS entry '${_id}'. Use numeric IDs or ALL.")
     endif()
-  endforeach()
-  foreach(_id RANGE 7 15)
-    if(EXISTS "${EXASIM_BUILTIN_DIR}/pdeapp${_id}.txt")
-      exasim_add_builtin_model(${_id} SOURCE "${EXASIM_BUILTIN_DIR}/pdeapp${_id}.txt")
-    else()
-      exasim_add_builtin_model(${_id})
+    if(_id LESS 1 OR _id GREATER 15)
+      message(FATAL_ERROR
+        "Invalid built-in model ID ${_id}; supported default model IDs are 1 through 15.")
     endif()
+    exasim_add_default_builtin_model(${_id})
   endforeach()
+
+  message(STATUS "EXASIM_BUILTIN_MODEL_IDS = ${_exasim_builtin_model_ids}")
   exasim_finalize_builtin_models()
 endif()
 

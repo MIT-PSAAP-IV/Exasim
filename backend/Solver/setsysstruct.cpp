@@ -339,26 +339,26 @@ void setsysstruct(sysstructT<T,I> &sys, commonstructT<T,I> &common, resstructT<T
     
     sys.szipiv = max(common.ppdegree, M*M);
     sys.sztempmem = (5*M + M*M);
-                 
-    if (common.spatialScheme==0) {
-      TemplateMalloc(&sys.randvect, common.grid.npe*common.components.ncu*common.meshsizes.ne, backend);     
-      randomfield(sys.randvect, common, res, mesh, tmp, backend);
-    }
-    else {
-      dstype *randvectu;
-      TemplateMalloc(&randvectu, common.grid.npe*common.components.ncu*common.meshsizes.ne, backend);            
-      randomfield(randvectu, common, res, mesh, tmp, backend);
-      TemplateMalloc(&sys.randvect, ndof, backend);     
-      GetFaceNodes(sys.randvect, randvectu, mesh.f2e, mesh.perm, common.grid.npf, ncu, npe, ncu, common.meshsizes.nf);
-      TemplateFree(randvectu, backend);  
-    }    
-    
-    dstype normr = PNORM(common.cublasHandle, ndof, common.couplingparams.ndofuhatinterface, sys.randvect, backend);    
-    //cout<<"sys.randvect: "<<common.mpiRank<<" "<<normr<<" "<<ndof<<endl;
-    ArrayMultiplyScalar(common.cublasHandle, sys.randvect, 1.0/normr, ndof, backend);              
-    sys.szrandvect = ndof;
-
+        
     if (common.ppdegree > 1) {
+        if (common.spatialScheme==0) {
+          TemplateMalloc(&sys.randvect, common.grid.npe*common.components.ncu*common.meshsizes.ne, backend);     
+          randomfield(sys.randvect, common, res, mesh, tmp, backend);
+        }
+        else {
+          dstype *randvectu;
+          TemplateMalloc(&randvectu, common.grid.npe*common.components.ncu*common.meshsizes.ne, backend);            
+          randomfield(randvectu, common, res, mesh, tmp, backend);
+          TemplateMalloc(&sys.randvect, ndof, backend);     
+          GetFaceNodes(sys.randvect, randvectu, mesh.f2e, mesh.perm, common.grid.npf, ncu, npe, ncu, common.meshsizes.nf);
+          TemplateFree(randvectu, backend);  
+        }    
+        
+        dstype normr = PNORM(common.cublasHandle, ndof, common.couplingparams.ndofuhatinterface, sys.randvect, backend);    
+        //cout<<"sys.randvect: "<<common.mpiRank<<" "<<normr<<" "<<ndof<<endl;
+        ArrayMultiplyScalar(common.cublasHandle, sys.randvect, 1.0/normr, ndof, backend);              
+        sys.szrandvect = ndof;
+      
         sys.lam = (dstype *) malloc((6*common.ppdegree + 2*common.ppdegree*common.ppdegree)*sizeof(dstype));        
         TemplateMalloc(&sys.q, ndof, backend);     
         TemplateMalloc(&sys.p, ndof, backend);                       
