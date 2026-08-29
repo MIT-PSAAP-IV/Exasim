@@ -276,6 +276,10 @@ void CResidual<M, T, I>::recoverInitialState(Int backend, bool postprocessOnly)
             }
             // compute M^{-1} * C and M^{-1} * E (q-matrices) and store in res.C / res.E
             qEquation(sol, res, app, master, mesh, tmp, common, backend);
+            TemplateFree(res.Mass2, backend);
+            TemplateFree(res.Minv2, backend);
+            res.szMass2 = 0;
+            res.szMinv2 = 0;          
             // compute the flux q = -nabla u and store it in sol.udg
             if (common.timeparams.wave == 0 && sol.szudg != npe*nc*ne)
                 hdgGetQ(sol.udg, sol.uh, sol, res, mesh, tmp, common, backend);

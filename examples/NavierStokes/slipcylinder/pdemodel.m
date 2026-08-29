@@ -168,8 +168,14 @@ function fb = fbouhdg(u, q, w, v, x, t, mu, eta, uhat, n, tau)
     Tinf = mu(9);
     Tref = mu(10);
     Twall = mu(11);
-    sigmaV = mu(17);
+    R = mu(16);
+    sigmaV = mu(17);    
     sigmaT = mu(18);
+    U_ref = mu(20);
+    C1 = mu(21);
+    C2 = mu(22);
+    C3 = mu(23);
+    C4 = mu(24);
     TisoW = Twall/Tref * Tinf;    
     uinf = sym(mu(5:8)); % freestream flow
     uinf = uinf(:);
@@ -189,8 +195,14 @@ function fb = fbouhdg(u, q, w, v, x, t, mu, eta, uhat, n, tau)
 
     % slip wall boundary conditions   
     [dutdn, dTdn, lambda] = wallstate(u, q, mu, n);
-    uslip = sigmaV*lambda*dutdn;
-    Tslip = sigmaT*lambda*dTdn;
+    % uslip = sigmaV*lambda*dutdn;
+    % Tslip = sigmaT*lambda*dTdn;
+
+    % velocity slip: \Delta u_t = (C_1 \lambda (duphys_t/dn) +C_2 \lambda \sqrt{2 R/T_w} (dTphys/dt))/U_ref    
+    uslip = C1*lambda*dutdn + C2*lambda*sqrt(2*R/Twall)*dTdn*(Tref/Tinf)/U_ref;
+    % temperature jump: \Delta T = (C_3 \lambda \sqrt{T_w/2 R} (duphys_n/dn)+C_4 \lambda (dTphys/dn))/(Tref/Tinf)
+    Tslip = C3*lambda*sqrt(Twall/(2*R))*dutdn*U_ref*Tinf/Tref + C4*lambda*dTdn;
+
     Tgaswall = TisoW + Tslip;      
     nx = n(1);
     ny = n(2);

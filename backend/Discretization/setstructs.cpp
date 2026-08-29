@@ -1141,6 +1141,24 @@ template <class T=dstype, class I=Int>
 void devmeshstruct(meshstructT<T,I> &dmesh, meshstructT<T,I> &mesh, commonstructT<T,I> &common)
 {
     using dstype=T;
+    dmesh.szfacecon = mesh.szfacecon;
+    dmesh.szeblks = mesh.szeblks;
+    dmesh.szfblks = mesh.szfblks;
+    dmesh.szcgelcon = mesh.szcgelcon;
+    dmesh.szrowent2elem = mesh.szrowent2elem;
+    dmesh.szcgent2dgent = mesh.szcgent2dgent;
+    dmesh.szcolent2elem = mesh.szcolent2elem;
+    dmesh.szrowe2f1 = mesh.szrowe2f1;
+    dmesh.szcole2f1 = mesh.szcole2f1;
+    dmesh.szent2ind1 = mesh.szent2ind1;
+    dmesh.szrowe2f2 = mesh.szrowe2f2;
+    dmesh.szcole2f2 = mesh.szcole2f2;
+    dmesh.szent2ind2 = mesh.szent2ind2;
+    dmesh.szf2e = mesh.szf2e;
+    dmesh.szelemcon = mesh.szelemcon;
+    dmesh.szperm = mesh.szperm;
+    dmesh.szbf = mesh.szbf;
+
     TemplateMalloc(&dmesh.nsize, mesh.lsize[0], common.backend);
     TemplateMalloc(&dmesh.ndims, mesh.nsize[0], common.backend);
     TemplateMalloc(&dmesh.facecon, mesh.nsize[1], common.backend);

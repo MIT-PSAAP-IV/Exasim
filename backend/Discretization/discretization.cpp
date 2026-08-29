@@ -89,20 +89,20 @@ void crs_init(commonstructT<T,I>& common, meshstructT<T,I>& mesh, int *elem, int
     using dstype = T; using Int = I;
     common.nse = nse;
     common.nese = nese;
-    
-    int *row_ptr = NULL; 
-    int *col_ind = NULL; 
-    int *face = NULL; 
-    int *f2eelem = NULL; 
-    int *f2e = NULL; 
+
+    int *row_ptr = NULL;
+    int *col_ind = NULL;
+    int *face = NULL;
+    int *f2eelem = NULL;
+    int *f2e = NULL;
     TemplateMalloc(&f2e, 4*common.meshsizes.nf, 0);
-    TemplateCopytoHost(f2e, mesh.f2e, 4*common.meshsizes.nf, common.backend); 
-    
+    TemplateCopytoHost(f2e, mesh.f2e, 4*common.meshsizes.nf, common.backend);
+
     int nfelem = crs_faceordering(&row_ptr, &col_ind, &face, &f2eelem, elem, f2e, common.nse, common.nese, common.meshsizes.nfe, common.meshsizes.nf);
 
     common.nfse = nfelem;
-    common.nnz = row_ptr[common.nfse];      
-        
+    common.nnz = row_ptr[common.nfse];
+
     int n = 2*(common.meshsizes.nfe-1);
     TemplateMalloc(&common.bjindex.ind_ii, nfelem, 0);
     TemplateMalloc(&common.bjindex.ind_ji, nfelem*n, 0);
@@ -123,14 +123,14 @@ void crs_init(commonstructT<T,I>& common, meshstructT<T,I>& mesh, int *elem, int
     for (int i=0; i<nfelem*n*2; i++) common.bjindex.Lind_ji[i] = -1;
     for (int i=0; i<nfelem*n*2; i++) common.bjindex.Uind_ji[i] = -1;
     for (int i=0; i<nfelem*2; i++) common.bjindex.Lnum_ji[i] = 0;
-    for (int i=0; i<nfelem*3; i++) common.bjindex.Unum_ji[i] = 0;    
-    
-    crs_indexingilu0(common.bjindex.ind_ii, common.bjindex.ind_ji, common.bjindex.ind_jl, common.bjindex.ind_il, common.bjindex.num_ji, common.bjindex.num_jl, 
+    for (int i=0; i<nfelem*3; i++) common.bjindex.Unum_ji[i] = 0;
+
+    crs_indexingilu0(common.bjindex.ind_ii, common.bjindex.ind_ji, common.bjindex.ind_jl, common.bjindex.ind_il, common.bjindex.num_ji, common.bjindex.num_jl,
             common.bjindex.Lind_ji, common.bjindex.Uind_ji, common.bjindex.Lnum_ji, common.bjindex.Unum_ji, row_ptr, col_ind, common.meshsizes.nfe, nfelem);
 
 //     print2iarray(f2eelem, common.meshsizes.nfe, nfelem);
 //     print2iarray(row_ptr, 1, nfelem+1);
-//     print2iarray(col_ind, 1, row_ptr[nfelem]);    
+//     print2iarray(col_ind, 1, row_ptr[nfelem]);
 //     print2iarray(common.bjindex.ind_ii, 1, nfelem);
 //     print2iarray(common.bjindex.ind_ji, n, nfelem);
 //     print2iarray(common.bjindex.ind_jl, n*n, nfelem);
@@ -145,13 +145,13 @@ void crs_init(commonstructT<T,I>& common, meshstructT<T,I>& mesh, int *elem, int
     TemplateMalloc(&mesh.row_ptr, nfelem+1, common.backend);
     TemplateMalloc(&mesh.col_ind, row_ptr[nfelem],common.backend);
     TemplateMalloc(&mesh.face, nse*nfelem, common.backend);
-    TemplateCopytoDevice(mesh.row_ptr, row_ptr, nfelem+1, common.backend);                       
-    TemplateCopytoDevice(mesh.col_ind, col_ind, row_ptr[nfelem], common.backend);    
-    TemplateCopytoDevice(mesh.face, face, nse*nfelem, common.backend);      
-    
+    TemplateCopytoDevice(mesh.row_ptr, row_ptr, nfelem+1, common.backend);
+    TemplateCopytoDevice(mesh.col_ind, col_ind, row_ptr[nfelem], common.backend);
+    TemplateCopytoDevice(mesh.face, face, nse*nfelem, common.backend);
+
 //     writearray2file(common.fileout + "elem.bin", elem, nse*nese, 0);
 //     writearray2file(common.fileout + "f2e.bin", f2e, 4*common.meshsizes.nf, 0);
-//     
+//
 //     writearray2file(common.fileout + "ind_ii.bin", common.bjindex.ind_ii, nfelem, 0);
 //     writearray2file(common.fileout + "ind_ji.bin", common.bjindex.ind_ji, n*nfelem, 0);
 //     writearray2file(common.fileout + "ind_jl.bin", common.bjindex.ind_jl, n*n*nfelem, 0);
@@ -162,18 +162,18 @@ void crs_init(commonstructT<T,I>& common, meshstructT<T,I>& mesh, int *elem, int
 //     writearray2file(common.fileout + "Uind_ji.bin", common.bjindex.Uind_ji, 2*n*nfelem, 0);
 //     writearray2file(common.fileout + "Lnum_ji.bin", common.bjindex.Lnum_ji, 2*nfelem, 0);
 //     writearray2file(common.fileout + "Unum_ji.bin", common.bjindex.Unum_ji, 3*nfelem, 0);
-//     
+//
 //     writearray2file(common.fileout + "row_ptr.bin", mesh.row_ptr, nfelem+1, common.backend);
 //     writearray2file(common.fileout + "col_ind.bin", mesh.col_ind, row_ptr[nfelem], common.backend);
 //     writearray2file(common.fileout + "face.bin", mesh.face, nse*nfelem, common.backend);
-    
+
     CPUFREE(row_ptr);
     CPUFREE(col_ind);
     CPUFREE(face);
     CPUFREE(f2eelem);
     CPUFREE(f2e);
 }
-      
+
 template <class T = ::dstype, class I = ::Int>
 void BuildElementBlockBoundaryFaces(commonstructT<T,I>& common, meshstructT<T,I>& mesh, ::Int backend)
 {
@@ -270,7 +270,7 @@ void AllocateLDGBlockJacobianMemory(resstructT<T,I>& res, commonstructT<T,I>& co
 
 // Both CPU and GPU constructor
 template <class T, class I>
-CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string exasimpath, Int mpiprocs, Int mpirank, 
+CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string exasimpath, Int mpiprocs, Int mpirank,
         Int fileoffset, Int omprank, Int backend, Int builtinmodelID,
         const ExasimDriverABI& abi, Int nsca, Int nvec, Int nten, Int nsurf, Int nvqoi,
         ExasimExecutionMode mode, const std::vector<dstype>* physicsparamOverride,
@@ -283,26 +283,26 @@ CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string e
     common.builtinmodelID = builtinmodelID;
     app.builtinmodelID = builtinmodelID;
 
-//     if (mpirank==0) {      
+//     if (mpirank==0) {
 // #ifdef HAVE_TEXT2CODE
 //       cout<< "Model Driver = ../Model/ModelDrivers.cpp"<<endl;
 // #elif defined(HAVE_BUILTINMODEL)
 //       cout<< "Model Driver = ../Model/BuiltIn/BuiltinModelDrivers.cpp"<<endl;
 // #else
 //       cout<< "Model Driver = ../Model/FrontendGenerated/KokkosDrivers.cpp"<<endl;
-// #endif      
+// #endif
 //     }
 
     if (backend>1) { // GPU
-#ifdef HAVE_GPU        
+#ifdef HAVE_GPU
         // host structs
         solstruct hsol;
         resstruct hres;
         appstruct happ;
-        masterstruct hmaster; 
+        masterstruct hmaster;
         meshstruct hmesh;
-        tempstruct htmp;    
-        commonstruct hcommon;     
+        tempstruct htmp;
+        commonstruct hcommon;
 
         hcommon.backend = backend;
         // The GPU path stages the read into host structs (happ/hcommon) and then
@@ -317,7 +317,7 @@ CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string e
         cpuInit(hsol, hres, happ, driver_abi, hmaster, hmesh, htmp, hcommon, filein, fileout,
                 mpiprocs, mpirank, fileoffset, omprank,
                 physicsparamOverride);
-                
+
         // copy data from cpu memory to gpu memory
         gpuInit(sol, res, app, driver_abi, master, mesh, tmp, common,
             hsol, hres, happ, hmaster, hmesh, htmp, hcommon);
@@ -335,24 +335,27 @@ CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string e
         sol.needwdginit = hsol.needwdginit;
         if (hmesh.bf != nullptr) {
           TemplateMalloc(&mesh.bf, hcommon.meshsizes.nfe*hcommon.meshsizes.ne, 0);
-          for (int i=0; i<hcommon.meshsizes.nfe*hcommon.meshsizes.ne; i++) mesh.bf[i] = hmesh.bf[i];   
+          for (int i=0; i<hcommon.meshsizes.nfe*hcommon.meshsizes.ne; i++) mesh.bf[i] = hmesh.bf[i];
         }
 
-       // copy hsol.xcg to sol.xcg for paraview visualization
-        sol.szxcg = hsol.szxcg;
-        TemplateMalloc(&sol.xcg, sol.szxcg, 0);
-        TemplateCopytoHost(sol.xcg, hsol.xcg, sol.szxcg, 0);
+        // copy hsol.xcg to sol.xcg for paraview visualization
+        if (hsol.szxcg > 0) {
+            sol.szxcg = hsol.szxcg;
+            TemplateMalloc(&sol.xcg, sol.szxcg, 0);
+            TemplateCopytoHost(sol.xcg, hsol.xcg, sol.szxcg, 0);
+        }
+
         if (common.mpiRank==0) printf("free CPU memory \n");
-          
+
         // release CPU memory
-        happ.freememory(1);        
-        hmaster.freememory(1);        
-        hmesh.freememory(1);        
-        hsol.freememory(1);        
-        htmp.freememory(1);        
-        hres.freememory(1);        
-        hcommon.freememory();             
-#endif        
+        happ.freememory(1);
+        hmaster.freememory(1);
+        hmesh.freememory(1);
+        hsol.freememory(1);
+        htmp.freememory(1);
+        hres.freememory(1);
+        hcommon.freememory();
+#endif
     }
     else  {// CPU
         cpuInit(sol, res, app, driver_abi, master, mesh, tmp, common, filein, fileout,
@@ -391,47 +394,62 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
 
     const bool needsVisualizationConnectivity =
         (common.qoiparams.saveParaview != 0) &&
-        (common.qoiparams.nsca + common.qoiparams.nvec + common.qoiparams.nten > 0) &&
-        (sol.szxcg == 0 || mesh.szcgelcon == 0 || mesh.szrowent2elem == 0 ||
-         mesh.szcgent2dgent == 0 || mesh.szcolent2elem == 0);
+        (common.qoiparams.nsca + common.qoiparams.nvec + common.qoiparams.nten > 0)
+        && (sol.szxcg == 0);
     if (needsVisualizationConnectivity) {
         const Int npe = common.grid.npe;
         const Int nd = common.grid.nd;
         const Int ne = common.meshsizes.ne;
 
+        dstype* xdg = sol.xdg;
+        dstype* xdg_host = nullptr;
+        if (backend > 1) {
+            TemplateMalloc(&xdg_host, npe * nd * ne, 0);
+            TemplateCopytoHost(xdg_host, sol.xdg, npe * nd * ne, backend);
+            xdg = xdg_host;
+        }
+
+        Int* cgelcon = nullptr;
         dstype* xcg = nullptr;
         TemplateMalloc(&xcg, npe * nd * ne, 0);
-        TemplateMalloc(&mesh.cgelcon, npe * ne, 0);
-        const Int ncgnodes = mkelconcg_hashgrid(xcg, mesh.cgelcon, sol.xdg, npe, nd, ne);
-        const Int ncgdof = mkent2elem(mesh.rowent2elem, mesh.colent2elem, mesh.cgelcon, npe, ne);
-        map_cgent2dgent(mesh.cgent2dgent, mesh.rowent2elem, mesh.colent2elem, xcg, sol.xdg, npe, nd, ncgdof);
+        TemplateMalloc(&cgelcon, npe * ne, 0);
+        const Int ncgnodes = mkelconcg_hashgrid(xcg, cgelcon, xdg, npe, nd, ne);
 
+        TemplateFree(sol.xcg, 0);
         TemplateMalloc(&sol.xcg, nd * ncgnodes, 0);
         for (Int i = 0; i < nd * ncgnodes; i++)
             sol.xcg[i] = xcg[i];
         sol.szxcg = nd * ncgnodes;
 
-        mesh.szcgelcon = mesh.nsize[11] = npe * ne;
-        mesh.szrowent2elem = mesh.nsize[12] = ncgdof + 1;
-        mesh.szcgent2dgent = mesh.nsize[13] = mesh.rowent2elem[ncgdof];
-        mesh.szcolent2elem = mesh.nsize[14] = mesh.rowent2elem[ncgdof];
+        if (mesh.szcgelcon == 0) {
+            mesh.szcgelcon = npe * ne;
+            TemplateFree(mesh.cgelcon, backend);
+            TemplateMalloc(&mesh.cgelcon, mesh.szcgelcon, backend);
+            TemplateCopytoDevice(mesh.cgelcon, cgelcon, mesh.szcgelcon, backend);
+            if (backend > 1)
+                TemplateCopytoDevice(mesh.nsize + 11, &mesh.szcgelcon, 1, backend);
+            else
+                mesh.nsize[11] = mesh.szcgelcon;
+        }
 
         CPUFREE(xcg);
+        CPUFREE(cgelcon);
+        if (backend > 1) CPUFREE(xdg_host);
     }
 
     // compute the geometry quantities
     if (common.mpiRank==0) printf("start compGeometry... \n");
-    compGeometry(backend);        
-    if (common.mpiRank==0) printf("finish compGeometry... \n");        
+    compGeometry(backend);
+    if (common.mpiRank==0) printf("finish compGeometry... \n");
 
     // compute the inverse of the mass matrix
     if (common.spatialScheme == 0) {
         if (common.mpiRank==0) printf("start compMassInverse... \n");
-        compMassInverse(backend);    
+        compMassInverse(backend);
         if (common.mpiRank==0) printf("finish compMassInverse... \n");
         if (!postprocessOnly && common.solverparams.preconditioner == 1) {
             if (common.mpiRank==0) printf("start qEquation... \n");
-            BuildElementBlockBoundaryFaces(common, mesh, backend);        
+            BuildElementBlockBoundaryFaces(common, mesh, backend);
             AllocateLDGBlockJacobianMemory(res, common, backend, scratch);
             qEquation(sol, res, app, master, mesh, tmp, common, backend);
             TemplateFree(res.Mass2, backend);
@@ -450,7 +468,7 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
             res.szP = 0;
         }
     }
-    
+
     // (LDG initial-q recovery moved to CResidual::recoverInitialState, called by CSolution)
 
     // Optional: validate the batched DGProjection path on this backend/rank.
@@ -476,21 +494,21 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
       Int ncx = common.components.ncx; // number of compoments of (xdg)
       Int nc = common.components.nc; // number of compoments of (u, q)
       Int ncu = common.components.ncu; // number of compoments of (u)
-      Int ncq = common.components.ncq; // number of compoments of (q)      
+      Int ncq = common.components.ncq; // number of compoments of (q)
       Int nbe = common.meshsizes.nbe; // number of blocks for elements
       int ncu12 = common.szinterfacefluxmap;
-      
-      if (common.mpiRank==0) 
-        printf("Init HDG Discretization ... \n");        
-      
+
+      if (common.mpiRank==0)
+        printf("Init HDG Discretization ... \n");
+
       int nboufaces = 0; // number of boundary faces
       int maxbc = 0; // maximum number of boundary conditions
       for (int i=0; i<nfe*ne; i++) {
         if (mesh.bf[i] > 0) nboufaces++;
         maxbc = max(maxbc, mesh.bf[i]);
       }
-      common.meshsizes.maxnbc = maxbc;      
-      
+      common.meshsizes.maxnbc = maxbc;
+
       if (common.couplingparams.coupledboundarycondition>0) {
         //common.couplingparams.nintfaces = getinterfacefaces(mesh.bf, common.eblks, nbe-1, nfe, common.couplingparams.coupledboundarycondition);
         common.couplingparams.nintfaces = getinterfacefaces(mesh.bf, nfe, common.meshsizes.ne1, common.couplingparams.coupledboundarycondition);
@@ -499,20 +517,20 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
         //getinterfacefaces(intfaces, mesh.bf, common.eblks, nbe-1, nfe, common.couplingparams.coupledboundarycondition, common.couplingparams.nintfaces);
         getinterfacefaces(intfaces, mesh.bf, nfe, common.meshsizes.ne1, common.couplingparams.coupledboundarycondition, common.couplingparams.nintfaces);
         TemplateMalloc(&mesh.intfaces, common.couplingparams.nintfaces, common.backend);
-        TemplateCopytoDevice(mesh.intfaces, intfaces, common.couplingparams.nintfaces, common.backend);                       
+        TemplateCopytoDevice(mesh.intfaces, intfaces, common.couplingparams.nintfaces, common.backend);
         mesh.szintfaces = common.couplingparams.nintfaces;
-        
+
         CPUFREE(intfaces);
-        
+
         TemplateMalloc(&sol.xdgint, ncx*npf*common.couplingparams.nintfaces, common.backend);
         GetBoudaryNodes(sol.xdgint, sol.xdg, mesh.intfaces, mesh.perm, nfe, npf, npe, ncx, ncx, common.couplingparams.nintfaces);
-        sol.szxdgint = ncx*npf*common.couplingparams.nintfaces;                 
+        sol.szxdgint = ncx*npf*common.couplingparams.nintfaces;
       }
-      
+
       // GetBoudaryNodes(xdgb.data(), &sol.xdg[0], &mesh.boufaces[start], mesh.perm, nfe, npf, npe, ncx, ncx, nfaces);
 
-      if (common.mpiRank==0) 
-        printf("Maximum number of boundary conditions = %d \n", maxbc);        
+      if (common.mpiRank==0)
+        printf("Maximum number of boundary conditions = %d \n", maxbc);
 
       // print2iarray(mesh.bf, nfe, ne);
       // print2iarray(common.eblks, 3, nbe);
@@ -522,49 +540,49 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
       TemplateMalloc(&boufaces, nboufaces, 0);
       getboundaryfaces(common.nboufaces, boufaces, mesh.bf, common.eblks, nbe, nfe, maxbc, nboufaces);
       TemplateMalloc(&mesh.boufaces, nboufaces, common.backend);
-      TemplateCopytoDevice(mesh.boufaces, boufaces, nboufaces, common.backend);                       
+      TemplateCopytoDevice(mesh.boufaces, boufaces, nboufaces, common.backend);
       mesh.szboufaces = nboufaces;
 
       CPUFREE(boufaces);
-      //CPUFREE(mesh.bf);            
-                          
-      if (!postprocessOnly && (common.solverparams.preconditioner==2) && (common.szcartgridpart > 0)) {              
-        if (common.cartgridpart[0]==2) {          
-          int *elem = NULL;                
-          int nse  = gridpartition2d(&elem, common.cartgridpart[1], common.cartgridpart[2], common.cartgridpart[3], common.cartgridpart[4], common.cartgridpart[5]);       
-          int nese = common.cartgridpart[3]*common.cartgridpart[4];    
+      //CPUFREE(mesh.bf);
+
+      if (!postprocessOnly && (common.solverparams.preconditioner==2) && (common.szcartgridpart > 0)) {
+        if (common.cartgridpart[0]==2) {
+          int *elem = NULL;
+          int nse  = gridpartition2d(&elem, common.cartgridpart[1], common.cartgridpart[2], common.cartgridpart[3], common.cartgridpart[4], common.cartgridpart[5]);
+          int nese = common.cartgridpart[3]*common.cartgridpart[4];
           crs_init(common, mesh, elem, nse, nese);
           CPUFREE(elem);
         }
         else if (common.cartgridpart[0]==3) {
-          int *elem = NULL;   
-          int nse  = gridpartition3d(&elem, common.cartgridpart[1], common.cartgridpart[2], common.cartgridpart[3], common.cartgridpart[4], common.cartgridpart[5], common.cartgridpart[6], common.cartgridpart[7]);       
-          int nese = common.cartgridpart[4]*common.cartgridpart[5]*common.cartgridpart[6];      
+          int *elem = NULL;
+          int nse  = gridpartition3d(&elem, common.cartgridpart[1], common.cartgridpart[2], common.cartgridpart[3], common.cartgridpart[4], common.cartgridpart[5], common.cartgridpart[6], common.cartgridpart[7]);
+          int nese = common.cartgridpart[4]*common.cartgridpart[5]*common.cartgridpart[6];
           crs_init(common, mesh, elem, nse, nese);
           CPUFREE(elem);
-        }                               
+        }
       }
-      
+
       if (!postprocessOnly) {
-        res.szH = npf*nfe*ncu*npf*nfe*ncu*common.meshsizes.ne; // HDG elemental matrices     
-        res.szK = (npe*ncu*npe*ncu + npe*ncu*npe*ncq + npf*nfe*ncu*npe*ncq + npf*nfe*ncu*npe*ncu)*neb;                        
+        res.szH = npf*nfe*ncu*npf*nfe*ncu*common.meshsizes.ne; // HDG elemental matrices
+        res.szK = (npe*ncu*npe*ncu + npe*ncu*npe*ncq + npf*nfe*ncu*npe*ncq + npf*nfe*ncu*npe*ncu)*neb;
         if (common.solverparams.preconditioner==0)      // Block Jacobition preconditioner
           res.szP = ncu*npf*ncu*npf*nf;
         else if (common.solverparams.preconditioner==1) // Elemental additive Schwarz preconditioner
-          res.szP = npf*nfe*ncu*npf*nfe*ncu*common.meshsizes.ne;        
+          res.szP = npf*nfe*ncu*npf*nfe*ncu*common.meshsizes.ne;
         else if (common.solverparams.preconditioner==2) // Superelement additive Schwarz preconditioner
-          res.szP = npf*ncu*npf*ncu*common.nse*common.nnz;        
+          res.szP = npf*ncu*npf*ncu*common.nse*common.nnz;
         res.szV = ncu*npf*nf*(common.solverparams.gmresRestart+1); // Krylov vectors in GMRES
-        res.szK = max(res.szK, res.szP + res.szV);              
-        res.szF = npe*ncu*npf*nfe*ncu*common.meshsizes.ne;      
+        res.szK = max(res.szK, res.szP + res.szV);
+        res.szF = npe*ncu*npf*nfe*ncu*common.meshsizes.ne;
         res.szipiv = max(max(npf*nfe,npe)*ncu*neb, ncu*npf*common.meshsizes.nfb);
-              
+
         TemplateMalloc(&res.H, res.szH, backend);
         res.K = scratch.allocate(res.szK, backend);  // K owned by the arena (S5 step 3)
         TemplateMalloc(&res.F, res.szF, backend);
         TemplateMalloc(&res.ipiv, res.szipiv, backend); // fix big here
         res.fhAliasesK = 0;  // HDG: H/F/K each owned -> freememory frees all three
-              
+
         // B, D, G share the K block (and it also holds the preconditioner matrix + sys.v
         // Krylov vectors -- see resstruct). Assembly views reserved sequentially after the
         // leading npf*nfe*ncu*npe*ncu*neb block; replaces the inline &K[off + ...] math.
@@ -572,7 +590,7 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
         res.D = res.reserveView(npe*ncu*npe*ncu*neb);
         res.B = res.reserveView(npe*ncu*npe*ncq*neb);
         res.G = res.reserveView(npf*nfe*ncu*npe*ncq*neb);
-        
+
         if (common.couplingparams.coupledinterface>0) {
           res.szRi = npf*ncu12*common.couplingparams.ncie;
           res.szKi = npf*ncu12*npe*ncu*common.couplingparams.ncie;
@@ -580,11 +598,11 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
           TemplateMalloc(&res.Ri, res.szRi, backend);
           TemplateMalloc(&res.Ki, res.szKi, backend);
           TemplateMalloc(&res.Hi, res.szHi, backend);
-        }           
+        }
       }
 
-      if (common.mpiRank==0) 
-        printf("Memory allocation ...\n");        
+      if (common.mpiRank==0)
+        printf("Memory allocation ...\n");
 
       // (HDG operator-state recovery -- uh via GetFaceNodes, q-matrices via qEquation, q via
       //  hdgGetQ -- moved to CResidual::recoverInitialState, called by CSolution post-init)
@@ -614,18 +632,18 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
         mesh.printinfo();
         master.printinfo();
       }
-      
-      printf("finish CDiscretization constructor... \n");        
+
+      printf("finish CDiscretization constructor... \n");
     }
 }
 
- 
+
 // (BuildWallModelData moved to CWallModel::build -- see wallmodelbuild.cpp)
 
 // destructor
 template <class T, class I>
 CDiscretizationT<T, I>::~CDiscretizationT()
-{        
+{
     app.freememory(common.backend);
     if (common.mpiRank==0) printf("CDiscretization destructor: app memory is freed successfully.\n");
     master.freememory(common.backend);
@@ -644,28 +662,28 @@ CDiscretizationT<T, I>::~CDiscretizationT()
     common.freememory();
     if (common.mpiRank==0) printf("CDiscretization destructor: common memory is freed successfully.\n");
 
-#ifdef HAVE_CUDA    
+#ifdef HAVE_CUDA
     if (common.backend==2) {
         CHECK(cudaEventDestroy(common.eventHandle));
         CHECK_CUBLAS(cublasDestroy(common.cublasHandle));
     }
-#endif    
-    
-#ifdef HAVE_HIP    
+#endif
+
+#ifdef HAVE_HIP
     if (common.backend==3) {
         CHECK(hipEventDestroy(common.eventHandle));
         CHECK_HIPBLAS(hipblasDestroy(common.cublasHandle));
     }
-#endif        
+#endif
 }
 
 // Compute and store the geometry
 template <class T, class I>
 void CDiscretizationT<T, I>::compGeometry(Int backend) {
     if (common.mpiRank==0) printf("start ElemGeom... \n");
-    ElemGeom(sol, master, mesh, tmp, common, common.cublasHandle, backend);   
+    ElemGeom(sol, master, mesh, tmp, common, common.cublasHandle, backend);
     if (common.mpiRank==0) printf("Finish ElemGeom... \n");
-    FaceGeom(sol, master, mesh, tmp, common, common.cublasHandle, backend);   
+    FaceGeom(sol, master, mesh, tmp, common, common.cublasHandle, backend);
 
     ElemFaceGeom(sol, master, mesh, tmp, common, common.cublasHandle, backend);
 }
@@ -893,7 +911,6 @@ void CDiscretizationT<T, I>::refineSelfTest(Int backend) {
     Int nd  = common.grid.nd;
     Int ncx = common.components.ncx;
     Int ne  = common.meshsizes.ne;
-    Int porder = common.grid.porder;
     Int elemtype = common.grid.elemtype;
     if (ne <= 0 || npe <= 0 || nd < 1 || ncx < nd) return;
     if (elemtype != 1) {   // child-subcell tiling is defined for tensor (quad/hex) elements
@@ -1017,13 +1034,13 @@ void CDiscretizationT<T, I>::DG2CG(dstype* ucg, dstype* udg, dstype *utm, Int nc
     for (Int i=0; i<ncu; i++) {
         // extract the ith component of udg and store it in utm
         ArrayExtract(utm, udg, common.grid.npe, ncudg, common.meshsizes.ne, 0, common.grid.npe, i, i+1, 0, common.meshsizes.ne);
-        
+
         // make it a CG field and store in res.Ru
         ArrayDG2CG(res.Ru, utm, mesh.cgent2dgent, mesh.rowent2elem, common.sizes.ndofucg);
-        
+
         // convert CG field to DG field
         GetArrayAtIndex(utm, res.Ru, mesh.cgelcon, common.grid.npe*common.meshsizes.ne);
-        
+
         // insert utm into ucg
         ArrayInsert(ucg, utm, common.grid.npe, ncucg, common.meshsizes.ne, 0, common.grid.npe, i, i+1, 0, common.meshsizes.ne);
     }
@@ -1038,10 +1055,10 @@ void CDiscretizationT<T, I>::DG2CG2(dstype* ucg, dstype* udg, dstype *utm, Int n
 
         // make it a CG field and store in res.Ru
         ArrayDG2CG2(res.Ru, utm, mesh.colent2elem, mesh.rowent2elem, common.sizes.ndofucg, common.grid.npe);
-        
+
         // convert CG field to DG field
         GetArrayAtIndex(utm, res.Ru, mesh.cgelcon, common.grid.npe*common.meshsizes.ne);
-        
+
         // insert utm into ucg
         ArrayInsert(ucg, utm, common.grid.npe, ncucg, common.meshsizes.ne, 0, common.grid.npe, i, i+1, 0, common.meshsizes.ne);
     }
@@ -1053,7 +1070,7 @@ void CDiscretizationT<T, I>::DG2CG3(dstype* ucg, dstype* udg, dstype *utm, Int n
     for (Int i=0; i<ncu; i++) {
         // extract the ith component of udg and store it in utm
         ArrayExtract(utm, udg, common.grid.npe, ncudg, common.meshsizes.ne, 0, common.grid.npe, i, i+1, 0, common.meshsizes.ne);
-        
+
         // make it a CG field and store in res.Ru
         ArrayDG2CG(&ucg[i*common.sizes.ndofucg], utm, mesh.cgent2dgent, mesh.rowent2elem, common.sizes.ndofucg);
     }

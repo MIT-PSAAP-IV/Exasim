@@ -23,7 +23,7 @@ D    = 12.0 * 0.0254;       % cylinder diameter [m], 12 inches
 %mesh = mkmesh_fullcyl(pde.porder, D/2);
 %mesh.boundarycondition = [1;2;3]; 
 
-mesh = mkmesh_cyl(porder, D/2, 1, 1.2, 5);
+mesh = mkmesh_cyl(pde.porder, D/2, 1, 1.2, 5);
 mesh.boundarycondition = [4;3;2]; 
 
 R = 287.05;
@@ -33,6 +33,7 @@ Pr = 2/3;                      % Prandtl number
 Minf = 25;                     % Mach number
 Tref  = 200;
 rho_ref = 1.127e-6;            % physical freestream density [kg/m^3]
+U_ref   = 6585.0;              % freestream velocity [m/s]
 Twall = 1500;
 pinf = 1/(gam*Minf^2);
 Tinf = pinf/(gam-1);
@@ -51,9 +52,14 @@ Tmu_ref = 1000;
 mu_inf  = mu_ref * (Tref  / Tmu_ref)^omega;    % freestream dynamic viscosity [Pa s]
 sigmaV = 0;
 sigmaT = 0;
+C1 = 0; C2 = 0; C3 = 0; C4 = 0;
+
+sigmaV_final=1.0;
+sigmaT_final=1.875;
+C1_final = 1.0; C2_final = 0.2; C3_final = 0.2; C4_final = 1.0;
 
 pde.gencode = 1;
-pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf Tinf Tref Twall mu_inf mu_ref Tmu_ref omega R sigmaV sigmaT rho_ref];
+pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf Tinf Tref Twall mu_inf mu_ref Tmu_ref omega R sigmaV sigmaT rho_ref  U_ref C1 C2 C3 C4];
 pde.tau = 10.0;                  % DG stabilization parameter
 pde.GMRESrestart = 500;         %try 50
 pde.linearsolvertol = 1e-8; % GMRES tolerance
@@ -88,7 +94,7 @@ figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[],1); colormap('jet'
 
 disp("Iter 2")
 Re = 500;
-pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf Tinf Tref Twall mu_inf mu_ref Tmu_ref omega R sigmaV sigmaT rho_ref];
+pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf Tinf Tref Twall mu_inf mu_ref Tmu_ref omega R sigmaV sigmaT rho_ref  U_ref C1 C2 C3 C4];
 mesh.vdg(:,1,:) = 0.02.*tanh(dist*nm);
 mesh.udg = sol;
 [pde,mesh,master,dmd] = preprocessing(pde,mesh);
@@ -157,7 +163,8 @@ sol0 = sol;
 disp("Iter 7")
 sigmaV = 0.2;
 sigmaT = 0.2;
-pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf Tinf Tref Twall mu_inf mu_ref Tmu_ref omega R sigmaV sigmaT rho_ref];
+C1 = 0.2; C2 = 0.05; C3 = 0.05; C4 = 0.2; 
+pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf Tinf Tref Twall mu_inf mu_ref Tmu_ref omega R sigmaV sigmaT rho_ref  U_ref C1 C2 C3 C4];
 mesh.vdg(:,1,:) = 0.0015.*tanh(dist*nm);
 mesh.udg = sol;
 [pde,mesh,master,dmd] = preprocessing(pde,mesh);
@@ -169,7 +176,8 @@ figure(2); clf; scaplot(mesh, T_scale*eulereval(sol, 't',gam,Minf),[],2); colorm
 disp("Iter 8")
 sigmaV = 0.5;
 sigmaT = 0.5;
-pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf Tinf Tref Twall mu_inf mu_ref Tmu_ref omega R sigmaV sigmaT rho_ref];
+C1 = 0.5; C2 = 0.1; C3 = 0.1; C4 = 0.5; 
+pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf Tinf Tref Twall mu_inf mu_ref Tmu_ref omega R sigmaV sigmaT rho_ref  U_ref C1 C2 C3 C4];
 mesh.vdg(:,1,:) = 0.0015.*tanh(dist*nm);
 mesh.udg = sol;
 [pde,mesh,master,dmd] = preprocessing(pde,mesh);
@@ -181,7 +189,8 @@ figure(2); clf; scaplot(mesh, T_scale*eulereval(sol, 't',gam,Minf),[],2); colorm
 disp("Iter 8")
 sigmaV = 1.0;
 sigmaT = 1.0;
-pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf Tinf Tref Twall mu_inf mu_ref Tmu_ref omega R sigmaV sigmaT rho_ref];
+C1 = C1_final; C2 = C2_final; C3 = C3_final; C4 = C4_final; 
+pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf Tinf Tref Twall mu_inf mu_ref Tmu_ref omega R sigmaV sigmaT rho_ref  U_ref C1 C2 C3 C4];
 mesh.vdg(:,1,:) = 0.0015.*tanh(dist*nm);
 mesh.udg = sol;
 [pde,mesh,master,dmd] = preprocessing(pde,mesh);
