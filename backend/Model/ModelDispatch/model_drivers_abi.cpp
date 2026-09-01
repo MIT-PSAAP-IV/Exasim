@@ -53,6 +53,33 @@ void SourceDriver(dstype* f, const dstype* xg, const dstype* udg,
                      ncw);
 }
 
+void MaterialstateDriver(dstype* state, const dstype* xg, const dstype* udg,
+                         const dstype* odg, const dstype* wdg,
+                         ExasimDriverABI& abi, meshstruct& mesh,
+                         masterstruct& master, appstruct& app,
+                         solstruct& sol, tempstruct& temp,
+                         commonstruct& common, Int nge, Int e1, Int e2,
+                         Int backend)
+{
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
+    Int nd = common.grid.nd;
+    Int numPoints = nge * (e2 - e1);
+    dstype time = common.timestate.time;
+    Int nmaterialstate = abi.nmaterialstate;
+    if (nmaterialstate == 0 && abi.GetModelSizes) {
+        nmaterialstate = abi.GetModelSizes(common.modelnumber).nmaterialstate;
+    }
+
+    abi.volume.KokkosMaterialstate(state, xg, udg, odg, wdg, app.uinf,
+                            app.physicsparam, time, common.modelnumber,
+                            numPoints, nc, ncu, nd, ncx, nco, ncw,
+                            nmaterialstate);
+}
+
 void SourcewDriver(dstype* f, const dstype* xg, const dstype* udg,
                    const dstype* odg, const dstype* wdg,
                    ExasimDriverABI& abi, meshstruct& mesh, masterstruct& master, appstruct& app,
@@ -578,6 +605,32 @@ void SourceDriver(dstype* f, dstype* f_udg, dstype* f_wdg,
                   ncu, nd, ncx, nco, ncw);
 }
 
+void MaterialstateDriver(dstype* f, dstype* f_udg, dstype* f_wdg,
+                  const dstype* xg, const dstype* udg, const dstype* odg,
+                  const dstype* wdg, ExasimDriverABI& abi, meshstruct& mesh,
+                  masterstruct& master, appstruct& app, solstruct& sol,
+                  tempstruct& temp, commonstruct& common, Int nge, Int e1,
+                  Int e2, Int backend)
+{
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
+    Int nd = common.grid.nd;
+    Int numPoints = nge * (e2 - e1);
+    dstype time = common.timestate.time;
+    Int nmaterialstate = abi.nmaterialstate;
+    if (nmaterialstate == 0 && abi.GetModelSizes) {
+        nmaterialstate = abi.GetModelSizes(common.modelnumber).nmaterialstate;
+    }
+
+    abi.hdgjac.HdgMaterialstate(f, f_udg, f_wdg, xg, udg, odg, wdg,
+                         app.uinf, app.physicsparam, time,
+                         common.modelnumber, numPoints, nc, ncu, nd, ncx,
+                         nco, ncw, nmaterialstate);
+}
+
 void SourcewDriver(dstype* f, dstype* f_udg, dstype* f_wdg,
                    const dstype* xg, const dstype* udg, const dstype* odg,
                    const dstype* wdg, ExasimDriverABI& abi, meshstruct& mesh,
@@ -958,6 +1011,11 @@ inline void SourceDriver(dstype* f, const dstype* xg, const dstype* udg, const d
     SourceDriver(f, xg, udg, odg, wdg, require_driver_abi(common), mesh, master, app, sol, temp, common, nge, e1, e2, backend);
 }
 
+inline void MaterialstateDriver(dstype* state, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int nge, Int e1, Int e2, Int backend)
+{
+    MaterialstateDriver(state, xg, udg, odg, wdg, require_driver_abi(common), mesh, master, app, sol, temp, common, nge, e1, e2, backend);
+}
+
 inline void SourcewDriver(dstype* f, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int npe, Int e1, Int e2, Int backend)
 {
     SourcewDriver(f, xg, udg, odg, wdg, require_driver_abi(common), mesh, master, app, sol, temp, common, npe, e1, e2, backend);
@@ -1046,6 +1104,11 @@ inline void FluxDriver(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xg
 inline void SourceDriver(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int nge, Int e1, Int e2, Int backend)
 {
     SourceDriver(f, f_udg, f_wdg, xg, udg, odg, wdg, require_driver_abi(common), mesh, master, app, sol, temp, common, nge, e1, e2, backend);
+}
+
+inline void MaterialstateDriver(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int nge, Int e1, Int e2, Int backend)
+{
+    MaterialstateDriver(f, f_udg, f_wdg, xg, udg, odg, wdg, require_driver_abi(common), mesh, master, app, sol, temp, common, nge, e1, e2, backend);
 }
 
 inline void SourcewDriver(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int nge, Int e1, Int e2, Int backend)

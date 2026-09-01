@@ -33,6 +33,7 @@ using ::PdeModel;
 #include "kernels/KokkosUhat.hpp"
 #include "kernels/KokkosStab.hpp"
 #include "kernels/KokkosSource.hpp"
+#include "kernels/KokkosMaterialstate.hpp"
 #include "kernels/KokkosVisScalars.hpp"
 #include "kernels/KokkosVisVectors.hpp"
 #include "kernels/KokkosVisTensors.hpp"
@@ -60,6 +61,7 @@ using ::PdeModel;
 
 #include "kernels/HdgFlux.hpp"
 #include "kernels/HdgSource.hpp"
+#include "kernels/HdgMaterialstate.hpp"
 #include "kernels/HdgSourcew.hpp"
 #include "kernels/HdgSourcewonly.hpp"
 #include "kernels/HdgFbou.hpp"
@@ -87,16 +89,19 @@ inline const ExasimDriverABI& getKokkosKernelExasimDriverABI()
         value.nten = PdeModel::nten;
         value.nsurf = PdeModel::nsurf;
         value.nvqoi = PdeModel::nvqoi;
+        value.nmaterialstate = PdeModel::nmaterialstate;
 
         value.GetModelSizes = [](int) -> ModelSizes {
             return {PdeModel::ncu, PdeModel::nco, PdeModel::ncw,
                     PdeModel::nsca, PdeModel::nvec, PdeModel::nten,
-                    PdeModel::nsurf, PdeModel::nvqoi};
+                    PdeModel::nsurf, PdeModel::nvqoi,
+                    PdeModel::nmaterialstate};
         };
 
         value.volume.KokkosFlux = &kokkos_kernel_source::KokkosFlux;
         value.volume.KokkosSource = &kokkos_kernel_source::KokkosSource;
         value.volume.KokkosSourcew = &kokkos_kernel_source::KokkosSourcew;
+        value.volume.KokkosMaterialstate = &kokkos_kernel_source::KokkosMaterialstate;
         value.volume.KokkosTdfunc = &kokkos_kernel_source::KokkosTdfunc;
         value.volume.KokkosAvfield = &kokkos_kernel_source::KokkosAvfield;
         value.eos.KokkosEoS = &kokkos_kernel_source::KokkosEoS;
@@ -130,6 +135,7 @@ inline const ExasimDriverABI& getKokkosKernelExasimDriverABI()
 
         value.hdgjac.HdgFlux = &kokkos_kernel_source::HdgFlux;
         value.hdgjac.HdgSource = &kokkos_kernel_source::HdgSource;
+        value.hdgjac.HdgMaterialstate = &kokkos_kernel_source::HdgMaterialstate;
         value.hdgjac.HdgSourcew = &kokkos_kernel_source::HdgSourcew;
         value.hdgjac.HdgSourcewonly = &kokkos_kernel_source::HdgSourcewonly;
         value.hdgjac.HdgEoS = &kokkos_kernel_source::HdgEoS;

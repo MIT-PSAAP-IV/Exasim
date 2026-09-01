@@ -12,6 +12,7 @@ bool IsValidSharedLibraryABI(const ExasimDriverABI& abi)
            abi.volume.KokkosFlux &&
            abi.volume.KokkosSource &&
            abi.volume.KokkosSourcew &&
+           abi.volume.KokkosMaterialstate &&
            abi.volume.KokkosTdfunc &&
            abi.volume.KokkosAvfield &&
            abi.eos.KokkosEoS &&
@@ -43,6 +44,7 @@ bool IsValidSharedLibraryABI(const ExasimDriverABI& abi)
            abi.init.cpuInitodg &&
            abi.hdgjac.HdgFlux &&
            abi.hdgjac.HdgSource &&
+           abi.hdgjac.HdgMaterialstate &&
            abi.hdgjac.HdgSourcew &&
            abi.hdgjac.HdgSourcewonly &&
            abi.hdgjac.HdgEoS &&

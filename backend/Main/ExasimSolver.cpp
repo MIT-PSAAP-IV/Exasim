@@ -182,6 +182,7 @@ static bool IsValidModelABI(const ExasimDriverABI& abi)
            abi.volume.KokkosFlux &&
            abi.volume.KokkosSource &&
            abi.volume.KokkosSourcew &&
+           abi.volume.KokkosMaterialstate &&
            abi.volume.KokkosTdfunc &&
            abi.volume.KokkosAvfield &&
            abi.eos.KokkosEoS &&
@@ -211,6 +212,7 @@ static bool IsValidModelABI(const ExasimDriverABI& abi)
            abi.init.cpuInitodg &&
            abi.hdgjac.HdgFlux &&
            abi.hdgjac.HdgSource &&
+           abi.hdgjac.HdgMaterialstate &&
            abi.hdgjac.HdgSourcew &&
            abi.hdgjac.HdgSourcewonly &&
            abi.hdgjac.HdgEoS &&
@@ -813,7 +815,8 @@ int ExasimSolver::ParseInputs(int argc, char** argv,
         if (abi.GetModelSizes)
             ms = abi.GetModelSizes(pde.builtinmodelID);
         else
-            ms = {abi.ncu, abi.nco, abi.ncw, abi.nsca, abi.nvec, abi.nten, abi.nsurf, abi.nvqoi};
+            ms = {abi.ncu, abi.nco, abi.ncw, abi.nsca, abi.nvec, abi.nten,
+                  abi.nsurf, abi.nvqoi, abi.nmaterialstate};
         if (params.intParams.count("ncu") == 0 && ms.ncu > 0)
             pde.ncu = ms.ncu;
         if (params.intParams.count("ncv") == 0 && ms.nco > 0)
@@ -830,6 +833,8 @@ int ExasimSolver::ParseInputs(int argc, char** argv,
             pde.nsurf = ms.nsurf;
         if (params.intParams.count("nvqoi") == 0 && ms.nvqoi > 0)
             pde.nvqoi = ms.nvqoi;
+        if (params.intParams.count("nmaterialstate") == 0 && ms.nmaterialstate > 0)
+            pde.nmaterialstate = ms.nmaterialstate;
     }
 
     nummodels_ = 1;
