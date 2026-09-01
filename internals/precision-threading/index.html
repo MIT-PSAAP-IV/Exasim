@@ -1,0 +1,4682 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="High-order discontinuous Galerkin PDE solvers in C++ with symbolic code generation and Kokkos backend portability (CPU / GPU / MPI).">
+      
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Precision threading: dstype/Int → floatTy/intTy template parameters - Exasim</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#precision-threading-dstypeint-floattyintty-template-parameters" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Exasim" class="md-header__button md-logo" aria-label="Exasim" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Exasim
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Precision threading: dstype/Int → floatTy/intTy template parameters
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/MIT-PSAAP-IV/Exasim" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    MIT-PSAAP-IV/Exasim
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Exasim" class="md-nav__button md-logo" aria-label="Exasim" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Exasim
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/MIT-PSAAP-IV/Exasim" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    MIT-PSAAP-IV/Exasim
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+          
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../usage-modes/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../install/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Installation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/quick-install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Installation (Recommended)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/superbuild-cpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CPU Installation via Superbuild
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/superbuild-troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting Superbuild Failures
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/manual-dependencies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Manual Dependency Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/common/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common manual dependency steps
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/gpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/macos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Platform: macOS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/linux-cpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Platform: Linux CPU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/linux-nvidia/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Platform: Linux NVIDIA GPU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/linux-amd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Platform: Linux AMD GPU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/hpc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HPC: build chain & options
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/frontier/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HPC: Frontier
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/tuolumne/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HPC: Tuolumne
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/generic-hpc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HPC: Generic
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/verification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Verification and Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../text2code-applications/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Text2Code Applications
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Text2Code Applications
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../text2code-applications/pdeapp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pdeapp.txt guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../text2code-applications/pdemodel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pdemodel.txt guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../text2code-applications/modeling-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PDE modeling guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../text2code-applications/application-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Application setup guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../text2code-applications/workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow and troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../text2code-applications/advanced/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced topics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../text2code-applications/reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference gateway
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../frontends/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frontends
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Frontends
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../frontends/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../frontends/data-structures/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core data structures
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../frontends/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../frontends/preprocessing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Preprocessing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../frontends/pdemodel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pdemodel abstraction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../frontends/mesh-and-geometry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh and geometry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../frontends/execution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Execution workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../frontends/postprocessing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Postprocessing and visualization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../frontends/api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../usage-modes/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Application Modes
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Application Modes
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage-modes/builtin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Built-in library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage-modes/external-builtin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    External built-in library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage-modes/shared-library/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Shared library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage-modes/parameter-sweeps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Parameter sweeps
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage-modes/postprocessing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Postprocessing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../using-ai-tools/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Using AI Tools
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Using AI Tools
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../using-ai-tools/prompt-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../using-ai-tools/creating-examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Creating examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../using-ai-tools/implementing-physics-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementing physics models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../using-ai-tools/mesh-generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../using-ai-tools/debugging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Debugging and code review
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../using-ai-tools/extending-exasim/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extending Exasim
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../using-ai-tools/validating-ai-generated-code/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validating AI-generated code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../using-ai-tools/best-practices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Best practices
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../using-ai-tools/example-prompts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Example prompts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../physics-models/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Physics Models
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Physics Models
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/modelc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ModelC
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/modeld/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ModelD
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/modelw/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ModelW
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/comparison/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model comparison
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/auxiliary-equations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Auxiliary equations through w
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/equations-of-state/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Equations of state
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/external-variables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    External variables through v
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/artificial-viscosity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Artificial viscosity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/multiphysics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiphysics problems
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/multi-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-model problems
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Worked examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../theory/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Theory
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_9" id="__nav_9_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Theory
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/dg-methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DG methods
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/ldg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LDG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/hdg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HDG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/temporal-discretization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Temporal discretization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/nonlinear-solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nonlinear solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/linear-solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/preconditioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Preconditioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/parallel-computing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Parallel computing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/gpu-computing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU computing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/scalability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scalability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/algorithmic-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Algorithmic flow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/ldg-formulation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LDG implementation deep dive
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/block-diagonal-jacobian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Block-diagonal Jacobian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/references/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    References
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_10" id="__nav_10_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/pdeapp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pdeapp fields
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/pdemodel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pdemodel syntax
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/model-contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model contract
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/model-functions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model functions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/equations-of-state/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Equations of state
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/boundary-conditions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Boundary conditions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/source-terms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Source terms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/auxiliary-equations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Auxiliary equations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/parameter-sweeps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Parameter sweeps
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/postprocessing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Postprocessing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/text2code/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Text2Code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cmake/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CMake targets & options
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../driving-the-solver/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Driving the solver (C++ API)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Internals
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_12" id="__nav_12_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Internals
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../repository-structure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Repository structure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../code-generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../frontends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frontends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backend
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../runtime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Runtime
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gpu-implementation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU implementation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mpi-implementation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MPI implementation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../baselines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Baselines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../known-divergences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Known divergences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development-workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../coding-guidelines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Coding guidelines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ci-and-validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI and validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../references/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    References
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#phase-0-boundary-done" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 0 — Boundary (DONE)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-1-struct-templating-in-progress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1 — Struct templating (IN PROGRESS)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-2-class-templating-in-progress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2 — Class templating (IN PROGRESS)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-3-kernels-blas-kokkos-dispatch-in-progress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3 — Kernels + BLAS + Kokkos dispatch (IN PROGRESS)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 3 — Kernels + BLAS + Kokkos dispatch (IN PROGRESS)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-cut-the-exasimdriverabi-function-pointer-boundary-keeps-the-frontends-unchanged" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The cut: the ExasimDriverABI function-pointer boundary keeps the frontends unchanged
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpu-verification-loop-dgx-b-tesla-v100" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GPU verification loop (dgx-b, Tesla V100)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#blas-trait-backendcommonpblash-started" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BLAS trait (backend/Common/pblas.h) — STARTED
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mpi-datatypes-mpi_typet-started-a-latent-bug-fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MPI datatypes (mpi_type&lt;T&gt;) — STARTED + a latent bug fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compute-primitive-layer-done-verified-cpu-gpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compute-primitive layer — DONE + verified (CPU + GPU)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#discretization-free-function-layer-done-verified-cpu-gpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Discretization free-function layer — DONE + verified (CPU + GPU)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pblash-tail-done-cpu-gpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pblas.h tail — DONE (CPU + GPU)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#remaining-phase-3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Remaining Phase 3
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-4-model-kernel-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4 — Model-kernel path
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 4 — Model-kernel path">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#concrete-model-path-includeexasim-done-float32-verified-cpu-gpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Concrete-model path (include/exasim/) — DONE + float32-verified (CPU + GPU)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#remaining-phase-4-generated-codegen" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Remaining Phase 4 — generated codegen
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-5-cutover-full-float32-solve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5 — Cutover (full float32 solve)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 5 — Cutover (full float32 solve)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#preprocessing-in-memory-construction-boundary-done-conversion-free-double-byte-identical" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Preprocessing / in-memory-construction boundary — DONE (conversion-free), double byte-identical
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#full-float32-solve-done-the-167-site-backend-wide-cutover" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Full float32 solve — DONE (the ~167-site backend-wide cutover)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#petsc-driven-float-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PETSc-driven float path
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#strategy-verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strategy &amp; verification
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="precision-threading-dstypeint-floattyintty-template-parameters">Precision threading: <code>dstype</code>/<code>Int</code> → <code>floatTy</code>/<code>intTy</code> template parameters<a class="headerlink" href="#precision-threading-dstypeint-floattyintty-template-parameters" title="Permanent link">&para;</a></h1>
+<p>Exasim's scalar and index precision are <strong>global typedefs</strong> chosen at build time:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1">// backend/Common/common.h</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="cp">#ifdef USE_FLOAT      </span><span class="c1">// -DEXASIM_FLOAT</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">typedef</span><span class="w"> </span><span class="kt">float</span><span class="w">  </span><span class="n">dstype</span><span class="p">;</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="cp">#else</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="k">typedef</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="n">dstype</span><span class="p">;</span><span class="w">   </span><span class="c1">// default</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="cp">#endif</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="cp">#ifdef USE_LONG       </span><span class="c1">// -DEXASIM_INT64</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="k">typedef</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">Int</span><span class="p">;</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="cp">#else</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="k">typedef</span><span class="w"> </span><span class="kt">int</span><span class="w">  </span><span class="n">Int</span><span class="p">;</span><span class="w">        </span><span class="c1">// default</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="cp">#endif</span>
+</code></pre></div>
+<p><code>dstype</code> appears in <strong>~692 files</strong> and <code>Int</code> in <strong>~103</strong>; the data structs hold raw <code>dstype*</code>/<code>Int*</code>
+and every kernel takes them. So a build is single <strong>or</strong> double, 32- <strong>or</strong> 64-bit indices — never
+both at once. The goal of this work is to make precision a <strong>template parameter</strong> so a single build
+can serve multiple precisions (mixed-precision solvers; a PETSc consumer choosing <code>PetscScalar</code> at
+the type level) without a rebuild.</p>
+<p>This is a large refactor. It is being done in phases, <strong>each phase keeping the tree compiling and
+the golden app-regression at <code>rel_L2 = 0</code></strong> (a precision-preserving refactor: with the default
+template arguments the generated code is byte-identical).</p>
+<h2 id="phase-0-boundary-done">Phase 0 — Boundary (DONE)<a class="headerlink" href="#phase-0-boundary-done" title="Permanent link">&para;</a></h2>
+<p>Establish the named types and the safety guard at the <strong>exported interface</strong> only; no backend change.
+- <code>exasim::floatTy</code> / <code>exasim::intTy</code> aliases (<code>include/exasim/export.hpp</code>) — the canonical names
+  consumers spell precision with, instead of the internal <code>dstype</code>/<code>Int</code>.
+- <code>static_assert(sizeof(PetscScalar)==sizeof(floatTy) &amp;&amp; sizeof(PetscInt)==sizeof(intTy))</code> in
+  <code>petsc.hpp</code> — a wrong-precision PETSc build is now a compile error, not a silent ABI reinterpret.
+- <code>scalar_type</code> / <code>index_type</code> member aliases on <code>Operator</code> / <code>ShellMat</code> so a consumer can query the
+  exported precision generically.</p>
+<h2 id="phase-1-struct-templating-in-progress">Phase 1 — Struct templating (IN PROGRESS)<a class="headerlink" href="#phase-1-struct-templating-in-progress" title="Permanent link">&para;</a></h2>
+<p>Template the core data structs on <code>&lt;class T = ::dstype, class I = ::Int&gt;</code>, keeping the current names
+as defaulted aliases so all existing code compiles unchanged.</p>
+<p><strong>Proven low-risk pattern — shadow the typedefs, leave the body untouched.</strong> Instead of editing every
+<code>dstype</code>/<code>Int</code> in a struct body, add two member <code>using</code> aliases that shadow the globals; the struct
+body is then <em>byte-for-byte unchanged</em> and, under the default args, the type is identical to before:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="k">class</span><span class="w"> </span><span class="nc">T</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">::</span><span class="n">dstype</span><span class="p">,</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">I</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">::</span><span class="n">Int</span><span class="o">&gt;</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">struct</span><span class="w"> </span><span class="nc">solstructT</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="k">using</span><span class="w"> </span><span class="n">dstype</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">T</span><span class="p">;</span><span class="w"> </span><span class="k">using</span><span class="w"> </span><span class="n">Int</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">I</span><span class="p">;</span><span class="w">   </span><span class="c1">// &lt;-- shadow; body below unchanged, resolves to T*/I*</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="n">dstype</span><span class="o">*</span><span class="w"> </span><span class="n">udg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">nullptr</span><span class="p">;</span><span class="w">  </span><span class="n">Int</span><span class="o">*</span><span class="w"> </span><span class="n">elemcon</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">nullptr</span><span class="p">;</span><span class="w">  </span><span class="n">Int</span><span class="w"> </span><span class="n">szudg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w">  </span><span class="p">...</span><span class="w">  </span><span class="c1">// (verbatim)</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="p">};</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="k">using</span><span class="w"> </span><span class="n">solstruct</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">solstructT</span><span class="o">&lt;::</span><span class="n">dstype</span><span class="p">,</span><span class="w"> </span><span class="o">::</span><span class="n">Int</span><span class="o">&gt;</span><span class="p">;</span><span class="w">   </span><span class="c1">// unchanged for every current user</span>
+</code></pre></div>
+Each struct is a 3-line edit (template line + <code>using</code> line + alias line). Verified byte-identical two
+ways: the robustness harness compiles it header-inline and PASSes, and a full library rebuild +
+<code>run-app-regression.sh</code> gives the <em>same</em> rel_L2 values as before (poisson3d 9.99e-11, isoq3d 1.95e-9,
+…). Nested struct members (e.g. <code>commonstruct</code> holding <code>sizesstruct</code>) stay the default alias for now —
+threading <code>T,I</code> into nested types is the tail of this phase / Phase 2.</p>
+<ul>
+<li><strong>Done + verified:</strong> <code>sysstruct</code>, <code>scratcharenastruct</code>, <code>resstruct</code>, <code>tempstruct</code>, <code>appstruct</code>,
+  <code>masterstruct</code>, <code>meshstruct</code>, <code>solstruct</code>, <code>precondstruct</code>, <code>commonstruct</code> (10 core structs).</li>
+<li><strong>Remaining:</strong> the mostly-int param structs (<code>sizesstruct</code>, <code>gridstruct</code>, <code>componentsstruct</code>, the
+  <code>*paramsstruct</code> family — low value, few/no <code>dstype*</code>), and the <code>Kokkos::View&lt;dstype*&gt;</code> / <code>view_1d</code>
+  aliases → <code>view_1d&lt;T&gt;</code>. Then thread <code>T,I</code> into nested struct members (currently default aliases).</li>
+</ul>
+<h2 id="phase-2-class-templating-in-progress">Phase 2 — Class templating (IN PROGRESS)<a class="headerlink" href="#phase-2-class-templating-in-progress" title="Permanent link">&para;</a></h2>
+<p>Extend the FEM classes to carry <code>T=dstype, I=Int</code> so they hold the <em>Phase-1 <code>&lt;T,I&gt;</code> structs</em> rather
+than the fixed-precision aliases.</p>
+<p><strong><code>CDiscretization</code> — DONE + verified.</strong> This was the hard one: unlike <code>CResidual</code>/<code>CAssembler</code>/
+<code>CPreconditioner</code>/<code>CSolver</code> (already <code>&lt;M&gt;</code> templates that only hold a <em>reference</em> to it), it is the
+struct <em>owner</em> (holds <code>solstruct</code>/<code>resstruct</code>/<code>commonstruct</code>/… <strong>by value</strong>) and was a plain
+non-template class with out-of-line methods split across two places. It is now
+<code>template&lt;class T=::dstype,class I=::Int&gt; class CDiscretizationT</code>, with <code>using CDiscretization =
+CDiscretizationT&lt;::dstype,::Int&gt;;</code>. Two mechanisms made it precision-preserving:
+- <strong>Shadow aliases inside the class</strong> (<code>using dstype=T; using Int=I;</code> <strong>and</strong> <code>using solstruct =
+  solstructT&lt;T,I&gt;;</code> … for every Phase-1 struct) so every member declaration and every out-of-line
+  method body is <em>byte-for-byte unchanged</em> yet now resolves to the <code>&lt;T,I&gt;</code> struct instantiations.
+- <strong><code>extern template</code> (in <code>discretization.h</code>) + explicit instantiation (in <code>discretization.cpp</code>)</strong>
+  for the backend-defined members (file ctor, dtor, <code>finalizeConstruction</code>, <code>compGeometry</code>,
+  <code>compMassInverse</code>, <code>DG2CG{,2,3}</code>). This preserves the <em>compile-once</em> TU split: <code>main.cpp</code> builds
+  <code>CSolution&lt;M&gt;</code>, whose inline ctor/dtor construct/destroy a <code>CDiscretization disc</code> <strong>by value</strong>, but
+  it never sees those out-of-line bodies (they live only in the unity <code>ExasimSolver.cpp</code>). The
+  in-memory ctors (<code>discretization_inmemory.hpp</code>, consumer-only) are deliberately left to implicit
+  instantiation — consumer TUs that include that header see their definitions. The 8 <code>class
+  CDiscretization;</code> forward declarations across the backend became <code>template&lt;class,class&gt; class
+  CDiscretizationT; using CDiscretization = …;</code>.
+- Verified: consumer path (in-memory ctor, pure implicit) robustness <code>ALL PASS</code>; <strong>backend path</strong>
+  (file ctor via <code>extern template</code>→ library) full rebuild + <code>main.cpp</code> link + app-regression at the
+  <em>same</em> rel_L2 (poisson3d 9.99e-11, isoq3d 1.95e-9, poisson2d 2.29e-12). Landed on the first full
+  build.</p>
+<p><strong>FEM classes — DONE + verified.</strong> <code>CResidual&lt;M&gt;</code>, <code>CAssembler&lt;M&gt;</code>, <code>CPreconditioner&lt;M&gt;</code>, <code>CSolver&lt;M&gt;</code>
+are now <code>&lt;M, T=::dstype, I=::Int&gt;</code>. These were <em>much</em> easier than <code>CDiscretization</code>: they are already
+<code>&lt;M&gt;</code> templates (header-inline via the <code>operators.hpp</code> aggregation, so consumers instantiate them
+locally — no <code>extern template</code>/explicit-instantiation TU split) that only hold a <em>reference</em> to the
+owner. Same shadow-alias pattern (<code>using dstype=T; using Int=I; using CDiscretization =
+CDiscretizationT&lt;T,I&gt;;</code> + <code>sysstruct</code>/<code>precondstruct</code> where used) keeps member decls + out-of-line
+bodies byte-identical; the only explicit edits were the cross-references between them
+(<code>CAssembler&lt;M&gt;</code>→<code>CAssembler&lt;M,T,I&gt;</code> etc. in the solve-surface signatures) and the 15 forward
+declarations across the backend. One gotcha fixed: <code>CSolver::gmres</code> returns <code>Int</code> — the out-of-line
+return type is looked up in <em>namespace</em> scope (not the class), so it had to be spelled <code>I</code> (the
+template param) to match the in-class <code>Int</code>(=I); parameter types after the <code>CSolver&lt;M,T,I&gt;::</code> are in
+class scope and needed no change. <code>ptcsolver.cpp</code>/<code>gmres.cpp</code> also define <code>CSolver</code> methods; the
+<code>ApplyPoly&lt;M&gt;</code> free helpers in <code>gmres.cpp</code> stay <code>&lt;M&gt;</code> (their default-precision refs match under
+<code>T=dstype</code>). Verified: consumer robustness <code>ALL PASS</code> + full backend rebuild + app-regression through
+the real solver (gmres/PTC) at the same rel_L2 (naca0012 2.94e-13, poisson3d 9.99e-11, isoq3d 1.95e-9).</p>
+<p><strong>Shim — DONE + verified.</strong> The <code>include/exasim</code> PETSc shim now carries the exported precision as
+template parameters: <code>Operator&lt;M, Scalar=floatTy, Idx=intTy&gt;</code>, <code>ShellMat&lt;Scalar=floatTy&gt;</code>, and
+<code>make_mass_inverse&lt;M,Scalar,Idx&gt;</code> / <code>assemble_matrix&lt;M,Scalar,Idx&gt;</code>. <code>Operator</code> holds
+<code>CDiscretizationT&lt;Scalar,Idx&gt;&amp;</code> + <code>CAssembler&lt;M,Scalar,Idx&gt;&amp;</code> + <code>CPreconditioner&lt;M,Scalar,Idx&gt;&amp;</code> +
+<code>sysstructT&lt;Scalar,Idx&gt;&amp;</code>, exposes <code>scalar_type = Scalar</code> / <code>index_type = Idx</code>, and the zero-copy
+Vec/Mat wrapping reinterprets PETSc's <code>PetscScalar</code>/<code>PetscInt</code> arrays as <code>Scalar</code>/<code>Idx</code>. The old
+<em>global</em> ABI <code>static_assert(sizeof(PetscScalar)==sizeof(floatTy))</code> is gone — each wrapper carries its
+own <code>static_assert(sizeof(PetscScalar)==sizeof(Scalar))</code>, so it fires only for the precision you
+actually instantiate and including the header no longer forces a TU-wide precision match. (<code>floatTy</code>
+<em>is</em> <code>dstype</code>, so the default <code>Operator&lt;M&gt;</code> = <code>Operator&lt;M,dstype,Int&gt;</code> stays byte-identical; the
+threading makes precision an explicit, queryable property of the exported type.) Consumers spell bare
+<code>ShellMat</code> as <code>ShellMat&lt;&gt;</code> (it is now a template; CTAD can't deduce <code>Scalar</code> from the apply lambda).
+Verified: robustness <code>ALL PASS</code> + petsc_poisson (SNES resid 9.08e-14, ShellMat vs matrix-free 0.0,
+MATAIJ vs matrix-free 2.65e-16) + petsc_heat (PETSc TS drives the heat loop) — all PASS, values
+identical to pre-shim.</p>
+<p><strong>Phase 2 is complete:</strong> every layer from the data structs (Phase 1) up through the struct owner
+(<code>CDiscretization</code>), the FEM classes (<code>CResidual</code>/<code>CAssembler</code>/<code>CPreconditioner</code>/<code>CSolver</code>), and the
+PETSc export shim now threads <code>&lt;T,I&gt;</code> with <code>dstype</code>/<code>Int</code> as default arguments — the whole stack is
+precision-parameterized and byte-identical under the defaults.</p>
+<h2 id="phase-3-kernels-blas-kokkos-dispatch-in-progress">Phase 3 — Kernels + BLAS + Kokkos dispatch (IN PROGRESS)<a class="headerlink" href="#phase-3-kernels-blas-kokkos-dispatch-in-progress" title="Permanent link">&para;</a></h2>
+<h3 id="the-cut-the-exasimdriverabi-function-pointer-boundary-keeps-the-frontends-unchanged">The cut: the <code>ExasimDriverABI</code> function-pointer boundary keeps the frontends unchanged<a class="headerlink" href="#the-cut-the-exasimdriverabi-function-pointer-boundary-keeps-the-frontends-unchanged" title="Permanent link">&para;</a></h3>
+<p>The frontends (Python/Matlab/Julia) emit the model kernels (<code>KokkosFlux</code>/<code>Source</code>/<code>Fbou</code>/…) as plain
+<code>dstype</code>-typed functions and register them as <code>void(*)(dstype*, …)</code> <strong>function pointers</strong> in
+<code>ExasimDriverABI</code> (<code>include/driver_abi.hpp</code>; populated in <code>frontendprovider.cpp</code>). That struct is the
+frozen seam: everything reaches generated code through <code>common.driver_abi-&gt;…</code>
+(<code>model_drivers_abi.cpp</code>). So <strong>everything below the seam</strong> — solver, preconditioner,
+<code>Discretization/*.hpp</code> HDG/LDG kernels, <code>matvec</code>/<code>massinv</code>, and the <code>pblas.h</code> BLAS layer — can be
+templated on <code>T</code>, while the generated kernels + the ABI typedefs stay <code>dstype</code> and the frontends are
+untouched.</p>
+<p><strong>Seam stance — (A) chosen + implemented.</strong> The generated kernels take raw <code>dstype*</code> buffers, so on
+the frontend (<code>AbiAdapter</code>) path the caller's scalar type must equal the global <code>dstype</code>. We take
+stance <strong>(A)</strong>: a <code>static_assert(std::is_same_v&lt;dstype, ::dstype&gt;)</code> in the <code>AbiAdapter</code> branch of
+<code>EXASIM_DRIVER_CALL</code> (<code>include/exasim/detail/driver_dispatch.hpp</code>). It is <em>forward-activating</em> — today
+<code>dstype</code> there is the global (assert trivially true, byte-identical build); once a kernel is templated
+with a <code>using dstype = T;</code> shadow (rest of Phase 3), the SAME assert becomes the <code>T==dstype</code> guard for
+free, turning a raw <code>T*→dstype*</code> type error into a clear diagnostic. Mixed precision stays reachable
+where the export actually needs it — the <strong>concrete-model</strong> path (<code>exasim::Name&lt;M&gt;</code>, hand-written C++
+models like the PETSc consumers use), which never touches the frozen ABI.</p>
+<p><em>Upgrade path (deferred, not built):</em> if frontend-<em>defined</em> PDEs ever need mixed precision, replace
+that single <code>static_assert</code> with <strong>either</strong> (B) a <code>T*↔dstype*</code> conversion shim in the same branch
+(double-eval / single-solve; costs per-eval copies + GPU-side conversion kernels — untestable locally)
+<strong>or</strong>, cleaner, <strong>Phase 4</strong> (template the codegen so the generated kernels are natively <code>T</code>-generic,
+no conversion). (B) is bridge-work Phase 4 would supersede; both are localized to this one macro
+branch, so (A) locks in nothing. Phase 3 with the default <code>T=dstype</code> needs none of this — raw-buffer
+passthrough is byte-identical.</p>
+<h3 id="gpu-verification-loop-dgx-b-tesla-v100">GPU verification loop (dgx-b, Tesla V100)<a class="headerlink" href="#gpu-verification-loop-dgx-b-tesla-v100" title="Permanent link">&para;</a></h3>
+<p>The whole Phase 0-3 stack is verified on GPU, not just CPU. Sync committed HEAD with
+<code>remote/sync.sh dgx</code> (git-archive), rebuild the CUDA Exasim with <code>build-dgx.sh</code> (nvcc + prebuilt
+Kokkos CUDA sm_70 → <code>exasim-teoc-install-cuda</code>), then <code>build-petsc-gpu-consumer.sh</code> +
+<code>EXASIM_BACKEND=2 ./petsc_poisson</code>. As of <code>4e15bc5f</code> the templated <code>CDiscretization</code>/FEM
+classes/<code>blas&lt;T&gt;</code> trait/seam <code>static_assert</code> all compile under nvcc and the exported shim solves the
+HDG Poisson operators on a V100 (SNES 1 Newton iter, ShellMat vs <code>op.mat()</code> = 0, MATAIJ vs
+matrix-free = 2.6e-16 — matching the CPU run). NB: a GPU build run with <code>EXASIM_BACKEND=0</code> (serial CPU
+on a CUDA-configured Kokkos) is an unsupported cross-combo and fails in <code>cpuComputeInverse</code>; the
+supported pairing is CPU build→backend 0, GPU build→backend 2. Remaining Phase-3 GPU-touching work
+(pblas GPU trait, <code>kokkosimpl</code> device views) is verified through this same loop.</p>
+<h3 id="blas-trait-backendcommonpblash-started">BLAS trait (<code>backend/Common/pblas.h</code>) — STARTED<a class="headerlink" href="#blas-trait-backendcommonpblash-started" title="Permanent link">&para;</a></h3>
+<p><code>blas&lt;T&gt;</code> replaces the per-function <code>#ifdef USE_FLOAT S.. #else D..</code> branches with a by-value,
+type-dispatched interface (<code>blas&lt;double&gt;</code> → <code>dgemm</code>/<code>dgetrf</code>/…, <code>blas&lt;float&gt;</code> → <code>sgemm</code>/<code>sgetrf</code>/…),
+so the <code>pblas</code> wrappers can be templated on <code>T</code>. Done + verified (robustness + app-regression at
+unchanged rel_L2): the trait itself and the GEMM node/Gauss transforms (<code>cpuNode2Gauss</code>, <code>Node2Gauss</code>,
+<code>Gauss2Node</code>) + the LAPACK inverse (<code>cpuComputeInverse</code>, <code>getrf</code>/<code>getri</code>). The GPU (cublas/hipblas)
+branches are still <code>#ifdef USE_FLOAT</code>-selected — correct under the default <code>T=dstype</code>; trait-ifying
+them for non-default GPU precision is the <strong>remote-verified</strong> tail (needs the dgx-b build).</p>
+<h3 id="mpi-datatypes-mpi_typet-started-a-latent-bug-fixed">MPI datatypes (<code>mpi_type&lt;T&gt;</code>) — STARTED + a latent bug fixed<a class="headerlink" href="#mpi-datatypes-mpi_typet-started-a-latent-bug-fixed" title="Permanent link">&para;</a></h3>
+<p>The MPI companion to <code>blas&lt;T&gt;</code>: <code>mpi_type&lt;T&gt;()</code> in <code>common.h</code> (<code>double→MPI_DOUBLE</code>, <code>float→MPI_FLOAT</code>,
+<code>int→MPI_INT</code>, <code>long→MPI_LONG</code>) — consolidated from a duplicate that lived late in
+<code>parmetisexasim</code> (invisible to the earlier halo/reduction sites). Applied to: the <code>pblas.h</code>
+reduction <code>#ifdef USE_FLOAT</code> blocks (<code>PDOT</code>/<code>PGEMTV</code>/<code>PGEMTM</code>) and <strong>34 halo-exchange sites</strong> across
+<code>matvec.hpp</code>, <code>residual.hpp</code>, <code>residualeval.cpp</code>, <code>ldgblockjacobian.cpp</code>, <code>solution.cpp</code>,
+<code>postsolution.cpp</code>, <code>solutionwriter.cpp</code>, <code>setsysstruct.cpp</code>. <strong>Bug fixed:</strong> those halo <code>MPI_Isend/Irecv</code>
+hardcoded <code>MPI_DOUBLE</code> even though the buffers are <code>dstype*</code>, so a single-precision (<code>USE_FLOAT</code>) build
+mis-typed every exchange — now <code>mpi_type&lt;dstype&gt;()</code> (byte-identical for double, correct for float,
+auto-becomes <code>mpi_type&lt;T&gt;()</code> with the <code>using dstype=T</code> shadow). ParMETIS <code>MPI_DOUBLE</code> left alone (its
+<code>real_t</code> weights are a separate concern). Verified on both MPI paths: CPU-MPI full rebuild +
+multi-rank app-regression at unchanged rel_L2; <strong>GPU-MPI</strong> on dgx-b (<code>petsc_poisson_mpi</code>, CUDA build,
+<code>mpiexec -n 1/2/4</code> backend=2) PASS across all rank counts with real halo exchange + ParMETIS partition
+(SNES residual ~3e-12 each).</p>
+<h3 id="compute-primitive-layer-done-verified-cpu-gpu">Compute-primitive layer — DONE + verified (CPU + GPU)<a class="headerlink" href="#compute-primitive-layer-done-verified-cpu-gpu" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>pblas.h</code> GEMM/GEMV wrappers (<code>cpuNode2Gauss</code>/<code>Node2Gauss</code>/<code>Gauss2Node</code>/<code>Gauss2Node1</code>/<code>PGEMNV</code>/
+  <code>PGEMTV</code>/<code>PGEMTM</code>) + <code>cpuComputeInverse</code> → <code>blas&lt;T&gt;</code> (CPU branches; GPU cublas/hipblas branches
+  still <code>#ifdef</code>).</li>
+<li><code>Common/cpuimpl.h</code> — the 8 CPU array/geometry primitives, <code>template&lt;class T=dstype&gt;</code>.</li>
+<li><code>Common/kokkosimpl.h</code> — <strong>all 137 Kokkos device compute kernels</strong> (flux/stabilization/geometry/
+  array ops/thermo/wall-model + 9 <code>KOKKOS_INLINE_FUNCTION</code> helpers), <code>template&lt;class Ty=dstype&gt;</code> (param
+  named <code>Ty</code> because several kernels use <code>T</code> as temperature). No functor structs / no <code>View&lt;&gt;</code> (raw
+  pointers), so the shadow-alias pattern applied uniformly via script. <strong>GPU-verified:</strong> nvcc
+  device-compiles all 137 templated lambdas and petsc_poisson (backend=2) is byte-identical
+  (residual 9.119e-14, ShellMat vs op.mat()=0, MATAIJ 2.62e-16).</li>
+</ul>
+<h3 id="discretization-free-function-layer-done-verified-cpu-gpu">Discretization free-function layer — DONE + verified (CPU + GPU)<a class="headerlink" href="#discretization-free-function-layer-done-verified-cpu-gpu" title="Permanent link">&para;</a></h3>
+<p>All HDG/LDG orchestration free functions in <code>backend/Discretization/*.hpp</code> are now
+<code>template &lt;class M, class T=dstype, class I=Int&gt;</code> (or <code>&lt;class T=dstype, class I=Int&gt;</code> for the
+model-independent ones): signatures retype the struct params to <code>XxxstructT&lt;T,I&gt;&amp;</code> and <code>dstype*</code>→<code>T*</code>,
+and each body opens with <code>using dstype=T;</code> so the body is <strong>untouched</strong> (byte-identical by construction).
+Callers already hold <code>solstructT&lt;T,I&gt;</code> members and invoke <code>foo&lt;M&gt;(sol, …)</code>, so <code>T</code>/<code>I</code> <strong>deduce</strong> from
+the struct args — no call-site changes. This is the layer that makes the stance-A seam <code>static_assert</code>
+auto-activate into the real <code>T==dstype</code> guard (the <code>using dstype=T</code> shadow reaches <code>EXASIM_DRIVER_CALL</code>).
+- Compute kernels: <code>uequation.hpp</code> (7 fns), <code>matvec.hpp</code> (12), <code>qequation.hpp</code> (7 + the pre-existing
+  generic <code>EnsureTemplateAllocation&lt;T&gt;</code> left as-is), <code>wequation.hpp</code> (4), <code>residual.hpp</code> (15),
+  <code>qoicalculation.hpp</code> (4), <code>massinv.hpp</code> (2), <code>getuhat.hpp</code> (5).
+- In-memory struct-setup: <code>setstructs.hpp</code> (11 fns: <code>setcommonstruct</code>/<code>setresstruct</code>/<code>settempstruct</code>/
+  <code>cpuInit*</code>/<code>devappstruct</code>/<code>devsolstruct</code>/<code>devmasterstruct</code>), called by <code>CDiscretizationT&lt;T,I&gt;</code>
+  construction — needed so a non-<code>dstype</code> discretization can set up its own structs.
+- Left alone (byte-format boundary, not compute): <code>readbinaryfiles</code>/<code>ioutilities</code>/<code>connectivity</code>/
+  <code>ismeshcurved</code> (no driver, no compute; file precision is a separate concern from solve precision).
+- Verified CPU: full Exasim rebuild + install + multi-app regression at <strong>unchanged rel_L2</strong> (naca0012
+  2.94e-13, nsmach8 3.63e-15, poisson3d 9.99e-11, isoq3d 1.95e-9, poisson2d 2.29e-12; 10 pass, 2
+  pre-existing np=4 RUN_FAILs).
+- Verified GPU (dgx-b V100): nvcc device-compiles the templated headers into both the CUDA Exasim
+  library and the petsc_poisson consumer; run with <code>EXASIM_BACKEND=2</code> is byte-identical (residual
+  9.119e-14, ShellMat vs op.mat()=0, MATAIJ 2.622e-16).</p>
+<h3 id="pblash-tail-done-cpu-gpu">pblas.h tail — DONE (CPU + GPU)<a class="headerlink" href="#pblash-tail-done-cpu-gpu" title="Permanent link">&para;</a></h3>
+<p>The <code>blas&lt;T&gt;</code> trait gained the level-1 ops (<code>dot</code>/<code>copy</code>/<code>scal</code>/<code>axpy</code>, s<em>/d</em> per specialization) and
+the remaining pblas wrappers are now <code>template &lt;class T=dstype&gt;</code> with a <code>using dstype=T;</code> body shadow:
+<code>Inverse</code>, <code>PDOT</code>, <code>PNORM</code> (both overloads), <code>DOT</code>, <code>ArrayCopy</code>, <code>ArrayMultiplyScalar</code>, <code>ArrayAXPY</code>,
+<code>ArrayAXPBY</code>, <code>ArrayAX</code>, <code>NORM</code>, <code>PGEMNMStridedBached</code>. Each CPU branch that was a hand-rolled
+<code>#ifdef USE_FLOAT S* #else D*</code> is now a single <code>blas&lt;T&gt;::…</code> call (byte-identical under default), and the
+<code>MPI_Allreduce</code> in <code>PDOT</code> picks up <code>mpi_type&lt;T&gt;()</code> automatically via the shadow. GPU cublas/hipblas
+branches stay <code>#ifdef</code>. Callers pass <code>dstype*</code> so <code>T</code> deduces — no call-site changes. Verified: full
+rebuild+install+app-regression byte-identical (all golden rel_L2 unchanged, 10 pass / 2 pre-existing
+np=4 fails). GPU-verified on dgx-b (V100): nvcc device-compiles the templated wrappers into the CUDA
+Exasim lib + petsc_poisson consumer; backend=2 byte-identical (residual 9.119e-14, ShellMat vs
+op.mat()=0, MATAIJ 2.622e-16).</p>
+<h3 id="remaining-phase-3">Remaining Phase 3<a class="headerlink" href="#remaining-phase-3" title="Permanent link">&para;</a></h3>
+<ul>
+<li>The <code>blas&lt;T&gt;</code> <strong>GPU</strong> trait methods (cublas/hipblas gemm/gemv/dot/copy/scal/axpy) so non-default GPU
+  precision works too — the CPU path and default-<code>dstype</code> GPU path are already done and remote-verified;
+  this is the last GPU-only, non-default-precision tail.</li>
+<li>Comm helpers: the halo <code>mpi_type&lt;dstype&gt;()</code> calls now sit inside templated kernels / class methods that
+  carry <code>using dstype=T</code>, so they auto-activate to <code>mpi_type&lt;T&gt;()</code>; the remaining <code>#ifdef USE_FLOAT</code>
+  reduction sites are already <code>mpi_type&lt;dstype&gt;()</code>.</li>
+</ul>
+<h2 id="phase-4-model-kernel-path">Phase 4 — Model-kernel path<a class="headerlink" href="#phase-4-model-kernel-path" title="Permanent link">&para;</a></h2>
+<h3 id="concrete-model-path-includeexasim-done-float32-verified-cpu-gpu">Concrete-model path (<code>include/exasim/</code>) — DONE + float32-verified (CPU + GPU)<a class="headerlink" href="#concrete-model-path-includeexasim-done-float32-verified-cpu-gpu" title="Permanent link">&para;</a></h3>
+<p>The consumer-facing templated model path is now precision-generic, which is what lets a <strong>consumer
+pick float32 with no Exasim rebuild</strong> (the payoff of the whole effort):
+- <code>include/exasim/drivers.hpp</code> (<code>*Driver&lt;M&gt;</code>) and <code>include/exasim/kernels/*.hpp</code> (<code>*_kernel&lt;M&gt;</code>) are now
+  <code>&lt;M, T=dstype, I=Int&gt;</code>; the SoA storage buffers <strong>and</strong> the per-point gather/scatter locals were
+  retyped <code>dstype</code>/<code>double</code> → <code>T</code>, so a <code>float</code> instantiation is pure-float32 (byte-identical at the
+  default <code>T=dstype</code>). The stance-A seam <code>static_assert</code> does not block this — it lives in the
+  <em>AbiAdapter</em> branch, whereas this is the concrete-<code>exasim::Name&lt;M&gt;</code> path.
+- The model becomes a <strong>struct template</strong> (pattern: <code>tests/models/poisson2d.hpp</code> →
+  <code>Poisson2DT&lt;T&gt;</code> with <code>using Poisson2D = Poisson2DT&lt;double&gt;</code>). Methods stay non-template so the
+  <code>is_flux_model_v</code> <code>decltype(&amp;M::flux)</code> trait still detects them and the double path is unchanged.
+- <strong><code>tests/consumers/model_fp32</code></strong>: a consumer that instantiates the Poisson2D flux/source/qoi Kokkos
+  kernels at <strong>float AND double</strong> against the double-default install. CPU (Serial) and GPU (CUDA, dgx-b
+  V100) both PASS: <code>max |float−double|/|double| = 1.6e-07</code> (fp32 limit), double vs analytic ≤5e-16.
+  The double <code>petsc_poisson</code> consumer recompiles byte-identical (9.084e-14 / 0 / 2.651e-16).</p>
+<h3 id="remaining-phase-4-generated-codegen">Remaining Phase 4 — generated codegen<a class="headerlink" href="#remaining-phase-4-generated-codegen" title="Permanent link">&para;</a></h3>
+<p><code>text2code</code> / <code>frontends/*/Gencode</code> emit <code>dstype</code>-typed kernels + a non-template model. To let the
+<em>generated</em> apps (not just hand-written test models) pick precision, emit the model as a <code>struct XT&lt;T&gt;</code>
++ template the generated kernel signatures on <code>T</code> (or generate a per-precision set). Highest-churn
+(generated code is the bulk of the 692 files); the hand-written path above is the proven template.</p>
+<h2 id="phase-5-cutover-full-float32-solve">Phase 5 — Cutover (full float32 <em>solve</em>)<a class="headerlink" href="#phase-5-cutover-full-float32-solve" title="Permanent link">&para;</a></h2>
+<h3 id="preprocessing-in-memory-construction-boundary-done-conversion-free-double-byte-identical">Preprocessing / in-memory-construction boundary — DONE (conversion-free), double byte-identical<a class="headerlink" href="#preprocessing-in-memory-construction-boundary-done-conversion-free-double-byte-identical" title="Permanent link">&para;</a></h3>
+<p>The export/preprocessing boundary that used to pin <code>dstype</code> is now threaded, with <strong>no conversion shim</strong>:
+- <code>exasim::Preprocessed</code> → <code>PreprocessedT&lt;T=dstype,I=Int&gt;</code> (holds <code>XxxstructT&lt;T,I&gt;</code>); the 6 struct
+  builders + the double-array malloc helpers are <code>&lt;T,I&gt;</code> and cast the (still-<code>double</code>) <code>Mesh</code>/<code>Master</code>
+  intermediates straight into the <code>T</code> solve structs — geometry stays double, only the materialized
+  solve-precision structs are <code>T</code>.
+- <code>CPreprocessing::take()</code>/<code>takeParallel()</code> are member templates; <code>make_preprocessed&lt;M,T,I&gt;</code> returns
+  <code>PreprocessedT&lt;T,I&gt;</code>; the in-memory <code>CDiscretizationT&lt;T,I&gt;</code> ctor takes <code>PreprocessedT&lt;T,I&gt;&amp;&amp;</code>.
+- The compiled-core setup chain the ctor drives is templated too (the consumer aggregates the source
+  via <code>operators.hpp</code>, so this instantiates from source — no lib rebuild, no explicit <code>float</code>
+  instantiation; the <code>extern template</code> only pins <code>dstype</code>): <code>setstructs.cpp</code>
+  (<code>setcommonstruct</code>/<code>cpuInitSetup</code>/<code>setAppRuntimeContext</code>/…), <code>connectivity.cpp</code> (<code>buildConn</code> +
+  coord helpers <code>fetch_node</code>/<code>equal_row_tol</code>), <code>preprocessing.cpp</code>, <code>setsysstruct.cpp</code>,
+  <code>ismeshcurved.cpp</code>, <code>BuildElementBlockBoundaryFaces</code>/<code>AllocateLDGBlockJacobianMemory</code>, and the
+  <code>export.hpp</code> helpers <code>recover_volume</code>/<code>eval_qoi</code>.
+- Verified: full lib rebuild + app-regression <strong>12/12 PASS</strong> (isoq/sharpb2 np=4 now build+run from the
+  consistent source); <code>petsc_poisson</code> consumer byte-identical (9.084e-14 / 0 / 2.651e-16).</p>
+<h3 id="full-float32-solve-done-the-167-site-backend-wide-cutover">Full float32 <em>solve</em> — DONE (the ~167-site backend-wide cutover)<a class="headerlink" href="#full-float32-solve-done-the-167-site-backend-wide-cutover" title="Permanent link">&para;</a></h3>
+<p>A consumer now instantiates <code>CDiscretizationT&lt;float&gt;</code> <strong>end-to-end</strong> and runs a full HDG Poisson
+<strong>solve</strong>, choosing precision purely via templates (no Exasim rebuild, no conversion). Getting there
+resolved ~167 precision-mixing sites across the whole backend (<code>ArraySetValue</code>/<code>PGEMNMStridedBached</code>/
+<code>ArrayAXPBY</code>/…, geometry <code>ElemGeom</code>/<code>FaceGeom</code>, every model kernel, residual <code>Ru/Rq Elem/Face</code>, STG,
+<code>setprecondstruct</code>, <code>CWallModel</code>). The root causes and their fixes:
+- <strong><code>noDeduce_t&lt;T&gt;</code> (<code>common.h</code>)</strong> — the dominant one. A scalar param spelled <code>noDeduce_t&lt;T&gt;</code> deduces
+  <code>T</code> <strong>only from the buffer args</strong>, so a <code>double</code> literal/constant (<code>0.0</code>, <code>zero</code>, <code>minusone</code>, a
+  tolerance) passed next to a <code>float*</code> buffer converts instead of forcing a conflicting <code>T=double</code>
+  deduction. Applied across the pblas/kokkosimpl array+blas ops. (This one trick cleared ~110 sites.)
+- <strong>drivers</strong>: <code>*_kernel&lt;M&gt;</code>→<code>&lt;M,T&gt;</code> (with an explicit <code>&lt;M&gt;</code>, <code>T</code> was silently defaulting to <code>dstype</code>);
+  <code>compute_shape</code> templated; the interface <code>Fint</code>/<code>Fext</code> forwarders deduce the scalar from the first
+  buffer arg (a trailing template param after a variadic pack is <em>never</em> deducible) and compile out for
+  non-<code>dstype</code> (coupling is double-only; single-model solves never touch an interface face).
+- <strong>kernel/model bodies</strong>: retype the <code>double</code> gather/scatter locals →<code>T</code> in the remaining kernels;
+  <code>InitFn</code>→<code>InitFn_t&lt;T&gt;</code>; the <strong><code>ModelDefaults</code> mixin hierarchy</strong> (8 structs) + <code>zero_fill</code> templated on
+  scalar so a float model's <em>inherited</em> defaults are float-typed.
+- <strong><code>.hpp</code> vs <code>.cpp</code> gotcha</strong>: <code>geometry.hpp</code> (not <code>.cpp</code>) is the live consumer-aggregated file — the
+  duality bit here as it did for <code>setstructs</code>/<code>connectivity</code>. <code>thread_disc.py</code> misses <code>template&lt;...&gt;</code>
+  (no space) heads and doesn't retype <code>double</code>, so coord helpers (<code>xiny</code>/<code>fetch_node</code>/<code>equal_row_tol</code>/
+  <code>make_cell_key</code>/<code>permindex</code>) needed hand fixes.
+- <strong>sub-structs</strong>: <code>qoiparamsstruct</code>/<code>wallmodelparamsstruct</code> → templated.</p>
+<p><strong>Verified:</strong> <code>tests/consumers/solve_fp32</code> builds the stack at double AND float, condenses to <code>H·uh=b</code>,
+LAPACK-solves, and compares the float trace solution to the double one — <code>||uh_f32−uh_f64||/||uh_f64|| =
+1.01e-4</code> (fp32 dense-LU accuracy). Double path fully intact (app-regression 12/12, petsc_poisson
+byte-identical).</p>
+<p><strong>Latent BLAS bug fixed along the way:</strong> the float32 <code>eval_qoi</code> volume integral first read ~0
+(<code>qoi[1]=1e-19</code> vs <code>0.405</code>). Root cause: <code>blas&lt;float&gt;::dot</code> called the BLAS <code>sdot_</code>, but on several
+platforms (macOS Accelerate, f2c/CLAPACK) the F77 single-precision REAL function <code>sdot_</code> returns a
+<em>double</em> in the ABI while <code>common.h</code> declares <code>float SDOT(...)</code>, so the return was misread as garbage —
+silently zeroing every single-precision <code>PDOT</code>/<code>DOT</code>/<code>NORM</code>. Fixed by computing <code>blas&lt;float&gt;::dot</code> with
+a manual loop (double accumulation), sidestepping the <code>sdot_</code> ABI landmine; <code>DDOT</code> (double) is untouched
+so the default path stays byte-identical. Float32 QoI is now correct (<code>qoi[1]=0.405249</code> vs <code>0.405285</code>).</p>
+<h3 id="petsc-driven-float-path">PETSc-driven float path<a class="headerlink" href="#petsc-driven-float-path" title="Permanent link">&para;</a></h3>
+<p>Separately, <code>Operator</code>/<code>ShellMat</code> do <strong>zero-copy</strong> <code>Vec</code> reinterpret guarded by
+<code>static_assert(sizeof(PetscScalar)==sizeof(Scalar))</code>, so a PETSc-driven float solve also needs a
+float-built PETSc (or a converting, non-zero-copy Vec bridge). Deferred.</p>
+<h2 id="strategy-verification">Strategy &amp; verification<a class="headerlink" href="#strategy-verification" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Bottom-up</strong>: structs → classes → kernels → codegen. Each phase leaves <code>dstype</code>/<code>Int</code> as defaulted
+  aliases so the whole tree keeps compiling; land it incrementally, file group by file group.</li>
+<li><strong>Verify precision-preserving</strong>: after each phase, <code>tests/run-app-regression.sh</code> must stay at
+  <code>rel_L2 = 0</code> (default args ⇒ identical code) — the golden proof the refactor changed no numerics.</li>
+<li><strong>Then</strong> add a genuinely mixed-precision test (single-precision inner solve) to exercise the new
+  degree of freedom.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "navigation.indexes", "navigation.tracking", "content.code.copy", "content.code.annotate", "content.tabs.link", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../assets/javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

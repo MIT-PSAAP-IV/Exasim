@@ -1,0 +1,5422 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="High-order discontinuous Galerkin PDE solvers in C++ with symbolic code generation and Kokkos backend portability (CPU / GPU / MPI).">
+      
+      
+      
+      
+        <link rel="prev" href="../ldg-formulation/">
+      
+      
+        <link rel="next" href="../references/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Block-diagonal Jacobian - Exasim</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#block-diagonal-jacobian-of-the-ldg-residual" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Exasim" class="md-header__button md-logo" aria-label="Exasim" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Exasim
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Block-diagonal Jacobian
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/MIT-PSAAP-IV/Exasim" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    MIT-PSAAP-IV/Exasim
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Exasim" class="md-nav__button md-logo" aria-label="Exasim" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Exasim
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/MIT-PSAAP-IV/Exasim" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    MIT-PSAAP-IV/Exasim
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+          
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../usage-modes/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../install/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Installation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/quick-install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Installation (Recommended)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/superbuild-cpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CPU Installation via Superbuild
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/superbuild-troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting Superbuild Failures
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/manual-dependencies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Manual Dependency Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/common/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common manual dependency steps
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/gpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/macos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Platform: macOS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/linux-cpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Platform: Linux CPU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/linux-nvidia/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Platform: Linux NVIDIA GPU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/linux-amd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Platform: Linux AMD GPU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/hpc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HPC: build chain & options
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/frontier/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HPC: Frontier
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/tuolumne/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HPC: Tuolumne
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/generic-hpc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HPC: Generic
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/verification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Verification and Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../text2code-applications/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Text2Code Applications
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Text2Code Applications
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../text2code-applications/pdeapp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pdeapp.txt guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../text2code-applications/pdemodel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pdemodel.txt guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../text2code-applications/modeling-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PDE modeling guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../text2code-applications/application-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Application setup guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../text2code-applications/workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow and troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../text2code-applications/advanced/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced topics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../text2code-applications/reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference gateway
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../frontends/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frontends
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Frontends
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../frontends/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../frontends/data-structures/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core data structures
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../frontends/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../frontends/preprocessing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Preprocessing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../frontends/pdemodel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pdemodel abstraction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../frontends/mesh-and-geometry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh and geometry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../frontends/execution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Execution workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../frontends/postprocessing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Postprocessing and visualization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../frontends/api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../usage-modes/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Application Modes
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Application Modes
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage-modes/builtin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Built-in library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage-modes/external-builtin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    External built-in library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage-modes/shared-library/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Shared library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage-modes/parameter-sweeps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Parameter sweeps
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage-modes/postprocessing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Postprocessing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../using-ai-tools/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Using AI Tools
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Using AI Tools
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../using-ai-tools/prompt-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../using-ai-tools/creating-examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Creating examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../using-ai-tools/implementing-physics-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementing physics models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../using-ai-tools/mesh-generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../using-ai-tools/debugging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Debugging and code review
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../using-ai-tools/extending-exasim/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extending Exasim
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../using-ai-tools/validating-ai-generated-code/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validating AI-generated code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../using-ai-tools/best-practices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Best practices
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../using-ai-tools/example-prompts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Example prompts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../physics-models/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Physics Models
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Physics Models
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/modelc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ModelC
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/modeld/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ModelD
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/modelw/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ModelW
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/comparison/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model comparison
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/auxiliary-equations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Auxiliary equations through w
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/equations-of-state/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Equations of state
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/external-variables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    External variables through v
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/artificial-viscosity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Artificial viscosity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/multiphysics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiphysics problems
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/multi-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-model problems
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Worked examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Theory
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_9" id="__nav_9_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Theory
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dg-methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DG methods
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ldg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LDG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hdg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HDG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../temporal-discretization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Temporal discretization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nonlinear-solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nonlinear solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../linear-solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../preconditioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Preconditioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../parallel-computing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Parallel computing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gpu-computing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU computing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../scalability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scalability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../algorithmic-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Algorithmic flow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ldg-formulation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LDG implementation deep dive
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Block-diagonal Jacobian
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Block-diagonal Jacobian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#assumptions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Assumptions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#design-reasoning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Design reasoning
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Design reasoning">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a.-residual-structure-used-by-residual..." class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A. Residual structure used by Residual(...)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#b.-element-block-definition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B. Element-block definition
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#c.-chain-rule-through-the-ldg-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C. Chain rule through the LDG pipeline
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d.-contribution-from-getuhat..." class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D. Contribution from GetUhat(...)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#e.-contribution-from-getq..." class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        E. Contribution from GetQ(...)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f.-contribution-from-getw..." class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F. Contribution from GetW(...)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#g.-contribution-from-ruelem..." class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        G. Contribution from RuElem(...)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#h.-contribution-from-ruface..." class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        H. Contribution from RuFace(...)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#i.-why-the-exact-diagonal-block-should-be-assembled-from-dresidual..." class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        I. Why the exact diagonal block should be assembled from dResidual(...)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#proposed-implementation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Proposed implementation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Proposed implementation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a.-affected-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A. Affected files
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#b.-data-structure-for-the-block-diagonal-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B. Data structure for the block-diagonal matrix
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#c.-exact-assembly-algorithm-using-dresidual..." class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C. Exact assembly algorithm using dResidual(...)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d.-exact-assembly-algorithm-using-matvec..." class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D. Exact assembly algorithm using MatVec(...)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#e.-practical-column-seeding-detail" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        E. Practical column-seeding detail
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f.-optional-inversion-for-block-jacobi-use" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F. Optional inversion for block-Jacobi use
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#g.-why-this-is-better-than-hand-assembling-a-separate-ldg-jacobian-first" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        G. Why this is better than hand-assembling a separate LDG Jacobian first
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risks-or-numerical-concerns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Risks or numerical concerns
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verification-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Verification plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../references/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    References
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_10" id="__nav_10_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/pdeapp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pdeapp fields
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/pdemodel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pdemodel syntax
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/model-contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model contract
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/model-functions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model functions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/equations-of-state/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Equations of state
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/boundary-conditions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Boundary conditions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/source-terms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Source terms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/auxiliary-equations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Auxiliary equations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/parameter-sweeps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Parameter sweeps
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/postprocessing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Postprocessing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/text2code/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Text2Code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cmake/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CMake targets & options
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../driving-the-solver/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Driving the solver (C++ API)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../internals/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Internals
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_12" id="__nav_12_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Internals
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../internals/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../internals/repository-structure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Repository structure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../internals/code-generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../internals/frontends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frontends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../internals/backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backend
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../internals/runtime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Runtime
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../internals/gpu-implementation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU implementation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../internals/mpi-implementation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MPI implementation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../internals/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../internals/baselines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Baselines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../internals/known-divergences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Known divergences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../internals/development-workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../internals/coding-guidelines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Coding guidelines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../internals/ci-and-validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI and validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../internals/references/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    References
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#assumptions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Assumptions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#design-reasoning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Design reasoning
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Design reasoning">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a.-residual-structure-used-by-residual..." class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A. Residual structure used by Residual(...)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#b.-element-block-definition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B. Element-block definition
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#c.-chain-rule-through-the-ldg-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C. Chain rule through the LDG pipeline
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d.-contribution-from-getuhat..." class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D. Contribution from GetUhat(...)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#e.-contribution-from-getq..." class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        E. Contribution from GetQ(...)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f.-contribution-from-getw..." class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F. Contribution from GetW(...)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#g.-contribution-from-ruelem..." class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        G. Contribution from RuElem(...)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#h.-contribution-from-ruface..." class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        H. Contribution from RuFace(...)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#i.-why-the-exact-diagonal-block-should-be-assembled-from-dresidual..." class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        I. Why the exact diagonal block should be assembled from dResidual(...)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#proposed-implementation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Proposed implementation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Proposed implementation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a.-affected-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A. Affected files
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#b.-data-structure-for-the-block-diagonal-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B. Data structure for the block-diagonal matrix
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#c.-exact-assembly-algorithm-using-dresidual..." class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C. Exact assembly algorithm using dResidual(...)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d.-exact-assembly-algorithm-using-matvec..." class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D. Exact assembly algorithm using MatVec(...)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#e.-practical-column-seeding-detail" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        E. Practical column-seeding detail
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#f.-optional-inversion-for-block-jacobi-use" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        F. Optional inversion for block-Jacobi use
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#g.-why-this-is-better-than-hand-assembling-a-separate-ldg-jacobian-first" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        G. Why this is better than hand-assembling a separate LDG Jacobian first
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#risks-or-numerical-concerns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Risks or numerical concerns
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verification-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Verification plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="block-diagonal-jacobian-of-the-ldg-residual">Block-diagonal Jacobian of the LDG residual<a class="headerlink" href="#block-diagonal-jacobian-of-the-ldg-residual" title="Permanent link">&para;</a></h1>
+<p>The exact block-diagonal Jacobian <span class="arithmatex">\(J(U)=\partial R(U)/\partial U\)</span> of the LDG
+residual, one dense block per element, and how it is assembled through the
+discretization pipeline. The pointwise Jacobian blocks correspond to the HDG
+Jacobian methods in the <a href="../../reference/model-contract/">model contract</a>.</p>
+<h2 class="unnumbered" id="summary">1. Summary<a class="headerlink" href="#summary" title="Permanent link">&para;</a></h2>
+<p>For the LDG path in Exasim, the exact block-diagonal Jacobian of</p>
+<div class="arithmatex">\[J(U) = \frac{\partial R(U)}{\partial U}\]</div>
+<p>with <span class="arithmatex">\(U\)</span> the global vector of the degrees of freedom of <span class="arithmatex">\(u_h\)</span>, is most naturally implemented as one dense element block per element:</p>
+<div class="arithmatex">\[J_{\mathrm{diag}} = \operatorname{diag}(J_{11}, J_{22}, \dots, J_{N_e N_e}),\]</div>
+<p>where each block</p>
+<div class="arithmatex">\[J_{KK} = \frac{\partial R_K}{\partial U_K}\]</div>
+<p>has size <span class="arithmatex">\((npe \cdot ncu) \times (npe \cdot ncu)\)</span>, with <span class="arithmatex">\(R_K\)</span> the residual rows belonging to element <span class="arithmatex">\(K\)</span>.</p>
+<p>In the current Exasim backend, the cleanest exact implementation is not to derive and assemble a separate sparse Jacobian by hand, but to reuse the existing residual tangent path:</p>
+<ul>
+<li>
+<p><code>backend/Discretization/residual.cpp</code></p>
+</li>
+<li>
+<p><code>backend/Discretization/qresidual.cpp</code></p>
+</li>
+<li>
+<p><code>backend/Discretization/uresidual.cpp</code></p>
+</li>
+<li>
+<p><code>backend/Discretization/getuhat.cpp</code></p>
+</li>
+<li>
+<p><code>backend/Discretization/matvec.cpp</code></p>
+</li>
+</ul>
+<p>Specifically:</p>
+<ul>
+<li>
+<p>if Enzyme AD is enabled, assemble each diagonal block column-by-column using <code>dResidual(...)</code></p>
+</li>
+<li>
+<p>otherwise, assemble each block column-by-column using <code>MatVec(...)</code> with finite differences</p>
+</li>
+</ul>
+<p>That approach automatically includes all LDG chain-rule contributions through:</p>
+<ul>
+<li>
+<p><code>GetUhat(...)</code></p>
+</li>
+<li>
+<p><code>GetQ(...)</code></p>
+</li>
+<li>
+<p><code>GetW(...)</code></p>
+</li>
+<li>
+<p><code>GetAv(...)</code></p>
+</li>
+<li>
+<p><code>RuElem(...)</code></p>
+</li>
+<li>
+<p><code>RuFace(...)</code></p>
+</li>
+</ul>
+<h2 class="unnumbered" id="assumptions">2. Assumptions<a class="headerlink" href="#assumptions" title="Permanent link">&para;</a></h2>
+<ul>
+<li>
+<p><span class="arithmatex">\(U\)</span> contains only the DOFs of <span class="arithmatex">\(u_h\)</span>, not the auxiliary variables <span class="arithmatex">\(q\)</span>, <span class="arithmatex">\(w\)</span>, or face trace <code>uh</code>.</p>
+</li>
+<li>
+<p>The residual <span class="arithmatex">\(R(U)\)</span> is exactly the one returned by <code>Residual(sol, res, app, driver_abi, master, mesh, tmp, common, handle, backend)</code> in <code>backend/Discretization/residual.cpp</code>.</p>
+</li>
+<li>
+<p>Therefore <span class="arithmatex">\(q\)</span>, <code>uh</code>, <code>wdg</code>, and optional AV-related fields are implicit functions of <span class="arithmatex">\(U\)</span>, because <code>Residual(...)</code> recomputes them internally before assembling <code>res.Ru</code>.</p>
+</li>
+<li>
+<p>A "block" means one element block of size: $<span class="arithmatex">\(n_{\mathrm{loc}} = npe \cdot ncu.\)</span>$</p>
+</li>
+<li>
+<p>The desired matrix is the exact block-diagonal of the full LDG Jacobian, not a simplified "volume-only" or "element-local-only" approximation.</p>
+</li>
+<li>
+<p>I am focusing on the LDG residual path, not the HDG Schur-complement system.</p>
+</li>
+<li>
+<p>I assume the block-diagonal Jacobian may later be inverted batched, for example for a block-Jacobi preconditioner.</p>
+</li>
+</ul>
+<h2 class="unnumbered" id="design-reasoning">3. Design reasoning<a class="headerlink" href="#design-reasoning" title="Permanent link">&para;</a></h2>
+<p>The key point is that the residual returned by <code>Residual(...)</code> is not just a function of the element-local <span class="arithmatex">\(u\)</span>. It is a composite map:</p>
+<div class="arithmatex">\[U \;\longmapsto\; \hat U(U), \; Q(U), \; W(U), \; AV(U) \;\longmapsto\; R(U).\]</div>
+<p>So the exact diagonal block must include all chain-rule paths created by the residual pipeline.</p>
+<h3 class="unnumbered" id="a.-residual-structure-used-by-residual...">A. Residual structure used by <code>Residual(...)</code><a class="headerlink" href="#a.-residual-structure-used-by-residual..." title="Permanent link">&para;</a></h3>
+<p>In serial, the LDG residual pipeline is:</p>
+<ol>
+<li>
+<p><code>GetUhat(...)</code></p>
+</li>
+<li>
+<p><code>GetQ(...)</code></p>
+</li>
+<li>
+<p><code>GetW(...)</code> if <code>common.ncw &gt; 0</code></p>
+</li>
+<li>
+<p><code>GetAv(...)</code> if AV is active and unfrozen</p>
+</li>
+<li>
+<p><code>RuElem(...)</code></p>
+</li>
+<li>
+<p><code>RuFace(...)</code></p>
+</li>
+<li>
+<p><code>PutFaceNodes(...)</code></p>
+</li>
+<li>
+<p>final scaling by <code>-1</code> and optionally <code>1/common.dtfactor</code></p>
+</li>
+</ol>
+<p>This is in <code>backend/Discretization/residual.cpp</code>.</p>
+<p>So if I define the raw assembled residual before the final sign/time scaling by <span class="arithmatex">\(\widetilde R(U)\)</span>, then the residual returned by <code>Residual(...)</code> is</p>
+<div class="arithmatex">\[R(U) = \alpha \, \widetilde R(U),\]</div>
+<p>with</p>
+<div class="arithmatex">\[\alpha =
+\begin{cases}
+-1, &amp; \text{steady case},\\[4pt]
+-\dfrac{1}{\texttt{common.dtfactor}}, &amp; \text{time-dependent case}.
+\end{cases}\]</div>
+<p>Therefore each diagonal block is</p>
+<div class="arithmatex">\[J_{KK} = \alpha \, \frac{\partial \widetilde R_K}{\partial U_K}.\]</div>
+<p>That final scalar factor must be included.</p>
+<h3 class="unnumbered" id="b.-element-block-definition">B. Element-block definition<a class="headerlink" href="#b.-element-block-definition" title="Permanent link">&para;</a></h3>
+<p>Let <span class="arithmatex">\(U_K \in \mathbb{R}^{n_{\mathrm{loc}}}\)</span> be the <span class="arithmatex">\(u_h\)</span> DOFs of element <span class="arithmatex">\(K\)</span>, with</p>
+<div class="arithmatex">\[n_{\mathrm{loc}} = npe \cdot ncu.\]</div>
+<p>Let <span class="arithmatex">\(R_K(U)\)</span> be the residual entries in <code>res.Ru</code> associated with element <span class="arithmatex">\(K\)</span>. Then</p>
+<div class="arithmatex">\[J_{KK} = \frac{\partial R_K}{\partial U_K}.\]</div>
+<p>This is the exact diagonal block. It keeps all dependence of the residual rows of element <span class="arithmatex">\(K\)</span> on the DOFs of the same element <span class="arithmatex">\(K\)</span>, while discarding all derivatives with respect to DOFs from other elements.</p>
+<h3 class="unnumbered" id="c.-chain-rule-through-the-ldg-pipeline">C. Chain rule through the LDG pipeline<a class="headerlink" href="#c.-chain-rule-through-the-ldg-pipeline" title="Permanent link">&para;</a></h3>
+<p>The raw residual for element <span class="arithmatex">\(K\)</span> can be viewed schematically as</p>
+<div class="arithmatex">\[\widetilde R_K(U)
+=
+\widetilde R^{\mathrm{elem}}_K\big(U_K, Q_K(U), W_K(U), AV_K(U)\big)
++
+\sum_{f \subset \partial K}
+\widetilde R^{\mathrm{face}}_{Kf}
+\big(U, Q(U), W(U), \hat U(U)\big).\]</div>
+<p>Hence the exact diagonal block is</p>
+<div class="arithmatex">\[\frac{\partial \widetilde R_K}{\partial U_K}
+=
+\frac{\partial \widetilde R^{\mathrm{elem}}_K}{\partial U_K}
++
+\frac{\partial \widetilde R^{\mathrm{elem}}_K}{\partial Q_K}\frac{\partial Q_K}{\partial U_K}
++
+\frac{\partial \widetilde R^{\mathrm{elem}}_K}{\partial W_K}\frac{\partial W_K}{\partial U_K}
++
+\frac{\partial \widetilde R^{\mathrm{elem}}_K}{\partial AV_K}\frac{\partial AV_K}{\partial U_K}
++
+\sum_{f \subset \partial K}
+\frac{\partial \widetilde R^{\mathrm{face}}_{Kf}}{\partial U_K}^{\mathrm{total}}.\]</div>
+<p>The face contribution expands further into:</p>
+<div class="arithmatex">\[\frac{\partial \widetilde R^{\mathrm{face}}_{Kf}}{\partial U_K}^{\mathrm{total}}
+=
+\frac{\partial \widetilde R^{\mathrm{face}}_{Kf}}{\partial U_{K,f}}
++
+\frac{\partial \widetilde R^{\mathrm{face}}_{Kf}}{\partial Q_{K,f}}
+\frac{\partial Q_{K,f}}{\partial U_K}
++
+\frac{\partial \widetilde R^{\mathrm{face}}_{Kf}}{\partial W_{K,f}}
+\frac{\partial W_{K,f}}{\partial U_K}
++
+\frac{\partial \widetilde R^{\mathrm{face}}_{Kf}}{\partial \hat U_f}
+\frac{\partial \hat U_f}{\partial U_K}.\]</div>
+<p>This is the correct mathematical content of the diagonal block in Exasim.</p>
+<h3 class="unnumbered" id="d.-contribution-from-getuhat...">D. Contribution from <code>GetUhat(...)</code><a class="headerlink" href="#d.-contribution-from-getuhat..." title="Permanent link">&para;</a></h3>
+<p><code>GetUhat(...)</code> is in <code>backend/Discretization/getuhat.cpp</code>.</p>
+<p>For LDG:</p>
+<ul>
+<li>
+<p>on interior faces, <code>sol.uh</code> is copied from one side's <span class="arithmatex">\(u\)</span></p>
+</li>
+<li>
+<p>on boundary faces, <code>sol.uh</code> is produced by <code>UbouDriver(...)</code></p>
+</li>
+</ul>
+<p>Therefore the derivative</p>
+<div class="arithmatex">\[\frac{\partial \hat U_f}{\partial U_K}\]</div>
+<p>can be nonzero for:</p>
+<ul>
+<li>
+<p>the element that owns the copied interior-face trace</p>
+</li>
+<li>
+<p>any boundary face of element <span class="arithmatex">\(K\)</span></p>
+</li>
+</ul>
+<p>This derivative is implemented in the tangent path by:</p>
+<ul>
+<li>
+<p><code>GetdUhat(...)</code></p>
+</li>
+<li>
+<p><code>dUhatBlock(...)</code></p>
+</li>
+</ul>
+<p>in the same file.</p>
+<p>That means the exact diagonal block must include the way a perturbation in <span class="arithmatex">\(U_K\)</span> changes <code>uh</code> first, and then changes face residuals and <span class="arithmatex">\(q\)</span>-recovery through that <code>uh</code>.</p>
+<h3 class="unnumbered" id="e.-contribution-from-getq...">E. Contribution from <code>GetQ(...)</code><a class="headerlink" href="#e.-contribution-from-getq..." title="Permanent link">&para;</a></h3>
+<p><code>GetQ(...)</code> is in <code>backend/Discretization/residual.cpp</code>.</p>
+<p>It computes <span class="arithmatex">\(q\)</span> by:</p>
+<ul>
+<li>
+<p><code>RqElem(...)</code></p>
+</li>
+<li>
+<p><code>RqFace(...)</code></p>
+</li>
+<li>
+<p><code>PutFaceNodes(...)</code></p>
+</li>
+<li>
+<p><code>ApplyMinv(...)</code></p>
+</li>
+<li>
+<p><code>ArrayInsert(...)</code> into <code>sol.udg</code></p>
+</li>
+</ul>
+<p>From the implementation in <code>backend/Discretization/qresidual.cpp</code>, the elementwise operator is</p>
+<div class="arithmatex">\[Q_K = M_K^{-1}\left(C_K U_K - E_K \hat U_K + S^q_K\right),\]</div>
+<p>where:</p>
+<ul>
+<li>
+<p><span class="arithmatex">\(M_K\)</span> is the local mass matrix inverse applied through <code>ApplyMinv(...)</code></p>
+</li>
+<li>
+<p><span class="arithmatex">\(C_K\)</span> is the element gradient operator from <code>RqElemBlock(...)</code></p>
+</li>
+<li>
+<p><span class="arithmatex">\(E_K\)</span> is the face lifting operator from <code>RqFaceBlock(...)</code></p>
+</li>
+<li>
+<p><span class="arithmatex">\(S^q_K\)</span> is the wave-only source contribution when <code>common.wave == 1</code></p>
+</li>
+</ul>
+<p>Therefore the exact local derivative is</p>
+<div class="arithmatex">\[\frac{\partial Q_K}{\partial U_K}
+=
+M_K^{-1}\left(
+C_K - E_K \frac{\partial \hat U_K}{\partial U_K}
+\right),\]</div>
+<p>plus any wave-specific term if active.</p>
+<p>In the current backend, this derivative is not assembled explicitly as a matrix in the LDG path. Instead it is applied as a tangent operator by:</p>
+<ul>
+<li>
+<p><code>GetdQ(...)</code></p>
+</li>
+<li>
+<p><code>dRqElem(...)</code></p>
+</li>
+<li>
+<p><code>dRqFace(...)</code></p>
+</li>
+<li>
+<p><code>ApplyMinv(...)</code></p>
+</li>
+</ul>
+<p>in <code>backend/Discretization/residual.cpp</code>.</p>
+<p>So <code>GetdQ(...)</code> is exactly the chain-rule implementation of <span class="arithmatex">\(dQ/dU\)</span>.</p>
+<h3 class="unnumbered" id="f.-contribution-from-getw...">F. Contribution from <code>GetW(...)</code><a class="headerlink" href="#f.-contribution-from-getw..." title="Permanent link">&para;</a></h3>
+<p>If <code>common.ncw &gt; 0</code>, <code>GetW(...)</code> in <code>backend/Discretization/residual.cpp</code> computes the auxiliary field <code>wdg</code>.</p>
+<p>This can happen through:</p>
+<ul>
+<li>
+<p>explicit time/update formulas</p>
+</li>
+<li>
+<p>Newton solve of <code>Eos(w,u)=0</code></p>
+</li>
+<li>
+<p>sourcew/DAE updates</p>
+</li>
+</ul>
+<p>Therefore the residual also contains a chain rule term</p>
+<div class="arithmatex">\[\frac{\partial \widetilde R_K}{\partial W_K}\frac{\partial W_K}{\partial U_K}.\]</div>
+<p>This term is conceptually required in the exact block diagonal.</p>
+<p>However, the current AD tangent path in <code>dRuResidual(...)</code> contains:</p>
+<ul>
+<li><code>// TODO: DAE functionality not implemented yet</code></li>
+</ul>
+<p>So for cases with nontrivial <span class="arithmatex">\(w\)</span> evolution, the exactness of the AD-based block assembly depends on the specific <code>GetW(...)</code> branch. This is an important implementation limitation.</p>
+<h3 class="unnumbered" id="g.-contribution-from-ruelem...">G. Contribution from <code>RuElem(...)</code><a class="headerlink" href="#g.-contribution-from-ruelem..." title="Permanent link">&para;</a></h3>
+<p><code>RuElemBlock(...)</code> in <code>backend/Discretization/uresidual.cpp</code> computes the element-volume contribution.</p>
+<p>At Gauss points it evaluates:</p>
+<ul>
+<li>
+<p>time contribution</p>
+</li>
+<li>
+<p><code>SourceDriver(...)</code></p>
+</li>
+<li>
+<p><code>FluxDriver(...)</code></p>
+</li>
+</ul>
+<p>then applies geometry and basis testing through:</p>
+<ul>
+<li>
+<p><code>ApplyXx4(...)</code></p>
+</li>
+<li>
+<p><code>Gauss2Node(...)</code></p>
+</li>
+</ul>
+<p>So the elemental Jacobian contribution is</p>
+<div class="arithmatex">\[\frac{\partial \widetilde R_K^{\mathrm{elem}}}{\partial U_K}
+=
+\frac{\partial \widetilde R_K^{\mathrm{elem}}}{\partial U_K}\Big|_{\text{direct}}
++
+\frac{\partial \widetilde R_K^{\mathrm{elem}}}{\partial Q_K}\frac{\partial Q_K}{\partial U_K}
++
+\frac{\partial \widetilde R_K^{\mathrm{elem}}}{\partial W_K}\frac{\partial W_K}{\partial U_K}
++
+\frac{\partial \widetilde R_K^{\mathrm{elem}}}{\partial AV_K}\frac{\partial AV_K}{\partial U_K}.\]</div>
+<p>In the current backend, this total directional derivative is implemented by:</p>
+<ul>
+<li><code>dRuElemBlock(...)</code></li>
+</ul>
+<p>which consumes:</p>
+<ul>
+<li>
+<p><code>sol.dudg</code>, already containing <code>dq</code> inserted by <code>GetdQ(...)</code></p>
+</li>
+<li>
+<p><code>sol.dwdg</code> if available</p>
+</li>
+<li>
+<p><code>sol.dodg</code> if AV is active</p>
+</li>
+</ul>
+<p>So <code>dRuElemBlock(...)</code> is already the exact elemental Jacobian action needed for each diagonal block column.</p>
+<h3 class="unnumbered" id="h.-contribution-from-ruface...">H. Contribution from <code>RuFace(...)</code><a class="headerlink" href="#h.-contribution-from-ruface..." title="Permanent link">&para;</a></h3>
+<p><code>RuFaceBlock(...)</code> in <code>backend/Discretization/uresidual.cpp</code> computes the face contribution by:</p>
+<ul>
+<li>
+<p>gathering <code>uh</code>, <code>udg</code>, <code>wdg</code> on faces</p>
+</li>
+<li>
+<p>interpolating to face Gauss points</p>
+</li>
+<li>
+<p>evaluating <code>FhatDriver(...)</code> on interior faces</p>
+</li>
+<li>
+<p>evaluating <code>FbouDriver(...)</code> on boundary faces</p>
+</li>
+<li>
+<p>applying <code>ApplyJacFhat(...)</code></p>
+</li>
+<li>
+<p>projecting back by <code>Gauss2Node(...)</code></p>
+</li>
+</ul>
+<p>Therefore the face Jacobian contribution for the diagonal block is</p>
+<div class="arithmatex">\[\sum_{f \subset \partial K}
+\left(
+\frac{\partial \widetilde R_{Kf}}{\partial U_{K,f}}
++
+\frac{\partial \widetilde R_{Kf}}{\partial Q_{K,f}}\frac{\partial Q_{K,f}}{\partial U_K}
++
+\frac{\partial \widetilde R_{Kf}}{\partial W_{K,f}}\frac{\partial W_{K,f}}{\partial U_K}
++
+\frac{\partial \widetilde R_{Kf}}{\partial \hat U_f}\frac{\partial \hat U_f}{\partial U_K}
+\right).\]</div>
+<p>This total derivative is implemented by:</p>
+<ul>
+<li><code>dRuFaceBlock(...)</code></li>
+</ul>
+<p>which uses:</p>
+<ul>
+<li>
+<p><code>sol.duh</code></p>
+</li>
+<li>
+<p><code>sol.dudg</code></p>
+</li>
+<li>
+<p><code>sol.dwdg</code></p>
+</li>
+</ul>
+<p>So again, the exact diagonal-block action is already available through the tangent residual path.</p>
+<h3 class="unnumbered" id="i.-why-the-exact-diagonal-block-should-be-assembled-from-dresidual...">I. Why the exact diagonal block should be assembled from <code>dResidual(...)</code><a class="headerlink" href="#i.-why-the-exact-diagonal-block-should-be-assembled-from-dresidual..." title="Permanent link">&para;</a></h3>
+<p>This is the most important implementation decision.</p>
+<p>Because LDG in Exasim recomputes:</p>
+<ul>
+<li>
+<p><code>uh</code></p>
+</li>
+<li>
+<p><code>q</code></p>
+</li>
+<li>
+<p><code>w</code></p>
+</li>
+<li>
+<p>AV</p>
+</li>
+</ul>
+<p>inside <code>Residual(...)</code>, the exact diagonal block is not just the local derivative of <code>RuElemBlock(...)</code> with respect to the local nodal <span class="arithmatex">\(u\)</span>.</p>
+<p>It must include all implicit dependencies created by the preprocessing steps inside <code>Residual(...)</code>.</p>
+<p>Therefore, if the goal is the exact block diagonal of the Jacobian of the actual residual returned by <code>Residual(...)</code>, the safest implementation is:</p>
+<ul>
+<li>
+<p>seed a local basis vector in <span class="arithmatex">\(u\)</span></p>
+</li>
+<li>
+<p>run <code>dResidual(...)</code> or <code>MatVec(...)</code></p>
+</li>
+<li>
+<p>extract only the same-element residual rows</p>
+</li>
+</ul>
+<p>That is exact by construction for the implemented residual.</p>
+<h2 class="unnumbered" id="proposed-implementation">4. Proposed implementation<a class="headerlink" href="#proposed-implementation" title="Permanent link">&para;</a></h2>
+<h3 class="unnumbered" id="a.-affected-files">A. Affected files<a class="headerlink" href="#a.-affected-files" title="Permanent link">&para;</a></h3>
+<p>The implementation should be built around these files:</p>
+<ul>
+<li>
+<p><code>backend/Discretization/residual.cpp</code></p>
+</li>
+<li>
+<p><code>backend/Discretization/qresidual.cpp</code></p>
+</li>
+<li>
+<p><code>backend/Discretization/uresidual.cpp</code></p>
+</li>
+<li>
+<p><code>backend/Discretization/getuhat.cpp</code></p>
+</li>
+<li>
+<p><code>backend/Discretization/matvec.cpp</code></p>
+</li>
+</ul>
+<h3 class="unnumbered" id="b.-data-structure-for-the-block-diagonal-matrix">B. Data structure for the block-diagonal matrix<a class="headerlink" href="#b.-data-structure-for-the-block-diagonal-matrix" title="Permanent link">&para;</a></h3>
+<p>Let</p>
+<div class="arithmatex">\[n_{\mathrm{loc}} = npe \cdot ncu.\]</div>
+<p>Store the diagonal blocks as a dense batched array:</p>
+<div class="arithmatex">\[BJ \in \mathbb{R}^{n_{\mathrm{loc}} \times n_{\mathrm{loc}} \times ne1},\]</div>
+<p>where <code>ne1</code> is the number of owned elements whose residual rows are in <code>res.Ru</code>.</p>
+<p>In code terms this should be a flat array of length:</p>
+<ul>
+<li><code>nloc * nloc * common.ne1</code></li>
+</ul>
+<p>stored element-block by element-block, column-major within each block so it is immediately compatible with batched BLAS/LAPACK-style inversion.</p>
+<h3 class="unnumbered" id="c.-exact-assembly-algorithm-using-dresidual...">C. Exact assembly algorithm using <code>dResidual(...)</code><a class="headerlink" href="#c.-exact-assembly-algorithm-using-dresidual..." title="Permanent link">&para;</a></h3>
+<p>This is the recommended exact implementation when Enzyme AD is available.</p>
+<p>For each owned element <span class="arithmatex">\(K\)</span>:</p>
+<ol>
+<li>
+<p>Define local block size $<span class="arithmatex">\(n_{\mathrm{loc}} = npe \cdot ncu.\)</span>$</p>
+</li>
+<li>
+<p>For each local column <span class="arithmatex">\(j = 0, \dots, n_{\mathrm{loc}}-1\)</span>:</p>
+<ul>
+<li>
+<p>zero all tangent fields:</p>
+</li>
+<li>
+<p><code>sol.dudg</code></p>
+</li>
+<li>
+<p><code>sol.dwdg</code> if used</p>
+</li>
+<li>
+<p><code>sol.duh</code></p>
+</li>
+<li>
+<p><code>sol.dodg</code> if AV is active</p>
+</li>
+<li>
+<p><code>res.dRu</code></p>
+</li>
+<li>
+<p><code>res.dRq</code></p>
+</li>
+<li>
+<p><code>res.dRh</code></p>
+</li>
+<li>
+<p>place a unit seed in <code>sol.dudg</code> corresponding to the <span class="arithmatex">\(j\)</span>-th <code>u</code> DOF of element <span class="arithmatex">\(K\)</span></p>
+</li>
+<li>
+<p>call:</p>
+</li>
+<li>
+<p><code>dResidual(sol, res, app, driver_abi, master, mesh, tmp, common, handle, backend)</code></p>
+</li>
+<li>
+<p>extract the element-residual slice of <code>res.dRu</code> corresponding to element <span class="arithmatex">\(K\)</span></p>
+</li>
+<li>
+<p>store that slice as column <span class="arithmatex">\(j\)</span> of the dense block <span class="arithmatex">\(J_{KK}\)</span></p>
+</li>
+</ul>
+</li>
+</ol>
+<p>This works because <code>dResidual(...)</code> already performs:</p>
+<ul>
+<li>
+<p><code>GetdUhat(...)</code></p>
+</li>
+<li>
+<p><code>GetdQ(...)</code></p>
+</li>
+<li>
+<p><code>GetdAv(...)</code></p>
+</li>
+<li>
+<p><code>dRuElem(...)</code></p>
+</li>
+<li>
+<p><code>dRuFace(...)</code></p>
+</li>
+</ul>
+<p>and applies the final residual scaling.</p>
+<p>So each call returns exactly:</p>
+<div class="arithmatex">\[J(U)\,e^{(K,j)},\]</div>
+<p>and extracting the rows of element <span class="arithmatex">\(K\)</span> gives precisely the column <span class="arithmatex">\(j\)</span> of <span class="arithmatex">\(J_{KK}\)</span>.</p>
+<h3 class="unnumbered" id="d.-exact-assembly-algorithm-using-matvec...">D. Exact assembly algorithm using <code>MatVec(...)</code><a class="headerlink" href="#d.-exact-assembly-algorithm-using-matvec..." title="Permanent link">&para;</a></h3>
+<p>If Enzyme AD is not available, use the same column-by-column procedure but replace <code>dResidual(...)</code> with:</p>
+<ul>
+<li><code>MatVec(...)</code></li>
+</ul>
+<p>from <code>backend/Discretization/matvec.cpp</code>.</p>
+<p>For each seed vector <span class="arithmatex">\(e^{(K,j)}\)</span>:</p>
+<ul>
+<li>
+<p><code>MatVec(...)</code> returns <span class="arithmatex">\(J(U)e^{(K,j)}\)</span> using either:</p>
+</li>
+<li>
+<p>first-order finite difference</p>
+</li>
+<li>
+<p>second-order finite difference</p>
+</li>
+<li>
+<p>then extract the same-element residual rows and store the column</p>
+</li>
+</ul>
+<p>This is more expensive and approximate, but it differentiates the actual <code>Residual(...)</code> pipeline and therefore includes all implemented couplings.</p>
+<h3 class="unnumbered" id="e.-practical-column-seeding-detail">E. Practical column-seeding detail<a class="headerlink" href="#e.-practical-column-seeding-detail" title="Permanent link">&para;</a></h3>
+<p>The seed must be inserted only into the <span class="arithmatex">\(u\)</span> components of <code>sol.dudg</code>, not into <span class="arithmatex">\(q\)</span> or other fields.</p>
+<p>That means:</p>
+<ul>
+<li>
+<p>within element <span class="arithmatex">\(K\)</span></p>
+</li>
+<li>
+<p>within the <code>udg</code> layout</p>
+</li>
+<li>
+<p>only the first <code>ncu</code> components per node are seeded</p>
+</li>
+</ul>
+<p>All <span class="arithmatex">\(q\)</span>-component tangent entries must start from zero and be generated by <code>GetdQ(...)</code>.</p>
+<p>This is essential. Otherwise the result is not <span class="arithmatex">\(\partial R/\partial U\)</span>, but a derivative with independently perturbed <span class="arithmatex">\(q\)</span>.</p>
+<h3 class="unnumbered" id="f.-optional-inversion-for-block-jacobi-use">F. Optional inversion for block-Jacobi use<a class="headerlink" href="#f.-optional-inversion-for-block-jacobi-use" title="Permanent link">&para;</a></h3>
+<p>If the goal is a block-Jacobi preconditioner, after assembling the blocks one can invert them batched:</p>
+<div class="arithmatex">\[J_{KK}^{-1}, \qquad K = 1,\dots,ne1.\]</div>
+<p>This can reuse the same batched inversion pattern already used elsewhere in Exasim for dense small blocks.</p>
+<p>The natural storage layout is chosen specifically so that a single batched inversion call can process all element blocks.</p>
+<h3 class="unnumbered" id="g.-why-this-is-better-than-hand-assembling-a-separate-ldg-jacobian-first">G. Why this is better than hand-assembling a separate LDG Jacobian first<a class="headerlink" href="#g.-why-this-is-better-than-hand-assembling-a-separate-ldg-jacobian-first" title="Permanent link">&para;</a></h3>
+<p>A manual Jacobian assembly would need to reproduce every chain-rule dependency already encoded in <code>Residual(...)</code>, including:</p>
+<ul>
+<li>
+<p>interior/boundary <code>uh</code> construction</p>
+</li>
+<li>
+<p>local <span class="arithmatex">\(q\)</span>-recovery</p>
+</li>
+<li>
+<p>local <span class="arithmatex">\(w\)</span>-recovery</p>
+</li>
+<li>
+<p>AV differentiation</p>
+</li>
+<li>
+<p>face orientation details</p>
+</li>
+<li>
+<p>sign/time scaling</p>
+</li>
+</ul>
+<p>That is possible, but it is much more invasive and easier to get wrong.</p>
+<p>Using <code>dResidual(...)</code> or <code>MatVec(...)</code> avoids duplicating solver logic and guarantees consistency with the actual residual definition.</p>
+<h2 class="unnumbered" id="risks-or-numerical-concerns">5. Risks or numerical concerns<a class="headerlink" href="#risks-or-numerical-concerns" title="Permanent link">&para;</a></h2>
+<ul>
+<li>
+<p>The AD path is not fully general for all <span class="arithmatex">\(w\)</span>/DAE branches. In <code>backend/Discretization/residual.cpp</code>, <code>dRuResidual(...)</code> explicitly notes:</p>
+</li>
+<li>
+<p><code>TODO: DAE functionality not implemented yet</code></p>
+</li>
+<li>
+<p>Therefore:</p>
+</li>
+<li>
+<p>AD-based block assembly is exact only for the branches actually covered by the tangent implementation</p>
+</li>
+<li>
+<p>FD-based <code>MatVec(...)</code> is more complete, but approximate</p>
+</li>
+<li>
+<p>Finite-difference block assembly is expensive:</p>
+</li>
+<li>
+<p><span class="arithmatex">\(n_{\mathrm{loc}}\)</span> residual evaluations per element block</p>
+</li>
+<li>
+<p>or one global <code>MatVec(...)</code> per local column if done naively</p>
+</li>
+<li>
+<p>Finite-difference quality depends on:</p>
+</li>
+<li>
+<p><code>common.matvecTol</code></p>
+</li>
+<li>
+<p><code>common.matvecOrder</code></p>
+</li>
+<li>
+<p>For interface elements in MPI, the exact diagonal block still requires the MPI tangent/residual path, because face terms depend on exchanged neighbor states even when only the diagonal rows are kept.</p>
+</li>
+<li>
+<p>If AV is active and unfrozen, the exact block diagonal of the residual must include <code>GetAv(...)</code> differentiation. Omitting that gives a different Jacobian.</p>
+</li>
+<li>
+<p>A hand-derived "element-only" approximation will generally miss orientation-dependent face-trace effects from <code>GetUhat(...)</code>.</p>
+</li>
+</ul>
+<h2 class="unnumbered" id="verification-plan">6. Verification plan<a class="headerlink" href="#verification-plan" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p><strong>Column test against <code>dResidual(...)</code></strong></p>
+<ul>
+<li>
+<p>Pick an element <span class="arithmatex">\(K\)</span> and a random local vector <span class="arithmatex">\(z_K\)</span>.</p>
+</li>
+<li>
+<p>Form a global seed <span class="arithmatex">\(z\)</span> supported only on element <span class="arithmatex">\(K\)</span>.</p>
+</li>
+<li>
+<p>Compute <span class="arithmatex">\(y = Jz\)</span> with <code>dResidual(...)</code>.</p>
+</li>
+<li>
+<p>Extract the element-<span class="arithmatex">\(K\)</span> rows of <span class="arithmatex">\(y\)</span>.</p>
+</li>
+<li>
+<p>Compare with <span class="arithmatex">\(J_{KK} z_K\)</span> from the assembled dense block.</p>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>Finite-difference spot check</strong></p>
+<ul>
+<li>For a few local columns <span class="arithmatex">\(j\)</span>, compare the assembled column against: $<span class="arithmatex">\(\frac{R(U + \varepsilon e^{(K,j)}) - R(U)}{\varepsilon}\)</span>$ restricted to the element-<span class="arithmatex">\(K\)</span> residual rows.</li>
+</ul>
+</li>
+<li>
+<p><strong>Boundary and interior element checks</strong></p>
+<ul>
+<li>
+<p>Test one boundary element and one interior element.</p>
+</li>
+<li>
+<p>This verifies both:</p>
+</li>
+<li>
+<p><code>FbouDriver(...)</code></p>
+</li>
+<li>
+<p><code>FhatDriver(...)</code></p>
+</li>
+<li>
+<p><code>UbouDriver(...)</code></p>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>Physics toggles</strong></p>
+<ul>
+<li>
+<p>Verify separately for:</p>
+</li>
+<li>
+<p><code>common.tdep = 0</code></p>
+</li>
+<li>
+<p><code>common.tdep = 1</code></p>
+</li>
+<li>
+<p><code>common.ncq = 0</code> and <code>&gt; 0</code></p>
+</li>
+<li>
+<p><code>common.ncw = 0</code> and a case with <code>ncw &gt; 0</code></p>
+</li>
+<li>
+<p>AV frozen and unfrozen</p>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>Residual-consistency check</strong></p>
+<ul>
+<li>Confirm the assembled block includes the final residual scaling by <code>-1</code> and <code>1/common.dtfactor</code> exactly as in <code>Residual(...)</code>.</li>
+</ul>
+</li>
+<li>
+<p><strong>Performance sanity</strong></p>
+<ul>
+<li>
+<p>Measure cost per element block.</p>
+</li>
+<li>
+<p>If explicit block assembly is too expensive, keep the same mathematical definition but consider:</p>
+</li>
+<li>
+<p>assembling blocks only when the nonlinear state changes significantly</p>
+</li>
+<li>
+<p>or using the block assembly only for preconditioner setup, not every Krylov iteration</p>
+</li>
+</ul>
+</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "navigation.indexes", "navigation.tracking", "content.code.copy", "content.code.annotate", "content.tabs.link", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../assets/javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>
