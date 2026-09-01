@@ -41,6 +41,7 @@
 #ifndef __RESIDUAL
 #define __RESIDUAL
 
+#include "material_properties.hpp"
 #include "geometry.hpp"
 #include "massinv.hpp"
 #include "../Utility/dgprojection_backend.hpp"
