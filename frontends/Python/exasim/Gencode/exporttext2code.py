@@ -2,6 +2,7 @@ import os
 import numpy as np
 
 from .genpdemodel import genpdemodel
+from ..Preprocessing.process_materialdatabase import process_materialdatabase
 
 
 def exporttext2code(pde, mesh, dest=None):
@@ -22,33 +23,71 @@ def exporttext2code(pde, mesh, dest=None):
     dest = os.path.abspath(os.fspath(dest))
     os.makedirs(dest, exist_ok=True)
 
-    app = dict(pde)
-    _infer_dimensions(app, mesh)
-
     print(f"Export Exasim Text2Code package to {dest} ...")
-    genpdemodel(app, os.path.join(dest, "pdemodel.txt"))
-
-    files = _write_binaries(mesh, dest)
-    _write_pdeapp(app, mesh, files, os.path.join(dest, "pdeapp.txt"))
-    _write_readme(dest)
+    if isinstance(pde, (list, tuple)):
+        if not isinstance(mesh, (list, tuple)):
+            raise ValueError("exporttext2code: coupled export requires mesh to be a list or tuple.")
+        if len(pde) != len(mesh):
+            raise ValueError("exporttext2code: pde and mesh lists must have the same length.")
+        if len(pde) < 2:
+            raise ValueError("exporttext2code: coupled export requires at least two models.")
+        for i, (pdei, meshi) in enumerate(zip(pde, mesh), start=1):
+            _export_single(pdei, meshi, dest, str(i), len(pde), i)
+        _write_readme(dest, coupled=True, nmodels=len(pde))
+    else:
+        _export_single(pde, mesh, dest, "", 1, 0)
+        _write_readme(dest)
 
     print(f"Exported Text2Code package: {dest}")
     return dest
 
 
-def _write_binaries(mesh, dest):
-    files = {"meshfile": "grid.bin"}
+def _export_single(pde, mesh, dest, suffix="", nmodels=1, modelslot=0):
+    app = dict(pde)
+    _infer_dimensions(app, mesh)
+    if (not app.get("model")) and app.get("pdemodel"):
+        app["model"] = app["pdemodel"]
+    if modelslot > 0:
+        app["builtinmodelID"] = _modelid(app, modelslot)
+    elif not app.get("builtinmodelID"):
+        app["builtinmodelID"] = 0
+    app["frontendgenerated"] = 0
+
+    pdemodelname = f"pdemodel{suffix}.txt"
+    pdeappname = f"pdeapp{suffix}.txt"
+    genpdemodel(app, os.path.join(dest, pdemodelname))
+
+    files = _write_binaries(mesh, dest, suffix)
+    materialdatabase = str(app.get("materialdatabase", "")).strip()
+    if materialdatabase:
+        packaged = f"materialdatabase{suffix}.bin"
+        process_materialdatabase(app, dest, packaged)
+        app["materialdatabase"] = packaged
+    _write_pdeapp(app, mesh, files, os.path.join(dest, pdeappname), pdemodelname)
+    return app
+
+
+def _modelid(pde, modelslot):
+    if pde.get("builtinmodelID", 0):
+        return int(pde["builtinmodelID"])
+    if int(pde.get("modelid", -1)) >= 0:
+        return int(pde["modelid"])
+    return 100 + modelslot - 1
+
+
+def _write_binaries(mesh, dest, suffix=""):
+    files = {"meshfile": f"grid{suffix}.bin"}
     p = _mesh_get(mesh, "p")
     t = _mesh_get(mesh, "t")
     if p is None or t is None:
         raise ValueError("exporttext2code: mesh must contain p and t arrays.")
-    _writebin(os.path.join(dest, "grid.bin"), np.concatenate((_shape_as_double(p), _shape_as_double(t), _flat(p), _flat(t))))
+    _writebin(os.path.join(dest, files["meshfile"]), np.concatenate((_shape_as_double(p), _shape_as_double(t), _flat(p), _flat(t))))
 
     optional = [
-        ("dgnodes", "xdgfile", "xdg.bin"),
-        ("udg", "udgfile", "udg.bin"),
-        ("vdg", "vdgfile", "vdg.bin"),
-        ("wdg", "wdgfile", "wdg.bin"),
+        ("dgnodes", "xdgfile", f"xdg{suffix}.bin"),
+        ("udg", "udgfile", f"udg{suffix}.bin"),
+        ("vdg", "vdgfile", f"vdg{suffix}.bin"),
+        ("wdg", "wdgfile", f"wdg{suffix}.bin"),
     ]
     for mesh_key, app_key, filename in optional:
         value = _mesh_get(mesh, mesh_key)
@@ -86,9 +125,9 @@ def _infer_dimensions(app, mesh):
         app["ncw"] = int(np.shape(wdg)[1])
 
 
-def _write_pdeapp(pde, mesh, files, path):
+def _write_pdeapp(pde, mesh, files, path, modelfile="pdemodel.txt"):
     app = dict(pde)
-    app["modelfile"] = "pdemodel.txt"
+    app["modelfile"] = modelfile
     app["meshfile"] = files["meshfile"]
     for key in ("xdgfile", "udgfile", "vdgfile", "wdgfile"):
         if key in files:
@@ -126,6 +165,7 @@ def _write_pdeapp(pde, mesh, files, path):
 
     keys = [
         "model", "modelfile", "meshfile", "xdgfile", "udgfile", "vdgfile", "wdgfile",
+        "materialdatabase",
         "discretization", "platform", "mpiprocs", "debugmode", "runmode", "modelnumber",
         "builtinmodelID", "frontendgenerated",
         "nodetype", "ncu", "ncv", "ncw", "neb", "nfb", "linearproblem", "subproblem",
@@ -282,7 +322,7 @@ def _format_float(value):
     return f"{value:.17g}"
 
 
-def _write_readme(dest):
+def _write_readme(dest, coupled=False, nmodels=1):
     text = """# Exasim Text2Code Export
 
 This directory contains high-level Text2Code inputs exported from an Exasim frontend.
@@ -293,6 +333,7 @@ Generated files:
 - `pdeapp.txt`: application, mesh, solver, output, and runtime configuration.
 - `grid.bin`: mesh coordinates and connectivity.
 - `xdg.bin`, `udg.bin`, `vdg.bin`, `wdg.bin`: optional field data written only when present.
+- `materialdatabase.bin`: optional material-property database packaged when `pde.materialdatabase` is specified.
 
 Regenerate the application with:
 
@@ -301,6 +342,13 @@ Regenerate the application with:
 ```
 
 The `vdg.bin` file stores external variables. In backend data structures these are also called `odg`.
+"""
+    if coupled:
+        text += f"""
+Coupled export:
+
+- This package contains {nmodels} coupled model definitions (`pdeapp*.txt`, `pdemodel*.txt`, `grid*.bin`).
+- Coupled material databases, when present, use model-specific names such as `materialdatabase1.bin`.
 """
     with open(os.path.join(dest, "README.md"), "w", encoding="utf-8") as f:
         f.write(text)

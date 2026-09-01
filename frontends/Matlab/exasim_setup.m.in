@@ -18,6 +18,7 @@ addpath(fullfile(srcdir, 'Mesh', 'cmesh'));
 addpath(fullfile(srcdir, 'Mesh', 'lesmesh'));
 addpath(fullfile(srcdir, 'Mesh', 'surfmesh'));
 addpath(fullfile(srcdir, 'HDG'));
+addpath(fullfile(srcdir, 'Materials'));
 addpath(fullfile(srcdir, 'Preprocessing'));
 addpath(fullfile(srcdir, 'Postprocessing'));
 addpath(fullfile(srcdir, 'Utilities'));

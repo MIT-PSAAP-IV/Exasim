@@ -46,6 +46,7 @@ if ~exist(char(dest), 'dir'), mkdir(char(dest)); end
 % 1. Runtime inputs + the output directory the solver writes into.
 copytree(datain, dest + "/datain");
 if ~exist(char(dest + "/dataout"), 'dir'), mkdir(char(dest + "/dataout")); end
+process_materialdatabase(pde, dest + "/datain");
 write_physicsparamcases_if_needed(pde, dest + "/datain");
 
 % 2. The generated kernel .cpp set.

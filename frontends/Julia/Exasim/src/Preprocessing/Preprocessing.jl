@@ -40,6 +40,7 @@ include("mkfaceblocks.jl");
 include("writesol.jl");
 include("writeapp.jl");
 include("writemaster.jl");
+include("process_materialdatabase.jl");
 include("initializepde.jl");
 include("initializemesh.jl");
 include("initializeexasim.jl");
@@ -64,6 +65,7 @@ end
 if !isdir(dataout_path)
     mkpath(dataout_path)
 end
+process_materialdatabase(app, datain_path)
 
 filename = joinpath(app.datapath, "datain", strn) * "/"
 fileapp = filename * "app.bin"

@@ -20,6 +20,7 @@ def initializepde(version):
     pde['buildpath'] = pde['builddir'];
     pde['modelid'] = -1;    # external builtin model ID; -1 = auto (100 + modelnumber), resolved in cmakecompile
     pde['exasimpath'] = ""; # Exasim install prefix; resolved by cmakecompile
+    pde['materialdatabase'] = "";
 
     pde['codename'] = "Exasim";
     pde['version'] = version;

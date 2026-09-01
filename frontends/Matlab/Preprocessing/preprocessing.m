@@ -31,13 +31,15 @@ else
     strn = num2str(app.modelnumber);
 end
 
-if  ~exist(char(app.datapath + "/datain" + strn), 'dir')
-    mkdir(char(app.datapath + "/datain" + strn));
+datain_dir = app.datapath + "/datain" + strn;
+if  ~exist(char(datain_dir), 'dir')
+    mkdir(char(datain_dir));
 end
 if  ~exist(char(app.datapath + "/dataout" + strn), 'dir')
     mkdir(char(app.datapath + "/dataout" + strn));
 end
-filename = app.datapath + "/datain" + strn + "/";
+process_materialdatabase(app, datain_dir);
+filename = datain_dir + "/";
 fileapp = filename + "app.bin";
 filemaster = filename + "master.bin";
 endian = 'native';

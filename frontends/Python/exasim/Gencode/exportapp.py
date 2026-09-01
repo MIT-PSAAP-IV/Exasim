@@ -6,6 +6,7 @@ import tempfile
 import numpy
 
 from .. import config
+from ..Preprocessing.process_materialdatabase import process_materialdatabase
 from .cmakecompile import _render
 
 
@@ -64,9 +65,11 @@ def exportapp(pde, dest=None, build=True):
     os.makedirs(dest, exist_ok=True)
 
     # 1. Runtime inputs + the output directory the solver writes into.
-    _copytree(datain, os.path.join(dest, "datain"))
+    exported_datain = os.path.join(dest, "datain")
+    _copytree(datain, exported_datain)
     os.makedirs(os.path.join(dest, "dataout"), exist_ok=True)
-    _write_physicsparamcases_if_needed(pde, os.path.join(dest, "datain"))
+    process_materialdatabase(pde, exported_datain)
+    _write_physicsparamcases_if_needed(pde, exported_datain)
 
     # 2. The generated kernel .cpp set.
     _copytree(kernels, os.path.join(dest, "kernels"))

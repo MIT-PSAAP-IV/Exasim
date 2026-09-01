@@ -26,6 +26,7 @@ pde.builddir = string(fullfile(pwd(), ".exasim"));
 pde.buildpath = pde.builddir;
 pde.modelid = -1;    % external builtin model ID; -1 = auto (100 + modelnumber), resolved in cmakecompile
 pde.exasimpath = ""; % Exasim install prefix; resolved by cmakecompile
+pde.materialdatabase = "";
 pde.version = version;
 pde.appname = "app";
 pde.platform = "cpu";

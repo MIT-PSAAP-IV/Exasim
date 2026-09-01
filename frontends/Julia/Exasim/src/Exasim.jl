@@ -21,15 +21,17 @@ include("Preprocessing/Master.jl")
 include("Gencode/Gencode.jl")
 include("Preprocessing/Preprocessing.jl")
 include("Mesh/Mesh.jl")
+include("Materials/MaterialDatabase.jl")
 include("Postprocessing/Postprocessing.jl")
 
 using .Preprocessing: initializeexasim, preprocessing
 using .Postprocessing: exasim, vis, fetchsolution
 using .Mesh
+using .Materials
 using .Gencode
 
 export initializeexasim, preprocessing, exasim, vis, fetchsolution,
        exportapp, exporttext2code, exporttext2codemesh,
-       Preprocessing, Gencode, Mesh, Postprocessing
+       Preprocessing, Gencode, Mesh, Materials, Postprocessing
 
 end

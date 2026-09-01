@@ -12,17 +12,59 @@ function exporttext2code(pde, mesh, dest="")
     dest = abspath(dest)
     mkpath(dest)
 
-    _t2c_infer_dimensions!(pde, mesh)
-
     println("Export Exasim Text2Code package to $dest ...")
-    genpdemodel(pde, joinpath(dest, "pdemodel.txt"))
-
-    files = _t2c_write_binaries(mesh, dest)
-    _t2c_write_pdeapp(pde, mesh, files, joinpath(dest, "pdeapp.txt"))
-    _t2c_write_readme(dest)
+    if pde isa AbstractVector
+        mesh isa AbstractVector || error("exporttext2code: coupled export requires mesh to be a vector.")
+        length(pde) == length(mesh) || error("exporttext2code: pde and mesh vectors must have the same length.")
+        length(pde) >= 2 || error("exporttext2code: coupled export requires at least two models.")
+        for i in eachindex(pde)
+            _t2c_export_single!(pde[i], mesh[i], dest, string(i), length(pde), i)
+        end
+        _t2c_write_readme(dest; coupled=true, nmodels=length(pde))
+    else
+        _t2c_export_single!(pde, mesh, dest, "", 1, 0)
+        _t2c_write_readme(dest)
+    end
 
     println("Exported Text2Code package: $dest")
     return dest
+end
+
+function _t2c_export_single!(pde, mesh, dest, suffix="", nmodels=1, modelslot=0)
+    _t2c_infer_dimensions!(pde, mesh)
+    if isempty(String(_t2c_getapp(pde, "model", ""))) && !_t2c_empty(_t2c_getapp(pde, "pdemodel", ""))
+        _t2c_setapp!(pde, "model", _t2c_getapp(pde, "pdemodel", ""))
+    end
+    if modelslot > 0
+        _t2c_setapp!(pde, "builtinmodelID", _t2c_modelid(pde, modelslot))
+    elseif Int(_t2c_getapp(pde, "builtinmodelID", 0)) == 0
+        _t2c_setapp!(pde, "builtinmodelID", 0)
+    end
+    _t2c_setapp!(pde, "frontendgenerated", 0)
+
+    pdemodelname = "pdemodel" * suffix * ".txt"
+    pdeappname = "pdeapp" * suffix * ".txt"
+    genpdemodel(pde, joinpath(dest, pdemodelname))
+
+    files = _t2c_write_binaries(mesh, dest, suffix)
+    pdeapp_source = pde
+    materialdatabase = strip(String(_t2c_getapp(pde, "materialdatabase", "")))
+    if !isempty(materialdatabase)
+        packaged = "materialdatabase" * suffix * ".bin"
+        process_materialdatabase(pde, dest, packaged)
+        pdeapp_source = _t2c_pde_dict(pde)
+        pdeapp_source["materialdatabase"] = packaged
+    end
+    _t2c_write_pdeapp(pdeapp_source, mesh, files, joinpath(dest, pdeappname), pdemodelname)
+    return pde
+end
+
+function _t2c_modelid(pde, modelslot)
+    id = Int(_t2c_getapp(pde, "builtinmodelID", 0))
+    id > 0 && return id
+    modelid = Int(_t2c_getapp(pde, "modelid", -1))
+    modelid >= 0 && return modelid
+    return 100 + modelslot - 1
 end
 
 function _t2c_pde_dict(pde)
@@ -77,19 +119,19 @@ function _t2c_setapp!(app, key, value)
     end
 end
 
-function _t2c_write_binaries(mesh, dest)
-    files = Dict{String,String}("meshfile" => "grid.bin")
+function _t2c_write_binaries(mesh, dest, suffix="")
+    files = Dict{String,String}("meshfile" => "grid" * suffix * ".bin")
     p = _t2c_get(mesh, :p)
     t = _t2c_get(mesh, :t)
     isnothing(p) && error("exporttext2code: mesh must contain p array.")
     isnothing(t) && error("exporttext2code: mesh must contain t array.")
-    _t2c_writebin(joinpath(dest, "grid.bin"), vcat(collect(size(p)), collect(size(t)), vec(p), vec(t)))
+    _t2c_writebin(joinpath(dest, files["meshfile"]), vcat(collect(size(p)), collect(size(t)), vec(p), vec(t)))
 
     optional = [
-        (:dgnodes, "xdgfile", "xdg.bin"),
-        (:udg, "udgfile", "udg.bin"),
-        (:vdg, "vdgfile", "vdg.bin"),
-        (:wdg, "wdgfile", "wdg.bin"),
+        (:dgnodes, "xdgfile", "xdg" * suffix * ".bin"),
+        (:udg, "udgfile", "udg" * suffix * ".bin"),
+        (:vdg, "vdgfile", "vdg" * suffix * ".bin"),
+        (:wdg, "wdgfile", "wdg" * suffix * ".bin"),
     ]
     for (meshkey, appkey, filename) in optional
         value = _t2c_get(mesh, meshkey)
@@ -101,9 +143,9 @@ function _t2c_write_binaries(mesh, dest)
     return files
 end
 
-function _t2c_write_pdeapp(pde, mesh, files, path)
+function _t2c_write_pdeapp(pde, mesh, files, path, modelfile="pdemodel.txt")
     app = _t2c_pde_dict(pde)
-    app["modelfile"] = "pdemodel.txt"
+    app["modelfile"] = modelfile
     app["meshfile"] = files["meshfile"]
     for key in ["xdgfile", "udgfile", "vdgfile", "wdgfile"]
         if haskey(files, key)
@@ -146,6 +188,7 @@ function _t2c_write_pdeapp(pde, mesh, files, path)
 
     keys = [
         "model", "modelfile", "meshfile", "xdgfile", "udgfile", "vdgfile", "wdgfile",
+        "materialdatabase",
         "discretization", "platform", "mpiprocs", "debugmode", "runmode", "modelnumber",
         "builtinmodelID", "frontendgenerated",
         "nodetype", "ncu", "ncv", "ncw", "neb", "nfb", "linearproblem", "subproblem",
@@ -293,7 +336,7 @@ end
 
 _t2c_format_float(value) = string(Float64(value))
 
-function _t2c_write_readme(dest)
+function _t2c_write_readme(dest; coupled=false, nmodels=1)
     text = """
 # Exasim Text2Code Export
 
@@ -305,6 +348,7 @@ Generated files:
 - `pdeapp.txt`: application, mesh, solver, output, and runtime configuration.
 - `grid.bin`: mesh coordinates and connectivity.
 - `xdg.bin`, `udg.bin`, `vdg.bin`, `wdg.bin`: optional field data written only when present.
+- `materialdatabase.bin`: optional material-property database packaged when `pde.materialdatabase` is specified.
 
 Regenerate the application with:
 
@@ -314,6 +358,15 @@ Regenerate the application with:
 
 The `vdg.bin` file stores external variables. In backend data structures these are also called `odg`.
 """
+    if coupled
+        text *= """
+
+Coupled export:
+
+- This package contains $nmodels coupled model definitions (`pdeapp*.txt`, `pdemodel*.txt`, `grid*.bin`).
+- Coupled material databases, when present, use model-specific names such as `materialdatabase1.bin`.
+"""
+    end
     open(joinpath(dest, "README.md"), "w") do io
         write(io, text)
     end
