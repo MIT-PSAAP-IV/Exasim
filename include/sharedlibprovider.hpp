@@ -1,4 +1,6 @@
 #pragma once
+
+#include "driver_abi.hpp"
 #include <stdexcept>
 
 extern "C" const ExasimDriverABI* GetText2CodeExasimDriverABI();

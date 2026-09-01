@@ -114,16 +114,16 @@
 //   void initu (dstype ui[/*ncu*/], const dstype x[/*nd*/],
 //               const dstype uinf[/*ncu*/], const dstype mu[/*nparam*/]);
 //
-// Volume pointwise methods (`flux`, `source`, `sourcew`, `tdfunc`,
-// `avfield`, `eos`, `eos_du`, `eos_dw`) all take args
-//   (out, x, uq, w, mu, uinf, t)
+// Volume pointwise methods (`flux`, `source`, `sourcew`, `materialstate`,
+// `tdfunc`, `avfield`, `eos`, `eos_du`, `eos_dw`) all take args
+//   (out, x, uq, v, w, mu, uinf, t)
 // after the output buffer. `uinf` is pointer-passed and may be
 // nullptr — methods that need free-stream values dereference at
 // their own risk.
 //
 // Optional pointwise functions (default = zero-fill, via ModelDefaults):
 //
-//   source, sourcew, fbou, ubou, fhat, uhat, stab,
+//   source, sourcew, materialstate, fbou, ubou, fhat, uhat, stab,
 //   tdfunc, eos, eos_du, eos_dw, avfield,
 //   init{q, udg, wdg, odg}, monitor, output,
 //   vis_scalars, vis_vectors, vis_tensors,
@@ -135,6 +135,7 @@
 //
 //   flux_jac_uq, flux_jac_w,
 //   source_jac_uq, source_jac_w,
+//   materialstate_jac_uq, materialstate_jac_w,
 //   fbou_jac_uq, fbou_jac_uh, fbou_jac_w,
 //   ubou_jac_uq, ubou_jac_uh, ubou_jac_w,
 //   fhat_jac_uq, fhat_jac_uh, fhat_jac_w,
@@ -172,6 +173,10 @@ struct ModelDefaults {
     static constexpr int nsurf = 0;
     static constexpr int nvqoi = 0;
 
+    // Optional material-state width for materialstate(). Models without
+    // materialstate leave this at zero.
+    static constexpr int nmaterialstate = 0;
+
     // Helper: zero-fill an output buffer of size N at compile time.
     template <int N>
     KOKKOS_INLINE_FUNCTION static void zero_fill_(dstype f[]) {
@@ -200,6 +205,14 @@ struct ModelDefaults {
                  const dstype /*v*/[],  const dstype /*w*/[],  const dstype /*mu*/[],
                  const dstype /*uinf*/[], dstype /*t*/) {
         if constexpr (Self::ncw > 0) zero_fill_<Self::ncw>(sw);
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void materialstate(dstype state[],
+                       const dstype /*x*/[],  const dstype /*uq*/[],
+                       const dstype /*v*/[],  const dstype /*w*/[],  const dstype /*mu*/[],
+                       const dstype /*uinf*/[], dstype /*t*/) {
+        if constexpr (Self::nmaterialstate > 0) zero_fill_<Self::nmaterialstate>(state);
     }
 
     KOKKOS_INLINE_FUNCTION static
@@ -468,6 +481,27 @@ struct ModelDefaults {
                       const dstype /*uinf*/[], dstype /*t*/) {
         if constexpr (Self::ncw > 0) {
             for (int k = 0; k < Self::ncu * Self::ncw; ++k) s_w[k] = 0.0;
+        }
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void materialstate_jac_uq(dstype state_uq[],
+                              const dstype /*x*/[],  const dstype /*uq*/[],
+                              const dstype /*v*/[],  const dstype /*w*/[],
+                              const dstype /*mu*/[], const dstype /*uinf*/[],
+                              dstype /*t*/) {
+        constexpr int Nq = Self::ncu * (1 + Self::nd);
+        for (int k = 0; k < Self::nmaterialstate * Nq; ++k) state_uq[k] = 0.0;
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void materialstate_jac_w(dstype state_w[],
+                             const dstype /*x*/[],  const dstype /*uq*/[],
+                             const dstype /*v*/[],  const dstype /*w*/[],
+                             const dstype /*mu*/[], const dstype /*uinf*/[],
+                             dstype /*t*/) {
+        if constexpr (Self::ncw > 0) {
+            for (int k = 0; k < Self::nmaterialstate * Self::ncw; ++k) state_w[k] = 0.0;
         }
     }
 

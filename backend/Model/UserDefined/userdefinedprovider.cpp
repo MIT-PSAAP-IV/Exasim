@@ -19,6 +19,8 @@ using ::PdeModel;
 #include "KokkosFhat.cpp"
 #include "KokkosFbou.cpp"
 #include "KokkosUbou.cpp"
+#include "KokkosFbouJac.cpp"
+#include "KokkosUbouJac.cpp"
 #include "KokkosUhat.cpp"
 #include "KokkosStab.cpp"
 #include "KokkosSource.cpp"
