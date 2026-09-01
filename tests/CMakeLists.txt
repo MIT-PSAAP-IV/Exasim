@@ -11,6 +11,20 @@
 # EXASIM_BUILD_TESTS=ON, builds, runs ctest).
 cmake_minimum_required(VERSION 3.16)
 
+
+# Backend material-database appstruct conversion.  This is intentionally scoped
+# to the appstruct-based reader used by the backend initialization path; PSAAP
+# does not build the older standalone backend/Materials module.
+add_executable(appstruct_materialdatabase_test
+  "${EXASIM_DIR}/tests/materials/appstruct_materialdatabase_test.cpp")
+target_include_directories(appstruct_materialdatabase_test PRIVATE
+  "${EXASIM_DIR}")
+target_compile_features(appstruct_materialdatabase_test PRIVATE cxx_std_17)
+add_test(NAME appstruct_materialdatabase
+  COMMAND appstruct_materialdatabase_test
+    "${CMAKE_CURRENT_BINARY_DIR}")
+set_tests_properties(appstruct_materialdatabase PROPERTIES TIMEOUT 60)
+
 # CPU-only consumer (non-MPI, single process).
 add_test(NAME consumer_builtin_cpu
   COMMAND ${CMAKE_COMMAND} -E env
