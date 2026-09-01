@@ -7,6 +7,7 @@ mutable struct PDEStruct
     datapath::String;   # runtime data dir (datain/, dataout/); default cwd
     builddir::String;   # hidden dir for generated code + app build
     modelid::IntP;      # external builtin model ID for the generated model
+    materialdatabase::String; # optional .dat/.bin material database
     appname::String;  # application name
     platform::String; # CPU or GPU
     cpucompiler::String; # Path to CPU compiler
@@ -189,6 +190,7 @@ function initializepde(version)
     pde.exasimpath = ""; # Exasim install prefix; resolved by cmakecompile
     pde.buildpath = pde.builddir;
     pde.backendpath = "";
+    pde.materialdatabase = "";
     pde.version = version;
     pde.appname = "app";
     pde.platform = "cpu";

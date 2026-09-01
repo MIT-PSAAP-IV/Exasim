@@ -50,6 +50,7 @@ include("cmakecompile_combined.jl");
 include("runcode.jl");
 include("runcode_combined.jl");
 include("genpdemodel.jl");
+include(joinpath("..", "Preprocessing", "process_materialdatabase.jl"));
 include("exportapp.jl");
 include("exporttext2code.jl");
 include("exporttext2codemesh.jl");

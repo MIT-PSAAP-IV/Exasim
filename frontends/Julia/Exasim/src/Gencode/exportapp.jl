@@ -55,9 +55,11 @@ function exportapp(pde, dest=nothing; build=true)
     mkpath(dest)
 
     # 1. Runtime inputs + the output directory the solver writes into.
-    _copytree(datain, joinpath(dest, "datain"))
+    exported_datain = joinpath(dest, "datain")
+    _copytree(datain, exported_datain)
     mkpath(joinpath(dest, "dataout"))
-    _write_physicsparamcases_if_needed(pde, joinpath(dest, "datain"))
+    process_materialdatabase(pde, exported_datain)
+    _write_physicsparamcases_if_needed(pde, exported_datain)
 
     # 2. The generated kernel .cpp set.
     _copytree(kernels, joinpath(dest, "kernels"))
