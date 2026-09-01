@@ -11,6 +11,7 @@
 //#include "../ModelDispatch/driver_abi.h"
 
 #include "my_model.hpp"
+#include <exasim/kernels/materialstate.hpp>
 
 namespace text2code_generated_source {
 using ::PdeModel;
@@ -33,6 +34,7 @@ using namespace std;
 #include "KokkosUhat.cpp"
 #include "KokkosStab.cpp"
 #include "KokkosSource.cpp"
+#include "KokkosMaterialstate.cpp"
 #include "KokkosSourcew.cpp"
 #include "KokkosOutput.cpp"
 #include "KokkosMonitor.cpp"
@@ -61,6 +63,7 @@ using namespace std;
 #include "HdgFext.cpp"
 #include "HdgFextonly.cpp"
 #include "HdgSource.cpp"
+#include "HdgMaterialstate.cpp"
 #include "HdgSourcew.cpp"
 #include "HdgSourcewonly.cpp"
 #include "HdgEoS.cpp"
@@ -82,6 +85,7 @@ const ExasimDriverABI& getText2codeGeneratedExasimDriverABI()
         value.volume.KokkosFlux = &text2code_generated_source::KokkosFlux;
         value.volume.KokkosSource = &text2code_generated_source::KokkosSource;
         value.volume.KokkosSourcew = &text2code_generated_source::KokkosSourcew;
+        value.volume.KokkosMaterialstate = &text2code_generated_source::KokkosMaterialstate;
         value.volume.KokkosTdfunc = &text2code_generated_source::KokkosTdfunc;
         value.volume.KokkosAvfield = &text2code_generated_source::KokkosAvfield;
         value.eos.KokkosEoS = &text2code_generated_source::KokkosEoS;
@@ -115,6 +119,7 @@ const ExasimDriverABI& getText2codeGeneratedExasimDriverABI()
 
         value.hdgjac.HdgFlux = &text2code_generated_source::HdgFlux;
         value.hdgjac.HdgSource = &text2code_generated_source::HdgSource;
+        value.hdgjac.HdgMaterialstate = &text2code_generated_source::HdgMaterialstate;
         value.hdgjac.HdgSourcew = &text2code_generated_source::HdgSourcew;
         value.hdgjac.HdgSourcewonly = &text2code_generated_source::HdgSourcewonly;
         value.hdgjac.HdgEoS = &text2code_generated_source::HdgEoS;
@@ -133,10 +138,12 @@ const ExasimDriverABI& getText2codeGeneratedExasimDriverABI()
         value.nten = PdeModel::nten;
         value.nsurf = PdeModel::nsurf;
         value.nvqoi = PdeModel::nvqoi;
+        value.nmaterialstate = PdeModel::nmaterialstate;
         value.GetModelSizes = [](int) -> ModelSizes {
             return {PdeModel::ncu, PdeModel::nco, PdeModel::ncw,
                     PdeModel::nsca, PdeModel::nvec, PdeModel::nten,
-                    PdeModel::nsurf, PdeModel::nvqoi};
+                    PdeModel::nsurf, PdeModel::nvqoi,
+                    PdeModel::nmaterialstate};
         };
 
         return value;
