@@ -111,7 +111,7 @@
 //
 // Volume pointwise methods (`flux`, `source`, `sourcew`, `materialstate`,
 // `tdfunc`, `avfield`, `eos`, `eos_du`, `eos_dw`) all take args
-//   (out, x, uq, w, mu, uinf, t)
+//   (out, x, uq, v, w, mu, uinf, t)
 // after the output buffer. `uinf` is pointer-passed and may be
 // nullptr — methods that need free-stream values dereference at
 // their own risk.
