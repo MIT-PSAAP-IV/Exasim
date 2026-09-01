@@ -1374,6 +1374,29 @@ void GetElementFaceNodes(Ty* uhe, const Ty* uhf, const int* elemcon, const int n
     }
 }
 
+// Gather an LDG trace written by PutElemNodes.  Unlike the HDG trace/vector
+// layout used by GetElementFaceNodes above, sol.uh in the LDG path is stored
+// as [npf, ncu, nf]: face node is the fastest index, followed by component.
+// The output remains [ndf, ne, ncu], matching opt == 0 above and Node2Gauss.
+template <class Ty = dstype>
+void GetElementFaceNodesLDG(Ty* uhe, const Ty* uhf, const int* elemcon,
+        const int ndf, const int ncu, const int npf, const int e1, const int e2)
+{
+    using dstype = Ty;
+    int ne = e2-e1;
+    int N = ndf*ne*ncu;
+    Kokkos::parallel_for("GetElementFaceNodesLDG", N, KOKKOS_LAMBDA(const size_t idx) {
+        int i = idx%ndf; // [0, npf*nfe)
+        int k = idx/ndf; // [0, ne*ncu)
+        int e = k%ne;    // [0, ne)
+        int j = k/ne;    // [0, ncu)
+        int m = elemcon[i + (e+e1)*ndf]; // global face-node index
+        int node = m%npf;
+        int face = m/npf;
+        uhe[idx] = uhf[node + j*npf + face*npf*ncu];
+    });
+}
+
 template <class Ty = dstype>
 void PutElementFaceNodes(Ty* uhf, const Ty* uhe, const int* f2e, const int npf, const int nfe, const int ncu, const int nf)
 {

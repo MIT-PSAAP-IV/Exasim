@@ -258,7 +258,10 @@ inline void uEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, a
     dstype *wdg_uq = &tmp.tempg[n8 + nga*ncu*nd + nga*ncu*nd*nc + nga*ncu*ncu + nga*ncu*nd*ncw];        
                 
     // npf * nfe * ne * ncu
-    GetElementFaceNodes(tmp.tempn, sol.uh, mesh.elemcon, npf*nfe, ncu, e1, e2, 0); // fixed bug here
+    if (common.spatialScheme == 0)
+        GetElementFaceNodesLDG(tmp.tempn, sol.uh, mesh.elemcon, npf*nfe, ncu, npf, e1, e2);
+    else
+        GetElementFaceNodes(tmp.tempn, sol.uh, mesh.elemcon, npf*nfe, ncu, e1, e2, 0);
 
     // udg = tmp.tempg[n4] at gauss points on face
     GetElementFaceNodes(&tmp.tempn[nn*ncu], sol.udg, mesh.perm, npf*nfe, nc, npe, nc, e1, e2);
@@ -958,7 +961,10 @@ inline void RuEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, 
     dstype *fh     = &tmp.tempg[n8];
     
     // uhg = tmp.tempg[n3] at gauss points on face
-    GetElementFaceNodes(tmp.tempn, sol.uh, mesh.elemcon, npf*nfe, ncu, e1, e2, 0); // fixed bug here
+    if (common.spatialScheme == 0)
+        GetElementFaceNodesLDG(tmp.tempn, sol.uh, mesh.elemcon, npf*nfe, ncu, npf, e1, e2);
+    else
+        GetElementFaceNodes(tmp.tempn, sol.uh, mesh.elemcon, npf*nfe, ncu, e1, e2, 0);
 
     // udg = tmp.tempg[n4] at gauss points on face
     GetElementFaceNodes(&tmp.tempn[nn*ncu], sol.udg, mesh.perm, npf*nfe, nc, npe, nc, e1, e2);
