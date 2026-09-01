@@ -41,6 +41,19 @@ if isfield(pde, 'source')
 else    
     nocodeelem("Source" + strn, codedir);    
 end
+if isfield(pde, 'materialstate')
+    f = pde.materialstate(u, q, wdg, odg, xdg, time, param, uinf);
+    f = f(:);
+    kkgencodematerialstate("Materialstate" + strn, f, xdg, udg, odg, wdg, uinf, param, time, codedir);
+    if app.hybrid == 1
+        hdgkkgencodematerialstate("Materialstate" + strn, f, xdg, udg, odg, wdg, uinf, param, time, codedir);
+    else
+        hdgkknocodematerialstate("Materialstate" + strn, codedir);
+    end
+else
+    kknocodematerialstate("Materialstate" + strn, codedir);
+    hdgkknocodematerialstate("Materialstate" + strn, codedir);
+end
 if isfield(pde, 'eos')
     f = pde.eos(u, q, wdg, odg, xdg, time, param, uinf);
     gencodeelem2("EoS" + strn, f, xdg, udg, odg, wdg, uinf, param, time, codedir);

@@ -104,6 +104,13 @@ f = pdem.fbouhdg(u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, tau);
 blocks(end+1) = emit_function("FbouHdg", faceArgs, "fb", f);
 present(end+1) = "FbouHdg";
 
+% ----- Materialstate (optional) -----
+if isfield(pdem, 'materialstate')
+    f = pdem.materialstate(u, q, wdg, odg, xdg, time, param, uinf);
+    blocks(end+1) = emit_function("Materialstate", elemArgs, "state", f);
+    present(end+1) = "Materialstate";
+end
+
 % ----- Fint (interface coupling; optional for single-domain models) -----
 if isfield(pdem, 'fint')
     f = pdem.fint(u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, tau);
@@ -299,7 +306,7 @@ function ln = outputs_line(present)
 % requirement (Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg) followed by any
 % optional functions actually emitted.
 order = ["Flux", "Source", "Tdfunc", "Ubou", "Fbou", "FbouHdg", ...
-         "Fint", "Initu", "VisScalars", "VisVectors", "VisTensors", ...
+         "Materialstate", "Fint", "Initu", "VisScalars", "VisVectors", "VisTensors", ...
          "QoIvolume", "QoIboundary"];
 outs = order(ismember(order, present));
 ln = "outputs " + strjoin(outs, ", ");

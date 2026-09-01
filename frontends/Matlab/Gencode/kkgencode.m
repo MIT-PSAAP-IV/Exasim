@@ -67,6 +67,23 @@ if isfield(pde, 'source')
 else    
     error("pde.source is not defined");
 end
+if isfield(pde, 'materialstate')
+    f = pde.materialstate(u, q, wdg, odg, xdg, time, param, uinf);
+    f = f(:);
+    app.nmaterialstate = length(f);
+    kkgencodematerialstate("Materialstate" + strn, f, xdg, udg, odg, wdg, uinf, param, time, kkdir);
+    if app.hybrid == 1
+        hdgkkgencodematerialstate("Materialstate" + strn, f, xdg, udg, odg, wdg, uinf, param, time, kkdir);
+    else
+        hdgkknocodematerialstate("Materialstate" + strn, kkdir);
+    end
+else
+    if ~isfield(app, 'nmaterialstate')
+        app.nmaterialstate = 0;
+    end
+    kknocodematerialstate("Materialstate" + strn, kkdir);
+    hdgkknocodematerialstate("Materialstate" + strn, kkdir);
+end
 if isfield(pde, 'visscalars')
     f = pde.visscalars(u, q, wdg, odg, xdg, time, param, uinf);
     kkgencodeelem("VisScalars" + strn, f, xdg, udg, odg, wdg, uinf, param, time, kkdir);    
@@ -249,6 +266,7 @@ nvec_  = app.nvec;
 nten_  = app.nten;
 nsurf_ = app.nbqoi;
 nvqoi_ = app.nvqoi;
+nmaterialstate_ = app.nmaterialstate;
 fid = fopen(kkdir + "/model_sizes.hpp", "w");
 fprintf(fid, "#ifndef EXASIM_MODEL_SIZES_HPP\n");
 fprintf(fid, "#define EXASIM_MODEL_SIZES_HPP\n");
@@ -262,6 +280,7 @@ fprintf(fid, "    static constexpr int nvec  = %d;\n", nvec_);
 fprintf(fid, "    static constexpr int nten  = %d;\n", nten_);
 fprintf(fid, "    static constexpr int nsurf = %d;\n", nsurf_);
 fprintf(fid, "    static constexpr int nvqoi = %d;\n", nvqoi_);
+fprintf(fid, "    static constexpr int nmaterialstate = %d;\n", nmaterialstate_);
 fprintf(fid, "}\n");
 fprintf(fid, "\n");
 fprintf(fid, "#endif\n");
