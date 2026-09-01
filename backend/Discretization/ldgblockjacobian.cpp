@@ -949,7 +949,7 @@ void uEquationElemFaceBlockLDG(solstruct &sol, resstruct &res, appstruct &app,
             ngf, npf, nf*(ncu+nc+nco+ncw+ncw), backend);
 
     if ((ncw > 0) && (common.timeparams.wave == 0)) {
-        wEquation<exasim::detail::AbiAdapter>(wdg, wdg_uq, xg, udg, odg, wsrc, tmp.tempn, app, common, nga, backend);
+        wEquation<exasim::detail::AbiAdapter>(wdg, wdg_uq, xg, udg, odg, wsrc, tmp.tempn, app, common, nga, backend, tmp.tempi);
     }
 
     ArraySetValue(fg, 0.0, nga*ncu*nd);
@@ -1022,7 +1022,7 @@ void uEquationElemFaceBlockLDG(solstruct &sol, resstruct &res, appstruct &app,
                 ArrayCopy(res.F, ugb, ngb*nc);
                 ArrayCopy(res.F, uhb, ngb*ncu);
                 wEquation<exasim::detail::AbiAdapter>(wgb, wgb_uq, xgb, res.F, ogb, wsb, &res.F[ngb*nc],
-                        app, common, ngb, backend);
+                        app, common, ngb, backend, tmp.tempi);
             }
 
             ArraySetValue(fhb, 0.0, ngb*ncu);

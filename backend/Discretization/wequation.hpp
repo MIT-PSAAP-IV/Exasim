@@ -83,8 +83,210 @@ static void ReportNanInHdgSourcewonlyOutput(const char* field, const T* data,
 }
 
 template <class M, class T=dstype, class I=Int>
+inline Int MaterialstateComponentCount(commonstructT<T,I> &common)
+{
+    if constexpr (std::is_same_v<M, exasim::detail::AbiAdapter>) {
+        Int nmaterialstate = common.driver_abi->nmaterialstate;
+        if (nmaterialstate == 0 && common.driver_abi->GetModelSizes) {
+            nmaterialstate = common.driver_abi->GetModelSizes(common.modelnumber).nmaterialstate;
+        }
+        return nmaterialstate;
+    } else {
+        return M::nmaterialstate;
+    }
+}
+
+template <class M, class T=dstype, class I=Int>
+inline void ValidateMaterialDatabaseForWEquation(appstructT<T,I> &app,
+        commonstructT<T,I> &common, Int ncw)
+{
+    if (app.materialdb_nprop == 0)
+        return;
+    if (app.materialdb_nprop < 0 || app.materialdb_nprop > ncw)
+        error("Material database property count must be between zero and ncw.");
+    if (app.materialdb_nstate <= 0 || app.materialdb_ne <= 0 || app.materialdb_porder < 1)
+        error("Material database metadata are inconsistent.");
+    if (app.materialdb_statecoords == nullptr || app.materialdb_propvalues == nullptr ||
+        app.materialdb_elemcoords == nullptr || app.materialdb_elementcounts == nullptr ||
+        app.materialdb_elemoffset == nullptr)
+        error("Material database arrays are not initialized.");
+    Int nmaterialstate = MaterialstateComponentCount<M,T,I>(common);
+    if (nmaterialstate != app.materialdb_nstate)
+        error("materialstate output dimension does not match material database state dimension.");
+}
+
+template <class T=dstype>
+inline void SolveSmallMatrix(T *rhs, T *A, Int ng, Int nrhs, Int nvar,
+        const char *message)
+{
+    if (nvar==1) {
+      SmallMatrixSolve11(rhs, A, ng, nrhs);
+    }
+    else if (nvar==2) {
+      SmallMatrixSolve22(rhs, A, ng, nrhs);
+    }
+    else if (nvar==3) {
+      SmallMatrixSolve33(rhs, A, ng, nrhs);
+    }
+    else if (nvar==4) {
+      SmallMatrixSolve44(rhs, A, ng, nrhs);
+    }
+    else if (nvar==5) {
+      SmallMatrixSolve55(rhs, A, ng, nrhs);
+    }
+    else {
+      error(message);
+    }
+}
+
+template <class T=dstype>
+inline void CopyCompactWdgUdgToFull(T *wdg_udg, const T *aux_udg,
+        Int ng, Int ncwa, Int ncw, Int nc, Int backend)
+{
+    (void)backend;
+    if (ncwa <= 0)
+        return;
+    Kokkos::parallel_for("CopyCompactWdgUdgToFull", ng*ncwa*nc,
+        KOKKOS_LAMBDA(const int idx) {
+            const int ig = idx % ng;
+            const int q = idx / ng;
+            const int iw = q % ncwa;
+            const int ju = q / ncwa;
+            wdg_udg[ig + ng*(iw + ncw*ju)] = aux_udg[idx];
+        });
+}
+
+template <class T=dstype>
+inline void ChainMaterialStateUdg(T *state_udg_total,
+        const T *state_udg_partial, const T *state_wdg_partial,
+        const T *aux_udg, Int ng, Int nmaterialstate, Int ncwa, Int nc,
+        Int backend)
+{
+    (void)backend;
+    Kokkos::parallel_for("ChainMaterialStateUdg", ng*nmaterialstate*nc,
+        KOKKOS_LAMBDA(const int idx) {
+            const int ig = idx % ng;
+            const int q = idx / ng;
+            const int r = q % nmaterialstate;
+            const int ju = q / nmaterialstate;
+            T value = state_udg_partial[idx];
+            for (int iw = 0; iw < ncwa; ++iw) {
+                value += state_wdg_partial[ig + ng*(r + nmaterialstate*iw)] *
+                         aux_udg[ig + ng*(iw + ncwa*ju)];
+            }
+            state_udg_total[idx] = value;
+        });
+}
+
+template <class T=dstype>
+inline void ChainMaterialPropertiesUdg(T *wdg_udg,
+        const T *dprop_dstate, const T *state_udg_total, Int ng,
+        Int nprop, Int nmaterialstate, Int ncwa, Int ncw, Int nc, Int backend)
+{
+    (void)backend;
+    Kokkos::parallel_for("ChainMaterialPropertiesUdg", ng*nprop*nc,
+        KOKKOS_LAMBDA(const int idx) {
+            const int ig = idx % ng;
+            const int q = idx / ng;
+            const int ip = q % nprop;
+            const int ju = q / nprop;
+            T value = 0.0;
+            for (int r = 0; r < nmaterialstate; ++r) {
+                value += dprop_dstate[ig + ng*(ip + nprop*r)] *
+                         state_udg_total[ig + ng*(r + nmaterialstate*ju)];
+            }
+            wdg_udg[ig + ng*((ncwa + ip) + ncw*ju)] = value;
+        });
+}
+
+template <class M, class T=dstype, class I=Int>
+inline void EvaluateMaterialProperties(T *wdg, T *xdg, T *udg,
+        T *odg, T *tempg, Int *tempi, appstructT<T,I> &app,
+        commonstructT<T,I> &common, Int ng, Int ncwa, Int backend)
+{
+    (void)backend;
+    if (tempi == nullptr)
+        error("Material database interpolation requires integer temporary workspace.");
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int nd = common.grid.nd;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
+    Int nmaterialstate = MaterialstateComponentCount<M,T,I>(common);
+    Int modelnumber = common.modelnumber;
+    if ((modelnumber <= 0) && (common.builtinmodelID > 0)) modelnumber = common.builtinmodelID;
+    T *state = tempg;
+    T *tmd = &state[ng*nmaterialstate];
+    if constexpr (std::is_same_v<M, exasim::detail::AbiAdapter>) {
+        common.driver_abi->volume.KokkosMaterialstate(state, xdg, udg, odg,
+            wdg, app.uinf, app.physicsparam, common.timestate.time,
+            modelnumber, ng, nc, ncu, nd, ncx, nco, ncw, nmaterialstate);
+    } else {
+        exasim::materialstate_kernel<M,T>(state, xdg, udg, odg, wdg,
+            app.uinf, app.physicsparam, common.timestate.time, modelnumber,
+            ng, nc, ncu, nd, ncx, nco, ncw, nmaterialstate);
+    }
+    materialproperties_kokkos(&wdg[ng*ncwa], state,
+        app.materialdb_statecoords, app.materialdb_propvalues,
+        app.materialdb_elemcoords, app.materialdb_elementcounts,
+        app.materialdb_elemoffset, tmd, tempi, ng, app.materialdb_ne,
+        app.materialdb_npe, app.materialdb_porder, app.materialdb_nstate,
+        app.materialdb_nprop);
+}
+
+template <class M, class T=dstype, class I=Int>
+inline void EvaluateMaterialPropertiesDerivative(T *wdg, T *wdg_udg,
+        T *xdg, T *udg, T *odg, T *tempg, Int *tempi,
+        appstructT<T,I> &app, commonstructT<T,I> &common, Int ng, Int ncwa,
+        const T *aux_udg, Int backend)
+{
+    if (tempi == nullptr)
+        error("Material database interpolation requires integer temporary workspace.");
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int nd = common.grid.nd;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
+    Int nprop = app.materialdb_nprop;
+    Int nmaterialstate = MaterialstateComponentCount<M,T,I>(common);
+    Int modelnumber = common.modelnumber;
+    if ((modelnumber <= 0) && (common.builtinmodelID > 0)) modelnumber = common.builtinmodelID;
+
+    T *state = tempg;
+    T *state_udg_partial = &state[ng*nmaterialstate];
+    T *state_wdg_partial = &state_udg_partial[ng*nmaterialstate*nc];
+    T *state_udg_total = &state_wdg_partial[ng*nmaterialstate*ncw];
+    T *dprop_dstate = &state_udg_total[ng*nmaterialstate*nc];
+    T *tmd = &dprop_dstate[ng*nprop*nmaterialstate];
+
+    if constexpr (std::is_same_v<M, exasim::detail::AbiAdapter>) {
+        common.driver_abi->hdgjac.HdgMaterialstate(state, state_udg_partial,
+            state_wdg_partial, xdg, udg, odg, wdg, app.uinf,
+            app.physicsparam, common.timestate.time, modelnumber, ng, nc,
+            ncu, nd, ncx, nco, ncw, nmaterialstate);
+    } else {
+        exasim::hdg_materialstate_kernel<M,T>(state, state_udg_partial,
+            state_wdg_partial, xdg, udg, odg, wdg, app.uinf,
+            app.physicsparam, common.timestate.time, modelnumber, ng, nc,
+            ncu, nd, ncx, nco, ncw, nmaterialstate);
+    }
+    ChainMaterialStateUdg(state_udg_total, state_udg_partial, state_wdg_partial,
+        aux_udg, ng, nmaterialstate, ncwa, nc, backend);
+    materialproperties_kokkos(&wdg[ng*ncwa], dprop_dstate,
+        state, app.materialdb_statecoords, app.materialdb_propvalues,
+        app.materialdb_elemcoords, app.materialdb_elementcounts,
+        app.materialdb_elemoffset, tmd, tempi, ng, app.materialdb_ne,
+        app.materialdb_npe, app.materialdb_porder, app.materialdb_nstate,
+        nprop);
+    ChainMaterialPropertiesUdg(wdg_udg, dprop_dstate, state_udg_total, ng,
+        nprop, nmaterialstate, ncwa, ncw, nc, backend);
+}
+
+template <class M, class T=dstype, class I=Int>
 inline void wEquation(T *wdg, T *xdg, T *udg, T *odg, T *wsrc, 
-      T *tempg, appstructT<T,I> &app, commonstructT<T,I> &common, Int ng, Int backend)
+      T *tempg, appstructT<T,I> &app, commonstructT<T,I> &common, Int ng, Int backend, Int *tempi)
 {
     using dstype=T;        
     Int ncu = common.components.ncu; // number of compoments of (u)
@@ -99,7 +301,9 @@ inline void wEquation(T *wdg, T *xdg, T *udg, T *odg, T *wsrc,
     dstype time = common.timestate.time;                
     dstype *uinf = app.uinf;
     dstype *physicsparam = app.physicsparam;    
+    Int nprop = app.materialdb_nprop;
 
+    if (nprop == 0) {
     if (common.timeparams.wave==1) {
         // dw/dt = u -> (dtfactor * w - wsrc) = u -> w = (1/dtfactor) * (u + wsrc)
         dstype scalar = one/common.timestate.dtfactor;
@@ -168,12 +372,44 @@ inline void wEquation(T *wdg, T *xdg, T *udg, T *odg, T *wsrc,
           // update w = w + dw
           ArrayAXPBY(wdg, wdg, s, one, one, ng*ncw);          
         }                        
-    }            
+    }
+    return;
+    }
+
+    ValidateMaterialDatabaseForWEquation<M,T,I>(app, common, ncw);
+    Int ncwa = ncw - nprop;
+
+    if (common.timeparams.wave==1) {
+        dstype scalar = one/common.timestate.dtfactor;
+        if (ncwa > 0)
+            ArrayAXPBY(wdg, udg, wsrc, scalar, scalar, ng*ncwa);
+    }
+    else if (ncwa > 0) {
+        dstype *s = tempg;
+        dstype *s_wdg = &tempg[ng*ncwa];
+        for (int iter=0; iter<20; iter++) {
+          EXASIM_LEGACY_W_CALL(HdgSourcewonly, s, s_wdg, xdg, udg, odg,
+              wdg, uinf, physicsparam, time, modelnumber, ng, nc, ncu, nd,
+              ncx, nco, ncw);
+          dstype scalar = common.timeparams.dae_alpha*common.timestate.dtfactor + common.timeparams.dae_beta;
+          ArrayAdd3Vectors(s, s, wsrc, wdg, one, common.timeparams.dae_alpha, -scalar, ng*ncwa);
+          ArrayAXPB(s_wdg, s_wdg, minusone, scalar, ng*ncwa*ncwa);
+          dstype nrm = NORM(common.cublasHandle, ng*ncwa, s, backend);
+          if (nrm < 1e-6)
+            break;
+          SolveSmallMatrix(s, s_wdg, ng, 1, ncwa,
+              "DAE functionality supports at most five ordinary auxiliary variables.");
+          ArrayAXPBY(wdg, wdg, s, one, one, ng*ncwa);
+        }
+    }
+
+    EvaluateMaterialProperties<M,T,I>(wdg, xdg, udg, odg, tempg, tempi, app,
+        common, ng, ncwa, backend);
 }
 
 template <class M, class T=dstype, class I=Int>
 inline void wEquation(T *wdg, T *wdg_udg, T *xdg, T *udg, T *odg, T *wsrc, 
-       T *tempg, appstructT<T,I> &app, commonstructT<T,I> &common, Int ng, Int backend)
+       T *tempg, appstructT<T,I> &app, commonstructT<T,I> &common, Int ng, Int backend, Int *tempi)
 {
     using dstype=T;        
     Int ncu = common.components.ncu; // number of compoments of (u)
@@ -188,7 +424,9 @@ inline void wEquation(T *wdg, T *wdg_udg, T *xdg, T *udg, T *odg, T *wsrc,
     dstype time = common.timestate.time;                
     dstype *uinf = app.uinf;
     dstype *physicsparam = app.physicsparam;
+    Int nprop = app.materialdb_nprop;
 
+    if (nprop == 0) {
     if (common.timeparams.wave==1) {
         // dw/dt = u -> (dtfactor * w - wsrc) = u -> w = (1/dtfactor) * (u + wsrc)
         dstype scalar = one/common.timestate.dtfactor;
@@ -276,7 +514,62 @@ inline void wEquation(T *wdg, T *wdg_udg, T *xdg, T *udg, T *odg, T *wsrc,
             }
           } 
         }                        
-    }            
+    }
+    return;
+    }
+
+    ValidateMaterialDatabaseForWEquation<M,T,I>(app, common, ncw);
+    Int ncwa = ncw - nprop;
+    ArraySetValue(wdg_udg, zero, ng*ncw*nc);
+
+    dstype *aux_udg = tempg;
+    if (common.timeparams.wave==1) {
+        dstype scalar = one/common.timestate.dtfactor;
+        if (ncwa > 0) {
+            ArrayAXPBY(wdg, udg, wsrc, scalar, scalar, ng*ncwa);
+            ArraySetValue(aux_udg, scalar, ng*ncwa*nc);
+            CopyCompactWdgUdgToFull(wdg_udg, aux_udg, ng, ncwa, ncw, nc, backend);
+        }
+    }
+    else if (ncwa > 0) {
+        dstype *s = tempg;
+        dstype *s_wdg = &s[ng*ncwa];
+        aux_udg = &s_wdg[ng*ncwa*ncw];
+        for (int iter=0; iter<20; iter++) {
+          EXASIM_LEGACY_W_CALL(HdgSourcewonly, s, s_wdg, xdg, udg, odg,
+              wdg, uinf, physicsparam, time, modelnumber, ng, nc, ncu, nd,
+              ncx, nco, ncw);
+          dstype scalar = common.timeparams.dae_alpha*common.timestate.dtfactor + common.timeparams.dae_beta;
+          ArrayAdd3Vectors(s, s, wsrc, wdg, one, common.timeparams.dae_alpha, -scalar, ng*ncwa);
+          ArrayAXPB(s_wdg, s_wdg, minusone, scalar, ng*ncwa*ncwa);
+          SolveSmallMatrix(s, s_wdg, ng, 1, ncwa,
+              "DAE functionality supports at most five ordinary auxiliary variables.");
+          ArrayAXPBY(wdg, wdg, s, one, one, ng*ncwa);
+
+          dstype nrm = NORM(common.cublasHandle, ng*ncwa, s, backend);
+          if (nrm < 1e-8) {
+            EXASIM_LEGACY_W_CALL(HdgSourcew, s, aux_udg, s_wdg, xdg, udg,
+                odg, wdg, uinf, physicsparam, time, modelnumber, ng, nc,
+                ncu, nd, ncx, nco, ncw);
+            ArrayAXPB(s_wdg, s_wdg, minusone, scalar, ng*ncwa*ncwa);
+            SolveSmallMatrix(aux_udg, s_wdg, ng, nc, ncwa,
+                "DAE functionality supports at most five ordinary auxiliary variables.");
+            CopyCompactWdgUdgToFull(wdg_udg, aux_udg, ng, ncwa, ncw, nc, backend);
+            break;
+          }
+          else {
+            if (iter==19) {
+              error("Newton in wequation does not converge to 1e-8.");
+            }
+          }
+        }
+    }
+
+    dstype *materialScratch = tempg;
+    if (ncwa > 0)
+        materialScratch = &aux_udg[ng*ncwa*nc];
+    EvaluateMaterialPropertiesDerivative<M,T,I>(wdg, wdg_udg, xdg, udg, odg,
+        materialScratch, tempi, app, common, ng, ncwa, aux_udg, backend);
 }
 
 template <class M, class T=dstype, class I=Int>
@@ -302,7 +595,8 @@ inline void GetW(T *w, solstructT<T,I> &sol, tempstructT<T,I> &tmp, appstructT<T
       GetElemNodes(udg, sol.udg, common.grid.npe, nc, 0, nc, e1, e2);
       GetElemNodes(odg, sol.odg, common.grid.npe, nco, 0, nco, e1, e2);
       GetElemNodes(sdg, sol.wsrc, common.grid.npe, ncw, 0, ncw, e1, e2);
-      wEquation<M>(wdg, xdg, udg, odg, sdg, tmp.tempg, app, common, ng, common.backend);
+      wEquation<M>(wdg, xdg, udg, odg, sdg, tmp.tempg, app, common, ng,
+          common.backend, tmp.tempi);
       PutElemNodes(w, wdg, common.grid.npe, ncw, 0, ncw, e1, e2);
   }   
 }
