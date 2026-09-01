@@ -20,7 +20,7 @@ using dstype = float;
 using dstype = double;
 #endif
 
-inline constexpr std::uint32_t kExasimDriverABIVersion = 2;  // v2: kernels grouped into per-concern sub-structs + model-owned ModelSizes
+inline constexpr std::uint32_t kExasimDriverABIVersion = 4;  // v4: add optional HdgMaterialstate jacobian kernel
 
 // Model dimension constants carried by the model (PR #33): lets preprocessing obtain
 // ncu/ncv/ncw/nsca/nvec/nten/nsurf/nvqoi from the compiled model instead of pdeapp.txt.
@@ -33,6 +33,7 @@ struct ModelSizes {
     int nten = 0;
     int nsurf = 0;
     int nvqoi = 0;
+    int nmaterialstate = 0;
 };
 
 struct ExasimDriverABI {
@@ -48,6 +49,13 @@ struct ExasimDriverABI {
                  const dstype* param, dstype time, int modelnumber, int ng,
                  int nc, int ncu, int nd, int ncx, int nco, int ncw, int nce,
                  int npe, int ne);
+
+    using KokkosMaterialstateFn =
+        void (*)(dstype* state, const dstype* xdg, const dstype* udg,
+                 const dstype* odg, const dstype* wdg, const dstype* uinf,
+                 const dstype* param, dstype time, int modelnumber, int ng,
+                 int nc, int ncu, int nd, int ncx, int nco, int ncw,
+                 int nmaterialstate);
 
     using KokkosBoundaryFn =
         void (*)(dstype* f, const dstype* xdg, const dstype* udg,
@@ -88,6 +96,13 @@ struct ExasimDriverABI {
                  const dstype* wdg, const dstype* uinf, const dstype* param,
                  dstype time, int modelnumber, int ng, int nc, int ncu,
                  int nd, int ncx, int nco, int ncw);
+
+    using HdgMaterialstateFn =
+        void (*)(dstype* f, dstype* f_udg, dstype* f_wdg,
+                 const dstype* xdg, const dstype* udg, const dstype* odg,
+                 const dstype* wdg, const dstype* uinf, const dstype* param,
+                 dstype time, int modelnumber, int ng, int nc, int ncu,
+                 int nd, int ncx, int nco, int ncw, int nmaterialstate);
 
     using HdgSourcewOnlyFn =
         void (*)(dstype* f, dstype* f_wdg, const dstype* xdg,
@@ -140,6 +155,7 @@ struct ExasimDriverABI {
     int nten = 0;
     int nsurf = 0;
     int nvqoi = 0;
+    int nmaterialstate = 0;
 
     // The model's kernel dispatch table, grouped by concern to mirror the compile-time model
     // decomposition (the ModelDefaults mixins / is_*_model_v traits). Each sub-struct is a
@@ -152,6 +168,7 @@ struct ExasimDriverABI {
         KokkosGlobalElementFn KokkosSourcew = nullptr;
         KokkosElementFn       KokkosTdfunc  = nullptr;
         KokkosGlobalElementFn KokkosAvfield = nullptr;
+        KokkosMaterialstateFn KokkosMaterialstate = nullptr;
     } volume;
     struct EoSDriverABI {           // equation of state
         KokkosGlobalElementFn KokkosEoS   = nullptr;
@@ -195,6 +212,7 @@ struct ExasimDriverABI {
     struct HdgJacDriverABI {        // HDG pointwise jacobians
         HdgElementJacFn            HdgFlux        = nullptr;
         HdgElementJacFn            HdgSource      = nullptr;
+        HdgMaterialstateFn         HdgMaterialstate = nullptr;
         HdgElementJacFn            HdgSourcew     = nullptr;
         HdgSourcewOnlyFn           HdgSourcewonly = nullptr;
         HdgElementJacFn            HdgEoS         = nullptr;

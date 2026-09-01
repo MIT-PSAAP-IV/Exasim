@@ -110,6 +110,17 @@ void CodeGenerator::generateCode2Cpp(const std::string& filename) const {
     os << "            ssv.funcjac2cppfiles(f, ssv.modelpath + jname, jname, i, false);\n";
     os << "          }\n";
     os << "        }\n";
+    os << "        else if (funcname == \"Materialstate\") {\n";
+    os << "          std::ofstream cppfile(ssv.modelpath + \"KokkosMaterialstate.cpp\", std::ios::out | std::ios::trunc);\n";
+    os << "          cppfile << \"void KokkosMaterialstate(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg,\\n\";\n";
+    os << "          cppfile << \"                 const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc,\\n\";\n";
+    os << "          cppfile << \"                 const int ncu, const int nd, const int ncx, const int nco, const int ncw, const int nmaterialstate)\\n\";\n";
+    os << "          cppfile << \"{\\n\";\n";
+    os << "          cppfile << \"    exasim::materialstate_kernel<PdeModel>(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw, nmaterialstate);\\n\";\n";
+    os << "          cppfile << \"}\\n\";\n";
+    os << "          cppfile.close();\n";
+    os << "          ssv.funcjacmaterialstate2cppfiles(f, ssv.modelpath + \"HdgMaterialstate\", \"HdgMaterialstate\", i, false);\n";
+    os << "        }\n";
     os << "        else if (funcname == \"Sourcew\") {\n";
     os << "          ssv.dgfunc2cppfiles(f, ssv.modelpath + \"KokkosSourcew\", \"KokkosSourcew\", i, false);\n";
     os << "          if (ssv.jacobianInputs[i].size() > 1) {\n";
@@ -707,6 +718,7 @@ void CodeGenerator::generateSymbolicScalarsVectorsHpp(const std::string& filenam
     os << "    void dgfunc2cppfiles(const std::vector<Expression> &f, const std::string filename, const std::string funcname, const int functionid, bool append);\n";
     os << "    void funcjacsel2cppfiles(const std::vector<Expression> &f, const std::string filename, const std::string funcname, const int functionid, const int jacindex, bool append);\n";
     os << "    void funcjac2cppfiles(const std::vector<Expression> &f, const std::string filename, const std::string funcname, const int functionid, bool append);\n";
+    os << "    void funcjacmaterialstate2cppfiles(const std::vector<Expression> &f, const std::string filename, const std::string funcname, const int functionid, bool append);\n";
     os << "    void funcjachess2cppfiles(const std::vector<Expression> &f, const std::string filename, const std::string funcname, const int functionid, bool append);\n";
     
     os << "    void initfunc2cppfiles(const std::vector<Expression> &f, const std::string filename, const std::string funcname, const int functionid, bool append, int framework);\n";
@@ -1593,6 +1605,72 @@ void emitfuncjac2cppfiles(std::ostream& os, const ParsedSpec& spec) {
     os << "}\n\n";
 }
 
+void emitfuncjacmaterialstate2cppfiles(std::ostream& os, const ParsedSpec& spec) {
+    os << "void SymbolicScalarsVectors::funcjacmaterialstate2cppfiles(const std::vector<Expression> &f, const std::string filename, const std::string funcname, const int functionid, bool append) {\n";
+    os << "    std::ios_base::openmode mode = std::ios::out;\n";
+    os << "    if (append)\n";
+    os << "        mode |= std::ios::app;\n";
+    os << "    else\n";
+    os << "        mode |= std::ios::trunc;\n\n";
+    os << "    std::ofstream cppfile(filename + std::string(\".cpp\"), mode);\n";
+    os << "    cppfile << \"void \" << funcname << \"(" << spec.datatype << "* f, " << spec.datatype << "* f_udg, " << spec.datatype << "* f_wdg, \";\n";
+    os << "    cppfile << \"const " << spec.datatype << "* xdg, const " << spec.datatype << "* udg, const " << spec.datatype << "* odg, const " << spec.datatype << "* wdg, \";\n";
+    os << "    cppfile << \"const " << spec.datatype << "* uinf, const " << spec.datatype << "* param, const " << spec.datatype << " time, const int modelnumber, \";\n";
+    os << "    cppfile << \"const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw, const int nmaterialstate)\\n\";\n";
+    os << "    cppfile << \"{\\n\";\n";
+    os << "    cppfile << \"  const int N = ng;\\n\\n\";\n\n";
+    os << "   if (f.size() > 0) {\n";
+    os << "       vec_pair replacements;\n";
+    os << "       vec_basic reduced_exprs_f;\n";
+    os << "       std::vector<vec_basic> reduced_exprs_J;\n";
+    os << "       funcjac2cse(replacements, reduced_exprs_f, reduced_exprs_J, f, jacobianInputs[functionid]);\n\n";
+    os << "       std::unordered_set<RCP<const Basic>, SymEngine::RCPBasicHash, SymEngine::RCPBasicKeyEq> used;\n";
+    os << "       for (const auto &expr : f) {\n";
+    os << "           auto symbols = free_symbols(*expr.get_basic());\n";
+    os << "           used.insert(symbols.begin(), symbols.end());\n";
+    os << "       }\n\n";
+    os << "       auto depends_on = [&](const Expression &sym) {\n";
+    os << "           return used.count(sym.get_basic()) > 0;\n";
+    os << "       };\n\n";
+    os << "       std::vector<std::pair<std::string, std::vector<Expression>>> inputs = inputvectors[functionid];\n";
+    os << "       C99CodePrinter cpp;\n";
+    forloopstart(os, spec.framework);
+    os << "       for (const auto &[name, vec] : inputs) {\n";
+    os << "           for (size_t j = 0; j < vec.size(); ++j) {\n";
+    os << "               if (depends_on(vec[j])) {\n";
+    os << "                 if (std::find(batch.begin(), batch.end(), name) != batch.end())\n";
+    os << "                   cppfile << \"    " << spec.datatype << " \" << name << j << \" = \" << name << \"[\" << j << \"*N+i];\\n\";\n";
+    os << "                 else\n";
+    os << "                   cppfile << \"    " << spec.datatype << " \" << name << j << \" = \" << name << \"[\" << j << \"];\\n\";\n";
+    os << "               }\n";
+    os << "           }\n";
+    os << "       }\n\n";
+    os << "       for (size_t n = 0; n < replacements.size(); ++n) {\n";
+    os << "           std::string var_name = cpp.apply(*replacements[n].first);\n";
+    os << "           std::string rhs = cpp.apply(*replacements[n].second);\n";
+    os << "           cppfile << \"    " << spec.datatype << " \" << var_name << \" = \" << rhs << \";\\n\";\n";
+    os << "       }\n";
+    os << "       cppfile << \"\\n\";\n\n";
+    os << "       for (size_t n = 0; n < reduced_exprs_f.size(); ++n) {\n";
+    os << "           cppfile << \"    f[\" << n << \" * N + i] = \" << cpp.apply(*reduced_exprs_f[n]) << \";\\n\";\n";
+    os << "       }\n\n";
+    os << "       if (reduced_exprs_J.size() > 0) {\n";
+    os << "           for (size_t j = 0; j < reduced_exprs_J[0].size(); ++j) {\n";
+    os << "               cppfile << \"    f_udg[\" << j << \" * N + i] = \" << cpp.apply(*reduced_exprs_J[0][j]) << \";\\n\";\n";
+    os << "           }\n";
+    os << "       }\n";
+    os << "       if (reduced_exprs_J.size() > 1) {\n";
+    os << "           for (size_t j = 0; j < reduced_exprs_J[1].size(); ++j) {\n";
+    os << "               cppfile << \"    f_wdg[\" << j << \" * N + i] = \" << cpp.apply(*reduced_exprs_J[1][j]) << \";\\n\";\n";
+    os << "           }\n";
+    os << "       }\n";
+    forloopend(os, spec.framework);
+    os << "   }\n";
+    os << "    cppfile << \"}\\n\\n\";\n";
+    os << "    cppfile.close();\n";
+    os << "}\n\n";
+}
+
 void emitfuncjachess2cppfiles(std::ostream& os, const ParsedSpec& spec) {
     os << "void SymbolicScalarsVectors::funcjachess2cppfiles(const std::vector<Expression> &f, const std::string filename, const std::string funcname, const int functionid, bool append) {\n";
     os << "    vec_pair replacements;\n";
@@ -2198,11 +2276,13 @@ void emitGenerateModelHeader(std::ostream& os, const ParsedSpec& spec) {
     int nten_   = (nd*nd) ? func_size("VisTensors") / (nd*nd) : 0;
     int nsurf_  = func_size("QoIboundary");
     int nvqoi_  = func_size("QoIvolume");
+    int nmaterialstate_ = func_size("Materialstate");
     os << "    hfile << \"    static constexpr int nsca   = " << nsca_   << ";\\n\";\n";
     os << "    hfile << \"    static constexpr int nvec   = " << nvec_   << ";\\n\";\n";
     os << "    hfile << \"    static constexpr int nten   = " << nten_   << ";\\n\";\n";
     os << "    hfile << \"    static constexpr int nsurf  = " << nsurf_  << ";\\n\";\n";
     os << "    hfile << \"    static constexpr int nvqoi  = " << nvqoi_  << ";\\n\";\n";
+    os << "    hfile << \"    static constexpr int nmaterialstate = " << nmaterialstate_ << ";\\n\";\n";
     os << "    hfile << \"    static constexpr int Nq = ncu * (1 + nd);\\n\\n\";\n";
 
     // ----- Multi-domain HDG interface coupling constants (Fint / Fext) -----
@@ -2246,6 +2326,7 @@ void emitGenerateModelHeader(std::ostream& os, const ParsedSpec& spec) {
     os << "        volume_methods = {\n";
     os << "        {\"Flux\",       \"flux\",        \"dstype f[], const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype mu[], const dstype uinf[], dstype t\"},\n";
     os << "        {\"Source\",     \"source\",      \"dstype f[], const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype mu[], const dstype uinf[], dstype t\"},\n";
+    os << "        {\"Materialstate\", \"materialstate\", \"dstype f[], const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype mu[], const dstype uinf[], dstype t\"},\n";
     os << "        {\"Tdfunc\",     \"tdfunc\",      \"dstype f[], const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype mu[], const dstype uinf[], dstype t\"},\n";
     os << "        {\"VisScalars\", \"vis_scalars\", \"dstype f[], const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype mu[], const dstype uinf[], dstype t\"},\n";
     os << "        {\"VisVectors\", \"vis_vectors\", \"dstype f[], const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype mu[], const dstype uinf[], dstype t\"},\n";
@@ -2499,6 +2580,8 @@ void CodeGenerator::generateSymbolicScalarsVectorsCpp(const std::string& filenam
     emitfuncjacsel2cppfiles(os, spec);
 
     emitfuncjac2cppfiles(os, spec);
+
+    emitfuncjacmaterialstate2cppfiles(os, spec);
     
     emitfuncjachess2cppfiles(os, spec);
     
@@ -2549,6 +2632,32 @@ void CodeGenerator::generateEmptySourcewCpp(std::string modelpath) const {
     os2 << "{\n";
     os2 << "}\n";
     os2.close();       
+}
+
+void CodeGenerator::generateEmptyMaterialstateCpp(std::string modelpath) const {
+    std::ofstream os(make_path(modelpath,  "KokkosMaterialstate.cpp"));
+    os << "void KokkosMaterialstate(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg,\n";
+    os << "                 const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc,\n";
+    os << "                 const int ncu, const int nd, const int ncx, const int nco, const int ncw, const int nmaterialstate)\n";
+    os << "{\n";
+    os << "    (void)f; (void)xdg; (void)udg; (void)odg; (void)wdg; (void)uinf;\n";
+    os << "    (void)param; (void)time; (void)modelnumber; (void)ng; (void)nc;\n";
+    os << "    (void)ncu; (void)nd; (void)ncx; (void)nco; (void)ncw; (void)nmaterialstate;\n";
+    os << "}\n";
+    os.close();
+}
+
+void CodeGenerator::generateEmptyHdgMaterialstateCpp(std::string modelpath) const {
+    std::ofstream os(make_path(modelpath,  "HdgMaterialstate.cpp"));
+    os << "void HdgMaterialstate(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg,\n";
+    os << "                 const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc,\n";
+    os << "                 const int ncu, const int nd, const int ncx, const int nco, const int ncw, const int nmaterialstate)\n";
+    os << "{\n";
+    os << "    (void)f; (void)f_udg; (void)f_wdg; (void)xdg; (void)udg; (void)odg; (void)wdg; (void)uinf;\n";
+    os << "    (void)param; (void)time; (void)modelnumber; (void)ng; (void)nc;\n";
+    os << "    (void)ncu; (void)nd; (void)ncx; (void)nco; (void)ncw; (void)nmaterialstate;\n";
+    os << "}\n";
+    os.close();
 }
 
 void CodeGenerator::generateEmptyOutputCpp(std::string modelpath) const {  
@@ -2859,6 +2968,7 @@ void CodeGenerator::generateLibPDEModelHpp(std::string modelpath) const {
     os << "void KokkosMonitor(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw, const int nce, const int npe, const int ne);\n";
     os << "void KokkosOutput(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw, const int nce, const int npe, const int ne);\n";
     os << "void KokkosSource(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";
+    os << "void KokkosMaterialstate(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw, const int nmaterialstate);\n";
     os << "void KokkosSourcew(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw, const int nce, const int npe, const int ne);\n";
     os << "void KokkosStab(dstype* f, const dstype* xdg, const dstype* udg1, const dstype* udg2,  const dstype* odg1, const dstype* odg2,  const dstype* wdg1, const dstype* wdg2,  const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";
     os << "void KokkosTdfunc(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";
@@ -2883,6 +2993,7 @@ void CodeGenerator::generateLibPDEModelHpp(std::string modelpath) const {
     os << "void HdgFextonly(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* uext, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";  
     os << "void HdgFlux(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";
     os << "void HdgSource(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";
+    os << "void HdgMaterialstate(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw, const int nmaterialstate);\n";
     os << "void HdgSourcew(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";
     os << "void HdgSourcewonly(dstype* f, dstype* f_wdg, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";
 
@@ -2908,6 +3019,8 @@ void CodeGenerator::generateLibPDEModelCpp(std::string modelpath) const {
     os << "#endif\n\n";
         
     os << "using namespace std;\n\n";
+    os << "#include <exasim/kernels/materialstate.hpp>\n";
+    os << "#include \"my_model.hpp\"\n\n";
     
     os << "#include \"KokkosFlux.cpp\"\n";
     os << "#include \"KokkosFhat.cpp\"\n";
@@ -2916,6 +3029,7 @@ void CodeGenerator::generateLibPDEModelCpp(std::string modelpath) const {
     os << "#include \"KokkosUhat.cpp\"\n";
     os << "#include \"KokkosStab.cpp\"\n";
     os << "#include \"KokkosSource.cpp\"\n";
+    os << "#include \"KokkosMaterialstate.cpp\"\n";
     os << "#include \"KokkosSourcew.cpp\"\n";
     os << "#include \"KokkosOutput.cpp\"\n";
     os << "#include \"KokkosMonitor.cpp\"\n";
@@ -2944,6 +3058,7 @@ void CodeGenerator::generateLibPDEModelCpp(std::string modelpath) const {
     os << "#include \"HdgFext.cpp\"\n";
     os << "#include \"HdgFextonly.cpp\"\n";  
     os << "#include \"HdgSource.cpp\"\n";
+    os << "#include \"HdgMaterialstate.cpp\"\n";
     os << "#include \"HdgSourcew.cpp\"\n";
     os << "#include \"HdgSourcewonly.cpp\"\n";
     os << "#include \"HdgEoS.cpp\"\n";
@@ -2976,6 +3091,7 @@ void CodeGenerator::generateModelSizesHpp(const std::string& modelpath) const {
     int nten   = (nd*nd) ? func_size("VisTensors") / (nd*nd) : 0;
     int nsurf  = func_size("QoIboundary");
     int nvqoi  = func_size("QoIvolume");
+    int nmaterialstate = func_size("Materialstate");
 
     std::ofstream os(make_path(modelpath, "model_sizes.hpp"));
     os << "// Auto-generated by text2code. Do not edit by hand.\n";
@@ -2988,5 +3104,6 @@ void CodeGenerator::generateModelSizesHpp(const std::string& modelpath) const {
     os << "static constexpr int nten  = " << nten << ";\n";
     os << "static constexpr int nsurf = " << nsurf << ";\n";
     os << "static constexpr int nvqoi = " << nvqoi << ";\n";
+    os << "static constexpr int nmaterialstate = " << nmaterialstate << ";\n";
     os.close();
 }

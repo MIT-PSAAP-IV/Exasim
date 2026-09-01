@@ -109,16 +109,16 @@
 //   void initu (double ui[/*ncu*/], const double x[/*nd*/],
 //               const double uinf[/*ncu*/], const double mu[/*nparam*/]);
 //
-// Volume pointwise methods (`flux`, `source`, `sourcew`, `tdfunc`,
-// `avfield`, `eos`, `eos_du`, `eos_dw`) all take args
-//   (out, x, uq, w, mu, uinf, t)
+// Volume pointwise methods (`flux`, `source`, `sourcew`, `materialstate`,
+// `tdfunc`, `avfield`, `eos`, `eos_du`, `eos_dw`) all take args
+//   (out, x, uq, v, w, mu, uinf, t)
 // after the output buffer. `uinf` is pointer-passed and may be
 // nullptr — methods that need free-stream values dereference at
 // their own risk.
 //
 // Optional pointwise functions (default = zero-fill, via ModelDefaults):
 //
-//   source, sourcew, fbou, ubou, fhat, uhat, stab,
+//   source, sourcew, materialstate, fbou, ubou, fhat, uhat, stab,
 //   tdfunc, eos, eos_du, eos_dw, avfield,
 //   init{q, udg, wdg, odg}, monitor, output,
 //   vis_scalars, vis_vectors, vis_tensors,
@@ -214,6 +214,10 @@ struct ModelConstants {
     // on with `static constexpr bool has_external_coupling = true;`.
     static constexpr bool has_external_coupling = false;
 
+    // Number of material-state components returned by materialstate().
+    // Models without materialstate leave this at zero.
+    static constexpr int nmaterialstate = 0;
+
     // Interface-residual widths — the text2code `Fint`/`Fext`
     // `output_size`, i.e. the ABI's `common.szinterfacefluxmap`
     // (`ncu12`) and `common.ncuext` — are read through the
@@ -255,6 +259,14 @@ struct VolumeDefaults : ModelConstants<Self, T> {
                  const T /*v*/[],  const T /*w*/[],  const T /*mu*/[],
                  const T /*uinf*/[], T /*t*/) {
         if constexpr (Self::ncw > 0) detail::zero_fill<Self::ncw>(sw);
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void materialstate(T state[],
+                       const T /*x*/[],  const T /*uq*/[],
+                       const T /*v*/[],  const T /*w*/[],  const T /*mu*/[],
+                       const T /*uinf*/[], T /*t*/) {
+        if constexpr (Self::nmaterialstate > 0) detail::zero_fill<Self::nmaterialstate>(state);
     }
 
     KOKKOS_INLINE_FUNCTION static
@@ -513,6 +525,27 @@ struct HDGJacobianDefaults : OutputDefaults<Self, T> {
                       const T /*uinf*/[], T /*t*/) {
         if constexpr (Self::ncw > 0) {
             for (int k = 0; k < Self::ncu * Self::ncw; ++k) s_w[k] = 0.0;
+        }
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void materialstate_jac_uq(T state_uq[],
+                              const T /*x*/[],  const T /*uq*/[],
+                              const T /*v*/[],  const T /*w*/[],
+                              const T /*mu*/[], const T /*uinf*/[],
+                              T /*t*/) {
+        constexpr int Nq = Self::ncu * (1 + Self::nd);
+        for (int k = 0; k < Self::nmaterialstate * Nq; ++k) state_uq[k] = 0.0;
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void materialstate_jac_w(T state_w[],
+                             const T /*x*/[],  const T /*uq*/[],
+                             const T /*v*/[],  const T /*w*/[],
+                             const T /*mu*/[], const T /*uinf*/[],
+                             T /*t*/) {
+        if constexpr (Self::ncw > 0) {
+            for (int k = 0; k < Self::nmaterialstate * Self::ncw; ++k) state_w[k] = 0.0;
         }
     }
 
@@ -853,6 +886,7 @@ namespace detail {
     template <class, class = void> struct has_##name : std::false_type {}; \
     template <class M> struct has_##name<M, std::void_t<decltype(&M::name)>> : std::true_type {}
 EXASIM_HAS_METHOD(flux);        EXASIM_HAS_METHOD(source);      EXASIM_HAS_METHOD(sourcew);
+EXASIM_HAS_METHOD(materialstate);
 EXASIM_HAS_METHOD(tdfunc);      EXASIM_HAS_METHOD(avfield);     EXASIM_HAS_METHOD(eos);
 EXASIM_HAS_METHOD(eos_du);      EXASIM_HAS_METHOD(eos_dw);      EXASIM_HAS_METHOD(fbou);
 EXASIM_HAS_METHOD(ubou);        EXASIM_HAS_METHOD(fbou_hdg);    EXASIM_HAS_METHOD(fhat);
@@ -866,6 +900,7 @@ EXASIM_HAS_METHOD(vis_tensors);
 template <class M> inline constexpr bool is_flux_model_v        = is_model_v<M> && detail::has_flux<M>::value;
 template <class M> inline constexpr bool is_source_model_v      = is_model_v<M> && detail::has_source<M>::value;
 template <class M> inline constexpr bool is_sourcew_model_v     = is_model_v<M> && detail::has_sourcew<M>::value;
+template <class M> inline constexpr bool is_materialstate_model_v = is_model_v<M> && detail::has_materialstate<M>::value;
 template <class M> inline constexpr bool is_tdfunc_model_v      = is_model_v<M> && detail::has_tdfunc<M>::value;
 template <class M> inline constexpr bool is_avfield_model_v     = is_model_v<M> && detail::has_avfield<M>::value;
 template <class M> inline constexpr bool is_eos_model_v         = is_model_v<M> && detail::has_eos<M>::value && detail::has_eos_du<M>::value && detail::has_eos_dw<M>::value;

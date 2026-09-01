@@ -36,6 +36,8 @@ public:
 //     void generateEmptyFbouCpp(std::string modelpath) const;
 //     void generateEmptyFbouHdgCpp(std::string modelpath) const;
     void generateEmptySourcewCpp(std::string modelpath) const;
+    void generateEmptyMaterialstateCpp(std::string modelpath) const;
+    void generateEmptyHdgMaterialstateCpp(std::string modelpath) const;
     void generateEmptyOutputCpp(std::string modelpath) const;
     void generateEmptyMonitorCpp(std::string modelpath) const;
     void generateEmptyInituCpp(std::string modelpath) const;
@@ -65,7 +67,5 @@ private:
     void generateFunctionHeader(std::ostream& os, const FunctionDef& func) const;
     void generateFunctionSource(std::ostream& os, const FunctionDef& func) const;
 };
-
-
 
 

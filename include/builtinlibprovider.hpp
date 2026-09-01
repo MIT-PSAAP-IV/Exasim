@@ -17,6 +17,7 @@ bool IsValidBuiltInLibraryABI(const ExasimDriverABI& abi)
            abi.volume.KokkosFlux &&
            abi.volume.KokkosSource &&
            abi.volume.KokkosSourcew &&
+           abi.volume.KokkosMaterialstate &&
            abi.volume.KokkosTdfunc &&
            abi.volume.KokkosAvfield &&
            abi.eos.KokkosEoS &&
@@ -48,6 +49,7 @@ bool IsValidBuiltInLibraryABI(const ExasimDriverABI& abi)
            abi.init.cpuInitodg &&
            abi.hdgjac.HdgFlux &&
            abi.hdgjac.HdgSource &&
+           abi.hdgjac.HdgMaterialstate &&
            abi.hdgjac.HdgSourcew &&
            abi.hdgjac.HdgSourcewonly &&
            abi.hdgjac.HdgEoS &&
@@ -71,6 +73,7 @@ const ExasimDriverABI& getBuiltInLibraryExasimDriverABI()
         value.volume.KokkosFlux = &::builtinKokkosFlux;
         value.volume.KokkosSource = &::builtinKokkosSource;
         value.volume.KokkosSourcew = &::builtinKokkosSourcew;
+        value.volume.KokkosMaterialstate = &::builtinKokkosMaterialstate;
         value.volume.KokkosTdfunc = &::builtinKokkosTdfunc;
         value.volume.KokkosAvfield = &::builtinKokkosAvfield;
         value.eos.KokkosEoS = &::builtinKokkosEoS;
@@ -104,6 +107,7 @@ const ExasimDriverABI& getBuiltInLibraryExasimDriverABI()
 
         value.hdgjac.HdgFlux = &::builtinHdgFlux;
         value.hdgjac.HdgSource = &::builtinHdgSource;
+        value.hdgjac.HdgMaterialstate = &::builtinHdgMaterialstate;
         value.hdgjac.HdgSourcew = &::builtinHdgSourcew;
         value.hdgjac.HdgSourcewonly = &::builtinHdgSourcewonly;
         value.hdgjac.HdgEoS = &::builtinHdgEoS;

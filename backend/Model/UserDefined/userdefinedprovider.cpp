@@ -22,6 +22,7 @@ using ::PdeModel;
 #include "KokkosUhat.cpp"
 #include "KokkosStab.cpp"
 #include "KokkosSource.cpp"
+#include "KokkosMaterialstate.cpp"
 #include "KokkosVisScalars.cpp"
 #include "KokkosVisVectors.cpp"
 #include "KokkosVisTensors.cpp"
@@ -49,6 +50,7 @@ using ::PdeModel;
 
 #include "HdgFlux.cpp"
 #include "HdgSource.cpp"
+#include "HdgMaterialstate.cpp"
 #include "HdgSourcew.cpp"
 #include "HdgSourcewonly.cpp"
 #include "HdgFbou.cpp"
@@ -73,6 +75,7 @@ const ExasimDriverABI& getUserDefinedExasimDriverABI()
         value.volume.KokkosFlux = &user_defined_source::KokkosFlux;
         value.volume.KokkosSource = &user_defined_source::KokkosSource;
         value.volume.KokkosSourcew = &user_defined_source::KokkosSourcew;
+        value.volume.KokkosMaterialstate = &user_defined_source::KokkosMaterialstate;
         value.volume.KokkosTdfunc = &user_defined_source::KokkosTdfunc;
         value.volume.KokkosAvfield = &user_defined_source::KokkosAvfield;
         value.eos.KokkosEoS = &user_defined_source::KokkosEoS;
@@ -106,6 +109,7 @@ const ExasimDriverABI& getUserDefinedExasimDriverABI()
 
         value.hdgjac.HdgFlux = &user_defined_source::HdgFlux;
         value.hdgjac.HdgSource = &user_defined_source::HdgSource;
+        value.hdgjac.HdgMaterialstate = &user_defined_source::HdgMaterialstate;
         value.hdgjac.HdgSourcew = &user_defined_source::HdgSourcew;
         value.hdgjac.HdgSourcewonly = &user_defined_source::HdgSourcewonly;
         value.hdgjac.HdgEoS = &user_defined_source::HdgEoS;
@@ -124,10 +128,12 @@ const ExasimDriverABI& getUserDefinedExasimDriverABI()
         value.nten = PdeModel::nten;
         value.nsurf = PdeModel::nsurf;
         value.nvqoi = PdeModel::nvqoi;
+        value.nmaterialstate = PdeModel::nmaterialstate;
         value.GetModelSizes = [](int) -> ModelSizes {
             return {PdeModel::ncu, PdeModel::nco, PdeModel::ncw,
                     PdeModel::nsca, PdeModel::nvec, PdeModel::nten,
-                    PdeModel::nsurf, PdeModel::nvqoi};
+                    PdeModel::nsurf, PdeModel::nvqoi,
+                    PdeModel::nmaterialstate};
         };
 
         return value;

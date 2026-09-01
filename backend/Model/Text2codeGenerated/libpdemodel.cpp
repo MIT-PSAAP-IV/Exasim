@@ -9,6 +9,9 @@ typedef double dstype; //  double is default precision
 
 using namespace std;
 
+#include <exasim/kernels/materialstate.hpp>
+#include "my_model.hpp"
+
 #include "KokkosFlux.cpp"
 #include "KokkosFhat.cpp"
 #include "KokkosFbou.cpp"
@@ -16,6 +19,7 @@ using namespace std;
 #include "KokkosUhat.cpp"
 #include "KokkosStab.cpp"
 #include "KokkosSource.cpp"
+#include "KokkosMaterialstate.cpp"
 #include "KokkosSourcew.cpp"
 #include "KokkosOutput.cpp"
 #include "KokkosMonitor.cpp"
@@ -44,6 +48,7 @@ using namespace std;
 #include "HdgFext.cpp"
 #include "HdgFextonly.cpp"
 #include "HdgSource.cpp"
+#include "HdgMaterialstate.cpp"
 #include "HdgSourcew.cpp"
 #include "HdgSourcewonly.cpp"
 #include "HdgEoS.cpp"
