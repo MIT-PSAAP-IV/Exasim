@@ -47,7 +47,8 @@ struct ParsedSpec {
         "Flux", "Source", "Tdfunc", "Ubou", "Fbou", "FbouHdg",
         "Sourcew", "Output", "Monitor", "Initu", "Initq", "Inituq",
         "Initw", "Initv", "Avfield", "Fint", "EoS", "VisScalars", 
-        "VisVectors", "VisTensors", "QoIvolume", "QoIboundary"};
+        "VisVectors", "VisTensors", "QoIvolume", "QoIboundary",
+        "Materialstate"};
     std::vector<bool> isoutput;     
     std::string datatype = "dstype";
     std::string framework = "kokkos";
@@ -125,6 +126,7 @@ struct PDE {
     std::string wdgfile = "";
     std::string uhatfile = "";
     std::string partitionfile = "";
+    std::string materialdatabase = "";
 
     int builtinmodelID = 0;
     int frontendgenerated = 0;
@@ -135,7 +137,7 @@ struct PDE {
     int mpiprocs = 1;
     int nd = 1, nc = 1, ncu = 1, ncq = 0, ncp = 0, ncv = 0;
     int nch = 1, ncx = 1, ncw = 0, nce = 0, np=0, nve=0, ne=0;
-    int nsca=0, nvec=0, nten=0, nsurf=0, nvqoi=0;
+    int nsca=0, nvec=0, nten=0, nsurf=0, nvqoi=0, nmaterialstate=0;
     int neb = 512 * 8;
     int nfb = 512 * 16;
     int elemtype = 1;

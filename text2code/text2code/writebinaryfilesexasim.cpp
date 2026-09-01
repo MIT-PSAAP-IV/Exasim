@@ -288,12 +288,75 @@ void writemesh(const PDE& pde,
 // }
 // #endif
 
+static std::filesystem::path resolve_input_path(const std::string& base, const std::string& filename)
+{
+    std::filesystem::path p(filename);
+    if (p.is_absolute())
+        return p.lexically_normal();
+    return (std::filesystem::path(base) / p).lexically_normal();
+}
+
+static void write_materialdatabase_values_as_binary(const std::filesystem::path& source,
+                                                    const std::filesystem::path& destination)
+{
+    std::ifstream in(source);
+    if (!in)
+        error("Could not open pde.materialdatabase file for reading: " + source.string());
+
+    std::ofstream out(destination, std::ios::binary);
+    if (!out)
+        error("Could not open materialdatabase.bin for writing: " + destination.string());
+
+    std::string line;
+    while (std::getline(in, line)) {
+        std::size_t comment = std::string::npos;
+        for (const std::string marker : {"#", "%", "//"}) {
+            const std::size_t pos = line.find(marker);
+            if (pos != std::string::npos && (comment == std::string::npos || pos < comment))
+                comment = pos;
+        }
+        if (comment != std::string::npos)
+            line.erase(comment);
+        std::istringstream values(line);
+        double value = 0.0;
+        while (values >> value)
+            out.write(reinterpret_cast<const char*>(&value), sizeof(double));
+    }
+}
+
+static void stageMaterialDatabase(const PDE& pde)
+{
+    if (pde.materialdatabase.empty())
+        return;
+
+    const std::filesystem::path source = resolve_input_path(pde.datapath, pde.materialdatabase);
+    if (!std::filesystem::is_regular_file(source))
+        error("pde.materialdatabase file not found: " + source.string());
+
+    const std::filesystem::path destination =
+        std::filesystem::path(pde.datainpath) / "materialdatabase.bin";
+    std::string ext = source.extension().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    if (ext == ".bin") {
+        std::filesystem::copy_file(source, destination,
+                                   std::filesystem::copy_options::overwrite_existing);
+    }
+    else if (ext == ".dat") {
+        write_materialdatabase_values_as_binary(source, destination);
+    }
+    else {
+        error("Unsupported pde.materialdatabase format '" + ext + "'. Expected .dat or .bin.");
+    }
+}
+
 void writeBinaryFiles(PDE& pde, Mesh& mesh, const Master& master, const ParsedSpec& spec) 
 {
     bool callbuildConn = false;
 
     ensure_dir(pde.datainpath);
     ensure_dir(pde.dataoutpath);
+    stageMaterialDatabase(pde);
     
     for (const auto& vec : spec.vectors) {
         const std::string& name = vec.first;
@@ -312,6 +375,7 @@ void writeBinaryFiles(PDE& pde, Mesh& mesh, const Master& master, const ParsedSp
         if (spec.functions[i].name == "VisTensors") pde.nten = spec.functions[i].outputsize/(pde.nd*pde.nd);
         if (spec.functions[i].name == "QoIboundary") pde.nsurf = spec.functions[i].outputsize;
         if (spec.functions[i].name == "QoIvolume") pde.nvqoi = spec.functions[i].outputsize;
+        if (spec.functions[i].name == "Materialstate") pde.nmaterialstate = spec.functions[i].outputsize;
     }
     
     writepde(pde, make_path(pde.datainpath, "app.bin"));

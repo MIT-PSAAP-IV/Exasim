@@ -424,6 +424,7 @@ struct PDE {
     std::string wdgfile = "";
     std::string uhatfile = "";
     std::string partitionfile = "";
+    std::string materialdatabase = "";
 
     int gendatain = 1;
     int gencode = 1; // 1 for code generation, 0 for no code generation
@@ -434,7 +435,7 @@ struct PDE {
     int mpiprocs = 1;
     int nd = 1, nc = 1, ncu = 1, ncq = 0, ncp = 0, ncv = 0;
     int nch = 1, ncx = 1, ncw = 0, nce = 0, np=0, nve=0, ne=0;
-    int nsca=0, nvec=0, nten=0, nsurf=0, nvqoi=0;
+    int nsca=0, nvec=0, nten=0, nsurf=0, nvqoi=0, nmaterialstate=0;
     int neb = 512 * 8;
     int nfb = 512 * 16;
     int elemtype = 1;
@@ -594,6 +595,9 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     if (params.stringParams.count("partitionfile")) {
         pde.partitionfile = params.stringParams["partitionfile"];
     }
+    if (params.stringParams.count("materialdatabase")) {
+        pde.materialdatabase = params.stringParams["materialdatabase"];
+    }
     if (params.stringParams.count("discretization")) {
         pde.discretization = params.stringParams["discretization"];
     }
@@ -636,6 +640,9 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     }
     if (params.intParams.count("ncw")) {
         pde.ncw = params.intParams["ncw"];
+    }
+    if (params.intParams.count("nmaterialstate")) {
+        pde.nmaterialstate = params.intParams["nmaterialstate"];
     }
     if (params.intParams.count("neb")) {
         pde.neb = params.intParams["neb"];

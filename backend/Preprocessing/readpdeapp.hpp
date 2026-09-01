@@ -418,6 +418,7 @@ inline void printInputParams(InputParams& params)
 //     std::string wdgfile = "";
 //     std::string uhatfile = "";
 //     std::string partitionfile = "";
+//     std::string materialdatabase = "";
 // 
 //     int gencode = 1; // 1 for code generation, 0 for no code generation
 //     int writemeshsol = 1; // 1 for writing mesh solution, 0 for no writing
@@ -603,6 +604,7 @@ inline void applyParsedSpecMetadata(PDE& pde, const ParsedSpec& spec)
         if (fn.name == "VisTensors")  pde.nten  = fn.outputsize / (pde.nd * pde.nd);
         if (fn.name == "QoIboundary") pde.nsurf = fn.outputsize;
         if (fn.name == "QoIvolume")   pde.nvqoi = fn.outputsize;
+        if (fn.name == "Materialstate") pde.nmaterialstate = fn.outputsize;
     }
 }
 
@@ -614,8 +616,8 @@ inline void validateBuiltInAppMetadata(const PDE& pde)
         error("builtinmodelID > 0 requires ncv >= 0 in pdeapp.txt.");
     if (pde.ncw < 0)
         error("builtinmodelID > 0 requires ncw >= 0 in pdeapp.txt.");
-    if (pde.nsca < 0 || pde.nvec < 0 || pde.nten < 0 || pde.nsurf < 0 || pde.nvqoi < 0)
-        error("builtinmodelID > 0 requires nsca, nvec, nten, nsurf, and nvqoi to be nonnegative in pdeapp.txt.");
+    if (pde.nsca < 0 || pde.nvec < 0 || pde.nten < 0 || pde.nsurf < 0 || pde.nvqoi < 0 || pde.nmaterialstate < 0)
+        error("builtinmodelID > 0 requires nsca, nvec, nten, nsurf, nvqoi, and nmaterialstate to be nonnegative in pdeapp.txt.");
 }
 
 inline void finalizePDEModelSizes(PDE& pde)
@@ -676,6 +678,9 @@ inline PDE initializePDE(InputParams& params, int mpirank=0)
     if (params.stringParams.count("partitionfile")) {
         pde.partitionfile = params.stringParams["partitionfile"];
     }
+    if (params.stringParams.count("materialdatabase")) {
+        pde.materialdatabase = params.stringParams["materialdatabase"];
+    }
     if (params.stringParams.count("discretization")) {
         pde.discretization = params.stringParams["discretization"];
     }
@@ -733,6 +738,9 @@ inline PDE initializePDE(InputParams& params, int mpirank=0)
     }
     if (params.intParams.count("nvqoi")) {
         pde.nvqoi = params.intParams["nvqoi"];
+    }
+    if (params.intParams.count("nmaterialstate")) {
+        pde.nmaterialstate = params.intParams["nmaterialstate"];
     }
     if (params.intParams.count("neb")) {
         pde.neb = params.intParams["neb"];
