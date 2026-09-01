@@ -258,6 +258,20 @@ void builtinKokkosStab(dstype* f, const dstype* xdg, const dstype* udg1, const d
 }
 
 extern "C"
+void builtinKokkosMaterialstate(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg,
+                  const dstype* wdg, const dstype* uinf, const dstype* param,
+                  dstype time, int builtinmodelID, int ng, int nc, int ncu, int nd,
+                  int ncx, int nco, int ncw, int nmaterialstate)
+{
+    switch (builtinmodelID) {
+      #define EXASIM_DISPATCH_CASE(N) case N: exasim_model_##N::KokkosMaterialstate(f, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nmaterialstate); return;
+      EXASIM_BUILTIN_MODELS(EXASIM_DISPATCH_CASE)
+      #undef EXASIM_DISPATCH_CASE
+      default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosMaterialstate\n", builtinmodelID); std::abort();
+    }
+}
+
+extern "C"
 void builtinKokkosTdfunc(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg,
                   const dstype* wdg, const dstype* uinf, const dstype* param,
                   dstype time, int builtinmodelID, int ng, int nc, int ncu, int nd,
@@ -577,6 +591,20 @@ void builtinHdgSource(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xdg
       EXASIM_BUILTIN_MODELS(EXASIM_DISPATCH_CASE)
       #undef EXASIM_DISPATCH_CASE
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in HdgSource\n", builtinmodelID); std::abort();
+    }
+}
+
+extern "C"
+void builtinHdgMaterialstate(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xdg,
+               const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf,
+               const dstype* param, dstype time, int builtinmodelID, int ng, int nc, int ncu,
+               int nd, int ncx, int nco, int ncw, int nmaterialstate)
+{
+    switch (builtinmodelID) {
+      #define EXASIM_DISPATCH_CASE(N) case N: exasim_model_##N::HdgMaterialstate(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw, nmaterialstate); return;
+      EXASIM_BUILTIN_MODELS(EXASIM_DISPATCH_CASE)
+      #undef EXASIM_DISPATCH_CASE
+      default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in HdgMaterialstate\n", builtinmodelID); std::abort();
     }
 }
 

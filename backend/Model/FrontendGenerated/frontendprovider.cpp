@@ -21,6 +21,7 @@ namespace frontend_generated_source {
 #include "KokkosUhat.cpp"
 #include "KokkosStab.cpp"
 #include "KokkosSource.cpp"
+#include "KokkosMaterialstate.cpp"
 #include "KokkosVisScalars.cpp"
 #include "KokkosVisVectors.cpp"
 #include "KokkosVisTensors.cpp"
@@ -48,6 +49,7 @@ namespace frontend_generated_source {
 
 #include "HdgFlux.cpp"
 #include "HdgSource.cpp"
+#include "HdgMaterialstate.cpp"
 #include "HdgSourcew.cpp"
 #include "HdgSourcewonly.cpp"
 #include "HdgFbou.cpp"
@@ -70,6 +72,7 @@ const ExasimDriverABI& getFrontendGeneratedExasimDriverABI()
         value.volume.KokkosFlux = &frontend_generated_source::KokkosFlux;
         value.volume.KokkosSource = &frontend_generated_source::KokkosSource;
         value.volume.KokkosSourcew = &frontend_generated_source::KokkosSourcew;
+        value.volume.KokkosMaterialstate = &frontend_generated_source::KokkosMaterialstate;
         value.volume.KokkosTdfunc = &frontend_generated_source::KokkosTdfunc;
         value.volume.KokkosAvfield = &frontend_generated_source::KokkosAvfield;
         value.eos.KokkosEoS = &frontend_generated_source::KokkosEoS;
@@ -103,6 +106,7 @@ const ExasimDriverABI& getFrontendGeneratedExasimDriverABI()
 
         value.hdgjac.HdgFlux = &frontend_generated_source::HdgFlux;
         value.hdgjac.HdgSource = &frontend_generated_source::HdgSource;
+        value.hdgjac.HdgMaterialstate = &frontend_generated_source::HdgMaterialstate;
         value.hdgjac.HdgSourcew = &frontend_generated_source::HdgSourcew;
         value.hdgjac.HdgSourcewonly = &frontend_generated_source::HdgSourcewonly;
         value.hdgjac.HdgEoS = &frontend_generated_source::HdgEoS;
@@ -122,11 +126,13 @@ const ExasimDriverABI& getFrontendGeneratedExasimDriverABI()
         value.nten = exasim_model_sizes::nten;
         value.nsurf = exasim_model_sizes::nsurf;
         value.nvqoi = exasim_model_sizes::nvqoi;
+        value.nmaterialstate = exasim_model_sizes::nmaterialstate;
         value.GetModelSizes = [](int) -> ModelSizes {
             return {exasim_model_sizes::ncu, exasim_model_sizes::nco,
                     exasim_model_sizes::ncw, exasim_model_sizes::nsca,
                     exasim_model_sizes::nvec, exasim_model_sizes::nten,
-                    exasim_model_sizes::nsurf, exasim_model_sizes::nvqoi};
+                    exasim_model_sizes::nsurf, exasim_model_sizes::nvqoi,
+                    exasim_model_sizes::nmaterialstate};
         };
 #endif
 

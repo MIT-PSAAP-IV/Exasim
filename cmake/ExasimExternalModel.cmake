@@ -116,7 +116,8 @@ function(exasim_add_external_builtin_model)
 extern \"C\" ModelSizes extGetModelSizes_${_id}() {
     return { PdeModel::ncu, PdeModel::nco, PdeModel::ncw,
              PdeModel::nsca, PdeModel::nvec, PdeModel::nten,
-             PdeModel::nsurf, PdeModel::nvqoi };
+             PdeModel::nsurf, PdeModel::nvqoi,
+             PdeModel::nmaterialstate };
 }
 ")
       file(GENERATE OUTPUT "${_size_src}" CONTENT "${_size_content}")

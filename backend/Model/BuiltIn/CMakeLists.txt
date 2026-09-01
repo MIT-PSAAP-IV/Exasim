@@ -165,10 +165,10 @@ function(exasim_finalize_builtin_models)
     "    switch (modelnumber) {\n")
   foreach(_id IN LISTS _ids)
     file(APPEND "${_sizes_file}"
-      "        case ${_id}: return {builtin_model_${_id}::ncu, builtin_model_${_id}::nco, builtin_model_${_id}::ncw, builtin_model_${_id}::nsca, builtin_model_${_id}::nvec, builtin_model_${_id}::nten, builtin_model_${_id}::nsurf, builtin_model_${_id}::nvqoi};\n")
+      "        case ${_id}: return {builtin_model_${_id}::ncu, builtin_model_${_id}::nco, builtin_model_${_id}::ncw, builtin_model_${_id}::nsca, builtin_model_${_id}::nvec, builtin_model_${_id}::nten, builtin_model_${_id}::nsurf, builtin_model_${_id}::nvqoi, builtin_model_${_id}::nmaterialstate};\n")
   endforeach()
   file(APPEND "${_sizes_file}"
-    "        default: return {0, 0, 0, 0, 0, 0, 0, 0};\n"
+    "        default: return {0, 0, 0, 0, 0, 0, 0, 0, 0};\n"
     "    }\n"
     "}\n")
 
