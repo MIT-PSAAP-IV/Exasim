@@ -3,6 +3,7 @@ function kkgencodeall(npm, foldername)
 
 kkgencodeelemface("KokkosFlux", npm, 1, foldername);
 kkgencodeelemface("KokkosSource", npm, 1, foldername);
+kkgencodeelemface("KokkosMaterialstate", npm, 12, foldername);
 kkgencodeelemface("KokkosTdfunc", npm, 1, foldername);
 
 kkgencodeelemface("KokkosEoS", npm, 2, foldername);
@@ -40,6 +41,7 @@ kkgencodeelemface("cpuInitodg", npm, 5, foldername);
 
 kkgencodeelemface("HdgFlux", npm, 6, foldername);
 kkgencodeelemface("HdgSource", npm, 6, foldername);
+kkgencodeelemface("HdgMaterialstate", npm, 13, foldername);
 kkgencodeelemface("HdgEoS", npm, 6, foldername);
 kkgencodeelemface("HdgSourcew", npm, 6, foldername);
 kkgencodeelemface("HdgSourcewonly", npm, 7, foldername);

@@ -16,6 +16,12 @@ from .runcode import runcode, runcode_combined
 from .syminit import syminit
 from .gencodeelemface import gencodeelemface
 from .gencodeelem import gencodeelem
+from .gencodematerialstate import (
+    gencodematerialstate,
+    hdggencodematerialstate,
+    hdgnocodematerialstate,
+    nocodematerialstate,
+)
 from .nocodeelem import nocodeelem
 from .gencodeelem2 import gencodeelem2
 from .nocodeelem2 import nocodeelem2
@@ -105,6 +111,19 @@ def gencode(app):
     else:
         nocodeelem("Source" + strn, foldername);
         hdgnocodeelem("Source" + str(strn), foldername)    
+    if hasattr(pde, 'materialstate'):
+        f = pde.materialstate(u, q, wdg, odg, xdg, time, param, uinf);
+        f = numpy.array(f).flatten('F')
+        app['nmaterialstate'] = len(f);
+        gencodematerialstate("Materialstate" + strn, f, xdg, udg, odg, wdg, uinf, param, time, foldername);
+        if app['hybrid'] == 1:
+            hdggencodematerialstate("Materialstate" + strn, f, xdg, udg, odg, wdg, uinf, param, time, foldername);
+        else:
+            hdgnocodematerialstate("Materialstate" + strn, foldername);
+    else:
+        app['nmaterialstate'] = app.get('nmaterialstate', 0)
+        nocodematerialstate("Materialstate" + strn, foldername);
+        hdgnocodematerialstate("Materialstate" + strn, foldername);
     if hasattr(pde, 'visscalars'):
         f = pde.visscalars(u, q, wdg, odg, xdg, time, param, uinf);
         gencodeelem("VisScalars" + strn, f, xdg, udg, odg, wdg, uinf, param, time, foldername);
@@ -357,6 +376,7 @@ def _write_model_sizes(app, foldername):
     nten = app.get('nten', 0)
     nsurf = app.get('nbqoi', 0)
     nvqoi = app.get('nvqoi', 0)
+    nmaterialstate = app.get('nmaterialstate', 0)
     with open(os.path.join(foldername, "model_sizes.hpp"), "w") as f:
         f.write(f"""#ifndef EXASIM_MODEL_SIZES_HPP
 #define EXASIM_MODEL_SIZES_HPP
@@ -370,6 +390,7 @@ namespace exasim_model_sizes {{
     static constexpr int nten  = {nten};
     static constexpr int nsurf = {nsurf};
     static constexpr int nvqoi = {nvqoi};
+    static constexpr int nmaterialstate = {nmaterialstate};
 }}
 
 #endif

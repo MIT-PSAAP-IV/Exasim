@@ -59,6 +59,7 @@ pde.nvec = 0;
 pde.nten = 0;
 pde.nbqoi = 0;
 pde.nvqoi = 0;
+pde.nmaterialstate = 0;
 pde.neb = 512*8;
 pde.nfb = 512*16;
 pde.elemtype = 1;

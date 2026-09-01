@@ -181,7 +181,7 @@ def _outputs_line(present):
     by any optional functions actually emitted."""
     order = [
         "Flux", "Source", "Tdfunc", "Ubou", "Fbou", "FbouHdg",
-        "Initu", "Initv", "Avfield", "VisScalars", "VisVectors", "VisTensors",
+        "Materialstate", "Initu", "Initv", "Avfield", "VisScalars", "VisVectors", "VisTensors",
         "QoIvolume", "QoIboundary",
     ]
     outs = [o for o in order if o in present]
@@ -284,6 +284,11 @@ def genpdemodel(pde, dest_path):
         f = call("avfield", u, q, wdg, odg, xdg, time, param, uinf)
         blocks.append(_emit_function("Avfield", _ELEM_ARGS, "avField", _flatten_F(f), pr))
         present.add("Avfield")
+
+    if hasattr(model, "materialstate"):
+        f = call("materialstate", u, q, wdg, odg, xdg, time, param, uinf)
+        blocks.append(_emit_function("Materialstate", _ELEM_ARGS, "state", _flatten_F(f), pr))
+        present.add("Materialstate")
 
     # ----- optional visualization / QoI functions -----
     if hasattr(model, "visscalars"):

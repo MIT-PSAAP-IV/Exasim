@@ -149,6 +149,32 @@ elseif ncase==11
         tmp = tmp + "\t\t" + filename + string(k) + "(f, xdg, udg, odg, wdg, uhg, nlg, uext, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);\n";
     end
     tmp = tmp + "}\n\n";
+elseif ncase==12
+    tmp = tmp + "void " + filename;
+    tmp = tmp + "(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw, const int nmaterialstate)\n";
+    tmp = tmp + "{\n";
+    for k = 1:npm
+        if k == 1
+            tmp = tmp + "\tif (modelnumber == " + string(k) + ")\n";
+        else
+            tmp = tmp + "\telse if (modelnumber == " + string(k) + ")\n";
+        end
+        tmp = tmp + "\t\t" + filename + string(k) + "(f, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw, nmaterialstate);\n";
+    end
+    tmp = tmp + "}\n\n";
+elseif ncase==13
+    tmp = tmp + "void " + filename;
+    tmp = tmp + "(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw, const int nmaterialstate)\n";
+    tmp = tmp + "{\n";
+    for k = 1:npm
+        if k == 1
+            tmp = tmp + "\tif (modelnumber == " + string(k) + ")\n";
+        else
+            tmp = tmp + "\telse if (modelnumber == " + string(k) + ")\n";
+        end
+        tmp = tmp + "\t\t" + filename + string(k) + "(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw, nmaterialstate);\n";
+    end
+    tmp = tmp + "}\n\n";
 end
 
 stropu = tmp;
