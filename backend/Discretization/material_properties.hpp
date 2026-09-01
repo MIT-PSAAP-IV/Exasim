@@ -1,3 +1,5 @@
+#pragma once
+
 template <class T=dstype, class I=Int>
 inline void materialproperties_kokkos(
     T* U,
