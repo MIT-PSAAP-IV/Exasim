@@ -200,7 +200,7 @@ end
 # optional functions actually emitted.
 function _outputs_line(present)
     order = ["Flux", "Source", "Tdfunc", "Ubou", "Fbou", "FbouHdg",
-             "Initu", "VisScalars", "VisVectors", "VisTensors",
+             "Materialstate", "Initu", "VisScalars", "VisVectors", "VisTensors",
              "QoIvolume", "QoIboundary"]
     outs = [o for o in order if o in present]
     return "outputs " * join(outs, ", ")
@@ -293,6 +293,13 @@ function genpdemodel(pde, dest_path)
     f = pdemodel.fbouhdg(u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, tau)
     push!(blocks, _emit_function("FbouHdg", _FACE_ARGS, "fb", _flatten_F(f), pr))
     push!(present, "FbouHdg")
+
+    # ----- Materialstate (optional) -----
+    if has("materialstate")
+        f = pdemodel.materialstate(u, q, wdg, odg, xdg, time, param, uinf)
+        push!(blocks, _emit_function("Materialstate", _ELEM_ARGS, "state", _flatten_F(f), pr))
+        push!(present, "Materialstate")
+    end
 
     # ----- Initu (required) -----
     if !has("initu")
