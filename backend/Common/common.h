@@ -1668,7 +1668,7 @@ struct tempstructT {
     dstype *buffsend=nullptr;
     dstype *bufffacerecv=nullptr;
     dstype *bufffacesend=nullptr;
-    int *tempi=nullptr;
+    Int *tempi=nullptr;
     
     int sztempn=0, sztempg = 0, szbuffrecv=0, szbuffsend=0, szbufffacerecv=0, szbufffacesend=0, sztempi=0;
 

@@ -199,6 +199,44 @@ inline void ChainMaterialPropertiesUdg(T *wdg_udg,
         });
 }
 
+template <class T=dstype, class I=Int>
+inline void CompactSourcewJacobian(T *compact, const T *full,
+        I ng, I ncwa, I ncw, Int backend)
+{
+    (void)backend;
+    if (ncwa <= 0)
+        return;
+    Kokkos::parallel_for("CompactSourcewJacobian",
+        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace, Kokkos::IndexType<I>>(
+            0, ng*ncwa*ncwa),
+        KOKKOS_LAMBDA(const I idx) {
+            const I ig = idx % ng;
+            const I q = idx / ng;
+            const I iw = q % ncwa;
+            const I jw = q / ncwa;
+            compact[idx] = full[ig + ng*(iw + ncw*jw)];
+        });
+}
+
+template <class T=dstype, class I=Int>
+inline void CompactSourcewUdg(T *compact, const T *full,
+        I ng, I ncwa, I ncw, I nc, Int backend)
+{
+    (void)backend;
+    if (ncwa <= 0)
+        return;
+    Kokkos::parallel_for("CompactSourcewUdg",
+        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace, Kokkos::IndexType<I>>(
+            0, ng*ncwa*nc),
+        KOKKOS_LAMBDA(const I idx) {
+            const I ig = idx % ng;
+            const I q = idx / ng;
+            const I iw = q % ncwa;
+            const I ju = q / ncwa;
+            compact[idx] = full[ig + ng*(iw + ncw*ju)];
+        });
+}
+
 template <class M, class T=dstype, class I=Int>
 inline void EvaluateMaterialProperties(T *wdg, T *xdg, T *udg,
         T *odg, T *tempg, Int *tempi, appstructT<T,I> &app,
@@ -386,11 +424,13 @@ inline void wEquation(T *wdg, T *xdg, T *udg, T *odg, T *wsrc,
     }
     else if (ncwa > 0) {
         dstype *s = tempg;
-        dstype *s_wdg = &tempg[ng*ncwa];
+        dstype *s_wdg_full = &s[ng*ncw];
+        dstype *s_wdg = &s_wdg_full[ng*ncw*ncw];
         for (int iter=0; iter<20; iter++) {
-          EXASIM_LEGACY_W_CALL(HdgSourcewonly, s, s_wdg, xdg, udg, odg,
+          EXASIM_LEGACY_W_CALL(HdgSourcewonly, s, s_wdg_full, xdg, udg, odg,
               wdg, uinf, physicsparam, time, modelnumber, ng, nc, ncu, nd,
               ncx, nco, ncw);
+          CompactSourcewJacobian<T,I>(s_wdg, s_wdg_full, ng, ncwa, ncw, backend);
           dstype scalar = common.timeparams.dae_alpha*common.timestate.dtfactor + common.timeparams.dae_beta;
           ArrayAdd3Vectors(s, s, wsrc, wdg, one, common.timeparams.dae_alpha, -scalar, ng*ncwa);
           ArrayAXPB(s_wdg, s_wdg, minusone, scalar, ng*ncwa*ncwa);
@@ -533,12 +573,15 @@ inline void wEquation(T *wdg, T *wdg_udg, T *xdg, T *udg, T *odg, T *wsrc,
     }
     else if (ncwa > 0) {
         dstype *s = tempg;
-        dstype *s_wdg = &s[ng*ncwa];
-        aux_udg = &s_wdg[ng*ncwa*ncw];
+        dstype *s_wdg_full = &s[ng*ncw];
+        dstype *s_wdg = &s_wdg_full[ng*ncw*ncw];
+        dstype *s_udg_full = &s_wdg[ng*ncwa*ncwa];
+        aux_udg = &s_udg_full[ng*ncw*nc];
         for (int iter=0; iter<20; iter++) {
-          EXASIM_LEGACY_W_CALL(HdgSourcewonly, s, s_wdg, xdg, udg, odg,
+          EXASIM_LEGACY_W_CALL(HdgSourcewonly, s, s_wdg_full, xdg, udg, odg,
               wdg, uinf, physicsparam, time, modelnumber, ng, nc, ncu, nd,
               ncx, nco, ncw);
+          CompactSourcewJacobian<T,I>(s_wdg, s_wdg_full, ng, ncwa, ncw, backend);
           dstype scalar = common.timeparams.dae_alpha*common.timestate.dtfactor + common.timeparams.dae_beta;
           ArrayAdd3Vectors(s, s, wsrc, wdg, one, common.timeparams.dae_alpha, -scalar, ng*ncwa);
           ArrayAXPB(s_wdg, s_wdg, minusone, scalar, ng*ncwa*ncwa);
@@ -548,9 +591,11 @@ inline void wEquation(T *wdg, T *wdg_udg, T *xdg, T *udg, T *odg, T *wsrc,
 
           dstype nrm = NORM(common.cublasHandle, ng*ncwa, s, backend);
           if (nrm < 1e-8) {
-            EXASIM_LEGACY_W_CALL(HdgSourcew, s, aux_udg, s_wdg, xdg, udg,
+            EXASIM_LEGACY_W_CALL(HdgSourcew, s, s_udg_full, s_wdg_full, xdg, udg,
                 odg, wdg, uinf, physicsparam, time, modelnumber, ng, nc,
                 ncu, nd, ncx, nco, ncw);
+            CompactSourcewJacobian<T,I>(s_wdg, s_wdg_full, ng, ncwa, ncw, backend);
+            CompactSourcewUdg<T,I>(aux_udg, s_udg_full, ng, ncwa, ncw, nc, backend);
             ArrayAXPB(s_wdg, s_wdg, minusone, scalar, ng*ncwa*ncwa);
             SolveSmallMatrix(aux_udg, s_wdg, ng, nc, ncwa,
                 "DAE functionality supports at most five ordinary auxiliary variables.");

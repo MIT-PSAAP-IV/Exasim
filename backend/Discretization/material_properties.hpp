@@ -49,10 +49,15 @@ inline void materialproperties_kokkos(
                 const I nel = elementCounts[is];
                 const I offset = xelemoffset[is];
 
+                if (nel < 1) {
+                    Kokkos::abort("materialproperties_kokkos: invalid material element count");
+                }
+                if (Xis < xelem[offset] || Xis > xelem[offset + nel]) {
+                    Kokkos::abort("materialproperties_kokkos: query point outside material database domain");
+                }
+
                 I iel = 0;
-                if (Xis <= xelem[offset]) {
-                    iel = 0;
-                } else if (Xis >= xelem[offset + nel]) {
+                if (Xis == xelem[offset + nel]) {
                     iel = nel - 1;
                 } else {
                     I lo = 0;
@@ -66,6 +71,9 @@ inline void materialproperties_kokkos(
                         }
                     }
                     iel = lo - 1;
+                    if (iel < 0 || iel >= nel) {
+                        Kokkos::abort("materialproperties_kokkos: failed to locate material element");
+                    }
                 }
 
                 ie[ig + ng * is] = iel;
@@ -73,6 +81,9 @@ inline void materialproperties_kokkos(
                 const T xl = xelem[offset + iel];
                 const T xr = xelem[offset + iel + 1];
                 const T h = xr - xl;
+                if (!(h > static_cast<T>(0))) {
+                    Kokkos::abort("materialproperties_kokkos: non-positive material element size");
+                }
                 he[ig + ng * is] = h;
                 xref[ig + ng * is] = (Xis - xl) / h;
 
@@ -217,12 +228,16 @@ inline void materialproperties_kokkos(
 
                 // Device equivalent of the CPU upper_bound interval rule:
                 // [xelem[ie], xelem[ie+1]) for interiors, with the global upper
-                // boundary included in the final element.  In-domain query
-                // states are expected; structural validation happens on host.
+                // boundary included in the final element.
+                if (nel < 1) {
+                    Kokkos::abort("materialproperties_kokkos: invalid material element count");
+                }
+                if (Xis < xelem[offset] || Xis > xelem[offset + nel]) {
+                    Kokkos::abort("materialproperties_kokkos: query point outside material database domain");
+                }
+
                 I iel = 0;
-                if (Xis <= xelem[offset]) {
-                    iel = 0;
-                } else if (Xis >= xelem[offset + nel]) {
+                if (Xis == xelem[offset + nel]) {
                     iel = nel - 1;
                 } else {
                     I lo = 0;
@@ -236,6 +251,9 @@ inline void materialproperties_kokkos(
                         }
                     }
                     iel = lo - 1;
+                    if (iel < 0 || iel >= nel) {
+                        Kokkos::abort("materialproperties_kokkos: failed to locate material element");
+                    }
                 }
 
                 ie[ig + ng * is] = iel;
@@ -243,6 +261,9 @@ inline void materialproperties_kokkos(
                 const T xl = xelem[offset + iel];
                 const T xr = xelem[offset + iel + 1];
                 const T h = xr - xl;
+                if (!(h > static_cast<T>(0))) {
+                    Kokkos::abort("materialproperties_kokkos: non-positive material element size");
+                }
 
                 he[ig + ng * is] = h;
                 xref[ig + ng * is] = (Xis - xl) / h;

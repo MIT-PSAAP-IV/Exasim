@@ -145,25 +145,75 @@ It does not assume any material model, fluid, solid, density, energy,
 temperature, pressure, or thermodynamic admissibility.  Material-model-specific
 checks belong outside this generic reader.
 
+
+## Runtime material-property evaluation
+
+When a material database is present, `wEquation` interprets the global auxiliary
+state as:
+
+```text
+wdg = [ordinary auxiliary variables, material properties]
+```
+
+The final `app.materialdb_nprop` components are derived material properties.
+Only the leading
+
+```text
+ncwa = common.components.ncw - app.materialdb_nprop
+```
+
+components participate in the wave/DAE auxiliary-variable update and Newton
+solve.  Generated `Sourcew`/`HdgSourcew` kernels keep their existing total-`ncw`
+ABI, so the material-aware `wEquation` path stores those outputs in full-width
+temporary buffers and compacts only the leading `ncwa` residual/Jacobian blocks
+before calling the small dense Newton solves.
+
+After the ordinary auxiliary variables are available, `MaterialstateDriver`
+computes the independent material-state coordinates, and
+`materialproperties_kokkos` interpolates the tabulated properties into the last
+`app.materialdb_nprop` components of `wdg`.  The derivative path applies the
+chain rule
+
+```text
+dstate/dudg = state_udg_partial + state_wdg_partial * dw_aux/dudg
+dproperties/dudg = dproperties/dstate * dstate/dudg
+```
+
+Only the ordinary auxiliary variables enter the first contraction; material
+properties are outputs and are not nonlinear w-equation unknowns.
+
+The Kokkos material-property lookup uses `materialdb_elemcoords` and
+`materialdb_elemoffset` as the authoritative element-boundary coordinates.
+Interior intervals follow `[x_left, x_right)`, and the global upper boundary is
+included in the final element.  Query points outside the tabulated coordinate
+range abort with a material-property domain error instead of being clamped to a
+boundary element.
+
 ## Tests
 
-The focused backend test is registered as:
+The focused backend tests are registered as:
 
 ```text
 appstruct_materialdatabase
+material_properties_nonuniform
+wequation_material_split
 ```
 
-It covers:
+They cover:
 
 - default release behavior with no database;
 - one-dimensional order selection for `N=11`, `N=13`, and `N=10`;
 - multidimensional Cartesian table reconstruction;
 - nonuniform coordinate preservation;
 - three-dimensional tensor-product construction;
-- duplicate state-point rejection.
+- duplicate state-point rejection;
+- nonuniform material-property interpolation and analytic derivatives;
+- material-property boundary handling, including the global upper boundary;
+- full-`Sourcew` to compact-`ncwa` Jacobian extraction for the material-aware
+  w-equation split.
 
-Run it from a configured build with:
+Run them from a configured build with:
 
 ```bash
-ctest --test-dir <build-dir> -R appstruct_materialdatabase --output-on-failure
+ctest --test-dir <build-dir> -R "appstruct_materialdatabase|material_properties_nonuniform|wequation_material_split" --output-on-failure
 ```

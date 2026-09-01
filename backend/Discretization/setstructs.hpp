@@ -454,9 +454,15 @@ inline void settempstruct(tempstructT<T,I> &tmp, appstructT<T,I> &app, masterstr
       Int materialValueScratch =
           ngaMax*nmaterialdb_state +
           ngaMax*nmaterialdb_state*(2 + 2*npthermo);
+      Int materialValueDaeScratch =
+          ngaMax*ncw +
+          ngaMax*ncw*ncw +
+          ngaMax*ncwa*ncwa;
       Int materialDerivativeScratch =
-          ngaMax*ncwa +
-          ngaMax*ncwa*ncw +
+          ngaMax*ncw +
+          ngaMax*ncw*ncw +
+          ngaMax*ncwa*ncwa +
+          ngaMax*ncw*nc +
           ngaMax*ncwa*nc +
           ngaMax*nmaterialdb_state +
           ngaMax*nmaterialdb_state*nc +
@@ -465,6 +471,7 @@ inline void settempstruct(tempstructT<T,I> &tmp, appstructT<T,I> &app, masterstr
           ngaMax*nmaterialdb_prop*nmaterialdb_state +
           ngaMax*nmaterialdb_state*(2 + 3*npthermo);
       n3 = std::max(n3, materialValueScratch);
+      n3 = std::max(n3, materialValueDaeScratch);
       n3 = std::max(n3, materialDerivativeScratch);
       tmp.sztempi = ngaMax*(nmaterialdb_state + 1);
     }
