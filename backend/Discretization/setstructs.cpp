@@ -517,6 +517,8 @@ void settempstruct(tempstructT<T,I> &tmp, appstructT<T,I> &app, masterstructT<T,
     Int nco = app.ndims[AppNdims::nco];// number of compoments of (o)    
     Int ncx = app.ndims[AppNdims::ncx];// number of compoments of (xdg)    
     Int ncw = app.ndims[AppNdims::ncw];// number of compoments of (u)       
+    Int nmaterialdb_state = app.materialdb_nstate;
+    Int nmaterialdb_prop = app.materialdb_nprop;
     Int nd = master.ndims[0];     // spatial dimension        
     Int npe = master.ndims[5]; // number of nodes on master element
     Int npf = master.ndims[6]; // number of nodes on master face       
@@ -583,9 +585,35 @@ void settempstruct(tempstructT<T,I> &tmp, appstructT<T,I> &app, masterstructT<T,
       n3 = max(n3, k1);
       n3 = max(n3, k2);
     }
+
+    if (nmaterialdb_prop > 0) {
+      Int ncwa = ncw - nmaterialdb_prop;
+      if (ncwa < 0)
+        error("Material database property count exceeds ncw in settempstruct.");
+
+      Int ngaMax = max(npe*neb, max(nge*neb, ngf*nfb*nfe));
+      Int npthermo = app.materialdb_porder + 1;
+      Int materialValueScratch =
+          ngaMax*nmaterialdb_state +
+          ngaMax*nmaterialdb_state*(2 + 2*npthermo);
+      Int materialDerivativeScratch =
+          ngaMax*ncwa +
+          ngaMax*ncwa*ncw +
+          ngaMax*ncwa*nc +
+          ngaMax*nmaterialdb_state +
+          ngaMax*nmaterialdb_state*nc +
+          ngaMax*nmaterialdb_state*ncw +
+          ngaMax*nmaterialdb_state*nc +
+          ngaMax*nmaterialdb_prop*nmaterialdb_state +
+          ngaMax*nmaterialdb_state*(2 + 3*npthermo);
+      n3 = max(n3, materialValueScratch);
+      n3 = max(n3, materialDerivativeScratch);
+      tmp.sztempi = ngaMax*(nmaterialdb_state + 1);
+    }
         
     TemplateMalloc(&tmp.tempn, n0+n3, backend); 
     tmp.tempg = &tmp.tempn[n0];
+    TemplateMalloc(&tmp.tempi, tmp.sztempi, backend);
     //TemplateMalloc(&tmp.tempg, n3, backend); 
     tmp.sztempn = n0;
     tmp.sztempg = n3;       
@@ -990,6 +1018,14 @@ void devappstruct(appstructT<T,I> &dapp, appstructT<T,I> &app, ExasimDriverABI& 
     TemplateMalloc(&dapp.dae_dt, app.nsize[13], common.backend);  
     TemplateMalloc(&dapp.interfacefluxmap, app.nsize[14], common.backend);  
     TemplateMalloc(&dapp.avparam, app.nsize[15], common.backend);  
+    TemplateMalloc(&dapp.materialdb_elementcounts, app.szmaterialdb_elementcounts, common.backend);
+    TemplateMalloc(&dapp.materialdb_ncgi, app.szmaterialdb_ncgi, common.backend);
+    TemplateMalloc(&dapp.materialdb_gridoffset, app.szmaterialdb_gridoffset, common.backend);
+    TemplateMalloc(&dapp.materialdb_elemoffset, app.szmaterialdb_elemoffset, common.backend);
+    TemplateMalloc(&dapp.materialdb_statecoords, app.szmaterialdb_statecoords, common.backend);
+    TemplateMalloc(&dapp.materialdb_propvalues, app.szmaterialdb_propvalues, common.backend);
+    TemplateMalloc(&dapp.materialdb_gridcoords, app.szmaterialdb_gridcoords, common.backend);
+    TemplateMalloc(&dapp.materialdb_elemcoords, app.szmaterialdb_elemcoords, common.backend);
     
     TemplateCopytoDevice( dapp.nsize, app.nsize, app.lsize[0], common.backend );      
     TemplateCopytoDevice( dapp.ndims, app.ndims, app.nsize[0], common.backend );      
@@ -1008,6 +1044,14 @@ void devappstruct(appstructT<T,I> &dapp, appstructT<T,I> &app, ExasimDriverABI& 
     TemplateCopytoDevice( dapp.dae_dt, app.dae_dt, app.nsize[13], common.backend );   
     TemplateCopytoDevice( dapp.interfacefluxmap, app.interfacefluxmap, app.nsize[14], common.backend );   
     TemplateCopytoDevice( dapp.avparam, app.avparam, app.nsize[15], common.backend );   
+    TemplateCopytoDevice( dapp.materialdb_elementcounts, app.materialdb_elementcounts, app.szmaterialdb_elementcounts, common.backend );
+    TemplateCopytoDevice( dapp.materialdb_ncgi, app.materialdb_ncgi, app.szmaterialdb_ncgi, common.backend );
+    TemplateCopytoDevice( dapp.materialdb_gridoffset, app.materialdb_gridoffset, app.szmaterialdb_gridoffset, common.backend );
+    TemplateCopytoDevice( dapp.materialdb_elemoffset, app.materialdb_elemoffset, app.szmaterialdb_elemoffset, common.backend );
+    TemplateCopytoDevice( dapp.materialdb_statecoords, app.materialdb_statecoords, app.szmaterialdb_statecoords, common.backend );
+    TemplateCopytoDevice( dapp.materialdb_propvalues, app.materialdb_propvalues, app.szmaterialdb_propvalues, common.backend );
+    TemplateCopytoDevice( dapp.materialdb_gridcoords, app.materialdb_gridcoords, app.szmaterialdb_gridcoords, common.backend );
+    TemplateCopytoDevice( dapp.materialdb_elemcoords, app.materialdb_elemcoords, app.szmaterialdb_elemcoords, common.backend );
     
     dapp.szflag = app.nsize[1];
     dapp.szproblem = app.nsize[2];
@@ -1024,6 +1068,20 @@ void devappstruct(appstructT<T,I> &dapp, appstructT<T,I> &app, ExasimDriverABI& 
     dapp.szdae_dt = app.nsize[13];
     dapp.szinterfacefluxmap = app.nsize[14];
     dapp.szavparam = app.nsize[15];
+    dapp.materialdb_nstate = app.materialdb_nstate;
+    dapp.materialdb_nprop = app.materialdb_nprop;
+    dapp.materialdb_porder = app.materialdb_porder;
+    dapp.materialdb_elemtype = app.materialdb_elemtype;
+    dapp.materialdb_npe = app.materialdb_npe;
+    dapp.materialdb_ne = app.materialdb_ne;
+    dapp.szmaterialdb_elementcounts = app.szmaterialdb_elementcounts;
+    dapp.szmaterialdb_ncgi = app.szmaterialdb_ncgi;
+    dapp.szmaterialdb_gridoffset = app.szmaterialdb_gridoffset;
+    dapp.szmaterialdb_elemoffset = app.szmaterialdb_elemoffset;
+    dapp.szmaterialdb_statecoords = app.szmaterialdb_statecoords;
+    dapp.szmaterialdb_propvalues = app.szmaterialdb_propvalues;
+    dapp.szmaterialdb_gridcoords = app.szmaterialdb_gridcoords;
+    dapp.szmaterialdb_elemcoords = app.szmaterialdb_elemcoords;
     
     Int ncu, ncq, ncw;
     ncu = app.ndims[AppNdims::ncu];// number of compoments of (u)

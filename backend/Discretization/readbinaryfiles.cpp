@@ -62,6 +62,8 @@
 #include <mutation++.h>
 #endif
 
+#include "appstruct_materialdatabase.hpp"
+
 // Defined later in the same TU (setstructs.cpp); derives app.porder + app.comm. Shared with the
 // in-memory path (discretization_inmemory.hpp). Forward-declared here because this .cpp is
 // aggregated before setstructs.cpp in the unity/templated build.
@@ -228,6 +230,21 @@ void writeappstruct(string filename, appstruct &app)
     
     // Close file:
     out.close();
+}
+
+void readmaterialdatabase(string filename, appstruct &app)
+{
+    try {
+        exasim::materials::detail::readMaterialDatabaseIntoAppStruct(filename, app);
+    } catch (const std::exception& e) {
+        error(std::string(e.what()));
+    }
+}
+
+bool materialdatabase_fileexists(string filename)
+{
+    ifstream in(filename.c_str(), ios::in | ios::binary);
+    return static_cast<bool>(in);
 }
 
 void readmasterstruct(string filename, masterstruct &master)
@@ -662,6 +679,12 @@ void readInput(appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master
     // Derive app.porder + app.comm (not serialized with the app struct). Shared with the
     // in-memory path via setAppRuntimeContext (defined in setstructs.cpp, same TU).
     setAppRuntimeContext(app, master, mpirank, mpiprocs);
+
+    string filematerialdb = filein + "materialdatabase.bin";
+    if (materialdatabase_fileexists(filematerialdb)) {
+        if (mpirank==0) printf("Reading material database from binary files \n");
+        readmaterialdatabase(filematerialdb, app);
+    }
                     
     // read meshsol structure
     if (mpiprocs>1) {     
