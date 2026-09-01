@@ -19,6 +19,7 @@ from .mkdge2dgf import mkdge2dgf
 from .createdgnodes import createdgnodes
 from .facenumbering import facenumbering
 from .meshpartitionhdg import meshpartitionhdg
+from .process_materialdatabase import process_materialdatabase
 import os, sys, sympy
 from importlib import import_module
 import importlib.util
@@ -46,6 +47,7 @@ def preprocessing(app,mesh):
     # Check if directories exist and create them if they don't
     os.makedirs(datain_path, exist_ok=True)
     os.makedirs(dataout_path, exist_ok=True)
+    process_materialdatabase(app, datain_path)
 
     filename = os.path.join(app['datapath'], "datain", strn) + "/"
     fileapp = os.path.join(filename, "app.bin")
