@@ -30,6 +30,7 @@
 
 #include "kernels/flux.hpp"
 #include "kernels/source.hpp"
+#include "kernels/materialstate.hpp"
 #include "kernels/sourcew.hpp"
 #include "kernels/boundary.hpp"
 #include "kernels/interface.hpp"
@@ -121,6 +122,43 @@ inline void SourceDriver(T* f, const T* xg, const T* udg,
     source_kernel<M, T>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                      s.time, s.modelnumber, s.numPoints, s.nc, s.ncu,
                      s.nd, s.ncx, s.nco, s.ncw);
+}
+
+
+// Optional material-state map for material database lookup.
+template <class M, class T=dstype, class I=Int>
+inline void MaterialstateDriver(T* state, const T* xg, const T* udg,
+                                const T* odg, const T* wdg,
+                                meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                                appstructT<T,I>& app, solstructT<T,I>& /*sol*/,
+                                tempstructT<T,I>& /*temp*/, commonstructT<T,I>& common,
+                                Int nge, Int e1, Int e2, Int /*backend*/)
+{
+    using dstype=T;
+    auto s = detail::compute_shape(common, nge, e1, e2);
+    materialstate_kernel<M, T>(state, xg, udg, odg, wdg, app.uinf,
+                            app.physicsparam, s.time, s.modelnumber,
+                            s.numPoints, s.nc, s.ncu, s.nd, s.ncx, s.nco,
+                            s.ncw, M::nmaterialstate);
+}
+
+// HDG material-state map: value + ∂state/∂uq + ∂state/∂w.
+template <class M, class T=dstype, class I=Int>
+inline void MaterialstateDriver(T* state, T* state_udg, T* state_wdg,
+                                const T* xg, const T* udg,
+                                const T* odg, const T* wdg,
+                                meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                                appstructT<T,I>& app, solstructT<T,I>& /*sol*/,
+                                tempstructT<T,I>& /*temp*/, commonstructT<T,I>& common,
+                                Int nge, Int e1, Int e2, Int /*backend*/)
+{
+    using dstype=T;
+    auto s = detail::compute_shape(common, nge, e1, e2);
+    hdg_materialstate_kernel<M, T>(state, state_udg, state_wdg, xg, udg,
+                                odg, wdg, app.uinf, app.physicsparam,
+                                s.time, s.modelnumber, s.numPoints,
+                                s.nc, s.ncu, s.nd, s.ncx, s.nco, s.ncw,
+                                M::nmaterialstate);
 }
 
 // HDG source: f + ∂s/∂uq + ∂s/∂w.

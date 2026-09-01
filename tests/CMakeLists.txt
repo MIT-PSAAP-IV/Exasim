@@ -11,6 +11,42 @@
 # EXASIM_BUILD_TESTS=ON, builds, runs ctest).
 cmake_minimum_required(VERSION 3.16)
 
+
+# Backend material-database appstruct conversion.  This is intentionally scoped
+# to the appstruct-based reader used by the backend initialization path; PSAAP
+# does not build the older standalone backend/Materials module.
+add_executable(appstruct_materialdatabase_test
+  "${EXASIM_DIR}/tests/materials/appstruct_materialdatabase_test.cpp")
+target_include_directories(appstruct_materialdatabase_test PRIVATE
+  "${EXASIM_DIR}")
+target_compile_features(appstruct_materialdatabase_test PRIVATE cxx_std_17)
+add_test(NAME appstruct_materialdatabase
+  COMMAND appstruct_materialdatabase_test
+    "${CMAKE_CURRENT_BINARY_DIR}")
+set_tests_properties(appstruct_materialdatabase PROPERTIES TIMEOUT 60)
+
+if(TARGET Kokkos::kokkos)
+  add_executable(material_properties_nonuniform_test
+    "${EXASIM_DIR}/tests/materials/material_properties_nonuniform_test.cpp")
+  target_include_directories(material_properties_nonuniform_test PRIVATE
+    "${EXASIM_DIR}")
+  target_link_libraries(material_properties_nonuniform_test PRIVATE Kokkos::kokkos)
+  target_compile_features(material_properties_nonuniform_test PRIVATE cxx_std_17)
+  add_test(NAME material_properties_nonuniform
+    COMMAND material_properties_nonuniform_test)
+  set_tests_properties(material_properties_nonuniform PROPERTIES TIMEOUT 60)
+
+  add_executable(wequation_material_split_test
+    "${EXASIM_DIR}/tests/materials/wequation_material_split_test.cpp")
+  target_include_directories(wequation_material_split_test PRIVATE
+    "${EXASIM_INCLUDE_DIR}" "${EXASIM_DIR}")
+  target_link_libraries(wequation_material_split_test PRIVATE Kokkos::kokkos)
+  target_compile_features(wequation_material_split_test PRIVATE cxx_std_17)
+  add_test(NAME wequation_material_split
+    COMMAND wequation_material_split_test)
+  set_tests_properties(wequation_material_split PROPERTIES TIMEOUT 60)
+endif()
+
 # CPU-only consumer (non-MPI, single process).
 add_test(NAME consumer_builtin_cpu
   COMMAND ${CMAKE_COMMAND} -E env

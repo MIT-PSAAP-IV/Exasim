@@ -161,7 +161,7 @@ void UpdateSolution(solstruct &sol, sysstruct &sys, appstruct &app, ExasimDriver
                 GetElemNodes(udg, sol.udg, common.grid.npe, nc, 0, nc, e1, e2);
                 GetElemNodes(odg, sol.odg, common.grid.npe, nco, 0, nco, e1, e2);
                 GetElemNodes(sdg, sol.wsrc, common.grid.npe, ncw, 0, ncw, e1, e2);
-                wEquation<M>(wdg, xdg, udg, odg, sdg, tmp.tempg, app, common, ng, common.backend);
+                wEquation<M>(wdg, xdg, udg, odg, sdg, tmp.tempg, app, common, ng, common.backend, tmp.tempi);
                 PutElemNodes(sol.wdg, wdg, common.grid.npe, ncw, 0, ncw, e1, e2);
             }   
         }

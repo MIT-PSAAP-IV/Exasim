@@ -62,6 +62,8 @@
 #include <mutation++.h>
 #endif
 
+#include "appstruct_materialdatabase.hpp"
+
 inline void readappstruct(std::string filename, appstruct &app)
 {
     // Open file to read
@@ -207,6 +209,21 @@ inline void writeappstruct(std::string filename, appstruct &app)
     
     // Close file:
     out.close();
+}
+
+inline void readmaterialdatabase(std::string filename, appstruct &app)
+{
+    try {
+        exasim::materials::detail::readMaterialDatabaseIntoAppStruct(filename, app);
+    } catch (const std::exception& e) {
+        error(std::string(e.what()));
+    }
+}
+
+inline bool materialdatabase_fileexists(std::string filename)
+{
+    std::ifstream in(filename.c_str(), std::ios::in | std::ios::binary);
+    return static_cast<bool>(in);
 }
 
 inline void readmasterstruct(std::string filename, masterstruct &master)
@@ -643,6 +660,12 @@ inline void readInput(appstruct &app, masterstruct &master, meshstruct &mesh, so
     app.comm[0] = mpirank;
     app.comm[1] = mpiprocs;
     app.szcomm = 2;
+
+    std::string filematerialdb = filein + "materialdatabase.bin";
+    if (materialdatabase_fileexists(filematerialdb)) {
+        if (mpirank==0) printf("Reading material database from binary files \n");
+        readmaterialdatabase(filematerialdb, app);
+    }
                     
     // read meshsol structure
     if (mpiprocs>1) {     

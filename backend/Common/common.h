@@ -765,6 +765,38 @@ struct appstructT {
     Int szuinf=0, szdt=0, szdae_dt=0, szfactor=0, szphysicsparam=0, szsolversparam=0;
     Int sztau=0, szstgdata=0, szstgparam=0, szfc_u=0, szfc_q=0, szfc_w=0;
     Int szdtcoef_u=0, szdtcoef_q=0, szdtcoef_w=0, szavparam=0, szwmDistances=0;
+
+    // Material database metadata.  These fields are populated from the
+    // optional datain/materialdatabase.bin table at runtime; they are not
+    // serialized in app.bin.
+    Int materialdb_nstate = 0;
+    Int materialdb_nprop = 0;
+    Int materialdb_porder = 0;
+    Int materialdb_elemtype = 0;
+    Int materialdb_npe = 0;
+    Int materialdb_ne = 0;
+
+    // Material database indexing.
+    Int *materialdb_elementcounts = nullptr;
+    Int *materialdb_ncgi = nullptr;
+    Int *materialdb_gridoffset = nullptr;
+    Int *materialdb_elemoffset = nullptr;
+
+    // Material database data.
+    dstype *materialdb_statecoords = nullptr;
+    dstype *materialdb_propvalues = nullptr;
+    dstype *materialdb_gridcoords = nullptr;
+    dstype *materialdb_elemcoords = nullptr;
+
+    Int szmaterialdb_elementcounts = 0;
+    Int szmaterialdb_ncgi = 0;
+    Int szmaterialdb_gridoffset = 0;
+    Int szmaterialdb_elemoffset = 0;
+    Int szmaterialdb_statecoords = 0;
+    Int szmaterialdb_propvalues = 0;
+    Int szmaterialdb_gridcoords = 0;
+    Int szmaterialdb_elemcoords = 0;
+
     Int read_uh = 0;
     Int modelnumber = 0;
     Int builtinmodelID = 0;
@@ -772,13 +804,16 @@ struct appstructT {
 
     int sizeofint() {
       int sz = szflag + szproblem + szcomm + szporder + szstgib + szvindx + szinterfacefluxmap
-             + szwmModelIDs + szwmBoundaries;
+             + szwmModelIDs + szwmBoundaries + szmaterialdb_elementcounts +
+               szmaterialdb_ncgi + szmaterialdb_gridoffset + szmaterialdb_elemoffset;
       return sz;
     }
     int sizeoffloat() {
       int sz = szuinf+szdt+szdae_dt+szfactor+szphysicsparam+szsolversparam+
                sztau+szstgdata+szstgparam+szfc_u+szfc_q+szfc_w+szdtcoef_u+
-               szdtcoef_q+szdtcoef_w+szavparam+szwmDistances;
+               szdtcoef_q+szdtcoef_w+szavparam+szwmDistances+
+               szmaterialdb_statecoords+szmaterialdb_propvalues+
+               szmaterialdb_gridcoords+szmaterialdb_elemcoords;
       return sz;        
     }
 
@@ -811,6 +846,20 @@ struct appstructT {
       printf("size of dtcoef_u: %d\n", szdtcoef_u);
       printf("size of dtcoef_q: %d\n", szdtcoef_q);
       printf("size of dtcoef_w: %d\n", szdtcoef_w);
+      printf("materialdb_nstate: %d\n", materialdb_nstate);
+      printf("materialdb_nprop: %d\n", materialdb_nprop);
+      printf("materialdb_porder: %d\n", materialdb_porder);
+      printf("materialdb_elemtype: %d\n", materialdb_elemtype);
+      printf("materialdb_npe: %d\n", materialdb_npe);
+      printf("materialdb_ne: %d\n", materialdb_ne);
+      printf("size of materialdb_elementcounts: %d\n", szmaterialdb_elementcounts);
+      printf("size of materialdb_ncgi: %d\n", szmaterialdb_ncgi);
+      printf("size of materialdb_gridoffset: %d\n", szmaterialdb_gridoffset);
+      printf("size of materialdb_elemoffset: %d\n", szmaterialdb_elemoffset);
+      printf("size of materialdb_statecoords: %d\n", szmaterialdb_statecoords);
+      printf("size of materialdb_propvalues: %d\n", szmaterialdb_propvalues);
+      printf("size of materialdb_gridcoords: %d\n", szmaterialdb_gridcoords);
+      printf("size of materialdb_elemcoords: %d\n", szmaterialdb_elemcoords);
       printf("size of int: %d\n", sizeofint());
       printf("size of float: %d\n", sizeoffloat());
     }
@@ -851,6 +900,29 @@ struct appstructT {
         TemplateFree(dtcoef_u, backend);
         TemplateFree(dtcoef_q, backend);
         TemplateFree(dtcoef_w, backend);
+        TemplateFree(materialdb_elementcounts, backend);
+        TemplateFree(materialdb_ncgi, backend);
+        TemplateFree(materialdb_gridoffset, backend);
+        TemplateFree(materialdb_elemoffset, backend);
+        TemplateFree(materialdb_statecoords, backend);
+        TemplateFree(materialdb_propvalues, backend);
+        TemplateFree(materialdb_gridcoords, backend);
+        TemplateFree(materialdb_elemcoords, backend);
+
+        szmaterialdb_elementcounts = 0;
+        szmaterialdb_ncgi = 0;
+        szmaterialdb_gridoffset = 0;
+        szmaterialdb_elemoffset = 0;
+        szmaterialdb_statecoords = 0;
+        szmaterialdb_propvalues = 0;
+        szmaterialdb_gridcoords = 0;
+        szmaterialdb_elemcoords = 0;
+        materialdb_nstate = 0;
+        materialdb_nprop = 0;
+        materialdb_porder = 0;
+        materialdb_elemtype = 0;
+        materialdb_npe = 0;
+        materialdb_ne = 0;
     }
 };
 using appstruct = appstructT<::dstype, ::Int>;
@@ -1596,10 +1668,11 @@ struct tempstructT {
     dstype *buffsend=nullptr;
     dstype *bufffacerecv=nullptr;
     dstype *bufffacesend=nullptr;
+    Int *tempi=nullptr;
     
-    int sztempn=0, sztempg = 0, szbuffrecv=0, szbuffsend=0, szbufffacerecv=0, szbufffacesend=0;
+    int sztempn=0, sztempg = 0, szbuffrecv=0, szbuffsend=0, szbufffacerecv=0, szbufffacesend=0, sztempi=0;
 
-    int sizeofint() {return 0;}
+    int sizeofint() {return sztempi;}
     int sizeoffloat() 
     {
       int sz = sztempn + sztempg + szbuffrecv + szbuffsend + szbufffacerecv + szbufffacesend;
@@ -1615,6 +1688,7 @@ struct tempstructT {
       printf("size of buffsend: %d\n", szbuffsend);
       printf("size of bufffacerecv: %d\n", szbufffacerecv);
       printf("size of bufffacesend: %d\n", szbufffacesend);
+      printf("size of tempi: %d\n", sztempi);
       printf("size of int: %d\n", sizeofint());
       printf("size of float: %d\n", sizeoffloat());
     }
@@ -1627,6 +1701,7 @@ struct tempstructT {
         TemplateFree(buffsend, backend); 
         TemplateFree(bufffacerecv, backend); 
         TemplateFree(bufffacesend, backend); 
+        TemplateFree(tempi, backend);
     }            
 };
 using tempstruct = tempstructT<::dstype, ::Int>;
