@@ -814,7 +814,7 @@ void uhatEquationElemFaceBlockLDG(solstruct &sol, resstruct &res, appstruct &app
     Int nf = nfe*ne;
     Int nn = npf*nf;
     
-    GetElementFaceNodes(tmp.tempn, sol.uh, mesh.elemcon, npf*nfe, ncu, e1, e2, 0);
+    GetElementFaceNodesLDG(tmp.tempn, sol.uh, mesh.elemcon, npf*nfe, ncu, npf, e1, e2);
     GetElementFaceNodes(&tmp.tempn[nn*ncu], sol.udg, mesh.perm, npf*nfe, nc, npe, nc, e1, e2);
     if (nco > 0)
         GetElementFaceNodes(&tmp.tempn[nn*(ncu+nc)], sol.odg, mesh.perm, npf*nfe, nco, npe, nco, e1, e2);
@@ -936,7 +936,7 @@ void uEquationElemFaceBlockLDG(solstruct &sol, resstruct &res, appstruct &app,
     dstype *fg_w   = &tmp.tempg[n8 + nga*ncu*nd + nga*ncu*nd*nc + nga*ncu*ncu];
     dstype *wdg_uq = &tmp.tempg[n8 + nga*ncu*nd + nga*ncu*nd*nc + nga*ncu*ncu + nga*ncu*nd*ncw];
 
-    GetElementFaceNodes(tmp.tempn, sol.uh, mesh.elemcon, npf*nfe, ncu, e1, e2, 0);
+    GetElementFaceNodesLDG(tmp.tempn, sol.uh, mesh.elemcon, npf*nfe, ncu, npf, e1, e2);
     GetElementFaceNodes(&tmp.tempn[nn*ncu], sol.udg, mesh.perm, npf*nfe, nc, npe, nc, e1, e2);
     if (nco > 0)
         GetElementFaceNodes(&tmp.tempn[nn*(ncu+nc)], sol.odg, mesh.perm, npf*nfe, nco, npe, nco, e1, e2);
