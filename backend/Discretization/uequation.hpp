@@ -304,7 +304,7 @@ inline void uEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, a
     if ((ncw>0) & (common.timeparams.wave==0)) {
       ArrayGemmBatch2(fh_uh, fh_w, wdg_uq, one, ncu, ncu, ncw, nga); // fix bug here       
       
-      ArraySetValue(wdg_uq, 0.0, nga*ncu*ncu);
+      ArraySetValue(wdg_uq, 0.0, nga*ncw*ncu); // fix bug here
       ArrayGemmBatch2(fh_uq, fh_w, wdg_uq, one, ncu, nc, ncw, nga); // fix bug here       
     }
     

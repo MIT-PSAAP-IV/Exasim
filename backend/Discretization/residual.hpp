@@ -143,6 +143,26 @@ inline void GetW(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &ap
 {
     using dstype=T;        
     if (common.timeparams.subproblem==0) {
+        Int nc = common.components.nc;
+        Int ncw = common.components.ncw;
+        Int nco = common.components.nco;
+        Int ncx = common.components.ncx;
+        Int npe = common.grid.npe;
+
+        for (Int j=nbe1; j<nbe2; j++) {
+            Int e1 = common.eblks[3*j]-1;
+            Int e2 = common.eblks[3*j+1];
+            Int ng = npe*(e2-e1);
+
+            wEquation<M>(&sol.wdg[npe*ncw*e1], &sol.xdg[npe*ncx*e1],
+                &sol.udg[npe*nc*e1], &sol.odg[npe*nco*e1],
+                &sol.wsrc[npe*ncw*e1], tmp.tempn, app, common, ng, backend,
+                tmp.tempi);
+        }
+    }
+    return;
+
+    if (common.timeparams.subproblem==0) {
     Int nc = common.components.nc; // number of compoments of (u, q, p)
     Int ncw = common.components.ncw;// number of compoments of (w)
     Int nco = common.components.nco;// number of compoments of (o)
