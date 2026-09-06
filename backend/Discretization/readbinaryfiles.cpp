@@ -684,6 +684,16 @@ void readInput(appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master
     if (materialdatabase_fileexists(filematerialdb)) {
         if (mpirank==0) printf("Reading material database from binary files \n");
         readmaterialdatabase(filematerialdb, app);
+        if (mpirank == 0) {
+            printf("Finish constructing material mesh: "
+                   "nstate = %d, nprop = %d, porder = %d, "
+                   "elements = %d, nodes/element = %d\n",
+                   app.materialdb_nstate,
+                   app.materialdb_nprop,
+                   app.materialdb_porder,
+                   app.materialdb_ne,
+                   app.materialdb_npe);
+        }
     }
                     
     // read meshsol structure
