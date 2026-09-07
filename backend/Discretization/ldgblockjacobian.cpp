@@ -604,7 +604,8 @@ static void LDGScatterCrossFaceGEMMBlock(dstype* A, const dstype* Af,
                                          dstype* Aoff = nullptr,
                                          const Int nfe = 0,
                                          const Int ne1 = 0,
-                                         const int doNbr = 1)
+                                         const int doNbr = 1,
+                                         const dstype t2s = 1.0)
 {
     Int nrow = npf*ncu*ncu;
     Int nlocu = npe*ncu;
@@ -656,7 +657,7 @@ static void LDGScatterCrossFaceGEMMBlock(dstype* A, const dstype* Af,
                 Int lf = (f2e[4*f + 0] == rowelem) ? f2e[4*f + 1] : f2e[4*f + 3];
                 Int row = rownode + npe*m;
                 Int col = unode_n + npe*c;
-                Kokkos::atomic_add(&Aoff[row + nlocu*col + nlocu*nlocu*(rowelem + ne1*lf)], value);
+                Kokkos::atomic_add(&Aoff[row + nlocu*col + nlocu*nlocu*(rowelem + ne1*lf)], t2s*value);
             }
         }
     });
@@ -671,7 +672,8 @@ static void LDGScatterCrossFaceGEMMBlock(dstype* A, const dstype* Af,
 static void LDGScatterFtoNeighborOffDiag(dstype* Aoff, const dstype* F,
                                          const Int* elemcon, const Int* facecon, const Int* f2e,
                                          const Int e1, const Int ne, const Int ne1,
-                                         const Int npe, const Int npf, const Int nfe, const Int ncu)
+                                         const Int npe, const Int npf, const Int nfe, const Int ncu,
+                                         const dstype t1s = 1.0)
 {
     Int ndf = npf*nfe;
     Int n = npe*ncu;
@@ -697,7 +699,7 @@ static void LDGScatterFtoNeighborOffDiag(dstype* Aoff, const dstype* F,
         Int nbrDOF = facecon[2*gtn + (1 - s_side)];
         Int nbr_node = nbrDOF % npe;
 
-        dstype value = 0.5 * F[vol_row + n*col + n*m*e];
+        dstype value = t1s * 0.5 * F[vol_row + n*col + n*m*e];
         Kokkos::atomic_add(&Aoff[vol_row + n*(nbr_node + npe*s) + n*n*(eg + ne1*lf)], value);
     });
 }
@@ -1571,8 +1573,11 @@ void RuFaceCrossDerivOptimized(dstype* A, solstruct &sol,
     Int szCf_max  = npf*nd*npe*common.meshsizes.nfb;
     Int szAfC_max = npf*ncu*ncu*npe*common.meshsizes.nfb;
     int en_t2 = 1, en_t3 = 1;   // debug gates: T2 = neighbour-q through-trace (E), T3 = direct (C)
+    dstype t2s = 1.0, t3s = 1.0;
     { const char* e; if ((e = getenv("LDG_M2_T2"))) en_t2 = atoi(e);
-                     if ((e = getenv("LDG_M2_T3"))) en_t3 = atoi(e); }
+                     if ((e = getenv("LDG_M2_T3"))) en_t3 = atoi(e);
+                     if ((e = getenv("LDG_M2_T2S"))) t2s = atof(e);
+                     if ((e = getenv("LDG_M2_T3S"))) t3s = atof(e); }
     if (Aoff != nullptr && en_t3) {
         TemplateMalloc(&Cf,  szCf_max,  backend);
         TemplateMalloc(&AfC, szAfC_max, backend);
@@ -1657,14 +1662,14 @@ void RuFaceCrossDerivOptimized(dstype* A, solstruct &sol,
                 Af, npf*ncu*ncu, nfb, backend);
         LDGScatterCrossFaceGEMMBlock(A, Af, mesh.facecon, mesh.f2e,
                 2, f1, nfb, npe, npf, ncu, ne,
-                Aoff, common.meshsizes.nfe, common.meshsizes.ne1, en_t2);
+                Aoff, common.meshsizes.nfe, common.meshsizes.ne1, en_t2, t2s);
 
         // M2 off-diagonal neighbour-q DIRECT term (T3): B * (-Minv*C_neighbour), scattered to Aoff.
         // res.ipiv holds the sideQ=1 face-slot map from LDGBuildFaceSlotQMap above.
         if (Aoff != nullptr && en_t3) {
             LDGBuildFaceCForCrossBlockOptimized(Cf, res.C, mesh.f2e, mesh.perm, res.ipiv, 1,
                     f1, nfb, npe, npf, nd, common.meshsizes.ne);
-            ArrayMultiplyScalar(common.cublasHandle, Cf, minusone*scalar, npf*nd*npe*nfb, backend);
+            ArrayMultiplyScalar(common.cublasHandle, Cf, minusone*scalar*t3s, npf*nd*npe*nfb, backend);
             PGEMNMStridedBached(common.cublasHandle, npf*ncu*ncu, npe, npf*nd, one,
                     B, npf*ncu*ncu, Cf, npf*nd, 0.0, AfC, npf*ncu*ncu, nfb, backend);
             LDGScatterCrossFaceCGEMMBlock(Aoff, AfC, mesh.facecon, mesh.f2e, 2, f1, nfb,
@@ -1691,13 +1696,13 @@ void RuFaceCrossDerivOptimized(dstype* A, solstruct &sol,
                 Af, npf*ncu*ncu, nfb, backend);
         LDGScatterCrossFaceGEMMBlock(A, Af, mesh.facecon, mesh.f2e,
                 1, f1, nfb, npe, npf, ncu, ne,
-                Aoff, common.meshsizes.nfe, common.meshsizes.ne1, en_t2);
+                Aoff, common.meshsizes.nfe, common.meshsizes.ne1, en_t2, t2s);
 
         // M2 off-diagonal neighbour-q DIRECT term (T3), side-2 pass. res.ipiv holds sideQ=2 map.
         if (Aoff != nullptr && en_t3) {
             LDGBuildFaceCForCrossBlockOptimized(Cf, res.C, mesh.f2e, mesh.perm, res.ipiv, 2,
                     f1, nfb, npe, npf, nd, common.meshsizes.ne);
-            ArrayMultiplyScalar(common.cublasHandle, Cf, minusone*scalar*minusone, npf*nd*npe*nfb, backend);
+            ArrayMultiplyScalar(common.cublasHandle, Cf, minusone*scalar*minusone*t3s, npf*nd*npe*nfb, backend);
             PGEMNMStridedBached(common.cublasHandle, npf*ncu*ncu, npe, npf*nd, one,
                     B, npf*ncu*ncu, Cf, npf*nd, 0.0, AfC, npf*ncu*ncu, nfb, backend);
             LDGScatterCrossFaceCGEMMBlock(Aoff, AfC, mesh.facecon, mesh.f2e, 1, f1, nfb,
@@ -1763,8 +1768,11 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
     // M2 off-diagonal (assembled operator): zero the neighbour store and build the neighbour map.
     // Debug gating (default both on): LDG_M2_T1 (trace F*G neighbour), LDG_M2_T2 (cross-q neighbour).
     int en_t1 = 1, en_t2 = 1;
+    dstype t1s = 1.0;
     { const char* e; if ((e = getenv("LDG_M2_T1"))) en_t1 = atoi(e);
-                     if ((e = getenv("LDG_M2_T2"))) en_t2 = atoi(e); }
+                     if ((e = getenv("LDG_M2_T2"))) en_t2 = atoi(e);
+                     if ((e = getenv("LDG_M2_T1S"))) t1s = atof(e); }
+    (void)en_t2;
     if (Aoff != nullptr)
         ArraySetValue(Aoff, 0.0, n*n*common.meshsizes.nfe*common.meshsizes.ne1);
     if (Anbr != nullptr)
@@ -1802,7 +1810,7 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
         if (Aoff != nullptr && en_t1)
             LDGScatterFtoNeighborOffDiag(Aoff, res.F, mesh.elemcon, mesh.facecon, mesh.f2e,
                     e1, ne, common.meshsizes.ne1, common.grid.npe, common.grid.npf,
-                    common.meshsizes.nfe, common.components.ncu);
+                    common.meshsizes.nfe, common.components.ncu, t1s);
 
         t0 = LDGBenchmarkStart(backend);
         ArrayCopy(&K[n*n*e1], res.D, n*n*ne);
