@@ -111,19 +111,31 @@ inline void MatVec(T *w, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<
 // the FD reference we apply the same overall scale = -1 (steady) or -1/dtfactor (time-dependent).
 // This is the M1 apply; the off-diagonal neighbor slabs (Aoff) are added in M2.
 template <class T=dstype, class I=Int>
-inline void ldgMatVec(T *w, T *Adiag, T *v, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
+inline void ldgMatVec(T *w, T *Adiag, T *Aoff, I *Anbr, T *Avnbr, T *v,
+        commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
 {
     using dstype=T;
     Int n = common.grid.npe*common.components.ncu; // element-u block size
     Int ne1 = common.meshsizes.ne1;                // interior elements in this subdomain
+    Int nfe = common.meshsizes.nfe;                // faces per element
 
-    // w_e = Adiag_e * v_e : m=n, n=1, k=n, batchCount=ne1 (mirrors hdgMatVec's batched apply)
+    // diagonal: w_e = Adiag_e * v_e (one batched GEMM, ne1 blocks; mirrors hdgMatVec)
     PGEMNMStridedBached(handle, n, 1, n, one, Adiag, n, v, n, zero, w, n, ne1, backend);
 
-    // Match the FD matvec's overall scale. The captured diagonal already carries the sign the FD
-    // reference uses (verified: with no scale the single-element apply reproduces the FD matvec
-    // exactly), so only the time-term factor is applied: the FD matvec scales res.Ru by 1/dtfactor
-    // when tdep==1 (residual.hpp:631-632), and ldgMatVec must fold in the same factor.
+    // off-diagonal (M2): w_e += Sum_lf Aoff[.,lf,e] * v_{neighbour(e,lf)}. For each of the nfe
+    // neighbour slabs, gather the neighbour v via Anbr (boundary faces map to self, zero slab ->
+    // no contribution) then a batched GEMM-accumulate. Aoff slab lf is contiguous over e.
+    if (Aoff != nullptr) {
+        for (Int lf = 0; lf < nfe; lf++) {
+            GetCollumnAtIndex(Avnbr, v, &Anbr[ne1*lf], n, ne1);
+            PGEMNMStridedBached(handle, n, 1, n, one, &Aoff[n*n*ne1*lf], n,
+                    Avnbr, n, one, w, n, ne1, backend);
+        }
+    }
+
+    // Match the FD matvec's overall scale. The captured blocks already carry the sign the FD
+    // reference uses (verified in M1), so only the time-term factor is applied: the FD matvec
+    // scales res.Ru by 1/dtfactor when tdep==1 (residual.hpp:631-632).
     if (common.timeparams.tdep == 1)
         ArrayMultiplyScalar(w, one/common.timestate.dtfactor, n*ne1);
 }

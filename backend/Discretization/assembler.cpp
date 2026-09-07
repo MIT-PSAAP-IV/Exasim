@@ -78,9 +78,10 @@ void CAssembler<M, T, I>::ldgAssembleLinearSystem(dstype* u, Int backend)
         error("ldgAssembleLinearSystem: M1 requires frozenAVflag==1 when ncAV>0 (AV differentiation absent)");
 
     // Reuse the existing per-element assembly; res.K receives the inverted block-Jacobi
-    // preconditioner (a harmless side effect) while res.Adiag receives the un-inverted diagonal.
+    // preconditioner (a harmless side effect) while res.Adiag receives the un-inverted diagonal
+    // and res.Aoff the off-diagonal neighbour blocks (res.Anbr the neighbour-element map).
     BlockJacobianLDG(res.K, u, disc.sol, res, disc.app, disc.driver_abi, disc.master, disc.mesh,
-            disc.tmp, common, common.cublasHandle, backend, res.Adiag);
+            disc.tmp, common, common.cublasHandle, backend, res.Adiag, res.Aoff, res.Anbr);
 }
 
 // matrix-vector product Jv = J(u)*v
@@ -101,8 +102,8 @@ void CAssembler<M, T, I>::evalMatVec(dstype* Jv, dstype* v, dstype* u, dstype* R
     auto& master = disc.master; auto& mesh = disc.mesh; auto& tmp = disc.tmp;
     auto& common = disc.common;
     if (spatialScheme == 0) {// LDG
-      if (common.solverparams.ldgAssembledOperator) // apply the pre-assembled block operator (M1: diagonal only)
-        ldgMatVec(Jv, res.Adiag, v, common, common.cublasHandle, backend);
+      if (common.solverparams.ldgAssembledOperator) // apply the pre-assembled block operator (diagonal + off-diagonal)
+        ldgMatVec(Jv, res.Adiag, res.Aoff, res.Anbr, res.Avnbr, v, common, common.cublasHandle, backend);
       else // matrix-free finite-difference matvec (default fallback + validation reference)
         MatVec<M>(Jv, sol, res, app, master, mesh, tmp, common, common.cublasHandle, v, u, Ru, backend);
     }
