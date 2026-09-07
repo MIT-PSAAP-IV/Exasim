@@ -58,6 +58,31 @@ void CAssembler<M, T, I>::hdgAssembleResidual(dstype *b, Int backend)
 #endif
 }
 
+// Assemble the LDG block operator at base state u (M1): run the per-element block-Jacobian
+// assembly and capture the UN-inverted element diagonal into res.Adiag (ldgMatVec applies it).
+// Scope for M1: serial CPU/GPU single-rank, and AV must be frozen -- the analytic LDG Jacobian
+// does not differentiate artificial viscosity, so with live AV the assembled operator would not
+// match the FD reference. The off-diagonal neighbor blocks are M2; the MPI halo is M3.
+template <class M, class T, class I>
+void CAssembler<M, T, I>::ldgAssembleLinearSystem(dstype* u, Int backend)
+{
+    auto& res = disc.res; auto& common = disc.common;
+
+    if (common.mpiProcs > 1)
+        error("ldgAssembleLinearSystem: assembled LDG operator is serial-only in M1 (MPI is M3)");
+    if (common.solverparams.preconditioner != 1)
+        error("ldgAssembleLinearSystem: needs the LDG block-Jacobian arena (run with preconditioner==1)");
+    if (res.Adiag == nullptr)
+        error("ldgAssembleLinearSystem: res.Adiag is not allocated");
+    if (common.physicsparams.ncAV > 0 && common.physicsparams.frozenAVflag == 0)
+        error("ldgAssembleLinearSystem: M1 requires frozenAVflag==1 when ncAV>0 (AV differentiation absent)");
+
+    // Reuse the existing per-element assembly; res.K receives the inverted block-Jacobi
+    // preconditioner (a harmless side effect) while res.Adiag receives the un-inverted diagonal.
+    BlockJacobianLDG(res.K, u, disc.sol, res, disc.app, disc.driver_abi, disc.master, disc.mesh,
+            disc.tmp, common, common.cublasHandle, backend, res.Adiag);
+}
+
 // matrix-vector product Jv = J(u)*v
 template <class M, class T, class I>
 void CAssembler<M, T, I>::evalMatVec(dstype* Jv, dstype* v, dstype* u, dstype* Ru, Int backend)
@@ -76,7 +101,10 @@ void CAssembler<M, T, I>::evalMatVec(dstype* Jv, dstype* v, dstype* u, dstype* R
     auto& master = disc.master; auto& mesh = disc.mesh; auto& tmp = disc.tmp;
     auto& common = disc.common;
     if (spatialScheme == 0) {// LDG
-      MatVec<M>(Jv, sol, res, app, master, mesh, tmp, common, common.cublasHandle, v, u, Ru, backend);
+      if (common.solverparams.ldgAssembledOperator) // apply the pre-assembled block operator (M1: diagonal only)
+        ldgMatVec(Jv, res.Adiag, v, common, common.cublasHandle, backend);
+      else // matrix-free finite-difference matvec (default fallback + validation reference)
+        MatVec<M>(Jv, sol, res, app, master, mesh, tmp, common, common.cublasHandle, v, u, Ru, backend);
     }
     else if (spatialScheme == 1) { // HDG
       hdgMatVec(Jv, res.H, v, res.Rh, res.Rq, res, app, mesh, common, tmp, common.cublasHandle, backend);

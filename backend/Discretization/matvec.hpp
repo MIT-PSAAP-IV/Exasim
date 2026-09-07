@@ -101,6 +101,31 @@ inline void MatVec(T *w, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<
 #endif
 }
 
+// Assembled LDG operator apply (M1): diagonal-only batched dense matvec.
+//   w_e = Adiag_e * v_e     (one batched GEMM, ne1 element blocks, n = npe*ncu)
+// Adiag is the UN-inverted element diagonal dRu/du captured by BlockJacobianLDG (element-major
+// [n*n*ne1]); v is the element-major GMRES vector [npe*ncu*ne1]; no face gather is needed for the
+// diagonal (volume-space, element-local). The FD reference matvec returns res.Ru with the sign
+// FLIPPED (ArrayMultiplyScalar(..., minusone)) and, when tdep==1, scaled by 1/dtfactor
+// (residual.hpp:628-632). The analytic block assembly builds +dRu/du (the D/K naming), so to match
+// the FD reference we apply the same overall scale = -1 (steady) or -1/dtfactor (time-dependent).
+// This is the M1 apply; the off-diagonal neighbor slabs (Aoff) are added in M2.
+template <class T=dstype, class I=Int>
+inline void ldgMatVec(T *w, T *Adiag, T *v, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
+{
+    using dstype=T;
+    Int n = common.grid.npe*common.components.ncu; // element-u block size
+    Int ne1 = common.meshsizes.ne1;                // interior elements in this subdomain
+
+    // w_e = Adiag_e * v_e : m=n, n=1, k=n, batchCount=ne1 (mirrors hdgMatVec's batched apply)
+    PGEMNMStridedBached(handle, n, 1, n, one, Adiag, n, v, n, zero, w, n, ne1, backend);
+
+    // match the FD matvec's sign + time-term convention (see comment above)
+    dstype scale = minusone;
+    if (common.timeparams.tdep == 1) scale = minusone/common.timestate.dtfactor;
+    ArrayMultiplyScalar(w, scale, n*ne1);
+}
+
 template <class T=dstype, class I=Int>
 inline void hdgAssembleRHS(T *R, T *Rh, meshstructT<T,I> &mesh, commonstructT<T,I> &common)
 {

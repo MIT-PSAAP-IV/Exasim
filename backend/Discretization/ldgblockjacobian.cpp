@@ -1508,8 +1508,9 @@ void RuFaceCrossDerivOptimized(dstype* A, solstruct &sol,
 
 void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, appstruct &app,
                   ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh,
-                  tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
-{    
+                  tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend,
+                  dstype* Adiag = nullptr)
+{
     LDGBenchmarkTimes tm;
     double tTotal = LDGBenchmarkStart(backend);
     double t0;
@@ -1584,6 +1585,13 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
     t0 = LDGBenchmarkStart(backend);
     RuFaceCrossDerivOptimized(K, sol, res, app, driver_abi, master, mesh, tmp, common);
     tm.cross += LDGBenchmarkStop(t0, backend);
+
+    // Assembled LDG operator (M1): capture the UN-inverted element diagonal here -- K now holds
+    // dRu/du (D + the neighbor-q cross-deriv folded onto the diagonal) and has NOT yet been
+    // inverted by the loop below. This is exactly the diagonal the operator apply (ldgMatVec)
+    // needs; the post-Inverse K is the preconditioner and is the WRONG thing for the operator.
+    if (Adiag != nullptr)
+        ArrayCopy(Adiag, K, n*n*common.meshsizes.ne1);
 
     // if (common.timeparams.tdep == 1)
     //     ArrayMultiplyScalar(handle, K, minusone/common.timestate.dtfactor, n*n*common.meshsizes.ne1, backend);
