@@ -1642,6 +1642,10 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
     Int m = common.grid.npf*common.meshsizes.nfe*common.components.ncu;
 
     // M2 off-diagonal (assembled operator): zero the neighbour store and build the neighbour map.
+    // Debug gating (default both on): LDG_M2_T1 (trace F*G neighbour), LDG_M2_T2 (cross-q neighbour).
+    int en_t1 = 1, en_t2 = 1;
+    { const char* e; if ((e = getenv("LDG_M2_T1"))) en_t1 = atoi(e);
+                     if ((e = getenv("LDG_M2_T2"))) en_t2 = atoi(e); }
     if (Aoff != nullptr)
         ArraySetValue(Aoff, 0.0, n*n*common.meshsizes.nfe*common.meshsizes.ne1);
     if (Anbr != nullptr)
@@ -1676,7 +1680,7 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
 
         // M2 off-diagonal trace term: scatter 0.5*F_eff to the neighbour (mirrors the diagonal
         // D += F_eff*G with G = 0.5 own-trace). res.F holds F_eff for this block right here.
-        if (Aoff != nullptr)
+        if (Aoff != nullptr && en_t1)
             LDGScatterFtoNeighborOffDiag(Aoff, res.F, mesh.elemcon, mesh.facecon, mesh.f2e,
                     e1, ne, common.meshsizes.ne1, common.grid.npe, common.grid.npf,
                     common.meshsizes.nfe, common.components.ncu);
@@ -1687,7 +1691,8 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
     }
 
     t0 = LDGBenchmarkStart(backend);
-    RuFaceCrossDerivOptimized(K, sol, res, app, driver_abi, master, mesh, tmp, common, Aoff);
+    RuFaceCrossDerivOptimized(K, sol, res, app, driver_abi, master, mesh, tmp, common,
+            en_t2 ? Aoff : nullptr);
     tm.cross += LDGBenchmarkStop(t0, backend);
 
     // Assembled LDG operator (M1): capture the UN-inverted element diagonal here -- K now holds
