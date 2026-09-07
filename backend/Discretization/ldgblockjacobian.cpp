@@ -603,7 +603,8 @@ static void LDGScatterCrossFaceGEMMBlock(dstype* A, const dstype* Af,
                                          const Int ne,
                                          dstype* Aoff = nullptr,
                                          const Int nfe = 0,
-                                         const Int ne1 = 0)
+                                         const Int ne1 = 0,
+                                         const int doNbr = 1)
 {
     Int nrow = npf*ncu*ncu;
     Int nlocu = npe*ncu;
@@ -647,7 +648,7 @@ static void LDGScatterCrossFaceGEMMBlock(dstype* A, const dstype* Af,
         }
 
         // M2 off-diagonal: same flux-q coupling but projected onto the NEIGHBOUR's u.
-        if (Aoff != nullptr) {
+        if (Aoff != nullptr && doNbr) {
             Int kt_nbr = facecon[2*mt + (1 - sideResidualOffset)];
             Int unode_n = kt_nbr % npe;
             Int uelem_n = (kt_nbr - unode_n) / npe;
@@ -1569,8 +1570,9 @@ void RuFaceCrossDerivOptimized(dstype* A, solstruct &sol,
     dstype *Cf = nullptr, *AfC = nullptr;
     Int szCf_max  = npf*nd*npe*common.meshsizes.nfb;
     Int szAfC_max = npf*ncu*ncu*npe*common.meshsizes.nfb;
-    int en_t3 = 1;   // debug gate for the neighbour-q direct-C term (default on)
-    { const char* e; if ((e = getenv("LDG_M2_T3"))) en_t3 = atoi(e); }
+    int en_t2 = 1, en_t3 = 1;   // debug gates: T2 = neighbour-q through-trace (E), T3 = direct (C)
+    { const char* e; if ((e = getenv("LDG_M2_T2"))) en_t2 = atoi(e);
+                     if ((e = getenv("LDG_M2_T3"))) en_t3 = atoi(e); }
     if (Aoff != nullptr && en_t3) {
         TemplateMalloc(&Cf,  szCf_max,  backend);
         TemplateMalloc(&AfC, szAfC_max, backend);
@@ -1655,7 +1657,7 @@ void RuFaceCrossDerivOptimized(dstype* A, solstruct &sol,
                 Af, npf*ncu*ncu, nfb, backend);
         LDGScatterCrossFaceGEMMBlock(A, Af, mesh.facecon, mesh.f2e,
                 2, f1, nfb, npe, npf, ncu, ne,
-                Aoff, common.meshsizes.nfe, common.meshsizes.ne1);
+                Aoff, common.meshsizes.nfe, common.meshsizes.ne1, en_t2);
 
         // M2 off-diagonal neighbour-q DIRECT term (T3): B * (-Minv*C_neighbour), scattered to Aoff.
         // res.ipiv holds the sideQ=1 face-slot map from LDGBuildFaceSlotQMap above.
@@ -1689,7 +1691,7 @@ void RuFaceCrossDerivOptimized(dstype* A, solstruct &sol,
                 Af, npf*ncu*ncu, nfb, backend);
         LDGScatterCrossFaceGEMMBlock(A, Af, mesh.facecon, mesh.f2e,
                 1, f1, nfb, npe, npf, ncu, ne,
-                Aoff, common.meshsizes.nfe, common.meshsizes.ne1);
+                Aoff, common.meshsizes.nfe, common.meshsizes.ne1, en_t2);
 
         // M2 off-diagonal neighbour-q DIRECT term (T3), side-2 pass. res.ipiv holds sideQ=2 map.
         if (Aoff != nullptr && en_t3) {
@@ -1808,8 +1810,9 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
     }
 
     t0 = LDGBenchmarkStart(backend);
-    RuFaceCrossDerivOptimized(K, sol, res, app, driver_abi, master, mesh, tmp, common,
-            en_t2 ? Aoff : nullptr);
+    // Pass Aoff unconditionally; the neighbour-q E-term (T2) and direct-C term (T3) are gated
+    // inside RuFaceCrossDerivOptimized by LDG_M2_T2 / LDG_M2_T3 so they can be isolated.
+    RuFaceCrossDerivOptimized(K, sol, res, app, driver_abi, master, mesh, tmp, common, Aoff);
     tm.cross += LDGBenchmarkStop(t0, backend);
 
     // Assembled LDG operator (M1): capture the UN-inverted element diagonal here -- K now holds
