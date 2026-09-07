@@ -720,6 +720,83 @@ static void LDGBuildNeighborElem(Int* nbr, const Int* elemcon, const Int* f2e,
     });
 }
 
+// M2 off-diagonal neighbour-q DIRECT term (T3): the neighbour's q depends on the neighbour's u
+// not only through the shared trace (the E path) but DIRECTLY via q_{e'} = Minv(E uhat - C u_{e'}).
+// This -Minv*C_{e'} part is off-diagonal-only (the diagonal cross-q sees q_{e'} only through uhat).
+// Build Cf: the neighbour's res.C (= Minv*C, per dim) restricted to the face-q nodes -> neighbour
+// volume nodes, shaped (npf*nd) x npe per face for the GEMM B*Cf (mirrors LDGBuildFaceEForCrossBlock
+// but with C's npe volume columns instead of E's npf trace columns).
+static void LDGBuildFaceCForCrossBlockOptimized(dstype* Cf, const dstype* C,
+                                                const Int* f2e, const Int* perm,
+                                                const Int* faceSlotQMap, const Int sideQ,
+                                                const Int f1, const Int nfb, const Int npe,
+                                                const Int npf, const Int nd, const Int neStride)
+{
+    Int N = npf*nd*npe*nfb;
+    Kokkos::parallel_for("LDGBuildFaceCForCrossBlockOptimized", N, KOKKOS_LAMBDA(const size_t idx) {
+        Int b = idx % npf;
+        Int t = idx / npf;
+        Int d = t % nd;      t = t / nd;
+        Int unode = t % npe; t = t / npe;
+        Int flocal = t;
+        Int f = f1 + flocal;
+
+        dstype value = 0.0;
+        if (f2e[4*f + 2] >= 0) {
+            Int eq = (sideQ == 1) ? f2e[4*f + 0] : f2e[4*f + 2];
+            if ((eq >= 0) && (eq < neStride)) {
+                Int qFaceSlotQ = faceSlotQMap[b + npf*flocal];
+                if (qFaceSlotQ >= 0) {
+                    Int qnode = perm[qFaceSlotQ];
+                    value = C[qnode + npe*unode + npe*npe*eq + npe*npe*neStride*d];
+                }
+            }
+        }
+        Cf[b + npf*d + npf*nd*unode + npf*nd*npe*flocal] = value;
+    });
+}
+
+// Scatter the batched B*Cf result (npf*ncu*ncu x npe per face) into the off-diagonal store: the
+// neighbour-q DIRECT-C contribution to A_{rowelem, neighbour}. Columns index the neighbour's local
+// volume node (unode). Sign is carried in Cf's scaling (see the call site).
+static void LDGScatterCrossFaceCGEMMBlock(dstype* Aoff, const dstype* AfC,
+                                          const Int* facecon, const Int* f2e,
+                                          const Int sideResidual, const Int f1, const Int nfb,
+                                          const Int npe, const Int npf, const Int ncu,
+                                          const Int ne1, const Int nfe)
+{
+    Int nrow = npf*ncu*ncu;
+    Int nlocu = npe*ncu;
+    Int sro = sideResidual - 1;
+    Int N = nrow*npe*nfb;
+    Kokkos::parallel_for("LDGScatterCrossFaceCGEMMBlock", N, KOKKOS_LAMBDA(const size_t idx) {
+        Int rowPacked = idx % nrow;
+        Int t = idx / nrow;
+        Int unode = t % npe;
+        Int flocal = t / npe;
+        Int f = f1 + flocal;
+        if (f2e[4*f + 2] < 0)
+            return;
+
+        Int a = rowPacked % npf;
+        Int s = rowPacked / npf;
+        Int m = s % ncu;
+        Int c = s / ncu;
+
+        Int kr = facecon[2*(a + npf*f) + sro];
+        Int rownode = kr % npe;
+        Int rowelem = (kr - rownode) / npe;
+        if ((rowelem < 0) || (rowelem >= ne1))
+            return;
+
+        Int lf = (f2e[4*f + 0] == rowelem) ? f2e[4*f + 1] : f2e[4*f + 3];
+        Int row = rownode + npe*m;
+        Int col = unode + npe*c;
+        dstype value = AfC[rowPacked + nrow*unode + nrow*npe*flocal];
+        Kokkos::atomic_add(&Aoff[row + nlocu*col + nlocu*nlocu*(rowelem + ne1*lf)], value);
+    });
+}
+
 
 static void LDGSchurMatrixF(dstype* F, const dstype* Ftmp, const Int npe,
                             const Int ncu, const Int npf, const Int nfe, const Int ne)
@@ -1487,6 +1564,18 @@ void RuFaceCrossDerivOptimized(dstype* A, solstruct &sol,
     if (common.timeparams.wave == 1)
         scalar = 1.0/common.timestate.dtfactor;
 
+    // M2 off-diagonal neighbour-q DIRECT (-Minv*C) scratch: Cf (npf*nd x npe per face) and the
+    // batched GEMM output AfC (npf*ncu*ncu x npe per face). Allocated once (assembly, not matvec).
+    dstype *Cf = nullptr, *AfC = nullptr;
+    Int szCf_max  = npf*nd*npe*common.meshsizes.nfb;
+    Int szAfC_max = npf*ncu*ncu*npe*common.meshsizes.nfb;
+    int en_t3 = 1;   // debug gate for the neighbour-q direct-C term (default on)
+    { const char* e; if ((e = getenv("LDG_M2_T3"))) en_t3 = atoi(e); }
+    if (Aoff != nullptr && en_t3) {
+        TemplateMalloc(&Cf,  szCf_max,  backend);
+        TemplateMalloc(&AfC, szAfC_max, backend);
+    }
+
     for (Int jblk = 0; jblk < common.meshsizes.nbf; jblk++) {
         Int f1 = common.fblks[3*jblk]-1;
         Int f2 = common.fblks[3*jblk+1];
@@ -1568,6 +1657,18 @@ void RuFaceCrossDerivOptimized(dstype* A, solstruct &sol,
                 2, f1, nfb, npe, npf, ncu, ne,
                 Aoff, common.meshsizes.nfe, common.meshsizes.ne1);
 
+        // M2 off-diagonal neighbour-q DIRECT term (T3): B * (-Minv*C_neighbour), scattered to Aoff.
+        // res.ipiv holds the sideQ=1 face-slot map from LDGBuildFaceSlotQMap above.
+        if (Aoff != nullptr && en_t3) {
+            LDGBuildFaceCForCrossBlockOptimized(Cf, res.C, mesh.f2e, mesh.perm, res.ipiv, 1,
+                    f1, nfb, npe, npf, nd, common.meshsizes.ne);
+            ArrayMultiplyScalar(common.cublasHandle, Cf, minusone*scalar, npf*nd*npe*nfb, backend);
+            PGEMNMStridedBached(common.cublasHandle, npf*ncu*ncu, npe, npf*nd, one,
+                    B, npf*ncu*ncu, Cf, npf*nd, 0.0, AfC, npf*ncu*ncu, nfb, backend);
+            LDGScatterCrossFaceCGEMMBlock(Aoff, AfC, mesh.facecon, mesh.f2e, 2, f1, nfb,
+                    npe, npf, ncu, common.meshsizes.ne1, common.meshsizes.nfe);
+        }
+
         ArraySetValue(fw, 0.0, fluxWSize);
         FluxDriver(flux, flux_udg, fw, xg, ug2, og2, wg2, driver_abi,
                    mesh, master, app, sol, tmp, common, ngf, f1, f2, backend);
@@ -1590,8 +1691,24 @@ void RuFaceCrossDerivOptimized(dstype* A, solstruct &sol,
                 1, f1, nfb, npe, npf, ncu, ne,
                 Aoff, common.meshsizes.nfe, common.meshsizes.ne1);
 
+        // M2 off-diagonal neighbour-q DIRECT term (T3), side-2 pass. res.ipiv holds sideQ=2 map.
+        if (Aoff != nullptr && en_t3) {
+            LDGBuildFaceCForCrossBlockOptimized(Cf, res.C, mesh.f2e, mesh.perm, res.ipiv, 2,
+                    f1, nfb, npe, npf, nd, common.meshsizes.ne);
+            ArrayMultiplyScalar(common.cublasHandle, Cf, minusone*scalar*minusone, npf*nd*npe*nfb, backend);
+            PGEMNMStridedBached(common.cublasHandle, npf*ncu*ncu, npe, npf*nd, one,
+                    B, npf*ncu*ncu, Cf, npf*nd, 0.0, AfC, npf*ncu*ncu, nfb, backend);
+            LDGScatterCrossFaceCGEMMBlock(Aoff, AfC, mesh.facecon, mesh.f2e, 1, f1, nfb,
+                    npe, npf, ncu, common.meshsizes.ne1, common.meshsizes.nfe);
+        }
+
         //(void)ncq;
         //(void)szAf;
+    }
+
+    if (Aoff != nullptr && en_t3) {
+        TemplateFree(Cf, backend);
+        TemplateFree(AfC, backend);
     }
 }
 
