@@ -1,5 +1,6 @@
 #include <exasim/drivers.hpp>
 #include <exasim/detail/driver_dispatch.hpp>
+#include <cstdio>
 
 /*
     residual.cpp
@@ -173,6 +174,9 @@ inline void GetW(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &ap
                                      (res.WinvReady != 0) &&
                                      (res.Winv != nullptr) && (ncw <= 3);
                 if (useCachedWinv) {
+                  // DEBUG (dbg branch only): prove the cached-Winv chord path executed.
+                  { static bool _winv_chord_printed = false;
+                    if (!_winv_chord_printed) { fprintf(stderr, "[WINV-CHORD] fired\n"); _winv_chord_printed = true; } }
                   for (int iter=0; iter<10; iter++) {
                     // evaluate nonlinear system F(w, u+eps*v)
                     EXASIM_DRIVER_CALL(EosDriver, tmp.tempn, &sol.xdg[npe*ncx*e1], &sol.udg[npe*nc*e1], &sol.odg[npe*nco*e1],
