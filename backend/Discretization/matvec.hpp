@@ -120,10 +120,12 @@ inline void ldgMatVec(T *w, T *Adiag, T *v, commonstructT<T,I> &common, cublasHa
     // w_e = Adiag_e * v_e : m=n, n=1, k=n, batchCount=ne1 (mirrors hdgMatVec's batched apply)
     PGEMNMStridedBached(handle, n, 1, n, one, Adiag, n, v, n, zero, w, n, ne1, backend);
 
-    // match the FD matvec's sign + time-term convention (see comment above)
-    dstype scale = minusone;
-    if (common.timeparams.tdep == 1) scale = minusone/common.timestate.dtfactor;
-    ArrayMultiplyScalar(w, scale, n*ne1);
+    // Match the FD matvec's overall scale. The captured diagonal already carries the sign the FD
+    // reference uses (verified: with no scale the single-element apply reproduces the FD matvec
+    // exactly), so only the time-term factor is applied: the FD matvec scales res.Ru by 1/dtfactor
+    // when tdep==1 (residual.hpp:631-632), and ldgMatVec must fold in the same factor.
+    if (common.timeparams.tdep == 1)
+        ArrayMultiplyScalar(w, one/common.timestate.dtfactor, n*ne1);
 }
 
 template <class T=dstype, class I=Int>
