@@ -160,38 +160,84 @@ inline void GetW(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &ap
         }        
         else if (common.timeparams.wave==0) {             
             if ((fabs(common.timeparams.dae_alpha) < 1e-10) && (fabs(common.timeparams.dae_beta) < 1e-10)) {
-                // use Newton to solve the nonlinear system F(w, u) = 0 to obtain w for given u                
-                for (int iter=0; iter<10; iter++) {
-                  // evaluate nonlinear system F(w, u)
-                  EXASIM_DRIVER_CALL(EosDriver, tmp.tempn, &sol.xdg[npe*ncx*e1], &sol.udg[npe*nc*e1], &sol.odg[npe*nco*e1], 
-                      &sol.wdg[npe*ncw*e1], mesh, master, app, sol, tmp, common, npe, e1, e2, backend);            
-                  
-                  int nn = npe*(e2-e1);                  
-                  // check convergence
-                  dstype nrm = NORM(common.cublasHandle, nn*ncw, tmp.tempn, backend);                   
-                  if (nrm < 1e-6) break;                                       
-                  
-                  // compute jacobian matrix dF/dw
-                  EXASIM_DRIVER_CALL(EosdwDriver, tmp.tempg, &sol.xdg[npe*ncx*e1], &sol.udg[npe*nc*e1], &sol.odg[npe*nco*e1], 
-                      &sol.wdg[npe*ncw*e1], mesh, master, app, sol, tmp, common, npe, e1, e2, backend);            
-                                  
-                  // compute the inverse of jacobian matrix
-                  if (ncw==1) 
-                    ArrayEosInverseMatrix11(tmp.tempg, npe, ncw, e2-e1);
-                  else if (ncw==2)
-                    ArrayEosInverseMatrix22(tmp.tempg, npe, ncw, e2-e1);
-                  else if (ncw==3)
-                    ArrayEosInverseMatrix33(tmp.tempg, npe, ncw, e2-e1);
-                  else {
-                    error("Equation of states functionality supports at most three dependent variables.");
+                // use Newton to solve the nonlinear system F(w, u) = 0 to obtain w for given u
+                int nn = npe*(e2-e1);
+                // A matrix-free matvec (matvecEval) re-solves this local system at the perturbed
+                // state u+eps*v on every GMRES matvec, re-forming and re-inverting dF/dw each inner
+                // iteration. Since u+eps*v is a tiny perturbation of the base state, the base-state
+                // inverse of dF/dw (cached below in res.Winv, once per Newton step) is an excellent
+                // iteration matrix: reuse it as a modified-Newton (chord) iteration. The loop still
+                // runs to the same 1e-6 tolerance, so the converged w -- and hence the matvec -- is
+                // unchanged; only the redundant per-matvec Jacobian assembly and inversion are saved.
+                bool useCachedWinv = (res.matvecEval != 0) &&
+                                     (res.WinvReady != 0) &&
+                                     (res.Winv != nullptr) && (ncw <= 3);
+                if (useCachedWinv) {
+                  for (int iter=0; iter<10; iter++) {
+                    // evaluate nonlinear system F(w, u+eps*v)
+                    EXASIM_DRIVER_CALL(EosDriver, tmp.tempn, &sol.xdg[npe*ncx*e1], &sol.udg[npe*nc*e1], &sol.odg[npe*nco*e1],
+                        &sol.wdg[npe*ncw*e1], mesh, master, app, sol, tmp, common, npe, e1, e2, backend);
+                    // check convergence
+                    dstype nrm = NORM(common.cublasHandle, nn*ncw, tmp.tempn, backend);
+                    if (nrm < 1e-6) break;
+                    // dw = inverse(dF/dw)|base * F(w, u+eps*v)   (cached base-state inverse)
+                    ArrayEosMatrixMultiplication(&tmp.tempn[nn*ncw], &res.Winv[npe*ncw*ncw*e1], tmp.tempn, npe, ncw, e2-e1, 1);
+                    // update w = w - dw
+                    ArrayAXPBY(&sol.wdg[npe*ncw*e1], &sol.wdg[npe*ncw*e1], &tmp.tempn[nn*ncw], one, minusone, nn*ncw);
                   }
-                  
-                  // perform dw = inverse(dF/dw) * F(w, u)
-                  ArrayEosMatrixMultiplication(&tmp.tempn[nn*ncw], tmp.tempg, tmp.tempn, npe, ncw, e2-e1, 1);
-                  
-                  // update w = w - dw
-                  ArrayAXPBY(&sol.wdg[npe*ncw*e1], &sol.wdg[npe*ncw*e1], &tmp.tempn[nn*ncw], one, minusone, nn*ncw);                    
-                }                                
+                }
+                else {
+                  for (int iter=0; iter<10; iter++) {
+                    // evaluate nonlinear system F(w, u)
+                    EXASIM_DRIVER_CALL(EosDriver, tmp.tempn, &sol.xdg[npe*ncx*e1], &sol.udg[npe*nc*e1], &sol.odg[npe*nco*e1],
+                        &sol.wdg[npe*ncw*e1], mesh, master, app, sol, tmp, common, npe, e1, e2, backend);
+
+                    // check convergence
+                    dstype nrm = NORM(common.cublasHandle, nn*ncw, tmp.tempn, backend);
+                    if (nrm < 1e-6) break;
+
+                    // compute jacobian matrix dF/dw
+                    EXASIM_DRIVER_CALL(EosdwDriver, tmp.tempg, &sol.xdg[npe*ncx*e1], &sol.udg[npe*nc*e1], &sol.odg[npe*nco*e1],
+                        &sol.wdg[npe*ncw*e1], mesh, master, app, sol, tmp, common, npe, e1, e2, backend);
+
+                    // compute the inverse of jacobian matrix
+                    if (ncw==1)
+                      ArrayEosInverseMatrix11(tmp.tempg, npe, ncw, e2-e1);
+                    else if (ncw==2)
+                      ArrayEosInverseMatrix22(tmp.tempg, npe, ncw, e2-e1);
+                    else if (ncw==3)
+                      ArrayEosInverseMatrix33(tmp.tempg, npe, ncw, e2-e1);
+                    else {
+                      error("Equation of states functionality supports at most three dependent variables.");
+                    }
+
+                    // perform dw = inverse(dF/dw) * F(w, u)
+                    ArrayEosMatrixMultiplication(&tmp.tempn[nn*ncw], tmp.tempg, tmp.tempn, npe, ncw, e2-e1, 1);
+
+                    // update w = w - dw
+                    ArrayAXPBY(&sol.wdg[npe*ncw*e1], &sol.wdg[npe*ncw*e1], &tmp.tempn[nn*ncw], one, minusone, nn*ncw);
+                  }
+
+                  // Cache inverse(dF/dw) at the converged base state (matvecEval==0) so that the
+                  // matrix-free matvecs of the ensuing linear solve can reuse it as a chord matrix.
+                  // Recomputes dF/dw once at the converged w -- the "factorize once per Newton step"
+                  // that the per-matvec re-inversion above was repeating. Only for ncw<=3 (the only
+                  // sizes the inverse kernels support).
+                  if ((res.matvecEval == 0) && (ncw <= 3)) {
+                    if (res.Winv == nullptr)
+                      TemplateMalloc(&res.Winv, common.grid.npe*ncw*ncw*common.meshsizes.ne1, backend);
+                    EXASIM_DRIVER_CALL(EosdwDriver, tmp.tempg, &sol.xdg[npe*ncx*e1], &sol.udg[npe*nc*e1], &sol.odg[npe*nco*e1],
+                        &sol.wdg[npe*ncw*e1], mesh, master, app, sol, tmp, common, npe, e1, e2, backend);
+                    if (ncw==1)
+                      ArrayEosInverseMatrix11(tmp.tempg, npe, ncw, e2-e1);
+                    else if (ncw==2)
+                      ArrayEosInverseMatrix22(tmp.tempg, npe, ncw, e2-e1);
+                    else
+                      ArrayEosInverseMatrix33(tmp.tempg, npe, ncw, e2-e1);
+                    ArrayCopy(&res.Winv[npe*ncw*ncw*e1], tmp.tempg, npe*ncw*ncw*(e2-e1));
+                    res.WinvReady = 1;
+                  }
+                }
             }
             else {
                 // alpha * dw/dt + beta w = sourcew(u,q,v)
