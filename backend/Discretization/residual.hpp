@@ -96,6 +96,7 @@ inline void GetQ(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &ap
     // Element integrals
     RqElem(sol, res, app, master, mesh, tmp, common, handle, nbe1, nbe2, backend);
         
+    INIT_TIMING;
     START_TIMING;
     // Face integrals
     RqFace(sol, res, app, master, mesh, tmp, common, handle, nbf1, nbf2, backend);
