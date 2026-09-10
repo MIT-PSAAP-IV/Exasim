@@ -21,6 +21,8 @@ pde["pgauss"] = 2
 pde["physicsparam"] = numpy.array([1.0])
 pde["physicsparamsweep"] = numpy.array([[1.0], [2.0]])
 pde["tau"] = numpy.array([1.0])
+# Exported to pdeapp.txt and applied by text2code (grid + xdg/udg/vdg/wdg are refined there).
+pde["uniformrefinementlevel"] = 1
 
 # Include external and auxiliary field dimensions so the exported package
 # exercises vdg.bin and wdg.bin in addition to mesh/grid and initial solution.

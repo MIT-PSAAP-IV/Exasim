@@ -233,6 +233,19 @@ add_test(NAME frontend_python_exporttext2code
 set_tests_properties(frontend_python_exporttext2code PROPERTIES
   TIMEOUT 2400 SKIP_RETURN_CODE 77 RESOURCE_LOCK exasim_text2code_install)
 
+# Same package contract for the MATLAB exporter (tests/frontends/matlab/pdeapp_exporttext2code.m),
+# which writes pdeapp.txt through its own key whitelist (writeinputfile.m), so a key it drops
+# fails here. SKIPs (77) without MATLAB + the Symbolic Math Toolbox, like frontend_matlab.
+add_test(NAME frontend_matlab_exporttext2code
+  COMMAND ${CMAKE_COMMAND} -E env
+    "EXASIM_ROOT=${EXASIM_DIR}"
+    "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}"
+    "FRONTEND=matlab"
+    "EXPORT_TEXT2CODE_TEST=1"
+    bash "${EXASIM_DIR}/tests/frontends/run-frontend-test.sh")
+set_tests_properties(frontend_matlab_exporttext2code PROPERTIES
+  TIMEOUT 2400 SKIP_RETURN_CODE 77 RESOURCE_LOCK exasim_text2code_install)
+
 # Direct Text2Code CLI regression (FRONTEND-INDEPENDENT): `text2code pdeapp.txt --out-dir <dir>`
 # must emit the concrete-model header my_model.hpp + the generated symbolic sources. Run on a
 # checked-in builtin fixture (Poisson / pdemodel1.txt) with no frontend, so a MATLAB/Julia or

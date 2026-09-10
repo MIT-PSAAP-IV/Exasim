@@ -188,6 +188,11 @@ if app.preprocessmode==0
     return;
 end
 
+if isfield(app, 'uniformrefinementlevel') && app.uniformrefinementlevel > 0
+    error(['uniformrefinementlevel is applied by the C++ preprocessing (pdeapp.txt / exporttext2code); ' ...
+           'the native MATLAB preprocessing does not refine the mesh.']);
+end
+
 disp('run facenumbering...');  
 [mesh.f, mesh.tprd, t2t] = facenumbering(mesh.p,mesh.t,app.elemtype,mesh.boundaryexpr,mesh.periodicexpr);
 

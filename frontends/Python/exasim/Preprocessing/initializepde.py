@@ -65,6 +65,7 @@ def initializepde(version):
     pde['nfb'] = 512*32;
     pde['elemtype'] = 1;
     pde['nodetype'] = 1;
+    pde['uniformrefinementlevel'] = 0;
     pde['hybrid'] = 0;
     pde['tdep'] = 0;
     pde['wave'] = 0;

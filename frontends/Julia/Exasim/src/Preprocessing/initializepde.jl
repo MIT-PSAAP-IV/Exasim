@@ -52,6 +52,7 @@ mutable struct PDEStruct
     nfb::IntP;# number of face blocks for parallel computation
     elemtype::IntP; # type of elements
     nodetype::IntP; # type of nodes
+    uniformrefinementlevel::IntP; # refine the input mesh uniformly this many times (C++ preprocessing)
     hybrid::IntP; # discretization method
     tdep::IntP; # flag for steady-state or time-dependent problem
     wave::IntP; # flag for wave problem
@@ -226,6 +227,7 @@ function initializepde(version)
     pde.nfb = 512*16;
     pde.elemtype = 1;
     pde.nodetype = 1;
+    pde.uniformrefinementlevel = 0;
     pde.model="ModelD";
     pde.modelnumber = 0;
     pde.exportapp = ""; # off by default; set to a dir to export a data-transfer app bundle
