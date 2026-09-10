@@ -35,7 +35,7 @@ inline long long numberNewVerticesParallel(std::vector<int>& newgid, const Refin
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &size);
 
-    const int K = (int)std::tuple_size<Key>::value;
+    constexpr int K = (int)Key{}.size();
     const int nnew = L.nnew;
     newgid.assign(nnew, -1);
 
