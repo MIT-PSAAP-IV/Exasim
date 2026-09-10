@@ -108,11 +108,16 @@ inline void uEquationElemBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appst
     Node2Gauss(handle, uqg, tmp.tempn, master.shapegt, nge, npe, ne*nc, backend);    
     
     if ((ncw>0) & (common.timeparams.wave==0)) {
+        Int ncwa = ncw - app.materialdb_nprop;
+        if (ncwa < 0)
+            error("Material database property count must be between zero and ncw.");
         GetElemNodes(tmp.tempn, sol.wdg, npe, ncw, 0, ncw, e1, e2);    
         Node2Gauss(handle, wg, tmp.tempn, master.shapegt, nge, npe, ne*ncw, backend);        
 
-        GetElemNodes(tmp.tempn, sol.wsrc, npe, ncw, 0, ncw, e1, e2);    
-        Node2Gauss(handle, wsrc, tmp.tempn, master.shapegt, nge, npe, ne*ncw, backend);        
+        if (ncwa > 0) {
+            GetElemNodes(tmp.tempn, sol.wsrc, npe, ncw, 0, ncwa, e1, e2);
+            Node2Gauss(handle, wsrc, tmp.tempn, master.shapegt, nge, npe, ne*ncwa, backend);
+        }
         
         // solve the w equation to get wg and wg_uq
         wEquation<M>(wg, wg_uq, xg, uqg, og, wsrc, tmp.tempn, app, common, nga, backend, tmp.tempi);
@@ -304,7 +309,7 @@ inline void uEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, a
     if ((ncw>0) & (common.timeparams.wave==0)) {
       ArrayGemmBatch2(fh_uh, fh_w, wdg_uq, one, ncu, ncu, ncw, nga); // fix bug here       
       
-      ArraySetValue(wdg_uq, 0.0, nga*ncu*ncu);
+      ArraySetValue(wdg_uq, 0.0, nga*ncw*ncu); // fix bug here
       ArrayGemmBatch2(fh_uq, fh_w, wdg_uq, one, ncu, nc, ncw, nga); // fix bug here       
     }
     
@@ -866,11 +871,16 @@ inline void RuEquationElemBlock(solstructT<T,I> &sol, resstructT<T,I> &res, apps
     Node2Gauss(handle, uqg, tmp.tempn, master.shapegt, nge, npe, ne*nc, backend);
     
     if ((ncw>0) & (common.timeparams.wave==0)) {
+        Int ncwa = ncw - app.materialdb_nprop;
+        if (ncwa < 0)
+            error("Material database property count must be between zero and ncw.");
         GetElemNodes(tmp.tempn, sol.wdg, npe, ncw, 0, ncw, e1, e2);    
         Node2Gauss(handle, wg, tmp.tempn, master.shapegt, nge, npe, ne*ncw, backend);        
         
-        GetElemNodes(tmp.tempn, sol.wsrc, npe, ncw, 0, ncw, e1, e2);    
-        Node2Gauss(handle, wsrcg, tmp.tempn, master.shapegt, nge, npe, ne*ncw, backend);        
+        if (ncwa > 0) {
+            GetElemNodes(tmp.tempn, sol.wsrc, npe, ncw, 0, ncwa, e1, e2);
+            Node2Gauss(handle, wsrcg, tmp.tempn, master.shapegt, nge, npe, ne*ncwa, backend);
+        }
 
         // solve the w equation to get wg 
         wEquation<M>(wg, xg, uqg, og, wsrcg, tmp.tempn, app, common, nga, backend, tmp.tempi); // fix bug here
