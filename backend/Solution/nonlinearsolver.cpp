@@ -169,6 +169,7 @@ Int CNonlinearSolver<M>::NewtonSolver(ofstream &out, Int N, Int spatialScheme, I
 
     if (spatialScheme == 1) { 
 
+      ArrayCopy(disc.sol.uh, solv.sys.u, N);
       if (disc.common.components.ncq > 0) hdgGetQ(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common, backend);                
       if (disc.common.components.ncw > 0) GetW<M>(disc.sol.wdg, disc.sol, disc.tmp, disc.app, disc.common, backend);
       
@@ -211,6 +212,8 @@ Int CNonlinearSolver<M>::NewtonSolver(ofstream &out, Int N, Int spatialScheme, I
                         writer.crashDump(backend);
         error("Residual norm is nan. Save and exit.");                                    
       }
+
+      if (nrmr < tol) return 0;
     }                
     
     // use PTC to solve the system: R(u) = 0

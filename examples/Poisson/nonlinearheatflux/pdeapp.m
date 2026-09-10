@@ -25,7 +25,7 @@ pde.tau = 1.0;           % DG stabilization parameter
 pde.GMRESrestart = 100;
 
 % create a grid of 8 by 8 on the unit square
-[mesh.p,mesh.t] = squaremesh(4,4,1,1);
+[mesh.p,mesh.t] = squaremesh(8,8,1,1);
 % expressions for domain boundaries
 mesh.boundaryexpr = {@(p) abs(p(2,:))<1e-8, @(p) abs(p(1,:)-1)<1e-8, @(p) abs(p(2,:)-1)<1e-8, @(p) abs(p(1,:))<1e-8};
 mesh.boundarycondition = [2;1;2;2]; % Set boundary condition for each boundary
@@ -41,5 +41,5 @@ mesh.boundarycondition = [2;1;2;2]; % Set boundary condition for each boundary
 
 mesh.porder = pde.porder;
 mesh.dgnodes = createdgnodes(mesh.p,mesh.t,mesh.f,mesh.curvedboundary,mesh.curvedboundaryexpr,pde.porder);
-figure(1); clf; scaplot(mesh,sol(:,1,:),[],2,1); axis on; axis equal; axis tight;
+figure(1); clf; scaplot(mesh,sol(:,1,:),[],2,1); axis on; axis equal; axis tight; colorbar;
         

@@ -665,6 +665,16 @@ inline void readInput(appstruct &app, masterstruct &master, meshstruct &mesh, so
     if (materialdatabase_fileexists(filematerialdb)) {
         if (mpirank==0) printf("Reading material database from binary files \n");
         readmaterialdatabase(filematerialdb, app);
+        if (mpirank == 0) {
+            printf("Finished constructing material mesh: "
+                   "nstate = %ld, nprop = %ld, porder = %ld, "
+                   "elements = %ld, nodes/element = %ld\n",
+                   static_cast<long>(app.materialdb_nstate),
+                   static_cast<long>(app.materialdb_nprop),
+                   static_cast<long>(app.materialdb_porder),
+                   static_cast<long>(app.materialdb_ne),
+                   static_cast<long>(app.materialdb_npe));
+        }
     }
                     
     // read meshsol structure
