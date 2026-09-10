@@ -250,6 +250,15 @@ void AllocateLDGBlockJacobianMemory(resstructT<T,I>& res, commonstructT<T,I>& co
 
     res.K = scratch.allocate(kSize, backend); res.szK = kSize;  // K owned by the arena (S5 step 3)
     EnsureTemplateAllocation(&res.ipiv, res.szipiv, n*neb, backend);
+    // Assembled LDG operator (M1): un-inverted element diagonal, separate owned allocation
+    // (does NOT alias the K/Krylov arena -- captured before Inverse, consumed by ldgMatVec).
+    EnsureTemplateAllocation(&res.Adiag, res.szAdiag, kInvSize, backend);
+    // Assembled LDG operator (M2): off-diagonal neighbour blocks [n*n*nfe*ne1], the neighbour-element
+    // map [nfe*ne1], and the neighbour-v gather scratch [n*ne1].
+    Int ne1_ = common.meshsizes.ne1;
+    EnsureTemplateAllocation(&res.Aoff,  res.szAoff,  n*n*nfe*ne1_, backend);
+    EnsureTemplateAllocation(&res.Anbr,  res.szAnbr,  nfe*ne1_,     backend);
+    EnsureTemplateAllocation(&res.Avnbr, res.szAvnbr, n*ne1_,       backend);
     if (ncq > 0) {
         EnsureTemplateAllocation(&res.Mass2, res.szMass2, npe*npe*ne, backend);
         EnsureTemplateAllocation(&res.Minv2, res.szMinv2, npe*npe*ne, backend);

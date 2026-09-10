@@ -1540,6 +1540,22 @@ struct resstructT {
     dstype *K=nullptr; // dRh/du      block (m x n)   -- trace vs element-u
     dstype *H=nullptr; // dRh/duhat   block (m x m)   -- trace vs trace (the Schur-complemented diagonal)
 
+    // --- Assembled LDG operator (M1) ---
+    // Adiag holds the UN-inverted element-diagonal block dRu/du (n x n per element, element-major
+    // [n*n*ne1]) captured from the block-Jacobian assembly right AFTER the neighbor-q cross-deriv
+    // fold and BEFORE the local Inverse. It is the diagonal of the assembled LDG operator applied
+    // by ldgMatVec; a separate owned allocation (it does NOT alias the K/Krylov arena). The
+    // off-diagonal neighbor store (Aoff) is M2.
+    dstype *Adiag=nullptr; // dRu/du diagonal block (n x n per elem), un-inverted [n*n*ne1]
+    // Off-diagonal neighbour blocks (M2): A_{e,e'} = dRu_e/du_{neighbour across local face lf},
+    // n x n per (element, local face), layout [row + n*col + n*n*(e + ne1*lf)] (apply-friendly:
+    // fixed lf is contiguous over e -> one batched GEMM per neighbour slab). Anbr[e + ne1*lf] is
+    // the neighbour element across e's local face lf (e itself for a boundary face -> zero slab).
+    // Avnbr is the gather scratch (n*ne1) for the neighbour v in ldgMatVec.
+    dstype *Aoff=nullptr;  // off-diagonal blocks [n*n*nfe*ne1]
+    Int    *Anbr=nullptr;  // neighbour element map [nfe*ne1]
+    dstype *Avnbr=nullptr; // neighbour-v gather scratch [n*ne1]
+
     dstype *Ri=nullptr; // residual vector for uhat    
     dstype *Gi=nullptr; // store the diffusion matrix
     dstype *Ki=nullptr; // store the diffusion matrix
@@ -1549,6 +1565,7 @@ struct resstructT {
     
     Int szRi=0, szHi=0, szKi=0, szGi=0, szP=0, szV=0;
     Int szipiv=0, szH=0, szK=0, szG=0, szF=0, szB=0, szD=0, szE=0, szC=0, szMass=0, szMinv=0, szMass2=0, szMinv2=0;
+    Int szAdiag=0, szAoff=0, szAnbr=0, szAvnbr=0;
     Int szRq=0, szRu=0, szRh=0, szRuf=0, szRue=0, szRqf=0, szRqe=0;
     // 1 when F and H alias INTO the K block (the LDG block-Jacobi arena, AllocateLDGBlockJacobianMemory).
     // In that layout K is the only owned allocation; freememory must NOT TemplateFree(F)/(H) (they are
@@ -1654,8 +1671,12 @@ struct resstructT {
         TemplateFree(Ki, backend);
         TemplateFree(Hi, backend);
         TemplateFree(Ri, backend);
+        if (szAdiag > 0) TemplateFree(Adiag, backend);
+        if (szAoff > 0)  TemplateFree(Aoff, backend);
+        if (szAnbr > 0)  TemplateFree(Anbr, backend);
+        if (szAvnbr > 0) TemplateFree(Avnbr, backend);
         TemplateFree(ipiv, backend);
-    }                        
+    }
 };
 using resstruct = resstructT<::dstype, ::Int>;
 
@@ -1965,6 +1986,10 @@ struct solverparamsstruct {
     dstype linearSolverTol;
     dstype nonlinearSolverTol;
     dstype PTCparam;             // pseudo-transient-continuation parameter (set-once config)
+    // LDG assembled-operator apply (M1): 0 = matrix-free FD matvec (default fallback);
+    // 1 = apply the pre-assembled LDG block operator (res.Adiag/Aoff) instead of recomputing
+    // the nonlinear residual each matvec. See docs / cases/ldg-operator/DESIGN.md.
+    Int ldgAssembledOperator = 0;
 };
 
 // QoI / visualization-output configuration: visualization component counts (scalar/vector/tensor),
