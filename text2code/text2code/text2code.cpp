@@ -68,6 +68,7 @@ using namespace std;
 #include "domaindecomposition.cpp"
 #include "connectivity.cpp"
 #include "writebinaryfiles.cpp"
+#include "../../backend/Preprocessing/uniformrefinement.hpp"
 #include "CodeGenerator.cpp"
 #include "CodeCompiler.cpp"
 #include "AppScaffold.hpp"
@@ -162,7 +163,8 @@ int main(int argc, char* argv[])
     
     if (pde.gendatain == 1) {
       Mesh mesh = initializeMesh(params, pde);        
-      Master master = initializeMaster(pde, mesh);                                    
+      Master master = initializeMaster(pde, mesh);
+      uniformRefineMesh(mesh, pde, master);
       writeBinaryFiles(pde, mesh, master, spec);
     }
     
