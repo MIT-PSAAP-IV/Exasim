@@ -1,0 +1,4704 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="High-order discontinuous Galerkin PDE solvers in C++ with symbolic code generation and Kokkos backend portability (CPU / GPU / MPI).">
+      
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Codebase review & cleanup pass (2026-07-03) - Exasim</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#codebase-review-cleanup-pass-2026-07-03" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Exasim" class="md-header__button md-logo" aria-label="Exasim" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Exasim
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Codebase review &amp; cleanup pass (2026-07-03)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/MIT-PSAAP-IV/Exasim" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    MIT-PSAAP-IV/Exasim
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Exasim" class="md-nav__button md-logo" aria-label="Exasim" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Exasim
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/MIT-PSAAP-IV/Exasim" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    MIT-PSAAP-IV/Exasim
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+          
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../usage-modes/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../install/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Installation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/quick-install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Installation (Recommended)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/superbuild-cpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CPU Installation via Superbuild
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/superbuild-troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting Superbuild Failures
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/manual-dependencies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Manual Dependency Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/common/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common manual dependency steps
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/gpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/macos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Platform: macOS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/linux-cpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Platform: Linux CPU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/linux-nvidia/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Platform: Linux NVIDIA GPU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/linux-amd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Platform: Linux AMD GPU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/hpc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HPC: build chain & options
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/frontier/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HPC: Frontier
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/tuolumne/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HPC: Tuolumne
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/generic-hpc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HPC: Generic
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/verification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Verification and Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../text2code-applications/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Text2Code Applications
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Text2Code Applications
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../text2code-applications/pdeapp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pdeapp.txt guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../text2code-applications/pdemodel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pdemodel.txt guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../text2code-applications/modeling-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PDE modeling guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../text2code-applications/application-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Application setup guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../text2code-applications/workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow and troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../text2code-applications/advanced/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced topics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../text2code-applications/reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference gateway
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../frontends/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frontends
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Frontends
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../frontends/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../frontends/data-structures/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core data structures
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../frontends/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../frontends/preprocessing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Preprocessing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../frontends/pdemodel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pdemodel abstraction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../frontends/mesh-and-geometry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh and geometry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../frontends/execution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Execution workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../frontends/postprocessing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Postprocessing and visualization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../frontends/api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../usage-modes/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Application Modes
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Application Modes
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage-modes/builtin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Built-in library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage-modes/external-builtin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    External built-in library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage-modes/shared-library/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Shared library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage-modes/parameter-sweeps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Parameter sweeps
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage-modes/postprocessing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Postprocessing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../using-ai-tools/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Using AI Tools
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Using AI Tools
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../using-ai-tools/prompt-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prompt engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../using-ai-tools/creating-examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Creating examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../using-ai-tools/implementing-physics-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementing physics models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../using-ai-tools/mesh-generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesh generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../using-ai-tools/debugging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Debugging and code review
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../using-ai-tools/extending-exasim/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extending Exasim
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../using-ai-tools/validating-ai-generated-code/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validating AI-generated code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../using-ai-tools/best-practices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Best practices
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../using-ai-tools/example-prompts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Example prompts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../physics-models/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Physics Models
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Physics Models
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/modelc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ModelC
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/modeld/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ModelD
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/modelw/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ModelW
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/comparison/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model comparison
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/auxiliary-equations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Auxiliary equations through w
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/equations-of-state/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Equations of state
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/external-variables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    External variables through v
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/artificial-viscosity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Artificial viscosity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/multiphysics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiphysics problems
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/multi-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-model problems
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../physics-models/examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Worked examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../theory/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Theory
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_9" id="__nav_9_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Theory
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/dg-methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DG methods
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/ldg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LDG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/hdg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HDG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/temporal-discretization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Temporal discretization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/nonlinear-solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nonlinear solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/linear-solvers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linear solvers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/preconditioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Preconditioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/parallel-computing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Parallel computing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/gpu-computing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU computing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/scalability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scalability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/algorithmic-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Algorithmic flow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/ldg-formulation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LDG implementation deep dive
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/block-diagonal-jacobian/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Block-diagonal Jacobian
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theory/references/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    References
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_10" id="__nav_10_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/pdeapp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pdeapp fields
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/pdemodel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pdemodel syntax
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/model-contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model contract
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/model-functions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model functions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/equations-of-state/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Equations of state
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/boundary-conditions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Boundary conditions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/source-terms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Source terms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/auxiliary-equations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Auxiliary equations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/parameter-sweeps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Parameter sweeps
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/postprocessing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Postprocessing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/text2code/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Text2Code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cmake/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CMake targets & options
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../driving-the-solver/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Driving the solver (C++ API)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Internals
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_12" id="__nav_12_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Internals
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../repository-structure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Repository structure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../code-generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../frontends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frontends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backend
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../runtime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Runtime
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gpu-implementation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU implementation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mpi-implementation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MPI implementation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../baselines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Baselines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../known-divergences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Known divergences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development-workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../coding-guidelines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Coding guidelines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ci-and-validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI and validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../references/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    References
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#test-result-chefsi-apps-coupling-still-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test result — CHEFSI-apps coupling still works ✅
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#review-1-do-all-backends-thread-through-one-core-yes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Review 1 — Do all backends thread through one core? ✅ Yes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#review-2-classdata-organization-improved-real-smells-remain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Review 2 — Class/data organization 🔶 improved, real smells remain
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#review-3-core-exposed-to-consumers-clean-for-the-linear-petsc-goal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Review 3 — Core exposed to consumers? ✅ Clean for the linear-PETSc goal
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#review-4-exasim-as-a-pure-c-library-no-text-config-real-with-gaps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Review 4 — Exasim as a pure C++ library (no text config) 🔶 real, with gaps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scope-dmplex-exasim-mesh-converter-feasible-cheap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope — DMPlex → Exasim mesh converter ✅ feasible &amp; cheap
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scope — DMPlex → Exasim mesh converter ✅ feasible &amp; cheap">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#serial-minimal-input-local-rebuild" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Serial: minimal input, local rebuild
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#distributed-goal-dont-recompute-anything-that-needs-communication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Distributed goal: don't recompute anything that needs communication
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cleanup-inventory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cleanup inventory
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-surfaces-ci-gaps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test surfaces &amp; CI gaps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cleanup-backlog" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cleanup backlog
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="codebase-review-cleanup-pass-2026-07-03">Codebase review &amp; cleanup pass (2026-07-03)<a class="headerlink" href="#codebase-review-cleanup-pass-2026-07-03" title="Permanent link">&para;</a></h1>
+<p>Branch <code>teoc-properly-separate-out</code>, at <code>2c348b72</code>. A "declare the precision/PETSc
+work done, then review and clean the codebase" pass. Six review dimensions + a
+coupling regression test + a cleanup inventory + a DMPlex scoping question.</p>
+<p><strong>One-line verdict:</strong> the architecture is in good shape to declare the current
+milestone done — one true core (no per-backend math duplication), a clean
+consumer/template surface for the linear-PETSc target, a real pure-C++/binary
+library path, and the CHEFSI-apps coupling apps still build and run correctly
+against a fresh install from this branch. The remaining work is a concrete,
+mostly-low-risk backlog captured below.</p>
+<hr />
+<h2 id="test-result-chefsi-apps-coupling-still-works">Test result — CHEFSI-apps coupling still works ✅<a class="headerlink" href="#test-result-chefsi-apps-coupling-still-works" title="Permanent link">&para;</a></h2>
+<p>Rebuilt + installed Exasim from this branch <strong>out of tree</strong> into
+<code>&lt;repo&gt;/../Exasim-build</code> (install prefix
+<code>Exasim-build/install</code>), then ran
+<code>~/projects/psaap4/remote/test-coupling.sh</code> with <code>EXASIM_INSTALL</code> pointed at it.</p>
+<table>
+<thead>
+<tr>
+<th>Variant</th>
+<th>Model path</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>poisson2d-new-architecture-with-kitesurf</code></td>
+<td><code>Exasim::builtinmodel</code> (model ID 8)</td>
+<td>✅ build + <code>mpirun -np 2</code> run, coupled Newton/GMRES converged, QoI check passed</td>
+</tr>
+<tr>
+<td><code>poisson2d-external-model-with-kitesurf</code></td>
+<td><code>exasim_add_external_builtin_model</code> (model ID 100)</td>
+<td>✅ text2code regen → build → run, Newton residual <code>7.3e-3 → 1.6e-9</code>, QoI check passed</td>
+</tr>
+</tbody>
+</table>
+<p>Final harness line: <code>==&gt; DONE: all coupling Poisson tests passed.</code> (rc=0). The
+refactor did <strong>not</strong> break the coupling apps' C++/CMake consumer API or their
+numerics.</p>
+<p><strong>Caveat (a CHEFSI-apps data defect, not Exasim):</strong> the first run crashed with
+<code>YAML::BadSubscript</code> because
+<code>poisson2d-new-architecture-with-kitesurf/input.yaml</code> was committed as a literal
+<strong>Git-LFS pointer stub</strong> yet is <strong>not</strong> <code>.gitattributes</code>-tracked, so
+<code>git lfs pull</code> will not smudge it. Fix for a fresh checkout:
+<code>git lfs fetch --all</code>, then copy <code>.git/lfs/objects/&lt;oid-prefix&gt;/&lt;oid&gt;</code> over each
+stub file. Worth fixing in <code>CHEFSI-apps@9a64e2c</code> so a clean clone runs.</p>
+<p>Build/environment notes:
+- In-source build directories are now <strong>rejected</strong> (<code>CMakeLists.txt:31</code> guard) —
+  configure out of tree (<code>Exasim-build</code>), not <code>build_local</code>.
+- <code>runjob</code>'s <code>taskpolicy</code> wrapper hit <code>posix_spawn: Permission denied</code> on the
+  coupling driver script; ran it via plain <code>nohup bash … &amp;</code> instead.</p>
+<hr />
+<h2 id="review-1-do-all-backends-thread-through-one-core-yes">Review 1 — Do all backends thread through one core? ✅ Yes<a class="headerlink" href="#review-1-do-all-backends-thread-through-one-core-yes" title="Permanent link">&para;</a></h2>
+<p>There is <strong>one core codebase</strong>. Two orthogonal dispatch axes, neither duplicates
+the math:</p>
+<ul>
+<li><strong>Model dispatch</strong> — <code>EXASIM_DRIVER_CALL</code> (<code>include/exasim/detail/driver_dispatch.hpp:45</code>)
+  is an <code>if constexpr</code> on the model <em>type</em> (frontend-generated ABI kernels vs
+  templated <code>exasim::Name&lt;M&gt;</code>). About <em>which PDE</em>, not which hardware.</li>
+<li><strong>Backend dispatch</strong> — a runtime <code>Int backend</code> (0/1 CPU, 2 CUDA, 3 HIP)
+  threaded as a trailing arg. It steers only <strong>allocation, BLAS vendor, and
+  sync</strong> (<code>backend/Common/common.h:452</code>, <code>backend/Common/pblas.h:59</code>), never the
+  compute logic. The pointwise math is written <strong>once</strong> as
+  <code>KOKKOS_INLINE_FUNCTION</code> kernels over the <em>default</em> execution space, so
+  CPU-vs-GPU is a compile-time Kokkos configuration, not a second source path
+  (no <code>.cu</code>, no <code>cpuFlux</code>/<code>gpuFlux</code> pairs).</li>
+<li><strong>MPI is a pure halo-exchange wrapper</strong> (<code>backend/Discretization/residual.hpp:600</code>):
+  <code>RuResidualMPI</code> adds <code>MPI_Isend/Irecv</code> and interior/interface range-splitting,
+  then calls the <em>same</em> <code>GetUhat/GetQ/GetW/RuElem/RuFace</code> compute. GPU-MPI = the
+  same wrapper over a CUDA-configured Kokkos build.</li>
+</ul>
+<p><strong>Duplication/threading smells worth cleaning:</strong>
+1. <code>include/kernels/cpuInitu.hpp</code> vs <code>KokkosInitu.hpp</code> — the one genuine
+   per-backend kernel duplication (identical IC math; the host copy exists only
+   to stage the GPU initial solution on the host). Could be a <code>Kokkos::Serial</code>
+   instantiation of the same kernel.
+2. The <code>backend</code> int is largely redundant with the fixed compile-time Kokkos
+   space on the compute side — threading noise in every compute signature.
+3. <code>ioutilities.hpp</code>/<code>.cpp</code> duplicated (stale include-vs-TU leftover).
+4. The <code>include/exasim/{kokkosimpl,cpuimpl,pblas}.h</code> re-include shims are
+   documented Phase-1.2 transitional debt.</p>
+<hr />
+<h2 id="review-2-classdata-organization-improved-real-smells-remain">Review 2 — Class/data organization 🔶 improved, real smells remain<a class="headerlink" href="#review-2-classdata-organization-improved-real-smells-remain" title="Permanent link">&para;</a></h2>
+<p>The C1–C5 refactor already split the old god <code>commonstruct</code> into named
+per-concern sub-structs and gave ownership to <code>CDiscretization</code> (owns
+<code>sol/res/app/master/mesh/tmp/common/scratch/wallmodel</code>);
+<code>CResidual</code>/<code>CAssembler</code>/<code>CPreconditioner</code> are stateless operators over a
+<code>CDiscretization&amp;</code>. That part is genuinely good.</p>
+<p>Remaining smells (ranked by cleanup value):
+1. <strong><code>appstruct</code> magic-index decode</strong> — raw <code>ndims/nsize/lsize/flag</code> int arrays
+   decoded by literal offset (<code>backend/Discretization/setstructs.cpp:68</code>). It is
+   a <strong>serialization blob</strong> whose packed layout matches <code>app.bin</code>, written by the
+   <em>frozen</em> Matlab/Python/Julia frontends — so the arrays <strong>cannot</strong> be replaced
+   with named fields without breaking the frontend ABI (an explicit invariant).
+   <strong>Partially addressed 2026-07-04:</strong> the fully-documented <code>app.ndims</code> decode
+   (100 sites, 9 files) now uses a named-offset enum — <code>app.ndims[AppNdims::nc]</code>
+   instead of a bare <code>app.ndims[5]</code> — self-documenting while preserving the wire
+   layout; byte-identical (app-regression 13/13). <strong>Left as-is:</strong> <code>nsize</code>
+   (serialization sizes, read sequentially), and <code>flag</code>/<code>problem</code> (partly
+   undocumented / overloaded across structs — guessing an offset would silently
+   corrupt the solve).
+2. <strong>Every struct is a hand-rolled malloc bag</strong> — parallel <code>sz*</code> fields +
+   <code>printinfo/sizeof*/freememory</code> boilerplate, no RAII. Correctness depends on
+   hand-matched alloc/free lists and alias guards (<code>res.fhAliasesK</code>, <code>K=nullptr</code>).
+   <strong>Investigated 2026-07-04: an owning <code>DeviceArray&lt;T&gt;</code> does NOT fit — deferred.</strong>
+   The struct family has ~176 raw-pointer fields and, decisively, <strong>~447
+   intentional aliasing sites</strong>: the HDG/LDG assembly deliberately shares scratch
+   <em>arenas</em> — <code>res.F</code>/<code>res.H</code> alias into <code>res.K</code>, <code>sys.v</code> aliases <code>K</code>, locals like
+   <code>dstype *D = res.D</code> view into <code>res</code>/<code>tmp</code>. An <em>owning</em> array can't have two
+   owners of the same memory, so a full RAII conversion would either break the
+   arena aliasing (perf/semantics change, not byte-identical) or re-introduce
+   owning-vs-view flags — i.e. exactly the <code>fhAliasesK</code> bookkeeping it aimed to
+   remove, just wrapped in a class. The <code>fhAliasesK</code>/<code>K=nullptr</code> guards exist
+   <em>because</em> of the deliberate arena sharing, not by accident. A clean RAII model
+   would require first redesigning the arena strategy; out of scope for a
+   byte-identical cleanup. (The recent LDG memory-safety fix already added the
+   <code>sz&gt;0</code> free guards that close the concrete double-free hazard here.)
+3. <strong><code>commonstruct</code> still large</strong> (<code>backend/Common/common.h:2032</code>) — sub-structs
+   <em>plus</em> ~40 loose top-level fields (<code>ind_*</code>, comm arrays, DIRK/BDF coeffs,
+   <code>timing[128]</code>). <strong>Partially drained 2026-07-04:</strong> the LDG block-Jacobian CRS
+   index cluster (<code>ind_ii/ind_ji/ind_il/ind_jl/num_ji/num_jl/Lnum_ji/Lind_ji/
+   Unum_ji/Uind_ji</code>) moved into <code>blockjacindexstruct bjindex</code> — a cohesive,
+   common-only concern contained in 4 files (96 uniform <code>common.X</code> sites),
+   verified byte-identical (app-regression 12/12). <strong>Remaining, deferred:</strong> the
+   halo/MPI-exchange cluster (<code>nbsd/elemsend/…</code>, ~450 sites) and the
+   time-integrator coeffs (<code>dt/dae_dt/DIRK*/BDF*</code>, ~125 sites) — larger and
+   collision-prone (<code>dt</code>/<code>dae_dt</code> also live on <code>appstruct</code>), each wants its own
+   careful pass. Note: <code>bjindex</code> arrays are allocated in <code>crs_init</code> but never
+   freed (pre-existing leak, preserved as-is).
+4. ~~<strong>Duplicated state</strong>~~ — <strong>investigated 2026-07-04: false positive, no
+   change.</strong> <code>PDEStateSnapshot</code> (<code>backend/Solution/solution.h:123</code>) is a
+   load-bearing checkpoint buffer (<code>SaveState</code>/<code>RestoreState</code>, coupling rollback
+   via the <code>ExasimSolver</code> ABI), not a redundant mirror. <code>solutionlayoutstruct</code>
+   (<code>common.h:1959</code>) is an intentional model-decoupling scaffold (G4/Phase D —
+   will carry model-supplied field names). The wall-model/STG <code>app</code>↔<code>common</code>
+   mirroring is the standard serialized-input→runtime-copy pattern, entangled
+   with the <code>appstruct</code> item (#1) rather than an isolated dedup.
+5. ~~<strong>Naming</strong>~~ — <strong>addressed 2026-07-04 by documenting, not renaming.</strong> The
+   <code>res.C/E/D/B/F/G/H/K</code> single letters are meaningful HDG block-Jacobian
+   notation (the <code>[D F; K H]</code> local static-condensation system, LDG <code>q</code> Schur-
+   eliminated via <code>D += B·Minv·C</code> etc.), used as the working local-variable names
+   across ~300 <code>res.X</code> sites and matching <code>block-diagonal-jacobian.md</code>. A rename
+   is high-risk/low-value; "split residual vs matrix store" fights the
+   intentional shared-<code>K</code>-arena (<code>fhAliasesK</code>; <code>K</code> doubles as <code>sys.v</code> scratch).
+   Fixed the real pain instead — 5 of 8 members carried an identical misleading
+   "store the diffusion matrix" comment — with accurate per-block role docs.</p>
+<hr />
+<h2 id="review-3-core-exposed-to-consumers-clean-for-the-linear-petsc-goal">Review 3 — Core exposed to consumers? ✅ Clean for the linear-PETSc goal<a class="headerlink" href="#review-3-core-exposed-to-consumers-clean-for-the-linear-petsc-goal" title="Permanent link">&para;</a></h2>
+<p><code>find_package(Exasim [COMPONENTS petsc])</code> installs the templated internals under
+<code>include/backend/</code> (<code>install/CMakeLists.txt:737</code>), so a consumer compiles
+<code>CDiscretizationT&lt;T,I&gt;</code>, <code>make_preprocessed</code>, <code>recover_volume</code>, <code>eval_qoi</code>,
+<code>Operator</code>, <code>ShellMat</code> directly. Precision is a real template arg. <code>export.hpp</code>
+is the curated free-function surface; <code>petsc.hpp</code> gives MatShell MatMult,
+PCShell PCApply, zero-copy condensed RHS, <code>assemble_matrix</code> (real MATAIJ), and
+<code>make_mass_inverse</code>. The <code>tests/consumers/{operators,solve_fp32}</code> and
+<code>tests/petsc/*</code> drivers exercise exactly this.</p>
+<p><strong>Gaps a PETSc-driving consumer hits:</strong>
+- <strong>Nonlinear Newton isn't wrapped</strong> — <code>Operator::formjacobian</code> is a no-op
+  (<code>include/exasim/petsc.hpp:164</code>) and <code>formfunction</code> hard-codes affine
+  <code>F = H·U − b0</code>. A nonlinear PDE consumer must re-call
+  <code>hdgAssembleLinearSystem</code> + <code>ComputeHDGPreconditioner</code> itself each SNES
+  iterate (those are public, but the "PETSc owns the loop" facade is turnkey
+  only for linear/affine problems).
+- <strong><code>sysstruct</code>/<code>setsysstruct</code> leak</strong> as raw backend types every driver must
+  construct.
+- <strong>DG↔CG trace scatter map is internal only</strong> — no accessor; a PCFieldSplit or
+  custom-scatter consumer must reach into <code>disc.mesh.elemcon</code>.
+- <strong>GPU in-memory ctor contract is under-documented</strong> (header says CPU-only;
+  code and tests carry GPU branches).</p>
+<hr />
+<h2 id="review-4-exasim-as-a-pure-c-library-no-text-config-real-with-gaps">Review 4 — Exasim as a pure C++ library (no text config) 🔶 real, with gaps<a class="headerlink" href="#review-4-exasim-as-a-pure-c-library-no-text-config-real-with-gaps" title="Permanent link">&para;</a></h2>
+<p>The pure-C++/binary path is end-to-end (<code>tests/consumers/solve_fp32/main.cpp</code>):
+raw C++ mesh arrays → <code>exasim::default_pde&lt;M&gt;()</code> → <code>MeshSpec::add_boundary</code>
+coordinate predicates → <code>make_preprocessed&lt;M,T,I&gt;</code> → <code>CDiscretizationT&lt;T,I&gt;</code> →
+solve → <code>eval_qoi</code>. No <code>pdeapp.txt</code>/<code>pdemodel.txt</code>, no frontend, no datain files
+touched. <code>ExasimSolver&lt;M&gt;</code> is the same path with a fluent wrapper.</p>
+<p><strong>Gaps (what still forces files / is missing):</strong>
+1. The model must be a <strong>compile-time C++ struct</strong> satisfying <code>is_model_v&lt;M&gt;</code>.
+   "No pdemodel.txt" means you hand-write the physics in C++; the only
+   runtime-loadable alternative is the text2code/ABI path, which needs
+   <code>pdeapp*.txt</code>.
+2. Two binary runtime assets are still read from disk: <code>masternodes.bin</code> +
+   <code>gaussnodes.bin</code> (nodal/quadrature tables) via <code>$EXASIM_DATA_DIR</code>
+   (<code>backend/Preprocessing/makemasterexasim.hpp:1024</code>).
+3. <code>readMeshFromFile</code>/binary/Gmsh/VTU readers exist
+   (<code>backend/Preprocessing/readmesh.hpp</code>) but there is <strong>no helper bridging them
+   to <code>MeshSpec</code></strong> — a consumer reads arrays itself, then hands <code>p</code>/<code>t</code> to
+   <code>MeshSpec</code>.
+4. Solution I/O exists (<code>writesolstruct</code>/<code>readsolstruct</code>,
+   <code>backend/Postprocessing/solution_io_lib.hpp</code>) but there is <strong>no clean
+   <code>save_solution/load_solution</code> helper</strong> in <code>export.hpp</code>; reload is coupled to
+   the datain/dataout layout.</p>
+<hr />
+<h2 id="scope-dmplex-exasim-mesh-converter-feasible-cheap">Scope — DMPlex → Exasim mesh converter ✅ feasible &amp; cheap<a class="headerlink" href="#scope-dmplex-exasim-mesh-converter-feasible-cheap" title="Permanent link">&para;</a></h2>
+<h3 id="serial-minimal-input-local-rebuild">Serial: minimal input, local rebuild<a class="headerlink" href="#serial-minimal-input-local-rebuild" title="Permanent link">&para;</a></h3>
+<p><code>meshFromArrays</code> (<code>backend/Preprocessing/makemeshexasim.hpp:1318</code>) consumes
+<strong>only</strong> <code>p</code> (coords) + <code>t</code> (cell→vertex, 0-based) + <code>nve</code> + <code>nd</code> + boundary
+specs. Everything heavy — <code>facecon</code>, <code>elemcon</code>, <code>f2e</code>, <code>bf</code>, perms — is <em>rebuilt</em>
+inside <code>connectivity()</code> from cell-vertex alone (<code>mkf2e_hash</code>). Exasim <strong>ignores</strong>
+DMPlex's cone/support/face graph.</p>
+<ul>
+<li><strong>Input footprint is minimal:</strong> pass <code>DMGetCoordinatesLocal</code> + cell closures
+  (→ vertex ids). No connectivity-graph duplication at the interface — both
+  sides build faces, but you only ever materialize Exasim's. That is the best
+  achievable.</li>
+<li><strong>Natural seam:</strong> <code>MeshSpec</code> / <code>meshFromArrays</code>. The one real code addition is
+  boundary tagging: Exasim tags by <em>coordinate predicate</em>, DMPlex by <em>face-label
+  id</em> ("Face Sets"). Cleanest fix — extend <code>MeshSpec</code> to accept explicit
+  per-boundary-face tags (write <code>bf</code>/<code>boundaryConditions</code> directly, bypass the
+  predicate scan).</li>
+<li><strong>Constraint:</strong> one homogeneous element type per mesh (single <code>nve</code>; no hybrid
+  DMPlex without splitting).</li>
+</ul>
+<p>Rebuilding this connectivity locally is cheap and safe: it is per-rank compute
+with <strong>no communication</strong>, so re-deriving faces from cell-vertex is not a concern.</p>
+<h3 id="distributed-goal-dont-recompute-anything-that-needs-communication">Distributed goal: don't recompute anything that needs <em>communication</em><a class="headerlink" href="#distributed-goal-dont-recompute-anything-that-needs-communication" title="Permanent link">&para;</a></h3>
+<p>The real design intent is stronger than "don't duplicate data": <strong>if Exasim is
+handed an already-partitioned DMPlex mesh — with its cell partition and its point
+star-forest (<code>PetscSF</code>) describing shared/ghost points — it should not re-run any
+step that requires MPI communication.</strong> DMPlex has <em>already</em> done the global
+discovery (who owns what, which points are shared); redoing it is wasted
+collectives, and worse, a second partitioner can disagree with PETSc's, breaking
+the correspondence the consumer expects.</p>
+<p>The current distributed path is <code>make_preprocessed_distributed</code>
+(<code>include/exasim/export.hpp:175</code>) → <code>meshFromArraysDistributed</code>
+(<code>makemeshexasim.cpp:1356</code>) → <code>CPreprocessing::takeParallel</code>
+(<code>backend/Preprocessing/preprocessing.cpp:204</code>). Its communication-requiring
+steps, and whether a DMPlex partition + point-SF makes them elidable:</p>
+<table>
+<thead>
+<tr>
+<th>Preprocessing step</th>
+<th>Comm</th>
+<th>Elidable with DMPlex partition + SF?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>callParMetis</code> → <code>ParMETIS_V3_PartMeshKway</code> (<code>parmetisexasim.cpp:581,129</code>)</td>
+<td><code>Allgather</code> + collective repartition</td>
+<td><strong>Yes</strong> — the partition is given. (Already partly supported via <code>pde.partitionfile</code>, :589.)</td>
+</tr>
+<tr>
+<td><code>migrateMeshWithParMETIS</code> (<code>:159</code>) — <code>Alltoall(v)</code> moving cells + a node-request protocol (<code>:338</code>)</td>
+<td><code>Alltoall(v)</code></td>
+<td><strong>Yes, becomes a no-op</strong> if the consumer feeds each rank exactly its owned cells (DMPlex already has).</td>
+</tr>
+<tr>
+<td><code>mke2e_fill_first_neighbors</code> (<code>:637</code>) — cross-rank face-neighbor discovery → <code>dmd.nbinfo</code></td>
+<td><code>Alltoall(v)</code> (<code>:721</code>)</td>
+<td><strong>Yes</strong> — the point-SF <em>is</em> this shared-interface adjacency.</td>
+</tr>
+<tr>
+<td><code>buildElemsend</code> (<code>:2018</code>) — negotiate which ghosts each neighbor must send</td>
+<td><code>Isend/Irecv</code> (<code>:2081</code>)</td>
+<td><strong>Yes</strong> — the send/recv pattern <em>is</em> the SF (leaves↔roots).</td>
+</tr>
+<tr>
+<td>Global node-id resolution (<code>mesh.nodeGlobalID</code>/<code>tg</code>)</td>
+<td>(folded into the above)</td>
+<td><strong>Yes</strong> — DMPlex global point numbering supplies it directly.</td>
+</tr>
+<tr>
+<td>3× <code>sendrecvdata</code> ghost fills of <code>bf</code>/<code>tg</code>/<code>xdg</code> (<code>preprocessing.cpp:262,286,295</code>)</td>
+<td><code>Isend/Irecv</code></td>
+<td><strong>Payload only</strong> — the <em>pattern</em> is free from the SF, but ghost values must physically arrive once. Collapses to a local copy <em>only</em> if the consumer also hands over ghost-cell data.</td>
+</tr>
+<tr>
+<td><code>mergePeriodicNodeIDs</code> / <code>setperiodicfaces</code> (<code>:1361,1051</code>)</td>
+<td><code>Allgather(v)</code></td>
+<td>Only if periodic BCs; DMPlex periodicity would supply the same.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Verdict:</strong> with a supplied partition + point-SF, <strong>every collective/discovery
+step is elidable</strong> — the ParMETIS repartition, the cross-rank neighbor discovery,
+the send/recv negotiation, and global-node numbering all come straight from
+DMPlex. The one irreducible communication is a <strong>single one-shot ghost-payload
+exchange</strong> (coords/global-ids/boundary-flags for ghost cells), and even that
+disappears if the converter passes ghost-cell data alongside owned cells. So the
+goal — <em>no communication-bearing recompute</em> — is achievable.</p>
+<p><strong>Injection seam:</strong> branch in <code>CPreprocessing::takeParallel</code>
+(<code>preprocessing.cpp:204</code>) <em>before</em> <code>callParMetis</code> (<code>:237</code>) and <code>initializeDMD</code>
+(<code>:243</code>): if a prebuilt decomposition is supplied, skip both and populate the
+<code>DMD</code> struct directly. Carry it on an extended <strong><code>MeshSpecDistributed</code></strong>
+(<code>export.hpp:151</code>). The DMD fields the consumer must fill (all derivable from
+PetscSF leaves/roots + the DMPlex cell partition + global point numbering) are:
+<code>dmd.elempart</code>, <code>elempart_local</code>, <code>elem2cpu</code>, <code>nbsd</code>, <code>elemsend</code>/<code>elemsendpts</code>,
+<code>elemrecv</code>/<code>elemrecvpts</code>, <code>localelemsend</code>/<code>localelemrecv</code>, plus
+<code>mesh.nodeGlobalID</code>, <code>mesh.elemGlobalID</code>, <code>mesh.tg</code>. These are exactly what the
+runtime halo exchange (<code>RuResidualMPI</code>, <code>residual.hpp:378</code>) already consumes, so
+once populated the solve path is unchanged.</p>
+<p>Note: a lighter-weight but <em>not</em> communication-free fallback already exists —
+<code>pde.partitionfile</code> (<code>parmetisexasim.cpp:589</code>) skips the ParMETIS <em>partitioning</em>
+call but still runs <code>migrate</code> + neighbor-discovery + send/recv negotiation. To
+hit the "zero comm recompute" goal you want the full DMD-injection seam above,
+not just the partition-file path.</p>
+<hr />
+<h2 id="cleanup-inventory">Cleanup inventory<a class="headerlink" href="#cleanup-inventory" title="Permanent link">&para;</a></h2>
+<p><code>apps/</code> and <code>examples/</code> are <strong>not duplicates</strong> — <code>apps/</code> are C++/text2code
+standalone apps (12 are live regression fixtures for <code>run-app-regression.sh</code>);
+<code>examples/</code> are MATLAB-frontend examples (740 files, only 5 tested). Overlapping
+names (poisson2d, cone, isoq3d…) exercise different toolchains. The annoyance is
+curation, not literal duplication; neither should be deleted wholesale.</p>
+<p>The real waste (ranked):</p>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Why</th>
+<th>Recommended action</th>
+<th>Risk</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>apps/navierstokes/{reactingsharpb2,orion}</code> (~52M raw <code>.bin</code>)</td>
+<td>built/tested by nothing (not in <code>tests/app-baselines/</code>)</td>
+<td>delete or move to LFS</td>
+<td>low (verify not a demo ref)</td>
+</tr>
+<tr>
+<td><code>apps/**/*.bin</code> (~84M, not LFS)</td>
+<td>raw mesh/solution blobs in git history</td>
+<td>LFS-ify the <em>tested</em> ones</td>
+<td>medium (regression fixtures)</td>
+</tr>
+<tr>
+<td><code>old/</code> (13M; <code>baseline/</code> = 11M)</td>
+<td>self-documented "nothing references these"</td>
+<td>delete (git history preserves)</td>
+<td>low</td>
+</tr>
+<tr>
+<td><code>tests/archive/</code></td>
+<td>superseded runners, not wired into <code>tests/CMakeLists.txt</code></td>
+<td>delete</td>
+<td>low</td>
+</tr>
+<tr>
+<td>root <code>heat_petsc_final.vtu</code>, <code>poisson_petsc.vtu</code></td>
+<td>stray local run outputs (already gitignored)</td>
+<td><code>rm</code> locally</td>
+<td>none</td>
+</tr>
+<tr>
+<td><code>examples/</code> untested tail (~735 of 740)</td>
+<td>only 5 wired to CI</td>
+<td>keep for docs; prune heaviest unused</td>
+<td>low</td>
+</tr>
+</tbody>
+</table>
+<p>No committed <code>.o</code>/<code>.a</code>/<code>.so</code> build outputs found in the index.</p>
+<hr />
+<h2 id="test-surfaces-ci-gaps">Test surfaces &amp; CI gaps<a class="headerlink" href="#test-surfaces-ci-gaps" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>Where it runs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>consumer builtin CPU / MPI (np=2)</td>
+<td>in-CI</td>
+</tr>
+<tr>
+<td><code>model_fp32</code>, <code>solve_fp32</code>, <code>operators</code>, <code>facade</code> (self-checking binaries)</td>
+<td>in-CI (CPU-serial Kokkos only)</td>
+</tr>
+<tr>
+<td>python frontend + exports/coexistence/combined/postprocess/modelcache</td>
+<td>in-CI</td>
+</tr>
+<tr>
+<td><code>builtin_model4_kernel_equivalence</code>, <code>sharedlibrary_app</code></td>
+<td>in-CI</td>
+</tr>
+<tr>
+<td><code>petsc_operator_export</code> + <code>petsc/{heat,poisson_mpi,robustness}</code></td>
+<td><strong>CI-registered but SKIP</strong> (no PETSc in apt)</td>
+</tr>
+<tr>
+<td>app golden regression (<code>run-app-regression.sh</code>, 12 baselines)</td>
+<td><strong>local-only</strong> (not a ctest)</td>
+</tr>
+<tr>
+<td>MATLAB / Julia frontends + regression</td>
+<td>local-only (SKIP 77 on CI)</td>
+</tr>
+<tr>
+<td>GPU (<code>tests/remote/consumers/builtin-gpu*</code>)</td>
+<td>remote-only (dgx-b), never automatic</td>
+</tr>
+<tr>
+<td>LDG (hybrid=0)</td>
+<td><strong>FIXED + tested 2026-07-04</strong> — <code>poisson2d(ldg)</code> app-regression variant (CPU + CPU-MPI, np=2) + <code>tests/remote/gpu-ldg-test.sh</code> (GPU + GPU+MPI on dgx-b); all four converge to <code>∫u = 0.4052847</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Most valuable missing surfaces (ranked):</strong>
+1. <strong>Wire <code>run-app-regression.sh</code> into CI</strong> — biggest single guard for the
+   precision/consumer-API work (full native stack, 12 golden L2 baselines,
+   tol 1e-8). Effort: medium (git-lfs pull + build apps on the runner).
+2. <strong>Install PETSc on the runner</strong> so <code>petsc_operator_export</code> + <code>robustness</code>
+   RUN instead of SKIP — they exercise the zero-copy <code>PetscScalar</code> path the
+   precision work touched. Effort: low.
+3. <strong>Scheduled GPU lane</strong> (dgx-b) running <code>builtin-gpu*</code> + <code>model_fp32</code>/
+   <code>solve_fp32</code> to make the "CPU/GPU byte-identical" claim testable, not
+   asserted. Effort: medium-high.
+4. ~~<strong>LDG xfail marker</strong>~~ — <strong>done better 2026-07-04</strong>: LDG is now <em>fixed</em>
+   (upstream <code>6723d7b</code> port) and <em>tested</em> on all four backends, not just marked
+   broken. <code>poisson2d(ldg)</code> is in the app-regression; wire
+   <code>tests/remote/gpu-ldg-test.sh</code> into the scheduled GPU lane (#3).
+5. <strong>Fix the stale "Registered tests" comment</strong> in
+   <code>.github/workflows/smoke-cpu.yml:13</code> — it omits <code>sharedlibrary_app</code>,
+   <code>petsc_operator_export</code>, and the <code>frontend_*_export</code>/<code>combined</code>/<code>postprocess</code>
+   tests that unfiltered <code>ctest</code> actually runs.</p>
+<hr />
+<h2 id="cleanup-backlog">Cleanup backlog<a class="headerlink" href="#cleanup-backlog" title="Permanent link">&para;</a></h2>
+<p><strong>Done (2026-07-04):</strong>
+- ✅ Deleted <code>old/</code> (13M; verified no active script/CMake consumer — prose-only
+  references in <code>tests/README.md</code> + <code>docs/theory/references.md</code>, both updated).
+- ✅ Deleted <code>tests/archive/</code> (superseded runners; only a comment in
+  <code>tests/CMakeLists.txt</code> + a <code>tests/README.md</code> "Archived" section referenced it,
+  both updated).
+- ✅ <code>rm</code>'d stray root <code>heat_petsc_final.vtu</code> / <code>poisson_petsc.vtu</code> (untracked,
+  already gitignored).</p>
+<p><strong>Held — NOT dead weight after verification (correction to the audit):</strong> the
+untested <code>apps/**/*.bin</code> flagged for deletion are <strong>documented examples</strong>, not
+clutter — <code>apps/navierstokes/reactingsharpb2</code> is the reacting-flows demo in the
+Frontier/Tuolumne install guides + <code>docs/install/frontier.md</code>, and
+<code>apps/navierstokes/orion</code> is built-in-model 11 in <code>docs/usage-modes/builtin.md</code>.
+<code>apps/poisson/orion</code> is additionally a live regression fixture (<code>poisson_orion</code>
+baseline). So do <strong>not</strong> delete them. The only real lever left is a git-LFS
+<em>migration</em> of the large <code>.bin</code> snapshots (history rewrite — a separate,
+deliberate operation, not a routine cleanup); left for an explicit decision.</p>
+<p><strong>Structural:</strong> ✅ <code>appstruct</code> — <code>app.ndims</code> decode named via <code>AppNdims</code> enum
+(2026-07-04); the rest of the wire arrays are frozen-ABI-constrained. ⚠️ owning
+<code>DeviceArray&lt;T&gt;</code> — <strong>deferred</strong>: collides with ~447 intentional shared-arena
+aliasing sites (see smell #2); needs an arena-strategy redesign first, out of
+scope for a byte-identical cleanup.</p>
+<p><strong>CI (future):</strong> add app-regression + PETSc lanes; scheduled GPU lane; fix the
+stale registered-tests comment.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "navigation.indexes", "navigation.tracking", "content.code.copy", "content.code.annotate", "content.tabs.link", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../assets/javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>
