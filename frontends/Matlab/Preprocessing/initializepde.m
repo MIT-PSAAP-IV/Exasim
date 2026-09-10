@@ -64,6 +64,7 @@ pde.neb = 512*8;
 pde.nfb = 512*16;
 pde.elemtype = 1;
 pde.nodetype = 1;
+pde.uniformrefinementlevel = 0; % refine the input mesh uniformly this many times (C++ preprocessing)
 pde.hybrid = 0;
 pde.tdep = 0;
 pde.wave = 0;

@@ -328,6 +328,13 @@ inline void setFieldDims(std::vector<int>& dims, int ne)
     if (dims.size() >= 3) dims[2] = ne;
 }
 
+// A negative level is an input error, not a request for no refinement.
+inline void checkRefinementLevel(int nlevel)
+{
+    if (nlevel < 0)
+        error("uniformrefinementlevel must be >= 0 (got " + std::to_string(nlevel) + ").\n");
+}
+
 inline void checkRefinedSize(long long ne, int nchild, int nlevel)
 {
     long long n = ne;
@@ -347,7 +354,8 @@ inline void uniformRefineMesh(MeshT& mesh, PDET& pde, const MasterT& master, int
     using namespace exasim_uref;
 
     const int nlevel = pde.uniformrefinementlevel;
-    if (nlevel <= 0) return;
+    checkRefinementLevel(nlevel);
+    if (nlevel == 0) return;
     if (!mesh.uhat.empty())
         error("uniformrefinementlevel > 0 cannot prolongate the face-based uhatfile.\n");
 

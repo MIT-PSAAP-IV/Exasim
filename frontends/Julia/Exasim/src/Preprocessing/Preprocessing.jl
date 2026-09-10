@@ -77,6 +77,10 @@ if app.preprocessmode==0
     return app;
 end
 
+if app.uniformrefinementlevel > 0
+    error("uniformrefinementlevel is applied by the C++ preprocessing (pdeapp.txt / exporttext2code); the native Julia preprocessing does not refine the mesh.")
+end
+
 app.nd  = size(mesh.p,1);
 app.ncx = app.nd; #size(mesh.dgnodes,2);
 nve,ne = size(mesh.t);

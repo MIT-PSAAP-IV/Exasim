@@ -122,7 +122,8 @@ inline void uniformRefineParMesh(Mesh& mesh, PDE& pde, const Master& master, MPI
     using namespace exasim_uref;
 
     const int nlevel = pde.uniformrefinementlevel;
-    if (nlevel <= 0) return;
+    checkRefinementLevel(nlevel);
+    if (nlevel == 0) return;
 
     int rank, size;
     MPI_Comm_rank(comm, &rank);
