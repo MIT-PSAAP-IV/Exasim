@@ -3,6 +3,8 @@ pde.flux = @flux;
 pde.source = @source;
 pde.fbouhdg = @fbouhdg;
 pde.initu = @initu;
+pde.fbou = @fbou;
+pde.ubou = @ubou;
 end
 
 function f = flux(u, q, w, v, x, t, mu, eta)
@@ -24,6 +26,18 @@ end
 
 function u0 = initu(x, mu, eta)
 u0 = sym(1.0);
+end
+
+
+function fb = fbou(u, q, w, v, x, t, mu, eta, uhat, n, tau)
+f = flux(u, q, w, v, x, t, mu, eta);
+fb1 = f(1)*n(1) + f(2)*n(2) + tau*(u(1)-mu(2));
+fb2 = sym(0.0);
+fb = [fb1 fb2];
+end
+
+function ub = ubou(u, q, w, v, x, t, mu, eta, uhat, n, tau)
+ub = [mu(2) u]; 
 end
 
 function fb = fbouhdg(u, q, w, v, x, t, mu, eta, uhat, n, tau)

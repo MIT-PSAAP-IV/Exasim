@@ -58,7 +58,7 @@ sigmaV_final=1.0;
 sigmaT_final=1.875;
 C1_final = 1.0; C2_final = 0.2; C3_final = 0.2; C4_final = 1.0;
 
-pde.gencode = 1;
+pde.gencode = 0;
 pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf Tinf Tref Twall mu_inf mu_ref Tmu_ref omega R sigmaV sigmaT rho_ref  U_ref C1 C2 C3 C4];
 pde.tau = 10.0;                  % DG stabilization parameter
 pde.GMRESrestart = 500;         %try 50
@@ -69,6 +69,8 @@ pde.ppdegree = 0;
 pde.NLtol = 1e-6;              % Newton tolerance
 pde.NLiter = 12;                 % Newton iterations
 pde.matvectol=1e-6;             % tolerance for matrix-vector multiplication
+pde.saveSolBouFreq = 1;
+pde.ibs = 4;
 
 % initial artificial viscosity
 mesh.f = facenumbering(mesh.p,mesh.t,pde.elemtype,mesh.boundaryexpr,mesh.periodicexpr);
@@ -91,7 +93,7 @@ figure(2); clf; scaplot(mesh, eulereval(mesh.udg, 'M',gam,Minf),[],1); colormap(
 
 [sol,pde,mesh,master] = exasim(pde,mesh);
 figure(1); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[],1); colormap('jet'); colorbar;
-
+pause
 disp("Iter 2")
 Re = 500;
 pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf Tinf Tref Twall mu_inf mu_ref Tmu_ref omega R sigmaV sigmaT rho_ref  U_ref C1 C2 C3 C4];

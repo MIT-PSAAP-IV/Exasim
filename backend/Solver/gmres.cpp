@@ -267,6 +267,10 @@ I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc,
             // compute relative error
             state.linearSolverRelError = fabs(s[i+1])/nrmb;
             
+            // if (disc.common.mpiRank==0) {
+            //     printf("GMRES(%d), tolerance = %g, current error = %g, iteration = %d\n",nrest,tol,state.linearSolverRelError,j);
+            // }
+            
             // check convergence and update solution: x = x + v*s
             if (state.linearSolverRelError < tol) {                
                 UpdateSolution(disc.common.cublasHandle, sys.x, y, H, s, sys.v, i, N, n1, backend);

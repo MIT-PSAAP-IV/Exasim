@@ -28,11 +28,13 @@ end
 
 function fb = fbou(u, q, w, v, x, t, mu, eta, uhat, n, tau)
 f = flux(u, q, w, v, x, t, mu, eta);
-fb = f(1)*n(1) + f(2)*n(2) + tau*(u(1)-0.0);
+fb1 = f(1)*n(1) + f(2)*n(2) + tau*(u(1)-mu(2));
+fb2 = sym(0.0);
+fb = [fb1 fb2];
 end
 
 function ub = ubou(u, q, w, v, x, t, mu, eta, uhat, n, tau)
-ub = sym(0.0); 
+ub = [mu(2) u]; 
 end
 
 function u0 = initu(x, mu, eta)
@@ -55,7 +57,7 @@ fb = [fb1 fb2];
 end
 
 function s = sourcew(u, q, w, v, x, t, mu, eta)
-s = exp(w(1)) - sym(1.0) - u*u; 
+s = exp(w) - sym(1.0) - u*u; 
 end
 
 

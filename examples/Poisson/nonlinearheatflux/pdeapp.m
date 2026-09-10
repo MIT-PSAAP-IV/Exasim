@@ -6,6 +6,7 @@ run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'frontends', 'M
 [pde,mesh] = initializeexasim();
 pde.dae_alpha = 0.0;
 pde.dae_beta = 0.0;
+pde.dae_gamma = 0.0;
 
 % Define a PDE model: governing equations, initial solutions, and boundary conditions
 pde.model = "ModelD";          % ModelC, ModelD, ModelW
@@ -14,15 +15,16 @@ pde.modelfile = "pdemodel";    % name of a file defining the PDE model
 % Choose computing platform and set number of processors
 %pde.platform = "gpu";         % choose this option if NVIDIA GPUs are available
 pde.mpiprocs = 1;              % number of MPI processors
-pde.hybrid = 1;                % 0 -> LDG, 1 -> HDG
+pde.hybrid = 0;                % 0 -> LDG, 1 -> HDG
 pde.debugmode = 0;
-pde.extendedW = 1;
 
 % Set discretization parameters, physical parameters, and solver parameters
 pde.porder = 3;          % polynomial degree
 pde.physicsparam = [1 1];    % unit thermal conductivity
-pde.tau = 1.0;           % DG stabilization parameter
+pde.tau = 2.0;           % DG stabilization parameter
 pde.GMRESrestart = 100;
+pde.linearsolvertol = 1e-6;
+pde.preconditioner = 1;
 
 % create a grid of 8 by 8 on the unit square
 [mesh.p,mesh.t] = squaremesh(4,4,1,1);
@@ -41,5 +43,5 @@ mesh.boundarycondition = [2;1;2;2]; % Set boundary condition for each boundary
 
 mesh.porder = pde.porder;
 mesh.dgnodes = createdgnodes(mesh.p,mesh.t,mesh.f,mesh.curvedboundary,mesh.curvedboundaryexpr,pde.porder);
-figure(1); clf; scaplot(mesh,sol(:,1,:),[],2,1); axis on; axis equal; axis tight;
+figure(1); clf; scaplot(mesh,sol(:,1,:),[],2,1); axis on; axis equal; axis tight; colorbar;
         

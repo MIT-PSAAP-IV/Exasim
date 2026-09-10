@@ -1,4 +1,4 @@
-function uh = getuhat(udg, f2e, perm, ncu)
+function uh = mkuhatfromudg(udg, f2e, perm, ncu)
 
 npf = size(perm,1);
 nf = size(f2e,2);

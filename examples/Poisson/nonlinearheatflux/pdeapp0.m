@@ -14,14 +14,16 @@ pde.modelfile = "pdemodel0";    % name of a file defining the PDE model
 % Choose computing platform and set number of processors
 %pde.platform = "gpu";         % choose this option if NVIDIA GPUs are available
 pde.mpiprocs = 1;              % number of MPI processors
-pde.hybrid = 1;                % 0 -> LDG, 1 -> HDG
+pde.hybrid = 0;                % 0 -> LDG, 1 -> HDG
 pde.debugmode = 0;
 
 % Set discretization parameters, physical parameters, and solver parameters
-pde.porder = 3;          % polynomial degree
+pde.porder = 4;          % polynomial degree
 pde.physicsparam = [1 1];    % unit thermal conductivity
 pde.tau = 1.0;           % DG stabilization parameter
-pde.GMRESrestart = 100;
+pde.GMRESrestart = 200;
+pde.linearsolvertol = 1e-6;
+pde.preconditioner = 1;
 
 % create a grid of 8 by 8 on the unit square
 [mesh.p,mesh.t] = squaremesh(4,4,1,1);
@@ -40,5 +42,5 @@ mesh.boundarycondition = [2;1;2;2]; % Set boundary condition for each boundary
 
 mesh.porder = pde.porder;
 mesh.dgnodes = createdgnodes(mesh.p,mesh.t,mesh.f,mesh.curvedboundary,mesh.curvedboundaryexpr,pde.porder);
-figure(1); clf; scaplot(mesh,sol(:,1,:),[],2,1); axis on; axis equal; axis tight;
+figure(1); clf; scaplot(mesh,sol(:,1,:),[],2,1); axis on; axis equal; axis tight; colorbar;
         
