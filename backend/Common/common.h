@@ -1525,6 +1525,13 @@ struct resstructT {
     dstype *Minv=nullptr; // store the inverse of the mass matrix
     dstype *Mass2=nullptr; // store the mass matrix
     dstype *Minv2=nullptr; // store the inverse of the mass matrix
+    // Cached inverse of the w-equation Jacobian dF/dw at the base state, refreshed once per
+    // Newton step. The matrix-free matvec reuses it as a modified-Newton (chord) iteration for
+    // the local w-solve of R(u+eps*v) instead of re-forming and re-inverting dF/dw on every
+    // matvec (see GetW in residual.hpp). Layout matches ArrayEosInverseMatrix: npe*ncw*ncw*ne.
+    dstype *Winv=nullptr;
+    Int matvecEval=0;  // 1 while evaluating a finite-difference matvec residual R(u+eps*v)
+    Int WinvReady=0;   // 1 once Winv holds this Newton step's base-state dF/dw inverse
     // --- HDG/LDG local element-Jacobian blocks (the compact notation the assembly is written in) ---
     // The condensed local system per element is [D F; K H] [du; duh] = [Ru; Rh]; the LDG auxiliary q
     // (mass matrix Minv above) is eliminated by Schur substitution q = Minv*(C*u + E*uh), giving
