@@ -230,7 +230,14 @@ extern \"C\" ModelSizes extGetModelSizes_${_id}() {
         OUTPUT  "${_stamp}"
         COMMAND "${Exasim_TEXT2CODE}" "${_pdeapp}" --out-dir "${_modeldir}" --gen-only
         COMMAND "${CMAKE_COMMAND}" -E touch "${_stamp}"
+        # Republishing ExaSim (a new text2code binary or changed model.hpp/model.cpp
+        # templates) must invalidate the stamp so the kernel set is regenerated
+        # consistently; otherwise a stale stamp leaves model.cpp including kernels
+        # (e.g. KokkosMaterialstate.cpp) the old binary never generated.
         DEPENDS "${_pdemodel}" ${_extra_deps}
+                "${Exasim_TEXT2CODE}"
+                "${Exasim_BUILTIN_DIR}/model.hpp"
+                "${Exasim_BUILTIN_DIR}/model.cpp"
         COMMENT "text2code: generating model ${_id} kernels for target ${_tgt}"
         VERBATIM)
       list(APPEND _stamps "${_stamp}")

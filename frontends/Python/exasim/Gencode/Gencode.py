@@ -183,12 +183,16 @@ def gencode(app):
     if hasattr(pde, 'sourcew'):
         f = pde.sourcew(u, q, wdg, odg, xdg, time, param, uinf);
         gencodeelem2("Sourcew" + strn, f, xdg, udg, odg, wdg, uinf, param, time, foldername);
-        if app['hybrid'] == 1:
-            hdggencodeelem("Sourcew" + str(strn), f, xdg, udg, odg, wdg, uinf, param, time, foldername)
-            hdggencodeelem2("Sourcewonly" + str(strn), f, xdg, udg, odg, wdg, uinf, param, time, foldername)
-        else:
-            hdgnocodeelem("Sourcew" + str(strn), foldername)
-            hdgnocodeelem2("Sourcewonly" + str(strn), foldername)    
+        # HdgSourcew / HdgSourcewonly are needed for BOTH hybrid=1 (HDG) and
+        # hybrid=0 (LDG): the LDG element-local block-Jacobian preconditioner
+        # linearizes the w-equation (backend wEquation -> HdgSourcewonly for the
+        # w-solve and HdgSourcew for dw/du). Gating these on hybrid==1 emitted
+        # empty stubs for LDG, so dw/du was garbage -> the w-chain made the LDG
+        # element block singular (GETRF info=1) -> the LDG preconditioner was
+        # forced off -> GMRES non-convergence. The MATLAB frontend generates
+        # these unconditionally (hdggencode.m). Match it: generate for LDG too.
+        hdggencodeelem("Sourcew" + str(strn), f, xdg, udg, odg, wdg, uinf, param, time, foldername)
+        hdggencodeelem2("Sourcewonly" + str(strn), f, xdg, udg, odg, wdg, uinf, param, time, foldername)
     else:
         nocodeelem2("Sourcew" + strn, foldername);
         hdgnocodeelem("Sourcew" + strn, foldername)

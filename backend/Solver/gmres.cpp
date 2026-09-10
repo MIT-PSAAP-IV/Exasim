@@ -360,8 +360,11 @@ void ApplyPoly(dstype *w, CAssembler<M>& assembler, CDiscretization &disc, CPrec
 template <class M, class T, class I>
 I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc, CPreconditioner<M, T, I>& prec, Int N, Int spatialScheme, Int backend)
 {
-    INIT_TIMING;    
-    
+    // NOTE: this variant does its own manual timing via the local begin/end +
+    // tm[] below; it does not use the START/END_TIMING macros. A stray
+    // INIT_TIMING here declared begin/end under -DTIMING and collided with the
+    // local `auto begin/end` (redeclaration), breaking the -DTIMING build.
+
     Int maxit, nrest, orthogMethod, n1, i, k, j = 0;
     dstype nrmb, nrmr, tol, scalar;
     maxit = disc.common.solverparams.linearSolverMaxIter;
@@ -376,7 +379,7 @@ I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc,
     sn = &sys.tempmem[3*n1];
     H = &sys.tempmem[4*n1];
     
-    auto begin = chrono::high_resolution_clock::now(); 
+    auto begin = chrono::high_resolution_clock::now();
     auto end = chrono::high_resolution_clock::now();
     double tm[10];
     for (int i=0; i<10; i++) tm[i]=0.0;
