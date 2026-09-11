@@ -52,7 +52,7 @@ mutable struct PDEStruct
     nfb::IntP;# number of face blocks for parallel computation
     elemtype::IntP; # type of elements
     nodetype::IntP; # type of nodes
-    uniformrefinementlevel::IntP; # refine the input mesh uniformly this many times (C++ preprocessing)
+    uniformrefinementlevel::IntP; # refine the input mesh uniformly this many times
     hybrid::IntP; # discretization method
     tdep::IntP; # flag for steady-state or time-dependent problem
     wave::IntP; # flag for wave problem

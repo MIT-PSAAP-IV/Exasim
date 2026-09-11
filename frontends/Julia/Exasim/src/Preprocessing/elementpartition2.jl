@@ -1,4 +1,4 @@
-function elementpartition2(dmd,t,t2t,nproc,metis)
+function elementpartition2(dmd,t,t2t,nproc,metis,elem2cpu=Int[])
 
 nve,ne = size(t);
 
@@ -15,7 +15,14 @@ if nproc==1
     return dmd;
 end
 
-elem2cpu,~ = partition(t,ne,nproc,metis);
+if isempty(elem2cpu)
+    elem2cpu,~ = partition(t,ne,nproc,metis);
+else
+    elem2cpu = elem2cpu[:];
+    if length(elem2cpu) != ne
+        error("elementpartition2: elem2cpu must contain one entry per element.");
+    end
+end
 
 for i = 1:nproc
     intelem = findall(elem2cpu[:] .== (i-1)); # elements in subdomain i

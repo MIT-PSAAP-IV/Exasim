@@ -19,6 +19,7 @@ pde.debugmode = 0;
 pde.nd = 2;
 
 % Set discretization parameters, physical parameters, and solver parameters
+pde.uniformrefinementlevel=1;
 pde.porder = 2;             % polynomial degree
 pde.pgauss = 2*pde.porder;
 pde.physicsparam = 1;       % unit thermal conductivity

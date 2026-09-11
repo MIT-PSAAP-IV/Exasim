@@ -1,7 +1,7 @@
-function meshpartitionhdg(dmd, t,f,t2t,bcm,dim,elemtype,porder,nproc,metis,Cxxpreprocessing)
+function meshpartitionhdg(dmd, t,f,t2t,bcm,dim,elemtype,porder,nproc,metis,Cxxpreprocessing,elem2cpu=Int[])
 
 display("run elementpartition...");  
-dmd = elementpartitionhdg(dmd, t,t2t,nproc,metis);
+dmd = elementpartitionhdg(dmd, t,t2t,nproc,metis,elem2cpu);
 
 if Cxxpreprocessing == 0    
     display("run facepartition...");  
@@ -20,5 +20,4 @@ end
 return dmd
 
 end
-
 
