@@ -925,6 +925,10 @@ PDE initializePDE(InputParams& params, int mpirank=0)
         pde.exasimpath = env_prefix;
         if (mpirank==0) std::cout<<"exasimpath is not set in "<< params.pdeappfile
                                 <<" file.\nWe use EXASIM_PREFIX to define exasimpath.\n";
+      } else if (std::string(EXASIM_INSTALL_PREFIX).size() > 0) {
+        pde.exasimpath = EXASIM_INSTALL_PREFIX;
+        if (mpirank==0) std::cout<<"exasimpath is not set in "<< params.pdeappfile
+                                <<" file.\nWe use the installed text2code prefix to define exasimpath.\n";
       } else {
         if (mpirank==0) std::cout<<"exasimpath is not set in "<< params.pdeappfile <<" file.\nWe use the working directory to define exasimpath.\n";
         std::filesystem::path cwd = std::filesystem::current_path();

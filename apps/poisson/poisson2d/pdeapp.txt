@@ -4,9 +4,10 @@ meshfile = "grid.bin";
 discretization = "ldg";
 platform = "cpu";
 
+uniformrefinementlevel=2;
 builtinmodelID = 1;
-gendatain = 0;
-mpiprocs = 2;
+gendatain = 1;
+mpiprocs = 4;
 debugmode = 0;
 runmode = 0;
 modelnumber = 0;
