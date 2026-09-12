@@ -312,6 +312,7 @@ void CPreconditioner<M, T, I>::ApplyPreconditioner(dstype* x, sysstruct& sys, CD
         Int ncu = disc.common.components.ncu;// number of compoments of (u)
         Int npf = disc.common.grid.npf; // number of nodes on master face           
         Int ncf = ncu*npf;          
+        Int nfe = disc.common.meshsizes.nfe;
         Int nse = disc.common.nse;
         Int nfse = disc.common.nfse;
         
@@ -329,11 +330,49 @@ void CPreconditioner<M, T, I>::ApplyPreconditioner(dstype* x, sysstruct& sys, CD
         
         ArraySetValue(x, zero, ncf*nf);
         PutCollumnAtIndexAtomicAdd(x, disc.tmp.tempn, disc.mesh.face, ncf, nse*nfse);
-        
-//         writearray2file(disc.common.fileout + "x.bin", x, ncf*nf, backend);  
-//         
-//         error("here");
-        
+
+#ifdef HAVE_MPI
+        if (disc.common.mpiProcs > 1) {
+          GetElementFaceNodesAtFaces(disc.tmp.buffsend, x, disc.mesh.elemcon, disc.mesh.bilufacesend,
+                  npf, nfe, ncu, disc.common.nbilufacesend);
+
+#ifdef HAVE_CUDA
+          cudaDeviceSynchronize();
+#endif
+#ifdef HAVE_HIP
+          hipDeviceSynchronize();
+#endif
+
+          Int neighbor, nsend, nrecv, psend = 0, precv = 0, request_counter = 0;
+          for (int n=0; n<disc.common.nnbsd; n++) {
+            neighbor = disc.common.nbsd[n];
+            nsend = disc.common.bilufacesendpts[n]*ncf;
+            if (nsend > 0) {
+              MPI_Isend(&disc.tmp.buffsend[psend], nsend, mpi_type<dstype>(), neighbor, 0,
+                    EXASIM_COMM_LOCAL, &disc.common.requests[request_counter]);
+              psend += nsend;
+              request_counter += 1;
+            }
+          }
+
+          for (int n=0; n<disc.common.nnbsd; n++) {
+            neighbor = disc.common.nbsd[n];
+            nrecv = disc.common.bilufacerecvpts[n]*ncf;
+            if (nrecv > 0) {
+              MPI_Irecv(&disc.tmp.buffrecv[precv], nrecv, mpi_type<dstype>(), neighbor, 0,
+                    EXASIM_COMM_LOCAL, &disc.common.requests[request_counter]);
+              precv += nrecv;
+              request_counter += 1;
+            }
+          }
+
+          if (request_counter > 0)
+            MPI_Waitall(request_counter, disc.common.requests, disc.common.statuses);
+
+          PutElementFaceNodesAtFaces(x, disc.tmp.buffrecv, disc.mesh.elemcon, disc.mesh.bilufacerecv,
+                  npf, nfe, ncu, disc.common.nbilufacerecv);
+        }
+#endif       
       }
     }
 }

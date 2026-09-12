@@ -1,7 +1,7 @@
 model = "ModelD";
 modelfile = "pdemodel.txt";
 meshfile = "grid.bin";
-discretization = "ldg";
+discretization = "hdg";
 platform = "cpu";
 
 builtinmodelID = 12;
@@ -10,13 +10,13 @@ mpiprocs = 1;
 debugmode = 0;
 runmode = 0;
 modelnumber = 0;
+uniformrefinementlevel=2;
 
 porder = 2;
 pgauss = 4;
 torder = 1;
 nstage = 1;
 
-<<<<<<<< HEAD:apps/navierstokes/naca2d_test/pdeapp.txt
 ncu = 4;
 ncv = 0;
 ncw = 0;
@@ -26,16 +26,14 @@ nten = 0;
 nsurf = 0;
 nvqoi = 0;
 neb = 512;
-========
 neb = 4096;
->>>>>>>> origin/master:apps/library_example/naca0012unsteady_codegen/pdeapp.txt
 nfb = 8192;
 
 NewtonIter = 20;
 NewtonTol = 1e-08;
 GMRESiter = 1000;
 GMRESrestart = 200;
-GMREStol = 1e-06;
+GMREStol = 1e-07;
 GMRESortho = 1;
 ppdegree = 0;
 RBdim = 0;
