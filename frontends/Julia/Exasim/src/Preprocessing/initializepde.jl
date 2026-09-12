@@ -88,6 +88,7 @@ mutable struct PDEStruct
     coupledcondition::IntP;        # app.bin problem[29]
     coupledboundarycondition::IntP;# app.bin problem[30]
     AVdistfunction::IntP;          # app.bin problem[31]
+    uniformrefinementlevel::IntP;  # app.bin problem[32]
     NLMatrixType::IntP;
     runmode::IntP; # flag for run mode
     tdfunc::IntP; # flag for time-dependent function associated with time-derivative

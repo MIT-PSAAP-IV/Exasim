@@ -2245,6 +2245,7 @@ struct commonstructT {
     
 
     Int ppdegree=0; // polynomial preconditioner degree
+    Int uniformrefinementlevel=0; // number of uniform mesh-refinement levels applied in preprocessing
     Int isd=0; 
             
     Int nse=0;  // number of superelements
@@ -2463,6 +2464,7 @@ struct commonstructT {
       printf("preconditioner type: %d\n", solverparams.preconditioner);
       printf("preconditioner matrix type: %d\n", solverparams.precMatrixType);
       printf("PTC matrix type: %d\n", solverparams.ptcMatrixType);
+      printf("uniform refinement level: %d\n", uniformrefinementlevel);
       printf("run mode: %d\n", runmode);
       printf("time step factor: %f\n", timestate.dtfactor);
       printf("current simulation time: %f\n", timestate.time);

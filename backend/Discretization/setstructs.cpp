@@ -229,6 +229,7 @@ void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, masterstr
     common.couplingparams.coupledcondition = app.problem[29]; 
     common.couplingparams.coupledboundarycondition = app.problem[30];
     common.physicsparams.AVdistfunction = app.problem[31];
+    common.uniformrefinementlevel = (app.nsize[2] > 32) ? app.problem[32] : 0;
     
     // (mutable reduced-basis/solver runtime state now lives in CSolver::state, default-initialized)
 
