@@ -448,6 +448,7 @@ struct PDE {
     int subproblem = 0;
     int debugmode = 0;
     int stgNmode = 0;
+    int stgchem = 0;
     int porder = 1;
     int pgauss = 2;
     int temporalscheme = 0;
@@ -690,6 +691,9 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     if (params.intParams.count("stgNmode")) {
         pde.stgNmode = params.intParams["stgNmode"];
     }
+    if (params.intParams.count("stgchem")) {
+        pde.stgchem = params.intParams["stgchem"];
+    }
     if (params.intParams.count("temporalscheme")) {
         pde.temporalscheme = params.intParams["temporalscheme"];
     }
@@ -899,7 +903,8 @@ PDE initializePDE(InputParams& params, int mpirank=0)
         pde.linearsolver, pde.NewtonIter, pde.GMRESiter, pde.GMRESrestart, pde.RBdim,
         pde.saveSolFreq, pde.saveSolOpt, pde.timestepOffset, pde.stgNmode, pde.saveSolBouFreq, pde.ibs,
         pde.dae_steps, pde.saveResNorm, pde.AVsmoothingIter, pde.frozenAVflag, pde.ppdegree,
-        pde.coupledinterface, pde.coupledcondition, pde.coupledboundarycondition, pde.AVdistfunction
+        pde.coupledinterface, pde.coupledcondition, pde.coupledboundarycondition, pde.AVdistfunction,
+        pde.stgchem
     );
     pde.factor = {pde.time, pde.dae_alpha, pde.dae_beta, pde.dae_gamma, pde.dae_epsilon};    
     pde.solversparam = {pde.NewtonTol, pde.GMREStol, pde.matvectol, pde.NLparam};

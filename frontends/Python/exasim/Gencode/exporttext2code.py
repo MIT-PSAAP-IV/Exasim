@@ -177,7 +177,7 @@ def _write_pdeapp(pde, mesh, files, path, modelfile="pdemodel.txt"):
         "matvecorder", "matvectol", "precMatrixType", "preconditioner", "time",
         "NLparam", "tau", "dt", "dae_alpha", "dae_beta", "dae_gamma", "dae_epsilon",
         "dae_steps", "dae_dt", "physicsparam", "physicsparamcases", "externalparam",
-        "vindx", "avparam1", "avparam2", "stgib", "stgdata", "stgparam",
+        "vindx", "avparam1", "avparam2", "stgNmode", "stgchem", "stgib", "stgdata", "stgparam",
         "boundaryconditions", "boundaryexpressions", "curvedboundaries",
         "curvedboundaryexprs", "periodicboundaries1", "periodicexprs1",
         "periodicboundaries2", "periodicexprs2", "interfaceconditions",

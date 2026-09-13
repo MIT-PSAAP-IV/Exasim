@@ -853,6 +853,14 @@ void uhatEquationElemFaceBlockLDG(solstruct &sol, resstruct &res, appstruct &app
         Int start = common.nboufaces[n];
         Int nfaces = common.nboufaces[n + 1] - start;
         if (nfaces > 0) {
+            // GetUhat prescribes STG traces directly from x, time, and STG
+            // data instead of calling Ubou.  Consequently d(uhat)/d(u) is
+            // zero on these boundaries; leave the corresponding rows of G
+            // at their initialized zero value.
+            if (isin<exasim::detail::AbiAdapter>(ibc+1,
+                    common.stgparams.stgib, common.stgparams.nstgib))
+                continue;
+
             Int nnb = nfaces*npf;
             Int ubwSize = max((Int) 1, nnb*ncu*ncw);
             dstype *xgb = &tmp.tempg[n9];

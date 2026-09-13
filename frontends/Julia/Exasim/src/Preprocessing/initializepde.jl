@@ -60,6 +60,7 @@ mutable struct PDEStruct
     subproblem::IntP; # flag for subproblem
     debugmode::IntP; # flag for debug mode
     stgNmode::IntP; # number of synthetic turbulence generation modes
+    stgchem::IntP; # 0: ideal-gas STG state; 1: five-species chemistry STG state
 
     porder::IntP; # polymnomial degree
     pgauss::IntP; # Gauss quadrature polynomial degree
@@ -241,6 +242,7 @@ function initializepde(version)
     pde.subproblem = 0;
     pde.debugmode = 0;
     pde.stgNmode = 0;
+    pde.stgchem = 0;
     pde.porder = 1;
     pde.pgauss = 2;
     pde.temporalscheme = 0;
