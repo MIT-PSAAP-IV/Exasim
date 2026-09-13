@@ -210,6 +210,7 @@ interfaces.
 | Key | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
 | `stgNmode` | int | `0` | No | Synthetic turbulence mode count. |
+| `stgchem` | int | `0` | No | LDG STG state model: `0` for ideal gas, `1` for five-species air chemistry. Serialized as fixed `problem[32]`. |
 | `stgib` | list(float) | empty | No | Synthetic turbulence boundary data. |
 | `stgdata` | list(float) | empty | No | Synthetic turbulence mode data. |
 | `stgparam` | list(float) | empty | No | Synthetic turbulence parameters. |
@@ -219,6 +220,10 @@ interfaces.
 | `dae_beta` | float | `0.0` | No | DAE coefficient. |
 | `dae_gamma` | float | `0.0` | No | DAE coefficient. |
 | `dae_epsilon` | float | `0.0` | No | DAE coefficient. |
+
+For a chemistry STG inlet in LDG, keep the model's ordinary inlet boundary ID, list that ID in
+`stgib`, and set `stgchem = 1`. HDG continues to select its chemistry STG path with boundary
+condition `1001`; `stgchem` only changes LDG STG state construction.
 
 ## Output and Postprocessing
 

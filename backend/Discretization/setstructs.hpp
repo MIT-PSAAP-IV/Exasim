@@ -175,6 +175,7 @@ inline void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, ma
     common.outputparams.saveSolOpt = app.problem[18];
     common.outputparams.timestepOffset = app.problem[19];
     common.stgparams.stgNmode = app.problem[20];
+    common.stgparams.stgchem = (app.nsize[2] > 32) ? app.problem[32] : 0;
     common.outputparams.saveSolBouFreq = app.problem[21];
     common.qoiparams.ibs = app.problem[22];
     common.timeparams.dae_steps = app.problem[23];  // number of dual time steps
@@ -188,6 +189,15 @@ inline void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, ma
     common.couplingparams.coupledcondition = app.problem[29];
     common.couplingparams.coupledboundarycondition = app.problem[30];
     common.physicsparams.AVdistfunction = app.problem[31];
+
+    if (common.stgparams.stgchem != 0 && common.stgparams.stgchem != 1)
+        error("stgchem must be either 0 (ideal gas) or 1 (five-species chemistry)");
+    if (common.spatialScheme == 0 && common.stgparams.stgchem == 1) {
+        const Int nchem = common.grid.nd + 6;
+        if ((common.grid.nd != 2 && common.grid.nd != 3) || common.components.ncu != nchem ||
+            common.components.nco < nchem || app.nsize[6] < 4)
+            error("LDG chemistry STG requires nd=2 or 3, ncu=nd+6, nco>=nd+6, and four physics reference scales");
+    }
 
     // (mutable reduced-basis/solver runtime state now lives in CSolver::state, default-initialized)
 

@@ -84,6 +84,7 @@ int main(int argc, char** argv)
         expect_zero("nfacesend",                 (long long) c.nfacesend);
         expect_zero("nfacerecv",                 (long long) c.nfacerecv);
         expect_zero("couplingparams.ncie",       (long long) c.couplingparams.ncie);
+        expect_zero("stgparams.stgchem",         (long long) c.stgparams.stgchem);
 
         // --- the rest of meshsizesstruct -------------------------------------------
         expect_zero("meshsizes.maxnbc",          (long long) c.meshsizes.maxnbc);
