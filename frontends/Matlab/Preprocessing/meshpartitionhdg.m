@@ -1,7 +1,11 @@
-function dmd = meshpartitionhdg(t,f,t2t,bcm,dim,elemtype,porder,coupledinterface,nproc,metis,Cxxpreprocessing)
+function dmd = meshpartitionhdg(t,f,t2t,bcm,dim,elemtype,porder,coupledinterface,nproc,metis,Cxxpreprocessing,elem2cpu)
+
+if nargin < 12
+    elem2cpu = [];
+end
 
 disp('run elementpartition...');  
-dmd = elementpartitionhdg(t,t2t,f,coupledinterface,nproc,metis);
+dmd = elementpartitionhdg(t,t2t,f,coupledinterface,nproc,metis,elem2cpu);
 
 if Cxxpreprocessing == 0
     disp('run facepartition...');  
@@ -16,6 +20,5 @@ else
         end      
     end    
 end
-
 
 

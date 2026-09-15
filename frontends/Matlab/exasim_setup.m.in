@@ -19,6 +19,10 @@ addpath(fullfile(srcdir, 'Mesh', 'lesmesh'));
 addpath(fullfile(srcdir, 'Mesh', 'surfmesh'));
 addpath(fullfile(srcdir, 'HDG'));
 addpath(fullfile(srcdir, 'Materials'));
+addpath(fullfile(srcdir, 'Materials', 'Fluids'));
+addpath(fullfile(srcdir, 'Materials', 'Fluids', 'CoolProp'));
+addpath(fullfile(srcdir, 'Materials', 'Fluids', 'IdealGas'));
+addpath(fullfile(srcdir, 'Materials', 'Solids'));
 addpath(fullfile(srcdir, 'Preprocessing'));
 addpath(fullfile(srcdir, 'Postprocessing'));
 addpath(fullfile(srcdir, 'Utilities'));
@@ -28,6 +32,13 @@ addpath(fullfile(srcdir, 'STG'));
 % clobbering the user's PATH.
 setenv('PATH', [getenv('PATH') ':/usr/bin:/usr/local/bin:/opt/local/bin:/opt/homebrew/bin']);
 setenv('EXASIM_PREFIX', '@CMAKE_INSTALL_PREFIX@');
+
+if exist('OCTAVE_VERSION', 'builtin')
+    try
+        pkg('load', 'symbolic');
+    catch
+    end
+end
 
 fprintf("==> Exasim MATLAB frontend ...\n");
 clear srcdir;

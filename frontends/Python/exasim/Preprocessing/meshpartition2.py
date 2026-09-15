@@ -2,10 +2,10 @@ import numpy as np
 from .elementpartition2 import elementpartition2
 from .facepartition2 import facepartition2
 
-def meshpartition2(dmd,t,f,t2t,bcm,dim,elemtype,porder,nproc,metis,Cxxpreprocessing):
+def meshpartition2(dmd,t,f,t2t,bcm,dim,elemtype,porder,nproc,metis,Cxxpreprocessing,elem2cpu=None):
 
     print("run elementpartition...\n");
-    dmd = elementpartition2(dmd,t,t2t,nproc,metis);
+    dmd = elementpartition2(dmd,t,t2t,nproc,metis,elem2cpu);
 
     if Cxxpreprocessing == 0:    
         print("run facepartition...\n");

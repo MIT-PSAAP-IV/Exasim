@@ -1172,6 +1172,8 @@ struct meshstructT {
     Int *row_ptr=nullptr;
     Int *col_ind=nullptr;
     Int *face=nullptr;
+    Int *bilufacesend=nullptr;
+    Int *bilufacerecv=nullptr;
     Int *cartgridpart=nullptr;
     Int *boundaryConditions=nullptr;
     Int *intepartpts=nullptr;
@@ -1209,6 +1211,7 @@ struct meshstructT {
     Int szelemsendind=0, szelemrecvind=0, szelemsendodg=0, szelemrecvodg=0;
     Int szelemsendudg=0, szelemrecvudg=0, szindex=0, szcartgridpart=0;    
     Int szfaceperm=0, sznbintf=0, szfacesend=0, szfacerecv=0, szfacesendpts=0, szfacerecvpts=0;
+    Int szbilufacesend=0, szbilufacerecv=0;
     
     int sizeoffloat() {return 0;}
     int sizeofint() {
@@ -1220,6 +1223,7 @@ struct meshstructT {
                szfindudgp + szeindudg1 + szeindudgp + szelemsendind + szelemrecvind + 
                szelemsendodg + szelemrecvodg + szelemsendudg + szelemrecvudg + szfaceperm +
                sznbintf + szfacesend + szfacerecv + szfacesendpts + szfacerecvpts +
+               szbilufacesend + szbilufacerecv +
                szfacecon + szf2e + sze2f + szf2f + szf2l + szelemcon + szperm + szbf + szboufaces + szintfaces;
       return sz;        
     }
@@ -1317,6 +1321,8 @@ struct meshstructT {
         TemplateFree(col_ind, backend);
         TemplateFree(row_ptr, backend);
         TemplateFree(face, backend);
+        TemplateFree(bilufacesend, backend);
+        TemplateFree(bilufacerecv, backend);
         
         TemplateFree(findxdg1, backend);   
         TemplateFree(findxdgp, backend);   
@@ -2245,6 +2251,7 @@ struct commonstructT {
     
 
     Int ppdegree=0; // polynomial preconditioner degree
+    Int uniformrefinementlevel=0; // number of uniform mesh-refinement levels applied in preprocessing
     Int isd=0; 
             
     Int nse=0;  // number of superelements
@@ -2328,6 +2335,8 @@ struct commonstructT {
     Int nnbsd = 0; // number of neighboring subdomains
     Int nelemsend = 0;
     Int nelemrecv = 0;
+    Int nbilufacesend = 0;
+    Int nbilufacerecv = 0;
     Int szinterfacefluxmap = 0;
     Int szcartgridpart = 0;
     Int* nbsd=nullptr; // neighboring subdomains
@@ -2335,6 +2344,8 @@ struct commonstructT {
     Int* elemrecv=nullptr;       
     Int* elemsendpts=nullptr;
     Int* elemrecvpts=nullptr;        
+    Int* bilufacesendpts=nullptr;
+    Int* bilufacerecvpts=nullptr;
     Int *vindx=nullptr;
     Int *interfacefluxmap=nullptr;
     Int *cartgridpart=nullptr;
@@ -2463,6 +2474,7 @@ struct commonstructT {
       printf("preconditioner type: %d\n", solverparams.preconditioner);
       printf("preconditioner matrix type: %d\n", solverparams.precMatrixType);
       printf("PTC matrix type: %d\n", solverparams.ptcMatrixType);
+      printf("uniform refinement level: %d\n", uniformrefinementlevel);
       printf("run mode: %d\n", runmode);
       printf("time step factor: %f\n", timestate.dtfactor);
       printf("current simulation time: %f\n", timestate.time);
@@ -2546,6 +2558,8 @@ struct commonstructT {
         CPUFREE(elemrecv); 
         CPUFREE(elemsendpts); 
         CPUFREE(elemrecvpts); 
+        CPUFREE(bilufacesendpts);
+        CPUFREE(bilufacerecvpts);
         if (stgparams.nstgib > 0) CPUFREE(stgparams.stgib); 
         CPUFREE(vindx); 
         CPUFREE(interfacefluxmap); 

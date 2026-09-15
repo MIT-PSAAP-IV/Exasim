@@ -49,6 +49,15 @@
 #include <metis.h>
 #endif
 
+#if defined(__has_include)
+#  if __has_include("symengine_config.h")
+#    include "symengine_config.h"
+#  endif
+#endif
+#ifndef EXASIM_INSTALL_PREFIX
+#  define EXASIM_INSTALL_PREFIX ""
+#endif
+
 // g++ -O2 -std=c++17 text2bina.cpp -o text2bina -lblas -llapack
 // g++ -O2 -DHAVE_METIS -std=c++17 text2bina.cpp -o text2bina -lblas -llapack -I../METIS/build/xinclude -L../METIS/build/libmetis -lmetis -I../GKlib/include -L../GKlib/lib -lGKlib
 // clang++ -fsanitize=address -fno-omit-frame-pointer -g -O2 -DHAVE_METIS -std=c++17 text2bina.cpp -o text2bina -lblas -llapack -I../METIS/build/xinclude -L../METIS/build/libmetis -lmetis -I../GKlib/include -L../GKlib/lib -lGKlib
@@ -164,6 +173,16 @@ int main(int argc, char* argv[])
     if (pde.gendatain == 1) {
       Mesh mesh = initializeMesh(params, pde);        
       Master master = initializeMaster(pde, mesh);
+      if (pde.writemeshsol == 1 && pde.mpiprocs > 1 && pde.uniformrefinementlevel > 0 && mesh.elem2cpu.empty()) {
+#ifdef HAVE_METIS
+        vector<int> node2cpu;
+        partitionMesh(mesh.elem2cpu, node2cpu, mesh.t, mesh.ne, mesh.np, mesh.nve, mesh.nvf, pde.mpiprocs);
+        node2cpu.resize(0);
+        for (int i=0; i<mesh.ne; i++) mesh.elem2cpu[i] += 1;
+#else
+        error("mpiprocs > 1 with uniformrefinementlevel > 0 requires METIS or a coarse-mesh partitionfile.");
+#endif
+      }
       uniformRefineMesh(mesh, pde, master);
       writeBinaryFiles(pde, mesh, master, spec);
     }
@@ -186,7 +205,10 @@ int main(int argc, char* argv[])
         generateCppCode(spec);
         { CodeGenerator _gen(spec); _gen.generateModelSizesHpp(spec.modelpath); }
         executeCppCode(spec);
-        if (!gen_only) buildDynamicLibraries(spec);
+        if (!gen_only) {
+            int build_status = buildDynamicLibraries(spec);
+            if (build_status != 0) return build_status;
+        }
     }
 #endif
     
