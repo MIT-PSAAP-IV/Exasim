@@ -5,9 +5,10 @@ if !isdefined(app, :frontendgenerated)
     app.frontendgenerated = 1;
 end
 app.flag = [app.tdep app.wave app.linearproblem app.debugmode app.matvecorder app.GMRESortho app.preconditioner app.precMatrixType app.NLMatrixType app.runmode app.tdfunc app.source app.modelnumber app.extFhat app.extUhat app.extStab app.subproblem app.saveParaview app.physicsparamwarmstart app.builtinmodelID app.frontendgenerated app.flag];
-# problem[0..27], coupling slots problem[28..31], then STG chemistry at problem[32].
+# problem[0..27], coupling slots problem[28..31], STG chemistry at problem[32],
+# then uniform refinement at problem[33].
 # Keep these fixed slots aligned with the Matlab/Python and C++ preprocessors.
-app.problem = [app.hybrid appname app.temporalscheme app.torder app.nstage app.convStabMethod app.diffStabMethod app.rotatingFrame app.viscosityModel app.SGSmodel app.ALE app.AV app.linearsolver app.NLiter app.linearsolveriter app.GMRESrestart app.RBdim app.saveSolFreq app.saveSolOpt app.timestepOffset app.stgNmode app.saveSolBouFreq app.ibs app.dae_steps app.saveResNorm app.AVsmoothingInter app.frozenAVflag app.ppdegree app.coupledinterface app.coupledcondition app.coupledboundarycondition app.AVdistfunction app.stgchem app.problem];
+app.problem = [app.hybrid appname app.temporalscheme app.torder app.nstage app.convStabMethod app.diffStabMethod app.rotatingFrame app.viscosityModel app.SGSmodel app.ALE app.AV app.linearsolver app.NLiter app.linearsolveriter app.GMRESrestart app.RBdim app.saveSolFreq app.saveSolOpt app.timestepOffset app.stgNmode app.saveSolBouFreq app.ibs app.dae_steps app.saveResNorm app.AVsmoothingInter app.frozenAVflag app.ppdegree app.coupledinterface app.coupledcondition app.coupledboundarycondition app.AVdistfunction app.stgchem app.uniformrefinementlevel app.problem];
 app.factor = [app.time app.dae_alpha app.dae_beta app.dae_gamma app.dae_epsilon app.factor];
 app.solversparam = [app.NLtol app.linearsolvertol app.matvectol app.NLparam app.solversparam];
 

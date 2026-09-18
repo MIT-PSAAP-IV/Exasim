@@ -301,7 +301,7 @@ end
 function writeapptemplate(app)
     template = deepcopy(app);
     template.flag = reshape(template.flag[21:end], 1, :);
-    template.problem = reshape(template.problem[29:end], 1, :);
+    template.problem = reshape(template.problem[34:end], 1, :);
     template.factor = reshape(template.factor[6:end], 1, :);
     template.solversparam = reshape(template.solversparam[5:end], 1, :);
     return template;

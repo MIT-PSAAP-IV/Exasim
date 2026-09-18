@@ -4,7 +4,7 @@ from .sortrows import sortrows
 from .partition import partition
 from .neighboringelements import neighboringelements
 
-def elementpartitionhdg(dmd, t, t2t, nproc, metis):
+def elementpartitionhdg(dmd, t, t2t, nproc, metis, elem2cpu=None):
     nve, ne = t.shape
 
     if nproc == 1:
@@ -27,8 +27,11 @@ def elementpartitionhdg(dmd, t, t2t, nproc, metis):
         # dmd[i]['elemsendpts'] = np.reshape([0], (1, 1))
         return dmd
 
-    elem2cpu = partition(t+1,ne,nproc,metis)[0]
+    if elem2cpu is None or np.size(elem2cpu) == 0:
+        elem2cpu = partition(t+1,ne,nproc,metis)[0]
     elem2cpu = np.array(elem2cpu).flatten().astype(int);
+    if elem2cpu.size != ne:
+        raise ValueError("elementpartitionhdg: elem2cpu must contain one entry per element.")
 
     for i in range(nproc):
         intelem = np.where(elem2cpu == i)[0]  # elements in subdomain i

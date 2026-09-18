@@ -149,6 +149,108 @@ void crs_init(commonstructT<T,I>& common, meshstructT<T,I>& mesh, int *elem, int
     TemplateCopytoDevice(mesh.col_ind, col_ind, row_ptr[nfelem], common.backend);
     TemplateCopytoDevice(mesh.face, face, nse*nfelem, common.backend);
 
+#ifdef HAVE_MPI
+    if (common.mpiProcs > 1 && common.nnbsd > 0) {
+        struct FaceAdjacency {
+            int face;
+            int localFace;
+            int otherElem;
+        };
+
+        std::vector<std::vector<FaceAdjacency>> elemFaces(common.meshsizes.ne,
+                std::vector<FaceAdjacency>(common.meshsizes.nfe, {-1, -1, -1}));
+        for (int f = 0; f < common.meshsizes.nf; ++f) {
+            const int e1 = f2e[0 + 4*f];
+            const int l1 = f2e[1 + 4*f];
+            const int e2 = f2e[2 + 4*f];
+            const int l2 = f2e[3 + 4*f];
+            if (e1 >= 0 && e1 < common.meshsizes.ne && l1 >= 0 && l1 < common.meshsizes.nfe)
+                elemFaces[e1][l1] = {f, l1, e2};
+            if (e2 >= 0 && e2 < common.meshsizes.ne && l2 >= 0 && l2 < common.meshsizes.nfe)
+                elemFaces[e2][l2] = {f, l2, e1};
+        }
+
+        std::vector<Int> elemsend(common.nelemsend);
+        std::vector<Int> elemrecv(common.nelemrecv);
+        if (common.nelemsend > 0)
+            TemplateCopytoHost(elemsend.data(), mesh.elemsend, common.nelemsend, common.backend);
+        if (common.nelemrecv > 0)
+            TemplateCopytoHost(elemrecv.data(), mesh.elemrecv, common.nelemrecv, common.backend);
+
+        std::vector<Int> sendpts(common.nnbsd, 0), recvpts(common.nnbsd, 0);
+        std::vector<Int> facesend, facerecv;
+        Int sendOffset = 0, recvOffset = 0;
+        for (Int n = 0; n < common.nnbsd; ++n) {
+            // Match the existing element exchange ordering: neighbor element-list
+            // order, then element-local face order. Local face IDs are not
+            // guaranteed to be ordered identically on both MPI ranks.
+            const Int ns = common.elemsendpts[n];
+            const Int nr = common.elemrecvpts[n];
+            const Int sendStart = sendOffset;
+            const Int recvStart = recvOffset;
+            const Int sendEnd = sendStart + ns;
+            const Int recvEnd = recvStart + nr;
+
+            for (Int i = sendStart; i < sendEnd; ++i) {
+                const int e = static_cast<int>(elemsend[i]);
+                if (e < 0 || e >= common.meshsizes.ne)
+                    error("Block ILU face exchange found an invalid send element.");
+                for (const auto& adj : elemFaces[e]) {
+                    if (adj.face < 0)
+                        continue;
+                    if (std::find(elemrecv.begin() + recvStart, elemrecv.begin() + recvEnd, adj.otherElem)
+                            != elemrecv.begin() + recvEnd) {
+                        facesend.push_back(e);
+                        facesend.push_back(adj.localFace);
+                        sendpts[n] += 1;
+                    }
+                }
+            }
+
+            for (Int i = recvStart; i < recvEnd; ++i) {
+                const int e = static_cast<int>(elemrecv[i]);
+                if (e < 0 || e >= common.meshsizes.ne)
+                    error("Block ILU face exchange found an invalid receive element.");
+                for (const auto& adj : elemFaces[e]) {
+                    if (adj.face < 0)
+                        continue;
+                    if (std::find(elemsend.begin() + sendStart, elemsend.begin() + sendEnd, adj.otherElem)
+                            != elemsend.begin() + sendEnd) {
+                        facerecv.push_back(e);
+                        facerecv.push_back(adj.localFace);
+                        recvpts[n] += 1;
+                    }
+                }
+            }
+
+            if (sendpts[n] != recvpts[n])
+                error("Block ILU face exchange has mismatched send/receive face counts.");
+
+            sendOffset = sendEnd;
+            recvOffset = recvEnd;
+        }
+
+        mesh.szbilufacesend = facesend.size();
+        mesh.szbilufacerecv = facerecv.size();
+        common.nbilufacesend = mesh.szbilufacesend/2;
+        common.nbilufacerecv = mesh.szbilufacerecv/2;
+        TemplateMalloc(&common.bilufacesendpts, common.nnbsd, 0);
+        TemplateMalloc(&common.bilufacerecvpts, common.nnbsd, 0);
+        for (Int n = 0; n < common.nnbsd; ++n) {
+            common.bilufacesendpts[n] = sendpts[n];
+            common.bilufacerecvpts[n] = recvpts[n];
+        }
+        if (mesh.szbilufacesend > 0) {
+            TemplateMalloc(&mesh.bilufacesend, mesh.szbilufacesend, common.backend);
+            TemplateCopytoDevice(mesh.bilufacesend, facesend.data(), mesh.szbilufacesend, common.backend);
+        }
+        if (mesh.szbilufacerecv > 0) {
+            TemplateMalloc(&mesh.bilufacerecv, mesh.szbilufacerecv, common.backend);
+            TemplateCopytoDevice(mesh.bilufacerecv, facerecv.data(), mesh.szbilufacerecv, common.backend);
+        }
+    }
+#endif
+
 //     writearray2file(common.fileout + "elem.bin", elem, nse*nese, 0);
 //     writearray2file(common.fileout + "f2e.bin", f2e, 4*common.meshsizes.nf, 0);
 //
@@ -172,6 +274,80 @@ void crs_init(commonstructT<T,I>& common, meshstructT<T,I>& mesh, int *elem, int
     CPUFREE(face);
     CPUFREE(f2eelem);
     CPUFREE(f2e);
+}
+
+template <class T = ::dstype, class I = ::Int>
+int uniform_refinement_nese(const commonstructT<T,I>& common)
+{
+    if (common.uniformrefinementlevel <= 0)
+        return 0;
+
+    int nchild = 0;
+    if (common.grid.nd == 1)
+        nchild = 2;
+    else if (common.grid.nd == 2)
+        nchild = 4;
+    else if (common.grid.nd == 3)
+        nchild = 8;
+    else
+        error("Uniform-refinement block ILU supports only 1D, 2D, and 3D meshes.");
+
+    int nese = 1;
+    for (Int level = 0; level < common.uniformrefinementlevel; ++level) {
+        nese *= nchild;
+    }
+    return nese;
+}
+
+template <class I = ::Int>
+void build_uniform_refinement_elem(int **elem_out, int *nse_out, int nese, I ne1, const I *globalElemIds)
+{
+    if (nese <= 0)
+        error("Uniform-refinement block ILU requires a positive number of children per parent.");
+    if (ne1 <= 0)
+        error("Uniform-refinement block ILU requires at least one owned/interface element.");
+    if (ne1 % nese != 0)
+        error("Uniform-refinement block ILU requires owned/interface refined elements to be grouped by parent: ne1 = " +
+              std::to_string(ne1) + ", nese = " + std::to_string(nese) + ".");
+
+    const int nse = static_cast<int>(ne1 / nese);
+    int *elem = nullptr;
+    TemplateMalloc(&elem, nse*nese, 0);
+    for (int i = 0; i < nse*nese; ++i)
+        elem[i] = -1;
+
+    std::map<I, int> parentToBlock;
+    for (I e = 0; e < ne1; ++e) {
+        const I ge = globalElemIds ? globalElemIds[e] : e;
+        if (ge < 0)
+            error("Uniform-refinement block ILU found a negative global element id.");
+        const I parent = ge / nese;
+        const int child = static_cast<int>(ge - parent*nese);
+        if (child < 0 || child >= nese)
+            error("Uniform-refinement block ILU found an invalid child index.");
+
+        auto it = parentToBlock.find(parent);
+        if (it == parentToBlock.end()) {
+            const int block = static_cast<int>(parentToBlock.size());
+            if (block >= nse)
+                error("Uniform-refinement block ILU found too many parent blocks.");
+            it = parentToBlock.emplace(parent, block).first;
+        }
+
+        int &slot = elem[it->second + nse*child];
+        if (slot >= 0)
+            error("Uniform-refinement block ILU found duplicate children in a parent block.");
+        slot = static_cast<int>(e);
+    }
+
+    if (static_cast<int>(parentToBlock.size()) != nse)
+        error("Uniform-refinement block ILU found an incomplete parent block set.");
+    for (int i = 0; i < nse*nese; ++i)
+        if (elem[i] < 0)
+            error("Uniform-refinement block ILU requires all children of each parent to be on the same rank.");
+
+    *elem_out = elem;
+    *nse_out = nse;
 }
 
 template <class T = ::dstype, class I = ::Int>
@@ -546,18 +722,32 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
       CPUFREE(boufaces);
       //CPUFREE(mesh.bf);
 
-      if (!postprocessOnly && (common.solverparams.preconditioner==2) && (common.szcartgridpart > 0)) {
-        if (common.cartgridpart[0]==2) {
+      if (!postprocessOnly && (common.solverparams.preconditioner==2)) {
+        if (common.uniformrefinementlevel >= 1) {
           int *elem = NULL;
-          int nse  = gridpartition2d(&elem, common.cartgridpart[1], common.cartgridpart[2], common.cartgridpart[3], common.cartgridpart[4], common.cartgridpart[5]);
-          int nese = common.cartgridpart[3]*common.cartgridpart[4];
+          int nse = 0;
+          int nese = uniform_refinement_nese(common);
+          std::vector<Int> elemGlobalIds(common.meshsizes.ne1);
+          TemplateCopytoHost(elemGlobalIds.data(), mesh.elempart, common.meshsizes.ne1, common.backend);
+          build_uniform_refinement_elem(&elem, &nse, nese, common.meshsizes.ne1, elemGlobalIds.data());
+          if (common.mpiRank == 0)
+            printf("uniformrefinementlevel = %d: using uniform-refinement block ILU instead of cartgridpart.\n", common.uniformrefinementlevel);
           crs_init(common, mesh, elem, nse, nese);
           CPUFREE(elem);
         }
-        else if (common.cartgridpart[0]==3) {
+        else if (common.szcartgridpart > 0 && common.cartgridpart[0]==2) {
+          int *elem = NULL;
+          int nse  = gridpartition2d(&elem, common.cartgridpart[1], common.cartgridpart[2], common.cartgridpart[3], common.cartgridpart[4], common.cartgridpart[5]);
+          int nese = common.cartgridpart[3]*common.cartgridpart[4];
+          if (common.mpiRank == 0) printf("2D cartesian grid partition block ILU.\n");
+          crs_init(common, mesh, elem, nse, nese);
+          CPUFREE(elem);
+        }
+        else if (common.szcartgridpart > 0 && common.cartgridpart[0]==3) {
           int *elem = NULL;
           int nse  = gridpartition3d(&elem, common.cartgridpart[1], common.cartgridpart[2], common.cartgridpart[3], common.cartgridpart[4], common.cartgridpart[5], common.cartgridpart[6], common.cartgridpart[7]);
           int nese = common.cartgridpart[4]*common.cartgridpart[5]*common.cartgridpart[6];
+          if (common.mpiRank == 0) printf("3D cartesian grid partition block ILU.\n");
           crs_init(common, mesh, elem, nse, nese);
           CPUFREE(elem);
         }

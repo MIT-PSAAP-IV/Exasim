@@ -230,6 +230,7 @@ void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, masterstr
     common.couplingparams.coupledcondition = app.problem[29]; 
     common.couplingparams.coupledboundarycondition = app.problem[30];
     common.physicsparams.AVdistfunction = app.problem[31];
+    common.uniformrefinementlevel = (app.nsize[2] > 33) ? app.problem[33] : 0;
 
     if (common.stgparams.stgchem != 0 && common.stgparams.stgchem != 1)
         error("stgchem must be either 0 (ideal gas) or 1 (five-species chemistry)");

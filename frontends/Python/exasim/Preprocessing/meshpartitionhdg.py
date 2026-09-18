@@ -2,9 +2,9 @@ import numpy as np
 from .elementpartitionhdg import elementpartitionhdg
 from .facepartitionhdg import facepartitionhdg
 
-def meshpartitionhdg(dmd, t, f, t2t, bcm, dim, elemtype, porder, nproc, metis, Cxxpreprocessing):
+def meshpartitionhdg(dmd, t, f, t2t, bcm, dim, elemtype, porder, nproc, metis, Cxxpreprocessing, elem2cpu=None):
     print("run elementpartition...")
-    dmd = elementpartitionhdg(dmd, t, t2t, nproc, metis)
+    dmd = elementpartitionhdg(dmd, t, t2t, nproc, metis, elem2cpu)
 
     if Cxxpreprocessing == 0:    
         print("run facepartition...")

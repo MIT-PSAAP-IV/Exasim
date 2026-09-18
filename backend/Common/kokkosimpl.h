@@ -1374,6 +1374,44 @@ void GetElementFaceNodes(Ty* uhe, const Ty* uhf, const int* elemcon, const int n
     }
 }
 
+template <class Ty = dstype>
+void GetElementFaceNodesAtFaces(Ty* uhe, const Ty* uhf, const int* elemcon, const int* elemface,
+        const int npf, const int nfe, const int ncu, const int nfaces)
+{
+    using dstype = Ty;
+    int N = ncu*npf*nfaces;
+    int ndf = npf*nfe;
+    Kokkos::parallel_for("GetElementFaceNodesAtFaces", N, KOKKOS_LAMBDA(const size_t idx) {
+        int j = idx%ncu;
+        int k = idx/ncu;
+        int i = k%npf;
+        int n = k/npf;
+        int e = elemface[0 + 2*n];
+        int l = elemface[1 + 2*n];
+        int m = elemcon[i + npf*l + ndf*e];
+        uhe[idx] = uhf[j + ncu*m];
+    });
+}
+
+template <class Ty = dstype>
+void PutElementFaceNodesAtFaces(Ty* uhf, const Ty* uhe, const int* elemcon, const int* elemface,
+        const int npf, const int nfe, const int ncu, const int nfaces)
+{
+    using dstype = Ty;
+    int N = ncu*npf*nfaces;
+    int ndf = npf*nfe;
+    Kokkos::parallel_for("PutElementFaceNodesAtFaces", N, KOKKOS_LAMBDA(const size_t idx) {
+        int j = idx%ncu;
+        int k = idx/ncu;
+        int i = k%npf;
+        int n = k/npf;
+        int e = elemface[0 + 2*n];
+        int l = elemface[1 + 2*n];
+        int m = elemcon[i + npf*l + ndf*e];
+        Kokkos::atomic_add(&uhf[j + ncu*m], uhe[idx]);
+    });
+}
+
 // Gather an LDG trace written by PutElemNodes.  Unlike the HDG trace/vector
 // layout used by GetElementFaceNodes above, sol.uh in the LDG path is stored
 // as [npf, ncu, nf]: face node is the fastest index, followed by component.
@@ -1695,29 +1733,39 @@ void AssembleBlockILU0(Ty* BE, const Ty* AE, const int* f2e, const int* elcon, c
           int je1 = f2e[0 + 4*fj];       
           int je2 = f2e[2 + 4*fj];     
           int e=0, k1=0, k2=0;
+          bool matched = true;
           if (je1 == e1) {
             e = e1;                    
             k1 = l1;
             k2 = f2e[1 + 4*fj];
           }
-          else if (je1 == e2) {
+          else if ((e2 >= 0) && (je1 == e2)) {
             e = e2;                    
             k1 = l2;
             k2 = f2e[1 + 4*fj];    
           }
-          else if (je2 == e1) {
+          else if ((je2 >= 0) && (je2 == e1)) {
             e = e1;                    
             k1 = l1;
             k2 = f2e[3 + 4*fj];     
           }
-          else if (je2 == e2) {
+          else if ((e2 >= 0) && (je2 == e2)) {
             e = e2;                    
             k1 = l2;
             k2 = f2e[3 + 4*fj];
-          }          
-          m1 = am + ncu*(elcon[bm + npf*k1 + ndf*e] - nfi);
-          n2 = an + ncu*(elcon[bn + npf*k2 + ndf*e] - npf*fj);
-          BE[m + ncf*n + R*r + S*t] = AE[m1 + ncf*k1 + M*n2 + P*k2 + Q*e];
+          }
+          else {
+            matched = false;
+          }
+
+          if (matched) {
+            m1 = am + ncu*(elcon[bm + npf*k1 + ndf*e] - nfi);
+            n2 = an + ncu*(elcon[bn + npf*k2 + ndf*e] - npf*fj);
+            BE[m + ncf*n + R*r + S*t] = AE[m1 + ncf*k1 + M*n2 + P*k2 + Q*e];
+          }
+          else {
+            BE[m + ncf*n + R*r + S*t] = zero;
+          }
         }                        
     });
 }

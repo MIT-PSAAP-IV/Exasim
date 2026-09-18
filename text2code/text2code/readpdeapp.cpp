@@ -904,7 +904,7 @@ PDE initializePDE(InputParams& params, int mpirank=0)
         pde.saveSolFreq, pde.saveSolOpt, pde.timestepOffset, pde.stgNmode, pde.saveSolBouFreq, pde.ibs,
         pde.dae_steps, pde.saveResNorm, pde.AVsmoothingIter, pde.frozenAVflag, pde.ppdegree,
         pde.coupledinterface, pde.coupledcondition, pde.coupledboundarycondition, pde.AVdistfunction,
-        pde.stgchem
+        pde.stgchem, pde.uniformrefinementlevel
     );
     pde.factor = {pde.time, pde.dae_alpha, pde.dae_beta, pde.dae_gamma, pde.dae_epsilon};    
     pde.solversparam = {pde.NewtonTol, pde.GMREStol, pde.matvectol, pde.NLparam};
@@ -930,6 +930,10 @@ PDE initializePDE(InputParams& params, int mpirank=0)
         pde.exasimpath = env_prefix;
         if (mpirank==0) std::cout<<"exasimpath is not set in "<< params.pdeappfile
                                 <<" file.\nWe use EXASIM_PREFIX to define exasimpath.\n";
+      } else if (std::string(EXASIM_INSTALL_PREFIX).size() > 0) {
+        pde.exasimpath = EXASIM_INSTALL_PREFIX;
+        if (mpirank==0) std::cout<<"exasimpath is not set in "<< params.pdeappfile
+                                <<" file.\nWe use the installed text2code prefix to define exasimpath.\n";
       } else {
         if (mpirank==0) std::cout<<"exasimpath is not set in "<< params.pdeappfile <<" file.\nWe use the working directory to define exasimpath.\n";
         std::filesystem::path cwd = std::filesystem::current_path();

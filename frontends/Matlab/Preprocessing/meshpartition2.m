@@ -1,7 +1,11 @@
-function dmd = meshpartition2(t,f,t2t,bcm,dim,elemtype,porder,nproc,metis,Cxxpreprocessing)
+function dmd = meshpartition2(t,f,t2t,bcm,dim,elemtype,porder,nproc,metis,Cxxpreprocessing,elem2cpu)
+
+if nargin < 11
+    elem2cpu = [];
+end
 
 disp('run elementpartition...');  
-dmd = elementpartition2(t,t2t,nproc,metis);
+dmd = elementpartition2(t,t2t,nproc,metis,elem2cpu);
 
 if Cxxpreprocessing==0
     disp('run facepartition...');  
@@ -16,4 +20,3 @@ else
         end      
     end    
 end
-

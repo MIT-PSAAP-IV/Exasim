@@ -1,7 +1,16 @@
-function dmd = elementpartitionhdg(t,t2t,f,coupledinterface,nproc,metis)
+function dmd = elementpartitionhdg(t,t2t,f,coupledinterface,nproc,metis,elem2cpu)
  
 [~,ne] = size(t);
 dmd = cell(nproc,1);
+
+if nargin < 7
+    elem2cpu = [];
+else
+    elem2cpu = elem2cpu(:);
+    if ~isempty(elem2cpu) && numel(elem2cpu) ~= ne
+        error('elementpartitionhdg: elem2cpu must contain one entry per element.');
+    end
+end
 
 if nproc==1
     i = 1;
@@ -23,7 +32,9 @@ if nproc==1
     return;
 end
 
-elem2cpu = partition(t',ne,nproc,metis);
+if isempty(elem2cpu)
+    elem2cpu = partition(t',ne,nproc,metis);
+end
 
 if coupledinterface>0
   [~, inte] = find(f == coupledinterface);
@@ -121,4 +132,3 @@ nbelem = unique(t2te(:));
 if nbelem(1) == 0
     nbelem(1) = [];
 end
-

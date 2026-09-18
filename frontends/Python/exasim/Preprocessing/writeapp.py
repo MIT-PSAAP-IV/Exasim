@@ -16,14 +16,17 @@ def writeapp(app,filename):
         app['builtinmodelID'] = 0;
     if 'frontendgenerated' not in app:
         app['frontendgenerated'] = 1;
+    if 'uniformrefinementlevel' not in app:
+        app['uniformrefinementlevel'] = 0;
 
     appname = 0;
     tmp = array([app['tdep'], app['wave'], app['linearproblem'], app['debugmode'], app['matvecorder'], app['GMRESortho'], app['preconditioner'], app['precMatrixType'], app['NLMatrixType'], app['runmode'], app['tdfunc'], app['source'], app['modelnumber'], app['extFhat'], app['extUhat'], app['extStab'], app['subproblem'], app['saveParaview'], app['physicsparamwarmstart'], app['builtinmodelID'], app['frontendgenerated']]);
     app['flag'] =  concatenate([tmp,app['flag']]);
-    # problem[0..27], coupling slots problem[28..31], then STG chemistry at problem[32].
+    # problem[0..27], coupling slots problem[28..31], STG chemistry at problem[32],
+    # then uniform refinement at problem[33].
     # Keep these fixed slots aligned with the Matlab/Julia and C++ preprocessors.
     # Defensive .get keeps older caller-created dictionaries working.
-    tmp = array([app['hybrid'], appname, app['temporalscheme'], app['torder'], app['nstage'], app['convStabMethod'], app['diffStabMethod'], app['rotatingFrame'], app['viscosityModel'], app['SGSmodel'], app['ALE'], app['AV'], app['linearsolver'], app['NLiter'], app['linearsolveriter'], app['GMRESrestart'], app['RBdim'], app['saveSolFreq'], app['saveSolOpt'], app['timestepOffset'], app['stgNmode'], app['saveSolBouFreq'], app['ibs'], app['dae_steps'], app['saveResNorm'], app['AVsmoothingIter'], app['frozenAVflag'], app['ppdegree'], app.get('coupledinterface', 0), app.get('coupledcondition', 0), app.get('coupledboundarycondition', 0), app.get('AVdistfunction', 0), app.get('stgchem', 0)]);
+    tmp = array([app['hybrid'], appname, app['temporalscheme'], app['torder'], app['nstage'], app['convStabMethod'], app['diffStabMethod'], app['rotatingFrame'], app['viscosityModel'], app['SGSmodel'], app['ALE'], app['AV'], app['linearsolver'], app['NLiter'], app['linearsolveriter'], app['GMRESrestart'], app['RBdim'], app['saveSolFreq'], app['saveSolOpt'], app['timestepOffset'], app['stgNmode'], app['saveSolBouFreq'], app['ibs'], app['dae_steps'], app['saveResNorm'], app['AVsmoothingIter'], app['frozenAVflag'], app['ppdegree'], app.get('coupledinterface', 0), app.get('coupledcondition', 0), app.get('coupledboundarycondition', 0), app.get('AVdistfunction', 0), app.get('stgchem', 0), app['uniformrefinementlevel']]);
     app['problem'] = concatenate([tmp, app['problem']]);
     tmp = array([app['time'], app['dae_alpha'], app['dae_beta'], app['dae_gamma'], app['dae_epsilon']])    
     app['factor'] = concatenate([tmp, app['factor']]);

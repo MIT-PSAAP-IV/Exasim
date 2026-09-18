@@ -1,7 +1,7 @@
-function meshpartition2(dmd,t,f,t2t,bcm,dim,elemtype,porder,nproc,metis,Cxxpreprocessing)
+function meshpartition2(dmd,t,f,t2t,bcm,dim,elemtype,porder,nproc,metis,Cxxpreprocessing,elem2cpu=Int[])
 
 print("run elementpartition...\n");
-dmd = elementpartition2(dmd,t,t2t,nproc,metis);
+dmd = elementpartition2(dmd,t,t2t,nproc,metis,elem2cpu);
 
 if Cxxpreprocessing == 0    
     print("run facepartition...\n");
