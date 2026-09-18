@@ -23,10 +23,12 @@
 #include "makemasterexasim.hpp"
 #include "domaindecomposition.hpp"
 #include "writebinaryfilesexasim.hpp"
+#include "uniformrefinement.hpp"
 
 #ifdef HAVE_PARMETIS
 #ifdef HAVE_MPI
 #include "parmetisexasim.hpp"
+#include "uniformrefinementpar.hpp"
 #endif
 #endif
 
@@ -78,6 +80,7 @@ inline void CPreprocessing::SerialPreprocessing()
         mesh = initializeMesh(params, pde);
 
     master = initializeMaster(pde, mesh);
+    uniformRefineMesh(mesh, pde, master, mpirank);
     writeBinaryFiles(pde, mesh, master, spec);
 
     if (mesh.nbndexpr > 0) freeCharArray(mesh.boundaryExprs, mesh.nbndexpr);
@@ -105,6 +108,8 @@ inline void CPreprocessing::ParallelPreprocessing(MPI_Comm comm)
     MPI_Barrier(comm);
 
     callParMetis(mesh, pde, comm);
+
+    uniformRefineParMesh(mesh, pde, master, comm);
 
     dmd = initializeDMD(mesh, master, pde, comm);
 
@@ -145,6 +150,7 @@ inline exasim::PreprocessedT<T, I> CPreprocessing::take()
     if (mesh.np == 0)
         mesh = initializeMesh(params, pde);
     Master mas = initializeMaster(pde, mesh, mpirank);
+    uniformRefineMesh(mesh, pde, mas, mpirank);
 
     pde.nd = mesh.dim;
     pde.ncx = mesh.dim;
@@ -235,6 +241,7 @@ inline exasim::PreprocessedT<T, I> CPreprocessing::takeParallel(MPI_Comm comm)
 
     // ParMETIS repartition + DMD setup — same as ParallelPreprocessing.
     callParMetis(mesh, pde, comm);
+    uniformRefineParMesh(mesh, pde, mas, comm);
     if (rank == 0) std::cout << "[takeParallel] after callParMetis: ne=" << mesh.ne << " np=" << mesh.np
                              << " dim=" << mesh.dim << " nfe=" << mesh.nfe << " nvf=" << mesh.nvf
                              << " elemtype=" << mesh.elemtype

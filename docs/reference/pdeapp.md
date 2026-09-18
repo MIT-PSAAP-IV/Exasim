@@ -76,6 +76,7 @@ The Text2Code parser errors if any of these keys are missing:
 | `wdgfile` | string | empty | No | Optional auxiliary `w` field input file. |
 | `uhatfile` | string | empty | No | Optional HDG trace input file. |
 | `partitionfile` | string | empty | No | Optional partition input. |
+| `uniformrefinementlevel` | int | `0` | No | Uniformly refine the input mesh `k` times before the simulation (each element becomes `2^(nd*k)` children). `xdgfile`/`udgfile`/`vdgfile`/`wdgfile` are prolongated exactly by the parent's degree-`porder` interpolant, and new vertices follow the curved `xdg` geometry when one is given. Works in serial, with `mpiprocs > 1` (each rank refines its own partition of the coarse mesh), and in text2code. A partition file is given per coarse element. `uhatfile` is not supported. On curved boundaries without `xdgfile`, new boundary vertices lie on the straight chord, so boundary expressions need a tolerance that admits them. |
 | `gendatain` | int | `1` | No | Write backend binary input bundle. |
 | `gencode` | int | `1` | No | Generate C++ model code. |
 | `writemeshsol` | int | `1` | No | Write mesh and solution binary data. |

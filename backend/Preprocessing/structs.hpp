@@ -133,6 +133,7 @@ struct PDE {
     int gendatain = 1;
     int gencode = 1; // 1 for code generation, 0 for no code generation
     int writemeshsol = 1; // 1 for writing mesh solution, 0 for no writing
+    int uniformrefinementlevel = 0; // refine the input mesh uniformly this many times
     int modelnumber = 0;
     int mpiprocs = 1;
     int nd = 1, nc = 1, ncu = 1, ncq = 0, ncp = 0, ncv = 0;

@@ -165,7 +165,7 @@ def _write_pdeapp(pde, mesh, files, path, modelfile="pdemodel.txt"):
 
     keys = [
         "model", "modelfile", "meshfile", "xdgfile", "udgfile", "vdgfile", "wdgfile",
-        "materialdatabase",
+        "uniformrefinementlevel", "materialdatabase",
         "discretization", "platform", "mpiprocs", "debugmode", "runmode", "modelnumber",
         "builtinmodelID", "frontendgenerated",
         "nodetype", "ncu", "ncv", "ncw", "neb", "nfb", "linearproblem", "subproblem",

@@ -429,6 +429,7 @@ struct PDE {
     int gendatain = 1;
     int gencode = 1; // 1 for code generation, 0 for no code generation
     int writemeshsol = 1; // 1 for writing mesh solution, 0 for no writing
+    int uniformrefinementlevel = 0; // refine the input mesh uniformly this many times
     int modelnumber = 0;
     int builtinmodelID = 0;
     int frontendgenerated = 0;
@@ -613,6 +614,9 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     }
     if (params.intParams.count("writemeshsol")) {
         pde.writemeshsol = params.intParams["writemeshsol"];
+    }
+    if (params.intParams.count("uniformrefinementlevel")) {
+        pde.uniformrefinementlevel = params.intParams["uniformrefinementlevel"];
     }
     if (params.intParams.count("mpiprocs")) {
         pde.mpiprocs = params.intParams["mpiprocs"];

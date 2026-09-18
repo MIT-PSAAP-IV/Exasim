@@ -153,7 +153,7 @@ case "$FE" in
     JULIA_LOAD_PATH=":$INSTALL/share/exasim/julia" julia "$APP" || status=$?
     ;;
   matlab)
-    "$MATLAB" -batch "run('$INSTALL/share/exasim/matlab/exasim_setup.m'); pdeapp" || status=$?
+    "$MATLAB" -batch "run('$INSTALL/share/exasim/matlab/exasim_setup.m'); ${APP%.m}" || status=$?
     ;;
 esac
 if [ "$status" -ne 0 ]; then
@@ -180,6 +180,10 @@ if [ "${EXPORT_TEXT2CODE_TEST:-0}" = "1" ]; then
     || { echo "FAIL: pdeapp.txt missing wdgfile"; exit 1; }
   grep -q 'physicsparamcases' "$B/pdeapp.txt" \
     || { echo "FAIL: pdeapp.txt missing physicsparamcases"; exit 1; }
+  # Every frontend fixture sets uniformrefinementlevel = 1; an exporter that drops the
+  # key would silently hand text2code the coarse mesh.
+  grep -q 'uniformrefinementlevel = 1;' "$B/pdeapp.txt" \
+    || { echo "FAIL: pdeapp.txt missing uniformrefinementlevel"; exit 1; }
   TEXT2CODE="${EXASIM_TEXT2CODE:-$INSTALL/bin/text2code}"
   [ -x "$TEXT2CODE" ] \
     || { echo "SKIP: text2code not found at $TEXT2CODE"; exit "$SKIP"; }
@@ -192,7 +196,9 @@ if [ "${EXPORT_TEXT2CODE_TEST:-0}" = "1" ]; then
   done
   [ -f "$B/generated/SymbolicFunctions.cpp" ] \
     || { echo "FAIL: text2code did not generate model sources"; exit 1; }
-  echo "frontend_python_exporttext2code: exported package parsed by text2code OK"
+  grep -q 'uniformrefinementlevel = 1' "$B/text2code.log" \
+    || { cat "$B/text2code.log"; echo "FAIL: text2code did not refine the exported mesh"; exit 1; }
+  echo "frontend_${FE}_exporttext2code: exported package parsed (and refined) by text2code OK"
   exit 0
 fi
 

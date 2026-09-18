@@ -705,6 +705,9 @@ inline PDE initializePDE(InputParams& params, int mpirank=0)
     if (params.intParams.count("writemeshsol")) {
         pde.writemeshsol = params.intParams["writemeshsol"];
     }
+    if (params.intParams.count("uniformrefinementlevel")) {
+        pde.uniformrefinementlevel = params.intParams["uniformrefinementlevel"];
+    }
     if (params.intParams.count("mpiprocs")) {
         pde.mpiprocs = params.intParams["mpiprocs"];
     }

@@ -3003,7 +3003,7 @@ DMD initializeDMD(Mesh& mesh, const Master& master, const PDE& pde, MPI_Comm com
         }
         if (rank==0) std::cout << "Finished computing dgnodes.\n";
     }
-    else 
+    else if (pde.uniformrefinementlevel <= 0) // else uniformRefineParMesh already read + prolongated it
       readParFieldFromBinaryFile(make_path(pde.datapath, pde.xdgfile), mesh.elemGlobalID, mesh.xdg, mesh.xdgdims);
             
     // HOT.7.17 — must run BEFORE setperiodicfaces. setperiodicfaces
@@ -3164,16 +3164,18 @@ inline void writesol(Mesh& mesh, const DMD& dmd, const PDE& pde, const Master& m
     nsize[0] = static_cast<double>(ndims.size());
     nsize[1] = master.npe*mesh.dim*ne;
 
+    // With uniformrefinementlevel > 0, uniformRefineParMesh already read + prolongated these.
+    const bool readfields = (pde.uniformrefinementlevel <= 0);
     if (pde.udgfile != "") {
-      readParFieldFromBinaryFile(make_path(pde.datapath, pde.udgfile), mesh.elemGlobalID, mesh.udg, mesh.udgdims);      
+      if (readfields) readParFieldFromBinaryFile(make_path(pde.datapath, pde.udgfile), mesh.elemGlobalID, mesh.udg, mesh.udgdims);
       nsize[2] = master.npe*mesh.udgdims[1]*ne;
     }
     if (pde.vdgfile != "") {
-      readParFieldFromBinaryFile(make_path(pde.datapath, pde.vdgfile), mesh.elemGlobalID, mesh.vdg, mesh.vdgdims);   
+      if (readfields) readParFieldFromBinaryFile(make_path(pde.datapath, pde.vdgfile), mesh.elemGlobalID, mesh.vdg, mesh.vdgdims);
       nsize[3] = master.npe*mesh.vdgdims[1]*ne;
     }
     if (pde.wdgfile != "") {
-      readParFieldFromBinaryFile(make_path(pde.datapath, pde.wdgfile), mesh.elemGlobalID, mesh.wdg, mesh.wdgdims);   
+      if (readfields) readParFieldFromBinaryFile(make_path(pde.datapath, pde.wdgfile), mesh.elemGlobalID, mesh.wdg, mesh.wdgdims);
       nsize[4] = master.npe*mesh.wdgdims[1]*ne;
     }
 

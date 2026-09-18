@@ -58,6 +58,11 @@ def preprocessing(app,mesh):
         app = writeapp(app,fileapp);
         return app;
 
+    if app.get('uniformrefinementlevel', 0) > 0:
+        raise ValueError("uniformrefinementlevel is applied by the C++ preprocessing "
+                         "(pdeapp.txt / exporttext2code); the native Python preprocessing "
+                         "does not refine the mesh.")
+
     app['nd']  = mesh['p'].shape[0];
     app['ncx'] = app['nd'];
 
