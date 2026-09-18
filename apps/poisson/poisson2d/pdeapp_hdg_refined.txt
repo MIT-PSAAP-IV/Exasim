@@ -1,12 +1,13 @@
 model = "ModelD";
 modelfile = "pdemodel.txt";
-meshfile = "grid.bin"; 
-discretization = "ldg";
+meshfile = "grid.bin";
+discretization = "hdg";
 platform = "cpu";
 
+uniformrefinementlevel = 2;
 builtinmodelID = 1;
-gendatain = 0;
-mpiprocs = 2;
+gendatain = 1;
+mpiprocs = 4;
 debugmode = 0;
 runmode = 0;
 modelnumber = 0;
@@ -33,7 +34,7 @@ RBdim = 0;
 matvecorder = 1;
 matvectol = 0.001;
 precMatrixType = 0;
-preconditioner = 0;
+preconditioner = 2;
 
 time = 0;
 tau = [1];

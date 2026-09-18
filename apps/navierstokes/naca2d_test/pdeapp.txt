@@ -25,7 +25,6 @@ nvec = 1;
 nten = 0;
 nsurf = 0;
 nvqoi = 0;
-neb = 512;
 neb = 4096;
 nfb = 8192;
 

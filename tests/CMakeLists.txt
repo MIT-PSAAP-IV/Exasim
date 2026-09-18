@@ -261,6 +261,14 @@ add_test(NAME text2code_cli_out_dir
 set_tests_properties(text2code_cli_out_dir PROPERTIES
   TIMEOUT 1200 SKIP_RETURN_CODE 77 RESOURCE_LOCK exasim_text2code_install)
 
+add_test(NAME text2code_poisson_variants
+  COMMAND ${CMAKE_COMMAND} -E env
+    "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}"
+    "EXASIM_ROOT=${EXASIM_DIR}"
+    bash "${EXASIM_DIR}/tests/text2code/poisson-variants-test.sh")
+set_tests_properties(text2code_poisson_variants PROPERTIES
+  TIMEOUT 1200 SKIP_RETURN_CODE 77 RESOURCE_LOCK exasim_text2code_install)
+
 # Builtin model 4 kernel equivalence: model 4 (CNS5air reacting NS) switched
 # from MATLAB-generated kernels to a text2code source (pdemodel4.txt). This
 # test compiles the legacy checked-in kernels (backend/Model/BuiltIn/model4/)
