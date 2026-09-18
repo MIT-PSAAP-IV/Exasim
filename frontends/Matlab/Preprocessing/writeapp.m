@@ -5,6 +5,7 @@ if isfield(app, 'physicsparamwarmstart') == 0, app.physicsparamwarmstart = 0; en
 if isfield(app, 'builtinmodelID') == 0, app.builtinmodelID = 0; end
 if isfield(app, 'frontendgenerated') == 0, app.frontendgenerated = 1; end
 if isfield(app, 'uniformrefinementlevel') == 0, app.uniformrefinementlevel = 0; end
+if isfield(app, 'stgchem') == 0, app.stgchem = 0; end
 %app.stgNmode = size(app.stgdata,1);
 app.flag   = [app.tdep app.wave app.linearproblem app.debugmode app.matvecorder app.GMRESortho...  
               app.preconditioner app.precMatrixType app.NLMatrixType app.runmode app.tdfunc app.sourcefunc ...
@@ -16,7 +17,7 @@ app.problem  = [app.hybrid appname app.temporalscheme app.torder app.nstage app.
                app.saveSolFreq app.saveSolOpt app.timestepOffset app.stgNmode app.saveSolBouFreq app.ibs ...
                app.dae_steps app.saveResNorm app.AVsmoothingIter app.frozenAVflag app.ppdegree ...
                app.coupledinterface app.coupledcondition app.coupledboundarycondition app.AVdistfunction ...
-               app.uniformrefinementlevel app.problem];
+               app.stgchem app.uniformrefinementlevel app.problem];
 app.factor = [app.time app.dae_alpha app.dae_beta app.dae_gamma app.dae_epsilon app.factor];           
 app.solversparam = [app.NLtol app.linearsolvertol app.matvectol app.NLparam app.solversparam];        
 

@@ -111,6 +111,7 @@ struct PDE {
     int subproblem = 0;
     int debugmode = 0;
     int stgNmode = 0;
+    int stgchem = 0;
     int porder = 1;
     int pgauss = 2;
     int temporalscheme = 0;

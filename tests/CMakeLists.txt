@@ -464,3 +464,11 @@ if(EXASIM_MPI)
 endif()
 add_test(NAME unit_struct_defaults COMMAND unit_struct_defaults)
 set_tests_properties(unit_struct_defaults PROPERTIES TIMEOUT 120)
+
+# The LDG chemistry STG boundary must construct the same conservative Air-5
+# state as the working HDG chemistry path, before HDG subtracts its trace.
+add_executable(unit_stg_chem_ldg ${CMAKE_CURRENT_SOURCE_DIR}/unit/stg_chem_ldg.cpp)
+target_link_libraries(unit_stg_chem_ldg PRIVATE Kokkos::kokkos)
+target_include_directories(unit_stg_chem_ldg PRIVATE ${EXASIM_DIR})
+add_test(NAME unit_stg_chem_ldg COMMAND unit_stg_chem_ldg)
+set_tests_properties(unit_stg_chem_ldg PROPERTIES TIMEOUT 120)

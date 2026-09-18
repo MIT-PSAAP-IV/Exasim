@@ -95,8 +95,14 @@ inline void UhatBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I
             GetFaceNodes(ogb, sol.odg, mesh.facecon, npf, ncu, npe, nco, f1, f2, 1);      
         }
         
-        StgInflowLDG(tmp.tempn, xgb, ogb, app.physicsparam, app.stgdata, 
-                          app.stgparam, common.timestate.time, nga, common.stgparams.stgNmode, common.grid.nd);          
+        if (common.stgparams.stgchem == 1) {
+            StgInFlowLDGchem(tmp.tempn, xgb, ogb, app.physicsparam, app.uinf, app.stgdata,
+                             app.stgparam, common.timestate.time, nga, common.stgparams.stgNmode, common.grid.nd);
+        }
+        else {
+            StgInflowLDG(tmp.tempn, xgb, ogb, app.physicsparam, app.stgdata,
+                         app.stgparam, common.timestate.time, nga, common.stgparams.stgNmode, common.grid.nd);
+        }
 
         PutElemNodes(sol.uh, tmp.tempn, npf, ncu, 0, ncu, f1, f2);
     }
@@ -191,6 +197,30 @@ inline void dUhatBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,
         GetFaceNodes(tmp.tempn, sol.dudg, mesh.facecon, npf, ncu, npe, nc, f1, f2, 0);
         PutElemNodes(sol.duh, tmp.tempn, npf, ncu, 0, ncu, f1, f2);
     } 
+    else if (isin<M>(ib, common.stgparams.stgib, common.stgparams.nstgib)) {
+        // The STG trace is prescribed independently of the interior state,
+        // so its directional derivative with respect to udg is zero.
+        dstype *xgb = &tmp.tempg[0];
+        dstype *ogb = &tmp.tempg[nga*ncx];
+        GetArrayAtIndex(xgb, sol.xdg, &mesh.findxdg1[npf*ncx*f1], nn*ncx);
+        if (nco>0)
+            GetFaceNodes(ogb, sol.odg, mesh.facecon, npf, ncu, npe, nco, f1, f2, 1);
+
+        if (common.stgparams.stgchem == 1) {
+            StgInFlowLDGchem(tmp.tempn, xgb, ogb, app.physicsparam, app.uinf,
+                             app.stgdata, app.stgparam, common.timestate.time,
+                             nga, common.stgparams.stgNmode, common.grid.nd);
+        }
+        else {
+            StgInflowLDG(tmp.tempn, xgb, ogb, app.physicsparam, app.stgdata,
+                         app.stgparam, common.timestate.time, nga,
+                         common.stgparams.stgNmode, common.grid.nd);
+        }
+        PutElemNodes(sol.uh, tmp.tempn, npf, ncu, 0, ncu, f1, f2);
+
+        ArraySetValue(tmp.tempn, zero, nn*ncu);
+        PutElemNodes(sol.duh, tmp.tempn, npf, ncu, 0, ncu, f1, f2);
+    }
     else {
         // Geometry information
         GetArrayAtIndex(tmp.tempn, sol.xdg, &mesh.findxdg1[npf*ncx*f1], nn*ncx);
@@ -254,4 +284,3 @@ inline void GetdUhat(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I>
 #endif
 
 #endif
-

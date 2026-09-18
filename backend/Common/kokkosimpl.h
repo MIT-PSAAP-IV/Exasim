@@ -3117,7 +3117,7 @@ Ty StgAir5InternalEnergyMass(const int species, const Ty T)
 }
 
 template <class Ty = dstype>
-void StgInFlow2Dchem(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *physicsparam, Ty *externalparam, Ty *stgdata, Ty *uc, noDeduce_t<Ty> t, int M, int N)
+void StgInFlow2Dchem(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *physicsparam, Ty *externalparam, Ty *stgdata, Ty *uc, noDeduce_t<Ty> t, int M, int N, bool subtractTrace = true)
 {
     using dstype = Ty;
     StgHomoTurb2D(up, xdg, stgdata, uc, t, M, N);
@@ -3149,15 +3149,15 @@ void StgInFlow2Dchem(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *physicsparam
         dstype Tphys = Tjn*T_scale;
         for (int s=0; s<5; s++) {
             rhoj[s] = vdg[m+M*s]*rjn/rin;
-            fb[m+M*s] = rhoj[s] - uhg[m+M*s];
+            fb[m+M*s] = rhoj[s] - (subtractTrace ? uhg[m+M*s] : 0.0);
             emixPhys += (rhoj[s]*rho_scale/rhoPhys)*StgAir5InternalEnergyMass(s, Tphys);
         }
         dstype vel2phys = (ujn*ujn + vjn*vjn)*u_scale*u_scale;
         dstype rhoEphys = rhoPhys*(emixPhys + 0.5*vel2phys);
 
-        fb[m+M*5] = rjn*ujn - uhg[m+M*5];
-        fb[m+M*6] = rjn*vjn - uhg[m+M*6];
-        fb[m+M*7] = rhoEphys/rhoe_scale - uhg[m+M*7];
+        fb[m+M*5] = rjn*ujn - (subtractTrace ? uhg[m+M*5] : 0.0);
+        fb[m+M*6] = rjn*vjn - (subtractTrace ? uhg[m+M*6] : 0.0);
+        fb[m+M*7] = rhoEphys/rhoe_scale - (subtractTrace ? uhg[m+M*7] : 0.0);
     });
 }
 
@@ -3207,7 +3207,7 @@ void StgHomoTurb3D(Ty *up, Ty *xdg, Ty *stgdata, Ty *uc, noDeduce_t<Ty> t, int M
 }
 
 template <class Ty = dstype>
-void StgInFlow3Dchem(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *physicsparam, Ty *externalparam, Ty *stgdata, Ty *uc, noDeduce_t<Ty> t, int M, int N)
+void StgInFlow3Dchem(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *physicsparam, Ty *externalparam, Ty *stgdata, Ty *uc, noDeduce_t<Ty> t, int M, int N, bool subtractTrace = true)
 {
     using dstype = Ty;
     StgHomoTurb3D(up, xdg, stgdata, uc, t, M, N);
@@ -3241,16 +3241,16 @@ void StgInFlow3Dchem(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *physicsparam
         dstype Tphys = Tjn*T_scale;
         for (int s=0; s<5; s++) {
             rhoj[s] = vdg[m+M*s]*rjn/rin;
-            fb[m+M*s] = rhoj[s] - uhg[m+M*s];
+            fb[m+M*s] = rhoj[s] - (subtractTrace ? uhg[m+M*s] : 0.0);
             emixPhys += (rhoj[s]*rho_scale/rhoPhys)*StgAir5InternalEnergyMass(s, Tphys);
         }
         dstype vel2phys = (ujn*ujn + vjn*vjn + wjn*wjn)*u_scale*u_scale;
         dstype rhoEphys = rhoPhys*(emixPhys + 0.5*vel2phys);
 
-        fb[m+M*5] = rjn*ujn - uhg[m+M*5];
-        fb[m+M*6] = rjn*vjn - uhg[m+M*6];
-        fb[m+M*7] = rjn*wjn - uhg[m+M*7];
-        fb[m+M*8] = rhoEphys/rhoe_scale - uhg[m+M*8];
+        fb[m+M*5] = rjn*ujn - (subtractTrace ? uhg[m+M*5] : 0.0);
+        fb[m+M*6] = rjn*vjn - (subtractTrace ? uhg[m+M*6] : 0.0);
+        fb[m+M*7] = rjn*wjn - (subtractTrace ? uhg[m+M*7] : 0.0);
+        fb[m+M*8] = rhoEphys/rhoe_scale - (subtractTrace ? uhg[m+M*8] : 0.0);
     });
 }
 
@@ -3412,6 +3412,22 @@ void StgInflowLDG(Ty *fb, Ty *xdg, Ty *vdg, Ty *param, Ty *stgdata, Ty *uc, noDe
     }
     else {
         StgInflowLDG3D(fb, xdg, xdg, vdg, param, stgdata, uc, t, M, N);
+    }
+}
+
+template <class Ty = dstype>
+void StgInFlowLDGchem(Ty *fb, Ty *xdg, Ty *vdg, Ty *physicsparam, Ty *externalparam, Ty *stgdata, Ty *uc, noDeduce_t<Ty> t, int M, int N, int nd)
+{
+    using dstype = Ty;
+    if (nd == 1) {
+    }
+    else if (nd == 2) {
+        StgInFlow2Dchem(fb, xdg, xdg, vdg, static_cast<Ty *>(nullptr), physicsparam,
+                        externalparam, stgdata, uc, t, M, N, false);
+    }
+    else {
+        StgInFlow3Dchem(fb, xdg, xdg, vdg, static_cast<Ty *>(nullptr), physicsparam,
+                        externalparam, stgdata, uc, t, M, N, false);
     }
 }
 

@@ -2055,6 +2055,7 @@ using wallmodelparamsstruct = wallmodelparamsstructT<::dstype, ::Int>;
 // commonstruct (C3). Access via common.stgparams.<field>.
 struct stgparamsstruct {
     Int stgNmode=0;          // number of synthetic-turbulence modes
+    Int stgchem=0;           // 0: ideal-gas STG state; 1: five-species chemistry STG state
     Int nstgib;              // number of STG inlet boundaries
     Int* stgib=nullptr;      // STG inlet-boundary index table
 };

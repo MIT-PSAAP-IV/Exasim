@@ -581,7 +581,7 @@ inline void pdeFinalizeDerived(PDE& pde)
         pde.saveSolFreq, pde.saveSolOpt, pde.timestepOffset, pde.stgNmode, pde.saveSolBouFreq, pde.ibs,
         pde.dae_steps, pde.saveResNorm, pde.AVsmoothingIter, pde.frozenAVflag, pde.ppdegree,
         pde.coupledinterface, pde.coupledcondition, pde.coupledboundarycondition, pde.AVdistfunction,
-        pde.uniformrefinementlevel
+        pde.stgchem, pde.uniformrefinementlevel
     );
     pde.factor       = {pde.time, pde.dae_alpha, pde.dae_beta, pde.dae_gamma, pde.dae_epsilon};
     pde.solversparam = {pde.NewtonTol, pde.GMREStol, pde.matvectol, pde.NLparam};
@@ -792,6 +792,9 @@ inline PDE initializePDE(InputParams& params, int mpirank=0)
     }
     if (params.intParams.count("stgNmode")) {
         pde.stgNmode = params.intParams["stgNmode"];
+    }
+    if (params.intParams.count("stgchem")) {
+        pde.stgchem = params.intParams["stgchem"];
     }
     if (params.intParams.count("temporalscheme")) {
         pde.temporalscheme = params.intParams["temporalscheme"];

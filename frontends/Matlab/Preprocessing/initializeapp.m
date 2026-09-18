@@ -44,6 +44,7 @@ app.wave = 0;
 app.linearproblem = 0;
 app.debugmode = 0;
 app.stgNmode = 0;
+app.stgchem = 0;
 app.porder = 1;
 app.pgauss = 2;
 app.temporalscheme = 0;
@@ -113,4 +114,3 @@ app.dataoutpath = "";
 app.metis = "mpmetis";
 app.gmsh = "gmsh";
 app.paraview = "paraview";
-

@@ -72,6 +72,7 @@ pde.linearproblem = 0;
 pde.subproblem = 0;
 pde.debugmode = 0;
 pde.stgNmode = 0;
+pde.stgchem = 0;
 pde.porder = 1;
 pde.pgauss = 2;
 pde.temporalscheme = 0;
