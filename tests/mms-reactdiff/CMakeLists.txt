@@ -49,7 +49,8 @@ if(EXASIM_GPU)
   target_compile_definitions(consumer_mms PRIVATE _CUDA)
 endif()
 target_link_libraries(consumer_mms PRIVATE
-    Exasim::headers Kokkos::kokkos MPI::MPI_CXX PkgConfig::PETSC
+    Exasim::headers Exasim::HelmholtzModels
+    Kokkos::kokkos MPI::MPI_CXX PkgConfig::PETSC
     LAPACK::LAPACK BLAS::BLAS)
 target_include_directories(consumer_mms PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 
