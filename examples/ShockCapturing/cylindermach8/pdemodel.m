@@ -11,7 +11,7 @@ pde.visscalars = @visscalars;
 end
 
 function m = mass(u, q, w, v, x, t, mu, eta)
-m = sym([1.0; 1.0; 1.0; 1.0]); 
+m = sym([1.0; 1.0; 1.0; 1.0]);
 end
 
 function f = flux(u, q, w, v, x, t, mu, eta)
@@ -97,7 +97,7 @@ fv = [0, txx, txy, uv*txx + vv*txy + (fc)*Tx, ...
 fl = [av.*rx, av.*rux, av.*rvx, av.*rEx, av.*ry, av.*ruy, av.*rvy, av.*rEy];
 f = fi+fv +fl;
 
-f = reshape(f,[4,2]);        
+f = reshape(f,[4,2]);
 end
 
 function f = avfield(u, q, w, v, x, t, mu, eta)
@@ -112,29 +112,29 @@ function fb = fbou(u, q, w, v, x, t, mu, eta, uhat, n, tau)
 
     f = flux(uhat, q, w, v, x, t, mu, eta);
     fi = f(:,1)*n(1) + f(:,2)*n(2) + tau*(u-uhat); % numerical flux at freestream boundary
-    
+
     % adiabatic wall
     faw = fi;
-    faw(1) = 0.0;   % zero velocity 
+    faw(1) = 0.0;   % zero velocity
     faw(end) = 0.0; % adiabatic wall -> zero heat flux
-    
+
     % Flux Thermal Wall
     ftw = fi;
     ftw(1) = 0.0;
-    
+
     % freestream, adiabatic wall, isothermal wall, adiabatic slip wall, supersonic inflow, supersonic outflow
-    fb = [fi faw ftw faw fi fi]; 
+    fb = [fi faw ftw faw fi fi];
 end
 
 function ub = ubou(u, q, w, v, x, t, mu, eta, uhat, n, tau)
 
     gam = mu(1);
     gam1 = gam - 1.0;
-    
+
     % freestream boundary condition
     uinf = sym(mu(5:8)); % freestream flow
     uinf = uinf(:);
-    u = u(:);          % state variables 
+    u = u(:);          % state variables
 
     nx = n(1); ny = n(2);
 
@@ -146,14 +146,14 @@ function ub = ubou(u, q, w, v, x, t, mu, eta, uhat, n, tau)
     utw = u(:);
     utw(2:3) = 0;
     utw(4) = u(1)*TisoW;
-    
+
     % Slip wall
     usw = u;
     usw(2) = u(2) - nx * (u(2)*nx + u(3)*ny);
     usw(3) = u(3) - ny * (u(2)*nx + u(3)*ny);
-    
+
     % freestream, adiabatic wall, isothermal wall, adiabatic slip wall, supersonic inflow, supersonic outflow
-    ub = [uinf uinf utw usw uinf u]; 
+    ub = [uinf uinf utw usw uinf u];
 end
 function fb = fbouhdg(u, q, w, v, x, t, mu, eta, uhat, n, tau)
 
@@ -163,18 +163,18 @@ function fb = fbouhdg(u, q, w, v, x, t, mu, eta, uhat, n, tau)
     Tinf = mu(9);
     Tref = mu(10);
     Twall = mu(11);
-    TisoW = Twall/Tref * Tinf;    
+    TisoW = Twall/Tref * Tinf;
     uinf = sym(mu(5:8)); % freestream flow
     uinf = uinf(:);
 
     f_out = u - uhat;
     f_in = uinf - uhat;
 
-    % wall boundary condition    
+    % wall boundary condition
     f1 = 0*u;
     f1(1) = u(1) - uhat(1); % extrapolate density
     f1(2) = 0.0  - uhat(2); % zero velocity
-    f1(3) = 0.0  - uhat(3); % zero velocity           
+    f1(3) = 0.0  - uhat(3); % zero velocity
     f1(4) = -uhat(4) +uhat(1)*TisoW;
     % f = flux(uhat, q, w, v, x, t, mu, eta);
     % f1(4) = f(4,1)*n(1) + f(4,2)*n(2) + tau*(u(4)-uhat(4)); % zero heat flux
@@ -183,7 +183,7 @@ function fb = fbouhdg(u, q, w, v, x, t, mu, eta, uhat, n, tau)
 end
 
 function u0 = initu(x, mu, eta)
-    u0 = sym(mu(5:8)); % freestream flow   
+    u0 = sym(mu(5:8)); % freestream flow
 end
 
 function s = visscalars(u, q, w, v, x, t, mu, eta)
@@ -198,5 +198,3 @@ function s = visscalars(u, q, w, v, x, t, mu, eta)
     av = mu(end)*v(2)*tanh(mu(end-2)*v(1));
     s = [mach; av];
 end
-
-

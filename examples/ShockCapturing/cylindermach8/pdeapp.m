@@ -17,11 +17,11 @@ pde.porder = 4;          % polynomial degree
 
 mesh = mkmesh_cyl(pde.porder);
 % iso-thermal wall, supersonic outflow, supersonic inflow
-mesh.boundarycondition = [3;6;5]; 
+mesh.boundarycondition = [3;6;5];
 
 gam = 1.4;                      % specific heat ratio
 Re = 1.835e5;                     % Reynolds number
-Pr = 0.71;                      % Prandtl number    
+Pr = 0.71;                      % Prandtl number
 Minf = 8.03;                     % Mach number
 Tref  = 265;
 Twall = 300;
@@ -69,7 +69,7 @@ mesh.vdg(:,2,:) = 0; % reserved for AV
 
 % intial solution
 ui = [rinf ruinf rvinf rEinf];
-UDG = initu(mesh,{ui(1),ui(2),ui(3),ui(4)}); % freestream 
+UDG = initu(mesh,{ui(1),ui(2),ui(3),ui(4)}); % freestream
 UDG(:,2,:) = UDG(:,2,:).*tanh(10*dist);
 UDG(:,3,:) = UDG(:,3,:).*tanh(10*dist);
 TnearWall = Tinf * (Twall/Tref-1) * exp(-10*dist) + Tinf;
@@ -99,4 +99,3 @@ axis equal; axis tight; colorbar;
 
 figure(3); clf; scaplot(mesh, vdg(:,2,:), [], 2);
 axis equal; axis tight; colorbar;
-
