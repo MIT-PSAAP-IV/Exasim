@@ -492,7 +492,7 @@ CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string e
         // allocate data for structs in CPU memory
         cpuInit(hsol, hres, happ, driver_abi, hmaster, hmesh, htmp, hcommon, filein, fileout,
                 mpiprocs, mpirank, fileoffset, omprank,
-                physicsparamOverride);
+                physicsparamOverride, mode);
 
         // copy data from cpu memory to gpu memory
         gpuInit(sol, res, app, driver_abi, master, mesh, tmp, common,
@@ -536,7 +536,7 @@ CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string e
     else  {// CPU
         cpuInit(sol, res, app, driver_abi, master, mesh, tmp, common, filein, fileout,
                 mpiprocs, mpirank, fileoffset, omprank,
-                physicsparamOverride);
+                physicsparamOverride, mode);
     }
     finalizeConstruction(backend, mode, nsca, nvec, nten, nsurf, nvqoi, saveParaview);
 }

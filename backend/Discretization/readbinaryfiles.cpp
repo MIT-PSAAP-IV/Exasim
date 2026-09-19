@@ -664,7 +664,8 @@ void readsolstruct(string filename, solstruct &sol, appstruct &app, ExasimDriver
 
 void readInput(appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh, solstruct &sol, string filein, 
         Int mpiprocs, Int mpirank, Int fileoffset, Int omprank,
-        const std::vector<dstype>* physicsparamOverride = nullptr)
+        const std::vector<dstype>* physicsparamOverride = nullptr,
+        ExasimExecutionMode mode = ExasimExecutionMode::Solve)
 {   
     if (mpirank==0) printf("Reading app from binary files \n");  
     string fileapp = filein + "app.bin";        
@@ -685,7 +686,7 @@ void readInput(appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master
     setAppRuntimeContext(app, master, mpirank, mpiprocs);
 
     string filematerialdb = filein + "materialdatabase.bin";
-    if (materialdatabase_fileexists(filematerialdb)) {
+    if ((mode != ExasimExecutionMode::AuxiliaryHelmholtz) && materialdatabase_fileexists(filematerialdb)) {
         if (mpirank==0) printf("Reading material database from binary files \n");
         readmaterialdatabase(filematerialdb, app);
         if (mpirank == 0) {
@@ -721,7 +722,66 @@ void readInput(appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master
         
         if (mpirank==0) printf("Reading mesh from binary files \n");         
         readmeshstruct(filemesh, mesh, sol, app, master, mpirank);                      
-    }    
+    }
+
+    if (mode == ExasimExecutionMode::AuxiliaryHelmholtz) {
+        const Int npe = master.ndims[5];
+        const Int ne = mesh.ndims[1];
+        const Int nd = app.ndims[AppNdims::nd];
+
+        // Keep the original coordinates and mesh, but replace all model-owned
+        // fields by the scalar Helmholtz state and
+        // v=(sensor,C_h*sqrt(smoothed nodal Jacobian)).
+        CPUFREE(sol.udg); sol.udg = nullptr;
+        CPUFREE(sol.odg); sol.odg = nullptr;
+        CPUFREE(sol.wdg); sol.wdg = nullptr;
+        CPUFREE(sol.uh);  sol.uh = nullptr;
+        sol.szudg = npe*(1 + nd)*ne;
+        sol.szodg = npe*2*ne;
+        sol.szwdg = 0;
+        sol.szuh = 0;
+        sol.udg = (dstype*) malloc(sizeof(dstype)*sol.szudg);
+        sol.odg = (dstype*) malloc(sizeof(dstype)*sol.szodg);
+        cpuArraySetValue(sol.udg, zero, sol.szudg);
+        cpuArraySetValue(sol.odg, zero, sol.szodg);
+        sol.needudginit = 0;
+        sol.needodginit = 0;
+        app.read_uh = 0;
+        sol.nsize[2] = sol.szudg;
+        sol.nsize[3] = sol.szodg;
+        sol.nsize[4] = 0;
+        sol.nsize[5] = 0;
+
+        app.ndims[AppNdims::nc] = 1 + nd;
+        app.ndims[AppNdims::ncu] = 1;
+        app.ndims[AppNdims::ncq] = nd;
+        app.ndims[AppNdims::ncp] = 0;
+        app.ndims[AppNdims::nco] = 2;
+        app.ndims[AppNdims::nch] = 1;
+        app.ndims[AppNdims::nce] = 0;
+        app.ndims[AppNdims::ncw] = 0;
+        app.ndims[AppNdims::nsca] = 0;
+        app.ndims[AppNdims::nvec] = 0;
+        app.ndims[AppNdims::nten] = 0;
+        app.ndims[AppNdims::nsurf] = 0;
+        app.ndims[AppNdims::nvqoi] = 0;
+        app.flag[0] = 0;  // steady
+        app.flag[1] = 0;  // not a wave problem
+        app.flag[2] = 1;  // linear PDE
+        app.flag[11] = 1; // source term present
+        app.problem[0] = 1;  // HDG
+        app.problem[11] = 0; // no recursive AV evaluation
+        app.problem[28] = 0; // no external model coupling
+        app.problem[29] = 0;
+        app.problem[30] = 0;
+        app.problem[31] = 0;
+
+        // The internal model uses one boundary implementation for homogeneous
+        // Neumann data, independent of the application's physical tags.
+        const Int nbf = mesh.ndims[4]*mesh.ndims[1];
+        for (Int i = 0; i < nbf; ++i)
+            if (mesh.bf[i] > 0) mesh.bf[i] = 1;
+    }
 }
 
 void writeOutput(appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh, solstruct &sol, string fileout, 
