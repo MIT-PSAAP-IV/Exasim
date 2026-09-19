@@ -254,6 +254,12 @@ report.pressureField = p;
 report.temperatureField = T;
 report.velocityField = velocityPhys;
 report.MachField = Mach;
+report.YN2 = reshape(props(:,11), size(rho));
+report.YO2 = reshape(props(:,12), size(rho));
+report.YNO = reshape(props(:,13), size(rho));
+report.YN = reshape(props(:,14), size(rho));
+report.YO = reshape(props(:,15), size(rho));
+
 end
 
 function local_print_diagnostics(label, report, setupReport)

@@ -1,5 +1,14 @@
 # Material databases
 
+`equilibriumAir5.dat` is a 129-by-129 equilibrium-air table for the neutral
+species `N2`, `O2`, `NO`, `N`, and `O`. It uses Cantera NASA-9 thermodynamics,
+mixture-averaged transport, equilibrium derivatives, and equilibrium (not
+frozen) sound speed. Its energy coordinate includes formation and dissociation
+energy in Cantera's native reference convention. See
+[`equilibrium_air5/README.md`](equilibrium_air5/README.md) for the precise
+model, domain, column order, ionization limit, reproduction procedure, and
+validation results.
+
 `equilibriumAir5logdensitymutationpp.dat` has the same 161-by-161 coordinates
 but stores Mutation++ conductivity as two separate columns:
 `kappa_frozen` and `kappa_reactive`. Its first columns are
