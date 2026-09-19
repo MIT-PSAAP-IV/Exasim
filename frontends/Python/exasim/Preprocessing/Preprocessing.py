@@ -344,7 +344,7 @@ def preprocessing(app,mesh):
 
         nsize[24-1] = len(master['perm'].flatten())
         nsize[25-1] = len(dmd[i]['bf'].flatten())
-        ti = mesh['tprd'][:,dmd[i]['elempart'].flatten()] - 1
+        ti = mesh['tprd'][:,dmd[i]['elempart'].flatten()]
         nsize[27-1] = len(ti.flatten());         
         nsize[28-1] = size(app['boundaryconditions']);         
 

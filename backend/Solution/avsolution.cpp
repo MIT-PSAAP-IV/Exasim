@@ -15,13 +15,16 @@ void avdistfunc(CSolution<exasim::detail::AbiAdapter>** pdemodel, ofstream* out,
     }
   }
   
-  for (int i=0; i<nummodels; i++) {        
+  for (int i=0; i<nummodels; i++) {
+    string fn1 = pdemodel[i]->disc.common.fileout + "vdg_np" + NumberToString(pdemodel[i]->disc.common.mpiRank-pdemodel[i]->disc.common.outputparams.fileoffset) + ".bin";
+    writearray2file(fn1, pdemodel[i]->disc.sol.odg, pdemodel[i]->disc.common.sizes.ndofodg1, backend);
+
     pdemodel[i]->writer.SaveSolutions(backend);    
     pdemodel[i]->writer.SaveSolutionsOnBoundary(backend);         
+    if (pdemodel[i]->vis.savemode > 0)
+      pdemodel[i]->writer.SaveParaview(backend);
     if (pdemodel[i]->disc.common.components.nce>0)
       pdemodel[i]->writer.SaveOutputCG(backend);            
   }
 }
-
-
 

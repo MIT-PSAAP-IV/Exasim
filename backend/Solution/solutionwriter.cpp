@@ -21,8 +21,15 @@ inline int count_model_mesh_partitions(const std::string& filein)
         for (const auto& entry : fs::directory_iterator(dir, ec)) {
             if (ec) break;
             const std::string name = entry.path().filename().generic_string();
-            if (name.rfind("mesh", 0) == 0 && entry.path().extension() == ".bin")
-                count++;
+            // Parallel partitions are mesh1.bin, ..., meshN.bin.  The source
+            // mesh.bin may coexist with them and must not be counted as a rank.
+            if (name.size() <= 8 || name.rfind("mesh", 0) != 0 ||
+                name.compare(name.size() - 4, 4, ".bin") != 0)
+                continue;
+            bool numbered = true;
+            for (size_t i = 4; i < name.size() - 4; ++i)
+                numbered = numbered && name[i] >= '0' && name[i] <= '9';
+            if (numbered) count++;
         }
     }
     return count;
@@ -446,8 +453,17 @@ void CSolutionWriter<M>::SaveParaview(Int backend, std::string fname_modifier, b
     // Decide whether we should write a file on this step
     bool writeSolution = false;
     
-    const int localRank = disc.common.mpiRank - disc.common.outputparams.fileoffset;
-    int localProcs = (disc.common.mpiProcs > 1) ? count_model_mesh_partitions(disc.common.filein) : 1;
+    int localRank = disc.common.mpiRank - disc.common.outputparams.fileoffset;
+    int localProcs = 1;
+#ifdef HAVE_MPI
+    if (EXASIM_COMM_LOCAL != MPI_COMM_NULL) {
+        MPI_Comm_rank(EXASIM_COMM_LOCAL, &localRank);
+        MPI_Comm_size(EXASIM_COMM_LOCAL, &localProcs);
+    }
+    else
+#endif
+    if (disc.common.mpiProcs > 1)
+        localProcs = count_model_mesh_partitions(disc.common.filein);
     if (localProcs <= 0)
         localProcs = disc.common.mpiProcs;
 

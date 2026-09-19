@@ -29,6 +29,15 @@ def build_case():
     pde["datapath"] = run_directory
     pde["builddir"] = os.path.join(run_directory, ".exasim")
     pde["buildpath"] = pde["builddir"]
+    # Match the MATLAB/Julia empty optional tails in app.bin.
+    pde["flag"] = np.empty(0, dtype=np.int64)
+    pde["problem"] = np.empty(0, dtype=np.int64)
+    pde["factor"] = np.empty(0)
+    pde["solversparam"] = np.empty(0)
+    pde["stgdata"] = np.empty(0)
+    pde["stgparam"] = np.empty(0)
+    pde["stgib"] = np.empty(0, dtype=np.int64)
+    pde["dae_dt"] = np.empty(0)
 
     gam = 1.4
     reynolds = 1.835e5
