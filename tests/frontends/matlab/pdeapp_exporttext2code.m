@@ -17,6 +17,16 @@ pde.physicsparamsweep = [1; 2];
 pde.tau = 1.0;
 % Exported to pdeapp.txt and applied by text2code (grid + xdg/udg/vdg/wdg are refined there).
 pde.uniformrefinementlevel = 1;
+pde.AV = 1;
+pde.AVdistfunction = 1;
+pde.AVsmoothingMethod = 1;
+pde.AVHelmholtzCoeff = 0.375;
+pde.avparam1 = [9.0, 8.0];
+pde.avparam2 = [7.0, 6.0];
+pde.AVcontinuationIter = 5;
+pde.AVcontinuationLogScale = 1.0;
+pde.AVcoeffStart = 0.06;
+pde.AVcoeffEnd = 0.015;
 
 [mesh.p,mesh.t] = squaremesh(2,2,1,1);
 mesh.boundaryexpr = {@(p) abs(p(2,:))<1e-8, @(p) abs(p(1,:)-1)<1e-8, @(p) abs(p(2,:)-1)<1e-8, @(p) abs(p(1,:))<1e-8};
@@ -29,6 +39,11 @@ ne = size(mesh.dgnodes, 3);
 mesh.udg = zeros(npe, pde.ncu, ne);
 mesh.vdg = ones(npe, 1, ne);
 mesh.wdg = 2*ones(npe, 1, ne);
+
+% Compare the exported package against ordinary MATLAB preprocessing.
+pde_native = pde;
+pde_native.datapath = string(fullfile(pwd, "native_preprocessing"));
+preprocessing(pde_native, mesh);
 
 dest = fullfile(pwd, "text2code_package");
 exporttext2code(pde, mesh, dest);

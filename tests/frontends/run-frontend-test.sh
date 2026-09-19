@@ -167,6 +167,9 @@ fi
 # text2code executable must be able to regenerate datain from that package
 # without the Python frontend.
 if [ "${EXPORT_TEXT2CODE_TEST:-0}" = "1" ]; then
+  CHECK_PY="${PYTHON3:-python3}"
+  command -v "$CHECK_PY" >/dev/null 2>&1 \
+    || { echo "SKIP: no python3 for binary-format checks"; exit "$SKIP"; }
   B="$(pwd)/text2code_package"
   [ -d "$B" ] || { echo "FAIL: no Text2Code package at $B"; exit 1; }
   for f in pdemodel.txt pdeapp.txt grid.bin xdg.bin udg.bin vdg.bin wdg.bin README.md; do
@@ -184,6 +187,22 @@ if [ "${EXPORT_TEXT2CODE_TEST:-0}" = "1" ]; then
   # key would silently hand text2code the coarse mesh.
   grep -q 'uniformrefinementlevel = 1;' "$B/pdeapp.txt" \
     || { echo "FAIL: pdeapp.txt missing uniformrefinementlevel"; exit 1; }
+  grep -q 'AV = 1;' "$B/pdeapp.txt" \
+    || { echo "FAIL: pdeapp.txt missing AV"; exit 1; }
+  grep -q 'AVdistfunction = 1;' "$B/pdeapp.txt" \
+    || { echo "FAIL: pdeapp.txt missing AVdistfunction"; exit 1; }
+  grep -q 'AVsmoothingMethod = 1;' "$B/pdeapp.txt" \
+    || { echo "FAIL: pdeapp.txt missing AVsmoothingMethod"; exit 1; }
+  grep -q 'AVHelmholtzCoeff = 0.375;' "$B/pdeapp.txt" \
+    || { echo "FAIL: pdeapp.txt missing AVHelmholtzCoeff"; exit 1; }
+  grep -q 'AVcontinuationIter = 5;' "$B/pdeapp.txt" \
+    || { echo "FAIL: pdeapp.txt missing AVcontinuationIter"; exit 1; }
+  grep -Eq 'AVcontinuationLogScale = 1(\.0)?;' "$B/pdeapp.txt" \
+    || { echo "FAIL: pdeapp.txt missing AVcontinuationLogScale"; exit 1; }
+  grep -q '^AVcoeffStart = ' "$B/pdeapp.txt" \
+    || { echo "FAIL: pdeapp.txt missing AVcoeffStart"; exit 1; }
+  grep -q '^AVcoeffEnd = ' "$B/pdeapp.txt" \
+    || { echo "FAIL: pdeapp.txt missing AVcoeffEnd"; exit 1; }
   TEXT2CODE="${EXASIM_TEXT2CODE:-$INSTALL/bin/text2code}"
   [ -x "$TEXT2CODE" ] \
     || { echo "SKIP: text2code not found at $TEXT2CODE"; exit "$SKIP"; }
@@ -194,6 +213,31 @@ if [ "${EXPORT_TEXT2CODE_TEST:-0}" = "1" ]; then
   for f in datain/app.bin datain/master.bin datain/mesh.bin datain/physicsparamcases.bin; do
     [ -f "$B/$f" ] || { echo "FAIL: text2code did not produce $f"; exit 1; }
   done
+  "$CHECK_PY" "$ROOT/tests/text2code/check-avfilterparam.py" \
+    "$B/datain/app.bin" 1 0.375 \
+    "$RUN/a/native_preprocessing/datain/app.bin"
+  "$CHECK_PY" "$ROOT/tests/text2code/check-avparam.py" \
+    "$B/datain/app.bin" 5 1.0 0.06 0.015 \
+    "$RUN/a/native_preprocessing/datain/app.bin"
+
+  # Removing the new settings exercises Text2Code's backward-compatible
+  # defaults and preserves explicitly supplied avparam1/avparam2 arrays.
+  DEFAULT="$RUN/text2code_default"
+  cp -R "$B" "$DEFAULT"
+  rm -rf "$DEFAULT/datain" "$DEFAULT/generated"
+  sed -i.bak \
+    '/^AVsmoothingMethod =/d; /^AVHelmholtzCoeff =/d; /^AVcontinuationIter =/d; /^AVcontinuationLogScale =/d; /^AVcoeffStart =/d; /^AVcoeffEnd =/d' \
+    "$DEFAULT/pdeapp.txt"
+  rm -f "$DEFAULT/pdeapp.txt.bak"
+  (
+    cd "$DEFAULT"
+    EXASIM_PREFIX="$INSTALL" "$TEXT2CODE" pdeapp.txt --out-dir generated --gen-only \
+      > text2code.log 2>&1
+  ) || { cat "$DEFAULT/text2code.log"; echo "FAIL: text2code default-settings run failed"; exit 1; }
+  "$CHECK_PY" "$ROOT/tests/text2code/check-avfilterparam.py" \
+    "$DEFAULT/datain/app.bin" 0 1.0
+  "$CHECK_PY" "$ROOT/tests/text2code/check-avparam.py" \
+    "$DEFAULT/datain/app.bin" 0 1.0 0.0 0.0 --expected 9.0,7.0,8.0,6.0
   [ -f "$B/generated/SymbolicFunctions.cpp" ] \
     || { echo "FAIL: text2code did not generate model sources"; exit 1; }
   grep -q 'uniformrefinementlevel = 1' "$B/text2code.log" \
