@@ -22,14 +22,13 @@ static void KokkosAvfieldTemplate(dstype* f, const dstype* xdg,
     (void)nc_runtime;
     (void)ncu_runtime;
     (void)nd_runtime;
-    (void)ncx;
     (void)nco_runtime;
     (void)ncw_runtime;
-    (void)nce_runtime;
-    (void)npe;
     (void)ne;
 
     Kokkos::parallel_for("Avfield", ng, KOKKOS_LAMBDA(const size_t i) {
+        const int p = i % npe;
+        const int e = i / npe;
         constexpr int nd = Model::nd;
         constexpr int ncu = Model::ncu;
         constexpr int nc = ncu * (1 + nd);
@@ -41,14 +40,20 @@ static void KokkosAvfieldTemplate(dstype* f, const dstype* xdg,
         dstype w[(ncw > 0) ? ncw : 1];
         dstype av_local[ncu];
 
-        for (int k = 0; k < nd; ++k) x[k] = xdg[k * ng + i];
-        for (int k = 0; k < nc; ++k) uq[k] = udg[k * ng + i];
-        for (int k = 0; k < nco; ++k) v[k] = odg[k * ng + i];
-        for (int k = 0; k < ncw; ++k) w[k] = wdg[k * ng + i];
+        for (int k = 0; k < ncu; ++k) av_local[k] = 0.0;
+        for (int k = 0; k < nd; ++k)
+            x[k] = xdg[p + npe * k + npe * ncx * e];
+        for (int k = 0; k < nc; ++k)
+            uq[k] = udg[p + npe * k + npe * nc_runtime * e];
+        for (int k = 0; k < nco; ++k)
+            v[k] = odg[p + npe * k + npe * nco_runtime * e];
+        for (int k = 0; k < ncw; ++k)
+            w[k] = wdg[p + npe * k + npe * ncw_runtime * e];
 
         Model::avfield(av_local, x, uq, v, w, param, uinf, time);
 
-        for (int k = 0; k < ncu; ++k) f[k * ng + i] = av_local[k];
+        for (int k = 0; k < nce_runtime; ++k)
+            f[p + npe * k + npe * nce_runtime * e] = av_local[k];
     });
 }
 

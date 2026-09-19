@@ -115,6 +115,19 @@ function avfield(u, q, w, v, x, t, mu, eta)
     return [limiting_value(divergence * tanh(mu[end-2] * v[1]), 0.0, mu[end-3], 1.0e3, 0.0)]
 end
 
+function visscalars(u, q, w, v, x, t, mu, eta)
+    gam = mu[1]
+    density = u[1]
+    velocity_x = u[2] / density
+    velocity_y = u[3] / density
+    signed_pressure = (gam - 1.0) *
+                      (u[4] - 0.5 * (u[2] * velocity_x + u[3] * velocity_y))
+    pressure = sqrt(signed_pressure * signed_pressure)
+    mach = sqrt(velocity_x^2 + velocity_y^2) / sqrt(gam * pressure / density)
+    artificial_viscosity = mu[end] * v[2] * tanh(mu[end-2] * v[1])
+    return [mach, artificial_viscosity]
+end
+
 source(u, q, w, v, x, t, mu, eta) = fill(0.0 * u[1], 4)
 
 function fbou(u, q, w, v, x, t, mu, eta, uhat, n, tau)

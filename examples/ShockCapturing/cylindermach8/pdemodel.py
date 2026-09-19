@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
-from sympy import atan, pi, tanh
+from sympy import atan, pi, sqrt, tanh
 
 
 def _lmax(value, alpha):
@@ -144,6 +144,20 @@ def avfield(u, q, w, v, x, t, mu, eta):
     return np.array(
         [_limiting(divergence * tanh(mu[-3] * v[0]), 0.0, mu[-4], 1.0e3, 0.0)]
     )
+
+
+def visscalars(u, q, w, v, x, t, mu, eta):
+    gam = mu[0]
+    density = u[0]
+    velocity_x = u[1] / density
+    velocity_y = u[2] / density
+    signed_pressure = (gam - 1.0) * (
+        u[3] - 0.5 * (u[1] * velocity_x + u[2] * velocity_y)
+    )
+    pressure = sqrt(signed_pressure * signed_pressure)
+    mach = sqrt(velocity_x**2 + velocity_y**2) / sqrt(gam * pressure / density)
+    artificial_viscosity = mu[-1] * v[1] * tanh(mu[-3] * v[0])
+    return np.array([mach, artificial_viscosity])
 
 
 def source(u, q, w, v, x, t, mu, eta):
