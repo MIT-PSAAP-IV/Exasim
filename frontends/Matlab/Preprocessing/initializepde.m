@@ -134,6 +134,12 @@ pde.vindx = [];
 pde.interfacefluxmap = [];
 pde.avparam1 = [];
 pde.avparam2 = [];
+pde.AVcontinuationIter = 0; % >= 2 regenerates and overrides avparam1/avparam2
+pde.AVcontinuationLogScale = 1.0; % loginc spacing parameter
+pde.AVcoeffStart = 0.0;
+pde.AVcoeffEnd = 0.0;
+pde.AVsmoothingMethod = 0; % 0: DG2CG2, 1: internal HDG Helmholtz filter
+pde.AVHelmholtzCoeff = 1.0; % multiplier for sqrt(smoothed nodal Jacobian)
 
 pde.tau = 1.0; 
 pde.externalparam = [0.0 0.0]; 

@@ -107,9 +107,11 @@ void readappstruct(string filename, appstruct &app)
     const Int szwmModelIDs = (app.lsize[0] > 16) ? app.nsize[16] : 0;
     const Int szwmBoundaries = (app.lsize[0] > 17) ? app.nsize[17] : 0;
     const Int szwmDistances = (app.lsize[0] > 18) ? app.nsize[18] : 0;
+    const Int szavfilterparam = (app.lsize[0] > 19) ? app.nsize[19] : 0;
     if (szwmModelIDs > 0) app.wmModelIDs = readiarrayfromdouble(in, szwmModelIDs);
     if (szwmBoundaries > 0) app.wmBoundaries = readiarrayfromdouble(in, szwmBoundaries);
     if (szwmDistances > 0) readarray(in, &app.wmDistances, szwmDistances);
+    if (szavfilterparam > 0) readarray(in, &app.avfilterparam, szavfilterparam);
     
     app.szflag = app.nsize[1];
     app.szproblem = app.nsize[2];
@@ -129,6 +131,7 @@ void readappstruct(string filename, appstruct &app)
     app.szwmModelIDs = szwmModelIDs;
     app.szwmBoundaries = szwmBoundaries;
     app.szwmDistances = szwmDistances;
+    app.szavfilterparam = szavfilterparam;
 
     #ifdef HAVE_MPP
         char a[50];
@@ -227,6 +230,7 @@ void writeappstruct(string filename, appstruct &app)
     if (app.lsize[0] > 16) writeiarraytodouble(out, app.wmModelIDs, app.nsize[16]);
     if (app.lsize[0] > 17) writeiarraytodouble(out, app.wmBoundaries, app.nsize[17]);
     if (app.lsize[0] > 18) writearray(out, app.wmDistances, app.nsize[18]);
+    if (app.lsize[0] > 19) writearray(out, app.avfilterparam, app.nsize[19]);
     
     // Close file:
     out.close();

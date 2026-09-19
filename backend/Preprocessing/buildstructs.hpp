@@ -103,7 +103,8 @@ inline T* mallocDoubleArrayN(const T* src, Int n)
 //   payload    = flag, problem, externalparam, dt, factor,
 //                physicsparam, solversparam, tau, stgdata, stgparam,
 //                stgib, vindx (shifted by -1), dae_dt, interfaceFluxmap,
-//                avparam (= avparam1 ++ avparam2)
+//                avparam (= interleaved avparam1/avparam2 pairs), wall-model arrays,
+//                avfilterparam (= [AVsmoothingMethod, AVHelmholtzCoeff])
 //
 // app.uinf is sourced from pde.externalparam (this is the legacy ABI;
 // see readappstruct line 81: app.uinf <- nsize[3] = externalparam.size()).
@@ -139,9 +140,13 @@ inline appstructT<T,I> buildAppStruct(const PDE& pde)
 
     // ---- nsize (30 entries, sub-array sizes) ----
     constexpr Int kNSize = 30;
-    std::vector<double> avparam;
-    avparam.insert(avparam.end(), pde.avparam1.begin(), pde.avparam1.end());
-    avparam.insert(avparam.end(), pde.avparam2.begin(), pde.avparam2.end());
+    if (pde.avparam1.size() != pde.avparam2.size())
+        error("avparam1 and avparam2 must have the same length.");
+    std::vector<double> avparam(2 * pde.avparam1.size());
+    for (size_t i = 0; i < pde.avparam1.size(); ++i) {
+        avparam[2*i] = pde.avparam1[i];
+        avparam[2*i + 1] = pde.avparam2[i];
+    }
 
     app.nsize = (Int*)std::calloc(kNSize, sizeof(Int));
     app.nsize[0]  = kNDims;
@@ -160,6 +165,7 @@ inline appstructT<T,I> buildAppStruct(const PDE& pde)
     app.nsize[13] = (Int)pde.dae_dt.size();
     app.nsize[14] = (Int)pde.interfaceFluxmap.size();
     app.nsize[15] = (Int)avparam.size();
+    app.nsize[19] = 2;
 
     app.lsize = (Int*)std::malloc(sizeof(Int));
     app.lsize[0] = kNSize;
@@ -190,6 +196,9 @@ inline appstructT<T,I> buildAppStruct(const PDE& pde)
         }
     }
     app.avparam          = mallocDoubleArray<T>(avparam);
+    app.avfilterparam    = (T*)std::malloc(2*sizeof(T));
+    app.avfilterparam[0] = static_cast<T>(pde.AVsmoothingMethod);
+    app.avfilterparam[1] = static_cast<T>(pde.AVHelmholtzCoeff);
 
     // ---- size fields (mirrors readappstruct lines 95-109) ----
     app.szflag             = app.nsize[1];
@@ -207,6 +216,7 @@ inline appstructT<T,I> buildAppStruct(const PDE& pde)
     app.szdae_dt           = app.nsize[13];
     app.szinterfacefluxmap = app.nsize[14];
     app.szavparam          = app.nsize[15];
+    app.szavfilterparam    = app.nsize[19];
 
     // ---- derived fc_u/fc_q/fc_w (mirrors readappstruct lines 134-168) ----
     Int ncu = app.ndims[AppNdims::ncu];

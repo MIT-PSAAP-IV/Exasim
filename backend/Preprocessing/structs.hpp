@@ -165,6 +165,8 @@ struct PDE {
     int AV = 0;
     int AVdistfunction = 0;
     int AVsmoothingIter = 2;
+    int AVsmoothingMethod = 0;
+    int AVcontinuationIter = 0; // >= 2 regenerates and overrides avparam1/avparam2
     int frozenAVflag = 1;
     int nonlinearsolver = 0;
     int linearsolver = 0;
@@ -211,6 +213,10 @@ struct PDE {
     double NewtonTol = 1e-6;
     double GMREStol = 1e-3;
     double matvectol = 1e-3;
+    double AVHelmholtzCoeff = 1.0;
+    double AVcontinuationLogScale = 1.0; // loginc spacing parameter
+    double AVcoeffStart = 0.0;
+    double AVcoeffEnd = 0.0;
     double dae_alpha = 0.0;
     double dae_beta = 0.0;
     double dae_gamma = 0.0;

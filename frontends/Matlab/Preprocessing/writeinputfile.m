@@ -30,7 +30,7 @@ pde.wmBoundaries = pde.wmBoundaries(:)';
 pde.wmDistances = pde.wmDistances(:)';
 
 pde.boundaryconditions = mesh.boundarycondition(:)';
-pde.boundaryexpressions = convertHandlesToStrings(mesh.boundaryexpr);
+pde.boundaryexpressions = normalizeText2CodeExpressions(convertHandlesToStrings(mesh.boundaryexpr));
 if isfield(mesh, "curvedboundary")
   pde.curvedboundaries = mesh.curvedboundary;
 else
@@ -48,7 +48,7 @@ if isfield(pde, 'curvedboundaries') == 0 || isempty(pde.curvedboundaries)
   pde.curvedboundaries = 0*pde.boundaryconditions;
   pde.curvedboundaryexprs = repmat("", [1 length(pde.boundaryconditions)]);
 else
-  pde.curvedboundaryexprs = convertHandlesToStrings(pde.curvedboundaryexprs);
+  pde.curvedboundaryexprs = normalizeText2CodeExpressions(convertHandlesToStrings(pde.curvedboundaryexprs));
 end
 
 % mesh.periodicexpr = {2, @(p) p(2,:), 4, @(p) p(2,:)};
@@ -69,7 +69,7 @@ else
   for j = 1:m
     pde.periodicboundaries1(j) = periodicexpr{j,1};
     pde.periodicboundaries2(j) = periodicexpr{j,3};
-    tm = convertHandlesToStrings({periodicexpr{j,2}});    
+    tm = normalizeText2CodeExpressions(convertHandlesToStrings({periodicexpr{j,2}}));
     if tm == "xy"
       pde.periodicexprs1(2*j-1:2*j) = ["x", "y"];
     elseif tm == "xz"
@@ -79,7 +79,7 @@ else
     else
       pde.periodicexprs1(j) = tm;
     end    
-    tm = convertHandlesToStrings({periodicexpr{j,4}});    
+    tm = normalizeText2CodeExpressions(convertHandlesToStrings({periodicexpr{j,4}}));
     if tm == "xy"
       pde.periodicexprs2(2*j-1:2*j) = ["x", "y"];
     elseif tm == "xz"
@@ -132,7 +132,10 @@ requiredKeys = ["exasimpath", "datapath", "model", "modelfile", "meshfile", "xdg
   "nstage","ncu", "ncv", "ncw", "neb", "nfb", "NewtonIter", "NewtonTol", "GMRESiter", "GMRESrestart",...
   "GMREStol", "GMRESortho","ppdegree","RBdim", "matvecorder", "matvectol", "precMatrixType",...
   "preconditioner", "saveSolFreq", "saveSolOpt", "saveSolBouFreq", "saveParaview",...
-  "physicsparamwarmstart", "time", "tau", "dt", "physicsparam",...
+  "physicsparamwarmstart", "AV", "AVdistfunction", "AVsmoothingIter", ...
+  "AVsmoothingMethod", "AVHelmholtzCoeff", "AVcontinuationIter", ...
+  "AVcontinuationLogScale", "AVcoeffStart", "AVcoeffEnd", "frozenAVflag", ...
+  "time", "tau", "dt", "physicsparam", "avparam1", "avparam2",...
   "physicsparamcases", "externalparam", "boundaryconditions",...
   "stgNmode", "stgchem", "stgib", "stgdata", "stgparam",...
   "dae_alpha","dae_beta","dae_gamma","wmModelIDs", "wmBoundaries", "wmDistances",...
@@ -159,20 +162,20 @@ for i = 1:length(requiredKeys)
           fprintf(fid, '%s = [];\n', key);       
         elseif length(value)==1
           if key == "dt" || key == "tau" || key == "physicsparam" || key == "externalparam" || key == "boundaryconditions" || key == "stgib" || key == "stgdata" || key == "stgparam" || key == "wmModelIDs" || key == "wmBoundaries" || key == "wmDistances" || key == "curvedboundaries" || key == "periodicboundaries1" || key == "periodicboundaries2" || key == "interfacefluxmap"
-            fprintf(fid, '%s = [%s];\n', key, mat2str(value));       
+            fprintf(fid, '%s = [%s];\n', key, mat2str(value, 17));
           else
-            fprintf(fid, '%s = %s;\n', key, mat2str(value));       
+            fprintf(fid, '%s = %s;\n', key, mat2str(value, 17));
           end
         elseif key == "physicsparamcases"
-          fprintf(fid, '%s = %s;\n', key, mat2str(value));
+          fprintf(fid, '%s = %s;\n', key, mat2str(value, 17));
         else                       
-          tm = num2str(value(1));
+          tm = num2str(value(1), 17);
           sep = ", ";
           if key == "interfaceconditions" && size(value,2) == 1
             sep = "; ";
           end
           for k = 2:length(value)
-            tm = tm +  sep + num2str(value(k));            
+            tm = tm +  sep + num2str(value(k), 17);
           end          
           tm = "[" + tm + "]";          
           fprintf(fid, '%s = %s;\n', key, char(tm));         
@@ -226,3 +229,16 @@ end
 end
 
   
+function value = normalizeText2CodeExpressions(value)
+% MATLAB mesh callbacks use elementwise operators, but text2code evaluates
+% scalar coordinates. Strip only the elementwise dots in serialized text.
+if iscell(value)
+  for ii = 1:numel(value)
+    value{ii} = normalizeText2CodeExpressions(value{ii});
+  end
+elseif isstring(value)
+  value = replace(value, [".^", ".*", "./"], ["^", "*", "/"]);
+elseif ischar(value)
+  value = strrep(strrep(strrep(value, '.^', '^'), '.*', '*'), './', '/');
+end
+end

@@ -59,6 +59,8 @@
 #ifndef __READPDEAPP
 #define __READPDEAPP
 
+#include <cmath>
+
 // Struct to hold all parsed input parameters
 struct InputParams {
     std::string pdeappfile;
@@ -463,6 +465,8 @@ struct PDE {
     int AV = 0;
     int AVdistfunction = 0;
     int AVsmoothingIter = 2;
+    int AVsmoothingMethod = 0;
+    int AVcontinuationIter = 0;
     int frozenAVflag = 1;
     int nonlinearsolver = 0;
     int linearsolver = 0;
@@ -502,6 +506,10 @@ struct PDE {
     double NewtonTol = 1e-6;
     double GMREStol = 1e-3;
     double matvectol = 1e-3;
+    double AVHelmholtzCoeff = 1.0;
+    double AVcontinuationLogScale = 1.0;
+    double AVcoeffStart = 0.0;
+    double AVcoeffEnd = 0.0;
     double dae_alpha = 0.0;
     double dae_beta = 0.0;
     double dae_gamma = 0.0;
@@ -524,6 +532,44 @@ struct PDE {
     std::vector<double> stgdata;
     std::vector<double> stgparam;    
 };
+
+void resolveAVContinuation(PDE& pde)
+{
+    const int n = pde.AVcontinuationIter;
+    if (n < 2) return;
+    if (!std::isfinite(pde.AVcontinuationLogScale) ||
+        !std::isfinite(pde.AVcoeffStart) || !std::isfinite(pde.AVcoeffEnd))
+        error("AV continuation parameters must be finite.");
+
+    pde.avparam1.resize(n);
+    pde.avparam2.resize(n);
+    const double alpha = pde.AVcontinuationLogScale;
+    const bool linear = std::abs(alpha) <= 1.0e-14;
+    const double denominator = linear ? 1.0 : std::expm1(alpha);
+    for (int i = 0; i < n; ++i) {
+        const double t = static_cast<double>(i) / static_cast<double>(n - 1);
+        const double g1 = linear ? (1.0 - t) : std::expm1(alpha * (1.0 - t)) / denominator;
+        const double g2 = linear ? t : std::expm1(alpha * t) / denominator;
+        pde.avparam1[i] = pde.AVcoeffStart * g1;
+        pde.avparam2[i] = pde.AVcoeffEnd * g2;
+    }
+    pde.avparam1.front() = pde.AVcoeffStart;
+    pde.avparam2.front() = 0.0;
+    pde.avparam1.back() = 0.0;
+    pde.avparam2.back() = pde.AVcoeffEnd;
+}
+
+std::vector<double> packAVContinuation(const PDE& pde)
+{
+    if (pde.avparam1.size() != pde.avparam2.size())
+        error("avparam1 and avparam2 must have the same length.");
+    std::vector<double> avparam(2 * pde.avparam1.size());
+    for (size_t i = 0; i < pde.avparam1.size(); ++i) {
+        avparam[2*i] = pde.avparam1[i];
+        avparam[2*i + 1] = pde.avparam2[i];
+    }
+    return avparam;
+}
 
 void extractCoupledData(
     const std::vector<int>& interfacecondition,
@@ -724,6 +770,27 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     if (params.intParams.count("AVsmoothingIter")) {
         pde.AVsmoothingIter = params.intParams["AVsmoothingIter"];
     }
+    if (params.intParams.count("AVsmoothingMethod")) {
+        pde.AVsmoothingMethod = params.intParams["AVsmoothingMethod"];
+    }
+    if (params.intParams.count("AVcontinuationIter")) {
+        pde.AVcontinuationIter = params.intParams["AVcontinuationIter"];
+    }
+    if (params.doubleParams.count("AVcontinuationLogScale"))
+        pde.AVcontinuationLogScale = params.doubleParams["AVcontinuationLogScale"];
+    else if (params.intParams.count("AVcontinuationLogScale"))
+        pde.AVcontinuationLogScale = static_cast<double>(params.intParams["AVcontinuationLogScale"]);
+    if (params.doubleParams.count("AVcoeffStart"))
+        pde.AVcoeffStart = params.doubleParams["AVcoeffStart"];
+    else if (params.intParams.count("AVcoeffStart"))
+        pde.AVcoeffStart = static_cast<double>(params.intParams["AVcoeffStart"]);
+    if (params.doubleParams.count("AVcoeffEnd"))
+        pde.AVcoeffEnd = params.doubleParams["AVcoeffEnd"];
+    else if (params.intParams.count("AVcoeffEnd"))
+        pde.AVcoeffEnd = static_cast<double>(params.intParams["AVcoeffEnd"]);
+    if (params.doubleParams.count("AVHelmholtzCoeff")) {
+        pde.AVHelmholtzCoeff = params.doubleParams["AVHelmholtzCoeff"];
+    }
     if (params.intParams.count("frozenAVflag")) {
         pde.frozenAVflag = params.intParams["frozenAVflag"];
     }
@@ -857,6 +924,7 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     pde.vindx = params.vindx;
     pde.avparam1 = params.avparam1;
     pde.avparam2 = params.avparam2;
+    resolveAVContinuation(pde);
     pde.stgib = params.stgib;
     pde.stgdata = params.stgdata;
     pde.stgparam = params.stgparam;
@@ -980,9 +1048,9 @@ PDE initializePDE(InputParams& params, int mpirank=0)
 
 void writepde(const PDE& pde, const std::string& filename) 
 {    
-    std::vector<double> avparam;
-    avparam.insert(avparam.end(), pde.avparam1.begin(), pde.avparam1.end());
-    avparam.insert(avparam.end(), pde.avparam2.begin(), pde.avparam2.end());
+    std::vector<double> avparam = packAVContinuation(pde);
+    const std::vector<double> avfilterparam = {
+        static_cast<double>(pde.AVsmoothingMethod), pde.AVHelmholtzCoeff};
 
     std::vector<double> ndims(40, 0.0);
     ndims[0] = pde.mpiprocs;
@@ -1019,6 +1087,7 @@ void writepde(const PDE& pde, const std::string& filename)
     nsize[13] = pde.dae_dt.size();
     nsize[14] = pde.interfaceFluxmap.size();
     nsize[15] = avparam.size();
+    nsize[19] = avfilterparam.size();
 
     std::ofstream file(filename, std::ios::binary);
     if (!file) throw std::runtime_error("Cannot open file for writing.");
@@ -1060,6 +1129,7 @@ void writepde(const PDE& pde, const std::string& filename)
     if (!avparam.empty()) {
         writeVector(avparam);
     }
+    writeVector(avfilterparam);
 
     file.close();
     if (!pde.physicsparamcases.empty()) {

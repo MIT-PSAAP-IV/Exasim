@@ -62,7 +62,34 @@ def writeapp(app,filename):
     #if app['nco'] != app['vindx'].shape[0]:  #size(app.vindx,1):
     #    error("app.nco mus be equal to size(app.vindx,1)");
 
-    avparam = concatenate([flat('avparam1'), flat('avparam2')])
+    aviter = int(app.get('AVcontinuationIter', 0))
+    if aviter >= 2:
+        alpha = float(app.get('AVcontinuationLogScale', 1.0))
+        coeff_start = float(app.get('AVcoeffStart', 0.0))
+        coeff_end = float(app.get('AVcoeffEnd', 0.0))
+        if not all(isfinite([alpha, coeff_start, coeff_end])):
+            raise ValueError("AV continuation parameters must be finite.")
+        t = linspace(0.0, 1.0, aviter)
+        if abs(alpha) <= 1.0e-14:
+            g1 = 1.0 - t
+            g2 = t
+        else:
+            denominator = expm1(alpha)
+            g1 = expm1(alpha * (1.0 - t)) / denominator
+            g2 = expm1(alpha * t) / denominator
+        app['avparam1'] = coeff_start * g1
+        app['avparam2'] = coeff_end * g2
+        app['avparam1'][[0, -1]] = [coeff_start, 0.0]
+        app['avparam2'][[0, -1]] = [0.0, coeff_end]
+    avparam1 = flat('avparam1')
+    avparam2 = flat('avparam2')
+    if size(avparam1) != size(avparam2):
+        raise ValueError("avparam1 and avparam2 must have the same length.")
+    avparam = empty(2 * size(avparam1), dtype=float64)
+    avparam[0::2] = avparam1
+    avparam[1::2] = avparam2
+    avfilterparam = array([app.get('AVsmoothingMethod', 0),
+                           app.get('AVHelmholtzCoeff', 1.0)], dtype=float64)
 
     nsize = zeros((30,1));
     nsize[1-1] = size(ndims);
@@ -94,6 +121,7 @@ def writeapp(app,filename):
     nsize[17-1] = size(flat('wmModelIDs'));
     nsize[18-1] = size(flat('wmBoundaries'));
     nsize[19-1] = size(flat('wmDistances'));
+    nsize[20-1] = size(avfilterparam);
 
     print("Writing app into file...");
     fileID = open(filename, 'wb');
@@ -153,6 +181,8 @@ def writeapp(app,filename):
     if nsize[19-1] > 0:
         app['wmDistances'] = flat('wmDistances');
         app['wmDistances'].astype('float64').tofile(fileID);
+    if nsize[20-1] > 0:
+        avfilterparam.astype('float64').tofile(fileID);
 
     if app['mutationflag']:
         app['mutationopts']['MixtureName'] = array((app['mutationopts']['MixtureName'] +'X').encode())

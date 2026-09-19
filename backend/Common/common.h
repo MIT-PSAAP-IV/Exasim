@@ -749,6 +749,7 @@ struct appstructT {
     dstype *stgdata=nullptr; 
     dstype *stgparam=nullptr;
     dstype *avparam=nullptr;
+    dstype *avfilterparam=nullptr;
     dstype *wmDistances=nullptr;
     
     //dstype time=nullptr;     /* current time */
@@ -764,7 +765,7 @@ struct appstructT {
     Int szwmModelIDs=0, szwmBoundaries=0;
     Int szuinf=0, szdt=0, szdae_dt=0, szfactor=0, szphysicsparam=0, szsolversparam=0;
     Int sztau=0, szstgdata=0, szstgparam=0, szfc_u=0, szfc_q=0, szfc_w=0;
-    Int szdtcoef_u=0, szdtcoef_q=0, szdtcoef_w=0, szavparam=0, szwmDistances=0;
+    Int szdtcoef_u=0, szdtcoef_q=0, szdtcoef_w=0, szavparam=0, szavfilterparam=0, szwmDistances=0;
 
     // Material database metadata.  These fields are populated from the
     // optional datain/materialdatabase.bin table at runtime; they are not
@@ -811,7 +812,7 @@ struct appstructT {
     int sizeoffloat() {
       int sz = szuinf+szdt+szdae_dt+szfactor+szphysicsparam+szsolversparam+
                sztau+szstgdata+szstgparam+szfc_u+szfc_q+szfc_w+szdtcoef_u+
-               szdtcoef_q+szdtcoef_w+szavparam+szwmDistances+
+               szdtcoef_q+szdtcoef_w+szavparam+szavfilterparam+szwmDistances+
                szmaterialdb_statecoords+szmaterialdb_propvalues+
                szmaterialdb_gridcoords+szmaterialdb_elemcoords;
       return sz;        
@@ -839,6 +840,7 @@ struct appstructT {
       printf("size of stgdata: %d\n", szstgdata);
       printf("size of stgparam: %d\n", szstgparam);
       printf("size of avparam: %d\n", szavparam);
+      printf("size of avfilterparam: %d\n", szavfilterparam);
       printf("size of wmDistances: %d\n", szwmDistances);
       printf("size of fc_u: %d\n", szfc_u);
       printf("size of fc_q: %d\n", szfc_q);
@@ -893,6 +895,7 @@ struct appstructT {
         TemplateFree(stgdata, backend);
         TemplateFree(stgparam, backend);
         TemplateFree(avparam, backend);
+        TemplateFree(avfilterparam, backend);
         TemplateFree(wmDistances, backend);
         TemplateFree(fc_u, backend);
         TemplateFree(fc_q, backend);
@@ -1923,9 +1926,11 @@ struct physicsparamsstruct {
     Int ALEflag;          // Arbitrary Lagrangian-Eulerian formulation flag
     Int ncAV;             // number of artificial-viscosity components
     Int AVsmoothingIter;  // AV smoothing iterations
+    Int AVsmoothingMethod=0; // 0: DG2CG2, 1: internal HDG Helmholtz filter
     Int frozenAVflag;     // freeze AV per nonlinear solve
     Int AVdistfunction=0; // AV distance-function flag
     dstype rampFactor;    // AV flux ramp factor (advanced over steps)
+    dstype AVHelmholtzCoeff=1.0; // multiplier for sqrt(smoothed nodal Jacobian)
     dstype tau0=0.0;      // initial stabilization parameter
 };
 

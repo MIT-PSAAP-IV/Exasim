@@ -76,6 +76,8 @@ mutable struct PDEStruct
     AV::IntP; # flag for artificial viscosity
     AVsmoothingInter::IntP; # number of times AV field is smoothed
     frozenAVflag::IntP; # flag for frozen AV
+    AVsmoothingMethod::IntP; # 0: DG2CG2, 1: internal HDG Helmholtz filter
+    AVcontinuationIter::IntP; # >= 2 regenerates and overrides avparam1/avparam2
     nonlinearsolver::IntP; # flag for nonlinear solver (Newton default)
     linearsolver::IntP; # flag for linear solver (GMRES default)
     NLiter::IntP; # maximum number of nonlinear iterations
@@ -129,6 +131,10 @@ mutable struct PDEStruct
     interfacefluxmap;
     avparam1;
     avparam2;
+    AVHelmholtzCoeff;
+    AVcontinuationLogScale; # loginc spacing parameter
+    AVcoeffStart;
+    AVcoeffEnd;
 
     dt::Array{FloatP,1};      # time steps
     tau::Array{FloatP,1}; # stabilization parameters
@@ -257,6 +263,8 @@ function initializepde(version)
     pde.AV = 0;
     pde.AVsmoothingInter = 2;
     pde.frozenAVflag = 1;
+    pde.AVsmoothingMethod = 0;
+    pde.AVcontinuationIter = 0;
     pde.nonlinearsolver = 0;
     pde.linearsolver = 0;
     pde.NLiter = 20;
@@ -309,6 +317,10 @@ function initializepde(version)
     pde.interfacefluxmap = [];
     pde.avparam1 = [];
     pde.avparam2 = [];
+    pde.AVHelmholtzCoeff = 1.0;
+    pde.AVcontinuationLogScale = 1.0;
+    pde.AVcoeffStart = 0.0;
+    pde.AVcoeffEnd = 0.0;
 
     pde.tau = [1.0]; # stabilization parameters
     pde.dt = [0.0];  # time steps

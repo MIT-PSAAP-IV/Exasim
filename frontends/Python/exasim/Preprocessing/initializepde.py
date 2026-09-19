@@ -87,6 +87,12 @@ def initializepde(version):
     pde['ALE'] = 0;
     pde['AV'] = 0;
     pde['AVsmoothingIter'] = 2;
+    pde['AVsmoothingMethod'] = 0;
+    pde['AVHelmholtzCoeff'] = 1.0;
+    pde['AVcontinuationIter'] = 0; # >= 2 regenerates and overrides avparam1/avparam2
+    pde['AVcontinuationLogScale'] = 1.0; # loginc spacing parameter
+    pde['AVcoeffStart'] = 0.0;
+    pde['AVcoeffEnd'] = 0.0;
     pde['frozenAVflag'] = 1;
     pde['nonlinearsolver'] = 0;
     pde['linearsolver'] = 0;
