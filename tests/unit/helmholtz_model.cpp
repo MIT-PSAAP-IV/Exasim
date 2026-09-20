@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <iostream>
+#include <limits>
 
 template <int nd>
 bool check_model()
@@ -21,7 +22,10 @@ bool check_model()
     Model::flux_jac_uq(jac.data(), nullptr, uq.data(), v.data(), nullptr,
                        nullptr, nullptr, 0.0);
 
-    const dstype eps = 1.0e-7;
+    const dstype eps = (sizeof(dstype) == sizeof(float)) ? 1.0e-3f : 1.0e-7;
+    const dstype tolerance = (sizeof(dstype) == sizeof(float))
+        ? 20.0f * std::numeric_limits<dstype>::epsilon() / eps
+        : 1.0e-9;
     for (int j = 0; j < nq; ++j) {
         auto plus = uq;
         auto minus = uq;
@@ -35,7 +39,7 @@ bool check_model()
         for (int i = 0; i < nd; ++i) {
             const dstype fd = (fp[i] - fm[i]) / (2.0*eps);
             const dstype exact = jac[i + nd*j];
-            if (std::abs(fd - exact) > 1.0e-9) return false;
+            if (std::abs(fd - exact) > tolerance) return false;
         }
     }
 

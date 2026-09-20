@@ -26,6 +26,9 @@ static void KokkosAvfieldTemplate(dstype* f, const dstype* xdg,
     (void)ncw_runtime;
     (void)ne;
 
+    if (nce_runtime > ncu)
+        Kokkos::abort("Avfield output count exceeds Model::ncu.");
+
     Kokkos::parallel_for("Avfield", ng, KOKKOS_LAMBDA(const size_t i) {
         const int p = i % npe;
         const int e = i / npe;
