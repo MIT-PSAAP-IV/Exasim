@@ -33,7 +33,34 @@ ndims[17] = app.nten;
 ndims[18] = app.nbqoi;
 ndims[19] = app.nvqoi;
 
-avparam = [app.avparam1[:]; app.avparam2[:]];
+if app.AVcontinuationIter >= 2
+    t = collect(range(0.0, 1.0, length=app.AVcontinuationIter));
+    alpha = app.AVcontinuationLogScale;
+    if !all(isfinite.([alpha, app.AVcoeffStart, app.AVcoeffEnd]))
+        error("AV continuation parameters must be finite.");
+    end
+    if abs(alpha) <= 1.0e-14
+        g1 = 1.0 .- t;
+        g2 = t;
+    else
+        denominator = expm1(alpha);
+        g1 = expm1.(alpha .* (1.0 .- t)) ./ denominator;
+        g2 = expm1.(alpha .* t) ./ denominator;
+    end
+    app.avparam1 = app.AVcoeffStart .* g1;
+    app.avparam2 = app.AVcoeffEnd .* g2;
+    app.avparam1[1] = app.AVcoeffStart;
+    app.avparam1[end] = 0.0;
+    app.avparam2[1] = 0.0;
+    app.avparam2[end] = app.AVcoeffEnd;
+end
+if length(app.avparam1) != length(app.avparam2)
+    error("avparam1 and avparam2 must have the same length.");
+end
+avparam = zeros(2*length(app.avparam1));
+avparam[1:2:end] = app.avparam1[:];
+avparam[2:2:end] = app.avparam2[:];
+avfilterparam = [app.AVsmoothingMethod; app.AVHelmholtzCoeff];
 
 nsize = zeros(30,1);
 nsize[1] = length(ndims[:]);
@@ -55,6 +82,7 @@ nsize[16] = length(avparam[:]);
 nsize[17] = length(app.wmModelIDs[:]);
 nsize[18] = length(app.wmBoundaries[:]);
 nsize[19] = length(app.wmDistances[:]);
+nsize[20] = length(avfilterparam[:]);
 
 # app.nsize = nsize;
 # app.ndims = ndims;
@@ -122,6 +150,7 @@ end
 if nsize[19]>0
     write(fileID,Float64.(app.wmDistances[:]));
 end
+write(fileID,Float64.(avfilterparam[:]));
 
 if app.mutationflag == 1
     write(fileID, app.mutationopts["MixtureName"] * "X")

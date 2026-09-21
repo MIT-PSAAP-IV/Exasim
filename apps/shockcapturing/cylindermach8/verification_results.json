@@ -1,0 +1,134 @@
+{
+  "dg_fields": {
+    "rho": {
+      "l2": 1.6337564646638762e-09,
+      "linf": 3.030038442375371e-10,
+      "relative_l2": 2.251852923788118e-12,
+      "reference_min": 0.9860718400565109,
+      "reference_max": 70.93962084408452,
+      "text2code_min": 0.9860718400564477,
+      "text2code_max": 70.93962084408862
+    },
+    "rhou": {
+      "l2": 3.2944702085742225e-11,
+      "linf": 4.3330894428095235e-12,
+      "relative_l2": 2.4234784865649596e-13,
+      "reference_min": 0.0001480599594567921,
+      "reference_max": 2.437227408436601,
+      "text2code_min": 0.00014805995945426192,
+      "text2code_max": 2.4372274084365935
+    },
+    "rhov": {
+      "l2": 7.524002696627188e-11,
+      "linf": 1.2373990720959682e-11,
+      "relative_l2": 7.952404146964746e-13,
+      "reference_min": -1.419862029720091,
+      "reference_max": 1.4198620297200746,
+      "text2code_min": -1.4198620297201048,
+      "text2code_max": 1.419862029720062
+    },
+    "rhoE": {
+      "l2": 1.5640709254909677e-11,
+      "linf": 8.637535131583718e-13,
+      "relative_l2": 8.396045522256523e-14,
+      "reference_min": 0.16606527187938383,
+      "reference_max": 2.249487765111903,
+      "text2code_min": 0.1660652718794112,
+      "text2code_max": 2.2494877651118457
+    },
+    "u": {
+      "l2": 5.24501633408729e-12,
+      "linf": 2.731755793794477e-13,
+      "relative_l2": 7.401637032050584e-14,
+      "reference_min": 2.7958311915172495e-05,
+      "reference_max": 1.0044314100098757,
+      "text2code_min": 2.7958311914690042e-05,
+      "text2code_max": 1.0044314100098743
+    },
+    "v": {
+      "l2": 9.10763575245906e-12,
+      "linf": 9.262728849964303e-13,
+      "relative_l2": 3.722949461136528e-13,
+      "reference_min": -0.3525146880431666,
+      "reference_max": 0.3525146880431667,
+      "text2code_min": -0.3525146880431646,
+      "text2code_max": 0.352514688043167
+    },
+    "p": {
+      "l2": 4.577374116497852e-12,
+      "linf": 1.9251267247000214e-13,
+      "relative_l2": 7.163290102976861e-14,
+      "reference_min": 0.009904738842487501,
+      "reference_max": 0.8997917264352532,
+      "text2code_min": 0.00990473884248426,
+      "text2code_max": 0.8997917264352303
+    },
+    "T": {
+      "l2": 3.4368807944853914e-11,
+      "linf": 3.702760320578591e-12,
+      "relative_l2": 9.821323607346808e-13,
+      "reference_min": 0.024825365240897818,
+      "reference_max": 0.40058694993617244,
+      "text2code_min": 0.024825365240891125,
+      "text2code_max": 0.40058694993616956
+    },
+    "Mach": {
+      "l2": 2.6380771845375826e-11,
+      "linf": 2.1450063947270337e-12,
+      "relative_l2": 5.764713325507529e-14,
+      "reference_min": 0.00031180060401933616,
+      "reference_max": 8.516187739743742,
+      "text2code_min": 0.0003118006040140791,
+      "text2code_max": 8.516187739744966
+    },
+    "AV": {
+      "l2": 2.0569162471195745e-14,
+      "linf": 1.2576745200831851e-15,
+      "relative_l2": 2.4887200629074056e-14,
+      "reference_min": 0.0,
+      "reference_max": 0.026853311971575995,
+      "text2code_min": 0.0,
+      "text2code_max": 0.02685331197157595
+    }
+  },
+  "paraview": {
+    "field_mapping": {
+      "Scalar Field 0": "Mach",
+      "Scalar Field 1": "AV"
+    },
+    "maximum_coordinate_matching_error": 2.3127298749255306e-07,
+    "Mach": {
+      "l2": 1.1885670987700544e-05,
+      "linf": 4.7655708002025676e-07,
+      "relative_l2": 3.1962909976028595e-08,
+      "reference_min": 0.0006926971205018398,
+      "reference_max": 8.369264915199043,
+      "text2code_min": 0.0006926971254870296,
+      "text2code_max": 8.369264602661133
+    },
+    "AV": {
+      "l2": 1.5760029211695056e-08,
+      "linf": 9.264216165039141e-10,
+      "relative_l2": 2.378307321683185e-08,
+      "reference_min": 0.0,
+      "reference_max": 0.026853311971575995,
+      "text2code_min": 0.0,
+      "text2code_max": 0.02685331180691719
+    }
+  },
+  "solver_history": {
+    "matlab_counts": {
+      "initial_residuals": 20,
+      "updated_residuals": 61,
+      "gmres_iterations": 89
+    },
+    "text2code_counts": {
+      "initial_residuals": 20,
+      "updated_residuals": 61,
+      "gmres_iterations": 89
+    },
+    "initial_residuals_identical": true,
+    "gmres_iterations_identical": true,
+    "maximum_printed_updated_residual_difference": 9.99999999985252e-12
+  }
+}

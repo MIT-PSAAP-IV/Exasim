@@ -26,6 +26,16 @@ add_test(NAME appstruct_materialdatabase
 set_tests_properties(appstruct_materialdatabase PROPERTIES TIMEOUT 60)
 
 if(TARGET Kokkos::kokkos)
+  add_executable(helmholtz_model_test
+    "${EXASIM_DIR}/tests/unit/helmholtz_model.cpp")
+  target_include_directories(helmholtz_model_test PRIVATE
+    "${EXASIM_DIR}" "${EXASIM_DIR}/include")
+  target_link_libraries(helmholtz_model_test PRIVATE
+    ${EXASIM_HELMHOLTZ_MODEL_TARGET} Kokkos::kokkos)
+  target_compile_features(helmholtz_model_test PRIVATE cxx_std_17)
+  add_test(NAME helmholtz_model COMMAND helmholtz_model_test)
+  set_tests_properties(helmholtz_model PROPERTIES TIMEOUT 60)
+
   add_executable(material_properties_nonuniform_test
     "${EXASIM_DIR}/tests/materials/material_properties_nonuniform_test.cpp")
   target_include_directories(material_properties_nonuniform_test PRIVATE

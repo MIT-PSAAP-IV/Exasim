@@ -42,11 +42,13 @@
 #define __SOLUTION_H__
 
 #include "exasim/execution_mode.hpp"
+#include <memory>
 #include "../Discretization/assembler.h"
 #include "../Discretization/residualeval.h"
 #include "../Discretization/interfacesampler.h"
 #include "solutionwriter.h"
 #include "nonlinearsolver.h"
+#include "../Model/Helmholtz/helmholtzprovider.hpp"
 
 // Common helper: open file and write 3-element header [a0, a1, a2]
 void open_and_write(std::ofstream& ofs,
@@ -129,6 +131,10 @@ private:
     };
 
     PDEStateSnapshot snapshot;
+    std::unique_ptr<CSolution<exasim::detail::AbiAdapter>> helmholtz;
+
+    void InitializeHelmholtzLengthScale(Int backend);
+    void ApplyHelmholtzAVFilter(dstype *avField, Int backend);
 public:
     CDiscretization disc;  // spatial discretization class (the function space)
     CResidual<M> residual;    // the discretized PDE residual R(u)/flux q (evaluates from disc)
@@ -160,6 +166,7 @@ public:
         if ((disc.common.couplingparams.nintfaces > 0) && (disc.common.couplingparams.coupledcondition>0)) disc.common.meshsizes.ne0 = disc.common.intepartpts[0];
 
         const bool postprocessOnly = (mode == ExasimExecutionMode::Postprocess);
+        const bool auxiliaryHelmholtz = (mode == ExasimExecutionMode::AuxiliaryHelmholtz);
 
         // The operator initializes its own solution: first the model initial conditions (layer A,
         // fields the reader could not supply), then recover the operator state (q / uh / q-matrices)
@@ -169,7 +176,19 @@ public:
         residual.recoverInitialState(backend, postprocessOnly);
 
         // Open the output streams and write the initial solution (the I/O half lives on the writer).
-        writer.setup(postprocessOnly);
+        writer.setup(postprocessOnly || auxiliaryHelmholtz);
+
+        if (!auxiliaryHelmholtz && !postprocessOnly &&
+            disc.common.physicsparams.AVsmoothingMethod == 1) {
+            if (disc.common.physicsparams.ncAV <= 0 ||
+                disc.common.physicsparams.frozenAVflag <= 0)
+                error("AVsmoothingMethod=1 is supported only for frozen artificial viscosity.");
+            helmholtz = std::make_unique<CSolution<exasim::detail::AbiAdapter>>(
+                filein, fileout, exasimpath, mpiprocs, mpirank, fileoffset,
+                omprank, backend, 0, GetHelmholtzModelABI(disc.common.grid.nd),
+                0, 0, 0, 0, 0, ExasimExecutionMode::AuxiliaryHelmholtz);
+            InitializeHelmholtzLengthScale(backend);
+        }
     };
 
     // No-ABI constructor (C3): the concrete-model build (M != AbiAdapter) has no runtime ABI -- the

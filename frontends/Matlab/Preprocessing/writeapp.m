@@ -46,11 +46,41 @@ ndims(19) = app.nvqoi;
 %     error("app.nco mus be equal to size(app.vindx,1)");
 % end
 
+if ~isfield(app, 'AVcontinuationIter'), app.AVcontinuationIter = 0; end
+if ~isfield(app, 'AVcontinuationLogScale'), app.AVcontinuationLogScale = 1.0; end
+if ~isfield(app, 'AVcoeffStart'), app.AVcoeffStart = 0.0; end
+if ~isfield(app, 'AVcoeffEnd'), app.AVcoeffEnd = 0.0; end
+if app.AVcontinuationIter >= 2
+  t = linspace(0.0, 1.0, app.AVcontinuationIter)';
+  alpha = app.AVcontinuationLogScale;
+  if ~all(isfinite([alpha app.AVcoeffStart app.AVcoeffEnd]))
+    error('AV continuation parameters must be finite.');
+  end
+  if abs(alpha) <= 1.0e-14
+    g1 = 1.0 - t;
+    g2 = t;
+  else
+    den = expm1(alpha);
+    g1 = expm1(alpha*(1.0-t))/den;
+    g2 = expm1(alpha*t)/den;
+  end
+  app.avparam1 = app.AVcoeffStart*g1;
+  app.avparam2 = app.AVcoeffEnd*g2;
+  app.avparam1([1 end]) = [app.AVcoeffStart; 0.0];
+  app.avparam2([1 end]) = [0.0; app.AVcoeffEnd];
+end
+if numel(app.avparam1) ~= numel(app.avparam2)
+  error('avparam1 and avparam2 must have the same length.');
+end
+
 avparam = [app.avparam1(:) app.avparam2(:)]';
 avparam = avparam(:);
 if isfield(app, 'wmModelIDs') == 0, app.wmModelIDs = []; end
 if isfield(app, 'wmBoundaries') == 0, app.wmBoundaries = []; end
 if isfield(app, 'wmDistances') == 0, app.wmDistances = []; end
+if isfield(app, 'AVsmoothingMethod') == 0, app.AVsmoothingMethod = 0; end
+if isfield(app, 'AVHelmholtzCoeff') == 0, app.AVHelmholtzCoeff = 1.0; end
+avfilterparam = [app.AVsmoothingMethod; app.AVHelmholtzCoeff];
 
 nsize = zeros(30,1);
 nsize(1) = length(ndims(:));
@@ -72,6 +102,7 @@ nsize(16) = length(avparam(:));
 nsize(17) = length(app.wmModelIDs(:));
 nsize(18) = length(app.wmBoundaries(:));
 nsize(19) = length(app.wmDistances(:));
+nsize(20) = length(avfilterparam(:));
 
 app.nsize = nsize;
 app.ndims = ndims;
@@ -110,6 +141,7 @@ end
 if (~isempty(app.wmDistances(:)))
   fwrite(fileID,app.wmDistances(:),'double',endian);
 end
+fwrite(fileID,avfilterparam(:),'double',endian);
 fclose(fileID);
 
 % [1 30 40 17 32 2 1 5 4 1]

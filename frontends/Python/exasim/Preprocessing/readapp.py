@@ -66,6 +66,7 @@ def readapp(fileapp):
     app['wmModelIDs'] = numpy.array([]);
     app['wmBoundaries'] = numpy.array([]);
     app['wmDistances'] = numpy.array([]);
+    app['avfilterparam'] = numpy.array([0.0, 1.0]);
 
     if len(app['nsize']) >= 13:
         k1 = k2;
@@ -95,5 +96,9 @@ def readapp(fileapp):
         k1 = k2;
         k2 = k1+app['nsize'][18];
         app['wmDistances'] = tm[k1:k2];
+    if len(app['nsize']) >= 20 and app['nsize'][19] > 0:
+        k1 = k2;
+        k2 = k1+app['nsize'][19];
+        app['avfilterparam'] = tm[k1:k2];
 
     return app

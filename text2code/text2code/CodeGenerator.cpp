@@ -2328,6 +2328,7 @@ void emitGenerateModelHeader(std::ostream& os, const ParsedSpec& spec) {
     os << "        {\"Source\",     \"source\",      \"dstype f[], const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype mu[], const dstype uinf[], dstype t\"},\n";
     os << "        {\"Materialstate\", \"materialstate\", \"dstype f[], const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype mu[], const dstype uinf[], dstype t\"},\n";
     os << "        {\"Tdfunc\",     \"tdfunc\",      \"dstype f[], const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype mu[], const dstype uinf[], dstype t\"},\n";
+    os << "        {\"Avfield\",    \"avfield\",     \"dstype f[], const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype mu[], const dstype uinf[], dstype t\"},\n";
     os << "        {\"VisScalars\", \"vis_scalars\", \"dstype f[], const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype mu[], const dstype uinf[], dstype t\"},\n";
     os << "        {\"VisVectors\", \"vis_vectors\", \"dstype f[], const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype mu[], const dstype uinf[], dstype t\"},\n";
     os << "        {\"QoIvolume\",  \"qoi_volume\",  \"dstype f[], const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype mu[], const dstype uinf[], dstype t\"},\n";

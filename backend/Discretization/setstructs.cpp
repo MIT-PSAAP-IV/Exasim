@@ -222,6 +222,10 @@ void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, masterstr
     common.timeparams.dae_steps = app.problem[23];  // number of dual time steps      
     common.outputparams.saveResNorm = app.problem[24];   
     common.physicsparams.AVsmoothingIter = app.problem[25]; //Number of times artificial viscosity is smoothed
+    common.physicsparams.AVsmoothingMethod =
+        (app.szavfilterparam > 0) ? static_cast<Int>(app.avfilterparam[0]) : 0;
+    common.physicsparams.AVHelmholtzCoeff =
+        (app.szavfilterparam > 1) ? app.avfilterparam[1] : 1.0;
     common.physicsparams.frozenAVflag = app.problem[26]; // Flag deciding if artificial viscosity is calculated once per non-linear solve or in every residual evluation
                                            //   0: AV not frozen, evaluated every iteration
                                            //   1: AV frozen, evluated once per solve (default)          
@@ -969,14 +973,15 @@ template <class T=dstype, class I=Int>
 void cpuInit(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, ExasimDriverABI& driver_abi, masterstructT<T,I> &master,
         meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,
         string filein, string fileout, Int mpiprocs, Int mpirank, Int fileoffset, Int omprank,
-        const std::vector<T>* physicsparamOverride = nullptr)
+        const std::vector<T>* physicsparamOverride = nullptr,
+        ExasimExecutionMode mode = ExasimExecutionMode::Solve)
 {
     using dstype=T;
      
     if (mpirank==0)
         printf("Reading data from binary files \n");
     readInput(app, driver_abi, master, mesh, sol, filein, mpiprocs, mpirank, fileoffset, omprank,
-              physicsparamOverride);
+              physicsparamOverride, mode);
     exasim::interfacepartition::build_runtime_interface_partition(app, master, mesh, sol,
             mpiprocs, mpirank, fileoffset);
     
@@ -1036,6 +1041,7 @@ void devappstruct(appstructT<T,I> &dapp, appstructT<T,I> &app, ExasimDriverABI& 
     TemplateMalloc(&dapp.dae_dt, app.nsize[13], common.backend);  
     TemplateMalloc(&dapp.interfacefluxmap, app.nsize[14], common.backend);  
     TemplateMalloc(&dapp.avparam, app.nsize[15], common.backend);  
+    TemplateMalloc(&dapp.avfilterparam, app.szavfilterparam, common.backend);
     TemplateMalloc(&dapp.materialdb_elementcounts, app.szmaterialdb_elementcounts, common.backend);
     TemplateMalloc(&dapp.materialdb_ncgi, app.szmaterialdb_ncgi, common.backend);
     TemplateMalloc(&dapp.materialdb_gridoffset, app.szmaterialdb_gridoffset, common.backend);
@@ -1062,6 +1068,7 @@ void devappstruct(appstructT<T,I> &dapp, appstructT<T,I> &app, ExasimDriverABI& 
     TemplateCopytoDevice( dapp.dae_dt, app.dae_dt, app.nsize[13], common.backend );   
     TemplateCopytoDevice( dapp.interfacefluxmap, app.interfacefluxmap, app.nsize[14], common.backend );   
     TemplateCopytoDevice( dapp.avparam, app.avparam, app.nsize[15], common.backend );   
+    TemplateCopytoDevice( dapp.avfilterparam, app.avfilterparam, app.szavfilterparam, common.backend );
     TemplateCopytoDevice( dapp.materialdb_elementcounts, app.materialdb_elementcounts, app.szmaterialdb_elementcounts, common.backend );
     TemplateCopytoDevice( dapp.materialdb_ncgi, app.materialdb_ncgi, app.szmaterialdb_ncgi, common.backend );
     TemplateCopytoDevice( dapp.materialdb_gridoffset, app.materialdb_gridoffset, app.szmaterialdb_gridoffset, common.backend );
@@ -1086,6 +1093,7 @@ void devappstruct(appstructT<T,I> &dapp, appstructT<T,I> &app, ExasimDriverABI& 
     dapp.szdae_dt = app.nsize[13];
     dapp.szinterfacefluxmap = app.nsize[14];
     dapp.szavparam = app.nsize[15];
+    dapp.szavfilterparam = app.szavfilterparam;
     dapp.materialdb_nstate = app.materialdb_nstate;
     dapp.materialdb_nprop = app.materialdb_nprop;
     dapp.materialdb_porder = app.materialdb_porder;

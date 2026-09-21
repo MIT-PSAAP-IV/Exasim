@@ -96,7 +96,15 @@ inline void readappstruct(std::string filename, appstruct &app)
     app.vindx = readiarrayfromdouble(in, app.nsize[12]);
     readarray(in, &app.dae_dt, app.nsize[13]);   
     app.interfacefluxmap = readiarrayfromdouble(in, app.nsize[14]);
-    readarray(in, &app.avparam, app.nsize[15]);   
+    readarray(in, &app.avparam, app.nsize[15]);
+    const Int szwmModelIDs = (app.lsize[0] > 16) ? app.nsize[16] : 0;
+    const Int szwmBoundaries = (app.lsize[0] > 17) ? app.nsize[17] : 0;
+    const Int szwmDistances = (app.lsize[0] > 18) ? app.nsize[18] : 0;
+    const Int szavfilterparam = (app.lsize[0] > 19) ? app.nsize[19] : 0;
+    if (szwmModelIDs > 0) app.wmModelIDs = readiarrayfromdouble(in, szwmModelIDs);
+    if (szwmBoundaries > 0) app.wmBoundaries = readiarrayfromdouble(in, szwmBoundaries);
+    if (szwmDistances > 0) readarray(in, &app.wmDistances, szwmDistances);
+    if (szavfilterparam > 0) readarray(in, &app.avfilterparam, szavfilterparam);
     
     app.szflag = app.nsize[1];
     app.szproblem = app.nsize[2];
@@ -113,6 +121,10 @@ inline void readappstruct(std::string filename, appstruct &app)
     app.szdae_dt = app.nsize[13];
     app.szinterfacefluxmap = app.nsize[14];
     app.szavparam = app.nsize[15];
+    app.szwmModelIDs = szwmModelIDs;
+    app.szwmBoundaries = szwmBoundaries;
+    app.szwmDistances = szwmDistances;
+    app.szavfilterparam = szavfilterparam;
 
     #ifdef HAVE_MPP
         char a[50];
@@ -205,7 +217,13 @@ inline void writeappstruct(std::string filename, appstruct &app)
     writearray(out, app.stgparam, app.nsize[10]);      
     writeiarraytodouble(out, app.stgib, app.nsize[11]);
     writeiarraytodouble(out, app.vindx, app.nsize[12]);
-    writearray(out, app.dae_dt, app.nsize[13]);        
+    writearray(out, app.dae_dt, app.nsize[13]);
+    writeiarraytodouble(out, app.interfacefluxmap, app.nsize[14]);
+    writearray(out, app.avparam, app.nsize[15]);
+    if (app.lsize[0] > 16) writeiarraytodouble(out, app.wmModelIDs, app.nsize[16]);
+    if (app.lsize[0] > 17) writeiarraytodouble(out, app.wmBoundaries, app.nsize[17]);
+    if (app.lsize[0] > 18) writearray(out, app.wmDistances, app.nsize[18]);
+    if (app.lsize[0] > 19) writearray(out, app.avfilterparam, app.nsize[19]);
     
     // Close file:
     out.close();

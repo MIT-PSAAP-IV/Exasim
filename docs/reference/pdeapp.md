@@ -200,7 +200,13 @@ interfaces.
 | `ALE` | int | `0` | No | Arbitrary Lagrangian-Eulerian flag. |
 | `AV` | int | `0` | No | Artificial-viscosity flag. |
 | `AVdistfunction` | int | `0` | No | AV distance-function flag. |
-| `AVsmoothingIter` | int | `2` | No | Number of AV smoothing iterations. |
+| `AVsmoothingIter` | int | `2` | No | Number of repeated DG-to-CG smoothing passes when `AVsmoothingMethod = 0`. |
+| `AVsmoothingMethod` | int | `0` | No | AV smoothing selector: `0` uses repeated DG-to-CG averaging; `1` uses the internal HDG Helmholtz filter. |
+| `AVHelmholtzCoeff` | float | `1.0` | No | Positive multiplier for the local Helmholtz length scale when `AVsmoothingMethod = 1`. |
+| `AVcontinuationIter` | int | `0` | No | Number of AV continuation solves. Values below `2` preserve the explicit `avparam1`/`avparam2` arrays. |
+| `AVcontinuationLogScale` | float | `1.0` | No | Exponential continuation-shape parameter; values near zero select linear interpolation. |
+| `AVcoeffStart` | float | `0.0` | No | First coefficient at the initial continuation solve. |
+| `AVcoeffEnd` | float | `0.0` | No | Second coefficient at the final continuation solve. |
 | `frozenAVflag` | int | `1` | No | Freeze AV field where supported. |
 | `avparam1` | list(float) | empty | No | Artificial-viscosity parameter vector. |
 | `avparam2` | list(float) | empty | No | Additional artificial-viscosity parameter vector. |
