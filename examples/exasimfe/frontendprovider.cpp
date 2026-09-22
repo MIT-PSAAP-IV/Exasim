@@ -28,6 +28,7 @@ namespace frontend_generated_source {
 #include "kernels/KokkosVisTensors.cpp"
 #include "kernels/KokkosQoIvolume.cpp"
 #include "kernels/KokkosQoIboundary.cpp"
+#include "kernels/KokkosVisSurfScalars.cpp"
 #include "kernels/KokkosSourcew.cpp"
 #include "kernels/KokkosOutput.cpp"
 #include "kernels/KokkosMonitor.cpp"
@@ -91,6 +92,7 @@ const ExasimDriverABI& getFrontendGeneratedExasimDriverABI()
         value.output.KokkosVisTensors = &frontend_generated_source::KokkosVisTensors;
         value.qoi.KokkosQoIvolume = &frontend_generated_source::KokkosQoIvolume;
         value.qoi.KokkosQoIboundary = &frontend_generated_source::KokkosQoIboundary;
+        value.surfacevis.KokkosVisSurfScalars = &frontend_generated_source::KokkosVisSurfScalars;
 
         value.init.KokkosInitu = &frontend_generated_source::KokkosInitu;
         value.init.KokkosInitq = &frontend_generated_source::KokkosInitq;
@@ -124,11 +126,14 @@ const ExasimDriverABI& getFrontendGeneratedExasimDriverABI()
         value.nten = exasim_model_sizes::nten;
         value.nsurf = exasim_model_sizes::nsurf;
         value.nvqoi = exasim_model_sizes::nvqoi;
+        value.nmaterialstate = exasim_model_sizes::nmaterialstate;
+        value.nsurfsca = exasim_model_sizes::nsurfsca;
         value.GetModelSizes = [](int) -> ModelSizes {
             return {exasim_model_sizes::ncu, exasim_model_sizes::nco,
                     exasim_model_sizes::ncw, exasim_model_sizes::nsca,
                     exasim_model_sizes::nvec, exasim_model_sizes::nten,
-                    exasim_model_sizes::nsurf, exasim_model_sizes::nvqoi};
+                    exasim_model_sizes::nsurf, exasim_model_sizes::nvqoi,
+                    exasim_model_sizes::nmaterialstate, exasim_model_sizes::nsurfsca};
         };
 #endif
 

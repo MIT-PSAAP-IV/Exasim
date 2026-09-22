@@ -192,14 +192,14 @@ function(exasim_finalize_builtin_models)
     list(GET _has_sizes ${_i} _sizes_available)
     if(_sizes_available)
       file(APPEND "${_sizes_file}"
-        "        case ${_id}: return {builtin_model_${_id}::ncu, builtin_model_${_id}::nco, builtin_model_${_id}::ncw, builtin_model_${_id}::nsca, builtin_model_${_id}::nvec, builtin_model_${_id}::nten, builtin_model_${_id}::nsurf, builtin_model_${_id}::nvqoi, builtin_model_${_id}::nmaterialstate};\n")
+        "        case ${_id}: return {builtin_model_${_id}::ncu, builtin_model_${_id}::nco, builtin_model_${_id}::ncw, builtin_model_${_id}::nsca, builtin_model_${_id}::nvec, builtin_model_${_id}::nten, builtin_model_${_id}::nsurf, builtin_model_${_id}::nvqoi, builtin_model_${_id}::nmaterialstate, builtin_model_${_id}::nsurfsca};\n")
     else()
       file(APPEND "${_sizes_file}"
-        "        case ${_id}: return {0, 0, 0, 0, 0, 0, 0, 0, 0};\n")
+        "        case ${_id}: return {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};\n")
     endif()
   endforeach()
   file(APPEND "${_sizes_file}"
-    "        default: return {0, 0, 0, 0, 0, 0, 0, 0, 0};\n"
+    "        default: return {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};\n"
     "    }\n"
     "}\n")
 

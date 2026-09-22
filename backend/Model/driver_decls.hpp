@@ -81,6 +81,10 @@ void QoIboundaryDriver(dstype* fb, const dstype* xg, const dstype* udg, const ds
         meshstruct &mesh, masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
         commonstruct &common, Int ngf, Int f1, Int f2, Int ib, Int backend)
 ;
+void VisSurfScalarsDriver(dstype* fb, const dstype* xg, const dstype* udg, const dstype*  odg, const dstype*  wdg, const dstype* uhg, const dstype* nl, 
+        meshstruct &mesh, masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
+        commonstruct &common, Int ngf, Int f1, Int f2, Int ib, Int backend)
+;
 void UhatDriver(dstype* fg, dstype* xg, dstype* ug1, dstype* ug2, const dstype*  og1, 
      const dstype*  og2, const dstype* wg1, const dstype* wg2, const dstype* uh, const dstype* nl, meshstruct &mesh, masterstruct &master, appstruct &app, solstruct &sol, 
      tempstruct &tmp, commonstruct &common, Int ngf, Int f1, Int f2, Int backend)

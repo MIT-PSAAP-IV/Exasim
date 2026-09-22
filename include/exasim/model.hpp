@@ -467,6 +467,13 @@ struct OutputDefaults : InitDefaults<Self, T> {
                       const T /*mu*/[], const T /*uinf*/[], T /*t*/) { }
 
     KOKKOS_INLINE_FUNCTION static
+    void vis_surf_scalars(T[], int /*ib*/,
+                          const T /*x*/[],  const T /*uq*/[],
+                          const T /*v*/[],  const T /*w*/[],  const T /*uh*/[],
+                          const T /*n*/[],  const T /*tau*/[],
+                          const T /*mu*/[], const T /*uinf*/[], T /*t*/) { }
+
+    KOKKOS_INLINE_FUNCTION static
     void monitor(T[], const T /*x*/[], const T /*uq*/[],
                  const T /*v*/[], const T /*w*/[], const T /*mu*/[],
                  const T /*uinf*/[], T /*t*/) { }
@@ -893,7 +900,7 @@ EXASIM_HAS_METHOD(ubou);        EXASIM_HAS_METHOD(fbou_hdg);    EXASIM_HAS_METHO
 EXASIM_HAS_METHOD(uhat);        EXASIM_HAS_METHOD(stab);        EXASIM_HAS_METHOD(initu);
 EXASIM_HAS_METHOD(qoi_volume);  EXASIM_HAS_METHOD(qoi_boundary);EXASIM_HAS_METHOD(monitor);
 EXASIM_HAS_METHOD(output);      EXASIM_HAS_METHOD(vis_scalars); EXASIM_HAS_METHOD(vis_vectors);
-EXASIM_HAS_METHOD(vis_tensors);
+EXASIM_HAS_METHOD(vis_tensors); EXASIM_HAS_METHOD(vis_surf_scalars);
 #undef EXASIM_HAS_METHOD
 } // namespace detail
 
@@ -909,6 +916,7 @@ template <class M> inline constexpr bool is_hdg_boundary_model_v= is_model_v<M> 
 template <class M> inline constexpr bool is_interface_model_v   = is_model_v<M> && detail::has_fhat<M>::value && detail::has_uhat<M>::value && detail::has_stab<M>::value;
 template <class M> inline constexpr bool is_init_model_v        = is_model_v<M> && detail::has_initu<M>::value;
 template <class M> inline constexpr bool is_qoi_model_v         = is_model_v<M> && detail::has_qoi_volume<M>::value && detail::has_qoi_boundary<M>::value;
+template <class M> inline constexpr bool is_vis_surf_model_v    = is_model_v<M> && detail::has_vis_surf_scalars<M>::value;
 template <class M> inline constexpr bool is_output_model_v      = is_model_v<M> && detail::has_monitor<M>::value && detail::has_output<M>::value;
 template <class M> inline constexpr bool is_vis_model_v         = is_model_v<M> && detail::has_vis_scalars<M>::value && detail::has_vis_vectors<M>::value && detail::has_vis_tensors<M>::value;
 

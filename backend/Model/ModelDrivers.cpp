@@ -731,3 +731,20 @@ void QoIboundaryDriver(dstype* fb, const dstype* xg, const dstype* udg, const ds
     KokkosQoIboundary(fb, xg, udg, odg, wdg, uhg, nl, app.tau, app.uinf, app.physicsparam, time, 
                       common.modelnumber, ib, numPoints, nc, ncu, nd, ncx, nco, ncw);
 }
+
+void VisSurfScalarsDriver(dstype* fb, const dstype* xg, const dstype* udg, const dstype*  odg, const dstype*  wdg, const dstype* uhg, const dstype* nl, 
+        meshstruct &mesh, masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
+        commonstruct &common, Int ngf, Int f1, Int f2, Int ib, Int backend)
+{
+    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    Int ncu = common.components.ncu;// number of compoments of (u)
+    Int ncw = common.components.ncw;// number of compoments of (w)
+    Int nco = common.components.nco;// number of compoments of (o)
+    Int ncx = common.components.ncx;// number of compoments of (xdg)        
+    Int nd = common.grid.nd;     // spatial dimension        
+    Int numPoints = ngf*(f2-f1);
+    dstype time = common.timestate.time;    
+
+    KokkosVisSurfScalars(fb, xg, udg, odg, wdg, uhg, nl, app.tau, app.uinf, app.physicsparam, time, 
+                      common.modelnumber, ib, numPoints, nc, ncu, nd, ncx, nco, ncw);
+}
