@@ -75,6 +75,11 @@ public:
     void SaveQoI(Int backend);
     void SaveParaview(Int backend, std::string fname_modifier = "", bool force_tdep_write = false);
 
+    // Write the boundary surface visualization (requested tag surfaces) for the
+    // same step cadence as SaveParaview. Called from the tail of SaveParaview;
+    // gated internally by vis.surfvis_enabled.
+    void SaveSurfaces(Int backend, const std::string& fname_modifier, bool force_tdep_write);
+
     // Write the ParaView output for an EXPLICIT 1-based step, without disturbing the
     // solver's own step counter.
     //

@@ -83,7 +83,7 @@ public:
                     Int mpirank, Int ompthreads, Int omprank, Int backend,
                     Int builtinmodelID, const ExasimDriverABI& abi,
                     Int nsca = 0, Int nvec = 0, Int nten = 0,
-                    Int nsurf = 0, Int nvqoi = 0,
+                    Int nsurf = 0, Int nvqoi = 0, Int nsurfsca = 0,
                     ExasimExecutionMode mode = ExasimExecutionMode::Solve,
                     const std::vector<dstype>* physicsparamOverride = nullptr,
                     Int saveParaview = 0);
@@ -126,7 +126,7 @@ public:
     // post-init construction tail (read_uh/vis/geometry/mass-inverse/HDG setup), shared by the
     // file and in-memory constructors. Defined in discretization.cpp (no Preprocessed dependency).
     void finalizeConstruction(Int backend, ExasimExecutionMode mode,
-                              Int nsca, Int nvec, Int nten, Int nsurf, Int nvqoi, Int saveParaview);
+                              Int nsca, Int nvec, Int nten, Int nsurf, Int nvqoi, Int nsurfsca, Int saveParaview);
         
     // compute the geometry
     void compGeometry(Int backend);    
@@ -186,10 +186,10 @@ using CDiscretization = CDiscretizationT<::dstype, ::Int>;
 // see their definitions and instantiate them locally. See docs/internals/precision-threading.md.
 extern template CDiscretizationT<::dstype, ::Int>::CDiscretizationT(
     std::string, std::string, std::string, Int, Int, Int, Int, Int, Int, const ExasimDriverABI&,
-    Int, Int, Int, Int, Int, ExasimExecutionMode, const std::vector<dstype>*, Int);
+    Int, Int, Int, Int, Int, Int, ExasimExecutionMode, const std::vector<dstype>*, Int);
 extern template CDiscretizationT<::dstype, ::Int>::~CDiscretizationT();
 extern template void CDiscretizationT<::dstype, ::Int>::finalizeConstruction(
-    Int, ExasimExecutionMode, Int, Int, Int, Int, Int, Int);
+    Int, ExasimExecutionMode, Int, Int, Int, Int, Int, Int, Int);
 extern template void CDiscretizationT<::dstype, ::Int>::compGeometry(Int);
 extern template void CDiscretizationT<::dstype, ::Int>::compMassInverse(Int);
 extern template void CDiscretizationT<::dstype, ::Int>::projectField(dstype*, dstype*, dstype*, Int, Int, Int);

@@ -602,6 +602,7 @@ inline void applyParsedSpecMetadata(PDE& pde, const ParsedSpec& spec)
         if (fn.name == "VisScalars")  pde.nsca  = fn.outputsize;
         if (fn.name == "VisVectors")  pde.nvec  = fn.outputsize / pde.nd;
         if (fn.name == "VisTensors")  pde.nten  = fn.outputsize / (pde.nd * pde.nd);
+        if (fn.name == "VisSurfScalars") pde.nsurfsca = fn.outputsize;
         if (fn.name == "QoIboundary") pde.nsurf = fn.outputsize;
         if (fn.name == "QoIvolume")   pde.nvqoi = fn.outputsize;
         if (fn.name == "Materialstate") pde.nmaterialstate = fn.outputsize;
@@ -744,6 +745,12 @@ inline PDE initializePDE(InputParams& params, int mpirank=0)
     }
     if (params.intParams.count("nmaterialstate")) {
         pde.nmaterialstate = params.intParams["nmaterialstate"];
+    }
+    if (params.intParams.count("nsurfsca")) {
+        pde.nsurfsca = params.intParams["nsurfsca"];
+    }
+    if (params.intParams.count("ibvis")) {
+        pde.ibvis = params.intParams["ibvis"];
     }
     if (params.intParams.count("neb")) {
         pde.neb = params.intParams["neb"];
@@ -1088,6 +1095,8 @@ inline void writepde(const PDE& pde, const std::string& filename)
     ndims[16] = pde.nten;
     ndims[17] = pde.nsurf;
     ndims[18] = pde.nvqoi;
+    ndims[19] = pde.nsurfsca;
+    ndims[20] = pde.ibvis;
 
     std::vector<double> nsize(30, 0.0);
     nsize[0] = ndims.size();

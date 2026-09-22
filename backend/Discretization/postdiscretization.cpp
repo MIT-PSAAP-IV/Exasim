@@ -14,7 +14,7 @@
 
 // Both CPU and GPU constructor
 CDiscretization::CDiscretization(string filein, string fileout, string exasimpath, Int mpiprocs, Int mpirank, 
-        Int fileoffset, Int omprank, Int backend, Int builtinmodelID, Int nsca, Int nvec, Int nten, Int nsurf, Int nvqoi) 
+        Int fileoffset, Int omprank, Int backend, Int builtinmodelID, Int nsca, Int nvec, Int nten, Int nsurf, Int nvqoi, Int nsurfsca) 
 {
     common.backend = backend;
     common.exasimpath = exasimpath;
@@ -72,6 +72,7 @@ CDiscretization::CDiscretization(string filein, string fileout, string exasimpat
     if (nten > 0) common.qoiparams.nten = nten;
     if (nsurf > 0) common.qoiparams.nsurf = nsurf;
     if (nvqoi > 0) common.qoiparams.nvqoi = nvqoi;     
+    if (nsurfsca > 0) common.qoiparams.nsurfsca = nsurfsca;     
 
     // compute the geometry quantities
     if (common.mpiRank==0) printf("start compGeometry... \n");

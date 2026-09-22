@@ -57,7 +57,7 @@ public:
     // constructor for both CPU and GPU
     CDiscretization(string filein, string fileout, string exasimpath, Int mpiprocs, 
                     Int mpirank, Int ompthreads, Int omprank, Int backend, Int builtinmodelID,
-                    Int nsca, Int nvec, Int nten, Int nsurf, Int nvqoi); 
+                    Int nsca, Int nvec, Int nten, Int nsurf, Int nvqoi, Int nsurfsca); 
     
     // destructor        
     ~CDiscretization(); 

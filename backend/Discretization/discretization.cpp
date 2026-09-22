@@ -273,6 +273,7 @@ template <class T, class I>
 CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string exasimpath, Int mpiprocs, Int mpirank,
         Int fileoffset, Int omprank, Int backend, Int builtinmodelID,
         const ExasimDriverABI& abi, Int nsca, Int nvec, Int nten, Int nsurf, Int nvqoi,
+        Int nsurfsca,
         ExasimExecutionMode mode, const std::vector<dstype>* physicsparamOverride,
         Int saveParaview)
 {
@@ -362,7 +363,7 @@ CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string e
                 mpiprocs, mpirank, fileoffset, omprank,
                 physicsparamOverride);
     }
-    finalizeConstruction(backend, mode, nsca, nvec, nten, nsurf, nvqoi, saveParaview);
+    finalizeConstruction(backend, mode, nsca, nvec, nten, nsurf, nvqoi, nsurfsca, saveParaview);
 }
 
 // Post-init construction tail: derive read_uh, apply vis-count/saveParaview overrides, compute
@@ -370,7 +371,7 @@ CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string e
 // file constructor so the in-memory (Preprocessed) constructor reuses the identical finalization.
 template <class T, class I>
 void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMode mode,
-        Int nsca, Int nvec, Int nten, Int nsurf, Int nvqoi, Int saveParaview)
+        Int nsca, Int nvec, Int nten, Int nsurf, Int nvqoi, Int nsurfsca, Int saveParaview)
 {
     common.read_uh = app.read_uh;
 
@@ -386,6 +387,7 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
     if (nten > 0) common.qoiparams.nten = nten;
     if (nsurf > 0) common.qoiparams.nsurf = nsurf;
     if (nvqoi > 0) common.qoiparams.nvqoi = nvqoi;
+    if (nsurfsca > 0) common.qoiparams.nsurfsca = nsurfsca;
     // Likewise honor the pdeapp saveParaview key on the solve path (external models do
     // not bake app.flag[17] into datain). Only force-enable; never disable a datain that
     // already requested vis.
@@ -1091,10 +1093,10 @@ void CDiscretizationT<T, I>::DG2CG3(dstype* ucg, dstype* udg, dstype *utm, Int n
 // docs/internals/precision-threading.md (Phase 2).
 template CDiscretizationT<::dstype, ::Int>::CDiscretizationT(
     std::string, std::string, std::string, Int, Int, Int, Int, Int, Int, const ExasimDriverABI&,
-    Int, Int, Int, Int, Int, ExasimExecutionMode, const std::vector<dstype>*, Int);
+    Int, Int, Int, Int, Int, Int, ExasimExecutionMode, const std::vector<dstype>*, Int);
 template CDiscretizationT<::dstype, ::Int>::~CDiscretizationT();
 template void CDiscretizationT<::dstype, ::Int>::finalizeConstruction(
-    Int, ExasimExecutionMode, Int, Int, Int, Int, Int, Int);
+    Int, ExasimExecutionMode, Int, Int, Int, Int, Int, Int, Int);
 template void CDiscretizationT<::dstype, ::Int>::compGeometry(Int);
 template void CDiscretizationT<::dstype, ::Int>::compMassInverse(Int);
 template void CDiscretizationT<::dstype, ::Int>::projectField(dstype*, dstype*, dstype*, Int, Int, Int);
