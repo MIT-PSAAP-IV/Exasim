@@ -194,6 +194,11 @@ def preprocessing(app,mesh):
         app['nbqoi'] = f.size;
     else:
         app['nbqoi'] = 0;
+    if hasattr(pdemodel, 'vissurfscalars'):
+        f = pdemodel.vissurfscalars(udgsym, qdgsym, wdgsym, odgsym, xdgsym, time, paramsym, uinfsym, uhatsym, nsym, tausym);
+        app['nsurfsca'] = f.size;
+    else:
+        app['nsurfsca'] = 0;
 
     print("run facenumbering...");
     mesh['f'], mesh['tprd'], t2t = facenumbering(mesh['p'],mesh['t'],app['elemtype'],mesh['boundaryexpr'],mesh['periodicexpr'])[0:3];

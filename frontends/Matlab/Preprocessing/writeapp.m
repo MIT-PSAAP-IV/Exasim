@@ -38,6 +38,8 @@ ndims(16) = app.nvec;
 ndims(17) = app.nten;
 ndims(18) = app.nbqoi; 
 ndims(19) = app.nvqoi;
+ndims(20) = app.nsurfsca;
+ndims(21) = app.ibvis;
 
 % if app.nco ~= size(app.vindx,1)
 %     error("app.nco mus be equal to size(app.vindx,1)");

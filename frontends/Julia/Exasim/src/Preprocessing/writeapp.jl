@@ -33,6 +33,8 @@ ndims[16] = app.nvec;
 ndims[17] = app.nten;
 ndims[18] = app.nbqoi;
 ndims[19] = app.nvqoi;
+ndims[20] = app.nsurfsca;
+ndims[21] = app.ibvis;
 
 avparam = [app.avparam1[:]; app.avparam2[:]];
 
