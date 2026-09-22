@@ -382,6 +382,23 @@ inline void QoIboundaryDriver(T* fb, const T* xg, const T* udg,
                            common.components.nco, common.components.ncw);
 }
 
+template <class M, class T=dstype, class I=Int>
+inline void VisSurfScalarsDriver(T* fb, const T* xg, const T* udg,
+                                 const T* odg, const T* wdg,
+                                 const T* uhg, const T* nl,
+                                 meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
+                                 appstructT<T,I>& app, solstructT<T,I>& /*sol*/, tempstructT<T,I>& /*temp*/,
+                                 commonstructT<T,I>& common, Int ngf, Int f1, Int f2, Int ib, Int /*backend*/)
+{
+    using dstype=T;
+    Int ng = ngf * (f2 - f1);
+    vis_surf_scalars_kernel<M, T>(fb, xg, udg, odg, wdg, uhg, nl, app.tau,
+                               app.uinf, app.physicsparam,
+                               common.timestate.time, common.modelnumber, ib, ng,
+                               common.components.nc, common.components.ncu, common.grid.nd, common.components.ncx,
+                               common.components.nco, common.components.ncw);
+}
+
 // ===== Surface drivers =====
 
 // LDG boundary flux (no Jacobians — `KokkosFbou`).

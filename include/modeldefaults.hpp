@@ -172,6 +172,7 @@ struct ModelDefaults {
     static constexpr int nten  = 0;
     static constexpr int nsurf = 0;
     static constexpr int nvqoi = 0;
+    static constexpr int nsurfsca = 0;  // surface scalar visualization fields (VisSurfScalars)
 
     // Optional material-state width for materialstate(). Models without
     // materialstate leave this at zero.
