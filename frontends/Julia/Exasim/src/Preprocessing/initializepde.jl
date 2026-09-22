@@ -135,6 +135,27 @@ mutable struct PDEStruct
     AVcontinuationLogScale; # loginc spacing parameter
     AVcoeffStart;
     AVcoeffEnd;
+    meshadaptenabled;
+    meshadaptfield;
+    meshadaptavcomponent;
+    meshadaptsmoothingpasses;
+    meshadaptiterations;
+    meshadaptalpha;
+    meshadaptqmin;
+    meshadaptqmax;
+    meshadaptHelmholtzCoeff;
+    meshadapttargetexponent;
+    meshadaptpoissonratio;
+    meshadaptyoungmodulus;
+    meshadaptminimumyoungmodulus;
+    meshadaptshearscale;
+    meshadaptvolumetricscale;
+    meshadaptforcescale;
+    meshadaptdamping;
+    meshadaptminimumjacobianratio;
+    meshadaptHelmholtzTau;
+    meshadaptelasticitytau;
+    meshadaptboundaryconditions;
 
     dt::Array{FloatP,1};      # time steps
     tau::Array{FloatP,1}; # stabilization parameters
@@ -321,6 +342,27 @@ function initializepde(version)
     pde.AVcontinuationLogScale = 1.0;
     pde.AVcoeffStart = 0.0;
     pde.AVcoeffEnd = 0.0;
+    pde.meshadaptenabled = 0;
+    pde.meshadaptfield = 1;
+    pde.meshadaptavcomponent = 1;
+    pde.meshadaptsmoothingpasses = 30;
+    pde.meshadaptiterations = 6;
+    pde.meshadaptalpha = 0.25;
+    pde.meshadaptqmin = 0.2;
+    pde.meshadaptqmax = 0.8;
+    pde.meshadaptHelmholtzCoeff = 0.02;
+    pde.meshadapttargetexponent = 2.0;
+    pde.meshadaptpoissonratio = 0.2;
+    pde.meshadaptyoungmodulus = 1.0;
+    pde.meshadaptminimumyoungmodulus = 1.0e-3;
+    pde.meshadaptshearscale = 1.0;
+    pde.meshadaptvolumetricscale = 1.0;
+    pde.meshadaptforcescale = 1.0;
+    pde.meshadaptdamping = 1.0;
+    pde.meshadaptminimumjacobianratio = 1.0e-8;
+    pde.meshadaptHelmholtzTau = 2.0;
+    pde.meshadaptelasticitytau = 1.0e3;
+    pde.meshadaptboundaryconditions = [];
 
     pde.tau = [1.0]; # stabilization parameters
     pde.dt = [0.0];  # time steps

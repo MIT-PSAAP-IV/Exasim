@@ -34,3 +34,19 @@ The comparison script checks `app.bin`, `mesh.bin`, `sol.bin`, and `master.bin`,
 then reports pairwise L2, Linf, and relative-L2 differences for the conservative
 variables, primitive variables, Mach number, wall distance, filtered AV sensor,
 and effective artificial viscosity.
+
+## Backend mesh-adaptivity verification
+
+Run the MATLAB reference first, followed by the backend driver:
+
+```matlab
+pdeapp_meshadapt
+pdeapp_backendmeshadapt
+```
+
+The reference writes `meshadapt_reference.mat`. The backend driver enables the
+backend mesh mover with the same indicator, filter, elasticity, boundary, and
+iteration parameters, then writes `meshadapt_backend.mat` and prints L2, Linf,
+relative-L2, and maximum scaled differences for every comparable intermediate
+field and adapted coordinate array. Backend binary diagnostics are opt-in and
+are enabled by the driver through `EXASIM_MESHADAPT_VERIFY` only for this run.

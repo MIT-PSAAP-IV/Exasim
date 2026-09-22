@@ -1,0 +1,81 @@
+scalars t
+
+vectors x(3), uq(12), v(5), w(0), uhat(3), uext(3), n(3), tau(1), mu(3), eta(0)
+
+jacobian uq, w, uhat
+
+hessian
+
+batch x, uq, v, w, uhat, n, uext
+
+outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Initu
+
+function Flux(x, uq, v, w, eta, mu, t)
+  output_size(f) = 9;
+  trq = uq[3] + uq[7] + uq[11];
+  f[0] = 2.0*mu[0]*v[0]*uq[3] + mu[1]*v[1]*trq;
+  f[1] = mu[0]*v[0]*(uq[4] + uq[6]);
+  f[2] = mu[0]*v[0]*(uq[5] + uq[9]);
+  f[3] = mu[0]*v[0]*(uq[6] + uq[4]);
+  f[4] = 2.0*mu[0]*v[0]*uq[7] + mu[1]*v[1]*trq;
+  f[5] = mu[0]*v[0]*(uq[8] + uq[10]);
+  f[6] = mu[0]*v[0]*(uq[9] + uq[5]);
+  f[7] = mu[0]*v[0]*(uq[10] + uq[8]);
+  f[8] = 2.0*mu[0]*v[0]*uq[11] + mu[1]*v[1]*trq;
+end
+
+function Source(x, uq, v, w, eta, mu, t)
+  output_size(s) = 3;
+  s[0] = mu[2]*v[2];
+  s[1] = mu[2]*v[3];
+  s[2] = mu[2]*v[4];
+end
+
+function Tdfunc(x, uq, v, w, eta, mu, t)
+  output_size(m) = 3;
+  ones(m);
+end
+
+function Fbou(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(fb) = 3;
+  zeros(fb);
+end
+
+function Ubou(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(ub) = 3;
+  zeros(ub);
+end
+
+function FbouHdg(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(fb) = 18;
+  f = Flux(x, uq, v, w, eta, mu, t);
+  fh0 = f[0]*n[0] + f[3]*n[1] + f[6]*n[2] + tau[0]*(uq[0]-uhat[0]);
+  fh1 = f[1]*n[0] + f[4]*n[1] + f[7]*n[2] + tau[0]*(uq[1]-uhat[1]);
+  fh2 = f[2]*n[0] + f[5]*n[1] + f[8]*n[2] + tau[0]*(uq[2]-uhat[2]);
+  un = uhat[0]*n[0] + uhat[1]*n[1] + uhat[2]*n[2];
+  tn = fh0*n[0] + fh1*n[1] + fh2*n[2];
+
+  fb[0] = fh0;
+  fb[1] = fh1;
+  fb[2] = fh2;
+  fb[3] = -tau[0]*uhat[0];
+  fb[4] = -tau[0]*uhat[1];
+  fb[5] = -tau[0]*uhat[2];
+  fb[6] = -tau[0]*un*n[0] + fh0 - tn*n[0];
+  fb[7] = -tau[0]*un*n[1] + fh1 - tn*n[1];
+  fb[8] = -tau[0]*un*n[2] + fh2 - tn*n[2];
+  fb[9] = fh0;
+  fb[10] = -tau[0]*uhat[1];
+  fb[11] = fh2;
+  fb[12] = -tau[0]*uhat[0];
+  fb[13] = fh1;
+  fb[14] = fh2;
+  fb[15] = fh0;
+  fb[16] = fh1;
+  fb[17] = -tau[0]*uhat[2];
+end
+
+function Initu(x, eta, mu)
+  output_size(ui) = 3;
+  zeros(ui);
+end

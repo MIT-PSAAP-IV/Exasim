@@ -1,0 +1,65 @@
+scalars t
+
+vectors x(2), uq(6), v(4), w(0), uhat(2), uext(2), n(2), tau(1), mu(3), eta(0)
+
+jacobian uq, w, uhat
+
+hessian
+
+batch x, uq, v, w, uhat, n, uext
+
+outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Initu
+
+function Flux(x, uq, v, w, eta, mu, t)
+  output_size(f) = 4;
+  trq = uq[2] + uq[5];
+  f[0] = 2.0*mu[0]*v[0]*uq[2] + mu[1]*v[1]*trq;
+  f[1] = mu[0]*v[0]*(uq[3] + uq[4]);
+  f[2] = mu[0]*v[0]*(uq[4] + uq[3]);
+  f[3] = 2.0*mu[0]*v[0]*uq[5] + mu[1]*v[1]*trq;
+end
+
+function Source(x, uq, v, w, eta, mu, t)
+  output_size(s) = 2;
+  s[0] = mu[2]*v[2];
+  s[1] = mu[2]*v[3];
+end
+
+function Tdfunc(x, uq, v, w, eta, mu, t)
+  output_size(m) = 2;
+  ones(m);
+end
+
+function Fbou(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(fb) = 2;
+  zeros(fb);
+end
+
+function Ubou(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(ub) = 2;
+  zeros(ub);
+end
+
+function FbouHdg(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(fb) = 10;
+  f = Flux(x, uq, v, w, eta, mu, t);
+  fh0 = f[0]*n[0] + f[2]*n[1] + tau[0]*(uq[0]-uhat[0]);
+  fh1 = f[1]*n[0] + f[3]*n[1] + tau[0]*(uq[1]-uhat[1]);
+  un = uhat[0]*n[0] + uhat[1]*n[1];
+
+  fb[0] = fh0;
+  fb[1] = fh1;
+  fb[2] = -tau[0]*uhat[0];
+  fb[3] = -tau[0]*uhat[1];
+  fb[4] = -tau[0]*un;
+  fb[5] = fh0*n[1] - fh1*n[0];
+  fb[6] = fh0;
+  fb[7] = -tau[0]*uhat[1];
+  fb[8] = -tau[0]*uhat[0];
+  fb[9] = fh1;
+end
+
+function Initu(x, eta, mu)
+  output_size(ui) = 2;
+  zeros(ui);
+end

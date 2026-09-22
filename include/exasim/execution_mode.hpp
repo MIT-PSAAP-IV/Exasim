@@ -3,5 +3,6 @@
 enum class ExasimExecutionMode {
     Solve,
     Postprocess,
-    AuxiliaryHelmholtz
+    AuxiliaryHelmholtz,
+    AuxiliaryElasticity
 };

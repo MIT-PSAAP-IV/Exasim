@@ -47,6 +47,7 @@
 #include "updatesource.cpp"
 #include "timestepcoeff.cpp"
 #include "avsolution.cpp"
+#include "meshadaptivity.cpp"
 
 #include <chrono>
 

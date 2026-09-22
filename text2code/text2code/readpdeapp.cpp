@@ -75,6 +75,7 @@ struct InputParams {
     std::vector<int> periodicBoundaries1;
     std::vector<int> periodicBoundaries2;
     std::vector<int> cartGridPart;
+    std::vector<int> meshAdaptBoundaryConditions;
     
     std::vector<double> dae_dt;
     std::vector<double> dt;
@@ -322,6 +323,8 @@ InputParams parseInputFile(const std::string& filename, int mpirank=0)
             params.stgparam = parseExpression(full);
         else if (full.find("cartgridpart") != std::string::npos)
             params.cartGridPart = parseList<int>(full);
+        else if (full.find("meshadaptboundaryconditions") != std::string::npos)
+            params.meshAdaptBoundaryConditions = parseList<int>(full);
         else if (full.find("interfaceconditions") != std::string::npos)
             params.interfaceConditions = parseList<int>(full);
         else if (full.find("interfacefluxmap") != std::string::npos)
@@ -496,6 +499,11 @@ struct PDE {
     int physicsparamwarmstart = 0;
     int saveResNorm = 0;
     int dae_steps = 0;
+    int meshAdapt = 0;
+    int meshAdaptField = 1;
+    int meshAdaptAVComponent = 1;
+    int meshAdaptSmoothingPasses = 30;
+    int meshAdaptIterations = 6;
 
     int coupledinterface = 0; 
     int coupledcondition = 0;
@@ -514,6 +522,21 @@ struct PDE {
     double dae_beta = 0.0;
     double dae_gamma = 0.0;
     double dae_epsilon = 0.0;    
+    double meshAdaptAlpha = 0.25;
+    double meshAdaptQmin = 0.2;
+    double meshAdaptQmax = 0.8;
+    double meshAdaptHelmholtzCoeff = 0.02;
+    double meshAdaptTargetExponent = 2.0;
+    double meshAdaptPoissonRatio = 0.2;
+    double meshAdaptYoungModulus = 1.0;
+    double meshAdaptMinimumYoungModulus = 1.0e-3;
+    double meshAdaptShearScale = 1.0;
+    double meshAdaptVolumetricScale = 1.0;
+    double meshAdaptForceScale = 1.0;
+    double meshAdaptDamping = 1.0;
+    double meshAdaptMinimumJacobianRatio = 1.0e-8;
+    double meshAdaptHelmholtzTau = 2.0;
+    double meshAdaptElasticityTau = 1.0e3;
             
     std::vector<int> interfaceFluxmap;    
     std::vector<double> dae_dt;
@@ -531,6 +554,7 @@ struct PDE {
     std::vector<double> stgib;
     std::vector<double> stgdata;
     std::vector<double> stgparam;    
+    std::vector<int> meshAdaptBoundaryConditions;
 };
 
 void resolveAVContinuation(PDE& pde)
@@ -872,6 +896,16 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     if (params.intParams.count("dae_steps")) {
         pde.dae_steps = params.intParams["dae_steps"];
     }
+    if (params.intParams.count("meshadaptenabled"))
+        pde.meshAdapt = params.intParams["meshadaptenabled"];
+    if (params.intParams.count("meshadaptfield"))
+        pde.meshAdaptField = params.intParams["meshadaptfield"];
+    if (params.intParams.count("meshadaptavcomponent"))
+        pde.meshAdaptAVComponent = params.intParams["meshadaptavcomponent"];
+    if (params.intParams.count("meshadaptsmoothingpasses"))
+        pde.meshAdaptSmoothingPasses = params.intParams["meshadaptsmoothingpasses"];
+    if (params.intParams.count("meshadaptiterations"))
+        pde.meshAdaptIterations = params.intParams["meshadaptiterations"];
             
     if (params.doubleParams.count("time")) {
         pde.time = params.doubleParams["time"];
@@ -908,8 +942,28 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     } else if (params.intParams.count("dae_epsilon")) {
         pde.dae_epsilon = static_cast<double>(params.intParams["dae_epsilon"]);
     }
+    auto readMeshAdaptDouble = [&](const char* key, double& value) {
+        if (params.doubleParams.count(key)) value = params.doubleParams[key];
+        else if (params.intParams.count(key)) value = static_cast<double>(params.intParams[key]);
+    };
+    readMeshAdaptDouble("meshadaptalpha", pde.meshAdaptAlpha);
+    readMeshAdaptDouble("meshadaptqmin", pde.meshAdaptQmin);
+    readMeshAdaptDouble("meshadaptqmax", pde.meshAdaptQmax);
+    readMeshAdaptDouble("meshadapthelmholtzcoeff", pde.meshAdaptHelmholtzCoeff);
+    readMeshAdaptDouble("meshadapttargetexponent", pde.meshAdaptTargetExponent);
+    readMeshAdaptDouble("meshadaptpoissonratio", pde.meshAdaptPoissonRatio);
+    readMeshAdaptDouble("meshadaptyoungmodulus", pde.meshAdaptYoungModulus);
+    readMeshAdaptDouble("meshadaptminimumyoungmodulus", pde.meshAdaptMinimumYoungModulus);
+    readMeshAdaptDouble("meshadaptshearscale", pde.meshAdaptShearScale);
+    readMeshAdaptDouble("meshadaptvolumetricscale", pde.meshAdaptVolumetricScale);
+    readMeshAdaptDouble("meshadaptforcescale", pde.meshAdaptForceScale);
+    readMeshAdaptDouble("meshadaptdamping", pde.meshAdaptDamping);
+    readMeshAdaptDouble("meshadaptminimumjacobianratio", pde.meshAdaptMinimumJacobianRatio);
+    readMeshAdaptDouble("meshadapthelmholtztau", pde.meshAdaptHelmholtzTau);
+    readMeshAdaptDouble("meshadaptelasticitytau", pde.meshAdaptElasticityTau);
      
     pde.dt = params.dt;
+    pde.meshAdaptBoundaryConditions = params.meshAdaptBoundaryConditions;
     pde.dae_dt = params.dae_dt;
     pde.tau = params.tau;
     pde.physicsparam = params.physicsParam;
@@ -1051,6 +1105,15 @@ void writepde(const PDE& pde, const std::string& filename)
     std::vector<double> avparam = packAVContinuation(pde);
     const std::vector<double> avfilterparam = {
         static_cast<double>(pde.AVsmoothingMethod), pde.AVHelmholtzCoeff};
+    const std::vector<double> meshadaptparam = {
+        static_cast<double>(pde.meshAdapt), static_cast<double>(pde.meshAdaptField),
+        static_cast<double>(pde.meshAdaptAVComponent), static_cast<double>(pde.meshAdaptSmoothingPasses),
+        static_cast<double>(pde.meshAdaptIterations), pde.meshAdaptAlpha, pde.meshAdaptQmin,
+        pde.meshAdaptQmax, pde.meshAdaptHelmholtzCoeff, pde.meshAdaptTargetExponent,
+        pde.meshAdaptPoissonRatio, pde.meshAdaptYoungModulus, pde.meshAdaptMinimumYoungModulus,
+        pde.meshAdaptShearScale, pde.meshAdaptVolumetricScale, pde.meshAdaptForceScale,
+        pde.meshAdaptDamping, pde.meshAdaptMinimumJacobianRatio, pde.meshAdaptHelmholtzTau,
+        pde.meshAdaptElasticityTau};
 
     std::vector<double> ndims(40, 0.0);
     ndims[0] = pde.mpiprocs;
@@ -1088,6 +1151,8 @@ void writepde(const PDE& pde, const std::string& filename)
     nsize[14] = pde.interfaceFluxmap.size();
     nsize[15] = avparam.size();
     nsize[19] = avfilterparam.size();
+    nsize[20] = meshadaptparam.size();
+    nsize[21] = pde.meshAdaptBoundaryConditions.size();
 
     std::ofstream file(filename, std::ios::binary);
     if (!file) throw std::runtime_error("Cannot open file for writing.");
@@ -1130,6 +1195,11 @@ void writepde(const PDE& pde, const std::string& filename)
         writeVector(avparam);
     }
     writeVector(avfilterparam);
+    writeVector(meshadaptparam);
+    if (!pde.meshAdaptBoundaryConditions.empty()) {
+        std::vector<double> bcs(pde.meshAdaptBoundaryConditions.begin(), pde.meshAdaptBoundaryConditions.end());
+        writeVector(bcs);
+    }
 
     file.close();
     if (!pde.physicsparamcases.empty()) {

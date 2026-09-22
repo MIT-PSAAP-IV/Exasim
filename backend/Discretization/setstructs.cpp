@@ -226,6 +226,44 @@ void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, masterstr
         (app.szavfilterparam > 0) ? static_cast<Int>(app.avfilterparam[0]) : 0;
     common.physicsparams.AVHelmholtzCoeff =
         (app.szavfilterparam > 1) ? app.avfilterparam[1] : 1.0;
+    if (app.szmeshadaptparam > 0) {
+        if (app.szmeshadaptparam < 20)
+            error("Mesh-adaptivity parameter block must contain 20 entries.");
+        common.meshadaptparams.enabled = static_cast<Int>(app.meshadaptparam[0]);
+        common.meshadaptparams.scalarField = static_cast<Int>(app.meshadaptparam[1]);
+        common.meshadaptparams.avComponent = static_cast<Int>(app.meshadaptparam[2]);
+        common.meshadaptparams.smoothingPasses = static_cast<Int>(app.meshadaptparam[3]);
+        common.meshadaptparams.movementIterations = static_cast<Int>(app.meshadaptparam[4]);
+        common.meshadaptparams.alpha = app.meshadaptparam[5];
+        common.meshadaptparams.qmin = app.meshadaptparam[6];
+        common.meshadaptparams.qmax = app.meshadaptparam[7];
+        common.meshadaptparams.helmholtzCoeff = app.meshadaptparam[8];
+        common.meshadaptparams.targetExponent = app.meshadaptparam[9];
+        common.meshadaptparams.poissonRatio = app.meshadaptparam[10];
+        common.meshadaptparams.youngModulus = app.meshadaptparam[11];
+        common.meshadaptparams.minimumYoungModulus = app.meshadaptparam[12];
+        common.meshadaptparams.shearScale = app.meshadaptparam[13];
+        common.meshadaptparams.volumetricScale = app.meshadaptparam[14];
+        common.meshadaptparams.forceScale = app.meshadaptparam[15];
+        common.meshadaptparams.damping = app.meshadaptparam[16];
+        common.meshadaptparams.minimumJacobianRatio = app.meshadaptparam[17];
+        common.meshadaptparams.helmholtzTau = app.meshadaptparam[18];
+        common.meshadaptparams.elasticityTau = app.meshadaptparam[19];
+        const auto &m = common.meshadaptparams;
+        if (m.alpha < 0.0 || m.alpha > 1.0) error("meshadaptalpha must be in [0,1].");
+        if (m.qmin < 0.0 || m.qmax > 1.0 || m.qmin >= m.qmax)
+            error("meshadaptqmin and meshadaptqmax must satisfy 0 <= qmin < qmax <= 1.");
+        if (m.scalarField < 1 || m.avComponent < 1)
+            error("Mesh-adaptivity field and AV component indices are one-based and must be positive.");
+        if (m.smoothingPasses < 0 || m.movementIterations < 0)
+            error("Mesh-adaptivity iteration counts must be nonnegative.");
+        if (m.poissonRatio <= -1.0 || m.poissonRatio >= 0.5)
+            error("meshadaptpoissonratio must be in (-1,0.5).");
+        if (m.helmholtzCoeff < 0.0 || m.youngModulus <= 0.0 ||
+            m.minimumYoungModulus <= 0.0 || m.damping <= 0.0 || m.damping > 1.0 ||
+            m.minimumJacobianRatio <= 0.0)
+            error("Invalid positive mesh-adaptivity coefficient or damping parameter.");
+    }
     common.physicsparams.frozenAVflag = app.problem[26]; // Flag deciding if artificial viscosity is calculated once per non-linear solve or in every residual evluation
                                            //   0: AV not frozen, evaluated every iteration
                                            //   1: AV frozen, evluated once per solve (default)          
@@ -1042,6 +1080,8 @@ void devappstruct(appstructT<T,I> &dapp, appstructT<T,I> &app, ExasimDriverABI& 
     TemplateMalloc(&dapp.interfacefluxmap, app.nsize[14], common.backend);  
     TemplateMalloc(&dapp.avparam, app.nsize[15], common.backend);  
     TemplateMalloc(&dapp.avfilterparam, app.szavfilterparam, common.backend);
+    TemplateMalloc(&dapp.meshadaptparam, app.szmeshadaptparam, common.backend);
+    TemplateMalloc(&dapp.meshadaptbcs, app.szmeshadaptbcs, common.backend);
     TemplateMalloc(&dapp.materialdb_elementcounts, app.szmaterialdb_elementcounts, common.backend);
     TemplateMalloc(&dapp.materialdb_ncgi, app.szmaterialdb_ncgi, common.backend);
     TemplateMalloc(&dapp.materialdb_gridoffset, app.szmaterialdb_gridoffset, common.backend);
@@ -1069,6 +1109,8 @@ void devappstruct(appstructT<T,I> &dapp, appstructT<T,I> &app, ExasimDriverABI& 
     TemplateCopytoDevice( dapp.interfacefluxmap, app.interfacefluxmap, app.nsize[14], common.backend );   
     TemplateCopytoDevice( dapp.avparam, app.avparam, app.nsize[15], common.backend );   
     TemplateCopytoDevice( dapp.avfilterparam, app.avfilterparam, app.szavfilterparam, common.backend );
+    TemplateCopytoDevice( dapp.meshadaptparam, app.meshadaptparam, app.szmeshadaptparam, common.backend );
+    TemplateCopytoDevice( dapp.meshadaptbcs, app.meshadaptbcs, app.szmeshadaptbcs, common.backend );
     TemplateCopytoDevice( dapp.materialdb_elementcounts, app.materialdb_elementcounts, app.szmaterialdb_elementcounts, common.backend );
     TemplateCopytoDevice( dapp.materialdb_ncgi, app.materialdb_ncgi, app.szmaterialdb_ncgi, common.backend );
     TemplateCopytoDevice( dapp.materialdb_gridoffset, app.materialdb_gridoffset, app.szmaterialdb_gridoffset, common.backend );
@@ -1094,6 +1136,8 @@ void devappstruct(appstructT<T,I> &dapp, appstructT<T,I> &app, ExasimDriverABI& 
     dapp.szinterfacefluxmap = app.nsize[14];
     dapp.szavparam = app.nsize[15];
     dapp.szavfilterparam = app.szavfilterparam;
+    dapp.szmeshadaptparam = app.szmeshadaptparam;
+    dapp.szmeshadaptbcs = app.szmeshadaptbcs;
     dapp.materialdb_nstate = app.materialdb_nstate;
     dapp.materialdb_nprop = app.materialdb_nprop;
     dapp.materialdb_porder = app.materialdb_porder;

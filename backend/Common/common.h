@@ -750,6 +750,8 @@ struct appstructT {
     dstype *stgparam=nullptr;
     dstype *avparam=nullptr;
     dstype *avfilterparam=nullptr;
+    dstype *meshadaptparam=nullptr;
+    Int *meshadaptbcs=nullptr;
     dstype *wmDistances=nullptr;
     
     //dstype time=nullptr;     /* current time */
@@ -766,6 +768,7 @@ struct appstructT {
     Int szuinf=0, szdt=0, szdae_dt=0, szfactor=0, szphysicsparam=0, szsolversparam=0;
     Int sztau=0, szstgdata=0, szstgparam=0, szfc_u=0, szfc_q=0, szfc_w=0;
     Int szdtcoef_u=0, szdtcoef_q=0, szdtcoef_w=0, szavparam=0, szavfilterparam=0, szwmDistances=0;
+    Int szmeshadaptparam=0, szmeshadaptbcs=0;
 
     // Material database metadata.  These fields are populated from the
     // optional datain/materialdatabase.bin table at runtime; they are not
@@ -805,14 +808,14 @@ struct appstructT {
 
     int sizeofint() {
       int sz = szflag + szproblem + szcomm + szporder + szstgib + szvindx + szinterfacefluxmap
-             + szwmModelIDs + szwmBoundaries + szmaterialdb_elementcounts +
+             + szwmModelIDs + szwmBoundaries + szmeshadaptbcs + szmaterialdb_elementcounts +
                szmaterialdb_ncgi + szmaterialdb_gridoffset + szmaterialdb_elemoffset;
       return sz;
     }
     int sizeoffloat() {
       int sz = szuinf+szdt+szdae_dt+szfactor+szphysicsparam+szsolversparam+
                sztau+szstgdata+szstgparam+szfc_u+szfc_q+szfc_w+szdtcoef_u+
-               szdtcoef_q+szdtcoef_w+szavparam+szavfilterparam+szwmDistances+
+               szdtcoef_q+szdtcoef_w+szavparam+szavfilterparam+szmeshadaptparam+szwmDistances+
                szmaterialdb_statecoords+szmaterialdb_propvalues+
                szmaterialdb_gridcoords+szmaterialdb_elemcoords;
       return sz;        
@@ -896,6 +899,8 @@ struct appstructT {
         TemplateFree(stgparam, backend);
         TemplateFree(avparam, backend);
         TemplateFree(avfilterparam, backend);
+        TemplateFree(meshadaptparam, backend);
+        TemplateFree(meshadaptbcs, backend);
         TemplateFree(wmDistances, backend);
         TemplateFree(fc_u, backend);
         TemplateFree(fc_q, backend);
@@ -1934,6 +1939,29 @@ struct physicsparamsstruct {
     dstype tau0=0.0;      // initial stabilization parameter
 };
 
+struct meshadaptparamsstruct {
+    Int enabled = 0;
+    Int scalarField = 1;
+    Int avComponent = 1;
+    Int smoothingPasses = 30;
+    Int movementIterations = 6;
+    dstype alpha = 0.25;
+    dstype qmin = 0.2;
+    dstype qmax = 0.8;
+    dstype helmholtzCoeff = 0.02;
+    dstype targetExponent = 2.0;
+    dstype poissonRatio = 0.2;
+    dstype youngModulus = 1.0;
+    dstype minimumYoungModulus = 1.0e-3;
+    dstype shearScale = 1.0;
+    dstype volumetricScale = 1.0;
+    dstype forceScale = 1.0;
+    dstype damping = 1.0;
+    dstype minimumJacobianRatio = 1.0e-8;
+    dstype helmholtzTau = 2.0;
+    dstype elasticityTau = 1.0e3;
+};
+
 // Time-integration / problem-evolution configuration: temporal scheme + order + stages, time-step
 // count, dual-time (DAE) parameters, and the problem-character flags (time-dependent, wave, linear,
 // sub-problem, time-derivative function). Grouped out of commonstruct (C3). Access via
@@ -2236,6 +2264,7 @@ struct commonstructT {
     timeparamsstruct timeparams;        // time-integration/problem-evolution config (see above)
     solverparamsstruct solverparams;    // iterative-solver configuration (see above)
     physicsparamsstruct physicsparams;  // physics/model configuration (see above)
+    meshadaptparamsstruct meshadaptparams;
     // solverstate (mutable solver/preconditioner runtime state) was lifted out of commonstruct
     // into CSolver (Stage 1 of the internal separation) -- setup/config stays here, runtime state
     // lives in the owning solver object.

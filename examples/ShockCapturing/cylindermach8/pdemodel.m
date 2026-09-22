@@ -187,7 +187,7 @@ function u0 = initu(x, mu, eta)
 end
 
 function s = visscalars(u, q, w, v, x, t, mu, eta)
-    % Match eulereval(u,'M',gam,Minf) and the MATLAB AV postprocessing.
+    % Match eulereval for Mach/pressure and the MATLAB AV postprocessing.
     gam = mu(1);
     r = u(1);
     uv = u(2)/r;
@@ -196,5 +196,5 @@ function s = visscalars(u, q, w, v, x, t, mu, eta)
     p = sqrt(psigned*psigned); % abs(psigned), in text2code-compatible form
     mach = sqrt(uv*uv + vv*vv)/sqrt(gam*p/r);
     av = mu(end)*v(2)*tanh(mu(end-2)*v(1));
-    s = [mach; av];
+    s = [mach; av; p];
 end
