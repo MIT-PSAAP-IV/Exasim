@@ -37,6 +37,12 @@ public:
     // assemble the HDG global residual (writes disc.res.Rh / Ru)
     void hdgAssembleResidual(dstype *b, Int backend);
 
+    // assemble the LDG block operator at base state u (M1): runs the per-element block-Jacobian
+    // assembly and captures the un-inverted element diagonal into disc.res.Adiag, which ldgMatVec
+    // then applies. Serial + frozen-AV scope in M1 (see assembler.cpp). No trace/global system is
+    // formed (LDG's linear unknown is the volume u; uhat is explicit).
+    void ldgAssembleLinearSystem(dstype* u, Int backend);
+
     // apply the discrete operator: Jv = J(u)*v (LDG = matrix-free FD; HDG = apply res.H)
     void evalMatVec(dstype* Jv, dstype* v, dstype* u, dstype* Ru, Int backend);
     void evalMatVec(dstype* Jv, dstype* v, dstype* u, dstype* Ru, Int spatialScheme, Int backend);
