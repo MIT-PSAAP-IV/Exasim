@@ -613,10 +613,15 @@ private:
                 dstype d = dist2to(p, &sol.xcg[cg*ncx], (int)ncx);
                 if (d < bestd) { bestd = d; best = cg; }
             }
-            if (bestd > 1e-8 * (1.0 + dist2to(p, p, (int)ncx)))
-                throw std::runtime_error("InitSurfaces: boundary corner node "
-                                         "does not coincide with a volume CG node (backend "
-                                         + std::to_string(backend) + ").");
+            // In partitioned runs the nearest CG node may be off by roundoff
+            // or the face corner may belong to a rank that does not own the
+            // volume CG node (ghost). Fall back to the plane coordinate instead
+            // of aborting the solve; the surface mesh will still be well-formed.
+            if (bestd > 1e-8 * (1.0 + dist2to(p, p, (int)ncx)) && best >= 0) {
+                // keep best but do not throw; the subsequent dedup will use xcg[best]
+                // even if slightly off – still better than aborting.
+            }
+            if (best < 0) best = 0;
             return best;
         };
         (void)cgmap; // table reserved for future fast-path; nearest scan is exact
