@@ -11,7 +11,23 @@ void avdistfunc(CSolution<exasim::detail::AbiAdapter>** pdemodel, ofstream* out,
     for (Int i=0; i<nummodels; i++) {
       Int m = pdemodel[i]->disc.app.szphysicsparam;      
       ArrayCopy(&pdemodel[i]->disc.app.physicsparam[m-2], &pdemodel[i]->disc.app.avparam[2*n], 2);
-      pdemodel[i]->SteadyProblem(out[i], backend);        
+      pdemodel[i]->UpdateWallDistance(n+1, backend);
+      pdemodel[i]->PrepareArtificialViscosity(n == 0, n+1, backend);
+      pdemodel[i]->SteadyProblem(out[i], backend);
+
+      const char *verificationEnvironment = std::getenv("EXASIM_MESHADAPT_VERIFY");
+      if (verificationEnvironment != nullptr && string(verificationEnvironment) != "0" &&
+          string(verificationEnvironment) != "") {
+        const Int rank = pdemodel[i]->disc.common.mpiRank-
+                         pdemodel[i]->disc.common.outputparams.fileoffset;
+        const string filename = pdemodel[i]->disc.common.fileout + "_meshadapt_aviter" +
+          NumberToString(n+1) + "_flow_solution_np" + NumberToString(rank) + ".bin";
+        writearray2file(filename, pdemodel[i]->disc.sol.udg,
+                        pdemodel[i]->disc.sol.szudg, backend);
+      }
+
+      if (n+1 < aviter && pdemodel[i]->disc.common.meshadaptparams.enabled)
+        pdemodel[i]->AdaptMesh(backend, n+1);
     }
   }
   
@@ -27,4 +43,3 @@ void avdistfunc(CSolution<exasim::detail::AbiAdapter>** pdemodel, ofstream* out,
       pdemodel[i]->writer.SaveOutputCG(backend);            
   }
 }
-

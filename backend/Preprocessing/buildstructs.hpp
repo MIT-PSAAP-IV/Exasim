@@ -166,6 +166,9 @@ inline appstructT<T,I> buildAppStruct(const PDE& pde)
     app.nsize[14] = (Int)pde.interfaceFluxmap.size();
     app.nsize[15] = (Int)avparam.size();
     app.nsize[19] = 2;
+    app.nsize[20] = 20;
+    app.nsize[21] = (Int)pde.meshAdaptBoundaryConditions.size();
+    app.nsize[22] = (Int)pde.distanceBoundaryConditions.size();
 
     app.lsize = (Int*)std::malloc(sizeof(Int));
     app.lsize[0] = kNSize;
@@ -199,6 +202,27 @@ inline appstructT<T,I> buildAppStruct(const PDE& pde)
     app.avfilterparam    = (T*)std::malloc(2*sizeof(T));
     app.avfilterparam[0] = static_cast<T>(pde.AVsmoothingMethod);
     app.avfilterparam[1] = static_cast<T>(pde.AVHelmholtzCoeff);
+    const T meshadaptparam[20] = {
+        static_cast<T>(pde.meshAdapt), static_cast<T>(pde.meshAdaptField),
+        static_cast<T>(pde.meshAdaptAVComponent), static_cast<T>(pde.meshAdaptSmoothingPasses),
+        static_cast<T>(pde.meshAdaptIterations), static_cast<T>(pde.meshAdaptAlpha),
+        static_cast<T>(pde.meshAdaptQmin), static_cast<T>(pde.meshAdaptQmax),
+        static_cast<T>(pde.meshAdaptHelmholtzCoeff), static_cast<T>(pde.meshAdaptTargetExponent),
+        static_cast<T>(pde.meshAdaptPoissonRatio), static_cast<T>(pde.meshAdaptYoungModulus),
+        static_cast<T>(pde.meshAdaptMinimumYoungModulus), static_cast<T>(pde.meshAdaptShearScale),
+        static_cast<T>(pde.meshAdaptVolumetricScale), static_cast<T>(pde.meshAdaptForceScale),
+        static_cast<T>(pde.meshAdaptDamping), static_cast<T>(pde.meshAdaptMinimumJacobianRatio),
+        static_cast<T>(pde.meshAdaptHelmholtzTau), static_cast<T>(pde.meshAdaptElasticityTau)};
+    app.meshadaptparam = (T*)std::malloc(sizeof(T)*20);
+    std::copy(meshadaptparam, meshadaptparam + 20, app.meshadaptparam);
+    if (!pde.meshAdaptBoundaryConditions.empty()) {
+        app.meshadaptbcs = (Int*)std::malloc(sizeof(Int)*pde.meshAdaptBoundaryConditions.size());
+        std::copy(pde.meshAdaptBoundaryConditions.begin(), pde.meshAdaptBoundaryConditions.end(), app.meshadaptbcs);
+    }
+    if (!pde.distanceBoundaryConditions.empty()) {
+        app.distanceboundaryconditions = (Int*)std::malloc(sizeof(Int)*pde.distanceBoundaryConditions.size());
+        std::copy(pde.distanceBoundaryConditions.begin(), pde.distanceBoundaryConditions.end(), app.distanceboundaryconditions);
+    }
 
     // ---- size fields (mirrors readappstruct lines 95-109) ----
     app.szflag             = app.nsize[1];
@@ -217,6 +241,9 @@ inline appstructT<T,I> buildAppStruct(const PDE& pde)
     app.szinterfacefluxmap = app.nsize[14];
     app.szavparam          = app.nsize[15];
     app.szavfilterparam    = app.nsize[19];
+    app.szmeshadaptparam   = app.nsize[20];
+    app.szmeshadaptbcs     = app.nsize[21];
+    app.szdistanceboundaryconditions = app.nsize[22];
 
     // ---- derived fc_u/fc_q/fc_w (mirrors readappstruct lines 134-168) ----
     Int ncu = app.ndims[AppNdims::ncu];

@@ -52,6 +52,7 @@ pde.AVcontinuationLogScale = 1;
 pde.AVcoeffStart = 0.060;
 pde.AVcoeffEnd =  0.015;
 pde.AVdistfunction = 1;
+pde.distanceboundaryconditions = [3];
 pde.AVsmoothingMethod = 1; % 0: legacy DG2CG2, 1: internal HDG Helmholtz filter
 pde.AVHelmholtzCoeff = 0.025; % multiplier for sqrt(smoothed nodal Jacobian)
 

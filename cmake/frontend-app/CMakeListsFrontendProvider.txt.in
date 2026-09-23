@@ -50,6 +50,8 @@ endif()
 message(STATUS "Exasim_DIR = ${Exasim_DIR}")
 
 add_executable(exasimapp exasimfeapp.cpp)
+target_include_directories(exasimapp PRIVATE
+  "${CMAKE_CURRENT_SOURCE_DIR}/kernels")
 if(EXASIM_MPI)
   target_compile_definitions(exasimapp PRIVATE _MPI)
 endif()

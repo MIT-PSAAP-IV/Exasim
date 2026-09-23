@@ -191,6 +191,8 @@ if [ "${EXPORT_TEXT2CODE_TEST:-0}" = "1" ]; then
     || { echo "FAIL: pdeapp.txt missing AV"; exit 1; }
   grep -q 'AVdistfunction = 1;' "$B/pdeapp.txt" \
     || { echo "FAIL: pdeapp.txt missing AVdistfunction"; exit 1; }
+  grep -q 'distanceboundaryconditions = \[1\];' "$B/pdeapp.txt" \
+    || { echo "FAIL: pdeapp.txt missing distanceboundaryconditions"; exit 1; }
   grep -q 'AVsmoothingMethod = 1;' "$B/pdeapp.txt" \
     || { echo "FAIL: pdeapp.txt missing AVsmoothingMethod"; exit 1; }
   grep -q 'AVHelmholtzCoeff = 0.375;' "$B/pdeapp.txt" \

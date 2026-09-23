@@ -234,7 +234,7 @@ function _t2c_write_pdeapp(pde, mesh, files, path, modelfile="pdemodel.txt")
         "nodetype", "ncu", "ncv", "ncw", "neb", "nfb", "linearproblem", "subproblem",
         "saveParaview", "physicsparamwarmstart", "tdep", "wave", "porder", "pgauss",
         "temporalscheme", "torder", "nstage", "convStabMethod", "diffStabMethod",
-        "rotatingFrame", "viscosityModel", "SGSmodel", "ALE", "AV", "AVdistfunction", "AVsmoothingIter",
+        "rotatingFrame", "viscosityModel", "SGSmodel", "ALE", "AV", "AVdistfunction", "distanceboundaryconditions", "AVsmoothingIter",
         "AVsmoothingMethod", "AVHelmholtzCoeff", "AVcontinuationIter",
         "AVcontinuationLogScale", "AVcoeffStart", "AVcoeffEnd", "frozenAVflag", "nonlinearsolver",
         "linearsolver", "NewtonIter", "NewtonTol",

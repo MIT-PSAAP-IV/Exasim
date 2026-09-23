@@ -75,6 +75,8 @@ struct InputParams {
     std::vector<int> periodicBoundaries1;
     std::vector<int> periodicBoundaries2;
     std::vector<int> cartGridPart;
+    std::vector<int> meshAdaptBoundaryConditions;
+    std::vector<int> distanceBoundaryConditions;
     
     std::vector<double> dae_dt;
     std::vector<double> dt;
@@ -196,6 +198,11 @@ struct PDE {
     int physicsparamwarmstart = 0;
     int saveResNorm = 0;
     int dae_steps = 0;
+    int meshAdapt = 0;
+    int meshAdaptField = 1;
+    int meshAdaptAVComponent = 1;
+    int meshAdaptSmoothingPasses = 30;
+    int meshAdaptIterations = 1;
 
     // HOT.7.4 — when 0, CSolution skips opening output bin files.
     // The data still lives in `disc.sol` after the solve and can be
@@ -221,6 +228,21 @@ struct PDE {
     double dae_beta = 0.0;
     double dae_gamma = 0.0;
     double dae_epsilon = 0.0;    
+    double meshAdaptAlpha = 0.25;
+    double meshAdaptQmin = 0.2;
+    double meshAdaptQmax = 0.8;
+    double meshAdaptHelmholtzCoeff = 0.02;
+    double meshAdaptTargetExponent = 2.0;
+    double meshAdaptPoissonRatio = 0.2;
+    double meshAdaptYoungModulus = 1.0;
+    double meshAdaptMinimumYoungModulus = 1.0e-3;
+    double meshAdaptShearScale = 1.0;
+    double meshAdaptVolumetricScale = 1.0;
+    double meshAdaptForceScale = 1.0;
+    double meshAdaptDamping = 1.0;
+    double meshAdaptMinimumJacobianRatio = 1.0e-8;
+    double meshAdaptHelmholtzTau = 2.0;
+    double meshAdaptElasticityTau = 1.0e3;
             
     std::vector<int> interfaceFluxmap;    
     std::vector<double> dae_dt;
@@ -238,6 +260,8 @@ struct PDE {
     std::vector<double> stgib;
     std::vector<double> stgdata;
     std::vector<double> stgparam;    
+    std::vector<int> meshAdaptBoundaryConditions;
+    std::vector<int> distanceBoundaryConditions;
 };
 
 struct Mesh {

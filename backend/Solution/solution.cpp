@@ -47,6 +47,7 @@
 #include "updatesource.cpp"
 #include "timestepcoeff.cpp"
 #include "avsolution.cpp"
+#include "meshadaptivity.cpp"
 
 #include <chrono>
 
@@ -221,74 +222,47 @@ void CSolution<M>::InitializeHelmholtzLengthScale(Int backend)
     const dstype coefficient = disc.common.physicsparams.AVHelmholtzCoeff;
     if (!(coefficient > 0.0)) error("AVHelmholtzCoeff must be positive.");
 
-    std::vector<dstype> xdg(hd.sol.szxdg);
-    std::vector<dstype> shapent(hd.master.szshapent);
-    std::vector<dstype> jac(npe*ne);
-    TemplateCopytoHost(xdg.data(), hd.sol.xdg, hd.sol.szxdg, backend);
-    TemplateCopytoHost(shapent.data(), hd.master.shapent,
-                       hd.master.szshapent, backend);
-
     // Reproduce the nodal Jacobian returned by
     // volgeom(master.shapent, permute(mesh.dgnodes,[1 3 2])).  shapent is
     // stored as [evaluation node, geometry node, value/reference derivative].
-    for (Int e = 0; e < ne; ++e) {
-        for (Int g = 0; g < npe; ++g) {
-            dstype J[3][3] = {{0.0, 0.0, 0.0},
-                              {0.0, 0.0, 0.0},
-                              {0.0, 0.0, 0.0}};
-            for (Int r = 0; r < nd; ++r)
-                for (Int d = 0; d < nd; ++d)
-                    for (Int i = 0; i < npe; ++i)
-                        J[r][d] += shapent[g + npe*i + npe*npe*(r + 1)]
-                                 * xdg[i + npe*d + npe*ncx*e];
-
-            dstype determinant = J[0][0];
-            if (nd == 2)
-                determinant = J[0][0]*J[1][1] - J[0][1]*J[1][0];
-            else if (nd == 3)
-                determinant = J[0][0]*J[1][1]*J[2][2]
-                            - J[0][0]*J[1][2]*J[2][1]
-                            + J[0][1]*J[1][2]*J[2][0]
-                            - J[0][1]*J[1][0]*J[2][2]
-                            + J[0][2]*J[1][0]*J[2][1]
-                            - J[0][2]*J[1][1]*J[2][0];
-            if (!(determinant > 0.0) || !std::isfinite(determinant))
-                error("The Helmholtz filter requires a positive finite nodal mesh Jacobian.");
-            jac[g + npe*e] = determinant;
-        }
-    }
+    exasim_meshadapt::nodalJacobian(hd.res.Rq, hd.sol.xdg, hd.master.shapent,
+                                    npe, ncx, ne, nd);
+    if (!PArrayAllPositiveFinite(hd.res.Rq, npe*ne))
+        error("The Helmholtz filter requires a positive finite nodal mesh Jacobian.");
 
     // Match the MATLAB construction exactly: smooth the nodal Jacobian twice
     // with DG2CG2, then take its square root.  Rq is scalar scratch here;
     // DG2CG2 uses Ru for its CG accumulation and tempn for extraction.
-    TemplateCopytoDevice(hd.res.Rq, jac.data(), npe*ne, backend);
-
 #ifdef HAVE_MPI
-    std::vector<Int> sendIndex(npe*hd.common.nelemsend);
-    std::vector<Int> recvIndex(npe*hd.common.nelemrecv);
-    for (Int i = 0; i < hd.common.nelemsend; ++i)
-        for (Int j = 0; j < npe; ++j)
-            sendIndex[npe*i + j] = npe*hd.common.elemsend[i] + j;
-    for (Int i = 0; i < hd.common.nelemrecv; ++i)
-        for (Int j = 0; j < npe; ++j)
-            recvIndex[npe*i + j] = npe*hd.common.elemrecv[i] + j;
-
-    Int *sendIndexBackend = nullptr;
-    Int *recvIndexBackend = nullptr;
-    TemplateMalloc(&sendIndexBackend, static_cast<Int>(sendIndex.size()), backend);
-    TemplateMalloc(&recvIndexBackend, static_cast<Int>(recvIndex.size()), backend);
-    if (!sendIndex.empty())
-        TemplateCopytoDevice(sendIndexBackend, sendIndex.data(),
-                             static_cast<Int>(sendIndex.size()), backend);
-    if (!recvIndex.empty())
-        TemplateCopytoDevice(recvIndexBackend, recvIndex.data(),
-                             static_cast<Int>(recvIndex.size()), backend);
+    if (meshAdaptWorkspace.helmholtzSendNodeIndices == nullptr &&
+        hd.common.nelemsend > 0) {
+        std::vector<Int> sendIndex(npe*hd.common.nelemsend);
+        for (Int i = 0; i < hd.common.nelemsend; ++i)
+            for (Int j = 0; j < npe; ++j)
+                sendIndex[npe*i+j] = npe*hd.common.elemsend[i]+j;
+        TemplateMalloc(&meshAdaptWorkspace.helmholtzSendNodeIndices,
+                       static_cast<Int>(sendIndex.size()), backend);
+        TemplateCopytoDevice(meshAdaptWorkspace.helmholtzSendNodeIndices,
+                             sendIndex.data(), static_cast<Int>(sendIndex.size()), backend);
+    }
+    if (meshAdaptWorkspace.helmholtzRecvNodeIndices == nullptr &&
+        hd.common.nelemrecv > 0) {
+        std::vector<Int> recvIndex(npe*hd.common.nelemrecv);
+        for (Int i = 0; i < hd.common.nelemrecv; ++i)
+            for (Int j = 0; j < npe; ++j)
+                recvIndex[npe*i+j] = npe*hd.common.elemrecv[i]+j;
+        TemplateMalloc(&meshAdaptWorkspace.helmholtzRecvNodeIndices,
+                       static_cast<Int>(recvIndex.size()), backend);
+        TemplateCopytoDevice(meshAdaptWorkspace.helmholtzRecvNodeIndices,
+                             recvIndex.data(), static_cast<Int>(recvIndex.size()), backend);
+    }
 #endif
 
     for (Int pass = 0; pass < 2; ++pass) {
         hd.DG2CG2(hd.res.Rq, hd.res.Rq, hd.tmp.tempn, 1, 1, 1, backend);
 #ifdef HAVE_MPI
-        GetArrayAtIndex(hd.tmp.buffsend, hd.res.Rq, sendIndexBackend,
+        GetArrayAtIndex(hd.tmp.buffsend, hd.res.Rq,
+                        meshAdaptWorkspace.helmholtzSendNodeIndices,
                         npe*hd.common.nelemsend);
 #ifdef HAVE_CUDA
         cudaDeviceSynchronize();
@@ -318,24 +292,16 @@ void CSolution<M>::InitializeHelmholtzLengthScale(Int backend)
             }
         }
         MPI_Waitall(requestCounter, hd.common.requests, hd.common.statuses);
-        PutArrayAtIndex(hd.res.Rq, hd.tmp.buffrecv, recvIndexBackend,
+        PutArrayAtIndex(hd.res.Rq, hd.tmp.buffrecv,
+                        meshAdaptWorkspace.helmholtzRecvNodeIndices,
                         npe*hd.common.nelemrecv);
 #endif
     }
 
-#ifdef HAVE_MPI
-    TemplateFree(sendIndexBackend, backend);
-    TemplateFree(recvIndexBackend, backend);
-#endif
-
-    TemplateCopytoHost(jac.data(), hd.res.Rq, npe*ne, backend);
-    for (Int i = 0; i < npe*ne; ++i) {
-        if (!(jac[i] > 0.0) || !std::isfinite(jac[i]))
-            error("DG2CG2 produced a non-positive or non-finite mesh Jacobian.");
-        jac[i] = coefficient*std::sqrt(jac[i]);
-    }
-    TemplateCopytoDevice(hd.res.Ru, jac.data(), npe*ne, backend);
-    ArrayInsert(hd.sol.odg, hd.res.Ru, npe, 2, ne,
+    if (!PArrayAllPositiveFinite(hd.res.Rq, npe*ne))
+        error("DG2CG2 produced a non-positive or non-finite mesh Jacobian.");
+    exasim_meshadapt::scaleSquareRoot(hd.res.Rq, coefficient, npe*ne);
+    ArrayInsert(hd.sol.odg, hd.res.Rq, npe, 2, ne,
                 0, npe, 1, 2, 0, ne);
 }
 
@@ -358,12 +324,115 @@ void CSolution<M>::ApplyHelmholtzAVFilter(dstype *avField, Int backend)
                     0, npe, 0, 1, 0, ne);
         ArrayInsert(hd.sol.udg, hd.res.Ru, npe, 1 + hd.common.grid.nd, ne,
                     0, npe, 0, 1, 0, ne);
+        ArraySetValue(helmholtz->solv.sys.u, zero, helmholtz->solv.sys.szu);
+        ArraySetValue(helmholtz->solv.sys.x, zero, helmholtz->solv.sys.szx);
+        if (hd.sol.szuh > 0) ArraySetValue(hd.sol.uh, zero, hd.sol.szuh);
         helmholtz->SteadyProblem(auxiliaryOutput, backend);
         ArrayExtract(hd.res.Ru, hd.sol.udg, npe, 1 + hd.common.grid.nd, ne,
                      0, npe, 0, 1, 0, ne);
         ArrayInsert(avField, hd.res.Ru, npe, ncAV, ne,
                     0, npe, component, component + 1, 0, ne);
     }
+}
+
+template <class M>
+void CSolution<M>::PrepareArtificialViscosity(bool zeroSensor,
+                                               Int continuationIteration,
+                                               Int backend)
+{
+    const Int ncAV = disc.common.physicsparams.ncAV;
+    if (ncAV <= 0 || disc.common.physicsparams.frozenAVflag <= 0) return;
+
+    const Int nco = disc.common.components.nco;
+    const Int npe = disc.common.grid.npe;
+    const Int ne = disc.common.meshsizes.ne;
+    dstype *avField = disc.res.Rq;
+    dstype *scratch = &disc.res.Rq[npe*ncAV*ne];
+
+    if (zeroSensor)
+        ArraySetValue(avField, zero, npe*ncAV*ne);
+    else
+        residual.evalAVfield(avField, backend);
+
+    const char *verificationEnvironment = std::getenv("EXASIM_MESHADAPT_VERIFY");
+    const bool writeVerification = verificationEnvironment != nullptr &&
+        string(verificationEnvironment) != "0" && string(verificationEnvironment) != "";
+    const string iterationName = "aviter" + NumberToString(continuationIteration) + "_";
+    const Int outputRank = disc.common.mpiRank-disc.common.outputparams.fileoffset;
+    if (writeVerification) {
+        const string filename = disc.common.fileout + "_meshadapt_" + iterationName +
+            "av_raw_np" + NumberToString(outputRank) + ".bin";
+        writearray2file(filename, avField, npe*ncAV*ne, backend);
+    }
+
+    if (disc.common.physicsparams.AVsmoothingMethod == 1) {
+        if (!helmholtz) error("The internal Helmholtz AV solver was not constructed.");
+        InitializeHelmholtzLengthScale(backend);
+        ApplyHelmholtzAVFilter(avField, backend);
+    }
+    else if (disc.common.physicsparams.AVsmoothingMethod == 0) {
+        for (Int iav = 0; iav < disc.common.physicsparams.AVsmoothingIter; ++iav) {
+            disc.DG2CG2(avField, avField, scratch, ncAV, ncAV, ncAV, backend);
+#ifdef HAVE_MPI
+            const Int bsz = npe*ncAV;
+            GetArrayAtIndex(disc.tmp.buffsend, avField, disc.mesh.elemsendodg,
+                            bsz*disc.common.nelemsend);
+#ifdef HAVE_CUDA
+            if (backend == 2) cudaDeviceSynchronize();
+#endif
+#ifdef HAVE_HIP
+            if (backend == 3) hipDeviceSynchronize();
+#endif
+            Int psend = 0, requestCounter = 0;
+            for (Int n = 0; n < disc.common.nnbsd; ++n) {
+                const Int count = disc.common.elemsendpts[n]*bsz;
+                if (count > 0) {
+                    MPI_Isend(&disc.tmp.buffsend[psend], count, mpi_type<dstype>(),
+                              disc.common.nbsd[n], 0, EXASIM_COMM_LOCAL,
+                              &disc.common.requests[requestCounter++]);
+                    psend += count;
+                }
+            }
+            Int precv = 0;
+            for (Int n = 0; n < disc.common.nnbsd; ++n) {
+                const Int count = disc.common.elemrecvpts[n]*bsz;
+                if (count > 0) {
+                    MPI_Irecv(&disc.tmp.buffrecv[precv], count, mpi_type<dstype>(),
+                              disc.common.nbsd[n], 0, EXASIM_COMM_LOCAL,
+                              &disc.common.requests[requestCounter++]);
+                    precv += count;
+                }
+            }
+            MPI_Waitall(requestCounter, disc.common.requests, disc.common.statuses);
+            PutArrayAtIndex(avField, disc.tmp.buffrecv, disc.mesh.elemrecvodg,
+                            bsz*disc.common.nelemrecv);
+#endif
+        }
+    }
+    else {
+        error("Unknown AV smoothing method. Use 0 (DG2CG2) or 1 (Helmholtz).");
+    }
+
+    ArrayInsert(disc.sol.odg, avField, npe, nco, ne, 0, npe,
+                nco-ncAV, nco, 0, ne);
+    if (writeVerification) {
+        const string filename = disc.common.fileout + "_meshadapt_" + iterationName +
+            "av_smoothed_np" + NumberToString(outputRank) + ".bin";
+        writearray2file(filename, avField, npe*ncAV*ne, backend);
+    }
+
+    // MATLAB evaluates the pre-flow AV field before preprocessing rebuilds the
+    // HDG trace and gradients on a moved mesh. Recover that state only now.
+    if (disc.common.spatialScheme == 1) {
+        GetFaceNodes(disc.sol.uh, disc.sol.udg, disc.mesh.f2e, disc.mesh.perm,
+            disc.common.grid.npf, disc.common.components.ncu, disc.common.grid.npe,
+            disc.common.components.nc, disc.common.meshsizes.nf);
+        if (disc.common.components.ncq > 0)
+            hdgGetQ(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh,
+                    disc.tmp, disc.common, backend);
+        ArrayCopy(solv.sys.u, disc.sol.uh, solv.sys.szu);
+    }
+    artificialViscosityPrepared = true;
 }
 
 template <class M>
@@ -390,7 +459,8 @@ void CSolution<M>::SteadyProblem(ofstream &out, Int backend)
     }
     
     // calculate AV field
-    if (disc.common.physicsparams.ncAV>0 && disc.common.physicsparams.frozenAVflag > 0) {
+    if (disc.common.physicsparams.ncAV>0 && disc.common.physicsparams.frozenAVflag > 0 &&
+        !artificialViscosityPrepared) {
         // START_TIMING;
 
         Int nco = disc.common.components.nco;
@@ -469,6 +539,7 @@ void CSolution<M>::SteadyProblem(ofstream &out, Int backend)
         // insert avField into odg
         ArrayInsert(disc.sol.odg, avField, npe, nco, ne, 0, npe, nco-ncAV, nco, 0, ne);          
     }
+    artificialViscosityPrepared = false;
 
     if (disc.common.components.nco>0) {
         for (Int j=0; j<disc.common.meshsizes.nbe; j++) {

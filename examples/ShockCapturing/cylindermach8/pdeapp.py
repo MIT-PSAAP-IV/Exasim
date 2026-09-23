@@ -68,6 +68,7 @@ def build_case():
     pde["AVcoeffStart"] = 0.060
     pde["AVcoeffEnd"] = 0.015
     pde["AVdistfunction"] = 1
+    pde["distanceboundaryconditions"] = np.array([3], dtype=int)
     pde["AVsmoothingMethod"] = 1
     pde["AVHelmholtzCoeff"] = 0.025
 

@@ -61,6 +61,13 @@ avparam = zeros(2*length(app.avparam1));
 avparam[1:2:end] = app.avparam1[:];
 avparam[2:2:end] = app.avparam2[:];
 avfilterparam = [app.AVsmoothingMethod; app.AVHelmholtzCoeff];
+meshadaptparam = [app.meshadaptenabled; app.meshadaptfield; app.meshadaptavcomponent;
+    app.meshadaptsmoothingpasses; app.meshadaptiterations; app.meshadaptalpha;
+    app.meshadaptqmin; app.meshadaptqmax; app.meshadaptHelmholtzCoeff;
+    app.meshadapttargetexponent; app.meshadaptpoissonratio; app.meshadaptyoungmodulus;
+    app.meshadaptminimumyoungmodulus; app.meshadaptshearscale; app.meshadaptvolumetricscale;
+    app.meshadaptforcescale; app.meshadaptdamping; app.meshadaptminimumjacobianratio;
+    app.meshadaptHelmholtzTau; app.meshadaptelasticitytau];
 
 nsize = zeros(30,1);
 nsize[1] = length(ndims[:]);
@@ -83,6 +90,9 @@ nsize[17] = length(app.wmModelIDs[:]);
 nsize[18] = length(app.wmBoundaries[:]);
 nsize[19] = length(app.wmDistances[:]);
 nsize[20] = length(avfilterparam[:]);
+nsize[21] = length(meshadaptparam[:]);
+nsize[22] = length(app.meshadaptboundaryconditions[:]);
+nsize[23] = length(app.distanceboundaryconditions[:]);
 
 # app.nsize = nsize;
 # app.ndims = ndims;
@@ -151,6 +161,9 @@ if nsize[19]>0
     write(fileID,Float64.(app.wmDistances[:]));
 end
 write(fileID,Float64.(avfilterparam[:]));
+write(fileID,Float64.(meshadaptparam[:]));
+write(fileID,Float64.(app.meshadaptboundaryconditions[:]));
+write(fileID,Float64.(app.distanceboundaryconditions[:]));
 
 if app.mutationflag == 1
     write(fileID, app.mutationopts["MixtureName"] * "X")

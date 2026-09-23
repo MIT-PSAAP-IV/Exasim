@@ -108,10 +108,16 @@ void readappstruct(string filename, appstruct &app)
     const Int szwmBoundaries = (app.lsize[0] > 17) ? app.nsize[17] : 0;
     const Int szwmDistances = (app.lsize[0] > 18) ? app.nsize[18] : 0;
     const Int szavfilterparam = (app.lsize[0] > 19) ? app.nsize[19] : 0;
+    const Int szmeshadaptparam = (app.lsize[0] > 20) ? app.nsize[20] : 0;
+    const Int szmeshadaptbcs = (app.lsize[0] > 21) ? app.nsize[21] : 0;
+    const Int szdistanceboundaryconditions = (app.lsize[0] > 22) ? app.nsize[22] : 0;
     if (szwmModelIDs > 0) app.wmModelIDs = readiarrayfromdouble(in, szwmModelIDs);
     if (szwmBoundaries > 0) app.wmBoundaries = readiarrayfromdouble(in, szwmBoundaries);
     if (szwmDistances > 0) readarray(in, &app.wmDistances, szwmDistances);
     if (szavfilterparam > 0) readarray(in, &app.avfilterparam, szavfilterparam);
+    if (szmeshadaptparam > 0) readarray(in, &app.meshadaptparam, szmeshadaptparam);
+    if (szmeshadaptbcs > 0) app.meshadaptbcs = readiarrayfromdouble(in, szmeshadaptbcs);
+    if (szdistanceboundaryconditions > 0) app.distanceboundaryconditions = readiarrayfromdouble(in, szdistanceboundaryconditions);
     
     app.szflag = app.nsize[1];
     app.szproblem = app.nsize[2];
@@ -132,6 +138,9 @@ void readappstruct(string filename, appstruct &app)
     app.szwmBoundaries = szwmBoundaries;
     app.szwmDistances = szwmDistances;
     app.szavfilterparam = szavfilterparam;
+    app.szmeshadaptparam = szmeshadaptparam;
+    app.szmeshadaptbcs = szmeshadaptbcs;
+    app.szdistanceboundaryconditions = szdistanceboundaryconditions;
 
     #ifdef HAVE_MPP
         char a[50];
@@ -231,6 +240,9 @@ void writeappstruct(string filename, appstruct &app)
     if (app.lsize[0] > 17) writeiarraytodouble(out, app.wmBoundaries, app.nsize[17]);
     if (app.lsize[0] > 18) writearray(out, app.wmDistances, app.nsize[18]);
     if (app.lsize[0] > 19) writearray(out, app.avfilterparam, app.nsize[19]);
+    if (app.lsize[0] > 20) writearray(out, app.meshadaptparam, app.nsize[20]);
+    if (app.lsize[0] > 21) writeiarraytodouble(out, app.meshadaptbcs, app.nsize[21]);
+    if (app.lsize[0] > 22) writeiarraytodouble(out, app.distanceboundaryconditions, app.nsize[22]);
     
     // Close file:
     out.close();
@@ -686,7 +698,8 @@ void readInput(appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master
     setAppRuntimeContext(app, master, mpirank, mpiprocs);
 
     string filematerialdb = filein + "materialdatabase.bin";
-    if ((mode != ExasimExecutionMode::AuxiliaryHelmholtz) && materialdatabase_fileexists(filematerialdb)) {
+    if ((mode != ExasimExecutionMode::AuxiliaryHelmholtz) &&
+        (mode != ExasimExecutionMode::AuxiliaryElasticity) && materialdatabase_fileexists(filematerialdb)) {
         if (mpirank==0) printf("Reading material database from binary files \n");
         readmaterialdatabase(filematerialdb, app);
         if (mpirank == 0) {
@@ -765,6 +778,18 @@ void readInput(appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master
         app.ndims[AppNdims::nten] = 0;
         app.ndims[AppNdims::nsurf] = 0;
         app.ndims[AppNdims::nvqoi] = 0;
+        CPUFREE(app.fc_u); CPUFREE(app.dtcoef_u);
+        CPUFREE(app.fc_q); CPUFREE(app.dtcoef_q);
+        app.fc_u = (dstype*) malloc(sizeof(dstype));
+        app.dtcoef_u = (dstype*) malloc(sizeof(dstype));
+        app.fc_q = (dstype*) malloc(sizeof(dstype)*nd);
+        app.dtcoef_q = (dstype*) malloc(sizeof(dstype)*nd);
+        cpuArraySetValue(app.fc_u, one, 1);
+        cpuArraySetValue(app.dtcoef_u, one, 1);
+        cpuArraySetValue(app.fc_q, one, nd);
+        cpuArraySetValue(app.dtcoef_q, one, nd);
+        app.szfc_u = app.szdtcoef_u = 1;
+        app.szfc_q = app.szdtcoef_q = nd;
         app.flag[0] = 0;  // steady
         app.flag[1] = 0;  // not a wave problem
         app.flag[2] = 1;  // linear PDE
@@ -781,6 +806,111 @@ void readInput(appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master
         const Int nbf = mesh.ndims[4]*mesh.ndims[1];
         for (Int i = 0; i < nbf; ++i)
             if (mesh.bf[i] > 0) mesh.bf[i] = 1;
+    }
+    else if (mode == ExasimExecutionMode::AuxiliaryElasticity) {
+        const Int npe = master.ndims[5];
+        const Int ne = mesh.ndims[1];
+        const Int nd = app.ndims[AppNdims::nd];
+        if (nd != 2 && nd != 3)
+            error("The internal linear-elasticity mesh mover supports only 2D and 3D.");
+        const Int nboundary = mesh.nsize[27];
+        if (app.szmeshadaptbcs != nboundary)
+            error("meshadaptboundaryconditions must contain one entry per geometric boundary.");
+        // Both arrays use geometric-boundary order; mesh.bf stores the corresponding flow BC tag.
+        for (Int i = 0; i < nboundary; ++i)
+            for (Int j = i + 1; j < nboundary; ++j)
+                if (mesh.boundaryConditions[i] == mesh.boundaryConditions[j] &&
+                    app.meshadaptbcs[i] != app.meshadaptbcs[j])
+                    error("Geometric boundaries sharing a flow boundary-condition ID must use the same mesh-adaptation boundary condition.");
+
+        CPUFREE(sol.udg); sol.udg = nullptr;
+        CPUFREE(sol.odg); sol.odg = nullptr;
+        CPUFREE(sol.wdg); sol.wdg = nullptr;
+        CPUFREE(sol.uh);  sol.uh = nullptr;
+        sol.szudg = npe*nd*(1 + nd)*ne;
+        sol.szodg = npe*(2 + nd)*ne;
+        sol.szwdg = 0;
+        sol.szuh = 0;
+        sol.udg = (dstype*) malloc(sizeof(dstype)*sol.szudg);
+        sol.odg = (dstype*) malloc(sizeof(dstype)*sol.szodg);
+        cpuArraySetValue(sol.udg, zero, sol.szudg);
+        cpuArraySetValue(sol.odg, zero, sol.szodg);
+        sol.needudginit = 0;
+        sol.needodginit = 0;
+        app.read_uh = 0;
+        sol.nsize[2] = sol.szudg;
+        sol.nsize[3] = sol.szodg;
+        sol.nsize[4] = 0;
+        sol.nsize[5] = 0;
+
+        app.ndims[AppNdims::nc] = nd*(1 + nd);
+        app.ndims[AppNdims::ncu] = nd;
+        app.ndims[AppNdims::ncq] = nd*nd;
+        app.ndims[AppNdims::ncp] = 0;
+        app.ndims[AppNdims::nco] = 2 + nd;
+        app.ndims[AppNdims::nch] = nd;
+        app.ndims[AppNdims::nce] = 0;
+        app.ndims[AppNdims::ncw] = 0;
+        app.ndims[AppNdims::nsca] = 0;
+        app.ndims[AppNdims::nvec] = 0;
+        app.ndims[AppNdims::nten] = 0;
+        app.ndims[AppNdims::nsurf] = 0;
+        app.ndims[AppNdims::nvqoi] = 0;
+        CPUFREE(app.fc_u); CPUFREE(app.dtcoef_u);
+        CPUFREE(app.fc_q); CPUFREE(app.dtcoef_q);
+        app.fc_u = (dstype*) malloc(sizeof(dstype)*nd);
+        app.dtcoef_u = (dstype*) malloc(sizeof(dstype)*nd);
+        app.fc_q = (dstype*) malloc(sizeof(dstype)*nd*nd);
+        app.dtcoef_q = (dstype*) malloc(sizeof(dstype)*nd*nd);
+        cpuArraySetValue(app.fc_u, one, nd);
+        cpuArraySetValue(app.dtcoef_u, one, nd);
+        cpuArraySetValue(app.fc_q, one, nd*nd);
+        cpuArraySetValue(app.dtcoef_q, one, nd*nd);
+        app.szfc_u = app.szdtcoef_u = nd;
+        app.szfc_q = app.szdtcoef_q = nd*nd;
+        app.flag[0] = 0;
+        app.flag[1] = 0;
+        app.flag[2] = 1;
+        app.flag[6] = 1;
+        app.flag[11] = 1;
+        app.problem[0] = 1;
+        app.problem[11] = 0;
+        app.problem[13] = 1;
+        app.problem[14] = 500;
+        app.problem[15] = 250;
+        app.problem[27] = 10;
+        app.problem[28] = 0;
+        app.problem[29] = 0;
+        app.problem[30] = 0;
+        app.problem[31] = 0;
+        app.solversparam[0] = 1.0e-8;
+        app.solversparam[1] = 1.0e-8;
+        app.solversparam[2] = 1.0e-8;
+        app.tau[0] = (app.szmeshadaptparam > 19) ? app.meshadaptparam[19] : 1.0e3;
+
+        CPUFREE(app.physicsparam);
+        app.physicsparam = (dstype*) malloc(3*sizeof(dstype));
+        app.physicsparam[0] = (app.szmeshadaptparam > 13) ? app.meshadaptparam[13] : 1.0;
+        app.physicsparam[1] = (app.szmeshadaptparam > 14) ? app.meshadaptparam[14] : 1.0;
+        app.physicsparam[2] = (app.szmeshadaptparam > 15) ? app.meshadaptparam[15] : 1.0;
+        app.nsize[6] = 3;
+        app.szphysicsparam = 3;
+
+        const Int nbf = mesh.ndims[4]*mesh.ndims[1];
+        for (Int i = 0; i < nbf; ++i) {
+            const Int tag = mesh.bf[i];
+            if (tag > 0) {
+                Int adaptationTag = 0;
+                for (Int j = 0; j < nboundary; ++j)
+                    if (mesh.boundaryConditions[j] == tag) {
+                        adaptationTag = app.meshadaptbcs[j];
+                        break;
+                    }
+                if (adaptationTag <= 0)
+                    error("meshadaptboundaryconditions does not define the boundary condition for a mesh face.");
+                mesh.bf[i] = adaptationTag;
+            }
+        }
     }
 }
 

@@ -495,3 +495,9 @@ backend/Model/Text2codeGenerated/KokkosInitodg.cpp
 backend/Model/Text2codeGenerated/KokkosQoIvolume.cpp
 backend/Model/Text2codeGenerated/model_sizes.hpp
 /examples/NavierStokes/auplate_transient2d
+/examples/ShockCapturing/cylindermach8/hm2d
+/examples/ShockCapturing/cylindermach8/le2d
+/examples/MeshAdaptivity/cylindermach8/frontend_run
+/examples/MeshAdaptivity/cylindermach8/le2d
+/examples/MeshAdaptivity/cylindermach8/hm2d
+examples/NavierStokes/equilibrium5air_cylindermach8/pdeapp0.m

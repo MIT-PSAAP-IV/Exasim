@@ -559,19 +559,43 @@ int buildDynamicLibraries(ParsedSpec& spec)
     };
 
     auto text2code_model_source = [&]() {
-        const std::string generated_src = make_path(spec.modelpath, "libt2cmodel.cpp");
-        if (fs::exists(generated_src)) {
-            return generated_src;
+        // Keep the wrapper beside the generated headers/kernels. Its quoted
+        // includes must resolve to this invocation's model, not to stale files
+        // that may accompany an installed wrapper template.
+        const fs::path local =
+            fs::path(spec.modelpath) / "libt2cmodel.cpp";
+        const std::array<fs::path, 2> candidates = {
+            fs::path(spec.exasimpath) /
+                "include/backend/Model/Text2codeGenerated/libt2cmodel.cpp",
+            fs::path(spec.exasimpath) /
+                "backend/Model/Text2codeGenerated/libt2cmodel.cpp"
+        };
+
+        const fs::path local_abs = fs::absolute(local).lexically_normal();
+        for (const auto& source : candidates) {
+            if (!fs::exists(source)) continue;
+
+            const fs::path source_abs =
+                fs::absolute(source).lexically_normal();
+            if (source_abs != local_abs) {
+                std::error_code ec;
+                fs::copy_file(source, local,
+                              fs::copy_options::overwrite_existing, ec);
+                if (ec) {
+                    error("Unable to stage libt2cmodel.cpp in " +
+                          spec.modelpath + ": " + ec.message());
+                }
+            }
+            return local.string();
         }
 
-        const std::string installed_src =
-            make_path(spec.exasimpath, "include/backend/Model/Text2codeGenerated/libt2cmodel.cpp");
-        if (fs::exists(installed_src)) {
-            return installed_src;
-        }
+        if (fs::exists(local)) return local.string();
 
-        return generated_src;
+        error("Unable to locate the libt2cmodel.cpp template under " +
+              spec.exasimpath + ".");
+        return local.string();
     };
+    const std::string model_source = text2code_model_source();
         
     auto get_gpu_arch = [&](std::initializer_list<const char*> vars,
                             const std::string& backend) -> std::string
@@ -617,7 +641,7 @@ int buildDynamicLibraries(ParsedSpec& spec)
     // -------------------- SERIAL --------------------
     if (fs::exists(kokkos_serial_path) && fs::is_directory(kokkos_serial_path)) {
         const std::string inc_dir = make_path(kokkos_serial_path, "include");
-        const std::string src     = text2code_model_source();
+        const std::string src     = model_source;
         const std::string out     = out_name("libt2cmodelserial");
 
         std::string lib_dir, lib_core, lib_cont;
@@ -674,7 +698,7 @@ int buildDynamicLibraries(ParsedSpec& spec)
         }
 
         const std::string inc_dir = make_path(kokkos_cuda_path, "include");
-        const std::string src     = text2code_model_source();
+        const std::string src     = model_source;
         const std::string out     = out_name("libt2cmodelcuda");
 
         std::string lib_dir, lib_core, lib_cont;
@@ -731,7 +755,7 @@ int buildDynamicLibraries(ParsedSpec& spec)
         }
 
         const std::string inc_dir = make_path(kokkos_hip_path, "include");
-        const std::string src     = text2code_model_source();
+        const std::string src     = model_source;
         const std::string out     = out_name("libt2cmodelhip");
 
         std::string lib_dir, lib_core, lib_cont;

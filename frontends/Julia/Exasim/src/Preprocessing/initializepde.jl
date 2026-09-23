@@ -91,6 +91,7 @@ mutable struct PDEStruct
     coupledcondition::IntP;        # app.bin problem[29]
     coupledboundarycondition::IntP;# app.bin problem[30]
     AVdistfunction::IntP;          # app.bin problem[31]
+    distanceboundaryconditions;
     NLMatrixType::IntP;
     runmode::IntP; # flag for run mode
     tdfunc::IntP; # flag for time-dependent function associated with time-derivative
@@ -135,6 +136,27 @@ mutable struct PDEStruct
     AVcontinuationLogScale; # loginc spacing parameter
     AVcoeffStart;
     AVcoeffEnd;
+    meshadaptenabled;
+    meshadaptfield;
+    meshadaptavcomponent;
+    meshadaptsmoothingpasses;
+    meshadaptiterations;
+    meshadaptalpha;
+    meshadaptqmin;
+    meshadaptqmax;
+    meshadaptHelmholtzCoeff;
+    meshadapttargetexponent;
+    meshadaptpoissonratio;
+    meshadaptyoungmodulus;
+    meshadaptminimumyoungmodulus;
+    meshadaptshearscale;
+    meshadaptvolumetricscale;
+    meshadaptforcescale;
+    meshadaptdamping;
+    meshadaptminimumjacobianratio;
+    meshadaptHelmholtzTau;
+    meshadaptelasticitytau;
+    meshadaptboundaryconditions;
 
     dt::Array{FloatP,1};      # time steps
     tau::Array{FloatP,1}; # stabilization parameters
@@ -278,6 +300,7 @@ function initializepde(version)
     pde.coupledcondition = 0;
     pde.coupledboundarycondition = 0;
     pde.AVdistfunction = 0;
+    pde.distanceboundaryconditions = Int[];
     pde.NLMatrixType = 0;
     pde.runmode = 0;
     pde.tdfunc = 1;
@@ -321,6 +344,27 @@ function initializepde(version)
     pde.AVcontinuationLogScale = 1.0;
     pde.AVcoeffStart = 0.0;
     pde.AVcoeffEnd = 0.0;
+    pde.meshadaptenabled = 0;
+    pde.meshadaptfield = 1;
+    pde.meshadaptavcomponent = 1;
+    pde.meshadaptsmoothingpasses = 30;
+    pde.meshadaptiterations = 1;
+    pde.meshadaptalpha = 0.25;
+    pde.meshadaptqmin = 0.2;
+    pde.meshadaptqmax = 0.8;
+    pde.meshadaptHelmholtzCoeff = 0.02;
+    pde.meshadapttargetexponent = 2.0;
+    pde.meshadaptpoissonratio = 0.2;
+    pde.meshadaptyoungmodulus = 1.0;
+    pde.meshadaptminimumyoungmodulus = 1.0e-3;
+    pde.meshadaptshearscale = 1.0;
+    pde.meshadaptvolumetricscale = 1.0;
+    pde.meshadaptforcescale = 1.0;
+    pde.meshadaptdamping = 1.0;
+    pde.meshadaptminimumjacobianratio = 1.0e-8;
+    pde.meshadaptHelmholtzTau = 2.0;
+    pde.meshadaptelasticitytau = 1.0e3;
+    pde.meshadaptboundaryconditions = Int[];
 
     pde.tau = [1.0]; # stabilization parameters
     pde.dt = [0.0];  # time steps

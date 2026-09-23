@@ -46,6 +46,7 @@ saveParaview = 1;
 physicsparamwarmstart = 0;
 AV = 1;
 AVdistfunction = 1;
+distanceboundaryconditions = [3];
 AVsmoothingIter = 2;
 AVsmoothingMethod = 1;
 AVHelmholtzCoeff = 0.025000000000000001;
