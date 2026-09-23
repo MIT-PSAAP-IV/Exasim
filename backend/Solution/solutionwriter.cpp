@@ -536,9 +536,9 @@ void CSolutionWriter<M>::SaveParaview(Int backend, std::string fname_modifier, b
 template <class M>
 void CSolutionWriter<M>::SaveSurfaces(Int backend, const std::string& fname_modifier, bool force_tdep_write)
 {
-    if (!vis.surfvis_enabled) { fprintf(stderr, "[DBG-surf] early return: surfvis_enabled=%d\n", (int)vis.surfvis_enabled); return; }
+    if (!vis.surfvis_enabled) return;
     const Int nsurfsca = vis.nsurfsca;
-    if (nsurfsca == 0 || vis.surf_ncells == 0) { fprintf(stderr, "[DBG-surf] early return: nsurfsca=%d ncells=%d\n", (int)nsurfsca, (int)vis.surf_ncells); return; }
+    if (nsurfsca == 0 || vis.surf_ncells == 0) return;
 
     const int localRank = disc.common.mpiRank - disc.common.outputparams.fileoffset;
     int localProcs = (disc.common.mpiProcs > 1) ? count_model_mesh_partitions(disc.common.filein) : 1;
@@ -561,7 +561,7 @@ void CSolutionWriter<M>::SaveSurfaces(Int backend, const std::string& fname_modi
     } else {
         writeSolution = true;
     }
-    if (!writeSolution) { fprintf(stderr, "[DBG-surf] writeSolution=false\n"); return; }
+    if (!writeSolution) return;
 
     const Int nc  = disc.common.components.nc;
     const Int ncu = disc.common.components.ncu;
@@ -648,18 +648,6 @@ void CSolutionWriter<M>::SaveSurfaces(Int backend, const std::string& fname_modi
                            &tempg[n6], &tempg[n3], &tempg[n1],
                            disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common,
                            npf, f1, f2, ib, backend);
-
-        {
-            fprintf(stderr, "[DBG-surf] block j=%d ib=%d f1=%d f2=%d nn=%d\n",
-                    (int)j, (int)ib, (int)f1, (int)f2, (int)nn);
-            fprintf(stderr, "[DBG-surf]   xg[0..5]=%.4f %.4f %.4f %.4f %.4f %.4f\n",
-                    (double)(&tempg[n0])[0], (double)(&tempg[n0])[1], (double)(&tempg[n0])[2],
-                    (double)(&tempg[n0])[3], (double)(&tempg[n0])[4], (double)(&tempg[n0])[5]);
-            fprintf(stderr, "[DBG-surf]   fdev[0..3]=%.5e %.5e %.5e %.5e\n",
-                    (double)fdev[0], (double)fdev[1], (double)fdev[2], (double)fdev[3]);
-            fprintf(stderr, "[DBG-surf]   fdev[%d,2]/nn: last=%.5e\n",
-                    (int)(nn*nsurfsca-1), (double)fdev[nn*nsurfsca-1]);
-        }
 
         // Pull f and the nodal normals back host-side for the corner scatter.
         if (!hostMode) {

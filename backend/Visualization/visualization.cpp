@@ -231,10 +231,7 @@ public:
             surfvis_enabled = (disc.common.qoiparams.saveParaview != 0) && (nsurfsca > 0) && (ibvis > 0);
             this->nsurfsca   = nsurfsca;
             surf_ibvis       = ibvis;
-            fprintf(stderr, "[DBG-vis] saveParaview=%d nsurfsca=%d ibvis=%d surfvis_enabled=%d\n",
-                    (int)disc.common.qoiparams.saveParaview, (int)nsurfsca, (int)ibvis, (int)surfvis_enabled);
             if (surfvis_enabled) InitSurfaces(disc, backend);
-            fprintf(stderr, "[DBG-vis] InitSurfaces done: surf_ncells=%d surf_nnodes=%d\n", (int)surf_ncells, (int)surf_nnodes);
 
             savemode = (disc.common.qoiparams.saveParaview != 0) && (nsca + nvec + nten > 0 || surfvis_enabled); 
         

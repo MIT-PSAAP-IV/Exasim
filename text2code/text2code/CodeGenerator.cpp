@@ -3003,6 +3003,17 @@ void CodeGenerator::generateEmptyVisTensorsCpp(std::string modelpath) const {
     os.close();      
 }
 
+void CodeGenerator::generateEmptyVisSurfScalarsCpp(std::string modelpath) const {  
+    std::ofstream os(make_path(modelpath,  "KokkosVisSurfScalars.cpp"));
+    os << "void KokkosVisSurfScalars(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg,\n";
+    os << "             const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time,\n";
+    os << "             const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx,\n";
+    os << "             const int nco, const int ncw)\n";
+    os << "{\n";
+    os << "}\n";
+    os.close();      
+}
+
 void CodeGenerator::generateEmptyQoIvolumeCpp(std::string modelpath) const {  
     std::ofstream os(make_path(modelpath,  "KokkosQoIvolume.cpp"));
     os << "void KokkosQoIvolume(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg,\n";
