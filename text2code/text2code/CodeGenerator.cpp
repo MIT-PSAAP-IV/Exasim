@@ -135,7 +135,7 @@ void CodeGenerator::generateCode2Cpp(const std::string& filename) const {
     os << "        }\n";
     os << "        else if (funcname == \"VisSurfScalars\") { \n";
     os << "            ssv.func2cppfiles(f, ssv.modelpath + fname, fname + std::to_string(1), i, false);\n";
-    os << "            ssv.appendUbouFbou(ssv.modelpath + fname, fname, 1);\n";
+    os << "            { std::string _wf = ssv.modelpath + fname + \".cpp\"; std::ofstream _out(_wf, std::ios::app); _out << \"void \" << fname << \"(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw) {\\n\"; _out << \"    \" << fname << \"1(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw, nc, ncu, nd);\\n\"; _out << \"}\\n\"; }\n";
     os << "        }\n";
     os << "        else if (funcname == \"Fint\") { \n";
     os << "          int szf = f.size();\n";    

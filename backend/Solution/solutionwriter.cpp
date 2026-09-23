@@ -538,7 +538,7 @@ void CSolutionWriter<M>::SaveSurfaces(Int backend, const std::string& fname_modi
 {
     if (!vis.surfvis_enabled) return;
     const Int nsurfsca = vis.nsurfsca;
-    if (nsurfsca == 0 || vis.surf_ncells == 0) return;
+    if (nsurfsca == 0) return;
 
     const int localRank = disc.common.mpiRank - disc.common.outputparams.fileoffset;
     int localProcs = (disc.common.mpiProcs > 1) ? count_model_mesh_partitions(disc.common.filein) : 1;
@@ -581,7 +581,8 @@ void CSolutionWriter<M>::SaveSurfaces(Int backend, const std::string& fname_modi
         Int f2 = disc.common.fblks[3*j+1];
         maxnn = std::max(maxnn, npf*(f2 - f1));
     }
-    if (maxnn == 0) return;
+    if (maxnn == 0 && localProcs==1) return;
+    if (maxnn == 0) maxnn = 1; // for parallel empty ranks, avoid zero allocation but will not be used
 
     // Nodal eval scratch, staged like UhatBlock (points = face nodes).
     Int need_g = maxnn*(ncx + nd + 1 + ncu + nc + nco + ncw);
@@ -600,10 +601,9 @@ void CSolutionWriter<M>::SaveSurfaces(Int backend, const std::string& fname_modi
     dstype* fdev = hostMode ? fh.data() : nullptr;
     if (!hostMode) TemplateMalloc(&fdev, maxnn*nsurfsca, backend);
 
-    // Node accumulators (surface corner nodes), double precision.
-    std::vector<double> sacc((size_t)nsurfsca * vis.surf_nnodes, 0.0);
-    std::vector<double> nacc((size_t)3 * vis.surf_nnodes, 0.0);
-    std::vector<int>    cnt((size_t)vis.surf_nnodes, 0);
+    // DG surface: no averaging, each face corner is a unique point (fixes messed up plot and single-file issue)
+    // vis.srffields is already sized surf_nnodes*nsurfsca (DG: k*ncell)
+    for (int s=0; s<vis.surf_nnodes*nsurfsca; ++s) vis.srffields[s]=0;
 
     for (Int j = 0; j < nf_blocks; ++j) {
         Int ib = disc.common.fblks[3*j+2];
@@ -649,13 +649,9 @@ void CSolutionWriter<M>::SaveSurfaces(Int backend, const std::string& fname_modi
                            disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common,
                            npf, f1, f2, ib, backend);
 
-        // Pull f and the nodal normals back host-side for the corner scatter.
+        // Pull f back host-side for DG scatter (normals not needed, pass nullptr later)
         if (!hostMode) {
             TemplateCopytoHost(fh.data(), fdev, nn*nsurfsca, backend);
-            TemplateCopytoHost(nh.data(), &tempg[n1], nn*nd, backend);
-        } else {
-            for (Int d = 0; d < nd; ++d)
-                memcpy(&nh[(size_t)d*nn], &tempg[n1 + (size_t)d*nn], nn*sizeof(dstype));
         }
 
         for (Int ff = 0; ff < nfblk; ++ff) {
@@ -667,36 +663,12 @@ void CSolutionWriter<M>::SaveSurfaces(Int backend, const std::string& fname_modi
                 int s    = vis.surf_cellconn[(size_t)cell*vis.surf_k + ci];
                 Int pt   = ln + npf*ff;
                 for (Int sca = 0; sca < nsurfsca; ++sca)
-                    sacc[(size_t)sca*vis.surf_nnodes + s] += (double)fh[(size_t)sca*nn + pt];
-                for (Int d = 0; d < nd; ++d)
-                    nacc[(size_t)d*vis.surf_nnodes + s] += (double)nh[(size_t)d*nn + pt];
-                cnt[s] += 1;
+                    vis.srffields[(size_t)sca*vis.surf_nnodes + s] = (float)fh[(size_t)sca*nn + pt];
             }
         }
     }
 
     if (!hostMode) { TemplateFree(fdev, backend); fdev = nullptr; }
-
-    // Finalize per-surface-node mean fields and mean (unit) normals.
-    for (int s = 0; s < vis.surf_nnodes; ++s) {
-        if (cnt[s] <= 0) continue;
-        for (Int sca = 0; sca < nsurfsca; ++sca)
-            vis.srffields[(size_t)vis.surf_nnodes*sca + s] =
-                (float)(sacc[(size_t)sca*vis.surf_nnodes + s] / cnt[s]);
-    }
-    std::vector<float> normout((size_t)3 * vis.surf_nnodes, 0.0f);
-    for (int s = 0; s < vis.surf_nnodes; ++s) {
-        if (cnt[s] <= 0) continue;
-        double nx = nacc[(size_t)0*vis.surf_nnodes + s];
-        double ny = nacc[(size_t)1*vis.surf_nnodes + s];
-        double nz = (nd == 3) ? nacc[(size_t)2*vis.surf_nnodes + s] : 0.0;
-        double nrm = std::sqrt(nx*nx + ny*ny + nz*nz);
-        if (nrm > 1e-14) {
-            normout[(size_t)3*s + 0] = (float)(nx/nrm);
-            normout[(size_t)3*s + 1] = (float)(ny/nrm);
-            normout[(size_t)3*s + 2] = (float)(nz/nrm);
-        }
-    }
 
     string baseName = disc.common.fileout + "surf" + fname_modifier;
     if (disc.common.timeparams.tdep == 1 || force_tdep_write) {
@@ -707,9 +679,9 @@ void CSolutionWriter<M>::SaveSurfaces(Int backend, const std::string& fname_modi
     }
 
     if (localProcs == 1)
-        vis.surfwrite(baseName, vis.srffields, normout.data());
+        vis.surfwrite(baseName, vis.srffields, nullptr);
     else
-        vis.surfwrite_parallel(baseName, localRank, localProcs, vis.srffields, normout.data());
+        vis.surfwrite_parallel(baseName, localRank, localProcs, vis.srffields, nullptr);
 
     if (ownsTempg) TemplateFree(tempg, backend);
     if (ownsTempn) TemplateFree(tempn, backend);
