@@ -340,6 +340,9 @@ void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, masterstr
     common.szcartgridpart = mesh.nsize[25];
 
     common.boundaryConditions = copyarray(mesh.boundaryConditions, mesh.nsize[27]);
+    common.distanceboundaryconditions = copyarray(app.distanceboundaryconditions,
+                                                  app.szdistanceboundaryconditions);
+    common.szdistanceboundaryconditions = app.szdistanceboundaryconditions;
     common.intepartpts = copyarray(mesh.intepartpts, mesh.nsize[28]);
     // if (mesh.nsize[25] > 0) TemplateFree(mesh.cartgridpart, 0);
     // if (mesh.nsize[27] > 0) TemplateFree(mesh.boundaryConditions, 0);
@@ -1082,6 +1085,7 @@ void devappstruct(appstructT<T,I> &dapp, appstructT<T,I> &app, ExasimDriverABI& 
     TemplateMalloc(&dapp.avfilterparam, app.szavfilterparam, common.backend);
     TemplateMalloc(&dapp.meshadaptparam, app.szmeshadaptparam, common.backend);
     TemplateMalloc(&dapp.meshadaptbcs, app.szmeshadaptbcs, common.backend);
+    TemplateMalloc(&dapp.distanceboundaryconditions, app.szdistanceboundaryconditions, common.backend);
     TemplateMalloc(&dapp.materialdb_elementcounts, app.szmaterialdb_elementcounts, common.backend);
     TemplateMalloc(&dapp.materialdb_ncgi, app.szmaterialdb_ncgi, common.backend);
     TemplateMalloc(&dapp.materialdb_gridoffset, app.szmaterialdb_gridoffset, common.backend);
@@ -1111,6 +1115,8 @@ void devappstruct(appstructT<T,I> &dapp, appstructT<T,I> &app, ExasimDriverABI& 
     TemplateCopytoDevice( dapp.avfilterparam, app.avfilterparam, app.szavfilterparam, common.backend );
     TemplateCopytoDevice( dapp.meshadaptparam, app.meshadaptparam, app.szmeshadaptparam, common.backend );
     TemplateCopytoDevice( dapp.meshadaptbcs, app.meshadaptbcs, app.szmeshadaptbcs, common.backend );
+    TemplateCopytoDevice(dapp.distanceboundaryconditions, app.distanceboundaryconditions,
+                         app.szdistanceboundaryconditions, common.backend);
     TemplateCopytoDevice( dapp.materialdb_elementcounts, app.materialdb_elementcounts, app.szmaterialdb_elementcounts, common.backend );
     TemplateCopytoDevice( dapp.materialdb_ncgi, app.materialdb_ncgi, app.szmaterialdb_ncgi, common.backend );
     TemplateCopytoDevice( dapp.materialdb_gridoffset, app.materialdb_gridoffset, app.szmaterialdb_gridoffset, common.backend );
@@ -1138,6 +1144,7 @@ void devappstruct(appstructT<T,I> &dapp, appstructT<T,I> &app, ExasimDriverABI& 
     dapp.szavfilterparam = app.szavfilterparam;
     dapp.szmeshadaptparam = app.szmeshadaptparam;
     dapp.szmeshadaptbcs = app.szmeshadaptbcs;
+    dapp.szdistanceboundaryconditions = app.szdistanceboundaryconditions;
     dapp.materialdb_nstate = app.materialdb_nstate;
     dapp.materialdb_nprop = app.materialdb_nprop;
     dapp.materialdb_porder = app.materialdb_porder;

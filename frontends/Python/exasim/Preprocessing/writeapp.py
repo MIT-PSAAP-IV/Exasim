@@ -93,7 +93,7 @@ def writeapp(app,filename):
     meshadaptparam = array([
         app.get('meshadaptenabled', 0), app.get('meshadaptfield', 1),
         app.get('meshadaptavcomponent', 1), app.get('meshadaptsmoothingpasses', 30),
-        app.get('meshadaptiterations', 6), app.get('meshadaptalpha', 0.25),
+        app.get('meshadaptiterations', 1), app.get('meshadaptalpha', 0.25),
         app.get('meshadaptqmin', 0.2), app.get('meshadaptqmax', 0.8),
         app.get('meshadaptHelmholtzCoeff', 0.02), app.get('meshadapttargetexponent', 2.0),
         app.get('meshadaptpoissonratio', 0.2), app.get('meshadaptyoungmodulus', 1.0),
@@ -103,6 +103,7 @@ def writeapp(app,filename):
         app.get('meshadaptHelmholtzTau', 2.0), app.get('meshadaptelasticitytau', 1.0e3)
     ], dtype=float64)
     meshadaptbcs = array(app.get('meshadaptboundaryconditions', []), dtype=float64).flatten(order='F')
+    distanceboundaryconditions = array(app.get('distanceboundaryconditions', []), dtype=float64).flatten(order='F')
 
     nsize = zeros((30,1));
     nsize[1-1] = size(ndims);
@@ -137,6 +138,7 @@ def writeapp(app,filename):
     nsize[20-1] = size(avfilterparam);
     nsize[21-1] = size(meshadaptparam)
     nsize[22-1] = size(meshadaptbcs)
+    nsize[23-1] = size(distanceboundaryconditions)
 
     print("Writing app into file...");
     fileID = open(filename, 'wb');
@@ -202,6 +204,8 @@ def writeapp(app,filename):
         meshadaptparam.tofile(fileID)
     if nsize[22-1] > 0:
         meshadaptbcs.tofile(fileID)
+    if nsize[23-1] > 0:
+        distanceboundaryconditions.tofile(fileID)
 
     if app['mutationflag']:
         app['mutationopts']['MixtureName'] = array((app['mutationopts']['MixtureName'] +'X').encode())

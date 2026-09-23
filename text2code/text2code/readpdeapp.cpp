@@ -76,6 +76,7 @@ struct InputParams {
     std::vector<int> periodicBoundaries2;
     std::vector<int> cartGridPart;
     std::vector<int> meshAdaptBoundaryConditions;
+    std::vector<int> distanceBoundaryConditions;
     
     std::vector<double> dae_dt;
     std::vector<double> dt;
@@ -259,8 +260,11 @@ InputParams parseInputFile(const std::string& filename, int mpirank=0)
         params.foundKeys.insert(key);
     };
 
-    auto parseAndAssign = [&](const std::string& full) {      
-        if (full.find("boundaryconditions") != std::string::npos) {
+    auto parseAndAssign = [&](const std::string& full) {
+        const std::size_t equals = full.find('=');
+        const std::string key = trim(full.substr(0, equals));
+
+        if (key == "boundaryconditions") {
             params.boundaryConditions = parseList<int>(full);
             markFound("boundaryconditions");
         }
@@ -297,14 +301,14 @@ InputParams parseInputFile(const std::string& filename, int mpirank=0)
             params.physicsParam = parseExpression(full);
             markFound("physicsparam");
         }
-        else if (full.find("tau") != std::string::npos) {
+        else if (key == "tau") {
             params.tau = parseExpression(full);
             markFound("tau");
         }
-        else if (full.find("dt") != std::string::npos) {
+        else if (key == "dt") {
             params.dt = parseExpression(full);
         }
-        else if (full.find("dae_dt") != std::string::npos) {
+        else if (key == "dae_dt") {
             params.dae_dt = parseExpression(full);
         }
         else if (full.find("externalparam") != std::string::npos) 
@@ -325,6 +329,8 @@ InputParams parseInputFile(const std::string& filename, int mpirank=0)
             params.cartGridPart = parseList<int>(full);
         else if (full.find("meshadaptboundaryconditions") != std::string::npos)
             params.meshAdaptBoundaryConditions = parseList<int>(full);
+        else if (full.find("distanceboundaryconditions") != std::string::npos)
+            params.distanceBoundaryConditions = parseList<int>(full);
         else if (full.find("interfaceconditions") != std::string::npos)
             params.interfaceConditions = parseList<int>(full);
         else if (full.find("interfacefluxmap") != std::string::npos)
@@ -503,7 +509,7 @@ struct PDE {
     int meshAdaptField = 1;
     int meshAdaptAVComponent = 1;
     int meshAdaptSmoothingPasses = 30;
-    int meshAdaptIterations = 6;
+    int meshAdaptIterations = 1;
 
     int coupledinterface = 0; 
     int coupledcondition = 0;
@@ -555,6 +561,7 @@ struct PDE {
     std::vector<double> stgdata;
     std::vector<double> stgparam;    
     std::vector<int> meshAdaptBoundaryConditions;
+    std::vector<int> distanceBoundaryConditions;
 };
 
 void resolveAVContinuation(PDE& pde)
@@ -949,7 +956,7 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     readMeshAdaptDouble("meshadaptalpha", pde.meshAdaptAlpha);
     readMeshAdaptDouble("meshadaptqmin", pde.meshAdaptQmin);
     readMeshAdaptDouble("meshadaptqmax", pde.meshAdaptQmax);
-    readMeshAdaptDouble("meshadapthelmholtzcoeff", pde.meshAdaptHelmholtzCoeff);
+    readMeshAdaptDouble("meshadaptHelmholtzCoeff", pde.meshAdaptHelmholtzCoeff);
     readMeshAdaptDouble("meshadapttargetexponent", pde.meshAdaptTargetExponent);
     readMeshAdaptDouble("meshadaptpoissonratio", pde.meshAdaptPoissonRatio);
     readMeshAdaptDouble("meshadaptyoungmodulus", pde.meshAdaptYoungModulus);
@@ -959,11 +966,12 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     readMeshAdaptDouble("meshadaptforcescale", pde.meshAdaptForceScale);
     readMeshAdaptDouble("meshadaptdamping", pde.meshAdaptDamping);
     readMeshAdaptDouble("meshadaptminimumjacobianratio", pde.meshAdaptMinimumJacobianRatio);
-    readMeshAdaptDouble("meshadapthelmholtztau", pde.meshAdaptHelmholtzTau);
+    readMeshAdaptDouble("meshadaptHelmholtzTau", pde.meshAdaptHelmholtzTau);
     readMeshAdaptDouble("meshadaptelasticitytau", pde.meshAdaptElasticityTau);
      
     pde.dt = params.dt;
     pde.meshAdaptBoundaryConditions = params.meshAdaptBoundaryConditions;
+    pde.distanceBoundaryConditions = params.distanceBoundaryConditions;
     pde.dae_dt = params.dae_dt;
     pde.tau = params.tau;
     pde.physicsparam = params.physicsParam;
@@ -1153,6 +1161,7 @@ void writepde(const PDE& pde, const std::string& filename)
     nsize[19] = avfilterparam.size();
     nsize[20] = meshadaptparam.size();
     nsize[21] = pde.meshAdaptBoundaryConditions.size();
+    nsize[22] = pde.distanceBoundaryConditions.size();
 
     std::ofstream file(filename, std::ios::binary);
     if (!file) throw std::runtime_error("Cannot open file for writing.");
@@ -1199,6 +1208,10 @@ void writepde(const PDE& pde, const std::string& filename)
     if (!pde.meshAdaptBoundaryConditions.empty()) {
         std::vector<double> bcs(pde.meshAdaptBoundaryConditions.begin(), pde.meshAdaptBoundaryConditions.end());
         writeVector(bcs);
+    }
+    if (!pde.distanceBoundaryConditions.empty()) {
+        std::vector<double> boundaries(pde.distanceBoundaryConditions.begin(), pde.distanceBoundaryConditions.end());
+        writeVector(boundaries);
     }
 
     file.close();

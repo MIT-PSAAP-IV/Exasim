@@ -1,4 +1,4 @@
-"""Julia frontend for the Mach-8 shock-capturing cylinder example."""
+"""Julia backend mesh-adaptivity counterpart of pdeapp_backend.m."""
 
 repository = dirname(dirname(dirname(@__DIR__)))
 source_install = joinpath(dirname(repository), "exasim_install")
@@ -11,21 +11,20 @@ using Exasim
 include(joinpath(@__DIR__, "pdemodel.jl"))
 include(joinpath(@__DIR__, "cylinder_mesh.jl"))
 
-function build_case()
+function build_backend_case()
     pde, _ = Exasim.initializeexasim()
     pde.model = "ModelD"
     pde.modelfile = ""
     pde.platform = "cpu"
     pde.mpiprocs = 1
     pde.hybrid = 1
-    pde.porder = 4
+    pde.porder = 2
 
-    run_directory = joinpath(@__DIR__, "julia_run")
+    run_directory = joinpath(@__DIR__, "julia_backend_run")
+    mkpath(run_directory)
     pde.datapath = run_directory
     pde.builddir = joinpath(run_directory, ".exasim")
     pde.buildpath = pde.builddir
-    # Match the MATLAB/Python empty optional tails rather than serializing the
-    # Julia frontend's legacy two-entry placeholders.
     pde.flag = reshape(Int[], 1, 0)
     pde.problem = reshape(Int[], 1, 0)
     pde.factor = reshape(Float64[], 1, 0)
@@ -60,16 +59,16 @@ function build_case()
 
     pde.AV = 1
     pde.AVcontinuationIter = 10
-    pde.AVcontinuationLogScale = 1.0
+    pde.AVcontinuationLogScale = 1.5
     pde.AVcoeffStart = 0.060
-    pde.AVcoeffEnd = 0.015
+    pde.AVcoeffEnd = 0.01
     pde.AVdistfunction = 1
     pde.distanceboundaryconditions = [3]
     pde.AVsmoothingMethod = 1
     pde.AVHelmholtzCoeff = 0.025
 
     av_max_divergence = 2.0
-    av_distance_coefficient = 10.0
+    av_distance_coefficient = 100.0
     pde.physicsparam = reshape(
         [
             gam,
@@ -92,23 +91,51 @@ function build_case()
         :,
     )
 
-    mesh = make_cylinder_mesh(pde.porder)
+    pde.meshadaptenabled = 1
+    pde.meshadaptfield = 3
+    pde.meshadaptalpha = 0.5
+    pde.meshadaptHelmholtzCoeff = 5.0e-2
+    pde.meshadaptforcescale = 0.2
+    pde.meshadaptsmoothingpasses = 30
+    pde.meshadaptboundaryconditions = [2, 3, 3]
+
+    mesh = make_cylinder_mesh(
+        pde.porder; nx=51, ny=32, radial_decay=3.0, outer_offset=4.0
+    )
     distance = wall_distance(mesh, pde.porder)
     mesh.odg = zeros(Float64, size(distance, 1), 2, size(distance, 3))
     mesh.odg[:, 1:1, :] .= distance
     mesh.udg = initialize_solution(mesh, distance, vec(pde.physicsparam))
-
     return pde, mesh
 end
 
-function main()
-    pde, mesh = build_case()
-    solution, pde, mesh, master, dmd, _, _ = Exasim.exasim(pde, mesh)
-    density = solution[:, 1, :, end]
-    println("Julia solution: ", size(solution), " rho range = ", extrema(density))
-    return solution, pde, mesh, master, dmd
+function main_backend()
+    pde, mesh = build_backend_case()
+    old_verification = get(ENV, "EXASIM_MESHADAPT_VERIFY", nothing)
+    ENV["EXASIM_MESHADAPT_VERIFY"] = "0"
+    try
+        solution, pde, mesh, master, dmd, _, _ = Exasim.exasim(pde, mesh)
+        adapted_file = joinpath(
+            pde.datapath, "dataout", "out_meshadapt_xdg_np0.bin"
+        )
+        adapted_nodes = reshape(
+            collect(reinterpret(Float64, read(adapted_file))), size(mesh.dgnodes)
+        )
+        mesh.dgnodes .= adapted_nodes
+        println(
+            "Julia backend mesh adaptivity: ", size(solution),
+            " adapted x range = ", extrema(adapted_nodes[:, 1, :]),
+        )
+        return solution, pde, mesh, master, dmd
+    finally
+        if isnothing(old_verification)
+            delete!(ENV, "EXASIM_MESHADAPT_VERIFY")
+        else
+            ENV["EXASIM_MESHADAPT_VERIFY"] = old_verification
+        end
+    end
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    main()
+    main_backend()
 end

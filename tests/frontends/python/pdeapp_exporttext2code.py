@@ -26,6 +26,7 @@ pde["tau"] = numpy.array([1.0])
 pde["uniformrefinementlevel"] = 1
 pde["AV"] = 1
 pde["AVdistfunction"] = 1
+pde["distanceboundaryconditions"] = numpy.array([1], dtype=int)
 pde["AVsmoothingMethod"] = 1
 pde["AVHelmholtzCoeff"] = 0.375
 pde["avparam1"] = numpy.array([9.0, 8.0])

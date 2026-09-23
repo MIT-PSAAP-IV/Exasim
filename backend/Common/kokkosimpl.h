@@ -458,6 +458,89 @@ void ArraySetValue(Ty* y, const noDeduce_t<Ty> a, const int n)
     });
 }
 
+template <class Ty = dstype, class I = Int>
+Ty ArrayMin(const Ty* x, const I n)
+{
+    Ty result = std::numeric_limits<Ty>::max();
+    if (n <= 0) return result;
+    Kokkos::parallel_reduce(
+        "ArrayMin",
+        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace, Kokkos::IndexType<I>>(0, n),
+        KOKKOS_LAMBDA(const I i, Ty& local) {
+            if (x[i] < local) local = x[i];
+        },
+        Kokkos::Min<Ty>(result));
+    return result;
+}
+
+template <class Ty = dstype, class I = Int>
+Ty ArrayMax(const Ty* x, const I n)
+{
+    Ty result = std::numeric_limits<Ty>::lowest();
+    if (n <= 0) return result;
+    Kokkos::parallel_reduce(
+        "ArrayMax",
+        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace, Kokkos::IndexType<I>>(0, n),
+        KOKKOS_LAMBDA(const I i, Ty& local) {
+            if (x[i] > local) local = x[i];
+        },
+        Kokkos::Max<Ty>(result));
+    return result;
+}
+
+template <class Ty = dstype, class I = Int>
+Ty ArrayMinAbs(const Ty* x, const I n)
+{
+    Ty result = std::numeric_limits<Ty>::max();
+    if (n <= 0) return result;
+    Kokkos::parallel_reduce(
+        "ArrayMinAbs",
+        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace, Kokkos::IndexType<I>>(0, n),
+        KOKKOS_LAMBDA(const I i, Ty& local) {
+            const Ty value = x[i];
+            const Ty magnitude = value < static_cast<Ty>(0) ? -value : value;
+            if (magnitude < local) local = magnitude;
+        },
+        Kokkos::Min<Ty>(result));
+    return result;
+}
+
+template <class Ty = dstype, class I = Int>
+Ty ArrayMaxAbs(const Ty* x, const I n)
+{
+    Ty result = static_cast<Ty>(0);
+    if (n <= 0) return result;
+    Kokkos::parallel_reduce(
+        "ArrayMaxAbs",
+        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace, Kokkos::IndexType<I>>(0, n),
+        KOKKOS_LAMBDA(const I i, Ty& local) {
+            const Ty value = x[i];
+            const Ty magnitude = value < static_cast<Ty>(0) ? -value : value;
+            if (magnitude > local) local = magnitude;
+        },
+        Kokkos::Max<Ty>(result));
+    return result;
+}
+
+template <class Ty = dstype, class I = Int>
+bool ArrayAllPositiveFinite(const Ty* x, const I n)
+{
+    I invalid = 0;
+    if (n <= 0) return true;
+    const Ty maximumFinite = std::numeric_limits<Ty>::max();
+    Kokkos::parallel_reduce(
+        "ArrayAllPositiveFinite",
+        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace, Kokkos::IndexType<I>>(0, n),
+        KOKKOS_LAMBDA(const I i, I& local) {
+            const Ty value = x[i];
+            const I entryInvalid = (!(value > static_cast<Ty>(0)) ||
+                                    value > maximumFinite) ? 1 : 0;
+            if (entryInvalid > local) local = entryInvalid;
+        },
+        Kokkos::Max<I>(invalid));
+    return invalid == 0;
+}
+
 template <class Ty = dstype>
 void ArrayAddScalar(Ty* y, const noDeduce_t<Ty> a, const int n)
 {
@@ -1764,7 +1847,7 @@ void AssembleBlockILU0(Ty* BE, const Ty* AE, const int* f2e, const int* elcon, c
             BE[m + ncf*n + R*r + S*t] = AE[m1 + ncf*k1 + M*n2 + P*k2 + Q*e];
           }
           else {
-            BE[m + ncf*n + R*r + S*t] = zero;
+            BE[m + ncf*n + R*r + S*t] = 0.0;
           }
         }                        
     });

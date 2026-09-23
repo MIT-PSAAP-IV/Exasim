@@ -132,13 +132,44 @@ private:
     };
 
     PDEStateSnapshot snapshot;
+    struct MeshAdaptWorkspace {
+        dstype *globalBoundaryCoordinates = nullptr;
+        dstype *lowModalBasis = nullptr;
+        dstype *lowModalInverse = nullptr;
+        Int *helmholtzSendNodeIndices = nullptr;
+        Int *helmholtzRecvNodeIndices = nullptr;
+        Int globalBoundaryCoordinateCount = 0;
+        Int lowModeCount = 0;
+        bool boundaryInitialized = false;
+
+        void clear(Int backend)
+        {
+            TemplateFree(globalBoundaryCoordinates, backend);
+            TemplateFree(lowModalBasis, backend);
+            TemplateFree(lowModalInverse, backend);
+            TemplateFree(helmholtzSendNodeIndices, backend);
+            TemplateFree(helmholtzRecvNodeIndices, backend);
+            globalBoundaryCoordinates = nullptr;
+            lowModalBasis = nullptr;
+            lowModalInverse = nullptr;
+            helmholtzSendNodeIndices = nullptr;
+            helmholtzRecvNodeIndices = nullptr;
+            globalBoundaryCoordinateCount = 0;
+            lowModeCount = 0;
+            boundaryInitialized = false;
+        }
+    } meshAdaptWorkspace;
     std::unique_ptr<CSolution<exasim::detail::AbiAdapter>> helmholtz;
     std::unique_ptr<CSolution<exasim::detail::AbiAdapter>> elasticity;
+    bool artificialViscosityPrepared = false;
 
+    void InitializeWallDistanceWorkspace(Int backend);
     void InitializeHelmholtzLengthScale(Int backend);
     void ApplyHelmholtzAVFilter(dstype *avField, Int backend);
 public:
-    void AdaptMesh(Int backend);
+    void UpdateWallDistance(Int continuationIteration, Int backend);
+    void PrepareArtificialViscosity(bool zeroSensor, Int continuationIteration, Int backend);
+    void AdaptMesh(Int backend, Int continuationIteration = 0);
     CDiscretization disc;  // spatial discretization class (the function space)
     CResidual<M> residual;    // the discretized PDE residual R(u)/flux q (evaluates from disc)
     CAssembler<M> assembler;  // HDG global linear-system assembler + operator-apply (from disc)
@@ -184,6 +215,10 @@ public:
         writer.setup(postprocessOnly || auxiliarySolve);
 
         if (!auxiliarySolve && !postprocessOnly &&
+            disc.common.physicsparams.AVdistfunction > 0)
+            InitializeWallDistanceWorkspace(backend);
+
+        if (!auxiliarySolve && !postprocessOnly &&
             (disc.common.physicsparams.AVsmoothingMethod == 1 || disc.common.meshadaptparams.enabled)) {
             if (disc.common.physicsparams.AVsmoothingMethod == 1 &&
                 (disc.common.physicsparams.ncAV <= 0 || disc.common.physicsparams.frozenAVflag <= 0))
@@ -216,6 +251,7 @@ public:
     // destructor (output streams are owned by, and closed by, the writer)
     ~CSolution() {
         this->ClearSavedState();
+        meshAdaptWorkspace.clear(disc.common.backend);
     };
 
     void SteadyProblem(ofstream &out, Int backend);

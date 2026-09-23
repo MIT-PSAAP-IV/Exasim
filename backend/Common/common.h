@@ -752,6 +752,7 @@ struct appstructT {
     dstype *avfilterparam=nullptr;
     dstype *meshadaptparam=nullptr;
     Int *meshadaptbcs=nullptr;
+    Int *distanceboundaryconditions=nullptr;
     dstype *wmDistances=nullptr;
     
     //dstype time=nullptr;     /* current time */
@@ -768,7 +769,7 @@ struct appstructT {
     Int szuinf=0, szdt=0, szdae_dt=0, szfactor=0, szphysicsparam=0, szsolversparam=0;
     Int sztau=0, szstgdata=0, szstgparam=0, szfc_u=0, szfc_q=0, szfc_w=0;
     Int szdtcoef_u=0, szdtcoef_q=0, szdtcoef_w=0, szavparam=0, szavfilterparam=0, szwmDistances=0;
-    Int szmeshadaptparam=0, szmeshadaptbcs=0;
+    Int szmeshadaptparam=0, szmeshadaptbcs=0, szdistanceboundaryconditions=0;
 
     // Material database metadata.  These fields are populated from the
     // optional datain/materialdatabase.bin table at runtime; they are not
@@ -808,7 +809,7 @@ struct appstructT {
 
     int sizeofint() {
       int sz = szflag + szproblem + szcomm + szporder + szstgib + szvindx + szinterfacefluxmap
-             + szwmModelIDs + szwmBoundaries + szmeshadaptbcs + szmaterialdb_elementcounts +
+             + szwmModelIDs + szwmBoundaries + szmeshadaptbcs + szdistanceboundaryconditions + szmaterialdb_elementcounts +
                szmaterialdb_ncgi + szmaterialdb_gridoffset + szmaterialdb_elemoffset;
       return sz;
     }
@@ -901,6 +902,7 @@ struct appstructT {
         TemplateFree(avfilterparam, backend);
         TemplateFree(meshadaptparam, backend);
         TemplateFree(meshadaptbcs, backend);
+        TemplateFree(distanceboundaryconditions, backend);
         TemplateFree(wmDistances, backend);
         TemplateFree(fc_u, backend);
         TemplateFree(fc_q, backend);
@@ -1944,7 +1946,7 @@ struct meshadaptparamsstruct {
     Int scalarField = 1;
     Int avComponent = 1;
     Int smoothingPasses = 30;
-    Int movementIterations = 6;
+    Int movementIterations = 1;
     dstype alpha = 0.25;
     dstype qmin = 0.2;
     dstype qmax = 0.8;
@@ -2385,6 +2387,8 @@ struct commonstructT {
     Int *interfacefluxmap=nullptr;
     Int *cartgridpart=nullptr;
     Int *boundaryConditions=nullptr;
+    Int *distanceboundaryconditions=nullptr;
+    Int szdistanceboundaryconditions=0;
     Int *intepartpts=nullptr;
     
     Int nnbintf = 0;
@@ -2602,6 +2606,7 @@ struct commonstructT {
         CPUFREE(wallmodelparams.wmBoundaries);
         CPUFREE(cartgridpart); 
         CPUFREE(boundaryConditions); 
+        CPUFREE(distanceboundaryconditions);
         CPUFREE(intepartpts);         
         CPUFREE(dt); 
         CPUFREE(dae_dt); 

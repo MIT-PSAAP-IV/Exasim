@@ -103,12 +103,14 @@ inline void readappstruct(std::string filename, appstruct &app)
     const Int szavfilterparam = (app.lsize[0] > 19) ? app.nsize[19] : 0;
     const Int szmeshadaptparam = (app.lsize[0] > 20) ? app.nsize[20] : 0;
     const Int szmeshadaptbcs = (app.lsize[0] > 21) ? app.nsize[21] : 0;
+    const Int szdistanceboundaryconditions = (app.lsize[0] > 22) ? app.nsize[22] : 0;
     if (szwmModelIDs > 0) app.wmModelIDs = readiarrayfromdouble(in, szwmModelIDs);
     if (szwmBoundaries > 0) app.wmBoundaries = readiarrayfromdouble(in, szwmBoundaries);
     if (szwmDistances > 0) readarray(in, &app.wmDistances, szwmDistances);
     if (szavfilterparam > 0) readarray(in, &app.avfilterparam, szavfilterparam);
     if (szmeshadaptparam > 0) readarray(in, &app.meshadaptparam, szmeshadaptparam);
     if (szmeshadaptbcs > 0) app.meshadaptbcs = readiarrayfromdouble(in, szmeshadaptbcs);
+    if (szdistanceboundaryconditions > 0) app.distanceboundaryconditions = readiarrayfromdouble(in, szdistanceboundaryconditions);
     
     app.szflag = app.nsize[1];
     app.szproblem = app.nsize[2];
@@ -131,6 +133,7 @@ inline void readappstruct(std::string filename, appstruct &app)
     app.szavfilterparam = szavfilterparam;
     app.szmeshadaptparam = szmeshadaptparam;
     app.szmeshadaptbcs = szmeshadaptbcs;
+    app.szdistanceboundaryconditions = szdistanceboundaryconditions;
 
     #ifdef HAVE_MPP
         char a[50];
@@ -232,6 +235,7 @@ inline void writeappstruct(std::string filename, appstruct &app)
     if (app.lsize[0] > 19) writearray(out, app.avfilterparam, app.nsize[19]);
     if (app.lsize[0] > 20) writearray(out, app.meshadaptparam, app.nsize[20]);
     if (app.lsize[0] > 21) writeiarraytodouble(out, app.meshadaptbcs, app.nsize[21]);
+    if (app.lsize[0] > 22) writeiarraytodouble(out, app.distanceboundaryconditions, app.nsize[22]);
     
     // Close file:
     out.close();

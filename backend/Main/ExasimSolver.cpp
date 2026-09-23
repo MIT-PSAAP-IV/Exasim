@@ -503,14 +503,6 @@ int ExasimSolver::Solve()
         status = RunSolveProblemOrPostprocess();
     }
 
-    // All solve dispatch paths must reach mesh adaptation, including the
-    // AV-distance, steady, transient, and pseudo-time specializations.
-    if (status == 0) {
-        for (auto& model : models_)
-            if (model->disc.common.meshadaptparams.enabled)
-                model->AdaptMesh(backend_);
-    }
-
     return status;
 }
 
@@ -534,9 +526,6 @@ int ExasimSolver::Solve(const int i)
     else {
         status = -1;
     }
-
-    if (status == 0 && models_[i]->disc.common.meshadaptparams.enabled)
-        models_[i]->AdaptMesh(backend_);
 
     return status;
 }

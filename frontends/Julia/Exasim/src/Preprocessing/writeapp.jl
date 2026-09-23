@@ -92,6 +92,7 @@ nsize[19] = length(app.wmDistances[:]);
 nsize[20] = length(avfilterparam[:]);
 nsize[21] = length(meshadaptparam[:]);
 nsize[22] = length(app.meshadaptboundaryconditions[:]);
+nsize[23] = length(app.distanceboundaryconditions[:]);
 
 # app.nsize = nsize;
 # app.ndims = ndims;
@@ -162,6 +163,7 @@ end
 write(fileID,Float64.(avfilterparam[:]));
 write(fileID,Float64.(meshadaptparam[:]));
 write(fileID,Float64.(app.meshadaptboundaryconditions[:]));
+write(fileID,Float64.(app.distanceboundaryconditions[:]));
 
 if app.mutationflag == 1
     write(fileID, app.mutationopts["MixtureName"] * "X")

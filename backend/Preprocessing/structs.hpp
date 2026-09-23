@@ -76,6 +76,7 @@ struct InputParams {
     std::vector<int> periodicBoundaries2;
     std::vector<int> cartGridPart;
     std::vector<int> meshAdaptBoundaryConditions;
+    std::vector<int> distanceBoundaryConditions;
     
     std::vector<double> dae_dt;
     std::vector<double> dt;
@@ -201,7 +202,7 @@ struct PDE {
     int meshAdaptField = 1;
     int meshAdaptAVComponent = 1;
     int meshAdaptSmoothingPasses = 30;
-    int meshAdaptIterations = 6;
+    int meshAdaptIterations = 1;
 
     // HOT.7.4 — when 0, CSolution skips opening output bin files.
     // The data still lives in `disc.sol` after the solve and can be
@@ -260,6 +261,7 @@ struct PDE {
     std::vector<double> stgdata;
     std::vector<double> stgparam;    
     std::vector<int> meshAdaptBoundaryConditions;
+    std::vector<int> distanceBoundaryConditions;
 };
 
 struct Mesh {

@@ -93,7 +93,7 @@ def initializepde(version):
     pde['meshadaptfield'] = 1
     pde['meshadaptavcomponent'] = 1
     pde['meshadaptsmoothingpasses'] = 30
-    pde['meshadaptiterations'] = 6
+    pde['meshadaptiterations'] = 1
     pde['meshadaptalpha'] = 0.25
     pde['meshadaptqmin'] = 0.2
     pde['meshadaptqmax'] = 0.8
@@ -130,6 +130,7 @@ def initializepde(version):
     pde['coupledcondition'] = 0;
     pde['coupledboundarycondition'] = 0;
     pde['AVdistfunction'] = 0;
+    pde['distanceboundaryconditions'] = numpy.array([], dtype=int)
     pde['runmode'] = 0;
     pde['tdfunc'] = 1;
     pde['source'] = 1;

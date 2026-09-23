@@ -110,12 +110,14 @@ void readappstruct(string filename, appstruct &app)
     const Int szavfilterparam = (app.lsize[0] > 19) ? app.nsize[19] : 0;
     const Int szmeshadaptparam = (app.lsize[0] > 20) ? app.nsize[20] : 0;
     const Int szmeshadaptbcs = (app.lsize[0] > 21) ? app.nsize[21] : 0;
+    const Int szdistanceboundaryconditions = (app.lsize[0] > 22) ? app.nsize[22] : 0;
     if (szwmModelIDs > 0) app.wmModelIDs = readiarrayfromdouble(in, szwmModelIDs);
     if (szwmBoundaries > 0) app.wmBoundaries = readiarrayfromdouble(in, szwmBoundaries);
     if (szwmDistances > 0) readarray(in, &app.wmDistances, szwmDistances);
     if (szavfilterparam > 0) readarray(in, &app.avfilterparam, szavfilterparam);
     if (szmeshadaptparam > 0) readarray(in, &app.meshadaptparam, szmeshadaptparam);
     if (szmeshadaptbcs > 0) app.meshadaptbcs = readiarrayfromdouble(in, szmeshadaptbcs);
+    if (szdistanceboundaryconditions > 0) app.distanceboundaryconditions = readiarrayfromdouble(in, szdistanceboundaryconditions);
     
     app.szflag = app.nsize[1];
     app.szproblem = app.nsize[2];
@@ -138,6 +140,7 @@ void readappstruct(string filename, appstruct &app)
     app.szavfilterparam = szavfilterparam;
     app.szmeshadaptparam = szmeshadaptparam;
     app.szmeshadaptbcs = szmeshadaptbcs;
+    app.szdistanceboundaryconditions = szdistanceboundaryconditions;
 
     #ifdef HAVE_MPP
         char a[50];
@@ -239,6 +242,7 @@ void writeappstruct(string filename, appstruct &app)
     if (app.lsize[0] > 19) writearray(out, app.avfilterparam, app.nsize[19]);
     if (app.lsize[0] > 20) writearray(out, app.meshadaptparam, app.nsize[20]);
     if (app.lsize[0] > 21) writeiarraytodouble(out, app.meshadaptbcs, app.nsize[21]);
+    if (app.lsize[0] > 22) writeiarraytodouble(out, app.distanceboundaryconditions, app.nsize[22]);
     
     // Close file:
     out.close();
@@ -809,8 +813,15 @@ void readInput(appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master
         const Int nd = app.ndims[AppNdims::nd];
         if (nd != 2 && nd != 3)
             error("The internal linear-elasticity mesh mover supports only 2D and 3D.");
-        if (app.szmeshadaptbcs <= 0)
-            error("meshadaptboundaryconditions is required when mesh adaptation is enabled.");
+        const Int nboundary = mesh.nsize[27];
+        if (app.szmeshadaptbcs != nboundary)
+            error("meshadaptboundaryconditions must contain one entry per geometric boundary.");
+        // Both arrays use geometric-boundary order; mesh.bf stores the corresponding flow BC tag.
+        for (Int i = 0; i < nboundary; ++i)
+            for (Int j = i + 1; j < nboundary; ++j)
+                if (mesh.boundaryConditions[i] == mesh.boundaryConditions[j] &&
+                    app.meshadaptbcs[i] != app.meshadaptbcs[j])
+                    error("Geometric boundaries sharing a flow boundary-condition ID must use the same mesh-adaptation boundary condition.");
 
         CPUFREE(sol.udg); sol.udg = nullptr;
         CPUFREE(sol.odg); sol.odg = nullptr;
@@ -889,9 +900,15 @@ void readInput(appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master
         for (Int i = 0; i < nbf; ++i) {
             const Int tag = mesh.bf[i];
             if (tag > 0) {
-                if (tag > app.szmeshadaptbcs)
-                    error("meshadaptboundaryconditions does not define every physical boundary tag.");
-                mesh.bf[i] = app.meshadaptbcs[tag - 1];
+                Int adaptationTag = 0;
+                for (Int j = 0; j < nboundary; ++j)
+                    if (mesh.boundaryConditions[j] == tag) {
+                        adaptationTag = app.meshadaptbcs[j];
+                        break;
+                    }
+                if (adaptationTag <= 0)
+                    error("meshadaptboundaryconditions does not define the boundary condition for a mesh face.");
+                mesh.bf[i] = adaptationTag;
             }
         }
     }

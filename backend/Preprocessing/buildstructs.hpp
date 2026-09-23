@@ -168,6 +168,7 @@ inline appstructT<T,I> buildAppStruct(const PDE& pde)
     app.nsize[19] = 2;
     app.nsize[20] = 20;
     app.nsize[21] = (Int)pde.meshAdaptBoundaryConditions.size();
+    app.nsize[22] = (Int)pde.distanceBoundaryConditions.size();
 
     app.lsize = (Int*)std::malloc(sizeof(Int));
     app.lsize[0] = kNSize;
@@ -218,6 +219,10 @@ inline appstructT<T,I> buildAppStruct(const PDE& pde)
         app.meshadaptbcs = (Int*)std::malloc(sizeof(Int)*pde.meshAdaptBoundaryConditions.size());
         std::copy(pde.meshAdaptBoundaryConditions.begin(), pde.meshAdaptBoundaryConditions.end(), app.meshadaptbcs);
     }
+    if (!pde.distanceBoundaryConditions.empty()) {
+        app.distanceboundaryconditions = (Int*)std::malloc(sizeof(Int)*pde.distanceBoundaryConditions.size());
+        std::copy(pde.distanceBoundaryConditions.begin(), pde.distanceBoundaryConditions.end(), app.distanceboundaryconditions);
+    }
 
     // ---- size fields (mirrors readappstruct lines 95-109) ----
     app.szflag             = app.nsize[1];
@@ -238,6 +243,7 @@ inline appstructT<T,I> buildAppStruct(const PDE& pde)
     app.szavfilterparam    = app.nsize[19];
     app.szmeshadaptparam   = app.nsize[20];
     app.szmeshadaptbcs     = app.nsize[21];
+    app.szdistanceboundaryconditions = app.nsize[22];
 
     // ---- derived fc_u/fc_q/fc_w (mirrors readappstruct lines 134-168) ----
     Int ncu = app.ndims[AppNdims::ncu];
