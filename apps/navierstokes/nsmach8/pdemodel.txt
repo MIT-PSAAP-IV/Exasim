@@ -8,7 +8,7 @@ hessian
 
 batch x, uq, v, w, uhat, n
 
-outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Fint, Fext, Initu, VisScalars, VisVectors
+outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Fint, Fext, Initu, VisScalars, VisVectors, VisSurfScalars
 
 function Flux(x, uq, v, w, eta, mu, t)  
     output_size(f) = 8;
@@ -150,6 +150,13 @@ function VisVectors(x, uq, v, w, eta, mu, t)
   output_size(s) = 2;
   s[0] = uq[1];
   s[1] = uq[2];  
+end
+
+function VisSurfScalars(x, uq, v, w, uhat, n, tau, eta, mu, t)
+    output_size(s) = 1;
+
+    f = HeatFlux(x, uhat, uq, v, w, eta, mu, t);
+    s[0] = f[0] * n[0] + f[1] * n[1] + tau[0]*(uq[3] - uhat[3]);
 end
 
 function HeatFlux(x, uhat, uq, v, w, eta, mu, t)  

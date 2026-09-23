@@ -22,6 +22,11 @@ nstage = 1;
 neb = 4096;
 nfb = 8192;
 
+saveParaview = 1;
+saveSolFreq = 1;
+nsurfsca = 1;
+ibvis = 3;
+
 NewtonIter = 30;
 NewtonTol = 1e-06;
 GMRESiter = 100;

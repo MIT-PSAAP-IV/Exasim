@@ -7,79 +7,91 @@
 // defaults for any optional method this PDE doesn't define.
 #pragma once
 
+#include <Kokkos_Core.hpp>
 struct PdeModel : ModelDefaults<PdeModel> {
     static constexpr int nd     = 2;
     static constexpr int ncu    = 4;
     static constexpr int ncw    = 0;
     static constexpr int nco    = 2;
     static constexpr int nparam = 11;
+    static constexpr int ntau   = 1;
     static constexpr int nsca   = 4;
     static constexpr int nvec   = 1;
+    static constexpr int nten   = 0;
+    static constexpr int nsurfsca = 1;
+    static constexpr int nsurf  = 0;
+    static constexpr int nvqoi  = 0;
+    static constexpr int nmaterialstate = 0;
     static constexpr int Nq = ncu * (1 + nd);
 
-    KOKKOS_INLINE_FUNCTION static
-    void flux(double f[], const double x[], const double uq[], const double v[], const double w[], const double mu[], const double uinf[], double t) {
-        const double uq0 = uq[0];
-        const double uq1 = uq[1];
-        const double uq2 = uq[2];
-        const double uq3 = uq[3];
-        const double uq4 = uq[4];
-        const double uq5 = uq[5];
-        const double uq6 = uq[6];
-        const double uq7 = uq[7];
-        const double uq8 = uq[8];
-        const double uq9 = uq[9];
-        const double uq10 = uq[10];
-        const double uq11 = uq[11];
-        const double v0 = v[0];
-        const double mu0 = mu[0];
-        const double mu1 = mu[1];
-        const double mu2 = mu[2];
-        const double mu3 = mu[3];
-        const double mu9 = mu[9];
+    static constexpr bool has_external_coupling = true;
+    static constexpr int nfint  = 1;
+    static constexpr int nfext  = 4;
+    static constexpr int ncuext = 1;
 
-        const double x0 = Kokkos::pow(uq1, 2);
-        const double x1 = Kokkos::pow(uq0, -1);
-        const double x2 = x1*uq2;
-        const double x3 = uq10 - x2*uq8;
-        const double x4 = x1*x3;
-        const double x5 = x1*uq1;
-        const double x6 = uq5 - x5*uq4;
-        const double x7 = x1*x6;
-        const double x8 = -1.0 + mu0;
-        const double x9 = Kokkos::pow(uq2, 2);
-        const double x10 = Kokkos::pow(uq0, -2);
-        const double x11 = 0.5*(x0*x10 + x9*x10);
-        const double x12 = uq3 - uq0*x11;
-        const double x13 = x8*x12;
-        const double x14 = x1*x13;
-        const double x15 = Kokkos::sqrt(Kokkos::pow(x8, 3)*Kokkos::pow(x12, 3)*Kokkos::pow(mu3, 6)*Kokkos::pow(mu0, 3)/Kokkos::pow(uq0, 3))*(110.4 + mu9)/(mu1*(110.4 + 1.0*x14*Kokkos::pow(mu3, 2)*mu9*mu0));
-        const double x16 = 0.666666666666667*x15;
-        const double x17 = (-x4 + 2*x7)*x16;
-        const double x18 = uq6 - x2*uq4;
-        const double x19 = uq9 - x5*uq8;
-        const double x20 = 1.0*x15;
-        const double x21 = (x1*x18 + x1*x19)*x20;
-        const double x22 = x21 + x5*uq2;
-        const double x23 = uq2*x10;
-        const double x24 = uq1*x10;
-        const double x25 = x8*uq0;
-        const double x26 = x20*x10*mu0/(x8*mu2);
-        const double x27 = x14 + x1*uq3;
-        const double x28 = (2*x4 - x7)*x16;
+    KOKKOS_INLINE_FUNCTION static
+    void flux(dstype f[], const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype mu[], const dstype uinf[], dstype t) {
+        const dstype uq0 = uq[0];
+        const dstype uq1 = uq[1];
+        const dstype uq2 = uq[2];
+        const dstype uq3 = uq[3];
+        const dstype uq4 = uq[4];
+        const dstype uq5 = uq[5];
+        const dstype uq6 = uq[6];
+        const dstype uq7 = uq[7];
+        const dstype uq8 = uq[8];
+        const dstype uq9 = uq[9];
+        const dstype uq10 = uq[10];
+        const dstype uq11 = uq[11];
+        const dstype v0 = v[0];
+        const dstype mu0 = mu[0];
+        const dstype mu1 = mu[1];
+        const dstype mu2 = mu[2];
+        const dstype mu3 = mu[3];
+        const dstype mu9 = mu[9];
+
+        const dstype x0 = Kokkos::pow(uq0, -1);
+        const dstype x1 = x0*uq2;
+        const dstype x2 = uq10 - x1*uq8;
+        const dstype x3 = x0*x2;
+        const dstype x4 = x0*uq1;
+        const dstype x5 = uq5 - x4*uq4;
+        const dstype x6 = x0*x5;
+        const dstype x7 = -1.0 + mu0;
+        const dstype x8 = Kokkos::pow(uq2, 2);
+        const dstype x9 = Kokkos::pow(uq0, -2);
+        const dstype x10 = Kokkos::pow(uq1, 2);
+        const dstype x11 = 0.5*(x8*x9 + x9*x10);
+        const dstype x12 = uq3 - uq0*x11;
+        const dstype x13 = x7*x12;
+        const dstype x14 = x0*x13;
+        const dstype x15 = (110.4 + mu9)*Kokkos::sqrt(Kokkos::pow(x7, 3)*Kokkos::pow(x12, 3)*Kokkos::pow(mu3, 6)*Kokkos::pow(mu0, 3)/Kokkos::pow(uq0, 3))/(mu1*(110.4 + 1.0*x14*Kokkos::pow(mu3, 2)*mu9*mu0));
+        const dstype x16 = 0.666666666666667*x15;
+        const dstype x17 = (-x3 + 2*x6)*x16;
+        const dstype x18 = uq6 - x1*uq4;
+        const dstype x19 = uq9 - x4*uq8;
+        const dstype x20 = 1.0*x15;
+        const dstype x21 = (x0*x18 + x0*x19)*x20;
+        const dstype x22 = x21 + x1*uq1;
+        const dstype x23 = x9*uq2;
+        const dstype x24 = x9*uq1;
+        const dstype x25 = x7*uq0;
+        const dstype x26 = x9*x20*mu0/(x7*mu2);
+        const dstype x27 = x14 + x0*uq3;
+        const dstype x28 = (2*x3 - x6)*x16;
 
         f[0] = uq1 + v0*uq4;
-        f[1] = x13 + x17 + v0*uq5 + x0*x1;
+        f[1] = x13 + x17 + v0*uq5 + x0*x10;
         f[2] = x22 + v0*uq6;
-        f[3] = uq1*x27 + v0*uq7 + x2*x21 + x26*(-uq4*x13 + x25*(uq7 - uq0*(x23*x18 + x6*x24) - uq4*x11)) + x5*x17;
+        f[3] = uq1*x27 + v0*uq7 + x1*x21 + x26*(-uq4*x13 + x25*(uq7 - uq0*(x23*x18 + x5*x24) - uq4*x11)) + x4*x17;
         f[4] = uq2 + v0*uq8;
         f[5] = x22 + v0*uq9;
-        f[6] = x13 + x28 + v0*uq10 + x1*x9;
-        f[7] = uq2*x27 + v0*uq11 + x2*x28 + x26*(-uq8*x13 + x25*(uq11 - uq0*(x24*x19 + x3*x23) - uq8*x11)) + x5*x21;
+        f[6] = x13 + x28 + v0*uq10 + x0*x8;
+        f[7] = uq2*x27 + v0*uq11 + x1*x28 + x26*(-uq8*x13 + x25*(uq11 - uq0*(x2*x23 + x24*x19) - uq8*x11)) + x4*x21;
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void source(double f[], const double x[], const double uq[], const double v[], const double w[], const double mu[], const double uinf[], double t) {
+    void source(dstype f[], const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype mu[], const dstype uinf[], dstype t) {
 
         f[0] = 0;
         f[1] = 0;
@@ -88,7 +100,7 @@ struct PdeModel : ModelDefaults<PdeModel> {
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void tdfunc(double f[], const double x[], const double uq[], const double v[], const double w[], const double mu[], const double uinf[], double t) {
+    void tdfunc(dstype f[], const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype mu[], const dstype uinf[], dstype t) {
 
         f[0] = 1;
         f[1] = 1;
@@ -97,13 +109,13 @@ struct PdeModel : ModelDefaults<PdeModel> {
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void vis_scalars(double f[], const double x[], const double uq[], const double v[], const double w[], const double mu[], const double uinf[], double t) {
-        const double uq0 = uq[0];
-        const double uq1 = uq[1];
-        const double uq2 = uq[2];
-        const double uq3 = uq[3];
+    void vis_scalars(dstype f[], const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype mu[], const dstype uinf[], dstype t) {
+        const dstype uq0 = uq[0];
+        const dstype uq1 = uq[1];
+        const dstype uq2 = uq[2];
+        const dstype uq3 = uq[3];
 
-        const double x0 = Kokkos::pow(uq0, -1);
+        const dstype x0 = Kokkos::pow(uq0, -1);
 
         f[0] = uq0;
         f[1] = x0*uq1;
@@ -112,20 +124,20 @@ struct PdeModel : ModelDefaults<PdeModel> {
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void vis_vectors(double f[], const double x[], const double uq[], const double v[], const double w[], const double mu[], const double uinf[], double t) {
-        const double uq1 = uq[1];
-        const double uq2 = uq[2];
+    void vis_vectors(dstype f[], const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype mu[], const dstype uinf[], dstype t) {
+        const dstype uq1 = uq[1];
+        const dstype uq2 = uq[2];
 
         f[0] = uq1;
         f[1] = uq2;
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void initu(double f[], const double x[], const double uinf[], const double mu[]) {
-        const double mu4 = mu[4];
-        const double mu5 = mu[5];
-        const double mu6 = mu[6];
-        const double mu7 = mu[7];
+    void initu(dstype f[], const dstype x[], const dstype uinf[], const dstype mu[]) {
+        const dstype mu4 = mu[4];
+        const dstype mu5 = mu[5];
+        const dstype mu6 = mu[6];
+        const dstype mu7 = mu[7];
 
         f[0] = mu4;
         f[1] = mu5;
@@ -134,7 +146,7 @@ struct PdeModel : ModelDefaults<PdeModel> {
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void fbou(double f[], int ib, const double x[], const double uq[], const double v[], const double w[], const double uh[], const double n[], const double tau[], const double mu[], const double uinf[], double t) {
+    void fbou(dstype f[], int ib, const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype uh[], const dstype n[], const dstype tau[], const dstype mu[], const dstype uinf[], dstype t) {
         if (ib == 1) {
 
             f[0] = 0;
@@ -152,7 +164,7 @@ struct PdeModel : ModelDefaults<PdeModel> {
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void ubou(double f[], int ib, const double x[], const double uq[], const double v[], const double w[], const double uh[], const double n[], const double tau[], const double mu[], const double uinf[], double t) {
+    void ubou(dstype f[], int ib, const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype uh[], const dstype n[], const dstype tau[], const dstype mu[], const dstype uinf[], dstype t) {
         if (ib == 1) {
 
             f[0] = 0;
@@ -170,16 +182,16 @@ struct PdeModel : ModelDefaults<PdeModel> {
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void fbou_hdg(double f[], int ib, const double x[], const double uq[], const double v[], const double w[], const double uh[], const double n[], const double tau[], const double mu[], const double uinf[], double t) {
+    void fbou_hdg(dstype f[], int ib, const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype uh[], const dstype n[], const dstype tau[], const dstype mu[], const dstype uinf[], dstype t) {
         if (ib == 1) {
-            const double uhat0 = uh[0];
-            const double uhat1 = uh[1];
-            const double uhat2 = uh[2];
-            const double uhat3 = uh[3];
-            const double mu4 = mu[4];
-            const double mu5 = mu[5];
-            const double mu6 = mu[6];
-            const double mu7 = mu[7];
+            const dstype uhat0 = uh[0];
+            const dstype uhat1 = uh[1];
+            const dstype uhat2 = uh[2];
+            const dstype uhat3 = uh[3];
+            const dstype mu4 = mu[4];
+            const dstype mu5 = mu[5];
+            const dstype mu6 = mu[6];
+            const dstype mu7 = mu[7];
 
             f[0] = mu4 - uhat0;
             f[1] = mu5 - uhat1;
@@ -187,14 +199,14 @@ struct PdeModel : ModelDefaults<PdeModel> {
             f[3] = mu7 - uhat3;
         }
         else if (ib == 2) {
-            const double uq0 = uq[0];
-            const double uq1 = uq[1];
-            const double uq2 = uq[2];
-            const double uq3 = uq[3];
-            const double uhat0 = uh[0];
-            const double uhat1 = uh[1];
-            const double uhat2 = uh[2];
-            const double uhat3 = uh[3];
+            const dstype uq0 = uq[0];
+            const dstype uq1 = uq[1];
+            const dstype uq2 = uq[2];
+            const dstype uq3 = uq[3];
+            const dstype uhat0 = uh[0];
+            const dstype uhat1 = uh[1];
+            const dstype uhat2 = uh[2];
+            const dstype uhat3 = uh[3];
 
             f[0] = -uhat0 + uq0;
             f[1] = -uhat1 + uq1;
@@ -202,14 +214,14 @@ struct PdeModel : ModelDefaults<PdeModel> {
             f[3] = -uhat3 + uq3;
         }
         else if (ib == 3) {
-            const double uq0 = uq[0];
-            const double uhat0 = uh[0];
-            const double uhat1 = uh[1];
-            const double uhat2 = uh[2];
-            const double uhat3 = uh[3];
-            const double mu8 = mu[8];
-            const double mu9 = mu[9];
-            const double mu10 = mu[10];
+            const dstype uq0 = uq[0];
+            const dstype uhat0 = uh[0];
+            const dstype uhat1 = uh[1];
+            const dstype uhat2 = uh[2];
+            const dstype uhat3 = uh[3];
+            const dstype mu8 = mu[8];
+            const dstype mu9 = mu[9];
+            const dstype mu10 = mu[10];
 
             f[0] = -uhat0 + uq0;
             f[1] = -uhat1;
@@ -219,307 +231,366 @@ struct PdeModel : ModelDefaults<PdeModel> {
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void flux_jac_uq(double f[], const double x[], const double uq[], const double v[], const double w[], const double mu[], const double uinf[], double t) {
-        const double uq0 = uq[0];
-        const double uq1 = uq[1];
-        const double uq2 = uq[2];
-        const double uq3 = uq[3];
-        const double uq4 = uq[4];
-        const double uq5 = uq[5];
-        const double uq6 = uq[6];
-        const double uq7 = uq[7];
-        const double uq8 = uq[8];
-        const double uq9 = uq[9];
-        const double uq10 = uq[10];
-        const double uq11 = uq[11];
-        const double v0 = v[0];
-        const double mu0 = mu[0];
-        const double mu1 = mu[1];
-        const double mu2 = mu[2];
-        const double mu3 = mu[3];
-        const double mu9 = mu[9];
+    void vis_surf_scalars(dstype f[], int ib, const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype uh[], const dstype n[], const dstype tau[], const dstype mu[], const dstype uinf[], dstype t) {
+        // HeatFlux as defined in pdemodel.txt
+        const dstype gam = mu[0];
+        const dstype gam1 = gam - 1.0;
+        const dstype Re = mu[1];
+        const dstype Pr = mu[2];
+        const dstype Minf = mu[3];
+        const dstype Tref = mu[9];
+        const dstype muRef = 1/Re;
+        const dstype M2 = Minf*Minf;
+        const dstype pinf = 1.0/(gam*M2);
+        const dstype Tinf = pinf/(gam-1.0);
+        const dstype r = uh[0];
+        if (r <= 1e-12) { f[0]=0; return; }
+        const dstype ru = uh[1];
+        const dstype rv = uh[2];
+        const dstype rE = uh[3];
+        const dstype rx = uq[4];
+        const dstype rux = uq[5];
+        const dstype rvx = uq[6];
+        const dstype rEx = uq[7];
+        const dstype ry = uq[8];
+        const dstype ruy = uq[9];
+        const dstype rvy = uq[10];
+        const dstype rEy = uq[11];
+        const dstype av = v[0];
+        const dstype r1 = 1/r;
+        const dstype uv = ru*r1;
+        const dstype vv = rv*r1;
+        const dstype E = rE*r1;
+        const dstype ke = 0.5*(uv*uv+vv*vv);
+        const dstype p = gam1*(rE-r*ke);
+        const dstype T = p/(gam1*r);
+        const dstype Tphys = Tref/Tinf * T;
+        const dstype Ts = 110.4;
+        const dstype Tr = Tphys/Tref;
+        const dstype muphys = muRef * Kokkos::sqrt(Tr*Tr*Tr) * (Tref + Ts)/(Tphys + Ts);
+        const dstype fc = muphys*gam/Pr;
+        const dstype ux = (rux - rx*uv)*r1;
+        const dstype vx = (rvx - rx*vv)*r1;
+        const dstype kex = uv*ux + vv*vx;
+        const dstype px = gam1*(rEx - rx*ke - r*kex);
+        const dstype Tx = (px*r - p*rx)*r1*r1/gam1;
+        const dstype uy = (ruy - ry*uv)*r1;
+        const dstype vy = (rvy - ry*vv)*r1;
+        const dstype key = uv*uy + vv*vy;
+        const dstype py = gam1*(rEy - ry*ke - r*key);
+        const dstype Ty = (py*r - p*ry)*r1*r1/gam1;
+        const dstype qx = fc*Tx;
+        const dstype qy = fc*Ty;
+        // guard against NaN from negative pressure/temperature
+        if (!Kokkos::isfinite(qx) || !Kokkos::isfinite(qy)) { f[0]=0; } else { f[0] = qx*n[0] + qy*n[1] + tau[0]*(uq[3] - uh[3]); if (!Kokkos::isfinite(f[0])) f[0]=0; }
+    }
 
-        const double x0 = Kokkos::pow(uq0, -1);
-        const double x1 = x0*uq2;
-        const double x2 = uq10 - x1*uq8;
-        const double x3 = x0*x2;
-        const double x4 = x0*uq1;
-        const double x5 = uq5 - x4*uq4;
-        const double x6 = x0*x5;
-        const double x7 = -x3 + 2*x6;
-        const double x8 = Kokkos::pow(uq1, 2);
-        const double x9 = Kokkos::pow(uq0, -3);
-        const double x10 = x8*x9;
-        const double x11 = Kokkos::pow(uq2, 2);
-        const double x12 = x9*x11;
-        const double x13 = 0.5*(-2*x10 - 2*x12);
-        const double x14 = Kokkos::pow(uq0, -2);
-        const double x15 = x14*x11;
-        const double x16 = x8*x14;
-        const double x17 = -0.5*x15 - 0.5*x16;
-        const double x18 = x17 - uq0*x13;
-        const double x19 = 0.5*(x15 + x16);
-        const double x20 = uq3 - uq0*x19;
-        const double x21 = Kokkos::pow(x20, 2);
-        const double x22 = Kokkos::pow(mu3, 6);
-        const double x23 = -1.0 + mu0;
-        const double x24 = x22*Kokkos::pow(x23, 3)*Kokkos::pow(mu0, 3);
-        const double x25 = x24*x21;
-        const double x26 = x9*x25;
-        const double x27 = Kokkos::pow(uq0, -4);
-        const double x28 = x24*Kokkos::pow(x20, 3);
-        const double x29 = Kokkos::sqrt(x9*x28);
-        const double x30 = Kokkos::pow(mu1, -1);
-        const double x31 = 110.4 + mu9;
-        const double x32 = x0*x23;
-        const double x33 = x32*x20;
-        const double x34 = 1.0*mu0;
-        const double x35 = Kokkos::pow(mu3, 2)*mu9;
-        const double x36 = x34*x35;
-        const double x37 = 110.4 + x33*x36;
-        const double x38 = x30*x31/x37;
-        const double x39 = x38/x29;
-        const double x40 = (3*x26*x18 - 3*x28*x27)*x39;
-        const double x41 = 0.333333333333333*x40;
-        const double x42 = x7*x41;
-        const double x43 = x23*x20;
-        const double x44 = x43*x14;
-        const double x45 = x32*x18;
-        const double x46 = x30*x31*x29/Kokkos::pow(x37, 2);
-        const double x47 = (-x44*x36 + x45*x36)*x46;
-        const double x48 = 0.666666666666667*x47;
-        const double x49 = x7*x48;
-        const double x50 = x23*x18;
-        const double x51 = x5*x14;
-        const double x52 = x9*uq4;
-        const double x53 = uq1*x52;
-        const double x54 = x2*x14;
-        const double x55 = x9*uq8;
-        const double x56 = uq2*x55;
-        const double x57 = x54 - x56;
-        const double x58 = x38*x29;
-        const double x59 = 0.666666666666667*x58;
-        const double x60 = x59*(-2*x51 + 2*x53 + x57);
-        const double x61 = uq6 - x1*uq4;
-        const double x62 = uq9 - x4*uq8;
-        const double x63 = x0*x61 + x0*x62;
-        const double x64 = 0.5*x40;
-        const double x65 = x63*x64;
-        const double x66 = x62*x14;
-        const double x67 = uq1*x55;
-        const double x68 = x61*x14;
-        const double x69 = uq2*x52;
-        const double x70 = 1.0*x58;
-        const double x71 = (-x66 + x67 - x68 + x69)*x70;
-        const double x72 = uq2*x14;
-        const double x73 = uq1*x72;
-        const double x74 = 1.0*x63*x47;
-        const double x75 = x65 + x71 - x73 - x74;
-        const double x76 = uq2*x68;
-        const double x77 = uq1*x51;
-        const double x78 = x23*(uq7 - uq4*x19 - (x76 + x77)*uq0);
-        const double x79 = uq0*x78 - uq4*x43;
-        const double x80 = x9*x58;
-        const double x81 = Kokkos::pow(x23, -1);
-        const double x82 = Kokkos::pow(mu2, -1);
-        const double x83 = x82*mu0;
-        const double x84 = x81*x83;
-        const double x85 = 2.0*x80*x84;
-        const double x86 = x82*x79;
-        const double x87 = x81*x47*x34*x14;
-        const double x88 = x84*x14;
-        const double x89 = x88*x64;
-        const double x90 = x70*x72;
-        const double x91 = 2*x9;
-        const double x92 = uq1*x91;
-        const double x93 = uq2*x91;
-        const double x94 = uq4*x27;
-        const double x95 = uq0*x23;
-        const double x96 = x88*x70;
-        const double x97 = -x44 + x45 - uq3*x14;
-        const double x98 = uq1*x14;
-        const double x99 = x59*x98;
-        const double x100 = 2*x3 - x6;
-        const double x101 = x41*x100;
-        const double x102 = x48*x100;
-        const double x103 = x51 - x53;
-        const double x104 = x59*(x103 - 2*x54 + 2*x56);
-        const double x105 = uq2*x54;
-        const double x106 = uq1*x66;
-        const double x107 = x23*(uq11 - uq8*x19 - (x105 + x106)*uq0);
-        const double x108 = uq0*x107 - uq8*x43;
-        const double x109 = x82*x108;
-        const double x110 = x70*x98;
-        const double x111 = uq8*x27;
-        const double x112 = x72*x59;
-        const double x113 = 1.0*x32;
-        const double x114 = uq1*x113;
-        const double x115 = -x114;
-        const double x116 = uq1*x27;
-        const double x117 = x39*x25;
-        const double x118 = 1.0*x117;
-        const double x119 = x7*x118;
-        const double x120 = x119*x116;
-        const double x121 = 1.33333333333333*x58;
-        const double x122 = uq4*x14;
-        const double x123 = x46*x35;
-        const double x124 = mu0*x123;
-        const double x125 = 0.666666666666667*x124;
-        const double x126 = x23*x125;
-        const double x127 = x7*x126;
-        const double x128 = x98*x127;
-        const double x129 = 1.5*x63;
-        const double x130 = x117*x129;
-        const double x131 = x116*x130;
-        const double x132 = 1.0*uq8;
-        const double x133 = x58*x14;
-        const double x134 = x133*x132;
-        const double x135 = 1.0*x23;
-        const double x136 = x63*x124;
-        const double x137 = x135*x136;
-        const double x138 = x98*x137;
-        const double x139 = x1 - x131 - x134 + x138;
-        const double x140 = Kokkos::pow(uq0, -5);
-        const double x141 = x119*x140;
-        const double x142 = 1.5*x39*x22*Kokkos::pow(x23, 2)*x21*Kokkos::pow(mu0, 4);
-        const double x143 = x142/Kokkos::pow(uq0, 6);
-        const double x144 = x86*x143;
-        const double x145 = 1.0*Kokkos::pow(mu0, 2);
-        const double x146 = x123*x145;
-        const double x147 = x116*x146;
-        const double x148 = x0*x59;
-        const double x149 = 1.0*uq4;
-        const double x150 = uq2*uq1;
-        const double x151 = x130*x140;
-        const double x152 = x9*x123;
-        const double x153 = mu0*x150*x152;
-        const double x154 = x33 + x0*uq3 - x150*x151 + x63*x135*x153;
-        const double x155 = x100*x126;
-        const double x156 = x100*x118;
-        const double x157 = x109*x143;
-        const double x158 = x140*x156;
-        const double x159 = 0.666666666666667*x23*x153;
-        const double x160 = x0*x70;
-        const double x161 = x63*x160 - x73*x135;
-        const double x162 = uq2*x113;
-        const double x163 = -x162;
-        const double x164 = uq2*x27;
-        const double x165 = uq8*x14;
-        const double x166 = x164*x130;
-        const double x167 = x72*x137;
-        const double x168 = x133*x149;
-        const double x169 = -x166 + x167 - x168 + x4;
-        const double x170 = x164*x146;
-        const double x171 = x72*x155;
-        const double x172 = x164*x156;
-        const double x173 = x39*x26;
-        const double x174 = 1.0*x173;
-        const double x175 = x32*x125;
-        const double x176 = -x113*x136 + x129*x173;
-        const double x177 = x0 + x32;
-        const double x178 = x145*x152;
-        const double x179 = x140*x142;
-        const double x180 = x98*x121;
-        const double x181 = -x90;
-        const double x182 = x96*(-x43 + x95*(x17 - (-x10 - x12)*uq0));
-        const double x183 = -0.333333333333333*x80*x150;
-        const double x184 = v0 + x0*x121;
-        const double x185 = -x83*x110;
-        const double x186 = -x148;
-        const double x187 = v0 + x160;
-        const double x188 = -x83*x90;
-        const double x189 = v0 + x83*x160;
-        const double x190 = -x110;
-        const double x191 = x72*x121;
+    KOKKOS_INLINE_FUNCTION static
+    void flux_jac_uq(dstype f[], const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype mu[], const dstype uinf[], dstype t) {
+        const dstype uq0 = uq[0];
+        const dstype uq1 = uq[1];
+        const dstype uq2 = uq[2];
+        const dstype uq3 = uq[3];
+        const dstype uq4 = uq[4];
+        const dstype uq5 = uq[5];
+        const dstype uq6 = uq[6];
+        const dstype uq7 = uq[7];
+        const dstype uq8 = uq[8];
+        const dstype uq9 = uq[9];
+        const dstype uq10 = uq[10];
+        const dstype uq11 = uq[11];
+        const dstype v0 = v[0];
+        const dstype mu0 = mu[0];
+        const dstype mu1 = mu[1];
+        const dstype mu2 = mu[2];
+        const dstype mu3 = mu[3];
+        const dstype mu9 = mu[9];
+
+        const dstype x0 = Kokkos::pow(uq1, 2);
+        const dstype x1 = Kokkos::pow(uq0, -2);
+        const dstype x2 = x0*x1;
+        const dstype x3 = -1.0 + mu0;
+        const dstype x4 = Kokkos::pow(uq0, -3);
+        const dstype x5 = x0*x4;
+        const dstype x6 = Kokkos::pow(uq2, 2);
+        const dstype x7 = x4*x6;
+        const dstype x8 = -2*x5 - 2*x7;
+        const dstype x9 = 0.5*x8;
+        const dstype x10 = x1*x6;
+        const dstype x11 = -0.5*x10 - 0.5*x2;
+        const dstype x12 = x11 - x9*uq0;
+        const dstype x13 = x3*x12;
+        const dstype x14 = Kokkos::pow(uq0, -1);
+        const dstype x15 = uq2*x14;
+        const dstype x16 = uq10 - uq8*x15;
+        const dstype x17 = x14*x16;
+        const dstype x18 = uq1*x14;
+        const dstype x19 = uq4*x18;
+        const dstype x20 = uq5 - x19;
+        const dstype x21 = x20*x14;
+        const dstype x22 = -x17 + 2*x21;
+        const dstype x23 = x10 + x2;
+        const dstype x24 = 0.5*x23;
+        const dstype x25 = uq3 - uq0*x24;
+        const dstype x26 = Kokkos::pow(x25, 2);
+        const dstype x27 = Kokkos::pow(mu3, 6);
+        const dstype x28 = Kokkos::pow(x3, 3)*x27*Kokkos::pow(mu0, 3);
+        const dstype x29 = x28*x26;
+        const dstype x30 = x4*x29;
+        const dstype x31 = Kokkos::pow(uq0, -4);
+        const dstype x32 = Kokkos::pow(x25, 3)*x28;
+        const dstype x33 = Kokkos::pow(mu1, -1);
+        const dstype x34 = 110.4 + mu9;
+        const dstype x35 = x3*x14;
+        const dstype x36 = x35*x25;
+        const dstype x37 = Kokkos::pow(mu3, 2);
+        const dstype x38 = x37*mu9*mu0;
+        const dstype x39 = 1.0*x38;
+        const dstype x40 = 110.4 + x36*x39;
+        const dstype x41 = Kokkos::pow(x40, -1);
+        const dstype x42 = Kokkos::sqrt(x4*x32);
+        const dstype x43 = x41*x34*x33/x42;
+        const dstype x44 = (3*x30*x12 - 3*x32*x31)*x43;
+        const dstype x45 = 0.333333333333333*x44;
+        const dstype x46 = x45*x22;
+        const dstype x47 = x1*x20;
+        const dstype x48 = x4*uq4;
+        const dstype x49 = uq1*x48;
+        const dstype x50 = x1*x16;
+        const dstype x51 = x4*uq8;
+        const dstype x52 = uq2*x51;
+        const dstype x53 = x50 - x52;
+        const dstype x54 = x42*x34*x33;
+        const dstype x55 = x54*x41;
+        const dstype x56 = 0.666666666666667*x55;
+        const dstype x57 = x56*(-2*x47 + 2*x49 + x53);
+        const dstype x58 = x3*x25;
+        const dstype x59 = x1*x58;
+        const dstype x60 = x35*x12;
+        const dstype x61 = x54/Kokkos::pow(x40, 2);
+        const dstype x62 = (-x59*x39 + x60*x39)*x61;
+        const dstype x63 = 0.666666666666667*x62;
+        const dstype x64 = x63*x22;
+        const dstype x65 = x1*uq2;
+        const dstype x66 = uq1*x65;
+        const dstype x67 = uq6 - uq4*x15;
+        const dstype x68 = uq8*x18;
+        const dstype x69 = uq9 - x68;
+        const dstype x70 = x67*x14 + x69*x14;
+        const dstype x71 = 0.5*x44;
+        const dstype x72 = x71*x70;
+        const dstype x73 = uq1*x51;
+        const dstype x74 = x1*x69;
+        const dstype x75 = x1*x67;
+        const dstype x76 = uq2*x48;
+        const dstype x77 = 1.0*x55;
+        const dstype x78 = (x73 - x74 - x75 + x76)*x77;
+        const dstype x79 = 1.0*x62;
+        const dstype x80 = x70*x79;
+        const dstype x81 = -x66 + x72 + x78 - x80;
+        const dstype x82 = -x59 + x60 - x1*uq3;
+        const dstype x83 = uq2*x75;
+        const dstype x84 = uq1*x47;
+        const dstype x85 = 0.5*uq4;
+        const dstype x86 = x3*(uq7 - x85*x23 - (x83 + x84)*uq0);
+        const dstype x87 = uq0*x86 - uq4*x58;
+        const dstype x88 = x4*x55;
+        const dstype x89 = Kokkos::pow(mu2, -1);
+        const dstype x90 = x89*mu0;
+        const dstype x91 = x90/x3;
+        const dstype x92 = 2.0*x88*x91;
+        const dstype x93 = x1*x91;
+        const dstype x94 = x71*x93;
+        const dstype x95 = x77*x65;
+        const dstype x96 = x79*x93;
+        const dstype x97 = x1*uq1;
+        const dstype x98 = x56*x97;
+        const dstype x99 = uq4*x31;
+        const dstype x100 = 2*x4;
+        const dstype x101 = uq1*x100;
+        const dstype x102 = uq2*x100;
+        const dstype x103 = x3*uq0;
+        const dstype x104 = x77*x93;
+        const dstype x105 = 2*x17 - x21;
+        const dstype x106 = x45*x105;
+        const dstype x107 = x47 - x49;
+        const dstype x108 = x56*(x107 - 2*x50 + 2*x52);
+        const dstype x109 = x63*x105;
+        const dstype x110 = uq2*x50;
+        const dstype x111 = uq1*x74;
+        const dstype x112 = x3*(uq11 - uq8*x24 - (x110 + x111)*uq0);
+        const dstype x113 = uq0*x112 - uq8*x58;
+        const dstype x114 = x77*x97;
+        const dstype x115 = x65*x56;
+        const dstype x116 = uq8*x31;
+        const dstype x117 = 1.0*x3;
+        const dstype x118 = -x18*x117;
+        const dstype x119 = uq1*x31;
+        const dstype x120 = x43*x29;
+        const dstype x121 = 1.0*x120;
+        const dstype x122 = x119*x121;
+        const dstype x123 = x22*x122;
+        const dstype x124 = x1*x55;
+        const dstype x125 = 1.33333333333333*x124;
+        const dstype x126 = x61*x38;
+        const dstype x127 = 0.666666666666667*x126;
+        const dstype x128 = x3*x127;
+        const dstype x129 = x97*x128;
+        const dstype x130 = x22*x129;
+        const dstype x131 = 1.5*x70;
+        const dstype x132 = x120*x131;
+        const dstype x133 = x119*x132;
+        const dstype x134 = 1.0*uq8;
+        const dstype x135 = x124*x134;
+        const dstype x136 = x70*x126;
+        const dstype x137 = x117*x136;
+        const dstype x138 = x97*x137;
+        const dstype x139 = -x133 - x135 + x138 + x15;
+        const dstype x140 = x22*x128;
+        const dstype x141 = x55*x14;
+        const dstype x142 = 0.666666666666667*x141;
+        const dstype x143 = Kokkos::pow(uq0, -5);
+        const dstype x144 = x121*x143;
+        const dstype x145 = x22*x144;
+        const dstype x146 = 1.33333333333333*x55;
+        const dstype x147 = x89*x87;
+        const dstype x148 = 1.5*Kokkos::pow(x3, 2)*x43*x26*x27*Kokkos::pow(mu0, 4);
+        const dstype x149 = x148/Kokkos::pow(uq0, 6);
+        const dstype x150 = x147*x149;
+        const dstype x151 = 1.0*x61*x37*mu9*Kokkos::pow(mu0, 2);
+        const dstype x152 = x119*x151;
+        const dstype x153 = 1.0*uq4;
+        const dstype x154 = uq2*uq1;
+        const dstype x155 = x4*x154;
+        const dstype x156 = x132*x143;
+        const dstype x157 = x36 + uq3*x14 + x137*x155 - x154*x156;
+        const dstype x158 = x1*x56;
+        const dstype x159 = x89*x113;
+        const dstype x160 = x105*x144;
+        const dstype x161 = x105*x128;
+        const dstype x162 = x149*x159;
+        const dstype x163 = 1.0*x141;
+        const dstype x164 = -x66*x117 + x70*x163;
+        const dstype x165 = 1.0*x35;
+        const dstype x166 = uq2*x165;
+        const dstype x167 = -x166;
+        const dstype x168 = uq2*x31;
+        const dstype x169 = x121*x168;
+        const dstype x170 = x168*x132;
+        const dstype x171 = x124*x153;
+        const dstype x172 = x65*x137;
+        const dstype x173 = -x170 - x171 + x172 + x18;
+        const dstype x174 = x168*x151;
+        const dstype x175 = x105*x169;
+        const dstype x176 = x65*x161;
+        const dstype x177 = x43*x30;
+        const dstype x178 = 1.0*x177;
+        const dstype x179 = x35*x127;
+        const dstype x180 = -x165*x136 + x177*x131;
+        const dstype x181 = x14 + x35;
+        const dstype x182 = x143*x148;
+        const dstype x183 = x4*x151;
+        const dstype x184 = x97*x146;
+        const dstype x185 = -x95;
+        const dstype x186 = x104*(-x58 + x103*(x11 - (-x5 - x7)*uq0));
+        const dstype x187 = -0.333333333333333*x88*x154;
+        const dstype x188 = v0 + 1.33333333333333*x141;
+        const dstype x189 = -x90*x114;
+        const dstype x190 = -x142;
+        const dstype x191 = v0 + x163;
+        const dstype x192 = -x90*x95;
+        const dstype x193 = v0 + x90*x163;
+        const dstype x194 = -x114;
+        const dstype x195 = x65*x146;
 
         f[0] = 0;
-        f[1] = -x16 + x42 - x49 + x50 + x60;
-        f[2] = x75;
-        f[3] = uq1*x97 + x1*x65 + x1*x71 - x1*x74 + x4*x42 - x4*x49 + x4*x60 - x63*x90 - x7*x99 - x85*x79 - x86*x87 + x89*x79 + x96*(x78 - uq4*x50 + x95*(-x76 - x77 - uq4*x13 - (-x5*x92 - x61*x93 + x8*x94 + x94*x11)*uq0));
+        f[1] = x13 - x2 + x46 + x57 - x64;
+        f[2] = x81;
+        f[3] = uq1*x82 + x104*(x86 - uq4*x13 + x103*(-x83 - x84 - x8*x85 - (x0*x99 - x20*x101 + x6*x99 - x67*x102)*uq0)) + x46*x18 + x57*x18 - x64*x18 - x70*x95 + x72*x15 + x78*x15 - x80*x15 - x87*x92 + x87*x94 - x87*x96 - x98*x22;
         f[4] = 0;
-        f[5] = x75;
-        f[6] = x101 - x102 + x104 - x15 + x50;
-        f[7] = uq2*x97 + x1*x101 - x1*x102 + x1*x104 - x100*x112 + x4*x65 + x4*x71 - x4*x74 - x63*x110 - x85*x108 - x87*x109 + x89*x108 + x96*(x107 - uq8*x50 + x95*(-x105 - x106 - uq0*(x11*x111 - x2*x93 - x62*x92 + x8*x111) - uq8*x13));
+        f[5] = x81;
+        f[6] = -x10 + x106 + x108 - x109 + x13;
+        f[7] = uq2*x82 + x104*(x112 - uq8*x13 + x103*(-x110 - x111 - x9*uq8 - (x0*x116 - x16*x102 + x6*x116 - x69*x101)*uq0)) - x105*x115 + x15*x106 + x15*x108 - x15*x109 - x70*x114 + x72*x18 + x78*x18 - x80*x18 - x92*x113 + x94*x113 - x96*x113;
         f[8] = 1;
-        f[9] = x115 - x120 + x128 + 2*x4 - x122*x121;
+        f[9] = x118 - x123 + x130 + 2*x18 - uq4*x125;
         f[10] = x139;
-        f[11] = x154 - uq1*x144 + x10*x127 - x16*x135 - x53*x121 + x7*x148 - x70*x56 - x8*x141 + x86*x147 + x96*(uq4*x114 + x95*(-uq0*x103 - x98*x149));
+        f[11] = x157 - uq1*x150 - x0*x145 + x104*(x19*x117 + (-uq0*x107 - x97*x153)*x103) + x147*x152 - x2*x117 + x22*x142 - x49*x146 + x5*x140 - x77*x52;
         f[12] = 0;
         f[13] = x139;
-        f[14] = x115 - x116*x156 + x59*x122 + x98*x155;
-        f[15] = x161 - uq1*x157 + x10*x137 + x100*x159 + x109*x147 - x150*x158 + x69*x59 - x70*x67 - x8*x151 + x96*(uq8*x114 + x95*(-x98*x132 - (x66 - x67)*uq0));
+        f[14] = x118 + uq4*x158 - x105*x122 + x105*x129;
+        f[15] = x164 - uq1*x162 - x0*x156 + x104*(x103*(-x97*x134 - (-x73 + x74)*uq0) + x68*x117) + x152*x159 - x160*x154 + x161*x155 + x5*x137 - x73*x77 + x76*x56;
         f[16] = 0;
-        f[17] = x163 - x119*x164 + x59*x165 + x72*x127;
-        f[18] = x169;
-        f[19] = x161 - uq2*x144 - x11*x151 + x12*x137 - x141*x150 + x67*x59 + x7*x159 - x70*x69 + x86*x170 + x96*(uq4*x162 + x95*(-x72*x149 - (x68 - x69)*uq0));
+        f[17] = x167 + uq8*x158 - x22*x169 + x65*x140;
+        f[18] = x173;
+        f[19] = x164 - uq2*x150 + x104*(uq4*x166 + x103*(-x65*x153 - (x75 - x76)*uq0)) + x140*x155 - x145*x154 + x174*x147 - x6*x156 + x7*x137 + x73*x56 - x77*x76;
         f[20] = 1;
-        f[21] = x169;
-        f[22] = 2*x1 + x163 + x171 - x172 - x121*x165;
-        f[23] = x154 - uq2*x157 + x100*x148 + x109*x170 - x11*x158 + x12*x155 - x15*x135 - x56*x121 - x70*x53 + x96*(uq8*x162 + x95*(-uq0*x57 - x72*x132));
+        f[21] = x173;
+        f[22] = 2*x15 + x167 - x175 + x176 - uq8*x125;
+        f[23] = x157 - uq2*x162 - x10*x117 + x104*(uq8*x166 + x103*(-uq0*x53 - x65*x134)) + x105*x142 + x174*x159 - x52*x146 - x6*x160 + x7*x161 - x77*x49;
         f[24] = 0;
-        f[25] = x23 + x7*x174 - x7*x175;
-        f[26] = x176;
-        f[27] = x120 - x128 + x166 - x167 + uq1*x177 - x83*x168 - x86*x178 + x86*x179;
+        f[25] = x3 + x22*x178 - x22*x179;
+        f[26] = x180;
+        f[27] = x123 - x130 + x170 - x172 + uq1*x181 + x182*x147 - x183*x147 - x90*x171;
         f[28] = 0;
-        f[29] = x176;
-        f[30] = x23 + x100*x174 - x100*x175;
-        f[31] = x131 - x138 - x171 + x172 + uq2*x177 - x109*x178 + x109*x179 - x83*x134;
+        f[29] = x180;
+        f[30] = x3 + x105*x178 - x105*x179;
+        f[31] = x133 - x138 + x175 - x176 + uq2*x181 + x182*x159 - x183*x159 - x90*x135;
         f[32] = v0;
-        f[33] = -x180;
-        f[34] = x181;
-        f[35] = x182 - x10*x121 - x70*x12;
+        f[33] = -x184;
+        f[34] = x185;
+        f[35] = x186 - x5*x146 - x7*x77;
         f[36] = 0;
-        f[37] = x181;
-        f[38] = x99;
-        f[39] = x183;
+        f[37] = x185;
+        f[38] = x98;
+        f[39] = x187;
         f[40] = 0;
-        f[41] = x184;
+        f[41] = x188;
         f[42] = 0;
-        f[43] = x180 + x185;
+        f[43] = x184 + x189;
         f[44] = 0;
         f[45] = 0;
-        f[46] = x186;
-        f[47] = -x112;
+        f[46] = x190;
+        f[47] = -x115;
         f[48] = 0;
         f[49] = 0;
-        f[50] = x187;
-        f[51] = x188 + x90;
+        f[50] = x191;
+        f[51] = x192 + x95;
         f[52] = 0;
-        f[53] = x160;
+        f[53] = x163;
         f[54] = 0;
-        f[55] = x110;
+        f[55] = x114;
         f[56] = 0;
         f[57] = 0;
         f[58] = 0;
-        f[59] = x189;
+        f[59] = x193;
         f[60] = 0;
         f[61] = 0;
         f[62] = 0;
         f[63] = 0;
         f[64] = 0;
-        f[65] = x112;
-        f[66] = x190;
-        f[67] = x183;
+        f[65] = x115;
+        f[66] = x194;
+        f[67] = x187;
         f[68] = v0;
-        f[69] = x190;
-        f[70] = -x191;
-        f[71] = x182 - x12*x121 - x70*x10;
+        f[69] = x194;
+        f[70] = -x195;
+        f[71] = x186 - x5*x77 - x7*x146;
         f[72] = 0;
         f[73] = 0;
-        f[74] = x160;
-        f[75] = x90;
+        f[74] = x163;
+        f[75] = x95;
         f[76] = 0;
-        f[77] = x187;
+        f[77] = x191;
         f[78] = 0;
-        f[79] = x110 + x185;
+        f[79] = x114 + x189;
         f[80] = 0;
-        f[81] = x186;
+        f[81] = x190;
         f[82] = 0;
-        f[83] = -x99;
+        f[83] = -x98;
         f[84] = 0;
         f[85] = 0;
-        f[86] = x184;
-        f[87] = x188 + x191;
+        f[86] = x188;
+        f[87] = x192 + x195;
         f[88] = 0;
         f[89] = 0;
         f[90] = 0;
@@ -527,11 +598,11 @@ struct PdeModel : ModelDefaults<PdeModel> {
         f[92] = 0;
         f[93] = 0;
         f[94] = 0;
-        f[95] = x189;
+        f[95] = x193;
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void source_jac_uq(double f[], const double x[], const double uq[], const double v[], const double w[], const double mu[], const double uinf[], double t) {
+    void source_jac_uq(dstype f[], const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype mu[], const dstype uinf[], dstype t) {
 
         f[0] = 0;
         f[1] = 0;
@@ -584,7 +655,7 @@ struct PdeModel : ModelDefaults<PdeModel> {
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void fbou_hdg_jac_uq(double f[], int ib, const double x[], const double uq[], const double v[], const double w[], const double uh[], const double n[], const double tau[], const double mu[], const double uinf[], double t) {
+    void fbou_hdg_jac_uq(dstype f[], int ib, const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype uh[], const dstype n[], const dstype tau[], const dstype mu[], const dstype uinf[], dstype t) {
         if (ib == 1) {
 
             f[0] = 0;
@@ -741,7 +812,7 @@ struct PdeModel : ModelDefaults<PdeModel> {
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void fbou_hdg_jac_uh(double f[], int ib, const double x[], const double uq[], const double v[], const double w[], const double uh[], const double n[], const double tau[], const double mu[], const double uinf[], double t) {
+    void fbou_hdg_jac_uh(dstype f[], int ib, const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype uh[], const dstype n[], const dstype tau[], const dstype mu[], const dstype uinf[], dstype t) {
         if (ib == 1) {
 
             f[0] = -1;
@@ -781,9 +852,9 @@ struct PdeModel : ModelDefaults<PdeModel> {
             f[15] = -1;
         }
         else if (ib == 3) {
-            const double mu8 = mu[8];
-            const double mu9 = mu[9];
-            const double mu10 = mu[10];
+            const dstype mu8 = mu[8];
+            const dstype mu9 = mu[9];
+            const dstype mu10 = mu[10];
 
             f[0] = -1;
             f[1] = 0;
@@ -802,6 +873,611 @@ struct PdeModel : ModelDefaults<PdeModel> {
             f[14] = 0;
             f[15] = -1;
         }
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void fbou_jac_uq(dstype f[], int ib, const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype uh[], const dstype n[], const dstype tau[], const dstype mu[], const dstype uinf[], dstype t) {
+        if (ib == 1) {
+
+            f[0] = 0;
+            f[1] = 0;
+            f[2] = 0;
+            f[3] = 0;
+            f[4] = 0;
+            f[5] = 0;
+            f[6] = 0;
+            f[7] = 0;
+            f[8] = 0;
+            f[9] = 0;
+            f[10] = 0;
+            f[11] = 0;
+            f[12] = 0;
+            f[13] = 0;
+            f[14] = 0;
+            f[15] = 0;
+            f[16] = 0;
+            f[17] = 0;
+            f[18] = 0;
+            f[19] = 0;
+            f[20] = 0;
+            f[21] = 0;
+            f[22] = 0;
+            f[23] = 0;
+            f[24] = 0;
+            f[25] = 0;
+            f[26] = 0;
+            f[27] = 0;
+            f[28] = 0;
+            f[29] = 0;
+            f[30] = 0;
+            f[31] = 0;
+            f[32] = 0;
+            f[33] = 0;
+            f[34] = 0;
+            f[35] = 0;
+            f[36] = 0;
+            f[37] = 0;
+            f[38] = 0;
+            f[39] = 0;
+            f[40] = 0;
+            f[41] = 0;
+            f[42] = 0;
+            f[43] = 0;
+            f[44] = 0;
+            f[45] = 0;
+            f[46] = 0;
+            f[47] = 0;
+        }
+        else if (ib == 2) {
+
+            f[0] = 0;
+            f[1] = 0;
+            f[2] = 0;
+            f[3] = 0;
+            f[4] = 0;
+            f[5] = 0;
+            f[6] = 0;
+            f[7] = 0;
+            f[8] = 0;
+            f[9] = 0;
+            f[10] = 0;
+            f[11] = 0;
+            f[12] = 0;
+            f[13] = 0;
+            f[14] = 0;
+            f[15] = 0;
+            f[16] = 0;
+            f[17] = 0;
+            f[18] = 0;
+            f[19] = 0;
+            f[20] = 0;
+            f[21] = 0;
+            f[22] = 0;
+            f[23] = 0;
+            f[24] = 0;
+            f[25] = 0;
+            f[26] = 0;
+            f[27] = 0;
+            f[28] = 0;
+            f[29] = 0;
+            f[30] = 0;
+            f[31] = 0;
+            f[32] = 0;
+            f[33] = 0;
+            f[34] = 0;
+            f[35] = 0;
+            f[36] = 0;
+            f[37] = 0;
+            f[38] = 0;
+            f[39] = 0;
+            f[40] = 0;
+            f[41] = 0;
+            f[42] = 0;
+            f[43] = 0;
+            f[44] = 0;
+            f[45] = 0;
+            f[46] = 0;
+            f[47] = 0;
+        }
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void fbou_jac_uh(dstype f[], int ib, const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype uh[], const dstype n[], const dstype tau[], const dstype mu[], const dstype uinf[], dstype t) {
+        if (ib == 1) {
+
+            f[0] = 0;
+            f[1] = 0;
+            f[2] = 0;
+            f[3] = 0;
+            f[4] = 0;
+            f[5] = 0;
+            f[6] = 0;
+            f[7] = 0;
+            f[8] = 0;
+            f[9] = 0;
+            f[10] = 0;
+            f[11] = 0;
+            f[12] = 0;
+            f[13] = 0;
+            f[14] = 0;
+            f[15] = 0;
+        }
+        else if (ib == 2) {
+
+            f[0] = 0;
+            f[1] = 0;
+            f[2] = 0;
+            f[3] = 0;
+            f[4] = 0;
+            f[5] = 0;
+            f[6] = 0;
+            f[7] = 0;
+            f[8] = 0;
+            f[9] = 0;
+            f[10] = 0;
+            f[11] = 0;
+            f[12] = 0;
+            f[13] = 0;
+            f[14] = 0;
+            f[15] = 0;
+        }
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void ubou_jac_uq(dstype f[], int ib, const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype uh[], const dstype n[], const dstype tau[], const dstype mu[], const dstype uinf[], dstype t) {
+        if (ib == 1) {
+
+            f[0] = 0;
+            f[1] = 0;
+            f[2] = 0;
+            f[3] = 0;
+            f[4] = 0;
+            f[5] = 0;
+            f[6] = 0;
+            f[7] = 0;
+            f[8] = 0;
+            f[9] = 0;
+            f[10] = 0;
+            f[11] = 0;
+            f[12] = 0;
+            f[13] = 0;
+            f[14] = 0;
+            f[15] = 0;
+            f[16] = 0;
+            f[17] = 0;
+            f[18] = 0;
+            f[19] = 0;
+            f[20] = 0;
+            f[21] = 0;
+            f[22] = 0;
+            f[23] = 0;
+            f[24] = 0;
+            f[25] = 0;
+            f[26] = 0;
+            f[27] = 0;
+            f[28] = 0;
+            f[29] = 0;
+            f[30] = 0;
+            f[31] = 0;
+            f[32] = 0;
+            f[33] = 0;
+            f[34] = 0;
+            f[35] = 0;
+            f[36] = 0;
+            f[37] = 0;
+            f[38] = 0;
+            f[39] = 0;
+            f[40] = 0;
+            f[41] = 0;
+            f[42] = 0;
+            f[43] = 0;
+            f[44] = 0;
+            f[45] = 0;
+            f[46] = 0;
+            f[47] = 0;
+        }
+        else if (ib == 2) {
+
+            f[0] = 0;
+            f[1] = 0;
+            f[2] = 0;
+            f[3] = 0;
+            f[4] = 0;
+            f[5] = 0;
+            f[6] = 0;
+            f[7] = 0;
+            f[8] = 0;
+            f[9] = 0;
+            f[10] = 0;
+            f[11] = 0;
+            f[12] = 0;
+            f[13] = 0;
+            f[14] = 0;
+            f[15] = 0;
+            f[16] = 0;
+            f[17] = 0;
+            f[18] = 0;
+            f[19] = 0;
+            f[20] = 0;
+            f[21] = 0;
+            f[22] = 0;
+            f[23] = 0;
+            f[24] = 0;
+            f[25] = 0;
+            f[26] = 0;
+            f[27] = 0;
+            f[28] = 0;
+            f[29] = 0;
+            f[30] = 0;
+            f[31] = 0;
+            f[32] = 0;
+            f[33] = 0;
+            f[34] = 0;
+            f[35] = 0;
+            f[36] = 0;
+            f[37] = 0;
+            f[38] = 0;
+            f[39] = 0;
+            f[40] = 0;
+            f[41] = 0;
+            f[42] = 0;
+            f[43] = 0;
+            f[44] = 0;
+            f[45] = 0;
+            f[46] = 0;
+            f[47] = 0;
+        }
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void ubou_jac_uh(dstype f[], int ib, const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype uh[], const dstype n[], const dstype tau[], const dstype mu[], const dstype uinf[], dstype t) {
+        if (ib == 1) {
+
+            f[0] = 0;
+            f[1] = 0;
+            f[2] = 0;
+            f[3] = 0;
+            f[4] = 0;
+            f[5] = 0;
+            f[6] = 0;
+            f[7] = 0;
+            f[8] = 0;
+            f[9] = 0;
+            f[10] = 0;
+            f[11] = 0;
+            f[12] = 0;
+            f[13] = 0;
+            f[14] = 0;
+            f[15] = 0;
+        }
+        else if (ib == 2) {
+
+            f[0] = 0;
+            f[1] = 0;
+            f[2] = 0;
+            f[3] = 0;
+            f[4] = 0;
+            f[5] = 0;
+            f[6] = 0;
+            f[7] = 0;
+            f[8] = 0;
+            f[9] = 0;
+            f[10] = 0;
+            f[11] = 0;
+            f[12] = 0;
+            f[13] = 0;
+            f[14] = 0;
+            f[15] = 0;
+        }
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void fint(dstype f[], int ib, const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype uh[], const dstype n[], const dstype tau[], const dstype mu[], const dstype uinf[], dstype t) {
+        const dstype uq3 = uq[3];
+        const dstype uq4 = uq[4];
+        const dstype uq5 = uq[5];
+        const dstype uq6 = uq[6];
+        const dstype uq7 = uq[7];
+        const dstype uq8 = uq[8];
+        const dstype uq9 = uq[9];
+        const dstype uq10 = uq[10];
+        const dstype uq11 = uq[11];
+        const dstype uhat0 = uh[0];
+        const dstype uhat1 = uh[1];
+        const dstype uhat2 = uh[2];
+        const dstype uhat3 = uh[3];
+        const dstype n0 = n[0];
+        const dstype n1 = n[1];
+        const dstype tau0 = tau[0];
+        const dstype mu0 = mu[0];
+        const dstype mu1 = mu[1];
+        const dstype mu2 = mu[2];
+        const dstype mu3 = mu[3];
+        const dstype mu9 = mu[9];
+
+        const dstype x0 = Kokkos::pow(uhat0, -2);
+        const dstype x1 = 0.5*(x0*Kokkos::pow(uhat1, 2) + x0*Kokkos::pow(uhat2, 2));
+        const dstype x2 = uhat3 - x1*uhat0;
+        const dstype x3 = -1.0 + mu0;
+        const dstype x4 = x2*x3;
+        const dstype x5 = Kokkos::pow(uhat0, -1);
+        const dstype x6 = x5*uq8;
+        const dstype x7 = x0*uhat2;
+        const dstype x8 = x0*uhat1;
+        const dstype x9 = x3*uhat0;
+        const dstype x10 = 1.0*mu0;
+        const dstype x11 = x0*x10*(110.4 + mu9)*Kokkos::sqrt(Kokkos::pow(x2, 3)*Kokkos::pow(x3, 3)*Kokkos::pow(mu3, 6)*Kokkos::pow(mu0, 3)/Kokkos::pow(uhat0, 3))/(x3*mu2*mu1*(110.4 + x4*x5*x10*Kokkos::pow(mu3, 2)*mu9));
+        const dstype x12 = x5*uq4;
+
+        f[0] = tau0*(-uhat3 + uq3) + n0*x11*(-x4*uq4 + x9*(uq7 - x1*uq4 - (x7*(uq6 - x12*uhat2) + x8*(uq5 - x12*uhat1))*uhat0)) + n1*x11*(-x4*uq8 + x9*(uq11 - uhat0*(x7*(uq10 - x6*uhat2) + x8*(uq9 - x6*uhat1)) - x1*uq8));
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void fint_jac_uq(dstype f[], int ib, const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype uh[], const dstype n[], const dstype tau[], const dstype mu[], const dstype uinf[], dstype t) {
+        const dstype uhat0 = uh[0];
+        const dstype uhat1 = uh[1];
+        const dstype uhat2 = uh[2];
+        const dstype uhat3 = uh[3];
+        const dstype n0 = n[0];
+        const dstype n1 = n[1];
+        const dstype tau0 = tau[0];
+        const dstype mu0 = mu[0];
+        const dstype mu1 = mu[1];
+        const dstype mu2 = mu[2];
+        const dstype mu3 = mu[3];
+        const dstype mu9 = mu[9];
+
+        const dstype x0 = Kokkos::pow(uhat0, -2);
+        const dstype x1 = 1.0*mu0;
+        const dstype x2 = Kokkos::pow(uhat2, 2);
+        const dstype x3 = x0*x2;
+        const dstype x4 = Kokkos::pow(uhat1, 2);
+        const dstype x5 = x0*x4;
+        const dstype x6 = uhat3 - 0.5*(x3 + x5)*uhat0;
+        const dstype x7 = -1.0 + mu0;
+        const dstype x8 = x6*x7;
+        const dstype x9 = x1/uhat0;
+        const dstype x10 = Kokkos::pow(uhat0, -3);
+        const dstype x11 = (110.4 + mu9)*Kokkos::sqrt(Kokkos::pow(x6, 3)*Kokkos::pow(x7, 3)*x10*Kokkos::pow(mu3, 6)*Kokkos::pow(mu0, 3))/(mu2*mu1*(110.4 + x8*x9*Kokkos::pow(mu3, 2)*mu9));
+        const dstype x12 = x0*x1*x11;
+        const dstype x13 = n0*x12;
+        const dstype x14 = (-x8 + x7*uhat0*(-0.5*x3 - 0.5*x5 - (-x2*x10 - x4*x10)*uhat0))/x7;
+        const dstype x15 = x9*x11;
+        const dstype x16 = n1*x12;
+
+        f[0] = 0;
+        f[1] = 0;
+        f[2] = 0;
+        f[3] = tau0;
+        f[4] = x14*x13;
+        f[5] = -x13*uhat1;
+        f[6] = -x13*uhat2;
+        f[7] = n0*x15;
+        f[8] = x14*x16;
+        f[9] = -x16*uhat1;
+        f[10] = -x16*uhat2;
+        f[11] = n1*x15;
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void fint_jac_uh(dstype f[], int ib, const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype uh[], const dstype n[], const dstype tau[], const dstype mu[], const dstype uinf[], dstype t) {
+        const dstype uq4 = uq[4];
+        const dstype uq5 = uq[5];
+        const dstype uq6 = uq[6];
+        const dstype uq7 = uq[7];
+        const dstype uq8 = uq[8];
+        const dstype uq9 = uq[9];
+        const dstype uq10 = uq[10];
+        const dstype uq11 = uq[11];
+        const dstype uhat0 = uh[0];
+        const dstype uhat1 = uh[1];
+        const dstype uhat2 = uh[2];
+        const dstype uhat3 = uh[3];
+        const dstype n0 = n[0];
+        const dstype n1 = n[1];
+        const dstype tau0 = tau[0];
+        const dstype mu0 = mu[0];
+        const dstype mu1 = mu[1];
+        const dstype mu2 = mu[2];
+        const dstype mu3 = mu[3];
+        const dstype mu9 = mu[9];
+
+        const dstype x0 = -1.0 + mu0;
+        const dstype x1 = Kokkos::pow(uhat0, -2);
+        const dstype x2 = Kokkos::pow(uhat2, 2);
+        const dstype x3 = x2*x1;
+        const dstype x4 = Kokkos::pow(uhat1, 2);
+        const dstype x5 = x1*x4;
+        const dstype x6 = x3 + x5;
+        const dstype x7 = 0.5*uhat0;
+        const dstype x8 = uhat3 - x6*x7;
+        const dstype x9 = x0*x8;
+        const dstype x10 = x9*mu0;
+        const dstype x11 = Kokkos::pow(uhat0, -1);
+        const dstype x12 = Kokkos::pow(mu3, 2);
+        const dstype x13 = 1.0*x12*mu9;
+        const dstype x14 = x13*x11;
+        const dstype x15 = 110.4 + x14*x10;
+        const dstype x16 = Kokkos::pow(x15, -1);
+        const dstype x17 = x16*mu0;
+        const dstype x18 = Kokkos::pow(mu2, -1);
+        const dstype x19 = Kokkos::pow(mu1, -1);
+        const dstype x20 = 110.4 + mu9;
+        const dstype x21 = Kokkos::pow(uhat0, -3);
+        const dstype x22 = Kokkos::pow(mu3, 6);
+        const dstype x23 = Kokkos::pow(mu0, 3);
+        const dstype x24 = Kokkos::pow(x0, 3);
+        const dstype x25 = Kokkos::pow(x8, 3)*x24*x22*x23;
+        const dstype x26 = Kokkos::sqrt(x25*x21);
+        const dstype x27 = x20*x26*x19*x18;
+        const dstype x28 = n0*x27;
+        const dstype x29 = x28*x17;
+        const dstype x30 = Kokkos::pow(x0, -1);
+        const dstype x31 = uq4*uhat2;
+        const dstype x32 = x31*x11;
+        const dstype x33 = uq6 - x32;
+        const dstype x34 = x1*x33;
+        const dstype x35 = x34*uhat2;
+        const dstype x36 = uq4*uhat1;
+        const dstype x37 = x36*x11;
+        const dstype x38 = uq5 - x37;
+        const dstype x39 = x1*x38;
+        const dstype x40 = x39*uhat1;
+        const dstype x41 = 0.5*uq4;
+        const dstype x42 = x0*(uq7 - x6*x41 - (x35 + x40)*uhat0);
+        const dstype x43 = x42*uhat0 - x9*uq4;
+        const dstype x44 = x43*x30;
+        const dstype x45 = 2.0*x21;
+        const dstype x46 = 1.0*x1;
+        const dstype x47 = 2*x21;
+        const dstype x48 = -x2*x47 - x4*x47;
+        const dstype x49 = -0.5*x3 - 0.5*x5 - x7*x48;
+        const dstype x50 = x0*x49;
+        const dstype x51 = x46*mu0*(x50*x14*mu0 - x46*x12*x10*mu9);
+        const dstype x52 = Kokkos::pow(x15, -2);
+        const dstype x53 = x52*x28;
+        const dstype x54 = x47*uhat1;
+        const dstype x55 = Kokkos::pow(uhat0, -4);
+        const dstype x56 = x4*x55;
+        const dstype x57 = x47*uhat2;
+        const dstype x58 = x2*x55;
+        const dstype x59 = x0*uhat0;
+        const dstype x60 = x46*x29;
+        const dstype x61 = x60*x30;
+        const dstype x62 = x20*x19*x18/x26;
+        const dstype x63 = n0*x62;
+        const dstype x64 = Kokkos::pow(x8, 2)*x22;
+        const dstype x65 = 0.5*x1*(-3*x55*x25 + 3*x64*x49*x24*x23*x21);
+        const dstype x66 = uq8*x11;
+        const dstype x67 = x66*uhat2;
+        const dstype x68 = uq10 - x67;
+        const dstype x69 = x1*x68;
+        const dstype x70 = x69*uhat2;
+        const dstype x71 = x66*uhat1;
+        const dstype x72 = uq9 - x71;
+        const dstype x73 = x1*x72;
+        const dstype x74 = x73*uhat1;
+        const dstype x75 = 0.5*uq8;
+        const dstype x76 = x0*(uq11 - x6*x75 - (x70 + x74)*uhat0);
+        const dstype x77 = x76*uhat0 - x9*uq8;
+        const dstype x78 = n1*x17;
+        const dstype x79 = x78*x27;
+        const dstype x80 = x79*x30;
+        const dstype x81 = x77*x30;
+        const dstype x82 = n1*x52*x27;
+        const dstype x83 = x80*x46;
+        const dstype x84 = x53*x43;
+        const dstype x85 = x13*Kokkos::pow(mu0, 2);
+        const dstype x86 = x85*x55;
+        const dstype x87 = x86*uhat1;
+        const dstype x88 = 1.0*x0;
+        const dstype x89 = x63*x43;
+        const dstype x90 = 1.5*Kokkos::pow(x0, 2)*x64*x16*Kokkos::pow(mu0, 4);
+        const dstype x91 = x90/Kokkos::pow(uhat0, 6);
+        const dstype x92 = x91*uhat1;
+        const dstype x93 = x82*x77;
+        const dstype x94 = n1*x77*x62;
+        const dstype x95 = uq8*x46;
+        const dstype x96 = uq8*x21;
+        const dstype x97 = x86*uhat2;
+        const dstype x98 = x91*uhat2;
+        const dstype x99 = x85*x21;
+        const dstype x100 = x90/Kokkos::pow(uhat0, 5);
+
+        f[0] = x61*(x42 - uq4*x50 + x59*(-x35 - x40 - x41*x48 - (uq4*x56 + uq4*x58 - x54*x38 - x57*x33)*uhat0)) + x83*(x76 - uq8*x50 + x59*(-x70 - x74 - x75*x48 - (uq8*x56 + uq8*x58 - x68*x57 - x72*x54)*uhat0)) - x44*x45*x29 - x53*x51*x44 - x80*x77*x45 - x81*x82*x51 + x63*x65*x44*x17 + x81*x78*x62*x65;
+        f[1] = x61*(x59*(-uhat0*(x39 - x36*x21) - x46*x36) + x88*x37) + x83*(x59*(-uhat0*(x73 - x96*uhat1) - x95*uhat1) + x88*x71) + x84*x87 + x87*x93 - x89*x92 - x92*x94;
+        f[2] = x61*(x59*(-uhat0*(x34 - x31*x21) - x46*x31) + x88*x32) + x83*(x59*(-uhat0*(x69 - x96*uhat2) - x95*uhat2) + x88*x67) + x84*x97 - x89*x98 + x93*x97 - x98*x94;
+        f[3] = -tau0 - uq4*x60 - x79*x95 - x84*x99 + x89*x100 - x93*x99 + x94*x100;
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void fext(dstype f[], int ib, const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype uh[], const dstype n[], const dstype uext[], const dstype tau[], const dstype mu[], const dstype uinf[], dstype t) {
+        const dstype uq0 = uq[0];
+        const dstype uhat0 = uh[0];
+        const dstype uhat1 = uh[1];
+        const dstype uhat2 = uh[2];
+        const dstype uhat3 = uh[3];
+        const dstype uext0 = uext[0];
+
+        f[0] = -uhat0 + uq0;
+        f[1] = -uhat1;
+        f[2] = -uhat2;
+        f[3] = -uhat3 + uhat0*uext0;
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void fext_jac_uq(dstype f[], int ib, const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype uh[], const dstype n[], const dstype uext[], const dstype tau[], const dstype mu[], const dstype uinf[], dstype t) {
+
+        f[0] = 1;
+        f[1] = 0;
+        f[2] = 0;
+        f[3] = 0;
+        f[4] = 0;
+        f[5] = 0;
+        f[6] = 0;
+        f[7] = 0;
+        f[8] = 0;
+        f[9] = 0;
+        f[10] = 0;
+        f[11] = 0;
+        f[12] = 0;
+        f[13] = 0;
+        f[14] = 0;
+        f[15] = 0;
+        f[16] = 0;
+        f[17] = 0;
+        f[18] = 0;
+        f[19] = 0;
+        f[20] = 0;
+        f[21] = 0;
+        f[22] = 0;
+        f[23] = 0;
+        f[24] = 0;
+        f[25] = 0;
+        f[26] = 0;
+        f[27] = 0;
+        f[28] = 0;
+        f[29] = 0;
+        f[30] = 0;
+        f[31] = 0;
+        f[32] = 0;
+        f[33] = 0;
+        f[34] = 0;
+        f[35] = 0;
+        f[36] = 0;
+        f[37] = 0;
+        f[38] = 0;
+        f[39] = 0;
+        f[40] = 0;
+        f[41] = 0;
+        f[42] = 0;
+        f[43] = 0;
+        f[44] = 0;
+        f[45] = 0;
+        f[46] = 0;
+        f[47] = 0;
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void fext_jac_uh(dstype f[], int ib, const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype uh[], const dstype n[], const dstype uext[], const dstype tau[], const dstype mu[], const dstype uinf[], dstype t) {
+        const dstype uext0 = uext[0];
+
+        f[0] = -1;
+        f[1] = 0;
+        f[2] = 0;
+        f[3] = uext0;
+        f[4] = 0;
+        f[5] = -1;
+        f[6] = 0;
+        f[7] = 0;
+        f[8] = 0;
+        f[9] = 0;
+        f[10] = -1;
+        f[11] = 0;
+        f[12] = 0;
+        f[13] = 0;
+        f[14] = 0;
+        f[15] = -1;
     }
 
 };
