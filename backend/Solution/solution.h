@@ -263,6 +263,7 @@ public:
     //  CSolutionWriter -- call them via the `writer` member)
 
     void DIRK(ofstream &out, Int backend);
+    void DIRKonly(ofstream &out, Int backend);
 
     // precompute some quantities
     void InitSolution(Int backend);

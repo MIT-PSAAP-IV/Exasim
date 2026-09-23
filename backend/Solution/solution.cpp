@@ -750,6 +750,51 @@ void CSolution<M>::DIRK(ofstream &out, Int backend)
     }           
 }
 
+template <class M>
+void CSolution<M>::DIRKonly(ofstream &out, Int backend)
+{        
+    // initial time
+    dstype time = 0.0;           
+    
+    //DIRK coefficients 
+    disc.common.timeparams.temporalScheme = 0; 
+    TimestepCoefficents(disc.common); 
+                    
+    // time stepping with DIRK schemes
+    for (Int istep=0; istep<disc.common.timeparams.tsteps; istep++)            
+    {            
+        // current timestep        
+        disc.common.timestate.currentstep = istep;
+        
+        // store previous solutions to calculate the source term        
+        PreviousSolutions(disc.sol, solv.sys, disc.common, backend);
+                    
+        // compute the solution at the next step
+        for (Int j=0; j<disc.common.timeparams.tstages; j++) {            
+            // current timestage
+            disc.common.timestate.currentstage = j;
+        
+            // current time
+            disc.common.timestate.time = time + disc.common.dt[istep]*disc.common.DIRKcoeff_t[j];
+
+            if (disc.common.mpiRank==0)
+                printf("\nTimestep :  %d,  Timestage :  %d,   Time : %g\n",istep+1,j+1,disc.common.timestate.time);            
+
+            // update source term             
+            UpdateSource(disc.sol, solv.sys, disc.app, disc.driver_abi, disc.res, disc.common, backend);
+
+            // solve the problem 
+            this->SteadyProblem(out, backend);                             
+
+            // update solution 
+            UpdateSolution(disc.sol, solv.sys, disc.common, backend);                     
+        }
+                
+        // update time
+        time = time + disc.common.dt[istep];                    
+    }           
+}
+
 // Re-homed from CDiscretization (S4): the PTC monitor field is a solver-convergence artifact,
 // not a discretization quantity. Uses the owned disc's structs to call the model MonitorDriver.
 // (evalMonitor / evalOutput moved to CSolutionWriter)

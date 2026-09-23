@@ -13,7 +13,10 @@ void avdistfunc(CSolution<exasim::detail::AbiAdapter>** pdemodel, ofstream* out,
       ArrayCopy(&pdemodel[i]->disc.app.physicsparam[m-2], &pdemodel[i]->disc.app.avparam[2*n], 2);
       pdemodel[i]->UpdateWallDistance(n+1, backend);
       pdemodel[i]->PrepareArtificialViscosity(n == 0, n+1, backend);
-      pdemodel[i]->SteadyProblem(out[i], backend);
+      if (pdemodel[i]->disc.common.timeparams.tdep == 1) 
+          pdemodel[i]->DIRKonly(out[i], backend);      
+      else 
+          pdemodel[i]->SteadyProblem(out[i], backend);
 
       const char *verificationEnvironment = std::getenv("EXASIM_MESHADAPT_VERIFY");
       if (verificationEnvironment != nullptr && string(verificationEnvironment) != "0" &&
