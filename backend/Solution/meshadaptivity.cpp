@@ -72,6 +72,56 @@ void smoothDG2CG2(D& disc, dstype* field, dstype* scratch, Int components,
 }
 
 template <class D>
+void exchangeElementField(D& disc, dstype* field, const Int* sendIndices,
+                          const Int* receiveIndices, Int blockSize)
+{
+#ifdef HAVE_MPI
+    if (disc.common.mpiProcs <= 1) return;
+
+    GetArrayAtIndex(disc.tmp.buffsend, field, sendIndices,
+                    blockSize*disc.common.nelemsend);
+    Kokkos::fence();
+
+    Int sendOffset = 0, receiveOffset = 0, requestCount = 0;
+    for (Int n = 0; n < disc.common.nnbsd; ++n) {
+        const Int count = disc.common.elemsendpts[n]*blockSize;
+        if (count > 0) {
+            MPI_Isend(&disc.tmp.buffsend[sendOffset], count, mpi_type<dstype>(),
+                      disc.common.nbsd[n], 0, EXASIM_COMM_LOCAL,
+                      &disc.common.requests[requestCount++]);
+            sendOffset += count;
+        }
+    }
+    for (Int n = 0; n < disc.common.nnbsd; ++n) {
+        const Int count = disc.common.elemrecvpts[n]*blockSize;
+        if (count > 0) {
+            MPI_Irecv(&disc.tmp.buffrecv[receiveOffset], count, mpi_type<dstype>(),
+                      disc.common.nbsd[n], 0, EXASIM_COMM_LOCAL,
+                      &disc.common.requests[requestCount++]);
+            receiveOffset += count;
+        }
+    }
+    MPI_Waitall(requestCount, disc.common.requests, disc.common.statuses);
+    PutArrayAtIndex(field, disc.tmp.buffrecv, receiveIndices,
+                    blockSize*disc.common.nelemrecv);
+#else
+    (void)disc;
+    (void)field;
+    (void)sendIndices;
+    (void)receiveIndices;
+    (void)blockSize;
+#endif
+}
+
+template <class D>
+void exchangeElementUDG(D& disc)
+{
+    exchangeElementField(disc, disc.sol.udg, disc.mesh.elemsendudg,
+                         disc.mesh.elemrecvudg,
+                         disc.common.grid.npe*disc.common.components.nc);
+}
+
+template <class D>
 void rebuildGeometry(D& disc, const dstype* xdg, Int backend)
 {
     if (disc.sol.xdg != xdg)
@@ -619,12 +669,37 @@ void CSolution<M>::AdaptMesh(Int backend, Int continuationIteration)
         dstype *continuous = nullptr, *scratch = nullptr;
         TemplateMalloc(&continuous, npe*nd*ne, backend);
         TemplateMalloc(&scratch, npe*ne, backend);
+        // The HDG solve updates owned elements. Refresh ghost-element values
+        // before the local DG-to-CG average so interface nodes see the same
+        // displacement data on neighboring MPI ranks.
+        exchangeElementUDG(elasticity->disc);
         elasticity->disc.DG2CG(continuous, elasticity->disc.sol.udg, scratch, nd,
                                elasticity->disc.common.components.nc, nd, backend);
         TemplateFree(scratch, backend);
 
+#ifdef HAVE_MPI
+        if (elasticity->disc.common.mpiProcs > 1) {
+            // Keep owner and ghost copies of the continuous displacement equal
+            // before rebuilding geometry on the moved mesh.
+            const Int elasticityNc = elasticity->disc.common.components.nc;
+            ArrayInsert(elasticity->disc.sol.udg, continuous, npe, elasticityNc, ne,
+                        0, npe, 0, nd, 0, ne);
+            exchangeElementField(elasticity->disc, elasticity->disc.sol.udg,
+                elasticity->disc.mesh.elemsendind,
+                elasticity->disc.mesh.elemrecvind, npe*nd);
+            ArrayExtract(continuous, elasticity->disc.sol.udg, npe, elasticityNc, ne,
+                         0, npe, 0, nd, 0, ne);
+        }
+#endif
+
         dstype beta = cfg.damping;
-        const dstype reference = PArrayMin(jac, nodeCount);
+        dstype reference = PArrayMin(jac, nodeCount);
+#ifdef HAVE_MPI
+        dstype globalReference = reference;
+        MPI_Allreduce(&reference, &globalReference, 1, mpi_type<dstype>(),
+                      MPI_MIN, EXASIM_COMM_WORLD);
+        reference = globalReference;
+#endif
         while (true) {
             dstype minimum = candidateMinimumJacobian(disc.sol.xdg, continuous,
                 disc.master.shapent, beta, npe, ncx, ne, nd);
@@ -681,9 +756,6 @@ void CSolution<M>::AdaptMesh(Int backend, Int continuationIteration)
     rebuildGeometry(disc, disc.sol.xdg, backend);
     rebuildGeometry(helmholtz->disc, disc.sol.xdg, backend);
     rebuildGeometry(elasticity->disc, disc.sol.xdg, backend);
-    const string filename = disc.common.fileout + "_meshadapt_xdg_np" +
-        NumberToString(disc.common.mpiRank-disc.common.outputparams.fileoffset) + ".bin";
-    writearray2file(filename, disc.sol.xdg, disc.sol.szxdg, backend);
     TemplateFree(field1, backend);
     TemplateFree(field2, backend);
     TemplateFree(eta, backend);
