@@ -809,11 +809,15 @@ int ExasimSolver::ParseInputs(int argc, char** argv,
     // Fill missing dimension sizes from the compiled ABI so they don't
     // need to be specified in pdeapp.txt.
     {
-        const auto& abi = resolveABI(pde.builtinmodelID);
+        // Effective model id: builtinmodelID for builtin models, modelnumber
+        // for external models (whose builtinmodelID stays 0). Querying sizes
+        // with 0 would miss the external provider's per-model table.
+        const int sizeID = (pde.builtinmodelID > 0) ? pde.builtinmodelID : pde.modelnumber;
+        const auto& abi = resolveABI(sizeID);
         // Use per-model query (BuiltInLibrary) or direct fields (KokkosKernel)
         ModelSizes ms;
         if (abi.GetModelSizes)
-            ms = abi.GetModelSizes(pde.builtinmodelID);
+            ms = abi.GetModelSizes(sizeID);
         else
             ms = {abi.ncu, abi.nco, abi.ncw, abi.nsca, abi.nvec, abi.nten,
                   abi.nsurf, abi.nvqoi, abi.nmaterialstate, abi.nsurfsca};
@@ -835,8 +839,19 @@ int ExasimSolver::ParseInputs(int argc, char** argv,
             pde.nvqoi = ms.nvqoi;
         if (params.intParams.count("nmaterialstate") == 0 && ms.nmaterialstate > 0)
             pde.nmaterialstate = ms.nmaterialstate;
-        if (params.intParams.count("nsurfsca") == 0 && ms.nsurfsca > 0)
+        // nsurfsca is owned by the model (VisSurfScalars output_size), not by
+        // pdeapp.txt: a model that reports a count always wins, so the kernel,
+        // the fh/srffields sizing, and the VTU writer provably agree. A pdeapp
+        // value only applies to legacy models that report none (with a warning
+        // on conflict, since silently running fewer/more fields than the model
+        // writes would corrupt memory or drop data).
+        if (ms.nsurfsca > 0) {
+            if (params.intParams.count("nsurfsca") != 0 && pde.nsurfsca != ms.nsurfsca &&
+                mpirank_ == 0)
+                std::cout << "Warning: pdeapp nsurfsca=" << pde.nsurfsca
+                          << " overridden by model nsurfsca=" << ms.nsurfsca << ".\n";
             pde.nsurfsca = ms.nsurfsca;
+        }
     }
 
     nummodels_ = 1;

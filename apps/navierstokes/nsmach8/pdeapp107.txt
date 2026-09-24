@@ -24,7 +24,7 @@ nfb = 8192;
 
 saveParaview = 1;
 saveSolFreq = 1;
-nsurfsca = 1;
+nsurfsca = 3;
 ibvis = 3;
 
 NewtonIter = 30;

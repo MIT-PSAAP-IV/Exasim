@@ -153,10 +153,12 @@ function VisVectors(x, uq, v, w, eta, mu, t)
 end
 
 function VisSurfScalars(x, uq, v, w, uhat, n, tau, eta, mu, t)
-    output_size(s) = 1;
+    output_size(s) = 3;
 
     f = HeatFlux(x, uhat, uq, v, w, eta, mu, t);
     s[0] = f[0] * n[0] + f[1] * n[1] + tau[0]*(uq[3] - uhat[3]);
+    s[1] = x[0];
+    s[2] = x[1];
 end
 
 function HeatFlux(x, uhat, uq, v, w, eta, mu, t)  

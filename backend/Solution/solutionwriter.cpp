@@ -530,7 +530,7 @@ void CSolutionWriter<M>::SaveParaview(Int backend, std::string fname_modifier, b
          TemplateFree(tempn, backend);
    }
 
-   if (vis.surfvis_enabled) this->SaveSurfaces(backend, fname_modifier, force_tdep_write);
+    if (vis.surfvis_enabled) this->SaveSurfaces(backend, fname_modifier, force_tdep_write);
 }
 
 template <class M>

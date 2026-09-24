@@ -18,7 +18,7 @@ struct PdeModel : ModelDefaults<PdeModel> {
     static constexpr int nsca   = 4;
     static constexpr int nvec   = 1;
     static constexpr int nten   = 0;
-    static constexpr int nsurfsca = 1;
+    static constexpr int nsurfsca = 3;
     static constexpr int nsurf  = 0;
     static constexpr int nvqoi  = 0;
     static constexpr int nmaterialstate = 0;
@@ -232,57 +232,6 @@ struct PdeModel : ModelDefaults<PdeModel> {
 
     KOKKOS_INLINE_FUNCTION static
     void vis_surf_scalars(dstype f[], int ib, const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype uh[], const dstype n[], const dstype tau[], const dstype mu[], const dstype uinf[], dstype t) {
-        // HeatFlux as defined in pdemodel.txt
-        const dstype gam = mu[0];
-        const dstype gam1 = gam - 1.0;
-        const dstype Re = mu[1];
-        const dstype Pr = mu[2];
-        const dstype Minf = mu[3];
-        const dstype Tref = mu[9];
-        const dstype muRef = 1/Re;
-        const dstype M2 = Minf*Minf;
-        const dstype pinf = 1.0/(gam*M2);
-        const dstype Tinf = pinf/(gam-1.0);
-        const dstype r = uh[0];
-        if (r <= 1e-12) { f[0]=0; return; }
-        const dstype ru = uh[1];
-        const dstype rv = uh[2];
-        const dstype rE = uh[3];
-        const dstype rx = uq[4];
-        const dstype rux = uq[5];
-        const dstype rvx = uq[6];
-        const dstype rEx = uq[7];
-        const dstype ry = uq[8];
-        const dstype ruy = uq[9];
-        const dstype rvy = uq[10];
-        const dstype rEy = uq[11];
-        const dstype av = v[0];
-        const dstype r1 = 1/r;
-        const dstype uv = ru*r1;
-        const dstype vv = rv*r1;
-        const dstype E = rE*r1;
-        const dstype ke = 0.5*(uv*uv+vv*vv);
-        const dstype p = gam1*(rE-r*ke);
-        const dstype T = p/(gam1*r);
-        const dstype Tphys = Tref/Tinf * T;
-        const dstype Ts = 110.4;
-        const dstype Tr = Tphys/Tref;
-        const dstype muphys = muRef * Kokkos::sqrt(Tr*Tr*Tr) * (Tref + Ts)/(Tphys + Ts);
-        const dstype fc = muphys*gam/Pr;
-        const dstype ux = (rux - rx*uv)*r1;
-        const dstype vx = (rvx - rx*vv)*r1;
-        const dstype kex = uv*ux + vv*vx;
-        const dstype px = gam1*(rEx - rx*ke - r*kex);
-        const dstype Tx = (px*r - p*rx)*r1*r1/gam1;
-        const dstype uy = (ruy - ry*uv)*r1;
-        const dstype vy = (rvy - ry*vv)*r1;
-        const dstype key = uv*uy + vv*vy;
-        const dstype py = gam1*(rEy - ry*ke - r*key);
-        const dstype Ty = (py*r - p*ry)*r1*r1/gam1;
-        const dstype qx = fc*Tx;
-        const dstype qy = fc*Ty;
-        // guard against NaN from negative pressure/temperature
-        if (!Kokkos::isfinite(qx) || !Kokkos::isfinite(qy)) { f[0]=0; } else { f[0] = qx*n[0] + qy*n[1] + tau[0]*(uq[3] - uh[3]); if (!Kokkos::isfinite(f[0])) f[0]=0; }
     }
 
     KOKKOS_INLINE_FUNCTION static

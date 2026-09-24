@@ -648,10 +648,18 @@ private:
                 GetArrayAtIndex(xg.data(), sol.xdg, &mesh.findxdg1[npf*ncx*f1], nn*ncx);
             }
             for (Int ff = 0; ff < nfblk; ++ff) {
-                const dstype* plane = &xg[(size_t)ff*npf*ncx];
+                // xg is component-major [dim][block-point] (see faceindex1);
+                // gather this face's nodes into an interleaved plane buffer
+                // for corner processing. Reading xg as [point][dim] directly
+                // pairs x of one node with y of another (off-wall garbage).
+                std::vector<dstype> plane((size_t)npf*ncx);
+                for (Int ln = 0; ln < npf; ++ln)
+                    for (int d = 0; d < ncx; ++d)
+                        plane[(size_t)ln*ncx + d] =
+                            xg[(size_t)d*nn + (size_t)ff*npf + ln];
                 int cs[4];
-                cornersOfFace(plane, (int)npf, (int)ncx, k, cs);
-                orderCorners(plane, (int)ncx, k, cs);
+                cornersOfFace(plane.data(), (int)npf, (int)ncx, k, cs);
+                orderCorners(plane.data(), (int)ncx, k, cs);
                 Int f = f1 + ff;
                 surf_cellface[cell] = (int32_t)f;
                 surf_face2cell[f] = cell;
@@ -661,7 +669,7 @@ private:
                     int s = cell*k + ci;
                     surf_cellconn[(size_t)cell*k + ci] = s;
                     surf_celllocal[(size_t)cell*k + ci] = (uint8_t)ln;
-                    const dstype* pc = &plane[(size_t)ln*ncx];
+                    const dstype* pc = &plane.data()[(size_t)ln*ncx];
                     surf_nodes.push_back((float)pc[0]);
                     surf_nodes.push_back((ncx>1)?(float)pc[1]:0.0f);
                     surf_nodes.push_back((ncx>2)?(float)pc[2]:0.0f);
