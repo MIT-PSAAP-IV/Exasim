@@ -38,6 +38,15 @@ void avdistfunc(CSolution<exasim::detail::AbiAdapter>** pdemodel, ofstream* out,
     string fn1 = pdemodel[i]->disc.common.fileout + "vdg_np" + NumberToString(pdemodel[i]->disc.common.mpiRank-pdemodel[i]->disc.common.outputparams.fileoffset) + ".bin";
     writearray2file(fn1, pdemodel[i]->disc.sol.odg, pdemodel[i]->disc.common.sizes.ndofodg1, backend);
 
+    if (pdemodel[i]->disc.common.meshadaptparams.enabled)
+    {
+      string fn2 = pdemodel[i]->disc.common.fileout + "xdg_np" + NumberToString(pdemodel[i]->disc.common.mpiRank-pdemodel[i]->disc.common.outputparams.fileoffset) + ".bin";
+      const Int ndofxdg1 = pdemodel[i]->disc.common.grid.npe *
+                           pdemodel[i]->disc.common.components.ncx *
+                           pdemodel[i]->disc.common.meshsizes.ne1;
+      writearray2file(fn2, pdemodel[i]->disc.sol.xdg, ndofxdg1, backend);
+    }
+
     pdemodel[i]->writer.SaveSolutions(backend);    
     pdemodel[i]->writer.SaveSolutionsOnBoundary(backend);         
     if (pdemodel[i]->vis.savemode > 0)

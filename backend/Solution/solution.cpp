@@ -754,7 +754,7 @@ template <class M>
 void CSolution<M>::DIRKonly(ofstream &out, Int backend)
 {        
     // initial time
-    dstype time = 0.0;           
+    dstype time = disc.common.timestate.time;
     
     //DIRK coefficients 
     disc.common.timeparams.temporalScheme = 0; 
@@ -787,7 +787,8 @@ void CSolution<M>::DIRKonly(ofstream &out, Int backend)
             this->SteadyProblem(out, backend);                             
 
             // update solution 
-            UpdateSolution(disc.sol, solv.sys, disc.common, backend);                     
+            UpdateSolution(disc.sol, solv.sys, disc.app, disc.driver_abi, disc.res,
+                           disc.tmp, disc.common, backend);
         }
                 
         // update time
