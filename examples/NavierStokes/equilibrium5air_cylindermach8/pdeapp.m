@@ -190,13 +190,9 @@ end
 save(fullfile(caseDir, 'equilibrium5air_cylindermach8_report.mat'), ...
     'setupReport', 'initialReport', 'finalReport', 'comparisonReport');
 
-try
-    figure(1); clf;
-    scaplot(mesh, finalReport.MachField, [0 Minf], 2, 1);
-    axis equal; axis tight; colorbar; title('Equilibrium 5-air Mach number');
-catch plotError
-    warning('Plotting skipped: %s', plotError.message);
-end
+figure(1); clf;
+scaplot(mesh, finalReport.MachField, [0 Minf], 2, 1);
+axis equal; axis tight; colorbar; title('Equilibrium 5-air Mach number');
 
 function sol = local_stage_solve(pde, mesh, master, dist, sol, avAmplitude, avSlope, label)
 fprintf('%s: uniform artificial viscosity amplitude %.6g, tanh slope %.6g\n', label, avAmplitude, avSlope);

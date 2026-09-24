@@ -21,8 +21,6 @@ if exist(fullfile(validPrefix, 'lib', 'cmake', 'Exasim', 'ExasimConfig.cmake'), 
     setenv('EXASIM_PREFIX', validPrefix);
 end
 addpath(caseDir, '-begin');
-addpath(fullfile(repoRoot, 'frontends', 'Matlab', 'Modeling', 'CNSequilibrium5air'), '-begin');
-
 
 dbFile = fullfile(repoRoot, 'apps', 'materialdatabases', 'equilibriumAir5logdensityexasim.dat');
 db = local_read_material_database(dbFile);
