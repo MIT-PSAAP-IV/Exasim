@@ -52,7 +52,7 @@ pde.datapath = caseDir;
 pde.builddir = fullfile(caseDir, '.exasim');
 pde.buildpath = pde.builddir;
 
-pde.dt = [0.1 1 10];
+% pde.dt = [0.1 1 10];
 
 mesh = mkmesh_square(51,32,pde.porder,1,1,1,1,1);
 mesh.p(1,:) = logdec(mesh.p(1,:), 3);
