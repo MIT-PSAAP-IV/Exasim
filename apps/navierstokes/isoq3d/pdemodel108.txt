@@ -469,11 +469,8 @@ function HeatFluxSurf(x, uhat, uq, v, w, eta, mu, t)
 end
 
 function VisSurfScalars(x, uq, v, w, uhat, n, tau, eta, mu, t)
-  output_size(s) = 4;
+  output_size(s) = 1;
 
   f = HeatFluxSurf(x, uhat, uq, v, w, eta, mu, t);
   s[0] = f[0]*n[0] + f[1]*n[1] + f[2]*n[2] + tau[0]*(uq[4] - uhat[4]);
-  s[1] = x[0];
-  s[2] = x[1];
-  s[3] = x[2];
 end
