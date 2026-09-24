@@ -449,7 +449,12 @@ public:
         std::vector<std::uint64_t> foffs(nsurfsca);
         for (int s = 0; s < nsurfsca; ++s)
             foffs[s] = add_off(byte_count(surf_nnodes, sizeof(float)));
-        std::uint64_t noff = add_off(byte_count(3, surf_nnodes, sizeof(float)));
+        // NOTE: only reserve the normals block when normals are actually
+        // written below; otherwise header offsets would point past the real
+        // blocks (SaveSurfaces passes nullptr since the DG scatter fix).
+        std::uint64_t noff = 0;
+        if (normals != nullptr)
+            noff = add_off(byte_count(3, surf_nnodes, sizeof(float)));
         std::uint64_t poff = add_off(byte_count(3, surf_nnodes, sizeof(float)));
         std::uint64_t coff = add_off(byte_count(surf_k, surf_ncells, sizeof(int32_t)));
         std::uint64_t ooff = add_off(byte_count(surf_ncells, sizeof(int32_t)));
@@ -577,6 +582,13 @@ private:
     // Build the boundary surface mesh (points/topology) for the requested tag
     // and the per-corner mappings used by SaveSurfaces to scatter the surface
     // scalar fields from the trace nodes onto the surface corner nodes.
+    //
+    // NOTE (DG surface mesh): each face corner is its own surface node, placed
+    // at the face's own corner coordinates from the mesh (xg). There is
+    // deliberately NO matching against volume CG nodes and NO deduplication:
+    // DG fields are discontinuous across faces, so merging shared corners
+    // would mix values from different faces (last-wins) and teleport points
+    // when the nearest CG node is far (curved faces, ragged partitions).
     void InitSurfaces(CDiscretization& disc, int backend)
     {
         const auto& common = disc.common;
@@ -594,29 +606,6 @@ private:
         else                    surf_k = 4;
         const int k = surf_k;
         const uint8_t ctype = (nd == 2) ? 3 : ((elemtype == 0) ? 5 : 9);
-
-        // Quantized CG-node lookup
-        const double q = 1e6;
-        auto quant = [&](const dstype* p) -> std::uint64_t {
-            unsigned long long a = (unsigned long long) llround((double)p[0]*q);
-            unsigned long long b = (unsigned long long) llround(((ncx>1)?(double)p[1]:0.0)*q);
-            unsigned long long c = (unsigned long long) llround(((ncx>2)?(double)p[2]:0.0)*q);
-            return (a*73856093ULL) ^ (b*19349663ULL) ^ (c*83492791ULL);
-        };
-        std::unordered_map<std::uint64_t,int> cgmap;
-        cgmap.reserve(2 * npoints);
-        for (int p = 0; p < npoints; ++p) cgmap.emplace(quant(&sol.xcg[p*ncx]), p);
-        auto cgfind = [&](const dstype* p) -> int {
-            dstype bestd = std::numeric_limits<dstype>::infinity();
-            int best = -1;
-            for (int cg = 0; cg < npoints; ++cg) {
-                dstype d = dist2to(p, &sol.xcg[cg*ncx], (int)ncx);
-                if (d < bestd) { bestd = d; best = cg; }
-            }
-            if (best < 0) best = 0;
-            return best;
-        };
-        (void)cgmap; // table reserved for future fast-path; nearest scan is exact
 
         surf_face2cell.assign((size_t)nf, -1);
 
@@ -638,6 +627,7 @@ private:
         surf_celltypes.assign(ncell, ctype);
         for (int c = 0; c < ncell; ++c) surf_celloffsets[c] = (c + 1) * k;
 
+        surf_nodes.clear();
         int cell = 0;
         for (Int j = 0; j < nbf; ++j) {
             Int ib = common.fblks[3*j+2];
@@ -667,34 +657,16 @@ private:
                 surf_face2cell[f] = cell;
                 for (int ci = 0; ci < k; ++ci) {
                     int ln = cs[ci];
-                    int cg = cgfind(&plane[(size_t)ln*ncx]);
-                    surf_cellconn[(size_t)cell*k + ci] = cg;
+                    // Unique DG node: no merging across faces (see NOTE above).
+                    int s = cell*k + ci;
+                    surf_cellconn[(size_t)cell*k + ci] = s;
                     surf_celllocal[(size_t)cell*k + ci] = (uint8_t)ln;
+                    const dstype* pc = &plane[(size_t)ln*ncx];
+                    surf_nodes.push_back((float)pc[0]);
+                    surf_nodes.push_back((ncx>1)?(float)pc[1]:0.0f);
+                    surf_nodes.push_back((ncx>2)?(float)pc[2]:0.0f);
                 }
                 ++cell;
-            }
-        }
-
-        // Deduplicate the per-cell CG ids into a compact surface node set.
-        std::unordered_map<int,int> cgtosurf;
-        cgtosurf.reserve((size_t)k*ncell);
-        surf_nodes.clear();
-        for (int c = 0; c < ncell; ++c) {
-            for (int ci = 0; ci < k; ++ci) {
-                int cg = surf_cellconn[(size_t)c*k + ci];
-                auto it = cgtosurf.find(cg);
-                int s;
-                if (it == cgtosurf.end()) {
-                    s = (int)surf_nodes.size() / 3;
-                    cgtosurf.emplace(cg, s);
-                    const dstype* p0 = &sol.xcg[(size_t)cg*ncx];
-                    surf_nodes.push_back((float)p0[0]);
-                    surf_nodes.push_back((ncx>1)?(float)p0[1]:0.0f);
-                    surf_nodes.push_back((ncx>2)?(float)p0[2]:0.0f);
-                } else {
-                    s = it->second;
-                }
-                surf_cellconn[(size_t)c*k + ci] = s;
             }
         }
         surf_nnodes = (int)surf_nodes.size() / 3;

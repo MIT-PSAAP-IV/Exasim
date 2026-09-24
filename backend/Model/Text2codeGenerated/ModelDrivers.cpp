@@ -736,7 +736,10 @@ inline void VisSurfScalarsDriver(dstype* fb, const dstype* xg, const dstype* udg
         meshstruct &mesh, masterstruct &master, appstruct &app, solstruct &sol, tempstruct &temp, 
         commonstruct &common, Int ngf, Int f1, Int f2, Int ib, Int backend)
 {
-    Int nc = common.components.nc; // number of compoments of (u, q, p)
+    // NOTE: the kernel slot named `nc` is the surface-scalar count
+    // (nsurfsca_runtime), NOT components.nc. SaveSurfaces sizes fb as
+    // nsurfsca*maxnn, so passing components.nc overflows fb when nc > nsurfsca.
+    Int nsurfsca = common.qoiparams.nsurfsca;
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int ncw = common.components.ncw;// number of compoments of (w)
     Int nco = common.components.nco;// number of compoments of (o)
@@ -746,5 +749,5 @@ inline void VisSurfScalarsDriver(dstype* fb, const dstype* xg, const dstype* udg
     dstype time = common.timestate.time;    
 
     KokkosVisSurfScalars(fb, xg, udg, odg, wdg, uhg, nl, app.tau, app.uinf, app.physicsparam, time, 
-                      common.modelnumber, ib, numPoints, nc, ncu, nd, ncx, nco, ncw);
+                      common.modelnumber, ib, numPoints, nsurfsca, ncu, nd, ncx, nco, ncw);
 }

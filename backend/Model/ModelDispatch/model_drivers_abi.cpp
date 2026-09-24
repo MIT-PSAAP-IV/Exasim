@@ -994,7 +994,10 @@ void VisSurfScalarsDriver(dstype* fb, const dstype* xg, const dstype* udg,
                        tempstruct& temp, commonstruct& common, Int ngf, Int f1,
                        Int f2, Int ib, Int backend)
 {
-    Int nc = common.components.nc;
+    // NOTE: the kernel slot named `nc` is the surface-scalar count
+    // (nsurfsca_runtime), NOT components.nc. SaveSurfaces sizes fb as
+    // nsurfsca*maxnn, so passing components.nc overflows fb when nc > nsurfsca.
+    Int nsurfsca = common.qoiparams.nsurfsca;
     Int ncu = common.components.ncu;
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;
@@ -1006,7 +1009,7 @@ void VisSurfScalarsDriver(dstype* fb, const dstype* xg, const dstype* udg,
     if (abi.surfacevis.KokkosVisSurfScalars) {
         abi.surfacevis.KokkosVisSurfScalars(fb, xg, udg, odg, wdg, uhg, nl, app.tau,
                               app.uinf, app.physicsparam, time, common.modelnumber,
-                              ib, numPoints, nc, ncu, nd, ncx, nco, ncw);
+                              ib, numPoints, nsurfsca, ncu, nd, ncx, nco, ncw);
     } else {
         for (Int k = 0; k < common.qoiparams.nsurfsca * numPoints; ++k) fb[k] = 0.0;
     }

@@ -637,7 +637,14 @@ void CSolutionWriter<M>::SaveSurfaces(Int backend, const std::string& fname_modi
         }
 
         // Nodal fields (layouts identical to qoiFaceBlock's front half).
-        GetElemNodes(&tempg[n3], disc.sol.uh, npf, ncu, 0, ncu, f1, f2);
+        // NOTE: the trace uh is stored node-major per face for HDG
+        // (spatialScheme==1) and must be gathered with GetFaceNodesHDG, exactly
+        // as in SaveSolutionsOnBoundary; GetElemNodes misreads it as
+        // [face][comp][node] and scrambles components (garbage/NaN surface QoI).
+        if (disc.common.spatialScheme == 1)
+            GetFaceNodesHDG(&tempg[n3], disc.sol.uh, npf, ncu, 0, ncu, f1, f2);
+        else
+            GetElemNodes(&tempg[n3], disc.sol.uh, npf, ncu, 0, ncu, f1, f2);
         GetArrayAtIndex(&tempg[n4], disc.sol.udg, &disc.mesh.findudg1[npf*nc*f1], nn*nc);
         if (nco > 0)
             GetFaceNodes(&tempg[n5], disc.sol.odg, disc.mesh.facecon, npf, nco, npe, nco, f1, f2, 1);

@@ -1,5 +1,6 @@
+exasimpath = "/placeholder";
 model = "ModelD";
-modelfile = "pdemodel.txt";
+modelfile = "pdemodel107.txt";
 meshfile = "grid.bin";
 xdgfile = "xdg.bin";
 udgfile = "udg.bin";
@@ -11,7 +12,7 @@ gendatain = 0;
 mpiprocs = 2;
 debugmode = 0;
 runmode = 0;
-modelnumber = 107;
+modelnumber = 0;
 
 porder = 4;
 pgauss = 8;
