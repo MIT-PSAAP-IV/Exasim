@@ -2,9 +2,9 @@
 // Provides getBuiltInLibraryExasimDriverABI() that dispatches to one or more
 // external models (the IDs listed in EXASIM_EXT_MODEL_IDS) and falls through
 // to the installed built-in dispatchers (builtinKokkos*, builtinHdg*,
-// builtincpu*) for every other ID. Each model<ID>/model.{hpp,cpp} lives in
-// its own exasim_model_<ID> namespace, so several models coexist in this one
-// translation unit and one provider ABI table dispatches all of them.
+// builtincpu*) for every other ID. Each model<ID>/model.hpp declares kernels
+// in its own exasim_model_<ID> namespace; generated kernel implementations are
+// compiled separately, so several models coexist behind one provider ABI table.
 #include <cstdio>
 #include <cstdlib>
 #include <stdexcept>
@@ -19,7 +19,8 @@ extern ModelSizes builtinGetModelSizes(int modelnumber);
 
 // Per-model namespaces + the X-macro list of registered IDs, both rendered
 // by CMake (configure_file @ONLY). EXASIM_EXT_MODEL_INCLUDES pulls in each
-// model<ID>/model.{hpp,cpp}; EXASIM_EXT_MODEL_IDS(X) expands X(id1) X(id2)...
+// model<ID>/model.hpp (and model.cpp for hand-written SOURCES);
+// EXASIM_EXT_MODEL_IDS(X) expands X(id1) X(id2)...
 #define EXASIM_BUILTIN_MODEL_IMPL
 @EXT_MODEL_INCLUDES@
 @EXT_MODEL_IDS_MACRO@
