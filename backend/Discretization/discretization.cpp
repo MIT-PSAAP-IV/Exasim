@@ -49,6 +49,7 @@
 
 #include <cstring>
 #include <cstdlib>
+#include <climits>
 #include <cmath>
 #include <algorithm>
 #include <vector>
@@ -575,7 +576,20 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
         else if (common.solverparams.preconditioner==2) // Superelement additive Schwarz preconditioner
           res.szP = npf*ncu*npf*ncu*common.nse*common.nnz;
         res.szV = ncu*npf*nf*(common.solverparams.gmresRestart+1); // Krylov vectors in GMRES
-        res.szK = max(res.szK, res.szP + res.szV);
+        // NOTE: szP/szV/szH/szF are Int (32-bit). For large 3D runs their sum
+        // can exceed INT_MAX (e.g. 1.9B + 0.75B here), silently wrapping szK
+        // into a too-small arena (heap corruption). Fail loudly instead --
+        // but only when iterations will actually run (NewtonIter==0 and
+        // postprocess paths never touch the Krylov tail, so they stay usable
+        // for lightweight visualization of a given state).
+        {
+            const long long needK = (long long)res.szP + (long long)res.szV;
+            const long long needH = (long long)npf*nfe*ncu*npf*nfe*ncu*common.meshsizes.ne;
+            if (common.solverparams.nonlinearSolverMaxIter > 0 &&
+                (needK > INT_MAX || needH > INT_MAX || res.szF < 0 || res.szP < 0 || res.szV < 0))
+                error("res.K/res.H arena size exceeds 32-bit Int range; reduce gmresRestart/neb or move to 64-bit sizes");
+            res.szK = max(res.szK, (Int)needK);
+        }
         res.szF = npe*ncu*npf*nfe*ncu*common.meshsizes.ne;
         res.szipiv = max(max(npf*nfe,npe)*ncu*neb, ncu*npf*common.meshsizes.nfb);
 

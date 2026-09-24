@@ -1,5 +1,5 @@
 model = "ModelD";
-modelfile = "pdemodel.txt";
+modelfile = "pdemodel108.txt";
 meshfile = "grid.bin";
 xdgfile = "xdg.bin";
 udgfile = "udg.bin";
@@ -10,7 +10,7 @@ platform = "cpu";
 mpiprocs = 16;
 debugmode = 0;
 runmode = 0;
-modelnumber = 108;
+modelnumber = 0;
 gendatain = 0;
 
 porder = 2;
