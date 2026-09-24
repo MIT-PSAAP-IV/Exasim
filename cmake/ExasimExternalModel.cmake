@@ -47,44 +47,16 @@
 # KERNELS/KERNELS_DIRS name directories that already contain the full kernel
 # .cpp set (KokkosFlux.cpp, ..., HdgFextonly.cpp) as produced by the
 # Python/Julia/MATLAB gencode step. model.{hpp,cpp} are instantiated from the
-# installed templates exactly as in the PDEMODEL path. Generated kernels are
-# wrapped in one translation unit per kernel. This keeps large symbolic kernels
-# independently compilable and lets parallel builds avoid the compile-time and
-# memory cost of one monolithic model.cpp translation unit.
+# installed templates exactly as in the PDEMODEL path. For a single model the
+# kernel directory is put on the include path so model.cpp's quoted includes
+# resolve there; for several models each model's kernels are copied into its own
+# model<ID>/ directory so the quoted includes resolve per-model (the directory
+# of the including file is searched before the include path), with no collision.
 #
 # In all cases, the resulting target provides getBuiltInLibraryExasimDriverABI()
 # and links to the installed Exasim::builtinmodel{serial,cuda,hip} for fallthrough
 # to all other model IDs. Do NOT also link Exasim::builtinmodel in the consumer;
 # it will be pulled in transitively through this target.
-
-function(_exasim_external_kernel_sources out_var id modeldir kernelsdir)
-  file(STRINGS "${Exasim_BUILTIN_DIR}/model.cpp" _kernel_includes
-    REGEX "^#include \"[A-Za-z0-9_]+\\.cpp\"")
-  set(_sources "")
-  foreach(_include IN LISTS _kernel_includes)
-    string(REGEX REPLACE "^#include \"([^\"]+)\".*$" "\\1" _kernel "${_include}")
-    get_filename_component(_stem "${_kernel}" NAME_WE)
-    set(_wrapper "${modeldir}/kernel_${_stem}.cpp")
-    set(_content
-"#include <cmath>
-#include <Kokkos_Core.hpp>
-#include \"${Exasim_BUILTIN_DIR}/dstype.hpp\"
-
-namespace exasim_model_${id} {
-#include \"${kernelsdir}/${_kernel}\"
-}
-")
-    set(_previous "")
-    if(EXISTS "${_wrapper}")
-      file(READ "${_wrapper}" _previous)
-    endif()
-    if(NOT _content STREQUAL _previous)
-      file(WRITE "${_wrapper}" "${_content}")
-    endif()
-    list(APPEND _sources "${_wrapper}")
-  endforeach()
-  set(${out_var} "${_sources}" PARENT_SCOPE)
-endfunction()
 
 function(exasim_add_external_builtin_model)
   cmake_parse_arguments(EXT "SHARED" "TARGET;ID;KERNELS"
@@ -116,10 +88,8 @@ function(exasim_add_external_builtin_model)
   list(LENGTH EXT_IDS _nids)
 
   # ---- Configure the C++ provider over ALL ids --------------------------------
-  # The provider includes each model's declarations and its 43 ext* functions
-  # dispatch by id via the EXASIM_EXT_MODEL_IDS(X) X-macro list. Generated
-  # kernels are separate translation units; hand-written SOURCES retain their
-  # model.cpp implementation include.
+  # The provider TU #includes every model<id>/model.{hpp,cpp} and its 43 ext*
+  # functions dispatch by id via the EXASIM_EXT_MODEL_IDS(X) X-macro list.
   #
   # For text2code-generated models (PDEMODEL path) the generated my_model.hpp
   # provides compile-time constexpr sizes (PdeModel::ncu, nsca, ...).  These
@@ -129,12 +99,9 @@ function(exasim_add_external_builtin_model)
   set(_includes "")
   set(_idmacro "#define EXASIM_EXT_MODEL_IDS(X)")
   set(_ext_size_sources "")
-  set(_ext_kernel_sources "")
   foreach(_id IN LISTS EXT_IDS)
-    string(APPEND _includes "#include \"model${_id}/model.hpp\"\n")
-    if(EXT_SOURCES)
-      string(APPEND _includes "#include \"model${_id}/model.cpp\"\n")
-    endif()
+    string(APPEND _includes
+      "#include \"model${_id}/model.hpp\"\n#include \"model${_id}/model.cpp\"\n")
     string(APPEND _idmacro " X(${_id})")
     if(EXT_PDEMODEL)
       # Generate a per-model translation unit that includes its own
@@ -195,8 +162,9 @@ extern \"C\" ModelSizes extGetModelSizes_${_id}() {
   if(EXT_PDEMODEL)
     # ---- text2code (PDEMODEL) path — one or more models -------------------
     # IDS and PDEMODEL are parallel lists. text2code generates each model's
-    # kernels straight into its own model<ID>/ dir. Each kernel is compiled
-    # through a separate namespace wrapper below.
+    # kernels straight into its own model<ID>/ dir, so the quoted kernel
+    # includes in model.cpp resolve per-model with no collision even for
+    # several models in one provider.
     list(LENGTH EXT_PDEMODEL _np)
     if(NOT _np EQUAL _nids)
       message(FATAL_ERROR
@@ -264,8 +232,8 @@ extern \"C\" ModelSizes extGetModelSizes_${_id}() {
         COMMAND "${CMAKE_COMMAND}" -E touch "${_stamp}"
         # Republishing ExaSim (a new text2code binary or changed model.hpp/model.cpp
         # templates) must invalidate the stamp so the kernel set is regenerated
-        # consistently; otherwise the build may retain a stale kernel set
-        # (e.g. without KokkosMaterialstate.cpp) from the old binary.
+        # consistently; otherwise a stale stamp leaves model.cpp including kernels
+        # (e.g. KokkosMaterialstate.cpp) the old binary never generated.
         DEPENDS "${_pdemodel}" ${_extra_deps}
                 "${Exasim_TEXT2CODE}"
                 "${Exasim_BUILTIN_DIR}/model.hpp"
@@ -273,10 +241,6 @@ extern \"C\" ModelSizes extGetModelSizes_${_id}() {
         COMMENT "text2code: generating model ${_id} kernels for target ${_tgt}"
         VERBATIM)
       list(APPEND _stamps "${_stamp}")
-
-      _exasim_external_kernel_sources(
-        _model_kernel_sources "${_id}" "${_modeldir}" "${_modeldir}")
-      list(APPEND _ext_kernel_sources ${_model_kernel_sources})
     endforeach()
     add_custom_target(_exasim_ext_codegen_${_tgt} DEPENDS ${_stamps})
 
@@ -312,9 +276,12 @@ extern \"C\" ModelSizes extGetModelSizes_${_id}() {
           file(WRITE "${_modeldir}/${_tmpl}" "${_txt}")
         endif()
       endforeach()
-      # Preserve the historical per-model staged kernel tree for consumers that
-      # inspect generated artifacts. Compilation uses the independent wrappers
-      # below, so similarly named kernels from different models cannot collide.
+      # With several models the kernel dirs cannot all sit on one include path
+      # (model.cpp's quoted "KokkosFlux.cpp" would resolve ambiguously). Copy
+      # each model's kernels into its own model<ID>/ so the quoted includes
+      # resolve to the directory of the including file. A single model keeps
+      # the historical include-path resolution (see include dirs below) for a
+      # byte-identical build.
       if(_nids GREATER 1)
         file(GLOB _kfiles "${_kdir}/*")
         foreach(_kf IN LISTS _kfiles)
@@ -324,10 +291,6 @@ extern \"C\" ModelSizes extGetModelSizes_${_id}() {
           endif()
         endforeach()
       endif()
-
-      _exasim_external_kernel_sources(
-        _model_kernel_sources "${_id}" "${_modeldir}" "${_kdir}")
-      list(APPEND _ext_kernel_sources ${_model_kernel_sources})
     endforeach()
     add_custom_target(_exasim_ext_codegen_${_tgt})
 
@@ -384,11 +347,13 @@ extern \"C\" ModelSizes extGetModelSizes_${_id}() {
     add_library(${_tgt} STATIC "${_gendir}/ExternalModelProvider.cpp")
     target_link_libraries(${_tgt} PRIVATE "${_bm_lib}" Kokkos::kokkos)
   endif()
-  target_sources(${_tgt} PRIVATE ${_ext_size_sources} ${_ext_kernel_sources})
+  target_sources(${_tgt} PRIVATE ${_ext_size_sources})
   add_dependencies(${_tgt} _exasim_ext_codegen_${_tgt})
   # gendir is the #include root: ExternalModelProvider.cpp uses "model<ID>/model.hpp"
   target_include_directories(${_tgt} PRIVATE "${_gendir}")
-  # Keep generated support headers such as model_sizes.hpp discoverable.
+  # For a single model, model.cpp's quoted kernel includes fall back to this
+  # search path (no per-model copy is made). For several models the per-model
+  # copies above take precedence, and these entries are a harmless fallback.
   foreach(_kdir IN LISTS EXT_KERNELS_DIRS)
     target_include_directories(${_tgt} PRIVATE "${_kdir}")
   endforeach()
