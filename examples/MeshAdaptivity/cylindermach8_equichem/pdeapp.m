@@ -52,6 +52,8 @@ pde.datapath = caseDir;
 pde.builddir = fullfile(caseDir, '.exasim');
 pde.buildpath = pde.builddir;
 
+pde.dt = [0.1 1 10];
+
 mesh = mkmesh_square(51,32,pde.porder,1,1,1,1,1);
 mesh.p(1,:) = logdec(mesh.p(1,:), 3);
 mesh.dgnodes(:,1,:) = logdec(mesh.dgnodes(:,1,:), 3);
@@ -96,7 +98,7 @@ pde.AV = 1;
 pde.AVcontinuationIter = 10;
 pde.AVcontinuationLogScale = 1.5;
 pde.AVcoeffStart = 0.060;
-pde.AVcoeffEnd = 0.01;
+pde.AVcoeffEnd = 0.008;
 pde.AVdistfunction = 1;
 pde.distanceboundaryconditions = [3]; % boundary-condition IDs stored in backend mesh.bf
 pde.AVsmoothingMethod = 1;
@@ -107,7 +109,7 @@ pde.meshadaptenabled = 1;
 pde.meshadaptfield = 1; % nondimensional pressure from pdemodel.visscalars
 pde.meshadaptalpha = 0.5;
 pde.meshadaptHelmholtzCoeff = 5e-2;
-pde.meshadaptforcescale = 0.2; % params(3) in pdeapp_frontend.m
+pde.meshadaptforcescale = 0.15; % params(3) in pdeapp_frontend.m
 pde.meshadaptsmoothingpasses = 30;
 pde.meshadaptboundaryconditions = [2;3;3];
 
@@ -137,10 +139,12 @@ wdg = getsolutions('dataout/outwdg', dmd);
 mesh1 = mesh; mesh1.dgnodes = xdg;
 
 figure(1); clf; scaplot(mesh1, wdg(:,1,:)/pRef,[],2,2);
-axis equal; axis tight; colorbar;
+axis equal; axis tight; colorbar; colormap jet;
 
 figure(2); clf; scaplot(mesh1, vdg(:,2,:),[],2,2);
 axis equal; axis tight; colorbar;
+
+figure(3); clf; meshplot(mesh1,1); axis equal; axis tight;
 
 function sol = local_stage_solve(pde, mesh, master, dist, sol, avAmplitude, avSlope, label)
 fprintf('%s: uniform artificial viscosity amplitude %.6g, tanh slope %.6g\n', label, avAmplitude, avSlope);
