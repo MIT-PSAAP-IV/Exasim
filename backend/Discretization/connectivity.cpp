@@ -36,7 +36,9 @@
 
 #ifndef __CONNECTIVITY
 #define __CONNECTIVITY
-    
+
+#include <cstdlib>  // getenv/atoi for the LDG block-cap override
+
 template <class T=dstype, class I=Int>
 void select_columns(int* a_new, const int* a, const int* ind, int m, int k) 
 {
@@ -1282,12 +1284,25 @@ void buildConn(meshstructT<T,I>& mesh, solstructT<T,I>& sol, const appstructT<T,
     int nfe = dim + (dim-1)*elemtype + 1;
 
     int ne = mesh.ndims[1];
-    int nebmax = 4096; //mesh.ndims[6]; // maximum number of elements per block    
-    int nfbmax = 8192; //mesh.ndims[8]; // maximum number of faces per block         
+    int nebmax = 4096; //mesh.ndims[6]; // maximum number of elements per block
+    int nfbmax = 8192; //mesh.ndims[8]; // maximum number of faces per block
     if (dim == 3) {
         nebmax = 1024;
         nfbmax = 2048;
+        // LDG only (app.problem[0] == 0): enlarge the element/face block caps so the residual issues far
+        // fewer, larger kernel launches (on MI300A the small-block residual left the GPU mostly idle).
+        // Bit-identical: blocks are independent and the kernels are per-point/range-generic; the scratch
+        // buffers are sized from the realized block sizes in settempstruct.
+        // Raise nebmax AND nfbmax together (setstructs LDG gauss buffers use ngf*nfe*neb as a
+        // faces-per-block proxy). HDG keeps the small caps (its npf^2*ncu^2*neb scratch would blow up).
+        if (app.problem[0] == 0) {
+            nebmax = 8192;
+            nfbmax = 16384;
+        }
     }
+    // Override for experiments / the previous behaviour: EXASIM_LDG_NEBMAX=1024 EXASIM_LDG_NFBMAX=2048.
+    { const char* e; if ((e = getenv("EXASIM_LDG_NEBMAX"))) nebmax = atoi(e);
+                     if ((e = getenv("EXASIM_LDG_NFBMAX"))) nfbmax = atoi(e); }
 
     int hybrid = app.problem[0];
     int mpiprocs = app.comm[1];
@@ -1340,9 +1355,10 @@ void buildConn(meshstructT<T,I>& mesh, solstructT<T,I>& sol, const appstructT<T,
 
     int nbc = sizes[3];
     int n = 1 + nbc + 1;
-    vector<int> mf(n); mf[0] = 0; 
+    vector<int> mf(n); mf[0] = 0;
     for(int i=1; i<n; i++) mf[i] = mf[i-1] + facepartpts[i-1];
-    int nbf = mkfaceblocks(mesh.fblks, mf.data(), facepartbnd, n, nfbmax); 
+    int nbf = mkfaceblocks(mesh.fblks, mf.data(), facepartbnd, n, nfbmax);
+
 
     int neb = 0, nfb = 0;
     for (int i=0; i<nbe; i++) {
@@ -1459,8 +1475,16 @@ void buildConn(Conn& conn, meshstructT<T,I>& mesh, solstructT<T,I>& sol, const a
     int nfe = dim + (dim-1)*elemtype + 1;
 
     int ne = mesh.ndims[1];
-    int nebmax = mesh.ndims[6]; // maximum number of elements per block    
-    int nfbmax = mesh.ndims[8]; // maximum number of faces per block     
+    int nebmax = mesh.ndims[6]; // maximum number of elements per block
+    int nfbmax = mesh.ndims[8]; // maximum number of faces per block
+    // LDG only: match the enlarged caps used in buildConn above so this path collapses
+    // blocks identically. Bit-identical; scratch auto-grows. HDG keeps its small caps.
+    if (dim == 3 && app.problem[0] == 0) {
+        if (nebmax < 8192)  nebmax = 8192;
+        if (nfbmax < 16384) nfbmax = 16384;
+    }
+    { const char* e; if ((e = getenv("EXASIM_LDG_NEBMAX"))) nebmax = atoi(e);
+                     if ((e = getenv("EXASIM_LDG_NFBMAX"))) nfbmax = atoi(e); }
 
     int hybrid = app.problem[0];
     //int mpiprocs = app.comm[1];
