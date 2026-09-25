@@ -4,7 +4,6 @@
 #include <cerrno>
 #include <cstring>
 #include <limits>
-#include <unordered_map>
 
 // ---------------------------------------------------------------------------
 // Surface corner machinery. The boundary cells of a tag are resolved on the
@@ -90,6 +89,67 @@ static inline void orderCorners(const dstype* plane, int ncx, int k, int* corner
     for (int i = 0; i < k; ++i) corners[i] = tmp[i];
 }
 
+// Face-lattice helpers for subdivided surface output. Face nodes arrive in
+// lattice order (verified from master data and runs): lines ascending with
+// endpoints at 0/np f-1; quads column-major tensor (idx=i+(p+1)*j);
+// tris row-major uniform lattice (idx=j*(p+1)-j*(j-1)/2+i).
+// Subdivision emits linear sub-cells over ALL face nodes so every computed
+// kernel value is plotted (corner-only output would discard the interior
+// face data). Winding is calibrated per face against orderCorners output
+// so the subdivided patch matches the corner-cell orientation.
+static inline int surfLatticeDegree(int npf, int isTri, int isQuad)
+{
+    if (!isTri && !isQuad) return (npf >= 2) ? npf - 1 : -1; // lines
+    for (int p = 1; p <= 16; ++p) {
+        if (isQuad && (p + 1) * (p + 1) == npf) return p;
+        if (isTri && (p + 1) * (p + 2) / 2 == npf) return p;
+    }
+    return -1;
+}
+
+// Lattice index of grid position (i,j): quads tensor, tris uniform lattice.
+static inline int surfLatticeIdx(int i, int j, int p, int isTri, int isQuad, int mirror)
+{
+    if (mirror) { int t = i; i = j; j = t; }
+    if (isQuad) return i + (p + 1) * j;
+    if (isTri) return j * (p + 1) - j * (j - 1) / 2 + i;
+    return i; // lines: j == 0
+}
+
+// Canonical lattice boundary traversal (corner local indices, CCW in
+// lattice coords).
+static inline void surfLatticeBoundary(int* out, int p, int isTri, int isQuad)
+{
+    if (!isTri && !isQuad) { out[0] = 0; out[1] = p; return; } // lines
+    if (isQuad) {
+        out[0] = 0; out[1] = p; out[2] = p * p + 2 * p; out[3] = p * (p + 1);
+        return;
+    }
+    out[0] = 0; out[1] = p; out[2] = p * (p + 3) / 2; // tris
+}
+
+// Compare corners[] against the lattice boundary traversal, up to rotation,
+// in either direction. Returns +1 (agree), -1 (mirror lattice), 0 (no match
+// -> caller falls back to a single corner cell). Only meaningful for k >= 3;
+// for lines (k == 2) forward and reverse coincide, so the caller orients line
+// segments directly from the corner order.
+static inline int surfCalibrateOrientation(const int* corners, int k, int p,
+                                           int isTri, int isQuad)
+{
+    int lat[4];
+    surfLatticeBoundary(lat, p, isTri, isQuad);
+    for (int r = 0; r < k; ++r) {
+        int okFwd = 1, okRev = 1;
+        for (int i = 0; i < k; ++i) {
+            if (corners[i] != lat[(r + i) % k]) okFwd = 0;
+            if (corners[i] != lat[(r + k - i) % k]) okRev = 0;
+        }
+        if (okFwd) return +1;
+        if (okRev) return -1;
+    }
+    return 0;
+}
+
 class CVisualization {
 public:
     float* scafields=nullptr;
@@ -124,8 +184,8 @@ public:
     // resolved on the trace nodes, with the value/eval plumbing so the
     // surface fields can be reconstructed at the enclosing CG corners.
     int   nsurfsca       = 0;    // number of surface scalar fields (>=0)
-    int   surf_nnodes    = 0;    // unique surface corner nodes
-    int   surf_ncells    = 0;    // boundary cells (2D edges / 3D tri-quads)
+    int   surf_nnodes    = 0;    // surface nodes (all face nodes, DG-unique per face)
+    int   surf_ncells    = 0;    // linear sub-cells (lines / tris / quads)
     int   surf_k         = 0;    // corners per cell (2, 3 or 4)
     int   surf_ibvis     = 0;    // requested boundary tag (0 => feature off)
     bool  surfvis_enabled = false;
@@ -133,7 +193,7 @@ public:
     std::vector<int32_t> surf_cellconn;   // [surf_k x surf_ncells]
     std::vector<uint8_t> surf_celllocal;  // [surf_k x surf_ncells] master-face node of each corner
     std::vector<int32_t> surf_cellface;   // [surf_ncells] local face index of each cell
-    std::vector<int32_t> surf_face2cell;  // [nf] cell id owning the face, or -1
+    std::vector<int32_t> surf_face2cell;  // [nf] surf-face ordinal owning the face, or -1
     std::vector<int32_t> surf_celloffsets;// [surf_ncells]
     std::vector<uint8_t> surf_celltypes;  // [surf_ncells]
 
@@ -580,15 +640,20 @@ public:
 
 private:
     // Build the boundary surface mesh (points/topology) for the requested tag
-    // and the per-corner mappings used by SaveSurfaces to scatter the surface
-    // scalar fields from the trace nodes onto the surface corner nodes.
+    // and the per-node mappings used by SaveSurfaces to scatter the surface
+    // scalar fields onto the surface nodes.
     //
-    // NOTE (DG surface mesh): each face corner is its own surface node, placed
-    // at the face's own corner coordinates from the mesh (xg). There is
-    // deliberately NO matching against volume CG nodes and NO deduplication:
-    // DG fields are discontinuous across faces, so merging shared corners
-    // would mix values from different faces (last-wins) and teleport points
-    // when the nearest CG node is far (curved faces, ragged partitions).
+    // NOTE (DG surface mesh): each tagged face contributes ALL its npf face
+    // nodes as surface nodes (placed at the face's own coordinates), split
+    // into linear sub-cells (lines: npf-1 segments; quads: p^2 quads;
+    // tris: p^2 tris). There is deliberately NO matching against volume CG
+    // nodes and NO deduplication: DG fields are discontinuous across faces,
+    // so merging shared corners would mix values from different faces
+    // (last-wins) and teleport points when the nearest CG node is far
+    // (curved faces, ragged partitions). Sub-cell winding is calibrated per
+    // face against the orderCorners output so the patch matches the
+    // corner-cell orientation; faces failing the lattice checks fall back
+    // to a single corner cell (previous behavior).
     void InitSurfaces(CDiscretization& disc, int backend)
     {
         const auto& common = disc.common;
@@ -606,29 +671,44 @@ private:
         else                    surf_k = 4;
         const int k = surf_k;
         const uint8_t ctype = (nd == 2) ? 3 : ((elemtype == 0) ? 5 : 9);
+        const int isTri = (nd == 3 && elemtype == 0);
+        const int isQuad = (nd == 3 && elemtype != 0);
+        // Lattice degree from the face node count; -1 = unknown layout.
+        const int p = surfLatticeDegree((int)npf, isTri, isQuad);
 
         surf_face2cell.assign((size_t)nf, -1);
 
-        int ncell = 0;
+        int nfaces = 0;
         for (Int j = 0; j < nbf; ++j) {
             Int ib = common.fblks[3*j+2];
             if (surf_ibvis > 0 && ib != surf_ibvis) continue;
             Int f1 = common.fblks[3*j] - 1;
             Int f2 = common.fblks[3*j+1];
-            ncell += (int)(f2 - f1);
+            nfaces += (int)(f2 - f1);
         }
-        surf_ncells = ncell;
-        if (ncell == 0) return;
-
-        surf_cellconn.assign((size_t)k*ncell, 0);
-        surf_celllocal.assign((size_t)k*ncell, 0);
-        surf_cellface.assign(ncell, 0);
-        surf_celloffsets.resize(ncell);
-        surf_celltypes.assign(ncell, ctype);
-        for (int c = 0; c < ncell; ++c) surf_celloffsets[c] = (c + 1) * k;
+        surf_ncells = 0;
+        surf_nnodes = 0;
+        if (nfaces == 0) return;
 
         surf_nodes.clear();
-        int cell = 0;
+        surf_nodes.reserve((size_t)3 * nfaces * npf);
+        int nfallback = 0;
+        surf_cellconn.clear();
+        surf_celllocal.clear();
+        surf_cellface.clear();
+        surf_celloffsets.clear();
+        surf_celltypes.clear();
+        // Emit one linear sub-cell; lns holds master-face local node ids.
+        auto emitCell = [&](int f, int base, const int* lns, int n) {
+            for (int c = 0; c < n; ++c) {
+                surf_cellconn.push_back(base + lns[c]);
+                surf_celllocal.push_back((uint8_t)lns[c]);
+            }
+            surf_cellface.push_back((int32_t)f);
+            surf_celloffsets.push_back((int)surf_cellconn.size());
+            surf_celltypes.push_back(ctype);
+        };
+        int ordinal = 0;
         for (Int j = 0; j < nbf; ++j) {
             Int ib = common.fblks[3*j+2];
             if (surf_ibvis > 0 && ib != surf_ibvis) continue;
@@ -661,23 +741,82 @@ private:
                 cornersOfFace(plane.data(), (int)npf, (int)ncx, k, cs);
                 orderCorners(plane.data(), (int)ncx, k, cs);
                 Int f = f1 + ff;
-                surf_cellface[cell] = (int32_t)f;
-                surf_face2cell[f] = cell;
-                for (int ci = 0; ci < k; ++ci) {
-                    int ln = cs[ci];
-                    // Unique DG node: no merging across faces (see NOTE above).
-                    int s = cell*k + ci;
-                    surf_cellconn[(size_t)cell*k + ci] = s;
-                    surf_celllocal[(size_t)cell*k + ci] = (uint8_t)ln;
+                // Emit all face nodes (DG-unique per face); values scatter 1:1.
+                const int base = ordinal * (int)npf;
+                for (Int ln = 0; ln < npf; ++ln) {
                     const dstype* pc = &plane.data()[(size_t)ln*ncx];
                     surf_nodes.push_back((float)pc[0]);
                     surf_nodes.push_back((ncx>1)?(float)pc[1]:0.0f);
                     surf_nodes.push_back((ncx>2)?(float)pc[2]:0.0f);
                 }
-                ++cell;
+                surf_face2cell[f] = ordinal;
+                // Subdivide into linear sub-cells over the lattice, oriented
+                // to match the corner-cell boundary orientation; fall back to
+                // a single corner cell when the lattice checks fail.
+                int mirror = 0, ok = 0;
+                if (p >= 1 && !isTri && !isQuad) {
+                    // Lines: corners must be the endpoints, in either order.
+                    if ((cs[0] == 0 && cs[1] == p) || (cs[0] == p && cs[1] == 0)) {
+                        ok = 1;
+                        const int dir = (cs[0] == 0) ? +1 : -1;
+                        for (int l = 0; l < p; ++l) {
+                            const int seg[2] = {(dir > 0) ? l : p - l,
+                                                (dir > 0) ? l + 1 : p - l - 1};
+                            emitCell((int)f, base, seg, 2);
+                        }
+                    }
+                } else if (p >= 1) {
+                    const int ori = surfCalibrateOrientation(cs, k, p, isTri, isQuad);
+                    if (ori != 0) {
+                        ok = 1;
+                        mirror = (ori < 0);
+                        auto lat = [&](int i, int j) {
+                            return surfLatticeIdx(i, j, p, isTri, isQuad, mirror);
+                        };
+                        if (isQuad) {
+                            for (int jj = 0; jj < p; ++jj)
+                                for (int ii = 0; ii < p; ++ii) {
+                                    const int quad[4] = {lat(ii,jj), lat(ii+1,jj),
+                                                         lat(ii+1,jj+1), lat(ii,jj+1)};
+                                    emitCell((int)f, base, quad, 4);
+                                }
+                        } else {
+                            for (int jj = 0; jj < p; ++jj)
+                                for (int ii = 0; ii + jj < p; ++ii) {
+                                    const int up[3] = {lat(ii,jj), lat(ii+1,jj),
+                                                       lat(ii,jj+1)};
+                                    emitCell((int)f, base, up, 3);
+                                    if (ii + jj + 2 <= p) {
+                                        const int dn[3] = {lat(ii+1,jj), lat(ii+1,jj+1),
+                                                           lat(ii,jj+1)};
+                                        emitCell((int)f, base, dn, 3);
+                                    }
+                                }
+                        }
+                    }
+                }
+                if (!ok) {
+                    // Fallback: single cell with the lattice grid corners
+                    // (better than failed farthest-sampling picks, which may
+                    // include mid-edge nodes on distorted faces). With unknown
+                    // lattice degree keep the corner picks (previous behavior).
+                    if (p >= 1) {
+                        int gc[4];
+                        surfLatticeBoundary(gc, p, isTri, isQuad);
+                        for (int ci = 0; ci < k; ++ci) cs[ci] = gc[ci];
+                        orderCorners(plane.data(), (int)ncx, k, cs);
+                    }
+                    emitCell((int)f, base, cs, k);
+                    ++nfallback;
+                }
+                ++ordinal;
             }
         }
         surf_nnodes = (int)surf_nodes.size() / 3;
+        surf_ncells = (int)surf_celloffsets.size();
+        if (nfallback > 0 && disc.common.mpiRank == 0)
+            printf("Surface visualization: %d of %d faces use single corner cells (lattice check failed).\n",
+                   nfallback, nfaces);
     }
 
     void Init(const dstype* xcg, int nd_in, int np,

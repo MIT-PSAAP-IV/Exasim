@@ -601,8 +601,9 @@ void CSolutionWriter<M>::SaveSurfaces(Int backend, const std::string& fname_modi
     dstype* fdev = hostMode ? fh.data() : nullptr;
     if (!hostMode) TemplateMalloc(&fdev, maxnn*nsurfsca, backend);
 
-    // DG surface: no averaging, each face corner is a unique point (fixes messed up plot and single-file issue)
-    // vis.srffields is already sized surf_nnodes*nsurfsca (DG: k*ncell)
+    // DG surface: no averaging; every face node is a unique surface point,
+    // so the scatter below is 1:1 (surf node = face node in local order).
+    // vis.srffields is already sized surf_nnodes*nsurfsca.
     for (int s=0; s<vis.surf_nnodes*nsurfsca; ++s) vis.srffields[s]=0;
 
     for (Int j = 0; j < nf_blocks; ++j) {
@@ -663,11 +664,10 @@ void CSolutionWriter<M>::SaveSurfaces(Int backend, const std::string& fname_modi
 
         for (Int ff = 0; ff < nfblk; ++ff) {
             Int f = f1 + ff;
-            Int cell = vis.surf_face2cell[f];
-            if (cell < 0) continue;
-            for (int ci = 0; ci < vis.surf_k; ++ci) {
-                int ln   = vis.surf_celllocal[(size_t)cell*vis.surf_k + ci];
-                int s    = vis.surf_cellconn[(size_t)cell*vis.surf_k + ci];
+            Int o = vis.surf_face2cell[f];
+            if (o < 0) continue;
+            for (Int ln = 0; ln < npf; ++ln) {
+                Int s    = o*npf + ln;
                 Int pt   = ln + npf*ff;
                 for (Int sca = 0; sca < nsurfsca; ++sca)
                     vis.srffields[(size_t)sca*vis.surf_nnodes + s] = (float)fh[(size_t)sca*nn + pt];
