@@ -38,6 +38,52 @@
 #define __CONNECTIVITY
 
 #include <cstdlib>  // getenv/atoi for the LDG block-cap override
+#include <climits>
+
+// The LDG block-Jacobian K arena (AllocateLDGBlockJacobianMemory) and the tempn/tempg scratch (settempstruct)
+// are sized in Int (32-bit by default) from the element/face block caps. Large 3D LDG blocks can push those
+// products past INT_MAX, which wraps silently and corrupts memory. Evaluate the same size formulas in 64-bit
+// and halve the caps (never below the legacy 1024/2048) until every allocation fits.
+template <class T, class I>
+inline void ldgClampBlockCaps(int& nebmax, int& nfbmax, const appstructT<T,I>& app, const masterstructT<T,I>& master,
+                              int nfe, int ne1)
+{
+    typedef long long LL;
+    const LL nd = master.ndims[0], npe = master.ndims[5], npf = master.ndims[6], nge = master.ndims[7], ngf = master.ndims[8];
+    const LL nc = app.ndims[AppNdims::nc], ncu = app.ndims[AppNdims::ncu], ncq = app.ndims[AppNdims::ncq];
+    const LL nco = app.ndims[AppNdims::nco], ncx = app.ndims[AppNdims::ncx], ncw = app.ndims[AppNdims::ncw];
+    const LL M = std::max<LL>(app.problem[15] + 1, app.problem[16]);
+    auto need = [&](LL neb, LL nfb) {
+        const LL n = npe*ncu, m = npf*nfe*ncu, nq = npe*ncq, nbfb = nfe*neb;
+        // K arena
+        const LL uface = npf*npf*nfe*neb*ncu*(2*ncu + ncq), schur = std::max(n*n, n*m)*neb;
+        const LL bufq = npf*npf*nd*ncu*ncu*nfb;
+        const LL cross = std::max(ngf*nd*ncu*ncu*nfb, bufq) + std::max(bufq, npf*nd*npf*nfb) + npf*npf*ncu*ncu*nfb;
+        const LL h = std::max(std::max(schur, uface), cross);
+        const LL k = n*n*(LL)ne1 + std::max(n*n*neb + n*nq*neb + 2*m*n*neb + h, M*npe*ncu*(LL)ne1);
+        // tempn + tempg (LDG branch of settempstruct; the ne-/CG-sized terms do not depend on the caps)
+        LL t0 = std::max(npe*std::max(nc + ncw, ncx)*neb, npf*(ncu + 2*nc + 2*ncw)*nfb);
+        t0 = std::max(2*t0, npf*nfe*neb*(ncu + nc + nco + ncw));
+        t0 = std::max(t0, std::max(npe*neb*nc, nge*(nd + 1)*ncu*std::max(ncu, ncq)*neb));
+        const LL n1 = std::max(ncx + 2*nd*nd + 1, ncu*nd + ncu + ncw + std::max(nc, ncu*(nd + 1)));
+        const LL n2 = std::max(ncx + nd + 1 + nd*(nd - 1), ncu + 2*ncu*nd + 2*nc + 2*ncw);
+        const LL common = ngf*nfe*neb*(ncu + nc + nco + 2*ncw);
+        LL t3 = 2*std::max(nge*n1*neb, ngf*n2*nfb);
+        t3 = std::max(t3, nge*neb*(ncu*nd + ncu + nc + ncw + ncu*nd*nc + ncu*nd*ncw + ncu*nc + ncu*ncw + ncw*nc));
+        t3 = std::max(t3, common + ngf*nbfb*(ncx + nc + nco + ncw + 2*ncu + nd + ncu*ncu));
+        t3 = std::max(t3, ngf*nfe*neb*(ncu + nc + nco + 2*ncw + ncu*nd + ncu*nd*nc + ncu*ncu + ncu*nd*ncw + ncw*nc));
+        t3 = std::max(t3, common + ngf*nbfb*(ncx + nc + nco + 2*ncw + 2*ncu + nd + ncu*nc + ncu*ncw + ncu*ncu + ncw*ncu));
+        return std::max(k, t0 + t3);
+    };
+    const int neb0 = nebmax, nfb0 = nfbmax;
+    while (need(nebmax, nfbmax) > (LL)INT_MAX && nebmax > 1024) {
+        nebmax = std::max(1024, nebmax/2);
+        nfbmax = std::max(2048, nfbmax/2);
+    }
+    if ((nebmax != neb0 || nfbmax != nfb0) && app.comm[0] == 0)
+        printf("LDG block caps %d/%d -> %d/%d: the block-Jacobian/scratch sizes must fit in 32-bit Int\n",
+               neb0, nfb0, nebmax, nfbmax);
+}
 
 template <class T=dstype, class I=Int>
 void select_columns(int* a_new, const int* a, const int* ind, int m, int k) 
@@ -1313,6 +1359,7 @@ void buildConn(meshstructT<T,I>& mesh, solstructT<T,I>& sol, const appstructT<T,
       ne1 = mesh.elempartpts[0] + mesh.elempartpts[1];
       if (hybrid==0) ne1 += mesh.elempartpts[2];        
     }
+    if (hybrid == 0 && dim == 3) ldgClampBlockCaps(nebmax, nfbmax, app, master, nfe, ne1);
         
     int* localfaces; 
     TemplateMalloc(&localfaces, nvf * nfe, 0);   
@@ -1496,6 +1543,7 @@ void buildConn(Conn& conn, meshstructT<T,I>& mesh, solstructT<T,I>& sol, const a
       ne1 = mesh.elempartpts[0] + mesh.elempartpts[1];
       if (hybrid==0) ne1 += mesh.elempartpts[2];        
     }
+    if (hybrid == 0 && dim == 3) ldgClampBlockCaps(nebmax, nfbmax, app, master, nfe, ne1);
         
     int* localfaces; 
     TemplateMalloc(&localfaces, nvf * nfe, 0);   
