@@ -4,7 +4,18 @@ from .sympyassign import sympyassign
 def gencodeface3(filename, f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, foldername):
     cpufile = "Kokkos" + filename
     tmp = "(dstype* f, const dstype* xdg, const dstype* udg1, const dstype* udg2, const dstype* odg1, const dstype* odg2, const dstype* wdg1, const dstype* wdg2, const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\n"
-    str_code = "\tKokkos::parallel_for(" + "\"" + filename + "\"" + ", ng, KOKKOS_LAMBDA(const size_t i) {\n"
+    # HIP (MI300A/CDNA3): the default ~256-thread workgroups launch too few workgroups to fill
+    # the 228-CU GPU (the volume kernels under-subscribe ~72/228 CUs). LaunchBounds<64,1> makes
+    # 1-wavefront workgroups -> ~4x more workgroups -> fills all CUs (flux 1.70x, bit-exact).
+    # The flux uses only 128 VGPR on CDNA3 so the extra concurrency is affordable. Guarded to HIP
+    # (neutral on CUDA/CPU, where the default policy is kept).
+    str_code = ("\tKokkos::parallel_for(\"" + filename + "\",\n"
+                "#if defined(KOKKOS_ENABLE_HIP)\n"
+                "\t\tKokkos::RangePolicy<Kokkos::LaunchBounds<64,1>>(0, (size_t)ng),\n"
+                "#else\n"
+                "\t\tng,\n"
+                "#endif\n"
+                "\t\tKOKKOS_LAMBDA(const size_t i) {\n")
     strkk = "void " + cpufile
     strkk += tmp + "{\n"
     strkk += str_code

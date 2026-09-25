@@ -4,7 +4,18 @@ from .varsassign import varsassign
 def gencodeelem3(filename, f, xdg, uinf, param, foldername):
     cpufile = "Kokkos" + filename
     tmp = "(dstype* f, const dstype* xdg, const dstype* uinf, const dstype* param, const int modelnumber, const int ng, const int ncx, const int nce, const int npe, const int ne)\n"
-    str_code = "\tKokkos::parallel_for(" + "\"" + filename + "\"" + ", ng, KOKKOS_LAMBDA(const size_t i) {\n"
+    # HIP (MI300A/CDNA3): the default ~256-thread workgroups launch too few workgroups to fill
+    # the 228-CU GPU (the volume kernels under-subscribe ~72/228 CUs). LaunchBounds<64,1> makes
+    # 1-wavefront workgroups -> ~4x more workgroups -> fills all CUs (flux 1.70x, bit-exact).
+    # The flux uses only 128 VGPR on CDNA3 so the extra concurrency is affordable. Guarded to HIP
+    # (neutral on CUDA/CPU, where the default policy is kept).
+    str_code = ("\tKokkos::parallel_for(\"" + filename + "\",\n"
+                "#if defined(KOKKOS_ENABLE_HIP)\n"
+                "\t\tKokkos::RangePolicy<Kokkos::LaunchBounds<64,1>>(0, (size_t)ng),\n"
+                "#else\n"
+                "\t\tng,\n"
+                "#endif\n"
+                "\t\tKOKKOS_LAMBDA(const size_t i) {\n")
     strkk = "void " + cpufile
     strkk += tmp + "{\n"
     strkk += str_code
