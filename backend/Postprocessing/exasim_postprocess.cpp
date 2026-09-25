@@ -13,7 +13,7 @@ Example:
 The command-line interface matches the legacy postprocess.cpp executable:
 
   exasim_postprocess nummodels InputFile(s) OutputFile(s)
-                    [restart] [postmode] [nsca] [nvec] [nten] [nsurf] [nvqoi]
+                    [restart] [postmode] [nsca] [nvec] [nten] [nsurf] [nvqoi] [saveParaview] [nsurfsca]
 */
 
 #include "ExasimSolverSetup.hpp"

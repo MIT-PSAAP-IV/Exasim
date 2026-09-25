@@ -51,6 +51,8 @@ Notes:
 #ifndef __SETSYSSTRUCT
 #define __SETSYSSTRUCT
 
+#include <climits> // INT_MAX for the Krylov scratch size check below
+
 template <class T=dstype, class I=Int>
 T rand_normal(T mean, T stddev)
 {
@@ -226,12 +228,19 @@ void setsysstruct(sysstructT<T,I> &sys, commonstructT<T,I> &common, resstructT<T
     TemplateMalloc(&sys.r, ndof, backend); 
     //TemplateMalloc(&sys.v, ndof*M, backend);      
     
-    // Reserve the GMRES Krylov scratch from the residual K-arena (non-owning; the arena sized
-    // its [szP, szK) tail for exactly this). Was, in both branches: sys.v = &res.K[res.szP] --
-    // the solver no longer hard-codes the discretization's buffer layout (S5: decouple sys.v
-    // from res; a future change can hand back a separate buffer without touching this call).
-    sys.v = res.reserveKrylovScratch(ndof*M);
-    sys.szv = 0;
+    // Krylov scratch: own it directly instead of aliasing the res.K arena
+    // tail. The tail (szK-szP) can be smaller than ndof*M when the Int size
+    // arithmetic wraps on large 3D runs (szP+szV > INT_MAX), turning the
+    // memset below into heap corruption; a dedicated buffer of exactly
+    // ndof*M (checked) is always correctly sized. The setup-time guard in
+    // discretization.cpp still rejects iterating runs whose arena overflows.
+    {
+        const long long needV = (long long)ndof * (long long)M;
+        if (needV > INT_MAX)
+            error("GMRES Krylov scratch size exceeds 32-bit Int range; reduce gmresRestart or move to 64-bit sizes");
+        TemplateMalloc(&sys.v, (Int)needV, backend);
+        sys.szv = (Int)needV;
+    }
     
     sys.backend = backend;  
     sys.szu = ndof;

@@ -192,6 +192,12 @@ if isfield(pde, 'qoiboundary')
 else
     kknocodeface("QoIboundary" + strn, kkdir);
 end
+if isfield(pde, 'vissurfscalars')    
+    f = pde.vissurfscalars(u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, tau);
+    kkgencodeface("VisSurfScalars" + strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, kkdir);
+else
+    kknocodeface("VisSurfScalars" + strn, kkdir);
+end
 if isfield(pde, 'fhat')    
     f = pde.fhat(u1, q1, wdg1, odg1, xdg, time, param, uinf, uhg, nlg, tau, u2, q2, wdg2, odg2);
     kkgencodeface2("Fhat" + strn, f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, kkdir);
@@ -266,6 +272,10 @@ nvec_  = app.nvec;
 nten_  = app.nten;
 nsurf_ = app.nbqoi;
 nvqoi_ = app.nvqoi;
+nsurfsca_ = 0;
+if isfield(app, 'nsurfsca')
+    nsurfsca_ = app.nsurfsca;
+end
 nmaterialstate_ = app.nmaterialstate;
 fid = fopen(kkdir + "/model_sizes.hpp", "w");
 fprintf(fid, "#ifndef EXASIM_MODEL_SIZES_HPP\n");
@@ -280,6 +290,7 @@ fprintf(fid, "    static constexpr int nvec  = %d;\n", nvec_);
 fprintf(fid, "    static constexpr int nten  = %d;\n", nten_);
 fprintf(fid, "    static constexpr int nsurf = %d;\n", nsurf_);
 fprintf(fid, "    static constexpr int nvqoi = %d;\n", nvqoi_);
+fprintf(fid, "    static constexpr int nsurfsca = %d;\n", nsurfsca_);
 fprintf(fid, "    static constexpr int nmaterialstate = %d;\n", nmaterialstate_);
 fprintf(fid, "}\n");
 fprintf(fid, "\n");

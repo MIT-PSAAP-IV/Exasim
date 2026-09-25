@@ -47,6 +47,8 @@ mutable struct PDEStruct
     nten::IntP;# number of components of (tensor fields)
     nbqoi::IntP;# number of components of (boundary quantities)
     nvqoi::IntP;# number of components of (volume quantities)
+    nsurfsca::IntP;# number of components of (surface scalar visualization fields)
+    ibvis::IntP;# boundary tag index for surface visualization (0: off)
     nmaterialstate::IntP;# number of material-state components
     neb::IntP;# number of element blocks for parallel computation
     nfb::IntP;# number of face blocks for parallel computation
@@ -249,6 +251,8 @@ function initializepde(version)
     pde.nsca = 0;
     pde.nbqoi = 0;
     pde.nvqoi = 0;
+    pde.nsurfsca = 0;
+    pde.ibvis = 0;
     pde.nmaterialstate = 0;
     pde.nvec = 0;
     pde.nten = 0;

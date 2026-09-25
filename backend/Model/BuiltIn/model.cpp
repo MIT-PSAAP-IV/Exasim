@@ -50,5 +50,6 @@ namespace exasim_model_1 {
 #include "KokkosVisTensors.cpp"
 #include "KokkosQoIvolume.cpp"
 #include "KokkosQoIboundary.cpp"
+#include "KokkosVisSurfScalars.cpp"
 
 }

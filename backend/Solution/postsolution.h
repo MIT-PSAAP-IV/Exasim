@@ -64,8 +64,8 @@ public:
     // constructor 
     CSolution(string filein, string fileout, string exasimpath, Int mpiprocs, Int mpirank, 
               Int fileoffset, Int omprank, Int backend, Int builtinmodelID,
-              Int nsca, Int nvec, Int nten, Int nsurf, Int nvqoi)   
-       : disc(filein, fileout, exasimpath, mpiprocs, mpirank, fileoffset, omprank, backend, builtinmodelID, nsca, nvec, nten, nsurf, nvqoi),
+              Int nsca, Int nvec, Int nten, Int nsurf, Int nvqoi, Int nsurfsca = 0)   
+       : disc(filein, fileout, exasimpath, mpiprocs, mpirank, fileoffset, omprank, backend, builtinmodelID, nsca, nvec, nten, nsurf, nvqoi, nsurfsca),
          residual(disc),
          prec(disc, backend), solv(disc, backend), vis(disc, backend) 
     {   

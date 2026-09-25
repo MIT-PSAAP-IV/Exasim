@@ -7,12 +7,11 @@ vdgfile = "vdg.bin";
 discretization = "hdg";
 platform = "cpu";
 
-builtinmodelID = 7;
 gendatain = 0;
 mpiprocs = 2;
 debugmode = 0;
 runmode = 0;
-modelnumber = 0;
+modelnumber = 107;
 
 porder = 4;
 pgauss = 8;
@@ -21,6 +20,11 @@ nstage = 1;
 
 neb = 4096;
 nfb = 8192;
+
+saveParaview = 1;
+saveSolFreq = 1;
+nsurfsca = 3;
+ibvis = 3;
 
 NewtonIter = 30;
 NewtonTol = 1e-06;

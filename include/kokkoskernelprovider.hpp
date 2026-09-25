@@ -39,6 +39,7 @@ using ::PdeModel;
 #include "kernels/KokkosVisTensors.hpp"
 #include "kernels/KokkosQoIvolume.hpp"
 #include "kernels/KokkosQoIboundary.hpp"
+#include "kernels/KokkosVisSurfScalars.hpp"
 #include "kernels/KokkosSourcew.hpp"
 #include "kernels/KokkosOutput.hpp"
 #include "kernels/KokkosMonitor.hpp"
@@ -89,13 +90,14 @@ inline const ExasimDriverABI& getKokkosKernelExasimDriverABI()
         value.nten = PdeModel::nten;
         value.nsurf = PdeModel::nsurf;
         value.nvqoi = PdeModel::nvqoi;
+        value.nsurfsca = PdeModel::nsurfsca;
         value.nmaterialstate = PdeModel::nmaterialstate;
 
         value.GetModelSizes = [](int) -> ModelSizes {
             return {PdeModel::ncu, PdeModel::nco, PdeModel::ncw,
                     PdeModel::nsca, PdeModel::nvec, PdeModel::nten,
                     PdeModel::nsurf, PdeModel::nvqoi,
-                    PdeModel::nmaterialstate};
+                    PdeModel::nmaterialstate, PdeModel::nsurfsca};
         };
 
         value.volume.KokkosFlux = &kokkos_kernel_source::KokkosFlux;
@@ -121,6 +123,7 @@ inline const ExasimDriverABI& getKokkosKernelExasimDriverABI()
         value.output.KokkosVisTensors = &kokkos_kernel_source::KokkosVisTensors;
         value.qoi.KokkosQoIvolume = &kokkos_kernel_source::KokkosQoIvolume;
         value.qoi.KokkosQoIboundary = &kokkos_kernel_source::KokkosQoIboundary;
+        value.surfacevis.KokkosVisSurfScalars = &kokkos_kernel_source::KokkosVisSurfScalars;
 
         value.init.KokkosInitu = &kokkos_kernel_source::KokkosInitu;
         value.init.KokkosInitq = &kokkos_kernel_source::KokkosInitq;

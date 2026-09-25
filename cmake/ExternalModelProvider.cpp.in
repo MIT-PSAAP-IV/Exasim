@@ -401,6 +401,19 @@ void extKokkosVisTensors(
             ng, nc, ncu, nd, ncx, nco, ncw);
 }
 
+void extKokkosVisSurfScalars(
+    dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg,
+    const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* tau,
+    const dstype* uinf, const dstype* param, const dstype time, const int modelnumber,
+    const int ib, const int ng, const int nc, const int ncu, const int nd,
+    const int ncx, const int nco, const int ncw)
+{
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosVisSurfScalars(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
+    EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
+#undef EXASIM_EXT_DISPATCH
+    for (int k = 0; k < ng * ncw; ++k) f[k] = 0.0;
+}
+
 void extKokkosQoIvolume(
     dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg,
     const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time,
@@ -668,7 +681,8 @@ const ModelSizes kFrontendModelSizes = {
     exasim_model_sizes::ncw, exasim_model_sizes::nsca,
     exasim_model_sizes::nvec, exasim_model_sizes::nten,
     exasim_model_sizes::nsurf, exasim_model_sizes::nvqoi,
-    exasim_model_sizes::nmaterialstate
+    exasim_model_sizes::nmaterialstate,
+    exasim_model_sizes::nsurfsca
 };
 #endif
 
@@ -747,6 +761,7 @@ const ExasimDriverABI& getBuiltInLibraryExasimDriverABI()
         value.output.KokkosVisTensors  = &extKokkosVisTensors;
         value.qoi.KokkosQoIvolume   = &extKokkosQoIvolume;
         value.qoi.KokkosQoIboundary = &extKokkosQoIboundary;
+        value.surfacevis.KokkosVisSurfScalars = &extKokkosVisSurfScalars;
         value.init.KokkosInitu       = &extKokkosInitu;
         value.init.KokkosInitq       = &extKokkosInitq;
         value.init.KokkosInitudg     = &extKokkosInitudg;

@@ -73,8 +73,9 @@ for dir in "$REPO"/tests/consumers/*/; do
     fi || { echo "  FAIL[B4]: run nonzero exit (see $rdir/run.log)"; \
             echo "  --- $rdir/run.log ---"; sed 's/^/  | /' "$rdir/run.log"; \
             echo "  --- end run.log ---"; fail=1; continue; }
-    qoi1="$(tail -1 "$rdir/dataout/outqoi.txt" 2>/dev/null | awk '{print $2}')"
-    if [ -z "$qoi1" ]; then echo "  FAIL[B4]: no QoI output"; fail=1; continue; fi
+    qfile="$(find "$rdir" -name "outqoi.txt" 2>/dev/null | head -1)"
+    qoi1="$(tail -1 "$qfile" 2>/dev/null | awk '{print $2}')"
+    if [ -z "$qoi1" ]; then echo "  FAIL[B4]: no QoI output (searched $rdir/dataout*/outqoi.txt)"; fail=1; continue; fi
     if awk "BEGIN{exit !(($qoi1)+0 < ($QOI_TOL)+0)}"; then
       echo "  [B4] run ok, QoI[1]=$qoi1 < $QOI_TOL"
     else
@@ -100,11 +101,28 @@ for dir in "$REPO"/tests/consumers/*/; do
     done
     if grep -qE '^[[:space:]]*saveParaview[[:space:]]*=[[:space:]]*[1-9]' "$rdir/pdeapp.txt" \
          && [ "$visfields" -gt 0 ]; then
-      nvis="$(find "$rdir/dataout" -maxdepth 1 \( -name 'outvis*.vtu' -o -name 'outvis*.pvtu' \) 2>/dev/null | wc -l | tr -d ' ')"
+      nvis="$(find "$rdir" \( -name 'outvis*.vtu' -o -name 'outvis*.pvtu' \) 2>/dev/null | wc -l | tr -d ' ')"
       if [ "$nvis" -gt 0 ]; then
         echo "  [B5] vis ok: $nvis outvis file(s)"
       else
         echo "  FAIL[B5]: saveParaview enabled (nsca+nvec+nten>0) but no outvis*.vtu/.pvtu written"; fail=1
+      fi
+    fi
+
+    # B6: surface-visualization gate. When a consumer enables saveParaview AND
+    # declares nsurfsca > 0 AND sets ibvis > 0, the backend's SaveSurfaces emits
+    # an outsurf.* surface-vis alongside the volume outvis (this mirrors the
+    # CVisualization gate: saveParaview!=0 && nsurfsca>0 && ibvis>0). The .pvd
+    # series file plus at least one nonempty outsurf*.vtu/.pvtu piece must exist.
+    _spv="$(grep -E '^[[:space:]]*saveParaview[[:space:]]*=' "$rdir/pdeapp.txt" | head -1 | grep -oE '[0-9]+' | head -1)"
+    _nss="$(grep -E '^[[:space:]]*nsurfsca[[:space:]]*=' "$rdir/pdeapp.txt" | head -1 | grep -oE '[0-9]+' | head -1)"
+    _ibv="$(grep -E '^[[:space:]]*ibvis[[:space:]]*=' "$rdir/pdeapp.txt" | head -1 | grep -oE '[0-9]+' | head -1)"
+    if [ "${_spv:-0}" -gt 0 ] && [ "${_nss:-0}" -gt 0 ] && [ "${_ibv:-0}" -gt 0 ]; then
+      nsurf="$(find "$rdir" \( -name 'outsurf*.vtu' -o -name 'outsurf*.pvtu' \) 2>/dev/null | wc -l | tr -d ' ')"
+      if [ "$nsurf" -gt 0 ]; then
+        echo "  [B6] surface vis ok: $nsurf piece file(s)"
+      else
+        echo "  FAIL[B6]: surface vis enabled (saveParaview/nsurfsca/ibvis > 0) but no outsurf output written"; fail=1
       fi
     fi
   else

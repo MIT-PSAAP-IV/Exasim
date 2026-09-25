@@ -20,7 +20,7 @@ using dstype = float;
 using dstype = double;
 #endif
 
-inline constexpr std::uint32_t kExasimDriverABIVersion = 4;  // v4: add optional HdgMaterialstate jacobian kernel
+inline constexpr std::uint32_t kExasimDriverABIVersion = 5;  // v5: add surface scalar vis kernel (VisSurfScalars) + nsurfsca
 
 // Model dimension constants carried by the model (PR #33): lets preprocessing obtain
 // ncu/ncv/ncw/nsca/nvec/nten/nsurf/nvqoi from the compiled model instead of pdeapp.txt.
@@ -34,6 +34,7 @@ struct ModelSizes {
     int nsurf = 0;
     int nvqoi = 0;
     int nmaterialstate = 0;
+    int nsurfsca = 0;  // surface scalar visualization components
 };
 
 struct ExasimDriverABI {
@@ -156,6 +157,7 @@ struct ExasimDriverABI {
     int nsurf = 0;
     int nvqoi = 0;
     int nmaterialstate = 0;
+    int nsurfsca = 0;  // surface scalar visualization components
 
     // The model's kernel dispatch table, grouped by concern to mirror the compile-time model
     // decomposition (the ModelDefaults mixins / is_*_model_v traits). Each sub-struct is a
@@ -223,6 +225,9 @@ struct ExasimDriverABI {
         HdgBoundaryExternalJacFn   HdgFext        = nullptr;
         HdgBoundaryExternalStateFn HdgFextonly    = nullptr;
     } hdgjac;
+    struct SurfaceVisDriverABI {    // boundary-tag surface visualization fields
+        KokkosBoundaryFn KokkosVisSurfScalars = nullptr;
+    } surfacevis;
     // Optional per-model size query (PR #33): if non-null the solver calls this with the
     // builtinmodelID to get model dimension constants instead of pdeapp.txt (per-model
     // providers set ncu/nco/... directly and leave this null).

@@ -113,7 +113,7 @@ inline CDiscretizationT<T, I>::CDiscretizationT(exasim::PreprocessedT<T, I>&& pr
         happ.freememory(1); hmaster.freememory(1); hmesh.freememory(1);
         hsol.freememory(1); hres.freememory(1); htmp.freememory(1);
 
-        finalizeConstruction(backend, ExasimExecutionMode::Solve, 0, 0, 0, 0, 0, 0);
+        finalizeConstruction(backend, ExasimExecutionMode::Solve, 0, 0, 0, 0, 0, 0, 0);
         return;
 #else
         error("CDiscretization(Preprocessed&&): GPU construction requested but this is not a GPU build "
@@ -132,7 +132,7 @@ inline CDiscretizationT<T, I>::CDiscretizationT(exasim::PreprocessedT<T, I>&& pr
 
     // shared post-init tail (geometry, mass inverse / HDG setup). Solve mode; no vis-count / Paraview
     // overrides (the operator-export path does not write output files).
-    finalizeConstruction(backend, ExasimExecutionMode::Solve, 0, 0, 0, 0, 0, 0);
+    finalizeConstruction(backend, ExasimExecutionMode::Solve, 0, 0, 0, 0, 0, 0, 0);
 }
 
 // Convenience serial ctor: just the bundle + backend. A templated model dispatches on M, so

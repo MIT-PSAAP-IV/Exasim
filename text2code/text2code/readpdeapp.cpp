@@ -448,6 +448,8 @@ struct PDE {
     int nd = 1, nc = 1, ncu = 1, ncq = 0, ncp = 0, ncv = 0;
     int nch = 1, ncx = 1, ncw = 0, nce = 0, np=0, nve=0, ne=0;
     int nsca=0, nvec=0, nten=0, nsurf=0, nvqoi=0, nmaterialstate=0;
+    int nsurfsca=0; // number of components of surface scalar fields for visualization
+    int ibvis=0;    // boundary tag index for surface visualization (0: off)
     int neb = 512 * 8;
     int nfb = 512 * 16;
     int elemtype = 1;
@@ -885,6 +887,12 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     if (params.intParams.count("ibs")) {
         pde.ibs = params.intParams["ibs"];
     }
+    if (params.intParams.count("nsurfsca")) {
+        pde.nsurfsca = params.intParams["nsurfsca"];
+    }
+    if (params.intParams.count("ibvis")) {
+        pde.ibvis = params.intParams["ibvis"];
+    }
     if (params.intParams.count("compudgavg")) {
         pde.compudgavg = params.intParams["compudgavg"];
     }
@@ -1140,6 +1148,8 @@ void writepde(const PDE& pde, const std::string& filename)
     ndims[16] = pde.nten;
     ndims[17] = pde.nsurf;
     ndims[18] = pde.nvqoi;
+    ndims[19] = pde.nsurfsca;
+    ndims[20] = pde.ibvis;
 
     std::vector<double> nsize(30, 0.0);
     nsize[0] = ndims.size();

@@ -61,6 +61,8 @@ def initializepde(version):
     pde['nvqoi'] = 0;
     pde['nmaterialstate'] = 0;
     pde['nbqoi'] = 0;
+    pde['nsurfsca'] = 0;
+    pde['ibvis'] = 0;
     pde['neb'] = 512*8;
     pde['nfb'] = 512*32;
     pde['elemtype'] = 1;

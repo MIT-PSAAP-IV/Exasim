@@ -977,9 +977,42 @@ void QoIboundaryDriver(dstype* fb, const dstype* xg, const dstype* udg,
     Int numPoints = ngf * (f2 - f1);
     dstype time = common.timestate.time;
 
-    abi.qoi.KokkosQoIboundary(fb, xg, udg, odg, wdg, uhg, nl, app.tau, app.uinf,
-                          app.physicsparam, time, common.modelnumber, ib,
-                          numPoints, nc, ncu, nd, ncx, nco, ncw);
+    if (abi.qoi.KokkosQoIboundary) {
+        abi.qoi.KokkosQoIboundary(fb, xg, udg, odg, wdg, uhg, nl, app.tau, app.uinf,
+                              app.physicsparam, time, common.modelnumber, ib,
+                              numPoints, nc, ncu, nd, ncx, nco, ncw);
+    } else {
+        for (Int k = 0; k < common.qoiparams.nsurf * numPoints; ++k) fb[k] = 0.0;
+    }
+}
+
+void VisSurfScalarsDriver(dstype* fb, const dstype* xg, const dstype* udg,
+                       const dstype* odg, const dstype* wdg,
+                       const dstype* uhg, const dstype* nl,
+                       ExasimDriverABI& abi, meshstruct& mesh,
+                       masterstruct& master, appstruct& app, solstruct& sol,
+                       tempstruct& temp, commonstruct& common, Int ngf, Int f1,
+                       Int f2, Int ib, Int backend)
+{
+    // NOTE: the kernel slot named `nc` is the surface-scalar count
+    // (nsurfsca_runtime), NOT components.nc. SaveSurfaces sizes fb as
+    // nsurfsca*maxnn, so passing components.nc overflows fb when nc > nsurfsca.
+    Int nsurfsca = common.qoiparams.nsurfsca;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
+    Int nd = common.grid.nd;
+    Int numPoints = ngf * (f2 - f1);
+    dstype time = common.timestate.time;
+
+    if (abi.surfacevis.KokkosVisSurfScalars) {
+        abi.surfacevis.KokkosVisSurfScalars(fb, xg, udg, odg, wdg, uhg, nl, app.tau,
+                              app.uinf, app.physicsparam, time, common.modelnumber,
+                              ib, numPoints, nsurfsca, ncu, nd, ncx, nco, ncw);
+    } else {
+        for (Int k = 0; k < common.qoiparams.nsurfsca * numPoints; ++k) fb[k] = 0.0;
+    }
 }
 
 // Recover the runtime ABI from common.driver_abi for the no-driver (AbiAdapter) overloads
@@ -1189,6 +1222,11 @@ inline void QoIvolumeDriver(dstype* f, const dstype* xg, const dstype* udg, cons
 inline void QoIboundaryDriver(dstype* fb, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nl, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int ngf, Int f1, Int f2, Int ib, Int backend)
 {
     QoIboundaryDriver(fb, xg, udg, odg, wdg, uhg, nl, require_driver_abi(common), mesh, master, app, sol, temp, common, ngf, f1, f2, ib, backend);
+}
+
+inline void VisSurfScalarsDriver(dstype* fb, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nl, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int ngf, Int f1, Int f2, Int ib, Int backend)
+{
+    VisSurfScalarsDriver(fb, xg, udg, odg, wdg, uhg, nl, require_driver_abi(common), mesh, master, app, sol, temp, common, ngf, f1, f2, ib, backend);
 }
 
 #endif

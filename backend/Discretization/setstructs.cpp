@@ -121,6 +121,8 @@ void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, masterstr
     common.qoiparams.nten = app.ndims[AppNdims::nten];// number of components of tensor fields for visualization
     common.qoiparams.nsurf = app.ndims[AppNdims::nsurf];// number of components of surface fields for visualization, storage, and QoIs
     common.qoiparams.nvqoi = app.ndims[AppNdims::nvqoi];// number of volume quantities of interest (QoIs)    
+    common.qoiparams.nsurfsca = app.ndims[AppNdims::nsurfsca];// number of components of surface scalar fields for visualization
+    common.qoiparams.ibvis = app.ndims[AppNdims::ibvis];// boundary tag index for surface visualization (0: off)    
 
     common.components.ncm = 1;//number of components of monitor function    
     if (app.flag[1]==1)

@@ -809,14 +809,18 @@ int ExasimSolver::ParseInputs(int argc, char** argv,
     // Fill missing dimension sizes from the compiled ABI so they don't
     // need to be specified in pdeapp.txt.
     {
-        const auto& abi = resolveABI(pde.builtinmodelID);
+        // Effective model id: builtinmodelID for builtin models, modelnumber
+        // for external models (whose builtinmodelID stays 0). Querying sizes
+        // with 0 would miss the external provider's per-model table.
+        const int sizeID = (pde.builtinmodelID > 0) ? pde.builtinmodelID : pde.modelnumber;
+        const auto& abi = resolveABI(sizeID);
         // Use per-model query (BuiltInLibrary) or direct fields (KokkosKernel)
         ModelSizes ms;
         if (abi.GetModelSizes)
-            ms = abi.GetModelSizes(pde.builtinmodelID);
+            ms = abi.GetModelSizes(sizeID);
         else
             ms = {abi.ncu, abi.nco, abi.ncw, abi.nsca, abi.nvec, abi.nten,
-                  abi.nsurf, abi.nvqoi, abi.nmaterialstate};
+                  abi.nsurf, abi.nvqoi, abi.nmaterialstate, abi.nsurfsca};
         if (params.intParams.count("ncu") == 0 && ms.ncu > 0)
             pde.ncu = ms.ncu;
         if (params.intParams.count("ncv") == 0 && ms.nco > 0)
@@ -835,6 +839,19 @@ int ExasimSolver::ParseInputs(int argc, char** argv,
             pde.nvqoi = ms.nvqoi;
         if (params.intParams.count("nmaterialstate") == 0 && ms.nmaterialstate > 0)
             pde.nmaterialstate = ms.nmaterialstate;
+        // nsurfsca is owned by the model (VisSurfScalars output_size), not by
+        // pdeapp.txt: a model that reports a count always wins, so the kernel,
+        // the fh/srffields sizing, and the VTU writer provably agree. A pdeapp
+        // value only applies to legacy models that report none (with a warning
+        // on conflict, since silently running fewer/more fields than the model
+        // writes would corrupt memory or drop data).
+        if (ms.nsurfsca > 0) {
+            if (params.intParams.count("nsurfsca") != 0 && pde.nsurfsca != ms.nsurfsca &&
+                mpirank_ == 0)
+                std::cout << "Warning: pdeapp nsurfsca=" << pde.nsurfsca
+                          << " overridden by model nsurfsca=" << ms.nsurfsca << ".\n";
+            pde.nsurfsca = ms.nsurfsca;
+        }
     }
 
     nummodels_ = 1;
@@ -848,6 +865,7 @@ int ExasimSolver::ParseInputs(int argc, char** argv,
     // is written. CDiscretization applies these to disc.common before CVisualization (which
     // computes savemode) is constructed.
     nsca_ = pde.nsca; nvec_ = pde.nvec; nten_ = pde.nten; nsurf_ = pde.nsurf; nvqoi_ = pde.nvqoi;
+    nsurfsca_ = pde.nsurfsca;
     saveParaview_ = pde.saveParaview;
     if (!preserveModelDefinitions)
         builtinmodelID_.assign(1, pde.builtinmodelID);
@@ -1039,13 +1057,14 @@ int ExasimSolver::ParsePostprocessInputs(int argc, char** argv)
     nten_ = 0;
     nsurf_ = 0;
     nvqoi_ = 0;
+    nsurfsca_ = 0;
     saveParaview_ = 0;
     const bool preserveModelDefinitions =
         !builtinmodelID_.empty() || !model_abis_.empty();
 
     if (argc < 3) {
         if (mpirank_ == 0)
-            std::cerr << "Usage: ./postprocess nummodels InputFile(s) OutputFile(s) [restart] [postmode]\n";
+            std::cerr << "Usage: ./postprocess nummodels InputFile(s) OutputFile(s) [restart] [postmode] [nsca] [nvec] [nten] [nsurf] [nvqoi] [saveParaview] [nsurfsca]\n";
         return 1;
     }
 
@@ -1107,6 +1126,10 @@ int ExasimSolver::ParsePostprocessInputs(int argc, char** argv)
     }
     if (argc >= (2 * nummodels_ + 10)) {
         saveParaview_ = ParseIntegerArgument(argv[2 * nummodels_ + 9], "saveParaview", mpirank_, ok);
+        if (!ok) return 1;
+    }
+    if (argc >= (2 * nummodels_ + 11)) {
+        nsurfsca_ = ParseIntegerArgument(argv[2 * nummodels_ + 10], "nsurfsca", mpirank_, ok);
         if (!ok) return 1;
     }
 
@@ -1188,7 +1211,7 @@ int ExasimSolver::BuildModels()
             models_.push_back(std::make_unique<CSolution<>>(
                 filein_[i], fileout_[i], exasimpath_, mpiprocs_, mpirank_,
                 fileoffset, gpuid, backend_, builtinmodelID_[modelDefinition],
-                model_abis_[modelDefinition], nsca_, nvec_, nten_, nsurf_, nvqoi_, executionMode_,
+                model_abis_[modelDefinition], nsca_, nvec_, nten_, nsurf_, nvqoi_, nsurfsca_, executionMode_,
                 physicsparamOverride, saveParaview_));
         }
         else if (mpiprocs0_ > 0) {
@@ -1196,7 +1219,7 @@ int ExasimSolver::BuildModels()
                 models_.push_back(std::make_unique<CSolution<>>(
                     filein_[0], fileout_[0], exasimpath_, mpiprocs_, mpirank_,
                     fileoffset, gpuid, backend_, builtinmodelID_[modelDefinition],
-                    model_abis_[modelDefinition], nsca_, nvec_, nten_, nsurf_, nvqoi_, executionMode_,
+                    model_abis_[modelDefinition], nsca_, nvec_, nten_, nsurf_, nvqoi_, nsurfsca_, executionMode_,
                     physicsparamOverride, saveParaview_));
             }
             else {
@@ -1206,7 +1229,7 @@ int ExasimSolver::BuildModels()
                 models_.push_back(std::make_unique<CSolution<>>(
                     filein_[1], fileout_[1], exasimpath_, mpiprocs_, mpirank_,
                     fileoffset, gpuid, backend_, builtinmodelID_[modelDefinition],
-                    model_abis_[modelDefinition], nsca_, nvec_, nten_, nsurf_, nvqoi_, executionMode_,
+                    model_abis_[modelDefinition], nsca_, nvec_, nten_, nsurf_, nvqoi_, nsurfsca_, executionMode_,
                     physicsparamOverride, saveParaview_));
             }
         }

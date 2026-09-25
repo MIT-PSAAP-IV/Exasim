@@ -373,6 +373,7 @@ void writeBinaryFiles(PDE& pde, Mesh& mesh, const Master& master, const ParsedSp
         if (spec.functions[i].name == "VisScalars") pde.nsca = spec.functions[i].outputsize;
         if (spec.functions[i].name == "VisVectors") pde.nvec = spec.functions[i].outputsize/pde.nd;
         if (spec.functions[i].name == "VisTensors") pde.nten = spec.functions[i].outputsize/(pde.nd*pde.nd);
+        if (spec.functions[i].name == "VisSurfScalars") pde.nsurfsca = spec.functions[i].outputsize;
         if (spec.functions[i].name == "QoIboundary") pde.nsurf = spec.functions[i].outputsize;
         if (spec.functions[i].name == "QoIvolume") pde.nvqoi = spec.functions[i].outputsize;
         if (spec.functions[i].name == "Materialstate") pde.nmaterialstate = spec.functions[i].outputsize;

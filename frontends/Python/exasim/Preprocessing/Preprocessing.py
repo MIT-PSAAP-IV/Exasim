@@ -196,6 +196,11 @@ def preprocessing(app,mesh):
         app['nbqoi'] = f.size;
     else:
         app['nbqoi'] = 0;
+    if hasattr(pdemodel, 'vissurfscalars'):
+        f = pdemodel.vissurfscalars(udgsym, qdgsym, wdgsym, odgsym, xdgsym, time, paramsym, uinfsym, uhatsym, nsym, tausym);
+        app['nsurfsca'] = f.size;
+    else:
+        app['nsurfsca'] = 0;
 
     elem2cpu = None
     if app.get('uniformrefinementlevel', 0) > 0:

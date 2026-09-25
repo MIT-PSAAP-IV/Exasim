@@ -545,6 +545,169 @@ void CSolutionWriter<M>::SaveParaview(Int backend, std::string fname_modifier, b
        if (ownsTempn)
          TemplateFree(tempn, backend);
    }
+
+    if (vis.surfvis_enabled) this->SaveSurfaces(backend, fname_modifier, force_tdep_write);
+}
+
+template <class M>
+void CSolutionWriter<M>::SaveSurfaces(Int backend, const std::string& fname_modifier, bool force_tdep_write)
+{
+    if (!vis.surfvis_enabled) return;
+    const Int nsurfsca = vis.nsurfsca;
+    if (nsurfsca == 0) return;
+
+    const int localRank = disc.common.mpiRank - disc.common.outputparams.fileoffset;
+    int localProcs = (disc.common.mpiProcs > 1) ? count_model_mesh_partitions(disc.common.filein) : 1;
+    if (localProcs <= 0)
+        localProcs = disc.common.mpiProcs;
+
+    // Same step cadence as SaveParaview (reachable only from its tail, but keep
+    // the gate self-contained).
+    bool writeSolution = false;
+    if (disc.common.timeparams.tdep == 1) {
+        if (disc.common.timestate.currentstep == 0 && localRank == 0) {
+            string ext = (localProcs == 1) ? "vtu" : "pvtu";
+            vis.pvdwrite_series(disc.common.fileout + "surf", disc.common.dt,
+                                disc.common.timeparams.tsteps,
+                                disc.common.outputparams.saveSolFreq, ext);
+        }
+        writeSolution = ((disc.common.timestate.currentstep + 1) %
+                         disc.common.outputparams.saveSolFreq) == 0;
+        writeSolution = writeSolution || force_tdep_write;
+    } else {
+        writeSolution = true;
+    }
+    if (!writeSolution) return;
+
+    const Int nc  = disc.common.components.nc;
+    const Int ncu = disc.common.components.ncu;
+    const Int nco = disc.common.components.nco;
+    const Int ncw = disc.common.components.ncw;
+    const Int ncx = disc.common.components.ncx;
+    const Int nd  = disc.common.grid.nd;
+    const Int npe = disc.common.grid.npe;
+    const Int npf = disc.common.grid.npf;
+    const Int nf_blocks = disc.common.meshsizes.nbf;
+
+    // Largest tag-passing face block gives the scratch footprint.
+    Int maxnn = 0;
+    for (Int j = 0; j < nf_blocks; ++j) {
+        if (vis.surf_ibvis > 0 && disc.common.fblks[3*j+2] != vis.surf_ibvis) continue;
+        Int f1 = disc.common.fblks[3*j] - 1;
+        Int f2 = disc.common.fblks[3*j+1];
+        maxnn = std::max(maxnn, npf*(f2 - f1));
+    }
+    if (maxnn == 0 && localProcs==1) return;
+    if (maxnn == 0) maxnn = 1; // for parallel empty ranks, avoid zero allocation but will not be used
+
+    // Nodal eval scratch, staged like UhatBlock (points = face nodes).
+    Int need_g = maxnn*(ncx + nd + 1 + ncu + nc + nco + ncw);
+    Int need_n = maxnn*ncx;
+    dstype* tempg = disc.tmp.tempg;
+    dstype* tempn = disc.tmp.tempn;
+    bool ownsTempg = false;
+    bool ownsTempn = false;
+    if (disc.tmp.sztempg < need_g) { TemplateMalloc(&tempg, need_g, backend); ownsTempg = true; }
+    if (disc.tmp.sztempn < need_n) { TemplateMalloc(&tempn, need_n, backend); ownsTempn = true; }
+
+    // Surface field output buffer (f from the kernel) and host work arrays.
+    const bool hostMode = (backend < 2);
+    std::vector<dstype> fh((size_t)maxnn*nsurfsca, 0.0);
+    std::vector<dstype> nh((size_t)maxnn*nd, 0.0);
+    dstype* fdev = hostMode ? fh.data() : nullptr;
+    if (!hostMode) TemplateMalloc(&fdev, maxnn*nsurfsca, backend);
+
+    // DG surface: no averaging; every face node is a unique surface point,
+    // so the scatter below is 1:1 (surf node = face node in local order).
+    // vis.srffields is already sized surf_nnodes*nsurfsca.
+    for (int s=0; s<vis.surf_nnodes*nsurfsca; ++s) vis.srffields[s]=0;
+
+    for (Int j = 0; j < nf_blocks; ++j) {
+        Int ib = disc.common.fblks[3*j+2];
+        if (vis.surf_ibvis > 0 && ib != vis.surf_ibvis) continue;
+        Int f1 = disc.common.fblks[3*j] - 1;
+        Int f2 = disc.common.fblks[3*j+1];
+        Int nfblk = f2 - f1;
+        if (nfblk == 0) continue;
+        Int nn = npf*nfblk;
+
+        Int n0 = 0;
+        Int n1 = nn*ncx;                       // nlg
+        Int n2 = nn*(ncx + nd);                // jac
+        Int n3 = nn*(ncx + nd + 1);            // FaceGeom deriv scratch, later uhg
+        Int n4 = nn*(ncx + nd + 1 + ncu);      // udg
+        Int n5 = nn*(ncx + nd + 1 + ncu + nc); // odg
+        Int n6 = nn*(ncx + nd + 1 + ncu + nc + nco); // wdg
+
+        // Nodal face geometry (same staging as UhatBlock).
+        GetArrayAtIndex(tempn, disc.sol.xdg, &disc.mesh.findxdg1[npf*ncx*f1], nn*ncx);
+        Node2Gauss(disc.common.cublasHandle, &tempg[n0], tempn, disc.master.shapfnt, npf, npf, nfblk*ncx, backend);
+        if (nd == 1) {
+            FaceGeom1D(&tempg[n2], &tempg[n1], &tempg[n3], nn);
+        } else if (nd == 2) {
+            Node2Gauss(disc.common.cublasHandle, &tempg[n3], tempn, &disc.master.shapfnt[npf*npf], npf, npf, nfblk*nd, backend);
+            FaceGeom2D(&tempg[n2], &tempg[n1], &tempg[n3], nn);
+        } else {
+            Node2Gauss(disc.common.cublasHandle, &tempg[n3], tempn, &disc.master.shapfnt[npf*npf], npf, npf, nfblk*nd, backend);
+            Node2Gauss(disc.common.cublasHandle, &tempg[n3+nn*nd], tempn, &disc.master.shapfnt[2*npf*npf], npf, npf, nfblk*nd, backend);
+            FaceGeom3D(&tempg[n2], &tempg[n1], &tempg[n3], nn);
+        }
+
+        // Nodal fields (layouts identical to qoiFaceBlock's front half).
+        // NOTE: the trace uh is stored node-major per face for HDG
+        // (spatialScheme==1) and must be gathered with GetFaceNodesHDG, exactly
+        // as in SaveSolutionsOnBoundary; GetElemNodes misreads it as
+        // [face][comp][node] and scrambles components (garbage/NaN surface QoI).
+        if (disc.common.spatialScheme == 1)
+            GetFaceNodesHDG(&tempg[n3], disc.sol.uh, npf, ncu, 0, ncu, f1, f2);
+        else
+            GetElemNodes(&tempg[n3], disc.sol.uh, npf, ncu, 0, ncu, f1, f2);
+        GetArrayAtIndex(&tempg[n4], disc.sol.udg, &disc.mesh.findudg1[npf*nc*f1], nn*nc);
+        if (nco > 0)
+            GetFaceNodes(&tempg[n5], disc.sol.odg, disc.mesh.facecon, npf, nco, npe, nco, f1, f2, 1);
+        if (ncw > 0)
+            GetFaceNodes(&tempg[n6], disc.sol.wdg, disc.mesh.facecon, npf, ncw, npe, ncw, f1, f2, 1);
+
+        EXASIM_DRIVER_CALL(VisSurfScalarsDriver, fdev, &tempg[n0], &tempg[n4], &tempg[n5],
+                           &tempg[n6], &tempg[n3], &tempg[n1],
+                           disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common,
+                           npf, f1, f2, ib, backend);
+
+        // Pull f back host-side for DG scatter (normals not needed, pass nullptr later)
+        if (!hostMode) {
+            TemplateCopytoHost(fh.data(), fdev, nn*nsurfsca, backend);
+        }
+
+        for (Int ff = 0; ff < nfblk; ++ff) {
+            Int f = f1 + ff;
+            Int o = vis.surf_face2cell[f];
+            if (o < 0) continue;
+            for (Int ln = 0; ln < npf; ++ln) {
+                Int s    = o*npf + ln;
+                Int pt   = ln + npf*ff;
+                for (Int sca = 0; sca < nsurfsca; ++sca)
+                    vis.srffields[(size_t)sca*vis.surf_nnodes + s] = (float)fh[(size_t)sca*nn + pt];
+            }
+        }
+    }
+
+    if (!hostMode) { TemplateFree(fdev, backend); fdev = nullptr; }
+
+    string baseName = disc.common.fileout + "surf" + fname_modifier;
+    if (disc.common.timeparams.tdep == 1 || force_tdep_write) {
+        std::ostringstream ss;
+        ss << std::setw(6) << std::setfill('0')
+           << disc.common.timestate.currentstep + disc.common.outputparams.timestepOffset + 1;
+        baseName = baseName + "_" + ss.str();
+    }
+
+    if (localProcs == 1)
+        vis.surfwrite(baseName, vis.srffields, nullptr);
+    else
+        vis.surfwrite_parallel(baseName, localRank, localProcs, vis.srffields, nullptr);
+
+    if (ownsTempg) TemplateFree(tempg, backend);
+    if (ownsTempn) TemplateFree(tempn, backend);
 }
 
 template <class M>

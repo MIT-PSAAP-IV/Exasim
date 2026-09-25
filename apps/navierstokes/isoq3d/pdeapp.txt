@@ -10,13 +10,12 @@ platform = "cpu";
 mpiprocs = 16;
 debugmode = 0;
 runmode = 0;
-modelnumber = 0;
+modelnumber = 108;
 gendatain = 0;
 
 porder = 2;
 pgauss = 4;
 torder = 1;
-builtinmodelID = 0;
 nstage = 1;
 
 ncu = 5;
@@ -41,7 +40,9 @@ preconditioner = 1;
 saveSolFreq = 4;
 saveSolOpt = 1;
 saveSolBouFreq = 0;
-saveParaview = 0;
+saveParaview = 1;
+nsurfsca = 1;
+ibvis = 3;
 physicsparamwarmstart = 0;
 time = 0;
 tau = [10];

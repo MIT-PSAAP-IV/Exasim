@@ -719,7 +719,9 @@ struct AppNdims {
         nvec     = 15, // vector vis fields
         nten     = 16, // tensor vis fields
         nsurf    = 17, // surface vis/storage/QoI fields
-        nvqoi    = 18  // volume quantities of interest
+        nvqoi    = 18, // volume quantities of interest
+        nsurfsca = 19, // surface scalar vis fields
+        ibvis    = 20  // boundary tag index for surface visualization
     };
 };
 
@@ -2020,6 +2022,8 @@ struct qoiparamsstructT {
     Int nten;             // visualization tensor-field components
     Int nsurf;            // surface QoI / storage components
     Int nvqoi;            // volume QoI components
+    Int nsurfsca = 0;     // surface scalar visualization components
+    Int ibvis = 0;        // boundary tag index for surface visualization (0: off)
     Int saveParaview = 0; // enable Paraview output
     Int ibs;              // boundary index to save solution
     dstype* qoivolume=nullptr;  // volume-QoI accumulation buffer

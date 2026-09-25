@@ -133,6 +133,10 @@ void CodeGenerator::generateCode2Cpp(const std::string& filename) const {
     os << "            ssv.func2cppfiles(f, ssv.modelpath + fname, fname + std::to_string(1), i, false);\n";
     os << "            ssv.appendUbouFbou(ssv.modelpath + fname, fname, 1);\n";
     os << "        }\n";
+    os << "        else if (funcname == \"VisSurfScalars\") { \n";
+    os << "            ssv.func2cppfiles(f, ssv.modelpath + fname, fname + std::to_string(1), i, false);\n";
+    os << "            { std::string _wf = ssv.modelpath + fname + \".cpp\"; std::ofstream _out(_wf, std::ios::app); _out << \"void \" << fname << \"(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw) {\\n\"; _out << \"    \" << fname << \"1(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw, nc, ncu, nd);\\n\"; _out << \"}\\n\"; }\n";
+    os << "        }\n";
     os << "        else if (funcname == \"Fint\") { \n";
     os << "          int szf = f.size();\n";    
     os << "          int nbc = 1;\n";
@@ -230,6 +234,76 @@ void CodeGenerator::generateCode2Cpp(const std::string& filename) const {
     os << "      }\n";
     os << "    }\n";
     os << "  }\n\n";
+
+    // HOT.5: default no-op stubs for the canonical kernel file set.
+    // model.cpp / libpdemodel.cpp / the model providers #include a fixed list of
+    // kernel files (e.g. KokkosMaterialstate.cpp, KokkosVisSurfScalars.cpp)
+    // unconditionally, but the loop above emits a file only when its spec
+    // function is defined. Emit an empty body for any canonical kernel file
+    // that was not produced so the generated model always compiles. Such
+    // kernels are only invoked through feature counts (nsurfsca, nmaterialstate,
+    // ...) that are zero when the function is absent, so a no-op is correct.
+    os << "  auto stubIfAbsent = [&](const std::string& file, const std::string& sig) {\n";
+    os << "    std::ifstream test(ssv.modelpath + file);\n";
+    os << "    if (test.is_open()) { test.close(); return; }\n";
+    os << "    test.close();\n";
+    os << "    std::ofstream cppfile(ssv.modelpath + file, std::ios::out | std::ios::trunc);\n";
+    os << "    cppfile << sig << \" { }\\n\";\n";
+    os << "    cppfile.close();\n";
+    os << "  };\n";
+    os << "  // value kernels (quadrature layout)\n";
+    os << "  stubIfAbsent(\"KokkosFlux.cpp\", \"void KokkosFlux(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\" );\n";
+    os << "  stubIfAbsent(\"KokkosSource.cpp\", \"void KokkosSource(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\" );\n";
+    os << "  stubIfAbsent(\"KokkosTdfunc.cpp\", \"void KokkosTdfunc(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\" );\n";
+    os << "  // value kernels (npe-indexed layout, extra nce/npe/ne)\n";
+    os << "  stubIfAbsent(\"KokkosAvfield.cpp\", \"void KokkosAvfield(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw, const int nce, const int npe, const int ne)\" );\n";
+    os << "  stubIfAbsent(\"KokkosEoS.cpp\", \"void KokkosEoS(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw, const int nce, const int npe, const int ne)\" );\n";
+    os << "  stubIfAbsent(\"KokkosEoSdu.cpp\", \"void KokkosEoSdu(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw, const int nce, const int npe, const int ne)\" );\n";
+    os << "  stubIfAbsent(\"KokkosEoSdw.cpp\", \"void KokkosEoSdw(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw, const int nce, const int npe, const int ne)\" );\n";
+    os << "  stubIfAbsent(\"KokkosMonitor.cpp\", \"void KokkosMonitor(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw, const int nce, const int npe, const int ne)\" );\n";
+    os << "  stubIfAbsent(\"KokkosOutput.cpp\", \"void KokkosOutput(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw, const int nce, const int npe, const int ne)\" );\n";
+    os << "  stubIfAbsent(\"KokkosSourcew.cpp\", \"void KokkosSourcew(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw, const int nce, const int npe, const int ne)\" );\n";
+    os << "  // material state kernel\n";
+    os << "  stubIfAbsent(\"KokkosMaterialstate.cpp\", \"void KokkosMaterialstate(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw, const int nmaterialstate)\" );\n";
+    os << "  // initialization kernels\n";
+    os << "  stubIfAbsent(\"KokkosInitu.cpp\", \"void KokkosInitu(dstype* f, const dstype* xdg, const dstype* uinf, const dstype* param, const int modelnumber, const int ng, const int ncx, const int nce, const int npe, const int ne)\" );\n";
+    os << "  stubIfAbsent(\"KokkosInitq.cpp\", \"void KokkosInitq(dstype* f, const dstype* xdg, const dstype* uinf, const dstype* param, const int modelnumber, const int ng, const int ncx, const int nce, const int npe, const int ne)\" );\n";
+    os << "  stubIfAbsent(\"KokkosInitwdg.cpp\", \"void KokkosInitwdg(dstype* f, const dstype* xdg, const dstype* uinf, const dstype* param, const int modelnumber, const int ng, const int ncx, const int nce, const int npe, const int ne)\" );\n";
+    os << "  stubIfAbsent(\"KokkosInitudg.cpp\", \"void KokkosInitudg(dstype* f, const dstype* xdg, const dstype* uinf, const dstype* param, const int modelnumber, const int ng, const int ncx, const int nce, const int npe, const int ne)\" );\n";
+    os << "  stubIfAbsent(\"KokkosInitodg.cpp\", \"void KokkosInitodg(dstype* f, const dstype* xdg, const dstype* uinf, const dstype* param, const int modelnumber, const int ng, const int ncx, const int nce, const int npe, const int ne)\" );\n";
+    os << "  stubIfAbsent(\"cpuInitu.cpp\", \"void cpuInitu(dstype* f, const dstype* xdg, const dstype* uinf, const dstype* param, const int modelnumber, const int ng, const int ncx, const int nce, const int npe, const int ne)\" );\n";
+    os << "  stubIfAbsent(\"cpuInitq.cpp\", \"void cpuInitq(dstype* f, const dstype* xdg, const dstype* uinf, const dstype* param, const int modelnumber, const int ng, const int ncx, const int nce, const int npe, const int ne)\" );\n";
+    os << "  stubIfAbsent(\"cpuInitwdg.cpp\", \"void cpuInitwdg(dstype* f, const dstype* xdg, const dstype* uinf, const dstype* param, const int modelnumber, const int ng, const int ncx, const int nce, const int npe, const int ne)\" );\n";
+    os << "  stubIfAbsent(\"cpuInitudg.cpp\", \"void cpuInitudg(dstype* f, const dstype* xdg, const dstype* uinf, const dstype* param, const int modelnumber, const int ng, const int ncx, const int nce, const int npe, const int ne)\" );\n";
+    os << "  stubIfAbsent(\"cpuInitodg.cpp\", \"void cpuInitodg(dstype* f, const dstype* xdg, const dstype* uinf, const dstype* param, const int modelnumber, const int ng, const int ncx, const int nce, const int npe, const int ne)\" );\n";
+    os << "  // two-sided boundary kernels\n";
+    os << "  stubIfAbsent(\"KokkosFhat.cpp\", \"void KokkosFhat(dstype* f, const dstype* xdg, const dstype* udg1, const dstype* udg2,  const dstype* odg1, const dstype* odg2,  const dstype* wdg1, const dstype* wdg2,  const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\" );\n";
+    os << "  stubIfAbsent(\"KokkosUhat.cpp\", \"void KokkosUhat(dstype* f, const dstype* xdg, const dstype* udg1, const dstype* udg2,  const dstype* odg1, const dstype* odg2,  const dstype* wdg1, const dstype* wdg2,  const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\" );\n";
+    os << "  stubIfAbsent(\"KokkosStab.cpp\", \"void KokkosStab(dstype* f, const dstype* xdg, const dstype* udg1, const dstype* udg2,  const dstype* odg1, const dstype* odg2,  const dstype* wdg1, const dstype* wdg2,  const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\" );\n";
+    os << "  // one-sided boundary kernels\n";
+    os << "  stubIfAbsent(\"KokkosFbou.cpp\", \"void KokkosFbou(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\" );\n";
+    os << "  stubIfAbsent(\"KokkosUbou.cpp\", \"void KokkosUbou(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\" );\n";
+    os << "  // HDG jacobian kernels\n";
+    os << "  stubIfAbsent(\"HdgFlux.cpp\", \"void HdgFlux(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\" );\n";
+    os << "  stubIfAbsent(\"HdgFbou.cpp\", \"void HdgFbou(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\" );\n";
+    os << "  stubIfAbsent(\"HdgFint.cpp\", \"void HdgFint(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\" );\n";
+    os << "  stubIfAbsent(\"HdgFext.cpp\", \"void HdgFext(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* uext, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\" );\n";
+    os << "  stubIfAbsent(\"HdgSource.cpp\", \"void HdgSource(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\" );\n";
+    os << "  stubIfAbsent(\"HdgMaterialstate.cpp\", \"void HdgMaterialstate(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw, const int nmaterialstate)\" );\n";
+    os << "  stubIfAbsent(\"HdgSourcew.cpp\", \"void HdgSourcew(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\" );\n";
+    os << "  stubIfAbsent(\"HdgSourcewonly.cpp\", \"void HdgSourcewonly(dstype* f, dstype* f_wdg, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\" );\n";
+    os << "  stubIfAbsent(\"HdgEoS.cpp\", \"void HdgEoS(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\" );\n";
+    os << "  // HDG value-only kernels\n";
+    os << "  stubIfAbsent(\"HdgFbouonly.cpp\", \"void HdgFbouonly(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\" );\n";
+    os << "  stubIfAbsent(\"HdgFintonly.cpp\", \"void HdgFintonly(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\" );\n";
+    os << "  stubIfAbsent(\"HdgFextonly.cpp\", \"void HdgFextonly(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* uext, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\" );\n";
+    os << "  // volume and boundary visualization kernels\n";
+    os << "  stubIfAbsent(\"KokkosVisScalars.cpp\", \"void KokkosVisScalars(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\" );\n";
+    os << "  stubIfAbsent(\"KokkosVisVectors.cpp\", \"void KokkosVisVectors(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\" );\n";
+    os << "  stubIfAbsent(\"KokkosVisTensors.cpp\", \"void KokkosVisTensors(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\" );\n";
+    os << "  stubIfAbsent(\"KokkosQoIvolume.cpp\", \"void KokkosQoIvolume(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\" );\n";
+    os << "  stubIfAbsent(\"KokkosQoIboundary.cpp\", \"void KokkosQoIboundary(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\" );\n";
+    os << "  stubIfAbsent(\"KokkosVisSurfScalars.cpp\", \"void KokkosVisSurfScalars(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\" );\n";
 
     // HOT.4: emit a single header-only `my_model.hpp` for the templated path.
     // Coexists with the legacy per-kernel `.cpp` + `.so` emission above.
@@ -2274,12 +2348,14 @@ void emitGenerateModelHeader(std::ostream& os, const ParsedSpec& spec) {
     int nsca_   = func_size("VisScalars");
     int nvec_   = nd ? func_size("VisVectors") / nd : 0;
     int nten_   = (nd*nd) ? func_size("VisTensors") / (nd*nd) : 0;
+    int nsurfsca_ = func_size("VisSurfScalars");
     int nsurf_  = func_size("QoIboundary");
     int nvqoi_  = func_size("QoIvolume");
     int nmaterialstate_ = func_size("Materialstate");
     os << "    hfile << \"    static constexpr int nsca   = " << nsca_   << ";\\n\";\n";
     os << "    hfile << \"    static constexpr int nvec   = " << nvec_   << ";\\n\";\n";
     os << "    hfile << \"    static constexpr int nten   = " << nten_   << ";\\n\";\n";
+    os << "    hfile << \"    static constexpr int nsurfsca = " << nsurfsca_ << ";\\n\";\n";
     os << "    hfile << \"    static constexpr int nsurf  = " << nsurf_  << ";\\n\";\n";
     os << "    hfile << \"    static constexpr int nvqoi  = " << nvqoi_  << ";\\n\";\n";
     os << "    hfile << \"    static constexpr int nmaterialstate = " << nmaterialstate_ << ";\\n\";\n";
@@ -2369,6 +2445,7 @@ void emitGenerateModelHeader(std::ostream& os, const ParsedSpec& spec) {
     os << "        {\"Ubou\",        \"ubou\"},\n";
     os << "        {\"FbouHdg\",     \"fbou_hdg\"},\n";
     os << "        {\"QoIboundary\", \"qoi_boundary\"},\n";
+    os << "        {\"VisSurfScalars\", \"vis_surf_scalars\"},\n";
     os << "    };\n";
     os << "    const std::string boundary_sig =\n";
     os << "        \"dstype f[], int ib, const dstype x[], const dstype uq[], const dstype v[],\"\n";
@@ -2927,6 +3004,17 @@ void CodeGenerator::generateEmptyVisTensorsCpp(std::string modelpath) const {
     os.close();      
 }
 
+void CodeGenerator::generateEmptyVisSurfScalarsCpp(std::string modelpath) const {  
+    std::ofstream os(make_path(modelpath,  "KokkosVisSurfScalars.cpp"));
+    os << "void KokkosVisSurfScalars(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg,\n";
+    os << "             const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time,\n";
+    os << "             const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx,\n";
+    os << "             const int nco, const int ncw)\n";
+    os << "{\n";
+    os << "}\n";
+    os.close();      
+}
+
 void CodeGenerator::generateEmptyQoIvolumeCpp(std::string modelpath) const {  
     std::ofstream os(make_path(modelpath,  "KokkosQoIvolume.cpp"));
     os << "void KokkosQoIvolume(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg,\n";
@@ -3003,6 +3091,7 @@ void CodeGenerator::generateLibPDEModelHpp(std::string modelpath) const {
     os << "void KokkosVisTensors(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";
     os << "void KokkosQoIvolume(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";
     os << "void KokkosQoIboundary(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";
+    os << "void KokkosVisSurfScalars(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";
 
     os.close(); 
 }
@@ -3069,6 +3158,7 @@ void CodeGenerator::generateLibPDEModelCpp(std::string modelpath) const {
     os << "#include \"KokkosVisTensors.cpp\"\n";
     os << "#include \"KokkosQoIvolume.cpp\"\n";
     os << "#include \"KokkosQoIboundary.cpp\"\n";
+    os << "#include \"KokkosVisSurfScalars.cpp\"\n";
 
     os.close(); 
 }
@@ -3090,6 +3180,7 @@ void CodeGenerator::generateModelSizesHpp(const std::string& modelpath) const {
     int nsca   = func_size("VisScalars");
     int nvec   = nd ? func_size("VisVectors") / nd : 0;
     int nten   = (nd*nd) ? func_size("VisTensors") / (nd*nd) : 0;
+    int nsurfsca = func_size("VisSurfScalars");
     int nsurf  = func_size("QoIboundary");
     int nvqoi  = func_size("QoIvolume");
     int nmaterialstate = func_size("Materialstate");
@@ -3103,6 +3194,7 @@ void CodeGenerator::generateModelSizesHpp(const std::string& modelpath) const {
     os << "static constexpr int nsca  = " << nsca << ";\n";
     os << "static constexpr int nvec  = " << nvec << ";\n";
     os << "static constexpr int nten  = " << nten << ";\n";
+    os << "static constexpr int nsurfsca = " << nsurfsca << ";\n";
     os << "static constexpr int nsurf = " << nsurf << ";\n";
     os << "static constexpr int nvqoi = " << nvqoi << ";\n";
     os << "static constexpr int nmaterialstate = " << nmaterialstate << ";\n";

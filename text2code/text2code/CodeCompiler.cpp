@@ -102,10 +102,11 @@ void generateCppCode(ParsedSpec spec)
     if (spec.isoutput[17]==false) gen.generateEmptyVisScalarsCpp(spec.modelpath);
     if (spec.isoutput[18]==false) gen.generateEmptyVisVectorsCpp(spec.modelpath);
     if (spec.isoutput[19]==false) gen.generateEmptyVisTensorsCpp(spec.modelpath);
-    if (spec.isoutput[20]==false) gen.generateEmptyQoIvolumeCpp(spec.modelpath);
-    if (spec.isoutput[21]==false) gen.generateEmptyQoIboundaryCpp(spec.modelpath);
-    if (spec.isoutput[22]==false) gen.generateEmptyFextCpp(spec.modelpath);
-    if (spec.isoutput.size() <= 23 || spec.isoutput[23]==false) {
+    if (spec.isoutput[20]==false) gen.generateEmptyVisSurfScalarsCpp(spec.modelpath);
+    if (spec.isoutput[21]==false) gen.generateEmptyQoIvolumeCpp(spec.modelpath);
+    if (spec.isoutput[22]==false) gen.generateEmptyQoIboundaryCpp(spec.modelpath);
+    if (spec.isoutput[23]==false) gen.generateEmptyFextCpp(spec.modelpath);
+    if (spec.isoutput.size() <= 24 || spec.isoutput[24]==false) {
       gen.generateEmptyMaterialstateCpp(spec.modelpath);
       gen.generateEmptyHdgMaterialstateCpp(spec.modelpath);
     }

@@ -215,6 +215,7 @@ private:
     int nten_ = 0;
     int nsurf_ = 0;
     int nvqoi_ = 0;
+    int nsurfsca_ = 0;
     int saveParaview_ = 0;
     std::vector<int> builtinmodelID_;
     int interface_modelnumber_ = -1;
