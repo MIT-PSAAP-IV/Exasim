@@ -1,12 +1,13 @@
 import sympy
 from .varsassign import varsassign
 from .sympyassign2 import sympyassign2
+from .kokkosrange import parallel_for_open
 
 def hdggencodebou(filename, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time):
 
     cpufile = "Hdg" + filename
     tmp = "(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\n"
-    str_code = "\tKokkos::parallel_for(" + "\"" + filename + "\"" + ", ng, KOKKOS_LAMBDA(const size_t i) {\n"
+    str_code = parallel_for_open(filename)
     strkk = "void " + cpufile
     strkk += tmp + "{\n"
     strkk += str_code
