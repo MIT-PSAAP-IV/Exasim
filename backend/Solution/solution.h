@@ -226,7 +226,7 @@ public:
             helmholtz = std::make_unique<CSolution<exasim::detail::AbiAdapter>>(
                 filein, fileout, exasimpath, mpiprocs, mpirank, fileoffset,
                 omprank, backend, 0, GetHelmholtzModelABI(disc.common.grid.nd),
-                0, 0, 0, 0, 0, ExasimExecutionMode::AuxiliaryHelmholtz);
+                0, 0, 0, 0, 0, 0, ExasimExecutionMode::AuxiliaryHelmholtz);
             if (disc.common.physicsparams.AVsmoothingMethod == 1)
                 InitializeHelmholtzLengthScale(backend);
         }
@@ -234,7 +234,7 @@ public:
             elasticity = std::make_unique<CSolution<exasim::detail::AbiAdapter>>(
                 filein, fileout, exasimpath, mpiprocs, mpirank, fileoffset,
                 omprank, backend, 0, GetLinearElasticityModelABI(disc.common.grid.nd),
-                0, 0, 0, 0, 0, ExasimExecutionMode::AuxiliaryElasticity);
+                0, 0, 0, 0, 0, 0, ExasimExecutionMode::AuxiliaryElasticity);
         }
     };
 
