@@ -221,6 +221,13 @@ if isdefined(pdemodel, Symbol("qoiboundary"))
     end
     app.nbqoi = length(f[:]);    
 end
+if isdefined(pdemodel, Symbol("vissurfscalars")) 
+    f = pdemodel.vissurfscalars(udgsym, qdgsym, wdgsym, odgsym, xdgsym, time, paramsym, uinfsym, uhatsym, nsym, tausym);             
+    if length(f)==1
+        f = reshape([f],1,1);
+    end
+    app.nsurfsca = length(f[:]);    
+end
 
 print("run facenumbering...\n");
 mesh.f, mesh.tprd, t2t = facenumbering(mesh.p,mesh.t,app.elemtype,mesh.boundaryexpr,mesh.periodicexpr);
