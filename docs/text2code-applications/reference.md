@@ -18,7 +18,7 @@ This page collects the canonical references for Text2Code applications.
 Flux Source Tdfunc Ubou Fbou FbouHdg
 Sourcew Output Monitor Initu Initq Inituq Initw Initv
 Avfield Fint EoS VisScalars VisVectors VisTensors
-QoIvolume QoIboundary Fext
+QoIvolume QoIboundary Fext Materialstate SurfaceQuantities
 ```
 
 In default Exasim mode, `Flux`, `Source`, `Tdfunc`, `Ubou`, `Fbou`, and

@@ -240,7 +240,8 @@ condition `1001`; `stgchem` only changes LDG STG state construction.
 | `saveSolOpt` | int | `1` | No | Saved solution option; implementation distinguishes compact/full solution storage. |
 | `timestepOffset` | int | `0` | No | Offset used in time-dependent/restart output naming. |
 | `saveSolBouFreq` | int | `0` | No | Boundary solution save frequency. |
-| `ibs` | int | `0` | No | Boundary ID for boundary-solution output. |
+| `ibs` | int or list | `0` | No | Boundary ID(s) for boundary-solution output and `Boundary_QoI`, e.g. `ibs = 3;` or `ibs = [1, 3];`. |
+| `saveSolBouLoc` | int | `0` | No | Where `SurfaceQuantities` are evaluated: `0` face nodes, `1` face Gauss points. |
 | `saveResNorm` | int | `0` | No | Save residual norm history. |
 | `compudgavg` | int | `0` | No | Compute averaged solution field where supported. |
 
