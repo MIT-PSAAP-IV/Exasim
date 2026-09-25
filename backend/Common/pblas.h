@@ -44,6 +44,10 @@
 #ifndef __PBLAS_H__
 #define __PBLAS_H__
 
+#ifdef HAVE_HIP
+#include "mfma_gemm.hpp"   // hand-MFMA fp64 GEMM for the LDG interp/integrate shapes (see file header)
+#endif
+
 // ------------------------------------------------------------------------------------------------
 // blas<T>: precision-dispatched CPU BLAS/LAPACK (Phase 3 of dstype->template threading, see
 // docs/internals/precision-threading.md). Replaces the per-function `#ifdef USE_FLOAT S.. #else D..`
@@ -128,11 +132,14 @@ static void Node2Gauss(cublasHandle_t handle, T *ug, T *un, T *shapt, Int ng, In
         hipblasSgemm(handle, HIPBLAS_OP_N, HIPBLAS_OP_N, ng, nn, np, 
             &one, shapt, ng, un, np, &zero, ug, ng);    
 #else
-    if (backend == 3) 
-        hipblasDgemm(handle, HIPBLAS_OP_N, HIPBLAS_OP_N, ng, nn, np, 
+    if (backend == 3 && exasim_mfma::enabled<T>())
+        // ug[ng x nn] = shapt[ng x np] * un[np x nn]  (M=ng, K=np, N=nn); hand-MFMA fp64, bit-exact
+        exasim_mfma::gemm_nn((double*)ug, (const double*)shapt, (const double*)un, ng, np, nn, ng);
+    else if (backend == 3)
+        hipblasDgemm(handle, HIPBLAS_OP_N, HIPBLAS_OP_N, ng, nn, np,
             &one, shapt, ng, un, np, &zero, ug, ng);
-#endif        
-#endif        
+#endif
+#endif
 }
 
 template <class T = dstype>
@@ -159,10 +166,13 @@ static void Gauss2Node(cublasHandle_t handle, T *un, T *ug, T *shapg, Int ng, In
         hipblasSgemm(handle, HIPBLAS_OP_N, HIPBLAS_OP_N, np, nn, ng, 
             &one, shapg, np, ug, ng, &zero, un, np);
 #else
-    if (backend == 3)
-        hipblasDgemm(handle, HIPBLAS_OP_N, HIPBLAS_OP_N, np, nn, ng, 
+    if (backend == 3 && exasim_mfma::enabled<T>())
+        // un[np x nn] = shapg[np x ng] * ug[ng x nn]  (M=np, K=ng, N=nn); hand-MFMA fp64, bit-exact
+        exasim_mfma::gemm_nn((double*)un, (const double*)shapg, (const double*)ug, np, ng, nn, np);
+    else if (backend == 3)
+        hipblasDgemm(handle, HIPBLAS_OP_N, HIPBLAS_OP_N, np, nn, ng,
             &one, shapg, np, ug, ng, &zero, un, np);
-#endif        
+#endif
 #endif
 }
 
