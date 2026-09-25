@@ -1,3 +1,9 @@
+#include <cstdlib>
+#include <tuple>
+#include <algorithm>
+#include <array>
+#include <vector>
+#include <map>
 /*
  * kokkosimpl.h
  * 
@@ -685,6 +691,7 @@ void ArrayGemmBatch(Ty* C, const Ty* A, const Ty* B, const int I, const int J, c
         C[idx] = sum;    
     });
 }
+
 
 template <class Ty = dstype>
 void ArrayGemmBatch1(Ty* C, const Ty* A, const Ty* B, const int I, const int J, const int K, const int S)
@@ -2095,9 +2102,101 @@ void PutBoundaryNodes(Ty* udg, const Ty* uh, const int* boufaces, const int ngf,
     });
 }
 
+// ---------------------------------------------------------------------------------------------------------
+// Deterministic gather replacement for the atomic face->element scatter in PutFaceNodes.
+// The inverse map (element node -> contributing face nodes, with sign) is built once per (facecon, face range)
+// on the host and cached on the device. Contributions to each element node are summed by a single thread in
+// ascending face-node order, so results no longer depend on atomic scheduling (the scatter version drifts ~1e-7
+// run to run). Values match the scatter up to floating-point reassociation. EXASIM_PUTFACE_GATHER=0 -> scatter.
+struct PutFaceGatherMap {
+    int nrows = 0;
+    int* rowptr = nullptr;   // nrows+1
+    int* target = nullptr;   // element-node index k = m + npe*e
+    int* contrib = nullptr;  // (face-node index << 1) | (sign > 0)
+};
+
+inline const PutFaceGatherMap& PutFaceGatherMapGet(const int* facecon, const int npf, const int npe, const int f1, const int f2)
+{
+    using MemSpace = Kokkos::DefaultExecutionSpace::memory_space;
+    struct Key { const int* fc; int npf, npe, f1, f2;
+        bool operator<(const Key& o) const { return std::tie(fc,npf,npe,f1,f2) < std::tie(o.fc,o.npf,o.npe,o.f1,o.f2); } };
+    static std::map<Key, PutFaceGatherMap> cache;
+    static bool hooked = false;
+    Key key{facecon, npf, npe, f1, f2};
+    auto it = cache.find(key);
+    if (it != cache.end()) return it->second;
+    if (!hooked) {
+        Kokkos::push_finalize_hook([]() {
+            for (auto& kv : cache) {
+                Kokkos::kokkos_free<MemSpace>(kv.second.rowptr);
+                Kokkos::kokkos_free<MemSpace>(kv.second.target);
+                Kokkos::kokkos_free<MemSpace>(kv.second.contrib);
+            }
+            cache.clear();
+        });
+        hooked = true;
+    }
+    const int ndf = npf*(f2-f1);
+    Kokkos::View<const int*, MemSpace, Kokkos::MemoryUnmanaged> dfc(facecon + 2*npf*f1, 2*ndf);
+    Kokkos::View<int*, Kokkos::HostSpace> hfc("putface_facecon", 2*ndf);
+    Kokkos::deep_copy(hfc, dfc);
+    // (target, face-node index, sign); sorting gives each row a fixed, ascending contribution order
+    std::vector<std::array<int,3>> e; e.reserve(2*ndf);
+    for (int i=0; i<ndf; i++) {
+        const int k1 = hfc(2*i), k2 = hfc(2*i+1);
+        e.push_back({k1, i, 0});
+        if (k1 != k2) e.push_back({k2, i, 1});
+    }
+    std::sort(e.begin(), e.end());
+    std::vector<int> rowptr{0}, target, contrib;
+    for (size_t n=0; n<e.size(); n++) {
+        if (n==0 || e[n][0] != e[n-1][0]) { if (n) rowptr.push_back((int)n); target.push_back(e[n][0]); }
+        contrib.push_back((e[n][1] << 1) | e[n][2]);
+    }
+    rowptr.push_back((int)e.size());
+    PutFaceGatherMap g;
+    g.nrows = (int)target.size();
+    auto upload = [](const std::vector<int>& v) {
+        int* d = (int*) Kokkos::kokkos_malloc<MemSpace>("putface_gather", v.size()*sizeof(int));
+        Kokkos::View<int*, MemSpace, Kokkos::MemoryUnmanaged> dv(d, v.size());
+        Kokkos::View<const int*, Kokkos::HostSpace, Kokkos::MemoryUnmanaged> hv(v.data(), v.size());
+        Kokkos::deep_copy(dv, hv);
+        return d;
+    };
+    g.rowptr = upload(rowptr); g.target = upload(target); g.contrib = upload(contrib);
+    return cache.emplace(key, g).first->second;
+}
+
+template <class Ty>
+void PutFaceNodesGather(Ty* udg, const Ty* uh, const int* facecon, const int npf, const int ncu, const int npe, const int nc, const int f1, const int f2)
+{
+    using dstype = Ty;
+    const PutFaceGatherMap& g = PutFaceGatherMapGet(facecon, npf, npe, f1, f2);
+    const int M = npe*nc;
+    const int nrows = g.nrows;
+    const int* rowptr = g.rowptr; const int* target = g.target; const int* contrib = g.contrib;
+    Kokkos::parallel_for("PutFaceNodesGather", (size_t)nrows*ncu, KOKKOS_LAMBDA(const size_t idx) {
+        const int r = idx%nrows;
+        const int j = idx/nrows;
+        const int k = target[r];
+        const int m = k%npe, n = k/npe;
+        const size_t a = m + (size_t)j*npe + (size_t)n*M;
+        dstype sum = udg[a];
+        for (int c=rowptr[r]; c<rowptr[r+1]; c++) {
+            const int i = contrib[c] >> 1;
+            const int p = i%npf, f = i/npf;
+            const dstype v = uh[p + npf*(j + ncu*f)];
+            if (contrib[c] & 1) sum += v; else sum -= v;
+        }
+        udg[a] = sum;
+    });
+}
+
 template <class Ty = dstype>
 void PutFaceNodes(Ty* udg, const Ty* uh, const int* facecon, const int npf, const int ncu, const int npe, const int nc, const int f1, const int f2)
 {
+    static const bool gather = [](){ const char* e = std::getenv("EXASIM_PUTFACE_GATHER"); return !(e && e[0] == '0'); }();
+    if (gather) { PutFaceNodesGather(udg, uh, facecon, npf, ncu, npe, nc, f1, f2); return; }
     using dstype = Ty;
     int nf = f2-f1;
     int ndf = npf*nf;
