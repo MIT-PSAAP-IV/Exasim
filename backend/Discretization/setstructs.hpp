@@ -1,3 +1,6 @@
+#ifdef HAVE_HIP
+#include "../Common/exasim_stream.hpp"
+#endif
 /*
     setstructs.cpp
 
@@ -1364,6 +1367,7 @@ inline void gpuInit(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> 
 
     // create cublas handle
     CHECK_HIPBLAS(hipblasCreate(&common.cublasHandle));
+    CHECK_HIPBLAS(hipblasSetStream(common.cublasHandle, exasim_stream::compute()));  // one stream: see exasim_stream.hpp
     CHECK_HIPBLAS(hipblasSetPointerMode(common.cublasHandle, HIPBLAS_POINTER_MODE_HOST));                     //     CHECK_CUBLAS(cublasSetPointerMode(common.cublasHandle, CUBLAS_POINTER_MODE_DEVICE));
 #endif
 

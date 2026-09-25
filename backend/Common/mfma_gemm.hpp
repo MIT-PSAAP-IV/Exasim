@@ -29,6 +29,7 @@
 #include <cstdlib>
 #include <map>
 #include <utility>
+#include "exasim_stream.hpp"
 
 namespace exasim_mfma {
 
@@ -106,7 +107,7 @@ inline const double* padded_operator(const double* A, int M, int K, int* MPout) 
 inline void gemm_nn(double* C, const double* A, const double* B, int M, int K, int N, int ldc) {
     int MP; const double* Apad = padded_operator(A, M, K, &MP);
     dim3 grid((M + TM - 1) / TM, (N + TN - 1) / TN);
-    hipLaunchKernelGGL(mfma_gemm_nn_f64, grid, dim3(64), 0, 0, C, Apad, B, M, K, N, MP, ldc);
+    hipLaunchKernelGGL(mfma_gemm_nn_f64, grid, dim3(64), 0, exasim_stream::compute(), C, Apad, B, M, K, N, MP, ldc);
 }
 
 } // namespace exasim_mfma
