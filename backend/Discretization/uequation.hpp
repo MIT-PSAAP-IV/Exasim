@@ -421,9 +421,14 @@ inline void uEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, a
             // The generated boundary kernel dereferences these; a NULL among them
             // faults deep inside generated code whose frame names nothing useful.
             // Under EXASIM_BOUNDS_CHECK, say which one it is.
-            EXASIM_CHECK_PTR(app.tau,          "app.tau (FbouDriver)");
-            EXASIM_CHECK_PTR(app.uinf,         "app.uinf (FbouDriver)");
-            EXASIM_CHECK_PTR(app.physicsparam, "app.physicsparam (FbouDriver)");
+            // app.uinf/physicsparam/tau are nullptr BY CONSTRUCTION when the model
+            // declares no entries (mallocDoubleArray returns nullptr for empty
+            // vectors, e.g. Poisson has no externalparam). A null is only a bug
+            // when the array is non-empty, so gate each check on its nsize entry
+            // (nsize[3]=uinf, [6]=physicsparam, [8]=tau).
+            if (app.nsize[8] > 0) EXASIM_CHECK_PTR(app.tau,          "app.tau (FbouDriver)");
+            if (app.nsize[3] > 0) EXASIM_CHECK_PTR(app.uinf,         "app.uinf (FbouDriver)");
+            if (app.nsize[6] > 0) EXASIM_CHECK_PTR(app.physicsparam, "app.physicsparam (FbouDriver)");
             EXASIM_CHECK_PTR(xgb,              "xgb (FbouDriver)");
             EXASIM_CHECK_PTR(ugb,              "ugb (FbouDriver)");
             EXASIM_CHECK_PTR(uhb,              "uhb (FbouDriver)");

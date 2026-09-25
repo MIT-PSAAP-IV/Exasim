@@ -120,6 +120,13 @@ if(EXASIM_ASAN)
   set(CMAKE_CXX_FLAGS           "${CMAKE_CXX_FLAGS} ${EXASIM_ASAN_FLAGS}")
   set(CMAKE_EXE_LINKER_FLAGS    "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
   set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fsanitize=address")
+  # Out-of-tree consumers link our STATIC libraries via find_package(Exasim);
+  # without the sanitizer on their own compile+link lines they fail with
+  # undefined __asan_* symbols. Propagate on the INTERFACE headers target
+  # (same pattern as EXASIM_BOUNDS_CHECK below) so every downstream binary is
+  # instrumented as a whole, which ASan requires to be useful.
+  target_compile_options(ExasimHeaders INTERFACE -fsanitize=address -fno-omit-frame-pointer -g)
+  target_link_options(ExasimHeaders INTERFACE -fsanitize=address)
   message(STATUS "EXASIM_ASAN=ON (inner build): AddressSanitizer enabled")
 endif()
 
