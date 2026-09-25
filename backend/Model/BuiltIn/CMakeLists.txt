@@ -257,6 +257,10 @@ function(exasim_finalize_builtin_models)
   target_include_directories(${_bm_name} PRIVATE
     "${EXASIM_BUILTIN_INCDIR}" "${EXASIM_BUILTIN_DIR}" "${EXASIM_DIR}/include")
   target_link_libraries(${_bm_name} PRIVATE Kokkos::kokkos)
+  if(EXASIM_CUDA)
+    # Generated kernels call acos(-1), exp(1), ...: see ExasimHeaders in install/CMakeLists.txt.
+    target_compile_options(${_bm_name} PRIVATE --expt-relaxed-constexpr)
+  endif()
   set_target_properties(${_bm_name} PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY "${EXASIM_LIB_DIR}"
     POSITION_INDEPENDENT_CODE ON)
