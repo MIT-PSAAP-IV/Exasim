@@ -682,11 +682,7 @@ const ModelSizes kFrontendModelSizes = {
     exasim_model_sizes::nvec, exasim_model_sizes::nten,
     exasim_model_sizes::nsurf, exasim_model_sizes::nvqoi,
     exasim_model_sizes::nmaterialstate,
-#ifdef EXASIM_MODEL_SIZES_HAS_NSURFSCA
     exasim_model_sizes::nsurfsca
-#else
-    0  // older model_sizes.hpp without nsurfsca (e.g. Julia/MATLAB): fall back to pdeapp.txt
-#endif
 };
 #endif
 

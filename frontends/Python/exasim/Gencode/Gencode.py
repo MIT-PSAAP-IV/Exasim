@@ -392,10 +392,6 @@ def _write_model_sizes(app, foldername):
         f.write(f"""#ifndef EXASIM_MODEL_SIZES_HPP
 #define EXASIM_MODEL_SIZES_HPP
 
-// Present when this file carries nsurfsca (surface-vis size); consumers
-// gate on it to stay compatible with older model_sizes.hpp files.
-#define EXASIM_MODEL_SIZES_HAS_NSURFSCA 1
-
 namespace exasim_model_sizes {{
     static constexpr int ncu   = {ncu};
     static constexpr int nco   = {nco};
