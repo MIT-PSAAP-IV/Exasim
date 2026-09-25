@@ -228,9 +228,12 @@ dstype cublasOne[1] = {one};
 dstype cublasMinusone[1] = {minusone};
 dstype cublasZero[1] = {zero};
 
-#ifdef HAVE_CUDA       
-   #define CUDA_SYNC cudaDeviceSynchronize();  
-#else 
+#ifdef HAVE_CUDA
+   #define CUDA_SYNC cudaDeviceSynchronize();
+#elif defined(HAVE_HIP)
+   // Without this the -DTIMING phase timers are unsynchronized on HIP and bill async kernels to the next phase.
+   #define CUDA_SYNC hipDeviceSynchronize();
+#else
    #define CUDA_SYNC
 #endif                      
 
@@ -1161,7 +1164,7 @@ struct meshstructT {
     Int *boufaces=nullptr;   // boundary faces
     Int *intfaces=nullptr;   // interface faces
     Int *eblks=nullptr;    // element blocks
-    Int *fblks=nullptr;    // face blocks    
+    Int *fblks=nullptr;    // face blocks
     Int *nbsd=nullptr;
     Int *elemsend=nullptr;
     Int *elemrecv=nullptr;
@@ -1310,7 +1313,7 @@ struct meshstructT {
         TemplateFree(boufaces, backend);   // boundary faces
         TemplateFree(intfaces, backend);   // interface faces
         TemplateFree(eblks, backend);    // element blocks
-        TemplateFree(fblks, backend);    // face blocks    
+        TemplateFree(fblks, backend);    // face blocks
         TemplateFree(nbsd, backend);
         TemplateFree(elemsend, backend);
         TemplateFree(elemrecv, backend);
@@ -2315,7 +2318,7 @@ struct commonstructT {
     
             
     Int* eblks=nullptr; // element blocks
-    Int* fblks=nullptr; // face blocks   
+    Int* fblks=nullptr; // face blocks
     Int* ncarray=nullptr;
     Int* nboufaces=nullptr;
     Int* nextfaces=nullptr;

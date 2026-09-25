@@ -1,3 +1,6 @@
+#ifdef HAVE_HIP
+#include "../Common/exasim_stream.hpp"
+#endif
 /*
     setstructs.cpp
 
@@ -304,8 +307,8 @@ void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, masterstr
     //common.fblks = &mesh.fblks[0]; // face blocks        
     //common.dt = &app.dt[0]; // face blocks     
     common.eblks = copyarray(mesh.eblks,mesh.nsize[2]); // element blocks
-    common.fblks = copyarray(mesh.fblks,mesh.nsize[3]); // face blocks            
-    common.dt = copyarray(app.dt,app.nsize[4]); // timestep sizes       
+    common.fblks = copyarray(mesh.fblks,mesh.nsize[3]); // face blocks
+    common.dt = copyarray(app.dt,app.nsize[4]); // timestep sizes
     common.couplingparams.nvindx = app.nsize[12];
     common.vindx = copyarray(app.vindx,app.nsize[12]); 
     common.dae_dt = copyarray(app.dae_dt,app.nsize[13]); // dual timestep sizes           
@@ -1485,6 +1488,7 @@ void gpuInit(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, E
     
     // create cublas handle
     CHECK_HIPBLAS(hipblasCreate(&common.cublasHandle));
+    CHECK_HIPBLAS(hipblasSetStream(common.cublasHandle, exasim_stream::compute()));  // one stream: see exasim_stream.hpp
     CHECK_HIPBLAS(hipblasSetPointerMode(common.cublasHandle, HIPBLAS_POINTER_MODE_HOST));                     //     CHECK_CUBLAS(cublasSetPointerMode(common.cublasHandle, CUBLAS_POINTER_MODE_DEVICE));    
 #endif        
     

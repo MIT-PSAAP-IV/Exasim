@@ -26,6 +26,8 @@ Int CNonlinearSolver<M>::PTCsolver(ofstream &out, Int backend)
     nrmr = PNORM(disc.common.cublasHandle, N, solv.sys.r, backend);
     if (disc.common.mpiRank==0)
         cout<<"Newton Iteration: "<<it<<",  Residual Norm: "<<nrmr<<endl;                           
+    if (disc.common.mpiRank==0 && std::getenv("EXASIM_PRINT_FULL"))  // full-precision residual (determinism checks)
+        printf("FULL initial residual norm: %.17e\n", (double)nrmr);
     
     // use PTC to solve the system: R(u) = 0
     for (it=0; it<maxit; it++) {                        
@@ -200,7 +202,10 @@ Int CNonlinearSolver<M>::NewtonSolver(ofstream &out, Int N, Int spatialScheme, I
       //   printFirstNonFiniteFlat("res.Ru", disc.res.Ru, disc.common.grid.npe*disc.common.components.ncu*disc.common.meshsizes.ne1, disc.common.mpiRank);
       // }
       if (disc.common.mpiRank==0)
-        cout<<"Newton Iteration: "<<0<<",  Residual Norm: "<<nrmr<<endl;      
+        cout<<"Newton Iteration: "<<0<<",  Residual Norm: "<<nrmr<<endl;
+        if (disc.common.mpiRank==0 && std::getenv("EXASIM_PRINT_FULL"))  // full-precision residual (determinism checks)
+        printf("FULL initial residual norm: %.17e\n", (double)nrmr);
+      
 
       if (IS_NAN(nrmr)) {                        
         string filename = disc.common.fileout + "_np" + NumberToString(disc.common.mpiRank) + ".bin";                    
