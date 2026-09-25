@@ -1147,7 +1147,14 @@ struct masterstructT {
 };
 using masterstruct = masterstructT<::dstype, ::Int>;
   
+// Caches keyed by a connectivity array's address (e.g. the deterministic PutFaceNodes gather map) register an
+// eviction callback here; meshstruct::freememory calls them before freeing that array, so a later allocation at
+// the same address can never pick up a stale entry.
+inline std::vector<void (*)(const void*)>& MeshArrayFreeHooks() { static std::vector<void (*)(const void*)> h; return h; }
+inline void MeshArrayWillFree(const void* p) { if (p) for (auto f : MeshArrayFreeHooks()) f(p); }
+
 template <class T = ::dstype, class I = ::Int>
+
 struct meshstructT {
     using dstype = T; using Int = I;
     Int *lsize=nullptr;
@@ -1303,6 +1310,7 @@ struct meshstructT {
         TemplateFree(lsize, backend);
         TemplateFree(nsize, backend);
         TemplateFree(ndims, backend);    
+        MeshArrayWillFree(facecon);
         TemplateFree(facecon, backend);    // face-to-element connectivities 
         TemplateFree(e2f, backend); 
         TemplateFree(f2e, backend);    // face-to-element connectivities 
