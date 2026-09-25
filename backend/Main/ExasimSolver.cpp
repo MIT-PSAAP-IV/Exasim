@@ -816,7 +816,7 @@ int ExasimSolver::ParseInputs(int argc, char** argv,
             ms = abi.GetModelSizes(pde.builtinmodelID);
         else
             ms = {abi.ncu, abi.nco, abi.ncw, abi.nsca, abi.nvec, abi.nten,
-                  abi.nsurf, abi.nvqoi, abi.nmaterialstate};
+                  abi.nsurf, abi.nvqoi, abi.nmaterialstate, abi.nsurfq};
         if (params.intParams.count("ncu") == 0 && ms.ncu > 0)
             pde.ncu = ms.ncu;
         if (params.intParams.count("ncv") == 0 && ms.nco > 0)
@@ -835,6 +835,8 @@ int ExasimSolver::ParseInputs(int argc, char** argv,
             pde.nvqoi = ms.nvqoi;
         if (params.intParams.count("nmaterialstate") == 0 && ms.nmaterialstate > 0)
             pde.nmaterialstate = ms.nmaterialstate;
+        if (params.intParams.count("nsurfq") == 0 && ms.nsurfq > 0)
+            pde.nsurfq = ms.nsurfq;
     }
 
     nummodels_ = 1;

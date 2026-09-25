@@ -57,6 +57,7 @@ public:
     void generateEmptyVisTensorsCpp(std::string modelpath) const;
     void generateEmptyQoIvolumeCpp(std::string modelpath) const;
     void generateEmptyQoIboundaryCpp(std::string modelpath) const;
+    void generateEmptySurfaceQuantitiesCpp(std::string modelpath) const;
     void generateLibPDEModelHpp(std::string modelpath) const;
     void generateLibPDEModelCpp(std::string modelpath) const;
     void generateModelSizesHpp(const std::string& modelpath) const;

@@ -30,7 +30,7 @@ struct ParsedSpec {
         "Sourcew", "Output", "Monitor", "Initu", "Initq", "Inituq",
         "Initw", "Initv", "Avfield", "Fint", "EoS", "VisScalars", 
         "VisVectors", "VisTensors", "QoIvolume", "QoIboundary","Fext",
-        "Materialstate"};
+        "Materialstate", "SurfaceQuantities"};  // append only: CodeCompiler indexes isoutput by position
     std::vector<bool> isoutput;     
     std::string datatype = "dstype";
     std::string framework = "kokkos";

@@ -31,6 +31,12 @@ extern ModelSizes builtinGetModelSizes(int modelnumber);
 #include "model_sizes.hpp"
 #define EXASIM_HAS_FRONTEND_MODEL_SIZES 1
 #endif
+// model_sizes.hpp written by frontends that know surfacequantities also defines nsurfq.
+#ifdef EXASIM_MODEL_SIZES_HAS_NSURFQ
+#define EXASIM_FRONTEND_NSURFQ exasim_model_sizes::nsurfq
+#else
+#define EXASIM_FRONTEND_NSURFQ 0
+#endif
 
 // For PDEMODEL-generated models a per-model TU exposes each model's constexpr
 // PdeModel sizes via a C-linkage function (see _model_sizes_<ID>.cpp).  Hand-
@@ -48,6 +54,19 @@ EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DECL_SIZE)
 #else
 #define EXASIM_EXT_MATCH(ID, MODELNUMBER) ((MODELNUMBER) == (ID))
 #endif
+
+// Models whose model.{hpp,cpp} predate surfacequantities (e.g. hand-written SOURCES) declare
+// no KokkosSurfaceQuantities. Qualified lookup of exasim_model_<ID>::KokkosSurfaceQuantities
+// only consults this using-directive when the model namespace declares none of its own.
+namespace exasim_surface_quantities_fallback {
+inline void KokkosSurfaceQuantities(dstype*, const dstype*, const dstype*, const dstype*,
+    const dstype*, const dstype*, const dstype*, const dstype*, const dstype*, const dstype*,
+    const dstype, const int, const int, const int, const int, const int, const int, const int,
+    const int, const int) {}
+}
+#define EXASIM_EXT_SQ_FALLBACK(ID) namespace exasim_model_##ID { using namespace ::exasim_surface_quantities_fallback; }
+EXASIM_EXT_MODEL_IDS(EXASIM_EXT_SQ_FALLBACK)
+#undef EXASIM_EXT_SQ_FALLBACK
 
 namespace {
 
@@ -428,6 +447,20 @@ void extKokkosQoIboundary(
             modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
 }
 
+void extKokkosSurfaceQuantities(
+    dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg,
+    const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* tau,
+    const dstype* uinf, const dstype* param, const dstype time,
+    const int modelnumber, const int ib, const int ng, const int nc, const int ncu,
+    const int nd, const int ncx, const int nco, const int ncw)
+{
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosSurfaceQuantities(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
+    EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
+#undef EXASIM_EXT_DISPATCH
+    ::builtinKokkosSurfaceQuantities(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time,
+            modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
+}
+
 // --- CPU init ---
 
 void extcpuInitu(
@@ -668,7 +701,7 @@ const ModelSizes kFrontendModelSizes = {
     exasim_model_sizes::ncw, exasim_model_sizes::nsca,
     exasim_model_sizes::nvec, exasim_model_sizes::nten,
     exasim_model_sizes::nsurf, exasim_model_sizes::nvqoi,
-    exasim_model_sizes::nmaterialstate
+    exasim_model_sizes::nmaterialstate, EXASIM_FRONTEND_NSURFQ
 };
 #endif
 
@@ -747,6 +780,7 @@ const ExasimDriverABI& getBuiltInLibraryExasimDriverABI()
         value.output.KokkosVisTensors  = &extKokkosVisTensors;
         value.qoi.KokkosQoIvolume   = &extKokkosQoIvolume;
         value.qoi.KokkosQoIboundary = &extKokkosQoIboundary;
+        value.qoi.KokkosSurfaceQuantities = &extKokkosSurfaceQuantities;
         value.init.KokkosInitu       = &extKokkosInitu;
         value.init.KokkosInitq       = &extKokkosInitq;
         value.init.KokkosInitudg     = &extKokkosInitudg;
@@ -784,6 +818,7 @@ const ExasimDriverABI& getBuiltInLibraryExasimDriverABI()
         value.nsurf = exasim_model_sizes::nsurf;
         value.nvqoi = exasim_model_sizes::nvqoi;
         value.nmaterialstate = exasim_model_sizes::nmaterialstate;
+        value.nsurfq = EXASIM_FRONTEND_NSURFQ;
 #endif
         return value;
     }();

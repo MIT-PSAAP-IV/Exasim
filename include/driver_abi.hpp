@@ -12,6 +12,7 @@
 #define __EXASIM_DRIVER_ABI_H__
 
 #include <cstdint>
+#include <type_traits>
 #include <Kokkos_Core.hpp>
 
 #ifdef USE_FLOAT
@@ -20,10 +21,11 @@ using dstype = float;
 using dstype = double;
 #endif
 
-inline constexpr std::uint32_t kExasimDriverABIVersion = 4;  // v4: add optional HdgMaterialstate jacobian kernel
+inline constexpr std::uint32_t kExasimDriverABIVersion = 5;  // v5: add optional SurfaceQuantities boundary kernel + nsurfq
+                                                              // v4: add optional HdgMaterialstate jacobian kernel
 
 // Model dimension constants carried by the model (PR #33): lets preprocessing obtain
-// ncu/ncv/ncw/nsca/nvec/nten/nsurf/nvqoi from the compiled model instead of pdeapp.txt.
+// ncu/ncv/ncw/nsca/nvec/nten/nsurf/nvqoi/nsurfq from the compiled model instead of pdeapp.txt.
 struct ModelSizes {
     int ncu  = 0;
     int nco  = 0;   // "other DG" == pdeapp.txt's ncv
@@ -34,6 +36,7 @@ struct ModelSizes {
     int nsurf = 0;
     int nvqoi = 0;
     int nmaterialstate = 0;
+    int nsurfq = 0;  // SurfaceQuantities components (saved on the ibs boundaries)
 };
 
 struct ExasimDriverABI {
@@ -156,6 +159,7 @@ struct ExasimDriverABI {
     int nsurf = 0;
     int nvqoi = 0;
     int nmaterialstate = 0;
+    int nsurfq = 0;
 
     // The model's kernel dispatch table, grouped by concern to mirror the compile-time model
     // decomposition (the ModelDefaults mixins / is_*_model_v traits). Each sub-struct is a
@@ -196,6 +200,9 @@ struct ExasimDriverABI {
     struct QoIDriverABI {           // quantities of interest
         KokkosElementFn  KokkosQoIvolume   = nullptr;
         KokkosBoundaryFn KokkosQoIboundary = nullptr;
+        // Optional (null = model defines no surfacequantities): pointwise surface fields
+        // evaluated on the ibs boundaries and written to outbousurf_np*.bin.
+        KokkosBoundaryFn KokkosSurfaceQuantities = nullptr;
     } qoi;
     struct InitDriverABI {          // initial conditions (device + host)
         KokkosInitFn KokkosInitu   = nullptr;
@@ -228,5 +235,16 @@ struct ExasimDriverABI {
     // providers set ncu/nco/... directly and leave this null).
     ModelSizes (*GetModelSizes)(int modelnumber) = nullptr;
 };
+
+// Optional-member detection for model structs that do not inherit ModelDefaults
+// (hand-written models): nsurfq defaults to 0 and surface_quantities to "absent".
+template <class M, class = void>
+struct exasim_model_nsurfq { static constexpr int value = 0; };
+template <class M>
+struct exasim_model_nsurfq<M, std::void_t<decltype(M::nsurfq)>> { static constexpr int value = M::nsurfq; };
+template <class M, class = void>
+struct exasim_has_surface_quantities : std::false_type {};
+template <class M>
+struct exasim_has_surface_quantities<M, std::void_t<decltype(&M::surface_quantities)>> : std::true_type {};
 
 #endif

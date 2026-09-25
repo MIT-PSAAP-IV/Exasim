@@ -719,7 +719,8 @@ struct AppNdims {
         nvec     = 15, // vector vis fields
         nten     = 16, // tensor vis fields
         nsurf    = 17, // surface vis/storage/QoI fields
-        nvqoi    = 18  // volume quantities of interest
+        nvqoi    = 18, // volume quantities of interest
+        nsurfq   = 19  // SurfaceQuantities components (0 on app.bin files that predate it)
     };
 };
 
@@ -753,6 +754,7 @@ struct appstructT {
     dstype *meshadaptparam=nullptr;
     Int *meshadaptbcs=nullptr;
     Int *distanceboundaryconditions=nullptr;
+    Int *bououtparam=nullptr;  // app.bin nsize[23]: [saveSolBouLoc, ibs_1, ..., ibs_k] (optional)
     dstype *wmDistances=nullptr;
     
     //dstype time=nullptr;     /* current time */
@@ -769,7 +771,7 @@ struct appstructT {
     Int szuinf=0, szdt=0, szdae_dt=0, szfactor=0, szphysicsparam=0, szsolversparam=0;
     Int sztau=0, szstgdata=0, szstgparam=0, szfc_u=0, szfc_q=0, szfc_w=0;
     Int szdtcoef_u=0, szdtcoef_q=0, szdtcoef_w=0, szavparam=0, szavfilterparam=0, szwmDistances=0;
-    Int szmeshadaptparam=0, szmeshadaptbcs=0, szdistanceboundaryconditions=0;
+    Int szmeshadaptparam=0, szmeshadaptbcs=0, szdistanceboundaryconditions=0, szbououtparam=0;
 
     // Material database metadata.  These fields are populated from the
     // optional datain/materialdatabase.bin table at runtime; they are not
@@ -809,7 +811,7 @@ struct appstructT {
 
     int sizeofint() {
       int sz = szflag + szproblem + szcomm + szporder + szstgib + szvindx + szinterfacefluxmap
-             + szwmModelIDs + szwmBoundaries + szmeshadaptbcs + szdistanceboundaryconditions + szmaterialdb_elementcounts +
+             + szwmModelIDs + szwmBoundaries + szmeshadaptbcs + szdistanceboundaryconditions + szbououtparam + szmaterialdb_elementcounts +
                szmaterialdb_ncgi + szmaterialdb_gridoffset + szmaterialdb_elemoffset;
       return sz;
     }
@@ -903,6 +905,7 @@ struct appstructT {
         TemplateFree(meshadaptparam, backend);
         TemplateFree(meshadaptbcs, backend);
         TemplateFree(distanceboundaryconditions, backend);
+        TemplateFree(bououtparam, backend);
         TemplateFree(wmDistances, backend);
         TemplateFree(fc_u, backend);
         TemplateFree(fc_q, backend);
@@ -2021,10 +2024,19 @@ struct qoiparamsstructT {
     Int nsurf;            // surface QoI / storage components
     Int nvqoi;            // volume QoI components
     Int saveParaview = 0; // enable Paraview output
-    Int ibs;              // boundary index to save solution
+    Int ibs;              // first boundary index to save solution (== ibslist[0]; 0 = none)
+    std::vector<Int> ibslist; // all boundary indices to save solution / integrate Boundary_QoI over
+    Int nsurfq = 0;       // SurfaceQuantities components written to outbousurf_np*.bin
+    Int saveSolBouLoc = 0;// where SurfaceQuantities are evaluated: 0 = face nodes, 1 = face Gauss points
     dstype* qoivolume=nullptr;  // volume-QoI accumulation buffer
     dstype* qoisurface=nullptr; // surface-QoI accumulation buffer
     std::vector<qoiinstancestruct> qoiinstances;  // registered QoI instances (default: 1 domain + 1 boundary)
+
+    // True if boundary ib is one of the ibs boundaries (boundary saves, Boundary_QoI).
+    bool isSaveBoundary(Int ib) const {
+        for (Int b : ibslist) if (b > 0 && b == ib) return true;
+        return false;
+    }
 };
 using qoiparamsstruct = qoiparamsstructT<::dstype, ::Int>;
 
@@ -2495,6 +2507,11 @@ struct commonstructT {
       printf("source function flag: %d\n", physicsparams.source);
       printf("model number: %d\n", modelnumber);
       printf("boundary index to save solution: %d\n", qoiparams.ibs);
+      printf("boundary indices to save solution:");
+      for (Int b : qoiparams.ibslist) printf(" %d", b);
+      printf("\n");
+      printf("surface quantities: %d (location: %s)\n", qoiparams.nsurfq,
+             qoiparams.saveSolBouLoc == 1 ? "face Gauss points" : "face nodes");
       printf("save solution boundary frequency: %d\n", outputparams.saveSolBouFreq);
       printf("compute time-averaged solution flag: %d\n", outputparams.compudgavg);
       printf("read time-averaged solution flag: %d\n", outputparams.readudgavg);

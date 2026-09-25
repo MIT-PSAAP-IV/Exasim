@@ -328,6 +328,12 @@ inline InputParams parseInputFile(const std::string& filename, int mpirank=0)
             params.meshAdaptBoundaryConditions = parseList<int>(full);
         else if (full.find("distanceboundaryconditions") != std::string::npos)
             params.distanceBoundaryConditions = parseList<int>(full);
+        else if (key == "ibs" && full.find('[') != std::string::npos) {
+            // ibs = [b1, b2, ...]: save on / integrate over several boundaries.
+            params.ibsList = parseList<int>(full);
+            if (!params.ibsList.empty()) params.intParams["ibs"] = params.ibsList[0];
+            markFound("ibs");
+        }
         else if (full.find("interfaceconditions") != std::string::npos)
             params.interfaceConditions = parseList<int>(full);
         else if (full.find("interfacefluxmap") != std::string::npos)
@@ -356,6 +362,10 @@ inline InputParams parseInputFile(const std::string& filename, int mpirank=0)
 
     while (std::getline(file, line)) {
         if (line.empty()) continue;
+        // Skip whole-line // comments: otherwise a comment without ';' is glued onto the next
+        // statement and its key no longer matches (e.g. "// note\nibs = [1, 2];").
+        const std::size_t first = line.find_first_not_of(" \t\r");
+        if (first == std::string::npos || line.compare(first, 2, "//") == 0) continue;
         buffer += line;
         if (line.find("}") != std::string::npos || line.find(";") != std::string::npos) {
             parseAndAssign(buffer);
@@ -659,6 +669,7 @@ inline void applyParsedSpecMetadata(PDE& pde, const ParsedSpec& spec)
         if (fn.name == "VisTensors")  pde.nten  = fn.outputsize / (pde.nd * pde.nd);
         if (fn.name == "QoIboundary") pde.nsurf = fn.outputsize;
         if (fn.name == "QoIvolume")   pde.nvqoi = fn.outputsize;
+        if (fn.name == "SurfaceQuantities") pde.nsurfq = fn.outputsize;
         if (fn.name == "Materialstate") pde.nmaterialstate = fn.outputsize;
     }
 }
@@ -671,7 +682,7 @@ inline void validateBuiltInAppMetadata(const PDE& pde)
         error("builtinmodelID > 0 requires ncv >= 0 in pdeapp.txt.");
     if (pde.ncw < 0)
         error("builtinmodelID > 0 requires ncw >= 0 in pdeapp.txt.");
-    if (pde.nsca < 0 || pde.nvec < 0 || pde.nten < 0 || pde.nsurf < 0 || pde.nvqoi < 0 || pde.nmaterialstate < 0)
+    if (pde.nsca < 0 || pde.nvec < 0 || pde.nten < 0 || pde.nsurf < 0 || pde.nvqoi < 0 || pde.nmaterialstate < 0 || pde.nsurfq < 0)
         error("builtinmodelID > 0 requires nsca, nvec, nten, nsurf, nvqoi, and nmaterialstate to be nonnegative in pdeapp.txt.");
 }
 
@@ -796,6 +807,9 @@ inline PDE initializePDE(InputParams& params, int mpirank=0)
     }
     if (params.intParams.count("nvqoi")) {
         pde.nvqoi = params.intParams["nvqoi"];
+    }
+    if (params.intParams.count("nsurfq")) {
+        pde.nsurfq = params.intParams["nsurfq"];
     }
     if (params.intParams.count("nmaterialstate")) {
         pde.nmaterialstate = params.intParams["nmaterialstate"];
@@ -958,6 +972,14 @@ inline PDE initializePDE(InputParams& params, int mpirank=0)
     }
     if (params.intParams.count("ibs")) {
         pde.ibs = params.intParams["ibs"];
+    }
+    pde.ibsList = params.ibsList;
+    if (pde.ibsList.empty() && pde.ibs > 0) pde.ibsList.push_back(pde.ibs);
+    if (!pde.ibsList.empty()) pde.ibs = pde.ibsList[0];
+    if (params.intParams.count("saveSolBouLoc")) {
+        pde.saveSolBouLoc = params.intParams["saveSolBouLoc"];
+        if (pde.saveSolBouLoc != 0 && pde.saveSolBouLoc != 1)
+            error("saveSolBouLoc must be 0 (face nodes) or 1 (face Gauss points).");
     }
     if (params.intParams.count("compudgavg")) {
         pde.compudgavg = params.intParams["compudgavg"];
@@ -1197,6 +1219,7 @@ inline void writepde(const PDE& pde, const std::string& filename)
     ndims[16] = pde.nten;
     ndims[17] = pde.nsurf;
     ndims[18] = pde.nvqoi;
+    ndims[19] = pde.nsurfq;
 
     std::vector<double> nsize(30, 0.0);
     nsize[0] = ndims.size();
@@ -1230,6 +1253,9 @@ inline void writepde(const PDE& pde, const std::string& filename)
     nsize[20] = meshadaptparam.size();
     nsize[21] = pde.meshAdaptBoundaryConditions.size();
     nsize[22] = pde.distanceBoundaryConditions.size();
+    std::vector<double> bououtparam(1, static_cast<double>(pde.saveSolBouLoc));
+    for (int b : pde.ibsList) if (b > 0) bououtparam.push_back(static_cast<double>(b));
+    nsize[23] = bououtparam.size();
 
     std::ofstream file(filename, std::ios::binary);
     if (!file) throw std::runtime_error("Cannot open file for writing.");
@@ -1281,6 +1307,7 @@ inline void writepde(const PDE& pde, const std::string& filename)
         std::vector<double> boundaries(pde.distanceBoundaryConditions.begin(), pde.distanceBoundaryConditions.end());
         writeVector(boundaries);
     }
+    writeVector(bououtparam);
 
     file.close();
     if (!pde.physicsparamcases.empty()) {

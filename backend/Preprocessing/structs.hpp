@@ -48,7 +48,7 @@ struct ParsedSpec {
         "Sourcew", "Output", "Monitor", "Initu", "Initq", "Inituq",
         "Initw", "Initv", "Avfield", "Fint", "EoS", "VisScalars", 
         "VisVectors", "VisTensors", "QoIvolume", "QoIboundary",
-        "Materialstate"};
+        "Materialstate", "SurfaceQuantities"};
     std::vector<bool> isoutput;     
     std::string datatype = "dstype";
     std::string framework = "kokkos";
@@ -76,6 +76,7 @@ struct InputParams {
     std::vector<int> periodicBoundaries2;
     std::vector<int> cartGridPart;
     std::vector<int> meshAdaptBoundaryConditions;
+    std::vector<int> ibsList;  // ibs = [b1, b2, ...] in pdeapp.txt
     std::vector<int> distanceBoundaryConditions;
     
     std::vector<double> dae_dt;
@@ -140,7 +141,7 @@ struct PDE {
     int mpiprocs = 1;
     int nd = 1, nc = 1, ncu = 1, ncq = 0, ncp = 0, ncv = 0;
     int nch = 1, ncx = 1, ncw = 0, nce = 0, np=0, nve=0, ne=0;
-    int nsca=0, nvec=0, nten=0, nsurf=0, nvqoi=0, nmaterialstate=0;
+    int nsca=0, nvec=0, nten=0, nsurf=0, nvqoi=0, nmaterialstate=0, nsurfq=0;
     int neb = 512 * 8;
     int nfb = 512 * 16;
     int elemtype = 1;
@@ -189,7 +190,9 @@ struct PDE {
     int saveSolOpt = 1;
     int timestepOffset = 0;
     int saveSolBouFreq = 0;
-    int ibs = 0;
+    int ibs = 0;               // first boundary of ibsList (kept for app.bin problem[22])
+    std::vector<int> ibsList;  // all boundaries to save / integrate Boundary_QoI over
+    int saveSolBouLoc = 0;     // SurfaceQuantities at 0 = face nodes, 1 = face Gauss points
     int compudgavg = 0;
     int extFhat = 0;
     int extUhat = 0;

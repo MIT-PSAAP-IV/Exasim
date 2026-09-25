@@ -133,6 +133,10 @@ void CodeGenerator::generateCode2Cpp(const std::string& filename) const {
     os << "            ssv.func2cppfiles(f, ssv.modelpath + fname, fname + std::to_string(1), i, false);\n";
     os << "            ssv.appendUbouFbou(ssv.modelpath + fname, fname, 1);\n";
     os << "        }\n";
+    os << "        else if (funcname == \"SurfaceQuantities\") { \n";
+    os << "            ssv.func2cppfiles(f, ssv.modelpath + fname, fname + std::to_string(1), i, false);\n";
+    os << "            ssv.appendUbouFbou(ssv.modelpath + fname, fname, 1);\n";
+    os << "        }\n";
     os << "        else if (funcname == \"Fint\") { \n";
     os << "          int szf = f.size();\n";    
     os << "          int nbc = 1;\n";
@@ -2275,12 +2279,14 @@ void emitGenerateModelHeader(std::ostream& os, const ParsedSpec& spec) {
     int nvec_   = nd ? func_size("VisVectors") / nd : 0;
     int nten_   = (nd*nd) ? func_size("VisTensors") / (nd*nd) : 0;
     int nsurf_  = func_size("QoIboundary");
+    int nsurfq_ = func_size("SurfaceQuantities");
     int nvqoi_  = func_size("QoIvolume");
     int nmaterialstate_ = func_size("Materialstate");
     os << "    hfile << \"    static constexpr int nsca   = " << nsca_   << ";\\n\";\n";
     os << "    hfile << \"    static constexpr int nvec   = " << nvec_   << ";\\n\";\n";
     os << "    hfile << \"    static constexpr int nten   = " << nten_   << ";\\n\";\n";
     os << "    hfile << \"    static constexpr int nsurf  = " << nsurf_  << ";\\n\";\n";
+    os << "    hfile << \"    static constexpr int nsurfq = " << nsurfq_ << ";\\n\";\n";
     os << "    hfile << \"    static constexpr int nvqoi  = " << nvqoi_  << ";\\n\";\n";
     os << "    hfile << \"    static constexpr int nmaterialstate = " << nmaterialstate_ << ";\\n\";\n";
     os << "    hfile << \"    static constexpr int Nq = ncu * (1 + nd);\\n\\n\";\n";
@@ -2369,6 +2375,7 @@ void emitGenerateModelHeader(std::ostream& os, const ParsedSpec& spec) {
     os << "        {\"Ubou\",        \"ubou\"},\n";
     os << "        {\"FbouHdg\",     \"fbou_hdg\"},\n";
     os << "        {\"QoIboundary\", \"qoi_boundary\"},\n";
+    os << "        {\"SurfaceQuantities\", \"surface_quantities\"},\n";
     os << "    };\n";
     os << "    const std::string boundary_sig =\n";
     os << "        \"dstype f[], int ib, const dstype x[], const dstype uq[], const dstype v[],\"\n";
@@ -2948,6 +2955,17 @@ void CodeGenerator::generateEmptyQoIboundaryCpp(std::string modelpath) const {
     os.close();          
 }
 
+void CodeGenerator::generateEmptySurfaceQuantitiesCpp(std::string modelpath) const {    
+    std::ofstream os(make_path(modelpath,  "KokkosSurfaceQuantities.cpp"));
+    os << "void KokkosSurfaceQuantities(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg,\n";
+    os << "             const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time,\n";
+    os << "             const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx,\n";
+    os << "             const int nco, const int ncw)\n";
+    os << "{\n";
+    os << "}\n";
+    os.close();          
+}
+
 void CodeGenerator::generateLibPDEModelHpp(std::string modelpath) const {  
     std::ofstream os(make_path(modelpath, "libpdemodel.hpp"));
 
@@ -3003,6 +3021,7 @@ void CodeGenerator::generateLibPDEModelHpp(std::string modelpath) const {
     os << "void KokkosVisTensors(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";
     os << "void KokkosQoIvolume(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";
     os << "void KokkosQoIboundary(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";
+    os << "void KokkosSurfaceQuantities(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";
 
     os.close(); 
 }
@@ -3069,6 +3088,7 @@ void CodeGenerator::generateLibPDEModelCpp(std::string modelpath) const {
     os << "#include \"KokkosVisTensors.cpp\"\n";
     os << "#include \"KokkosQoIvolume.cpp\"\n";
     os << "#include \"KokkosQoIboundary.cpp\"\n";
+    os << "#include \"KokkosSurfaceQuantities.cpp\"\n";
 
     os.close(); 
 }
@@ -3091,6 +3111,7 @@ void CodeGenerator::generateModelSizesHpp(const std::string& modelpath) const {
     int nvec   = nd ? func_size("VisVectors") / nd : 0;
     int nten   = (nd*nd) ? func_size("VisTensors") / (nd*nd) : 0;
     int nsurf  = func_size("QoIboundary");
+    int nsurfq = func_size("SurfaceQuantities");
     int nvqoi  = func_size("QoIvolume");
     int nmaterialstate = func_size("Materialstate");
 
@@ -3104,6 +3125,7 @@ void CodeGenerator::generateModelSizesHpp(const std::string& modelpath) const {
     os << "static constexpr int nvec  = " << nvec << ";\n";
     os << "static constexpr int nten  = " << nten << ";\n";
     os << "static constexpr int nsurf = " << nsurf << ";\n";
+    os << "static constexpr int nsurfq = " << nsurfq << ";\n";
     os << "static constexpr int nvqoi = " << nvqoi << ";\n";
     os << "static constexpr int nmaterialstate = " << nmaterialstate << ";\n";
     os.close();

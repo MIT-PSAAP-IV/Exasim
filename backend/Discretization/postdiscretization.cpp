@@ -383,7 +383,7 @@ void CDiscretization::computeAverageSolutionsOnBoundary()
     if ( common.outputparams.saveSolBouFreq>0 ) {
         for (Int j=0; j<common.meshsizes.nbf; j++) {
             Int ib = common.fblks[3*j+2];            
-            if (ib == common.qoiparams.ibs) {     
+            if (common.qoiparams.isSaveBoundary(ib)) {     
                 Int f1 = common.fblks[3*j]-1;
                 Int f2 = common.fblks[3*j+1];                      
                 Int npf = common.grid.npf; // number of nodes on master face      
