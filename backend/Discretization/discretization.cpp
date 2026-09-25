@@ -870,6 +870,7 @@ CDiscretizationT<T, I>::~CDiscretizationT()
 // Compute and store the geometry
 template <class T, class I>
 void CDiscretizationT<T, I>::compGeometry(Int backend) {
+    UhatGeomEpoch()++;  // invalidate the cached boundary-face geometry of UhatBlock (getuhat.hpp)
     if (common.mpiRank==0) printf("start ElemGeom... \n");
     ElemGeom(sol, master, mesh, tmp, common, common.cublasHandle, backend);
     if (common.mpiRank==0) printf("Finish ElemGeom... \n");

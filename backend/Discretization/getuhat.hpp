@@ -59,7 +59,47 @@ inline bool isin(Int ib, Int *a, Int n)
     }
 
     return in;
-}        
+}
+
+// Boundary-face geometry for UhatBlock -- xg, nlg, jac and the face-tangent derivatives at the face nodes --
+// depends only on the mesh, yet was recomputed on every residual evaluation (a gather, 2-3 Node2Gauss and
+// FaceGeom per boundary block, i.e. per matvec). It is now computed once per block and cached; the Ubou
+// driver reads it in place. compGeometry() bumps the epoch, so the cache is refreshed on exactly the events
+// that refresh sol.faceg. Bitwise-identical by construction. EXASIM_UHAT_GEOM_CACHE=0 disables.
+inline int& UhatGeomEpoch() { static int epoch = 0; return epoch; }
+
+inline bool UhatGeomCacheEnabled()
+{
+    static const bool on = [](){ const char* e = std::getenv("EXASIM_UHAT_GEOM_CACHE"); return !(e && e[0] == '0'); }();
+    return on;
+}
+
+// Returns the cache slot (len entries) for boundary block [f1,f2); hit says whether it already holds this
+// epoch's geometry. On a miss the caller fills the slot before any other use.
+template <class T>
+inline T* UhatGeomCacheSlot(const T* xdg, const int f1, const int f2, const int len, bool& hit)
+{
+    using MemSpace = Kokkos::DefaultExecutionSpace::memory_space;
+    struct Key { const void* x; int f1, f2, len;
+        bool operator<(const Key& o) const { return std::tie(x,f1,f2,len) < std::tie(o.x,o.f1,o.f2,o.len); } };
+    struct Slot { T* p; int epoch; };
+    static std::map<Key, Slot> cache;
+    static bool hooked = false;
+    if (!hooked) {
+        Kokkos::push_finalize_hook([]() {
+            for (auto& kv : cache) Kokkos::kokkos_free<MemSpace>(kv.second.p);
+            cache.clear();
+        });
+        hooked = true;
+    }
+    Key key{xdg, f1, f2, len};
+    auto it = cache.find(key);
+    if (it == cache.end())
+        it = cache.emplace(key, Slot{(T*) Kokkos::kokkos_malloc<MemSpace>("uhat_geom", (size_t)len*sizeof(T)), -1}).first;
+    hit = (it->second.epoch == UhatGeomEpoch());
+    it->second.epoch = UhatGeomEpoch();
+    return it->second.p;
+}
 
 template <class M, class T=dstype, class I=Int>
 inline void UhatBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
@@ -106,25 +146,41 @@ inline void UhatBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I
 
         PutElemNodes(sol.uh, tmp.tempn, npf, ncu, 0, ncu, f1, f2);
     }
-    else {        
-        //GetFaceNodes(tmp.tempn, sol.xdg, mesh.facecon, npf, ncx, npe, ncx, f1, f2, 1, backend);            
-        //Node2Gauss(handle, &tmp.tempg[n0], tmp.tempn, master.shapfnt, npf, npf, nf*ncx, backend);    
+    else {
+        // Mesh-only prefix of tempg: xg, nlg, jac, then the face-tangent derivatives. The Ubou driver also
+        // receives the tangent region as its uhg argument, so the cache holds it too; it is only eligible when
+        // that region ends before ug (n4) is gathered, i.e. when the driver would see the same values.
+        Int ntan = (nd==3) ? 2*nga*nd : nga*nd;
+        dstype *geo = tmp.tempg;
+        dstype *slot = nullptr;
+        bool hit = false;
+        if (nd > 1 && ntan <= nga*ncu && UhatGeomCacheEnabled())
+            slot = UhatGeomCacheSlot(sol.xdg, f1, f2, n3 + ntan, hit);
+
+        if (slot && hit) {
+            geo = slot;
+        }
+        else {
+        //GetFaceNodes(tmp.tempn, sol.xdg, mesh.facecon, npf, ncx, npe, ncx, f1, f2, 1, backend);
+        //Node2Gauss(handle, &tmp.tempg[n0], tmp.tempn, master.shapfnt, npf, npf, nf*ncx, backend);
         GetArrayAtIndex(tmp.tempn, sol.xdg, &mesh.findxdg1[npf*ncx*f1], nn*ncx);
         Node2Gauss(handle, &tmp.tempg[n0], tmp.tempn, master.shapfnt, npf, npf, nf*ncx, backend);
-    
+
         if (nd==1) {
             FaceGeom1D(&tmp.tempg[n2], &tmp.tempg[n1], &tmp.tempg[n3], nga);
         }
         else if (nd==2){
-            Node2Gauss(handle, &tmp.tempg[n3], tmp.tempn, &master.shapfnt[npf*npf], npf, npf, nf*nd, backend);                
+            Node2Gauss(handle, &tmp.tempg[n3], tmp.tempn, &master.shapfnt[npf*npf], npf, npf, nf*nd, backend);
             FaceGeom2D(&tmp.tempg[n2], &tmp.tempg[n1], &tmp.tempg[n3], nga);
         }
         else if (nd==3) {
-            Node2Gauss(handle, &tmp.tempg[n3], tmp.tempn, &master.shapfnt[npf*npf], npf, npf, nf*nd, backend);                     
-            Node2Gauss(handle, &tmp.tempg[n3+nga*nd], tmp.tempn, &master.shapfnt[2*npf*npf], npf, npf, nf*nd, backend);                
+            Node2Gauss(handle, &tmp.tempg[n3], tmp.tempn, &master.shapfnt[npf*npf], npf, npf, nf*nd, backend);
+            Node2Gauss(handle, &tmp.tempg[n3+nga*nd], tmp.tempn, &master.shapfnt[2*npf*npf], npf, npf, nf*nd, backend);
             FaceGeom3D(&tmp.tempg[n2], &tmp.tempg[n1], &tmp.tempg[n3], nga);
-        }        
-        
+        }
+            if (slot) ArrayCopy(slot, tmp.tempg, n3 + ntan);
+        }
+
         //GetElemNodes(&tmp.tempg[n3], sol.uh, npf, ncu, 0, ncu, f1, f2, backend);
         //GetFaceNodes(&tmp.tempg[n4], sol.udg, mesh.facecon, npf, nc, npe, nc, f1, f2, 1, backend);
         GetArrayAtIndex(&tmp.tempg[n4], sol.udg, &mesh.findudg1[npf*nc*f1], nn*nc);
@@ -133,9 +189,9 @@ inline void UhatBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I
             GetFaceNodes(&tmp.tempg[n5], sol.odg, mesh.facecon, npf, nco, npe, nco, f1, f2, 1);       
         }
                 
-        EXASIM_DRIVER_CALL(UbouDriver, tmp.tempn, &tmp.tempg[n0], &tmp.tempg[n4], &tmp.tempg[n5], &tmp.tempg[n6], &tmp.tempg[n3], 
-                 &tmp.tempg[n1], mesh, master, app, sol, tmp, common, npf, f1, f2, ib, backend);
-                               
+        EXASIM_DRIVER_CALL(UbouDriver, tmp.tempn, &geo[n0], &tmp.tempg[n4], &tmp.tempg[n5], &tmp.tempg[n6], &geo[n3],
+                 &geo[n1], mesh, master, app, sol, tmp, common, npf, f1, f2, ib, backend);
+
         PutElemNodes(sol.uh, tmp.tempn, npf, ncu, 0, ncu, f1, f2);
     }
 }
