@@ -93,6 +93,7 @@ const ExasimDriverABI& getBuiltInLibraryExasimDriverABI()
         value.output.KokkosVisTensors = &::builtinKokkosVisTensors;
         value.qoi.KokkosQoIvolume = &::builtinKokkosQoIvolume;
         value.qoi.KokkosQoIboundary = &::builtinKokkosQoIboundary;
+        value.qoi.KokkosSurfaceQuantities = &::builtinKokkosSurfaceQuantities;
 
         value.init.KokkosInitu = &::builtinKokkosInitu;
         value.init.KokkosInitq = &::builtinKokkosInitq;

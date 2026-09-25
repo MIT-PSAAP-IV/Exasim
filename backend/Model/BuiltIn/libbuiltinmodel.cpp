@@ -400,6 +400,20 @@ void builtinKokkosQoIboundary(dstype* f, const dstype* xdg, const dstype* udg, c
     }
 }
 
+extern "C"
+void builtinKokkosSurfaceQuantities(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg,
+                       const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* tau,
+                       const dstype* uinf, const dstype* param, dstype time, int builtinmodelID,
+                       int ib, int ng, int nc, int ncu, int nd, int ncx, int nco, int ncw)
+{
+    switch (builtinmodelID) {
+      #define EXASIM_DISPATCH_CASE(N) case N: exasim_model_##N::KokkosSurfaceQuantities(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, builtinmodelID, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      EXASIM_BUILTIN_MODELS(EXASIM_DISPATCH_CASE)
+      #undef EXASIM_DISPATCH_CASE
+      default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in KokkosSurfaceQuantities\n", builtinmodelID); std::abort();
+    }
+}
+
 // ----------------------------- cpuInit* -----------------------------
 
 extern "C"

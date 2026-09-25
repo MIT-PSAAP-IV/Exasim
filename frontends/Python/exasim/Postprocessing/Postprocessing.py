@@ -9,4 +9,4 @@ from .readsol import readsol
 from .readsoldmd import readsoldmd
 from .readsolmpi import readsolmpi
 from .readxdgmpi import readxdgmpi
-
+from .readsurfacequantities import readsurfacequantities

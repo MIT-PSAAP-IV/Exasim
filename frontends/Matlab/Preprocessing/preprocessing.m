@@ -179,6 +179,11 @@ if isfield(pde, 'qoiboundary')
     sdgsym = pde.qoiboundary(udgsym, qdgsym, wdgsym, odgsym, xdgsym, time, paramsym, uinfsym, uhatsym, nsym, tausym);         
     app.nbqoi = length(sdgsym(:));
 end
+app.nsurfq = 0;
+if isfield(pde, 'surfacequantities')
+    sdgsym = pde.surfacequantities(udgsym, qdgsym, wdgsym, odgsym, xdgsym, time, paramsym, uinfsym, uhatsym, nsym, tausym);
+    app.nsurfq = length(sdgsym(:));
+end
 
 if app.preprocessmode==0    
     % update app structure    

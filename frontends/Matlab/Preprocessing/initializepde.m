@@ -59,6 +59,7 @@ pde.nvec = 0;
 pde.nten = 0;
 pde.nbqoi = 0;
 pde.nvqoi = 0;
+pde.nsurfq = 0;
 pde.nmaterialstate = 0;
 pde.neb = 512*8;
 pde.nfb = 512*16;
@@ -108,7 +109,8 @@ pde.saveSolFreq = 1;
 pde.saveSolOpt = 1;
 pde.timestepOffset = 0;
 pde.saveSolBouFreq = 0;
-pde.ibs = 0;
+pde.ibs = 0;           % boundary (scalar) or boundaries (vector) to save on
+pde.saveSolBouLoc = 0; % surfacequantities at 0 = face nodes, 1 = face Gauss points
 pde.compudgavg = 0;
 pde.extFhat = 0;
 pde.extUhat = 0;

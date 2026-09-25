@@ -61,6 +61,7 @@ def initializepde(version):
     pde['nvqoi'] = 0;
     pde['nmaterialstate'] = 0;
     pde['nbqoi'] = 0;
+    pde['nsurfq'] = 0;  # number of surfacequantities outputs (set by preprocessing)
     pde['neb'] = 512*8;
     pde['nfb'] = 512*32;
     pde['elemtype'] = 1;
@@ -140,7 +141,8 @@ def initializepde(version):
     pde['saveSolOpt'] = 1;
     pde['timestepOffset'] = 0;
     pde['saveSolBouFreq'] = 0;
-    pde['ibs'] = 0;
+    pde['ibs'] = 0;  # boundary (or list of boundaries) saved every saveSolBouFreq steps
+    pde['saveSolBouLoc'] = 0;  # surfacequantities evaluated at 0 = face nodes, 1 = face Gauss points
     pde['compudgavg'] = 0;
     pde['extFhat'] = 0;
     pde['extUhat'] = 0;

@@ -265,6 +265,14 @@ if isfield(pde, 'qoiboundary')
 else
     kknocodeface("QoIboundary" + strn, kkdir);
 end
+if isfield(pde, 'surfacequantities')
+    % Pointwise boundary outputs (heat flux, skin friction, Cp, ...) written to
+    % outbousurf_np*.bin on the ibs boundaries. Same arguments as qoiboundary.
+    f = pde.surfacequantities(u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, tau);
+    kkgencodeface("SurfaceQuantities" + strn, f(:), xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, kkdir);
+else
+    kknocodeface("SurfaceQuantities" + strn, kkdir);
+end
 if isfield(pde, 'fhat')    
     f = pde.fhat(u1, q1, wdg1, odg1, xdg, time, param, uinf, uhg, nlg, tau, u2, q2, wdg2, odg2);
     kkgencodeface2("Fhat" + strn, f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, kkdir);

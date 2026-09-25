@@ -58,6 +58,7 @@ void flux(dstype f[], const dstype x[], const dstype uq[],
 | `Fbou` | `fbou` | `ncu` | LDG boundary flux. |
 | `FbouHdg` | `fbou_hdg` | `ncu` | HDG boundary residual/flux. |
 | `QoIboundary` | `qoi_boundary` | boundary QoI count | Boundary QoI integrand. |
+| `SurfaceQuantities` | `surface_quantities` | `nsurfq` | Pointwise surface fields written on the `ibs` boundaries. |
 
 Text2Code form:
 

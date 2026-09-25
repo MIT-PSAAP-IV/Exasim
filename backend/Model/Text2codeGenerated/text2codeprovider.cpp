@@ -72,6 +72,7 @@ using namespace std;
 #include "KokkosVisTensors.cpp"
 #include "KokkosQoIvolume.cpp"
 #include "KokkosQoIboundary.cpp"
+#include "KokkosSurfaceQuantities.cpp"
 
 } 
 
@@ -105,6 +106,7 @@ const ExasimDriverABI& getText2codeGeneratedExasimDriverABI()
         value.output.KokkosVisTensors = &text2code_generated_source::KokkosVisTensors;
         value.qoi.KokkosQoIvolume = &text2code_generated_source::KokkosQoIvolume;
         value.qoi.KokkosQoIboundary = &text2code_generated_source::KokkosQoIboundary;
+        value.qoi.KokkosSurfaceQuantities = &text2code_generated_source::KokkosSurfaceQuantities;
 
         value.init.KokkosInitu = &text2code_generated_source::KokkosInitu;
         value.init.KokkosInitq = &text2code_generated_source::KokkosInitq;
@@ -139,11 +141,12 @@ const ExasimDriverABI& getText2codeGeneratedExasimDriverABI()
         value.nsurf = PdeModel::nsurf;
         value.nvqoi = PdeModel::nvqoi;
         value.nmaterialstate = PdeModel::nmaterialstate;
+        value.nsurfq = exasim_model_nsurfq<PdeModel>::value;
         value.GetModelSizes = [](int) -> ModelSizes {
             return {PdeModel::ncu, PdeModel::nco, PdeModel::ncw,
                     PdeModel::nsca, PdeModel::nvec, PdeModel::nten,
                     PdeModel::nsurf, PdeModel::nvqoi,
-                    PdeModel::nmaterialstate};
+                    PdeModel::nmaterialstate, exasim_model_nsurfq<PdeModel>::value};
         };
 
         return value;

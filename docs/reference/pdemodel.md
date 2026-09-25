@@ -97,6 +97,7 @@ Optional outputs are emitted when listed:
 | `VisTensors` | Tensor visualization fields. |
 | `QoIvolume` | Volume QoI integrand. |
 | `QoIboundary` | Boundary QoI integrand. |
+| `SurfaceQuantities` | Pointwise surface fields saved on the `ibs` boundaries. |
 | `Fext` | External interface flux. |
 
 ## Function Block Syntax

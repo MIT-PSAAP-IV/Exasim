@@ -137,6 +137,7 @@ inline appstructT<T,I> buildAppStruct(const PDE& pde)
     app.ndims[AppNdims::nten] = pde.nten;
     app.ndims[AppNdims::nsurf] = pde.nsurf;
     app.ndims[AppNdims::nvqoi] = pde.nvqoi;
+    app.ndims[AppNdims::nsurfq] = pde.nsurfq;
 
     // ---- nsize (30 entries, sub-array sizes) ----
     constexpr Int kNSize = 30;
@@ -169,6 +170,9 @@ inline appstructT<T,I> buildAppStruct(const PDE& pde)
     app.nsize[20] = 20;
     app.nsize[21] = (Int)pde.meshAdaptBoundaryConditions.size();
     app.nsize[22] = (Int)pde.distanceBoundaryConditions.size();
+    std::vector<int> ibspos;  // bououtparam = [saveSolBouLoc, ibs > 0 ...]
+    for (int b : pde.ibsList) if (b > 0) ibspos.push_back(b);
+    app.nsize[23] = 1 + (Int)ibspos.size();
 
     app.lsize = (Int*)std::malloc(sizeof(Int));
     app.lsize[0] = kNSize;
@@ -223,6 +227,9 @@ inline appstructT<T,I> buildAppStruct(const PDE& pde)
         app.distanceboundaryconditions = (Int*)std::malloc(sizeof(Int)*pde.distanceBoundaryConditions.size());
         std::copy(pde.distanceBoundaryConditions.begin(), pde.distanceBoundaryConditions.end(), app.distanceboundaryconditions);
     }
+    app.bououtparam = (Int*)std::malloc(sizeof(Int)*app.nsize[23]);
+    app.bououtparam[0] = pde.saveSolBouLoc;
+    std::copy(ibspos.begin(), ibspos.end(), app.bououtparam + 1);
 
     // ---- size fields (mirrors readappstruct lines 95-109) ----
     app.szflag             = app.nsize[1];
@@ -244,6 +251,7 @@ inline appstructT<T,I> buildAppStruct(const PDE& pde)
     app.szmeshadaptparam   = app.nsize[20];
     app.szmeshadaptbcs     = app.nsize[21];
     app.szdistanceboundaryconditions = app.nsize[22];
+    app.szbououtparam = app.nsize[23];
 
     // ---- derived fc_u/fc_q/fc_w (mirrors readappstruct lines 134-168) ----
     Int ncu = app.ndims[AppNdims::ncu];

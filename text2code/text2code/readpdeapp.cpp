@@ -76,6 +76,7 @@ struct InputParams {
     std::vector<int> periodicBoundaries2;
     std::vector<int> cartGridPart;
     std::vector<int> meshAdaptBoundaryConditions;
+    std::vector<int> ibsList;  // ibs = [b1, b2, ...] in pdeapp.txt
     std::vector<int> distanceBoundaryConditions;
     
     std::vector<double> dae_dt;
@@ -331,6 +332,12 @@ InputParams parseInputFile(const std::string& filename, int mpirank=0)
             params.meshAdaptBoundaryConditions = parseList<int>(full);
         else if (full.find("distanceboundaryconditions") != std::string::npos)
             params.distanceBoundaryConditions = parseList<int>(full);
+        else if (key == "ibs" && full.find('[') != std::string::npos) {
+            // ibs = [b1, b2, ...]: save on / integrate over several boundaries.
+            params.ibsList = parseList<int>(full);
+            if (!params.ibsList.empty()) params.intParams["ibs"] = params.ibsList[0];
+            markFound("ibs");
+        }
         else if (full.find("interfaceconditions") != std::string::npos)
             params.interfaceConditions = parseList<int>(full);
         else if (full.find("interfacefluxmap") != std::string::npos)
@@ -359,6 +366,10 @@ InputParams parseInputFile(const std::string& filename, int mpirank=0)
 
     while (std::getline(file, line)) {
         if (line.empty()) continue;
+        // Skip whole-line // comments: otherwise a comment without ';' is glued onto the next
+        // statement and its key no longer matches (e.g. "// note\nibs = [1, 2];").
+        const std::size_t first = line.find_first_not_of(" \t\r");
+        if (first == std::string::npos || line.compare(first, 2, "//") == 0) continue;
         buffer += line;
         if (line.find("}") != std::string::npos || line.find(";") != std::string::npos) {
             parseAndAssign(buffer);
@@ -447,7 +458,7 @@ struct PDE {
     int mpiprocs = 1;
     int nd = 1, nc = 1, ncu = 1, ncq = 0, ncp = 0, ncv = 0;
     int nch = 1, ncx = 1, ncw = 0, nce = 0, np=0, nve=0, ne=0;
-    int nsca=0, nvec=0, nten=0, nsurf=0, nvqoi=0, nmaterialstate=0;
+    int nsca=0, nvec=0, nten=0, nsurf=0, nvqoi=0, nmaterialstate=0, nsurfq=0;
     int neb = 512 * 8;
     int nfb = 512 * 16;
     int elemtype = 1;
@@ -496,7 +507,9 @@ struct PDE {
     int saveSolOpt = 1;
     int timestepOffset = 0;
     int saveSolBouFreq = 0;
-    int ibs = 0;
+    int ibs = 0;               // first boundary of ibsList (kept for app.bin problem[22])
+    std::vector<int> ibsList;  // all boundaries to save / integrate Boundary_QoI over
+    int saveSolBouLoc = 0;     // SurfaceQuantities at 0 = face nodes, 1 = face Gauss points
     int compudgavg = 0;
     int extFhat = 0;
     int extUhat = 0;
@@ -885,6 +898,14 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     if (params.intParams.count("ibs")) {
         pde.ibs = params.intParams["ibs"];
     }
+    pde.ibsList = params.ibsList;
+    if (pde.ibsList.empty() && pde.ibs > 0) pde.ibsList.push_back(pde.ibs);
+    if (!pde.ibsList.empty()) pde.ibs = pde.ibsList[0];
+    if (params.intParams.count("saveSolBouLoc")) {
+        pde.saveSolBouLoc = params.intParams["saveSolBouLoc"];
+        if (pde.saveSolBouLoc != 0 && pde.saveSolBouLoc != 1)
+            error("saveSolBouLoc must be 0 (face nodes) or 1 (face Gauss points).");
+    }
     if (params.intParams.count("compudgavg")) {
         pde.compudgavg = params.intParams["compudgavg"];
     }
@@ -1140,6 +1161,7 @@ void writepde(const PDE& pde, const std::string& filename)
     ndims[16] = pde.nten;
     ndims[17] = pde.nsurf;
     ndims[18] = pde.nvqoi;
+    ndims[19] = pde.nsurfq;
 
     std::vector<double> nsize(30, 0.0);
     nsize[0] = ndims.size();
@@ -1162,6 +1184,9 @@ void writepde(const PDE& pde, const std::string& filename)
     nsize[20] = meshadaptparam.size();
     nsize[21] = pde.meshAdaptBoundaryConditions.size();
     nsize[22] = pde.distanceBoundaryConditions.size();
+    std::vector<double> bououtparam(1, static_cast<double>(pde.saveSolBouLoc));
+    for (int b : pde.ibsList) if (b > 0) bououtparam.push_back(static_cast<double>(b));
+    nsize[23] = bououtparam.size();
 
     std::ofstream file(filename, std::ios::binary);
     if (!file) throw std::runtime_error("Cannot open file for writing.");
@@ -1213,6 +1238,7 @@ void writepde(const PDE& pde, const std::string& filename)
         std::vector<double> boundaries(pde.distanceBoundaryConditions.begin(), pde.distanceBoundaryConditions.end());
         writeVector(boundaries);
     }
+    writeVector(bououtparam);
 
     file.close();
     if (!pde.physicsparamcases.empty()) {

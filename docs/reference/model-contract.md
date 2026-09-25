@@ -46,7 +46,7 @@ families include:
 | --- | --- | --- |
 | Element value functions | `KokkosFlux`, `KokkosSource`, `KokkosTdfunc` | Volume point evaluations. |
 | Element global functions | `KokkosSourcew`, `KokkosAvfield`, `KokkosEoS` | Element fields that need element/node context. |
-| Boundary functions | `KokkosFbou`, `KokkosUbou`, `KokkosQoIboundary` | Face/boundary evaluations with boundary ID. |
+| Boundary functions | `KokkosFbou`, `KokkosUbou`, `KokkosQoIboundary`, `KokkosSurfaceQuantities` (optional) | Face/boundary evaluations with boundary ID. |
 | Boundary Jacobians | `KokkosFbouJac`, `KokkosUbouJac` | Boundary derivative callbacks. |
 | Coupled-face functions | `KokkosFhat`, `KokkosUhat`, `KokkosStab` | Coupled/interface numerical flux hooks. |
 | Initial-condition functions | `KokkosInitu`, `KokkosInitq`, `KokkosInitudg`, `KokkosInitwdg`, `KokkosInitodg` | Initial solution fields. |

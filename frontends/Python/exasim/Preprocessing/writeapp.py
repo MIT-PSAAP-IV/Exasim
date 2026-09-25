@@ -19,6 +19,13 @@ def writeapp(app,filename):
     if 'uniformrefinementlevel' not in app:
         app['uniformrefinementlevel'] = 0;
 
+    # ibs may be a scalar boundary index or a list of them; problem[22] keeps the scalar slot
+    # (first entry, 0 = none) and the full list goes in the bououtparam vector below.
+    ibslist = [int(b) for b in array(app.get('ibs', 0)).flatten(order='F') if int(b) > 0];
+    saveSolBouLoc = int(app.get('saveSolBouLoc', 0));
+    if saveSolBouLoc not in (0, 1):
+        raise ValueError("saveSolBouLoc must be 0 (face nodes) or 1 (face Gauss points).");
+
     appname = 0;
     tmp = array([app['tdep'], app['wave'], app['linearproblem'], app['debugmode'], app['matvecorder'], app['GMRESortho'], app['preconditioner'], app['precMatrixType'], app['NLMatrixType'], app['runmode'], app['tdfunc'], app['source'], app['modelnumber'], app['extFhat'], app['extUhat'], app['extStab'], app['subproblem'], app['saveParaview'], app['physicsparamwarmstart'], app['builtinmodelID'], app['frontendgenerated']]);
     app['flag'] =  concatenate([tmp,app['flag']]);
@@ -26,7 +33,7 @@ def writeapp(app,filename):
     # then uniform refinement at problem[33].
     # Keep these fixed slots aligned with the Matlab/Julia and C++ preprocessors.
     # Defensive .get keeps older caller-created dictionaries working.
-    tmp = array([app['hybrid'], appname, app['temporalscheme'], app['torder'], app['nstage'], app['convStabMethod'], app['diffStabMethod'], app['rotatingFrame'], app['viscosityModel'], app['SGSmodel'], app['ALE'], app['AV'], app['linearsolver'], app['NLiter'], app['linearsolveriter'], app['GMRESrestart'], app['RBdim'], app['saveSolFreq'], app['saveSolOpt'], app['timestepOffset'], app['stgNmode'], app['saveSolBouFreq'], app['ibs'], app['dae_steps'], app['saveResNorm'], app['AVsmoothingIter'], app['frozenAVflag'], app['ppdegree'], app.get('coupledinterface', 0), app.get('coupledcondition', 0), app.get('coupledboundarycondition', 0), app.get('AVdistfunction', 0), app.get('stgchem', 0), app['uniformrefinementlevel']]);
+    tmp = array([app['hybrid'], appname, app['temporalscheme'], app['torder'], app['nstage'], app['convStabMethod'], app['diffStabMethod'], app['rotatingFrame'], app['viscosityModel'], app['SGSmodel'], app['ALE'], app['AV'], app['linearsolver'], app['NLiter'], app['linearsolveriter'], app['GMRESrestart'], app['RBdim'], app['saveSolFreq'], app['saveSolOpt'], app['timestepOffset'], app['stgNmode'], app['saveSolBouFreq'], (ibslist[0] if ibslist else 0), app['dae_steps'], app['saveResNorm'], app['AVsmoothingIter'], app['frozenAVflag'], app['ppdegree'], app.get('coupledinterface', 0), app.get('coupledcondition', 0), app.get('coupledboundarycondition', 0), app.get('AVdistfunction', 0), app.get('stgchem', 0), app['uniformrefinementlevel']]);
     app['problem'] = concatenate([tmp, app['problem']]);
     tmp = array([app['time'], app['dae_alpha'], app['dae_beta'], app['dae_gamma'], app['dae_epsilon']])    
     app['factor'] = concatenate([tmp, app['factor']]);
@@ -58,6 +65,7 @@ def writeapp(app,filename):
     ndims[17-1] = app['nten'];
     ndims[18-1] = app['nbqoi'];
     ndims[19-1] = app['nvqoi'];
+    ndims[20-1] = app.get('nsurfq', 0);  # number of surfacequantities outputs
 
     #if app['nco'] != app['vindx'].shape[0]:  #size(app.vindx,1):
     #    error("app.nco mus be equal to size(app.vindx,1)");
@@ -104,6 +112,8 @@ def writeapp(app,filename):
     ], dtype=float64)
     meshadaptbcs = array(app.get('meshadaptboundaryconditions', []), dtype=float64).flatten(order='F')
     distanceboundaryconditions = array(app.get('distanceboundaryconditions', []), dtype=float64).flatten(order='F')
+    # boundary output: [saveSolBouLoc, ibs_1, ..., ibs_k]
+    bououtparam = array([saveSolBouLoc] + ibslist, dtype=float64)
 
     nsize = zeros((30,1));
     nsize[1-1] = size(ndims);
@@ -139,6 +149,7 @@ def writeapp(app,filename):
     nsize[21-1] = size(meshadaptparam)
     nsize[22-1] = size(meshadaptbcs)
     nsize[23-1] = size(distanceboundaryconditions)
+    nsize[24-1] = size(bououtparam)
 
     print("Writing app into file...");
     fileID = open(filename, 'wb');
@@ -206,6 +217,8 @@ def writeapp(app,filename):
         meshadaptbcs.tofile(fileID)
     if nsize[23-1] > 0:
         distanceboundaryconditions.tofile(fileID)
+    if nsize[24-1] > 0:
+        bououtparam.tofile(fileID)
 
     if app['mutationflag']:
         app['mutationopts']['MixtureName'] = array((app['mutationopts']['MixtureName'] +'X').encode())

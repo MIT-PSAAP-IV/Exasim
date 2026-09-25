@@ -80,6 +80,7 @@ inline void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, ma
     common.qoiparams.nten = app.ndims[AppNdims::nten];// number of components of tensor fields for visualization
     common.qoiparams.nsurf = app.ndims[AppNdims::nsurf];// number of components of surface fields for visualization, storage, and QoIs
     common.qoiparams.nvqoi = app.ndims[AppNdims::nvqoi];// number of volume quantities of interest (QoIs)
+    common.qoiparams.nsurfq = (app.nsize[0] > AppNdims::nsurfq) ? app.ndims[AppNdims::nsurfq] : 0; // SurfaceQuantities components
 
     common.components.ncm = 1;//number of components of monitor function
     if (app.flag[1]==1)
@@ -178,6 +179,18 @@ inline void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, ma
     common.stgparams.stgchem = (app.nsize[2] > 32) ? app.problem[32] : 0;
     common.outputparams.saveSolBouFreq = app.problem[21];
     common.qoiparams.ibs = app.problem[22];
+    // Optional app.bin vector nsize[23] = [saveSolBouLoc, ibs_1, ..., ibs_k]. Older app.bin files
+    // lack it: fall back to the single boundary in problem[22] and nodal evaluation.
+    common.qoiparams.ibslist.clear();
+    common.qoiparams.saveSolBouLoc = 0;
+    if (app.szbououtparam > 0) {
+        common.qoiparams.saveSolBouLoc = app.bououtparam[0];
+        for (Int i = 1; i < app.szbououtparam; i++)
+            if (app.bououtparam[i] > 0) common.qoiparams.ibslist.push_back(app.bououtparam[i]);
+    }
+    if (common.qoiparams.ibslist.empty() && common.qoiparams.ibs > 0)
+        common.qoiparams.ibslist.push_back(common.qoiparams.ibs);
+    common.qoiparams.ibs = common.qoiparams.ibslist.empty() ? 0 : common.qoiparams.ibslist[0];
     common.timeparams.dae_steps = app.problem[23];  // number of dual time steps
     common.outputparams.saveResNorm = app.problem[24];
     common.physicsparams.AVsmoothingIter = app.problem[25]; //Number of times artificial viscosity is smoothed
@@ -303,7 +316,7 @@ inline void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, ma
     if ( common.outputparams.saveSolBouFreq>0 ) {
         common.sizes.ndofbou = 0;
         for (Int j=0; j<common.meshsizes.nbf; j++) {
-            if (common.fblks[3*j+2] == common.qoiparams.ibs) {
+            if (common.qoiparams.isSaveBoundary(common.fblks[3*j+2])) {
                 Int f1 = common.fblks[3*j]-1;
                 Int f2 = common.fblks[3*j+1];
                 common.sizes.ndofbou += common.grid.npf*(f2-f1);
