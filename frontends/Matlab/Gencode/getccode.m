@@ -1,8 +1,28 @@
 function mystr = getccode(f, varstr)
 
-mystr = "";
-
+mystr = string("");
 n = length(f(:));
+
+% fv = f(:);
+% for j = 0:(n-1)
+%     val = fv(j+1);
+%     if isequal(val, 0) || (isa(val, 'sym') && isequal(val, sym(0)))
+%         expr = '0.0';
+%     elseif isa(val, 'sym')
+%         expr = char(ccode(val));
+%         ieq = strfind(expr, '=');
+%         if ~isempty(ieq)
+%             expr = expr((ieq(1)+1):end);
+%         end
+%         expr = strrep(expr, ';', '');
+%         expr = strtrim(expr);
+%     else
+%         expr = num2str(val, 17);
+%     end
+%     mystr = mystr + "\t\t" + string([varstr num2str(j) '*ng+i] = ' expr ';']) + "\n";
+% end
+% return;
+
 ccode(f(:),'file','tmp.c');
 
 fid  = fopen('tmp.c','r');

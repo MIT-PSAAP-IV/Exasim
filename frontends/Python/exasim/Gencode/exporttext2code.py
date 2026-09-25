@@ -1,5 +1,7 @@
 import os
 import numpy as np
+import sympy
+from importlib import import_module
 
 from .genpdemodel import genpdemodel
 from ..Preprocessing.process_materialdatabase import process_materialdatabase
@@ -106,6 +108,7 @@ def _infer_dimensions(app, mesh):
     else:
         nd = int(app.get("nd", 1))
 
+    _infer_model_dimensions(app)
     ncu = int(app.get("ncu", 1))
     model = str(app.get("model", app.get("pdemodel", "ModelD"))).lower()
     if model == "modelc":
@@ -123,6 +126,20 @@ def _infer_dimensions(app, mesh):
     wdg = _mesh_get(mesh, "wdg")
     if wdg is not None and not _empty(wdg):
         app["ncw"] = int(np.shape(wdg)[1])
+
+
+def _infer_model_dimensions(app):
+    model = import_module(app.get("modelfile", "pdemodel"))
+    ncx = int(app.get("ncx", app.get("nd", 1)))
+    x = np.asarray(sympy.symbols(f"xdg1:{ncx + 1}"), dtype=object)
+    nparam = len(_as_1d(app.get("physicsparam", [])))
+    mu = np.asarray(sympy.symbols(f"param1:{nparam + 1}"), dtype=object)
+    neta = len(_as_1d(app.get("externalparam", app.get("uinf", []))))
+    eta = np.asarray(sympy.symbols(f"uinf1:{neta + 1}"), dtype=object)
+    if hasattr(model, "initu"):
+        app["ncu"] = int(np.asarray(model.initu(x, mu, eta), dtype=object).size)
+    if hasattr(model, "initv"):
+        app["nco"] = int(np.asarray(model.initv(x, mu, eta), dtype=object).size)
 
 
 def _write_pdeapp(pde, mesh, files, path, modelfile="pdemodel.txt"):
@@ -148,7 +165,9 @@ def _write_pdeapp(pde, mesh, files, path, modelfile="pdemodel.txt"):
     boundaryconditions = _mesh_get(mesh, "boundarycondition")
     if boundaryconditions is not None:
         app["boundaryconditions"] = boundaryconditions
-    app["boundaryexpressions"] = _string_list(_mesh_get(mesh, "boundaryexpr"), "boundaryexpr")
+    app["boundaryexpressions"] = _normalize_text2code_expressions(
+        _string_list(_mesh_get(mesh, "boundaryexpr"), "boundaryexpr")
+    )
 
     curved = _mesh_get(mesh, "curvedboundary")
     app["curvedboundaries"] = curved if curved is not None else []
@@ -157,7 +176,9 @@ def _write_pdeapp(pde, mesh, files, path, modelfile="pdemodel.txt"):
         curvedexpr = _mesh_get(mesh, "curvedboundaryexpr")
     if curvedexpr is None:
         curvedexpr = ["" for _ in _as_1d(app["boundaryconditions"])]
-    app["curvedboundaryexprs"] = _string_list(curvedexpr, "curvedboundaryexpr")
+    app["curvedboundaryexprs"] = _normalize_text2code_expressions(
+        _string_list(curvedexpr, "curvedboundaryexpr")
+    )
 
     _add_periodic(app, mesh)
     interfaceconditions = _mesh_get(mesh, "interfacecondition")
@@ -171,13 +192,15 @@ def _write_pdeapp(pde, mesh, files, path, modelfile="pdemodel.txt"):
         "nodetype", "ncu", "ncv", "ncw", "neb", "nfb", "linearproblem", "subproblem",
         "saveParaview", "physicsparamwarmstart", "tdep", "wave", "porder", "pgauss",
         "temporalscheme", "torder", "nstage", "convStabMethod", "diffStabMethod",
-        "rotatingFrame", "viscosityModel", "SGSmodel", "ALE", "AV", "AVsmoothingIter",
-        "frozenAVflag", "nonlinearsolver", "linearsolver", "NewtonIter", "NewtonTol",
+        "rotatingFrame", "viscosityModel", "SGSmodel", "ALE", "AV", "AVdistfunction", "distanceboundaryconditions", "AVsmoothingIter",
+        "AVsmoothingMethod", "AVHelmholtzCoeff", "AVcontinuationIter",
+        "AVcontinuationLogScale", "AVcoeffStart", "AVcoeffEnd", "frozenAVflag", "nonlinearsolver",
+        "linearsolver", "NewtonIter", "NewtonTol",
         "GMRESiter", "GMRESrestart", "GMREStol", "GMRESortho", "ppdegree", "RBdim",
         "matvecorder", "matvectol", "precMatrixType", "preconditioner", "time",
         "NLparam", "tau", "dt", "dae_alpha", "dae_beta", "dae_gamma", "dae_epsilon",
         "dae_steps", "dae_dt", "physicsparam", "physicsparamcases", "externalparam",
-        "vindx", "avparam1", "avparam2", "stgib", "stgdata", "stgparam",
+        "vindx", "avparam1", "avparam2", "stgNmode", "stgchem", "stgib", "stgdata", "stgparam",
         "boundaryconditions", "boundaryexpressions", "curvedboundaries",
         "curvedboundaryexprs", "periodicboundaries1", "periodicexprs1",
         "periodicboundaries2", "periodicexprs2", "interfaceconditions",
@@ -213,7 +236,9 @@ def _add_periodic(app, mesh):
 
 
 def _periodic_expr(expr):
-    values = _string_list([expr], "periodic expression")
+    values = _normalize_text2code_expressions(
+        _string_list([expr], "periodic expression")
+    )
     if values[0] == "xy":
         return ["x", "y"]
     if values[0] == "xz":
@@ -293,6 +318,12 @@ def _string_list(value, label):
             raise ValueError(f"exporttext2code: {label} entries must be strings for Text2Code export.")
         values.append(item)
     return values
+
+
+def _normalize_text2code_expressions(values):
+    """Convert array-language operators to scalar Text2Code operators."""
+    return [value.replace(".^", "^").replace(".*", "*").replace("./", "/")
+            for value in values]
 
 
 def _format_value(value, key=None):

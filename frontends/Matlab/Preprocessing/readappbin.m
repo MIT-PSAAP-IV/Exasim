@@ -38,6 +38,11 @@ function app = readappbin(filename)
         app.wmBoundaries = [];
         app.wmDistances = [];
     end
+    if length(nsize) >= 20 && nsize(20) > 0
+        app.avfilterparam = fread(fileID, nsize(20), 'double', endian);
+    else
+        app.avfilterparam = [0; 1];
+    end
     
     fclose(fileID);
 end

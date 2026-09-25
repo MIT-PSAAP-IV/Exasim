@@ -5,7 +5,7 @@ from .ainb import ainb
 from .writebin import writebin
 from .sortrows import sortrows
 
-def elementpartition2(dmd,t,t2t,nproc,metis):
+def elementpartition2(dmd,t,t2t,nproc,metis,elem2cpu=None):
 
     nve,ne = t.shape;
 
@@ -24,8 +24,11 @@ def elementpartition2(dmd,t,t2t,nproc,metis):
         dmd[i]['elemsendpts'] = [];
         return dmd;
 
-    elem2cpu = partition(t+1,ne,nproc,metis)[0]
+    if elem2cpu is None or size(elem2cpu) == 0:
+        elem2cpu = partition(t+1,ne,nproc,metis)[0]
     elem2cpu = array(elem2cpu).flatten().astype(int64);
+    if elem2cpu.size != ne:
+        raise ValueError("elementpartition2: elem2cpu must contain one entry per element.")
 
     for i in range(0,nproc):
         intelem = nonzero(elem2cpu == i)[0]; # elements in subdomain i

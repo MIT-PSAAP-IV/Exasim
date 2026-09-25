@@ -1808,4 +1808,3 @@ void gaussnodes(std::vector<dstype>& xgauss, std::vector<dstype>& wgauss,
 }
 
 #endif  
-

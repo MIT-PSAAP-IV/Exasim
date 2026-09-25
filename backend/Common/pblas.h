@@ -397,6 +397,71 @@ static T PNORM(cublasHandle_t handle, Int m, Int n, T* x, Int backend)
     return sqrt(nrm);    
 }
 
+template <class T=dstype, class I=Int>
+static T PArrayMin(const T* x, I n)
+{
+    T local = n > 0 ? ArrayMin<T, I>(x, n) : std::numeric_limits<T>::max();
+#ifdef HAVE_MPI
+    T global = local;
+    MPI_Allreduce(&local, &global, 1, mpi_type<T>(), MPI_MIN, EXASIM_COMM_WORLD);
+    return global;
+#else
+    return local;
+#endif
+}
+
+template <class T=dstype, class I=Int>
+static T PArrayMax(const T* x, I n)
+{
+    T local = n > 0 ? ArrayMax<T, I>(x, n) : std::numeric_limits<T>::lowest();
+#ifdef HAVE_MPI
+    T global = local;
+    MPI_Allreduce(&local, &global, 1, mpi_type<T>(), MPI_MAX, EXASIM_COMM_WORLD);
+    return global;
+#else
+    return local;
+#endif
+}
+
+template <class T=dstype, class I=Int>
+static T PArrayMinAbs(const T* x, I n)
+{
+    T local = n > 0 ? ArrayMinAbs<T, I>(x, n) : std::numeric_limits<T>::max();
+#ifdef HAVE_MPI
+    T global = local;
+    MPI_Allreduce(&local, &global, 1, mpi_type<T>(), MPI_MIN, EXASIM_COMM_WORLD);
+    return global;
+#else
+    return local;
+#endif
+}
+
+template <class T=dstype, class I=Int>
+static T PArrayMaxAbs(const T* x, I n)
+{
+    T local = n > 0 ? ArrayMaxAbs<T, I>(x, n) : static_cast<T>(0);
+#ifdef HAVE_MPI
+    T global = local;
+    MPI_Allreduce(&local, &global, 1, mpi_type<T>(), MPI_MAX, EXASIM_COMM_WORLD);
+    return global;
+#else
+    return local;
+#endif
+}
+
+template <class T=dstype, class I=Int>
+static bool PArrayAllPositiveFinite(const T* x, I n)
+{
+    int local = ArrayAllPositiveFinite<T, I>(x, n) ? 1 : 0;
+#ifdef HAVE_MPI
+    int global = local;
+    MPI_Allreduce(&local, &global, 1, MPI_INT, MPI_MIN, EXASIM_COMM_WORLD);
+    return global != 0;
+#else
+    return local != 0;
+#endif
+}
+
 template <class T=dstype>
 static void DOT(cublasHandle_t handle, Int m, T* x, Int incx, T* y, Int incy, T *dot, Int backend)
 {

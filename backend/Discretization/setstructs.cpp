@@ -218,11 +218,54 @@ void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, masterstr
     common.outputparams.saveSolOpt = app.problem[18];    
     common.outputparams.timestepOffset = app.problem[19];    
     common.stgparams.stgNmode = app.problem[20];    
+    common.stgparams.stgchem = (app.nsize[2] > 32) ? app.problem[32] : 0;
     common.outputparams.saveSolBouFreq = app.problem[21];   
     common.qoiparams.ibs = app.problem[22];   
     common.timeparams.dae_steps = app.problem[23];  // number of dual time steps      
     common.outputparams.saveResNorm = app.problem[24];   
     common.physicsparams.AVsmoothingIter = app.problem[25]; //Number of times artificial viscosity is smoothed
+    common.physicsparams.AVsmoothingMethod =
+        (app.szavfilterparam > 0) ? static_cast<Int>(app.avfilterparam[0]) : 0;
+    common.physicsparams.AVHelmholtzCoeff =
+        (app.szavfilterparam > 1) ? app.avfilterparam[1] : 1.0;
+    if (app.szmeshadaptparam > 0) {
+        if (app.szmeshadaptparam < 20)
+            error("Mesh-adaptivity parameter block must contain 20 entries.");
+        common.meshadaptparams.enabled = static_cast<Int>(app.meshadaptparam[0]);
+        common.meshadaptparams.scalarField = static_cast<Int>(app.meshadaptparam[1]);
+        common.meshadaptparams.avComponent = static_cast<Int>(app.meshadaptparam[2]);
+        common.meshadaptparams.smoothingPasses = static_cast<Int>(app.meshadaptparam[3]);
+        common.meshadaptparams.movementIterations = static_cast<Int>(app.meshadaptparam[4]);
+        common.meshadaptparams.alpha = app.meshadaptparam[5];
+        common.meshadaptparams.qmin = app.meshadaptparam[6];
+        common.meshadaptparams.qmax = app.meshadaptparam[7];
+        common.meshadaptparams.helmholtzCoeff = app.meshadaptparam[8];
+        common.meshadaptparams.targetExponent = app.meshadaptparam[9];
+        common.meshadaptparams.poissonRatio = app.meshadaptparam[10];
+        common.meshadaptparams.youngModulus = app.meshadaptparam[11];
+        common.meshadaptparams.minimumYoungModulus = app.meshadaptparam[12];
+        common.meshadaptparams.shearScale = app.meshadaptparam[13];
+        common.meshadaptparams.volumetricScale = app.meshadaptparam[14];
+        common.meshadaptparams.forceScale = app.meshadaptparam[15];
+        common.meshadaptparams.damping = app.meshadaptparam[16];
+        common.meshadaptparams.minimumJacobianRatio = app.meshadaptparam[17];
+        common.meshadaptparams.helmholtzTau = app.meshadaptparam[18];
+        common.meshadaptparams.elasticityTau = app.meshadaptparam[19];
+        const auto &m = common.meshadaptparams;
+        if (m.alpha < 0.0 || m.alpha > 1.0) error("meshadaptalpha must be in [0,1].");
+        if (m.qmin < 0.0 || m.qmax > 1.0 || m.qmin >= m.qmax)
+            error("meshadaptqmin and meshadaptqmax must satisfy 0 <= qmin < qmax <= 1.");
+        if (m.scalarField < 1 || m.avComponent < 1)
+            error("Mesh-adaptivity field and AV component indices are one-based and must be positive.");
+        if (m.smoothingPasses < 0 || m.movementIterations < 0)
+            error("Mesh-adaptivity iteration counts must be nonnegative.");
+        if (m.poissonRatio <= -1.0 || m.poissonRatio >= 0.5)
+            error("meshadaptpoissonratio must be in (-1,0.5).");
+        if (m.helmholtzCoeff < 0.0 || m.youngModulus <= 0.0 ||
+            m.minimumYoungModulus <= 0.0 || m.damping <= 0.0 || m.damping > 1.0 ||
+            m.minimumJacobianRatio <= 0.0)
+            error("Invalid positive mesh-adaptivity coefficient or damping parameter.");
+    }
     common.physicsparams.frozenAVflag = app.problem[26]; // Flag deciding if artificial viscosity is calculated once per non-linear solve or in every residual evluation
                                            //   0: AV not frozen, evaluated every iteration
                                            //   1: AV frozen, evluated once per solve (default)          
@@ -231,6 +274,16 @@ void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, masterstr
     common.couplingparams.coupledcondition = app.problem[29]; 
     common.couplingparams.coupledboundarycondition = app.problem[30];
     common.physicsparams.AVdistfunction = app.problem[31];
+    common.uniformrefinementlevel = (app.nsize[2] > 33) ? app.problem[33] : 0;
+
+    if (common.stgparams.stgchem != 0 && common.stgparams.stgchem != 1)
+        error("stgchem must be either 0 (ideal gas) or 1 (five-species chemistry)");
+    if (common.spatialScheme == 0 && common.stgparams.stgchem == 1) {
+        const Int nchem = common.grid.nd + 6;
+        if ((common.grid.nd != 2 && common.grid.nd != 3) || common.components.ncu != nchem ||
+            common.components.nco < nchem || app.nsize[6] < 4)
+            error("LDG chemistry STG requires nd=2 or 3, ncu=nd+6, nco>=nd+6, and four physics reference scales");
+    }
     
     // (mutable reduced-basis/solver runtime state now lives in CSolver::state, default-initialized)
 
@@ -289,6 +342,9 @@ void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, masterstr
     common.szcartgridpart = mesh.nsize[25];
 
     common.boundaryConditions = copyarray(mesh.boundaryConditions, mesh.nsize[27]);
+    common.distanceboundaryconditions = copyarray(app.distanceboundaryconditions,
+                                                  app.szdistanceboundaryconditions);
+    common.szdistanceboundaryconditions = app.szdistanceboundaryconditions;
     common.intepartpts = copyarray(mesh.intepartpts, mesh.nsize[28]);
     // if (mesh.nsize[25] > 0) TemplateFree(mesh.cartgridpart, 0);
     // if (mesh.nsize[27] > 0) TemplateFree(mesh.boundaryConditions, 0);
@@ -960,14 +1016,15 @@ template <class T=dstype, class I=Int>
 void cpuInit(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, ExasimDriverABI& driver_abi, masterstructT<T,I> &master,
         meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,
         string filein, string fileout, Int mpiprocs, Int mpirank, Int fileoffset, Int omprank,
-        const std::vector<T>* physicsparamOverride = nullptr)
+        const std::vector<T>* physicsparamOverride = nullptr,
+        ExasimExecutionMode mode = ExasimExecutionMode::Solve)
 {
     using dstype=T;
      
     if (mpirank==0)
         printf("Reading data from binary files \n");
     readInput(app, driver_abi, master, mesh, sol, filein, mpiprocs, mpirank, fileoffset, omprank,
-              physicsparamOverride);
+              physicsparamOverride, mode);
     exasim::interfacepartition::build_runtime_interface_partition(app, master, mesh, sol,
             mpiprocs, mpirank, fileoffset);
     
@@ -1027,6 +1084,10 @@ void devappstruct(appstructT<T,I> &dapp, appstructT<T,I> &app, ExasimDriverABI& 
     TemplateMalloc(&dapp.dae_dt, app.nsize[13], common.backend);  
     TemplateMalloc(&dapp.interfacefluxmap, app.nsize[14], common.backend);  
     TemplateMalloc(&dapp.avparam, app.nsize[15], common.backend);  
+    TemplateMalloc(&dapp.avfilterparam, app.szavfilterparam, common.backend);
+    TemplateMalloc(&dapp.meshadaptparam, app.szmeshadaptparam, common.backend);
+    TemplateMalloc(&dapp.meshadaptbcs, app.szmeshadaptbcs, common.backend);
+    TemplateMalloc(&dapp.distanceboundaryconditions, app.szdistanceboundaryconditions, common.backend);
     TemplateMalloc(&dapp.materialdb_elementcounts, app.szmaterialdb_elementcounts, common.backend);
     TemplateMalloc(&dapp.materialdb_ncgi, app.szmaterialdb_ncgi, common.backend);
     TemplateMalloc(&dapp.materialdb_gridoffset, app.szmaterialdb_gridoffset, common.backend);
@@ -1053,6 +1114,11 @@ void devappstruct(appstructT<T,I> &dapp, appstructT<T,I> &app, ExasimDriverABI& 
     TemplateCopytoDevice( dapp.dae_dt, app.dae_dt, app.nsize[13], common.backend );   
     TemplateCopytoDevice( dapp.interfacefluxmap, app.interfacefluxmap, app.nsize[14], common.backend );   
     TemplateCopytoDevice( dapp.avparam, app.avparam, app.nsize[15], common.backend );   
+    TemplateCopytoDevice( dapp.avfilterparam, app.avfilterparam, app.szavfilterparam, common.backend );
+    TemplateCopytoDevice( dapp.meshadaptparam, app.meshadaptparam, app.szmeshadaptparam, common.backend );
+    TemplateCopytoDevice( dapp.meshadaptbcs, app.meshadaptbcs, app.szmeshadaptbcs, common.backend );
+    TemplateCopytoDevice(dapp.distanceboundaryconditions, app.distanceboundaryconditions,
+                         app.szdistanceboundaryconditions, common.backend);
     TemplateCopytoDevice( dapp.materialdb_elementcounts, app.materialdb_elementcounts, app.szmaterialdb_elementcounts, common.backend );
     TemplateCopytoDevice( dapp.materialdb_ncgi, app.materialdb_ncgi, app.szmaterialdb_ncgi, common.backend );
     TemplateCopytoDevice( dapp.materialdb_gridoffset, app.materialdb_gridoffset, app.szmaterialdb_gridoffset, common.backend );
@@ -1077,6 +1143,10 @@ void devappstruct(appstructT<T,I> &dapp, appstructT<T,I> &app, ExasimDriverABI& 
     dapp.szdae_dt = app.nsize[13];
     dapp.szinterfacefluxmap = app.nsize[14];
     dapp.szavparam = app.nsize[15];
+    dapp.szavfilterparam = app.szavfilterparam;
+    dapp.szmeshadaptparam = app.szmeshadaptparam;
+    dapp.szmeshadaptbcs = app.szmeshadaptbcs;
+    dapp.szdistanceboundaryconditions = app.szdistanceboundaryconditions;
     dapp.materialdb_nstate = app.materialdb_nstate;
     dapp.materialdb_nprop = app.materialdb_nprop;
     dapp.materialdb_porder = app.materialdb_porder;

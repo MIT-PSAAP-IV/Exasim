@@ -1,7 +1,16 @@
-function dmd = elementpartition2(t,t2t,nproc,metis)
+function dmd = elementpartition2(t,t2t,nproc,metis,elem2cpu)
  
 [~,ne] = size(t);
 dmd = cell(nproc,1);
+
+if nargin < 5
+    elem2cpu = [];
+else
+    elem2cpu = elem2cpu(:);
+    if ~isempty(elem2cpu) && numel(elem2cpu) ~= ne
+        error('elementpartition2: elem2cpu must contain one entry per element.');
+    end
+end
 
 if nproc==1
     i = 1;
@@ -16,7 +25,9 @@ if nproc==1
     return;
 end
 
-elem2cpu = partition(t',ne,nproc,metis);
+if isempty(elem2cpu)
+    elem2cpu = partition(t',ne,nproc,metis);
+end
 
 for i = 1:nproc
     disp(['element partition ' num2str(i)]); 
@@ -82,4 +93,3 @@ nbelem = unique(t2te(:));
 if nbelem(1) == 0
     nbelem(1) = [];
 end
-

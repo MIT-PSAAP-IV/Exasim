@@ -68,10 +68,9 @@ function gencodeelem2(filename::String, f, xdg, udg, odg, wdg, uinf, param, time
   end
   
   strkk = strkk * str * "\t});\n" * "}\n\n"
-  strkk = replace(strkk, "dstype " => "dstype ")
+  strkk = replace(strkk, "T " => "dstype ")
   open(foldername * "/" * cpufile * ".cpp", "w") do fid
       write(fid, strkk)
   end
 
 end
-

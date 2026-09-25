@@ -42,11 +42,14 @@
 #define __SOLUTION_H__
 
 #include "exasim/execution_mode.hpp"
+#include <memory>
 #include "../Discretization/assembler.h"
 #include "../Discretization/residualeval.h"
 #include "../Discretization/interfacesampler.h"
 #include "solutionwriter.h"
 #include "nonlinearsolver.h"
+#include "../Model/Helmholtz/helmholtzprovider.hpp"
+#include "../Model/LinearElasticity/linear_elasticity_provider.hpp"
 
 // Common helper: open file and write 3-element header [a0, a1, a2]
 void open_and_write(std::ofstream& ofs,
@@ -129,7 +132,44 @@ private:
     };
 
     PDEStateSnapshot snapshot;
+    struct MeshAdaptWorkspace {
+        dstype *globalBoundaryCoordinates = nullptr;
+        dstype *lowModalBasis = nullptr;
+        dstype *lowModalInverse = nullptr;
+        Int *helmholtzSendNodeIndices = nullptr;
+        Int *helmholtzRecvNodeIndices = nullptr;
+        Int globalBoundaryCoordinateCount = 0;
+        Int lowModeCount = 0;
+        bool boundaryInitialized = false;
+
+        void clear(Int backend)
+        {
+            TemplateFree(globalBoundaryCoordinates, backend);
+            TemplateFree(lowModalBasis, backend);
+            TemplateFree(lowModalInverse, backend);
+            TemplateFree(helmholtzSendNodeIndices, backend);
+            TemplateFree(helmholtzRecvNodeIndices, backend);
+            globalBoundaryCoordinates = nullptr;
+            lowModalBasis = nullptr;
+            lowModalInverse = nullptr;
+            helmholtzSendNodeIndices = nullptr;
+            helmholtzRecvNodeIndices = nullptr;
+            globalBoundaryCoordinateCount = 0;
+            lowModeCount = 0;
+            boundaryInitialized = false;
+        }
+    } meshAdaptWorkspace;
+    std::unique_ptr<CSolution<exasim::detail::AbiAdapter>> helmholtz;
+    std::unique_ptr<CSolution<exasim::detail::AbiAdapter>> elasticity;
+    bool artificialViscosityPrepared = false;
+
+    void InitializeWallDistanceWorkspace(Int backend);
+    void InitializeHelmholtzLengthScale(Int backend);
+    void ApplyHelmholtzAVFilter(dstype *avField, Int backend);
 public:
+    void UpdateWallDistance(Int continuationIteration, Int backend);
+    void PrepareArtificialViscosity(bool zeroSensor, Int continuationIteration, Int backend);
+    void AdaptMesh(Int backend, Int continuationIteration = 0);
     CDiscretization disc;  // spatial discretization class (the function space)
     CResidual<M> residual;    // the discretized PDE residual R(u)/flux q (evaluates from disc)
     CAssembler<M> assembler;  // HDG global linear-system assembler + operator-apply (from disc)
@@ -160,6 +200,9 @@ public:
         if ((disc.common.couplingparams.nintfaces > 0) && (disc.common.couplingparams.coupledcondition>0)) disc.common.meshsizes.ne0 = disc.common.intepartpts[0];
 
         const bool postprocessOnly = (mode == ExasimExecutionMode::Postprocess);
+        const bool auxiliaryHelmholtz = (mode == ExasimExecutionMode::AuxiliaryHelmholtz);
+        const bool auxiliaryElasticity = (mode == ExasimExecutionMode::AuxiliaryElasticity);
+        const bool auxiliarySolve = auxiliaryHelmholtz || auxiliaryElasticity;
 
         // The operator initializes its own solution: first the model initial conditions (layer A,
         // fields the reader could not supply), then recover the operator state (q / uh / q-matrices)
@@ -169,7 +212,30 @@ public:
         residual.recoverInitialState(backend, postprocessOnly);
 
         // Open the output streams and write the initial solution (the I/O half lives on the writer).
-        writer.setup(postprocessOnly);
+        writer.setup(postprocessOnly || auxiliarySolve);
+
+        if (!auxiliarySolve && !postprocessOnly &&
+            disc.common.physicsparams.AVdistfunction > 0)
+            InitializeWallDistanceWorkspace(backend);
+
+        if (!auxiliarySolve && !postprocessOnly &&
+            (disc.common.physicsparams.AVsmoothingMethod == 1 || disc.common.meshadaptparams.enabled)) {
+            if (disc.common.physicsparams.AVsmoothingMethod == 1 &&
+                (disc.common.physicsparams.ncAV <= 0 || disc.common.physicsparams.frozenAVflag <= 0))
+                error("AVsmoothingMethod=1 is supported only for frozen artificial viscosity.");
+            helmholtz = std::make_unique<CSolution<exasim::detail::AbiAdapter>>(
+                filein, fileout, exasimpath, mpiprocs, mpirank, fileoffset,
+                omprank, backend, 0, GetHelmholtzModelABI(disc.common.grid.nd),
+                0, 0, 0, 0, 0, ExasimExecutionMode::AuxiliaryHelmholtz);
+            if (disc.common.physicsparams.AVsmoothingMethod == 1)
+                InitializeHelmholtzLengthScale(backend);
+        }
+        if (!auxiliarySolve && !postprocessOnly && disc.common.meshadaptparams.enabled) {
+            elasticity = std::make_unique<CSolution<exasim::detail::AbiAdapter>>(
+                filein, fileout, exasimpath, mpiprocs, mpirank, fileoffset,
+                omprank, backend, 0, GetLinearElasticityModelABI(disc.common.grid.nd),
+                0, 0, 0, 0, 0, ExasimExecutionMode::AuxiliaryElasticity);
+        }
     };
 
     // No-ABI constructor (C3): the concrete-model build (M != AbiAdapter) has no runtime ABI -- the
@@ -185,6 +251,7 @@ public:
     // destructor (output streams are owned by, and closed by, the writer)
     ~CSolution() {
         this->ClearSavedState();
+        meshAdaptWorkspace.clear(disc.common.backend);
     };
 
     void SteadyProblem(ofstream &out, Int backend);
@@ -196,6 +263,7 @@ public:
     //  CSolutionWriter -- call them via the `writer` member)
 
     void DIRK(ofstream &out, Int backend);
+    void DIRKonly(ofstream &out, Int backend);
 
     // precompute some quantities
     void InitSolution(Int backend);

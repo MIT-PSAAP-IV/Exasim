@@ -392,7 +392,9 @@ void writeBinaryFiles(PDE& pde, Mesh& mesh, const Master& master, const ParsedSp
             
         if (pde.mpiprocs>1) {
         
-            if ((pde.partitionfile == "") || (mesh.elem2cpu.size() == 0)) {
+            if (mesh.elem2cpu.size() == 0) {
+                if (pde.uniformrefinementlevel > 0)
+                    error("Internal error: text2code must partition the coarse mesh before uniform refinement.");
 #ifdef HAVE_METIS          
                 vector<int> node2cpu;
                 partitionMesh(mesh.elem2cpu, node2cpu, mesh.t, mesh.ne, mesh.np, mesh.nve, mesh.nvf, pde.mpiprocs);
@@ -402,6 +404,11 @@ void writeBinaryFiles(PDE& pde, Mesh& mesh, const Master& master, const ParsedSp
                 error("mpiprocs > 1 requires a mesh partition array. \nPlease include the required mesh partition array in a binary file\nand set partitionfile to the name of the file.");      
 #endif                  
             }
+            if ((int)mesh.elem2cpu.size() != mesh.ne)
+                error("mesh partition array must have one entry per element after uniform refinement.");
+            for (int i=0; i<mesh.ne; i++)
+                if (mesh.elem2cpu[i] < 1 || mesh.elem2cpu[i] > pde.mpiprocs)
+                    error("mesh partition entries must be one-based ranks in [1, mpiprocs].");
 
             for (int i=0; i<mesh.ne; i++) mesh.elem2cpu[i] -= 1;                    
             mesh.t2t.resize(mesh.nfe*mesh.ne);

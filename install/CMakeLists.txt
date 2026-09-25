@@ -155,7 +155,8 @@ set(EXASIM_SOLVER_SOURCES ${EXASIM_MAIN_DIR}/ExasimSolver.cpp)
 
 function(add_exasim_static_library target output_name)
   add_library(${target} STATIC ${EXASIM_SOLVER_SOURCES})
-  target_link_libraries(${target} PUBLIC ExasimHeaders)
+  target_link_libraries(${target} PUBLIC
+    ExasimHeaders ${EXASIM_HELMHOLTZ_MODEL_TARGET} ${EXASIM_LINEAR_ELASTICITY_MODEL_TARGET})
   target_include_directories(${target} PUBLIC
     $<BUILD_INTERFACE:${EXASIM_INCLUDE_DIR}>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
@@ -183,7 +184,8 @@ function(add_exasim_model_executable name)
   target_compile_definitions(${name} PRIVATE ${E_DEFINES})
   target_compile_options(${name} PRIVATE ${E_OPTIONS})
   target_link_libraries(${name} PRIVATE
-    Kokkos::kokkos ${lapackblas_libraries} ${E_EXTRA_LIBS} ${E_MODEL_LIB})
+    ${EXASIM_HELMHOLTZ_MODEL_TARGET} ${EXASIM_LINEAR_ELASTICITY_MODEL_TARGET} Kokkos::kokkos
+    ${lapackblas_libraries} ${E_EXTRA_LIBS} ${E_MODEL_LIB})
   link_metis(${name})
   set_target_properties(${name} PROPERTIES BUILD_RPATH "${E_LIB_DIR}")
 endfunction()
@@ -246,6 +248,12 @@ endif()
 set(BM_CPU_LIB  builtinmodelserial)
 set(BM_CUDA_LIB builtinmodelcuda)
 set(BM_HIP_LIB  builtinmodelhip)
+set(HM_CPU_LIB  HelmholtzModelsserial)
+set(HM_CUDA_LIB HelmholtzModelscuda)
+set(HM_HIP_LIB  HelmholtzModelship)
+set(LE_CPU_LIB  LinearElasticityModelsserial)
+set(LE_CUDA_LIB LinearElasticityModelscuda)
+set(LE_HIP_LIB  LinearElasticityModelship)
 
 function(exasim_set_default_kokkos_dir backend)
   if(Kokkos_DIR)
@@ -325,6 +333,10 @@ endif()
 # directly. Defines the CMake target builtinmodel{serial,cuda,hip}.
 add_subdirectory(${EXASIM_DIR}/backend/Model/BuiltIn
                  ${CMAKE_BINARY_DIR}/builtinmodel)
+add_subdirectory(${EXASIM_DIR}/backend/Model/Helmholtz
+                 ${CMAKE_BINARY_DIR}/helmholtzmodels)
+add_subdirectory(${EXASIM_DIR}/backend/Model/LinearElasticity
+                 ${CMAKE_BINARY_DIR}/linearelasticitymodels)
 
 # ---- Option: build EXASIM variants that include Kokkos kernel providers ----
 set(KOKKOSKERNEL_HEADER "" CACHE STRING "Header defining PdeModel for the Kokkos kernel provider")
@@ -508,7 +520,7 @@ if(EXASIM_CUDA)
       target_compile_definitions(gput2cEXASIM PRIVATE _CUDA _TEXT2CODE)
       target_compile_options(gput2cEXASIM PRIVATE -std=c++20 -w -ffast-math -O3 -DNDEBUG -fno-unroll-loops)
       target_link_libraries(gput2cEXASIM PRIVATE
-        Kokkos::kokkos ${lapackblas_libraries} ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES}
+        ${HM_CUDA_LIB} ${LE_CUDA_LIB} Kokkos::kokkos ${lapackblas_libraries} ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES}
         ${T2C_CUDA_LIB})
       link_metis(gput2cEXASIM)   # METIS
       set_target_properties(gput2cEXASIM PROPERTIES BUILD_RPATH "${Model_LIB_DIR}")
@@ -552,7 +564,7 @@ if(EXASIM_CUDA)
         target_compile_definitions(gpumpit2cEXASIM PRIVATE _MPI _CUDA _TEXT2CODE)
         target_compile_options(gpumpit2cEXASIM PRIVATE -std=c++20 -w -ffast-math -O3 -DNDEBUG -fno-unroll-loops)
         target_link_libraries(gpumpit2cEXASIM PRIVATE
-          Kokkos::kokkos ${lapackblas_libraries} ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES} ${MPI_LIBRARIES}
+          ${HM_CUDA_LIB} ${LE_CUDA_LIB} Kokkos::kokkos ${lapackblas_libraries} ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES} ${MPI_LIBRARIES}
           ${T2C_CUDA_LIB})
         link_metis(gpumpit2cEXASIM) # METIS
         set_target_properties(gpumpit2cEXASIM PROPERTIES BUILD_RPATH "${Model_LIB_DIR}")
@@ -612,7 +624,7 @@ elseif(EXASIM_HIP)
       target_link_directories(gput2cEXASIM PRIVATE ${Model_LIB_DIR})
       target_compile_definitions(gput2cEXASIM PRIVATE _HIP _TEXT2CODE)
       target_compile_options(gput2cEXASIM PRIVATE -std=c++20 -w -ffast-math -O3 -DNDEBUG -fno-unroll-loops)
-      target_link_libraries(gput2cEXASIM PRIVATE Kokkos::kokkos hipblas rocblas ${HIP_LIBRARIES} ${lapackblas_libraries} ${T2C_HIP_LIB})
+      target_link_libraries(gput2cEXASIM PRIVATE ${HM_HIP_LIB} ${LE_HIP_LIB} Kokkos::kokkos hipblas rocblas ${HIP_LIBRARIES} ${lapackblas_libraries} ${T2C_HIP_LIB})
       link_metis(gput2cEXASIM)   # METIS
       set_target_properties(gput2cEXASIM PROPERTIES BUILD_RPATH "${Model_LIB_DIR}")
     endif()
@@ -654,7 +666,7 @@ elseif(EXASIM_HIP)
         target_compile_definitions(gpumpit2cEXASIM PRIVATE _MPI _HIP _TEXT2CODE)
         target_compile_options(gpumpit2cEXASIM PRIVATE -std=c++20 -w -ffast-math -O3 -DNDEBUG -fno-unroll-loops)
         target_link_libraries(gpumpit2cEXASIM PRIVATE
-          Kokkos::kokkos hipblas rocblas ${HIP_LIBRARIES} ${lapackblas_libraries} ${MPI_LIBRARIES}
+          ${HM_HIP_LIB} ${LE_HIP_LIB} Kokkos::kokkos hipblas rocblas ${HIP_LIBRARIES} ${lapackblas_libraries} ${MPI_LIBRARIES}
           ${T2C_HIP_LIB})
         link_metis(gpumpit2cEXASIM) # METIS
         set_target_properties(gpumpit2cEXASIM PROPERTIES BUILD_RPATH "${Model_LIB_DIR}")
@@ -791,11 +803,18 @@ register_exasim_export_target(gpumpiEXASIM_static gpumpilib TRUE)
 register_exasim_export_target(gpupreEXASIM_static gpuprelib FALSE)
 register_exasim_export_target(gpumpipreEXASIM_static gpumpiprelib TRUE)
 
-# Built-in model shared libraries (built above via add_subdirectory) ship as
+# Built-in and Helmholtz model static libraries (built above via
+# add_subdirectory) ship as
 # part of the package, exported as Exasim::builtinmodel{serial,cuda,hip}.
 register_exasim_export_target(builtinmodelserial builtinmodelserial FALSE)
 register_exasim_export_target(builtinmodelcuda   builtinmodelcuda   FALSE)
 register_exasim_export_target(builtinmodelhip    builtinmodelhip    FALSE)
+register_exasim_export_target(HelmholtzModelsserial HelmholtzModelsserial FALSE)
+register_exasim_export_target(HelmholtzModelscuda   HelmholtzModelscuda   FALSE)
+register_exasim_export_target(HelmholtzModelship    HelmholtzModelship    FALSE)
+register_exasim_export_target(LinearElasticityModelsserial LinearElasticityModelsserial FALSE)
+register_exasim_export_target(LinearElasticityModelscuda   LinearElasticityModelscuda   FALSE)
+register_exasim_export_target(LinearElasticityModelship    LinearElasticityModelship    FALSE)
 
 # Optional PETSc shim (Layer 1): <exasim/petsc.hpp> factors the MatShell/PCShell/Vec/KSP glue.
 # Exported as Exasim::petsc ONLY when PETSc is found at Exasim build time. It's a lightweight
@@ -1232,6 +1251,8 @@ message(STATUS "T2C_HIP_LIB               = ${T2C_HIP_LIB}")
 message(STATUS "BM_CPU_LIB                = ${BM_CPU_LIB}")
 message(STATUS "BM_CUDA_LIB               = ${BM_CUDA_LIB}")
 message(STATUS "BM_HIP_LIB                = ${BM_HIP_LIB}")
+message(STATUS "Helmholtz model library   = ${EXASIM_HELMHOLTZ_MODEL_TARGET}")
+message(STATUS "Elasticity model library  = ${EXASIM_LINEAR_ELASTICITY_MODEL_TARGET}")
 
 message(STATUS "CMAKE_CUDA_ARCHITECTURES  = ${CMAKE_CUDA_ARCHITECTURES}")
 message(STATUS "CMAKE_BUILD_TYPE          = ${CMAKE_BUILD_TYPE}")

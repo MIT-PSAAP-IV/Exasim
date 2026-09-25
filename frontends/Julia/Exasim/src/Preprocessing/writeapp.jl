@@ -5,11 +5,10 @@ if !isdefined(app, :frontendgenerated)
     app.frontendgenerated = 1;
 end
 app.flag = [app.tdep app.wave app.linearproblem app.debugmode app.matvecorder app.GMRESortho app.preconditioner app.precMatrixType app.NLMatrixType app.runmode app.tdfunc app.source app.modelnumber app.extFhat app.extUhat app.extStab app.subproblem app.saveParaview app.physicsparamwarmstart app.builtinmodelID app.frontendgenerated app.flag];
-# problem[0..27], then the coupling slots problem[28..31] (M1: reconcile to Matlab's app.bin
-# layout -- backend reads problem[28..31] as coupledinterface/coupledcondition/
-# coupledboundarycondition/AVdistfunction; previously the user's trailing app.problem collided
-# with these slots).
-app.problem = [app.hybrid appname app.temporalscheme app.torder app.nstage app.convStabMethod app.diffStabMethod app.rotatingFrame app.viscosityModel app.SGSmodel app.ALE app.AV app.linearsolver app.NLiter app.linearsolveriter app.GMRESrestart app.RBdim app.saveSolFreq app.saveSolOpt app.timestepOffset app.stgNmode app.saveSolBouFreq app.ibs app.dae_steps app.saveResNorm app.AVsmoothingInter app.frozenAVflag app.ppdegree app.coupledinterface app.coupledcondition app.coupledboundarycondition app.AVdistfunction app.problem];
+# problem[0..27], coupling slots problem[28..31], STG chemistry at problem[32],
+# then uniform refinement at problem[33].
+# Keep these fixed slots aligned with the Matlab/Python and C++ preprocessors.
+app.problem = [app.hybrid appname app.temporalscheme app.torder app.nstage app.convStabMethod app.diffStabMethod app.rotatingFrame app.viscosityModel app.SGSmodel app.ALE app.AV app.linearsolver app.NLiter app.linearsolveriter app.GMRESrestart app.RBdim app.saveSolFreq app.saveSolOpt app.timestepOffset app.stgNmode app.saveSolBouFreq app.ibs app.dae_steps app.saveResNorm app.AVsmoothingInter app.frozenAVflag app.ppdegree app.coupledinterface app.coupledcondition app.coupledboundarycondition app.AVdistfunction app.stgchem app.uniformrefinementlevel app.problem];
 app.factor = [app.time app.dae_alpha app.dae_beta app.dae_gamma app.dae_epsilon app.factor];
 app.solversparam = [app.NLtol app.linearsolvertol app.matvectol app.NLparam app.solversparam];
 
@@ -36,7 +35,41 @@ ndims[19] = app.nvqoi;
 ndims[20] = app.nsurfsca;
 ndims[21] = app.ibvis;
 
-avparam = [app.avparam1[:]; app.avparam2[:]];
+if app.AVcontinuationIter >= 2
+    t = collect(range(0.0, 1.0, length=app.AVcontinuationIter));
+    alpha = app.AVcontinuationLogScale;
+    if !all(isfinite.([alpha, app.AVcoeffStart, app.AVcoeffEnd]))
+        error("AV continuation parameters must be finite.");
+    end
+    if abs(alpha) <= 1.0e-14
+        g1 = 1.0 .- t;
+        g2 = t;
+    else
+        denominator = expm1(alpha);
+        g1 = expm1.(alpha .* (1.0 .- t)) ./ denominator;
+        g2 = expm1.(alpha .* t) ./ denominator;
+    end
+    app.avparam1 = app.AVcoeffStart .* g1;
+    app.avparam2 = app.AVcoeffEnd .* g2;
+    app.avparam1[1] = app.AVcoeffStart;
+    app.avparam1[end] = 0.0;
+    app.avparam2[1] = 0.0;
+    app.avparam2[end] = app.AVcoeffEnd;
+end
+if length(app.avparam1) != length(app.avparam2)
+    error("avparam1 and avparam2 must have the same length.");
+end
+avparam = zeros(2*length(app.avparam1));
+avparam[1:2:end] = app.avparam1[:];
+avparam[2:2:end] = app.avparam2[:];
+avfilterparam = [app.AVsmoothingMethod; app.AVHelmholtzCoeff];
+meshadaptparam = [app.meshadaptenabled; app.meshadaptfield; app.meshadaptavcomponent;
+    app.meshadaptsmoothingpasses; app.meshadaptiterations; app.meshadaptalpha;
+    app.meshadaptqmin; app.meshadaptqmax; app.meshadaptHelmholtzCoeff;
+    app.meshadapttargetexponent; app.meshadaptpoissonratio; app.meshadaptyoungmodulus;
+    app.meshadaptminimumyoungmodulus; app.meshadaptshearscale; app.meshadaptvolumetricscale;
+    app.meshadaptforcescale; app.meshadaptdamping; app.meshadaptminimumjacobianratio;
+    app.meshadaptHelmholtzTau; app.meshadaptelasticitytau];
 
 nsize = zeros(30,1);
 nsize[1] = length(ndims[:]);
@@ -58,6 +91,10 @@ nsize[16] = length(avparam[:]);
 nsize[17] = length(app.wmModelIDs[:]);
 nsize[18] = length(app.wmBoundaries[:]);
 nsize[19] = length(app.wmDistances[:]);
+nsize[20] = length(avfilterparam[:]);
+nsize[21] = length(meshadaptparam[:]);
+nsize[22] = length(app.meshadaptboundaryconditions[:]);
+nsize[23] = length(app.distanceboundaryconditions[:]);
 
 # app.nsize = nsize;
 # app.ndims = ndims;
@@ -125,6 +162,10 @@ end
 if nsize[19]>0
     write(fileID,Float64.(app.wmDistances[:]));
 end
+write(fileID,Float64.(avfilterparam[:]));
+write(fileID,Float64.(meshadaptparam[:]));
+write(fileID,Float64.(app.meshadaptboundaryconditions[:]));
+write(fileID,Float64.(app.distanceboundaryconditions[:]));
 
 if app.mutationflag == 1
     write(fileID, app.mutationopts["MixtureName"] * "X")

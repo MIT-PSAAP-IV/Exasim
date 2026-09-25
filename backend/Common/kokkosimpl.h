@@ -458,6 +458,89 @@ void ArraySetValue(Ty* y, const noDeduce_t<Ty> a, const int n)
     });
 }
 
+template <class Ty = dstype, class I = Int>
+Ty ArrayMin(const Ty* x, const I n)
+{
+    Ty result = std::numeric_limits<Ty>::max();
+    if (n <= 0) return result;
+    Kokkos::parallel_reduce(
+        "ArrayMin",
+        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace, Kokkos::IndexType<I>>(0, n),
+        KOKKOS_LAMBDA(const I i, Ty& local) {
+            if (x[i] < local) local = x[i];
+        },
+        Kokkos::Min<Ty>(result));
+    return result;
+}
+
+template <class Ty = dstype, class I = Int>
+Ty ArrayMax(const Ty* x, const I n)
+{
+    Ty result = std::numeric_limits<Ty>::lowest();
+    if (n <= 0) return result;
+    Kokkos::parallel_reduce(
+        "ArrayMax",
+        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace, Kokkos::IndexType<I>>(0, n),
+        KOKKOS_LAMBDA(const I i, Ty& local) {
+            if (x[i] > local) local = x[i];
+        },
+        Kokkos::Max<Ty>(result));
+    return result;
+}
+
+template <class Ty = dstype, class I = Int>
+Ty ArrayMinAbs(const Ty* x, const I n)
+{
+    Ty result = std::numeric_limits<Ty>::max();
+    if (n <= 0) return result;
+    Kokkos::parallel_reduce(
+        "ArrayMinAbs",
+        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace, Kokkos::IndexType<I>>(0, n),
+        KOKKOS_LAMBDA(const I i, Ty& local) {
+            const Ty value = x[i];
+            const Ty magnitude = value < static_cast<Ty>(0) ? -value : value;
+            if (magnitude < local) local = magnitude;
+        },
+        Kokkos::Min<Ty>(result));
+    return result;
+}
+
+template <class Ty = dstype, class I = Int>
+Ty ArrayMaxAbs(const Ty* x, const I n)
+{
+    Ty result = static_cast<Ty>(0);
+    if (n <= 0) return result;
+    Kokkos::parallel_reduce(
+        "ArrayMaxAbs",
+        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace, Kokkos::IndexType<I>>(0, n),
+        KOKKOS_LAMBDA(const I i, Ty& local) {
+            const Ty value = x[i];
+            const Ty magnitude = value < static_cast<Ty>(0) ? -value : value;
+            if (magnitude > local) local = magnitude;
+        },
+        Kokkos::Max<Ty>(result));
+    return result;
+}
+
+template <class Ty = dstype, class I = Int>
+bool ArrayAllPositiveFinite(const Ty* x, const I n)
+{
+    I invalid = 0;
+    if (n <= 0) return true;
+    const Ty maximumFinite = std::numeric_limits<Ty>::max();
+    Kokkos::parallel_reduce(
+        "ArrayAllPositiveFinite",
+        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace, Kokkos::IndexType<I>>(0, n),
+        KOKKOS_LAMBDA(const I i, I& local) {
+            const Ty value = x[i];
+            const I entryInvalid = (!(value > static_cast<Ty>(0)) ||
+                                    value > maximumFinite) ? 1 : 0;
+            if (entryInvalid > local) local = entryInvalid;
+        },
+        Kokkos::Max<I>(invalid));
+    return invalid == 0;
+}
+
 template <class Ty = dstype>
 void ArrayAddScalar(Ty* y, const noDeduce_t<Ty> a, const int n)
 {
@@ -1374,6 +1457,44 @@ void GetElementFaceNodes(Ty* uhe, const Ty* uhf, const int* elemcon, const int n
     }
 }
 
+template <class Ty = dstype>
+void GetElementFaceNodesAtFaces(Ty* uhe, const Ty* uhf, const int* elemcon, const int* elemface,
+        const int npf, const int nfe, const int ncu, const int nfaces)
+{
+    using dstype = Ty;
+    int N = ncu*npf*nfaces;
+    int ndf = npf*nfe;
+    Kokkos::parallel_for("GetElementFaceNodesAtFaces", N, KOKKOS_LAMBDA(const size_t idx) {
+        int j = idx%ncu;
+        int k = idx/ncu;
+        int i = k%npf;
+        int n = k/npf;
+        int e = elemface[0 + 2*n];
+        int l = elemface[1 + 2*n];
+        int m = elemcon[i + npf*l + ndf*e];
+        uhe[idx] = uhf[j + ncu*m];
+    });
+}
+
+template <class Ty = dstype>
+void PutElementFaceNodesAtFaces(Ty* uhf, const Ty* uhe, const int* elemcon, const int* elemface,
+        const int npf, const int nfe, const int ncu, const int nfaces)
+{
+    using dstype = Ty;
+    int N = ncu*npf*nfaces;
+    int ndf = npf*nfe;
+    Kokkos::parallel_for("PutElementFaceNodesAtFaces", N, KOKKOS_LAMBDA(const size_t idx) {
+        int j = idx%ncu;
+        int k = idx/ncu;
+        int i = k%npf;
+        int n = k/npf;
+        int e = elemface[0 + 2*n];
+        int l = elemface[1 + 2*n];
+        int m = elemcon[i + npf*l + ndf*e];
+        Kokkos::atomic_add(&uhf[j + ncu*m], uhe[idx]);
+    });
+}
+
 // Gather an LDG trace written by PutElemNodes.  Unlike the HDG trace/vector
 // layout used by GetElementFaceNodes above, sol.uh in the LDG path is stored
 // as [npf, ncu, nf]: face node is the fastest index, followed by component.
@@ -1695,29 +1816,39 @@ void AssembleBlockILU0(Ty* BE, const Ty* AE, const int* f2e, const int* elcon, c
           int je1 = f2e[0 + 4*fj];       
           int je2 = f2e[2 + 4*fj];     
           int e=0, k1=0, k2=0;
+          bool matched = true;
           if (je1 == e1) {
             e = e1;                    
             k1 = l1;
             k2 = f2e[1 + 4*fj];
           }
-          else if (je1 == e2) {
+          else if ((e2 >= 0) && (je1 == e2)) {
             e = e2;                    
             k1 = l2;
             k2 = f2e[1 + 4*fj];    
           }
-          else if (je2 == e1) {
+          else if ((je2 >= 0) && (je2 == e1)) {
             e = e1;                    
             k1 = l1;
             k2 = f2e[3 + 4*fj];     
           }
-          else if (je2 == e2) {
+          else if ((e2 >= 0) && (je2 == e2)) {
             e = e2;                    
             k1 = l2;
             k2 = f2e[3 + 4*fj];
-          }          
-          m1 = am + ncu*(elcon[bm + npf*k1 + ndf*e] - nfi);
-          n2 = an + ncu*(elcon[bn + npf*k2 + ndf*e] - npf*fj);
-          BE[m + ncf*n + R*r + S*t] = AE[m1 + ncf*k1 + M*n2 + P*k2 + Q*e];
+          }
+          else {
+            matched = false;
+          }
+
+          if (matched) {
+            m1 = am + ncu*(elcon[bm + npf*k1 + ndf*e] - nfi);
+            n2 = an + ncu*(elcon[bn + npf*k2 + ndf*e] - npf*fj);
+            BE[m + ncf*n + R*r + S*t] = AE[m1 + ncf*k1 + M*n2 + P*k2 + Q*e];
+          }
+          else {
+            BE[m + ncf*n + R*r + S*t] = 0.0;
+          }
         }                        
     });
 }
@@ -3069,7 +3200,7 @@ Ty StgAir5InternalEnergyMass(const int species, const Ty T)
 }
 
 template <class Ty = dstype>
-void StgInFlow2Dchem(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *physicsparam, Ty *externalparam, Ty *stgdata, Ty *uc, noDeduce_t<Ty> t, int M, int N)
+void StgInFlow2Dchem(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *physicsparam, Ty *externalparam, Ty *stgdata, Ty *uc, noDeduce_t<Ty> t, int M, int N, bool subtractTrace = true)
 {
     using dstype = Ty;
     StgHomoTurb2D(up, xdg, stgdata, uc, t, M, N);
@@ -3101,15 +3232,15 @@ void StgInFlow2Dchem(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *physicsparam
         dstype Tphys = Tjn*T_scale;
         for (int s=0; s<5; s++) {
             rhoj[s] = vdg[m+M*s]*rjn/rin;
-            fb[m+M*s] = rhoj[s] - uhg[m+M*s];
+            fb[m+M*s] = rhoj[s] - (subtractTrace ? uhg[m+M*s] : 0.0);
             emixPhys += (rhoj[s]*rho_scale/rhoPhys)*StgAir5InternalEnergyMass(s, Tphys);
         }
         dstype vel2phys = (ujn*ujn + vjn*vjn)*u_scale*u_scale;
         dstype rhoEphys = rhoPhys*(emixPhys + 0.5*vel2phys);
 
-        fb[m+M*5] = rjn*ujn - uhg[m+M*5];
-        fb[m+M*6] = rjn*vjn - uhg[m+M*6];
-        fb[m+M*7] = rhoEphys/rhoe_scale - uhg[m+M*7];
+        fb[m+M*5] = rjn*ujn - (subtractTrace ? uhg[m+M*5] : 0.0);
+        fb[m+M*6] = rjn*vjn - (subtractTrace ? uhg[m+M*6] : 0.0);
+        fb[m+M*7] = rhoEphys/rhoe_scale - (subtractTrace ? uhg[m+M*7] : 0.0);
     });
 }
 
@@ -3159,7 +3290,7 @@ void StgHomoTurb3D(Ty *up, Ty *xdg, Ty *stgdata, Ty *uc, noDeduce_t<Ty> t, int M
 }
 
 template <class Ty = dstype>
-void StgInFlow3Dchem(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *physicsparam, Ty *externalparam, Ty *stgdata, Ty *uc, noDeduce_t<Ty> t, int M, int N)
+void StgInFlow3Dchem(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *physicsparam, Ty *externalparam, Ty *stgdata, Ty *uc, noDeduce_t<Ty> t, int M, int N, bool subtractTrace = true)
 {
     using dstype = Ty;
     StgHomoTurb3D(up, xdg, stgdata, uc, t, M, N);
@@ -3193,16 +3324,16 @@ void StgInFlow3Dchem(Ty *fb, Ty *up, Ty *xdg, Ty *vdg, Ty *uhg, Ty *physicsparam
         dstype Tphys = Tjn*T_scale;
         for (int s=0; s<5; s++) {
             rhoj[s] = vdg[m+M*s]*rjn/rin;
-            fb[m+M*s] = rhoj[s] - uhg[m+M*s];
+            fb[m+M*s] = rhoj[s] - (subtractTrace ? uhg[m+M*s] : 0.0);
             emixPhys += (rhoj[s]*rho_scale/rhoPhys)*StgAir5InternalEnergyMass(s, Tphys);
         }
         dstype vel2phys = (ujn*ujn + vjn*vjn + wjn*wjn)*u_scale*u_scale;
         dstype rhoEphys = rhoPhys*(emixPhys + 0.5*vel2phys);
 
-        fb[m+M*5] = rjn*ujn - uhg[m+M*5];
-        fb[m+M*6] = rjn*vjn - uhg[m+M*6];
-        fb[m+M*7] = rjn*wjn - uhg[m+M*7];
-        fb[m+M*8] = rhoEphys/rhoe_scale - uhg[m+M*8];
+        fb[m+M*5] = rjn*ujn - (subtractTrace ? uhg[m+M*5] : 0.0);
+        fb[m+M*6] = rjn*vjn - (subtractTrace ? uhg[m+M*6] : 0.0);
+        fb[m+M*7] = rjn*wjn - (subtractTrace ? uhg[m+M*7] : 0.0);
+        fb[m+M*8] = rhoEphys/rhoe_scale - (subtractTrace ? uhg[m+M*8] : 0.0);
     });
 }
 
@@ -3364,6 +3495,22 @@ void StgInflowLDG(Ty *fb, Ty *xdg, Ty *vdg, Ty *param, Ty *stgdata, Ty *uc, noDe
     }
     else {
         StgInflowLDG3D(fb, xdg, xdg, vdg, param, stgdata, uc, t, M, N);
+    }
+}
+
+template <class Ty = dstype>
+void StgInFlowLDGchem(Ty *fb, Ty *xdg, Ty *vdg, Ty *physicsparam, Ty *externalparam, Ty *stgdata, Ty *uc, noDeduce_t<Ty> t, int M, int N, int nd)
+{
+    using dstype = Ty;
+    if (nd == 1) {
+    }
+    else if (nd == 2) {
+        StgInFlow2Dchem(fb, xdg, xdg, vdg, static_cast<Ty *>(nullptr), physicsparam,
+                        externalparam, stgdata, uc, t, M, N, false);
+    }
+    else {
+        StgInFlow3Dchem(fb, xdg, xdg, vdg, static_cast<Ty *>(nullptr), physicsparam,
+                        externalparam, stgdata, uc, t, M, N, false);
     }
 }
 

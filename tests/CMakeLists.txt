@@ -26,6 +26,16 @@ add_test(NAME appstruct_materialdatabase
 set_tests_properties(appstruct_materialdatabase PROPERTIES TIMEOUT 60)
 
 if(TARGET Kokkos::kokkos)
+  add_executable(helmholtz_model_test
+    "${EXASIM_DIR}/tests/unit/helmholtz_model.cpp")
+  target_include_directories(helmholtz_model_test PRIVATE
+    "${EXASIM_DIR}" "${EXASIM_DIR}/include")
+  target_link_libraries(helmholtz_model_test PRIVATE
+    ${EXASIM_HELMHOLTZ_MODEL_TARGET} Kokkos::kokkos)
+  target_compile_features(helmholtz_model_test PRIVATE cxx_std_17)
+  add_test(NAME helmholtz_model COMMAND helmholtz_model_test)
+  set_tests_properties(helmholtz_model PROPERTIES TIMEOUT 60)
+
   add_executable(material_properties_nonuniform_test
     "${EXASIM_DIR}/tests/materials/material_properties_nonuniform_test.cpp")
   target_include_directories(material_properties_nonuniform_test PRIVATE
@@ -261,6 +271,14 @@ add_test(NAME text2code_cli_out_dir
 set_tests_properties(text2code_cli_out_dir PROPERTIES
   TIMEOUT 1200 SKIP_RETURN_CODE 77 RESOURCE_LOCK exasim_text2code_install)
 
+add_test(NAME text2code_poisson_variants
+  COMMAND ${CMAKE_COMMAND} -E env
+    "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}"
+    "EXASIM_ROOT=${EXASIM_DIR}"
+    bash "${EXASIM_DIR}/tests/text2code/poisson-variants-test.sh")
+set_tests_properties(text2code_poisson_variants PROPERTIES
+  TIMEOUT 1200 SKIP_RETURN_CODE 77 RESOURCE_LOCK exasim_text2code_install)
+
 # Builtin model 4 kernel equivalence: model 4 (CNS5air reacting NS) switched
 # from MATLAB-generated kernels to a text2code source (pdemodel4.txt). This
 # test compiles the legacy checked-in kernels (backend/Model/BuiltIn/model4/)
@@ -456,3 +474,11 @@ if(EXASIM_MPI)
 endif()
 add_test(NAME unit_struct_defaults COMMAND unit_struct_defaults)
 set_tests_properties(unit_struct_defaults PROPERTIES TIMEOUT 120)
+
+# The LDG chemistry STG boundary must construct the same conservative Air-5
+# state as the working HDG chemistry path, before HDG subtracts its trace.
+add_executable(unit_stg_chem_ldg ${CMAKE_CURRENT_SOURCE_DIR}/unit/stg_chem_ldg.cpp)
+target_link_libraries(unit_stg_chem_ldg PRIVATE Kokkos::kokkos)
+target_include_directories(unit_stg_chem_ldg PRIVATE ${EXASIM_DIR})
+add_test(NAME unit_stg_chem_ldg COMMAND unit_stg_chem_ldg)
+set_tests_properties(unit_stg_chem_ldg PROPERTIES TIMEOUT 120)

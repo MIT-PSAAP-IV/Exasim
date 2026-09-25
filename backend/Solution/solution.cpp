@@ -47,6 +47,7 @@
 #include "updatesource.cpp"
 #include "timestepcoeff.cpp"
 #include "avsolution.cpp"
+#include "meshadaptivity.cpp"
 
 #include <chrono>
 
@@ -210,6 +211,231 @@ void CSolution<M>::ClearSavedState()
 
 // (PTCsolver / NewtonSolver moved to CNonlinearSolver -- see nonlinearsolver.cpp)
 template <class M>
+void CSolution<M>::InitializeHelmholtzLengthScale(Int backend)
+{
+    if (!helmholtz) return;
+    CDiscretization &hd = helmholtz->disc;
+    const Int npe = hd.common.grid.npe;
+    const Int ncx = hd.common.components.ncx;
+    const Int ne = hd.common.meshsizes.ne;
+    const Int nd = hd.common.grid.nd;
+    const dstype coefficient = disc.common.physicsparams.AVHelmholtzCoeff;
+    if (!(coefficient > 0.0)) error("AVHelmholtzCoeff must be positive.");
+
+    // Reproduce the nodal Jacobian returned by
+    // volgeom(master.shapent, permute(mesh.dgnodes,[1 3 2])).  shapent is
+    // stored as [evaluation node, geometry node, value/reference derivative].
+    exasim_meshadapt::nodalJacobian(hd.res.Rq, hd.sol.xdg, hd.master.shapent,
+                                    npe, ncx, ne, nd);
+    if (!PArrayAllPositiveFinite(hd.res.Rq, npe*ne))
+        error("The Helmholtz filter requires a positive finite nodal mesh Jacobian.");
+
+    // Match the MATLAB construction exactly: smooth the nodal Jacobian twice
+    // with DG2CG2, then take its square root.  Rq is scalar scratch here;
+    // DG2CG2 uses Ru for its CG accumulation and tempn for extraction.
+#ifdef HAVE_MPI
+    if (meshAdaptWorkspace.helmholtzSendNodeIndices == nullptr &&
+        hd.common.nelemsend > 0) {
+        std::vector<Int> sendIndex(npe*hd.common.nelemsend);
+        for (Int i = 0; i < hd.common.nelemsend; ++i)
+            for (Int j = 0; j < npe; ++j)
+                sendIndex[npe*i+j] = npe*hd.common.elemsend[i]+j;
+        TemplateMalloc(&meshAdaptWorkspace.helmholtzSendNodeIndices,
+                       static_cast<Int>(sendIndex.size()), backend);
+        TemplateCopytoDevice(meshAdaptWorkspace.helmholtzSendNodeIndices,
+                             sendIndex.data(), static_cast<Int>(sendIndex.size()), backend);
+    }
+    if (meshAdaptWorkspace.helmholtzRecvNodeIndices == nullptr &&
+        hd.common.nelemrecv > 0) {
+        std::vector<Int> recvIndex(npe*hd.common.nelemrecv);
+        for (Int i = 0; i < hd.common.nelemrecv; ++i)
+            for (Int j = 0; j < npe; ++j)
+                recvIndex[npe*i+j] = npe*hd.common.elemrecv[i]+j;
+        TemplateMalloc(&meshAdaptWorkspace.helmholtzRecvNodeIndices,
+                       static_cast<Int>(recvIndex.size()), backend);
+        TemplateCopytoDevice(meshAdaptWorkspace.helmholtzRecvNodeIndices,
+                             recvIndex.data(), static_cast<Int>(recvIndex.size()), backend);
+    }
+#endif
+
+    for (Int pass = 0; pass < 2; ++pass) {
+        hd.DG2CG2(hd.res.Rq, hd.res.Rq, hd.tmp.tempn, 1, 1, 1, backend);
+#ifdef HAVE_MPI
+        GetArrayAtIndex(hd.tmp.buffsend, hd.res.Rq,
+                        meshAdaptWorkspace.helmholtzSendNodeIndices,
+                        npe*hd.common.nelemsend);
+#ifdef HAVE_CUDA
+        cudaDeviceSynchronize();
+#endif
+#ifdef HAVE_HIP
+        hipDeviceSynchronize();
+#endif
+        Int psend = 0;
+        Int requestCounter = 0;
+        for (Int n = 0; n < hd.common.nnbsd; ++n) {
+            const Int count = hd.common.elemsendpts[n]*npe;
+            if (count > 0) {
+                MPI_Isend(&hd.tmp.buffsend[psend], count, mpi_type<dstype>(),
+                          hd.common.nbsd[n], 0, EXASIM_COMM_LOCAL,
+                          &hd.common.requests[requestCounter++]);
+                psend += count;
+            }
+        }
+        Int precv = 0;
+        for (Int n = 0; n < hd.common.nnbsd; ++n) {
+            const Int count = hd.common.elemrecvpts[n]*npe;
+            if (count > 0) {
+                MPI_Irecv(&hd.tmp.buffrecv[precv], count, mpi_type<dstype>(),
+                          hd.common.nbsd[n], 0, EXASIM_COMM_LOCAL,
+                          &hd.common.requests[requestCounter++]);
+                precv += count;
+            }
+        }
+        MPI_Waitall(requestCounter, hd.common.requests, hd.common.statuses);
+        PutArrayAtIndex(hd.res.Rq, hd.tmp.buffrecv,
+                        meshAdaptWorkspace.helmholtzRecvNodeIndices,
+                        npe*hd.common.nelemrecv);
+#endif
+    }
+
+    if (!PArrayAllPositiveFinite(hd.res.Rq, npe*ne))
+        error("DG2CG2 produced a non-positive or non-finite mesh Jacobian.");
+    exasim_meshadapt::scaleSquareRoot(hd.res.Rq, coefficient, npe*ne);
+    ArrayInsert(hd.sol.odg, hd.res.Rq, npe, 2, ne,
+                0, npe, 1, 2, 0, ne);
+}
+
+template <class M>
+void CSolution<M>::ApplyHelmholtzAVFilter(dstype *avField, Int backend)
+{
+    if (!helmholtz) error("The internal Helmholtz AV solver was not constructed.");
+    CDiscretization &hd = helmholtz->disc;
+    const Int npe = disc.common.grid.npe;
+    const Int ne = disc.common.meshsizes.ne;
+    const Int ncAV = disc.common.physicsparams.ncAV;
+    if (npe != hd.common.grid.npe || ne != hd.common.meshsizes.ne)
+        error("Flow and Helmholtz AV meshes are not layout-compatible.");
+
+    std::ofstream auxiliaryOutput;
+    for (Int component = 0; component < ncAV; ++component) {
+        ArrayExtract(hd.res.Ru, avField, npe, ncAV, ne,
+                     0, npe, component, component + 1, 0, ne);
+        ArrayInsert(hd.sol.odg, hd.res.Ru, npe, 2, ne,
+                    0, npe, 0, 1, 0, ne);
+        ArrayInsert(hd.sol.udg, hd.res.Ru, npe, 1 + hd.common.grid.nd, ne,
+                    0, npe, 0, 1, 0, ne);
+        ArraySetValue(helmholtz->solv.sys.u, zero, helmholtz->solv.sys.szu);
+        ArraySetValue(helmholtz->solv.sys.x, zero, helmholtz->solv.sys.szx);
+        if (hd.sol.szuh > 0) ArraySetValue(hd.sol.uh, zero, hd.sol.szuh);
+        helmholtz->SteadyProblem(auxiliaryOutput, backend);
+        ArrayExtract(hd.res.Ru, hd.sol.udg, npe, 1 + hd.common.grid.nd, ne,
+                     0, npe, 0, 1, 0, ne);
+        ArrayInsert(avField, hd.res.Ru, npe, ncAV, ne,
+                    0, npe, component, component + 1, 0, ne);
+    }
+}
+
+template <class M>
+void CSolution<M>::PrepareArtificialViscosity(bool zeroSensor,
+                                               Int continuationIteration,
+                                               Int backend)
+{
+    const Int ncAV = disc.common.physicsparams.ncAV;
+    if (ncAV <= 0 || disc.common.physicsparams.frozenAVflag <= 0) return;
+
+    const Int nco = disc.common.components.nco;
+    const Int npe = disc.common.grid.npe;
+    const Int ne = disc.common.meshsizes.ne;
+    dstype *avField = disc.res.Rq;
+    dstype *scratch = &disc.res.Rq[npe*ncAV*ne];
+
+    if (zeroSensor)
+        ArraySetValue(avField, zero, npe*ncAV*ne);
+    else
+        residual.evalAVfield(avField, backend);
+
+    const char *verificationEnvironment = std::getenv("EXASIM_MESHADAPT_VERIFY");
+    const bool writeVerification = verificationEnvironment != nullptr &&
+        string(verificationEnvironment) != "0" && string(verificationEnvironment) != "";
+    const string iterationName = "aviter" + NumberToString(continuationIteration) + "_";
+    const Int outputRank = disc.common.mpiRank-disc.common.outputparams.fileoffset;
+    if (writeVerification) {
+        const string filename = disc.common.fileout + "_meshadapt_" + iterationName +
+            "av_raw_np" + NumberToString(outputRank) + ".bin";
+        writearray2file(filename, avField, npe*ncAV*ne, backend);
+    }
+
+    if (disc.common.physicsparams.AVsmoothingMethod == 1) {
+        if (!helmholtz) error("The internal Helmholtz AV solver was not constructed.");
+        InitializeHelmholtzLengthScale(backend);
+        ApplyHelmholtzAVFilter(avField, backend);
+    }
+    else if (disc.common.physicsparams.AVsmoothingMethod == 0) {
+        for (Int iav = 0; iav < disc.common.physicsparams.AVsmoothingIter; ++iav) {
+            disc.DG2CG2(avField, avField, scratch, ncAV, ncAV, ncAV, backend);
+#ifdef HAVE_MPI
+            const Int bsz = npe*ncAV;
+            GetArrayAtIndex(disc.tmp.buffsend, avField, disc.mesh.elemsendodg,
+                            bsz*disc.common.nelemsend);
+#ifdef HAVE_CUDA
+            if (backend == 2) cudaDeviceSynchronize();
+#endif
+#ifdef HAVE_HIP
+            if (backend == 3) hipDeviceSynchronize();
+#endif
+            Int psend = 0, requestCounter = 0;
+            for (Int n = 0; n < disc.common.nnbsd; ++n) {
+                const Int count = disc.common.elemsendpts[n]*bsz;
+                if (count > 0) {
+                    MPI_Isend(&disc.tmp.buffsend[psend], count, mpi_type<dstype>(),
+                              disc.common.nbsd[n], 0, EXASIM_COMM_LOCAL,
+                              &disc.common.requests[requestCounter++]);
+                    psend += count;
+                }
+            }
+            Int precv = 0;
+            for (Int n = 0; n < disc.common.nnbsd; ++n) {
+                const Int count = disc.common.elemrecvpts[n]*bsz;
+                if (count > 0) {
+                    MPI_Irecv(&disc.tmp.buffrecv[precv], count, mpi_type<dstype>(),
+                              disc.common.nbsd[n], 0, EXASIM_COMM_LOCAL,
+                              &disc.common.requests[requestCounter++]);
+                    precv += count;
+                }
+            }
+            MPI_Waitall(requestCounter, disc.common.requests, disc.common.statuses);
+            PutArrayAtIndex(avField, disc.tmp.buffrecv, disc.mesh.elemrecvodg,
+                            bsz*disc.common.nelemrecv);
+#endif
+        }
+    }
+    else {
+        error("Unknown AV smoothing method. Use 0 (DG2CG2) or 1 (Helmholtz).");
+    }
+
+    ArrayInsert(disc.sol.odg, avField, npe, nco, ne, 0, npe,
+                nco-ncAV, nco, 0, ne);
+    if (writeVerification) {
+        const string filename = disc.common.fileout + "_meshadapt_" + iterationName +
+            "av_smoothed_np" + NumberToString(outputRank) + ".bin";
+        writearray2file(filename, avField, npe*ncAV*ne, backend);
+    }
+
+    // MATLAB evaluates the pre-flow AV field before preprocessing rebuilds the
+    // HDG trace and gradients on a moved mesh. Recover that state only now.
+    if (disc.common.spatialScheme == 1) {
+        GetFaceNodes(disc.sol.uh, disc.sol.udg, disc.mesh.f2e, disc.mesh.perm,
+            disc.common.grid.npf, disc.common.components.ncu, disc.common.grid.npe,
+            disc.common.components.nc, disc.common.meshsizes.nf);
+        if (disc.common.components.ncq > 0)
+            hdgGetQ(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh,
+                    disc.tmp, disc.common, backend);
+        ArrayCopy(solv.sys.u, disc.sol.uh, solv.sys.szu);
+    }
+    artificialViscosityPrepared = true;
+}
+
+template <class M>
 void CSolution<M>::SteadyProblem(ofstream &out, Int backend) 
 {   
     INIT_TIMING;        
@@ -233,7 +459,8 @@ void CSolution<M>::SteadyProblem(ofstream &out, Int backend)
     }
     
     // calculate AV field
-    if (disc.common.physicsparams.ncAV>0 && disc.common.physicsparams.frozenAVflag > 0) {
+    if (disc.common.physicsparams.ncAV>0 && disc.common.physicsparams.frozenAVflag > 0 &&
+        !artificialViscosityPrepared) {
         // START_TIMING;
 
         Int nco = disc.common.components.nco;
@@ -248,6 +475,10 @@ void CSolution<M>::SteadyProblem(ofstream &out, Int backend)
         // evaluate AV field
         residual.evalAVfield(avField, backend);
 
+        if (disc.common.physicsparams.AVsmoothingMethod == 1) {
+            ApplyHelmholtzAVFilter(avField, backend);
+        }
+        else if (disc.common.physicsparams.AVsmoothingMethod == 0) {
         for (Int iav = 0; iav<disc.common.physicsparams.AVsmoothingIter; iav++){
             // printf("Solution AV smoothing iter: %i\n", iav);
             disc.DG2CG2(avField, avField, utm, disc.common.physicsparams.ncAV, disc.common.physicsparams.ncAV, disc.common.physicsparams.ncAV, backend);
@@ -300,10 +531,15 @@ void CSolution<M>::SteadyProblem(ofstream &out, Int backend)
 #endif
     //    END_TIMING_DISC(98);    
         }
+        }
+        else {
+            error("Unknown AV smoothing method. Use 0 (DG2CG2) or 1 (Helmholtz).");
+        }
 
         // insert avField into odg
         ArrayInsert(disc.sol.odg, avField, npe, nco, ne, 0, npe, nco-ncAV, nco, 0, ne);          
     }
+    artificialViscosityPrepared = false;
 
     if (disc.common.components.nco>0) {
         for (Int j=0; j<disc.common.meshsizes.nbe; j++) {
@@ -509,6 +745,52 @@ void CSolution<M>::DIRK(ofstream &out, Int backend)
                 (double)(tv2.tv_usec-tv1.tv_usec)/1000 + 
                 (double)(tv2.tv_sec -tv1.tv_sec )*1000);
 #endif                    
+        // update time
+        time = time + disc.common.dt[istep];                    
+    }           
+}
+
+template <class M>
+void CSolution<M>::DIRKonly(ofstream &out, Int backend)
+{        
+    // initial time
+    dstype time = disc.common.timestate.time;
+    
+    //DIRK coefficients 
+    disc.common.timeparams.temporalScheme = 0; 
+    TimestepCoefficents(disc.common); 
+                    
+    // time stepping with DIRK schemes
+    for (Int istep=0; istep<disc.common.timeparams.tsteps; istep++)            
+    {            
+        // current timestep        
+        disc.common.timestate.currentstep = istep;
+        
+        // store previous solutions to calculate the source term        
+        PreviousSolutions(disc.sol, solv.sys, disc.common, backend);
+                    
+        // compute the solution at the next step
+        for (Int j=0; j<disc.common.timeparams.tstages; j++) {            
+            // current timestage
+            disc.common.timestate.currentstage = j;
+        
+            // current time
+            disc.common.timestate.time = time + disc.common.dt[istep]*disc.common.DIRKcoeff_t[j];
+
+            if (disc.common.mpiRank==0)
+                printf("\nTimestep :  %d,  Timestage :  %d,   Time : %g\n",istep+1,j+1,disc.common.timestate.time);            
+
+            // update source term             
+            UpdateSource(disc.sol, solv.sys, disc.app, disc.driver_abi, disc.res, disc.common, backend);
+
+            // solve the problem 
+            this->SteadyProblem(out, backend);                             
+
+            // update solution 
+            UpdateSolution(disc.sol, solv.sys, disc.app, disc.driver_abi, disc.res,
+                           disc.tmp, disc.common, backend);
+        }
+                
         // update time
         time = time + disc.common.dt[istep];                    
     }           

@@ -192,9 +192,25 @@ if app.preprocessmode==0
     return;
 end
 
+elem2cpu = [];
 if isfield(app, 'uniformrefinementlevel') && app.uniformrefinementlevel > 0
-    error(['uniformrefinementlevel is applied by the C++ preprocessing (pdeapp.txt / exporttext2code); ' ...
-           'the native MATLAB preprocessing does not refine the mesh.']);
+    mpiprocs = app.mpiprocs;
+    if mpiprocs > 1
+        disp('run coarse facenumbering for uniform refinement partition...');
+        [meshf0, meshtprd0, mesht2t0] = facenumbering(mesh.p,mesh.t,app.elemtype,mesh.boundaryexpr,mesh.periodicexpr);
+        if (app.hybrid == 1)
+            dmd0 = elementpartitionhdg(meshtprd0,mesht2t0,meshf0,coupledinterface,mpiprocs,app.metis);
+        else
+            dmd0 = elementpartition2(meshtprd0,mesht2t0,mpiprocs,app.metis);
+        end
+        elem2cpu = coarseelem2cpu(dmd0, size(mesh.t,2));
+    end
+    [mesh, elem2cpu] = uniformrefinemesh(mesh, app, master, elem2cpu);
+    app.nve = size(mesh.t,1);
+    app.ne = size(mesh.t,2);
+    if ~isempty(elem2cpu) && numel(elem2cpu) ~= app.ne
+        error('preprocessing: refined elem2cpu does not match the refined element count.');
+    end
 end
 
 disp('run facenumbering...');  
@@ -208,9 +224,9 @@ disp('run facenumbering...');
 mpiprocs = app.mpiprocs;
 %dmd = meshpartition(mesh.p,mesh.t,mesh.f,t2t,mesh.tprd,app.elemtype,app.boundaryconditions,mesh.boundaryexpr,mesh.periodicexpr,app.porder,mpiprocs,app.metis);
 if (app.hybrid ==1)
-  dmd = meshpartitionhdg(mesh.tprd,mesh.f,t2t,app.boundaryconditions,app.nd,app.elemtype,app.porder,coupledinterface,mpiprocs,app.metis,app.Cxxpreprocessing);  
+  dmd = meshpartitionhdg(mesh.tprd,mesh.f,t2t,app.boundaryconditions,app.nd,app.elemtype,app.porder,coupledinterface,mpiprocs,app.metis,app.Cxxpreprocessing,elem2cpu);
 else
-  dmd = meshpartition2(mesh.tprd,mesh.f,t2t,app.boundaryconditions,app.nd,app.elemtype,app.porder,mpiprocs,app.metis,app.Cxxpreprocessing);
+  dmd = meshpartition2(mesh.tprd,mesh.f,t2t,app.boundaryconditions,app.nd,app.elemtype,app.porder,mpiprocs,app.metis,app.Cxxpreprocessing,elem2cpu);
 end
 
 for i = 1:mpiprocs       

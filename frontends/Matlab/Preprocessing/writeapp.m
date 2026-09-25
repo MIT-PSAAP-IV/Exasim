@@ -4,6 +4,8 @@ appname = 0;
 if isfield(app, 'physicsparamwarmstart') == 0, app.physicsparamwarmstart = 0; end
 if isfield(app, 'builtinmodelID') == 0, app.builtinmodelID = 0; end
 if isfield(app, 'frontendgenerated') == 0, app.frontendgenerated = 1; end
+if isfield(app, 'uniformrefinementlevel') == 0, app.uniformrefinementlevel = 0; end
+if isfield(app, 'stgchem') == 0, app.stgchem = 0; end
 %app.stgNmode = size(app.stgdata,1);
 app.flag   = [app.tdep app.wave app.linearproblem app.debugmode app.matvecorder app.GMRESortho...  
               app.preconditioner app.precMatrixType app.NLMatrixType app.runmode app.tdfunc app.sourcefunc ...
@@ -14,7 +16,8 @@ app.problem  = [app.hybrid appname app.temporalscheme app.torder app.nstage app.
                app.linearsolver app.NLiter app.linearsolveriter app.GMRESrestart app.RBdim ...
                app.saveSolFreq app.saveSolOpt app.timestepOffset app.stgNmode app.saveSolBouFreq app.ibs ...
                app.dae_steps app.saveResNorm app.AVsmoothingIter app.frozenAVflag app.ppdegree ...
-               app.coupledinterface app.coupledcondition app.coupledboundarycondition app.AVdistfunction app.problem];
+               app.coupledinterface app.coupledcondition app.coupledboundarycondition app.AVdistfunction ...
+               app.stgchem app.uniformrefinementlevel app.problem];
 app.factor = [app.time app.dae_alpha app.dae_beta app.dae_gamma app.dae_epsilon app.factor];           
 app.solversparam = [app.NLtol app.linearsolvertol app.matvectol app.NLparam app.solversparam];        
 
@@ -45,11 +48,63 @@ ndims(21) = app.ibvis;
 %     error("app.nco mus be equal to size(app.vindx,1)");
 % end
 
+if ~isfield(app, 'AVcontinuationIter'), app.AVcontinuationIter = 0; end
+if ~isfield(app, 'AVcontinuationLogScale'), app.AVcontinuationLogScale = 1.0; end
+if ~isfield(app, 'AVcoeffStart'), app.AVcoeffStart = 0.0; end
+if ~isfield(app, 'AVcoeffEnd'), app.AVcoeffEnd = 0.0; end
+if app.AVcontinuationIter >= 2
+  t = linspace(0.0, 1.0, app.AVcontinuationIter)';
+  alpha = app.AVcontinuationLogScale;
+  if ~all(isfinite([alpha app.AVcoeffStart app.AVcoeffEnd]))
+    error('AV continuation parameters must be finite.');
+  end
+  if abs(alpha) <= 1.0e-14
+    g1 = 1.0 - t;
+    g2 = t;
+  else
+    den = expm1(alpha);
+    g1 = expm1(alpha*(1.0-t))/den;
+    g2 = expm1(alpha*t)/den;
+  end
+  app.avparam1 = app.AVcoeffStart*g1;
+  app.avparam2 = app.AVcoeffEnd*g2;
+  app.avparam1([1 end]) = [app.AVcoeffStart; 0.0];
+  app.avparam2([1 end]) = [0.0; app.AVcoeffEnd];
+end
+if numel(app.avparam1) ~= numel(app.avparam2)
+  error('avparam1 and avparam2 must have the same length.');
+end
+
 avparam = [app.avparam1(:) app.avparam2(:)]';
 avparam = avparam(:);
 if isfield(app, 'wmModelIDs') == 0, app.wmModelIDs = []; end
 if isfield(app, 'wmBoundaries') == 0, app.wmBoundaries = []; end
 if isfield(app, 'wmDistances') == 0, app.wmDistances = []; end
+if isfield(app, 'AVsmoothingMethod') == 0, app.AVsmoothingMethod = 0; end
+if isfield(app, 'AVHelmholtzCoeff') == 0, app.AVHelmholtzCoeff = 1.0; end
+avfilterparam = [app.AVsmoothingMethod; app.AVHelmholtzCoeff];
+meshadaptdefaults = { ...
+  'meshadaptenabled', 0; 'meshadaptfield', 1; 'meshadaptavcomponent', 1; ...
+  'meshadaptsmoothingpasses', 30; 'meshadaptiterations', 1; 'meshadaptalpha', 0.25; ...
+  'meshadaptqmin', 0.2; 'meshadaptqmax', 0.8; 'meshadaptHelmholtzCoeff', 0.02; ...
+  'meshadapttargetexponent', 2.0; 'meshadaptpoissonratio', 0.2; ...
+  'meshadaptyoungmodulus', 1.0; 'meshadaptminimumyoungmodulus', 1.0e-3; ...
+  'meshadaptshearscale', 1.0; 'meshadaptvolumetricscale', 1.0; ...
+  'meshadaptforcescale', 1.0; 'meshadaptdamping', 1.0; ...
+  'meshadaptminimumjacobianratio', 1.0e-8; 'meshadaptHelmholtzTau', 2.0; ...
+  'meshadaptelasticitytau', 1.0e3};
+for i = 1:size(meshadaptdefaults,1)
+  if ~isfield(app, meshadaptdefaults{i,1}), app.(meshadaptdefaults{i,1}) = meshadaptdefaults{i,2}; end
+end
+if ~isfield(app, 'meshadaptboundaryconditions'), app.meshadaptboundaryconditions = []; end
+if ~isfield(app, 'distanceboundaryconditions'), app.distanceboundaryconditions = []; end
+meshadaptparam = [app.meshadaptenabled; app.meshadaptfield; app.meshadaptavcomponent; ...
+  app.meshadaptsmoothingpasses; app.meshadaptiterations; app.meshadaptalpha; ...
+  app.meshadaptqmin; app.meshadaptqmax; app.meshadaptHelmholtzCoeff; ...
+  app.meshadapttargetexponent; app.meshadaptpoissonratio; app.meshadaptyoungmodulus; ...
+  app.meshadaptminimumyoungmodulus; app.meshadaptshearscale; app.meshadaptvolumetricscale; ...
+  app.meshadaptforcescale; app.meshadaptdamping; app.meshadaptminimumjacobianratio; ...
+  app.meshadaptHelmholtzTau; app.meshadaptelasticitytau];
 
 nsize = zeros(30,1);
 nsize(1) = length(ndims(:));
@@ -71,6 +126,10 @@ nsize(16) = length(avparam(:));
 nsize(17) = length(app.wmModelIDs(:));
 nsize(18) = length(app.wmBoundaries(:));
 nsize(19) = length(app.wmDistances(:));
+nsize(20) = length(avfilterparam(:));
+nsize(21) = length(meshadaptparam(:));
+nsize(22) = length(app.meshadaptboundaryconditions(:));
+nsize(23) = length(app.distanceboundaryconditions(:));
 
 app.nsize = nsize;
 app.ndims = ndims;
@@ -109,6 +168,10 @@ end
 if (~isempty(app.wmDistances(:)))
   fwrite(fileID,app.wmDistances(:),'double',endian);
 end
+fwrite(fileID,avfilterparam(:),'double',endian);
+fwrite(fileID,meshadaptparam(:),'double',endian);
+fwrite(fileID,app.meshadaptboundaryconditions(:),'double',endian);
+fwrite(fileID,app.distanceboundaryconditions(:),'double',endian);
 fclose(fileID);
 
 % [1 30 40 17 32 2 1 5 4 1]

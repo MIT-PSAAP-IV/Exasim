@@ -111,6 +111,13 @@ if isfield(pdem, 'materialstate')
     present(end+1) = "Materialstate";
 end
 
+% ----- Avfield (optional artificial-viscosity sensor) -----
+if isfield(pdem, 'avfield')
+    f = pdem.avfield(u, q, wdg, odg, xdg, time, param, uinf);
+    blocks(end+1) = emit_function("Avfield", elemArgs, "f", f);
+    present(end+1) = "Avfield";
+end
+
 % ----- Fint (interface coupling; optional for single-domain models) -----
 if isfield(pdem, 'fint')
     f = pdem.fint(u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, tau);
@@ -306,7 +313,7 @@ function ln = outputs_line(present)
 % requirement (Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg) followed by any
 % optional functions actually emitted.
 order = ["Flux", "Source", "Tdfunc", "Ubou", "Fbou", "FbouHdg", ...
-         "Materialstate", "Fint", "Initu", "VisScalars", "VisVectors", "VisTensors", ...
+         "Materialstate", "Avfield", "Fint", "Initu", "VisScalars", "VisVectors", "VisTensors", ...
          "QoIvolume", "QoIboundary"];
 outs = order(ismember(order, present));
 ln = "outputs " + strjoin(outs, ", ");

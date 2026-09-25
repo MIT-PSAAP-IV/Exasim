@@ -1,6 +1,9 @@
 function mystr = symsassign(mystr, f)
+mystr = string(mystr);
 
 n = length(f(:));
+% mystr = mystr + getccode(f, 'f[');
+% return;
 % for i=1:n
 %     f(i) = simplify(f(i));
 % end

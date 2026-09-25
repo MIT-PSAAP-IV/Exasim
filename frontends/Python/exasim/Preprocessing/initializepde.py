@@ -75,6 +75,7 @@ def initializepde(version):
     pde['subproblem'] = 0;
     pde['debugmode'] = 0;
     pde['stgNmode'] = 0;
+    pde['stgchem'] = 0;
     pde['porder'] = 1;
     pde['pgauss'] = 2;
     pde['temporalscheme'] = 0;
@@ -88,6 +89,33 @@ def initializepde(version):
     pde['ALE'] = 0;
     pde['AV'] = 0;
     pde['AVsmoothingIter'] = 2;
+    pde['AVsmoothingMethod'] = 0;
+    pde['AVHelmholtzCoeff'] = 1.0;
+    pde['meshadaptenabled'] = 0
+    pde['meshadaptfield'] = 1
+    pde['meshadaptavcomponent'] = 1
+    pde['meshadaptsmoothingpasses'] = 30
+    pde['meshadaptiterations'] = 1
+    pde['meshadaptalpha'] = 0.25
+    pde['meshadaptqmin'] = 0.2
+    pde['meshadaptqmax'] = 0.8
+    pde['meshadaptHelmholtzCoeff'] = 0.02
+    pde['meshadapttargetexponent'] = 2.0
+    pde['meshadaptpoissonratio'] = 0.2
+    pde['meshadaptyoungmodulus'] = 1.0
+    pde['meshadaptminimumyoungmodulus'] = 1.0e-3
+    pde['meshadaptshearscale'] = 1.0
+    pde['meshadaptvolumetricscale'] = 1.0
+    pde['meshadaptforcescale'] = 1.0
+    pde['meshadaptdamping'] = 1.0
+    pde['meshadaptminimumjacobianratio'] = 1.0e-8
+    pde['meshadaptHelmholtzTau'] = 2.0
+    pde['meshadaptelasticitytau'] = 1.0e3
+    pde['meshadaptboundaryconditions'] = numpy.array([], dtype=int)
+    pde['AVcontinuationIter'] = 0; # >= 2 regenerates and overrides avparam1/avparam2
+    pde['AVcontinuationLogScale'] = 1.0; # loginc spacing parameter
+    pde['AVcoeffStart'] = 0.0;
+    pde['AVcoeffEnd'] = 0.0;
     pde['frozenAVflag'] = 1;
     pde['nonlinearsolver'] = 0;
     pde['linearsolver'] = 0;
@@ -104,6 +132,7 @@ def initializepde(version):
     pde['coupledcondition'] = 0;
     pde['coupledboundarycondition'] = 0;
     pde['AVdistfunction'] = 0;
+    pde['distanceboundaryconditions'] = numpy.array([], dtype=int)
     pde['runmode'] = 0;
     pde['tdfunc'] = 1;
     pde['source'] = 1;

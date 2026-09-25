@@ -751,6 +751,10 @@ struct appstructT {
     dstype *stgdata=nullptr; 
     dstype *stgparam=nullptr;
     dstype *avparam=nullptr;
+    dstype *avfilterparam=nullptr;
+    dstype *meshadaptparam=nullptr;
+    Int *meshadaptbcs=nullptr;
+    Int *distanceboundaryconditions=nullptr;
     dstype *wmDistances=nullptr;
     
     //dstype time=nullptr;     /* current time */
@@ -766,7 +770,8 @@ struct appstructT {
     Int szwmModelIDs=0, szwmBoundaries=0;
     Int szuinf=0, szdt=0, szdae_dt=0, szfactor=0, szphysicsparam=0, szsolversparam=0;
     Int sztau=0, szstgdata=0, szstgparam=0, szfc_u=0, szfc_q=0, szfc_w=0;
-    Int szdtcoef_u=0, szdtcoef_q=0, szdtcoef_w=0, szavparam=0, szwmDistances=0;
+    Int szdtcoef_u=0, szdtcoef_q=0, szdtcoef_w=0, szavparam=0, szavfilterparam=0, szwmDistances=0;
+    Int szmeshadaptparam=0, szmeshadaptbcs=0, szdistanceboundaryconditions=0;
 
     // Material database metadata.  These fields are populated from the
     // optional datain/materialdatabase.bin table at runtime; they are not
@@ -806,14 +811,14 @@ struct appstructT {
 
     int sizeofint() {
       int sz = szflag + szproblem + szcomm + szporder + szstgib + szvindx + szinterfacefluxmap
-             + szwmModelIDs + szwmBoundaries + szmaterialdb_elementcounts +
+             + szwmModelIDs + szwmBoundaries + szmeshadaptbcs + szdistanceboundaryconditions + szmaterialdb_elementcounts +
                szmaterialdb_ncgi + szmaterialdb_gridoffset + szmaterialdb_elemoffset;
       return sz;
     }
     int sizeoffloat() {
       int sz = szuinf+szdt+szdae_dt+szfactor+szphysicsparam+szsolversparam+
                sztau+szstgdata+szstgparam+szfc_u+szfc_q+szfc_w+szdtcoef_u+
-               szdtcoef_q+szdtcoef_w+szavparam+szwmDistances+
+               szdtcoef_q+szdtcoef_w+szavparam+szavfilterparam+szmeshadaptparam+szwmDistances+
                szmaterialdb_statecoords+szmaterialdb_propvalues+
                szmaterialdb_gridcoords+szmaterialdb_elemcoords;
       return sz;        
@@ -841,6 +846,7 @@ struct appstructT {
       printf("size of stgdata: %d\n", szstgdata);
       printf("size of stgparam: %d\n", szstgparam);
       printf("size of avparam: %d\n", szavparam);
+      printf("size of avfilterparam: %d\n", szavfilterparam);
       printf("size of wmDistances: %d\n", szwmDistances);
       printf("size of fc_u: %d\n", szfc_u);
       printf("size of fc_q: %d\n", szfc_q);
@@ -895,6 +901,10 @@ struct appstructT {
         TemplateFree(stgdata, backend);
         TemplateFree(stgparam, backend);
         TemplateFree(avparam, backend);
+        TemplateFree(avfilterparam, backend);
+        TemplateFree(meshadaptparam, backend);
+        TemplateFree(meshadaptbcs, backend);
+        TemplateFree(distanceboundaryconditions, backend);
         TemplateFree(wmDistances, backend);
         TemplateFree(fc_u, backend);
         TemplateFree(fc_q, backend);
@@ -1174,6 +1184,8 @@ struct meshstructT {
     Int *row_ptr=nullptr;
     Int *col_ind=nullptr;
     Int *face=nullptr;
+    Int *bilufacesend=nullptr;
+    Int *bilufacerecv=nullptr;
     Int *cartgridpart=nullptr;
     Int *boundaryConditions=nullptr;
     Int *intepartpts=nullptr;
@@ -1211,6 +1223,7 @@ struct meshstructT {
     Int szelemsendind=0, szelemrecvind=0, szelemsendodg=0, szelemrecvodg=0;
     Int szelemsendudg=0, szelemrecvudg=0, szindex=0, szcartgridpart=0;    
     Int szfaceperm=0, sznbintf=0, szfacesend=0, szfacerecv=0, szfacesendpts=0, szfacerecvpts=0;
+    Int szbilufacesend=0, szbilufacerecv=0;
     
     int sizeoffloat() {return 0;}
     int sizeofint() {
@@ -1222,6 +1235,7 @@ struct meshstructT {
                szfindudgp + szeindudg1 + szeindudgp + szelemsendind + szelemrecvind + 
                szelemsendodg + szelemrecvodg + szelemsendudg + szelemrecvudg + szfaceperm +
                sznbintf + szfacesend + szfacerecv + szfacesendpts + szfacerecvpts +
+               szbilufacesend + szbilufacerecv +
                szfacecon + szf2e + sze2f + szf2f + szf2l + szelemcon + szperm + szbf + szboufaces + szintfaces;
       return sz;        
     }
@@ -1319,6 +1333,8 @@ struct meshstructT {
         TemplateFree(col_ind, backend);
         TemplateFree(row_ptr, backend);
         TemplateFree(face, backend);
+        TemplateFree(bilufacesend, backend);
+        TemplateFree(bilufacerecv, backend);
         
         TemplateFree(findxdg1, backend);   
         TemplateFree(findxdgp, backend);   
@@ -1919,10 +1935,35 @@ struct physicsparamsstruct {
     Int ALEflag;          // Arbitrary Lagrangian-Eulerian formulation flag
     Int ncAV;             // number of artificial-viscosity components
     Int AVsmoothingIter;  // AV smoothing iterations
+    Int AVsmoothingMethod=0; // 0: DG2CG2, 1: internal HDG Helmholtz filter
     Int frozenAVflag;     // freeze AV per nonlinear solve
     Int AVdistfunction=0; // AV distance-function flag
     dstype rampFactor;    // AV flux ramp factor (advanced over steps)
+    dstype AVHelmholtzCoeff=1.0; // multiplier for sqrt(smoothed nodal Jacobian)
     dstype tau0=0.0;      // initial stabilization parameter
+};
+
+struct meshadaptparamsstruct {
+    Int enabled = 0;
+    Int scalarField = 1;
+    Int avComponent = 1;
+    Int smoothingPasses = 30;
+    Int movementIterations = 1;
+    dstype alpha = 0.25;
+    dstype qmin = 0.2;
+    dstype qmax = 0.8;
+    dstype helmholtzCoeff = 0.02;
+    dstype targetExponent = 2.0;
+    dstype poissonRatio = 0.2;
+    dstype youngModulus = 1.0;
+    dstype minimumYoungModulus = 1.0e-3;
+    dstype shearScale = 1.0;
+    dstype volumetricScale = 1.0;
+    dstype forceScale = 1.0;
+    dstype damping = 1.0;
+    dstype minimumJacobianRatio = 1.0e-8;
+    dstype helmholtzTau = 2.0;
+    dstype elasticityTau = 1.0e3;
 };
 
 // Time-integration / problem-evolution configuration: temporal scheme + order + stages, time-step
@@ -2053,6 +2094,7 @@ using wallmodelparamsstruct = wallmodelparamsstructT<::dstype, ::Int>;
 // commonstruct (C3). Access via common.stgparams.<field>.
 struct stgparamsstruct {
     Int stgNmode=0;          // number of synthetic-turbulence modes
+    Int stgchem=0;           // 0: ideal-gas STG state; 1: five-species chemistry STG state
     Int nstgib;              // number of STG inlet boundaries
     Int* stgib=nullptr;      // STG inlet-boundary index table
 };
@@ -2228,6 +2270,7 @@ struct commonstructT {
     timeparamsstruct timeparams;        // time-integration/problem-evolution config (see above)
     solverparamsstruct solverparams;    // iterative-solver configuration (see above)
     physicsparamsstruct physicsparams;  // physics/model configuration (see above)
+    meshadaptparamsstruct meshadaptparams;
     // solverstate (mutable solver/preconditioner runtime state) was lifted out of commonstruct
     // into CSolver (Stage 1 of the internal separation) -- setup/config stays here, runtime state
     // lives in the owning solver object.
@@ -2249,6 +2292,7 @@ struct commonstructT {
     
 
     Int ppdegree=0; // polynomial preconditioner degree
+    Int uniformrefinementlevel=0; // number of uniform mesh-refinement levels applied in preprocessing
     Int isd=0; 
             
     Int nse=0;  // number of superelements
@@ -2332,6 +2376,8 @@ struct commonstructT {
     Int nnbsd = 0; // number of neighboring subdomains
     Int nelemsend = 0;
     Int nelemrecv = 0;
+    Int nbilufacesend = 0;
+    Int nbilufacerecv = 0;
     Int szinterfacefluxmap = 0;
     Int szcartgridpart = 0;
     Int* nbsd=nullptr; // neighboring subdomains
@@ -2339,10 +2385,14 @@ struct commonstructT {
     Int* elemrecv=nullptr;       
     Int* elemsendpts=nullptr;
     Int* elemrecvpts=nullptr;        
+    Int* bilufacesendpts=nullptr;
+    Int* bilufacerecvpts=nullptr;
     Int *vindx=nullptr;
     Int *interfacefluxmap=nullptr;
     Int *cartgridpart=nullptr;
     Int *boundaryConditions=nullptr;
+    Int *distanceboundaryconditions=nullptr;
+    Int szdistanceboundaryconditions=0;
     Int *intepartpts=nullptr;
     
     Int nnbintf = 0;
@@ -2467,6 +2517,7 @@ struct commonstructT {
       printf("preconditioner type: %d\n", solverparams.preconditioner);
       printf("preconditioner matrix type: %d\n", solverparams.precMatrixType);
       printf("PTC matrix type: %d\n", solverparams.ptcMatrixType);
+      printf("uniform refinement level: %d\n", uniformrefinementlevel);
       printf("run mode: %d\n", runmode);
       printf("time step factor: %f\n", timestate.dtfactor);
       printf("current simulation time: %f\n", timestate.time);
@@ -2550,6 +2601,8 @@ struct commonstructT {
         CPUFREE(elemrecv); 
         CPUFREE(elemsendpts); 
         CPUFREE(elemrecvpts); 
+        CPUFREE(bilufacesendpts);
+        CPUFREE(bilufacerecvpts);
         if (stgparams.nstgib > 0) CPUFREE(stgparams.stgib); 
         CPUFREE(vindx); 
         CPUFREE(interfacefluxmap); 
@@ -2557,6 +2610,7 @@ struct commonstructT {
         CPUFREE(wallmodelparams.wmBoundaries);
         CPUFREE(cartgridpart); 
         CPUFREE(boundaryConditions); 
+        CPUFREE(distanceboundaryconditions);
         CPUFREE(intepartpts);         
         CPUFREE(dt); 
         CPUFREE(dae_dt); 

@@ -1,35 +1,3 @@
-#define IDXTYPEWIDTH 32
-#define REALTYPEWIDTH 32
-#define IDXTYPEWIDTH 32
-#define REALTYPEWIDTH 32
-#define IDXTYPEWIDTH 32
-#define REALTYPEWIDTH 32
-#define IDXTYPEWIDTH 32
-#define REALTYPEWIDTH 32
-#define IDXTYPEWIDTH 32
-#define REALTYPEWIDTH 32
-#define IDXTYPEWIDTH 32
-#define REALTYPEWIDTH 32
-#define IDXTYPEWIDTH 32
-#define REALTYPEWIDTH 32
-#define IDXTYPEWIDTH 32
-#define REALTYPEWIDTH 32
-#define IDXTYPEWIDTH 32
-#define REALTYPEWIDTH 32
-#define IDXTYPEWIDTH 32
-#define REALTYPEWIDTH 32
-#define IDXTYPEWIDTH 32
-#define REALTYPEWIDTH 32
-#define IDXTYPEWIDTH 32
-#define REALTYPEWIDTH 32
-#define IDXTYPEWIDTH 32
-#define REALTYPEWIDTH 32
-#define IDXTYPEWIDTH 32
-#define REALTYPEWIDTH 32
-#define IDXTYPEWIDTH 32
-#define REALTYPEWIDTH 32
-#define IDXTYPEWIDTH 32
-#define REALTYPEWIDTH 32
 /*!
 \file metis.h 
 \brief This file contains function prototypes and constant definitions for METIS
@@ -62,7 +30,7 @@
  GCC does provides these definitions in stdint.h, but it may require some
  modifications on other architectures.
 --------------------------------------------------------------------------*/
-//#define IDXTYPEWIDTH 32
+#define IDXTYPEWIDTH 32
 
 
 /*--------------------------------------------------------------------------
@@ -72,7 +40,7 @@
    32 : single precision floating point (float)
    64 : double precision floating point (double)
 --------------------------------------------------------------------------*/
-//#define REALTYPEWIDTH 32
+#define REALTYPEWIDTH 32
 
 
 

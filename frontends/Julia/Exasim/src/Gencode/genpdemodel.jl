@@ -136,10 +136,10 @@ end
 # Flatten a model function result into a flat Vector, mirroring gencode's
 # `length(f)==1 -> reshape; f[:]` (column-major) pattern.
 function _flatten_F(f)
-    if length(f) == 1
-        return [f]
+    if f isa AbstractArray
+        return collect(f[:])
     end
-    return collect(f[:])
+    return [f]
 end
 
 # Render one `function NAME(args) ... end` block. `exprs` is a flat iterable of
@@ -200,7 +200,7 @@ end
 # optional functions actually emitted.
 function _outputs_line(present)
     order = ["Flux", "Source", "Tdfunc", "Ubou", "Fbou", "FbouHdg",
-             "Materialstate", "Initu", "VisScalars", "VisVectors", "VisTensors",
+             "Materialstate", "Initu", "Initv", "Avfield", "VisScalars", "VisVectors", "VisTensors",
              "QoIvolume", "QoIboundary"]
     outs = [o for o in order if o in present]
     return "outputs " * join(outs, ", ")
@@ -308,6 +308,18 @@ function genpdemodel(pde, dest_path)
     f = pdemodel.initu(xdg, param, uinf)
     push!(blocks, _emit_function("Initu", _INIT_ARGS, "ui", _flatten_F(f), pr))
     push!(present, "Initu")
+
+    # ----- Initv / Avfield (optional external/AV variables) -----
+    if has("initv")
+        f = pdemodel.initv(xdg, param, uinf)
+        push!(blocks, _emit_function("Initv", _INIT_ARGS, "vi", _flatten_F(f), pr))
+        push!(present, "Initv")
+    end
+    if has("avfield")
+        f = pdemodel.avfield(u, q, wdg, odg, xdg, time, param, uinf)
+        push!(blocks, _emit_function("Avfield", _ELEM_ARGS, "avField", _flatten_F(f), pr))
+        push!(present, "Avfield")
+    end
 
     # ----- optional visualization / QoI functions -----
     if has("visscalars")

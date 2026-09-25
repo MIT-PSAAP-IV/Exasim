@@ -18,6 +18,7 @@ include("node2elem.jl");
 include("mkent2elem.jl");
 include("mkelconcg.jl");
 include("facenumbering.jl");
+include("uniformrefinement.jl");
 include("createhighordermesh.jl");
 include("partition.jl");
 include("neighboringelements.jl");
@@ -75,10 +76,6 @@ if app.preprocessmode==0
     # update app structure
     app = writeapp(app,fileapp);
     return app;
-end
-
-if app.uniformrefinementlevel > 0
-    error("uniformrefinementlevel is applied by the C++ preprocessing (pdeapp.txt / exporttext2code); the native Julia preprocessing does not refine the mesh.")
 end
 
 app.nd  = size(mesh.p,1);
@@ -229,6 +226,29 @@ if isdefined(pdemodel, Symbol("vissurfscalars"))
     app.nsurfsca = length(f[:]);    
 end
 
+elem2cpu = Int[];
+if app.uniformrefinementlevel > 0
+    mpiprocs = app.mpiprocs;
+    if mpiprocs > 1
+        print("run coarse facenumbering for uniform refinement partition...\n");
+        meshf0, meshtprd0, mesht2t0 = facenumbering(mesh.p,mesh.t,app.elemtype,mesh.boundaryexpr,mesh.periodicexpr);
+        dmd0 = Array{DMDStruct, 1}(undef, mpiprocs);
+        for i = 1:mpiprocs
+            dmd0[i] = DMDStruct();
+        end
+        if app.hybrid == 1
+            dmd0 = elementpartitionhdg(dmd0, meshtprd0, mesht2t0, mpiprocs, app.metis);
+        else
+            dmd0 = elementpartition2(dmd0, meshtprd0, mesht2t0, mpiprocs, app.metis);
+        end
+        elem2cpu = coarseelem2cpu(dmd0, size(mesh.t,2));
+    end
+    mesh, elem2cpu = uniformrefinemesh(mesh, app, master, elem2cpu);
+    if !isempty(elem2cpu) && length(elem2cpu) != size(mesh.t,2)
+        error("preprocessing: refined elem2cpu does not match the refined element count.");
+    end
+end
+
 print("run facenumbering...\n");
 mesh.f, mesh.tprd, t2t = facenumbering(mesh.p,mesh.t,app.elemtype,mesh.boundaryexpr,mesh.periodicexpr);
 
@@ -243,9 +263,9 @@ end
 #dmd = meshpartition(dmd,mesh.p,mesh.t,mesh.f,t2t,mesh.tprd,app.elemtype,app.boundaryconditions,mesh.boundaryexpr,mesh.periodicexpr,app.porder,mpiprocs,app.metis);
 #dmd = meshpartition2(dmd,mesh.tprd,mesh.f,t2t,app.boundaryconditions,app.nd,app.elemtype,app.porder,mpiprocs,app.metis);
 if (app.hybrid ==1)
-  dmd = meshpartitionhdg(dmd,mesh.tprd,mesh.f,t2t,app.boundaryconditions,app.nd,app.elemtype,app.porder,mpiprocs,app.metis, app.Cxxpreprocessing);
+  dmd = meshpartitionhdg(dmd,mesh.tprd,mesh.f,t2t,app.boundaryconditions,app.nd,app.elemtype,app.porder,mpiprocs,app.metis, app.Cxxpreprocessing,elem2cpu);
 else
-  dmd = meshpartition2(dmd,mesh.tprd,mesh.f,t2t,app.boundaryconditions,app.nd,app.elemtype,app.porder,mpiprocs,app.metis, app.Cxxpreprocessing);
+  dmd = meshpartition2(dmd,mesh.tprd,mesh.f,t2t,app.boundaryconditions,app.nd,app.elemtype,app.porder,mpiprocs,app.metis, app.Cxxpreprocessing,elem2cpu);
 end
 
 for i = 1:mpiprocs

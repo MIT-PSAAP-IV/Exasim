@@ -11,6 +11,8 @@ from .writebin import writebin
 from .writemaster import writemaster
 from .readmeshstruct import readmeshstruct
 from .checkmesh import checkmesh
+from .elementpartition2 import elementpartition2
+from .elementpartitionhdg import elementpartitionhdg
 from .meshpartition2 import meshpartition2
 from .mkcgent2dgent import mkcgent2dgent
 from .mkelemblocks import mkelemblocks
@@ -20,6 +22,7 @@ from .createdgnodes import createdgnodes
 from .facenumbering import facenumbering
 from .meshpartitionhdg import meshpartitionhdg
 from .process_materialdatabase import process_materialdatabase
+from .uniformrefinement import uniformrefinemesh, coarseelem2cpu
 import os, sys, sympy
 from importlib import import_module
 import importlib.util
@@ -58,15 +61,12 @@ def preprocessing(app,mesh):
         app = writeapp(app,fileapp);
         return app;
 
-    if app.get('uniformrefinementlevel', 0) > 0:
-        raise ValueError("uniformrefinementlevel is applied by the C++ preprocessing "
-                         "(pdeapp.txt / exporttext2code); the native Python preprocessing "
-                         "does not refine the mesh.")
-
     app['nd']  = mesh['p'].shape[0];
     app['ncx'] = app['nd'];
 
     nve,ne = mesh['t'].shape;
+    app['nve'] = nve;
+    app['ne'] = ne;
 
     app['elemtype'] = 0;
     if (app['nd']==2) and (nve==4):
@@ -76,7 +76,9 @@ def preprocessing(app,mesh):
     app['pgauss'] = 2*app['porder'];
 
     master = mkmaster(app['nd'],app['porder'],app['pgauss'],app['elemtype'],app['nodetype']);
-    writemaster(master,filemaster);
+    masterfile = {key: array(value, copy=True) if hasattr(value, '__array__') else value
+                  for key, value in master.items()}
+    writemaster(masterfile,filemaster);
 
     pdemodel = import_module(app['modelfile']);
     # spec = importlib.util.spec_from_file_location('pdemodel', app['modelfile'])
@@ -200,6 +202,24 @@ def preprocessing(app,mesh):
     else:
         app['nsurfsca'] = 0;
 
+    elem2cpu = None
+    if app.get('uniformrefinementlevel', 0) > 0:
+        mpiprocs = app['mpiprocs'];
+        if mpiprocs > 1:
+            print("run coarse facenumbering for uniform refinement partition...");
+            meshf0, meshtprd0, mesht2t0 = facenumbering(mesh['p'],mesh['t'],app['elemtype'],mesh['boundaryexpr'],mesh['periodicexpr'])[0:3];
+            dmd0 = [dict() for x in range(mpiprocs)];
+            if app['hybrid'] == 1:
+                dmd0 = elementpartitionhdg(dmd0, meshtprd0, mesht2t0, mpiprocs, app['metis']);
+            else:
+                dmd0 = elementpartition2(dmd0, meshtprd0, mesht2t0, mpiprocs, app['metis']);
+            elem2cpu = coarseelem2cpu(dmd0, mesh['t'].shape[1])
+        mesh, elem2cpu = uniformrefinemesh(mesh, app, master, elem2cpu)
+        app['nve'] = mesh['t'].shape[0]
+        app['ne'] = mesh['t'].shape[1]
+        if elem2cpu is not None and elem2cpu.size != app['ne']:
+            raise ValueError("preprocessing: refined elem2cpu does not match the refined element count.")
+
     print("run facenumbering...");
     mesh['f'], mesh['tprd'], t2t = facenumbering(mesh['p'],mesh['t'],app['elemtype'],mesh['boundaryexpr'],mesh['periodicexpr'])[0:3];
 
@@ -209,9 +229,9 @@ def preprocessing(app,mesh):
     #dmd = meshpartition2(dmd,mesh['tprd'],mesh['f'],t2t,app['boundaryconditions'],app['nd'],app['elemtype'],app['porder'],mpiprocs,app['metis']);
 
     if app['hybrid'] == 1:
-        dmd = meshpartitionhdg(dmd,mesh['tprd'],mesh['f'],t2t,app['boundaryconditions'],app['nd'],app['elemtype'],app['porder'],mpiprocs,app['metis'],app['Cxxpreprocessing']);
+        dmd = meshpartitionhdg(dmd,mesh['tprd'],mesh['f'],t2t,app['boundaryconditions'],app['nd'],app['elemtype'],app['porder'],mpiprocs,app['metis'],app['Cxxpreprocessing'],elem2cpu);
     else:
-        dmd = meshpartition2(dmd,mesh['tprd'],mesh['f'],t2t,app['boundaryconditions'],app['nd'],app['elemtype'],app['porder'],mpiprocs,app['metis'],app['Cxxpreprocessing']);
+        dmd = meshpartition2(dmd,mesh['tprd'],mesh['f'],t2t,app['boundaryconditions'],app['nd'],app['elemtype'],app['porder'],mpiprocs,app['metis'],app['Cxxpreprocessing'],elem2cpu);
 
     for i in range(0,mpiprocs):
         ii = i + 1;
@@ -329,7 +349,7 @@ def preprocessing(app,mesh):
 
         nsize[24-1] = len(master['perm'].flatten())
         nsize[25-1] = len(dmd[i]['bf'].flatten())
-        ti = mesh['tprd'][:,dmd[i]['elempart'].flatten()] - 1
+        ti = mesh['tprd'][:,dmd[i]['elempart'].flatten()]
         nsize[27-1] = len(ti.flatten());         
         nsize[28-1] = size(app['boundaryconditions']);         
 

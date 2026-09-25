@@ -87,6 +87,7 @@ function _t2c_infer_dimensions!(app, mesh)
     else
         nd = Int(_t2c_getapp(app, "nd", 1))
     end
+    _t2c_infer_model_dimensions!(app)
     ncu = Int(_t2c_getapp(app, "ncu", 1))
     model = lowercase(String(_t2c_getapp(app, "model", _t2c_getapp(app, "pdemodel", "ModelD"))))
     nc = model == "modelc" ? ncu : ncu * (nd + 1)
@@ -95,12 +96,36 @@ function _t2c_infer_dimensions!(app, mesh)
     _t2c_setapp!(app, "ncq", max(nc - ncu, 0))
 
     vdg = _t2c_get(mesh, :vdg)
-    if !isnothing(vdg)
+    if isnothing(vdg) || isempty(vdg)
+        vdg = _t2c_get(mesh, :odg)
+    end
+    if !isnothing(vdg) && !isempty(vdg)
         _t2c_setapp!(app, "nco", size(vdg, 2))
     end
     wdg = _t2c_get(mesh, :wdg)
-    if !isnothing(wdg)
+    if !isnothing(wdg) && !isempty(wdg)
         _t2c_setapp!(app, "ncw", size(wdg, 2))
+    end
+    return app
+end
+
+function _t2c_infer_model_dimensions!(app)
+    modelfile = String(_t2c_getapp(app, "modelfile", ""))
+    pdemodel = !isempty(modelfile) && isdefined(Main, Symbol(modelfile)) ?
+               getfield(Main, Symbol(modelfile)) : Main
+    ncx = Int(_t2c_getapp(app, "ncx", _t2c_getapp(app, "nd", 1)))
+    x = [SymPy.symbols("xdg$i") for i in 1:ncx]
+    physicsparam = vec(_t2c_getapp(app, "physicsparam", []))
+    externalparam = vec(_t2c_getapp(app, "externalparam", _t2c_getapp(app, "uinf", [])))
+    mu = [SymPy.symbols("param$i") for i in 1:length(physicsparam)]
+    eta = [SymPy.symbols("uinf$i") for i in 1:length(externalparam)]
+    if isdefined(pdemodel, :initu)
+        value = pdemodel.initu(x, mu, eta)
+        _t2c_setapp!(app, "ncu", value isa AbstractArray ? length(value) : 1)
+    end
+    if isdefined(pdemodel, :initv)
+        value = pdemodel.initv(x, mu, eta)
+        _t2c_setapp!(app, "nco", value isa AbstractArray ? length(value) : 1)
     end
     return app
 end
@@ -130,15 +155,25 @@ function _t2c_write_binaries(mesh, dest, suffix="")
     optional = [
         (:dgnodes, "xdgfile", "xdg" * suffix * ".bin"),
         (:udg, "udgfile", "udg" * suffix * ".bin"),
-        (:vdg, "vdgfile", "vdg" * suffix * ".bin"),
         (:wdg, "wdgfile", "wdg" * suffix * ".bin"),
     ]
     for (meshkey, appkey, filename) in optional
         value = _t2c_get(mesh, meshkey)
-        if !isnothing(value)
+        if !isnothing(value) && !isempty(value)
             _t2c_writebin(joinpath(dest, filename), vcat(collect(size(value)), vec(value)))
             files[appkey] = filename
         end
+    end
+    # Julia's native frontend calls external variables `odg`; Text2Code and
+    # the backend input contract call the corresponding file/field `vdg`.
+    vdg = _t2c_get(mesh, :vdg)
+    if isnothing(vdg) || isempty(vdg)
+        vdg = _t2c_get(mesh, :odg)
+    end
+    if !isnothing(vdg) && !isempty(vdg)
+        filename = "vdg" * suffix * ".bin"
+        _t2c_writebin(joinpath(dest, filename), vcat(collect(size(vdg)), vec(vdg)))
+        files["vdgfile"] = filename
     end
     return files
 end
@@ -161,6 +196,9 @@ function _t2c_write_pdeapp(pde, mesh, files, path, modelfile="pdemodel.txt")
     app["GMRESiter"] = get(app, "linearsolveriter", get(app, "GMRESiter", 200))
     app["GMREStol"] = get(app, "linearsolvertol", get(app, "GMREStol", 1e-3))
     app["ncv"] = get(app, "nco", get(app, "ncv", 0))
+    if !haskey(app, "AVsmoothingIter") && haskey(app, "AVsmoothingInter")
+        app["AVsmoothingIter"] = app["AVsmoothingInter"]
+    end
     app["frontendgenerated"] = 0
     if haskey(app, "physicsparamsweep") && !_t2c_empty(app["physicsparamsweep"])
         app["physicsparamcases"] = _t2c_normalize_sweep_cases(app["physicsparamsweep"], length(vec(app["physicsparam"])))
@@ -170,7 +208,8 @@ function _t2c_write_pdeapp(pde, mesh, files, path, modelfile="pdemodel.txt")
     if !isnothing(boundaryconditions)
         app["boundaryconditions"] = boundaryconditions
     end
-    app["boundaryexpressions"] = _t2c_string_list(_t2c_get(mesh, :boundaryexpr), "boundaryexpr")
+    app["boundaryexpressions"] = _t2c_normalize_expressions(
+        _t2c_string_list(_t2c_get(mesh, :boundaryexpr), "boundaryexpr"))
 
     curved = _t2c_get(mesh, :curvedboundary)
     app["curvedboundaries"] = isnothing(curved) ? [] : curved
@@ -181,7 +220,8 @@ function _t2c_write_pdeapp(pde, mesh, files, path, modelfile="pdemodel.txt")
     if isnothing(curvedexpr)
         curvedexpr = fill("", length(vec(app["boundaryconditions"])))
     end
-    app["curvedboundaryexprs"] = _t2c_string_list(curvedexpr, "curvedboundaryexpr")
+    app["curvedboundaryexprs"] = _t2c_normalize_expressions(
+        _t2c_string_list(curvedexpr, "curvedboundaryexpr"))
 
     _t2c_add_periodic!(app, mesh)
     app["interfaceconditions"] = something(_t2c_get(mesh, :interfacecondition), [])
@@ -194,13 +234,15 @@ function _t2c_write_pdeapp(pde, mesh, files, path, modelfile="pdemodel.txt")
         "nodetype", "ncu", "ncv", "ncw", "neb", "nfb", "linearproblem", "subproblem",
         "saveParaview", "physicsparamwarmstart", "tdep", "wave", "porder", "pgauss",
         "temporalscheme", "torder", "nstage", "convStabMethod", "diffStabMethod",
-        "rotatingFrame", "viscosityModel", "SGSmodel", "ALE", "AV", "AVsmoothingIter",
-        "frozenAVflag", "nonlinearsolver", "linearsolver", "NewtonIter", "NewtonTol",
+        "rotatingFrame", "viscosityModel", "SGSmodel", "ALE", "AV", "AVdistfunction", "distanceboundaryconditions", "AVsmoothingIter",
+        "AVsmoothingMethod", "AVHelmholtzCoeff", "AVcontinuationIter",
+        "AVcontinuationLogScale", "AVcoeffStart", "AVcoeffEnd", "frozenAVflag", "nonlinearsolver",
+        "linearsolver", "NewtonIter", "NewtonTol",
         "GMRESiter", "GMRESrestart", "GMREStol", "GMRESortho", "ppdegree", "RBdim",
         "matvecorder", "matvectol", "precMatrixType", "preconditioner", "time",
         "NLparam", "tau", "dt", "dae_alpha", "dae_beta", "dae_gamma", "dae_epsilon",
         "dae_steps", "dae_dt", "physicsparam", "physicsparamcases", "externalparam",
-        "vindx", "avparam1", "avparam2", "stgib", "stgdata", "stgparam",
+        "vindx", "avparam1", "avparam2", "stgNmode", "stgchem", "stgib", "stgdata", "stgparam",
         "boundaryconditions", "boundaryexpressions", "curvedboundaries",
         "curvedboundaryexprs", "periodicboundaries1", "periodicexprs1",
         "periodicboundaries2", "periodicexprs2", "interfaceconditions",
@@ -245,7 +287,8 @@ function _t2c_add_periodic!(app, mesh)
 end
 
 function _t2c_periodic_expr(expr)
-    values = _t2c_string_list([expr], "periodic expression")
+    values = _t2c_normalize_expressions(
+        _t2c_string_list([expr], "periodic expression"))
     values[1] == "xy" && return ["x", "y"]
     values[1] == "xz" && return ["x", "z"]
     values[1] == "yz" && return ["y", "z"]
@@ -276,6 +319,10 @@ function _t2c_string_list(value, label)
         push!(out, String(item))
     end
     return out
+end
+
+function _t2c_normalize_expressions(values)
+    return [replace(value, ".^" => "^", ".*" => "*", "./" => "/") for value in values]
 end
 
 function _t2c_normalize_sweep_cases(spec, nparam)
@@ -334,7 +381,13 @@ function _t2c_format_value(value, key="")
     return "[" * join([_t2c_format_float(Float64(v)) for v in vals], ", ") * "]"
 end
 
-_t2c_format_float(value) = string(Float64(value))
+function _t2c_format_float(value)
+    number = Float64(value)
+    if isfinite(number) && isinteger(number) && typemin(Int) <= number <= typemax(Int)
+        return string(Int(number))
+    end
+    return string(number)
+end
 
 function _t2c_write_readme(dest; coupled=false, nmodels=1)
     text = """

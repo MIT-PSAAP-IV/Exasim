@@ -76,7 +76,7 @@ The Text2Code parser errors if any of these keys are missing:
 | `wdgfile` | string | empty | No | Optional auxiliary `w` field input file. |
 | `uhatfile` | string | empty | No | Optional HDG trace input file. |
 | `partitionfile` | string | empty | No | Optional partition input. |
-| `uniformrefinementlevel` | int | `0` | No | Uniformly refine the input mesh `k` times before the simulation (each element becomes `2^(nd*k)` children). `xdgfile`/`udgfile`/`vdgfile`/`wdgfile` are prolongated exactly by the parent's degree-`porder` interpolant, and new vertices follow the curved `xdg` geometry when one is given. Works in serial, with `mpiprocs > 1` (each rank refines its own partition of the coarse mesh), and in text2code. A partition file is given per coarse element. `uhatfile` is not supported. On curved boundaries without `xdgfile`, new boundary vertices lie on the straight chord, so boundary expressions need a tolerance that admits them. |
+| `uniformrefinementlevel` | int | `0` | No | Uniformly refine the input mesh `k` times before the simulation (each element becomes `2^(nd*k)` children). Serialized as fixed `problem[33]`, after `stgchem`. `xdgfile`/`udgfile`/`vdgfile`/`wdgfile` are prolongated exactly by the parent's degree-`porder` interpolant, and new vertices follow the curved `xdg` geometry when one is given. Works in serial, with `mpiprocs > 1` (each rank refines its own partition of the coarse mesh), and in text2code. A partition file is given per coarse element. `uhatfile` is not supported. On curved boundaries without `xdgfile`, new boundary vertices lie on the straight chord, so boundary expressions need a tolerance that admits them. |
 | `gendatain` | int | `1` | No | Write backend binary input bundle. |
 | `gencode` | int | `1` | No | Generate C++ model code. |
 | `writemeshsol` | int | `1` | No | Write mesh and solution binary data. |
@@ -200,7 +200,13 @@ interfaces.
 | `ALE` | int | `0` | No | Arbitrary Lagrangian-Eulerian flag. |
 | `AV` | int | `0` | No | Artificial-viscosity flag. |
 | `AVdistfunction` | int | `0` | No | AV distance-function flag. |
-| `AVsmoothingIter` | int | `2` | No | Number of AV smoothing iterations. |
+| `AVsmoothingIter` | int | `2` | No | Number of repeated DG-to-CG smoothing passes when `AVsmoothingMethod = 0`. |
+| `AVsmoothingMethod` | int | `0` | No | AV smoothing selector: `0` uses repeated DG-to-CG averaging; `1` uses the internal HDG Helmholtz filter. |
+| `AVHelmholtzCoeff` | float | `1.0` | No | Positive multiplier for the local Helmholtz length scale when `AVsmoothingMethod = 1`. |
+| `AVcontinuationIter` | int | `0` | No | Number of AV continuation solves. Values below `2` preserve the explicit `avparam1`/`avparam2` arrays. |
+| `AVcontinuationLogScale` | float | `1.0` | No | Exponential continuation-shape parameter; values near zero select linear interpolation. |
+| `AVcoeffStart` | float | `0.0` | No | First coefficient at the initial continuation solve. |
+| `AVcoeffEnd` | float | `0.0` | No | Second coefficient at the final continuation solve. |
 | `frozenAVflag` | int | `1` | No | Freeze AV field where supported. |
 | `avparam1` | list(float) | empty | No | Artificial-viscosity parameter vector. |
 | `avparam2` | list(float) | empty | No | Additional artificial-viscosity parameter vector. |
@@ -210,6 +216,7 @@ interfaces.
 | Key | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
 | `stgNmode` | int | `0` | No | Synthetic turbulence mode count. |
+| `stgchem` | int | `0` | No | LDG STG state model: `0` for ideal gas, `1` for five-species air chemistry. Serialized as fixed `problem[32]`. |
 | `stgib` | list(float) | empty | No | Synthetic turbulence boundary data. |
 | `stgdata` | list(float) | empty | No | Synthetic turbulence mode data. |
 | `stgparam` | list(float) | empty | No | Synthetic turbulence parameters. |
@@ -219,6 +226,10 @@ interfaces.
 | `dae_beta` | float | `0.0` | No | DAE coefficient. |
 | `dae_gamma` | float | `0.0` | No | DAE coefficient. |
 | `dae_epsilon` | float | `0.0` | No | DAE coefficient. |
+
+For a chemistry STG inlet in LDG, keep the model's ordinary inlet boundary ID, list that ID in
+`stgib`, and set `stgchem = 1`. HDG continues to select its chemistry STG path with boundary
+condition `1001`; `stgchem` only changes LDG STG state construction.
 
 ## Output and Postprocessing
 
