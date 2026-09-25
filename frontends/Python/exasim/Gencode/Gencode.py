@@ -270,6 +270,15 @@ def gencode(app):
         gencodeface("QoIboundary" + strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, foldername);
     else:
         nocodeface("QoIboundary" + strn, foldername);
+    if hasattr(pde, 'surfacequantities'):
+        # Pointwise boundary outputs saved on the ibs boundaries (outbousurf_np*.bin). Same
+        # arguments as qoiboundary; one expression for every ibs boundary (backend calls ib = 1),
+        # so all nsurfq outputs go in a single column.
+        f = pde.surfacequantities(u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, tau);
+        f = numpy.reshape(numpy.array(f).flatten('F'),(numpy.array(f).size,1),'F');
+        gencodeface("SurfaceQuantities" + strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, foldername);
+    else:
+        nocodeface("SurfaceQuantities" + strn, foldername);
     if hasattr(pde, 'fhat'):
         #f = pde.fhat(xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time);
         f = pde.fhat(u1, q1, wdg1, odg1, xdg, time, param, uinf, uhg, nlg, tau, u2, q2, wdg2, odg2);
@@ -380,6 +389,7 @@ def _write_model_sizes(app, foldername):
     nten = app.get('nten', 0)
     nsurf = app.get('nbqoi', 0)
     nvqoi = app.get('nvqoi', 0)
+    nsurfq = app.get('nsurfq', 0)
     nmaterialstate = app.get('nmaterialstate', 0)
     with open(os.path.join(foldername, "model_sizes.hpp"), "w") as f:
         f.write(f"""#ifndef EXASIM_MODEL_SIZES_HPP
@@ -395,7 +405,10 @@ namespace exasim_model_sizes {{
     static constexpr int nsurf = {nsurf};
     static constexpr int nvqoi = {nvqoi};
     static constexpr int nmaterialstate = {nmaterialstate};
+    static constexpr int nsurfq = {nsurfq};
 }}
+
+#define EXASIM_MODEL_SIZES_HAS_NSURFQ 1
 
 #endif
 """)

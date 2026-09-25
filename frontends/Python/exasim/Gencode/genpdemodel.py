@@ -182,7 +182,7 @@ def _outputs_line(present):
     order = [
         "Flux", "Source", "Tdfunc", "Ubou", "Fbou", "FbouHdg",
         "Materialstate", "Initu", "Initv", "Avfield", "VisScalars", "VisVectors", "VisTensors",
-        "QoIvolume", "QoIboundary",
+        "QoIvolume", "QoIboundary", "SurfaceQuantities",
     ]
     outs = [o for o in order if o in present]
     return "outputs " + ", ".join(outs)
@@ -200,7 +200,7 @@ def genpdemodel(pde, dest_path):
 
     Covers the kernel set text2code requires plus the common optional ones:
     Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Initu, VisScalars, VisVectors,
-    VisTensors, QoIvolume, QoIboundary.
+    VisTensors, QoIvolume, QoIboundary, SurfaceQuantities.
 
     Raises if a required model function (flux, fbou, ubou, fbouhdg, initu) is
     missing, mirroring gencode's hard requirements.
@@ -311,6 +311,10 @@ def genpdemodel(pde, dest_path):
         f = call("qoiboundary", u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, tau)
         blocks.append(_emit_function("QoIboundary", _FACE_ARGS, "fb", _flatten_F(f), pr))
         present.add("QoIboundary")
+    if hasattr(model, "surfacequantities"):
+        f = call("surfacequantities", u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, tau)
+        blocks.append(_emit_function("SurfaceQuantities", _FACE_ARGS, "fb", _flatten_F(f), pr))
+        present.add("SurfaceQuantities")
 
     # ----- assemble -----
     out = []

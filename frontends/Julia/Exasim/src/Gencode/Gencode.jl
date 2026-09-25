@@ -367,6 +367,19 @@ if isdefined(pdemodel, Symbol("qoiboundary"))
 else
     nocodeface("QoIboundary" * strn, foldername);
 end
+# Optional pointwise surface quantities on the pde.ibs boundaries (same
+# signature as qoiboundary); an empty kernel when the model does not define it.
+if isdefined(pdemodel, Symbol("surfacequantities"))
+    f = pdemodel.surfacequantities(u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, tau);
+    if length(f)==1
+        f = reshape([f],1,1);
+    end
+    f = f[:];
+    f = reshape(f,length(f),1);
+    gencodeface("SurfaceQuantities" * strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, foldername);
+else
+    nocodeface("SurfaceQuantities" * strn, foldername);
+end
 if isdefined(pdemodel, Symbol("Fhat"))
     #f = pdemodel.fhat(xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time);
     f = pdemodel.fhat(u1, q1, wdg1, odg1, xdg, time, param, uinf, uhg, nlg, tau, u2, q2, wdg2, odg2);
@@ -501,6 +514,7 @@ open(joinpath(foldername, "HdgFextonly" * strn * ".cpp"), "w") do fid
     write(fid, "void HdgFextonly" * strn * "(" * fextonly_sig * ")\n{\n}\n")
 end
 
+nsurfq = isdefined(app, :nsurfq) ? app.nsurfq : 0;
 # Write model_sizes.hpp so the FrontendGenerated provider can get
 # compile-time size constants without requiring them in pdeapp.txt.
 open(joinpath(foldername, "model_sizes.hpp"), "w") do fid
@@ -517,7 +531,10 @@ open(joinpath(foldername, "model_sizes.hpp"), "w") do fid
     println(fid, "    static constexpr int nsurf = $(app.nbqoi);")
     println(fid, "    static constexpr int nvqoi = $(app.nvqoi);")
     println(fid, "    static constexpr int nmaterialstate = $(app.nmaterialstate);")
+    println(fid, "    static constexpr int nsurfq = $(nsurfq);")
     println(fid, "}")
+    println(fid)
+    println(fid, "#define EXASIM_MODEL_SIZES_HAS_NSURFQ 1")
     println(fid)
     println(fid, "#endif")
 end

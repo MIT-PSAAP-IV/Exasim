@@ -159,6 +159,10 @@ def _write_pdeapp(pde, mesh, files, path, modelfile="pdemodel.txt"):
     app["GMREStol"] = app.get("linearsolvertol", app.get("GMREStol", 1e-3))
     app["ncv"] = app.get("nco", app.get("ncv", 0))
     app["frontendgenerated"] = 0
+    # ibs: scalar form (ibs = 3;) for a single boundary, list form (ibs = [1, 3];) for several.
+    ibslist = [int(b) for b in np.asarray(app.get("ibs", 0)).flatten(order="F") if int(b) > 0]
+    app["ibs"] = ibslist if len(ibslist) >= 2 else (ibslist[0] if ibslist else 0)
+    app["saveSolBouLoc"] = int(app.get("saveSolBouLoc", 0))
     if not _empty(app.get("physicsparamsweep", [])):
         app["physicsparamcases"] = _normalize_sweep_cases(app["physicsparamsweep"], len(_as_1d(app.get("physicsparam", []))))
 
@@ -205,7 +209,7 @@ def _write_pdeapp(pde, mesh, files, path, modelfile="pdemodel.txt"):
         "curvedboundaryexprs", "periodicboundaries1", "periodicexprs1",
         "periodicboundaries2", "periodicexprs2", "interfaceconditions",
         "interfacefluxmap", "wmModelIDs", "wmBoundaries", "wmDistances",
-        "saveSolFreq", "saveSolOpt", "timestepOffset", "saveSolBouFreq", "ibs",
+        "saveSolFreq", "saveSolOpt", "timestepOffset", "saveSolBouFreq", "ibs", "saveSolBouLoc",
         "compudgavg", "extFhat", "extUhat", "extStab", "saveResNorm",
     ]
 

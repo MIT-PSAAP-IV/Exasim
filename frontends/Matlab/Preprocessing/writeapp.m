@@ -6,6 +6,19 @@ if isfield(app, 'builtinmodelID') == 0, app.builtinmodelID = 0; end
 if isfield(app, 'frontendgenerated') == 0, app.frontendgenerated = 1; end
 if isfield(app, 'uniformrefinementlevel') == 0, app.uniformrefinementlevel = 0; end
 if isfield(app, 'stgchem') == 0, app.stgchem = 0; end
+if isfield(app, 'ibs') == 0 || isempty(app.ibs), app.ibs = 0; end
+if isfield(app, 'saveSolBouLoc') == 0 || isempty(app.saveSolBouLoc), app.saveSolBouLoc = 0; end
+if isfield(app, 'nsurfq') == 0, app.nsurfq = 0; end
+if ~isscalar(app.saveSolBouLoc) || ~any(app.saveSolBouLoc == [0 1])
+    error('saveSolBouLoc must be 0 (face nodes) or 1 (face Gauss points).');
+end
+% ibs may be a scalar or a vector of boundaries. The problem row keeps only the
+% first entry (a vector there would shift every later slot); the full list goes
+% into the trailing bououtparam = [saveSolBouLoc, ibs_1, ..., ibs_k] vector.
+ibslist = app.ibs(:);
+ibslist = ibslist(ibslist > 0);
+if isempty(ibslist), ibs1 = 0; else, ibs1 = ibslist(1); end
+bououtparam = [app.saveSolBouLoc; ibslist];
 %app.stgNmode = size(app.stgdata,1);
 app.flag   = [app.tdep app.wave app.linearproblem app.debugmode app.matvecorder app.GMRESortho...  
               app.preconditioner app.precMatrixType app.NLMatrixType app.runmode app.tdfunc app.sourcefunc ...
@@ -14,7 +27,7 @@ app.flag   = [app.tdep app.wave app.linearproblem app.debugmode app.matvecorder 
 app.problem  = [app.hybrid appname app.temporalscheme app.torder app.nstage app.convStabMethod...
                app.diffStabMethod app.rotatingFrame app.viscosityModel app.SGSmodel app.ALE app.AV...
                app.linearsolver app.NLiter app.linearsolveriter app.GMRESrestart app.RBdim ...
-               app.saveSolFreq app.saveSolOpt app.timestepOffset app.stgNmode app.saveSolBouFreq app.ibs ...
+               app.saveSolFreq app.saveSolOpt app.timestepOffset app.stgNmode app.saveSolBouFreq ibs1 ...
                app.dae_steps app.saveResNorm app.AVsmoothingIter app.frozenAVflag app.ppdegree ...
                app.coupledinterface app.coupledcondition app.coupledboundarycondition app.AVdistfunction ...
                app.stgchem app.uniformrefinementlevel app.problem];
@@ -41,6 +54,7 @@ ndims(16) = app.nvec;
 ndims(17) = app.nten;
 ndims(18) = app.nbqoi; 
 ndims(19) = app.nvqoi;
+ndims(20) = app.nsurfq; % SurfaceQuantities components
 
 % if app.nco ~= size(app.vindx,1)
 %     error("app.nco mus be equal to size(app.vindx,1)");
@@ -128,6 +142,7 @@ nsize(20) = length(avfilterparam(:));
 nsize(21) = length(meshadaptparam(:));
 nsize(22) = length(app.meshadaptboundaryconditions(:));
 nsize(23) = length(app.distanceboundaryconditions(:));
+nsize(24) = length(bououtparam(:)); % [saveSolBouLoc, ibs_1, ..., ibs_k]
 
 app.nsize = nsize;
 app.ndims = ndims;
@@ -170,6 +185,7 @@ fwrite(fileID,avfilterparam(:),'double',endian);
 fwrite(fileID,meshadaptparam(:),'double',endian);
 fwrite(fileID,app.meshadaptboundaryconditions(:),'double',endian);
 fwrite(fileID,app.distanceboundaryconditions(:),'double',endian);
+fwrite(fileID,bououtparam(:),'double',endian);
 fclose(fileID);
 
 % [1 30 40 17 32 2 1 5 4 1]

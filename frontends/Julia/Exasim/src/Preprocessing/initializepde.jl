@@ -47,6 +47,7 @@ mutable struct PDEStruct
     nten::IntP;# number of components of (tensor fields)
     nbqoi::IntP;# number of components of (boundary quantities)
     nvqoi::IntP;# number of components of (volume quantities)
+    nsurfq::IntP;# number of components of (surfacequantities); 0 if absent
     nmaterialstate::IntP;# number of material-state components
     neb::IntP;# number of element blocks for parallel computation
     nfb::IntP;# number of face blocks for parallel computation
@@ -103,7 +104,8 @@ mutable struct PDEStruct
     saveSolOpt::IntP; # option for how the solution be saved: 0 -> u only, 1 -> u and q
     timestepOffset::IntP; # for restarting the simulation from the saved solution
     saveSolBouFreq::IntP; # how often the solution be saved on a particular boundary
-    ibs::IntP; # the boundary on which the solution be saved
+    ibs::Any; # boundary (scalar) or boundaries (vector) on which the solution be saved
+    saveSolBouLoc::IntP; # where surfacequantities are evaluated: 0 = face nodes, 1 = face Gauss points
     compudgavg::IntP; # flag if time-average solution is computed
     extFhat::IntP;
     extUhat::IntP;
@@ -249,6 +251,7 @@ function initializepde(version)
     pde.nsca = 0;
     pde.nbqoi = 0;
     pde.nvqoi = 0;
+    pde.nsurfq = 0;
     pde.nmaterialstate = 0;
     pde.nvec = 0;
     pde.nten = 0;
@@ -312,6 +315,7 @@ function initializepde(version)
     pde.timestepOffset = 0;
     pde.saveSolBouFreq = 0;
     pde.ibs = 0;
+    pde.saveSolBouLoc = 0;
     pde.compudgavg = 0;
     pde.extFhat = 0;
     pde.extUhat = 0;

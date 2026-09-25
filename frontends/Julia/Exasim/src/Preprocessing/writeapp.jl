@@ -1,3 +1,15 @@
+# Normalize pde.ibs (scalar or vector of boundary indices) to a Vector{Int}.
+function ibslist(ibs)
+    v = Int[];
+    for b in (ibs isa Number ? [ibs] : vec(collect(ibs)))
+        if b != round(b)
+            error("pde.ibs must contain integer boundary indices.");
+        end
+        push!(v, Int(round(b)));
+    end
+    return v;
+end
+
 function writeapp(app,filename)
 
 appname = 0;
@@ -8,7 +20,18 @@ app.flag = [app.tdep app.wave app.linearproblem app.debugmode app.matvecorder ap
 # problem[0..27], coupling slots problem[28..31], STG chemistry at problem[32],
 # then uniform refinement at problem[33].
 # Keep these fixed slots aligned with the Matlab/Python and C++ preprocessors.
-app.problem = [app.hybrid appname app.temporalscheme app.torder app.nstage app.convStabMethod app.diffStabMethod app.rotatingFrame app.viscosityModel app.SGSmodel app.ALE app.AV app.linearsolver app.NLiter app.linearsolveriter app.GMRESrestart app.RBdim app.saveSolFreq app.saveSolOpt app.timestepOffset app.stgNmode app.saveSolBouFreq app.ibs app.dae_steps app.saveResNorm app.AVsmoothingInter app.frozenAVflag app.ppdegree app.coupledinterface app.coupledcondition app.coupledboundarycondition app.AVdistfunction app.stgchem app.uniformrefinementlevel app.problem];
+# pde.ibs may be a vector of boundaries: problem[22] keeps only the first entry
+# (0 if none) so the fixed slots never shift; the full list goes to bououtparam.
+ibsv = ibslist(app.ibs);
+ibs1 = isempty(ibsv) ? 0 : ibsv[1];
+if !(app.saveSolBouLoc in (0, 1))
+    error("pde.saveSolBouLoc must be 0 (face nodes) or 1 (face Gauss points).");
+end
+if !isdefined(app, :nsurfq)
+    app.nsurfq = 0;
+end
+bououtparam = [app.saveSolBouLoc; ibsv[ibsv .> 0]];
+app.problem = [app.hybrid appname app.temporalscheme app.torder app.nstage app.convStabMethod app.diffStabMethod app.rotatingFrame app.viscosityModel app.SGSmodel app.ALE app.AV app.linearsolver app.NLiter app.linearsolveriter app.GMRESrestart app.RBdim app.saveSolFreq app.saveSolOpt app.timestepOffset app.stgNmode app.saveSolBouFreq ibs1 app.dae_steps app.saveResNorm app.AVsmoothingInter app.frozenAVflag app.ppdegree app.coupledinterface app.coupledcondition app.coupledboundarycondition app.AVdistfunction app.stgchem app.uniformrefinementlevel app.problem];
 app.factor = [app.time app.dae_alpha app.dae_beta app.dae_gamma app.dae_epsilon app.factor];
 app.solversparam = [app.NLtol app.linearsolvertol app.matvectol app.NLparam app.solversparam];
 
@@ -32,6 +55,7 @@ ndims[16] = app.nvec;
 ndims[17] = app.nten;
 ndims[18] = app.nbqoi;
 ndims[19] = app.nvqoi;
+ndims[20] = app.nsurfq;
 
 if app.AVcontinuationIter >= 2
     t = collect(range(0.0, 1.0, length=app.AVcontinuationIter));
@@ -93,6 +117,7 @@ nsize[20] = length(avfilterparam[:]);
 nsize[21] = length(meshadaptparam[:]);
 nsize[22] = length(app.meshadaptboundaryconditions[:]);
 nsize[23] = length(app.distanceboundaryconditions[:]);
+nsize[24] = length(bououtparam[:]); # [saveSolBouLoc, ibs...]
 
 # app.nsize = nsize;
 # app.ndims = ndims;
@@ -164,6 +189,7 @@ write(fileID,Float64.(avfilterparam[:]));
 write(fileID,Float64.(meshadaptparam[:]));
 write(fileID,Float64.(app.meshadaptboundaryconditions[:]));
 write(fileID,Float64.(app.distanceboundaryconditions[:]));
+write(fileID,Float64.(bououtparam[:]));
 
 if app.mutationflag == 1
     write(fileID, app.mutationopts["MixtureName"] * "X")

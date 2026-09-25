@@ -196,6 +196,13 @@ def preprocessing(app,mesh):
         app['nbqoi'] = f.size;
     else:
         app['nbqoi'] = 0;
+    # surfacequantities: pointwise boundary outputs (heat flux, skin friction, Cp, ...) evaluated
+    # on the ibs boundaries and written to outbousurf_np*.bin. Same arguments as qoiboundary.
+    if hasattr(pdemodel, 'surfacequantities'):
+        f = pdemodel.surfacequantities(udgsym, qdgsym, wdgsym, odgsym, xdgsym, time, paramsym, uinfsym, uhatsym, nsym, tausym);
+        app['nsurfq'] = array(f).size;
+    else:
+        app['nsurfq'] = 0;
 
     elem2cpu = None
     if app.get('uniformrefinementlevel', 0) > 0:
