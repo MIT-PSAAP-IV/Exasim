@@ -153,11 +153,9 @@ function VisVectors(x, uq, v, w, eta, mu, t)
 end
 
 function SurfaceQuantities(x, uq, v, w, uhat, n, tau, eta, mu, t)
-    output_size(sq) = 3;
+    output_size(sq) = 2;
 
     s = Scalings(eta, mu);
-    RhoRef = s[0];
-    URef = s[1];
     Pref = s[2];
     Qref = s[3];
 
@@ -173,8 +171,6 @@ function SurfaceQuantities(x, uq, v, w, uhat, n, tau, eta, mu, t)
     rE = uhat[3];
     ke = 0.5*(ru*ru + rv*rv)/r;
     sq[1] = gam1*(rE - r*ke) * Pref;
-
-    sq[2] = (ru*n[0] + rv*n[1]) * RhoRef * URef;
 end
 
 function HeatFlux(x, uhat, uq, v, w, eta, mu, t)  

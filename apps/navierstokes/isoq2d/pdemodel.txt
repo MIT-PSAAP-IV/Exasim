@@ -8,7 +8,7 @@ hessian
 
 batch x, uq, v, w, uhat, n, uext
 
-outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Fint, Fext, Initu, VisScalars, VisVectors
+outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Fint, Fext, Initu, VisScalars, VisVectors, SurfaceQuantities
 
 function Flux(x, uq, v, w, eta, mu, t)
   output_size(f) = 8;
@@ -327,7 +327,6 @@ function VisScalars(x, uq, v, w, eta, mu, t)
   c23 = 2.0/3.0;
   pinf = 1.0/(gam*M2);
   Tinf = pinf/(gam-1.0);
-  pInfPhys = mu[11];
 
   r = uq[0];
   ru = uq[1];
@@ -377,4 +376,47 @@ function VisVectors(x, uq, v, w, eta, mu, t)
   output_size(s) = 2;
   s[0] = uq[1];
   s[1] = uq[2];  
+end
+
+function SurfaceQuantities(x, uq, v, w, uhat, n, tau, eta, mu, t)
+    output_size(sq) = 3;
+
+    gam = mu[0];
+    gam1 = gam - 1.0;
+    Re = mu[1];
+    Minf = mu[3];
+    Tref = mu[9];
+    pinf = 1.0/(gam*Minf*Minf);
+    Tinf = pinf/(gam-1.0);
+
+    URef = 2500;
+    R = 287;
+    Ts = 110.4;
+    T0 = 273.15;
+    mu0 = 1.716e-5;
+    Tr = Tref/T0;
+    muPhys = mu0 * sqrt(Tr*Tr*Tr) * (T0 + Ts)/(Tref + Ts);
+
+    RhoRef = Re*muPhys/URef;
+    PRef = RhoRef*R*Tref;
+    qfactor = PRef*URef*gam*Minf*Minf;
+
+    r = uhat[0];
+    ru = uhat[1];
+    rv = uhat[2];
+    rE = uhat[3];
+
+    uv = ru/r;
+    vv = rv/r;
+    ke = 0.5*(uv*uv+vv*vv);
+    p = gam1*(rE-r*ke);
+    T = p/(gam1*r);
+    Tphys = Tref/Tinf * T;
+    Rhophys = RhoRef * r;
+    Pphys = Rhophys * R * Tphys;
+
+    f = HeatFlux(x, uhat, uq, v, w, eta, mu, t);
+    sq[0] = (f[0]*n[0] + f[1]*n[1] + tau[0]*(uq[3] - uhat[3])) * qfactor;
+    sq[1] = Pphys;
+    sq[2] = (ru*n[0] + rv*n[1]) * RhoRef * URef;
 end
