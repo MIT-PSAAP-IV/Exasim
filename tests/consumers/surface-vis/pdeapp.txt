@@ -21,8 +21,8 @@ nstage = 1;
 
 saveParaview = 1;
 saveSolFreq = 1;
-nsurfsca = 2;
-ibvis = 1;
+saveSolBouFreq = 1;
+ibs = 1;
 ncw = 0;
 neb = 4096;
 nfb = 8192;

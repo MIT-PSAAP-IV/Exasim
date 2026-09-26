@@ -3,7 +3,7 @@ project(exasim_consumer_surface_vis CXX)
 set(CMAKE_CXX_STANDARD 20)
 
 # Surface-vis consumer: a text2code external model (id 100, Poisson 2D) that
-# declares a VisSurfScalars output, run with saveParaview + ibvis so the solve
+# declares a SurfaceQuantities output, run with saveParaview + ibs so the solve
 # emits an outsurf surface-visualization alongside the volume outvis files.
 # Built ONLY via find_package(Exasim) -- no source tree references.
 option(EXASIM_MPI "MPI variant" ON)
