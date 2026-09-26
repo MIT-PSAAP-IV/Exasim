@@ -4,7 +4,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # nsmach8 wall heat-flux surface vis (model ID 107): the Navier-Stokes kernels
-# (including VisSurfScalars) are generated at build time from pdeapp107.txt via
+# (including SurfaceQuantities) are generated at build time from pdeapp107.txt via
 # text2code and registered as an external built-in model. Built ONLY via
 # find_package(Exasim) -- no source tree references.
 option(EXASIM_MPI "MPI variant" ON)

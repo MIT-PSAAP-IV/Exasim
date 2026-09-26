@@ -44,6 +44,7 @@ public:
     ofstream outqoi;
 
     dstype* surfbuf = nullptr;  // device scratch for evalSurfaceQuantities (largest boundary block)
+    Int szsurfbuf = 0;          // allocated entries of surfbuf
 
     CSolutionWriter(CDiscretization& disc_, CResidual<M>& residual_, CVisualization& vis_, CSolver<M>& solv_)
         : disc(disc_), residual(residual_), vis(vis_), solv(solv_) {}
@@ -82,9 +83,9 @@ public:
     void SaveQoI(Int backend);
     void SaveParaview(Int backend, std::string fname_modifier = "", bool force_tdep_write = false);
 
-    // Write the boundary surface visualization (requested tag surfaces) for the
-    // same step cadence as SaveParaview. Called from the tail of SaveParaview;
-    // gated internally by vis.surfvis_enabled.
+    // Write the ibs-list boundary surfaces for the same step cadence as
+    // SaveParaview. Called from the tail of SaveParaview; gated internally
+    // by vis.surfvis_enabled.
     void SaveSurfaces(Int backend, const std::string& fname_modifier, bool force_tdep_write);
 
     // Write the ParaView output for an EXPLICIT 1-based step, without disturbing the
@@ -105,9 +106,10 @@ public:
     // face-node coordinates [nn, ncx] at buf and unit normals [nn, nd] at buf + nn*ncx for the
     // faces [f1, f2); uses nn*(ncx+3*nd+1) entries of buf
     void faceNodeGeometry(dstype* buf, Int f1, Int f2, Int backend);
-    // evaluate SurfaceQuantities on faces [f1, f2) at face nodes or Gauss points
-    // (common.qoiparams.saveSolBouLoc); returns the [np*nf, nsurfq] result inside surfbuf
-    dstype* evalSurfaceQuantities(Int f1, Int f2, Int backend);
+    // evaluate SurfaceQuantities on faces [f1, f2) at face nodes (loc=0) or
+    // Gauss points (loc=1); loc<0 selects common.qoiparams.saveSolBouLoc.
+    // returns the [np*nf, nsurfq] result inside surfbuf (grown as needed)
+    dstype* evalSurfaceQuantities(Int f1, Int f2, Int backend, Int loc = -1);
     void SaveOutputCG(Int backend);
 
     // read solutions / a saved record from the appended solution files

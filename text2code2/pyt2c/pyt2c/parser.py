@@ -18,7 +18,8 @@ EXASIM_FUNCTIONS = [
     "Flux", "Source", "Tdfunc", "Ubou", "Fbou", "FbouHdg",
     "Sourcew", "Output", "Monitor", "Initu", "Initq", "Inituq",
     "Initw", "Initv", "Avfield", "Fint", "EoS", "VisScalars",
-    "VisVectors", "VisTensors", "VisSurfScalars", "QoIvolume", "QoIboundary", "Fext",
+    "VisVectors", "VisTensors", "QoIvolume", "QoIboundary", "Fext",
+    "SurfaceQuantities",
 ]
 
 _FUNC_RE = re.compile(r"^\s*function\s+(\w+)\(([^)]*)\)\s*$")

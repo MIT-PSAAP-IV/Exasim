@@ -8,7 +8,7 @@ hessian
 
 batch x, uq, v, w, uhat, n, uext
 
-outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Initu, VisSurfScalars
+outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Initu, SurfaceQuantities
 
 function Flux(x, uq, v, w, eta, mu, t)
   output_size(f) = 15;
@@ -468,9 +468,9 @@ function HeatFluxSurf(x, uhat, uq, v, w, eta, mu, t)
   f[2] = fc*Tz;
 end
 
-function VisSurfScalars(x, uq, v, w, uhat, n, tau, eta, mu, t)
-  output_size(s) = 1;
+function SurfaceQuantities(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(sq) = 1;
 
   f = HeatFluxSurf(x, uhat, uq, v, w, eta, mu, t);
-  s[0] = f[0]*n[0] + f[1]*n[1] + f[2]*n[2] + tau[0]*(uq[4] - uhat[4]);
+  sq[0] = f[0]*n[0] + f[1]*n[1] + f[2]*n[2] + tau[0]*(uq[4] - uhat[4]);
 end

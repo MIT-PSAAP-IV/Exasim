@@ -177,17 +177,16 @@ public:
     std::vector<std::string> scalar_names;   // nscalars
     std::vector<std::string> vector_names;   // nvectors (3 comps each, z padded if nd==2)
     std::vector<std::string> tensor_names;   // ntensors (ntc comps each, ntc=nd*nd)
-    std::vector<std::string> surface_names;   // nsurfsca (surface scalar vis fields)
+    std::vector<std::string> surface_names;   // nsurfq (surface scalar vis fields)
 
     // ------------------------------------------------------------------
-    // Surface visualization: the boundary cells of the requested tag,
-    // resolved on the trace nodes, with the value/eval plumbing so the
-    // surface fields can be reconstructed at the enclosing CG corners.
-    int   nsurfsca       = 0;    // number of surface scalar fields (>=0)
+    // Surface visualization: the ibs-list boundary faces, resolved on the
+    // trace nodes, with the value/eval plumbing so the surface fields can
+    // be reconstructed at the enclosing CG corners.
+    int   nsurfq       = 0;    // number of surface scalar fields (>=0)
     int   surf_nnodes    = 0;    // surface nodes (all face nodes, DG-unique per face)
     int   surf_ncells    = 0;    // linear sub-cells (lines / tris / quads)
     int   surf_k         = 0;    // corners per cell (2, 3 or 4)
-    int   surf_ibvis     = 0;    // requested boundary tag (0 => feature off)
     bool  surfvis_enabled = false;
     std::vector<float>   surf_nodes;      // [3 x surf_nnodes]
     std::vector<int32_t> surf_cellconn;   // [surf_k x surf_ncells]
@@ -249,8 +248,7 @@ public:
             int nsca    = disc.common.qoiparams.nsca;
             int nvec    = disc.common.qoiparams.nvec;            
             int nten    = disc.common.qoiparams.nten;            
-            int nsurfsca= disc.common.qoiparams.nsurfsca;            
-            int ibvis   = disc.common.qoiparams.ibvis;            
+            int nsurfq= disc.common.qoiparams.nsurfq;
             int npe     = disc.common.grid.npe;
             int ne      = disc.common.meshsizes.ne1;
             int elemtype= disc.common.grid.elemtype;
@@ -272,8 +270,8 @@ public:
             std::vector<std::string> tensors(nten);
             for (int i = 0; i < nten; i++) tensors[i] = "Tensor Field " + std::to_string(i);
 
-            std::vector<std::string> surfaces(nsurfsca);
-            for (int i = 0; i < nsurfsca; i++) surfaces[i] = "Surface Field " + std::to_string(i);
+            std::vector<std::string> surfaces(nsurfq);
+            for (int i = 0; i < nsurfq; i++) surfaces[i] = "Surface Field " + std::to_string(i);
             
             int* cgelcon;
             if (backend==0) cgelcon = &disc.mesh.cgelcon[0];
@@ -288,9 +286,9 @@ public:
 
             if (backend != 0) CPUFREE(cgelcon);    
 
-            surfvis_enabled = (disc.common.qoiparams.saveParaview != 0) && (nsurfsca > 0) && (ibvis > 0);
-            this->nsurfsca   = nsurfsca;
-            surf_ibvis       = ibvis;
+            surfvis_enabled = (disc.common.qoiparams.saveParaview != 0) && (nsurfq > 0) &&
+                              !disc.common.qoiparams.ibslist.empty();
+            this->nsurfq   = nsurfq;
             if (surfvis_enabled) InitSurfaces(disc, backend);
 
             savemode = (disc.common.qoiparams.saveParaview != 0) && (nsca + nvec + nten > 0 || surfvis_enabled); 
@@ -300,7 +298,7 @@ public:
                 cudaTemplateHostAlloc(&scafields, npoints*nsca, cudaHostAllocMapped); // zero copy
                 cudaTemplateHostAlloc(&vecfields, 3*npoints*nvec, cudaHostAllocMapped); // zero copy
                 cudaTemplateHostAlloc(&tenfields, ntc*npoints*nten, cudaHostAllocMapped); // zero copy
-                cudaTemplateHostAlloc(&srffields, surf_nnodes*nsurfsca, cudaHostAllocMapped); // zero copy
+                cudaTemplateHostAlloc(&srffields, surf_nnodes*nsurfq, cudaHostAllocMapped); // zero copy
                 host_alloc_backend = 2;
             #endif                  
             }
@@ -309,7 +307,7 @@ public:
                 hipTemplateHostMalloc(&scafields, npoints*nsca, hipHostMallocMapped); // zero copy
                 hipTemplateHostMalloc(&vecfields, 3*npoints*nvec, hipHostMallocMapped); // zero copy
                 hipTemplateHostMalloc(&tenfields, ntc*npoints*nten, hipHostMallocMapped); // zero copy
-                hipTemplateHostMalloc(&srffields, surf_nnodes*nsurfsca, hipHostMallocMapped); // zero copy                
+                hipTemplateHostMalloc(&srffields, surf_nnodes*nsurfq, hipHostMallocMapped); // zero copy                
                 host_alloc_backend = 3;
             #endif                  
             }    
@@ -317,14 +315,14 @@ public:
                 scafields = (float *) malloc(npoints*nsca*sizeof(float));
                 vecfields = (float *) malloc(3*npoints*nvec*sizeof(float));
                 tenfields = (float *) malloc(ntc*npoints*nten*sizeof(float));
-                srffields = (float *) malloc(surf_nnodes*nsurfsca*sizeof(float));
+                srffields = (float *) malloc(surf_nnodes*nsurfq*sizeof(float));
                 host_alloc_backend = 0;
             }
             
             for (int i = 0; i < npoints*nsca; i++) scafields[i] = 0.0;
             for (int i = 0; i < 3*npoints*nvec; i++) vecfields[i] = 0.0;
             for (int i = 0; i < ntc*npoints*nten; i++) tenfields[i] = 0.0;
-            for (int i = 0; i < surf_nnodes*nsurfsca; i++) srffields[i] = 0.0;
+            for (int i = 0; i < surf_nnodes*nsurfq; i++) srffields[i] = 0.0;
 
             //cout<<ne<<"  "<<npoints<<endl;
             if (disc.common.mpiRank == 0) printf("finish CVisualization constructor... \n");    
@@ -506,8 +504,8 @@ public:
             off += nb + (std::uint64_t)8;
             return here;
         };
-        std::vector<std::uint64_t> foffs(nsurfsca);
-        for (int s = 0; s < nsurfsca; ++s)
+        std::vector<std::uint64_t> foffs(nsurfq);
+        for (int s = 0; s < nsurfq; ++s)
             foffs[s] = add_off(byte_count(surf_nnodes, sizeof(float)));
         // NOTE: only reserve the normals block when normals are actually
         // written below; otherwise header offsets would point past the real
@@ -526,9 +524,9 @@ public:
         os << "  <UnstructuredGrid>\n";
         os << "    <Piece NumberOfPoints=\"" << surf_nnodes
            << "\" NumberOfCells=\"" << surf_ncells << "\">\n";
-        if (nsurfsca > 0 || normals != nullptr) {
+        if (nsurfq > 0 || normals != nullptr) {
             os << "      <PointData Scalars=\"surfscalars\">\n";
-            for (int s = 0; s < nsurfsca; ++s)
+            for (int s = 0; s < nsurfq; ++s)
                 os << "        <DataArray type=\"Float32\" Name=\"" << surface_names[s]
                    << "\" Format=\"appended\" offset=\"" << foffs[s] << "\"/>\n";
             if (normals != nullptr)
@@ -549,7 +547,7 @@ public:
         os << "  </UnstructuredGrid>\n";
         os << "  <AppendedData encoding=\"raw\">\n";
         os << "   _";
-        for (int s = 0; s < nsurfsca; ++s)
+        for (int s = 0; s < nsurfq; ++s)
             write_block(os, filename, "surfscalar:" + surface_names[s],
                         &srffields_data[surf_nnodes * s],
                         byte_count(surf_nnodes, sizeof(float)));
@@ -681,7 +679,7 @@ private:
         int nfaces = 0;
         for (Int j = 0; j < nbf; ++j) {
             Int ib = common.fblks[3*j+2];
-            if (surf_ibvis > 0 && ib != surf_ibvis) continue;
+            if (!common.qoiparams.isSaveBoundary(ib)) continue;
             Int f1 = common.fblks[3*j] - 1;
             Int f2 = common.fblks[3*j+1];
             nfaces += (int)(f2 - f1);
@@ -711,7 +709,7 @@ private:
         int ordinal = 0;
         for (Int j = 0; j < nbf; ++j) {
             Int ib = common.fblks[3*j+2];
-            if (surf_ibvis > 0 && ib != surf_ibvis) continue;
+            if (!common.qoiparams.isSaveBoundary(ib)) continue;
             Int f1 = common.fblks[3*j] - 1;
             Int f2 = common.fblks[3*j+1];
             Int nfblk = f2 - f1;

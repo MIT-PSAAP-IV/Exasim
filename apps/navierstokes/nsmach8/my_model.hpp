@@ -18,7 +18,7 @@ struct PdeModel : ModelDefaults<PdeModel> {
     static constexpr int nsca   = 4;
     static constexpr int nvec   = 1;
     static constexpr int nten   = 0;
-    static constexpr int nsurfsca = 3;
+    static constexpr int nsurfq = 3;
     static constexpr int nsurf  = 0;
     static constexpr int nvqoi  = 0;
     static constexpr int nmaterialstate = 0;
@@ -231,7 +231,7 @@ struct PdeModel : ModelDefaults<PdeModel> {
     }
 
     KOKKOS_INLINE_FUNCTION static
-    void vis_surf_scalars(dstype f[], int ib, const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype uh[], const dstype n[], const dstype tau[], const dstype mu[], const dstype uinf[], dstype t) {
+    void surface_quantities(dstype f[], int ib, const dstype x[], const dstype uq[], const dstype v[], const dstype w[], const dstype uh[], const dstype n[], const dstype tau[], const dstype mu[], const dstype uinf[], dstype t) {
     }
 
     KOKKOS_INLINE_FUNCTION static

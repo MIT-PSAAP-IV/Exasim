@@ -19,9 +19,9 @@ The `vdg.bin` file stores external variables. In backend data structures these a
 
 ## Surface heat-flux visualization
 
-`pdemodel.txt` declares a `VisSurfScalars` QoI (nondimensional wall heat
-flux including the HDG penalty term, `output_size(s) = 1`) and `pdeapp.txt`
-enables it with `saveParaview = 1`, `nsurfsca = 1`, `ibvis = 3` (the
+`pdemodel.txt` declares a `SurfaceQuantities` QoI (nondimensional wall heat
+flux including the HDG penalty term, `output_size(sq) = 1`) and `pdeapp.txt`
+enables it with `saveParaview = 1`, `ibs = 3` (the
 isothermal-wall tag: the only tag whose HDG boundary chunk prescribes the
 wall temperature `TisoW`). The model is built
 as external built-in model ID 108 (see `CMakeLists.txt`,
@@ -37,5 +37,5 @@ A run writes `outsurf*.vtu` (plus `outsurf.pvtu` in parallel) next to the
 volume `outvis` files: Surface Field 0 is the nondimensional wall heat
 flux (HDG numerical flux, penalty included, same convention as the
 volume solve).
-Field counts come from the model (`PdeModel::nsurfsca`), not `pdeapp.txt`.
+Field counts come from the model (`PdeModel::nsurfq`), not `pdeapp.txt`.
 

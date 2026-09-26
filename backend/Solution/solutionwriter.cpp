@@ -527,8 +527,7 @@ template <class M>
 void CSolutionWriter<M>::SaveSurfaces(Int backend, const std::string& fname_modifier, bool force_tdep_write)
 {
     if (!vis.surfvis_enabled) return;
-    const Int nsurfsca = vis.nsurfsca;
-    if (nsurfsca == 0) return;
+    if (disc.common.qoiparams.nsurfq == 0) return;
 
     const int localRank = disc.common.mpiRank - disc.common.outputparams.fileoffset;
     int localProcs = (disc.common.mpiProcs > 1) ? count_model_mesh_partitions(disc.common.filein) : 1;
@@ -553,103 +552,36 @@ void CSolutionWriter<M>::SaveSurfaces(Int backend, const std::string& fname_modi
     }
     if (!writeSolution) return;
 
-    const Int nc  = disc.common.components.nc;
-    const Int ncu = disc.common.components.ncu;
-    const Int nco = disc.common.components.nco;
-    const Int ncw = disc.common.components.ncw;
-    const Int ncx = disc.common.components.ncx;
-    const Int nd  = disc.common.grid.nd;
-    const Int npe = disc.common.grid.npe;
+    const Int nsq = disc.common.qoiparams.nsurfq;
     const Int npf = disc.common.grid.npf;
     const Int nf_blocks = disc.common.meshsizes.nbf;
-
-    // Largest tag-passing face block gives the scratch footprint.
-    Int maxnn = 0;
-    for (Int j = 0; j < nf_blocks; ++j) {
-        if (vis.surf_ibvis > 0 && disc.common.fblks[3*j+2] != vis.surf_ibvis) continue;
-        Int f1 = disc.common.fblks[3*j] - 1;
-        Int f2 = disc.common.fblks[3*j+1];
-        maxnn = std::max(maxnn, npf*(f2 - f1));
-    }
-    if (maxnn == 0 && localProcs==1) return;
-    if (maxnn == 0) maxnn = 1; // for parallel empty ranks, avoid zero allocation but will not be used
-
-    // Nodal eval scratch, staged like UhatBlock (points = face nodes).
-    Int need_g = maxnn*(ncx + nd + 1 + ncu + nc + nco + ncw);
-    Int need_n = maxnn*ncx;
-    dstype* tempg = disc.tmp.tempg;
-    dstype* tempn = disc.tmp.tempn;
-    bool ownsTempg = false;
-    bool ownsTempn = false;
-    if (disc.tmp.sztempg < need_g) { TemplateMalloc(&tempg, need_g, backend); ownsTempg = true; }
-    if (disc.tmp.sztempn < need_n) { TemplateMalloc(&tempn, need_n, backend); ownsTempn = true; }
-
-    // Surface field output buffer (f from the kernel) and host work arrays.
     const bool hostMode = (backend < 2);
-    std::vector<dstype> fh((size_t)maxnn*nsurfsca, 0.0);
-    std::vector<dstype> nh((size_t)maxnn*nd, 0.0);
-    dstype* fdev = hostMode ? fh.data() : nullptr;
-    if (!hostMode) TemplateMalloc(&fdev, maxnn*nsurfsca, backend);
+    if (vis.surf_nnodes == 0 && localProcs == 1) return;
 
     // DG surface: no averaging; every face node is a unique surface point,
     // so the scatter below is 1:1 (surf node = face node in local order).
-    // vis.srffields is already sized surf_nnodes*nsurfsca.
-    for (int s=0; s<vis.surf_nnodes*nsurfsca; ++s) vis.srffields[s]=0;
+    // vis.srffields is already sized surf_nnodes*nsurfq.
+    for (int s = 0; s < vis.surf_nnodes*nsq; ++s) vis.srffields[s] = 0;
 
+    // Nodal SurfaceQuantities through the shared boundary evaluator (the same
+    // staging and geometry the outbousurf writer uses), scattered 1:1 onto
+    // the ParaView sub-cell mesh.
+    std::vector<dstype> fh;
     for (Int j = 0; j < nf_blocks; ++j) {
         Int ib = disc.common.fblks[3*j+2];
-        if (vis.surf_ibvis > 0 && ib != vis.surf_ibvis) continue;
+        if (!disc.common.qoiparams.isSaveBoundary(ib)) continue;
         Int f1 = disc.common.fblks[3*j] - 1;
         Int f2 = disc.common.fblks[3*j+1];
         Int nfblk = f2 - f1;
         if (nfblk == 0) continue;
         Int nn = npf*nfblk;
 
-        Int n0 = 0;
-        Int n1 = nn*ncx;                       // nlg
-        Int n2 = nn*(ncx + nd);                // jac
-        Int n3 = nn*(ncx + nd + 1);            // FaceGeom deriv scratch, later uhg
-        Int n4 = nn*(ncx + nd + 1 + ncu);      // udg
-        Int n5 = nn*(ncx + nd + 1 + ncu + nc); // odg
-        Int n6 = nn*(ncx + nd + 1 + ncu + nc + nco); // wdg
-
-        // Nodal face geometry (same staging as UhatBlock).
-        GetArrayAtIndex(tempn, disc.sol.xdg, &disc.mesh.findxdg1[npf*ncx*f1], nn*ncx);
-        Node2Gauss(disc.common.cublasHandle, &tempg[n0], tempn, disc.master.shapfnt, npf, npf, nfblk*ncx, backend);
-        if (nd == 1) {
-            FaceGeom1D(&tempg[n2], &tempg[n1], &tempg[n3], nn);
-        } else if (nd == 2) {
-            Node2Gauss(disc.common.cublasHandle, &tempg[n3], tempn, &disc.master.shapfnt[npf*npf], npf, npf, nfblk*nd, backend);
-            FaceGeom2D(&tempg[n2], &tempg[n1], &tempg[n3], nn);
-        } else {
-            Node2Gauss(disc.common.cublasHandle, &tempg[n3], tempn, &disc.master.shapfnt[npf*npf], npf, npf, nfblk*nd, backend);
-            Node2Gauss(disc.common.cublasHandle, &tempg[n3+nn*nd], tempn, &disc.master.shapfnt[2*npf*npf], npf, npf, nfblk*nd, backend);
-            FaceGeom3D(&tempg[n2], &tempg[n1], &tempg[n3], nn);
-        }
-
-        // Nodal fields (layouts identical to qoiFaceBlock's front half).
-        // NOTE: the trace uh is stored node-major per face for HDG
-        // (spatialScheme==1) and must be gathered with GetFaceNodesHDG, exactly
-        // as in SaveSolutionsOnBoundary; GetElemNodes misreads it as
-        // [face][comp][node] and scrambles components (garbage/NaN surface QoI).
-        if (disc.common.spatialScheme == 1)
-            GetFaceNodesHDG(&tempg[n3], disc.sol.uh, npf, ncu, 0, ncu, f1, f2);
-        else
-            GetElemNodes(&tempg[n3], disc.sol.uh, npf, ncu, 0, ncu, f1, f2);
-        GetArrayAtIndex(&tempg[n4], disc.sol.udg, &disc.mesh.findudg1[npf*nc*f1], nn*nc);
-        if (nco > 0)
-            GetFaceNodes(&tempg[n5], disc.sol.odg, disc.mesh.facecon, npf, nco, npe, nco, f1, f2, 1);
-        if (ncw > 0)
-            GetFaceNodes(&tempg[n6], disc.sol.wdg, disc.mesh.facecon, npf, ncw, npe, ncw, f1, f2, 1);
-
-        EXASIM_DRIVER_CALL(VisSurfScalarsDriver, fdev, &tempg[n0], &tempg[n4], &tempg[n5],
-                           &tempg[n6], &tempg[n3], &tempg[n1],
-                           disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common,
-                           npf, f1, f2, ib, backend);
-
-        // Pull f back host-side for DG scatter (normals not needed, pass nullptr later)
+        dstype* F = evalSurfaceQuantities(f1, f2, backend, /*loc=*/0);
+        const dstype* fhost = F;
         if (!hostMode) {
-            TemplateCopytoHost(fh.data(), fdev, nn*nsurfsca, backend);
+            fh.assign((size_t)nn*nsq, 0.0);
+            TemplateCopytoHost(fh.data(), F, nn*nsq, backend);
+            fhost = fh.data();
         }
 
         for (Int ff = 0; ff < nfblk; ++ff) {
@@ -659,13 +591,11 @@ void CSolutionWriter<M>::SaveSurfaces(Int backend, const std::string& fname_modi
             for (Int ln = 0; ln < npf; ++ln) {
                 Int s    = o*npf + ln;
                 Int pt   = ln + npf*ff;
-                for (Int sca = 0; sca < nsurfsca; ++sca)
-                    vis.srffields[(size_t)sca*vis.surf_nnodes + s] = (float)fh[(size_t)sca*nn + pt];
+                for (Int sca = 0; sca < nsq; ++sca)
+                    vis.srffields[(size_t)sca*vis.surf_nnodes + s] = (float)fhost[(size_t)sca*nn + pt];
             }
         }
     }
-
-    if (!hostMode) { TemplateFree(fdev, backend); fdev = nullptr; }
 
     string baseName = disc.common.fileout + "surf" + fname_modifier;
     if (disc.common.timeparams.tdep == 1 || force_tdep_write) {
@@ -679,9 +609,6 @@ void CSolutionWriter<M>::SaveSurfaces(Int backend, const std::string& fname_modi
         vis.surfwrite(baseName, vis.srffields, nullptr);
     else
         vis.surfwrite_parallel(baseName, localRank, localProcs, vis.srffields, nullptr);
-
-    if (ownsTempg) TemplateFree(tempg, backend);
-    if (ownsTempn) TemplateFree(tempn, backend);
 }
 
 template <class M>
@@ -836,7 +763,7 @@ void CSolutionWriter<M>::faceNodeGeometry(dstype* buf, Int f1, Int f2, Int backe
 }
 
 template <class M>
-dstype* CSolutionWriter<M>::evalSurfaceQuantities(Int f1, Int f2, Int backend)
+dstype* CSolutionWriter<M>::evalSurfaceQuantities(Int f1, Int f2, Int backend, Int loc)
 {
     auto& common = disc.common;
     auto& sol = disc.sol;
@@ -854,6 +781,20 @@ dstype* CSolutionWriter<M>::evalSurfaceQuantities(Int f1, Int f2, Int backend)
     Int nf = f2-f1;
     Int nn = npf*nf;
     Int ns = nc + ncu + nco + ncw;           // solution fields fed to the kernel
+    if (loc < 0) loc = common.qoiparams.saveSolBouLoc;
+
+    // Grow the device scratch to fit this block (openBoundaryFiles pre-sizes
+    // it for the largest ibs block; ParaView-only runs reach here first).
+    {
+        Int npmax = std::max(npf, ngf);
+        Int need = nf*(npf*ns + npmax*(ns + ncx + 3*nd + 1 + nsq));
+        if (need < 1) need = 1;
+        if (surfbuf == nullptr || szsurfbuf < need) {
+            if (surfbuf) TemplateFree(surfbuf, common.backend);
+            TemplateMalloc(&surfbuf, need, common.backend);
+            szsurfbuf = need;
+        }
+    }
 
     // Solution fields at the face nodes, point-major [nn, ncomp] like the other outbou files:
     // U = udg (side 1), UH = uhat, O = odg, W = wdg.
@@ -871,7 +812,7 @@ dstype* CSolutionWriter<M>::evalSurfaceQuantities(Int f1, Int f2, Int backend)
     dstype* rest = W + nn*ncw;
 
     // ib = 1: like QoIboundary, the user function is one expression for every ibs boundary.
-    if (common.qoiparams.saveSolBouLoc == 1) {
+    if (loc == 1) {
         // Face Gauss points: interpolate the node fields, reuse the precomputed face geometry.
         Int nga = ngf*nf;
         dstype* G = rest;                        // [nga, ns] in the same field order
@@ -952,6 +893,7 @@ void CSolutionWriter<M>::openBoundaryFiles(const std::string& base)
             Int npmax = std::max(npf, ngf);
             Int sz = nfmax*(npf*ns + npmax*(ns + ncx + 3*nd + 1 + nsq));
             TemplateMalloc(&surfbuf, std::max(sz, (Int) 1), common.backend);
+            szsurfbuf = std::max(sz, (Int) 1);
         }
     }
 }
