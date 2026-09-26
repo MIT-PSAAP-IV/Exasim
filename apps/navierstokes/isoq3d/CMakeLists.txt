@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # isoq3d wall heat-flux surface vis (model ID 108): the 3D Navier-Stokes
 # kernels (including SurfaceQuantities) are generated at build time from
-# pdeapp108.txt via text2code and registered as an external built-in model.
+# pdeapp.txt via text2code and registered as an external built-in model.
 # Built ONLY via find_package(Exasim) -- no source tree references.
 option(EXASIM_MPI "MPI variant" ON)
 if(EXASIM_MPI)
@@ -19,7 +19,7 @@ find_package(MPI REQUIRED)
 
 exasim_add_external_builtin_model(TARGET ext_model_isoq3d
   ID 108
-  PDEMODEL ${CMAKE_CURRENT_SOURCE_DIR}/pdeapp108.txt)
+  PDEMODEL ${CMAKE_CURRENT_SOURCE_DIR}/pdeapp.txt)
 
 add_executable(exasimapp main.cpp)
 target_compile_definitions(exasimapp PRIVATE _BUILTINLIBRARY)

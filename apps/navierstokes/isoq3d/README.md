@@ -19,13 +19,13 @@ The `vdg.bin` file stores external variables. In backend data structures these a
 
 ## Surface heat-flux visualization
 
-`pdemodel.txt` declares a `SurfaceQuantities` QoI with three wall fields
-(`output_size(sq) = 3`) and `pdeapp.txt`
+`pdemodel.txt` declares a `SurfaceQuantities` QoI (nondimensional wall heat
+flux including the HDG penalty term, `output_size(sq) = 1`) and `pdeapp.txt`
 enables it with `saveParaview = 1`, `ibs = 3` (the
 isothermal-wall tag: the only tag whose HDG boundary chunk prescribes the
 wall temperature `TisoW`). The model is built
 as external built-in model ID 108 (see `CMakeLists.txt`,
-`pdeapp108.txt`, `pdemodel108.txt`):
+`pdeapp.txt`, `pdemodel.txt`):
 
 ```sh
 cmake -S apps/navierstokes/isoq3d -B build-isoq3d \
@@ -34,13 +34,8 @@ cmake --build build-isoq3d -j
 ```
 
 A run writes `outsurf*.vtu` (plus `outsurf.pvtu` in parallel) next to the
-volume `outvis` files, with one array per wall field, all evaluated from
-the HDG trace state `uhat`:
-- Surface Field 0 (`q_w`): nondimensional wall heat flux (HDG numerical
-  flux, penalty included, same convention as the volume solve).
-- Surface Field 1 (`p_w`): nondimensional wall pressure,
-  `(gam-1)*(rE - (|ru|^2+|rv|^2+|rw|^2)/(2*r))`.
-- Surface Field 2 (`mdot`): wall mass flux `ru*n[0] + rv*n[1] + rw*n[2]`
-  (no-penetration check; ~0 on the impermeable isothermal wall).
+volume `outvis` files: Surface Field 0 is the nondimensional wall heat
+flux (HDG numerical flux, penalty included, same convention as the
+volume solve).
 Field counts come from the model (`PdeModel::nsurfq`), not `pdeapp.txt`.
 
