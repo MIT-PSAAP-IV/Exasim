@@ -155,10 +155,20 @@ end
 function SurfaceQuantities(x, uq, v, w, uhat, n, tau, eta, mu, t)
     output_size(sq) = 3;
 
+    gam = mu[0];
+    gam1 = gam - 1.0;
+
     f = HeatFlux(x, uhat, uq, v, w, eta, mu, t);
     sq[0] = f[0] * n[0] + f[1] * n[1] + tau[0]*(uq[3] - uhat[3]);
-    sq[1] = x[0];
-    sq[2] = x[1];
+
+    r = uhat[0];
+    ru = uhat[1];
+    rv = uhat[2];
+    rE = uhat[3];
+    ke = 0.5*(ru*ru + rv*rv)/r;
+    sq[1] = gam1*(rE - r*ke);
+
+    sq[2] = ru*n[0] + rv*n[1];
 end
 
 function HeatFlux(x, uhat, uq, v, w, eta, mu, t)  

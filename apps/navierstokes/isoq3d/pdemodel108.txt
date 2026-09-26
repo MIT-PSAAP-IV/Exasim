@@ -469,8 +469,21 @@ function HeatFluxSurf(x, uhat, uq, v, w, eta, mu, t)
 end
 
 function SurfaceQuantities(x, uq, v, w, uhat, n, tau, eta, mu, t)
-  output_size(sq) = 1;
+  output_size(sq) = 3;
+
+  gam = mu[0];
+  gam1 = gam - 1.0;
 
   f = HeatFluxSurf(x, uhat, uq, v, w, eta, mu, t);
   sq[0] = f[0]*n[0] + f[1]*n[1] + f[2]*n[2] + tau[0]*(uq[4] - uhat[4]);
+
+  r = uhat[0];
+  ru = uhat[1];
+  rv = uhat[2];
+  rw = uhat[3];
+  rE = uhat[4];
+  ke = 0.5*(ru*ru + rv*rv + rw*rw)/r;
+  sq[1] = gam1*(rE - r*ke);
+
+  sq[2] = ru*n[0] + rv*n[1] + rw*n[2];
 end
