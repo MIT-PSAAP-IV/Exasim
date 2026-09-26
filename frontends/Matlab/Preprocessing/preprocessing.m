@@ -179,9 +179,10 @@ if isfield(pde, 'qoiboundary')
     sdgsym = pde.qoiboundary(udgsym, qdgsym, wdgsym, odgsym, xdgsym, time, paramsym, uinfsym, uhatsym, nsym, tausym);         
     app.nbqoi = length(sdgsym(:));
 end
-if isfield(pde, 'vissurfscalars')        
-    sdgsym = pde.vissurfscalars(udgsym, qdgsym, wdgsym, odgsym, xdgsym, time, paramsym, uinfsym, uhatsym, nsym, tausym);         
-    app.nsurfsca = length(sdgsym(:));
+app.nsurfq = 0;
+if isfield(pde, 'surfacequantities')
+    sdgsym = pde.surfacequantities(udgsym, qdgsym, wdgsym, odgsym, xdgsym, time, paramsym, uinfsym, uhatsym, nsym, tausym);
+    app.nsurfq = length(sdgsym(:));
 end
 
 if app.preprocessmode==0    

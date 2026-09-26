@@ -218,12 +218,15 @@ if isdefined(pdemodel, Symbol("qoiboundary"))
     end
     app.nbqoi = length(f[:]);    
 end
-if isdefined(pdemodel, Symbol("vissurfscalars")) 
-    f = pdemodel.vissurfscalars(udgsym, qdgsym, wdgsym, odgsym, xdgsym, time, paramsym, uinfsym, uhatsym, nsym, tausym);             
+# Optional pointwise surface quantities (heat flux, skin friction, Cp, ...)
+# evaluated by the backend on the pde.ibs boundaries. Same signature as qoiboundary.
+app.nsurfq = 0;
+if isdefined(pdemodel, Symbol("surfacequantities"))
+    f = pdemodel.surfacequantities(udgsym, qdgsym, wdgsym, odgsym, xdgsym, time, paramsym, uinfsym, uhatsym, nsym, tausym);
     if length(f)==1
         f = reshape([f],1,1);
     end
-    app.nsurfsca = length(f[:]);    
+    app.nsurfq = length(f[:]);
 end
 
 elem2cpu = Int[];

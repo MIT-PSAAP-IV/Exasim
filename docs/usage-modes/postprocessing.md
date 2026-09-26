@@ -142,7 +142,8 @@ field data needed for postprocessing remain available.
 | ParaView visualization | `outvis.vtu`, `outvis.pvtu`, `outvis_000001.vtu`, `outvis.pvd` | `saveParaview`, `nsca`, `nvec`, `nten`, `saveSolFreq` | VTK unstructured-grid files with scalar/vector/tensor point fields. |
 | Quantities of interest | `outqoi.txt` | `nvqoi`, `nsurf` | Rank-0 text file containing time followed by integrated volume and surface QoIs. |
 | CG output field | `_outputCG_np<rank>.bin`, `_outputCG_t<step>_np<rank>.bin` | `Output` model hook / output component count | Model-defined output field converted from DG to CG-style storage. |
-| Boundary extracts | `outbouxdg_np<rank>.bin`, `outboundg_np<rank>.bin`, `outbouudg_np<rank>.bin`, `outbouuhat_np<rank>.bin`, `outbouwdg_np<rank>.bin` | `saveSolBouFreq`, `ibs` | Boundary geometry, normals, solution, trace, and optional `wdg` data for selected boundary blocks. |
+| Boundary extracts | `outbouxdg_np<rank>.bin`, `outboundg_np<rank>.bin`, `outbouudg_np<rank>.bin`, `outbouuhat_np<rank>.bin`, `outbouwdg_np<rank>.bin`, `outbouinfo_np<rank>.bin` | `saveSolBouFreq`, `ibs` | Boundary geometry, normals, solution, trace, and optional `wdg` data for selected boundary blocks. |
+| Surface quantities | `outbousurf_np<rank>.bin`, `outbousurfgeo_np<rank>.bin` (Gauss points only) | `saveSolBouFreq`, `ibs`, `saveSolBouLoc`, `SurfaceQuantities` | Model-defined pointwise surface fields (heat flux, skin friction, pressure coefficient, ...) on the selected boundaries. |
 | Residual history | `out_residualnorms<rank>.bin` | `saveResNorm` | Binary nonlinear/linear residual history used by frontend helpers. |
 
 All per-rank binary files are written under the path prefix passed as
@@ -225,6 +226,7 @@ Volume and surface QoIs are computed by model callbacks:
 |---|---:|---|
 | `qoivolume(...)` / `QoIvolume` | `nvqoi` | Integrated over elements. |
 | `qoiboundary(...)` / `QoIboundary` | `nsurf` | Integrated over boundary/surface faces. |
+| `surfacequantities(...)` / `SurfaceQuantities` | `nsurfq` | Not integrated: written pointwise on the `ibs` boundaries (see *Surface and boundary data*). |
 
 `outqoi.txt` is written by rank 0. Each row contains:
 
@@ -405,13 +407,50 @@ be loaded naturally by ParaView.
 
 ## Surface and boundary data
 
-Use `saveSolBouFreq > 0` and select a boundary marker with `ibs` to write
-boundary extracts. Exasim writes boundary geometry (`bouxdg`), normals
+Use `saveSolBouFreq > 0` and select boundary markers with `ibs` (a single
+id, `ibs = 3;`, or a list, `ibs = [1, 3];`) to write boundary extracts every
+`saveSolBouFreq` steps. Exasim writes boundary geometry (`bouxdg`), normals
 (`boundg`), state (`bouudg`), trace (`bouuhat`), and optional `wdg`
 (`bouwdg`) records.
 
 Boundary QoIs are different from boundary extracts: `QoIboundary`/`nsurf`
-integrate model-defined quantities and write them into `outqoi.txt`.
+integrate model-defined quantities and write them into `outqoi.txt`. With an
+`ibs` list, `Boundary_QoI` integrates over the union of the listed boundaries.
+
+### Surface quantities
+
+Define `SurfaceQuantities` in the model (frontends: `surfacequantities`, with
+the same arguments as `qoiboundary`) to have Exasim evaluate surface fields
+such as heat flux, skin friction or pressure coefficient itself, instead of
+post-processing the extracts:
+
+```text
+function SurfaceQuantities(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(sq) = 2;
+  sq[0] = uq[0];                                    // e.g. wall temperature
+  sq[1] = mu[0]*(uq[1]*n[0] + uq[2]*n[1]);          // e.g. wall heat flux
+end
+```
+
+The values are written to `outbousurf_np<rank>.bin` together with the other
+boundary extracts. `saveSolBouLoc` selects the evaluation points:
+
+| `saveSolBouLoc` | Points | Geometry for the values |
+|---|---|---|
+| `0` (default) | face nodes (`npf` per face) | `outbouxdg` / `outboundg` (same points, same order) |
+| `1` | face Gauss points (`ngf` per face) | `outbousurfgeo`: coordinates, normals, and `dA` = Gauss weight x face Jacobian, so `sum(f*dA)` integrates `f` |
+
+File layouts (float64; each file starts with a 3-value header):
+
+| File | Header | Records |
+|---|---|---|
+| `outbouinfo` | `[nblocks, 2, 0]` | once: `(ib, nf)` for each boundary face block, in file order |
+| `outbousurf` | `[np, nfbou, nsurfq]` | one per save: the blocks concatenated, each `[np, nf, nsurfq]` (point fastest) |
+| `outbousurfgeo` | `[ngf, nfbou, ncx+nd+1]` | once: per block `[ngf, nf, ncx]` coordinates, `[ngf, nf, nd]` normals, `[ngf, nf]` `dA` |
+
+All `outbou*` files concatenate the face blocks of every listed boundary in the
+`outbouinfo` order, so split records by block before reshaping. The
+frontends' `readsurfacequantities` does this and groups the result by boundary id.
 
 ## Known limitations and checks
 

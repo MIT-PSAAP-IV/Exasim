@@ -127,7 +127,7 @@
 //   tdfunc, eos, eos_du, eos_dw, avfield,
 //   init{q, udg, wdg, odg}, monitor, output,
 //   vis_scalars, vis_vectors, vis_tensors,
-//   qoi_volume, qoi_boundary, vis_surf_scalars
+//   qoi_volume, qoi_boundary, surface_quantities
 //
 // HDG Jacobians (required iff Discretization::HDG is selected; default
 // = zero-fill, so users get a compile error / zero-residual Jacobian
@@ -164,7 +164,7 @@ struct ModelDefaults {
 
     // Visualization and QoI output sizes.  Models that define
     // vis_scalars / vis_vectors / vis_tensors / qoi_volume /
-    // qoi_boundary / vis_surf_scalars should set these to the actual number of output
+    // qoi_boundary should set these to the actual number of output
     // fields so the preprocessing layer can size ParaView buffers
     // without requiring the values in pdeapp.txt.  Default 0 = none.
     static constexpr int nsca  = 0;
@@ -172,7 +172,7 @@ struct ModelDefaults {
     static constexpr int nten  = 0;
     static constexpr int nsurf = 0;
     static constexpr int nvqoi = 0;
-    static constexpr int nsurfsca = 0;  // surface scalar visualization fields (VisSurfScalars)
+    static constexpr int nsurfq = 0;  // surface_quantities outputs
 
     // Optional material-state width for materialstate(). Models without
     // materialstate leave this at zero.
@@ -427,12 +427,14 @@ struct ModelDefaults {
                       const dstype /*n*/[],  const dstype /*tau*/[],
                       const dstype /*mu*/[], const dstype /*uinf*/[], dstype /*t*/) { }
 
+    // `surface_quantities` has the `qoi_boundary` signature but is evaluated pointwise
+    // (no integration) on the ibs boundaries and written to outbousurf_np*.bin.
     KOKKOS_INLINE_FUNCTION static
-    void vis_surf_scalars(dstype[], int /*ib*/,
-                          const dstype /*x*/[],  const dstype /*uq*/[],
-                          const dstype /*v*/[],  const dstype /*w*/[],  const dstype /*uh*/[],
-                          const dstype /*n*/[],  const dstype /*tau*/[],
-                          const dstype /*mu*/[], const dstype /*uinf*/[], dstype /*t*/) { }
+    void surface_quantities(dstype[], int /*ib*/,
+                            const dstype /*x*/[],  const dstype /*uq*/[],
+                            const dstype /*v*/[],  const dstype /*w*/[],  const dstype /*uh*/[],
+                            const dstype /*n*/[],  const dstype /*tau*/[],
+                            const dstype /*mu*/[], const dstype /*uinf*/[], dstype /*t*/) { }
 
     KOKKOS_INLINE_FUNCTION static
     void monitor(dstype[], const dstype /*x*/[], const dstype /*uq*/[],

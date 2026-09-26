@@ -820,7 +820,7 @@ int ExasimSolver::ParseInputs(int argc, char** argv,
             ms = abi.GetModelSizes(sizeID);
         else
             ms = {abi.ncu, abi.nco, abi.ncw, abi.nsca, abi.nvec, abi.nten,
-                  abi.nsurf, abi.nvqoi, abi.nmaterialstate, abi.nsurfsca};
+                  abi.nsurf, abi.nvqoi, abi.nmaterialstate, abi.nsurfq};
         if (params.intParams.count("ncu") == 0 && ms.ncu > 0)
             pde.ncu = ms.ncu;
         if (params.intParams.count("ncv") == 0 && ms.nco > 0)
@@ -839,19 +839,8 @@ int ExasimSolver::ParseInputs(int argc, char** argv,
             pde.nvqoi = ms.nvqoi;
         if (params.intParams.count("nmaterialstate") == 0 && ms.nmaterialstate > 0)
             pde.nmaterialstate = ms.nmaterialstate;
-        // nsurfsca is owned by the model (VisSurfScalars output_size), not by
-        // pdeapp.txt: a model that reports a count always wins, so the kernel,
-        // the fh/srffields sizing, and the VTU writer provably agree. A pdeapp
-        // value only applies to legacy models that report none (with a warning
-        // on conflict, since silently running fewer/more fields than the model
-        // writes would corrupt memory or drop data).
-        if (ms.nsurfsca > 0) {
-            if (params.intParams.count("nsurfsca") != 0 && pde.nsurfsca != ms.nsurfsca &&
-                mpirank_ == 0)
-                std::cout << "Warning: pdeapp nsurfsca=" << pde.nsurfsca
-                          << " overridden by model nsurfsca=" << ms.nsurfsca << ".\n";
-            pde.nsurfsca = ms.nsurfsca;
-        }
+        if (params.intParams.count("nsurfq") == 0 && ms.nsurfq > 0)
+            pde.nsurfq = ms.nsurfq;
     }
 
     nummodels_ = 1;

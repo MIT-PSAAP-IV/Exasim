@@ -382,6 +382,7 @@ void writeBinaryFiles(PDE& pde, Mesh& mesh, const Master& master, const ParsedSp
         if (spec.functions[i].name == "VisSurfScalars") pde.nsurfsca = spec.functions[i].outputsize;
         if (spec.functions[i].name == "QoIboundary") pde.nsurf = spec.functions[i].outputsize;
         if (spec.functions[i].name == "QoIvolume") pde.nvqoi = spec.functions[i].outputsize;
+        if (spec.functions[i].name == "SurfaceQuantities") pde.nsurfq = spec.functions[i].outputsize;
     }
     
     writepde(pde, make_path(pde.datainpath, "app.bin"));

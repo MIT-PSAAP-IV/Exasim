@@ -109,20 +109,15 @@ for dir in "$REPO"/tests/consumers/*/; do
       fi
     fi
 
-    # B6: surface-visualization gate. When a consumer enables saveParaview AND
-    # declares nsurfsca > 0 AND sets ibvis > 0, the backend's SaveSurfaces emits
-    # an outsurf.* surface-vis alongside the volume outvis (this mirrors the
-    # CVisualization gate: saveParaview!=0 && nsurfsca>0 && ibvis>0). The .pvd
-    # series file plus at least one nonempty outsurf*.vtu/.pvtu piece must exist.
-    _spv="$(grep -E '^[[:space:]]*saveParaview[[:space:]]*=' "$rdir/pdeapp.txt" | head -1 | grep -oE '[0-9]+' | head -1)"
-    _nss="$(grep -E '^[[:space:]]*nsurfsca[[:space:]]*=' "$rdir/pdeapp.txt" | head -1 | grep -oE '[0-9]+' | head -1)"
-    _ibv="$(grep -E '^[[:space:]]*ibvis[[:space:]]*=' "$rdir/pdeapp.txt" | head -1 | grep -oE '[0-9]+' | head -1)"
-    if [ "${_spv:-0}" -gt 0 ] && [ "${_nss:-0}" -gt 0 ] && [ "${_ibv:-0}" -gt 0 ]; then
-      nsurf="$(find "$rdir" \( -name 'outsurf*.vtu' -o -name 'outsurf*.pvtu' \) 2>/dev/null | wc -l | tr -d ' ')"
-      if [ "$nsurf" -gt 0 ]; then
-        echo "  [B6] surface vis ok: $nsurf piece file(s)"
+    # B6: consumer-specific gate. A consumer may ship check.sh to verify its outputs
+    # further (e.g. surfacequantities-run re-derives the saved boundary fields); it gets
+    # the run dir as $1 and EXE/NP in the environment, and may launch variant runs.
+    if [ -f "$dir/check.sh" ]; then
+      if EXE="$exe" NP="$NP" bash "$dir/check.sh" "$rdir" > "$rdir/check.log" 2>&1; then
+        sed 's/^/  /' "$rdir/check.log"
       else
-        echo "  FAIL[B6]: surface vis enabled (saveParaview/nsurfsca/ibvis > 0) but no outsurf output written"; fail=1
+        echo "  FAIL[B6]: $name check.sh (see $rdir/check.log)"
+        sed 's/^/  | /' "$rdir/check.log"; fail=1
       fi
     fi
   else

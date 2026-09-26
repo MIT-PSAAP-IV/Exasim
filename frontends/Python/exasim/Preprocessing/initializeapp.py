@@ -79,7 +79,8 @@ def initializeapp(version):
     app['saveSolOpt'] = 1;
     app['timestepOffset'] = 0;
     app['saveSolBouFreq'] = 0;
-    app['ibs'] = 0;
+    app['ibs'] = 0;  # boundary (or list of boundaries) saved every saveSolBouFreq steps
+    app['saveSolBouLoc'] = 0;  # surfacequantities evaluated at 0 = face nodes, 1 = face Gauss points
     app['compudgavg'] = 0;
     app['extFhat'] = 0;
     app['extUhat'] = 0;

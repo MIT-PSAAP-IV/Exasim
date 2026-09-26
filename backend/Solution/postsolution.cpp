@@ -503,7 +503,7 @@ void CSolution::SaveSolutionsOnBoundary(Int backend)
                 Int f1 = disc.common.fblks[3*j]-1;
                 Int f2 = disc.common.fblks[3*j+1];    
                 Int ib = disc.common.fblks[3*j+2];            
-                if (ib == disc.common.qoiparams.ibs) {     
+                if (disc.common.qoiparams.isSaveBoundary(ib)) {     
                     Int npf = disc.common.grid.npf; // number of nodes on master face      
                     Int npe = disc.common.grid.npe; // number of nodes on master face      
                     Int nf = f2-f1;
@@ -535,7 +535,7 @@ void CSolution::SaveNodesOnBoundary(Int backend)
             Int f1 = disc.common.fblks[3*j]-1;
             Int f2 = disc.common.fblks[3*j+1];    
             Int ib = disc.common.fblks[3*j+2];            
-            if (ib == disc.common.qoiparams.ibs) {     
+            if (disc.common.qoiparams.isSaveBoundary(ib)) {     
                 Int nd = disc.common.grid.nd; 
                 Int npf = disc.common.grid.npf; // number of nodes on master face      
                 Int nf = f2-f1;
@@ -577,7 +577,7 @@ void CSolution::SaveNodesOnBoundary(Int backend)
 //                 Int f1 = disc.common.fblks[3*j]-1;
 //                 Int f2 = disc.common.fblks[3*j+1];    
 //                 Int ib = disc.common.fblks[3*j+2];            
-//                 if (ib == disc.common.qoiparams.ibs) {     
+//                 if (disc.common.qoiparams.isSaveBoundary(ib)) {     
 //                     Int npf = disc.common.grid.npf; // number of nodes on master face      
 //                     Int nf = f2-f1;
 //                     Int nn = npf*nf; 
@@ -598,7 +598,7 @@ void CSolution::SaveNodesOnBoundary(Int backend)
 //             Int f1 = disc.common.fblks[3*j]-1;
 //             Int f2 = disc.common.fblks[3*j+1];    
 //             Int ib = disc.common.fblks[3*j+2];            
-//             if (ib == disc.common.qoiparams.ibs) {     
+//             if (disc.common.qoiparams.isSaveBoundary(ib)) {     
 //                 Int npf = disc.common.grid.npf; // number of nodes on master face      
 //                 Int nf = f2-f1;
 //                 Int nn = npf*nf; 

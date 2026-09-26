@@ -11,6 +11,12 @@
 #include "model_sizes.hpp"
 #define EXASIM_HAS_FRONTEND_MODEL_SIZES 1
 #endif
+// model_sizes.hpp written by frontends that know surfacequantities also defines nsurfq.
+#ifdef EXASIM_MODEL_SIZES_HAS_NSURFQ
+#define EXASIM_FRONTEND_NSURFQ exasim_model_sizes::nsurfq
+#else
+#define EXASIM_FRONTEND_NSURFQ 0
+#endif
 
 namespace frontend_generated_source {
 
@@ -27,7 +33,11 @@ namespace frontend_generated_source {
 #include "KokkosVisTensors.cpp"
 #include "KokkosQoIvolume.cpp"
 #include "KokkosQoIboundary.cpp"
-#include "KokkosVisSurfScalars.cpp"
+// Frontends that predate surfacequantities do not emit this kernel: leave the ABI slot null.
+#if __has_include("KokkosSurfaceQuantities.cpp")
+#include "KokkosSurfaceQuantities.cpp"
+#define EXASIM_FRONTEND_HAS_SURFACE_QUANTITIES 1
+#endif
 #include "KokkosSourcew.cpp"
 #include "KokkosOutput.cpp"
 #include "KokkosMonitor.cpp"
@@ -93,7 +103,9 @@ const ExasimDriverABI& getFrontendGeneratedExasimDriverABI()
         value.output.KokkosVisTensors = &frontend_generated_source::KokkosVisTensors;
         value.qoi.KokkosQoIvolume = &frontend_generated_source::KokkosQoIvolume;
         value.qoi.KokkosQoIboundary = &frontend_generated_source::KokkosQoIboundary;
-        value.surfacevis.KokkosVisSurfScalars = &frontend_generated_source::KokkosVisSurfScalars;
+#ifdef EXASIM_FRONTEND_HAS_SURFACE_QUANTITIES
+        value.qoi.KokkosSurfaceQuantities = &frontend_generated_source::KokkosSurfaceQuantities;
+#endif
 
         value.init.KokkosInitu = &frontend_generated_source::KokkosInitu;
         value.init.KokkosInitq = &frontend_generated_source::KokkosInitq;
@@ -128,14 +140,14 @@ const ExasimDriverABI& getFrontendGeneratedExasimDriverABI()
         value.nten = exasim_model_sizes::nten;
         value.nsurf = exasim_model_sizes::nsurf;
         value.nvqoi = exasim_model_sizes::nvqoi;
-        value.nsurfsca = exasim_model_sizes::nsurfsca;
         value.nmaterialstate = exasim_model_sizes::nmaterialstate;
+        value.nsurfq = EXASIM_FRONTEND_NSURFQ;
         value.GetModelSizes = [](int) -> ModelSizes {
             return {exasim_model_sizes::ncu, exasim_model_sizes::nco,
                     exasim_model_sizes::ncw, exasim_model_sizes::nsca,
                     exasim_model_sizes::nvec, exasim_model_sizes::nten,
                     exasim_model_sizes::nsurf, exasim_model_sizes::nvqoi,
-                    exasim_model_sizes::nmaterialstate, exasim_model_sizes::nsurfsca};
+                    exasim_model_sizes::nmaterialstate, EXASIM_FRONTEND_NSURFQ};
         };
 #endif
 
