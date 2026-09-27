@@ -181,7 +181,6 @@ private:
     void InitializeWallDistanceWorkspace(Int backend);
     void InitializeHelmholtzLengthScale(Int backend);
     void ApplyHelmholtzAVFilter(dstype *avField, Int backend);
-    void ClearContinuationState();
 public:
     void UpdateWallDistance(Int continuationIteration, Int backend);
     void PrepareArtificialViscosity(bool zeroSensor, Int continuationIteration, Int backend);
@@ -292,6 +291,7 @@ public:
     void RestoreState();
     void SaveContinuationState(Int backend);
     void RestoreContinuationState(Int backend);
+    void ClearContinuationState();
     void ClearSavedState();
     bool ValidatePhysicalState(Int backend);
 

@@ -84,6 +84,10 @@ void avdistfunc(CSolution<exasim::detail::AbiAdapter>** pdemodel, ofstream* out,
       }
     }
   }
+
+  // No rollback can occur after the continuation loop; release its full-state snapshots.
+  for (Int i=0; i<nummodels; i++)
+    pdemodel[i]->ClearContinuationState();
   
   for (int i=0; i<nummodels; i++) {
     string fn1 = pdemodel[i]->disc.common.fileout + "vdg_np" + NumberToString(pdemodel[i]->disc.common.mpiRank-pdemodel[i]->disc.common.outputparams.fileoffset) + ".bin";
