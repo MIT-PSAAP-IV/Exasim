@@ -272,11 +272,11 @@ def gencode(app):
         nocodeface("QoIboundary" + strn, foldername);
     if hasattr(pde, 'surfacequantities'):
         # Pointwise boundary outputs saved on the ibs boundaries (outbousurf_np*.bin). Same
-        # arguments as qoiboundary; one expression for every ibs boundary (backend calls ib = 1),
-        # so all nsurfq outputs go in a single column.
+        # arguments as qoiboundary; one expression evaluated for every ibs boundary (allib: no
+        # ib dispatch), so all nsurfq outputs go in a single column.
         f = pde.surfacequantities(u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, tau);
         f = numpy.reshape(numpy.array(f).flatten('F'),(numpy.array(f).size,1),'F');
-        gencodeface("SurfaceQuantities" + strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, foldername);
+        gencodeface("SurfaceQuantities" + strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, foldername, allib=True);
     else:
         nocodeface("SurfaceQuantities" + strn, foldername);
     if hasattr(pde, 'fhat'):

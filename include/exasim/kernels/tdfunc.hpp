@@ -17,7 +17,7 @@ namespace exasim {
 template <class M, class T=dstype, class I=Int>
 void tdfunc_kernel(T* f,
                    const T* xdg, const T* udg, const T* odg,
-                   const T* wdg, const T* /*uinf*/, const T* param,
+                   const T* wdg, const T* uinf, const T* param,
                    T t, int /*modelnumber*/, int ng,
                    int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/, int /*ncw*/)
 {
@@ -37,7 +37,7 @@ void tdfunc_kernel(T* f,
         if (ncw > 0) for (int k = 0; k < ncw; ++k) w[k] = wdg[k * ng + i];
 
         T m_local[ncu];
-        M::tdfunc(m_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
+        M::tdfunc(m_local, x, uq, v, w, param, uinf, t);
         for (int k = 0; k < ncu; ++k) f[k * ng + i] = m_local[k];
     });
 }

@@ -40,11 +40,11 @@ public:
     ofstream outbouwdg;
     ofstream outbouuhat;
     ofstream outbousurf;     // SurfaceQuantities on the ibs boundaries (face nodes or Gauss points)
-    ofstream outbousurfgeo;  // [x, n, dA] at the face Gauss points of outbousurf (saveSolBouLoc == 1)
+    ofstream outbousurfgeo;  // per save: [x, n] (nodes) or [x, n, dA] (Gauss points) at the outbousurf points
     ofstream outqoi;
 
-    dstype* surfbuf = nullptr;  // device scratch for evalSurfaceQuantities (largest boundary block)
-    Int szsurfbuf = 0;          // allocated entries of surfbuf
+    dstype* surfbuf = nullptr;  // device scratch for saveSurfaceQuantitiesBlock
+    Int szsurfbuf = 0;          // capacity of surfbuf (entries); grown by ensureSurfaceScratch
 
     CSolutionWriter(CDiscretization& disc_, CResidual<M>& residual_, CVisualization& vis_, CSolver<M>& solv_)
         : disc(disc_), residual(residual_), vis(vis_), solv(solv_) {}
@@ -108,10 +108,15 @@ public:
     // face-node coordinates [nn, ncx] at buf and unit normals [nn, nd] at buf + nn*ncx for the
     // faces [f1, f2); uses nn*(ncx+3*nd+1) entries of buf
     void faceNodeGeometry(dstype* buf, Int f1, Int f2, Int backend);
-    // evaluate SurfaceQuantities on faces [f1, f2) at face nodes (loc=0) or
-    // Gauss points (loc=1); loc<0 selects common.qoiparams.saveSolBouLoc.
-    // returns the [np*nf, nsurfq] result inside surfbuf (grown as needed)
-    dstype* evalSurfaceQuantities(Int f1, Int f2, Int backend, Int loc = -1);
+    // evaluate SurfaceQuantities for boundary id ib on faces [f1, f2) at face nodes or Gauss
+    // points (common.qoiparams.saveSolBouLoc) and append the values to outbousurf and the
+    // geometry of those points to outbousurfgeo (one record per save, so it follows mesh motion)
+    void saveSurfaceQuantitiesBlock(Int f1, Int f2, Int ib, Int backend);
+    // make surfbuf hold the scratch for a block of nf faces (exact size, checked against Int)
+    void ensureSurfaceScratch(Int nf);
+    // node-only SurfaceQuantities evaluation for the VTU surface writer: returns the
+    // [npf*nf, nsurfq] values in surfbuf (same gather + driver path as the node branch above)
+    dstype* evalSurfaceQuantitiesNodes(Int f1, Int f2, Int ib, Int backend);
     void SaveOutputCG(Int backend);
 
     // read solutions / a saved record from the appended solution files

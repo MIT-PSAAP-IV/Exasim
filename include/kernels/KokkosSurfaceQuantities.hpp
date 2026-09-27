@@ -18,6 +18,17 @@ static void KokkosSurfaceQuantitiesTemplate(dstype* f, const dstype* xdg,
                                             const int nco_runtime,
                                             const int ncw_runtime)
 {
+    // Model::surface_quantities writes nsurfq entries into a kMax-entry per-point buffer:
+    // reject larger counts at compile time when the model declares nsurfq, and at run time
+    // before the launch otherwise (the ABI passes nsurfq in the nc slot).
+    constexpr int kMaxOut = 32;
+    static_assert(exasim_model_nsurfq<Model>::value <= kMaxOut,
+                  "surface_quantities: nsurfq exceeds the 32-entry per-point buffer");
+    if (nsurfq_runtime > kMaxOut) {
+        std::fprintf(stderr, "[exasim] KokkosSurfaceQuantities: nsurfq=%d exceeds the per-point buffer (%d)\n",
+                     nsurfq_runtime, kMaxOut);
+        std::abort();
+    }
     (void)modelnumber;
     (void)ncu_runtime;
     (void)nd_runtime;
@@ -32,7 +43,7 @@ static void KokkosSurfaceQuantitiesTemplate(dstype* f, const dstype* xdg,
         constexpr int nco = Model::nco;
         constexpr int ncw = Model::ncw;
         constexpr int ntau = Model::ntau;
-        constexpr int kMax = 32;
+        constexpr int kMax = kMaxOut;
         dstype x[nd];
         dstype uq[nc];
         dstype v[(nco > 0) ? nco : 1];
@@ -54,7 +65,6 @@ static void KokkosSurfaceQuantitiesTemplate(dstype* f, const dstype* xdg,
         Model::surface_quantities(out_local, ib, x, uq, v, w, uh, n, tau_local,
                                   param, uinf, time);
 
-        const int nout = (nsurfq_runtime < kMax) ? nsurfq_runtime : kMax;
-        for (int k = 0; k < nout; ++k) f[k * ng + i] = out_local[k];
+        for (int k = 0; k < nsurfq_runtime; ++k) f[k * ng + i] = out_local[k];
     });
 }

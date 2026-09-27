@@ -135,7 +135,7 @@ void CodeGenerator::generateCode2Cpp(const std::string& filename) const {
     os << "        }\n";
     os << "        else if (funcname == \"SurfaceQuantities\") { \n";
     os << "            ssv.func2cppfiles(f, ssv.modelpath + fname, fname + std::to_string(1), i, false);\n";
-    os << "            ssv.appendUbouFbou(ssv.modelpath + fname, fname, 1);\n";
+    os << "            ssv.appendUbouFbou(ssv.modelpath + fname, fname, 0);  // one body for every ib\n";
     os << "        }\n";
     os << "        else if (funcname == \"Fint\") { \n";
     os << "          int szf = f.size();\n";    
@@ -1920,6 +1920,11 @@ void emitUbouFbou(std::ostream& os) {
     os << "        tmp << \"           const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd,\\n\";\n";
     os << "        tmp << \"           const int ncx, const int nco, const int ncw) {\\n\";\n\n";
 
+    os << "    // nbc <= 0: a single body evaluated for every ib (e.g. SurfaceQuantities).\n";
+    os << "    if (nbc <= 0) {\n";
+    os << "        tmp << \"    \" << funcname << 1 << \"(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber,\\n\";\n";
+    os << "        tmp << \"                        ng, nc, ncu, nd, ncx, nco, ncw, nc, ncu, nd);\\n\";\n";
+    os << "    }\n";
     os << "    for (int k = 1; k <= nbc; ++k) {\n";
     os << "        if (k == 1)\n";
     os << "            tmp << \"    if (ib == 1 )\\n\";\n";
@@ -2137,7 +2142,11 @@ void emitEmitPointwiseValuePerIb(std::ostream& os) {
     os << "    os << \"    KOKKOS_INLINE_FUNCTION static\\n\";\n";
     os << "    os << \"    void \" << method_name << \"(\" << cpp_signature << \") {\\n\";\n\n";
 
-    os << "    int nbc = (szuhat > 0) ? (int)f.size() / szuhat : 0;\n";
+    os << "    // szuhat <= 0: one block evaluated for every ib (no dispatch), e.g. SurfaceQuantities,\n";
+    os << "    // whose outputs are not split per boundary condition.\n";
+    os << "    const bool all_ib = (szuhat <= 0);\n";
+    os << "    const int blk = all_ib ? (int)f.size() : szuhat;\n";
+    os << "    int nbc = all_ib ? (f.empty() ? 0 : 1) : (int)f.size() / szuhat;\n";
     os << "    if (nbc == 0) {\n";
     os << "        os << \"    }\\n\\n\";\n";
     os << "        return;\n";
@@ -2159,11 +2168,14 @@ void emitEmitPointwiseValuePerIb(std::ostream& os) {
     os << "    };\n\n";
 
     os << "    for (int n = 0; n < nbc; ++n) {\n";
-    os << "        std::vector<Expression> g(szuhat);\n";
-    os << "        for (int m = 0; m < szuhat; ++m) g[m] = f[m + n * szuhat];\n\n";
+    os << "        std::vector<Expression> g(blk);\n";
+    os << "        for (int m = 0; m < blk; ++m) g[m] = f[m + n * blk];\n\n";
 
-    os << "        os << \"        \" << ((n == 0) ? \"if\" : \"else if\")\n";
-    os << "           << \" (ib == \" << (n + 1) << \") {\\n\";\n\n";
+    os << "        if (all_ib)\n";
+    os << "            os << \"        {\\n\";\n";
+    os << "        else\n";
+    os << "            os << \"        \" << ((n == 0) ? \"if\" : \"else if\")\n";
+    os << "               << \" (ib == \" << (n + 1) << \") {\\n\";\n\n";
 
     os << "        vec_pair replacements;\n";
     os << "        vec_basic reduced_exprs;\n";
@@ -2387,7 +2399,9 @@ void emitGenerateModelHeader(std::ostream& os, const ParsedSpec& spec) {
     os << "        int idx = it - funcnames.begin();\n";
     os << "        if (!outputfunctions[idx]) continue;\n";
     os << "        std::vector<Expression> f = evaluateSymbolicFunctions(idx);\n";
-    os << "        emit_pointwise_value_per_ib(hfile, method_name, boundary_sig, f, idx, szuhat);\n";
+    os << "        // SurfaceQuantities: one expression set for every ib (outputs are not per-bc).\n";
+    os << "        emit_pointwise_value_per_ib(hfile, method_name, boundary_sig, f, idx,\n";
+    os << "                                    funcname == \"SurfaceQuantities\" ? 0 : szuhat);\n";
     os << "    }\n\n";
 
     // Jacobians (HDG path) — flux_jac_uq/_w, source_jac_uq/_w,

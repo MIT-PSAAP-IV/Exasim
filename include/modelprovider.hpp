@@ -11,6 +11,8 @@
 
 #pragma once
 
+#include <cstdio>
+#include <cstdlib>
 #include "driver_abi.hpp"
 #include "modeldefaults.hpp"
 

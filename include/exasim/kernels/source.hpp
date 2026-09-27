@@ -25,7 +25,7 @@ void source_kernel(T*       s,
                    const T* udg,
                    const T* odg,
                    const T* wdg,
-                   const T* /*uinf*/,
+                   const T* uinf,
                    const T* param,
                    T        t,
                    int           /*modelnumber*/,
@@ -69,7 +69,7 @@ void source_kernel(T*       s,
             }
 
             T s_local[ncu];
-            M::source(s_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
+            M::source(s_local, x, uq, v, w, param, uinf, t);
 
             for (int k = 0; k < ncu; ++k) s[k * ng + i] = s_local[k];
         });
@@ -84,7 +84,7 @@ void hdg_source_kernel(T*       s,
                        const T* udg,
                        const T* odg,
                        const T* wdg,
-                       const T* /*uinf*/,
+                       const T* uinf,
                        const T* param,
                        T        t,
                        int           /*modelnumber*/,
@@ -129,18 +129,18 @@ void hdg_source_kernel(T*       s,
 
             // Value
             T s_local[ncu];
-            M::source(s_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
+            M::source(s_local, x, uq, v, w, param, uinf, t);
             for (int k = 0; k < ncu; ++k) s[k * ng + i] = s_local[k];
 
             // ∂s/∂uq
             T s_uq[ncu * Nq];
-            M::source_jac_uq(s_uq, x, uq, v, w, param, /*uinf=*/nullptr, t);
+            M::source_jac_uq(s_uq, x, uq, v, w, param, uinf, t);
             for (int k = 0; k < ncu * Nq; ++k) s_udg[k * ng + i] = s_uq[k];
 
             // ∂s/∂w (only when present)
             if constexpr (ncw > 0) {
                 T s_w[ncu * ncw];
-                M::source_jac_w(s_w, x, uq, v, w, param, /*uinf=*/nullptr, t);
+                M::source_jac_w(s_w, x, uq, v, w, param, uinf, t);
                 for (int k = 0; k < ncu * ncw; ++k) s_wdg[k * ng + i] = s_w[k];
             }
         });

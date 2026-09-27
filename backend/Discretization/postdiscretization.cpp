@@ -381,36 +381,42 @@ void CDiscretization::getInterfaceFluxesAtGaussPoints(dstype *flux, dstype* xdgg
 void CDiscretization::computeAverageSolutionsOnBoundary() 
 {   
     if ( common.outputparams.saveSolBouFreq>0 ) {
+        // The selected face blocks are concatenated (like the outbou* files): block data goes at
+        // the running offset `off` (face nodes so far), and ONE sample counter per array sits at
+        // the end, after all ndofbou nodes -- blocks of different sizes must not overlap.
+        Int npf = common.grid.npf; // number of nodes on master face
+        Int npe = common.grid.npe; // number of nodes on master element
+        Int nc = common.components.nc; // number of compoments of (u, q, p)
+        Int ncu = common.components.ncu;
+        Int ncw = common.components.ncw;
+        Int ndofbou = common.sizes.ndofbou;
+        Int off = 0;
         for (Int j=0; j<common.meshsizes.nbf; j++) {
             Int ib = common.fblks[3*j+2];            
             if (common.qoiparams.isSaveBoundary(ib)) {     
                 Int f1 = common.fblks[3*j]-1;
                 Int f2 = common.fblks[3*j+1];                      
-                Int npf = common.grid.npf; // number of nodes on master face      
-                Int npe = common.grid.npe; // number of nodes on master face      
                 Int nf = f2-f1;
                 Int nn = npf*nf; 
-                Int nc = common.components.nc; // number of compoments of (u, q, p)            
-                Int ncu = common.components.ncu;
-                Int ncw = common.components.ncw;
                 GetArrayAtIndex(tmp.tempn, sol.udg, &mesh.findudg1[npf*nc*f1], nn*nc);                
-                ArrayAXPBY(sol.bouudgavg, sol.bouudgavg, tmp.tempn, one, one, nn*nc);            
-                ArrayAddScalar(&sol.bouudgavg[nn*nc], one, 1);
+                ArrayAXPBY(&sol.bouudgavg[off*nc], &sol.bouudgavg[off*nc], tmp.tempn, one, one, nn*nc);
               
                 if (common.spatialScheme==1)
                   GetFaceNodesHDG(tmp.tempn, sol.uh, npf, ncu, 0, ncu, f1, f2);
                 else
                   GetElemNodes(tmp.tempn, sol.uh, npf, ncu, 0, ncu, f1, f2);
-                ArrayAXPBY(sol.bouuhavg, sol.bouuhavg, tmp.tempn, one, one, nn*ncu);            
-                ArrayAddScalar(&sol.bouuhavg[nn*ncu], one, 1);                              
+                ArrayAXPBY(&sol.bouuhavg[off*ncu], &sol.bouuhavg[off*ncu], tmp.tempn, one, one, nn*ncu);
 
                 if (ncw>0) {
                     GetFaceNodes(tmp.tempn, sol.wdg, mesh.facecon, npf, ncw, npe, ncw, f1, f2, 1);      
-                    ArrayAXPBY(sol.bouwdgavg, sol.bouwdgavg, tmp.tempn, one, one, nn*ncw);            
-                    ArrayAddScalar(&sol.bouwdgavg[nn*ncw], one, 1);                                  
+                    ArrayAXPBY(&sol.bouwdgavg[off*ncw], &sol.bouwdgavg[off*ncw], tmp.tempn, one, one, nn*ncw);
                 }
+                off += nn;
             }
-        }                                        
+        }
+        ArrayAddScalar(&sol.bouudgavg[ndofbou*nc], one, 1);
+        ArrayAddScalar(&sol.bouuhavg[ndofbou*ncu], one, 1);
+        if (ncw>0) ArrayAddScalar(&sol.bouwdgavg[ndofbou*ncw], one, 1);
     }
 }
 

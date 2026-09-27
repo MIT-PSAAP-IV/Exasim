@@ -393,12 +393,7 @@ inline void SurfaceQuantitiesDriver(T* fb, const T* xg, const T* udg,
     using dstype=T;
     Int ng = ngf * (f2 - f1);
     const int nout = common.qoiparams.nsurfq;
-    if (nout <= 0) return;
-    if (nout > kSurfaceQuantitiesMax) {
-        std::fprintf(stderr, "[exasim] SurfaceQuantitiesDriver: nsurfq=%d exceeds kSurfaceQuantitiesMax=%d\n",
-                     nout, kSurfaceQuantitiesMax);
-        std::abort();
-    }
+    if (nout <= 0) return;   // the kernel checks nout against its per-point buffer
     surface_quantities_kernel<M, T>(fb, xg, udg, odg, wdg, uhg, nl, app.tau,
                                     app.uinf, app.physicsparam,
                                     common.timestate.time, ib, ng, nout);
