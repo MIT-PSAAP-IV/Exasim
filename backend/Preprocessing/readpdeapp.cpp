@@ -659,6 +659,7 @@ inline void applyParsedSpecMetadata(PDE& pde, const ParsedSpec& spec)
         if (fn.name == "VisTensors")  pde.nten  = fn.outputsize / (pde.nd * pde.nd);
         if (fn.name == "QoIboundary") pde.nsurf = fn.outputsize;
         if (fn.name == "QoIvolume")   pde.nvqoi = fn.outputsize;
+        if (fn.name == "Monitor")     pde.ncm = fn.outputsize;
         if (fn.name == "Materialstate") pde.nmaterialstate = fn.outputsize;
     }
 }
@@ -1197,6 +1198,7 @@ inline void writepde(const PDE& pde, const std::string& filename)
     ndims[16] = pde.nten;
     ndims[17] = pde.nsurf;
     ndims[18] = pde.nvqoi;
+    ndims[19] = pde.ncm;
 
     std::vector<double> nsize(30, 0.0);
     nsize[0] = ndims.size();

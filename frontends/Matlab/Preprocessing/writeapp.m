@@ -41,6 +41,7 @@ ndims(16) = app.nvec;
 ndims(17) = app.nten;
 ndims(18) = app.nbqoi; 
 ndims(19) = app.nvqoi;
+ndims(20) = app.ncm;
 
 % if app.nco ~= size(app.vindx,1)
 %     error("app.nco mus be equal to size(app.vindx,1)");
@@ -50,25 +51,29 @@ if ~isfield(app, 'AVcontinuationIter'), app.AVcontinuationIter = 0; end
 if ~isfield(app, 'AVcontinuationLogScale'), app.AVcontinuationLogScale = 1.0; end
 if ~isfield(app, 'AVcoeffStart'), app.AVcoeffStart = 0.0; end
 if ~isfield(app, 'AVcoeffEnd'), app.AVcoeffEnd = 0.0; end
-if app.AVcontinuationIter >= 2
-  t = linspace(0.0, 1.0, app.AVcontinuationIter)';
-  alpha = app.AVcontinuationLogScale;
-  if ~all(isfinite([alpha app.AVcoeffStart app.AVcoeffEnd]))
-    error('AV continuation parameters must be finite.');
+
+if ~isfield(app, 'avparam1') || isempty(app.avparam1)
+  if app.AVcontinuationIter >= 2
+    t = linspace(0.0, 1.0, app.AVcontinuationIter)';
+    alpha = app.AVcontinuationLogScale;
+    if ~all(isfinite([alpha app.AVcoeffStart app.AVcoeffEnd]))
+      error('AV continuation parameters must be finite.');
+    end
+    if abs(alpha) <= 1.0e-14
+      g1 = 1.0 - t;
+      g2 = t;
+    else
+      den = expm1(alpha);
+      g1 = expm1(alpha*(1.0-t))/den;
+      g2 = expm1(alpha*t)/den;
+    end
+    app.avparam1 = app.AVcoeffStart*g1;
+    app.avparam2 = app.AVcoeffEnd*g2;
+    app.avparam1([1 end]) = [app.AVcoeffStart; 0.0];
+    app.avparam2([1 end]) = [0.0; app.AVcoeffEnd];
   end
-  if abs(alpha) <= 1.0e-14
-    g1 = 1.0 - t;
-    g2 = t;
-  else
-    den = expm1(alpha);
-    g1 = expm1(alpha*(1.0-t))/den;
-    g2 = expm1(alpha*t)/den;
-  end
-  app.avparam1 = app.AVcoeffStart*g1;
-  app.avparam2 = app.AVcoeffEnd*g2;
-  app.avparam1([1 end]) = [app.AVcoeffStart; 0.0];
-  app.avparam2([1 end]) = [0.0; app.AVcoeffEnd];
 end
+
 if numel(app.avparam1) ~= numel(app.avparam2)
   error('avparam1 and avparam2 must have the same length.');
 end

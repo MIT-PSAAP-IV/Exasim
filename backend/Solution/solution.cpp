@@ -182,6 +182,93 @@ void CSolution<M>::RestoreState()
 }
 
 template <class M>
+void CSolution<M>::SaveContinuationState(Int backend)
+{
+    auto save = [&](dstype *&destination, const dstype *source, Int count) {
+        if (count <= 0) return;
+        if (destination == nullptr) TemplateMalloc(&destination, count, backend);
+        ArrayCopy(disc.common.cublasHandle, destination,
+                  const_cast<dstype*>(source), count, backend);
+    };
+
+    save(continuationSnapshot.udg, disc.sol.udg, disc.sol.szudg);
+    if (disc.common.spatialScheme == 1)
+        save(continuationSnapshot.uh, disc.sol.uh, disc.sol.szuh);
+    save(continuationSnapshot.wdg, disc.sol.wdg, disc.sol.szwdg);
+    save(continuationSnapshot.odg, disc.sol.odg, disc.sol.szodg);
+    save(continuationSnapshot.xdg, disc.sol.xdg, disc.sol.szxdg);
+    save(continuationSnapshot.sdg, disc.sol.sdg, disc.sol.szsdg);
+    save(continuationSnapshot.wsrc, disc.sol.wsrc, disc.sol.szwsrc);
+    save(continuationSnapshot.wdual, disc.sol.wdual, disc.sol.szwdual);
+    save(continuationSnapshot.physicsparam, disc.app.physicsparam, disc.app.szphysicsparam);
+    save(continuationSnapshot.utmp, solv.sys.utmp, solv.sys.szutmp);
+    save(continuationSnapshot.wtmp, solv.sys.wtmp, solv.sys.szwtmp);
+    save(continuationSnapshot.udgprev, solv.sys.udgprev, solv.sys.szudgprev);
+    save(continuationSnapshot.wprev, solv.sys.wprev, solv.sys.szwprev);
+
+    continuationSnapshot.timestate = disc.common.timestate;
+    continuationSnapshot.matvecTol = disc.common.solverparams.matvecTol;
+    continuationSnapshot.RBcurrentdim = solv.state.RBcurrentdim;
+    continuationSnapshot.artificialViscosityPrepared = artificialViscosityPrepared;
+    continuationSnapshot.continuationInitialized = true;
+}
+
+template <class M>
+void CSolution<M>::RestoreContinuationState(Int backend)
+{
+    if (!continuationSnapshot.continuationInitialized)
+        error("No saved AV-continuation state is available to restore.");
+
+    auto restore = [&](dstype *destination, const dstype *source, Int count) {
+        if (count > 0)
+            ArrayCopy(disc.common.cublasHandle, destination,
+                      const_cast<dstype*>(source), count, backend);
+    };
+
+    restore(disc.sol.udg, continuationSnapshot.udg, disc.sol.szudg);
+    if (disc.common.spatialScheme == 1)
+        restore(disc.sol.uh, continuationSnapshot.uh, disc.sol.szuh);
+    restore(disc.sol.wdg, continuationSnapshot.wdg, disc.sol.szwdg);
+    restore(disc.sol.odg, continuationSnapshot.odg, disc.sol.szodg);
+    restore(disc.sol.xdg, continuationSnapshot.xdg, disc.sol.szxdg);
+    restore(disc.sol.sdg, continuationSnapshot.sdg, disc.sol.szsdg);
+    restore(disc.sol.wsrc, continuationSnapshot.wsrc, disc.sol.szwsrc);
+    restore(disc.sol.wdual, continuationSnapshot.wdual, disc.sol.szwdual);
+    restore(disc.app.physicsparam, continuationSnapshot.physicsparam, disc.app.szphysicsparam);
+    restore(solv.sys.utmp, continuationSnapshot.utmp, solv.sys.szutmp);
+    restore(solv.sys.wtmp, continuationSnapshot.wtmp, solv.sys.szwtmp);
+    restore(solv.sys.udgprev, continuationSnapshot.udgprev, solv.sys.szudgprev);
+    restore(solv.sys.wprev, continuationSnapshot.wprev, solv.sys.szwprev);
+
+    if (disc.common.spatialScheme == 0)
+        ArrayExtract(solv.sys.u, disc.sol.udg, disc.common.grid.npe,
+            disc.common.components.nc, disc.common.meshsizes.ne1, 0,
+            disc.common.grid.npe, 0, disc.common.components.ncu, 0,
+            disc.common.meshsizes.ne1);
+    else if (disc.common.spatialScheme == 1)
+        ArrayCopy(disc.common.cublasHandle, solv.sys.u, disc.sol.uh,
+                  disc.common.sizes.ndofuhat, backend);
+    else
+        error("Spatial discretization scheme is not implemented");
+
+    disc.common.timestate = continuationSnapshot.timestate;
+    disc.common.solverparams.matvecTol = continuationSnapshot.matvecTol;
+    solv.state.RBcurrentdim = continuationSnapshot.RBcurrentdim;
+    artificialViscosityPrepared = continuationSnapshot.artificialViscosityPrepared;
+    ArrayAXPB(disc.app.fc_u, disc.app.dtcoef_u, disc.common.timestate.dtfactor,
+              zero, disc.common.components.ncu);
+    if (disc.common.timeparams.wave == 1)
+        ArrayAXPB(disc.app.fc_q, disc.app.dtcoef_q, disc.common.timestate.dtfactor,
+                  zero, disc.common.components.ncq);
+
+    exasim_meshadapt::rebuildGeometry(disc, disc.sol.xdg, backend);
+    if (helmholtz)
+        exasim_meshadapt::rebuildGeometry(helmholtz->disc, disc.sol.xdg, backend);
+    if (elasticity)
+        exasim_meshadapt::rebuildGeometry(elasticity->disc, disc.sol.xdg, backend);
+}
+
+template <class M>
 void CSolution<M>::ClearSavedState()
 {
     Int backend = disc.common.backend;
@@ -206,7 +293,88 @@ void CSolution<M>::ClearSavedState()
         snapshot.odg = nullptr;
     }
 
+    auto release = [&](dstype *&pointer) {
+        if (pointer != nullptr) {
+            TemplateFree(pointer, backend);
+            pointer = nullptr;
+        }
+    };
+    release(snapshot.xdg);
+    release(snapshot.sdg);
+    release(snapshot.wsrc);
+    release(snapshot.wdual);
+    release(snapshot.physicsparam);
+    release(snapshot.utmp);
+    release(snapshot.wtmp);
+    release(snapshot.udgprev);
+    release(snapshot.wprev);
+
     snapshot.initialized = false;
+    snapshot.continuationInitialized = false;
+}
+
+template <class M>
+void CSolution<M>::ClearContinuationState()
+{
+    const Int backend = disc.common.backend;
+    auto release = [&](dstype *&pointer) {
+        if (pointer != nullptr) {
+            TemplateFree(pointer, backend);
+            pointer = nullptr;
+        }
+    };
+    release(continuationSnapshot.udg);
+    release(continuationSnapshot.uh);
+    release(continuationSnapshot.wdg);
+    release(continuationSnapshot.odg);
+    release(continuationSnapshot.xdg);
+    release(continuationSnapshot.sdg);
+    release(continuationSnapshot.wsrc);
+    release(continuationSnapshot.wdual);
+    release(continuationSnapshot.physicsparam);
+    release(continuationSnapshot.utmp);
+    release(continuationSnapshot.wtmp);
+    release(continuationSnapshot.udgprev);
+    release(continuationSnapshot.wprev);
+    continuationSnapshot.initialized = false;
+    continuationSnapshot.continuationInitialized = false;
+}
+
+template <class M>
+bool CSolution<M>::ValidatePhysicalState(Int backend)
+{
+    const Int ncm = disc.common.components.ncm;
+    if (ncm <= 0) return true;
+
+    const Int npe = disc.common.grid.npe;
+    const Int ne = disc.common.meshsizes.ne;
+    const Int ne1 = disc.common.meshsizes.ne1;
+    const Int outputSize = npe*ncm*ne;
+    const Int ownedSize = npe*ncm*ne1;
+    if (outputSize > disc.res.szRq)
+        error("Monitor output exceeds the disc.res.Rq workspace capacity.");
+
+    writer.evalMonitor(disc.res.Rq, disc.sol.udg, disc.sol.wdg,
+                       disc.common.components.nc, backend);
+    const bool accepted = ArrayAllPositiveFinite(disc.res.Rq, ownedSize);
+    if (!accepted) {
+        std::vector<dstype> monitor(ownedSize);
+        TemplateCopytoHost(monitor.data(), disc.res.Rq, ownedSize, backend);
+        const dstype maximumFinite = std::numeric_limits<dstype>::max();
+        for (Int index = 0; index < ownedSize; ++index) {
+            const dstype value = monitor[index];
+            if (!(value > zero) || value > maximumFinite) {
+                const Int node = index % npe;
+                const Int component = (index/npe) % ncm;
+                const Int element = index/(npe*ncm);
+                printf("Rank %d: physical-state monitor component %d is invalid "
+                       "at element %d, node %d (value = %.16e).\n",
+                       disc.common.mpiRank, component+1, element, node, value);
+                break;
+            }
+        }
+    }
+    return accepted;
 }
 
 // (PTCsolver / NewtonSolver moved to CNonlinearSolver -- see nonlinearsolver.cpp)
@@ -327,7 +495,7 @@ void CSolution<M>::ApplyHelmholtzAVFilter(dstype *avField, Int backend)
         ArraySetValue(helmholtz->solv.sys.u, zero, helmholtz->solv.sys.szu);
         ArraySetValue(helmholtz->solv.sys.x, zero, helmholtz->solv.sys.szx);
         if (hd.sol.szuh > 0) ArraySetValue(hd.sol.uh, zero, hd.sol.szuh);
-        helmholtz->SteadyProblem(auxiliaryOutput, backend);
+        helmholtz->SteadyProblem(auxiliaryOutput, backend, true);
         ArrayExtract(hd.res.Ru, hd.sol.udg, npe, 1 + hd.common.grid.nd, ne,
                      0, npe, 0, 1, 0, ne);
         ArrayInsert(avField, hd.res.Ru, npe, ncAV, ne,
@@ -436,7 +604,8 @@ void CSolution<M>::PrepareArtificialViscosity(bool zeroSensor,
 }
 
 template <class M>
-void CSolution<M>::SteadyProblem(ofstream &out, Int backend) 
+SolveStatus CSolution<M>::SteadyProblem(ofstream &out, Int backend,
+                                        bool recoverableFailure)
 {   
     INIT_TIMING;        
 #ifdef TIMING    
@@ -577,11 +746,13 @@ void CSolution<M>::SteadyProblem(ofstream &out, Int backend)
     }
     
     // use PTC to solve steady problem
+    SolveStatus status;
     if (disc.common.spatialScheme==0) {
-      nonlinear.PTCsolver(out, backend);           
+      status = nonlinear.PTCsolver(out, backend);
     }
-    else if (disc.common.spatialScheme==1) {      
-      nonlinear.NewtonSolver(out, disc.common.sizes.ndofuhat, disc.common.spatialScheme, backend);           
+    else if (disc.common.spatialScheme==1) {
+      status = nonlinear.NewtonSolver(out, disc.common.sizes.ndofuhat,
+                                      disc.common.spatialScheme, backend);
     }
     else
       error("Spatial discretization scheme is not implemented");
@@ -593,6 +764,11 @@ void CSolution<M>::SteadyProblem(ofstream &out, Int backend)
         printf("Nonlinear solver time: %g miliseconds\n", disc.common.timing[97]);                
     }
 #endif    
+    if (!status.finite && !recoverableFailure) {
+        writer.crashDump(backend);
+        error("Nonlinear residual became non-finite. Save and exit.");
+    }
+    return status;
 }
 
 template <class M>
@@ -751,7 +927,7 @@ void CSolution<M>::DIRK(ofstream &out, Int backend)
 }
 
 template <class M>
-void CSolution<M>::DIRKonly(ofstream &out, Int backend)
+SolveStatus CSolution<M>::DIRKonly(ofstream &out, Int backend)
 {        
     // initial time
     dstype time = disc.common.timestate.time;
@@ -760,6 +936,8 @@ void CSolution<M>::DIRKonly(ofstream &out, Int backend)
     disc.common.timeparams.temporalScheme = 0; 
     TimestepCoefficents(disc.common); 
                     
+    SolveStatus aggregate{true, true, 0};
+
     // time stepping with DIRK schemes
     for (Int istep=0; istep<disc.common.timeparams.tsteps; istep++)            
     {            
@@ -784,7 +962,11 @@ void CSolution<M>::DIRKonly(ofstream &out, Int backend)
             UpdateSource(disc.sol, solv.sys, disc.app, disc.driver_abi, disc.res, disc.common, backend);
 
             // solve the problem 
-            this->SteadyProblem(out, backend);                             
+            const SolveStatus status = this->SteadyProblem(out, backend, true);
+            aggregate.converged = aggregate.converged && status.converged;
+            aggregate.finite = aggregate.finite && status.finite;
+            aggregate.iterations += status.iterations;
+            if (!status.finite) return aggregate;
 
             // update solution 
             UpdateSolution(disc.sol, solv.sys, disc.app, disc.driver_abi, disc.res,
@@ -794,6 +976,7 @@ void CSolution<M>::DIRKonly(ofstream &out, Int backend)
         // update time
         time = time + disc.common.dt[istep];                    
     }           
+    return aggregate;
 }
 
 // Re-homed from CDiscretization (S4): the PTC monitor field is a solver-convergence artifact,
