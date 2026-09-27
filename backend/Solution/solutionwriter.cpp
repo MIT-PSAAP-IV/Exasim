@@ -34,6 +34,22 @@ inline int count_model_mesh_partitions(const std::string& filein)
     }
     return count;
 }
+
+template <typename Common>
+inline void local_output_comm(const Common& c, int& rank, int& nprocs)
+{
+    rank = c.mpiRank - c.outputparams.fileoffset;
+    nprocs = 1;
+#ifdef HAVE_MPI
+    if (EXASIM_COMM_LOCAL != MPI_COMM_NULL) {
+        MPI_Comm_rank(EXASIM_COMM_LOCAL, &rank);
+        MPI_Comm_size(EXASIM_COMM_LOCAL, &nprocs);
+        return;
+    }
+#endif
+    if (c.mpiProcs > 1) nprocs = count_model_mesh_partitions(c.filein);
+    if (nprocs <= 0)       nprocs = c.mpiProcs;
+}
 }
 
 // --- open the output streams and write the initial solution (was the CSolution constructor body) ---
@@ -427,24 +443,15 @@ void CSolutionWriter<M>::SaveParaview(Int backend, std::string fname_modifier, b
     // Decide whether we should write a file on this step
     bool writeSolution = false;
     
-    int localRank = disc.common.mpiRank - disc.common.outputparams.fileoffset;
-    int localProcs = 1;
-#ifdef HAVE_MPI
-    if (EXASIM_COMM_LOCAL != MPI_COMM_NULL) {
-        MPI_Comm_rank(EXASIM_COMM_LOCAL, &localRank);
-        MPI_Comm_size(EXASIM_COMM_LOCAL, &localProcs);
-    }
-    else
-#endif
-    if (disc.common.mpiProcs > 1)
-        localProcs = count_model_mesh_partitions(disc.common.filein);
-    if (localProcs <= 0)
-        localProcs = disc.common.mpiProcs;
+    int localRank = 0, localProcs = 1;
+    local_output_comm(disc.common, localRank, localProcs);
 
     if (disc.common.timeparams.tdep == 1) {
        if (disc.common.timestate.currentstep==0 && localRank==0) {
           string ext = (localProcs==1) ? "vtu" : "pvtu";                                  
-          vis.pvdwrite_series(disc.common.fileout + "vis", disc.common.dt, disc.common.timeparams.tsteps, disc.common.outputparams.saveSolFreq, ext);                          
+          vis.pvdwrite_series(disc.common.fileout + "vis", disc.common.dt, disc.common.timeparams.tsteps, disc.common.outputparams.saveSolFreq, ext);
+          if (vis.surfvis_enabled)
+              vis.pvdwrite_series(disc.common.fileout + "surf", disc.common.dt, disc.common.timeparams.tsteps, disc.common.outputparams.saveSolFreq, ext);
        }
         
         // Time-dependent: only write every 'saveSolFreq' steps
@@ -453,6 +460,17 @@ void CSolutionWriter<M>::SaveParaview(Int backend, std::string fname_modifier, b
     } else {
         // Steady / not time-dependent: always write
         writeSolution = true;
+    }
+
+    // A forced write (SaveParaviewStep / crash dump) is an explicit time-series
+    // frame, so include the step index even when the run is not marked tdep
+    // (e.g. a steady fluid re-solved each outer coupling step). Without this the
+    // parallel pvtu/vtu names omit the step and every frame overwrites the last.
+    std::string stepSuffix;
+    if (disc.common.timeparams.tdep == 1 || force_tdep_write) {
+        std::ostringstream ss;
+        ss << std::setw(6) << std::setfill('0') << disc.common.timestate.currentstep+disc.common.outputparams.timestepOffset+1;
+        stepSuffix = "_" + ss.str();
     }
 
    if (writeSolution) { 
@@ -500,16 +518,7 @@ void CSolutionWriter<M>::SaveParaview(Int backend, std::string fname_modifier, b
             VisDG2CG(vis.tenfields, f, disc.mesh.cgent2dgent, disc.mesh.colent2elem, disc.mesh.rowent2elem, ne, ncg, ndg, vis.ntc, vis.ntc, nten);
        }
 
-       string baseName = disc.common.fileout + "vis" + fname_modifier;
-       // A forced write (SaveParaviewStep / crash dump) is an explicit time-series
-       // frame, so include the step index even when the run is not marked tdep
-       // (e.g. a steady fluid re-solved each outer coupling step). Without this the
-       // parallel pvtu/vtu names omit the step and every frame overwrites the last.
-       if (disc.common.timeparams.tdep == 1 || force_tdep_write) {
-           std::ostringstream ss;
-           ss << std::setw(6) << std::setfill('0') << disc.common.timestate.currentstep+disc.common.outputparams.timestepOffset+1;
-           baseName = baseName + "_" + ss.str();
-       }
+       string baseName = disc.common.fileout + "vis" + fname_modifier + stepSuffix;
 
        if (localProcs==1)
             vis.vtuwrite(baseName, vis.scafields, vis.vecfields, vis.tenfields);
@@ -520,36 +529,17 @@ void CSolutionWriter<M>::SaveParaview(Int backend, std::string fname_modifier, b
          TemplateFree(tempn, backend);
    }
 
-    if (vis.surfvis_enabled) this->SaveSurfaces(backend, fname_modifier, force_tdep_write);
+    if (vis.surfvis_enabled)
+        this->SaveSurfaces(backend, disc.common.fileout + "surf" + fname_modifier + stepSuffix,
+                           writeSolution, localRank, localProcs);
 }
 
 template <class M>
-void CSolutionWriter<M>::SaveSurfaces(Int backend, const std::string& fname_modifier, bool force_tdep_write)
+void CSolutionWriter<M>::SaveSurfaces(Int backend, const std::string& baseName,
+                                   bool writeSolution, Int localRank, Int localProcs)
 {
     if (!vis.surfvis_enabled) return;
     if (disc.common.qoiparams.nsurfq == 0) return;
-
-    const int localRank = disc.common.mpiRank - disc.common.outputparams.fileoffset;
-    int localProcs = (disc.common.mpiProcs > 1) ? count_model_mesh_partitions(disc.common.filein) : 1;
-    if (localProcs <= 0)
-        localProcs = disc.common.mpiProcs;
-
-    // Same step cadence as SaveParaview (reachable only from its tail, but keep
-    // the gate self-contained).
-    bool writeSolution = false;
-    if (disc.common.timeparams.tdep == 1) {
-        if (disc.common.timestate.currentstep == 0 && localRank == 0) {
-            string ext = (localProcs == 1) ? "vtu" : "pvtu";
-            vis.pvdwrite_series(disc.common.fileout + "surf", disc.common.dt,
-                                disc.common.timeparams.tsteps,
-                                disc.common.outputparams.saveSolFreq, ext);
-        }
-        writeSolution = ((disc.common.timestate.currentstep + 1) %
-                         disc.common.outputparams.saveSolFreq) == 0;
-        writeSolution = writeSolution || force_tdep_write;
-    } else {
-        writeSolution = true;
-    }
     if (!writeSolution) return;
 
     const Int nsq = disc.common.qoiparams.nsurfq;
@@ -560,12 +550,9 @@ void CSolutionWriter<M>::SaveSurfaces(Int backend, const std::string& fname_modi
 
     // DG surface: no averaging; every face node is a unique surface point,
     // so the scatter below is 1:1 (surf node = face node in local order).
-    // vis.srffields is already sized surf_nnodes*nsurfq.
-    for (int s = 0; s < vis.surf_nnodes*nsq; ++s) vis.srffields[s] = 0;
-
-    // Nodal SurfaceQuantities through the shared boundary evaluator (the same
-    // staging and geometry the outbousurf writer uses), scattered 1:1 onto
-    // the ParaView sub-cell mesh.
+    // InitSurfaces assigns surf_face2cell for every face in every selected
+    // block, so this loop writes every srffields slot exactly once. The
+    // array is zeroed once at construction; no per-step clear is needed.
     std::vector<dstype> fh;
     for (Int j = 0; j < nf_blocks; ++j) {
         Int ib = disc.common.fblks[3*j+2];
@@ -597,18 +584,10 @@ void CSolutionWriter<M>::SaveSurfaces(Int backend, const std::string& fname_modi
         }
     }
 
-    string baseName = disc.common.fileout + "surf" + fname_modifier;
-    if (disc.common.timeparams.tdep == 1 || force_tdep_write) {
-        std::ostringstream ss;
-        ss << std::setw(6) << std::setfill('0')
-           << disc.common.timestate.currentstep + disc.common.outputparams.timestepOffset + 1;
-        baseName = baseName + "_" + ss.str();
-    }
-
     if (localProcs == 1)
-        vis.surfwrite(baseName, vis.srffields, nullptr);
+        vis.surfwrite(baseName, vis.srffields);
     else
-        vis.surfwrite_parallel(baseName, localRank, localProcs, vis.srffields, nullptr);
+        vis.surfwrite_parallel(baseName, localRank, localProcs, vis.srffields);
 }
 
 template <class M>

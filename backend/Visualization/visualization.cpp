@@ -181,8 +181,8 @@ public:
 
     // ------------------------------------------------------------------
     // Surface visualization: the ibs-list boundary faces, resolved on the
-    // trace nodes, with the value/eval plumbing so the surface fields can
-    // be reconstructed at the enclosing CG corners.
+    // DG face nodes. Every face node is a unique surface point, and the
+    // SurfaceQuantities evaluator supplies the field values directly.
     int   nsurfq       = 0;    // number of surface scalar fields (>=0)
     int   surf_nnodes    = 0;    // surface nodes (all face nodes, DG-unique per face)
     int   surf_ncells    = 0;    // linear sub-cells (lines / tris / quads)
@@ -190,8 +190,6 @@ public:
     bool  surfvis_enabled = false;
     std::vector<float>   surf_nodes;      // [3 x surf_nnodes]
     std::vector<int32_t> surf_cellconn;   // [surf_k x surf_ncells]
-    std::vector<uint8_t> surf_celllocal;  // [surf_k x surf_ncells] master-face node of each corner
-    std::vector<int32_t> surf_cellface;   // [surf_ncells] local face index of each cell
     std::vector<int32_t> surf_face2cell;  // [nf] surf-face ordinal owning the face, or -1
     std::vector<int32_t> surf_celloffsets;// [surf_ncells]
     std::vector<uint8_t> surf_celltypes;  // [surf_ncells]
@@ -488,11 +486,9 @@ public:
         }
     }
 
-    // Surface writer (serial): scalar surface fields (+ surface normals) on a
-    // boundary surface mesh.
+    // Surface writer (serial): scalar surface fields on a boundary surface mesh.
     void surfwrite(const std::string& filename_no_ext,
-                   const float* srffields_data,
-                   const float* normals) const
+                   const float* srffields_data) const
     {
         const std::string filename = filename_no_ext + ".vtu";
         std::ofstream os(filename, std::ios::binary);
@@ -507,12 +503,6 @@ public:
         std::vector<std::uint64_t> foffs(nsurfq);
         for (int s = 0; s < nsurfq; ++s)
             foffs[s] = add_off(byte_count(surf_nnodes, sizeof(float)));
-        // NOTE: only reserve the normals block when normals are actually
-        // written below; otherwise header offsets would point past the real
-        // blocks (SaveSurfaces passes nullptr since the DG scatter fix).
-        std::uint64_t noff = 0;
-        if (normals != nullptr)
-            noff = add_off(byte_count(3, surf_nnodes, sizeof(float)));
         std::uint64_t poff = add_off(byte_count(3, surf_nnodes, sizeof(float)));
         std::uint64_t coff = add_off(byte_count(surf_k, surf_ncells, sizeof(int32_t)));
         std::uint64_t ooff = add_off(byte_count(surf_ncells, sizeof(int32_t)));
@@ -524,14 +514,11 @@ public:
         os << "  <UnstructuredGrid>\n";
         os << "    <Piece NumberOfPoints=\"" << surf_nnodes
            << "\" NumberOfCells=\"" << surf_ncells << "\">\n";
-        if (nsurfq > 0 || normals != nullptr) {
+        if (nsurfq > 0) {
             os << "      <PointData Scalars=\"surfscalars\">\n";
             for (int s = 0; s < nsurfq; ++s)
                 os << "        <DataArray type=\"Float32\" Name=\"" << surface_names[s]
                    << "\" Format=\"appended\" offset=\"" << foffs[s] << "\"/>\n";
-            if (normals != nullptr)
-                os << "        <DataArray type=\"Float32\" Name=\"Surface Normals\""
-                   << " NumberOfComponents=\"3\" Format=\"appended\" offset=\"" << noff << "\"/>\n";
             os << "      </PointData>\n";
         }
         os << "      <Points>\n";
@@ -551,9 +538,6 @@ public:
             write_block(os, filename, "surfscalar:" + surface_names[s],
                         &srffields_data[surf_nnodes * s],
                         byte_count(surf_nnodes, sizeof(float)));
-        if (normals != nullptr)
-            write_block(os, filename, "normals", normals,
-                        byte_count(3, surf_nnodes, sizeof(float)));
         write_block(os, filename, "points", surf_nodes.data(),
                     byte_count(3, surf_nnodes, sizeof(float)));
         write_block(os, filename, "connectivity", surf_cellconn.data(),
@@ -570,10 +554,9 @@ public:
     // Parallel surface writer: rank pieces + PVTU on rank 0.
     void surfwrite_parallel(const std::string& base_name,
                             int rank, int nranks,
-                            const float* srffields_data,
-                            const float* normals) const
+                            const float* srffields_data) const
     {
-        surfwrite(base_name + rank_tag(rank), srffields_data, normals);
+        surfwrite(base_name + rank_tag(rank), srffields_data);
         if (rank == 0) {
             std::vector<std::string> pieces;
             pieces.reserve(nranks);
@@ -581,9 +564,7 @@ public:
                 const std::filesystem::path piece = base_name + rank_tag(r) + ".vtu";
                 pieces.push_back(piece.filename().generic_string());
             }
-            std::vector<std::string> norms;
-            if (normals != nullptr) norms.push_back("Surface Normals");
-            write_pvtu(base_name, pieces, surface_names, norms, {}, 3);
+            write_pvtu(base_name, pieces, surface_names, {}, {}, 3);
         }
     }
 
@@ -692,17 +673,12 @@ private:
         surf_nodes.reserve((size_t)3 * nfaces * npf);
         int nfallback = 0;
         surf_cellconn.clear();
-        surf_celllocal.clear();
-        surf_cellface.clear();
         surf_celloffsets.clear();
         surf_celltypes.clear();
         // Emit one linear sub-cell; lns holds master-face local node ids.
-        auto emitCell = [&](int f, int base, const int* lns, int n) {
-            for (int c = 0; c < n; ++c) {
+        auto emitCell = [&](int base, const int* lns, int n) {
+            for (int c = 0; c < n; ++c)
                 surf_cellconn.push_back(base + lns[c]);
-                surf_celllocal.push_back((uint8_t)lns[c]);
-            }
-            surf_cellface.push_back((int32_t)f);
             surf_celloffsets.push_back((int)surf_cellconn.size());
             surf_celltypes.push_back(ctype);
         };
@@ -721,7 +697,9 @@ private:
                 TemplateMalloc(&d, nn*ncx, backend);
                 GetArrayAtIndex(d, sol.xdg, &mesh.findxdg1[npf*ncx*f1], nn*ncx);
                 TemplateCopytoHost(xg.data(), d, nn*ncx, backend);
-                CPUFREE(d);
+                // Free with the same backend used for allocation; CPUFREE would
+                // release CUDA/HIP device memory with host free().
+                TemplateFree(d, backend);
             } else {
                 GetArrayAtIndex(xg.data(), sol.xdg, &mesh.findxdg1[npf*ncx*f1], nn*ncx);
             }
@@ -760,7 +738,7 @@ private:
                         for (int l = 0; l < p; ++l) {
                             const int seg[2] = {(dir > 0) ? l : p - l,
                                                 (dir > 0) ? l + 1 : p - l - 1};
-                            emitCell((int)f, base, seg, 2);
+                            emitCell(base, seg, 2);
                         }
                     }
                 } else if (p >= 1) {
@@ -776,18 +754,18 @@ private:
                                 for (int ii = 0; ii < p; ++ii) {
                                     const int quad[4] = {lat(ii,jj), lat(ii+1,jj),
                                                          lat(ii+1,jj+1), lat(ii,jj+1)};
-                                    emitCell((int)f, base, quad, 4);
+                                    emitCell(base, quad, 4);
                                 }
                         } else {
                             for (int jj = 0; jj < p; ++jj)
                                 for (int ii = 0; ii + jj < p; ++ii) {
                                     const int up[3] = {lat(ii,jj), lat(ii+1,jj),
                                                        lat(ii,jj+1)};
-                                    emitCell((int)f, base, up, 3);
+                                    emitCell(base, up, 3);
                                     if (ii + jj + 2 <= p) {
                                         const int dn[3] = {lat(ii+1,jj), lat(ii+1,jj+1),
                                                            lat(ii,jj+1)};
-                                        emitCell((int)f, base, dn, 3);
+                                        emitCell(base, dn, 3);
                                     }
                                 }
                         }
@@ -804,7 +782,7 @@ private:
                         for (int ci = 0; ci < k; ++ci) cs[ci] = gc[ci];
                         orderCorners(plane.data(), (int)ncx, k, cs);
                     }
-                    emitCell((int)f, base, cs, k);
+                    emitCell(base, cs, k);
                     ++nfallback;
                 }
                 ++ordinal;
