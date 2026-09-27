@@ -80,9 +80,9 @@ typedef double dstype; //  double is default precision
 #endif
 
 #ifdef USE_LONG
-typedef long Int;
+using Int = std::int64_t;
 #else
-typedef int Int;
+using Int = std::int32_t;
 #endif
 
 // Non-deduced type wrapper. A scalar function parameter spelled `noDeduce_t<T>` deduces T ONLY from
