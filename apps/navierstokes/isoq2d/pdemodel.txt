@@ -327,6 +327,7 @@ function VisScalars(x, uq, v, w, eta, mu, t)
   c23 = 2.0/3.0;
   pinf = 1.0/(gam*M2);
   Tinf = pinf/(gam-1.0);
+  pInfPhys = mu[11];
 
   r = uq[0];
   ru = uq[1];
