@@ -3,6 +3,11 @@ function mystr = getccode(f, varstr)
 mystr = string("");
 n = length(f(:));
 
+if ~isa(f, 'sym')
+    mystr = getccodeelementwise(f, varstr);
+    return;
+end
+
 % fv = f(:);
 % for j = 0:(n-1)
 %     val = fv(j+1);
@@ -23,17 +28,23 @@ n = length(f(:));
 % end
 % return;
 
-ccode(f(:),'file','tmp.c');
+tmpfile = [tempname '.c'];
+cleanup = onCleanup(@() deleteifexists(tmpfile));
+ccode(f(:),'file',tmpfile);
 
-fid  = fopen('tmp.c','r');
+fid = fopen(tmpfile,'r');
+if fid < 0
+    mystr = getccodeelementwise(f, varstr);
+    return;
+end
 f=fread(fid,'*char')';
 fclose(fid);
 f = strrep(f, 't0', 'A0[0][0]');    
-fid  = fopen('tmp.c','w');
+fid  = fopen(tmpfile,'w');
 fprintf(fid,'%s',f);
 fclose(fid);
 
-fid = fopen('tmp.c','r'); 
+fid = fopen(tmpfile,'r');
 tline = fgetl(fid); 
 i=1; a1 = 0;       
 while ischar(tline)        
@@ -69,6 +80,35 @@ if a1<n
 end
 fclose(fid);
 
-delete(char("tmp.c"));
+deleteifexists(tmpfile);
+clear cleanup;
 
+end
+
+function mystr = getccodeelementwise(f, varstr)
+mystr = string("");
+fv = f(:);
+for j = 0:(numel(fv)-1)
+    val = fv(j+1);
+    if isequal(val, 0) || (isa(val, 'sym') && isequal(val, sym(0)))
+        expr = '0.0';
+    elseif isa(val, 'sym')
+        expr = char(ccode(val));
+        ieq = strfind(expr, '=');
+        if ~isempty(ieq)
+            expr = expr((ieq(1)+1):end);
+        end
+        expr = strtrim(strrep(expr, ';', ''));
+    else
+        expr = num2str(val, 17);
+    end
+    assignment = [varstr num2str(j) '*ng+i] = ' expr ';'];
+    mystr = mystr + "\t\t" + string(assignment) + "\n";
+end
+end
+
+function deleteifexists(filename)
+if exist(filename, 'file') == 2
+    delete(filename);
+end
 end

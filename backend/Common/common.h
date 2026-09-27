@@ -80,9 +80,9 @@ typedef double dstype; //  double is default precision
 #endif
 
 #ifdef USE_LONG
-typedef long Int;
+using Int = std::int64_t;
 #else
-typedef int Int;
+using Int = std::int32_t;
 #endif
 
 // Non-deduced type wrapper. A scalar function parameter spelled `noDeduce_t<T>` deduces T ONLY from
@@ -720,7 +720,8 @@ struct AppNdims {
         nten     = 16, // tensor vis fields
         nsurf    = 17, // surface vis/storage/QoI fields
         nvqoi    = 18, // volume quantities of interest
-        nsurfq   = 19  // SurfaceQuantities components (0 on app.bin files that predate it)
+        ncm      = 19, // components of the physical-state monitor
+        nsurfq   = 20  // SurfaceQuantities components (0 on app.bin files that predate it)
     };
 };
 

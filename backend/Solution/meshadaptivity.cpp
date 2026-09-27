@@ -432,10 +432,10 @@ void CSolution<M>::UpdateWallDistance(Int continuationIteration, Int backend)
 }
 
 template <class M>
-void CSolution<M>::AdaptMesh(Int backend, Int continuationIteration)
+bool CSolution<M>::AdaptMeshChecked(Int backend, Int continuationIteration)
 {
     using namespace exasim_meshadapt;
-    if (!disc.common.meshadaptparams.enabled) return;
+    if (!disc.common.meshadaptparams.enabled) return true;
     if (!helmholtz || !elasticity) error("Mesh-adaptivity auxiliary solvers were not constructed.");
     const auto& cfg = disc.common.meshadaptparams;
     const Int nd = disc.common.grid.nd;
@@ -577,6 +577,7 @@ void CSolution<M>::AdaptMesh(Int backend, Int continuationIteration)
             continuationName + "eta", eta, nodeCount, outputRank, backend);
     }
 
+    bool meshAccepted = true;
     std::ofstream auxiliaryOutput;
     const Int movementIterations = continuationIteration > 0 ? 1 : cfg.movementIterations;
     for (Int iteration = 0; iteration < movementIterations; ++iteration) {
@@ -585,8 +586,13 @@ void CSolution<M>::AdaptMesh(Int backend, Int continuationIteration)
         TemplateMalloc(&currentSize, nodeCount, backend);
         TemplateMalloc(&means, ne1, backend);
         nodalJacobian(jac, disc.sol.xdg, disc.master.shapent, npe, ncx, ne, nd);
-        if (!PArrayAllPositiveFinite(jac, nodeCount))
-            error("Mesh adaptation encountered an invalid Jacobian.");
+        if (!PArrayAllPositiveFinite(jac, nodeCount)) {
+            TemplateFree(jac, backend);
+            TemplateFree(currentSize, backend);
+            TemplateFree(means, backend);
+            meshAccepted = false;
+            break;
+        }
         smoothDG2CG2(disc, jac, smoothScratch, 1, 2, backend);
         elementSizeAndMeans(currentSize, means, jac, npe, ne, ne1, nd);
 
@@ -653,7 +659,16 @@ void CSolution<M>::AdaptMesh(Int backend, Int continuationIteration)
         ArraySetValue(helmholtz->solv.sys.x, zero, helmholtz->solv.sys.szx);
         if (helmholtz->disc.sol.szuh > 0)
             ArraySetValue(helmholtz->disc.sol.uh, zero, helmholtz->disc.sol.szuh);
-        helmholtz->SteadyProblem(auxiliaryOutput, backend);
+        const SolveStatus helmholtzStatus =
+            helmholtz->SteadyProblem(auxiliaryOutput, backend, true);
+        if (!helmholtzStatus.finite) {
+            TemplateFree(targetSize, backend);
+            TemplateFree(jac, backend);
+            TemplateFree(currentSize, backend);
+            TemplateFree(means, backend);
+            meshAccepted = false;
+            break;
+        }
         packElasticityForce(elasticity->disc.sol.odg,
                             helmholtz->disc.sol.udg, npe, ne, nd);
         smoothDG2CG2(disc, elasticity->disc.sol.odg, smoothScratch,
@@ -665,7 +680,16 @@ void CSolution<M>::AdaptMesh(Int backend, Int continuationIteration)
         ArraySetValue(elasticity->solv.sys.u, zero, elasticity->solv.sys.szu);
         ArraySetValue(elasticity->solv.sys.x, zero, elasticity->solv.sys.szx);
         if (elasticity->disc.sol.szuh > 0) ArraySetValue(elasticity->disc.sol.uh, zero, elasticity->disc.sol.szuh);
-        elasticity->SteadyProblem(auxiliaryOutput, backend);
+        const SolveStatus elasticityStatus =
+            elasticity->SteadyProblem(auxiliaryOutput, backend, true);
+        if (!elasticityStatus.finite) {
+            TemplateFree(targetSize, backend);
+            TemplateFree(jac, backend);
+            TemplateFree(currentSize, backend);
+            TemplateFree(means, backend);
+            meshAccepted = false;
+            break;
+        }
         dstype *continuous = nullptr, *scratch = nullptr;
         TemplateMalloc(&continuous, npe*nd*ne, backend);
         TemplateMalloc(&scratch, npe*ne, backend);
@@ -711,7 +735,18 @@ void CSolution<M>::AdaptMesh(Int backend, Int continuationIteration)
 #endif
             if (minimum > cfg.minimumJacobianRatio*reference) break;
             beta *= 0.5;
-            if (beta < 1.0e-8) error("Mesh-adaptivity backtracking could not produce a valid mesh.");
+            if (beta < 1.0e-8) {
+                meshAccepted = false;
+                break;
+            }
+        }
+        if (!meshAccepted) {
+            TemplateFree(continuous, backend);
+            TemplateFree(targetSize, backend);
+            TemplateFree(jac, backend);
+            TemplateFree(currentSize, backend);
+            TemplateFree(means, backend);
+            break;
         }
         ArrayAXPBY(disc.sol.xdg, disc.sol.xdg, continuous,
                    one, beta, npe*nd*ne);
@@ -753,9 +788,11 @@ void CSolution<M>::AdaptMesh(Int backend, Int continuationIteration)
         TemplateFree(means, backend);
     }
 
-    rebuildGeometry(disc, disc.sol.xdg, backend);
-    rebuildGeometry(helmholtz->disc, disc.sol.xdg, backend);
-    rebuildGeometry(elasticity->disc, disc.sol.xdg, backend);
+    if (meshAccepted) {
+        rebuildGeometry(disc, disc.sol.xdg, backend);
+        rebuildGeometry(helmholtz->disc, disc.sol.xdg, backend);
+        rebuildGeometry(elasticity->disc, disc.sol.xdg, backend);
+    }
     TemplateFree(field1, backend);
     TemplateFree(field2, backend);
     TemplateFree(eta, backend);
@@ -763,6 +800,14 @@ void CSolution<M>::AdaptMesh(Int backend, Int continuationIteration)
     TemplateFree(lowScalar, backend);
     TemplateFree(coefficients, backend);
     TemplateFree(smoothScratch, backend);
+    return meshAccepted;
+}
+
+template <class M>
+void CSolution<M>::AdaptMesh(Int backend, Int continuationIteration)
+{
+    if (!AdaptMeshChecked(backend, continuationIteration))
+        error("Mesh adaptation could not produce a finite, valid mesh.");
 }
 
 #endif

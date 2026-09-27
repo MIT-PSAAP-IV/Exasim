@@ -58,6 +58,30 @@ public:
     std::uint64_t types_offset  = 0;
 
 public:
+    void UpdateCoordinates(const dstype* xdg, const int* cgent2dgent,
+                           const int* colent2elem, const int* rowent2elem,
+                           int ne, int ndg, int backend)
+    {
+        if (npoints <= 0) return;
+
+        float* coordinates = cgnodes.data();
+        float* deviceCoordinates = nullptr;
+        if (backend > 1) {
+            TemplateMalloc(&deviceCoordinates, 3*npoints, backend);
+            coordinates = deviceCoordinates;
+        }
+
+        ArraySetValue<float>(coordinates, 0.0f, 3*npoints);
+        VisDG2CG(coordinates, xdg, cgent2dgent, colent2elem, rowent2elem,
+                 ne, npoints, ndg, 3, nd, 1);
+        Kokkos::fence();
+
+        if (deviceCoordinates != nullptr) {
+            TemplateCopytoHost(cgnodes.data(), deviceCoordinates, 3*npoints, backend);
+            TemplateFree(deviceCoordinates, backend);
+        }
+    }
+
     // CVisualization(const dstype* xcg, int nd_in, int np,
     //                const int* cgelcon, int npe, int ne,
     //                const int* telem,   int nce, int nverts_per_cell,
