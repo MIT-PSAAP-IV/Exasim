@@ -228,19 +228,8 @@ void setsysstruct(sysstructT<T,I> &sys, commonstructT<T,I> &common, resstructT<T
     TemplateMalloc(&sys.r, ndof, backend); 
     //TemplateMalloc(&sys.v, ndof*M, backend);      
     
-    // Krylov scratch: own it directly instead of aliasing the res.K arena
-    // tail. The tail (szK-szP) can be smaller than ndof*M when the Int size
-    // arithmetic wraps on large 3D runs (szP+szV > INT_MAX), turning the
-    // memset below into heap corruption; a dedicated buffer of exactly
-    // ndof*M (checked) is always correctly sized. The setup-time guard in
-    // discretization.cpp still rejects iterating runs whose arena overflows.
-    {
-        const long long needV = (long long)ndof * (long long)M;
-        if (needV > INT_MAX)
-            error("GMRES Krylov scratch size exceeds 32-bit Int range; reduce gmresRestart or move to 64-bit sizes");
-        TemplateMalloc(&sys.v, (Int)needV, backend);
-        sys.szv = (Int)needV;
-    }
+    sys.v = res.reserveKrylovScratch(ndof*M);
+    sys.szv = 0;
     
     sys.backend = backend;  
     sys.szu = ndof;
@@ -253,7 +242,7 @@ void setsysstruct(sysstructT<T,I> &sys, commonstructT<T,I> &common, resstructT<T
     ArraySetValue(sys.x, 0.0, ndof);
     ArraySetValue(sys.b, 0.0, ndof);
     ArraySetValue(sys.r, 0.0, ndof);
-    ArraySetValue(sys.v, 0.0, ndof*M);
+    ArraySetValue(sys.v, 0.0, (Int)((long long)ndof * (long long)M));
         
     if (common.components.ncs>0) {        
         TemplateMalloc(&sys.utmp, npe*common.components.nc*common.meshsizes.ne2, backend); 

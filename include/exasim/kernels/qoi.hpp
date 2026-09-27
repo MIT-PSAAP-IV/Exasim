@@ -22,7 +22,7 @@ inline constexpr int kSurfaceQuantitiesMax = 32;
 template <class M, class T=dstype, class I=Int>
 void qoi_volume_kernel(T* f, const T* xdg, const T* udg,
                        const T* odg, const T* wdg,
-                       const T* /*uinf*/, const T* param, T t,
+                       const T* uinf, const T* param, T t,
                        int /*modelnumber*/, int ng,
                        int nc_runtime, int /*ncu*/, int /*nd*/,
                        int /*ncx*/, int /*nco*/, int /*ncw*/)
@@ -44,7 +44,7 @@ void qoi_volume_kernel(T* f, const T* xdg, const T* udg,
         if (ncw > 0) for (int k = 0; k < ncw; ++k) w[k] = wdg[k * ng + i];
 
         T out_local[kMax];
-        M::qoi_volume(out_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
+        M::qoi_volume(out_local, x, uq, v, w, param, uinf, t);
 
         for (int k = 0; k < nc_runtime; ++k) f[k * ng + i] = out_local[k];
     });
@@ -54,7 +54,7 @@ template <class M, class T=dstype, class I=Int>
 void qoi_boundary_kernel(T* f, const T* xdg, const T* udg,
                          const T* odg, const T* wdg,
                          const T* uhg, const T* nlg, const T* tau,
-                         const T* /*uinf*/, const T* param, T t,
+                         const T* uinf, const T* param, T t,
                          int /*modelnumber*/, int ib, int ng,
                          int nc_runtime, int /*ncu*/, int /*nd*/,
                          int /*ncx*/, int /*nco*/, int /*ncw*/)
@@ -79,7 +79,7 @@ void qoi_boundary_kernel(T* f, const T* xdg, const T* udg,
         for (int k = 0; k < ncu; ++k) t_[k] = tau[k];
 
         T out_local[kMax];
-        M::qoi_boundary(out_local, ib, x, uq, v, w, uh, n, t_, param, /*uinf=*/nullptr, t);
+        M::qoi_boundary(out_local, ib, x, uq, v, w, uh, n, t_, param, uinf, t);
 
         for (int k = 0; k < nc_runtime; ++k) f[k * ng + i] = out_local[k];
     });
@@ -92,7 +92,7 @@ template <class M, class T=dstype, class I=Int>
 void surface_quantities_kernel(T* f, const T* xdg, const T* udg,
                                const T* odg, const T* wdg,
                                const T* uhg, const T* nlg, const T* tau,
-                               const T* /*uinf*/, const T* param, T t,
+                               const T* uinf, const T* param, T t,
                                int ib, int ng, int nout)
 {
     using dstype=T;
@@ -115,7 +115,7 @@ void surface_quantities_kernel(T* f, const T* xdg, const T* udg,
 
         T out_local[kSurfaceQuantitiesMax];
         for (int k = 0; k < nout; ++k) out_local[k] = 0;
-        M::surface_quantities(out_local, ib, x, uq, v, w, uh, n, t_, param, /*uinf=*/nullptr, t);
+        M::surface_quantities(out_local, ib, x, uq, v, w, uh, n, t_, param, uinf, t);
 
         for (int k = 0; k < nout; ++k) f[k * ng + i] = out_local[k];
     });

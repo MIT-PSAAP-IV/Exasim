@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include "driver_abi.h"
+#include <exasim/kernels/qoi.hpp>
 
 void FluxDriver(dstype* f, const dstype* xg, const dstype* udg,
                 const dstype* odg, const dstype* wdg,
@@ -996,6 +997,14 @@ void SurfaceQuantitiesDriver(dstype* fb, const dstype* xg, const dstype* udg,
     // The nc slot carries the output count: generated kernels ignore it, and the header-only
     // (ModelDefaults) kernels use it to bound how many outputs they write.
     Int nc = common.qoiparams.nsurfq;
+    // The header-only surface kernel stages outputs in a fixed local buffer
+    // (exasim::kSurfaceQuantitiesMax); fail loudly here rather than silently
+    // truncating inside the ABI kernel.
+    if (nc > exasim::kSurfaceQuantitiesMax) {
+        std::fprintf(stderr, "[exasim] SurfaceQuantitiesDriver: nsurfq=%d exceeds kSurfaceQuantitiesMax=%d\n",
+                     (int)nc, (int)exasim::kSurfaceQuantitiesMax);
+        std::abort();
+    }
     Int ncu = common.components.ncu;
     Int ncw = common.components.ncw;
     Int nco = common.components.nco;

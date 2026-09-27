@@ -109,6 +109,28 @@ for dir in "$REPO"/tests/consumers/*/; do
       fi
     fi
 
+    # B5 (surface): surface-visualization gate. The backend writes outsurf*.vtu
+    # only when (saveParaview != 0) AND (nsurfq > 0) AND at least one ibs boundary
+    # id is declared — see CVisualization's surfvis_enabled. Mirror that exact
+    # condition here so the gate never demands surface vis the backend would not
+    # produce. nsurfq/ibs are read from pdeapp.txt; model-provided values stay
+    # silent (same safe direction as the volume gate above). Accept .vtu (serial)
+    # or .pvtu (parallel), as above.
+    _nsq="$(grep -E "^[[:space:]]*nsurfq[[:space:]]*=" "$rdir/pdeapp.txt" | head -1 | grep -oE '[0-9]+' | head -1)"
+    _surfibs=0
+    for _id in $(grep -E "^[[:space:]]*ibs[[:space:]]*=" "$rdir/pdeapp.txt" | head -1 | grep -oE '[0-9]+'); do
+      [ "${_id:-0}" -gt 0 ] && _surfibs=1
+    done
+    if grep -qE '^[[:space:]]*saveParaview[[:space:]]*=[[:space:]]*[1-9]' "$rdir/pdeapp.txt" \
+         && [ "${_nsq:-0}" -gt 0 ] && [ "$_surfibs" -gt 0 ]; then
+      nsurfvis="$(find "$rdir" \( -name 'outsurf*.vtu' -o -name 'outsurf*.pvtu' \) 2>/dev/null | wc -l | tr -d ' ')"
+      if [ "$nsurfvis" -gt 0 ]; then
+        echo "  [B5] surfvis ok: $nsurfvis outsurf file(s)"
+      else
+        echo "  FAIL[B5]: saveParaview+nsurfq+ibs but no outsurf*.vtu/.pvtu written"; fail=1
+      fi
+    fi
+
     # B6: consumer-specific gate. A consumer may ship check.sh to verify its outputs
     # further (e.g. surfacequantities-run re-derives the saved boundary fields); it gets
     # the run dir as $1 and EXE/NP in the environment, and may launch variant runs.
