@@ -217,7 +217,7 @@ void CodeGenerator::generateCode2Cpp(const std::string& filename) const {
     os << "          if (funcname == \"Initw\") kname = \"Initwdg\";\n"; 
     os << "          ssv.initfunc2cppfiles(f, ssv.modelpath + \"cpu\" + kname, \"cpu\" + kname, i, false, 0);\n";
     os << "          ssv.initfunc2cppfiles(f, ssv.modelpath + \"Kokkos\" + kname, \"Kokkos\" + kname, i, false, 1);\n";
-    os << "        } else if (funcname == \"Avfield\") {\n";
+    os << "        } else if ((funcname == \"Avfield\") || (funcname == \"Monitor\") || (funcname == \"Output\")) {\n";
     os << "          ssv.dgfunc2cppfiles(f, ssv.modelpath + fname, fname, i, false);\n";
     os << "        } else {\n";
     os << "          ssv.func2cppfiles(f, ssv.modelpath + fname, fname, i, false);\n";
@@ -1619,6 +1619,12 @@ void emitfuncjacmaterialstate2cppfiles(std::ostream& os, const ParsedSpec& spec)
     os << "    cppfile << \"const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw, const int nmaterialstate)\\n\";\n";
     os << "    cppfile << \"{\\n\";\n";
     os << "    cppfile << \"  const int N = ng;\\n\\n\";\n\n";
+    os << "    cppfile << \"  const " << spec.datatype << "* x = xdg;\\n\";\n";
+    os << "    cppfile << \"  const " << spec.datatype << "* uq = udg;\\n\";\n";
+    os << "    cppfile << \"  const " << spec.datatype << "* v = odg;\\n\";\n";
+    os << "    cppfile << \"  const " << spec.datatype << "* w = wdg;\\n\";\n";
+    os << "    cppfile << \"  const " << spec.datatype << "* mu = param;\\n\";\n";
+    os << "    cppfile << \"  const " << spec.datatype << "* eta = uinf;\\n\\n\";\n\n";
     os << "   if (f.size() > 0) {\n";
     os << "       vec_pair replacements;\n";
     os << "       vec_basic reduced_exprs_f;\n";
