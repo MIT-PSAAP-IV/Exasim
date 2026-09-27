@@ -504,6 +504,11 @@ void CSolutionWriter<M>::SaveParaview(Int backend, std::string fname_modifier, b
        GetElemNodes(udg, disc.sol.udg, npe, nc, 0, nc, 0, ne);
        if (nco > 0) GetElemNodes(vdg, disc.sol.odg, npe, nco, 0, nco, 0, ne);
        if (ncw > 0) GetElemNodes(wdg, disc.sol.wdg, npe, ncw, 0, ncw, 0, ne);
+
+       // Mesh adaptation changes xdg without changing the CG topology cached by
+       // CVisualization. Refresh the VTK point coordinates before every write.
+       vis.UpdateCoordinates(xdg, disc.mesh.cgent2dgent, disc.mesh.colent2elem,
+                             disc.mesh.rowent2elem, ne, ndg, backend);
     
        if (nsca > 0) {        
             EXASIM_DRIVER_CALL(VisScalarsDriver, f, xdg, udg, vdg, wdg, disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common, npe, 0, ne, backend);                                 
@@ -518,7 +523,20 @@ void CSolutionWriter<M>::SaveParaview(Int backend, std::string fname_modifier, b
             VisDG2CG(vis.tenfields, f, disc.mesh.cgent2dgent, disc.mesh.colent2elem, disc.mesh.rowent2elem, ne, ncg, ndg, vis.ntc, vis.ntc, nten);
        }
 
-       string baseName = disc.common.fileout + "vis" + fname_modifier + stepSuffix;
+        // The visualization fields may be produced asynchronously on a GPU, while
+        // the VTU writer immediately consumes their host-visible buffers.
+        Kokkos::fence();
+
+        string baseName = disc.common.fileout + "vis" + fname_modifier;
+        // A forced write (SaveParaviewStep / crash dump) is an explicit time-series
+        // frame, so include the step index even when the run is not marked tdep
+        // (e.g. a steady fluid re-solved each outer coupling step). Without this the
+        // parallel pvtu/vtu names omit the step and every frame overwrites the last.
+        if (disc.common.timeparams.tdep == 1 || force_tdep_write) {
+            std::ostringstream ss;
+            ss << std::setw(6) << std::setfill('0') << disc.common.timestate.currentstep+disc.common.outputparams.timestepOffset+1;
+            baseName = baseName + "_" + ss.str();
+        }
 
        if (localProcs==1)
             vis.vtuwrite(baseName, vis.scafields, vis.vecfields, vis.tenfields);

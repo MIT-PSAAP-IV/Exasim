@@ -125,13 +125,28 @@ class CSolution {
 private:
     struct PDEStateSnapshot {
         bool initialized = false;
+        bool continuationInitialized = false;
         dstype *udg = nullptr;
         dstype *uh = nullptr;
         dstype *wdg = nullptr;
         dstype *odg = nullptr;
+        dstype *xdg = nullptr;
+        dstype *sdg = nullptr;
+        dstype *wsrc = nullptr;
+        dstype *wdual = nullptr;
+        dstype *physicsparam = nullptr;
+        dstype *utmp = nullptr;
+        dstype *wtmp = nullptr;
+        dstype *udgprev = nullptr;
+        dstype *wprev = nullptr;
+        timestatestruct timestate{};
+        dstype matvecTol = 0.0;
+        Int RBcurrentdim = 0;
+        bool artificialViscosityPrepared = false;
     };
 
     PDEStateSnapshot snapshot;
+    PDEStateSnapshot continuationSnapshot;
     struct MeshAdaptWorkspace {
         dstype *globalBoundaryCoordinates = nullptr;
         dstype *lowModalBasis = nullptr;
@@ -170,6 +185,7 @@ public:
     void UpdateWallDistance(Int continuationIteration, Int backend);
     void PrepareArtificialViscosity(bool zeroSensor, Int continuationIteration, Int backend);
     void AdaptMesh(Int backend, Int continuationIteration = 0);
+    bool AdaptMeshChecked(Int backend, Int continuationIteration = 0);
     CDiscretization disc;  // spatial discretization class (the function space)
     CResidual<M> residual;    // the discretized PDE residual R(u)/flux q (evaluates from disc)
     CAssembler<M> assembler;  // HDG global linear-system assembler + operator-apply (from disc)
@@ -251,10 +267,11 @@ public:
     // destructor (output streams are owned by, and closed by, the writer)
     ~CSolution() {
         this->ClearSavedState();
+        this->ClearContinuationState();
         meshAdaptWorkspace.clear(disc.common.backend);
     };
 
-    void SteadyProblem(ofstream &out, Int backend);
+    SolveStatus SteadyProblem(ofstream &out, Int backend, bool recoverableFailure = false);
 
     void SteadyProblem_PTC(ofstream &out, Int backend);
 
@@ -263,7 +280,7 @@ public:
     //  CSolutionWriter -- call them via the `writer` member)
 
     void DIRK(ofstream &out, Int backend);
-    void DIRKonly(ofstream &out, Int backend);
+    SolveStatus DIRKonly(ofstream &out, Int backend);
 
     // precompute some quantities
     void InitSolution(Int backend);
@@ -272,7 +289,11 @@ public:
 
     void SaveState();
     void RestoreState();
+    void SaveContinuationState(Int backend);
+    void RestoreContinuationState(Int backend);
+    void ClearContinuationState();
     void ClearSavedState();
+    bool ValidatePhysicalState(Int backend);
 
     // (PTCsolver / NewtonSolver moved to CNonlinearSolver -- call via the `nonlinear` member)
 };

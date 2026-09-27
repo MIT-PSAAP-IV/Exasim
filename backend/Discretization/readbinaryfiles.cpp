@@ -782,6 +782,9 @@ void readInput(appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master
         app.ndims[AppNdims::nten] = 0;
         app.ndims[AppNdims::nsurf] = 0;
         app.ndims[AppNdims::nvqoi] = 0;
+        app.ndims[AppNdims::ncm] = 0;
+        if (app.nsize[0] > AppNdims::nsurfq)
+            app.ndims[AppNdims::nsurfq] = 0;
         CPUFREE(app.fc_u); CPUFREE(app.dtcoef_u);
         CPUFREE(app.fc_q); CPUFREE(app.dtcoef_q);
         app.fc_u = (dstype*) malloc(sizeof(dstype));
@@ -860,6 +863,9 @@ void readInput(appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master
         app.ndims[AppNdims::nten] = 0;
         app.ndims[AppNdims::nsurf] = 0;
         app.ndims[AppNdims::nvqoi] = 0;
+        app.ndims[AppNdims::ncm] = 0;
+        if (app.nsize[0] > AppNdims::nsurfq)
+            app.ndims[AppNdims::nsurfq] = 0;
         CPUFREE(app.fc_u); CPUFREE(app.dtcoef_u);
         CPUFREE(app.fc_q); CPUFREE(app.dtcoef_q);
         app.fc_u = (dstype*) malloc(sizeof(dstype)*nd);

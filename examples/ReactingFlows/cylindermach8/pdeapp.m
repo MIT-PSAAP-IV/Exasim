@@ -14,7 +14,7 @@ addpath(fullfile(repoRoot, 'frontends', 'Matlab', 'Materials'), '-begin');
 pde.model = "ModelD";
 pde.modelfile = "pdemodel_cart";
 pde.platform = "cpu";
-pde.mpiprocs = 8;
+pde.mpiprocs = 4;
 pde.hybrid = 1;
 pde.debugmode = 0;
 pde.nd = 2;
@@ -23,13 +23,13 @@ pde.porder = 4;
 pde.pgauss = 2*pde.porder;
 pde.tau = 8.0;
 pde.gencode = 1;
-pde.GMRESrestart = 100;
+pde.GMRESrestart = 500;
 pde.GMRESortho = 1;
 pde.linearsolvertol = 1e-6;
 pde.linearsolveriter = 500;
 pde.preconditioner = 1;
 pde.RBdim = 0;
-pde.ppdegree = 20;
+pde.ppdegree = 0;
 pde.NLtol = 1e-6;
 pde.NLiter = 10;
 pde.matvectol = 1e-6;
@@ -40,7 +40,7 @@ pde.saveSolFreq = 1;
 pde.datapath = caseDir;
 pde.builddir = fullfile(caseDir, '.exasim');
 pde.buildpath = pde.builddir;
-pde.dt = 1e-3*(1.5.^(0:20));
+pde.dt = 1e-2*(1.6.^(0:12));
 
 % Physical conditions matched to the Mach-8 cylinder reference examples.
 Minf = 8.03;
@@ -85,7 +85,39 @@ dist = meshdist3(mesh.f,mesh.dgnodes,mesh.perm,[1]);
 mesh.vdg = 0.025*tanh(dist*5);
 mesh.vdg(:,2,:) = 0.025*tanh(dist*5);
 
-pde.gencode = 1;
-[sol,pde,mesh,master] = exasim(pde,mesh);
+pde.gencode = 0;
+[sol,pde,mesh,master,dmd] = exasim(pde,mesh);
 sol = sol(:,:,:,end);
 
+wdg = getsolutions('dataout/outwdg', dmd);
+wdg = wdg(:,:,:,end);
+
+rho = sum(sol(:,1:5,:),2);
+figure(1); clf; scaplot(mesh, rhoRef*rho,[],2,2);
+axis equal; axis tight; colorbar; colormap jet;
+
+figure(2); clf; scaplot(mesh, vRef*sol(:,6,:)./rho,[],2,2);
+axis equal; axis tight; colorbar; colormap jet;
+
+figure(3); clf; scaplot(mesh, vRef*sol(:,7,:)./rho,[],2,2);
+axis equal; axis tight; colorbar; colormap jet;
+
+Tphys = TRef .* wdg(:,1,:);
+figure(4); clf; scaplot(mesh, Tphys,[],2,2);
+axis equal; axis tight; colorbar; colormap jet;
+
+[~, Mw, RU] = thermodynamicsModels();
+rhoSpeciesPhys = rhoRef .* sol(:,1:5,:);
+rhom = sum(rhoSpeciesPhys ./ reshape(Mw,1,5,1), 2);
+Pphys = RU .* Tphys .* rhom;
+figure(5); clf; scaplot(mesh, Pphys,[],2,2);
+axis equal; axis tight; colorbar; colormap jet;
+
+[a, gammaMix, cpMix, cvMix, Rmix] = soundspeed(Tphys, abs(rhoSpeciesPhys));
+
+vx = sol(:,6,:)./rho;
+vy = sol(:,7,:)./rho;
+vv = vRef*sqrt(vx.^2 + vy.^2);
+Mach = vv./a;
+figure(6); clf; scaplot(mesh, Mach,[],2,2);
+axis equal; axis tight; colorbar; colormap jet;

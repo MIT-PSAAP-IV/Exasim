@@ -24,6 +24,12 @@ template <class M, class T, class I> class CPreconditioner;
 template <class M, class T, class I> class CSolver;
 template <class M> class CSolutionWriter;
 
+struct SolveStatus {
+    bool converged = false;
+    bool finite = true;
+    Int iterations = 0;
+};
+
 // Templated on the user Model type M (default = AbiAdapter): holds the model-dependent pieces it
 // drives by reference; M threads through to its one model call (GetW<M>) and to the typed members.
 template <class M = exasim::detail::AbiAdapter>
@@ -42,8 +48,8 @@ public:
           prec(prec_), solv(solv_), writer(writer_) {}
 
     // pseudo-transient continuation (LDG) and Newton (HDG) nonlinear iterations
-    Int PTCsolver(ofstream &out, Int backend);
-    Int NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int backend);
+    SolveStatus PTCsolver(ofstream &out, Int backend);
+    SolveStatus NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int backend);
 };
 
 #endif
