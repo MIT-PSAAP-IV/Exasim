@@ -129,6 +129,15 @@ mesh.vdg = zeros(size(mesh.dgnodes,1),2,size(mesh.dgnodes,3));
 mesh.vdg(:,1,:) = dist;
 mesh.udg = local_initial_udg(mesh, dist, db, xiInf, TinfPhys, TwallPhys, eRef, uInf, vInf);
 
+% Allow this configured case to generate the matching Text2Code application
+% without compiling or running the MATLAB-frontend executable.
+if exist('text2code_export_directory', 'var') && ~isempty(text2code_export_directory)
+    exporttext2code(pde, mesh, text2code_export_directory);
+    if exist('text2code_export_only', 'var') && text2code_export_only
+        return;
+    end
+end
+
 [sol,pde,mesh,master,dmd] = exasim(pde,mesh);
 
 xdg = getsolution('dataout/outxdg',dmd, master.npe);
