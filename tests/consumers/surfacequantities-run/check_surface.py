@@ -5,7 +5,9 @@ Builtin model 1 defines SurfaceQuantities = [u, f.n + tau*(u - uhat)] with f = k
 the second output is exactly its QoIboundary integrand. So:
 
   nodes <prefix> <np>          outbousurf at face nodes vs a recomputation from the
-                               outbouudg / outboundg / outbouuhat files of the same run
+                               outbouudg / outboundg / outbouuhat files of the same run;
+                               the per-save geometry (outbousurfgeo [x, n]) matches
+                               outbouxdg / outboundg (static mesh)
   gauss <prefix> <np>          outbousurf at Gauss points: sum(s1*dA) == Boundary_QoI1
   union <prefix_a> <prefix_b> <np>
                                Boundary_QoI1 and the saved face count agree between the
@@ -83,6 +85,18 @@ def check_nodes(prefix, nranks):
         U = split(urec[-1], npf, blks, nc)
         H = split(hrec[-1], npf, blks, hh[2])
         N = split(nrec[0], npf, blks, nd)
+        gh, grec = header_and_records("%sbousurfgeo_np%d.bin" % (prefix, r))
+        ncx = gh[2] - nd
+        if gh[0] != npf or gh[1] != nfbou or len(grec) != len(srec):
+            raise SystemExit("FAIL: rank %d bousurfgeo %s does not hold one [x, n] record per save" % (r, gh))
+        xh_, xrec = header_and_records("%sbouxdg_np%d.bin" % (prefix, r))
+        G = split(grec[-1], npf, blks, ncx + nd)
+        XS = split(xrec[0], npf, blks, ncx)
+        for b in range(len(blks)):
+            for k in range(ncx):
+                worst = max([worst] + [abs(a - c) for a, c in zip(G[b][k], XS[b][k])])
+            for k in range(nd):
+                worst = max([worst] + [abs(a - c) for a, c in zip(G[b][ncx + k], N[b][k])])
         for b in range(len(blks)):
             for i in range(len(S[b][0])):
                 u, q1, q2 = U[b][0][i], U[b][1][i], U[b][2][i]
@@ -111,7 +125,9 @@ def check_gauss(prefix, nranks):
             raise SystemExit("FAIL: rank %d surf/geo headers disagree: %s %s" % (r, sh, gh))
         ncx_nd = gh[2] - 1
         S = split(srec[-1], ngf, blks, nsq)
-        G = split(grec[0], ngf, blks, ncx_nd + 1)   # [x..., n..., dA]
+        if len(grec) != len(srec):
+            raise SystemExit("FAIL: rank %d bousurfgeo has %d records for %d saves" % (r, len(grec), len(srec)))
+        G = split(grec[-1], ngf, blks, ncx_nd + 1)   # last save: [x..., n..., dA]
         for b in range(len(blks)):
             dA = G[b][ncx_nd]
             total += sum(s * a for s, a in zip(S[b][1], dA))

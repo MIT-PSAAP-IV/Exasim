@@ -22,7 +22,7 @@ namespace exasim {
 template <class M, class T=dstype, class I=Int>
 void vis_scalars_kernel(T* f, const T* xdg, const T* udg,
                         const T* odg, const T* wdg,
-                        const T* /*uinf*/, const T* param, T t,
+                        const T* uinf, const T* param, T t,
                         int /*modelnumber*/, int ng,
                         int nc_runtime, int /*ncu*/, int /*nd*/,
                         int /*ncx*/, int /*nco*/, int /*ncw*/)
@@ -44,7 +44,7 @@ void vis_scalars_kernel(T* f, const T* xdg, const T* udg,
         if (ncw > 0) for (int k = 0; k < ncw; ++k) w[k] = wdg[k * ng + i];
 
         T out_local[kMax];
-        M::vis_scalars(out_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
+        M::vis_scalars(out_local, x, uq, v, w, param, uinf, t);
         for (int k = 0; k < nc_runtime; ++k) f[k * ng + i] = out_local[k];
     });
 }
@@ -52,7 +52,7 @@ void vis_scalars_kernel(T* f, const T* xdg, const T* udg,
 template <class M, class T=dstype, class I=Int>
 void vis_vectors_kernel(T* f, const T* xdg, const T* udg,
                         const T* odg, const T* wdg,
-                        const T* /*uinf*/, const T* param, T t,
+                        const T* uinf, const T* param, T t,
                         int /*modelnumber*/, int ng,
                         int nc_runtime, int /*ncu*/, int /*nd*/,
                         int /*ncx*/, int /*nco*/, int /*ncw*/)
@@ -74,7 +74,7 @@ void vis_vectors_kernel(T* f, const T* xdg, const T* udg,
         if (ncw > 0) for (int k = 0; k < ncw; ++k) w[k] = wdg[k * ng + i];
 
         T out_local[kMax];
-        M::vis_vectors(out_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
+        M::vis_vectors(out_local, x, uq, v, w, param, uinf, t);
         for (int k = 0; k < nc_runtime; ++k) f[k * ng + i] = out_local[k];
     });
 }
@@ -82,7 +82,7 @@ void vis_vectors_kernel(T* f, const T* xdg, const T* udg,
 template <class M, class T=dstype, class I=Int>
 void vis_tensors_kernel(T* f, const T* xdg, const T* udg,
                         const T* odg, const T* wdg,
-                        const T* /*uinf*/, const T* param, T t,
+                        const T* uinf, const T* param, T t,
                         int /*modelnumber*/, int ng,
                         int nc_runtime, int /*ncu*/, int /*nd*/,
                         int /*ncx*/, int /*nco*/, int /*ncw*/)
@@ -104,7 +104,7 @@ void vis_tensors_kernel(T* f, const T* xdg, const T* udg,
         if (ncw > 0) for (int k = 0; k < ncw; ++k) w[k] = wdg[k * ng + i];
 
         T out_local[kMax];
-        M::vis_tensors(out_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
+        M::vis_tensors(out_local, x, uq, v, w, param, uinf, t);
         for (int k = 0; k < nc_runtime; ++k) f[k * ng + i] = out_local[k];
     });
 }

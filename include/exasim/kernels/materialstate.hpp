@@ -71,7 +71,7 @@ void materialstate_kernel(T*       state,
             }
 
             T state_local[nms_buf];
-            M::materialstate(state_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
+            M::materialstate(state_local, x, uq, v, w, param, uinf, t);
 
             for (int k = 0; k < nms; ++k) state[k * ng + i] = state_local[k];
         });
@@ -85,7 +85,7 @@ void hdg_materialstate_kernel(T*       state,
                               const T* udg,
                               const T* odg,
                               const T* wdg,
-                              const T* /*uinf*/,
+                              const T* uinf,
                               const T* param,
                               T        t,
                               int      /*modelnumber*/,
@@ -134,16 +134,16 @@ void hdg_materialstate_kernel(T*       state,
             }
 
             T state_local[nms_buf];
-            M::materialstate(state_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
+            M::materialstate(state_local, x, uq, v, w, param, uinf, t);
             for (int k = 0; k < nms; ++k) state[k * ng + i] = state_local[k];
 
             T state_uq[(nms * Nq > 0) ? nms * Nq : 1];
-            M::materialstate_jac_uq(state_uq, x, uq, v, w, param, /*uinf=*/nullptr, t);
+            M::materialstate_jac_uq(state_uq, x, uq, v, w, param, uinf, t);
             for (int k = 0; k < nms * Nq; ++k) state_udg[k * ng + i] = state_uq[k];
 
             if constexpr (ncw > 0) {
                 T state_w[nms * ncw];
-                M::materialstate_jac_w(state_w, x, uq, v, w, param, /*uinf=*/nullptr, t);
+                M::materialstate_jac_w(state_w, x, uq, v, w, param, uinf, t);
                 for (int k = 0; k < nms * ncw; ++k) state_wdg[k * ng + i] = state_w[k];
             }
         });

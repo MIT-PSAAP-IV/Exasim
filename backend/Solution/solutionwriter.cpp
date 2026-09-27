@@ -9,6 +9,8 @@
 
 #include "solutionwriter.h"
 #include <filesystem>
+#include <limits>
+#include <string>
 
 namespace {
 inline int count_model_mesh_partitions(const std::string& filein)
@@ -598,11 +600,8 @@ void CSolutionWriter<M>::SaveSolutionsOnBoundary(Int backend)
                         GetFaceNodes(disc.tmp.tempn, disc.sol.wdg, disc.mesh.facecon, npf, ncw, npe, ncw, f1, f2, 1);      
                         writearray(outbouwdg, disc.tmp.tempn, nn*ncw, backend);
                     }
-                    if (disc.common.qoiparams.nsurfq > 0) {
-                        Int np = (disc.common.qoiparams.saveSolBouLoc == 1) ? disc.common.grid.ngf : npf;
-                        dstype* fs = evalSurfaceQuantities(f1, f2, backend);
-                        writearray(outbousurf, fs, np*nf*disc.common.qoiparams.nsurfq, backend);
-                    }
+                    if (disc.common.qoiparams.nsurfq > 0)
+                        saveSurfaceQuantitiesBlock(f1, f2, ib, backend);
                 }
             }          
         }                                
@@ -626,21 +625,10 @@ void CSolutionWriter<M>::SaveNodesOnBoundary(Int backend)
                 faceNodeGeometry(disc.tmp.tempn, f1, f2, backend);
                 writearray(outbouxdg, disc.tmp.tempn, nn*ncx, backend);
                 writearray(outboundg, &disc.tmp.tempn[nn*ncx], nn*nd, backend);
-
-                if (outbousurfgeo.is_open()) {
-                    // Gauss-point geometry of outbousurf: x [nga, ncx], n [nga, nd], dA = jac*gwf [nga]
-                    Int ngf = disc.common.grid.ngf;
-                    Int nga = ngf*nf;
-                    Int nm = ngf*f1*(ncx+nd+1);
-                    writearray(outbousurfgeo, &disc.sol.faceg[nm], nga*(ncx+nd), backend);
-                    columnwiseMultiply(disc.tmp.tempg, &disc.sol.faceg[nm+nga*(ncx+nd)], disc.master.gwf, ngf, nf);
-                    writearray(outbousurfgeo, disc.tmp.tempg, nga, backend);
-                }
             }
         }
         if (outbouxdg.is_open()) { outbouxdg.close(); }
         if (outboundg.is_open()) { outboundg.close(); }
-        if (outbousurfgeo.is_open()) { outbousurfgeo.close(); }
     }
 }
 
@@ -673,7 +661,30 @@ void CSolutionWriter<M>::faceNodeGeometry(dstype* buf, Int f1, Int f2, Int backe
 }
 
 template <class M>
-dstype* CSolutionWriter<M>::evalSurfaceQuantities(Int f1, Int f2, Int backend)
+void CSolutionWriter<M>::ensureSurfaceScratch(Int nf)
+{
+    auto& common = disc.common;
+    const long long npf = common.grid.npf, ngf = common.grid.ngf, nd = common.grid.nd;
+    const long long ncx = common.components.ncx, nsq = common.qoiparams.nsurfq;
+    const long long ns = (long long) common.components.nc + common.components.ncu
+                       + common.components.nco + common.components.ncw;
+    // Exact layouts of saveSurfaceQuantitiesBlock for nf faces:
+    //   nodes: node fields [npf*nf, ns] | geometry [npf*nf, ncx+3nd+1] | values [npf*nf, nsq]
+    //   Gauss: node fields [npf*nf, ns] | Gauss fields [ngf*nf, ns] | values [ngf*nf, nsq] | dA [ngf*nf]
+    const long long nodal = (long long) nf * npf * (ns + ncx + 3*nd + 1 + nsq);
+    const long long gauss = (long long) nf * (npf * ns + ngf * (ns + nsq + 1));
+    const long long need  = std::max(std::max(nodal, gauss), 1LL);
+    if (need > (long long) std::numeric_limits<Int>::max())
+        error("SurfaceQuantities scratch for a boundary face block needs " + std::to_string(need) +
+              " entries, which overflows Int; rebuild Exasim with EXASIM_INT64=ON.");
+    if (need <= (long long) szsurfbuf) return;
+    if (surfbuf) TemplateFree(surfbuf, common.backend);
+    TemplateMalloc(&surfbuf, (Int) need, common.backend);
+    szsurfbuf = (Int) need;
+}
+
+template <class M>
+void CSolutionWriter<M>::saveSurfaceQuantitiesBlock(Int f1, Int f2, Int ib, Int backend)
 {
     auto& common = disc.common;
     auto& sol = disc.sol;
@@ -691,6 +702,7 @@ dstype* CSolutionWriter<M>::evalSurfaceQuantities(Int f1, Int f2, Int backend)
     Int nf = f2-f1;
     Int nn = npf*nf;
     Int ns = nc + ncu + nco + ncw;           // solution fields fed to the kernel
+    ensureSurfaceScratch(nf);
 
     // Solution fields at the face nodes, point-major [nn, ncomp] like the other outbou files:
     // U = udg (side 1), UH = uhat, O = odg, W = wdg.
@@ -707,30 +719,35 @@ dstype* CSolutionWriter<M>::evalSurfaceQuantities(Int f1, Int f2, Int backend)
     if (ncw>0) GetFaceNodes(W, sol.wdg, mesh.facecon, npf, ncw, npe, ncw, f1, f2, 1);
     dstype* rest = W + nn*ncw;
 
-    // ib = 1: like QoIboundary, the user function is one expression for every ibs boundary.
     if (common.qoiparams.saveSolBouLoc == 1) {
-        // Face Gauss points: interpolate the node fields, reuse the precomputed face geometry.
+        // Face Gauss points: interpolate the node fields, reuse the current face geometry.
         Int nga = ngf*nf;
-        dstype* G = rest;                        // [nga, ns] in the same field order
-        dstype* F = G + nga*ns;
+        dstype* G  = rest;                       // [nga, ns] in the same field order
+        dstype* F  = G + nga*ns;
+        dstype* dA = F + nga*nsq;
         Node2Gauss(common.cublasHandle, G, U, disc.master.shapfgt, ngf, npf, nf*ns, backend);
         Int nm = ngf*f1*(ncx+nd+1);
         ArraySetValue(F, 0.0, nga*nsq);
         EXASIM_DRIVER_CALL(SurfaceQuantitiesDriver, F, &sol.faceg[nm], G, G + nga*(nc+ncu), G + nga*(nc+ncu+nco),
                 G + nga*nc, &sol.faceg[nm+nga*ncx], disc.mesh, disc.master, disc.app, disc.sol, disc.tmp,
-                common, ngf, f1, f2, (Int)1, backend);
-        return F;
+                common, ngf, f1, f2, ib, backend);
+        writearray(outbousurf, F, nga*nsq, backend);
+        // geometry record: x [nga, ncx], n [nga, nd], dA = face jacobian * Gauss weight [nga]
+        columnwiseMultiply(dA, &sol.faceg[nm+nga*(ncx+nd)], disc.master.gwf, ngf, nf);
+        writearray(outbousurfgeo, &sol.faceg[nm], nga*(ncx+nd), backend);
+        writearray(outbousurfgeo, dA, nga, backend);
     }
     else {
-        // Face nodes: coordinates and normals exactly as written to outbouxdg/outboundg.
+        // Face nodes: current coordinates and normals (same construction as outbouxdg/outboundg).
         dstype* X = rest;                        // [nn, ncx], normals at X + nn*ncx
         dstype* F = X + nn*(ncx+3*nd+1);
         faceNodeGeometry(X, f1, f2, backend);
         ArraySetValue(F, 0.0, nn*nsq);
         EXASIM_DRIVER_CALL(SurfaceQuantitiesDriver, F, X, U, O, W, UH, X + nn*ncx,
                 disc.mesh, disc.master, disc.app, disc.sol, disc.tmp,
-                common, npf, f1, f2, (Int)1, backend);
-        return F;
+                common, npf, f1, f2, ib, backend);
+        writearray(outbousurf, F, nn*nsq, backend);
+        writearray(outbousurfgeo, X, nn*(ncx+nd), backend);   // geometry record: x, n
     }
 }
 
@@ -781,15 +798,11 @@ void CSolutionWriter<M>::openBoundaryFiles(const std::string& base)
     if (nsq > 0) {
         Int loc = common.qoiparams.saveSolBouLoc;
         open_and_write(outbousurf, "bousurf_np", rank, offset, (loc == 1) ? ngf : npf, nfbou, nsq, base);
-        if (loc == 1)
-            open_and_write(outbousurfgeo, "bousurfgeo_np", rank, offset, ngf, nfbou, ncx+nd+1, base);
-        if (surfbuf == nullptr) {
-            Int nco = common.components.nco;
-            Int ns = nc + ncu + nco + ncw;
-            Int npmax = std::max(npf, ngf);
-            Int sz = nfmax*(npf*ns + npmax*(ns + ncx + 3*nd + 1 + nsq));
-            TemplateMalloc(&surfbuf, std::max(sz, (Int) 1), common.backend);
-        }
+        // One geometry record per save, in lockstep with outbousurf: [x, n] at the face nodes
+        // (loc 0) or [x, n, dA] at the Gauss points (loc 1). Per save so it follows mesh motion.
+        open_and_write(outbousurfgeo, "bousurfgeo_np", rank, offset, (loc == 1) ? ngf : npf, nfbou,
+                       ncx + nd + ((loc == 1) ? 1 : 0), base);
+        ensureSurfaceScratch(nfmax);
     }
 }
 

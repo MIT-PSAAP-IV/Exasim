@@ -376,7 +376,7 @@ if isdefined(pdemodel, Symbol("surfacequantities"))
     end
     f = f[:];
     f = reshape(f,length(f),1);
-    gencodeface("SurfaceQuantities" * strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, foldername);
+    gencodeface("SurfaceQuantities" * strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, foldername; allib=true);
 else
     nocodeface("SurfaceQuantities" * strn, foldername);
 end

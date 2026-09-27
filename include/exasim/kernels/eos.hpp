@@ -21,7 +21,7 @@ namespace exasim {
 
 template <class M, class T=dstype, class I=Int>
 void eos_kernel(T* f, const T* xdg, const T* udg, const T* odg,
-                const T* wdg, const T* /*uinf*/, const T* param, T t,
+                const T* wdg, const T* uinf, const T* param, T t,
                 int /*modelnumber*/, int ng, int /*nc*/, int /*ncu*/, int /*nd*/,
                 int /*ncx*/, int /*nco*/, int /*ncw*/, int /*nce*/, int /*npe*/, int /*ne*/)
 {
@@ -41,14 +41,14 @@ void eos_kernel(T* f, const T* xdg, const T* udg, const T* odg,
         if (ncw > 0) for (int k = 0; k < ncw; ++k) w[k] = wdg[k * ng + i];
 
         T out_local[ncu];
-        M::eos(out_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
+        M::eos(out_local, x, uq, v, w, param, uinf, t);
         for (int k = 0; k < ncu; ++k) f[k * ng + i] = out_local[k];
     });
 }
 
 template <class M, class T=dstype, class I=Int>
 void eos_du_kernel(T* f, const T* xdg, const T* udg, const T* odg,
-                   const T* wdg, const T* /*uinf*/, const T* param, T t,
+                   const T* wdg, const T* uinf, const T* param, T t,
                    int /*modelnumber*/, int ng, int /*nc*/, int /*ncu*/, int /*nd*/,
                    int /*ncx*/, int /*nco*/, int /*ncw*/, int /*nce*/, int /*npe*/, int /*ne*/)
 {
@@ -68,14 +68,14 @@ void eos_du_kernel(T* f, const T* xdg, const T* udg, const T* odg,
         if (ncw > 0) for (int k = 0; k < ncw; ++k) w[k] = wdg[k * ng + i];
 
         T out_local[ncu * Nq];
-        M::eos_du(out_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
+        M::eos_du(out_local, x, uq, v, w, param, uinf, t);
         for (int k = 0; k < ncu * Nq; ++k) f[k * ng + i] = out_local[k];
     });
 }
 
 template <class M, class T=dstype, class I=Int>
 void eos_dw_kernel(T* f, const T* xdg, const T* udg, const T* odg,
-                   const T* wdg, const T* /*uinf*/, const T* param, T t,
+                   const T* wdg, const T* uinf, const T* param, T t,
                    int /*modelnumber*/, int ng, int /*nc*/, int /*ncu*/, int /*nd*/,
                    int /*ncx*/, int /*nco*/, int /*ncw*/, int /*nce*/, int /*npe*/, int /*ne*/)
 {
@@ -95,7 +95,7 @@ void eos_dw_kernel(T* f, const T* xdg, const T* udg, const T* odg,
             for (int k = 0; k < ncw; ++k) w[k] = wdg[k * ng + i];
 
             T out_local[ncu * ncw];
-            M::eos_dw(out_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
+            M::eos_dw(out_local, x, uq, v, w, param, uinf, t);
             for (int k = 0; k < ncu * ncw; ++k) f[k * ng + i] = out_local[k];
         });
     } else {
@@ -105,7 +105,7 @@ void eos_dw_kernel(T* f, const T* xdg, const T* udg, const T* odg,
 
 template <class M, class T=dstype, class I=Int>
 void avfield_kernel(T* f, const T* xdg, const T* udg, const T* odg,
-                    const T* wdg, const T* /*uinf*/, const T* param, T t,
+                    const T* wdg, const T* uinf, const T* param, T t,
                     int /*modelnumber*/, int ng, int /*nc*/, int /*ncu*/, int /*nd*/,
                     int /*ncx*/, int /*nco*/, int /*ncw*/, int /*nce*/, int /*npe*/, int /*ne*/)
 {
@@ -125,7 +125,7 @@ void avfield_kernel(T* f, const T* xdg, const T* udg, const T* odg,
         if (ncw > 0) for (int k = 0; k < ncw; ++k) w[k] = wdg[k * ng + i];
 
         T out_local[ncu];
-        M::avfield(out_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
+        M::avfield(out_local, x, uq, v, w, param, uinf, t);
         for (int k = 0; k < ncu; ++k) f[k * ng + i] = out_local[k];
     });
 }

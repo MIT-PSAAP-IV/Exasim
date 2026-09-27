@@ -143,7 +143,7 @@ field data needed for postprocessing remain available.
 | Quantities of interest | `outqoi.txt` | `nvqoi`, `nsurf` | Rank-0 text file containing time followed by integrated volume and surface QoIs. |
 | CG output field | `_outputCG_np<rank>.bin`, `_outputCG_t<step>_np<rank>.bin` | `Output` model hook / output component count | Model-defined output field converted from DG to CG-style storage. |
 | Boundary extracts | `outbouxdg_np<rank>.bin`, `outboundg_np<rank>.bin`, `outbouudg_np<rank>.bin`, `outbouuhat_np<rank>.bin`, `outbouwdg_np<rank>.bin`, `outbouinfo_np<rank>.bin` | `saveSolBouFreq`, `ibs` | Boundary geometry, normals, solution, trace, and optional `wdg` data for selected boundary blocks. |
-| Surface quantities | `outbousurf_np<rank>.bin`, `outbousurfgeo_np<rank>.bin` (Gauss points only) | `saveSolBouFreq`, `ibs`, `saveSolBouLoc`, `SurfaceQuantities` | Model-defined pointwise surface fields (heat flux, skin friction, pressure coefficient, ...) on the selected boundaries. |
+| Surface quantities | `outbousurf_np<rank>.bin`, `outbousurfgeo_np<rank>.bin` | `saveSolBouFreq`, `ibs`, `saveSolBouLoc`, `SurfaceQuantities` | Model-defined pointwise surface fields (heat flux, skin friction, pressure coefficient, ...) on the selected boundaries. |
 | Residual history | `out_residualnorms<rank>.bin` | `saveResNorm` | Binary nonlinear/linear residual history used by frontend helpers. |
 
 All per-rank binary files are written under the path prefix passed as
@@ -433,12 +433,17 @@ end
 ```
 
 The values are written to `outbousurf_np<rank>.bin` together with the other
-boundary extracts. `saveSolBouLoc` selects the evaluation points:
+boundary extracts. The boundary id `ib` passed to the model is that of the face
+block being evaluated, so a C++ model can branch on it; a text2code
+`SurfaceQuantities` is one expression evaluated on every `ibs` boundary.
+`saveSolBouLoc` selects the evaluation points, and `outbousurfgeo_np<rank>.bin`
+holds the geometry of exactly those points, **one record per save** (so it
+follows a moving or adapted mesh):
 
-| `saveSolBouLoc` | Points | Geometry for the values |
+| `saveSolBouLoc` | Points | Geometry record in `outbousurfgeo` |
 |---|---|---|
-| `0` (default) | face nodes (`npf` per face) | `outbouxdg` / `outboundg` (same points, same order) |
-| `1` | face Gauss points (`ngf` per face) | `outbousurfgeo`: coordinates, normals, and `dA` = Gauss weight x face Jacobian, so `sum(f*dA)` integrates `f` |
+| `0` (default) | face nodes (`npf` per face) | coordinates, normals |
+| `1` | face Gauss points (`ngf` per face) | coordinates, normals, and `dA` = Gauss weight x face Jacobian, so `sum(f*dA)` integrates `f` |
 
 File layouts (float64; each file starts with a 3-value header):
 
@@ -446,11 +451,14 @@ File layouts (float64; each file starts with a 3-value header):
 |---|---|---|
 | `outbouinfo` | `[nblocks, 2, 0]` | once: `(ib, nf)` for each boundary face block, in file order |
 | `outbousurf` | `[np, nfbou, nsurfq]` | one per save: the blocks concatenated, each `[np, nf, nsurfq]` (point fastest) |
-| `outbousurfgeo` | `[ngf, nfbou, ncx+nd+1]` | once: per block `[ngf, nf, ncx]` coordinates, `[ngf, nf, nd]` normals, `[ngf, nf]` `dA` |
+| `outbousurfgeo` | `[np, nfbou, ncx+nd+loc]` | one per save: per block `[np, nf, ncx]` coordinates, `[np, nf, nd]` normals, and (loc = 1) `[np, nf]` `dA` |
 
 All `outbou*` files concatenate the face blocks of every listed boundary in the
 `outbouinfo` order, so split records by block before reshaping. The
-frontends' `readsurfacequantities` does this and groups the result by boundary id.
+frontends' `readsurfacequantities(prefix, nranks)` does this and returns, per
+boundary id, `values [np, nf, nsurfq, nsteps]`, `x [np, nf, ncx, nsteps]`,
+`n [np, nf, nd, nsteps]`, `dA [np, nf, nsteps]` (Gauss points only) and
+`saveSolBouLoc` (identical keys in Python, Matlab and Julia).
 
 ## Known limitations and checks
 
