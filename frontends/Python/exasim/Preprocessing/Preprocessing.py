@@ -176,11 +176,6 @@ def preprocessing(app,mesh):
         app['nsca'] = f.size;
     else:
         app['nsca'] = 0;
-    if hasattr(pdemodel, 'monitor'):
-        f = pdemodel.monitor(udgsym, qdgsym, wdgsym, odgsym, xdgsym, time, paramsym, uinfsym)
-        app['ncm'] = array(f).size
-    else:
-        app['ncm'] = 0
     if hasattr(pdemodel, 'visvectors'):
         f = pdemodel.visvectors(udgsym, qdgsym, wdgsym, odgsym, xdgsym, time, paramsym, uinfsym);         
         app['nvec'] = round(f.size/app['nd']);

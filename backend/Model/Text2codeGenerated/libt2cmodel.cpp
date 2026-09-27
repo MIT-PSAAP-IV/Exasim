@@ -2,7 +2,6 @@
 #include <Kokkos_Core.hpp>
 #include <driver_abi.hpp>
 #include <modeldefaults.hpp>
-#include <exasim/kernels/materialstate.hpp>
 #include "my_model.hpp"
 
 #ifdef USE_FLOAT

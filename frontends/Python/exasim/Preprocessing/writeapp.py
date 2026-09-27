@@ -45,7 +45,7 @@ def writeapp(app,filename):
     app['factor'] = array(app['factor']);
     app['solversparam'] = array(app['solversparam']);
 
-    ndims = zeros((41,1));
+    ndims = zeros((40,1));
     ndims[1-1] = app['mpiprocs'];  # number of processors
     ndims[2-1] = app['nd'];
     ndims[3-1] = 0;
@@ -65,8 +65,7 @@ def writeapp(app,filename):
     ndims[17-1] = app['nten'];
     ndims[18-1] = app['nbqoi'];
     ndims[19-1] = app['nvqoi'];
-    ndims[20-1] = app.get('ncm', 0);
-    ndims[21-1] = app.get('nsurfq', 0);  # number of surfacequantities outputs
+    ndims[20-1] = app.get('nsurfq', 0);  # number of surfacequantities outputs
 
     #if app['nco'] != app['vindx'].shape[0]:  #size(app.vindx,1):
     #    error("app.nco mus be equal to size(app.vindx,1)");

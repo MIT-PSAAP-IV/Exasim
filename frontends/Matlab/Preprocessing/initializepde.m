@@ -55,7 +55,6 @@ pde.ncx = 1;
 pde.ncw = 0;
 pde.nce = 0;
 pde.nsca = 0;
-pde.ncm = 0;
 pde.nvec = 0;
 pde.nten = 0;
 pde.nbqoi = 0;

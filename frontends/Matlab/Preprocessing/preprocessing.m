@@ -161,12 +161,6 @@ if isfield(pde, 'visscalars')
     sdgsym = pde.visscalars(udgsym, qdgsym, wdgsym, odgsym, xdgsym, time, paramsym, uinfsym);         
     app.nsca = length(sdgsym(:));
 end
-if isfield(pde, 'monitor')
-    mdgsym = pde.monitor(udgsym, qdgsym, wdgsym, odgsym, xdgsym, time, paramsym, uinfsym);
-    app.ncm = length(mdgsym(:));
-else
-    app.ncm = 0;
-end
 if isfield(pde, 'visvectors')        
     sdgsym = pde.visvectors(udgsym, qdgsym, wdgsym, odgsym, xdgsym, time, paramsym, uinfsym);         
     app.nvec = length(sdgsym(:))/app.nd;

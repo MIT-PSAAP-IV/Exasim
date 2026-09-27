@@ -8,7 +8,6 @@ if isfield(app, 'uniformrefinementlevel') == 0, app.uniformrefinementlevel = 0; 
 if isfield(app, 'stgchem') == 0, app.stgchem = 0; end
 if isfield(app, 'ibs') == 0 || isempty(app.ibs), app.ibs = 0; end
 if isfield(app, 'saveSolBouLoc') == 0 || isempty(app.saveSolBouLoc), app.saveSolBouLoc = 0; end
-if isfield(app, 'ncm') == 0, app.ncm = 0; end
 if isfield(app, 'nsurfq') == 0, app.nsurfq = 0; end
 if ~isscalar(app.saveSolBouLoc) || ~any(app.saveSolBouLoc == [0 1])
     error('saveSolBouLoc must be 0 (face nodes) or 1 (face Gauss points).');
@@ -35,7 +34,7 @@ app.problem  = [app.hybrid appname app.temporalscheme app.torder app.nstage app.
 app.factor = [app.time app.dae_alpha app.dae_beta app.dae_gamma app.dae_epsilon app.factor];           
 app.solversparam = [app.NLtol app.linearsolvertol app.matvectol app.NLparam app.solversparam];        
 
-ndims = zeros(41,1);
+ndims = zeros(40,1);
 ndims(1) = app.mpiprocs;  % number of processors
 ndims(2) = app.nd;
 ndims(3) = 0;
@@ -55,8 +54,7 @@ ndims(16) = app.nvec;
 ndims(17) = app.nten;
 ndims(18) = app.nbqoi; 
 ndims(19) = app.nvqoi;
-ndims(20) = app.ncm;
-ndims(21) = app.nsurfq; % SurfaceQuantities components
+ndims(20) = app.nsurfq; % SurfaceQuantities components
 
 % if app.nco ~= size(app.vindx,1)
 %     error("app.nco mus be equal to size(app.vindx,1)");
@@ -66,29 +64,25 @@ if ~isfield(app, 'AVcontinuationIter'), app.AVcontinuationIter = 0; end
 if ~isfield(app, 'AVcontinuationLogScale'), app.AVcontinuationLogScale = 1.0; end
 if ~isfield(app, 'AVcoeffStart'), app.AVcoeffStart = 0.0; end
 if ~isfield(app, 'AVcoeffEnd'), app.AVcoeffEnd = 0.0; end
-
-if ~isfield(app, 'avparam1') || isempty(app.avparam1)
-  if app.AVcontinuationIter >= 2
-    t = linspace(0.0, 1.0, app.AVcontinuationIter)';
-    alpha = app.AVcontinuationLogScale;
-    if ~all(isfinite([alpha app.AVcoeffStart app.AVcoeffEnd]))
-      error('AV continuation parameters must be finite.');
-    end
-    if abs(alpha) <= 1.0e-14
-      g1 = 1.0 - t;
-      g2 = t;
-    else
-      den = expm1(alpha);
-      g1 = expm1(alpha*(1.0-t))/den;
-      g2 = expm1(alpha*t)/den;
-    end
-    app.avparam1 = app.AVcoeffStart*g1;
-    app.avparam2 = app.AVcoeffEnd*g2;
-    app.avparam1([1 end]) = [app.AVcoeffStart; 0.0];
-    app.avparam2([1 end]) = [0.0; app.AVcoeffEnd];
+if app.AVcontinuationIter >= 2
+  t = linspace(0.0, 1.0, app.AVcontinuationIter)';
+  alpha = app.AVcontinuationLogScale;
+  if ~all(isfinite([alpha app.AVcoeffStart app.AVcoeffEnd]))
+    error('AV continuation parameters must be finite.');
   end
+  if abs(alpha) <= 1.0e-14
+    g1 = 1.0 - t;
+    g2 = t;
+  else
+    den = expm1(alpha);
+    g1 = expm1(alpha*(1.0-t))/den;
+    g2 = expm1(alpha*t)/den;
+  end
+  app.avparam1 = app.AVcoeffStart*g1;
+  app.avparam2 = app.AVcoeffEnd*g2;
+  app.avparam1([1 end]) = [app.AVcoeffStart; 0.0];
+  app.avparam2([1 end]) = [0.0; app.AVcoeffEnd];
 end
-
 if numel(app.avparam1) ~= numel(app.avparam2)
   error('avparam1 and avparam2 must have the same length.');
 end

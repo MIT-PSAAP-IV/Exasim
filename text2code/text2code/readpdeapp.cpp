@@ -458,7 +458,7 @@ struct PDE {
     int mpiprocs = 1;
     int nd = 1, nc = 1, ncu = 1, ncq = 0, ncp = 0, ncv = 0;
     int nch = 1, ncx = 1, ncw = 0, nce = 0, np=0, nve=0, ne=0;
-    int nsca=0, nvec=0, nten=0, nsurf=0, nvqoi=0, ncm=0, nmaterialstate=0, nsurfq=0;
+    int nsca=0, nvec=0, nten=0, nsurf=0, nvqoi=0, nmaterialstate=0, nsurfq=0;
     int neb = 512 * 8;
     int nfb = 512 * 16;
     int elemtype = 1;
@@ -1144,7 +1144,7 @@ void writepde(const PDE& pde, const std::string& filename)
         pde.meshAdaptDamping, pde.meshAdaptMinimumJacobianRatio, pde.meshAdaptHelmholtzTau,
         pde.meshAdaptElasticityTau};
 
-    std::vector<double> ndims(41, 0.0);
+    std::vector<double> ndims(40, 0.0);
     ndims[0] = pde.mpiprocs;
     ndims[1] = pde.nd;
     ndims[5] = pde.nc;
@@ -1161,8 +1161,7 @@ void writepde(const PDE& pde, const std::string& filename)
     ndims[16] = pde.nten;
     ndims[17] = pde.nsurf;
     ndims[18] = pde.nvqoi;
-    ndims[19] = pde.ncm;
-    ndims[20] = pde.nsurfq;
+    ndims[19] = pde.nsurfq;
 
     std::vector<double> nsize(30, 0.0);
     nsize[0] = ndims.size();

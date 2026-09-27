@@ -809,15 +809,11 @@ int ExasimSolver::ParseInputs(int argc, char** argv,
     // Fill missing dimension sizes from the compiled ABI so they don't
     // need to be specified in pdeapp.txt.
     {
-        // Effective model id: builtinmodelID for builtin models, modelnumber
-        // for external models (whose builtinmodelID stays 0). Querying sizes
-        // with 0 would miss the external provider's per-model table.
-        const int sizeID = (pde.builtinmodelID > 0) ? pde.builtinmodelID : pde.modelnumber;
-        const auto& abi = resolveABI(sizeID);
+        const auto& abi = resolveABI(pde.builtinmodelID);
         // Use per-model query (BuiltInLibrary) or direct fields (KokkosKernel)
         ModelSizes ms;
         if (abi.GetModelSizes)
-            ms = abi.GetModelSizes(sizeID);
+            ms = abi.GetModelSizes(pde.builtinmodelID);
         else
             ms = {abi.ncu, abi.nco, abi.ncw, abi.nsca, abi.nvec, abi.nten,
                   abi.nsurf, abi.nvqoi, abi.nmaterialstate, abi.nsurfq};
@@ -1051,7 +1047,7 @@ int ExasimSolver::ParsePostprocessInputs(int argc, char** argv)
 
     if (argc < 3) {
         if (mpirank_ == 0)
-            std::cerr << "Usage: ./postprocess nummodels InputFile(s) OutputFile(s) [restart] [postmode] [nsca] [nvec] [nten] [nsurf] [nvqoi] [saveParaview]\n";
+            std::cerr << "Usage: ./postprocess nummodels InputFile(s) OutputFile(s) [restart] [postmode]\n";
         return 1;
     }
 

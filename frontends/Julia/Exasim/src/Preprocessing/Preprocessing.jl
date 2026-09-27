@@ -190,12 +190,6 @@ if isdefined(pdemodel, Symbol("visscalars"))
     end
     app.nsca = length(f[:]);    
 end
-if isdefined(pdemodel, Symbol("monitor"))
-    f = pdemodel.monitor(udgsym, qdgsym, wdgsym, odgsym, xdgsym, time, paramsym, uinfsym);
-    app.ncm = length(f[:]);
-else
-    app.ncm = 0;
-end
 if isdefined(pdemodel, Symbol("visvectors")) 
     f = pdemodel.visvectors(udgsym, qdgsym, wdgsym, odgsym, xdgsym, time, paramsym, uinfsym);         
     if length(f)==1

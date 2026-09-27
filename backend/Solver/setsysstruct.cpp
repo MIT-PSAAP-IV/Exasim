@@ -51,8 +51,6 @@ Notes:
 #ifndef __SETSYSSTRUCT
 #define __SETSYSSTRUCT
 
-#include <climits> // INT_MAX for the Krylov scratch size check below
-
 template <class T=dstype, class I=Int>
 T rand_normal(T mean, T stddev)
 {
@@ -228,6 +226,10 @@ void setsysstruct(sysstructT<T,I> &sys, commonstructT<T,I> &common, resstructT<T
     TemplateMalloc(&sys.r, ndof, backend); 
     //TemplateMalloc(&sys.v, ndof*M, backend);      
     
+    // Reserve the GMRES Krylov scratch from the residual K-arena (non-owning; the arena sized
+    // its [szP, szK) tail for exactly this). Was, in both branches: sys.v = &res.K[res.szP] --
+    // the solver no longer hard-codes the discretization's buffer layout (S5: decouple sys.v
+    // from res; a future change can hand back a separate buffer without touching this call).
     sys.v = res.reserveKrylovScratch(ndof*M);
     sys.szv = 0;
     
@@ -242,7 +244,7 @@ void setsysstruct(sysstructT<T,I> &sys, commonstructT<T,I> &common, resstructT<T
     ArraySetValue(sys.x, 0.0, ndof);
     ArraySetValue(sys.b, 0.0, ndof);
     ArraySetValue(sys.r, 0.0, ndof);
-    ArraySetValue(sys.v, 0.0, (Int)((long long)ndof * (long long)M));
+    ArraySetValue(sys.v, 0.0, ndof*M);
         
     if (common.components.ncs>0) {        
         TemplateMalloc(&sys.utmp, npe*common.components.nc*common.meshsizes.ne2, backend); 

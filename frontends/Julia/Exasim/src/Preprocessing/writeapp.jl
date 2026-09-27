@@ -27,9 +27,6 @@ ibs1 = isempty(ibsv) ? 0 : ibsv[1];
 if !(app.saveSolBouLoc in (0, 1))
     error("pde.saveSolBouLoc must be 0 (face nodes) or 1 (face Gauss points).");
 end
-if !isdefined(app, :ncm)
-    app.ncm = 0;
-end
 if !isdefined(app, :nsurfq)
     app.nsurfq = 0;
 end
@@ -38,7 +35,7 @@ app.problem = [app.hybrid appname app.temporalscheme app.torder app.nstage app.c
 app.factor = [app.time app.dae_alpha app.dae_beta app.dae_gamma app.dae_epsilon app.factor];
 app.solversparam = [app.NLtol app.linearsolvertol app.matvectol app.NLparam app.solversparam];
 
-ndims = zeros(41,1);
+ndims = zeros(40,1);
 ndims[1] = app.mpiprocs;  # number of processors
 ndims[2] = app.nd;
 ndims[3] = 0;
@@ -58,8 +55,7 @@ ndims[16] = app.nvec;
 ndims[17] = app.nten;
 ndims[18] = app.nbqoi;
 ndims[19] = app.nvqoi;
-ndims[20] = app.ncm;
-ndims[21] = app.nsurfq;
+ndims[20] = app.nsurfq;
 
 if app.AVcontinuationIter >= 2
     t = collect(range(0.0, 1.0, length=app.AVcontinuationIter));
