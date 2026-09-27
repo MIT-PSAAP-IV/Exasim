@@ -1,30 +1,35 @@
 cmake_minimum_required(VERSION 3.16)
-project(exasim_app_nsmach8_surfvis CXX)
-set(CMAKE_CXX_STANDARD 20)
+project(exasim_app CXX)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# nsmach8 wall heat-flux surface vis (model ID 107): the Navier-Stokes kernels
-# (including SurfaceQuantities) are generated at build time from pdeapp.txt via
-# text2code and registered as an external built-in model. Built ONLY via
-# find_package(Exasim) -- no source tree references.
-option(EXASIM_MPI "MPI variant" ON)
-if(EXASIM_MPI)
-  set(EXASIM_VARIANT cpumpi)
-else()
-  set(EXASIM_VARIANT cpu)
-endif()
-find_package(Exasim REQUIRED COMPONENTS ${EXASIM_VARIANT})
-find_package(Kokkos REQUIRED)
-find_package(MPI REQUIRED)
+option(EXASIM_MPI "Link the MPI-enabled Exasim preprocessing library" ON)
+option(EXASIM_GPU "Link the GPU-enabled Exasim preprocessing library" OFF)
 
-exasim_add_external_builtin_model(TARGET ext_model_nsmach8
-  ID 107
-  PDEMODEL ${CMAKE_CURRENT_SOURCE_DIR}/pdeapp.txt)
+find_package(Exasim REQUIRED)
+
+set(EXASIM_APP_LIBRARY_TARGET Exasim::cpuprelib)
+if(EXASIM_MPI)
+  set(EXASIM_APP_LIBRARY_TARGET Exasim::cpumpiprelib)
+endif()
+if(EXASIM_GPU)
+  if(EXASIM_MPI)
+    set(EXASIM_APP_LIBRARY_TARGET Exasim::gpumpiprelib)
+  else()
+    set(EXASIM_APP_LIBRARY_TARGET Exasim::gpuprelib)
+  endif()
+endif()
+
+if(NOT TARGET ${EXASIM_APP_LIBRARY_TARGET})
+  message(FATAL_ERROR
+    "Requested Exasim target ${EXASIM_APP_LIBRARY_TARGET} is not available in the "
+    "current Exasim package. Reconfigure Exasim to build that library variant.")
+endif()
 
 add_executable(exasimapp main.cpp)
-target_compile_definitions(exasimapp PRIVATE _BUILTINLIBRARY)
+target_include_directories(exasimapp PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_compile_definitions(exasimapp PRIVATE _KOKKOSKERNEL)
 if(EXASIM_MPI)
   target_compile_definitions(exasimapp PRIVATE _MPI)
 endif()
-target_link_libraries(exasimapp PRIVATE
-    Exasim::headers Exasim::pre ext_model_nsmach8 Kokkos::kokkos MPI::MPI_CXX)
+target_link_libraries(exasimapp PRIVATE Exasim::headers ${EXASIM_APP_LIBRARY_TARGET})

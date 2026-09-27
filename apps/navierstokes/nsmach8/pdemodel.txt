@@ -8,7 +8,7 @@ hessian
 
 batch x, uq, v, w, uhat, n
 
-outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Fint, Fext, Initu, VisScalars, VisVectors, SurfaceQuantities
+outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Fint, Fext, Initu, VisScalars, VisVectors
 
 function Flux(x, uq, v, w, eta, mu, t)  
     output_size(f) = 8;
@@ -152,27 +152,6 @@ function VisVectors(x, uq, v, w, eta, mu, t)
   s[1] = uq[2];  
 end
 
-function SurfaceQuantities(x, uq, v, w, uhat, n, tau, eta, mu, t)
-    output_size(sq) = 2;
-
-    s = Scalings(eta, mu);
-    Pref = s[2];
-    Qref = s[3];
-
-    gam = mu[0];
-    gam1 = gam - 1.0;
-
-    f = HeatFlux(x, uhat, uq, v, w, eta, mu, t);
-    sq[0] = (f[0] * n[0] + f[1] * n[1] + tau[0]*(uq[3] - uhat[3])) * Qref;
-
-    r = uhat[0];
-    ru = uhat[1];
-    rv = uhat[2];
-    rE = uhat[3];
-    ke = 0.5*(ru*ru + rv*rv)/r;
-    sq[1] = gam1*(rE - r*ke) * Pref;
-end
-
 function HeatFlux(x, uhat, uq, v, w, eta, mu, t)  
     output_size(f) = 2;
 
@@ -255,33 +234,4 @@ function Fext(x, uq, v, w, uhat, n, uext, tau, eta, mu, t)
     fb[1] = 0.0  - uhat[1]; 
     fb[2] = 0.0  - uhat[2]; 
     fb[3] = uhat[0]*uext[0] - uhat[3];               
-end
-
-function Scalings(eta, mu)
-    output_size(s) = 6;
-
-    gam = mu[0];
-    gam1 = gam - 1.0;
-    Re = mu[1];
-    Tinf = mu[8];
-    Tref = mu[9];
-
-    R = 287;
-    Ts = 110.4;
-    T0 = 273.15;
-    mu0 = 1.716e-5;
-
-    TrRef = Tref/T0;
-    muPhys = mu0 * sqrt(TrRef*TrRef*TrRef) * (T0+Ts)/(Tref+Ts);
-    URef = sqrt(R * Tref / (gam1 * Tinf));
-    RhoRef = Re * muPhys / URef;
-    Pref = RhoRef * URef * URef;
-    Qref = Pref * URef;
-
-    s[0] = RhoRef;
-    s[1] = URef;
-    s[2] = Pref;
-    s[3] = Qref;
-    s[4] = Tref;
-    s[5] = muPhys;
 end
