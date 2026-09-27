@@ -81,7 +81,7 @@ inline void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, ma
     common.qoiparams.nsurf = app.ndims[AppNdims::nsurf];// number of components of surface fields for visualization, storage, and QoIs
     common.qoiparams.nvqoi = app.ndims[AppNdims::nvqoi];// number of volume quantities of interest (QoIs)
 
-    common.components.ncm = 1;//number of components of monitor function
+    common.components.ncm = app.ndims[AppNdims::ncm];//number of components of monitor function
     if (app.flag[1]==1)
         common.components.ncs = common.components.nc;  // wave problem
     else if (app.flag[0]==1)

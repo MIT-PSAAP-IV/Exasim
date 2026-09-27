@@ -58,6 +58,7 @@ def writeapp(app,filename):
     ndims[17-1] = app['nten'];
     ndims[18-1] = app['nbqoi'];
     ndims[19-1] = app['nvqoi'];
+    ndims[20-1] = app.get('ncm', 0);
 
     #if app['nco'] != app['vindx'].shape[0]:  #size(app.vindx,1):
     #    error("app.nco mus be equal to size(app.vindx,1)");

@@ -719,7 +719,8 @@ struct AppNdims {
         nvec     = 15, // vector vis fields
         nten     = 16, // tensor vis fields
         nsurf    = 17, // surface vis/storage/QoI fields
-        nvqoi    = 18  // volume quantities of interest
+        nvqoi    = 18, // volume quantities of interest
+        ncm      = 19  // components of the physical-state monitor
     };
 };
 
