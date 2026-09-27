@@ -137,6 +137,7 @@ inline appstructT<T,I> buildAppStruct(const PDE& pde)
     app.ndims[AppNdims::nten] = pde.nten;
     app.ndims[AppNdims::nsurf] = pde.nsurf;
     app.ndims[AppNdims::nvqoi] = pde.nvqoi;
+    app.ndims[AppNdims::ncm] = pde.ncm;
     app.ndims[AppNdims::nsurfq] = pde.nsurfq;
 
     // ---- nsize (30 entries, sub-array sizes) ----

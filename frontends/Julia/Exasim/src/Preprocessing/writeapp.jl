@@ -55,7 +55,8 @@ ndims[16] = app.nvec;
 ndims[17] = app.nten;
 ndims[18] = app.nbqoi;
 ndims[19] = app.nvqoi;
-ndims[20] = app.nsurfq;
+ndims[20] = app.ncm;
+ndims[21] = app.nsurfq;  # SurfaceQuantities components
 
 if app.AVcontinuationIter >= 2
     t = collect(range(0.0, 1.0, length=app.AVcontinuationIter));
