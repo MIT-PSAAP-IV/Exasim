@@ -2280,7 +2280,12 @@ void RqFaceFused(Ty* Rh, const Ty* uh, const Ty* faceg, const Ty* shapfgt, const
     const int* base = fm.base; const int* nga = fm.nga; const int* loc = fm.loc;
     const int nsc = ngf*ncu;
     const size_t bytes = Scratch::shmem_size(nsc);
-    Kokkos::parallel_for("RqFaceFused", Policy(fm.nf, 64).set_scratch_size(0, Kokkos::PerTeam(bytes)),
+#if defined(KOKKOS_ENABLE_HIP) || defined(KOKKOS_ENABLE_CUDA)
+    Policy policy(fm.nf, 64);            // one wavefront per face
+#else
+    Policy policy(fm.nf, Kokkos::AUTO);  // host backends (Serial/OpenMP) support only their own team sizes
+#endif
+    Kokkos::parallel_for("RqFaceFused", policy.set_scratch_size(0, Kokkos::PerTeam(bytes)),
         KOKKOS_LAMBDA(const Policy::member_type& team) {
         const int fq = team.league_rank();
         const size_t f = (size_t)F0 + fq;
