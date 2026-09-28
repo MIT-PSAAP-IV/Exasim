@@ -35,7 +35,7 @@ void avdistfunc(CSolution<exasim::detail::AbiAdapter>** pdemodel, ofstream* out,
       const Int m = model.disc.app.szphysicsparam;
       ArrayCopy(&model.disc.app.physicsparam[m-2],
                 &model.disc.app.avparam[2*n], 2);
-      if (model.disc.common.physicsparams.AVdistfunction)
+      if (model.disc.common.meshadaptparams.enabled)
           model.UpdateWallDistance(n+1, backend);
       model.PrepareArtificialViscosity(n == 0, n+1, backend);
       const SolveStatus status = model.disc.common.timeparams.tdep == 1

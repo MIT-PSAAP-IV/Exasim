@@ -29,9 +29,17 @@ rho = u(1);
 uz = u(2)/rho;
 ur = u(3)/rho;
 e = u(4)/rho - 0.5*(uz*uz + ur*ur);
-rholm = limiting(rho, 0.0001/mu(1), 20.0/mu(1), 1e2, 0.0001/mu(1));
-elm = limiting(e, -150000/mu(4), 20000000/mu(4), 1e2, -150000/mu(4));
-state = [log(mu(1)*rholm); mu(4)*elm];
+rhoMin = 0.0001/mu(1);
+rhoMax = 20.0/mu(1);
+rholm = limiting(rho, rhoMin, rhoMax, 1e2, rhoMin);
+% Keep the smooth limiter inside the database endpoints. Its regularized
+% min/max operations are not strict bounds and can otherwise overshoot by a
+% few tens of J/kg during high-Mach Newton trial states.
+energySafety = 1000.0;
+energyMin = -150000+energySafety;
+energyMax = 20000000-energySafety;
+energy = limiting(mu(4)*e, energyMin, energyMax, 1e2, energyMin);
+state = [log(mu(1)*rholm); energy];
 end
 
 function f = flux(u, q, w, v, x, t, mu, eta) %#ok<INUSD>

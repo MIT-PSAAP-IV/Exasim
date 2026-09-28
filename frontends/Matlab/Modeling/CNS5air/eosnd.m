@@ -1,4 +1,4 @@
-function f = eosnd(u, q, w, v, x, t, mu, eta)    
+function f = eosnd(u, q, w, v, x, t, mu, eta) %#ok<INUSD>
     ns = 5;
     nd = length(x);
 
@@ -7,26 +7,25 @@ function f = eosnd(u, q, w, v, x, t, mu, eta)
     u_scale     = mu(2);
     rhoe_scale  = mu(3);
     T_scale     = mu(4);
-    
+
+    rhoFloor = 1e-12;
+    alphaRho = 1e6;
+    rho_nd = 0*u(1:ns);
     for i = 1:ns
-      u(i) = lmax(u(i), 1e6);
+      rho_nd(i) = rhoFloor + lmax(u(i)-rhoFloor,alphaRho);
     end
-    rho_i = u(1:ns) * rho_scale;
-    if nd == 1 
-      rhou  = u(ns+1) * (rho_scale * u_scale);
-      rhoE  = u(ns+2) * rhoe_scale;
-      rhoe = (rhoE - 0.5 * (rhou * rhou) / sum(rho_i));      
-    elseif nd == 2
-      rhou  = u(ns+1) * (rho_scale * u_scale);
-      rhov  = u(ns+2) * (rho_scale * u_scale);
-      rhoE  = u(ns+3) * rhoe_scale;
-      rhoe = (rhoE - 0.5 * (rhou * rhou + rhov * rhov) / sum(rho_i));
-    elseif nd == 3
-      rhou  = u(ns+1) * (rho_scale * u_scale);
-      rhov  = u(ns+2) * (rho_scale * u_scale);
-      rhow  = u(ns+3) * (rho_scale * u_scale);
-      rhoE  = u(ns+4) * rhoe_scale;
-      rhoe = (rhoE - 0.5 * (rhou * rhou + rhov * rhov + rhow * rhow) / sum(rho_i));  
+    rho_i = rho_scale*rho_nd;
+    rho = sum(rho_i);
+
+    momentum2 = 0*u(1);
+    for d = 1:nd
+      momentum = u(ns+d)*(rho_scale*u_scale);
+      momentum2 = momentum2 + momentum*momentum;
     end
-    f = equationofstate(w(1) * T_scale, rho_i, rhoe);
+    rhoE = u(ns+nd+1)*rhoe_scale;
+    rhoe = rhoE-0.5*momentum2/rho;
+
+    T = w(1)*T_scale;
+    %f = equationofstate(T,rho_i,rhoe);
+    f = equationofstate_scaled(T,rho_i,rhoe,rhoe_scale);
 end

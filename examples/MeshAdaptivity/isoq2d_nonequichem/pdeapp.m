@@ -68,7 +68,7 @@ pde.AVcontinuationLogScale = 3.0;
 pde.AVcoeffStart = 2e-3;
 pde.AVcoeffEnd = 2e-5;
 pde.AVdistfunction = 1;
-pde.distanceboundaryconditions = 6;
+pde.distanceboundaryconditions = 8; % 8 catalytic isothermal wall
 pde.AVsmoothingMethod = 1;
 pde.AVHelmholtzCoeff = 0.001;
 AVmaxdiv = 30.0;
@@ -105,8 +105,8 @@ gammaCatalysis = zeros(5,1);
 pde.externalparam = [Uinf;Ycat;gammaCatalysis];
 
 mesh = mkmesh_isoq2d(pde.porder,5e-4);
-% Slip/axis symmetry, outflow, inflow, noncatalytic isothermal wall.
-mesh.boundarycondition = [5 2 1 6];
+% Slip/axis symmetry, outflow, inflow, catalytic isothermal wall.
+mesh.boundarycondition = [5 2 1 8];
 master = Master(pde);
 dist = meshdist3(mesh.f,mesh.dgnodes,master.perm,4);
 

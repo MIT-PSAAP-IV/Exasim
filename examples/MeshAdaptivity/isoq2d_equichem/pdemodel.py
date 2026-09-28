@@ -38,9 +38,9 @@ def materialstate(u, q, w, v, x, t, mu, eta):
     internal_energy = u[3] / rho - 0.5 * (
         velocity_z * velocity_z + velocity_r * velocity_r
     )
-    limited_rho = _limiting(rho, 0.0001 / mu[0], 20.0 / mu[0], 1.0e2, 0.0)
+    limited_rho = _limiting(rho, 0.0001 / mu[0], 20.0 / mu[0], 1.0e2, 0.0001 / mu[0])
     limited_energy = _limiting(
-        internal_energy, -150000.0 / mu[3], 20000000.0 / mu[3], 1.0e2, 0.0
+        internal_energy, -150000.0 / mu[3], 20000000.0 / mu[3], 1.0e2, -150000.0 / mu[3]
     )
     return np.array([sp.log(mu[0] * limited_rho), mu[3] * limited_energy])
 

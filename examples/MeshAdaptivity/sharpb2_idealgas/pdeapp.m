@@ -4,12 +4,6 @@ caseDir = fileparts(mfilename('fullpath'));
 repoRoot = fileparts(fileparts(fileparts(caseDir)));
 run(fullfile(repoRoot,'frontends','Matlab','exasim_setup.m'));
 
-% Reuse the Sharp-B geometry and the established adaptive ideal-gas model.
-sharpbDir = fullfile(repoRoot,'examples','NavierStokes','sharpb2');
-adaptiveModelDir = fullfile(repoRoot,'examples','MeshAdaptivity','isoq2d_idealgas');
-addpath(sharpbDir,'-end');
-addpath(adaptiveModelDir,'-begin');
-
 [pde,mesh] = initializeexasim();
 pde.model = "ModelD";
 pde.modelfile = "pdemodel_axialns";
@@ -46,14 +40,14 @@ rEinf = 0.5+pinf/(gam-1);
 nm = 1e2;
 pde.AV = 1;
 pde.AVcontinuationIter = 9;
-pde.AVcontinuationLogScale = 1.5;
+pde.AVcontinuationLogScale = 2;
 pde.AVcoeffStart = 0.005;
-pde.AVcoeffEnd = 0.0003;
+pde.AVcoeffEnd = 0.000016;
 pde.AVdistfunction = 1;
 pde.distanceboundaryconditions = 3; % isothermal-wall flow BC tag
 pde.AVsmoothingMethod = 1;
-pde.AVHelmholtzCoeff = 0.005;
-AVmaxdiv = 12.0;
+pde.AVHelmholtzCoeff = 0.001;
+AVmaxdiv = 60.0;
 AVdistcoeff = nm;
 
 pde.meshadaptenabled = 1;
