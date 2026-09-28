@@ -210,14 +210,22 @@ inline void GetUhat(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> 
     Int npe = common.grid.npe; // number of nodes on master element
     Int npf = common.grid.npf; // number of nodes on master face      
     
+    const bool fused = FusedFaceEnabled(common);
     for (Int j=nbf1; j<nbf2; j++) {
         Int f1 = common.fblks[3*j]-1;
-        Int f2 = common.fblks[3*j+1];    
-        Int ib = common.fblks[3*j+2];    
+        Int f2 = common.fblks[3*j+1];
+        Int ib = common.fblks[3*j+2];
+        if (fused && ib == 0) {
+            // one launch for this block and every following contiguous interior block (see UhatInteriorFused)
+            while (j+1 < nbf2 && common.fblks[3*(j+1)+2] == 0 && common.fblks[3*(j+1)]-1 == f2)
+                f2 = common.fblks[3*(++j)+1];
+            UhatInteriorFused(sol.uh, sol.udg, mesh.facecon, npf, ncu, npe, nc, f1, f2);
+            continue;
+        }
         //UhatBlock<M>(sol, res, app, master, mesh, tmp, common, handle, f1, f2, ib, backend);
         UhatBlock<M>(sol, res, app, master, mesh, tmp, common,
                 handle, nd, npe, npf, nc, ncu, ncx, nco, f1, f2, ib, backend);
-    }                           
+    }
 }
 
 #ifdef HAVE_ENZYME

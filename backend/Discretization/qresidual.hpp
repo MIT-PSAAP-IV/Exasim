@@ -161,16 +161,24 @@ inline void RqFace(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &
     Int npe = common.grid.npe; // number of nodes on master element
     Int npf = common.grid.npf; // number of nodes on master face           
     Int ngf = common.grid.ngf; // number of gauss poInts on master face          
-    //Int ne = common.meshsizes.ne; // number of elements in this subdomain 
-    
+    //Int ne = common.meshsizes.ne; // number of elements in this subdomain
+
+    if (FusedFaceEnabled(common) && nbf2 > nbf1) {
+        // every block in one launch (see RqFaceFused); falls through if the blocks are not contiguous
+        const auto& fm = FaceBlockMetaGet(common.fblks, nbf1, nbf2, ngf, ncx, nd);
+        if (fm.nf > 0) {
+            RqFaceFused(res.Rh, sol.uh, sol.faceg, master.shapfgt, master.shapfgw, fm, npf, ngf, ncu, nd, ncx);
+            return;
+        }
+    }
     for (Int j=nbf1; j<nbf2; j++) {
         Int f1 = common.fblks[3*j]-1;
-        Int f2 = common.fblks[3*j+1];    
-        Int ib = common.fblks[3*j+2];    
+        Int f2 = common.fblks[3*j+1];
+        Int ib = common.fblks[3*j+2];
         //printf("%i %i %i\n", f1, f2, ib);
-        RqFaceBlock(sol, res, app, master, mesh, tmp, common, common.cublasHandle, 
+        RqFaceBlock(sol, res, app, master, mesh, tmp, common, common.cublasHandle,
                 nd, npe, npf, ngf, nc, ncu, ncx, f1, f2, ib, backend);
-    }                       
+    }
 }
 
 #ifdef HAVE_ENZYME

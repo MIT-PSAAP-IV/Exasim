@@ -2192,6 +2192,128 @@ void PutFaceNodesGather(Ty* udg, const Ty* uh, const int* facecon, const int npf
     });
 }
 
+// ---- Fused face kernels -----------------------------------------------------------------------------------------
+// The LDG residual processes faces in blocks and runs 2-4 small kernels per block (gather, interpolate, scale,
+// integrate). These fused versions do one launch per call over every block. uh and res.Rh have block-independent
+// layouts ([npf][nc][face]); sol.faceg is stored block by block, so a per-face table (built once on the host and
+// cached per block range) gives each face its block's faceg offset, Gauss-point count and local index.
+// EXASIM_FUSED_FACE=0 restores the per-block kernels.
+// Takes the caller's common struct only so the call is dependent in the residual templates, which are parsed in
+// some TUs before this header is included.
+template <class C>
+inline bool FusedFaceEnabled(const C&)
+{
+    static const bool on = [](){ const char* e = std::getenv("EXASIM_FUSED_FACE"); return !(e && e[0] == '0'); }();
+    return on;
+}
+
+struct FaceBlockMeta {
+    int F0 = 0, nf = -1;     // first face and face count of the range; nf < 0: blocks not contiguous, do not fuse
+    int* base = nullptr;     // faceg offset of the face's block
+    int* nga = nullptr;      // Gauss points in the face's block (ngf * faces in block)
+    int* loc = nullptr;      // ngf * (face index within its block)
+};
+
+inline const FaceBlockMeta& FaceBlockMetaGet(const int* fblks, const int nbf1, const int nbf2, const int ngf, const int ncx, const int nd)
+{
+    using MemSpace = Kokkos::DefaultExecutionSpace::memory_space;
+    struct Key { const int* fb; int b1, b2, ngf, ncx, nd;
+        bool operator<(const Key& o) const { return std::tie(fb,b1,b2,ngf,ncx,nd) < std::tie(o.fb,o.b1,o.b2,o.ngf,o.ncx,o.nd); } };
+    static std::map<Key, FaceBlockMeta> cache;
+    static bool hooked = false;
+    Key key{fblks, nbf1, nbf2, ngf, ncx, nd};
+    auto it = cache.find(key);
+    if (it != cache.end()) return it->second;
+    if (!hooked) {
+        Kokkos::push_finalize_hook([]() {
+            for (auto& kv : cache) {
+                if (kv.second.base) Kokkos::kokkos_free<MemSpace>(kv.second.base);
+                if (kv.second.nga)  Kokkos::kokkos_free<MemSpace>(kv.second.nga);
+                if (kv.second.loc)  Kokkos::kokkos_free<MemSpace>(kv.second.loc);
+            }
+            cache.clear();
+        });
+        hooked = true;
+    }
+    FaceBlockMeta m;
+    if (nbf2 > nbf1) {
+        const int F0 = fblks[3*nbf1] - 1, F1 = fblks[3*(nbf2-1)+1];
+        std::vector<int> base, nga, loc;
+        bool contiguous = true;
+        for (int j = nbf1; j < nbf2 && contiguous; j++) {
+            const int f1 = fblks[3*j] - 1, f2 = fblks[3*j+1];
+            if (j > nbf1 && f1 != fblks[3*(j-1)+1]) contiguous = false;
+            for (int f = f1; f < f2; f++) { base.push_back(ngf*f1*(ncx+nd+1)); nga.push_back(ngf*(f2-f1)); loc.push_back(ngf*(f-f1)); }
+        }
+        if (contiguous && (int)base.size() == F1 - F0) {
+            auto upload = [](const std::vector<int>& v) {
+                int* d = (int*) Kokkos::kokkos_malloc<MemSpace>("face_block_meta", v.size()*sizeof(int));
+                Kokkos::View<int*, MemSpace, Kokkos::MemoryUnmanaged> dv(d, v.size());
+                Kokkos::View<const int*, Kokkos::HostSpace, Kokkos::MemoryUnmanaged> hv(v.data(), v.size());
+                Kokkos::deep_copy(dv, hv);
+                return d;
+            };
+            m.F0 = F0; m.nf = F1 - F0;
+            m.base = upload(base); m.nga = upload(nga); m.loc = upload(loc);
+        }
+    }
+    return cache.emplace(key, m).first->second;
+}
+
+// Rq face term for every face in the range: Rh(:, (m,j), f) = sum_g W(:,g) * (uh interpolated to g) * nl_j * jac,
+// i.e. GetElemNodes + Node2Gauss + ApplyJacNormal + Gauss2Node of RqFaceBlock in one pass (same products and
+// multiply order; the interpolation/integration sums run in ascending order, so roundoff-level vs the GEMMs).
+template <class Ty>
+void RqFaceFused(Ty* Rh, const Ty* uh, const Ty* faceg, const Ty* shapfgt, const Ty* shapfgw, const FaceBlockMeta& fm,
+                 const int npf, const int ngf, const int ncu, const int nd, const int ncx)
+{
+    using dstype = Ty;
+    const int ncq = ncu*nd, F0 = fm.F0;
+    const int* base = fm.base; const int* nga = fm.nga; const int* loc = fm.loc;
+    const size_t N = (size_t)npf*ncq*fm.nf;
+    Kokkos::parallel_for("RqFaceFused", N, KOKKOS_LAMBDA(const size_t idx) {
+        const int p = idx % npf;
+        const size_t r = idx / npf;
+        const int c = r % ncq;
+        const int fq = r / ncq;
+        const int m = c % ncu, j = c / ncu;
+        const size_t f = (size_t)F0 + fq;
+        const dstype* nl = faceg + base[fq] + (size_t)nga[fq]*ncx + (size_t)nga[fq]*j + loc[fq];
+        const dstype* jc = faceg + base[fq] + (size_t)nga[fq]*(ncx+nd) + loc[fq];
+        const dstype* uf = uh + (size_t)npf*m + (size_t)npf*ncu*f;
+        dstype s = 0;
+        for (int g = 0; g < ngf; g++) {
+            dstype u = 0;
+            for (int q = 0; q < npf; q++) u += shapfgt[g + ngf*q] * uf[q];
+            s += shapfgw[p + npf*g] * (u*nl[g]*jc[g]);
+        }
+        Rh[p + (size_t)npf*(c + (size_t)ncq*f)] = s;
+    });
+}
+
+// Interior-face trace uh = average of the two neighbouring elements' udg, written straight into uh: the
+// GetFaceNodes(opts=0) + PutElemNodes pair of UhatBlock(ib==0) in one pass over a run of interior blocks.
+// Same arithmetic: bitwise-identical.
+template <class Ty>
+void UhatInteriorFused(Ty* uh, const Ty* udg, const int* facecon, const int npf, const int ncu, const int npe, const int nc,
+                       const int f1, const int f2)
+{
+    using dstype = Ty;
+    const int ndf = npf*(f2-f1);
+    const size_t N = (size_t)ndf*ncu;
+    const int M = npe*nc;
+    Kokkos::parallel_for("UhatInteriorFused", N, KOKKOS_LAMBDA(const size_t idx) {
+        const int i = idx % ndf;
+        const int j = idx / ndf;
+        const int mm = npf*f1 + i;
+        const int k1 = facecon[2*mm], k2 = facecon[2*mm+1];
+        const int m1 = k1 % npe, m2 = k2 % npe;
+        const int n1 = (k1-m1)/npe, n2 = (k2-m2)/npe;
+        const int k = i % npf, e = f1 + i / npf;
+        uh[k + (size_t)j*npf + (size_t)e*npf*ncu] = 0.5*(udg[m1+j*npe+(size_t)n1*M]+udg[m2+j*npe+(size_t)n2*M]);
+    });
+}
+
 template <class Ty = dstype>
 void PutFaceNodes(Ty* udg, const Ty* uh, const int* facecon, const int npf, const int ncu, const int npe, const int nc, const int f1, const int f2)
 {
