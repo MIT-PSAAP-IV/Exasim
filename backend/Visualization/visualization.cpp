@@ -369,7 +369,7 @@ public:
             }
 
             // Surface fields are host-only data: SaveSurfaces scatters into
-            // srffields on the host and surfwrite serializes from it, so unlike
+            // srffields on the host and surfvtuwrite serializes from it, so unlike
             // the volume fields (consumed on-device by VisDG2CG) mapped memory
             // buys nothing. Ordinary host storage, allocated only when there
             // is surface data to hold (write_block tolerates a null pointer
@@ -553,9 +553,12 @@ public:
     }
 
     // Surface writer (serial): scalar surface fields on a boundary surface mesh.
-    void surfwrite(const std::string& filename_no_ext,
-                   const float* srffields_data) const
+    void surfvtuwrite(const std::string& filename_no_ext,
+                      const float* srffields_data) const
     {
+        if (!surface_names.empty() && !srffields_data)
+            throw std::invalid_argument("surfvtuwrite: srffields_data is null but surface_names is non-empty.");
+
         const std::string filename = filename_no_ext + ".vtu";
         std::ofstream os(filename, std::ios::binary);
         if (!os) throw std::runtime_error("Cannot open output file: " + filename);
@@ -604,11 +607,11 @@ public:
     }
 
     // Parallel surface writer: rank pieces + PVTU on rank 0.
-    void surfwrite_parallel(const std::string& base_name,
-                            int rank, int nranks,
-                            const float* srffields_data) const
+    void surfvtuwrite_parallel(const std::string& base_name,
+                               int rank, int nranks,
+                               const float* srffields_data) const
     {
-        surfwrite(base_name + rank_tag(rank), srffields_data);
+        surfvtuwrite(base_name + rank_tag(rank), srffields_data);
         if (rank == 0) {
             std::vector<std::string> pieces;
             pieces.reserve(nranks);
@@ -854,7 +857,7 @@ private:
         surf_nnodes = (int)surf_nodes.size() / 3;
         surf_ncells = (int)surf_celloffsets.size();
         // Precompute the appended-data offsets once (volume Init pattern);
-        // surfwrite reuses them on every save.
+        // surfvtuwrite reuses them on every save.
         {
             const std::uint64_t obytesize = 8; // UInt64 header per block
             std::uint64_t soff = 0;

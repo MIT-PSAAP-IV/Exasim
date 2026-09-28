@@ -529,16 +529,8 @@ void CSolutionWriter<M>::SaveParaview(Int backend, std::string fname_modifier, b
         // the VTU writer immediately consumes their host-visible buffers.
         Kokkos::fence();
 
-        string baseName = disc.common.fileout + "vis" + fname_modifier;
-        // A forced write (SaveParaviewStep / crash dump) is an explicit time-series
-        // frame, so include the step index even when the run is not marked tdep
-        // (e.g. a steady fluid re-solved each outer coupling step). Without this the
-        // parallel pvtu/vtu names omit the step and every frame overwrites the last.
-        if (disc.common.timeparams.tdep == 1 || force_tdep_write) {
-            std::ostringstream ss;
-            ss << std::setw(6) << std::setfill('0') << disc.common.timestate.currentstep+disc.common.outputparams.timestepOffset+1;
-            baseName = baseName + "_" + ss.str();
-        }
+        // stepSuffix (built above) keeps the volume and surface names in step.
+        string baseName = disc.common.fileout + "vis" + fname_modifier + stepSuffix;
 
        if (localProcs==1)
             vis.vtuwrite(baseName, vis.scafields, vis.vecfields, vis.tenfields);
@@ -620,9 +612,9 @@ void CSolutionWriter<M>::SaveSurfaces(Int backend, const std::string& baseName,
     }
 
     if (localProcs == 1)
-        vis.surfwrite(baseName, vis.srffields);
+        vis.surfvtuwrite(baseName, vis.srffields);
     else
-        vis.surfwrite_parallel(baseName, localRank, localProcs, vis.srffields);
+        vis.surfvtuwrite_parallel(baseName, localRank, localProcs, vis.srffields);
 }
 
 template <class M>
