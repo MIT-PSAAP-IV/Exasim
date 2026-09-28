@@ -12,6 +12,17 @@
 # Exits 77 (ctest SKIP) when the installed text2code is unavailable.
 set -euo pipefail
 
+# Print the tail of a log on failure: the run dirs live under /tmp on the test machine,
+# which CI users (e.g. Buildbot) cannot reach, so the reason must appear in the test output.
+fail() {  # fail <message> <log>
+  echo "FAIL: $1 (see $2)"
+  # text2code and the compiler recurse deeply on this model's long generated expressions;
+  # text2code raises the SOFT stack limit itself, but a low HARD limit cannot be raised.
+  echo "stack limit: soft $(ulimit -S -s) KB, hard $(ulimit -H -s) KB"
+  echo "--- last 60 lines of $2 ---"; tail -60 "$2" 2>/dev/null | sed 's/^/| /'; echo "--- end ---"
+  exit 1
+}
+
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 EXASIM_BUILD="${EXASIM_BUILD:-$REPO-build}"
 INSTALL_PREFIX="${INSTALL_PREFIX:-/tmp/exasim_surfq_meshadapt_install}"
@@ -22,7 +33,7 @@ RDIR="/tmp/exasim_surfq_meshadapt_run"
 
 rm -rf "$INSTALL_PREFIX" "$BDIR" "$RDIR"
 cmake --install "$EXASIM_BUILD" --prefix "$INSTALL_PREFIX" > "$RDIR.install.log" 2>&1 \
-  || { echo "FAIL: cmake --install failed (see $RDIR.install.log)"; exit 1; }
+  || fail "cmake --install failed" "$RDIR.install.log"
 if [ ! -x "$INSTALL_PREFIX/bin/text2code" ]; then
   echo "SKIP: installed text2code not found at $INSTALL_PREFIX/bin/text2code"
   exit 77
@@ -52,16 +63,22 @@ a = re.sub(r'(?m)^exasimpath = "[^"]*";\n', '', a)
 open(rdir + '/pdeapp.txt', 'w').write('exasimpath = "%s";\n' % prefix + a)
 PY
 
-( cd "$RDIR" && EXASIM_PREFIX="$INSTALL_PREFIX" "$INSTALL_PREFIX/bin/text2code" pdeapp.txt > text2code.log 2>&1 ) \
-  || { echo "FAIL: text2code (see $RDIR/text2code.log)"; exit 1; }
+if ! ( cd "$RDIR" && EXASIM_PREFIX="$INSTALL_PREFIX" "$INSTALL_PREFIX/bin/text2code" pdeapp.txt > text2code.log 2>&1 ); then
+  # A crash leaves little in the log: re-run under gdb (when available) for a backtrace.
+  if command -v gdb > /dev/null 2>&1; then
+    ( cd "$RDIR" && EXASIM_PREFIX="$INSTALL_PREFIX" gdb -batch -ex run -ex bt \
+        --args "$INSTALL_PREFIX/bin/text2code" pdeapp.txt >> text2code.log 2>&1 ) || true
+  fi
+  fail "text2code" "$RDIR/text2code.log"
+fi
 cmake -S "$REPO/apps/sharedlibrary" -B "$BDIR" \
   -D "CMAKE_PREFIX_PATH=$INSTALL_PREFIX;$KOKKOS_DIR" -DExasim_DIR="$INSTALL_PREFIX" \
   -DEXASIM_MPI=OFF -DEXASIM_CUDA=OFF -DEXASIM_HIP=OFF \
   ${CC:+-DCMAKE_C_COMPILER="$CC"} ${CXX:+-DCMAKE_CXX_COMPILER="$CXX"} \
-  > "$BDIR.cfg.log" 2>&1 || { echo "FAIL: exasimapp configure (see $BDIR.cfg.log)"; exit 1; }
-cmake --build "$BDIR" -j > "$BDIR.build.log" 2>&1 || { echo "FAIL: exasimapp build (see $BDIR.build.log)"; exit 1; }
+  > "$BDIR.cfg.log" 2>&1 || fail "exasimapp configure" "$BDIR.cfg.log"
+cmake --build "$BDIR" -j > "$BDIR.build.log" 2>&1 || fail "exasimapp build" "$BDIR.build.log"
 ( cd "$RDIR" && EXASIM_PREFIX="$INSTALL_PREFIX" "$BDIR/exasimapp" pdeapp.txt > run.log 2>&1 ) \
-  || { echo "FAIL: run (see $RDIR/run.log)"; tail -30 "$RDIR/run.log"; exit 1; }
+  || fail "run" "$RDIR/run.log"
 
 "$PY" - "$RDIR/dataout/out" <<'PY'
 import struct, sys
