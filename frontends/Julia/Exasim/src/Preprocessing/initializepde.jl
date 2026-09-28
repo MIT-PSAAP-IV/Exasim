@@ -43,11 +43,11 @@ mutable struct PDEStruct
     ncw::IntP;# number of compoments of (wdg)
     nce::IntP;# number of compoments of (output field)
     nsca::IntP;# number of compoments of scalar fields
+    ncm::IntP;# number of components of the physical-state monitor
     nvec::IntP;# number of components of (vector fields)
     nten::IntP;# number of components of (tensor fields)
     nbqoi::IntP;# number of components of (boundary quantities)
     nvqoi::IntP;# number of components of (volume quantities)
-    ncm::IntP;# number of components of (monitor); 0 if absent
     nsurfq::IntP;# number of components of (surfacequantities); 0 if absent
     nmaterialstate::IntP;# number of material-state components
     neb::IntP;# number of element blocks for parallel computation
@@ -250,9 +250,9 @@ function initializepde(version)
     pde.ncw = 0;
     pde.nce = 0;
     pde.nsca = 0;
+    pde.ncm = 0;
     pde.nbqoi = 0;
     pde.nvqoi = 0;
-    pde.ncm = 0;
     pde.nsurfq = 0;
     pde.nmaterialstate = 0;
     pde.nvec = 0;

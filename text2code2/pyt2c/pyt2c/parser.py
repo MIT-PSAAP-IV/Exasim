@@ -19,7 +19,7 @@ EXASIM_FUNCTIONS = [
     "Sourcew", "Output", "Monitor", "Initu", "Initq", "Inituq",
     "Initw", "Initv", "Avfield", "Fint", "EoS", "VisScalars",
     "VisVectors", "VisTensors", "QoIvolume", "QoIboundary", "Fext",
-    "SurfaceQuantities",
+    "Materialstate", "SurfaceQuantities",
 ]
 
 _FUNC_RE = re.compile(r"^\s*function\s+(\w+)\(([^)]*)\)\s*$")

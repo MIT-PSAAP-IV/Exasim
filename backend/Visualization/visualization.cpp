@@ -350,7 +350,6 @@ public:
                 cudaTemplateHostAlloc(&scafields, npoints*nsca, cudaHostAllocMapped); // zero copy
                 cudaTemplateHostAlloc(&vecfields, 3*npoints*nvec, cudaHostAllocMapped); // zero copy
                 cudaTemplateHostAlloc(&tenfields, ntc*npoints*nten, cudaHostAllocMapped); // zero copy
-                cudaTemplateHostAlloc(&srffields, surf_nnodes*nsurfq, cudaHostAllocMapped); // zero copy
                 host_alloc_backend = 2;
             #endif                  
             }
@@ -359,7 +358,6 @@ public:
                 hipTemplateHostMalloc(&scafields, npoints*nsca, hipHostMallocMapped); // zero copy
                 hipTemplateHostMalloc(&vecfields, 3*npoints*nvec, hipHostMallocMapped); // zero copy
                 hipTemplateHostMalloc(&tenfields, ntc*npoints*nten, hipHostMallocMapped); // zero copy
-                hipTemplateHostMalloc(&srffields, surf_nnodes*nsurfq, hipHostMallocMapped); // zero copy                
                 host_alloc_backend = 3;
             #endif                  
             }    
@@ -367,14 +365,24 @@ public:
                 scafields = (float *) malloc(npoints*nsca*sizeof(float));
                 vecfields = (float *) malloc(3*npoints*nvec*sizeof(float));
                 tenfields = (float *) malloc(ntc*npoints*nten*sizeof(float));
-                srffields = (float *) malloc(surf_nnodes*nsurfq*sizeof(float));
                 host_alloc_backend = 0;
+            }
+
+            // Surface fields are host-only data: SaveSurfaces scatters into
+            // srffields on the host and surfwrite serializes from it, so unlike
+            // the volume fields (consumed on-device by VisDG2CG) mapped memory
+            // buys nothing. Ordinary host storage, allocated only when there
+            // is surface data to hold (write_block tolerates a null pointer
+            // with a zero-byte payload, so ranks/models without surface
+            // output simply keep srffields null).
+            if (surf_nnodes > 0 && nsurfq > 0) {
+                srffields = (float *) malloc((size_t)surf_nnodes*nsurfq*sizeof(float));
+                for (int i = 0; i < surf_nnodes*nsurfq; i++) srffields[i] = 0.0;
             }
             
             for (int i = 0; i < npoints*nsca; i++) scafields[i] = 0.0;
             for (int i = 0; i < 3*npoints*nvec; i++) vecfields[i] = 0.0;
             for (int i = 0; i < ntc*npoints*nten; i++) tenfields[i] = 0.0;
-            for (int i = 0; i < surf_nnodes*nsurfq; i++) srffields[i] = 0.0;
 
             //cout<<ne<<"  "<<npoints<<endl;
             if (disc.common.mpiRank == 0) printf("finish CVisualization constructor... \n");    
@@ -415,7 +423,11 @@ public:
         free_field(scafields);
         free_field(vecfields);
         free_field(tenfields);
-        free_field(srffields); // in case you allocate this later
+        // srffields is always plain host storage (see constructor), so it must
+        // not go through free_field: on a CUDA/HIP build that would call
+        // cudaFreeHost/hipHostFree on a malloc'd pointer.
+        std::free(srffields);
+        srffields = nullptr;
         if (rank==0) printf("CVisualization is freed successfully.\n");
     }
 
