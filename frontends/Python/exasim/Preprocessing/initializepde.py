@@ -61,6 +61,7 @@ def initializepde(version):
     pde['nvqoi'] = 0;
     pde['nmaterialstate'] = 0;
     pde['nbqoi'] = 0;
+    pde['ncm'] = 0;
     pde['nsurfq'] = 0;  # number of surfacequantities outputs (set by preprocessing)
     pde['neb'] = 512*8;
     pde['nfb'] = 512*32;
