@@ -821,17 +821,31 @@ static void PGEMNMStridedBached(cublasHandle_t handle, Int m, Int n, Int k, noDe
 #endif        
 #endif                     
     
-#ifdef HAVE_HIP          
-#ifdef USE_FLOAT  
-    if (backend == 3)     
-        CHECK_HIPBLAS(hipblasSgemmStridedBatched(handle, HIPBLAS_OP_N, HIPBLAS_OP_N, m, n, k, 
-            &alpha, A, lda, m * k, B, ldb, k * n, &beta, C, ldc, m * n, batchCount));                    
-#else            
-    if (backend == 3)  
-        CHECK_HIPBLAS(hipblasDgemmStridedBatched(handle, HIPBLAS_OP_N, HIPBLAS_OP_N, m, n, k, 
+#ifdef HAVE_HIP
+    // n == 1 is a batched matrix-vector product (e.g. the block-Jacobi apply). Tensile runs it through a
+    // GEMM macro-tile at ~2.3 TB/s on MI300A; the dedicated batched GEMV reaches ~2.9 TB/s, near the copy
+    // ceiling. Same products, summed in a different order (roundoff-level). EXASIM_BATCHED_GEMV=0 disables.
+    static const bool batched_gemv = [](){ const char* e = std::getenv("EXASIM_BATCHED_GEMV"); return !(e && e[0] == '0'); }();
+    if (backend == 3 && n == 1 && batched_gemv) {
+#ifdef USE_FLOAT
+        CHECK_HIPBLAS(hipblasSgemvStridedBatched(handle, HIPBLAS_OP_N, m, k, &alpha, A, lda, m * k,
+            B, 1, k, &beta, C, 1, m, batchCount));
+#else
+        CHECK_HIPBLAS(hipblasDgemvStridedBatched(handle, HIPBLAS_OP_N, m, k, &alpha, A, lda, m * k,
+            B, 1, k, &beta, C, 1, m, batchCount));
+#endif
+        return;
+    }
+#ifdef USE_FLOAT
+    if (backend == 3)
+        CHECK_HIPBLAS(hipblasSgemmStridedBatched(handle, HIPBLAS_OP_N, HIPBLAS_OP_N, m, n, k,
             &alpha, A, lda, m * k, B, ldb, k * n, &beta, C, ldc, m * n, batchCount));
-#endif        
-#endif     
+#else
+    if (backend == 3)
+        CHECK_HIPBLAS(hipblasDgemmStridedBatched(handle, HIPBLAS_OP_N, HIPBLAS_OP_N, m, n, k,
+            &alpha, A, lda, m * k, B, ldb, k * n, &beta, C, ldc, m * n, batchCount));
+#endif
+#endif
 }
 
 #endif  
