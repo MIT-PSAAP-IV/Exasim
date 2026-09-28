@@ -568,6 +568,21 @@ void CSolutionWriter<M>::SaveSurfaces(Int backend, const std::string& baseName,
     const bool hostMode = (backend < 2);
     if (vis.surf_nnodes == 0 && localProcs == 1) return;
 
+    // The surface face map is built once at construction. A topology change
+    // (face count) after that would index it out of bounds -- fail loudly
+    // instead of corrupting memory. (Mesh adaptation only moves nodes, so
+    // this is a guard for future topology-changing paths, not for ALE.)
+    if (vis.surf_face2cell.size() != (size_t)disc.common.meshsizes.nf)
+        error("SaveSurfaces: surface face map was built for " +
+              std::to_string(vis.surf_face2cell.size()) + " faces but the mesh now has " +
+              std::to_string(disc.common.meshsizes.nf) +
+              " faces; re-create the visualization after a topology change.");
+
+    // Mesh adaptation moves xdg in place after CVisualization is built.
+    // Refresh the written surface coordinates before scattering the values
+    // (surface counterpart of UpdateCoordinates in SaveParaview).
+    vis.UpdateSurfaceCoordinates(disc, backend);
+
     // DG surface: no averaging; every face node is a unique surface point,
     // so the scatter below is 1:1 (surf node = face node in local order).
     // InitSurfaces assigns surf_face2cell for every face in every selected
@@ -593,7 +608,7 @@ void CSolutionWriter<M>::SaveSurfaces(Int backend, const std::string& baseName,
 
         for (Int ff = 0; ff < nfblk; ++ff) {
             Int f = f1 + ff;
-            Int o = vis.surf_face2cell[f];
+            Int o = vis.vis_face_ordinal(f);
             if (o < 0) continue;
             for (Int ln = 0; ln < npf; ++ln) {
                 Int s    = o*npf + ln;
