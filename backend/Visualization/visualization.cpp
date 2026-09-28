@@ -247,6 +247,22 @@ public:
         const Int npf = common.grid.npf;
         const Int ncx = common.components.ncx;
 
+        // One staging buffer per call, reused across blocks (as in
+        // UpdateCoordinates above), sized for the largest selected block.
+        // f1/f2 use the same 1-based-to-0-based conversion as the work loop
+        // below, so maxnf is the true largest nfblk, not one face short.
+        Int maxnf = 0;
+        for (Int j = 0; j < nbf; ++j) {
+            if (!common.qoiparams.isSaveBoundary(common.fblks[3*j+2])) continue;
+            Int f1 = common.fblks[3*j] - 1;
+            Int f2 = common.fblks[3*j+1];
+            maxnf = std::max(maxnf, f2 - f1);
+        }
+        if (maxnf == 0) return;
+        std::vector<dstype> xg((size_t)npf*maxnf*ncx);
+        dstype* dbuf = nullptr;
+        if (backend >= 2) TemplateMalloc(&dbuf, npf*maxnf*ncx, backend);
+
         for (Int j = 0; j < nbf; ++j) {
             Int ib = common.fblks[3*j+2];
             if (!common.qoiparams.isSaveBoundary(ib)) continue;
@@ -255,8 +271,7 @@ public:
             Int nfblk = f2 - f1;
             if (nfblk == 0) continue;
             Int nn = npf*nfblk;
-            std::vector<dstype> xg((size_t)nn*ncx, 0.0);
-            gatherBoundaryNodes(xg.data(), sol.xdg, mesh.findxdg1, f1, nn, npf, ncx, backend);
+            gatherBoundaryNodes(xg.data(), sol.xdg, mesh.findxdg1, f1, nn, npf, ncx, backend, dbuf);
             for (Int ff = 0; ff < nfblk; ++ff) {
                 Int f = f1 + ff;
                 Int o = vis_face_ordinal(f);
@@ -271,6 +286,7 @@ public:
                 }
             }
         }
+        if (dbuf) TemplateFree(dbuf, backend);
     }
 
     // CVisualization(const dstype* xcg, int nd_in, int np,
@@ -371,12 +387,15 @@ public:
             // Surface fields are host-only data: SaveSurfaces scatters into
             // srffields on the host and surfvtuwrite serializes from it, so unlike
             // the volume fields (consumed on-device by VisDG2CG) mapped memory
-            // buys nothing. Ordinary host storage, allocated only when there
-            // is surface data to hold (write_block tolerates a null pointer
-            // with a zero-byte payload, so ranks/models without surface
-            // output simply keep srffields null).
-            if (surf_nnodes > 0 && nsurfq > 0) {
-                srffields = (float *) malloc((size_t)surf_nnodes*nsurfq*sizeof(float));
+            // buys nothing. Ordinary host storage, allocated whenever surface
+            // output is requested -- even when this rank owns no tagged faces:
+            // an untagged MPI rank must still emit a valid (empty) piece so the
+            // PVTU references resolve, and surfvtuwrite treats null data as an
+            // error whenever surface names exist. Mirrors the volume path,
+            // which always allocates its field buffers.
+            if (nsurfq > 0) {
+                const size_t nval = (size_t)std::max(surf_nnodes, 1) * (size_t)nsurfq;
+                srffields = (float *) malloc(nval * sizeof(float));
                 for (int i = 0; i < surf_nnodes*nsurfq; i++) srffields[i] = 0.0;
             }
             
@@ -676,19 +695,17 @@ private:
     // Gather one boundary face block's DG node coordinates out of xdg.
     // Output xg is component-major [ncx][nn] (see faceindex1 in
     // backend/Common/cpuimpl.h). Shared by InitSurfaces (construction-time
-    // snapshot) and UpdateSurfaceCoordinates (per-save refresh). The
-    // backend>=2 path stages through device memory; TemplateFree (not
-    // CPUFREE) releases it, since CPUFREE would free device memory with
-    // host free().
+    // snapshot) and UpdateSurfaceCoordinates (per-save refresh). On device
+    // backends the caller supplies dbuf, a device buffer of at least nn*ncx
+    // entries, so the staging allocation happens once per call (as in
+    // UpdateCoordinates) rather than once per block.
     static void gatherBoundaryNodes(dstype* xg, const dstype* xdg, const int* findxdg1,
-                                    Int f1, Int nn, Int npf, Int ncx, int backend)
+                                    Int f1, Int nn, Int npf, Int ncx, int backend,
+                                    dstype* dbuf)
     {
         if (backend >= 2) {
-            dstype* d = nullptr;
-            TemplateMalloc(&d, nn*ncx, backend);
-            GetArrayAtIndex(d, xdg, &findxdg1[npf*ncx*f1], nn*ncx);
-            TemplateCopytoHost(xg, d, nn*ncx, backend);
-            TemplateFree(d, backend);
+            GetArrayAtIndex(dbuf, xdg, &findxdg1[npf*ncx*f1], nn*ncx);
+            TemplateCopytoHost(xg, dbuf, nn*ncx, backend);
         } else {
             GetArrayAtIndex(xg, xdg, &findxdg1[npf*ncx*f1], nn*ncx);
         }
@@ -737,16 +754,27 @@ private:
         surf_face2cell.assign((size_t)nf, -1);
 
         int nsel_faces = 0;
+        Int maxnf = 0;
         for (Int j = 0; j < nbf; ++j) {
             Int ib = common.fblks[3*j+2];
             if (!common.qoiparams.isSaveBoundary(ib)) continue;
             Int f1 = common.fblks[3*j] - 1;
             Int f2 = common.fblks[3*j+1];
             nsel_faces += (int)(f2 - f1);
+            maxnf = std::max(maxnf, f2 - f1);
         }
         surf_ncells = 0;
         surf_nnodes = 0;
         if (nsel_faces == 0) return;
+
+        // Staging buffers sized once and reused (as in Init above, which
+        // pre-sizes its geometry/topology vectors and fills them in loops):
+        // xg for the largest selected block, plane for one face, plus one
+        // device buffer on device backends (see gatherBoundaryNodes).
+        std::vector<dstype> xg((size_t)npf*maxnf*ncx);
+        std::vector<dstype> plane((size_t)npf*ncx);
+        dstype* dbuf = nullptr;
+        if (backend >= 2) TemplateMalloc(&dbuf, npf*maxnf*ncx, backend);
 
         surf_nodes.clear();
         surf_nodes.reserve((size_t)3 * nsel_faces * npf);
@@ -770,14 +798,12 @@ private:
             Int nfblk = f2 - f1;
             if (nfblk == 0) continue;
             Int nn = npf*nfblk;
-            std::vector<dstype> xg((size_t)nn*ncx, 0.0);
-            gatherBoundaryNodes(xg.data(), sol.xdg, mesh.findxdg1, f1, nn, npf, ncx, backend);
+            gatherBoundaryNodes(xg.data(), sol.xdg, mesh.findxdg1, f1, nn, npf, ncx, backend, dbuf);
             for (Int ff = 0; ff < nfblk; ++ff) {
                 // xg is component-major [dim][block-point] (see faceindex1);
                 // gather this face's nodes into an interleaved plane buffer
                 // for corner processing. Reading xg as [point][dim] directly
                 // pairs x of one node with y of another (off-wall garbage).
-                std::vector<dstype> plane((size_t)npf*ncx);
                 for (Int ln = 0; ln < npf; ++ln)
                     for (int d = 0; d < ncx; ++d)
                         plane[(size_t)ln*ncx + d] =
@@ -854,6 +880,7 @@ private:
                 ++ordinal;
             }
         }
+        if (dbuf) TemplateFree(dbuf, backend);
         surf_nnodes = (int)surf_nodes.size() / 3;
         surf_ncells = (int)surf_celloffsets.size();
         // Precompute the appended-data offsets once (volume Init pattern);
