@@ -163,7 +163,7 @@ inline void RqFace(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &
     Int ngf = common.grid.ngf; // number of gauss poInts on master face          
     //Int ne = common.meshsizes.ne; // number of elements in this subdomain
 
-    if (FusedFaceEnabled(common) && nbf2 > nbf1) {
+    if (FusedFaceEnabled(common, 'q') && nbf2 > nbf1) {
         // every block in one launch (see RqFaceFused); falls through if the blocks are not contiguous
         const auto& fm = FaceBlockMetaGet(common.fblks, nbf1, nbf2, ngf, ncx, nd);
         if (fm.nf > 0) {

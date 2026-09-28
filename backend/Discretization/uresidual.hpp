@@ -295,7 +295,7 @@ inline void RuFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T
     Int n8 = nga*(ncu+2*nc+2*ncw);              // fhg
     //Int n7 = nga*(ncu+2*nc+ncw);                // wdg
     Int nm = ngf*f1*(ncx+nd+1);
-    const bool fused = FusedFaceEnabled(common);
+    const bool fused = FusedFaceEnabled(common, 'r');
 
     if (fused) {
         // gather + interpolate every driver input in one pass (see RuFacePreFused)

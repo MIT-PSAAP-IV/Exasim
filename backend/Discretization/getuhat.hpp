@@ -210,7 +210,7 @@ inline void GetUhat(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> 
     Int npe = common.grid.npe; // number of nodes on master element
     Int npf = common.grid.npf; // number of nodes on master face      
     
-    const bool fused = FusedFaceEnabled(common);
+    const bool fused = FusedFaceEnabled(common, 'u');
     for (Int j=nbf1; j<nbf2; j++) {
         Int f1 = common.fblks[3*j]-1;
         Int f2 = common.fblks[3*j+1];

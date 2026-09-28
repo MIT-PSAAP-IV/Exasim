@@ -2198,13 +2198,17 @@ void PutFaceNodesGather(Ty* udg, const Ty* uh, const int* facecon, const int npf
 // layouts ([npf][nc][face]); sol.faceg is stored block by block, so a per-face table (built once on the host and
 // cached per block range) gives each face its block's faceg offset, Gauss-point count and local index.
 // EXASIM_FUSED_FACE=0 restores the per-block kernels.
-// Takes the caller's common struct only so the call is dependent in the residual templates, which are parsed in
-// some TUs before this header is included.
+// Which fused kernel: 'q' RqFaceFused, 'u' UhatInteriorFused, 'r' RuFacePre/PostFused. EXASIM_FUSED_FACE unset:
+// all on; "0": all off; otherwise the letters it contains (e.g. "qr"). Takes the caller's common struct only so
+// the call is dependent in the residual templates, which are parsed in some TUs before this header is included.
 template <class C>
-inline bool FusedFaceEnabled(const C&)
+inline bool FusedFaceEnabled(const C&, const char which)
 {
-    static const bool on = [](){ const char* e = std::getenv("EXASIM_FUSED_FACE"); return !(e && e[0] == '0'); }();
-    return on;
+    static const char* e = std::getenv("EXASIM_FUSED_FACE");
+    if (!e) return true;
+    if (e[0] == '0') return false;
+    for (const char* p = e; *p; p++) if (*p == which) return true;
+    return false;
 }
 
 struct FaceBlockMeta {
@@ -2263,31 +2267,43 @@ inline const FaceBlockMeta& FaceBlockMetaGet(const int* fblks, const int nbf1, c
 // Rq face term for every face in the range: Rh(:, (m,j), f) = sum_g W(:,g) * (uh interpolated to g) * nl_j * jac,
 // i.e. GetElemNodes + Node2Gauss + ApplyJacNormal + Gauss2Node of RqFaceBlock in one pass (same products and
 // multiply order; the interpolation/integration sums run in ascending order, so roundoff-level vs the GEMMs).
+// One team per face: the face's uh (npf x ncu) is interpolated once into team scratch (ngf x ncu), then every
+// Rh entry integrates the scaled trace from scratch -- one read of uh / nl / jac and one write of Rh per face.
 template <class Ty>
 void RqFaceFused(Ty* Rh, const Ty* uh, const Ty* faceg, const Ty* shapfgt, const Ty* shapfgw, const FaceBlockMeta& fm,
                  const int npf, const int ngf, const int ncu, const int nd, const int ncx)
 {
     using dstype = Ty;
+    using Policy = Kokkos::TeamPolicy<>;
+    using Scratch = Kokkos::View<dstype*, Kokkos::DefaultExecutionSpace::scratch_memory_space, Kokkos::MemoryUnmanaged>;
     const int ncq = ncu*nd, F0 = fm.F0;
     const int* base = fm.base; const int* nga = fm.nga; const int* loc = fm.loc;
-    const size_t N = (size_t)npf*ncq*fm.nf;
-    Kokkos::parallel_for("RqFaceFused", N, KOKKOS_LAMBDA(const size_t idx) {
-        const int p = idx % npf;
-        const size_t r = idx / npf;
-        const int c = r % ncq;
-        const int fq = r / ncq;
-        const int m = c % ncu, j = c / ncu;
+    const int nsc = ngf*ncu;
+    const size_t bytes = Scratch::shmem_size(nsc);
+    Kokkos::parallel_for("RqFaceFused", Policy(fm.nf, 64).set_scratch_size(0, Kokkos::PerTeam(bytes)),
+        KOKKOS_LAMBDA(const Policy::member_type& team) {
+        const int fq = team.league_rank();
         const size_t f = (size_t)F0 + fq;
-        const dstype* nl = faceg + base[fq] + (size_t)nga[fq]*ncx + (size_t)nga[fq]*j + loc[fq];
-        const dstype* jc = faceg + base[fq] + (size_t)nga[fq]*(ncx+nd) + loc[fq];
-        const dstype* uf = uh + (size_t)npf*m + (size_t)npf*ncu*f;
-        dstype s = 0;
-        for (int g = 0; g < ngf; g++) {
+        Scratch ug(team.team_scratch(0), nsc);
+        const dstype* uf = uh + (size_t)npf*ncu*f;
+        // ug(g, m) = sum_q S(g, q) uh(q, m)
+        Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nsc), [&](const int t) {
+            const int g = t % ngf, m = t / ngf;
             dstype u = 0;
-            for (int q = 0; q < npf; q++) u += shapfgt[g + ngf*q] * uf[q];
-            s += shapfgw[p + npf*g] * (u*nl[g]*jc[g]);
-        }
-        Rh[p + (size_t)npf*(c + (size_t)ncq*f)] = s;
+            for (int q = 0; q < npf; q++) u += shapfgt[g + ngf*q] * uf[q + npf*m];
+            ug(t) = u;
+        });
+        team.team_barrier();
+        const dstype* nl = faceg + base[fq] + (size_t)nga[fq]*ncx + loc[fq];
+        const dstype* jc = faceg + base[fq] + (size_t)nga[fq]*(ncx+nd) + loc[fq];
+        const size_t ng = nga[fq];
+        // Rh(p, m + ncu*j, f) = sum_g W(p, g) * ug(g, m) * nl(g, j) * jac(g)   (ApplyJacNormal multiply order)
+        Kokkos::parallel_for(Kokkos::TeamThreadRange(team, npf*ncq), [&](const int t) {
+            const int p = t % npf, c = t / npf, m = c % ncu, j = c / ncu;
+            dstype s = 0;
+            for (int g = 0; g < ngf; g++) s += shapfgw[p + npf*g] * (ug(g + ngf*m)*nl[g + ng*j]*jc[g]);
+            Rh[p + (size_t)npf*(c + (size_t)ncq*f)] = s;
+        });
     });
 }
 
