@@ -286,5 +286,8 @@ fprintf(fid, "\n");
 fprintf(fid, "#endif\n");
 fclose(fid);
 
+% HIP: 1-wavefront workgroups for the generated kernels (see kklaunchbounds.m)
+kklaunchbounds(kkdir);
+
 exasim_sync_kernels(kkdir, mbdir + "/kernels");
 end
