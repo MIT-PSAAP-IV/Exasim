@@ -295,7 +295,14 @@ inline void RuFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T
     Int n8 = nga*(ncu+2*nc+2*ncw);              // fhg
     //Int n7 = nga*(ncu+2*nc+ncw);                // wdg
     Int nm = ngf*f1*(ncx+nd+1);
-    
+    const bool fused = FusedFaceEnabled(common);
+
+    if (fused) {
+        // gather + interpolate every driver input in one pass (see RuFacePreFused)
+        RuFacePreFused(tmp.tempg, sol.uh, sol.udg, sol.wdg, mesh.facecon, mesh.findudg1, mesh.findudg2, master.shapfgt,
+                       npf, ngf, ncu, nc, ncw, npe, f1, f2, (ib==0) ? 1 : 0);
+    }
+    else {
     // uhg = tmp.tempg[n3] at gauss points on face
     GetElemNodes(tmp.tempn, sol.uh, npf, ncu, 0, ncu, f1, f2);
     
@@ -315,7 +322,8 @@ inline void RuFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T
     }
     else
         Node2Gauss(handle, &tmp.tempg[n3], tmp.tempn, master.shapfgt, ngf, npf, nf*(ncu+nc+ncw), backend);
-        
+    }
+
     // calculate fhat
     if (ib==0) { // interior faces                
         EXASIM_DRIVER_CALL(FhatDriver, &tmp.tempg[n8], &sol.faceg[nm+n0], &tmp.tempg[n4], &tmp.tempg[n6], 
@@ -328,14 +336,20 @@ inline void RuFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T
                 sol, tmp, common, ngf, f1, f2, ib, backend);        
     }        
             
+    if (fused) {
+        // jac scaling + integration in one pass (see RuFacePostFused)
+        RuFacePostFused(res.Rh, &tmp.tempg[n8], &sol.faceg[nm+n2], master.shapfgw, npf, ngf, ncu, f1, f2);
+    }
+    else {
     // evaluate fhg * jac at gauss points on face
-    ApplyJacFhat(&tmp.tempg[n3], &tmp.tempg[n8], &sol.faceg[nm+n2], nga, ncu, ngf);    
-    
-    // <fhat, w>_F = <jac fhat, w>_T = w * (fhg * jac): npf*ncu*nf        
-    Gauss2Node(handle, &res.Rh[npf*ncu*f1], &tmp.tempg[n3], master.shapfgw, ngf, npf, nf*ncu, backend);            
-    
-#ifdef EXADEBUG                           
-    writearray2file(common.fileout + NumberToString(ib) + "RuFace_uhgf.bin", &tmp.tempg[n3], ngf*ncu*nf, backend);  
+    ApplyJacFhat(&tmp.tempg[n3], &tmp.tempg[n8], &sol.faceg[nm+n2], nga, ncu, ngf);
+
+    // <fhat, w>_F = <jac fhat, w>_T = w * (fhg * jac): npf*ncu*nf
+    Gauss2Node(handle, &res.Rh[npf*ncu*f1], &tmp.tempg[n3], master.shapfgw, ngf, npf, nf*ncu, backend);
+    }
+
+#ifdef EXADEBUG
+    writearray2file(common.fileout + NumberToString(ib) + "RuFace_uhgf.bin", &tmp.tempg[n3], ngf*ncu*nf, backend);
     writearray2file(common.fileout + NumberToString(ib) + "RuFace_fgf.bin", &tmp.tempg[n4], ngf*ncu*nf, backend);  
     writearray2file(common.fileout + NumberToString(ib) + "RuFace_rnf.bin", tmp.tempn, npf*ncu*nf, backend);
     writearray2file(common.fileout + NumberToString(ib) + "RuFace_ruf.bin", res.Ruf, npe*ncu*common.meshsizes.ne1, backend);

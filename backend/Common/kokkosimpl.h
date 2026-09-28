@@ -2291,6 +2291,73 @@ void RqFaceFused(Ty* Rh, const Ty* uh, const Ty* faceg, const Ty* shapfgt, const
     });
 }
 
+// RuFaceBlock before the flux driver: gather uh, udg (and wdg) of one or both sides and interpolate them to the
+// face Gauss points in one pass, writing tmp.tempg in exactly the layout Node2Gauss produced (column-major ngf x
+// ncols, column groups uh | udg1 | wdg1 [| udg2 | wdg2 for interior blocks]). Replaces GetElemNodes +
+// GetArrayAtIndex + GetFaceNodes (x2 for interior faces) + Node2Gauss. Roundoff-level vs the GEMM path.
+template <class Ty>
+void RuFacePreFused(Ty* ug, const Ty* uh, const Ty* udg, const Ty* wdg, const int* facecon, const int* findudg1,
+                    const int* findudg2, const Ty* shapfgt, const int npf, const int ngf, const int ncu, const int nc,
+                    const int ncw, const int npe, const int f1, const int f2, const int interior)
+{
+    using dstype = Ty;
+    const int nf = f2 - f1;
+    const int ncols = nf*(ncu + nc + ncw + (interior ? nc + ncw : 0));
+    const size_t N = (size_t)ngf*ncols;
+    const size_t o1 = (size_t)npf*nc*f1;
+    Kokkos::parallel_for("RuFacePreFused", N, KOKKOS_LAMBDA(const size_t idx) {
+        const int g = idx % ngf;
+        int c = idx / ngf;
+        dstype s = 0;
+        if (c < nf*ncu) {                                   // uh (GetElemNodes)
+            const int fl = c % nf, j = c / nf;
+            const dstype* v = uh + (size_t)npf*j + (size_t)npf*ncu*(f1 + fl);
+            for (int q = 0; q < npf; q++) s += shapfgt[g + ngf*q] * v[q];
+        } else if ((c -= nf*ncu) < nf*nc) {                 // udg, side 1 (GetArrayAtIndex, findudg1)
+            const int* ind = findudg1 + o1 + (size_t)npf*c;
+            for (int q = 0; q < npf; q++) s += shapfgt[g + ngf*q] * udg[ind[q]];
+        } else if ((c -= nf*nc) < nf*ncw) {                 // wdg, side 1 (GetFaceNodes opts=1)
+            const int fl = c % nf, j = c / nf;
+            for (int q = 0; q < npf; q++) {
+                const int k1 = facecon[2*(npf*(f1 + fl) + q)], m1 = k1 % npe, n1 = (k1 - m1)/npe;
+                s += shapfgt[g + ngf*q] * wdg[m1 + j*npe + (size_t)n1*npe*ncw];
+            }
+        } else if ((c -= nf*ncw) < nf*nc) {                 // udg, side 2 (GetArrayAtIndex, findudg2)
+            const int* ind = findudg2 + o1 + (size_t)npf*c;
+            for (int q = 0; q < npf; q++) s += shapfgt[g + ngf*q] * udg[ind[q]];
+        } else {                                            // wdg, side 2 (GetFaceNodes opts=2)
+            c -= nf*nc;
+            const int fl = c % nf, j = c / nf;
+            for (int q = 0; q < npf; q++) {
+                const int k2 = facecon[2*(npf*(f1 + fl) + q)+1], m2 = k2 % npe, n2 = (k2 - m2)/npe;
+                s += shapfgt[g + ngf*q] * wdg[m2 + j*npe + (size_t)n2*npe*ncw];
+            }
+        }
+        ug[idx] = s;
+    });
+}
+
+// RuFaceBlock after the flux driver: Rh(:, m, f) = sum_g W(:,g) * fhat(g, m) * jac(g), i.e. ApplyJacFhat +
+// Gauss2Node in one pass (same product; ascending-g sum, roundoff-level vs the GEMM).
+template <class Ty>
+void RuFacePostFused(Ty* Rh, const Ty* fhg, const Ty* jac, const Ty* shapfgw, const int npf, const int ngf, const int ncu,
+                     const int f1, const int f2)
+{
+    using dstype = Ty;
+    const int nf = f2 - f1, nga = ngf*nf;
+    const size_t N = (size_t)npf*ncu*nf;
+    Kokkos::parallel_for("RuFacePostFused", N, KOKKOS_LAMBDA(const size_t idx) {
+        const int p = idx % npf;
+        const size_t r = idx / npf;
+        const int m = r % ncu, fl = r / ncu;
+        const dstype* fh = fhg + ngf*fl + (size_t)nga*m;
+        const dstype* jc = jac + ngf*fl;
+        dstype s = 0;
+        for (int g = 0; g < ngf; g++) s += shapfgw[p + npf*g] * (fh[g]*jc[g]);
+        Rh[(size_t)npf*ncu*f1 + p + (size_t)npf*(m + (size_t)ncu*fl)] = s;
+    });
+}
+
 // Interior-face trace uh = average of the two neighbouring elements' udg, written straight into uh: the
 // GetFaceNodes(opts=0) + PutElemNodes pair of UhatBlock(ib==0) in one pass over a run of interior blocks.
 // Same arithmetic: bitwise-identical.
