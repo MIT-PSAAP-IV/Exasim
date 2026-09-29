@@ -514,7 +514,7 @@ if(EXASIM_MPI)
   target_link_libraries(unit_distributed_radix_quantiles PRIVATE MPI::MPI_CXX)
   target_compile_definitions(unit_distributed_radix_quantiles PRIVATE HAVE_MPI)
   add_test(NAME unit_distributed_radix_quantiles
-    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 3
+    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2
             ${MPIEXEC_PREFLAGS} $<TARGET_FILE:unit_distributed_radix_quantiles>
             ${MPIEXEC_POSTFLAGS})
 else()

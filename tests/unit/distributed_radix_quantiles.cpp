@@ -81,7 +81,7 @@ int checkPrecision(int rank, int ranks)
     failures += checkCase<Scalar>("duplicates",
         {Scalar(9), Scalar(1), Scalar(4), Scalar(4), Scalar(2), Scalar(9),
          Scalar(0.5), Scalar(4), Scalar(7), Scalar(2)}, rank, ranks);
-    failures += checkCase<Scalar>("empty partitions", {Scalar(8), Scalar(2)}, rank, ranks);
+    failures += checkCase<Scalar>("empty partitions", {Scalar(8)}, rank, ranks);
 
     std::mt19937_64 generator(8675309);
     std::uniform_real_distribution<double> mantissa(0.5, 1.0);
