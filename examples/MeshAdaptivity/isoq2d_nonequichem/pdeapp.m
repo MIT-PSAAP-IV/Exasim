@@ -22,7 +22,7 @@ pde.tau = 10.0;
 pde.GMRESrestart = 250;
 pde.GMRESortho = 1;
 pde.linearsolvertol = 1e-6;
-pde.linearsolveriter = 250;
+pde.linearsolveriter = 500;
 pde.preconditioner = 1;
 pde.RBdim = 0;
 pde.ppdegree = 0;
@@ -32,7 +32,7 @@ pde.matvectol = 1e-6;
 pde.dae_alpha = 0;
 pde.dae_beta = 0;
 pde.dae_gamma = 0;
-pde.dt = [0.1 1]/10;
+pde.dt = [0.1 1 10]/10;
 pde.nstage = 1;
 pde.torder = 1;
 pde.saveSolFreq = 1;
@@ -66,12 +66,12 @@ pde.AV = 1;
 pde.AVcontinuationIter = 10;
 pde.AVcontinuationLogScale = 3.0;
 pde.AVcoeffStart = 2e-3;
-pde.AVcoeffEnd = 2e-5;
+pde.AVcoeffEnd = 2.5e-5;
 pde.AVdistfunction = 1;
-pde.distanceboundaryconditions = 6;
+pde.distanceboundaryconditions = 8; % 8 catalytic isothermal wall
 pde.AVsmoothingMethod = 1;
-pde.AVHelmholtzCoeff = 0.001;
-AVmaxdiv = 30.0;
+pde.AVHelmholtzCoeff = 0.005;
+AVmaxdiv = 40.0;
 AVdistcoeff = nm;
 speciesDensityMinimum = -1e-5;
 densityMinimum = -1e-5;
@@ -82,11 +82,11 @@ pressureMinimum = 1.0e-8*pressurePhysical;
 pde.meshadaptenabled = 1;
 pde.meshadaptfield = 1; % physical pressure from visscalars
 pde.meshadaptavcomponent = 1;
-pde.meshadaptalpha = 0.5;
+pde.meshadaptalpha = 0.1;
 pde.meshadaptqmin = 0.2;
 pde.meshadaptqmax = 0.8;
-pde.meshadaptHelmholtzCoeff = 0.001;
-pde.meshadaptforcescale = 0.1;
+pde.meshadaptHelmholtzCoeff = 0.005;
+pde.meshadaptforcescale = 0.3;
 pde.meshadaptsmoothingpasses = 30;
 pde.meshadaptboundaryconditions = [3;3;3;2];
 
@@ -105,8 +105,8 @@ gammaCatalysis = zeros(5,1);
 pde.externalparam = [Uinf;Ycat;gammaCatalysis];
 
 mesh = mkmesh_isoq2d(pde.porder,5e-4);
-% Slip/axis symmetry, outflow, inflow, noncatalytic isothermal wall.
-mesh.boundarycondition = [5 2 1 6];
+% Slip/axis symmetry, outflow, inflow, catalytic isothermal wall.
+mesh.boundarycondition = [5 2 1 8];
 master = Master(pde);
 dist = meshdist3(mesh.f,mesh.dgnodes,master.perm,4);
 
@@ -123,27 +123,47 @@ fprintf('  Mach = %.8g, Re = %.8g\n',Minf,Re);
 pde.gencode = 1;
 [sol,pde,mesh,master,dmd] = exasim(pde,mesh);
 sol = sol(:,:,:,end);
-
-xdg = getsolution('dataout/outxdg',dmd,master.npe);
-vdg = getsolution('dataout/outvdg',dmd,master.npe);
-wdg = getsolutions('dataout/outwdg',dmd);
+vdg = getsolution('dataout/outvdg', dmd, master.npe);
+xdg = getsolution('dataout/outxdg', dmd, master.npe);
+wdg = getsolutions('dataout/outwdg', dmd);
 wdg = wdg(:,:,:,end);
 mesh.dgnodes = xdg;
 
 rho = sum(sol(:,1:5,:),2);
-rhoSpeciesPhysical = rhoReference*sol(:,1:5,:);
-temperaturePhysical = temperatureReference*wdg(:,1,:);
-[~,Mw,RU] = thermodynamicsModels();
-molarDensity = sum(rhoSpeciesPhysical./reshape(Mw,1,5,1),2);
-pressurePhysical = RU*temperaturePhysical.*molarDensity;
-soundSpeed = soundspeed(temperaturePhysical,abs(rhoSpeciesPhysical));
-velocity = velocityReference*sol(:,6:7,:)./rho;
-mach = sqrt(sum(velocity.^2,2))./soundSpeed;
+figure(1); clf; scaplot(mesh, rhoRef*rho,[],2,2);
+axis equal; axis tight; colorbar; colormap jet;
 
-figure(1); clf; meshplot(mesh,1); axis equal; axis tight;
-figure(2); clf; scaplot(mesh,mach,[0 Minf],2,1); axis equal; axis tight; colorbar;
-figure(3); clf; scaplot(mesh,pde.avparam1(end) + pde.avparam2(end)*vdg(:,2,:),[],2,2); axis equal; axis tight; colorbar;
-figure(4); clf; scaplot(mesh,pressurePhysical,[],2,2); axis equal; axis tight; colorbar;
+figure(2); clf; scaplot(mesh, vRef*sol(:,6,:)./rho,[],2,2);
+axis equal; axis tight; colorbar; colormap jet;
+
+figure(3); clf; scaplot(mesh, vRef*sol(:,7,:)./rho,[],2,2);
+axis equal; axis tight; colorbar; colormap jet;
+
+Tphys = TRef .* wdg(:,1,:);
+figure(4); clf; scaplot(mesh, Tphys,[],2,2);
+axis equal; axis tight; colorbar; colormap jet;
+
+[~, Mw, RU] = thermodynamicsModels();
+rhoSpeciesPhys = rhoRef .* sol(:,1:5,:);
+rhom = sum(rhoSpeciesPhys ./ reshape(Mw,1,5,1), 2);
+Pphys = RU .* Tphys .* rhom;
+figure(5); clf; scaplot(mesh, Pphys,[],2,2);
+axis equal; axis tight; colorbar; colormap jet;
+
+[a, gammaMix, cpMix, cvMix, Rmix] = soundspeed(Tphys, abs(rhoSpeciesPhys));
+
+vx = sol(:,6,:)./rho;
+vy = sol(:,7,:)./rho;
+vv = vRef*sqrt(vx.^2 + vy.^2);
+Mach = vv./a;
+figure(6); clf; scaplot(mesh, Mach,[],2,2);
+axis equal; axis tight; colorbar; colormap jet;
+
+figure(7); clf; scaplot(mesh, vdg(:,2,:),[],2,2);
+axis equal; axis tight; colorbar;
+
+figure(8); clf; meshplot(mesh,1);
+axis equal; axis tight; colorbar;
 
 function UDG = local_initial_solution(mesh,dist,Uinf,slope)
 rho = sum(Uinf(1:5));

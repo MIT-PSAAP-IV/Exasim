@@ -71,7 +71,8 @@ function forward_bilinear(reference_points, coefficients)
     hcat(ones(length(xi)), xi, eta, xi .* eta) * coefficients
 end
 
-function surfmesh2d(lower_curve, upper_curve, nx, ny, porder)
+function surfmesh2d(lower_curve, upper_curve, nx, ny, porder;
+                    streamwise_scaling=(2.0, 1.5), normal_scaling=(3.0, 1.0e-8))
     matrix = [
         1.0 0.0 0.0 0.0
         1.0 1.0 0.0 0.0
@@ -112,8 +113,14 @@ function surfmesh2d(lower_curve, upper_curve, nx, ny, porder)
         node_right=abs.(node_reference[:, 1] .- 1.0) .< 1.0e-6,
     )
     for reference in (vertex_reference, node_reference)
-        reference[:, 1] .= logdec_values(loginc_values(reference[:, 1], 2.0), 1.5)
-        reference[:, 2] .= logdec_values(loginc_values(reference[:, 2], 3.0), 1.0e-8)
+        reference[:, 1] .= logdec_values(
+            loginc_values(reference[:, 1], streamwise_scaling[1]),
+            max(streamwise_scaling[2], 1.0e-8),
+        )
+        reference[:, 2] .= logdec_values(
+            loginc_values(reference[:, 2], normal_scaling[1]),
+            max(normal_scaling[2], 1.0e-8),
+        )
         lower = polynomial_values(lower_fit, reference[:, 1])
         upper = polynomial_values(upper_fit, reference[:, 1])
         endpoints = (abs.(reference[:, 1]) .< 1.0e-6) .|

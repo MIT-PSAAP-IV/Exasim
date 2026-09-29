@@ -30,7 +30,24 @@ addpath(fullfile(srcdir, 'STG'));
 
 % Make external tools in common nonstandard prefixes visible without
 % clobbering the user's PATH.
-setenv('PATH', [getenv('PATH') ':/usr/bin:/usr/local/bin:/opt/local/bin:/opt/homebrew/bin']);
+currentPath = getenv('PATH');
+pathEntries = strsplit(currentPath, pathsep, 'CollapseDelimiters', false);
+uniqueEntries = {};
+for pathIndex = 1:numel(pathEntries)
+    if ~any(strcmp(uniqueEntries, pathEntries{pathIndex}))
+        uniqueEntries{end+1} = pathEntries{pathIndex}; %#ok<AGROW>
+    end
+end
+toolPaths = {'/usr/bin', '/usr/local/bin', '/opt/local/bin', '/opt/homebrew/bin'};
+for pathIndex = 1:numel(toolPaths)
+    if ~any(strcmp(uniqueEntries, toolPaths{pathIndex}))
+        uniqueEntries{end+1} = toolPaths{pathIndex}; %#ok<AGROW>
+    end
+end
+updatedPath = strjoin(uniqueEntries, pathsep);
+if ~strcmp(updatedPath, currentPath)
+    setenv('PATH', updatedPath);
+end
 setenv('EXASIM_PREFIX', '@CMAKE_INSTALL_PREFIX@');
 
 if exist('OCTAVE_VERSION', 'builtin')
@@ -41,4 +58,4 @@ if exist('OCTAVE_VERSION', 'builtin')
 end
 
 fprintf("==> Exasim MATLAB frontend ...\n");
-clear srcdir;
+clear srcdir currentPath pathEntries uniqueEntries toolPaths pathIndex updatedPath;

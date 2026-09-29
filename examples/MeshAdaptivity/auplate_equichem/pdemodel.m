@@ -75,25 +75,48 @@ end
 
 function m = mass(u, q, w, v, x, t, mu, eta) %#ok<INUSD>
 ncu = numel(x) + 2;
-m = cnseq_zeros(ncu, 1, u) + 1.0;
+m = ones(ncu, 1);
 end
 
+
 function state = materialstate(u, q, w, v, x, t, mu, eta) %#ok<INUSD>
-rho = u(1);
-nd = numel(u) - 2;
-vel2 = 0.0;
-if ~isa(u,'sym')
-    vel2 = 0.0;
-end
+
+rhoScale = mu(1);
+energyScale = mu(4);
+
+% Keep material coordinates inside the database bounds.
+densitySafety = 1e-6;
+energySafety = 1e3;
+
+rhoMinPhysical = 1e-4 + densitySafety;
+rhoMaxPhysical = 20.0 - densitySafety;
+energyMinPhysical = -150000.0 + energySafety;
+energyMaxPhysical = 20000000.0 - energySafety;
+
+rhoMin = rhoMinPhysical/rhoScale;
+rhoMax = rhoMaxPhysical/rhoScale;
+energyMin = energyMinPhysical/energyScale;
+energyMax = energyMaxPhysical/energyScale;
+
+% Density must be regularized before it is used as a denominator.
+rho = limiting(u(1),rhoMin,rhoMax,1e2,rhoMin);
+
+nd = length(u)-2;
+momentum2 = 0*u(1);
 for d = 1:nd
-    vd = u(1+d)/rho;
-    vel2 = vel2 + vd*vd;
+momentum2 = momentum2 + u(1+d)*u(1+d);
 end
-e = u(nd+2)/rho - 0.5*vel2;
-rho_dim = mu(1)*rho;
-e_dim = mu(4)*e;
-state = [log(rho_dim); e_dim];
+
+% Nondimensional specific internal energy.
+energy = u(nd+2)/rho - 0.5*momentum2/(rho*rho);
+energy = limiting(energy,energyMin,energyMax,1e2,energyMin);
+
+rhoPhysical = rhoScale*rho;
+energyPhysical = energyScale*energy;
+
+state = [log(rhoPhysical);energyPhysical];
 end
+
 
 function f = flux(u, q, w, v, x, t, mu, eta) %#ok<INUSD>
 f = cnseq_flux_cart(u, q, w, v, x, mu);
@@ -134,7 +157,7 @@ end
 function w0 = initw(x, mu, eta) %#ok<INUSD>
 % Size declaration for code generation.  Runtime values are supplied by the
 % material database interpolation.
-w0 = cnseq_zeros(15, 1, x);
+w0 = zeros(15, 1);
 w0(1) = 1.0;      % p
 w0(2) = 300.0;    % T
 w0(3) = 1.0e-5;   % mu

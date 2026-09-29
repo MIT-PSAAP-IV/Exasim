@@ -71,7 +71,7 @@ pde.AVcontinuationLogScale = 1.0;
 pde.AVcoeffStart = 0.060;
 pde.AVcoeffEnd = 0.015;
 pde.AVdistfunction = 1;
-pde.distanceboundaryconditions = [6];
+pde.distanceboundaryconditions = [8]; % 8 catalytic isothermal wall
 pde.AVsmoothingMethod = 1;
 pde.AVHelmholtzCoeff = 0.025;
 AVmaxdiv = 2.0;
@@ -107,8 +107,8 @@ mesh.boundaryexpr = {@(p) sqrt(p(1,:).^2+p(2,:).^2)<1+1e-6, ...
 mesh.periodicexpr = {};
 
 mesh.f = facenumbering(mesh.p,mesh.t,pde.elemtype,mesh.boundaryexpr,mesh.periodicexpr);
-% CNS5air BCs: 6 noncatalytic isothermal wall, 2 outflow, 1 inflow.
-mesh.boundarycondition = [6;2;1];
+% CNS5air BCs: 8 catalytic isothermal wall, 2 outflow, 1 inflow.
+mesh.boundarycondition = [8;2;1];
 
 dist = meshdist3(mesh.f,mesh.dgnodes,mesh.perm,[1]);
 

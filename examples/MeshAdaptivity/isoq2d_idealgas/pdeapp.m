@@ -40,12 +40,12 @@ pde.AV = 1;
 pde.AVcontinuationIter = 6;
 pde.AVcontinuationLogScale = 1.5;
 pde.AVcoeffStart = 0.002;
-pde.AVcoeffEnd = 0.000005;
+pde.AVcoeffEnd = 0.00001;
 pde.AVdistfunction = 1;
 pde.distanceboundaryconditions = 3; % isothermal-wall flow BC tag
 pde.AVsmoothingMethod = 1;
 pde.AVHelmholtzCoeff = 0.001;
-AVmaxdiv = 50.0;
+AVmaxdiv = 20.0;
 AVdistcoeff = nm;
 
 pde.meshadaptenabled = 1;
@@ -112,6 +112,4 @@ mesh1 = mesh; mesh1.dgnodes = xdg;
 figure(1); clf; meshplot(mesh1,1)
 figure(2); clf; scaplot(mesh1, vdg(:,2,:),[],2,2);
 axis equal; axis tight; colorbar;
-
-% mesh.udg = sol;
-figure(3); clf; scaplot(mesh, eulereval(sol, 'M',gam,Minf),[0 Minf],1,1); colorbar;
+figure(3); clf; scaplot(mesh1, eulereval(sol, 'M',gam,Minf),[0 Minf],1,2); colorbar;
