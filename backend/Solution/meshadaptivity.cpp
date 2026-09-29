@@ -3,7 +3,7 @@
 
 #include "../Preprocessing/makemaster.hpp"
 #include "../Preprocessing/meshdist.hpp"
-#include <Kokkos_Sort.hpp>
+#include "distributedradixquantiles.hpp"
 
 namespace exasim_meshadapt {
 
@@ -597,50 +597,7 @@ bool CSolution<M>::AdaptMeshChecked(Int backend, Int continuationIteration)
         elementSizeAndMeans(currentSize, means, jac, npe, ne, ne1, nd);
 
         dstype hmin = 0.0, hmax = 0.0;
-#ifdef HAVE_MPI
-        std::vector<int> counts(disc.common.mpiProcs), offsets(disc.common.mpiProcs, 0);
-        const int localCount = static_cast<int>(ne1);
-        MPI_Gather(&localCount, 1, MPI_INT, counts.data(), 1, MPI_INT,
-                   0, EXASIM_COMM_WORLD);
-        int total = 0;
-        if (disc.common.mpiRank == 0)
-            for (Int r = 0; r < disc.common.mpiProcs; ++r) {
-                offsets[r] = total;
-                total += counts[r];
-            }
-        dstype *globalMeans = nullptr;
-        if (disc.common.mpiRank == 0) TemplateMalloc(&globalMeans, total, backend);
-        Kokkos::fence();
-        MPI_Gatherv(means, localCount, mpi_type<dstype>(), globalMeans,
-                    counts.data(), offsets.data(), mpi_type<dstype>(),
-                    0, EXASIM_COMM_WORLD);
-        if (disc.common.mpiRank == 0) {
-            using memory_space = typename Kokkos::DefaultExecutionSpace::memory_space;
-            using unmanaged = Kokkos::MemoryTraits<Kokkos::Unmanaged>;
-            Kokkos::View<dstype*, memory_space, unmanaged> sorted(globalMeans, total);
-            Kokkos::sort(sorted);
-            Int imin = static_cast<Int>(std::round(cfg.qmin*total))-1;
-            Int imax = static_cast<Int>(std::round(cfg.qmax*total))-1;
-            imin = std::max<Int>(0, std::min<Int>(imin, total-1));
-            imax = std::max<Int>(0, std::min<Int>(imax, total-1));
-            TemplateCopytoHost(&hmin, &globalMeans[imin], 1, backend);
-            TemplateCopytoHost(&hmax, &globalMeans[imax], 1, backend);
-            TemplateFree(globalMeans, backend);
-        }
-        MPI_Bcast(&hmin, 1, mpi_type<dstype>(), 0, EXASIM_COMM_WORLD);
-        MPI_Bcast(&hmax, 1, mpi_type<dstype>(), 0, EXASIM_COMM_WORLD);
-#else
-        using memory_space = typename Kokkos::DefaultExecutionSpace::memory_space;
-        using unmanaged = Kokkos::MemoryTraits<Kokkos::Unmanaged>;
-        Kokkos::View<dstype*, memory_space, unmanaged> sorted(means, ne1);
-        Kokkos::sort(sorted);
-        Int imin = static_cast<Int>(std::round(cfg.qmin*ne1))-1;
-        Int imax = static_cast<Int>(std::round(cfg.qmax*ne1))-1;
-        imin = std::max<Int>(0, std::min<Int>(imin, ne1-1));
-        imax = std::max<Int>(0, std::min<Int>(imax, ne1-1));
-        TemplateCopytoHost(&hmin, &means[imin], 1, backend);
-        TemplateCopytoHost(&hmax, &means[imax], 1, backend);
-#endif
+        DistributedRadixQuantiles(hmin, hmax, means, ne1, cfg.qmin, cfg.qmax);
 
         dstype *targetSize = nullptr;
         if (writeVerification) TemplateMalloc(&targetSize, nodeCount, backend);
