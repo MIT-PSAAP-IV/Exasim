@@ -503,6 +503,26 @@ endif()
 add_test(NAME unit_struct_defaults COMMAND unit_struct_defaults)
 set_tests_properties(unit_struct_defaults PROPERTIES TIMEOUT 120)
 
+# Exact device-resident quantile selection used by mesh adaptivity. The reference
+# intentionally uses std::sort in the test only; production never gathers values.
+add_executable(unit_distributed_radix_quantiles
+  ${CMAKE_CURRENT_SOURCE_DIR}/unit/distributed_radix_quantiles.cpp)
+target_link_libraries(unit_distributed_radix_quantiles PRIVATE Kokkos::kokkos)
+target_include_directories(unit_distributed_radix_quantiles PRIVATE ${EXASIM_DIR})
+if(EXASIM_MPI)
+  find_package(MPI REQUIRED)
+  target_link_libraries(unit_distributed_radix_quantiles PRIVATE MPI::MPI_CXX)
+  target_compile_definitions(unit_distributed_radix_quantiles PRIVATE HAVE_MPI)
+  add_test(NAME unit_distributed_radix_quantiles
+    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 3
+            ${MPIEXEC_PREFLAGS} $<TARGET_FILE:unit_distributed_radix_quantiles>
+            ${MPIEXEC_POSTFLAGS})
+else()
+  add_test(NAME unit_distributed_radix_quantiles
+    COMMAND unit_distributed_radix_quantiles)
+endif()
+set_tests_properties(unit_distributed_radix_quantiles PROPERTIES TIMEOUT 120)
+
 # The LDG chemistry STG boundary must construct the same conservative Air-5
 # state as the working HDG chemistry path, before HDG subtracts its trace.
 add_executable(unit_stg_chem_ldg ${CMAKE_CURRENT_SOURCE_DIR}/unit/stg_chem_ldg.cpp)
