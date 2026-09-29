@@ -74,7 +74,7 @@ if exist('text2code_export_directory', 'var') && ~isempty(text2code_export_direc
     end
 end
 
-pde.gencode=0;
+pde.gencode=1;
 [sol,pde,mesh,master,dmd] = exasim(pde,mesh);
 
 mesh.udg = sol;

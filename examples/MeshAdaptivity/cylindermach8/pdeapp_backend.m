@@ -42,6 +42,7 @@ pde.ppdegree = 0;
 pde.NLtol = 1e-6;
 pde.NLiter = 10;
 pde.matvectol = 1e-6;
+pde.saveParaview = 1;
 
 pde.AV = 1;
 pde.AVcontinuationIter = 10;
@@ -87,3 +88,12 @@ end
 
 setenv('EXASIM_MESHADAPT_VERIFY','0');
 [sol,pde,mesh,master,dmd] = exasim(pde,mesh); %#ok<ASGLU>
+
+xdg = getsolution('backend_run/dataout/outxdg',dmd, master.npe);
+vdg = getsolution('backend_run/dataout/outvdg',dmd, master.npe);
+mesh1 = mesh; mesh1.dgnodes = xdg;
+figure(1); clf; meshplot(mesh1,1)
+figure(2); clf; scaplot(mesh1, vdg(:,2,:),[],2,2);
+axis equal; axis tight; colorbar; colormap('jet');
+figure(3); clf; scaplot(mesh1, eulereval(sol, 'M',gam,Minf),[0 Minf],1,2);
+axis equal; axis tight; colorbar; colormap('jet');

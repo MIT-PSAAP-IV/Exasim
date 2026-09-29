@@ -42,22 +42,22 @@ pde.AV = 1;
 pde.AVcontinuationIter = 9;
 pde.AVcontinuationLogScale = 2;
 pde.AVcoeffStart = 0.005;
-pde.AVcoeffEnd = 0.000016;
+pde.AVcoeffEnd = 0.00005;
 pde.AVdistfunction = 1;
 pde.distanceboundaryconditions = 3; % isothermal-wall flow BC tag
 pde.AVsmoothingMethod = 1;
 pde.AVHelmholtzCoeff = 0.001;
-AVmaxdiv = 60.0;
+AVmaxdiv = 20.0;
 AVdistcoeff = nm;
 
 pde.meshadaptenabled = 1;
 pde.meshadaptfield = 2; % physical pressure from visscalars
 pde.meshadaptavcomponent = 1;
-pde.meshadaptalpha = 0.5;
+pde.meshadaptalpha = 0.1;
 pde.meshadaptqmin = 0.2;
 pde.meshadaptqmax = 0.8;
 pde.meshadaptHelmholtzCoeff = 0.001;
-pde.meshadaptforcescale = 0.25;
+pde.meshadaptforcescale = 0.5;
 pde.meshadaptsmoothingpasses = 30;
 % Geometric boundaries: axis, lower farfield, upper farfield, wall, outflow.
 % Type 3 permits tangential motion; type 2 fixes both displacement components.
@@ -109,5 +109,5 @@ adaptedMesh.dgnodes = xdg;
 figure(1); clf; meshplot(adaptedMesh,1); axis equal; axis tight;
 figure(2); clf; scaplot(adaptedMesh,vdg(:,2,:),[],2,2);
 axis equal; axis tight; colorbar;
-figure(3); clf; scaplot(adaptedMesh,eulereval(sol,'M',gam,Minf),[0 Minf],1,1);
+figure(3); clf; scaplot(adaptedMesh,eulereval(sol,'M',gam,Minf),[0 Minf],2,2);
 axis equal; axis tight; colorbar;

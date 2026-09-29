@@ -75,12 +75,12 @@ pde.AV = 1;
 pde.AVcontinuationIter = 10;
 pde.AVcontinuationLogScale = 2.0;
 pde.AVcoeffStart = 0.005;
-pde.AVcoeffEnd = 0.000016;
+pde.AVcoeffEnd = 0.00005;
 pde.AVdistfunction = 1;
 pde.distanceboundaryconditions = 8; % noncatalytic isothermal-wall BC tag
 pde.AVsmoothingMethod = 1;
 pde.AVHelmholtzCoeff = 0.001;
-AVmaxdiv = 60.0;
+AVmaxdiv = 20.0;
 AVdistcoeff = nm;
 
 speciesDensityMinimum = -1e-5;
@@ -92,11 +92,11 @@ pressureMinimum = 1.0e-8*pressurePhysical;
 pde.meshadaptenabled = 1;
 pde.meshadaptfield = 1; % physical pressure is the first visscalars field
 pde.meshadaptavcomponent = 1;
-pde.meshadaptalpha = 0.5;
+pde.meshadaptalpha = 0.1;
 pde.meshadaptqmin = 0.2;
 pde.meshadaptqmax = 0.8;
 pde.meshadaptHelmholtzCoeff = 0.001;
-pde.meshadaptforcescale = 0.25;
+pde.meshadaptforcescale = 0.7;
 pde.meshadaptsmoothingpasses = 30;
 % Geometric boundaries: axis, lower farfield, upper farfield, wall, outflow.
 pde.meshadaptboundaryconditions = [3;3;3;2;3];
@@ -136,7 +136,7 @@ fprintf('  rho_inf = %.10g kg/m^3, p_inf = %.10g Pa, T_inf = %.10g K\n', ...
 fprintf('  a_inf = %.10g m/s, U_inf = %.10g m/s, Mach = %.8g, Re = %.8g\n', ...
     soundSpeedInf,velocityPhysical,velocityPhysical/soundSpeedInf,Re);
 
-pde.gencode = 0;
+pde.gencode = 1;
 [sol,pde,mesh,master,dmd] = exasim(pde,mesh);
 sol = sol(:,:,:,end);
 
@@ -157,7 +157,7 @@ velocity = velocityReference*sol(:,6:7,:)./rho;
 mach = sqrt(sum(velocity.^2,2))./soundSpeed;
 
 figure(1); clf; meshplot(mesh,1); axis equal; axis tight;
-figure(2); clf; scaplot(mesh,mach,[],2);
+figure(2); clf; scaplot(mesh,mach,[],2,2);
 axis equal; axis tight; colorbar;
 figure(3); clf; scaplot(mesh,pde.avparam1(end)+pde.avparam2(end)*vdg(:,2,:),[],2,2);
 axis equal; axis tight; colorbar;

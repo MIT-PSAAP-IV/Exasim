@@ -140,18 +140,21 @@ end
 
 [sol,pde,mesh,master,dmd] = exasim(pde,mesh);
 
-xdg = getsolution('dataout/outxdg',dmd, master.npe);
-vdg = getsolution('dataout/outvdg',dmd, master.npe);
+xdg = getsolution('dataout/outxdg', dmd, master.npe);
+vdg = getsolution('dataout/outvdg', dmd, master.npe);
 wdg = getsolutions('dataout/outwdg', dmd);
-mesh1 = mesh; mesh1.dgnodes = xdg;
+mesh1 = mesh;
+mesh1.dgnodes = xdg;
 
-figure(1); clf; scaplot(mesh1, wdg(:,1,:)/pRef,[],2,2);
-axis equal; axis tight; colorbar; colormap jet;
+rhoPhys = rhoRef*sol(:,1,:);
+speedPhys = uRef*sqrt(sol(:,2,:).^2 + sol(:,3,:).^2)./sol(:,1,:);
+mach = speedPhys./wdg(:,6,:);
 
-figure(2); clf; scaplot(mesh1, vdg(:,2,:),[],2,2);
-axis equal; axis tight; colorbar;
+figure(1); clf; meshplot(mesh1,1); axis equal; axis tight;
+figure(2); clf; scaplot(mesh1,mach,[0 Minf],2,2); axis equal; axis tight; colorbar; colormap('jet');
+figure(3); clf; scaplot(mesh1,vdg(:,2,:),[],2,2); axis equal; axis tight; colorbar; colormap('jet');
+figure(4); clf; scaplot(mesh1,rhoPhys,[],2,2); axis equal; axis tight; colorbar; colormap('jet');
 
-figure(3); clf; meshplot(mesh1,1); axis equal; axis tight;
 
 function sol = local_stage_solve(pde, mesh, master, dist, sol, avAmplitude, avSlope, label)
 fprintf('%s: uniform artificial viscosity amplitude %.6g, tanh slope %.6g\n', label, avAmplitude, avSlope);
