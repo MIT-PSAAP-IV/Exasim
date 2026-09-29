@@ -164,7 +164,7 @@ inline void qoiFace(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> 
         Int f1 = common.fblks[3*j]-1;
         Int f2 = common.fblks[3*j+1];    
         Int ib = common.fblks[3*j+2];    
-        if ((common.qoiparams.ibs > 0) && (ib == common.qoiparams.ibs))
+        if (common.qoiparams.isSaveBoundary(ib))
             qoiFaceBlock<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, f1, f2, 1, common.backend);
     }                          
 

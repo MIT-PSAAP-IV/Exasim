@@ -44,7 +44,7 @@ void flux_kernel(T*       f,
                  const T* udg,
                  const T* odg,
                  const T* wdg,
-                 const T* /*uinf*/,
+                 const T* uinf,
                  const T* param,
                  T        t,
                  int           /*modelnumber*/,
@@ -95,7 +95,7 @@ void flux_kernel(T*       f,
             }
 
             T f_local[ncu * nd];
-            M::flux(f_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
+            M::flux(f_local, x, uq, v, w, param, uinf, t);
 
             for (int k = 0; k < ncu * nd; ++k) f[k * ng + i] = f_local[k];
         });
@@ -122,7 +122,7 @@ void hdg_flux_kernel(T*       f,
                      const T* udg,
                      const T* odg,
                      const T* wdg,
-                     const T* /*uinf*/,
+                     const T* uinf,
                      const T* param,
                      T        t,
                      int           /*modelnumber*/,
@@ -169,18 +169,18 @@ void hdg_flux_kernel(T*       f,
 
             // Value
             T f_local[ncu * nd];
-            M::flux(f_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
+            M::flux(f_local, x, uq, v, w, param, uinf, t);
             for (int k = 0; k < ncu * nd; ++k) f[k * ng + i] = f_local[k];
 
             // ∂f/∂uq
             T f_uq[ncu * nd * Nq];
-            M::flux_jac_uq(f_uq, x, uq, v, w, param, /*uinf=*/nullptr, t);
+            M::flux_jac_uq(f_uq, x, uq, v, w, param, uinf, t);
             for (int k = 0; k < ncu * nd * Nq; ++k) f_udg[k * ng + i] = f_uq[k];
 
             // ∂f/∂w (only when present)
             if constexpr (ncw > 0) {
                 T f_w[ncu * nd * ncw];
-                M::flux_jac_w(f_w, x, uq, v, w, param, /*uinf=*/nullptr, t);
+                M::flux_jac_w(f_w, x, uq, v, w, param, uinf, t);
                 for (int k = 0; k < ncu * nd * ncw; ++k) f_wdg[k * ng + i] = f_w[k];
             }
         });

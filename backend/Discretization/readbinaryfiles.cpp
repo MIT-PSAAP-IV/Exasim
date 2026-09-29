@@ -111,6 +111,7 @@ void readappstruct(string filename, appstruct &app)
     const Int szmeshadaptparam = (app.lsize[0] > 20) ? app.nsize[20] : 0;
     const Int szmeshadaptbcs = (app.lsize[0] > 21) ? app.nsize[21] : 0;
     const Int szdistanceboundaryconditions = (app.lsize[0] > 22) ? app.nsize[22] : 0;
+    const Int szbououtparam = (app.lsize[0] > 23) ? app.nsize[23] : 0;
     if (szwmModelIDs > 0) app.wmModelIDs = readiarrayfromdouble(in, szwmModelIDs);
     if (szwmBoundaries > 0) app.wmBoundaries = readiarrayfromdouble(in, szwmBoundaries);
     if (szwmDistances > 0) readarray(in, &app.wmDistances, szwmDistances);
@@ -118,6 +119,7 @@ void readappstruct(string filename, appstruct &app)
     if (szmeshadaptparam > 0) readarray(in, &app.meshadaptparam, szmeshadaptparam);
     if (szmeshadaptbcs > 0) app.meshadaptbcs = readiarrayfromdouble(in, szmeshadaptbcs);
     if (szdistanceboundaryconditions > 0) app.distanceboundaryconditions = readiarrayfromdouble(in, szdistanceboundaryconditions);
+    if (szbououtparam > 0) app.bououtparam = readiarrayfromdouble(in, szbououtparam);
     
     app.szflag = app.nsize[1];
     app.szproblem = app.nsize[2];
@@ -141,6 +143,7 @@ void readappstruct(string filename, appstruct &app)
     app.szmeshadaptparam = szmeshadaptparam;
     app.szmeshadaptbcs = szmeshadaptbcs;
     app.szdistanceboundaryconditions = szdistanceboundaryconditions;
+    app.szbououtparam = szbououtparam;
 
     #ifdef HAVE_MPP
         char a[50];
@@ -243,6 +246,7 @@ void writeappstruct(string filename, appstruct &app)
     if (app.lsize[0] > 20) writearray(out, app.meshadaptparam, app.nsize[20]);
     if (app.lsize[0] > 21) writeiarraytodouble(out, app.meshadaptbcs, app.nsize[21]);
     if (app.lsize[0] > 22) writeiarraytodouble(out, app.distanceboundaryconditions, app.nsize[22]);
+    if (app.lsize[0] > 23) writeiarraytodouble(out, app.bououtparam, app.nsize[23]);
     
     // Close file:
     out.close();

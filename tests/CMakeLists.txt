@@ -420,6 +420,20 @@ if(TARGET Kokkos::kokkos)
   set_tests_properties(hdg_sourcew_equivalence PROPERTIES TIMEOUT 120)
 endif()
 
+# Templated boundary-output kernels (surface_quantities / qoi_boundary): the model gets the
+# full tau (ntau != ncu), the real uinf and the real boundary id, and nsurfq beyond the
+# per-point buffer is refused before launch. See tests/unit/surface_quantities_kernel.cpp.
+if(TARGET Kokkos::kokkos)
+  add_executable(unit_surface_quantities_kernel
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/surface_quantities_kernel.cpp")
+  target_include_directories(unit_surface_quantities_kernel PRIVATE
+    "${EXASIM_INCLUDE_DIR}" "${EXASIM_DIR}")
+  target_link_libraries(unit_surface_quantities_kernel PRIVATE Kokkos::kokkos)
+  target_compile_features(unit_surface_quantities_kernel PRIVATE cxx_std_17)
+  add_test(NAME unit_surface_quantities_kernel COMMAND unit_surface_quantities_kernel)
+  set_tests_properties(unit_surface_quantities_kernel PROPERTIES TIMEOUT 120)
+endif()
+
 
 # Shared-library app test: install Exasim, build apps/sharedlibrary against the
 # installed package, generate libt2cmodelserial with the installed text2code,
@@ -434,6 +448,20 @@ add_test(NAME sharedlibrary_app
     "INSTALL_PREFIX=/tmp/exasim_install_sharedlibrary"
     bash "${CMAKE_CURRENT_SOURCE_DIR}/run-sharedlibrary-test.sh")
 set_tests_properties(sharedlibrary_app PROPERTIES
+  TIMEOUT 2400 SKIP_RETURN_CODE 77)
+
+# SurfaceQuantities on a moving mesh (cylinder Mach 8 mesh-adaptivity app, ibs = [3, 5, 6]):
+# the per-save outbousurfgeo record must be the geometry the values were evaluated on after
+# the mesh moved. Builds exasimapp like sharedlibrary_app; SKIPs (77) without text2code.
+add_test(NAME surfacequantities_moving_mesh
+  COMMAND ${CMAKE_COMMAND} -E env
+    "EXASIM_BUILD=${CMAKE_BINARY_DIR}"
+    "KOKKOS_DIR=${Kokkos_DIR}"
+    "CC=${CMAKE_C_COMPILER}"
+    "CXX=${CMAKE_CXX_COMPILER}"
+    "INSTALL_PREFIX=/tmp/exasim_install_surfq_meshadapt"
+    bash "${CMAKE_CURRENT_SOURCE_DIR}/run-surfacequantities-meshadapt.sh")
+set_tests_properties(surfacequantities_moving_mesh PROPERTIES
   TIMEOUT 2400 SKIP_RETURN_CODE 77)
 
 # PETSc operator export: PETSc (SNES + KSP=GMRES + MatShell + PCShell) drives the

@@ -9,6 +9,8 @@
 
 #include "solutionwriter.h"
 #include <filesystem>
+#include <limits>
+#include <string>
 
 namespace {
 inline int count_model_mesh_partitions(const std::string& filein)
@@ -67,23 +69,8 @@ void CSolutionWriter<M>::setup(bool postprocessOnly)
         if (disc.common.spatialScheme==1)
             open_and_write(outuhat, "uhat_np", rank, offset, ncu, npf, nf, base);
 
-        if ( disc.common.outputparams.saveSolBouFreq>0 ) {
-            Int nfbou = 0;
-            for (Int j=0; j<disc.common.meshsizes.nbf; j++) {
-                Int f1 = disc.common.fblks[3*j]-1;
-                Int f2 = disc.common.fblks[3*j+1];
-                Int ib = disc.common.fblks[3*j+2];
-                if (ib == disc.common.qoiparams.ibs) {
-                    Int nfb = f2-f1;
-                    nfbou += nfb;
-                }
-            }
-            open_and_write(outbouxdg, "bouxdg_np", rank, offset, npf, nfbou, ncx, base);
-            open_and_write(outboundg, "boundg_np", rank, offset, npf, nfbou, nd, base);
-            open_and_write(outbouudg, "bouudg_np", rank, offset, npf, nfbou, disc.common.components.nc, base);
-            open_and_write(outbouuhat, "bouuhat_np", rank, offset, npf, nfbou, ncu, base);
-            if (ncw > 0) open_and_write(outbouwdg, "bouwdg_np", rank, offset, npf, nfbou, ncw, base);
-        }
+        if ( disc.common.outputparams.saveSolBouFreq>0 )
+            openBoundaryFiles(base);
     }
 }
 
@@ -100,6 +87,8 @@ void CSolutionWriter<M>::crashDump(Int backend)
     if (outbouudg.is_open()) { outbouudg.close(); }
     if (outbouwdg.is_open()) { outbouwdg.close(); }
     if (outbouuhat.is_open()) { outbouuhat.close(); }
+    if (outbousurf.is_open()) { outbousurf.close(); }
+    if (outbousurfgeo.is_open()) { outbousurfgeo.close(); }
     if (outqoi.is_open()) { outqoi.close(); }
 }
 
@@ -115,6 +104,8 @@ void CSolutionWriter<M>::ResetOutputFiles(const std::string& fileout)
         if (outbouudg.is_open()) { outbouudg.close(); }
         if (outbouwdg.is_open()) { outbouwdg.close(); }
         if (outbouuhat.is_open()) { outbouuhat.close(); }
+        if (outbousurf.is_open()) { outbousurf.close(); }
+        if (outbousurfgeo.is_open()) { outbousurfgeo.close(); }
         if (outqoi.is_open()) { outqoi.close(); }
 
         disc.common.fileout = fileout;
@@ -149,23 +140,8 @@ void CSolutionWriter<M>::ResetOutputFiles(const std::string& fileout)
         if (disc.common.spatialScheme==1)
             open_and_write(outuhat, "uhat_np", rank, offset, ncu, npf, nf, fileout);
 
-        if (disc.common.outputparams.saveSolBouFreq>0) {
-            Int nfbou = 0;
-            for (Int j=0; j<disc.common.meshsizes.nbf; j++) {
-                Int f1 = disc.common.fblks[3*j]-1;
-                Int f2 = disc.common.fblks[3*j+1];
-                Int ib = disc.common.fblks[3*j+2];
-                if (ib == disc.common.qoiparams.ibs)
-                    nfbou += f2-f1;
-            }
-
-            open_and_write(outbouxdg, "bouxdg_np", rank, offset, npf, nfbou, ncx, fileout);
-            open_and_write(outboundg, "boundg_np", rank, offset, npf, nfbou, nd, fileout);
-            open_and_write(outbouudg, "bouudg_np", rank, offset, npf, nfbou, disc.common.components.nc, fileout);
-            open_and_write(outbouuhat, "bouuhat_np", rank, offset, npf, nfbou, ncu, fileout);
-            if (ncw > 0)
-                open_and_write(outbouwdg, "bouwdg_np", rank, offset, npf, nfbou, ncw, fileout);
-        }
+        if (disc.common.outputparams.saveSolBouFreq>0)
+            openBoundaryFiles(fileout);
     }
 
 // --- methods moved verbatim from CSolution ---
@@ -630,7 +606,7 @@ void CSolutionWriter<M>::SaveSolutionsOnBoundary(Int backend)
                 Int f1 = disc.common.fblks[3*j]-1;
                 Int f2 = disc.common.fblks[3*j+1];    
                 Int ib = disc.common.fblks[3*j+2];            
-                if (ib == disc.common.qoiparams.ibs) {     
+                if (disc.common.qoiparams.isSaveBoundary(ib)) {     
                     Int npf = disc.common.grid.npf; // number of nodes on master face      
                     Int npe = disc.common.grid.npe; // number of nodes on master face      
                     Int nf = f2-f1;
@@ -649,6 +625,8 @@ void CSolutionWriter<M>::SaveSolutionsOnBoundary(Int backend)
                         GetFaceNodes(disc.tmp.tempn, disc.sol.wdg, disc.mesh.facecon, npf, ncw, npe, ncw, f1, f2, 1);      
                         writearray(outbouwdg, disc.tmp.tempn, nn*ncw, backend);
                     }
+                    if (disc.common.qoiparams.nsurfq > 0)
+                        saveSurfaceQuantitiesBlock(f1, f2, ib, backend);
                 }
             }          
         }                                
@@ -663,36 +641,193 @@ void CSolutionWriter<M>::SaveNodesOnBoundary(Int backend)
             Int f1 = disc.common.fblks[3*j]-1;
             Int f2 = disc.common.fblks[3*j+1];    
             Int ib = disc.common.fblks[3*j+2];            
-            if (ib == disc.common.qoiparams.ibs) {     
+            if (disc.common.qoiparams.isSaveBoundary(ib)) {     
                 Int nd = disc.common.grid.nd; 
                 Int npf = disc.common.grid.npf; // number of nodes on master face      
                 Int nf = f2-f1;
                 Int nn = npf*nf; 
                 Int ncx = disc.common.components.ncx; // number of compoments of (u, q, p)                            
-                GetArrayAtIndex(disc.tmp.tempn, disc.sol.xdg, &disc.mesh.findxdg1[npf*ncx*f1], nn*ncx);                
+                faceNodeGeometry(disc.tmp.tempn, f1, f2, backend);
                 writearray(outbouxdg, disc.tmp.tempn, nn*ncx, backend);
-
-                Int n1 = nn*ncx;                           // nlg
-                Int n2 = nn*(ncx+nd);                      // jac
-                Int n3 = nn*(ncx+nd+1);                    // Jg
-                if (nd==1) {
-                    FaceGeom1D(&disc.tmp.tempn[n2], &disc.tmp.tempn[n1], &disc.tmp.tempn[n3], nn);    
-                    FixNormal1D(&disc.tmp.tempn[n1], &disc.mesh.facecon[2*f1], nn);    
-                }
-                else if (nd==2){
-                    Node2Gauss(disc.common.cublasHandle, &disc.tmp.tempn[n3], disc.tmp.tempn, &disc.master.shapfnt[npf*npf], npf, npf, nf*nd, backend);                
-                    FaceGeom2D(&disc.tmp.tempn[n2], &disc.tmp.tempn[n1], &disc.tmp.tempn[n3], nn);
-                }
-                else if (nd==3) {
-                    Node2Gauss(disc.common.cublasHandle, &disc.tmp.tempn[n3], disc.tmp.tempn, &disc.master.shapfnt[npf*npf], npf, npf, nf*nd, backend);                     
-                    Node2Gauss(disc.common.cublasHandle, &disc.tmp.tempn[n3+nn*nd], disc.tmp.tempn, &disc.master.shapfnt[2*npf*npf], npf, npf, nf*nd, backend);                
-                    FaceGeom3D(&disc.tmp.tempn[n2], &disc.tmp.tempn[n1], &disc.tmp.tempn[n3], nn);
-                }
-                writearray(outboundg, &disc.tmp.tempn[n1], nn*nd, backend);
+                writearray(outboundg, &disc.tmp.tempn[nn*ncx], nn*nd, backend);
             }
         }
         if (outbouxdg.is_open()) { outbouxdg.close(); }
         if (outboundg.is_open()) { outboundg.close(); }
+    }
+}
+
+template <class M>
+void CSolutionWriter<M>::faceNodeGeometry(dstype* buf, Int f1, Int f2, Int backend)
+{
+    Int nd = disc.common.grid.nd; 
+    Int npf = disc.common.grid.npf; // number of nodes on master face      
+    Int nf = f2-f1;
+    Int nn = npf*nf; 
+    Int ncx = disc.common.components.ncx;
+    GetArrayAtIndex(buf, disc.sol.xdg, &disc.mesh.findxdg1[npf*ncx*f1], nn*ncx);                
+
+    Int n1 = nn*ncx;                           // nlg
+    Int n2 = nn*(ncx+nd);                      // jac
+    Int n3 = nn*(ncx+nd+1);                    // Jg
+    if (nd==1) {
+        FaceGeom1D(&buf[n2], &buf[n1], &buf[n3], nn);    
+        FixNormal1D(&buf[n1], &disc.mesh.facecon[2*f1], nn);    
+    }
+    else if (nd==2){
+        Node2Gauss(disc.common.cublasHandle, &buf[n3], buf, &disc.master.shapfnt[npf*npf], npf, npf, nf*nd, backend);                
+        FaceGeom2D(&buf[n2], &buf[n1], &buf[n3], nn);
+    }
+    else if (nd==3) {
+        Node2Gauss(disc.common.cublasHandle, &buf[n3], buf, &disc.master.shapfnt[npf*npf], npf, npf, nf*nd, backend);                     
+        Node2Gauss(disc.common.cublasHandle, &buf[n3+nn*nd], buf, &disc.master.shapfnt[2*npf*npf], npf, npf, nf*nd, backend);                
+        FaceGeom3D(&buf[n2], &buf[n1], &buf[n3], nn);
+    }
+}
+
+template <class M>
+void CSolutionWriter<M>::ensureSurfaceScratch(Int nf)
+{
+    auto& common = disc.common;
+    const long long npf = common.grid.npf, ngf = common.grid.ngf, nd = common.grid.nd;
+    const long long ncx = common.components.ncx, nsq = common.qoiparams.nsurfq;
+    const long long ns = (long long) common.components.nc + common.components.ncu
+                       + common.components.nco + common.components.ncw;
+    // Exact layouts of saveSurfaceQuantitiesBlock for nf faces:
+    //   nodes: node fields [npf*nf, ns] | geometry [npf*nf, ncx+3nd+1] | values [npf*nf, nsq]
+    //   Gauss: node fields [npf*nf, ns] | Gauss fields [ngf*nf, ns] | values [ngf*nf, nsq] | dA [ngf*nf]
+    const long long nodal = (long long) nf * npf * (ns + ncx + 3*nd + 1 + nsq);
+    const long long gauss = (long long) nf * (npf * ns + ngf * (ns + nsq + 1));
+    const long long need  = std::max(std::max(nodal, gauss), 1LL);
+    if (need > (long long) std::numeric_limits<Int>::max())
+        error("SurfaceQuantities scratch for a boundary face block needs " + std::to_string(need) +
+              " entries, which overflows Int; rebuild Exasim with EXASIM_INT64=ON.");
+    if (need <= (long long) szsurfbuf) return;
+    if (surfbuf) TemplateFree(surfbuf, common.backend);
+    TemplateMalloc(&surfbuf, (Int) need, common.backend);
+    szsurfbuf = (Int) need;
+}
+
+template <class M>
+void CSolutionWriter<M>::saveSurfaceQuantitiesBlock(Int f1, Int f2, Int ib, Int backend)
+{
+    auto& common = disc.common;
+    auto& sol = disc.sol;
+    auto& mesh = disc.mesh;
+    Int nd = common.grid.nd;
+    Int npe = common.grid.npe;
+    Int npf = common.grid.npf;
+    Int ngf = common.grid.ngf;
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int nco = common.components.nco;
+    Int ncw = common.components.ncw;
+    Int ncx = common.components.ncx;
+    Int nsq = common.qoiparams.nsurfq;
+    Int nf = f2-f1;
+    Int nn = npf*nf;
+    Int ns = nc + ncu + nco + ncw;           // solution fields fed to the kernel
+    ensureSurfaceScratch(nf);
+
+    // Solution fields at the face nodes, point-major [nn, ncomp] like the other outbou files:
+    // U = udg (side 1), UH = uhat, O = odg, W = wdg.
+    dstype* U  = surfbuf;
+    dstype* UH = U + nn*nc;
+    dstype* O  = UH + nn*ncu;
+    dstype* W  = O + nn*nco;
+    GetArrayAtIndex(U, sol.udg, &mesh.findudg1[npf*nc*f1], nn*nc);
+    if (common.spatialScheme==1)
+        GetFaceNodesHDG(UH, sol.uh, npf, ncu, 0, ncu, f1, f2);
+    else
+        GetElemNodes(UH, sol.uh, npf, ncu, 0, ncu, f1, f2);
+    if (nco>0) GetFaceNodes(O, sol.odg, mesh.facecon, npf, nco, npe, nco, f1, f2, 1);
+    if (ncw>0) GetFaceNodes(W, sol.wdg, mesh.facecon, npf, ncw, npe, ncw, f1, f2, 1);
+    dstype* rest = W + nn*ncw;
+
+    if (common.qoiparams.saveSolBouLoc == 1) {
+        // Face Gauss points: interpolate the node fields, reuse the current face geometry.
+        Int nga = ngf*nf;
+        dstype* G  = rest;                       // [nga, ns] in the same field order
+        dstype* F  = G + nga*ns;
+        dstype* dA = F + nga*nsq;
+        Node2Gauss(common.cublasHandle, G, U, disc.master.shapfgt, ngf, npf, nf*ns, backend);
+        Int nm = ngf*f1*(ncx+nd+1);
+        ArraySetValue(F, 0.0, nga*nsq);
+        EXASIM_DRIVER_CALL(SurfaceQuantitiesDriver, F, &sol.faceg[nm], G, G + nga*(nc+ncu), G + nga*(nc+ncu+nco),
+                G + nga*nc, &sol.faceg[nm+nga*ncx], disc.mesh, disc.master, disc.app, disc.sol, disc.tmp,
+                common, ngf, f1, f2, ib, backend);
+        writearray(outbousurf, F, nga*nsq, backend);
+        // geometry record: x [nga, ncx], n [nga, nd], dA = face jacobian * Gauss weight [nga]
+        columnwiseMultiply(dA, &sol.faceg[nm+nga*(ncx+nd)], disc.master.gwf, ngf, nf);
+        writearray(outbousurfgeo, &sol.faceg[nm], nga*(ncx+nd), backend);
+        writearray(outbousurfgeo, dA, nga, backend);
+    }
+    else {
+        // Face nodes: current coordinates and normals (same construction as outbouxdg/outboundg).
+        dstype* X = rest;                        // [nn, ncx], normals at X + nn*ncx
+        dstype* F = X + nn*(ncx+3*nd+1);
+        faceNodeGeometry(X, f1, f2, backend);
+        ArraySetValue(F, 0.0, nn*nsq);
+        EXASIM_DRIVER_CALL(SurfaceQuantitiesDriver, F, X, U, O, W, UH, X + nn*ncx,
+                disc.mesh, disc.master, disc.app, disc.sol, disc.tmp,
+                common, npf, f1, f2, ib, backend);
+        writearray(outbousurf, F, nn*nsq, backend);
+        writearray(outbousurfgeo, X, nn*(ncx+nd), backend);   // geometry record: x, n
+    }
+}
+
+template <class M>
+void CSolutionWriter<M>::openBoundaryFiles(const std::string& base)
+{
+    auto& common = disc.common;
+    Int rank = common.mpiRank;
+    Int offset = common.outputparams.fileoffset;
+    Int nd = common.grid.nd;
+    Int npf = common.grid.npf;
+    Int ngf = common.grid.ngf;
+    Int ncx = common.components.ncx;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nc = common.components.nc;
+    Int nsq = common.qoiparams.nsurfq;
+
+    Int nfbou = 0, nfmax = 0;
+    std::vector<dstype> info;               // per boundary face block: (ib, nf)
+    for (Int j=0; j<common.meshsizes.nbf; j++) {
+        Int f1 = common.fblks[3*j]-1;
+        Int f2 = common.fblks[3*j+1];
+        Int ib = common.fblks[3*j+2];
+        if (common.qoiparams.isSaveBoundary(ib)) {
+            nfbou += f2-f1;
+            nfmax = std::max(nfmax, f2-f1);
+            info.push_back((dstype) ib);
+            info.push_back((dstype) (f2-f1));
+        }
+    }
+    open_and_write(outbouxdg, "bouxdg_np", rank, offset, npf, nfbou, ncx, base);
+    open_and_write(outboundg, "boundg_np", rank, offset, npf, nfbou, nd, base);
+    open_and_write(outbouudg, "bouudg_np", rank, offset, npf, nfbou, nc, base);
+    open_and_write(outbouuhat, "bouuhat_np", rank, offset, npf, nfbou, ncu, base);
+    if (ncw > 0) open_and_write(outbouwdg, "bouwdg_np", rank, offset, npf, nfbou, ncw, base);
+
+    // The outbou* files concatenate the face blocks of every ibs boundary; outbouinfo records
+    // which boundary each block belongs to so a reader can split them: header (nblocks, 2, 0),
+    // then (ib, nf) per block, in file order.
+    {
+        std::ofstream outbouinfo;
+        open_and_write(outbouinfo, "bouinfo_np", rank, offset, (Int) info.size()/2, 2, 0, base);
+        if (!info.empty()) writearray(outbouinfo, info.data(), (Int) info.size());
+        outbouinfo.close();
+    }
+
+    if (nsq > 0) {
+        Int loc = common.qoiparams.saveSolBouLoc;
+        open_and_write(outbousurf, "bousurf_np", rank, offset, (loc == 1) ? ngf : npf, nfbou, nsq, base);
+        // One geometry record per save, in lockstep with outbousurf: [x, n] at the face nodes
+        // (loc 0) or [x, n, dA] at the Gauss points (loc 1). Per save so it follows mesh motion.
+        open_and_write(outbousurfgeo, "bousurfgeo_np", rank, offset, (loc == 1) ? ngf : npf, nfbou,
+                       ncx + nd + ((loc == 1) ? 1 : 0), base);
+        ensureSurfaceScratch(nfmax);
     }
 }
 

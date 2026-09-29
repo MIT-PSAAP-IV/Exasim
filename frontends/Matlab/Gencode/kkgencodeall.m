@@ -22,6 +22,7 @@ kkgencodeelemface("KokkosQoIvolume", npm, 1, foldername);
 kkgencodeelemface("KokkosFbou", npm, 3, foldername);
 kkgencodeelemface("KokkosUbou", npm, 3, foldername);
 kkgencodeelemface("KokkosQoIboundary", npm, 3, foldername);
+kkgencodeelemface("KokkosSurfaceQuantities", npm, 3, foldername);
 
 kkgencodeelemface("KokkosFhat", npm, 4, foldername);
 kkgencodeelemface("KokkosUhat", npm, 4, foldername);

@@ -159,6 +159,11 @@ if isfield(pdem, 'qoiboundary')
     blocks(end+1) = emit_function("QoIboundary", faceArgs, "fb", f);
     present(end+1) = "QoIboundary";
 end
+if isfield(pdem, 'surfacequantities')
+    f = pdem.surfacequantities(u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, tau);
+    blocks(end+1) = emit_function("SurfaceQuantities", faceArgs, "fb", f);
+    present(end+1) = "SurfaceQuantities";
+end
 
 % ----- assemble -----
 lines = make_header(pde);
@@ -314,7 +319,7 @@ function ln = outputs_line(present)
 % optional functions actually emitted.
 order = ["Flux", "Source", "Tdfunc", "Ubou", "Fbou", "FbouHdg", ...
          "Materialstate", "Avfield", "Fint", "Initu", "VisScalars", "VisVectors", "VisTensors", ...
-         "QoIvolume", "QoIboundary"];
+         "QoIvolume", "QoIboundary", "SurfaceQuantities"];
 outs = order(ismember(order, present));
 ln = "outputs " + strjoin(outs, ", ");
 end

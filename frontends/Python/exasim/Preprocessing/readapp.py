@@ -100,5 +100,17 @@ def readapp(fileapp):
         k1 = k2;
         k2 = k1+app['nsize'][19];
         app['avfilterparam'] = tm[k1:k2];
+    # Trailing optional vectors, in writeapp order (empty when absent).
+    for slot, key in ((20, 'meshadaptparam'), (21, 'meshadaptboundaryconditions'),
+                      (22, 'distanceboundaryconditions'), (23, 'bououtparam')):
+        app[key] = numpy.array([]);
+        if len(app['nsize']) > slot:
+            k1 = k2;
+            k2 = k1+app['nsize'][slot];
+            app[key] = tm[k1:k2];
+    # bououtparam = [saveSolBouLoc, ibs_1, ..., ibs_k]
+    if len(app['bououtparam']) > 0:
+        app['saveSolBouLoc'] = int(app['bououtparam'][0]);
+        app['ibslist'] = numpy.int_(app['bououtparam'][1:]);
 
     return app

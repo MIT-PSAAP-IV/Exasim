@@ -1,7 +1,11 @@
-function strkk = kkgencodeface(filename, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, foldername, genjac)
+function strkk = kkgencodeface(filename, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, foldername, genjac, allib)
 
 if nargin < 14
     genjac = false;
+end
+% allib: one body (the single column of f) evaluated for every boundary id -- no ib dispatch.
+if nargin < 15
+    allib = false;
 end
 
 strkk = "";
@@ -23,6 +27,9 @@ outputfile = cpufile;
 tmp = "(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\n";
 tmp = "void " + cpufile + tmp;
 tmp = tmp + "{\n";
+if allib
+    tmp = tmp + "\t" + cpufile + "1(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);\n";
+else
 for k = 1:nbc
     if k == 1
         tmp = tmp + "\tif (ib == " + string(k) + ")\n";    
@@ -30,6 +37,7 @@ for k = 1:nbc
         tmp = tmp + "\telse if (ib == " + string(k) + ")\n";    
     end 
     tmp = tmp + "\t\t" + cpufile + string(k) + "(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);\n";
+end
 end
 tmp = tmp + "}\n\n";
 

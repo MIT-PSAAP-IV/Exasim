@@ -17,7 +17,7 @@ namespace exasim {
 template <class M, class T=dstype, class I=Int>
 void sourcew_kernel(T* sw,
                     const T* xdg, const T* udg, const T* odg,
-                    const T* wdg, const T* /*uinf*/, const T* param,
+                    const T* wdg, const T* uinf, const T* param,
                     T t, int /*modelnumber*/, int ng,
                     int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/,
                     int /*ncw_runtime*/, int /*nce*/, int /*npe*/, int /*ne*/)
@@ -38,7 +38,7 @@ void sourcew_kernel(T* sw,
             for (int k = 0; k < ncw; ++k) w [k] = wdg[k * ng + i];
 
             T sw_local[ncw];
-            M::sourcew(sw_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
+            M::sourcew(sw_local, x, uq, v, w, param, uinf, t);
             for (int k = 0; k < ncw; ++k) sw[k * ng + i] = sw_local[k];
         });
     } else {
@@ -55,7 +55,7 @@ void sourcew_kernel(T* sw,
 template <class M, class T=dstype, class I=Int>
 void hdg_sourcew_kernel(T* sw, T* sw_udg, T* sw_wdg,
                         const T* xdg, const T* udg, const T* odg,
-                        const T* wdg, const T* /*uinf*/, const T* param,
+                        const T* wdg, const T* uinf, const T* param,
                         T t, int /*modelnumber*/, int ng,
                         int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/,
                         int /*ncw_runtime*/)
@@ -77,17 +77,17 @@ void hdg_sourcew_kernel(T* sw, T* sw_udg, T* sw_wdg,
 
             // value
             T sw_local[ncw];
-            M::sourcew(sw_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
+            M::sourcew(sw_local, x, uq, v, w, param, uinf, t);
             for (int k = 0; k < ncw; ++k) sw[k * ng + i] = sw_local[k];
 
             // ∂sw/∂uq  (size ncw*Nq, input-index-outer)
             T sw_uq[ncw * Nq];
-            M::sourcew_jac_uq(sw_uq, x, uq, v, w, param, /*uinf=*/nullptr, t);
+            M::sourcew_jac_uq(sw_uq, x, uq, v, w, param, uinf, t);
             for (int k = 0; k < ncw * Nq; ++k) sw_udg[k * ng + i] = sw_uq[k];
 
             // ∂sw/∂w  (size ncw*ncw, input-index-outer)
             T sw_w[ncw * ncw];
-            M::sourcew_jac_w(sw_w, x, uq, v, w, param, /*uinf=*/nullptr, t);
+            M::sourcew_jac_w(sw_w, x, uq, v, w, param, uinf, t);
             for (int k = 0; k < ncw * ncw; ++k) sw_wdg[k * ng + i] = sw_w[k];
         });
     } else {
@@ -102,7 +102,7 @@ void hdg_sourcew_kernel(T* sw, T* sw_udg, T* sw_wdg,
 template <class M, class T=dstype, class I=Int>
 void hdg_sourcewonly_kernel(T* sw, T* sw_wdg,
                             const T* xdg, const T* udg, const T* odg,
-                            const T* wdg, const T* /*uinf*/, const T* param,
+                            const T* wdg, const T* uinf, const T* param,
                             T t, int /*modelnumber*/, int ng,
                             int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/,
                             int /*ncw_runtime*/)
@@ -124,12 +124,12 @@ void hdg_sourcewonly_kernel(T* sw, T* sw_wdg,
 
             // value
             T sw_local[ncw];
-            M::sourcew(sw_local, x, uq, v, w, param, /*uinf=*/nullptr, t);
+            M::sourcew(sw_local, x, uq, v, w, param, uinf, t);
             for (int k = 0; k < ncw; ++k) sw[k * ng + i] = sw_local[k];
 
             // ∂sw/∂w  (size ncw*ncw, input-index-outer)
             T sw_w[ncw * ncw];
-            M::sourcew_jac_w(sw_w, x, uq, v, w, param, /*uinf=*/nullptr, t);
+            M::sourcew_jac_w(sw_w, x, uq, v, w, param, uinf, t);
             for (int k = 0; k < ncw * ncw; ++k) sw_wdg[k * ng + i] = sw_w[k];
         });
     } else {

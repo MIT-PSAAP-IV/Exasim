@@ -22,7 +22,7 @@ template <class M, class T=dstype, class I=Int>
 void fbou_kernel(T*       fb,
                  const T* xdg, const T* udg, const T* odg,
                  const T* wdg, const T* uhg, const T* nlg,
-                 const T* tau, const T* /*uinf*/, const T* param,
+                 const T* tau, const T* uinf, const T* param,
                  T t, int /*modelnumber*/, int ib, int ng,
                  int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/, int /*ncw*/)
 {
@@ -35,17 +35,16 @@ void fbou_kernel(T*       fb,
 
     Kokkos::parallel_for("exasim::fbou_kernel", ng, KOKKOS_LAMBDA(size_t i) {
         (void)odg; (void)wdg;  // HOT.6.2 nvcc force-capture: see /tmp/patch_constexpr_capture.py
-        T x[nd], uq[Nq], v[nco_buf], w[ncw_buf], uh[ncu], n[nd], t_[ncu];
+        T x[nd], uq[Nq], v[nco_buf], w[ncw_buf], uh[ncu], n[nd];
         for (int k = 0; k < nd;  ++k) x [k] = xdg[k * ng + i];
         for (int k = 0; k < Nq;  ++k) uq[k] = udg[k * ng + i];
         if (nco > 0) for (int k = 0; k < nco; ++k) v[k] = odg[k * ng + i];
         if (ncw > 0) for (int k = 0; k < ncw; ++k) w[k] = wdg[k * ng + i];
         for (int k = 0; k < ncu; ++k) uh[k] = uhg[k * ng + i];
         for (int k = 0; k < nd;  ++k) n [k] = nlg[k * ng + i];
-        for (int k = 0; k < ncu; ++k) t_[k] = tau[k];   // tau is per-component, not per-i
 
         T fb_local[ncu];
-        M::fbou(fb_local, ib, x, uq, v, w, uh, n, t_, param, /*uinf=*/nullptr, t);
+        M::fbou(fb_local, ib, x, uq, v, w, uh, n, tau, param, uinf, t);
         for (int k = 0; k < ncu; ++k) fb[k * ng + i] = fb_local[k];
     });
 }
@@ -56,7 +55,7 @@ template <class M, class T=dstype, class I=Int>
 void hdg_fbou_only_kernel(T* fb,
                           const T* xdg, const T* udg, const T* odg,
                           const T* wdg, const T* uhg, const T* nlg,
-                          const T* tau, const T* /*uinf*/, const T* param,
+                          const T* tau, const T* uinf, const T* param,
                           T t, int /*modelnumber*/, int ib, int ng,
                           int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/, int /*ncw*/)
 {
@@ -69,17 +68,16 @@ void hdg_fbou_only_kernel(T* fb,
 
     Kokkos::parallel_for("exasim::hdg_fbou_only_kernel", ng, KOKKOS_LAMBDA(size_t i) {
         (void)odg; (void)wdg;  // HOT.6.2 nvcc force-capture: see /tmp/patch_constexpr_capture.py
-        T x[nd], uq[Nq], v[nco_buf], w[ncw_buf], uh[ncu], n[nd], t_[ncu];
+        T x[nd], uq[Nq], v[nco_buf], w[ncw_buf], uh[ncu], n[nd];
         for (int k = 0; k < nd;  ++k) x [k] = xdg[k * ng + i];
         for (int k = 0; k < Nq;  ++k) uq[k] = udg[k * ng + i];
         if (nco > 0) for (int k = 0; k < nco; ++k) v[k] = odg[k * ng + i];
         if (ncw > 0) for (int k = 0; k < ncw; ++k) w[k] = wdg[k * ng + i];
         for (int k = 0; k < ncu; ++k) uh[k] = uhg[k * ng + i];
         for (int k = 0; k < nd;  ++k) n [k] = nlg[k * ng + i];
-        for (int k = 0; k < ncu; ++k) t_[k] = tau[k];
 
         T fb_local[ncu];
-        M::fbou_hdg(fb_local, ib, x, uq, v, w, uh, n, t_, param, /*uinf=*/nullptr, t);
+        M::fbou_hdg(fb_local, ib, x, uq, v, w, uh, n, tau, param, uinf, t);
         for (int k = 0; k < ncu; ++k) fb[k * ng + i] = fb_local[k];
     });
 }
@@ -88,7 +86,7 @@ template <class M, class T=dstype, class I=Int>
 void hdg_fbou_kernel(T* fb, T* f_udg, T* f_wdg, T* f_uhg,
                      const T* xdg, const T* udg, const T* odg,
                      const T* wdg, const T* uhg, const T* nlg,
-                     const T* tau, const T* /*uinf*/, const T* param,
+                     const T* tau, const T* uinf, const T* param,
                      T t, int /*modelnumber*/, int ib, int ng,
                      int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/, int /*ncw*/)
 {
@@ -101,37 +99,36 @@ void hdg_fbou_kernel(T* fb, T* f_udg, T* f_wdg, T* f_uhg,
 
     Kokkos::parallel_for("exasim::hdg_fbou_kernel", ng, KOKKOS_LAMBDA(size_t i) {
         (void)odg; (void)wdg; (void)f_wdg;  // HOT.6.2 nvcc force-capture: see /tmp/patch_constexpr_capture.py
-        T x[nd], uq[Nq], v[nco_buf], w[ncw_buf], uh[ncu], n[nd], t_[ncu];
+        T x[nd], uq[Nq], v[nco_buf], w[ncw_buf], uh[ncu], n[nd];
         for (int k = 0; k < nd;  ++k) x [k] = xdg[k * ng + i];
         for (int k = 0; k < Nq;  ++k) uq[k] = udg[k * ng + i];
         if (nco > 0) for (int k = 0; k < nco; ++k) v[k] = odg[k * ng + i];
         if (ncw > 0) for (int k = 0; k < ncw; ++k) w[k] = wdg[k * ng + i];
         for (int k = 0; k < ncu; ++k) uh[k] = uhg[k * ng + i];
         for (int k = 0; k < nd;  ++k) n [k] = nlg[k * ng + i];
-        for (int k = 0; k < ncu; ++k) t_[k] = tau[k];
 
         // Value — note: HDG path calls fbou_hdg, NOT fbou. Every PDE
         // in apps/ defines `Fbou` (LDG) and `FbouHdg` (HDG) as
         // distinct math; mixing them gives a wrong residual.
         T fb_local[ncu];
-        M::fbou_hdg(fb_local, ib, x, uq, v, w, uh, n, t_, param, /*uinf=*/nullptr, t);
+        M::fbou_hdg(fb_local, ib, x, uq, v, w, uh, n, tau, param, uinf, t);
         for (int k = 0; k < ncu; ++k) fb[k * ng + i] = fb_local[k];
 
         // ∂fb/∂uq (Jacobian of fbou_hdg, not fbou)
         T fb_uq[ncu * Nq];
-        M::fbou_hdg_jac_uq(fb_uq, ib, x, uq, v, w, uh, n, t_, param, /*uinf=*/nullptr, t);
+        M::fbou_hdg_jac_uq(fb_uq, ib, x, uq, v, w, uh, n, tau, param, uinf, t);
         for (int k = 0; k < ncu * Nq; ++k) f_udg[k * ng + i] = fb_uq[k];
 
         // ∂fb/∂w
         if constexpr (ncw > 0) {
             T fb_w[ncu * ncw];
-            M::fbou_hdg_jac_w(fb_w, ib, x, uq, v, w, uh, n, t_, param, /*uinf=*/nullptr, t);
+            M::fbou_hdg_jac_w(fb_w, ib, x, uq, v, w, uh, n, tau, param, uinf, t);
             for (int k = 0; k < ncu * ncw; ++k) f_wdg[k * ng + i] = fb_w[k];
         }
 
         // ∂fb/∂uh
         T fb_uh[ncu * ncu];
-        M::fbou_hdg_jac_uh(fb_uh, ib, x, uq, v, w, uh, n, t_, param, /*uinf=*/nullptr, t);
+        M::fbou_hdg_jac_uh(fb_uh, ib, x, uq, v, w, uh, n, tau, param, uinf, t);
         for (int k = 0; k < ncu * ncu; ++k) f_uhg[k * ng + i] = fb_uh[k];
     });
 }
@@ -140,7 +137,7 @@ template <class M, class T=dstype, class I=Int>
 void ubou_kernel(T* ub,
                  const T* xdg, const T* udg, const T* odg,
                  const T* wdg, const T* uhg, const T* nlg,
-                 const T* tau, const T* /*uinf*/, const T* param,
+                 const T* tau, const T* uinf, const T* param,
                  T t, int /*modelnumber*/, int ib, int ng,
                  int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/, int /*ncw*/)
 {
@@ -153,17 +150,16 @@ void ubou_kernel(T* ub,
 
     Kokkos::parallel_for("exasim::ubou_kernel", ng, KOKKOS_LAMBDA(size_t i) {
         (void)odg; (void)wdg;  // HOT.6.2 nvcc force-capture: see /tmp/patch_constexpr_capture.py
-        T x[nd], uq[Nq], v[nco_buf], w[ncw_buf], uh[ncu], n[nd], t_[ncu];
+        T x[nd], uq[Nq], v[nco_buf], w[ncw_buf], uh[ncu], n[nd];
         for (int k = 0; k < nd;  ++k) x [k] = xdg[k * ng + i];
         for (int k = 0; k < Nq;  ++k) uq[k] = udg[k * ng + i];
         if (nco > 0) for (int k = 0; k < nco; ++k) v[k] = odg[k * ng + i];
         if (ncw > 0) for (int k = 0; k < ncw; ++k) w[k] = wdg[k * ng + i];
         for (int k = 0; k < ncu; ++k) uh[k] = uhg[k * ng + i];
         for (int k = 0; k < nd;  ++k) n [k] = nlg[k * ng + i];
-        for (int k = 0; k < ncu; ++k) t_[k] = tau[k];
 
         T ub_local[ncu];
-        M::ubou(ub_local, ib, x, uq, v, w, uh, n, t_, param, /*uinf=*/nullptr, t);
+        M::ubou(ub_local, ib, x, uq, v, w, uh, n, tau, param, uinf, t);
         for (int k = 0; k < ncu; ++k) ub[k * ng + i] = ub_local[k];
     });
 }
@@ -191,7 +187,7 @@ template <class M>
 void fint_kernel(dstype* fb, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
                  const dstype* xdg, const dstype* udg, const dstype* odg,
                  const dstype* wdg, const dstype* uhg, const dstype* nlg,
-                 const dstype* tau, const dstype* /*uinf*/, const dstype* param,
+                 const dstype* tau, const dstype* uinf, const dstype* param,
                  dstype t, int /*modelnumber*/, int ib, int ng,
                  int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/, int /*ncw*/)
 {
@@ -204,31 +200,30 @@ void fint_kernel(dstype* fb, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
 
     Kokkos::parallel_for("exasim::fint_kernel", ng, KOKKOS_LAMBDA(size_t i) {
         (void)odg; (void)wdg; (void)f_wdg;  // HOT.6.2 nvcc force-capture
-        double x[nd], uq[Nq], v[nco_buf], w[ncw_buf], uh[ncu], n[nd], t_[ncu];
+        double x[nd], uq[Nq], v[nco_buf], w[ncw_buf], uh[ncu], n[nd];
         for (int k = 0; k < nd;  ++k) x [k] = xdg[k * ng + i];
         for (int k = 0; k < Nq;  ++k) uq[k] = udg[k * ng + i];
         if (nco > 0) for (int k = 0; k < nco; ++k) v[k] = odg[k * ng + i];
         if (ncw > 0) for (int k = 0; k < ncw; ++k) w[k] = wdg[k * ng + i];
         for (int k = 0; k < ncu; ++k) uh[k] = uhg[k * ng + i];
         for (int k = 0; k < nd;  ++k) n [k] = nlg[k * ng + i];
-        for (int k = 0; k < ncu; ++k) t_[k] = tau[k];
 
         double fb_local[nf];
-        M::fint(fb_local, ib, x, uq, v, w, uh, n, t_, param, /*uinf=*/nullptr, t);
+        M::fint(fb_local, ib, x, uq, v, w, uh, n, tau, param, uinf, t);
         for (int k = 0; k < nf; ++k) fb[k * ng + i] = fb_local[k];
 
         double fb_uq[nf * Nq];
-        M::fint_jac_uq(fb_uq, ib, x, uq, v, w, uh, n, t_, param, /*uinf=*/nullptr, t);
+        M::fint_jac_uq(fb_uq, ib, x, uq, v, w, uh, n, tau, param, uinf, t);
         for (int k = 0; k < nf * Nq; ++k) f_udg[k * ng + i] = fb_uq[k];
 
         if constexpr (ncw > 0) {
             double fb_w[nf * ncw];
-            M::fint_jac_w(fb_w, ib, x, uq, v, w, uh, n, t_, param, /*uinf=*/nullptr, t);
+            M::fint_jac_w(fb_w, ib, x, uq, v, w, uh, n, tau, param, uinf, t);
             for (int k = 0; k < nf * ncw; ++k) f_wdg[k * ng + i] = fb_w[k];
         }
 
         double fb_uh[nf * ncu];
-        M::fint_jac_uh(fb_uh, ib, x, uq, v, w, uh, n, t_, param, /*uinf=*/nullptr, t);
+        M::fint_jac_uh(fb_uh, ib, x, uq, v, w, uh, n, tau, param, uinf, t);
         for (int k = 0; k < nf * ncu; ++k) f_uhg[k * ng + i] = fb_uh[k];
     });
 }
@@ -238,7 +233,7 @@ template <class M>
 void fint_only_kernel(dstype* fb,
                       const dstype* xdg, const dstype* udg, const dstype* odg,
                       const dstype* wdg, const dstype* uhg, const dstype* nlg,
-                      const dstype* tau, const dstype* /*uinf*/, const dstype* param,
+                      const dstype* tau, const dstype* uinf, const dstype* param,
                       dstype t, int /*modelnumber*/, int ib, int ng,
                       int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/, int /*ncw*/)
 {
@@ -251,17 +246,16 @@ void fint_only_kernel(dstype* fb,
 
     Kokkos::parallel_for("exasim::fint_only_kernel", ng, KOKKOS_LAMBDA(size_t i) {
         (void)odg; (void)wdg;
-        double x[nd], uq[Nq], v[nco_buf], w[ncw_buf], uh[ncu], n[nd], t_[ncu];
+        double x[nd], uq[Nq], v[nco_buf], w[ncw_buf], uh[ncu], n[nd];
         for (int k = 0; k < nd;  ++k) x [k] = xdg[k * ng + i];
         for (int k = 0; k < Nq;  ++k) uq[k] = udg[k * ng + i];
         if (nco > 0) for (int k = 0; k < nco; ++k) v[k] = odg[k * ng + i];
         if (ncw > 0) for (int k = 0; k < ncw; ++k) w[k] = wdg[k * ng + i];
         for (int k = 0; k < ncu; ++k) uh[k] = uhg[k * ng + i];
         for (int k = 0; k < nd;  ++k) n [k] = nlg[k * ng + i];
-        for (int k = 0; k < ncu; ++k) t_[k] = tau[k];
 
         double fb_local[nf];
-        M::fint(fb_local, ib, x, uq, v, w, uh, n, t_, param, /*uinf=*/nullptr, t);
+        M::fint(fb_local, ib, x, uq, v, w, uh, n, tau, param, uinf, t);
         for (int k = 0; k < nf; ++k) fb[k * ng + i] = fb_local[k];
     });
 }
@@ -273,7 +267,7 @@ void fext_kernel(dstype* fb, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
                  const dstype* xdg, const dstype* udg, const dstype* odg,
                  const dstype* wdg, const dstype* uhg, const dstype* nlg,
                  const dstype* uext,
-                 const dstype* tau, const dstype* /*uinf*/, const dstype* param,
+                 const dstype* tau, const dstype* uinf, const dstype* param,
                  dstype t, int /*modelnumber*/, int ib, int ng,
                  int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/, int /*ncw*/)
 {
@@ -287,7 +281,7 @@ void fext_kernel(dstype* fb, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
 
     Kokkos::parallel_for("exasim::fext_kernel", ng, KOKKOS_LAMBDA(size_t i) {
         (void)odg; (void)wdg; (void)f_wdg;
-        double x[nd], uq[Nq], v[nco_buf], w[ncw_buf], uh[ncu], n[nd], t_[ncu], ue[nue];
+        double x[nd], uq[Nq], v[nco_buf], w[ncw_buf], uh[ncu], n[nd], ue[nue];
         for (int k = 0; k < nd;  ++k) x [k] = xdg[k * ng + i];
         for (int k = 0; k < Nq;  ++k) uq[k] = udg[k * ng + i];
         if (nco > 0) for (int k = 0; k < nco; ++k) v[k] = odg[k * ng + i];
@@ -295,24 +289,23 @@ void fext_kernel(dstype* fb, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
         for (int k = 0; k < ncu; ++k) uh[k] = uhg[k * ng + i];
         for (int k = 0; k < nd;  ++k) n [k] = nlg[k * ng + i];
         for (int k = 0; k < nue; ++k) ue[k] = uext[k * ng + i];
-        for (int k = 0; k < ncu; ++k) t_[k] = tau[k];
 
         double fb_local[nf];
-        M::fext(fb_local, ib, x, uq, v, w, uh, n, ue, t_, param, /*uinf=*/nullptr, t);
+        M::fext(fb_local, ib, x, uq, v, w, uh, n, ue, tau, param, uinf, t);
         for (int k = 0; k < nf; ++k) fb[k * ng + i] = fb_local[k];
 
         double fb_uq[nf * Nq];
-        M::fext_jac_uq(fb_uq, ib, x, uq, v, w, uh, n, ue, t_, param, /*uinf=*/nullptr, t);
+        M::fext_jac_uq(fb_uq, ib, x, uq, v, w, uh, n, ue, tau, param, uinf, t);
         for (int k = 0; k < nf * Nq; ++k) f_udg[k * ng + i] = fb_uq[k];
 
         if constexpr (ncw > 0) {
             double fb_w[nf * ncw];
-            M::fext_jac_w(fb_w, ib, x, uq, v, w, uh, n, ue, t_, param, /*uinf=*/nullptr, t);
+            M::fext_jac_w(fb_w, ib, x, uq, v, w, uh, n, ue, tau, param, uinf, t);
             for (int k = 0; k < nf * ncw; ++k) f_wdg[k * ng + i] = fb_w[k];
         }
 
         double fb_uh[nf * ncu];
-        M::fext_jac_uh(fb_uh, ib, x, uq, v, w, uh, n, ue, t_, param, /*uinf=*/nullptr, t);
+        M::fext_jac_uh(fb_uh, ib, x, uq, v, w, uh, n, ue, tau, param, uinf, t);
         for (int k = 0; k < nf * ncu; ++k) f_uhg[k * ng + i] = fb_uh[k];
     });
 }
@@ -323,7 +316,7 @@ void fext_only_kernel(dstype* fb,
                       const dstype* xdg, const dstype* udg, const dstype* odg,
                       const dstype* wdg, const dstype* uhg, const dstype* nlg,
                       const dstype* uext,
-                      const dstype* tau, const dstype* /*uinf*/, const dstype* param,
+                      const dstype* tau, const dstype* uinf, const dstype* param,
                       dstype t, int /*modelnumber*/, int ib, int ng,
                       int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/, int /*ncw*/)
 {
@@ -337,7 +330,7 @@ void fext_only_kernel(dstype* fb,
 
     Kokkos::parallel_for("exasim::fext_only_kernel", ng, KOKKOS_LAMBDA(size_t i) {
         (void)odg; (void)wdg;
-        double x[nd], uq[Nq], v[nco_buf], w[ncw_buf], uh[ncu], n[nd], t_[ncu], ue[nue];
+        double x[nd], uq[Nq], v[nco_buf], w[ncw_buf], uh[ncu], n[nd], ue[nue];
         for (int k = 0; k < nd;  ++k) x [k] = xdg[k * ng + i];
         for (int k = 0; k < Nq;  ++k) uq[k] = udg[k * ng + i];
         if (nco > 0) for (int k = 0; k < nco; ++k) v[k] = odg[k * ng + i];
@@ -345,10 +338,9 @@ void fext_only_kernel(dstype* fb,
         for (int k = 0; k < ncu; ++k) uh[k] = uhg[k * ng + i];
         for (int k = 0; k < nd;  ++k) n [k] = nlg[k * ng + i];
         for (int k = 0; k < nue; ++k) ue[k] = uext[k * ng + i];
-        for (int k = 0; k < ncu; ++k) t_[k] = tau[k];
 
         double fb_local[nf];
-        M::fext(fb_local, ib, x, uq, v, w, uh, n, ue, t_, param, /*uinf=*/nullptr, t);
+        M::fext(fb_local, ib, x, uq, v, w, uh, n, ue, tau, param, uinf, t);
         for (int k = 0; k < nf; ++k) fb[k * ng + i] = fb_local[k];
     });
 }

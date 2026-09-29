@@ -109,6 +109,8 @@ void generateCppCode(ParsedSpec spec)
       gen.generateEmptyMaterialstateCpp(spec.modelpath);
       gen.generateEmptyHdgMaterialstateCpp(spec.modelpath);
     }
+    if (spec.isoutput.size() <= 24 || spec.isoutput[24]==false)
+      gen.generateEmptySurfaceQuantitiesCpp(spec.modelpath);
     gen.generateEmptyFhatCpp(spec.modelpath);
     gen.generateEmptyUhatCpp(spec.modelpath);
     gen.generateEmptyStabCpp(spec.modelpath);

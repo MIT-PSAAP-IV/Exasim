@@ -107,6 +107,18 @@ for dir in "$REPO"/tests/consumers/*/; do
         echo "  FAIL[B5]: saveParaview enabled (nsca+nvec+nten>0) but no outvis*.vtu/.pvtu written"; fail=1
       fi
     fi
+
+    # B6: consumer-specific gate. A consumer may ship check.sh to verify its outputs
+    # further (e.g. surfacequantities-run re-derives the saved boundary fields); it gets
+    # the run dir as $1 and EXE/NP in the environment, and may launch variant runs.
+    if [ -f "$dir/check.sh" ]; then
+      if EXE="$exe" NP="$NP" bash "$dir/check.sh" "$rdir" > "$rdir/check.log" 2>&1; then
+        sed 's/^/  /' "$rdir/check.log"
+      else
+        echo "  FAIL[B6]: $name check.sh (see $rdir/check.log)"
+        sed 's/^/  | /' "$rdir/check.log"; fail=1
+      fi
+    fi
   else
     # B4-self: no pdeapp.txt -> the consumer is a self-checking executable that
     # builds its own fixture in memory and returns 0 on success / nonzero on

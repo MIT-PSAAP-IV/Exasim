@@ -79,6 +79,18 @@ add_library(ExasimHeaders INTERFACE)
 add_library(Exasim::headers ALIAS ExasimHeaders)
 set_target_properties(ExasimHeaders PROPERTIES EXPORT_NAME headers)
 target_compile_features(ExasimHeaders INTERFACE cxx_std_20)
+
+# CUDA: device code must be allowed to call constexpr host functions. text2code (SymEngine's
+# C printer) emits integer-argument math -- acos(-1) for pi, exp(1) for E, sqrt(2), ... --
+# which resolves to libstdc++'s constexpr __host__ integer overloads. Without this flag nvcc
+# only warns (#20013-D, hidden by -w) and the device code evaluates those calls to 0, so e.g.
+# every CUDA model whose source uses pi computed a zero residual. Kokkos adds the flag only
+# when it was itself configured with Kokkos_ENABLE_CUDA_CONSTEXPR, which prebuilt CUDA Kokkos
+# installs may lack. INTERFACE: the Exasim libraries, the model libraries and every consumer
+# (frontend-generated / external kernels) compile with it. Repeating the flag is harmless.
+if(EXASIM_CUDA)
+  target_compile_options(ExasimHeaders INTERFACE $<$<COMPILE_LANGUAGE:CXX>:--expt-relaxed-constexpr>)
+endif()
 target_include_directories(ExasimHeaders INTERFACE
   $<BUILD_INTERFACE:${EXASIM_INCLUDE_DIR}>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
