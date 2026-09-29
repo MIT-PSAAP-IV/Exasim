@@ -29,8 +29,8 @@ rho = u(1);
 uz = u(2)/rho;
 ur = u(3)/rho;
 e = u(4)/rho - 0.5*(uz*uz + ur*ur);
-rholm = limiting(rho, 0.0001/mu(1), 20.0/mu(1), 1e2, 0);
-elm = limiting(e, -150000/mu(4), 20000000/mu(4), 1e2, 0);
+rholm = limiting(rho, 0.0001/mu(1), 20.0/mu(1), 1e2, 0.0001/mu(1));
+elm = limiting(e, -150000/mu(4), 20000000/mu(4), 1e2, -150000/mu(4));
 state = [log(mu(1)*rholm); mu(4)*elm];
 end
 

@@ -488,8 +488,20 @@ void CSolutionWriter<M>::SaveParaview(Int backend, std::string fname_modifier, b
        int ndg  = npe * ne;
        int ncg  = vis.npoints;
     
-       dstype* udg = disc.res.Rq;  
+       const Int packedUdgSize = npe*nc*ne;
+       const Int packedWdgSize = npe*ncw*ne;
+       bool ownsUdg = false;
+       bool ownsWdg = false;
+       dstype* udg = disc.res.Rq;
        dstype* wdg = disc.res.Ru;
+       if (disc.res.szRq < packedUdgSize) {
+         TemplateMalloc(&udg, packedUdgSize, backend);
+         ownsUdg = true;
+       }
+       if (disc.res.szRu < packedWdgSize) {
+         TemplateMalloc(&wdg, packedWdgSize, backend);
+         ownsWdg = true;
+       }
        int nvis = max(max(nsca, 3*nvec), vis.ntc*nten);
        int szvis = npe*(ncx+nco+nvis)*ne;
        bool ownsTempn = false;
@@ -537,6 +549,10 @@ void CSolutionWriter<M>::SaveParaview(Int backend, std::string fname_modifier, b
        else
             vis.vtuwrite_parallel(baseName, localRank, localProcs, vis.scafields, vis.vecfields, vis.tenfields);
 
+       if (ownsUdg)
+         TemplateFree(udg, backend);
+       if (ownsWdg)
+         TemplateFree(wdg, backend);
        if (ownsTempn)
          TemplateFree(tempn, backend);
    }

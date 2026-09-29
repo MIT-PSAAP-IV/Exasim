@@ -77,7 +77,10 @@ def _forward_bilinear(reference_points, coefficients):
     return basis @ coefficients
 
 
-def _surfmesh2d(lower_curve, upper_curve, nx, ny, porder):
+def _surfmesh2d(
+    lower_curve, upper_curve, nx, ny, porder,
+    streamwise_scaling=(2.0, 1.5), normal_scaling=(3.0, 1.0e-8),
+):
     matrix = np.array(
         [[1.0, 0.0, 0.0, 0.0], [1.0, 1.0, 0.0, 0.0],
          [1.0, 1.0, 1.0, 1.0], [1.0, 0.0, 1.0, 0.0]]
@@ -120,8 +123,14 @@ def _surfmesh2d(lower_curve, upper_curve, nx, ny, porder):
     }
 
     for reference in (vertex_reference, node_reference):
-        reference[:, 0] = _logdec(_loginc(reference[:, 0], 2.0), 1.5)
-        reference[:, 1] = _logdec(_loginc(reference[:, 1], 3.0), 1.0e-8)
+        reference[:, 0] = _logdec(
+            _loginc(reference[:, 0], streamwise_scaling[0]),
+            max(streamwise_scaling[1], 1.0e-8),
+        )
+        reference[:, 1] = _logdec(
+            _loginc(reference[:, 1], normal_scaling[0]),
+            max(normal_scaling[1], 1.0e-8),
+        )
         lower = np.polyval(lower_fit, reference[:, 0])
         upper = np.polyval(upper_fit, reference[:, 0])
         endpoints = (np.abs(reference[:, 0]) < 1.0e-6) | (

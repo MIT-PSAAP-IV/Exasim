@@ -40,7 +40,7 @@ static void ReportNanInHdgSourcewonlyOutput(const char* field, const T* data,
     for (Int comp = 0; comp < ncomp; ++comp) {
         for (Int i = 0; i < ng; ++i) {
             dstype value = data[i + ng * comp];
-            if (IS_NAN(value)) {
+            if (IS_NAN(value) || value <= 0) {
                 std::cout << "Rank = " << mpiRank
                      << ", Iter = " << iter
                      << ", stage = HdgSourcewonly"
@@ -352,7 +352,8 @@ inline void wEquation(T *wdg, T *xdg, T *udg, T *odg, T *wsrc,
         dstype *s = tempg; // temporary array    
         dstype *s_wdg = &tempg[ng*ncw]; // temporary array 
         // use Newton to solve the nonlinear system  alpha * dw/dt + beta w = S(w, u, q) to obtain w for given (u, q)             
-        for (int iter=0; iter<20; iter++) {
+        int iter=0;
+        for (iter=0; iter<20; iter++) {
           // alpha * dw/dt + beta w = sourcew(u,q,w) -> alpha (dtfactor * w - wsrc) + beta w = sourcew(u,q,w) 
           // ->  (alpha * dtfactor + beta) w - alpha * wsrc - sourcew(u,q,w) = 0              
 
@@ -409,7 +410,10 @@ inline void wEquation(T *wdg, T *xdg, T *udg, T *odg, T *wsrc,
 
           // update w = w + dw
           ArrayAXPBY(wdg, wdg, s, one, one, ng*ncw);          
-        }                        
+        }
+        if (backend <= 1) {
+            ReportNanInHdgSourcewonlyOutput("w", wdg, xdg, udg, odg, wdg, ng, ncw, nc, nco, ncw, nd, common.mpiRank, iter);
+        }
     }
     return;
     }

@@ -245,11 +245,13 @@ if (WITH_METIS)
       list(APPEND _t2c_metis_incs "${GKLIB_INCLUDE_DIR}")
     endif()
 
+    # text2code runs its generator on a large-stack pthread (see main in text2code.cpp).
+    find_package(Threads REQUIRED)
     add_executable(text2code text2code.cpp)
     add_o2(text2code)
     target_compile_definitions(text2code PRIVATE HAVE_METIS)
     target_include_directories(text2code PRIVATE ${_t2c_metis_incs})
-    target_link_libraries(text2code PRIVATE ${_t2c_metis_libs})
+    target_link_libraries(text2code PRIVATE ${_t2c_metis_libs} Threads::Threads)
     link_blas_lapack(text2code)
 
     # Auto-run after the executable links (opt-in dev smoke-test only)
@@ -267,7 +269,7 @@ if (WITH_METIS)
     add_o2(t2cusecmake)
     target_compile_definitions(t2cusecmake PRIVATE HAVE_METIS USE_CMAKE)
     target_include_directories(t2cusecmake PRIVATE ${_t2c_metis_incs})
-    target_link_libraries(t2cusecmake PRIVATE ${_t2c_metis_libs})
+    target_link_libraries(t2cusecmake PRIVATE ${_t2c_metis_libs} Threads::Threads)
     link_blas_lapack(t2cusecmake)
 
   else()

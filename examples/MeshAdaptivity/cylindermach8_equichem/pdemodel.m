@@ -75,7 +75,7 @@ end
 
 function m = mass(u, q, w, v, x, t, mu, eta) %#ok<INUSD>
 ncu = numel(x) + 2;
-m = ones(ncu, 1);
+m = cnseq_zeros(ncu, 1, u) + 1.0;
 end
 
 function state = materialstate(u, q, w, v, x, t, mu, eta) %#ok<INUSD>
@@ -134,7 +134,7 @@ end
 function w0 = initw(x, mu, eta) %#ok<INUSD>
 % Size declaration for code generation.  Runtime values are supplied by the
 % material database interpolation.
-w0 = zeros(15, 1);
+w0 = cnseq_zeros(15, 1, x);
 w0(1) = 1.0;      % p
 w0(2) = 300.0;    % T
 w0(3) = 1.0e-5;   % mu

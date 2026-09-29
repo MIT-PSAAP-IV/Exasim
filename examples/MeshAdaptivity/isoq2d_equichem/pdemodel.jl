@@ -22,9 +22,9 @@ function materialstate(u, q, w, v, x, t, mu, eta)
     velocity_z = u[2] / rho
     velocity_r = u[3] / rho
     internal_energy = u[4] / rho - 0.5 * (velocity_z^2 + velocity_r^2)
-    limited_rho = limiting_value(rho, 0.0001 / mu[1], 20.0 / mu[1], 1.0e2, 0.0)
+    limited_rho = limiting_value(rho, 0.0001 / mu[1], 20.0 / mu[1], 1.0e2, 0.0001 / mu[1])
     limited_energy = limiting_value(
-        internal_energy, -150000.0 / mu[4], 20000000.0 / mu[4], 1.0e2, 0.0
+        internal_energy, -150000.0 / mu[4], 20000000.0 / mu[4], 1.0e2, -150000.0 / mu[4]
     )
     return [log(mu[1] * limited_rho), mu[4] * limited_energy]
 end

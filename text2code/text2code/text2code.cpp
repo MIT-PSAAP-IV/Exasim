@@ -44,6 +44,8 @@
 #include <cstdlib>
 #include <cmath>
 #include <cctype>
+#include <pthread.h>
+#include <sys/resource.h>
 
 #ifdef HAVE_METIS
 #include <metis.h>
@@ -82,7 +84,7 @@ using namespace std;
 #include "CodeCompiler.cpp"
 #include "AppScaffold.hpp"
 
-int main(int argc, char* argv[]) 
+static int text2code_main(int argc, char* argv[])
 {
     if (argc < 2) {
         std::cerr << "Usage: ./text2code <pdeapp.txt> [--out-dir <path>] [--emit-app <dir>]\n"
@@ -237,4 +239,44 @@ int main(int argc, char* argv[])
     std::cout << "\n******** Done with generating input files and dynamic libraries for EXASIM ********\n";
 
     return 0;
+}
+
+// text2code's parser matches every model line with std::regex, and libstdc++'s regex engine
+// recurses once per character matched by `.*`/`.+`. Generated models can carry single
+// expression lines of tens of thousands of characters (e.g. apps/meshadaptivity/cylindermach8,
+// 32k chars -> ~24k frames), which overflows any stack smaller than ~8 MB: a CI worker with a
+// reduced `ulimit -s` segfaulted here. Run the generator on a thread with a large explicit
+// stack (virtual reservation, committed lazily) so it does not depend on the caller's limit,
+// and raise the soft stack limit for the child processes text2code launches (the generated
+// SymEngine code2cpp program recurses on the same expressions).
+namespace {
+struct Text2codeArgs { int argc; char** argv; int rc; };
+void* text2code_thread(void* p)
+{
+    auto* a = static_cast<Text2codeArgs*>(p);
+    a->rc = text2code_main(a->argc, a->argv);
+    return nullptr;
+}
+}
+
+int main(int argc, char* argv[])
+{
+    constexpr rlim_t kStack = rlim_t(1) << 30;   // 1 GiB
+    struct rlimit rl;
+    if (getrlimit(RLIMIT_STACK, &rl) == 0 && rl.rlim_cur != RLIM_INFINITY && rl.rlim_cur < kStack) {
+        rl.rlim_cur = (rl.rlim_max == RLIM_INFINITY || rl.rlim_max > kStack) ? kStack : rl.rlim_max;
+        setrlimit(RLIMIT_STACK, &rl);            // best effort: children inherit it
+    }
+    Text2codeArgs args{argc, argv, 1};
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_t tid;
+    if (pthread_attr_setstacksize(&attr, (size_t) kStack) != 0 ||
+        pthread_create(&tid, &attr, text2code_thread, &args) != 0) {
+        pthread_attr_destroy(&attr);
+        return text2code_main(argc, argv);       // fall back to the main thread
+    }
+    pthread_attr_destroy(&attr);
+    pthread_join(tid, nullptr);
+    return args.rc;
 }

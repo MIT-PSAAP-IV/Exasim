@@ -74,12 +74,12 @@ pde.AV = 1;
 pde.AVcontinuationIter = 10;
 pde.AVcontinuationLogScale = 1.5;
 pde.AVcoeffStart = 0.003;
-pde.AVcoeffEnd = 0.000006;
+pde.AVcoeffEnd = 0.000015;
 pde.AVdistfunction = 1;
 pde.distanceboundaryconditions = 3; % isothermal-wall flow BC tag
 pde.AVsmoothingMethod = 1;
 pde.AVHelmholtzCoeff = 0.001;
-AVmaxdiv = 60.0;
+AVmaxdiv = 20.0;
 AVdistcoeff = nm;
 
 pde.meshadaptenabled = 1;
@@ -149,7 +149,7 @@ speedPhys = uRef*sqrt(sol(:,2,:).^2 + sol(:,3,:).^2)./sol(:,1,:);
 mach = speedPhys./wdg(:,6,:);
 
 figure(1); clf; meshplot(mesh1,1); axis equal; axis tight;
-figure(2); clf; scaplot(mesh1,mach,[0 Minf],2,1); axis equal; axis tight; colorbar;
+figure(2); clf; scaplot(mesh1,mach,[0 Minf],2,2); axis equal; axis tight; colorbar;
 figure(3); clf; scaplot(mesh1,vdg(:,2,:),[],2,2); axis equal; axis tight; colorbar;
 figure(4); clf; scaplot(mesh1,rhoPhys,[],2,2); axis equal; axis tight; colorbar;
 
