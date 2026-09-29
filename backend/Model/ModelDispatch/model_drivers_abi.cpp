@@ -982,6 +982,33 @@ void QoIboundaryDriver(dstype* fb, const dstype* xg, const dstype* udg,
                           numPoints, nc, ncu, nd, ncx, nco, ncw);
 }
 
+// Pointwise surface quantities on ngf points per face of faces [f1, f2). The kernel is
+// optional in the ABI: a model without surfacequantities leaves it null (nsurfq == 0).
+void SurfaceQuantitiesDriver(dstype* fb, const dstype* xg, const dstype* udg,
+                             const dstype* odg, const dstype* wdg,
+                             const dstype* uhg, const dstype* nl,
+                             ExasimDriverABI& abi, meshstruct& mesh,
+                             masterstruct& master, appstruct& app, solstruct& sol,
+                             tempstruct& temp, commonstruct& common, Int ngf, Int f1,
+                             Int f2, Int ib, Int backend)
+{
+    if (abi.qoi.KokkosSurfaceQuantities == nullptr || common.qoiparams.nsurfq <= 0) return;
+    // The nc slot carries the output count: generated kernels ignore it, and the header-only
+    // (ModelDefaults) kernels use it to bound how many outputs they write.
+    Int nc = common.qoiparams.nsurfq;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
+    Int nd = common.grid.nd;
+    Int numPoints = ngf * (f2 - f1);
+    dstype time = common.timestate.time;
+
+    abi.qoi.KokkosSurfaceQuantities(fb, xg, udg, odg, wdg, uhg, nl, app.tau, app.uinf,
+                                    app.physicsparam, time, common.modelnumber, ib,
+                                    numPoints, nc, ncu, nd, ncx, nco, ncw);
+}
+
 // Recover the runtime ABI from common.driver_abi for the no-driver (AbiAdapter) overloads
 // below. Fails loudly instead of null-dereferencing deep in kernel dispatch if an AbiAdapter
 // path reached here without initializing common.driver_abi.
@@ -1189,6 +1216,11 @@ inline void QoIvolumeDriver(dstype* f, const dstype* xg, const dstype* udg, cons
 inline void QoIboundaryDriver(dstype* fb, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nl, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int ngf, Int f1, Int f2, Int ib, Int backend)
 {
     QoIboundaryDriver(fb, xg, udg, odg, wdg, uhg, nl, require_driver_abi(common), mesh, master, app, sol, temp, common, ngf, f1, f2, ib, backend);
+}
+
+inline void SurfaceQuantitiesDriver(dstype* fb, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nl, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int ngf, Int f1, Int f2, Int ib, Int backend)
+{
+    SurfaceQuantitiesDriver(fb, xg, udg, odg, wdg, uhg, nl, require_driver_abi(common), mesh, master, app, sol, temp, common, ngf, f1, f2, ib, backend);
 }
 
 #endif

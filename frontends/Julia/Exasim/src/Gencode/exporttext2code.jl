@@ -247,9 +247,19 @@ function _t2c_write_pdeapp(pde, mesh, files, path, modelfile="pdemodel.txt")
         "curvedboundaryexprs", "periodicboundaries1", "periodicexprs1",
         "periodicboundaries2", "periodicexprs2", "interfaceconditions",
         "interfacefluxmap", "wmModelIDs", "wmBoundaries", "wmDistances",
-        "saveSolFreq", "saveSolOpt", "timestepOffset", "saveSolBouFreq", "ibs",
+        "saveSolFreq", "saveSolOpt", "timestepOffset", "saveSolBouFreq", "ibs", "saveSolBouLoc",
         "compudgavg", "extFhat", "extUhat", "extStab", "saveResNorm",
     ]
+
+    # ibs may be a vector of boundaries: `ibs = [1, 3];` for >= 2 entries,
+    # otherwise the scalar form. saveSolBouLoc: 0 = face nodes, 1 = face Gauss points.
+    if haskey(app, "ibs")
+        ibsv = [Int(round(b)) for b in (app["ibs"] isa Number ? [app["ibs"]] : vec(collect(app["ibs"])))]
+        app["ibs"] = length(ibsv) >= 2 ? ibsv : (isempty(ibsv) ? 0 : ibsv[1])
+    end
+    if haskey(app, "saveSolBouLoc") && !(app["saveSolBouLoc"] in (0, 1))
+        error("exporttext2code: saveSolBouLoc must be 0 (face nodes) or 1 (face Gauss points).")
+    end
 
     open(path, "w") do io
         for key in keys

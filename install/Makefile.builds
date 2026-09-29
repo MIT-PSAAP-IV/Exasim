@@ -27,6 +27,7 @@ cuda:
 	  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
 	  -DKokkos_ENABLE_CUDA=ON \
 	  -DKokkos_ENABLE_CUDA_LAMBDA=ON \
+	  -DKokkos_ENABLE_CUDA_CONSTEXPR=ON \
 	  -DCMAKE_INSTALL_PREFIX=buildcuda
 	cmake --build buildcuda -j$(NPROCS)
 	cmake --install buildcuda

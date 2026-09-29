@@ -39,7 +39,12 @@ public:
     ofstream outbouudg;
     ofstream outbouwdg;
     ofstream outbouuhat;
+    ofstream outbousurf;     // SurfaceQuantities on the ibs boundaries (face nodes or Gauss points)
+    ofstream outbousurfgeo;  // per save: [x, n] (nodes) or [x, n, dA] (Gauss points) at the outbousurf points
     ofstream outqoi;
+
+    dstype* surfbuf = nullptr;  // device scratch for saveSurfaceQuantitiesBlock
+    Int szsurfbuf = 0;          // capacity of surfbuf (entries); grown by ensureSurfaceScratch
 
     CSolutionWriter(CDiscretization& disc_, CResidual<M>& residual_, CVisualization& vis_, CSolver<M>& solv_)
         : disc(disc_), residual(residual_), vis(vis_), solv(solv_) {}
@@ -53,7 +58,10 @@ public:
         if (outbouudg.is_open()) { outbouudg.close(); }
         if (outbouwdg.is_open()) { outbouwdg.close(); }
         if (outbouuhat.is_open()) { outbouuhat.close(); }
+        if (outbousurf.is_open()) { outbousurf.close(); }
+        if (outbousurfgeo.is_open()) { outbousurfgeo.close(); }
         if (outqoi.is_open()) { outqoi.close(); }
+        if (surfbuf) TemplateFree(surfbuf, disc.common.backend);
     }
 
     // open the output streams and write the initial solution (was the CSolution ctor body)
@@ -87,6 +95,18 @@ public:
     void SaveParaviewAt(Int step, Int backend, std::string fname_modifier = "");
     void SaveSolutionsOnBoundary(Int backend);
     void SaveNodesOnBoundary(Int backend);
+
+    // open the outbou*_np<rank>.bin streams (and write outbouinfo) under the prefix base
+    void openBoundaryFiles(const std::string& base);
+    // face-node coordinates [nn, ncx] at buf and unit normals [nn, nd] at buf + nn*ncx for the
+    // faces [f1, f2); uses nn*(ncx+3*nd+1) entries of buf
+    void faceNodeGeometry(dstype* buf, Int f1, Int f2, Int backend);
+    // evaluate SurfaceQuantities for boundary id ib on faces [f1, f2) at face nodes or Gauss
+    // points (common.qoiparams.saveSolBouLoc) and append the values to outbousurf and the
+    // geometry of those points to outbousurfgeo (one record per save, so it follows mesh motion)
+    void saveSurfaceQuantitiesBlock(Int f1, Int f2, Int ib, Int backend);
+    // make surfbuf hold the scratch for a block of nf faces (exact size, checked against Int)
+    void ensureSurfaceScratch(Int nf);
     void SaveOutputCG(Int backend);
 
     // read solutions / a saved record from the appended solution files

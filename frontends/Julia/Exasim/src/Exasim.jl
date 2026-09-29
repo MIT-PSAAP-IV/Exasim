@@ -25,12 +25,12 @@ include("Materials/MaterialDatabase.jl")
 include("Postprocessing/Postprocessing.jl")
 
 using .Preprocessing: initializeexasim, preprocessing
-using .Postprocessing: exasim, vis, fetchsolution
+using .Postprocessing: exasim, vis, fetchsolution, readsurfacequantities
 using .Mesh
 using .Materials
 using .Gencode
 
-export initializeexasim, preprocessing, exasim, vis, fetchsolution,
+export initializeexasim, preprocessing, exasim, vis, fetchsolution, readsurfacequantities,
        exportapp, exporttext2code, exporttext2codemesh,
        Preprocessing, Gencode, Mesh, Materials, Postprocessing
 

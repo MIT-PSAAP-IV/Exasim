@@ -57,6 +57,7 @@
 #include "KokkosVisTensors.cpp"
 #include "KokkosQoIvolume.cpp"
 #include "KokkosQoIboundary.cpp"
+#include "KokkosSurfaceQuantities.cpp"
 #include "KokkosSourcew.cpp"
 #include "KokkosOutput.cpp"
 #include "KokkosMonitor.cpp"

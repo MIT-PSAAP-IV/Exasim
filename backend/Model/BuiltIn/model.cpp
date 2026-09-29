@@ -50,5 +50,16 @@ namespace exasim_model_1 {
 #include "KokkosVisTensors.cpp"
 #include "KokkosQoIvolume.cpp"
 #include "KokkosQoIboundary.cpp"
+#if __has_include("KokkosSurfaceQuantities.cpp")
+#include "KokkosSurfaceQuantities.cpp"
+#else
+// Kernel sets that predate surfacequantities: nothing to evaluate (nsurfq == 0).
+void KokkosSurfaceQuantities(dstype*, const dstype*, const dstype*, const dstype*, const dstype*,
+             const dstype*, const dstype*, const dstype*, const dstype*, const dstype*, const dstype,
+             const int, const int, const int, const int, const int, const int, const int,
+             const int, const int)
+{
+}
+#endif
 
 }

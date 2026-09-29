@@ -123,6 +123,7 @@ the backend `param` and `uinf` arrays.
 | `sourcew` | Source/update equation for `wdg`. | Models with auxiliary `w` variables. |
 | `visscalars`, `visvectors`, `vistensors` | Derived fields for visualization. | Preprocessing output-count inference and VTK/postprocessing. |
 | `qoivolume`, `qoiboundary` | Volume and boundary quantities of interest. | QoI postprocessing. |
+| `surfacequantities` | Pointwise surface fields (heat flux, skin friction, Cp, ...); same arguments as `qoiboundary`. | Written to `outbousurf_np*.bin` on the `ibs` boundaries when `saveSolBouFreq > 0`; read with `readsurfacequantities`. |
 
 ## Mathematical Meaning
 

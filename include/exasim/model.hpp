@@ -122,7 +122,7 @@
 //   tdfunc, eos, eos_du, eos_dw, avfield,
 //   init{q, udg, wdg, odg}, monitor, output,
 //   vis_scalars, vis_vectors, vis_tensors,
-//   qoi_volume, qoi_boundary
+//   qoi_volume, qoi_boundary, surface_quantities
 //
 // HDG Jacobians (required iff Discretization::HDG is selected; default
 // = zero-fill, so users get a compile error / zero-residual Jacobian
@@ -465,6 +465,15 @@ struct OutputDefaults : InitDefaults<Self, T> {
                       const T /*v*/[],  const T /*w*/[],  const T /*uh*/[],
                       const T /*n*/[],  const T /*tau*/[],
                       const T /*mu*/[], const T /*uinf*/[], T /*t*/) { }
+
+    // `surface_quantities` has the `qoi_boundary` signature but is evaluated pointwise
+    // (no integration) on the ibs boundaries and written to outbousurf_np*.bin.
+    KOKKOS_INLINE_FUNCTION static
+    void surface_quantities(T[], int /*ib*/,
+                            const T /*x*/[],  const T /*uq*/[],
+                            const T /*v*/[],  const T /*w*/[],  const T /*uh*/[],
+                            const T /*n*/[],  const T /*tau*/[],
+                            const T /*mu*/[], const T /*uinf*/[], T /*t*/) { }
 
     KOKKOS_INLINE_FUNCTION static
     void monitor(T[], const T /*x*/[], const T /*uq*/[],

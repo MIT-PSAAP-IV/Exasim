@@ -2,7 +2,8 @@ import os
 from .gencodebou import gencodebou
 from .gencodeboujac import gencodeboujac
 
-def gencodeface(filename, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, foldername, genjac=False):
+def gencodeface(filename, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, foldername, genjac=False, allib=False):
+    # allib: one body (the single column of f) evaluated for every boundary id -- no ib dispatch.
     strkk = ""
     nbc = f.shape[1]
     for k in range(1, nbc + 1):
@@ -19,12 +20,15 @@ def gencodeface(filename, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, tim
     tmp = "(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\n"
     tmp = "void " + cpufile + tmp
     tmp += "{\n"
-    for k in range(1, nbc + 1):
-        if k == 1:
-            tmp += "\tif (ib == " + str(k) + ")\n"
-        else:
-            tmp += "\telse if (ib == " + str(k) + ")\n"
-        tmp += "\t\t" + cpufile + str(k) + "(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);\n"
+    if allib:
+        tmp += "\t" + cpufile + "1(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);\n"
+    else:
+        for k in range(1, nbc + 1):
+            if k == 1:
+                tmp += "\tif (ib == " + str(k) + ")\n"
+            else:
+                tmp += "\telse if (ib == " + str(k) + ")\n"
+            tmp += "\t\t" + cpufile + str(k) + "(f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);\n"
     tmp += "}\n\n"
 
     strkk += tmp
