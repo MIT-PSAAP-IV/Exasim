@@ -53,8 +53,8 @@ y4 = 0.04;
 % expressions for domain boundaries
 %mesh.boundaryexpr = {@(p) abs(p(2,:)-ymin)<1e-6, @(p) p(2,:) > ymin + (y2-ymin)/(x2-xmin)*(p(1,:)-xmin) - 1e-4, @(p) p(2,:) < y3 + 1e-4, @(p) abs(p(1,:))< 20 + 1e-6};
 mesh.boundaryexpr = {@(p) abs(p(2,:)-ymin)<1e-6, @(p) p(2,:) > ymin + (y4-ymin)/(x4-xmin)*(p(1,:)-xmin) - 1e-4,  @(p) p(2,:) > y4 + (y2-y4)/(x2-x4)*(p(1,:)-x4) - 1e-4, @(p) p(2,:) < y3 + 1e-4, @(p) abs(p(1,:))< 20 + 1e-6};
-% axis symmetric, outflow, inflow, wall
-mesh.boundarycondition = [6, 2, 1, 3]; % Set boundary condition for each boundary
+% axis symmetric, inflow, inflow, wall, outflow
+mesh.boundarycondition = [5 1 1 3 2]; % Set boundary condition for each boundary
 mesh.f = facenumbering(mesh.p,mesh.t,1,mesh.boundaryexpr,[]);
 mesh.periodicboundary = [];
 mesh.periodicexpr = {};
