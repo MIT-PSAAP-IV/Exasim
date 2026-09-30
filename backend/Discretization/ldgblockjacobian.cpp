@@ -1383,8 +1383,6 @@ void RuFaceCrossDeriv(dstype* A, solstruct &sol,
     // }
 }
 
-#include "precondstages.hpp"
-
 void RuFaceCrossDerivOptimized(dstype* A, solstruct &sol,
         resstruct &res, appstruct &app, ExasimDriverABI& driver_abi,
         masterstruct &master, meshstruct &mesh, tempstruct &tmp,
@@ -1516,6 +1514,8 @@ void RuFaceCrossDerivOptimized(dstype* A, solstruct &sol,
     }
 }
 
+#include "precondstages.hpp"
+
 void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, appstruct &app,
                   ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh,
                   tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
@@ -1592,7 +1592,7 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
     }
 
     t0 = LDGBenchmarkStart(backend);
-    RuFaceCrossDerivOptimized(K, sol, res, app, driver_abi, master, mesh, tmp, common);
+    PrecondCrossStage(K, sol, res, app, driver_abi, master, mesh, tmp, common);
     tm.cross += LDGBenchmarkStop(t0, backend);
 
     // if (common.timeparams.tdep == 1)
@@ -1786,7 +1786,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
     }
 
     t0 = LDGBenchmarkStart(backend);
-    RuFaceCrossDerivOptimized(K, sol, res, app, driver_abi, master, mesh, tmp, common);
+    PrecondCrossStage(K, sol, res, app, driver_abi, master, mesh, tmp, common);
     tm.cross += LDGBenchmarkStop(t0, backend);
 
     // if (common.timeparams.tdep == 1)
