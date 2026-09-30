@@ -1566,12 +1566,12 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
         Int ne = e2-e1;        
 
         t0 = LDGBenchmarkStart(backend);
-        uEquationElemBlock<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp,
+        PrecondElemStage(sol, res, app, driver_abi, master, mesh, tmp,
                 common, handle, j, backend);
         tm.elem += LDGBenchmarkStop(t0, backend);
 
         t0 = LDGBenchmarkStart(backend);
-        uEquationElemFaceBlockLDG(sol, res, app, driver_abi, master, mesh,
+        PrecondElemFaceStage(sol, res, app, driver_abi, master, mesh,
                 tmp, common, handle, j, backend);
         tm.face += LDGBenchmarkStop(t0, backend);
         //ArraySetValue(res.F, 0.0, n*m*ne);
@@ -1761,12 +1761,12 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
         Int ne = e2-e1;
 
         t0 = LDGBenchmarkStart(backend);
-        uEquationElemBlock<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp,
+        PrecondElemStage(sol, res, app, driver_abi, master, mesh, tmp,
                 common, handle, j, backend);
         tm.elem += LDGBenchmarkStop(t0, backend);
 
         t0 = LDGBenchmarkStart(backend);
-        uEquationElemFaceBlockLDG(sol, res, app, driver_abi, master, mesh,
+        PrecondElemFaceStage(sol, res, app, driver_abi, master, mesh,
                 tmp, common, handle, j, backend);
         tm.face += LDGBenchmarkStop(t0, backend);
 
