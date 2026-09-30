@@ -78,8 +78,14 @@ via the 'common' member of CDiscretization.
 #ifndef __GMRESSOLVER
 #define __GMRESSOLVER 
 
-void CGS(cublasHandle_t handle, dstype *V, dstype *H, dstype *temp, Int N, Int m, Int backend)
+void CGS(cublasHandle_t handle, dstype *V, dstype *H, dstype *temp, Int N, Int m, Int backend,
+         const PrecondStageTable* stages = nullptr)
 {
+    // a registered replacement is only offered by LDG discretizations (see the call sites)
+    if (const PrecondStageTable* t = stages; t != nullptr && t->cgs != nullptr) {
+        t->cgs(handle, V, H, temp, N, m, backend);
+        return;
+    }
     PGEMTV(handle, N, m, &one, V, N, &V[m*N], inc1, &zero, H, inc1, temp, backend);
     PGEMNV(handle, N, m, &minusone, V, N, H, inc1, &one, &V[m*N], inc1, backend);
     PDOT(handle, N, &V[m*N], inc1, &V[m*N], inc1, &H[m], backend);
@@ -257,7 +263,8 @@ I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc,
             if (orthogMethod == 0)
                 MGS(disc.common.cublasHandle, sys.v, &H[n1*i], N, m, backend);
             else
-                CGS(disc.common.cublasHandle, sys.v, &H[n1*i], y, N, m, backend);
+                CGS(disc.common.cublasHandle, sys.v, &H[n1*i], y, N, m, backend,
+                    disc.common.spatialScheme == 0 ? PrecondStagesOf(disc.common) : nullptr);
             END_TIMING_DISC(2);    
                         
             START_TIMING;    
@@ -507,7 +514,8 @@ I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc,
                 MGS(disc.common.cublasHandle, sys.v, &H[n1*i], N, m, disc.common.couplingparams.ndofuhatinterface, backend);
                 //MGS(disc.common.cublasHandle, sys.v, &H[n1*i], N, m, backend);
             else
-                CGS(disc.common.cublasHandle, sys.v, &H[n1*i], y, N, m, backend);
+                CGS(disc.common.cublasHandle, sys.v, &H[n1*i], y, N, m, backend,
+                    disc.common.spatialScheme == 0 ? PrecondStagesOf(disc.common) : nullptr);
             
 #ifdef HAVE_CUDA
     cudaDeviceSynchronize();

@@ -2283,6 +2283,11 @@ struct blockjacindexstruct {
 template <class T = ::dstype, class I = ::Int>
 struct commonstructT {
     using dstype = T; using Int = I;
+    // Replaceable-stage tables registered for THIS discretization (residualstages.hpp / precondstages.hpp;
+    // SetResidualStages / SetPrecondStages). nullptr: production code. Untyped because the table types are
+    // declared after this struct.
+    const void* residualStages = nullptr;
+    const void* precondStages = nullptr;
     using qoiparamsstruct       = qoiparamsstructT<T, I>;
     using wallmodelparamsstruct = wallmodelparamsstructT<T, I>;
     meshsizesstruct meshsizes;              // mesh partition element/face/block counts (see above)
