@@ -155,10 +155,23 @@ inline void GetW(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &ap
             Int e2 = common.eblks[3*j+1];
             Int ng = npe*(e2-e1);
 
-            wEquation<M>(&sol.wdg[npe*ncw*e1], &sol.xdg[npe*ncx*e1],
-                &sol.udg[npe*nc*e1], &sol.odg[npe*nco*e1],
-                &sol.wsrc[npe*ncw*e1], tmp.tempn, app, common, ng, backend,
-                tmp.tempi);
+            dstype *wdg = tmp.tempn;
+            dstype *xdg = &tmp.tempn[ng*ncw];
+            dstype *udg = &tmp.tempn[ng*(ncw+ncx)];
+            dstype *odg = &tmp.tempn[ng*(ncw+ncx+nc)];
+            dstype *wsrc = &tmp.tempn[ng*(ncw+ncx+nc+nco)];
+
+            // Global element fields are stored as npe-by-component-by-element,
+            // while the pointwise w kernels expect point-by-component blocks.
+            GetElemNodes(wdg, sol.wdg, npe, ncw, 0, ncw, e1, e2);
+            GetElemNodes(xdg, sol.xdg, npe, ncx, 0, ncx, e1, e2);
+            GetElemNodes(udg, sol.udg, npe, nc, 0, nc, e1, e2);
+            GetElemNodes(odg, sol.odg, npe, nco, 0, nco, e1, e2);
+            GetElemNodes(wsrc, sol.wsrc, npe, ncw, 0, ncw, e1, e2);
+
+            wEquation<M>(wdg, xdg, udg, odg, wsrc, tmp.tempg, app, common,
+                ng, backend, tmp.tempi);
+            PutElemNodes(sol.wdg, wdg, npe, ncw, 0, ncw, e1, e2);
         }
     }
     return;
@@ -939,4 +952,3 @@ inline void ComputeQ(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I>
 }
 
 #endif
-
