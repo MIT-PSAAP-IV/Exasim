@@ -648,7 +648,7 @@ static void LDGScatterCrossFaceGEMMBlock(dstype* A, const dstype* Af,
         Int row = rownode + npe*m;
         Int col = unode + npe*c;
         dstype value = Af[rowPacked + nrow*tnode + nrow*npf*flocal];
-        Kokkos::atomic_add(&A[row + nlocu*col + nlocu*nlocu*rowelem], value);
+        Kokkos::atomic_add(&A[row + nlocu*col + (std::size_t)nlocu*nlocu*rowelem], value);   // 64-bit: K passes 2^31
     });
 }
 
@@ -1604,7 +1604,7 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
         tm.schur += LDGBenchmarkStop(t0, backend);
         
         t0 = LDGBenchmarkStart(backend);
-        ArrayCopy(&K[n*n*e1], res.D, n*n*ne);                
+        ArrayCopy(&K[(std::size_t)n*n*e1], res.D, n*n*ne);                
         tm.copy += LDGBenchmarkStop(t0, backend);
     }
 
@@ -1659,7 +1659,7 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
         Int e2 = common.eblks[3*j+1];
         Int ne = e2-e1;
         t0 = LDGBenchmarkStart(backend);
-        Inverse(handle, &K[n*n*e1], res.H, res.ipiv, n, ne, backend);
+        Inverse(handle, &K[(std::size_t)n*n*e1], res.H, res.ipiv, n, ne, backend);
         tm.inverse += LDGBenchmarkStop(t0, backend);
     }
 
@@ -1798,7 +1798,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
         tm.schur += LDGBenchmarkStop(t0, backend);
 
         t0 = LDGBenchmarkStart(backend);
-        ArrayCopy(&K[nlocu*nlocu*e1], res.D, nlocu*nlocu*ne);
+        ArrayCopy(&K[(std::size_t)nlocu*nlocu*e1], res.D, nlocu*nlocu*ne);
         tm.copy += LDGBenchmarkStop(t0, backend);
     }
 
@@ -1814,7 +1814,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
         Int e2 = common.eblks[3*j+1];
         Int ne = e2-e1;
         t0 = LDGBenchmarkStart(backend);
-        Inverse(handle, &K[nlocu*nlocu*e1], res.H, res.ipiv, nlocu, ne, backend);
+        Inverse(handle, &K[(std::size_t)nlocu*nlocu*e1], res.H, res.ipiv, nlocu, ne, backend);
         tm.inverse += LDGBenchmarkStop(t0, backend);
     }
 
@@ -1867,7 +1867,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
 //         uEquationSchurBlockLDG(sol, res, app, driver_abi, master, mesh, tmp,
 //                                common, handle, j, backend);
 // 
-//         ArrayCopy(&K[n*n*e1], res.D, n*n*ne);                
+//         ArrayCopy(&K[(std::size_t)n*n*e1], res.D, n*n*ne);                
 //     }
 // 
 //     CrossFaceDeriv(K, sol, res, app, driver_abi, master, mesh, tmp, common);
