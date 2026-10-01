@@ -8,6 +8,8 @@
         elemface(pctx, jth)          uEquationElemFaceBlockLDG: res.D, res.B += face terms; res.F <- face terms
         schur(ctx, jth)              uEquationSchurBlockLDG for element block jth: res.D <- the block's Schur complement
         cross(pctx, K)               RuFaceCrossDerivOptimized: K += the cross-face q-derivative terms (before the inverse)
+        apply(ctx, x)                CPreconditioner::ApplyPreconditioner (LDG block-Jacobian): x <- K x, per element block
+        cgs(handle, V, H, ...)       GMRES classical Gram-Schmidt step (gmres.cpp CGS): orthogonalize V[m] against V[0..m)
         inverse(ctx, A, n, batch)    Inverse: A (batch column-major n x n blocks) <- their inverses; res.H is scratch
 
     elem/elemface receive a PrecondStageContext (the residual context plus the model driver ABI, which the face stage's
@@ -25,13 +27,15 @@ struct PrecondStageContext : ResidualStageContext {
 };
 
 struct PrecondStageTable {
-    int version = 3;
+    int version = 4;
     const char* name = "";
     void (*elem)(PrecondStageContext&, Int jth) = nullptr;
     void (*elemface)(PrecondStageContext&, Int jth) = nullptr;
     void (*schur)(ResidualStageContext&, Int jth) = nullptr;
     void (*inverse)(ResidualStageContext&, dstype* A, Int n, Int batch) = nullptr;
     void (*cross)(PrecondStageContext&, dstype* K) = nullptr;       // v3
+    void (*apply)(ResidualStageContext&, dstype* x) = nullptr;      // v4
+    void (*cgs)(cublasHandle_t handle, dstype* V, dstype* H, dstype* temp, Int N, Int m, Int backend) = nullptr;   // v4
 };
 
 inline const PrecondStageTable*& PrecondStageRegistry() { static const PrecondStageTable* t = nullptr; return t; }
