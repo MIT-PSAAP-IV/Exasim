@@ -1,8 +1,121 @@
 #include "exasim_paths.h"  // exasim_data_dir()
+#include <cmath>
 #include <algorithm>
 #include <cerrno>
 #include <cstring>
 #include <limits>
+
+// ---------------------------------------------------------------------------
+// Surface corner handling. The face nodes arrive in reference-lattice order
+// (see the surfLattice* helpers below), so the k corners are known a priori
+// from surfLatticeBoundary -- no geometric corner search is needed. Angle
+// sorting (orderCorners) then gives a consistent cyclic winding in physical
+// space, and surfCalibrateOrientation picks the lattice traversal (possibly
+// mirrored) that matches it.
+// ---------------------------------------------------------------------------
+
+// Cyclically order a set of k face corner nodes around the face.
+static inline void orderCorners(const dstype* plane, int ncx, int k, int* corners)
+{
+    if (k < 3) return; // endpoints: order irrelevant for a line
+    const dstype* p0 = &plane[corners[0]*ncx];
+    const dstype* p1 = &plane[corners[1]*ncx];
+    const dstype* p2 = &plane[corners[2]*ncx];
+    double u[3] = {p1[0]-p0[0], (ncx>1)?(p1[1]-p0[1]):0.0, (ncx>2)?(p1[2]-p0[2]):0.0};
+    double v[3] = {p2[0]-p0[0], (ncx>1)?(p2[1]-p0[1]):0.0, (ncx>2)?(p2[2]-p0[2]):0.0};
+    double n[3] = {u[1]*v[2]-u[2]*v[1], u[2]*v[0]-u[0]*v[2], u[0]*v[1]-u[1]*v[0]};
+    double nn = std::sqrt(n[0]*n[0]+n[1]*n[1]+n[2]*n[2]);
+    if (nn < 1e-30) return;                    // degenerate: keep input order
+    double c[3] = {0,0,0};
+    for (int i = 0; i < k; ++i) for (int d = 0; d < ncx; ++d) c[d] += plane[corners[i]*ncx+d];
+    for (int d = 0; d < 3; ++d) c[d] /= k;
+    double e[3] = {plane[corners[0]*ncx+0]-c[0],
+                   (ncx>1)?(plane[corners[0]*ncx+1]-c[1]):0.0,
+                   (ncx>2)?(plane[corners[0]*ncx+2]-c[2]):0.0};
+    // u = e projected onto plane perpendicular to n
+    double dot = e[0]*n[0]+e[1]*n[1]+e[2]*n[2];
+    double uu[3] = {e[0]-dot*n[0], e[1]-dot*n[1], e[2]-dot*n[2]};
+    double un = std::sqrt(uu[0]*uu[0]+uu[1]*uu[1]+uu[2]*uu[2]);
+    if (un < 1e-30) return;
+    double ax[3] = {uu[0]/un, uu[1]/un, uu[2]/un};
+    double ay[3] = {n[1]*ax[2]-n[2]*ax[1], n[2]*ax[0]-n[0]*ax[2], n[0]*ax[1]-n[1]*ax[0]};
+    double ang[4];
+    for (int i = 0; i < k; ++i)
+        ang[i] = std::atan2((plane[corners[i]*ncx+0]-c[0])*ay[0]
+                            + ((ncx>1)?(plane[corners[i]*ncx+1]-c[1])*ay[1]:0)
+                            + ((ncx>2)?(plane[corners[i]*ncx+2]-c[2])*ay[2]:0),
+                            (plane[corners[i]*ncx+0]-c[0])*ax[0]
+                            + ((ncx>1)?(plane[corners[i]*ncx+1]-c[1])*ax[1]:0)
+                            + ((ncx>2)?(plane[corners[i]*ncx+2]-c[2])*ax[2]:0));
+    int order[4] = {0,1,2,3};
+    for (int i = 1; i < k; ++i)
+        for (int j = i; j > 0 && ang[j-1] > ang[j]; --j) std::swap(ang[j-1], ang[j]), std::swap(order[j-1], order[j]);
+    int tmp[4];
+    for (int i = 0; i < k; ++i) tmp[i] = corners[order[i]];
+    for (int i = 0; i < k; ++i) corners[i] = tmp[i];
+}
+
+// Face-lattice helpers for subdivided surface output. Face nodes arrive in
+// lattice order (verified from master data and runs): lines ascending with
+// endpoints at 0/np f-1; quads column-major tensor (idx=i+(p+1)*j);
+// tris row-major uniform lattice (idx=j*(p+1)-j*(j-1)/2+i).
+// Subdivision emits linear sub-cells over ALL face nodes so every computed
+// kernel value is plotted (corner-only output would discard the interior
+// face data). Winding is calibrated per face against orderCorners output
+// so the subdivided patch matches the corner-cell orientation.
+static inline int surfLatticeDegree(int npf, int isTri, int isQuad)
+{
+    if (!isTri && !isQuad) return (npf >= 2) ? npf - 1 : -1; // lines
+    for (int p = 1; p <= 16; ++p) {
+        if (isQuad && (p + 1) * (p + 1) == npf) return p;
+        if (isTri && (p + 1) * (p + 2) / 2 == npf) return p;
+    }
+    return -1;
+}
+
+// Lattice index of grid position (i,j): quads tensor, tris uniform lattice.
+static inline int surfLatticeIdx(int i, int j, int p, int isTri, int isQuad, int mirror)
+{
+    if (mirror) { int t = i; i = j; j = t; }
+    if (isQuad) return i + (p + 1) * j;
+    if (isTri) return j * (p + 1) - j * (j - 1) / 2 + i;
+    return i; // lines: j == 0
+}
+
+// Canonical lattice boundary traversal (corner local indices, CCW in
+// lattice coords).
+static inline void surfLatticeBoundary(int* out, int p, int isTri, int isQuad)
+{
+    if (!isTri && !isQuad) { out[0] = 0; out[1] = p; return; } // lines
+    if (isQuad) {
+        out[0] = 0; out[1] = p; out[2] = p * p + 2 * p; out[3] = p * (p + 1);
+        return;
+    }
+    out[0] = 0; out[1] = p; out[2] = p * (p + 3) / 2; // tris
+}
+
+// Compare corners[] against the lattice boundary traversal, up to rotation,
+// in either direction. Returns +1 (agree), -1 (mirror lattice), 0 (no match
+// -> caller falls back to a single corner cell). Only meaningful for k >= 3;
+// for lines (k == 2) forward and reverse coincide, so the caller orients line
+// segments directly from the corner order.
+static inline int surfCalibrateOrientation(const int* corners, int k, int p,
+                                           int isTri, int isQuad)
+{
+    int lat[4];
+    surfLatticeBoundary(lat, p, isTri, isQuad);
+    for (int r = 0; r < k; ++r) {
+        int okFwd = 1, okRev = 1;
+        for (int i = 0; i < k; ++i) {
+            if (corners[i] != lat[(r + i) % k]) okFwd = 0;
+            if (corners[i] != lat[(r + k - i) % k]) okRev = 0;
+        }
+        if (okFwd) return +1;
+        if (okRev) return -1;
+    }
+    return 0;
+}
+
 class CVisualization {
 public:
     float* scafields=nullptr;
@@ -30,7 +143,29 @@ public:
     std::vector<std::string> scalar_names;   // nscalars
     std::vector<std::string> vector_names;   // nvectors (3 comps each, z padded if nd==2)
     std::vector<std::string> tensor_names;   // ntensors (ntc comps each, ntc=nd*nd)
-    std::vector<std::string> surface_names;   // nsurfaces
+    std::vector<std::string> surface_names;   // nsurfq (surface scalar vis fields)
+
+    // ------------------------------------------------------------------
+    // Surface visualization: the ibs-list boundary faces, resolved on the
+    // DG face nodes. Every face node is a unique surface point, and the
+    // SurfaceQuantities evaluator supplies the field values directly.
+    int   nsurfq       = 0;    // number of surface scalar fields (>=0)
+    int   surf_nnodes    = 0;    // surface nodes (all face nodes, DG-unique per face)
+    int   surf_ncells    = 0;    // linear sub-cells (lines / tris / quads)
+    int   surf_k         = 0;    // corners per cell (2, 3 or 4)
+    bool  surfvis_enabled = false;
+    std::vector<float>   surf_nodes;      // [3 x surf_nnodes]
+    std::vector<int32_t> surf_cellconn;   // [surf_k x surf_ncells]
+    std::vector<int32_t> surf_face2cell;  // [nf] surf-face ordinal owning the face, or -1
+    std::vector<int32_t> surf_celloffsets;// [surf_ncells]
+    std::vector<uint8_t> surf_celltypes;  // [surf_ncells]
+    // Precomputed appended-data offsets for the surface VTU metadata
+    // (volume analogue: scalar_offsets / points_offset / ... below).
+    std::vector<std::uint64_t> surf_scalar_offsets; // [nsurfq]
+    std::uint64_t surf_points_offset = 0;
+    std::uint64_t surf_conn_offset   = 0;
+    std::uint64_t surf_offs_offset   = 0;
+    std::uint64_t surf_types_offset  = 0;
 
     // how fields were allocated: 0=CPU malloc/free, 2=CUDA host (cudaHostAlloc),
     // 3=HIP  host (hipHostMalloc), anything else => unknown/none
@@ -82,6 +217,78 @@ public:
         }
     }
 
+    // Ordinal of face f among the selected surface faces, or -1 when the
+    // face is not selected. Out-of-range faces (a face map that predates a
+    // topology change) also yield -1 here; the SaveSurfaces precondition
+    // reports that case loudly instead of indexing out of bounds.
+    int vis_face_ordinal(Int f) const
+    {
+        if (f < 0 || (size_t)f >= surf_face2cell.size()) return -1;
+        return surf_face2cell[(size_t)f];
+    }
+
+    // Refresh the surface point coordinates from the current xdg. Mesh
+    // adaptation moves xdg in place without changing face topology, so the
+    // corner/sub-cell layout (surf_cellconn, surf_ncells) and the face
+    // ordinals (surf_face2cell) stay valid and only surf_nodes goes stale.
+    // This is the surface counterpart of UpdateCoordinates above (which the
+    // volume writer calls before every write); SaveSurfaces calls this
+    // before every save for the same reason. No DG->CG averaging here:
+    // DG surface nodes are written at their own face coordinates.
+    void UpdateSurfaceCoordinates(CDiscretization& disc, int backend)
+    {
+        if (!surfvis_enabled || surf_nnodes <= 0) return;
+
+        const auto& common = disc.common;
+        const auto& mesh   = disc.mesh;
+        const auto& sol    = disc.sol;
+
+        const Int nbf = common.meshsizes.nbf;
+        const Int npf = common.grid.npf;
+        const Int ncx = common.components.ncx;
+
+        // One staging buffer per call, reused across blocks (as in
+        // UpdateCoordinates above), sized for the largest selected block.
+        // f1/f2 use the same 1-based-to-0-based conversion as the work loop
+        // below, so maxnf is the true largest nfblk, not one face short.
+        Int maxnf = 0;
+        for (Int j = 0; j < nbf; ++j) {
+            if (!common.qoiparams.isSaveBoundary(common.fblks[3*j+2])) continue;
+            Int f1 = common.fblks[3*j] - 1;
+            Int f2 = common.fblks[3*j+1];
+            maxnf = std::max(maxnf, f2 - f1);
+        }
+        if (maxnf == 0) return;
+        std::vector<dstype> xg((size_t)npf*maxnf*ncx);
+        dstype* dbuf = nullptr;
+        if (backend >= 2) TemplateMalloc(&dbuf, npf*maxnf*ncx, backend);
+
+        for (Int j = 0; j < nbf; ++j) {
+            Int ib = common.fblks[3*j+2];
+            if (!common.qoiparams.isSaveBoundary(ib)) continue;
+            Int f1 = common.fblks[3*j] - 1;
+            Int f2 = common.fblks[3*j+1];
+            Int nfblk = f2 - f1;
+            if (nfblk == 0) continue;
+            Int nn = npf*nfblk;
+            gatherBoundaryNodes(xg.data(), sol.xdg, mesh.findxdg1, f1, nn, npf, ncx, backend, dbuf);
+            for (Int ff = 0; ff < nfblk; ++ff) {
+                Int f = f1 + ff;
+                Int o = vis_face_ordinal(f);
+                if (o < 0) continue;
+                for (Int ln = 0; ln < npf; ++ln) {
+                    // xg is component-major [dim][block-point], same
+                    // transpose as in InitSurfaces.
+                    const size_t s = (size_t)o*npf + ln;
+                    surf_nodes[3*s+0] = (float)xg[(size_t)0*nn + (size_t)ff*npf + ln];
+                    surf_nodes[3*s+1] = (ncx>1)?(float)xg[(size_t)1*nn + (size_t)ff*npf + ln]:0.0f;
+                    surf_nodes[3*s+2] = (ncx>2)?(float)xg[(size_t)2*nn + (size_t)ff*npf + ln]:0.0f;
+                }
+            }
+        }
+        if (dbuf) TemplateFree(dbuf, backend);
+    }
+
     // CVisualization(const dstype* xcg, int nd_in, int np,
     //                const int* cgelcon, int npe, int ne,
     //                const int* telem,   int nce, int nverts_per_cell,
@@ -108,7 +315,7 @@ public:
             int nsca    = disc.common.qoiparams.nsca;
             int nvec    = disc.common.qoiparams.nvec;            
             int nten    = disc.common.qoiparams.nten;            
-            int nsurf   = disc.common.qoiparams.nsurf;            
+            int nsurfq= disc.common.qoiparams.nsurfq;
             int npe     = disc.common.grid.npe;
             int ne      = disc.common.meshsizes.ne1;
             int elemtype= disc.common.grid.elemtype;
@@ -130,8 +337,8 @@ public:
             std::vector<std::string> tensors(nten);
             for (int i = 0; i < nten; i++) tensors[i] = "Tensor Field " + std::to_string(i);
 
-            std::vector<std::string> surfaces(nsurf);
-            for (int i = 0; i < nsurf; i++) surfaces[i] = "Surface Field " + std::to_string(i);
+            std::vector<std::string> surfaces(nsurfq);
+            for (int i = 0; i < nsurfq; i++) surfaces[i] = "Surface Field " + std::to_string(i);
             
             int* cgelcon;
             if (backend==0) cgelcon = &disc.mesh.cgelcon[0];
@@ -146,7 +353,13 @@ public:
 
             if (backend != 0) CPUFREE(cgelcon);    
 
-            savemode = (disc.common.qoiparams.saveParaview != 0) && (nsca + nvec + nten > 0); 
+            surfvis_enabled = (disc.common.qoiparams.saveParaview != 0) && (nsurfq > 0) &&
+                              !disc.common.qoiparams.ibslist.empty();
+            this->nsurfq   = nsurfq;
+            surf_scalar_offsets.assign(nsurfq, 0);
+            if (surfvis_enabled) InitSurfaces(disc, backend);
+
+            savemode = (disc.common.qoiparams.saveParaview != 0) && (nsca + nvec + nten > 0 || surfvis_enabled); 
         
             if (backend==2) { // GPU
             #ifdef HAVE_CUDA        
@@ -160,7 +373,7 @@ public:
             #ifdef HAVE_HIP        
                 hipTemplateHostMalloc(&scafields, npoints*nsca, hipHostMallocMapped); // zero copy
                 hipTemplateHostMalloc(&vecfields, 3*npoints*nvec, hipHostMallocMapped); // zero copy
-                hipTemplateHostMalloc(&tenfields, ntc*npoints*nten, hipHostMallocMapped); // zero copy                
+                hipTemplateHostMalloc(&tenfields, ntc*npoints*nten, hipHostMallocMapped); // zero copy
                 host_alloc_backend = 3;
             #endif                  
             }    
@@ -169,6 +382,21 @@ public:
                 vecfields = (float *) malloc(3*npoints*nvec*sizeof(float));
                 tenfields = (float *) malloc(ntc*npoints*nten*sizeof(float));
                 host_alloc_backend = 0;
+            }
+
+            // Surface fields are host-only data: SaveSurfaces scatters into
+            // srffields on the host and surfvtuwrite serializes from it, so unlike
+            // the volume fields (consumed on-device by VisDG2CG) mapped memory
+            // buys nothing. Ordinary host storage, allocated whenever surface
+            // output is requested -- even when this rank owns no tagged faces:
+            // an untagged MPI rank must still emit a valid (empty) piece so the
+            // PVTU references resolve, and surfvtuwrite treats null data as an
+            // error whenever surface names exist. Mirrors the volume path,
+            // which always allocates its field buffers.
+            if (nsurfq > 0) {
+                const size_t nval = (size_t)std::max(surf_nnodes, 1) * (size_t)nsurfq;
+                srffields = (float *) malloc(nval * sizeof(float));
+                for (int i = 0; i < surf_nnodes*nsurfq; i++) srffields[i] = 0.0;
             }
             
             for (int i = 0; i < npoints*nsca; i++) scafields[i] = 0.0;
@@ -214,7 +442,11 @@ public:
         free_field(scafields);
         free_field(vecfields);
         free_field(tenfields);
-        free_field(srffields); // in case you allocate this later
+        // srffields is always plain host storage (see constructor), so it must
+        // not go through free_field: on a CUDA/HIP build that would call
+        // cudaFreeHost/hipHostFree on a malloc'd pointer.
+        std::free(srffields);
+        srffields = nullptr;
         if (rank==0) printf("CVisualization is freed successfully.\n");
     }
 
@@ -339,6 +571,77 @@ public:
         }
     }
 
+    // Surface writer (serial): scalar surface fields on a boundary surface mesh.
+    void surfvtuwrite(const std::string& filename_no_ext,
+                      const float* srffields_data) const
+    {
+        if (!surface_names.empty() && !srffields_data)
+            throw std::invalid_argument("surfvtuwrite: srffields_data is null but surface_names is non-empty.");
+
+        const std::string filename = filename_no_ext + ".vtu";
+        std::ofstream os(filename, std::ios::binary);
+        if (!os) throw std::runtime_error("Cannot open output file: " + filename);
+
+        os << "<?xml version=\"1.0\"?>\n";
+        os << "<VTKFile type=\"UnstructuredGrid\" version=\"1.0\" byte_order=\""
+           << vtk_byte_order() << "\" header_type=\"UInt64\">\n";
+        os << "  <UnstructuredGrid>\n";
+        os << "    <Piece NumberOfPoints=\"" << surf_nnodes
+           << "\" NumberOfCells=\"" << surf_ncells << "\">\n";
+        if (!surface_names.empty()) {
+            os << "      <PointData Scalars=\"scalars\">\n";
+            for (int s = 0; s < nsurfq; ++s)
+                os << "        <DataArray type=\"Float32\" Name=\"" << surface_names[s]
+                   << "\" Format=\"appended\" offset=\"" << surf_scalar_offsets[s] << "\"/>\n";
+            os << "      </PointData>\n";
+        }
+        os << "      <Points>\n";
+        os << "        <DataArray type=\"Float32\" Name=\"points\" NumberOfComponents=\"3\""
+           << " Format=\"appended\" offset=\"" << surf_points_offset << "\"/>\n";
+        os << "      </Points>\n";
+        os << "      <Cells>\n";
+        os << "        <DataArray type=\"Int32\" Name=\"connectivity\" Format=\"appended\" offset=\"" << surf_conn_offset << "\"/>\n";
+        os << "        <DataArray type=\"Int32\" Name=\"offsets\"     Format=\"appended\" offset=\"" << surf_offs_offset << "\"/>\n";
+        os << "        <DataArray type=\"UInt8\" Name=\"types\"       Format=\"appended\" offset=\"" << surf_types_offset << "\"/>\n";
+        os << "      </Cells>\n";
+        os << "    </Piece>\n";
+        os << "  </UnstructuredGrid>\n";
+        os << "  <AppendedData encoding=\"raw\">\n";
+        os << "   _";
+        for (int s = 0; s < nsurfq; ++s)
+            write_block(os, filename, "surfscalar:" + surface_names[s],
+                        &srffields_data[surf_nnodes * s],
+                        byte_count(surf_nnodes, sizeof(float)));
+        write_block(os, filename, "points", surf_nodes.data(),
+                    byte_count(3, surf_nnodes, sizeof(float)));
+        write_block(os, filename, "connectivity", surf_cellconn.data(),
+                    byte_count(surf_k, surf_ncells, sizeof(int32_t)));
+        write_block(os, filename, "offsets", surf_celloffsets.data(),
+                    byte_count(surf_ncells, sizeof(int32_t)));
+        write_block(os, filename, "types", surf_celltypes.data(),
+                    byte_count(surf_ncells, 1));
+        os << "\n  </AppendedData>\n";
+        os << "</VTKFile>\n";
+        os.close();
+    }
+
+    // Parallel surface writer: rank pieces + PVTU on rank 0.
+    void surfvtuwrite_parallel(const std::string& base_name,
+                               int rank, int nranks,
+                               const float* srffields_data) const
+    {
+        surfvtuwrite(base_name + rank_tag(rank), srffields_data);
+        if (rank == 0) {
+            std::vector<std::string> pieces;
+            pieces.reserve(nranks);
+            for (int r = 0; r < nranks; ++r) {
+                const std::filesystem::path piece = base_name + rank_tag(r) + ".vtu";
+                pieces.push_back(piece.filename().generic_string());
+            }
+            write_pvtu(base_name, pieces, surface_names, {}, {}, ntc);
+        }
+    }
+
     // PVD writers (unchanged)
     static void pvdwrite(const std::string& pvd_name_no_ext,
                          const std::vector<std::string>& files,
@@ -389,6 +692,219 @@ public:
     }
 
 private:
+    // Gather one boundary face block's DG node coordinates out of xdg.
+    // Output xg is component-major [ncx][nn] (see faceindex1 in
+    // backend/Common/cpuimpl.h). Shared by InitSurfaces (construction-time
+    // snapshot) and UpdateSurfaceCoordinates (per-save refresh). On device
+    // backends the caller supplies dbuf, a device buffer of at least nn*ncx
+    // entries, so the staging allocation happens once per call (as in
+    // UpdateCoordinates) rather than once per block.
+    static void gatherBoundaryNodes(dstype* xg, const dstype* xdg, const int* findxdg1,
+                                    Int f1, Int nn, Int npf, Int ncx, int backend,
+                                    dstype* dbuf)
+    {
+        if (backend >= 2) {
+            GetArrayAtIndex(dbuf, xdg, &findxdg1[npf*ncx*f1], nn*ncx);
+            TemplateCopytoHost(xg, dbuf, nn*ncx, backend);
+        } else {
+            GetArrayAtIndex(xg, xdg, &findxdg1[npf*ncx*f1], nn*ncx);
+        }
+        // The writer consumes xg on the host immediately; fence so an
+        // asynchronous device backend cannot race the transpose below.
+        Kokkos::fence();
+    }
+
+    // Build the boundary surface mesh (points/topology) for the requested tag
+    // and the per-node mappings used by SaveSurfaces to scatter the surface
+    // scalar fields onto the surface nodes.
+    //
+    // NOTE (DG surface mesh): each tagged face contributes ALL its npf face
+    // nodes as surface nodes (placed at the face's own coordinates), split
+    // into linear sub-cells (lines: npf-1 segments; quads: p^2 quads;
+    // tris: p^2 tris). There is deliberately NO matching against volume CG
+    // nodes and NO deduplication: DG fields are discontinuous across faces,
+    // so merging shared corners would mix values from different faces
+    // (last-wins) and teleport points when the nearest CG node is far
+    // (curved faces, ragged partitions). Sub-cell winding is calibrated per
+    // face against the orderCorners output so the patch matches the
+    // corner-cell orientation; faces failing the lattice checks fall back
+    // to a single corner cell (previous behavior).
+    void InitSurfaces(CDiscretization& disc, int backend)
+    {
+        const auto& common = disc.common;
+        const auto& mesh   = disc.mesh;
+        const auto& sol    = disc.sol;
+
+        const Int nbf = common.meshsizes.nbf;
+        const Int nf  = common.meshsizes.nf;
+        const Int npf = common.grid.npf;
+        const Int ncx = common.components.ncx;
+
+        const int elemtype = common.grid.elemtype;
+        if (nd == 2)            surf_k = 2;
+        else if (elemtype == 0) surf_k = 3;
+        else                    surf_k = 4;
+        const int k = surf_k;
+        const uint8_t ctype = (nd == 2) ? 3 : ((elemtype == 0) ? 5 : 9);
+        const int isTri = (nd == 3 && elemtype == 0);
+        const int isQuad = (nd == 3 && elemtype != 0);
+        // Lattice degree from the face node count; -1 = unknown layout.
+        const int p = surfLatticeDegree((int)npf, isTri, isQuad);
+
+        surf_face2cell.assign((size_t)nf, -1);
+
+        int nsel_faces = 0;
+        Int maxnf = 0;
+        for (Int j = 0; j < nbf; ++j) {
+            Int ib = common.fblks[3*j+2];
+            if (!common.qoiparams.isSaveBoundary(ib)) continue;
+            Int f1 = common.fblks[3*j] - 1;
+            Int f2 = common.fblks[3*j+1];
+            nsel_faces += (int)(f2 - f1);
+            maxnf = std::max(maxnf, f2 - f1);
+        }
+        surf_ncells = 0;
+        surf_nnodes = 0;
+        if (nsel_faces == 0) return;
+
+        // Staging buffers sized once and reused (as in Init above, which
+        // pre-sizes its geometry/topology vectors and fills them in loops):
+        // xg for the largest selected block, plane for one face, plus one
+        // device buffer on device backends (see gatherBoundaryNodes).
+        std::vector<dstype> xg((size_t)npf*maxnf*ncx);
+        std::vector<dstype> plane((size_t)npf*ncx);
+        dstype* dbuf = nullptr;
+        if (backend >= 2) TemplateMalloc(&dbuf, npf*maxnf*ncx, backend);
+
+        surf_nodes.clear();
+        surf_nodes.reserve((size_t)3 * nsel_faces * npf);
+        int nfallback = 0;
+        surf_cellconn.clear();
+        surf_celloffsets.clear();
+        surf_celltypes.clear();
+        // Emit one linear sub-cell; lns holds master-face local node ids.
+        auto emitCell = [&](int base, const int* lns, int n) {
+            for (int c = 0; c < n; ++c)
+                surf_cellconn.push_back(base + lns[c]);
+            surf_celloffsets.push_back((int)surf_cellconn.size());
+            surf_celltypes.push_back(ctype);
+        };
+        int ordinal = 0;
+        for (Int j = 0; j < nbf; ++j) {
+            Int ib = common.fblks[3*j+2];
+            if (!common.qoiparams.isSaveBoundary(ib)) continue;
+            Int f1 = common.fblks[3*j] - 1;
+            Int f2 = common.fblks[3*j+1];
+            Int nfblk = f2 - f1;
+            if (nfblk == 0) continue;
+            Int nn = npf*nfblk;
+            gatherBoundaryNodes(xg.data(), sol.xdg, mesh.findxdg1, f1, nn, npf, ncx, backend, dbuf);
+            for (Int ff = 0; ff < nfblk; ++ff) {
+                // xg is component-major [dim][block-point] (see faceindex1);
+                // gather this face's nodes into an interleaved plane buffer
+                // for corner processing. Reading xg as [point][dim] directly
+                // pairs x of one node with y of another (off-wall garbage).
+                for (Int ln = 0; ln < npf; ++ln)
+                    for (int d = 0; d < ncx; ++d)
+                        plane[(size_t)ln*ncx + d] =
+                            xg[(size_t)d*nn + (size_t)ff*npf + ln];
+                int cs[4];
+                if (p >= 1) {
+                    // Corners are the reference-lattice boundary corners;
+                    // orderCorners sorts them into physical CCW order.
+                    surfLatticeBoundary(cs, p, isTri, isQuad);
+                    orderCorners(plane.data(), (int)ncx, k, cs);
+                } else {
+                    // Unknown lattice degree: single cell over the first k nodes.
+                    for (int ci = 0; ci < k; ++ci) cs[ci] = ci;
+                }
+                Int f = f1 + ff;
+                // Emit all face nodes (DG-unique per face); values scatter 1:1.
+                const int base = ordinal * (int)npf;
+                for (Int ln = 0; ln < npf; ++ln) {
+                    const dstype* pc = &plane.data()[(size_t)ln*ncx];
+                    surf_nodes.push_back((float)pc[0]);
+                    surf_nodes.push_back((ncx>1)?(float)pc[1]:0.0f);
+                    surf_nodes.push_back((ncx>2)?(float)pc[2]:0.0f);
+                }
+                surf_face2cell[f] = ordinal;
+                // Subdivide into linear sub-cells over the lattice, oriented
+                // to match the corner-cell boundary orientation; fall back to
+                // a single corner cell when the lattice checks fail.
+                int mirror = 0, ok = 0;
+                if (p >= 1 && !isTri && !isQuad) {
+                    // Lines: corners are the lattice endpoints {0, p} by
+                    // construction. Segment direction is irrelevant for VTK_LINE.
+                    ok = 1;
+                    for (int l = 0; l < p; ++l) {
+                        const int seg[2] = {l, l + 1};
+                        emitCell(base, seg, 2);
+                    }
+                } else if (p >= 1) {
+                    const int ori = surfCalibrateOrientation(cs, k, p, isTri, isQuad);
+                    if (ori != 0) {
+                        ok = 1;
+                        mirror = (ori < 0);
+                        auto lat = [&](int i, int j) {
+                            return surfLatticeIdx(i, j, p, isTri, isQuad, mirror);
+                        };
+                        if (isQuad) {
+                            for (int jj = 0; jj < p; ++jj)
+                                for (int ii = 0; ii < p; ++ii) {
+                                    const int quad[4] = {lat(ii,jj), lat(ii+1,jj),
+                                                         lat(ii+1,jj+1), lat(ii,jj+1)};
+                                    emitCell(base, quad, 4);
+                                }
+                        } else {
+                            for (int jj = 0; jj < p; ++jj)
+                                for (int ii = 0; ii + jj < p; ++ii) {
+                                    const int up[3] = {lat(ii,jj), lat(ii+1,jj),
+                                                       lat(ii,jj+1)};
+                                    emitCell(base, up, 3);
+                                    if (ii + jj + 2 <= p) {
+                                        const int dn[3] = {lat(ii+1,jj), lat(ii+1,jj+1),
+                                                           lat(ii,jj+1)};
+                                        emitCell(base, dn, 3);
+                                    }
+                                }
+                        }
+                    }
+                }
+                if (!ok) {
+                    // Fallback: single cell with cs (lattice corners in
+                    // physical CCW order, or the first-k nodes when the
+                    // lattice degree is unknown).
+                    emitCell(base, cs, k);
+                    ++nfallback;
+                }
+                ++ordinal;
+            }
+        }
+        if (dbuf) TemplateFree(dbuf, backend);
+        surf_nnodes = (int)surf_nodes.size() / 3;
+        surf_ncells = (int)surf_celloffsets.size();
+        // Precompute the appended-data offsets once (volume Init pattern);
+        // surfvtuwrite reuses them on every save.
+        {
+            const std::uint64_t obytesize = 8; // UInt64 header per block
+            std::uint64_t soff = 0;
+            auto s_add_off = [&](std::uint64_t payload_bytes) {
+                std::uint64_t here = soff;
+                soff += payload_bytes + obytesize;
+                return here;
+            };
+            for (int s = 0; s < nsurfq; ++s)
+                surf_scalar_offsets[s] = s_add_off(byte_count(surf_nnodes, sizeof(float)));
+            surf_points_offset = s_add_off(byte_count(3, surf_nnodes, sizeof(float)));
+            surf_conn_offset   = s_add_off(byte_count(surf_k, surf_ncells, sizeof(int32_t)));
+            surf_offs_offset   = s_add_off(byte_count(surf_ncells, sizeof(int32_t)));
+            surf_types_offset  = s_add_off(byte_count(surf_ncells, 1));
+        }
+        if (nfallback > 0 && disc.common.mpiRank == 0)
+            printf("Surface visualization: %d of %d faces use single corner cells (lattice check failed).\n",
+                   nfallback, nsel_faces);
+    }
+
     void Init(const dstype* xcg, int nd_in, int np,
               const int* cgelcon, int npe, int ne,
               const int* telem,   int nce, int nverts_per_cell,
