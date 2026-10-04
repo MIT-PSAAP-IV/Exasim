@@ -143,6 +143,10 @@ SolveStatus CNonlinearSolver<M>::PTCsolver(ofstream &out, Int backend)
         if (!acceptedStep) {
             string filename = disc.common.fileout + "_np" + NumberToString(disc.common.mpiRank) + ".bin";
             writearray2file(filename, disc.sol.udg, disc.common.sizes.ndofudg1, backend);
+            if (disc.common.components.ncw > 0) {
+                string filename1 = disc.common.fileout + "_w_np" + NumberToString(disc.common.mpiRank) + ".bin";
+                writearray2file(filename1, disc.sol.wdg, disc.common.grid.npe*disc.common.components.ncw*disc.common.meshsizes.ne1, backend);
+            }
             writer.crashDump(backend);
             error("Newton line search failed or residual norm is non-finite. Save and exit.");
         }
@@ -355,3 +359,4 @@ SolveStatus CNonlinearSolver<M>::NewtonSolver(ofstream &out, Int N, Int spatialS
 
 
 #endif
+
