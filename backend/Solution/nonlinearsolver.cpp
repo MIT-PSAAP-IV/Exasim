@@ -90,7 +90,7 @@ SolveStatus CNonlinearSolver<M>::PTCsolver(ofstream &out, Int backend)
                 error("Residual norm exceeds 1e6 or is non-finite. Save and exit.");
             }
 
-            while ((IS_NAN(nrmr) || nrmr > nrm0) && alpha > minAlpha) {
+            while ((!std::isfinite(nrmr) || nrmr > nrm0) && alpha > minAlpha) {
                 if (disc.common.mpiRank==0)
                     cout<<"Newton Iteration: "<<it<<", Alpha: "<<alpha
                         <<", Original Norm: "<<nrm0
@@ -117,7 +117,7 @@ SolveStatus CNonlinearSolver<M>::PTCsolver(ofstream &out, Int backend)
                 residualEvalTime += SolutionBenchmarkStop(t0, backend);
             }
 
-            acceptedStep = (!IS_NAN(nrmr) && nrmr <= nrm0 && nrmr <= 1.0e6);
+            acceptedStep = (std::isfinite(nrmr) && nrmr <= nrm0 && nrmr <= 1.0e6);
             if (acceptedStep)
                 break;
 
@@ -200,6 +200,7 @@ SolveStatus CNonlinearSolver<M>::NewtonSolver(ofstream &out, Int N, Int spatialS
 
     if (spatialScheme == 1) { 
 
+      ArrayCopy(disc.sol.uh, solv.sys.u, N);
       if (disc.common.components.ncq > 0) hdgGetQ(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common, backend);                
       if (disc.common.components.ncw > 0) GetW<M>(disc.sol.wdg, disc.sol, disc.tmp, disc.app, disc.common, backend);
       
