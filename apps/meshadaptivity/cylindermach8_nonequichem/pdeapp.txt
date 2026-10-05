@@ -22,7 +22,7 @@ frontendgenerated = 0;
 nstage = 1;
 
 ncu = 8;
-ncv = 2;
+ncv = 3;
 ncw = 1;
 neb = 4096;
 nfb = 8192;
@@ -42,12 +42,14 @@ preconditioner = 1;
 
 saveSolFreq = 1;
 saveSolOpt = 1;
-saveSolBouFreq = 0;
+saveSolBouFreq = 1;
+ibs = 8;
+saveSolBouLoc = 1;
 saveParaview = 1;
 physicsparamwarmstart = 0;
-AV = 1;
+AV = 2;
 AVdistfunction = 1;
-distanceboundaryconditions = [6];
+distanceboundaryconditions = [8];
 AVsmoothingIter = 2;
 AVsmoothingMethod = 1;
 AVHelmholtzCoeff = 0.025000000000000001;
@@ -86,7 +88,7 @@ avparam1 = [];
 avparam2 = [];
 externalparam = [9.5789216956817872e-90, 7.2077070959113306e-46, 1.9189923573874111e-18, 0.76708248854242034, 0.23291751145757969, 1, 0, 0.48405396500589309, 9.5789216956817872e-90, 7.2077070959113306e-46, 1.9189923573874111e-18, 0.76708248854242034, 0.23291751145757969, 0, 0, 0, 0, 0];
 
-boundaryconditions = [6, 2, 1];
+boundaryconditions = [8, 2, 1];
 stgNmode = 0;
 stgchem = 0;
 stgib = [];

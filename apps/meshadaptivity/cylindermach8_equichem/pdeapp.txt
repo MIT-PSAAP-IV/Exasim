@@ -22,7 +22,7 @@ frontendgenerated = 0;
 nstage = 1;
 
 ncu = 4;
-ncv = 2;
+ncv = 3;
 ncw = 15;
 neb = 4096;
 nfb = 8192;
@@ -42,10 +42,12 @@ preconditioner = 1;
 
 saveSolFreq = 1;
 saveSolOpt = 1;
-saveSolBouFreq = 0;
-saveParaview = 1;
+saveSolBouFreq = 1;
+ibs = 3;
+saveSolBouLoc = 1;
+saveParaview = 0;
 physicsparamwarmstart = 0;
-AV = 1;
+AV = 2;
 AVdistfunction = 1;
 distanceboundaryconditions = [3];
 AVsmoothingIter = 2;

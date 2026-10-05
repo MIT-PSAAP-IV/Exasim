@@ -1,6 +1,6 @@
 scalars t
 
-vectors x(2), uq(24), v(2), w(1), uhat(8), uext(2), n(2), tau(1), mu(21), eta(18)
+vectors x(2), uq(24), v(3), w(1), uhat(8), uext(2), n(2), tau(1), mu(21), eta(18)
 
 jacobian uq, w, uhat
 
@@ -8,7 +8,7 @@ hessian
 
 batch x, uq, v, w, uhat, n, uext
 
-outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Sourcew, Initu, Initw, EoS, Monitor, Avfield, VisScalars, VisVectors
+outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Sourcew, Initu, Initw, EoS, Monitor, Avfield, VisScalars, VisVectors, SurfaceQuantities
 
 function Hspec(t)
   output_size(hs) = 5;
@@ -692,7 +692,7 @@ function Monitor(x, uq, v, w, eta, mu, t)
 end
 
 function Avfield(x, uq, v, w, eta, mu, t)
-  output_size(avf) = 1;
+  output_size(avf) = 2;
   pival = Expression(pi);
   rho = uq[0] + uq[1] + uq[2] + uq[3] + uq[4];
   uz = uq[5]/rho;
@@ -707,6 +707,7 @@ function Avfield(x, uq, v, w, eta, mu, t)
   shifted = lower - mu[17];
   upper = shifted - (shifted*(atan(1.0e3*shifted)/pival + 0.5) - atan(1.0e3)/pival + 0.5);
   avf[0] = upper + mu[17];
+  avf[1] = w[0]*mu[3]*8.314471468617452*(mu[0]*uq[0]*71.39440410660612 + mu[0]*uq[1]*62.50234383789392 + mu[0]*uq[2]*33.32655693342354 + mu[0]*uq[3]*35.69720205330306 + mu[0]*uq[4]*31.25117191894696);
 end
 
 function VisScalars(x, uq, v, w, eta, mu, t)
@@ -739,4 +740,59 @@ function VisVectors(x, uq, v, w, eta, mu, t)
   rho = uq[0] + uq[1] + uq[2] + uq[3] + uq[4];
   s[0] = mu[1]*uq[5]/rho;
   s[1] = mu[1]*uq[6]/rho;
+end
+
+function SurfaceQuantities(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(fb) = 3;
+  rhoinf = eta[0] + eta[1] + eta[2] + eta[3] + eta[4];
+  uzinf = eta[5]/rhoinf;
+  urinf = eta[6]/rhoinf;
+  spd2 = uzinf*uzinf + urinf*urinf;
+  qdyn = 0.5*rhoinf*spd2;
+  qheat = rhoinf*spd2*sqrt(spd2);
+  pinf = mu[3]*8.314471468617452*(mu[0]*eta[0]*71.39440410660612 + mu[0]*eta[1]*62.50234383789392 + mu[0]*eta[2]*33.32655693342354 + mu[0]*eta[3]*35.69720205330306 + mu[0]*eta[4]*31.25117191894696)/mu[2];
+  tdim = w[0]*mu[3];
+  pw = tdim*8.314471468617452*(mu[0]*uhat[0]*71.39440410660612 + mu[0]*uhat[1]*62.50234383789392 + mu[0]*uhat[2]*33.32655693342354 + mu[0]*uhat[3]*35.69720205330306 + mu[0]*uhat[4]*31.25117191894696)/mu[2];
+  rho = uhat[0] + uhat[1] + uhat[2] + uhat[3] + uhat[4];
+  ir = 1.0/rho;
+  velz = uhat[5]*ir;
+  velr = uhat[6]*ir;
+  drz = -(uq[8] + uq[9] + uq[10] + uq[11] + uq[12]);
+  drr = -(uq[16] + uq[17] + uq[18] + uq[19] + uq[20]);
+  duzdz = (-uq[13] - drz*velz)*ir;
+  durdz = (-uq[14] - drz*velr)*ir;
+  duzdr = (-uq[21] - drr*velz)*ir;
+  durdr = (-uq[22] - drr*velr)*ir;
+  ke2 = 0.5*(velz*velz + velr*velr);
+  dredz = -uq[15] - (velz*(-uq[13]) + velr*(-uq[14])) + ke2*drz;
+  dredr = -uq[23] - (velz*(-uq[21]) + velr*(-uq[22])) + ke2*drr;
+  es = Emass(tdim);
+  cs = CPspec(tdim);
+  cv0 = (cs[0] - 1.0)*593.6067359633212;
+  cv1 = (cs[1] - 1.0)*519.6739545618868;
+  cv2 = (cs[2] - 1.0)*277.0927067702051;
+  cv3 = (cs[3] - 1.0)*296.8033679816606;
+  cv4 = (cs[4] - 1.0)*259.8369772809434;
+  den = mu[0]*uhat[0]*cv0 + mu[0]*uhat[1]*cv1 + mu[0]*uhat[2]*cv2 + mu[0]*uhat[3]*cv3 + mu[0]*uhat[4]*cv4;
+  dtr0 = (-es[0]/den)*mu[0]/mu[3];
+  dtr1 = (-es[1]/den)*mu[0]/mu[3];
+  dtr2 = (-es[2]/den)*mu[0]/mu[3];
+  dtr3 = (-es[3]/den)*mu[0]/mu[3];
+  dtr4 = (-es[4]/den)*mu[0]/mu[3];
+  dte = (1.0/den)*mu[2]/mu[3];
+  dtdz = dtr0*(-uq[8]) + dtr1*(-uq[9]) + dtr2*(-uq[10]) + dtr3*(-uq[11]) + dtr4*(-uq[12]) + dte*dredz;
+  dtdr = dtr0*(-uq[16]) + dtr1*(-uq[17]) + dtr2*(-uq[18]) + dtr3*(-uq[19]) + dtr4*(-uq[20]) + dte*dredr;
+  mm = MuMix(uhat, mu, tdim);
+  km = KappaMix(uhat, mu, tdim);
+  mud = mm[0]/mu[4];
+  kap = km[0]/mu[5];
+  rinv = 1.0/x[1];
+  tzz = mud*(2.0/3.0)*(2.0*duzdz - durdr - velr*rinv)/mu[10];
+  tzr = mud*(duzdr + durdz)/mu[10];
+  trr = mud*(2.0/3.0)*(2.0*durdr - duzdz - velr*rinv)/mu[10];
+  trz = -n[1]*(tzz*n[0] + tzr*n[1] + tau[0]*(uq[5] - uhat[5])) + n[0]*(tzr*n[0] + trr*n[1] + tau[0]*(uq[6] - uhat[6]));
+  cwall = kap*(dtdz*n[0] + dtdr*n[1])/(mu[10]*mu[9]*mu[8]) + tau[0]*(uq[7] - uhat[7]);
+  fb[0] = (pw - pinf)/qdyn;
+  fb[1] = trz/qdyn;
+  fb[2] = cwall/qheat;
 end

@@ -1,6 +1,6 @@
 scalars t
 
-vectors x(2), uq(24), v(2), w(1), uhat(8), n(2), tau(1), mu(16), eta(18)
+vectors x(2), uq(24), v(3), w(1), uhat(8), n(2), tau(1), mu(16), eta(18)
 
 jacobian uq, w, uhat
 
@@ -8,7 +8,7 @@ hessian
 
 batch x, uq, v, w, uhat, n
 
-outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Sourcew, Initu, Initw, EoS, Avfield, VisScalars, VisVectors
+outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Sourcew, Initu, Initw, EoS, Avfield, VisScalars, VisVectors, SurfaceQuantities
 
 function Hspec(t)
   output_size(hs) = 5;
@@ -598,7 +598,7 @@ function Initw(x, eta, mu)
 end
 
 function Avfield(x, uq, v, w, eta, mu, t)
-  output_size(avf) = 1;
+  output_size(avf) = 2;
   pival = Expression(pi);
   rho = uq[0] + uq[1] + uq[2] + uq[3] + uq[4];
   ux = uq[5]/rho;
@@ -611,6 +611,7 @@ function Avfield(x, uq, v, w, eta, mu, t)
   shifted = lower - mu[12];
   upper = shifted - (shifted*(atan(1.0e3*shifted)/pival + 0.5) - atan(1.0e3)/pival + 0.5);
   avf[0] = upper + mu[12];
+  avf[1] = (w[0]*mu[3]*8.314471468617452*(mu[0]*uq[0]*71.39440410660612 + mu[0]*uq[1]*62.50234383789392 + mu[0]*uq[2]*33.32655693342354 + mu[0]*uq[3]*35.69720205330306 + mu[0]*uq[4]*31.25117191894696))/mu[2];
 end
 
 function VisScalars(x, uq, v, w, eta, mu, t)
@@ -638,4 +639,86 @@ function VisVectors(x, uq, v, w, eta, mu, t)
   rho = uq[0] + uq[1] + uq[2] + uq[3] + uq[4];
   s[0] = mu[1]*uq[5]/rho;
   s[1] = mu[1]*uq[6]/rho;
+end
+
+function SurfaceQuantities(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(fb) = 3;
+  rhoInf = eta[0] + eta[1] + eta[2] + eta[3] + eta[4];
+  uInf = eta[5]/rhoInf;
+  vInf = eta[6]/rhoInf;
+  speedInf2 = uInf*uInf + vInf*vInf;
+  qdyn = 0.5*rhoInf*speedInf2;
+  qheatref = rhoInf*speedInf2*sqrt(speedInf2);
+  pInf = mu[3]*8.314471468617452*(mu[0]*eta[0]*71.39440410660612 + mu[0]*eta[1]*62.50234383789392 + mu[0]*eta[2]*33.32655693342354 + mu[0]*eta[3]*35.69720205330306 + mu[0]*eta[4]*31.25117191894696)/mu[2];
+
+  rho = uhat[0] + uhat[1] + uhat[2] + uhat[3] + uhat[4];
+  velz = uhat[5]/rho;
+  velr = uhat[6]/rho;
+  tdim = w[0]*mu[3];
+  pwall = tdim*8.314471468617452*(mu[0]*uhat[0]*71.39440410660612 + mu[0]*uhat[1]*62.50234383789392 + mu[0]*uhat[2]*33.32655693342354 + mu[0]*uhat[3]*35.69720205330306 + mu[0]*uhat[4]*31.25117191894696)/mu[2];
+
+  dr0z = -uq[8];
+  dr1z = -uq[9];
+  dr2z = -uq[10];
+  dr3z = -uq[11];
+  dr4z = -uq[12];
+  drhoz = dr0z + dr1z + dr2z + dr3z + dr4z;
+  drhouz = -uq[13];
+  drhovz = -uq[14];
+  drhoEz = -uq[15];
+  dr0r = -uq[16];
+  dr1r = -uq[17];
+  dr2r = -uq[18];
+  dr3r = -uq[19];
+  dr4r = -uq[20];
+  drhor = dr0r + dr1r + dr2r + dr3r + dr4r;
+  drhour = -uq[21];
+  drhovr = -uq[22];
+  drhoEr = -uq[23];
+
+  duzdz = (drhouz - velz*drhoz)/rho;
+  duzdr = (drhour - velz*drhor)/rho;
+  durdz = (drhovz - velr*drhoz)/rho;
+  durdr = (drhovr - velr*drhor)/rho;
+
+  es = Emass(tdim);
+  cs = CPspec(tdim);
+  cv0 = (cs[0] - 1.0)*593.6067359633212;
+  cv1 = (cs[1] - 1.0)*519.6739545618868;
+  cv2 = (cs[2] - 1.0)*277.0927067702051;
+  cv3 = (cs[3] - 1.0)*296.8033679816606;
+  cv4 = (cs[4] - 1.0)*259.8369772809434;
+  den = mu[0]*uhat[0]*cv0 + mu[0]*uhat[1]*cv1 + mu[0]*uhat[2]*cv2 + mu[0]*uhat[3]*cv3 + mu[0]*uhat[4]*cv4;
+  ke = 0.5*(velz*velz + velr*velr);
+  drhoez = drhoEz - (velz*drhouz + velr*drhovz) + ke*drhoz;
+  drhoer = drhoEr - (velz*drhour + velr*drhovr) + ke*drhor;
+  dtr0 = (-es[0]/den)*mu[0]/mu[3];
+  dtr1 = (-es[1]/den)*mu[0]/mu[3];
+  dtr2 = (-es[2]/den)*mu[0]/mu[3];
+  dtr3 = (-es[3]/den)*mu[0]/mu[3];
+  dtr4 = (-es[4]/den)*mu[0]/mu[3];
+  dte = (1.0/den)*mu[2]/mu[3];
+  dTz = dtr0*dr0z + dtr1*dr1z + dtr2*dr2z + dtr3*dr3z + dtr4*dr4z + dte*drhoez;
+  dTr = dtr0*dr0r + dtr1*dr1r + dtr2*dr2r + dtr3*dr3r + dtr4*dr4r + dte*drhoer;
+
+  mm = MuMix(uhat, mu, tdim);
+  km = KappaMix(uhat, mu, tdim);
+  mud = mm[0]/mu[4];
+  kap = km[0]/mu[5];
+  tzz = mud*(2.0/3.0)*(2.0*duzdz - durdr)/mu[10];
+  tzr = mud*(duzdr + durdz)/mu[10];
+  trr = mud*(2.0/3.0)*(2.0*durdr - duzdz)/mu[10];
+
+  nx = n[0];
+  ny = n[1];
+  tx = -ny;
+  ty = nx;
+  tractionz = tzz*nx + tzr*ny + tau[0]*(uq[5] - uhat[5]);
+  tractionr = tzr*nx + trr*ny + tau[0]*(uq[6] - uhat[6]);
+  tauTangential = tx*tractionz + ty*tractionr;
+  conductiveWallFlux = kap*(dTz*nx + dTr*ny)/(mu[10]*mu[9]*mu[8]) + tau[0]*(uq[7] - uhat[7]);
+
+  fb[0] = (pwall - pInf)/qdyn;
+  fb[1] = tauTangential/qdyn;
+  fb[2] = conductiveWallFlux/qheatref;
 end

@@ -137,7 +137,7 @@ def compare(reference_directory: Path, candidate_directory: Path, partition: Pat
     for stem, components, header in (
         ("outxdg", 2, False),
         ("outudg", 24, True),
-        ("outvdg", 2, False),
+        ("outvdg", 3, False),
         ("outwdg", 1, True),
     ):
         reference = reorder(
