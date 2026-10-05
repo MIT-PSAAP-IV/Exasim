@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.join(REPOSITORY, "frontends", "Python"))
 
 import exasim  # noqa: E402
 from cylinder_mesh import initialize_solution, make_cylinder_mesh, wall_distance  # noqa: E402
+from postprocess_surfacequantities import postprocess_surfacequantities  # noqa: E402
 
 
 def build_case():
@@ -26,7 +27,7 @@ def build_case():
     pde["model"] = "ModelD"
     pde["modelfile"] = "pdemodel"
     pde["platform"] = "cpu"
-    pde["mpiprocs"] = 1
+    pde["mpiprocs"] = 4
     pde["hybrid"] = 1
     pde["porder"] = 2
 
@@ -66,8 +67,14 @@ def build_case():
     pde["NLtol"] = 1.0e-6
     pde["NLiter"] = 10
     pde["matvectol"] = 1.0e-6
+    pde["saveParaview"] = 1
+    # Save Cp, Cf, and Cq from pdemodel.surfacequantities on the isothermal
+    # cylinder wall (boundary-condition ID 3) at face Gauss points.
+    pde["saveSolBouFreq"] = 1
+    pde["ibs"] = 3
+    pde["saveSolBouLoc"] = 1
 
-    pde["AV"] = 1
+    pde["AV"] = 2
     pde["AVcontinuationIter"] = 10
     pde["AVcontinuationLogScale"] = 1.5
     pde["AVcoeffStart"] = 0.060
@@ -100,7 +107,8 @@ def build_case():
     )
 
     pde["meshadaptenabled"] = 1
-    pde["meshadaptfield"] = 3
+    pde["meshadaptavcomponent"] = 1
+    pde["meshadaptfield"] = 2
     pde["meshadaptalpha"] = 0.5
     pde["meshadaptHelmholtzCoeff"] = 5.0e-2
     pde["meshadaptforcescale"] = 0.2
@@ -111,7 +119,7 @@ def build_case():
         pde["porder"], nx=51, ny=32, radial_decay=3.0, outer_offset=4.0
     )
     distance = wall_distance(mesh, pde["porder"])
-    mesh["vdg"] = np.zeros((distance.shape[0], 2, distance.shape[2]), order="F")
+    mesh["vdg"] = np.zeros((distance.shape[0], 3, distance.shape[2]), order="F")
     mesh["vdg"][:, 0:1, :] = distance
     mesh["udg"] = initialize_solution(mesh, distance, pde["physicsparam"])
     return pde, mesh
@@ -142,6 +150,7 @@ def main():
         "adapted x range =",
         (float(adapted_nodes[:, 0, :].min()), float(adapted_nodes[:, 0, :].max())),
     )
+    postprocess_surfacequantities(pde)
     return solution, pde, mesh, master, dmd
 
 

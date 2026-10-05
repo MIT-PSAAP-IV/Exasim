@@ -13,6 +13,7 @@ using Exasim
 
 include(joinpath(@__DIR__, "pdemodel.jl"))
 include(joinpath(dirname(@__DIR__), "isoq2d_idealgas", "isoq_mesh.jl"))
+include(joinpath(@__DIR__, "postprocess_surfacequantities.jl"))
 
 function read_material_database(filename)
     header = parse.(Int, split(strip(open(readline, filename))))
@@ -107,8 +108,12 @@ function build_case(run_directory=joinpath(@__DIR__, "julia_run"))
     pde.hybrid = 1
     pde.debugmode = 0
     pde.nd = 2
+    pde.extendedW = 1
     pde.ncw = 15
     pde.saveParaview = 1
+    pde.saveSolBouFreq = 1
+    pde.ibs = 3
+    pde.saveSolBouLoc = 1
     pde.flag = reshape(Int[], 1, 0)
     pde.problem = reshape(Int[], 1, 0)
     pde.factor = reshape(Float64[], 1, 0)
@@ -164,16 +169,16 @@ function build_case(run_directory=joinpath(@__DIR__, "julia_run"))
     energy_ref = velocity_ref^2
     transport_factor = 1.0
 
-    pde.AV = 1
+    pde.AV = 2
     pde.AVcontinuationIter = 10
     pde.AVcontinuationLogScale = 1.5
     pde.AVcoeffStart = 0.003
-    pde.AVcoeffEnd = 0.000006
+    pde.AVcoeffEnd = 0.000015
     pde.AVdistfunction = 1
     pde.distanceboundaryconditions = [3]
     pde.AVsmoothingMethod = 1
     pde.AVHelmholtzCoeff = 0.001
-    av_max_divergence = 60.0
+    av_max_divergence = 20.0
     av_distance_coefficient = 100.0
 
     pde.meshadaptenabled = 1
@@ -214,7 +219,7 @@ function build_case(run_directory=joinpath(@__DIR__, "julia_run"))
     mesh = make_isoq_mesh(pde.porder; radial_shift=5.0e-4)
     mesh.boundarycondition = reshape([4, 2, 1, 3], :, 1)
     distance = wall_distance(mesh, pde.porder)
-    mesh.odg = zeros(Float64, size(distance, 1), 2, size(distance, 3))
+    mesh.odg = zeros(Float64, size(distance, 1), 3, size(distance, 3))
     mesh.odg[:, 1:1, :] .= distance
     mesh.udg = initial_solution(
         mesh, distance, database, xi_inf, temperature_inf, wall_temperature,
@@ -240,6 +245,7 @@ function main()
         "Julia equilibrium-air ISOQ mesh adaptivity: ", size(solution),
         " output = ", joinpath(pde.datapath, "dataout"),
     )
+    postprocess_surfacequantities(pde)
     return solution, pde, mesh, master, dmd
 end
 

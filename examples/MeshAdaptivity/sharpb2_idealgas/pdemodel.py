@@ -24,3 +24,4 @@ initv = _MODEL.initv
 avfield = _MODEL.avfield
 visscalars = _MODEL.visscalars
 visvectors = _MODEL.visvectors
+surfacequantities = _MODEL.surfacequantities

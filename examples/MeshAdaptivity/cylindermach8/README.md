@@ -19,6 +19,15 @@ respectively. They disable `EXASIM_MESHADAPT_VERIFY`, so normal runs write only
 the standard solution files and the final `out_meshadapt_xdg_np0.bin` adapted
 coordinates rather than per-iteration diagnostic files.
 
+The MATLAB, Python, and Julia backend drivers also save wall surface quantities
+on the isothermal cylinder boundary through Exasim's `surfacequantities` output.  They write
+pressure coefficient `C_p`, signed skin-friction coefficient `C_f`, and
+conductive heat-flux coefficient `C_q` to the `outbousurf*` boundary files and
+then read those files back with `postprocess_surfacequantities.*`.  MATLAB and
+Python create plots when plotting support is available; all three frontends
+write ordered surface data under each run directory's `surfacequantities_plots`
+folder.
+
 After all three runs complete, compare their initial data, final adapted mesh,
 flow solution, and AV fields with:
 

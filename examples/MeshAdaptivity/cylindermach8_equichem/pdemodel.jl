@@ -104,6 +104,7 @@ end
 
 flux(u, q, w, v, x, t, mu, eta) = flux_cartesian(u, q, w, v, x, mu)
 source(u, q, w, v, x, t, mu, eta) = zero_vector(4, u[1])
+monitor(u, q, w, v, x, t, mu, eta) = [u[1], w[1] / mu[3]]
 
 function normal_basis(normal)
     norm = sqrt(normal[1]^2 + normal[2]^2)
@@ -317,6 +318,33 @@ end
 
 visscalars(u, q, w, v, x, t, mu, eta) = [w[1] / mu[3]]
 
+function surfacequantities(u, q, w, v, x, t, mu, eta, uhat, normal, tau)
+    rho_inf = eta[1]
+    velocity_inf = collect(eta[2:3]) ./ rho_inf
+    speed_inf2 = sum(velocity_inf .* velocity_inf)
+    dynamic_pressure = 0.5 * rho_inf * speed_inf2
+    heat_flux_reference = rho_inf * speed_inf2 * sqrt(speed_inf2)
+    pressure_inf = mu[9] / mu[3]
+
+    gradient_u = -q_matrix(q)
+    gradient_velocity, gradient_temperature =
+        gradient_primitives(u, gradient_u, w, mu)
+    stress, conductivity = stress_heat(collect(uhat[2:3]) ./ uhat[1], gradient_velocity, w, mu)
+
+    nvec = collect(normal)
+    tangent = [-nvec[2], nvec[1]]
+    traction = stress * nvec
+    traction[1] += tau_entry(tau, 2) * (u[2] - uhat[2])
+    traction[2] += tau_entry(tau, 3) * (u[3] - uhat[3])
+    heat_flux = conductivity * sum(gradient_temperature .* nvec) +
+                tau_entry(tau, 4) * (u[4] - uhat[4])
+
+    pressure_coefficient = (w[1] / mu[3] - pressure_inf) / dynamic_pressure
+    skin_friction_coefficient = sum(tangent .* traction) / dynamic_pressure
+    heat_flux_coefficient = heat_flux / heat_flux_reference
+    return [pressure_coefficient, skin_friction_coefficient, heat_flux_coefficient]
+end
+
 limited_maximum(value, alpha) =
     value * (atan(alpha * value) / pi + 0.5) - atan(alpha) / pi + 0.5
 
@@ -333,7 +361,10 @@ function avfield(u, q, w, v, x, t, mu, eta)
     velocity_x_gradient = (gradient[2, 1] - gradient[1, 1] * velocity_x) / rho
     velocity_y_gradient = (gradient[3, 2] - gradient[1, 2] * velocity_y) / rho
     divergence = velocity_x_gradient + velocity_y_gradient
-    return [limiting_value(
-        divergence * tanh(mu[end-2] * v[1]), 0.0, mu[end-3], 1.0e3, 0.0
-    )]
+    return [
+        limiting_value(
+            divergence * tanh(mu[end-2] * v[1]), 0.0, mu[end-3], 1.0e3, 0.0
+        ),
+        w[1] / mu[3],
+    ]
 end

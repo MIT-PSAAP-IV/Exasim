@@ -20,6 +20,7 @@ sys.path.insert(1, SHARPB_IDEAL_CASE)
 sys.path.insert(2, os.path.join(REPOSITORY, "frontends", "Python"))
 
 import exasim  # noqa: E402
+from postprocess_surfacequantities import postprocess_surfacequantities  # noqa: E402
 from sharpb2_mesh import make_sharpb2_mesh, wall_distance  # noqa: E402
 
 
@@ -101,8 +102,12 @@ def build_case(run_directory=None):
     pde["hybrid"] = 1
     pde["debugmode"] = 0
     pde["nd"] = 2
+    pde["extendedW"] = 1
     pde["ncw"] = 15
     pde["saveParaview"] = 1
+    pde["saveSolBouFreq"] = 1
+    pde["ibs"] = 3
+    pde["saveSolBouLoc"] = 1
 
     run_directory = run_directory or os.path.join(HERE, "python_run")
     os.makedirs(run_directory, exist_ok=True)
@@ -148,26 +153,26 @@ def build_case(run_directory=None):
     pressure_ref = density_ref * velocity_ref**2
     energy_ref = velocity_ref**2
 
-    pde["AV"] = 1
+    pde["AV"] = 2
     pde["AVcontinuationIter"] = 9
     pde["AVcontinuationLogScale"] = 2.0
     pde["AVcoeffStart"] = 0.005
-    pde["AVcoeffEnd"] = 0.000016
+    pde["AVcoeffEnd"] = 0.00005
     pde["AVdistfunction"] = 1
     pde["distanceboundaryconditions"] = np.array([3], dtype=np.int64)
     pde["AVsmoothingMethod"] = 1
     pde["AVHelmholtzCoeff"] = 0.001
-    av_max_divergence = 60.0
+    av_max_divergence = 20.0
     av_distance_coefficient = 100.0
 
     pde["meshadaptenabled"] = 1
     pde["meshadaptfield"] = 2
     pde["meshadaptavcomponent"] = 1
-    pde["meshadaptalpha"] = 0.5
+    pde["meshadaptalpha"] = 0.1
     pde["meshadaptqmin"] = 0.2
     pde["meshadaptqmax"] = 0.8
     pde["meshadaptHelmholtzCoeff"] = 0.001
-    pde["meshadaptforcescale"] = 0.25
+    pde["meshadaptforcescale"] = 0.7
     pde["meshadaptsmoothingpasses"] = 30
     pde["meshadaptboundaryconditions"] = np.array([3, 3, 3, 2, 3], dtype=np.int64)
 
@@ -196,7 +201,7 @@ def build_case(run_directory=None):
     mesh = make_sharpb2_mesh(pde["porder"])
     mesh["boundarycondition"] = np.array([5, 1, 1, 3, 2], dtype=np.int64)
     distance = wall_distance(mesh, pde["porder"])
-    mesh["vdg"] = np.zeros((distance.shape[0], 2, distance.shape[2]), order="F")
+    mesh["vdg"] = np.zeros((distance.shape[0], 3, distance.shape[2]), order="F")
     mesh["vdg"][:, 0:1, :] = distance
     mesh["udg"] = _initial_solution(
         distance, database, xi_inf, temperature_inf, wall_temperature,
@@ -222,6 +227,7 @@ def main():
         "Python equilibrium-air Sharp-B mesh adaptivity:", solution.shape,
         "output =", os.path.join(pde["datapath"], "dataout"),
     )
+    postprocess_surfacequantities(pde)
     return solution, pde, mesh, master, dmd
 
 

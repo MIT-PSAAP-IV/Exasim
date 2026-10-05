@@ -31,6 +31,9 @@ pde.buildpath = pde.builddir;
 % Scalar fields: rho, p, T, Mach, AV, Y_N, Y_O, Y_NO, Y_N2, Y_O2.
 % Vector field: dimensional velocity.
 pde.saveParaview = 1;
+pde.saveSolBouFreq = 1;
+pde.saveSolBouLoc = 1;
+pde.ibs = 3; % isothermal-wall flow BC tag for Cp, Cf, and Cq
 
 % Preserve the physical targets from MeshAdaptivity/sharpb2_idealgas.
 Minf = 21.38;
@@ -71,7 +74,7 @@ pOutPhys = pInfPhys;
 
 % Match the Sharp-B ideal-gas AV continuation and mesh-adaptation controls.
 nm = 1e2;
-pde.AV = 1;
+pde.AV = 2;
 pde.AVcontinuationIter = 9;
 pde.AVcontinuationLogScale = 2;
 pde.AVcoeffStart = 0.005;
@@ -84,7 +87,7 @@ AVmaxdiv = 20.0;
 AVdistcoeff = nm;
 
 pde.meshadaptenabled = 1;
-pde.meshadaptfield = 2; % physical pressure from visscalars
+pde.meshadaptfield = 2; % physical pressure from avfield
 pde.meshadaptavcomponent = 1;
 pde.meshadaptalpha = 0.1;
 pde.meshadaptqmin = 0.2;
@@ -125,7 +128,7 @@ mesh.boundarycondition = [5 1 1 3 2];
 master = Master(pde);
 
 dist = meshdist3(mesh.f, mesh.dgnodes, master.perm, 4);
-mesh.vdg = zeros(size(mesh.dgnodes,1), 2, size(mesh.dgnodes,3));
+mesh.vdg = zeros(size(mesh.dgnodes,1), 3, size(mesh.dgnodes,3));
 mesh.vdg(:,1,:) = dist;
 mesh.udg = local_initial_udg(mesh, dist, db, xiInf, TinfPhys, ...
     TwallPhys, eRef, uzInf, urInf, nm);
@@ -137,7 +140,7 @@ fprintf('  a_inf = %.10g m/s, U_inf = %.10g m/s, Mach = %.8g, Re = %.8g\n', ...
     aInfPhys, velocityInfPhys, Minf, Re);
 
 pde.gencode = 1;
-[sol,~,mesh,master,dmd] = exasim(pde,mesh);
+[sol,pde,mesh,master,dmd] = exasim(pde,mesh);
 
 xdg = getsolution(fullfile(caseDir, 'dataout', 'outxdg'), dmd, master.npe);
 vdg = getsolution(fullfile(caseDir, 'dataout', 'outvdg'), dmd, master.npe);
@@ -156,6 +159,26 @@ figure(3); clf; scaplot(adaptedMesh,vdg(:,2,:),[],2,2);
 axis equal; axis tight; colorbar;
 figure(4); clf; scaplot(adaptedMesh,rhoPhys,[],2,2);
 axis equal; axis tight; colorbar;
+
+result = postprocess_surfacequantities(pde);
+
+figure(5); clf; plot(result.s, result.Cp, 'o-', 'LineWidth', 1.0, 'MarkerSize', 4);
+grid on;
+xlabel('wall arclength');
+ylabel('C_p');
+set(gca, 'FontSize', 16);
+
+figure(6); clf; plot(result.s, result.Cf, 'o-', 'LineWidth', 1.0, 'MarkerSize', 4);
+grid on;
+xlabel('wall arclength');
+ylabel('C_f');
+set(gca, 'FontSize', 16);
+
+figure(7); clf; plot(result.s, result.Cq, 'o-', 'LineWidth', 1.0, 'MarkerSize', 4);
+grid on;
+xlabel('wall arclength');
+ylabel('C_q');
+set(gca, 'FontSize', 16);
 
 function UDG = local_initial_udg(mesh, dist, db, xiInf, Tinf, Twall, ...
                                   eRef, uzInf, urInf, slope)

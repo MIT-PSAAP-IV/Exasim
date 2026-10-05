@@ -120,9 +120,12 @@ function avfield(u, q, w, v, x, t, mu, eta)
     compression_z = (q[2] - q[1] * velocity_z) / rho
     compression_r = (q[7] - q[5] * velocity_r) / rho
     compression = compression_z + compression_r + velocity_r / x[2]
-    return [limiting_value(
-        compression * tanh(mu[end-2] * v[1]), 0.0, mu[end-3], 1.0e3, 0.0
-    )]
+    return [
+        limiting_value(
+            compression * tanh(mu[end-2] * v[1]), 0.0, mu[end-3], 1.0e3, 0.0
+        ),
+        w[1],
+    ]
 end
 
 function remove_normal_momentum(u, normal)
@@ -246,3 +249,29 @@ function visscalars(u, q, w, v, x, t, mu, eta)
 end
 
 visvectors(u, q, w, v, x, t, mu, eta) = mu[2] .* collect(u[2:3]) ./ u[1]
+
+function surfacequantities(u, q, w, v, x, t, mu, eta, uhat, normal, tau)
+    _, _, pressure, _, _, stress, conductivity, temperature_gradient =
+        flow_data(uhat, q, w, x, mu)
+
+    density_inf = eta[1]
+    velocity_inf = collect(eta[2:3]) ./ density_inf
+    speed_inf2 = sum(velocity_inf .* velocity_inf)
+    dynamic_pressure = 0.5 * density_inf * speed_inf2
+    heat_flux_reference = density_inf * speed_inf2 * sqrt(speed_inf2)
+    pressure_inf = mu[9] / mu[3]
+
+    nvec = collect(normal)
+    tangent = [-nvec[2], nvec[1]]
+    traction = stress[1:2, 1:2] * nvec
+    traction[1] += tau_entry(tau, 2) * (u[2] - uhat[2])
+    traction[2] += tau_entry(tau, 3) * (u[3] - uhat[3])
+    heat_flux = conductivity * sum(temperature_gradient .* nvec) +
+                tau_entry(tau, 4) * (u[4] - uhat[4])
+
+    [
+        (pressure - pressure_inf) / dynamic_pressure,
+        sum(tangent .* traction) / dynamic_pressure,
+        heat_flux / heat_flux_reference,
+    ]
+end

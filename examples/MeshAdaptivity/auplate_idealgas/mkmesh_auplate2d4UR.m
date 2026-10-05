@@ -1,4 +1,4 @@
-function [mesh, X, Y, geom] = mkmesh_auplate2d4UR(porder)
+function [mesh, X, Y, geom] = mkmesh_auplate2d4dns_coarse(porder)
 
 % =========================================================
 % Minimal new-Exasim mesh for rounded-nose flat plate

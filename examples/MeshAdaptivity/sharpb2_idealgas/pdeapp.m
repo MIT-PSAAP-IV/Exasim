@@ -15,6 +15,9 @@ pde.hybrid = 1;
 pde.debugmode = 0;
 pde.nd = 2;
 pde.saveParaview = 1;
+pde.saveSolBouFreq = 1;
+pde.saveSolBouLoc = 1;
+pde.ibs = 3; % isothermal-wall flow BC tag for Cp, Cf, and Cq
 pde.datapath = caseDir;
 pde.builddir = fullfile(caseDir,'.exasim');
 pde.buildpath = pde.builddir;
@@ -38,7 +41,7 @@ rEinf = 0.5+pinf/(gam-1);
 % examples/MeshAdaptivity/isoq2d_idealgas.  The AV magnitudes follow the
 % more strongly stabilized Mach-21 Sharp-B continuation.
 nm = 1e2;
-pde.AV = 1;
+pde.AV = 2;
 pde.AVcontinuationIter = 9;
 pde.AVcontinuationLogScale = 2;
 pde.AVcoeffStart = 0.005;
@@ -51,7 +54,7 @@ AVmaxdiv = 20.0;
 AVdistcoeff = nm;
 
 pde.meshadaptenabled = 1;
-pde.meshadaptfield = 2; % physical pressure from visscalars
+pde.meshadaptfield = 2; % physical pressure from avfield
 pde.meshadaptavcomponent = 1;
 pde.meshadaptalpha = 0.1;
 pde.meshadaptqmin = 0.2;
@@ -83,7 +86,7 @@ figure(1); clf; meshplot(mesh); axis equal; axis tight;
 
 master = Master(pde);
 dist = meshdist3(mesh.f,mesh.dgnodes,master.perm,4);
-mesh.vdg = zeros(size(mesh.dgnodes,1),2,size(mesh.dgnodes,3));
+mesh.vdg = zeros(size(mesh.dgnodes,1),3,size(mesh.dgnodes,3));
 mesh.vdg(:,1,:) = dist;
 
 mesh.porder = pde.porder;
@@ -111,3 +114,23 @@ figure(2); clf; scaplot(adaptedMesh,vdg(:,2,:),[],2,2);
 axis equal; axis tight; colorbar;
 figure(3); clf; scaplot(adaptedMesh,eulereval(sol,'M',gam,Minf),[0 Minf],2,2);
 axis equal; axis tight; colorbar;
+
+result = postprocess_surfacequantities(pde);
+
+figure(4); clf; plot(result.s, result.Cp, 'o-', 'LineWidth', 1.0, 'MarkerSize', 4);
+grid on;
+xlabel('wall arclength');
+ylabel('C_p');
+set(gca, 'FontSize', 16);
+
+figure(5); clf; plot(result.s, result.Cf, 'o-', 'LineWidth', 1.0, 'MarkerSize', 4);
+grid on;
+xlabel('wall arclength');
+ylabel('C_f');
+set(gca, 'FontSize', 16);
+
+figure(6); clf; plot(result.s, result.Cq, 'o-', 'LineWidth', 1.0, 'MarkerSize', 4);
+grid on;
+xlabel('wall arclength');
+ylabel('C_q');
+set(gca, 'FontSize', 16);

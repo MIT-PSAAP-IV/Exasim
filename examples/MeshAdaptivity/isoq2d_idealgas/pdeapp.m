@@ -19,6 +19,11 @@ pde.nd = 2;
 %   Scalar Field 0-4 = density [kg/m^3], pressure [Pa], temperature [K], Mach, AV
 %   Vector Field 0   = velocity [m/s]
 pde.saveParaview = 1;
+% Save Cp, Cf, and Cq from pdemodel_axialns.surfacequantities on the
+% isothermal wall (boundary-condition ID 3) at face Gauss points.
+pde.saveSolBouFreq = 1;
+pde.ibs = 3;
+pde.saveSolBouLoc = 1;
 
 gam = 1.4;                      % specific heat ratio
 Re = 1.56e5;                     % Reynolds number
@@ -36,7 +41,7 @@ pinf = 1/(gam*Minf^2);          % freestream pressure
 rEinf = 0.5+pinf/(gam-1);       % freestream energy
 
 nm = 1e2;
-pde.AV = 1;
+pde.AV = 2;
 pde.AVcontinuationIter = 6;
 pde.AVcontinuationLogScale = 1.5;
 pde.AVcoeffStart = 0.002;
@@ -49,7 +54,7 @@ AVmaxdiv = 20.0;
 AVdistcoeff = nm;
 
 pde.meshadaptenabled = 1;
-pde.meshadaptfield = 2;              % physical pressure from visscalars
+pde.meshadaptfield = 2;              % physical pressure from avfield
 pde.meshadaptavcomponent = 1;
 pde.meshadaptalpha = 0.5;
 pde.meshadaptqmin = 0.2;
@@ -83,7 +88,8 @@ master = Master(pde);
 
 % initial artificial viscosity
 dist = meshdist3(mesh.f,mesh.dgnodes,master.perm,[4]); % distance to the wall
-mesh.vdg = zeros(size(mesh.dgnodes,1),2,size(mesh.dgnodes,3));
+% ODG layout: wall distance, filtered AV sensor, mesh-adaptation pressure.
+mesh.vdg = zeros(size(mesh.dgnodes,1),3,size(mesh.dgnodes,3));
 mesh.vdg(:,1,:) = dist;
 
 mesh.porder = pde.porder;
@@ -102,6 +108,14 @@ mesh.udg = UDG;
 
 figure(3); clf; scaplot(mesh,TnearWall,[],1); axis on; axis equal; axis tight;
 
+% An export-only caller can generate this exact configured case without solving.
+if exist('text2code_export_directory', 'var') && ~isempty(text2code_export_directory)
+    exporttext2code(pde,mesh,text2code_export_directory);
+    if exist('text2code_export_only', 'var') && text2code_export_only
+        return;
+    end
+end
+
 pde.gencode = 1;
 [sol,pde,mesh,master,dmd] = exasim(pde,mesh); %#ok<ASGLU>
 
@@ -113,3 +127,23 @@ figure(1); clf; meshplot(mesh1,1)
 figure(2); clf; scaplot(mesh1, vdg(:,2,:),[],2,2);
 axis equal; axis tight; colorbar;
 figure(3); clf; scaplot(mesh1, eulereval(sol, 'M',gam,Minf),[0 Minf],1,2); colorbar;
+
+result = postprocess_surfacequantities(pde);
+
+figure(4); clf; plot(result.s, result.Cp, 'o-', 'LineWidth', 1.0, 'MarkerSize', 4);
+grid on;
+xlabel('wall arclength');
+ylabel('C_p');
+set(gca, 'FontSize', 16);
+
+figure(5); clf; plot(result.s, result.Cf, 'o-', 'LineWidth', 1.0, 'MarkerSize', 4);
+grid on;
+xlabel('wall arclength');
+ylabel('C_f');
+set(gca, 'FontSize', 16);
+
+figure(6); clf; plot(result.s, result.Cq, 'o-', 'LineWidth', 1.0, 'MarkerSize', 4);
+grid on;
+xlabel('wall arclength');
+ylabel('C_q');
+set(gca, 'FontSize', 16);

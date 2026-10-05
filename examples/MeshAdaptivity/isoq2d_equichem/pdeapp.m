@@ -31,6 +31,11 @@ pde.buildpath = pde.builddir;
 % Scalar fields: rho, p, T, Mach, AV, Y_N, Y_O, Y_NO, Y_N2, Y_O2.
 % Vector field: dimensional velocity.
 pde.saveParaview = 1;
+% Save Cp, Cf, and Cq from pdemodel.surfacequantities on the isothermal
+% ISOQ wall (boundary-condition ID 3) at face Gauss points.
+pde.saveSolBouFreq = 1;
+pde.ibs = 3;
+pde.saveSolBouLoc = 1;
 
 % Match the physical targets of the ideal-gas ISOQ case.
 Minf = 7.6;
@@ -70,7 +75,7 @@ transportFactor = 1.0;
 pOutPhys = pInfPhys;
 
 nm = 1e2;
-pde.AV = 1;
+pde.AV = 2;
 pde.AVcontinuationIter = 10;
 pde.AVcontinuationLogScale = 1.5;
 pde.AVcoeffStart = 0.003;
@@ -83,7 +88,7 @@ AVmaxdiv = 20.0;
 AVdistcoeff = nm;
 
 pde.meshadaptenabled = 1;
-pde.meshadaptfield = 2;              % physical pressure from visscalars
+pde.meshadaptfield = 2;              % physical pressure from avfield
 pde.meshadaptavcomponent = 1;
 pde.meshadaptalpha = 0.5;
 pde.meshadaptqmin = 0.2;
@@ -124,7 +129,7 @@ mesh.boundarycondition = [4 2 1 3];
 master = Master(pde);
 
 dist = meshdist3(mesh.f, mesh.dgnodes, master.perm, 4);
-mesh.vdg = zeros(size(mesh.dgnodes,1), 2, size(mesh.dgnodes,3));
+mesh.vdg = zeros(size(mesh.dgnodes,1), 3, size(mesh.dgnodes,3));
 mesh.vdg(:,1,:) = dist;
 mesh.udg = local_initial_udg(mesh, dist, db, xiInf, TinfPhys, ...
     TwallPhys, eRef, uzInf, urInf, nm);
@@ -134,6 +139,14 @@ fprintf('  rho_inf = %.10g kg/m^3, p_inf = %.10g Pa, T_inf = %.10g K\n', ...
     rhoInfPhys, pInfPhys, TinfPhys);
 fprintf('  a_inf = %.10g m/s, U_inf = %.10g m/s, Mach = %.8g, Re = %.8g\n', ...
     aInfPhys, velocityInfPhys, Minf, Re);
+
+% An export-only caller can generate this exact configured case without solving.
+if exist('text2code_export_directory', 'var') && ~isempty(text2code_export_directory)
+    exporttext2code(pde,mesh,text2code_export_directory);
+    if exist('text2code_export_only', 'var') && text2code_export_only
+        return;
+    end
+end
 
 pde.gencode=1;
 [sol,pde,mesh,master,dmd] = exasim(pde,mesh);
@@ -152,6 +165,26 @@ figure(1); clf; meshplot(mesh1,1); axis equal; axis tight;
 figure(2); clf; scaplot(mesh1,mach,[0 Minf],2,2); axis equal; axis tight; colorbar;
 figure(3); clf; scaplot(mesh1,vdg(:,2,:),[],2,2); axis equal; axis tight; colorbar;
 figure(4); clf; scaplot(mesh1,rhoPhys,[],2,2); axis equal; axis tight; colorbar;
+
+result = postprocess_surfacequantities(pde);
+
+figure(5); clf; plot(result.s, result.Cp, 'o-', 'LineWidth', 1.0, 'MarkerSize', 4);
+grid on;
+xlabel('wall arclength');
+ylabel('C_p');
+set(gca, 'FontSize', 16);
+
+figure(6); clf; plot(result.s, result.Cf, 'o-', 'LineWidth', 1.0, 'MarkerSize', 4);
+grid on;
+xlabel('wall arclength');
+ylabel('C_f');
+set(gca, 'FontSize', 16);
+
+figure(7); clf; plot(result.s, result.Cq, 'o-', 'LineWidth', 1.0, 'MarkerSize', 4);
+grid on;
+xlabel('wall arclength');
+ylabel('C_q');
+set(gca, 'FontSize', 16);
 
 function UDG = local_initial_udg(mesh, dist, db, xiInf, Tinf, Twall, ...
                                   eRef, uzInf, urInf, slope)

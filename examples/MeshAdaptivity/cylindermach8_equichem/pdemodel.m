@@ -69,7 +69,9 @@ pde.ubou = @ubou;
 pde.initu = @initu;
 pde.initw = @initw;
 pde.avfield = @avfield;
+pde.monitor = @monitor;
 pde.visscalars = @visscalars;
+pde.surfacequantities = @surfacequantities;
 pde.materialstate = @materialstate;
 end
 
@@ -157,7 +159,46 @@ function s = visscalars(u, q, w, v, x, t, mu, eta)
 end
 
 function f = avfield(u, q, w, v, x, t, mu, eta)
-    f = getavfield2d(u,q,v,mu);
+    f = [getavfield2d(u,q,v,mu); w(1)/mu(3)];
+end
+
+function m = monitor(u, q, w, v, x, t, mu, eta) %#ok<INUSD>
+    % Continuation accepts only states with positive density and pressure.
+    m = [u(1); w(1)/mu(3)];
+end
+
+function s = surfacequantities(u, q, w, v, x, t, mu, eta, uhat, n, tau) %#ok<INUSD>
+% Wall outputs on pde.ibs:
+% s(1) = Cp = (p - p_inf)/(0.5*rho_inf*|u_inf|^2)
+% s(2) = Cf = t dot (tau_v n + HDG penalty)/(0.5*rho_inf*|u_inf|^2),
+%        t = [-n_y, n_x]
+% s(3) = Cq = (kappa grad(T) dot n + HDG energy penalty)/(rho_inf*|u_inf|^3)
+
+nd = numel(x);
+ncu = nd + 2;
+rhoInf = eta(1);
+velInf = eta(2:(nd+1))/rhoInf;
+speedInf2 = velInf(:).'*velInf(:);
+qdyn = 0.5*rhoInf*speedInf2;
+qheatref = rhoInf*speedInf2*sqrt(speedInf2);
+pInf = mu(9)/mu(3);
+
+gU = cnseq_grad(q, ncu, nd);
+[gvel, gT_dim] = cnseq_grad_primitives(uhat, gU, w, mu);
+[tauv, kappa_scale] = cnseq_stress_heat(uhat(2:(nd+1))/uhat(1), gvel, w, mu);
+
+normal = n(:);
+tangent = [-normal(2); normal(1)];
+traction = tauv*normal;
+for d = 1:nd
+    traction(d) = traction(d) + cnseq_tau_entry(tau,1+d).*(u(1+d)-uhat(1+d));
+end
+heatFlux = kappa_scale*(gT_dim(:).'*normal) + cnseq_tau_entry(tau,ncu).*(u(ncu)-uhat(ncu));
+
+Cp = (w(1)/mu(3) - pInf)/qdyn;
+Cf = (tangent(:).'*traction(:))/qdyn;
+Cq = heatFlux/qheatref;
+s = [Cp; Cf; Cq];
 end
 
 function f = cnseq_flux_cart(u, q, w, v, x, mu)

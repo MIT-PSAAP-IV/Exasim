@@ -29,6 +29,7 @@ initv = _BASE.initv
 initw = _BASE.initw
 visscalars = _BASE.visscalars
 visvectors = _BASE.visvectors
+surfacequantities = _BASE.surfacequantities
 
 
 def materialstate(u, q, w, v, x, t, mu, eta):

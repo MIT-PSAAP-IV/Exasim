@@ -141,8 +141,15 @@ def avfield(u, q, w, v, x, t, mu, eta):
     du_dx = (rux - rx * velocity_x) / r
     dv_dy = (rvy - ry * velocity_y) / r
     divergence = du_dx + dv_dy
+    signed_pressure = (mu[0] - 1.0) * (
+        u[3] - 0.5 * (u[1] * velocity_x + u[2] * velocity_y)
+    )
+    pressure = sqrt(signed_pressure * signed_pressure)
     return np.array(
-        [_limiting(divergence * tanh(mu[-3] * v[0]), 0.0, mu[-4], 1.0e3, 0.0)]
+        [
+            _limiting(divergence * tanh(mu[-3] * v[0]), 0.0, mu[-4], 1.0e3, 0.0),
+            pressure,
+        ]
     )
 
 
@@ -158,6 +165,78 @@ def visscalars(u, q, w, v, x, t, mu, eta):
     mach = sqrt(velocity_x**2 + velocity_y**2) / sqrt(gam * pressure / density)
     artificial_viscosity = mu[-1] * v[1] * tanh(mu[-3] * v[0])
     return np.array([mach, artificial_viscosity, pressure])
+
+
+def surfacequantities(u, q, w, v, x, t, mu, eta, uhat, n, tau):
+    gam = mu[0]
+    gam1 = gam - 1.0
+    reynolds = mu[1]
+    prandtl = mu[2]
+    mach_inf = mu[3]
+    tref = mu[9]
+    mu_ref = 1.0 / reynolds
+    tinf = 1.0 / (gam * gam1 * mach_inf**2)
+    c23 = 2.0 / 3.0
+
+    rinf = mu[4]
+    ruinf = mu[5]
+    rvinf = mu[6]
+    rEinf = mu[7]
+    uinf = ruinf / rinf
+    vinf = rvinf / rinf
+    vinf2 = uinf * uinf + vinf * vinf
+    qdyn = 0.5 * rinf * vinf2
+    qheatref = rinf * vinf2 * sqrt(vinf2)
+    pinf = gam1 * (rEinf - 0.5 * (ruinf * ruinf + rvinf * rvinf) / rinf)
+
+    r, ru, rv, rE = uhat
+    rx, rux, rvx, rEx, ry, ruy, rvy, rEy = q
+
+    r1 = 1.0 / r
+    ux_velocity = ru * r1
+    uy_velocity = rv * r1
+    kinetic_energy = 0.5 * (ux_velocity**2 + uy_velocity**2)
+    pressure = gam1 * (rE - r * kinetic_energy)
+
+    du_dx = (rux - rx * ux_velocity) * r1
+    dv_dx = (rvx - rx * uy_velocity) * r1
+    dke_dx = ux_velocity * du_dx + uy_velocity * dv_dx
+    dp_dx = gam1 * (rEx - rx * kinetic_energy - r * dke_dx)
+    dt_dx = (dp_dx * r - pressure * rx) * r1**2 / gam1
+
+    du_dy = (ruy - ry * ux_velocity) * r1
+    dv_dy = (rvy - ry * uy_velocity) * r1
+    dke_dy = ux_velocity * du_dy + uy_velocity * dv_dy
+    dp_dy = gam1 * (rEy - ry * kinetic_energy - r * dke_dy)
+    dt_dy = (dp_dy * r - pressure * ry) * r1**2 / gam1
+
+    temperature = pressure / (gam1 * r)
+    physical_temperature = tref * temperature / tinf
+    dynamic_viscosity = _viscosity(mu_ref, tref, physical_temperature)
+    conductivity = dynamic_viscosity * gam / prandtl
+
+    tau_xx = dynamic_viscosity * c23 * (2.0 * du_dx - dv_dy)
+    tau_xy = dynamic_viscosity * (du_dy + dv_dx)
+    tau_yy = dynamic_viscosity * c23 * (2.0 * dv_dy - du_dx)
+
+    normal_x, normal_y = n
+    tangent_x = -normal_y
+    tangent_y = normal_x
+    traction_x = tau_xx * normal_x + tau_xy * normal_y + tau[0] * (u[1] - uhat[1])
+    traction_y = tau_xy * normal_x + tau_yy * normal_y + tau[0] * (u[2] - uhat[2])
+    tangential_traction = tangent_x * traction_x + tangent_y * traction_y
+
+    conductive_wall_flux = (
+        conductivity * (dt_dx * normal_x + dt_dy * normal_y)
+        + tau[0] * (u[3] - uhat[3])
+    )
+
+    pressure_coefficient = (pressure - pinf) / qdyn
+    skin_friction_coefficient = tangential_traction / qdyn
+    heat_flux_coefficient = conductive_wall_flux / qheatref
+    return np.array(
+        [pressure_coefficient, skin_friction_coefficient, heat_flux_coefficient]
+    )
 
 
 def source(u, q, w, v, x, t, mu, eta):

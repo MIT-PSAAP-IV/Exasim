@@ -71,7 +71,7 @@ Pr = viscosityReference*cpReference/conductivityReference;
 Ec = velocityReference^2/(cpReference*temperatureReference);
 
 nm = 1e2;
-pde.AV = 1;
+pde.AV = 2;
 pde.AVcontinuationIter = 10;
 pde.AVcontinuationLogScale = 2.0;
 pde.AVcoeffStart = 0.005;
@@ -90,7 +90,7 @@ temperatureMaximum = 2.0e4;
 pressureMinimum = 1.0e-8*pressurePhysical;
 
 pde.meshadaptenabled = 1;
-pde.meshadaptfield = 1; % physical pressure is the first visscalars field
+pde.meshadaptfield = 2; % physical pressure from avfield
 pde.meshadaptavcomponent = 1;
 pde.meshadaptalpha = 0.1;
 pde.meshadaptqmin = 0.2;
@@ -124,7 +124,7 @@ mesh.boundarycondition = [5 1 1 8 2];
 master = Master(pde);
 dist = meshdist3(mesh.f,mesh.dgnodes,master.perm,4);
 
-mesh.vdg = zeros(size(mesh.dgnodes,1),2,size(mesh.dgnodes,3));
+mesh.vdg = zeros(size(mesh.dgnodes,1),3,size(mesh.dgnodes,3));
 mesh.vdg(:,1,:) = dist;
 [mesh.udg,mesh.wdg] = local_initial_solution( ...
     mesh,dist,Uinf,wallInternalEnergy,TwallPhysical/TinfPhysical,nm);

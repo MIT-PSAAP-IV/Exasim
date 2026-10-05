@@ -106,8 +106,13 @@ radius = 1.0e-8+lmax(x(2)-1.0e-8,1.0e3);
 compression = (q(ns+1)-qrhoZ*uz)/rho ...
             + (q(ncu+ns+2)-qrhoR*ur)/rho ...
             - ur/radius;
-f = limiting(compression*tanh(mu(end-2)*v(1)), ...
-             0,mu(end-3),1.0e3,0);
+sensor = limiting(compression*tanh(mu(end-2)*v(1)), ...
+                  0,mu(end-3),1.0e3,0);
+rhoSpecies = mu(1)*u(1:ns);
+temperature = mu(4)*w(1);
+[~,Mw,~] = thermodynamicsModels();
+pressurePhysical = pressure(temperature,rhoSpecies,Mw);
+f = [sensor; pressurePhysical];
 end
 
 function s = visscalars(u, q, w, v, x, t, mu, eta) %#ok<INUSD>
@@ -121,7 +126,7 @@ soundSpeed = soundspeed(temperature,abs(rhoSpecies));
 mach = sqrt(velocity.'*velocity)/soundSpeed;
 massFractions = rhoSpecies/rho;
 
-% Pressure stays first because meshadaptfield=1 selects the sensor scalar.
+% Pressure remains first for visualization output.
 % Fields: p, rho, T, Mach, AV, Y_N, Y_O, Y_NO, Y_N2, Y_O2.
 s = [pressurePhysical;rho;temperature;mach;physicalav(v,mu);massFractions];
 end

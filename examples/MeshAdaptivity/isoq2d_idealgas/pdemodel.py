@@ -137,8 +137,28 @@ def avfield(u, q, w, v, x, t, mu, eta):
     velocity_x_x = (q[1] - q[0] * velocity_x) / density
     velocity_y_y = (q[6] - q[4] * velocity_y) / density
     compression = velocity_x_x + velocity_y_y + velocity_y / x[1]
+    gam, reynolds, mach_inf, reference_temperature = mu[0], mu[1], mu[3], mu[9]
+    gas_constant, standard_temperature, sutherland_temperature = 287.0, 273.15, 110.4
+    standard_viscosity = 1.716e-5
+    pressure = (gam - 1.0) * (
+        u[3] - 0.5 * (u[1] * velocity_x + u[2] * velocity_y)
+    )
+    temperature = pressure / ((gam - 1.0) * density)
+    tinf = 1.0 / (gam * (gam - 1.0) * mach_inf**2)
+    physical_temperature = reference_temperature * temperature / tinf
+    velocity_reference = mach_inf * sqrt(gam * gas_constant * reference_temperature)
+    ratio = reference_temperature / standard_temperature
+    physical_viscosity = standard_viscosity * sqrt(ratio**3) * (
+        standard_temperature + sutherland_temperature
+    ) / (reference_temperature + sutherland_temperature)
+    density_reference = reynolds * physical_viscosity / velocity_reference
+    physical_density = density_reference * density
+    physical_pressure = physical_density * gas_constant * physical_temperature
     return np.array(
-        [_limiting(compression * tanh(mu[-3] * v[0]), 0.0, mu[-4], 1.0e3, 0.0)]
+        [
+            _limiting(compression * tanh(mu[-3] * v[0]), 0.0, mu[-4], 1.0e3, 0.0),
+            physical_pressure,
+        ]
     )
 
 
@@ -314,6 +334,95 @@ def visscalars(u, q, w, v, x, t, mu, eta):
     artificial_viscosity = (mu[-2] + mu[-1] * v[1]) * tanh(mu[-3] * v[0])
     return np.array(
         [physical_density, physical_pressure, physical_temperature, mach, artificial_viscosity]
+    )
+
+
+def surfacequantities(u, q, w, v, x, t, mu, eta, uhat, n, tau):
+    gam, reynolds, prandtl = mu[0:3]
+    gam1 = gam - 1.0
+    reference_temperature = mu[9]
+    reference_viscosity = 1.0 / reynolds
+    tinf = mu[8]
+    two_thirds = 2.0 / 3.0
+
+    density_inf = mu[4]
+    momentum_x_inf = mu[5]
+    momentum_y_inf = mu[6]
+    energy_inf = mu[7]
+    velocity_x_inf = momentum_x_inf / density_inf
+    velocity_y_inf = momentum_y_inf / density_inf
+    speed_inf2 = velocity_x_inf**2 + velocity_y_inf**2
+    dynamic_pressure = 0.5 * density_inf * speed_inf2
+    heat_flux_reference = density_inf * speed_inf2 * sqrt(speed_inf2)
+    pressure_inf = gam1 * (
+        energy_inf
+        - 0.5 * (momentum_x_inf**2 + momentum_y_inf**2) / density_inf
+    )
+
+    density, momentum_x, momentum_y, energy = uhat
+    density_x, momentum_x_x, momentum_y_x, energy_x = q[0:4]
+    density_y, momentum_x_y, momentum_y_y, energy_y = q[4:8]
+    inverse_density = 1.0 / density
+    velocity_x = momentum_x * inverse_density
+    velocity_y = momentum_y * inverse_density
+    kinetic_energy = 0.5 * (velocity_x**2 + velocity_y**2)
+    pressure = gam1 * (energy - density * kinetic_energy)
+
+    velocity_x_x = (momentum_x_x - density_x * velocity_x) * inverse_density
+    velocity_y_x = (momentum_y_x - density_x * velocity_y) * inverse_density
+    kinetic_x = velocity_x * velocity_x_x + velocity_y * velocity_y_x
+    pressure_x = gam1 * (energy_x - density_x * kinetic_energy - density * kinetic_x)
+    temperature_x = (
+        pressure_x * density - pressure * density_x
+    ) * inverse_density**2 / gam1
+
+    velocity_x_y = (momentum_x_y - density_y * velocity_x) * inverse_density
+    velocity_y_y = (momentum_y_y - density_y * velocity_y) * inverse_density
+    kinetic_y = velocity_x * velocity_x_y + velocity_y * velocity_y_y
+    pressure_y = gam1 * (energy_y - density_y * kinetic_energy - density * kinetic_y)
+    temperature_y = (
+        pressure_y * density - pressure * density_y
+    ) * inverse_density**2 / gam1
+
+    temperature = pressure / (gam1 * density)
+    physical_temperature = reference_temperature * temperature / tinf
+    dynamic_viscosity = _viscosity(
+        reference_viscosity, reference_temperature, physical_temperature
+    )
+    conductivity = dynamic_viscosity * gam / prandtl
+    radial_coordinate = x[1]
+    stress_xx = dynamic_viscosity * two_thirds * (
+        2.0 * velocity_x_x - velocity_y_y + velocity_y / radial_coordinate
+    )
+    stress_xy = dynamic_viscosity * (velocity_x_y + velocity_y_x)
+    stress_yy = dynamic_viscosity * two_thirds * (
+        2.0 * velocity_y_y - velocity_x_x + velocity_y / radial_coordinate
+    )
+
+    normal_x, normal_y = n
+    tangent_x, tangent_y = -normal_y, normal_x
+    traction_x = (
+        stress_xx * normal_x
+        + stress_xy * normal_y
+        + tau[0] * (u[1] - uhat[1])
+    )
+    traction_y = (
+        stress_xy * normal_x
+        + stress_yy * normal_y
+        + tau[0] * (u[2] - uhat[2])
+    )
+    tangential_traction = tangent_x * traction_x + tangent_y * traction_y
+    conductive_wall_flux = (
+        conductivity * (temperature_x * normal_x + temperature_y * normal_y)
+        + tau[0] * (u[3] - uhat[3])
+    )
+
+    return np.array(
+        [
+            (pressure - pressure_inf) / dynamic_pressure,
+            tangential_traction / dynamic_pressure,
+            conductive_wall_flux / heat_flux_reference,
+        ]
     )
 
 

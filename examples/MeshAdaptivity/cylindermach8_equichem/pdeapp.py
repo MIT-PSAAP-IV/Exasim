@@ -21,6 +21,7 @@ sys.path.insert(2, os.path.join(REPOSITORY, "frontends", "Python"))
 
 import exasim  # noqa: E402
 from cylinder_mesh import make_cylinder_mesh, wall_distance  # noqa: E402
+from postprocess_surfacequantities import postprocess_surfacequantities  # noqa: E402
 
 
 def _read_material_database(filename):
@@ -78,6 +79,7 @@ def build_case(run_directory=None):
     pde["platform"] = "cpu"
     pde["mpiprocs"] = 4
     pde["hybrid"] = 1
+    pde["extendedW"] = 1
     pde["ncw"] = 15
     pde["porder"] = 2
     pde["pgauss"] = 2 * pde["porder"]
@@ -90,6 +92,11 @@ def build_case(run_directory=None):
     pde["NLtol"] = 1.0e-6
     pde["NLiter"] = 30
     pde["matvectol"] = 1.0e-6
+    # Save Cp, Cf, and Cq from pdemodel.surfacequantities on the isothermal
+    # cylinder wall (boundary-condition ID 3) at face Gauss points.
+    pde["saveSolBouFreq"] = 1
+    pde["ibs"] = 3
+    pde["saveSolBouLoc"] = 1
 
     run_directory = run_directory or os.path.join(HERE, "python_run")
     os.makedirs(run_directory, exist_ok=True)
@@ -125,7 +132,7 @@ def build_case(run_directory=None):
     energy_ref = velocity_ref**2
     transport_factor = 1.0
 
-    pde["AV"] = 1
+    pde["AV"] = 2
     pde["AVcontinuationIter"] = 10
     pde["AVcontinuationLogScale"] = 1.5
     pde["AVcoeffStart"] = 0.060
@@ -138,7 +145,8 @@ def build_case(run_directory=None):
     av_distance_coefficient = 30.0
 
     pde["meshadaptenabled"] = 1
-    pde["meshadaptfield"] = 1
+    pde["meshadaptavcomponent"] = 1
+    pde["meshadaptfield"] = 2
     pde["meshadaptalpha"] = 0.5
     pde["meshadaptHelmholtzCoeff"] = 5.0e-2
     pde["meshadaptforcescale"] = 0.15
@@ -173,7 +181,7 @@ def build_case(run_directory=None):
     mesh["boundarycondition"] = np.array([3, 2, 1], dtype=np.int64)
     distance = wall_distance(mesh, pde["porder"])
     mesh["dist"] = distance
-    mesh["vdg"] = np.zeros((distance.shape[0], 2, distance.shape[2]), order="F")
+    mesh["vdg"] = np.zeros((distance.shape[0], 3, distance.shape[2]), order="F")
     mesh["vdg"][:, 0:1, :] = distance
     mesh["udg"] = _initial_solution(
         mesh,
@@ -198,6 +206,7 @@ def main():
         "output =",
         os.path.join(pde["datapath"], "dataout"),
     )
+    postprocess_surfacequantities(pde)
     return solution, pde, mesh, master, dmd
 
 

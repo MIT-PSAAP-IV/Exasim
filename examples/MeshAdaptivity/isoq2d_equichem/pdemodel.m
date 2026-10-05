@@ -18,6 +18,7 @@ pde.avfield = @avfield;
 pde.fbouhdg = @fbouhdg;
 pde.visscalars = @visscalars;
 pde.visvectors = @visvectors;
+pde.surfacequantities = @surfacequantities;
 end
 
 function m = mass(u, q, w, v, x, t, mu, eta) %#ok<INUSD>
@@ -66,7 +67,8 @@ ur = u(3)/rho;
 duz_dz = (q(2)-q(1)*uz)/rho;
 dur_dr = (q(7)-q(5)*ur)/rho;
 divu = duz_dz + dur_dr + ur/x(2);
-f = limiting(divu*tanh(mu(end-2)*v(1)),0,mu(end-3),1e3,0);
+sensor = limiting(divu*tanh(mu(end-2)*v(1)),0,mu(end-3),1e3,0);
+f = [sensor; w(1)];
 end
 
 function fb = fbou(u, q, w, v, x, t, mu, eta, uhat, n, tau) %#ok<INUSD>
@@ -165,6 +167,35 @@ end
 
 function s = visvectors(u, q, w, v, x, t, mu, eta) %#ok<INUSD>
 s = mu(2)*u(2:3)/u(1);
+end
+
+function s = surfacequantities(u, q, w, v, x, t, mu, eta, uhat, n, tau) %#ok<INUSD>
+% Wall outputs on pde.ibs:
+% s(1) = Cp = (p - p_inf)/(0.5*rho_inf*|u_inf|^2)
+% s(2) = Cf = t dot (tau_v n + HDG momentum penalty) /
+%        (0.5*rho_inf*|u_inf|^2), with t=[-n_y,n_x].
+% s(3) = Cq = (kappa grad(T) dot n + HDG energy penalty) /
+%        (rho_inf*|u_inf|^3).
+[~,~,p,~,~,tauv,kappaScale,gT] = flow_data(uhat,q,w,x,mu);
+
+rhoInf = eta(1);
+velInf = eta(2:3)/rhoInf;
+speedInf2 = velInf(:).'*velInf(:);
+qdyn = 0.5*rhoInf*speedInf2;
+qheatref = rhoInf*speedInf2*sqrt(speedInf2);
+pInf = mu(9)/mu(3);
+
+normal = n(:);
+tangent = [-normal(2); normal(1)];
+traction = tauv(1:2,1:2)*normal;
+traction(1) = traction(1) + tau_entry(tau,2).*(u(2)-uhat(2));
+traction(2) = traction(2) + tau_entry(tau,3).*(u(3)-uhat(3));
+heatFlux = kappaScale*(gT(:).'*normal) + tau_entry(tau,4).*(u(4)-uhat(4));
+
+Cp = (p-pInf)/qdyn;
+Cf = (tangent(:).'*traction(:))/qdyn;
+Cq = heatFlux/qheatref;
+s = [Cp; Cf; Cq];
 end
 
 function [rho,vel,p,H,gU,tauv,kappaScale,gT] = flow_data(u,q,w,x,mu)

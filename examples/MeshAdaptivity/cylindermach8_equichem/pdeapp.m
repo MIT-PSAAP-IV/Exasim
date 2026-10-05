@@ -46,6 +46,11 @@ pde.NLtol = 1e-6;
 pde.NLiter = 30;
 pde.matvectol = 1e-6;
 pde.materialdatabase = dbFile;
+% Save Cp, Cf, and Cq from pdemodel.surfacequantities on the isothermal
+% cylinder wall (boundary-condition ID 3) at face Gauss points.
+pde.saveSolBouFreq = 1;
+pde.ibs = 3;
+pde.saveSolBouLoc = 1;
 pde.datapath = caseDir;
 pde.builddir = fullfile(caseDir, '.exasim');
 pde.buildpath = pde.builddir;
@@ -92,7 +97,7 @@ eRef = uRef^2;
 transportFactor = 1.0;
 pOutPhys = pInfPhys;
 
-pde.AV = 1;
+pde.AV = 2;
 pde.AVcontinuationIter = 10;
 pde.AVcontinuationLogScale = 1.5;
 pde.AVcoeffStart = 0.060;
@@ -104,10 +109,12 @@ pde.AVHelmholtzCoeff = 0.025;
 AVmaxdiv = 2.0; AVdistcoeff = 30;
 
 pde.meshadaptenabled = 1;
-pde.meshadaptfield = 1; % nondimensional pressure from pdemodel.visscalars
+pde.meshadaptavcomponent = 1;
+pde.meshadaptfield = 2; % nondimensional pressure from avfield component 2
 pde.meshadaptalpha = 0.5;
 pde.meshadaptHelmholtzCoeff = 5e-2;
 pde.meshadaptforcescale = 0.15; % params(3) in pdeapp_frontend.m
+pde.meshadaptdamping = 1.0;
 pde.meshadaptsmoothingpasses = 30;
 pde.meshadaptboundaryconditions = [2;3;3];
 
@@ -125,7 +132,7 @@ pde.physicsparam = [rhoRef, uRef, pRef, eRef, LRef, transportFactor, ...
 mesh.f = facenumbering(mesh.p,mesh.t,pde.elemtype,mesh.boundaryexpr,mesh.periodicexpr);
 dist = meshdist3(mesh.f,mesh.dgnodes,mesh.perm,[1]);
 mesh.dist = dist;
-mesh.vdg = zeros(size(mesh.dgnodes,1),2,size(mesh.dgnodes,3));
+mesh.vdg = zeros(size(mesh.dgnodes,1),3,size(mesh.dgnodes,3));
 mesh.vdg(:,1,:) = dist;
 mesh.udg = local_initial_udg(mesh, dist, db, xiInf, TinfPhys, TwallPhys, eRef, uInf, vInf);
 
@@ -154,6 +161,27 @@ figure(1); clf; meshplot(mesh1,1); axis equal; axis tight;
 figure(2); clf; scaplot(mesh1,mach,[0 Minf],2,2); axis equal; axis tight; colorbar; colormap('jet');
 figure(3); clf; scaplot(mesh1,vdg(:,2,:),[],2,2); axis equal; axis tight; colorbar; colormap('jet');
 figure(4); clf; scaplot(mesh1,rhoPhys,[],2,2); axis equal; axis tight; colorbar; colormap('jet');
+
+result = postprocess_surfacequantities(pde);
+
+figure(5); clf; plot(result.theta, result.Cp, 'o-', 'LineWidth', 1.0, 'MarkerSize', 4);
+grid on;
+xlabel('\theta', 'Interpreter', 'tex');
+ylabel('C_p', 'Interpreter', 'tex');
+set(gca, 'FontSize', 16);
+
+figure(6); clf; plot(result.theta, result.Cf, 'o-', 'LineWidth', 1.0, 'MarkerSize', 4);
+grid on;
+xlabel('\theta', 'Interpreter', 'tex');
+ylabel('C_f', 'Interpreter', 'tex');
+set(gca, 'FontSize', 16);
+
+figure(7); clf; plot(result.theta, result.Cq, 'o-', 'LineWidth', 1.0, 'MarkerSize', 4);
+grid on;
+xlabel('\theta', 'Interpreter', 'tex');
+ylabel('C_q', 'Interpreter', 'tex');
+set(gca, 'FontSize', 16);
+
 
 
 function sol = local_stage_solve(pde, mesh, master, dist, sol, avAmplitude, avSlope, label)

@@ -43,8 +43,15 @@ pde.NLtol = 1e-6;
 pde.NLiter = 10;
 pde.matvectol = 1e-6;
 pde.saveParaview = 1;
+% Save pointwise wall outputs from pdemodel.surfacequantities on the
+% isothermal cylinder wall.  The cylinder is boundary-expression 1, whose
+% boundary-condition ID is 3 in mesh.boundarycondition below.  Use face
+% Gauss points so the saved geometry also includes dA.
+pde.saveSolBouFreq = 1;
+pde.ibs = 3;
+pde.saveSolBouLoc = 1;
 
-pde.AV = 1;
+pde.AV = 2;
 pde.AVcontinuationIter = 10;
 pde.AVcontinuationLogScale = 1.5;
 pde.AVcoeffStart = 0.060;
@@ -59,7 +66,8 @@ pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf Tinf Tref ...
 
 % Match meshadapt2d(mesh,...,qmin,qmax,diffcoeff,bcs,params,ndg2cg).
 pde.meshadaptenabled = 1;
-pde.meshadaptfield = 3;
+pde.meshadaptavcomponent = 1;
+pde.meshadaptfield = 2;
 pde.meshadaptalpha = 0.5;
 pde.meshadaptHelmholtzCoeff = 5e-2;
 pde.meshadaptforcescale = 0.2; % params(3) in pdeapp_frontend.m
@@ -68,7 +76,7 @@ pde.meshadaptboundaryconditions = [2;3;3];
 
 mesh.f = facenumbering(mesh.p,mesh.t,pde.elemtype,mesh.boundaryexpr,mesh.periodicexpr);
 dist = meshdist3(mesh.f,mesh.dgnodes,mesh.perm,[1]);
-mesh.vdg = zeros(size(mesh.dgnodes,1),2,size(mesh.dgnodes,3));
+mesh.vdg = zeros(size(mesh.dgnodes,1),3,size(mesh.dgnodes,3));
 mesh.vdg(:,1,:) = dist;
 ui = [rinf ruinf rvinf rEinf];
 UDG = initu(mesh,{ui(1),ui(2),ui(3),ui(4)});
@@ -97,3 +105,26 @@ figure(2); clf; scaplot(mesh1, vdg(:,2,:),[],2,2);
 axis equal; axis tight; colorbar; colormap('jet');
 figure(3); clf; scaplot(mesh1, eulereval(sol, 'M',gam,Minf),[0 Minf],1,2);
 axis equal; axis tight; colorbar; colormap('jet');
+
+% Read back and plot the saved wall surface quantities.  This intentionally
+% uses the outbousurf/outbousurfgeo files written by the backend, so the
+% coordinates follow the final adapted/moved mesh.
+result = postprocess_surfacequantities(pde);
+
+figure(4); clf; plot(result.theta, result.Cp, 'o-', 'LineWidth', 1.0, 'MarkerSize', 4);
+grid on;
+xlabel('\theta', 'Interpreter', 'tex');
+ylabel('C_p', 'Interpreter', 'tex');
+set(gca, 'FontSize', 16);
+
+figure(5); clf; plot(result.theta, result.Cf, 'o-', 'LineWidth', 1.0, 'MarkerSize', 4);
+grid on;
+xlabel('\theta', 'Interpreter', 'tex');
+ylabel('C_f', 'Interpreter', 'tex');
+set(gca, 'FontSize', 16);
+
+figure(6); clf; plot(result.theta, result.Cq, 'o-', 'LineWidth', 1.0, 'MarkerSize', 4);
+grid on;
+xlabel('\theta', 'Interpreter', 'tex');
+ylabel('C_q', 'Interpreter', 'tex');
+set(gca, 'FontSize', 16);

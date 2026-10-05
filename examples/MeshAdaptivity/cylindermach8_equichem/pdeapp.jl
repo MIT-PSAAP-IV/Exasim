@@ -13,6 +13,7 @@ using Exasim
 
 include(joinpath(@__DIR__, "pdemodel.jl"))
 include(joinpath(dirname(@__DIR__), "cylindermach8", "cylinder_mesh.jl"))
+include(joinpath(@__DIR__, "postprocess_surfacequantities.jl"))
 
 function read_material_database(filename)
     header = parse.(Int, split(strip(open(readline, filename))))
@@ -87,6 +88,7 @@ function build_case(run_directory=joinpath(@__DIR__, "julia_run"))
     pde.platform = "cpu"
     pde.mpiprocs = 4
     pde.hybrid = 1
+    pde.extendedW = 1
     pde.ncw = 15
     pde.porder = 2
     pde.pgauss = 2 * pde.porder
@@ -99,6 +101,11 @@ function build_case(run_directory=joinpath(@__DIR__, "julia_run"))
     pde.NLtol = 1.0e-6
     pde.NLiter = 30
     pde.matvectol = 1.0e-6
+    # Save Cp, Cf, and Cq from pdemodel.surfacequantities on the isothermal
+    # cylinder wall (boundary-condition ID 3) at face Gauss points.
+    pde.saveSolBouFreq = 1
+    pde.ibs = 3
+    pde.saveSolBouLoc = 1
     pde.flag = reshape(Int[], 1, 0)
     pde.problem = reshape(Int[], 1, 0)
     pde.factor = reshape(Float64[], 1, 0)
@@ -135,7 +142,7 @@ function build_case(run_directory=joinpath(@__DIR__, "julia_run"))
     pressure_ref = density_ref * velocity_ref^2
     energy_ref = velocity_ref^2
 
-    pde.AV = 1
+    pde.AV = 2
     pde.AVcontinuationIter = 10
     pde.AVcontinuationLogScale = 1.5
     pde.AVcoeffStart = 0.060
@@ -146,7 +153,8 @@ function build_case(run_directory=joinpath(@__DIR__, "julia_run"))
     pde.AVHelmholtzCoeff = 0.025
 
     pde.meshadaptenabled = 1
-    pde.meshadaptfield = 1
+    pde.meshadaptavcomponent = 1
+    pde.meshadaptfield = 2
     pde.meshadaptalpha = 0.5
     pde.meshadaptHelmholtzCoeff = 5.0e-2
     pde.meshadaptforcescale = 0.15
@@ -181,7 +189,7 @@ function build_case(run_directory=joinpath(@__DIR__, "julia_run"))
     )
     mesh.boundarycondition = reshape([3, 2, 1], :, 1)
     distance = wall_distance(mesh, pde.porder)
-    mesh.odg = zeros(Float64, size(distance, 1), 2, size(distance, 3))
+    mesh.odg = zeros(Float64, size(distance, 1), 3, size(distance, 3))
     mesh.odg[:, 1:1, :] .= distance
     mesh.udg = initial_solution(
         mesh,
@@ -204,6 +212,7 @@ function main()
         "Julia equilibrium-air mesh adaptivity: ", size(solution),
         " output = ", joinpath(pde.datapath, "dataout"),
     )
+    postprocess_surfacequantities(pde)
     return solution, pde, mesh, master, dmd
 end
 

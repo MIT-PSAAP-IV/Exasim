@@ -37,6 +37,12 @@ pde.dae_alpha = 0;
 pde.dae_beta = 0;
 pde.dae_gamma = 0;
 pde.saveSolFreq = 1;
+% Save Cp, Cf, and Cq from pdemodel_cart.surfacequantities on the
+% catalytic isothermal cylinder wall (boundary-condition ID 8) at face
+% Gauss points.
+pde.saveSolBouFreq = 1;
+pde.ibs = 8;
+pde.saveSolBouLoc = 1;
 pde.datapath = caseDir;
 pde.builddir = fullfile(caseDir, '.exasim');
 pde.buildpath = pde.builddir;
@@ -65,7 +71,7 @@ Pr = muRef*cpRef/kappaRef;
 Re = rhoRef*LRef*vRef/muRef;
 Ec = vRef^2/(cpRef*TRef);
 
-pde.AV = 1;
+pde.AV = 2;
 pde.AVcontinuationIter = 10;
 pde.AVcontinuationLogScale = 1.0;
 pde.AVcoeffStart = 0.060;
@@ -78,7 +84,8 @@ AVmaxdiv = 2.0;
 AVdistcoeff = 20;
 
 pde.meshadaptenabled = 1;
-pde.meshadaptfield = 1;
+pde.meshadaptavcomponent = 1;
+pde.meshadaptfield = 2;
 pde.meshadaptalpha = 0.5;
 pde.meshadaptHelmholtzCoeff = 5e-2;
 pde.meshadaptforcescale = 0.2;
@@ -113,7 +120,7 @@ mesh.boundarycondition = [8;2;1];
 dist = meshdist3(mesh.f,mesh.dgnodes,mesh.perm,[1]);
 
 mesh.dist = dist;
-mesh.vdg = zeros(size(mesh.dgnodes,1),2,size(mesh.dgnodes,3));
+mesh.vdg = zeros(size(mesh.dgnodes,1),3,size(mesh.dgnodes,3));
 mesh.vdg(:,1,:) = dist;
 
 rho = sum(Uinf(1:5));
@@ -174,3 +181,22 @@ axis equal; axis tight; colorbar;
 figure(8); clf; meshplot(mesh,1);
 axis equal; axis tight; colorbar;
 
+result = postprocess_surfacequantities(pde);
+
+figure(9); clf; plot(result.theta, result.Cp, 'o-', 'LineWidth', 1.0, 'MarkerSize', 4);
+grid on;
+xlabel('\theta', 'Interpreter', 'tex');
+ylabel('C_p', 'Interpreter', 'tex');
+set(gca, 'FontSize', 16);
+
+figure(10); clf; plot(result.theta, result.Cf, 'o-', 'LineWidth', 1.0, 'MarkerSize', 4);
+grid on;
+xlabel('\theta', 'Interpreter', 'tex');
+ylabel('C_f', 'Interpreter', 'tex');
+set(gca, 'FontSize', 16);
+
+figure(11); clf; plot(result.theta, result.Cq, 'o-', 'LineWidth', 1.0, 'MarkerSize', 4);
+grid on;
+xlabel('\theta', 'Interpreter', 'tex');
+ylabel('C_q', 'Interpreter', 'tex');
+set(gca, 'FontSize', 16);

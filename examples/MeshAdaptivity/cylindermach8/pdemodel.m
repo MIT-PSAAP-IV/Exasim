@@ -6,8 +6,10 @@ pde.fbou = @fbou;
 pde.ubou = @ubou;
 pde.initu = @initu;
 pde.avfield = @avfield;
+pde.monitor = @monitor;
 pde.fbouhdg = @fbouhdg;
 pde.visscalars = @visscalars;
+pde.surfacequantities = @surfacequantities;
 end
 
 function m = mass(u, q, w, v, x, t, mu, eta)
@@ -101,7 +103,20 @@ f = reshape(f,[4,2]);
 end
 
 function f = avfield(u, q, w, v, x, t, mu, eta)
-    f = getavfield2d(u,q,v,mu);
+    gam = mu(1);
+    rho = u(1);
+    pressureSigned = (gam-1.0)*(u(4) ...
+        - 0.5*(u(2)*u(2) + u(3)*u(3))/rho);
+    pressure = sqrt(pressureSigned*pressureSigned);
+    f = [getavfield2d(u,q,v,mu); pressure];
+end
+
+function m = monitor(u, q, w, v, x, t, mu, eta)
+    gam = mu(1);
+    rho = u(1);
+    kineticEnergy = 0.5*(u(2)^2 + u(3)^2)/rho;
+    pressure = (gam-1.0)*(u(4) - kineticEnergy);
+    m = [rho; pressure];
 end
 
 function s = source(u, q, w, v, x, t, mu, eta)
@@ -197,4 +212,96 @@ function s = visscalars(u, q, w, v, x, t, mu, eta)
     mach = sqrt(uv*uv + vv*vv)/sqrt(gam*p/r);
     av = mu(end)*v(2)*tanh(mu(end-2)*v(1));
     s = [mach; av; p];
+end
+
+function s = surfacequantities(u, q, w, v, x, t, mu, eta, uhat, n, tau)
+    % Pointwise cylinder-wall outputs evaluated by the backend on pde.ibs.
+    %
+    % s(1) = Cp = (p - p_inf)/(0.5*rho_inf*|u_inf|^2).
+    % s(2) = Cf = t dot (tau_v n)/(0.5*rho_inf*|u_inf|^2), with
+    %        t = [-n_y, n_x].  The sign therefore follows increasing
+    %        atan2(y-y_c,x-x_c) when the saved normal is the outward normal
+    %        of the fluid domain.
+    % s(3) = Cq = q_wall/(rho_inf*|u_inf|^3), where
+    %        q_wall = (-kappa grad(T)) dot n is positive for heat leaving
+    %        the fluid through the outward boundary normal.
+    %
+    % The viscous stress and conductive heat-flux coefficients below are the
+    % same nondimensional constitutive factors used in flux().
+
+    gam = mu(1);
+    gam1 = gam - 1.0;
+    Re = mu(2);
+    Pr = mu(3);
+    Minf = mu(4);
+    Tref = mu(10);
+    muRef = 1/Re;
+    Tinf = 1/(gam*gam1*Minf^2);
+    c23 = 2.0/3.0;
+
+    rinf = mu(5);
+    ruinf = mu(6);
+    rvinf = mu(7);
+    rEinf = mu(8);
+    uinf = ruinf/rinf;
+    vinf = rvinf/rinf;
+    vinf2 = uinf*uinf + vinf*vinf;
+    qdyn = 0.5*rinf*vinf2;
+    qheatref = rinf*vinf2*sqrt(vinf2);
+    pinf = gam1*(rEinf - 0.5*(ruinf*ruinf + rvinf*rvinf)/rinf);
+
+    r = uhat(1);
+    ru = uhat(2);
+    rv = uhat(3);
+    rE = uhat(4);
+    rx = q(1);
+    rux = q(2);
+    rvx = q(3);
+    rEx = q(4);
+    ry = q(5);
+    ruy = q(6);
+    rvy = q(7);
+    rEy = q(8);
+
+    r1 = 1/r;
+    uxv = ru*r1;
+    uyv = rv*r1;
+    ke = 0.5*(uxv*uxv + uyv*uyv);
+    p = gam1*(rE - r*ke);
+
+    dux = (rux - rx*uxv)*r1;
+    dvx = (rvx - rx*uyv)*r1;
+    kex = uxv*dux + uyv*dvx;
+    px = gam1*(rEx - rx*ke - r*kex);
+    Tx = 1/gam1*(px*r - p*rx)*r1^2;
+
+    duy = (ruy - ry*uxv)*r1;
+    dvy = (rvy - ry*uyv)*r1;
+    key = uxv*duy + uyv*dvy;
+    py = gam1*(rEy - ry*ke - r*key);
+    Ty = 1/gam1*(py*r - p*ry)*r1^2;
+
+    T = p/(gam1*r);
+    Tphys = Tref/Tinf * T;
+    muVisc = getViscosity(muRef,Tref,Tphys,1);
+    fc = muVisc*gam/(Pr);
+
+    txx = muVisc*c23*(2*dux - dvy);
+    txy = muVisc*(duy + dvx);
+    tyy = muVisc*c23*(2*dvy - dux);
+
+    nx = n(1);
+    ny = n(2);
+    tx = -ny;
+    ty = nx;
+    tractionx = txx*nx + txy*ny + tau*(u(2)-uhat(2));
+    tractiony = txy*nx + tyy*ny + tau*(u(3)-uhat(3));
+    tauTangential = tx*tractionx + ty*tractiony;
+
+    conductiveWallFlux = fc*(Tx*nx + Ty*ny) + tau*(u(4)-uhat(4));
+
+    Cp = (p - pinf)/qdyn;
+    Cf = tauTangential/qdyn;
+    Cq = conductiveWallFlux/qheatref;
+    s = [Cp; Cf; Cq];
 end

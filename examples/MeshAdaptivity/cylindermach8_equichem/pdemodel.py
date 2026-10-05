@@ -134,6 +134,11 @@ def source(u, q, w, v, x, t, mu, eta):
     return np.full(4, 0 * u[0], dtype=object)
 
 
+def monitor(u, q, w, v, x, t, mu, eta):
+    """Return positive density and pressure for continuation validation."""
+    return np.array([u[0], w[0] / mu[2]], dtype=object)
+
+
 def _normal_basis(normal):
     norm = sp.sqrt(normal[0] * normal[0] + normal[1] * normal[1])
     nx = normal[0] / norm
@@ -399,6 +404,37 @@ def visscalars(u, q, w, v, x, t, mu, eta):
     return np.array([w[0] / mu[2]])
 
 
+def surfacequantities(u, q, w, v, x, t, mu, eta, uhat, n, tau):
+    rho_inf = eta[0]
+    velocity_inf = np.asarray(eta[1:3], dtype=object) / rho_inf
+    speed_inf2 = velocity_inf[0] * velocity_inf[0] + velocity_inf[1] * velocity_inf[1]
+    dynamic_pressure = 0.5 * rho_inf * speed_inf2
+    heat_flux_reference = rho_inf * speed_inf2 * sp.sqrt(speed_inf2)
+    pressure_inf = mu[8] / mu[2]
+
+    gradient_u = -_qmat(q)
+    gradient_velocity, gradient_temperature = _grad_primitives(u, gradient_u, w, mu)
+    stress, conductivity = _stress_heat(uhat[1:3] / uhat[0], gradient_velocity, w, mu)
+
+    normal = np.asarray(n, dtype=object)
+    tangent = np.array([-normal[1], normal[0]], dtype=object)
+    traction = stress @ normal
+    traction[0] += _tau_entry(tau, 1) * (u[1] - uhat[1])
+    traction[1] += _tau_entry(tau, 2) * (u[2] - uhat[2])
+    heat_flux = (
+        conductivity * (gradient_temperature[0] * normal[0] + gradient_temperature[1] * normal[1])
+        + _tau_entry(tau, 3) * (u[3] - uhat[3])
+    )
+
+    pressure_coefficient = (w[0] / mu[2] - pressure_inf) / dynamic_pressure
+    skin_friction_coefficient = (tangent @ traction) / dynamic_pressure
+    heat_flux_coefficient = heat_flux / heat_flux_reference
+    return np.array(
+        [pressure_coefficient, skin_friction_coefficient, heat_flux_coefficient],
+        dtype=object,
+    )
+
+
 def _limited_maximum(value, alpha):
     return value * (sp.atan(alpha * value) / sp.pi + 0.5) - sp.atan(alpha) / sp.pi + 0.5
 
@@ -417,5 +453,8 @@ def avfield(u, q, w, v, x, t, mu, eta):
     velocity_y_gradient = (gradient[2, 1] - gradient[0, 1] * velocity_y) / rho
     divergence = velocity_x_gradient + velocity_y_gradient
     return np.array(
-        [_limiting(divergence * sp.tanh(mu[-3] * v[0]), 0.0, mu[-4], 1.0e3, 0.0)]
+        [
+            _limiting(divergence * sp.tanh(mu[-3] * v[0]), 0.0, mu[-4], 1.0e3, 0.0),
+            w[0] / mu[2],
+        ]
     )

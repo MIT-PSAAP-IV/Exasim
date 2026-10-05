@@ -19,6 +19,7 @@ sys.path.insert(1, os.path.join(REPOSITORY, "frontends", "Python"))
 
 import exasim  # noqa: E402
 from isoq_mesh import make_isoq_mesh, wall_distance  # noqa: E402
+from postprocess_surfacequantities import postprocess_surfacequantities  # noqa: E402
 
 
 def build_case(run_directory=None):
@@ -32,6 +33,9 @@ def build_case(run_directory=None):
     pde["hybrid"] = 1
     pde["debugmode"] = 0
     pde["saveParaview"] = 1
+    pde["saveSolBouFreq"] = 1
+    pde["ibs"] = 3
+    pde["saveSolBouLoc"] = 1
 
     run_directory = run_directory or os.path.join(HERE, "python_run")
     os.makedirs(run_directory, exist_ok=True)
@@ -47,16 +51,16 @@ def build_case(run_directory=None):
     momentum_x_inf, momentum_y_inf = 1.0, 0.0
     energy_inf = 0.5 + pressure_inf / (gam - 1.0)
 
-    pde["AV"] = 1
+    pde["AV"] = 2
     pde["AVcontinuationIter"] = 6
     pde["AVcontinuationLogScale"] = 1.5
     pde["AVcoeffStart"] = 0.002
-    pde["AVcoeffEnd"] = 0.000005
+    pde["AVcoeffEnd"] = 0.00001
     pde["AVdistfunction"] = 1
     pde["distanceboundaryconditions"] = np.array([3], dtype=np.int64)
     pde["AVsmoothingMethod"] = 1
     pde["AVHelmholtzCoeff"] = 0.001
-    av_max_divergence, av_distance_coefficient = 50.0, 100.0
+    av_max_divergence, av_distance_coefficient = 20.0, 100.0
 
     pde["meshadaptenabled"] = 1
     pde["meshadaptfield"] = 2
@@ -102,7 +106,8 @@ def build_case(run_directory=None):
 
     mesh = make_isoq_mesh(pde["porder"], 5.0e-4)
     distance = wall_distance(mesh, pde["porder"])
-    mesh["vdg"] = np.zeros((distance.shape[0], 2, distance.shape[2]), order="F")
+    # ODG layout: wall distance, filtered AV sensor, mesh-adaptation pressure.
+    mesh["vdg"] = np.zeros((distance.shape[0], 3, distance.shape[2]), order="F")
     mesh["vdg"][:, 0:1, :] = distance
     npe, _, ne = mesh["dgnodes"].shape
     mesh["udg"] = np.empty((npe, 4, ne), dtype=np.float64, order="F")
@@ -127,6 +132,7 @@ def main():
         "Python ISOQ mesh adaptivity:", solution.shape,
         "output =", os.path.join(pde["datapath"], "dataout"),
     )
+    postprocess_surfacequantities(pde)
     return solution, pde, mesh, master, dmd
 
 

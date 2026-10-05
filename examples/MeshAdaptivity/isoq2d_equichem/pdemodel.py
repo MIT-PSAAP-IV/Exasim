@@ -153,7 +153,10 @@ def avfield(u, q, w, v, x, t, mu, eta):
     compression_r = (q[6] - q[4] * velocity_r) / rho
     compression = compression_z + compression_r + velocity_r / x[1]
     return np.array(
-        [_limiting(compression * sp.tanh(mu[-3] * v[0]), 0.0, mu[-4], 1.0e3, 0.0)]
+        [
+            _limiting(compression * sp.tanh(mu[-3] * v[0]), 0.0, mu[-4], 1.0e3, 0.0),
+            w[0],
+        ]
     )
 
 
@@ -300,3 +303,35 @@ def visscalars(u, q, w, v, x, t, mu, eta):
 
 def visvectors(u, q, w, v, x, t, mu, eta):
     return mu[1] * np.asarray(u[1:3], dtype=object) / u[0]
+
+
+def surfacequantities(u, q, w, v, x, t, mu, eta, uhat, n, tau):
+    _, _, pressure, _, _, stress, conductivity, temperature_gradient = _flow_data(
+        uhat, q, w, x, mu
+    )
+
+    density_inf = eta[0]
+    velocity_inf = np.asarray(eta[1:3], dtype=object) / density_inf
+    speed_inf2 = velocity_inf @ velocity_inf
+    dynamic_pressure = 0.5 * density_inf * speed_inf2
+    heat_flux_reference = density_inf * speed_inf2 * sp.sqrt(speed_inf2)
+    pressure_inf = mu[8] / mu[2]
+
+    normal = np.asarray(n, dtype=object)
+    tangent = np.array([-normal[1], normal[0]], dtype=object)
+    traction = stress[0:2, 0:2] @ normal
+    traction[0] += _tau_entry(tau, 1) * (u[1] - uhat[1])
+    traction[1] += _tau_entry(tau, 2) * (u[2] - uhat[2])
+    heat_flux = (
+        conductivity * (np.asarray(temperature_gradient, dtype=object) @ normal)
+        + _tau_entry(tau, 3) * (u[3] - uhat[3])
+    )
+
+    return np.array(
+        [
+            (pressure - pressure_inf) / dynamic_pressure,
+            (tangent @ traction) / dynamic_pressure,
+            heat_flux / heat_flux_reference,
+        ],
+        dtype=object,
+    )

@@ -37,6 +37,9 @@ pde.nstage = 1;
 pde.torder = 1;
 pde.saveSolFreq = 1;
 pde.saveParaview = 1;
+pde.saveSolBouFreq = 1;
+pde.saveSolBouLoc = 1;
+pde.ibs = 8; % catalytic isothermal wall surface quantities
 pde.datapath = caseDir;
 pde.builddir = fullfile(caseDir,'.exasim');
 pde.buildpath = pde.builddir;
@@ -56,13 +59,16 @@ Minf = velocityPhysical/soundSpeedInf;
 [rhoReference,velocityReference,rhoeReference,~,temperatureReference, ...
     viscosityReference,conductivityReference,~,cpReference] = ...
     getReferenceState(pressurePhysical,TinfPhysical,velocityPhysical);
+rhoRef = rhoReference;
+vRef = velocityReference;
+TRef = temperatureReference;
 
 Re = rhoReference*lengthReference*velocityReference/viscosityReference;
 Pr = viscosityReference*cpReference/conductivityReference;
 Ec = velocityReference^2/(cpReference*temperatureReference);
 
 nm = 1e2;
-pde.AV = 1;
+pde.AV = 2;
 pde.AVcontinuationIter = 10;
 pde.AVcontinuationLogScale = 3.0;
 pde.AVcoeffStart = 2e-3;
@@ -80,7 +86,7 @@ temperatureMaximum = 2.0e4;
 pressureMinimum = 1.0e-8*pressurePhysical;
 
 pde.meshadaptenabled = 1;
-pde.meshadaptfield = 1; % physical pressure from visscalars
+pde.meshadaptfield = 2; % physical pressure from avfield
 pde.meshadaptavcomponent = 1;
 pde.meshadaptalpha = 0.1;
 pde.meshadaptqmin = 0.2;
@@ -110,7 +116,7 @@ mesh.boundarycondition = [5 2 1 8];
 master = Master(pde);
 dist = meshdist3(mesh.f,mesh.dgnodes,master.perm,4);
 
-mesh.vdg = zeros(size(mesh.dgnodes,1),2,size(mesh.dgnodes,3));
+mesh.vdg = zeros(size(mesh.dgnodes,1),3,size(mesh.dgnodes,3));
 mesh.vdg(:,1,:) = dist;
 mesh.udg = local_initial_solution(mesh,dist,Uinf,nm);
 mesh.wdg = ones(size(mesh.dgnodes,1),1,size(mesh.dgnodes,3));
@@ -119,6 +125,14 @@ fprintf('\nFinite-rate five-species-air ISOQ setup\n');
 fprintf('  rho_inf = %.10g kg/m^3, T_inf = %.10g K, U_inf = %.10g m/s\n', ...
     rhoPhysical,TinfPhysical,velocityPhysical);
 fprintf('  Mach = %.8g, Re = %.8g\n',Minf,Re);
+
+% An export-only caller can generate this exact configured case without solving.
+if exist('text2code_export_directory', 'var') && ~isempty(text2code_export_directory)
+    exporttext2code(pde,mesh,text2code_export_directory);
+    if exist('text2code_export_only', 'var') && text2code_export_only
+        return;
+    end
+end
 
 pde.gencode = 1;
 [sol,pde,mesh,master,dmd] = exasim(pde,mesh);
@@ -164,6 +178,20 @@ axis equal; axis tight; colorbar;
 
 figure(8); clf; meshplot(mesh,1);
 axis equal; axis tight; colorbar;
+
+surfaceResult = postprocess_surfacequantities(pde);
+
+figure(9); clf; plot(surfaceResult.s, surfaceResult.Cp, 'o-');
+grid on; xlabel('wall arclength'); ylabel('C_p');
+title('Wall pressure coefficient from saved surface quantities');
+
+figure(10); clf; plot(surfaceResult.s, surfaceResult.Cf, 'o-');
+grid on; xlabel('wall arclength'); ylabel('C_f');
+title('Wall skin-friction coefficient from saved surface quantities');
+
+figure(11); clf; plot(surfaceResult.s, surfaceResult.Cq, 'o-');
+grid on; xlabel('wall arclength'); ylabel('C_q');
+title('Wall heat-flux coefficient from saved surface quantities');
 
 function UDG = local_initial_solution(mesh,dist,Uinf,slope)
 rho = sum(Uinf(1:5));

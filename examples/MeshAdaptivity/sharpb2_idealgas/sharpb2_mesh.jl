@@ -32,7 +32,7 @@ function sharpb2_curves()
         0.14 .+ outer_radius .* cos.(theta), outer_radius .* sin.(theta)
     )
     outer_x = collect(range(outer_nose[end, 1], length, length=400))
-    outer_y = outer_nose[end, 2] .+ (2.0 * radius - outer_nose[end, 2]) .* (
+    outer_y = outer_nose[end, 2] .+ (2.0radius - outer_nose[end, 2]) .* (
         outer_x .- outer_nose[end, 1]
     ) ./ (length - outer_nose[end, 1])
     upper = vcat(outer_nose, hcat(outer_x, outer_y))

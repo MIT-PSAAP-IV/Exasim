@@ -10,13 +10,14 @@ using Exasim
 
 include(joinpath(@__DIR__, "pdemodel.jl"))
 include(joinpath(@__DIR__, "cylinder_mesh.jl"))
+include(joinpath(@__DIR__, "postprocess_surfacequantities.jl"))
 
 function build_backend_case()
     pde, _ = Exasim.initializeexasim()
     pde.model = "ModelD"
     pde.modelfile = ""
     pde.platform = "cpu"
-    pde.mpiprocs = 1
+    pde.mpiprocs = 4
     pde.hybrid = 1
     pde.porder = 2
 
@@ -56,8 +57,14 @@ function build_backend_case()
     pde.NLtol = 1.0e-6
     pde.NLiter = 10
     pde.matvectol = 1.0e-6
+    pde.saveParaview = 1
+    # Save Cp, Cf, and Cq from pdemodel.surfacequantities on the isothermal
+    # cylinder wall (boundary-condition ID 3) at face Gauss points.
+    pde.saveSolBouFreq = 1
+    pde.ibs = 3
+    pde.saveSolBouLoc = 1
 
-    pde.AV = 1
+    pde.AV = 2
     pde.AVcontinuationIter = 10
     pde.AVcontinuationLogScale = 1.5
     pde.AVcoeffStart = 0.060
@@ -92,7 +99,8 @@ function build_backend_case()
     )
 
     pde.meshadaptenabled = 1
-    pde.meshadaptfield = 3
+    pde.meshadaptavcomponent = 1
+    pde.meshadaptfield = 2
     pde.meshadaptalpha = 0.5
     pde.meshadaptHelmholtzCoeff = 5.0e-2
     pde.meshadaptforcescale = 0.2
@@ -103,7 +111,7 @@ function build_backend_case()
         pde.porder; nx=51, ny=32, radial_decay=3.0, outer_offset=4.0
     )
     distance = wall_distance(mesh, pde.porder)
-    mesh.odg = zeros(Float64, size(distance, 1), 2, size(distance, 3))
+    mesh.odg = zeros(Float64, size(distance, 1), 3, size(distance, 3))
     mesh.odg[:, 1:1, :] .= distance
     mesh.udg = initialize_solution(mesh, distance, vec(pde.physicsparam))
     return pde, mesh
@@ -126,6 +134,7 @@ function main_backend()
             "Julia backend mesh adaptivity: ", size(solution),
             " adapted x range = ", extrema(adapted_nodes[:, 1, :]),
         )
+        postprocess_surfacequantities(pde)
         return solution, pde, mesh, master, dmd
     finally
         if isnothing(old_verification)
