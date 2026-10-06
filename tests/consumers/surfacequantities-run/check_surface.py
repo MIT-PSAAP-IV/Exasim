@@ -12,6 +12,9 @@ the second output is exactly its QoIboundary integrand. So:
   union <prefix_a> <prefix_b> <np>
                                Boundary_QoI1 and the saved face count agree between the
                                ibs = [1, 2] run (a) and the single-id baseline run (b)
+  partial <prefix> <np>        ibs = one side only, so some rank owns no ibs face
+                               (ndofbou == 0; its boundary arrays are never allocated):
+                               the run must complete and that rank's files be empty
 
 <prefix> is the run's output prefix, e.g. dataout/out.
 """
@@ -155,12 +158,26 @@ def check_union(prefix_a, prefix_b, nranks):
     print("  [surfq union] ibs=[1,2] == single id: %d faces, Boundary_QoI1 = %.10e" % (na, qa["Boundary_QoI1"]))
 
 
+def check_partial(prefix, nranks):
+    counts = [sum(nf for _, nf in blocks(prefix, r)) for r in range(nranks)]
+    if min(counts) != 0 or max(counts) == 0:
+        raise SystemExit("FAIL: fixture does not exercise a rank without ibs faces: faces per rank %s"
+                         % counts)
+    for r, n in enumerate(counts):
+        sh, srec = header_and_records("%sbousurf_np%d.bin" % (prefix, r))
+        if sh[1] != n or (n == 0 and srec):
+            raise SystemExit("FAIL: rank %d bousurf header %s for %d ibs faces" % (r, sh, n))
+    print("  [surfq partial] ibs faces per rank %s: rank(s) without ibs faces ran clean" % counts)
+
+
 if __name__ == "__main__":
     mode = sys.argv[1]
     if mode == "nodes":
         check_nodes(sys.argv[2], int(sys.argv[3]))
     elif mode == "gauss":
         check_gauss(sys.argv[2], int(sys.argv[3]))
+    elif mode == "partial":
+        check_partial(sys.argv[2], int(sys.argv[3]))
     elif mode == "union":
         check_union(sys.argv[2], sys.argv[3], int(sys.argv[4]))
     else:

@@ -414,9 +414,13 @@ void CDiscretization::computeAverageSolutionsOnBoundary()
                 off += nn;
             }
         }
-        ArrayAddScalar(&sol.bouudgavg[ndofbou*nc], one, 1);
-        ArrayAddScalar(&sol.bouuhavg[ndofbou*ncu], one, 1);
-        if (ncw>0) ArrayAddScalar(&sol.bouwdgavg[ndofbou*ncw], one, 1);
+        // A rank that owns no ibs face has ndofbou == 0 and no bou*avg arrays (setstructs
+        // allocates them only for ndofbou > 0), so it has no counter to bump either.
+        if (ndofbou > 0) {
+            ArrayAddScalar(&sol.bouudgavg[ndofbou*nc], one, 1);
+            ArrayAddScalar(&sol.bouuhavg[ndofbou*ncu], one, 1);
+            if (ncw>0) ArrayAddScalar(&sol.bouwdgavg[ndofbou*ncw], one, 1);
+        }
     }
 }
 
