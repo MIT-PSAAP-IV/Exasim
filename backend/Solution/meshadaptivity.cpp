@@ -54,15 +54,6 @@ inline void writeVerificationField(const string& prefix, const string& name,
                     static_cast<Int>(values.size()));
 }
 
-inline void writeVerificationDeviceField(const string& prefix, const string& name,
-    const dstype* values, Int count, Int rank, Int backend)
-{
-    if (count <= 0) return;
-    std::vector<dstype> host(count);
-    TemplateCopytoHost(host.data(), const_cast<dstype*>(values), count, backend);
-    writeVerificationField(prefix, name, host, rank);
-}
-
 template <class D>
 void exchangeElementField(D& disc, dstype* field, const Int* sendIndices,
                           const Int* receiveIndices, Int blockSize);
@@ -252,87 +243,6 @@ inline void limitSensor(dstype* sensor, dstype upper, Int count)
         });
 }
 
-template <class D, class R>
-inline void computeMeshAdaptivityEta(
-    D& disc,
-    R& residual,
-    dstype* eta,
-    dstype* lowModalBasis,
-    dstype* lowModalInverse,
-    Int lowModeCount,
-    Int backend)
-{
-    const auto& cfg = disc.common.meshadaptparams;
-    const Int npe = disc.common.grid.npe;
-    const Int nge = disc.common.grid.nge;
-    const Int nd = disc.common.grid.nd;
-    const Int ncx = disc.common.components.ncx;
-    const Int ne = disc.common.meshsizes.ne;
-    const Int ncAV = disc.common.physicsparams.ncAV;
-    const Int nodeCount = npe*ne;
-    const Int avFieldSize = ncAV*nodeCount;
-
-    if (eta == nullptr)
-        error("Mesh-adaptivity eta storage is not initialized.");
-    if (lowModalBasis == nullptr || lowModalInverse == nullptr)
-        error("Mesh-adaptivity modal projection matrices are not initialized.");
-    if (lowModeCount <= 0 || lowModeCount > npe)
-        error("Invalid mesh-adaptivity low-mode count.");
-    if (ncAV <= 0)
-        error("Mesh adaptation requires avfield outputs.");
-    if (cfg.avComponent < 1 || cfg.avComponent > ncAV)
-        error("meshadaptavcomponent does not identify an available avfield component.");
-    if (cfg.scalarField < 1 || cfg.scalarField > ncAV)
-        error("meshadaptfield does not identify an available avfield component.");
-    if (disc.res.Ru == nullptr || disc.res.szRu < nodeCount)
-        error("Ru workspace is too small for mesh-adaptivity field1.");
-    if (disc.res.Rq == nullptr || disc.res.szRq < avFieldSize + nodeCount)
-        error("Rq workspace is too small for avfield outputs and field2.");
-
-    dstype* field1 = disc.res.Ru;
-    dstype* field2 = &disc.res.Rq[avFieldSize];
-
-    residual.evalAVfield(disc.res.Rq, backend);
-
-    // Temporarily use field1 for the raw scalar that defines the modal sensor.
-    ArrayExtract(field1, disc.res.Rq, npe, ncAV, ne,
-                 0, npe, cfg.scalarField-1, cfg.scalarField, 0, ne);
-
-    // Temporarily use field2 for the retained low-order modal coefficients.
-    Node2Gauss(disc.common.cublasHandle, field2, field1, lowModalInverse,
-               lowModeCount, npe, ne, backend);
-
-    // Temporarily use eta for the corresponding low-order nodal field.
-    Node2Gauss(disc.common.cublasHandle, eta, field2, lowModalBasis,
-               npe, lowModeCount, ne, backend);
-
-    // The modal coefficients are no longer needed; replace them with the
-    // elementwise error between the original and low-order fields.
-    evaluateSensorError(field2, field1, eta, disc.sol.xdg,
-                        disc.master.shapegt, disc.master.gwe,
-                        npe, nge, ncx, ne, nd);
-
-    const dstype rawMaximum = PArrayMax(field2, nodeCount);
-    limitSensor(field2, 0.5*rawMaximum, nodeCount);
-
-    // The low-order nodal field is no longer needed; reuse eta as scratch.
-    smoothDG2CG2(disc, field2, eta, 1, 3, backend);
-    const dstype field2Maximum = PArrayMaxAbs(field2, nodeCount);
-
-    // Replace the temporary raw scalar with the actual AV component.
-    ArrayExtract(field1, disc.res.Rq, npe, ncAV, ne,
-                 0, npe, cfg.avComponent-1, cfg.avComponent, 0, ne);
-    const dstype field1Maximum = PArrayMaxAbs(field1, nodeCount);
-
-    const dstype field1Scale =
-        field1Maximum > 0.0 ? cfg.alpha/field1Maximum : 0.0;
-    const dstype field2Scale =
-        field2Maximum > 0.0 ? (1.0-cfg.alpha)/field2Maximum : 0.0;
-
-    ArrayAXPBY(eta, field1, field2,
-               field1Scale, field2Scale, nodeCount);
-}
-
 inline void nodalJacobian(dstype* jac, const dstype* xdg, const dstype* shapent,
     Int npe, Int ncx, Int ne, Int nd)
 {
@@ -380,7 +290,7 @@ inline void scaleSquareRoot(dstype* values, dstype coefficient, Int count)
 }
 
 inline void targetLameAndHelmholtzInput(dstype* elasticityInput,
-    dstype* helmholtzInput, const dstype* eta, const dstype* currentSize,
+    dstype* helmholtzInput, const dstype* indicator, const dstype* currentSize,
     dstype hmin, dstype hmax, dstype helmholtzCoefficient, dstype targetExponent,
     dstype youngModulus, dstype minimumYoungModulus, dstype poissonRatio,
     Int npe, Int ne, Int nd)
@@ -391,7 +301,7 @@ inline void targetLameAndHelmholtzInput(dstype* elasticityInput,
         KOKKOS_LAMBDA(const Int index) {
             const Int i = index % npe;
             const Int e = index / npe;
-            dstype bounded = eta[index];
+            dstype bounded = indicator[index];
             if (bounded < 0.0) bounded = 0.0;
             else if (bounded > 1.0) bounded = 1.0;
             const dstype target = hmin + (hmax-hmin)*Kokkos::pow(1.0-bounded, targetExponent);
@@ -401,23 +311,8 @@ inline void targetLameAndHelmholtzInput(dstype* elasticityInput,
             const dstype lambda = E*poissonRatio/((1.0+poissonRatio)*(1.0-2.0*poissonRatio));
             elasticityInput[i+npe*0+npe*(2+nd)*e] = mu;
             elasticityInput[i+npe*1+npe*(2+nd)*e] = lambda;
-            helmholtzInput[i+npe*0+npe*2*e] = eta[index];
+            helmholtzInput[i+npe*0+npe*2*e] = indicator[index];
             helmholtzInput[i+npe*1+npe*2*e] = helmholtzCoefficient*currentSize[index];
-        });
-}
-
-inline void calculateTargetSize(dstype* targetSize, const dstype* eta,
-    dstype hmin, dstype hmax, dstype targetExponent, Int count)
-{
-    Kokkos::parallel_for(
-        "MeshAdaptCalculateTargetSize",
-        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace, Kokkos::IndexType<Int>>(0, count),
-        KOKKOS_LAMBDA(const Int index) {
-            dstype bounded = eta[index];
-            if (bounded < 0.0) bounded = 0.0;
-            else if (bounded > 1.0) bounded = 1.0;
-            targetSize[index] = hmin + (hmax-hmin)
-                * Kokkos::pow(1.0-bounded, targetExponent);
         });
 }
 
@@ -586,43 +481,59 @@ void CSolution<M>::UpdateWallDistance(Int continuationIteration, Int backend)
 }
 
 template <class M>
-bool CSolution<M>::AdaptMeshChecked(Int backend, Int continuationIteration)
+void CSolution<M>::computeMeshIndicator(dstype* indicator)
 {
     using namespace exasim_meshadapt;
-    if (!disc.common.meshadaptparams.enabled) return true;
-    if (!helmholtz || !elasticity) error("Mesh-adaptivity auxiliary solvers were not constructed.");
-    if (disc.common.spatialScheme != 1)
-        error("Backend mesh adaptivity requires HDG (spatialScheme == 1).");
+    if (indicator == nullptr)
+        error("Mesh-indicator output storage is not initialized.");
+
+    const Int backend = disc.common.backend;
     const auto& cfg = disc.common.meshadaptparams;
-    const Int nd = disc.common.grid.nd;
     const Int npe = disc.common.grid.npe;
     const Int nge = disc.common.grid.nge;
-    const Int ne = disc.common.meshsizes.ne;
-    const Int ne1 = disc.common.meshsizes.ne1;
+    const Int nd = disc.common.grid.nd;
     const Int ncx = disc.common.components.ncx;
-    if (nd != 2 && nd != 3) error("Backend mesh adaptivity supports only 2D and 3D.");
-    ArraySetValue(helmholtz->disc.app.tau, cfg.helmholtzTau,
-                  helmholtz->disc.app.sztau);
-    const char *verificationEnvironment = std::getenv("EXASIM_MESHADAPT_VERIFY");
-    const bool writeVerification = verificationEnvironment != nullptr &&
-        string(verificationEnvironment) != "0" && string(verificationEnvironment) != "";
+    const Int ne = disc.common.meshsizes.ne;
+    const Int ncAV = disc.common.physicsparams.ncAV;
+    const Int nodeCount = npe*ne;
+    const Int avFieldSize = ncAV*nodeCount;
+
+    if (nd != 2 && nd != 3)
+        error("Backend mesh adaptivity supports only 2D and 3D.");
+    if (ncAV <= 0)
+        error("Mesh adaptation requires avfield outputs.");
+    if (cfg.avComponent < 1 || cfg.avComponent > ncAV)
+        error("meshadaptavcomponent does not identify an available avfield component.");
+    if (cfg.scalarField < 1 || cfg.scalarField > ncAV)
+        error("meshadaptfield does not identify an available avfield component.");
+    if (disc.res.Ru == nullptr || disc.res.szRu < nodeCount)
+        error("Ru workspace is too small for mesh-adaptivity field1.");
+    if (disc.res.Rq == nullptr || disc.res.szRq < avFieldSize+nodeCount)
+        error("Rq workspace is too small for avfield outputs and field2.");
 
     auto& workspace = meshAdaptWorkspace;
+    if ((workspace.lowModalBasis == nullptr) !=
+        (workspace.lowModalInverse == nullptr))
+        error("Mesh-adaptivity modal projection workspace is inconsistent.");
     if (workspace.lowModalBasis == nullptr) {
         std::vector<dstype> xpe(disc.master.szxpe);
         TemplateCopytoHost(xpe.data(), disc.master.xpe, disc.master.szxpe, backend);
         std::vector<double> nodes(npe*nd), basisDouble(npe*npe);
-        for (Int i = 0; i < npe*nd; ++i) nodes[i] = static_cast<double>(xpe[i]);
+        for (Int i = 0; i < npe*nd; ++i)
+            nodes[i] = static_cast<double>(xpe[i]);
         if (disc.common.grid.elemtype == 0)
             koornwinder(basisDouble.data(), nodes.data(), npe,
                         disc.common.grid.porder, nd, 0);
         else
             tensorproduct(basisDouble.data(), nodes.data(), npe,
                           disc.common.grid.porder, nd, 0);
+
         std::vector<dstype> basis(npe*npe);
-        for (Int i = 0; i < npe*npe; ++i) basis[i] = static_cast<dstype>(basisDouble[i]);
+        for (Int i = 0; i < npe*npe; ++i)
+            basis[i] = static_cast<dstype>(basisDouble[i]);
         const std::vector<dstype> inverse = invert(basis, npe);
-        workspace.lowModeCount = disc.common.grid.elemtype == 0 ? nd+1 : 1 << nd;
+        workspace.lowModeCount =
+            disc.common.grid.elemtype == 0 ? nd+1 : 1 << nd;
         std::vector<dstype> lowBasis(npe*workspace.lowModeCount);
         std::vector<dstype> lowInverse(workspace.lowModeCount*npe);
         for (Int a = 0; a < workspace.lowModeCount; ++a)
@@ -630,6 +541,7 @@ bool CSolution<M>::AdaptMeshChecked(Int backend, Int continuationIteration)
                 lowBasis[i+npe*a] = basis[i+npe*a];
                 lowInverse[a+workspace.lowModeCount*i] = inverse[a+npe*i];
             }
+
         TemplateMalloc(&workspace.lowModalBasis,
                        static_cast<Int>(lowBasis.size()), backend);
         TemplateMalloc(&workspace.lowModalInverse,
@@ -640,47 +552,102 @@ bool CSolution<M>::AdaptMeshChecked(Int backend, Int continuationIteration)
                              static_cast<Int>(lowInverse.size()), backend);
     }
 
-    const Int nodeCount = npe*ne;
-    const Int outputRank = disc.common.mpiRank-disc.common.outputparams.fileoffset;
-    const string continuationName = continuationIteration > 0 ?
-        "aviter" + NumberToString(continuationIteration) + "_" : "";
+    if (workspace.lowModeCount <= 0 || workspace.lowModeCount > npe)
+        error("Invalid mesh-adaptivity low-mode count.");
 
+    dstype* field1 = disc.res.Ru;
+    dstype* field2 = disc.res.Rq+avFieldSize;
+    residual.evalAVfield(disc.res.Rq, backend);
+
+    // Temporarily use field1 for the raw scalar that defines the modal sensor.
+    ArrayExtract(field1, disc.res.Rq, npe, ncAV, ne,
+                 0, npe, cfg.scalarField-1, cfg.scalarField, 0, ne);
+
+    // Temporarily use field2 for the retained low-order modal coefficients.
+    Node2Gauss(disc.common.cublasHandle, field2, field1,
+               workspace.lowModalInverse, workspace.lowModeCount,
+               npe, ne, backend);
+
+    // Temporarily use indicator for the corresponding low-order nodal field.
+    Node2Gauss(disc.common.cublasHandle, indicator, field2,
+               workspace.lowModalBasis, npe, workspace.lowModeCount,
+               ne, backend);
+
+    // The modal coefficients are no longer needed; replace them with the
+    // elementwise error between the original and low-order fields.
+    evaluateSensorError(field2, field1, indicator, disc.sol.xdg,
+                        disc.master.shapegt, disc.master.gwe,
+                        npe, nge, ncx, ne, nd);
+
+    const dstype rawMaximum = PArrayMax(field2, nodeCount);
+    limitSensor(field2, 0.5*rawMaximum, nodeCount);
+
+    // The low-order nodal field is no longer needed; reuse indicator as scratch.
+    smoothDG2CG2(disc, field2, indicator, 1, 3, backend);
+    const dstype field2Maximum = PArrayMaxAbs(field2, nodeCount);
+
+    // Replace the temporary raw scalar with the actual AV component.
+    ArrayExtract(field1, disc.res.Rq, npe, ncAV, ne,
+                 0, npe, cfg.avComponent-1, cfg.avComponent, 0, ne);
+    const dstype field1Maximum = PArrayMaxAbs(field1, nodeCount);
+
+    const dstype field1Scale =
+        field1Maximum > 0.0 ? cfg.alpha/field1Maximum : 0.0;
+    const dstype field2Scale =
+        field2Maximum > 0.0 ? (1.0-cfg.alpha)/field2Maximum : 0.0;
+
+    ArrayAXPBY(indicator, field1, field2,
+               field1Scale, field2Scale, nodeCount);
+}
+
+template <class M>
+bool CSolution<M>::updateMeshCoordinatesFromIndicator(
+    dstype* xdg, const dstype* indicator, Int movementIterations)
+{
+    using namespace exasim_meshadapt;
+    if (xdg == nullptr)
+        error("Mesh-coordinate output storage is not initialized.");
+    if (indicator == nullptr)
+        error("Mesh-adaptivity indicator storage is not initialized.");
+    if (movementIterations <= 0)
+        error("Mesh movement requires at least one iteration.");
+    if (!helmholtz || !elasticity)
+        error("Mesh-adaptivity auxiliary solvers were not constructed.");
+    if (disc.common.spatialScheme != 1)
+        error("Backend mesh adaptivity requires HDG (spatialScheme == 1).");
+
+    const Int backend = disc.common.backend;
+    const auto& cfg = disc.common.meshadaptparams;
+    const Int nd = disc.common.grid.nd;
+    const Int npe = disc.common.grid.npe;
+    const Int ne = disc.common.meshsizes.ne;
+    const Int ne1 = disc.common.meshsizes.ne1;
+    const Int ncx = disc.common.components.ncx;
+    const Int nodeCount = npe*ne;
+    if (nd != 2 && nd != 3)
+        error("Backend mesh adaptivity supports only 2D and 3D.");
     if (ne1 > nodeCount)
         error("Element-mean workspace exceeds mesh-adaptivity vector storage.");
+    ArraySetValue(helmholtz->disc.app.tau, cfg.helmholtzTau,
+                  helmholtz->disc.app.sztau);
 
-    const Int ncAV = disc.common.physicsparams.ncAV;
-    if (ncAV <= 0)
-        error("Mesh adaptation requires avfield outputs.");
-
-    const Int scalarBufferSize = nodeCount;
     const Int vectorBufferSize = std::max(nd*nodeCount, nodeCount+ne1);
-    const Int avWorkspaceSize = (ncAV+1)*nodeCount;
-    const Int etaOffset = std::max(vectorBufferSize, avWorkspaceSize);
-    const Int requiredRqSize = etaOffset+nodeCount;
-    if (disc.res.Ru == nullptr || disc.res.szRu < scalarBufferSize)
+    if (disc.res.Ru == nullptr || disc.res.szRu < nodeCount)
         error("Ru workspace is too small for mesh-adaptivity scalar storage.");
-    if (disc.res.Rq == nullptr || disc.res.szRq < requiredRqSize)
-        error("Rq workspace is too small for mesh-adaptivity vector and eta storage.");
+    if (disc.res.Rq == nullptr || disc.res.szRq < vectorBufferSize)
+        error("Rq workspace is too small for mesh-adaptivity vector storage.");
 
     dstype* scalarBuffer = disc.res.Ru;
     dstype* vectorBuffer = disc.res.Rq;
-    dstype* eta = disc.res.Rq+etaOffset;
-
-    computeMeshAdaptivityEta(
-        disc, residual, eta, workspace.lowModalBasis,
-        workspace.lowModalInverse, workspace.lowModeCount, backend);
-
-    if (writeVerification)
-        writeVerificationDeviceField(disc.common.fileout,
-            continuationName + "eta", eta, nodeCount, outputRank, backend);
+    if (xdg != disc.sol.xdg)
+        ArrayCopy(xdg, disc.sol.xdg, disc.sol.szxdg);
 
     bool meshAccepted = true;
     std::ofstream auxiliaryOutput;
-    const Int movementIterations = continuationIteration > 0 ? 1 : cfg.movementIterations;
     for (Int iteration = 0; iteration < movementIterations; ++iteration) {
         dstype* jac = scalarBuffer;
         dstype* smoothScratch = vectorBuffer;
-        nodalJacobian(jac, disc.sol.xdg, disc.master.shapent, npe, ncx, ne, nd);
+        nodalJacobian(jac, xdg, disc.master.shapent, npe, ncx, ne, nd);
         if (!PArrayAllPositiveFinite(jac, nodeCount)) {
             meshAccepted = false;
             break;
@@ -702,21 +669,15 @@ bool CSolution<M>::AdaptMeshChecked(Int backend, Int continuationIteration)
         dstype hmin = 0.0, hmax = 0.0;
         DistributedRadixQuantiles(hmin, hmax, means, ne1, cfg.qmin, cfg.qmax);
 
-        // Auxiliary geometry is synchronized on entry and after AdaptMesh returns.
-        // Only later movement iterations need an in-loop refresh.
+        // Auxiliary geometry is synchronized on entry. Later movement
+        // iterations must refresh it from the current output coordinates.
         if (iteration > 0)
-            rebuildGeometry(helmholtz->disc, disc.sol.xdg, backend);
+            rebuildGeometry(helmholtz->disc, xdg, backend);
         targetLameAndHelmholtzInput(elasticity->disc.sol.odg,
-            helmholtz->disc.sol.odg, eta, currentSize, hmin, hmax,
+            helmholtz->disc.sol.odg, indicator, currentSize, hmin, hmax,
             cfg.helmholtzCoeff, cfg.targetExponent, cfg.youngModulus,
             cfg.minimumYoungModulus, cfg.poissonRatio, npe, ne, nd);
-        if (writeVerification) {
-            calculateTargetSize(scalarBuffer, eta, hmin, hmax,
-                                cfg.targetExponent, nodeCount);
-            writeVerificationDeviceField(disc.common.fileout,
-                continuationName + "iter" + NumberToString(iteration+1) + "_h",
-                scalarBuffer, nodeCount, outputRank, backend);
-        }
+
         ArraySetValue(helmholtz->disc.sol.udg, zero, helmholtz->disc.sol.szudg);
         ArraySetValue(helmholtz->solv.sys.u, zero, helmholtz->solv.sys.szu);
         ArraySetValue(helmholtz->solv.sys.x, zero, helmholtz->solv.sys.szx);
@@ -728,23 +689,26 @@ bool CSolution<M>::AdaptMeshChecked(Int backend, Int continuationIteration)
             meshAccepted = false;
             break;
         }
+
         packElasticityForce(elasticity->disc.sol.odg,
                             helmholtz->disc.sol.udg, npe, ne, nd);
         smoothDG2CG2(elasticity->disc, elasticity->disc.sol.odg, scalarBuffer,
                      2+nd, cfg.smoothingPasses, backend);
 
         if (iteration > 0)
-            rebuildGeometry(elasticity->disc, disc.sol.xdg, backend);
+            rebuildGeometry(elasticity->disc, xdg, backend);
         ArraySetValue(elasticity->disc.sol.udg, zero, elasticity->disc.sol.szudg);
         ArraySetValue(elasticity->solv.sys.u, zero, elasticity->solv.sys.szu);
         ArraySetValue(elasticity->solv.sys.x, zero, elasticity->solv.sys.szx);
-        if (elasticity->disc.sol.szuh > 0) ArraySetValue(elasticity->disc.sol.uh, zero, elasticity->disc.sol.szuh);
+        if (elasticity->disc.sol.szuh > 0)
+            ArraySetValue(elasticity->disc.sol.uh, zero, elasticity->disc.sol.szuh);
         const SolveStatus elasticityStatus =
             elasticity->SteadyProblem(auxiliaryOutput, backend, true);
         if (!elasticityStatus.finite) {
             meshAccepted = false;
             break;
         }
+
         // The HDG solve updates owned elements. Refresh ghost-element values
         // before the local DG-to-CG average so interface nodes see the same
         // displacement data on neighboring MPI ranks.
@@ -767,9 +731,10 @@ bool CSolution<M>::AdaptMeshChecked(Int backend, Int continuationIteration)
                          0, npe, 0, nd, 0, ne);
         }
 #endif
+
         dstype beta = cfg.damping;
         while (true) {
-            dstype minimum = candidateMinimumJacobian(disc.sol.xdg, continuous,
+            dstype minimum = candidateMinimumJacobian(xdg, continuous,
                 disc.master.shapent, beta, npe, ncx, ne, nd);
 #ifdef HAVE_MPI
             dstype globalMinimum = minimum;
@@ -784,52 +749,57 @@ bool CSolution<M>::AdaptMeshChecked(Int backend, Int continuationIteration)
                 break;
             }
         }
-        if (!meshAccepted) {
+        if (!meshAccepted)
             break;
-        }
-        ArrayAXPBY(disc.sol.xdg, disc.sol.xdg, continuous,
-                   one, beta, npe*nd*ne);
 
-        const string iterationName = continuationName + "iter" + NumberToString(iteration+1) + "_";
-        if (writeVerification) {
-            writeVerificationField(disc.common.fileout, iterationName + "hmin",
-                                   std::vector<dstype>{hmin}, outputRank);
-            writeVerificationField(disc.common.fileout, iterationName + "hmax",
-                                   std::vector<dstype>{hmax}, outputRank);
-            ArrayExtract(scalarBuffer, elasticity->disc.sol.odg, npe, 2+nd, ne,
-                         0, npe, 0, 1, 0, ne);
-            writeVerificationDeviceField(disc.common.fileout, iterationName + "mu",
-                                         scalarBuffer, nodeCount, outputRank, backend);
-            ArrayExtract(scalarBuffer, elasticity->disc.sol.odg, npe, 2+nd, ne,
-                         0, npe, 1, 2, 0, ne);
-            writeVerificationDeviceField(disc.common.fileout, iterationName + "lambda",
-                                         scalarBuffer, nodeCount, outputRank, backend);
-            writeVerificationDeviceField(disc.common.fileout, iterationName + "helmholtz",
-                helmholtz->disc.sol.udg, helmholtz->disc.sol.szudg, outputRank, backend);
-            writeVerificationDeviceField(disc.common.fileout, iterationName + "displacement",
-                                         continuous, npe*nd*ne, outputRank, backend);
-            writeVerificationDeviceField(disc.common.fileout, iterationName + "xdg",
-                                         disc.sol.xdg, disc.sol.szxdg, outputRank, backend);
-            ArrayExtract(continuous, elasticity->disc.sol.odg, npe, 2+nd, ne,
-                         0, npe, 2, 2+nd, 0, ne);
-            writeVerificationDeviceField(disc.common.fileout, iterationName + "force",
-                                         continuous, npe*nd*ne, outputRank, backend);
-        }
+        ArrayAXPBY(xdg, xdg, continuous, one, beta, npe*nd*ne);
     }
 
     if (meshAccepted) {
-        rebuildGeometry(disc, disc.sol.xdg, backend);
-        rebuildGeometry(helmholtz->disc, disc.sol.xdg, backend);
-        rebuildGeometry(elasticity->disc, disc.sol.xdg, backend);
+        rebuildGeometry(disc, xdg, backend);
+        rebuildGeometry(helmholtz->disc, xdg, backend);
+        rebuildGeometry(elasticity->disc, xdg, backend);
     }
     return meshAccepted;
 }
 
 template <class M>
-void CSolution<M>::AdaptMesh(Int backend, Int continuationIteration)
+bool CSolution<M>::AdaptMesh(Int backend, Int continuationIteration)
 {
-    if (!AdaptMeshChecked(backend, continuationIteration))
-        error("Mesh adaptation could not produce a finite, valid mesh.");
+    using namespace exasim_meshadapt;
+    if (!disc.common.meshadaptparams.enabled) return true;
+    if (!helmholtz || !elasticity) error("Mesh-adaptivity auxiliary solvers were not constructed.");
+    if (disc.common.spatialScheme != 1)
+        error("Backend mesh adaptivity requires HDG (spatialScheme == 1).");
+    const auto& cfg = disc.common.meshadaptparams;
+    const Int nd = disc.common.grid.nd;
+    const Int npe = disc.common.grid.npe;
+    const Int ne = disc.common.meshsizes.ne;
+    const Int ne1 = disc.common.meshsizes.ne1;
+    if (nd != 2 && nd != 3) error("Backend mesh adaptivity supports only 2D and 3D.");
+
+    const Int nodeCount = npe*ne;
+
+    if (ne1 > nodeCount)
+        error("Element-mean workspace exceeds mesh-adaptivity vector storage.");
+
+    const Int ncAV = disc.common.physicsparams.ncAV;
+    if (ncAV <= 0)
+        error("Mesh adaptation requires avfield outputs.");
+
+    const Int vectorBufferSize = std::max(nd*nodeCount, nodeCount+ne1);
+    const Int avWorkspaceSize = (ncAV+1)*nodeCount;
+    const Int indicatorOffset = std::max(vectorBufferSize, avWorkspaceSize);
+    const Int requiredRqSize = indicatorOffset+nodeCount;
+    if (disc.res.Rq == nullptr || disc.res.szRq < requiredRqSize)
+        error("Rq workspace is too small for mesh-adaptivity vector and indicator storage.");
+
+    dstype* indicator = disc.res.Rq+indicatorOffset;
+    computeMeshIndicator(indicator);
+
+    const Int movementIterations = continuationIteration > 0 ? 1 : cfg.movementIterations;
+    return updateMeshCoordinatesFromIndicator(
+        disc.sol.xdg, indicator, movementIterations);
 }
 
 #endif

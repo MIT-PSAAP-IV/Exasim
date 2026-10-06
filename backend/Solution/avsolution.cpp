@@ -66,7 +66,7 @@ void avdistfunc(CSolution<exasim::detail::AbiAdapter>** pdemodel, ofstream* out,
       bool meshAccepted = true;
       for (Int i=0; i<nummodels; i++) {
         if (pdemodel[i]->disc.common.meshadaptparams.enabled)
-          meshAccepted = pdemodel[i]->AdaptMeshChecked(backend, n+1) && meshAccepted;
+          meshAccepted = pdemodel[i]->AdaptMesh(backend, n+1) && meshAccepted;
       }
 #ifdef HAVE_MPI
       int acceptedMesh = meshAccepted ? 1 : 0;

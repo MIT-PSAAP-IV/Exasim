@@ -184,8 +184,9 @@ private:
 public:
     void UpdateWallDistance(Int continuationIteration, Int backend);
     void PrepareArtificialViscosity(bool zeroSensor, Int continuationIteration, Int backend);
-    void AdaptMesh(Int backend, Int continuationIteration = 0);
-    bool AdaptMeshChecked(Int backend, Int continuationIteration = 0);
+    void computeMeshIndicator(dstype* indicator);
+    bool updateMeshCoordinatesFromIndicator(dstype* xdg, const dstype* indicator, Int movementIterations);
+    bool AdaptMesh(Int backend, Int continuationIteration = 0);
     CDiscretization disc;  // spatial discretization class (the function space)
     CResidual<M> residual;    // the discretized PDE residual R(u)/flux q (evaluates from disc)
     CAssembler<M> assembler;  // HDG global linear-system assembler + operator-apply (from disc)
