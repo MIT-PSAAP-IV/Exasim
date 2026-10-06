@@ -1,0 +1,7 @@
+add_executable(cubic_moving_mesh_test cubic_moving_mesh_test.cpp)
+target_link_libraries(cubic_moving_mesh_test PRIVATE Exasim::CubicMovingMesh)
+add_test(NAME cubic_moving_mesh COMMAND cubic_moving_mesh_test)
+
+add_executable(cubic_moving_mesh_geometry_test geometry_test.cpp)
+target_link_libraries(cubic_moving_mesh_geometry_test PRIVATE Exasim::CubicMovingMesh)
+add_test(NAME cubic_moving_mesh_geometry COMMAND cubic_moving_mesh_geometry_test)
