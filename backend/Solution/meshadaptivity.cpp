@@ -64,11 +64,20 @@ inline void writeVerificationDeviceField(const string& prefix, const string& nam
 }
 
 template <class D>
+void exchangeElementField(D& disc, dstype* field, const Int* sendIndices,
+                          const Int* receiveIndices, Int blockSize);
+
+template <class D>
+void exchangeElementField(D& disc, dstype* field, Int blockSize);
+
+template <class D>
 void smoothDG2CG2(D& disc, dstype* field, dstype* scratch, Int components,
                   Int passes, Int backend)
 {
-    for (Int pass = 0; pass < passes; ++pass)
+    for (Int pass = 0; pass < passes; ++pass) {
         disc.DG2CG2(field, field, scratch, components, components, components, backend);
+        // exchangeElementField(disc, field, disc.common.grid.npe*components);
+    }
 }
 
 template <class D>
@@ -109,6 +118,56 @@ void exchangeElementField(D& disc, dstype* field, const Int* sendIndices,
     (void)field;
     (void)sendIndices;
     (void)receiveIndices;
+    (void)blockSize;
+#endif
+}
+
+// Exchange an element field stored as [npe, components, ne].  Unlike
+// elemsendudg/elemsendodg, elemsend identifies element columns and therefore
+// remains valid for any component count represented by blockSize.
+template <class D>
+void exchangeElementField(D& disc, dstype* field, Int blockSize)
+{
+#ifdef HAVE_MPI
+    if (disc.common.mpiProcs <= 1) return;
+
+    const Int sendCount = blockSize*disc.common.nelemsend;
+    const Int receiveCount = blockSize*disc.common.nelemrecv;
+    if ((sendCount > 0 &&
+         (disc.tmp.buffsend == nullptr || disc.tmp.szbuffsend < sendCount)) ||
+        (receiveCount > 0 &&
+         (disc.tmp.buffrecv == nullptr || disc.tmp.szbuffrecv < receiveCount)))
+        error("MPI element buffers are too small for DG2CG2 smoothing.");
+
+    GetCollumnAtIndex(disc.tmp.buffsend, field, disc.mesh.elemsend,
+                      blockSize, disc.common.nelemsend);
+    Kokkos::fence();
+
+    Int sendOffset = 0, receiveOffset = 0, requestCount = 0;
+    for (Int n = 0; n < disc.common.nnbsd; ++n) {
+        const Int count = disc.common.elemsendpts[n]*blockSize;
+        if (count > 0) {
+            MPI_Isend(&disc.tmp.buffsend[sendOffset], count, mpi_type<dstype>(),
+                      disc.common.nbsd[n], 0, EXASIM_COMM_LOCAL,
+                      &disc.common.requests[requestCount++]);
+            sendOffset += count;
+        }
+    }
+    for (Int n = 0; n < disc.common.nnbsd; ++n) {
+        const Int count = disc.common.elemrecvpts[n]*blockSize;
+        if (count > 0) {
+            MPI_Irecv(&disc.tmp.buffrecv[receiveOffset], count, mpi_type<dstype>(),
+                      disc.common.nbsd[n], 0, EXASIM_COMM_LOCAL,
+                      &disc.common.requests[requestCount++]);
+            receiveOffset += count;
+        }
+    }
+    MPI_Waitall(requestCount, disc.common.requests, disc.common.statuses);
+    PutCollumnAtIndex(field, disc.tmp.buffrecv, disc.mesh.elemrecv,
+                      blockSize, disc.common.nelemrecv);
+#else
+    (void)disc;
+    (void)field;
     (void)blockSize;
 #endif
 }
@@ -193,6 +252,87 @@ inline void limitSensor(dstype* sensor, dstype upper, Int count)
         });
 }
 
+template <class D, class R>
+inline void computeMeshAdaptivityEta(
+    D& disc,
+    R& residual,
+    dstype* eta,
+    dstype* lowModalBasis,
+    dstype* lowModalInverse,
+    Int lowModeCount,
+    Int backend)
+{
+    const auto& cfg = disc.common.meshadaptparams;
+    const Int npe = disc.common.grid.npe;
+    const Int nge = disc.common.grid.nge;
+    const Int nd = disc.common.grid.nd;
+    const Int ncx = disc.common.components.ncx;
+    const Int ne = disc.common.meshsizes.ne;
+    const Int ncAV = disc.common.physicsparams.ncAV;
+    const Int nodeCount = npe*ne;
+    const Int avFieldSize = ncAV*nodeCount;
+
+    if (eta == nullptr)
+        error("Mesh-adaptivity eta storage is not initialized.");
+    if (lowModalBasis == nullptr || lowModalInverse == nullptr)
+        error("Mesh-adaptivity modal projection matrices are not initialized.");
+    if (lowModeCount <= 0 || lowModeCount > npe)
+        error("Invalid mesh-adaptivity low-mode count.");
+    if (ncAV <= 0)
+        error("Mesh adaptation requires avfield outputs.");
+    if (cfg.avComponent < 1 || cfg.avComponent > ncAV)
+        error("meshadaptavcomponent does not identify an available avfield component.");
+    if (cfg.scalarField < 1 || cfg.scalarField > ncAV)
+        error("meshadaptfield does not identify an available avfield component.");
+    if (disc.res.Ru == nullptr || disc.res.szRu < nodeCount)
+        error("Ru workspace is too small for mesh-adaptivity field1.");
+    if (disc.res.Rq == nullptr || disc.res.szRq < avFieldSize + nodeCount)
+        error("Rq workspace is too small for avfield outputs and field2.");
+
+    dstype* field1 = disc.res.Ru;
+    dstype* field2 = &disc.res.Rq[avFieldSize];
+
+    residual.evalAVfield(disc.res.Rq, backend);
+
+    // Temporarily use field1 for the raw scalar that defines the modal sensor.
+    ArrayExtract(field1, disc.res.Rq, npe, ncAV, ne,
+                 0, npe, cfg.scalarField-1, cfg.scalarField, 0, ne);
+
+    // Temporarily use field2 for the retained low-order modal coefficients.
+    Node2Gauss(disc.common.cublasHandle, field2, field1, lowModalInverse,
+               lowModeCount, npe, ne, backend);
+
+    // Temporarily use eta for the corresponding low-order nodal field.
+    Node2Gauss(disc.common.cublasHandle, eta, field2, lowModalBasis,
+               npe, lowModeCount, ne, backend);
+
+    // The modal coefficients are no longer needed; replace them with the
+    // elementwise error between the original and low-order fields.
+    evaluateSensorError(field2, field1, eta, disc.sol.xdg,
+                        disc.master.shapegt, disc.master.gwe,
+                        npe, nge, ncx, ne, nd);
+
+    const dstype rawMaximum = PArrayMax(field2, nodeCount);
+    limitSensor(field2, 0.5*rawMaximum, nodeCount);
+
+    // The low-order nodal field is no longer needed; reuse eta as scratch.
+    smoothDG2CG2(disc, field2, eta, 1, 3, backend);
+    const dstype field2Maximum = PArrayMaxAbs(field2, nodeCount);
+
+    // Replace the temporary raw scalar with the actual AV component.
+    ArrayExtract(field1, disc.res.Rq, npe, ncAV, ne,
+                 0, npe, cfg.avComponent-1, cfg.avComponent, 0, ne);
+    const dstype field1Maximum = PArrayMaxAbs(field1, nodeCount);
+
+    const dstype field1Scale =
+        field1Maximum > 0.0 ? cfg.alpha/field1Maximum : 0.0;
+    const dstype field2Scale =
+        field2Maximum > 0.0 ? (1.0-cfg.alpha)/field2Maximum : 0.0;
+
+    ArrayAXPBY(eta, field1, field2,
+               field1Scale, field2Scale, nodeCount);
+}
+
 inline void nodalJacobian(dstype* jac, const dstype* xdg, const dstype* shapent,
     Int npe, Int ncx, Int ne, Int nd)
 {
@@ -239,11 +379,11 @@ inline void scaleSquareRoot(dstype* values, dstype coefficient, Int count)
         });
 }
 
-inline void targetLameAndHelmholtzInput(dstype* targetSize, dstype* elasticityInput,
+inline void targetLameAndHelmholtzInput(dstype* elasticityInput,
     dstype* helmholtzInput, const dstype* eta, const dstype* currentSize,
     dstype hmin, dstype hmax, dstype helmholtzCoefficient, dstype targetExponent,
     dstype youngModulus, dstype minimumYoungModulus, dstype poissonRatio,
-    Int npe, Int ne, Int nd, bool saveTarget)
+    Int npe, Int ne, Int nd)
 {
     Kokkos::parallel_for(
         "MeshAdaptTargetLameAndHelmholtzInput",
@@ -259,11 +399,25 @@ inline void targetLameAndHelmholtzInput(dstype* targetSize, dstype* elasticityIn
             const dstype E = unboundedE > minimumYoungModulus ? unboundedE : minimumYoungModulus;
             const dstype mu = E/(2.0*(1.0+poissonRatio));
             const dstype lambda = E*poissonRatio/((1.0+poissonRatio)*(1.0-2.0*poissonRatio));
-            if (saveTarget) targetSize[index] = target;
             elasticityInput[i+npe*0+npe*(2+nd)*e] = mu;
             elasticityInput[i+npe*1+npe*(2+nd)*e] = lambda;
             helmholtzInput[i+npe*0+npe*2*e] = eta[index];
             helmholtzInput[i+npe*1+npe*2*e] = helmholtzCoefficient*currentSize[index];
+        });
+}
+
+inline void calculateTargetSize(dstype* targetSize, const dstype* eta,
+    dstype hmin, dstype hmax, dstype targetExponent, Int count)
+{
+    Kokkos::parallel_for(
+        "MeshAdaptCalculateTargetSize",
+        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace, Kokkos::IndexType<Int>>(0, count),
+        KOKKOS_LAMBDA(const Int index) {
+            dstype bounded = eta[index];
+            if (bounded < 0.0) bounded = 0.0;
+            else if (bounded > 1.0) bounded = 1.0;
+            targetSize[index] = hmin + (hmax-hmin)
+                * Kokkos::pow(1.0-bounded, targetExponent);
         });
 }
 
@@ -437,6 +591,8 @@ bool CSolution<M>::AdaptMeshChecked(Int backend, Int continuationIteration)
     using namespace exasim_meshadapt;
     if (!disc.common.meshadaptparams.enabled) return true;
     if (!helmholtz || !elasticity) error("Mesh-adaptivity auxiliary solvers were not constructed.");
+    if (disc.common.spatialScheme != 1)
+        error("Backend mesh adaptivity requires HDG (spatialScheme == 1).");
     const auto& cfg = disc.common.meshadaptparams;
     const Int nd = disc.common.grid.nd;
     const Int npe = disc.common.grid.npe;
@@ -450,9 +606,6 @@ bool CSolution<M>::AdaptMeshChecked(Int backend, Int continuationIteration)
     const char *verificationEnvironment = std::getenv("EXASIM_MESHADAPT_VERIFY");
     const bool writeVerification = verificationEnvironment != nullptr &&
         string(verificationEnvironment) != "0" && string(verificationEnvironment) != "";
-
-    if (ncx != nd)
-        error("GPU mesh adaptivity currently requires ncx to equal the spatial dimension.");
 
     auto& workspace = meshAdaptWorkspace;
     if (workspace.lowModalBasis == nullptr) {
@@ -488,129 +641,82 @@ bool CSolution<M>::AdaptMeshChecked(Int backend, Int continuationIteration)
     }
 
     const Int nodeCount = npe*ne;
-    dstype *field1 = nullptr, *field2 = nullptr, *eta = nullptr;
-    dstype *scalar = nullptr, *lowScalar = nullptr, *coefficients = nullptr;
-    dstype *smoothScratch = nullptr;
-    TemplateMalloc(&field1, nodeCount, backend);
-    TemplateMalloc(&field2, nodeCount, backend);
-    TemplateMalloc(&eta, nodeCount, backend);
-    TemplateMalloc(&scalar, nodeCount, backend);
-    TemplateMalloc(&lowScalar, nodeCount, backend);
-    TemplateMalloc(&coefficients, workspace.lowModeCount*ne, backend);
-    TemplateMalloc(&smoothScratch, nodeCount, backend);
-    ArraySetValue(field1, zero, nodeCount);
-
-    dstype field1Maximum = 0.0;
-    if (cfg.alpha > 0.0) {
-        const Int ncAV = disc.common.physicsparams.ncAV;
-        if (ncAV <= 0 || cfg.avComponent > ncAV)
-            error("meshadaptavcomponent does not identify an available AV field.");
-        residual.evalAVfield(disc.res.Rq, backend);
-        const Int component = cfg.avComponent - 1;
-        ArrayExtract(field1, disc.res.Rq, npe, ncAV, ne,
-                     0, npe, component, component+1, 0, ne);
-        field1Maximum = PArrayMaxAbs(field1, nodeCount);
-    }
-
-    const Int nsca = disc.common.qoiparams.nsca;
-    if (cfg.scalarField > nsca) error("meshadaptfield exceeds the number of VisScalars outputs.");
-    const Int nc = disc.common.components.nc;
-    const Int nco = disc.common.components.nco;
-    const Int ncw = disc.common.components.ncw;
-    dstype *packedXdg = nullptr, *packedUdg = nullptr, *packedOdg = nullptr;
-    dstype *packedWdg = nullptr, *allScalars = nullptr;
-    TemplateMalloc(&packedXdg, npe*ncx*ne, backend);
-    TemplateMalloc(&packedUdg, npe*nc*ne, backend);
-    if (nco > 0) TemplateMalloc(&packedOdg, npe*nco*ne, backend);
-    if (ncw > 0) TemplateMalloc(&packedWdg, npe*ncw*ne, backend);
-    TemplateMalloc(&allScalars, npe*nsca*ne, backend);
-    GetElemNodes(packedXdg, disc.sol.xdg, npe, ncx, 0, ncx, 0, ne);
-    GetElemNodes(packedUdg, disc.sol.udg, npe, nc, 0, nc, 0, ne);
-    if (nco > 0) GetElemNodes(packedOdg, disc.sol.odg, npe, nco, 0, nco, 0, ne);
-    if (ncw > 0) GetElemNodes(packedWdg, disc.sol.wdg, npe, ncw, 0, ncw, 0, ne);
-    EXASIM_DRIVER_CALL(VisScalarsDriver, allScalars, packedXdg, packedUdg, packedOdg,
-        packedWdg, disc.mesh, disc.master, disc.app, disc.sol, disc.tmp, disc.common,
-        npe, 0, ne, backend);
-    ArrayExtract(scalar, allScalars, nodeCount, nsca, 1,
-                 0, nodeCount, cfg.scalarField-1, cfg.scalarField, 0, 1);
-    TemplateFree(packedXdg, backend);
-    TemplateFree(packedUdg, backend);
-    if (packedOdg) TemplateFree(packedOdg, backend);
-    if (packedWdg) TemplateFree(packedWdg, backend);
-    TemplateFree(allScalars, backend);
-
-    Node2Gauss(disc.common.cublasHandle, coefficients, scalar,
-               workspace.lowModalInverse, workspace.lowModeCount, npe, ne, backend);
-    Node2Gauss(disc.common.cublasHandle, lowScalar, coefficients,
-               workspace.lowModalBasis, npe, workspace.lowModeCount, ne, backend);
-    evaluateSensorError(field2, scalar, lowScalar, disc.sol.xdg,
-                        disc.master.shapegt, disc.master.gwe,
-                        npe, nge, ncx, ne, nd);
-
     const Int outputRank = disc.common.mpiRank-disc.common.outputparams.fileoffset;
     const string continuationName = continuationIteration > 0 ?
         "aviter" + NumberToString(continuationIteration) + "_" : "";
+
+    if (ne1 > nodeCount)
+        error("Element-mean workspace exceeds mesh-adaptivity vector storage.");
+
+    const Int ncAV = disc.common.physicsparams.ncAV;
+    if (ncAV <= 0)
+        error("Mesh adaptation requires avfield outputs.");
+
+    const Int scalarBufferSize = nodeCount;
+    const Int vectorBufferSize = std::max(nd*nodeCount, nodeCount+ne1);
+    const Int avWorkspaceSize = (ncAV+1)*nodeCount;
+    const Int etaOffset = std::max(vectorBufferSize, avWorkspaceSize);
+    const Int requiredRqSize = etaOffset+nodeCount;
+    if (disc.res.Ru == nullptr || disc.res.szRu < scalarBufferSize)
+        error("Ru workspace is too small for mesh-adaptivity scalar storage.");
+    if (disc.res.Rq == nullptr || disc.res.szRq < requiredRqSize)
+        error("Rq workspace is too small for mesh-adaptivity vector and eta storage.");
+
+    dstype* scalarBuffer = disc.res.Ru;
+    dstype* vectorBuffer = disc.res.Rq;
+    dstype* eta = disc.res.Rq+etaOffset;
+
+    computeMeshAdaptivityEta(
+        disc, residual, eta, workspace.lowModalBasis,
+        workspace.lowModalInverse, workspace.lowModeCount, backend);
+
     if (writeVerification)
         writeVerificationDeviceField(disc.common.fileout,
-            continuationName + "sensor_raw", field2, nodeCount, outputRank, backend);
-
-    const dstype rawSensorMaximum = PArrayMax(field2, nodeCount);
-    limitSensor(field2, 0.5*rawSensorMaximum, nodeCount);
-    smoothDG2CG2(disc, field2, smoothScratch, 1, 3, backend);
-    const dstype field2Maximum = PArrayMaxAbs(field2, nodeCount);
-    const dstype field1Scale = field1Maximum > 0.0 ? cfg.alpha/field1Maximum : 0.0;
-    const dstype field2Scale = field2Maximum > 0.0 ? (1.0-cfg.alpha)/field2Maximum : 0.0;
-    ArrayAXPBY(eta, field1, field2, field1Scale, field2Scale, nodeCount);
-
-    if (writeVerification) {
-        writeVerificationDeviceField(disc.common.fileout,
-            continuationName + "sensor_scalar", scalar, nodeCount, outputRank, backend);
-        ArrayCopy(lowScalar, field1, nodeCount);
-        if (field1Maximum > 0.0) ArrayMultiplyScalar(lowScalar, one/field1Maximum, nodeCount);
-        writeVerificationDeviceField(disc.common.fileout,
-            continuationName + "field1", lowScalar, nodeCount, outputRank, backend);
-        ArrayCopy(lowScalar, field2, nodeCount);
-        if (field2Maximum > 0.0) ArrayMultiplyScalar(lowScalar, one/field2Maximum, nodeCount);
-        writeVerificationDeviceField(disc.common.fileout,
-            continuationName + "field2", lowScalar, nodeCount, outputRank, backend);
-        writeVerificationDeviceField(disc.common.fileout,
             continuationName + "eta", eta, nodeCount, outputRank, backend);
-    }
 
     bool meshAccepted = true;
     std::ofstream auxiliaryOutput;
     const Int movementIterations = continuationIteration > 0 ? 1 : cfg.movementIterations;
     for (Int iteration = 0; iteration < movementIterations; ++iteration) {
-        dstype *jac = nullptr, *currentSize = nullptr, *means = nullptr;
-        TemplateMalloc(&jac, nodeCount, backend);
-        TemplateMalloc(&currentSize, nodeCount, backend);
-        TemplateMalloc(&means, ne1, backend);
+        dstype* jac = scalarBuffer;
+        dstype* smoothScratch = vectorBuffer;
         nodalJacobian(jac, disc.sol.xdg, disc.master.shapent, npe, ncx, ne, nd);
         if (!PArrayAllPositiveFinite(jac, nodeCount)) {
-            TemplateFree(jac, backend);
-            TemplateFree(currentSize, backend);
-            TemplateFree(means, backend);
             meshAccepted = false;
             break;
         }
         smoothDG2CG2(disc, jac, smoothScratch, 1, 2, backend);
+
+        dstype reference = PArrayMin(jac, nodeCount);
+#ifdef HAVE_MPI
+        dstype globalReference = reference;
+        MPI_Allreduce(&reference, &globalReference, 1, mpi_type<dstype>(),
+                      MPI_MIN, EXASIM_COMM_LOCAL);
+        reference = globalReference;
+#endif
+
+        dstype* currentSize = vectorBuffer;
+        dstype* means = vectorBuffer + nodeCount;
         elementSizeAndMeans(currentSize, means, jac, npe, ne, ne1, nd);
 
         dstype hmin = 0.0, hmax = 0.0;
         DistributedRadixQuantiles(hmin, hmax, means, ne1, cfg.qmin, cfg.qmax);
 
-        dstype *targetSize = nullptr;
-        if (writeVerification) TemplateMalloc(&targetSize, nodeCount, backend);
-
         // Auxiliary geometry is synchronized on entry and after AdaptMesh returns.
         // Only later movement iterations need an in-loop refresh.
         if (iteration > 0)
             rebuildGeometry(helmholtz->disc, disc.sol.xdg, backend);
-        targetLameAndHelmholtzInput(targetSize, elasticity->disc.sol.odg,
+        targetLameAndHelmholtzInput(elasticity->disc.sol.odg,
             helmholtz->disc.sol.odg, eta, currentSize, hmin, hmax,
             cfg.helmholtzCoeff, cfg.targetExponent, cfg.youngModulus,
-            cfg.minimumYoungModulus, cfg.poissonRatio, npe, ne, nd,
-            writeVerification);
+            cfg.minimumYoungModulus, cfg.poissonRatio, npe, ne, nd);
+        if (writeVerification) {
+            calculateTargetSize(scalarBuffer, eta, hmin, hmax,
+                                cfg.targetExponent, nodeCount);
+            writeVerificationDeviceField(disc.common.fileout,
+                continuationName + "iter" + NumberToString(iteration+1) + "_h",
+                scalarBuffer, nodeCount, outputRank, backend);
+        }
         ArraySetValue(helmholtz->disc.sol.udg, zero, helmholtz->disc.sol.szudg);
         ArraySetValue(helmholtz->solv.sys.u, zero, helmholtz->solv.sys.szu);
         ArraySetValue(helmholtz->solv.sys.x, zero, helmholtz->solv.sys.szx);
@@ -619,16 +725,12 @@ bool CSolution<M>::AdaptMeshChecked(Int backend, Int continuationIteration)
         const SolveStatus helmholtzStatus =
             helmholtz->SteadyProblem(auxiliaryOutput, backend, true);
         if (!helmholtzStatus.finite) {
-            TemplateFree(targetSize, backend);
-            TemplateFree(jac, backend);
-            TemplateFree(currentSize, backend);
-            TemplateFree(means, backend);
             meshAccepted = false;
             break;
         }
         packElasticityForce(elasticity->disc.sol.odg,
                             helmholtz->disc.sol.udg, npe, ne, nd);
-        smoothDG2CG2(disc, elasticity->disc.sol.odg, smoothScratch,
+        smoothDG2CG2(elasticity->disc, elasticity->disc.sol.odg, scalarBuffer,
                      2+nd, cfg.smoothingPasses, backend);
 
         if (iteration > 0)
@@ -640,23 +742,16 @@ bool CSolution<M>::AdaptMeshChecked(Int backend, Int continuationIteration)
         const SolveStatus elasticityStatus =
             elasticity->SteadyProblem(auxiliaryOutput, backend, true);
         if (!elasticityStatus.finite) {
-            TemplateFree(targetSize, backend);
-            TemplateFree(jac, backend);
-            TemplateFree(currentSize, backend);
-            TemplateFree(means, backend);
             meshAccepted = false;
             break;
         }
-        dstype *continuous = nullptr, *scratch = nullptr;
-        TemplateMalloc(&continuous, npe*nd*ne, backend);
-        TemplateMalloc(&scratch, npe*ne, backend);
         // The HDG solve updates owned elements. Refresh ghost-element values
         // before the local DG-to-CG average so interface nodes see the same
         // displacement data on neighboring MPI ranks.
         exchangeElementUDG(elasticity->disc);
-        elasticity->disc.DG2CG(continuous, elasticity->disc.sol.udg, scratch, nd,
+        dstype* continuous = vectorBuffer;
+        elasticity->disc.DG2CG(continuous, elasticity->disc.sol.udg, scalarBuffer, nd,
                                elasticity->disc.common.components.nc, nd, backend);
-        TemplateFree(scratch, backend);
 
 #ifdef HAVE_MPI
         if (elasticity->disc.common.mpiProcs > 1) {
@@ -672,22 +767,14 @@ bool CSolution<M>::AdaptMeshChecked(Int backend, Int continuationIteration)
                          0, npe, 0, nd, 0, ne);
         }
 #endif
-
         dstype beta = cfg.damping;
-        dstype reference = PArrayMin(jac, nodeCount);
-#ifdef HAVE_MPI
-        dstype globalReference = reference;
-        MPI_Allreduce(&reference, &globalReference, 1, mpi_type<dstype>(),
-                      MPI_MIN, EXASIM_COMM_WORLD);
-        reference = globalReference;
-#endif
         while (true) {
             dstype minimum = candidateMinimumJacobian(disc.sol.xdg, continuous,
                 disc.master.shapent, beta, npe, ncx, ne, nd);
 #ifdef HAVE_MPI
             dstype globalMinimum = minimum;
             MPI_Allreduce(&minimum, &globalMinimum, 1, mpi_type<dstype>(),
-                          MPI_MIN, EXASIM_COMM_WORLD);
+                          MPI_MIN, EXASIM_COMM_LOCAL);
             minimum = globalMinimum;
 #endif
             if (minimum > cfg.minimumJacobianRatio*reference) break;
@@ -698,11 +785,6 @@ bool CSolution<M>::AdaptMeshChecked(Int backend, Int continuationIteration)
             }
         }
         if (!meshAccepted) {
-            TemplateFree(continuous, backend);
-            TemplateFree(targetSize, backend);
-            TemplateFree(jac, backend);
-            TemplateFree(currentSize, backend);
-            TemplateFree(means, backend);
             break;
         }
         ArrayAXPBY(disc.sol.xdg, disc.sol.xdg, continuous,
@@ -710,39 +792,29 @@ bool CSolution<M>::AdaptMeshChecked(Int backend, Int continuationIteration)
 
         const string iterationName = continuationName + "iter" + NumberToString(iteration+1) + "_";
         if (writeVerification) {
-            writeVerificationDeviceField(disc.common.fileout, iterationName + "h",
-                                         targetSize, nodeCount, outputRank, backend);
             writeVerificationField(disc.common.fileout, iterationName + "hmin",
                                    std::vector<dstype>{hmin}, outputRank);
             writeVerificationField(disc.common.fileout, iterationName + "hmax",
                                    std::vector<dstype>{hmax}, outputRank);
-            ArrayExtract(lowScalar, elasticity->disc.sol.odg, npe, 2+nd, ne,
+            ArrayExtract(scalarBuffer, elasticity->disc.sol.odg, npe, 2+nd, ne,
                          0, npe, 0, 1, 0, ne);
             writeVerificationDeviceField(disc.common.fileout, iterationName + "mu",
-                                         lowScalar, nodeCount, outputRank, backend);
-            ArrayExtract(lowScalar, elasticity->disc.sol.odg, npe, 2+nd, ne,
+                                         scalarBuffer, nodeCount, outputRank, backend);
+            ArrayExtract(scalarBuffer, elasticity->disc.sol.odg, npe, 2+nd, ne,
                          0, npe, 1, 2, 0, ne);
             writeVerificationDeviceField(disc.common.fileout, iterationName + "lambda",
-                                         lowScalar, nodeCount, outputRank, backend);
+                                         scalarBuffer, nodeCount, outputRank, backend);
             writeVerificationDeviceField(disc.common.fileout, iterationName + "helmholtz",
                 helmholtz->disc.sol.udg, helmholtz->disc.sol.szudg, outputRank, backend);
-            dstype *force = nullptr;
-            TemplateMalloc(&force, npe*nd*ne, backend);
-            ArrayExtract(force, elasticity->disc.sol.odg, npe, 2+nd, ne,
-                         0, npe, 2, 2+nd, 0, ne);
-            writeVerificationDeviceField(disc.common.fileout, iterationName + "force",
-                                         force, npe*nd*ne, outputRank, backend);
-            TemplateFree(force, backend);
             writeVerificationDeviceField(disc.common.fileout, iterationName + "displacement",
                                          continuous, npe*nd*ne, outputRank, backend);
             writeVerificationDeviceField(disc.common.fileout, iterationName + "xdg",
                                          disc.sol.xdg, disc.sol.szxdg, outputRank, backend);
+            ArrayExtract(continuous, elasticity->disc.sol.odg, npe, 2+nd, ne,
+                         0, npe, 2, 2+nd, 0, ne);
+            writeVerificationDeviceField(disc.common.fileout, iterationName + "force",
+                                         continuous, npe*nd*ne, outputRank, backend);
         }
-        TemplateFree(continuous, backend);
-        TemplateFree(targetSize, backend);
-        TemplateFree(jac, backend);
-        TemplateFree(currentSize, backend);
-        TemplateFree(means, backend);
     }
 
     if (meshAccepted) {
@@ -750,13 +822,6 @@ bool CSolution<M>::AdaptMeshChecked(Int backend, Int continuationIteration)
         rebuildGeometry(helmholtz->disc, disc.sol.xdg, backend);
         rebuildGeometry(elasticity->disc, disc.sol.xdg, backend);
     }
-    TemplateFree(field1, backend);
-    TemplateFree(field2, backend);
-    TemplateFree(eta, backend);
-    TemplateFree(scalar, backend);
-    TemplateFree(lowScalar, backend);
-    TemplateFree(coefficients, backend);
-    TemplateFree(smoothScratch, backend);
     return meshAccepted;
 }
 

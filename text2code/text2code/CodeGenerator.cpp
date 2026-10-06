@@ -1628,7 +1628,8 @@ void emitfuncjacmaterialstate2cppfiles(std::ostream& os, const ParsedSpec& spec)
     os << "    cppfile << \"  const " << spec.datatype << "* v = odg;\\n\";\n";
     os << "    cppfile << \"  const " << spec.datatype << "* w = wdg;\\n\";\n";
     os << "    cppfile << \"  const " << spec.datatype << "* mu = param;\\n\";\n";
-    os << "    cppfile << \"  const " << spec.datatype << "* eta = uinf;\\n\\n\";\n\n";
+    os << "    cppfile << \"  const " << spec.datatype << "* eta = uinf;\\n\";\n";
+    os << "    cppfile << \"  const " << spec.datatype << " t = time;\\n\\n\";\n\n";
     os << "   if (f.size() > 0) {\n";
     os << "       vec_pair replacements;\n";
     os << "       vec_basic reduced_exprs_f;\n";
