@@ -32,3 +32,12 @@ G="$(variant gauss 's/^saveSolBouLoc = 0;/saveSolBouLoc = 1;/')"
 
 B="$(variant single 's/^ibs = \[1, 2\];/ibs = 1;/' 's/^boundaryconditions = \[1, 2, 1, 2\];/boundaryconditions = [1, 1, 1, 1];/')"
 "$PY" "$HERE/check_surface.py" union "$RDIR/dataout/out" "$B/dataout/out" "$NP"
+
+# Only the x = 1 side is ibs, so (with >= 2 ranks) some rank owns no ibs face and has
+# ndofbou == 0. Two time steps, because only RunTimeDependent does the per-save boundary
+# averaging, which must not touch that rank's unallocated bou*avg arrays (a null-pointer
+# write: SIGSEGV on the host, cudaErrorIllegalAddress on a GPU).
+if [ "${NP}" -gt 1 ]; then
+  P="$(variant partial 's/^ibs = \[1, 2\];/ibs = 2;/' 's/^boundaryconditions = \[1, 2, 1, 2\];/boundaryconditions = [1, 2, 1, 1];/' 's/^dt = \[0\];/dt = [0.1, 0.1];/')"
+  "$PY" "$HERE/check_surface.py" partial "$P/dataout/out" "$NP"
+fi
