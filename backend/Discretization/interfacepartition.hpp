@@ -203,6 +203,21 @@ inline void build_runtime_interface_partition(appstructT<T, I>& app,
     if (app.problem[28] <= 0 || app.problem[29] <= 0 || app.problem[30] <= 0)
         return;
 
+    // [nonmatching] interfacetype = app.problem[34] (0: conformal, 1: non-matching) must agree on all
+    // ranks of both models, otherwise the exact match below would run on some ranks only and hang.
+    // With 1 the exact match is skipped: the donor search (nonmatchingsetup.hpp) runs after this call.
+    { // [nonmatching]
+        const I itype = (app.nsize[2] > 34) ? app.problem[34] : 0; // [nonmatching]
+        I ext[2] = {itype, -itype}, gext[2] = {0, 0}; // [nonmatching]
+        MPI_Allreduce(ext, gext, 2, mpi_type<I>(), MPI_MAX, EXASIM_COMM_WORLD); // [nonmatching]
+        if (gext[0] != -gext[1]) // [nonmatching]
+            error("interfacetype (app.problem[34]) differs between the coupled models"); // [nonmatching]
+        if (itype != 0 && itype != 1) // [nonmatching]
+            error("interfacetype (app.problem[34]) must be 0 (conformal) or 1 (non-matching)"); // [nonmatching]
+        if (itype == 1) // [nonmatching]
+            return; // [nonmatching]
+    } // [nonmatching]
+
     const I nd = master.ndims[0];
     const I npf = master.ndims[6];
     const T tol2 = static_cast<T>(1.0e-12);

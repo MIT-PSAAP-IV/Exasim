@@ -42,6 +42,7 @@
 
 #include "ismeshcurved.cpp"
 #include "interfacepartition.hpp"
+#include "nonmatchingsetup.hpp" // [nonmatching] donor search (phase 2)
 
 template <class T=dstype, class I=Int>
 void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh, 
@@ -284,6 +285,7 @@ void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, masterstr
     common.couplingparams.coupledinterface = app.problem[28]; 
     common.couplingparams.coupledcondition = app.problem[29]; 
     common.couplingparams.coupledboundarycondition = app.problem[30];
+    common.couplingparams.interfacetype = (app.nsize[2] > 34) ? app.problem[34] : 0; // [nonmatching]
     common.physicsparams.AVdistfunction = app.problem[31];
     common.uniformrefinementlevel = (app.nsize[2] > 33) ? app.problem[33] : 0;
 
@@ -1028,7 +1030,8 @@ void cpuInit(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, E
         meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,
         string filein, string fileout, Int mpiprocs, Int mpirank, Int fileoffset, Int omprank,
         const std::vector<T>* physicsparamOverride = nullptr,
-        ExasimExecutionMode mode = ExasimExecutionMode::Solve)
+        ExasimExecutionMode mode = ExasimExecutionMode::Solve,
+        nonmatchingdataT<T,I>* nonmatching = nullptr) // [nonmatching] owned by CDiscretization
 {
     using dstype=T;
      
@@ -1038,6 +1041,9 @@ void cpuInit(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, E
               physicsparamOverride, mode);
     exasim::interfacepartition::build_runtime_interface_partition(app, master, mesh, sol,
             mpiprocs, mpirank, fileoffset);
+    if (nonmatching) // [nonmatching] donor search when interfacetype = 1 (no-op otherwise)
+        exasim::nonmatching::setup_nonmatching_interface(app, master, mesh, sol, // [nonmatching]
+                mpiprocs, mpirank, fileoffset, *nonmatching); // [nonmatching]
     
     if (mpirank==0)
         printf("Finish reading data from binary files \n");

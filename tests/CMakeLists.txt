@@ -275,6 +275,9 @@ add_test(NAME text2code_poisson_variants
   COMMAND ${CMAKE_COMMAND} -E env
     "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}"
     "EXASIM_ROOT=${EXASIM_DIR}"
+    "KOKKOS_DIR=${Kokkos_DIR}"
+    "CC=${CMAKE_C_COMPILER}"
+    "CXX=${CMAKE_CXX_COMPILER}"
     bash "${EXASIM_DIR}/tests/text2code/poisson-variants-test.sh")
 set_tests_properties(text2code_poisson_variants PROPERTIES
   TIMEOUT 1200 SKIP_RETURN_CODE 77 RESOURCE_LOCK exasim_text2code_install)
@@ -502,6 +505,42 @@ if(EXASIM_MPI)
 endif()
 add_test(NAME unit_struct_defaults COMMAND unit_struct_defaults)
 set_tests_properties(unit_struct_defaults PROPERTIES TIMEOUT 120)
+
+# [nonmatching] Phase 0: the frozen non-matching interface header compiles and defaults to 0 / nullptr.
+add_executable(unit_nonmatchinginterface_header ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatchinginterface_header.cpp) # [nonmatching]
+target_link_libraries(unit_nonmatchinginterface_header PRIVATE Kokkos::kokkos) # [nonmatching]
+target_include_directories(unit_nonmatchinginterface_header PRIVATE ${EXASIM_DIR}) # [nonmatching]
+if(EXASIM_MPI) # [nonmatching]
+  target_link_libraries(unit_nonmatchinginterface_header PRIVATE MPI::MPI_CXX) # [nonmatching]
+  target_compile_definitions(unit_nonmatchinginterface_header PRIVATE HAVE_MPI) # [nonmatching]
+endif() # [nonmatching]
+add_test(NAME unit_nonmatchinginterface_header COMMAND unit_nonmatchinginterface_header) # [nonmatching]
+set_tests_properties(unit_nonmatchinginterface_header PROPERTIES TIMEOUT 120) # [nonmatching]
+
+# [nonmatching] Phase 1: host geometry kernels for non-matching interface setup.
+add_executable(unit_nonmatching_geometry ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_geometry.cpp) # [nonmatching]
+target_link_libraries(unit_nonmatching_geometry PRIVATE Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
+target_include_directories(unit_nonmatching_geometry PRIVATE ${EXASIM_DIR}) # [nonmatching]
+if(EXASIM_MPI) # [nonmatching]
+  target_link_libraries(unit_nonmatching_geometry PRIVATE MPI::MPI_CXX) # [nonmatching]
+  target_compile_definitions(unit_nonmatching_geometry PRIVATE HAVE_MPI) # [nonmatching]
+endif() # [nonmatching]
+add_test(NAME unit_nonmatching_geometry COMMAND unit_nonmatching_geometry) # [nonmatching]
+set_tests_properties(unit_nonmatching_geometry PROPERTIES TIMEOUT 120) # [nonmatching]
+
+# [nonmatching] Phase 2: donor search, 1, 2 and 4 ranks per model (MPI only).
+if(EXASIM_MPI) # [nonmatching]
+  add_executable(unit_nonmatching_donorsearch ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_donorsearch.cpp) # [nonmatching]
+  target_link_libraries(unit_nonmatching_donorsearch PRIVATE Kokkos::kokkos MPI::MPI_CXX ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
+  target_include_directories(unit_nonmatching_donorsearch PRIVATE ${EXASIM_DIR}) # [nonmatching]
+  target_compile_definitions(unit_nonmatching_donorsearch PRIVATE HAVE_MPI) # [nonmatching]
+  foreach(np 2 4 8) # [nonmatching]
+    add_test(NAME unit_nonmatching_donorsearch_np${np} # [nonmatching]
+      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS} # [nonmatching]
+              $<TARGET_FILE:unit_nonmatching_donorsearch> ${MPIEXEC_POSTFLAGS}) # [nonmatching]
+    set_tests_properties(unit_nonmatching_donorsearch_np${np} PROPERTIES TIMEOUT 300) # [nonmatching]
+  endforeach() # [nonmatching]
+endif() # [nonmatching]
 
 # Exact device-resident quantile selection used by mesh adaptivity. The reference
 # intentionally uses std::sort in the test only; production never gathers values.

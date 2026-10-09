@@ -492,7 +492,7 @@ CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string e
         // allocate data for structs in CPU memory
         cpuInit(hsol, hres, happ, driver_abi, hmaster, hmesh, htmp, hcommon, filein, fileout,
                 mpiprocs, mpirank, fileoffset, omprank,
-                physicsparamOverride, mode);
+                physicsparamOverride, mode, &nonmatching); // [nonmatching]
 
         // copy data from cpu memory to gpu memory
         gpuInit(sol, res, app, driver_abi, master, mesh, tmp, common,
@@ -536,7 +536,7 @@ CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string e
     else  {// CPU
         cpuInit(sol, res, app, driver_abi, master, mesh, tmp, common, filein, fileout,
                 mpiprocs, mpirank, fileoffset, omprank,
-                physicsparamOverride, mode);
+                physicsparamOverride, mode, &nonmatching); // [nonmatching]
     }
     finalizeConstruction(backend, mode, nsca, nvec, nten, nsurf, nvqoi, saveParaview);
 }
@@ -834,6 +834,7 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
 template <class T, class I>
 CDiscretizationT<T, I>::~CDiscretizationT()
 {
+    exasim::nonmatching::free_nonmatching_data(nonmatching); // [nonmatching]
     app.freememory(common.backend);
     if (common.mpiRank==0) printf("CDiscretization destructor: app memory is freed successfully.\n");
     master.freememory(common.backend);

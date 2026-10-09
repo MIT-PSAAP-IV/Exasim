@@ -42,6 +42,7 @@
 #define __DISCRETIZATION_H__
 
 #include "exasim/execution_mode.hpp"
+#include "nonmatchinginterface.hpp" // [nonmatching] frozen data structure (phase 0)
 
 namespace exasim { template <class, class> struct PreprocessedT; }  // fwd decl: in-memory ctor input
                                            // (buildstructs.hpp); the ctor bodies live in discretization_inmemory.hpp (consumer-only)
@@ -76,6 +77,7 @@ public:
     commonstruct common;
     ExasimDriverABI driver_abi;
     scratcharenastruct scratch;  // owns the K backing buffer; res.K/views + sys.v are non-owning reserves (S5 step 3)
+    nonmatchingdataT<T, I> nonmatching; // [nonmatching] non-matching interface data (host setup, phase 2)
     // solstruct hsol;
 
     // constructor for both CPU and GPU
