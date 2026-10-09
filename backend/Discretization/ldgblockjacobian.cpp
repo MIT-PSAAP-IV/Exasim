@@ -1533,6 +1533,8 @@ void RuFaceCrossDerivOptimized(dstype* A, solstruct &sol,
     }
 }
 
+#include "precondstages.hpp"
+
 void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, appstruct &app,
                   ExasimDriverABI& driver_abi, masterstruct &master, meshstruct &mesh,
                   tempstruct &tmp, commonstruct &common, cublasHandle_t handle, Int backend)
@@ -1583,12 +1585,12 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
         Int ne = e2-e1;        
 
         t0 = LDGBenchmarkStart(backend);
-        uEquationElemBlock<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp,
+        PrecondElemStage(sol, res, app, driver_abi, master, mesh, tmp,
                 common, handle, j, backend);
         tm.elem += LDGBenchmarkStop(t0, backend);
 
         t0 = LDGBenchmarkStart(backend);
-        uEquationElemFaceBlockLDG(sol, res, app, driver_abi, master, mesh,
+        PrecondElemFaceStage(sol, res, app, driver_abi, master, mesh,
                 tmp, common, handle, j, backend);
         tm.face += LDGBenchmarkStop(t0, backend);
         //ArraySetValue(res.F, 0.0, n*m*ne);
@@ -1599,7 +1601,7 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
         tm.trace += LDGBenchmarkStop(t0, backend);
 
         t0 = LDGBenchmarkStart(backend);
-        uEquationSchurBlockLDG(sol, res, app, driver_abi, master, mesh, tmp,
+        PrecondSchurStage(sol, res, app, driver_abi, master, mesh, tmp,
                 common, handle, j, backend, &tm.schurDetail);
         tm.schur += LDGBenchmarkStop(t0, backend);
         
@@ -1609,7 +1611,7 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
     }
 
     t0 = LDGBenchmarkStart(backend);
-    RuFaceCrossDerivOptimized(K, sol, res, app, driver_abi, master, mesh, tmp, common);
+    PrecondCrossStage(K, sol, res, app, driver_abi, master, mesh, tmp, common);
     tm.cross += LDGBenchmarkStop(t0, backend);
 
     // if (common.timeparams.tdep == 1)
@@ -1659,7 +1661,7 @@ void BlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, apps
         Int e2 = common.eblks[3*j+1];
         Int ne = e2-e1;
         t0 = LDGBenchmarkStart(backend);
-        Inverse(handle, &K[n*n*e1], res.H, res.ipiv, n, ne, backend);
+        PrecondInverseStage(sol, res, app, master, mesh, tmp, common, handle, &K[n*n*e1], n, ne, backend);
         tm.inverse += LDGBenchmarkStop(t0, backend);
     }
 
@@ -1778,12 +1780,12 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
         Int ne = e2-e1;
 
         t0 = LDGBenchmarkStart(backend);
-        uEquationElemBlock<exasim::detail::AbiAdapter>(sol, res, app, master, mesh, tmp,
+        PrecondElemStage(sol, res, app, driver_abi, master, mesh, tmp,
                 common, handle, j, backend);
         tm.elem += LDGBenchmarkStop(t0, backend);
 
         t0 = LDGBenchmarkStart(backend);
-        uEquationElemFaceBlockLDG(sol, res, app, driver_abi, master, mesh,
+        PrecondElemFaceStage(sol, res, app, driver_abi, master, mesh,
                 tmp, common, handle, j, backend);
         tm.face += LDGBenchmarkStop(t0, backend);
 
@@ -1793,7 +1795,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
         tm.trace += LDGBenchmarkStop(t0, backend);
 
         t0 = LDGBenchmarkStart(backend);
-        uEquationSchurBlockLDG(sol, res, app, driver_abi, master, mesh, tmp,
+        PrecondSchurStage(sol, res, app, driver_abi, master, mesh, tmp,
                 common, handle, j, backend, &tm.schurDetail);
         tm.schur += LDGBenchmarkStop(t0, backend);
 
@@ -1803,7 +1805,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
     }
 
     t0 = LDGBenchmarkStart(backend);
-    RuFaceCrossDerivOptimized(K, sol, res, app, driver_abi, master, mesh, tmp, common);
+    PrecondCrossStage(K, sol, res, app, driver_abi, master, mesh, tmp, common);
     tm.cross += LDGBenchmarkStop(t0, backend);
 
     // if (common.timeparams.tdep == 1)
@@ -1814,7 +1816,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
         Int e2 = common.eblks[3*j+1];
         Int ne = e2-e1;
         t0 = LDGBenchmarkStart(backend);
-        Inverse(handle, &K[nlocu*nlocu*e1], res.H, res.ipiv, nlocu, ne, backend);
+        PrecondInverseStage(sol, res, app, master, mesh, tmp, common, handle, &K[nlocu*nlocu*e1], nlocu, ne, backend);
         tm.inverse += LDGBenchmarkStop(t0, backend);
     }
 
