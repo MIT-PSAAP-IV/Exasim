@@ -63,12 +63,14 @@ inline void MatVec(T *w, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<
         ArrayAXPBY(w, u, v, 1.0, epsilon, N);
                             
         // insert (u+epsilon*v) into udg
-        ArrayInsert(sol.udg, w, npe, nc, ne, 0, npe, 0, ncu, 0, ne);  
+        ArrayInsert(sol.udg, w, npe, nc, ne, 0, npe, 0, ncu, 0, ne);
 
         // compute the residual R(u+epsilon*v)
+        res.matvecEval = 1;
         Residual<M>(sol, res, app, master, mesh, tmp, common, handle, backend);
+        res.matvecEval = 0;
 
-        // calculate w = J(u)*v = (R(u+epsilon*v)-R(u))/epsilon    
+        // calculate w = J(u)*v = (R(u+epsilon*v)-R(u))/epsilon
         ArrayAXPBY(w, res.Ru, Ru, 1.0/epsilon, -1.0/epsilon, N);
     }
     else if (order==2) {
@@ -76,10 +78,12 @@ inline void MatVec(T *w, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<
         ArrayAXPBY(w, u, v, 1.0, -epsilon, N);
 
         // insert (u-epsilon*v) into udg
-        ArrayInsert(sol.udg, w, npe, nc, ne, 0, npe, 0, ncu, 0, ne);  
+        ArrayInsert(sol.udg, w, npe, nc, ne, 0, npe, 0, ncu, 0, ne);
 
         // compute the residual R(u-epsilon*v)
+        res.matvecEval = 1;
         Residual<M>(sol, res, app, master, mesh, tmp, common, handle, backend);
+        res.matvecEval = 0;
 
         // copy res.Ru to Ru
         ArrayCopy(Ru, res.Ru, N);
@@ -88,12 +92,14 @@ inline void MatVec(T *w, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<
         ArrayAXPBY(w, u, v, 1.0, epsilon, N);
 
         // insert (u+epsilon*v) into udg
-        ArrayInsert(sol.udg, w, npe, nc, ne, 0, npe, 0, ncu, 0, ne);  
+        ArrayInsert(sol.udg, w, npe, nc, ne, 0, npe, 0, ncu, 0, ne);
 
         // compute the residual R(u+epsilon*v)
+        res.matvecEval = 1;
         Residual<M>(sol, res, app, master, mesh, tmp, common, handle, backend);
-        
-        // calculate w = J(u)*v = (R(u+epsilon*v)-R(u-epsilon*v))/(2*epsilon)    
+        res.matvecEval = 0;
+
+        // calculate w = J(u)*v = (R(u+epsilon*v)-R(u-epsilon*v))/(2*epsilon)
         ArrayAXPBY(w, res.Ru, Ru, 0.5/epsilon, -0.5/epsilon, N);
     }
     else
