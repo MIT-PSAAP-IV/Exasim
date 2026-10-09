@@ -2064,6 +2064,7 @@ struct couplingparamsstruct {
     Int ndofuhatinterface=0;
     Int nintfaces = 0;
     Int nvindx = 0;
+    Int interfacetype = 0;        // [nonmatching] 0: conformal (default), 1: non-matching (app.problem[34])
 };
 
 // Output / checkpoint / IO configuration: solution-save frequencies and options, restart offset,

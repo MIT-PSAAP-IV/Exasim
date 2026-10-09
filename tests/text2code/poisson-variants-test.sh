@@ -3,9 +3,10 @@ set -euo pipefail
 
 root=${EXASIM_ROOT:?EXASIM_ROOT not set}
 prefix=${EXASIM_INSTALL:?EXASIM_INSTALL not set}
+kokkos_dir=${KOKKOS_DIR:-$root/deps/kokkos/buildserial}
 app=$root/apps/poisson/poisson2d
-if [[ ! -x $prefix/bin/text2code || ! -x $prefix/bin/exasimapp ]] || ! command -v mpirun >/dev/null; then
-    echo "SKIP: installed text2code/exasimapp or mpirun unavailable"
+if [[ ! -x $prefix/bin/text2code ]] || ! command -v mpirun >/dev/null; then
+    echo "SKIP: installed text2code or mpirun unavailable"
     exit 77
 fi
 
@@ -20,8 +21,15 @@ for variant in pdeapp.txt pdeapp_hdg_refined.txt; do
     (
         cd "$work/$name"
         EXASIM_PREFIX="$prefix" "$prefix/bin/text2code" pdeapp.txt > text2code.log 2>&1 || exit 1
+        cmake -S "$root/apps/sharedlibrary" -B "$work/$name-build" \
+            -D "CMAKE_PREFIX_PATH=$prefix;$kokkos_dir" \
+            -DExasim_DIR="$prefix" \
+            -DEXASIM_MPI=ON -DEXASIM_CUDA=OFF -DEXASIM_HIP=OFF \
+            ${CC:+-DCMAKE_C_COMPILER="$CC"} ${CXX:+-DCMAKE_CXX_COMPILER="$CXX"} \
+            > configure.log 2>&1 || exit 1
+        cmake --build "$work/$name-build" -j > build.log 2>&1 || exit 1
         np=$(sed -n 's/^mpiprocs *= *\([0-9][0-9]*\);/\1/p' pdeapp.txt)
-        EXASIM_PREFIX="$prefix" mpirun -np "$np" "$prefix/bin/exasimapp" pdeapp.txt > solver.log 2>&1 || exit 1
+        EXASIM_PREFIX="$prefix" mpirun -np "$np" "$work/$name-build/exasimapp" pdeapp.txt > solver.log 2>&1 || exit 1
         python3 - <<'PY'
 import math
 from pathlib import Path
@@ -34,6 +42,7 @@ qoi = float(rows[-1].split()[1])
 assert math.isfinite(qoi) and qoi < 1e-8, f'Domain_QoI1={qoi}'
 print(f'Domain_QoI1={qoi:.6e}')
 PY
-    ) || { cat "$work/$name/text2code.log" "$work/$name/solver.log" 2>/dev/null; exit 1; }
+    ) || { cat "$work/$name/text2code.log" "$work/$name/configure.log" \
+                  "$work/$name/build.log" "$work/$name/solver.log" 2>/dev/null; exit 1; }
     echo "$name: PASS"
 done
