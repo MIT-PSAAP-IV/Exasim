@@ -51,6 +51,8 @@
 #ifndef __PRECONDITIONER
 #define __PRECONDITIONER
 
+#include "ldgpcfp32.hpp"
+
 #include "preconditioner.h"
 #include "setprecondstruct.cpp"
 #include "applymatrix.cpp"
@@ -141,8 +143,9 @@ void CPreconditioner<M, T, I>::ApplyPreconditioner(dstype* x, sysstruct& sys, CD
     if ((disc.common.spatialScheme == 0) && (disc.common.solverparams.preconditioner == 1) && (disc.res.K != nullptr)) {
         Int n = disc.common.grid.npe*disc.common.components.ncu;
         Int ne = disc.common.meshsizes.ne1;
-        PGEMNMStridedBached(disc.common.cublasHandle, n, 1, n, one,
-                disc.res.K, n, disc.res.Ru, n, zero, x, n, ne, backend);
+        if (!LDGPcFP32Apply(disc.res.K, disc.res.Ru, x, n, ne))   // EXASIM_LDG_PC_FP32=1: fp32 copy of K
+            PGEMNMStridedBached(disc.common.cublasHandle, n, 1, n, one,
+                    disc.res.K, n, disc.res.Ru, n, zero, x, n, ne, backend);
     }
     else 
         ApplyMatrix(disc.common.cublasHandle, x, disc.res.Minv, disc.res.Ru,
@@ -388,11 +391,13 @@ void CPreconditioner<M, T, I>::ComputeLDGPreconditioner(CDiscretization& disc, d
     if (disc.common.mpiProcs > 1) {
         mpiBlockJacobianLDG(K, u, disc.sol, disc.res, disc.app, disc.driver_abi, disc.master, disc.mesh, disc.tmp,
                 disc.common, disc.common.cublasHandle, backend);
+        LDGPcFP32Refresh(K, disc.common.grid.npe*disc.common.components.ncu, disc.common.meshsizes.ne1);
         return;
     }
 #endif
     BlockJacobianLDG(K, u, disc.sol, disc.res, disc.app, disc.driver_abi, disc.master, disc.mesh, disc.tmp, disc.common,
             disc.common.cublasHandle, backend);
+    LDGPcFP32Refresh(K, disc.common.grid.npe*disc.common.components.ncu, disc.common.meshsizes.ne1);
 }
 
 // Build the HDG preconditioner matrix K from the assembled global system H.
