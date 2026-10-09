@@ -80,6 +80,10 @@ via the 'common' member of CDiscretization.
 
 void CGS(cublasHandle_t handle, dstype *V, dstype *H, dstype *temp, Int N, Int m, Int backend)
 {
+    if (const PrecondStageTable* t = PrecondStageRegistry(); t != nullptr && t->cgs != nullptr) {
+        t->cgs(handle, V, H, temp, N, m, backend);
+        return;
+    }
     PGEMTV(handle, N, m, &one, V, N, &V[m*N], inc1, &zero, H, inc1, temp, backend);
     PGEMNV(handle, N, m, &minusone, V, N, H, inc1, &one, &V[m*N], inc1, backend);
     PDOT(handle, N, &V[m*N], inc1, &V[m*N], inc1, &H[m], backend);
