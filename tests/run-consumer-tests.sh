@@ -74,8 +74,9 @@ for dir in "$REPO"/tests/consumers/*/; do
             echo "  --- $rdir/run.log ---"; sed 's/^/  | /' "$rdir/run.log"; \
             echo "  --- end run.log ---"; fail=1; continue; }
     qfile="$(find "$rdir" -name "outqoi.txt" 2>/dev/null | head -1)"
+    if [ -z "$qfile" ]; then echo "  FAIL[B4]: no QoI output (searched $rdir/**/outqoi.txt)"; fail=1; continue; fi
     qoi1="$(tail -1 "$qfile" 2>/dev/null | awk '{print $2}')"
-    if [ -z "$qoi1" ]; then echo "  FAIL[B4]: no QoI output (searched $rdir/dataout*/outqoi.txt)"; fail=1; continue; fi
+    if [ -z "$qoi1" ]; then echo "  FAIL[B4]: no QoI output (read $qfile)"; fail=1; continue; fi
     if awk "BEGIN{exit !(($qoi1)+0 < ($QOI_TOL)+0)}"; then
       echo "  [B4] run ok, QoI[1]=$qoi1 < $QOI_TOL"
     else
