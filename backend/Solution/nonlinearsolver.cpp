@@ -9,7 +9,6 @@
 
 #include "nonlinearsolver.h"
 #include <cmath>
-#include "../Common/auxiliary_snapshot.hpp"
 
 template <class M>
 SolveStatus CNonlinearSolver<M>::PTCsolver(ofstream &out, Int backend)

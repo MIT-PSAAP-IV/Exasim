@@ -47,8 +47,6 @@
 #ifndef __PTCSOLVER
 #define __PTCSOLVER
 
-#include "../Common/auxiliary_snapshot.hpp"
-
 template <class M, class T, class I>
 int CSolver<M, T, I>::linearSolve(CResidual<M, T, I>& residual, CAssembler<M, T, I>& assembler, CDiscretization& disc, CPreconditioner<M, T, I>& prec, ofstream &out, Int it, Int backend)
 {    
@@ -256,4 +254,3 @@ void CSolver<M, T, I>::linearSolve(CResidual<M, T, I>& residual, CAssembler<M, T
 }
 
 #endif
-

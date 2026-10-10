@@ -7,7 +7,6 @@ using std::partial_sum;
 #include "../../backend/Common/cpuimpl.h"
 #include "../../backend/Common/kokkosimpl.h"
 #include "../../backend/Common/pblas.h"
-#include "../../backend/Common/auxiliary_snapshot.hpp"
 #include "../../backend/Discretization/material_properties.hpp"
 #include "../../backend/Discretization/wequation.hpp"
 

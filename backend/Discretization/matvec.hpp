@@ -37,7 +37,6 @@
 #define __MATVEC
 
 #include "ioutilities.hpp"
-#include "../Common/auxiliary_snapshot.hpp"
 template <class M, class T=dstype, class I=Int>
 inline void MatVec(T *w, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master,
       meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, T *v, 

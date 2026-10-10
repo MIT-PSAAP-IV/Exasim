@@ -1,7 +1,6 @@
 #include <Kokkos_Core.hpp>
 #include "../../backend/Common/common.h"
 #include "../../backend/Common/kokkosimpl.h"
-#include "../../backend/Common/auxiliary_snapshot.hpp"
 #include <limits>
 #include <cstdio>
 
