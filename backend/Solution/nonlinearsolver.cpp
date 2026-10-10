@@ -9,6 +9,7 @@
 
 #include "nonlinearsolver.h"
 #include <cmath>
+#include "../Common/auxiliary_snapshot.hpp"
 
 template <class M>
 SolveStatus CNonlinearSolver<M>::PTCsolver(ofstream &out, Int backend)
@@ -27,7 +28,7 @@ SolveStatus CNonlinearSolver<M>::PTCsolver(ofstream &out, Int backend)
     nrmr = PNORM(disc.common.cublasHandle, N, solv.sys.r, backend);
     if (disc.common.mpiRank==0)
         cout<<"Newton Iteration: "<<it<<",  Residual Norm: "<<nrmr<<endl;
-    if ((nrmr > 1.0e6) || !std::isfinite(nrmr)) {
+    if ((nrmr > 1.0e6) || !is_finite_bitwise(nrmr)) {
         string filename = disc.common.fileout + "_np" + NumberToString(disc.common.mpiRank) + ".bin";
         writearray2file(filename, disc.sol.udg, disc.common.sizes.ndofudg1, backend);
         if (disc.common.components.ncw > 0) {
@@ -56,6 +57,8 @@ SolveStatus CNonlinearSolver<M>::PTCsolver(ofstream &out, Int backend)
             ldgPreconditionerTime += SolutionBenchmarkStop(t0, backend);
         }
 
+        AuxiliaryStateSnapshot<dstype> auxiliary(disc.sol.wdg,
+                disc.common.components.ncw > 0 ? disc.sol.szwdg : 0);
         dstype nrm0 = nrmr;
 
         int status = 0;
@@ -77,53 +80,36 @@ SolveStatus CNonlinearSolver<M>::PTCsolver(ofstream &out, Int backend)
             ArrayAXPY(disc.common.cublasHandle, solv.sys.u, solv.sys.x, alpha, N, backend);
 
             // compute both the residual vector and sol.udg
+            auxiliary.restore();
             residual.evalResidual(solv.sys.r, solv.sys.u, backend);
             nrmr = PNORM(disc.common.cublasHandle, N, solv.sys.r, backend);
-            if ((nrmr > 1.0e6) || !std::isfinite(nrmr)) {
-                string filename = disc.common.fileout + "_np" + NumberToString(disc.common.mpiRank) + ".bin";
-                writearray2file(filename, disc.sol.udg, disc.common.sizes.ndofudg1, backend);
-                if (disc.common.components.ncw > 0) {
-                    string filename1 = disc.common.fileout + "_w_np" + NumberToString(disc.common.mpiRank) + ".bin";
-                    writearray2file(filename1, disc.sol.wdg, disc.common.grid.npe*disc.common.components.ncw*disc.common.meshsizes.ne1, backend);
-                }
-                writer.crashDump(backend);
-                error("Residual norm exceeds 1e6 or is non-finite. Save and exit.");
-            }
 
-            while ((IS_NAN(nrmr) || nrmr > nrm0) && alpha > minAlpha) {
+            // Retry from the saved auxiliary seed, not the failed trial's w.
+            while ((!is_finite_bitwise(nrmr) || nrmr > nrm0 || nrmr > 1.0e6) && alpha > minAlpha) {
                 if (disc.common.mpiRank==0)
                     cout<<"Newton Iteration: "<<it<<", Alpha: "<<alpha
                         <<", Original Norm: "<<nrm0
                         <<", Updated Norm: "<<nrmr<<endl;
 
                 dstype newAlpha = 0.5*alpha;
-                ArrayAXPY(disc.common.cublasHandle, solv.sys.u, solv.sys.x,
-                        newAlpha - alpha, N, backend);
                 alpha = newAlpha;
+                ArrayAXPBY(solv.sys.u, solv.sys.v, solv.sys.x, one, alpha, N);
 
                 t0 = SolutionBenchmarkStart(backend);
+                auxiliary.restore();
                 residual.evalResidual(solv.sys.r, solv.sys.u, backend);
                 nrmr = PNORM(disc.common.cublasHandle, N, solv.sys.r, backend);
-                if ((nrmr > 1.0e6) || !std::isfinite(nrmr)) {
-                    string filename = disc.common.fileout + "_np" + NumberToString(disc.common.mpiRank) + ".bin";
-                    writearray2file(filename, disc.sol.udg, disc.common.sizes.ndofudg1, backend);
-                    if (disc.common.components.ncw > 0) {
-                        string filename1 = disc.common.fileout + "_w_np" + NumberToString(disc.common.mpiRank) + ".bin";
-                        writearray2file(filename1, disc.sol.wdg, disc.common.grid.npe*disc.common.components.ncw*disc.common.meshsizes.ne1, backend);
-                    }
-                    writer.crashDump(backend);
-                    error("Residual norm exceeds 1e6 or is non-finite. Save and exit.");
-                }
                 residualEvalTime += SolutionBenchmarkStop(t0, backend);
             }
 
-            acceptedStep = (!IS_NAN(nrmr) && nrmr <= nrm0 && nrmr <= 1.0e6);
+            acceptedStep = (is_finite_bitwise(nrmr) && nrmr <= nrm0 && nrmr <= 1.0e6);
             if (acceptedStep)
                 break;
 
             // Reject this direction and restore the base state before retrying.
             ArrayCopy(disc.common.cublasHandle, solv.sys.u, solv.sys.v, N, backend);
             t0 = SolutionBenchmarkStart(backend);
+            auxiliary.restore();
             residual.evalResidual(solv.sys.r, solv.sys.u, backend);
             nrmr = PNORM(disc.common.cublasHandle, N, solv.sys.r, backend);
             residualEvalTime += SolutionBenchmarkStop(t0, backend);
@@ -139,6 +125,8 @@ SolveStatus CNonlinearSolver<M>::PTCsolver(ofstream &out, Int backend)
 
         if (acceptedStep && alpha != one)
             ArrayMultiplyScalar(disc.common.cublasHandle, solv.sys.x, alpha, N, backend);
+
+        if (acceptedStep) auxiliary.commit();
 
         if (!acceptedStep) {
             string filename = disc.common.fileout + "_np" + NumberToString(disc.common.mpiRank) + ".bin";
@@ -180,7 +168,7 @@ SolveStatus CNonlinearSolver<M>::PTCsolver(ofstream &out, Int backend)
         }
     }
 
-    return {false, std::isfinite(nrmr), it};
+    return {false, is_finite_bitwise(nrmr), it};
 }
 
 template <class M>

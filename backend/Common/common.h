@@ -201,6 +201,8 @@ template <> bool is_nan_bitwise<float>(float x) {
 // Optional macro for quick usage
 #define IS_NAN(x) is_nan_bitwise<decltype(x)>(x)
 
+#include "finite_checks.hpp"
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
