@@ -1,5 +1,6 @@
 #include <exasim/drivers.hpp>
 #include <exasim/detail/driver_dispatch.hpp>
+#include <limits>
 
 /*
   wequation.cpp
@@ -375,6 +376,13 @@ inline void wEquation(T *wdg, T *xdg, T *udg, T *odg, T *wsrc,
 
           // check convergence
           dstype nrm = NORM(common.cublasHandle, ng*ncw, s, backend);
+          if (!is_finite_bitwise(nrm)) {
+            // Propagate failure to the outer trial acceptance test; do not
+            // continue Newton with an invalid EOS evaluation. w is generic,
+            // so positivity constraints must remain model-specific.
+            ArraySetValue(wdg, std::numeric_limits<T>::quiet_NaN(), ng*ncw);
+            break;
+          }
           if (nrm < 1e-6) {
             // if (common.mpiRank==2) {
             //   std::cout << std::fixed << std::setprecision(15);
@@ -411,7 +419,7 @@ inline void wEquation(T *wdg, T *xdg, T *udg, T *odg, T *wsrc,
           // update w = w + dw
           ArrayAXPBY(wdg, wdg, s, one, one, ng*ncw);          
         }
-        if (backend <= 1) {
+        if (backend <= 1 && common.outputparams.debugMode==1) {
             ReportNanInHdgSourcewonlyOutput("w", wdg, xdg, udg, odg, wdg, ng, ncw, nc, nco, ncw, nd, common.mpiRank, iter);
         }
     }

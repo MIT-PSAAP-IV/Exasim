@@ -276,7 +276,7 @@ I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc,
         }        
         
         // update solution: x = x + v*s
-        UpdateSolution(disc.common.cublasHandle, sys.x, y, H, s, sys.v, nrest-1, N, n1, backend);
+        UpdateSolution(disc.common.cublasHandle, sys.x, y, H, s, sys.v, i-1, N, n1, backend);
                
         // compute r = A*x
         assembler.evalMatVec(sys.r, sys.x, sys.u, sys.b, backend);

@@ -52,6 +52,7 @@
 #include <ostream>
 #include <cstdint>
 #include <cstring>
+#include <type_traits>
 
 #define SCOPY scopy_
 #define SSCAL sscal_
@@ -200,6 +201,17 @@ template <> bool is_nan_bitwise<float>(float x) {
 
 // Optional macro for quick usage
 #define IS_NAN(x) is_nan_bitwise<decltype(x)>(x)
+
+// Host-side IEEE-754 check: std::isfinite can be optimized away by -ffast-math.
+template <class T> inline bool is_finite_bitwise(T value)
+{
+    static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
+    using Bits = std::conditional_t<std::is_same_v<T, double>, std::uint64_t, std::uint32_t>;
+    constexpr Bits mask = std::is_same_v<T, double> ? 0x7ff0000000000000ULL : 0x7f800000U;
+    Bits bits;
+    std::memcpy(&bits, &value, sizeof(bits));
+    return (bits & mask) != mask;
+}
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846

@@ -26,6 +26,30 @@ add_test(NAME appstruct_materialdatabase
 set_tests_properties(appstruct_materialdatabase PROPERTIES TIMEOUT 60)
 
 if(TARGET Kokkos::kokkos)
+  add_executable(auxiliary_trial_test "${EXASIM_DIR}/tests/unit/auxiliary_trial.cpp")
+  target_include_directories(auxiliary_trial_test PRIVATE "${EXASIM_DIR}" "${EXASIM_DIR}/include")
+  target_link_libraries(auxiliary_trial_test PRIVATE Kokkos::kokkos)
+  target_compile_features(auxiliary_trial_test PRIVATE cxx_std_17)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(auxiliary_trial_test PRIVATE -ffast-math)
+  endif()
+  add_test(NAME auxiliary_trial COMMAND auxiliary_trial_test)
+  set_tests_properties(auxiliary_trial PROPERTIES TIMEOUT 60)
+
+  # Exercises the real auxiliary Newton solver with a failed logarithmic EOS
+  # trial, restored seed, and a signed auxiliary variable. NORM uses CPU BLAS.
+  if(NOT EXASIM_CUDA AND NOT EXASIM_HIP)
+    add_executable(auxiliary_eos_trial_test "${EXASIM_DIR}/tests/unit/auxiliary_eos_trial.cpp")
+    target_include_directories(auxiliary_eos_trial_test PRIVATE "${EXASIM_DIR}" "${EXASIM_DIR}/include")
+    target_link_libraries(auxiliary_eos_trial_test PRIVATE Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+    target_compile_features(auxiliary_eos_trial_test PRIVATE cxx_std_17)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+      target_compile_options(auxiliary_eos_trial_test PRIVATE -ffast-math)
+    endif()
+    add_test(NAME auxiliary_eos_trial COMMAND auxiliary_eos_trial_test)
+    set_tests_properties(auxiliary_eos_trial PROPERTIES TIMEOUT 60)
+  endif()
+
   add_executable(helmholtz_model_test
     "${EXASIM_DIR}/tests/unit/helmholtz_model.cpp")
   target_include_directories(helmholtz_model_test PRIVATE

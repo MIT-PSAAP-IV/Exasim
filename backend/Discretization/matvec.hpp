@@ -58,6 +58,7 @@ inline void MatVec(T *w, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<
     dResidual<M>(sol, res, app, master, mesh, tmp, common, handle, backend);
     ArrayAXPBY(w, u, res.dRu, 0.0, 1, N);
 #else
+    AuxiliaryStateSnapshot<T> auxiliary(sol.wdg, common.components.ncw > 0 ? sol.szwdg : 0);
     if (order==1) {
         // calculate w = u + epsilon*v
         ArrayAXPBY(w, u, v, 1.0, epsilon, N);
@@ -81,8 +82,10 @@ inline void MatVec(T *w, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<
         // compute the residual R(u-epsilon*v)
         Residual<M>(sol, res, app, master, mesh, tmp, common, handle, backend);
 
-        // copy res.Ru to Ru
-        ArrayCopy(Ru, res.Ru, N);
+        // Preserve the caller's base residual; both probes use the same w seed.
+        Kokkos::View<T*> minusResidual(Kokkos::view_alloc(Kokkos::WithoutInitializing, "minus_residual"), N);
+        ArrayCopy(minusResidual.data(), res.Ru, N);
+        auxiliary.restore();
         
         // calculate w = u + epsilon*v
         ArrayAXPBY(w, u, v, 1.0, epsilon, N);
@@ -94,7 +97,8 @@ inline void MatVec(T *w, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<
         Residual<M>(sol, res, app, master, mesh, tmp, common, handle, backend);
         
         // calculate w = J(u)*v = (R(u+epsilon*v)-R(u-epsilon*v))/(2*epsilon)    
-        ArrayAXPBY(w, res.Ru, Ru, 0.5/epsilon, -0.5/epsilon, N);
+        ArrayAXPBY(w, res.Ru, minusResidual.data(), 0.5/epsilon, -0.5/epsilon, N);
+        Kokkos::fence();
     }
     else
         error("Matrix-vector multiplication order is not implemented");
@@ -695,4 +699,3 @@ inline void hdgAssembleResidualMPI(T *b, solstructT<T,I> &sol, resstructT<T,I> &
 #endif
 
 #endif
-
