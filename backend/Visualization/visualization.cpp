@@ -765,8 +765,24 @@ private:
         }
         surf_ncells = 0;
         surf_nnodes = 0;
-        if (nsel_faces == 0) return;
-
+        if (nsel_faces == 0) {
+            // No selected faces on this rank: still compute VTU appended-data offsets so
+            // an empty piece (parallel runs) has valid metadata.
+            const std::uint64_t obytesize = 8; // UInt64 header per block
+            std::uint64_t soff = 0;
+            auto s_add_off = [&](std::uint64_t payload_bytes) {
+                std::uint64_t here = soff;
+                soff += payload_bytes + obytesize;
+                return here;
+            };
+            for (int s = 0; s < nsurfq; ++s)
+                surf_scalar_offsets[s] = s_add_off(byte_count(surf_nnodes, sizeof(float)));
+            surf_points_offset = s_add_off(byte_count(3, surf_nnodes, sizeof(float)));
+            surf_conn_offset   = s_add_off(byte_count(surf_k, surf_ncells, sizeof(int32_t)));
+            surf_offs_offset   = s_add_off(byte_count(surf_ncells, sizeof(int32_t)));
+            surf_types_offset  = s_add_off(byte_count(surf_ncells, 1));
+            return;
+        }
         // Staging buffers sized once and reused (as in Init above, which
         // pre-sizes its geometry/topology vectors and fills them in loops):
         // xg for the largest selected block, plane for one face, plus one
