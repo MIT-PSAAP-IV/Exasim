@@ -1508,11 +1508,20 @@ template <class T = ::dstype, class I = ::Int>
 struct scratcharenastructT {
     using dstype = T; using Int = I;
     dstype* buffer = nullptr;
-    Int sz = 0;
-    dstype* allocate(Int n, Int backend) {
+    std::size_t sz = 0;     // 64-bit: the LDG block-Jacobian (n^2 x ne1) passes 2^31 entries on large partitions
+    dstype* allocate(std::size_t n, Int backend) {
         if (buffer == nullptr || sz != n) {   // grow-if-needed (same policy as EnsureTemplateAllocation)
             TemplateFree(buffer, backend);
-            TemplateMalloc(&buffer, n, backend);
+            buffer = nullptr;
+            if (n > 0) {
+                if (backend <= 1) buffer = (dstype*) malloc(n*sizeof(dstype));
+#ifdef HAVE_CUDA
+                if (backend == 2) CHECK( cudaMalloc( (void**)&buffer, n*sizeof(dstype) ) );
+#endif
+#ifdef HAVE_HIP
+                if (backend == 3) CHECK( hipMalloc( (void**)&buffer, n*sizeof(dstype) ) );
+#endif
+            }
             sz = n;
         }
         return buffer;
@@ -1567,8 +1576,9 @@ struct resstructT {
     
     Int *ipiv=nullptr;    
     
-    Int szRi=0, szHi=0, szKi=0, szGi=0, szP=0, szV=0;
-    Int szipiv=0, szH=0, szK=0, szG=0, szF=0, szB=0, szD=0, szE=0, szC=0, szMass=0, szMinv=0, szMass2=0, szMinv2=0;
+    Int szRi=0, szHi=0, szKi=0, szGi=0, szV=0;
+    std::size_t szP=0, szK=0;   // K arena: 64-bit (n^2 x ne1 passes 2^31 on large partitions)
+    Int szipiv=0, szH=0, szG=0, szF=0, szB=0, szD=0, szE=0, szC=0, szMass=0, szMinv=0, szMass2=0, szMinv2=0;
     Int szRq=0, szRu=0, szRh=0, szRuf=0, szRue=0, szRqf=0, szRqe=0;
     // 1 when F and H alias INTO the K block (the LDG block-Jacobi arena, AllocateLDGBlockJacobianMemory).
     // In that layout K is the only owned allocation; freememory must NOT TemplateFree(F)/(H) (they are
@@ -1578,7 +1588,7 @@ struct resstructT {
 
     int sizeofint() {return szipiv;}
     int sizeoffloat() {
-      int sz = szH + szK + szG + szF + szB + szD + szE + szC + szMass + szMinv +
+      std::size_t sz = szH + szK + szG + szF + szB + szD + szE + szC + szMass + szMinv +
                szMass2 + szMinv2 + szRq + szRu + szRh + szRuf + szRue + szRqf + 
                szRqe + szHi + szKi + szGi + szRi;        
       return sz;
@@ -1604,7 +1614,7 @@ struct resstructT {
       printf("size of B: %d\n", szB);
       printf("size of F: %d\n", szF);
       printf("size of G: %d\n", szG);
-      printf("size of K: %d\n", szK);
+      printf("size of K: %zu\n", szK);
       printf("size of H: %d\n", szH);
       printf("size of Ri: %d\n", szRi);  
       printf("size of Gi: %d\n", szGi);
@@ -1623,11 +1633,11 @@ struct resstructT {
     // site) means no other class needs to know this layout: it decouples CSolver's sys.v from
     // CDiscretization's res, and lets a future change hand back a separate buffer transparently.
     // Non-owning: the returned pointer aliases K and must never be freed (keep sys.szv == 0).
-    dstype* reserveKrylovScratch(Int szRequest)
+    dstype* reserveKrylovScratch(std::size_t szRequest)
     {
         if (K != nullptr && szP + szRequest > szK)
-            printf("WARNING: reserveKrylovScratch overruns the res.K arena (szP=%d + req=%d > szK=%d)\n",
-                   (int)szP, (int)szRequest, (int)szK);
+            printf("WARNING: reserveKrylovScratch overruns the res.K arena (szP=%zu + req=%zu > szK=%zu)\n",
+                   szP, szRequest, szK);
         return &K[szP];
     }
 
@@ -1636,14 +1646,14 @@ struct resstructT {
     // slice and advances -- centralizing the offset arithmetic that used to be spelled out
     // inline as &K[start + dSize + bSize + ...] at every assignment, and warning on overrun.
     // Non-owning views into K (freed with K). See AllocateLDGBlockJacobianMemory / the HDG branch.
-    Int kArenaCursor = 0;
-    void resetKArena(Int start) { kArenaCursor = start; }
-    dstype* reserveView(Int size)
+    std::size_t kArenaCursor = 0;
+    void resetKArena(std::size_t start) { kArenaCursor = start; }
+    dstype* reserveView(std::size_t size)
     {
         dstype* p = &K[kArenaCursor];
         kArenaCursor += size;
         if (K != nullptr && kArenaCursor > szK)
-            printf("WARNING: K arena view overruns (cursor=%d > szK=%d)\n", (int)kArenaCursor, (int)szK);
+            printf("WARNING: K arena view overruns (cursor=%zu > szK=%zu)\n", kArenaCursor, szK);
         return p;
     }
 

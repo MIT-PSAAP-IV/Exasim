@@ -417,11 +417,11 @@ void AllocateLDGBlockJacobianMemory(resstructT<T,I>& res, commonstructT<T,I>& co
     Int tempn_cross = max(szFq, szBufq) + max(szBufq, szEf) + szAf;
     Int hSize = max(max(tempn_schur, tempn_uface), tempn_cross);
 
-    Int kInvSize = n*n*common.meshsizes.ne1;
+    std::size_t kInvSize = (std::size_t)n*n*common.meshsizes.ne1;     // 64-bit: passes 2^31 on large partitions
     Int dSize = n*n*neb;
     Int bSize = n*nq*neb;
     Int fSize = m*n*neb;
-    Int kSize = kInvSize + max(dSize + bSize + 2*fSize + hSize, M*ndofu);
+    std::size_t kSize = kInvSize + (std::size_t)max(dSize + bSize + 2*fSize + hSize, M*ndofu);
     res.szP = kInvSize;
 
     res.K = scratch.allocate(kSize, backend); res.szK = kSize;  // K owned by the arena (S5 step 3)
