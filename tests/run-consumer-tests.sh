@@ -73,8 +73,10 @@ for dir in "$REPO"/tests/consumers/*/; do
     fi || { echo "  FAIL[B4]: run nonzero exit (see $rdir/run.log)"; \
             echo "  --- $rdir/run.log ---"; sed 's/^/  | /' "$rdir/run.log"; \
             echo "  --- end run.log ---"; fail=1; continue; }
-    qoi1="$(tail -1 "$rdir/dataout/outqoi.txt" 2>/dev/null | awk '{print $2}')"
-    if [ -z "$qoi1" ]; then echo "  FAIL[B4]: no QoI output"; fail=1; continue; fi
+    qfile="$(find "$rdir" -name "outqoi.txt" 2>/dev/null | head -1)"
+    if [ -z "$qfile" ]; then echo "  FAIL[B4]: no QoI output (searched $rdir/**/outqoi.txt)"; fail=1; continue; fi
+    qoi1="$(tail -1 "$qfile" 2>/dev/null | awk '{print $2}')"
+    if [ -z "$qoi1" ]; then echo "  FAIL[B4]: no QoI output (read $qfile)"; fail=1; continue; fi
     if awk "BEGIN{exit !(($qoi1)+0 < ($QOI_TOL)+0)}"; then
       echo "  [B4] run ok, QoI[1]=$qoi1 < $QOI_TOL"
     else
@@ -100,11 +102,33 @@ for dir in "$REPO"/tests/consumers/*/; do
     done
     if grep -qE '^[[:space:]]*saveParaview[[:space:]]*=[[:space:]]*[1-9]' "$rdir/pdeapp.txt" \
          && [ "$visfields" -gt 0 ]; then
-      nvis="$(find "$rdir/dataout" -maxdepth 1 \( -name 'outvis*.vtu' -o -name 'outvis*.pvtu' \) 2>/dev/null | wc -l | tr -d ' ')"
+      nvis="$(find "$rdir" \( -name 'outvis*.vtu' -o -name 'outvis*.pvtu' \) 2>/dev/null | wc -l | tr -d ' ')"
       if [ "$nvis" -gt 0 ]; then
         echo "  [B5] vis ok: $nvis outvis file(s)"
       else
         echo "  FAIL[B5]: saveParaview enabled (nsca+nvec+nten>0) but no outvis*.vtu/.pvtu written"; fail=1
+      fi
+    fi
+
+    # B5 (surface): surface-visualization gate. The backend writes outsurf*.vtu
+    # only when (saveParaview != 0) AND (nsurfq > 0) AND at least one ibs boundary
+    # id is declared — see CVisualization's surfvis_enabled. Mirror that exact
+    # condition here so the gate never demands surface vis the backend would not
+    # produce. nsurfq/ibs are read from pdeapp.txt; model-provided values stay
+    # silent (same safe direction as the volume gate above). Accept .vtu (serial)
+    # or .pvtu (parallel), as above.
+    _nsq="$(grep -E "^[[:space:]]*nsurfq[[:space:]]*=" "$rdir/pdeapp.txt" | head -1 | grep -oE '[0-9]+' | head -1)"
+    _surfibs=0
+    for _id in $(grep -E "^[[:space:]]*ibs[[:space:]]*=" "$rdir/pdeapp.txt" | head -1 | grep -oE '[0-9]+'); do
+      [ "${_id:-0}" -gt 0 ] && _surfibs=1
+    done
+    if grep -qE '^[[:space:]]*saveParaview[[:space:]]*=[[:space:]]*[1-9]' "$rdir/pdeapp.txt" \
+         && [ "${_nsq:-0}" -gt 0 ] && [ "$_surfibs" -gt 0 ]; then
+      nsurfvis="$(find "$rdir" \( -name 'outsurf*.vtu' -o -name 'outsurf*.pvtu' \) 2>/dev/null | wc -l | tr -d ' ')"
+      if [ "$nsurfvis" -gt 0 ]; then
+        echo "  [B5] surfvis ok: $nsurfvis outsurf file(s)"
+      else
+        echo "  FAIL[B5]: saveParaview+nsurfq+ibs but no outsurf*.vtu/.pvtu written"; fail=1
       fi
     fi
 

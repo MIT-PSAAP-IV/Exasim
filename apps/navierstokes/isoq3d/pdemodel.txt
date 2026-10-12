@@ -8,7 +8,7 @@ hessian
 
 batch x, uq, v, w, uhat, n, uext
 
-outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Initu
+outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Initu, SurfaceQuantities
 
 function Flux(x, uq, v, w, eta, mu, t)
   output_size(f) = 15;
@@ -371,4 +371,154 @@ function Initu(x, eta, mu)
   ui[2] = mu[6];
   ui[3] = mu[7];
   ui[4] = mu[8];
+end
+
+function HeatFluxSurf(x, uhat, uq, v, w, eta, mu, t)
+  output_size(f) = 3;
+
+  gam = mu[0];
+  gam1 = gam - 1.0;
+  Re = mu[1];
+  Pr = mu[2];
+  Minf = mu[3];
+  Tinf = mu[9];
+  Tref = mu[10];
+  muRef = 1.0/Re;
+  M2 = Minf*Minf;
+  c23 = 2.0/3.0;
+  alpha = 1.0e3;
+  rmin = 1.0e-2;
+  pmin = 1.0e-3;
+  av = v[0];
+
+  r0 = uhat[0];
+  ru = uhat[1];
+  rv = uhat[2];
+  rw = uhat[3];
+  rE = uhat[4];
+  rx0 = uq[5];
+  rux = uq[6];
+  rvx = uq[7];
+  rwx = uq[8];
+  rEx = uq[9];
+  ry0 = uq[10];
+  ruy = uq[11];
+  rvy = uq[12];
+  rwy = uq[13];
+  rEy = uq[14];
+  rz0 = uq[15];
+  ruz = uq[16];
+  rvz = uq[17];
+  rwz = uq[18];
+  rEz = uq[19];
+
+  rarg = r0 - rmin;
+  r = rmin + rarg*(atan(alpha*rarg)/pi + 0.5) - atan(alpha)/pi + 0.5;
+  dr = atan(alpha*(r-rmin))/pi + (alpha*(r-rmin))/(pi*(alpha*alpha*(r-rmin)*(r-rmin) + 1.0)) + 0.5;
+  rx = rx0*dr;
+  ry = ry0*dr;
+  rz = rz0*dr;
+
+  r1 = 1.0/r;
+  uv = ru*r1;
+  vv = rv*r1;
+  wv = rw*r1;
+  E = rE*r1;
+  ke = 0.5*(uv*uv + vv*vv + wv*wv);
+  p0 = gam1*(rE - r*ke);
+
+  parg = p0 - pmin;
+  p = pmin + parg*(atan(alpha*parg)/pi + 0.5) - atan(alpha)/pi + 0.5;
+  dp = atan(alpha*(p-pmin))/pi + (alpha*(p-pmin))/(pi*(alpha*alpha*(p-pmin)*(p-pmin) + 1.0)) + 0.5;
+
+  h = E + p*r1;
+
+  ux = (rux - rx*uv)*r1;
+  vx = (rvx - rx*vv)*r1;
+  wx = (rwx - rx*wv)*r1;
+  qx = uv*ux + vv*vx + wv*wx;
+  px = gam1*(rEx - rx*ke - r*qx);
+  gradpx = px*dp;
+  Tx = (gradpx*r - p*rx)*r1*r1/gam1;
+
+  uy = (ruy - ry*uv)*r1;
+  vy = (rvy - ry*vv)*r1;
+  wy = (rwy - ry*wv)*r1;
+  qy = uv*uy + vv*vy + wv*wy;
+  py = gam1*(rEy - ry*ke - r*qy);
+  gradpy = py*dp;
+  Ty = (gradpy*r - p*ry)*r1*r1/gam1;
+
+  uz = (ruz - rz*uv)*r1;
+  vz = (rvz - rz*vv)*r1;
+  wz = (rwz - rz*wv)*r1;
+  qz = uv*uz + vv*vz + wv*wz;
+  pz = gam1*(rEz - rz*ke - r*qz);
+  gradpz = pz*dp;
+  Tz = (gradpz*r - p*rz)*r1*r1/gam1;
+
+  T = p/(gam1*r);
+  Tphys = Tref/Tinf*T;
+  Tr = Tphys/Tref;
+  muphys = muRef*sqrt(Tr*Tr*Tr)*(Tref + 110.4)/(Tphys + 110.4);
+  fc = muphys*gam/Pr;
+
+  f[0] = fc*Tx;
+  f[1] = fc*Ty;
+  f[2] = fc*Tz;
+end
+
+function SurfaceQuantities(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(sq) = 3;
+
+  s = Scalings(eta, mu);
+  RhoRef = s[0];
+  URef = s[1];
+  Pref = s[2];
+  Qref = s[3];
+
+  gam = mu[0];
+  gam1 = gam - 1.0;
+
+  f = HeatFluxSurf(x, uhat, uq, v, w, eta, mu, t);
+  sq[0] = (f[0]*n[0] + f[1]*n[1] + f[2]*n[2] + tau[0]*(uq[4] - uhat[4])) * Qref;
+
+  r = uhat[0];
+  ru = uhat[1];
+  rv = uhat[2];
+  rw = uhat[3];
+  rE = uhat[4];
+  ke = 0.5*(ru*ru + rv*rv + rw*rw)/r;
+  sq[1] = gam1*(rE - r*ke) * Pref;
+
+  sq[2] = (ru*n[0] + rv*n[1] + rw*n[2]) * RhoRef * URef;
+end
+
+function Scalings(eta, mu)
+  output_size(s) = 6;
+
+  gam = mu[0];
+  gam1 = gam - 1.0;
+  Re = mu[1];
+  Tinf = mu[9];
+  Tref = mu[10];
+
+  R = 287;
+  Ts = 110.4;
+  T0 = 273.15;
+  mu0 = 1.716e-5;
+
+  TrRef = Tref/T0;
+  muPhys = mu0 * sqrt(TrRef*TrRef*TrRef) * (T0+Ts)/(Tref+Ts);
+  URef = sqrt(R * Tref / (gam1 * Tinf));
+  RhoRef = Re * muPhys / URef;
+  Pref = RhoRef * URef * URef;
+  Qref = Pref * URef;
+
+  s[0] = RhoRef;
+  s[1] = URef;
+  s[2] = Pref;
+  s[3] = Qref;
+  s[4] = Tref;
+  s[5] = muPhys;
 end
