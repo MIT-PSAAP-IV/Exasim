@@ -83,6 +83,13 @@ public:
     void SaveQoI(Int backend);
     void SaveParaview(Int backend, std::string fname_modifier = "", bool force_tdep_write = false);
 
+    // Write the ibs-list boundary surfaces on the same steps, with the same
+    // base name and rank layout, as the volume ParaView output. Called only
+    // from the tail of SaveParaview, which supplies the resolved cadence,
+    // base name and local rank layout.
+    void SaveSurfaces(Int backend, const std::string& baseName,
+                      bool writeSolution, Int localRank, Int localProcs);
+
     // Write the ParaView output for an EXPLICIT 1-based step, without disturbing the
     // solver's own step counter.
     //
@@ -107,6 +114,9 @@ public:
     void saveSurfaceQuantitiesBlock(Int f1, Int f2, Int ib, Int backend);
     // make surfbuf hold the scratch for a block of nf faces (exact size, checked against Int)
     void ensureSurfaceScratch(Int nf);
+    // node-only SurfaceQuantities evaluation for the VTU surface writer: returns the
+    // [npf*nf, nsurfq] values in surfbuf (same gather + driver path as the node branch above)
+    dstype* evalSurfaceQuantitiesNodes(Int f1, Int f2, Int ib, Int backend);
     void SaveOutputCG(Int backend);
 
     // read solutions / a saved record from the appended solution files
