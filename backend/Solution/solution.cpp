@@ -86,12 +86,17 @@ void printFirstNonFiniteFlat(const char* label, const dstype* data, Int size, In
 
 double SolutionBenchmarkNowMs()
 {
+#ifdef TIMING
     return std::chrono::duration<double, std::milli>(
             std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+#else
+    return 0.0;
+#endif
 }
 
 void SolutionBenchmarkFence(const Int backend)
 {
+#ifdef TIMING
     Kokkos::fence();
 #ifdef HAVE_CUDA
     if (backend == 2)
@@ -100,6 +105,9 @@ void SolutionBenchmarkFence(const Int backend)
 #ifdef HAVE_HIP
     if (backend == 3)
         CHECK(hipDeviceSynchronize());
+#endif
+#else
+    (void)backend;
 #endif
 }
 

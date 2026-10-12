@@ -160,6 +160,7 @@ SolveStatus CNonlinearSolver<M>::PTCsolver(ofstream &out, Int backend)
         if (disc.common.mpiRank==0)
             cout<<"Newton Iteration: "<<it<<",  Residual Norm: "<<nrmr<<endl;
 
+#ifdef TIMING
         if ((disc.common.mpiRank==0) && (disc.common.spatialScheme == 0) && (disc.common.solverparams.preconditioner == 1)) {
             double ldgIterationTime = SolutionBenchmarkStop(ldgIterationStart, backend);
             cout << "==> LDG Newton Solver benchmark, iteration " << it << " (milliseconds)" << endl;
@@ -167,6 +168,7 @@ SolveStatus CNonlinearSolver<M>::PTCsolver(ofstream &out, Int backend)
             cout << "    ComputeLDGPreconditioner: " << ldgPreconditionerTime << endl;
             cout << "    LinearSolver/GMRES    : " << linearSolverTime << endl;
         }
+#endif
 
         // update the reduced basis
         if ((status==0) && (disc.common.solverparams.RBdim > 0)) // fix bug here

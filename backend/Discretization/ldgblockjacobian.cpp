@@ -58,6 +58,7 @@ struct LDGRuFaceCrossBenchmarkTimes {
 
 static inline void LDGBenchmarkFence(const Int backend)
 {
+#ifdef TIMING
     Kokkos::fence();
 #ifdef HAVE_CUDA
     if (backend == 2)
@@ -67,12 +68,19 @@ static inline void LDGBenchmarkFence(const Int backend)
     if (backend == 3)
         CHECK(hipDeviceSynchronize());
 #endif
+#else
+    (void)backend;
+#endif
 }
 
 static inline double LDGBenchmarkTime()
 {
+#ifdef TIMING
     return std::chrono::duration<double, std::milli>(
             std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+#else
+    return 0.0;
+#endif
 }
 
 static inline double LDGBenchmarkStart(const Int backend)
@@ -90,6 +98,7 @@ static inline double LDGBenchmarkStop(const double start, const Int backend)
 static inline void LDGPrintBenchmark(const char* label,
         const LDGBenchmarkTimes& tm, const commonstruct& common)
 {
+#ifdef TIMING
     if (common.mpiRank != 0)
         return;
 
@@ -118,11 +127,17 @@ static inline void LDGPrintBenchmark(const char* label,
     std::cout << "  copy local blocks                   : " << tm.copy << " ms" << std::endl;
     std::cout << "  RuFaceCrossDeriv                    : " << tm.cross << " ms" << std::endl;
     std::cout << "  Inverse                             : " << tm.inverse << " ms" << std::endl;
+#else
+    (void)label;
+    (void)tm;
+    (void)common;
+#endif
 }
 
 static inline void LDGPrintRuFaceCrossBenchmark(
         const LDGRuFaceCrossBenchmarkTimes& tm, const commonstruct& common)
 {
+#ifdef TIMING
     if (common.mpiRank != 0)
         return;
 
@@ -142,6 +157,10 @@ static inline void LDGPrintRuFaceCrossBenchmark(
     std::cout << "  grouped FluxDriver total      : " << flux << " ms" << std::endl;
     std::cout << "  grouped projection total      : " << projection << " ms" << std::endl;
     std::cout << "  grouped cross assembly total  : " << assemble << " ms" << std::endl;
+#else
+    (void)tm;
+    (void)common;
+#endif
 }
 
 inline void LDGPutInteriorTraceMatrix(dstype* G, const Int* elemcon,
