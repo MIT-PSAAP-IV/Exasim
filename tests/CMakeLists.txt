@@ -541,6 +541,141 @@ if(EXASIM_MPI) # [nonmatching]
               $<TARGET_FILE:unit_nonmatching_donorsearch> ${MPIEXEC_POSTFLAGS}) # [nonmatching]
     set_tests_properties(unit_nonmatching_donorsearch_np${np} PROPERTIES TIMEOUT 300) # [nonmatching]
   endforeach() # [nonmatching]
+
+  # [nonmatching] Phase 3: D6-D7 setup distribution, stored point data, and communication lists.
+  add_executable(unit_nonmatching_setup ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_setup.cpp) # [nonmatching]
+  target_link_libraries(unit_nonmatching_setup PRIVATE Kokkos::kokkos MPI::MPI_CXX ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
+  target_include_directories(unit_nonmatching_setup PRIVATE ${EXASIM_DIR}) # [nonmatching]
+  target_compile_definitions(unit_nonmatching_setup PRIVATE HAVE_MPI) # [nonmatching]
+  foreach(np 2 4 8) # [nonmatching]
+    add_test(NAME unit_nonmatching_setup_np${np} # [nonmatching]
+      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS} # [nonmatching]
+              $<TARGET_FILE:unit_nonmatching_setup> ${MPIEXEC_POSTFLAGS}) # [nonmatching]
+    set_tests_properties(unit_nonmatching_setup_np${np} PROPERTIES TIMEOUT 300) # [nonmatching]
+  endforeach() # [nonmatching]
+
+  # [nonmatching] Phase 10: mixed triangle/quadrilateral face masters.
+  add_executable(unit_nonmatching_mixed_meshes ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_mixed_meshes.cpp) # [nonmatching]
+  target_link_libraries(unit_nonmatching_mixed_meshes PRIVATE Kokkos::kokkos MPI::MPI_CXX ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
+  target_include_directories(unit_nonmatching_mixed_meshes PRIVATE ${EXASIM_DIR}) # [nonmatching]
+  target_compile_definitions(unit_nonmatching_mixed_meshes PRIVATE HAVE_MPI) # [nonmatching]
+  foreach(np 2 4 8) # [nonmatching]
+    add_test(NAME unit_nonmatching_mixed_meshes_np${np} # [nonmatching]
+      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS} # [nonmatching]
+              $<TARGET_FILE:unit_nonmatching_mixed_meshes> ${MPIEXEC_POSTFLAGS}) # [nonmatching]
+    set_tests_properties(unit_nonmatching_mixed_meshes_np${np} PROPERTIES TIMEOUT 600) # [nonmatching]
+  endforeach() # [nonmatching]
+  foreach(mode porder pgauss npf ngf quadrature) # [nonmatching]
+    add_test(NAME unit_nonmatching_mixed_incompatible_${mode} # [nonmatching] expected failure
+      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_PREFLAGS} # [nonmatching]
+              $<TARGET_FILE:unit_nonmatching_mixed_meshes> ${MPIEXEC_POSTFLAGS} --incompatible ${mode}) # [nonmatching]
+    set_tests_properties(unit_nonmatching_mixed_incompatible_${mode} PROPERTIES TIMEOUT 120 # [nonmatching]
+      PASS_REGULAR_EXPRESSION "non-matching interface: incompatible face spaces") # [nonmatching]
+  endforeach() # [nonmatching]
+  add_test(NAME unit_nonmatching_mixed_incompatible_quadrature_local # [nonmatching] expected failure
+    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} # [nonmatching]
+            $<TARGET_FILE:unit_nonmatching_mixed_meshes> ${MPIEXEC_POSTFLAGS} --incompatible quadrature_local) # [nonmatching]
+  set_tests_properties(unit_nonmatching_mixed_incompatible_quadrature_local PROPERTIES TIMEOUT 120 # [nonmatching]
+    PASS_REGULAR_EXPRESSION "non-matching interface: incompatible face spaces") # [nonmatching]
+  add_test(NAME unit_nonmatching_mixed_missing_sidecar # [nonmatching] expected failure
+    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_PREFLAGS} # [nonmatching]
+            $<TARGET_FILE:unit_nonmatching_mixed_meshes> ${MPIEXEC_POSTFLAGS} --incompatible sidecar) # [nonmatching]
+  set_tests_properties(unit_nonmatching_mixed_missing_sidecar PROPERTIES TIMEOUT 120 # [nonmatching]
+    PASS_REGULAR_EXPRESSION "mixed element families require the owner-test sidecar") # [nonmatching]
+
+  # [nonmatching] Phase 4: residual/matrix quadrature and compact owner-donor exchange.
+  add_executable(unit_nonmatching_coupling ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_coupling.cpp) # [nonmatching]
+  target_link_libraries(unit_nonmatching_coupling PRIVATE Kokkos::kokkos MPI::MPI_CXX ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
+  target_include_directories(unit_nonmatching_coupling PRIVATE ${EXASIM_DIR}) # [nonmatching]
+  target_compile_definitions(unit_nonmatching_coupling PRIVATE HAVE_MPI) # [nonmatching]
+  foreach(np 2 4 8) # [nonmatching]
+    add_test(NAME unit_nonmatching_coupling_np${np} # [nonmatching]
+      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS} # [nonmatching]
+              $<TARGET_FILE:unit_nonmatching_coupling> ${MPIEXEC_POSTFLAGS}) # [nonmatching]
+    set_tests_properties(unit_nonmatching_coupling_np${np} PROPERTIES TIMEOUT 300) # [nonmatching]
+  endforeach() # [nonmatching]
+
+  # [nonmatching] Phase 7: distributed donor search on the interface communicator (equivalence with the exhaustive oracle).
+  add_executable(unit_nonmatching_search ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_search.cpp) # [nonmatching]
+  target_link_libraries(unit_nonmatching_search PRIVATE Kokkos::kokkos MPI::MPI_CXX ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
+  target_include_directories(unit_nonmatching_search PRIVATE ${EXASIM_DIR}) # [nonmatching]
+  target_compile_definitions(unit_nonmatching_search PRIVATE HAVE_MPI) # [nonmatching]
+  foreach(np 2 4 8) # [nonmatching]
+    add_test(NAME unit_nonmatching_search_np${np} # [nonmatching]
+      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS} # [nonmatching]
+              $<TARGET_FILE:unit_nonmatching_search> ${MPIEXEC_POSTFLAGS}) # [nonmatching]
+    set_tests_properties(unit_nonmatching_search_np${np} PROPERTIES TIMEOUT 600) # [nonmatching]
+  endforeach() # [nonmatching]
+  # [nonmatching] Phase 7 Revision 2: the same test compiled with -ffast-math, as the production
+  # library is; only the strict-IEEE diagnostics are conditioned out (NONMATCHING_SEARCH_FAST_MATH).
+  add_executable(unit_nonmatching_search_fastmath ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_search.cpp) # [nonmatching]
+  target_link_libraries(unit_nonmatching_search_fastmath PRIVATE Kokkos::kokkos MPI::MPI_CXX ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
+  target_include_directories(unit_nonmatching_search_fastmath PRIVATE ${EXASIM_DIR}) # [nonmatching]
+  target_compile_definitions(unit_nonmatching_search_fastmath PRIVATE HAVE_MPI NONMATCHING_SEARCH_FAST_MATH) # [nonmatching]
+  target_compile_options(unit_nonmatching_search_fastmath PRIVATE -ffast-math) # [nonmatching]
+  foreach(np 2 4 8) # [nonmatching]
+    add_test(NAME unit_nonmatching_search_fastmath_np${np} # [nonmatching]
+      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS} # [nonmatching]
+              $<TARGET_FILE:unit_nonmatching_search_fastmath> ${MPIEXEC_POSTFLAGS}) # [nonmatching]
+    set_tests_properties(unit_nonmatching_search_fastmath_np${np} PROPERTIES TIMEOUT 600) # [nonmatching]
+  endforeach() # [nonmatching]
+
+  # [nonmatching] Phase 5: non-matching coupling in hdgMatVec (FD, conformal equivalence, GMRES counts).
+  add_executable(unit_nonmatching_matvec ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_matvec.cpp) # [nonmatching]
+  target_link_libraries(unit_nonmatching_matvec PRIVATE Kokkos::kokkos MPI::MPI_CXX ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
+  target_include_directories(unit_nonmatching_matvec PRIVATE ${EXASIM_DIR}) # [nonmatching]
+  target_compile_definitions(unit_nonmatching_matvec PRIVATE HAVE_MPI) # [nonmatching]
+  foreach(np 2 4 8) # [nonmatching]
+    add_test(NAME unit_nonmatching_matvec_np${np} # [nonmatching]
+      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS} # [nonmatching]
+              $<TARGET_FILE:unit_nonmatching_matvec> ${MPIEXEC_POSTFLAGS}) # [nonmatching]
+    set_tests_properties(unit_nonmatching_matvec_np${np} PROPERTIES TIMEOUT 300) # [nonmatching]
+  endforeach() # [nonmatching]
+  # [nonmatching] Phase 9 B1: transfer consistency of u, q, uhat and the uncondensed residual
+  # (p = 1..4, mesh pairs A/S/R, both directions; polynomial case exact). Two ranks.
+  add_test(NAME unit_nonmatching_b1_transfer # [nonmatching]
+    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_PREFLAGS} # [nonmatching]
+            $<TARGET_FILE:unit_nonmatching_matvec> ${MPIEXEC_POSTFLAGS} --b1-transfer) # [nonmatching]
+  set_tests_properties(unit_nonmatching_b1_transfer PROPERTIES TIMEOUT 300) # [nonmatching]
+  # [nonmatching] Phase 9 A1: opt-in composite owner quadrature on coincident 2D interfaces
+  # (T1-T7, coincidence threshold, analytic piecewise integrals of both coupling laws,
+  # partition independence at 1+1, 2+2, 4+4) and two expected-failure MPI tests.
+  foreach(np 2 4 8) # [nonmatching]
+    add_test(NAME unit_nonmatching_quadrature_np${np} # [nonmatching]
+      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS} # [nonmatching]
+              $<TARGET_FILE:unit_nonmatching_matvec> ${MPIEXEC_POSTFLAGS} --quadrature) # [nonmatching]
+    set_tests_properties(unit_nonmatching_quadrature_np${np} PROPERTIES TIMEOUT 300) # [nonmatching]
+  endforeach() # [nonmatching]
+  add_test(NAME unit_nonmatching_quadrature_mismatch # [nonmatching] expected failure
+    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_PREFLAGS} # [nonmatching]
+            $<TARGET_FILE:unit_nonmatching_matvec> ${MPIEXEC_POSTFLAGS} --quadrature-mismatch) # [nonmatching]
+  set_tests_properties(unit_nonmatching_quadrature_mismatch PROPERTIES TIMEOUT 120 # [nonmatching]
+    PASS_REGULAR_EXPRESSION "composite owner quadrature option differs across ranks") # [nonmatching]
+  add_test(NAME unit_nonmatching_quadrature_piece_limit # [nonmatching] expected failure
+    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_PREFLAGS} # [nonmatching]
+            $<TARGET_FILE:unit_nonmatching_matvec> ${MPIEXEC_POSTFLAGS} --quadrature-piece-limit) # [nonmatching]
+  set_tests_properties(unit_nonmatching_quadrature_piece_limit PROPERTIES TIMEOUT 120 # [nonmatching]
+    PASS_REGULAR_EXPRESSION "needs more than 2 pieces on one owner face") # [nonmatching]
+  # [nonmatching] Phase 9 Revision 2: a forced endpoint candidate failure is a uniform search
+  # error with its deterministic tuple, never the noncoincident fallback.
+  add_test(NAME unit_nonmatching_quadrature_endpoint_failure # [nonmatching] expected failure
+    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_PREFLAGS} # [nonmatching]
+            $<TARGET_FILE:unit_nonmatching_matvec> ${MPIEXEC_POSTFLAGS} --quadrature-endpoint-failure) # [nonmatching]
+  set_tests_properties(unit_nonmatching_quadrature_endpoint_failure PROPERTIES TIMEOUT 120 # [nonmatching]
+    PASS_REGULAR_EXPRESSION "composite owner quadrature endpoint search failed .*endpoint owner rank [0-9]+, direction [01] .*first failing donor rank [0-9]+, global face [0-9]+" # [nonmatching]
+    FAIL_REGULAR_EXPRESSION "UNEXPECTED|interface not coincident") # [nonmatching]
+
+  # [nonmatching] Phase 8: persistent backend runtime/workspace lifecycle.
+  add_executable(unit_nonmatching_runtime ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_runtime.cpp) # [nonmatching]
+  target_link_libraries(unit_nonmatching_runtime PRIVATE Kokkos::kokkos MPI::MPI_CXX ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
+  target_include_directories(unit_nonmatching_runtime PRIVATE ${EXASIM_DIR}) # [nonmatching]
+  target_compile_definitions(unit_nonmatching_runtime PRIVATE HAVE_MPI) # [nonmatching]
+  foreach(np 2 4 8) # [nonmatching]
+    add_test(NAME unit_nonmatching_runtime_np${np} # [nonmatching]
+      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS} # [nonmatching]
+              $<TARGET_FILE:unit_nonmatching_runtime> ${MPIEXEC_POSTFLAGS}) # [nonmatching]
+    set_tests_properties(unit_nonmatching_runtime_np${np} PROPERTIES TIMEOUT 300) # [nonmatching]
+  endforeach() # [nonmatching]
 endif() # [nonmatching]
 
 # Exact device-resident quantile selection used by mesh adaptivity. The reference

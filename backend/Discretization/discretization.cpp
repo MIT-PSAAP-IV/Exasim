@@ -76,6 +76,14 @@
 #include "connectivity.cpp"
 #include "readbinaryfiles.cpp"
 #include "setstructs.cpp"
+#include "nonmatchingruntime.hpp" // [nonmatching] phase 8 backend cache/workspace
+#include "nonmatchingquadrature.hpp" // [nonmatching] phase 9 A1 composite owner quadrature
+// [nonmatching] Phase 9 A1: composite owner quadrature is opt-in. Only the dedicated test
+// library target (install/CMakeLists.txt, EXASIM_BUILD_NONMATCHING_TEST_LIBS) defines this
+// to 1; every ordinary production library keeps the uniform owner quadrature.
+#ifndef EXASIM_NONMATCHING_COMPOSITE_A1
+#define EXASIM_NONMATCHING_COMPOSITE_A1 0
+#endif
 #include "residual.hpp"  // unified (U)
 //#include "ldgjactest.cpp"
 #include "ldgblockjacobian.cpp"
@@ -492,7 +500,8 @@ CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string e
         // allocate data for structs in CPU memory
         cpuInit(hsol, hres, happ, driver_abi, hmaster, hmesh, htmp, hcommon, filein, fileout,
                 mpiprocs, mpirank, fileoffset, omprank,
-                physicsparamOverride, mode, &nonmatching); // [nonmatching]
+                physicsparamOverride, mode,
+                static_cast<nonmatchingdataT<T, I>*>(nullptr)); // [nonmatching] transaction follows gpuInit
 
         // copy data from cpu memory to gpu memory
         gpuInit(sol, res, app, driver_abi, master, mesh, tmp, common,
@@ -521,6 +530,20 @@ CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string e
             TemplateCopytoHost(sol.xcg, hsol.xcg, sol.szxcg, 0);
         }
 
+#ifdef HAVE_MPI
+        // [nonmatching] Host setup remains on the staging structs; the
+        // resulting runtime arrays are allocated on the selected backend.
+        {
+            exasim::nonmatching::DonorSearchParams nonmatchingParams; // [nonmatching]
+            nonmatchingParams.compositeOwnerQuadrature = EXASIM_NONMATCHING_COMPOSITE_A1 != 0;
+            exasim::nonmatching::rebuild_nonmatching_interface(
+                happ, hmaster, hmesh, hsol, hcommon, mpiprocs, mpirank, fileoffset,
+                nonmatching, nonmatchingRuntime, backend,
+                static_cast<exasim::nonmatching::DonorSearchResult<T, I>*>(nullptr),
+                nonmatchingParams, true, &nonmatchingQuadrature);
+        }
+#endif
+
         if (common.mpiRank==0) printf("free CPU memory \n");
 
         // release CPU memory
@@ -536,8 +559,26 @@ CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string e
     else  {// CPU
         cpuInit(sol, res, app, driver_abi, master, mesh, tmp, common, filein, fileout,
                 mpiprocs, mpirank, fileoffset, omprank,
-                physicsparamOverride, mode, &nonmatching); // [nonmatching]
+                physicsparamOverride, mode,
+                static_cast<nonmatchingdataT<T, I>*>(nullptr)); // [nonmatching] transactional rebuild below
+#ifdef HAVE_MPI
+        {
+            exasim::nonmatching::DonorSearchParams nonmatchingParams; // [nonmatching]
+            nonmatchingParams.compositeOwnerQuadrature = EXASIM_NONMATCHING_COMPOSITE_A1 != 0;
+            exasim::nonmatching::rebuild_nonmatching_interface(
+                app, master, mesh, sol, common, mpiprocs, mpirank, fileoffset,
+                nonmatching, nonmatchingRuntime, backend,
+                static_cast<exasim::nonmatching::DonorSearchResult<T, I>*>(nullptr),
+                nonmatchingParams, true, &nonmatchingQuadrature); // [nonmatching]
+        }
+#endif
     }
+#ifdef HAVE_MPI
+    // [nonmatching] The CPU transaction publishes its request storage here.
+    // GPU has a separate final common object, so resize that object after gpuInit.
+    if (backend > 1 && nonmatching.interfacetype == 1)
+        exasim::nonmatching::ensure_nonmatching_request_capacity(common, nonmatching);
+#endif
     finalizeConstruction(backend, mode, nsca, nvec, nten, nsurf, nvqoi, saveParaview);
 }
 
@@ -834,6 +875,8 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
 template <class T, class I>
 CDiscretizationT<T, I>::~CDiscretizationT()
 {
+    nonmatchingRuntime.reset(); // [nonmatching] release backend mirrors before host setup data
+    nonmatchingQuadrature.reset(); // [nonmatching] phase 9 A1 sidecar
     exasim::nonmatching::free_nonmatching_data(nonmatching); // [nonmatching]
     app.freememory(common.backend);
     if (common.mpiRank==0) printf("CDiscretization destructor: app memory is freed successfully.\n");

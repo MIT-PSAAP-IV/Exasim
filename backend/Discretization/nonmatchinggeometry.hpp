@@ -3,9 +3,12 @@
 
     These routines implement setup Steps 1-3 of
     docs/nonmatching/nonmatching_multiphysics.tex. They intentionally reuse the
-    existing PointLocator shape, map, and small-system helpers. No solver state
-    is accessed and no reference coordinate is clipped on the primary inverse
-    map path.
+    existing PointLocator face-shape and small-system helpers. Two-dimensional
+    simplex volume maps use MeshTransfer's total-degree monomials through the
+    non-matching nodal wrapper, because the solver's collapsed-coordinate basis
+    is not a polynomial continuation outside the reference triangle. No solver
+    state is accessed and no reference coordinate is clipped on the primary
+    inverse-map path.
 */
 
 #ifndef __NONMATCHINGGEOMETRY_HPP
@@ -23,14 +26,16 @@ template <typename T>
 void xiny2(int*, const T*, const T*, int, int, int, double);
 
 #include "../PointLocator/pointlocation.hpp"
+#include "nonmatchingsimplexbasis.hpp"
 
 namespace exasim {
 namespace nonmatching {
 
 enum class InverseMapStatus : int {
     Failed = 0,
-    Converged = 1,
-    ConvergedProjected = 2
+    Converged = 1,          // unrestricted solve reached the physical tolerance
+    ConvergedProjected = 2, // safeguarded solve reached the physical tolerance
+    ProjectedInexact = 3    // finite safeguarded least-squares extrapolation
 };
 
 struct GeometryPointStatus {
@@ -51,11 +56,65 @@ inline dstype SquaredNorm(const dstype* x, Int n)
     return value;
 }
 
-inline bool IsFiniteVector(const dstype* x, Int n)
+inline bool UsesPolynomialSimplexBasis(Int nd, Int elemtype)
 {
-    for (Int i = 0; i < n; ++i)
-        if (!std::isfinite(x[i])) return false;
-    return true;
+    return nd == 2 && elemtype == 0;
+}
+
+inline void EvaluateNonmatchingVolumeShapeAndGradients(
+    dstype* shape, dstype* derivative, const dstype* zeta, const dstype* xpe,
+    Int nd, Int npe, Int elemtype, Int porder,
+    const SimplexNodalBasis2D* simplexBasis = nullptr)
+{
+    if (UsesPolynomialSimplexBasis(nd, elemtype)) {
+        if (simplexBasis != nullptr) {
+            simplexBasis->evaluate(shape, derivative, zeta);
+            return;
+        }
+        const SimplexNodalBasis2D local(xpe, npe, porder);
+        local.evaluate(shape, derivative, zeta);
+        return;
+    }
+    EvaluateVolumeShapeAndGradientsAtReferencePoint(
+        shape, derivative, zeta, xpe, nd, npe, elemtype, porder);
+}
+
+inline void EvaluateNonmatchingVolumeShape(
+    dstype* shape, const dstype* zeta, const dstype* xpe,
+    Int nd, Int npe, Int elemtype, Int porder,
+    const SimplexNodalBasis2D* simplexBasis = nullptr)
+{
+    if (UsesPolynomialSimplexBasis(nd, elemtype)) {
+        if (simplexBasis != nullptr) {
+            simplexBasis->evaluate(shape, nullptr, zeta);
+            return;
+        }
+        const SimplexNodalBasis2D local(xpe, npe, porder);
+        local.evaluate(shape, nullptr, zeta);
+        return;
+    }
+    EvaluateVolumeShapeAtReferencePoint(
+        shape, zeta, xpe, nd, npe, elemtype, porder);
+}
+
+inline void MapNonmatchingReferenceToPhysical(
+    dstype* x, dstype* jacobian, dstype* shape, dstype* derivative,
+    const dstype* zeta, const dstype* elementNodes, const dstype* xpe,
+    Int nd, Int npe, Int elemtype, Int porder,
+    const SimplexNodalBasis2D* simplexBasis = nullptr)
+{
+    EvaluateNonmatchingVolumeShapeAndGradients(
+        shape, derivative, zeta, xpe, nd, npe, elemtype, porder, simplexBasis);
+    for (Int d = 0; d < nd; ++d) x[d] = 0.0;
+    for (Int i = 0; i < nd * nd; ++i) jacobian[i] = 0.0;
+    for (Int a = 0; a < npe; ++a) {
+        for (Int d = 0; d < nd; ++d) {
+            const dstype coordinate = elementNodes[a + npe * d];
+            x[d] += shape[a] * coordinate;
+            for (Int k = 0; k < nd; ++k)
+                jacobian[d * nd + k] += derivative[a + npe * k] * coordinate;
+        }
+    }
 }
 
 // Normalize the local system before using PointLocator's small direct solve.
@@ -70,7 +129,7 @@ inline bool SolveScaleInvariantSmallSystem(
     dstype scale = 0.0;
     for (Int i = 0; i < n * n; ++i)
         scale = std::max(scale, std::abs(matrix[i]));
-    if (!(scale > 0.0) || !std::isfinite(scale)) return false;
+    if (!(scale > 0.0)) return false;
 
     dstype scaledMatrix[9] = {0.0};
     dstype scaledRhs[3] = {0.0};
@@ -150,7 +209,7 @@ inline bool ProjectReferenceFaceMetric(
     dstype metricScale = 0.0;
     for (Int i = 0; i < ndf * ndf; ++i)
         metricScale = std::max(metricScale, std::abs(metric[i]));
-    if (!(metricScale > 0.0) || !std::isfinite(metricScale)) return false;
+    if (!(metricScale > 0.0)) return false;
 
     dstype scaledMetric[4] = {0.0};
     for (Int i = 0; i < ndf * ndf; ++i)
@@ -181,6 +240,7 @@ inline bool ProjectReferenceFaceMetric(
     const dstype* vertices = (elemtype == 0) ? tri : quad;
     const Int nvertices = (elemtype == 0) ? 3 : 4;
     dstype best = std::numeric_limits<dstype>::max();
+    bool found = false;
 
     for (Int edge = 0; edge < nvertices; ++edge) {
         const Int next = (edge + 1) % nvertices;
@@ -202,11 +262,12 @@ inline bool ProjectReferenceFaceMetric(
             MetricDistanceSquared(candidate, y, scaledMetric, 2);
         if (value < best) {
             best = value;
+            found = true;
             projected[0] = candidate[0];
             projected[1] = candidate[1];
         }
     }
-    return std::isfinite(best);
+    return found;
 }
 
 // Projected Gauss-Newton closest-point solve on a polynomial face, eqs. (21)-(22).
@@ -271,7 +332,7 @@ inline bool ClosestPointOnFace(
                 faceNodes, xpf, nd, npf, elemtype, porder);
             for (Int d = 0; d < nd; ++d) residual[d] = xbar[d] - x[d];
             *distance = std::sqrt(SquaredNorm(residual, nd));
-            return IsFiniteVector(xi, ndf) && std::isfinite(*distance);
+            return true;
         }
     }
 
@@ -326,12 +387,19 @@ inline void ProjectToReferenceNeighborhood(
         projected[d] = scale * simplexProjection[d] - margin;
 }
 
-inline bool NewtonInverseMap(
+enum class NewtonMapStatus : int {
+    Failed = 0,
+    Exact = 1,
+    Inexact = 2
+};
+
+inline NewtonMapStatus NewtonInverseMap(
     dstype* zeta, dstype* residualNorm,
     const dstype* x, const dstype* elementNodes, const dstype* xpe,
     Int nd, Int npe, Int elemtype, Int porder,
     Int maxIterations, dstype tolerance,
-    bool project, dstype projectionMargin)
+    bool project, dstype projectionMargin,
+    const SimplexNodalBasis2D* simplexBasis)
 {
     std::vector<dstype> shape(static_cast<size_t>(npe));
     std::vector<dstype> dshape(static_cast<size_t>(npe * nd));
@@ -340,32 +408,73 @@ inline bool NewtonInverseMap(
     dstype rhs[3] = {0.0, 0.0, 0.0};
     dstype delta[3] = {0.0, 0.0, 0.0};
     dstype trial[3] = {0.0, 0.0, 0.0};
+    dstype bestZeta[3] = {0.0, 0.0, 0.0};
+    dstype bestResidual = std::numeric_limits<dstype>::max();
 
     for (Int iteration = 0; iteration < maxIterations; ++iteration) {
-        MapReferenceToPhysical(
+        MapNonmatchingReferenceToPhysical(
             xcur, jacobian, shape.data(), dshape.data(), zeta,
-            elementNodes, xpe, nd, npe, elemtype, porder);
+            elementNodes, xpe, nd, npe, elemtype, porder, simplexBasis);
         for (Int d = 0; d < nd; ++d) rhs[d] = x[d] - xcur[d];
         *residualNorm = std::sqrt(SquaredNorm(rhs, nd));
-        if (*residualNorm <= tolerance) return true;
+        if (*residualNorm < bestResidual) {
+            bestResidual = *residualNorm;
+            for (Int d = 0; d < nd; ++d) bestZeta[d] = zeta[d];
+        }
+        if (*residualNorm <= tolerance) return NewtonMapStatus::Exact;
         if (!SolveScaleInvariantSmallSystem(delta, jacobian, rhs, nd))
-            return false;
+            return NewtonMapStatus::Failed;
 
         for (Int d = 0; d < nd; ++d) trial[d] = zeta[d] + delta[d];
-        if (project)
-            ProjectToReferenceNeighborhood(
-                zeta, trial, nd, elemtype, projectionMargin);
-        else
+        if (!project) {
             for (Int d = 0; d < nd; ++d) zeta[d] = trial[d];
-        if (!IsFiniteVector(zeta, nd)) return false;
+            continue;
+        }
+
+        // Safeguarded projected Gauss-Newton for the least-squares problem of
+        // eq. (29). Retain the best point and backtrack until the
+        // physical residual decreases. Stagnation is a valid projected result.
+        bool accepted = false;
+        dstype alpha = 1.0;
+        for (Int line = 0; line < 32; ++line) {
+            for (Int d = 0; d < nd; ++d) trial[d] = zeta[d] + alpha * delta[d];
+            ProjectToReferenceNeighborhood(trial, trial, nd, elemtype, projectionMargin);
+            MapNonmatchingReferenceToPhysical(
+                xcur, jacobian, shape.data(), dshape.data(), trial,
+                elementNodes, xpe, nd, npe, elemtype, porder, simplexBasis);
+            for (Int d = 0; d < nd; ++d) rhs[d] = x[d] - xcur[d];
+            const dstype trialResidual = std::sqrt(SquaredNorm(rhs, nd));
+            if (trialResidual < bestResidual) {
+                bestResidual = trialResidual;
+                for (Int d = 0; d < nd; ++d) bestZeta[d] = trial[d];
+            }
+            if (trialResidual < *residualNorm) {
+                for (Int d = 0; d < nd; ++d) zeta[d] = trial[d];
+                *residualNorm = trialResidual;
+                accepted = true;
+                break;
+            }
+            alpha *= 0.5;
+        }
+        if (!accepted) {
+            for (Int d = 0; d < nd; ++d) zeta[d] = bestZeta[d];
+            *residualNorm = bestResidual;
+            return NewtonMapStatus::Inexact;
+        }
     }
 
-    MapReferenceToPhysical(
+    MapNonmatchingReferenceToPhysical(
         xcur, jacobian, shape.data(), dshape.data(), zeta,
-        elementNodes, xpe, nd, npe, elemtype, porder);
+        elementNodes, xpe, nd, npe, elemtype, porder, simplexBasis);
     for (Int d = 0; d < nd; ++d) rhs[d] = x[d] - xcur[d];
     *residualNorm = std::sqrt(SquaredNorm(rhs, nd));
-    return *residualNorm <= tolerance;
+    if (*residualNorm < bestResidual) {
+        bestResidual = *residualNorm;
+        for (Int d = 0; d < nd; ++d) bestZeta[d] = zeta[d];
+    }
+    for (Int d = 0; d < nd; ++d) zeta[d] = bestZeta[d];
+    *residualNorm = bestResidual;
+    return *residualNorm <= tolerance ? NewtonMapStatus::Exact : NewtonMapStatus::Inexact;
 }
 
 // Equation (29), first unrestricted and then projected only as a safeguard.
@@ -374,7 +483,8 @@ inline InverseMapStatus InverseElementMap(
     const dstype* x, const dstype* elementNodes, const dstype* xpe,
     const dstype* initialGuess, Int nd, Int npe, Int elemtype, Int porder,
     Int maxNewtonIterations, Int maxProjectedIterations,
-    dstype tolerance, dstype projectionMargin)
+    dstype tolerance, dstype projectionMargin,
+    const SimplexNodalBasis2D* suppliedSimplexBasis = nullptr)
 {
     if (zeta == nullptr || residualNorm == nullptr || x == nullptr ||
         elementNodes == nullptr || xpe == nullptr || initialGuess == nullptr ||
@@ -382,21 +492,36 @@ inline InverseMapStatus InverseElementMap(
         projectionMargin < 0.0)
         return InverseMapStatus::Failed;
 
+    SimplexNodalBasis2D localSimplexBasis;
+    const SimplexNodalBasis2D* simplexBasis = suppliedSimplexBasis;
+    if (UsesPolynomialSimplexBasis(nd, elemtype) && simplexBasis == nullptr) {
+        localSimplexBasis.initialize(xpe, npe, porder);
+        simplexBasis = &localSimplexBasis;
+    }
+
     for (Int d = 0; d < nd; ++d) zeta[d] = initialGuess[d];
-    if (maxNewtonIterations > 0 && NewtonInverseMap(
-            zeta, residualNorm, x, elementNodes, xpe, nd, npe,
-            elemtype, porder, maxNewtonIterations, tolerance, false, 0.0))
-        return InverseMapStatus::Converged;
+    if (maxNewtonIterations > 0) {
+        const NewtonMapStatus unrestricted = NewtonInverseMap(
+                zeta, residualNorm, x, elementNodes, xpe, nd, npe,
+                elemtype, porder, maxNewtonIterations, tolerance, false, 0.0,
+                simplexBasis);
+        if (unrestricted == NewtonMapStatus::Exact) return InverseMapStatus::Converged;
+        // A diverged or locally singular unrestricted path still gets the
+        // safeguarded restart. Only failure of that projected solve is final.
+    }
 
     for (Int d = 0; d < nd; ++d) zeta[d] = initialGuess[d];
     ProjectToReferenceNeighborhood(
         zeta, zeta, nd, elemtype, projectionMargin);
-    if (maxProjectedIterations > 0 && NewtonInverseMap(
+    if (maxProjectedIterations <= 0) return InverseMapStatus::Failed;
+    const NewtonMapStatus projected = NewtonInverseMap(
             zeta, residualNorm, x, elementNodes, xpe, nd, npe,
             elemtype, porder, maxProjectedIterations, tolerance, true,
-            projectionMargin))
-        return InverseMapStatus::ConvergedProjected;
-    return InverseMapStatus::Failed;
+            projectionMargin, simplexBasis);
+    if (projected == NewtonMapStatus::Failed) return InverseMapStatus::Failed;
+    return projected == NewtonMapStatus::Exact
+        ? InverseMapStatus::ConvergedProjected
+        : InverseMapStatus::ProjectedInexact;
 }
 
 inline GeometryPointStatus ComputeGeometryPointData(
@@ -407,7 +532,8 @@ inline GeometryPointStatus ComputeGeometryPointData(
     Int face, Int nd, Int npe, Int npf, Int elemtype, Int porder,
     Int maxProjectionIterations, Int maxNewtonIterations,
     Int maxProjectedIterations, dstype projectionTolerance,
-    dstype inverseTolerance, dstype projectionMargin)
+    dstype inverseTolerance, dstype projectionMargin,
+    const SimplexNodalBasis2D* suppliedSimplexBasis = nullptr)
 {
     GeometryPointStatus status;
     if (xi == nullptr || zeta == nullptr || zetaBar == nullptr ||
@@ -439,16 +565,22 @@ inline GeometryPointStatus ComputeGeometryPointData(
         zetaBar, psi, xi, xpe, xpf, perm, face,
         nd, npe, npf, elemtype, porder);
     dstype residualNorm = std::numeric_limits<dstype>::max();
+    SimplexNodalBasis2D localSimplexBasis;
+    const SimplexNodalBasis2D* simplexBasis = suppliedSimplexBasis;
+    if (UsesPolynomialSimplexBasis(nd, elemtype) && simplexBasis == nullptr) {
+        localSimplexBasis.initialize(xpe, npe, porder);
+        simplexBasis = &localSimplexBasis;
+    }
     status.inverseStatus = InverseElementMap(
         zeta, &residualNorm, x, elementNodes, xpe, zetaBar,
         nd, npe, elemtype, porder, maxNewtonIterations,
-        maxProjectedIterations, inverseTolerance, projectionMargin);
+        maxProjectedIterations, inverseTolerance, projectionMargin, simplexBasis);
     if (status.inverseStatus == InverseMapStatus::Failed) return status;
 
-    EvaluateVolumeShapeAtReferencePoint(
-        phi, zeta, xpe, nd, npe, elemtype, porder);
-    EvaluateVolumeShapeAtReferencePoint(
-        phiBar, zetaBar, xpe, nd, npe, elemtype, porder);
+    EvaluateNonmatchingVolumeShape(
+        phi, zeta, xpe, nd, npe, elemtype, porder, simplexBasis);
+    EvaluateNonmatchingVolumeShape(
+        phiBar, zetaBar, xpe, nd, npe, elemtype, porder, simplexBasis);
     for (Int d = 0; d < nd; ++d) offset[d] = x[d] - xbar[d]; // eq. (23)
     return status;
 }

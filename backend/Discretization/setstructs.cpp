@@ -1041,9 +1041,6 @@ void cpuInit(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, E
               physicsparamOverride, mode);
     exasim::interfacepartition::build_runtime_interface_partition(app, master, mesh, sol,
             mpiprocs, mpirank, fileoffset);
-    if (nonmatching) // [nonmatching] donor search when interfacetype = 1 (no-op otherwise)
-        exasim::nonmatching::setup_nonmatching_interface(app, master, mesh, sol, // [nonmatching]
-                mpiprocs, mpirank, fileoffset, *nonmatching); // [nonmatching]
     
     if (mpirank==0)
         printf("Finish reading data from binary files \n");
@@ -1076,6 +1073,9 @@ void cpuInit(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, E
     // post-read setup (allocate/derive everything from the now-populated structs)
     cpuInitSetup(sol, res, app, master, mesh, tmp, common, filein, fileout,
                  mpiprocs, mpirank, fileoffset, omprank);
+    if (nonmatching) // [nonmatching] atomically build cache and request capacity
+        exasim::nonmatching::rebuild_nonmatching_interface(app, master, mesh, sol, common,
+                mpiprocs, mpirank, fileoffset, *nonmatching); // [nonmatching]
 }
 
 #ifdef HAVE_GPU
