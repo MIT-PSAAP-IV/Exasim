@@ -26,16 +26,21 @@ for variant in pdeapp.txt pdeapp_hdg_refined.txt; do
     fi
     (
         cd "$work/$name"
+        echo "$name: text2code"
         EXASIM_PREFIX="$prefix" "$prefix/bin/text2code" pdeapp.txt > text2code.log 2>&1 || exit 1
+        echo "$name: configure"
         cmake -S "$root/apps/sharedlibrary" -B "$work/$name-build" \
             -D "CMAKE_PREFIX_PATH=$prefix;$kokkos_dir" \
             -DExasim_DIR="$prefix" \
             -DEXASIM_MPI=ON -DEXASIM_CUDA=OFF -DEXASIM_HIP=OFF \
             ${CC:+-DCMAKE_C_COMPILER="$CC"} ${CXX:+-DCMAKE_CXX_COMPILER="$CXX"} \
             > configure.log 2>&1 || exit 1
+        echo "$name: build"
         cmake --build "$work/$name-build" --parallel "${JOBS:-2}" > build.log 2>&1 || exit 1
         np=$(sed -n 's/^mpiprocs *= *\([0-9][0-9]*\);/\1/p' pdeapp.txt)
+        echo "$name: solve with $np MPI ranks"
         EXASIM_PREFIX="$prefix" mpirun -np "$np" "$work/$name-build/exasimapp" pdeapp.txt > solver.log 2>&1 || exit 1
+        echo "$name: validate"
         python3 - <<'PY'
 import math
 from pathlib import Path
