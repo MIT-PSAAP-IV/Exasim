@@ -18,6 +18,12 @@ for variant in pdeapp.txt pdeapp_hdg_refined.txt; do
     cp "$app/$variant" "$work/$name/pdeapp.txt"
     cp "$app/pdemodel.txt" "$app/grid.bin" "$work/$name/"
     if [[ -f $app/xdg.bin ]]; then cp "$app/xdg.bin" "$work/$name/"; fi
+    configured_np=$(sed -n 's/^mpiprocs *= *\([0-9][0-9]*\);/\1/p' "$work/$name/pdeapp.txt")
+    test_np=${EXASIM_TEST_MAX_MPI_PROCS:-$configured_np}
+    if (( configured_np > test_np )); then
+        sed -E -i.bak "s/^mpiprocs *= *[0-9]+;/mpiprocs = ${test_np};/" "$work/$name/pdeapp.txt"
+        rm -f "$work/$name/pdeapp.txt.bak"
+    fi
     (
         cd "$work/$name"
         EXASIM_PREFIX="$prefix" "$prefix/bin/text2code" pdeapp.txt > text2code.log 2>&1 || exit 1
