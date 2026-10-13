@@ -24,8 +24,10 @@ using exasim::nonmatching::FaceToElementReference;
 using exasim::nonmatching::GeometryPointStatus;
 using exasim::nonmatching::InverseElementMap;
 using exasim::nonmatching::InverseMapStatus;
+using exasim::nonmatching::MapNonmatchingReferenceToPhysical;
 using exasim::nonmatching::MapReferenceFaceToPhysical;
 using exasim::nonmatching::PointInReferenceFace;
+using exasim::nonmatching::SimplexNodalBasis2D;
 
 namespace {
 
@@ -39,6 +41,11 @@ dstype worstOtherRestrictionError = 0.0;
 dstype worstOffFaceError = 0.0;
 dstype worstPolynomialError = 0.0;
 dstype worstScaledRelativeError = 0.0;
+dstype worstSimplexExtrapolationError = 0.0;
+dstype worstSimplexDerivativeError = 0.0;
+dstype worstSimplexLegacyDifference = 0.0;
+dstype worstSimplexCondition = 0.0;
+dstype worstSimplexInverseResidual = 0.0;
 
 void fail(const std::string& test, dstype got, dstype limit)
 {
@@ -489,7 +496,7 @@ void test_curved_orders(Int nd, Int elemtype)
                 expect_true("combined projection" + suffix,
                             geometryStatus.projectionConverged);
                 expect_true("combined inverse" + suffix,
-                            geometryStatus.inverseStatus != InverseMapStatus::Failed);
+                            geometryStatus.inverseStatus == InverseMapStatus::Converged);
                 expect_le("combined xi" + suffix,
                           vector_error(xi, xiExact, nd - 1), 2.0e-10);
                 expect_le("combined xbar" + suffix,
@@ -608,6 +615,181 @@ void test_scale_invariance(bool curved)
     }
 }
 
+void evaluate_total_degree_polynomial(
+    dstype& value, dstype* gradient, const dstype* zeta, Int porder)
+{
+    value = 0.0;
+    gradient[0] = 0.0;
+    gradient[1] = 0.0;
+    for (Int b = 0; b <= porder; ++b) {
+        for (Int a = 0; a <= porder - b; ++a) {
+            const dstype coefficient = 0.25 + 0.13 * a - 0.07 * b + 0.03 * a * b;
+            const dstype ra = std::pow(zeta[0], a);
+            const dstype sb = std::pow(zeta[1], b);
+            value += coefficient * ra * sb;
+            if (a > 0)
+                gradient[0] += coefficient * a * std::pow(zeta[0], a - 1) * sb;
+            if (b > 0)
+                gradient[1] += coefficient * b * ra * std::pow(zeta[1], b - 1);
+        }
+    }
+}
+
+void test_nonmatching_simplex_basis()
+{
+    const dstype points[][2] = {
+        {-0.10, 0.20}, {0.20, -0.10}, {0.60, 0.60}, {1.10, 0.00},
+        {1.20, -0.10}, {0.00, 1.05}, {0.00, 1.20}, {0.10, 1.00},
+        {-0.10, 1.10}, {0.22, 0.31}, {0.00, 1.00},
+        {0.00, 1.0 - 9.0e-9}, {4.0e-9, 1.0 - 9.0e-9}};
+
+    for (Int porder = 1; porder <= 4; ++porder) {
+        const ReferenceData data = make_reference(2, 0, porder);
+        const SimplexNodalBasis2D basis(data.xpe.data(), data.npe, porder);
+        worstSimplexCondition = std::max(worstSimplexCondition, basis.condition_estimate());
+        worstSimplexInverseResidual =
+            std::max(worstSimplexInverseResidual, basis.inverse_residual());
+        std::vector<dstype> nodalValue(static_cast<std::size_t>(data.npe));
+        for (Int node = 0; node < data.npe; ++node) {
+            const dstype zeta[2] = {data.xpe[node], data.xpe[node + data.npe]};
+            dstype gradient[2] = {0.0, 0.0};
+            evaluate_total_degree_polynomial(nodalValue[node], gradient, zeta, porder);
+        }
+
+        for (const auto& zeta : points) {
+            std::vector<dstype> shape(static_cast<std::size_t>(data.npe));
+            std::vector<dstype> derivative(static_cast<std::size_t>(2 * data.npe));
+            std::vector<dstype> legacy(static_cast<std::size_t>(data.npe));
+            basis.evaluate(shape.data(), derivative.data(), zeta);
+            dstype interpolated = 0.0;
+            dstype interpolatedGradient[2] = {0.0, 0.0};
+            dstype interpolatedLinear = 0.0;
+            for (Int node = 0; node < data.npe; ++node) {
+                interpolated += shape[node] * nodalValue[node];
+                interpolatedLinear += shape[node] *
+                    (3.0 + 2.0 * data.xpe[node] - 5.0 * data.xpe[node + data.npe]);
+                for (Int d = 0; d < 2; ++d)
+                    interpolatedGradient[d] +=
+                        derivative[node + data.npe * d] * nodalValue[node];
+            }
+            dstype exact = 0.0, exactGradient[2] = {0.0, 0.0};
+            evaluate_total_degree_polynomial(exact, exactGradient, zeta, porder);
+            worstSimplexExtrapolationError = std::max(
+                worstSimplexExtrapolationError, std::abs(interpolated - exact));
+            worstSimplexDerivativeError = std::max(
+                worstSimplexDerivativeError,
+                vector_error(interpolatedGradient, exactGradient, 2));
+            expect_le("simplex polynomial extrapolation p=" + std::to_string(porder),
+                      std::abs(interpolated - exact), 2.0e-11);
+            expect_le("simplex linear extrapolation p=" + std::to_string(porder),
+                      std::abs(interpolatedLinear -
+                          (3.0 + 2.0 * zeta[0] - 5.0 * zeta[1])), 2.0e-11);
+            expect_le("simplex derivative extrapolation p=" + std::to_string(porder),
+                      vector_error(interpolatedGradient, exactGradient, 2), 8.0e-11);
+
+            if (zeta[0] >= 0.0 && zeta[1] >= 0.0 && zeta[0] + zeta[1] <= 1.0) {
+                EvaluateVolumeShapeAtReferencePoint(
+                    legacy.data(), zeta, data.xpe.data(), 2, data.npe, 0, porder);
+                worstSimplexLegacyDifference = std::max(
+                    worstSimplexLegacyDifference,
+                    vector_error(shape.data(), legacy.data(), data.npe));
+            }
+        }
+
+        for (Int node = 0; node < data.npe; ++node) {
+            const dstype zeta[2] = {data.xpe[node], data.xpe[node + data.npe]};
+            std::vector<dstype> shape(static_cast<std::size_t>(data.npe));
+            basis.evaluate(shape.data(), nullptr, zeta);
+            for (Int a = 0; a < data.npe; ++a)
+                expect_le("simplex nodal cardinality p=" + std::to_string(porder),
+                          std::abs(shape[a] - (a == node ? 1.0 : 0.0)), 2.0e-11);
+        }
+    }
+    // The legacy collapsed-coordinate evaluator differs near (0,1) by about
+    // 1e-9; away from that implementation artifact both bases represent the
+    // same nodal polynomial space.
+    expect_le("simplex in-element agreement with legacy basis",
+              worstSimplexLegacyDifference, 1.0e-8);
+}
+
+void test_triangle_inverse_beyond_vertex(bool curved)
+{
+    const Int porder = 2;
+    const ReferenceData data = make_reference(2, 0, porder);
+    const SimplexNodalBasis2D basis(data.xpe.data(), data.npe, porder);
+    const std::vector<dstype> geometry = make_geometry(data, curved);
+    const dstype exact[2] = {0.0, 1.09};
+    std::vector<dstype> shape(static_cast<std::size_t>(data.npe));
+    std::vector<dstype> derivative(static_cast<std::size_t>(2 * data.npe));
+    dstype target[2] = {0.0, 0.0}, jacobian[4] = {0.0};
+    MapNonmatchingReferenceToPhysical(
+        target, jacobian, shape.data(), derivative.data(), exact,
+        geometry.data(), data.xpe.data(), 2, data.npe, 0, porder, &basis);
+    const dstype initial[2] = {0.0, 1.0};
+    dstype recovered[2] = {0.0, 0.0}, residual = 0.0;
+    const dstype scale = std::max(std::hypot(target[0], target[1]), 1.0);
+    const dstype tolerance = 64.0 * std::numeric_limits<dstype>::epsilon() * scale;
+    const InverseMapStatus status = InverseElementMap(
+        recovered, &residual, target, geometry.data(), data.xpe.data(), initial,
+        2, data.npe, 0, porder, 30, 40, tolerance, 2.0, &basis);
+    expect_true(std::string(curved ? "curved" : "affine") +
+                    " triangle beyond-vertex inverse is exact",
+                status == InverseMapStatus::Converged);
+    expect_le(std::string(curved ? "curved" : "affine") +
+                  " triangle beyond-vertex coordinate",
+              vector_error(recovered, exact, 2), 2.0e-12);
+    expect_le(std::string(curved ? "curved" : "affine") +
+                  " triangle beyond-vertex residual",
+              residual, tolerance);
+
+    // With unrestricted iterations disabled, an exact projected solution keeps
+    // the approved Phase 1 status; a neighborhood-truncated least-squares
+    // result has the new explicit status.
+    const InverseMapStatus projectedExact = InverseElementMap(
+        recovered, &residual, target, geometry.data(), data.xpe.data(), initial,
+        2, data.npe, 0, porder, 0, 40, tolerance, 2.0, &basis);
+    expect_true("projected exact status remains ConvergedProjected",
+                projectedExact == InverseMapStatus::ConvergedProjected);
+    const dstype farExact[2] = {0.0, 2.0};
+    MapNonmatchingReferenceToPhysical(
+        target, jacobian, shape.data(), derivative.data(), farExact,
+        geometry.data(), data.xpe.data(), 2, data.npe, 0, porder, &basis);
+    const InverseMapStatus projectedInexact = InverseElementMap(
+        recovered, &residual, target, geometry.data(), data.xpe.data(), initial,
+        2, data.npe, 0, porder, 0, 40, tolerance, 0.05, &basis);
+    expect_true("projected inexact has distinct status",
+                projectedInexact == InverseMapStatus::ProjectedInexact);
+    expect_true("projected inexact retains finite residual",
+                std::isfinite(residual) && residual > tolerance);
+}
+
+void test_unrestricted_failure_uses_projected_safeguard()
+{
+    const ReferenceData data = make_reference(2, 0, 2);
+    const SimplexNodalBasis2D basis(data.xpe.data(), data.npe, 2);
+    std::vector<dstype> geometry(static_cast<std::size_t>(2 * data.npe));
+    for (Int node = 0; node < data.npe; ++node) {
+        const dstype r = data.xpe[node];
+        const dstype s = data.xpe[node + data.npe];
+        geometry[node] = (r - 10.0) * (r - 10.0);
+        geometry[node + data.npe] = s;
+    }
+    // From r=0, unrestricted Newton for x=-100 steps to r=10, where the
+    // Jacobian is singular. The projected restart remains finite in the
+    // reference neighborhood and must return its least-squares point.
+    const dstype target[2] = {-100.0, 0.0};
+    const dstype initial[2] = {0.0, 0.0};
+    dstype zeta[2] = {0.0, 0.0}, residual = 0.0;
+    const InverseMapStatus status = InverseElementMap(
+        zeta, &residual, target, geometry.data(), data.xpe.data(), initial,
+        2, data.npe, 0, 2, 8, 40, 1.0e-12, 0.1, &basis);
+    expect_true("unrestricted singular step falls through to safeguard",
+                status == InverseMapStatus::ProjectedInexact);
+    expect_true("safeguarded result after unrestricted failure is finite",
+                std::isfinite(residual) && std::isfinite(zeta[0]) &&
+                std::isfinite(zeta[1]));
+}
+
 } // namespace
 
 int main()
@@ -623,6 +805,10 @@ int main()
     test_curved_orders(3, 1);
     test_scale_invariance(false);
     test_scale_invariance(true);
+    test_nonmatching_simplex_basis();
+    test_triangle_inverse_beyond_vertex(false);
+    test_triangle_inverse_beyond_vertex(true);
+    test_unrestricted_failure_uses_projected_safeguard();
 
     std::printf("worst affine error       %.16e\n", static_cast<double>(worstAffineError));
     std::printf("worst curved projection  %.16e\n", static_cast<double>(worstCurvedProjectionError));
@@ -633,6 +819,11 @@ int main()
     std::printf("worst off-face basis     %.16e\n", static_cast<double>(worstOffFaceError));
     std::printf("worst polynomial error   %.16e\n", static_cast<double>(worstPolynomialError));
     std::printf("worst scaled rel. error  %.16e\n", static_cast<double>(worstScaledRelativeError));
+    std::printf("worst simplex extrap.   %.16e\n", static_cast<double>(worstSimplexExtrapolationError));
+    std::printf("worst simplex derivative %.16e\n", static_cast<double>(worstSimplexDerivativeError));
+    std::printf("simplex/legacy max diff %.16e\n", static_cast<double>(worstSimplexLegacyDifference));
+    std::printf("simplex max condition   %.16e\n", static_cast<double>(worstSimplexCondition));
+    std::printf("simplex inverse residual %.16e\n", static_cast<double>(worstSimplexInverseResidual));
     if (failures == 0) std::printf("PASS nonmatching_geometry\n");
     else std::printf("FAIL nonmatching_geometry: %d check(s)\n", failures);
     return failures == 0 ? 0 : 1;

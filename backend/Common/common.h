@@ -2607,6 +2607,12 @@ struct commonstructT {
     
     void freememory()
     {
+#ifdef HAVE_MPI
+        // [nonmatching] Requests are enlarged for compact interface traffic;
+        // both staging and final common objects own and release their arrays.
+        CPUFREE(requests);
+        CPUFREE(statuses);
+#endif
         CPUFREE(eblks); 
         CPUFREE(fblks);
         CPUFREE(nboufaces);
