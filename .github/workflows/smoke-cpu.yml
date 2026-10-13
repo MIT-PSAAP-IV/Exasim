@@ -114,6 +114,9 @@ jobs:
       - name: Test (ctest)
         env:
           JOBS: "2"
+          # Several MPI regressions intentionally exercise 4 and 8 ranks on
+          # GitHub's 2-core runner. Preserve those rank counts under Open MPI.
+          OMPI_MCA_rmaps_base_oversubscribe: "1"
         run: |
           # PETSc (apt petsc-dev, CPU-real) now runs here: petsc.hpp guards its CUDA Vec
           # symbols behind PETSC_HAVE_CUDA and the petsc consumers locate mpi.h via
