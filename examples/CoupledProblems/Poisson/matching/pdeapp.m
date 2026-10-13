@@ -3,7 +3,7 @@ clear pde mesh master dmd sol;
 
 % Put the Exasim MATLAB frontend on the path. For an installed Exasim use
 % run('<prefix>/share/exasim/matlab/exasim_setup.m') instead.
-run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'frontends', 'Matlab', 'exasim_setup.m'));
+run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', '..', 'frontends', 'Matlab', 'exasim_setup.m'));
 
 % create pde and mesh for each PDE model
 pdeapp1;
