@@ -348,7 +348,7 @@ add_test(NAME text2code_poisson_variants
     bash "${EXASIM_DIR}/tests/text2code/poisson-variants-test.sh")
 set_tests_properties(text2code_poisson_variants PROPERTIES
   TIMEOUT 1200 SKIP_RETURN_CODE 77 RESOURCE_LOCK exasim_text2code_install
-  ENVIRONMENT "EXASIM_TEST_MAX_MPI_PROCS=2;OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1;MKL_NUM_THREADS=1;VECLIB_MAXIMUM_THREADS=1")
+  ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1;MKL_NUM_THREADS=1;VECLIB_MAXIMUM_THREADS=1")
 
 # Builtin model 4 kernel equivalence: model 4 (CNS5air reacting NS) switched
 # from MATLAB-generated kernels to a text2code source (pdemodel4.txt). This
