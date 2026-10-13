@@ -102,6 +102,10 @@ terms and consistent flux-component maps.
   as external variables in `v` / `odg`.
 - The transfer scripts match DG nodes on the fluid and solid interface meshes
   before writing the received values into `vdg`.
+- The fully coupled interface setup requires matching interface discretizations
+  in this example. The non-matching interface option (`interfacetype = 1`, see
+  [Multi-model problems](multi-model.md#non-matching-interfaces-interfacetype)) is
+  currently limited to 2D and has not been validated for this CHT case.
 - These examples are implementation patterns, not a universal CHT driver. Users
   should adapt the interface flux map, boundary IDs, and transfer logic to the
   variable ordering and mesh topology of their own CHT problem.

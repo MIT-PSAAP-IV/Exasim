@@ -176,3 +176,4 @@ case. See [Using AI Tools](../using-ai-tools/index.md).
 | `std::stod` parse failure | Malformed numeric list or expression. | Check brackets, commas, semicolons, and `repeat(...)`. |
 | Sweep row mismatch | `physicsparamcases` row width differs from `physicsparam`. | Make every row the same length. |
 | Generated app link error | Wrong Exasim package or backend variant. | Check `find_package(Exasim)` and linked targets. |
+| `interfacetype must be the integer 0 (conformal) or 1 (non-matching).` | `interfacetype` is not 0 or 1 (or is written as a decimal). | Use `interfacetype = 0;` or `interfacetype = 1;`. |
