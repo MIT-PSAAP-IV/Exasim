@@ -50,7 +50,8 @@ if(TARGET Kokkos::kokkos)
     "${EXASIM_DIR}/tests/materials/wequation_material_split_test.cpp")
   target_include_directories(wequation_material_split_test PRIVATE
     "${EXASIM_INCLUDE_DIR}" "${EXASIM_DIR}")
-  target_link_libraries(wequation_material_split_test PRIVATE Kokkos::kokkos)
+  target_link_libraries(wequation_material_split_test PRIVATE
+    Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
   target_compile_features(wequation_material_split_test PRIVATE cxx_std_17)
   add_test(NAME wequation_material_split
     COMMAND wequation_material_split_test)
