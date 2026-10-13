@@ -132,6 +132,72 @@ foreach(_fe python julia matlab)
     TIMEOUT 2400 SKIP_RETURN_CODE 77)
 endforeach()
 
+# [nonmatching] Phase 9: interfacetype field, validation and app.bin slot 34 in every
+# frontend and in text2code, plus the MATLAB coupled verification CI subset (matching
+# type-0/type-1 solve at 1+1 through the production MPI build, the backend matching
+# bypass, and the unequal-h convergence subset). Each wrapper exits 77 (skip) when its
+# interpreter, MATLAB, mpirun or the install is unavailable.
+add_test(NAME frontend_python_interfacetype # [nonmatching]
+  COMMAND ${Python3_EXECUTABLE} "${EXASIM_DIR}/tests/frontends/python/test_interfacetype.py") # [nonmatching]
+set_tests_properties(frontend_python_interfacetype PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77) # [nonmatching]
+add_test(NAME frontend_julia_interfacetype # [nonmatching]
+  COMMAND bash "${EXASIM_DIR}/tests/frontends/julia/run-test-interfacetype.sh") # [nonmatching]
+set_tests_properties(frontend_julia_interfacetype PROPERTIES TIMEOUT 900 SKIP_RETURN_CODE 77) # [nonmatching]
+add_test(NAME frontend_matlab_interfacetype # [nonmatching]
+  COMMAND ${CMAKE_COMMAND} -E env "EXASIM_ROOT=${EXASIM_DIR}" # [nonmatching]
+          bash "${EXASIM_DIR}/tests/nonmatching/run-phase9-matlab.sh" serialization) # [nonmatching]
+set_tests_properties(frontend_matlab_interfacetype PROPERTIES TIMEOUT 900 SKIP_RETURN_CODE 77) # [nonmatching]
+add_test(NAME text2code_interfacetype # [nonmatching]
+  COMMAND ${CMAKE_COMMAND} -E env "EXASIM_ROOT=${EXASIM_DIR}" "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}" # [nonmatching]
+          bash "${EXASIM_DIR}/tests/text2code/interfacetype-test.sh") # [nonmatching]
+set_tests_properties(text2code_interfacetype PROPERTIES # [nonmatching]
+  TIMEOUT 600 SKIP_RETURN_CODE 77 RESOURCE_LOCK exasim_text2code_install) # [nonmatching]
+# [nonmatching] Phase 9 Part B: text2code initializeDMD, single-rank coupled branch. Direct
+# unit test (no interface elements, ordinary interface elements, duplicate element IDs from
+# two coupled faces) and an installed-text2code CLI case with an L-shaped coupled interface.
+add_executable(text2code_initializedmd_test ${CMAKE_CURRENT_SOURCE_DIR}/text2code/initializedmd_test.cpp) # [nonmatching]
+target_include_directories(text2code_initializedmd_test PRIVATE ${EXASIM_DIR}/text2code/text2code) # [nonmatching]
+target_compile_features(text2code_initializedmd_test PRIVATE cxx_std_17) # [nonmatching] tinyexpr needs C++17
+target_link_libraries(text2code_initializedmd_test PRIVATE ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES}) # [nonmatching]
+add_test(NAME text2code_initializedmd COMMAND text2code_initializedmd_test) # [nonmatching]
+set_tests_properties(text2code_initializedmd PROPERTIES TIMEOUT 120) # [nonmatching]
+add_test(NAME text2code_initializedmd_cli # [nonmatching]
+  COMMAND ${CMAKE_COMMAND} -E env "EXASIM_ROOT=${EXASIM_DIR}" "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}" # [nonmatching]
+          bash "${EXASIM_DIR}/tests/text2code/initializedmd-cli-test.sh") # [nonmatching]
+set_tests_properties(text2code_initializedmd_cli PROPERTIES # [nonmatching]
+  TIMEOUT 600 SKIP_RETURN_CODE 77 RESOURCE_LOCK exasim_text2code_install) # [nonmatching]
+add_test(NAME nonmatching_phase9_matlab_ci # [nonmatching]
+  COMMAND ${CMAKE_COMMAND} -E env "EXASIM_ROOT=${EXASIM_DIR}" "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}" # [nonmatching]
+          bash "${EXASIM_DIR}/tests/nonmatching/run-phase9-matlab.sh" ci) # [nonmatching]
+set_tests_properties(nonmatching_phase9_matlab_ci PROPERTIES TIMEOUT 3600 SKIP_RETURN_CODE 77) # [nonmatching]
+# [nonmatching] Phase 9 B2: MATLAB exporttext2code round trip of the coupled non-matching
+# example (export, both pdeapp files carry interfacetype = 1, bundle build with Text2Code
+# code generation, text2code datain generation, coupled run, both donor directions,
+# solution equal to the MATLAB run). 1+1 is the acceptance run; 2+2 covers the
+# partitioned text2code data path.
+foreach(k 1 2) # [nonmatching]
+  add_test(NAME nonmatching_phase9_text2code_${k}p${k} # [nonmatching]
+    COMMAND ${CMAKE_COMMAND} -E env "EXASIM_ROOT=${EXASIM_DIR}" "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}" # [nonmatching]
+            bash "${EXASIM_DIR}/tests/nonmatching/run-phase9-matlab.sh" text2code ${k}) # [nonmatching]
+  set_tests_properties(nonmatching_phase9_text2code_${k}p${k} PROPERTIES # [nonmatching]
+    TIMEOUT 2400 SKIP_RETURN_CODE 77 RESOURCE_LOCK exasim_text2code_install) # [nonmatching]
+endforeach() # [nonmatching]
+add_test(NAME nonmatching_phase10_matlab_ci # [nonmatching]
+  COMMAND ${CMAKE_COMMAND} -E env "EXASIM_ROOT=${EXASIM_DIR}" "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}" # [nonmatching]
+          bash "${EXASIM_DIR}/tests/nonmatching/run-phase9-matlab.sh" phase10-ci) # [nonmatching]
+set_tests_properties(nonmatching_phase10_matlab_ci PROPERTIES TIMEOUT 3600 SKIP_RETURN_CODE 77) # [nonmatching]
+add_test(NAME nonmatching_phase10_partition # [nonmatching]
+  COMMAND ${CMAKE_COMMAND} -E env "EXASIM_ROOT=${EXASIM_DIR}" "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}" # [nonmatching]
+          bash "${EXASIM_DIR}/tests/nonmatching/run-phase9-matlab.sh" phase10-partition) # [nonmatching]
+set_tests_properties(nonmatching_phase10_partition PROPERTIES TIMEOUT 3600 SKIP_RETURN_CODE 77) # [nonmatching]
+foreach(k 1 2) # [nonmatching]
+  add_test(NAME nonmatching_phase10_text2code_${k}p${k} # [nonmatching]
+    COMMAND ${CMAKE_COMMAND} -E env "EXASIM_ROOT=${EXASIM_DIR}" "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}" # [nonmatching]
+            bash "${EXASIM_DIR}/tests/nonmatching/run-phase9-matlab.sh" phase10-text2code ${k}) # [nonmatching]
+  set_tests_properties(nonmatching_phase10_text2code_${k}p${k} PROPERTIES # [nonmatching]
+    TIMEOUT 3600 SKIP_RETURN_CODE 77 RESOURCE_LOCK exasim_text2code_install) # [nonmatching]
+endforeach() # [nonmatching]
+
 # Cheap extra Poisson app-regression cases through the Python frontend -- bring app
 # numerical coverage into CI beyond the default 2D HDG case. CASE=<name> selects
 # pdeapp_<name>.py (+ pdemodel_<name>.py if present); each gates the analytic
