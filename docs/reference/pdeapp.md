@@ -180,6 +180,7 @@ syntax.
 | `periodicexprs2` | list(string) | empty | No | Matching coordinate expressions for second periodic set. |
 | `interfaceconditions` | list(int) | empty | No | Coupled-interface condition codes. |
 | `interfacefluxmap` | list(int) | empty | No | Interface flux component map. |
+| `interfacetype` | int | `0` | No | Coupled interface discretization: `0` conformal (interfaces must match node for node), `1` non-matching (2D, CPU). Written to the fixed slot `app.problem[34]`; both models must agree. Any other value is rejected. See [Multi-model problems](../physics-models/multi-model.md#non-matching-interfaces-interfacetype). |
 | `cartgridpart` | list(int) | empty | No | Cartesian grid partition specification. |
 | `extFhat` | int | `0` | No | Enable external interface flux hook. |
 | `extUhat` | int | `0` | No | Enable external interface trace hook. |
