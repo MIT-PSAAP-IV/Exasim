@@ -452,6 +452,7 @@ struct PDE {
     int gencode = 1; // 1 for code generation, 0 for no code generation
     int writemeshsol = 1; // 1 for writing mesh solution, 0 for no writing
     int uniformrefinementlevel = 0; // refine the input mesh uniformly this many times
+    int interfacetype = 0; // [nonmatching] app.problem[34]: 0 conformal, 1 non-matching
     int modelnumber = 0;
     int builtinmodelID = 0;
     int frontendgenerated = 0;
@@ -781,6 +782,14 @@ PDE initializePDE(InputParams& params, int mpirank=0)
     if (params.intParams.count("stgNmode")) {
         pde.stgNmode = params.intParams["stgNmode"];
     }
+    // [nonmatching] Fixed zero-based problem slot 34: 0 conformal, 1 non-matching interface.
+    if (params.doubleParams.count("interfacetype"))
+        error("interfacetype must be the integer 0 (conformal) or 1 (non-matching).");
+    if (params.intParams.count("interfacetype")) {
+        pde.interfacetype = params.intParams["interfacetype"];
+        if (pde.interfacetype != 0 && pde.interfacetype != 1)
+            error("interfacetype must be the integer 0 (conformal) or 1 (non-matching).");
+    }
     if (params.intParams.count("stgchem")) {
         pde.stgchem = params.intParams["stgchem"];
     }
@@ -1055,7 +1064,7 @@ PDE initializePDE(InputParams& params, int mpirank=0)
         pde.saveSolFreq, pde.saveSolOpt, pde.timestepOffset, pde.stgNmode, pde.saveSolBouFreq, pde.ibs,
         pde.dae_steps, pde.saveResNorm, pde.AVsmoothingIter, pde.frozenAVflag, pde.ppdegree,
         pde.coupledinterface, pde.coupledcondition, pde.coupledboundarycondition, pde.AVdistfunction,
-        pde.stgchem, pde.uniformrefinementlevel
+        pde.stgchem, pde.uniformrefinementlevel, pde.interfacetype
     );
     pde.factor = {pde.time, pde.dae_alpha, pde.dae_beta, pde.dae_gamma, pde.dae_epsilon};    
     pde.solversparam = {pde.NewtonTol, pde.GMREStol, pde.matvectol, pde.NLparam};

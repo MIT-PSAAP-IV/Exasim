@@ -301,8 +301,11 @@ def _write_physicsparam_sweep_manifest(baseout, cases, outdirs, warmstart):
 
 def _writeapp_template(app):
     template = pycopy.deepcopy(app)
-    template['flag'] = numpy.asarray(template['flag']).reshape(-1, order='F')[20:]
-    template['problem'] = numpy.asarray(template['problem']).reshape(-1, order='F')[28:]
+    # Strip the fixed prefixes written by writeapp: 21 flag values and 35 problem
+    # values (zero-based problem[34] is interfacetype).  [nonmatching] Phase 9
+    # corrected [20:]/[28:], which re-added prefix values as user extras.
+    template['flag'] = numpy.asarray(template['flag']).reshape(-1, order='F')[21:]
+    template['problem'] = numpy.asarray(template['problem']).reshape(-1, order='F')[35:]
     template['factor'] = numpy.asarray(template['factor']).reshape(-1, order='F')[5:]
     template['solversparam'] = numpy.asarray(template['solversparam']).reshape(-1, order='F')[4:]
     return template

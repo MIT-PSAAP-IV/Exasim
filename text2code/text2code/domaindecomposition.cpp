@@ -72,16 +72,33 @@ DMD initializeDMD(const PDE& pde, const Mesh& mesh)
     
     if (pde.mpiprocs==1) {
       int ne = mesh.ne;
-      if (pde.coupledinterface>0) {                
-        int n = mesh.inte.size();
+      if (pde.coupledinterface>0) {
+        // [nonmatching] Phase 9: mesh.inte holds one entry per coupled face, so an element
+        // with two coupled faces appears twice. Use a sorted unique copy (as build_dmdhdg
+        // does) and build elempart as an exact permutation of 0..ne-1: interior elements
+        // first, then interface elements, both in increasing order.
+        std::vector<int> inte(mesh.inte.begin(), mesh.inte.end());
+        std::sort(inte.begin(), inte.end());
+        inte.erase(std::unique(inte.begin(), inte.end()), inte.end());
+        if (!inte.empty() && (inte.front() < 0 || inte.back() >= ne))
+          error("initializeDMD: interface element index out of range.");
+        int n = static_cast<int>(inte.size());
 
         vector<int> tm(ne);
-        vector<int> tn(ne-n);
+        vector<int> tn;
+        tn.reserve(ne-n);
         for (int i=0; i<ne; i++) tm[i] = i;
 
-        std::set_difference(tm.begin(), tm.end(), mesh.inte.begin(), mesh.inte.end(), std::back_inserter(tn));
+        std::set_difference(tm.begin(), tm.end(), inte.begin(), inte.end(), std::back_inserter(tn));
+        dmd.elempart.resize(ne);
         for (int i=0; i<ne-n; i++) dmd.elempart[i] = tn[i];
-        for (int i=0; i<n; i++) dmd.elempart[ne-n+i] = mesh.inte[i];
+        for (int i=0; i<n; i++) dmd.elempart[ne-n+i] = inte[i];
+
+        std::vector<char> seen(ne, 0);
+        for (int e : dmd.elempart) {
+          if (e < 0 || e >= ne || seen[e]) error("initializeDMD: elempart is not a permutation of 0..ne-1.");
+          seen[e] = 1;
+        }
 
         dmd.elempartpts.resize(3);        
         dmd.elempartpts[0] = ne-n;  dmd.elempartpts[1] = n; dmd.elempartpts[2] = 0;

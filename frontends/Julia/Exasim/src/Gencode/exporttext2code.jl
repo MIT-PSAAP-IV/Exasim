@@ -246,7 +246,7 @@ function _t2c_write_pdeapp(pde, mesh, files, path, modelfile="pdemodel.txt")
         "boundaryconditions", "boundaryexpressions", "curvedboundaries",
         "curvedboundaryexprs", "periodicboundaries1", "periodicexprs1",
         "periodicboundaries2", "periodicexprs2", "interfaceconditions",
-        "interfacefluxmap", "wmModelIDs", "wmBoundaries", "wmDistances",
+        "interfacefluxmap", "interfacetype", "wmModelIDs", "wmBoundaries", "wmDistances",
         "saveSolFreq", "saveSolOpt", "timestepOffset", "saveSolBouFreq", "ibs", "saveSolBouLoc",
         "compudgavg", "extFhat", "extUhat", "extStab", "saveResNorm",
     ]
