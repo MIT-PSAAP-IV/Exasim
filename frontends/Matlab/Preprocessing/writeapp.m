@@ -6,6 +6,12 @@ if isfield(app, 'builtinmodelID') == 0, app.builtinmodelID = 0; end
 if isfield(app, 'frontendgenerated') == 0, app.frontendgenerated = 1; end
 if isfield(app, 'uniformrefinementlevel') == 0, app.uniformrefinementlevel = 0; end
 if isfield(app, 'stgchem') == 0, app.stgchem = 0; end
+% [nonmatching] Fixed zero-based problem slot 34 (the 35th value): 0 conformal, 1 non-matching.
+if isfield(app, 'interfacetype') == 0 || isempty(app.interfacetype), app.interfacetype = 0; end
+if ~isnumeric(app.interfacetype) || ~isscalar(app.interfacetype) || ~isreal(app.interfacetype) || ...
+        ~any(app.interfacetype == [0 1])
+    error('interfacetype must be the integer 0 (conformal) or 1 (non-matching).');
+end
 if isfield(app, 'ibs') == 0 || isempty(app.ibs), app.ibs = 0; end
 if isfield(app, 'saveSolBouLoc') == 0 || isempty(app.saveSolBouLoc), app.saveSolBouLoc = 0; end
 if isfield(app, 'nsurfq') == 0, app.nsurfq = 0; end
@@ -30,7 +36,7 @@ app.problem  = [app.hybrid appname app.temporalscheme app.torder app.nstage app.
                app.saveSolFreq app.saveSolOpt app.timestepOffset app.stgNmode app.saveSolBouFreq ibs1 ...
                app.dae_steps app.saveResNorm app.AVsmoothingIter app.frozenAVflag app.ppdegree ...
                app.coupledinterface app.coupledcondition app.coupledboundarycondition app.AVdistfunction ...
-               app.stgchem app.uniformrefinementlevel app.problem];
+               app.stgchem app.uniformrefinementlevel app.interfacetype app.problem];
 app.factor = [app.time app.dae_alpha app.dae_beta app.dae_gamma app.dae_epsilon app.factor];           
 app.solversparam = [app.NLtol app.linearsolvertol app.matvectol app.NLparam app.solversparam];        
 

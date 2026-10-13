@@ -300,8 +300,11 @@ end
 
 function writeapptemplate(app)
     template = deepcopy(app);
-    template.flag = reshape(template.flag[21:end], 1, :);
-    template.problem = reshape(template.problem[34:end], 1, :);
+    # Strip the fixed prefixes written by writeapp: 21 flag values and 35 problem
+    # values (zero-based problem[34] is interfacetype).  [nonmatching] Phase 9
+    # corrected [21:end]/[34:end], which kept the last prefix value as a user extra.
+    template.flag = reshape(template.flag[22:end], 1, :);
+    template.problem = reshape(template.problem[36:end], 1, :);
     template.factor = reshape(template.factor[6:end], 1, :);
     template.solversparam = reshape(template.solversparam[5:end], 1, :);
     return template;
