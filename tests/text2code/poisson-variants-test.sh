@@ -24,6 +24,12 @@ for variant in pdeapp.txt pdeapp_hdg_refined.txt; do
         sed -E -i.bak "s/^mpiprocs *= *[0-9]+;/mpiprocs = ${test_np};/" "$work/$name/pdeapp.txt"
         rm -f "$work/$name/pdeapp.txt.bak"
     fi
+    configured_refinement=$(sed -n 's/^uniformrefinementlevel *= *\([0-9][0-9]*\);/\1/p' "$work/$name/pdeapp.txt")
+    if [[ -n $configured_refinement && -n ${EXASIM_TEST_MAX_UNIFORM_REFINEMENT:-} ]] &&
+       (( configured_refinement > EXASIM_TEST_MAX_UNIFORM_REFINEMENT )); then
+        sed -E -i.bak "s/^uniformrefinementlevel *= *[0-9]+;/uniformrefinementlevel = ${EXASIM_TEST_MAX_UNIFORM_REFINEMENT};/" "$work/$name/pdeapp.txt"
+        rm -f "$work/$name/pdeapp.txt.bak"
+    fi
     (
         cd "$work/$name"
         EXASIM_PREFIX="$prefix" "$prefix/bin/text2code" pdeapp.txt > text2code.log 2>&1 || exit 1
