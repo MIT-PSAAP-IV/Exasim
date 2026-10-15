@@ -12,7 +12,7 @@ from .exportapp import exportapp, exportapp_combined
 from .exporttext2code import exporttext2code
 from .exporttext2codemesh import exporttext2codemesh
 from .compilepdemodel import compilepdemodel
-from .runcode import runcode, runcode_combined
+from .runcode import runcode, runcode_combined, runcode_coupled
 from .syminit import syminit
 from .gencodeelemface import gencodeelemface
 from .gencodeelem import gencodeelem
@@ -233,8 +233,8 @@ def gencode(app):
             raise AttributeError("pde.fbouhdg is not defined")
         if hasattr(pde, 'fint'):
             f = pde.fint(u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, tau)
-            ncu12 = pde['interfacefluxmap'].size
-            if ncu<=0 :
+            ncu12 = numpy.size(app.get('interfacefluxmap', []))
+            if ncu12<=0 :
               ncu12 = 1
             f = numpy.reshape(f.flatten('F'),(ncu12,round(f.size/ncu12)),'F');
             hdggencodeface("Fint" + str(strn), f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, foldername)

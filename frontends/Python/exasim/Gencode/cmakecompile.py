@@ -108,12 +108,14 @@ def cmakecompile(pde):
     return cfg
 
 
-def cmakecompile_combined(pdes):
+def cmakecompile_combined(pdes, nprocs=None):
     """Build ONE solver executable that runs several generated models together
     (combined multi-PDE). Each pde in `pdes` must already have its kernels
     generated (Gencode.gencode) into its own per-model build dir, and a distinct
     modelnumber (hence distinct modelid). Renders the frontend-app-combined
     templates into <builddir>/combined and builds against the installed Exasim.
+    `nprocs` (optional) is the total MPI rank count of the run; a coupled
+    two-domain world is an MPI application even with one rank per model.
     Returns the configure command.
     """
     print("Compile combined multi-PDE Exasim app against the installed Exasim package...")
@@ -136,10 +138,11 @@ def cmakecompile_combined(pdes):
             f"combined models need distinct modelids (one per slot); got {ids}")
 
     p0 = pdes[0]
+    mpitotal = max(p0['mpiprocs'], nprocs or 0)
     if p0['platform'] == "gpu":
-        variant = "gpumpi" if p0['mpiprocs'] > 1 else "gpu"
+        variant = "gpumpi" if mpitotal > 1 else "gpu"
     else:
-        variant = "cpumpi" if p0['mpiprocs'] > 1 else "cpu"
+        variant = "cpumpi" if mpitotal > 1 else "cpu"
 
     tmpl = config.frontend_app_combined_template_dir()
     subs = {

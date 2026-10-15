@@ -104,3 +104,46 @@ def runcode_combined(pdes):
     print(f"Elapsed time: {end_time - start_time} seconds")
 
     return " ".join(cmd)
+
+
+def runcode_coupled(pdes):
+    """Run a two-domain interface-coupled solve with the combined executable.
+
+    The solver's split-domain CLI is
+        mpirun -np <np1+np2> exasimapp <100+np1> datain1/ dataout1/out datain2/ dataout2/out
+    ranks [0, np1) solve model 1 and the rest model 2. A coupled world is an
+    MPI application, so mpirun is used even with one rank per model.
+    """
+    print("Run coupled two-domain C++ Exasim code ...")
+
+    if len(pdes) != 2:
+        raise ValueError("Coupled interface solves support exactly two models.")
+    p0 = pdes[0]
+    exe = os.path.join(p0['builddir'], "combined", "build", "exasimapp")
+    if not os.path.exists(exe):
+        raise RuntimeError(f"Combined executable not found at {exe}; "
+                           "run Gencode.cmakecompile_combined(pdes) first.")
+
+    datapath = p0['datapath']
+    pairs = []
+    for p in pdes:
+        strn = config.model_strn(p)
+        pairs.append(os.path.join(datapath, "datain", strn, ""))
+        pairs.append(os.path.join(datapath, "dataout", strn, "out"))
+
+    mpirun = p0['mpirun']
+    mpitxt = os.path.join(p0['builddir'], "combined", "build", "mpiexec.txt")
+    if os.path.exists(mpitxt):
+        with open(mpitxt) as f:
+            discovered = f.read().strip()
+        if discovered:
+            mpirun = discovered
+    nprocs = pdes[0]['mpiprocs'] + pdes[1]['mpiprocs']
+    cmd = [mpirun, "-np", str(nprocs), exe, str(100 + pdes[0]['mpiprocs'])] + pairs
+
+    start_time = time.time()
+    subprocess.run(cmd, cwd=datapath, check=True)
+    end_time = time.time()
+    print(f"Elapsed time: {end_time - start_time} seconds")
+
+    return " ".join(cmd)

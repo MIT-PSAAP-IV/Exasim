@@ -112,13 +112,31 @@ def exasim(pde,mesh):
         for m in range(0, nmodels):
             pde[m]['modelnumber'] = m
 
+        # Interface coupling (mesh['interfacecondition']) runs the two models
+        # as one split MPI world: ranks [0, np1) solve model 1, the rest
+        # model 2, each with its own model id from the combined executable.
+        is_coupling = _is_interface_coupled(mesh)
+        if is_coupling:
+            if nmodels != 2:
+                raise ValueError("Interface-coupled solves support exactly two models.")
+            # The solver dispatches a model's kernels by app.modelnumber. With
+            # frontendgenerated = 0 it replaces the slot number written here by
+            # the model id (100 + slot) the combined executable assigns, so
+            # slot 1 runs model 101 instead of falling through to built-in model 1.
+            for m in range(0, nmodels):
+                pde[m]['frontendgenerated'] = 0
+
         # preprocess and generate code (own kernel dir) for all PDE models
         for m in range(0, nmodels):
             pde[m],mesh[m],master[m],dmd[m] = generatecode(pde[m],mesh[m])[0:4];
 
         # build ONE executable that dispatches all model ids, then run it with
         # one (datain, dataout) pair per model (the solver's multi-model CLI).
-        compilerstr = Gencode.cmakecompile_combined(pde);
+        if is_coupling:
+            compilerstr = Gencode.cmakecompile_combined(
+                pde, pde[0]['mpiprocs'] + pde[1]['mpiprocs']);
+        else:
+            compilerstr = Gencode.cmakecompile_combined(pde);
 
         # Export the combined bundle INSTEAD of running locally when requested
         # (see the single-model branch). pde[0]['buildandrun'] (default True)
@@ -127,7 +145,10 @@ def exasim(pde,mesh):
             Gencode.exportapp_combined(pde, pde[0]['exportapp'], build=pde[0].get('buildandrun', True));
             runstr = None;
         else:
-            runstr = Gencode.runcode_combined(pde);
+            if is_coupling:
+                runstr = Gencode.runcode_coupled(pde);
+            else:
+                runstr = Gencode.runcode_combined(pde);
 
             # get solution from each model's own dataout subdir
             for m in range(0, nmodels):
@@ -144,6 +165,13 @@ def exasim(pde,mesh):
                     res[m] = tm.transpose();
 
     return sol,pde,mesh,master,dmd,compilerstr,runstr,res
+
+
+def _is_interface_coupled(mesh):
+    if len(mesh) == 0 or not isinstance(mesh[0], dict):
+        return False
+    ic = mesh[0].get('interfacecondition', None)
+    return ic is not None and numpy.size(ic) > 0 and numpy.max(ic) >= 1
 
 
 def _normalize_physicsparam_sweep(pde):
