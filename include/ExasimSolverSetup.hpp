@@ -15,7 +15,10 @@
 
 #pragma once
 
+#include <cstdlib>
+#include <filesystem>
 #include <iostream>
+#include <string>
 #include <vector>
 
 #include "ExasimSolver.hpp"
@@ -342,4 +345,106 @@ inline int RunExasimSolver(ExasimSolver& solver, int argc, char** argv,
     }
 
     return solver.Finalize();
+}
+
+// The text2code executable used by RunText2CodeApp: EXASIM_TEXT2CODE_EXECUTABLE when it
+// is defined and not empty; otherwise $EXASIM_PREFIX/bin/text2code, or <prefix>/bin/text2code
+// of the Exasim installation the app was built against (EXASIM_INSTALL_PREFIX, set by
+// find_package(Exasim)); otherwise text2code from PATH.
+inline std::string Text2CodeExecutable()
+{
+    std::string text2code;
+#ifdef EXASIM_TEXT2CODE_EXECUTABLE
+    text2code = EXASIM_TEXT2CODE_EXECUTABLE;
+#endif
+    if (!text2code.empty())
+        return text2code;
+    if (const char* prefix = std::getenv("EXASIM_PREFIX"); prefix && *prefix)
+        return std::string(prefix) + "/bin/text2code";
+#ifdef EXASIM_INSTALL_PREFIX
+    return std::string(EXASIM_INSTALL_PREFIX) + "/bin/text2code";
+#else
+    return "text2code";
+#endif
+}
+
+/**
+ * Entry point of a (coupled) Text2Code application:
+ *
+ *   mpirun -np <ranks1> exasimapp pdeapp0.txt <ranks1>
+ *       Single-model solve of pdeapp0.txt (data in datain/, dataout/).
+ *   mpirun -np <ranks1+ranks2> exasimapp pdeapp1.txt <ranks1> pdeapp2.txt <ranks2>
+ *       Two-domain coupled solve: ranks [0, ranks1) solve model 1, the rest model 2.
+ *
+ * Rank 0 generates the datain folders with text2code (see Text2CodeExecutable).
+ * MPI is initialized and finalized here unless the caller has already initialized it;
+ * a caller that owns MPI can post-process the output (e.g. GatherSolution) after the
+ * return, on every rank, before its own MPI_Finalize.
+ */
+inline int RunText2CodeApp(int argc, char** argv)
+{
+    namespace fs = std::filesystem;
+#ifdef HAVE_MPI
+    int initialized = 0;
+    MPI_Initialized(&initialized);
+    if (!initialized)
+        MPI_Init(&argc, &argv);
+    int rank = 0, size = 1;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    auto barrier = [] { MPI_Barrier(MPI_COMM_WORLD); };
+    auto abort = [](const std::string& msg) { std::cerr << "exasimapp: " << msg << "\n"; MPI_Abort(MPI_COMM_WORLD, 1); };
+#else
+    const int rank = 0, size = 1;
+    auto barrier = [] {};
+    auto abort = [](const std::string& msg) { std::cerr << "exasimapp: " << msg << "\n"; std::exit(1); };
+#endif
+    if (argc != 3 && argc != 5)
+        abort(std::string("usage: ") + argv[0] + " pdeapp0.txt ranks | pdeapp1.txt ranks1 pdeapp2.txt ranks2");
+    const fs::path app1 = fs::absolute(argv[1]), dir1 = app1.parent_path();
+    const int ranks1 = std::stoi(argv[2]);
+    const int ranks2 = argc == 5 ? std::stoi(argv[4]) : 0;
+    if (ranks1 + ranks2 != size)
+        abort("the rank counts must add up to the number of MPI ranks");
+
+    std::vector<std::string> args{argv[0]};
+    const std::string text2code = Text2CodeExecutable();
+    try {
+        if (argc == 3) {
+            if (rank == 0)
+                GenerateText2CodeDatain(app1.string(), ranks1, 0, text2code);
+            args.insert(args.end(), {"1", (dir1 / "datain").string() + "/", (dir1 / "dataout" / "out").string()});
+        } else {
+            const fs::path app2 = fs::absolute(argv[3]), dir2 = app2.parent_path();
+            if (rank == 0) {
+                GenerateText2CodeDatain(app1.string(), ranks1, 1, text2code);
+                GenerateText2CodeDatain(app2.string(), ranks2, 2, text2code);
+            }
+            args.insert(args.end(), {std::to_string(100 + ranks1),
+                                     (dir1 / "datain1").string() + "/", (dir1 / "dataout1" / "out").string(),
+                                     (dir2 / "datain2").string() + "/", (dir2 / "dataout2" / "out").string()});
+        }
+    } catch (const std::exception& e) {
+        abort(e.what());
+    }
+    barrier();
+
+    std::vector<char*> cargs;
+    for (auto& arg : args)
+        cargs.push_back(arg.data());
+    int err = 0;
+    {
+        ExasimSolver solver;
+#ifdef HAVE_MPI
+        err = RunExasimSolver(solver, static_cast<int>(cargs.size()), cargs.data(), MPI_COMM_WORLD);
+#else
+        err = RunExasimSolver(solver, static_cast<int>(cargs.size()), cargs.data(), MPI_COMM_NULL);
+#endif
+    }
+    barrier();   // every rank has written its output
+#ifdef HAVE_MPI
+    if (!initialized)
+        MPI_Finalize();
+#endif
+    return err;
 }

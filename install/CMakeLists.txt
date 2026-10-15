@@ -156,7 +156,7 @@ set(EXASIM_MAIN_DIR ${EXASIM_DIR}/backend/Main)
 file(GLOB MAIN_SOURCES ${EXASIM_MAIN_DIR}/main.cpp)
 set(T2C_MAIN_SOURCES ${EXASIM_MAIN_DIR}/maint2c.cpp)
 set(KOKKOSKERNEL_MAIN_SOURCES ${EXASIM_MAIN_DIR}/mainkernel.cpp)
-set(EXASIM_SOLVER_SOURCES ${EXASIM_MAIN_DIR}/ExasimSolver.cpp)
+set(EXASIM_SOLVER_SOURCES ${EXASIM_MAIN_DIR}/ExasimSolver.cpp ${EXASIM_MAIN_DIR}/text2codeapp.cpp)
 
 function(add_exasim_static_library target output_name)
   add_library(${target} STATIC ${EXASIM_SOLVER_SOURCES})
