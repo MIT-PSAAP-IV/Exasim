@@ -107,7 +107,26 @@ function avfield(u, q, w, v, x, t, mu, eta)
     velocity_x_x = (q[2] - q[1] * velocity_x) / density
     velocity_y_y = (q[7] - q[5] * velocity_y) / density
     compression = velocity_x_x + velocity_y_y + velocity_y / x[2]
-    [limiting_value(compression * tanh(mu[end-2] * v[1]), 0.0, mu[end-3], 1.0e3, 0.0)]
+    gam, reynolds, mach_inf, reference_temperature = mu[1], mu[2], mu[4], mu[10]
+    gas_constant, standard_temperature, sutherland_temperature = 287.0, 273.15, 110.4
+    standard_viscosity = 1.716e-5
+    pressure = (gam - 1.0) *
+        (u[4] - 0.5 * (u[2] * velocity_x + u[3] * velocity_y))
+    temperature = pressure / ((gam - 1.0) * density)
+    tinf = 1.0 / (gam * (gam - 1.0) * mach_inf^2)
+    physical_temperature = reference_temperature * temperature / tinf
+    velocity_reference = mach_inf * sqrt(gam * gas_constant * reference_temperature)
+    ratio = reference_temperature / standard_temperature
+    physical_viscosity = standard_viscosity * sqrt(ratio^3) *
+        (standard_temperature + sutherland_temperature) /
+        (reference_temperature + sutherland_temperature)
+    density_reference = reynolds * physical_viscosity / velocity_reference
+    physical_density = density_reference * density
+    physical_pressure = physical_density * gas_constant * physical_temperature
+    [
+        limiting_value(compression * tanh(mu[end-2] * v[1]), 0.0, mu[end-3], 1.0e3, 0.0),
+        physical_pressure,
+    ]
 end
 
 function source(u, q, w, v, x, t, mu, eta)
@@ -209,6 +228,56 @@ function visscalars(u, q, w, v, x, t, mu, eta)
         sqrt(gam * gas_constant * physical_temperature)
     artificial_viscosity = (mu[end-1] + mu[end] * v[2]) * tanh(mu[end-2] * v[1])
     [physical_density, physical_pressure, physical_temperature, mach, artificial_viscosity]
+end
+
+function surfacequantities(u, q, w, v, x, t, mu, eta, uhat, normal, tau)
+    gam, reynolds, prandtl = mu[1:3]
+    gam1 = gam - 1.0
+    reference_temperature = mu[10]
+    tinf = mu[9]
+
+    density_inf = mu[5]
+    momentum_x_inf = mu[6]
+    momentum_y_inf = mu[7]
+    energy_inf = mu[8]
+    velocity_x_inf = momentum_x_inf / density_inf
+    velocity_y_inf = momentum_y_inf / density_inf
+    speed_inf2 = velocity_x_inf^2 + velocity_y_inf^2
+    dynamic_pressure = 0.5 * density_inf * speed_inf2
+    heat_flux_reference = density_inf * speed_inf2 * sqrt(speed_inf2)
+    pressure_inf = gam1 * (
+        energy_inf - 0.5 * (momentum_x_inf^2 + momentum_y_inf^2) / density_inf
+    )
+
+    density, momentum_x, momentum_y, _, _, _,
+    velocity_x, velocity_y, _, _, pressure,
+    velocity_x_x, velocity_y_x, velocity_x_y, velocity_y_y,
+    temperature_x, temperature_y = flow_quantities(uhat, q, mu)
+
+    temperature = pressure / (gam1 * density)
+    physical_temperature = reference_temperature * temperature / tinf
+    dynamic_viscosity = viscosity_value(1.0 / reynolds, reference_temperature, physical_temperature)
+    conductivity = dynamic_viscosity * gam / prandtl
+    radial_coordinate = x[2]
+    stress_xx = dynamic_viscosity * (2.0 / 3.0) *
+        (2.0 * velocity_x_x - velocity_y_y + velocity_y / radial_coordinate)
+    stress_xy = dynamic_viscosity * (velocity_x_y + velocity_y_x)
+    stress_yy = dynamic_viscosity * (2.0 / 3.0) *
+        (2.0 * velocity_y_y - velocity_x_x + velocity_y / radial_coordinate)
+
+    normal_x, normal_y = normal
+    tangent_x, tangent_y = -normal_y, normal_x
+    traction_x = stress_xx * normal_x + stress_xy * normal_y + tau[1] * (u[2] - uhat[2])
+    traction_y = stress_xy * normal_x + stress_yy * normal_y + tau[1] * (u[3] - uhat[3])
+    tangential_traction = tangent_x * traction_x + tangent_y * traction_y
+    conductive_wall_flux = conductivity * (temperature_x * normal_x + temperature_y * normal_y) +
+                           tau[1] * (u[4] - uhat[4])
+
+    [
+        (pressure - pressure_inf) / dynamic_pressure,
+        tangential_traction / dynamic_pressure,
+        conductive_wall_flux / heat_flux_reference,
+    ]
 end
 
 function visvectors(u, q, w, v, x, t, mu, eta)
