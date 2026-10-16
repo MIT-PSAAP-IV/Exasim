@@ -101,16 +101,28 @@ else
     # m (modelnumber=m-1 -> distinct modelid 100+slot, kernel dir, datain/dataout
     # subdir), so the N models generate without clobbering and link into ONE
     # exasimapp (one provider that dispatches all ids). Replaces gencodeall.
+    is_coupling = !isempty(mesh[1].interfacecondition) && maximum(mesh[1].interfacecondition) >= 1;
+    if is_coupling && nmodels != 2
+        error("Interface-coupled solves support exactly two models.");
+    end
     for m = 1:nmodels
         pde[m].modelnumber = m - 1;
+        if is_coupling
+            # The solver dispatches a model's kernels by app.modelnumber. With
+            # frontendgenerated = 0 it replaces the slot number written here by
+            # the model id (100 + slot) the combined executable assigns, so
+            # slot 1 runs model 101 instead of falling through to built-in model 1.
+            pde[m].frontendgenerated = 0;
+        end
         pde[m] = Gencode.setcompilers(pde[m]);
         pde[m], mesh[m], master[m], dmd[m] = Preprocessing.preprocessing(pde[m], mesh[m]);
         pde[m].modelid = Gencode.resolve_modelid(pde[m]);
         Gencode.gencode(pde[m]);
     end
 
-    compilerstr = Gencode.cmakecompile_combined(pde);
-    runstr = Gencode.runcode_combined(pde);
+    compilerstr = is_coupling ? Gencode.cmakecompile_combined(pde, pde[1].mpiprocs + pde[2].mpiprocs) :
+                                Gencode.cmakecompile_combined(pde);
+    runstr = is_coupling ? Gencode.runcode_coupled(pde) : Gencode.runcode_combined(pde);
 
     # get solution from each model's own dataout subdir
     for m = 1:nmodels
@@ -300,8 +312,11 @@ end
 
 function writeapptemplate(app)
     template = deepcopy(app);
-    template.flag = reshape(template.flag[21:end], 1, :);
-    template.problem = reshape(template.problem[34:end], 1, :);
+    # Strip the fixed prefixes written by writeapp: 21 flag values and 35 problem
+    # values (zero-based problem[34] is interfacetype).  [nonmatching] Phase 9
+    # corrected [21:end]/[34:end], which kept the last prefix value as a user extra.
+    template.flag = reshape(template.flag[22:end], 1, :);
+    template.problem = reshape(template.problem[36:end], 1, :);
     template.factor = reshape(template.factor[6:end], 1, :);
     template.solversparam = reshape(template.solversparam[5:end], 1, :);
     return template;

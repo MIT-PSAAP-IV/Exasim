@@ -4,7 +4,11 @@ from .sortrows import sortrows
 from .partition import partition
 from .neighboringelements import neighboringelements
 
-def elementpartitionhdg(dmd, t, t2t, nproc, metis, elem2cpu=None):
+def _coupledelements(f, coupledinterface):
+    # Elements (0-based, sorted) owning a face on the coupled interface boundary.
+    return np.unique(np.nonzero(np.asarray(f) == coupledinterface)[1]).astype(int)
+
+def elementpartitionhdg(dmd, t, t2t, nproc, metis, elem2cpu=None, f=None, coupledinterface=0):
     nve, ne = t.shape
 
     if nproc == 1:
@@ -17,6 +21,12 @@ def elementpartitionhdg(dmd, t, t2t, nproc, metis, elem2cpu=None):
         dmd[i]['elemsend'] = [];
         dmd[i]['elemrecvpts'] = [];
         dmd[i]['elemsendpts'] = [];
+        if coupledinterface > 0:
+            # Interface elements last: [interior, interface] (MATLAB elementpartitionhdg).
+            inte = _coupledelements(f, coupledinterface)
+            dmd[i]['elempart'] = np.concatenate((np.setdiff1d(np.arange(0,ne), inte), inte)).astype(int)
+            dmd[i]['elempartpts'] = np.array([ne-len(inte), len(inte), 0]).astype(int)
+            dmd[i]['intepartpts'] = np.array([ne-len(inte), len(inte), 0, 0]).astype(int)
         # #dmd[i]['elempart'] = np.reshape(np.arange(ne), (1, ne))
         # #dmd[i]['elempartpts'] = np.reshape([ne], (1, 1))
         # dmd[i]['nbsd'] = np.reshape([0], (1, 1))
@@ -32,6 +42,8 @@ def elementpartitionhdg(dmd, t, t2t, nproc, metis, elem2cpu=None):
     elem2cpu = np.array(elem2cpu).flatten().astype(int);
     if elem2cpu.size != ne:
         raise ValueError("elementpartitionhdg: elem2cpu must contain one entry per element.")
+    if coupledinterface > 0:
+        inte = _coupledelements(f, coupledinterface)
 
     for i in range(nproc):
         intelem = np.where(elem2cpu == i)[0]  # elements in subdomain i
@@ -45,6 +57,17 @@ def elementpartitionhdg(dmd, t, t2t, nproc, metis, elem2cpu=None):
         tmp = np.concatenate((np.setdiff1d(intelem, bndelem), bndelem, extelem))
         dmd[i]['elempart'] = tmp.flatten('F'); # partitions of elements        
         dmd[i]['elempartpts'] = np.array([len(intelem)-len(bndelem), len(bndelem), len(extelem)]).flatten();
+        if coupledinterface > 0:
+            # Order owned elements as [interior, interface-only, interface and
+            # subdomain-boundary, subdomain-boundary-only], then exterior.
+            interface = np.intersect1d(intelem, inte)
+            part0 = np.union1d(interface, bndelem)
+            part1 = np.setdiff1d(intelem, part0)
+            part2 = np.setdiff1d(interface, bndelem)
+            part3 = np.intersect1d(interface, bndelem)
+            part4 = np.setdiff1d(bndelem, part3)
+            dmd[i]['elempart'] = np.concatenate((part1, part2, part3, part4, extelem)).astype(int)
+            dmd[i]['intepartpts'] = np.array([len(part1), len(interface), len(intelem)-len(part1)-len(interface), len(extelem)]).astype(int)
         # dmd[i]['elem2cpu'] = elem2cpu[dmd[i]['elempart']]
         nelem = dmd[i]['elempartpts']
 

@@ -1,4 +1,4 @@
-function comstr = cmakecompile(pde, ~)
+function comstr = cmakecompile(pde, nprocs)
 % Build the solver executable for the generated model.
 %
 % Renders the installed frontend-app templates into the hidden pde.builddir
@@ -56,10 +56,15 @@ if ~exist(char(kernels), 'dir')
     error("No generated kernels at %s; run kkgencode(pde) first.", kernels);
 end
 
+% [nonmatching] A coupled world is an MPI application even with one rank per
+% model (1+1): the coupled driver passes the total rank count as nprocs.
+% Single-model callers pass nothing, so their selection is unchanged.
+mpitotal = pde.mpiprocs;
+if nargin >= 2 && ~isempty(nprocs), mpitotal = max(mpitotal, nprocs); end
 if pde.platform == "gpu"
-    if pde.mpiprocs > 1, variant = "gpumpi"; else, variant = "gpu"; end
+    if mpitotal > 1, variant = "gpumpi"; else, variant = "gpu"; end
 else
-    if pde.mpiprocs > 1, variant = "cpumpi"; else, variant = "cpu"; end
+    if mpitotal > 1, variant = "cpumpi"; else, variant = "cpu"; end
 end
 
 modelid = resolve_modelid(pde);

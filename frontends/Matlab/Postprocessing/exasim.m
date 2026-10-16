@@ -346,8 +346,11 @@ end
 end
 
 function app = writeapptemplate(app)
-app.flag = app.flag(21:end);
-app.problem = app.problem(34:end);
+% Strip the fixed prefixes written by writeapp: 21 flag values and 35 problem
+% values (zero-based problem[34] is interfacetype).  [nonmatching] Phase 9
+% corrected (21:end)/(34:end), which kept the last prefix value as a user extra.
+app.flag = app.flag(22:end);
+app.problem = app.problem(36:end);
 app.factor = app.factor(6:end);
 app.solversparam = app.solversparam(5:end);
 end

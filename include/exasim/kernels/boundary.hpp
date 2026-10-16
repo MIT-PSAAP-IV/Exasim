@@ -189,7 +189,7 @@ void fint_kernel(dstype* fb, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
                  const dstype* wdg, const dstype* uhg, const dstype* nlg,
                  const dstype* tau, const dstype* uinf, const dstype* param,
                  dstype t, int /*modelnumber*/, int ib, int ng,
-                 int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/, int /*ncw*/)
+                 int nc, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/, int /*ncw*/)
 {
     static_assert(is_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
@@ -197,12 +197,14 @@ void fint_kernel(dstype* fb, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
     constexpr int nf = nfint_v<M>;
     constexpr int ncw_buf = (ncw > 0) ? ncw : 1;
     constexpr int nco_buf = (nco > 0) ? nco : 1;
+    const int available_uq = nc < Nq ? nc : Nq;
 
     Kokkos::parallel_for("exasim::fint_kernel", ng, KOKKOS_LAMBDA(size_t i) {
         (void)odg; (void)wdg; (void)f_wdg;  // HOT.6.2 nvcc force-capture
         double x[nd], uq[Nq], v[nco_buf], w[ncw_buf], uh[ncu], n[nd];
         for (int k = 0; k < nd;  ++k) x [k] = xdg[k * ng + i];
-        for (int k = 0; k < Nq;  ++k) uq[k] = udg[k * ng + i];
+        for (int k = 0; k < Nq; ++k) uq[k] = 0.0;
+        for (int k = 0; k < available_uq; ++k) uq[k] = udg[k * ng + i];
         if (nco > 0) for (int k = 0; k < nco; ++k) v[k] = odg[k * ng + i];
         if (ncw > 0) for (int k = 0; k < ncw; ++k) w[k] = wdg[k * ng + i];
         for (int k = 0; k < ncu; ++k) uh[k] = uhg[k * ng + i];
@@ -214,7 +216,11 @@ void fint_kernel(dstype* fb, dstype* f_udg, dstype* f_wdg, dstype* f_uhg,
 
         double fb_uq[nf * Nq];
         M::fint_jac_uq(fb_uq, ib, x, uq, v, w, uh, n, tau, param, uinf, t);
-        for (int k = 0; k < nf * Nq; ++k) f_udg[k * ng + i] = fb_uq[k];
+        for (int input = 0; input < available_uq; ++input)
+            for (int output = 0; output < nf; ++output) {
+                const int k = output + nf * input;
+                f_udg[k * ng + i] = fb_uq[k];
+            }
 
         if constexpr (ncw > 0) {
             double fb_w[nf * ncw];
@@ -235,7 +241,7 @@ void fint_only_kernel(dstype* fb,
                       const dstype* wdg, const dstype* uhg, const dstype* nlg,
                       const dstype* tau, const dstype* uinf, const dstype* param,
                       dstype t, int /*modelnumber*/, int ib, int ng,
-                      int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/, int /*ncw*/)
+                      int nc, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/, int /*ncw*/)
 {
     static_assert(is_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
@@ -243,12 +249,14 @@ void fint_only_kernel(dstype* fb,
     constexpr int nf = nfint_v<M>;
     constexpr int ncw_buf = (ncw > 0) ? ncw : 1;
     constexpr int nco_buf = (nco > 0) ? nco : 1;
+    const int available_uq = nc < Nq ? nc : Nq;
 
     Kokkos::parallel_for("exasim::fint_only_kernel", ng, KOKKOS_LAMBDA(size_t i) {
         (void)odg; (void)wdg;
         double x[nd], uq[Nq], v[nco_buf], w[ncw_buf], uh[ncu], n[nd];
         for (int k = 0; k < nd;  ++k) x [k] = xdg[k * ng + i];
-        for (int k = 0; k < Nq;  ++k) uq[k] = udg[k * ng + i];
+        for (int k = 0; k < Nq; ++k) uq[k] = 0.0;
+        for (int k = 0; k < available_uq; ++k) uq[k] = udg[k * ng + i];
         if (nco > 0) for (int k = 0; k < nco; ++k) v[k] = odg[k * ng + i];
         if (ncw > 0) for (int k = 0; k < ncw; ++k) w[k] = wdg[k * ng + i];
         for (int k = 0; k < ncu; ++k) uh[k] = uhg[k * ng + i];

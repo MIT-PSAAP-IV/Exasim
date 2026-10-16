@@ -214,7 +214,8 @@ inline void uEquationElemBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appst
 
 template <class M, class T=dstype, class I=Int>
 inline void uEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
-        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int jth, Int backend)
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int jth, Int backend,
+        Int interfacetype = 0)
 {
     using dstype=T;            
     Int nc = common.components.nc; // number of compoments of (u, q, p)
@@ -488,7 +489,7 @@ inline void uEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, a
       int n = ibc + common.meshsizes.maxnbc*jth;
       int start = common.nboufaces[n];
       int nfaces = common.nboufaces[n + 1] - start;
-      if ((nfaces>0) && (common.eblks[3*jth+2]==-1) && (common.couplingparams.coupledboundarycondition == ibc+1) && (common.couplingparams.coupledcondition>0)) {        
+      if ((interfacetype == 0) && (nfaces>0) && (common.eblks[3*jth+2]==-1) && (common.couplingparams.coupledboundarycondition == ibc+1) && (common.couplingparams.coupledcondition>0)) { // [nonmatching]
         int ncu12 = common.szinterfacefluxmap;
         
         //printf("%d %d %d %d %d %d %d %d %d %d %d\n", common.mpiRank, common.eblks[3*jth], common.eblks[3*jth+1], common.eblks[3*jth+2], ibc, common.couplingparams.coupledinterface, common.couplingparams.coupledcondition, common.couplingparams.coupledboundarycondition, common.couplingparams.ncie, ne, ncu12);
@@ -594,7 +595,8 @@ inline void uEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, a
 
 template <class M, class T=dstype, class I=Int>
 inline void uEquationSchurBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
-        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int jth, Int backend)
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int jth, Int backend,
+        Int interfacetype = 0)
 {
     using dstype=T;        
     Int ncu = common.components.ncu;// number of compoments of (u)
@@ -750,7 +752,7 @@ inline void uEquationSchurBlock(solstructT<T,I> &sol, resstructT<T,I> &res, apps
     ArrayCopy(Rh, tmp.tempn, m*ne);
     PGEMNMStridedBached(handle, m, 1, n, minusone, K, m, Ru, n, one, Rh, m, ne, backend);     
     
-    if ((common.eblks[3*jth+2]==-1) && (common.couplingparams.coupledcondition>0) && (common.couplingparams.coupledinterface>0)) {      
+    if ((interfacetype == 0) && (common.eblks[3*jth+2]==-1) && (common.couplingparams.coupledcondition>0) && (common.couplingparams.coupledinterface>0)) { // [nonmatching]
       int ncu12 = common.szinterfacefluxmap;
       Int m12 = npf*ncu12;
       
@@ -927,7 +929,8 @@ inline void RuEquationElemBlock(solstructT<T,I> &sol, resstructT<T,I> &res, apps
 
 template <class M, class T=dstype, class I=Int>
 inline void RuEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
-        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int jth, Int backend)
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int jth, Int backend,
+        Int interfacetype = 0)
 {
     using dstype=T;            
     Int nc = common.components.nc; // number of compoments of (u, q, p)
@@ -1086,7 +1089,7 @@ inline void RuEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, 
       int n = ibc + common.meshsizes.maxnbc*jth;
       int start = common.nboufaces[n];
       int nfaces = common.nboufaces[n + 1] - start;
-      if ((nfaces>0) && (common.eblks[3*jth+2]==-1) && (common.couplingparams.coupledboundarycondition == ibc+1) && (common.couplingparams.coupledcondition>0))
+      if ((interfacetype == 0) && (nfaces>0) && (common.eblks[3*jth+2]==-1) && (common.couplingparams.coupledboundarycondition == ibc+1) && (common.couplingparams.coupledcondition>0)) // [nonmatching]
       {
         int ncu12 = common.szinterfacefluxmap;
         int ngb = nfaces*ngf;

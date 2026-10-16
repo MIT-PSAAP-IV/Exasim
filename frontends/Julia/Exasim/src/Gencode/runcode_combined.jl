@@ -36,3 +36,25 @@ function runcode_combined(pdes)
     run(Cmd(cmd; dir=datapath))
     return string(cmd)
 end
+
+function runcode_coupled(pdes)
+    length(pdes) == 2 || error("Coupled interface solves support exactly two models.")
+    p0 = pdes[1]
+    exe = joinpath(p0.builddir, "combined", "build", "exasimapp")
+    isfile(exe) || error("Combined executable not found at $exe; run Gencode.cmakecompile_combined(pdes) first.")
+    args = String[]
+    for p in pdes
+        strn = model_strn(p)
+        push!(args, joinpath(p0.datapath, "datain", strn) * "/")
+        push!(args, joinpath(p0.datapath, "dataout", strn, "out"))
+    end
+    mpirun = p0.mpirun
+    mpitxt = joinpath(p0.builddir, "combined", "build", "mpiexec.txt")
+    if isfile(mpitxt)
+        discovered = strip(read(mpitxt, String)); isempty(discovered) || (mpirun = discovered)
+    end
+    nprocs = pdes[1].mpiprocs + pdes[2].mpiprocs
+    cmd = `$mpirun -np $nprocs $exe $(100 + pdes[1].mpiprocs) $args`
+    run(Cmd(cmd; dir=p0.datapath))
+    return string(cmd)
+end

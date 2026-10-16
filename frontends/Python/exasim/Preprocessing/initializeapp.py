@@ -88,6 +88,7 @@ def initializeapp(version):
     app['saveParaview'] = 0;
     app['physicsparamwarmstart'] = 0;
     app['executionmode'] = 0;
+    app['interfacetype'] = 0;  # [nonmatching] coupled interface: 0 conformal, 1 non-matching
 
     app['time'] = 0.0;
     app['NLparam'] = 0.0;

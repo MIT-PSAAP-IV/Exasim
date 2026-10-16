@@ -1,4 +1,5 @@
 from numpy import *
+import numpy
 
 def writeapp(app,filename):
     def flat(key):
@@ -26,14 +27,22 @@ def writeapp(app,filename):
     if saveSolBouLoc not in (0, 1):
         raise ValueError("saveSolBouLoc must be 0 (face nodes) or 1 (face Gauss points).");
 
+    # [nonmatching] interfacetype is the fixed zero-based problem slot 34: 0 conformal, 1 non-matching.
+    interfacetype = numpy.asarray(app.get('interfacetype', 0))
+    if (interfacetype.size != 1 or interfacetype.dtype == bool or
+            not numpy.issubdtype(interfacetype.dtype, numpy.number) or
+            numpy.iscomplexobj(interfacetype) or interfacetype.item() not in (0, 1)):
+        raise ValueError("interfacetype must be the integer 0 (conformal) or 1 (non-matching).");
+    interfacetype = int(interfacetype.item());
+
     appname = 0;
     tmp = array([app['tdep'], app['wave'], app['linearproblem'], app['debugmode'], app['matvecorder'], app['GMRESortho'], app['preconditioner'], app['precMatrixType'], app['NLMatrixType'], app['runmode'], app['tdfunc'], app['source'], app['modelnumber'], app['extFhat'], app['extUhat'], app['extStab'], app['subproblem'], app['saveParaview'], app['physicsparamwarmstart'], app['builtinmodelID'], app['frontendgenerated']]);
     app['flag'] =  concatenate([tmp,app['flag']]);
     # problem[0..27], coupling slots problem[28..31], STG chemistry at problem[32],
-    # then uniform refinement at problem[33].
+    # then uniform refinement at problem[33] and interfacetype at problem[34].
     # Keep these fixed slots aligned with the Matlab/Julia and C++ preprocessors.
     # Defensive .get keeps older caller-created dictionaries working.
-    tmp = array([app['hybrid'], appname, app['temporalscheme'], app['torder'], app['nstage'], app['convStabMethod'], app['diffStabMethod'], app['rotatingFrame'], app['viscosityModel'], app['SGSmodel'], app['ALE'], app['AV'], app['linearsolver'], app['NLiter'], app['linearsolveriter'], app['GMRESrestart'], app['RBdim'], app['saveSolFreq'], app['saveSolOpt'], app['timestepOffset'], app['stgNmode'], app['saveSolBouFreq'], (ibslist[0] if ibslist else 0), app['dae_steps'], app['saveResNorm'], app['AVsmoothingIter'], app['frozenAVflag'], app['ppdegree'], app.get('coupledinterface', 0), app.get('coupledcondition', 0), app.get('coupledboundarycondition', 0), app.get('AVdistfunction', 0), app.get('stgchem', 0), app['uniformrefinementlevel']]);
+    tmp = array([app['hybrid'], appname, app['temporalscheme'], app['torder'], app['nstage'], app['convStabMethod'], app['diffStabMethod'], app['rotatingFrame'], app['viscosityModel'], app['SGSmodel'], app['ALE'], app['AV'], app['linearsolver'], app['NLiter'], app['linearsolveriter'], app['GMRESrestart'], app['RBdim'], app['saveSolFreq'], app['saveSolOpt'], app['timestepOffset'], app['stgNmode'], app['saveSolBouFreq'], (ibslist[0] if ibslist else 0), app['dae_steps'], app['saveResNorm'], app['AVsmoothingIter'], app['frozenAVflag'], app['ppdegree'], app.get('coupledinterface', 0), app.get('coupledcondition', 0), app.get('coupledboundarycondition', 0), app.get('AVdistfunction', 0), app.get('stgchem', 0), app['uniformrefinementlevel'], interfacetype]);
     app['problem'] = concatenate([tmp, app['problem']]);
     tmp = array([app['time'], app['dae_alpha'], app['dae_beta'], app['dae_gamma'], app['dae_epsilon']])    
     app['factor'] = concatenate([tmp, app['factor']]);

@@ -3,7 +3,7 @@ cdir = pwd();
 cases{1} = cdir + "/Poisson/poisson1d/";
 cases{2} = cdir + "/Poisson/poisson2d/";
 cases{3} = cdir + "/Poisson/poisson3d/";
-cases{4} = cdir + "/Poisson/coupledproblem/";
+cases{4} = cdir + "/CoupledProblems/Poisson/matching/";
 cases{5} = cdir + "/Poisson/periodic/";
 cases{6} = cdir + "/Poisson/Axisymmetric/";
 cases{7} = cdir + "/Poisson/Lshape/";
@@ -61,5 +61,4 @@ for jjj = 1:length(unittests)
   disp("RUNNING " + cases{iii});
   run(cases{iii} + "pdeapp.m");
 end
-
 

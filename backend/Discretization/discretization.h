@@ -41,10 +41,15 @@
 #ifndef __DISCRETIZATION_H__
 #define __DISCRETIZATION_H__
 
+#include <memory>
+
 #include "exasim/execution_mode.hpp"
+#include "nonmatchinginterface.hpp" // [nonmatching] frozen data structure (phase 0)
 
 namespace exasim { template <class, class> struct PreprocessedT; }  // fwd decl: in-memory ctor input
                                            // (buildstructs.hpp); the ctor bodies live in discretization_inmemory.hpp (consumer-only)
+namespace exasim { namespace nonmatching { template <class, class> struct NonmatchingRuntime; } }
+namespace exasim { namespace nonmatching { template <class, class> struct CompositeOwnerQuadrature; } } // [nonmatching] phase 9 A1
 
 // Templated on scalar precision T and index type I (Phase 2 of dstype->template threading, see
 // docs/internals/precision-threading.md). Member `using` aliases shadow the global dstype/Int AND the
@@ -76,6 +81,12 @@ public:
     commonstruct common;
     ExasimDriverABI driver_abi;
     scratcharenastruct scratch;  // owns the K backing buffer; res.K/views + sys.v are non-owning reserves (S5 step 3)
+    nonmatchingdataT<T, I> nonmatching; // [nonmatching] non-matching interface data (host setup, phase 2)
+    // [nonmatching] backend-resident run-time mirrors and persistent workspaces (phase 8)
+    std::unique_ptr<exasim::nonmatching::NonmatchingRuntime<T, I>> nonmatchingRuntime;
+    // [nonmatching] phase 9 A1: composite owner-quadrature sidecar (empty unless the opt-in
+    // test library enables it; published by the same rebuild transaction)
+    std::unique_ptr<exasim::nonmatching::CompositeOwnerQuadrature<T, I>> nonmatchingQuadrature;
     // solstruct hsol;
 
     // constructor for both CPU and GPU
@@ -122,6 +133,16 @@ public:
 
     // destructor
     ~CDiscretizationT();
+
+    exasim::nonmatching::NonmatchingRuntime<T, I>* getNonmatchingRuntime() noexcept
+    {
+        return nonmatchingRuntime.get();
+    }
+
+    const exasim::nonmatching::NonmatchingRuntime<T, I>* getNonmatchingRuntime() const noexcept
+    {
+        return nonmatchingRuntime.get();
+    }
 
     // post-init construction tail (read_uh/vis/geometry/mass-inverse/HDG setup), shared by the
     // file and in-memory constructors. Defined in discretization.cpp (no Preprocessed dependency).

@@ -93,6 +93,7 @@ mutable struct PDEStruct
     coupledcondition::IntP;        # app.bin problem[29]
     coupledboundarycondition::IntP;# app.bin problem[30]
     AVdistfunction::IntP;          # app.bin problem[31]
+    interfacetype::IntP;           # [nonmatching] app.bin problem[34]: 0 conformal, 1 non-matching
     distanceboundaryconditions;
     NLMatrixType::IntP;
     runmode::IntP; # flag for run mode
@@ -305,6 +306,7 @@ function initializepde(version)
     pde.coupledcondition = 0;
     pde.coupledboundarycondition = 0;
     pde.AVdistfunction = 0;
+    pde.interfacetype = 0;
     pde.distanceboundaryconditions = Int[];
     pde.NLMatrixType = 0;
     pde.runmode = 0;

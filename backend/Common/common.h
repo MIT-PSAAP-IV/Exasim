@@ -2064,6 +2064,7 @@ struct couplingparamsstruct {
     Int ndofuhatinterface=0;
     Int nintfaces = 0;
     Int nvindx = 0;
+    Int interfacetype = 0;        // [nonmatching] 0: conformal (default), 1: non-matching (app.problem[34])
 };
 
 // Output / checkpoint / IO configuration: solution-save frequencies and options, restart offset,
@@ -2606,6 +2607,12 @@ struct commonstructT {
     
     void freememory()
     {
+#ifdef HAVE_MPI
+        // [nonmatching] Requests are enlarged for compact interface traffic;
+        // both staging and final common objects own and release their arrays.
+        CPUFREE(requests);
+        CPUFREE(statuses);
+#endif
         CPUFREE(eblks); 
         CPUFREE(fblks);
         CPUFREE(nboufaces);

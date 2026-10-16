@@ -353,6 +353,12 @@ set(Exasim_TEXT2CODE_ROOT   "${_Exasim_PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_INCLUD
 set(Exasim_BUILTIN_DIR      "${_Exasim_PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_INCLUDEDIR@/backend/Model/BuiltIn")
 set(Exasim_CMAKE_DIR        "${CMAKE_CURRENT_LIST_DIR}")
 set(Exasim_TEXT2CODE        "${_Exasim_PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_BINDIR@/text2code")
+# Consumers of Exasim::headers know the prefix they were built against, so
+# RunText2CodeApp finds <prefix>/bin/text2code without EXASIM_TEXT2CODE_EXECUTABLE.
+if(TARGET Exasim::headers)
+  set_property(TARGET Exasim::headers APPEND PROPERTY INTERFACE_COMPILE_DEFINITIONS
+    "EXASIM_INSTALL_PREFIX=\"${_Exasim_PACKAGE_PREFIX_DIR}\"")
+endif()
 if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/ExasimExternalModel.cmake")
   include("${CMAKE_CURRENT_LIST_DIR}/ExasimExternalModel.cmake")
 endif()

@@ -39,6 +39,28 @@ def preprocessing(app,mesh):
     if app.get('hybrid', 0) == 0 and app.get('preconditioner', 1) == 1:
         app['preconditioner'] = 0;
 
+    # Coupled interface (two-domain solve): the single boundary whose
+    # mesh['interfacecondition'] entry is nonzero (MATLAB preprocessing.m).
+    coupledinterface = 0;
+    coupledcondition = 0;
+    coupledboundarycondition = 0;
+    interfacecondition = mesh.get('interfacecondition', None) if isinstance(mesh, dict) else None
+    if interfacecondition is not None and size(interfacecondition) > 0:
+        interfacecondition = array(interfacecondition).flatten('F')
+        ind = nonzero(interfacecondition > 0)[0]
+        if len(ind) > 1:
+            sys.exit("mesh.interfacecondition is invalid because there are more than one coupled interface.")
+        if len(ind) == 1:
+            boundarycondition = array(mesh['boundarycondition']).flatten('F')
+            coupledinterface = int(ind[0]) + 1;
+            coupledcondition = int(interfacecondition[ind[0]]);
+            coupledboundarycondition = int(boundarycondition[ind[0]]);
+            if count_nonzero(boundarycondition == coupledboundarycondition) > 1:
+                sys.exit("mesh.boundarycondition is invalid because interface condition is not unique.")
+    app['coupledinterface'] = coupledinterface;
+    app['coupledcondition'] = coupledcondition;
+    app['coupledboundarycondition'] = coupledboundarycondition;
+
     if app['modelnumber']==0:
         strn = "";
     else:
@@ -236,7 +258,7 @@ def preprocessing(app,mesh):
     #dmd = meshpartition2(dmd,mesh['tprd'],mesh['f'],t2t,app['boundaryconditions'],app['nd'],app['elemtype'],app['porder'],mpiprocs,app['metis']);
 
     if app['hybrid'] == 1:
-        dmd = meshpartitionhdg(dmd,mesh['tprd'],mesh['f'],t2t,app['boundaryconditions'],app['nd'],app['elemtype'],app['porder'],mpiprocs,app['metis'],app['Cxxpreprocessing'],elem2cpu);
+        dmd = meshpartitionhdg(dmd,mesh['tprd'],mesh['f'],t2t,app['boundaryconditions'],app['nd'],app['elemtype'],app['porder'],mpiprocs,app['metis'],app['Cxxpreprocessing'],elem2cpu,coupledinterface);
     else:
         dmd = meshpartition2(dmd,mesh['tprd'],mesh['f'],t2t,app['boundaryconditions'],app['nd'],app['elemtype'],app['porder'],mpiprocs,app['metis'],app['Cxxpreprocessing'],elem2cpu);
 
@@ -267,7 +289,8 @@ def preprocessing(app,mesh):
         else:
             wdg = mesh['wdg'][:, :, dmd[i]['elempart']]   
             
-        if mpiprocs==1:
+        # A coupled world is an MPI run, so each domain reads indexed files.
+        if mpiprocs==1 and coupledinterface==0:
             writesol(filename + "/sol",0,xdg, udg, vdg, wdg);
         else:
             writesol(filename + "/sol",i+1,xdg, udg, vdg, wdg);
@@ -275,7 +298,14 @@ def preprocessing(app,mesh):
         if app['Cxxpreprocessing'] == 0:
             cgelcon,rowent2elem,colent2elem,cgent2dgent = mkcgent2dgent(xdg,1e-8)[0:4];
 
-            if mpiprocs==1:
+            if mpiprocs==1 and coupledinterface>0:
+                me = cumsum([0, dmd[i]['intepartpts'][0], dmd[i]['intepartpts'][1]]);
+                eblks,nbe = mkfaceblocks(me,[0, -1],app['neb'])[0:2];
+                mf = cumsum(concatenate([[0], dmd[i]['facepartpts'].flatten()]));
+                fblks,nbf = mkfaceblocks(mf,dmd[i]['facepartbnd'],app['nfb']);
+                neb = max(eblks[1,:]-eblks[0,:])+1;
+                nfb = max(fblks[1,:]-fblks[0,:])+1;
+            elif mpiprocs==1:
                 ne = size(dmd[i]['elempart']);
                 eblks,nbe = mkelemblocks(ne,app['neb'])[0:2];
                 eblks = concatenate([eblks, zeros((1, eblks.shape[1]))]);
@@ -284,8 +314,15 @@ def preprocessing(app,mesh):
                 neb = max(eblks[1,:]-eblks[0,:])+1;
                 nfb = max(fblks[1,:]-fblks[0,:])+1;
             else:
-                me = cumsum([0, dmd[i]['elempartpts'][0], dmd[i]['elempartpts'][1], dmd[i]['elempartpts'][2]]);
-                eblks,nbe = mkfaceblocks(me,[0, 1, 2],app['neb'])[0:2];
+                if coupledinterface>0 and dmd[i]['intepartpts'][1]>0:
+                    me = cumsum([0, dmd[i]['intepartpts'][0], dmd[i]['intepartpts'][1], dmd[i]['intepartpts'][2], dmd[i]['intepartpts'][3]]);
+                    eblks,nbe = mkfaceblocks(me,[0, -1, 1, 2],app['neb'])[0:2];
+                elif coupledinterface>0:
+                    me = cumsum([0, dmd[i]['intepartpts'][0], dmd[i]['intepartpts'][2], dmd[i]['intepartpts'][3]]);
+                    eblks,nbe = mkfaceblocks(me,[0, 1, 2],app['neb'])[0:2];
+                else:
+                    me = cumsum([0, dmd[i]['elempartpts'][0], dmd[i]['elempartpts'][1], dmd[i]['elempartpts'][2]]);
+                    eblks,nbe = mkfaceblocks(me,[0, 1, 2],app['neb'])[0:2];
                 mf = cumsum(concatenate([[0], dmd[i]['facepartpts'].flatten('F')]));
                 fblks,nbf = mkfaceblocks(mf,dmd[i]['facepartbnd'],app['nfb']);
                 neb = max(eblks[1,:]-eblks[0,:])+1;
@@ -359,8 +396,10 @@ def preprocessing(app,mesh):
         ti = mesh['tprd'][:,dmd[i]['elempart'].flatten()]
         nsize[27-1] = len(ti.flatten());         
         nsize[28-1] = size(app['boundaryconditions']);         
+        if coupledinterface>0 and 'intepartpts' in dmd[i]:
+            nsize[29-1] = size(dmd[i]['intepartpts']);
 
-        if (mpiprocs>1):
+        if (mpiprocs>1) or (coupledinterface>0):
             print("Writing mesh into file " + str(i+1));
             fileID = open(filename + "/mesh" + str(i+1) + ".bin","w");
         else:
@@ -412,6 +451,8 @@ def preprocessing(app,mesh):
         dmd[i]['bf'].flatten('F').astype(float64).tofile(fileID);
         ti.flatten('F').astype(float64).tofile(fileID);
         app['boundaryconditions'].flatten('F').astype(float64).tofile(fileID);
+        if coupledinterface>0 and 'intepartpts' in dmd[i]:
+            dmd[i]['intepartpts'].flatten('F').astype(float64).tofile(fileID);
 
         # savetxt(sys.stdout, dmd[i]['f2t'].transpose(), fmt='%d', delimiter=', ')
         # savetxt(sys.stdout, perm, fmt='%d', delimiter=', ')      

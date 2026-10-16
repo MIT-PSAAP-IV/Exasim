@@ -35,7 +35,11 @@ coupling API; each pattern has a different data-ownership and execution model.
 | Example | Pattern | Main mechanism |
 | --- | --- | --- |
 | `examples/Poisson/multipleequations` | Simultaneous multi-model solve with solution transfer through `v`. | `pde{m}`, `modelnumber`, `vindx`. |
-| `examples/Poisson/coupledproblem` | Two subdomain Poisson models coupled through an interface. | `interfacecondition`, `interfacefluxmap`. |
+| `examples/CoupledProblems/Poisson/matching` | Two subdomain Poisson models coupled through an interface. | `interfacecondition`, `interfacefluxmap`. |
+| `examples/CoupledProblems/Poisson/nonmatching` | The same coupling with independently meshed, non-matching interfaces (unequal h, optional curved interface). | `interfacetype = 1`, `interfacecondition`, `interfacefluxmap`. |
+| `examples/CoupledProblems/Poisson/mixedmeshes` | A 2D non-matching interface between triangle and quadrilateral subdomains, in either orientation. | `interfacetype = 1`, compatible face spaces, owner test transport. |
+| `examples/CoupledProblems/Poisson/mixedmeshes_gap` | The mixed triangle/quadrilateral case with a physical interface gap of `0.02`. | `interfacetype = 1`, polynomial extrapolation across the gap. |
+| `examples/CoupledProblems/Poisson/mixedmeshes_overlap` | The mixed triangle/quadrilateral case with a physical overlap of `0.02`. | `interfacetype = 1`, donor evaluation inside the overlapping subdomain. |
 | `examples/MongeAmpere/square2d` | Staged Poisson + transport pipeline for mesh motion. | Reuse `mesh.vdg`, `mesh.udg`, and sequential calls. |
 | `examples/MongeAmpere/square` | Reusable r-adaptivity driver with isolated model builds. | `combinedmodel`, `modelnumber`, staged Poisson/transport solves. |
 | `examples/NavierStokes/nshtmach8` | Fluid-solid CHT with either partitioned transfer or multi-model interface setup. | `solutiontransfer_*`, `interfacecondition`, `interfacefluxmap`. |
@@ -72,9 +76,9 @@ end
 This illustrates external-variable coupling between separate model definitions:
 model 1 owns the solution field, while model 2 consumes it through `v` / `odg`.
 
-### `examples/Poisson/coupledproblem`
+### `examples/CoupledProblems/Poisson/matching`
 
-`examples/Poisson/coupledproblem` demonstrates interface coupling between two
+`examples/CoupledProblems/Poisson/matching` demonstrates interface coupling between two
 Poisson subdomain models. The top-level `pdeapp.m` assigns
 
 ```matlab
@@ -91,6 +95,46 @@ subdomain participates in the interface. The `interfacefluxmap` selects which
 flux component is exchanged or constrained at that interface. This is a
 boundary/interface-coupled multi-model pattern rather than a `vindx`
 external-field pattern.
+
+### Non-matching interfaces (`interfacetype`)
+
+By default (`interfacetype = 0`) the two models must discretize the coupled
+interface identically: the backend matches every interface face and node of one
+model to the other exactly and stops with "no coupled interface match" otherwise.
+Setting
+
+```matlab
+pde{1}.interfacetype = 1;   % on both models
+pde{2}.interfacetype = 1;
+```
+
+selects the non-matching interface. Each model is meshed independently; during
+setup the backend locates, for every quadrature point of an owner interface face,
+the closest face of the other model and the donor element that contains it, and
+the coupling terms are evaluated from that donor element (extrapolating it
+polynomially when an interface point lies outside the other model's interface,
+for example when one interface extends beyond the other). The setup prints
+`Non-matching donor search, Gamma^1` and `..., Gamma^2` diagnostics with face and
+point counts, the maximum point-to-face distance and the number of points off
+their donor face. `examples/CoupledProblems/Poisson/nonmatching` is a complete
+example with unequal mesh sizes and an optional curved interface.
+
+| Item | Status |
+| --- | --- |
+| Value | `0` conformal (default) or `1` non-matching; any other value is rejected by the frontends, by text2code and by the solver. Both models must use the same value. |
+| Storage | fixed zero-based slot `app.problem[34]` (the 35th value of `problem`); user `pde.problem` entries follow from slot 35. |
+| Frontends | MATLAB, Python, Julia and text2code accept and write the field. Coupled two-model solves run through the `exasim(pde, mesh)` driver of each frontend (MATLAB, Python and Julia); `examples/CoupledProblems/Poisson` has all three versions of each example. A coupled MATLAB `exporttext2code` package builds and runs with one or more ranks per model (tested at 1+1 and 2+2). The Python and Julia exporters are covered only by source and key checks, not by an export round trip. |
+| Dimension and order | 2D only, polynomial order 1 to 4. Both models must use the same order, face-node count and face quadrature. Triangle and quadrilateral volume meshes may be coupled, and their face node sets may differ. Mixed polynomial orders, 3D and conjugate-heat-transfer (`nshtmach8`) cases are not supported yet. |
+| Parallel runs | Always an MPI application, also with one rank per model; the two models may use different rank counts. |
+| Backends | CPU. The CUDA/HIP path is not yet validated and type 1 is rejected on GPU backends. The in-memory (no-file) constructor does not build the non-matching runtime data and rejects type 1 with a clear error. |
+| Floating point | The donor search bounds are best-effort under the default `-ffast-math` build; the solver's residual-norm check is the NaN/infinity guard. |
+
+**Regenerate old input files.** Before `interfacetype` became a fixed slot,
+`app.problem[34]` held the first user `pde.problem` value. An `app.bin` written
+by an older frontend therefore puts user data where the solver now reads
+`interfacetype`; such files must be regenerated with the current frontend (the
+solver rejects values other than 0 or 1, but a user value of 1 would silently
+select the non-matching interface).
 
 ### `examples/MongeAmpere/square2d`
 
@@ -167,7 +211,8 @@ transfers fields between solves.
 - Use `vindx` when one model needs selected solution components from another
   model as external variables.
 - Use `interfacecondition` and `interfacefluxmap` when the coupling is imposed
-  through a mesh boundary or subdomain interface.
+  through a mesh boundary or subdomain interface; add `interfacetype = 1` when the
+  two interface discretizations do not match node for node (2D, CPU).
 - Use staged preprocessing/execution when a later equation depends on a field
   produced by an earlier equation but does not need simultaneous nonlinear
   coupling.
