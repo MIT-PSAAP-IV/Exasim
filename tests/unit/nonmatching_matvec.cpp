@@ -50,9 +50,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#define main nonmatching_donorsearch_embedded_main
-#include "nonmatching_donorsearch.cpp"
-#undef main
+#include "nonmatching_test_fixture.hpp"
 
 using namespace std;
 
@@ -718,6 +716,7 @@ void use_conformal(RankOperator& op, const meshstruct& part)
     op.mesh.facesend = part.facesend;
     op.mesh.facerecv = part.facerecv;
     op.mesh.faceperm = part.faceperm;
+    op.mesh.szfaceperm = part.szfaceperm; // [nonmatching] preserve compact/expanded conformal metadata
     op.faceSend.assign(static_cast<std::size_t>(op.m12) * std::max<Int>(part.szfacesend, 1), 0);
     op.faceRecv.assign(static_cast<std::size_t>(op.m12) * std::max<Int>(part.szfacerecv, 1), 0);
     op.tmp.bufffacesend = op.faceSend.data();
@@ -728,7 +727,7 @@ void use_conformal(RankOperator& op, const meshstruct& part)
 
 void matvec(RankOperator& op, std::vector<dstype>& w, std::vector<dstype>& AE, const std::vector<dstype>& v,
             nonmatchingdata* nm,
-            const CompositeOwnerQuadrature<dstype, Int>* quad = nullptr)
+            const OwnerTestData<dstype, Int>* ownerTests = nullptr)
 {
     w.assign(op.N, 0);
     std::vector<dstype> vin(v);
@@ -736,7 +735,7 @@ void matvec(RankOperator& op, std::vector<dstype>& w, std::vector<dstype>& AE, c
     exasim::nonmatching::NonmatchingRuntime<dstype, Int>* runtimePointer = nullptr;
     if (nm) {
         exasim::nonmatching::refresh_nonmatching_runtime(
-                runtime, *nm, op.app, op.mesh, op.common, Int(0), quad);
+                runtime, *nm, op.app, op.mesh, op.common, Int(0), ownerTests);
         runtimePointer = &runtime;
     }
     hdgMatVec<dstype, Int>(w.data(), AE.data(), vin.data(), op.ve.data(), op.we.data(), op.res, op.app,
@@ -875,10 +874,10 @@ void reference_coupling(const RankOperator& op, const nonmatchingdata& nm, const
 // state (production residual, exchange and owner assembly); scattered to faces.
 template <class Model>
 void coupled_residual(RankOperator& op, nonmatchingdata& nm, std::vector<dstype>& R,
-        const CompositeOwnerQuadrature<dstype, Int>* quad = nullptr)
+        const OwnerTestData<dstype, Int>* ownerTests = nullptr)
 {
     exasim::nonmatching::compute_nonmatching_coupling<Model>(nm, op.sol, op.res, op.app, op.master, op.mesh,
-            op.tmp, op.common, 0, false, 0, quad);
+            op.tmp, op.common, 0, false, 0, ownerTests);
     Int count = 0;
     exasim::nonmatching::begin_coupling_slot_exchange(nm, op.common, count);
     MPI_Waitall(count, op.common.requests, op.common.statuses);
@@ -969,7 +968,7 @@ void nonmatching_case(const std::string& name, const ModelMesh& m1, const ModelM
     RankStructs rs;
     fill_rank_structs(rs, lm, localMaster, Model::ncu, Model::nfint, 1, Model::ncq);
     nonmatchingdata nm;
-    CompositeOwnerQuadrature<dstype, Int> sidecar;
+    OwnerTestData<dstype, Int> sidecar;
     const bool ran = exasim::nonmatching::setup_nonmatching_interface(rs.app, rs.master, rs.mesh, rs.sol,
             static_cast<Int>(n), static_cast<Int>(worldRank), static_cast<Int>(sc.model * sc.k), nm,
             static_cast<DonorSearchResult<dstype, Int>*>(nullptr), DonorSearchParams(), true,
@@ -1647,7 +1646,7 @@ void rebuild_case(const std::string& name, const ModelMesh& m1, const ModelMesh&
     };
     auto rebuild = [&](RankStructs& rs, RankOperator& op, nonmatchingdata& nm,
                        std::unique_ptr<Runtime>& rt,
-                       std::unique_ptr<CompositeOwnerQuadrature<dstype, Int>>& sidecar) {
+                       std::unique_ptr<OwnerTestData<dstype, Int>>& sidecar) {
         exasim::nonmatching::rebuild_nonmatching_interface(rs.app, rs.master, rs.mesh, rs.sol, op.common,
                 static_cast<Int>(n), static_cast<Int>(worldRank), static_cast<Int>(sc.model * sc.k), nm, rt,
                 Int(0), static_cast<DonorSearchResult<dstype, Int>*>(nullptr),
@@ -1672,7 +1671,7 @@ void rebuild_case(const std::string& name, const ModelMesh& m1, const ModelMesh&
     prepare(rs, op, lm);
     nonmatchingdata nm;
     std::unique_ptr<Runtime> rt;
-    std::unique_ptr<CompositeOwnerQuadrature<dstype, Int>> sidecar;
+    std::unique_ptr<OwnerTestData<dstype, Int>> sidecar;
     rebuild(rs, op, nm, rt, sidecar);
     std::vector<std::vector<dstype>> before, rebuilt, fresh;
     runtime_cycle<Model>(op, *rt, nm, sc.model, before);
@@ -1717,7 +1716,7 @@ void rebuild_case(const std::string& name, const ModelMesh& m1, const ModelMesh&
     prepare(rsFresh, opFresh, moved);
     nonmatchingdata nmFresh;
     std::unique_ptr<Runtime> rtFresh;
-    std::unique_ptr<CompositeOwnerQuadrature<dstype, Int>> sidecarFresh;
+    std::unique_ptr<OwnerTestData<dstype, Int>> sidecarFresh;
     rebuild(rsFresh, opFresh, nmFresh, rtFresh, sidecarFresh);
     long long cf[5];
     counts(nmFresh, cf, pf);
@@ -1915,931 +1914,23 @@ void b1_transfer_study()
     }
 }
 
-// ---------------------------------------------------------------------------
-// [nonmatching] Phase 9 A1: composite owner-face quadrature on coincident 2D interfaces
-// (docs/nonmatching/reports/phase9_plan_amendment_r1.md, revision 3). Modes:
-//   --quadrature             T1-T7 and the coincidence threshold at n = 2, 4, ..., worldSize
-//   --quadrature-mismatch    expected failure: option differs across ranks
-//   --quadrature-piece-limit expected failure: more pieces than maxCompositePiecesPerFace
-//   --quadrature-cost        A/S/R measurements (points, slots, pairs, timing, memory)
-// Fixture (one element column per model, interface x = 0.5, p = 2): model 1 has faces of
-// length 1/4; model 2 has graded rows with a short face [0.29, 0.30] lying between the
-// owner Gauss points 0.2782 and 0.375 of the model-1 face [0.25, 0.5]. Its neighbours
-// (rows 2 and 4) are on different ranks for 2 and 4 ranks per model.
-
-using CompositeQuad = exasim::nonmatching::CompositeOwnerQuadrature<dstype, Int>;
-
-const std::vector<dstype> quadYs1 = {0.0, 0.25, 0.5, 0.75, 1.0};
-const std::vector<dstype> quadYs2 = {0.0, 0.12, 0.2, 0.29, 0.30, 0.5, 0.65, 0.8, 1.0};
-
-ModelMesh column_mesh(int model, const std::vector<dstype>& ys, dstype shift = 0, dstype amp = 0)
-{
-    ModelMesh mm;
-    mm.ys = ys;
-    if (model == 0) { mm.xs = {0.25, 0.5}; mm.xiface = 0.5; mm.xfar = 0.25; }
-    else { mm.xs = {0.5 + shift, 0.6 + shift}; mm.xiface = 0.5 + shift; mm.xfar = 0.6 + shift; mm.amp = amp; }
-    return mm;
-}
-
-// One type-1 setup of this rank's model on the current SubComm.
-struct QuadSetup {
-    LocalMesh lm;
-    RankStructs rs;
-    nonmatchingdata nm;
-    CompositeQuad quad;
-    std::unique_ptr<RankOperator> op;
-    bool withQuad = true;
-    ~QuadSetup() { exasim::nonmatching::free_nonmatching_data(nm); }
-};
-
-void quad_setup(QuadSetup& s, const SubComm& sc, const ModelMesh& mm, MasterData& mst, int n,
-                bool option, Int maxPieces = 64, bool withQuad = true, Int endpointIterations = -1)
-{
-    s.withQuad = withQuad;
-    build_local_mesh(s.lm, mm, mst, sc.part, sc.k, "quadrature");
-    fill_rank_structs(s.rs, s.lm, mst, 1, 1, 1);
-    s.rs.master.gpf = mst.gpf.data();
-    exasim::nonmatching::DonorSearchParams prm;
-    prm.compositeOwnerQuadrature = option;
-    prm.maxCompositePiecesPerFace = maxPieces;
-    prm.endpointMaxProjectionIterations = endpointIterations;
-    const bool ran = exasim::nonmatching::setup_nonmatching_interface(s.rs.app, s.rs.master, s.rs.mesh,
-            s.rs.sol, static_cast<Int>(n), static_cast<Int>(worldRank), static_cast<Int>(sc.model * sc.k), s.nm,
-            static_cast<exasim::nonmatching::DonorSearchResult<dstype, Int>*>(nullptr), prm, true,
-            static_cast<exasim::nonmatching::SearchStatistics*>(nullptr), withQuad ? &s.quad : nullptr);
-    check(ran && s.nm.interfacetype == 1, "quadrature: setup ran");
-    s.op = std::make_unique<RankOperator>();
-    init_operator<PoissonCoupling>(*s.op, s.lm, mst, sc.model);
-    use_nonmatching(*s.op);
-    s.op->param[0] = sc.model == 0 ? 0.0 : 1.0;
-}
-
-// Piecewise polynomial state (degree 2 in y): u and q per element, uh per interface face,
-// coefficients from the global element / face number and the model.
-dstype quad_poly(long key, int seed, dstype y)
-{
-    return (hv(3 * key, seed) - 0.5) + (hv(3 * key + 1, seed) - 0.5) * y + (hv(3 * key + 2, seed) - 0.5) * y * y;
-}
-
-void quad_fill_state(QuadSetup& s, const MasterData& mst, int model)
-{
-    RankOperator& op = *s.op;
-    const Int npe = op.npe, npf = op.npf, nfe = op.nfe, nd = op.nd, nc = op.nc;
-    for (Int e = 0; e < op.ne; e++) {
-        const long ge = s.lm.elempart[e];
-        for (Int j = 0; j < npe; j++) {
-            const dstype y = s.lm.xdg[j + npe * (1 + nd * e)];
-            op.udg[j + npe * (0 + nc * e)] = quad_poly(ge, 300 + model, y);
-            op.udg[j + npe * (1 + nc * e)] = quad_poly(ge, 400 + model, y);
-            op.udg[j + npe * (2 + nc * e)] = 0.3;
-        }
-        for (Int a = 0; a < nfe; a++)
-            for (Int j = 0; j < npf; j++) {
-                const Int node = mst.perm[j + npf * a];
-                const dstype y = s.lm.xdg[node + npe * (1 + nd * e)];
-                op.uh[op.elemcon[j + npf * a + npf * nfe * e]] = quad_poly(nfe * ge + a, 500 + model, y);
-            }
-    }
-}
-
-// Gathers fixed-length double rows to rank 0 of comm (rows of length w).
-std::vector<std::vector<dstype>> gather_rows(const std::vector<dstype>& local, int w, MPI_Comm comm)
-{
-    int size = 0, rank = 0;
-    MPI_Comm_size(comm, &size);
-    MPI_Comm_rank(comm, &rank);
-    int count = static_cast<int>(local.size());
-    std::vector<int> counts(size), displs(size, 0);
-    MPI_Gather(&count, 1, MPI_INT, counts.data(), 1, MPI_INT, 0, comm);
-    std::vector<dstype> all;
-    if (rank == 0) {
-        for (int q = 1; q < size; q++) displs[q] = displs[q - 1] + counts[q - 1];
-        all.resize(displs[size - 1] + counts[size - 1]);
-    }
-    MPI_Gatherv(local.data(), count, MPI_DOUBLE, all.data(), counts.data(), displs.data(), MPI_DOUBLE, 0, comm);
-    std::vector<std::vector<dstype>> rows;
-    for (std::size_t i = 0; i + w <= all.size(); i += w) rows.emplace_back(all.begin() + i, all.begin() + i + w);
-    std::sort(rows.begin(), rows.end());
-    return rows;
-}
-
-// Revision 2: every field of the frozen nonmatchinginterfaceT of both directions, bitwise:
-// identification, cached sizes and counts, the owner arrays (ownface, ownfaceglobal, recvnb,
-// recvcount, recvface), every per-point array including pdphibar (and the null/non-null state
-// of each pointer), slots, pairs, send lists, the allocated sizes and the work arrays Ri, Hi,
-// sendbuf and recvbuf. The work arrays are deterministic in these tests: setup zero-fills them
-// (allocate_zeroed) and the residual/Jacobian evaluations write Ri and Hi; no exchange runs,
-// so sendbuf and recvbuf stay zero-filled. On a mismatch the first differing field is printed.
-bool same_interface(const nonmatchingdata& a, const nonmatchingdata& b, const std::string& tag = "")
-{
-    std::string first;
-    auto note = [&](bool ok, const std::string& name) { if (!ok && first.empty()) first = name; return ok; };
-    note(a.interfacetype == b.interfacetype, "interfacetype");
-    for (int k = 0; k < 2; k++) {
-        const auto& x = a.dir[k]; const auto& y = b.dir[k];
-        const std::string d = "dir" + std::to_string(k) + ".";
-        auto eqS = [&](Int u, Int v, const char* name) { return note(u == v, d + name); };
-        bool sizes = eqS(x.direction, y.direction, "direction") & eqS(x.isowner, y.isowner, "isowner") &
-            eqS(x.isdonor, y.isdonor, "isdonor") & eqS(x.nd, y.nd, "nd") & eqS(x.npe, y.npe, "npe") &
-            eqS(x.npf, y.npf, "npf") & eqS(x.nfe, y.nfe, "nfe") & eqS(x.ngf, y.ngf, "ngf") &
-            eqS(x.ncu, y.ncu, "ncu") & eqS(x.ncq, y.ncq, "ncq") & eqS(x.ncu12, y.ncu12, "ncu12") &
-            eqS(x.nownfaces, y.nownfaces, "nownfaces") & eqS(x.nrecvnb, y.nrecvnb, "nrecvnb") &
-            eqS(x.npts, y.npts, "npts") & eqS(x.nslots, y.nslots, "nslots") & eqS(x.npairs, y.npairs, "npairs") &
-            eqS(x.nsendnb, y.nsendnb, "nsendnb") & eqS(x.szRi, y.szRi, "szRi") & eqS(x.szHi, y.szHi, "szHi") &
-            eqS(x.szsendbuf, y.szsendbuf, "szsendbuf") & eqS(x.szrecvbuf, y.szrecvbuf, "szrecvbuf");
-        if (!sizes) continue;
-        auto eqI = [&](const Int* p, const Int* q, Int n, const char* name) {
-            bool ok = (p == nullptr) == (q == nullptr) && (n == 0 || !p || std::equal(p, p + n, q));
-            return note(ok, d + name);
-        };
-        auto eqT = [&](const dstype* p, const dstype* q, Int n, const char* name) {
-            bool ok = (p == nullptr) == (q == nullptr) &&
-                      (n == 0 || !p || std::memcmp(p, q, sizeof(dstype) * static_cast<std::size_t>(n)) == 0);
-            return note(ok, d + name);
-        };
-        const Int P = x.npts, nd = x.nd, npe = x.npe, npf = x.npf;
-        // recvface length from each side's own recvcount (the counts arrays are compared above
-        // only when both exist); recvface is compared only when the totals agree, so neither
-        // allocation is read beyond its own length.
-        auto recv_total = [](const nonmatchinginterfaceT<dstype, Int>& z) {
-            long long total = 0;
-            for (Int q = 0; q < z.nrecvnb && z.recvcount; q++) total += z.recvcount[q];
-            return total;
-        };
-        const long long xRecv = recv_total(x), yRecv = recv_total(y);
-        const bool recvTotalsAgree = note(xRecv == yRecv, d + "recvface length (sum of recvcount)");
-        const Int nrecvblocks = static_cast<Int>(xRecv);
-        eqI(x.ownface, y.ownface, x.nownfaces, "ownface");
-        eqI(x.ownfaceglobal, y.ownfaceglobal, x.nownfaces, "ownfaceglobal");
-        eqI(x.recvnb, y.recvnb, x.nrecvnb, "recvnb");
-        eqI(x.recvcount, y.recvcount, x.nrecvnb, "recvcount");
-        if (recvTotalsAgree) eqI(x.recvface, y.recvface, nrecvblocks, "recvface");
-        eqI(x.pe, y.pe, P, "pe"); eqI(x.pa, y.pa, P, "pa"); eqI(x.pf, y.pf, P, "pf");
-        eqI(x.pslot, y.pslot, P, "pslot"); eqI(x.pg, y.pg, P, "pg");
-        eqT(x.px, y.px, P * nd, "px"); eqT(x.pnl, y.pnl, P * nd, "pnl"); eqT(x.pwJ, y.pwJ, P, "pwJ");
-        eqT(x.pxi, y.pxi, P * (nd - 1), "pxi"); eqT(x.pzeta, y.pzeta, P * nd, "pzeta");
-        eqT(x.pphi, y.pphi, P * npe, "pphi"); eqT(x.pphibar, y.pphibar, P * npe, "pphibar");
-        eqT(x.ppsi, y.ppsi, P * npf, "ppsi"); eqT(x.pd, y.pd, P * nd, "pd");
-        eqT(x.pdphibar, y.pdphibar, x.pdphibar ? P * nd * npe : 0, "pdphibar");
-        eqI(x.slotrank, y.slotrank, x.nslots, "slotrank"); eqI(x.slotface, y.slotface, x.nslots, "slotface");
-        eqI(x.slotptr, y.slotptr, x.nslots + (x.nslots > 0), "slotptr");
-        eqI(x.pairslot, y.pairslot, x.npairs, "pairslot"); eqI(x.pairelem, y.pairelem, x.npairs, "pairelem");
-        eqI(x.pairptr, y.pairptr, x.npairs + (x.npairs > 0), "pairptr");
-        eqI(x.sendnb, y.sendnb, x.nsendnb, "sendnb"); eqI(x.sendcount, y.sendcount, x.nsendnb, "sendcount");
-        eqT(x.Ri, y.Ri, x.szRi, "Ri"); eqT(x.Hi, y.Hi, x.szHi, "Hi");
-        eqT(x.sendbuf, y.sendbuf, x.szsendbuf, "sendbuf"); eqT(x.recvbuf, y.recvbuf, x.szrecvbuf, "recvbuf");
-    }
-    if (!first.empty() && !tag.empty())
-        std::printf("[rank %d] %s: first differing field %s\n", worldRank, tag.c_str(), first.c_str());
-    return first.empty();
-}
-
-// Revision 2: the complete composite-quadrature sidecar, bitwise (flags, diagnostics and every
-// vector of both directions).
-bool same_quad(const exasim::nonmatching::CompositeOwnerQuadrature<dstype, Int>& a,
-               const exasim::nonmatching::CompositeOwnerQuadrature<dstype, Int>& b, const std::string& tag = "")
-{
-    std::string first;
-    auto note = [&](bool ok, const std::string& name) { if (!ok && first.empty()) first = name; };
-    auto eqV = [](const std::vector<dstype>& u, const std::vector<dstype>& v) {
-        return u.size() == v.size() && (u.empty() || std::memcmp(u.data(), v.data(), sizeof(dstype) * u.size()) == 0);
-    };
-    note(a.requested == b.requested, "requested");
-    for (int k = 0; k < 2; k++) {
-        const auto& x = a.dir[k]; const auto& y = b.dir[k];
-        const std::string d = "dir" + std::to_string(k) + ".";
-        note(x.applied == y.applied, d + "applied");
-        note(x.coincident == y.coincident, d + "coincident");
-        note(x.breakpointsTotal == y.breakpointsTotal, d + "breakpointsTotal");
-        note(x.maxPiecesPerFace == y.maxPiecesPerFace, d + "maxPiecesPerFace");
-        note(x.facebreakptr == y.facebreakptr, d + "facebreakptr");
-        note(eqV(x.breakpoints, y.breakpoints), d + "breakpoints");
-        note(eqV(x.ptest, y.ptest), d + "ptest");
-        note(eqV(x.ps, y.ps), d + "ps");
-        note(x.ppiece == y.ppiece, d + "ppiece");
-    }
-    if (!first.empty() && !tag.empty())
-        std::printf("[rank %d] %s: first differing sidecar field %s\n", worldRank, tag.c_str(), first.c_str());
-    return first.empty();
-}
-
-// Host residual and Jacobian with the sidecar (the runtime path is compared separately).
-void quad_compute(QuadSetup& s, bool withJacobian)
-{
-    RankOperator& op = *s.op;
-    exasim::nonmatching::compute_nonmatching_coupling<PoissonCoupling>(s.nm, op.sol, op.res, op.app,
-            op.master, op.mesh, op.tmp, op.common, 0, withJacobian, 0, s.withQuad ? &s.quad : nullptr);
-}
-
-// 12-point Gauss-Legendre on [-1, 1] (Newton on P_12), independent of the solver tables.
-void gauss_legendre12(std::vector<dstype>& x, std::vector<dstype>& w)
-{
-    const int n = 12;
-    x.resize(n); w.resize(n);
-    const dstype pi = 3.14159265358979323846;
-    for (int i = 0; i < n; i++) {
-        dstype z = std::cos(pi * (i + 0.75) / (n + 0.5)), dp = 0;
-        for (int it = 0; it < 100; it++) {
-            dstype p0 = 1, p1 = z;
-            for (int k = 2; k <= n; k++) { const dstype p2 = ((2 * k - 1) * z * p1 - (k - 1) * p0) / k; p0 = p1; p1 = p2; }
-            dp = n * (z * p1 - p0) / (z * z - 1);
-            const dstype dz = p1 / dp;
-            z -= dz;
-            if (std::abs(dz) < 1e-16) break;
-        }
-        x[i] = z; w[i] = 2 / ((1 - z * z) * dp * dp);
-    }
-}
-
-// Independent analytic reference R_i = -int_F psi_i(s(y)) f(y) dy of every owner face of
-// direction k, from the test's own donor intervals (quadYs of the donor model) and its own
-// Lagrange basis; f is the donor's piecewise data: -uh (k = 1, donor model 1) or
-// q.n + tau (u - uh) with n = (-1, 0), tau = 1 (k = 0, donor model 2).
-std::vector<dstype> quad_reference(int k, const std::vector<dstype>& ownerNodesY, const MasterData& mst,
-        const std::vector<dstype>& donorYs, long donorFaceLocal, int donorNfe = 4,
-        bool donorTriangle = false, const std::vector<dstype>* testNodes = nullptr)
-{
-    const int npf = mst.npf, donorModel = 1 - k;
-    std::vector<dstype> gx, gw;
-    gauss_legendre12(gx, gw);
-    auto lagrange = [&](const std::vector<dstype>& nodes, dstype s, int i) {
-        dstype v = 1;
-        for (int m = 0; m < npf; m++) if (m != i) v *= (s - nodes[m]) / (nodes[i] - nodes[m]);
-        return v;
-    };
-    dstype y0 = 0, y1 = 0;
-    for (int j = 0; j < npf; j++) {
-        y0 += lagrange(mst.xpf, 0, j) * ownerNodesY[j];
-        y1 += lagrange(mst.xpf, 1, j) * ownerNodesY[j];
-    }
-    const dstype ya = std::min(y0, y1), yb = std::max(y0, y1);
-    const std::vector<dstype>& test = testNodes ? *testNodes : mst.xpf;
-    std::vector<dstype> R(npf, 0);
-    for (std::size_t r = 0; r + 1 < donorYs.size(); r++) {
-        const dstype a = std::max(ya, donorYs[r]), b = std::min(yb, donorYs[r + 1]);
-        if (!(b > a)) continue;
-        // One logical cell per row. A triangular cell is split into T0/T1;
-        // the left model's interface uses T0 and the right model uses T1.
-        const long ge = donorTriangle ? 2 * static_cast<long>(r) + donorModel
-                                      : static_cast<long>(r);
-        for (int g = 0; g < 12; g++) {
-            const dstype y = 0.5 * (a + b) + 0.5 * (b - a) * gx[g], wy = 0.5 * (b - a) * gw[g];
-            const dstype uh = quad_poly(donorNfe * ge + donorFaceLocal, 500 + donorModel, y);
-            dstype f = -uh;
-            if (k == 0)
-                f = -quad_poly(ge, 400 + donorModel, y) + (quad_poly(ge, 300 + donorModel, y) - uh);
-            const dstype s = (y - y0) / (y1 - y0);
-            for (int i = 0; i < npf; i++) R[i] -= wy * lagrange(test, s, i) * f;
-        }
-    }
-    return R;
-}
-
-struct QuadSignature {
-    std::vector<std::vector<dstype>> breakpoints, points, pairs, residual;
-};
-std::vector<QuadSignature> quadSignatures; // world rank 0: one per n (T2)
-
-// One full T1/T2/T5/T6 run on n ranks; checks on rank 0 of the SubComm.
-void quadrature_fixture_case(MasterData& carrier, int n, bool mixedFamilies = false,
-                             bool model0Triangle = false)
-{
-    SubComm sc(n);
-    if (sc.comm == MPI_COMM_NULL) return;
-    MasterData triangle, quad;
-    if (mixedFamilies) {
-        triangle = make_master(0, carrier.porder);
-        quad = make_master(1, carrier.porder);
-    }
-    MasterData& mst = mixedFamilies ?
-            (((sc.model == 0) == model0Triangle) ? triangle : quad) : carrier;
-    const std::string tag = std::string(mixedFamilies ?
-            (model0Triangle ? "quadrature mixed tri-quad (" : "quadrature mixed quad-tri (") :
-            "quadrature (") + std::to_string(sc.k) + " per model)";
-    if (sc.k >= 2) check((2 * sc.k) / 8 != (4 * sc.k) / 8, tag + ": short face neighbours on different ranks");
-    ModelMesh mm = column_mesh(sc.model, sc.model == 0 ? quadYs1 : quadYs2);
-    if (mixedFamilies) mm.tri = ((sc.model == 0) == model0Triangle);
-    QuadSetup on, off;
-    quad_setup(on, sc, mm, mst, n, true);
-    quad_setup(off, sc, mm, mst, n, false);
-    for (int k = 0; k < 2; k++) {
-        check(on.quad.dir[k].coincident == 1 && on.quad.dir[k].applied == 1, tag + ": both directions applied");
-        check(off.quad.requested == 0 && off.quad.dir[k].applied == 0, tag + ": option off applies nothing");
-    }
-    quad_fill_state(on, mst, sc.model);
-    quad_fill_state(off, mst, sc.model);
-    quad_compute(on, false);
-    quad_compute(off, false);
-
-    const Int npf = mst.npf, nfe = mst.nfe, npe = mst.npe;
-    const int own = sc.model;
-    // Breakpoints of the own faces in physical y: [k, owner face, y].
-    std::vector<dstype> bp, ownerNodes;
-    {
-        const auto& side = on.quad.dir[own];
-        for (Int l = 0; l < on.nm.dir[own].nownfaces; l++) {
-            const Int e = on.lm.intfaces[l] / nfe, lf = on.lm.intfaces[l] % nfe;
-            std::vector<dstype> yn(npf);
-            for (Int j = 0; j < npf; j++) yn[j] = on.lm.xdg[mst.perm[j + npf * lf] + npe * (1 + 2 * e)];
-            ownerNodes.push_back(own); ownerNodes.push_back(on.nm.dir[own].ownfaceglobal[l]);
-            ownerNodes.insert(ownerNodes.end(), yn.begin(), yn.end());
-            for (Int b = side.facebreakptr[l]; b < side.facebreakptr[l + 1]; b++) {
-                const dstype s = side.breakpoints[b];
-                dstype y = 0;
-                for (Int j = 0; j < npf; j++) {
-                    dstype v = 1;
-                    for (Int m = 0; m < npf; m++) if (m != j) v *= (s - mst.xpf[m]) / (mst.xpf[j] - mst.xpf[m]);
-                    y += v * yn[j];
-                }
-                bp.push_back(own); bp.push_back(on.nm.dir[own].ownfaceglobal[l]); bp.push_back(s); bp.push_back(y);
-            }
-        }
-    }
-    // Donor-side quadrature tuples and pair keys; per-slot residuals (composite and off).
-    std::vector<dstype> pts, prs, res, resOff;
-    for (int k = 0; k < 2; k++) {
-        const auto& d = on.nm.dir[k];
-        if (!d.isdonor) continue;
-        const auto& side = on.quad.dir[k];
-        for (Int p = 0; p < d.npts; p++) {
-            const Int face = d.slotface[d.pslot[p]];
-            pts.push_back(k); pts.push_back(face); pts.push_back(side.ppiece[p]); pts.push_back(d.pg[p]);
-            pts.push_back(d.px[p]); pts.push_back(d.px[p + d.npts]); pts.push_back(d.pwJ[p]);
-            for (Int i = 0; i < npf; i++) pts.push_back(side.ptest[i + npf * p]);
-            prs.push_back(k); prs.push_back(face); prs.push_back(d.pf[p]); prs.push_back(on.lm.elempart[d.pe[p]]);
-        }
-        for (Int s = 0; s < d.nslots; s++) {
-            res.push_back(k); res.push_back(d.slotface[s]);
-            for (Int i = 0; i < npf; i++) res.push_back(d.Ri[i + npf * s]);
-        }
-        const auto& o = off.nm.dir[k];
-        for (Int s = 0; s < o.nslots; s++) {
-            resOff.push_back(k); resOff.push_back(o.slotface[s]);
-            for (Int i = 0; i < npf; i++) resOff.push_back(o.Ri[i + npf * s]);
-        }
-    }
-    // Interface local face of each model (one column: every element has the same one).
-    dstype ifaceLocal[2] = {-1, -1}, mine = on.lm.intfaces.empty() ? -1 : on.lm.intfaces[0] % nfe;
-    {
-        dstype local[2] = {-1, -1}; local[own] = mine;
-        MPI_Allreduce(local, ifaceLocal, 2, MPI_DOUBLE, MPI_MAX, sc.comm);
-    }
-    if (mixedFamilies && model0Triangle) {
-        int localPa3 = 0;
-        if (sc.model == 1 && on.nm.dir[0].isdonor)
-            for (Int p = 0; p < on.nm.dir[0].npts; ++p)
-                localPa3 = std::max(localPa3, on.nm.dir[0].pa[p] == 3 ? 1 : 0);
-        int globalPa3 = 0;
-        MPI_Allreduce(&localPa3, &globalPa3, 1, MPI_INT, MPI_MAX, sc.comm);
-        check(ifaceLocal[1] == 3 && globalPa3 == 1,
-              tag + ": triangle owner uses quadrilateral donor local face 3");
-    }
-    QuadSignature sig;
-    sig.breakpoints = gather_rows(bp, 4, sc.comm);
-    sig.points = gather_rows(pts, 7 + npf, sc.comm);
-    auto pairRows = gather_rows(prs, 4, sc.comm);
-    pairRows.erase(std::unique(pairRows.begin(), pairRows.end()), pairRows.end());
-    sig.pairs = pairRows;
-    auto owners = gather_rows(ownerNodes, 2 + npf, sc.comm);
-    auto slotRows = gather_rows(res, 2 + npf, sc.comm);
-    auto slotRowsOff = gather_rows(resOff, 2 + npf, sc.comm);
-    // Owner-face sums over donor slots (order of the sorted rows).
-    auto sum_rows = [&](const std::vector<std::vector<dstype>>& rows) {
-        std::map<std::pair<int, long>, std::vector<dstype>> sums;
-        for (const auto& r : rows) {
-            auto& v = sums[{static_cast<int>(r[0]), static_cast<long>(r[1])}];
-            v.resize(npf, 0);
-            for (Int i = 0; i < npf; i++) v[i] += r[2 + i];
-        }
-        std::vector<std::vector<dstype>> out;
-        for (const auto& kv : sums) {
-            std::vector<dstype> row = {static_cast<dstype>(kv.first.first), static_cast<dstype>(kv.first.second)};
-            row.insert(row.end(), kv.second.begin(), kv.second.end());
-            out.push_back(row);
-        }
-        return out;
-    };
-    sig.residual = sum_rows(slotRows);
-    const auto residualOff = sum_rows(slotRowsOff);
-    if (sc.comm != MPI_COMM_NULL) {
-        int r = 0; MPI_Comm_rank(sc.comm, &r);
-        if (r == 0) {
-            // T1: breakpoints of the model-1 face [0.25, 0.5] are y = 0.29 and 0.30.
-            std::vector<dstype> ys;
-            for (const auto& b : sig.breakpoints) {
-                if (b[0] != 0) continue;
-                const dstype y = b[3];
-                if (y > 0.25 && y < 0.5) ys.push_back(y);
-            }
-            std::sort(ys.begin(), ys.end());
-            check(ys.size() == 2 && std::abs(ys[0] - 0.29) < 1e-14 && std::abs(ys[1] - 0.30) < 1e-14,
-                  tag + ": short donor face gives breakpoints y = 0.29, 0.30 on [0.25, 0.5]");
-            std::map<long, int> perFace;
-            for (const auto& p : sig.points) if (p[0] == 0) perFace[static_cast<long>(p[1])]++;
-            int maxPts = 0;
-            for (const auto& kv : perFace) maxPts = std::max(maxPts, kv.second);
-            // T5/T6: both coupling laws against the independent piecewise integrals.
-            dstype worst[2] = {0, 0}, worstOff[2] = {0, 0}, scale[2] = {0, 0};
-            dstype uniformExact = 0, uniformScale = 0, oldBasisDifference = 0;
-            int uniformExactFaces = 0;
-            for (const auto& o : owners) {
-                const int k = static_cast<int>(o[0]);
-                const long face = static_cast<long>(o[1]);
-                std::vector<dstype> yn(o.begin() + 2, o.end());
-                MasterData& ownerMaster = mixedFamilies ?
-                        (((k == 0) == model0Triangle) ? triangle : quad) : carrier;
-                MasterData& donorMaster = mixedFamilies ?
-                        ((((1 - k) == 0) == model0Triangle) ? triangle : quad) : carrier;
-                const auto R = quad_reference(k, yn, ownerMaster, k == 0 ? quadYs2 : quadYs1,
-                                              static_cast<long>(ifaceLocal[1 - k]), donorMaster.nfe,
-                                              donorMaster.elemtype == 0);
-                const auto Rold = quad_reference(k, yn, ownerMaster, k == 0 ? quadYs2 : quadYs1,
-                                                 static_cast<long>(ifaceLocal[1 - k]), donorMaster.nfe,
-                                                 donorMaster.elemtype == 0, &donorMaster.xpf);
-                auto find = [&](const std::vector<std::vector<dstype>>& rows) {
-                    for (const auto& r : rows) if (r[0] == k && static_cast<long>(r[1]) == face) return r;
-                    return std::vector<dstype>();
-                };
-                const auto got = find(sig.residual), gotOff = find(residualOff);
-                for (Int i = 0; i < npf; i++) {
-                    scale[k] = std::max(scale[k], std::abs(R[i]));
-                    worst[k] = std::max(worst[k], got.empty() ? 1e300 : std::abs(got[2 + i] - R[i]));
-                    worstOff[k] = std::max(worstOff[k], gotOff.empty() ? 1e300 : std::abs(gotOff[2 + i] - R[i]));
-                }
-                dstype y0 = 0, y1 = 0;
-                for (Int j = 0; j < npf; ++j) {
-                    dstype l0 = 1, l1 = 1;
-                    for (Int m = 0; m < npf; ++m) if (m != j) {
-                        l0 *= (0 - ownerMaster.xpf[m]) / (ownerMaster.xpf[j] - ownerMaster.xpf[m]);
-                        l1 *= (1 - ownerMaster.xpf[m]) / (ownerMaster.xpf[j] - ownerMaster.xpf[m]);
-                    }
-                    y0 += l0 * yn[j]; y1 += l1 * yn[j];
-                }
-                const dstype ya = std::min(y0, y1), yb = std::max(y0, y1);
-                const auto& dys = k == 0 ? quadYs2 : quadYs1;
-                bool hasInteriorBreakpoint = false;
-                for (dstype y : dys)
-                    hasInteriorBreakpoint = hasInteriorBreakpoint || (y > ya + 1e-13 && y < yb - 1e-13);
-                if (!hasInteriorBreakpoint && !gotOff.empty()) {
-                    ++uniformExactFaces;
-                    for (Int i = 0; i < npf; ++i) {
-                        uniformScale = std::max(uniformScale, std::abs(R[i]));
-                        uniformExact = std::max(uniformExact, std::abs(gotOff[2 + i] - R[i]));
-                        oldBasisDifference = std::max(oldBasisDifference, std::abs(Rold[i] - R[i]));
-                    }
-                }
-            }
-            for (int k = 0; k < 2; k++) {
-                check(worst[k] <= 1e-13 * scale[k], tag + (k == 0 ? ": fint = q.n + tau(u - uh) matches the analytic piecewise integral"
-                                                                : ": fint = -uh matches the analytic piecewise integral"));
-                maxRoundoff = std::max(maxRoundoff, worst[k] / scale[k]);
-            }
-            if (mixedFamilies && carrier.porder >= 3) {
-                check(uniformExactFaces > 0 && uniformExact <= 1e-13 * uniformScale,
-                      tag + ": A1-off residual uses the owner test basis on unsplit faces");
-                check(oldBasisDifference >= 1e-3 * uniformScale,
-                      tag + ": the old donor test basis gives a measurably wrong residual");
-            }
-            std::printf("%s: breakpoints %zu, max points per model-1 owner face %d, pairs %zu; "
-                        "analytic piecewise integral error (relative) fint=q.n+tau(u-uh): composite %.3e, "
-                        "uniform %.3e; fint=-uh: composite %.3e, uniform %.3e\n",
-                        tag.c_str(), sig.breakpoints.size(), maxPts, sig.pairs.size(),
-                        worst[0] / scale[0], worstOff[0] / scale[0], worst[1] / scale[1], worstOff[1] / scale[1]);
-            if (worldRank == 0 && !mixedFamilies) quadSignatures.push_back(sig);
-        }
-    }
-
-    // Runtime path with the sidecar mirror: residual and Jacobian equal the host path bitwise.
-    {
-        exasim::nonmatching::NonmatchingRuntime<dstype, Int> rt;
-        RankOperator& op = *on.op;
-        exasim::nonmatching::refresh_nonmatching_runtime(rt, on.nm, op.app, op.mesh, op.common, Int(0), &on.quad);
-        for (int k = 0; k < 2; k++)
-            check((rt.dir[k].view.ptest != nullptr) == (on.nm.dir[k].isdonor && on.nm.dir[k].npts > 0),
-                  tag + ": runtime ptest mirror present on applied donor directions");
-        for (int withJacobian = 0; withJacobian < 2; withJacobian++) {
-            quad_compute(on, withJacobian == 1);
-            exasim::nonmatching::compute_nonmatching_coupling<PoissonCoupling>(rt, op.sol, op.res, op.app,
-                    op.master, op.mesh, op.tmp, op.common, 0, withJacobian == 1, 0);
-            bool same = true;
-            for (int k = 0; k < 2; k++) {
-                const auto& h = on.nm.dir[k];
-                same = same && (h.szRi == 0 || std::memcmp(h.Ri, rt.dir[k].Ri.data, sizeof(dstype) * h.szRi) == 0);
-                if (withJacobian) same = same && (h.szHi == 0 || std::memcmp(h.Hi, rt.dir[k].Hi.data, sizeof(dstype) * h.szHi) == 0);
-            }
-            check(same, tag + ": composite runtime residual/matrix equal the host path bitwise");
-        }
-    }
-
-    // Transactional rebuild (Phase 8 API) with the sidecar: the published sidecar, runtime
-    // mirror and residual equal the direct setup, and a second rebuild replaces them.
-    {
-        RankOperator& op = *on.op;
-        RankStructs rs2;
-        fill_rank_structs(rs2, on.lm, mst, 1, 1, 1);
-        rs2.master.gpf = mst.gpf.data();
-        rs2.app.interfacefluxmap = op.map.data();
-        commonstruct common = op.common;
-        common.requests = nullptr; common.statuses = nullptr;
-        nonmatchingdata nm2;
-        std::unique_ptr<exasim::nonmatching::NonmatchingRuntime<dstype, Int>> rt2;
-        std::unique_ptr<CompositeQuad> quad2;
-        exasim::nonmatching::DonorSearchParams prm;
-        prm.compositeOwnerQuadrature = true;
-        for (int pass = 0; pass < 2; pass++)
-            exasim::nonmatching::rebuild_nonmatching_interface(rs2.app, rs2.master, rs2.mesh, rs2.sol, common,
-                    static_cast<Int>(n), static_cast<Int>(worldRank), static_cast<Int>(sc.model * sc.k), nm2, rt2,
-                    Int(0), static_cast<exasim::nonmatching::DonorSearchResult<dstype, Int>*>(nullptr), prm, true, &quad2);
-        bool ok = quad2 && rt2 && quad2->requested == 1 && same_quad(*quad2, on.quad, tag + " transactional sidecar");
-        for (int k = 0; ok && k < 2; k++)
-            ok = (rt2->dir[k].view.ptest != nullptr) == (nm2.dir[k].isdonor && nm2.dir[k].npts > 0);
-        check(ok, tag + ": transactional rebuild publishes the complete sidecar and its runtime mirror");
-        // Both host evaluations on both objects, so every work array (Ri, Hi) is written alike.
-        bool sameNm = true;
-        for (int withJacobian = 1; withJacobian >= 0; withJacobian--) {
-            quad_compute(on, withJacobian == 1);
-            exasim::nonmatching::compute_nonmatching_coupling<PoissonCoupling>(nm2, op.sol, op.res, op.app,
-                    op.master, op.mesh, op.tmp, op.common, 0, withJacobian == 1, 0, quad2.get());
-            sameNm = sameNm && same_interface(nm2, on.nm, tag + " transactional nm");
-        }
-        check(sameNm, tag + ": transactional rebuild arrays, residual and Jacobian equal the direct setup bitwise");
-        exasim::nonmatching::compute_nonmatching_coupling<PoissonCoupling>(*rt2, op.sol, op.res, op.app,
-                op.master, op.mesh, op.tmp, op.common, 0, false, 0);
-        bool same = true;
-        for (int k = 0; k < 2; k++)
-            same = same && (on.nm.dir[k].szRi == 0 ||
-                   std::memcmp(on.nm.dir[k].Ri, rt2->dir[k].Ri.data, sizeof(dstype) * on.nm.dir[k].szRi) == 0);
-        check(same, tag + ": transactional rebuild runtime residual equals the direct setup bitwise");
-        exasim::nonmatching::free_nonmatching_data(nm2);
-        CPUFREE(common.requests);
-        CPUFREE(common.statuses);
-    }
-
-    // T3: option off with the sidecar equals no sidecar, bitwise (setup, residual, Jacobian).
-    if (!mixedFamilies) {
-        QuadSetup bare;
-        quad_setup(bare, sc, mm, mst, n, false, 64, false);
-        quad_fill_state(bare, mst, sc.model);
-        quad_fill_state(off, mst, sc.model);
-        for (int withJacobian = 0; withJacobian < 2; withJacobian++) {
-            quad_compute(bare, withJacobian == 1);
-            quad_compute(off, withJacobian == 1);
-            check(same_interface(off.nm, bare.nm, tag + " T3"), tag + ": option off is bitwise the path without the sidecar");
-        }
-    }
-}
-
-// T4 (matching), T7 (gapped, independently curved) and the coincidence threshold: option on
-// must equal option off bitwise unless the interface is coincident with interior breakpoints.
-void quadrature_fallback_case(MasterData& mst, int n)
-{
-    SubComm sc(n);
-    if (sc.comm == MPI_COMM_NULL) return;
-    const std::string tag = "quadrature fallback (" + std::to_string(sc.k) + " per model)";
-    struct Variant { const char* name; std::vector<dstype> ys2; dstype shift, amp; int expectApplied, expectCoincident; };
-    const std::vector<Variant> variants = {
-        {"matching", quadYs1, 0, 0, 0, 1},
-        {"gapped 1e-2", quadYs2, 1e-2, 0, 0, 0},
-        {"independently curved", quadYs2, 0, 0.01, 0, 0},
-        {"gap 1e-9 above onFaceRelTol*h_F", quadYs2, 1e-9, 0, 0, 0},
-        {"gap 1e-13 below onFaceRelTol*h_F", quadYs2, 1e-13, 0, 1, 1},
-    };
-    for (const Variant& v : variants) {
-        const ModelMesh mm = column_mesh(sc.model, sc.model == 0 ? quadYs1 : v.ys2, v.shift, v.amp);
-        QuadSetup on, off, again;
-        quad_setup(on, sc, mm, mst, n, true);
-        quad_setup(off, sc, mm, mst, n, false);
-        bool flags = true;
-        for (int k = 0; k < 2; k++)
-            flags = flags && on.quad.dir[k].applied == v.expectApplied && on.quad.dir[k].coincident == v.expectCoincident;
-        check(flags, tag + ": " + v.name + ": applied/coincident flags");
-        quad_fill_state(on, mst, sc.model);
-        quad_fill_state(off, mst, sc.model);
-        const std::string vt = tag + " " + v.name;
-        if (!v.expectApplied) {
-            bool same = same_interface(on.nm, off.nm, vt);
-            for (int withJacobian = 0; withJacobian < 2; withJacobian++) {
-                quad_compute(on, withJacobian == 1);
-                quad_compute(off, withJacobian == 1);
-                same = same && same_interface(on.nm, off.nm, vt);
-            }
-            check(same, tag + ": " + v.name + ": option on is bitwise the uniform path");
-            // The sidecar of a fallback holds no composite data: only the request and the
-            // coincidence flags differ from option off.
-            bool empty = on.quad.requested == 1;
-            for (int k = 0; k < 2; k++) {
-                const auto& q = on.quad.dir[k];
-                empty = empty && q.applied == 0 && q.breakpointsTotal == 0 && q.facebreakptr.empty() &&
-                        q.breakpoints.empty() && q.ptest.empty() && q.ps.empty() && q.ppiece.empty();
-            }
-            check(empty, tag + ": " + v.name + ": fallback sidecar holds no composite data");
-        }
-        else {
-            // Deterministic application: a second setup gives the same complete sidecar, arrays,
-            // residual and Jacobian bitwise.
-            quad_setup(again, sc, mm, mst, n, true);
-            quad_fill_state(again, mst, sc.model);
-            bool same = same_quad(on.quad, again.quad, vt) && same_interface(on.nm, again.nm, vt);
-            for (int withJacobian = 0; withJacobian < 2; withJacobian++) {
-                quad_compute(on, withJacobian == 1);
-                quad_compute(again, withJacobian == 1);
-                same = same && same_interface(on.nm, again.nm, vt);
-            }
-            check(same, tag + ": " + v.name + ": application is deterministic");
-        }
-        if (worldRank == 0)
-            std::printf("%s: %s: applied %d/%d, coincident %d/%d\n", tag.c_str(), v.name,
-                        static_cast<int>(on.quad.dir[0].applied), static_cast<int>(on.quad.dir[1].applied),
-                        static_cast<int>(on.quad.dir[0].coincident), static_cast<int>(on.quad.dir[1].coincident));
-    }
-}
-
-void quadrature_study()
-{
-    MasterData mst = make_master(1, 2);
-    MasterData mixed3 = make_master(1, 3);
-    for (int n = 2; n <= worldSize; n *= 2) {
-        quadrature_fixture_case(mst, n);
-        quadrature_fixture_case(mst, n, true, true);
-        quadrature_fixture_case(mst, n, true, false);
-        quadrature_fixture_case(mixed3, n, true, true);
-        quadrature_fixture_case(mixed3, n, true, false);
-        quadrature_fallback_case(mst, n);
-    }
-    // T2: breakpoints and quadrature tuples bitwise, pair sets equal, residual to 1e-14.
-    if (worldRank == 0 && quadSignatures.size() > 1) {
-        const QuadSignature& ref = quadSignatures[0];
-        for (std::size_t i = 1; i < quadSignatures.size(); i++) {
-            const QuadSignature& s = quadSignatures[i];
-            check(s.breakpoints == ref.breakpoints, "quadrature T2: breakpoint lists are partition independent");
-            check(s.points == ref.points, "quadrature T2: quadrature tuples are partition independent");
-            check(s.pairs == ref.pairs, "quadrature T2: slot/pair keys are partition independent");
-            dstype err = 0, scale = 0;
-            bool shape = s.residual.size() == ref.residual.size();
-            for (std::size_t r = 0; shape && r < ref.residual.size(); r++)
-                for (std::size_t c = 2; c < ref.residual[r].size(); c++) {
-                    err = std::max(err, std::abs(s.residual[r][c] - ref.residual[r][c]));
-                    scale = std::max(scale, std::abs(ref.residual[r][c]));
-                }
-            check(shape && err <= 1e-14 * scale, "quadrature T2: owner residuals are partition independent");
-            std::printf("quadrature T2: run %zu vs 1+1: owner residual max rel diff %.3e\n", i, scale > 0 ? err / scale : 0.0);
-        }
-    }
-}
-
-// Expected failures (separate MPI tests, PASS_REGULAR_EXPRESSION on the message).
-//   0: option differs across ranks; 1: more pieces than maxCompositePiecesPerFace;
-//   2 (Revision 2): endpoint candidate failure, forced by a zero projection-iteration limit
-//      for the reverse endpoint search only (the forward search keeps its limit). A coincident
-//      interface: the error must be the endpoint-search failure, not a noncoincident fallback.
-void quadrature_expected_failure(int mode)
-{
-    MasterData mst = make_master(1, 2);
-    SubComm sc(worldSize);
-    if (sc.comm == MPI_COMM_NULL) return;
-    const ModelMesh mm = column_mesh(sc.model, sc.model == 0 ? quadYs1 : quadYs2);
-    QuadSetup s;
-    if (mode == 0) quad_setup(s, sc, mm, mst, worldSize, worldRank == 0);
-    else if (mode == 1) quad_setup(s, sc, mm, mst, worldSize, true, 2); // the face [0, 0.25] needs 3 pieces
-    else quad_setup(s, sc, mm, mst, worldSize, true, 64, true, 0);
-    std::printf("UNEXPECTED: setup returned without the expected error (applied %d/%d, coincident %d/%d)\n",
-                static_cast<int>(s.quad.dir[0].applied), static_cast<int>(s.quad.dir[1].applied),
-                static_cast<int>(s.quad.dir[0].coincident), static_cast<int>(s.quad.dir[1].coincident));
-}
-
-// A/S/R measurements at N = 8: setup time, residual and Jacobian time (runtime path, median of
-// 20), points/slots/pairs, maximum points per owner face, host sidecar and runtime mirror bytes.
-template <class V>
-std::size_t runtime_buffer_bytes(const exasim::nonmatching::RuntimeBuffer<V, Int>& b)
-{
-    return static_cast<std::size_t>(b.capacity) * sizeof(V);
-}
-
-struct RuntimeMemory {
-    std::size_t total = 0, ptest = 0, hi = 0, fpair = 0, temporary = 0;
-};
-
-RuntimeMemory runtime_memory(const exasim::nonmatching::NonmatchingRuntime<dstype, Int>& rt)
-{
-    RuntimeMemory out;
-    for (int k = 0; k < 2; ++k) {
-        const auto& d = rt.dir[k];
-#define ADD_RUNTIME_BUFFER(name) out.total += runtime_buffer_bytes(d.name)
-        ADD_RUNTIME_BUFFER(pe); ADD_RUNTIME_BUFFER(pa); ADD_RUNTIME_BUFFER(pslot); ADD_RUNTIME_BUFFER(pg);
-        ADD_RUNTIME_BUFFER(slotptr); ADD_RUNTIME_BUFFER(pairslot); ADD_RUNTIME_BUFFER(pairelem);
-        ADD_RUNTIME_BUFFER(pairptr); ADD_RUNTIME_BUFFER(recvface); ADD_RUNTIME_BUFFER(ownface);
-        ADD_RUNTIME_BUFFER(pairSlotPtr); ADD_RUNTIME_BUFFER(ownerTarget); ADD_RUNTIME_BUFFER(faceBlockPtr);
-        ADD_RUNTIME_BUFFER(faceBlocks); ADD_RUNTIME_BUFFER(px); ADD_RUNTIME_BUFFER(pnl); ADD_RUNTIME_BUFFER(pwJ);
-        ADD_RUNTIME_BUFFER(pphi); ADD_RUNTIME_BUFFER(pphibar); ADD_RUNTIME_BUFFER(ppsi); ADD_RUNTIME_BUFFER(pd);
-        ADD_RUNTIME_BUFFER(pdphibar); ADD_RUNTIME_BUFFER(ptest); ADD_RUNTIME_BUFFER(Ri); ADD_RUNTIME_BUFFER(Hi);
-        ADD_RUNTIME_BUFFER(recvbuf); ADD_RUNTIME_BUFFER(x); ADD_RUNTIME_BUFFER(udg); ADD_RUNTIME_BUFFER(odg);
-        ADD_RUNTIME_BUFFER(wdg); ADD_RUNTIME_BUFFER(uhg); ADD_RUNTIME_BUFFER(nl); ADD_RUNTIME_BUFFER(wsrc);
-        ADD_RUNTIME_BUFFER(flux); ADD_RUNTIME_BUFFER(fluxUdg); ADD_RUNTIME_BUFFER(fluxWdg);
-        ADD_RUNTIME_BUFFER(fluxUhg); ADD_RUNTIME_BUFFER(wdgUdg); ADD_RUNTIME_BUFFER(equationUdg);
-        ADD_RUNTIME_BUFFER(wScratch); ADD_RUNTIME_BUFFER(iScratch); ADD_RUNTIME_BUFFER(K);
-        ADD_RUNTIME_BUFFER(G); ADD_RUNTIME_BUFFER(Cpair); ADD_RUNTIME_BUFFER(Epair);
-        ADD_RUNTIME_BUFFER(pairResidual); ADD_RUNTIME_BUFFER(vpair); ADD_RUNTIME_BUFFER(rpair);
-        ADD_RUNTIME_BUFFER(Fpair); ADD_RUNTIME_BUFFER(Rupair);
-#undef ADD_RUNTIME_BUFFER
-        out.ptest += runtime_buffer_bytes(d.ptest);
-        out.hi += runtime_buffer_bytes(d.Hi);
-        out.fpair += runtime_buffer_bytes(d.Fpair);
-    }
-    out.temporary = out.total - out.ptest - out.hi - out.fpair;
-    return out;
-}
-
-double median_time(std::vector<double>& values)
-{
-    std::sort(values.begin(), values.end());
-    return values[values.size() / 2];
-}
-
-void mixed_runtime_cost_case(int n, int family, bool composite)
-{
-    SubComm sc(n);
-    if (sc.comm == MPI_COMM_NULL) return;
-    const bool mixed = family != 0;
-    const bool model0Triangle = family == 1;
-    MasterData triangle = make_master(0, 3), quad = make_master(1, 3);
-    MasterData& mst = mixed ? (((sc.model == 0) == model0Triangle) ? triangle : quad) : quad;
-    const int rows = (sc.model == 0 ? 4 : 6) * 8;
-    ModelMesh mm;
-    mm.ys = uniform(0.0, 1.0, rows);
-    if (sc.model == 0) { mm.xs = uniform(0.0, 0.5, rows / 2); mm.xiface = 0.5; mm.xfar = 0.0; }
-    else { mm.xs = uniform(0.5, 1.0, rows / 2); mm.xiface = 0.5; mm.xfar = 1.0; }
-    mm.tri = mixed && ((sc.model == 0) == model0Triangle);
-
-    MPI_Barrier(sc.comm);
-    const double setupStart = MPI_Wtime();
-    QuadSetup s;
-    quad_setup(s, sc, mm, mst, n, composite);
-    const double setupSeconds = MPI_Wtime() - setupStart;
-    quad_fill_state(s, mst, sc.model);
-    RankOperator& op = *s.op;
-    exasim::nonmatching::NonmatchingRuntime<dstype, Int> rt;
-    exasim::nonmatching::refresh_nonmatching_runtime(rt, s.nm, op.app, op.mesh, op.common, Int(0), &s.quad);
-    const long long allocationsAfterRefresh = rt.allocations;
-
-    std::vector<dstype> v(op.N), w(op.N, 0);
-    for (Int i = 0; i < op.N; ++i) v[i] = hv(i, 911 + sc.model) - 0.5;
-    auto timed = [&](auto&& fn) {
-        std::vector<double> times;
-        times.reserve(20);
-        for (int it = 0; it < 20; ++it) {
-            MPI_Barrier(sc.comm);
-            const double start = MPI_Wtime();
-            fn();
-            times.push_back(MPI_Wtime() - start);
-        }
-        return median_time(times);
-    };
-    const double residualSeconds = timed([&]() {
-        exasim::nonmatching::compute_nonmatching_coupling<PoissonCoupling>(rt, op.sol, op.res, op.app,
-                op.master, op.mesh, op.tmp, op.common, 0, false, 0);
-    });
-    const double jacobianSeconds = timed([&]() {
-        exasim::nonmatching::compute_nonmatching_coupling<PoissonCoupling>(rt, op.sol, op.res, op.app,
-                op.master, op.mesh, op.tmp, op.common, 0, true, 0);
-    });
-    exasim::nonmatching::compute_nonmatching_coupling<PoissonCoupling>(rt, op.sol, op.res, op.app,
-            op.master, op.mesh, op.tmp, op.common, 0, false, 0);
-    const double mpiSeconds = timed([&]() {
-        Int count = 0;
-        exasim::nonmatching::begin_coupling_slot_exchange(rt, op.common, count);
-        MPI_Waitall(count, op.common.requests, op.common.statuses);
-    });
-    const double matvecSeconds = timed([&]() {
-        std::fill(w.begin(), w.end(), 0);
-        hdgMatVec<dstype, Int>(w.data(), op.AE.data(), v.data(), op.ve.data(), op.we.data(), op.res,
-                op.app, op.mesh, op.common, op.tmp, 0, 0, &rt);
-    });
-    check(rt.allocations == allocationsAfterRefresh,
-          "mixed cost: residual, Jacobian, MPI exchange and matvec allocate no runtime buffers");
-
-    RuntimeMemory memory = runtime_memory(rt);
-    double local[13] = {setupSeconds, residualSeconds, jacobianSeconds, mpiSeconds, matvecSeconds,
-                        0, 0, 0, static_cast<double>(memory.total), static_cast<double>(memory.ptest),
-                        static_cast<double>(memory.hi), static_cast<double>(memory.fpair),
-                        static_cast<double>(memory.temporary)};
-    for (int k = 0; k < 2; ++k) {
-        local[5] += s.nm.dir[k].npts;
-        local[6] += s.nm.dir[k].npairs;
-        local[7] += s.nm.dir[k].szRi * sizeof(dstype);
-    }
-    double maxima[5], sums[8];
-    MPI_Allreduce(local, maxima, 5, MPI_DOUBLE, MPI_MAX, sc.comm);
-    MPI_Allreduce(local + 5, sums, 8, MPI_DOUBLE, MPI_SUM, sc.comm);
-    if (worldRank == 0) {
-        const char* label = family == 0 ? "quad-quad" : (family == 1 ? "tri-quad" : "quad-tri");
-        std::printf("MIXED COST %s A1=%d p=3 %d+%d: setup %.3f ms, residual %.3f ms, Jacobian %.3f ms, "
-                    "MPI %.3f ms, matvec %.3f ms; points %.0f, pairs %.0f, message %.0f B; runtime %.0f B "
-                    "(%.1f B/point, %.1f B/pair), ptest %.0f B, Hi %.0f B, Fpair %.0f B, other %.0f B\n",
-                    label, composite ? 1 : 0, sc.k, sc.k, 1e3 * maxima[0], 1e3 * maxima[1],
-                    1e3 * maxima[2], 1e3 * maxima[3], 1e3 * maxima[4], sums[0], sums[1], sums[2], sums[3],
-                    sums[0] > 0 ? sums[3] / sums[0] : 0, sums[1] > 0 ? sums[3] / sums[1] : 0,
-                    sums[4], sums[5], sums[6], sums[7]);
-    }
-}
-
-void quadrature_cost_study()
-{
-    struct Cfg { const char* name; int r1, r2; } cfgs[] = {{"A", 4, 6}, {"S", 6, 4}, {"R", 4, 8}};
-    const int N = 8;
-    for (int p = 1; p <= 4; p++) {
-        MasterData mst = make_master(1, p);
-        for (const Cfg& cfg : cfgs)
-            for (int n = 2; n <= std::min(worldSize, 4); n *= 2) {
-                SubComm sc(n);
-                if (sc.comm == MPI_COMM_NULL) continue;
-                const int rows = (sc.model == 0 ? cfg.r1 : cfg.r2) * N;
-                ModelMesh mm;
-                mm.ys = uniform(0.0, 1.0, rows);
-                if (sc.model == 0) { mm.xs = uniform(0.0, 0.5, rows / 2); mm.xiface = 0.5; mm.xfar = 0.0; }
-                else { mm.xs = uniform(0.5, 1.0, rows / 2); mm.xiface = 0.5; mm.xfar = 1.0; }
-                double stats[2][8] = {{0}};
-                for (int option = 0; option < 2; option++) {
-                    QuadSetup s;
-                    MPI_Barrier(sc.comm);
-                    const double t0 = MPI_Wtime();
-                    quad_setup(s, sc, mm, mst, n, option == 1);
-                    const double tSetup = MPI_Wtime() - t0;
-                    quad_fill_state(s, mst, sc.model);
-                    exasim::nonmatching::NonmatchingRuntime<dstype, Int> rt;
-                    RankOperator& op = *s.op;
-                    exasim::nonmatching::refresh_nonmatching_runtime(rt, s.nm, op.app, op.mesh, op.common, Int(0), &s.quad);
-                    double tm[2];
-                    for (int jac = 0; jac < 2; jac++) {
-                        std::vector<double> times;
-                        for (int it = 0; it < 20; it++) {
-                            const double a = MPI_Wtime();
-                            exasim::nonmatching::compute_nonmatching_coupling<PoissonCoupling>(rt, op.sol, op.res, op.app,
-                                    op.master, op.mesh, op.tmp, op.common, 0, jac == 1, 0);
-                            times.push_back(MPI_Wtime() - a);
-                        }
-                        std::sort(times.begin(), times.end());
-                        tm[jac] = times[times.size() / 2];
-                    }
-                    double local[8] = {tSetup, tm[0], tm[1], 0, 0, 0,
-                                       static_cast<double>(s.quad.host_bytes()), 0};
-                    for (int k = 0; k < 2; k++) {
-                        local[3] += s.nm.dir[k].npts; local[4] += s.nm.dir[k].nslots; local[5] += s.nm.dir[k].npairs;
-                        local[7] += static_cast<double>(rt.dir[k].ptest.capacity) * sizeof(dstype);
-                    }
-                    double gmax[3], gsum[5];
-                    MPI_Allreduce(local, gmax, 3, MPI_DOUBLE, MPI_MAX, sc.comm);
-                    MPI_Allreduce(local + 3, gsum, 5, MPI_DOUBLE, MPI_SUM, sc.comm);
-                    for (int i = 0; i < 3; i++) stats[option][i] = gmax[i];
-                    for (int i = 0; i < 5; i++) stats[option][3 + i] = gsum[i];
-                    if (option == 1 && worldRank == 0)
-                        std::printf("COST %s p=%d %d+%d: applied %d/%d, max pieces per owner face %d/%d (max points %d/%d)\n",
-                                    cfg.name, p, sc.k, sc.k, static_cast<int>(s.quad.dir[0].applied),
-                                    static_cast<int>(s.quad.dir[1].applied),
-                                    static_cast<int>(s.quad.dir[0].maxPiecesPerFace), static_cast<int>(s.quad.dir[1].maxPiecesPerFace),
-                                    static_cast<int>(s.quad.dir[0].maxPiecesPerFace * mst.ngf),
-                                    static_cast<int>(s.quad.dir[1].maxPiecesPerFace * mst.ngf));
-                }
-                if (worldRank == 0) {
-                    // Existing host per-point setup storage (frozen-header point arrays), for the ratio.
-                    const double perPoint = sizeof(dstype) * (4.0 * mst.nd + 1 + (mst.nd - 1) + 2.0 * mst.npe + mst.npf) +
-                                            sizeof(Int) * 5.0;
-                    std::printf("COST %s p=%d %d+%d: points %.0f -> %.0f (x%.2f), slots %.0f -> %.0f, pairs %.0f -> %.0f; "
-                                "setup %.3f -> %.3f ms (x%.2f); residual %.3f -> %.3f ms (x%.2f); Jacobian %.3f -> %.3f ms (x%.2f); "
-                                "host sidecar %.0f B (%.3f of existing point storage), runtime ptest mirror %.0f B\n",
-                                cfg.name, p, sc.k, sc.k, stats[0][3], stats[1][3], stats[1][3] / stats[0][3],
-                                stats[0][4], stats[1][4], stats[0][5], stats[1][5],
-                                1e3 * stats[0][0], 1e3 * stats[1][0], stats[1][0] / stats[0][0],
-                                1e3 * stats[0][1], 1e3 * stats[1][1], stats[1][1] / stats[0][1],
-                                1e3 * stats[0][2], 1e3 * stats[1][2], stats[1][2] / stats[0][2],
-                                stats[1][6], stats[1][6] / (perPoint * stats[1][3]), stats[1][7]);
-                }
-            }
-    }
-    for (int family = 0; family < 3; ++family)
-        for (int composite = 0; composite < 2; ++composite)
-            mixed_runtime_cost_case(worldSize, family, composite != 0);
-}
-
 } // namespace
 
 int main(int argc, char** argv)
 {
     // Negative selection tests fork before MPI_Init, on the first process only.
-    // [nonmatching] Phase 9: --b1-transfer runs only the B1 transfer-consistency study;
-    // --quadrature* run only the A1 composite owner-quadrature modes.
+    // [nonmatching] --b1-transfer runs only the transfer-consistency study.
     bool b1Only = false;
-    std::string quadMode;
     for (int i = 1; i < argc; i++) {
         const std::string arg(argv[i]);
-        if (arg == "--b1-transfer" || arg.rfind("--quadrature", 0) == 0) {
-            if (arg == "--b1-transfer") b1Only = true;
-            else quadMode = arg;
+        if (arg == "--b1-transfer") {
+            b1Only = true;
             for (int k = i; k + 1 < argc; k++) argv[k] = argv[k + 1];
             argc--;
             break;
         }
     }
-    const bool special = b1Only || !quadMode.empty();
+    const bool special = b1Only;
     bool firstProcess = true;
     for (const char* var : {"OMPI_COMM_WORLD_RANK", "PMIX_RANK", "PMI_RANK"})
         if (const char* r = std::getenv(var)) { firstProcess = std::atoi(r) == 0; break; }
@@ -2857,17 +1948,6 @@ int main(int argc, char** argv)
     Kokkos::initialize(argc, argv);
     if (b1Only) {
         b1_transfer_study();
-    }
-    else if (quadMode == "--quadrature") {
-        quadrature_study();
-    }
-    else if (quadMode == "--quadrature-mismatch" || quadMode == "--quadrature-piece-limit" ||
-             quadMode == "--quadrature-endpoint-failure") {
-        quadrature_expected_failure(quadMode == "--quadrature-mismatch" ? 0 :
-                                    (quadMode == "--quadrature-piece-limit" ? 1 : 2));
-    }
-    else if (quadMode == "--quadrature-cost") {
-        quadrature_cost_study();
     }
     else {
         selection_case();
@@ -2923,7 +2003,8 @@ int main(int argc, char** argv)
     MPI_Allreduce(&maxFdError, &fd, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
     if (worldRank == 0)
         std::printf("%s nonmatching_matvec%s (%d ranks, up to %d per model), max round-off %.3e, max FD error %.3e\n",
-                    total == 0 ? "PASS" : "FAIL", b1Only ? " --b1-transfer" : (quadMode.empty() ? "" : (" " + quadMode).c_str()), worldSize, worldSize / 2, roundoff, fd);
+                    total == 0 ? "PASS" : "FAIL", b1Only ? " --b1-transfer" : "",
+                    worldSize, worldSize / 2, roundoff, fd);
     MPI_Finalize();
     return total == 0 ? 0 : 1;
 }

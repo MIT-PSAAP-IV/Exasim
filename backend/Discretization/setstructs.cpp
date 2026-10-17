@@ -42,7 +42,7 @@
 
 #include "ismeshcurved.cpp"
 #include "interfacepartition.hpp"
-#include "nonmatchingsetup.hpp" // [nonmatching] donor search (phase 2)
+#include "nonmatchingpreprocess.hpp" // [nonmatching] consolidated CPU preprocessing (phase 12)
 
 template <class T=dstype, class I=Int>
 void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh, 

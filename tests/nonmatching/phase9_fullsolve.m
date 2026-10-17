@@ -349,10 +349,6 @@ else
 end
 rendered = fileread(char(string(pde{1}.builddir) + "/CMakeLists.txt"));
 assert(contains(rendered, 'cpumpi'), 'coupled %d-rank build did not select the MPI variant', total);
-if isfield(pde{1}, 'phase9composite') && pde{1}.phase9composite
-    % [nonmatching] Phase 9 A1: link the opt-in composite owner-quadrature test library.
-    exe = build_composite_app(pde{1}, prefix, fingerprint);
-end
 [status, logtext] = run_solver(pde{1}, 100 + pde{1}.mpiprocs, total, exe);
 fprintf('%s', logtext);
 if status ~= 0
@@ -401,42 +397,6 @@ if iscell(d) && numel(d) == 1 && isfield(d{1}, 'elempart') && ~isempty(d{1}.elem
     g(:, :, ep(1:ne), :) = s;
     s = g;
 end
-end
-
-function exe = build_composite_app(pde, prefix, fingerprint)
-% [nonmatching] Phase 9 A1: the same rendered application (CMakeLists.txt, main.cpp, the
-% generated kernels) linked against the opt-in test library libcpumpinmcompositeEXASIM.a
-% (built only with EXASIM_BUILD_NONMATCHING_TEST_LIBS=ON; it compiles the solver with
-% EXASIM_NONMATCHING_COMPOSITE_A1=1). Built in <builddir>/composite, guarded by its own stamp.
-src = char(string(pde.builddir));
-dst = fullfile(src, 'composite');
-lib = fullfile(char(prefix), 'lib', 'libcpumpinmcompositeEXASIM.a');
-assert(isfile(lib), 'composite test library missing (configure with EXASIM_BUILD_NONMATCHING_TEST_LIBS=ON): %s', lib);
-exe = string(fullfile(dst, 'build', 'exasimapp'));
-stampValue = [fingerprint '|composite=' file_md5(lib)];
-stamp = fullfile(dst, 'phase9_build_fingerprint.txt');
-if isfile(exe) && isfile(stamp) && strcmp(strtrim(fileread(stamp)), stampValue)
-    fprintf('PHASE9 composite build reused: %s\n', exe);
-    return;
-end
-if ~exist(dst, 'dir'), mkdir(dst); end
-copyfile(fullfile(src, 'main.cpp'), fullfile(dst, 'main.cpp'));
-text = fileread(fullfile(src, 'CMakeLists.txt'));
-text = [text newline ...
-    '# [nonmatching] Phase 9 A1 test: link the opt-in composite owner-quadrature library.' newline ...
-    'foreach(_p IMPORTED_LOCATION IMPORTED_LOCATION_NOCONFIG IMPORTED_LOCATION_RELEASE)' newline ...
-    '  set_target_properties(Exasim::cpumpilib PROPERTIES ${_p} "' strrep(lib, '\', '/') '")' newline ...
-    'endforeach()' newline];
-fid = fopen(fullfile(dst, 'CMakeLists.txt'), 'w'); fwrite(fid, text); fclose(fid);
-cmakeExe = 'cmake';
-[st, ~] = system('command -v cmake'); if st ~= 0, cmakeExe = '/opt/homebrew/bin/cmake'; end
-cfg = sprintf('%s -S %s -B %s -DCMAKE_BUILD_TYPE=Release -DExasim_DIR=%s 2>&1', cmakeExe, shell_quote(dst), ...
-    shell_quote(fullfile(dst, 'build')), shell_quote(fullfile(char(prefix), 'lib', 'cmake', 'Exasim')));
-[st, out] = system(char(cfg));
-assert(st == 0, 'composite configure failed:\n%s', out);
-[st, out] = system(char(sprintf('%s --build %s -j 8 2>&1', cmakeExe, shell_quote(fullfile(dst, 'build')))));
-assert(st == 0, 'composite build failed:\n%s', out);
-fid = fopen(stamp, 'w'); fprintf(fid, '%s\n', stampValue); fclose(fid);
 end
 
 function [status, output] = run_solver(pde, numpde, mpiprocs, exe)

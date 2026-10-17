@@ -1,5 +1,5 @@
 # Model 2 of the matching-interface coupled Poisson example: [0.5,1] x [0,1].
-# Included by pdeapp.jl, which loads Exasim and coupledpoisson.jl (squaremesh).
+# Included by pdeapp.jl, which loads Exasim and defines squaremesh.
 pde[2], mesh[2] = Exasim.initializeexasim();
 
 pde[2].model = "ModelD";

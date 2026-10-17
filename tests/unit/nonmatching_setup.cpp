@@ -1,9 +1,7 @@
 // Phase 3 of the non-matching interface solver: setup distribution and
 // communication lists (design Steps D6-D7, eqs. (61)-(62)).  Reuse the
-// synthetic mesh fixture from the Phase 2 test in this separate executable.
-#define main nonmatching_donorsearch_embedded_main
-#include "nonmatching_donorsearch.cpp"
-#undef main
+// synthetic mesh fixture shared by the current preprocessing tests.
+#include "nonmatching_test_fixture.hpp"
 void FintDriver(...); // discarded AbiAdapter branch; this test instantiates only exchange helpers
 #include "../../backend/Discretization/nonmatchingcoupling.hpp"
 
