@@ -47,7 +47,9 @@ MPI_Comm EXASIM_COMM_LOCAL = MPI_COMM_NULL;
 #include "../../backend/Common/pblas.h"
 #include "../../backend/Discretization/interfacepartition.hpp"
 #include "../../backend/Discretization/nonmatchingpreprocess.hpp"
-#include "../../backend/Discretization/material_properties.hpp"
+// residual.hpp (which includes material_properties.hpp) declares the Residual and
+// uEquation* templates that matvec.hpp calls with explicit template arguments.
+#include "../../backend/Discretization/residual.hpp"
 void FintDriver(...); // Generated-driver fallback; typed test models instantiate the template path.
 #include "../../backend/Discretization/nonmatchingcoupling.hpp"
 #include "../../backend/Discretization/matvec.hpp"
