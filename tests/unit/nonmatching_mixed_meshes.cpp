@@ -15,7 +15,7 @@ struct MixedOutcome {
 };
 
 MixedOutcome run_mixed_case(int porder, bool model0Triangle, int model0Ranks,
-        bool curved, double gap, bool composite, SearchMode searchMode,
+        bool curved, double gap,
         bool extension = false)
 {
     check(model0Ranks > 0 && model0Ranks < worldSize, "mixed: valid model rank split");
@@ -67,10 +67,8 @@ MixedOutcome run_mixed_case(int porder, bool model0Triangle, int model0Ranks,
 
     nonmatchingdata nm;
     std::unique_ptr<NonmatchingRuntime<dstype, Int>> runtime;
-    std::unique_ptr<CompositeOwnerQuadrature<dstype, Int>> sidecar;
+    std::unique_ptr<OwnerTestData<dstype, Int>> sidecar;
     DonorSearchParams prm;
-    prm.searchMode = searchMode;
-    prm.compositeOwnerQuadrature = composite;
     DonorSearchResult<dstype, Int> result;
     check(rebuild_nonmatching_interface(rs.app, rs.master, rs.mesh, rs.sol, common,
               static_cast<Int>(worldSize), static_cast<Int>(worldRank),
@@ -86,13 +84,13 @@ MixedOutcome run_mixed_case(int porder, bool model0Triangle, int model0Ranks,
           "mixed: donor dimensions are role-local");
     check(owner.npf == localMaster.npf && donor.npf == localMaster.npf,
           "mixed: shared trace dimensions");
-    check(sidecar->dir[1 - model].ownerTests == 1,
+    check(sidecar->dir[1 - model].enabled == 1,
           "mixed: donor direction requests owner tests");
-    check(sidecar->dir[1 - model].ptest.size() ==
+    check(sidecar->dir[1 - model].values.size() ==
               static_cast<std::size_t>(donor.npf) * donor.npts,
           "mixed: one owner-test payload per donor point");
     check(runtime->dir[1 - model].ptest.size ==
-              static_cast<Int>(sidecar->dir[1 - model].ptest.size()),
+              static_cast<Int>(sidecar->dir[1 - model].values.size()),
           "mixed: runtime mirrors owner tests");
 
     int localQuadFace3 = 0;
@@ -110,23 +108,12 @@ MixedOutcome run_mixed_case(int porder, bool model0Triangle, int model0Ranks,
     out.points = donor.npts;
     for (Int p = 0; p < donor.npts; ++p) {
         const Int g = donor.pg[p];
-        std::vector<dstype> ownerPsi(static_cast<std::size_t>(donor.npf));
-        std::vector<dstype> donorPsi(static_cast<std::size_t>(donor.npf));
-        if (composite && sidecar->dir[1 - model].applied) {
-            const dstype s = sidecar->dir[1 - model].ps[p];
-            face_lagrange_1d(ownerPsi.data(), static_cast<dstype*>(nullptr),
-                             ownerMaster.xpf.data(), donor.npf, s);
-            face_lagrange_1d(donorPsi.data(), static_cast<dstype*>(nullptr),
-                             localMaster.xpf.data(), donor.npf, s);
-        }
         double trace = 0;
         for (Int j = 0; j < donor.npf; ++j) {
-            const double transported = sidecar->dir[1 - model].ptest[
+            const double transported = sidecar->dir[1 - model].values[
                     static_cast<std::size_t>(j) + static_cast<std::size_t>(donor.npf) * p];
-            const double expected = (composite && sidecar->dir[1 - model].applied) ? ownerPsi[j] :
-                    ownerMaster.shapfgt[g + ownerMaster.ngf * j];
-            const double oldWrong = (composite && sidecar->dir[1 - model].applied) ? donorPsi[j] :
-                    localMaster.shapfgt[g + localMaster.ngf * j];
+            const double expected = ownerMaster.shapfgt[g + ownerMaster.ngf * j];
+            const double oldWrong = localMaster.shapfgt[g + localMaster.ngf * j];
             out.maxOwnerTestError = std::max(out.maxOwnerTestError,
                                              std::abs(transported - expected));
             out.maxOldDonorTestError = std::max(out.maxOldDonorTestError,
@@ -153,10 +140,6 @@ MixedOutcome run_mixed_case(int porder, bool model0Triangle, int model0Ranks,
         check(out.maxOldDonorTestError >= 1.0e-3,
               "mixed: old donor-master test basis is measurably wrong");
 
-    if (!composite) {
-        check(sidecar->dir[0].ps.empty() && sidecar->dir[1].ps.empty(),
-              "mixed: A1-off stores no composite coordinates");
-    }
     long long outsideGlobal = 0;
     MPI_Allreduce(&out.outsidePoints, &outsideGlobal, 1, MPI_LONG_LONG, MPI_SUM,
                   EXASIM_COMM_WORLD);
@@ -193,7 +176,7 @@ void run_incompatible_case(const std::string& mode)
     build_rank_structs(rs, mesh, master, worldRank - model * (worldSize / 2),
                        worldSize / 2, 1);
     nonmatchingdata nm;
-    CompositeOwnerQuadrature<dstype, Int> sidecar;
+    OwnerTestData<dstype, Int> sidecar;
     setup_nonmatching_interface(rs.app, rs.master, rs.mesh, rs.sol,
             Int(worldSize), Int(worldRank), Int(model * (worldSize / 2)), nm,
             static_cast<DonorSearchResult<dstype, Int>*>(nullptr),
@@ -221,7 +204,7 @@ void run_cost_case(bool model0Triangle)
     build_rank_structs(rs, model == 0 ? left : right, master,
                        worldRank - modelBegin, modelRanks, 1);
     nonmatchingdata nm;
-    CompositeOwnerQuadrature<dstype, Int> sidecar;
+    OwnerTestData<dstype, Int> sidecar;
     SearchStatistics stats;
     MPI_Barrier(EXASIM_COMM_WORLD);
     const double start = MPI_Wtime();
@@ -235,7 +218,7 @@ void run_cost_case(bool model0Triangle)
         local[2] += nm.dir[d].npts;
         local[3] += nm.dir[d].nslots;
         local[4] += nm.dir[d].npairs;
-        local[5] += static_cast<long long>(sidecar.dir[d].ptest.size()) * sizeof(dstype);
+        local[5] += static_cast<long long>(sidecar.dir[d].values.size()) * sizeof(dstype);
     }
     long long total[6] = {};
     double setupMax = 0;
@@ -273,20 +256,17 @@ int main(int argc, char** argv)
     for (int p = 1; p <= 4; ++p)
         for (int orientation = 0; orientation < 2; ++orientation)
             run_mixed_case(p, orientation == 0, worldSize / 2,
-                           false, 0.0, false, SearchMode::Distributed);
+                           false, 0.0);
 
-    // Curvature, gap/overlap, OUTSIDE coverage and the exhaustive oracle.
-    run_mixed_case(2, true, worldSize / 2, true, 0.0, false, SearchMode::Distributed);
-    run_mixed_case(2, false, worldSize / 2, false, 0.01, false, SearchMode::Distributed);
-    run_mixed_case(2, true, worldSize / 2, false, -0.005, false, SearchMode::Distributed);
-    run_mixed_case(2, true, worldSize / 2, false, 0.0, false,
-                   SearchMode::Distributed, true);
-    run_mixed_case(4, false, worldSize / 2, false, 0.0, false, SearchMode::Exhaustive);
-    run_mixed_case(3, true, worldSize / 2, false, 0.0, true, SearchMode::Distributed);
+    // Curvature, gap/overlap and OUTSIDE coverage.
+    run_mixed_case(2, true, worldSize / 2, true, 0.0);
+    run_mixed_case(2, false, worldSize / 2, false, 0.01);
+    run_mixed_case(2, true, worldSize / 2, false, -0.005);
+    run_mixed_case(2, true, worldSize / 2, false, 0.0, true);
 
     if (worldSize >= 4) {
-        run_mixed_case(3, true, 1, false, 0.0, false, SearchMode::Distributed);
-        run_mixed_case(3, false, worldSize - 1, false, 0.0, false, SearchMode::Distributed);
+        run_mixed_case(3, true, 1, false, 0.0);
+        run_mixed_case(3, false, worldSize - 1, false, 0.0);
     }
     run_cost_case(true);
     run_cost_case(false);

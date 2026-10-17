@@ -509,3 +509,4 @@ examples/NavierStokes/equilibrium5air_cylindermach8/pdeapp0.m
 **/julia_run/
 /apps/coupledproblems/heattransfer/*/udg1.bin
 /apps/coupledproblems/heattransfer/*/vdg1.bin
+**/matlab_run/

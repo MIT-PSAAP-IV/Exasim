@@ -14,7 +14,6 @@
 #include "nonmatchinginterface.hpp"
 #include "nonmatchingruntime.hpp" // [nonmatching] phase 8 persistent backend cache
 #include "nonmatchingruntimekernels.hpp" // [nonmatching] backend-portable runtime kernels
-#include "nonmatchingquadrature.hpp" // [nonmatching] phase 9 A1
 
 #include <algorithm>
 #include <cmath>
@@ -304,11 +303,11 @@ inline void evaluate_coupling_flux(CouplingPointData<T, I>& data,
 template <class T, class I>
 inline T weighted_test(const nonmatchinginterfaceT<T, I>& donor,
         const masterstructT<T, I>& master, I point, I testNode,
-        const CompositeQuadratureView<T, I>& quad = CompositeQuadratureView<T, I>())
+        const OwnerTestView<T, I>& ownerTests = OwnerTestView<T, I>())
 {
-    // [nonmatching] Phase 9 A1: owner test values of an applied composite direction.
-    if (quad.ptest)
-        return donor.pwJ[point] * quad.ptest[testNode + static_cast<std::size_t>(quad.npf) * point];
+    if (ownerTests.values)
+        return donor.pwJ[point] * ownerTests.values[
+            testNode + static_cast<std::size_t>(ownerTests.npf) * point];
     return donor.pwJ[point] *
            master.shapfgt[donor.pg[point] + static_cast<std::size_t>(donor.ngf) * testNode];
 }
@@ -317,13 +316,13 @@ inline T weighted_test(const nonmatchinginterfaceT<T, I>& donor,
 template <class T, class I>
 inline void form_uncondensed_slot_residual(nonmatchinginterfaceT<T, I>& donor,
         const masterstructT<T, I>& master, const CouplingPointData<T, I>& data,
-        const CompositeQuadratureView<T, I>& quad = CompositeQuadratureView<T, I>())
+        const OwnerTestView<T, I>& ownerTests = OwnerTestView<T, I>())
 {
     std::fill(donor.Ri, donor.Ri + donor.szRi, static_cast<T>(0));
     for (I p = 0; p < donor.npts; ++p) {
         const I slot = donor.pslot[p];
         for (I i = 0; i < donor.npf; ++i) {
-            const T W = weighted_test(donor, master, p, i, quad);
+            const T W = weighted_test(donor, master, p, i, ownerTests);
             for (I n = 0; n < donor.ncu12; ++n)
                 donor.Ri[n + donor.ncu12 * (i + donor.npf * slot)] -=
                     W * data.flux[p + static_cast<std::size_t>(donor.npts) * n];
@@ -337,7 +336,7 @@ inline void form_and_condense_pairs(nonmatchinginterfaceT<T, I>& donor,
         const masterstructT<T, I>& master, const CouplingPointData<T, I>& data,
         const resstructT<T, I>& res, const commonstructT<T, I>& common,
         cublasHandle_t handle, I backend,
-        const CompositeQuadratureView<T, I>& quad = CompositeQuadratureView<T, I>())
+        const OwnerTestView<T, I>& ownerTests = OwnerTestView<T, I>())
 {
     const I npe = donor.npe, npf = donor.npf, nfe = donor.nfe;
     const I ncu = donor.ncu, ncu12 = donor.ncu12, ncq = donor.ncq;
@@ -348,7 +347,7 @@ inline void form_and_condense_pairs(nonmatchinginterfaceT<T, I>& donor,
     std::fill(donor.Hi, donor.Hi + donor.szHi, static_cast<T>(0));
 
     // The flux part is naturally accumulated once per slot (eq. 39).
-    form_uncondensed_slot_residual(donor, master, data, quad);
+    form_uncondensed_slot_residual(donor, master, data, ownerTests);
 
     std::vector<T> K(static_cast<std::size_t>(m12) * n);
     std::vector<T> H(static_cast<std::size_t>(m12) * m);
@@ -368,7 +367,7 @@ inline void form_and_condense_pairs(nonmatchinginterfaceT<T, I>& donor,
             const I p = pindex;
             const I a = donor.pa[p];
             for (I i = 0; i < npf; ++i) {
-                const T W = weighted_test(donor, master, p, i, quad);
+                const T W = weighted_test(donor, master, p, i, ownerTests);
                 for (I out = 0; out < ncu12; ++out) {
                     for (I c = 0; c < ncu; ++c) {
                         const T fu = data.fluxUdg[p + static_cast<std::size_t>(donor.npts) *
@@ -400,7 +399,7 @@ inline void form_and_condense_pairs(nonmatchinginterfaceT<T, I>& donor,
                 std::fill(G.begin(), G.end(), static_cast<T>(0));
                 for (I p = donor.pairptr[pair]; p < donor.pairptr[pair + 1]; ++p)
                     for (I i = 0; i < npf; ++i) {
-                        const T W = weighted_test(donor, master, p, i, quad);
+                        const T W = weighted_test(donor, master, p, i, ownerTests);
                         for (I out = 0; out < ncu12; ++out)
                             for (I c = 0; c < ncu; ++c) {
                                 const T fq = data.fluxUdg[p + static_cast<std::size_t>(donor.npts) *
@@ -449,7 +448,7 @@ inline void compute_nonmatching_coupling(nonmatchingdataT<T, I>& nm,
         masterstructT<T, I>& master, meshstructT<T, I>& mesh,
         tempstructT<T, I>& tmp, commonstructT<T, I>& common,
         cublasHandle_t handle, bool withJacobian, I backend,
-        const CompositeOwnerQuadrature<T, I>* quad = nullptr)
+        const OwnerTestData<T, I>* ownerTests = nullptr)
 {
     if (nm.interfacetype != 1) return;
     for (int direction = 0; direction < 2; ++direction) {
@@ -459,7 +458,7 @@ inline void compute_nonmatching_coupling(nonmatchingdataT<T, I>& nm,
         build_coupling_point_data(data, donor, sol, mesh, common);
         evaluate_coupling_flux<M>(data, donor, app, master, mesh, sol, tmp,
                                   common, withJacobian, backend);
-        const CompositeQuadratureView<T, I> view = composite_view(quad, direction, donor.npf);
+        const OwnerTestView<T, I> view = owner_test_view(ownerTests, direction, donor.npf);
         if (withJacobian)
             form_and_condense_pairs(donor, master, data, res, common, handle, backend, view);
         else

@@ -1,9 +1,8 @@
 /*
     Backend-portable runtime kernels for non-matching multiphysics coupling.
 
-    These Kokkos and batched-BLAS kernels are dimension-parameterized. The
-    complete type-1 solver currently supports only nd == 2 because donor
-    search and setup do not yet support 3D interface faces.
+    These Kokkos and batched-BLAS kernels are dimension-parameterized and are
+    shared by the supported 2D line and 3D surface interface paths.
 */
 
 #ifndef __NONMATCHINGRUNTIMEKERNELS_HPP

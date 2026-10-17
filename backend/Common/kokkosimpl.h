@@ -1387,7 +1387,7 @@ void PutBoudaryNodes(Ty* udg, const Ty* ub, const int* boufaces, const int* perm
 }
 
 template <class Ty = dstype>
-void PutBoudaryNodes(Ty* uh, const Ty* ub, const int* boufaces, const int* faceperm, const int* comperm, const int nfe, const int npf, const int ncu, const int nc, const int nf)
+void PutBoudaryNodes(Ty* uh, const Ty* ub, const int* boufaces, const int* faceperm, const int* comperm, const int nfe, const int npf, const int ncu, const int nc, const int facepermStride, const int nf)
 {
     using dstype = Ty;
     int K = npf*nf;
@@ -1401,7 +1401,10 @@ void PutBoudaryNodes(Ty* uh, const Ty* ub, const int* boufaces, const int* facep
         int k = j/npf;   // [0, nf)
         int e1 = boufaces[k]/nfe;
         int l1 = boufaces[k]%nfe;
-        uh[comperm[i] + nc*n + M*l1 + P*e1] += ub[i + ncu*faceperm[n] + ncu*npf*k];
+        // [nonmatching] facepermStride is zero for the legacy common
+        // permutation and npf when triangular faces need per-face orientation.
+        int pn = faceperm[n + facepermStride*k];
+        uh[comperm[i] + nc*n + M*l1 + P*e1] += ub[i + ncu*pn + ncu*npf*k];
     });
 }
 

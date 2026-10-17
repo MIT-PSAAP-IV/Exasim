@@ -77,13 +77,6 @@
 #include "readbinaryfiles.cpp"
 #include "setstructs.cpp"
 #include "nonmatchingruntime.hpp" // [nonmatching] phase 8 backend cache/workspace
-#include "nonmatchingquadrature.hpp" // [nonmatching] phase 9 A1 composite owner quadrature
-// [nonmatching] Phase 9 A1: composite owner quadrature is opt-in. Only the dedicated test
-// library target (install/CMakeLists.txt, EXASIM_BUILD_NONMATCHING_TEST_LIBS) defines this
-// to 1; every ordinary production library keeps the uniform owner quadrature.
-#ifndef EXASIM_NONMATCHING_COMPOSITE_A1
-#define EXASIM_NONMATCHING_COMPOSITE_A1 0
-#endif
 #include "residual.hpp"  // unified (U)
 //#include "ldgjactest.cpp"
 #include "ldgblockjacobian.cpp"
@@ -535,12 +528,11 @@ CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string e
         // resulting runtime arrays are allocated on the selected backend.
         {
             exasim::nonmatching::DonorSearchParams nonmatchingParams; // [nonmatching]
-            nonmatchingParams.compositeOwnerQuadrature = EXASIM_NONMATCHING_COMPOSITE_A1 != 0;
             exasim::nonmatching::rebuild_nonmatching_interface(
                 happ, hmaster, hmesh, hsol, hcommon, mpiprocs, mpirank, fileoffset,
                 nonmatching, nonmatchingRuntime, backend,
                 static_cast<exasim::nonmatching::DonorSearchResult<T, I>*>(nullptr),
-                nonmatchingParams, true, &nonmatchingQuadrature);
+                nonmatchingParams, true, &nonmatchingOwnerTests);
         }
 #endif
 
@@ -564,12 +556,11 @@ CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string e
 #ifdef HAVE_MPI
         {
             exasim::nonmatching::DonorSearchParams nonmatchingParams; // [nonmatching]
-            nonmatchingParams.compositeOwnerQuadrature = EXASIM_NONMATCHING_COMPOSITE_A1 != 0;
             exasim::nonmatching::rebuild_nonmatching_interface(
                 app, master, mesh, sol, common, mpiprocs, mpirank, fileoffset,
                 nonmatching, nonmatchingRuntime, backend,
                 static_cast<exasim::nonmatching::DonorSearchResult<T, I>*>(nullptr),
-                nonmatchingParams, true, &nonmatchingQuadrature); // [nonmatching]
+                nonmatchingParams, true, &nonmatchingOwnerTests); // [nonmatching]
         }
 #endif
     }
@@ -876,7 +867,7 @@ template <class T, class I>
 CDiscretizationT<T, I>::~CDiscretizationT()
 {
     nonmatchingRuntime.reset(); // [nonmatching] release backend mirrors before host setup data
-    nonmatchingQuadrature.reset(); // [nonmatching] phase 9 A1 sidecar
+    nonmatchingOwnerTests.reset(); // [nonmatching] mixed-family owner test values
     exasim::nonmatching::free_nonmatching_data(nonmatching); // [nonmatching]
     app.freememory(common.backend);
     if (common.mpiRank==0) printf("CDiscretization destructor: app memory is freed successfully.\n");

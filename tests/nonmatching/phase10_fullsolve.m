@@ -1,4 +1,4 @@
-function result = phase10_fullsolve(orientation, k1, k2, porder, N, composite, meshPair, curved, gap)
+function result = phase10_fullsolve(orientation, k1, k2, porder, N, meshPair, curved, gap)
 %PHASE10_FULLSOLVE Mixed triangle/quad coupled Poisson solve.
 % orientation is 'tri-quad' or 'quad-tri'. meshPair is A (3:2), S (2:3),
 % or R (nested 2:1). curved independently interpolates the same analytic wall.
@@ -7,17 +7,16 @@ if nargin < 2, k1 = 1; end
 if nargin < 3, k2 = k1; end
 if nargin < 4, porder = 3; end
 if nargin < 5, N = 1; end
-if nargin < 6, composite = false; end
-if nargin < 7, meshPair = 'A'; end
-if nargin < 8, curved = false; end
-if nargin < 9, gap = 0; end
+if nargin < 6, meshPair = 'A'; end
+if nargin < 7, curved = false; end
+if nargin < 8, gap = 0; end
 
 here = fileparts(mfilename('fullpath'));
 repo = fileparts(fileparts(here));
 example = fullfile(repo, 'examples', 'CoupledProblems', 'Poisson', 'mixedmeshes');
 addpath(example); addpath(here);
-work = fullfile(tempdir, sprintf('exasim_phase10_%s_%s_a1%d_c%d_g%+.4f_p%d_N%d_%d_%d', ...
-    orientation, meshPair, composite, curved, gap, porder, N, k1, k2));
+work = fullfile(tempdir, sprintf('exasim_phase10_%s_%s_c%d_g%+.4f_p%d_N%d_%d_%d', ...
+    orientation, meshPair, curved, gap, porder, N, k1, k2));
 if exist(work, 'dir'), rmdir(work, 's'); end
 mkdir(work); old = pwd; cleanup = onCleanup(@() cd(old)); cd(work);
 run(fullfile(repo, 'frontends', 'Matlab', 'exasim_setup.m'));
@@ -40,7 +39,6 @@ for m = 1:2
     pde{m}.datapath = string(fullfile(work, 'data'));
     pde{m}.builddir = string(fullfile(work, 'build'));
     pde{m}.buildpath = pde{m}.builddir;
-    if composite, pde{m}.phase9composite = true; end
 end
 if ~exist(fullfile(work, 'data'), 'dir'), mkdir(fullfile(work, 'data')); end
 

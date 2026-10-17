@@ -12,7 +12,6 @@
 #define __NONMATCHINGRUNTIME_HPP
 
 #include "nonmatchinginterface.hpp"
-#include "nonmatchingquadrature.hpp" // [nonmatching] phase 9 A1 composite owner quadrature
 
 #include <algorithm>
 #include <cstddef>
@@ -23,6 +22,44 @@
 
 namespace exasim {
 namespace nonmatching {
+
+// Owner face test values transported during setup when the two models use
+// different volume-element families.  The values are node-first [npf x npts]
+// and are independent of the removed composite-quadrature feature.
+template <class T, class I>
+struct OwnerTestDirection {
+    I enabled = 0;
+    std::vector<T> values;
+    void clear() { enabled = 0; values.clear(); }
+};
+
+template <class T, class I>
+struct OwnerTestData {
+    OwnerTestDirection<T,I> dir[2];
+    void clear() { dir[0].clear(); dir[1].clear(); }
+    long long host_bytes() const
+    {
+        return static_cast<long long>(sizeof(T)) *
+               static_cast<long long>(dir[0].values.size()+dir[1].values.size());
+    }
+};
+
+template <class T, class I>
+struct OwnerTestView {
+    const T* values=nullptr;
+    I npf=0;
+};
+
+template <class T, class I>
+inline OwnerTestView<T,I> owner_test_view(const OwnerTestData<T,I>* tests,
+        int direction,I npf)
+{
+    OwnerTestView<T,I> view;
+    if(tests&&!tests->dir[direction].values.empty()){
+        view.values=tests->dir[direction].values.data();view.npf=npf;
+    }
+    return view;
+}
 
 template <class V, class I>
 struct RuntimeBuffer {
@@ -124,8 +161,8 @@ struct RuntimeDirectionView {
     const T* ppsi = nullptr;
     const T* pd = nullptr;
     const T* pdphibar = nullptr;
-    // [nonmatching] Phase 9 A1: owner test values psi_i(s_p), ptest[i + npf*p], on a
-    // direction with composite owner quadrature applied; nullptr selects the master rule.
+    // Mixed-family owner test values psi_i(xi_p), node-first [npf x npts].
+    // nullptr selects the common master face rule.
     const T* ptest = nullptr;
 
     T* Ri = nullptr;
@@ -141,7 +178,7 @@ struct NonmatchingRuntimeDirection {
     RuntimeBuffer<I, I> pairslot, pairelem, pairptr, recvface, ownface;
     RuntimeBuffer<I, I> pairSlotPtr, ownerTarget, faceBlockPtr, faceBlocks;
     RuntimeBuffer<T, I> px, pnl, pwJ, pphi, pphibar, ppsi, pd, pdphibar;
-    RuntimeBuffer<T, I> ptest; // [nonmatching] phase 9 A1 (empty unless applied)
+    RuntimeBuffer<T, I> ptest;
     RuntimeBuffer<T, I> Ri, Hi, recvbuf;
 
     // Point data and model-driver workspaces.
@@ -227,7 +264,7 @@ inline void refresh_runtime_direction(NonmatchingRuntimeDirection<T, I>& runtime
         const nonmatchinginterfaceT<T, I>& host, const appstructT<T, I>& app,
         const meshstructT<T, I>& mesh, const commonstructT<T, I>& common,
         I backend, long long& allocations,
-        const CompositeQuadratureDirection<T, I>* quad = nullptr)
+        const OwnerTestDirection<T, I>* ownerTests = nullptr)
 {
     auto& v = runtime.view;
     v.direction = host.direction; v.isowner = host.isowner; v.isdonor = host.isdonor;
@@ -372,14 +409,12 @@ inline void refresh_runtime_direction(NonmatchingRuntimeDirection<T, I>& runtime
             host.ncq == 0 ? runtime_count<I>({host.npe, host.nd, host.npts}, "pdphibar") : 0,
             backend, allocations, "pdphibar");
 
-    // [nonmatching] Phase 10: owner test values are present for mixed-family
-    // interfaces and for an applied Phase 9 composite direction.
-    const bool ownerTests = quad && !quad->ptest.empty();
-    if (ownerTests && static_cast<long long>(quad->ptest.size()) !=
+    const bool hasOwnerTests = ownerTests && !ownerTests->values.empty();
+    if (hasOwnerTests && static_cast<long long>(ownerTests->values.size()) !=
                          static_cast<long long>(host.npf) * host.npts)
         error("non-matching runtime: owner test values do not match the point count");
-    refresh_buffer(runtime.ptest, ownerTests ? quad->ptest.data() : static_cast<const T*>(nullptr),
-                   ownerTests ? runtime_count<I>({host.npf, host.npts}, "ptest") : 0,
+    refresh_buffer(runtime.ptest, hasOwnerTests ? ownerTests->values.data() : static_cast<const T*>(nullptr),
+                   hasOwnerTests ? runtime_count<I>({host.npf, host.npts}, "ptest") : 0,
                    backend, allocations, "ptest");
 
     refresh_buffer(runtime.Ri, host.Ri, host.szRi, backend, allocations, "Ri");
@@ -464,7 +499,7 @@ template <class T, class I>
 inline void refresh_nonmatching_runtime(NonmatchingRuntime<T, I>& runtime,
         const nonmatchingdataT<T, I>& host, const appstructT<T, I>& app,
         const meshstructT<T, I>& mesh, const commonstructT<T, I>& common, I backend,
-        const CompositeOwnerQuadrature<T, I>* quad = nullptr)
+        const OwnerTestData<T, I>* ownerTests = nullptr)
 {
     if (backend < 0 || backend > 3) error("non-matching runtime: unsupported backend");
     runtime.backend = backend;
@@ -476,7 +511,8 @@ inline void refresh_nonmatching_runtime(NonmatchingRuntime<T, I>& runtime,
     }
     for (int direction = 0; direction < 2; ++direction)
         refresh_runtime_direction(runtime.dir[direction], host.dir[direction], app, mesh, common,
-                                  backend, runtime.allocations, quad ? &quad->dir[direction] : nullptr);
+                                  backend, runtime.allocations,
+                                  ownerTests ? &ownerTests->dir[direction] : nullptr);
 }
 
 } // namespace nonmatching

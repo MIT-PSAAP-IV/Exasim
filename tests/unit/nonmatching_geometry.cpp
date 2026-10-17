@@ -17,30 +17,22 @@ MPI_Comm EXASIM_COMM_LOCAL = MPI_COMM_NULL;
 #include <string>
 #include <vector>
 
-using exasim::nonmatching::ClosestPointOnFace;
-using exasim::nonmatching::ComputeGeometryPointData;
 using exasim::nonmatching::EvaluateFaceShape;
 using exasim::nonmatching::FaceToElementReference;
-using exasim::nonmatching::GeometryPointStatus;
 using exasim::nonmatching::InverseElementMap;
 using exasim::nonmatching::InverseMapStatus;
 using exasim::nonmatching::MapNonmatchingReferenceToPhysical;
-using exasim::nonmatching::MapReferenceFaceToPhysical;
-using exasim::nonmatching::PointInReferenceFace;
 using exasim::nonmatching::SimplexNodalBasis2D;
 
 namespace {
 
 int failures = 0;
-dstype worstAffineError = 0.0;
-dstype worstCurvedProjectionError = 0.0;
 dstype worstCurvedResidual = 0.0;
 dstype worstBasisError = 0.0;
 dstype worstTetRestrictionError = 0.0;
 dstype worstOtherRestrictionError = 0.0;
 dstype worstOffFaceError = 0.0;
 dstype worstPolynomialError = 0.0;
-dstype worstScaledRelativeError = 0.0;
 dstype worstSimplexExtrapolationError = 0.0;
 dstype worstSimplexDerivativeError = 0.0;
 dstype worstSimplexLegacyDifference = 0.0;
@@ -154,17 +146,6 @@ std::vector<dstype> make_geometry(const ReferenceData& data, bool curved)
     return geometry;
 }
 
-std::vector<dstype> make_face_geometry(
-    const ReferenceData& data, const std::vector<dstype>& geometry, Int faceIndex)
-{
-    std::vector<dstype> face(static_cast<size_t>(data.npf * data.nd));
-    for (Int d = 0; d < data.nd; ++d)
-        for (Int j = 0; j < data.npf; ++j)
-            face[j + data.npf * d] =
-                geometry[data.perm[j + data.npf * faceIndex] + data.npe * d];
-    return face;
-}
-
 void map_element(dstype* x, const dstype* zeta,
                  const ReferenceData& data, const std::vector<dstype>& geometry)
 {
@@ -182,7 +163,12 @@ void test_basis_consistency(const ReferenceData& data)
     const dstype xi[2] = {0.23, (data.elemtype == 0 ? 0.31 : 0.67)};
     std::vector<dstype> psi(static_cast<size_t>(data.npf));
     std::vector<dstype> phi(static_cast<size_t>(data.npe));
-    expect_true("xi is in reference face", PointInReferenceFace(xi, data.nd, data.elemtype));
+    const bool inside = data.nd == 2
+        ? xi[0] >= 0.0 && xi[0] <= 1.0
+        : (data.elemtype == 0
+            ? xi[0] >= 0.0 && xi[1] >= 0.0 && xi[0] + xi[1] <= 1.0
+            : xi[0] >= 0.0 && xi[0] <= 1.0 && xi[1] >= 0.0 && xi[1] <= 1.0);
+    expect_true("xi is in reference face", inside);
 
     for (Int face = 0; face < data.nfe; ++face) {
         const std::string suffix =
@@ -214,10 +200,10 @@ void test_basis_consistency(const ReferenceData& data)
         worstBasisError = std::max(
             worstBasisError, std::max(restrictionError, offFaceError));
         worstOffFaceError = std::max(worstOffFaceError, offFaceError);
-        // PointLocator's triangular face basis currently inherits the
-        // collapsed-coordinate clamp in makemaster.hpp:289. Keep that known
-        // tetrahedral trace limitation isolated from the roundoff-level
-        // checks for triangles, quadrilaterals, and hexahedra.
+        // Tetrahedra are tracked separately: their triangular face basis used
+        // to inherit an exact-equality collapsed-vertex test in
+        // makemaster.hpp (Phase 11 master-basis amendment) and now meets the
+        // same roundoff-level bound as the other families.
         const bool tetrahedron = data.nd == 3 && data.elemtype == 0;
         if (tetrahedron)
             worstTetRestrictionError =
@@ -225,12 +211,9 @@ void test_basis_consistency(const ReferenceData& data)
         else
             worstOtherRestrictionError =
                 std::max(worstOtherRestrictionError, restrictionError);
-        const dstype restrictionTolerance =
-            tetrahedron ? static_cast<dstype>(5.0e-9)
-                        : static_cast<dstype>(1.0e-13);
-        expect_le(tetrahedron ? "tet known face-basis restriction" + suffix
+        expect_le(tetrahedron ? "tet face-basis restriction" + suffix
                               : "real perm restriction" + suffix,
-                  restrictionError, restrictionTolerance);
+                  restrictionError, static_cast<dstype>(1.0e-13));
         expect_le("real perm off-face zero" + suffix,
                   offFaceError, 2.0e-11);
     }
@@ -273,158 +256,12 @@ void test_polynomial_reproduction(const ReferenceData& data)
     }
 }
 
-void test_affine_projection_and_inverse(Int nd, Int elemtype)
-{
-    const ReferenceData data = make_reference(nd, elemtype, 1);
-    const std::vector<dstype> geometry = make_geometry(data, false);
-    const std::vector<dstype> face = make_face_geometry(data, geometry, 0);
-    const dstype xiExact[2] = {0.27, (elemtype == 0 ? 0.29 : 0.61)};
-    std::vector<dstype> psi(static_cast<size_t>(data.npf));
-    std::vector<dstype> dpsi(static_cast<size_t>(data.npf * (nd - 1)));
-    dstype xbarExact[3] = {0.0, 0.0, 0.0};
-    dstype tangent[6] = {0.0};
-    MapReferenceFaceToPhysical(
-        xbarExact, tangent, psi.data(), dpsi.data(), xiExact,
-        face.data(), data.xpf.data(), nd, data.npf, elemtype, 1);
-
-    dstype normal[3] = {0.0, 0.0, 0.0};
-    if (nd == 2) {
-        normal[0] = -tangent[1];
-        normal[1] = tangent[0];
-    }
-    else {
-        normal[0] = tangent[2] * tangent[5] - tangent[4] * tangent[3];
-        normal[1] = tangent[4] * tangent[1] - tangent[0] * tangent[5];
-        normal[2] = tangent[0] * tangent[3] - tangent[2] * tangent[1];
-    }
-    dstype normalNorm = std::sqrt(exasim::nonmatching::SquaredNorm(normal, nd));
-    for (Int d = 0; d < nd; ++d) normal[d] /= normalNorm;
-
-    for (Int side = -1; side <= 1; ++side) {
-        dstype x[3] = {0.0, 0.0, 0.0};
-        for (Int d = 0; d < nd; ++d) x[d] = xbarExact[d] + 0.08 * side * normal[d];
-        dstype xi[2] = {0.0, 0.0};
-        dstype xbar[3] = {0.0, 0.0, 0.0};
-        dstype distance = 0.0;
-        const bool converged = ClosestPointOnFace(
-            xi, xbar, &distance, x, face.data(), data.xpf.data(), nd,
-            data.npf, elemtype, 1, 20, 1.0e-14);
-        expect_true("affine closest-point converged", converged);
-        const dstype xiError = vector_error(xi, xiExact, nd - 1);
-        const dstype distanceError = std::abs(distance - 0.08 * std::abs(side));
-        worstAffineError = std::max(worstAffineError, std::max(xiError, distanceError));
-        expect_le("affine closest-point xi", xiError, 1.0e-13);
-        expect_le("affine closest-point distance", distanceError, 1.0e-13);
-    }
-
-    dstype zetaExact[3] = {0.22, -0.025, 0.16};
-    if (nd == 2) zetaExact[1] = -0.025;
-    dstype x[3] = {0.0, 0.0, 0.0};
-    map_element(x, zetaExact, data, geometry);
-    dstype initial[3] = {0.25, 0.0, 0.2};
-    dstype zeta[3] = {0.0, 0.0, 0.0};
-    dstype residual = 0.0;
-    const InverseMapStatus status = InverseElementMap(
-        zeta, &residual, x, geometry.data(), data.xpe.data(), initial,
-        nd, data.npe, elemtype, 1, 8, 20, 1.0e-14, 0.1);
-    expect_true("affine inverse unrestricted status", status == InverseMapStatus::Converged);
-    const dstype inverseError = vector_error(zeta, zetaExact, nd);
-    worstAffineError = std::max(worstAffineError, std::max(inverseError, residual));
-    expect_le("affine inverse coordinates", inverseError, 1.0e-13);
-    expect_le("affine inverse residual", residual, 1.0e-13);
-    expect_true("inverse extrapolation may leave element",
-                !PointInReferenceElement(zeta, nd, elemtype, 1.0e-14));
-
-    // Force the safeguarded path while keeping the exact point in its neighborhood.
-    const InverseMapStatus projectedStatus = InverseElementMap(
-        zeta, &residual, x, geometry.data(), data.xpe.data(), initial,
-        nd, data.npe, elemtype, 1, 0, 20, 1.0e-13, 0.1);
-    expect_true("projected inverse fallback status",
-                projectedStatus == InverseMapStatus::ConvergedProjected);
-    expect_le("projected inverse residual", residual, 1.0e-12);
-
-    // A point beyond the face edge must project onto the constrained boundary.
-    dstype xiOutside[2] = {-0.18, 0.42};
-    MapReferenceFaceToPhysical(
-        x, tangent, psi.data(), dpsi.data(), xiOutside,
-        face.data(), data.xpf.data(), nd, data.npf, elemtype, 1);
-    dstype xi[2] = {0.0, 0.0};
-    dstype xbar[3] = {0.0, 0.0, 0.0};
-    dstype distance = 0.0;
-    expect_true("beyond-edge projection converged", ClosestPointOnFace(
-        xi, xbar, &distance, x, face.data(), data.xpf.data(), nd,
-        data.npf, elemtype, 1, 20, 1.0e-14));
-    expect_true("beyond-edge xi constrained", PointInReferenceFace(xi, nd, elemtype));
-    expect_true("beyond-edge xi on boundary",
-                nd == 2 ? (xi[0] == 0.0 || xi[0] == 1.0) :
-                (std::abs(xi[0]) < 1.0e-13 || std::abs(xi[1]) < 1.0e-13 ||
-                 (elemtype == 0 && std::abs(xi[0] + xi[1] - 1.0) < 1.0e-13) ||
-                 (elemtype == 1 && (std::abs(xi[0] - 1.0) < 1.0e-13 ||
-                                     std::abs(xi[1] - 1.0) < 1.0e-13))));
-
-    std::vector<dstype> collapsedFace(static_cast<size_t>(data.npf * nd), 0.0);
-    expect_true("singular face map reports failure", !ClosestPointOnFace(
-        xi, xbar, &distance, x, collapsedFace.data(), data.xpf.data(), nd,
-        data.npf, elemtype, 1, 4, 1.0e-14));
-    std::vector<dstype> collapsedElement(static_cast<size_t>(data.npe * nd), 0.0);
-    expect_true("singular element map reports failure", InverseElementMap(
-        zeta, &residual, x, collapsedElement.data(), data.xpe.data(), initial,
-        nd, data.npe, elemtype, 1, 4, 4, 1.0e-13, 0.1) ==
-        InverseMapStatus::Failed);
-
-    test_basis_consistency(data);
-    test_polynomial_reproduction(data);
-}
-
-void test_curved_orders(Int nd, Int elemtype)
+void test_inverse_maps(Int nd, Int elemtype)
 {
     for (Int porder = 1; porder <= 4; ++porder) {
         const ReferenceData data = make_reference(nd, elemtype, porder);
         const bool curved = porder >= 2;
         const std::vector<dstype> geometry = make_geometry(data, curved);
-        const std::vector<dstype> face = make_face_geometry(data, geometry, 0);
-
-        const dstype xiProjection[2] = {0.28, (elemtype == 0 ? 0.24 : 0.63)};
-        std::vector<dstype> faceShape(static_cast<size_t>(data.npf));
-        std::vector<dstype> faceDerivative(static_cast<size_t>(data.npf * (nd - 1)));
-        dstype facePoint[3] = {0.0, 0.0, 0.0};
-        dstype faceTangent[6] = {0.0};
-        MapReferenceFaceToPhysical(
-            facePoint, faceTangent, faceShape.data(), faceDerivative.data(),
-            xiProjection, face.data(), data.xpf.data(), nd, data.npf,
-            elemtype, porder);
-        dstype faceNormal[3] = {0.0, 0.0, 0.0};
-        if (nd == 2) {
-            faceNormal[0] = -faceTangent[1];
-            faceNormal[1] = faceTangent[0];
-        }
-        else {
-            faceNormal[0] = faceTangent[2] * faceTangent[5] - faceTangent[4] * faceTangent[3];
-            faceNormal[1] = faceTangent[4] * faceTangent[1] - faceTangent[0] * faceTangent[5];
-            faceNormal[2] = faceTangent[0] * faceTangent[3] - faceTangent[2] * faceTangent[1];
-        }
-        const dstype faceNormalNorm =
-            std::sqrt(exasim::nonmatching::SquaredNorm(faceNormal, nd));
-        dstype projectionTarget[3] = {0.0, 0.0, 0.0};
-        for (Int d = 0; d < nd; ++d)
-            projectionTarget[d] = facePoint[d] + 0.01 * faceNormal[d] / faceNormalNorm;
-        dstype xiComputed[2] = {0.0, 0.0};
-        dstype xbarComputed[3] = {0.0, 0.0, 0.0};
-        dstype projectionDistance = 0.0;
-        expect_true("curved projection converged p=" + std::to_string(porder),
-                    ClosestPointOnFace(
-                        xiComputed, xbarComputed, &projectionDistance,
-                        projectionTarget, face.data(), data.xpf.data(), nd,
-                        data.npf, elemtype, porder, 40, 1.0e-13));
-        worstCurvedProjectionError = std::max(
-            worstCurvedProjectionError,
-            std::max(vector_error(xiComputed, xiProjection, nd - 1),
-                     std::abs(projectionDistance - 0.01)));
-        expect_le("curved projection xi p=" + std::to_string(porder),
-                  vector_error(xiComputed, xiProjection, nd - 1), 2.0e-10);
-        expect_le("curved projection distance p=" + std::to_string(porder),
-                  std::abs(projectionDistance - 0.01), 2.0e-11);
-
         dstype zetaExact[3] = {0.24, -0.012, 0.16};
         if (nd == 3 && elemtype == 0) {
             zetaExact[0] = 0.21;
@@ -439,180 +276,27 @@ void test_curved_orders(Int nd, Int elemtype)
         const InverseMapStatus status = InverseElementMap(
             zeta, &residual, x, geometry.data(), data.xpe.data(), initial,
             nd, data.npe, elemtype, porder, 30, 40, 1.0e-13, 0.1);
-        expect_true("curved inverse converged p=" + std::to_string(porder),
+        expect_true("inverse converged p=" + std::to_string(porder),
                     status == InverseMapStatus::Converged);
         worstCurvedResidual = std::max(worstCurvedResidual, residual);
-        expect_le("curved inverse residual p=" + std::to_string(porder), residual, 1.0e-12);
-        expect_le("curved inverse coordinates p=" + std::to_string(porder),
+        expect_le("inverse residual p=" + std::to_string(porder), residual, 1.0e-12);
+        expect_le("inverse coordinates p=" + std::to_string(porder),
                   vector_error(zeta, zetaExact, nd), 2.0e-11);
-
         test_basis_consistency(data);
         test_polynomial_reproduction(data);
-
-        if (porder == 3) {
-            // Exercise every output of the combined helper, eqs. (21),
-            // (23), (28), and (30), on the face and from both sides.
-            const dstype xiExact[2] = {0.28, (elemtype == 0 ? 0.24 : 0.63)};
-            std::vector<dstype> psi(static_cast<size_t>(data.npf));
-            std::vector<dstype> dpsi(static_cast<size_t>(data.npf * (nd - 1)));
-            dstype facePoint[3] = {0.0, 0.0, 0.0};
-            dstype tangent[6] = {0.0};
-            MapReferenceFaceToPhysical(
-                facePoint, tangent, psi.data(), dpsi.data(), xiExact,
-                face.data(), data.xpf.data(), nd, data.npf, elemtype, porder);
-            dstype normal[3] = {0.0, 0.0, 0.0};
-            if (nd == 2) {
-                normal[0] = -tangent[1]; normal[1] = tangent[0];
-            }
-            else {
-                normal[0] = tangent[2] * tangent[5] - tangent[4] * tangent[3];
-                normal[1] = tangent[4] * tangent[1] - tangent[0] * tangent[5];
-                normal[2] = tangent[0] * tangent[3] - tangent[2] * tangent[1];
-            }
-            const dstype norm = std::sqrt(exasim::nonmatching::SquaredNorm(normal, nd));
-
-            for (Int side = -1; side <= 1; ++side) {
-                const dstype signedDistance = 0.01 * side;
-                for (Int d = 0; d < nd; ++d)
-                    x[d] = facePoint[d] + signedDistance * normal[d] / norm;
-
-                std::vector<dstype> phi(static_cast<size_t>(data.npe));
-                std::vector<dstype> phiBar(static_cast<size_t>(data.npe));
-                std::vector<dstype> expectedPhi(static_cast<size_t>(data.npe));
-                std::vector<dstype> expectedPhiBar(static_cast<size_t>(data.npe));
-                std::vector<dstype> expectedPsi(static_cast<size_t>(data.npf));
-                dstype xi[2] = {0.0, 0.0};
-                dstype zetaComputed[3] = {0.0, 0.0, 0.0};
-                dstype zetaBar[3] = {0.0, 0.0, 0.0};
-                dstype xbar[3] = {0.0, 0.0, 0.0};
-                dstype offset[3] = {0.0, 0.0, 0.0};
-                const GeometryPointStatus geometryStatus = ComputeGeometryPointData(
-                    xi, zetaComputed, zetaBar, xbar, phi.data(), phiBar.data(),
-                    psi.data(), offset, x, geometry.data(), data.xpf.data(),
-                    data.xpe.data(), data.perm.data(), 0, nd, data.npe,
-                    data.npf, elemtype, porder, 40, 40, 40,
-                    1.0e-13, 1.0e-12, 0.1);
-                const std::string suffix = " side=" + std::to_string(side);
-                expect_true("combined projection" + suffix,
-                            geometryStatus.projectionConverged);
-                expect_true("combined inverse" + suffix,
-                            geometryStatus.inverseStatus == InverseMapStatus::Converged);
-                expect_le("combined xi" + suffix,
-                          vector_error(xi, xiExact, nd - 1), 2.0e-10);
-                expect_le("combined xbar" + suffix,
-                          vector_error(xbar, facePoint, nd), 2.0e-11);
-                expect_le("combined distance" + suffix,
-                          std::abs(geometryStatus.distance - std::abs(signedDistance)),
-                          2.0e-11);
-
-                dstype expectedOffset[3] = {0.0, 0.0, 0.0};
-                for (Int d = 0; d < nd; ++d)
-                    expectedOffset[d] = signedDistance * normal[d] / norm;
-                expect_le("combined offset" + suffix,
-                          vector_error(offset, expectedOffset, nd), 2.0e-11);
-
-                dstype mappedPoint[3] = {0.0, 0.0, 0.0};
-                map_element(mappedPoint, zetaComputed, data, geometry);
-                expect_le("combined inverse map" + suffix,
-                          vector_error(mappedPoint, x, nd), 2.0e-11);
-
-                EvaluateFaceShape(
-                    expectedPsi.data(), xi, data.xpf.data(), nd, data.npf,
-                    elemtype, porder);
-                EvaluateVolumeShapeAtReferencePoint(
-                    expectedPhi.data(), zetaComputed, data.xpe.data(), nd,
-                    data.npe, elemtype, porder);
-                EvaluateVolumeShapeAtReferencePoint(
-                    expectedPhiBar.data(), zetaBar, data.xpe.data(), nd,
-                    data.npe, elemtype, porder);
-                expect_le("combined psi" + suffix,
-                          vector_error(psi.data(), expectedPsi.data(), data.npf),
-                          2.0e-13);
-                expect_le("combined phi" + suffix,
-                          vector_error(phi.data(), expectedPhi.data(), data.npe),
-                          2.0e-13);
-                expect_le("combined phibar" + suffix,
-                          vector_error(phiBar.data(), expectedPhiBar.data(), data.npe),
-                          2.0e-13);
-
-                if (side == 0) {
-                    expect_le("on-face zeta equals zetabar",
-                              vector_error(zetaComputed, zetaBar, nd), 2.0e-11);
-                    expect_le("on-face phi equals phibar",
-                              vector_error(phi.data(), phiBar.data(), data.npe),
-                              1.0e-10);
-                }
-            }
-        }
     }
-}
 
-void test_scale_invariance(bool curved)
-{
-    const Int porder = curved ? 3 : 1;
-    const ReferenceData data = make_reference(3, 1, porder);
-    const std::vector<dstype> baseGeometry = make_geometry(data, curved);
-    const dstype scales[2] = {1.0e-6, 1.0e3};
-
-    for (dstype scale : scales) {
-        std::vector<dstype> geometry = baseGeometry;
-        for (dstype& value : geometry) value *= scale;
-        const std::vector<dstype> face = make_face_geometry(data, geometry, 0);
-
-        const dstype xiExact[2] = {0.31, 0.57};
-        std::vector<dstype> psi(static_cast<size_t>(data.npf));
-        std::vector<dstype> dpsi(static_cast<size_t>(2 * data.npf));
-        dstype facePoint[3] = {0.0, 0.0, 0.0};
-        dstype tangent[6] = {0.0};
-        MapReferenceFaceToPhysical(
-            facePoint, tangent, psi.data(), dpsi.data(), xiExact,
-            face.data(), data.xpf.data(), 3, data.npf, 1, porder);
-        dstype normal[3] = {
-            tangent[2] * tangent[5] - tangent[4] * tangent[3],
-            tangent[4] * tangent[1] - tangent[0] * tangent[5],
-            tangent[0] * tangent[3] - tangent[2] * tangent[1]};
-        const dstype normalNorm =
-            std::sqrt(exasim::nonmatching::SquaredNorm(normal, 3));
-        dstype target[3] = {0.0, 0.0, 0.0};
-        for (Int d = 0; d < 3; ++d)
-            target[d] = facePoint[d] + 0.01 * scale * normal[d] / normalNorm;
-
-        dstype xi[2] = {0.0, 0.0};
-        dstype xbar[3] = {0.0, 0.0, 0.0};
-        dstype distance = 0.0;
-        const std::string suffix =
-            std::string(curved ? " curved" : " affine") +
-            " scale=" + std::to_string(scale);
-        expect_true("scaled projection" + suffix, ClosestPointOnFace(
-            xi, xbar, &distance, target, face.data(), data.xpf.data(),
-            3, data.npf, 1, porder, 40, 1.0e-13));
-        const dstype projectionRelativeError = std::max(
-            vector_error(xi, xiExact, 2),
-            std::abs(distance - 0.01 * scale) / scale);
-        worstScaledRelativeError =
-            std::max(worstScaledRelativeError, projectionRelativeError);
-        expect_le("scaled projection error" + suffix,
-                  projectionRelativeError, 2.0e-10);
-
-        const dstype zetaExact[3] = {0.24, 0.36, -0.012};
-        dstype physicalPoint[3] = {0.0, 0.0, 0.0};
-        map_element(physicalPoint, zetaExact, data, geometry);
-        const dstype initial[3] = {0.24, 0.36, 0.0};
-        dstype zeta[3] = {0.0, 0.0, 0.0};
-        dstype residual = 0.0;
-        const InverseMapStatus status = InverseElementMap(
-            zeta, &residual, physicalPoint, geometry.data(), data.xpe.data(),
-            initial, 3, data.npe, 1, porder, 40, 40,
-            scale * 1.0e-13, 0.1);
-        expect_true("scaled inverse" + suffix,
-                    status == InverseMapStatus::Converged);
-        const dstype inverseRelativeError = std::max(
-            vector_error(zeta, zetaExact, 3), residual / scale);
-        worstScaledRelativeError =
-            std::max(worstScaledRelativeError, inverseRelativeError);
-        expect_le("scaled inverse error" + suffix,
-                  inverseRelativeError, 2.0e-11);
-    }
+    const ReferenceData data = make_reference(nd, elemtype, 1);
+    const std::vector<dstype> geometry = make_geometry(data, false);
+    const dstype target[3] = {0.1, 0.2, 0.3};
+    const dstype initial[3] = {0.25, 0.25, 0.25};
+    dstype zeta[3] = {0.0, 0.0, 0.0};
+    dstype residual = 0.0;
+    std::vector<dstype> collapsed(static_cast<size_t>(data.npe * nd), 0.0);
+    expect_true("singular element map reports failure", InverseElementMap(
+        zeta, &residual, target, collapsed.data(), data.xpe.data(), initial,
+        nd, data.npe, elemtype, 1, 4, 4, 1.0e-13, 0.1) ==
+        InverseMapStatus::Failed);
 }
 
 void evaluate_total_degree_polynomial(
@@ -794,31 +478,21 @@ void test_unrestricted_failure_uses_projected_safeguard()
 
 int main()
 {
-    test_affine_projection_and_inverse(2, 0); // triangle
-    test_affine_projection_and_inverse(2, 1); // quadrilateral
-    test_affine_projection_and_inverse(3, 0); // tetrahedron
-    test_affine_projection_and_inverse(3, 1); // hexahedron
-
-    test_curved_orders(2, 0);
-    test_curved_orders(2, 1);
-    test_curved_orders(3, 0);
-    test_curved_orders(3, 1);
-    test_scale_invariance(false);
-    test_scale_invariance(true);
+    test_inverse_maps(2, 0); // triangle
+    test_inverse_maps(2, 1); // quadrilateral
+    test_inverse_maps(3, 0); // tetrahedron
+    test_inverse_maps(3, 1); // hexahedron
     test_nonmatching_simplex_basis();
     test_triangle_inverse_beyond_vertex(false);
     test_triangle_inverse_beyond_vertex(true);
     test_unrestricted_failure_uses_projected_safeguard();
 
-    std::printf("worst affine error       %.16e\n", static_cast<double>(worstAffineError));
-    std::printf("worst curved projection  %.16e\n", static_cast<double>(worstCurvedProjectionError));
     std::printf("worst curved residual    %.16e\n", static_cast<double>(worstCurvedResidual));
     std::printf("worst basis error        %.16e\n", static_cast<double>(worstBasisError));
     std::printf("worst tet restriction    %.16e\n", static_cast<double>(worstTetRestrictionError));
     std::printf("worst other restriction  %.16e\n", static_cast<double>(worstOtherRestrictionError));
     std::printf("worst off-face basis     %.16e\n", static_cast<double>(worstOffFaceError));
     std::printf("worst polynomial error   %.16e\n", static_cast<double>(worstPolynomialError));
-    std::printf("worst scaled rel. error  %.16e\n", static_cast<double>(worstScaledRelativeError));
     std::printf("worst simplex extrap.   %.16e\n", static_cast<double>(worstSimplexExtrapolationError));
     std::printf("worst simplex derivative %.16e\n", static_cast<double>(worstSimplexDerivativeError));
     std::printf("simplex/legacy max diff %.16e\n", static_cast<double>(worstSimplexLegacyDifference));

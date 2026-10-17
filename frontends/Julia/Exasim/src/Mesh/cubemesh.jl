@@ -27,6 +27,32 @@ end
 
 t = Int.(t');
 
+if elemtype==0
+    p, t = orient_tetrahedra(p, t);
+end
+
 return p, t
 
+end
+
+# Same result as the MATLAB cubemesh, which calls fixmesh: number the nodes in
+# lexicographic (x, y, z) order and orient every tetrahedron positively (the
+# solver rejects inverted elements).
+function orient_tetrahedra(p, t)
+    order = sortperm(collect(eachcol(p)), by = x -> (x[1], x[2], x[3]));
+    rank = similar(order);
+    rank[order] = 1:length(order);
+    p = p[:, order];
+    t = rank[t];
+    for e = 1:size(t, 2)
+        a = p[:, t[2, e]] - p[:, t[1, e]];
+        b = p[:, t[3, e]] - p[:, t[1, e]];
+        c = p[:, t[4, e]] - p[:, t[1, e]];
+        volume = (a[2]*b[3] - a[3]*b[2])*c[1] + (a[3]*b[1] - a[1]*b[3])*c[2] +
+                 (a[1]*b[2] - a[2]*b[1])*c[3];
+        if volume < 0
+            t[1, e], t[2, e] = t[2, e], t[1, e];
+        end
+    end
+    return p, t
 end

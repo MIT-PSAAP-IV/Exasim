@@ -49,7 +49,7 @@
 namespace exasim { template <class, class> struct PreprocessedT; }  // fwd decl: in-memory ctor input
                                            // (buildstructs.hpp); the ctor bodies live in discretization_inmemory.hpp (consumer-only)
 namespace exasim { namespace nonmatching { template <class, class> struct NonmatchingRuntime; } }
-namespace exasim { namespace nonmatching { template <class, class> struct CompositeOwnerQuadrature; } } // [nonmatching] phase 9 A1
+namespace exasim { namespace nonmatching { template <class, class> struct OwnerTestData; } }
 
 // Templated on scalar precision T and index type I (Phase 2 of dstype->template threading, see
 // docs/internals/precision-threading.md). Member `using` aliases shadow the global dstype/Int AND the
@@ -84,9 +84,8 @@ public:
     nonmatchingdataT<T, I> nonmatching; // [nonmatching] non-matching interface data (host setup, phase 2)
     // [nonmatching] backend-resident run-time mirrors and persistent workspaces (phase 8)
     std::unique_ptr<exasim::nonmatching::NonmatchingRuntime<T, I>> nonmatchingRuntime;
-    // [nonmatching] phase 9 A1: composite owner-quadrature sidecar (empty unless the opt-in
-    // test library enables it; published by the same rebuild transaction)
-    std::unique_ptr<exasim::nonmatching::CompositeOwnerQuadrature<T, I>> nonmatchingQuadrature;
+    // [nonmatching] mixed-family owner test values, published by the rebuild transaction.
+    std::unique_ptr<exasim::nonmatching::OwnerTestData<T, I>> nonmatchingOwnerTests;
     // solstruct hsol;
 
     // constructor for both CPU and GPU

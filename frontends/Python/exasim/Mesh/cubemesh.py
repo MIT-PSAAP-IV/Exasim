@@ -29,4 +29,24 @@ def cubemesh(m,n,o,elemtype):
 
     t = t.transpose().astype(int)-1;
 
+    if elemtype==0:
+        p, t = orient_tetrahedra(p, t)
+
+    return p, t
+
+
+def orient_tetrahedra(p, t):
+    # Same result as the MATLAB cubemesh, which calls fixmesh: number the nodes
+    # in lexicographic (x, y, z) order and orient every tetrahedron positively
+    # (the solver rejects inverted elements).
+    order = lexsort((p[2], p[1], p[0]))
+    rank = empty_like(order)
+    rank[order] = arange(order.size)
+    p = p[:, order]
+    t = rank[t]
+    x = p[:, t]
+    volume = einsum('ij,ij->j', cross(x[:, 1] - x[:, 0], x[:, 2] - x[:, 0], axis=0),
+                    x[:, 3] - x[:, 0])
+    flip = volume < 0
+    t[0, flip], t[1, flip] = t[1, flip], t[0, flip].copy()
     return p, t

@@ -7,8 +7,6 @@ function results = phase9_convergence(mode)
 %   phase9_convergence('curved')     curved interface, p = 1, 2, 3, levels N = 1, 2, 4, 8
 %   phase9_convergence('b1sweep')    B1 diagnostic: p = 1..4 on mesh pairs A, S, R
 %   phase9_convergence('b1quad')     B1 diagnostic: face-quadrature sensitivity (A, R)
-%   phase9_convergence('b1composite') A1: the b1sweep matrix with the opt-in composite
-%                                    owner-quadrature test library (rates >= p + 1 - 0.2)
 %   phase9_convergence('extension')  Gamma^1 extends 12.5% beyond Gamma^2, p = 2,
 %                                    levels N = 1, 2, 4, 8, ranks 1+1 and 2+2
 %
@@ -44,7 +42,6 @@ switch mode
     case 'localize',  results = localize_diagnostic(work);
     case 'b1sweep',   results = b1_sweep(work);
     case 'b1quad',    results = b1_quadrature(work);
-    case 'b1composite', results = b1_composite(work);
     otherwise, error('unknown mode %s', mode);
 end
 end
@@ -215,51 +212,9 @@ end
 end
 
 % ---------------------------------------------------------------------------
-function results = b1_composite(work)
-% [nonmatching] Phase 9 A1: A, S, R; p = 1..4; N = 1, 2, 4, 8, solved with the composite
-% owner-quadrature test library (phase9_fullsolve 'run' with pde{m}.phase9composite). A, S
-% and R are coincident straight interfaces. For N >= 2 the composite rule must be applied in
-% every direction whose owner faces contain donor-face endpoints: both directions for A and
-% S; only Gamma^1 for R, whose coarse model-1 vertices are also model-2 vertices, so Gamma^2
-% has no interior breakpoint and keeps the uniform rule. The A2 criterion is a last-level rate
-% >= p + 1 - 0.2 on both models.
-results = struct('cfg', {}, 'p', {}, 'N', {}, 'e1', {}, 'e2', {});
-cfgs = {'A', [2 4], [3 6], 2; 'S', [3 6], [2 4], 2; 'R', [2 4], [4 8], 1};
-ok = true;
-for c = 1:size(cfgs, 1)
-    build = fullfile(work, 'build');
-    for p = 1:4
-        for N = [1 2 4 8]
-            [pde, mesh] = base_problem(p, N, fullfile(work, sprintf('%s_p%d_N%d', cfgs{c, 1}, p, N)), build, ...
-                cfgs{c, 2}*N, cfgs{c, 3}*N, 1.0);
-            for m = 1:2, pde{m}.phase9composite = true; end
-            out = phase9_fullsolve('run', pde, mesh);
-            assert(out.status == 0, 'b1composite %s p=%d N=%d failed', cfgs{c, 1}, p, N);
-            applied = numel(regexp(out.log, 'Non-matching composite owner quadrature, Gamma\^[12]: applied', 'match'));
-            e1 = l2error(out.sol{1}, mesh{1}.dgnodes, out.master{1}.xpe, p);
-            e2 = l2error(out.sol{2}, mesh{2}.dgnodes, out.master{2}.xpe, p);
-            results(end+1) = struct('cfg', cfgs{c, 1}, 'p', p, 'N', N, 'e1', e1, 'e2', e2); %#ok<AGROW>
-            fprintf('PHASE9 b1composite %s p=%d N=%d e1=%.6e e2=%.6e applied directions=%d newton=%.2e\n', ...
-                cfgs{c, 1}, p, N, e1, e2, applied, out.history.residuals(end));
-            if N > 1 && applied ~= cfgs{c, 4}, ok = false; end
-        end
-        rows = results(strcmp({results.cfg}, cfgs{c, 1}) & [results.p] == p);
-        r1 = log2([rows(1:end-1).e1] ./ [rows(2:end).e1]);
-        r2 = log2([rows(1:end-1).e2] ./ [rows(2:end).e2]);
-        pass = r1(end) >= p + 1 - 0.2 && r2(end) >= p + 1 - 0.2;
-        ok = ok && pass;
-        fprintf('PHASE9 b1composite %s p=%d rates model1', cfgs{c, 1}, p); fprintf(' %.3f', r1);
-        fprintf(' model2'); fprintf(' %.3f', r2); fprintf(' (last >= %.1f: %s)\n', p + 1 - 0.2, tf(pass));
-    end
-end
-if ok, fprintf('PASS phase9_convergence b1composite\n');
-else, fprintf('FAIL phase9_convergence b1composite (see the rate lines)\n'); end
-end
-
-% ---------------------------------------------------------------------------
 function results = b1_quadrature(work)
-% B1 diagnostic (no pass/fail): sensitivity of the unequal-h error to the face
-% quadrature that integrates the transferred donor flux over each owner face. The
+% Face-quadrature sensitivity diagnostic. The mapped donor data is piecewise
+% polynomial and may be discontinuous inside one owner face.
 % donor data is piecewise polynomial on the donor faces, so it is discontinuous inside
 % an owner face that spans several donor faces; a smooth integrand would make the
 % error independent of pgauss once pgauss >= 2p. pgauss also sets the volume rule,

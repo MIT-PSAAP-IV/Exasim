@@ -216,9 +216,6 @@ set(Model_LIB_DIR   ${EXASIM_LIB_DIR})
 
 # ---- Option: build EXASIM variants that link text2code-generated libs ----
 option(EXASIM_LIB "Build and install static libraries only; skip all EXASIM executables" OFF)
-# [nonmatching] Phase 9 A1: opt-in test libraries (default OFF; see cpumpinmcompositeEXASIM_static).
-option(EXASIM_BUILD_NONMATCHING_TEST_LIBS "Build the non-matching composite-quadrature test solver library" OFF)
-
 # ---- Option: build EXASIM variants that link text2code-generated libs ----
 option(WITH_TEXT2CODE "Build extra EXASIM executables that link text2code-generated dynamic libraries" OFF)
 option(EXASIM_BUILD_SHARED_APP
@@ -761,21 +758,6 @@ else()
         add_exasim_executable_from_static(cpumpiEXASIM cpumpiEXASIM_static)
       endif()
 
-      # [nonmatching] Phase 9 A1: opt-in test library for the composite owner-quadrature
-      # study. Same sources and flags as cpumpiEXASIM_static plus the compile definition
-      # EXASIM_NONMATCHING_COMPOSITE_A1=1 (read by Discretization/discretization.cpp).
-      # Never built unless EXASIM_BUILD_NONMATCHING_TEST_LIBS=ON; production libraries
-      # keep the uniform owner quadrature.
-      if(EXASIM_BUILD_NONMATCHING_TEST_LIBS)
-        add_exasim_static_library(cpumpinmcompositeEXASIM_static cpumpinmcompositeEXASIM)
-        target_link_directories(cpumpinmcompositeEXASIM_static PUBLIC $<BUILD_INTERFACE:${Model_LIB_DIR}> $<INSTALL_INTERFACE:${CMAKE_INSTALL_LIBDIR}>)
-        target_compile_definitions(cpumpinmcompositeEXASIM_static PUBLIC _MPI)
-        target_compile_definitions(cpumpinmcompositeEXASIM_static PRIVATE EXASIM_NONMATCHING_COMPOSITE_A1=1)
-        target_compile_options(cpumpinmcompositeEXASIM_static PRIVATE -std=c++20 -w -ffast-math -O3 -DNDEBUG)
-        target_link_libraries(cpumpinmcompositeEXASIM_static PUBLIC Kokkos::kokkos ${lapackblas_libraries} ${MPI_LIBRARIES} ${BM_CPU_LIB})
-        link_metis(cpumpinmcompositeEXASIM_static)
-      endif()
-
       if(WITH_TEXT2CODE AND EXASIM_HAS_T2C_CPU_LIB)
         add_exasim_model_executable(cpumpit2cEXASIM
           MAIN_SOURCES ${T2C_MAIN_SOURCES} LIB_DIR ${Model_LIB_DIR} MODEL_LIB ${T2C_CPU_LIB}
@@ -818,7 +800,6 @@ endmacro()
 
 register_exasim_export_target(cpuEXASIM_static cpulib FALSE)
 register_exasim_export_target(cpumpiEXASIM_static cpumpilib TRUE)
-register_exasim_export_target(cpumpinmcompositeEXASIM_static cpumpinmcompositelib TRUE) # [nonmatching] opt-in test lib
 register_exasim_export_target(cpupreEXASIM_static cpuprelib FALSE)
 register_exasim_export_target(cpumpipreEXASIM_static cpumpiprelib TRUE)
 register_exasim_export_target(gpuEXASIM_static gpulib FALSE)
