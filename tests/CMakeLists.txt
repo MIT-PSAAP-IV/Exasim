@@ -609,9 +609,15 @@ set_tests_properties(unit_nonmatching_3d PROPERTIES TIMEOUT 120) # [nonmatching]
 if(EXASIM_MPI) # [nonmatching] Phase 11 focused 3D matrix
   foreach(np 2 4 8) # [nonmatching]
     foreach(mode cost multi operators orientations rebuild search setup) # [nonmatching]
+      # The wall-clock setup gate depends on the machine; CTest checks only the
+      # work counts of the cost mode.
+      set(nonmatching_3d_mode_args --${mode}) # [nonmatching]
+      if(mode STREQUAL "cost") # [nonmatching]
+        list(APPEND nonmatching_3d_mode_args --no-timing-gate) # [nonmatching]
+      endif() # [nonmatching]
       add_test(NAME unit_nonmatching_3d_${mode}_np${np} # [nonmatching]
         COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS} # [nonmatching]
-                $<TARGET_FILE:unit_nonmatching_3d> ${MPIEXEC_POSTFLAGS} --${mode}) # [nonmatching]
+                $<TARGET_FILE:unit_nonmatching_3d> ${MPIEXEC_POSTFLAGS} ${nonmatching_3d_mode_args}) # [nonmatching]
       set_tests_properties(unit_nonmatching_3d_${mode}_np${np} PROPERTIES TIMEOUT 600) # [nonmatching]
     endforeach() # [nonmatching]
     # Expected failures (review N2): the wrapper requires a nonzero exit, a
