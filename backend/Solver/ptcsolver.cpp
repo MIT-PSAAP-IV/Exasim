@@ -77,32 +77,41 @@ int CSolver<M, T, I>::linearSolve(CResidual<M, T, I>& residual, CAssembler<M, T,
     
     // construct the preconditioner
     if (state.RBcurrentdim>0) {
+        AuxiliaryStateSnapshot<dstype> auxiliary(disc.sol.wdg,
+                disc.common.components.ncw > 0 ? disc.sol.szwdg : 0);
         //prec.ConstructPreconditioner(sys, disc, backend);                  
         prec.ComputeInitialGuessAndPreconditioner(sys, state, assembler, disc, backend); 
+        auxiliary.restore();
         
         // v = u + x 
         //int N = disc.common.sizes.ndof1;
         ArrayAXPBY(disc.common.cublasHandle, sys.v, sys.u, sys.x, one, one, N, backend);  
         residual.evalResidual(sys.r, sys.v, backend);  
         dstype nrmr = PNORM(disc.common.cublasHandle, N, sys.r, backend);
+        // A trial is not an accepted nonlinear state, even when its norm is small.
+        auxiliary.restore();
                 
-        if (nrmr>1.05*oldnrm) {
+        if (!is_finite_bitwise(nrmr) || nrmr>1.05*oldnrm) {
             //ArraySetValue(sys.x, zero, N, backend);
-            ArrayMultiplyScalar(disc.common.cublasHandle, sys.x, zero, N, backend);                       
+            ArraySetValue(sys.x, zero, N);
             // reset the reduced basis
             state.RBremovedind = 0;
             state.RBcurrentdim = 0;
+            // Re-establish u/q/w and the base RHS before falling back to GMRES.
+            residual.evalResidual(sys.b, sys.u, backend);
+            if (disc.common.mpiRank==0)
+                cout << "Rejected RB trial; restored base state and cleared reduced basis." << endl;
             //ArrayCopy(&prec.precond.W[state.RBremovedind*N], sys.x, N, backend);         
             //state.RBcurrentdim = 1;
             //state.RBremovedind = 1;            
         }
 
-        if (nrmr < disc.common.solverparams.nonlinearSolverTol) 
+        else if (nrmr < disc.common.solverparams.nonlinearSolverTol)
             return 1;               
     }    
     else {
         //ArraySetValue(sys.x, zero, disc.common.sizes.ndof1, backend);
-        ArrayMultiplyScalar(disc.common.cublasHandle, sys.x, zero, N, backend);   
+        ArraySetValue(sys.x, zero, N);
     }
     
 //   ArraySetValue(sys.x, zero, disc.common.sizes.ndof1, backend);
@@ -157,7 +166,7 @@ void CSolver<M, T, I>::updateRB(CDiscretization& disc, CPreconditioner<M, T, I>&
     Int N = disc.common.sizes.ndof1;
                     
     dstype nrmr = PNORM(disc.common.cublasHandle, N, sys.x, backend);
-    if (nrmr>zero) {
+    if (is_finite_bitwise(nrmr) && nrmr>zero) {
       // update the reduced basis        
       //ArrayCopy(&prec.precond.W[state.RBremovedind*N], sys.x, N, backend);  
       ArrayCopy(disc.common.cublasHandle, &prec.precond.W[state.RBremovedind*N], sys.x, N, backend);  
@@ -177,7 +186,7 @@ template <class M, class T, class I>
 void CSolver<M, T, I>::updateRB(CDiscretization& disc, CPreconditioner<M, T, I>& prec, Int N, Int backend)
 {                       
     dstype nrmr = PNORM(disc.common.cublasHandle, N, sys.x, backend);
-    if (nrmr>zero) {
+    if (is_finite_bitwise(nrmr) && nrmr>zero) {
       // update the reduced basis        
       ArrayCopy(&prec.precond.W[state.RBremovedind*N], sys.x, N);  
       //ArrayCopy(disc.common.cublasHandle, &prec.precond.W[state.RBremovedind*N], sys.x, N, backend);  
@@ -245,5 +254,3 @@ void CSolver<M, T, I>::linearSolve(CResidual<M, T, I>& residual, CAssembler<M, T
 }
 
 #endif
-
-
