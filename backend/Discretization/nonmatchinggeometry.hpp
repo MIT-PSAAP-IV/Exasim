@@ -38,12 +38,6 @@ enum class InverseMapStatus : int {
     ProjectedInexact = 3    // finite safeguarded least-squares extrapolation
 };
 
-struct GeometryPointStatus {
-    bool projectionConverged = false;
-    InverseMapStatus inverseStatus = InverseMapStatus::Failed;
-    dstype distance = std::numeric_limits<dstype>::max();
-};
-
 inline Int FaceElementType(Int nd, Int elemtype)
 {
     return (nd == 2) ? 0 : elemtype;
@@ -58,21 +52,27 @@ inline dstype SquaredNorm(const dstype* x, Int n)
 
 inline bool UsesPolynomialSimplexBasis(Int nd, Int elemtype)
 {
-    return nd == 2 && elemtype == 0;
+    return (nd == 2 || nd == 3) && elemtype == 0;
 }
 
 inline void EvaluateNonmatchingVolumeShapeAndGradients(
     dstype* shape, dstype* derivative, const dstype* zeta, const dstype* xpe,
     Int nd, Int npe, Int elemtype, Int porder,
-    const SimplexNodalBasis2D* simplexBasis = nullptr)
+    const PolynomialNodalBasis* simplexBasis = nullptr)
 {
+    if (simplexBasis != nullptr) {
+        simplexBasis->evaluate(shape, derivative, zeta);
+        return;
+    }
     if (UsesPolynomialSimplexBasis(nd, elemtype)) {
-        if (simplexBasis != nullptr) {
-            simplexBasis->evaluate(shape, derivative, zeta);
-            return;
+        if (nd == 2) {
+            const SimplexNodalBasis2D local(xpe, npe, porder);
+            local.evaluate(shape, derivative, zeta);
         }
-        const SimplexNodalBasis2D local(xpe, npe, porder);
-        local.evaluate(shape, derivative, zeta);
+        else {
+            const SimplexNodalBasis3D local(xpe, npe, porder);
+            local.evaluate(shape, derivative, zeta);
+        }
         return;
     }
     EvaluateVolumeShapeAndGradientsAtReferencePoint(
@@ -82,15 +82,21 @@ inline void EvaluateNonmatchingVolumeShapeAndGradients(
 inline void EvaluateNonmatchingVolumeShape(
     dstype* shape, const dstype* zeta, const dstype* xpe,
     Int nd, Int npe, Int elemtype, Int porder,
-    const SimplexNodalBasis2D* simplexBasis = nullptr)
+    const PolynomialNodalBasis* simplexBasis = nullptr)
 {
+    if (simplexBasis != nullptr) {
+        simplexBasis->evaluate(shape, nullptr, zeta);
+        return;
+    }
     if (UsesPolynomialSimplexBasis(nd, elemtype)) {
-        if (simplexBasis != nullptr) {
-            simplexBasis->evaluate(shape, nullptr, zeta);
-            return;
+        if (nd == 2) {
+            const SimplexNodalBasis2D local(xpe, npe, porder);
+            local.evaluate(shape, nullptr, zeta);
         }
-        const SimplexNodalBasis2D local(xpe, npe, porder);
-        local.evaluate(shape, nullptr, zeta);
+        else {
+            const SimplexNodalBasis3D local(xpe, npe, porder);
+            local.evaluate(shape, nullptr, zeta);
+        }
         return;
     }
     EvaluateVolumeShapeAtReferencePoint(
@@ -101,7 +107,7 @@ inline void MapNonmatchingReferenceToPhysical(
     dstype* x, dstype* jacobian, dstype* shape, dstype* derivative,
     const dstype* zeta, const dstype* elementNodes, const dstype* xpe,
     Int nd, Int npe, Int elemtype, Int porder,
-    const SimplexNodalBasis2D* simplexBasis = nullptr)
+    const PolynomialNodalBasis* simplexBasis = nullptr)
 {
     EvaluateNonmatchingVolumeShapeAndGradients(
         shape, derivative, zeta, xpe, nd, npe, elemtype, porder, simplexBasis);
@@ -140,9 +146,19 @@ inline bool SolveScaleInvariantSmallSystem(
 
 inline void EvaluateFaceShapeAndGradients(
     dstype* psi, dstype* dpsi, const dstype* xi, const dstype* xpf,
-    Int nd, Int npf, Int elemtype, Int porder)
+    Int nd, Int npf, Int elemtype, Int porder,
+    const SurfaceNodalBasis* surfaceBasis = nullptr)
 {
     const Int ndf = nd - 1;
+    if (nd == 3) {
+        if (surfaceBasis != nullptr) {
+            surfaceBasis->evaluate(psi, dpsi, xi);
+            return;
+        }
+        const SurfaceNodalBasis local(xpf, npf, porder, elemtype);
+        local.evaluate(psi, dpsi, xi);
+        return;
+    }
     EvaluateVolumeShapeAndGradientsAtReferencePoint(
         psi, dpsi, xi, xpf, ndf, npf,
         FaceElementType(nd, elemtype), porder);
@@ -150,207 +166,31 @@ inline void EvaluateFaceShapeAndGradients(
 
 inline void EvaluateFaceShape(
     dstype* psi, const dstype* xi, const dstype* xpf,
-    Int nd, Int npf, Int elemtype, Int porder)
+    Int nd, Int npf, Int elemtype, Int porder,
+    const SurfaceNodalBasis* surfaceBasis = nullptr)
 {
+    if (nd == 3) {
+        if (surfaceBasis != nullptr) {
+            surfaceBasis->evaluate(psi, nullptr, xi);
+            return;
+        }
+        const SurfaceNodalBasis local(xpf, npf, porder, elemtype);
+        local.evaluate(psi, nullptr, xi);
+        return;
+    }
     EvaluateVolumeShapeAtReferencePoint(
         psi, xi, xpf, nd - 1, npf,
         FaceElementType(nd, elemtype), porder);
-}
-
-inline void MapReferenceFaceToPhysical(
-    dstype* x, dstype* tangent, dstype* psi, dstype* dpsi,
-    const dstype* xi, const dstype* faceNodes, const dstype* xpf,
-    Int nd, Int npf, Int elemtype, Int porder)
-{
-    const Int ndf = nd - 1;
-    EvaluateFaceShapeAndGradients(
-        psi, dpsi, xi, xpf, nd, npf, elemtype, porder);
-
-    for (Int d = 0; d < nd; ++d) x[d] = 0.0;
-    for (Int i = 0; i < nd * ndf; ++i) tangent[i] = 0.0;
-
-    for (Int a = 0; a < npf; ++a) {
-        for (Int d = 0; d < nd; ++d) {
-            const dstype ya = faceNodes[a + npf * d];
-            x[d] += psi[a] * ya;
-            for (Int k = 0; k < ndf; ++k)
-                tangent[d * ndf + k] += dpsi[k * npf + a] * ya;
-        }
-    }
-}
-
-inline bool PointInReferenceFace(const dstype* xi, Int nd, Int elemtype)
-{
-    if (nd == 2) return xi[0] >= 0.0 && xi[0] <= 1.0;
-    if (elemtype == 0)
-        return xi[0] >= 0.0 && xi[1] >= 0.0 && xi[0] + xi[1] <= 1.0;
-    return xi[0] >= 0.0 && xi[0] <= 1.0 && xi[1] >= 0.0 && xi[1] <= 1.0;
-}
-
-inline dstype MetricDistanceSquared(
-    const dstype* x, const dstype* y, const dstype* metric, Int n)
-{
-    dstype value = 0.0;
-    for (Int i = 0; i < n; ++i)
-        for (Int j = 0; j < n; ++j)
-            value += (x[i] - y[i]) * metric[i * n + j] * (x[j] - y[j]);
-    return value;
-}
-
-// Project y onto the reference face in the metric tangent^T*tangent, eq. (22).
-inline bool ProjectReferenceFaceMetric(
-    dstype* projected, const dstype* y, const dstype* metric,
-    Int nd, Int elemtype)
-{
-    if (projected == nullptr || y == nullptr || metric == nullptr ||
-        (nd != 2 && nd != 3))
-        return false;
-    const Int ndf = nd - 1;
-    dstype metricScale = 0.0;
-    for (Int i = 0; i < ndf * ndf; ++i)
-        metricScale = std::max(metricScale, std::abs(metric[i]));
-    if (!(metricScale > 0.0)) return false;
-
-    dstype scaledMetric[4] = {0.0};
-    for (Int i = 0; i < ndf * ndf; ++i)
-        scaledMetric[i] = metric[i] / metricScale;
-
-    if (ndf == 1) {
-        if (!(scaledMetric[0] > 0.0)) return false;
-        projected[0] = std::max(static_cast<dstype>(0.0),
-                                std::min(static_cast<dstype>(1.0), y[0]));
-        return true;
-    }
-    if (ndf != 2) return false;
-
-    const dstype det =
-        scaledMetric[0] * scaledMetric[3] - scaledMetric[1] * scaledMetric[2];
-    if (!(scaledMetric[0] > 0.0) ||
-        !(det > std::numeric_limits<dstype>::epsilon()))
-        return false;
-
-    if (PointInReferenceFace(y, nd, elemtype)) {
-        projected[0] = y[0];
-        projected[1] = y[1];
-        return true;
-    }
-
-    const dstype tri[6] = {0.0, 0.0, 1.0, 0.0, 0.0, 1.0};
-    const dstype quad[8] = {0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0};
-    const dstype* vertices = (elemtype == 0) ? tri : quad;
-    const Int nvertices = (elemtype == 0) ? 3 : 4;
-    dstype best = std::numeric_limits<dstype>::max();
-    bool found = false;
-
-    for (Int edge = 0; edge < nvertices; ++edge) {
-        const Int next = (edge + 1) % nvertices;
-        const dstype v0[2] = {vertices[2 * edge], vertices[2 * edge + 1]};
-        const dstype e[2] = {
-            vertices[2 * next] - v0[0], vertices[2 * next + 1] - v0[1]};
-        const dstype r[2] = {v0[0] - y[0], v0[1] - y[1]};
-        const dstype he[2] = {
-            scaledMetric[0] * e[0] + scaledMetric[1] * e[1],
-            scaledMetric[2] * e[0] + scaledMetric[3] * e[1]};
-        const dstype denom = e[0] * he[0] + e[1] * he[1];
-        if (!(denom > std::numeric_limits<dstype>::epsilon())) continue;
-
-        dstype t = -(r[0] * he[0] + r[1] * he[1]) / denom;
-        t = std::max(static_cast<dstype>(0.0),
-                     std::min(static_cast<dstype>(1.0), t));
-        const dstype candidate[2] = {v0[0] + t * e[0], v0[1] + t * e[1]};
-        const dstype value =
-            MetricDistanceSquared(candidate, y, scaledMetric, 2);
-        if (value < best) {
-            best = value;
-            found = true;
-            projected[0] = candidate[0];
-            projected[1] = candidate[1];
-        }
-    }
-    return found;
-}
-
-// Projected Gauss-Newton closest-point solve on a polynomial face, eqs. (21)-(22).
-inline bool ClosestPointOnFace(
-    dstype* xi, dstype* xbar, dstype* distance,
-    const dstype* x, const dstype* faceNodes, const dstype* xpf,
-    Int nd, Int npf, Int elemtype, Int porder,
-    Int maxIterations, dstype tolerance)
-{
-    if (xi == nullptr || xbar == nullptr || distance == nullptr || x == nullptr ||
-        faceNodes == nullptr || xpf == nullptr || (nd != 2 && nd != 3) ||
-        npf <= 0 || maxIterations <= 0 || tolerance <= 0.0)
-        return false;
-
-    const Int ndf = nd - 1;
-    xi[0] = (ndf == 1 || elemtype == 1) ? 0.5 : 1.0 / 3.0;
-    if (ndf == 2) xi[1] = (elemtype == 1) ? 0.5 : 1.0 / 3.0;
-
-    std::vector<dstype> psi(static_cast<size_t>(npf));
-    std::vector<dstype> dpsi(static_cast<size_t>(npf * ndf));
-    dstype tangent[6] = {0.0};
-    dstype residual[3] = {0.0};
-    dstype metric[4] = {0.0};
-    dstype gradient[2] = {0.0};
-    dstype delta[2] = {0.0};
-    dstype trial[2] = {0.0};
-    dstype projected[2] = {0.0};
-
-    for (Int iteration = 0; iteration < maxIterations; ++iteration) {
-        MapReferenceFaceToPhysical(
-            xbar, tangent, psi.data(), dpsi.data(), xi,
-            faceNodes, xpf, nd, npf, elemtype, porder);
-        for (Int d = 0; d < nd; ++d) residual[d] = xbar[d] - x[d];
-
-        for (Int i = 0; i < ndf; ++i) {
-            gradient[i] = 0.0;
-            for (Int j = 0; j < ndf; ++j) metric[i * ndf + j] = 0.0;
-            for (Int d = 0; d < nd; ++d) {
-                gradient[i] += tangent[d * ndf + i] * residual[d];
-                for (Int j = 0; j < ndf; ++j)
-                    metric[i * ndf + j] +=
-                        tangent[d * ndf + i] * tangent[d * ndf + j];
-            }
-        }
-
-        for (Int i = 0; i < ndf; ++i) gradient[i] = -gradient[i];
-        if (!SolveScaleInvariantSmallSystem(delta, metric, gradient, ndf))
-            return false;
-        for (Int i = 0; i < ndf; ++i) trial[i] = xi[i] + delta[i];
-        if (!ProjectReferenceFaceMetric(projected, trial, metric, nd, elemtype))
-            return false;
-
-        dstype step2 = 0.0;
-        for (Int i = 0; i < ndf; ++i) {
-            const dstype step = projected[i] - xi[i];
-            step2 += step * step;
-            xi[i] = projected[i];
-        }
-        if (std::sqrt(step2) <= tolerance) {
-            MapReferenceFaceToPhysical(
-                xbar, tangent, psi.data(), dpsi.data(), xi,
-                faceNodes, xpf, nd, npf, elemtype, porder);
-            for (Int d = 0; d < nd; ++d) residual[d] = xbar[d] - x[d];
-            *distance = std::sqrt(SquaredNorm(residual, nd));
-            return true;
-        }
-    }
-
-    MapReferenceFaceToPhysical(
-        xbar, tangent, psi.data(), dpsi.data(), xi,
-        faceNodes, xpf, nd, npf, elemtype, porder);
-    for (Int d = 0; d < nd; ++d) residual[d] = xbar[d] - x[d];
-    *distance = std::sqrt(SquaredNorm(residual, nd));
-    return false;
 }
 
 // chi_a: reference face -> face a of the reference element.
 inline void FaceToElementReference(
     dstype* zetaBar, dstype* psi, const dstype* xi,
     const dstype* xpe, const dstype* xpf, const Int* perm,
-    Int face, Int nd, Int npe, Int npf, Int elemtype, Int porder)
+    Int face, Int nd, Int npe, Int npf, Int elemtype, Int porder,
+    const SurfaceNodalBasis* surfaceBasis = nullptr)
 {
-    EvaluateFaceShape(psi, xi, xpf, nd, npf, elemtype, porder);
+    EvaluateFaceShape(psi, xi, xpf, nd, npf, elemtype, porder, surfaceBasis);
     for (Int d = 0; d < nd; ++d) {
         zetaBar[d] = 0.0;
         for (Int j = 0; j < npf; ++j) {
@@ -399,7 +239,7 @@ inline NewtonMapStatus NewtonInverseMap(
     Int nd, Int npe, Int elemtype, Int porder,
     Int maxIterations, dstype tolerance,
     bool project, dstype projectionMargin,
-    const SimplexNodalBasis2D* simplexBasis)
+    const PolynomialNodalBasis* simplexBasis)
 {
     std::vector<dstype> shape(static_cast<size_t>(npe));
     std::vector<dstype> dshape(static_cast<size_t>(npe * nd));
@@ -484,7 +324,7 @@ inline InverseMapStatus InverseElementMap(
     const dstype* initialGuess, Int nd, Int npe, Int elemtype, Int porder,
     Int maxNewtonIterations, Int maxProjectedIterations,
     dstype tolerance, dstype projectionMargin,
-    const SimplexNodalBasis2D* suppliedSimplexBasis = nullptr)
+    const PolynomialNodalBasis* suppliedSimplexBasis = nullptr)
 {
     if (zeta == nullptr || residualNorm == nullptr || x == nullptr ||
         elementNodes == nullptr || xpe == nullptr || initialGuess == nullptr ||
@@ -492,11 +332,18 @@ inline InverseMapStatus InverseElementMap(
         projectionMargin < 0.0)
         return InverseMapStatus::Failed;
 
-    SimplexNodalBasis2D localSimplexBasis;
-    const SimplexNodalBasis2D* simplexBasis = suppliedSimplexBasis;
+    SimplexNodalBasis2D localSimplexBasis2D;
+    SimplexNodalBasis3D localSimplexBasis3D;
+    const PolynomialNodalBasis* simplexBasis = suppliedSimplexBasis;
     if (UsesPolynomialSimplexBasis(nd, elemtype) && simplexBasis == nullptr) {
-        localSimplexBasis.initialize(xpe, npe, porder);
-        simplexBasis = &localSimplexBasis;
+        if (nd == 2) {
+            localSimplexBasis2D.initialize(xpe, npe, porder);
+            simplexBasis = &localSimplexBasis2D;
+        }
+        else {
+            localSimplexBasis3D.initialize(xpe, npe, porder);
+            simplexBasis = &localSimplexBasis3D;
+        }
     }
 
     for (Int d = 0; d < nd; ++d) zeta[d] = initialGuess[d];
@@ -522,67 +369,6 @@ inline InverseMapStatus InverseElementMap(
     return projected == NewtonMapStatus::Exact
         ? InverseMapStatus::ConvergedProjected
         : InverseMapStatus::ProjectedInexact;
-}
-
-inline GeometryPointStatus ComputeGeometryPointData(
-    dstype* xi, dstype* zeta, dstype* zetaBar, dstype* xbar,
-    dstype* phi, dstype* phiBar, dstype* psi, dstype* offset,
-    const dstype* x, const dstype* elementNodes,
-    const dstype* xpf, const dstype* xpe, const Int* perm,
-    Int face, Int nd, Int npe, Int npf, Int elemtype, Int porder,
-    Int maxProjectionIterations, Int maxNewtonIterations,
-    Int maxProjectedIterations, dstype projectionTolerance,
-    dstype inverseTolerance, dstype projectionMargin,
-    const SimplexNodalBasis2D* suppliedSimplexBasis = nullptr)
-{
-    GeometryPointStatus status;
-    if (xi == nullptr || zeta == nullptr || zetaBar == nullptr ||
-        xbar == nullptr || phi == nullptr || phiBar == nullptr ||
-        psi == nullptr || offset == nullptr || x == nullptr ||
-        elementNodes == nullptr || xpf == nullptr || xpe == nullptr ||
-        perm == nullptr || face < 0 || (nd != 2 && nd != 3) ||
-        npe <= 0 || npf <= 0)
-        return status;
-
-    // The donor-face geometry must use the element-local ordering selected by
-    // perm. Gathering it here prevents an independently ordered face array
-    // from making psi(xi) inconsistent with phibar(chi_a(xi)).
-    std::vector<dstype> faceNodes(static_cast<size_t>(npf * nd));
-    for (Int j = 0; j < npf; ++j) {
-        const Int node = perm[j + npf * face];
-        if (node < 0 || node >= npe) return status;
-        for (Int d = 0; d < nd; ++d)
-            faceNodes[j + npf * d] = elementNodes[node + npe * d];
-    }
-
-    status.projectionConverged = ClosestPointOnFace(
-        xi, xbar, &status.distance, x, faceNodes.data(), xpf,
-        nd, npf, elemtype, porder, maxProjectionIterations,
-        projectionTolerance);
-    if (!status.projectionConverged) return status;
-
-    FaceToElementReference(
-        zetaBar, psi, xi, xpe, xpf, perm, face,
-        nd, npe, npf, elemtype, porder);
-    dstype residualNorm = std::numeric_limits<dstype>::max();
-    SimplexNodalBasis2D localSimplexBasis;
-    const SimplexNodalBasis2D* simplexBasis = suppliedSimplexBasis;
-    if (UsesPolynomialSimplexBasis(nd, elemtype) && simplexBasis == nullptr) {
-        localSimplexBasis.initialize(xpe, npe, porder);
-        simplexBasis = &localSimplexBasis;
-    }
-    status.inverseStatus = InverseElementMap(
-        zeta, &residualNorm, x, elementNodes, xpe, zetaBar,
-        nd, npe, elemtype, porder, maxNewtonIterations,
-        maxProjectedIterations, inverseTolerance, projectionMargin, simplexBasis);
-    if (status.inverseStatus == InverseMapStatus::Failed) return status;
-
-    EvaluateNonmatchingVolumeShape(
-        phi, zeta, xpe, nd, npe, elemtype, porder, simplexBasis);
-    EvaluateNonmatchingVolumeShape(
-        phiBar, zetaBar, xpe, nd, npe, elemtype, porder, simplexBasis);
-    for (Int d = 0; d < nd; ++d) offset[d] = x[d] - xbar[d]; // eq. (23)
-    return status;
 }
 
 } // namespace nonmatching

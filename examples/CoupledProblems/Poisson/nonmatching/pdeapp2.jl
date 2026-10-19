@@ -1,6 +1,6 @@
 # Model 2 of the non-matching coupled Poisson example: [0.5,1] x [0,1], 12 x 24
 # quadrilaterals, so the two interface discretizations do not match (h ratio 3:2).
-# Included by pdeapp.jl, which loads Exasim and coupledpoisson.jl (squaremesh).
+# Included by pdeapp.jl, which loads Exasim and defines squaremesh.
 pde[2], mesh[2] = Exasim.initializeexasim();
 
 pde[2].model = "ModelD";

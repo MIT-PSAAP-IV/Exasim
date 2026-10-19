@@ -101,7 +101,13 @@ xc(:,2) = min( 0.99999999, xc(:,2)); % avoid singularity
 
 e(:,1) = 2*(1+xc(:,1))./(1-xc(:,2))-1;
 e(:,2) = xc(:,2);
-ii = find(x(:,2) == 1);
+% The collapsed vertex y = 1 is detected with a tolerance because stored
+% master nodes carry roundoff (e.g. 0.9999999999999999 for a tet face vertex).
+vtol = 64*eps;
+ii = find(x(:,2) > 0.99999999 & x(:,2) < 1-vtol);
+e(ii,1) = 2*(1+x(ii,1))./(1-x(ii,2))-1;
+e(ii,2) = x(ii,2);
+ii = find(x(:,2) >= 1-vtol);
 % Correct values for function evaluation
 e(ii,1) = -1;
 e(ii,2) =  1;

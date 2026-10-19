@@ -125,6 +125,66 @@ inline void verify_existing_array(const char* name, const I rank, const I* store
     }
 }
 
+// For local interface face k, perFace[n + npf*k] is the peer node matching
+// local node n. Conformal interfaces normally share one permutation; retain
+// one block per mesh.intfaces[k] only when face orientations differ.
+template <class I>
+inline std::vector<I> select_faceperm_layout(const std::vector<I>& perFace,
+        const I npf, const I nfaces)
+{
+    if (nfaces == 0)
+        return {};
+    if (npf <= 0 || perFace.size() != static_cast<std::size_t>(npf) *
+            static_cast<std::size_t>(nfaces))
+        error("runtime interface partition has an invalid per-face permutation extent");
+
+    bool uniform = true;
+    for (I k = 1; k < nfaces && uniform; k++)
+        for (I n = 0; n < npf; n++)
+            if (perFace[static_cast<std::size_t>(n + npf * k)] !=
+                    perFace[static_cast<std::size_t>(n)]) {
+                uniform = false;
+                break;
+            }
+
+    if (!uniform)
+        return perFace;
+    return std::vector<I>(perFace.begin(), perFace.begin() + npf);
+}
+
+template <class I>
+inline void verify_existing_faceperm(const I rank, const I* stored,
+        const I storedSize, const std::vector<I>& perFace, const I npf,
+        const I nfaces)
+{
+    if (storedSize == 0)
+        return;
+    if (stored == nullptr)
+        error("runtime interface partition reference array is null: mesh.faceperm");
+
+    const I expandedSize = npf * nfaces;
+    if (storedSize != npf && storedSize != expandedSize) {
+        std::ostringstream oss;
+        oss << "runtime interface partition size mismatch for mesh.faceperm on rank "
+            << rank << ": stored size = " << storedSize
+            << ", expected " << npf << " or " << expandedSize;
+        error(oss.str());
+    }
+
+    // Legacy files contain only the first/common permutation. Geometry decides
+    // whether the runtime representation must expand for later faces.
+    const I compareSize = (storedSize == npf) ? npf : expandedSize;
+    for (I i = 0; i < compareSize; i++) {
+        if (stored[i] != perFace[static_cast<std::size_t>(i)]) {
+            std::ostringstream oss;
+            oss << "runtime interface partition value mismatch for mesh.faceperm on rank "
+                << rank << " at index " << i << ": stored = " << stored[i]
+                << ", generated = " << perFace[static_cast<std::size_t>(i)];
+            error(oss.str());
+        }
+    }
+}
+
 template <class I>
 inline void replace_mesh_array(I*& ptr, I& sizeField, I* nsize, const I slot,
         const std::vector<I>& values)
@@ -205,7 +265,7 @@ inline void build_runtime_interface_partition(appstructT<T, I>& app,
 
     // [nonmatching] interfacetype = app.problem[34] (0: conformal, 1: non-matching) must agree on all
     // ranks of both models, otherwise the exact match below would run on some ranks only and hang.
-    // With 1 the exact match is skipped: the donor search (nonmatchingsetup.hpp) runs after this call.
+    // With 1 the exact match is skipped: nonmatchingpreprocess.hpp runs the donor search afterward.
     { // [nonmatching]
         const I itype = (app.nsize[2] > 34) ? app.problem[34] : 0; // [nonmatching]
         I ext[2] = {itype, -itype}, gext[2] = {0, 0}; // [nonmatching]
@@ -275,8 +335,8 @@ inline void build_runtime_interface_partition(appstructT<T, I>& app,
             allCoords.data(), coordCounts.data(), coordDispls.data(), mpi_type<T>(), EXASIM_COMM_WORLD);
 
     std::map<I, std::vector<std::pair<I, I>>> peerFaces;
-    std::vector<I> generatedFaceperm;
-    bool haveFaceperm = false;
+    std::vector<I> perFaceperm;
+    perFaceperm.reserve(static_cast<std::size_t>(npf) * static_cast<std::size_t>(nlocal));
 
     for (I i = 0; i < nlocal; i++) {
         const auto& local = localFaces[static_cast<std::size_t>(i)];
@@ -351,16 +411,7 @@ inline void build_runtime_interface_partition(appstructT<T, I>& app,
             thisFaceperm[static_cast<std::size_t>(n)] = matchNode;
         }
 
-        if (!haveFaceperm) {
-            generatedFaceperm = thisFaceperm;
-            haveFaceperm = true;
-        }
-        else if (generatedFaceperm != thisFaceperm) {
-            std::ostringstream oss;
-            oss << "inconsistent coupled interface face permutation on rank " << mpirank
-                << ", local face " << local.localFace;
-            error(oss.str());
-        }
+        perFaceperm.insert(perFaceperm.end(), thisFaceperm.begin(), thisFaceperm.end());
 
         // The MATLAB reference orders both domains by the lower-fileoffset side's face ordinal.
         // That canonical key preserves the same send/receive face order on both sides.
@@ -384,7 +435,8 @@ inline void build_runtime_interface_partition(appstructT<T, I>& app,
 
     require_mesh_nsize_slots(mesh, static_cast<I>(45));
 
-    verify_existing_array("mesh.faceperm", mpirank, mesh.faceperm, mesh.szfaceperm, generatedFaceperm);
+    verify_existing_faceperm(mpirank, mesh.faceperm, mesh.szfaceperm, perFaceperm, npf, nlocal);
+    const std::vector<I> generatedFaceperm = select_faceperm_layout(perFaceperm, npf, nlocal);
     verify_existing_array("mesh.nbintf", mpirank, mesh.nbintf, mesh.sznbintf, generatedNbintf);
     verify_existing_array("mesh.facesend", mpirank, mesh.facesend, mesh.szfacesend, generatedFaces);
     verify_existing_array("mesh.facesendpts", mpirank, mesh.facesendpts, mesh.szfacesendpts, generatedPts);

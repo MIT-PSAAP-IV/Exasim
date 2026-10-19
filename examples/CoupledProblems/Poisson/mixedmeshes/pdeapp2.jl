@@ -1,5 +1,5 @@
 # Model 2 of the mixed triangle/quadrilateral Poisson example.
-# Included by pdeapp.jl, which loads Exasim and coupledpoisson.jl (squaremesh).
+# Included by pdeapp.jl, which loads Exasim and defines squaremesh.
 pde[2], mesh[2] = Exasim.initializeexasim();
 
 pde[2].model = "ModelD";

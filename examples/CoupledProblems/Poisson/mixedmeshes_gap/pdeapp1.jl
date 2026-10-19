@@ -1,5 +1,5 @@
 # Model 1: [0,0.5-gap/2] x [0,1].
-# Included by pdeapp.jl, which loads Exasim and coupledpoisson.jl (squaremesh).
+# Included by pdeapp.jl, which loads Exasim and defines squaremesh.
 pde[1], mesh[1] = Exasim.initializeexasim();
 
 pde[1].model = "ModelD";

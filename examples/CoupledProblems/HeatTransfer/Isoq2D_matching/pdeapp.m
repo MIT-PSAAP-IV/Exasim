@@ -33,10 +33,10 @@ pde{1}.AVdistfunction = 0;
 pde{1}.AVsmoothingMethod = 0;
 pde{1}.AV = 0;
 pde{1}.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf Tinf Tref Twall ...
-                       AVmaxdiv AVdistcoeff 0 1.5*fluidPde.AVcoeffEnd];
+                       AVmaxdiv AVdistcoeff 0 fluidPde.AVcoeffEnd];
 
-pde{1}.NLiter = 20;
-pde{2}.NLiter = 20;
+pde{1}.NLiter = 5;
+pde{2}.NLiter = 5;
 pde{2}.NLtol = pde{1}.NLtol;
 
 mesh{2}.boundarycondition = [3;2;1];

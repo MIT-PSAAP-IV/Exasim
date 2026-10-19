@@ -56,7 +56,7 @@ inline FaceMasterCompatibility<T, I> check_face_master_compatibility(
                   mpi_type<I>(), ic.comm);
     ic.collective();
 
-    const I nd = mine[1], porder = mine[3], pgauss = mine[4];
+    const I nd = mine[1], ndf = nd - 1, porder = mine[3], pgauss = mine[4];
     const I npf = mine[6], ngf = mine[8];
     bool incompatible = (model != 0 && model != 1) || npf < 1 || ngf < 1;
     int representative[2] = {-1, -1};
@@ -87,13 +87,12 @@ inline FaceMasterCompatibility<T, I> check_face_master_compatibility(
         error("non-matching interface: incompatible face spaces; both models must use the same "
               "nd, porder, pgauss, npf, ngf, gpf and gwf (elemtype, npe, nfe and xpf may differ)");
 
-    const int nreal = static_cast<int>(npf + 2 * ngf);
+    const int nreal = static_cast<int>(ndf * npf + ndf * ngf + ngf);
     std::vector<T> mineReal(static_cast<std::size_t>(nreal));
-    for (I j = 0; j < npf; ++j) mineReal[j] = master.xpf[j];
-    for (I g = 0; g < ngf; ++g) {
-        mineReal[npf + g] = master.gpf[g];
-        mineReal[npf + ngf + g] = master.gwf[g];
-    }
+    for (I j = 0; j < ndf * npf; ++j) mineReal[j] = master.xpf[j];
+    for (I g = 0; g < ndf * ngf; ++g) mineReal[ndf * npf + g] = master.gpf[g];
+    for (I g = 0; g < ngf; ++g)
+        mineReal[ndf * (npf + ngf) + g] = master.gwf[g];
     std::vector<T> allReal(static_cast<std::size_t>(nreal) * ic.size);
     MPI_Allgather(mineReal.data(), nreal, mpi_type<T>(), allReal.data(), nreal,
                   mpi_type<T>(), ic.comm);
@@ -104,20 +103,25 @@ inline FaceMasterCompatibility<T, I> check_face_master_compatibility(
         const int r = representative[qmodel];
         const T* a = &allReal[static_cast<std::size_t>(nreal) * q];
         const T* b = &allReal[static_cast<std::size_t>(nreal) * r];
-        for (I j = 0; j < npf; ++j)
+        for (I j = 0; j < ndf * npf; ++j)
             if (!face_master_value_equal(a[j], b[j])) incompatible = true;
+        for (I g = 0; g < ndf * ngf; ++g)
+            if (!face_master_value_equal(a[ndf * npf + g], b[ndf * npf + g]))
+                incompatible = true;
         for (I g = 0; g < ngf; ++g)
-            if (!face_master_value_equal(a[npf + g], b[npf + g]) ||
-                !face_master_value_equal(a[npf + ngf + g], b[npf + ngf + g]))
+            if (!face_master_value_equal(
+                    a[ndf * (npf + ngf) + g], b[ndf * (npf + ngf) + g]))
                 incompatible = true;
     }
     const T* rule0 = &allReal[static_cast<std::size_t>(nreal) * representative[0]];
     const T* rule1 = &allReal[static_cast<std::size_t>(nreal) * representative[1]];
-    for (I g = 0; g < ngf; ++g) {
-        if (!face_master_value_equal(rule0[npf + g], rule1[npf + g]) ||
-            !face_master_value_equal(rule0[npf + ngf + g], rule1[npf + ngf + g]))
+    for (I g = 0; g < ndf * ngf; ++g)
+        if (!face_master_value_equal(rule0[ndf * npf + g], rule1[ndf * npf + g]))
             incompatible = true;
-    }
+    for (I g = 0; g < ngf; ++g)
+        if (!face_master_value_equal(
+                rule0[ndf * (npf + ngf) + g], rule1[ndf * (npf + ngf) + g]))
+            incompatible = true;
     if (incompatible)
         error("non-matching interface: incompatible face spaces; both models must use the same "
               "nd, porder, pgauss, npf, ngf, gpf and gwf (elemtype, npe, nfe and xpf may differ)");
@@ -130,7 +134,7 @@ inline FaceMasterCompatibility<T, I> check_face_master_compatibility(
         out.model[k].elemtype = m[2];
         out.model[k].porder = m[3];
         out.model[k].npf = m[6];
-        out.model[k].xpf.assign(values, values + npf);
+        out.model[k].xpf.assign(values, values + ndf * npf);
     }
     out.mixedFamily = out.model[0].elemtype != out.model[1].elemtype ? 1 : 0;
     return out;
