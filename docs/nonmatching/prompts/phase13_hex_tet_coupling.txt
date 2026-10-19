@@ -1,0 +1,569 @@
+PROMPT 13: THREE-DIMENSIONAL HEXAHEDRON-TETRAHEDRON COUPLING
+Assigned implementing agent: maintainer-assigned
+Reviewer: the other agent
+Prerequisites: Phases 11 and 12 APPROVED
+
+This phase extends the type-1 non-matching interface solver in three spatial
+dimensions from same-family tet/tet and hex/hex coupling to mixed-topology
+coupling in both directions:
+
+    tetrahedron owner -> hexahedron donor
+    hexahedron owner   -> tetrahedron donor
+
+Phase 14 performs portable CPU/GPU runtime consolidation and optimization
+after this capability is approved. Phase 15 adds mixed polynomial orders.
+Do not fold either later phase into this one.
+
+Hex-tet support is not obtained by deleting the current compatibility check.
+A triangular tetrahedral face and a quadrilateral hexahedral face have
+different nodal spaces, quadrature rules and point counts. At equal order p,
+
+    tet face nodes: (p+1)(p+2)/2
+    hex face nodes: (p+1)^2.
+
+The coupling matrices are therefore rectangular in their face dimensions.
+The owner test-space dimension determines residual rows and MPI block sizes;
+the donor trace-space dimension determines interpolation and matrix columns.
+Every implementation and test in this phase must preserve that distinction.
+
+Do not start implementation until the maintainer approves a written Phase 13
+plan.
+
+===============================================================================
+1. READ FIRST, IN THIS ORDER
+===============================================================================
+
+1. `AGENTS.md`, especially the HDG, column-major layout, MPI, GPU, numerical
+   stability and verification requirements.
+2. `docs/nonmatching/MASTER_PROMPT.md`. Apply its Git, plan-first, testing,
+   reporting, review and stopping rules, except where a later maintainer
+   amendment explicitly supersedes them.
+3. `docs/nonmatching/PROGRESS.md`. Record the active branch and HEAD. Do not
+   rewrite historical phase results.
+4. `docs/nonmatching/nonmatching_multiphysics.tex`, especially the owner test
+   functions, donor interpolation, trace correction, static condensation,
+   compact communication and both coupling directions.
+5. `docs/nonmatching/multistart_donor_search.tex`. Preserve the approved
+   Phase-12 search equations, deterministic starts and tie rule.
+6. The Phase 10 mixed triangle/quad prompt, report and review. Reuse its
+   role-specific master-data and transported-owner-test design, but do not
+   assume its equal edge dimensions remain true on 3D surface faces.
+7. The Phase 11 3D prompt, plan, amendments, report and review, especially:
+   - triangular and quadrilateral surface bases;
+   - all tetrahedral and hexahedral face orientations;
+   - expanded `faceperm` for tetrahedral interfaces;
+   - 3D owner geometry and D6/D7 records;
+   - OUTSIDE extrapolation and curved-surface projection;
+   - the deferred surface common-refinement limitation; and
+   - the established tet/tet and hex/hex convergence baselines.
+8. The Phase 12 prompt, mathematical design, report and review, emphasizing
+   the consolidated host preprocessing, prepared faces, multi-start search,
+   scalable D1-D5 routing and current component boundaries.
+9. Inspect the current implementation rather than relying on historical line
+   numbers:
+   - `backend/Discretization/nonmatchinginterface.hpp` (frozen);
+   - `nonmatchingmastercompatibility.hpp`;
+   - `nonmatchingsimplexbasis.hpp` and `nonmatchinggeometry.hpp`;
+   - `nonmatchingpreprocessgeometry.hpp`,
+     `nonmatchingpreprocesssearch.hpp`, `nonmatchingpreprocessmpi.hpp` and
+     `nonmatchingpreprocess.hpp`;
+   - `nonmatchingruntime.hpp`, `nonmatchingruntimekernels.hpp` and
+     `nonmatchingcoupling.hpp`;
+   - interface partitioning, residual, assembly, condensation, matvec and
+     preconditioner call sites;
+   - all unit and MPI non-matching tests; and
+   - the Phase-11 3D coupled examples and frontend harnesses.
+
+===============================================================================
+2. ESTABLISHED BASELINE AND CURRENT LIMITATION
+===============================================================================
+
+B1. The accepted CPU implementation supports tet/tet and hex/hex for
+`1 <= porder <= 4`. Preserve these paths and their numerical results.
+
+B2. The active GPU path is not validated for type 1. Preserve the existing
+uniform CUDA/HIP rejection. Host-only success is not GPU validation.
+
+B3. Phase 12 preprocessing already represents prepared triangular and square
+surface patches and can search either face family. Reuse those geometry,
+projection, bounding and MPI-routing implementations. Do not add a second
+donor-search algorithm for mixed topology.
+
+B4. The current cross-model face-space compatibility check requires equal
+`porder`, `pgauss`, `npf`, `ngf`, `gpf` and `gwf`. That is valid for the
+accepted same-family path but necessarily rejects tet/hex because triangle and
+square face spaces have different `npf`, generally different `ngf`, and
+different quadrature coordinates and weights.
+
+B5. The frozen `nonmatchinginterface.hpp` uses one `npf` in two roles:
+
+    owner residual/test rows and communication block extent;
+    donor face interpolation nodes and trace-matrix columns.
+
+Those values are equal for the currently accepted cases. They are unequal for
+hex-tet. Merely treating the field as one role on one rank and another role on
+another rank would cause incorrect allocation, indexing, BLAS dimensions or
+MPI counts.
+
+B6. The Phase-10 owner-test sidecar stores owner test values at transported
+owner points. This is the correct starting point, but its current extent and
+runtime kernels still assume `ownerNpf == donorNpf`. Mixed 3D topology needs
+explicit dimensions throughout setup, runtime, matrix assembly and exchange.
+
+B7. A direction uses the owner's surface quadrature. Cross-model equality of
+`gpf`, `gwf` and `ngf` is not mathematically required when owner point
+geometry, weights and test values are transported to the donor. Within each
+model, however, all interface ranks must agree on that model's master data.
+
+B8. The accepted 3D implementation has no surface common refinement. When an
+owner face crosses donor-face boundaries, donor-returned flux data can be
+piecewise across one owner rule and convergence order may be lost. Hex-tet
+coupling inherits this limitation. Do not weaken convergence tolerances or
+claim general optimal rates without addressing it in a separately approved
+design.
+
+===============================================================================
+3. GOAL AND SUPPORTED SCOPE
+===============================================================================
+
+Support type-1 (`interfacetype == 1`) coupling in `nd == 3` for both ordered
+family pairs:
+
+    (owner=tet, donor=hex)
+    (owner=hex, donor=tet)
+
+with `1 <= porder <= 4`, equal polynomial order between the two models, one
+volume-element family per model and independent non-matching meshes and MPI
+partitions.
+
+Required capability:
+
+- affine and curved triangular/quadrilateral interface faces;
+- coincident interfaces, finite gaps/overlaps and valid OUTSIDE
+  extrapolation;
+- all valid tetrahedral and hexahedral face orientations generated by Exasim;
+- independent owner and donor face-node counts and face quadrature rules;
+- q-present and q-absent models, `ncw > 0`, nonlinear coupling and
+  `ncu >= 2`;
+- residual-only, Jacobian, static condensation, production matvec,
+  preconditioner and nonlinear-solve paths;
+- compact donor-to-owner communication with correct rectangular block sizes;
+- both coupling directions through the same role-explicit implementation; and
+- transactional, re-entrant rebuilds after mesh motion or changed interface
+  counts.
+
+Out of scope without a separately approved amendment:
+
+- mixed polynomial orders between models;
+- spatial p-adaptivity or mixed volume families inside one model;
+- prisms, pyramids or other face topologies;
+- a mortar method or a change to the coupling equations;
+- 3D surface common refinement;
+- changes to generated FintDriver/model ABIs;
+- changes to conformal (`interfacetype == 0`) behavior;
+- enabling or claiming CUDA/HIP support; and
+- unrelated solver, frontend or mesh refactoring.
+
+===============================================================================
+4. BINDING DESIGN CONTRACTS
+===============================================================================
+
+C1. Frozen-header decision is a plan gate
+-----------------------------------------
+
+`backend/Discretization/nonmatchinginterface.hpp` is frozen. Its accepted MD5
+is currently:
+
+    3b96361d63573626b1a7aa2f69f49c23
+
+The recommended design is a separately owned heterogeneous-face sidecar and
+runtime mirror that carry explicit owner and donor dimensions while leaving
+the frozen object and all same-family behavior unchanged. The plan must prove
+that every mixed-topology allocation, loop, BLAS call and MPI count obtains
+its dimension from the correct role.
+
+Use names equivalent to:
+
+    ownerPorder, ownerNpf, ownerPgauss, ownerNgf
+    donorPorder, donorNpe, donorNpf, donorNfe
+
+Do not silently reinterpret a frozen field, overload one field with two
+meanings, or rely on equal integer values in tests. If the sidecar cannot
+represent the required state cleanly, stop after the plan and propose a
+reviewed frozen-header amendment with exact layouts, ownership, ABI impact,
+rebuild/free behavior and migration consequences. Do not edit the header
+without explicit maintainer approval.
+
+C2. Rectangular algebra and layouts
+-----------------------------------
+
+For one owner-to-donor direction, define:
+
+    ro = ncu12 * ownerNpf
+    cd = donorNcu * donorNpf * donorNfe.
+
+Required logical layouts are:
+
+    Ri:      [ncu12 x ownerNpf x nslots]
+    Hi:      [ro x cd x npairs]
+    sendbuf: [ncu12 x ownerNpf x nslots]
+    recvbuf: [ncu12 x ownerNpf x receivedBlocks]
+
+The uncondensed K/G/H workspaces and the Schur/condensation operations must
+likewise distinguish owner test rows from donor volume/trace columns. Add
+non-matching-specific rectangular helpers if generic HDG helpers assume one
+`npf`. Do not change generic conformal helpers or their arithmetic order.
+
+Column-major indexing and zero-based indices remain mandatory. Every product
+used to form an allocation size or MPI count must be overflow-checked before
+conversion to `Int`, `size_t`, BLAS integer types or MPI `int` counts.
+
+C3. Owner quadrature is direction-specific
+------------------------------------------
+
+Each direction is integrated with that direction's owner-face quadrature:
+
+- tet owner: the tetrahedral model's triangular-face rule;
+- hex owner: the hexahedral model's quadrilateral-face rule.
+
+The models do not need equal `ngf`, `gpf`, `gwf` or `npf`. The compatibility
+protocol must instead:
+
+1. collectively verify `nd == 3` and the approved equal-order contract;
+2. verify that all interface ranks of each model agree with that model's
+   representative master, including `elemtype`, `porder`, `pgauss`, `npe`,
+   `npf`, `nfe`, `ngf`, `xpf`, `gpf` and `gwf` as applicable;
+3. allow exactly tet/hex, hex/tet, tet/tet and hex/hex under this phase;
+4. reject unsupported families, mixed orders, malformed rules and per-rank
+   inconsistencies uniformly after the required collectives; and
+5. return role-specific descriptors rather than a falsely common face space.
+
+The same-family path should retain its accepted fast/bitwise path. Mixed
+topology must use the role-explicit path even if two dimensions happen to
+coincide at a low order.
+
+C4. Owner test values travel with owner points
+----------------------------------------------
+
+For mixed topology, donor ranks must never evaluate owner test functions using
+the donor's `master.shapfgt`. D6 or an equivalent approved setup record must
+provide, for every owner quadrature point:
+
+- physical coordinate;
+- owner outward normal;
+- owner quadrature weight times surface Jacobian;
+- all `ownerNpf` owner test-function values;
+- owner quadrature-point identity and deterministic face/point ordering; and
+- donor-face reference coordinate and tuple as already required.
+
+Store owner test values node-first:
+
+    ptest[i + ownerNpf*p],  0 <= i < ownerNpf.
+
+The plan must state message extents, packing order, ownership, host/device
+mirroring, capacity reuse and teardown behavior. A missing or inconsistent
+`ptest` for mixed topology is a setup error, not a reason to fall back to the
+donor master.
+
+C5. Donor bases remain donor-local
+----------------------------------
+
+Evaluate `ppsi`, `pphi`, `pphibar` and `pdphibar` from the donor model's face
+and volume masters:
+
+    ppsi:     [donorNpf x npts]
+    pphi:     [donorNpe x npts]
+    pphibar:  [donorNpe x npts]
+    pdphibar: [donorNpe x nd x npts], when required.
+
+Use triangular polynomial bases for tetrahedral faces/volumes and tensor
+bases for hexahedral faces/volumes exactly as in the accepted Phase-11/12
+implementation. Do not map triangle coordinates into a square or split a
+quadrilateral into triangles merely to reuse an evaluator.
+
+C6. Geometry, projection and search
+-----------------------------------
+
+Use the existing prepared-face, multi-start projection and scalable D1-D5
+search. The donor family determines the reference domain and projection:
+
+- triangle for a tetrahedral donor;
+- square for a hexahedral donor.
+
+The owner family affects only construction of owner quadrature geometry and
+test values. The deterministic global donor-face tie rule and partition
+independence remain unchanged. OUTSIDE status remains valid polynomial
+extrapolation; do not clamp volume reference coordinates or change the
+approved projected-inverse fallback.
+
+C7. MPI communication and deterministic assembly
+-------------------------------------------------
+
+The donor sends `ncu12 * ownerNpf` scalars for every slot. The owner posts the
+same count using its local owner descriptor. Setup must collectively validate
+the two ends' block metadata before runtime communication begins.
+
+Preserve:
+
+- compact neighbor lists and established tags;
+- strictly ordered neighbors, slots and owner faces;
+- deterministic owner assembly without atomics that alter summation order;
+- no world-wide collective in residual/Jacobian/matvec iterations;
+- capacity-based request storage and transactional rebuild; and
+- the production GPU-aware-MPI convention, while active type 1 remains
+  rejected on GPU in this phase.
+
+C8. HDG structure and signs
+---------------------------
+
+Preserve element-local residual/Jacobian assembly, static condensation, the
+global trace system and element recovery. Do not change interface-flux signs,
+normal conventions, `interfacefluxmap`, generated model calls, or owner
+scatter semantics. The only intended algebraic extension is from square
+same-face blocks to rectangular owner-test/donor-trace blocks.
+
+C9. Failure behavior
+--------------------
+
+Every setup failure that can be detected on only a subset of interface ranks
+must be converted into one rank-uniform diagnostic after all participating
+ranks have completed matching collectives. Required negative cases include:
+
+- mixed polynomial orders;
+- unsupported element or face families;
+- inconsistent per-model masters across ranks;
+- invalid or nonpositive quadrature/Jacobian data;
+- owner/donor metadata or message-count mismatch;
+- sidecar allocation overflow; and
+- unavailable owner test data.
+
+No negative test may hang.
+
+===============================================================================
+5. PLAN-FIRST REQUIREMENT
+===============================================================================
+
+Before production edits, write
+`docs/nonmatching/reports/phase13_hex_tet_plan.md`. It must contain:
+
+1. the current and proposed call graph for setup, residual, Jacobian,
+   condensation, matvec, exchange and owner assembly;
+2. a table classifying every `porder`, `pgauss`, `npe`, `npf`, `nfe`, `ngf`,
+   `xpe`, `xpf`, `gpf`, `gwf`, `shapfgt` and `perm` use as owner, donor,
+   direction-specific or truly shared;
+3. old and new layouts, dimensions, strides and checked-size formulas;
+4. exact files/functions to change and why each change is necessary;
+5. sidecar ownership, allocation, runtime mirror, rebuild and teardown design;
+6. D6/D7 and runtime MPI record/count changes;
+7. the rectangular condensation and matvec derivation;
+8. compatibility and rank-uniform failure protocol;
+9. preservation strategy for tet/tet, hex/hex, 2D and disabled/type-0 paths;
+10. CPU test matrix, independent references and fixed acceptance thresholds;
+11. numerical risks: quadrature, conditioning, OUTSIDE extrapolation,
+    orientation, conservation and missing surface common refinement;
+12. memory-safety and performance-sanity checks; and
+13. rollback boundaries.
+
+Set the track to `IN PROGRESS - PLAN AWAITING GO`, present the plan and wait
+for explicit maintainer approval before editing production code.
+
+===============================================================================
+6. ORDERED IMPLEMENTATION WORK
+===============================================================================
+
+After plan approval:
+
+1. Add focused descriptor/compatibility tests that fail on the current tree
+   for the intended reason. Establish same-family checksums and solver
+   histories before changing production code.
+2. Introduce explicit owner/donor face descriptors and sidecar lifecycle.
+   Verify setup allocation, rebuild and teardown before modifying kernels.
+3. Generalize D6/D7 packing and owner-test transport. Verify exact point,
+   normal, weight, test-value and tuple reconstruction in both directions.
+4. Generalize host residual/Jacobian and rectangular condensation one kernel
+   group at a time. Compare each intermediate array with an independent dense
+   reference before proceeding.
+5. Generalize runtime/Kokkos CPU kernels and mirrors. Equal-family arithmetic
+   must remain on its accepted path.
+6. Generalize compact exchange, matvec and owner assembly using owner block
+   extents. Test unequal and asymmetric rank partitions.
+7. Integrate full nonlinear solves and canonical examples only after operator
+   tests pass.
+8. Remove obsolete rejection or compatibility branches only after every
+   caller uses validated role-specific metadata. Do not remove guards that
+   protect still-unsupported mixed order or GPU execution.
+
+===============================================================================
+7. REQUIRED VERIFICATION
+===============================================================================
+
+V1. Compatibility and layout unit tests
+---------------------------------------
+
+Test tet/tet, hex/hex, tet-owner/hex-donor and hex-owner/tet-donor for
+`p=1,...,4`. For every mixed case verify the analytic face sizes above and
+assert that owner-row and donor-column dimensions differ where expected.
+
+Test rank-uniform rejection of mixed order, invalid element family,
+inconsistent same-model rank metadata, malformed quadrature and message-count
+mismatch. Use timeouts so a collective mismatch is reported as a failure.
+
+V2. Basis, geometry and search
+------------------------------
+
+For each direction and `p=1,...,4`, verify:
+
+- partition of unity and nodal reproduction for owner tests and donor bases;
+- analytic planar triangle-to-square and square-to-triangle closest points;
+- edge, vertex, interior, gap/overlap and valid OUTSIDE cases;
+- curved patches against an independent dense-sampling/local-refinement
+  reference;
+- all valid face orientations; and
+- identical donor tuples and reference coordinates across 2, 4 and 8 total
+  ranks, including asymmetric model splits.
+
+V3. Independent operator tests
+------------------------------
+
+Construct a small deterministic fixture with unequal `ownerNpf` and
+`donorNpf`. Independently form owner test weights, donor interpolation,
+uncondensed residual/Jacobian blocks, rectangular Schur complement, condensed
+`Ri/Hi`, matvec products and owner scatter. Compare every intermediate array,
+not only the final solution.
+
+Cover both directions, q-present/q-absent, `ncw > 0`, nonlinear `ncu >= 2`,
+duplicate flux-map targets and at least one multi-element donor slot. Include
+finite-difference or complex-step Jacobian verification where the model and
+build permit it.
+
+V4. MPI tests
+-------------
+
+Run setup, residual/Jacobian, compact exchange and production matvec at 2, 4
+and 8 ranks, including supported asymmetric splits such as 1+3 and 3+1.
+Verify:
+
+- exact send/receive count agreement;
+- deterministic face/slot/pair ordering;
+- partition-independent owner residuals and final solutions;
+- changed-count rebuild followed by every runtime operation; and
+- no global runtime collectives or unmatched requests.
+
+V5. Manufactured full solves and convergence
+---------------------------------------------
+
+Add a canonical split-domain 3D Poisson problem with a planar interface and a
+smooth analytic solution. Provide both physical orderings:
+
+    model 1 tet / model 2 hex
+    model 1 hex / model 2 tet.
+
+Use nested or aligned interface families for the normative convergence gate
+so owner quadrature faces do not cross donor-face discontinuities in the
+flux-returning direction. For `p=1,...,4`, compare errors and rates with
+single-family Phase-11 baselines and a suitable analytic or independently
+assembled reference. Declare thresholds in the plan before running tests.
+
+Run at least one non-nested crossing-family sequence as a diagnostic. Report
+the measured rates without weakening the normative gate; attribute any order
+loss only after separating the known missing-common-refinement effect from
+layout, quadrature and search errors.
+
+Check interface conservation by comparing equal-and-opposite integrated
+coupling contributions to a scale-aware tolerance.
+
+V6. Regression and memory safety
+--------------------------------
+
+Re-run focused 2D mixed-family, 3D tet/tet and 3D hex/hex setup, operator,
+matvec, orientation, rebuild and full-solve tests. Preserve accepted
+checksums/solver histories where they are required to be bitwise, otherwise
+use the predeclared roundoff-scaled tolerance.
+
+Run the focused C++ tests under AddressSanitizer and UndefinedBehaviorSanitizer
+when the supported toolchain permits. Exercise p=1 and p=4, empty-interface
+ranks, zero local donor faces, changed counts and the largest rectangular
+blocks. Confirm no leak, out-of-bounds access, integer overflow or use after
+rebuild.
+
+V7. Performance sanity
+----------------------
+
+For identical small and moderate fixtures, report setup time, search time,
+runtime coupling time, allocations, persistent/peak bytes and MPI bytes for
+both directions. Compare against dimension-predicted storage and against
+tet/tet and hex/hex baselines. This is not an optimization phase, but reject
+accidental superlinear storage, per-iteration heap allocation or unnecessary
+host/device copies.
+
+V8. Frontends and examples
+--------------------------
+
+Update the minimal existing 3D non-matching examples/harnesses needed to
+construct one tet model and one hex model without changing public frontend
+APIs. Run the canonical mixed-topology case through the supported MATLAB,
+Python, Julia and Text2Code workflows where the required local environments
+are available. Use one shared physical mesh/fixture for cross-frontend
+comparison so generator ordering does not obscure solver differences.
+
+Environment skips must name the missing tool or dependency. They are not
+passes and do not justify a capability claim for that frontend.
+
+===============================================================================
+8. ACCEPTANCE GATES
+===============================================================================
+
+Phase 13 hex-tet coupling is ready for review only when all of the following
+are true:
+
+1. Both mixed directions pass setup, operator, MPI, matvec and nonlinear solve
+   tests with genuinely unequal owner/donor face dimensions.
+2. The implementation uses explicit owner/donor dimensions in all mixed-path
+   allocations, loops, BLAS calls and MPI counts.
+3. Donor ranks use transported owner test values and donor-local interpolation
+   bases; no donor-master fallback exists for mixed topology.
+4. Tet/tet, hex/hex, all accepted 2D cases, type 0 and disabled coupling are
+   unchanged within their declared regression requirements.
+5. The frozen header remains byte-for-byte unchanged, or a separately
+   approved amendment is documented and tested.
+6. All setup failures are rank-uniform and no negative MPI test hangs.
+7. Conservation, deterministic partition behavior, memory safety and
+   performance-sanity gates pass.
+8. The report distinguishes host CPU validation from unvalidated GPU support
+   and states the missing surface-common-refinement limitation.
+
+===============================================================================
+9. REPORTING AND STOPPING RULES
+===============================================================================
+
+Write `docs/nonmatching/reports/phase13_hex_tet_report.md` containing:
+
+- scope, assumptions and final supported matrix;
+- exact files and functions changed;
+- owner/donor descriptors and all final layouts;
+- sidecar ownership and rebuild/free behavior;
+- geometry/search reuse and any modifications;
+- rectangular residual/Jacobian/condensation/matvec derivation;
+- MPI message formats, counts and ordering;
+- complete commands, software/hardware configuration and test results;
+- convergence, conservation, partition, memory and performance tables;
+- same-family/2D regression results;
+- unavailable-environment skips;
+- remaining numerical limitations and next actions; and
+- frozen-header MD5 before and after.
+
+Before setting `READY FOR REVIEW`:
+
+- inspect the complete diff and confirm every file is in scope;
+- run `git diff --check`;
+- confirm no generated build products are staged;
+- verify the frozen-header decision and MD5;
+- confirm the old tet/hex rejection has been replaced by validated support,
+  while mixed-order and GPU guards remain; and
+- update `docs/nonmatching/PROGRESS.md` by appending the new status without
+  rewriting prior history.
+
+The implementing agent runs focused tests unless the maintainer requests the
+full suite. The reviewer runs the full CTest/regression suite. Do not mark the
+phase APPROVED yourself. Do not commit, push, merge, rebase, reset or start
+Phase 14 unless the maintainer explicitly requests it.

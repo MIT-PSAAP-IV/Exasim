@@ -1,0 +1,222 @@
+PROMPT 14: PORTABLE CPU/GPU RUNTIME CONSOLIDATION AND OPTIMIZATION
+
+Assigned implementing agent: maintainer-assigned
+Reviewer: the other agent
+Prerequisites: Phases 11, 12 and 13 APPROVED
+
+Phase 14 consolidates and optimizes only the runtime portion of the
+non-matching interface solver: residual evaluation, Jacobian construction,
+static condensation, matrix-vector products, owner assembly, reusable
+workspaces, and GPU-aware MPI communication. Phase 12 owns consolidated CPU
+preprocessing, geometry preparation, donor search, setup, and MPI metadata.
+Phase 13 owns the role-explicit owner/donor dimensions, rectangular coupling
+layouts, owner-test transport and hex-tet capability. Do not duplicate, move,
+or redesign Phase 12 or Phase 13 responsibilities here.
+
+No new discretization, coupling physics, element family, polynomial-order
+combination, frontend feature, ABI, binary format, or public API is introduced.
+The runtime must preserve every Phase-13 same-family and hex-tet layout. Do not
+start until the maintainer approves a written Phase 14 plan.
+
+===============================================================================
+1. READ FIRST
+===============================================================================
+
+Read:
+
+1. `AGENTS.md`.
+2. `docs/nonmatching/MASTER_PROMPT.md`.
+3. `docs/nonmatching/PROGRESS.md`.
+4. `docs/nonmatching/nonmatching_multiphysics.tex`, especially the residual,
+   Jacobian, condensation, and matrix-vector equations.
+5. The approved Phase 12 plan, report, and review.
+6. The approved Phase 13 hex-tet plan, report, and review, especially its
+   explicit owner/donor dimensions and rectangular operator layouts.
+7. Phase 4-6 and Phase 8 reports/reviews.
+8. The current runtime implementation, especially:
+   - `backend/Discretization/nonmatchingcoupling.hpp`;
+   - `backend/Discretization/nonmatchingruntime.hpp`;
+   - `backend/Discretization/nonmatchingruntimekernels.hpp`;
+   - type-1 hooks in `matvec.hpp`, assembly, residual, and preconditioner code;
+   - runtime ownership in `CDiscretization`; and
+   - existing Kokkos, BLAS, GPU-aware-MPI, allocation, and request utilities.
+
+Confirm the required branch.  Record HEAD, worktree state, frozen-header MD5,
+compiler, MPI, Kokkos backend, GPU model, CUDA/HIP version, and demonstrated
+GPU-aware-MPI support.
+
+===============================================================================
+2. OBJECTIVES
+===============================================================================
+
+R1. One portable runtime algorithm
+----------------------------------
+
+CPU, CUDA, and HIP must execute the same mathematics through the existing
+Kokkos/Exasim infrastructure.  Do not create separate backend-specific
+algorithms.  Keep host-only control code minimal and move data-parallel work to
+plain-pointer kernel views with explicit dimensions and strides.
+
+R2. Preserve HDG structure
+--------------------------
+
+Preserve:
+
+- element-local residual and Jacobian assembly;
+- static condensation and signs;
+- owner rows and donor columns;
+- accepted w-chain-rule behavior;
+- one `FintDriver` evaluation per required direction;
+- deterministic pair and owner summation order;
+- compact slot messages and tags 27100/27101;
+- additive-Schwarz and Krylov use of the same coupling matrix; and
+- type-0 conformal behavior.
+
+R3. Consolidate kernels and layouts
+-----------------------------------
+
+Remove meaningful duplication in interpolation, flux packing, pair-matrix
+construction, Schur operations, residual/matrix-vector packing, owner assembly,
+and CPU/GPU dispatch.  Shared helpers are justified only when they establish a
+single indexing/layout invariant or eliminate an actual divergence risk.
+
+R4. Explicit ownership and reusable workspaces
+----------------------------------------------
+
+- Phase 12/13 host arrays and sidecars remain non-owning runtime inputs.
+- Device mirrors and runtime workspaces have one RAII owner.
+- Rebuild publishes host and runtime state atomically.
+- Capacity is reused after growth.
+- No residual/Jacobian/matvec call performs avoidable heap or device allocation.
+- Teardown is idempotent and frees request/status and host/device storage.
+
+R5. Optimize measured bottlenecks
+---------------------------------
+
+Measure before changing:
+
+- kernel launch count and synchronization;
+- interpolation and pair-matrix arithmetic;
+- Fpair/G/Hi workspace bytes;
+- batched GEMM and Schur costs;
+- owner assembly bandwidth and races;
+- host/device copies;
+- MPI pack/unpack and visibility fences; and
+- repeated allocation.
+
+Prefer batched BLAS only where dimensions and column-major strides match
+exactly.  Do not change `pblas.h` without an approved amendment.
+
+===============================================================================
+3. HARD CONSTRAINTS
+===============================================================================
+
+1. Do not modify `backend/Discretization/nonmatchinginterface.hpp`; preserve
+   its recorded MD5.
+2. Do not change Phase 12/13 preprocessing results, role-specific layouts,
+   ordering, search, owner-test data, or MPI metadata.
+3. Do not change application formats, generated ABIs, frontend serialization,
+   public APIs, tags, or coupling equations.
+4. Type 0 retains its existing path; do not route it through type 1.
+5. Preserve CPU bitwise requirements and all existing numerical thresholds.
+6. No production NaN/infinity checks, strict-IEEE flags, pragmas, or floating-
+   environment controls.
+7. No world-wide collective in a per-iteration runtime path.
+8. GPU-aware MPI is the production convention.  Add staging only through a
+   separately approved amendment supported by target-system evidence.
+9. No atomics where they would change deterministic summation.  Resolve
+   duplicate `interfacefluxmap` targets with one-writer ordering.
+10. No new capability. Mixed polynomial orders remain Phase 15.
+
+===============================================================================
+4. PLAN-FIRST REQUIREMENT
+===============================================================================
+
+Write `docs/nonmatching/reports/phase14_plan.md` before production edits. It
+must include:
+
+- complete runtime call graph and ownership graph;
+- every kernel, launch, fence, BLAS operation, MPI exchange, and allocation;
+- current and proposed layouts with dimensions/strides;
+- exact existing/new files and functions;
+- profiler baselines and fixed performance budgets;
+- arithmetic/summation ordering analysis;
+- CPU/CUDA/HIP and GPU-aware-MPI test matrix;
+- rebuild/teardown transaction design; and
+- rollback boundaries for each optimization.
+
+Set Phase 14 to `IN PROGRESS - PLAN AWAITING GO`, present the plan, and wait for
+explicit maintainer approval.
+
+===============================================================================
+5. ORDERED WORK
+===============================================================================
+
+1. Establish CPU and GPU numerical, allocation, memory, MPI, and profiler
+   baselines from the Phase 13-approved tree.
+2. Consolidate runtime views and ownership without changing kernels; verify.
+3. Consolidate interpolation, flux, residual, matrix, condensation, matvec, and
+   owner-assembly kernels one group at a time; verify each group.
+4. Make workspaces capacity-based and allocation-stable; verify rebuild growth
+   and reuse.
+5. Remove unnecessary host/device copies, launches, and fences only after
+   profiler evidence.
+6. Validate direct GPU-aware-MPI visibility and ordering for both directions,
+   residual/Jacobian and matvec exchanges.
+7. Remove obsolete runtime implementation only after all callers and tests use
+   the consolidated path.
+
+===============================================================================
+6. REQUIRED VALIDATION
+===============================================================================
+
+Run focused tests covering:
+
+- line, triangle, and quadrilateral interfaces;
+- 2D/3D, straight/curved, same/mixed family, gaps/overlaps, and OUTSIDE;
+- 3D tet/tet, hex/hex, tet-owner/hex-donor and hex-owner/tet-donor layouts,
+  including genuinely unequal owner/donor face dimensions;
+- `p=1,...,4` under the Phase 12 same-order contract;
+- q-free, q-present, `ncw>0`, nonlinear `ncu>=2`, and duplicate flux maps;
+- residual, Jacobian, condensation, production `hdgMatVec`, and preconditioner;
+- both coupling directions and asymmetric 1+1, 2+2, 4+4, 1+3, and 3+1 layouts
+  where supported;
+- changed-count rebuild followed by every runtime operation;
+- type 0 and disabled coupling unchanged; and
+- rank-uniform rejection/failure behavior.
+
+Compare independent references, Phase 13 baselines, checksums, Newton/GMRES
+histories, and final solutions.  Run CPU tests at 2, 4, and 8 ranks.  Compile
+and execute CUDA or HIP tests on actual hardware.  Run compute-sanitizer or the
+HIP equivalent, and verify GPU-aware MPI with more than one rank per model.
+
+Performance reports must use identical builds/fixtures and median timings after
+warm-up.  Report kernel launches, fences, allocations, persistent/peak bytes,
+host/device traffic, MPI bytes, residual/Jacobian/matvec/preconditioner time,
+and end-to-end nonlinear time.  Reject optimizations that miss their declared
+budget or alter required reproducibility.
+
+The implementer runs focused tests only unless the maintainer requests the full
+suite.  The reviewer runs the full CTest suite.  Do not rebuild Kokkos, commit,
+stage, stash, reset, restore, merge, rebase, or push.
+
+===============================================================================
+7. REPORT AND COMPLETION
+===============================================================================
+
+Write `docs/nonmatching/reports/phase14_report.md` with architecture, files,
+layouts, ownership, kernel and MPI changes, numerical results, allocation and
+memory results, profiler tables, hardware/software configurations, regressions,
+limitations, and exact commands.
+
+Before READY FOR REVIEW:
+
+- inspect the complete diff;
+- run `git diff --check`;
+- confirm the frozen-header MD5;
+- remove generated products;
+- confirm Phase 12/13 preprocessing and role-specific metadata are unchanged;
+- confirm no obsolete runtime caller remains; and
+- set Phase 14 to `READY FOR REVIEW` and stop.
+
+Do not mark Phase 14 approved yourself and do not start Phase 15.
