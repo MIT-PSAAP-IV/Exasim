@@ -5,6 +5,9 @@ run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', '..', 'frontend
 % initialize pde structure and mesh structure
 [pde,~] = initializeexasim();
 pde.model = "ModelD";
+pde.codegenerator = "prebuilt";
+pde.kernelsource = fullfile(fileparts(mfilename('fullpath')), 'canonical_kernels', 'fluid');
+pde.canonicalmaster = fullfile(fileparts(mfilename('fullpath')), 'canonical_mesh', 'fluid_master.bin');
 pde.modelfile = "pdemodel1";
 
 % Choose computing platform and set number of processors
@@ -46,6 +49,14 @@ pde.AVcontinuationIter = 8;
 pde.AVcontinuationLogScale = 1.5;
 pde.AVcoeffStart = 0.002;
 pde.AVcoeffEnd = 0.00002;
+% Canonical continuation schedule shared by MATLAB, Python, and Julia.  The
+% explicit values avoid libm-dependent expm1 rounding in this shock case.
+pde.avparam1 = [0.002; 0.0015034374019939735; 0.0011026529166442065; ...
+    0.0007791726457939881; 0.000518085978384667; ...
+    0.0003073582956121101; 0.00013727624306105775; 0.0];
+pde.avparam2 = [0.0; 1.3727624306105766e-06; 3.0735829561211013e-06; ...
+    5.180859783846669e-06; 7.791726457939882e-06; ...
+    1.1026529166442065e-05; 1.5034374019939733e-05; 2.0e-05];
 pde.AVdistfunction = 1;
 pde.distanceboundaryconditions = 3; % isothermal-wall flow BC tag
 pde.AVsmoothingMethod = 1;
@@ -55,6 +66,15 @@ AVdistcoeff = nm;
 
 % Geometric boundaries: symmetry, outflow, inflow/farfield, wall.
 % Type 3 permits tangential motion; type 2 fixes both displacement components.
+pde.meshadaptenabled = 0;
+pde.meshadaptfield = 2;
+pde.meshadaptavcomponent = 1;
+pde.meshadaptalpha = 0.5;
+pde.meshadaptqmin = 0.2;
+pde.meshadaptqmax = 0.8;
+pde.meshadaptHelmholtzCoeff = 0.001;
+pde.meshadaptforcescale = 0.25;
+pde.meshadaptsmoothingpasses = 30;
 pde.meshadaptboundaryconditions = [3;3;3;2];
 
 pde.physicsparam = [gam Re Pr Minf rinf ruinf rvinf rEinf Tinf Tref Twall ...
@@ -71,31 +91,22 @@ pde.NLtol = 1e-6;              % Newton tolerance
 pde.NLiter = 10;                % Newton iterations
 pde.matvectol=1e-6;             % tolerance for matrix-vector multiplication
 
-mesh = mkmesh_isoq2d(pde.porder, 5e-4);
+mesh = load_isoq_canonical_mesh("fluid");
 mesh.boundarycondition = [4 2 1 3]; % symmetry, outflow, inflow, wall
 figure(1);clf;meshplot(mesh);
 
 master = Master(pde);
 
-% initial artificial viscosity
-dist = meshdist3(mesh.f,mesh.dgnodes,master.perm,[4]); % distance to the wall
-% ODG layout: wall distance, filtered AV sensor, mesh-adaptation pressure.
-mesh.vdg = zeros(size(mesh.dgnodes,1),3,size(mesh.dgnodes,3));
-mesh.vdg(:,1,:) = dist;
+% The canonical payload stores the wall distance and initial state so all
+% three frontends serialize identical floating-point data.
+dist = mesh.vdg(:,1,:);
 
 mesh.porder = pde.porder;
 mesh.xpe = master.xpe;
 mesh.telem = master.telem;
 figure(2); clf; scaplot(mesh,mesh.vdg(:,1,:),[],1,0); axis on; axis equal; axis tight;
 
-% intial solution
-ui = [rinf ruinf rvinf rEinf];
-UDG = initu(mesh,{ui(1),ui(2),ui(3),ui(4),0,0,0,0,0,0,0,0}); % freestream
-UDG(:,2,:) = UDG(:,2,:).*tanh(nm*dist);
-UDG(:,3,:) = UDG(:,3,:).*tanh(nm*dist);
 TnearWall = Tinf * (Twall/Tref-1) * exp(-nm*dist) + Tinf;
-UDG(:,4,:) = TnearWall + 0.5*(UDG(:,2,:).*UDG(:,2,:) + UDG(:,3,:).*UDG(:,3,:));
-mesh.udg = UDG;
 
 figure(3); clf; scaplot(mesh,TnearWall,[],1); axis on; axis equal; axis tight;
 

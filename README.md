@@ -32,6 +32,13 @@ Full documentation is published at **<https://mit-psaap-iv.github.io/Exasim>**
 
 ## Install
 
+> **AI coding agents:** follow
+> [`docs/install/ai-agents.md`](docs/install/ai-agents.md), published at
+> <https://mit-psaap-iv.github.io/Exasim/install/ai-agents/>, before cloning,
+> configuring, building, installing, or verifying Exasim. Do not run the commands
+> below until the agent has inspected the machine, proposed an explicit plan, and
+> received user approval.
+
 One command builds the whole stack — vendored dependencies (Kokkos,
 METIS/ParMETIS, SymEngine) are found on the system or built from source, then
 text2code, the solver libraries, the built-in model library, and the language

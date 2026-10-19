@@ -60,6 +60,14 @@ function gencode(app)
 
 print("generate code...\n");
 
+if app.codegenerator == "prebuilt"
+    kernelsdir = joinpath(model_builddir(app), "kernels")
+    isdir(kernelsdir) && rm(kernelsdir; recursive=true)
+    mkpath(dirname(kernelsdir))
+    cp(app.kernelsource, kernelsdir; force=true)
+    return
+end
+
 if app.codegenerator == "text2code"
     runstr = text2code_path() * " " * app.modelfile * ".txt"
     run(`$runstr`)

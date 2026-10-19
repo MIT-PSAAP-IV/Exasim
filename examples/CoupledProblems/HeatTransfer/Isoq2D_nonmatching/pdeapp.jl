@@ -2,6 +2,7 @@
 
 repository = dirname(dirname(dirname(dirname(@__DIR__))))
 source_install = joinpath(dirname(repository), "exasim_install")
+canonical_kernels = joinpath(@__DIR__, "canonical_kernels")
 if !haskey(ENV, "EXASIM_PREFIX") &&
    isfile(joinpath(source_install, "lib", "cmake", "Exasim", "ExasimConfig.cmake"))
     ENV["EXASIM_PREFIX"] = source_install
@@ -18,7 +19,11 @@ using .IsoqSolidMesh
 function build_case(run_directory=joinpath(@__DIR__, "julia_run"))
     pde, _ = Exasim.initializeexasim()
     pde.model = "ModelD"
-    pde.modelfile = ""
+    # All frontends compile the same checked-in generated model sources.
+    pde.codegenerator = "prebuilt"
+    pde.kernelsource = joinpath(canonical_kernels, "fluid")
+    pde.canonicalmaster = joinpath(@__DIR__, "canonical_mesh", "fluid_master.bin")
+    pde.modelfile = "pdemodel_fluid"
     pde.platform = "cpu"
     pde.mpiprocs = 4
     pde.porder = 2
@@ -46,6 +51,17 @@ function build_case(run_directory=joinpath(@__DIR__, "julia_run"))
     pde.AVcontinuationLogScale = 1.5
     pde.AVcoeffStart = 0.002
     pde.AVcoeffEnd = 0.00002
+    # Canonical continuation schedule shared by MATLAB, Python, and Julia.
+    pde.avparam1 = [
+        0.002, 0.0015034374019939735, 0.0011026529166442065,
+        0.0007791726457939881, 0.000518085978384667,
+        0.0003073582956121101, 0.00013727624306105775, 0.0,
+    ]
+    pde.avparam2 = [
+        0.0, 1.3727624306105766e-06, 3.0735829561211013e-06,
+        5.180859783846669e-06, 7.791726457939882e-06,
+        1.1026529166442065e-05, 1.5034374019939733e-05, 2.0e-05,
+    ]
     pde.AVdistfunction = 1
     pde.distanceboundaryconditions = [3]
     pde.AVsmoothingMethod = 1
@@ -85,27 +101,14 @@ function build_case(run_directory=joinpath(@__DIR__, "julia_run"))
     pde.NLiter = 10
     pde.matvectol = 1.0e-6
 
-    mesh = make_isoq_mesh(pde.porder; radial_shift=5.0e-4)
+    # Keep the optional serialized extension blocks identical to MATLAB.
+    pde.flag = zeros(Int, 1, 0); pde.problem = zeros(Int, 1, 0)
+    pde.factor = zeros(Float64, 1, 0); pde.solversparam = zeros(Float64, 1, 0)
+    pde.stgdata = zeros(Float64, 1, 0); pde.stgparam = zeros(Float64, 1, 0)
+    pde.stgib = zeros(Int, 1, 0); pde.dae_dt = Float64[]
+
+    mesh = load_canonical_mesh("fluid")
     mesh.boundarycondition = reshape([4, 2, 1, 3], :, 1)
-    distance = wall_distance(mesh, pde.porder)
-    # ODG layout: wall distance, filtered AV sensor, mesh-adaptation pressure.
-    mesh.odg = zeros(Float64, size(distance, 1), 3, size(distance, 3))
-    mesh.odg[:, 1:1, :] .= distance
-    npe, _, ne = size(mesh.dgnodes)
-    # Match MATLAB's HDG initialization exactly: conservative variables are
-    # followed by the two zero gradient blocks in the 12-component UDG array.
-    mesh.udg = zeros(Float64, npe, 12, ne)
-    mesh.udg[:, 1, :] .= density_inf
-    mesh.udg[:, 2, :] .= momentum_x_inf .* tanh.(
-        av_distance_coefficient .* distance[:, 1, :]
-    )
-    mesh.udg[:, 3, :] .= momentum_y_inf
-    near_wall_temperature = temperature_inf .* (
-        wall_temperature / reference_temperature - 1.0
-    ) .* exp.(-av_distance_coefficient .* distance[:, 1, :]) .+ temperature_inf
-    mesh.udg[:, 4, :] .= near_wall_temperature .+ 0.5 .* (
-        mesh.udg[:, 2, :].^2 .+ mesh.udg[:, 3, :].^2
-    )
     return pde, mesh
 end
 
@@ -123,17 +126,24 @@ function run_isoq_case(build_fluid,matching,case_directory;run_directory=joinpat
     fluid_mesh.boundarycondition=reshape([4,2,1,7],:,1); fluid_mesh.interfacecondition=reshape([0,0,0,1],:,1)
     fluid.interfacefluxmap=[4]; fluid.ibs=7; fluid.distanceboundaryconditions=[7]
     fluid.AVdistfunction=0; fluid.AVsmoothingMethod=0; fluid.AV=0
-    params=vec(fluid.physicsparam); params[end-1:end]=[0.0,1.5*fluid.AVcoeffEnd]; fluid.physicsparam=reshape(params,1,:); fluid.NLiter=20
+    fluid.AVcontinuationIter=0; fluid.avparam1=Float64[]; fluid.avparam2=Float64[]
+    params=vec(fluid.physicsparam); params[end-1:end]=[0.0,fluid.AVcoeffEnd]; fluid.physicsparam=reshape(params,1,:)
     solid,_=Exasim.initializeexasim(); setpaths(solid,coupled)
-    solid.model="ModelD"; solid.modelfile="pdemodel_solid"; solid.platform=fluid.platform; solid.mpiprocs=2; solid.hybrid=1
-    solid.debugmode=fluid.debugmode; solid.porder=fluid.porder; solid.pgauss=fluid.pgauss; solid.Cxxpreprocessing=0
+    solid.model="ModelD"; solid.codegenerator="prebuilt"; solid.kernelsource=joinpath(canonical_kernels,"solid")
+    solid.canonicalmaster=joinpath(@__DIR__,"canonical_mesh","solid_master.bin")
+    solid.modelfile="pdemodel_solid"
+    solid.platform=fluid.platform; solid.mpiprocs=2; solid.hybrid=1
+    solid.debugmode=fluid.debugmode; solid.porder=fluid.porder; solid.pgauss=fluid.pgauss; solid.Cxxpreprocessing=1
     solid.GMRESrestart=fluid.GMRESrestart; solid.GMRESortho=fluid.GMRESortho; solid.linearsolvertol=fluid.linearsolvertol
     solid.linearsolveriter=fluid.linearsolveriter; solid.preconditioner=fluid.preconditioner; solid.RBdim=fluid.RBdim; solid.ppdegree=fluid.ppdegree
-    solid.NLtol=fluid.NLtol; solid.NLiter=20; solid.matvectol=fluid.matvectol; solid.modelnumber=1; solid.interfacetype=1; solid.interfacefluxmap=[1]
+    solid.NLtol=fluid.NLtol; solid.NLiter=fluid.NLiter; solid.matvectol=fluid.matvectol; solid.modelnumber=1; solid.interfacetype=1; solid.interfacefluxmap=[1]
+    solid.flag=zeros(Int,1,0); solid.problem=zeros(Int,1,0); solid.factor=zeros(Float64,1,0)
+    solid.solversparam=zeros(Float64,1,0); solid.stgdata=zeros(Float64,1,0); solid.stgparam=zeros(Float64,1,0)
+    solid.stgib=zeros(Int,1,0); solid.dae_dt=Float64[]
     gam,mach,tref,twall=params[1],params[4],params[10],params[11]; tinf=1.0/(gam*(gam-1.0)*mach^2); solid_temperature=twall/tref*tinf
     solid.physicsparam=reshape([0.01,solid_temperature],1,:); solid.tau=[1.0]
-    solid_mesh=IsoqSolidMesh.make_isoq_solid(solid,fluid_mesh,matching;mesh_size=0.0028)
-    solid_mesh.udg=zeros(size(solid_mesh.dgnodes,1),3,size(solid_mesh.dgnodes,3)); solid_mesh.udg[:,1,:].=solid_temperature
+    solid_mesh=load_canonical_mesh("solid")
+    solid_mesh.boundarycondition=reshape([3,2,1],:,1)
     return Exasim.exasim([fluid,solid],[fluid_mesh,solid_mesh])
 end
 

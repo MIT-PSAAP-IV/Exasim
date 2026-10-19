@@ -9,10 +9,21 @@ Generated files:
 - `grid.bin`: mesh coordinates and connectivity.
 - `xdg.bin`, `udg.bin`, `vdg.bin`, `wdg.bin`: optional field data written only when present.
 
-Regenerate the application with:
+This directory has no case-local `main.cpp`. Generate and run either input with
+the executables from an installed Exasim prefix:
 
 ```sh
-/path/to/exasim-prefix/bin/text2code pdeapp.txt
+export EXASIM_PREFIX=/path/to/exasim-prefix
+
+"$EXASIM_PREFIX/bin/text2code" pdeapp.txt
+mpiexec -n 16 "$EXASIM_PREFIX/bin/exasimapp" pdeapp.txt
+
+"$EXASIM_PREFIX/bin/text2code" pdeapp100.txt
+mpiexec -n 16 "$EXASIM_PREFIX/bin/exasimapp" pdeapp100.txt
 ```
+
+Both inputs declare `mpiprocs = 16`. Use separate working copies when comparing
+the variants so their generated `datain/` and `dataout/` products cannot
+overwrite one another.
 
 The `vdg.bin` file stores external variables. In backend data structures these are also called `odg`.

@@ -178,6 +178,8 @@ mutable struct PDEStruct
     metis::String;
     paraview::String;
     codegenerator::String;
+    kernelsource::String;
+    canonicalmaster::String;
     enzyme::String;
     visfilename::String;
     dataoutpath::String;
@@ -215,6 +217,8 @@ function initializepde(version)
     pde.paraview = "paraview";
     pde.enzyme = "";
     pde.codegenerator = "";
+    pde.kernelsource = "";
+    pde.canonicalmaster = "";
 
     pde.codename = "Exasim";
     # Runtime data (datain/, dataout/) goes under datapath (user-visible);

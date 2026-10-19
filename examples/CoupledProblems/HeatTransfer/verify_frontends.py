@@ -10,6 +10,7 @@ not coincide closely enough for a pointwise comparison.
 from __future__ import annotations
 
 import argparse
+import hashlib
 from pathlib import Path
 
 import numpy as np
@@ -61,10 +62,71 @@ def _load(datain: Path, dataout: Path, ranks: int, npe: int):
 
 def _paths(case: Path, frontend: str, model: int):
     if frontend == "MATLAB":
+        if case.name == "Isoq2D_nonmatching":
+            suffix = "" if model == 1 else "1"
+            return case / f"datain{suffix}", case / f"dataout{suffix}"
         return case / f"datain{model}", case / f"dataout{model}"
     root = case / f"{frontend.lower()}_run" / "coupled"
     suffix = Path() if model == 1 else Path("1")
     return root / "datain" / suffix, root / "dataout" / suffix
+
+
+def _directory_digest(directory: Path):
+    digest = hashlib.sha256()
+    files = sorted(path for path in directory.iterdir() if path.is_file())
+    for path in files:
+        digest.update(path.name.encode("utf-8") + b"\0")
+        digest.update(path.read_bytes())
+    return digest.hexdigest(), len(files)
+
+
+def _verify_isoq_native_artifacts(case: Path) -> int:
+    """Require the native ISOQ runs to consume identical discrete problems."""
+    failures = 0
+    run_roots = {
+        "MATLAB": case,
+        "Python": case / "python_run" / "coupled",
+        "Julia": case / "julia_run" / "coupled",
+    }
+    for model, (ranks, _) in enumerate(CASES[case.name], start=1):
+        names = ["app.bin", "master.bin"]
+        names += [f"mesh{rank}.bin" for rank in range(1, ranks + 1)]
+        names += [f"sol{rank}.bin" for rank in range(1, ranks + 1)]
+        hashes = {}
+        for frontend in run_roots:
+            datain, _ = _paths(case, frontend, model)
+            missing = [name for name in names if not (datain / name).is_file()]
+            if missing:
+                print(f"    model {model} {frontend}: missing {', '.join(missing)}")
+                failures += 1
+                continue
+            hashes[frontend] = [hashlib.sha256((datain / name).read_bytes()).digest()
+                                for name in names]
+        if len(hashes) == 3 and not (
+            hashes["MATLAB"] == hashes["Python"] == hashes["Julia"]
+        ):
+            print(f"    model {model}: native input binaries differ")
+            failures += 1
+
+    kernel_directories = {
+        "MATLAB": [case / ".exasim" / "kernels", case / ".exasim" / "models" / "1" / "kernels"],
+        "Python": [run_roots["Python"] / ".exasim" / "kernels", run_roots["Python"] / ".exasim" / "models" / "1" / "kernels"],
+        "Julia": [run_roots["Julia"] / ".exasim" / "kernels", run_roots["Julia"] / ".exasim" / "models" / "1" / "kernels"],
+    }
+    for model in range(2):
+        try:
+            digests = {frontend: _directory_digest(paths[model])
+                       for frontend, paths in kernel_directories.items()}
+        except (FileNotFoundError, NotADirectoryError) as error:
+            print(f"    model {model + 1}: missing kernel directory: {error}")
+            failures += 1
+            continue
+        if len(set(digests.values())) != 1:
+            print(f"    model {model + 1}: generated Kokkos sources differ")
+            failures += 1
+    if failures == 0:
+        print("  native input binaries and generated Kokkos sources: byte-identical")
+    return failures
 
 
 def _pointwise_error(candidate, reference, coordinate_tolerance=2.0e-8):
@@ -132,6 +194,8 @@ def verify_case(case: Path) -> int:
     specifications = CASES[case.name]
     print(case.name)
     failures = 0
+    if case.name == "Isoq2D_nonmatching":
+        failures += _verify_isoq_native_artifacts(case)
     for model, (ranks, npe) in enumerate(specifications, start=1):
         fields = {}
         for frontend in ("MATLAB", "Python", "Julia"):

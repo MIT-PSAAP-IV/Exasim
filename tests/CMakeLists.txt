@@ -147,6 +147,12 @@ add_test(NAME nonmatching_phase11_python_ci # [nonmatching]
     ${Python3_EXECUTABLE} "${EXASIM_DIR}/tests/nonmatching/phase11_python.py") # [nonmatching]
 set_tests_properties(nonmatching_phase11_python_ci PROPERTIES # [nonmatching]
   TIMEOUT 3600 SKIP_RETURN_CODE 77 RESOURCE_LOCK exasim_phase11_python) # [nonmatching]
+add_test(NAME frontend_python_periodic_facenumbering
+  COMMAND ${Python3_EXECUTABLE} "${EXASIM_DIR}/tests/frontends/python/test_facenumbering_periodic.py")
+set_tests_properties(frontend_python_periodic_facenumbering PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 77)
+add_test(NAME frontend_python_solution_readback
+  COMMAND ${Python3_EXECUTABLE} "${EXASIM_DIR}/tests/frontends/python/test_solution_readback.py")
+set_tests_properties(frontend_python_solution_readback PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 77)
 add_test(NAME frontend_julia_interfacetype # [nonmatching]
   COMMAND bash "${EXASIM_DIR}/tests/frontends/julia/run-test-interfacetype.sh") # [nonmatching]
 set_tests_properties(frontend_julia_interfacetype PROPERTIES TIMEOUT 900 SKIP_RETURN_CODE 77) # [nonmatching]

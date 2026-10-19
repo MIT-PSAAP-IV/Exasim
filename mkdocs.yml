@@ -75,6 +75,7 @@ nav:
       - Choosing an application mode: usage-modes/index.md
   - Installation:
       - install/index.md
+      - AI-assisted installation: install/ai-agents.md
       - Quick Installation (Recommended): install/quick-install.md
       - CPU Installation via Superbuild: install/superbuild-cpu.md
       - Troubleshooting Superbuild Failures: install/superbuild-troubleshooting.md

@@ -81,7 +81,9 @@ def writeapp(app,filename):
     #    error("app.nco mus be equal to size(app.vindx,1)");
 
     aviter = int(app.get('AVcontinuationIter', 0))
-    if aviter >= 2:
+    # Preserve explicitly supplied schedules, matching MATLAB.  This also
+    # permits bitwise-identical schedules across math-library implementations.
+    if aviter >= 2 and size(flat('avparam1')) == 0:
         alpha = float(app.get('AVcontinuationLogScale', 1.0))
         coeff_start = float(app.get('AVcoeffStart', 0.0))
         coeff_end = float(app.get('AVcoeffEnd', 0.0))

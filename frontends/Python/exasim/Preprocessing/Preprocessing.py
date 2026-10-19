@@ -23,7 +23,7 @@ from .facenumbering import facenumbering
 from .meshpartitionhdg import meshpartitionhdg
 from .process_materialdatabase import process_materialdatabase
 from .uniformrefinement import uniformrefinemesh, coarseelem2cpu
-import os, sys, sympy
+import os, sys, shutil, sympy
 from importlib import import_module
 import importlib.util
 from numpy import *
@@ -101,6 +101,9 @@ def preprocessing(app,mesh):
     masterfile = {key: array(value, copy=True) if hasattr(value, '__array__') else value
                   for key, value in master.items()}
     writemaster(masterfile,filemaster);
+    canonicalmaster = app.get('canonicalmaster', '')
+    if canonicalmaster:
+        shutil.copyfile(canonicalmaster, filemaster)
 
     pdemodel = import_module(app['modelfile']);
     # spec = importlib.util.spec_from_file_location('pdemodel', app['modelfile'])
@@ -291,9 +294,9 @@ def preprocessing(app,mesh):
             
         # A coupled world is an MPI run, so each domain reads indexed files.
         if mpiprocs==1 and coupledinterface==0:
-            writesol(filename + "/sol",0,xdg, udg, vdg, wdg);
+            writesol(filename + "/sol",0,xdg, udg, vdg, wdg, app, master, dmd[i]);
         else:
-            writesol(filename + "/sol",i+1,xdg, udg, vdg, wdg);
+            writesol(filename + "/sol",i+1,xdg, udg, vdg, wdg, app, master, dmd[i]);
 
         if app['Cxxpreprocessing'] == 0:
             cgelcon,rowent2elem,colent2elem,cgent2dgent = mkcgent2dgent(xdg,1e-8)[0:4];

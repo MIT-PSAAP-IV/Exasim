@@ -5,6 +5,9 @@ end
 
 [pde2,~] = initializeexasim();
 pde2.model = "ModelD";
+pde2.codegenerator = "prebuilt";
+pde2.kernelsource = fullfile(fileparts(mfilename('fullpath')), 'canonical_kernels', 'solid');
+pde2.canonicalmaster = fullfile(fileparts(mfilename('fullpath')), 'canonical_mesh', 'solid_master.bin');
 pde2.modelfile = "pdemodel2";
 pde2.platform = fluidPde.platform;
 pde2.mpiprocs = 2;
@@ -12,7 +15,9 @@ pde2.hybrid = 1;
 pde2.debugmode = fluidPde.debugmode;
 pde2.nd = 2;
 pde2.gencode = 1;
-pde2.Cxxpreprocessing = 0;
+% Use the shared backend partitioner in every frontend.  The legacy frontend
+% face partitioners are not byte-identical for this two-rank triangle mesh.
+pde2.Cxxpreprocessing = 1;
 
 pde2.porder = fluidPde.porder;
 pde2.pgauss = fluidPde.pgauss;
@@ -34,10 +39,8 @@ pde2.NLtol = fluidPde.NLtol;
 pde2.NLiter = fluidPde.NLiter;
 pde2.matvectol = fluidPde.matvectol;
 
-solidMeshSize = 0.0028;
-[mesh2,solidMeshInfo] = mkmesh_isoqsolid(pde2,fluidMesh,solidMeshSize);
-mesh2.udg = zeros(size(mesh2.dgnodes,1),3,size(mesh2.dgnodes,3));
-mesh2.udg(:,1,:) = solidTemperature;
+mesh2 = load_isoq_canonical_mesh("solid");
+solidMeshInfo.triangles = size(mesh2.t,2);
 
 figure(4); clf; meshplot(mesh2); axis on; axis equal; axis tight;
 title('Gmsh triangular solid mesh');

@@ -114,6 +114,9 @@ end
 
 master = Master.mkmaster(app.nd,app.porder,app.pgauss,app.elemtype,app.nodetype);
 writemaster(master,filemaster);
+if !isempty(app.canonicalmaster)
+    cp(app.canonicalmaster, filemaster; force=true)
+end
 
 app.boundaryconditions = mesh.boundarycondition;
 app.wmModelIDs = app.wmModelIDs[:];
@@ -327,9 +330,9 @@ for i = 1:mpiprocs
     # A coupled world is an MPI run, so each domain reads indexed files.
     coupled = app.coupledinterface > 0;
     if mpiprocs==1 && !coupled
-        writesol(filename  * "/sol",0,xdg, udg, odg, wdg);
+        writesol(filename  * "/sol",0,xdg, udg, odg, wdg, app, master, dmd[i]);
     else
-        writesol(filename  * "/sol",i,xdg, udg, odg, wdg);
+        writesol(filename  * "/sol",i,xdg, udg, odg, wdg, app, master, dmd[i]);
     end
 
     if app.Cxxpreprocessing == 0

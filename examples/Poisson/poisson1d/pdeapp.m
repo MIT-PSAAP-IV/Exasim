@@ -30,7 +30,7 @@ pde.Cxxpreprocessing = 0;
 [mesh.p,mesh.t] = linemesh(5);
 
 % expressions for domain boundaries
-mesh.boundaryexpr = {@(p) abs(p(1))<1e-8, @(p) abs(p(1)-1<1e-8)};
+mesh.boundaryexpr = {@(p) abs(p(1))<1e-8, @(p) abs(p(1)-1)<1e-8};
 
 mesh.boundarycondition = [1;1]; %set boundary condition for each boundary
 
@@ -42,5 +42,4 @@ figure(1); clf; plot(mesh.dgnodes(:),u(:))
 grid on
 
 return;
-
 

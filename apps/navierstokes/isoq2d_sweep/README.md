@@ -9,17 +9,16 @@ Generated files:
 - `grid.bin`: mesh coordinates and connectivity.
 - `xdg.bin`, `udg.bin`, `vdg.bin`, `wdg.bin`: optional field data written only when present.
 
-Regenerate the application with:
+This directory has no case-local `main.cpp`. Generate the model and run the
+parameter sweep with the executables from an installed Exasim prefix:
 
 ```sh
-/path/to/exasim-prefix/bin/text2code pdeapp.txt
+export EXASIM_PREFIX=/path/to/exasim-prefix
+"$EXASIM_PREFIX/bin/text2code" pdeapp.txt
+mpiexec -n 4 "$EXASIM_PREFIX/bin/exasimapp" pdeapp.txt
 ```
 
-The `vdg.bin` file stores external variables. In backend data structures these are also called `odg`.
+The four-rank launch matches `mpiprocs = 4` in `pdeapp.txt`. Run from an
+isolated copy because the sweep creates case-local generated inputs and output.
 
-cd /path/to/Exasim/apps/navierstokes/isoq2d_sweep
-/path/to/Exasim/local/bin/text2code pdeapp.txt
-cd /path/to/Exasim/apps/sharedlibrary
-cmake -B build -DExasim_DIR=/path/to/Exasim/local
-cmake --build build -j4
-mpirun -np 4 build/exasimapp ../navierstokes/isoq2d_sweep/pdeapp.txt
+The `vdg.bin` file stores external variables. In backend data structures these are also called `odg`.

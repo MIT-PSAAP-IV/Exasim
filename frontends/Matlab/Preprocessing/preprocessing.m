@@ -64,6 +64,9 @@ end
 % master struct
 master = Master(app);
 writemaster(master,filemaster,'native');        
+if isfield(app, 'canonicalmaster') && strlength(string(app.canonicalmaster)) > 0
+    copyfile(char(app.canonicalmaster), char(filemaster));
+end
 
 mesh.coupledinterface = app.coupledinterface;
 mesh.porder = app.porder;

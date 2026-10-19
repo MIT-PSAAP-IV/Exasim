@@ -2,6 +2,57 @@
 
 using LinearAlgebra
 
+function read_canonical_array(name)
+    path = joinpath(@__DIR__, "canonical_mesh", name * ".bin")
+    open(path, "r") do io
+        dims = filter(>(0), Int.(read!(io, Vector{Float64}(undef, 3))))
+        length(dims) >= 2 || error("invalid canonical mesh header in $path")
+        values = read!(io, Vector{Float64}(undef, prod(dims)))
+        eof(io) || error("unexpected trailing data in $path")
+        reshape(values, Tuple(dims))
+    end
+end
+
+function load_canonical_mesh(domain)
+    points = read_canonical_array(domain * "_p")
+    elements = Int.(read_canonical_array(domain * "_t")) .+ 1
+    faces = Int.(read_canonical_array(domain * "_f"))
+    dgnodes = read_canonical_array(domain * "_dgnodes")
+    ymin, xmax = minimum(points[2, :]), maximum(points[1, :])
+    _, mesh = Exasim.initializeexasim()
+    mesh.p, mesh.t, mesh.f, mesh.dgnodes = points, elements, faces, dgnodes
+    if domain == "fluid"
+        mesh.udg = read_canonical_array("fluid_udg")
+        mesh.odg = read_canonical_array("fluid_vdg")
+        mesh.boundaryexpr = [
+            p -> abs.(p[2, :] .- ymin) .< 1.0e-6,
+            p -> p[1, :] .> xmax - 1.0e-4,
+            p -> (p[1, :] .< -1.0e-3) .| (p[2, :] .> 0.1),
+            p -> abs.(p[1, :]) .< 20.0 + 1.0e-6,
+        ]
+    else
+        scale = max(1.0, maximum(maximum(points, dims=2) - minimum(points, dims=2)))
+        tolerance = 1.0e-10 * scale
+        edge = Exasim.Preprocessing.getelemface(2, 0)
+        indices = findall(faces .== 1)
+        vertices = unique(vcat([elements[edge[:, index[1]], index[2]] for index in indices]...))
+        startx, endy = minimum(points[1, vertices]), maximum(points[2, vertices])
+        mesh.udg = read_canonical_array("solid_udg")
+        mesh.boundaryexpr = [
+            p -> .!(((abs.(p[2, :] .- ymin) .< tolerance) .& (p[1, :] .> startx + tolerance)) .|
+                    ((abs.(p[1, :] .- xmax) .< tolerance) .& (p[2, :] .< endy - tolerance))),
+            p -> abs.(p[2, :] .- ymin) .< tolerance,
+            p -> abs.(p[1, :] .- xmax) .< tolerance,
+        ]
+        mesh.interfacecondition = reshape([1, 0, 0], :, 1)
+    end
+    mesh.periodicexpr = []
+    mesh.curvedboundary = zeros(Int, 0, 0)
+    mesh.curvedboundaryexpr = []
+    mesh.periodicboundary = zeros(Int, 0, 0)
+    mesh
+end
+
 function loginc_values(values, alpha)
     lower, upper = extrema(values)
     upper == lower && return copy(values)

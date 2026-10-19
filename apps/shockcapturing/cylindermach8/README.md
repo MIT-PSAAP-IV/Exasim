@@ -24,7 +24,15 @@ cd ../../../apps/shockcapturing/cylindermach8
 
 The `vdg.bin` file stores external variables. In backend data structures these are also called `odg`.
 
-Configure, build, and run the generated header-provider application with:
+Run the generated model with the installed executable:
+
+```sh
+export EXASIM_PREFIX=/path/to/exasim-prefix
+"$EXASIM_PREFIX/bin/text2code" pdeapp.txt
+"$EXASIM_PREFIX/bin/exasimapp" pdeapp.txt | tee text2code_run.log
+```
+
+Alternatively, configure, build, and run the case-local `main.cpp` with:
 
 ```sh
 cmake -S . -B build -DExasim_DIR=/path/to/exasim-prefix/lib/cmake/Exasim

@@ -1,6 +1,6 @@
 from numpy import *
 
-def writesol(filename,ifile,xdg, udg, vdg, wdg):
+def writesol(filename,ifile,xdg, udg, vdg, wdg, app, master, dmd):
 
     
     ncx = xdg.shape[1];
@@ -21,10 +21,21 @@ def writesol(filename,ifile,xdg, udg, vdg, wdg):
         ncw = wdg.shape[1];
 
     ndims = zeros((12,1));
-    ndims[1-1] = ncx;
-    ndims[2-1] = ncu;
-    ndims[3-1] = nco;
-    ndims[4-1] = ncw;
+    ndims[1-1] = size(dmd['elempart']);
+    # MATLAB leaves this entry at zero when the backend constructs the face
+    # partition.  In that mode facepartpts is intentionally unavailable here.
+    if app['Cxxpreprocessing'] == 0:
+        ndims[2-1] = sum(dmd['facepartpts']);
+    ndims[3-1] = master['perm'].shape[1];
+    ndims[4-1] = master['npe'];
+    ndims[5-1] = master['npf'];
+    ndims[6-1] = app['nc'];
+    ndims[7-1] = app['ncu'];
+    ndims[8-1] = app['ncq'];
+    ndims[9-1] = ncw;
+    ndims[10-1] = nco;
+    ndims[11-1] = app['nch'];
+    ndims[12-1] = ncx;
 
     nsize = zeros((20,1));
     nsize[1-1] = size(ndims);

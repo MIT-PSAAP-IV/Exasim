@@ -1,5 +1,5 @@
 function flux(u, q, w, v, x, t, mu, eta)
-    f = mu[1]*q + u[1]*mu[2];
+    f = [mu[1]*q[1] + u[1]*mu[2]];
     return f;
 end
 function source(u, q, w, v, x, t, mu, eta)

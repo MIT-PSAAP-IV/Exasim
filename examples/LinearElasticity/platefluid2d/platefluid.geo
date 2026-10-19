@@ -1,0 +1,17 @@
+SetFactory("OpenCASCADE");
+Rectangle(1) = {-4.5, -4.975, 0, 10.0, 10.0};
+Rectangle(2) = {0.0, 0.0, 0, 1.0, 0.05};
+fluid[] = BooleanDifference{ Surface{1}; Delete; }{ Surface{2}; Delete; };
+Mesh.CharacteristicLengthMin = 0.04;
+Mesh.CharacteristicLengthMax = 0.60;
+Field[1] = Distance;
+Field[1].CurvesList = {5, 6, 7, 8};
+Field[1].Sampling = 200;
+Field[2] = Threshold;
+Field[2].InField = 1;
+Field[2].SizeMin = 0.04;
+Field[2].SizeMax = 0.60;
+Field[2].DistMin = 0.15;
+Field[2].DistMax = 1.50;
+Background Field = 2;
+Mesh.Algorithm = 6;

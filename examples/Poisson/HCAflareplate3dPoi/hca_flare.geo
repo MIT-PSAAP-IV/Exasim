@@ -1,0 +1,20 @@
+SetFactory("Built-in");
+Point(1) = {0.0,     0.10645, 0, 0.012};
+Point(2) = {0.04988, 0.10645, 0, 0.012};
+Point(3) = {0.39988, 0.17000, 0, 0.018};
+Point(4) = {0.39988, 0.20625, 0, 0.018};
+Point(5) = {0.0,     0.20625, 0, 0.018};
+Point(6) = {0.04988, 0.20625, 0, 0.012};
+Line(1) = {1,2}; Line(2) = {2,3}; Line(3) = {3,4};
+Line(4) = {4,6}; Line(5) = {6,5}; Line(6) = {5,1};
+Line(7) = {2,6};
+Curve Loop(1) = {1,7,5,6};
+Curve Loop(2) = {2,3,4,-7};
+Plane Surface(1) = {1};
+Plane Surface(2) = {2};
+Transfinite Curve {1,3,5,6,7} = 9;
+Transfinite Curve {2,4} = 31;
+Transfinite Surface {1};
+Transfinite Surface {2};
+Recombine Surface {1,2};
+Extrude {0,0,0.05} { Surface{1,2}; Layers{3}; Recombine; }
