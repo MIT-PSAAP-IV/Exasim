@@ -1,7 +1,14 @@
 #ifndef __NONMATCHINGPREPROCESSMPI_HPP
 #define __NONMATCHINGPREPROCESSMPI_HPP
 
-#include "nonmatchingpreprocessgeometry.hpp"
+// Distributed broad-phase routing for prepared interface faces. The curved,
+// high-order closest-point projection and deterministic global-face tie rule
+// remain in the local search layer, while Exasim-specific D6-D7 payload setup
+// remains in nonmatchingpreprocess.hpp. External spatial-index libraries can
+// replace this broad phase only if those numerical and ownership contracts are
+// preserved. This setup path uses host MPI buffers; runtime kernels use Kokkos.
+
+#include "nonmatchingpreprocesssearch.hpp"
 
 #include <climits>
 #include <sstream>

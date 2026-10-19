@@ -13,9 +13,9 @@ pde{2}.pgauss = 4;
 pde{2}.physicsparam = 1;
 pde{2}.tau = 1.0;
 pde{2}.NLiter = 4;
-pde{2}.NLtol = 1e-8;
-pde{2}.linearsolvertol = 1e-8;
-pde{2}.matvectol = 1e-8;
+pde{2}.NLtol = 1e-12;
+pde{2}.linearsolvertol = 1e-12;
+pde{2}.matvectol = 1e-12;
 pde{2}.GMRESrestart = 250;
 pde{2}.linearsolveriter = 600;
 

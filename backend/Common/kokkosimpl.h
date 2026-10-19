@@ -1401,8 +1401,8 @@ void PutBoudaryNodes(Ty* uh, const Ty* ub, const int* boufaces, const int* facep
         int k = j/npf;   // [0, nf)
         int e1 = boufaces[k]/nfe;
         int l1 = boufaces[k]%nfe;
-        // [nonmatching] facepermStride is zero for the legacy common
-        // permutation and npf when triangular faces need per-face orientation.
+        // faceperm maps local node n to the peer node read from ub. A zero
+        // stride selects the compact common block; npf selects face block k.
         int pn = faceperm[n + facepermStride*k];
         uh[comperm[i] + nc*n + M*l1 + P*e1] += ub[i + ncu*pn + ncu*npf*k];
     });

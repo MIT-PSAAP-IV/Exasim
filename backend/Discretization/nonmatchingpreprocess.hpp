@@ -20,8 +20,21 @@
     setup-only interface communicator. Multi-start is the sole donor-search
     implementation in production and focused tests.
 
+    Execution policy: this is host-only construction/rebuild code. Its plain
+    loops intentionally operate on std::vector workspaces and host MPI
+    collectives once per setup; residual-time kernels are Kokkos kernels in
+    nonmatchingruntimekernels.hpp. Moving setup to a device requires a separate
+    design for device-resident containers, deterministic reductions and
+    device-aware MPI, rather than mechanically replacing these loops.
+
+    Component boundaries:
+      - nonmatchingbernstein.hpp: reusable polynomial/basis utilities;
+      - nonmatchingpreprocessgeometry.hpp: prepared curved-face geometry and projection;
+      - nonmatchingpreprocesssearch.hpp: local bounding, screening and face selection;
+      - nonmatchingpreprocessmpi.hpp: distributed candidate routing only;
+      - this file: Exasim data extraction and D6-D7 setup orchestration.
+
     Requirements: include after Common/common.h and interfacepartition.hpp.
-    Host-only setup code.
 */
 
 #ifndef __NONMATCHINGPREPROCESS_HPP

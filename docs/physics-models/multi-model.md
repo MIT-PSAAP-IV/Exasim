@@ -135,6 +135,21 @@ are the 3D counterparts. Their Text2Code versions are under
 | Backends | CPU. The CUDA/HIP path is not yet validated and type 1 is rejected on GPU backends. The in-memory (no-file) constructor does not build the non-matching runtime data and rejects type 1 with a clear error. |
 | Floating point | The donor search bounds are best-effort under the default `-ffast-math` build; the solver's residual-norm check is the NaN/infinity guard. |
 
+#### Conformal interface face permutations
+
+Conformal coupling stores a zero-based node map from each local interface face
+to its peer. For local node `n` on `mesh.intfaces[k]`,
+`faceperm[n + stride*k]` is the peer node index read from the received face
+buffer. The received buffer is component-fastest and the permutation is stored
+in face blocks, consistent with Exasim's flattened column-major conventions.
+
+When every interface face has the same orientation, `mesh.faceperm` contains
+one `npf`-entry block and the runtime uses `stride = 0`. If orientations differ,
+as they can for triangular faces of tetrahedra, it contains
+`npf*nInterfaceFaces` entries and uses `stride = npf`; block `k` corresponds to
+`mesh.intfaces[k]`. The runtime constructs the expanded form from matching node
+coordinates and retains the compact form only when all face blocks are equal.
+
 **Regenerate old input files.** Before `interfacetype` became a fixed slot,
 `app.problem[34]` held the first user `pde.problem` value. An `app.bin` written
 by an older frontend therefore puts user data where the solver now reads

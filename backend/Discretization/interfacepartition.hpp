@@ -125,9 +125,9 @@ inline void verify_existing_array(const char* name, const I rank, const I* store
     }
 }
 
-// [nonmatching] Conformal interfaces normally use one face-node permutation.
-// Tetrahedral interfaces can contain several valid triangular orientations, so
-// retain one block per local interface face only when those blocks differ.
+// For local interface face k, perFace[n + npf*k] is the peer node matching
+// local node n. Conformal interfaces normally share one permutation; retain
+// one block per mesh.intfaces[k] only when face orientations differ.
 template <class I>
 inline std::vector<I> select_faceperm_layout(const std::vector<I>& perFace,
         const I npf, const I nfaces)
