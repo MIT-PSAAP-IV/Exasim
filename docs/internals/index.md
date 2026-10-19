@@ -88,4 +88,3 @@ Before changing code, identify the layer that owns the behavior:
 - [Text2Code Applications](../text2code-applications/index.md)
 - [Physics Models](../physics-models/index.md)
 - [Theory](../theory/index.md)
-- [Using AI Tools](../using-ai-tools/index.md)

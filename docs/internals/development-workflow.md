@@ -77,9 +77,6 @@ Recommended workflow for AI agents:
 5. Avoid editing generated files unless the task explicitly requires it.
 6. Run targeted validation and report what was not tested.
 
-For prompt examples and user-facing guidance, see
-[Using AI Tools](../using-ai-tools/index.md).
-
 ## Handling Generated Files
 
 Generated files are easy to modify accidentally. Before editing a generated
