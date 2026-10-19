@@ -105,7 +105,10 @@ else
     is_coupling = isfield(mesh{1}, 'interfacecondition') && ...
                   max(mesh{1}.interfacecondition) >= 1;
 
-    if is_coupling
+    use_combined_coupling = is_coupling && ...
+        all(cellfun(@(app) isfield(app,'combinedmodel') && app.combinedmodel, pde));
+
+    if is_coupling && ~use_combined_coupling
         % ---- legacy two-domain coupling path (interfacecondition) ----------
         % Unchanged: suffixed kernels via kkgencodeall + interface partition +
         % the nummodels>100 MPI-split CLI. (combinedmodel stays unset.)
@@ -150,6 +153,9 @@ else
         for m = 1:nmodels
             pde{m}.modelnumber = m - 1;
             pde{m}.combinedmodel = true;
+            if is_coupling
+                pde{m}.frontendgenerated = 0;
+            end
             pde{m}.modelid = resolve_modelid(pde{m});   % 100 + slot
             [pde{m},mesh{m},master{m},dmd{m}] = preprocessing(pde{m},mesh{m});
             if pde{m}.gencode==1
@@ -157,8 +163,13 @@ else
             end
         end
 
-        compilerstr = cmakecompile_combined(pde);
-        runstr = runcode_combined(pde);
+        if is_coupling
+            compilerstr = cmakecompile_combined(pde);
+            runstr = runcode_coupled(pde);
+        else
+            compilerstr = cmakecompile_combined(pde);
+            runstr = runcode_combined(pde);
+        end
 
         for m = 1:nmodels
             sol{m} = fetchsolution(pde{m},master{m},dmd{m}, ...

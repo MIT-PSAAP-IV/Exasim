@@ -13,7 +13,7 @@ without manually building every dependency.
 | CMake finds the wrong MPI | Multiple MPI installations are visible. | Set `MPI_C_COMPILER` and `MPI_CXX_COMPILER` explicitly. |
 | ParMETIS or MPI link errors | MPI compiler/runtime mismatch. | Build and run with the same MPI stack. |
 | BLAS/LAPACK not found | Missing system packages or unloaded vendor math module. | Install `libblas-dev liblapack-dev` or load site math libraries. |
-| Download step fails | Network blocked or proxy required. | Use site mirrors, preload dependencies, or use manual install. |
+| An explicitly enabled optional download fails | Network blocked, proxy required, or the selected optional source is unavailable. | Disable the network-dependent option for an offline build, provide an approved local source, or use a site mirror. The default vendored CPU dependency build does not download after the repository is present. |
 | Kokkos fails to configure | Unsupported compiler, path with spaces, or wrong GPU toolchain. | Use a supported compiler and a whitespace-free path. |
 | GPU compile fails | Wrong CUDA/HIP architecture or compiler. | Use [GPU Installation](gpu.md) and platform-specific GPU pages. |
 
@@ -58,7 +58,7 @@ cmake --install Exasim-build
 
 Proceed to [Manual Dependency Installation](manual-dependencies.md) when:
 
-- your site blocks Superbuild downloads;
+- your site blocks a download required by an explicitly enabled optional feature;
 - you must use preinstalled system or vendor dependencies;
 - the cluster requires specific compiler/MPI/GPU module combinations;
 - you need fine-grained control over Kokkos, SymEngine, METIS, or ParMETIS.

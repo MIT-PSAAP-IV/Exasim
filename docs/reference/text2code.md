@@ -165,7 +165,7 @@ Text2Code inputs, provide:
 - A nearby working example path.
 
 Then validate by running Text2Code, compiling the app, and running a small
-case. See [Using AI Tools](../using-ai-tools/index.md).
+case.
 
 ## Common Errors
 

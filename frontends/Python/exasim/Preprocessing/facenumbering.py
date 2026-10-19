@@ -15,8 +15,6 @@ def  facenumbering(p,t,elemtype,bndexpr,prdexpr):
 
     t2fl = reshape(t[face.flatten(order='F'),:], (nvf, nfe*ne), order='F');
     pf = reshape(p[:,t2fl.flatten(order='F')], (dim, nvf, nfe, ne), order='F');
-    # pf = reshape(sum(pf,axis=1)/nvf,(dim,nfe,ne), order='F');
-
     # interior faces are zero
     f = zeros((nfe,ne),dtype=int,order='F');
 
@@ -41,6 +39,7 @@ def  facenumbering(p,t,elemtype,bndexpr,prdexpr):
     nprd = len(prdexpr);
     if nprd>0:
         f = f.flatten('F');
+        pf = reshape(sum(pf,axis=1)/nvf,(dim,nfe,ne), order='F');
         pf = reshape(pf, (dim, nfe*ne), order = 'F');
         tprd = t.flatten('F');
         # periodic boundary faces are negative

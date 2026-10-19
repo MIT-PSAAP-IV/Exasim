@@ -45,6 +45,13 @@ from .hdgnocodeface2 import hdgnocodeface2
 
 def gencode(app):
 
+    if app['codegenerator'] == "prebuilt":
+        kernelsdir = os.path.join(config.model_builddir(app), "kernels")
+        if os.path.isdir(kernelsdir):
+            shutil.rmtree(kernelsdir)
+        shutil.copytree(app['kernelsource'], kernelsdir)
+        return
+
     if app['codegenerator'] == "text2code":
         runstr = str(config.text2code_path())
         inputfile = app['modelfile'] + ".txt"

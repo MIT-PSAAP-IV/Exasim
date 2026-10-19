@@ -19,7 +19,6 @@ pde['dt'] = 0.05*numpy.ones(shape=200)
 pde['soltime'] = numpy.arange(start=0,stop=200,step=1)
 pde['visdt'] = 0.05
 pde['pgauss'] = 2*pde['porder'] # number of Gauss points for quadrature
-pde['physicsparam'] = numpy.array([1.0, 0.0]);   # unit thermal conductivity
 pde['tau'] = numpy.array([1.0]);            # DG stabilization parameter
 pde['linearsolvertol'] = 1e-4; # linear solver tolerance
 pde['ppdegree'] = 6; # degree of polynomial precontiditoning
@@ -31,7 +30,7 @@ pde['NLiter'] = 2
 
 m = 16*1.67e-27
 kB = 1.38e-23
-pde['mu'] = [m, kB, 1.6e-19, 8.7]
+pde['physicsparam'] = numpy.array([m, kB, 1.6e-19, 8.7])
 
 # Choose computing platform and set number of processors
 #pde['platform'] = "gpu";   # choose this option if NVIDIA GPUs are available

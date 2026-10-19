@@ -62,7 +62,9 @@ ndims[19] = app.nvqoi;
 ndims[20] = app.ncm;
 ndims[21] = app.nsurfq;  # SurfaceQuantities components
 
-if app.AVcontinuationIter >= 2
+# Preserve explicitly supplied schedules, matching MATLAB. This also permits
+# bitwise-identical schedules across math-library implementations.
+if app.AVcontinuationIter >= 2 && isempty(app.avparam1)
     t = collect(range(0.0, 1.0, length=app.AVcontinuationIter));
     alpha = app.AVcontinuationLogScale;
     if !all(isfinite.([alpha, app.AVcoeffStart, app.AVcoeffEnd]))

@@ -289,7 +289,8 @@ backend/Model/SymbolicFunctions.hpp
 backend/Model/SymbolicScalarsVectors.cpp
 examples/NavierStokes/isoq/mesh.png
 examples/Poisson/isoq/mesh.png
-/examples/Poisson/multipleequations
+/examples/Poisson/multipleequations/*
+!/examples/Poisson/multipleequations/README.md
 examples/Poisson/sharpb2/mesh.png
 backend/Postprocessing/postprocess
 backend/Model/HdgUbou.cpp
@@ -510,3 +511,5 @@ examples/NavierStokes/equilibrium5air_cylindermach8/pdeapp0.m
 /apps/coupledproblems/heattransfer/*/udg1.bin
 /apps/coupledproblems/heattransfer/*/vdg1.bin
 **/matlab_run/
+/docs/using-ai-tools
+/examples/Poisson/multipleequations

@@ -10,6 +10,7 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPOSITORY = os.path.abspath(os.path.join(HERE, "..", "..", "..", ".."))
 SOURCE_INSTALL = os.path.join(os.path.dirname(REPOSITORY), "exasim_install")
+CANONICAL_KERNELS = os.path.join(HERE, "canonical_kernels")
 if "EXASIM_PREFIX" not in os.environ and os.path.isfile(
     os.path.join(SOURCE_INSTALL, "lib", "cmake", "Exasim", "ExasimConfig.cmake")
 ):
@@ -19,12 +20,16 @@ sys.path.insert(1, os.path.join(REPOSITORY, "frontends", "Python"))
 
 import exasim  # noqa: E402
 from exasim.Postprocessing.getsolution import getsolution  # noqa: E402
-from isoq_mesh import make_isoq_mesh, make_isoq_solid, wall_distance  # noqa: E402
+from isoq_mesh import load_canonical_mesh  # noqa: E402
 
 
 def build_case(run_directory=None):
     pde, _ = exasim.initializeexasim()
     pde["model"] = "ModelD"
+    # All frontends compile the same checked-in generated model sources.
+    pde["codegenerator"] = "prebuilt"
+    pde["kernelsource"] = os.path.join(CANONICAL_KERNELS, "fluid")
+    pde["canonicalmaster"] = os.path.join(HERE, "canonical_mesh", "fluid_master.bin")
     pde["modelfile"] = "pdemodel"
     pde["platform"] = "cpu"
     pde["mpiprocs"] = 4
@@ -56,6 +61,17 @@ def build_case(run_directory=None):
     pde["AVcontinuationLogScale"] = 1.5
     pde["AVcoeffStart"] = 0.002
     pde["AVcoeffEnd"] = 0.00002
+    # Canonical continuation schedule shared by MATLAB, Python, and Julia.
+    pde["avparam1"] = np.array([
+        0.002, 0.0015034374019939735, 0.0011026529166442065,
+        0.0007791726457939881, 0.000518085978384667,
+        0.0003073582956121101, 0.00013727624306105775, 0.0,
+    ])
+    pde["avparam2"] = np.array([
+        0.0, 1.3727624306105766e-06, 3.0735829561211013e-06,
+        5.180859783846669e-06, 7.791726457939882e-06,
+        1.1026529166442065e-05, 1.5034374019939733e-05, 2.0e-05,
+    ])
     pde["AVdistfunction"] = 1
     pde["distanceboundaryconditions"] = np.array([3], dtype=np.int64)
     pde["AVsmoothingMethod"] = 1
@@ -104,27 +120,13 @@ def build_case(run_directory=None):
     pde["NLiter"] = 10
     pde["matvectol"] = 1.0e-6
 
-    mesh = make_isoq_mesh(pde["porder"], 5.0e-4)
+    # Keep the optional serialized extension blocks identical to MATLAB.
+    for name in ("flag", "problem", "factor", "solversparam", "stgdata",
+                 "stgparam", "stgib", "dae_dt"):
+        pde[name] = np.array([], dtype=np.float64)
+
+    mesh = load_canonical_mesh("fluid")
     mesh["boundarycondition"] = np.array([4, 2, 1, 3], dtype=np.int64)
-    distance = wall_distance(mesh, pde["porder"])
-    # ODG layout: wall distance, filtered AV sensor, mesh-adaptation pressure.
-    mesh["vdg"] = np.zeros((distance.shape[0], 3, distance.shape[2]), order="F")
-    mesh["vdg"][:, 0:1, :] = distance
-    npe, _, ne = mesh["dgnodes"].shape
-    # Match MATLAB's HDG initialization exactly: conservative variables are
-    # followed by the two zero gradient blocks in the 12-component UDG array.
-    mesh["udg"] = np.zeros((npe, 12, ne), dtype=np.float64, order="F")
-    mesh["udg"][:, 0, :] = density_inf
-    mesh["udg"][:, 1, :] = momentum_x_inf * np.tanh(
-        av_distance_coefficient * distance[:, 0, :]
-    )
-    mesh["udg"][:, 2, :] = momentum_y_inf
-    near_wall_temperature = temperature_inf * (
-        wall_temperature / reference_temperature - 1.0
-    ) * np.exp(-av_distance_coefficient * distance[:, 0, :]) + temperature_inf
-    mesh["udg"][:, 3, :] = near_wall_temperature + 0.5 * (
-        mesh["udg"][:, 1, :] ** 2 + mesh["udg"][:, 2, :] ** 2
-    )
     return pde, mesh
 
 
@@ -148,20 +150,27 @@ def run_isoq_case(build_fluid, matching, case_directory, run_directory=None):
     fluid_mesh["boundarycondition"]=np.array([4,2,1,7]); fluid_mesh["interfacecondition"]=np.array([0,0,0,1])
     fluid["interfacefluxmap"]=np.array([4]); fluid["ibs"]=7; fluid["distanceboundaryconditions"]=np.array([7])
     fluid["AVdistfunction"]=0; fluid["AVsmoothingMethod"]=0; fluid["AV"]=0
-    params=np.asarray(fluid["physicsparam"]).reshape(-1); params[-2:]=[0.0,1.5*fluid["AVcoeffEnd"]]; fluid["physicsparam"]=params
-    fluid["NLiter"]=20
+    fluid["AVcontinuationIter"]=0; fluid["avparam1"]=np.array([]); fluid["avparam2"]=np.array([])
+    params=np.asarray(fluid["physicsparam"]).reshape(-1); params[-2:]=[0.0,fluid["AVcoeffEnd"]]; fluid["physicsparam"]=params
+    # The monolithic solve inherits the precursor's nonlinear stopping rule.
 
-    solid,_=exasim.initializeexasim(); solid.update({"model":"ModelD","modelfile":"pdemodel_solid","platform":fluid["platform"],
+    solid,_=exasim.initializeexasim(); solid.update({"model":"ModelD","codegenerator":"prebuilt",
+        "kernelsource":os.path.join(CANONICAL_KERNELS,"solid"),
+        "canonicalmaster":os.path.join(HERE,"canonical_mesh","solid_master.bin"),
+        "modelfile":"pdemodel_solid","platform":fluid["platform"],
         "mpiprocs":2,"hybrid":1,"debugmode":fluid["debugmode"],"porder":fluid["porder"],"pgauss":fluid["pgauss"],
-        "gencode":1,"Cxxpreprocessing":0,"GMRESrestart":fluid["GMRESrestart"],"GMRESortho":fluid["GMRESortho"],
+        "gencode":1,"Cxxpreprocessing":1,"GMRESrestart":fluid["GMRESrestart"],"GMRESortho":fluid["GMRESortho"],
         "linearsolvertol":fluid["linearsolvertol"],"linearsolveriter":fluid["linearsolveriter"],"preconditioner":fluid["preconditioner"],
-        "RBdim":fluid["RBdim"],"ppdegree":fluid["ppdegree"],"NLtol":fluid["NLtol"],"NLiter":20,"matvectol":fluid["matvectol"],
+        "RBdim":fluid["RBdim"],"ppdegree":fluid["ppdegree"],"NLtol":fluid["NLtol"],"NLiter":fluid["NLiter"],"matvectol":fluid["matvectol"],
         "modelnumber":1,"interfacetype":1,"interfacefluxmap":np.array([1]),"datapath":coupled,
         "builddir":os.path.join(coupled,".exasim"),"buildpath":os.path.join(coupled,".exasim")})
+    for name in ("flag", "problem", "factor", "solversparam", "stgdata",
+                 "stgparam", "stgib", "dae_dt"):
+        solid[name] = np.array([], dtype=np.float64)
     gam,mach,tref,twall=params[0],params[3],params[9],params[10]; tinf=1.0/(gam*(gam-1.0)*mach**2)
     solid_temperature=twall/tref*tinf; solid["physicsparam"]=np.array([0.01,solid_temperature]); solid["tau"]=np.array([1.0])
-    solid_mesh=make_isoq_solid(solid,fluid_mesh,matching,0.0028)
-    solid_mesh["udg"]=np.zeros((solid_mesh["dgnodes"].shape[0],3,solid_mesh["dgnodes"].shape[2]),order="F"); solid_mesh["udg"][:,0,:]=solid_temperature
+    solid_mesh=load_canonical_mesh("solid")
+    solid_mesh["boundarycondition"]=np.array([3,2,1],dtype=np.int64)
     return exasim.exasim([fluid,solid],[fluid_mesh,solid_mesh])
 
 

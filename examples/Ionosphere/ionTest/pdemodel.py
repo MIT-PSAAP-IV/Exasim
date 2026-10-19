@@ -1,4 +1,4 @@
-from numpy import array
+from numpy import array, reshape
 from sympy import sqrt
 
 # mu = [m, kB, e, g]
@@ -22,9 +22,10 @@ def flux(u, q, w, v, x, t, mu, eta):
     f22 = [u2[1]*u2[0]/(m*u1)  , u2[1]**2/(m*u1) + u3, u2[1]*u2[2]/(m*u1)  ]
     f23 = [u2[2]*u2[0]/(m*u1)  , u2[2]*u2[1]/(m*u1)  , u2[2]**2/(m*u1) + u3]
     f3 = u3*u2/(m*u1) - 2*kappa*(u3*q1 - u1*q3)/(3*kB*u1**2)
-    f = array([f1[0], f21[0], f22[0], f23[0], f3[0],
-               f1[1], f21[1], f22[1], f23[1], f3[1],
-               f1[2], f21[2], f22[2], f23[2], f3[2]])
+    f = reshape(array([f1[0], f21[0], f22[0], f23[0], f3[0],
+                       f1[1], f21[1], f22[1], f23[1], f3[1],
+                       f1[2], f21[2], f22[2], f23[2], f3[2]]),
+                (5, 3), order="F")
     return f
 
 def source(u, q, w, v, x, t, mu, eta):
@@ -74,14 +75,14 @@ def ubou(u, q, w, v, x, t, mu, eta, uhat, n, tau):
 
 def fbou(u, q, w, v, x, t, mu, eta, uhat, n, tau):
     f = flux(u, q, w, v, x, t, mu, eta)
-    fb = array([f[:, 0]*n[0] + f[:, 1]*n[1] + f[:, 2]*n[2] + tau*(u-uhat)])
+    fb = f[:, 0]*n[0] + f[:, 1]*n[1] + f[:, 2]*n[2] + tau*(u-uhat)
 
     fbu = array([0, 0, 0, 0, 0])
     return [fb, fbu]
 
 def fbouhdg(u, q, w, v, x, t, mu, eta, uhat, n, tau):
     f = flux(u, q, w, v, x, t, mu, eta)
-    fb = array([f[:, 0]*n[0] + f[:, 1]*n[1] + f[:, 2]*n[2] + tau*(u-uhat)])
+    fb = f[:, 0]*n[0] + f[:, 1]*n[1] + f[:, 2]*n[2] + tau*(u-uhat)
 
     m = mu[0]
     vn = v[6:9]

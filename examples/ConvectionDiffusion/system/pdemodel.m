@@ -41,8 +41,7 @@ end
 
 function fb = fbouhdg(u, q, w, v, x, t, mu, eta, uhat, n, tau)
 fb0 = tau*(-uhat);
-fb = [fb0; fb0];
+fb = fb0;
 end
-
 
 

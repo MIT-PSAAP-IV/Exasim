@@ -26,10 +26,20 @@ Defined in the root `CMakeLists.txt`:
 | `EXASIM_NOMPI` | `ON` | `ON/OFF` | Build non-MPI variants. |
 | `EXASIM_CUDA` | `OFF` | `ON/OFF` | Enable CUDA backend. |
 | `EXASIM_HIP` | `OFF` | `ON/OFF` | Enable HIP backend. |
+| `EXASIM_GPU_ARCH` | empty | architecture string | Select the CUDA or AMD GPU architecture forwarded to Kokkos. |
 | `EXASIM_LIB` | `ON` | `ON/OFF` | Build static libraries; skip executables in solver layer when enabled. |
 | `WITH_PARMETIS` | `ON` | `ON/OFF` | Link METIS/ParMETIS/GKlib support. |
 | `WITH_TEXT2CODE` | `OFF` | `ON/OFF` | Build additional text2code-linked executable variants. |
 | `WITH_BUILTINMODEL` | `ON` | `ON/OFF` | Forwarded to solver build; built-in model library remains part of package flow. |
+| `WITH_GMP` | `OFF` | `ON/OFF` | Use GMP for the vendored SymEngine build. Existing static GMP headers/libraries in the final prefix skip the download; otherwise GMP is downloaded and installed into that prefix during `cmake --build`, before `cmake --install`. |
+| `EXASIM_GMP_VERSION` | `6.3.0` | version string | GMP version used when `WITH_GMP=ON`. |
+| `EXASIM_GMP_URLS` | official GMP mirrors | semicolon-separated URLs | Override the source archive locations used when `WITH_GMP=ON` and GMP is not already in the prefix. |
+| `EXASIM_GMP_URL_HASH` | pinned SHA-256 | CMake URL hash | Integrity hash for the selected GMP source archive. |
+| `EXASIM_FLOAT` | `OFF` | `ON/OFF` | Use single-precision `dstype`; default is double precision. Experimental and not verified end to end; do not enable for a default installation. |
+| `EXASIM_INT64` | `OFF` | `ON/OFF` | Use 64-bit `Int` indices; default is `int`. Experimental and not verified end to end; do not enable for a default installation. |
+| `EXASIM_BOUNDS_CHECK` | `OFF` | `ON/OFF` | Enable rank-aware bounds checks for partition-derived indices. Intended for debug and CI builds. |
+| `EXASIM_ASAN` | `OFF` | `ON/OFF` | Instrument Exasim targets with AddressSanitizer and frame pointers. Intended for debug and CI builds. |
+| `EXASIM_BUILD_SHARED_APP` | `OFF` | `ON/OFF` | Build and install the shared-library `exasimapp` executable. |
 | `EXASIM_BUILD_TESTS` | `OFF` | `ON/OFF` | Register CTest tests. |
 | `EXASIM_FRONTENDS` | `ON` | `ON/OFF` | Install MATLAB/Python/Julia frontends and app templates. |
 | `EXASIM_PIP_INSTALL` | `OFF` | `ON/OFF` | Pip-install Python frontend into configured interpreter. |

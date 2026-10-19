@@ -15,6 +15,65 @@ from exasim.Preprocessing.masternodes import masternodes
 from exasim.Preprocessing.mkshape import mkshape
 
 
+def _read_canonical_array(name):
+    path = os.path.join(os.path.dirname(__file__), "canonical_mesh", name + ".bin")
+    with open(path, "rb") as stream:
+        dims = np.fromfile(stream, dtype="<f8", count=3).astype(np.int64)
+        values = np.fromfile(stream, dtype="<f8")
+    dims = dims[dims > 0]
+    if dims.size < 2 or values.size != int(np.prod(dims)):
+        raise RuntimeError(f"invalid canonical mesh array {path}")
+    return values.reshape(tuple(dims), order="F")
+
+
+def load_canonical_mesh(domain):
+    points = _read_canonical_array(domain + "_p")
+    elements = _read_canonical_array(domain + "_t").astype(np.int64)
+    faces = _read_canonical_array(domain + "_f").astype(np.int64)
+    dgnodes = _read_canonical_array(domain + "_dgnodes")
+    ymin, xmax = np.min(points[1]), np.max(points[0])
+    if domain == "fluid":
+        boundaryexpr = [
+            lambda p: np.abs(p[1] - ymin) < 1.0e-6,
+            lambda p: p[0] > xmax - 1.0e-4,
+            lambda p: (p[0] < -1.0e-3) | (p[1] > 0.1),
+            lambda p: np.abs(p[0]) < 20.0 + 1.0e-6,
+        ]
+        udg = _read_canonical_array("fluid_udg")
+        vdg = _read_canonical_array("fluid_vdg")
+        interfacecondition = []
+    else:
+        scale = max(1.0, np.ptp(points, axis=1).max())
+        tolerance = 1.0e-10 * scale
+        edge = getelemface(2, 0)
+        local_faces, element_ids = np.nonzero(faces == 1)
+        interface_vertices = np.unique(np.concatenate([
+            elements[edge[:, face], elem]
+            for face, elem in zip(local_faces, element_ids)
+        ]))
+        startx = np.min(points[0, interface_vertices])
+        endy = np.max(points[1, interface_vertices])
+        boundaryexpr = [
+            lambda p: ~(
+                ((np.abs(p[1] - ymin) < tolerance) & (p[0] > startx + tolerance))
+                | ((np.abs(p[0] - xmax) < tolerance) & (p[1] < endy - tolerance))
+            ),
+            lambda p: np.abs(p[1] - ymin) < tolerance,
+            lambda p: np.abs(p[0] - xmax) < tolerance,
+        ]
+        udg = _read_canonical_array("solid_udg")
+        vdg = []
+        interfacecondition = np.array([1, 0, 0], dtype=np.int64)
+    return {
+        "p": points, "t": elements, "f": faces, "dgnodes": dgnodes,
+        "udg": udg, "vdg": vdg, "wdg": [], "tprd": [],
+        "boundaryexpr": boundaryexpr, "boundarycondition": [],
+        "interfacecondition": interfacecondition, "periodicexpr": [],
+        "curvedboundary": np.array([], dtype=np.int64),
+        "curvedboundaryexpr": [], "periodicboundary": np.array([], dtype=np.int64),
+    }
+
+
 def _loginc(values, alpha):
     lower, upper = np.min(values), np.max(values)
     if upper == lower:
