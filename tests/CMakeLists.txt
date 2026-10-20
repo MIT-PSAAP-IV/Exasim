@@ -32,7 +32,10 @@ if(TARGET Kokkos::kokkos)
     foreach(variant templated legacy)
       add_executable(device_solution_${variant}_test "${EXASIM_DIR}/tests/unit/device_solution.cpp")
       target_include_directories(device_solution_${variant}_test PRIVATE "${EXASIM_DIR}" "${EXASIM_DIR}/include")
-      target_link_libraries(device_solution_${variant}_test PRIVATE Kokkos::kokkos)
+      # The setup headers emit BLAS calls in unoptimized builds, even when the
+      # fixture only exercises allocation and metadata copying.
+      target_link_libraries(device_solution_${variant}_test PRIVATE
+        Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
       target_compile_features(device_solution_${variant}_test PRIVATE cxx_std_17)
       if(variant STREQUAL "legacy")
         target_compile_definitions(device_solution_${variant}_test PRIVATE TEST_LEGACY_SETUP)
@@ -86,7 +89,8 @@ if(TARGET Kokkos::kokkos)
     foreach(variant templated legacy)
       add_executable(rb_workspace_${variant}_test "${EXASIM_DIR}/tests/unit/rb_workspace.cpp")
       target_include_directories(rb_workspace_${variant}_test PRIVATE "${EXASIM_DIR}" "${EXASIM_DIR}/include")
-      target_link_libraries(rb_workspace_${variant}_test PRIVATE Kokkos::kokkos)
+      target_link_libraries(rb_workspace_${variant}_test PRIVATE
+        Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
       target_compile_features(rb_workspace_${variant}_test PRIVATE cxx_std_17)
       if(variant STREQUAL "legacy")
         target_compile_definitions(rb_workspace_${variant}_test PRIVATE TEST_LEGACY_SETUP)
