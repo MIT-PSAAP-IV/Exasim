@@ -879,7 +879,7 @@ void coupled_residual(RankOperator& op, nonmatchingdata& nm, std::vector<dstype>
     exasim::nonmatching::compute_nonmatching_coupling<Model>(nm, op.sol, op.res, op.app, op.master, op.mesh,
             op.tmp, op.common, 0, false, 0, ownerTests);
     Int count = 0;
-    exasim::nonmatching::begin_coupling_slot_exchange(nm, op.common, count);
+    exasim::nonmatching::begin_coupling_slot_exchange(nm, op.common, count, ownerTests);
     MPI_Waitall(count, op.common.requests, op.common.statuses);
     // Exasim stores residuals with the sign of the right-hand side
     // (donor.Ri = -sum W f, like res.Rh and the conformal res.Ri) and the
@@ -1169,7 +1169,8 @@ void halo_case(const std::string& name, const ModelMesh& m1, const ModelMesh& m2
     check(total > 0, tag + ": donor elements adjacent to a partition boundary");
 
     exasim::nonmatching::compute_nonmatching_coupling<Model>(nm, op.sol, op.res, op.app, op.master, op.mesh,
-            op.tmp, op.common, 0, true, 0);
+            op.tmp, op.common, 0, true, 0,
+            static_cast<const OwnerTestData<dstype, Int>*>(nullptr));
 
     // Trace values by physical node position, so shared faces agree across ranks.
     std::vector<dstype> v(op.N);
@@ -1351,7 +1352,8 @@ void matching_case(const std::string& name, const ModelMesh& m1, const ModelMesh
     conformal_interface_matrices<Model>(op, lm, mst);
     use_nonmatching(op);
     exasim::nonmatching::compute_nonmatching_coupling<Model>(nm, op.sol, op.res, op.app, op.master, op.mesh,
-            op.tmp, op.common, 0, true, 0);
+            op.tmp, op.common, 0, true, 0,
+            static_cast<const OwnerTestData<dstype, Int>*>(nullptr));
 
     std::vector<dstype> v(op.N), wc, wn, ve, weAE, wAE;
     for (Int i = 0; i < op.N; i++) v[i] = hv(i, 67 + sc.model) - 0.5;

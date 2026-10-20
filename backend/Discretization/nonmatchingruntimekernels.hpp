@@ -9,13 +9,14 @@
 #define __NONMATCHINGRUNTIMEKERNELS_HPP
 
 #include "nonmatchingruntime.hpp"
+#include "nonmatchingrectangular.hpp"
 
 namespace exasim {
 namespace nonmatching {
 
-// Phase 8 production path.  Every Kokkos iteration owns one output entry and
-// performs reductions in the accepted point/node order, avoiding atomics and
-// preserving CPU summation order while remaining device-callable.
+// Every Kokkos iteration owns one output entry and performs reductions in the
+// accepted point/node order, avoiding atomics and preserving CPU summation
+// order while remaining device-callable.
 template <class T, class I>
 inline void build_runtime_point_data(NonmatchingRuntimeDirection<T, I>& runtime,
         const solstructT<T, I>& sol, const meshstructT<T, I>& mesh,
@@ -213,8 +214,9 @@ inline void evaluate_runtime_flux(NonmatchingRuntimeDirection<T, I>& runtime,
     }
 }
 
-template <class T, class I>
-inline void form_runtime_slot_residual(NonmatchingRuntimeDirection<T, I>& runtime,
+template <bool UseTransportedOwnerTests, class T, class I>
+inline void form_shared_space_slot_residual(
+        NonmatchingRuntimeDirection<T, I>& runtime,
         const masterstructT<T, I>& master)
 {
     const auto v = runtime.view;
@@ -226,16 +228,21 @@ inline void form_runtime_slot_residual(NonmatchingRuntimeDirection<T, I>& runtim
             const I row = static_cast<I>(idx % m12), slot = static_cast<I>(idx / m12);
             const I out = row % v.ncu12, i = row / v.ncu12;
             T value = 0;
-            for (I p = v.slotptr[slot]; p < v.slotptr[slot + 1]; ++p)
-                value -= v.pwJ[p] * (v.ptest ? v.ptest[i + static_cast<std::size_t>(v.npf) * p]
-                                             : shapfgt[v.pg[p] + static_cast<std::size_t>(v.ngf) * i]) *
+            for (I p = v.slotptr[slot]; p < v.slotptr[slot + 1]; ++p) {
+                T test;
+                if constexpr (UseTransportedOwnerTests)
+                    test = v.ptest[i + static_cast<std::size_t>(v.npf) * p];
+                else
+                    test = shapfgt[v.pg[p] + static_cast<std::size_t>(v.ngf) * i];
+                value -= v.pwJ[p] * test *
                          flux[p + static_cast<std::size_t>(npts) * out];
+            }
             Ri[idx] = value;
         });
 }
 
-template <class T, class I>
-inline void form_runtime_pairs(NonmatchingRuntimeDirection<T, I>& runtime,
+template <bool UseTransportedOwnerTests, class T, class I>
+inline void form_shared_space_pairs(NonmatchingRuntimeDirection<T, I>& runtime,
         const masterstructT<T, I>& master, const resstructT<T, I>& res,
         const commonstructT<T, I>& common, cublasHandle_t handle, I backend)
 {
@@ -259,8 +266,12 @@ inline void form_runtime_pairs(NonmatchingRuntimeDirection<T, I>& runtime,
             const I j = col % npe, c = col / npe;
             T value = 0;
             for (I p = v.pairptr[pair]; p < v.pairptr[pair + 1]; ++p) {
-                const T W = v.pwJ[p] * (v.ptest ? v.ptest[i + static_cast<std::size_t>(npf) * p]
-                                                 : shapfgt[v.pg[p] + static_cast<std::size_t>(v.ngf) * i]);
+                T test;
+                if constexpr (UseTransportedOwnerTests)
+                    test = v.ptest[i + static_cast<std::size_t>(npf) * p];
+                else
+                    test = shapfgt[v.pg[p] + static_cast<std::size_t>(v.ngf) * i];
+                const T W = v.pwJ[p] * test;
                 T derivative = fluxUdg[p + static_cast<std::size_t>(npts) * (out + ncu12 * c)] *
                                v.pphi[j + static_cast<std::size_t>(npe) * p];
                 if (ncq == 0)
@@ -285,8 +296,12 @@ inline void form_runtime_pairs(NonmatchingRuntimeDirection<T, I>& runtime,
             T value = 0;
             for (I p = v.pairptr[pair]; p < v.pairptr[pair + 1]; ++p)
                 if (v.pa[p] == a) {
-                    const T W = v.pwJ[p] * (v.ptest ? v.ptest[i + static_cast<std::size_t>(npf) * p]
-                                                 : shapfgt[v.pg[p] + static_cast<std::size_t>(v.ngf) * i]);
+                    T test;
+                    if constexpr (UseTransportedOwnerTests)
+                        test = v.ptest[i + static_cast<std::size_t>(npf) * p];
+                    else
+                        test = shapfgt[v.pg[p] + static_cast<std::size_t>(v.ngf) * i];
+                    const T W = v.pwJ[p] * test;
                     value += W * fluxUhg[p + static_cast<std::size_t>(npts) *
                         (out + ncu12 * c)] * v.ppsi[jface + static_cast<std::size_t>(npf) * p];
                 }
@@ -309,9 +324,13 @@ inline void form_runtime_pairs(NonmatchingRuntimeDirection<T, I>& runtime,
                     const I c = static_cast<I>(q / ncu12);
                     T value = 0;
                     for (I p = v.pairptr[pair]; p < v.pairptr[pair + 1]; ++p) {
-                        const T W = v.pwJ[p] *
-                            (v.ptest ? v.ptest[i + static_cast<std::size_t>(npf) * p]
-                                     : shapfgt[v.pg[p] + static_cast<std::size_t>(v.ngf) * i]);
+                        T test;
+                        if constexpr (UseTransportedOwnerTests)
+                            test = v.ptest[i + static_cast<std::size_t>(npf) * p];
+                        else
+                            test = shapfgt[v.pg[p] +
+                                static_cast<std::size_t>(v.ngf) * i];
+                        const T W = v.pwJ[p] * test;
                         const I qc = ncu + c + ncu * d;
                         value += W *
                             (fluxUdg[p + static_cast<std::size_t>(npts) *
@@ -377,6 +396,38 @@ inline void form_runtime_pairs(NonmatchingRuntimeDirection<T, I>& runtime,
         });
 }
 
+// The only production dispatch between the two optimized operator families.
+// Both implementations satisfy NonmatchingDirectionContract; the shared-space
+// path retains its compact layout and established arithmetic, while the
+// independent-space path supplies distinct owner rows and donor columns.
+template <class T, class I>
+struct RuntimeOperatorDispatch {
+    static void residual(NonmatchingRuntimeDirection<T, I>& runtime,
+            const masterstructT<T, I>& master)
+    {
+        if (uses_independent_face_spaces(runtime.view.contract))
+            form_rectangular_slot_residual(runtime);
+        else if (runtime.view.ptest)
+            form_shared_space_slot_residual<true>(runtime, master);
+        else
+            form_shared_space_slot_residual<false>(runtime, master);
+    }
+
+    static void pairs(NonmatchingRuntimeDirection<T, I>& runtime,
+            const masterstructT<T, I>& master, const resstructT<T, I>& res,
+            const commonstructT<T, I>& common, cublasHandle_t handle, I backend)
+    {
+        if (uses_independent_face_spaces(runtime.view.contract))
+            form_rectangular_pairs(runtime, res, common, handle, backend);
+        else if (runtime.view.ptest)
+            form_shared_space_pairs<true>(
+                    runtime, master, res, common, handle, backend);
+        else
+            form_shared_space_pairs<false>(
+                    runtime, master, res, common, handle, backend);
+    }
+};
+
 template <class T, class I>
 inline void nonmatching_matvec_products(NonmatchingRuntime<T, I>& runtime,
         const T* ve, I m, I ne1, cublasHandle_t handle, I backend)
@@ -386,27 +437,36 @@ inline void nonmatching_matvec_products(NonmatchingRuntime<T, I>& runtime,
         auto& d = runtime.dir[direction];
         const auto v = d.view;
         if (!v.isdonor || v.npairs == 0) continue;
-        const I m12 = v.ncu12 * v.npf;
-        if (m != v.ncu * v.npf * v.nfe)
+        const I rowNpf = v.contract.ownerFaceNodes;
+        const I donorNpf = v.contract.donorFaceNodes;
+        const I donorNfe = v.contract.donorFacesPerElement;
+        const I rows = runtime_count<I>({v.ncu12, rowNpf}, "matvec rows");
+        const I columns = runtime_count<I>(
+                {v.ncu, donorNpf, donorNfe}, "matvec columns");
+        if (m != columns)
             error("non-matching coupling: element trace size differs from pair matrix columns");
         const I* pairelem = v.pairelem;
         T* vpair = d.vpair.data;
         Kokkos::parallel_for("NonmatchingGatherPairTrace",
-            static_cast<std::size_t>(v.npairs) * m, KOKKOS_LAMBDA(const std::size_t idx) {
-                const I local = static_cast<I>(idx % m), pair = static_cast<I>(idx / m);
-                vpair[idx] = ve[local + static_cast<std::size_t>(m) * pairelem[pair]];
+            static_cast<std::size_t>(runtime_count<I>(
+                {v.npairs, columns}, "matvec pair trace")),
+            KOKKOS_LAMBDA(const std::size_t idx) {
+                const I local = static_cast<I>(idx % columns), pair = static_cast<I>(idx / columns);
+                vpair[idx] = ve[local + static_cast<std::size_t>(columns) * pairelem[pair]];
             });
-        PGEMNMStridedBached(handle, m12, 1, m, one, d.Hi.data, m12,
-                            d.vpair.data, m, zero, d.rpair.data, m12,
+        PGEMNMStridedBached(handle, rows, 1, columns, one, d.Hi.data, rows,
+                            d.vpair.data, columns, zero, d.rpair.data, rows,
                             v.npairs, backend);
         const I* pairSlotPtr = v.pairSlotPtr;
         const T* rpair = d.rpair.data; T* Ri = d.Ri.data;
         Kokkos::parallel_for("NonmatchingReducePairProducts",
-            static_cast<std::size_t>(v.nslots) * m12, KOKKOS_LAMBDA(const std::size_t idx) {
-                const I row = static_cast<I>(idx % m12), slot = static_cast<I>(idx / m12);
+            static_cast<std::size_t>(runtime_count<I>(
+                {v.nslots, rows}, "matvec slot residual")),
+            KOKKOS_LAMBDA(const std::size_t idx) {
+                const I row = static_cast<I>(idx % rows), slot = static_cast<I>(idx / rows);
                 T value = 0;
                 for (I pair = pairSlotPtr[slot]; pair < pairSlotPtr[slot + 1]; ++pair)
-                    value += rpair[row + static_cast<std::size_t>(m12) * pair];
+                    value += rpair[row + static_cast<std::size_t>(rows) * pair];
                 Ri[idx] = value;
             });
     }

@@ -619,7 +619,135 @@ if(EXASIM_MPI) # [nonmatching]
 endif() # [nonmatching]
 add_test(NAME unit_nonmatching_3d COMMAND unit_nonmatching_3d) # [nonmatching]
 set_tests_properties(unit_nonmatching_3d PROPERTIES TIMEOUT 120) # [nonmatching]
+
+# [nonmatching] Phase 13 T0/T1: compile-only baseline emitter and focused scaffold.
+add_executable(unit_nonmatching_fingerprint ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_fingerprint.cpp) # [nonmatching]
+target_link_libraries(unit_nonmatching_fingerprint PRIVATE Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
+target_include_directories(unit_nonmatching_fingerprint PRIVATE ${EXASIM_DIR}) # [nonmatching]
+add_executable(unit_nonmatching_hextet ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_hextet.cpp) # [nonmatching]
+target_link_libraries(unit_nonmatching_hextet PRIVATE Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
+target_include_directories(unit_nonmatching_hextet PRIVATE ${EXASIM_DIR}) # [nonmatching]
+# [nonmatching] Phase 14 T0: test-only byte-exact CPU baseline emitter.
+add_executable(unit_nonmatching_phase14_baseline ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_phase14_baseline.cpp) # [nonmatching]
+target_link_libraries(unit_nonmatching_phase14_baseline PRIVATE Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
+target_include_directories(unit_nonmatching_phase14_baseline PRIVATE ${EXASIM_DIR}) # [nonmatching]
+# [nonmatching] Phase 14 T1: executable layout, ownership and MPI contracts.
+add_executable(unit_nonmatching_phase14_contracts ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_phase14_contracts.cpp) # [nonmatching]
+target_link_libraries(unit_nonmatching_phase14_contracts PRIVATE Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
+target_include_directories(unit_nonmatching_phase14_contracts PRIVATE ${EXASIM_DIR}) # [nonmatching]
+target_compile_definitions(unit_nonmatching_phase14_contracts PRIVATE EXASIM_PHASE14_SOURCE_DIR="${EXASIM_DIR}") # [nonmatching]
+if(EXASIM_MPI) # [nonmatching]
+  target_link_libraries(unit_nonmatching_fingerprint PRIVATE MPI::MPI_CXX) # [nonmatching]
+  target_compile_definitions(unit_nonmatching_fingerprint PRIVATE HAVE_MPI) # [nonmatching]
+  target_link_libraries(unit_nonmatching_hextet PRIVATE MPI::MPI_CXX) # [nonmatching]
+  target_compile_definitions(unit_nonmatching_hextet PRIVATE HAVE_MPI) # [nonmatching]
+  target_link_libraries(unit_nonmatching_phase14_baseline PRIVATE MPI::MPI_CXX) # [nonmatching]
+  target_compile_definitions(unit_nonmatching_phase14_baseline PRIVATE HAVE_MPI) # [nonmatching]
+  target_link_libraries(unit_nonmatching_phase14_contracts PRIVATE MPI::MPI_CXX) # [nonmatching]
+  target_compile_definitions(unit_nonmatching_phase14_contracts PRIVATE HAVE_MPI) # [nonmatching]
+endif() # [nonmatching]
 if(EXASIM_MPI) # [nonmatching] Phase 11 focused 3D matrix
+  # [nonmatching] Phase 13 focused registrations. Expected under 15 s;
+  # reviewer measures each registration and removes any slower mode.
+  foreach(np 2 4 8)
+    if(np EQUAL 2)
+      set(phase13_setup_split 1)
+    else()
+      set(phase13_setup_split 1)
+    endif()
+    add_test(NAME unit_nonmatching_hextet_setup_np${np}
+      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS}
+              $<TARGET_FILE:unit_nonmatching_hextet> ${MPIEXEC_POSTFLAGS}
+              --split ${phase13_setup_split} --setup)
+    set_tests_properties(unit_nonmatching_hextet_setup_np${np} PROPERTIES TIMEOUT 30)
+  endforeach()
+  foreach(np 2 4)
+    math(EXPR phase13_operator_split "${np} / 2")
+    add_test(NAME unit_nonmatching_hextet_operators_np${np}
+      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS}
+              $<TARGET_FILE:unit_nonmatching_hextet> ${MPIEXEC_POSTFLAGS}
+              --split ${phase13_operator_split} --operators)
+    set_tests_properties(unit_nonmatching_hextet_operators_np${np} PROPERTIES TIMEOUT 30)
+  endforeach()
+  foreach(np 4 8)
+    if(np EQUAL 4)
+      set(phase13_mpi_split 1)
+    else()
+      set(phase13_mpi_split 4)
+    endif()
+    add_test(NAME unit_nonmatching_hextet_mpi_np${np}
+      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS}
+              $<TARGET_FILE:unit_nonmatching_hextet> ${MPIEXEC_POSTFLAGS}
+              --split ${phase13_mpi_split} --mpi)
+    set_tests_properties(unit_nonmatching_hextet_mpi_np${np} PROPERTIES TIMEOUT 30)
+  endforeach()
+  add_test(NAME unit_nonmatching_hextet_conservation_np2
+    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_PREFLAGS}
+            $<TARGET_FILE:unit_nonmatching_hextet> ${MPIEXEC_POSTFLAGS}
+            --split 1 --conservation)
+  set_tests_properties(unit_nonmatching_hextet_conservation_np2 PROPERTIES TIMEOUT 30)
+
+  foreach(np 2 4)
+    if(np EQUAL 2)
+      set(phase14_contract_splits 1)
+    else()
+      set(phase14_contract_splits 1 3)
+    endif()
+    foreach(split IN LISTS phase14_contract_splits)
+      add_test(NAME unit_nonmatching_phase14_contracts_np${np}_split${split}
+        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS}
+                $<TARGET_FILE:unit_nonmatching_phase14_contracts> ${MPIEXEC_POSTFLAGS}
+                --split ${split} --contracts)
+      set_tests_properties(unit_nonmatching_phase14_contracts_np${np}_split${split}
+        PROPERTIES TIMEOUT 30)
+    endforeach()
+  endforeach()
+
+  set(phase13_reject_modes porder pgauss-unequal pgauss-unsupported weight node
+      measure family ncu12 slotcount slotface extent host)
+  foreach(np 2 4)
+    set(phase13_reject_split 1)
+    foreach(mode IN LISTS phase13_reject_modes)
+      if(mode STREQUAL "porder")
+        set(phase13_reject_regex "mixed tet/hex pair requires equal porder")
+      elseif(mode STREQUAL "pgauss-unequal")
+        set(phase13_reject_regex "mixed tet/hex pair requires equal pgauss")
+      elseif(mode STREQUAL "pgauss-unsupported")
+        set(phase13_reject_regex "mixed tet/hex pair requires pgauss = 2\\*porder; unsupported pgauss = 3")
+      elseif(mode STREQUAL "weight")
+        set(phase13_reject_regex "mixed tet/hex face rule has a nonpositive weight")
+      elseif(mode STREQUAL "node")
+        set(phase13_reject_regex "mixed tet/hex face rule has a node outside the reference face")
+      elseif(mode STREQUAL "measure")
+        set(phase13_reject_regex "mixed tet/hex face rule fails the reference measure")
+      elseif(mode STREQUAL "family")
+        set(phase13_reject_regex "unsupported element family")
+      elseif(mode STREQUAL "ncu12")
+        set(phase13_reject_regex "mixed tet/hex pair requires equal ncu12")
+      elseif(mode STREQUAL "slotcount")
+        set(phase13_reject_regex "donor sendcount does not match owner recvcount")
+      elseif(mode STREQUAL "slotface")
+        set(phase13_reject_regex "donor slotface list does not match owner recvface order")
+      elseif(mode STREQUAL "extent")
+        set(phase13_reject_regex "donor block extent does not match owner block extent")
+      elseif(mode STREQUAL "host")
+        set(phase13_reject_regex "rectangular tet/hex coupling requires the NonmatchingRuntime path")
+      endif()
+      add_test(NAME unit_nonmatching_hextet_reject_${mode}_np${np}
+        COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/unit/run_expected_failure.sh ${np} "${phase13_reject_regex}"
+                ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS}
+                $<TARGET_FILE:unit_nonmatching_hextet> ${MPIEXEC_POSTFLAGS}
+                --split ${phase13_reject_split} --reject-${mode})
+      set_tests_properties(unit_nonmatching_hextet_reject_${mode}_np${np} PROPERTIES TIMEOUT 30)
+    endforeach()
+  endforeach()
+  add_test(NAME unit_nonmatching_hextet_reject_inconsistent_np4
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/unit/run_expected_failure.sh 4 "inconsistent face master within model 1"
+            ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS}
+            $<TARGET_FILE:unit_nonmatching_hextet> ${MPIEXEC_POSTFLAGS}
+            --split 1 --reject-inconsistent)
+  set_tests_properties(unit_nonmatching_hextet_reject_inconsistent_np4 PROPERTIES TIMEOUT 30)
+
   foreach(np 2 4 8) # [nonmatching]
     foreach(mode cost multi operators orientations rebuild search setup) # [nonmatching]
       # The wall-clock setup gate depends on the machine; CTest checks only the
@@ -636,7 +764,7 @@ if(EXASIM_MPI) # [nonmatching] Phase 11 focused 3D matrix
     # Expected failures (review N2): the wrapper requires a nonzero exit, a
     # single uniform diagnostic on every rank, and exactly ${np} copies of it.
     math(EXPR nonmatching_3d_last_rank "${np} - 1") # [nonmatching]
-    foreach(mode tet-hex porder quadrature patch rank-config volume-basis singular-map projection) # [nonmatching]
+    foreach(mode porder quadrature patch rank-config volume-basis singular-map projection) # [nonmatching]
       if(mode STREQUAL "patch") # [nonmatching] uniform local patch-preparation failure
         set(nonmatching_3d_reject_regex "surface patch preparation failed on rank 0, direction 0 .*global face 0") # [nonmatching]
       elseif(mode STREQUAL "rank-config") # [nonmatching]
@@ -661,6 +789,11 @@ if(EXASIM_MPI) # [nonmatching] Phase 11 focused 3D matrix
         set_tests_properties(unit_nonmatching_3d_reject_${mode}_np${np} PROPERTIES TIMEOUT 180) # [nonmatching]
       endif() # [nonmatching]
     endforeach() # [nonmatching]
+    add_test(NAME unit_nonmatching_3d_reject_tet-hex-nosidecar_np${np} # [nonmatching]
+      COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/unit/run_expected_failure.sh ${np} "mixed element families require the owner-test sidecar" # [nonmatching]
+              ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS} # [nonmatching]
+              $<TARGET_FILE:unit_nonmatching_3d> ${MPIEXEC_POSTFLAGS} --reject-tet-hex) # [nonmatching]
+    set_tests_properties(unit_nonmatching_3d_reject_tet-hex-nosidecar_np${np} PROPERTIES TIMEOUT 30) # [nonmatching]
     # Production arithmetic (-ffast-math) 3D search, review N1 (each run < 10 s).
     add_test(NAME unit_nonmatching_3d_fastmath_search_np${np} # [nonmatching]
       COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS} # [nonmatching]

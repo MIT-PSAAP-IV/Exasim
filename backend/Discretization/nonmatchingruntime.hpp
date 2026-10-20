@@ -17,11 +17,43 @@
 #include <cstddef>
 #include <limits>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
 namespace exasim {
 namespace nonmatching {
+
+// Contract between topology-specific setup and the non-matching algebra.
+//
+// SharedFaceSpace is the optimized line/line, tet/tet and hex/hex path: the
+// owner test rows and donor trace columns use the same face master.  The
+// IndependentFaceSpaces path is used when those spaces differ (currently the
+// 3D tet/hex pair).  In either case the algebra consumes only the dimensions
+// below; element-family detection and basis construction remain setup duties.
+enum NonmatchingSpaceRelation {
+    SharedFaceSpace = 0,
+    IndependentFaceSpaces = 1
+};
+
+template <class I>
+struct NonmatchingDirectionContract {
+    I relation = SharedFaceSpace;
+    I ownerElemtype = 0;
+    I ownerFaceNodes = 0;
+    I ownerFaceQuadraturePoints = 0;
+    I donorElemtype = 0;
+    I donorVolumeNodes = 0;
+    I donorFaceNodes = 0;
+    I donorFacesPerElement = 0;
+};
+
+template <class I>
+inline bool uses_independent_face_spaces(
+        const NonmatchingDirectionContract<I>& contract)
+{
+    return contract.relation == IndependentFaceSpaces;
+}
 
 // Owner face test values transported during setup when the two models use
 // different volume-element families.  The values are node-first [npf x npts]
@@ -29,8 +61,14 @@ namespace nonmatching {
 template <class T, class I>
 struct OwnerTestDirection {
     I enabled = 0;
+    NonmatchingDirectionContract<I> contract;
     std::vector<T> values;
-    void clear() { enabled = 0; values.clear(); }
+    void clear()
+    {
+        enabled = 0;
+        contract = NonmatchingDirectionContract<I>();
+        values.clear();
+    }
 };
 
 template <class T, class I>
@@ -136,6 +174,7 @@ struct RuntimeDirectionView {
     I direction = -1, isowner = 0, isdonor = 0;
     I nd = 0, npe = 0, npf = 0, nfe = 0, ngf = 0;
     I ncu = 0, ncq = 0, ncu12 = 0;
+    NonmatchingDirectionContract<I> contract;
     I nownfaces = 0, npts = 0, nslots = 0, npairs = 0, nrecvblocks = 0;
 
     const I* pe = nullptr;
@@ -225,19 +264,32 @@ struct NonmatchingRuntime {
 };
 
 template <class I>
+inline I checked_launch_extent(std::size_t count)
+{
+    static_assert(std::is_integral<I>::value && std::is_signed<I>::value,
+                  "non-matching runtime indices must be signed integers");
+    const std::size_t limit = std::min(
+        static_cast<std::size_t>(std::numeric_limits<I>::max()),
+        static_cast<std::size_t>(std::numeric_limits<int>::max()));
+    if (count > limit)
+        error("non-matching runtime: buffer extent exceeds index range");
+    return static_cast<I>(count);
+}
+
+template <class I>
 inline I runtime_count(std::initializer_list<I> factors, const char* what)
 {
     std::size_t count = 1;
     for (I factor : factors) {
         if (factor < 0 || (factor != 0 && count >
-                static_cast<std::size_t>(std::numeric_limits<I>::max()) /
+                static_cast<std::size_t>(std::numeric_limits<int>::max()) /
                 static_cast<std::size_t>(factor))) {
             (void) what;
             error("non-matching runtime: buffer extent exceeds index range");
         }
         count *= static_cast<std::size_t>(factor);
     }
-    return static_cast<I>(count);
+    return checked_launch_extent<I>(count);
 }
 
 template <class V, class I>
@@ -270,6 +322,20 @@ inline void refresh_runtime_direction(NonmatchingRuntimeDirection<T, I>& runtime
     v.direction = host.direction; v.isowner = host.isowner; v.isdonor = host.isdonor;
     v.nd = host.nd; v.npe = host.npe; v.npf = host.npf; v.nfe = host.nfe; v.ngf = host.ngf;
     v.ncu = host.ncu; v.ncq = host.ncq; v.ncu12 = host.ncu12;
+    v.contract = ownerTests ? ownerTests->contract : NonmatchingDirectionContract<I>();
+    if (!ownerTests || (v.contract.relation == SharedFaceSpace &&
+            v.contract.ownerFaceNodes == 0 &&
+            v.contract.ownerFaceQuadraturePoints == 0 &&
+            v.contract.donorVolumeNodes == 0 &&
+            v.contract.donorFaceNodes == 0 &&
+            v.contract.donorFacesPerElement == 0)) {
+        v.contract.relation = SharedFaceSpace;
+        v.contract.ownerFaceNodes = host.npf;
+        v.contract.ownerFaceQuadraturePoints = host.ngf;
+        v.contract.donorVolumeNodes = host.npe;
+        v.contract.donorFaceNodes = host.npf;
+        v.contract.donorFacesPerElement = host.nfe;
+    }
     v.nownfaces = host.nownfaces; v.npts = host.npts; v.nslots = host.nslots; v.npairs = host.npairs;
     v.nrecvblocks = 0;
     if (host.nrecvnb > 0 && (!host.recvnb || !host.recvcount))
@@ -409,16 +475,72 @@ inline void refresh_runtime_direction(NonmatchingRuntimeDirection<T, I>& runtime
             host.ncq == 0 ? runtime_count<I>({host.npe, host.nd, host.npts}, "pdphibar") : 0,
             backend, allocations, "pdphibar");
 
+    const auto& contract = v.contract;
+    if (contract.relation != SharedFaceSpace &&
+            contract.relation != IndependentFaceSpaces)
+        error("non-matching runtime: unknown owner/donor space relation");
+    const bool independentSpaces = uses_independent_face_spaces(contract);
+    const bool ownerFamilyMatches = ownerTests &&
+            ((contract.ownerElemtype == 0 && host.nfe == 4) ||
+             (contract.ownerElemtype == 1 && host.nfe == 6));
+    if (independentSpaces && (!ownerTests || contract.ownerFaceNodes <= 0 ||
+            contract.ownerFaceQuadraturePoints <= 0 ||
+            contract.donorVolumeNodes <= 0 || contract.donorFaceNodes <= 0 ||
+            contract.donorFacesPerElement <= 0 ||
+            (host.isowner && (contract.ownerFaceNodes != host.npf ||
+                              !ownerFamilyMatches)) ||
+            (host.isdonor && (contract.donorVolumeNodes != host.npe ||
+                              contract.donorFaceNodes != host.npf ||
+                              contract.donorFacesPerElement != host.nfe))))
+        error("non-matching runtime: rectangular role dimensions are incomplete");
+    if (!independentSpaces &&
+            ((host.isowner &&
+                (contract.ownerFaceNodes != host.npf ||
+                 contract.ownerFaceQuadraturePoints != host.ngf)) ||
+             (host.isdonor &&
+                (contract.donorVolumeNodes != host.npe ||
+                 contract.donorFaceNodes != host.npf ||
+                 contract.donorFacesPerElement != host.nfe))))
+        error("non-matching runtime: shared-space role dimensions are inconsistent");
+    if (independentSpaces && (host.szRi != 0 || host.szHi != 0 || host.szsendbuf != 0 ||
+            host.Ri || host.Hi || host.sendbuf))
+        error("non-matching runtime: rectangular work arrays must not use frozen storage");
     const bool hasOwnerTests = ownerTests && !ownerTests->values.empty();
+    const I testNpf = contract.ownerFaceNodes;
+    if (independentSpaces && host.npts > 0 && !hasOwnerTests)
+        error("non-matching runtime: rectangular owner test values are missing");
     if (hasOwnerTests && static_cast<long long>(ownerTests->values.size()) !=
-                         static_cast<long long>(host.npf) * host.npts)
+                         static_cast<long long>(testNpf) * host.npts)
         error("non-matching runtime: owner test values do not match the point count");
     refresh_buffer(runtime.ptest, hasOwnerTests ? ownerTests->values.data() : static_cast<const T*>(nullptr),
-                   hasOwnerTests ? runtime_count<I>({host.npf, host.npts}, "ptest") : 0,
+                   hasOwnerTests ? runtime_count<I>({testNpf, host.npts}, "ptest") : 0,
                    backend, allocations, "ptest");
 
-    refresh_buffer(runtime.Ri, host.Ri, host.szRi, backend, allocations, "Ri");
-    refresh_buffer(runtime.Hi, host.Hi, host.szHi, backend, allocations, "Hi");
+    const I rowNpf = contract.ownerFaceNodes;
+    const I donorNpe = contract.donorVolumeNodes;
+    const I donorNpf = contract.donorFaceNodes;
+    const I donorNfe = contract.donorFacesPerElement;
+    const I ro = runtime_count<I>({host.ncu12, rowNpf}, "coupling rows");
+    const I ne = runtime_count<I>({donorNpe, host.ncu}, "donor volume columns");
+    const I cd = runtime_count<I>({host.ncu, donorNpf, donorNfe}, "donor trace columns");
+    if (independentSpaces) {
+        resize_buffer(runtime.Ri, runtime_count<I>({ro, host.nslots}, "Ri"),
+                      backend, allocations);
+        resize_buffer(runtime.Hi, runtime_count<I>({ro, cd, host.npairs}, "Hi"),
+                      backend, allocations);
+        const std::vector<T> zeroRi(static_cast<std::size_t>(runtime.Ri.size),
+                                    static_cast<T>(0));
+        const std::vector<T> zeroHi(static_cast<std::size_t>(runtime.Hi.size),
+                                    static_cast<T>(0));
+        if (runtime.Ri.size > 0)
+            TemplateCopytoDevice(runtime.Ri.data, zeroRi.data(), runtime.Ri.size, backend);
+        if (runtime.Hi.size > 0)
+            TemplateCopytoDevice(runtime.Hi.data, zeroHi.data(), runtime.Hi.size, backend);
+    }
+    else {
+        refresh_buffer(runtime.Ri, host.Ri, host.szRi, backend, allocations, "Ri");
+        refresh_buffer(runtime.Hi, host.Hi, host.szHi, backend, allocations, "Hi");
+    }
     resize_buffer(runtime.recvbuf, host.szrecvbuf, backend, allocations);
 
     const I npts = host.npts;
@@ -464,23 +586,21 @@ inline void refresh_runtime_direction(NonmatchingRuntimeDirection<T, I>& runtime
     resize_buffer(runtime.iScratch, runtime_count<I>({npts, nprop > 0 ? nstate + 1 : 1}, "iScratch"),
                   backend, allocations);
 
-    const I m12 = host.npf * host.ncu12;
-    const I n = host.npe * host.ncu;
-    const I m = host.npf * host.nfe * host.ncu;
-    resize_buffer(runtime.K, runtime_count<I>({m12, n, host.npairs}, "K"), backend, allocations);
+    resize_buffer(runtime.K, runtime_count<I>({ro, ne, host.npairs}, "K"), backend, allocations);
     resize_buffer(runtime.G, host.ncq > 0 ?
-        runtime_count<I>({m12, n, host.npairs}, "G") : 0, backend, allocations);
+        runtime_count<I>({rowNpf, donorNpe, host.npairs, host.ncu12, host.ncu}, "G") : 0,
+        backend, allocations);
     resize_buffer(runtime.Cpair, host.ncq > 0 ?
-        runtime_count<I>({host.npe, host.npe, host.npairs}, "Cpair") : 0,
+        runtime_count<I>({donorNpe, donorNpe, host.npairs}, "Cpair") : 0,
         backend, allocations);
     resize_buffer(runtime.Epair, host.ncq > 0 ?
-        runtime_count<I>({host.npe, host.npf, host.nfe, host.npairs}, "Epair") : 0,
+        runtime_count<I>({donorNpe, donorNpf, donorNfe, host.npairs}, "Epair") : 0,
         backend, allocations);
-    resize_buffer(runtime.pairResidual, runtime_count<I>({m12, host.npairs}, "pairResidual"), backend, allocations);
-    resize_buffer(runtime.vpair, runtime_count<I>({m, host.npairs}, "vpair"), backend, allocations);
-    resize_buffer(runtime.rpair, runtime_count<I>({m12, host.npairs}, "rpair"), backend, allocations);
-    resize_buffer(runtime.Fpair, runtime_count<I>({n, m, host.npairs}, "Fpair"), backend, allocations);
-    resize_buffer(runtime.Rupair, runtime_count<I>({n, host.npairs}, "Rupair"), backend, allocations);
+    resize_buffer(runtime.pairResidual, runtime_count<I>({ro, host.npairs}, "pairResidual"), backend, allocations);
+    resize_buffer(runtime.vpair, runtime_count<I>({cd, host.npairs}, "vpair"), backend, allocations);
+    resize_buffer(runtime.rpair, runtime_count<I>({ro, host.npairs}, "rpair"), backend, allocations);
+    resize_buffer(runtime.Fpair, runtime_count<I>({ne, cd, host.npairs}, "Fpair"), backend, allocations);
+    resize_buffer(runtime.Rupair, runtime_count<I>({ne, host.npairs}, "Rupair"), backend, allocations);
 
     runtime.sendnb.clear(); runtime.sendcount.clear();
     runtime.recvnb.clear(); runtime.recvcount.clear();

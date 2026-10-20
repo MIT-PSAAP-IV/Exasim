@@ -582,7 +582,8 @@ void compute_case(Int ncu, bool matching)
 
     // C7: the host-executed Kokkos path must preserve the accepted CPU bits.
     exasim::nonmatching::compute_nonmatching_coupling<Model>(nm, sol, fixture.res,
-            app, fixture.master, mesh, tmp, fixture.common, 0, true, 0);
+            app, fixture.master, mesh, tmp, fixture.common, 0, true, 0,
+            static_cast<const exasim::nonmatching::OwnerTestData<dstype, Int>*>(nullptr));
 
     for (size_t i = 0; i < expectedResidual.size(); ++i)
         close_to(runtime.dir[0].Ri.data[i], expectedResidual[i],
