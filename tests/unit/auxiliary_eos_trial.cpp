@@ -31,6 +31,7 @@ int main(int argc, char** argv)
     {
         appstruct app;
         commonstruct common;
+        tempstruct workspace;
         ExasimDriverABI abi{};
         abi.hdgjac.HdgSourcewonly = source;
         common.driver_abi = &abi;
@@ -45,7 +46,7 @@ int main(int argc, char** argv)
             wEquation<exasim::detail::AbiAdapter>(w.data(),zeroes.data(),u.data(),zeroes.data(),zeroes.data(),tmp.data(),app,common,1,0,nullptr);
         };
         {
-            AuxiliaryStateSnapshot<double> base(w.data(),1);
+            AuxiliaryStateSnapshot<double> base(w.data(),1, &workspace.auxiliaryMatvecBackup);
             solve();
             auto h=Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(),w);
             failures += is_finite_bitwise(h(0));

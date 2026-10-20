@@ -82,7 +82,11 @@ int CSolver<M, T, I>::linearSolve(CResidual<M, T, I>& residual, CAssembler<M, T,
         //prec.ConstructPreconditioner(sys, disc, backend);                  
         prec.ComputeInitialGuessAndPreconditioner(sys, state, assembler, disc, backend); 
         auxiliary.restore();
-        
+        if (state.RBcurrentdim == 0) {
+            // The small projected solve rejected the basis. Restore all base
+            // residual state without evaluating a redundant zero-guess trial.
+            residual.evalResidual(sys.b, sys.u, backend);
+        } else {
         // v = u + x 
         //int N = disc.common.sizes.ndof1;
         ArrayAXPBY(disc.common.cublasHandle, sys.v, sys.u, sys.x, one, one, N, backend);  
@@ -106,8 +110,13 @@ int CSolver<M, T, I>::linearSolve(CResidual<M, T, I>& residual, CAssembler<M, T,
             //state.RBremovedind = 1;            
         }
 
-        else if (nrmr < disc.common.solverparams.nonlinearSolverTol)
-            return 1;               
+        else if (nrmr == zero || nrmr < disc.common.solverparams.nonlinearSolverTol) {
+            state.linearSolverIter = 0;
+            // This was nonlinear convergence, not a GMRES residual estimate.
+            state.linearSolverRelError = oldnrm > zero ? nrmr / oldnrm : zero;
+            return 1;
+        }
+        }
     }    
     else {
         //ArraySetValue(sys.x, zero, disc.common.sizes.ndof1, backend);
@@ -128,8 +137,10 @@ int CSolver<M, T, I>::linearSolve(CResidual<M, T, I>& residual, CAssembler<M, T,
     begin = chrono::high_resolution_clock::now();      
 #endif    
     state.linearSolverIter = gmres(assembler, disc, prec, backend);  
-    if (disc.common.mpiRank==0)             
-        printf("GMRES converges to the tolerance %g within % d iterations and %d RB dimensions\n",disc.common.solverparams.linearSolverTol,state.linearSolverIter,state.RBcurrentdim);        
+    if (disc.common.mpiRank==0)
+        printf("GMRES finished after %d iterations and %d RB dimensions; relative error %g (effective tolerance %g)\n",
+                state.linearSolverIter,state.RBcurrentdim,state.linearSolverRelError,
+                std::min(0.1,disc.common.solverparams.linearSolverTol*state.linearSolverTolFactor));
     
 #ifdef TIMING        
     end = chrono::high_resolution_clock::now();
@@ -164,12 +175,15 @@ template <class M, class T, class I>
 void CSolver<M, T, I>::updateRB(CDiscretization& disc, CPreconditioner<M, T, I>& prec, Int backend)
 {
     Int N = disc.common.sizes.ndof1;
+    if (disc.common.solverparams.RBdim <= 0) return;
                     
     dstype nrmr = PNORM(disc.common.cublasHandle, N, sys.x, backend);
     if (is_finite_bitwise(nrmr) && nrmr>zero) {
       // update the reduced basis        
       //ArrayCopy(&prec.precond.W[state.RBremovedind*N], sys.x, N, backend);  
-      ArrayCopy(disc.common.cublasHandle, &prec.precond.W[state.RBremovedind*N], sys.x, N, backend);  
+      // FD Jacobian products must not inherit the magnitude of a damped update.
+      // Reuse the norm already computed above; no additional reduction is needed.
+      ArrayAXPB(&prec.precond.W[state.RBremovedind*N], sys.x, one/nrmr, zero, N);
 
       // update the current dimension of the RB dimension
       if (state.RBcurrentdim<disc.common.solverparams.RBdim) 
@@ -184,7 +198,12 @@ void CSolver<M, T, I>::updateRB(CDiscretization& disc, CPreconditioner<M, T, I>&
 
 template <class M, class T, class I>
 void CSolver<M, T, I>::updateRB(CDiscretization& disc, CPreconditioner<M, T, I>& prec, Int N, Int backend)
-{                       
+{
+    if (disc.common.spatialScheme == 0) {
+        updateRB(disc, prec, backend);
+        return;
+    }
+    if (disc.common.solverparams.RBdim <= 0) return;
     dstype nrmr = PNORM(disc.common.cublasHandle, N, sys.x, backend);
     if (is_finite_bitwise(nrmr) && nrmr>zero) {
       // update the reduced basis        
@@ -249,7 +268,9 @@ void CSolver<M, T, I>::linearSolve(CResidual<M, T, I>& residual, CAssembler<M, T
     
     if (disc.common.mpiRank==0)  {
         printf("GMRES time: %g miliseconds\n", t1);
-        printf("GMRES(%d) converges to the tolerance %g within % d iterations and %d RB dimensions\n",disc.common.solverparams.gmresRestart,disc.common.solverparams.linearSolverTol,state.linearSolverIter,state.RBcurrentdim);                    
+        printf("GMRES(%d) finished after %d iterations and %d RB dimensions; relative error %g (effective tolerance %g)\n",
+                disc.common.solverparams.gmresRestart,state.linearSolverIter,state.RBcurrentdim,
+                state.linearSolverRelError,std::min(0.1,disc.common.solverparams.linearSolverTol*state.linearSolverTolFactor));
     }
 }
 

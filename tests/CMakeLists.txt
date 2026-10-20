@@ -26,6 +26,22 @@ add_test(NAME appstruct_materialdatabase
 set_tests_properties(appstruct_materialdatabase PROPERTIES TIMEOUT 60)
 
 if(TARGET Kokkos::kokkos)
+  if(NOT EXASIM_CUDA AND NOT EXASIM_HIP)
+    # Exercise both device-setup implementations with host allocations, including
+    # on CPU-only CI where the GPU constructor would otherwise be compiled out.
+    foreach(variant templated legacy)
+      add_executable(device_solution_${variant}_test "${EXASIM_DIR}/tests/unit/device_solution.cpp")
+      target_include_directories(device_solution_${variant}_test PRIVATE "${EXASIM_DIR}" "${EXASIM_DIR}/include")
+      target_link_libraries(device_solution_${variant}_test PRIVATE Kokkos::kokkos)
+      target_compile_features(device_solution_${variant}_test PRIVATE cxx_std_17)
+      if(variant STREQUAL "legacy")
+        target_compile_definitions(device_solution_${variant}_test PRIVATE TEST_LEGACY_SETUP)
+      endif()
+      add_test(NAME device_solution_${variant} COMMAND device_solution_${variant}_test)
+      set_tests_properties(device_solution_${variant} PROPERTIES TIMEOUT 60)
+    endforeach()
+  endif()
+
   add_executable(auxiliary_trial_test "${EXASIM_DIR}/tests/unit/auxiliary_trial.cpp")
   target_include_directories(auxiliary_trial_test PRIVATE "${EXASIM_DIR}" "${EXASIM_DIR}/include")
   target_link_libraries(auxiliary_trial_test PRIVATE Kokkos::kokkos)
@@ -35,6 +51,10 @@ if(TARGET Kokkos::kokkos)
   endif()
   add_test(NAME auxiliary_trial COMMAND auxiliary_trial_test)
   set_tests_properties(auxiliary_trial PROPERTIES TIMEOUT 60)
+  foreach(mode bad-extent null-state)
+    add_test(NAME auxiliary_trial_${mode} COMMAND auxiliary_trial_test ${mode})
+    set_tests_properties(auxiliary_trial_${mode} PROPERTIES TIMEOUT 60 WILL_FAIL TRUE)
+  endforeach()
 
   # Exercises the real auxiliary Newton solver with a failed logarithmic EOS
   # trial, restored seed, and a signed auxiliary variable. NORM uses CPU BLAS.
@@ -48,6 +68,42 @@ if(TARGET Kokkos::kokkos)
     endif()
     add_test(NAME auxiliary_eos_trial COMMAND auxiliary_eos_trial_test)
     set_tests_properties(auxiliary_eos_trial PROPERTIES TIMEOUT 60)
+
+    # Actual solver routines with small analytic operators. These fixtures use
+    # host arrays; the production algorithms still dispatch through Kokkos/BLAS.
+    foreach(name gmres_recycling ldg_matvec_consistency rb_projection nonlinear_rb_retry)
+      add_executable(${name}_test "${EXASIM_DIR}/tests/unit/${name}.cpp")
+      target_include_directories(${name}_test PRIVATE "${EXASIM_DIR}" "${EXASIM_DIR}/include")
+      target_link_libraries(${name}_test PRIVATE Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+      target_compile_features(${name}_test PRIVATE cxx_std_17)
+      if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(${name}_test PRIVATE -ffast-math)
+      endif()
+      add_test(NAME ${name} COMMAND ${name}_test)
+      set_tests_properties(${name} PROPERTIES TIMEOUT 60)
+    endforeach()
+
+    foreach(variant templated legacy)
+      add_executable(rb_workspace_${variant}_test "${EXASIM_DIR}/tests/unit/rb_workspace.cpp")
+      target_include_directories(rb_workspace_${variant}_test PRIVATE "${EXASIM_DIR}" "${EXASIM_DIR}/include")
+      target_link_libraries(rb_workspace_${variant}_test PRIVATE Kokkos::kokkos)
+      target_compile_features(rb_workspace_${variant}_test PRIVATE cxx_std_17)
+      if(variant STREQUAL "legacy")
+        target_compile_definitions(rb_workspace_${variant}_test PRIVATE TEST_LEGACY_SETUP)
+      endif()
+      add_test(NAME rb_workspace_${variant} COMMAND rb_workspace_${variant}_test)
+      set_tests_properties(rb_workspace_${variant} PROPERTIES TIMEOUT 60)
+    endforeach()
+
+    if(TARGET MPI::MPI_CXX)
+      add_executable(rb_mpi_reductions_test "${EXASIM_DIR}/tests/unit/rb_mpi_reductions.cpp")
+      target_include_directories(rb_mpi_reductions_test PRIVATE "${EXASIM_DIR}" "${EXASIM_DIR}/include")
+      target_link_libraries(rb_mpi_reductions_test PRIVATE Kokkos::kokkos MPI::MPI_CXX ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+      target_compile_features(rb_mpi_reductions_test PRIVATE cxx_std_17)
+      add_test(NAME rb_mpi_reductions COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2
+        ${MPIEXEC_PREFLAGS} $<TARGET_FILE:rb_mpi_reductions_test> ${MPIEXEC_POSTFLAGS})
+      set_tests_properties(rb_mpi_reductions PROPERTIES TIMEOUT 60 PROCESSORS 2)
+    endif()
   endif()
 
   add_executable(helmholtz_model_test

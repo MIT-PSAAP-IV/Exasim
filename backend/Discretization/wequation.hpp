@@ -141,6 +141,34 @@ inline void SolveSmallMatrix(T *rhs, T *A, Int ng, Int nrhs, Int nvar,
 }
 
 template <class T=dstype>
+inline void FormAuxiliaryJacobian(T *A, T scalar, Int ng, Int nvar)
+{
+    if (nvar == 1) {
+        ArrayAXPB(A, A, T(-1), scalar, ng);
+        return;
+    }
+    // Source Jacobians have layout (point, row, column). The time/DAE
+    // contribution is scalar*I, not a scalar added to every matrix entry.
+    Kokkos::parallel_for("FormAuxiliaryJacobian", ng*nvar*nvar,
+        KOKKOS_LAMBDA(const int idx) {
+            const int q = idx / ng;
+            A[idx] = -A[idx] + (q % nvar == q / nvar ? scalar : T(0));
+        });
+}
+
+template <class T=dstype>
+inline void WaveAuxiliaryDerivative(T *wdg_udg, T scalar, Int ng, Int ncw, Int nc)
+{
+    // w_i=(u_i+wsrc_i)/dtfactor: unrelated conservative/gradient components
+    // have zero derivative, including when there is just one wave variable.
+    Kokkos::parallel_for("WaveAuxiliaryDerivative", ng*ncw*nc,
+        KOKKOS_LAMBDA(const int idx) {
+            const int q = idx / ng;
+            wdg_udg[idx] = q % ncw == q / ncw ? scalar : T(0);
+        });
+}
+
+template <class T=dstype>
 inline void CopyCompactWdgUdgToFull(T *wdg_udg, const T *aux_udg,
         Int ng, Int ncwa, Int ncw, Int nc, Int backend)
 {
@@ -354,6 +382,7 @@ inline void wEquation(T *wdg, T *xdg, T *udg, T *odg, T *wsrc,
         dstype *s_wdg = &tempg[ng*ncw]; // temporary array 
         // use Newton to solve the nonlinear system  alpha * dw/dt + beta w = S(w, u, q) to obtain w for given (u, q)             
         int iter=0;
+        bool converged = false;
         for (iter=0; iter<20; iter++) {
           // alpha * dw/dt + beta w = sourcew(u,q,w) -> alpha (dtfactor * w - wsrc) + beta w = sourcew(u,q,w) 
           // ->  (alpha * dtfactor + beta) w - alpha * wsrc - sourcew(u,q,w) = 0              
@@ -372,29 +401,7 @@ inline void wEquation(T *wdg, T *xdg, T *udg, T *odg, T *wsrc,
           ArrayAdd3Vectors(s, s, wsrc, wdg, one, common.timeparams.dae_alpha, -scalar, ng*ncw);                           
 
           // compute jacobian matrix = (alpha * dtfactor + beta) - s_wdg
-          ArrayAXPB(s_wdg, s_wdg, minusone, scalar, ng*ncw*ncw);                
-
-          // check convergence
-          dstype nrm = NORM(common.cublasHandle, ng*ncw, s, backend);
-          if (!is_finite_bitwise(nrm)) {
-            // Propagate failure to the outer trial acceptance test; do not
-            // continue Newton with an invalid EOS evaluation. w is generic,
-            // so positivity constraints must remain model-specific.
-            ArraySetValue(wdg, std::numeric_limits<T>::quiet_NaN(), ng*ncw);
-            break;
-          }
-          if (nrm < 1e-6) {
-            // if (common.mpiRank==2) {
-            //   std::cout << std::fixed << std::setprecision(15);
-            //   std::cout<<common.timeparams.dae_alpha<<"  "<<common.timeparams.dae_beta<<"  "<<scalar<<std::endl;
-            //   std::cout<<"Iter = "<<iter<<", norm = "<<nrm<<", s[0] = "<<s[0]<<std::endl;
-            //   std::cout<<wdg[0];
-            //   for (int m=0; m<8; m++)
-            //     std::cout<<"   "<<udg[ng*m];
-            //   std::cout<<std::endl;
-            // }
-            break;              
-          }
+          FormAuxiliaryJacobian(s_wdg, scalar, ng, ncw);
           
           // solve the linear system jacobian * dw = residual
           if (ncw==1) {                
@@ -417,8 +424,21 @@ inline void wEquation(T *wdg, T *xdg, T *udg, T *odg, T *wsrc,
           }              
 
           // update w = w + dw
-          ArrayAXPBY(wdg, wdg, s, one, one, ng*ncw);          
+          ArrayAXPBY(wdg, wdg, s, one, one, ng*ncw);
+
+          // Match the derivative-producing HDG solve: apply even a small
+          // correction before testing it. A pre-update residual cutoff made
+          // w locally constant under finite-difference Jacobian probes.
+          dstype nrm = NORM(common.cublasHandle, ng*ncw, s, backend);
+          if (!is_finite_bitwise(nrm)) break;
+          if (nrm < 1e-8) {
+            converged = true;
+            break;
+          }
         }
+        // Never use a failed/unconverged local solve as an accepted EOS state.
+        // Preserve the outer residual/crash-dump path rather than abort here.
+        if (!converged) ArraySetNaN(wdg, ng*ncw);
         if (backend <= 1 && common.outputparams.debugMode==1) {
             ReportNanInHdgSourcewonlyOutput("w", wdg, xdg, udg, odg, wdg, ng, ncw, nc, nco, ncw, nd, common.mpiRank, iter);
         }
@@ -438,6 +458,7 @@ inline void wEquation(T *wdg, T *xdg, T *udg, T *odg, T *wsrc,
         dstype *s = tempg;
         dstype *s_wdg_full = &s[ng*ncw];
         dstype *s_wdg = &s_wdg_full[ng*ncw*ncw];
+        bool converged = false;
         for (int iter=0; iter<20; iter++) {
           EXASIM_LEGACY_W_CALL(HdgSourcewonly, s, s_wdg_full, xdg, udg, odg,
               wdg, uinf, physicsparam, time, modelnumber, ng, nc, ncu, nd,
@@ -445,13 +466,20 @@ inline void wEquation(T *wdg, T *xdg, T *udg, T *odg, T *wsrc,
           CompactSourcewJacobian<T,I>(s_wdg, s_wdg_full, ng, ncwa, ncw, backend);
           dstype scalar = common.timeparams.dae_alpha*common.timestate.dtfactor + common.timeparams.dae_beta;
           ArrayAdd3Vectors(s, s, wsrc, wdg, one, common.timeparams.dae_alpha, -scalar, ng*ncwa);
-          ArrayAXPB(s_wdg, s_wdg, minusone, scalar, ng*ncwa*ncwa);
-          dstype nrm = NORM(common.cublasHandle, ng*ncwa, s, backend);
-          if (nrm < 1e-6)
-            break;
+          FormAuxiliaryJacobian(s_wdg, scalar, ng, ncwa);
           SolveSmallMatrix(s, s_wdg, ng, 1, ncwa,
               "DAE functionality supports at most five ordinary auxiliary variables.");
           ArrayAXPBY(wdg, wdg, s, one, one, ng*ncwa);
+          dstype nrm = NORM(common.cublasHandle, ng*ncwa, s, backend);
+          if (!is_finite_bitwise(nrm)) break;
+          if (nrm < 1e-8) {
+            converged = true;
+            break;
+          }
+        }
+        if (!converged) {
+          ArraySetNaN(wdg, ng*ncw);
+          return;
         }
     }
 
@@ -483,13 +511,14 @@ inline void wEquation(T *wdg, T *wdg_udg, T *xdg, T *udg, T *odg, T *wsrc,
         // dw/dt = u -> (dtfactor * w - wsrc) = u -> w = (1/dtfactor) * (u + wsrc)
         dstype scalar = one/common.timestate.dtfactor;
         ArrayAXPBY(wdg, udg, wsrc, scalar, scalar, ng*ncw);
-        ArraySetValue(wdg_udg, scalar, ng*ncw*nc);
+        WaveAuxiliaryDerivative(wdg_udg, scalar, ng, ncw, nc);
     }        
     else {   
          // fix bug here
         dstype *s = tempg; // temporary array    
         dstype *s_wdg = &tempg[ng*ncw]; // temporary array              
         // use Newton to solve the nonlinear system  alpha * dw/dt + beta w = S(w, u, q) to obtain w for given (u, q)                
+        bool converged = false;
         for (int iter=0; iter<20; iter++) {
           // alpha * dw/dt + beta w = sourcew(u,q,w) -> alpha (dtfactor * w - wsrc) + beta w = sourcew(u,q,w) 
           // ->  (alpha * dtfactor + beta) w - alpha * wsrc - sourcew(u,q,w) = 0              
@@ -504,7 +533,7 @@ inline void wEquation(T *wdg, T *wdg_udg, T *xdg, T *udg, T *odg, T *wsrc,
           ArrayAdd3Vectors(s, s, wsrc, wdg, one, common.timeparams.dae_alpha, -scalar, ng*ncw);                           
 
           // compute jacobian matrix = (alpha * dtfactor + beta) - s_wdg
-          ArrayAXPB(s_wdg, s_wdg, minusone, scalar, ng*ncw*ncw);                
+          FormAuxiliaryJacobian(s_wdg, scalar, ng, ncw);
 
           // solve the linear system jacobian * dw = residual
           if (ncw==1) {                
@@ -531,13 +560,14 @@ inline void wEquation(T *wdg, T *wdg_udg, T *xdg, T *udg, T *odg, T *wsrc,
 
           // check convergence
           dstype nrm = NORM(common.cublasHandle, ng*ncw, s, backend);
+          if (!is_finite_bitwise(nrm)) break;
           if (nrm < 1e-8) {     
             // wdg_udg is actually s_udg 
             EXASIM_LEGACY_W_CALL(HdgSourcew, s, wdg_udg, s_wdg, xdg, udg, odg, wdg, uinf, physicsparam, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
             
             // fix bug here
             // compute jacobian matrix = (alpha * dtfactor + beta) - s_wdg
-            ArrayAXPB(s_wdg, s_wdg, minusone, scalar, ng*ncw*ncw);                
+            FormAuxiliaryJacobian(s_wdg, scalar, ng, ncw);
             
             // w_udg = -inverse(s_wdg) * s_udg
             if (ncw==1) {                
@@ -558,14 +588,14 @@ inline void wEquation(T *wdg, T *wdg_udg, T *xdg, T *udg, T *odg, T *wsrc,
             else {
               error("DAE functionality supports at most three dependent variables.");
             }                          
-            break;              
+            converged = true;
+            break;
           }
-          else {
-            if (iter==20) {
-              error("Newton in wequation does not converge to 1e-8.");
-            }
-          } 
-        }                        
+        }
+        if (!converged) {
+          ArraySetNaN(wdg, ng*ncw);
+          ArraySetNaN(wdg_udg, ng*ncw*nc);
+        }
     }
     return;
     }
@@ -579,7 +609,7 @@ inline void wEquation(T *wdg, T *wdg_udg, T *xdg, T *udg, T *odg, T *wsrc,
         dstype scalar = one/common.timestate.dtfactor;
         if (ncwa > 0) {
             ArrayAXPBY(wdg, udg, wsrc, scalar, scalar, ng*ncwa);
-            ArraySetValue(aux_udg, scalar, ng*ncwa*nc);
+            WaveAuxiliaryDerivative(aux_udg, scalar, ng, ncwa, nc);
             CopyCompactWdgUdgToFull(wdg_udg, aux_udg, ng, ncwa, ncw, nc, backend);
         }
     }
@@ -589,6 +619,7 @@ inline void wEquation(T *wdg, T *wdg_udg, T *xdg, T *udg, T *odg, T *wsrc,
         dstype *s_wdg = &s_wdg_full[ng*ncw*ncw];
         dstype *s_udg_full = &s_wdg[ng*ncwa*ncwa];
         aux_udg = &s_udg_full[ng*ncw*nc];
+        bool converged = false;
         for (int iter=0; iter<20; iter++) {
           EXASIM_LEGACY_W_CALL(HdgSourcewonly, s, s_wdg_full, xdg, udg, odg,
               wdg, uinf, physicsparam, time, modelnumber, ng, nc, ncu, nd,
@@ -596,29 +627,31 @@ inline void wEquation(T *wdg, T *wdg_udg, T *xdg, T *udg, T *odg, T *wsrc,
           CompactSourcewJacobian<T,I>(s_wdg, s_wdg_full, ng, ncwa, ncw, backend);
           dstype scalar = common.timeparams.dae_alpha*common.timestate.dtfactor + common.timeparams.dae_beta;
           ArrayAdd3Vectors(s, s, wsrc, wdg, one, common.timeparams.dae_alpha, -scalar, ng*ncwa);
-          ArrayAXPB(s_wdg, s_wdg, minusone, scalar, ng*ncwa*ncwa);
+          FormAuxiliaryJacobian(s_wdg, scalar, ng, ncwa);
           SolveSmallMatrix(s, s_wdg, ng, 1, ncwa,
               "DAE functionality supports at most five ordinary auxiliary variables.");
           ArrayAXPBY(wdg, wdg, s, one, one, ng*ncwa);
 
           dstype nrm = NORM(common.cublasHandle, ng*ncwa, s, backend);
+          if (!is_finite_bitwise(nrm)) break;
           if (nrm < 1e-8) {
             EXASIM_LEGACY_W_CALL(HdgSourcew, s, s_udg_full, s_wdg_full, xdg, udg,
                 odg, wdg, uinf, physicsparam, time, modelnumber, ng, nc,
                 ncu, nd, ncx, nco, ncw);
             CompactSourcewJacobian<T,I>(s_wdg, s_wdg_full, ng, ncwa, ncw, backend);
             CompactSourcewUdg<T,I>(aux_udg, s_udg_full, ng, ncwa, ncw, nc, backend);
-            ArrayAXPB(s_wdg, s_wdg, minusone, scalar, ng*ncwa*ncwa);
+            FormAuxiliaryJacobian(s_wdg, scalar, ng, ncwa);
             SolveSmallMatrix(aux_udg, s_wdg, ng, nc, ncwa,
                 "DAE functionality supports at most five ordinary auxiliary variables.");
             CopyCompactWdgUdgToFull(wdg_udg, aux_udg, ng, ncwa, ncw, nc, backend);
+            converged = true;
             break;
           }
-          else {
-            if (iter==19) {
-              error("Newton in wequation does not converge to 1e-8.");
-            }
-          }
+        }
+        if (!converged) {
+          ArraySetNaN(wdg, ng*ncw);
+          ArraySetNaN(wdg_udg, ng*ncw*nc);
+          return;
         }
     }
 

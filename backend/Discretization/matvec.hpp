@@ -40,7 +40,7 @@
 template <class M, class T=dstype, class I=Int>
 inline void MatVec(T *w, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master,
       meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, T *v, 
-      T *u, T *Ru, Int backend)
+      T *u, T *Ru, Int backend, T directionNorm = T(-1))
 {
     using dstype=T;   
     Int nc = common.components.nc; // number of compoments of (u, q, p)
@@ -58,7 +58,21 @@ inline void MatVec(T *w, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<
     dResidual<M>(sol, res, app, master, mesh, tmp, common, handle, backend);
     ArrayAXPBY(w, u, res.dRu, 0.0, 1, N);
 #else
-    AuxiliaryStateSnapshot<T> auxiliary(sol.wdg, common.components.ncw > 0 ? sol.szwdg : 0);
+    // Probe a unit direction. Raw RB/Newton updates can be so small that a
+    // fixed epsilon*v rounds away completely. Arnoldi/RB callers supply their
+    // known norm to avoid an additional reduction on the Krylov hot path.
+    if (directionNorm < T(0)) directionNorm = PNORM(handle, N, v, backend);
+    if (directionNorm == T(0)) {
+        ArraySetValue(w, T(0), N);
+        return;
+    }
+    epsilon /= directionNorm;
+    if (!is_finite_bitwise(directionNorm) || !is_finite_bitwise(epsilon) || epsilon <= T(0)) {
+        ArraySetNaN(w, N);
+        return;
+    }
+    AuxiliaryStateSnapshot<T> auxiliary(sol.wdg, common.components.ncw > 0 ? sol.szwdg : 0,
+                                        &tmp.auxiliaryMatvecBackup);
     if (order==1) {
         // calculate w = u + epsilon*v
         ArrayAXPBY(w, u, v, 1.0, epsilon, N);
@@ -73,6 +87,15 @@ inline void MatVec(T *w, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<
         ArrayAXPBY(w, res.Ru, Ru, 1.0/epsilon, -1.0/epsilon, N);
     }
     else if (order==2) {
+        // Polynomial preconditioning can request MatVec(v, v, ...). The
+        // first probe overwrites the output, so retain v for the second one.
+        Kokkos::View<T*> direction;
+        if (w == v) {
+            direction = Kokkos::View<T*>(Kokkos::view_alloc(Kokkos::WithoutInitializing,
+                                                          "matvec_direction"), N);
+            ArrayCopy(direction.data(), v, N);
+            v = direction.data();
+        }
         // calculate w = u - epsilon*v
         ArrayAXPBY(w, u, v, 1.0, -epsilon, N);
 

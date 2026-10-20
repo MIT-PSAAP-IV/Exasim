@@ -40,6 +40,8 @@ public:
     // apply the discrete operator: Jv = J(u)*v (LDG = matrix-free FD; HDG = apply res.H)
     void evalMatVec(dstype* Jv, dstype* v, dstype* u, dstype* Ru, Int backend);
     void evalMatVec(dstype* Jv, dstype* v, dstype* u, dstype* Ru, Int spatialScheme, Int backend);
+    void evalMatVecWithNorm(dstype* Jv, dstype* v, dstype* u, dstype* Ru, dstype directionNorm, Int backend);
+    void evalMatVecWithNorm(dstype* Jv, dstype* v, dstype* u, dstype* Ru, dstype directionNorm, Int spatialScheme, Int backend);
 };
 
 #endif
