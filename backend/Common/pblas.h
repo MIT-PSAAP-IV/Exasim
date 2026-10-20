@@ -671,7 +671,7 @@ static void PGEMTV(cublasHandle_t handle, Int m, Int n, T *alpha, T* A, Int lda,
 #ifdef HAVE_HIP
     hipDeviceSynchronize();
 #endif        
-    MPI_Allreduce(ylocal, y, n, mpi_type<dstype>(), MPI_SUM, EXASIM_COMM_WORLD);
+    MPI_Allreduce(ylocal, y, n, mpi_type<T>(), MPI_SUM, EXASIM_COMM_WORLD);
 #else
     ArrayCopy(y, ylocal, n);
 #endif    
@@ -784,7 +784,7 @@ static void PGEMTM(cublasHandle_t handle, Int m, Int n, Int k, T *alpha, T* A, I
 #ifdef HAVE_HIP
     hipDeviceSynchronize();
 #endif            
-    MPI_Allreduce(Clocal, C, p, mpi_type<dstype>(), MPI_SUM, EXASIM_COMM_WORLD);
+    MPI_Allreduce(Clocal, C, p, mpi_type<T>(), MPI_SUM, EXASIM_COMM_WORLD);
 #else
     ArrayCopy(C, Clocal, p);
 #endif        

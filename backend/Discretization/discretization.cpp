@@ -794,7 +794,8 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
           res.szP = npf*nfe*ncu*npf*nfe*ncu*common.meshsizes.ne;
         else if (common.solverparams.preconditioner==2) // Superelement additive Schwarz preconditioner
           res.szP = npf*ncu*npf*ncu*common.nse*common.nnz;
-        res.szV = ncu*npf*nf*(common.solverparams.gmresRestart+1); // Krylov vectors in GMRES
+        // Match setsysstruct's shared Krylov/RB reservation, including RB > restart.
+        res.szV = ncu*npf*nf*max(common.solverparams.gmresRestart+1, common.solverparams.RBdim);
         res.szK = max(res.szK, res.szP + res.szV);
         res.szF = npe*ncu*npf*nfe*ncu*common.meshsizes.ne;
         res.szipiv = max(max(npf*nfe,npe)*ncu*neb, ncu*npf*common.meshsizes.nfb);

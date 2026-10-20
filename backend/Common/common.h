@@ -52,6 +52,7 @@
 #include <ostream>
 #include <cstdint>
 #include <cstring>
+#include <type_traits>
 
 #define SCOPY scopy_
 #define SSCAL sscal_
@@ -200,6 +201,20 @@ template <> bool is_nan_bitwise<float>(float x) {
 
 // Optional macro for quick usage
 #define IS_NAN(x) is_nan_bitwise<decltype(x)>(x)
+
+// Host-side IEEE-754 check. Avoid fast-math assumptions on floating-point
+// arguments, and keep the integer classification from being folded back into
+// an FP predicate. The volatile integer access is local (no device transfer).
+template <class T> inline bool is_finite_bitwise(const T& value)
+{
+    static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
+    using Bits = std::conditional_t<std::is_same_v<T, double>, std::uint64_t, std::uint32_t>;
+    constexpr Bits mask = std::is_same_v<T, double> ? 0x7ff0000000000000ULL : 0x7f800000U;
+    Bits bits;
+    std::memcpy(&bits, &value, sizeof(bits));
+    volatile Bits observed = bits;
+    return (observed & mask) != mask;
+}
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -1682,6 +1697,9 @@ using resstruct = resstructT<::dstype, ::Int>;
 template <class T = ::dstype, class I = ::Int>
 struct tempstructT {
     using dstype = T; using Int = I;
+    // Dedicated LDG finite-difference backup, separate from residual scratch
+    // and enclosing Newton/RB snapshots. Allocated lazily; includes w halos.
+    Kokkos::View<T*> auxiliaryMatvecBackup;
     dstype *tempn=nullptr;
     dstype *tempg=nullptr;
     dstype *buffrecv=nullptr;
@@ -1695,7 +1713,8 @@ struct tempstructT {
     int sizeofint() {return sztempi;}
     int sizeoffloat() 
     {
-      int sz = sztempn + sztempg + szbuffrecv + szbuffsend + szbufffacerecv + szbufffacesend;
+      int sz = sztempn + sztempg + szbuffrecv + szbuffsend + szbufffacerecv + szbufffacesend
+             + static_cast<int>(auxiliaryMatvecBackup.extent(0));
       return sz;
     }
 
@@ -1709,12 +1728,15 @@ struct tempstructT {
       printf("size of bufffacerecv: %d\n", szbufffacerecv);
       printf("size of bufffacesend: %d\n", szbufffacesend);
       printf("size of tempi: %d\n", sztempi);
+      printf("size of auxiliary matvec backup: %zu\n", size_t(auxiliaryMatvecBackup.extent(0)));
       printf("size of int: %d\n", sizeofint());
       printf("size of float: %d\n", sizeoffloat());
     }
 
     void freememory(Int backend)
     {
+        // Snapshot scopes fence before returning; release before Kokkos finalizes.
+        auxiliaryMatvecBackup = Kokkos::View<T*>();
         TemplateFree(tempn, backend); 
         //TemplateFree(tempg, backend); 
         TemplateFree(buffrecv, backend); 
