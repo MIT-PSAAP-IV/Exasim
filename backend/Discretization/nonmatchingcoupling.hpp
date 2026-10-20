@@ -24,6 +24,19 @@
 namespace exasim {
 namespace nonmatching {
 
+template <class T, class I>
+inline void reject_rectangular_host_path(const OwnerTestData<T, I>* ownerTests,
+        const char* where)
+{
+    if (ownerTests &&
+            (ownerTests->dir[0].rectangular || ownerTests->dir[1].rectangular)) {
+        std::ostringstream message;
+        message << "non-matching host path: rectangular tet/hex coupling requires the "
+                   "NonmatchingRuntime path (" << where << ")";
+        throw std::runtime_error(message.str());
+    }
+}
+
 #ifdef HAVE_MPI
 // Tag base of the coupling-slot exchange (one message per donor/owner pair and
 // direction). The same exchange carries the partial residuals (eq. (63)) and
@@ -448,9 +461,15 @@ inline void compute_nonmatching_coupling(nonmatchingdataT<T, I>& nm,
         masterstructT<T, I>& master, meshstructT<T, I>& mesh,
         tempstructT<T, I>& tmp, commonstructT<T, I>& common,
         cublasHandle_t handle, bool withJacobian, I backend,
-        const OwnerTestData<T, I>* ownerTests = nullptr)
+        const OwnerTestData<T, I>* ownerTests)
 {
+    reject_rectangular_host_path(ownerTests, "compute_nonmatching_coupling");
     if (nm.interfacetype != 1) return;
+    if (!ownerTests)
+        for (int direction = 0; direction < 2; ++direction)
+            if (nm.dir[direction].isdonor && nm.dir[direction].nslots > 0 &&
+                    nm.dir[direction].Ri == nullptr)
+                error("non-matching host path: missing frozen donor work arrays");
     for (int direction = 0; direction < 2; ++direction) {
         nonmatchinginterfaceT<T, I>& donor = nm.dir[direction];
         if (!donor.isdonor || donor.npts == 0) continue;
@@ -578,9 +597,16 @@ inline bool validate_coupling_selection(const commonstructT<T, I>& common,
 // Host workspaces (CPU-first; a persistent device workspace is Phase 8).
 template <class T, class I>
 inline void nonmatching_matvec_products(nonmatchingdataT<T, I>& nm, const T* ve,
-        I m, I ne1, cublasHandle_t handle, I backend)
+        I m, I ne1, cublasHandle_t handle, I backend,
+        const OwnerTestData<T, I>* ownerTests)
 {
+    reject_rectangular_host_path(ownerTests, "nonmatching_matvec_products");
     if (nm.interfacetype != 1) return;
+    if (!ownerTests)
+        for (int direction = 0; direction < 2; ++direction)
+            if (nm.dir[direction].isdonor && nm.dir[direction].nslots > 0 &&
+                    nm.dir[direction].Ri == nullptr)
+                error("non-matching host path: missing frozen donor work arrays");
     if (backend > 1)
         error("non-matching coupling: CUDA/HIP run-time kernels are deferred to Phase 8");
     for (int direction = 0; direction < 2; ++direction) {
@@ -641,9 +667,16 @@ inline int checked_mpi_count(I blocks, I ncu12, I npf, const char* what)
 // element-neighbor requests.
 template <class T, class I>
 inline void begin_coupling_slot_exchange(nonmatchingdataT<T, I>& nm,
-        commonstructT<T, I>& common, I& requestCounter)
+        commonstructT<T, I>& common, I& requestCounter,
+        const OwnerTestData<T, I>* ownerTests)
 {
+    reject_rectangular_host_path(ownerTests, "begin_coupling_slot_exchange");
     if (nm.interfacetype != 1) return;
+    if (!ownerTests)
+        for (int direction = 0; direction < 2; ++direction)
+            if (nm.dir[direction].isdonor && nm.dir[direction].nslots > 0 &&
+                    nm.dir[direction].Ri == nullptr)
+                error("non-matching host path: missing frozen donor work arrays");
     for (int direction = 0; direction < 2; ++direction) {
         nonmatchinginterfaceT<T, I>& d = nm.dir[direction];
         if (d.isdonor && d.nslots > 0) {
@@ -698,7 +731,8 @@ inline void begin_coupling_slot_exchange(NonmatchingRuntime<T, I>& runtime,
         if (v.isdonor && v.nslots > 0) {
             std::size_t offset = 0;
             for (std::size_t q = 0; q < d.sendnb.size(); ++q) {
-                const int count = checked_mpi_count(d.sendcount[q], v.ncu12, v.npf,
+                const I rowNpf = v.rectangular ? v.ownerNpf : v.npf;
+                const int count = checked_mpi_count(d.sendcount[q], v.ncu12, rowNpf,
                                                     "donor send count");
                 if (count > 0) {
                     MPI_Isend(&d.Ri.data[offset], count, mpi_type<T>(), d.sendnb[q],

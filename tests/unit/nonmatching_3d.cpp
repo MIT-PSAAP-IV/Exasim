@@ -748,23 +748,23 @@ dstype verify_runtime_matvec(const char* label,SetupRank3D& r,const SetupMaster3
     for(Int e=0;e<ne;++e) for(Int i=0;i<ndf;++i) for(Int c=0;c<ncu;++c)
         veRef[c+ncu*(i+ndf*e)]=v[c+ncu*r.elemcon[i+ndf*e]];
 
-    const int record=4+ncu12*m.npf;
     std::vector<dstype> local;
     for(int direction=0;direction<2;++direction) {
         const nonmatchinginterface& host=nm.dir[direction];
         const auto& device=runtime.dir[direction];
         if(!host.isdonor) continue;
+        const Int rows=ncu12*device.view.ownerNpf;
         for(Int slot=0;slot<host.nslots;++slot) {
-            std::vector<long double> value(static_cast<std::size_t>(ncu12)*m.npf,0.0L);
+            std::vector<long double> value(rows,0.0L);
             for(Int pair=0;pair<host.npairs;++pair) if(host.pairslot[pair]==slot) {
                 const Int e=host.pairelem[pair];
-                for(Int col=0;col<mtrace;++col) for(Int row=0;row<ncu12*m.npf;++row)
+                for(Int col=0;col<mtrace;++col) for(Int row=0;row<rows;++row)
                     value[row]+=static_cast<long double>(device.Hi.data[row+
-                        static_cast<std::size_t>(ncu12*m.npf)*(col+static_cast<std::size_t>(mtrace)*pair)])*
+                        static_cast<std::size_t>(rows)*(col+static_cast<std::size_t>(mtrace)*pair)])*
                         veRef[col+static_cast<std::size_t>(mtrace)*e];
             }
             local.push_back(direction); local.push_back(host.slotrank[slot]);
-            local.push_back(host.slotface[slot]); local.push_back(worldRank);
+            local.push_back(host.slotface[slot]); local.push_back(worldRank); local.push_back(rows);
             for(long double x:value) local.push_back(static_cast<dstype>(x));
         }
     }
@@ -775,17 +775,30 @@ dstype verify_runtime_matvec(const char* label,SetupRank3D& r,const SetupMaster3
     std::vector<dstype> all(std::max(total,1));
     MPI_Allgatherv(local.data(),count,MPI_DOUBLE,all.data(),counts.data(),displs.data(),
         MPI_DOUBLE,MPI_COMM_WORLD);
-    for(int offset=0;offset+record<=total;offset+=record) {
-        const int direction=static_cast<int>(all[offset]);
-        if(static_cast<int>(all[offset+1])!=worldRank) continue;
-        const nonmatchinginterface& owner=nm.dir[direction];
-        Int l=-1; const long globalFace=static_cast<long>(all[offset+2]);
-        for(Int k=0;k<owner.nownfaces;++k) if(owner.ownfaceglobal[k]==globalFace) l=k;
-        if(l<0) { std::printf("FAIL %s missing owner face rank %d\n",label,worldRank); ++failures; continue; }
-        const Int encoded=r.intfaces[owner.ownface[l]],e=encoded/m.nfe,lf=encoded%m.nfe;
-        for(Int i=0;i<m.npf;++i) for(Int c=0;c<ncu12;++c)
-            weRef[r.interfacefluxmap[c]+ncu*(i+m.npf*(lf+m.nfe*e))]+=
-                all[offset+4+c+ncu12*i];
+    for(int sender=0;sender<size;++sender) {
+        int offset=displs[sender],end=offset+counts[sender];
+        while(offset<end) {
+            if(offset+5>end) throw std::runtime_error("truncated matvec reference header");
+            const int direction=static_cast<int>(all[offset]);
+            const Int rows=static_cast<Int>(all[offset+4]);
+            if(rows<=0 || offset+5+rows>end)
+                throw std::runtime_error("invalid matvec reference record extent");
+            if(static_cast<int>(all[offset+1])==worldRank) {
+                const nonmatchinginterface& owner=nm.dir[direction];
+                Int l=-1; const long globalFace=static_cast<long>(all[offset+2]);
+                for(Int k=0;k<owner.nownfaces;++k) if(owner.ownfaceglobal[k]==globalFace) l=k;
+                if(l<0) { std::printf("FAIL %s missing owner face rank %d\n",label,worldRank); ++failures; }
+                else {
+                    if(rows!=ncu12*m.npf)
+                        throw std::runtime_error("matvec reference owner-row extent mismatch");
+                    const Int encoded=r.intfaces[owner.ownface[l]],e=encoded/m.nfe,lf=encoded%m.nfe;
+                    for(Int i=0;i<m.npf;++i) for(Int c=0;c<ncu12;++c)
+                        weRef[r.interfacefluxmap[c]+ncu*(i+m.npf*(lf+m.nfe*e))]+=
+                            all[offset+5+c+ncu12*i];
+                }
+            }
+            offset+=5+rows;
+        }
     }
     for(Int e=0;e<ne;++e) for(Int i=0;i<ndf;++i) for(Int c=0;c<ncu;++c)
         wRef[c+ncu*r.elemcon[i+ndf*e]]+=weRef[c+ncu*(i+ndf*e)];
@@ -1543,12 +1556,14 @@ std::size_t host_direction_bytes(const nonmatchinginterface& d)
         (d.ncq==0?d.nd*d.npe:0))+d.szRi+d.szHi+d.szsendbuf+d.szrecvbuf);
 }
 
-void cost_runtime_case(int elemtype,int worldRank,int worldSize,Int ne=2)
+void cost_runtime_case(int elemtype,int worldRank,int worldSize,Int ne=2,int requestedSplit=-1)
 {
     using namespace exasim::nonmatching;
-    const Int split=worldSize/2,model=worldRank<split?0:1,part=model==0?worldRank:worldRank-split;
+    const Int split=requestedSplit>0?requestedSplit:worldSize/2;
+    const Int model=worldRank<split?0:1,part=model==0?worldRank:worldRank-split;
+    const Int modelRanks=model==0?split:worldSize-split;
     SetupMaster3D m=setup_master(elemtype,4);
-    SetupRank3D r; setup_multi_rank_3d(r,m,model,part,split,0.0,1,0,0,1,ne);
+    SetupRank3D r; setup_multi_rank_3d(r,m,model,part,modelRanks,0.0,1,0,0,1,ne);
     commonstruct common{};
     common.components.nc=1; common.components.ncu=1; common.components.ncq=0;
     common.components.ncx=3; common.meshsizes.ne=ne; common.meshsizes.ne0=ne;
@@ -1676,15 +1691,26 @@ void cost_runtime_case(int elemtype,int worldRank,int worldSize,Int ne=2)
 }
 
 template <class Model>
-void model_operator_case(const char* name,int elemtype,int p,int worldRank,int worldSize,dstype gap=0.0)
+void model_operator_case(const char* name,int elemtype,int p,int worldRank,int worldSize,
+        dstype gap=0.0,int requestedSplit=-1,bool mixedFamilies=false,bool reverseFamilies=false)
 {
     using namespace exasim::nonmatching;
-    const Int split=worldSize/2,model=worldRank<split?0:1,part=model==0?worldRank:worldRank-split;
+    const Int split=requestedSplit>0?requestedSplit:worldSize/2;
+    const Int model=worldRank<split?0:1,part=model==0?worldRank:worldRank-split;
+    const Int modelRanks=model==0?split:worldSize-split;
     const Int ne=2,ncu=Model::ncu,ncq=Model::ncq,nc=ncu+ncq,ncu12=Model::nfint;
-    SetupMaster3D m=setup_master(elemtype,p);
+    const int localElemtype=mixedFamilies?(reverseFamilies?1-model:model):elemtype;
+    SetupMaster3D m=setup_master(localElemtype,p);
     SetupRank3D r;
-    setup_multi_rank_3d(r,m,model,part,split,gap,ncu,ncq,Model::ncw,ncu12);
-    const Int n=m.npe*ncu,ndf=m.npf*m.nfe,mtrace=ndf*ncu,m12=m.npf*ncu12;
+    setup_multi_rank_3d(r,m,model,part,modelRanks,gap,ncu,ncq,Model::ncw,ncu12);
+    if(mixedFamilies) {
+        const dstype stagger=model==1?-0.5:0.0;
+        for(Int e=0;e<ne;++e) for(Int j=0;j<m.npe;++j) {
+            const std::size_t index=j+static_cast<std::size_t>(m.npe)*(1+3*e);
+            r.xdg[index]=(r.xdg[index]-stagger)/(2.0*modelRanks);
+        }
+    }
+    const Int n=m.npe*ncu,ndf=m.npf*m.nfe,mtrace=ndf*ncu;
 
     r.udg.resize(static_cast<std::size_t>(m.npe)*nc*ne);
     r.uh.resize(static_cast<std::size_t>(ncu)*ndf*ne);
@@ -1714,9 +1740,11 @@ void model_operator_case(const char* name,int elemtype,int p,int worldRank,int w
 
     nonmatchingdata nm;
     std::unique_ptr<NonmatchingRuntime<dstype,Int>> runtime;
+    std::unique_ptr<OwnerTestData<dstype,Int>> ownerTests;
     if(!rebuild_nonmatching_interface(r.app,r.master,r.mesh,r.sol,common,worldSize,worldRank,
-            model,nm,runtime,0,static_cast<DonorSearchResult<dstype,Int>*>(nullptr))) {
-        std::printf("FAIL 3D model operator setup %s family %d rank %d\n",name,elemtype,worldRank);
+            model,nm,runtime,0,static_cast<DonorSearchResult<dstype,Int>*>(nullptr),
+            DonorSearchParams(),true,&ownerTests)) {
+        std::printf("FAIL 3D model operator setup %s family %d rank %d\n",name,localElemtype,worldRank);
         ++failures; return;
     }
 
@@ -1746,6 +1774,7 @@ void model_operator_case(const char* name,int elemtype,int p,int worldRank,int w
 
     auto& rd=runtime->dir[1-model];
     const auto& donor=nm.dir[1-model];
+    const Int ownerNpf=rd.view.ownerNpf,m12=ownerNpf*ncu12;
     dstype fluxError=0,jacError=0,wError=0,wJacError=0;
     for(Int q=0;q<rd.view.npts;++q) {
         dstype f[2]={0,0}; std::vector<dstype> juq(static_cast<std::size_t>(ncu12)*nc,0.0);
@@ -1796,49 +1825,68 @@ void model_operator_case(const char* name,int elemtype,int p,int worldRank,int w
         }
     }
 
-    dstype fdError=0;
+    dstype fdError=0,fdSensitivity[3]={0,0,0};
     if constexpr (Model::ncw>0) {
-        const dstype eps=2.0e-6;
-        std::vector<dstype> baseUdg=r.udg,baseUh=r.uh,plus(rd.flux.size),minus(rd.flux.size);
+        std::vector<dstype> baseUdg=r.udg,baseUh=r.uh,analytic(rd.flux.size);
         dstype du[8],duh[2];
         for(Int c=0;c<nc;++c) du[c]=0.013*(c+1);
         for(Int c=0;c<ncu;++c) duh[c]=-0.017*(c+1);
-        auto perturb=[&](dstype sign) {
-            r.udg=baseUdg; r.uh=baseUh;
-            for(Int e=0;e<ne;++e) for(Int c=0;c<nc;++c) for(Int j=0;j<m.npe;++j)
-                r.udg[j+m.npe*(c+nc*e)]+=sign*eps*du[c];
-            for(Int e=0;e<ne;++e) for(Int i=0;i<ndf;++i) for(Int c=0;c<ncu;++c)
-                r.uh[c+ncu*(i+ndf*e)]+=sign*eps*duh[c];
-            r.sol.udg=r.udg.data(); r.sol.uh=r.uh.data();
-            compute_nonmatching_coupling<Model>(*runtime,r.sol,residual,r.app,r.master,r.mesh,tmp,
-                common,0,false,0);
-            return std::vector<dstype>(rd.flux.data,rd.flux.data+rd.flux.size);
-        };
-        plus=perturb(1.0); minus=perturb(-1.0);
-        r.udg=baseUdg; r.uh=baseUh; r.sol.udg=r.udg.data(); r.sol.uh=r.uh.data();
-        compute_nonmatching_coupling<Model>(*runtime,r.sol,residual,r.app,r.master,r.mesh,tmp,
-            common,0,true,0);
         for(Int q=0;q<rd.view.npts;++q) for(Int out=0;out<ncu12;++out) {
             dstype tangent=0;
-            for(Int c=0;c<nc;++c) tangent+=rd.fluxUdg.data[q+rd.view.npts*(out+ncu12*c)]*du[c];
+            for(Int c=0;c<nc;++c)
+                tangent+=rd.fluxUdg.data[q+rd.view.npts*(out+ncu12*c)]*du[c];
             for(Int c=0;c<ncu;++c) {
                 dstype corrected=duh[c];
                 if(ncq>0) for(Int d=0;d<3;++d)
                     corrected-=rd.view.pd[q+rd.view.npts*d]*du[ncu+c+ncu*d];
                 tangent+=rd.fluxUhg.data[q+rd.view.npts*(out+ncu12*c)]*corrected;
             }
-            const dstype fd=(plus[q+rd.view.npts*out]-minus[q+rd.view.npts*out])/(2*eps);
-            fdError=std::max(fdError,std::abs(fd-tangent)/std::max<dstype>(1.0,std::abs(tangent)));
+            analytic[q+rd.view.npts*out]=tangent;
         }
+        dstype stateScale=1;
+        for(dstype value:baseUdg) stateScale=std::max(stateScale,std::abs(value));
+        for(dstype value:baseUh) stateScale=std::max(stateScale,std::abs(value));
+        const dstype baseStep=mixedFamilies
+            ? std::cbrt(std::numeric_limits<dstype>::epsilon())*stateScale
+            : 2.0e-6;
+        auto perturb=[&](dstype sign,dstype step) {
+            r.udg=baseUdg; r.uh=baseUh;
+            for(Int e=0;e<ne;++e) for(Int c=0;c<nc;++c) for(Int j=0;j<m.npe;++j)
+                r.udg[j+m.npe*(c+nc*e)]+=sign*step*du[c];
+            for(Int e=0;e<ne;++e) for(Int i=0;i<ndf;++i) for(Int c=0;c<ncu;++c)
+                r.uh[c+ncu*(i+ndf*e)]+=sign*step*duh[c];
+            r.sol.udg=r.udg.data(); r.sol.uh=r.uh.data();
+            compute_nonmatching_coupling<Model>(*runtime,r.sol,residual,r.app,r.master,r.mesh,tmp,
+                common,0,false,0);
+            return std::vector<dstype>(rd.flux.data,rd.flux.data+rd.flux.size);
+        };
+        const dstype factors[3]={mixedFamilies?0.1:1.0,1.0,mixedFamilies?10.0:1.0};
+        for(int level=0;level<3;++level) {
+            const dstype step=baseStep*factors[level];
+            const std::vector<dstype> plus=perturb(1.0,step);
+            const std::vector<dstype> minus=perturb(-1.0,step);
+            for(std::size_t i=0;i<analytic.size();++i) {
+                const dstype fd=(plus[i]-minus[i])/(2*step);
+                fdSensitivity[level]=std::max(fdSensitivity[level],
+                    std::abs(fd-analytic[i])/std::max<dstype>(1.0,std::abs(analytic[i])));
+            }
+        }
+        fdError=fdSensitivity[1];
+        r.udg=baseUdg; r.uh=baseUh; r.sol.udg=r.udg.data(); r.sol.uh=r.uh.data();
+        compute_nonmatching_coupling<Model>(*runtime,r.sol,residual,r.app,r.master,r.mesh,tmp,
+            common,0,true,0);
     }
 
-    std::vector<dstype> expectedRi(donor.szRi,0.0),expectedHi(donor.szHi,0.0);
+    std::vector<dstype> expectedRi(rd.Ri.size,0.0),expectedHi(rd.Hi.size,0.0);
     for(Int q=0;q<donor.npts;++q) {
         const Int slot=donor.pslot[q];
-        for(Int i=0;i<m.npf;++i) {
-            const dstype W=donor.pwJ[q]*m.shapfgt[donor.pg[q]+m.ngf*i];
+        for(Int i=0;i<ownerNpf;++i) {
+            const dstype ownerTest=mixedFamilies
+                ? rd.ptest.data[i+ownerNpf*q]
+                : m.shapfgt[donor.pg[q]+m.ngf*i];
+            const dstype W=donor.pwJ[q]*ownerTest;
             for(Int out=0;out<ncu12;++out)
-                expectedRi[out+ncu12*(i+m.npf*slot)]-=W*rd.flux.data[q+donor.npts*out];
+                expectedRi[out+ncu12*(i+ownerNpf*slot)]-=W*rd.flux.data[q+donor.npts*out];
         }
     }
     for(Int pair=0;pair<donor.npairs;++pair) {
@@ -1846,8 +1894,11 @@ void model_operator_case(const char* name,int elemtype,int p,int worldRank,int w
         std::vector<dstype> K(static_cast<std::size_t>(m12)*n,0.0),H(static_cast<std::size_t>(m12)*mtrace,0.0);
         for(Int qi=donor.pairptr[pair];qi<donor.pairptr[pair+1];++qi) {
             const Int q=qi,a=donor.pa[q];
-            for(Int i=0;i<m.npf;++i) {
-                const dstype W=donor.pwJ[q]*m.shapfgt[donor.pg[q]+m.ngf*i];
+            for(Int i=0;i<ownerNpf;++i) {
+                const dstype ownerTest=mixedFamilies
+                    ? rd.ptest.data[i+ownerNpf*q]
+                    : m.shapfgt[donor.pg[q]+m.ngf*i];
+                const dstype W=donor.pwJ[q]*ownerTest;
                 for(Int out=0;out<ncu12;++out) for(Int c=0;c<ncu;++c) {
                     const dstype fu=rd.fluxUdg.data[q+donor.npts*(out+ncu12*c)];
                     const dstype fuh=rd.fluxUhg.data[q+donor.npts*(out+ncu12*c)];
@@ -1868,8 +1919,11 @@ void model_operator_case(const char* name,int elemtype,int p,int worldRank,int w
             std::vector<dstype> G(static_cast<std::size_t>(m12)*m.npe*ncu,0.0);
             for(Int qi=donor.pairptr[pair];qi<donor.pairptr[pair+1];++qi) {
                 const Int q=qi;
-                for(Int i=0;i<m.npf;++i) {
-                    const dstype W=donor.pwJ[q]*m.shapfgt[donor.pg[q]+m.ngf*i];
+                for(Int i=0;i<ownerNpf;++i) {
+                    const dstype ownerTest=mixedFamilies
+                        ? rd.ptest.data[i+ownerNpf*q]
+                        : m.shapfgt[donor.pg[q]+m.ngf*i];
+                    const dstype W=donor.pwJ[q]*ownerTest;
                     for(Int out=0;out<ncu12;++out) for(Int c=0;c<ncu;++c) {
                         const Int qc=ncu+c+ncu*d;
                         const dstype fq=rd.fluxUdg.data[q+donor.npts*(out+ncu12*qc)];
@@ -1901,20 +1955,46 @@ void model_operator_case(const char* name,int elemtype,int p,int worldRank,int w
         }
     }
     dstype residualError=0,matrixError=0;
-    for(Int i=0;i<donor.szRi;++i) residualError=std::max(residualError,std::abs(rd.Ri.data[i]-expectedRi[i]));
-    for(Int i=0;i<donor.szHi;++i) matrixError=std::max(matrixError,std::abs(rd.Hi.data[i]-expectedHi[i]));
+    for(Int i=0;i<rd.Ri.size;++i) residualError=std::max(residualError,std::abs(rd.Ri.data[i]-expectedRi[i]));
+    for(Int i=0;i<rd.Hi.size;++i) matrixError=std::max(matrixError,std::abs(rd.Hi.data[i]-expectedHi[i]));
     const dstype matvecError=verify_runtime_matvec(name,r,m,common,residual,nm,*runtime,ncu,ncu12,worldRank);
     if(fluxError>5e-13 || jacError>5e-13 || residualError>5e-13 || matrixError>5e-13 ||
             wError>5e-13 || wJacError>5e-13 || fdError>=1e-6 || matvecError>=1e-13) {
         std::printf("FAIL 3D model operators %s family %d rank %d flux %.3e jac %.3e Ri %.3e Hi %.3e w %.3e wjac %.3e fd %.3e mv %.3e\n",
-            name,elemtype,worldRank,fluxError,jacError,residualError,matrixError,wError,wJacError,
+            name,localElemtype,worldRank,fluxError,jacError,residualError,matrixError,wError,wJacError,
             fdError,matvecError); ++failures;
     }
     if(worldRank==0)
         std::printf("3D model operators %s family %d: flux %.3e jac %.3e Ri %.3e Hi %.3e w %.3e wjac %.3e fd %.3e matvec %.3e\n",
-            name,elemtype,fluxError,jacError,residualError,matrixError,wError,wJacError,fdError,
+            name,localElemtype,fluxError,jacError,residualError,matrixError,wError,wJacError,fdError,
             matvecError);
-    free_nonmatching_data(nm); runtime.reset();
+    if constexpr (Model::ncw>0) if(worldRank==0 && mixedFamilies)
+        std::printf("3D model operators %s FD sensitivity h/10 %.3e h %.3e 10h %.3e\n",
+            name,fdSensitivity[0],fdSensitivity[1],fdSensitivity[2]);
+    if(mixedFamilies) {
+        // Rebuild the same published objects after changing the local interface
+        // count from two faces to one.  Then exercise every runtime operation
+        // again and prove that repeated residual/matvec calls do not allocate.
+        r.bf[m.nfe]=1;
+        r.intfaces.resize(1);
+        r.mesh.intfaces=r.intfaces.data(); r.mesh.szintfaces=1;
+        if(!rebuild_nonmatching_interface(r.app,r.master,r.mesh,r.sol,common,worldSize,worldRank,
+                model,nm,runtime,0,static_cast<DonorSearchResult<dstype,Int>*>(nullptr),
+                DonorSearchParams(),true,&ownerTests))
+            throw std::runtime_error("mixed changed-count rebuild did not publish");
+        const long long allocations=runtime->allocations;
+        compute_nonmatching_coupling<Model>(*runtime,r.sol,residual,r.app,r.master,r.mesh,tmp,
+            common,0,true,0);
+        verify_runtime_matvec("mixed-changed-count",r,m,common,residual,nm,*runtime,
+            ncu,ncu12,worldRank);
+        compute_nonmatching_coupling<Model>(*runtime,r.sol,residual,r.app,r.master,r.mesh,tmp,
+            common,0,true,0);
+        verify_runtime_matvec("mixed-changed-count-repeat",r,m,common,residual,nm,*runtime,
+            ncu,ncu12,worldRank);
+        if(runtime->allocations!=allocations)
+            throw std::runtime_error("mixed repeated residual/matvec changed runtime allocations");
+    }
+    free_nonmatching_data(nm); runtime.reset(); ownerTests.reset();
     CPUFREE(common.requests); CPUFREE(common.statuses);
 }
 
