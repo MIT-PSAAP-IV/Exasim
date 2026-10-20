@@ -289,7 +289,8 @@ backend/Model/SymbolicFunctions.hpp
 backend/Model/SymbolicScalarsVectors.cpp
 examples/NavierStokes/isoq/mesh.png
 examples/Poisson/isoq/mesh.png
-/examples/Poisson/multipleequations
+/examples/Poisson/multipleequations/*
+!/examples/Poisson/multipleequations/README.md
 examples/Poisson/sharpb2/mesh.png
 backend/Postprocessing/postprocess
 backend/Model/HdgUbou.cpp
@@ -501,3 +502,14 @@ backend/Model/Text2codeGenerated/model_sizes.hpp
 /examples/MeshAdaptivity/cylindermach8/le2d
 /examples/MeshAdaptivity/cylindermach8/hm2d
 examples/NavierStokes/equilibrium5air_cylindermach8/pdeapp0.m
+/docs/nonmatching
+/examples/MeshAdaptivity/isoq2d_idealgas/surfacequantities_plots
+/examples/CoupledProblems/HeatTransfer/Isoq2D_matching/surfacequantities_plots
+/examples/CoupledProblems/HeatTransfer/Isoq2D_nonmatching/surfacequantities_plots
+**/python_run/
+**/julia_run/
+/apps/coupledproblems/heattransfer/*/udg1.bin
+/apps/coupledproblems/heattransfer/*/vdg1.bin
+**/matlab_run/
+/docs/using-ai-tools
+/examples/Poisson/multipleequations

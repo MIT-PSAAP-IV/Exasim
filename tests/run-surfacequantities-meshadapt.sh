@@ -45,20 +45,41 @@ cp "$REPO/apps/meshadaptivity/cylindermach8"/{pdeapp.txt,pdemodel.txt,grid.bin,u
 import re, sys
 rdir, prefix = sys.argv[1], sys.argv[2]
 m = open(rdir + '/pdemodel.txt').read()
-m = m.replace('outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Avfield, Initu, VisScalars',
-              'outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Avfield, Initu, VisScalars, SurfaceQuantities', 1)
-m = m.rstrip('\n') + '''
+def add_surface_output(match):
+    outputs = [item.strip() for item in match.group(1).split(',')]
+    if 'SurfaceQuantities' not in outputs:
+        outputs.append('SurfaceQuantities')
+    return 'outputs ' + ', '.join(outputs)
 
+m, count = re.subn(r'(?m)^outputs\s+([^\n]+)$', add_surface_output, m)
+assert count == 1, 'pdemodel.txt: expected one outputs declaration'
+surface_function = '''
 function SurfaceQuantities(x, uq, v, w, uhat, n, tau, eta, mu, t)
   output_size(sq) = 2;
   sq[0] = uq[0];
   sq[1] = x[0]*n[0] + x[1]*n[1];
-end
-'''
+end'''
+m, count = re.subn(
+    r'(?ms)^function SurfaceQuantities\([^\n]*\)\n.*?^end\s*$',
+    surface_function, m)
+assert count <= 1, 'pdemodel.txt: duplicate SurfaceQuantities definitions'
+if count == 0:
+    m = m.rstrip('\n') + '\n\n' + surface_function + '\n'
 open(rdir + '/pdemodel.txt', 'w').write(m)
 a = open(rdir + '/pdeapp.txt').read()
-a, k = re.subn(r'(?m)^saveSolBouFreq = 0;', 'saveSolBouFreq = 1;\nibs = [3, 5, 6];', a)
-assert k == 1, 'pdeapp.txt: saveSolBouFreq line not found'
+def set_assignment(text, name, value):
+    replacement = '%s = %s;' % (name, value)
+    text, count = re.subn(r'(?m)^\s*%s\s*=\s*[^;]*;' % re.escape(name),
+                          replacement, text)
+    assert count <= 1, 'pdeapp.txt: duplicate %s assignments' % name
+    if count == 0:
+        text = text.rstrip('\n') + '\n' + replacement + '\n'
+    return text
+
+a = set_assignment(a, 'saveSolBouFreq', '1')
+a = set_assignment(a, 'ibs', '[3, 5, 6]')
+a = set_assignment(a, 'saveSolBouLoc', '0')
+a = set_assignment(a, 'mpiprocs', '1')
 a = re.sub(r'(?m)^exasimpath = "[^"]*";\n', '', a)
 open(rdir + '/pdeapp.txt', 'w').write('exasimpath = "%s";\n' % prefix + a)
 PY

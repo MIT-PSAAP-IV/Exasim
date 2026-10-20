@@ -156,7 +156,7 @@ set(EXASIM_MAIN_DIR ${EXASIM_DIR}/backend/Main)
 file(GLOB MAIN_SOURCES ${EXASIM_MAIN_DIR}/main.cpp)
 set(T2C_MAIN_SOURCES ${EXASIM_MAIN_DIR}/maint2c.cpp)
 set(KOKKOSKERNEL_MAIN_SOURCES ${EXASIM_MAIN_DIR}/mainkernel.cpp)
-set(EXASIM_SOLVER_SOURCES ${EXASIM_MAIN_DIR}/ExasimSolver.cpp)
+set(EXASIM_SOLVER_SOURCES ${EXASIM_MAIN_DIR}/ExasimSolver.cpp ${EXASIM_MAIN_DIR}/text2codeapp.cpp)
 
 function(add_exasim_static_library target output_name)
   add_library(${target} STATIC ${EXASIM_SOLVER_SOURCES})
@@ -216,7 +216,6 @@ set(Model_LIB_DIR   ${EXASIM_LIB_DIR})
 
 # ---- Option: build EXASIM variants that link text2code-generated libs ----
 option(EXASIM_LIB "Build and install static libraries only; skip all EXASIM executables" OFF)
-
 # ---- Option: build EXASIM variants that link text2code-generated libs ----
 option(WITH_TEXT2CODE "Build extra EXASIM executables that link text2code-generated dynamic libraries" OFF)
 option(EXASIM_BUILD_SHARED_APP

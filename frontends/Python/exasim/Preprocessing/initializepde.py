@@ -132,6 +132,7 @@ def initializepde(version):
     pde['coupledcondition'] = 0;
     pde['coupledboundarycondition'] = 0;
     pde['AVdistfunction'] = 0;
+    pde['interfacetype'] = 0;  # [nonmatching] app.bin problem[34]: 0 conformal, 1 non-matching
     pde['distanceboundaryconditions'] = numpy.array([], dtype=int)
     pde['runmode'] = 0;
     pde['tdfunc'] = 1;

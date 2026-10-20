@@ -2,6 +2,16 @@
 Global instructions for AI coding agents assisting with Exasim and related
 scientific computing projects.
 
+Installing Exasim
+-----------------
+
+When asked to download, configure, build, install, or verify Exasim, read and
+follow `docs/install/ai-agents.md` before proposing or running commands. The
+response-format, code-change, and solver-modification sections below do not apply
+to installation tasks. The correctness, explicit-assumption, approval,
+minimal-change, and verification requirements still apply, with verification
+scoped by `docs/install/ai-agents.md` to focused smoke checks by default.
+
 Domain
 ------
 This project involves:

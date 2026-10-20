@@ -140,19 +140,23 @@ inline void SolveSmallMatrix(T *rhs, T *A, Int ng, Int nrhs, Int nvar,
     }
 }
 
-template <class T=dstype>
-inline void FormAuxiliaryJacobian(T *A, T scalar, Int ng, Int nvar)
+// Form the Newton matrix for
+//   (alpha*dtfactor + beta) w - sourcew(u, q, w) = alpha*wsrc.
+// Sourcew Jacobians use the point-first layout [ng, output w, input w].
+template <class T=dstype, class I=Int>
+inline void FormWEquationNewtonMatrix(T *sourceJacobian, I ng, I ncw,
+        T timeShift, Int backend)
 {
-    if (nvar == 1) {
-        ArrayAXPB(A, A, T(-1), scalar, ng);
-        return;
-    }
-    // Source Jacobians have layout (point, row, column). The time/DAE
-    // contribution is scalar*I, not a scalar added to every matrix entry.
-    Kokkos::parallel_for("FormAuxiliaryJacobian", ng*nvar*nvar,
-        KOKKOS_LAMBDA(const int idx) {
-            const int q = idx / ng;
-            A[idx] = -A[idx] + (q % nvar == q / nvar ? scalar : T(0));
+    (void)backend;
+    Kokkos::parallel_for("FormWEquationNewtonMatrix",
+        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace, Kokkos::IndexType<I>>(
+            0, ng*ncw*ncw),
+        KOKKOS_LAMBDA(const I idx) {
+            const I q = idx / ng;
+            const I output = q % ncw;
+            const I input = q / ncw;
+            sourceJacobian[idx] = -sourceJacobian[idx] +
+                ((output == input) ? timeShift : static_cast<T>(0));
         });
 }
 
@@ -401,7 +405,7 @@ inline void wEquation(T *wdg, T *xdg, T *udg, T *odg, T *wsrc,
           ArrayAdd3Vectors(s, s, wsrc, wdg, one, common.timeparams.dae_alpha, -scalar, ng*ncw);                           
 
           // compute jacobian matrix = (alpha * dtfactor + beta) - s_wdg
-          FormAuxiliaryJacobian(s_wdg, scalar, ng, ncw);
+          FormWEquationNewtonMatrix<T,I>(s_wdg, ng, ncw, scalar, backend);
           
           // solve the linear system jacobian * dw = residual
           if (ncw==1) {                
@@ -466,7 +470,7 @@ inline void wEquation(T *wdg, T *xdg, T *udg, T *odg, T *wsrc,
           CompactSourcewJacobian<T,I>(s_wdg, s_wdg_full, ng, ncwa, ncw, backend);
           dstype scalar = common.timeparams.dae_alpha*common.timestate.dtfactor + common.timeparams.dae_beta;
           ArrayAdd3Vectors(s, s, wsrc, wdg, one, common.timeparams.dae_alpha, -scalar, ng*ncwa);
-          FormAuxiliaryJacobian(s_wdg, scalar, ng, ncwa);
+          FormWEquationNewtonMatrix<T,I>(s_wdg, ng, ncwa, scalar, backend);
           SolveSmallMatrix(s, s_wdg, ng, 1, ncwa,
               "DAE functionality supports at most five ordinary auxiliary variables.");
           ArrayAXPBY(wdg, wdg, s, one, one, ng*ncwa);
@@ -533,7 +537,7 @@ inline void wEquation(T *wdg, T *wdg_udg, T *xdg, T *udg, T *odg, T *wsrc,
           ArrayAdd3Vectors(s, s, wsrc, wdg, one, common.timeparams.dae_alpha, -scalar, ng*ncw);                           
 
           // compute jacobian matrix = (alpha * dtfactor + beta) - s_wdg
-          FormAuxiliaryJacobian(s_wdg, scalar, ng, ncw);
+          FormWEquationNewtonMatrix<T,I>(s_wdg, ng, ncw, scalar, backend);
 
           // solve the linear system jacobian * dw = residual
           if (ncw==1) {                
@@ -567,7 +571,7 @@ inline void wEquation(T *wdg, T *wdg_udg, T *xdg, T *udg, T *odg, T *wsrc,
             
             // fix bug here
             // compute jacobian matrix = (alpha * dtfactor + beta) - s_wdg
-            FormAuxiliaryJacobian(s_wdg, scalar, ng, ncw);
+            FormWEquationNewtonMatrix<T,I>(s_wdg, ng, ncw, scalar, backend);
             
             // w_udg = -inverse(s_wdg) * s_udg
             if (ncw==1) {                
@@ -627,7 +631,7 @@ inline void wEquation(T *wdg, T *wdg_udg, T *xdg, T *udg, T *odg, T *wsrc,
           CompactSourcewJacobian<T,I>(s_wdg, s_wdg_full, ng, ncwa, ncw, backend);
           dstype scalar = common.timeparams.dae_alpha*common.timestate.dtfactor + common.timeparams.dae_beta;
           ArrayAdd3Vectors(s, s, wsrc, wdg, one, common.timeparams.dae_alpha, -scalar, ng*ncwa);
-          FormAuxiliaryJacobian(s_wdg, scalar, ng, ncwa);
+          FormWEquationNewtonMatrix<T,I>(s_wdg, ng, ncwa, scalar, backend);
           SolveSmallMatrix(s, s_wdg, ng, 1, ncwa,
               "DAE functionality supports at most five ordinary auxiliary variables.");
           ArrayAXPBY(wdg, wdg, s, one, one, ng*ncwa);
@@ -640,7 +644,7 @@ inline void wEquation(T *wdg, T *wdg_udg, T *xdg, T *udg, T *odg, T *wsrc,
                 ncu, nd, ncx, nco, ncw);
             CompactSourcewJacobian<T,I>(s_wdg, s_wdg_full, ng, ncwa, ncw, backend);
             CompactSourcewUdg<T,I>(aux_udg, s_udg_full, ng, ncwa, ncw, nc, backend);
-            FormAuxiliaryJacobian(s_wdg, scalar, ng, ncwa);
+            FormWEquationNewtonMatrix<T,I>(s_wdg, ng, ncwa, scalar, backend);
             SolveSmallMatrix(aux_udg, s_wdg, ng, nc, ncwa,
                 "DAE functionality supports at most five ordinary auxiliary variables.");
             CopyCompactWdgUdgToFull(wdg_udg, aux_udg, ng, ncwa, ncw, nc, backend);

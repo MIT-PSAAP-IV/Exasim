@@ -40,6 +40,8 @@
 #ifndef __CPUIMPL_H__
 #define __CPUIMPL_H__
 
+#include <numeric>
+
 template <class T = dstype>
 void cpuArraySetValue(T *udg, T a, int N)
 {

@@ -9,6 +9,7 @@ mutable struct MESHStruct
     tprd::Array{IntP,2};      # elements for periodic conditions
     boundaryexpr;             # expressions to determine boundaries
     boundarycondition::Array{IntP,2}; # a list of boundary conditions
+    interfacecondition::Array{IntP,2}; # coupled-interface condition per boundary
     curvedboundary::Array{IntP,2}; # flags for curved boundaries
     curvedboundaryexpr;       # expressions to determine curved boundaries
     periodicboundary::Array{IntP,2}; # flags for curved boundaries
@@ -28,6 +29,7 @@ function initializemesh(version)
     mesh.curvedboundary = [0 0];
     mesh.periodicboundary = [0 0];
     mesh.boundarycondition = [0 0];
+    mesh.interfacecondition = zeros(IntP,0,0);
     mesh.dgnodes = zeros(0,0,0);
     mesh.udg = zeros(0,0,0);
     mesh.odg = zeros(0,0,0);

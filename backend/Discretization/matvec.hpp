@@ -37,6 +37,7 @@
 #define __MATVEC
 
 #include "ioutilities.hpp"
+#include "nonmatchingcoupling.hpp" // [nonmatching] Phase 4 residual/matrix kernels
 template <class M, class T=dstype, class I=Int>
 inline void MatVec(T *w, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master,
       meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, T *v, 
@@ -277,7 +278,8 @@ inline void hdgGetDUDG(T *w, T *F, T *duh, T *ve, meshstructT<T,I> &mesh,
 
 template <class T=dstype, class I=Int>
 inline void hdgMatVec(T *w, T *AE, T *v, T *ve, T *we, resstructT<T,I> &res, appstructT<T,I> &app, 
-        meshstructT<T,I> &mesh, commonstructT<T,I> &common, tempstructT<T,I> &tmp, cublasHandle_t handle, Int backend)
+        meshstructT<T,I> &mesh, commonstructT<T,I> &common, tempstructT<T,I> &tmp, cublasHandle_t handle, Int backend,
+        exasim::nonmatching::NonmatchingRuntime<T,I> *nonmatching = nullptr) // [nonmatching] Phase 8 runtime
 {
     using dstype=T;   
     Int ne1 = common.meshsizes.ne1; // number of elements in this subdomain 
@@ -286,6 +288,9 @@ inline void hdgMatVec(T *w, T *AE, T *v, T *ve, T *we, resstructT<T,I> &res, app
     Int npf = common.grid.npf; // number of nodes on master face           
     Int nfe = common.meshsizes.nfe; // number of faces in each element
     Int m = ncu*npf*nfe;  
+
+    // [nonmatching] rank-uniform selection check before any branching or communication
+    const bool nonmatchingCoupled = exasim::nonmatching::validate_coupling_selection(common, nonmatching, backend, "hdgMatVec"); // [nonmatching]
 
     // ncu * npf * nf -> ncu * npf * nfe * ne1
     GetElementFaceNodes(ve, v, mesh.elemcon, npf*nfe, ncu, 0, ne1, 2);
@@ -337,7 +342,7 @@ inline void hdgMatVec(T *w, T *AE, T *v, T *ve, T *we, resstructT<T,I> &res, app
         }
     }
 
-    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.couplingparams.coupledcondition>0)) {
+    if ((common.couplingparams.interfacetype == 0) && (common.nnbintf > 0) && (common.nfacesend > 0) && (common.couplingparams.coupledcondition>0)) { // [nonmatching] conformal only
       int ncu12 = common.szinterfacefluxmap;
       int szRi = ncu12*npf;  
       int neI = common.couplingparams.nintfaces;
@@ -385,6 +390,10 @@ inline void hdgMatVec(T *w, T *AE, T *v, T *ve, T *we, resstructT<T,I> &res, app
           }
       }      
     }
+    else if (nonmatchingCoupled) { // [nonmatching] eq. (68): pair products, slot sums, coupling-slot exchange
+      exasim::nonmatching::nonmatching_matvec_products(*nonmatching, ve, m, ne1, handle, backend); // [nonmatching]
+      exasim::nonmatching::begin_coupling_slot_exchange(*nonmatching, common, request_counter); // [nonmatching]
+    } // [nonmatching]
 
     // perform matrix-vector products for interior elements
     PGEMNMStridedBached(handle, m, 1, m, one, AE, m, ve, m, zero, we, m, ne0, backend); 
@@ -396,7 +405,7 @@ inline void hdgMatVec(T *w, T *AE, T *v, T *ve, T *we, resstructT<T,I> &res, app
 //     }
     PutCollumnAtIndex(we, tmp.buffrecv, mesh.elemrecv, bsz, common.nelemrecv);   
 
-    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.couplingparams.coupledcondition>0)) {
+    if ((common.couplingparams.interfacetype == 0) && (common.nnbintf > 0) && (common.nfacesend > 0) && (common.couplingparams.coupledcondition>0)) { // [nonmatching] conformal only
       int ncu12 = common.szinterfacefluxmap;
       int szRi = ncu12*npf;  
 
@@ -405,8 +414,16 @@ inline void hdgMatVec(T *w, T *AE, T *v, T *ve, T *we, resstructT<T,I> &res, app
 //       }      
       PutCollumnAtIndex(res.Ri, tmp.bufffacerecv, mesh.facerecv, szRi, common.nfacerecv);   
 
-      PutBoudaryNodes(we, res.Ri, mesh.intfaces, mesh.faceperm, app.interfacefluxmap, nfe, npf, ncu12, ncu, common.couplingparams.nintfaces); 
+      int facepermStride = 0; // [nonmatching]
+      if (common.couplingparams.nintfaces > 0) { // [nonmatching]
+        if (mesh.szfaceperm == npf*common.couplingparams.nintfaces) facepermStride = npf; // [nonmatching]
+        else if (mesh.szfaceperm != npf) error("conformal mesh.faceperm must have npf or npf*nInterfaceFaces entries"); // [nonmatching]
+      }
+      PutBoudaryNodes(we, res.Ri, mesh.intfaces, mesh.faceperm, app.interfacefluxmap, nfe, npf, ncu12, ncu, facepermStride, common.couplingparams.nintfaces); // [nonmatching]
     }
+    else if (nonmatchingCoupled) { // [nonmatching] owner assembly, eq. (68) with eq. (64) ordering
+      exasim::nonmatching::assemble_coupling_slot_owner(we, *nonmatching, mesh, app, common); // [nonmatching]
+    } // [nonmatching]
 
     // ncu * npf * nfe * ne -> ncu * npf * nf
     // assemble vector w from we using the FIRST elements in mesh.f2e
@@ -415,6 +432,7 @@ inline void hdgMatVec(T *w, T *AE, T *v, T *ve, T *we, resstructT<T,I> &res, app
     // assemble vector w from we using the SECOND elements in mesh.f2e
     PutElementFaceNodes(w, we, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.meshsizes.nf0);           
 #else 
+    (void)nonmatchingCoupled; // [nonmatching] validate_coupling_selection rejects type 1 without MPI
     // (ncu * npf * nfe)  * (ncu * npf * nfe) * ne x (ncu * npf * nfe) * ne -> (ncu * npf * nfe) * ne
     PGEMNMStridedBached(handle, m, 1, m, one, AE, m, ve, m, zero, we, m, ne1, backend); 
 
@@ -431,9 +449,11 @@ inline void hdgMatVec(T *w, T *AE, T *v, T *ve, T *we, resstructT<T,I> &res, app
 #ifdef  HAVE_MPI     
 template <class M, class T=dstype, class I=Int>
 inline void hdgAssembleLinearSystemMPI(T *b, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
-        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,  cublasHandle_t handle, Int backend)
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,
+        exasim::nonmatching::NonmatchingRuntime<T,I>* nonmatching, cublasHandle_t handle, Int backend)
 {
     using dstype=T;
+    const bool nonmatchingCoupled = exasim::nonmatching::validate_coupling_selection(common, nonmatching, backend, "hdg assembly"); // [nonmatching]
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int npf = common.grid.npf; // number of nodes on master face           
     Int npe = common.grid.npe; // number of nodes on master element
@@ -448,9 +468,16 @@ inline void hdgAssembleLinearSystemMPI(T *b, solstructT<T,I> &sol, resstructT<T,
     // perform HDG descrization for interface elements
     for (Int j=common.meshsizes.nbe0; j<common.meshsizes.nbe1; j++) {     // fixed bug here             
       uEquationElemBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
-      uEquationElemFaceBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
-      uEquationSchurBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
+      uEquationElemFaceBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend,
+                                common.couplingparams.interfacetype); // [nonmatching]
+      uEquationSchurBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend,
+                             common.couplingparams.interfacetype); // [nonmatching]
     }                             
+
+    // [nonmatching] All interface-element local solvers are now available.
+    if (nonmatchingCoupled) // [nonmatching]
+      exasim::nonmatching::compute_nonmatching_coupling<M>(*nonmatching, sol, res, app,
+              master, mesh, tmp, common, handle, true, backend);
         
     // copy H and Rh to buffsend
 //     for (int n=0; n<common.nelemsend; n++)  {       
@@ -494,7 +521,7 @@ inline void hdgAssembleLinearSystemMPI(T *b, solstructT<T,I> &sol, resstructT<T,
         }
     }
 
-    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.couplingparams.coupledcondition>0)) {
+    if ((common.couplingparams.interfacetype == 0) && (common.nnbintf > 0) && (common.nfacesend > 0) && (common.couplingparams.coupledcondition>0)) { // [nonmatching] conformal only
       int ncu12 = common.szinterfacefluxmap;
       int szRi = ncu12*npf;  
       
@@ -542,6 +569,10 @@ inline void hdgAssembleLinearSystemMPI(T *b, solstructT<T,I> &sol, resstructT<T,
           }
       }      
     }
+    else if (nonmatchingCoupled) { // [nonmatching]
+      exasim::nonmatching::begin_coupling_slot_exchange(
+              *nonmatching, common, request_counter);
+    }
       
     // perform HDG descrization for interior elements
     for (Int j=0; j<common.meshsizes.nbe0; j++) {                  
@@ -559,7 +590,7 @@ inline void hdgAssembleLinearSystemMPI(T *b, solstructT<T,I> &sol, resstructT<T,
     PutCollumnAtIndex(res.H, tmp.buffrecv, mesh.elemrecv, 0, bsz, szH, common.nelemrecv);
     PutCollumnAtIndex(res.Rh, tmp.buffrecv, mesh.elemrecv, szH, bsz, szR, common.nelemrecv);
     
-    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.couplingparams.coupledcondition>0)) {
+    if ((common.couplingparams.interfacetype == 0) && (common.nnbintf > 0) && (common.nfacesend > 0) && (common.couplingparams.coupledcondition>0)) { // [nonmatching] conformal only
       int ncu12 = common.szinterfacefluxmap;
       int szRi = ncu12*npf;  
       
@@ -568,10 +599,19 @@ inline void hdgAssembleLinearSystemMPI(T *b, solstructT<T,I> &sol, resstructT<T,
 //       }      
       PutCollumnAtIndex(res.Ri, tmp.bufffacerecv, mesh.facerecv, szRi, common.nfacerecv);  
       
-      PutBoudaryNodes(res.Rh, res.Ri, mesh.intfaces, mesh.faceperm, app.interfacefluxmap, nfe, npf, ncu12, ncu, common.couplingparams.nintfaces); 
+      int facepermStride = 0; // [nonmatching]
+      if (common.couplingparams.nintfaces > 0) { // [nonmatching]
+        if (mesh.szfaceperm == npf*common.couplingparams.nintfaces) facepermStride = npf; // [nonmatching]
+        else if (mesh.szfaceperm != npf) error("conformal mesh.faceperm must have npf or npf*nInterfaceFaces entries"); // [nonmatching]
+      }
+      PutBoudaryNodes(res.Rh, res.Ri, mesh.intfaces, mesh.faceperm, app.interfacefluxmap, nfe, npf, ncu12, ncu, facepermStride, common.couplingparams.nintfaces); // [nonmatching]
       
 //       if (common.mpiRank==1)
 //         print2darray(res.Ri, szRi, common.nfacerecv);
+    }
+    else if (nonmatchingCoupled) { // [nonmatching]
+      exasim::nonmatching::assemble_coupling_slot_owner(
+              res.Rh, *nonmatching, mesh, app, common);
     }
     
     ArraySetValue(b, 0.0, ncu*npf*common.meshsizes.nf); // fix bug here
@@ -585,9 +625,11 @@ inline void hdgAssembleLinearSystemMPI(T *b, solstructT<T,I> &sol, resstructT<T,
 
 template <class M, class T=dstype, class I=Int>
 inline void hdgAssembleResidualMPI(T *b, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
-        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,  cublasHandle_t handle, Int backend)
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,
+        exasim::nonmatching::NonmatchingRuntime<T,I>* nonmatching, cublasHandle_t handle, Int backend)
 {
     using dstype=T;
+    const bool nonmatchingCoupled = exasim::nonmatching::validate_coupling_selection(common, nonmatching, backend, "hdg assembly"); // [nonmatching]
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int npf = common.grid.npf; // number of nodes on master face           
     Int npe = common.grid.npe; // number of nodes on master element
@@ -599,8 +641,14 @@ inline void hdgAssembleResidualMPI(T *b, solstructT<T,I> &sol, resstructT<T,I> &
     // perform HDG descrization for interface elements
     for (Int j=common.meshsizes.nbe0; j<common.meshsizes.nbe1; j++) {     // fixed bug here             
       RuEquationElemBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
-      RuEquationElemFaceBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);        
+      RuEquationElemFaceBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend,
+                                 common.couplingparams.interfacetype); // [nonmatching]
     }                             
+
+    // [nonmatching] Equation (40), evaluated once for all donor points.
+    if (nonmatchingCoupled) // [nonmatching]
+      exasim::nonmatching::compute_nonmatching_coupling<M>(*nonmatching, sol, res, app,
+              master, mesh, tmp, common, handle, false, backend);
 
     // copy H and Rh to buffsend
 //     for (int n=0; n<common.nelemsend; n++)  {       
@@ -642,7 +690,7 @@ inline void hdgAssembleResidualMPI(T *b, solstructT<T,I> &sol, resstructT<T,I> &
         }
     }
 
-    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.couplingparams.coupledcondition>0)) {
+    if ((common.couplingparams.interfacetype == 0) && (common.nnbintf > 0) && (common.nfacesend > 0) && (common.couplingparams.coupledcondition>0)) { // [nonmatching] conformal only
       int ncu12 = common.szinterfacefluxmap;
       int szRi = ncu12*npf;  
 
@@ -685,6 +733,10 @@ inline void hdgAssembleResidualMPI(T *b, solstructT<T,I> &sol, resstructT<T,I> &
           }
       }      
     }
+    else if (nonmatchingCoupled) { // [nonmatching]
+      exasim::nonmatching::begin_coupling_slot_exchange(
+              *nonmatching, common, request_counter);
+    }
 
     // perform HDG descrization for interior elements
     for (Int j=0; j<common.meshsizes.nbe0; j++) {                  
@@ -699,7 +751,7 @@ inline void hdgAssembleResidualMPI(T *b, solstructT<T,I> &sol, resstructT<T,I> &
 //     }
     PutCollumnAtIndex(res.Rh, tmp.buffrecv, mesh.elemrecv, szR, common.nelemrecv);         
 
-    if ((common.nnbintf > 0) && (common.nfacesend > 0) && (common.couplingparams.coupledcondition>0)) {
+    if ((common.couplingparams.interfacetype == 0) && (common.nnbintf > 0) && (common.nfacesend > 0) && (common.couplingparams.coupledcondition>0)) { // [nonmatching] conformal only
       int ncu12 = common.szinterfacefluxmap;
       int szRi = ncu12*npf;  
 
@@ -708,7 +760,16 @@ inline void hdgAssembleResidualMPI(T *b, solstructT<T,I> &sol, resstructT<T,I> &
 //       }      
       PutCollumnAtIndex(res.Ri, tmp.bufffacerecv, mesh.facerecv, szRi, common.nfacerecv);  
 
-      PutBoudaryNodes(res.Rh, res.Ri, mesh.intfaces, mesh.faceperm, app.interfacefluxmap, nfe, npf, ncu12, ncu, common.couplingparams.nintfaces);       
+      int facepermStride = 0; // [nonmatching]
+      if (common.couplingparams.nintfaces > 0) { // [nonmatching]
+        if (mesh.szfaceperm == npf*common.couplingparams.nintfaces) facepermStride = npf; // [nonmatching]
+        else if (mesh.szfaceperm != npf) error("conformal mesh.faceperm must have npf or npf*nInterfaceFaces entries"); // [nonmatching]
+      }
+      PutBoudaryNodes(res.Rh, res.Ri, mesh.intfaces, mesh.faceperm, app.interfacefluxmap, nfe, npf, ncu12, ncu, facepermStride, common.couplingparams.nintfaces); // [nonmatching]
+    }
+    else if (nonmatchingCoupled) { // [nonmatching]
+      exasim::nonmatching::assemble_coupling_slot_owner(
+              res.Rh, *nonmatching, mesh, app, common);
     }
 
     // assemble RHS vector b from res.Rh using the FIRST elements in mesh.f2e

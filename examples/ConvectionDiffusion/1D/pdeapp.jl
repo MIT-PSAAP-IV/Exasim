@@ -18,8 +18,9 @@ pde.tau = [2*pi];                 # DG stabilization parameter
 #pde.platform = "gpu";           # choose this option if NVIDIA GPUs are available
 pde.mpiprocs = 1;                # number of MPI processors
 
-# create a linear mesh for a square domain
-mesh.p, mesh.t = Exasim.Mesh.mesh1D(16); # a mesh of 8 by 8 quadrilaterals
+# Create the same 16-element unit-interval mesh as the MATLAB and Python cases.
+mesh.p = reshape(collect(range(0.0, 1.0, length=17)), 1, :);
+mesh.t = [collect(1:16)'; collect(2:17)'];
 # expressions for disjoint boundaries
 mesh.boundaryexpr = [p -> (p[1,:] .> 1-1e-3), p -> (p[1,:] .< 1e-3)];
 mesh.boundarycondition = [1 1]; # Set boundary condition for each disjoint boundary
@@ -29,6 +30,6 @@ sol, pde, mesh,~,~,~,~  = Exasim.exasim(pde,mesh);
 
 # visualize the numerical solution of the PDE model using Paraview
 pde.visscalars = ["temperature", 1];  # list of scalar fields for visualization
-pde.visvectors = ["temperature gradient", [2, 3]]; # list of vector fields for visualization
+pde.visvectors = ["temperature gradient", [2]]; # list of vector fields for visualization
 Exasim.vis(sol,pde,mesh); # visualize the numerical solution
 print("Done!");

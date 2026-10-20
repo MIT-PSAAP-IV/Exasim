@@ -9,10 +9,15 @@ Generated files:
 - `grid.bin`: mesh coordinates and connectivity.
 - `xdg.bin`, `udg.bin`, `vdg.bin`, `wdg.bin`: optional field data written only when present.
 
-Regenerate the application with:
+Generate both models and run the coupled problem with the installed
+executables:
 
 ```sh
-/path/to/exasim-prefix/bin/text2code pdeapp.txt
+export EXASIM_PREFIX=/path/to/exasim-prefix
+"$EXASIM_PREFIX/bin/text2code" pdeapp1.txt
+"$EXASIM_PREFIX/bin/text2code" pdeapp2.txt
+mpiexec -n 7 "$EXASIM_PREFIX/bin/exasimapp" \
+  pdeapp1.txt 3 pdeapp2.txt 4
 ```
 
 The `vdg.bin` file stores external variables. In backend data structures these are also called `odg`.
@@ -20,6 +25,8 @@ The `vdg.bin` file stores external variables. In backend data structures these a
 Coupled export:
 
 - This package contains 2 coupled model definitions (`pdeapp*.txt`, `pdemodel*.txt`, `grid*.bin`).
-- Configure and build the generated runtime with `cmake -S . -B build -DExasim_DIR=/path/to/exasim-prefix`.
-- Run the two-domain coupled solver with `mpirun -np 7 build/exasimapp pdeapp1.txt 3 pdeapp2.txt 4`.
-
+- The optional case-local runtime can instead be built with
+  `cmake -S . -B build -DExasim_DIR="$EXASIM_PREFIX/lib/cmake/Exasim"` and
+  `cmake --build build`.
+- Run that local executable with
+  `mpiexec -n 7 build/exasimapp pdeapp1.txt 3 pdeapp2.txt 4`.

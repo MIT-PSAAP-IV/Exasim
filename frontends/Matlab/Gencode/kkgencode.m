@@ -2,6 +2,22 @@ function kkgencode(app)
 
 disp("generate code...");
 
+if app.codegenerator == "prebuilt"
+  source = string(app.kernelsource);
+  kernelsdir = model_builddir(app) + "/kernels";
+  if exist(char(kernelsdir), 'dir')
+      rmdir(char(kernelsdir), 's');
+  end
+  mkdir(char(kernelsdir));
+  files = dir(char(source));
+  for i = 1:length(files)
+      if ~files(i).isdir
+          copyfile(fullfile(files(i).folder, files(i).name), char(kernelsdir));
+      end
+  end
+  return;
+end
+
 if app.codegenerator == "text2code"
   runstr = "!" + exasim_install_prefix() + "/bin/text2code " + app.modelfile + ".txt";
   eval(char(runstr));

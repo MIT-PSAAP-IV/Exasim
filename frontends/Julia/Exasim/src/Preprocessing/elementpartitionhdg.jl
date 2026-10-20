@@ -1,6 +1,9 @@
-function elementpartitionhdg(dmd,t,t2t,nproc,metis,elem2cpu=Int[])
+function elementpartitionhdg(dmd,t,t2t,nproc,metis,elem2cpu=Int[],f=zeros(Int,0,0),coupledinterface=0)
 
 nve,ne = size(t);
+
+# Elements owning a face on the coupled interface boundary (sorted).
+coupledelements() = sort(unique([I[2] for I in findall(f .== coupledinterface)]));
 
 if nproc==1
     i = 1;
@@ -19,6 +22,14 @@ if nproc==1
     dmd[i].elemsend = reshape([],0,0);
     dmd[i].elemrecvpts = reshape([],0,0);
     dmd[i].elemsendpts = reshape([],0,0);
+    if coupledinterface > 0
+        # Interface elements last: [interior, interface] (MATLAB elementpartitionhdg).
+        inte = coupledelements();
+        tmp = [setdiff(1:ne, inte); inte];
+        dmd[i].elempart = reshape(tmp,1,ne);
+        dmd[i].elempartpts = [ne-length(inte) length(inte) 0];
+        dmd[i].intepartpts = [ne-length(inte) length(inte) 0 0];
+    end
     return dmd;
 end
 
@@ -29,6 +40,9 @@ else
     if length(elem2cpu) != ne
         error("elementpartitionhdg: elem2cpu must contain one entry per element.");
     end
+end
+if coupledinterface > 0
+    inte = coupledelements();
 end
 
 for i = 1:nproc
@@ -42,6 +56,19 @@ for i = 1:nproc
     tmp = [setdiff(intelem,bndelem); bndelem; extelem];
     dmd[i].elempart = reshape(tmp,1,length(tmp)); # partitions of elements
     dmd[i].elempartpts = [length(intelem)-length(bndelem) length(bndelem) length(extelem)];
+    if coupledinterface > 0
+        # Order owned elements as [interior, interface-only, interface and
+        # subdomain-boundary, subdomain-boundary-only], then exterior.
+        interface = intersect(intelem, inte);
+        part0 = union(interface, bndelem);
+        part1 = sort(setdiff(intelem, part0));
+        part2 = sort(setdiff(interface, bndelem));
+        part3 = sort(intersect(interface, bndelem));
+        part4 = sort(setdiff(bndelem, part3));
+        tmp = [part1; part2; part3; part4; extelem];
+        dmd[i].elempart = reshape(tmp,1,length(tmp));
+        dmd[i].intepartpts = [length(part1) length(interface) length(intelem)-length(part1)-length(interface) length(extelem)];
+    end
     #dmd[i].elem2cpu = elem2cpu[dmd[i].elempart];
     nelem = dmd[i].elempartpts;
 

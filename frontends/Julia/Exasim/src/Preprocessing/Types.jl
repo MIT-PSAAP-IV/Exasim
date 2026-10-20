@@ -25,6 +25,7 @@ mutable struct DMDStruct
     bf::Array{IntP,2};
     f2t::Array{IntP,2};
     elemcon::Array{IntP,3};
+    intepartpts::Array{IntP,2}; # coupled interface element markers
     #elem2cpu::Array{IntP,2};    # element partitions
     DMDStruct() = new();
 end

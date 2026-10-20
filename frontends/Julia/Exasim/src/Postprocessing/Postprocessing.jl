@@ -2,14 +2,14 @@ module Postprocessing
 
 using ..Gencode, ..Preprocessing
 
-export fetchsolution, getsolutions, vis, exasim, producecode, readsurfacequantities
+export fetchsolution, getsolution, getsolutions, vis, exasim, producecode, readsurfacequantities
 
 include("createcgcells.jl");
 include("createcggrid.jl");
 include("getcelltype.jl");
 #include("readheader10.jl");
 #include("readdoubles.jl");
-#include("getsolution.jl");
+include("getsolution.jl");
 include("read_rank.jl");
 include("getsolutions.jl");
 include("getmeansolution.jl");

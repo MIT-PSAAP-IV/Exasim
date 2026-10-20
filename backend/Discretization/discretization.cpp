@@ -76,11 +76,12 @@
 #include "connectivity.cpp"
 #include "readbinaryfiles.cpp"
 #include "setstructs.cpp"
-#include "residual.hpp"  // unified (U)
+#include "nonmatchingruntime.hpp"
+#include "residual.hpp"
 //#include "ldgjactest.cpp"
 #include "ldgblockjacobian.cpp"
-#include "matvec.hpp"  // unified (U)
-#include "qoicalculation.hpp"  // unified templated QoI; production instantiates <AbiAdapter>
+#include "matvec.hpp"
+#include "qoicalculation.hpp"  // Production instantiates the AbiAdapter template.
 #include "wallmodel.cpp"
 
 template <class T = ::dstype, class I = ::Int>
@@ -492,7 +493,8 @@ CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string e
         // allocate data for structs in CPU memory
         cpuInit(hsol, hres, happ, driver_abi, hmaster, hmesh, htmp, hcommon, filein, fileout,
                 mpiprocs, mpirank, fileoffset, omprank,
-                physicsparamOverride, mode);
+                physicsparamOverride, mode,
+                static_cast<nonmatchingdataT<T, I>*>(nullptr)); // Publish after gpuInit completes.
 
         // copy data from cpu memory to gpu memory
         gpuInit(sol, res, app, driver_abi, master, mesh, tmp, common,
@@ -521,6 +523,19 @@ CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string e
             TemplateCopytoHost(sol.xcg, hsol.xcg, sol.szxcg, 0);
         }
 
+#ifdef HAVE_MPI
+        // Host setup remains on the staging structs; runtime arrays are
+        // allocated on the selected backend before staging memory is released.
+        {
+            exasim::nonmatching::DonorSearchParams nonmatchingParams;
+            exasim::nonmatching::rebuild_nonmatching_interface(
+                happ, hmaster, hmesh, hsol, hcommon, mpiprocs, mpirank, fileoffset,
+                nonmatching, nonmatchingRuntime, backend,
+                static_cast<exasim::nonmatching::DonorSearchResult<T, I>*>(nullptr),
+                nonmatchingParams, true, &nonmatchingOwnerTests);
+        }
+#endif
+
         if (common.mpiRank==0) printf("free CPU memory \n");
 
         // release CPU memory
@@ -536,8 +551,25 @@ CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string e
     else  {// CPU
         cpuInit(sol, res, app, driver_abi, master, mesh, tmp, common, filein, fileout,
                 mpiprocs, mpirank, fileoffset, omprank,
-                physicsparamOverride, mode);
+                physicsparamOverride, mode,
+                static_cast<nonmatchingdataT<T, I>*>(nullptr)); // Rebuild atomically below.
+#ifdef HAVE_MPI
+        {
+            exasim::nonmatching::DonorSearchParams nonmatchingParams;
+            exasim::nonmatching::rebuild_nonmatching_interface(
+                app, master, mesh, sol, common, mpiprocs, mpirank, fileoffset,
+                nonmatching, nonmatchingRuntime, backend,
+                static_cast<exasim::nonmatching::DonorSearchResult<T, I>*>(nullptr),
+                nonmatchingParams, true, &nonmatchingOwnerTests);
+        }
+#endif
     }
+#ifdef HAVE_MPI
+    // GPU has a separate final common object, so publish its request storage
+    // only after gpuInit has created that object.
+    if (backend > 1 && nonmatching.interfacetype == 1)
+        exasim::nonmatching::ensure_nonmatching_request_capacity(common, nonmatching);
+#endif
     finalizeConstruction(backend, mode, nsca, nvec, nten, nsurf, nvqoi, saveParaview);
 }
 
@@ -835,6 +867,9 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
 template <class T, class I>
 CDiscretizationT<T, I>::~CDiscretizationT()
 {
+    nonmatchingRuntime.reset(); // Release backend mirrors before host setup data.
+    nonmatchingOwnerTests.reset();
+    exasim::nonmatching::free_nonmatching_data(nonmatching);
     app.freememory(common.backend);
     if (common.mpiRank==0) printf("CDiscretization destructor: app memory is freed successfully.\n");
     master.freememory(common.backend);

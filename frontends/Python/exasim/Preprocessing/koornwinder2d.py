@@ -17,7 +17,13 @@ def koornwinder2d(x,n):
     xc[:,1] = minimum(0.99999999, xc[:,1])
     e = xc.copy()
     e[:,0] = 2*(1+xc[:,0])/(1-xc[:,1])-1
-    i1 = where(x[:,1] == 1)
+    # The collapsed vertex y = 1 is detected with a tolerance because stored
+    # master nodes carry roundoff (e.g. 0.9999999999999999 for a tet face vertex).
+    vtol = 64*finfo(float).eps
+    i0 = where((x[:,1] > 0.99999999) & (x[:,1] < 1-vtol))
+    e[i0,0] = 2*(1+x[i0,0])/(1-x[i0,1])-1
+    e[i0,1] = x[i0,1]
+    i1 = where(x[:,1] >= 1-vtol)
     e[i1,0] = -1
     e[i1,1] =  1
 

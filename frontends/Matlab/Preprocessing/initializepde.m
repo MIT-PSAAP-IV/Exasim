@@ -136,6 +136,7 @@ pde.wmDistances = [];
 pde.stgib = [];
 pde.vindx = [];
 pde.interfacefluxmap = [];
+pde.interfacetype = 0; % [nonmatching] 0: conformal interface, 1: non-matching (app.problem[34])
 pde.avparam1 = [];
 pde.avparam2 = [];
 pde.AVcontinuationIter = 0; % >= 2 regenerates and overrides avparam1/avparam2

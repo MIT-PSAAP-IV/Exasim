@@ -49,6 +49,24 @@ include("findexec.jl");
 
 function preprocessing(app,mesh)
 
+# Match the MATLAB/Python coupled-interface metadata path.
+app.coupledinterface = 0;
+app.coupledcondition = 0;
+app.coupledboundarycondition = 0;
+if !isempty(mesh.interfacecondition)
+    indices = findall(vec(mesh.interfacecondition) .> 0);
+    length(indices) <= 1 || error("mesh.interfacecondition is invalid because there are more than one coupled interface.");
+    if length(indices) == 1
+        index = indices[1];
+        boundarycondition = vec(mesh.boundarycondition);
+        app.coupledinterface = index;
+        app.coupledcondition = vec(mesh.interfacecondition)[index];
+        app.coupledboundarycondition = boundarycondition[index];
+        count(==(app.coupledboundarycondition), boundarycondition) == 1 ||
+            error("mesh.boundarycondition is invalid because interface condition is not unique.");
+    end
+end
+
 if app.modelnumber==0
     strn = "";
 else
@@ -96,6 +114,9 @@ end
 
 master = Master.mkmaster(app.nd,app.porder,app.pgauss,app.elemtype,app.nodetype);
 writemaster(master,filemaster);
+if !isempty(app.canonicalmaster)
+    cp(app.canonicalmaster, filemaster; force=true)
+end
 
 app.boundaryconditions = mesh.boundarycondition;
 app.wmModelIDs = app.wmModelIDs[:];
@@ -272,7 +293,7 @@ end
 #dmd = meshpartition(dmd,mesh.p,mesh.t,mesh.f,t2t,mesh.tprd,app.elemtype,app.boundaryconditions,mesh.boundaryexpr,mesh.periodicexpr,app.porder,mpiprocs,app.metis);
 #dmd = meshpartition2(dmd,mesh.tprd,mesh.f,t2t,app.boundaryconditions,app.nd,app.elemtype,app.porder,mpiprocs,app.metis);
 if (app.hybrid ==1)
-  dmd = meshpartitionhdg(dmd,mesh.tprd,mesh.f,t2t,app.boundaryconditions,app.nd,app.elemtype,app.porder,mpiprocs,app.metis, app.Cxxpreprocessing,elem2cpu);
+  dmd = meshpartitionhdg(dmd,mesh.tprd,mesh.f,t2t,app.boundaryconditions,app.nd,app.elemtype,app.porder,mpiprocs,app.metis, app.Cxxpreprocessing,elem2cpu,app.coupledinterface);
 else
   dmd = meshpartition2(dmd,mesh.tprd,mesh.f,t2t,app.boundaryconditions,app.nd,app.elemtype,app.porder,mpiprocs,app.metis, app.Cxxpreprocessing,elem2cpu);
 end
@@ -306,16 +327,25 @@ for i = 1:mpiprocs
       wdg = zeros(0,0,0);
     end
 
-    if mpiprocs==1
-        writesol(filename  * "/sol",0,xdg, udg, odg, wdg);
+    # A coupled world is an MPI run, so each domain reads indexed files.
+    coupled = app.coupledinterface > 0;
+    if mpiprocs==1 && !coupled
+        writesol(filename  * "/sol",0,xdg, udg, odg, wdg, app, master, dmd[i]);
     else
-        writesol(filename  * "/sol",i,xdg, udg, odg, wdg);
+        writesol(filename  * "/sol",i,xdg, udg, odg, wdg, app, master, dmd[i]);
     end
 
     if app.Cxxpreprocessing == 0
         cgelcon,rowent2elem,colent2elem,cgent2dgent,~ = mkcgent2dgent(xdg,1e-8);
 
-        if mpiprocs==1
+        if mpiprocs==1 && coupled
+            me = cumsum([0; dmd[i].intepartpts[1]; dmd[i].intepartpts[2]]);
+            eblks,nbe = mkfaceblocks(me,[0 -1],app.neb);
+            mf = cumsum([0; dmd[i].facepartpts[:]]);
+            fblks,nbf = mkfaceblocks(mf,dmd[i].facepartbnd[:],app.nfb);
+            neb = maximum(eblks[2,:]-eblks[1,:])+1;
+            nfb = maximum(fblks[2,:]-fblks[1,:])+1;
+        elseif mpiprocs==1
             ne = length(dmd[i].elempart);
             eblks,nbe = mkelemblocks(ne,app.neb);
             eblks = vcat(eblks, zeros(Int, 1, size(eblks,2)));
@@ -324,8 +354,16 @@ for i = 1:mpiprocs
             neb = maximum(eblks[2,:]-eblks[1,:])+1;
             nfb = maximum(fblks[2,:]-fblks[1,:])+1;
         else
-            me = cumsum([0; dmd[i].elempartpts[1]; dmd[i].elempartpts[2]; dmd[i].elempartpts[3]]);
-            eblks,nbe = mkfaceblocks(me,[0 1 2],app.neb);
+            if coupled && dmd[i].intepartpts[2] > 0
+                me = cumsum([0; dmd[i].intepartpts[:]]);
+                eblks,nbe = mkfaceblocks(me,[0 -1 1 2],app.neb);
+            elseif coupled
+                me = cumsum([0; dmd[i].intepartpts[1]; dmd[i].intepartpts[3]; dmd[i].intepartpts[4]]);
+                eblks,nbe = mkfaceblocks(me,[0 1 2],app.neb);
+            else
+                me = cumsum([0; dmd[i].elempartpts[1]; dmd[i].elempartpts[2]; dmd[i].elempartpts[3]]);
+                eblks,nbe = mkfaceblocks(me,[0 1 2],app.neb);
+            end
             mf = cumsum([0; dmd[i].facepartpts[:]]);
             fblks,nbf = mkfaceblocks(mf,dmd[i].facepartbnd[:],app.nfb);
             neb = maximum(eblks[2,:]-eblks[1,:])+1;
@@ -396,8 +434,11 @@ for i = 1:mpiprocs
     ti = mesh.tprd[:,dmd[i].elempart[:]] .- 1;
     nsize[27] = length(ti[:]);         
     nsize[28] = length(app.boundaryconditions[:]);         
+    if coupled && isdefined(dmd[i], :intepartpts)
+        nsize[29] = length(dmd[i].intepartpts);
+    end
 
-    if (mpiprocs>1)
+    if (mpiprocs>1) || coupled
         print("Writing mesh into file " * string(i) * "\n");
         fileID = open(string(filename  * "/mesh", string(string(i), ".bin")),"w");
     else
@@ -443,6 +484,9 @@ for i = 1:mpiprocs
     write(fileID,Float64.(dmd[i].bf[:]))
     write(fileID,Float64.(ti[:]));
     write(fileID,Float64.(app.boundaryconditions[:]));
+    if coupled && isdefined(dmd[i], :intepartpts)
+        write(fileID,Float64.(dmd[i].intepartpts[:]));
+    end
 
     close(fileID);
 end

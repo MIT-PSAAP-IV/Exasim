@@ -16,7 +16,8 @@ def getsolutions(basename, dmd=None):
         Partition metadata per rank. Each entry must provide:
           - elempartpts: array-like, use sum(elempartpts[:2]) for element count
           - elempart:    array-like global element indices (1-based or 0-based; see note)
-        If None, assumes single-rank file "<basename>_np0.bin".
+        Python partition metadata is zero-based. If None, assumes the
+        single-rank file "<basename>_np0.bin".
 
     Returns
     -------
@@ -49,9 +50,6 @@ def getsolutions(basename, dmd=None):
 
     # place rank 0
     elempart0 = np.asarray(_f(dmd[0], 'elempart')[:nei[0]])
-    # If your elempart is 1-based (MATLAB style), convert to 0-based:
-    if elempart0.min() == 1:
-        elempart0 = elempart0 - 1
     sol[:, :, elempart0, :] = block0
 
     # place ranks 1..nproc-1
@@ -63,8 +61,6 @@ def getsolutions(basename, dmd=None):
         #     raise ValueError(f"Rank {r} has incompatible sizes.")
 
         elempart = np.asarray(_f(dmd[r], 'elempart')[:nei[r]])
-        if elempart.min() == 1:
-            elempart = elempart - 1
         sol[:, :, elempart, :] = blockr
 
     return sol

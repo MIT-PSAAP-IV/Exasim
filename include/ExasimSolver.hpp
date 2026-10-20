@@ -244,3 +244,19 @@ private:
     int WritePhysicsParamCaseMetadata(int icase, const std::string& outputPrefix) const;
     int WritePhysicsParamSweepManifest(bool warmstart) const;
 };
+
+// Text2Code application helpers (backend/Main/text2codeapp.cpp).
+
+// Run `text2code` on a copy of `pdeapp` that sets datapath to the pdeapp directory,
+// mpiprocs = ranks and the data folders datain<m>/, dataout<m>/ (m = modelnumber;
+// m = 0 gives datain/, dataout/). Regenerates datain<m>/; throws on failure.
+void GenerateText2CodeDatain(const std::string& pdeapp, int ranks, int modelnumber,
+                             const std::string& text2code = "text2code");
+
+// Gather <dataout>/out<field>_np*.bin of `nranks` ranks (field "udg", or "vdg" for the
+// external fields) into global element order, using the partitions in
+// <datain>/mesh<r+1>.bin, and write it to `outfile` as [npe nc ne] + data, the format
+// of udgfile/vdgfile. Uses the last paramcase_NNNN/ of a physicsparam sweep and the
+// last saved step. Returns false when the field was not written.
+bool GatherSolution(const std::string& datain, const std::string& dataout,
+                    const std::string& field, int nranks, const std::string& outfile);

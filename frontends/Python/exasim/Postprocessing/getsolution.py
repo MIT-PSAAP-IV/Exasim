@@ -21,7 +21,8 @@ def getsolution(filename,dmd,npe):
 
         UDG = zeros((npe,nc,ne));
         for i in range(0,nproc):
-            elempart = dmd[i]['elempart'][0:nei[i]].flatten('F')-1;
+            # Python partition metadata is already zero-based.
+            elempart = dmd[i]['elempart'][0:nei[i]].flatten('F');
             fn = filename + "_np" + str(i) + ".bin"
             tmp = fromfile(open(fn, "r"), dtype=float64);
             UDG[:,:,elempart]  = reshape(tmp,(npe,nc,nei[i]),'F');

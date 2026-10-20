@@ -18,7 +18,7 @@ if !isdefined(app, :frontendgenerated)
 end
 app.flag = [app.tdep app.wave app.linearproblem app.debugmode app.matvecorder app.GMRESortho app.preconditioner app.precMatrixType app.NLMatrixType app.runmode app.tdfunc app.source app.modelnumber app.extFhat app.extUhat app.extStab app.subproblem app.saveParaview app.physicsparamwarmstart app.builtinmodelID app.frontendgenerated app.flag];
 # problem[0..27], coupling slots problem[28..31], STG chemistry at problem[32],
-# then uniform refinement at problem[33].
+# then uniform refinement at problem[33] and interfacetype at problem[34].
 # Keep these fixed slots aligned with the Matlab/Python and C++ preprocessors.
 # pde.ibs may be a vector of boundaries: problem[22] keeps only the first entry
 # (0 if none) so the fixed slots never shift; the full list goes to bououtparam.
@@ -31,7 +31,11 @@ if !isdefined(app, :nsurfq)
     app.nsurfq = 0;
 end
 bououtparam = [app.saveSolBouLoc; ibsv[ibsv .> 0]];
-app.problem = [app.hybrid appname app.temporalscheme app.torder app.nstage app.convStabMethod app.diffStabMethod app.rotatingFrame app.viscosityModel app.SGSmodel app.ALE app.AV app.linearsolver app.NLiter app.linearsolveriter app.GMRESrestart app.RBdim app.saveSolFreq app.saveSolOpt app.timestepOffset app.stgNmode app.saveSolBouFreq ibs1 app.dae_steps app.saveResNorm app.AVsmoothingInter app.frozenAVflag app.ppdegree app.coupledinterface app.coupledcondition app.coupledboundarycondition app.AVdistfunction app.stgchem app.uniformrefinementlevel app.problem];
+# [nonmatching] interfacetype is the fixed zero-based problem slot 34: 0 conformal, 1 non-matching.
+if !(app.interfacetype in (0, 1))
+    error("interfacetype must be the integer 0 (conformal) or 1 (non-matching).");
+end
+app.problem = [app.hybrid appname app.temporalscheme app.torder app.nstage app.convStabMethod app.diffStabMethod app.rotatingFrame app.viscosityModel app.SGSmodel app.ALE app.AV app.linearsolver app.NLiter app.linearsolveriter app.GMRESrestart app.RBdim app.saveSolFreq app.saveSolOpt app.timestepOffset app.stgNmode app.saveSolBouFreq ibs1 app.dae_steps app.saveResNorm app.AVsmoothingInter app.frozenAVflag app.ppdegree app.coupledinterface app.coupledcondition app.coupledboundarycondition app.AVdistfunction app.stgchem app.uniformrefinementlevel app.interfacetype app.problem];
 app.factor = [app.time app.dae_alpha app.dae_beta app.dae_gamma app.dae_epsilon app.factor];
 app.solversparam = [app.NLtol app.linearsolvertol app.matvectol app.NLparam app.solversparam];
 
@@ -58,7 +62,9 @@ ndims[19] = app.nvqoi;
 ndims[20] = app.ncm;
 ndims[21] = app.nsurfq;  # SurfaceQuantities components
 
-if app.AVcontinuationIter >= 2
+# Preserve explicitly supplied schedules, matching MATLAB. This also permits
+# bitwise-identical schedules across math-library implementations.
+if app.AVcontinuationIter >= 2 && isempty(app.avparam1)
     t = collect(range(0.0, 1.0, length=app.AVcontinuationIter));
     alpha = app.AVcontinuationLogScale;
     if !all(isfinite.([alpha, app.AVcoeffStart, app.AVcoeffEnd]))

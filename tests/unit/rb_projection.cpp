@@ -14,6 +14,7 @@ using namespace std;
 
 // Actual RB projection, insertion, trial rollback, and GMRES; only the PDE
 // assembler/residual and allocation fixture are mocked for this CPU test.
+namespace exasim { namespace nonmatching { template<class T, class I> struct NonmatchingRuntime; } }
 template<class T, class I> class CDiscretizationT {
 public:
     commonstructT<T,I> common{};
@@ -23,6 +24,8 @@ public:
     masterstructT<T,I> master{};
     meshstructT<T,I> mesh{};
     tempstructT<T,I> tmp{};
+    // This fixture has no coupled interface; match the production accessor.
+    exasim::nonmatching::NonmatchingRuntime<T,I>* getNonmatchingRuntime() noexcept { return nullptr; }
 };
 using CDiscretization=CDiscretizationT<dstype,Int>;
 struct ProjectionModel {};

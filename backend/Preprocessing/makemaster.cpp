@@ -66,6 +66,9 @@
 #ifndef __MAKEMASTER
 #define __MAKEMASTER
 
+#include <cmath>
+#include <stdexcept>
+
 inline void pascalindex2d(int *pq, int numPoly)
 {
     int i, j, counter = 0, done = 0;
@@ -254,7 +257,8 @@ inline void koornwinder1d(double *f,double *x, int numPoints, int porder, int de
     delete[] pval; delete[] dpval;
 }
 
-inline void koornwinder2d(double *f,double *x, int numPoints, int porder, int derivativesFlag)
+inline void koornwinder2d(double *f,double *x, int numPoints, int porder, int derivativesFlag,
+        const double vertexTolerance = 64.0 * 2.220446049250313e-16)
 {
     // f: numPoints / numPoly / nd+1
     // x: numPoints / nd
@@ -290,10 +294,18 @@ inline void koornwinder2d(double *f,double *x, int numPoints, int porder, int de
     }
     // xc: numPoints / nd
     
+    // The collapsed vertex y = 1 is detected with a tolerance because stored
+    // master nodes carry roundoff (e.g. 0.9999999999999999 for a tet face vertex).
+    if (!std::isfinite(vertexTolerance) || vertexTolerance < 0.0 || vertexTolerance > 1.0e-8)
+        throw std::invalid_argument("koornwinder2d vertexTolerance must be finite and in [0, 1e-8]");
     for (j = 0; j < numPoints; j++) {
         e[0*numPoints+j] = 2.0 * (1.0+xc[0*numPoints+j]) / (1.0-xc[1*numPoints+j]) - 1.0;
         e[1*numPoints+j] = xc[1*numPoints+j];
-        if (x[1*numPoints+j] == 1.0) {
+        if (x[1*numPoints+j] > 0.99999999 && x[1*numPoints+j] < 1.0 - vertexTolerance) {
+            e[0*numPoints+j] = 2.0 * (1.0+x[0*numPoints+j]) / (1.0-x[1*numPoints+j]) - 1.0;
+            e[1*numPoints+j] = x[1*numPoints+j];
+        }
+        if (x[1*numPoints+j] >= 1.0 - vertexTolerance) {
             e[0*numPoints+j] = -1.0;
             e[1*numPoints+j] =  1.0;
         }

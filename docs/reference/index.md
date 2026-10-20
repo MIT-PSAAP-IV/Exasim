@@ -20,7 +20,6 @@ Use this section when you need to answer questions such as:
 | --- | --- |
 | [Quickstart](../getting-started/quickstart.md) | First successful installation and simulation. |
 | [Application Modes](../usage-modes/index.md) | User workflows such as built-in, shared-library, sweep, and postprocess modes. |
-| [Using AI Tools](../using-ai-tools/index.md) | Prompting AI assistants to generate examples or modify code safely. |
 | [Physics Models](../physics-models/index.md) | Mathematical meaning of ModelC, ModelD, ModelW, EOS, AV, and coupling. |
 | [Theory](../theory/index.md) | DG/HDG/LDG, solvers, preconditioning, and numerical algorithms. |
 | [Internals](../internals/index.md) | Implementation architecture and contributor workflow. |
@@ -62,6 +61,3 @@ AI tools should treat this Reference as the source of truth for exact names,
 interfaces, and accepted values. When asking an AI assistant to create or
 modify an Exasim application, include links or excerpts from the relevant
 Reference pages and ask it to preserve the documented interfaces.
-
-See [Using AI Tools](../using-ai-tools/index.md) for prompt templates and
-validation guidance.

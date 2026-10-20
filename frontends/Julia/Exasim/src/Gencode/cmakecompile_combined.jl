@@ -4,7 +4,7 @@
 # modelnumber (hence distinct modelid). Renders the frontend-app-combined
 # templates into <builddir>/combined and builds against the installed Exasim.
 # Mirrors the Python frontend's cmakecompile_combined.
-function cmakecompile_combined(pdes)
+function cmakecompile_combined(pdes, nprocs=nothing)
     print("Compile combined multi-PDE Exasim app against the installed Exasim package...\n")
 
     prefix = install_prefix()
@@ -24,10 +24,11 @@ function cmakecompile_combined(pdes)
     length(unique(ids)) == length(ids) ||
         error("combined models need distinct modelids (one per slot); got $ids")
 
+    mpitotal = max(p0.mpiprocs, isnothing(nprocs) ? 0 : nprocs)
     if p0.platform == "gpu"
-        variant = p0.mpiprocs > 1 ? "gpumpi" : "gpu"
+        variant = mpitotal > 1 ? "gpumpi" : "gpu"
     else
-        variant = p0.mpiprocs > 1 ? "cpumpi" : "cpu"
+        variant = mpitotal > 1 ? "cpumpi" : "cpu"
     end
 
     tmpl = frontend_app_combined_template_dir()

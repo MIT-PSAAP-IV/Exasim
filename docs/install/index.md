@@ -5,13 +5,15 @@ Most users should start with the **Superbuild**.
 !!! tip "Recommended default"
     For most CPU systems, use the Superbuild installation. If the Superbuild
     completes successfully, no further manual dependency installation is
-    required. The Superbuild downloads, configures, builds, and installs the
-    required dependencies in the correct order.
+    required. The Superbuild finds installed dependencies or configures, builds,
+    and installs the vendored dependency sources in the correct order. Optional
+    features may perform explicitly enabled downloads.
 
 ## Installation Decision Tree
 
 | Your system | Recommended path |
 | --- | --- |
+| Using an AI coding agent | Start with [AI-Assisted Installation](ai-agents.md). |
 | CPU workstation or laptop | [Quick Installation](quick-install.md) |
 | CPU cluster | Try [CPU Superbuild](superbuild-cpu.md) first, then use site MPI/compiler settings if needed. |
 | NVIDIA GPU system | Read [GPU Installation](gpu.md), then follow [Linux NVIDIA GPU](linux-nvidia.md). |
