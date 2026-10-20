@@ -753,7 +753,7 @@ dstype verify_runtime_matvec(const char* label,SetupRank3D& r,const SetupMaster3
         const nonmatchinginterface& host=nm.dir[direction];
         const auto& device=runtime.dir[direction];
         if(!host.isdonor) continue;
-        const Int rows=ncu12*device.view.ownerNpf;
+        const Int rows=ncu12*device.view.contract.ownerFaceNodes;
         for(Int slot=0;slot<host.nslots;++slot) {
             std::vector<long double> value(rows,0.0L);
             for(Int pair=0;pair<host.npairs;++pair) if(host.pairslot[pair]==slot) {
@@ -1080,7 +1080,7 @@ void setup_case(int elemtype,int p,int worldRank,int worldSize,dstype gap = 0.0)
             rd.fluxUhg.data[q]=-0.15+0.02*q;
             for(Int d=0;d<3;++d) rd.pd.data[q+v.npts*d]=0.01*(d+1);
         }
-        form_runtime_slot_residual(rd,r.master);
+        RuntimeOperatorDispatch<dstype,Int>::residual(rd,r.master);
         std::vector<dstype> expectedRi(rows,0.0),expectedK(static_cast<std::size_t>(rows)*n,0.0);
         std::vector<dstype> expectedH(static_cast<std::size_t>(rows)*columns,0.0);
         for(Int i=0;i<rows;++i)
@@ -1105,7 +1105,8 @@ void setup_case(int elemtype,int p,int worldRank,int worldSize,dstype gap = 0.0)
         for(std::size_t i=0;i<F.size();++i) F[i]=0.002*(1+static_cast<int>(i%17));
         for(Int i=0;i<n;++i) Ru[i]=0.003*(i+1);
         resstruct residual; residual.F=F.data(); residual.Ru=Ru.data();
-        form_runtime_pairs(rd,r.master,residual,common,0,0);
+        RuntimeOperatorDispatch<dstype,Int>::pairs(
+                rd,r.master,residual,common,0,0);
         for(Int col=0;col<columns;++col)
             for(Int row=0;row<rows;++row) {
                 dstype value=expectedH[row+rows*col];
@@ -1631,8 +1632,13 @@ void cost_runtime_case(int elemtype,int worldRank,int worldSize,Int ne=2,int req
     std::vector<dstype> F(static_cast<std::size_t>(n)*mtrace*2,0.001),Ru(static_cast<std::size_t>(n)*2,0.002);
     std::vector<dstype> trace(static_cast<std::size_t>(mtrace)*2,0.03);
     resstruct residual{}; residual.F=F.data(); residual.Ru=Ru.data();
-    const double residualSeconds=median([&]{ form_runtime_slot_residual(d,r.master); });
-    const double jacobianSeconds=median([&]{ form_runtime_pairs(d,r.master,residual,common,0,0); });
+    const double residualSeconds=median([&]{
+        RuntimeOperatorDispatch<dstype,Int>::residual(d,r.master);
+    });
+    const double jacobianSeconds=median([&]{
+        RuntimeOperatorDispatch<dstype,Int>::pairs(
+                d,r.master,residual,common,0,0);
+    });
     const double matvecSeconds=median([&]{ nonmatching_matvec_products(*runtime,trace.data(),mtrace,2,0,0); });
     std::size_t hostBytes=0,runtimeBytes=0,messageBytes=0;
     for(int k=0;k<2;++k) {
@@ -1774,7 +1780,7 @@ void model_operator_case(const char* name,int elemtype,int p,int worldRank,int w
 
     auto& rd=runtime->dir[1-model];
     const auto& donor=nm.dir[1-model];
-    const Int ownerNpf=rd.view.ownerNpf,m12=ownerNpf*ncu12;
+    const Int ownerNpf=rd.view.contract.ownerFaceNodes,m12=ownerNpf*ncu12;
     dstype fluxError=0,jacError=0,wError=0,wJacError=0;
     for(Int q=0;q<rd.view.npts;++q) {
         dstype f[2]={0,0}; std::vector<dstype> juq(static_cast<std::size_t>(ncu12)*nc,0.0);

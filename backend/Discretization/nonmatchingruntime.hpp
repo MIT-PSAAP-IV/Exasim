@@ -24,32 +24,49 @@
 namespace exasim {
 namespace nonmatching {
 
+// Contract between topology-specific setup and the non-matching algebra.
+//
+// SharedFaceSpace is the optimized line/line, tet/tet and hex/hex path: the
+// owner test rows and donor trace columns use the same face master.  The
+// IndependentFaceSpaces path is used when those spaces differ (currently the
+// 3D tet/hex pair).  In either case the algebra consumes only the dimensions
+// below; element-family detection and basis construction remain setup duties.
+enum NonmatchingSpaceRelation {
+    SharedFaceSpace = 0,
+    IndependentFaceSpaces = 1
+};
+
+template <class I>
+struct NonmatchingDirectionContract {
+    I relation = SharedFaceSpace;
+    I ownerElemtype = 0;
+    I ownerFaceNodes = 0;
+    I ownerFaceQuadraturePoints = 0;
+    I donorElemtype = 0;
+    I donorVolumeNodes = 0;
+    I donorFaceNodes = 0;
+    I donorFacesPerElement = 0;
+};
+
+template <class I>
+inline bool uses_independent_face_spaces(
+        const NonmatchingDirectionContract<I>& contract)
+{
+    return contract.relation == IndependentFaceSpaces;
+}
+
 // Owner face test values transported during setup when the two models use
 // different volume-element families.  The values are node-first [npf x npts]
 // and are independent of the removed composite-quadrature feature.
 template <class T, class I>
 struct OwnerTestDirection {
     I enabled = 0;
-    I rectangular = 0;
-    I ownerElemtype = 0;
-    I ownerNpf = 0;
-    I ownerNgf = 0;
-    I donorElemtype = 0;
-    I donorNpe = 0;
-    I donorNpf = 0;
-    I donorNfe = 0;
+    NonmatchingDirectionContract<I> contract;
     std::vector<T> values;
     void clear()
     {
         enabled = 0;
-        rectangular = 0;
-        ownerElemtype = 0;
-        ownerNpf = 0;
-        ownerNgf = 0;
-        donorElemtype = 0;
-        donorNpe = 0;
-        donorNpf = 0;
-        donorNfe = 0;
+        contract = NonmatchingDirectionContract<I>();
         values.clear();
     }
 };
@@ -157,9 +174,7 @@ struct RuntimeDirectionView {
     I direction = -1, isowner = 0, isdonor = 0;
     I nd = 0, npe = 0, npf = 0, nfe = 0, ngf = 0;
     I ncu = 0, ncq = 0, ncu12 = 0;
-    I rectangular = 0;
-    I ownerElemtype = 0, ownerNpf = 0, ownerNgf = 0;
-    I donorElemtype = 0, donorNpe = 0, donorNpf = 0, donorNfe = 0;
+    NonmatchingDirectionContract<I> contract;
     I nownfaces = 0, npts = 0, nslots = 0, npairs = 0, nrecvblocks = 0;
 
     const I* pe = nullptr;
@@ -193,19 +208,6 @@ struct RuntimeDirectionView {
     T* Hi = nullptr;
     T* recvbuf = nullptr;
 };
-
-// Return the owner test value without changing the multiplication order in
-// the kernels.  Same-family directions read the master face table; mixed
-// directions carry the owner-family table in ptest.
-template <class T, class I>
-KOKKOS_INLINE_FUNCTION T runtime_owner_test(
-        const RuntimeDirectionView<T, I>& view, const T* shapfgt,
-        I rowNpf, I i, I p)
-{
-    return view.ptest
-        ? view.ptest[i + static_cast<std::size_t>(rowNpf) * p]
-        : shapfgt[view.pg[p] + static_cast<std::size_t>(view.ngf) * i];
-}
 
 template <class T, class I>
 struct NonmatchingRuntimeDirection {
@@ -320,14 +322,20 @@ inline void refresh_runtime_direction(NonmatchingRuntimeDirection<T, I>& runtime
     v.direction = host.direction; v.isowner = host.isowner; v.isdonor = host.isdonor;
     v.nd = host.nd; v.npe = host.npe; v.npf = host.npf; v.nfe = host.nfe; v.ngf = host.ngf;
     v.ncu = host.ncu; v.ncq = host.ncq; v.ncu12 = host.ncu12;
-    v.rectangular = ownerTests ? ownerTests->rectangular : 0;
-    v.ownerElemtype = ownerTests ? ownerTests->ownerElemtype : 0;
-    v.ownerNpf = ownerTests && ownerTests->ownerNpf > 0 ? ownerTests->ownerNpf : host.npf;
-    v.ownerNgf = ownerTests && ownerTests->ownerNgf > 0 ? ownerTests->ownerNgf : host.ngf;
-    v.donorElemtype = ownerTests ? ownerTests->donorElemtype : 0;
-    v.donorNpe = ownerTests && ownerTests->donorNpe > 0 ? ownerTests->donorNpe : host.npe;
-    v.donorNpf = ownerTests && ownerTests->donorNpf > 0 ? ownerTests->donorNpf : host.npf;
-    v.donorNfe = ownerTests && ownerTests->donorNfe > 0 ? ownerTests->donorNfe : host.nfe;
+    v.contract = ownerTests ? ownerTests->contract : NonmatchingDirectionContract<I>();
+    if (!ownerTests || (v.contract.relation == SharedFaceSpace &&
+            v.contract.ownerFaceNodes == 0 &&
+            v.contract.ownerFaceQuadraturePoints == 0 &&
+            v.contract.donorVolumeNodes == 0 &&
+            v.contract.donorFaceNodes == 0 &&
+            v.contract.donorFacesPerElement == 0)) {
+        v.contract.relation = SharedFaceSpace;
+        v.contract.ownerFaceNodes = host.npf;
+        v.contract.ownerFaceQuadraturePoints = host.ngf;
+        v.contract.donorVolumeNodes = host.npe;
+        v.contract.donorFaceNodes = host.npf;
+        v.contract.donorFacesPerElement = host.nfe;
+    }
     v.nownfaces = host.nownfaces; v.npts = host.npts; v.nslots = host.nslots; v.npairs = host.npairs;
     v.nrecvblocks = 0;
     if (host.nrecvnb > 0 && (!host.recvnb || !host.recvcount))
@@ -467,24 +475,39 @@ inline void refresh_runtime_direction(NonmatchingRuntimeDirection<T, I>& runtime
             host.ncq == 0 ? runtime_count<I>({host.npe, host.nd, host.npts}, "pdphibar") : 0,
             backend, allocations, "pdphibar");
 
+    const auto& contract = v.contract;
+    if (contract.relation != SharedFaceSpace &&
+            contract.relation != IndependentFaceSpaces)
+        error("non-matching runtime: unknown owner/donor space relation");
+    const bool independentSpaces = uses_independent_face_spaces(contract);
     const bool ownerFamilyMatches = ownerTests &&
-            ((ownerTests->ownerElemtype == 0 && host.nfe == 4) ||
-             (ownerTests->ownerElemtype == 1 && host.nfe == 6));
-    if (v.rectangular && (!ownerTests || ownerTests->ownerNpf <= 0 ||
-            ownerTests->ownerNgf <= 0 || ownerTests->donorNpe <= 0 ||
-            ownerTests->donorNpf <= 0 || ownerTests->donorNfe <= 0 ||
-            (host.isowner && (ownerTests->ownerNpf != host.npf ||
+            ((contract.ownerElemtype == 0 && host.nfe == 4) ||
+             (contract.ownerElemtype == 1 && host.nfe == 6));
+    if (independentSpaces && (!ownerTests || contract.ownerFaceNodes <= 0 ||
+            contract.ownerFaceQuadraturePoints <= 0 ||
+            contract.donorVolumeNodes <= 0 || contract.donorFaceNodes <= 0 ||
+            contract.donorFacesPerElement <= 0 ||
+            (host.isowner && (contract.ownerFaceNodes != host.npf ||
                               !ownerFamilyMatches)) ||
-            (host.isdonor && (ownerTests->donorNpe != host.npe ||
-                              ownerTests->donorNpf != host.npf ||
-                              ownerTests->donorNfe != host.nfe))))
+            (host.isdonor && (contract.donorVolumeNodes != host.npe ||
+                              contract.donorFaceNodes != host.npf ||
+                              contract.donorFacesPerElement != host.nfe))))
         error("non-matching runtime: rectangular role dimensions are incomplete");
-    if (v.rectangular && (host.szRi != 0 || host.szHi != 0 || host.szsendbuf != 0 ||
+    if (!independentSpaces &&
+            ((host.isowner &&
+                (contract.ownerFaceNodes != host.npf ||
+                 contract.ownerFaceQuadraturePoints != host.ngf)) ||
+             (host.isdonor &&
+                (contract.donorVolumeNodes != host.npe ||
+                 contract.donorFaceNodes != host.npf ||
+                 contract.donorFacesPerElement != host.nfe))))
+        error("non-matching runtime: shared-space role dimensions are inconsistent");
+    if (independentSpaces && (host.szRi != 0 || host.szHi != 0 || host.szsendbuf != 0 ||
             host.Ri || host.Hi || host.sendbuf))
         error("non-matching runtime: rectangular work arrays must not use frozen storage");
     const bool hasOwnerTests = ownerTests && !ownerTests->values.empty();
-    const I testNpf = v.rectangular ? v.ownerNpf : host.npf;
-    if (v.rectangular && host.npts > 0 && !hasOwnerTests)
+    const I testNpf = contract.ownerFaceNodes;
+    if (independentSpaces && host.npts > 0 && !hasOwnerTests)
         error("non-matching runtime: rectangular owner test values are missing");
     if (hasOwnerTests && static_cast<long long>(ownerTests->values.size()) !=
                          static_cast<long long>(testNpf) * host.npts)
@@ -493,14 +516,14 @@ inline void refresh_runtime_direction(NonmatchingRuntimeDirection<T, I>& runtime
                    hasOwnerTests ? runtime_count<I>({testNpf, host.npts}, "ptest") : 0,
                    backend, allocations, "ptest");
 
-    const I rowNpf = v.rectangular ? v.ownerNpf : host.npf;
-    const I donorNpe = v.rectangular ? v.donorNpe : host.npe;
-    const I donorNpf = v.rectangular ? v.donorNpf : host.npf;
-    const I donorNfe = v.rectangular ? v.donorNfe : host.nfe;
+    const I rowNpf = contract.ownerFaceNodes;
+    const I donorNpe = contract.donorVolumeNodes;
+    const I donorNpf = contract.donorFaceNodes;
+    const I donorNfe = contract.donorFacesPerElement;
     const I ro = runtime_count<I>({host.ncu12, rowNpf}, "coupling rows");
     const I ne = runtime_count<I>({donorNpe, host.ncu}, "donor volume columns");
     const I cd = runtime_count<I>({host.ncu, donorNpf, donorNfe}, "donor trace columns");
-    if (v.rectangular) {
+    if (independentSpaces) {
         resize_buffer(runtime.Ri, runtime_count<I>({ro, host.nslots}, "Ri"),
                       backend, allocations);
         resize_buffer(runtime.Hi, runtime_count<I>({ro, cd, host.npairs}, "Hi"),

@@ -120,7 +120,8 @@ inline FaceMasterCompatibility<T, I> check_mixed3d_face_master_compatibility(
         const int representative[2])
 {
     constexpr int nmeta = 9;
-    // Fixed check order from the approved Phase 13 plan.
+    // Keep compatibility diagnostics deterministic across ranks: validate
+    // polynomial orders first, then rule structure, topology and components.
     for (int k = 0; k < 2; ++k)
         if (representative[k] < 0)
             throw mixed_face_space_error("mixed tet/hex pair requires both models");

@@ -630,14 +630,14 @@ inline void verify_slot_lists_and_extents(
         const preprocess::InterfaceCommunicator<I>& ic,
         const nonmatchinginterfaceT<T, I>& donor,
         const nonmatchinginterfaceT<T, I>& owner,
+        const NonmatchingDirectionContract<I>& contract,
         I advertisedExtent, I localExtent)
 {
-    // Precondition: rectangular-vs-same-family classification is collective
-    // metadata, so every comm_Gamma member must pass the same width class.
-    // Production satisfies this from the gathered compatibility descriptor;
-    // direct test seams must do the same before entering MPI_Alltoall.
-    const bool rectangular = advertisedExtent >= 0 || localExtent >= 0;
-    const int width = rectangular ? 2 : 1;
+    // Shared-space directions exchange slot counts only.  Independent-space
+    // directions additionally exchange the row-block width so that a short
+    // MPI receive cannot silently hide an owner/donor contract mismatch.
+    const bool independentSpaces = uses_independent_face_spaces(contract);
+    const int width = independentSpaces ? 2 : 1;
     const int interfaceSize = ic.size;
     const I mpirank = ic.world[ic.rank];
     bool localFailure = false;
@@ -662,7 +662,7 @@ inline void verify_slot_lists_and_extents(
         }
         slotSendPayload[static_cast<std::size_t>(width) * q] =
                 static_cast<int>(donor.sendcount[n]);
-        if (rectangular && donor.sendcount[n] > 0) {
+        if (independentSpaces && donor.sendcount[n] > 0) {
             if (advertisedExtent < 0 ||
                     advertisedExtent > static_cast<I>(std::numeric_limits<int>::max()))
                 record_failure("non-matching setup: donor block extent does not match owner block extent");
@@ -690,7 +690,7 @@ inline void verify_slot_lists_and_extents(
         if (expected < 0 || expected > static_cast<I>(std::numeric_limits<int>::max()) ||
                 slotReceives[q] != static_cast<int>(expected))
             record_failure("non-matching setup: donor sendcount does not match owner recvcount");
-        if (rectangular) {
+        if (independentSpaces) {
             const int receivedExtent =
                     slotReceivePayload[static_cast<std::size_t>(width) * q + 1];
             const I expectedExtent = expected > 0 ? localExtent : 0;
@@ -757,8 +757,9 @@ inline void verify_slot_lists_and_extents(
     raise_uniform_setup_failure(ic, mpirank, localFailure, localFailureMessage);
 }
 
-// Steps D6-D7, eqs. (61)-(62).  xi is sent with the Phase 2 donor tuple, so
-// the donor starts at chi_a(xi) and does not repeat closest-face projection.
+// Distribute owner quadrature records and build the donor/owner slot lists.
+// The owner-to-donor record contains the mapped face coordinate, so the donor
+// evaluates its basis directly and does not repeat closest-face projection.
 template <class T, class I>
 inline void distribute_setup_data(nonmatchingdataT<T, I>& nm,
         DonorSearchResult<T, I>& res, const InterfaceFaceSet<T, I>& own,
@@ -833,16 +834,32 @@ inline void distribute_setup_data(nonmatchingdataT<T, I>& nm,
         }
     }
     const bool ownerTestsRequired = ownerTests && ownerTests->dir[donorDirection].enabled;
-    const bool rectangular = ownerTests && ownerTests->dir[donorDirection].rectangular;
-    const I sendOwnerNpf = rectangular ? ownerTests->dir[ownDirection].ownerNpf : npf;
-    const I recvOwnerNpf = rectangular ? ownerTests->dir[donorDirection].ownerNpf : npf;
-    const I recvOwnerNgf = rectangular ? ownerTests->dir[donorDirection].ownerNgf
-                                       : master.ndims[8];
-    if (rectangular && (sendOwnerNpf != npf || recvOwnerNpf <= 0 || recvOwnerNgf <= 0))
+    NonmatchingDirectionContract<I> sendContract;
+    NonmatchingDirectionContract<I> recvContract;
+    if (ownerTests) {
+        sendContract = ownerTests->dir[ownDirection].contract;
+        recvContract = ownerTests->dir[donorDirection].contract;
+    }
+    else {
+        sendContract.ownerFaceNodes = recvContract.ownerFaceNodes = npf;
+        sendContract.ownerFaceQuadraturePoints =
+                recvContract.ownerFaceQuadraturePoints = master.ndims[8];
+        sendContract.donorVolumeNodes = recvContract.donorVolumeNodes = npe;
+        sendContract.donorFaceNodes = recvContract.donorFaceNodes = npf;
+        sendContract.donorFacesPerElement =
+                recvContract.donorFacesPerElement = nfe;
+    }
+    const bool independentSpaces = uses_independent_face_spaces(recvContract);
+    const I sendOwnerNpf = independentSpaces ? sendContract.ownerFaceNodes : npf;
+    const I recvOwnerNpf = independentSpaces ? recvContract.ownerFaceNodes : npf;
+    const I recvOwnerNgf = independentSpaces
+            ? recvContract.ownerFaceQuadraturePoints : master.ndims[8];
+    if (independentSpaces &&
+            (sendOwnerNpf != npf || recvOwnerNpf <= 0 || recvOwnerNgf <= 0))
         record_failure("non-matching setup: mixed owner role dimensions are inconsistent");
 
-    // Phase 7: comm_Gamma and its rank maps come from the caller (one split per
-    // rebuild); nonmembers do not call this function.
+    // The caller supplies one communicator containing exactly the ranks that
+    // own or donate points on this interface. Nonmembers do not enter here.
     if (ic.comm == MPI_COMM_NULL)
         error("non-matching setup: D6-D7 called without the interface communicator");
     const MPI_Comm interfaceComm = ic.comm;
@@ -851,21 +868,21 @@ inline void distribute_setup_data(nonmatchingdataT<T, I>& nm,
     const std::vector<int>& worldToInterface = ic.worldToComm;
     if (static_cast<I>(worldToInterface.size()) != mpiprocs)
         error("non-matching setup: interface rank map has the wrong size");
-    // Preserve the accepted same-family/2D D6 synchronization point. Mixed
-    // records defer this raise until their variable message extents are known.
-    if (!rectangular)
+    // Shared-space records retain the established synchronization point.
+    // Independent-space records defer it until variable message extents exist.
+    if (!independentSpaces)
         raise_uniform_setup_failure(ic, mpirank, localFailure, localFailureMessage);
     std::vector<int> sendPoints(static_cast<std::size_t>(interfaceSize), 0);
     for (I p = 0; p < res.npts; p++) {
         if (res.r[p] < 0 || res.r[p] >= mpiprocs || worldToInterface[res.r[p]] < 0) {
-            if (!rectangular)
+            if (!independentSpaces)
                 error("non-matching setup: donor rank does not own interface faces");
             record_failure("non-matching setup: donor rank does not own interface faces");
             continue;
         }
         int& count = sendPoints[worldToInterface[res.r[p]]];
         if (count == std::numeric_limits<int>::max()) {
-            if (!rectangular)
+            if (!independentSpaces)
                 error("non-matching setup: MPI point count exceeds integer limits");
             record_failure("non-matching setup: MPI point count exceeds integer limits");
         }
@@ -881,7 +898,7 @@ inline void distribute_setup_data(nonmatchingdataT<T, I>& nm,
         displs.resize(counts.size());
         for (std::size_t q = 0; q < counts.size(); q++) {
             if (counts[q] < 0 || extent > std::numeric_limits<int>::max() - counts[q]) {
-                if (!rectangular)
+                if (!independentSpaces)
                     error("non-matching setup: MPI point counts exceed integer limits");
                 record_failure("non-matching setup: MPI point counts exceed integer limits");
                 std::fill(displs.begin(), displs.end(), 0);
@@ -908,7 +925,7 @@ inline void distribute_setup_data(nonmatchingdataT<T, I>& nm,
         if (value < 0 || scale < 0 || result > std::numeric_limits<int>::max()) {
             std::ostringstream oss;
             oss << "non-matching setup: " << what << " exceeds MPI integer limits";
-            if (!rectangular) error(oss.str());
+            if (!independentSpaces) error(oss.str());
             record_failure(oss.str());
             return 0;
         }
@@ -920,9 +937,9 @@ inline void distribute_setup_data(nonmatchingdataT<T, I>& nm,
     const int nrecvReal = scaled_mpi_int(nrecv, recvNreal, "coordinate receive extent");
     std::vector<I> sendMeta(static_cast<std::size_t>(nsendMeta));
     std::vector<T> sendReal(static_cast<std::size_t>(nsendReal));
-    // Synchronization point 1: local preparation and all D6 message extents
-    // are valid before any variable-size exchange or buffer write.
-    if (rectangular)
+    // All local preparation and message extents are valid before any
+    // variable-size exchange or buffer write.
+    if (independentSpaces)
         raise_uniform_setup_failure(ic, mpirank, localFailure, localFailureMessage);
     std::vector<int> cursor = sendDisp;
     for (I p = 0; p < res.npts; p++) {
@@ -992,21 +1009,21 @@ inline void distribute_setup_data(nonmatchingdataT<T, I>& nm,
                 factors, what, localFailure, localFailureMessage), what,
                 localFailure, localFailureMessage);
     };
-    const I nrNd = rectangular ? mixed_extent({nr, nd}, "point coordinates")
+    const I nrNd = independentSpaces ? mixed_extent({nr, nd}, "point coordinates")
                                : checked_setup_size<I>({nr, nd}, "point coordinates");
-    const I nrNdf = rectangular ? mixed_extent({nr, ndf}, "face coordinates")
+    const I nrNdf = independentSpaces ? mixed_extent({nr, ndf}, "face coordinates")
                                 : checked_setup_size<I>({nr, ndf}, "face coordinates");
-    const I nrNpe = rectangular ? mixed_extent({nr, npe}, "volume basis data")
+    const I nrNpe = independentSpaces ? mixed_extent({nr, npe}, "volume basis data")
                                 : checked_setup_size<I>({nr, npe}, "volume basis data");
-    const I nrNpf = rectangular ? mixed_extent({nr, npf}, "face basis data")
+    const I nrNpf = independentSpaces ? mixed_extent({nr, npf}, "face basis data")
                                 : checked_setup_size<I>({nr, npf}, "face basis data");
-    const I nrOwnerNpf = rectangular
+    const I nrOwnerNpf = independentSpaces
             ? checked_size_narrow<I>(checked_size_product<I>(
                     {nr, recvOwnerNpf}, "owner test data", localFailure,
                     localFailureMessage), "owner test data", localFailure,
                     localFailureMessage)
             : nrNpf;
-    const I nrNdNpe = rectangular ? mixed_extent({nr, nd, npe}, "volume-basis gradients")
+    const I nrNdNpe = independentSpaces ? mixed_extent({nr, nd, npe}, "volume-basis gradients")
                                   : checked_setup_size<I>({nr, nd, npe}, "volume-basis gradients");
     std::vector<I> pe(static_cast<std::size_t>(nr)), pa(static_cast<std::size_t>(nr));
     std::vector<I> pf(static_cast<std::size_t>(nr)), pslot(static_cast<std::size_t>(nr));
@@ -1034,9 +1051,9 @@ inline void distribute_setup_data(nonmatchingdataT<T, I>& nm,
     const I ne = mesh.ndims[1];
     // Point-loop work arrays, allocated once per call and reset per point
     // (review N3). The arithmetic per point is unchanged.
-    const I npeNd = rectangular ? mixed_extent({npe, nd}, "element-node workspace")
+    const I npeNd = independentSpaces ? mixed_extent({npe, nd}, "element-node workspace")
                                 : checked_setup_size<I>({npe, nd}, "element-node workspace");
-    const I npfNd = rectangular ? mixed_extent({npf, nd}, "face-node workspace")
+    const I npfNd = independentSpaces ? mixed_extent({npf, nd}, "face-node workspace")
                                 : checked_setup_size<I>({npf, nd}, "face-node workspace");
     std::vector<T> elementNodes(static_cast<std::size_t>(npeNd));
     std::vector<T> psi(static_cast<std::size_t>(npf)), zetaBar(static_cast<std::size_t>(nd));
@@ -1213,7 +1230,7 @@ inline void distribute_setup_data(nonmatchingdataT<T, I>& nm,
     I mixedNrecvslots = 0;
     I mixedAdvertisedExtent = -1;
     I mixedLocalExtent = -1;
-    if (rectangular) {
+    if (independentSpaces) {
         donor.nslots = checked_size_narrow<I>(slotrank.size(), "slot count",
                 localFailure, localFailureMessage);
         donor.npairs = checked_size_narrow<I>(pairslot.size(), "pair count",
@@ -1272,7 +1289,7 @@ inline void distribute_setup_data(nonmatchingdataT<T, I>& nm,
     raise_uniform_setup_failure(ic, mpirank, localFailure, localFailureMessage);
     if (nrecv > 0) { slotptr.push_back(static_cast<I>(nrecv)); pairptr.push_back(static_cast<I>(nrecv)); }
 
-    if (!rectangular) {
+    if (!independentSpaces) {
         donor.nslots = static_cast<I>(slotrank.size());
         donor.npairs = static_cast<I>(pairslot.size());
     }
@@ -1302,7 +1319,7 @@ inline void distribute_setup_data(nonmatchingdataT<T, I>& nm,
         ownerTests->dir[donorDirection].values = std::move(sideTest);
     }
 
-    if (rectangular) {
+    if (independentSpaces) {
         allocate_zeroed(donor.Ri, donor.szRi, static_cast<I>(0));
         allocate_zeroed(donor.Hi, donor.szHi, static_cast<I>(0));
         allocate_zeroed(donor.sendbuf, donor.szsendbuf, static_cast<I>(0));
@@ -1317,19 +1334,19 @@ inline void distribute_setup_data(nonmatchingdataT<T, I>& nm,
     }
 
     long long nrecvslotsWide = 0;
-    if (!rectangular)
+    if (!independentSpaces)
         for (I q = 0; q < owner.nrecvnb; q++) {
             if (owner.recvcount[q] < 0 ||
                 nrecvslotsWide > std::numeric_limits<int>::max() - owner.recvcount[q])
                 error("non-matching setup: receive-slot count exceeds integer limits");
             nrecvslotsWide += owner.recvcount[q];
         }
-    const I nrecvslots = rectangular ? mixedNrecvslots : static_cast<I>(nrecvslotsWide);
-    const I szrecv = rectangular ? mixed_extent({owner.ncu12, owner.npf, nrecvslots}, "recvbuf")
+    const I nrecvslots = independentSpaces ? mixedNrecvslots : static_cast<I>(nrecvslotsWide);
+    const I szrecv = independentSpaces ? mixed_extent({owner.ncu12, owner.npf, nrecvslots}, "recvbuf")
                                  : checked_setup_size<I>({owner.ncu12, owner.npf, nrecvslots}, "recvbuf");
     allocate_zeroed(owner.recvbuf, owner.szrecvbuf, szrecv);
 
-    verify_slot_lists_and_extents(ic, donor, owner,
+    verify_slot_lists_and_extents(ic, donor, owner, recvContract,
             mixedAdvertisedExtent, mixedLocalExtent);
 }
 
@@ -1524,9 +1541,9 @@ inline bool setup_nonmatching_interface(appstructT<T, I>& app, masterstructT<T, 
     res.direction = own;
     own_quadrature_points(res, ownFaces, master.shapfgt, ngf);
 
-    // Phase 7: one setup-only interface communicator per rebuild (members: ranks
-    // owning a coupled interface face). Nonmembers keep a valid empty type-1
-    // cache and enter no further interface collective.
+    // One setup-only communicator is created per rebuild from the ranks that
+    // own a coupled interface face. Nonmembers retain a valid empty cache and
+    // enter no further interface collective.
     preprocess::InterfaceCommunicator<I> ic = [&]() {
         try {
             return preprocess::make_interface_communicator<I>(ownFaces.size() > 0, mpirank, own);
@@ -1547,8 +1564,9 @@ inline bool setup_nonmatching_interface(appstructT<T, I>& app, masterstructT<T, 
         return true;
     }
 
-    // [nonmatching] Phase 10: the models share the 1D face space and rule,
-    // while their triangle/quad volume masters remain role-local.
+    // Establish the topology-specific spaces once.  Downstream setup and
+    // runtime algebra consume this contract without re-detecting element
+    // families.
     const FaceMasterCompatibility<T, I> compatibility = [&]() {
         try {
             return check_face_master_compatibility<T, I>(
@@ -1570,14 +1588,15 @@ inline bool setup_nonmatching_interface(appstructT<T, I>& app, masterstructT<T, 
             const FaceMasterDescriptor<T, I>& owner = compatibility.model[k];
             const FaceMasterDescriptor<T, I>& donor = compatibility.model[1 - k];
             direction.enabled = compatibility.mixedFamily ? 1 : 0;
-            direction.rectangular = compatibility.mixedTopology3D ? 1 : 0;
-            direction.ownerElemtype = owner.elemtype;
-            direction.ownerNpf = owner.npf;
-            direction.ownerNgf = owner.ngf;
-            direction.donorElemtype = donor.elemtype;
-            direction.donorNpe = donor.npe;
-            direction.donorNpf = donor.npf;
-            direction.donorNfe = donor.nfe;
+            direction.contract.relation = compatibility.mixedTopology3D
+                    ? IndependentFaceSpaces : SharedFaceSpace;
+            direction.contract.ownerElemtype = owner.elemtype;
+            direction.contract.ownerFaceNodes = owner.npf;
+            direction.contract.ownerFaceQuadraturePoints = owner.ngf;
+            direction.contract.donorElemtype = donor.elemtype;
+            direction.contract.donorVolumeNodes = donor.npe;
+            direction.contract.donorFaceNodes = donor.npf;
+            direction.contract.donorFacesPerElement = donor.nfe;
         }
     }
 

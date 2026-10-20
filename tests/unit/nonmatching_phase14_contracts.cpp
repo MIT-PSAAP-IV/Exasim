@@ -11,6 +11,7 @@ extern MPI_Comm EXASIM_COMM_LOCAL;
 #include <Kokkos_Core.hpp>
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -90,6 +91,72 @@ void operator delete[](void* p, std::size_t) noexcept { std::free(p); }
 
 namespace phase14_contracts {
 
+enum DispatchOperation { ResidualDispatch, JacobianDispatch, MatvecDispatch,
+                         DispatchOperationCount };
+static bool benchmarkDispatch = false;
+static double sharedDispatchSeconds[DispatchOperationCount] = {0, 0, 0};
+static double independentDispatchSeconds[DispatchOperationCount] = {0, 0, 0};
+static long long dispatchSamples[DispatchOperationCount] = {0, 0, 0};
+
+template <class Function>
+double measure_dispatch(Function&& function)
+{
+    constexpr int repetitions = 20;
+    function();
+    Kokkos::fence();
+    const auto start = std::chrono::steady_clock::now();
+    for (int repeat = 0; repeat < repetitions; ++repeat) function();
+    Kokkos::fence();
+    return std::chrono::duration<double>(
+            std::chrono::steady_clock::now() - start).count() / repetitions;
+}
+
+template <class Function>
+void record_dispatch(DispatchOperation operation, bool independent,
+        Function&& function)
+{
+    if (!benchmarkDispatch) return;
+    const double seconds = measure_dispatch(std::forward<Function>(function));
+    (independent ? independentDispatchSeconds : sharedDispatchSeconds)[operation]
+            += seconds;
+    if (!independent) ++dispatchSamples[operation];
+}
+
+void print_dispatch_benchmark(int rank)
+{
+    double local[2 * DispatchOperationCount] = {0, 0, 0, 0, 0, 0};
+    long long localSamples[DispatchOperationCount] = {0, 0, 0};
+    for (int operation = 0; operation < DispatchOperationCount; ++operation) {
+        local[operation] = sharedDispatchSeconds[operation];
+        local[DispatchOperationCount + operation] =
+                independentDispatchSeconds[operation];
+        localSamples[operation] = dispatchSamples[operation];
+    }
+    double global[2 * DispatchOperationCount] = {0, 0, 0, 0, 0, 0};
+    long long globalSamples[DispatchOperationCount] = {0, 0, 0};
+#ifdef HAVE_MPI
+    MPI_Reduce(local, global, 2 * DispatchOperationCount, MPI_DOUBLE, MPI_SUM,
+               0, MPI_COMM_WORLD);
+    MPI_Reduce(localSamples, globalSamples, DispatchOperationCount,
+               MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+#else
+    std::copy(local, local + 2 * DispatchOperationCount, global);
+    std::copy(localSamples, localSamples + DispatchOperationCount, globalSamples);
+#endif
+    if (rank != 0) return;
+    const char* names[DispatchOperationCount] = {
+        "residual", "Jacobian/condensation", "matvec"};
+    for (int operation = 0; operation < DispatchOperationCount; ++operation) {
+        if (globalSamples[operation] == 0) continue;
+        const double shared = global[operation] / globalSamples[operation];
+        const double independent = global[DispatchOperationCount + operation] /
+                                   globalSamples[operation];
+        std::printf("DISPATCH BENCHMARK %-21s shared %.9e s independent %.9e s "
+                    "ratio %.3f samples %lld\n", names[operation], shared,
+                    independent, independent / shared, globalSamples[operation]);
+    }
+}
+
 struct AllocationScope {
     long long blocksBefore = 0;
     long long bytesBefore = 0;
@@ -167,7 +234,10 @@ template <class T, class I>
 bool has_rectangular_direction(
         const exasim::nonmatching::NonmatchingRuntime<T, I>& runtime)
 {
-    return runtime.dir[0].view.rectangular || runtime.dir[1].view.rectangular;
+    return exasim::nonmatching::uses_independent_face_spaces(
+                runtime.dir[0].view.contract) ||
+           exasim::nonmatching::uses_independent_face_spaces(
+                runtime.dir[1].view.contract);
 }
 
 template <class T, class I>
@@ -270,7 +340,8 @@ bool enable_equivalent_rectangular(
     for (int k = 0; k < 2; ++k) {
         auto& direction = runtime.dir[k];
         auto& view = direction.view;
-        if (!view.isdonor || view.rectangular) continue;
+        if (!view.isdonor || exasim::nonmatching::uses_independent_face_spaces(
+                view.contract)) continue;
         if (master) {
             const I count = exasim::nonmatching::runtime_count<I>(
                 {view.npf, view.npts}, "Phase 14 expanded owner test");
@@ -285,12 +356,12 @@ bool enable_equivalent_rectangular(
                                  runtime.backend);
             view.ptest = direction.ptest.data;
         }
-        view.ownerNpf = view.npf;
-        view.ownerNgf = view.ngf;
-        view.donorNpe = view.npe;
-        view.donorNpf = view.npf;
-        view.donorNfe = view.nfe;
-        view.rectangular = 1;
+        view.contract.ownerFaceNodes = view.npf;
+        view.contract.ownerFaceQuadraturePoints = view.ngf;
+        view.contract.donorVolumeNodes = view.npe;
+        view.contract.donorFaceNodes = view.npf;
+        view.contract.donorFacesPerElement = view.nfe;
+        view.contract.relation = exasim::nonmatching::IndependentFaceSpaces;
         changed = true;
     }
     return changed;
@@ -302,7 +373,8 @@ void restore_same_family(exasim::nonmatching::NonmatchingRuntime<T, I>& runtime)
     for (int k = 0; k < 2; ++k) {
         auto& direction = runtime.dir[k];
         if (!direction.view.isdonor) continue;
-        direction.view.rectangular = 0;
+        direction.view.contract.relation =
+                exasim::nonmatching::SharedFaceSpace;
         direction.view.ptest = nullptr;
     }
 }
@@ -456,10 +528,10 @@ void verify_direction(const nonmatchinginterfaceT<T, I>& host,
     const std::size_t npts = static_cast<std::size_t>(host.npts);
     const std::size_t nslots = static_cast<std::size_t>(host.nslots);
     const std::size_t npairs = static_cast<std::size_t>(host.npairs);
-    const I rowNpf = v.rectangular ? v.ownerNpf : host.npf;
-    const I donorNpe = v.rectangular ? v.donorNpe : host.npe;
-    const I donorNpf = v.rectangular ? v.donorNpf : host.npf;
-    const I donorNfe = v.rectangular ? v.donorNfe : host.nfe;
+    const I rowNpf = v.contract.ownerFaceNodes;
+    const I donorNpe = v.contract.donorVolumeNodes;
+    const I donorNpf = v.contract.donorFaceNodes;
+    const I donorNfe = v.contract.donorFacesPerElement;
     const std::size_t ro = static_cast<std::size_t>(host.ncu12) * rowNpf;
     const std::size_t ne = static_cast<std::size_t>(donorNpe) * host.ncu;
     const std::size_t cd = static_cast<std::size_t>(host.ncu) * donorNpf * donorNfe;
@@ -681,8 +753,37 @@ inline void phase14_contract_compute_nonmatching_coupling(
 
     // The separate same-family/rectangular equivalence check is deliberately
     // outside the production allocation measurement.
-    if (mixed || !phase14_contracts::enable_equivalent_rectangular(runtime, &master))
+    if (mixed) return;
+    for (int direction = 0; direction < 2; ++direction) {
+        auto& donor = runtime.dir[direction];
+        if (!donor.view.isdonor || donor.view.npts == 0) continue;
+        phase14_contracts::record_dispatch(
+            withJacobian ? phase14_contracts::JacobianDispatch
+                         : phase14_contracts::ResidualDispatch,
+            false, [&] {
+                if (withJacobian)
+                    RuntimeOperatorDispatch<T, I>::pairs(
+                            donor, master, res, common, handle, backend);
+                else
+                    RuntimeOperatorDispatch<T, I>::residual(donor, master);
+            });
+    }
+    if (!phase14_contracts::enable_equivalent_rectangular(runtime, &master))
         return;
+    for (int direction = 0; direction < 2; ++direction) {
+        auto& donor = runtime.dir[direction];
+        if (!donor.view.isdonor || donor.view.npts == 0) continue;
+        phase14_contracts::record_dispatch(
+            withJacobian ? phase14_contracts::JacobianDispatch
+                         : phase14_contracts::ResidualDispatch,
+            true, [&] {
+                if (withJacobian)
+                    RuntimeOperatorDispatch<T, I>::pairs(
+                            donor, master, res, common, handle, backend);
+                else
+                    RuntimeOperatorDispatch<T, I>::residual(donor, master);
+            });
+    }
     phase14_contracts::poison_compute_outputs(runtime, withJacobian);
     compute_nonmatching_coupling<M>(runtime, sol, res, app, master, mesh, tmp,
                                     common, handle, withJacobian, backend);
@@ -728,6 +829,17 @@ inline void phase14_contract_nonmatching_matvec_products(
     if (mixed || !phase14_contracts::enable_equivalent_rectangular(
             runtime, static_cast<const masterstructT<T, I>*>(nullptr)))
         return;
+    phase14_contracts::restore_same_family(runtime);
+    phase14_contracts::record_dispatch(phase14_contracts::MatvecDispatch,
+        false, [&] {
+            nonmatching_matvec_products(runtime, ve, m, ne1, handle, backend);
+        });
+    phase14_contracts::enable_equivalent_rectangular(
+            runtime, static_cast<const masterstructT<T, I>*>(nullptr));
+    phase14_contracts::record_dispatch(phase14_contracts::MatvecDispatch,
+        true, [&] {
+            nonmatching_matvec_products(runtime, ve, m, ne1, handle, backend);
+        });
     phase14_contracts::poison_matvec_outputs(runtime);
     nonmatching_matvec_products(runtime, ve, m, ne1, handle, backend);
     for (int k = 0; k < 2; ++k) {
@@ -771,6 +883,8 @@ int contract_split(int argc, char** argv, int size)
             split = static_cast<int>(value);
         }
         else if (std::strcmp(argv[i], "--contracts") == 0) mode = true;
+        else if (std::strcmp(argv[i], "--benchmark") == 0)
+            phase14_contracts::benchmarkDispatch = true;
         else throw std::runtime_error(std::string("unexpected argument: ") + argv[i]);
     }
     if (split < 0 || !mode) throw std::runtime_error("--split k and --contracts are required");
@@ -808,6 +922,8 @@ int main(int argc, char** argv)
         }
         if (failures) throw std::runtime_error("Phase 14 inherited contract checks failed");
         phase14_contracts::verify_and_print_allocation_report(rank);
+        if (phase14_contracts::benchmarkDispatch)
+            phase14_contracts::print_dispatch_benchmark(rank);
         Kokkos::finalize();
         if (rank == 0)
             std::printf("PASS Phase 14 runtime contracts split %d; "

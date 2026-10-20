@@ -25,11 +25,13 @@ namespace exasim {
 namespace nonmatching {
 
 template <class T, class I>
-inline void reject_rectangular_host_path(const OwnerTestData<T, I>* ownerTests,
+inline void reject_independent_space_host_path(
+        const OwnerTestData<T, I>* ownerTests,
         const char* where)
 {
     if (ownerTests &&
-            (ownerTests->dir[0].rectangular || ownerTests->dir[1].rectangular)) {
+            (uses_independent_face_spaces(ownerTests->dir[0].contract) ||
+             uses_independent_face_spaces(ownerTests->dir[1].contract))) {
         std::ostringstream message;
         message << "non-matching host path: rectangular tet/hex coupling requires the "
                    "NonmatchingRuntime path (" << where << ")";
@@ -463,7 +465,7 @@ inline void compute_nonmatching_coupling(nonmatchingdataT<T, I>& nm,
         cublasHandle_t handle, bool withJacobian, I backend,
         const OwnerTestData<T, I>* ownerTests)
 {
-    reject_rectangular_host_path(ownerTests, "compute_nonmatching_coupling");
+    reject_independent_space_host_path(ownerTests, "compute_nonmatching_coupling");
     if (nm.interfacetype != 1) return;
     if (!ownerTests)
         for (int direction = 0; direction < 2; ++direction)
@@ -498,8 +500,10 @@ inline void compute_nonmatching_coupling(NonmatchingRuntime<T, I>& runtime,
         if (!donor.view.isdonor || donor.view.npts == 0) continue;
         build_runtime_point_data(donor, sol, mesh, common);
         evaluate_runtime_flux<M>(donor, app, master, mesh, sol, tmp, common, withJacobian, backend);
-        form_runtime_slot_residual(donor, master);
-        if (withJacobian) form_runtime_pairs(donor, master, res, common, handle, backend);
+        RuntimeOperatorDispatch<T, I>::residual(donor, master);
+        if (withJacobian)
+            RuntimeOperatorDispatch<T, I>::pairs(
+                    donor, master, res, common, handle, backend);
     }
 }
 
@@ -600,7 +604,7 @@ inline void nonmatching_matvec_products(nonmatchingdataT<T, I>& nm, const T* ve,
         I m, I ne1, cublasHandle_t handle, I backend,
         const OwnerTestData<T, I>* ownerTests)
 {
-    reject_rectangular_host_path(ownerTests, "nonmatching_matvec_products");
+    reject_independent_space_host_path(ownerTests, "nonmatching_matvec_products");
     if (nm.interfacetype != 1) return;
     if (!ownerTests)
         for (int direction = 0; direction < 2; ++direction)
@@ -670,7 +674,7 @@ inline void begin_coupling_slot_exchange(nonmatchingdataT<T, I>& nm,
         commonstructT<T, I>& common, I& requestCounter,
         const OwnerTestData<T, I>* ownerTests)
 {
-    reject_rectangular_host_path(ownerTests, "begin_coupling_slot_exchange");
+    reject_independent_space_host_path(ownerTests, "begin_coupling_slot_exchange");
     if (nm.interfacetype != 1) return;
     if (!ownerTests)
         for (int direction = 0; direction < 2; ++direction)
@@ -731,7 +735,7 @@ inline void begin_coupling_slot_exchange(NonmatchingRuntime<T, I>& runtime,
         if (v.isdonor && v.nslots > 0) {
             std::size_t offset = 0;
             for (std::size_t q = 0; q < d.sendnb.size(); ++q) {
-                const I rowNpf = v.rectangular ? v.ownerNpf : v.npf;
+                const I rowNpf = v.contract.ownerFaceNodes;
                 const int count = checked_mpi_count(d.sendcount[q], v.ncu12, rowNpf,
                                                     "donor send count");
                 if (count > 0) {

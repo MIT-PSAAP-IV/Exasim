@@ -2,8 +2,8 @@
     Rectangular mixed-topology kernels for non-matching 3D coupling.
 
     Owner test rows and donor trace/volume columns have independent sizes.
-    These kernels are selected only by RuntimeDirectionView::rectangular and
-    leave the accepted same-family kernels unchanged.
+    These kernels implement the IndependentFaceSpaces contract and leave the
+    optimized SharedFaceSpace kernels unchanged.
 */
 
 #ifndef __NONMATCHINGRECTANGULAR_HPP
@@ -18,7 +18,8 @@ template <class T, class I>
 inline void form_rectangular_slot_residual(NonmatchingRuntimeDirection<T, I>& runtime)
 {
     const auto v = runtime.view;
-    const I rows = runtime_count<I>({v.ncu12, v.ownerNpf}, "rectangular residual rows");
+    const I ownerNpf = v.contract.ownerFaceNodes;
+    const I rows = runtime_count<I>({v.ncu12, ownerNpf}, "rectangular residual rows");
     const std::size_t ro = static_cast<std::size_t>(rows);
     const T* flux = runtime.flux.data;
     T* Ri = runtime.Ri.data;
@@ -34,8 +35,7 @@ inline void form_rectangular_slot_residual(NonmatchingRuntimeDirection<T, I>& ru
             T value = 0;
             for (I p = v.slotptr[slot]; p < v.slotptr[slot + 1]; ++p)
                 value -= v.pwJ[p] *
-                         runtime_owner_test(v, static_cast<const T*>(nullptr),
-                                            v.ownerNpf, i, p) *
+                         v.ptest[i + static_cast<std::size_t>(ownerNpf) * p] *
                          flux[p + static_cast<std::size_t>(v.npts) * out];
             Ri[idx] = value;
         });
@@ -75,8 +75,11 @@ inline void form_rectangular_pairs(NonmatchingRuntimeDirection<T, I>& runtime,
         cublasHandle_t handle, I backend)
 {
     const auto v = runtime.view;
-    const I npe = v.donorNpe, npf = v.donorNpf, nfe = v.donorNfe;
-    const I ownerNpf = v.ownerNpf, ncu = v.ncu, ncu12 = v.ncu12;
+    const I npe = v.contract.donorVolumeNodes;
+    const I npf = v.contract.donorFaceNodes;
+    const I nfe = v.contract.donorFacesPerElement;
+    const I ownerNpf = v.contract.ownerFaceNodes;
+    const I ncu = v.ncu, ncu12 = v.ncu12;
     const I ncq = v.ncq, nd = v.nd, npts = v.npts;
     const I necols = runtime_count<I>({npe, ncu}, "rectangular volume columns");
     const I traceNodes = runtime_count<I>({npf, nfe}, "rectangular trace nodes");
@@ -109,8 +112,7 @@ inline void form_rectangular_pairs(NonmatchingRuntimeDirection<T, I>& runtime,
             T value = 0;
             for (I p = v.pairptr[pair]; p < v.pairptr[pair + 1]; ++p) {
                 const T W = v.pwJ[p] *
-                        runtime_owner_test(v, static_cast<const T*>(nullptr),
-                                           ownerNpf, i, p);
+                        v.ptest[i + static_cast<std::size_t>(ownerNpf) * p];
                 T derivative = fluxUdg[p + static_cast<std::size_t>(npts) *
                         (out + ncu12*c)] *
                         v.pphi[j + static_cast<std::size_t>(npe) * p];
@@ -143,8 +145,7 @@ inline void form_rectangular_pairs(NonmatchingRuntimeDirection<T, I>& runtime,
             for (I p = v.pairptr[pair]; p < v.pairptr[pair + 1]; ++p)
                 if (v.pa[p] == a)
                     value += v.pwJ[p] *
-                        runtime_owner_test(v, static_cast<const T*>(nullptr),
-                                           ownerNpf, i, p) *
+                        v.ptest[i + static_cast<std::size_t>(ownerNpf) * p] *
                         fluxUhg[p + static_cast<std::size_t>(npts) *
                             (out + ncu12*c)] *
                         v.ppsi[j + static_cast<std::size_t>(npf) * p];
@@ -171,8 +172,7 @@ inline void form_rectangular_pairs(NonmatchingRuntimeDirection<T, I>& runtime,
                     T value = 0;
                     for (I p = v.pairptr[pair]; p < v.pairptr[pair + 1]; ++p) {
                         const T W = v.pwJ[p] *
-                            runtime_owner_test(v, static_cast<const T*>(nullptr),
-                                               ownerNpf, i, p);
+                            v.ptest[i + static_cast<std::size_t>(ownerNpf) * p];
                         const I qc = ncu + c + ncu*d;
                         value += W *
                             (fluxUdg[p + static_cast<std::size_t>(npts) *

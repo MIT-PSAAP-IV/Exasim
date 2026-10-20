@@ -44,7 +44,7 @@ void verify_exact_exchange_payload(const nonmatchingdata& host,
     for(int direction=0;direction<2;++direction) {
         const auto& h=host.dir[direction]; const auto& d=runtime.dir[direction];
         if(!d.view.isdonor) continue;
-        const Int rows=d.view.ncu12*d.view.ownerNpf;
+        const Int rows=d.view.ncu12*d.view.contract.ownerFaceNodes;
         for(Int slot=0;slot<d.view.nslots;++slot) {
             local.push_back(direction); local.push_back(h.slotrank[slot]);
             local.push_back(h.slotface[slot]); local.push_back(rank); local.push_back(rows);
@@ -63,7 +63,7 @@ void verify_exact_exchange_payload(const nonmatchingdata& host,
     for(int direction=0;direction<2;++direction) {
         const auto& h=host.dir[direction]; const auto& d=runtime.dir[direction];
         if(!d.view.isowner) continue;
-        const Int rows=d.view.ncu12*d.view.ownerNpf;
+        const Int rows=d.view.ncu12*d.view.contract.ownerFaceNodes;
         Int block=0;
         for(std::size_t neighbor=0;neighbor<d.recvnb.size();++neighbor)
             for(Int entry=0;entry<d.recvcount[neighbor];++entry,++block) {
@@ -92,7 +92,7 @@ void verify_exact_exchange_payload(const nonmatchingdata& host,
                     if(d.recvbuf.data[row+static_cast<std::size_t>(rows)*block]!=expected[row])
                         throw std::runtime_error("compact exchange payload differs from slot reference");
             }
-        if(block*d.view.ncu12*d.view.ownerNpf!=d.recvbuf.size)
+        if(block*d.view.ncu12*d.view.contract.ownerFaceNodes!=d.recvbuf.size)
             throw std::runtime_error("compact exchange reference block count is incorrect");
     }
 }
@@ -149,21 +149,22 @@ void descriptor_case(const Options& options, int rank)
             frozen.nfe=data.nfe; frozen.ngf=data.ndims[8]; frozen.ncu=1;
             frozen.ncu12=1;
             frozen.isowner=direction==model; frozen.isdonor=direction!=model;
-            auto& role=sidecar.dir[direction]; role.enabled=1; role.rectangular=1;
-            role.ownerElemtype=compatibility.model[direction].elemtype;
-            role.ownerNpf=compatibility.model[direction].npf;
-            role.ownerNgf=compatibility.model[direction].ngf;
-            role.donorElemtype=compatibility.model[1-direction].elemtype;
-            role.donorNpe=compatibility.model[1-direction].npe;
-            role.donorNpf=compatibility.model[1-direction].npf;
-            role.donorNfe=compatibility.model[1-direction].nfe;
+            auto& role=sidecar.dir[direction]; role.enabled=1;
+            role.contract.relation=IndependentFaceSpaces;
+            role.contract.ownerElemtype=compatibility.model[direction].elemtype;
+            role.contract.ownerFaceNodes=compatibility.model[direction].npf;
+            role.contract.ownerFaceQuadraturePoints=compatibility.model[direction].ngf;
+            role.contract.donorElemtype=compatibility.model[1-direction].elemtype;
+            role.contract.donorVolumeNodes=compatibility.model[1-direction].npe;
+            role.contract.donorFaceNodes=compatibility.model[1-direction].npf;
+            role.contract.donorFacesPerElement=compatibility.model[1-direction].nfe;
         }
         appstruct app{}; meshstruct mesh{}; commonstruct common{};
         common.components.ncu=1; common.components.nc=1; common.components.ncx=3;
         NonmatchingRuntime<dstype,Int> runtime;
         refresh_nonmatching_runtime(runtime,host,app,mesh,common,0,&sidecar);
-        if(runtime.dir[model].view.ownerNpf!=compatibility.model[model].npf ||
-                runtime.dir[1-model].view.donorNpf!=compatibility.model[model].npf)
+        if(runtime.dir[model].view.contract.ownerFaceNodes!=compatibility.model[model].npf ||
+                runtime.dir[1-model].view.contract.donorFaceNodes!=compatibility.model[model].npf)
             throw std::runtime_error("mixed runtime role dimensions are incorrect");
     }
 }
@@ -200,7 +201,8 @@ void mixed_rebuild_case(const Options& options,int rank,int p,bool reverseFamili
     if(!ran || !runtime || !sidecar)
         throw std::runtime_error("mixed transactional rebuild did not publish its caches");
     if(part>0) {
-        if(sidecar->dir[0].rectangular || sidecar->dir[1].rectangular ||
+        if(uses_independent_face_spaces(sidecar->dir[0].contract) ||
+                uses_independent_face_spaces(sidecar->dir[1].contract) ||
                 runtime->dir[0].view.isowner || runtime->dir[0].view.isdonor ||
                 runtime->dir[1].view.isowner || runtime->dir[1].view.isdonor)
             throw std::runtime_error("empty-interface rank published mixed role data");
@@ -219,25 +221,30 @@ void mixed_rebuild_case(const Options& options,int rank,int p,bool reverseFamili
     }
     const auto& owner=runtime->dir[model];
     const auto& donor=runtime->dir[1-model];
-    if(!owner.view.rectangular || !donor.view.rectangular ||
-            owner.view.ownerElemtype!=elemtype || owner.view.ownerNpf!=masterData.npf ||
-            donor.view.donorElemtype!=elemtype || donor.view.donorNpe!=masterData.npe ||
-            donor.view.donorNpf!=masterData.npf || donor.view.donorNfe!=masterData.nfe)
+    if(!uses_independent_face_spaces(owner.view.contract) ||
+            !uses_independent_face_spaces(donor.view.contract) ||
+            owner.view.contract.ownerElemtype!=elemtype ||
+            owner.view.contract.ownerFaceNodes!=masterData.npf ||
+            donor.view.contract.donorElemtype!=elemtype ||
+            donor.view.contract.donorVolumeNodes!=masterData.npe ||
+            donor.view.contract.donorFaceNodes!=masterData.npf ||
+            donor.view.contract.donorFacesPerElement!=masterData.nfe)
         throw std::runtime_error("mixed transactional rebuild published incorrect role dimensions");
     const auto& frozenDonor=host.dir[1-model];
     if(frozenDonor.Ri || frozenDonor.Hi || frozenDonor.sendbuf ||
             frozenDonor.szRi!=0 || frozenDonor.szHi!=0 || frozenDonor.szsendbuf!=0)
         throw std::runtime_error("mixed transactional rebuild used frozen rectangular work arrays");
-    const Int rows=donor.view.ncu12*donor.view.ownerNpf;
-    const Int columns=donor.view.ncu*donor.view.donorNpf*donor.view.donorNfe;
+    const Int rows=donor.view.ncu12*donor.view.contract.ownerFaceNodes;
+    const Int columns=donor.view.ncu*donor.view.contract.donorFaceNodes*
+            donor.view.contract.donorFacesPerElement;
     if(donor.Ri.size!=rows*donor.view.nslots ||
             donor.Hi.size!=rows*columns*donor.view.npairs ||
-            donor.ptest.size!=donor.view.ownerNpf*donor.view.npts)
+            donor.ptest.size!=donor.view.contract.ownerFaceNodes*donor.view.npts)
         throw std::runtime_error("mixed transactional rebuild allocated incorrect rectangular extents");
     for(Int point=0;point<donor.view.npts;++point) {
         long double partition=0;
-        for(Int i=0;i<donor.view.ownerNpf;++i)
-            partition+=donor.ptest.data[i+donor.view.ownerNpf*point];
+        for(Int i=0;i<donor.view.contract.ownerFaceNodes;++i)
+            partition+=donor.ptest.data[i+donor.view.contract.ownerFaceNodes*point];
         if(std::abs(partition-1.0L)>5e-12L)
             throw std::runtime_error("transported mixed owner tests fail partition of unity");
     }
@@ -331,13 +338,16 @@ void rectangular_helper_case()
     NonmatchingRuntime<dstype,Int> runtime;
     runtime.interfacetype=1;
     auto& direction=runtime.dir[0]; auto& v=direction.view;
-    v.direction=0; v.isdonor=1; v.rectangular=1; v.nd=3;
-    v.ncu=2; v.ncu12=2; v.ncq=0; v.ownerNpf=3;
-    v.donorNpe=2; v.donorNpf=2; v.donorNfe=2;
+    v.direction=0; v.isdonor=1; v.nd=3;
+    v.contract.relation=IndependentFaceSpaces;
+    v.ncu=2; v.ncu12=2; v.ncq=0; v.contract.ownerFaceNodes=3;
+    v.contract.donorVolumeNodes=2; v.contract.donorFaceNodes=2;
+    v.contract.donorFacesPerElement=2;
     v.npe=2; v.npf=2; v.nfe=2; v.npts=4; v.nslots=1; v.npairs=2;
-    const Int testRows=v.ncu12*v.ownerNpf;
-    const Int volumeColumns=v.donorNpe*v.ncu;
-    const Int traceColumns=v.donorNpf*v.donorNfe*v.ncu;
+    const Int testRows=v.ncu12*v.contract.ownerFaceNodes;
+    const Int volumeColumns=v.contract.donorVolumeNodes*v.ncu;
+    const Int traceColumns=v.contract.donorFaceNodes*
+            v.contract.donorFacesPerElement*v.ncu;
     auto resize=[&](auto& buffer,Int count){ buffer.resize(count,0); };
     resize(direction.slotptr,2); direction.slotptr.data[0]=0; direction.slotptr.data[1]=4;
     resize(direction.pairptr,3); direction.pairptr.data[0]=0;
@@ -347,9 +357,11 @@ void rectangular_helper_case()
     resize(direction.pairelem,2); direction.pairelem.data[0]=0; direction.pairelem.data[1]=1;
     resize(direction.pa,4); direction.pa.data[0]=0; direction.pa.data[1]=1;
     direction.pa.data[2]=0; direction.pa.data[3]=1;
-    resize(direction.pwJ,4); resize(direction.ptest,v.ownerNpf*v.npts);
-    resize(direction.pphi,v.donorNpe*v.npts); resize(direction.ppsi,v.donorNpf*v.npts);
-    resize(direction.pd,v.npts*v.nd); resize(direction.pdphibar,v.donorNpe*v.nd*v.npts);
+    resize(direction.pwJ,4); resize(direction.ptest,v.contract.ownerFaceNodes*v.npts);
+    resize(direction.pphi,v.contract.donorVolumeNodes*v.npts);
+    resize(direction.ppsi,v.contract.donorFaceNodes*v.npts);
+    resize(direction.pd,v.npts*v.nd);
+    resize(direction.pdphibar,v.contract.donorVolumeNodes*v.nd*v.npts);
     resize(direction.flux,v.npts*v.ncu12);
     resize(direction.fluxUdg,v.npts*v.ncu12*v.ncu);
     resize(direction.fluxUhg,v.npts*v.ncu12*v.ncu);
@@ -375,7 +387,7 @@ void rectangular_helper_case()
         const Int out=row%v.ncu12, i=row/v.ncu12;
         for(Int point=0;point<v.npts;++point)
             expectedRi[row]-=static_cast<long double>(direction.pwJ.data[point])*
-                direction.ptest.data[i+v.ownerNpf*point]*
+                direction.ptest.data[i+v.contract.ownerFaceNodes*point]*
                 direction.flux.data[point+v.npts*out];
     }
     form_rectangular_slot_residual(direction); Kokkos::fence();
@@ -395,31 +407,36 @@ void rectangular_helper_case()
     std::vector<long double> expectedH(static_cast<std::size_t>(testRows)*traceColumns*2,0.0L);
     for(Int pair=0;pair<v.npairs;++pair) {
         for(Int col=0;col<volumeColumns;++col) for(Int row=0;row<testRows;++row) {
-            const Int out=row%v.ncu12, i=row/v.ncu12, j=col%v.donorNpe, c=col/v.donorNpe;
+            const Int out=row%v.ncu12, i=row/v.ncu12;
+            const Int j=col%v.contract.donorVolumeNodes;
+            const Int c=col/v.contract.donorVolumeNodes;
             long double value=0;
             for(Int point=direction.pairptr.data[pair];point<direction.pairptr.data[pair+1];++point) {
                 const long double W=static_cast<long double>(direction.pwJ.data[point])*
-                    direction.ptest.data[i+v.ownerNpf*point];
+                    direction.ptest.data[i+v.contract.ownerFaceNodes*point];
                 long double derivative=static_cast<long double>(direction.fluxUdg.data[
-                    point+v.npts*(out+v.ncu12*c)])*direction.pphi.data[j+v.donorNpe*point];
+                    point+v.npts*(out+v.ncu12*c)])*
+                    direction.pphi.data[j+v.contract.donorVolumeNodes*point];
                 for(Int d=0;d<v.nd;++d)
                     derivative+=static_cast<long double>(direction.fluxUhg.data[
                         point+v.npts*(out+v.ncu12*c)])*direction.pd.data[point+v.npts*d]*
-                        direction.pdphibar.data[j+v.donorNpe*(d+v.nd*point)];
+                        direction.pdphibar.data[j+v.contract.donorVolumeNodes*(d+v.nd*point)];
                 value+=W*derivative;
             }
             expectedK[row+testRows*(col+volumeColumns*pair)]=value;
         }
         for(Int col=0;col<traceColumns;++col) for(Int row=0;row<testRows;++row) {
             const Int out=row%v.ncu12, i=row/v.ncu12, c=col%v.ncu;
-            const Int faceNode=col/v.ncu, j=faceNode%v.donorNpf, a=faceNode/v.donorNpf;
+            const Int faceNode=col/v.ncu;
+            const Int j=faceNode%v.contract.donorFaceNodes;
+            const Int a=faceNode/v.contract.donorFaceNodes;
             long double value=0;
             for(Int point=direction.pairptr.data[pair];point<direction.pairptr.data[pair+1];++point)
                 if(direction.pa.data[point]==a)
                     value+=static_cast<long double>(direction.pwJ.data[point])*
-                        direction.ptest.data[i+v.ownerNpf*point]*
+                        direction.ptest.data[i+v.contract.ownerFaceNodes*point]*
                         direction.fluxUhg.data[point+v.npts*(out+v.ncu12*c)]*
-                        direction.ppsi.data[j+v.donorNpf*point];
+                        direction.ppsi.data[j+v.contract.donorFaceNodes*point];
             expectedH[row+testRows*(col+traceColumns*pair)]=value;
         }
     }
@@ -463,8 +480,8 @@ void duplicate_owner_scatter_case()
     NonmatchingRuntime<dstype,Int> runtime;
     runtime.interfacetype=1;
     auto& direction=runtime.dir[0]; auto& v=direction.view;
-    v.direction=0; v.isowner=1; v.rectangular=1; v.ncu=1; v.ncu12=2;
-    v.npf=2; v.ownerNpf=2; v.nownfaces=1;
+    v.direction=0; v.isowner=1; v.contract.relation=IndependentFaceSpaces;
+    v.ncu=1; v.ncu12=2; v.npf=2; v.contract.ownerFaceNodes=2; v.nownfaces=1;
     direction.ownerTarget.resize(1,0); direction.ownerTarget.data[0]=0;
     direction.faceBlockPtr.resize(2,0); direction.faceBlockPtr.data[0]=0;
     direction.faceBlockPtr.data[1]=2;
@@ -511,7 +528,9 @@ void slot_protocol_case(const Options& options,int rank)
     donor.slotrank=slotrank.data(); donor.slotface=slotface.data();
     owner.recvnb=recvnb.data(); owner.recvcount=recvcount.data();
     owner.recvface=recvface.data(); owner.ownfaceglobal=ownfaceglobal.data();
-    verify_slot_lists_and_extents(communicator,donor,owner,advertised,local);
+    NonmatchingDirectionContract<Int> contract;
+    contract.relation=IndependentFaceSpaces;
+    verify_slot_lists_and_extents(communicator,donor,owner,contract,advertised,local);
     if(rejection_mode(options.mode)) throw std::runtime_error("expected slot rejection did not occur");
 }
 
@@ -526,8 +545,8 @@ void compact_exchange_case(const Options& options, int rank)
         const int donorRank = direction == 0 ? options.split : 0;
         auto& d = runtime.dir[direction];
         d.view.direction = direction;
-        d.view.rectangular = 1;
-        d.view.ownerNpf = ownerNpf[direction];
+        d.view.contract.relation = IndependentFaceSpaces;
+        d.view.contract.ownerFaceNodes = ownerNpf[direction];
         d.view.npf = ownerNpf[direction];
         d.view.ncu12 = 2;
         if (rank == donorRank) {
@@ -646,13 +665,13 @@ std::vector<std::vector<dstype>> partition_result(int split,int rank,int size)
     for(Int point=0;point<donor.view.npts;++point)
         donor.flux.data[point]=donor.view.px[point+donor.view.npts]+
             2.0*donor.view.px[point+2*donor.view.npts];
-    form_runtime_slot_residual(donor,data.master); Kokkos::fence();
+    RuntimeOperatorDispatch<dstype,Int>::residual(donor,data.master); Kokkos::fence();
     Int requests=0; begin_coupling_slot_exchange(*runtime,common,requests);
     if(requests>0) MPI_Waitall(requests,common.requests,common.statuses);
 
     const auto& owner=runtime->dir[model]; const auto& ownerHost=host.dir[model];
     std::vector<dstype> local;
-    const Int rows=owner.view.ncu12*owner.view.ownerNpf;
+    const Int rows=owner.view.ncu12*owner.view.contract.ownerFaceNodes;
     for(Int own=0;own<owner.view.nownfaces;++own) {
         std::vector<long double> values(rows,0.0L);
         for(Int entry=owner.faceBlockPtr.data[own];entry<owner.faceBlockPtr.data[own+1];++entry) {
@@ -957,8 +976,10 @@ void conservation_case(const Options& options,int rank)
 void host_guard_case()
 {
     exasim::nonmatching::OwnerTestData<dstype,Int> sidecar;
-    sidecar.dir[0].rectangular=sidecar.dir[1].rectangular=1;
-    exasim::nonmatching::reject_rectangular_host_path(&sidecar,"compute_nonmatching_coupling");
+    sidecar.dir[0].contract.relation=sidecar.dir[1].contract.relation=
+            exasim::nonmatching::IndependentFaceSpaces;
+    exasim::nonmatching::reject_independent_space_host_path(
+            &sidecar,"compute_nonmatching_coupling");
     throw std::runtime_error("expected host rejection did not occur");
 }
 
