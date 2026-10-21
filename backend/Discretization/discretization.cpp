@@ -48,6 +48,7 @@
 #define __DISCRETIZATION
 
 #include <cstring>
+#include <limits>
 #include <cstdlib>
 #include <cmath>
 #include <algorithm>
@@ -418,11 +419,16 @@ void AllocateLDGBlockJacobianMemory(resstructT<T,I>& res, commonstructT<T,I>& co
     Int tempn_cross = max(szFq, szBufq) + max(szBufq, szEf) + szAf;
     Int hSize = max(max(tempn_schur, tempn_uface), tempn_cross);
 
-    Int kInvSize = n*n*common.meshsizes.ne1;
+    std::size_t kInvSize = (std::size_t)n*n*common.meshsizes.ne1;     // 64-bit: passes 2^31 on large partitions
     Int dSize = n*n*neb;
     Int bSize = n*nq*neb;
     Int fSize = m*n*neb;
-    Int kSize = kInvSize + max(dSize + bSize + 2*fSize + hSize, M*ndofu);
+    // the Krylov basis (M vectors of ndofu) shares this arena; GMRES indexes it with Int, so it must fit in Int
+    const std::size_t krylov = (std::size_t)M*(std::size_t)ndofu;
+    if (krylov > (std::size_t)std::numeric_limits<Int>::max())
+        error("LDG: the GMRES Krylov basis (restart+1 = " + std::to_string(M) + " vectors of " + std::to_string(ndofu) +
+              " dofs) exceeds the Int index range on this rank; use more ranks, a smaller gmresRestart, or an EXASIM_INT64 build");
+    std::size_t kSize = kInvSize + std::max((std::size_t)dSize + (std::size_t)bSize + 2*(std::size_t)fSize + (std::size_t)hSize, krylov);
     res.szP = kInvSize;
 
     res.K = scratch.allocate(kSize, backend); res.szK = kSize;  // K owned by the arena (S5 step 3)
@@ -670,7 +676,11 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
             res.szP = 0;
             Int ndofu = common.grid.npe*common.components.ncu*common.meshsizes.ne1;
             Int M = max(common.solverparams.gmresRestart+1, common.solverparams.RBdim);
-            res.K = scratch.allocate(M*ndofu, backend); res.szK = M*ndofu;  // K owned by the arena (S5 step 3)
+            const std::size_t krylov = (std::size_t)M*(std::size_t)ndofu;   // GMRES indexes the basis with Int
+            if (krylov > (std::size_t)std::numeric_limits<Int>::max())
+                error("the GMRES Krylov basis (restart+1 = " + std::to_string(M) + " vectors of " + std::to_string(ndofu) +
+                      " dofs) exceeds the Int index range on this rank; use more ranks, a smaller gmresRestart, or an EXASIM_INT64 build");
+            res.K = scratch.allocate(krylov, backend); res.szK = krylov;  // K owned by the arena (S5 step 3)
         }
         else {
             res.szP = 0;

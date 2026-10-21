@@ -643,11 +643,25 @@ inline void RuResidualMPI1(solstructT<T,I> &sol, resstructT<T,I> &res, appstruct
 
 #endif
 
+#include "residualstages.hpp"
+
 template <class M, class T=dstype, class I=Int>
 inline void Residual(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
         meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
 {
     using dstype=T;    
+    // staged path (residualstages.hpp): taken only when this discretization has a stage table; otherwise the code below,
+    // unchanged
+    if (ResidualStagesOf(common) != nullptr) {
+        ResidualStageContextT<T,I> ctx{sol, res, app, master, mesh, tmp, common, handle, backend};
+        RuResidualStaged<M, RegisteredResidualStages<M,T,I>>(ctx);
+        if (common.outputparams.debugMode==1) {
+            writearray2file(common.fileout + "_uh.bin", sol.uh, common.grid.npf*common.components.ncu*common.meshsizes.nf, backend);
+            writearray2file(common.fileout + "_udg.bin", sol.udg, common.grid.npe*common.components.nc*common.meshsizes.ne, backend);
+            writearray2file(common.fileout + "_Ru.bin", res.Ru, common.grid.npe*common.components.ncu*common.meshsizes.ne, backend);
+        }
+        return;
+    }
     if (common.mpiProcs>1) { // mpi processes
 #ifdef  HAVE_MPI        
         RuResidualMPI<M>(sol, res, app, master, mesh, tmp, common, handle, backend);
