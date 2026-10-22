@@ -551,6 +551,8 @@ int ExasimSolver::NumModels() const
 
 int ExasimSolver::NumModelDefinitions() const
 {
+    if (!domainRankLayout_.counts.empty())
+        return static_cast<int>(domainRankLayout_.counts.size());
     return (mpiprocs0_ > 0) ? 2 : nummodels_;
 }
 
@@ -772,6 +774,17 @@ int ExasimSolver::ParseInputs(int argc, char** argv, const ExasimDriverABI& abi)
 int ExasimSolver::ParseInputs(int argc, char** argv,
                               const std::function<const ExasimDriverABI&(int)>& resolveABI)
 {
+#ifdef HAVE_MPI
+    // ParseInputs may be exercised repeatedly by an embedding application.
+    // Return any prior per-domain communicator to the world-communicator
+    // baseline before parsing a new layout; never free MPI_COMM_WORLD itself.
+    if (local_comm_ != MPI_COMM_NULL && local_comm_ != world_comm_)
+        MPI_Comm_free(&local_comm_);
+    local_comm_ = world_comm_;
+    EXASIM_COMM_LOCAL = local_comm_;
+    localprocs_ = mpiprocs_;
+    localrank_ = mpirank_;
+#endif
     filein_.clear();
     fileout_.clear();
     base_fileout_.clear();
@@ -781,6 +794,8 @@ int ExasimSolver::ParseInputs(int argc, char** argv,
     exasimpath_.clear();
     nummodels_ = 1;
     mpiprocs0_ = 0;
+    domainRankLayout_ = {};
+    localDomain_ = -1;
     restart_ = 0;
     executionMode_ = ExasimExecutionMode::Solve;
     const bool preserveModelDefinitions =
@@ -919,7 +934,8 @@ int ExasimSolver::ParseInputs(int argc, char** argv,
         return 1;
     }
 
-    if (nummodels_ > 100) {
+    const bool encodedTwoDomain = nummodels_ > 100;
+    if (encodedTwoDomain) {
         mpiprocs0_ = nummodels_ - 100;
         nummodels_ = 2;
     }
@@ -930,6 +946,10 @@ int ExasimSolver::ParseInputs(int argc, char** argv,
         return 1;
     }
 
+    if (nummodels_ < 1 || argc < 2 * nummodels_ + 2) {
+        if (mpirank_ == 0) std::cerr << "Insufficient input/output file arguments." << std::endl;
+        return 1;
+    }
     for (int i = 0; i < nummodels_; i++) {
         filein_.push_back(string(argv[2 * i + 2]));
         fileout_.push_back(string(argv[2 * i + 3]));
@@ -948,6 +968,9 @@ int ExasimSolver::ParseInputs(int argc, char** argv,
     }
 
     bool parameterCasesOptionSeen = false;
+    bool domainRanksOptionSeen = false;
+    std::string domainRanksArgument;
+    std::string unexpectedGraphArgument;
     for (int i = nextArg; i < argc; ++i) {
         const std::string option(argv[i]);
         if (option == "--parameter-cases") {
@@ -968,10 +991,27 @@ int ExasimSolver::ParseInputs(int argc, char** argv,
                 return 1;
             parameterCasesOptionSeen = true;
         }
+        else if (option == "--domain-ranks") {
+            if (domainRanksOptionSeen) {
+                if (mpirank_ == 0)
+                    std::cerr << "Duplicate --domain-ranks option." << std::endl;
+                return 1;
+            }
+            if (i + 1 >= argc || IsNamedOption(argv[i + 1])) {
+                if (mpirank_ == 0)
+                    std::cerr << "Missing value for --domain-ranks." << std::endl;
+                return 1;
+            }
+            domainRanksArgument = argv[++i];
+            domainRanksOptionSeen = true;
+        }
         else if (IsNamedOption(argv[i])) {
             if (mpirank_ == 0)
                 std::cerr << "Unknown solve option: " << option << std::endl;
             return 1;
+        }
+        else if (unexpectedGraphArgument.empty()) {
+            unexpectedGraphArgument = option;
         }
     }
 
@@ -979,11 +1019,48 @@ int ExasimSolver::ParseInputs(int argc, char** argv,
     exasimpath_ = trimToSubstringAtLastOccurence(cwd, "Exasim");
     if (exasimpath_ == "")
         exasimpath_ = trimToSubstringAtLastOccurence(fileout_[0], "Exasim");
+
+    if (domainRanksOptionSeen) {
+        if (!unexpectedGraphArgument.empty()) {
+            if (mpirank_ == 0)
+                std::cerr << "Unexpected positional argument with --domain-ranks: "
+                          << unexpectedGraphArgument << std::endl;
+            return 1;
+        }
+        if (encodedTwoDomain) {
+            if (mpirank_ == 0)
+                std::cerr << "--domain-ranks cannot be used with the encoded two-domain form." << std::endl;
+            return 1;
+        }
+        std::string diagnostic;
+        if (!exasim::ParseDomainRankLayout(domainRanksArgument, nummodels_, mpiprocs_,
+                                           domainRankLayout_, diagnostic)) {
+            if (mpirank_ == 0) std::cerr << diagnostic << std::endl;
+            return 1;
+        }
+        localDomain_ = domainRankLayout_.domainForRank(mpirank_);
+        if (localDomain_ < 0) {
+            if (mpirank_ == 0) std::cerr << "MPI rank is outside --domain-ranks layout." << std::endl;
+            return 1;
+        }
+    }
 #endif
 
     if (mpirank_ == 0) std::cout << "exasimpath = " << exasimpath_ << std::endl;
 
-    if (mpiprocs0_ > 0) {
+    if (!domainRankLayout_.counts.empty()) {
+#ifdef HAVE_MPI
+        MPI_Comm_split(EXASIM_COMM_WORLD, localDomain_, mpirank_, &local_comm_);
+        EXASIM_COMM_LOCAL = local_comm_;
+        MPI_Comm_size(EXASIM_COMM_LOCAL, &localprocs_);
+        MPI_Comm_rank(EXASIM_COMM_LOCAL, &localrank_);
+#else
+        localprocs_ = 1;
+        localrank_ = 0;
+#endif
+        nummodels_ = 1;
+    }
+    else if (mpiprocs0_ > 0) {
         nummodels_ = 1;
 #ifdef HAVE_MPI
         int color = (mpirank_ < mpiprocs0_) ? 0 : 1;
@@ -1180,13 +1257,28 @@ int ExasimSolver::BuildModels()
 
     Int fileoffset = 0;
     Int gpuid = 0;
+    std::vector<Int> domainRankOffsets;
+    if (!domainRankLayout_.offsets.empty())
+        domainRankOffsets.assign(domainRankLayout_.offsets.begin(),
+                                 domainRankLayout_.offsets.end());
 
     for (int i = 0; i < nummodels_; i++) {
-        const int modelDefinition = (mpiprocs0_ > 0 && mpirank_ >= mpiprocs0_) ? 1 : i;
+        const int modelDefinition = !domainRankLayout_.counts.empty()
+            ? localDomain_
+            : ((mpiprocs0_ > 0 && mpirank_ >= mpiprocs0_) ? 1 : i);
         const std::vector<dstype>* physicsparamOverride =
             active_physicsparam_.empty() ? nullptr : &active_physicsparam_;
 
-        if (mpiprocs0_ == 0) {
+        if (!domainRankLayout_.counts.empty()) {
+            fileoffset = domainRankLayout_.offsets[static_cast<std::size_t>(localDomain_)];
+            models_.push_back(std::make_unique<CSolution<>>(
+                filein_[static_cast<std::size_t>(localDomain_)],
+                fileout_[static_cast<std::size_t>(localDomain_)], exasimpath_, mpiprocs_, mpirank_,
+                fileoffset, gpuid, backend_, builtinmodelID_[modelDefinition],
+                model_abis_[modelDefinition], nsca_, nvec_, nten_, nsurf_, nvqoi_, executionMode_,
+                physicsparamOverride, saveParaview_, localDomain_, &domainRankOffsets));
+        }
+        else if (mpiprocs0_ == 0) {
             models_.push_back(std::make_unique<CSolution<>>(
                 filein_[i], fileout_[i], exasimpath_, mpiprocs_, mpirank_,
                 fileoffset, gpuid, backend_, builtinmodelID_[modelDefinition],

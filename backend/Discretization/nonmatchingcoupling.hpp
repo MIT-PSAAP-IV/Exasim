@@ -25,6 +25,9 @@ namespace exasim {
 namespace nonmatching {
 
 template <class T, class I>
+class NonmatchingInteraction;
+
+template <class T, class I>
 inline void reject_independent_space_host_path(
         const OwnerTestData<T, I>* ownerTests,
         const char* where)
@@ -499,7 +502,8 @@ inline void compute_nonmatching_coupling(NonmatchingRuntime<T, I>& runtime,
         auto& donor = runtime.dir[direction];
         if (!donor.view.isdonor || donor.view.npts == 0) continue;
         build_runtime_point_data(donor, sol, mesh, common);
-        evaluate_runtime_flux<M>(donor, app, master, mesh, sol, tmp, common, withJacobian, backend);
+        evaluate_runtime_flux<M>(donor, app, master, mesh, sol, tmp, common,
+                                 runtime.condition, withJacobian, backend);
         RuntimeOperatorDispatch<T, I>::residual(donor, master);
         if (withJacobian)
             RuntimeOperatorDispatch<T, I>::pairs(
@@ -590,6 +594,48 @@ inline bool validate_coupling_selection(const commonstructT<T, I>& common,
         error(oss.str());
     }
     return active;
+}
+
+// Phase 3 selection adapter.  Production owns zero or one interaction until
+// the graph constructor is activated in Phase 4; the accepted scalar
+// selection diagnostics remain centralized in validate_coupling_selection.
+template <class T, class I>
+inline bool validate_interactions(const commonstructT<T, I>& common,
+        const std::vector<NonmatchingInteraction<T, I>>& interactions,
+        I backend, const char* where, bool graphMode = false)
+{
+    if (graphMode) {
+        if (interactions.empty()) return false;
+        int failure = 0;
+        for (const auto& interaction : interactions) {
+            if (!interaction.hasSetup() || !interaction.hasRuntime() ||
+                    interaction.setupInterfacetype() != 1 ||
+                    interaction.runtimeData()->interfacetype != 1)
+                failure = 3;
+        }
+#ifndef HAVE_MPI
+        failure = 4;
+#endif
+        if (backend > 1) failure = 5;
+        if (failure != 0) {
+            std::ostringstream message;
+            message << "non-matching coupling (" << where << "): ";
+            if (failure == 3) message << "interfacetype 1 is selected but the run-time cache was not built";
+            else if (failure == 4) message << "interfacetype 1 requires MPI";
+            else message << "CUDA/HIP execution awaits device validation (backend = " << backend << ")";
+            error(message.str());
+        }
+        return true;
+    }
+    if (interactions.size() > 1) {
+        std::ostringstream message;
+        message << "non-matching coupling (" << where
+                << "): Phase 3 supports at most one interaction";
+        error(message.str());
+    }
+    const NonmatchingRuntime<T, I>* runtime = interactions.empty()
+        ? nullptr : interactions.front().runtimeData();
+    return validate_coupling_selection(common, runtime, backend, where);
 }
 
 // Partial matrix-vector products of eq. (68) for every direction in which this
@@ -740,7 +786,7 @@ inline void begin_coupling_slot_exchange(NonmatchingRuntime<T, I>& runtime,
                                                     "donor send count");
                 if (count > 0) {
                     MPI_Isend(&d.Ri.data[offset], count, mpi_type<T>(), d.sendnb[q],
-                              CouplingSlotTagBase + direction, EXASIM_COMM_WORLD,
+                              runtime.tag[direction], EXASIM_COMM_WORLD,
                               &common.requests[requestCounter++]);
                     offset += count;
                 }
@@ -755,7 +801,7 @@ inline void begin_coupling_slot_exchange(NonmatchingRuntime<T, I>& runtime,
                                                     "owner receive count");
                 if (count > 0) {
                     MPI_Irecv(&d.recvbuf.data[offset], count, mpi_type<T>(), d.recvnb[q],
-                              CouplingSlotTagBase + direction, EXASIM_COMM_WORLD,
+                              runtime.tag[direction], EXASIM_COMM_WORLD,
                               &common.requests[requestCounter++]);
                     offset += count;
                 }

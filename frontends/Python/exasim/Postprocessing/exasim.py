@@ -10,12 +10,26 @@ from .fetchsolution import fetchsolution
 from .getsolutions import getsolutions
 from .generatecode import generatecode
 
-def exasim(pde,mesh):
+def exasim(pde,mesh,interaction=None):
 
     if isinstance(pde, list):
         nmodels = len(pde);      
     else:
         nmodels = 1
+
+    if interaction is not None and len(interaction) > 0:
+        if not isinstance(pde, list):
+            raise ValueError("generalized interactions require multiple PDE domains")
+        if numpy.any([numpy.any(numpy.asarray(item.get('interfacecondition', [])) > 0)
+                      for item in mesh]):
+            raise ValueError("generalized interactions cannot be combined with mesh.interfacecondition")
+        table, selectors, nfint, maxcondition = Preprocessing.interactiongraph(pde, mesh, interaction)
+        for m in range(nmodels):
+            pde[m]['interactiontable'] = table.copy()
+            pde[m]['interactionselectors'] = list(selectors[m])
+            pde[m]['nfint'] = int(nfint[m])
+            pde[m]['maxinteractioncondition'] = int(maxcondition[m])
+            pde[m]['interactions'] = pycopy.deepcopy(interaction)
     
     res = None;
     if nmodels == 1:
@@ -105,6 +119,21 @@ def exasim(pde,mesh):
         sol = [None] * nmodels
         res = [None] * nmodels
 
+        graph_input = interaction is not None and len(interaction) > 0
+        domain_ranks = None
+        if graph_input:
+            domain_ranks = []
+            shared = ('datapath', 'builddir', 'platform', 'cpucompiler', 'mpicompiler')
+            for key in shared:
+                values = [str(item.get(key, '')) for item in pde]
+                if numpy.any([value != values[0] for value in values[1:]]):
+                    raise ValueError(f"graph domains require the same {key}")
+            for item in pde:
+                value = item.get('mpiprocs', 0)
+                if isinstance(value, bool) or int(value) != value or int(value) <= 0:
+                    raise ValueError("Each graph domain mpiprocs must be a positive integer")
+                domain_ranks.append(int(value))
+
         # Combined multi-PDE: model m occupies slot m. Assigning modelnumber=m
         # gives each model a distinct modelid (100+m), a distinct kernel/build
         # dir (config.model_builddir) and distinct datain/dataout subdirs, so
@@ -116,8 +145,8 @@ def exasim(pde,mesh):
         # as one split MPI world: ranks [0, np1) solve model 1, the rest
         # model 2, each with its own model id from the combined executable.
         is_coupling = _is_interface_coupled(mesh)
-        if is_coupling:
-            if nmodels != 2:
+        if is_coupling or graph_input:
+            if is_coupling and not graph_input and nmodels != 2:
                 raise ValueError("Interface-coupled solves support exactly two models.")
             # The solver dispatches a model's kernels by app.modelnumber. With
             # frontendgenerated = 0 it replaces the slot number written here by
@@ -132,7 +161,9 @@ def exasim(pde,mesh):
 
         # build ONE executable that dispatches all model ids, then run it with
         # one (datain, dataout) pair per model (the solver's multi-model CLI).
-        if is_coupling:
+        if graph_input:
+            compilerstr = Gencode.cmakecompile_combined(pde, sum(domain_ranks));
+        elif is_coupling:
             compilerstr = Gencode.cmakecompile_combined(
                 pde, pde[0]['mpiprocs'] + pde[1]['mpiprocs']);
         else:
@@ -145,7 +176,9 @@ def exasim(pde,mesh):
             Gencode.exportapp_combined(pde, pde[0]['exportapp'], build=pde[0].get('buildandrun', True));
             runstr = None;
         else:
-            if is_coupling:
+            if graph_input:
+                runstr = Gencode.runcode_combined(pde, domain_ranks);
+            elif is_coupling:
                 runstr = Gencode.runcode_coupled(pde);
             else:
                 runstr = Gencode.runcode_combined(pde);

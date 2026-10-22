@@ -12,6 +12,7 @@
 #define __NONMATCHINGRUNTIME_HPP
 
 #include "nonmatchinginterface.hpp"
+#include "nonmatchinginteraction.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -253,7 +254,11 @@ template <class T, class I>
 struct NonmatchingRuntime {
     I interfacetype = 0;
     I backend = 0;
+    I ordinal = 0;
+    I condition = 0;
+    I tag[2] = {27100, 27101};
     long long allocations = 0;
+    RuntimeBuffer<I, I> fluxmap;
     NonmatchingRuntimeDirection<T, I> dir[2];
 
     NonmatchingRuntime() = default;
@@ -315,7 +320,8 @@ template <class T, class I>
 inline void refresh_runtime_direction(NonmatchingRuntimeDirection<T, I>& runtime,
         const nonmatchinginterfaceT<T, I>& host, const appstructT<T, I>& app,
         const meshstructT<T, I>& mesh, const commonstructT<T, I>& common,
-        I backend, long long& allocations,
+        I backend, long long& allocations, I boundary = 0,
+        bool allowLegacyFaceList = true,
         const OwnerTestDirection<T, I>* ownerTests = nullptr)
 {
     auto& v = runtime.view;
@@ -415,14 +421,15 @@ inline void refresh_runtime_direction(NonmatchingRuntimeDirection<T, I>& runtime
     // when the atomic setup transaction runs.
     std::vector<I> interfaceFaces;
     if (host.nownfaces > 0) {
-        const I boundary = common.couplingparams.coupledboundarycondition;
+        if (boundary <= 0)
+            boundary = common.couplingparams.coupledboundarycondition;
         if (mesh.bf && boundary > 0) {
             for (I element = 0; element < common.meshsizes.ne1; ++element)
                 for (I localFace = 0; localFace < host.nfe; ++localFace)
                     if (mesh.bf[localFace + host.nfe * element] == boundary)
                         interfaceFaces.push_back(localFace + host.nfe * element);
         }
-        else if (mesh.intfaces && mesh.szintfaces > 0) {
+        else if (allowLegacyFaceList && mesh.intfaces && mesh.szintfaces > 0) {
             interfaceFaces.assign(mesh.intfaces, mesh.intfaces + mesh.szintfaces);
         }
         else {
@@ -619,7 +626,9 @@ template <class T, class I>
 inline void refresh_nonmatching_runtime(NonmatchingRuntime<T, I>& runtime,
         const nonmatchingdataT<T, I>& host, const appstructT<T, I>& app,
         const meshstructT<T, I>& mesh, const commonstructT<T, I>& common, I backend,
-        const OwnerTestData<T, I>* ownerTests = nullptr)
+        const OwnerTestData<T, I>* ownerTests = nullptr, I boundary = 0,
+        const I* fluxmap = nullptr, I fluxmapSize = -1,
+        I condition = -1, I ordinal = 0)
 {
     if (backend < 0 || backend > 3) error("non-matching runtime: unsupported backend");
     runtime.backend = backend;
@@ -629,9 +638,28 @@ inline void refresh_nonmatching_runtime(NonmatchingRuntime<T, I>& runtime,
         runtime.backend = backend;
         return;
     }
+    const bool graph = fluxmapSize >= 0;
+    if (!graph) {
+        fluxmap = app.interfacefluxmap;
+        condition = common.couplingparams.coupledcondition;
+    }
+    runtime.ordinal = ordinal;
+    runtime.condition = condition;
+    try {
+        runtime.tag[0] = checked_interaction_tag<I>(ordinal, 0,
+                std::numeric_limits<I>::max());
+        runtime.tag[1] = checked_interaction_tag<I>(ordinal, 1,
+                std::numeric_limits<I>::max());
+    }
+    catch (...) { error("non-matching runtime: interaction tag exceeds integer range"); }
+    if (graph)
+        refresh_buffer(runtime.fluxmap, fluxmap, fluxmapSize, backend,
+                       runtime.allocations, "fluxmap");
+    else
+        runtime.fluxmap.release();
     for (int direction = 0; direction < 2; ++direction)
         refresh_runtime_direction(runtime.dir[direction], host.dir[direction], app, mesh, common,
-                                  backend, runtime.allocations,
+                                  backend, runtime.allocations, boundary, !graph,
                                   ownerTests ? &ownerTests->dir[direction] : nullptr);
 }
 

@@ -2,7 +2,7 @@ module Preprocessing
 
 using ..Types, ..Master, SymPy
 
-export createhighordermesh, preprocessing, initializeexasim, findexec
+export createhighordermesh, preprocessing, initializeexasim, findexec, interactiongraph
 
 include("xiny.jl");
 include("createdgnodes.jl");
@@ -46,6 +46,7 @@ include("initializepde.jl");
 include("initializemesh.jl");
 include("initializeexasim.jl");
 include("findexec.jl");
+include("interactiongraph.jl");
 
 function preprocessing(app,mesh)
 
@@ -53,7 +54,11 @@ function preprocessing(app,mesh)
 app.coupledinterface = 0;
 app.coupledcondition = 0;
 app.coupledboundarycondition = 0;
-if !isempty(mesh.interfacecondition)
+graph_input = !isempty(app.interactiontable)
+if graph_input
+    app.interfacefluxmap = [];
+    app.interfacetype = 0;
+elseif !isempty(mesh.interfacecondition)
     indices = findall(vec(mesh.interfacecondition) .> 0);
     length(indices) <= 1 || error("mesh.interfacecondition is invalid because there are more than one coupled interface.");
     if length(indices) == 1
@@ -66,6 +71,9 @@ if !isempty(mesh.interfacecondition)
             error("mesh.boundarycondition is invalid because interface condition is not unique.");
     end
 end
+interfaceSelectors = !isempty(app.interactiontable) ? Int.(vec(app.interactionselectors)) :
+                     (app.coupledinterface > 0 ? [app.coupledinterface] : Int[])
+coupled = !isempty(interfaceSelectors)
 
 if app.modelnumber==0
     strn = "";
@@ -267,7 +275,9 @@ if app.uniformrefinementlevel > 0
             dmd0[i] = DMDStruct();
         end
         if app.hybrid == 1
-            dmd0 = elementpartitionhdg(dmd0, meshtprd0, mesht2t0, mpiprocs, app.metis);
+            coarseSelectors = graph_input ? interfaceSelectors : Int[]
+            dmd0 = elementpartitionhdg(dmd0, meshtprd0, mesht2t0, mpiprocs, app.metis,
+                                       Int[], meshf0, coarseSelectors);
         else
             dmd0 = elementpartition2(dmd0, meshtprd0, mesht2t0, mpiprocs, app.metis);
         end
@@ -293,7 +303,7 @@ end
 #dmd = meshpartition(dmd,mesh.p,mesh.t,mesh.f,t2t,mesh.tprd,app.elemtype,app.boundaryconditions,mesh.boundaryexpr,mesh.periodicexpr,app.porder,mpiprocs,app.metis);
 #dmd = meshpartition2(dmd,mesh.tprd,mesh.f,t2t,app.boundaryconditions,app.nd,app.elemtype,app.porder,mpiprocs,app.metis);
 if (app.hybrid ==1)
-  dmd = meshpartitionhdg(dmd,mesh.tprd,mesh.f,t2t,app.boundaryconditions,app.nd,app.elemtype,app.porder,mpiprocs,app.metis, app.Cxxpreprocessing,elem2cpu,app.coupledinterface);
+  dmd = meshpartitionhdg(dmd,mesh.tprd,mesh.f,t2t,app.boundaryconditions,app.nd,app.elemtype,app.porder,mpiprocs,app.metis, app.Cxxpreprocessing,elem2cpu,interfaceSelectors);
 else
   dmd = meshpartition2(dmd,mesh.tprd,mesh.f,t2t,app.boundaryconditions,app.nd,app.elemtype,app.porder,mpiprocs,app.metis, app.Cxxpreprocessing,elem2cpu);
 end
@@ -328,8 +338,7 @@ for i = 1:mpiprocs
     end
 
     # A coupled world is an MPI run, so each domain reads indexed files.
-    coupled = app.coupledinterface > 0;
-    if mpiprocs==1 && !coupled
+    if mpiprocs==1 && !coupled && !graph_input
         writesol(filename  * "/sol",0,xdg, udg, odg, wdg, app, master, dmd[i]);
     else
         writesol(filename  * "/sol",i,xdg, udg, odg, wdg, app, master, dmd[i]);
@@ -438,7 +447,7 @@ for i = 1:mpiprocs
         nsize[29] = length(dmd[i].intepartpts);
     end
 
-    if (mpiprocs>1) || coupled
+    if (mpiprocs>1) || coupled || graph_input
         print("Writing mesh into file " * string(i) * "\n");
         fileID = open(string(filename  * "/mesh", string(string(i), ".bin")),"w");
     else

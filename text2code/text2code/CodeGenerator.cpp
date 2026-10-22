@@ -138,8 +138,15 @@ void CodeGenerator::generateCode2Cpp(const std::string& filename) const {
     os << "            ssv.appendUbouFbou(ssv.modelpath + fname, fname, 0);  // one body for every ib\n";
     os << "        }\n";
     os << "        else if (funcname == \"Fint\") { \n";
-    os << "          int szf = f.size();\n";    
-    os << "          int nbc = 1;\n";
+    if (spec.hasinteractiongraph) {
+      os << "          int szf = " << spec.nfint << ";\n";
+      os << "          if (szf <= 0 || f.empty() || (f.size() % szf) != 0) throw std::runtime_error(\"graph Fint output count is not divisible by nfint\");\n";
+      os << "          int nbc = (int)f.size()/szf;\n";
+      os << "          if (" << spec.maxinteractioncondition << " > nbc) throw std::runtime_error(\"interaction condition exceeds generated Fint columns\");\n";
+    } else {
+      os << "          int szf = f.size();\n";
+      os << "          int nbc = 1;\n";
+    }
     os << "          for (int n = 0; n < nbc; ++n) {\n";
     os << "            std::vector<Expression> g(szf);\n";        
     os << "            for (int m = 0; m < szf; ++m) {\n";
@@ -2328,7 +2335,10 @@ void emitGenerateModelHeader(std::ostream& os, const ParsedSpec& spec) {
     os << "            if (outputfunctions[idx]) nfext_sz = (int)evaluateSymbolicFunctions(idx).size(); } }\n";
     os << "        if (nfint_sz >= 0 || nfext_sz >= 0) {\n";
     os << "            hfile << \"    static constexpr bool has_external_coupling = true;\\n\";\n";
-    os << "            if (nfint_sz >= 0) hfile << \"    static constexpr int nfint  = \" << nfint_sz << \";\\n\";\n";
+    if (spec.hasinteractiongraph)
+        os << "            if (nfint_sz >= 0) hfile << \"    static constexpr int nfint  = " << spec.nfint << ";\\n\";\n";
+    else
+        os << "            if (nfint_sz >= 0) hfile << \"    static constexpr int nfint  = \" << nfint_sz << \";\\n\";\n";
     os << "            if (nfext_sz >= 0) hfile << \"    static constexpr int nfext  = \" << nfext_sz << \";\\n\";\n";
     if (nuext > 0)
         os << "            hfile << \"    static constexpr int ncuext = " << nuext << ";\\n\";\n";
@@ -2549,14 +2559,34 @@ void emitGenerateModelHeader(std::ostream& os, const ParsedSpec& spec) {
     os << "            int idx = it - funcnames.begin();\n";
     os << "            if (outputfunctions[idx]) {\n";
     os << "                std::vector<Expression> f = evaluateSymbolicFunctions(idx);\n";
-    os << "                emit_pointwise_value(hfile, \"fint\", boundary_sig, f, idx);\n";
+    if (spec.hasinteractiongraph) {
+        os << "                const int fint_block = " << spec.nfint << ";\n";
+        os << "                if (fint_block <= 0 || f.empty() || (f.size() % fint_block) != 0) throw std::runtime_error(\"graph Fint output count is not divisible by nfint\");\n";
+        os << "                const int fint_nbc = (int)f.size() / fint_block;\n";
+        os << "                if (" << spec.maxinteractioncondition << " > fint_nbc) throw std::runtime_error(\"interaction condition exceeds generated Fint columns\");\n";
+        os << "                emit_pointwise_value_per_ib(hfile, \"fint\", boundary_sig, f, idx, fint_block);\n";
+    } else {
+        os << "                emit_pointwise_value(hfile, \"fint\", boundary_sig, f, idx);\n";
+    }
     os << "                const auto& jac_inputs = jacobianInputs[idx];\n";
     os << "                static const std::vector<std::string> fint_jac_names = {\n";
     os << "                    \"fint_jac_uq\", \"fint_jac_w\", \"fint_jac_uh\"};\n";
     os << "                for (size_t k = 0; k < jac_inputs.size() && k < fint_jac_names.size(); ++k) {\n";
     os << "                    if (jac_inputs[k].empty()) continue;\n";
-    os << "                    std::vector<Expression> jac = diff_to_exprs(f, jac_inputs[k]);\n";
-    os << "                    emit_pointwise_value(hfile, fint_jac_names[k], boundary_sig, jac, idx);\n";
+    if (spec.hasinteractiongraph) {
+        os << "                    const int jac_block = fint_block * (int)jac_inputs[k].size();\n";
+        os << "                    std::vector<Expression> jac; jac.reserve(jac_block * fint_nbc);\n";
+        os << "                    for (int n = 0; n < fint_nbc; ++n) {\n";
+        os << "                        std::vector<Expression> g(fint_block);\n";
+        os << "                        for (int m = 0; m < fint_block; ++m) g[m] = f[m + n*fint_block];\n";
+        os << "                        std::vector<Expression> block = diff_to_exprs(g, jac_inputs[k]);\n";
+        os << "                        jac.insert(jac.end(), block.begin(), block.end());\n";
+        os << "                    }\n";
+        os << "                    emit_pointwise_value_per_ib(hfile, fint_jac_names[k], boundary_sig, jac, idx, jac_block);\n";
+    } else {
+        os << "                    std::vector<Expression> jac = diff_to_exprs(f, jac_inputs[k]);\n";
+        os << "                    emit_pointwise_value(hfile, fint_jac_names[k], boundary_sig, jac, idx);\n";
+    }
     os << "                }\n";
     os << "            }\n";
     os << "        }\n";

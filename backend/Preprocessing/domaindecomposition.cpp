@@ -71,19 +71,32 @@
 inline DMD initializeDMD(const PDE& pde, const Mesh& mesh)
 {
     DMD dmd;
+    const bool hasInterface = pde.coupledinterface > 0 || !pde.interactionSelectors.empty();
     
     if (pde.mpiprocs==1) {
       int ne = mesh.ne;
-      if (pde.coupledinterface>0) {                
-        int n = mesh.inte.size();
+      if (hasInterface) {
+        // The graph path may record one element once per selected face. Its
+        // partition therefore uses a sorted unique element set. Preserve the
+        // legacy scalar path's existing mesh.inte arithmetic verbatim.
+        std::vector<int> interfaceElements;
+        if (!pde.interactionSelectors.empty()) {
+          interfaceElements.assign(mesh.inte.begin(), mesh.inte.end());
+          std::sort(interfaceElements.begin(), interfaceElements.end());
+          interfaceElements.erase(std::unique(interfaceElements.begin(), interfaceElements.end()), interfaceElements.end());
+        }
+        else {
+          interfaceElements.assign(mesh.inte.begin(), mesh.inte.end());
+        }
+        int n = static_cast<int>(interfaceElements.size());
 
         std::vector<int> tm(ne);
         std::vector<int> tn(ne-n);
         for (int i=0; i<ne; i++) tm[i] = i;
 
-        std::set_difference(tm.begin(), tm.end(), mesh.inte.begin(), mesh.inte.end(), std::back_inserter(tn));
+        std::set_difference(tm.begin(), tm.end(), interfaceElements.begin(), interfaceElements.end(), std::back_inserter(tn));
         for (int i=0; i<ne-n; i++) dmd.elempart[i] = tn[i];
-        for (int i=0; i<n; i++) dmd.elempart[ne-n+i] = mesh.inte[i];
+        for (int i=0; i<n; i++) dmd.elempart[ne-n+i] = interfaceElements[i];
 
         dmd.elempartpts.resize(3);        
         dmd.elempartpts[0] = ne-n;  dmd.elempartpts[1] = n; dmd.elempartpts[2] = 0;
@@ -309,10 +322,10 @@ inline void build_dmdldg(std::vector<DMD>& dmd, const int* e2e, const int* elem2
 
 inline void build_dmdhdg(std::vector<DMD>& dmd, const int* e2e, const int* elem2cpu, const int* inte, int ninte, int nfe, int ne, const PDE& pde) 
 {
-    int coupledinterface = pde.coupledinterface;
+    const bool hasInterface = pde.coupledinterface > 0 || !pde.interactionSelectors.empty();
     int nproc = static_cast<int>(dmd.size());
     std::vector<int> interfaceElements;
-    if (coupledinterface > 0 && inte != nullptr && ninte > 0) {
+    if (hasInterface && inte != nullptr && ninte > 0) {
         interfaceElements.assign(inte, inte + ninte);
         std::sort(interfaceElements.begin(), interfaceElements.end());
         interfaceElements.erase(std::unique(interfaceElements.begin(), interfaceElements.end()), interfaceElements.end());
@@ -336,7 +349,7 @@ inline void build_dmdhdg(std::vector<DMD>& dmd, const int* e2e, const int* elem2
         std::set_intersection(elem.begin(), elem.end(), intelem.begin(), intelem.end(), std::back_inserter(bndelem));
 
         std::vector<int>& part3 = extelem;
-        if (coupledinterface > 0) {
+        if (hasInterface) {
             std::vector<int> interface, part0, part1, part2, part4, part5;
             interface.reserve(intelem.size());
             part0.reserve(intelem.size());

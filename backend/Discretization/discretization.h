@@ -42,15 +42,17 @@
 #define __DISCRETIZATION_H__
 
 #include <memory>
+#include <vector>
 
 #include "exasim/execution_mode.hpp"
 #include "nonmatchinginterface.hpp" // [nonmatching] frozen data structure (phase 0)
 
+namespace exasim { namespace nonmatching {
+template <class, class> class NonmatchingInteraction;
+} }
+
 namespace exasim { template <class, class> struct PreprocessedT; }  // fwd decl: in-memory ctor input
                                            // (buildstructs.hpp); the ctor bodies live in discretization_inmemory.hpp (consumer-only)
-namespace exasim { namespace nonmatching { template <class, class> struct NonmatchingRuntime; } }
-namespace exasim { namespace nonmatching { template <class, class> struct OwnerTestData; } }
-
 // Templated on scalar precision T and index type I (Phase 2 of dstype->template threading, see
 // docs/internals/precision-threading.md). Member `using` aliases shadow the global dstype/Int AND the
 // Phase-1 struct aliases, so every member declaration and every out-of-line method body below is
@@ -81,11 +83,11 @@ public:
     commonstruct common;
     ExasimDriverABI driver_abi;
     scratcharenastruct scratch;  // owns the K backing buffer; res.K/views + sys.v are non-owning reserves (S5 step 3)
-    nonmatchingdataT<T, I> nonmatching; // [nonmatching] non-matching interface data (host setup, phase 2)
-    // [nonmatching] backend-resident run-time mirrors and persistent workspaces (phase 8)
-    std::unique_ptr<exasim::nonmatching::NonmatchingRuntime<T, I>> nonmatchingRuntime;
-    // [nonmatching] mixed-family owner test values, published by the rebuild transaction.
-    std::unique_ptr<exasim::nonmatching::OwnerTestData<T, I>> nonmatchingOwnerTests;
+    // [multiphysics Phase 3] Zero or one legacy pair. Phase 4 activates graph
+    // construction without changing the pairwise object or numerical kernels.
+    std::vector<exasim::nonmatching::NonmatchingInteraction<T, I>> nonmatchingInteractions;
+    Int localDomain = -1;
+    std::vector<Int> domainRankOffsets;
     // solstruct hsol;
 
     // constructor for both CPU and GPU
@@ -96,7 +98,8 @@ public:
                     Int nsurf = 0, Int nvqoi = 0,
                     ExasimExecutionMode mode = ExasimExecutionMode::Solve,
                     const std::vector<dstype>* physicsparamOverride = nullptr,
-                    Int saveParaview = 0);
+                    Int saveParaview = 0, Int localDomain = -1,
+                    const std::vector<Int>* domainRankOffsets = nullptr);
 
     // No-ABI constructor (C3): the concrete-model build (CSolution<M>, M != AbiAdapter) has no
     // runtime ExasimDriverABI -- every model call is inlined through the templated exasim::Name<M>
@@ -133,14 +136,16 @@ public:
     // destructor
     ~CDiscretizationT();
 
-    exasim::nonmatching::NonmatchingRuntime<T, I>* getNonmatchingRuntime() noexcept
+    std::vector<exasim::nonmatching::NonmatchingInteraction<T, I>>&
+    getNonmatchingInteractions() noexcept
     {
-        return nonmatchingRuntime.get();
+        return nonmatchingInteractions;
     }
 
-    const exasim::nonmatching::NonmatchingRuntime<T, I>* getNonmatchingRuntime() const noexcept
+    const std::vector<exasim::nonmatching::NonmatchingInteraction<T, I>>&
+    getNonmatchingInteractions() const noexcept
     {
-        return nonmatchingRuntime.get();
+        return nonmatchingInteractions;
     }
 
     // post-init construction tail (read_uh/vis/geometry/mass-inverse/HDG setup), shared by the
@@ -206,7 +211,8 @@ using CDiscretization = CDiscretizationT<::dstype, ::Int>;
 // see their definitions and instantiate them locally. See docs/internals/precision-threading.md.
 extern template CDiscretizationT<::dstype, ::Int>::CDiscretizationT(
     std::string, std::string, std::string, Int, Int, Int, Int, Int, Int, const ExasimDriverABI&,
-    Int, Int, Int, Int, Int, ExasimExecutionMode, const std::vector<dstype>*, Int);
+    Int, Int, Int, Int, Int, ExasimExecutionMode, const std::vector<dstype>*, Int, Int,
+    const std::vector<Int>*);
 extern template CDiscretizationT<::dstype, ::Int>::~CDiscretizationT();
 extern template void CDiscretizationT<::dstype, ::Int>::finalizeConstruction(
     Int, ExasimExecutionMode, Int, Int, Int, Int, Int, Int);

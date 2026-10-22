@@ -137,7 +137,7 @@ template <class M, class T, class I>
 inline void evaluate_runtime_flux(NonmatchingRuntimeDirection<T, I>& runtime,
         appstructT<T, I>& app, masterstructT<T, I>& master, meshstructT<T, I>& mesh,
         solstructT<T, I>& sol, tempstructT<T, I>& tmp,
-        commonstructT<T, I>& common, bool withJacobian, I backend)
+        commonstructT<T, I>& common, I condition, bool withJacobian, I backend)
 {
     const auto v = runtime.view;
     const I npts = v.npts, ncu12 = v.ncu12, ncu = v.ncu;
@@ -175,7 +175,7 @@ inline void evaluate_runtime_flux(NonmatchingRuntimeDirection<T, I>& runtime,
             runtime.fluxWdg.data, runtime.fluxUhg.data, runtime.x.data,
             runtime.udg.data, runtime.odg.data, runtime.wdg.data, runtime.uhg.data,
             runtime.nl.data, mesh, master, app, sol, tmp, common, npts,
-            common.couplingparams.coupledcondition, backend);
+            condition, backend);
         if (ncw > 0 && common.timeparams.wave == 0) {
             T* fluxUdg = runtime.fluxUdg.data; T* fluxUhg = runtime.fluxUhg.data;
             const T* fluxWdg = runtime.fluxWdg.data; const T* wdgUdg = runtime.wdgUdg.data;
@@ -210,7 +210,7 @@ inline void evaluate_runtime_flux(NonmatchingRuntimeDirection<T, I>& runtime,
         EXASIM_DRIVER_CALL(FintDriver, runtime.flux.data, runtime.x.data, runtime.udg.data,
             runtime.odg.data, runtime.wdg.data, runtime.uhg.data, runtime.nl.data,
             mesh, master, app, sol, tmp, common, npts,
-            common.couplingparams.coupledcondition, backend);
+            condition, backend);
     }
 }
 
@@ -485,7 +485,10 @@ inline void assemble_coupling_slot_owner(T* elementResidual,
         const auto& d = runtime.dir[direction];
         const auto v = d.view;
         if (!v.isowner || v.nownfaces == 0) continue;
-        const I* fluxmap = app.interfacefluxmap;
+        const I* fluxmap = runtime.fluxmap.data ? runtime.fluxmap.data
+                                                : app.interfacefluxmap;
+        if (v.ncu12 > 0 && !fluxmap)
+            error("non-matching runtime: owner flux map is missing");
         const I* ownerTarget = v.ownerTarget;
         const I* faceBlockPtr = v.faceBlockPtr; const I* faceBlocks = v.faceBlocks;
         const T* received = d.recvbuf.data;
@@ -508,6 +511,7 @@ inline void assemble_coupling_slot_owner(T* elementResidual,
             });
     }
     (void) mesh;
+    (void) app;
 }
 #endif
 
