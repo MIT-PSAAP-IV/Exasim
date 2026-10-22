@@ -815,7 +815,7 @@ void buildConn(Conn& conn, const PDE& pde, const Mesh& mesh, const Master& maste
     //print2iarray(conn.elemcon.data(), master.npf*mesh.nfe, ne);
 
     if (pde.mpiprocs==1) {
-      if (pde.coupledinterface>0) {        
+      if (pde.coupledinterface>0 || !pde.interactionSelectors.empty()) {
         std::vector<int> me(3), tm(2); 
         me[0] = 0; me[1] = dmd.intepartpts[0]; me[2] = me[1] + dmd.intepartpts[1];
         tm[0] = 0; tm[1] = -1;
@@ -824,7 +824,7 @@ void buildConn(Conn& conn, const PDE& pde, const Mesh& mesh, const Master& maste
         conn.nbe = divide_interval(conn.eblks, ne, pde.neb);
       }
     } else {
-      if (pde.coupledinterface>0) {        
+      if (pde.coupledinterface>0 || !pde.interactionSelectors.empty()) {
         std::vector<int> me(5), tm(4); 
         me[0] = 0; me[1] = dmd.intepartpts[0]; me[2] = me[1] + dmd.intepartpts[1]; me[3] = me[2] + dmd.intepartpts[2]; me[4] = me[3] + dmd.intepartpts[3];
         tm[0] = 0; tm[1] = -1; tm[2] = 1; tm[3] = 2;

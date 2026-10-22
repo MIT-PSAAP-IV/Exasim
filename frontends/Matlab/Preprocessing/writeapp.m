@@ -154,6 +154,12 @@ nsize(21) = length(meshadaptparam(:));
 nsize(22) = length(app.meshadaptboundaryconditions(:));
 nsize(23) = length(app.distanceboundaryconditions(:));
 nsize(24) = length(bououtparam(:)); % [saveSolBouLoc, ibs_1, ..., ibs_k]
+interactiontable = [];
+if isfield(app,'interactiontable'), interactiontable = app.interactiontable(:); end
+if any(interactiontable ~= fix(interactiontable)) || any(interactiontable < 0) || any(interactiontable >= 2^31)
+    error('app.interactiontable must contain nonnegative 32-bit integers.');
+end
+nsize(25) = length(interactiontable);
 
 app.nsize = nsize;
 app.ndims = ndims;
@@ -197,6 +203,7 @@ fwrite(fileID,meshadaptparam(:),'double',endian);
 fwrite(fileID,app.meshadaptboundaryconditions(:),'double',endian);
 fwrite(fileID,app.distanceboundaryconditions(:),'double',endian);
 fwrite(fileID,bououtparam(:),'double',endian);
+fwrite(fileID,interactiontable,'double',endian);
 fclose(fileID);
 
 % [1 30 40 17 32 2 1 5 4 1]

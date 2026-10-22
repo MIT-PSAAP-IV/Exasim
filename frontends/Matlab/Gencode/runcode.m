@@ -1,4 +1,4 @@
-function runstr = runcode(pde, numpde, mpiprocs)
+function runstr = runcode(pde, numpde, mpiprocs, domainranks)
 % Run the solver executable built by cmakecompile.
 %
 % Uses the legacy CLI: exasimapp <numpde> <datain>/ <dataout>/out, with
@@ -7,6 +7,9 @@ function runstr = runcode(pde, numpde, mpiprocs)
 
 if nargin<3
   mpiprocs = pde.mpiprocs;
+end
+if nargin<4
+  domainranks = [];
 end
 
 disp("Run C++ Exasim code ...")
@@ -51,6 +54,15 @@ else
         mystr = mystr + DataPath + "/datain" + num2str(i) + "/ " + DataPath + "/dataout" + num2str(i) + "/out";
         mystr = mystr + " ";
     end
+end
+if ~isempty(domainranks)
+    if numel(domainranks) ~= numpde || any(domainranks ~= floor(domainranks)) || any(domainranks <= 0)
+        error('domainranks must contain one positive integer count per domain.');
+    end
+    if sum(domainranks) ~= mpiprocs
+        error('domainranks must sum to mpiprocs.');
+    end
+    mystr = mystr + " --domain-ranks " + join(string(domainranks(:)'), ",");
 end
 
 if mpiprocs==1

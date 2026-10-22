@@ -45,6 +45,7 @@
 
 #include <functional>
 #include <cstring>
+#include <fcntl.h>
 #include <map>
 #include <memory>
 #include <sys/wait.h>
@@ -58,6 +59,18 @@ using namespace std;
 #include "../../backend/Common/cpuimpl.h"
 #include "../../backend/Common/kokkosimpl.h"
 #include "../../backend/Common/pblas.h"
+
+// Selection failures are inspected in child processes before MPI_Init and,
+// for the class-owned CUDA case, directly after MPI_Init.  Keep production's
+// fatal error behavior everywhere else; only this test translation unit turns
+// the diagnostic into an exception that it can verify.
+[[noreturn]] inline void matvec_test_error(const std::string& message)
+{
+    throw std::runtime_error(message);
+}
+#undef error
+#define error(message) matvec_test_error(message)
+
 #include "../../backend/Discretization/ioutilities.cpp"
 #include "../../backend/Discretization/residual.hpp"
 #include "../../backend/Discretization/nonmatchingcoupling.hpp"
@@ -543,10 +556,17 @@ struct RankOperator {
     solstruct sol;
     resstruct res;
     tempstruct tmp;
+    std::vector<exasim::nonmatching::NonmatchingInteraction<dstype, Int>> interactions;
 
     RankOperator() = default;
     RankOperator(const RankOperator&) = delete;
     RankOperator& operator=(const RankOperator&) = delete;
+    ~RankOperator()
+    {
+        interactions.clear();
+        if (common.requests && common.requests != requests.data()) CPUFREE(common.requests);
+        if (common.statuses && common.statuses != statuses.data()) CPUFREE(common.statuses);
+    }
 };
 
 template <class Model>
@@ -699,6 +719,76 @@ void use_nonmatching(RankOperator& op)
     op.common.nfacerecv = 0;
 }
 
+class ScopedStdoutSilence {
+public:
+    ScopedStdoutSilence()
+    {
+        std::fflush(stdout);
+        saved_ = dup(STDOUT_FILENO);
+        sink_ = open("/dev/null", O_WRONLY);
+        if (saved_ < 0 || sink_ < 0 || dup2(sink_, STDOUT_FILENO) < 0) {
+            if (sink_ >= 0) close(sink_);
+            if (saved_ >= 0) close(saved_);
+            throw std::runtime_error("could not suppress duplicate setup output");
+        }
+    }
+
+    ScopedStdoutSilence(const ScopedStdoutSilence&) = delete;
+    ScopedStdoutSilence& operator=(const ScopedStdoutSilence&) = delete;
+
+    ~ScopedStdoutSilence()
+    {
+        std::fflush(stdout);
+        if (saved_ >= 0) {
+            (void) dup2(saved_, STDOUT_FILENO);
+            close(saved_);
+        }
+        if (sink_ >= 0) close(sink_);
+    }
+
+private:
+    int saved_ = -1;
+    int sink_ = -1;
+};
+
+void setup_legacy_interaction(RankOperator& op, RankStructs& rs,
+        Int worldSize, Int rank, Int fileoffset)
+{
+    op.interactions.clear();
+    op.interactions.reserve(1);
+    // The production rebuild owns any replacement request storage.  Detach
+    // this fixture's vector-backed arrays before calling it so they are never
+    // passed to CPUFREE by the transactional capacity update.
+    if (op.common.requests && op.common.requests != op.requests.data()) CPUFREE(op.common.requests);
+    if (op.common.statuses && op.common.statuses != op.statuses.data()) CPUFREE(op.common.statuses);
+    op.common.requests = nullptr;
+    op.common.statuses = nullptr;
+    // setupLegacy validates the owner scatter map. The RankStructs fixture
+    // owns geometry/setup inputs, while RankOperator owns the map used by the
+    // production runtime, so connect them before entering the rebuild.
+    rs.app.interfacefluxmap = op.map.data();
+    exasim::nonmatching::NonmatchingInteraction<dstype, Int> interaction;
+    {
+        // The host setup used as the independent reference already emitted
+        // these diagnostics.  The Phase 3 class must run the real production
+        // setup too, but repeating its informational output would change the
+        // accepted Phase 0 protocol capture.
+        ScopedStdoutSilence silence;
+        if (!exasim::nonmatching::NonmatchingInteraction<dstype, Int>::setupLegacy(
+                rs.app, rs.master, rs.mesh, rs.sol, op.common, worldSize, rank,
+                fileoffset, Int(0), interaction))
+            throw std::runtime_error("legacy interaction setup did not publish");
+    }
+    op.interactions.emplace_back(std::move(interaction));
+    // The established matvec fixture deliberately overprovisions one request
+    // array for later conformal and halo variants.  Keep that fixture behavior
+    // after exercising the production transactional capacity allocation.
+    CPUFREE(op.common.requests);
+    CPUFREE(op.common.statuses);
+    op.common.requests = op.requests.data();
+    op.common.statuses = op.statuses.data();
+}
+
 // Select the conformal (type 0) coupling with the arrays of
 // build_runtime_interface_partition.
 void use_conformal(RankOperator& op, const meshstruct& part)
@@ -731,15 +821,31 @@ void matvec(RankOperator& op, std::vector<dstype>& w, std::vector<dstype>& AE, c
 {
     w.assign(op.N, 0);
     std::vector<dstype> vin(v);
-    exasim::nonmatching::NonmatchingRuntime<dstype, Int> runtime;
-    exasim::nonmatching::NonmatchingRuntime<dstype, Int>* runtimePointer = nullptr;
-    if (nm) {
-        exasim::nonmatching::refresh_nonmatching_runtime(
-                runtime, *nm, op.app, op.mesh, op.common, Int(0), ownerTests);
-        runtimePointer = &runtime;
-    }
+    std::vector<exasim::nonmatching::NonmatchingInteraction<dstype, Int>> empty;
+    auto& selected = nm ? op.interactions : empty;
     hdgMatVec<dstype, Int>(w.data(), AE.data(), vin.data(), op.ve.data(), op.we.data(), op.res, op.app,
-                           op.mesh, op.common, op.tmp, 0, 0, runtimePointer);
+                           op.mesh, op.common, op.tmp, 0, 0, selected);
+    (void)ownerTests;
+}
+
+void check_class_cuda_rejection_after_mpi(RankOperator& op)
+{
+    static bool checked = false;
+    if (checked || worldRank != 0) return;
+    checked = true;
+
+    bool rejected = false;
+    try {
+        hdgMatVec<dstype, Int>(nullptr, nullptr, nullptr, nullptr, nullptr,
+            op.res, op.app, op.mesh, op.common, op.tmp, 0, 2, op.interactions);
+    }
+    catch (const std::runtime_error& exception) {
+        rejected = std::string(exception.what()).find("awaits device validation") !=
+                   std::string::npos;
+    }
+    check(rejected, "negative selection fails clearly: hdgMatVec, active type 1 on CUDA");
+    std::printf("negative selection \"hdgMatVec, active type 1 on CUDA\": "
+                "exit status 1, %s\n", rejected ? "expected message" : "MESSAGE MISSING");
 }
 
 // Element trace vector of v (ncu x npf x nfe per element), gathered directly.
@@ -977,16 +1083,17 @@ void nonmatching_case(const std::string& name, const ModelMesh& m1, const ModelM
 
     RankOperator op;
     init_operator<Model>(op, lm, localMaster, sc.model);
+    setup_legacy_interaction(op, rs, static_cast<Int>(n), static_cast<Int>(worldRank),
+                             static_cast<Int>(sc.model * sc.k));
     use_nonmatching(op);
+    check_class_cuda_rejection_after_mpi(op);
     check(exasim::nonmatching::validate_coupling_selection(op.common, &nm, Int(0), "test"),
           tag + ": type-1 coupling is active");
     exasim::nonmatching::compute_nonmatching_coupling<Model>(nm, op.sol, op.res, op.app, op.master, op.mesh,
             op.tmp, op.common, 0, true, 0, mixedFamilies ? &sidecar : nullptr);
-    exasim::nonmatching::NonmatchingRuntime<dstype, Int> exactRuntime;
-    exasim::nonmatching::refresh_nonmatching_runtime(exactRuntime, nm, op.app, op.mesh, op.common, Int(0),
-            mixedFamilies ? &sidecar : nullptr);
-    exasim::nonmatching::compute_nonmatching_coupling<Model>(exactRuntime, op.sol, op.res, op.app,
+    op.interactions.front().template compute<Model>(op.sol, op.res, op.app,
             op.master, op.mesh, op.tmp, op.common, 0, true, 0);
+    const auto& exactRuntime = *op.interactions.front().runtimeData();
     for (int direction = 0; direction < 2; ++direction) {
         const auto& hostDirection = nm.dir[direction];
         const auto& runtimeDirection = exactRuntime.dir[direction];
@@ -1116,6 +1223,8 @@ void halo_case(const std::string& name, const ModelMesh& m1, const ModelMesh& m2
 
     RankOperator op;
     init_operator<Model>(op, lm, mst, sc.model);
+    setup_legacy_interaction(op, rs, static_cast<Int>(n), static_cast<Int>(worldRank),
+                             static_cast<Int>(sc.model * sc.k));
     use_nonmatching(op);
     const Int m = op.m, nfe = op.nfe, npf = op.npf;
 
@@ -1171,6 +1280,8 @@ void halo_case(const std::string& name, const ModelMesh& m1, const ModelMesh& m2
     exasim::nonmatching::compute_nonmatching_coupling<Model>(nm, op.sol, op.res, op.app, op.master, op.mesh,
             op.tmp, op.common, 0, true, 0,
             static_cast<const OwnerTestData<dstype, Int>*>(nullptr));
+    op.interactions.front().template compute<Model>(op.sol, op.res, op.app,
+            op.master, op.mesh, op.tmp, op.common, 0, true, 0);
 
     // Trace values by physical node position, so shared faces agree across ranks.
     std::vector<dstype> v(op.N);
@@ -1349,11 +1460,15 @@ void matching_case(const std::string& name, const ModelMesh& m1, const ModelMesh
 
     RankOperator op;
     init_operator<Model>(op, lm, mst, sc.model);
+    setup_legacy_interaction(op, rn, static_cast<Int>(n), static_cast<Int>(worldRank),
+                             static_cast<Int>(sc.model * sc.k));
     conformal_interface_matrices<Model>(op, lm, mst);
     use_nonmatching(op);
     exasim::nonmatching::compute_nonmatching_coupling<Model>(nm, op.sol, op.res, op.app, op.master, op.mesh,
             op.tmp, op.common, 0, true, 0,
             static_cast<const OwnerTestData<dstype, Int>*>(nullptr));
+    op.interactions.front().template compute<Model>(op.sol, op.res, op.app,
+            op.master, op.mesh, op.tmp, op.common, 0, true, 0);
 
     std::vector<dstype> v(op.N), wc, wn, ve, weAE, wAE;
     for (Int i = 0; i < op.N; i++) v[i] = hv(i, 67 + sc.model) - 0.5;
@@ -1526,14 +1641,9 @@ void run_negative_cases()
         {"hdgMatVec, active type 1 without data", "requires a run-time cache",
          [&]() {
              commonstruct c = active(); resstruct res; appstruct app; meshstruct mesh; tempstruct tmp;
+             std::vector<exasim::nonmatching::NonmatchingInteraction<dstype, Int>> interactions;
              hdgMatVec<dstype, Int>(nullptr, nullptr, nullptr, nullptr, nullptr, res, app, mesh, c, tmp, 0, 0,
-                                    static_cast<exasim::nonmatching::NonmatchingRuntime<dstype, Int>*>(nullptr));
-         }},
-        {"hdgMatVec, active type 1 on CUDA", "awaits device validation",
-         [&]() {
-             commonstruct c = active(); resstruct res; appstruct app; meshstruct mesh; tempstruct tmp;
-             hdgMatVec<dstype, Int>(nullptr, nullptr, nullptr, nullptr, nullptr, res, app, mesh, c, tmp, 0, 2,
-                                    &runtimeTypeOne);
+                                    interactions);
          }},
     };
     for (const NegativeCase& nc : cases) {
@@ -1546,7 +1656,14 @@ void run_negative_cases()
             close(fds[0]);
             dup2(fds[1], STDERR_FILENO);
             dup2(fds[1], STDOUT_FILENO);
-            nc.run();
+            try {
+                nc.run();
+            }
+            catch (const std::exception& exception) {
+                std::printf("ERROR: %s\n", exception.what());
+                std::fflush(stdout);
+                _exit(1);
+            }
             std::printf("NO ERROR RAISED\n");
             std::fflush(stdout);
             _exit(0);
@@ -1596,6 +1713,8 @@ void runtime_cycle(RankOperator& op, exasim::nonmatching::NonmatchingRuntime<dst
     out.push_back(wc);
     exasim::nonmatching::compute_nonmatching_coupling<Model>(rt, op.sol, op.res, op.app, op.master, op.mesh,
             op.tmp, op.common, 0, true, 0);
+    op.interactions.front().template compute<Model>(op.sol, op.res, op.app,
+            op.master, op.mesh, op.tmp, op.common, 0, true, 0);
     for (int d = 0; d < 2; d++) {
         out.emplace_back(rt.dir[d].Ri.data, rt.dir[d].Ri.data + nm.dir[d].szRi);
         out.emplace_back(rt.dir[d].Hi.data, rt.dir[d].Hi.data + nm.dir[d].szHi);
@@ -1603,7 +1722,7 @@ void runtime_cycle(RankOperator& op, exasim::nonmatching::NonmatchingRuntime<dst
     std::vector<dstype> v(op.N), w(op.N, 0);
     for (Int i = 0; i < op.N; i++) v[i] = hv(i, 71 + model) - 0.5;
     hdgMatVec<dstype, Int>(w.data(), op.AE.data(), v.data(), op.ve.data(), op.we.data(), op.res, op.app,
-                           op.mesh, op.common, op.tmp, 0, 0, &rt);
+                           op.mesh, op.common, op.tmp, 0, 0, op.interactions);
     out.push_back(w);
 }
 
@@ -1649,11 +1768,15 @@ void rebuild_case(const std::string& name, const ModelMesh& m1, const ModelMesh&
     auto rebuild = [&](RankStructs& rs, RankOperator& op, nonmatchingdata& nm,
                        std::unique_ptr<Runtime>& rt,
                        std::unique_ptr<OwnerTestData<dstype, Int>>& sidecar) {
+        if (op.common.requests == op.requests.data()) op.common.requests = nullptr;
+        if (op.common.statuses == op.statuses.data()) op.common.statuses = nullptr;
         exasim::nonmatching::rebuild_nonmatching_interface(rs.app, rs.master, rs.mesh, rs.sol, op.common,
                 static_cast<Int>(n), static_cast<Int>(worldRank), static_cast<Int>(sc.model * sc.k), nm, rt,
                 Int(0), static_cast<DonorSearchResult<dstype, Int>*>(nullptr),
                 DonorSearchParams(), true, mixedFamilies ? &sidecar : nullptr);
         check(rt && rt->interfacetype == 1, tag + ": rebuild publishes a type-1 runtime");
+        setup_legacy_interaction(op, rs, static_cast<Int>(n), static_cast<Int>(worldRank),
+                                 static_cast<Int>(sc.model * sc.k));
     };
     // Totals (points, slots, pairs, send and receive neighbors) in c, and the
     // per-rank (points, slots, pairs) in perRank.
@@ -1751,8 +1874,10 @@ void rebuild_case(const std::string& name, const ModelMesh& m1, const ModelMesh&
     exasim::nonmatching::free_nonmatching_data(nm);
     exasim::nonmatching::free_nonmatching_data(nmFresh);
     for (RankOperator* o : {&op, &opFresh}) {
-        CPUFREE(o->common.requests);
-        CPUFREE(o->common.statuses);
+        if (o->common.requests && o->common.requests != o->requests.data())
+            CPUFREE(o->common.requests);
+        if (o->common.statuses && o->common.statuses != o->statuses.data())
+            CPUFREE(o->common.statuses);
     }
 }
 

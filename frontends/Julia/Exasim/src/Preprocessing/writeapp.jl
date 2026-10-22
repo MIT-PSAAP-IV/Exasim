@@ -125,6 +125,9 @@ nsize[21] = length(meshadaptparam[:]);
 nsize[22] = length(app.meshadaptboundaryconditions[:]);
 nsize[23] = length(app.distanceboundaryconditions[:]);
 nsize[24] = length(bououtparam[:]); # [saveSolBouLoc, ibs...]
+interactiontable = Float64.(app.interactiontable[:]);
+all(isfinite,interactiontable) && all(interactiontable .== floor.(interactiontable)) && all(interactiontable .>= 0) && all(interactiontable .< 2^31) || error("app.interactiontable must contain nonnegative 32-bit integers.");
+nsize[25] = length(interactiontable);
 
 # app.nsize = nsize;
 # app.ndims = ndims;
@@ -197,6 +200,7 @@ write(fileID,Float64.(meshadaptparam[:]));
 write(fileID,Float64.(app.meshadaptboundaryconditions[:]));
 write(fileID,Float64.(app.distanceboundaryconditions[:]));
 write(fileID,Float64.(bououtparam[:]));
+write(fileID,interactiontable);
 
 if app.mutationflag == 1
     write(fileID, app.mutationopts["MixtureName"] * "X")

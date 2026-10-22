@@ -717,8 +717,9 @@ void setup_rank_3d(SetupRank3D& r,SetupMaster3D& m,int model,int part,int modelR
 }
 
 dstype verify_runtime_matvec(const char* label,SetupRank3D& r,const SetupMaster3D& m,
-        commonstruct& common,resstruct& residual,nonmatchingdata& nm,
+        commonstruct& common,resstruct& residual,const nonmatchingdata& nm,
         exasim::nonmatching::NonmatchingRuntime<dstype,Int>& runtime,
+        std::vector<exasim::nonmatching::NonmatchingInteraction<dstype,Int>>* interactions,
         Int ncu,Int ncu12,int worldRank)
 {
     const Int ne=common.meshsizes.ne,ndf=m.npf*m.nfe,mtrace=ndf*ncu;
@@ -741,8 +742,27 @@ dstype verify_runtime_matvec(const char* label,SetupRank3D& r,const SetupMaster3
     std::vector<dstype> dummyReal(1,0.0); std::vector<Int> dummyInt(1,0);
     tempstruct tmp{}; tmp.buffsend=dummyReal.data(); tmp.buffrecv=dummyReal.data();
     tmp.tempi=dummyInt.data(); tmp.tempn=dummyReal.data(); tmp.tempg=dummyReal.data();
-    hdgMatVec<dstype,Int>(w.data(),AE.data(),v.data(),ve.data(),we.data(),residual,
-        r.app,r.mesh,common,tmp,0,0,&runtime);
+    if(interactions) {
+        hdgMatVec<dstype,Int>(w.data(),AE.data(),v.data(),ve.data(),we.data(),residual,
+            r.app,r.mesh,common,tmp,0,0,*interactions);
+    }
+    else {
+        // The rebuild regression deliberately owns the pre-Phase-3 raw
+        // runtime. Exercise that exact rebuilt object through the same
+        // pairwise operations used by the class, without constructing and
+        // printing a second setup generation.
+        GetElementFaceNodes(ve.data(),v.data(),r.mesh.elemcon,m.npf*m.nfe,ncu,0,ne,2);
+        exasim::nonmatching::nonmatching_matvec_products(
+            runtime,ve.data(),mtrace,ne,0,0);
+        Int request=0;
+        exasim::nonmatching::begin_coupling_slot_exchange(runtime,common,request);
+        if(request>0) MPI_Waitall(request,common.requests,common.statuses);
+        exasim::nonmatching::assemble_coupling_slot_owner(
+            we.data(),runtime,r.mesh,r.app,common);
+        PutElementFaceNodes(w.data(),we.data(),r.mesh.f2e,m.npf,m.nfe,ncu,nf);
+        PutElementFaceNodes(w.data(),we.data(),r.mesh.f2e,r.mesh.elemcon,
+            m.npf,m.nfe,ncu,common.meshsizes.nf0);
+    }
 
     std::vector<dstype> veRef(ve.size(),0.0),weRef(we.size(),0.0),wRef(N,0.0);
     for(Int e=0;e<ne;++e) for(Int i=0;i<ndf;++i) for(Int c=0;c<ncu;++c)
@@ -1432,9 +1452,9 @@ void multi_setup_case(int elemtype,int p,int worldRank,int worldSize,dstype gap=
                 rebuiltJacobianError=std::max(rebuiltJacobianError,std::abs(a.Hi.data[i]-b.Hi.data[i]));
         }
         const dstype rebuiltMatvecError=verify_runtime_matvec("rebuilt",r,m,common,
-            rebuiltResidual,nm,*runtime,1,1,worldRank);
+            rebuiltResidual,nm,*runtime,nullptr,1,1,worldRank);
         const dstype freshMatvecError=verify_runtime_matvec("fresh",r,m,freshCommon,
-            freshResidual,fresh,*freshRuntime,1,1,worldRank);
+            freshResidual,fresh,*freshRuntime,nullptr,1,1,worldRank);
         if(rebuiltResidualError>5e-13 || rebuiltJacobianError>5e-13 ||
                 rebuiltMatvecError>=1e-13 || freshMatvecError>=1e-13) {
             std::printf("FAIL 3D rebuilt/fresh operators family %d rank %d residual %.3e Jacobian %.3e matvec %.3e/%.3e\n",
@@ -1744,15 +1764,18 @@ void model_operator_case(const char* name,int elemtype,int p,int worldRank,int w
     common.timeparams.wave=0; common.timeparams.dae_alpha=0; common.timeparams.dae_beta=0;
     common.timestate.dtfactor=1; common.timestate.time=0;
 
-    nonmatchingdata nm;
-    std::unique_ptr<NonmatchingRuntime<dstype,Int>> runtime;
-    std::unique_ptr<OwnerTestData<dstype,Int>> ownerTests;
-    if(!rebuild_nonmatching_interface(r.app,r.master,r.mesh,r.sol,common,worldSize,worldRank,
-            model,nm,runtime,0,static_cast<DonorSearchResult<dstype,Int>*>(nullptr),
-            DonorSearchParams(),true,&ownerTests)) {
+    std::vector<NonmatchingInteraction<dstype,Int>> interactions;
+    interactions.reserve(1);
+    NonmatchingInteraction<dstype,Int> interaction;
+    if(!NonmatchingInteraction<dstype,Int>::setupLegacy(r.app,r.master,r.mesh,r.sol,
+            common,worldSize,worldRank,model,0,interaction)) {
         std::printf("FAIL 3D model operator setup %s family %d rank %d\n",name,localElemtype,worldRank);
         ++failures; return;
     }
+    interactions.emplace_back(std::move(interaction));
+    const nonmatchingdata& nm=*interactions.front().setupData();
+    auto& runtime=*const_cast<NonmatchingRuntime<dstype,Int>*>(
+        interactions.front().runtimeData());
 
     std::vector<dstype> C(static_cast<std::size_t>(m.npe)*m.npe*ne*3,0.0);
     std::vector<dstype> E(static_cast<std::size_t>(m.npe)*ndf*ne*3,0.0);
@@ -1775,10 +1798,10 @@ void model_operator_case(const char* name,int elemtype,int p,int worldRank,int w
     resstruct residual{}; residual.C=C.data(); residual.E=E.data();
     residual.F=F.data(); residual.Ru=Ru.data();
     tempstruct tmp{};
-    compute_nonmatching_coupling<Model>(*runtime,r.sol,residual,r.app,r.master,r.mesh,tmp,common,
+    compute_nonmatching_coupling<Model>(runtime,r.sol,residual,r.app,r.master,r.mesh,tmp,common,
         0,true,0);
 
-    auto& rd=runtime->dir[1-model];
+    auto& rd=runtime.dir[1-model];
     const auto& donor=nm.dir[1-model];
     const Int ownerNpf=rd.view.contract.ownerFaceNodes,m12=ownerNpf*ncu12;
     dstype fluxError=0,jacError=0,wError=0,wJacError=0;
@@ -1862,7 +1885,7 @@ void model_operator_case(const char* name,int elemtype,int p,int worldRank,int w
             for(Int e=0;e<ne;++e) for(Int i=0;i<ndf;++i) for(Int c=0;c<ncu;++c)
                 r.uh[c+ncu*(i+ndf*e)]+=sign*step*duh[c];
             r.sol.udg=r.udg.data(); r.sol.uh=r.uh.data();
-            compute_nonmatching_coupling<Model>(*runtime,r.sol,residual,r.app,r.master,r.mesh,tmp,
+            compute_nonmatching_coupling<Model>(runtime,r.sol,residual,r.app,r.master,r.mesh,tmp,
                 common,0,false,0);
             return std::vector<dstype>(rd.flux.data,rd.flux.data+rd.flux.size);
         };
@@ -1879,7 +1902,7 @@ void model_operator_case(const char* name,int elemtype,int p,int worldRank,int w
         }
         fdError=fdSensitivity[1];
         r.udg=baseUdg; r.uh=baseUh; r.sol.udg=r.udg.data(); r.sol.uh=r.uh.data();
-        compute_nonmatching_coupling<Model>(*runtime,r.sol,residual,r.app,r.master,r.mesh,tmp,
+        compute_nonmatching_coupling<Model>(runtime,r.sol,residual,r.app,r.master,r.mesh,tmp,
             common,0,true,0);
     }
 
@@ -1963,7 +1986,8 @@ void model_operator_case(const char* name,int elemtype,int p,int worldRank,int w
     dstype residualError=0,matrixError=0;
     for(Int i=0;i<rd.Ri.size;++i) residualError=std::max(residualError,std::abs(rd.Ri.data[i]-expectedRi[i]));
     for(Int i=0;i<rd.Hi.size;++i) matrixError=std::max(matrixError,std::abs(rd.Hi.data[i]-expectedHi[i]));
-    const dstype matvecError=verify_runtime_matvec(name,r,m,common,residual,nm,*runtime,ncu,ncu12,worldRank);
+    const dstype matvecError=verify_runtime_matvec(name,r,m,common,residual,
+        nm,runtime,&interactions,ncu,ncu12,worldRank);
     if(fluxError>5e-13 || jacError>5e-13 || residualError>5e-13 || matrixError>5e-13 ||
             wError>5e-13 || wJacError>5e-13 || fdError>=1e-6 || matvecError>=1e-13) {
         std::printf("FAIL 3D model operators %s family %d rank %d flux %.3e jac %.3e Ri %.3e Hi %.3e w %.3e wjac %.3e fd %.3e mv %.3e\n",
@@ -1984,23 +2008,28 @@ void model_operator_case(const char* name,int elemtype,int p,int worldRank,int w
         r.bf[m.nfe]=1;
         r.intfaces.resize(1);
         r.mesh.intfaces=r.intfaces.data(); r.mesh.szintfaces=1;
-        if(!rebuild_nonmatching_interface(r.app,r.master,r.mesh,r.sol,common,worldSize,worldRank,
-                model,nm,runtime,0,static_cast<DonorSearchResult<dstype,Int>*>(nullptr),
-                DonorSearchParams(),true,&ownerTests))
+        interactions.clear();
+        NonmatchingInteraction<dstype,Int> rebuilt;
+        if(!NonmatchingInteraction<dstype,Int>::setupLegacy(r.app,r.master,r.mesh,r.sol,
+                common,worldSize,worldRank,model,0,rebuilt))
             throw std::runtime_error("mixed changed-count rebuild did not publish");
-        const long long allocations=runtime->allocations;
-        compute_nonmatching_coupling<Model>(*runtime,r.sol,residual,r.app,r.master,r.mesh,tmp,
+        interactions.emplace_back(std::move(rebuilt));
+        auto& rebuiltRuntime=*const_cast<NonmatchingRuntime<dstype,Int>*>(
+            interactions.front().runtimeData());
+        auto& rebuiltSetup=*const_cast<nonmatchingdata*>(interactions.front().setupData());
+        const long long allocations=rebuiltRuntime.allocations;
+        compute_nonmatching_coupling<Model>(rebuiltRuntime,r.sol,residual,r.app,r.master,r.mesh,tmp,
             common,0,true,0);
-        verify_runtime_matvec("mixed-changed-count",r,m,common,residual,nm,*runtime,
-            ncu,ncu12,worldRank);
-        compute_nonmatching_coupling<Model>(*runtime,r.sol,residual,r.app,r.master,r.mesh,tmp,
+        verify_runtime_matvec("mixed-changed-count",r,m,common,residual,rebuiltSetup,
+            rebuiltRuntime,&interactions,ncu,ncu12,worldRank);
+        compute_nonmatching_coupling<Model>(rebuiltRuntime,r.sol,residual,r.app,r.master,r.mesh,tmp,
             common,0,true,0);
-        verify_runtime_matvec("mixed-changed-count-repeat",r,m,common,residual,nm,*runtime,
-            ncu,ncu12,worldRank);
-        if(runtime->allocations!=allocations)
+        verify_runtime_matvec("mixed-changed-count-repeat",r,m,common,residual,
+            rebuiltSetup,rebuiltRuntime,&interactions,ncu,ncu12,worldRank);
+        if(rebuiltRuntime.allocations!=allocations)
             throw std::runtime_error("mixed repeated residual/matvec changed runtime allocations");
     }
-    free_nonmatching_data(nm); runtime.reset(); ownerTests.reset();
+    interactions.clear();
     CPUFREE(common.requests); CPUFREE(common.statuses);
 }
 
@@ -2025,17 +2054,24 @@ void orientation_runtime_case(int elemtype,int p,int worldRank,int worldSize)
     common.couplingparams.coupledboundarycondition=2;
     common.couplingparams.coupledcondition=1; common.couplingparams.coupledinterface=1;
     common.couplingparams.interfacetype=1;
-    nonmatchingdata nm; std::unique_ptr<NonmatchingRuntime<dstype,Int>> runtime;
-    rebuild_nonmatching_interface(r.app,r.master,r.mesh,r.sol,common,worldSize,worldRank,model,
-        nm,runtime,0,static_cast<DonorSearchResult<dstype,Int>*>(nullptr));
+    std::vector<NonmatchingInteraction<dstype,Int>> interactions;
+    interactions.reserve(1);
+    NonmatchingInteraction<dstype,Int> interaction;
+    if(!NonmatchingInteraction<dstype,Int>::setupLegacy(r.app,r.master,r.mesh,r.sol,
+            common,worldSize,worldRank,model,0,interaction))
+        throw std::runtime_error("orientation interaction setup did not publish");
+    interactions.emplace_back(std::move(interaction));
+    const nonmatchingdata& nm=*interactions.front().setupData();
+    auto& runtime=*const_cast<NonmatchingRuntime<dstype,Int>*>(
+        interactions.front().runtimeData());
     std::vector<dstype> F(static_cast<std::size_t>(m.npe)*mtrace*ne,0.0),Ru(static_cast<std::size_t>(m.npe)*ne,0.0);
     resstruct residual{}; residual.F=F.data(); residual.Ru=Ru.data(); tempstruct tmp{};
     const int norient=elemtype==0?6:8;
     dstype worstResidual=0,worstMatrix=0,worstMatvec=0;
     SurfaceNodalBasis basis(m.xpf.data(),m.npf,p,elemtype);
     for(int orientation=0;orientation<norient;++orientation) {
-        refresh_nonmatching_runtime(*runtime,nm,r.app,r.mesh,common,Int(0));
-        auto& rd=runtime->dir[1-model]; const nonmatchinginterface& donor=nm.dir[1-model];
+        refresh_nonmatching_runtime(runtime,nm,r.app,r.mesh,common,Int(0));
+        auto& rd=runtime.dir[1-model]; const nonmatchinginterface& donor=nm.dir[1-model];
         std::vector<dstype> psi(m.npf),dpsi(static_cast<std::size_t>(2)*m.npf);
         for(Int q=0;q<donor.npts;++q) {
             const dstype in[2]={donor.pxi[q],donor.pxi[q+donor.npts]};
@@ -2043,7 +2079,7 @@ void orientation_runtime_case(int elemtype,int p,int worldRank,int worldSize)
             basis.evaluate(psi.data(),dpsi.data(),out);
             for(Int j=0;j<m.npf;++j) rd.ppsi.data[j+m.npf*q]=psi[j];
         }
-        compute_nonmatching_coupling<OrientationCoupled3D>(*runtime,r.sol,residual,r.app,
+        compute_nonmatching_coupling<OrientationCoupled3D>(runtime,r.sol,residual,r.app,
             r.master,r.mesh,tmp,common,0,true,0);
         std::vector<dstype> expectedRi(donor.szRi,0.0),expectedHi(donor.szHi,0.0);
         for(Int q=0;q<donor.npts;++q) {
@@ -2074,7 +2110,7 @@ void orientation_runtime_case(int elemtype,int p,int worldRank,int worldSize)
         for(Int i=0;i<donor.szHi;++i)
             worstMatrix=std::max(worstMatrix,std::abs(rd.Hi.data[i]-expectedHi[i]));
         worstMatvec=std::max(worstMatvec,verify_runtime_matvec("orientation",r,m,common,
-            residual,nm,*runtime,1,1,worldRank));
+            residual,nm,runtime,&interactions,1,1,worldRank));
     }
     dstype global[3]={0,0,0},local[3]={worstResidual,worstMatrix,worstMatvec};
     MPI_Allreduce(local,global,3,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
@@ -2084,7 +2120,7 @@ void orientation_runtime_case(int elemtype,int p,int worldRank,int worldSize)
     }
     if(worldRank==0) std::printf("3D runtime orientations family %d count %d: residual %.3e Hi %.3e matvec %.3e\n",
         elemtype,norient,global[0],global[1],global[2]);
-    free_nonmatching_data(nm); runtime.reset(); CPUFREE(common.requests); CPUFREE(common.statuses);
+    interactions.clear(); CPUFREE(common.requests); CPUFREE(common.statuses);
 }
 
 std::vector<Int> face_orientation_permutation(const SetupMaster3D& m,int orientation)
@@ -2126,12 +2162,19 @@ void matching_matvec_case(int elemtype,int p,int worldRank,int worldSize)
     common.szinterfacefluxmap=1; common.couplingparams.coupledboundarycondition=2;
     common.couplingparams.coupledcondition=1; common.couplingparams.coupledinterface=1;
     common.couplingparams.interfacetype=1;
-    nonmatchingdata nm; std::unique_ptr<NonmatchingRuntime<dstype,Int>> runtime;
-    rebuild_nonmatching_interface(r.app,r.master,r.mesh,r.sol,common,worldSize,worldRank,model,
-        nm,runtime,0,static_cast<DonorSearchResult<dstype,Int>*>(nullptr));
+    std::vector<NonmatchingInteraction<dstype,Int>> interactions;
+    interactions.reserve(1);
+    NonmatchingInteraction<dstype,Int> interaction;
+    if(!NonmatchingInteraction<dstype,Int>::setupLegacy(r.app,r.master,r.mesh,r.sol,
+            common,worldSize,worldRank,model,0,interaction))
+        throw std::runtime_error("matching interaction setup did not publish");
+    interactions.emplace_back(std::move(interaction));
+    const nonmatchingdata& nm=*interactions.front().setupData();
+    auto& runtime=*const_cast<NonmatchingRuntime<dstype,Int>*>(
+        interactions.front().runtimeData());
     std::vector<dstype> F(static_cast<std::size_t>(m.npe)*mtrace*ne,0.0),Ru(static_cast<std::size_t>(m.npe)*ne,0.0);
     resstruct residual{}; residual.F=F.data(); residual.Ru=Ru.data(); tempstruct couplingTmp{};
-    compute_nonmatching_coupling<OrientationCoupled3D>(*runtime,r.sol,residual,r.app,r.master,
+    compute_nonmatching_coupling<OrientationCoupled3D>(runtime,r.sol,residual,r.app,r.master,
         r.mesh,couplingTmp,common,0,true,0);
 
     r.f2e.assign(static_cast<std::size_t>(4)*nf,-1);
@@ -2149,7 +2192,7 @@ void matching_matvec_case(int elemtype,int p,int worldRank,int worldSize)
     common.nnbsd=0; common.nelemsend=0; common.nelemrecv=0;
     common.meshsizes.ne0=0;
     hdgMatVec<dstype,Int>(wn.data(),AE.data(),v.data(),ve.data(),we.data(),residual,
-        r.app,r.mesh,common,tmp,0,0,runtime.get());
+        r.app,r.mesh,common,tmp,0,0,interactions);
 
     const nonmatchinginterface& donor=nm.dir[1-model];
     const nonmatchinginterface& owner=nm.dir[model];
@@ -2172,7 +2215,7 @@ void matching_matvec_case(int elemtype,int p,int worldRank,int worldSize)
         for(Int n=0;n<m.npf;++n) {
             const Int pn=faceperm[n+(elemtype==0?m.npf*faceIndex:0)];
             for(Int col=0;col<mtrace;++col) {
-                const dstype value=runtime->dir[1-model].Hi.data[n+m12*(col+static_cast<std::size_t>(mtrace)*pair)];
+                const dstype value=runtime.dir[1-model].Hi.data[n+m12*(col+static_cast<std::size_t>(mtrace)*pair)];
                 confHi[pn+m12*(col+static_cast<std::size_t>(mtrace)*e)]=value;
                 blockError=std::max(blockError,std::abs(confHi[pn+m12*(col+static_cast<std::size_t>(mtrace)*e)]-value));
             }
@@ -2188,8 +2231,9 @@ void matching_matvec_case(int elemtype,int p,int worldRank,int worldSize)
     r.mesh.faceperm=faceperm.data(); r.mesh.szfaceperm=static_cast<Int>(faceperm.size());
     residual.Hi=confHi.data(); residual.Ri=confRi.data();
     std::fill(ve.begin(),ve.end(),0.0); std::fill(we.begin(),we.end(),0.0);
+    std::vector<NonmatchingInteraction<dstype,Int>> noInteractions;
     hdgMatVec<dstype,Int>(wc.data(),AE.data(),v.data(),ve.data(),we.data(),residual,
-        r.app,r.mesh,common,tmp,0,0,nullptr);
+        r.app,r.mesh,common,tmp,0,0,noInteractions);
     dstype local=0,scale=0;
     for(Int i=0;i<N;++i) { local=std::max(local,std::abs(wc[i]-wn[i])); scale=std::max(scale,std::abs(wn[i])); }
     dstype global=0,globalScale=0; MPI_Allreduce(&local,&global,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
@@ -2203,7 +2247,7 @@ void matching_matvec_case(int elemtype,int p,int worldRank,int worldSize)
     if(worldRank==0) std::printf("3D matching type0/type1 family %d: faceperm %s block %.3e matvec %.3e\n",
         elemtype,elemtype==0?"expanded":"compact",blockError,error);
     (void)owner;
-    free_nonmatching_data(nm); runtime.reset(); CPUFREE(common.requests); CPUFREE(common.statuses);
+    interactions.clear(); CPUFREE(common.requests); CPUFREE(common.statuses);
 }
 
 struct SearchMaster {

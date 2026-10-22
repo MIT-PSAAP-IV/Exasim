@@ -58,6 +58,8 @@
 #ifndef __READBINARYFILES
 #define __READBINARYFILES
 
+#include "nonmatchinginteraction.hpp"
+
 #ifdef HAVE_MPP
 #include <mutation++.h>
 #endif
@@ -75,8 +77,35 @@ inline void readappstruct(std::string filename, appstruct &app)
     //printf("Read app struct from files...\n");   
     
     /* Read data to app structure */            
-    app.lsize = readiarrayfromdouble(in, 1);
-    app.nsize = readiarrayfromdouble(in, app.lsize[0]);
+    double rawLsize = 0.0;
+    in.read(reinterpret_cast<char*>(&rawLsize), sizeof(double));
+    if (!in || !std::isfinite(rawLsize) || rawLsize < 16.0 ||
+        std::floor(rawLsize) != rawLsize ||
+        rawLsize > static_cast<double>(std::numeric_limits<Int>::max()))
+        error("invalid app.bin size-table length");
+    const std::streampos sizeTableStart = in.tellg();
+    in.seekg(0, std::ios::end);
+    const std::streampos fileEnd = in.tellg();
+    in.seekg(sizeTableStart);
+    if (sizeTableStart < 0 || fileEnd < sizeTableStart ||
+        static_cast<std::uintmax_t>(rawLsize) >
+            static_cast<std::uintmax_t>(fileEnd - sizeTableStart) / sizeof(double))
+        error("invalid app.bin size-table length");
+    TemplateMalloc(&app.lsize, 1, 1);
+    app.lsize[0] = static_cast<Int>(rawLsize);
+    std::vector<double> rawNsize(static_cast<std::size_t>(app.lsize[0]));
+    in.read(reinterpret_cast<char*>(rawNsize.data()),
+            static_cast<std::streamsize>(rawNsize.size() * sizeof(double)));
+    if (!in) error("unable to read app.bin size table");
+    TemplateMalloc(&app.nsize, app.lsize[0], 1);
+    for (std::size_t i = 0; i < rawNsize.size(); ++i) {
+        const double value = rawNsize[i];
+        if (!std::isfinite(value) || value < 0.0 || std::floor(value) != value ||
+            value > static_cast<double>(std::numeric_limits<Int>::max()))
+            error("invalid app.bin size-table value");
+        app.nsize[i] = static_cast<Int>(value);
+    }
+    const double rawInteractionLength = app.lsize[0] > 24 ? rawNsize[24] : 0.0;
     app.ndims = readiarrayfromdouble(in, app.nsize[0]);
     app.flag = readiarrayfromdouble(in, app.nsize[1]);
     app.problem = readiarrayfromdouble(in, app.nsize[2]);
@@ -105,6 +134,7 @@ inline void readappstruct(std::string filename, appstruct &app)
     const Int szmeshadaptbcs = (app.lsize[0] > 21) ? app.nsize[21] : 0;
     const Int szdistanceboundaryconditions = (app.lsize[0] > 22) ? app.nsize[22] : 0;
     const Int szbououtparam = (app.lsize[0] > 23) ? app.nsize[23] : 0;
+    const Int szinteractions = (app.lsize[0] > 24) ? static_cast<Int>(rawInteractionLength) : 0;
     if (szwmModelIDs > 0) app.wmModelIDs = readiarrayfromdouble(in, szwmModelIDs);
     if (szwmBoundaries > 0) app.wmBoundaries = readiarrayfromdouble(in, szwmBoundaries);
     if (szwmDistances > 0) readarray(in, &app.wmDistances, szwmDistances);
@@ -113,6 +143,32 @@ inline void readappstruct(std::string filename, appstruct &app)
     if (szmeshadaptbcs > 0) app.meshadaptbcs = readiarrayfromdouble(in, szmeshadaptbcs);
     if (szdistanceboundaryconditions > 0) app.distanceboundaryconditions = readiarrayfromdouble(in, szdistanceboundaryconditions);
     if (szbououtparam > 0) app.bououtparam = readiarrayfromdouble(in, szbououtparam);
+    if (szinteractions > 0) {
+        if ((app.nsize[2] > 28 && app.problem[28] != 0) ||
+            (app.nsize[2] > 29 && app.problem[29] != 0) ||
+            (app.nsize[2] > 30 && app.problem[30] != 0) ||
+            (app.nsize[2] > 34 && app.problem[34] != 0) || app.nsize[14] != 0)
+            error("generalized interaction table cannot be combined with legacy coupling metadata");
+        const std::streampos tableStart = in.tellg();
+        in.seekg(0, std::ios::end);
+        const std::streampos fileEnd = in.tellg();
+        in.seekg(tableStart);
+        const std::size_t count = static_cast<std::size_t>(szinteractions);
+        if (count > std::numeric_limits<std::size_t>::max() / sizeof(double) ||
+            fileEnd < tableStart || static_cast<unsigned long long>(fileEnd - tableStart) !=
+                static_cast<unsigned long long>(count * sizeof(double)))
+            error("generalized interaction table length does not match the remaining app.bin bytes");
+        std::vector<double> raw(count);
+        in.read(reinterpret_cast<char*>(raw.data()), static_cast<std::streamsize>(count * sizeof(double)));
+        try {
+            (void) exasim::nonmatching::parse_interaction_table<Int>(raw.data(), count);
+            TemplateMalloc(&app.interactions, szinteractions, 1);
+            for (std::size_t i = 0; i < count; ++i)
+                app.interactions[i] = exasim::nonmatching::checked_interaction_integer<Int>(raw[i], "value");
+        } catch (const std::exception& exception) {
+            error(exception.what());
+        }
+    }
     
     app.szflag = app.nsize[1];
     app.szproblem = app.nsize[2];
@@ -137,6 +193,7 @@ inline void readappstruct(std::string filename, appstruct &app)
     app.szmeshadaptbcs = szmeshadaptbcs;
     app.szdistanceboundaryconditions = szdistanceboundaryconditions;
     app.szbououtparam = szbououtparam;
+    app.szinteractions = szinteractions;
 
     #ifdef HAVE_MPP
         char a[50];
@@ -240,6 +297,7 @@ inline void writeappstruct(std::string filename, appstruct &app)
     if (app.lsize[0] > 21) writeiarraytodouble(out, app.meshadaptbcs, app.nsize[21]);
     if (app.lsize[0] > 22) writeiarraytodouble(out, app.distanceboundaryconditions, app.nsize[22]);
     if (app.lsize[0] > 23) writeiarraytodouble(out, app.bououtparam, app.nsize[23]);
+    if (app.lsize[0] > 24) writeiarraytodouble(out, app.interactions, app.nsize[24]);
     
     // Close file:
     out.close();

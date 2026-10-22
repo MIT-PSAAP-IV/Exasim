@@ -19,6 +19,7 @@
 #include "readpdeapp.cpp"
 #include "readmesh.cpp"
 #include "makemeshexasim.cpp"
+#include "selectorunion.hpp"
 #include "makemaster.cpp"
 #include "makemasterexasim.cpp"
 #include "domaindecomposition.cpp"

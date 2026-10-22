@@ -134,6 +134,11 @@ mutable struct PDEStruct
     stgib::Array{IntP,2};  # synthetic turbulence
     vindx;  
     interfacefluxmap;
+    interactiontable;
+    interactionselectors;
+    interactions;
+    nfint::IntP;
+    maxinteractioncondition::IntP;
     avparam1;
     avparam2;
     AVHelmholtzCoeff;
@@ -350,6 +355,11 @@ function initializepde(version)
     pde.stgib = [0 0];
     pde.vindx = [];
     pde.interfacefluxmap = [];
+    pde.interactiontable = Float64[];
+    pde.interactionselectors = Int[];
+    pde.interactions = Any[];
+    pde.nfint = 1;
+    pde.maxinteractioncondition = 0;
     pde.avparam1 = [];
     pde.avparam2 = [];
     pde.AVHelmholtzCoeff = 1.0;

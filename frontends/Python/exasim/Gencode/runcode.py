@@ -62,7 +62,7 @@ def runcode(pde, numpde):
     return " ".join(cmd)
 
 
-def runcode_combined(pdes):
+def runcode_combined(pdes, domain_ranks=None):
     """Run the combined multi-PDE executable built by cmakecompile_combined.
 
     Emits the per-model CLI the solver's ParseInputs expects:
@@ -86,7 +86,17 @@ def runcode_combined(pdes):
         pairs.append(os.path.join(datapath, "datain", strn, ""))
         pairs.append(os.path.join(datapath, "dataout", strn, "out"))
 
-    if p0['mpiprocs'] == 1:
+    total_ranks = p0['mpiprocs']
+    if domain_ranks is not None:
+        if (len(domain_ranks) != n or
+            any(isinstance(value, bool) or int(value) != value or int(value) <= 0
+                for value in domain_ranks)):
+            raise ValueError("domain_ranks must contain one positive integer count per domain")
+        domain_ranks = [int(value) for value in domain_ranks]
+        total_ranks = sum(domain_ranks)
+        pairs += ["--domain-ranks", ",".join(str(value) for value in domain_ranks)]
+
+    if total_ranks == 1:
         cmd = [exe, str(n)] + pairs
     else:
         mpirun = p0['mpirun']
@@ -96,7 +106,7 @@ def runcode_combined(pdes):
                 discovered = f.read().strip()
             if discovered:
                 mpirun = discovered
-        cmd = [mpirun, "-np", str(p0['mpiprocs']), exe, str(n)] + pairs
+        cmd = [mpirun, "-np", str(total_ranks), exe, str(n)] + pairs
 
     start_time = time.time()
     subprocess.run(cmd, cwd=datapath, check=True)
