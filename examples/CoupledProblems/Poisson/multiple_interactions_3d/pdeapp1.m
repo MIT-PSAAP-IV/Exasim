@@ -26,7 +26,7 @@ pde{1}.datapath = runDirectory;
 pde{1}.builddir = fullfile(runDirectory,'.exasim');
 pde{1}.buildpath = pde{1}.builddir;
 
-% Use N tangential cells on odd domains and 2N on even domains so adjacent
+% Use 4N tangential cells on odd domains and 3N on even domains so adjacent
 % interface meshes are non-matching.
 nt = 4*N;
 [mesh{1}.p,mesh{1}.t] = cubemesh(N,nt,nt,families(1));
