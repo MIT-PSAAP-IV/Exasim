@@ -1233,7 +1233,10 @@ inline void buildConn(meshstruct& mesh, solstruct& sol, const appstruct& app, co
 
     int hybrid = app.problem[0];
     int mpiprocs = app.comm[1];
-    int coupledinterface = app.problem[28];
+    // Graph inputs leave the legacy scalar flag unset; the selector union
+    // supplies intepartpts for domains that participate in an interaction.
+    const bool graphCoupledPartition = app.szinteractions > 0 && intepartpts != nullptr;
+    int coupledinterface = app.problem[28] > 0 || graphCoupledPartition;
 
     int ne1 = ne;    
     if (mpiprocs>1) {
@@ -1405,7 +1408,10 @@ inline void buildConn(Conn& conn, meshstruct& mesh, solstruct& sol, const appstr
     int hybrid = app.problem[0];
     //int mpiprocs = app.comm[1];
     int mpiprocs = app.ndims[AppNdims::nd];
-    int coupledinterface = app.problem[28];
+    // Graph inputs leave the legacy scalar flag unset; the selector union
+    // supplies intepartpts for domains that participate in an interaction.
+    const bool graphCoupledPartition = app.szinteractions > 0 && intepartpts != nullptr;
+    int coupledinterface = app.problem[28] > 0 || graphCoupledPartition;
 
     int ne1 = ne;    
     if (mpiprocs>1) {

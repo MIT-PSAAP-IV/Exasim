@@ -12,6 +12,8 @@ else
     end
 end
 
+hasInterface = ~isempty(coupledinterface) && any(coupledinterface(:)>0);
+
 if nproc==1
     i = 1;
     dmd{i}.elempart = 1:ne;
@@ -22,8 +24,8 @@ if nproc==1
     dmd{i}.elemsend = [];
     dmd{i}.elemrecvpts = [];    
     dmd{i}.elemsendpts = [];
-    if coupledinterface>0
-      [~, inte] = find(f == coupledinterface);
+    if hasInterface
+      [~, inte] = find(ismember(f, coupledinterface));
       inte = unique(inte);
       dmd{i}.elempart = [setdiff((1:ne)', inte); inte];
       dmd{i}.elempartpts = [ne-length(inte) length(inte) 0];
@@ -36,8 +38,8 @@ if isempty(elem2cpu)
     elem2cpu = partition(t',ne,nproc,metis);
 end
 
-if coupledinterface>0
-  [~, inte] = find(f == coupledinterface);
+if hasInterface
+  [~, inte] = find(ismember(f, coupledinterface));
   inte = unique(inte);
 end    
 
@@ -67,7 +69,7 @@ for i = 1:nproc
 
     dmd{i}.elempart = [setdiff(intelem,bndelem); bndelem; extelem]; % partitions of elements
     dmd{i}.elempartpts = [length(intelem)-length(bndelem) length(bndelem) length(extelem)];    
-    if coupledinterface>0
+    if hasInterface
       interface = intersect(intelem, inte);      
       part0 = union(interface, bndelem);
       part1 = setdiff(intelem,part0);

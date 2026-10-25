@@ -1,9 +1,12 @@
 #pragma once
 
+#include <algorithm>
 #include <fstream>
 #include <functional>
 #include <memory>
+#include <limits>
 #include <string>
+#include <utility>
 #include <vector>
 
 #ifdef _CUDA
@@ -60,6 +63,90 @@
 #include "exasim/execution_mode.hpp"
 #include "modeldefaults.hpp"
 #include <exasim/detail/abi_adapter.hpp>
+
+namespace exasim {
+
+struct DomainRankLayout {
+    std::vector<int> counts;
+    std::vector<int> offsets;
+
+    int domainForRank(int rank) const
+    {
+        if (rank < 0 || offsets.size() < 2 || rank >= offsets.back())
+            return -1;
+        const auto it = std::upper_bound(offsets.begin(), offsets.end(), rank);
+        return static_cast<int>(it - offsets.begin()) - 1;
+    }
+};
+
+inline bool ParseDomainRankLayout(const std::string& text, int domains, int worldSize,
+                                  DomainRankLayout& result, std::string& diagnostic)
+{
+    result = {};
+    diagnostic.clear();
+    if (domains < 2) {
+        diagnostic = "--domain-ranks requires at least two domains";
+        return false;
+    }
+    if (text.empty()) {
+        diagnostic = "--domain-ranks requires a nonempty comma-separated list";
+        return false;
+    }
+
+    std::size_t begin = 0;
+    while (begin <= text.size()) {
+        const std::size_t comma = text.find(',', begin);
+        const std::size_t end = comma == std::string::npos ? text.size() : comma;
+        if (end == begin) {
+            diagnostic = "--domain-ranks contains an empty count";
+            return false;
+        }
+        int value = 0;
+        for (std::size_t i = begin; i < end; ++i) {
+            const unsigned char c = static_cast<unsigned char>(text[i]);
+            if (c < '0' || c > '9') {
+                diagnostic = "--domain-ranks counts must be positive base-10 integers";
+                return false;
+            }
+            const int digit = static_cast<int>(c - '0');
+            if (value > (std::numeric_limits<int>::max() - digit) / 10) {
+                diagnostic = "--domain-ranks count overflows int";
+                return false;
+            }
+            value = 10 * value + digit;
+        }
+        if (value <= 0) {
+            diagnostic = "--domain-ranks counts must be positive";
+            return false;
+        }
+        result.counts.push_back(value);
+        if (comma == std::string::npos)
+            break;
+        begin = comma + 1;
+    }
+    if (result.counts.size() != static_cast<std::size_t>(domains)) {
+        diagnostic = "--domain-ranks count does not match the number of domains";
+        return false;
+    }
+
+    result.offsets.assign(result.counts.size() + 1, 0);
+    for (std::size_t i = 0; i < result.counts.size(); ++i) {
+        if (result.offsets[i] > std::numeric_limits<int>::max() - result.counts[i]) {
+            diagnostic = "--domain-ranks prefix sum overflows int";
+            result = {};
+            return false;
+        }
+        result.offsets[i + 1] = result.offsets[i] + result.counts[i];
+    }
+    if (result.offsets.back() != worldSize) {
+        diagnostic = "--domain-ranks counts must sum to the MPI world size";
+        result = {};
+        return false;
+    }
+    return true;
+}
+
+} // namespace exasim
 
 #if defined(HAVE_MPI) || defined(_MPI)
 #include <mpi.h>
@@ -161,6 +248,8 @@ public:
     bool IsInitialized() const;
     int NumModels() const;
     int NumModelDefinitions() const;
+    const exasim::DomainRankLayout& DomainRankLayout() const { return domainRankLayout_; }
+    int LocalDomain() const { return localDomain_; }
     int BuiltinModelID(const int modelnumber) const;
     int Backend() const;
     CSolution<>* Model(int i);
@@ -225,6 +314,8 @@ private:
     int localprocs_ = 1;
     int localrank_ = 0;
     int mpiprocs0_ = 0;
+    exasim::DomainRankLayout domainRankLayout_;
+    int localDomain_ = -1;
 
     bool initialized_ = false;
     bool owns_mpi_ = false;
@@ -251,7 +342,8 @@ private:
 // mpiprocs = ranks and the data folders datain<m>/, dataout<m>/ (m = modelnumber;
 // m = 0 gives datain/, dataout/). Regenerates datain<m>/; throws on failure.
 void GenerateText2CodeDatain(const std::string& pdeapp, int ranks, int modelnumber,
-                             const std::string& text2code = "text2code");
+                             const std::string& text2code = "text2code",
+                             const std::vector<std::pair<std::string, std::string>>& extraKeys = {});
 
 // Gather <dataout>/out<field>_np*.bin of `nranks` ranks (field "udg", or "vdg" for the
 // external fields) into global element order, using the partitions in

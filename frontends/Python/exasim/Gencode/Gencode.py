@@ -240,9 +240,11 @@ def gencode(app):
             raise AttributeError("pde.fbouhdg is not defined")
         if hasattr(pde, 'fint'):
             f = pde.fint(u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, tau)
-            ncu12 = numpy.size(app.get('interfacefluxmap', []))
+            ncu12 = int(app.get('nfint', numpy.size(app.get('interfacefluxmap', []))))
             if ncu12<=0 :
               ncu12 = 1
+            if f.size % ncu12 != 0 or int(app.get('maxinteractioncondition', 0)) > f.size // ncu12:
+              raise ValueError("fint output is incompatible with the generalized interaction conditions")
             f = numpy.reshape(f.flatten('F'),(ncu12,round(f.size/ncu12)),'F');
             hdggencodeface("Fint" + str(strn), f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, foldername)
             hdggencodeface2("Fintonly" + str(strn), f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, foldername)

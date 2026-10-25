@@ -162,6 +162,10 @@ def writeapp(app,filename):
     nsize[22-1] = size(meshadaptbcs)
     nsize[23-1] = size(distanceboundaryconditions)
     nsize[24-1] = size(bououtparam)
+    interactiontable = array(app.get('interactiontable', []), dtype=float64).flatten('F')
+    if any(~isfinite(interactiontable)) or any(interactiontable != floor(interactiontable)) or any(interactiontable < 0) or any(interactiontable >= 2**31):
+        raise ValueError("app.interactiontable must contain nonnegative 32-bit integers")
+    nsize[25-1] = size(interactiontable)
 
     print("Writing app into file...");
     fileID = open(filename, 'wb');
@@ -231,6 +235,8 @@ def writeapp(app,filename):
         distanceboundaryconditions.tofile(fileID)
     if nsize[24-1] > 0:
         bououtparam.tofile(fileID)
+    if nsize[25-1] > 0:
+        interactiontable.tofile(fileID)
 
     if app['mutationflag']:
         app['mutationopts']['MixtureName'] = array((app['mutationopts']['MixtureName'] +'X').encode())

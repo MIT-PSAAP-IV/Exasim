@@ -325,10 +325,11 @@ if app.hybrid==1
     if length(f)==1
         f = reshape([f],1,1);
     end    
-    ncu12 = length(app.interfacefluxmap);
+    ncu12 = !isempty(app.interactiontable) ? app.nfint : length(app.interfacefluxmap);
     if ncu12<=0 
       ncu12 = 1;
     end
+    length(f) % ncu12 == 0 && app.maxinteractioncondition <= length(f) ÷ ncu12 || error("fint output is incompatible with the generalized interaction conditions.");
     f = reshape(f[:],ncu12,Int(length(f)/ncu12));
     hdggencodeface("Fint" * strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, foldername);
     hdggencodeface2("Fintonly" * strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, foldername);

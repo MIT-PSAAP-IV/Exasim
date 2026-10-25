@@ -54,6 +54,7 @@
 #include <vector>
 
 #include "nonmatchinginterface.hpp"
+#include "nonmatchinginteraction.hpp"
 #include "interfacepartition.hpp"
 #include "nonmatchinggeometry.hpp"
 #include "nonmatchingruntime.hpp" // [nonmatching] phase 8 transactional host/runtime rebuild
@@ -232,10 +233,10 @@ public:
 template <class T, class I>
 inline InterfaceFaceSet<T, I> collect_own_interface_faces(const appstructT<T, I>& app,
         const masterstructT<T, I>& master, const meshstructT<T, I>& mesh, const solstructT<T, I>& sol,
-        I mpirank, I fileoffset)
+        I mpirank, I fileoffset, const NonmatchingEndpoint<I>* endpoint = nullptr)
 {
     InterfaceFaceSet<T, I> faces;
-    const I bc = app.problem[30];
+    const I bc = endpoint ? endpoint->boundary : app.problem[30];
     const I nd = master.ndims[0];
     const I npe = master.ndims[5];
     const I npf = master.ndims[6];
@@ -260,7 +261,7 @@ inline InterfaceFaceSet<T, I> collect_own_interface_faces(const appstructT<T, I>
         error(oss.str());
     }
 
-    const I model = (fileoffset > 0) ? 1 : 0;
+    const I model = endpoint ? endpoint->side : ((fileoffset > 0) ? 1 : 0);
     for (I e = 0; e < ne1; e++) {
         for (I lf = 0; lf < nfe; lf++) {
             if (mesh.bf[lf + nfe * e] != bc)
@@ -1490,7 +1491,8 @@ inline bool setup_nonmatching_interface(appstructT<T, I>& app, masterstructT<T, 
         meshstructT<T, I>& mesh, solstructT<T, I>& sol, I mpiprocs, I mpirank, I fileoffset,
         nonmatchingdataT<T, I>& nm, DonorSearchResult<T, I>* result = nullptr,
         const DonorSearchParams& prm = DonorSearchParams(), bool performDistribution = true,
-        SearchStatistics* stats = nullptr, OwnerTestData<T, I>* ownerTests = nullptr)
+        SearchStatistics* stats = nullptr, OwnerTestData<T, I>* ownerTests = nullptr,
+        const NonmatchingEndpoint<I>* endpoint = nullptr)
 {
     // [nonmatching] Setup owns a complete cache generation.  Discard the old
     // directional data first so mesh-motion rebuilds and active-to-inactive
@@ -1505,37 +1507,44 @@ inline bool setup_nonmatching_interface(appstructT<T, I>& app, masterstructT<T, 
         return false;
     const int localReady = app.problem && app.nsize && master.ndims && mesh.ndims &&
                            mesh.bf && mesh.perm && sol.xdg;
-    int allReady = 0, anyReady = 0;
-    MPI_Allreduce(&localReady, &allReady, 1, MPI_INT, MPI_MIN, EXASIM_COMM_WORLD);
-    MPI_Allreduce(&localReady, &anyReady, 1, MPI_INT, MPI_MAX, EXASIM_COMM_WORLD);
-    if (allReady != anyReady)
-        error("non-matching setup: required input arrays are not available on every coupled rank");
-    if (!allReady)
-        return false;
-    const int localActive = app.nsize[2] > 34 && app.problem[28] > 0 &&
-                            app.problem[29] > 0 && app.problem[30] > 0 &&
-                            app.problem[34] == 1;
-    int allActive = 0, anyActive = 0;
-    MPI_Allreduce(&localActive, &allActive, 1, MPI_INT, MPI_MIN, EXASIM_COMM_WORLD);
-    MPI_Allreduce(&localActive, &anyActive, 1, MPI_INT, MPI_MAX, EXASIM_COMM_WORLD);
-    if (allActive != anyActive)
-        error("non-matching setup: coupling selection is inconsistent across coupled ranks");
-    if (!allActive)
-        return false;
+    if (!endpoint) {
+        int allReady = 0, anyReady = 0;
+        MPI_Allreduce(&localReady, &allReady, 1, MPI_INT, MPI_MIN, EXASIM_COMM_WORLD);
+        MPI_Allreduce(&localReady, &anyReady, 1, MPI_INT, MPI_MAX, EXASIM_COMM_WORLD);
+        if (allReady != anyReady)
+            error("non-matching setup: required input arrays are not available on every coupled rank");
+        if (!allReady)
+            return false;
+        const int localActive = app.nsize[2] > 34 && app.problem[28] > 0 &&
+                                app.problem[29] > 0 && app.problem[30] > 0 &&
+                                app.problem[34] == 1;
+        int allActive = 0, anyActive = 0;
+        MPI_Allreduce(&localActive, &allActive, 1, MPI_INT, MPI_MIN, EXASIM_COMM_WORLD);
+        MPI_Allreduce(&localActive, &anyActive, 1, MPI_INT, MPI_MAX, EXASIM_COMM_WORLD);
+        if (allActive != anyActive)
+            error("non-matching setup: coupling selection is inconsistent across coupled ranks");
+        if (!allActive)
+            return false;
+    }
+    else if (!localReady) {
+        error("non-matching setup: required endpoint input arrays are unavailable");
+    }
     nm.interfacetype = 1;
 
     const I nd = master.ndims[0], elemtype = master.ndims[1], porder = master.ndims[3];
     const I pgauss = master.ndims[4];
     const I npe = master.ndims[5], npf = master.ndims[6], ngf = master.ndims[8];
     const I nfe = mesh.ndims[4];
-    const I own = (fileoffset > 0) ? 1 : 0;
+    const I own = endpoint ? endpoint->side : ((fileoffset > 0) ? 1 : 0);
 
-    const InterfaceFaceSet<T, I> ownFaces = collect_own_interface_faces(app, master, mesh, sol, mpirank, fileoffset);
+    const InterfaceFaceSet<T, I> ownFaces = collect_own_interface_faces(
+            app, master, mesh, sol, mpirank, fileoffset, endpoint);
     for (int k = 0; k < 2; k++) {
         nonmatchinginterfaceT<T, I>& d = nm.dir[k];
         d.direction = k;
         d.nd = nd; d.npe = npe; d.npf = npf; d.nfe = nfe; d.ngf = ngf;
-        d.ncu12 = (app.nsize[14] > 0) ? app.nsize[14] : 0; // szinterfacefluxmap
+        d.ncu12 = endpoint ? (k == own ? endpoint->receivedWidth : endpoint->donatedWidth)
+                           : ((app.nsize[14] > 0) ? app.nsize[14] : 0);
     }
     DonorSearchResult<T, I> res;
     res.direction = own;
@@ -1570,7 +1579,8 @@ inline bool setup_nonmatching_interface(appstructT<T, I>& app, masterstructT<T, 
     const FaceMasterCompatibility<T, I> compatibility = [&]() {
         try {
             return check_face_master_compatibility<T, I>(
-                    master, nfe, own, ic, app.nsize[14]);
+                    master, nfe, own, ic, endpoint ? endpoint->receivedWidth : app.nsize[14],
+                    endpoint ? endpoint->donatedWidth : static_cast<I>(-1));
         }
         catch (const std::runtime_error& exception) {
             throw UniformSetupError(exception.what());
@@ -1721,14 +1731,17 @@ inline bool rebuild_nonmatching_interface(appstructT<T, I>& app, masterstructT<T
 template <class T, class I>
 inline void validate_nonmatching_runtime_owner_maps(const nonmatchingdataT<T, I>& nm,
         const meshstructT<T, I>& mesh, const appstructT<T, I>& app,
-        const commonstructT<T, I>& common)
+        const commonstructT<T, I>& common, I explicitBoundary = 0,
+        const I* explicitFluxmap = nullptr, I explicitFluxmapSize = -1)
 {
     if (nm.interfacetype != 1) return;
     std::vector<I> pendingInterfaceFaces;
-    const I* interfaceFaces = mesh.intfaces;
-    I interfaceFaceCount = mesh.szintfaces;
+    const bool graph = explicitFluxmapSize >= 0;
+    const I* interfaceFaces = graph ? nullptr : mesh.intfaces;
+    I interfaceFaceCount = graph ? 0 : mesh.szintfaces;
     if (!interfaceFaces) {
-        const I boundary = common.couplingparams.coupledboundarycondition;
+        const I boundary = explicitBoundary > 0 ? explicitBoundary
+                : common.couplingparams.coupledboundarycondition;
         if (!mesh.bf || boundary <= 0)
             error("non-matching runtime: coupled boundary-face data are incomplete");
         for (I element = 0; element < common.meshsizes.ne1; ++element)
@@ -1741,7 +1754,9 @@ inline void validate_nonmatching_runtime_owner_maps(const nonmatchingdataT<T, I>
     for (int direction = 0; direction < 2; ++direction) {
         const auto& owner = nm.dir[direction];
         if (!owner.isowner || owner.nownfaces == 0) continue;
-        if (owner.nfe <= 0 || !owner.ownface || !app.interfacefluxmap)
+        const I* fluxmap = graph ? explicitFluxmap : app.interfacefluxmap;
+        const I fluxmapSize = graph ? explicitFluxmapSize : app.nsize[14];
+        if (owner.nfe <= 0 || !owner.ownface || !fluxmap || fluxmapSize < owner.ncu12)
             error("non-matching runtime: owner mapping data are incomplete");
         for (I own = 0; own < owner.nownfaces; ++own) {
             const I interfaceFace = owner.ownface[own];
@@ -1755,8 +1770,8 @@ inline void validate_nonmatching_runtime_owner_maps(const nonmatchingdataT<T, I>
                 error("non-matching runtime: encoded owner element face is out of range");
         }
         for (I component = 0; component < owner.ncu12; ++component)
-            if (app.interfacefluxmap[component] < 0 ||
-                app.interfacefluxmap[component] >= common.components.ncu)
+            if (fluxmap[component] < 0 ||
+                fluxmap[component] >= common.components.ncu)
                 error("non-matching runtime: interfacefluxmap is out of range");
     }
 }
@@ -1770,7 +1785,9 @@ inline bool rebuild_nonmatching_interface(appstructT<T, I>& app,
         DonorSearchResult<T, I>* result = nullptr,
         const DonorSearchParams& prm = DonorSearchParams(),
         bool performDistribution = true,
-        std::unique_ptr<OwnerTestData<T, I>>* ownerTests = nullptr)
+        std::unique_ptr<OwnerTestData<T, I>>* ownerTests = nullptr,
+        const NonmatchingEndpoint<I>* endpoint = nullptr,
+        bool resizeRequestStorage = true)
 {
     const bool hadTypeOne = nm.interfacetype == 1;
     nonmatchingdataT<T, I> candidate;
@@ -1783,17 +1800,23 @@ inline bool rebuild_nonmatching_interface(appstructT<T, I>& app,
     try {
         ran = setup_nonmatching_interface(app, master, mesh, sol, mpiprocs, mpirank,
                 fileoffset, candidate, result, prm, performDistribution, nullptr,
-                candidateOwnerTests.get());
+                candidateOwnerTests.get(), endpoint);
         if (candidate.interfacetype == 1) {
-            validate_nonmatching_runtime_owner_maps(candidate, mesh, app, common);
+            validate_nonmatching_runtime_owner_maps(candidate, mesh, app, common,
+                    endpoint ? endpoint->boundary : static_cast<I>(0),
+                    endpoint ? endpoint->fluxmap : static_cast<const I*>(nullptr),
+                    endpoint ? endpoint->receivedWidth : static_cast<I>(-1));
             candidateRuntime = std::make_unique<NonmatchingRuntime<T, I>>();
             refresh_nonmatching_runtime(*candidateRuntime, candidate, app, mesh, common, backend,
-                                        candidateOwnerTests.get());
+                                        candidateOwnerTests.get(),
+                                        endpoint ? endpoint->boundary : static_cast<I>(0),
+                                        endpoint ? endpoint->fluxmap : static_cast<const I*>(nullptr),
+                                        endpoint ? endpoint->receivedWidth : static_cast<I>(-1));
         }
 
-        const I requestCapacity = nonmatching_request_capacity(common, candidate,
+        const I requestCapacity = resizeRequestStorage ? nonmatching_request_capacity(common, candidate,
             "non-matching runtime: MPI request capacity exceeds integer range",
-            "non-matching runtime: MPI request capacity exceeds integer range");
+            "non-matching runtime: MPI request capacity exceeds integer range") : 0;
         if (requestCapacity > 0) {
             candidateRequests = static_cast<MPI_Request*>(std::malloc(
                 static_cast<std::size_t>(requestCapacity) * sizeof(MPI_Request)));
@@ -1821,8 +1844,10 @@ inline bool rebuild_nonmatching_interface(appstructT<T, I>& app,
     std::swap(nm, candidate);
     runtime.swap(candidateRuntime);
     if (ownerTests) ownerTests->swap(candidateOwnerTests);
-    std::swap(common.requests, candidateRequests);
-    std::swap(common.statuses, candidateStatuses);
+    if (resizeRequestStorage) {
+        std::swap(common.requests, candidateRequests);
+        std::swap(common.statuses, candidateStatuses);
+    }
     free_nonmatching_data(candidate);
     CPUFREE(candidateRequests);
     CPUFREE(candidateStatuses);

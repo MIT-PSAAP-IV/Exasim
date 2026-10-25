@@ -456,7 +456,8 @@ void writeBinaryFiles(PDE& pde, Mesh& mesh, const Master& master, const ParsedSp
     
             // [nonmatching] Phase 9: numbered names for a one-rank coupled model, as MATLAB
             // preprocessing writes them; the coupled solver reads sol<k>.bin/mesh<k>.bin.
-            const std::string suffix = (pde.coupledinterface > 0) ? "1" : "";
+            const std::string suffix =
+                (pde.coupledinterface > 0 || !pde.interactions.empty()) ? "1" : "";
             writesol(pde, mesh, master, conn, dmd.elempart, conn.facepartpts, make_path(pde.datainpath , "sol" + suffix + ".bin"));
             writemesh(pde, mesh, master, dmd, conn, make_path(pde.datainpath, "mesh" + suffix + ".bin"));
         }    

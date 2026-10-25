@@ -74,11 +74,14 @@ end
       error("pde.fbouhdg is not defined");
   end  
   if isfield(pde, 'fint')    
-      ncu12 = length(app.interfacefluxmap);
+      if isfield(app,'nfint'), ncu12 = app.nfint; else, ncu12 = length(app.interfacefluxmap); end
       if ncu12==0
         ncu12 = 1;
       end        
       f = pde.fint(u, q, wdg, odg, xdg, time, param, uinf, uhg, nlg, tau);
+      if mod(numel(f),ncu12)~=0 || (isfield(app,'maxinteractioncondition') && app.maxinteractioncondition > numel(f)/ncu12)
+        error('fint output is incompatible with the generalized interaction conditions.');
+      end
       f = reshape(f,ncu12,[]);
       hdggencodeface("Fint" + strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, kkdir);
       hdggencodeface2("Fintonly" + strn, f, xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time, kkdir);

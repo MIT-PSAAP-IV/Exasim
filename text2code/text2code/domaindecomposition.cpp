@@ -69,10 +69,11 @@ struct DMD {
 DMD initializeDMD(const PDE& pde, const Mesh& mesh)
 {              
     DMD dmd;
+    const bool hasInterface = pde.coupledinterface > 0 || !pde.interactionSelectors.empty();
     
     if (pde.mpiprocs==1) {
       int ne = mesh.ne;
-      if (pde.coupledinterface>0) {
+      if (hasInterface) {
         // [nonmatching] Phase 9: mesh.inte holds one entry per coupled face, so an element
         // with two coupled faces appears twice. Use a sorted unique copy (as build_dmdhdg
         // does) and build elempart as an exact permutation of 0..ne-1: interior elements
@@ -316,10 +317,10 @@ void build_dmdldg(std::vector<DMD>& dmd, const int* e2e, const int* elem2cpu, in
 
 void build_dmdhdg(std::vector<DMD>& dmd, const int* e2e, const int* elem2cpu, const int* inte, int ninte, int nfe, int ne, const PDE& pde) 
 {
-    int coupledinterface = pde.coupledinterface;
+    const bool hasInterface = pde.coupledinterface > 0 || !pde.interactionSelectors.empty();
     int nproc = static_cast<int>(dmd.size());
     std::vector<int> interfaceElements;
-    if (coupledinterface > 0 && inte != nullptr && ninte > 0) {
+    if (hasInterface && inte != nullptr && ninte > 0) {
         interfaceElements.assign(inte, inte + ninte);
         std::sort(interfaceElements.begin(), interfaceElements.end());
         interfaceElements.erase(std::unique(interfaceElements.begin(), interfaceElements.end()), interfaceElements.end());
@@ -343,7 +344,7 @@ void build_dmdhdg(std::vector<DMD>& dmd, const int* e2e, const int* elem2cpu, co
         std::set_intersection(elem.begin(), elem.end(), intelem.begin(), intelem.end(), std::back_inserter(bndelem));
 
         std::vector<int>& part3 = extelem;
-        if (coupledinterface > 0) {
+        if (hasInterface) {
             std::vector<int> interface, part0, part1, part2, part4, part5;
             interface.reserve(intelem.size());
             part0.reserve(intelem.size());

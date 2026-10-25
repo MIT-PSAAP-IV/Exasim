@@ -6,10 +6,12 @@ from .neighboringelements import neighboringelements
 
 def _coupledelements(f, coupledinterface):
     # Elements (0-based, sorted) owning a face on the coupled interface boundary.
-    return np.unique(np.nonzero(np.asarray(f) == coupledinterface)[1]).astype(int)
+    selectors = np.asarray(coupledinterface, dtype=int).reshape(-1)
+    return np.unique(np.nonzero(np.isin(np.asarray(f), selectors))[1]).astype(int)
 
 def elementpartitionhdg(dmd, t, t2t, nproc, metis, elem2cpu=None, f=None, coupledinterface=0):
     nve, ne = t.shape
+    has_interface = np.asarray(coupledinterface).size > 0 and np.any(np.asarray(coupledinterface) > 0)
 
     if nproc == 1:
         i = 0
@@ -21,7 +23,7 @@ def elementpartitionhdg(dmd, t, t2t, nproc, metis, elem2cpu=None, f=None, couple
         dmd[i]['elemsend'] = [];
         dmd[i]['elemrecvpts'] = [];
         dmd[i]['elemsendpts'] = [];
-        if coupledinterface > 0:
+        if has_interface:
             # Interface elements last: [interior, interface] (MATLAB elementpartitionhdg).
             inte = _coupledelements(f, coupledinterface)
             dmd[i]['elempart'] = np.concatenate((np.setdiff1d(np.arange(0,ne), inte), inte)).astype(int)
@@ -42,7 +44,7 @@ def elementpartitionhdg(dmd, t, t2t, nproc, metis, elem2cpu=None, f=None, couple
     elem2cpu = np.array(elem2cpu).flatten().astype(int);
     if elem2cpu.size != ne:
         raise ValueError("elementpartitionhdg: elem2cpu must contain one entry per element.")
-    if coupledinterface > 0:
+    if has_interface:
         inte = _coupledelements(f, coupledinterface)
 
     for i in range(nproc):
@@ -57,7 +59,7 @@ def elementpartitionhdg(dmd, t, t2t, nproc, metis, elem2cpu=None, f=None, couple
         tmp = np.concatenate((np.setdiff1d(intelem, bndelem), bndelem, extelem))
         dmd[i]['elempart'] = tmp.flatten('F'); # partitions of elements        
         dmd[i]['elempartpts'] = np.array([len(intelem)-len(bndelem), len(bndelem), len(extelem)]).flatten();
-        if coupledinterface > 0:
+        if has_interface:
             # Order owned elements as [interior, interface-only, interface and
             # subdomain-boundary, subdomain-boundary-only], then exterior.
             interface = np.intersect1d(intelem, inte)

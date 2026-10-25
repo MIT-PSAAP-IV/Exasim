@@ -682,6 +682,61 @@ endif() # [nonmatching]
 add_test(NAME unit_nonmatchinginterface_header COMMAND unit_nonmatchinginterface_header) # [nonmatching]
 set_tests_properties(unit_nonmatchinginterface_header PROPERTIES TIMEOUT 120) # [nonmatching]
 
+# Generalized multiphysics Phase 1 targets.  They remain unregistered until
+# the reviewer measures each below the plan's 30-second CTest threshold.
+add_executable(unit_nonmatching_interaction_table
+  ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_interaction_table.cpp)
+target_include_directories(unit_nonmatching_interaction_table PRIVATE ${EXASIM_DIR})
+if(TARGET cpuEXASIM_static)
+  target_compile_definitions(unit_nonmatching_interaction_table PRIVATE EXASIM_APP_ROUNDTRIP)
+  target_link_libraries(unit_nonmatching_interaction_table PRIVATE
+    cpuEXASIM_static Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+endif()
+add_executable(unit_nonmatching_text2code_conditions
+  ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_text2code_conditions.cpp)
+target_include_directories(unit_nonmatching_text2code_conditions PRIVATE ${EXASIM_DIR})
+
+# Generalized multiphysics Phase 2 targets. They remain unregistered until
+# the reviewer measures each below the plan's 30-second CTest threshold.
+add_executable(unit_nonmatching_domain_layout
+  ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_domain_layout.cpp)
+target_include_directories(unit_nonmatching_domain_layout PRIVATE ${EXASIM_DIR})
+target_link_libraries(unit_nonmatching_domain_layout PRIVATE Kokkos::kokkos)
+if(EXASIM_MPI)
+  target_link_libraries(unit_nonmatching_domain_layout PRIVATE
+    cpumpiEXASIM_static MPI::MPI_CXX ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+  target_compile_definitions(unit_nonmatching_domain_layout PRIVATE
+    PHASE2_SOLVER_PARSE_TEST)
+endif()
+add_executable(unit_nonmatching_selector_union
+  ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_selector_union.cpp)
+target_include_directories(unit_nonmatching_selector_union PRIVATE ${EXASIM_DIR})
+target_compile_features(unit_nonmatching_selector_union PRIVATE cxx_std_17)
+
+# Reviewer-only Phase 2 graph launcher. The model library must come from a
+# disposable prefix because RunText2CodeApp regenerates it while preparing
+# graph inputs.
+set(EXASIM_PHASE2_MODEL_LIBRARY "" CACHE FILEPATH
+  "Disposable Text2Code model library for phase2_text2code_graph_app")
+if(EXASIM_MPI AND TARGET cpumpiEXASIM_static AND EXASIM_PHASE2_MODEL_LIBRARY)
+  if(NOT EXISTS "${EXASIM_PHASE2_MODEL_LIBRARY}")
+    message(FATAL_ERROR
+      "EXASIM_PHASE2_MODEL_LIBRARY does not exist: ${EXASIM_PHASE2_MODEL_LIBRARY}")
+  endif()
+  add_executable(phase2_text2code_graph_app
+    ${CMAKE_CURRENT_SOURCE_DIR}/nonmatching/phase2_text2code_graph_app.cpp)
+  target_include_directories(phase2_text2code_graph_app PRIVATE
+    ${EXASIM_DIR} ${EXASIM_DIR}/include ${EXASIM_DIR}/apps/sharedlibrary)
+  target_compile_definitions(phase2_text2code_graph_app PRIVATE _MPI _SHAREDLIBRARY)
+  target_link_libraries(phase2_text2code_graph_app PRIVATE
+    cpumpiEXASIM_static ${EXASIM_PHASE2_MODEL_LIBRARY})
+  get_filename_component(_phase2_model_dir "${EXASIM_PHASE2_MODEL_LIBRARY}" DIRECTORY)
+  set_target_properties(phase2_text2code_graph_app PROPERTIES
+    BUILD_RPATH "${_phase2_model_dir}"
+    INSTALL_RPATH "${_phase2_model_dir}"
+    BUILD_WITH_INSTALL_RPATH TRUE)
+endif()
+
 # [nonmatching] Phase 11 Task 0 amendment: compact/per-face conformal permutations.
 add_executable(unit_conformal_faceperm ${CMAKE_CURRENT_SOURCE_DIR}/unit/conformal_faceperm.cpp) # [nonmatching]
 target_link_libraries(unit_conformal_faceperm PRIVATE Kokkos::kokkos) # [nonmatching]
@@ -720,6 +775,20 @@ add_executable(unit_nonmatching_phase14_contracts ${CMAKE_CURRENT_SOURCE_DIR}/un
 target_link_libraries(unit_nonmatching_phase14_contracts PRIVATE Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
 target_include_directories(unit_nonmatching_phase14_contracts PRIVATE ${EXASIM_DIR}) # [nonmatching]
 target_compile_definitions(unit_nonmatching_phase14_contracts PRIVATE EXASIM_PHASE14_SOURCE_DIR="${EXASIM_DIR}") # [nonmatching]
+# [multiphysics Phase 3] Ownership, move, transaction and exact-capacity checks.
+# Intentionally not registered until the reviewer measures it below 30 seconds.
+add_executable(unit_nonmatching_interaction_lifecycle
+  ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_interaction_lifecycle.cpp)
+target_link_libraries(unit_nonmatching_interaction_lifecycle PRIVATE
+  Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+target_include_directories(unit_nonmatching_interaction_lifecycle PRIVATE ${EXASIM_DIR})
+# [multiphysics Phase 4] Real multi-object graph setup/runtime fixture.
+# Deliberately manual until the reviewer measures each mode/split below 30 s.
+add_executable(unit_nonmatching_interactions
+  ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_interactions.cpp)
+target_link_libraries(unit_nonmatching_interactions PRIVATE
+  Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+target_include_directories(unit_nonmatching_interactions PRIVATE ${EXASIM_DIR})
 if(EXASIM_MPI) # [nonmatching]
   target_link_libraries(unit_nonmatching_fingerprint PRIVATE MPI::MPI_CXX) # [nonmatching]
   target_compile_definitions(unit_nonmatching_fingerprint PRIVATE HAVE_MPI) # [nonmatching]
@@ -729,6 +798,10 @@ if(EXASIM_MPI) # [nonmatching]
   target_compile_definitions(unit_nonmatching_phase14_baseline PRIVATE HAVE_MPI) # [nonmatching]
   target_link_libraries(unit_nonmatching_phase14_contracts PRIVATE MPI::MPI_CXX) # [nonmatching]
   target_compile_definitions(unit_nonmatching_phase14_contracts PRIVATE HAVE_MPI) # [nonmatching]
+  target_link_libraries(unit_nonmatching_interaction_lifecycle PRIVATE MPI::MPI_CXX)
+  target_compile_definitions(unit_nonmatching_interaction_lifecycle PRIVATE HAVE_MPI)
+  target_link_libraries(unit_nonmatching_interactions PRIVATE MPI::MPI_CXX)
+  target_compile_definitions(unit_nonmatching_interactions PRIVATE HAVE_MPI)
 endif() # [nonmatching]
 if(EXASIM_MPI) # [nonmatching] Phase 11 focused 3D matrix
   # [nonmatching] Phase 13 focused registrations. Expected under 15 s;

@@ -753,6 +753,7 @@ struct appstructT {
     Int *stgib=nullptr;
     Int *vindx=nullptr;
     Int *interfacefluxmap=nullptr;
+    Int *interactions=nullptr; // checked host-only generalized-interaction table
     Int *wmModelIDs=nullptr;
     Int *wmBoundaries=nullptr;
     
@@ -787,7 +788,7 @@ struct appstructT {
     Int szuinf=0, szdt=0, szdae_dt=0, szfactor=0, szphysicsparam=0, szsolversparam=0;
     Int sztau=0, szstgdata=0, szstgparam=0, szfc_u=0, szfc_q=0, szfc_w=0;
     Int szdtcoef_u=0, szdtcoef_q=0, szdtcoef_w=0, szavparam=0, szavfilterparam=0, szwmDistances=0;
-    Int szmeshadaptparam=0, szmeshadaptbcs=0, szdistanceboundaryconditions=0, szbououtparam=0;
+    Int szmeshadaptparam=0, szmeshadaptbcs=0, szdistanceboundaryconditions=0, szbououtparam=0, szinteractions=0;
 
     // Material database metadata.  These fields are populated from the
     // optional datain/materialdatabase.bin table at runtime; they are not
@@ -905,6 +906,8 @@ struct appstructT {
         TemplateFree(stgib, backend);
         TemplateFree(vindx, backend);
         TemplateFree(interfacefluxmap, backend);
+        // Generalized-interaction metadata is deliberately host-only.
+        if (interactions != nullptr) TemplateFree(interactions, 1);
         TemplateFree(wmModelIDs, backend);
         TemplateFree(wmBoundaries, backend);
         TemplateFree(uinf, backend);

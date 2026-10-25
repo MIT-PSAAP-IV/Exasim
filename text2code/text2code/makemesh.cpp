@@ -34,6 +34,8 @@
 #ifndef __MAKEMESH
 #define __MAKEMESH
 
+#include "../../backend/Preprocessing/selectorunion.hpp"
+
 /**
  * Get the local node indices for each face of a reference element.
  *
@@ -829,6 +831,13 @@ void interface_elements(vector<int>& inte, vector<int>& intl, vector<int>& f, in
           intl[n] = j;
           n += 1;
         }    
+}
+
+void interface_elements(vector<int>& inte, vector<int>& intl, vector<int>& f,
+                        int nfe, int ne, const vector<int>& selectors)
+{
+    exasim::preprocessing::interface_elements_for_selectors(
+        inte, intl, f, nfe, ne, selectors);
 }
 
 // Function to convert vector<string> A to char** B

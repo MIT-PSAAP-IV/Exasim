@@ -20,6 +20,7 @@
 #include "readmesh.hpp"
 #include "makemeshexasim.hpp"
 #include "makemaster.hpp"
+#include "selectorunion.hpp"
 #include "makemasterexasim.hpp"
 #include "domaindecomposition.hpp"
 #include "writebinaryfilesexasim.hpp"
