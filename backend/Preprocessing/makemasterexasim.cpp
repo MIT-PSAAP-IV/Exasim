@@ -1265,7 +1265,15 @@ inline void buildMesh(Mesh& mesh, const PDE& pde, const Master& master)
     //print2iarray(mesh.f.data(), mesh.nfe, mesh.ne);
     //print2iarray(mesh.t.data(), mesh.nve, mesh.ne);
     
-    if (pde.coupledinterface>0) {
+    if (!pde.interactionSelectors.empty()) {
+        std::vector<int> selectors;
+        selectors.reserve(pde.interactionSelectors.size());
+        for (int selector : pde.interactionSelectors) selectors.push_back(selector - 1);
+        exasim::preprocessing::interface_elements_for_selectors(
+            mesh.inte, mesh.intl, mesh.f, mesh.nfe, mesh.ne, selectors);
+        std::cout << "Finished interface_elements.\n";
+    }
+    else if (pde.coupledinterface>0) {
         // mesh.f stores zero-based boundary-expression IDs, while pde.coupledinterface
         // follows the one-based frontend/Text2Code application convention.
         interface_elements(mesh.inte, mesh.intl, mesh.f, mesh.nfe, mesh.ne, pde.coupledinterface - 1);

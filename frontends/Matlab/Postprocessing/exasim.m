@@ -1,4 +1,6 @@
-function [sol,pde,mesh,master,dmd,compilerstr,runstr,res] = exasim(pde,mesh)
+function [sol,pde,mesh,master,dmd,compilerstr,runstr,res] = exasim(pde,mesh,interaction)
+
+if nargin < 3, interaction = []; end
 
 if iscell(pde)
     nmodels = length(pde);
@@ -7,6 +9,23 @@ if iscell(pde)
     end
 else
     nmodels = 1;
+end
+
+if ~isempty(interaction)
+    if ~iscell(pde), error('generalized interactions require multiple PDE domains.'); end
+    for m = 1:nmodels
+        if isfield(mesh{m},'interfacecondition') && any(mesh{m}.interfacecondition(:) > 0)
+            error('generalized interactions cannot be combined with mesh.interfacecondition.');
+        end
+    end
+    [itable, iselectors, infint, imaxcondition] = interactiongraph(pde,mesh,interaction);
+    for m = 1:nmodels
+        pde{m}.interactiontable = itable;
+        pde{m}.interactionselectors = iselectors{m};
+        pde{m}.nfint = infint(m);
+        pde{m}.maxinteractioncondition = imaxcondition(m);
+        pde{m}.interactions = interaction;
+    end
 end
 
 res = [];
@@ -102,13 +121,46 @@ else
     sol = cell(nmodels,1);
     res = cell(nmodels,1);
 
+    is_graph = ~isempty(interaction);
     is_coupling = isfield(mesh{1}, 'interfacecondition') && ...
-                  max(mesh{1}.interfacecondition) >= 1;
+                  any(mesh{1}.interfacecondition(:) >= 1);
 
     use_combined_coupling = is_coupling && ...
         all(cellfun(@(app) isfield(app,'combinedmodel') && app.combinedmodel, pde));
 
-    if is_coupling && ~use_combined_coupling
+    if is_graph
+        domainranks = zeros(1,nmodels);
+        sharedkeys = {'datapath','builddir','platform','cpucompiler','mpicompiler'};
+        for k = 1:numel(sharedkeys)
+            key = sharedkeys{k};
+            for m = 2:nmodels
+                if ~isfield(pde{1},key) || ~isfield(pde{m},key) || ...
+                   string(pde{m}.(key)) ~= string(pde{1}.(key))
+                    error('Graph domains require the same %s.',key);
+                end
+            end
+        end
+        for m = 1:nmodels
+            if ~isscalar(pde{m}.mpiprocs) || pde{m}.mpiprocs <= 0 || pde{m}.mpiprocs ~= floor(pde{m}.mpiprocs)
+                error('Each graph domain mpiprocs must be a positive integer.');
+            end
+            domainranks(m) = pde{m}.mpiprocs;
+            pde{m}.modelnumber = m;
+            pde{m}.combinedmodel = false;
+            [pde{m},mesh{m},master{m},dmd{m}] = preprocessing(pde{m},mesh{m});
+        end
+        mpiprocs = sum(domainranks);
+        if pde{1}.gencode==1
+            for m = 1:nmodels, kkgencode(pde{m}); end
+            kkdir = string(pde{1}.builddir) + "/kernels";
+            kkgencodeall(nmodels, kkdir);
+            compilerstr = cmakecompile(pde{1}, mpiprocs);
+        end
+        runstr = runcode(pde{1}, nmodels, mpiprocs, domainranks);
+        for m = 1:nmodels
+            sol{m} = fetchsolution(pde{m},master{m},dmd{m}, pde{m}.datapath + "/dataout" + num2str(m));
+        end
+    elseif is_coupling && ~use_combined_coupling
         % ---- legacy two-domain coupling path (interfacecondition) ----------
         % Unchanged: suffixed kernels via kkgencodeall + interface partition +
         % the nummodels>100 MPI-split CLI. (combinedmodel stays unset.)

@@ -1,10 +1,18 @@
-function  exasim(pde,mesh)
+function  exasim(pde,mesh,interaction=nothing)
 
 
 if isa(pde, Array)
     nmodels = length(pde);      
 else
     nmodels = 1;   
+end
+if !isnothing(interaction) && !isempty(interaction)
+    pde isa AbstractVector || error("generalized interactions require multiple PDE domains.")
+    any(any(vec(m.interfacecondition) .> 0) for m in mesh) && error("generalized interactions cannot be combined with mesh.interfacecondition.")
+    table, selectors, nfint, maxcondition = Preprocessing.interactiongraph(pde,mesh,interaction)
+    for m=1:nmodels
+        pde[m].interactiontable=copy(table); pde[m].interactionselectors=copy(selectors[m]); pde[m].nfint=nfint[m]; pde[m].maxinteractioncondition=maxcondition[m]; pde[m].interactions=deepcopy(interaction)
+    end
 end
 res = []
 if nmodels==1
@@ -97,6 +105,21 @@ else
     sol = Array{Any, 1}(undef, nmodels);
     res = Array{Any, 1}(undef, nmodels);
 
+    graph_input = !isnothing(interaction) && !isempty(interaction)
+    domainranks = nothing
+    if graph_input
+        domainranks = Int[]
+        for name in (:datapath, :builddir, :platform, :cpucompiler, :mpicompiler)
+            values = [string(getproperty(app, name)) for app in pde]
+            all(==(values[1]), values) || error("graph domains require the same $(name)")
+        end
+        for app in pde
+            value = app.mpiprocs
+            value isa Integer && value > 0 || error("Each graph domain mpiprocs must be a positive integer.")
+            push!(domainranks, Int(value))
+        end
+    end
+
     # Combined multi-PDE through the external-model path: model m occupies slot
     # m (modelnumber=m-1 -> distinct modelid 100+slot, kernel dir, datain/dataout
     # subdir), so the N models generate without clobbering and link into ONE
@@ -107,7 +130,7 @@ else
     end
     for m = 1:nmodels
         pde[m].modelnumber = m - 1;
-        if is_coupling
+        if is_coupling || graph_input
             # The solver dispatches a model's kernels by app.modelnumber. With
             # frontendgenerated = 0 it replaces the slot number written here by
             # the model id (100 + slot) the combined executable assigns, so
@@ -120,9 +143,11 @@ else
         Gencode.gencode(pde[m]);
     end
 
-    compilerstr = is_coupling ? Gencode.cmakecompile_combined(pde, pde[1].mpiprocs + pde[2].mpiprocs) :
-                                Gencode.cmakecompile_combined(pde);
-    runstr = is_coupling ? Gencode.runcode_coupled(pde) : Gencode.runcode_combined(pde);
+    compilerstr = graph_input ? Gencode.cmakecompile_combined(pde, sum(domainranks)) :
+                  (is_coupling ? Gencode.cmakecompile_combined(pde, pde[1].mpiprocs + pde[2].mpiprocs) :
+                                 Gencode.cmakecompile_combined(pde));
+    runstr = graph_input ? Gencode.runcode_combined(pde, domainranks) :
+             (is_coupling ? Gencode.runcode_coupled(pde) : Gencode.runcode_combined(pde));
 
     # get solution from each model's own dataout subdir
     for m = 1:nmodels

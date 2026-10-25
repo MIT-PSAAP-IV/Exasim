@@ -27,7 +27,7 @@ void CAssembler<M, T, I>::hdgAssembleLinearSystem(dstype *b, Int backend)
 
 #ifdef HAVE_MPI
     hdgAssembleLinearSystemMPI<M>(b, sol, res, app, master, mesh, tmp, common,
-                                  disc.getNonmatchingRuntime(), common.cublasHandle, backend); // [nonmatching]
+                                  disc.getNonmatchingInteractions(), common.cublasHandle, backend); // [nonmatching]
 #else
     uEquationHDG<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
     hdgAssembleRHS(b, res.Rh, mesh, common);
@@ -51,7 +51,7 @@ void CAssembler<M, T, I>::hdgAssembleResidual(dstype *b, Int backend)
 
 #ifdef HAVE_MPI
     hdgAssembleResidualMPI<M>(b, sol, res, app, master, mesh, tmp, common,
-                              disc.getNonmatchingRuntime(), common.cublasHandle, backend); // [nonmatching]
+                              disc.getNonmatchingInteractions(), common.cublasHandle, backend); // [nonmatching]
 #else
     // b, K, H, F, Ru
     ResidualHDG<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
@@ -82,7 +82,7 @@ void CAssembler<M, T, I>::evalMatVec(dstype* Jv, dstype* v, dstype* u, dstype* R
     }
     else if (spatialScheme == 1) { // HDG
       hdgMatVec(Jv, res.H, v, res.Rh, res.Rq, res, app, mesh, common, tmp, common.cublasHandle, backend,
-                disc.getNonmatchingRuntime()); // [nonmatching]
+                disc.getNonmatchingInteractions()); // [nonmatching]
     }
 }
 

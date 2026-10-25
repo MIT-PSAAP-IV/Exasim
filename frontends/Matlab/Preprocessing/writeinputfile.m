@@ -1,5 +1,11 @@
 function writeinputfile(filename, pde, mesh)
 
+if isfield(pde,'interactions') && ~isempty(pde.interactions)
+  writeinteractionfile(fullfile(fileparts(filename),'interaction.txt'),pde.interactions);
+  pde.interactionfile = "interaction.txt";
+  pde.numdomains = pde.interactiontable(2);
+end
+
 fid = fopen(filename, 'w');
 if fid == -1
     error('Cannot open file %s for writing.', filename);
@@ -127,7 +133,7 @@ end
 fields = fieldnames(pde);
 requiredKeys = ["exasimpath", "datapath", "model", "modelfile", "meshfile", "xdgfile",...
   "udgfile", "vdgfile", "wdgfile", "uniformrefinementlevel", "materialdatabase", "discretization",...
-  "platform", "mpiprocs", "debugmode", "runmode", "modelnumber", "porder", "pgauss","torder",...
+  "platform", "mpiprocs", "debugmode", "runmode", "modelnumber", "interactionfile", "numdomains", "porder", "pgauss","torder",...
   "builtinmodelID", "frontendgenerated",...
   "nstage","ncu", "ncv", "ncw", "neb", "nfb", "NewtonIter", "NewtonTol", "GMRESiter", "GMRESrestart",...
   "GMREStol", "GMRESortho","ppdegree","RBdim", "matvecorder", "matvectol", "precMatrixType",...
@@ -234,6 +240,24 @@ for i = 1:length(requiredKeys)
     end
 end
 
+end
+
+function writeinteractionfile(filename,interaction)
+fid=fopen(filename,'w');
+if fid==-1, error('Cannot open file %s for writing.',filename); end
+cleanup=onCleanup(@() fclose(fid)); %#ok<NASGU>
+keys={'domains','type','interface1','condition1','fluxmap1','interface2','condition2','fluxmap2'};
+for k=1:numel(interaction)
+  fprintf(fid,'// interaction %d\n',k);
+  for j=1:numel(keys)
+    key=keys{j}; value=interaction(k).(key);
+    if ismember(key,{'domains','fluxmap1','fluxmap2'})
+      fprintf(fid,'%s = [%s];\n',key,strjoin(string(value(:)'),', '));
+    else
+      fprintf(fid,'%s = %d;\n',key,value);
+    end
+  end
+end
 end
 
   

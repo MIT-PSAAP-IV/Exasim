@@ -5,7 +5,15 @@ function [app,mesh,master,dmd] = preprocessing(app,mesh)
 coupledinterface = 0;
 coupledcondition = 0;
 coupledboundarycondition = 0;
-if isfield(mesh, 'interfacecondition')
+interfaceSelectors = [];
+isGraphInput = isfield(app, 'interactiontable') && ~isempty(app.interactiontable);
+if isGraphInput
+  app.interfacefluxmap = [];
+  app.interfacetype = 0;
+  if isfield(app, 'interactionselectors')
+    interfaceSelectors = app.interactionselectors(:)';
+  end
+elseif isfield(mesh, 'interfacecondition')
   coupledinterface = find(mesh.interfacecondition > 0);
   coupledcondition = mesh.interfacecondition(coupledinterface);  
   coupledboundarycondition = mesh.boundarycondition(coupledinterface);  
@@ -21,6 +29,10 @@ if isfield(mesh, 'interfacecondition')
     coupledboundarycondition = 0;
   end
 end
+if isempty(interfaceSelectors) && coupledinterface>0
+  interfaceSelectors = coupledinterface;
+end
+hasInteractionSelectors = ~isempty(interfaceSelectors);
 app.coupledinterface = coupledinterface;
 app.coupledcondition = coupledcondition;
 app.coupledboundarycondition = coupledboundarycondition;
@@ -209,7 +221,9 @@ if isfield(app, 'uniformrefinementlevel') && app.uniformrefinementlevel > 0
         disp('run coarse facenumbering for uniform refinement partition...');
         [meshf0, meshtprd0, mesht2t0] = facenumbering(mesh.p,mesh.t,app.elemtype,mesh.boundaryexpr,mesh.periodicexpr);
         if (app.hybrid == 1)
-            dmd0 = elementpartitionhdg(meshtprd0,mesht2t0,meshf0,coupledinterface,mpiprocs,app.metis);
+            coarseSelectors = [];
+            if isGraphInput, coarseSelectors = interfaceSelectors; end
+            dmd0 = elementpartitionhdg(meshtprd0,mesht2t0,meshf0,coarseSelectors,mpiprocs,app.metis);
         else
             dmd0 = elementpartition2(meshtprd0,mesht2t0,mpiprocs,app.metis);
         end
@@ -234,7 +248,7 @@ disp('run facenumbering...');
 mpiprocs = app.mpiprocs;
 %dmd = meshpartition(mesh.p,mesh.t,mesh.f,t2t,mesh.tprd,app.elemtype,app.boundaryconditions,mesh.boundaryexpr,mesh.periodicexpr,app.porder,mpiprocs,app.metis);
 if (app.hybrid ==1)
-  dmd = meshpartitionhdg(mesh.tprd,mesh.f,t2t,app.boundaryconditions,app.nd,app.elemtype,app.porder,coupledinterface,mpiprocs,app.metis,app.Cxxpreprocessing,elem2cpu);
+  dmd = meshpartitionhdg(mesh.tprd,mesh.f,t2t,app.boundaryconditions,app.nd,app.elemtype,app.porder,interfaceSelectors,mpiprocs,app.metis,app.Cxxpreprocessing,elem2cpu);
 else
   dmd = meshpartition2(mesh.tprd,mesh.f,t2t,app.boundaryconditions,app.nd,app.elemtype,app.porder,mpiprocs,app.metis,app.Cxxpreprocessing,elem2cpu);
 end
@@ -251,7 +265,7 @@ for i = 1:mpiprocs
     end    
             
     disp(['Writing initial solution into file ' num2str(i) '...']);
-    if (mpiprocs>1) || (coupledinterface>0)
+    if (mpiprocs>1) || hasInteractionSelectors || isGraphInput
         fileID1 = fopen(filename + "sol" + string(i) + ".bin",'w');
     else
         fileID1 = fopen(filename + "sol" + ".bin",'w');
@@ -328,7 +342,7 @@ for i = 1:mpiprocs
     
         % divide elements and faces into blocks
         if mpiprocs==1
-            if coupledinterface>0
+            if hasInteractionSelectors
               me = cumsum([0 dmd{i}.intepartpts(1) dmd{i}.intepartpts(2)]);
               [eblks,nbe] = mkfaceblocks(me,[0 -1],app.neb);                
             else
@@ -341,7 +355,7 @@ for i = 1:mpiprocs
             neb = max(eblks(2,:)-eblks(1,:))+1;
             nfb = max(fblks(2,:)-fblks(1,:))+1;        
         else
-            if coupledinterface>0
+            if hasInteractionSelectors
               if dmd{i}.intepartpts(2)>0
                 me = cumsum([0 dmd{i}.intepartpts(1) dmd{i}.intepartpts(2) dmd{i}.intepartpts(3) dmd{i}.intepartpts(4)]);
                 [eblks,nbe] = mkfaceblocks(me,[0 -1 1 2],app.neb);          
@@ -379,7 +393,7 @@ for i = 1:mpiprocs
     end
 
     disp(['Writing mesh into file ' num2str(i) '...']); 
-    if (mpiprocs>1) || (coupledinterface>0)
+    if (mpiprocs>1) || hasInteractionSelectors || isGraphInput
         fileID2 = fopen(filename + "mesh" + string(i) + ".bin",'w');
     else
         fileID2 = fopen(filename + "mesh" + ".bin",'w');
@@ -437,7 +451,7 @@ for i = 1:mpiprocs
     ti = mesh.tprd(:,dmd{i}.elempart)-1;
     nsize(27) = length(ti(:));         
     nsize(28) = length(app.boundaryconditions(:));         
-    if coupledinterface>0 && isfield(dmd{i}, 'intepartpts')    
+    if hasInteractionSelectors && isfield(dmd{i}, 'intepartpts')
         nsize(29) = length(dmd{i}.intepartpts(:));    
     end
     
@@ -487,7 +501,7 @@ for i = 1:mpiprocs
     end                
     fwrite(fileID2,ti(:),'double',endian);         
     fwrite(fileID2,app.boundaryconditions(:),'double',endian);             
-    if coupledinterface>0 && isfield(dmd{i}, 'intepartpts')    
+    if hasInteractionSelectors && isfield(dmd{i}, 'intepartpts')
         fwrite(fileID2,dmd{i}.intepartpts(:),'double',endian);       
     end    
     fclose(fileID2);             

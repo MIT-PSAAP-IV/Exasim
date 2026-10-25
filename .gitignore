@@ -513,3 +513,4 @@ examples/NavierStokes/equilibrium5air_cylindermach8/pdeapp0.m
 **/matlab_run/
 /docs/using-ai-tools
 /examples/Poisson/multipleequations
+/docs/multiphysics

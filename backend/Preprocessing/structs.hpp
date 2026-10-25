@@ -247,7 +247,11 @@ struct PDE {
     double meshAdaptHelmholtzTau = 2.0;
     double meshAdaptElasticityTau = 1.0e3;
             
-    std::vector<int> interfaceFluxmap;    
+    std::vector<int> interfaceFluxmap;
+    std::vector<double> interactions;
+    std::vector<int> interactionSelectors;
+    int nfint = 1;
+    int maxinteractioncondition = 0;
     std::vector<double> dae_dt;
     std::vector<double> dt;
     std::vector<double> tau;
