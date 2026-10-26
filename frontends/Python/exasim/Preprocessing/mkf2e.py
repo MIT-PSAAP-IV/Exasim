@@ -36,9 +36,9 @@ def mkf2e(t,elemtype,nd):
     e2e = -ones((nfe,ne)).astype(int); # allocate memory
 
     # interior faces
-    e1 = int64(ceil(float64(jx[in1]+1)/float(nfe))) - 1;      # 1st elements
+    e1 = ceil(asarray(jx[in1]+1, dtype=float64)/float(nfe)).astype(int64) - 1;      # 1st elements
     l1 = jx[in1] - e1*nfe;   # 1st local faces
-    e2 = int64(ceil(float64(jx[in2]+1)/float(nfe))) - 1;      # 2nd elements
+    e2 = ceil(asarray(jx[in2]+1, dtype=float64)/float(nfe)).astype(int64) - 1;      # 2nd elements
     l2 = jx[in2] - e2*nfe;   # 2nd local faces
     g = arange(0,len(in1));           # indices for interior faces
 
@@ -51,7 +51,7 @@ def mkf2e(t,elemtype,nd):
         e2e[l2[i],e2[i]] = e1[i];
 
     # boundary faces
-    e1 = int64(ceil(float64(jx[in0]+1)/float(nfe))) - 1;      # 1st elements
+    e1 = ceil(asarray(jx[in0]+1, dtype=float64)/float(nfe)).astype(int64) - 1;      # 1st elements
     l1 = jx[in0] - e1*nfe;   # 1st local faces
     g = arange(len(in1),nf);      # indices for boundary faces
     f2e[0,g] = e1+1;
