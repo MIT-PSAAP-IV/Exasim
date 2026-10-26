@@ -141,7 +141,6 @@ private:
         dstype *wprev = nullptr;
         timestatestruct timestate{};
         dstype matvecTol = 0.0;
-        Int RBcurrentdim = 0;
         bool artificialViscosityPrepared = false;
     };
 

@@ -38,7 +38,10 @@ void MGS(cublasHandle_t handle, dstype *V, dstype *H, Int N, Int m, Int backend)
     }
     PDOT(handle, N, &V[m*N], inc1, &V[m*N], inc1, &H[m], backend);
     H[m] = sqrt(H[m]);    
-    ArrayMultiplyScalar(handle, &V[m*N], one/H[m], N, backend);
+    // An invariant Krylov subspace is a normal (happy) breakdown. Leave its
+    // zero next vector untouched; GMRES decides whether the solve converged.
+    if (is_finite_bitwise(H[m]) && H[m] > 0)
+        ArrayMultiplyScalar(handle, &V[m*N], one/H[m], N, backend);
 }
 
 void MGS(cublasHandle_t handle, dstype *V, dstype *H, Int N, Int m, Int L, Int backend)
@@ -60,11 +63,12 @@ void MGS(cublasHandle_t handle, dstype *V, dstype *H, Int N, Int m, Int L, Int b
     PDOT(handle, M, &V[m*N+L], inc1, &V[m*N+L], inc1, &h2, backend);
     H[m] = h2 + 0.5*h1;
     H[m] = sqrt(H[m]);    
-    ArrayMultiplyScalar(handle, &V[m*N], one/H[m], N, backend);
+    if (is_finite_bitwise(H[m]) && H[m] > 0)
+        ArrayMultiplyScalar(handle, &V[m*N], one/H[m], N, backend);
 }
 
 template <class M>
-void makeH(CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& prec, sysstruct &sys, 
+bool makeH(CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& prec, sysstruct &sys,
         dstype *H, dstype *r, Int N, Int m, Int backend)
 {
     int m1 = m + 1;
@@ -72,13 +76,22 @@ void makeH(CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& 
         H[i] = 0.0;
     
     dstype normr = PNORM(disc.common.cublasHandle, N, r, backend);    
+    if (!is_finite_bitwise(normr) || normr == zero) return false;
           
     ArrayAX(disc.common.cublasHandle, sys.v, r, 1.0/normr, N, backend);    
     for (int j=0; j<m; j++) {                    
-        assembler.evalMatVec(&sys.v[(j+1)*N], &sys.v[j*N], sys.u, sys.b, backend);      
+        assembler.evalMatVecWithNorm(&sys.v[(j+1)*N], &sys.v[j*N], sys.u, sys.b, one, backend);
         prec.ApplyPreconditioner(&sys.v[(j+1)*N], sys, disc, backend);            
         MGS(disc.common.cublasHandle, sys.v, &H[m1*j], N, j+1, backend);
+        dstype scale = zero;
+        for (int k=0; k<=j+1; ++k) {
+            if (!is_finite_bitwise(H[m1*j+k])) return false;
+            scale = std::max(scale, fabs(H[m1*j+k]));
+        }
+        if (j+1 < m && H[m1*j+j+1] <= std::numeric_limits<dstype>::epsilon()*scale)
+            return false;
     }
+    return true;
 }
 
 void ArrayTranspose(dstype  *A, dstype  *B, int m, int n, int m1)
@@ -102,18 +115,33 @@ void MatMul(dstype *c, dstype *a, dstype *b, int r1, int c1, int c2)
                 c[i + r1*j] += a[i + r1*k] * b[k + c1*j];            
 }
 
-void eigH(dstype  *HT, dstype  *H, dstype *em, dstype *work, int *ipiv, int m)
+bool eigH(dstype  *HT, dstype  *H, dstype *em, dstype *work, int *ipiv, int m)
 {
     int m1 = m+1;
     
     ArrayTranspose(HT, H, m, m, m1);    
-    cpuComputeInverse(HT, work, ipiv, m);
+    // A singular projected operator means that this optional polynomial is
+    // unavailable, not that the underlying GMRES solve must abort.
+    dstype scale = zero;
+    for (int i=0; i<m*m; ++i) scale = std::max(scale, fabs(HT[i]));
+    Int info = 0;
+    blas<dstype>::getrf(m, m, HT, m, ipiv, info);
+    if (info != 0) return false;
+    for (int i=0; i<m; ++i)
+        if (!is_finite_bitwise(HT[i+m*i]) ||
+            fabs(HT[i+m*i]) <= std::numeric_limits<dstype>::epsilon()*scale)
+            return false;
+    blas<dstype>::getri(m, HT, m, ipiv, work, m, info);
+    if (info != 0) return false;
     MatMul(work, HT, em, m, m, 1); 
             
     dstype Beta2 = H[m1*m - 1]*H[m1*m - 1];
     for (int j=0; j<m; j++)
         for (int i=0; i<m; i++)        
-            HT[i + m*j] = H[i + m1*j] + Beta2*work[i]*em[j]; 
+            HT[i + m*j] = H[i + m1*j] + Beta2*work[i]*em[j];
+    for (int i=0; i<m*m; ++i)
+        if (!is_finite_bitwise(HT[i])) return false;
+    return true;
 }
 
 dstype complexabs(dstype a, dstype b) {
@@ -173,7 +201,7 @@ void LejaSort(dstype *sr, dstype *si, dstype *lr, dstype *li, dstype *product, i
 }
 
 template <class M>
-void getPoly(CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& prec, sysstruct &sys, 
+bool getPoly(CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& prec, sysstruct &sys,
         dstype  *lam, dstype *r, int *ipiv, int N, int m, int backend)
 {
     dstype *Hm = &lam[0];    
@@ -193,14 +221,19 @@ void getPoly(CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>
         em[i] = 0.0;
     em[m-1] = 1.0;           
     
-    makeH(assembler, disc, prec, sys, Hm, r, N, m, backend);
-    eigH(Ht, Hm, em, work, ipiv, m);        
+    if (!makeH(assembler, disc, prec, sys, Hm, r, N, m, backend)) return false;
+    if (!eigH(Ht, Hm, em, work, ipiv, m)) return false;
     DGEEV(&chv, &chv, &m, Ht, &m, wr, wi, work, &m, work, &m, work, &lwork, &info );               
+    if (info != 0) return false;
+    for (int i=0; i<m; ++i)
+        if (!is_finite_bitwise(wr[i]) || !is_finite_bitwise(wi[i]) ||
+            (wr[i] == zero && wi[i] == zero)) return false;
     LejaSort(lamr, lami, wr, wi, work, m);
+    return true;
 }
 
 template <class M>
-void makeH(CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& prec, sysstruct &sys, 
+bool makeH(CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& prec, sysstruct &sys,
         dstype *H, dstype *r, Int N, Int m, Int spatialScheme, Int backend)
 {
     int m1 = m + 1;
@@ -208,17 +241,26 @@ void makeH(CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& 
         H[i] = 0.0;
     
     dstype normr = PNORM(disc.common.cublasHandle, N, disc.common.couplingparams.ndofuhatinterface, r, backend);        
+    if (!is_finite_bitwise(normr) || normr == zero) return false;
     ArrayAX(disc.common.cublasHandle, sys.v, r, 1.0/normr, N, backend);    
     for (int j=0; j<m; j++) {                    
         assembler.evalMatVec(&sys.v[(j+1)*N], &sys.v[j*N], sys.u, sys.b, spatialScheme, backend);      
         prec.ApplyPreconditioner(&sys.v[(j+1)*N], sys, disc, spatialScheme, backend);            
         MGS(disc.common.cublasHandle, sys.v, &H[m1*j], N, j+1, disc.common.couplingparams.ndofuhatinterface, backend);
         //MGS(disc.common.cublasHandle, sys.v, &H[m1*j], N, j+1, backend);
+        dstype scale = zero;
+        for (int k=0; k<=j+1; ++k) {
+            if (!is_finite_bitwise(H[m1*j+k])) return false;
+            scale = std::max(scale, fabs(H[m1*j+k]));
+        }
+        if (j+1 < m && H[m1*j+j+1] <= std::numeric_limits<dstype>::epsilon()*scale)
+            return false;
     }
+    return true;
 }
 
 template <class M>
-void getPoly(CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& prec, sysstruct &sys, 
+bool getPoly(CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& prec, sysstruct &sys,
         dstype  *lam, dstype *r, int *ipiv, int N, int m, int spatialScheme, int backend)
 {
     dstype *Hm = &lam[0];    
@@ -238,11 +280,15 @@ void getPoly(CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>
         em[i] = 0.0;
     em[m-1] = 1.0;                   
         
-    makeH(assembler, disc, prec, sys, Hm, r, N, m, spatialScheme, backend);        
-    eigH(Ht, Hm, em, work, ipiv, m);                
+    if (!makeH(assembler, disc, prec, sys, Hm, r, N, m, spatialScheme, backend)) return false;
+    if (!eigH(Ht, Hm, em, work, ipiv, m)) return false;
     DGEEV(&chv, &chv, &m, Ht, &m, wr, wi, work, &m, work, &m, work, &lwork, &info );            
+    if (info != 0) return false;
+    for (int i=0; i<m; ++i)
+        if (!is_finite_bitwise(wr[i]) || !is_finite_bitwise(wi[i]) ||
+            (wr[i] == zero && wi[i] == zero)) return false;
     LejaSort(lamr, lami, wr, wi, work, m);    
+    return true;
 }
     
 #endif
-
