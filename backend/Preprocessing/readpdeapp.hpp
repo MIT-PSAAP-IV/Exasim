@@ -60,6 +60,7 @@
 #define __READPDEAPP
 
 #include <cmath>
+#include "interactionfile.hpp"
 
 // Struct to hold all parsed input parameters
 // struct InputParams {
@@ -256,7 +257,17 @@ inline InputParams parseInputFile(const std::string& filename, int mpirank=0)
         const std::size_t equals = full.find('=');
         const std::string key = trim(full.substr(0, equals));
 
-        if (key == "boundaryconditions") {
+        if (key == "interactionfile") {
+            std::regex quoted("^\\s*interactionfile\\s*=\\s*\"([^\"]*)\"\\s*;\\s*$"); std::smatch match;
+            if (!std::regex_match(full,match,quoted)) error("interactionfile must be a quoted path");
+            params.stringParams[key]=match[1]; markFound(key);
+        }
+        else if (key == "numdomains") {
+            std::regex integer("^\\s*numdomains\\s*=\\s*([0-9]+)\\s*;\\s*$"); std::smatch match;
+            if (!std::regex_match(full,match,integer)) error("numdomains must be an integer");
+            params.intParams[key]=std::stoi(match[1]); markFound(key);
+        }
+        else if (key == "boundaryconditions") {
             params.boundaryConditions = parseList<int>(full);
             markFound("boundaryconditions");
         }
@@ -1113,6 +1124,18 @@ inline PDE initializePDE(InputParams& params, int mpirank=0)
         pde.coupledcondition = b[0];
         pde.coupledboundarycondition = c[0];            
     }
+    if (params.stringParams.count("interactionfile")) {
+        if (std::any_of(params.interfaceConditions.begin(),params.interfaceConditions.end(),[](int x){return x>0;})) error("generalized interactions cannot be combined with interfaceconditions");
+        if (!params.intParams.count("numdomains") || params.intParams["numdomains"]<2) error("interactionfile requires numdomains >= 2");
+        try {
+            if (pde.modelnumber<1 || pde.modelnumber>params.intParams["numdomains"]) error("interactionfile requires modelnumber in [1,numdomains]");
+            const int localdomain=pde.modelnumber;
+            std::filesystem::path interactionPath(params.stringParams["interactionfile"]); if (interactionPath.is_relative()) interactionPath=std::filesystem::path(params.pdeappfile).parent_path()/interactionPath;
+            ParsedInteractionInput graph=parseInteractionFileStrict(interactionPath.string(),params.intParams["numdomains"],localdomain,pde.ncu,params.boundaryConditions,params.boundaryExprs.size());
+            pde.interactions=std::move(graph.table); pde.interactionSelectors=std::move(graph.selectors); pde.nfint=graph.nfint; pde.maxinteractioncondition=graph.maxcondition;
+            pde.coupledinterface=pde.coupledcondition=pde.coupledboundarycondition=0; pde.interfaceFluxmap.clear();
+        } catch (const std::exception& exception) { error(exception.what()); }
+    }
             
     pdeFinalizeDerived(pde);
     
@@ -1253,6 +1276,7 @@ inline void writepde(const PDE& pde, const std::string& filename)
     std::vector<double> bououtparam(1, static_cast<double>(pde.saveSolBouLoc));
     for (int b : pde.ibsList) if (b > 0) bououtparam.push_back(static_cast<double>(b));
     nsize[23] = bououtparam.size();
+    nsize[24] = pde.interactions.size();
 
     std::ofstream file(filename, std::ios::binary);
     if (!file) throw std::runtime_error("Cannot open file for writing.");
@@ -1305,6 +1329,7 @@ inline void writepde(const PDE& pde, const std::string& filename)
         writeVector(boundaries);
     }
     writeVector(bououtparam);
+    writeVector(pde.interactions);
 
     file.close();
     if (!pde.physicsparamcases.empty()) {

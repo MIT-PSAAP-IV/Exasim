@@ -139,6 +139,120 @@ std::string trim(const std::string& s) {
     return (start == std::string::npos) ? "" : s.substr(start, end - start + 1);
 }
 
+struct ParsedInteractionFile {
+    std::vector<double> table;
+    std::vector<int> selectors;
+    int nfint = 1;
+    int maxcondition = 0;
+};
+
+static std::vector<int> parseStrictInteractionIntegers(const std::string& text,
+                                                       bool requireBrackets)
+{
+    std::string value = trim(text);
+    if (requireBrackets) {
+        if (value.size() < 2 || value.front() != '[' || value.back() != ']')
+            error("interaction.txt vector values must be enclosed in brackets");
+        value = value.substr(1, value.size() - 2);
+    } else if (value.find('[') != std::string::npos || value.find(']') != std::string::npos) {
+        error("interaction.txt scalar values must be single integers");
+    }
+    for (char& ch : value) if (ch == ',' || ch == ';') ch = ' ';
+    std::istringstream stream(value);
+    std::vector<int> result;
+    std::string token;
+    while (stream >> token) {
+        if (!token.empty() && token.front() == '+')
+            error("interaction.txt contains an invalid integer");
+        std::size_t used = 0;
+        long long parsed = 0;
+        try { parsed = std::stoll(token, &used); }
+        catch (...) { error("interaction.txt contains a non-integer token"); }
+        if (used != token.size() || parsed < 0 || parsed >= (1LL << 31))
+            error("interaction.txt contains an invalid integer");
+        result.push_back(static_cast<int>(parsed));
+    }
+    if (result.empty()) error("interaction.txt contains an empty value");
+    return result;
+}
+
+ParsedInteractionFile parseInteractionFile(const std::string& filename, int numdomains,
+                                           int localdomain, int ncu)
+{
+    std::ifstream file(filename);
+    if (!file) error("Unable to open interaction file " + filename);
+    static const std::vector<std::string> keys = {
+        "domains", "type", "interface1", "condition1", "fluxmap1",
+        "interface2", "condition2", "fluxmap2"};
+    std::vector<std::pair<std::string,std::string>> statements;
+    std::string line, buffer;
+    while (std::getline(file, line)) {
+        const std::size_t first = line.find_first_not_of(" \t\r");
+        if (first == std::string::npos || line.compare(first, 2, "//") == 0) continue;
+        buffer += line;
+        std::size_t semi = std::string::npos;
+        while ((semi = buffer.find(';')) != std::string::npos) {
+            const std::string statement = buffer.substr(0, semi);
+            buffer.erase(0, semi + 1);
+            const std::size_t equals = statement.find('=');
+            if (equals == std::string::npos || statement.find('=', equals + 1) != std::string::npos)
+                error("interaction.txt statement must contain one '='");
+            statements.emplace_back(trim(statement.substr(0, equals)), trim(statement.substr(equals + 1)));
+        }
+    }
+    if (!trim(buffer).empty() || statements.empty() || statements.size() % keys.size() != 0)
+        error("interaction.txt has an incomplete interaction record");
+    const int records = static_cast<int>(statements.size() / keys.size());
+    ParsedInteractionFile parsed;
+    parsed.table = {1.0, static_cast<double>(numdomains), static_cast<double>(records)};
+    int donatedWidth = 0;
+    for (int k = 0; k < records; ++k) {
+        std::vector<std::vector<int>> values(keys.size());
+        for (std::size_t j = 0; j < keys.size(); ++j) {
+            const auto& statement = statements[static_cast<std::size_t>(k) * keys.size() + j];
+            if (statement.first != keys[j]) error("interaction.txt keys are unknown, repeated, or out of order");
+            values[j] = parseStrictInteractionIntegers(statement.second, j == 0 || j == 4 || j == 7);
+            if (j != 0 && j != 4 && j != 7 && values[j].size() != 1)
+                error("interaction.txt scalar field must contain one integer");
+        }
+        if (values[0].size() != 2 || values[0][0] < 1 || values[0][1] < 1 ||
+            values[0][0] > numdomains || values[0][1] > numdomains || values[0][0] == values[0][1])
+            error("interaction.txt domains field is invalid");
+        if (values[1][0] != 1) error("generalized interactions support only type=1");
+        for (int side = 0; side < 2; ++side) {
+            const int interfaceIndex = side == 0 ? 2 : 5;
+            const int conditionIndex = side == 0 ? 3 : 6;
+            const int mapIndex = side == 0 ? 4 : 7;
+            if (values[interfaceIndex][0] < 1 || values[conditionIndex][0] < 1 || values[mapIndex].empty())
+                error("interaction.txt endpoint fields must be positive and maps nonempty");
+            if (values[0][side] == localdomain) {
+                if (std::find(parsed.selectors.begin(), parsed.selectors.end(), values[interfaceIndex][0]) != parsed.selectors.end())
+                    error("interaction.txt reuses an interface selector on one domain");
+                parsed.selectors.push_back(values[interfaceIndex][0]);
+                parsed.maxcondition = std::max(parsed.maxcondition, values[conditionIndex][0]);
+                for (int component : values[mapIndex]) if (component < 1 || component > ncu)
+                    error("interaction.txt flux map is outside the local ncu range");
+                const int peerMapIndex = side == 0 ? 7 : 4;
+                const int width = static_cast<int>(values[peerMapIndex].size());
+                if (donatedWidth != 0 && donatedWidth != width)
+                    error("interaction.txt violates the one fint output width per domain rule");
+                donatedWidth = width; parsed.nfint = width;
+            }
+        }
+        const int n1 = static_cast<int>(values[4].size()), n2 = static_cast<int>(values[7].size());
+        parsed.table.push_back(static_cast<double>(9 + n1 + n2));
+        parsed.table.push_back(static_cast<double>(values[0][0] - 1));
+        parsed.table.push_back(static_cast<double>(values[0][1] - 1));
+        parsed.table.push_back(1.0);
+        for (int side = 0; side < 2; ++side) {
+            const int interfaceIndex = side == 0 ? 2 : 5, conditionIndex = side == 0 ? 3 : 6, mapIndex = side == 0 ? 4 : 7;
+            parsed.table.push_back(values[interfaceIndex][0]); parsed.table.push_back(values[conditionIndex][0]); parsed.table.push_back(values[mapIndex].size());
+            for (int component : values[mapIndex]) parsed.table.push_back(component - 1);
+        }
+    }
+    return parsed;
+}
+
 std::vector<std::string> tokenizeBraceList(const std::string& input) {
     std::vector<std::string> tokens;
     std::string current;
@@ -265,7 +379,17 @@ InputParams parseInputFile(const std::string& filename, int mpirank=0)
         const std::size_t equals = full.find('=');
         const std::string key = trim(full.substr(0, equals));
 
-        if (key == "boundaryconditions") {
+        if (key == "interactionfile") {
+            std::regex quoted("^\\s*interactionfile\\s*=\\s*\"([^\"]*)\"\\s*;\\s*$"); std::smatch match;
+            if (!std::regex_match(full,match,quoted)) error("interactionfile must be a quoted path");
+            params.stringParams[key]=match[1]; markFound(key);
+        }
+        else if (key == "numdomains") {
+            std::regex integer("^\\s*numdomains\\s*=\\s*([0-9]+)\\s*;\\s*$"); std::smatch match;
+            if (!std::regex_match(full,match,integer)) error("numdomains must be an integer");
+            params.intParams[key]=std::stoi(match[1]); markFound(key);
+        }
+        else if (key == "boundaryconditions") {
             params.boundaryConditions = parseList<int>(full);
             markFound("boundaryconditions");
         }
@@ -528,6 +652,8 @@ struct PDE {
     int coupledinterface = 0; 
     int coupledcondition = 0;
     int coupledboundarycondition = 0;    
+    int nfint = 1;
+    int maxinteractioncondition = 0;
     
     double time = 0.0;
     double NLparam = 0.0;
@@ -558,7 +684,9 @@ struct PDE {
     double meshAdaptHelmholtzTau = 2.0;
     double meshAdaptElasticityTau = 1.0e3;
             
-    std::vector<int> interfaceFluxmap;    
+    std::vector<int> interfaceFluxmap;
+    std::vector<double> interactions;
+    std::vector<int> interactionSelectors;
     std::vector<double> dae_dt;
     std::vector<double> dt;
     std::vector<double> tau;
@@ -1050,6 +1178,36 @@ PDE initializePDE(InputParams& params, int mpirank=0)
         pde.coupledcondition = b[0];
         pde.coupledboundarycondition = c[0];            
     }
+    if (params.stringParams.count("interactionfile")) {
+        if (std::any_of(params.interfaceConditions.begin(), params.interfaceConditions.end(),
+                        [](int value) { return value > 0; }))
+            error("generalized interactions cannot be combined with interfaceconditions");
+        if (!params.intParams.count("numdomains") || params.intParams["numdomains"] < 2)
+            error("interactionfile requires numdomains >= 2");
+        if (pde.modelnumber < 1 || pde.modelnumber > params.intParams["numdomains"])
+            error("interactionfile requires modelnumber in [1,numdomains]");
+        const int localdomain = pde.modelnumber;
+        std::filesystem::path interactionPath(params.stringParams["interactionfile"]);
+        if (interactionPath.is_relative())
+            interactionPath = std::filesystem::path(params.pdeappfile).parent_path() / interactionPath;
+        ParsedInteractionFile graph = parseInteractionFile(interactionPath.string(),
+            params.intParams["numdomains"], localdomain, pde.ncu);
+        for (int selector : graph.selectors) {
+            if (selector < 1 || selector > static_cast<int>(params.boundaryExprs.size()) ||
+                selector > static_cast<int>(params.boundaryConditions.size()))
+                error("interaction.txt interface selector is outside the local boundary list");
+            const int boundary = params.boundaryConditions[selector - 1];
+            if (boundary <= 0 || std::count(params.boundaryConditions.begin(), params.boundaryConditions.end(), boundary) != 1)
+                error("interaction.txt interface selector has a nonunique boundary condition");
+        }
+        pde.interactions = std::move(graph.table);
+        pde.interactionSelectors = std::move(graph.selectors);
+        pde.nfint = graph.nfint;
+        pde.maxinteractioncondition = graph.maxcondition;
+        pde.coupledinterface = pde.coupledcondition = pde.coupledboundarycondition = 0;
+        pde.interfaceFluxmap.clear();
+        pde.interfacetype = 0;
+    }
             
     pde.flag = makeDoubleVector(
         pde.tdep, pde.wave, pde.linearproblem, pde.debugmode, pde.matvecorder, pde.GMRESortho,
@@ -1197,6 +1355,7 @@ void writepde(const PDE& pde, const std::string& filename)
     std::vector<double> bououtparam(1, static_cast<double>(pde.saveSolBouLoc));
     for (int b : pde.ibsList) if (b > 0) bououtparam.push_back(static_cast<double>(b));
     nsize[23] = bououtparam.size();
+    nsize[24] = pde.interactions.size();
 
     std::ofstream file(filename, std::ios::binary);
     if (!file) throw std::runtime_error("Cannot open file for writing.");
@@ -1249,6 +1408,7 @@ void writepde(const PDE& pde, const std::string& filename)
         writeVector(boundaries);
     }
     writeVector(bououtparam);
+    writeVector(pde.interactions);
 
     file.close();
     if (!pde.physicsparamcases.empty()) {

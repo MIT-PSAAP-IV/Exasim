@@ -24,7 +24,8 @@ std::vector<double> read_doubles(const fs::path& file)
 } // namespace
 
 void GenerateText2CodeDatain(const std::string& pdeappfile, int ranks, int modelnumber,
-                             const std::string& text2code)
+                             const std::string& text2code,
+                             const std::vector<std::pair<std::string, std::string>>& extraKeys)
 {
     const fs::path pdeapp = fs::absolute(pdeappfile);
     const std::string suffix = modelnumber > 0 ? std::to_string(modelnumber) : "";
@@ -42,6 +43,8 @@ void GenerateText2CodeDatain(const std::string& pdeappfile, int ranks, int model
             << "dataoutpath = \"dataout" << suffix << "\";\n"
             << "mpiprocs = " << ranks << ";\n"
             << "modelnumber = " << modelnumber << ";\n";
+        for (const auto& entry : extraKeys)
+            out << entry.first << " = " << entry.second << ";\n";
     }
     fs::remove_all(dir / ("datain" + suffix));
     fs::create_directories(dir / ("dataout" + suffix));

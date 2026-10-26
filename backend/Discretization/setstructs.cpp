@@ -692,6 +692,11 @@ void settempstruct(tempstructT<T,I> &tmp, appstructT<T,I> &app, masterstructT<T,
       tmp.sztempi = ngaMax*(nmaterialdb_state + 1);
     }
         
+    // RB projection shares this workspace with residual assembly. Small meshes
+    // can otherwise provide less storage than its two vectors/two Gram matrices.
+    Int rb = max(0, app.problem[16]);
+    n0 = max(n0, 2*rb);
+    n3 = max(n3, 2*rb*rb);
     TemplateMalloc(&tmp.tempn, n0+n3, backend); 
     tmp.tempg = &tmp.tempn[n0];
     TemplateMalloc(&tmp.tempi, tmp.sztempi, backend);
@@ -1217,6 +1222,9 @@ void devsolstruct(solstructT<T,I> &dsol, solstructT<T,I> &sol, commonstructT<T,I
     //TemplateMalloc(&dsol.uh, sol.nsize[3], common.backend);    
     TemplateMalloc(&dsol.odg, sol.nsize[3], common.backend);          
     TemplateMalloc(&dsol.wdg, sol.nsize[4], common.backend);
+    // Host-side extent is also needed by trial snapshots; nsize on the device
+    // cannot be dereferenced there. Preserve the entire allocation (incl. halos).
+    dsol.szwdg = sol.nsize[4];
 
     #ifdef HAVE_ENZYME
     TemplateMalloc(&dsol.dudg, sol.nsize[2], common.backend);    

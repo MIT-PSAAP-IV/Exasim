@@ -3,7 +3,7 @@
 #   exasimapp N datain<s0>/ dataout<s0>/out datain<s1>/ dataout<s1>/out ...
 # one (datain, dataout) pair per model slot (nested strn dirs; "" for slot 0).
 # Mirrors the Python frontend's runcode_combined.
-function runcode_combined(pdes)
+function runcode_combined(pdes, domainranks=nothing)
     display("Run combined multi-PDE C++ Exasim code ...")
 
     p0 = pdes[1]
@@ -21,7 +21,17 @@ function runcode_combined(pdes)
         push!(args, joinpath(datapath, "dataout", strn, "out"))
     end
 
-    if p0.mpiprocs == 1
+    totalranks = p0.mpiprocs
+    if !isnothing(domainranks)
+        counts = Int.(collect(domainranks))
+        length(counts) == n && all(counts .> 0) ||
+            error("domainranks must contain one positive integer count per domain")
+        totalranks = sum(counts)
+        push!(args, "--domain-ranks")
+        push!(args, join(counts, ","))
+    end
+
+    if totalranks == 1
         cmd = `$exe $args`
     else
         mpirun = p0.mpirun
@@ -30,7 +40,7 @@ function runcode_combined(pdes)
             discovered = strip(read(mpitxt, String))
             isempty(discovered) || (mpirun = discovered)
         end
-        cmd = `$mpirun -np $(p0.mpiprocs) $exe $args`
+        cmd = `$mpirun -np $totalranks $exe $args`
     end
 
     run(Cmd(cmd; dir=datapath))

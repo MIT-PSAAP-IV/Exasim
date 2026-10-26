@@ -79,6 +79,7 @@
 #include "setstructs.cpp"
 #include "nonmatchingruntime.hpp"
 #include "residual.hpp"
+#include "nonmatchinginteractionruntime.hpp"
 //#include "ldgjactest.cpp"
 #include "ldgblockjacobian.cpp"
 #include "matvec.hpp"
@@ -457,8 +458,11 @@ CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string e
         Int fileoffset, Int omprank, Int backend, Int builtinmodelID,
         const ExasimDriverABI& abi, Int nsca, Int nvec, Int nten, Int nsurf, Int nvqoi,
         ExasimExecutionMode mode, const std::vector<dstype>* physicsparamOverride,
-        Int saveParaview)
+        Int saveParaview, Int localDomainIn, const std::vector<Int>* domainRankOffsetsIn)
 {
+    localDomain = localDomainIn;
+    if (domainRankOffsetsIn != nullptr)
+        domainRankOffsets = *domainRankOffsetsIn;
     driver_abi = abi;
     common.driver_abi = &driver_abi;  // expose the ABI to the unified templated FEM code (AbiAdapter path)
     common.backend = backend;
@@ -529,16 +533,23 @@ CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string e
             TemplateCopytoHost(sol.xcg, hsol.xcg, sol.szxcg, 0);
         }
 
+        if (happ.szinteractions > 0) {
+            std::ostringstream message;
+            message << "non-matching coupling (construction): CUDA/HIP execution awaits "
+                    << "device validation (backend = " << backend << ")";
+            error(message.str());
+        }
+
 #ifdef HAVE_MPI
         // Host setup remains on the staging structs; runtime arrays are
         // allocated on the selected backend before staging memory is released.
         {
-            exasim::nonmatching::DonorSearchParams nonmatchingParams;
-            exasim::nonmatching::rebuild_nonmatching_interface(
-                happ, hmaster, hmesh, hsol, hcommon, mpiprocs, mpirank, fileoffset,
-                nonmatching, nonmatchingRuntime, backend,
-                static_cast<exasim::nonmatching::DonorSearchResult<T, I>*>(nullptr),
-                nonmatchingParams, true, &nonmatchingOwnerTests);
+            nonmatchingInteractions.reserve(1);
+            exasim::nonmatching::NonmatchingInteraction<T, I> candidate;
+            if (exasim::nonmatching::NonmatchingInteraction<T, I>::setupLegacy(
+                    happ, hmaster, hmesh, hsol, hcommon, mpiprocs, mpirank,
+                    fileoffset, backend, candidate))
+                nonmatchingInteractions.emplace_back(std::move(candidate));
         }
 #endif
 
@@ -560,21 +571,33 @@ CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string e
                 physicsparamOverride, mode,
                 static_cast<nonmatchingdataT<T, I>*>(nullptr)); // Rebuild atomically below.
 #ifdef HAVE_MPI
-        {
-            exasim::nonmatching::DonorSearchParams nonmatchingParams;
-            exasim::nonmatching::rebuild_nonmatching_interface(
-                app, master, mesh, sol, common, mpiprocs, mpirank, fileoffset,
-                nonmatching, nonmatchingRuntime, backend,
-                static_cast<exasim::nonmatching::DonorSearchResult<T, I>*>(nullptr),
-                nonmatchingParams, true, &nonmatchingOwnerTests);
+        if (app.szinteractions > 0) {
+            const auto records = exasim::nonmatching::validate_interaction_graph(
+                    app, mesh, common, localDomain, domainRankOffsets);
+            exasim::nonmatching::setup_nonmatching_interactions(
+                    records, localDomain, app, master, mesh, sol, common,
+                    mpiprocs, mpirank, fileoffset, backend,
+                    nonmatchingInteractions);
         }
+        else {
+            nonmatchingInteractions.reserve(1);
+            exasim::nonmatching::NonmatchingInteraction<T, I> candidate;
+            if (exasim::nonmatching::NonmatchingInteraction<T, I>::setupLegacy(
+                    app, master, mesh, sol, common, mpiprocs, mpirank,
+                    fileoffset, backend, candidate))
+                nonmatchingInteractions.emplace_back(std::move(candidate));
+        }
+#else
+        if (app.szinteractions > 0)
+            error("non-matching coupling (construction): interfacetype 1 requires MPI");
 #endif
     }
 #ifdef HAVE_MPI
     // GPU has a separate final common object, so publish its request storage
     // only after gpuInit has created that object.
-    if (backend > 1 && nonmatching.interfacetype == 1)
-        exasim::nonmatching::ensure_nonmatching_request_capacity(common, nonmatching);
+    if (backend > 1 && nonmatchingInteractions.size() == 1 &&
+            nonmatchingInteractions.front().setupInterfacetype() == 1)
+        nonmatchingInteractions.front().ensureRequestCapacity(common);
 #endif
     finalizeConstruction(backend, mode, nsca, nvec, nten, nsurf, nvqoi, saveParaview);
 }
@@ -804,7 +827,8 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
           res.szP = npf*nfe*ncu*npf*nfe*ncu*common.meshsizes.ne;
         else if (common.solverparams.preconditioner==2) // Superelement additive Schwarz preconditioner
           res.szP = npf*ncu*npf*ncu*common.nse*common.nnz;
-        res.szV = ncu*npf*nf*(common.solverparams.gmresRestart+1); // Krylov vectors in GMRES
+        // Match setsysstruct's shared Krylov/RB reservation, including RB > restart.
+        res.szV = ncu*npf*nf*max(common.solverparams.gmresRestart+1, common.solverparams.RBdim);
         res.szK = max(res.szK, res.szP + res.szV);
         res.szF = npe*ncu*npf*nfe*ncu*common.meshsizes.ne;
         res.szipiv = max(max(npf*nfe,npe)*ncu*neb, ncu*npf*common.meshsizes.nfb);
@@ -876,9 +900,7 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
 template <class T, class I>
 CDiscretizationT<T, I>::~CDiscretizationT()
 {
-    nonmatchingRuntime.reset(); // Release backend mirrors before host setup data.
-    nonmatchingOwnerTests.reset();
-    exasim::nonmatching::free_nonmatching_data(nonmatching);
+    nonmatchingInteractions.clear(); // Runtime, owner tests, then host setup.
     app.freememory(common.backend);
     if (common.mpiRank==0) printf("CDiscretization destructor: app memory is freed successfully.\n");
     master.freememory(common.backend);
@@ -1326,7 +1348,8 @@ void CDiscretizationT<T, I>::DG2CG3(dstype* ucg, dstype* udg, dstype *utm, Int n
 // docs/internals/precision-threading.md (Phase 2).
 template CDiscretizationT<::dstype, ::Int>::CDiscretizationT(
     std::string, std::string, std::string, Int, Int, Int, Int, Int, Int, const ExasimDriverABI&,
-    Int, Int, Int, Int, Int, ExasimExecutionMode, const std::vector<dstype>*, Int);
+    Int, Int, Int, Int, Int, ExasimExecutionMode, const std::vector<dstype>*, Int, Int,
+    const std::vector<Int>*);
 template CDiscretizationT<::dstype, ::Int>::~CDiscretizationT();
 template void CDiscretizationT<::dstype, ::Int>::finalizeConstruction(
     Int, ExasimExecutionMode, Int, Int, Int, Int, Int, Int);

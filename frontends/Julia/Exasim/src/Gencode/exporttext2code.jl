@@ -20,6 +20,7 @@ function exporttext2code(pde, mesh, dest="")
         for i in eachindex(pde)
             _t2c_export_single!(pde[i], mesh[i], dest, string(i), length(pde), i)
         end
+        !isempty(pde[1].interactions) && _t2c_write_interactions(pde[1].interactions, joinpath(dest,"interaction.txt"))
         _t2c_write_readme(dest; coupled=true, nmodels=length(pde))
     else
         _t2c_export_single!(pde, mesh, dest, "", 1, 0)
@@ -30,8 +31,29 @@ function exporttext2code(pde, mesh, dest="")
     return dest
 end
 
+function _t2c_write_interactions(interactions, filename)
+    keys=(:domains,:type,:interface1,:condition1,:fluxmap1,:interface2,:condition2,:fluxmap2)
+    open(filename,"w") do io
+        for (ordinal,entry) in enumerate(interactions)
+            println(io,"// interaction $ordinal")
+            for key in keys
+                value=getproperty(entry,key)
+                if key in (:domains,:fluxmap1,:fluxmap2)
+                    println(io,string(key)," = [",join(Int.(vec(value)),", "),"];")
+                else
+                    println(io,string(key)," = ",Int(value),";")
+                end
+            end
+        end
+    end
+end
+
 function _t2c_export_single!(pde, mesh, dest, suffix="", nmodels=1, modelslot=0)
     _t2c_infer_dimensions!(pde, mesh)
+    if !_t2c_empty(_t2c_getapp(pde,"interactions",[]))
+        _t2c_setapp!(pde,"interactionfile","interaction.txt")
+        _t2c_setapp!(pde,"numdomains",nmodels)
+    end
     if isempty(String(_t2c_getapp(pde, "model", ""))) && !_t2c_empty(_t2c_getapp(pde, "pdemodel", ""))
         _t2c_setapp!(pde, "model", _t2c_getapp(pde, "pdemodel", ""))
     end
@@ -230,6 +252,7 @@ function _t2c_write_pdeapp(pde, mesh, files, path, modelfile="pdemodel.txt")
         "model", "modelfile", "meshfile", "xdgfile", "udgfile", "vdgfile", "wdgfile",
         "uniformrefinementlevel", "materialdatabase",
         "discretization", "platform", "mpiprocs", "debugmode", "runmode", "modelnumber",
+        "interactionfile", "numdomains",
         "builtinmodelID", "frontendgenerated",
         "nodetype", "ncu", "ncv", "ncw", "neb", "nfb", "linearproblem", "subproblem",
         "saveParaview", "physicsparamwarmstart", "tdep", "wave", "porder", "pgauss",

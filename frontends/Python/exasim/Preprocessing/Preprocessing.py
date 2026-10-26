@@ -41,11 +41,17 @@ def preprocessing(app,mesh):
 
     # Coupled interface (two-domain solve): the single boundary whose
     # mesh['interfacecondition'] entry is nonzero (MATLAB preprocessing.m).
+    graph_input = size(app.get('interactiontable', [])) > 0
     coupledinterface = 0;
     coupledcondition = 0;
     coupledboundarycondition = 0;
+    interface_selectors = array([], dtype=int)
     interfacecondition = mesh.get('interfacecondition', None) if isinstance(mesh, dict) else None
-    if interfacecondition is not None and size(interfacecondition) > 0:
+    if graph_input:
+        app['interfacefluxmap'] = []
+        app['interfacetype'] = 0
+        interface_selectors = asarray(app.get('interactionselectors', []), dtype=int).flatten()
+    elif interfacecondition is not None and size(interfacecondition) > 0:
         interfacecondition = array(interfacecondition).flatten('F')
         ind = nonzero(interfacecondition > 0)[0]
         if len(ind) > 1:
@@ -60,6 +66,9 @@ def preprocessing(app,mesh):
     app['coupledinterface'] = coupledinterface;
     app['coupledcondition'] = coupledcondition;
     app['coupledboundarycondition'] = coupledboundarycondition;
+    if not graph_input and coupledinterface > 0:
+        interface_selectors = array([coupledinterface], dtype=int)
+    has_interface_selectors = interface_selectors.size > 0
 
     if app['modelnumber']==0:
         strn = "";
@@ -242,7 +251,9 @@ def preprocessing(app,mesh):
             meshf0, meshtprd0, mesht2t0 = facenumbering(mesh['p'],mesh['t'],app['elemtype'],mesh['boundaryexpr'],mesh['periodicexpr'])[0:3];
             dmd0 = [dict() for x in range(mpiprocs)];
             if app['hybrid'] == 1:
-                dmd0 = elementpartitionhdg(dmd0, meshtprd0, mesht2t0, mpiprocs, app['metis']);
+                coarse_selectors = interface_selectors if graph_input else array([], dtype=int)
+                dmd0 = elementpartitionhdg(dmd0, meshtprd0, mesht2t0, mpiprocs, app['metis'],
+                                           None, meshf0, coarse_selectors);
             else:
                 dmd0 = elementpartition2(dmd0, meshtprd0, mesht2t0, mpiprocs, app['metis']);
             elem2cpu = coarseelem2cpu(dmd0, mesh['t'].shape[1])
@@ -261,7 +272,7 @@ def preprocessing(app,mesh):
     #dmd = meshpartition2(dmd,mesh['tprd'],mesh['f'],t2t,app['boundaryconditions'],app['nd'],app['elemtype'],app['porder'],mpiprocs,app['metis']);
 
     if app['hybrid'] == 1:
-        dmd = meshpartitionhdg(dmd,mesh['tprd'],mesh['f'],t2t,app['boundaryconditions'],app['nd'],app['elemtype'],app['porder'],mpiprocs,app['metis'],app['Cxxpreprocessing'],elem2cpu,coupledinterface);
+        dmd = meshpartitionhdg(dmd,mesh['tprd'],mesh['f'],t2t,app['boundaryconditions'],app['nd'],app['elemtype'],app['porder'],mpiprocs,app['metis'],app['Cxxpreprocessing'],elem2cpu,interface_selectors);
     else:
         dmd = meshpartition2(dmd,mesh['tprd'],mesh['f'],t2t,app['boundaryconditions'],app['nd'],app['elemtype'],app['porder'],mpiprocs,app['metis'],app['Cxxpreprocessing'],elem2cpu);
 
@@ -293,7 +304,7 @@ def preprocessing(app,mesh):
             wdg = mesh['wdg'][:, :, dmd[i]['elempart']]   
             
         # A coupled world is an MPI run, so each domain reads indexed files.
-        if mpiprocs==1 and coupledinterface==0:
+        if mpiprocs==1 and not has_interface_selectors and not graph_input:
             writesol(filename + "/sol",0,xdg, udg, vdg, wdg, app, master, dmd[i]);
         else:
             writesol(filename + "/sol",i+1,xdg, udg, vdg, wdg, app, master, dmd[i]);
@@ -301,7 +312,7 @@ def preprocessing(app,mesh):
         if app['Cxxpreprocessing'] == 0:
             cgelcon,rowent2elem,colent2elem,cgent2dgent = mkcgent2dgent(xdg,1e-8)[0:4];
 
-            if mpiprocs==1 and coupledinterface>0:
+            if mpiprocs==1 and has_interface_selectors:
                 me = cumsum([0, dmd[i]['intepartpts'][0], dmd[i]['intepartpts'][1]]);
                 eblks,nbe = mkfaceblocks(me,[0, -1],app['neb'])[0:2];
                 mf = cumsum(concatenate([[0], dmd[i]['facepartpts'].flatten()]));
@@ -317,10 +328,10 @@ def preprocessing(app,mesh):
                 neb = max(eblks[1,:]-eblks[0,:])+1;
                 nfb = max(fblks[1,:]-fblks[0,:])+1;
             else:
-                if coupledinterface>0 and dmd[i]['intepartpts'][1]>0:
+                if has_interface_selectors and dmd[i]['intepartpts'][1]>0:
                     me = cumsum([0, dmd[i]['intepartpts'][0], dmd[i]['intepartpts'][1], dmd[i]['intepartpts'][2], dmd[i]['intepartpts'][3]]);
                     eblks,nbe = mkfaceblocks(me,[0, -1, 1, 2],app['neb'])[0:2];
-                elif coupledinterface>0:
+                elif has_interface_selectors:
                     me = cumsum([0, dmd[i]['intepartpts'][0], dmd[i]['intepartpts'][2], dmd[i]['intepartpts'][3]]);
                     eblks,nbe = mkfaceblocks(me,[0, 1, 2],app['neb'])[0:2];
                 else:
@@ -399,10 +410,10 @@ def preprocessing(app,mesh):
         ti = mesh['tprd'][:,dmd[i]['elempart'].flatten()]
         nsize[27-1] = len(ti.flatten());         
         nsize[28-1] = size(app['boundaryconditions']);         
-        if coupledinterface>0 and 'intepartpts' in dmd[i]:
+        if has_interface_selectors and 'intepartpts' in dmd[i]:
             nsize[29-1] = size(dmd[i]['intepartpts']);
 
-        if (mpiprocs>1) or (coupledinterface>0):
+        if (mpiprocs>1) or has_interface_selectors or graph_input:
             print("Writing mesh into file " + str(i+1));
             fileID = open(filename + "/mesh" + str(i+1) + ".bin","w");
         else:
@@ -454,7 +465,7 @@ def preprocessing(app,mesh):
         dmd[i]['bf'].flatten('F').astype(float64).tofile(fileID);
         ti.flatten('F').astype(float64).tofile(fileID);
         app['boundaryconditions'].flatten('F').astype(float64).tofile(fileID);
-        if coupledinterface>0 and 'intepartpts' in dmd[i]:
+        if has_interface_selectors and 'intepartpts' in dmd[i]:
             dmd[i]['intepartpts'].flatten('F').astype(float64).tofile(fileID);
 
         # savetxt(sys.stdout, dmd[i]['f2t'].transpose(), fmt='%d', delimiter=', ')

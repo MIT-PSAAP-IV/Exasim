@@ -37,11 +37,11 @@
 #define __MATVEC
 
 #include "ioutilities.hpp"
-#include "nonmatchingcoupling.hpp" // [nonmatching] Phase 4 residual/matrix kernels
+#include "nonmatchinginteractionruntime.hpp"
 template <class M, class T=dstype, class I=Int>
 inline void MatVec(T *w, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master,
       meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, T *v, 
-      T *u, T *Ru, Int backend)
+      T *u, T *Ru, Int backend, T directionNorm = T(-1))
 {
     using dstype=T;   
     Int nc = common.components.nc; // number of compoments of (u, q, p)
@@ -59,6 +59,21 @@ inline void MatVec(T *w, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<
     dResidual<M>(sol, res, app, master, mesh, tmp, common, handle, backend);
     ArrayAXPBY(w, u, res.dRu, 0.0, 1, N);
 #else
+    // Probe a unit direction. Raw RB/Newton updates can be so small that a
+    // fixed epsilon*v rounds away completely. Arnoldi/RB callers supply their
+    // known norm to avoid an additional reduction on the Krylov hot path.
+    if (directionNorm < T(0)) directionNorm = PNORM(handle, N, v, backend);
+    if (directionNorm == T(0)) {
+        ArraySetValue(w, T(0), N);
+        return;
+    }
+    epsilon /= directionNorm;
+    if (!is_finite_bitwise(directionNorm) || !is_finite_bitwise(epsilon) || epsilon <= T(0)) {
+        ArraySetNaN(w, N);
+        return;
+    }
+    AuxiliaryStateSnapshot<T> auxiliary(sol.wdg, common.components.ncw > 0 ? sol.szwdg : 0,
+                                        &tmp.auxiliaryMatvecBackup);
     if (order==1) {
         // calculate w = u + epsilon*v
         ArrayAXPBY(w, u, v, 1.0, epsilon, N);
@@ -73,6 +88,15 @@ inline void MatVec(T *w, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<
         ArrayAXPBY(w, res.Ru, Ru, 1.0/epsilon, -1.0/epsilon, N);
     }
     else if (order==2) {
+        // Polynomial preconditioning can request MatVec(v, v, ...). The
+        // first probe overwrites the output, so retain v for the second one.
+        Kokkos::View<T*> direction;
+        if (w == v) {
+            direction = Kokkos::View<T*>(Kokkos::view_alloc(Kokkos::WithoutInitializing,
+                                                          "matvec_direction"), N);
+            ArrayCopy(direction.data(), v, N);
+            v = direction.data();
+        }
         // calculate w = u - epsilon*v
         ArrayAXPBY(w, u, v, 1.0, -epsilon, N);
 
@@ -82,8 +106,10 @@ inline void MatVec(T *w, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<
         // compute the residual R(u-epsilon*v)
         Residual<M>(sol, res, app, master, mesh, tmp, common, handle, backend);
 
-        // copy res.Ru to Ru
-        ArrayCopy(Ru, res.Ru, N);
+        // Preserve the caller's base residual; both probes use the same w seed.
+        Kokkos::View<T*> minusResidual(Kokkos::view_alloc(Kokkos::WithoutInitializing, "minus_residual"), N);
+        ArrayCopy(minusResidual.data(), res.Ru, N);
+        auxiliary.restore();
         
         // calculate w = u + epsilon*v
         ArrayAXPBY(w, u, v, 1.0, epsilon, N);
@@ -95,7 +121,8 @@ inline void MatVec(T *w, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<
         Residual<M>(sol, res, app, master, mesh, tmp, common, handle, backend);
         
         // calculate w = J(u)*v = (R(u+epsilon*v)-R(u-epsilon*v))/(2*epsilon)    
-        ArrayAXPBY(w, res.Ru, Ru, 0.5/epsilon, -0.5/epsilon, N);
+        ArrayAXPBY(w, res.Ru, minusResidual.data(), 0.5/epsilon, -0.5/epsilon, N);
+        Kokkos::fence();
     }
     else
         error("Matrix-vector multiplication order is not implemented");
@@ -252,7 +279,7 @@ inline void hdgGetDUDG(T *w, T *F, T *duh, T *ve, meshstructT<T,I> &mesh,
 template <class T=dstype, class I=Int>
 inline void hdgMatVec(T *w, T *AE, T *v, T *ve, T *we, resstructT<T,I> &res, appstructT<T,I> &app, 
         meshstructT<T,I> &mesh, commonstructT<T,I> &common, tempstructT<T,I> &tmp, cublasHandle_t handle, Int backend,
-        exasim::nonmatching::NonmatchingRuntime<T,I> *nonmatching = nullptr) // [nonmatching] Phase 8 runtime
+        std::vector<exasim::nonmatching::NonmatchingInteraction<T,I>>& interactions)
 {
     using dstype=T;   
     Int ne1 = common.meshsizes.ne1; // number of elements in this subdomain 
@@ -263,7 +290,8 @@ inline void hdgMatVec(T *w, T *AE, T *v, T *ve, T *we, resstructT<T,I> &res, app
     Int m = ncu*npf*nfe;  
 
     // [nonmatching] rank-uniform selection check before any branching or communication
-    const bool nonmatchingCoupled = exasim::nonmatching::validate_coupling_selection(common, nonmatching, backend, "hdgMatVec"); // [nonmatching]
+    const bool nonmatchingCoupled = exasim::nonmatching::validate_interactions(
+            common, interactions, backend, "hdgMatVec", app.szinteractions > 0);
 
     // ncu * npf * nf -> ncu * npf * nfe * ne1
     GetElementFaceNodes(ve, v, mesh.elemcon, npf*nfe, ncu, 0, ne1, 2);
@@ -364,8 +392,10 @@ inline void hdgMatVec(T *w, T *AE, T *v, T *ve, T *we, resstructT<T,I> &res, app
       }      
     }
     else if (nonmatchingCoupled) { // [nonmatching] eq. (68): pair products, slot sums, coupling-slot exchange
-      exasim::nonmatching::nonmatching_matvec_products(*nonmatching, ve, m, ne1, handle, backend); // [nonmatching]
-      exasim::nonmatching::begin_coupling_slot_exchange(*nonmatching, common, request_counter); // [nonmatching]
+      for (auto& interaction : interactions)
+        interaction.matvecProducts(ve, m, ne1, handle, backend);
+      for (auto& interaction : interactions)
+        interaction.beginExchange(common, request_counter);
     } // [nonmatching]
 
     // perform matrix-vector products for interior elements
@@ -395,7 +425,8 @@ inline void hdgMatVec(T *w, T *AE, T *v, T *ve, T *we, resstructT<T,I> &res, app
       PutBoudaryNodes(we, res.Ri, mesh.intfaces, mesh.faceperm, app.interfacefluxmap, nfe, npf, ncu12, ncu, facepermStride, common.couplingparams.nintfaces); // [nonmatching]
     }
     else if (nonmatchingCoupled) { // [nonmatching] owner assembly, eq. (68) with eq. (64) ordering
-      exasim::nonmatching::assemble_coupling_slot_owner(we, *nonmatching, mesh, app, common); // [nonmatching]
+      for (const auto& interaction : interactions)
+        interaction.assembleOwner(we, mesh, app, common);
     } // [nonmatching]
 
     // ncu * npf * nfe * ne -> ncu * npf * nf
@@ -419,14 +450,30 @@ inline void hdgMatVec(T *w, T *AE, T *v, T *ve, T *we, resstructT<T,I> &res, app
 #endif
 }
 
+// Existing postprocessing callers have no non-matching runtime state. Keep
+// that no-coupling call form without retaining the removed singular pointer
+// API or changing the postprocessing source.
+template <class T=dstype, class I=Int>
+inline void hdgMatVec(T *w, T *AE, T *v, T *ve, T *we,
+        resstructT<T,I> &res, appstructT<T,I> &app, meshstructT<T,I> &mesh,
+        commonstructT<T,I> &common, tempstructT<T,I> &tmp,
+        cublasHandle_t handle, Int backend)
+{
+    std::vector<exasim::nonmatching::NonmatchingInteraction<T,I>> interactions;
+    hdgMatVec(w, AE, v, ve, we, res, app, mesh, common, tmp, handle, backend,
+              interactions);
+}
+
 #ifdef  HAVE_MPI     
 template <class M, class T=dstype, class I=Int>
 inline void hdgAssembleLinearSystemMPI(T *b, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
         meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,
-        exasim::nonmatching::NonmatchingRuntime<T,I>* nonmatching, cublasHandle_t handle, Int backend)
+        std::vector<exasim::nonmatching::NonmatchingInteraction<T,I>>& interactions,
+        cublasHandle_t handle, Int backend)
 {
     using dstype=T;
-    const bool nonmatchingCoupled = exasim::nonmatching::validate_coupling_selection(common, nonmatching, backend, "hdg assembly"); // [nonmatching]
+    const bool nonmatchingCoupled = exasim::nonmatching::validate_interactions(
+            common, interactions, backend, "hdg assembly", app.szinteractions > 0);
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int npf = common.grid.npf; // number of nodes on master face           
     Int npe = common.grid.npe; // number of nodes on master element
@@ -448,10 +495,11 @@ inline void hdgAssembleLinearSystemMPI(T *b, solstructT<T,I> &sol, resstructT<T,
     }                             
 
     // [nonmatching] All interface-element local solvers are now available.
-    if (nonmatchingCoupled) // [nonmatching]
-      exasim::nonmatching::compute_nonmatching_coupling<M>(*nonmatching, sol, res, app,
-              master, mesh, tmp, common, handle, true, backend);
-        
+    if (nonmatchingCoupled)
+      for (auto& interaction : interactions)
+        interaction.template compute<M>(sol, res, app, master, mesh, tmp,
+                                        common, handle, true, backend);
+
     // copy H and Rh to buffsend
 //     for (int n=0; n<common.nelemsend; n++)  {       
 //       ArrayCopy(&tmp.buffsend[bsz*n], &res.H[szH*common.elemsend[n]], szH);     
@@ -543,8 +591,8 @@ inline void hdgAssembleLinearSystemMPI(T *b, solstructT<T,I> &sol, resstructT<T,
       }      
     }
     else if (nonmatchingCoupled) { // [nonmatching]
-      exasim::nonmatching::begin_coupling_slot_exchange(
-              *nonmatching, common, request_counter);
+      for (auto& interaction : interactions)
+        interaction.beginExchange(common, request_counter);
     }
       
     // perform HDG descrization for interior elements
@@ -583,8 +631,8 @@ inline void hdgAssembleLinearSystemMPI(T *b, solstructT<T,I> &sol, resstructT<T,
 //         print2darray(res.Ri, szRi, common.nfacerecv);
     }
     else if (nonmatchingCoupled) { // [nonmatching]
-      exasim::nonmatching::assemble_coupling_slot_owner(
-              res.Rh, *nonmatching, mesh, app, common);
+      for (const auto& interaction : interactions)
+        interaction.assembleOwner(res.Rh, mesh, app, common);
     }
     
     ArraySetValue(b, 0.0, ncu*npf*common.meshsizes.nf); // fix bug here
@@ -599,10 +647,12 @@ inline void hdgAssembleLinearSystemMPI(T *b, solstructT<T,I> &sol, resstructT<T,
 template <class M, class T=dstype, class I=Int>
 inline void hdgAssembleResidualMPI(T *b, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
         meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,
-        exasim::nonmatching::NonmatchingRuntime<T,I>* nonmatching, cublasHandle_t handle, Int backend)
+        std::vector<exasim::nonmatching::NonmatchingInteraction<T,I>>& interactions,
+        cublasHandle_t handle, Int backend)
 {
     using dstype=T;
-    const bool nonmatchingCoupled = exasim::nonmatching::validate_coupling_selection(common, nonmatching, backend, "hdg assembly"); // [nonmatching]
+    const bool nonmatchingCoupled = exasim::nonmatching::validate_interactions(
+            common, interactions, backend, "hdg assembly", app.szinteractions > 0);
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int npf = common.grid.npf; // number of nodes on master face           
     Int npe = common.grid.npe; // number of nodes on master element
@@ -619,9 +669,10 @@ inline void hdgAssembleResidualMPI(T *b, solstructT<T,I> &sol, resstructT<T,I> &
     }                             
 
     // [nonmatching] Equation (40), evaluated once for all donor points.
-    if (nonmatchingCoupled) // [nonmatching]
-      exasim::nonmatching::compute_nonmatching_coupling<M>(*nonmatching, sol, res, app,
-              master, mesh, tmp, common, handle, false, backend);
+    if (nonmatchingCoupled)
+      for (auto& interaction : interactions)
+        interaction.template compute<M>(sol, res, app, master, mesh, tmp,
+                                        common, handle, false, backend);
 
     // copy H and Rh to buffsend
 //     for (int n=0; n<common.nelemsend; n++)  {       
@@ -707,10 +758,9 @@ inline void hdgAssembleResidualMPI(T *b, solstructT<T,I> &sol, resstructT<T,I> &
       }      
     }
     else if (nonmatchingCoupled) { // [nonmatching]
-      exasim::nonmatching::begin_coupling_slot_exchange(
-              *nonmatching, common, request_counter);
+      for (auto& interaction : interactions)
+        interaction.beginExchange(common, request_counter);
     }
-
     // perform HDG descrization for interior elements
     for (Int j=0; j<common.meshsizes.nbe0; j++) {                  
       RuEquationElemBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
@@ -741,8 +791,8 @@ inline void hdgAssembleResidualMPI(T *b, solstructT<T,I> &sol, resstructT<T,I> &
       PutBoudaryNodes(res.Rh, res.Ri, mesh.intfaces, mesh.faceperm, app.interfacefluxmap, nfe, npf, ncu12, ncu, facepermStride, common.couplingparams.nintfaces); // [nonmatching]
     }
     else if (nonmatchingCoupled) { // [nonmatching]
-      exasim::nonmatching::assemble_coupling_slot_owner(
-              res.Rh, *nonmatching, mesh, app, common);
+      for (const auto& interaction : interactions)
+        interaction.assembleOwner(res.Rh, mesh, app, common);
     }
 
     // assemble RHS vector b from res.Rh using the FIRST elements in mesh.f2e

@@ -216,7 +216,6 @@ void CSolution<M>::SaveContinuationState(Int backend)
 
     continuationSnapshot.timestate = disc.common.timestate;
     continuationSnapshot.matvecTol = disc.common.solverparams.matvecTol;
-    continuationSnapshot.RBcurrentdim = solv.state.RBcurrentdim;
     continuationSnapshot.artificialViscosityPrepared = artificialViscosityPrepared;
     continuationSnapshot.continuationInitialized = true;
 }
@@ -261,7 +260,11 @@ void CSolution<M>::RestoreContinuationState(Int backend)
 
     disc.common.timestate = continuationSnapshot.timestate;
     disc.common.solverparams.matvecTol = continuationSnapshot.matvecTol;
-    solv.state.RBcurrentdim = continuationSnapshot.RBcurrentdim;
+    // Rejected continuation solves may overwrite both the RB ring and its
+    // Jacobian images. Restoring only the old dimension would expose that
+    // rejected-state history with an inconsistent replacement index.
+    solv.state.RBcurrentdim = 0;
+    solv.state.RBremovedind = 0;
     artificialViscosityPrepared = continuationSnapshot.artificialViscosityPrepared;
     ArrayAXPB(disc.app.fc_u, disc.app.dtcoef_u, disc.common.timestate.dtfactor,
               zero, disc.common.components.ncu);

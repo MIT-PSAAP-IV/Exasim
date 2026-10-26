@@ -40,6 +40,9 @@ struct ParsedSpec {
     std::string symenginepath = "";
     std::string modelfile = "";
     bool exasim;
+    int nfint = 0;
+    int maxinteractioncondition = 0;
+    bool hasinteractiongraph = false;
     std::vector<FunctionDef> functions;
 };
 

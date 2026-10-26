@@ -27,7 +27,7 @@ void CAssembler<M, T, I>::hdgAssembleLinearSystem(dstype *b, Int backend)
 
 #ifdef HAVE_MPI
     hdgAssembleLinearSystemMPI<M>(b, sol, res, app, master, mesh, tmp, common,
-                                  disc.getNonmatchingRuntime(), common.cublasHandle, backend); // [nonmatching]
+                                  disc.getNonmatchingInteractions(), common.cublasHandle, backend); // [nonmatching]
 #else
     uEquationHDG<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
     hdgAssembleRHS(b, res.Rh, mesh, common);
@@ -51,7 +51,7 @@ void CAssembler<M, T, I>::hdgAssembleResidual(dstype *b, Int backend)
 
 #ifdef HAVE_MPI
     hdgAssembleResidualMPI<M>(b, sol, res, app, master, mesh, tmp, common,
-                              disc.getNonmatchingRuntime(), common.cublasHandle, backend); // [nonmatching]
+                              disc.getNonmatchingInteractions(), common.cublasHandle, backend); // [nonmatching]
 #else
     // b, K, H, F, Ru
     ResidualHDG<M>(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
@@ -64,25 +64,37 @@ void CAssembler<M, T, I>::hdgAssembleResidual(dstype *b, Int backend)
 template <class M, class T, class I>
 void CAssembler<M, T, I>::evalMatVec(dstype* Jv, dstype* v, dstype* u, dstype* Ru, Int backend)
 {
+    evalMatVecWithNorm(Jv, v, u, Ru, dstype(-1), backend);
+}
+
+template <class M, class T, class I>
+void CAssembler<M, T, I>::evalMatVecWithNorm(dstype* Jv, dstype* v, dstype* u, dstype* Ru, dstype directionNorm, Int backend)
+{
     auto& sol = disc.sol; auto& res = disc.res; auto& app = disc.app;
     auto& master = disc.master; auto& mesh = disc.mesh; auto& tmp = disc.tmp;
     auto& common = disc.common;
-    MatVec<M>(Jv, sol, res, app, master, mesh, tmp, common, common.cublasHandle, v, u, Ru, backend);
+    MatVec<M>(Jv, sol, res, app, master, mesh, tmp, common, common.cublasHandle, v, u, Ru, backend, directionNorm);
 }
 
 // matrix-vector product Jv = J(u)*v (LDG matrix-free FD, or HDG apply of the assembled res.H)
 template <class M, class T, class I>
 void CAssembler<M, T, I>::evalMatVec(dstype* Jv, dstype* v, dstype* u, dstype* Ru, Int spatialScheme, Int backend)
 {
+    evalMatVecWithNorm(Jv, v, u, Ru, dstype(-1), spatialScheme, backend);
+}
+
+template <class M, class T, class I>
+void CAssembler<M, T, I>::evalMatVecWithNorm(dstype* Jv, dstype* v, dstype* u, dstype* Ru, dstype directionNorm, Int spatialScheme, Int backend)
+{
     auto& sol = disc.sol; auto& res = disc.res; auto& app = disc.app;
     auto& master = disc.master; auto& mesh = disc.mesh; auto& tmp = disc.tmp;
     auto& common = disc.common;
     if (spatialScheme == 0) {// LDG
-      MatVec<M>(Jv, sol, res, app, master, mesh, tmp, common, common.cublasHandle, v, u, Ru, backend);
+      MatVec<M>(Jv, sol, res, app, master, mesh, tmp, common, common.cublasHandle, v, u, Ru, backend, directionNorm);
     }
     else if (spatialScheme == 1) { // HDG
       hdgMatVec(Jv, res.H, v, res.Rh, res.Rq, res, app, mesh, common, tmp, common.cublasHandle, backend,
-                disc.getNonmatchingRuntime()); // [nonmatching]
+                disc.getNonmatchingInteractions()); // [nonmatching]
     }
 }
 

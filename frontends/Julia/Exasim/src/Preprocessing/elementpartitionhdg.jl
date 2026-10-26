@@ -1,9 +1,12 @@
 function elementpartitionhdg(dmd,t,t2t,nproc,metis,elem2cpu=Int[],f=zeros(Int,0,0),coupledinterface=0)
 
 nve,ne = size(t);
+selectors = coupledinterface isa AbstractArray ? Int.(vec(coupledinterface)) :
+            (coupledinterface > 0 ? [Int(coupledinterface)] : Int[]);
+hasinterface = !isempty(selectors) && any(selectors .> 0);
 
 # Elements owning a face on the coupled interface boundary (sorted).
-coupledelements() = sort(unique([I[2] for I in findall(f .== coupledinterface)]));
+coupledelements() = sort(unique([I[2] for I in findall(x -> x in selectors, f)]));
 
 if nproc==1
     i = 1;
@@ -22,7 +25,7 @@ if nproc==1
     dmd[i].elemsend = reshape([],0,0);
     dmd[i].elemrecvpts = reshape([],0,0);
     dmd[i].elemsendpts = reshape([],0,0);
-    if coupledinterface > 0
+    if hasinterface
         # Interface elements last: [interior, interface] (MATLAB elementpartitionhdg).
         inte = coupledelements();
         tmp = [setdiff(1:ne, inte); inte];
@@ -41,7 +44,7 @@ else
         error("elementpartitionhdg: elem2cpu must contain one entry per element.");
     end
 end
-if coupledinterface > 0
+if hasinterface
     inte = coupledelements();
 end
 
@@ -56,7 +59,7 @@ for i = 1:nproc
     tmp = [setdiff(intelem,bndelem); bndelem; extelem];
     dmd[i].elempart = reshape(tmp,1,length(tmp)); # partitions of elements
     dmd[i].elempartpts = [length(intelem)-length(bndelem) length(bndelem) length(extelem)];
-    if coupledinterface > 0
+    if hasinterface
         # Order owned elements as [interior, interface-only, interface and
         # subdomain-boundary, subdomain-boundary-only], then exterior.
         interface = intersect(intelem, inte);

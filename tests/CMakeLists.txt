@@ -26,6 +26,90 @@ add_test(NAME appstruct_materialdatabase
 set_tests_properties(appstruct_materialdatabase PROPERTIES TIMEOUT 60)
 
 if(TARGET Kokkos::kokkos)
+  if(NOT EXASIM_CUDA AND NOT EXASIM_HIP)
+    # Exercise both device-setup implementations with host allocations, including
+    # on CPU-only CI where the GPU constructor would otherwise be compiled out.
+    foreach(variant templated legacy)
+      add_executable(device_solution_${variant}_test "${EXASIM_DIR}/tests/unit/device_solution.cpp")
+      target_include_directories(device_solution_${variant}_test PRIVATE "${EXASIM_DIR}" "${EXASIM_DIR}/include")
+      # The setup headers emit BLAS calls in unoptimized builds, even when the
+      # fixture only exercises allocation and metadata copying.
+      target_link_libraries(device_solution_${variant}_test PRIVATE
+        Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+      target_compile_features(device_solution_${variant}_test PRIVATE cxx_std_17)
+      if(variant STREQUAL "legacy")
+        target_compile_definitions(device_solution_${variant}_test PRIVATE TEST_LEGACY_SETUP)
+      endif()
+      add_test(NAME device_solution_${variant} COMMAND device_solution_${variant}_test)
+      set_tests_properties(device_solution_${variant} PROPERTIES TIMEOUT 60)
+    endforeach()
+  endif()
+
+  add_executable(auxiliary_trial_test "${EXASIM_DIR}/tests/unit/auxiliary_trial.cpp")
+  target_include_directories(auxiliary_trial_test PRIVATE "${EXASIM_DIR}" "${EXASIM_DIR}/include")
+  target_link_libraries(auxiliary_trial_test PRIVATE Kokkos::kokkos)
+  target_compile_features(auxiliary_trial_test PRIVATE cxx_std_17)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(auxiliary_trial_test PRIVATE -ffast-math)
+  endif()
+  add_test(NAME auxiliary_trial COMMAND auxiliary_trial_test)
+  set_tests_properties(auxiliary_trial PROPERTIES TIMEOUT 60)
+  foreach(mode bad-extent null-state)
+    add_test(NAME auxiliary_trial_${mode} COMMAND auxiliary_trial_test ${mode})
+    set_tests_properties(auxiliary_trial_${mode} PROPERTIES TIMEOUT 60 WILL_FAIL TRUE)
+  endforeach()
+
+  # Exercises the real auxiliary Newton solver with a failed logarithmic EOS
+  # trial, restored seed, and a signed auxiliary variable. NORM uses CPU BLAS.
+  if(NOT EXASIM_CUDA AND NOT EXASIM_HIP)
+    add_executable(auxiliary_eos_trial_test "${EXASIM_DIR}/tests/unit/auxiliary_eos_trial.cpp")
+    target_include_directories(auxiliary_eos_trial_test PRIVATE "${EXASIM_DIR}" "${EXASIM_DIR}/include")
+    target_link_libraries(auxiliary_eos_trial_test PRIVATE Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+    target_compile_features(auxiliary_eos_trial_test PRIVATE cxx_std_17)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+      target_compile_options(auxiliary_eos_trial_test PRIVATE -ffast-math)
+    endif()
+    add_test(NAME auxiliary_eos_trial COMMAND auxiliary_eos_trial_test)
+    set_tests_properties(auxiliary_eos_trial PROPERTIES TIMEOUT 60)
+
+    # Actual solver routines with small analytic operators. These fixtures use
+    # host arrays; the production algorithms still dispatch through Kokkos/BLAS.
+    foreach(name gmres_recycling ldg_matvec_consistency rb_projection nonlinear_rb_retry)
+      add_executable(${name}_test "${EXASIM_DIR}/tests/unit/${name}.cpp")
+      target_include_directories(${name}_test PRIVATE "${EXASIM_DIR}" "${EXASIM_DIR}/include")
+      target_link_libraries(${name}_test PRIVATE Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+      target_compile_features(${name}_test PRIVATE cxx_std_17)
+      if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(${name}_test PRIVATE -ffast-math)
+      endif()
+      add_test(NAME ${name} COMMAND ${name}_test)
+      set_tests_properties(${name} PROPERTIES TIMEOUT 60)
+    endforeach()
+
+    foreach(variant templated legacy)
+      add_executable(rb_workspace_${variant}_test "${EXASIM_DIR}/tests/unit/rb_workspace.cpp")
+      target_include_directories(rb_workspace_${variant}_test PRIVATE "${EXASIM_DIR}" "${EXASIM_DIR}/include")
+      target_link_libraries(rb_workspace_${variant}_test PRIVATE
+        Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+      target_compile_features(rb_workspace_${variant}_test PRIVATE cxx_std_17)
+      if(variant STREQUAL "legacy")
+        target_compile_definitions(rb_workspace_${variant}_test PRIVATE TEST_LEGACY_SETUP)
+      endif()
+      add_test(NAME rb_workspace_${variant} COMMAND rb_workspace_${variant}_test)
+      set_tests_properties(rb_workspace_${variant} PROPERTIES TIMEOUT 60)
+    endforeach()
+
+    if(TARGET MPI::MPI_CXX)
+      add_executable(rb_mpi_reductions_test "${EXASIM_DIR}/tests/unit/rb_mpi_reductions.cpp")
+      target_include_directories(rb_mpi_reductions_test PRIVATE "${EXASIM_DIR}" "${EXASIM_DIR}/include")
+      target_link_libraries(rb_mpi_reductions_test PRIVATE Kokkos::kokkos MPI::MPI_CXX ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+      target_compile_features(rb_mpi_reductions_test PRIVATE cxx_std_17)
+      add_test(NAME rb_mpi_reductions COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2
+        ${MPIEXEC_PREFLAGS} $<TARGET_FILE:rb_mpi_reductions_test> ${MPIEXEC_POSTFLAGS})
+      set_tests_properties(rb_mpi_reductions PROPERTIES TIMEOUT 60 PROCESSORS 2)
+    endif()
+  endif()
+
   add_executable(helmholtz_model_test
     "${EXASIM_DIR}/tests/unit/helmholtz_model.cpp")
   target_include_directories(helmholtz_model_test PRIVATE
@@ -598,6 +682,61 @@ endif() # [nonmatching]
 add_test(NAME unit_nonmatchinginterface_header COMMAND unit_nonmatchinginterface_header) # [nonmatching]
 set_tests_properties(unit_nonmatchinginterface_header PROPERTIES TIMEOUT 120) # [nonmatching]
 
+# Generalized multiphysics Phase 1 targets.  They remain unregistered until
+# the reviewer measures each below the plan's 30-second CTest threshold.
+add_executable(unit_nonmatching_interaction_table
+  ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_interaction_table.cpp)
+target_include_directories(unit_nonmatching_interaction_table PRIVATE ${EXASIM_DIR})
+if(TARGET cpuEXASIM_static)
+  target_compile_definitions(unit_nonmatching_interaction_table PRIVATE EXASIM_APP_ROUNDTRIP)
+  target_link_libraries(unit_nonmatching_interaction_table PRIVATE
+    cpuEXASIM_static Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+endif()
+add_executable(unit_nonmatching_text2code_conditions
+  ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_text2code_conditions.cpp)
+target_include_directories(unit_nonmatching_text2code_conditions PRIVATE ${EXASIM_DIR})
+
+# Generalized multiphysics Phase 2 targets. They remain unregistered until
+# the reviewer measures each below the plan's 30-second CTest threshold.
+add_executable(unit_nonmatching_domain_layout
+  ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_domain_layout.cpp)
+target_include_directories(unit_nonmatching_domain_layout PRIVATE ${EXASIM_DIR})
+target_link_libraries(unit_nonmatching_domain_layout PRIVATE Kokkos::kokkos)
+if(EXASIM_MPI)
+  target_link_libraries(unit_nonmatching_domain_layout PRIVATE
+    cpumpiEXASIM_static MPI::MPI_CXX ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+  target_compile_definitions(unit_nonmatching_domain_layout PRIVATE
+    PHASE2_SOLVER_PARSE_TEST)
+endif()
+add_executable(unit_nonmatching_selector_union
+  ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_selector_union.cpp)
+target_include_directories(unit_nonmatching_selector_union PRIVATE ${EXASIM_DIR})
+target_compile_features(unit_nonmatching_selector_union PRIVATE cxx_std_17)
+
+# Reviewer-only Phase 2 graph launcher. The model library must come from a
+# disposable prefix because RunText2CodeApp regenerates it while preparing
+# graph inputs.
+set(EXASIM_PHASE2_MODEL_LIBRARY "" CACHE FILEPATH
+  "Disposable Text2Code model library for phase2_text2code_graph_app")
+if(EXASIM_MPI AND TARGET cpumpiEXASIM_static AND EXASIM_PHASE2_MODEL_LIBRARY)
+  if(NOT EXISTS "${EXASIM_PHASE2_MODEL_LIBRARY}")
+    message(FATAL_ERROR
+      "EXASIM_PHASE2_MODEL_LIBRARY does not exist: ${EXASIM_PHASE2_MODEL_LIBRARY}")
+  endif()
+  add_executable(phase2_text2code_graph_app
+    ${CMAKE_CURRENT_SOURCE_DIR}/nonmatching/phase2_text2code_graph_app.cpp)
+  target_include_directories(phase2_text2code_graph_app PRIVATE
+    ${EXASIM_DIR} ${EXASIM_DIR}/include ${EXASIM_DIR}/apps/sharedlibrary)
+  target_compile_definitions(phase2_text2code_graph_app PRIVATE _MPI _SHAREDLIBRARY)
+  target_link_libraries(phase2_text2code_graph_app PRIVATE
+    cpumpiEXASIM_static ${EXASIM_PHASE2_MODEL_LIBRARY})
+  get_filename_component(_phase2_model_dir "${EXASIM_PHASE2_MODEL_LIBRARY}" DIRECTORY)
+  set_target_properties(phase2_text2code_graph_app PROPERTIES
+    BUILD_RPATH "${_phase2_model_dir}"
+    INSTALL_RPATH "${_phase2_model_dir}"
+    BUILD_WITH_INSTALL_RPATH TRUE)
+endif()
+
 # [nonmatching] Phase 11 Task 0 amendment: compact/per-face conformal permutations.
 add_executable(unit_conformal_faceperm ${CMAKE_CURRENT_SOURCE_DIR}/unit/conformal_faceperm.cpp) # [nonmatching]
 target_link_libraries(unit_conformal_faceperm PRIVATE Kokkos::kokkos) # [nonmatching]
@@ -636,6 +775,20 @@ add_executable(unit_nonmatching_phase14_contracts ${CMAKE_CURRENT_SOURCE_DIR}/un
 target_link_libraries(unit_nonmatching_phase14_contracts PRIVATE Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
 target_include_directories(unit_nonmatching_phase14_contracts PRIVATE ${EXASIM_DIR}) # [nonmatching]
 target_compile_definitions(unit_nonmatching_phase14_contracts PRIVATE EXASIM_PHASE14_SOURCE_DIR="${EXASIM_DIR}") # [nonmatching]
+# [multiphysics Phase 3] Ownership, move, transaction and exact-capacity checks.
+# Intentionally not registered until the reviewer measures it below 30 seconds.
+add_executable(unit_nonmatching_interaction_lifecycle
+  ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_interaction_lifecycle.cpp)
+target_link_libraries(unit_nonmatching_interaction_lifecycle PRIVATE
+  Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+target_include_directories(unit_nonmatching_interaction_lifecycle PRIVATE ${EXASIM_DIR})
+# [multiphysics Phase 4] Real multi-object graph setup/runtime fixture.
+# Deliberately manual until the reviewer measures each mode/split below 30 s.
+add_executable(unit_nonmatching_interactions
+  ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_interactions.cpp)
+target_link_libraries(unit_nonmatching_interactions PRIVATE
+  Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+target_include_directories(unit_nonmatching_interactions PRIVATE ${EXASIM_DIR})
 if(EXASIM_MPI) # [nonmatching]
   target_link_libraries(unit_nonmatching_fingerprint PRIVATE MPI::MPI_CXX) # [nonmatching]
   target_compile_definitions(unit_nonmatching_fingerprint PRIVATE HAVE_MPI) # [nonmatching]
@@ -645,6 +798,10 @@ if(EXASIM_MPI) # [nonmatching]
   target_compile_definitions(unit_nonmatching_phase14_baseline PRIVATE HAVE_MPI) # [nonmatching]
   target_link_libraries(unit_nonmatching_phase14_contracts PRIVATE MPI::MPI_CXX) # [nonmatching]
   target_compile_definitions(unit_nonmatching_phase14_contracts PRIVATE HAVE_MPI) # [nonmatching]
+  target_link_libraries(unit_nonmatching_interaction_lifecycle PRIVATE MPI::MPI_CXX)
+  target_compile_definitions(unit_nonmatching_interaction_lifecycle PRIVATE HAVE_MPI)
+  target_link_libraries(unit_nonmatching_interactions PRIVATE MPI::MPI_CXX)
+  target_compile_definitions(unit_nonmatching_interactions PRIVATE HAVE_MPI)
 endif() # [nonmatching]
 if(EXASIM_MPI) # [nonmatching] Phase 11 focused 3D matrix
   # [nonmatching] Phase 13 focused registrations. Expected under 15 s;

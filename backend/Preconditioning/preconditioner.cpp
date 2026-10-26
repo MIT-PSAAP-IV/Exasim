@@ -55,6 +55,88 @@
 #include "setprecondstruct.cpp"
 #include "applymatrix.cpp"
 
+// Solve the small RB normal system without a fatal inverse. Equilibration
+// makes the rank test independent of stored update magnitudes. All arrays are
+// host-accessible, and work needs n entries.
+template <class T, class I>
+bool SolveReducedBasisGram(T* H, T* rhs, T* work, I n)
+{
+    if (n <= 0) return false;
+    for (I i=0; i<n; ++i) {
+        const T d = H[i+n*i];
+        if (!is_finite_bitwise(d) || d <= T(0) || !is_finite_bitwise(rhs[i]))
+            return false;
+        work[i] = std::sqrt(d);
+    }
+    for (I j=0; j<n; ++j) {
+        rhs[j] /= work[j];
+        for (I i=j; i<n; ++i) {
+            H[i+n*j] = (H[i+n*j]/work[i])/work[j];
+            if (!is_finite_bitwise(H[i+n*j])) return false;
+        }
+    }
+    // Normal equations square the condition number. Reject directions that
+    // have lost roughly half the working precision to linear dependence.
+    const T pivotTolerance = std::sqrt(std::numeric_limits<T>::epsilon());
+    for (I j=0; j<n; ++j) {
+        T pivot = H[j+n*j];
+        for (I k=0; k<j; ++k) pivot -= H[j+n*k]*H[j+n*k];
+        if (!is_finite_bitwise(pivot) || pivot <= pivotTolerance) return false;
+        H[j+n*j] = std::sqrt(pivot);
+        for (I i=j+1; i<n; ++i) {
+            T a = H[i+n*j];
+            for (I k=0; k<j; ++k) a -= H[i+n*k]*H[j+n*k];
+            H[i+n*j] = a/H[j+n*j];
+        }
+    }
+    for (I i=0; i<n; ++i) {
+        for (I j=0; j<i; ++j) rhs[i] -= H[i+n*j]*rhs[j];
+        rhs[i] /= H[i+n*i];
+    }
+    for (I k=n; k>0; --k) {
+        const I i = k-1;
+        for (I j=i+1; j<n; ++j) rhs[i] -= H[j+n*i]*rhs[j];
+        rhs[i] /= H[i+n*i];
+    }
+    for (I i=0; i<n; ++i) {
+        rhs[i] /= work[i];
+        if (!is_finite_bitwise(rhs[i])) return false;
+    }
+    return true;
+}
+
+template <class T, class I>
+bool ReducedBasisCoefficients(sysstructT<T,I>& sys, T* coefficients, T* H,
+        T* rhs, solverstatestruct& state, commonstructT<T,I>& common, I N,
+        Int backend)
+{
+    const I m = state.RBcurrentdim;
+    T* hostH = sys.tempmem;
+    T* hostRhs = hostH + m*m;
+    T* scales = hostRhs + m;
+    ArrayCopy(common.cublasHandle, hostH, H, m*m, backend);
+    ArrayCopy(common.cublasHandle, hostRhs, rhs, m, backend);
+    Kokkos::fence();
+    int usable = SolveReducedBasisGram(hostH, hostRhs, scales, m) ? 1 : 0;
+#ifdef HAVE_MPI
+    // Ranks must take the same fallback, including on heterogeneous hosts.
+    int allUsable;
+    MPI_Allreduce(&usable, &allUsable, 1, MPI_INT, MPI_MIN, EXASIM_COMM_WORLD);
+    usable = allUsable;
+#endif
+    if (!usable) {
+        state.RBcurrentdim = 0;
+        state.RBremovedind = 0;
+        ArraySetValue(sys.x, T(0), N);
+        if (common.mpiRank == 0)
+            std::cout << "Rejected singular or non-finite RB basis; using a zero GMRES guess." << std::endl;
+        return false;
+    }
+    // Complete this small transfer before GMRES may reuse the host workspace.
+    TemplateCopytoDevice(coefficients, hostRhs, m, backend);
+    return true;
+}
+
 
 // constructor
 template <class M, class T, class I>
@@ -83,12 +165,9 @@ CPreconditioner<M, T, I>::~CPreconditioner()
 template <class M, class T, class I>
 void CPreconditioner<M, T, I>::ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler<M, T, I>& assembler, CDiscretization& disc, Int backend)
 {       
-    // P = B + V*W^T  
-    // P*W = B*W + V*W^T*W = A*W -> V = (A-B)*W
-    
-    // inverse(P) = inverse(B + V*W^T) = invB - U*inv(I + W^T*U)*W^T*invB = (I - U*H*W^T)*C, 
-    // U = invB*V = C*V = C*(A-B)*W = C*A*W - W = Q - W, with Q = C*A*W
-    // H = I + W^T*U = I + W^T C*V = I + W^T C*(A-B)*W = I + W^T invB*(A-B)*W = W^T*C*A*W = W^T*Q
+    // RB supplies a warm start, not a modification of ApplyPreconditioner.
+    // Older J*W columns are deliberately recycled as an approximate predictor.
+    // linearSolve checks its current nonlinear residual before GMRES uses it.
     
     Int N = disc.common.sizes.ndof1;
     Int RBdim = state.RBcurrentdim;
@@ -101,7 +180,7 @@ void CPreconditioner<M, T, I>::ComputeInitialGuessAndPreconditioner(sysstruct& s
     //Int i = RBdim-1;
     int i = state.RBremovedind - 1;
     if (state.RBremovedind==0) i = RBdim-1;
-    assembler.evalMatVec(&precond.U[i*N], &precond.W[i*N], sys.u, sys.b, backend);
+    assembler.evalMatVecWithNorm(&precond.U[i*N], &precond.W[i*N], sys.u, sys.b, one, backend);
     
     //assembler.evalMatVec(view_1d Jv, view_1d v, view_1d u, view_1d Ru, Int backend);
     
@@ -113,19 +192,8 @@ void CPreconditioner<M, T, I>::ComputeInitialGuessAndPreconditioner(sysstruct& s
     PGEMTM(disc.common.cublasHandle, RBdim, RBdim, N, &one, precond.U, N, precond.U, N, &zero, 
             H, RBdim, H_tmp, backend);    
     
-    /* Solve the linear system */
-//     Inverse(disc.common.cublasHandle, H, H_tmp, precond.ipiv, RBdim, 1, backend);       
-//     PGEMNV(disc.common.cublasHandle, RBdim, RBdim, &one, H, RBdim, 
-//             RBcoef_tmp, inc1, &zero, RBcoef, inc1, backend);    
-    
-    // since the matrix is very small, it is faster to invert it in CPU 
-    ArrayCopy(disc.common.cublasHandle, sys.tempmem, H, RBdim*RBdim, backend);         
-    Kokkos::fence();
-    cpuComputeInverse(sys.tempmem, &sys.tempmem[RBdim*RBdim], sys.ipiv, RBdim);
-
-    // RBcoef = inverse(H)*RBcoef_tmp
-    PGEMNV(disc.common.cublasHandle, RBdim, RBdim, &one, sys.tempmem, RBdim, 
-            RBcoef_tmp, inc1, &zero, RBcoef, inc1, backend);    
+    if (!ReducedBasisCoefficients(sys, RBcoef, H, RBcoef_tmp, state, disc.common, N, backend))
+        return;
         
     // compute x = -W*RBcoef
     PGEMNV(disc.common.cublasHandle, N, RBdim, &minusone, precond.W, N, RBcoef, 
@@ -162,6 +230,10 @@ void CPreconditioner<M, T, I>::ApplyPreconditioner(dstype* x, sysstruct& sys, CD
 template <class M, class T, class I>
 void CPreconditioner<M, T, I>::ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler<M, T, I>& assembler, CDiscretization& disc, Int N, Int spatialScheme, Int backend)
 {     
+    if (spatialScheme == 0) {
+        ComputeInitialGuessAndPreconditioner(sys, state, assembler, disc, backend);
+        return;
+    }
     Int RBdim = state.RBcurrentdim;
     dstype *RBcoef = &disc.tmp.tempn[0];
     dstype *RBcoef_tmp = &disc.tmp.tempn[RBdim];
@@ -184,19 +256,8 @@ void CPreconditioner<M, T, I>::ComputeInitialGuessAndPreconditioner(sysstruct& s
     PGEMTM(disc.common.cublasHandle, RBdim, RBdim, N, &one, precond.U, N, precond.U, N, &zero, 
             H, RBdim, H_tmp, backend);    
     
-    /* Solve the linear system */
-    Inverse(disc.common.cublasHandle, H, H_tmp, precond.ipiv, RBdim, 1, backend);       
-    PGEMNV(disc.common.cublasHandle, RBdim, RBdim, &one, H, RBdim, 
-            RBcoef_tmp, inc1, &zero, RBcoef, inc1, backend);    
-    
-    // since the matrix is very small, it is faster to invert it in CPU 
-    // ArrayCopy(disc.common.cublasHandle, sys.tempmem, H, RBdim*RBdim, backend);         
-    // Kokkos::fence();
-    // cpuComputeInverse(sys.tempmem, &sys.tempmem[RBdim*RBdim], sys.ipiv, RBdim);
-
-    // // RBcoef = inverse(H)*RBcoef_tmp
-    // PGEMNV(disc.common.cublasHandle, RBdim, RBdim, &one, sys.tempmem, RBdim, 
-    //         RBcoef_tmp, inc1, &zero, RBcoef, inc1, backend);    
+    if (!ReducedBasisCoefficients(sys, RBcoef, H, RBcoef_tmp, state, disc.common, N, backend))
+        return;
         
     // compute x = alpha * W * RBcoef
     dstype alpha = (spatialScheme == 0) ? minusone : one;
@@ -315,7 +376,7 @@ void CPreconditioner<M, T, I>::ApplyPreconditioner(dstype* x, sysstruct& sys, CD
       }
       else if (disc.common.solverparams.preconditioner==1) { // Elemental additive Schwarz preconditioner        
         hdgMatVec(x, disc.res.K, x, disc.res.Rh, disc.res.Rq, disc.res, disc.app, disc.mesh, disc.common, disc.tmp, disc.common.cublasHandle, backend,
-                  disc.getNonmatchingRuntime()); // [nonmatching] same coupling as the conformal preconditioner (decision D1)
+                  disc.getNonmatchingInteractions()); // [nonmatching] same coupling as the conformal preconditioner (decision D1)
       }
       else if (disc.common.solverparams.preconditioner==2) { // super-element additive Schwarz preconditioner with BLIU0
         Int nf = disc.common.meshsizes.nf; // number of faces in this subdomain

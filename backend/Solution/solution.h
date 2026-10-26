@@ -141,7 +141,6 @@ private:
         dstype *wprev = nullptr;
         timestatestruct timestate{};
         dstype matvecTol = 0.0;
-        Int RBcurrentdim = 0;
         bool artificialViscosityPrepared = false;
     };
 
@@ -204,10 +203,11 @@ public:
               Int nsurf = 0, Int nvqoi = 0,
               ExasimExecutionMode mode = ExasimExecutionMode::Solve,
               const std::vector<dstype>* physicsparamOverride = nullptr,
-              Int saveParaview = 0)
+              Int saveParaview = 0, Int localDomain = -1,
+              const std::vector<Int>* domainRankOffsets = nullptr)
        : disc(filein, fileout, exasimpath, mpiprocs, mpirank, fileoffset,
               omprank, backend, builtinmodelID, abi, nsca, nvec, nten, nsurf, nvqoi, mode,
-              physicsparamOverride, saveParaview),
+              physicsparamOverride, saveParaview, localDomain, domainRankOffsets),
          residual(disc), assembler(disc), sampler(disc),
          prec(disc, backend, mode), solv(disc, backend, mode), vis(disc, backend),
          writer(disc, residual, vis, solv),
