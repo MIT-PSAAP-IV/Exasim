@@ -216,6 +216,33 @@ template <class T> inline bool is_finite_bitwise(const T& value)
     return (observed & mask) != mask;
 }
 
+// Host-side IEEE-754 infinity and quiet NaN built from their bit patterns. Under -ffast-math (finite-math-only),
+// clang folds std::numeric_limits<T>::infinity() / quiet_NaN() to an arbitrary finite value, so a marker set from
+// them (e.g. "the linear solve did not converge") would silently read as finite. The volatile load keeps the
+// pattern opaque to the optimizer.
+template <class T> inline T bitwise_ieee_from_bits(std::conditional_t<std::is_same_v<T, double>, std::uint64_t, std::uint32_t> pattern)
+{
+    static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
+    using Bits = std::conditional_t<std::is_same_v<T, double>, std::uint64_t, std::uint32_t>;
+    volatile Bits opaque = pattern;
+    const Bits bits = opaque;
+    T value;
+    std::memcpy(&value, &bits, sizeof(value));
+    return value;
+}
+template <class T> inline T bitwise_infinity(bool negative = false)
+{
+    if constexpr (std::is_same_v<T, double>)
+        return bitwise_ieee_from_bits<T>(negative ? 0xfff0000000000000ULL : 0x7ff0000000000000ULL);
+    else
+        return bitwise_ieee_from_bits<T>(negative ? 0xff800000U : 0x7f800000U);
+}
+template <class T> inline T bitwise_quiet_nan()
+{
+    if constexpr (std::is_same_v<T, double>) return bitwise_ieee_from_bits<T>(0x7ff8000000000000ULL);
+    else return bitwise_ieee_from_bits<T>(0x7fc00000U);
+}
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif

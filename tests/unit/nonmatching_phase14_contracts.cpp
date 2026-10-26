@@ -245,7 +245,7 @@ void poison_compute_outputs(
         exasim::nonmatching::NonmatchingRuntime<T, I>& runtime,
         bool withJacobian)
 {
-    const T poison = std::numeric_limits<T>::quiet_NaN();
+    const T poison = bitwise_quiet_nan<T>();
     for (int direction = 0; direction < 2; ++direction) {
         auto& d = runtime.dir[direction];
         if (!d.view.isdonor) continue;
@@ -264,7 +264,7 @@ template <class T, class I>
 void poison_matvec_outputs(
         exasim::nonmatching::NonmatchingRuntime<T, I>& runtime)
 {
-    const T poison = std::numeric_limits<T>::quiet_NaN();
+    const T poison = bitwise_quiet_nan<T>();
     for (int direction = 0; direction < 2; ++direction) {
         auto& d = runtime.dir[direction];
         if (!d.view.isdonor) continue;

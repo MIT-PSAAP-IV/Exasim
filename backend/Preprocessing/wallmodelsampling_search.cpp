@@ -77,7 +77,7 @@ bool FindContainingElementForPoint(
     const Int porder)
 {
     elemOut = -1;
-    std::fill(xiOut, xiOut + nd, std::numeric_limits<dstype>::quiet_NaN());
+    std::fill(xiOut, xiOut + nd, bitwise_quiet_nan<dstype>());
 
     if (opts.useAdjacentFaceElemFirst) {
         const Int elem = GetInteriorElementAdjacentToBoundaryFace(mesh, face);

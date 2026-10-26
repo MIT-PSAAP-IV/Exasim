@@ -191,7 +191,7 @@ I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc,
     // compute b
     //disc.evalResidual(sys.b, sys.u, backend);            
     nrmb = PNORM(disc.common.cublasHandle, N, sys.b, backend);    
-    state.linearSolverRelError = std::numeric_limits<dstype>::infinity();
+    state.linearSolverRelError = bitwise_infinity<dstype>();
     state.linearSolverTolFactor = one;
     if (!is_finite_bitwise(nrmb)) {
         ArraySetNaN(sys.x, N);
@@ -313,7 +313,7 @@ I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc,
             dstype columnScale = zero;
             for (k = 0; k <= m; ++k) {
                 if (!is_finite_bitwise(H[n1*i+k])) {
-                    state.linearSolverRelError = std::numeric_limits<dstype>::infinity();
+                    state.linearSolverRelError = bitwise_infinity<dstype>();
                     ArraySetNaN(sys.x, N);
                     return j + 1;
                 }
@@ -371,7 +371,7 @@ I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc,
         nrmr = PNORM(disc.common.cublasHandle, N, sys.r, backend);
         state.linearSolverRelError = nrmr/nrmb;
         if (!is_finite_bitwise(nrmr)) {
-            state.linearSolverRelError = std::numeric_limits<dstype>::infinity();
+            state.linearSolverRelError = bitwise_infinity<dstype>();
             ArraySetNaN(sys.x, N);
             return j;
         }
@@ -482,7 +482,7 @@ I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc,
     }    
     
     nrmb = PNORM(disc.common.cublasHandle, N, disc.common.couplingparams.ndofuhatinterface, sys.b, backend);       
-    state.linearSolverRelError = std::numeric_limits<dstype>::infinity();
+    state.linearSolverRelError = bitwise_infinity<dstype>();
     state.linearSolverTolFactor = one;
     if (!is_finite_bitwise(nrmb)) {
         ArraySetNaN(sys.x, N);
@@ -634,7 +634,7 @@ I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc,
             dstype columnScale = zero;
             for (k = 0; k <= m; ++k) {
                 if (!is_finite_bitwise(H[n1*i+k])) {
-                    state.linearSolverRelError = std::numeric_limits<dstype>::infinity();
+                    state.linearSolverRelError = bitwise_infinity<dstype>();
                     ArraySetNaN(sys.x, N);
                     return j + 1;
                 }
@@ -697,7 +697,7 @@ I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc,
         nrmr = PNORM(disc.common.cublasHandle, N, disc.common.couplingparams.ndofuhatinterface, sys.r, backend);
         state.linearSolverRelError = nrmr/nrmb;
         if (!is_finite_bitwise(nrmr)) {
-            state.linearSolverRelError = std::numeric_limits<dstype>::infinity();
+            state.linearSolverRelError = bitwise_infinity<dstype>();
             ArraySetNaN(sys.x, N);
             return j;
         }
