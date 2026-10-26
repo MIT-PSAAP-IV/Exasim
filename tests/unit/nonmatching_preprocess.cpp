@@ -28,10 +28,14 @@ std::atomic<bool> trackAllocations{false};
 
 void* operator new(std::size_t size)
 {
+#ifdef __CUDA_ARCH__
+    return std::malloc(size);   // nvcc also compiles this replacement for the device: no counters, no throw
+#else
     if(trackAllocations.load(std::memory_order_relaxed))
         trackedAllocations.fetch_add(1,std::memory_order_relaxed);
     if(void* pointer=std::malloc(size))return pointer;
     throw std::bad_alloc();
+#endif
 }
 void* operator new[](std::size_t size) { return ::operator new(size); }
 void operator delete(void* pointer) noexcept { std::free(pointer); }

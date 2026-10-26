@@ -73,10 +73,14 @@ static std::atomic<long long> maxNewCalls[CallKindCount];
 
 void* operator new(std::size_t bytes)
 {
+#ifdef __CUDA_ARCH__
+    return std::malloc(bytes);   // nvcc also compiles this replacement for the device: no counters, no throw
+#else
     if (phase14_allocations::enabled.load(std::memory_order_relaxed))
         phase14_allocations::count.fetch_add(1, std::memory_order_relaxed);
     if (void* p = std::malloc(bytes)) return p;
     throw std::bad_alloc();
+#endif
 }
 
 void* operator new[](std::size_t bytes)
