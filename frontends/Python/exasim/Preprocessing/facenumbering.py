@@ -11,7 +11,7 @@ def  facenumbering(p,t,elemtype,bndexpr,prdexpr):
     ne = t.shape[1]
     face = getelemface(dim,elemtype);
     nvf,nfe = shape(face);
-    ind2 = min([1,nvf])
+    ind2 = 1 if nvf > 1 else 0   # second face vertex (0-based); a 1D face has a single vertex
 
     t2fl = reshape(t[face.flatten(order='F'),:], (nvf, nfe*ne), order='F');
     pf = reshape(p[:,t2fl.flatten(order='F')], (dim, nvf, nfe, ne), order='F');
