@@ -449,12 +449,76 @@ void ArrayCopy(Ty* y, const Ty* x, const int n)
     });
 }
 
+// Trial residuals overwrite sol.wdg. Keep a separate copy (including halos),
+// since residual/GMRES scratch cannot safely hold the accepted auxiliary seed.
+// A caller-owned cache may retain the allocation between sequential snapshots.
+template <class T> class AuxiliaryStateSnapshot {
+    static int checkedSize(T* state, int size) {
+        if (size < 0 || (state != nullptr && size == 0) || (state == nullptr && size > 0))
+            error("Invalid auxiliary snapshot extent: w pointer and size disagree. Check sol.szwdg during device initialization.");
+        return size;
+    }
+    T* state_;
+    int size_;
+    bool rollback_ = true;
+    Kokkos::View<T*> saved_;
+public:
+    AuxiliaryStateSnapshot(T* state, int size, Kokkos::View<T*>* cache = nullptr)
+        : state_(state), size_(checkedSize(state, size))
+    {
+        if (size_) {
+            // saved_ holds a reference for the full snapshot lifetime. If the
+            // cache is already borrowed (e.g. a nested call), use private storage
+            // instead of overwriting another snapshot. The owning discretization's
+            // workspace, like its residual scratch, is used by one host thread.
+            if (cache && cache->use_count() <= 1) {
+                if (cache->extent(0) < static_cast<size_t>(size_))
+                    *cache = Kokkos::View<T*>(Kokkos::view_alloc(
+                        Kokkos::WithoutInitializing, "auxiliary_snapshot"), size_);
+                saved_ = *cache;
+            } else {
+                saved_ = Kokkos::View<T*>(Kokkos::view_alloc(
+                    Kokkos::WithoutInitializing, "auxiliary_snapshot"), size_);
+            }
+            ArrayCopy(saved_.data(), state_, size_);
+        }
+    }
+    AuxiliaryStateSnapshot(const AuxiliaryStateSnapshot&) = delete;
+    AuxiliaryStateSnapshot& operator=(const AuxiliaryStateSnapshot&) = delete;
+    void restore() const {
+        if (size_) ArrayCopy(state_, saved_.data(), size_);
+    }
+    void commit() { rollback_ = false; }
+    ~AuxiliaryStateSnapshot() {
+        if (rollback_) restore();
+        // Finish asynchronous restores before freeing or reusing the backup.
+        if (size_) Kokkos::fence();
+    }
+};
+
 template <class Ty = dstype>
 void ArraySetValue(Ty* y, const noDeduce_t<Ty> a, const int n)
 {
     using dstype = Ty;    
     Kokkos::parallel_for("ArraySetValue", n, KOKKOS_LAMBDA(const size_t i) {
         y[i] = a;
+    });
+}
+
+// Failure-path marker. Do not pass a NaN floating-point argument through code
+// compiled with finite-math assumptions. Volatile byte stores preserve the IEEE
+// representation without type-punning or FP arithmetic, on CPU/CUDA/HIP.
+template <class T>
+void ArraySetNaN(T* y, const int n)
+{
+    static_assert(std::is_same_v<T,float> || std::is_same_v<T,double>);
+    static_assert(std::numeric_limits<T>::is_iec559);
+    using Bits = std::conditional_t<std::is_same_v<T,double>,std::uint64_t,std::uint32_t>;
+    Kokkos::parallel_for("ArraySetNaN", n, KOKKOS_LAMBDA(const size_t i) {
+        const Bits bits = std::is_same_v<T,double> ? Bits(0x7ff8000000000000ULL) : Bits(0x7fc00000U);
+        const unsigned char* source = reinterpret_cast<const unsigned char*>(&bits);
+        volatile unsigned char* destination = reinterpret_cast<volatile unsigned char*>(y+i);
+        for (size_t b=0; b<sizeof(T); ++b) destination[b]=source[b];
     });
 }
 
