@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdio>
 #include <fstream>
+#include <iostream>
 #include <numeric>
 using std::partial_sum;
 #ifndef HAVE_MPI
