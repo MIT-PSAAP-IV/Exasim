@@ -11,8 +11,8 @@
     - GetQ: Computes the q variable (e.g., gradients or fluxes) for the solution, including element and face integrals, and applies mass matrix inversion.
     - GetW: Computes the w variable (e.g., auxiliary or thermodynamic variables) using either explicit time-stepping or Newton's method for nonlinear systems.
     - GetAv: Computes and smooths the artificial viscosity field, and interpolates it to Gauss points for elements and faces.
-    - RuResidual: Assembles the residual vector for the main unknowns, including computation of uhat, q, w, and AV fields, and both element and face integrals.
-    - MPI variants (GetQMPI, RuResidualMPI, RuResidualMPI1): Support for distributed memory parallelism using MPI, with non-blocking communication for solution exchange between subdomains.
+    - Residual: Assembles the residual vector for the main unknowns, including computation of uhat, q, w, and AV fields, and both element and face integrals, through RuResidualStaged (residualstages.hpp), with the u halo exchange overlapped with the interior element blocks on several ranks.
+    - MPI variants (GetQMPI, RuResidualMPI1): Support for distributed memory parallelism using MPI, with non-blocking communication for solution exchange between subdomains.
     - Residual: Top-level function to compute the residual, handling both serial and MPI-parallel cases, and applying time-stepping and debug output.
     - Enzyme AD support (GetdQ, GetdAv, dRuResidual, dRuResidualMPI, dResidual): Functions for computing directional derivatives of the residual using automatic differentiation (Enzyme), including MPI support.
     - ComputeQ: Utility to compute q variable, supporting both serial and MPI-parallel execution.
@@ -298,48 +298,6 @@ inline void GetAv(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &a
     }       
 }
 
-template <class M, class T=dstype, class I=Int>
-inline void RuResidual(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh, 
-   tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, 
-   Int nbe1u, Int nbe2u, Int nbe1q, Int nbe2q, Int nbf1, Int nbf2, Int backend)
-{
-    using dstype=T;    
-    // compute uhat
-    GetUhat<M>(sol, res, app, master, mesh, tmp, common, handle, nbf1, nbf2, backend);
-    
-    // compute q
-    if (common.components.ncq>0)
-        GetQ(sol, res, app, master, mesh, tmp, common, handle, nbe1q, nbe2q, nbf1, nbf2, backend);                
-    
-    // compute w
-    if (common.components.ncw>0)
-         GetW<M>(sol, res, app, master, mesh, tmp, common, handle, nbe1q, nbe2q, nbf1, nbf2, backend);                
-    
-    if (common.physicsparams.ncAV>0 && common.physicsparams.frozenAVflag == 0)
-    /// FROM MEETING: MUST MOVE THE VOLUME RESIDUAL AND EVALUATE 0 to common.npe2 if unfrozen for mpi
-        GetAv<M>(sol, res, app, master, mesh, tmp, common, handle, backend);
-
-    // Element integrals
-    RuElem<M>(sol, res, app, master, mesh, tmp, common, handle, nbe1u, nbe2u, backend);    
-                    
-    // Face integrals
-    RuFace<M>(sol, res, app, master, mesh, tmp, common, handle, nbf1, nbf2, backend);
-        
-    Int f1 = common.fblks[3*nbf1]-1;
-    Int f2 = common.fblks[3*(nbf2-1)+1];        
-    PutFaceNodes(res.Ru, &res.Rh[common.grid.npf*common.components.ncu*f1],  mesh.facecon, common.grid.npf, common.components.ncu, common.grid.npe, common.components.ncu, f1, f2);            
-
-    // Int e1 = common.eblks[3*nbe1u]-1;    
-    // Int e2 = common.eblks[3*(nbe2u-1)+1];    
-    
-    // // assemble face residual vector into element residual vector
-    // PutFaceNodes(res.Ru, res.Rh, mesh.rowe2f1, mesh.cole2f1, mesh.ent2ind1, mesh.rowe2f2, mesh.cole2f2, 
-    //         mesh.ent2ind2, common.grid.npf, common.grid.npe, common.components.ncu, e1, e2, 0);
-                
-    // change sign 
-    // ArrayMultiplyScalar(res.Ru, minusone, common.sizes.ndof1, backend);        
-}
-
 #ifdef  HAVE_MPI
 
 template <class M, class T=dstype, class I=Int>
@@ -414,147 +372,6 @@ inline void GetQMPI(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> 
     // calculate q for interface and exterior elements
     if (common.components.ncq>0)         
         GetQ(sol, res, app, master, mesh, tmp, common, handle, common.meshsizes.nbe0, common.meshsizes.nbe2, 0, common.meshsizes.nbf, backend);                
-}
-
-template <class M, class T=dstype, class I=Int>
-inline void RuResidualMPI(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh, 
-   tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
-{
-    using dstype=T;      
-    // non-blocking send and receive solutions on exterior and outer elements to neighbors    
-    Int bsz = common.grid.npe*common.components.ncu;
-    Int nudg = common.grid.npe*common.components.nc;
-    Int n;
-   
-    INIT_TIMING;        
-    
-    START_TIMING;
-    /* copy some portion of u to buffsend */
-    GetArrayAtIndex(tmp.buffsend, sol.udg, mesh.elemsendind, bsz*common.nelemsend);
-    
-    //for (n=0; n<common.nelemsend; n++)         
-    //    ArrayCopy(&tmp.buffsend[bsz*n], &sol.udg[nudg*common.elemsend[n]], bsz, backend);                    
-#ifdef HAVE_CUDA
-    cudaDeviceSynchronize();
-#endif
-
-#ifdef HAVE_HIP
-    hipDeviceSynchronize();
-#endif
-    
-    END_TIMING(13);    
-    
-    START_TIMING;    
-    /* non-blocking send */
-    Int neighbor, nsend, psend = 0, request_counter = 0;
-    for (n=0; n<common.nnbsd; n++) {
-        neighbor = common.nbsd[n];
-        nsend = common.elemsendpts[n]*bsz;
-        if (nsend>0) {
-            MPI_Isend(&tmp.buffsend[psend], nsend, mpi_type<dstype>(), neighbor, 0,
-                   EXASIM_COMM_LOCAL, &common.requests[request_counter]);
-            psend += nsend;
-            request_counter += 1;
-        }
-    }
-
-    /* non-blocking receive */
-    Int nrecv, precv = 0;
-    for (n=0; n<common.nnbsd; n++) {
-        neighbor = common.nbsd[n];
-        nrecv = common.elemrecvpts[n]*bsz;
-        if (nrecv>0) {
-            MPI_Irecv(&tmp.buffrecv[precv], nrecv, mpi_type<dstype>(), neighbor, 0,
-                   EXASIM_COMM_LOCAL, &common.requests[request_counter]);
-            precv += nrecv;
-            request_counter += 1;
-        }
-    }
-    END_TIMING(6);    
-                    
-    START_TIMING; 
-    // compute uhat for all faces
-    GetUhat<M>(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbf, backend);            
-    END_TIMING(7);    
-    
-    START_TIMING;  
-    // calculate q for interior elements
-    if (common.components.ncq>0)         
-        GetQ(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbe0, 0, common.meshsizes.nbf, backend);        
-    if (common.components.ncw>0)         
-        GetW<M>(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbe0, 0, common.meshsizes.nbf, backend);            
-    END_TIMING(8);    
-    
-    START_TIMING; 
-    // calculate Ru for interior elements
-    if (common.physicsparams.frozenAVflag == 1)
-    // if AVfield is not part of residual, we can evaluate interior volume integrals before receving neighbor information
-        RuElem<M>(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbe0, backend);    
-    END_TIMING(9);    
-        
-    START_TIMING; 
-    // non-blocking receive solutions on exterior and outer elements from neighbors
-    /* wait until all send and receive operations are completely done */
-    MPI_Waitall(request_counter, common.requests, common.statuses);
-
-    END_TIMING(10);    
-
-    START_TIMING; 
-    /* copy buffrecv to udg */
-    PutArrayAtIndex(sol.udg, tmp.buffrecv, mesh.elemrecvind, bsz*common.nelemrecv);
- 
-    END_TIMING(14);    
-    
-    START_TIMING; 
-    // compute uhat for all faces
-    GetUhat<M>(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbf, backend);
-    END_TIMING(7);    
-
-    START_TIMING; 
-    // calculate q for interface and exterior elements
-    if (common.components.ncq>0)         
-        GetQ(sol, res, app, master, mesh, tmp, common, handle, common.meshsizes.nbe0, common.meshsizes.nbe2, 0, common.meshsizes.nbf, backend);        
-    if (common.components.ncw>0)         
-        GetW<M>(sol, res, app, master, mesh, tmp, common, handle, common.meshsizes.nbe0, common.meshsizes.nbe2, 0, common.meshsizes.nbf, backend);        
-    
-    if (common.physicsparams.ncAV>0 && common.physicsparams.frozenAVflag == 0)
-    /// FROM MEETING: MUST MOVE THE VOLUME RESIDUAL AND EVALUATE 0 to common.npe2 if unfrozen for mpi
-        GetAv<M>(sol, res, app, master, mesh, tmp, common, handle, backend);
-
-    
-    if (common.physicsparams.frozenAVflag == 1)
-    { // calculate Ru for interface elements
-        RuElem<M>(sol, res, app, master, mesh, tmp, common, handle, common.meshsizes.nbe0, common.meshsizes.nbe1, backend); 
-    } 
-    else
-    { // For unfrozen AV, we can only compute Ru for interior and interface after calculating AV 
-        RuElem<M>(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbe1, backend); 
-    }
-    
-       
-    END_TIMING(11);    
-     
-    START_TIMING; 
-    // calculate Ru for all faces
-    RuFace<M>(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbf, backend);
-    END_TIMING(12);    
-        
-    // assemble face residual vector into element residual vector
-    // Accessors: both are 0 on a rank owning no face blocks, so the assemble
-    // below is naturally skipped rather than indexing fblks[-2].
-    if (common.hasFaceBlocks()) {
-    Int f1 = common.firstFace();
-    Int f2 = common.lastFace();
-    PutFaceNodes(res.Ru, res.Rh,  mesh.facecon, common.grid.npf, common.components.ncu, common.grid.npe, common.components.ncu, f1, f2);
-    }            
-
-    // Int e1 = common.eblks[3*0]-1;    
-    // Int e2 = common.eblks[3*(common.meshsizes.nbe1-1)+1];       
-    // PutFaceNodes(res.Ru, res.Rh, mesh.rowe2f1, mesh.cole2f1, mesh.ent2ind1, mesh.rowe2f2, mesh.cole2f2, 
-    //         mesh.ent2ind2, common.grid.npf, common.grid.npe, common.components.ncu, e1, e2, 0);
-    
-    // change sign 
-    //ArrayMultiplyScalar(res.Ru, minusone, common.sizes.ndof1, backend);      
 }
 
 template <class M, class T=dstype, class I=Int>
@@ -649,41 +466,14 @@ template <class M, class T=dstype, class I=Int>
 inline void Residual(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
         meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
 {
-    using dstype=T;    
-    // staged path (residualstages.hpp): taken only when this discretization has a stage table; otherwise the code below,
-    // unchanged
-    if (ResidualStagesOf(common) != nullptr) {
-        ResidualStageContextT<T,I> ctx{sol, res, app, master, mesh, tmp, common, handle, backend};
-        RuResidualStaged<M, RegisteredResidualStages<M,T,I>>(ctx);
-        if (common.outputparams.debugMode==1) {
-            writearray2file(common.fileout + "_uh.bin", sol.uh, common.grid.npf*common.components.ncu*common.meshsizes.nf, backend);
-            writearray2file(common.fileout + "_udg.bin", sol.udg, common.grid.npe*common.components.nc*common.meshsizes.ne, backend);
-            writearray2file(common.fileout + "_Ru.bin", res.Ru, common.grid.npe*common.components.ncu*common.meshsizes.ne, backend);
-        }
-        return;
-    }
-    if (common.mpiProcs>1) { // mpi processes
-#ifdef  HAVE_MPI        
-        RuResidualMPI<M>(sol, res, app, master, mesh, tmp, common, handle, backend);
-#endif        
-    }
-    else {
-        RuResidual<M>(sol, res, app, master, mesh, tmp, common, handle,
-                0, common.meshsizes.nbe, 0, common.meshsizes.nbe, 0, common.meshsizes.nbf, backend);
-    }        
-            
-    // change sign for matrix-vector product
-    ArrayMultiplyScalar(res.Ru, minusone, common.sizes.ndof1);      
-        
-    //common.timestate.dtfactor
-    if (common.timeparams.tdep==1) 
-        ArrayMultiplyScalar(res.Ru, one/common.timestate.dtfactor, common.sizes.ndof1);                
-    
+    ResidualStageContextT<T,I> ctx{sol, res, app, master, mesh, tmp, common, handle, backend};
+    RuResidualStaged<M, RegisteredResidualStages<M,T,I>>(ctx);
+
     if (common.outputparams.debugMode==1) {
         writearray2file(common.fileout + "_uh.bin", sol.uh, common.grid.npf*common.components.ncu*common.meshsizes.nf, backend);
         writearray2file(common.fileout + "_udg.bin", sol.udg, common.grid.npe*common.components.nc*common.meshsizes.ne, backend);
         writearray2file(common.fileout + "_Ru.bin", res.Ru, common.grid.npe*common.components.ncu*common.meshsizes.ne, backend);
-    }    
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////

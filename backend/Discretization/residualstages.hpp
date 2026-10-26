@@ -1,9 +1,9 @@
 /*
     residualstages.hpp -- the LDG residual as a sequence of replaceable stages.
 
-    RuResidualStaged<M, Stages> runs exactly the orchestration of RuResidual (one rank) and RuResidualMPI (several
-    ranks: u halo exchange overlapped with the interior element blocks), followed by the Residual tail, but every
-    stage goes through a Stages policy:
+    RuResidualStaged<M, Stages> is the residual orchestration that Residual<M> runs: on one rank uhat, q, w, AV, element
+    and face integrals in turn; on several ranks the same with the u halo exchange overlapped with the interior element
+    blocks; then the tail. Every stage goes through a Stages policy:
 
         uhat(pass)                 GetUhat over all face blocks
         q(nbe1, nbe2, pass)        GetQ on element blocks [nbe1, nbe2)
@@ -17,14 +17,15 @@
     production stages ignore it.
 
     Policies:
-      ProductionResidualStages<M>   the existing functions (RuResidual's calls, verbatim)
+      ProductionResidualStages<M>   the production functions (GetUhat, GetQ, GetW, RuElem, RuFace, PutFaceNodes)
       RegisteredResidualStages<M>   per stage: the discretization's registered ResidualStageTable entry if non-null,
                                     else production
 
     A table is registered per discretization (SetResidualStages(common, table)), so other discretizations in the same
-    process (coupled models, mesh-adaptivity sub-solvers) are unaffected. Residual<M> takes the staged path only for a
-    discretization with a table, so without one it is the unchanged production code. Stage tables are case-side code
-    (e.g. generated fused kernels for one model); they receive the discretization structs through ResidualStageContext.
+    process (coupled models, mesh-adaptivity sub-solvers) are unaffected. Residual<M> always uses
+    RegisteredResidualStages, so a discretization without a table runs the production stages. Stage tables are
+    case-side code (e.g. generated fused kernels for one model); they receive the discretization structs through
+    ResidualStageContext.
 */
 #ifndef __RESIDUALSTAGES
 #define __RESIDUALSTAGES
@@ -75,18 +76,18 @@ struct ProductionResidualStages {
         RuFace<M>(c.sol, c.res, c.app, c.master, c.mesh, c.tmp, c.common, c.handle, 0, c.common.meshsizes.nbf, c.backend); }
     static void tail(C& c) {
         auto& common = c.common;
-        if (common.mpiProcs>1) {                     // RuResidualMPI
+        if (common.mpiProcs>1) {                     // several ranks
             if (common.hasFaceBlocks())
                 PutFaceNodes(c.res.Ru, c.res.Rh, c.mesh.facecon, common.grid.npf, common.components.ncu, common.grid.npe,
                              common.components.ncu, common.firstFace(), common.lastFace());
         }
-        else {                                       // RuResidual
+        else {                                       // one rank
             Int f1 = common.fblks[0]-1;
             Int f2 = common.fblks[3*(common.meshsizes.nbf-1)+1];
             PutFaceNodes(c.res.Ru, &c.res.Rh[common.grid.npf*common.components.ncu*f1], c.mesh.facecon, common.grid.npf,
                          common.components.ncu, common.grid.npe, common.components.ncu, f1, f2);
         }
-        ArrayMultiplyScalar(c.res.Ru, minusone, common.sizes.ndof1);                // Residual
+        ArrayMultiplyScalar(c.res.Ru, minusone, common.sizes.ndof1);
         if (common.timeparams.tdep==1)
             ArrayMultiplyScalar(c.res.Ru, one/common.timestate.dtfactor, common.sizes.ndof1);
     }
@@ -125,7 +126,7 @@ inline void RuResidualStaged(ResidualStageContextT<T,I>& c)
     auto& common = c.common;
     const bool frozen = common.physicsparams.frozenAVflag == 1;
     const bool unfrozenAV = common.physicsparams.ncAV>0 && common.physicsparams.frozenAVflag == 0;
-    if (common.mpiProcs<=1) {                        // RuResidual
+    if (common.mpiProcs<=1) {                        // one rank
         S::uhat(c, 0);
         S::q(c, 0, common.meshsizes.nbe, 0);
         S::w(c, 0, common.meshsizes.nbe);
@@ -135,7 +136,7 @@ inline void RuResidualStaged(ResidualStageContextT<T,I>& c)
         S::tail(c);
         return;
     }
-#ifdef HAVE_MPI                                      // RuResidualMPI
+#ifdef HAVE_MPI                                      // several ranks
     auto& sol = c.sol; auto& mesh = c.mesh; auto& tmp = c.tmp;
     Int bsz = common.grid.npe*common.components.ncu;
     Int n;

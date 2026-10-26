@@ -1687,7 +1687,7 @@ void mpiBlockJacobianLDG(dstype* K, dstype* u, solstruct &sol, resstruct &res, a
                 0, common.components.ncu, 0, common.meshsizes.ne1);
     tm.insert += LDGBenchmarkStop(t0, backend);
 
-    // Non-blocking exchange of owned primal unknowns, matching RuResidualMPI<exasim::detail::AbiAdapter>().
+    // Non-blocking exchange of owned primal unknowns, matching the residual (RuResidualStaged, residualstages.hpp).
     t0 = LDGBenchmarkStart(backend);
     GetArrayAtIndex(tmp.buffsend, sol.udg, mesh.elemsendind, bsz*common.nelemsend);
 
