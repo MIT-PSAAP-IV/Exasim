@@ -501,28 +501,32 @@ static void LDGAssembleFaceQToElementCrossBlock(dstype* A, const dstype* Rf_q,
                                                 const Int npe, const Int npf, const Int nfe, const Int ncu,
                                                 const Int ncq, const Int ne, const Int neStride, const Int rank)
 {
+    // Deterministic: each thread owns one (a, tnode, m, c, face) target entry and sums its q-side nodes b and
+    // gradient directions d itself, and the faces are added one residual-side local face index at a time (an
+    // element meets each of its local faces once, so within a pass no two threads write the same entry).
     Int ndf = npf*nfe;
     Int nlocu = npe*ncu;
     Int sideResidualOffset = sideResidual - 1;
     Int sideQOffset = sideQ - 1;
-    Int N = npf*npf*npf*nfb*ncu*ncq;
+    Int nq = ncq/ncu;                    // gradient directions
+    Int N = npf*npf*nfb*ncu*ncu;
+    (void)rank;
 
-    //if (rank==0) print2darray(&A[npe*npe*4], npe, npe);
-
+    for (Int lfPass = 0; lfPass < nfe; lfPass++)
     Kokkos::parallel_for("LDGAssembleFaceQToElementCrossBlock", N, KOKKOS_LAMBDA(const size_t idx) {
         Int tnode = idx % npf;
         Int t = idx / npf;
-        Int qcomp = t % ncq;
-        t = t / ncq;
+        Int c = t % ncu;
+        t = t / ncu;
         Int m = t % ncu;
         t = t / ncu;
         Int flocal = t % nfb;
-        t = t / nfb;
-        Int b = t % npf;
-        Int a = t / npf;
+        Int a = t / nfb;
         Int f = f1 + flocal;
 
         if (f2e[4*f + 2] < 0)
+            return;
+        if (f2e[4*f + 1 + 2*sideResidualOffset] != lfPass)
             return;
 
         Int lfQ = (sideQ == 1) ? f2e[4*f + 1] : f2e[4*f + 3];
@@ -539,39 +543,38 @@ static void LDGAssembleFaceQToElementCrossBlock(dstype* A, const dstype* Rf_q,
             return;
 
         Int mr = a + npf*f;
-        Int mq = b + npf*f;
         Int mt = tnode + npf*f;
         Int kr = facecon[2*mr + sideResidualOffset];
-        Int kq = facecon[2*mq + sideQOffset];
         Int kt = facecon[2*mt + sideResidualOffset];
 
         Int rownode = kr % npe;
         Int rowelem = (kr - rownode) / npe;
-        Int qnode = kq % npe;
-        Int qelem = (kq - qnode) / npe;
         Int unode = kt % npe;
         Int uelem = (kt - unode) / npe;
 
         if ((rowelem < 0) || (rowelem >= ne) || (rowelem != uelem))
             return;
-        if ((qelem < 0) || (qelem >= neStride))
-            return;
 
-        Int d = qcomp / ncu;
-        Int c = qcomp - d*ncu;
-        const dstype* Ed = &E[npe*ndf*neStride*d];
-        dstype qu = -0.5*scalar*
-            Ed[qnode + npe*faceSlotQ + npe*ndf*qelem];
+        dstype sum = 0;
+        for (Int d = 0; d < nq; d++) {
+            Int qcomp = c + ncu*d;
+            const dstype* Ed = &E[npe*ndf*neStride*d];
+            for (Int b = 0; b < npf; b++) {
+                Int mq = b + npf*f;
+                Int kq = facecon[2*mq + sideQOffset];
+                Int qnode = kq % npe;
+                Int qelem = (kq - qnode) / npe;
+                if ((qelem < 0) || (qelem >= neStride))
+                    continue;
+                dstype qu = -0.5*scalar*Ed[qnode + npe*faceSlotQ + npe*ndf*qelem];
+                dstype rf = Rf_q[a + npf*b + npf*npf*(flocal + nfb*(m + ncu*qcomp))];
+                sum += sign*rf*qu;
+            }
+        }
 
         Int row = rownode + npe*m;
         Int ucol = unode + npe*c;
-        dstype rf = Rf_q[a + npf*b + npf*npf*(flocal + nfb*(m + ncu*qcomp))];
-
-        // if (rank == 0 && f==10 && rowelem == 4) {
-        //     printf("%d %d %d %d %d %d %d %g %g %g\n", sideQ, sideResidual, rowelem, qelem, uelem, row, ucol, sign, rf, qu);
-        // }
-
-        Kokkos::atomic_add(&A[row + nlocu*ucol + nlocu*nlocu*rowelem], sign*rf*qu);
+        A[row + nlocu*ucol + nlocu*nlocu*rowelem] += sum;
     });
 }
 
@@ -610,13 +613,17 @@ static void LDGScatterCrossFaceGEMMBlock(dstype* A, const dstype* Af,
                                          const Int npe,
                                          const Int npf,
                                          const Int ncu,
-                                         const Int ne)
+                                         const Int ne,
+                                         const Int nfe)
 {
+    // Deterministic: faces are added one residual-side local face index at a time; within a pass an element
+    // meets one face, whose (row, column) pairs are distinct, so no two threads write the same entry.
     Int nrow = npf*ncu*ncu;
     Int nlocu = npe*ncu;
     Int sideResidualOffset = sideResidual - 1;
     Int N = nrow*npf*nfb;
 
+    for (Int lfPass = 0; lfPass < nfe; lfPass++)
     Kokkos::parallel_for("LDGScatterCrossFaceGEMMBlock", N, KOKKOS_LAMBDA(const size_t idx) {
         Int rowPacked = idx % nrow;
         Int t = idx / nrow;
@@ -625,6 +632,8 @@ static void LDGScatterCrossFaceGEMMBlock(dstype* A, const dstype* Af,
         Int f = f1 + flocal;
 
         if (f2e[4*f + 2] < 0)
+            return;
+        if (f2e[4*f + 1 + 2*sideResidualOffset] != lfPass)
             return;
 
         Int a = rowPacked % npf;
@@ -648,7 +657,7 @@ static void LDGScatterCrossFaceGEMMBlock(dstype* A, const dstype* Af,
         Int row = rownode + npe*m;
         Int col = unode + npe*c;
         dstype value = Af[rowPacked + nrow*tnode + nrow*npf*flocal];
-        Kokkos::atomic_add(&A[row + nlocu*col + (std::size_t)nlocu*nlocu*rowelem], value);   // 64-bit: K passes 2^31
+        A[row + nlocu*col + (std::size_t)nlocu*nlocu*rowelem] += value;   // 64-bit: K passes 2^31
     });
 }
 
@@ -1505,7 +1514,7 @@ void RuFaceCrossDerivOptimized(dstype* A, solstruct &sol,
                 npf*nd, one, B, npf*ncu*ncu, Ef, npf*nd, 0.0,
                 Af, npf*ncu*ncu, nfb, backend);
         LDGScatterCrossFaceGEMMBlock(A, Af, mesh.facecon, mesh.f2e,
-                2, f1, nfb, npe, npf, ncu, ne);
+                2, f1, nfb, npe, npf, ncu, ne, common.meshsizes.nfe);
 
         ArraySetValue(fw, 0.0, fluxWSize);
         FluxDriver(flux, flux_udg, fw, xg, ug2, og2, wg2, driver_abi,
@@ -1526,7 +1535,7 @@ void RuFaceCrossDerivOptimized(dstype* A, solstruct &sol,
                 npf*nd, one, B, npf*ncu*ncu, Ef, npf*nd, 0.0,
                 Af, npf*ncu*ncu, nfb, backend);
         LDGScatterCrossFaceGEMMBlock(A, Af, mesh.facecon, mesh.f2e,
-                1, f1, nfb, npe, npf, ncu, ne);
+                1, f1, nfb, npe, npf, ncu, ne, common.meshsizes.nfe);
 
         //(void)ncq;
         //(void)szAf;
