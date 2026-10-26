@@ -142,7 +142,7 @@ void hdg_materialstate_kernel(T*       state,
             for (int k = 0; k < nms * Nq; ++k) state_udg[k * ng + i] = state_uq[k];
 
             if constexpr (ncw > 0) {
-                T state_w[nms * ncw];
+                T state_w[(nms * ncw > 0) ? nms * ncw : 1];   // nms may be 0; a zero-sized array is rejected in device code
                 M::materialstate_jac_w(state_w, x, uq, v, w, param, uinf, t);
                 for (int k = 0; k < nms * ncw; ++k) state_wdg[k * ng + i] = state_w[k];
             }
