@@ -74,6 +74,7 @@ using namespace std;
 #include "helpers.cpp"
 #include "readpdeapp.cpp"
 #include "readmesh.cpp"
+#include "../../backend/Preprocessing/selectorunion.hpp"
 #include "makemesh.cpp"
 #include "makemaster.cpp"
 #include "domaindecomposition.cpp"
@@ -171,6 +172,9 @@ static int text2code_main(int argc, char* argv[])
         return 1;
     }
     spec.symenginepath = make_path(pde.exasimpath, "/text2code/symengine");
+    spec.nfint = pde.nfint;
+    spec.maxinteractioncondition = pde.maxinteractioncondition;
+    spec.hasinteractiongraph = !pde.interactions.empty();
     
     if (pde.gendatain == 1) {
       Mesh mesh = initializeMesh(params, pde);        

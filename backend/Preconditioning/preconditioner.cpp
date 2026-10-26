@@ -315,7 +315,7 @@ void CPreconditioner<M, T, I>::ApplyPreconditioner(dstype* x, sysstruct& sys, CD
       }
       else if (disc.common.solverparams.preconditioner==1) { // Elemental additive Schwarz preconditioner        
         hdgMatVec(x, disc.res.K, x, disc.res.Rh, disc.res.Rq, disc.res, disc.app, disc.mesh, disc.common, disc.tmp, disc.common.cublasHandle, backend,
-                  disc.getNonmatchingRuntime()); // [nonmatching] same coupling as the conformal preconditioner (decision D1)
+                  disc.getNonmatchingInteractions()); // [nonmatching] same coupling as the conformal preconditioner (decision D1)
       }
       else if (disc.common.solverparams.preconditioner==2) { // super-element additive Schwarz preconditioner with BLIU0
         Int nf = disc.common.meshsizes.nf; // number of faces in this subdomain

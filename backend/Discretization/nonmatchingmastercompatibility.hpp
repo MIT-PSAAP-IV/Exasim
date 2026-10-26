@@ -164,6 +164,29 @@ inline FaceMasterCompatibility<T, I> check_mixed3d_face_master_compatibility(
             throw mixed_face_space_error(message.str());
         }
     }
+
+    if (ncu12 >= 0) {
+        std::vector<I> allNcu12(static_cast<std::size_t>(ic.size));
+        MPI_Allgather(&ncu12, 1, mpi_type<I>(), allNcu12.data(), 1, mpi_type<I>(), ic.comm);
+        ic.collective();
+        I representativeNcu12[2] = {-1, -1};
+        bool representativeNcu12Set[2] = {false, false};
+        for (int q = 0; q < ic.size; ++q) {
+            const I qmodel = allMeta[static_cast<std::size_t>(nmeta) * q];
+            if (!representativeNcu12Set[qmodel]) {
+                representativeNcu12[qmodel] = allNcu12[q];
+                representativeNcu12Set[qmodel] = true;
+            }
+            if (allNcu12[q] != representativeNcu12[qmodel]) {
+                std::ostringstream message;
+                message << "inconsistent ncu12 within model " << qmodel;
+                throw mixed_face_space_error(message.str());
+            }
+        }
+        if (!representativeNcu12Set[0] || !representativeNcu12Set[1] ||
+                representativeNcu12[0] != representativeNcu12[1])
+            throw mixed_face_space_error("mixed tet/hex pair requires equal ncu12");
+    }
     for (int k = 0; k < 2; ++k) {
         const I* m = &allMeta[static_cast<std::size_t>(nmeta) * representative[k]];
         const I expectedNpf = m[2] == 0 ? (m[3] + 1) * (m[3] + 2) / 2
@@ -177,27 +200,6 @@ inline FaceMasterCompatibility<T, I> check_mixed3d_face_master_compatibility(
         if (m[8] < 1)
             throw mixed_face_space_error("mixed tet/hex face rule has no quadrature points");
     }
-
-    std::vector<I> allNcu12(static_cast<std::size_t>(ic.size));
-    MPI_Allgather(&ncu12, 1, mpi_type<I>(), allNcu12.data(), 1, mpi_type<I>(), ic.comm);
-    ic.collective();
-    I representativeNcu12[2] = {-1, -1};
-    bool representativeNcu12Set[2] = {false, false};
-    for (int q = 0; q < ic.size; ++q) {
-        const I qmodel = allMeta[static_cast<std::size_t>(nmeta) * q];
-        if (!representativeNcu12Set[qmodel]) {
-            representativeNcu12[qmodel] = allNcu12[q];
-            representativeNcu12Set[qmodel] = true;
-        }
-        if (allNcu12[q] != representativeNcu12[qmodel]) {
-            std::ostringstream message;
-            message << "inconsistent ncu12 within model " << qmodel;
-            throw mixed_face_space_error(message.str());
-        }
-    }
-    if (!representativeNcu12Set[0] || !representativeNcu12Set[1] ||
-            representativeNcu12[0] != representativeNcu12[1])
-        throw mixed_face_space_error("mixed tet/hex pair requires equal ncu12");
 
     std::vector<int> counts(static_cast<std::size_t>(ic.size));
     std::vector<int> displacements(static_cast<std::size_t>(ic.size));
@@ -267,7 +269,8 @@ inline FaceMasterCompatibility<T, I> check_mixed3d_face_master_compatibility(
 template <class T, class I, class InterfaceCommType>
 inline FaceMasterCompatibility<T, I> check_face_master_compatibility(
         const masterstructT<T, I>& master, I nfe, I model,
-        const InterfaceCommType& ic, I ncu12 = static_cast<I>(-1))
+        const InterfaceCommType& ic, I receivedWidth = static_cast<I>(-1),
+        I donatedWidth = static_cast<I>(-1))
 {
     constexpr int nmeta = 9;
     const I mine[nmeta] = {
@@ -279,6 +282,33 @@ inline FaceMasterCompatibility<T, I> check_face_master_compatibility(
     MPI_Allgather(mine, nmeta, mpi_type<I>(), allMeta.data(), nmeta,
                   mpi_type<I>(), ic.comm);
     ic.collective();
+
+    if (donatedWidth >= 0) {
+        const I mineWidths[2] = {receivedWidth, donatedWidth};
+        std::vector<I> allWidths(static_cast<std::size_t>(2) * ic.size);
+        MPI_Allgather(mineWidths, 2, mpi_type<I>(), allWidths.data(), 2,
+                      mpi_type<I>(), ic.comm);
+        ic.collective();
+        I widths[2][2] = {{-1, -1}, {-1, -1}};
+        bool haveWidths[2] = {false, false};
+        for (int q = 0; q < ic.size; ++q) {
+            const I qmodel = allMeta[static_cast<std::size_t>(nmeta) * q];
+            if (qmodel < 0 || qmodel > 1)
+                throw mixed_face_space_error("non-matching interface: invalid endpoint side");
+            const I* qwidth = &allWidths[static_cast<std::size_t>(2) * q];
+            if (!haveWidths[qmodel]) {
+                widths[qmodel][0] = qwidth[0]; widths[qmodel][1] = qwidth[1];
+                haveWidths[qmodel] = true;
+            }
+            else if (widths[qmodel][0] != qwidth[0] || widths[qmodel][1] != qwidth[1])
+                throw mixed_face_space_error(
+                        "non-matching interface: inconsistent directional widths within side");
+        }
+        if (!haveWidths[0] || !haveWidths[1] ||
+                widths[0][0] != widths[1][1] || widths[1][0] != widths[0][1])
+            throw mixed_face_space_error(
+                    "non-matching interface: donor and owner directional widths differ");
+    }
 
     int mixedRepresentative[2] = {-1, -1};
     bool candidateMixed3D = true;
@@ -292,7 +322,8 @@ inline FaceMasterCompatibility<T, I> check_face_master_compatibility(
             allMeta[static_cast<std::size_t>(nmeta) * mixedRepresentative[0] + 2] !=
             allMeta[static_cast<std::size_t>(nmeta) * mixedRepresentative[1] + 2])
         return check_mixed3d_face_master_compatibility<T, I>(
-                master, model, ncu12, ic, allMeta, mixedRepresentative);
+                master, model, donatedWidth >= 0 ? static_cast<I>(-1) : receivedWidth,
+                ic, allMeta, mixedRepresentative);
 
     const I nd = mine[1], ndf = nd - 1, porder = mine[3], pgauss = mine[4];
     const I npf = mine[6], ngf = mine[8];

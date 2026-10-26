@@ -16,7 +16,7 @@ def QuadSquareMesh(m,n):
     p = [[x/m, y/n] for y in np.arange(0,n+1) for x in np.arange(0,m+1)];
     p = np.array(p,order='F');
 
-    t = [ [i + (j - 1) * (m + 1), i + (j - 1) * (m + 1) + 1,  i + j * (m + 1) + 1,   i + j * (m + 1)] for j in range (1,m+1) for i in range (1,n+1)];
+    t = [ [i + (j - 1) * (m + 1), i + (j - 1) * (m + 1) + 1,  i + j * (m + 1) + 1,   i + j * (m + 1)] for j in range (1,n+1) for i in range (1,m+1)];
     t = np.array(t);
 
     return p, t

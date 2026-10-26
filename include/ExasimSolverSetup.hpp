@@ -17,6 +17,7 @@
 
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -375,6 +376,9 @@ inline std::string Text2CodeExecutable()
  *       Single-model solve of pdeapp0.txt (data in datain/, dataout/).
  *   mpirun -np <ranks1+ranks2> exasimapp pdeapp1.txt <ranks1> pdeapp2.txt <ranks2>
  *       Two-domain coupled solve: ranks [0, ranks1) solve model 1, the rest model 2.
+ *   mpirun -np <total> exasimapp --interactions interaction.txt
+ *       pdeapp1.txt <ranks1> ... pdeappN.txt <ranksN>
+ *       Generalized-interaction input generation and N-domain launch.
  *
  * Rank 0 generates the datain folders with text2code (see Text2CodeExecutable).
  * MPI is initialized and finalized here unless the caller has already initialized it;
@@ -393,15 +397,122 @@ inline int RunText2CodeApp(int argc, char** argv)
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     auto barrier = [] { MPI_Barrier(MPI_COMM_WORLD); };
-    auto abort = [](const std::string& msg) { std::cerr << "exasimapp: " << msg << "\n"; MPI_Abort(MPI_COMM_WORLD, 1); };
+    auto abort = [rank](const std::string& msg) {
+        if (rank == 0) std::cerr << "exasimapp: " << msg << "\n";
+        MPI_Abort(MPI_COMM_WORLD, 1);
+    };
 #else
     const int rank = 0, size = 1;
     auto barrier = [] {};
     auto abort = [](const std::string& msg) { std::cerr << "exasimapp: " << msg << "\n"; std::exit(1); };
 #endif
-    if (argc != 3 && argc != 5)
-        abort(std::string("usage: ") + argv[0] + " pdeapp0.txt ranks | pdeapp1.txt ranks1 pdeapp2.txt ranks2");
+    auto hasExactGraphKey = [](const fs::path& file) {
+        std::ifstream in(file);
+        std::string source;
+        std::string line;
+        while (std::getline(in, line)) {
+            const std::size_t comment = line.find("//");
+            if (comment != std::string::npos) line.erase(comment);
+            source += line;
+            source.push_back('\n');
+        }
+        std::size_t begin = 0;
+        while (begin <= source.size()) {
+            const std::size_t semicolon = source.find(';', begin);
+            const std::size_t end = semicolon == std::string::npos ? source.size() : semicolon;
+            const std::string statement = source.substr(begin, end - begin);
+            const std::size_t equal = statement.find('=');
+            if (equal != std::string::npos) {
+                std::string key = statement.substr(0, equal);
+                const auto first = key.find_first_not_of(" \t\r\n");
+                const auto last = key.find_last_not_of(" \t\r\n");
+                if (first != std::string::npos) {
+                    key = key.substr(first, last - first + 1);
+                    if (key == "interactionfile" || key == "numdomains") return true;
+                }
+            }
+            if (semicolon == std::string::npos) break;
+            begin = semicolon + 1;
+        }
+        return false;
+    };
+    auto quoteValue = [](const std::string& value) {
+        std::string out = "\"";
+        for (char c : value) {
+            if (c == '\\' || c == '"') out.push_back('\\');
+            out.push_back(c);
+        }
+        out.push_back('"');
+        return out;
+    };
+
+    const bool graphForm = argc >= 7 && std::string(argv[1]) == "--interactions";
+    if (!graphForm && argc != 3 && argc != 5)
+        abort(std::string("usage: ") + argv[0] + " pdeapp0.txt ranks | pdeapp1.txt ranks1 pdeapp2.txt ranks2 | --interactions interaction.txt pdeapp1.txt ranks1 ... pdeappN.txt ranksN");
+
+    if (graphForm) {
+        if ((argc - 3) % 2 != 0)
+            abort("--interactions requires pdeapp/rank pairs");
+        const int domains = (argc - 3) / 2;
+        if (domains < 2)
+            abort("--interactions requires at least two domains");
+        const fs::path interactionFile = fs::absolute(argv[2]);
+        if (!fs::is_regular_file(interactionFile))
+            abort("cannot read interaction file " + interactionFile.string());
+
+        std::vector<fs::path> apps;
+        std::string countsText;
+        for (int i = 0; i < domains; ++i) {
+            const fs::path app = fs::absolute(argv[3 + 2 * i]);
+            if (!fs::is_regular_file(app)) abort("cannot read " + app.string());
+            apps.push_back(app);
+            if (i) countsText += ',';
+            countsText += argv[4 + 2 * i];
+        }
+        exasim::DomainRankLayout layout;
+        std::string diagnostic;
+        if (!exasim::ParseDomainRankLayout(countsText, domains, size, layout, diagnostic))
+            abort(diagnostic);
+
+        std::vector<std::string> args{argv[0], std::to_string(domains)};
+        const std::string text2code = Text2CodeExecutable();
+        try {
+            for (int i = 0; i < domains; ++i) {
+                const fs::path dir = apps[static_cast<std::size_t>(i)].parent_path();
+                if (rank == 0)
+                    GenerateText2CodeDatain(
+                        apps[static_cast<std::size_t>(i)].string(), layout.counts[static_cast<std::size_t>(i)],
+                        i + 1, text2code,
+                        {{"interactionfile", quoteValue(interactionFile.string())},
+                         {"numdomains", std::to_string(domains)}});
+                args.push_back((dir / ("datain" + std::to_string(i + 1))).string() + "/");
+                args.push_back((dir / ("dataout" + std::to_string(i + 1)) / "out").string());
+            }
+        } catch (const std::exception& e) {
+            abort(e.what());
+        }
+        args.push_back("--domain-ranks");
+        args.push_back(countsText);
+        barrier();
+
+        std::vector<char*> cargs;
+        for (auto& arg : args) cargs.push_back(arg.data());
+        ExasimSolver solver;
+#ifdef HAVE_MPI
+        const int err = RunExasimSolver(solver, static_cast<int>(cargs.size()), cargs.data(), MPI_COMM_WORLD);
+#else
+        const int err = RunExasimSolver(solver, static_cast<int>(cargs.size()), cargs.data(), MPI_COMM_NULL);
+#endif
+        barrier();
+#ifdef HAVE_MPI
+        if (!initialized) MPI_Finalize();
+#endif
+        return err;
+    }
+
     const fs::path app1 = fs::absolute(argv[1]), dir1 = app1.parent_path();
+    if (hasExactGraphKey(app1) || (argc == 5 && hasExactGraphKey(fs::absolute(argv[3]))))
+        abort("generalized interactions require RunText2CodeApp --interactions");
     const int ranks1 = std::stoi(argv[2]);
     const int ranks2 = argc == 5 ? std::stoi(argv[4]) : 0;
     if (ranks1 + ranks2 != size)

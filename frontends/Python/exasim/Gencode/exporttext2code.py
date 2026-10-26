@@ -35,6 +35,8 @@ def exporttext2code(pde, mesh, dest=None):
             raise ValueError("exporttext2code: coupled export requires at least two models.")
         for i, (pdei, meshi) in enumerate(zip(pde, mesh), start=1):
             _export_single(pdei, meshi, dest, str(i), len(pde), i)
+        if pde[0].get("interactions"):
+            _write_interactions(pde[0]["interactions"], os.path.join(dest, "interaction.txt"))
         _write_readme(dest, coupled=True, nmodels=len(pde))
     else:
         _export_single(pde, mesh, dest, "", 1, 0)
@@ -44,8 +46,26 @@ def exporttext2code(pde, mesh, dest=None):
     return dest
 
 
+def _write_interactions(interactions, filename):
+    keys = ("domains", "type", "interface1", "condition1", "fluxmap1",
+            "interface2", "condition2", "fluxmap2")
+    with open(filename, "w", encoding="utf-8") as stream:
+        for ordinal, entry in enumerate(interactions, start=1):
+            stream.write(f"// interaction {ordinal}\n")
+            for key in keys:
+                value = entry[key]
+                if key in ("domains", "fluxmap1", "fluxmap2"):
+                    values = np.asarray(value).reshape(-1).tolist()
+                    stream.write(f"{key} = [{', '.join(str(int(v)) for v in values)}];\n")
+                else:
+                    stream.write(f"{key} = {int(value)};\n")
+
+
 def _export_single(pde, mesh, dest, suffix="", nmodels=1, modelslot=0):
     app = dict(pde)
+    if app.get("interactions"):
+        app["interactionfile"] = "interaction.txt"
+        app["numdomains"] = int(nmodels)
     _infer_dimensions(app, mesh)
     if (not app.get("model")) and app.get("pdemodel"):
         app["model"] = app["pdemodel"]
@@ -192,6 +212,7 @@ def _write_pdeapp(pde, mesh, files, path, modelfile="pdemodel.txt"):
         "model", "modelfile", "meshfile", "xdgfile", "udgfile", "vdgfile", "wdgfile",
         "uniformrefinementlevel", "materialdatabase",
         "discretization", "platform", "mpiprocs", "debugmode", "runmode", "modelnumber",
+        "interactionfile", "numdomains",
         "builtinmodelID", "frontendgenerated",
         "nodetype", "ncu", "ncv", "ncw", "neb", "nfb", "linearproblem", "subproblem",
         "saveParaview", "physicsparamwarmstart", "tdep", "wave", "porder", "pgauss",
