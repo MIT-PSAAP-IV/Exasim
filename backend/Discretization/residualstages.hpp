@@ -30,34 +30,7 @@
 #ifndef __RESIDUALSTAGES
 #define __RESIDUALSTAGES
 
-template <class T=dstype, class I=Int>
-struct ResidualStageContextT {
-    solstructT<T,I>& sol; resstructT<T,I>& res; appstructT<T,I>& app; masterstructT<T,I>& master;
-    meshstructT<T,I>& mesh; tempstructT<T,I>& tmp; commonstructT<T,I>& common; cublasHandle_t handle; Int backend;
-};
-using ResidualStageContext = ResidualStageContextT<dstype, Int>;
-
-// Runtime stage table (default precision only). Every entry is optional; nullptr selects the production stage.
-struct ResidualStageTable {
-    int version = 1;
-    const char* name = "";
-    void (*uhat)(ResidualStageContext&, int pass) = nullptr;
-    void (*q)(ResidualStageContext&, Int nbe1, Int nbe2, int pass) = nullptr;
-    void (*w)(ResidualStageContext&, Int nbe1, Int nbe2) = nullptr;
-    void (*elem)(ResidualStageContext&, Int nbe1, Int nbe2) = nullptr;
-    void (*face)(ResidualStageContext&) = nullptr;
-    void (*tail)(ResidualStageContext&) = nullptr;
-};
-
-// Register (or, with nullptr, clear) the stage table this discretization's residual uses. The table must outlive its use.
-template <class T, class I>
-inline void SetResidualStages(commonstructT<T,I>& common, const ResidualStageTable* t) { common.residualStages = t; }
-template <class T, class I>
-inline const ResidualStageTable* ResidualStagesOf(const commonstructT<T,I>& common)
-{
-    if constexpr (std::is_same_v<T, dstype> && std::is_same_v<I, Int>) return static_cast<const ResidualStageTable*>(common.residualStages);
-    else return nullptr;   // tables are default-precision only
-}
+#include "stagetables.hpp"
 
 template <class M, class T=dstype, class I=Int>
 struct ProductionResidualStages {

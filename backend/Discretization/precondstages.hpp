@@ -22,26 +22,11 @@
 #ifndef __PRECONDSTAGES
 #define __PRECONDSTAGES
 
+#include "stagetables.hpp"
+
 struct PrecondStageContext : ResidualStageContext {
     ExasimDriverABI& driver_abi;
 };
-
-struct PrecondStageTable {
-    int version = 4;
-    const char* name = "";
-    void (*elem)(PrecondStageContext&, Int jth) = nullptr;
-    void (*elemface)(PrecondStageContext&, Int jth) = nullptr;
-    void (*schur)(ResidualStageContext&, Int jth) = nullptr;
-    void (*inverse)(ResidualStageContext&, dstype* A, Int n, Int batch) = nullptr;
-    void (*cross)(PrecondStageContext&, dstype* K) = nullptr;       // v3
-    void (*apply)(ResidualStageContext&, dstype* x) = nullptr;      // v4
-    void (*cgs)(cublasHandle_t handle, dstype* V, dstype* H, dstype* temp, Int N, Int m, Int backend) = nullptr;   // v4
-};
-
-// Register (or, with nullptr, clear) this discretization's preconditioner stage table. The table must outlive its use.
-inline void SetPrecondStages(commonstruct& common, const PrecondStageTable* t) { common.precondStages = t; }
-inline const PrecondStageTable* PrecondStagesOf(const commonstruct& common)
-{ return static_cast<const PrecondStageTable*>(common.precondStages); }
 
 inline void PrecondElemStage(solstruct &sol, resstruct &res, appstruct &app, ExasimDriverABI& driver_abi,
         masterstruct &master, meshstruct &mesh, tempstruct &tmp, commonstruct &common, cublasHandle_t handle,

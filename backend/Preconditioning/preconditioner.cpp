@@ -54,6 +54,7 @@
 #include "preconditioner.h"
 #include "setprecondstruct.cpp"
 #include "applymatrix.cpp"
+#include "../Discretization/stagetables.hpp"
 
 // Solve the small RB normal system without a fatal inverse. Equilibration
 // makes the rank test independent of stored update magnitudes. All arrays are

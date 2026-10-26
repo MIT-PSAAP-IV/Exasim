@@ -78,6 +78,8 @@ via the 'common' member of CDiscretization.
 #ifndef __GMRESSOLVER
 #define __GMRESSOLVER 
 
+#include "../Discretization/stagetables.hpp"
+
 void CGS(cublasHandle_t handle, dstype *V, dstype *H, dstype *temp, Int N, Int m, Int backend,
          const PrecondStageTable* stages = nullptr)
 {
