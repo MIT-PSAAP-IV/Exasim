@@ -211,6 +211,7 @@ void build_rank_structs(RankStructs& rs, const ModelMesh& mm, MasterData& m, int
     rs.mesh.ndims = rs.meshndims.data();
     rs.mesh.bf = rs.bf.data();
     rs.mesh.perm = rs.perm.data();
+    rs.mesh.szperm = static_cast<Int>(rs.perm.size());
     rs.mesh.elempart = rs.elempart.data();
     rs.mesh.szelempart = ne;
     rs.sol.xdg = rs.xdg.data();
