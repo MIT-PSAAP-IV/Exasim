@@ -2329,15 +2329,20 @@ void assembleMatrixE(Ty* E, const Ty* Etmp, const int* perm, const int npf, cons
 }
 
 template <class Ty = dstype>
-void assembleRu(Ty* Ru, const Ty* Rutmp, const int* perm, const int npe, const int ndf, const int ne)
+void assembleRu(Ty* Ru, const Ty* Rutmp, const int* perm, const int npe, const int ndf, const int ne, const int npf)
 {
+    // Deterministic: an element's faces share corner/edge nodes, so the faces are subtracted one local face at a
+    // time (ascending, the order the serial loop used); within a face the nodes are distinct, so no races.
     using dstype = Ty;        
-    int N = ndf*ne;    
+    int nfe = ndf/npf;
+    int N = npf*ne;    
+    for (int l = 0; l < nfe; l++)
     Kokkos::parallel_for("assembleRu", N, KOKKOS_LAMBDA(const size_t idx) {
-        int k = idx%ndf; // [0, ndf)                  
-        int e = idx/ndf; // [0, ne]        
+        int i = idx%npf; // [0, npf)                  
+        int e = idx/npf; // [0, ne]        
+        int k = i + npf*l;
         int m = perm[k];
-        Kokkos::atomic_sub(&Ru[m + npe*e], Rutmp[idx]);        
+        Ru[m + npe*e] -= Rutmp[k + ndf*e];
     });                        
 }
 
@@ -2345,18 +2350,19 @@ template <class Ty = dstype>
 void assembleMatrixBD(Ty* D, const Ty* Dtmp, const int* perm, const int npe, const int npf, const int nfe, const int ne)
 {
     using dstype = Ty;        
+    // Deterministic: an element's faces share corner/edge nodes, so the faces are added one local face at a time
+    // (ascending, the order the serial loop used); within a face the (m, n) pairs are distinct, so no races.
     int M = npe*npe;    
-    int N = npf*npf*nfe*ne;    
+    int N = npf*npf*ne;    
+    for (int l = 0; l < nfe; l++)
     Kokkos::parallel_for("assembleMatrixBD", N, KOKKOS_LAMBDA(const size_t idx) {
         int i = idx%npf; // [0, npf)
-        int q = idx/npf; // [0, npf*nfe*ne)                  
+        int q = idx/npf; // [0, npf*ne)                  
         int j = q%npf;   // [0, npf]
-        int p = q/npf;   // [0, nfe*ne)        
-        int l = p%nfe;   // [0, nfe]
-        int e = p/nfe;   // [0, ne]                
+        int e = q/npf;   // [0, ne]                
         int m = perm[i + npf*l];
         int n = perm[j + npf*l];
-        Kokkos::atomic_add(&D[m + npe*n + M*e], Dtmp[idx]);        
+        D[m + npe*n + M*e] += Dtmp[i + npf*j + npf*npf*(l + nfe*e)];
     });                        
 }
 

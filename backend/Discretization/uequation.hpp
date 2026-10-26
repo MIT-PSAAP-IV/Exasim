@@ -337,7 +337,7 @@ inline void uEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, a
     // }
 
     // npf*nfe*ne*ncu -> npe*ne*ncu
-    assembleRu(&res.Ru[npe*ncu*e1], Rutmp, mesh.perm, npe, npf*nfe, ne*ncu);
+    assembleRu(&res.Ru[npe*ncu*e1], Rutmp, mesh.perm, npe, npf*nfe, ne*ncu, npf);
 
     // npf*npf*nfe*ne*ncu*ncu
     Gauss2Node(handle, Dtmp, fh_uq, master.shapfgwdotshapfg, ngf, npf*npf, nf*ncu*ncu, backend);            
@@ -1011,7 +1011,7 @@ inline void RuEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, 
 
     dstype *Rutmp = &tmp.tempn[0];
     Gauss2Node(handle, Rutmp, fh, master.shapfgw, ngf, npf, nf*ncu, backend);                
-    assembleRu(&res.Ru[npe*ncu*e1], Rutmp, mesh.perm, npe, npf*nfe, ne*ncu);
+    assembleRu(&res.Ru[npe*ncu*e1], Rutmp, mesh.perm, npe, npf*nfe, ne*ncu, npf);
 
     // impose boundary conditions
     for (int ibc=0; ibc<common.meshsizes.maxnbc; ibc++)
