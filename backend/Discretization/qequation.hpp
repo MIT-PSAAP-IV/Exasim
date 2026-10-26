@@ -288,7 +288,7 @@ inline void qEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, a
       Gauss2Node(handle, Etmp, tmp.tempg, master.shapfgwdotshapfg, ngf, npf*npf, nfe*ns, backend);
       ArraySetValue(work, zero, npe*npf*nfe*ns);
       assembleMatrixE(work, Etmp, mesh.perm, npf, npe, nfe, ns);
-      PGEMNMStridedBached(handle, npe, npf*nfe, npe, one, &res.Minv2[npe*npe*e1], npe, work, npe, zero, &res.E[npe*npe*e1], npe, ns, backend); // fixed bug here  
+      PGEMNMStridedBached(handle, npe, npf*nfe, npe, one, &res.Minv2[npe*npe*e1], npe, work, npe, zero, &res.E[npe*npf*nfe*e1], npe, ns, backend); // E holds npe*npf*nfe entries per element
 //       printArray2D(work, npe, npf*nfe, backend);     
 //       printArray2D(nlg, nga, ncx, backend);     
 //       error("here");
