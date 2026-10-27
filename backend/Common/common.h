@@ -216,6 +216,33 @@ template <class T> inline bool is_finite_bitwise(const T& value)
     return (observed & mask) != mask;
 }
 
+// Host-side IEEE-754 infinity and quiet NaN built from their bit patterns. Under -ffast-math (finite-math-only),
+// clang folds std::numeric_limits<T>::infinity() / quiet_NaN() to an arbitrary finite value, so a marker set from
+// them (e.g. "the linear solve did not converge") would silently read as finite. The volatile load keeps the
+// pattern opaque to the optimizer.
+template <class T> inline T bitwise_ieee_from_bits(std::conditional_t<std::is_same_v<T, double>, std::uint64_t, std::uint32_t> pattern)
+{
+    static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>);
+    using Bits = std::conditional_t<std::is_same_v<T, double>, std::uint64_t, std::uint32_t>;
+    volatile Bits opaque = pattern;
+    const Bits bits = opaque;
+    T value;
+    std::memcpy(&value, &bits, sizeof(value));
+    return value;
+}
+template <class T> inline T bitwise_infinity(bool negative = false)
+{
+    if constexpr (std::is_same_v<T, double>)
+        return bitwise_ieee_from_bits<T>(negative ? 0xfff0000000000000ULL : 0x7ff0000000000000ULL);
+    else
+        return bitwise_ieee_from_bits<T>(negative ? 0xff800000U : 0x7f800000U);
+}
+template <class T> inline T bitwise_quiet_nan()
+{
+    if constexpr (std::is_same_v<T, double>) return bitwise_ieee_from_bits<T>(0x7ff8000000000000ULL);
+    else return bitwise_ieee_from_bits<T>(0x7fc00000U);
+}
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -1165,7 +1192,14 @@ struct masterstructT {
 };
 using masterstruct = masterstructT<::dstype, ::Int>;
   
+// Caches keyed by a connectivity array's address (e.g. the deterministic PutFaceNodes gather map) register an
+// eviction callback here; meshstruct::freememory calls them before freeing that array, so a later allocation at
+// the same address can never pick up a stale entry.
+inline std::vector<void (*)(const void*)>& MeshArrayFreeHooks() { static std::vector<void (*)(const void*)> h; return h; }
+inline void MeshArrayWillFree(const void* p) { if (p) for (auto f : MeshArrayFreeHooks()) f(p); }
+
 template <class T = ::dstype, class I = ::Int>
+
 struct meshstructT {
     using dstype = T; using Int = I;
     Int *lsize=nullptr;
@@ -1321,6 +1355,7 @@ struct meshstructT {
         TemplateFree(lsize, backend);
         TemplateFree(nsize, backend);
         TemplateFree(ndims, backend);    
+        MeshArrayWillFree(facecon);
         TemplateFree(facecon, backend);    // face-to-element connectivities 
         TemplateFree(e2f, backend); 
         TemplateFree(f2e, backend);    // face-to-element connectivities 
@@ -1526,11 +1561,20 @@ template <class T = ::dstype, class I = ::Int>
 struct scratcharenastructT {
     using dstype = T; using Int = I;
     dstype* buffer = nullptr;
-    Int sz = 0;
-    dstype* allocate(Int n, Int backend) {
+    std::size_t sz = 0;     // 64-bit: the LDG block-Jacobian (n^2 x ne1) passes 2^31 entries on large partitions
+    dstype* allocate(std::size_t n, Int backend) {
         if (buffer == nullptr || sz != n) {   // grow-if-needed (same policy as EnsureTemplateAllocation)
             TemplateFree(buffer, backend);
-            TemplateMalloc(&buffer, n, backend);
+            buffer = nullptr;
+            if (n > 0) {
+                if (backend <= 1) buffer = (dstype*) malloc(n*sizeof(dstype));
+#ifdef HAVE_CUDA
+                if (backend == 2) CHECK( cudaMalloc( (void**)&buffer, n*sizeof(dstype) ) );
+#endif
+#ifdef HAVE_HIP
+                if (backend == 3) CHECK( hipMalloc( (void**)&buffer, n*sizeof(dstype) ) );
+#endif
+            }
             sz = n;
         }
         return buffer;
@@ -1585,8 +1629,9 @@ struct resstructT {
     
     Int *ipiv=nullptr;    
     
-    Int szRi=0, szHi=0, szKi=0, szGi=0, szP=0, szV=0;
-    Int szipiv=0, szH=0, szK=0, szG=0, szF=0, szB=0, szD=0, szE=0, szC=0, szMass=0, szMinv=0, szMass2=0, szMinv2=0;
+    Int szRi=0, szHi=0, szKi=0, szGi=0, szV=0;
+    std::size_t szP=0, szK=0;   // K arena: 64-bit (n^2 x ne1 passes 2^31 on large partitions)
+    Int szipiv=0, szH=0, szG=0, szF=0, szB=0, szD=0, szE=0, szC=0, szMass=0, szMinv=0, szMass2=0, szMinv2=0;
     Int szRq=0, szRu=0, szRh=0, szRuf=0, szRue=0, szRqf=0, szRqe=0;
     // 1 when F and H alias INTO the K block (the LDG block-Jacobi arena, AllocateLDGBlockJacobianMemory).
     // In that layout K is the only owned allocation; freememory must NOT TemplateFree(F)/(H) (they are
@@ -1596,7 +1641,7 @@ struct resstructT {
 
     int sizeofint() {return szipiv;}
     int sizeoffloat() {
-      int sz = szH + szK + szG + szF + szB + szD + szE + szC + szMass + szMinv +
+      std::size_t sz = szH + szK + szG + szF + szB + szD + szE + szC + szMass + szMinv +
                szMass2 + szMinv2 + szRq + szRu + szRh + szRuf + szRue + szRqf + 
                szRqe + szHi + szKi + szGi + szRi;        
       return sz;
@@ -1622,7 +1667,7 @@ struct resstructT {
       printf("size of B: %d\n", szB);
       printf("size of F: %d\n", szF);
       printf("size of G: %d\n", szG);
-      printf("size of K: %d\n", szK);
+      printf("size of K: %zu\n", szK);
       printf("size of H: %d\n", szH);
       printf("size of Ri: %d\n", szRi);  
       printf("size of Gi: %d\n", szGi);
@@ -1641,11 +1686,11 @@ struct resstructT {
     // site) means no other class needs to know this layout: it decouples CSolver's sys.v from
     // CDiscretization's res, and lets a future change hand back a separate buffer transparently.
     // Non-owning: the returned pointer aliases K and must never be freed (keep sys.szv == 0).
-    dstype* reserveKrylovScratch(Int szRequest)
+    dstype* reserveKrylovScratch(std::size_t szRequest)
     {
         if (K != nullptr && szP + szRequest > szK)
-            printf("WARNING: reserveKrylovScratch overruns the res.K arena (szP=%d + req=%d > szK=%d)\n",
-                   (int)szP, (int)szRequest, (int)szK);
+            printf("WARNING: reserveKrylovScratch overruns the res.K arena (szP=%zu + req=%zu > szK=%zu)\n",
+                   szP, szRequest, szK);
         return &K[szP];
     }
 
@@ -1654,14 +1699,14 @@ struct resstructT {
     // slice and advances -- centralizing the offset arithmetic that used to be spelled out
     // inline as &K[start + dSize + bSize + ...] at every assignment, and warning on overrun.
     // Non-owning views into K (freed with K). See AllocateLDGBlockJacobianMemory / the HDG branch.
-    Int kArenaCursor = 0;
-    void resetKArena(Int start) { kArenaCursor = start; }
-    dstype* reserveView(Int size)
+    std::size_t kArenaCursor = 0;
+    void resetKArena(std::size_t start) { kArenaCursor = start; }
+    dstype* reserveView(std::size_t size)
     {
         dstype* p = &K[kArenaCursor];
         kArenaCursor += size;
         if (K != nullptr && kArenaCursor > szK)
-            printf("WARNING: K arena view overruns (cursor=%d > szK=%d)\n", (int)kArenaCursor, (int)szK);
+            printf("WARNING: K arena view overruns (cursor=%zu > szK=%zu)\n", kArenaCursor, szK);
         return p;
     }
 
@@ -2290,6 +2335,11 @@ struct blockjacindexstruct {
 template <class T = ::dstype, class I = ::Int>
 struct commonstructT {
     using dstype = T; using Int = I;
+    // Replaceable-stage tables registered for THIS discretization (residualstages.hpp / precondstages.hpp;
+    // SetResidualStages / SetPrecondStages). nullptr: production code. Untyped because the table types are
+    // declared after this struct.
+    const void* residualStages = nullptr;
+    const void* precondStages = nullptr;
     using qoiparamsstruct       = qoiparamsstructT<T, I>;
     using wallmodelparamsstruct = wallmodelparamsstructT<T, I>;
     meshsizesstruct meshsizes;              // mesh partition element/face/block counts (see above)

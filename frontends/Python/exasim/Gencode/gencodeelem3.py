@@ -1,10 +1,11 @@
 import sympy, os
 from .varsassign import varsassign
+from .kokkosrange import parallel_for_open
 
 def gencodeelem3(filename, f, xdg, uinf, param, foldername):
     cpufile = "Kokkos" + filename
     tmp = "(dstype* f, const dstype* xdg, const dstype* uinf, const dstype* param, const int modelnumber, const int ng, const int ncx, const int nce, const int npe, const int ne)\n"
-    str_code = "\tKokkos::parallel_for(" + "\"" + filename + "\"" + ", ng, KOKKOS_LAMBDA(const size_t i) {\n"
+    str_code = parallel_for_open(filename)
     strkk = "void " + cpufile
     strkk += tmp + "{\n"
     strkk += str_code

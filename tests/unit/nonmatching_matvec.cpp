@@ -1100,6 +1100,9 @@ void nonmatching_case(const std::string& name, const ModelMesh& m1, const ModelM
         Int residualMismatch = 0, matrixMismatch = 0;
         dstype residualDifference = 0, matrixDifference = 0;
         Int firstMatrixMismatch = -1;
+        dstype residualScale = 0, matrixScale = 0;
+        for (Int i = 0; i < hostDirection.szRi; ++i) residualScale = std::max(residualScale, std::abs(hostDirection.Ri[i]));
+        for (Int i = 0; i < hostDirection.szHi; ++i) matrixScale = std::max(matrixScale, std::abs(hostDirection.Hi[i]));
         for (Int i = 0; i < hostDirection.szRi; ++i) {
             residualMismatch += hostDirection.Ri[i] != runtimeDirection.Ri.data[i];
             residualDifference = std::max(residualDifference,
@@ -1118,8 +1121,11 @@ void nonmatching_case(const std::string& name, const ModelMesh& m1, const ModelM
                 matrixMismatch, matrixDifference, firstMatrixMismatch,
                 firstMatrixMismatch >= 0 ? hostDirection.Hi[firstMatrixMismatch] : 0,
                 firstMatrixMismatch >= 0 ? runtimeDirection.Hi.data[firstMatrixMismatch] : 0);
-        check(residualMismatch == 0, tag + ": runtime residual is bitwise accepted CPU");
-        check(matrixMismatch == 0, tag + ": runtime matrix is bitwise accepted CPU");
+        // The host reference and the runtime kernels evaluate the same sums, but the compiler may contract them into
+        // fused multiply-adds differently (it does on arm64), so they agree to round-off, not necessarily bitwise.
+        const dstype roundoff = 1.0e-13;
+        check(residualDifference <= roundoff * residualScale, tag + ": runtime residual matches the host reference to round-off");
+        check(matrixDifference <= roundoff * matrixScale, tag + ": runtime matrix matches the host reference to round-off");
     }
 
     std::vector<dstype> v(op.N), w, ve, weAE, wAE;
@@ -1825,13 +1831,15 @@ void rebuild_case(const std::string& name, const ModelMesh& m1, const ModelMesh&
                 op.tmp, op.common, 0, withJacobian == 1, 0, sidecar.get());
         for (int d = 0; d < 2; d++) {
             const std::vector<dstype>& ri = rebuilt[withJacobian == 0 ? d : 3 + 2 * d];
-            bool same = true;
-            for (Int i = 0; i < nm.dir[d].szRi; i++) same = same && nm.dir[d].Ri[i] == ri[i];
-            if (withJacobian == 1) {
-                const std::vector<dstype>& hi = rebuilt[4 + 2 * d];
-                for (Int i = 0; i < nm.dir[d].szHi; i++) same = same && nm.dir[d].Hi[i] == hi[i];
-            }
-            check(same, tag + ": rebuilt runtime residual/matrix equal the host CPU path bitwise");
+            // round-off, not bitwise: host and runtime may contract to fused multiply-adds differently (see above)
+            const auto close = [](const dstype* x, const dstype* y, Int n) {
+                dstype scale = 0, diff = 0;
+                for (Int i = 0; i < n; i++) { scale = std::max(scale, std::abs(x[i])); diff = std::max(diff, std::abs(x[i] - y[i])); }
+                return diff <= 1.0e-13 * scale;
+            };
+            bool same = close(nm.dir[d].Ri, ri.data(), nm.dir[d].szRi);
+            if (withJacobian == 1) same = same && close(nm.dir[d].Hi, rebuilt[4 + 2 * d].data(), nm.dir[d].szHi);
+            check(same, tag + ": rebuilt runtime residual/matrix match the host CPU path to round-off");
         }
     }
 

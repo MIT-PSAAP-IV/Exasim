@@ -30,7 +30,7 @@ public:
         T scale = inconsistentAction && std::abs(v[0]*v[0]+v[1]*v[1]-1) > 1e-8 ? 2 : 1;
         T a = scale*(matrix[0]*v[0]+matrix[2]*v[1]);
         T b = scale*(matrix[1]*v[0]+matrix[3]*v[1]);
-        result[0] = nonfiniteAction ? std::numeric_limits<T>::quiet_NaN() : a;
+        result[0] = nonfiniteAction ? bitwise_quiet_nan<T>() : a;
         result[1] = b;
     }
     void evalMatVec(T* r, T* v, T* u, T* b, I, I backend) {
@@ -158,8 +158,8 @@ static void testVariant(bool hdg, int orthogonalization) {
     for(int mode=0; mode<2; ++mode) {
         Fixture f;
         f.b[0]=1; f.b[1]=2;
-        if(mode==0) f.b[0]=std::numeric_limits<double>::infinity();
-        else f.x[0]=std::numeric_limits<double>::quiet_NaN();
+        if(mode==0) f.b[0]=bitwise_infinity<double>();
+        else f.x[0]=bitwise_quiet_nan<double>();
         check(f.run(hdg)==0 && !is_finite_bitwise(f.x[0]), "nonfinite RHS or warm start is rejected before Arnoldi");
     }
     {

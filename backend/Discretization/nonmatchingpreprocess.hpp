@@ -245,6 +245,14 @@ inline InterfaceFaceSet<T, I> collect_own_interface_faces(const appstructT<T, I>
     const I ncx = app.ndims[AppNdims::ncx];
     faces.nd = nd;
     faces.npf = npf;
+    // mesh.perm holds npf entries per local face of the mesh's own face space; a master with a different npf is an
+    // incompatible face space, and indexing perm with it would read past the array.
+    if (mesh.szperm > 0 && static_cast<long long>(npf) * nfe > static_cast<long long>(mesh.szperm)) {
+        std::ostringstream oss;
+        oss << "non-matching interface: incompatible face spaces: master npf = " << npf << " needs " << npf * nfe
+            << " face permutation entries, the mesh has " << mesh.szperm << " (rank " << mpirank << ")";
+        error(oss.str());
+    }
 
     I ne1 = ne;
     if (mesh.elempartpts && exasim::interfacepartition::mesh_nsize(mesh, static_cast<I>(10)) >= 2)

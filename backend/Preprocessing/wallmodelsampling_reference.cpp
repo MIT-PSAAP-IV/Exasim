@@ -171,7 +171,7 @@ bool ComputeReferenceCoordinatesInElement(
         if (VecNorm(delta.data(), nd) <= tol) return true;
     }
 
-    std::fill(xi, xi + nd, std::numeric_limits<dstype>::quiet_NaN());
+    std::fill(xi, xi + nd, bitwise_quiet_nan<dstype>());
     return false;
 }
 

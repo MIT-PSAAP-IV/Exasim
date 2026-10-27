@@ -9,7 +9,8 @@
 # still printing, and the launcher may interleave their partial output. A
 # diagnostic cut short or broken by another rank's banner ("=====", "-----",
 # "[Rank") is therefore accepted when the part before the break is a prefix of
-# the matching message; any other ERROR text fails the check.
+# the matching message; any other ERROR text fails the check. Launcher (PMIx/PRRTE)
+# teardown errors are ignored.
 set -uo pipefail
 ranks=${1:?ranks}; regex=${2:?regex}; shift 2
 output=$("$@" 2>&1)
@@ -18,7 +19,9 @@ printf '%s\n' "$output"
 if [[ $status -eq 0 ]]; then
     echo "EXPECTED-FAILURE CHECK FAILED: command exited 0"; exit 1
 fi
-errors=$(printf '%s\n' "$output" | grep -a 'ERROR:' || true)
+# The MPI launcher's own teardown messages (e.g. OpenMPI's "PMIX ERROR: PMIX_ERR_UNREACH ..." when ranks die
+# during MPI_Abort) are not Exasim diagnostics; leave them out.
+errors=$(printf '%s\n' "$output" | grep -a 'ERROR:' | grep -a -v -E 'PMIX ERROR|PRTE ERROR|ORTE ERROR' || true)
 count=$(printf '%s\n' "$errors" | grep -a -c -E "$regex" || true)
 if [[ $count -lt 1 ]]; then
     echo "EXPECTED-FAILURE CHECK FAILED: 0 matching diagnostics, expected at least 1"; exit 1

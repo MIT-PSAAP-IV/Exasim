@@ -702,7 +702,7 @@ add_executable(unit_nonmatching_domain_layout
   ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_domain_layout.cpp)
 target_include_directories(unit_nonmatching_domain_layout PRIVATE ${EXASIM_DIR})
 target_link_libraries(unit_nonmatching_domain_layout PRIVATE Kokkos::kokkos)
-if(EXASIM_MPI)
+if(EXASIM_MPI AND TARGET cpumpiEXASIM_static)   # a GPU-only configure builds no CPU solver library
   target_link_libraries(unit_nonmatching_domain_layout PRIVATE
     cpumpiEXASIM_static MPI::MPI_CXX ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
   target_compile_definitions(unit_nonmatching_domain_layout PRIVATE

@@ -268,7 +268,13 @@ inline void uJacobianLDGAssembleFaceSide(dstype* A, const dstype* Atmp,
     Int nlocu = npe*ncu;
     Int nlocc = npe*ncol;
     Int N = npf*npf*nf*ncu*ncol;
+    Int nfe = common.meshsizes.nfe;
+    const Int* f2e = mesh.f2e;
+    const Int* facecon = mesh.facecon;
 
+    // Deterministic: faces are added one local face index (of this side's element) at a time; within a pass an
+    // element meets one face, whose (row, column) pairs are distinct, so no two threads write the same entry.
+    for (Int lfPass = 0; lfPass < nfe; lfPass++)
     Kokkos::parallel_for("uJacobianLDGAssembleFaceSide", N, KOKKOS_LAMBDA(const size_t idx) {
         Int p = idx % npf;
         Int t = idx / npf;
@@ -281,11 +287,13 @@ inline void uJacobianLDGAssembleFaceSide(dstype* A, const dstype* Atmp,
 
         Int face = f1 + f;
         Int sideoffset = side - 1;
+        if (f2e[4*face + 1 + 2*sideoffset] != lfPass)
+            return;
 
         Int mr = npf*face + p;
         Int mc = npf*face + q;
-        Int kr = mesh.facecon[2*mr + sideoffset];
-        Int kc = mesh.facecon[2*mc + sideoffset];
+        Int kr = facecon[2*mr + sideoffset];
+        Int kc = facecon[2*mc + sideoffset];
 
         Int rownode = kr % npe;
         Int rowelem = (kr - rownode) / npe;
@@ -298,7 +306,7 @@ inline void uJacobianLDGAssembleFaceSide(dstype* A, const dstype* Atmp,
             Int col = colnode + npe*c;
             Int M = npf*npf;
             dstype value = sign * Atmp[p + npf*q + M*(f + nf*(r + ncu*c))];
-            Kokkos::atomic_add(&A[row + nlocu*col + nlocu*nlocc*elocal], value);
+            A[row + nlocu*col + nlocu*nlocc*elocal] += value;
         }
     });
 }

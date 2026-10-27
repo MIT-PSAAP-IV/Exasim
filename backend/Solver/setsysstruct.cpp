@@ -230,7 +230,8 @@ void setsysstruct(sysstructT<T,I> &sys, commonstructT<T,I> &common, resstructT<T
     // its [szP, szK) tail for exactly this). Was, in both branches: sys.v = &res.K[res.szP] --
     // the solver no longer hard-codes the discretization's buffer layout (S5: decouple sys.v
     // from res; a future change can hand back a separate buffer without touching this call).
-    sys.v = res.reserveKrylovScratch(ndof*M);
+    const std::size_t szv = (std::size_t)ndof*(std::size_t)M;   // checked against the Int range where the arena is sized
+    sys.v = res.reserveKrylovScratch(szv);
     sys.szv = 0;
     
     sys.backend = backend;  
@@ -244,7 +245,8 @@ void setsysstruct(sysstructT<T,I> &sys, commonstructT<T,I> &common, resstructT<T
     ArraySetValue(sys.x, 0.0, ndof);
     ArraySetValue(sys.b, 0.0, ndof);
     ArraySetValue(sys.r, 0.0, ndof);
-    ArraySetValue(sys.v, 0.0, ndof*M);
+    for (std::size_t off = 0; off < szv; off += (std::size_t)ndof)   // per vector: ArraySetValue takes an int count
+        ArraySetValue(&sys.v[off], 0.0, ndof);
         
     if (common.components.ncs>0) {        
         TemplateMalloc(&sys.utmp, npe*common.components.nc*common.meshsizes.ne2, backend); 

@@ -1,10 +1,11 @@
 from .varsassign import varsassign
 from .sympyassign import sympyassign
+from .kokkosrange import parallel_for_open
 
 def gencodeface2(filename, f, xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time, foldername):
     cpufile = "Kokkos" + filename
     tmp = "(dstype* f, const dstype* xdg, const dstype* udg1, const dstype* udg2, const dstype* odg1, const dstype* odg2, const dstype* wdg1, const dstype* wdg2, const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\n"
-    str_code = "\tKokkos::parallel_for(" + "\"" + filename + "\"" + ", ng, KOKKOS_LAMBDA(const size_t i) {\n"
+    str_code = parallel_for_open(filename)
     strkk = "void " + cpufile
     strkk += tmp + "{\n"
     strkk += str_code

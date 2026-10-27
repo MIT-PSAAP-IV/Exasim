@@ -40,9 +40,9 @@ template <class T> int finiteChecks()
     failures += !is_finite_bitwise(T(0));
     failures += !is_finite_bitwise(T(-1)); // auxiliary variables need not be positive
     failures += !is_finite_bitwise(std::numeric_limits<T>::max());
-    failures += is_finite_bitwise(std::numeric_limits<T>::infinity());
-    failures += is_finite_bitwise(-std::numeric_limits<T>::infinity());
-    failures += is_finite_bitwise(std::numeric_limits<T>::quiet_NaN());
+    failures += is_finite_bitwise(bitwise_infinity<T>());
+    failures += is_finite_bitwise(bitwise_infinity<T>(true));
+    failures += is_finite_bitwise(bitwise_quiet_nan<T>());
     return failures;
 }
 

@@ -63,8 +63,8 @@ public:
         }
         disc.sol.wdg[0]=100+u[0]+2*u[1];
         if(nonfiniteTrial && u[0]<0) {
-            residual[0]=std::numeric_limits<T>::quiet_NaN();
-            disc.sol.wdg[0]=std::numeric_limits<T>::quiet_NaN();
+            residual[0]=bitwise_quiet_nan<T>();
+            disc.sol.wdg[0]=bitwise_quiet_nan<T>();
         }
     }
 };
@@ -135,8 +135,8 @@ static void testGram() {
         if(mode==0) A[1]=A[2]=1;
         if(mode==1) A[1]=A[2]=1-1e-12;
         if(mode==2) A[0]=0;
-        if(mode==3) A[1]=std::numeric_limits<double>::quiet_NaN();
-        if(mode==4) b[1]=std::numeric_limits<double>::infinity();
+        if(mode==3) A[1]=bitwise_quiet_nan<double>();
+        if(mode==4) b[1]=bitwise_infinity<double>();
         if(mode==5) A[3]=-1;
         check(!SolveReducedBasisGram(A,b,work,2),"invalid or numerically dependent Gram system is rejected");
     }
@@ -158,9 +158,9 @@ static void testProjection(int scheme) {
         Fixture f; CPreconditioner<ProjectionModel> p(f.disc,0);
         f.basis(p,1,0,1,mode==1 ? 1e-6 : 0);
         if(mode>=2) f.basis(p);
-        if(mode==2) p.precond.U[0]=std::numeric_limits<double>::quiet_NaN();
-        if(mode==3) p.precond.W[3]=std::numeric_limits<double>::infinity();
-        f.b[0]=mode==4 ? std::numeric_limits<double>::quiet_NaN() : 1;
+        if(mode==2) p.precond.U[0]=bitwise_quiet_nan<double>();
+        if(mode==3) p.precond.W[3]=bitwise_infinity<double>();
+        f.b[0]=mode==4 ? bitwise_quiet_nan<double>() : 1;
         f.b[1]=2; f.x[0]=7; f.x[1]=8;
         f.project(p,scheme);
         check(f.solver.state.RBcurrentdim==0 && f.solver.state.RBremovedind==0,"unusable RB basis resets both recycling counters");
@@ -185,7 +185,7 @@ static void testInsertion() {
         check(f.solver.state.RBcurrentdim==1 && f.solver.state.RBremovedind==1,"LDG basis insertion advances counters");
         f.x[0]=0; f.x[1]=0; f.solver.updateRB(f.disc,p,0);
         check(f.solver.state.RBcurrentdim==1 && f.solver.state.RBremovedind==1,"zero update is not inserted");
-        f.x[0]=std::numeric_limits<double>::quiet_NaN(); f.solver.updateRB(f.disc,p,0);
+        f.x[0]=bitwise_quiet_nan<double>(); f.solver.updateRB(f.disc,p,0);
         check(f.solver.state.RBcurrentdim==1 && f.solver.state.RBremovedind==1,"nonfinite update is not inserted");
         f.x[0]=1; f.x[1]=0; f.solver.updateRB(f.disc,p,0);
         check(f.solver.state.RBcurrentdim==2 && f.solver.state.RBremovedind==0,"full basis replacement index wraps correctly");

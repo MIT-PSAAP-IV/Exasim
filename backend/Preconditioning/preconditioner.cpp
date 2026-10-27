@@ -54,6 +54,7 @@
 #include "preconditioner.h"
 #include "setprecondstruct.cpp"
 #include "applymatrix.cpp"
+#include "../Discretization/stagetables.hpp"
 
 // Solve the small RB normal system without a fatal inverse. Equilibration
 // makes the rank test independent of stored update magnitudes. All arrays are
@@ -205,6 +206,15 @@ void CPreconditioner<M, T, I>::ApplyPreconditioner(dstype* x, sysstruct& sys, CD
 {        
     Int N = disc.common.sizes.ndof1;        
 
+    if ((disc.common.spatialScheme == 0) && (disc.common.solverparams.preconditioner == 1) && (disc.res.K != nullptr)) {
+        const PrecondStageTable* t = PrecondStagesOf(disc.common);
+        if (t != nullptr && t->apply != nullptr) {
+            ResidualStageContext c{disc.sol, disc.res, disc.app, disc.master, disc.mesh, disc.tmp, disc.common,
+                                   disc.common.cublasHandle, backend};
+            t->apply(c, x);
+            return;
+        }
+    }
     ArrayCopy(disc.common.cublasHandle, disc.res.Ru, x, N, backend);
     if ((disc.common.spatialScheme == 0) && (disc.common.solverparams.preconditioner == 1) && (disc.res.K != nullptr)) {
         Int n = disc.common.grid.npe*disc.common.components.ncu;

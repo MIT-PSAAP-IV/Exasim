@@ -230,7 +230,7 @@ inline void form_shared_space_slot_residual(
             T value = 0;
             for (I p = v.slotptr[slot]; p < v.slotptr[slot + 1]; ++p) {
                 T test;
-                if constexpr (UseTransportedOwnerTests)
+                if (UseTransportedOwnerTests)   // not if constexpr: nvcc rejects a first capture inside it
                     test = v.ptest[i + static_cast<std::size_t>(v.npf) * p];
                 else
                     test = shapfgt[v.pg[p] + static_cast<std::size_t>(v.ngf) * i];
@@ -267,7 +267,7 @@ inline void form_shared_space_pairs(NonmatchingRuntimeDirection<T, I>& runtime,
             T value = 0;
             for (I p = v.pairptr[pair]; p < v.pairptr[pair + 1]; ++p) {
                 T test;
-                if constexpr (UseTransportedOwnerTests)
+                if (UseTransportedOwnerTests)   // not if constexpr: nvcc rejects a first capture inside it
                     test = v.ptest[i + static_cast<std::size_t>(npf) * p];
                 else
                     test = shapfgt[v.pg[p] + static_cast<std::size_t>(v.ngf) * i];
@@ -297,7 +297,7 @@ inline void form_shared_space_pairs(NonmatchingRuntimeDirection<T, I>& runtime,
             for (I p = v.pairptr[pair]; p < v.pairptr[pair + 1]; ++p)
                 if (v.pa[p] == a) {
                     T test;
-                    if constexpr (UseTransportedOwnerTests)
+                    if (UseTransportedOwnerTests)   // not if constexpr: nvcc rejects a first capture inside it
                         test = v.ptest[i + static_cast<std::size_t>(npf) * p];
                     else
                         test = shapfgt[v.pg[p] + static_cast<std::size_t>(v.ngf) * i];
@@ -325,7 +325,7 @@ inline void form_shared_space_pairs(NonmatchingRuntimeDirection<T, I>& runtime,
                     T value = 0;
                     for (I p = v.pairptr[pair]; p < v.pairptr[pair + 1]; ++p) {
                         T test;
-                        if constexpr (UseTransportedOwnerTests)
+                        if (UseTransportedOwnerTests)   // not if constexpr: nvcc rejects a first capture inside it
                             test = v.ptest[i + static_cast<std::size_t>(npf) * p];
                         else
                             test = shapfgt[v.pg[p] +

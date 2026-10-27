@@ -11,7 +11,7 @@ def  facenumbering(p,t,elemtype,bndexpr,prdexpr):
     ne = t.shape[1]
     face = getelemface(dim,elemtype);
     nvf,nfe = shape(face);
-    ind2 = min([1,nvf])
+    ind2 = 1 if nvf > 1 else 0   # second face vertex (0-based); a 1D face has a single vertex
 
     t2fl = reshape(t[face.flatten(order='F'),:], (nvf, nfe*ne), order='F');
     pf = reshape(p[:,t2fl.flatten(order='F')], (dim, nvf, nfe, ne), order='F');
@@ -47,13 +47,13 @@ def  facenumbering(p,t,elemtype,bndexpr,prdexpr):
             i1 = nonzero(f == prdexpr[i][0])[0];
             f[i1] = -f[i1];            
             p1 = prdexpr[i][1](pf[:,i1]);
-            e1 = int64(ceil(float64(i1+1)/float(nfe))) - 1;      # 1st elements
+            e1 = ceil(asarray(i1+1, dtype=float64)/float(nfe)).astype(int64) - 1;      # 1st elements
             l1 = i1 - e1*nfe;   # 1st local faces
 
             i2 = nonzero(f == prdexpr[i][2])[0];
             f[i2] = -f[i2];
             p2 = prdexpr[i][3](pf[:,i2]);
-            e2 = int64(ceil(float64(i2+1)/float(nfe))) - 1;      # 2nd elements
+            e2 = ceil(asarray(i2+1, dtype=float64)/float(nfe)).astype(int64) - 1;      # 2nd elements
             l2 = i2 - e2*nfe;   # 2nd local faces
 
             # update t2t to connect periodic elements
