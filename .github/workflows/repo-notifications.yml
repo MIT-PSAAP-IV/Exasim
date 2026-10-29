@@ -1,0 +1,294 @@
+name: Repository notifications
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - edited
+      - ready_for_review
+      - converted_to_draft
+      - closed
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Build notification payloads
+        shell: bash
+        env:
+          EVENT_JSON: ${{ toJson(github.event) }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+          import urllib.error
+
+          event = json.loads(os.environ["EVENT_JSON"])
+          repo = os.environ["GITHUB_REPOSITORY"]
+          owner, repo_name = repo.split("/", 1)
+          actor = os.environ["GITHUB_ACTOR"]
+          event_name = os.environ["GITHUB_EVENT_NAME"]
+          ref_name = os.environ.get("GITHUB_REF_NAME", "")
+          sha = os.environ.get("GITHUB_SHA", "")
+          short_sha = sha[:7] if sha else ""
+
+          token = os.environ.get("GITHUB_TOKEN", "")
+          api_base = os.environ.get("GITHUB_API_URL", "https://api.github.com")
+
+          def get_json(url):
+              req = urllib.request.Request(
+                  url,
+                  headers={
+                      "Authorization": f"Bearer {token}" if token else None,
+                      "Accept": "application/vnd.github+json",
+                      "User-Agent": "github-actions-notify"
+                  }
+              )
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  return json.loads(r.read().decode("utf-8"))
+
+          def clean(value, fallback="N/A"):
+              if value is None:
+                  return fallback
+              s = str(value).strip()
+              return s if s else fallback
+
+          def truncate(value, limit=2000):
+              if value is None:
+                  return ""
+              s = str(value).replace("\r\n", "\n").replace("\r", "\n")
+              return s if len(s) <= limit else s[: limit - 3] + "..."
+
+          def summarize_files(files, max_files=10):
+              if not files:
+                  return "No file list available"
+              items = []
+              for f in files[:max_files]:
+                  path = f.get("filename") or f.get("path") or "unknown"
+                  status = f.get("status", "unknown")
+                  items.append(f"- {path} ({status})")
+              if len(files) > max_files:
+                  items.append(f"- ... and {len(files) - max_files} more")
+              return "\n".join(items)
+
+          changed_files = "No file list available"
+          commit_message = "No commit message"
+
+          if event_name == "push":
+              commit = event.get("head_commit") or {}
+              author = commit.get("author") or {}
+              message = clean(commit.get("message"), "No commit message")
+              author_name = clean(author.get("name"), actor)
+              author_email = clean(author.get("email"), "No email")
+              timestamp = clean(commit.get("timestamp"), "Unknown time")
+              compare_url = clean(event.get("compare"), f"https://github.com/{repo}/commit/{sha}")
+
+              before = event.get("before")
+              after = event.get("after") or sha
+              if before and after:
+                  try:
+                      compare = get_json(f"{api_base}/repos/{owner}/{repo_name}/compare/{before}...{after}")
+                      files = compare.get("files") or []
+                      changed_files = summarize_files(files, 10)
+                  except Exception:
+                      changed_files = "Unable to fetch changed files"
+              commit_message = message
+
+              mobile_message = (
+                  f"🚀 Push to {repo} ({ref_name}) by {actor}\n"
+                  f"Commit: {short_sha}\n"
+                  f"Message: {message}\n"
+                  f"Files:\n{changed_files}\n"
+                  f"Compare: {compare_url}"
+              )
+
+              email_subject = f"[GitHub Push] {repo} ({ref_name}) {short_sha}"
+              email_body = (
+                  f"Repository: {repo}\n"
+                  f"Branch: {ref_name}\n"
+                  f"Actor: {actor}\n"
+                  f"Author: {author_name}\n"
+                  f"Email: {author_email}\n"
+                  f"Date: {timestamp}\n"
+                  f"Commit: {short_sha}\n"
+                  f"Message: {message}\n"
+                  f"Files changed:\n{changed_files}\n"
+                  f"Compare: {compare_url}\n"
+              )
+
+              payload = {
+                  "text": f"🚀 Push to {repo} ({ref_name}) by {actor}",
+                  "blocks": [
+                      {
+                          "type": "header",
+                          "text": {"type": "plain_text", "text": "🚀 Repository push"}
+                      },
+                      {
+                          "type": "section",
+                          "fields": [
+                              {"type": "mrkdwn", "text": f"*Repository:*\n<https://github.com/{repo}|{repo}>"},
+                              {"type": "mrkdwn", "text": f"*Branch:*\n{ref_name}"},
+                              {"type": "mrkdwn", "text": f"*Author:*\n{author_name}"},
+                              {"type": "mrkdwn", "text": f"*Date:*\n{timestamp}"}
+                          ]
+                      },
+                      {
+                          "type": "section",
+                          "text": {
+                              "type": "mrkdwn",
+                              "text": (
+                                  f"*Commit:* `{short_sha}`\n"
+                                  f"*Message:* {message}\n"
+                                  f"*Email:* {author_email}\n"
+                                  f"*Files changed:*\n{changed_files}\n"
+                                  f"<{compare_url}|Compare changes>"
+                              )
+                          }
+                      }
+                  ]
+              }
+
+          else:
+              pr = event.get("pull_request") or {}
+              pr_number = clean(pr.get("number"), "N/A")
+              title = clean(pr.get("title"), "Untitled PR")
+              body = truncate(pr.get("body") or "No description provided", 2000)
+              author = clean(pr.get("user", {}).get("login"), "unknown")
+              created_at = clean(pr.get("created_at"), "Unknown time")
+              base_ref = clean(pr.get("base", {}).get("ref"), "unknown")
+              head_ref = clean(pr.get("head", {}).get("ref"), "unknown")
+              pr_url = clean(pr.get("html_url"), f"https://github.com/{repo}/pull/{pr_number}")
+
+              try:
+                  files = get_json(f"{api_base}/repos/{owner}/{repo_name}/pulls/{pr_number}/files?per_page=100")
+                  changed_files = summarize_files(files, 10)
+              except Exception:
+                  changed_files = "Unable to fetch changed files"
+
+              mobile_message = (
+                  f"🔔 PR #{pr_number}: {title}\n"
+                  f"Author: {author}\n"
+                  f"Branches: {head_ref} -> {base_ref}\n"
+                  f"Files:\n{changed_files}\n"
+                  f"{pr_url}"
+              )
+
+              email_subject = f"[GitHub PR] {repo} PR #{pr_number}: {title}"
+              email_body = (
+                  f"Repository: {repo}\n"
+                  f"PR: #{pr_number}\n"
+                  f"Author: {author}\n"
+                  f"Created: {created_at}\n"
+                  f"Branches: {head_ref} -> {base_ref}\n"
+                  f"Title: {title}\n\n"
+                  f"Description:\n{body}\n\n"
+                  f"Files changed:\n{changed_files}\n\n"
+                  f"URL: {pr_url}\n"
+              )
+
+              payload = {
+                  "text": f"🔔 PR #{pr_number}: {title} in {repo}",
+                  "blocks": [
+                      {
+                          "type": "header",
+                          "text": {"type": "plain_text", "text": "🔔 Pull request update"}
+                      },
+                      {
+                          "type": "section",
+                          "fields": [
+                              {"type": "mrkdwn", "text": f"*Repository:*\n<https://github.com/{repo}|{repo}>"},
+                              {"type": "mrkdwn", "text": f"*PR:*\n#{pr_number}"},
+                              {"type": "mrkdwn", "text": f"*Author:*\n{author}"},
+                              {"type": "mrkdwn", "text": f"*Created:*\n{created_at}"}
+                          ]
+                      },
+                      {
+                          "type": "section",
+                          "text": {
+                              "type": "mrkdwn",
+                              "text": (
+                                  f"*Title:* {title}\n"
+                                  f"*Branches:* {head_ref} -> {base_ref}\n"
+                                  f"*Files changed:*\n{changed_files}\n"
+                                  f"*Description:*\n{body}"
+                              )
+                          }
+                      },
+                      {
+                          "type": "section",
+                          "text": {"type": "mrkdwn", "text": f"<{pr_url}|Open PR>"}
+                      }
+                  ]
+              }
+
+          payload_json = json.dumps(payload, ensure_ascii=False)
+
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as fh:
+              fh.write(f"SLACK_PAYLOAD<<EOF\n{payload_json}\nEOF\n")
+              fh.write(f"MOBILE_MESSAGE<<EOF\n{mobile_message}\nEOF\n")
+              fh.write(f"EMAIL_SUBJECT<<EOF\n{email_subject}\nEOF\n")
+              fh.write(f"EMAIL_BODY<<EOF\n{email_body}\nEOF\n")
+          PY
+
+      - name: Send to mobile (ntfy)
+        shell: bash
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          NTFY_SERVER: ${{ secrets.NTFY_SERVER }}
+        run: |
+          if [ -z "${NTFY_TOPIC}" ]; then
+            echo "NTFY_TOPIC is not set; skipping mobile notification."
+            exit 0
+          fi
+
+          TITLE="GitHub ${GITHUB_EVENT_NAME}"
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            TITLE="Repository push"
+          else
+            TITLE="Pull request update"
+          fi
+
+          curl --fail -sS -X POST \
+            -H "Title: ${TITLE}" \
+            -H "Priority: default" \
+            --data-binary "${MOBILE_MESSAGE}" \
+            "${NTFY_SERVER:-https://ntfy.sh}/${NTFY_TOPIC}"
+
+      - name: Send email via Gmail SMTP
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.GMAIL_USERNAME }}
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          subject: ${{ env.EMAIL_SUBJECT }}
+          to: psaap-iv-developers@mit.edu
+          from: ${{ secrets.GMAIL_FROM }}
+          body: ${{ env.EMAIL_BODY }}
+
+      - name: Send to Slack
+        shell: bash
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -z "${SLACK_WEBHOOK_URL}" ]; then
+            echo "SLACK_WEBHOOK_URL is not set; skipping Slack notification."
+            exit 0
+          fi
+
+          curl --fail -X POST \
+            -H "Content-Type: application/json" \
+            --data-binary "${SLACK_PAYLOAD}" \
+            "${SLACK_WEBHOOK_URL}"
