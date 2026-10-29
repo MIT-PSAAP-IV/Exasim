@@ -67,6 +67,9 @@ inline void UhatBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I
         Int nd, Int npe, Int npf, Int nc, Int ncu, Int ncx, Int nco, Int f1, Int f2, Int ib, Int backend)
 {
     using dstype=T;        
+    // The H endpoint supplied this Dirichlet trace. This also covers cold
+    // recovery and direct evalQ paths; no physical Ubou callback may replace it.
+    if (ib>0 && ib==common.hdgldgBoundary) return;
     Int ncw = common.components.ncw;
     //Int ncq = ncu*nd;
     Int nf = f2-f1;

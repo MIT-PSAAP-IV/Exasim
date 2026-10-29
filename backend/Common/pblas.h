@@ -44,6 +44,10 @@
 #ifndef __PBLAS_H__
 #define __PBLAS_H__
 
+#include <cstdint>
+#include <limits>
+#include <type_traits>
+
 // ------------------------------------------------------------------------------------------------
 // blas<T>: precision-dispatched CPU BLAS/LAPACK (Phase 3 of dstype->template threading, see
 // docs/internals/precision-threading.md). Replaces the per-function `#ifdef USE_FLOAT S.. #else D..`
@@ -321,6 +325,101 @@ static void Inverse(cublasHandle_t handle, T* A, T *C, Int *ipiv, Int n, Int bat
         for (int k=0; k<batchSize; k++) 
             cpuComputeInverse(&A[n*n*k], C, ipiv, n);                
     }    
+}
+
+// Explicit borrowed-workspace variant. Pure callers retain Inverse unchanged.
+// C is matrix-output work; workspace contains only status and pointer tables.
+template <class T=dstype>
+static void InverseWithWorkspace(cublasHandle_t handle,T* A,T* C,Int* ipiv,
+        Int n,Int batchSize,Int backend,void* workspace,std::size_t workspaceBytes,
+        std::size_t outputElements,std::size_t pivotElements)
+{
+    if(batchSize==0) return;
+    if(n<=0 || batchSize<0 || !A || !C || !ipiv || A==C)
+        error("Invalid caller-workspace inverse arguments");
+    if(backend<=1) {
+        if(outputElements<std::size_t(n) || pivotElements<std::size_t(n))
+            error("Caller-workspace inverse has insufficient CPU work");
+        Inverse(handle,A,C,ipiv,n,batchSize,backend);
+        return;
+    }
+#if defined(HAVE_CUDA) || defined(HAVE_HIP)
+    // Vendor dimensions/pivots and ArrayCopy use int, also in USE_LONG builds.
+    const std::size_t order=n,batch=batchSize;
+    const std::size_t limit=std::numeric_limits<int>::max();
+    if(order>limit || batch>limit || order>limit/order ||
+       batch>limit/(order*order) || outputElements<order*order*batch ||
+       pivotElements>std::numeric_limits<std::size_t>::max()/sizeof(Int) ||
+       pivotElements*sizeof(Int)<order*batch*sizeof(int) || !workspace ||
+       reinterpret_cast<std::uintptr_t>(ipiv)%alignof(int))
+        error("Caller-workspace inverse exceeds native output/pivot capacity");
+    auto* bytes=static_cast<unsigned char*>(workspace);
+    const std::uintptr_t address=reinterpret_cast<std::uintptr_t>(bytes);
+    const std::size_t infoOffset=(alignof(int)-address%alignof(int))%alignof(int);
+    const std::size_t pointerStart=infoOffset+batch*sizeof(int);
+    const std::size_t pointerOffset=pointerStart+
+        (alignof(T*)-(address+pointerStart)%alignof(T*))%alignof(T*);
+    if(pointerOffset>workspaceBytes || batch>(workspaceBytes-pointerOffset)/(2*sizeof(T*)))
+        error("Caller-workspace inverse has insufficient aligned pointer-table work");
+    int* info=reinterpret_cast<int*>(bytes+infoOffset);
+    int* pivots=reinterpret_cast<int*>(ipiv);
+    T** ap=reinterpret_cast<T**>(bytes+pointerOffset);
+    T** cp=ap+batch;
+    const int ni=static_cast<int>(n),bi=static_cast<int>(batchSize);
+    Kokkos::parallel_for("inverse pointer tables",bi,KOKKOS_LAMBDA(const int k) {
+        ap[k]=A+order*order*k; cp[k]=C+order*order*k;
+    });
+    Kokkos::fence("inverse pointer tables before vendor BLAS");
+    // Vendor stream completion precedes each status read / Kokkos copy.
+    // Only an integer failure count reaches the host, never numerical fields.
+    auto checkInfo=[&]() {
+        int failed=0;
+        Kokkos::parallel_reduce("inverse status",bi,
+            KOKKOS_LAMBDA(const int k,int& count) { if(info[k]!=0) ++count; },failed);
+        if(failed) error("Caller-workspace batched inverse reported a singular/invalid block");
+    };
+#ifdef HAVE_CUDA
+    if(backend==2) {
+        cudaStream_t stream;
+        CHECK_CUBLAS(cublasGetStream(handle,&stream));
+        if constexpr(std::is_same_v<T,float>) {
+            CHECK_CUBLAS(cublasSgetrfBatched(handle,ni,ap,ni,pivots,info,bi));
+        } else {
+            CHECK_CUBLAS(cublasDgetrfBatched(handle,ni,ap,ni,pivots,info,bi));
+        }
+        CHECK(cudaStreamSynchronize(stream)); checkInfo();
+        if constexpr(std::is_same_v<T,float>) {
+            CHECK_CUBLAS(cublasSgetriBatched(handle,ni,(const T**)ap,ni,pivots,cp,ni,info,bi));
+        } else {
+            CHECK_CUBLAS(cublasDgetriBatched(handle,ni,(const T**)ap,ni,pivots,cp,ni,info,bi));
+        }
+        CHECK(cudaStreamSynchronize(stream)); checkInfo();
+    } else
+#endif
+#ifdef HAVE_HIP
+    if(backend==3) {
+        hipStream_t stream;
+        CHECK_HIPBLAS(hipblasGetStream(handle,&stream));
+        if constexpr(std::is_same_v<T,float>) {
+            CHECK_HIPBLAS(hipblasSgetrfBatched(handle,ni,ap,ni,pivots,info,bi));
+        } else {
+            CHECK_HIPBLAS(hipblasDgetrfBatched(handle,ni,ap,ni,pivots,info,bi));
+        }
+        CHECK(hipStreamSynchronize(stream)); checkInfo();
+        if constexpr(std::is_same_v<T,float>) {
+            CHECK_HIPBLAS(hipblasSgetriBatched(handle,ni,ap,ni,pivots,cp,ni,info,bi));
+        } else {
+            CHECK_HIPBLAS(hipblasDgetriBatched(handle,ni,ap,ni,pivots,cp,ni,info,bi));
+        }
+        CHECK(hipStreamSynchronize(stream)); checkInfo();
+    } else
+#endif
+    error("Caller-workspace inverse backend is unavailable");
+    ArrayCopy(A,C,static_cast<int>(order*order*batch));
+    Kokkos::fence("caller-workspace inverse output consumed");
+#else
+    error("Caller-workspace inverse requires a compiled GPU backend");
+#endif
 }
 
 template <class T=dstype>

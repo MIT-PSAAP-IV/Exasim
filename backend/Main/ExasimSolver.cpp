@@ -108,6 +108,7 @@ using namespace std;
 #include "../Solution/solution.cpp"
 #include "../Solution/solutionwriter.cpp"
 #include "../Solution/nonlinearsolver.cpp"
+#include "../Solver/hdgldgsolver.hpp"
 
 #ifdef HAVE_BACKEND_PREPROCESSING
 #include "../Preprocessing/preprocessing.cpp"
@@ -389,6 +390,201 @@ ExasimSolver::ExasimSolver() = default;
 ExasimSolver::~ExasimSolver()
 {
     Finalize();
+}
+
+int ExasimSolver::RunHdgLdg(int argc, char** argv, const ExasimDriverABI& abi)
+{
+    return RunHdgLdg(argc, argv, [&abi](int) -> const ExasimDriverABI& { return abi; });
+}
+
+int ExasimSolver::RunHdgLdg(int argc, char** argv,
+        const std::function<const ExasimDriverABI&(int)>& resolveABI)
+{
+#ifndef HAVE_MPI
+    (void)argc; (void)argv; (void)resolveABI;
+    std::cerr << "HDG/LDG coupled solve requires MPI." << std::endl;
+    return 1;
+#else
+    if(world_comm_==MPI_COMM_NULL || !Kokkos::is_initialized()) {
+        std::cerr<<"HDG/LDG launch requires InitializeEnvironment first."<<std::endl;
+        return 1;
+    }
+    // This is an explicit launch of BOTH prepared regions, not permission to
+    // execute H/ or L/ independently through the ordinary solver entry.
+    std::filesystem::path input, output, previous;
+    std::array<std::vector<int>,2> ranks;
+    int valid=1,scheme=-1,builtin=0,restartStep=0;
+    std::string diagnostic;
+    try {
+        if((argc!=4 && argc!=7) || std::string(argv[1])!="--hdgldg" || initialized_ || !models_.empty() ||
+           world_comm_==MPI_COMM_NULL || local_comm_!=world_comm_)
+            throw std::runtime_error("usage: exasimapp --hdgldg PREPARED_ROOT NEW_ABSOLUTE_TMP_OUTPUT [--restart STEP PREVIOUS_OUTPUT]");
+        input=std::filesystem::absolute(argv[2]); output=std::filesystem::path(argv[3]);
+        if(argc==7) {
+            if(std::string(argv[4])!="--restart" || !ParsePositiveIntegerStrict(argv[5],restartStep))
+                throw std::runtime_error("HDG/LDG restart requires a positive full-timestep number");
+            previous=std::filesystem::absolute(argv[6]);
+            if(!std::filesystem::is_directory(previous))
+                throw std::runtime_error("HDG/LDG previous output directory is missing");
+        }
+        if(!output.is_absolute() || std::filesystem::exists(output))
+            throw std::runtime_error("HDG/LDG output must be a new absolute directory");
+        std::vector<int> seen(mpiprocs_,0);
+        for(int side=0;side<2;++side) {
+            const auto directory=input/(side?"H":"L");
+            std::ifstream meta(directory/"hdgldg.meta");
+            std::string magic; int version=0,stored=-1,count=0,selector=0,boundary=0,vertices=0;
+            meta>>magic>>version>>stored>>count>>selector>>boundary>>vertices;
+            if(!meta || magic!="EXASIM_HDGLDG_REGION" || version!=1 || stored!=side ||
+               count<=0 || count>=mpiprocs_ || selector<0 || boundary<=0 || vertices<2 || vertices>4)
+                throw std::runtime_error("HDG/LDG launch requires both valid prepared regional headers");
+            ranks[side].resize(count);
+            for(int j=0;j<count;++j) {
+                int rank=-1;meta>>rank;
+                if(!meta || rank<0 || rank>=mpiprocs_ || seen[rank]++ ||
+                   (j && rank<=ranks[side][j-1]))
+                    throw std::runtime_error("HDG/LDG regional rank maps must be sorted, disjoint and cover WORLD");
+                ranks[side][j]=rank;
+                if(rank==mpirank_)scheme=side;
+            }
+        }
+        if(scheme<0 || std::find(seen.begin(),seen.end(),0)!=seen.end())
+            throw std::runtime_error("HDG/LDG rank maps do not cover the solver WORLD communicator");
+        builtin=ReadBuiltinModelIDFromAppBin((input/"H").string());
+        if(ReadBuiltinModelIDFromAppBin((input/"L").string())!=builtin)
+            throw std::runtime_error("HDG/LDG regions must use the same compiled physics model");
+    } catch(const std::exception& e) {valid=0;diagnostic=e.what();}
+    int accepted=0;
+    MPI_Allreduce(&valid,&accepted,1,MPI_INT,MPI_MIN,EXASIM_COMM_WORLD);
+    if(!accepted) {
+        if(!valid)std::cerr<<"[Rank "<<mpirank_<<"] "<<diagnostic<<std::endl;
+        return 1;
+    }
+    if(mpirank_==0) {
+        try {std::filesystem::create_directories(output/"H");std::filesystem::create_directories(output/"L");}
+        catch(const std::exception& e){valid=0;diagnostic=e.what();}
+    }
+    MPI_Allreduce(&valid,&accepted,1,MPI_INT,MPI_MIN,EXASIM_COMM_WORLD);
+    if(!accepted) {if(!valid)std::cerr<<diagnostic<<std::endl;return 1;}
+
+    MPI_Comm_split(EXASIM_COMM_WORLD,scheme,mpirank_,&local_comm_);
+    EXASIM_COMM_LOCAL=local_comm_;
+    MPI_Comm_size(local_comm_,&localprocs_);MPI_Comm_rank(local_comm_,&localrank_);
+    const std::string directory=(input/(scheme?"H":"L")).string();
+    const auto& abi=resolveABI(builtin);
+    if(!IsValidModelABI(abi))error("HDG/LDG launch requires a valid compiled model ABI");
+    // Native owners live only in this scope and are destroyed before the
+    // caller finalizes the existing MPI/Kokkos environment. No CSolution
+    // constructor runs physical callbacks before the interface is installed.
+    CDiscretization disc(directory+"/",(output/(scheme?"H":"L")/"out").string(),"",
+        localprocs_,localrank_,0,0,backend_,builtin,abi,0,0,0,0,0,ExasimExecutionMode::HDGLDGSetup);
+    auto& c=disc.common;
+    // Native common defaults averaging on without an input-file selector.
+    // This new coupled path supports snapshots/checkpoints, not averaging.
+    c.outputparams.compudgavg=0;
+    // Iteration controls are checked once by initializeSystem below.
+    const int controls[]={c.timeparams.tdep,c.runmode,c.outputparams.timestepOffset,
+        c.timeparams.temporalScheme,c.timeparams.tsteps,c.timeparams.tstages,
+        c.timeparams.torder,c.components.ncs,restartStep};
+    constexpr int count=sizeof(controls)/sizeof(controls[0]);
+    int minimum[count],maximum[count];
+    MPI_Allreduce(controls,minimum,count,MPI_INT,MPI_MIN,EXASIM_COMM_WORLD);
+    MPI_Allreduce(controls,maximum,count,MPI_INT,MPI_MAX,EXASIM_COMM_WORLD);
+    for(int j=0;j<count;++j)if(minimum[j]!=maximum[j])
+        error("HDG/LDG coupled solver controls must agree on every rank");
+    if(c.runmode || c.outputparams.timestepOffset)
+        error("HDG/LDG public launch requires runmode 0, no legacy restart offset, and no solution averaging");
+    if(restartStep && !c.timeparams.tdep)
+        error("HDG/LDG checkpoint restart requires a time-dependent run");
+    if(c.outputparams.saveSolFreq<=0)
+        error("HDG/LDG solution output frequency must be positive");
+    // Native setup assigns the time state only for time-dependent input.
+    // A steady coupled solve defines it explicitly on every rank.
+    if(!c.timeparams.tdep)c.timestate.time=0;
+    dstype time=c.timestate.time;
+    if(!is_finite_bitwise(time))error("HDG/LDG initial time must be finite");
+    dstype timeMin=0,timeMax=0;
+    MPI_Allreduce(&time,&timeMin,1,mpi_type<dstype>(),MPI_MIN,EXASIM_COMM_WORLD);
+    MPI_Allreduce(&time,&timeMax,1,mpi_type<dstype>(),MPI_MAX,EXASIM_COMM_WORLD);
+    if(timeMin!=timeMax)error("HDG/LDG initial time must agree on all ranks");
+    if(c.timeparams.tdep) {
+        if(c.timeparams.temporalScheme || c.timeparams.torder!=c.timeparams.tstages ||
+           (c.timeparams.torder!=2 && c.timeparams.torder!=3) || c.timeparams.tsteps<1 ||
+           restartStep>=c.timeparams.tsteps || c.components.ncs!=c.components.ncu)
+            error("HDG/LDG time integration supports DIRK22/33 and interior full-step restart only");
+        for(Int step=0;step<c.timeparams.tsteps;++step) {
+            const dstype dt=c.dt[step];
+            if(!is_finite_bitwise(dt) || dt<=0)error("HDG/LDG timesteps must be finite and positive");
+            dstype low=0,high=0;
+            MPI_Allreduce(&dt,&low,1,mpi_type<dstype>(),MPI_MIN,EXASIM_COMM_WORLD);
+            MPI_Allreduce(&dt,&high,1,mpi_type<dstype>(),MPI_MAX,EXASIM_COMM_WORLD);
+            if(low!=high)error("HDG/LDG timesteps must agree on all ranks");
+        }
+        TimestepCoefficents(c);
+        // Reuse the existing input output cadence for native checkpoints.
+        // No new binary field or second checkpoint format is introduced.
+        c.outputparams.saveRestart=c.outputparams.saveSolFreq;
+    }
+    CResidual<> residual(disc);CAssembler<> assembler(disc);
+    CPreconditioner<> preconditioner(disc,backend_,ExasimExecutionMode::HDGLDGSetup);
+    CSolver<> solver(disc,backend_,ExasimExecutionMode::HDGLDGSetup);
+    auto interface=exasim::hdgldg::initializeInterface(disc,directory,backend_);
+    auto system=exasim::hdgldg::initializeSystem(disc,residual,assembler,preconditioner,solver,interface,backend_);
+    CVisualization visualization(disc,backend_);
+    CSolutionWriter<> writer(disc,residual,visualization,solver);
+    if(restartStep) {
+        const std::string prefix=(previous/(scheme?"H":"L")/"out").string();
+        const std::string suffix="_t"+NumberToString(restartStep)+"_np"+NumberToString(localrank_)+".bin";
+        const auto intact=[](const std::string& file,std::size_t entries) {
+            std::error_code status;
+            if(!std::filesystem::is_regular_file(file,status) || status)return false;
+            const auto bytes=std::filesystem::file_size(file,status);
+            return !status && bytes==entries*sizeof(dstype);
+        };
+        valid=intact(prefix+"udg"+suffix,c.sizes.ndofudg1) &&
+            (!scheme || intact(prefix+"_uhat"+suffix,c.sizes.ndofuhat));
+        MPI_Allreduce(&valid,&accepted,1,MPI_INT,MPI_MIN,EXASIM_COMM_WORLD);
+        if(!accepted)error("HDG/LDG restart has missing or truncated native checkpoint files");
+        const std::string destination=c.fileout;
+        c.fileout=prefix;c.outputparams.timestepOffset=restartStep;c.timestate.currentstep=-1;
+        writer.ReadSolutions(backend_);
+        c.fileout=destination;c.outputparams.timestepOffset=0;
+        // Match uninterrupted left-to-right time accumulation, not k*dt[0].
+        for(Int step=0;step<restartStep;++step)time+=c.dt[step];
+        c.timestate.time=time;
+    }
+    exasim::hdgldg::refreshState(system);
+    // Native snapshot output is supported; average accumulators are not
+    // evolved by this coupled driver. Initialize native checkpoint extras.
+    if(c.sizes.ndofbou>0) {
+        ArraySetValue(disc.sol.bouudgavg,dstype(0),c.sizes.ndofbou*c.components.nc+1);
+        ArraySetValue(disc.sol.bouuhavg,dstype(0),c.sizes.ndofbou*c.components.ncu+1);
+    }
+    writer.setup(false);writer.SaveNodesOnBoundary(backend_);
+    const auto save=[&]() {
+        // The native L writer reads sys.u when saveSolOpt=0.
+        exasim::hdgldg::refreshState(system);
+        writer.SaveSolutions(backend_);writer.SaveQoI(backend_);
+        writer.SaveSolutionsOnBoundary(backend_);
+        if(visualization.savemode>0)writer.SaveParaview(backend_);
+    };
+    if(!c.timeparams.tdep) {
+        if(!exasim::hdgldg::solve(system))return 1;
+        save();return 0;
+    }
+    for(Int step=restartStep;step<c.timeparams.tsteps;++step) {
+        exasim::hdgldg::beginStep(system,step);
+        for(Int stage=0;stage<c.timeparams.tstages;++stage) {
+            exasim::hdgldg::prepareStage(system,stage,time);
+            if(!mpirank_)printf("\nTimestep :  %d,  Timestage :  %d,   Time : %.17g\n",
+                int(step+1),int(stage+1),double(c.timestate.time));
+            if(!exasim::hdgldg::solve(system))return 1;
+            exasim::hdgldg::commitStage(system);
+        }
+        time+=c.dt[step];c.timestate.time=time;save();
+    }
+    return 0;
+#endif
 }
 
 int ExasimSolver::Initialize(int argc, char** argv, MPI_Comm comm)

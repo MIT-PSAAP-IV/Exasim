@@ -2,7 +2,7 @@
 % run('<prefix>/share/exasim/matlab/exasim_setup.m') instead.
 run(fullfile(fileparts(mfilename('fullpath')), '..', '..', '..', 'frontends', 'Matlab', 'exasim_setup.m'));
 
-porder = 2;                     % polynomial degree
+porder = 3;                     % polynomial degree
 gam = 1.4;                      % gas constant
 Minf = 0.25;                   % freestream mach number
 tau = 0.6/Minf;                 % stabilization parameter
@@ -53,10 +53,16 @@ mesh = mkmesh_naca0012(porder,1,1);
 mesh.porder = porder;
 mesh.dgnodes = createdgnodes(mesh.p,mesh.t,mesh.f,mesh.curvedboundary,mesh.curvedboundaryexpr,porder);    
 
-figure(1); clf; scaplot(mesh,eulereval(sol(:,1:4,:),'M',gam),[],2); 
+mesh.elemtype = 1;
+figure(1); clf; scaplot(mesh,eulereval(sol(:,1:4,:),'M',gam),[],2,2); 
 axis on; axis equal; axis tight;
 axis([-0.5 2 -0.62 0.62])
 set(gca,'fontsize', 16);
+hold on;
+x = mesh.dgnodes(:,1,:);
+y = mesh.dgnodes(:,2,:);
+plot(x(:), y(:), 'o');
+
 %exportgraphics(gca,"nacap3M0025.png",'Resolution',200);
 
 % [mesh.f, mesh.tprd, t2t] = facenumbering(mesh.p,mesh.t,1,mesh.boundaryexpr,mesh.periodicexpr);

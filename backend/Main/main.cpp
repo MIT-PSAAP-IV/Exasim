@@ -98,6 +98,12 @@ int main(int argc, char** argv)
     int err = solver.InitializeEnvironment(argc, argv, comm);
     if (err) return err;
 
+    if (argc > 1 && std::string(argv[1]) == "--hdgldg") {
+        err = solver.RunHdgLdg(argc, argv, SelectExasimDriverABI);
+        solver.Finalize();
+        return err;
+    }
+
     err = solver.ParseInputs(argc, argv, SelectExasimDriverABI);
     if (err) {
         solver.Finalize();

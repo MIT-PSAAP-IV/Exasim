@@ -801,6 +801,18 @@ endmacro()
 register_exasim_export_target(cpuEXASIM_static cpulib FALSE)
 register_exasim_export_target(cpumpiEXASIM_static cpumpilib TRUE)
 register_exasim_export_target(cpupreEXASIM_static cpuprelib FALSE)
+
+# Shared one-time CPU preprocessing for the rank-separated HDG/LDG workflow.
+# Ship it with the normal package, not only as a test-project executable.
+if(TARGET cpupreEXASIM_static)
+  add_executable(exasim_hdgldg_preprocess
+    ${EXASIM_DIR}/backend/Main/hdgldgpreprocess.cpp)
+  target_include_directories(exasim_hdgldg_preprocess PRIVATE ${EXASIM_DIR})
+  target_link_libraries(exasim_hdgldg_preprocess PRIVATE
+    ExasimHeaders cpupreEXASIM_static Kokkos::kokkos)
+  install(TARGETS exasim_hdgldg_preprocess
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif()
 register_exasim_export_target(cpumpipreEXASIM_static cpumpiprelib TRUE)
 register_exasim_export_target(gpuEXASIM_static gpulib FALSE)
 register_exasim_export_target(gpumpiEXASIM_static gpumpilib TRUE)
