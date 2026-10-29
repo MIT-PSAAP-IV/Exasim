@@ -241,7 +241,27 @@ jobs:
               fh.write(f"EMAIL_BODY<<EOF\n{email_body}\nEOF\n")
           PY
 
+      # Notifications are best effort: a missing or rejected credential for
+      # one channel must not fail the job, which reports as a check on
+      # every push and pull request. Failed deliveries are reported below.
+      - name: Check email credentials
+        id: email
+        shell: bash
+        env:
+          GMAIL_USERNAME: ${{ secrets.GMAIL_USERNAME }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          GMAIL_FROM: ${{ secrets.GMAIL_FROM }}
+        run: |
+          if [ -z "${GMAIL_USERNAME}" ] || [ -z "${GMAIL_APP_PASSWORD}" ] || [ -z "${GMAIL_FROM}" ]; then
+            echo "GMAIL_USERNAME, GMAIL_APP_PASSWORD or GMAIL_FROM is not set; skipping email notification."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Send to mobile (ntfy)
+        id: ntfy
+        continue-on-error: true
         shell: bash
         env:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
@@ -266,6 +286,9 @@ jobs:
             "${NTFY_SERVER:-https://ntfy.sh}/${NTFY_TOPIC}"
 
       - name: Send email via Gmail SMTP
+        id: gmail
+        if: steps.email.outputs.configured == 'true'
+        continue-on-error: true
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
@@ -279,6 +302,8 @@ jobs:
           body: ${{ env.EMAIL_BODY }}
 
       - name: Send to Slack
+        id: slack
+        continue-on-error: true
         shell: bash
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
@@ -292,3 +317,17 @@ jobs:
             -H "Content-Type: application/json" \
             --data-binary "${SLACK_PAYLOAD}" \
             "${SLACK_WEBHOOK_URL}"
+
+      - name: Report delivery failures
+        if: always()
+        shell: bash
+        env:
+          NTFY: ${{ steps.ntfy.outcome }}
+          GMAIL: ${{ steps.gmail.outcome }}
+          SLACK: ${{ steps.slack.outcome }}
+        run: |
+          for channel in NTFY GMAIL SLACK; do
+            if [ "${!channel}" = "failure" ]; then
+              echo "::warning title=Notification not delivered::${channel} delivery failed; check its repository secrets."
+            fi
+          done
