@@ -322,7 +322,15 @@ inline void RuFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T
         &sol.og1[ngf*nco*f1], &sol.og2[ngf*nco*f1], &tmp.tempg[n5], &tmp.tempg[n7], 
         &tmp.tempg[n3], &sol.faceg[nm+n1], mesh, master, app, sol, tmp, common, ngf, f1, f2, backend);      
     }
-    else { // boundary faces      
+    else if (ib == common.hdgldgBoundary) {
+        // The unused second-side state is the native HDG driver's saved-u
+        // workspace. Its flux occupies the ordinary full-vector flux slice.
+        EXASIM_DRIVER_CALL(FhatDriver, &tmp.tempg[n8], &tmp.tempg[n6],
+            &sol.faceg[nm+n0], &tmp.tempg[n4], &sol.og1[ngf*nco*f1],
+            &tmp.tempg[n5], &tmp.tempg[n3], &sol.faceg[nm+n1],
+            mesh, master, app, sol, tmp, common, nga, backend);
+    }
+    else { // physical boundary faces
         EXASIM_DRIVER_CALL(FbouDriver, &tmp.tempg[n8], &sol.faceg[nm+n0], &tmp.tempg[n4], &sol.og1[ngf*nco*f1], 
                 &tmp.tempg[n5], &tmp.tempg[n3], &sol.faceg[nm+n1], mesh, master, app, 
                 sol, tmp, common, ngf, f1, f2, ib, backend);        

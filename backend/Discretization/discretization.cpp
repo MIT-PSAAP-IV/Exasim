@@ -460,6 +460,12 @@ CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string e
         ExasimExecutionMode mode, const std::vector<dstype>* physicsparamOverride,
         Int saveParaview, Int localDomainIn, const std::vector<Int>* domainRankOffsetsIn)
 {
+    // H/L regions are parts of one coupled problem, not independent domains.
+    // Keep their structural interface marker away from physical callbacks
+    // until the coupled runtime is installed. Pure inputs have no sidecar.
+    if (mode != ExasimExecutionMode::Postprocess && mode != ExasimExecutionMode::HDGLDGSetup &&
+        std::filesystem::is_regular_file(std::filesystem::path(filein) / "hdgldg.meta"))
+        error("HDG/LDG solve awaits coupled interface runtime support");
     localDomain = localDomainIn;
     if (domainRankOffsetsIn != nullptr)
         domainRankOffsets = *domainRankOffsetsIn;
@@ -533,6 +539,9 @@ CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string e
             TemplateCopytoHost(sol.xcg, hsol.xcg, sol.szxcg, 0);
         }
 
+        if (mode == ExasimExecutionMode::HDGLDGSetup &&
+            (happ.szinteractions>0 || hcommon.couplingparams.coupledinterface>0))
+            error("HDG/LDG setup cannot be combined with legacy or generalized coupling");
         if (happ.szinteractions > 0) {
             std::ostringstream message;
             message << "non-matching coupling (construction): CUDA/HIP execution awaits "
@@ -543,7 +552,7 @@ CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string e
 #ifdef HAVE_MPI
         // Host setup remains on the staging structs; runtime arrays are
         // allocated on the selected backend before staging memory is released.
-        {
+        if (mode != ExasimExecutionMode::HDGLDGSetup) {
             nonmatchingInteractions.reserve(1);
             exasim::nonmatching::NonmatchingInteraction<T, I> candidate;
             if (exasim::nonmatching::NonmatchingInteraction<T, I>::setupLegacy(
@@ -570,6 +579,9 @@ CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string e
                 mpiprocs, mpirank, fileoffset, omprank,
                 physicsparamOverride, mode,
                 static_cast<nonmatchingdataT<T, I>*>(nullptr)); // Rebuild atomically below.
+        if (mode == ExasimExecutionMode::HDGLDGSetup &&
+            (app.szinteractions>0 || common.couplingparams.coupledinterface>0))
+            error("HDG/LDG setup cannot be combined with legacy or generalized coupling");
 #ifdef HAVE_MPI
         if (app.szinteractions > 0) {
             const auto records = exasim::nonmatching::validate_interaction_graph(
@@ -579,7 +591,7 @@ CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string e
                     mpiprocs, mpirank, fileoffset, backend,
                     nonmatchingInteractions);
         }
-        else {
+        else if (mode != ExasimExecutionMode::HDGLDGSetup) {
             nonmatchingInteractions.reserve(1);
             exasim::nonmatching::NonmatchingInteraction<T, I> candidate;
             if (exasim::nonmatching::NonmatchingInteraction<T, I>::setupLegacy(
@@ -688,11 +700,23 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
             if (common.mpiRank==0) printf("start qEquation... \n");
             BuildElementBlockBoundaryFaces(common, mesh, backend);
             AllocateLDGBlockJacobianMemory(res, common, backend, scratch);
-            qEquation(sol, res, app, master, mesh, tmp, common, backend);
-            TemplateFree(res.Mass2, backend);
-            TemplateFree(res.Minv2, backend);
-            res.szMass2 = 0;
-            res.szMinv2 = 0;
+            // Coupled BJ uses the neighbour's recovered q in its diagonal.
+            // Populate first-ghost C/E in their existing full-ne arrays while
+            // the native mass work is still live; pure setup is unchanged.
+            if(mode==ExasimExecutionMode::HDGLDGSetup)
+                qEquation(sol,res,app,master,mesh,tmp,common,backend,common.meshsizes.nbe2);
+            else
+                qEquation(sol, res, app, master, mesh, tmp, common, backend);
+            // Coupled L setup retains these existing res-owned arrays for
+            // Newton base/interface caches. Their capacities remain the native
+            // npe*npe*ne entries; the coupled caller checks each borrowed use.
+            // No recovery routine may rebuild qEquation after they become caches.
+            if (mode != ExasimExecutionMode::HDGLDGSetup) {
+                TemplateFree(res.Mass2, backend);
+                TemplateFree(res.Minv2, backend);
+                res.szMass2 = 0;
+                res.szMinv2 = 0;
+            }
             if (common.mpiRank==0) printf("finish qEquation... \n");
         }
         else if (!postprocessOnly) {

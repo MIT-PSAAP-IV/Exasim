@@ -2,7 +2,8 @@ module Preprocessing
 
 using ..Types, ..Master, SymPy
 
-export createhighordermesh, preprocessing, initializeexasim, findexec, interactiongraph
+export createhighordermesh, preprocessing, initializeexasim, findexec, interactiongraph,
+       hdgldgpreprocessing
 
 include("xiny.jl");
 include("createdgnodes.jl");
@@ -47,6 +48,7 @@ include("initializemesh.jl");
 include("initializeexasim.jl");
 include("findexec.jl");
 include("interactiongraph.jl");
+include("hdgldgpreprocessing.jl");
 
 function preprocessing(app,mesh)
 

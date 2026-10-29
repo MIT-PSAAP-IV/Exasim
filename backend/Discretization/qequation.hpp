@@ -81,7 +81,8 @@ inline void EnsureTemplateAllocation(T **data, Int &currentSize, Int requiredSiz
 
 template <class T=dstype, class I=Int>
 inline void qEquationElem(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
-        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend,
+        Int elementBlocks=-1)
 {
     using dstype=T;        
     Int ncx = common.components.ncx;// number of compoments of (xdg) 
@@ -89,7 +90,7 @@ inline void qEquationElem(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT
     Int npe = common.grid.npe; // number of nodes on master element
     Int nge = common.grid.nge; // number of gauss points on master element        
     Int ne = common.meshsizes.ne; // number of elements in this subdomain
-    Int nbe = common.meshsizes.nbe1; // number of blocks for elements   
+    Int nbe = elementBlocks<0?common.meshsizes.nbe1:elementBlocks;
     Int neb = common.meshsizes.neb; // maximum number of elements per block
 
     TemplateMalloc(&res.Mass2, npe*npe*ne, backend);
@@ -339,7 +340,8 @@ inline void qEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, a
 
 template <class T=dstype, class I=Int>
 inline void qEquationElemFace(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
-        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend,
+        Int elementBlocks=-1)
 {
     using dstype=T;    
     Int ncx = common.components.ncx;// number of compoments of (xdg)        
@@ -347,7 +349,7 @@ inline void qEquationElemFace(solstructT<T,I> &sol, resstructT<T,I> &res, appstr
     Int npe = common.grid.npe; // number of nodes on master element
     Int npf = common.grid.npf; // number of nodes on master face           
     Int ngf = common.grid.ngf; // number of gauss poInts on master face
-    Int nbe = common.meshsizes.nbe1; // number of blocks for elements 
+    Int nbe = elementBlocks<0?common.meshsizes.nbe1:elementBlocks;
     Int nfe = common.meshsizes.nfe; // number of faces per element
     Int ne = common.meshsizes.ne; // number of elements in this subdomain
 
@@ -376,11 +378,14 @@ inline void qEquationElemFace(solstructT<T,I> &sol, resstructT<T,I> &res, appstr
 
 template <class T=dstype, class I=Int>
 inline void qEquation(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
-        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, Int backend)
+        meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, Int backend,
+        Int elementBlocks=-1)
 {
     using dstype=T;
-    qEquationElem(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);
-    qEquationElemFace(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend);    
+    if(elementBlocks>common.meshsizes.nbe)
+        error("qEquation block range exceeds native geometry");
+    qEquationElem(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend,elementBlocks);
+    qEquationElemFace(sol, res, app, master, mesh, tmp, common, common.cublasHandle, backend,elementBlocks);
 }
 
 template <class T=dstype, class I=Int>

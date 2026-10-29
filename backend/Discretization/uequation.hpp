@@ -360,6 +360,7 @@ inline void uEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, a
     // impose boundary conditions
     for (int ibc=0; ibc<common.meshsizes.maxnbc; ibc++)
     {
+      if (ibc+1 == common.hdgldgBoundary) continue; // HL retains the ordinary Fhat equation.
       int n = ibc + common.meshsizes.maxnbc*jth;
       int start = common.nboufaces[n];
       int nfaces = common.nboufaces[n + 1] - start;
@@ -733,7 +734,11 @@ inline void uEquationSchurBlock(solstructT<T,I> &sol, resstructT<T,I> &res, apps
     } 
 
     // compute the inverse of D 
-    Inverse(handle, D, tmp.tempn, res.ipiv, n, ne, backend);    
+    if(common.hdgldgBoundary>0)
+      InverseWithWorkspace(handle,D,tmp.tempn,res.ipiv,n,ne,backend,
+          tmp.tempg,std::size_t(tmp.sztempg)*sizeof(dstype),tmp.sztempn,res.szipiv);
+    else
+      Inverse(handle, D, tmp.tempn, res.ipiv, n, ne, backend);
     
     // DinvF = -Dinv * F
     ArrayCopy(tmp.tempn, F, n * m * ne);
@@ -1016,6 +1021,7 @@ inline void RuEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, 
     // impose boundary conditions
     for (int ibc=0; ibc<common.meshsizes.maxnbc; ibc++)
     {
+      if (ibc+1 == common.hdgldgBoundary) continue; // Same trace equation as the Jacobian path.
       int n = ibc + common.meshsizes.maxnbc*jth;
       int start = common.nboufaces[n];
       int nfaces = common.nboufaces[n + 1] - start;

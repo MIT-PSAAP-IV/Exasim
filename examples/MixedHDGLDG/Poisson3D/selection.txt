@@ -1,0 +1,7 @@
+# The supplied 4x4x4 hex grid is ordered fastest in x.
+version = 1
+world_size = 2
+h_ranks = [0]
+l_ranks = [1]
+selection = labels
+labels = [1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0]

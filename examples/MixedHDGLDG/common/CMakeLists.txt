@@ -1,0 +1,37 @@
+cmake_minimum_required(VERSION 3.20)
+project(exasim_hdgldg_example LANGUAGES C CXX)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+get_filename_component(EXASIM_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/../../.." ABSOLUTE)
+find_package(Exasim REQUIRED COMPONENTS cpumpi)
+find_package(MPI REQUIRED COMPONENTS CXX)
+if(NOT TARGET Kokkos::kokkos)
+  find_package(Kokkos REQUIRED)
+endif()
+# Reuse the ordinary external-model provider with the source build package.
+# This avoids writing an installation or linking an older installed solver.
+set(Exasim_CMAKE_DIR "${EXASIM_SOURCE}/cmake")
+set(Exasim_BUILTIN_DIR "${EXASIM_SOURCE}/backend/Model/BuiltIn")
+set(Exasim_TEXT2CODE_ROOT "${EXASIM_SOURCE}")
+if(TEXT2CODE_EXECUTABLE)
+  set(Exasim_TEXT2CODE "${TEXT2CODE_EXECUTABLE}")
+endif()
+include("${EXASIM_SOURCE}/cmake/ExasimExternalModel.cmake")
+if(KERNEL_DIR AND NOT PDE_APP)
+  exasim_add_external_builtin_model(TARGET example_model ID 100 KERNELS "${KERNEL_DIR}")
+elseif(PDE_APP AND NOT KERNEL_DIR)
+  # The fourth route independently parses and generates its Text2Code model.
+  exasim_add_external_builtin_model(TARGET example_model ID 100 PDEMODEL "${PDE_APP}")
+else()
+  message(FATAL_ERROR "Provide exactly one of KERNEL_DIR (native) or PDE_APP (Text2Code)")
+endif()
+# Installed packages expose backend/... under include; a source build instead
+# needs this existing source root for the unchanged provider's declarations.
+target_include_directories(example_model PRIVATE "${EXASIM_SOURCE}")
+add_executable(hdgldg_example main.cpp)
+target_compile_definitions(hdgldg_example PRIVATE _MPI _BUILTINLIBRARY)
+target_link_libraries(hdgldg_example PRIVATE example_model Exasim::headers
+  Exasim::cpumpiprelib MPI::MPI_CXX Kokkos::kokkos)

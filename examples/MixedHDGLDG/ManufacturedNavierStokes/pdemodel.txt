@@ -1,0 +1,144 @@
+scalars t
+vectors x(2), uq(12), v(0), w(0), uhat(4), n(2), tau(1), mu(4), eta(0)
+jacobian uq, w, uhat
+hessian
+batch x, uq, v, w, uhat, n
+outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Initu
+
+function FluxHat(x, uhat, uq, v, w, eta, mu, t)
+  output_size(f) = 8;
+  gam = mu[0];
+  gam1 = gam - 1.0;
+  Re = mu[1];
+  Pr = mu[2];
+  Minf = mu[3];
+  Re1 = 1/Re;
+  M2 = Minf*Minf;
+  c23 = 2.0/3.0;
+  fc = 1/(gam1*M2*Re*Pr);
+  r = uhat[0];
+  ru = uhat[1];
+  rv = uhat[2];
+  rE = uhat[3];
+  rx = uq[4];
+  rux = uq[5];
+  rvx = uq[6];
+  rEx = uq[7];
+  ry = uq[8];
+  ruy = uq[9];
+  rvy = uq[10];
+  rEy = uq[11];
+  r1 = 1/r;
+  uv = ru*r1;
+  vv = rv*r1;
+  E = rE*r1;
+  ke = 0.5*(uv*uv+vv*vv);
+  p = gam1*(rE-r*ke);
+  h = E+p*r1;
+  ux = (rux - rx*uv)*r1;
+  vx = (rvx - rx*vv)*r1;
+  kex = uv*ux + vv*vx;
+  px = gam1*(rEx - rx*ke - r*kex);
+  Tx = gam*M2*(px*r - p*rx)*r1*r1;
+  uy = (ruy - ry*uv)*r1;
+  vy = (rvy - ry*vv)*r1;
+  key = uv*uy + vv*vy;
+  py = gam1*(rEy - ry*ke - r*key);
+  Ty = gam*M2*(py*r - p*ry)*r1*r1;
+  txx = Re1*c23*(2*ux - vy);
+  txy = Re1*(uy + vx);
+  tyy = Re1*c23*(2*vy - ux);
+  f[0] = ru;
+  f[1] = ru*uv+p + txx;
+  f[2] = rv*uv + txy;
+  f[3] = ru*h + uv*txx + vv*txy + fc*Tx;
+  f[4] = rv;
+  f[5] = ru*vv + txy;
+  f[6] = rv*vv+p + tyy;
+  f[7] = rv*h + uv*txy + vv*tyy + fc*Ty;
+end
+
+function Flux(x, uq, v, w, eta, mu, t)
+  output_size(f) = 8;
+  f = FluxHat(x, uq, uq, v, w, eta, mu, t);
+end
+
+function Exact(x, mu)
+  output_size(ue) = 4;
+  gam = mu[0];
+  Minf = mu[3];
+  x1 = x[0];
+  x2 = x[1];
+  r = 1.0 + 0.1*sin(pi*x1)*cos(pi*x2);
+  uv = 0.5 + 0.1*cos(pi*x1)*sin(pi*x2);
+  vv = 0.2 + 0.1*sin(pi*x1)*sin(pi*x2);
+  p = (1.0 + 0.1*cos(pi*x1)*cos(pi*x2))/(gam*Minf*Minf);
+  ue[0] = r;
+  ue[1] = r*uv;
+  ue[2] = r*vv;
+  ue[3] = p/(gam - 1.0) + 0.5*r*(uv*uv + vv*vv);
+end
+
+function ExactUQ(x, mu)
+  output_size(uqe) = 12;
+  ue = Exact(x, mu);
+  for i in 0:3
+    uqe[i] = ue[i];
+  endfor
+  for i in 0:3
+    uqe[4+i] = -ue[i].diff(x[0].get_basic());
+  endfor
+  for i in 0:3
+    uqe[8+i] = -ue[i].diff(x[1].get_basic());
+  endfor
+end
+
+function Source(x, uq, v, w, eta, mu, t)
+  output_size(s) = 4;
+  uqe = ExactUQ(x, mu);
+  f = Flux(x, uqe, v, w, eta, mu, t);
+  for i in 0:3
+    s[i] = f[i].diff(x[0].get_basic()) + f[4+i].diff(x[1].get_basic());
+  endfor
+end
+
+function Tdfunc(x, uq, v, w, eta, mu, t)
+  output_size(m) = 4;
+  ones(m);
+end
+
+function Ubou(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(ub) = 4;
+  ue = Exact(x, mu);
+  ub[0] = ue[0];
+  ub[1] = ue[1];
+  ub[2] = ue[2];
+  ub[3] = ue[3];
+end
+
+function Fbou(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(fb) = 4;
+  ub = Exact(x, mu);
+  f = FluxHat(x, ub, uq, v, w, eta, mu, t);
+  for i in 0:3
+    fb[i] = f[i]*n[0] + f[4+i]*n[1] + tau[0]*(uq[i] - ub[i]);
+  endfor
+end
+
+function FbouHdg(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(fb) = 4;
+  ue = Exact(x, mu);
+  for i in 0:3
+    fb[i] = ue[i] - uhat[i];
+  endfor
+end
+
+function Initu(x, eta, mu)
+  output_size(ui) = 4;
+  gam = mu[0];
+  Minf = mu[3];
+  ui[0] = 1.0;
+  ui[1] = 0.5;
+  ui[2] = 0.2;
+  ui[3] = 1/(gam*(gam - 1.0)*Minf*Minf) + 0.145;
+end

@@ -2393,6 +2393,7 @@ struct commonstructT {
     Int matrixformat=0;
     
     Int spatialScheme;   /* 0: HDG; 1: EDG; 2: IEDG, HEDG */
+    Int hdgldgBoundary = 0; // Structural HL boundary code; zero preserves native residuals.
                                         //  0: No SGS model. 1: Static Smagorinsky/Yoshizawa/Knight model. 
                                         //  2: Static WALE/Yoshizawa/Knight model. 3: Static Vreman/Yoshizawa/Knight model.
                                         //  4: Dynamic Smagorinsky/Yoshizawa/Knight model.        

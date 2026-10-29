@@ -254,6 +254,12 @@ inline int RunExasimSolver(ExasimSolver& solver, int argc, char** argv, MPI_Comm
 
     const auto& abi = SelectExasimDriverABI();
 
+    if (argc > 1 && std::string(argv[1]) == "--hdgldg") {
+        err = solver.RunHdgLdg(argc, argv, abi);
+        solver.Finalize();
+        return err;
+    }
+
     err = solver.ParseInputs(argc, argv, abi);
     if (err) {
         solver.Finalize();
@@ -322,6 +328,12 @@ inline int RunExasimSolver(ExasimSolver& solver, int argc, char** argv,
         return err;
 
     const auto& abi = SelectExasimDriverABI();
+
+    if (argc > 1 && std::string(argv[1]) == "--hdgldg") {
+        err = solver.RunHdgLdg(argc, argv, abi);
+        solver.Finalize();
+        return err;
+    }
 
     err = solver.ParseInputs(argc, argv, abi);
     if (err) {
