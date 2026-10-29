@@ -313,10 +313,21 @@ jobs:
             exit 0
           fi
 
-          curl --fail -X POST \
+          # Ignore surrounding whitespace pasted with the secret, and never let
+          # a malformed value be parsed as a curl option.
+          url="$(printf '%s' "${SLACK_WEBHOOK_URL}" | tr -d '[:space:]')"
+          case "${url}" in
+            https://hooks.slack.com/*) ;;
+            *)
+              echo "::error::SLACK_WEBHOOK_URL is not a https://hooks.slack.com/ webhook URL."
+              exit 1
+              ;;
+          esac
+
+          curl --fail -sS -X POST \
             -H "Content-Type: application/json" \
             --data-binary "${SLACK_PAYLOAD}" \
-            "${SLACK_WEBHOOK_URL}"
+            --url "${url}"
 
       - name: Report delivery failures
         if: always()
