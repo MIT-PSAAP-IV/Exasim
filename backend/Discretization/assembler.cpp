@@ -23,8 +23,8 @@ void CAssembler<M, T, I>::hdgAssembleLinearSystem(dstype *b, Int backend)
     if constexpr (std::is_same_v<T,double> && std::is_same_v<I,::Int>) {
       if (common.composite) fieldsplit::freeze(*common.composite,sol,app,common);
     }
-    const size_t hs=common.composite?fieldsplit::HS:size_t(m)*m;
-    const size_t fs=common.composite?fieldsplit::FS:size_t(n)*m;
+    const size_t hs=common.composite?exasim::composite::dimensions(common.grid.nd).HS:size_t(m)*m;
+    const size_t fs=common.composite?exasim::composite::dimensions(common.grid.nd).FS:size_t(n)*m;
     fieldsplit::setStorage(res.H,T(0),hs*ne);
     fieldsplit::setStorage(res.F,T(0),fs*ne);
     ArraySetValue(res.Rh, zero, m*ne);

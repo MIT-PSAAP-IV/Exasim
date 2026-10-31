@@ -719,7 +719,7 @@ void settempstruct(tempstructT<T,I> &tmp, appstructT<T,I> &app, masterstructT<T,
     else if (spatialScheme == 1) {
       int m = ncu*npf*nfe; 
       int n = max(nc,nco)*npe; // fix bug here
-      const Int stride=compositeConfig.enabled ? max(exasim::composite::Layout::H+m,npe*max(max(nc,nco),app.problem[11])) : max(m*m+m,n);
+      const Int stride=compositeConfig.enabled ? max(exasim::composite::dimensions(nd).HS+m,npe*max(max(nc,nco),app.problem[11])) : max(m*m+m,n);
       exasim::composite::count(uint64_t(stride)*mesh.nsize[5],"HDG halo send");
       exasim::composite::count(uint64_t(stride)*mesh.nsize[6],"HDG halo receive");
       TemplateMalloc(&tmp.buffsend,stride*mesh.nsize[5],backend);

@@ -822,9 +822,9 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
       if (!postprocessOnly) {
         const uint64_t nv=uint64_t(npe)*ncu, nt=uint64_t(npf)*nfe*ncu;
         const uint64_t nq=uint64_t(npe)*ncq, elements=common.meshsizes.ne;
-        const uint64_t hs=common.compositeConfig.enabled?uint64_t(fieldsplit::HS):nt*nt;
-        const uint64_t fs=common.compositeConfig.enabled?uint64_t(fieldsplit::FS):nv*nt;
-        const uint64_t ps=common.compositeConfig.enabled?uint64_t(fieldsplit::HS/2):nt*nt;
+        const uint64_t hs=common.compositeConfig.enabled?uint64_t(exasim::composite::dimensions(common.grid.nd).HS):nt*nt;
+        const uint64_t fs=common.compositeConfig.enabled?uint64_t(exasim::composite::dimensions(common.grid.nd).FS):nv*nt;
+        const uint64_t ps=common.compositeConfig.enabled?uint64_t(exasim::composite::dimensions(common.grid.nd).HS/2):nt*nt;
         res.szH=fieldsplit::checkedStorage(hs*elements,"H");
         res.szF=fieldsplit::checkedStorage(fs*elements,"F");
         uint64_t pcount=ps*elements;
@@ -854,8 +854,8 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
         }
         printf("COMPOSITE_HDG rank=%d enabled=%d requested_cap=%d effective_cap=%d H_stride=%zu F_stride=%zu ASM_storage=%s RBdim=%d\n",
                common.mpiRank,int(common.compositeConfig.enabled),common.compositeConfig.batch,neb,
-               common.composite?size_t(fieldsplit::HS):size_t(npf)*nfe*ncu*npf*nfe*ncu,
-               common.composite?size_t(fieldsplit::FS):size_t(npe)*ncu*npf*nfe*ncu,
+               common.composite?size_t(exasim::composite::dimensions(common.grid.nd).HS):size_t(npf)*nfe*ncu*npf*nfe*ncu,
+               common.composite?size_t(exasim::composite::dimensions(common.grid.nd).FS):size_t(npe)*ncu*npf*nfe*ncu,
                common.composite?"FP32":"native",common.solverparams.RBdim);
 
         if(common.composite && common.composite->bytes()!=fieldsplit::Context::plannedBytes(common))

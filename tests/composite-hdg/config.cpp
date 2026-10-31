@@ -104,6 +104,22 @@ int main() {
     app.ndims[23]=1;avfilter[0]=meshadapt[0]=0.;
     master.ndims[0] = 2;
     rejects([&] { validateShape<double>(decode(app), app, master); });
+    // A real P2 quadrilateral has eight physical fields, not a truncated 3D
+    // declaration. Reject each mismatched geometry/component field independently.
+    app.ndims[5]=24; app.ndims[6]=8; app.ndims[7]=16;
+    app.ndims[9]=13; app.ndims[10]=8; app.ndims[11]=2;
+    master.ndims[5]=9; master.ndims[6]=3;
+    validateShape<double>(decode(app),app,master);
+    for(int slot : {5,6,7,9,10,11,13}) {
+        ++app.ndims[slot];
+        rejects([&] { validateShape<double>(decode(app),app,master); });
+        --app.ndims[slot];
+    }
+    for(int slot : {0,1,3,5,6}) {
+        --master.ndims[slot];
+        rejects([&] { validateShape<double>(decode(app),app,master); });
+        ++master.ndims[slot];
+    }
     app.ndims[23] = 0;
     validateShape<float>(decode(app), app, master); // No shape restriction when off.
     require(count(2147483647, "edge") == 2147483647);

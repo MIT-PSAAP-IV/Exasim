@@ -1,6 +1,5 @@
 // Independent host LU solve reference for the first actual assembled element.
-// Included inside fieldsplit; enabled only for diagnostic runs.
-extern "C" void dgetrs_(const char*,const int*,const int*,double*,const int*,const int*,double*,const int*,int*);
+// Included inside Kernels<ND>; enabled only for diagnostic runs.
 struct LocalReference {
  int a,b,field;std::vector<double> aa,ee,gg,ss,rr,hh;
  LocalReference(int av,int bv,int f,double* A,double* E,double* G,double* S,double* rv,double* rh,int backend):a(av),b(bv),field(f),aa(a*a),ee(a*b),gg(b*a),ss(b*b),rr(a),hh(b){
@@ -21,7 +20,7 @@ struct LocalReference {
    for(int i=0;i<P;i++){packedF.push_back(fc[AF*BF+s*P*Q+i+P*j]);expectedF.push_back(rf[i+P*s+AS*(4*j+s)]);}
   }
   double er[6]={relativeError(gf,rf),relativeError(gz,rz),relativeError(gs,sh),relativeError(gr,rv),relativeError(packedH,expectedH),relativeError(packedF,expectedF)};
-  printf("FS3_LOCAL_REFERENCE field=%d F=%.17g volume_rhs=%.17g S=%.17g trace_rhs=%.17g compact_H=%.17g compact_F=%.17g\n",field,er[0],er[1],er[2],er[3],er[4],er[5]);
-  for(double v:er)if(!exasim::composite::finiteValue(v)||v>1.e-7)throw std::runtime_error("3D local condensation disagrees with independent host LU solve");
+  printf("COMPOSITE_LOCAL_REFERENCE field=%d F=%.17g volume_rhs=%.17g S=%.17g trace_rhs=%.17g compact_H=%.17g compact_F=%.17g\n",field,er[0],er[1],er[2],er[3],er[4],er[5]);
+  for(double v:er)if(!exasim::composite::finiteValue(v)||v>1.e-7)throw std::runtime_error("composite local condensation disagrees with independent host LU solve");
  }
 };

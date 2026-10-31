@@ -9,6 +9,28 @@
 
 namespace exasim::composite {
 struct Config { bool enabled=false; int batch=1024; };
+template<int D> struct Shape {
+    static_assert(D == 2 || D == 3);
+    static constexpr int nd=D, P=D==2?9:27, PF=D==2?3:9, faces=2*D;
+    static constexpr int Q=PF*faces, NC=6+D, state=NC*(D+1), other=11+D;
+    static constexpr int flow=D+2, N=P*NC, M=Q*NC;
+    static constexpr int AF=P*flow, BF=Q*flow, AS=P*4, BS=Q*4;
+    static constexpr int HS=BF*BF+4*Q*Q, FS=AF*BF+4*P*Q;
+    static constexpr int thermal=nd+2*state+other+3;
+};
+struct Dimensions {
+    int nd,P,PF,Q,NC,state,other,flow,N,M,AF,BF,AS,BS,HS,FS,thermal;
+};
+template<int D> constexpr Dimensions dimensions() {
+    using S=Shape<D>;
+    return {D,S::P,S::PF,S::Q,S::NC,S::state,S::other,S::flow,S::N,S::M,
+            S::AF,S::BF,S::AS,S::BS,S::HS,S::FS,S::thermal};
+}
+inline Dimensions dimensions(int nd) {
+    if(nd==2)return dimensions<2>();
+    if(nd==3)return dimensions<3>();
+    throw std::invalid_argument("compositehdg requires two or three dimensions");
+}
 struct Layout {
     static constexpr int H=84564, F=42282, fullH=236196, fullF=118098;
     static constexpr int asmSlots=H/2;
@@ -80,12 +102,13 @@ void validateShape(const Config& config,const App& app,const Master& master) {
     validateOptions(config,app);
     if(app.nsize[0]<14 || app.nsize[1]<7 || app.nsize[2]<29)
         throw std::invalid_argument("compositehdg requires complete app dimensions, flags and problem settings");
-    if(!std::is_same_v<Scalar,double> || app.problem[0]!=1 || master.ndims[0]!=3 ||
-       master.ndims[1]!=1 || master.ndims[3]!=2 || master.ndims[5]!=27 || master.ndims[6]!=9 ||
-       app.ndims[5]!=36 || app.ndims[6]!=9 || app.ndims[7]!=27 || app.ndims[9]!=14 ||
-       app.ndims[10]!=9 || app.ndims[11]!=3 || app.ndims[13]!=1 ||
+    const auto d=dimensions(master.ndims[0]);
+    if(!std::is_same_v<Scalar,double> || app.problem[0]!=1 ||
+       master.ndims[1]!=1 || master.ndims[3]!=2 || master.ndims[5]!=d.P || master.ndims[6]!=d.PF ||
+       app.ndims[5]!=d.state || app.ndims[6]!=d.NC || app.ndims[7]!=d.NC*d.nd || app.ndims[9]!=d.other ||
+       app.ndims[10]!=d.NC || app.ndims[11]!=d.nd || app.ndims[13]!=1 ||
        app.flag[6]!=1 || app.problem[28]!=0 || app.flag[3]!=0)
-        throw std::invalid_argument("compositehdg requires double P2 hex CNS5air HDG, elemental ASM, no coupled interfaces/debug dumps");
+        throw std::invalid_argument("compositehdg requires double P2 quad/hex CNS5air HDG, elemental ASM, no coupled interfaces/debug dumps");
     if(app.nsize[2]>34 && app.problem[34]!=0)
         throw std::invalid_argument("compositehdg does not support nonmatching interfaces");
     if(app.szinteractions>0)

@@ -48,6 +48,19 @@ int main() {
         rejects([&] { requireModel(bad, 100); });
     }
     overrideQuery = true;
+    auto twoDimensional = expected;
+    twoDimensional.ncu = 8;
+    twoDimensional.GetModelSizes = [](int) { ModelSizes s; s.ncu=8; s.ncw=1; return s; };
+    Cns5air2dProvider provider2d(100,twoDimensional);
+    auto contract2d=provider2d.query(&twoDimensional,100);
+    assert(contract2d && contract2d->layout==2);
+    assert(!provider.query(&twoDimensional,100));
+    assert(!provider2d.query(&expected,100));
+    overridden=*contract2d;
+    assert(requireModel(twoDimensional,100,2).layout==2);
+    rejects([&] { requireModel(twoDimensional,100,3); });
+    overridden=good;
+    rejects([&] { requireModel(twoDimensional,100,2); });
     for (int fault = 0; fault < 6; ++fault) {
         overridden = good;
         if (fault == 0) ++overridden.version;

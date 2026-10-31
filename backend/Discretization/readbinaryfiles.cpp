@@ -767,7 +767,7 @@ void readInput(appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master
     readappstruct(fileapp,app);
     const auto compositeConfig=exasim::composite::decode(app);
     exasim::composite::validateOptions(compositeConfig,app);
-    if(compositeConfig.enabled)exasim::composite::requireModel(driver_abi,app.modelnumber);
+    if(compositeConfig.enabled)exasim::composite::requireModel(driver_abi,app.modelnumber,app.ndims[AppNdims::nd]);
     if (physicsparamOverride != nullptr) {
         if (static_cast<Int>(physicsparamOverride->size()) != app.nsize[6])
             error("physicsparam sweep case has incorrect number of parameters");

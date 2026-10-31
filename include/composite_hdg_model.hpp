@@ -6,7 +6,8 @@
 namespace exasim::composite {
 
 // This separate contract leaves DriverABI and existing model libraries unchanged.
-// Layout 1 asserts CNS5air in three dimensions: N,O,NO,N2,O2,mx,my,mz,E;
+// Layout 1 asserts CNS5air3D: N,O,NO,N2,O2,mx,my,mz,E;
+// layout 2 asserts CNS5air2D: N,O,NO,N2,O2,mx,my,E;
 // w is temperature and N2 is the dependent species in the composite basis.
 // HdgSourcew is the local temperature residual. Its thermodynamic derivatives
 // must remain valid for zero x, q and other-data inputs used by that basis.
@@ -52,32 +53,36 @@ inline bool samePhysics(const ExasimDriverABI& a, const ExasimDriverABI& b) {
            a.hdgjac.HdgFextonly == b.hdgjac.HdgFextonly;
 }
 
-inline bool compatibleSizes(const ExasimDriverABI& abi, int modelnumber) {
+inline bool compatibleSizes(const ExasimDriverABI& abi, int modelnumber, int nd=3) {
+    if(nd!=2 && nd!=3)return false;
     const auto sizes = abi.GetModelSizes ? abi.GetModelSizes(modelnumber) : ModelSizes{};
     // Zero means unspecified in DriverABI. Runtime component checks still apply.
-    return (!abi.ncu || abi.ncu == 9) && (!abi.ncw || abi.ncw == 1) &&
-           (!sizes.ncu || sizes.ncu == 9) && (!sizes.ncw || sizes.ncw == 1);
+    return (!abi.ncu || abi.ncu == 6+nd) && (!abi.ncw || abi.ncw == 1) &&
+           (!sizes.ncu || sizes.ncu == 6+nd) && (!sizes.ncw || sizes.ncw == 1);
 }
 
 // Use only after the model author has checked the semantic contract above.
 // The explicit declaration, never the dimension test, grants this capability.
-class Cns5air3dProvider {
+template<int ND> class Cns5airProvider {
+    static_assert(ND==2 || ND==3);
     ExasimDriverABI expected_;
     ModelV1 model_;
 public:
-    Cns5air3dProvider(int modelnumber, const ExasimDriverABI& expected)
-        : expected_(expected), model_{1, sizeof(ModelV1), 1, modelnumber,
+    Cns5airProvider(int modelnumber, const ExasimDriverABI& expected)
+        : expected_(expected), model_{1, sizeof(ModelV1), ND==3?1u:2u, modelnumber,
                                      expected.hdgjac.HdgSourcew} {
-        if (!validDriver(expected_) || !compatibleSizes(expected_, modelnumber))
-            throw std::invalid_argument("compositehdg: incompatible CNS5air3D provider ABI");
+        if (!validDriver(expected_) || !compatibleSizes(expected_, modelnumber, ND))
+            throw std::invalid_argument("compositehdg: incompatible dimension-matched CNS5air provider ABI");
     }
 
     const ModelV1* query(const ExasimDriverABI* actual, int modelnumber) const {
         return actual && modelnumber == model_.modelnumber &&
-               samePhysics(expected_, *actual) && compatibleSizes(*actual, modelnumber)
+               samePhysics(expected_, *actual) && compatibleSizes(*actual, modelnumber, ND)
             ? &model_ : nullptr;
     }
 };
+using Cns5air3dProvider=Cns5airProvider<3>;
+using Cns5air2dProvider=Cns5airProvider<2>;
 } // namespace exasim::composite
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -86,18 +91,18 @@ GetExasimCompositeHdgModelV1(const ExasimDriverABI*, int modelnumber) __attribut
 #endif
 
 namespace exasim::composite {
-inline ModelV1 requireModel(const ExasimDriverABI& abi, int modelnumber) {
+inline ModelV1 requireModel(const ExasimDriverABI& abi, int modelnumber, int nd=3) {
 #if defined(__GNUC__) || defined(__clang__)
-    if (validDriver(abi) && compatibleSizes(abi, modelnumber) && GetExasimCompositeHdgModelV1) {
+    if (validDriver(abi) && compatibleSizes(abi, modelnumber, nd) && GetExasimCompositeHdgModelV1) {
         const auto* model = GetExasimCompositeHdgModelV1(&abi, modelnumber);
         if (model && model->version == 1 && model->size == sizeof(ModelV1) &&
-            model->layout == 1 && model->modelnumber == modelnumber &&
+            model->layout == (nd==3?1u:2u) && model->modelnumber == modelnumber &&
             model->sourcew && model->sourcew == abi.hdgjac.HdgSourcew)
             return *model;
     }
 #endif
     throw std::invalid_argument(
-        "compositehdg needs an explicitly registered CNS5air3D ModelV1 provider; "
+        "compositehdg needs an explicitly registered dimension-matched CNS5air ModelV1 provider; "
         "see backend/Model/CompositeHDG.txt");
 }
 } // namespace exasim::composite
@@ -110,6 +115,14 @@ inline ModelV1 requireModel(const ExasimDriverABI& abi, int modelnumber) {
     extern "C" const exasim::composite::ModelV1* \
     GetExasimCompositeHdgModelV1(const ExasimDriverABI* abi, int modelnumber) { \
         static const exasim::composite::Cns5air3dProvider provider( \
+            (MODEL_NUMBER), (ABI_EXPRESSION)); \
+        return provider.query(abi, modelnumber); \
+    }
+
+#define EXASIM_DEFINE_COMPOSITE_CNS5AIR2D_PROVIDER(MODEL_NUMBER, ABI_EXPRESSION) \
+    extern "C" const exasim::composite::ModelV1* \
+    GetExasimCompositeHdgModelV1(const ExasimDriverABI* abi, int modelnumber) { \
+        static const exasim::composite::Cns5air2dProvider provider( \
             (MODEL_NUMBER), (ABI_EXPRESSION)); \
         return provider.query(abi, modelnumber); \
     }
