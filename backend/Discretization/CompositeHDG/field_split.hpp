@@ -95,6 +95,11 @@ inline int Fstride(Context& ctx){const auto d=exasim::composite::dimensions(ctx.
 inline int ASMstride(Context& ctx){return Hstride(ctx);}
 inline int ASMstorageSlots(Context& ctx){return ctx.asm_fp32?Hstride(ctx)/2:Hstride(ctx);}
 inline bool fullLocalEnabled(){return false;}
+// Assembly destinations for the current batch. Native H/F use the supplied
+// global full-matrix offset; composite hf/ff hold only one batch, starting at
+// zero. uEquationHDG assembles and condenses each batch before reusing them.
+// condense() persists the results separately at res.H + e1*HS and res.F + e1*FS;
+// applying this native offset to hf/ff would overrun the batch workspace.
 template<class S> inline S* H(Context* ctx,S* p,size_t offset){if constexpr(std::is_same_v<S,double>) { if(ctx) return ctx->hf.data(); } return p+offset;}
 template<class S> inline S* F(Context* ctx,S* p,size_t offset){if constexpr(std::is_same_v<S,double>) { if(ctx) return ctx->ff.data(); } return p+offset;}
 extern "C" void dgetrs_(const char*,const int*,const int*,double*,const int*,const int*,double*,const int*,int*);

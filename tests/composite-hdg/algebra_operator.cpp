@@ -39,15 +39,32 @@ int main(int argc,char** argv){
   for(int trace=0;trace<2;trace++){auto basis=trace?t:v;int points=basis.extent(0)/9;
    Kokkos::parallel_for("unit nonuniform basis",points,KOKKOS_LAMBDA(int p){double sum=0.;for(int s=0;s<5;s++){basis[9*p+s]=.01+(s+1)*(.1+.001*(p%7));sum+=basis[9*p+s];}for(int s=0;s<5;s++)basis[9*p+s]/=sum;for(int s=0;s<4;s++)basis[9*p+5+s]=.13*(s+1)+.002*(p%3);});}
   solstruct sol{};appstruct app{};fieldsplit::selfCheck(ctx,sol,app,mesh,c,0,false);
-  using V=Kokkos::View<double*>;V D("unit D",N*N),B("unit B",N*M),C("unit C",M*N),H("unit H",M*M),Ru("unit Ru",N),Rh("unit Rh",M),temp("unit temp",M*M),ch("unit compact H",2*HS),cf("unit compact F",2*FS),be("unit ASM",2*HS);
+  using V=Kokkos::View<double*>;V D("unit D",N*N),C("unit C",M*N),Ru("unit Ru",N),Rh("unit Rh",M),temp("unit temp",M*M),ch("unit compact H",2*HS),cf("unit compact F",2*FS),be("unit ASM",2*HS);
   std::vector<int> pivots(M);resstruct res{};res.ipiv=pivots.data();res.H=ch.data();res.F=cf.data();tempstruct tmp{};tmp.tempn=temp.data();
+  std::vector<double> firstH(HS),firstF(FS),savedH(HS),savedF(FS);
   for(int e=0;e<2;e++){
+   // Exercise the same scratch destinations as face assembly at e1=0 and 1.
+   // With cap=1, the second native full-matrix offset is outside the scratch.
+   fieldsplit::clearBatch(ctx,1);
+   auto B=fieldsplit::F(&ctx,res.F,size_t(e)*N*M);
+   auto H=fieldsplit::H(&ctx,res.H,size_t(e)*M*M);
+   assert(B==ctx.ff.data()&&H==ctx.hf.data());
    Kokkos::parallel_for("unit D fill",N*N,KOKKOS_LAMBDA(int k){D[k]=double(k%N==k/N)*10.+.0001*sin(k*.02+e);});
    Kokkos::parallel_for("unit BC fill",N*M,KOKKOS_LAMBDA(int k){B[k]=.001*sin(.013*k+e);C[k]=.002*cos(.017*k+e);});
    Kokkos::parallel_for("unit H fill",M*M,KOKKOS_LAMBDA(int k){H[k]=double(k%M==k/M)*5.+.0003*sin(.019*k+e);});
    Kokkos::parallel_for("unit RHS fill",M,KOKKOS_LAMBDA(int k){Rh[k]=cos(.1*k);if(k<N)Ru[k]=sin(.1*k);});
-   fieldsplit::condense(ctx,D.data(),B.data(),C.data(),H.data(),Ru.data(),Rh.data(),res,mesh,tmp,c,e,1,0);
+   ctx.validated=false; // Independently check condensation for both elements.
+   fieldsplit::condense(ctx,D.data(),B,C.data(),H,Ru.data(),Rh.data(),res,mesh,tmp,c,e,1,0);
+   if(e==0){
+    TemplateCopytoHost(firstH.data(),res.H,HS,0);
+    TemplateCopytoHost(firstF.data(),res.F,FS,0);
+   }else{
+    TemplateCopytoHost(savedH.data(),res.H,HS,0);
+    TemplateCopytoHost(savedF.data(),res.F,FS,0);
+    assert(firstH==savedH&&firstF==savedF);
+   }
   }
+  printf("COMPOSITE_BATCH_WORKSPACE_PERSISTENCE_PASS\n");
   for(int fp=0;fp<2;fp++){ctx.asm_fp32=fp;fieldsplit::schwarz(ctx,be.data(),ch.data(),res,mesh,tmp,c,0);
    // Independently assemble host face blocks; both elements share reversed nodes.
    auto hc=Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(),ch);std::vector<double> inv(2*HS);

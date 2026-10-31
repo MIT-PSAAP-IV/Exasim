@@ -68,6 +68,10 @@ inline int count(uint64_t value,const char* name) {
 inline Config decodeValues(double mode,double cap) {
     Config config;
     config.enabled=integer(mode,"compositehdg",0,1)!=0;
+    // Binary metadata compatibility: zero means an unset, formerly reserved
+    // app.bin slot, including a missing slot supplied by decode(). Explicit
+    // frontend/text settings and new binary writers require a positive cap;
+    // zero is not a valid user-requested batch size.
     const int checkedCap=integer(cap,"compositebatchsize",0,2147483647);
     config.batch=checkedCap==0?1024:checkedCap;
     return config;
