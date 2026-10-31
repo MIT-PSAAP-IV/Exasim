@@ -45,7 +45,7 @@ struct Context {
  View hf,ff,work,vy,ty,vecin,vecout,thermal;
  Kokkos::View<int*> asm_status,pivots,info;
  Kokkos::View<uintptr_t*> aPointers,cPointers;
- static size_t plannedBytes(const commonstruct& c){
+ template<class C> static size_t plannedBytes(const C& c){
   const size_t batch=c.meshsizes.neb,owned=c.meshsizes.ne1,nf=c.meshsizes.nf;
   size_t bytes=8*(size_t(M)*M*batch+size_t(N)*M*batch+batch*(AF*AF+3*AF*BF+BF*BF+2*AF+BF)+owned*P*9+nf*81+2*size_t(M)*owned+batch*P*92)+sizeof(int);
 #ifdef HAVE_HIP

@@ -25,8 +25,8 @@ void CAssembler<M, T, I>::hdgAssembleLinearSystem(dstype *b, Int backend)
     }
     const size_t hs=common.composite?fieldsplit::HS:size_t(m)*m;
     const size_t fs=common.composite?fieldsplit::FS:size_t(n)*m;
-    fieldsplit::setStorage(res.H,zero,hs*ne);
-    fieldsplit::setStorage(res.F,zero,fs*ne);
+    fieldsplit::setStorage(res.H,T(0),hs*ne);
+    fieldsplit::setStorage(res.F,T(0),fs*ne);
     ArraySetValue(res.Rh, zero, m*ne);
     ArraySetValue(res.Ru, zero, n*ne);
 

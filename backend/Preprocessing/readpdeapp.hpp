@@ -59,7 +59,7 @@
 #ifndef __READPDEAPP
 #define __READPDEAPP
 
-#include "../../include/composite_config.hpp"
+#include <composite_config.hpp>
 
 #include <cmath>
 #include "interactionfile.hpp"

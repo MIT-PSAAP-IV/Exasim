@@ -23,7 +23,7 @@
 
 #pragma once
 
-#include "../../include/composite_config.hpp"
+#include <composite_config.hpp>
 
 #include <algorithm>
 #include <cmath>

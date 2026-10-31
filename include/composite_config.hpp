@@ -51,6 +51,8 @@ inline Config decodeValues(double mode,double cap) {
     return config;
 }
 template<class App> Config decode(const App& app) {
+    // Lightweight native callers may not populate the optional app.bin header.
+    if(!app.nsize || !app.ndims)return {};
     return decodeValues(app.nsize[0]>23?app.ndims[23]:0,
                         app.nsize[0]>24?app.ndims[24]:0);
 }
