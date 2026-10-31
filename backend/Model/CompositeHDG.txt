@@ -1,0 +1,130 @@
+Composite HDG configuration and model capability
+================================================
+
+User controls
+-------------
+For a supported, explicitly registered model, set
+
+    pde.compositehdg = 1;
+    pde.compositebatchsize = 1024;
+
+The defaults are 0 and 1024. Mode 0 uses standard HDG. The size is an element
+assembly-workspace cap per rank, not a scheduler setting or a mesh size. Positive
+integer sizes need not be powers of two; unsafe temporary counts are rejected.
+Legacy app.bin files whose reserved size slot is zero retain the default 1024.
+Changing this cap trades temporary memory against dense-kernel throughput; it
+does not reduce the number of elements or the chemistry equations.
+
+Initial support is double-state, three-dimensional P2 hexahedral CNS5air with
+elemental additive Schwarz on CPU or HIP. CUDA, float-state, coupled/nonmatching
+interfaces, Helmholtz AV smoothing (AVsmoothingMethod=1), mesh adaptation and the
+in-memory concrete-model constructor are not supported in composite mode.
+Use AVsmoothingMethod=0 with mesh adaptation disabled; these are the settings
+validated in the current reacting-flow study. The auxiliary-model combinations
+are rejected from host app metadata before primary mesh/workspace allocation.
+Feature-off runs retain their existing auxiliary-model options. Explicit model registration is required as described below.
+
+Method and memory
+-----------------
+The physical state retains all nine conserved components, temperature, gradient
+variables and the full finite-rate chemistry residual. At each linearization a
+local basis separates a five-variable flow/thermal block from four independent
+composition directions (N2 is dependent). The correction operator drops the
+cross-field couplings, condenses the two fields separately, and retains the
+four diagonal composition subblocks for trace products and interior recovery.
+It is an approximate nonlinear correction operator, not lossless compression
+of the full nine-variable Schur complement. The unchanged full nonlinear
+residual determines acceptance. Reduced basis, time integration and convergence
+settings remain under their existing controls.
+
+For each P2 hex there are 27 volume nodes and 54 element-local trace nodes.
+Persistent matrix entry counts are:
+
+                         Standard HDG             Composite HDG
+    trace H              486 x 486 = 236196       270 x 270 + 4 x 54 x 54 = 84564
+    recovery F           243 x 486 = 118098       135 x 270 + 4 x 27 x 54 = 42282
+    elemental ASM        236196 FP64 entries      84564 FP32 entries
+
+H and F remain FP64. The FP32 ASM inverse is used only as a preconditioner;
+state, residual, Krylov and reduced-basis vectors remain FP64. Full local
+assembly matrices still exist temporarily for at most the configured element
+block size. Sequential field workspaces, basis vectors, geometry, communication,
+solver vectors, model data and runtime allocations remain additional costs.
+Consequently these entry counts do not by themselves predict total GPU memory
+or a production mesh capacity. Measure total device usage at the intended
+element load and workspace cap, including overlap/ghost elements.
+
+Validation scope
+----------------
+Configuration, block/count, transformation, condensation/recovery, provider and
+feature-off regressions are in tests/composite-hdg and the existing solver
+tests. EXASIM_COMPOSITE_VALIDATE enables additional local condensation and LU
+diagnostics; it is not a replacement for matched solution/convergence tests.
+Numerical equivalence means agreement of the fully converged physical solution;
+iteration histories and bit patterns can differ. Report stopping tolerances,
+per-component errors and unchanged-binary repeatability alongside aggregate
+norms. For the cylindrical CNS5air model, coordinates are (z,r,theta), so physical
+volume quadrature includes radius: r*J*w. Unweighted J*w measures coordinate
+volume. Trace arrays can contain overlap copies and are not volume integrals.
+
+Model capability
+----------------
+
+The runtime controls compositehdg=1 and compositebatchsize=1024 enable the
+solver feature only for a model that explicitly declares the supported
+CNS5air3D contract. The backend never infers species semantics from a number
+of equations, a model ID, or an enabled solver flag. Built-in CNS5air model 4
+is two-dimensional and is not supported by this implementation.
+
+A model author must establish all of the following:
+* Conserved ordering N,O,NO,N2,O2,mx,my,mz,E in three dimensions.
+* w[0] is temperature; HdgSourcew is its local thermodynamic residual and
+  provides derivatives with respect to the nine conserved components.
+* These derivatives remain valid at zero coordinates, gradients and other-data
+  inputs, as required by the established composite thermal-basis calculation.
+* N2 is the dependent species in the transformed basis.
+
+This capability does not replace the independent runtime checks on P2 hexes,
+component/other-data counts, backend, precision, solver and interface options.
+It changes no chemistry residual, EOS, Jacobian, boundary or time discretization.
+
+Generated model workflow
+------------------------
+Place a model-owned file named composite_hdg_contract.hpp beside the generated
+kernel files, containing (for an explicitly audited model whose inner selector
+is 100):
+
+    #pragma once
+    #define EXASIM_COMPOSITE_CNS5AIR3D_MODEL_NUMBER 100
+
+Use the actual inner model selector passed to the kernels, not automatically
+the external library/built-in provider ID. The frontend provider and external
+model provider templates include this file when present. Existing exportapp
+copies the entire kernel directory, including this contract. The declaration
+is compiled in the same translation unit as the strongly referenced ABI getter,
+so it works for static model libraries without whole-archive linker flags.
+Exactly one model selector is opted in by the generated template; other IDs are
+rejected. For a library with multiple opted-in models, implement one query export
+that dispatches to explicitly constructed Cns5air3dProvider objects.
+
+Prebuilt/external model workflow
+-------------------------------
+Keep the chemistry archive untouched. Compile a direct source adapter into the
+final executable (target_sources in CMake), for example:
+
+    #include <composite_hdg_model.hpp>
+    extern "C" ExasimDriverABI hybrid_abi();
+    EXASIM_DEFINE_COMPOSITE_CNS5AIR3D_PROVIDER(100, hybrid_abi())
+
+The adapter binds model 100 to this library's actual callback addresses. Queries
+for another model or a differently composed physics table are rejected. Compile
+the adapter against the same DriverABI version/scalar type as the model archive.
+Do not put this adapter alone in a static archive: the backend's optional weak
+query does not cause that archive member to be extracted. Put it alongside the
+strong ABI getter or link the adapter directly as a source/object.
+
+This opt-in asserts semantics; callback identity and dimensional checks cannot
+prove the author supplied the correct equations. Numerical equivalence and the
+sandbox-versus-backend executable tests remain required validation. The separate
+ModelV1 interface leaves the existing DriverABI layout unchanged. Optional weak
+query discovery currently requires GCC/Clang-compatible host linking.

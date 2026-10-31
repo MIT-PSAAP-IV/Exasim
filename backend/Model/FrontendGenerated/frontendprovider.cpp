@@ -156,3 +156,15 @@ const ExasimDriverABI& getFrontendGeneratedExasimDriverABI()
 
     return abi;
 }
+
+// The model author may supply this explicit semantic contract beside the kernels.
+// Requesting compositehdg alone never tags an arbitrary model as CNS5air.
+#if __has_include("composite_hdg_contract.hpp")
+#include "composite_hdg_contract.hpp"
+#ifndef EXASIM_COMPOSITE_CNS5AIR3D_MODEL_NUMBER
+#error "composite_hdg_contract.hpp must explicitly declare a CNS5air3D model number"
+#endif
+#include <composite_hdg_model.hpp>
+EXASIM_DEFINE_COMPOSITE_CNS5AIR3D_PROVIDER(
+    EXASIM_COMPOSITE_CNS5AIR3D_MODEL_NUMBER, getFrontendGeneratedExasimDriverABI())
+#endif

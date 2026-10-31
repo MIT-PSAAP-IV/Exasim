@@ -37,6 +37,7 @@
 #define __MATVEC
 
 #include "ioutilities.hpp"
+#include "CompositeHDG/field_split.hpp"
 #include "nonmatchinginteractionruntime.hpp"
 template <class M, class T=dstype, class I=Int>
 inline void MatVec(T *w, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master,
@@ -201,20 +202,21 @@ inline void hdgBlockILU0(T *BE, T *AE, resstructT<T,I> &res, meshstructT<T,I> &m
 template <class T=dstype, class I=Int>
 inline void hdgElementalAdditiveSchwarz(T *BE, T *AE, resstructT<T,I> &res, meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
 {
-    using dstype=T;   
+    using dstype=T;
+    if constexpr (std::is_same_v<T,double> && std::is_same_v<I,::Int>) if (common.compositeConfig.enabled) { fieldsplit::schwarz(*common.composite,BE,AE,res,mesh,tmp,common,backend); return; }
     Int nf = common.meshsizes.nf; // number of faces in this subdomain
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int npf = common.grid.npf; // number of nodes on master face           
     Int nfe = common.meshsizes.nfe; // number of faces in each element
     Int ncf = ncu*npf;
 
-    ArrayCopy(BE, AE, ncf*nfe*ncf*nfe*common.meshsizes.ne); 
+    fieldsplit::copyStorage(BE, AE, size_t(ncf)*nfe*ncf*nfe*common.meshsizes.ne);
     ElementalAdditiveSchwarz(BE, AE, mesh.f2e, mesh.elemcon, npf, nfe, ncu, nf);       
     
     for (Int j=0; j<common.meshsizes.nbe; j++) {              
       Int e1 = common.eblks[3*j]-1;
       Int e2 = common.eblks[3*j+1];          
-      Inverse(handle, &BE[ncf*nfe*ncf*nfe*e1], tmp.tempn, res.ipiv, ncf*nfe, e2-e1, backend); 
+      Inverse(handle, &BE[size_t(ncf)*nfe*ncf*nfe*e1], tmp.tempn, res.ipiv, ncf*nfe, e2-e1, backend);
     }
     
     if (common.outputparams.debugMode == 1) {
@@ -269,7 +271,8 @@ inline void hdgGetDUDG(T *w, T *F, T *duh, T *ve, meshstructT<T,I> &mesh,
     GetElementFaceNodes(ve, duh, mesh.elemcon, npf*nfe, ncu, 0, ne, 2);
 
     // (npe * ncu)  * (ncu * npf * nfe) * ne x (ncu * npf * nfe) * ne -> (npe * ncu) * ne
-    PGEMNMStridedBached(common.cublasHandle, n, 1, m, one, F, n, ve, m, one, w, n, ne, backend); 
+    if (common.compositeConfig.enabled) fieldsplit::recover(*common.composite,w,F,ve,mesh,common,backend);
+    else PGEMNMStridedBached(common.cublasHandle, n, 1, m, one, F, n, ve, m, one, w, n, ne, backend);
 
     if (common.outputparams.debugMode == 1) {
       writearray2file(common.fileout + "hdgGetDUDG.bin", w, n * ne, backend);
@@ -301,7 +304,8 @@ inline void hdgMatVec(T *w, T *AE, T *v, T *ve, T *we, resstructT<T,I> &res, app
     Int bsz = ncu*npf*nfe;  
 
     // perform matrix-vector products for interface elements
-    PGEMNMStridedBached(handle, m, 1, m, one, &AE[m*m*ne0], m, &ve[m*ne0], m, zero, &we[m*ne0], m, ne1-ne0, backend); 
+    if (common.compositeConfig.enabled) fieldsplit::multiply(*common.composite,we+m*ne0,AE+size_t(AE==res.K?fieldsplit::ASMstorageSlots(*common.composite):fieldsplit::Hstride(*common.composite))*ne0,ve+m*ne0,ne0,ne1-ne0,mesh,common,backend,AE==res.K);
+    else PGEMNMStridedBached(handle, m, 1, m, one, &AE[size_t(m)*m*ne0], m, &ve[m*ne0], m, zero, &we[m*ne0], m, ne1-ne0, backend);
 
     // copy we to buffsend
 //     for (int n=0; n<common.nelemsend; n++)  {       
@@ -399,7 +403,8 @@ inline void hdgMatVec(T *w, T *AE, T *v, T *ve, T *we, resstructT<T,I> &res, app
     } // [nonmatching]
 
     // perform matrix-vector products for interior elements
-    PGEMNMStridedBached(handle, m, 1, m, one, AE, m, ve, m, zero, we, m, ne0, backend); 
+    if (common.compositeConfig.enabled) fieldsplit::multiply(*common.composite,we,AE,ve,0,ne0,mesh,common,backend,AE==res.K);
+    else PGEMNMStridedBached(handle, m, 1, m, one, AE, m, ve, m, zero, we, m, ne0, backend);
 
     // copy buffrecv to we
     MPI_Waitall(request_counter, common.requests, common.statuses);    
@@ -438,7 +443,8 @@ inline void hdgMatVec(T *w, T *AE, T *v, T *ve, T *we, resstructT<T,I> &res, app
 #else 
     (void)nonmatchingCoupled; // [nonmatching] validate_coupling_selection rejects type 1 without MPI
     // (ncu * npf * nfe)  * (ncu * npf * nfe) * ne x (ncu * npf * nfe) * ne -> (ncu * npf * nfe) * ne
-    PGEMNMStridedBached(handle, m, 1, m, one, AE, m, ve, m, zero, we, m, ne1, backend); 
+    if (common.compositeConfig.enabled) fieldsplit::multiply(*common.composite,we,AE,ve,0,ne1,mesh,common,backend,AE==res.K);
+    else PGEMNMStridedBached(handle, m, 1, m, one, AE, m, ve, m, zero, we, m, ne1, backend);
 
      // ncu * npf * nfe * ne -> ncu * npf * nf
     PutElementFaceNodes(w, we, mesh.f2e, npf, nfe, ncu, nf);
@@ -481,6 +487,7 @@ inline void hdgAssembleLinearSystemMPI(T *b, solstructT<T,I> &sol, resstructT<T,
     Int ncf = ncu*npf;
     Int szR = ncu*npf*nfe;  
     Int szH = szR*szR;
+    if (common.compositeConfig.enabled) szH = fieldsplit::Hstride(*common.composite);
     Int bsz = szH + szR; // send and receive H and Rh together   
 
     //printf("hdgAssembleLinearSystemMPI: %d %d %d %d\n", common.meshsizes.nbe0, common.meshsizes.nbe1, common.nelemsend, common.nnbsd);

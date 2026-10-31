@@ -1281,6 +1281,8 @@ void buildConn(meshstructT<T,I>& mesh, solstructT<T,I>& sol, const appstructT<T,
     int nvf = (dim == 3) ? (dim + elemtype) : dim;     
     int nfe = dim + (dim-1)*elemtype + 1;
 
+    const auto compositeConfig=exasim::composite::decode(app);
+    exasim::composite::validateShape<T>(compositeConfig,app,master);
     int ne = mesh.ndims[1];
     int nebmax = 4096; //mesh.ndims[6]; // maximum number of elements per block    
     int nfbmax = 8192; //mesh.ndims[8]; // maximum number of faces per block         
@@ -1288,6 +1290,8 @@ void buildConn(meshstructT<T,I>& mesh, solstructT<T,I>& sol, const appstructT<T,
         nebmax = 1024;
         nfbmax = 2048;
     }
+
+    if(compositeConfig.enabled)nebmax=compositeConfig.batch;
 
     int hybrid = app.problem[0];
     int mpiprocs = app.comm[1];

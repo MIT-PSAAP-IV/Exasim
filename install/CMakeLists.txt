@@ -933,6 +933,8 @@ install(TARGETS ${EXASIM_EXPORT_TARGETS}
 
 install(DIRECTORY ${EXASIM_INCLUDE_DIR}/
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(FILES ${EXASIM_DIR}/backend/Model/CompositeHDG.txt
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/backend/Model)
 
 # Header-only / templated authoring path: the public <exasim/*.hpp> headers pull
 # in the FEM internals under backend/ (e.g. backend/Common/common.h). Install the
@@ -1354,4 +1356,5 @@ option(EXASIM_BUILD_TESTS "Build/register the Exasim test suite (ctest)" OFF)
 if(EXASIM_BUILD_TESTS)
   enable_testing()
   add_subdirectory(${EXASIM_DIR}/tests ${CMAKE_BINARY_DIR}/tests)
+  add_subdirectory(${EXASIM_DIR}/tests/composite-hdg ${CMAKE_BINARY_DIR}/tests/composite-hdg)
 endif()

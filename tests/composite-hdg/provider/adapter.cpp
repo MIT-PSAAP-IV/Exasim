@@ -1,0 +1,2 @@
+#include "fixture.hpp"
+EXASIM_DEFINE_COMPOSITE_CNS5AIR3D_PROVIDER(100, fixtureABI())

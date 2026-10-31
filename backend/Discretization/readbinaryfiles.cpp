@@ -71,6 +71,8 @@
 template <class T, class I>
 void setAppRuntimeContext(appstructT<T,I> &app, const masterstructT<T,I> &master, Int mpirank, Int mpiprocs);
 
+#include "composite_blocks.hpp"
+
 void readappstruct(string filename, appstruct &app)
 {
     // Open file to read
@@ -111,6 +113,20 @@ void readappstruct(string filename, appstruct &app)
         app.nsize[i] = static_cast<Int>(value);
     }
     const double rawInteractionLength = app.lsize[0] > 24 ? rawNsize[24] : 0.0;
+    // Validate the new numeric settings before the legacy integer-array reader
+    // can truncate fractions or convert NaN/out-of-range floating-point values.
+    const std::streampos ndimsStart = in.tellg();
+    for (Int slot = AppNdims::compositehdg;
+         slot <= AppNdims::compositebatchsize && slot < app.nsize[0]; ++slot) {
+        in.seekg(ndimsStart + std::streamoff(slot) * std::streamoff(sizeof(double)));
+        double rawSetting = 0.0;
+        in.read(reinterpret_cast<char*>(&rawSetting), sizeof(double));
+        if (!in) error("unable to read app.bin composite HDG setting");
+        exasim::composite::integer(rawSetting,
+            slot == AppNdims::compositehdg ? "compositehdg" : "compositebatchsize",
+            0, slot == AppNdims::compositehdg ? 1 : std::numeric_limits<int>::max());
+    }
+    in.seekg(ndimsStart);
     app.ndims = readiarrayfromdouble(in, app.nsize[0]);
     app.flag = readiarrayfromdouble(in, app.nsize[1]);
     app.problem = readiarrayfromdouble(in, app.nsize[2]);
@@ -523,6 +539,12 @@ void readmeshstruct(string filename, meshstruct &mesh, solstruct &sol, appstruct
     mesh.szfacesendpts = mesh.nsize[42];
     mesh.szfacerecv = mesh.nsize[43];
     mesh.szfacerecvpts = mesh.nsize[44];
+
+    // Precomputed-connectivity inputs bypass buildConn; enforce the requested
+    // composite cap on their existing tagged intervals before workspace setup.
+    exasim::composite::limitMeshBlocks(mesh, exasim::composite::decode(app),
+        [](int count) { int* data = nullptr; TemplateMalloc(&data, count, 1); return data; },
+        [](int*& data) { CPUFREE(data); });
         
     // Close file:
     in.close();            
@@ -742,7 +764,10 @@ void readInput(appstruct &app, ExasimDriverABI& driver_abi, masterstruct &master
 {   
     if (mpirank==0) printf("Reading app from binary files \n");  
     string fileapp = filein + "app.bin";        
-    readappstruct(fileapp,app);        
+    readappstruct(fileapp,app);
+    const auto compositeConfig=exasim::composite::decode(app);
+    exasim::composite::validateOptions(compositeConfig,app);
+    if(compositeConfig.enabled)exasim::composite::requireModel(driver_abi,app.modelnumber);
     if (physicsparamOverride != nullptr) {
         if (static_cast<Int>(physicsparamOverride->size()) != app.nsize[6])
             error("physicsparam sweep case has incorrect number of parameters");

@@ -797,7 +797,7 @@ static void PGEMNMStridedBached(cublasHandle_t handle, Int m, Int n, Int k, noDe
     using dstype=T;
     if (backend <= 1)
       for (int i=0; i<batchCount; i++)
-        blas<T>::gemm(chn, chn, m, n, k, alpha, &A[m*k*i], lda, &B[k*n*i], ldb, beta, &C[m*n*i], ldc);
+        blas<T>::gemm(chn, chn, m, n, k, alpha, &A[size_t(m)*k*i], lda, &B[size_t(k)*n*i], ldb, beta, &C[size_t(m)*n*i], ldc);
 
 #ifdef HAVE_CUDA          
 #ifdef USE_FLOAT  

@@ -84,6 +84,9 @@ inline void GetQ(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &ap
         tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, 
         Int nbe1, Int nbe2, Int nbf1, Int nbf2, Int backend)
 {
+    // A rank can own no interior elements (nbe1 == nbe2 == 0).
+    // There is no element gradient to update; do not index eblks[-2].
+    if (nbe2 <= nbe1) return;
     using dstype=T;    
     Int nc = common.components.nc; // number of compoments of (u, q, p)
     Int ncu = common.components.ncu;// number of compoments of (u)
