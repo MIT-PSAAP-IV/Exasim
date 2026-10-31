@@ -121,6 +121,37 @@ Exactly one model selector is opted in by the generated template; other IDs are
 rejected. For a library with multiple opted-in models, implement one query export
 that dispatches to explicitly constructed Cns5air3dProvider or Cns5air2dProvider objects.
 
+MATLAB export and target-machine rebuild
+---------------------------------------
+For the audited CNS5air2D case, keep the physical model functions unchanged.
+The case's register_composite_cns5air2d(pde) helper checks its layout and writes
+the declaration above with resolve_modelid(pde). Run it after every kernel
+regeneration and before export:
+
+    pde.compositehdg = 1;
+    pde.compositebatchsize = 1024;
+    [pde,mesh,master,dmd] = preprocessing(pde,mesh);
+    kkgencode(pde);
+    register_composite_cns5air2d(pde);
+    exportapp(pde, "caltech2d-composite", false);
+
+The helper belongs to the audited case; it is not a declaration that arbitrary
+eight-component models are compatible. No pde.builddir override is needed:
+initializeexasim defaults to <working-directory>/.exasim. The false argument
+packages the app without building or starting its solver locally. Its kernels/
+directory carries composite_hdg_contract.hpp to the target machine.
+
+Update the complete matching Exasim source revision on the target machine,
+including backend/, include/, cmake/, install/ and frontends/. Updating backend/
+alone is insufficient. Reconfigure/build with the target's compiler, MPI and
+HIP stack, then install into the target prefix. Do not transfer local build
+caches or compiled libraries between architectures. Finally, rebuild the
+exported app against that updated installed Exasim package; select gpumpi for
+MPI/GPU execution. An app exported with platform="cpu" can be retargeted with
+EXASIM_VARIANT=gpumpi at its CMake configure step. Use the site's scheduler and
+launcher to run the resulting executable. The 2D GPU smoke check remains
+outstanding; CPU/MPI validation is not a GPU execution result.
+
 Prebuilt/external model workflow
 -------------------------------
 Keep the chemistry archive untouched. Compile a direct source adapter into the

@@ -161,10 +161,16 @@ const ExasimDriverABI& getFrontendGeneratedExasimDriverABI()
 // Requesting compositehdg alone never tags an arbitrary model as CNS5air.
 #if __has_include("composite_hdg_contract.hpp")
 #include "composite_hdg_contract.hpp"
-#ifndef EXASIM_COMPOSITE_CNS5AIR3D_MODEL_NUMBER
-#error "composite_hdg_contract.hpp must explicitly declare a CNS5air3D model number"
-#endif
 #include <composite_hdg_model.hpp>
+#if defined(EXASIM_COMPOSITE_CNS5AIR2D_MODEL_NUMBER) && defined(EXASIM_COMPOSITE_CNS5AIR3D_MODEL_NUMBER)
+#error "Declare exactly one composite model dimension"
+#elif defined(EXASIM_COMPOSITE_CNS5AIR2D_MODEL_NUMBER)
+EXASIM_DEFINE_COMPOSITE_CNS5AIR2D_PROVIDER(
+    EXASIM_COMPOSITE_CNS5AIR2D_MODEL_NUMBER, getFrontendGeneratedExasimDriverABI())
+#elif defined(EXASIM_COMPOSITE_CNS5AIR3D_MODEL_NUMBER)
 EXASIM_DEFINE_COMPOSITE_CNS5AIR3D_PROVIDER(
     EXASIM_COMPOSITE_CNS5AIR3D_MODEL_NUMBER, getFrontendGeneratedExasimDriverABI())
+#else
+#error "composite_hdg_contract.hpp must explicitly declare a CNS5air model dimension and number"
+#endif
 #endif
