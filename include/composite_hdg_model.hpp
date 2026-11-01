@@ -115,7 +115,7 @@ inline ModelV1 requireModel(const ExasimDriverABI& abi, int modelnumber, int nd=
 // Place this in the provider translation unit, alongside its strongly referenced
 // ABI getter. A separate adapter must be linked as an object/direct source, not
 // an otherwise unreferenced member of a static archive: weak references alone
-// do not extract archive members. Exactly one query export is allowed per program.
+// do not portably extract archive members. Exactly one query export per program.
 #define EXASIM_DEFINE_COMPOSITE_CNS5AIR3D_PROVIDER(MODEL_NUMBER, ABI_EXPRESSION) \
     extern "C" const exasim::composite::ModelV1* \
     GetExasimCompositeHdgModelV1(const ExasimDriverABI* abi, int modelnumber) { \

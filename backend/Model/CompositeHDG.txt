@@ -172,8 +172,9 @@ Use EXASIM_DEFINE_COMPOSITE_CNS5AIR2D_PROVIDER for the 2D contract.
 The adapter binds model 100 to this library's actual callback addresses. Queries
 for another model or a differently composed physics table are rejected. Compile
 the adapter against the same DriverABI version/scalar type as the model archive.
-Do not put this adapter alone in a static archive: the backend's optional weak
-query does not cause that archive member to be extracted. Put it alongside the
+Do not rely on an adapter alone in a static archive: ELF leaves that member
+unextracted, whereas the macOS linker can extract it for a weak import.
+For portable behavior, put it alongside the
 strong ABI getter or link the adapter directly as a source/object.
 
 This opt-in asserts semantics; callback identity and dimensional checks cannot

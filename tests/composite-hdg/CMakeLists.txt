@@ -86,6 +86,11 @@ if(TARGET Kokkos::kokkos AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   composite_hdg_unit(composite_hdg_provider_orphan provider/optional.cpp)
   target_link_libraries(composite_hdg_provider_orphan PRIVATE
     composite_hdg_provider_orphan_lib Kokkos::kokkos)
+  if(APPLE)
+    # Mach-O resolves the weak import from the explicitly linked archive.
+    # ELF leaves this member unextracted; direct/co-located adapters are portable.
+    target_compile_definitions(composite_hdg_provider_orphan PRIVATE EXPECT_REGISTERED=1)
+  endif()
   composite_hdg_unit(composite_hdg_provider_direct provider/optional.cpp)
   target_sources(composite_hdg_provider_direct PRIVATE provider/adapter.cpp)
   target_compile_definitions(composite_hdg_provider_direct PRIVATE EXPECT_REGISTERED=1)
