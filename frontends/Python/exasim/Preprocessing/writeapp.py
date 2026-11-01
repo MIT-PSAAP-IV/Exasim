@@ -1,7 +1,9 @@
 from numpy import *
 import numpy
+from .checkconformalinterface import checkconformalinterface
 
 def writeapp(app,filename):
+    checkconformalinterface(app)
     def flat(key):
         if key not in app:
             app[key] = array([]);

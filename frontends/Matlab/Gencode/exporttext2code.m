@@ -14,6 +14,7 @@ function dest = exporttext2code(pde, mesh, dest)
 %   C++ driver ready to build, while exporttext2code packages the higher-level
 %   Text2Code inputs used to regenerate those kernels.
 
+checkconformalinterface(pde);
 if nargin < 3 || isempty(dest)
     pde0 = pde;
     if iscell(pde0)

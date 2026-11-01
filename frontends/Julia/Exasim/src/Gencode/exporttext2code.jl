@@ -1,4 +1,5 @@
 function exporttext2code(pde, mesh, dest="")
+    getfield(parentmodule(@__MODULE__), :Preprocessing).checkconformalinterface(pde)
     if isempty(dest)
         if hasproperty(pde, :exporttext2code) && !isempty(getproperty(pde, :exporttext2code))
             dest = getproperty(pde, :exporttext2code)

@@ -77,9 +77,7 @@
 #include "connectivity.cpp"
 #include "readbinaryfiles.cpp"
 #include "setstructs.cpp"
-#include "nonmatchingruntime.hpp"
 #include "residual.hpp"
-#include "nonmatchinginteractionruntime.hpp"
 //#include "ldgjactest.cpp"
 #include "ldgblockjacobian.cpp"
 #include "matvec.hpp"
@@ -509,8 +507,7 @@ CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string e
         // allocate data for structs in CPU memory
         cpuInit(hsol, hres, happ, driver_abi, hmaster, hmesh, htmp, hcommon, filein, fileout,
                 mpiprocs, mpirank, fileoffset, omprank,
-                physicsparamOverride, mode,
-                static_cast<nonmatchingdataT<T, I>*>(nullptr)); // Publish after gpuInit completes.
+                physicsparamOverride, mode);
 
         // copy data from cpu memory to gpu memory
         gpuInit(sol, res, app, driver_abi, master, mesh, tmp, common,
@@ -540,27 +537,8 @@ CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string e
         }
 
         if (mode == ExasimExecutionMode::HDGLDGSetup &&
-            (happ.szinteractions>0 || hcommon.couplingparams.coupledinterface>0))
-            error("HDG/LDG setup cannot be combined with legacy or generalized coupling");
-        if (happ.szinteractions > 0) {
-            std::ostringstream message;
-            message << "non-matching coupling (construction): CUDA/HIP execution awaits "
-                    << "device validation (backend = " << backend << ")";
-            error(message.str());
-        }
-
-#ifdef HAVE_MPI
-        // Host setup remains on the staging structs; runtime arrays are
-        // allocated on the selected backend before staging memory is released.
-        if (mode != ExasimExecutionMode::HDGLDGSetup) {
-            nonmatchingInteractions.reserve(1);
-            exasim::nonmatching::NonmatchingInteraction<T, I> candidate;
-            if (exasim::nonmatching::NonmatchingInteraction<T, I>::setupLegacy(
-                    happ, hmaster, hmesh, hsol, hcommon, mpiprocs, mpirank,
-                    fileoffset, backend, candidate))
-                nonmatchingInteractions.emplace_back(std::move(candidate));
-        }
-#endif
+            hcommon.couplingparams.coupledinterface>0)
+            error("HDG/LDG setup cannot be combined with legacy coupling");
 
         if (common.mpiRank==0) printf("free CPU memory \n");
 
@@ -577,40 +555,11 @@ CDiscretizationT<T, I>::CDiscretizationT(string filein, string fileout, string e
     else  {// CPU
         cpuInit(sol, res, app, driver_abi, master, mesh, tmp, common, filein, fileout,
                 mpiprocs, mpirank, fileoffset, omprank,
-                physicsparamOverride, mode,
-                static_cast<nonmatchingdataT<T, I>*>(nullptr)); // Rebuild atomically below.
+                physicsparamOverride, mode);
         if (mode == ExasimExecutionMode::HDGLDGSetup &&
-            (app.szinteractions>0 || common.couplingparams.coupledinterface>0))
-            error("HDG/LDG setup cannot be combined with legacy or generalized coupling");
-#ifdef HAVE_MPI
-        if (app.szinteractions > 0) {
-            const auto records = exasim::nonmatching::validate_interaction_graph(
-                    app, mesh, common, localDomain, domainRankOffsets);
-            exasim::nonmatching::setup_nonmatching_interactions(
-                    records, localDomain, app, master, mesh, sol, common,
-                    mpiprocs, mpirank, fileoffset, backend,
-                    nonmatchingInteractions);
-        }
-        else if (mode != ExasimExecutionMode::HDGLDGSetup) {
-            nonmatchingInteractions.reserve(1);
-            exasim::nonmatching::NonmatchingInteraction<T, I> candidate;
-            if (exasim::nonmatching::NonmatchingInteraction<T, I>::setupLegacy(
-                    app, master, mesh, sol, common, mpiprocs, mpirank,
-                    fileoffset, backend, candidate))
-                nonmatchingInteractions.emplace_back(std::move(candidate));
-        }
-#else
-        if (app.szinteractions > 0)
-            error("non-matching coupling (construction): interfacetype 1 requires MPI");
-#endif
+            common.couplingparams.coupledinterface>0)
+            error("HDG/LDG setup cannot be combined with legacy coupling");
     }
-#ifdef HAVE_MPI
-    // GPU has a separate final common object, so publish its request storage
-    // only after gpuInit has created that object.
-    if (backend > 1 && nonmatchingInteractions.size() == 1 &&
-            nonmatchingInteractions.front().setupInterfacetype() == 1)
-        nonmatchingInteractions.front().ensureRequestCapacity(common);
-#endif
     finalizeConstruction(backend, mode, nsca, nvec, nten, nsurf, nvqoi, saveParaview);
 }
 
@@ -924,7 +873,6 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
 template <class T, class I>
 CDiscretizationT<T, I>::~CDiscretizationT()
 {
-    nonmatchingInteractions.clear(); // Runtime, owner tests, then host setup.
     app.freememory(common.backend);
     if (common.mpiRank==0) printf("CDiscretization destructor: app memory is freed successfully.\n");
     master.freememory(common.backend);

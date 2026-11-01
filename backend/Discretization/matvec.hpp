@@ -37,7 +37,6 @@
 #define __MATVEC
 
 #include "ioutilities.hpp"
-#include "nonmatchinginteractionruntime.hpp"
 template <class M, class T=dstype, class I=Int>
 inline void MatVec(T *w, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master,
       meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, T *v, 
@@ -278,8 +277,7 @@ inline void hdgGetDUDG(T *w, T *F, T *duh, T *ve, meshstructT<T,I> &mesh,
 
 template <class T=dstype, class I=Int>
 inline void hdgMatVec(T *w, T *AE, T *v, T *ve, T *we, resstructT<T,I> &res, appstructT<T,I> &app, 
-        meshstructT<T,I> &mesh, commonstructT<T,I> &common, tempstructT<T,I> &tmp, cublasHandle_t handle, Int backend,
-        std::vector<exasim::nonmatching::NonmatchingInteraction<T,I>>& interactions)
+        meshstructT<T,I> &mesh, commonstructT<T,I> &common, tempstructT<T,I> &tmp, cublasHandle_t handle, Int backend)
 {
     using dstype=T;   
     Int ne1 = common.meshsizes.ne1; // number of elements in this subdomain 
@@ -289,9 +287,6 @@ inline void hdgMatVec(T *w, T *AE, T *v, T *ve, T *we, resstructT<T,I> &res, app
     Int nfe = common.meshsizes.nfe; // number of faces in each element
     Int m = ncu*npf*nfe;  
 
-    // [nonmatching] rank-uniform selection check before any branching or communication
-    const bool nonmatchingCoupled = exasim::nonmatching::validate_interactions(
-            common, interactions, backend, "hdgMatVec", app.szinteractions > 0);
 
     // ncu * npf * nf -> ncu * npf * nfe * ne1
     GetElementFaceNodes(ve, v, mesh.elemcon, npf*nfe, ncu, 0, ne1, 2);
@@ -391,12 +386,6 @@ inline void hdgMatVec(T *w, T *AE, T *v, T *ve, T *we, resstructT<T,I> &res, app
           }
       }      
     }
-    else if (nonmatchingCoupled) { // [nonmatching] eq. (68): pair products, slot sums, coupling-slot exchange
-      for (auto& interaction : interactions)
-        interaction.matvecProducts(ve, m, ne1, handle, backend);
-      for (auto& interaction : interactions)
-        interaction.beginExchange(common, request_counter);
-    } // [nonmatching]
 
     // perform matrix-vector products for interior elements
     PGEMNMStridedBached(handle, m, 1, m, one, AE, m, ve, m, zero, we, m, ne0, backend); 
@@ -424,10 +413,6 @@ inline void hdgMatVec(T *w, T *AE, T *v, T *ve, T *we, resstructT<T,I> &res, app
       }
       PutBoudaryNodes(we, res.Ri, mesh.intfaces, mesh.faceperm, app.interfacefluxmap, nfe, npf, ncu12, ncu, facepermStride, common.couplingparams.nintfaces); // [nonmatching]
     }
-    else if (nonmatchingCoupled) { // [nonmatching] owner assembly, eq. (68) with eq. (64) ordering
-      for (const auto& interaction : interactions)
-        interaction.assembleOwner(we, mesh, app, common);
-    } // [nonmatching]
 
     // ncu * npf * nfe * ne -> ncu * npf * nf
     // assemble vector w from we using the FIRST elements in mesh.f2e
@@ -436,7 +421,6 @@ inline void hdgMatVec(T *w, T *AE, T *v, T *ve, T *we, resstructT<T,I> &res, app
     // assemble vector w from we using the SECOND elements in mesh.f2e
     PutElementFaceNodes(w, we, mesh.f2e, mesh.elemcon, npf, nfe, ncu, common.meshsizes.nf0);           
 #else 
-    (void)nonmatchingCoupled; // [nonmatching] validate_coupling_selection rejects type 1 without MPI
     // (ncu * npf * nfe)  * (ncu * npf * nfe) * ne x (ncu * npf * nfe) * ne -> (ncu * npf * nfe) * ne
     PGEMNMStridedBached(handle, m, 1, m, one, AE, m, ve, m, zero, we, m, ne1, backend); 
 
@@ -450,30 +434,13 @@ inline void hdgMatVec(T *w, T *AE, T *v, T *ve, T *we, resstructT<T,I> &res, app
 #endif
 }
 
-// Existing postprocessing callers have no non-matching runtime state. Keep
-// that no-coupling call form without retaining the removed singular pointer
-// API or changing the postprocessing source.
-template <class T=dstype, class I=Int>
-inline void hdgMatVec(T *w, T *AE, T *v, T *ve, T *we,
-        resstructT<T,I> &res, appstructT<T,I> &app, meshstructT<T,I> &mesh,
-        commonstructT<T,I> &common, tempstructT<T,I> &tmp,
-        cublasHandle_t handle, Int backend)
-{
-    std::vector<exasim::nonmatching::NonmatchingInteraction<T,I>> interactions;
-    hdgMatVec(w, AE, v, ve, we, res, app, mesh, common, tmp, handle, backend,
-              interactions);
-}
-
 #ifdef  HAVE_MPI     
 template <class M, class T=dstype, class I=Int>
 inline void hdgAssembleLinearSystemMPI(T *b, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
         meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,
-        std::vector<exasim::nonmatching::NonmatchingInteraction<T,I>>& interactions,
         cublasHandle_t handle, Int backend)
 {
     using dstype=T;
-    const bool nonmatchingCoupled = exasim::nonmatching::validate_interactions(
-            common, interactions, backend, "hdg assembly", app.szinteractions > 0);
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int npf = common.grid.npf; // number of nodes on master face           
     Int npe = common.grid.npe; // number of nodes on master element
@@ -494,11 +461,6 @@ inline void hdgAssembleLinearSystemMPI(T *b, solstructT<T,I> &sol, resstructT<T,
                              common.couplingparams.interfacetype); // [nonmatching]
     }                             
 
-    // [nonmatching] All interface-element local solvers are now available.
-    if (nonmatchingCoupled)
-      for (auto& interaction : interactions)
-        interaction.template compute<M>(sol, res, app, master, mesh, tmp,
-                                        common, handle, true, backend);
 
     // copy H and Rh to buffsend
 //     for (int n=0; n<common.nelemsend; n++)  {       
@@ -590,10 +552,6 @@ inline void hdgAssembleLinearSystemMPI(T *b, solstructT<T,I> &sol, resstructT<T,
           }
       }      
     }
-    else if (nonmatchingCoupled) { // [nonmatching]
-      for (auto& interaction : interactions)
-        interaction.beginExchange(common, request_counter);
-    }
       
     // perform HDG descrization for interior elements
     for (Int j=0; j<common.meshsizes.nbe0; j++) {                  
@@ -630,10 +588,6 @@ inline void hdgAssembleLinearSystemMPI(T *b, solstructT<T,I> &sol, resstructT<T,
 //       if (common.mpiRank==1)
 //         print2darray(res.Ri, szRi, common.nfacerecv);
     }
-    else if (nonmatchingCoupled) { // [nonmatching]
-      for (const auto& interaction : interactions)
-        interaction.assembleOwner(res.Rh, mesh, app, common);
-    }
     
     ArraySetValue(b, 0.0, ncu*npf*common.meshsizes.nf); // fix bug here
 
@@ -647,12 +601,9 @@ inline void hdgAssembleLinearSystemMPI(T *b, solstructT<T,I> &sol, resstructT<T,
 template <class M, class T=dstype, class I=Int>
 inline void hdgAssembleResidualMPI(T *b, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
         meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,
-        std::vector<exasim::nonmatching::NonmatchingInteraction<T,I>>& interactions,
         cublasHandle_t handle, Int backend)
 {
     using dstype=T;
-    const bool nonmatchingCoupled = exasim::nonmatching::validate_interactions(
-            common, interactions, backend, "hdg assembly", app.szinteractions > 0);
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int npf = common.grid.npf; // number of nodes on master face           
     Int npe = common.grid.npe; // number of nodes on master element
@@ -668,11 +619,6 @@ inline void hdgAssembleResidualMPI(T *b, solstructT<T,I> &sol, resstructT<T,I> &
                                  common.couplingparams.interfacetype); // [nonmatching]
     }                             
 
-    // [nonmatching] Equation (40), evaluated once for all donor points.
-    if (nonmatchingCoupled)
-      for (auto& interaction : interactions)
-        interaction.template compute<M>(sol, res, app, master, mesh, tmp,
-                                        common, handle, false, backend);
 
     // copy H and Rh to buffsend
 //     for (int n=0; n<common.nelemsend; n++)  {       
@@ -757,10 +703,6 @@ inline void hdgAssembleResidualMPI(T *b, solstructT<T,I> &sol, resstructT<T,I> &
           }
       }      
     }
-    else if (nonmatchingCoupled) { // [nonmatching]
-      for (auto& interaction : interactions)
-        interaction.beginExchange(common, request_counter);
-    }
     // perform HDG descrization for interior elements
     for (Int j=0; j<common.meshsizes.nbe0; j++) {                  
       RuEquationElemBlock<M>(sol, res, app, master, mesh, tmp, common, handle, j, backend);
@@ -789,10 +731,6 @@ inline void hdgAssembleResidualMPI(T *b, solstructT<T,I> &sol, resstructT<T,I> &
         else if (mesh.szfaceperm != npf) error("conformal mesh.faceperm must have npf or npf*nInterfaceFaces entries"); // [nonmatching]
       }
       PutBoudaryNodes(res.Rh, res.Ri, mesh.intfaces, mesh.faceperm, app.interfacefluxmap, nfe, npf, ncu12, ncu, facepermStride, common.couplingparams.nintfaces); // [nonmatching]
-    }
-    else if (nonmatchingCoupled) { // [nonmatching]
-      for (const auto& interaction : interactions)
-        interaction.assembleOwner(res.Rh, mesh, app, common);
     }
 
     // assemble RHS vector b from res.Rh using the FIRST elements in mesh.f2e

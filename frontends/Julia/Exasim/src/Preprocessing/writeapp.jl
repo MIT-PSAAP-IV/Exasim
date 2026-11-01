@@ -11,6 +11,7 @@ function ibslist(ibs)
 end
 
 function writeapp(app,filename)
+checkconformalinterface(app);
 
 appname = 0;
 if !isdefined(app, :frontendgenerated)

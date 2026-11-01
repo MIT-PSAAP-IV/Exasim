@@ -359,7 +359,7 @@ void matvec(System<M>& s,dstype* out,const dstype* direction)
     if(s.interface.scheme) {
         expandTrace(s,d.sol.uh,direction);
         hdgMatVec(sys.r,d.res.H,d.sol.uh,d.res.Rh,d.res.Rq,d.res,d.app,d.mesh,c,d.tmp,
-            c.cublasHandle,s.backend,d.getNonmatchingInteractions());
+            c.cublasHandle,s.backend);
         ArrayAXPBY(d.sol.uh,sys.u,d.sol.uh,dstype(1),step,c.sizes.ndofuhat);
     } else {
         // Finish reading direction before any possibly aliased output write.

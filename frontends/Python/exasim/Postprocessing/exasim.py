@@ -2,6 +2,7 @@ import copy as pycopy
 import itertools
 import os
 import numpy
+from ..Preprocessing.checkconformalinterface import checkconformalinterface
 from numpy import *
 from .. import Preprocessing
 from .. import Gencode
@@ -11,6 +12,10 @@ from .getsolutions import getsolutions
 from .generatecode import generatecode
 
 def exasim(pde,mesh,interaction=None):
+
+    checkconformalinterface(pde)
+    if interaction is not None and len(interaction) > 0:
+        raise ValueError('Nonmatching interfaces and generalized interactions are not available in this source release.')
 
     if isinstance(pde, list):
         nmodels = len(pde);      
