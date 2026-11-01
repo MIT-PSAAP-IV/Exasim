@@ -44,15 +44,14 @@ def main():
         temp = Path(directory)
         for cap in (1, 127, 128, 256, 512, 1024, 2048, 4096):
             app = copy.deepcopy(base)
-            app.update(compositehdg=1, compositebatchsize=cap, interfacetype=1,
+            app.update(compositehdg=1, compositebatchsize=cap, interfacetype=0,
                        uniformrefinementlevel=2, physicsparam=np.array([1.]), tau=np.array([1.]))
             binary = temp / "app.bin"
             writeapp(copy.deepcopy(app), str(binary))
             dims, problem = contents(binary)
             assert tuple(dims[23:25]) == (1, cap)
-            assert dims[22] == 0 and tuple(problem[33:35]) == (2, 1)
+            assert dims[22] == 0 and tuple(problem[33:35]) == (2, 0)
             text = temp / "pdeapp.txt"
-            app["interfacetype"] = 0  # The composite solver rejects nonmatching interfaces.
             write_text(app, mesh, {"meshfile": "mesh.bin"}, str(text))
             assert "compositehdg = 1;" in text.read_text()
             assert f"compositebatchsize = {cap};" in text.read_text()
@@ -61,6 +60,14 @@ def main():
                 dims, problem = contents(binary)
                 assert tuple(dims[23:25]) == (1, cap)
                 assert problem[33] == 2
+        unsupported = copy.deepcopy(base)
+        unsupported.update(compositehdg=1, interfacetype=1)
+        try:
+            writeapp(unsupported, str(temp / "nonmatching.bin"))
+        except ValueError as exc:
+            assert "not available in this source release" in str(exc)
+        else:
+            raise AssertionError("nonmatching input accepted")
         invalid = {
             "compositehdg": (-1, 2, 0.5, np.nan, np.inf, 1j, [1]),
             "compositebatchsize": (0, -1, 1024.5, np.nan, np.inf, -np.inf,

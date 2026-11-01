@@ -1,8 +1,10 @@
 // Uses the actual text reader and binary writer, without solver dependencies.
 #include <algorithm>
 #include <chrono>
+#include <cstdlib>
 #include <filesystem>
 #include <iomanip>
+#include <sstream>
 #include <string>
 #include <vector>
 using namespace std;
@@ -76,9 +78,19 @@ int main(int argc, char** argv) {
     pde = convert(input, output); dims = dimensions(output);
     require(dims[23] == 1 && dims[24] == 127, "explicit composite cap lost in app.bin");
     write("compositehdg = 1;\ninterfacetype = 1;\n");
-    bool nonmatchingRejected = false;
-    try { convert(input, output); } catch (const exception&) { nonmatchingRejected = true; }
-    require(nonmatchingRejected, "unsupported composite nonmatching text accepted");
+    // This release rejects nonmatching input with error()/exit, not an exception.
+    // Isolate that production guard and require its specific diagnostic as well
+    // as failure, so a launch error cannot masquerade as a successful check.
+    const auto diagnostic = root / "nonmatching.log";
+    ostringstream command;
+    command << quoted(filesystem::absolute(argv[0]).string()) << " --convert "
+            << quoted(input.string()) << ' ' << quoted(output.string())
+            << " > " << quoted(diagnostic.string()) << " 2>&1";
+    const int status = std::system(command.str().c_str());
+    ifstream log(diagnostic);
+    const string message((istreambuf_iterator<char>(log)), istreambuf_iterator<char>());
+    require(status != 0 && message.find("Nonmatching interfaces and generalized interactions are not available in this source release") != string::npos,
+            "unsupported composite nonmatching text was not rejected with its diagnostic");
     for (const string& key : {"compositehdg", "compositebatchsize"}) {
         vector<string> invalid = {"-1", "0.5", "NaN", "Inf", "-Inf", "2147483648", "1e1000", "1junk", "[1]", "\"1\""};
         invalid.push_back(key == "compositehdg" ? "2" : "0");

@@ -2,6 +2,7 @@ const IntP = Int64
 const FloatP = Float64
 const root = normpath(joinpath(@__DIR__, "..", "..", "frontends", "Julia", "Exasim", "src"))
 include(joinpath(root, "Preprocessing", "initializepde.jl"))
+include(joinpath(root, "Preprocessing", "checkconformalinterface.jl"))
 include(joinpath(root, "Preprocessing", "writeapp.jl"))
 include(joinpath(root, "Gencode", "exporttext2code.jl"))
 base = initializepde("")
@@ -11,7 +12,7 @@ mktempdir() do directory
         app = deepcopy(base)
         app.compositehdg = 1
         app.compositebatchsize = cap
-        app.interfacetype = 1
+        app.interfacetype = 0
         app.uniformrefinementlevel = 2
         filename = joinpath(directory, "app.bin")
         writeapp(app, filename)
@@ -20,13 +21,23 @@ mktempdir() do directory
         start = length(sizes) + 2
         @assert data[start+23] == 1 && data[start+24] == cap && data[start+22] == 0
         problem = start + sizes[1] + sizes[2]
-        @assert data[problem+33] == 2 && data[problem+34] == 1
+        @assert data[problem+33] == 2 && data[problem+34] == 0
         text = joinpath(directory, "pdeapp.txt")
         mesh = Dict(:boundarycondition => Int[], :boundaryexpr => String[])
         _t2c_write_pdeapp(app, mesh, Dict("meshfile" => "mesh.bin"), text)
         @assert occursin("compositehdg = 1;", read(text, String))
         @assert occursin("compositebatchsize = $(cap);", read(text, String))
     end
+    unsupported = deepcopy(base)
+    unsupported.compositehdg = 1
+    unsupported.interfacetype = 1
+    rejected = false
+    try
+        writeapp(unsupported, joinpath(directory, "nonmatching.bin"))
+    catch error
+        rejected = occursin("not available in this source release", sprint(showerror, error))
+    end
+    @assert rejected
     for (name, values) in ((:compositehdg, (-1, 2, 0.5, NaN, Inf)),
                            (:compositebatchsize, (0, -1, 1024.5, NaN, Inf, 2147483648)))
         for value in values
