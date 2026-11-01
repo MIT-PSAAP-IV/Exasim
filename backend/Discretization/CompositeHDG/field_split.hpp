@@ -128,15 +128,8 @@ template<class... Args> inline void schwarz(Context& ctx, Args&&... args){
  if(ctx.dimension==2)Kernels<2>::schwarz(ctx,std::forward<Args>(args)...);
  else Kernels<3>::schwarz(ctx,std::forward<Args>(args)...);
 }
-template<class... Args> inline void extractGeneric(Args&&... args){Kernels<3>::extractGeneric(std::forward<Args>(args)...);}
-template<class... Args> inline void extract(Args&&... args){Kernels<3>::extract(std::forward<Args>(args)...);}
-template<class... Args> inline void packResidual(Args&&... args){Kernels<3>::packResidual(std::forward<Args>(args)...);}
-template<class... Args> inline void unpack(Args&&... args){Kernels<3>::unpack(std::forward<Args>(args)...);}
-template<class... Args> inline void compress(Args&&... args){Kernels<3>::compress(std::forward<Args>(args)...);}
-template<class... Args> inline void product(Args&&... args){Kernels<3>::product(std::forward<Args>(args)...);}
-KOKKOS_INLINE_FUNCTION double T(int old,int c,const double* y){return Kernels<3>::T(old,c,y);}
-KOKKOS_INLINE_FUNCTION double L(int c,int old,const double* y){return Kernels<3>::L(c,old,y);}
-KOKKOS_INLINE_FUNCTION int packedIndex(int c,int p,bool trace){return Kernels<3>::packedIndex(c,p,trace);}
+// Dimension-specific implementation helpers stay on Kernels<ND>; only the
+// context-dispatched operations above are exposed at namespace scope.
 
 // Other scalar/index instantiations can still compile the unchanged native path.
 // The shape/config gate rejects composite mode before these are reachable.

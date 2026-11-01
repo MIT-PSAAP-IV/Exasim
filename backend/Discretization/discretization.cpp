@@ -852,7 +852,8 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
             composite->init(common); common.composite=composite.get();
           }
         }
-        printf("COMPOSITE_HDG rank=%d enabled=%d requested_cap=%d effective_cap=%d H_stride=%zu F_stride=%zu ASM_storage=%s RBdim=%d\n",
+        if (common.compositeConfig.enabled)
+          printf("COMPOSITE_HDG rank=%d enabled=%d requested_cap=%d effective_cap=%d H_stride=%zu F_stride=%zu ASM_storage=%s RBdim=%d\n",
                common.mpiRank,int(common.compositeConfig.enabled),common.compositeConfig.batch,neb,
                common.composite?size_t(exasim::composite::dimensions(common.grid.nd).HS):size_t(npf)*nfe*ncu*npf*nfe*ncu,
                common.composite?size_t(exasim::composite::dimensions(common.grid.nd).FS):size_t(npe)*ncu*npf*nfe*ncu,

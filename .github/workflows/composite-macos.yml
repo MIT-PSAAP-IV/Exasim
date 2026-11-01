@@ -1,0 +1,50 @@
+name: composite compatibility (macOS)
+
+on:
+  pull_request:
+    paths:
+      - 'include/composite*'
+      - 'backend/Discretization/CompositeHDG/**'
+      - 'backend/Model/FrontendGenerated/**'
+      - 'text2code/text2code/**'
+      - 'tests/composite-hdg/**'
+      - '.github/workflows/composite-macos.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: composite-macos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  optional-provider-and-native-consumer:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: src
+      - name: MPI dependency for existing native consumer checks
+        run: brew install open-mpi
+      - name: Build and install CPU backend with AppleClang
+        run: |
+          cmake -S src -B build -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+            -DEXASIM_BUILD_TESTS=ON -DEXASIM_MPI=OFF -DEXASIM_NOMPI=ON \
+            -DCMAKE_INSTALL_PREFIX="$PWD/build/install"
+          cmake --build build --parallel 3
+          cmake --install build
+      - name: Optional imports, real text parser, and native applications without a contract
+        env:
+          JOBS: "3"
+          OPENBLAS_NUM_THREADS: "1"
+          OMP_NUM_THREADS: "1"
+        run: |
+          ctest --test-dir build/exasim_build-prefix/src/exasim_build-build \
+            -R '^(composite_hdg_provider_.*|composite_hdg_config_text2code|consumer_builtin_cpu)$' \
+            --output-on-failure --output-junit "$RUNNER_TEMP/composite-macos.xml"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: composite-macos-test-results
+          path: |
+            ${{ runner.temp }}/composite-macos.xml
+            build/exasim_build-prefix/src/exasim_build-build/Testing/Temporary/LastTest.log

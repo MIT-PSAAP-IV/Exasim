@@ -85,7 +85,11 @@ using Cns5air3dProvider=Cns5airProvider<3>;
 using Cns5air2dProvider=Cns5airProvider<2>;
 } // namespace exasim::composite
 
-#if defined(__GNUC__) || defined(__clang__)
+#if defined(__APPLE__)
+// Mach-O requires weak_import for an optional undefined provider symbol.
+extern "C" const exasim::composite::ModelV1*
+GetExasimCompositeHdgModelV1(const ExasimDriverABI*, int modelnumber) __attribute__((weak_import));
+#elif defined(__GNUC__) || defined(__clang__)
 extern "C" const exasim::composite::ModelV1*
 GetExasimCompositeHdgModelV1(const ExasimDriverABI*, int modelnumber) __attribute__((weak));
 #endif

@@ -10,6 +10,13 @@ using namespace std;
 #define EXASIM_INSTALL_PREFIX ""
 #endif
 using idx_t = int; // Only the unused DMD declaration needs the partition index type.
+#ifdef EXASIM_COMPOSITE_TEST_TEXT2CODE
+// Exactly the production Text2Code parser/helper implementation, not the backend copy.
+#include "text2code/text2code/TextParser.hpp"
+#include "text2code/text2code/tinyexpr.cpp"
+#include "text2code/text2code/helpers.cpp"
+#include "text2code/text2code/readpdeapp.cpp"
+#else
 #include "structs.hpp"
 #include "TextParser.hpp"
 #include "tinyexpr.cpp"
@@ -18,6 +25,7 @@ using idx_t = int; // Only the unused DMD declaration needs the partition index 
 #include "readpdeapp.hpp"
 #else
 #include "readpdeapp.cpp"
+#endif
 #endif
 
 static void require(bool condition, const string& message) {
@@ -64,6 +72,9 @@ int main(int argc, char** argv) {
     require(pde.compositehdg == 1 && pde.compositebatchsize == 1024, "text decode mismatch");
     require(dims[23] == 1 && dims[24] == 1024 && dims[22] == 0, "binary slot mismatch");
     require(pde.problem.size() > 33 && pde.problem[33] == 2, "upstream refinement slot changed");
+    write("compositehdg = 1;\ncompositebatchsize = 127;\n");
+    pde = convert(input, output); dims = dimensions(output);
+    require(dims[23] == 1 && dims[24] == 127, "explicit composite cap lost in app.bin");
     write("compositehdg = 1;\ninterfacetype = 1;\n");
     bool nonmatchingRejected = false;
     try { convert(input, output); } catch (const exception&) { nonmatchingRejected = true; }
