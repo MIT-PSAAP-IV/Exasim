@@ -1,5 +1,10 @@
 function  exasim(pde,mesh,interaction=nothing)
 
+Preprocessing.checkconformalinterface(pde)
+if !isnothing(interaction) && !isempty(interaction)
+    error("Nonmatching interfaces and generalized interactions are not available in this source release.")
+end
+
 
 if isa(pde, Array)
     nmodels = length(pde);      

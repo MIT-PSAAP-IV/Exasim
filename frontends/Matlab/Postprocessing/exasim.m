@@ -1,6 +1,10 @@
 function [sol,pde,mesh,master,dmd,compilerstr,runstr,res] = exasim(pde,mesh,interaction)
 
 if nargin < 3, interaction = []; end
+checkconformalinterface(pde);
+if ~isempty(interaction)
+    error('Nonmatching interfaces and generalized interactions are not available in this source release.');
+end
 
 if iscell(pde)
     nmodels = length(pde);

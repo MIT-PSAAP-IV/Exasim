@@ -88,8 +88,11 @@ void CGS(cublasHandle_t handle, dstype *V, dstype *H, dstype *temp, Int N, Int m
         t->cgs(handle, V, H, temp, N, m, backend);
         return;
     }
-    PGEMTV(handle, N, m, &one, V, N, &V[m*N], inc1, &zero, H, inc1, temp, backend);
-    PGEMNV(handle, N, m, &minusone, V, N, H, inc1, &one, &V[m*N], inc1, backend);
+    // Zero-owned-entry ranks still join PGEMTV's global coefficient reduction.
+    // BLAS requires lda>=1 even when its local row count is zero.
+    PGEMTV(handle, N, m, &one, V, max(Int(1),N), &V[m*N], inc1, &zero, H, inc1, temp, backend);
+    if (N > 0)
+        PGEMNV(handle, N, m, &minusone, V, N, H, inc1, &one, &V[m*N], inc1, backend);
     PDOT(handle, N, &V[m*N], inc1, &V[m*N], inc1, &H[m], backend);
     H[m] = sqrt(H[m]);
     if (is_finite_bitwise(H[m]) && H[m] > 0)
@@ -142,7 +145,8 @@ void UpdateSolution(cublasHandle_t handle, dstype *x, dstype *y, dstype *H, dsty
         Int i, Int N, Int n, Int backend)
 {
     cpuBackSolve(y, H, s, i, n);
-    PGEMNV(handle, N, i+1, &one, V, N, y, inc1, &one, x, inc1, backend);
+    if (N > 0)
+        PGEMNV(handle, N, i+1, &one, V, N, y, inc1, &one, x, inc1, backend);
 }
 
 template <class M, class T, class I>
@@ -436,12 +440,26 @@ void ApplyPoly(dstype *w, CAssembler<M>& assembler, CDiscretization &disc, CPrec
 }
 
 template <class M, class T, class I>
-I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc, CPreconditioner<M, T, I>& prec, Int N, Int spatialScheme, Int backend)
+I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc, CPreconditioner<M, T, I>& prec, Int N, Int spatialScheme, Int backend,
+                        const HdgLdgLinearActionsT<T>* actions)
 {
     // NOTE: this variant does its own manual timing via the local begin/end +
     // tm[] below; it does not use the START/END_TIMING macros. A stray
     // INIT_TIMING here declared begin/end under -DTIMING and collided with the
     // local `auto begin/end` (redeclaration), breaking the -DTIMING build.
+
+    if (actions && (!actions->product || !actions->apply || N < 0 ||
+            disc.common.ppdegree > 1 || disc.common.solverparams.RBdim > 0 ||
+            state.RBcurrentdim > 0 || disc.common.couplingparams.ndofuhatinterface != 0))
+        error("HDG/LDG GMRES requires complete actions, owned vectors, and no polynomial or reduced-basis acceleration");
+    const auto product = [&](dstype* out, dstype* in) {
+        if (actions) actions->product(actions->context, out, in);
+        else assembler.evalMatVec(out, in, sys.u, sys.b, spatialScheme, backend);
+    };
+    const auto apply = [&](dstype* inout) {
+        if (actions) actions->apply(actions->context, inout);
+        else prec.ApplyPreconditioner(inout, sys, disc, spatialScheme, backend);
+    };
 
     Int maxit, nrest, orthogMethod, n1, i, k, j = 0;
     dstype nrmb, nrmr, tol, scalar;
@@ -499,10 +517,10 @@ I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc,
         return 0;
     }
     
-    dstype alpha = spatialScheme == 0 ? minusone : one;
+    dstype alpha = actions ? one : (spatialScheme == 0 ? minusone : one);
     if (scalar > zero) {
         // r = A*x
-        assembler.evalMatVec(sys.r, sys.x, sys.u, sys.b, spatialScheme, backend);
+        product(sys.r, sys.x);
         
         // compute the new RHS vector: r = -b - A*x
         ArrayAXPBY(sys.r, sys.b, sys.r, alpha, minusone, N);    
@@ -540,8 +558,8 @@ I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc,
         prec.ApplyPreconditioner(sys.r, sys, disc, spatialScheme, backend);
         ApplyPoly(sys.r, assembler, disc, prec, sys, sys.q, sys.p, N, spatialScheme, backend);    
     }
-    else if (state.RBcurrentdim>=0) {
-        prec.ApplyPreconditioner(sys.r, sys, disc, spatialScheme, backend);
+    else if (actions || state.RBcurrentdim>=0) {
+        apply(sys.r);
     }
     
     // compute ||r||
@@ -573,7 +591,10 @@ I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc,
             begin = chrono::high_resolution_clock::now();   
 
             // compute v[m] = A*v[i]
-            assembler.evalMatVec(&sys.v[m*N], &sys.v[i*N], sys.u, sys.b, spatialScheme, backend);                        
+            // The previous residual sys.r is dead after copying it to v[0].
+            // A coupled action may borrow its native-capacity storage here;
+            // the current input/output basis columns must remain distinct.
+            product(&sys.v[m*N], &sys.v[i*N]);
             
 #ifdef HAVE_CUDA
     cudaDeviceSynchronize();
@@ -593,8 +614,8 @@ I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc,
                 prec.ApplyPreconditioner(&sys.v[m*N], sys, disc, spatialScheme, backend);   
                 ApplyPoly(&sys.v[m*N], assembler, disc, prec, sys, sys.q, sys.p, N, spatialScheme, backend);
             }
-            else if (state.RBcurrentdim>=0) {
-                prec.ApplyPreconditioner(&sys.v[m*N], sys, disc, spatialScheme, backend);   
+            else if (actions || state.RBcurrentdim>=0) {
+                apply(&sys.v[m*N]);
             }
             
 #ifdef HAVE_CUDA
@@ -618,7 +639,7 @@ I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc,
                 //MGS(disc.common.cublasHandle, sys.v, &H[n1*i], N, m, backend);
             else
                 CGS(disc.common.cublasHandle, sys.v, &H[n1*i], y, N, m, backend,
-                    disc.common.spatialScheme == 0 ? PrecondStagesOf(disc.common) : nullptr);
+                    !actions && disc.common.spatialScheme == 0 ? PrecondStagesOf(disc.common) : nullptr);
             
 #ifdef HAVE_CUDA
     cudaDeviceSynchronize();
@@ -679,7 +700,7 @@ I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc,
             UpdateSolution(disc.common.cublasHandle, sys.x, y, H, s, sys.v, i-1, N, n1, backend);
                
         // compute r = A*x
-        assembler.evalMatVec(sys.r, sys.x, sys.u, sys.b, spatialScheme, backend);
+        product(sys.r, sys.x);
                 
         // r = -b - A*x
         ArrayAXPBY(sys.r, sys.b, sys.r, alpha, minusone, N);
@@ -689,8 +710,8 @@ I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc,
             prec.ApplyPreconditioner(sys.r, sys, disc, spatialScheme, backend);            
             ApplyPoly(sys.r, assembler, disc, prec, sys, sys.q, sys.p, N, spatialScheme, backend);
         }
-        else if (state.RBcurrentdim>=0) {
-            prec.ApplyPreconditioner(sys.r, sys, disc, spatialScheme, backend);            
+        else if (actions || state.RBcurrentdim>=0) {
+            apply(sys.r);
         }
         
         // compute relative error

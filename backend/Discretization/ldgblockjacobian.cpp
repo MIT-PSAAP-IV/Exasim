@@ -881,6 +881,10 @@ void uhatEquationElemFaceBlockLDG(solstruct &sol, resstruct &res, appstruct &app
         Int start = common.nboufaces[n];
         Int nfaces = common.nboufaces[n + 1] - start;
         if (nfaces > 0) {
+            // Received HL lambda is independent of u_L. Its trace rows stay
+            // zero; physical Ubou derivatives must not enter the L diagonal.
+            if (ibc+1 == common.hdgldgBoundary)
+                continue;
             // GetUhat prescribes STG traces directly from x, time, and STG
             // data instead of calling Ubou.  Consequently d(uhat)/d(u) is
             // zero on these boundaries; leave the corresponding rows of G
@@ -1029,9 +1033,19 @@ void uEquationElemFaceBlockLDG(solstruct &sol, resstruct &res, appstruct &app,
 
     for (Int ibc = 0; ibc < common.meshsizes.maxnbc; ibc++) {
         Int n = ibc + common.meshsizes.maxnbc*jth;
-        Int start = common.nboufaces[n];
-        Int nfaces = common.nboufaces[n + 1] - start;
-        if (nfaces > 0) {
+        Int blockStart = common.nboufaces[n];
+        Int boundaryFaces = common.nboufaces[n + 1] - blockStart;
+        if (boundaryFaces > 0) {
+          const bool hl = ibc+1 == common.hdgldgBoundary;
+          // The initial element-face gathers in tempn are dead after their
+          // Node2Gauss above. Borrow this space for full vector flux/Jacobians,
+          // streaming HL faces so no additional numerical storage is needed.
+          if (hl && static_cast<long long>(ngf)*ncu*nd*(1+nc+ncw) > tmp.sztempn)
+              error("native LDG scratch cannot hold one HL flux Jacobian");
+          const Int chunk = hl ? 1 : boundaryFaces;
+          for (Int offset=0; offset<boundaryFaces; offset+=chunk) {
+            Int start = blockStart+offset;
+            Int nfaces = chunk;
             Int ngb = nfaces*ngf;
             dstype *xgb = &tmp.tempg[n8];
             dstype *ugb = &tmp.tempg[n8 + ngb*ncx];
@@ -1066,9 +1080,26 @@ void uEquationElemFaceBlockLDG(solstruct &sol, resstruct &res, appstruct &app,
             ArraySetValue(fhb_uh, 0.0, ngb*ncu*ncu);
             if (ncw > 0) ArraySetValue(fhb_w, 0.0, ngb*ncu*ncw);
 
-            FbouJacDriver(fhb, fhb_uq, fhb_w, fhb_uh, xgb, ugb, ogb,
-                          wgb, uhb, nlb, driver_abi, mesh, master, app,
-                          sol, tmp, common, ngb, ibc+1, backend);
+            if (hl) {
+                const Int vectorSize=ngb*ncu*nd;
+                dstype* fullFlux=tmp.tempn;
+                dstype* fullUq=fullFlux+vectorSize;
+                dstype* fullW=fullUq+vectorSize*nc;
+                ArraySetValue(fullFlux, 0.0, vectorSize*(1+nc+ncw));
+                FhatDriver(fullFlux, fullUq, fullW, fhb_uh, xgb, ugb,
+                    ogb, wgb, uhb, nlb, driver_abi, mesh, master, app,
+                    sol, tmp, common, ngb, backend);
+                // FhatDriver has already dotted and packed these derivatives
+                // and supplied the one-sided tau and -tau terms exactly once.
+                ArrayCopy(fhb, fullFlux, ngb*ncu);
+                ArrayCopy(fhb_uq, fullUq, ngb*ncu*nc);
+                if (ncw>0) ArrayCopy(fhb_w, fullW, ngb*ncu*ncw);
+            }
+            else {
+                FbouJacDriver(fhb, fhb_uq, fhb_w, fhb_uh, xgb, ugb, ogb,
+                              wgb, uhb, nlb, driver_abi, mesh, master, app,
+                              sol, tmp, common, ngb, ibc+1, backend);
+            }
 
             if ((ncw > 0) && (common.timeparams.wave == 0)) {
                 ArrayGemmBatch2(fhb_uh, fhb_w, wgb_uq, one, ncu, ncu, ncw, ngb);
@@ -1099,6 +1130,7 @@ void uEquationElemFaceBlockLDG(solstruct &sol, resstruct &res, appstruct &app,
                     ngf, npf*npf, nfaces*ncu*ncu, backend);
             PutBoundaryNodes(Ftmp, Rb, &mesh.boufaces[start],
                     npf*npf, nfe, ne, ncu*ncu, nfaces);
+          }
         }
     }    
 

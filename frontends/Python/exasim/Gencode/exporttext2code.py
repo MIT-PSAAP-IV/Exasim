@@ -4,6 +4,7 @@ import sympy
 from importlib import import_module
 
 from .genpdemodel import genpdemodel
+from ..Preprocessing.checkconformalinterface import checkconformalinterface
 from ..Preprocessing.process_materialdatabase import process_materialdatabase
 
 
@@ -17,6 +18,7 @@ def exporttext2code(pde, mesh, dest=None):
     This is intentionally different from ``exportapp``: it exports the
     high-level Text2Code inputs, not generated kernels or a C++ driver.
     """
+    checkconformalinterface(pde)
     if dest is None or dest == "":
         dest = pde.get("exporttext2code", pde.get("exportt2c", ""))
     if dest is None or dest == "":

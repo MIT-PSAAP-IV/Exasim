@@ -1,4 +1,5 @@
 from .initializeexasim import initializeexasim
+from .checkconformalinterface import checkconformalinterface
 from .findexec import findexec
 from .masternodes import masternodes
 from .mkshape import mkshape
@@ -29,6 +30,8 @@ import importlib.util
 from numpy import *
 
 def preprocessing(app,mesh):
+
+    checkconformalinterface(app)
 
     # LDG (hybrid=0) is solved matrix-free (preconditioner=0), exactly like the
     # native C++ LDG regression: its element-local block-Jacobi preconditioner

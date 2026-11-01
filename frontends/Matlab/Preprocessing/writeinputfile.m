@@ -1,5 +1,7 @@
 function writeinputfile(filename, pde, mesh)
 
+checkconformalinterface(pde);
+
 if isfield(pde,'interactions') && ~isempty(pde.interactions)
   writeinteractionfile(fullfile(fileparts(filename),'interaction.txt'),pde.interactions);
   pde.interactionfile = "interaction.txt";

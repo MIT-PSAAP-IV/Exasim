@@ -190,6 +190,11 @@ public:
     int ParseInputs(int argc, char** argv,
                     const std::function<const ExasimDriverABI&(int)>& resolveABI);
     int ParsePostprocessInputs(int argc, char** argv);
+    // Explicit prepared H/L solve; requires InitializeEnvironment first.
+    // Ordinary single-region inputs remain guarded and unchanged.
+    int RunHdgLdg(int argc, char** argv, const ExasimDriverABI& abi);
+    int RunHdgLdg(int argc, char** argv,
+                  const std::function<const ExasimDriverABI&(int)>& resolveABI);
     int SetModelDefinition(const int modelnumber, const int builtinmodelID,
                            const ExasimDriverABI& abi);
     int InitializeModels();

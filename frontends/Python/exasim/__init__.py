@@ -19,9 +19,9 @@ try:
     from . import Gencode
     from . import Postprocessing
 
-    from .Preprocessing import initializeexasim, preprocessing
+    from .Preprocessing import initializeexasim, preprocessing, hdgldgpreprocessing
     from .Gencode import exportapp, exporttext2code, exporttext2codemesh
-    from .Postprocessing import exasim, vis, fetchsolution
+    from .Postprocessing import exasim, hdgldgsolve, vis, fetchsolution
 except ModuleNotFoundError as exc:
     if exc.name != "sympy":
         raise
@@ -39,10 +39,12 @@ except ModuleNotFoundError as exc:
     Postprocessing = None
     initializeexasim = _missing_sympy
     preprocessing = _missing_sympy
+    hdgldgpreprocessing = _missing_sympy
     exportapp = _missing_sympy
     exporttext2code = _missing_sympy
     exporttext2codemesh = _missing_sympy
     exasim = _missing_sympy
+    hdgldgsolve = _missing_sympy
     vis = _missing_sympy
     fetchsolution = _missing_sympy
 

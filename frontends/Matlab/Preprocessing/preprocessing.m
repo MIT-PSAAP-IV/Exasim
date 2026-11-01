@@ -1,5 +1,7 @@
 function [app,mesh,master,dmd] = preprocessing(app,mesh)
 
+checkconformalinterface(app);
+
 %app.Cxxpreprocessing = 0;
 
 coupledinterface = 0;

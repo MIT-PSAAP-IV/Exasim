@@ -191,6 +191,11 @@ set_tests_properties(consumer_mms_reactdiff PROPERTIES TIMEOUT 1200 SKIP_RETURN_
 # a clean ctest SKIP — when the interpreter or its symbolic stack is missing
 # (e.g. julia/matlab on CI runners), so registration is unconditional.
 find_package(Python3 COMPONENTS Interpreter QUIET)
+if(Python3_Interpreter_FOUND)
+  add_test(NAME frontend_conformal_only_inputs
+    COMMAND ${Python3_EXECUTABLE} "${EXASIM_DIR}/tests/frontends/test_conformal_only_inputs.py")
+  set_tests_properties(frontend_conformal_only_inputs PROPERTIES TIMEOUT 150 SKIP_RETURN_CODE 77)
+endif()
 foreach(_fe python julia matlab)
   add_test(NAME frontend_${_fe}
     COMMAND ${CMAKE_COMMAND} -E env
@@ -216,84 +221,26 @@ foreach(_fe python julia matlab)
     TIMEOUT 2400 SKIP_RETURN_CODE 77)
 endforeach()
 
-# [nonmatching] Phase 9: interfacetype field, validation and app.bin slot 34 in every
-# frontend and in text2code, plus the MATLAB coupled verification CI subset (matching
-# type-0/type-1 solve at 1+1 through the production MPI build, the backend matching
-# bypass, and the unequal-h convergence subset). Each wrapper exits 77 (skip) when its
-# interpreter, MATLAB, mpirun or the install is unavailable.
-add_test(NAME frontend_python_interfacetype # [nonmatching]
-  COMMAND ${Python3_EXECUTABLE} "${EXASIM_DIR}/tests/frontends/python/test_interfacetype.py") # [nonmatching]
-set_tests_properties(frontend_python_interfacetype PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 77) # [nonmatching]
-add_test(NAME nonmatching_phase11_python_ci # [nonmatching]
-  COMMAND ${CMAKE_COMMAND} -E env # [nonmatching]
-    "EXASIM_ROOT=${EXASIM_DIR}" # [nonmatching]
-    "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}" # [nonmatching]
-    ${Python3_EXECUTABLE} "${EXASIM_DIR}/tests/nonmatching/phase11_python.py") # [nonmatching]
-set_tests_properties(nonmatching_phase11_python_ci PROPERTIES # [nonmatching]
-  TIMEOUT 3600 SKIP_RETURN_CODE 77 RESOURCE_LOCK exasim_phase11_python) # [nonmatching]
 add_test(NAME frontend_python_periodic_facenumbering
   COMMAND ${Python3_EXECUTABLE} "${EXASIM_DIR}/tests/frontends/python/test_facenumbering_periodic.py")
 set_tests_properties(frontend_python_periodic_facenumbering PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 77)
 add_test(NAME frontend_python_solution_readback
   COMMAND ${Python3_EXECUTABLE} "${EXASIM_DIR}/tests/frontends/python/test_solution_readback.py")
 set_tests_properties(frontend_python_solution_readback PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 77)
-add_test(NAME frontend_julia_interfacetype # [nonmatching]
-  COMMAND bash "${EXASIM_DIR}/tests/frontends/julia/run-test-interfacetype.sh") # [nonmatching]
-set_tests_properties(frontend_julia_interfacetype PROPERTIES TIMEOUT 900 SKIP_RETURN_CODE 77) # [nonmatching]
-add_test(NAME frontend_matlab_interfacetype # [nonmatching]
-  COMMAND ${CMAKE_COMMAND} -E env "EXASIM_ROOT=${EXASIM_DIR}" # [nonmatching]
-          bash "${EXASIM_DIR}/tests/nonmatching/run-phase9-matlab.sh" serialization) # [nonmatching]
-set_tests_properties(frontend_matlab_interfacetype PROPERTIES TIMEOUT 900 SKIP_RETURN_CODE 77) # [nonmatching]
-add_test(NAME text2code_interfacetype # [nonmatching]
-  COMMAND ${CMAKE_COMMAND} -E env "EXASIM_ROOT=${EXASIM_DIR}" "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}" # [nonmatching]
-          bash "${EXASIM_DIR}/tests/text2code/interfacetype-test.sh") # [nonmatching]
-set_tests_properties(text2code_interfacetype PROPERTIES # [nonmatching]
-  TIMEOUT 600 SKIP_RETURN_CODE 77 RESOURCE_LOCK exasim_text2code_install) # [nonmatching]
-# [nonmatching] Phase 9 Part B: text2code initializeDMD, single-rank coupled branch. Direct
+# Matching-coupling preprocessing: unique interface elements and serial filenames.
 # unit test (no interface elements, ordinary interface elements, duplicate element IDs from
 # two coupled faces) and an installed-text2code CLI case with an L-shaped coupled interface.
-add_executable(text2code_initializedmd_test ${CMAKE_CURRENT_SOURCE_DIR}/text2code/initializedmd_test.cpp) # [nonmatching]
-target_include_directories(text2code_initializedmd_test PRIVATE ${EXASIM_DIR}/text2code/text2code) # [nonmatching]
-target_compile_features(text2code_initializedmd_test PRIVATE cxx_std_17) # [nonmatching] tinyexpr needs C++17
-target_link_libraries(text2code_initializedmd_test PRIVATE ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES}) # [nonmatching]
-add_test(NAME text2code_initializedmd COMMAND text2code_initializedmd_test) # [nonmatching]
-set_tests_properties(text2code_initializedmd PROPERTIES TIMEOUT 120) # [nonmatching]
-add_test(NAME text2code_initializedmd_cli # [nonmatching]
-  COMMAND ${CMAKE_COMMAND} -E env "EXASIM_ROOT=${EXASIM_DIR}" "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}" # [nonmatching]
-          bash "${EXASIM_DIR}/tests/text2code/initializedmd-cli-test.sh") # [nonmatching]
-set_tests_properties(text2code_initializedmd_cli PROPERTIES # [nonmatching]
-  TIMEOUT 600 SKIP_RETURN_CODE 77 RESOURCE_LOCK exasim_text2code_install) # [nonmatching]
-add_test(NAME nonmatching_phase9_matlab_ci # [nonmatching]
-  COMMAND ${CMAKE_COMMAND} -E env "EXASIM_ROOT=${EXASIM_DIR}" "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}" # [nonmatching]
-          bash "${EXASIM_DIR}/tests/nonmatching/run-phase9-matlab.sh" ci) # [nonmatching]
-set_tests_properties(nonmatching_phase9_matlab_ci PROPERTIES TIMEOUT 3600 SKIP_RETURN_CODE 77) # [nonmatching]
-# [nonmatching] Phase 9 B2: MATLAB exporttext2code round trip of the coupled non-matching
-# example (export, both pdeapp files carry interfacetype = 1, bundle build with Text2Code
-# code generation, text2code datain generation, coupled run, both donor directions,
-# solution equal to the MATLAB run). 1+1 is the acceptance run; 2+2 covers the
-# partitioned text2code data path.
-foreach(k 1 2) # [nonmatching]
-  add_test(NAME nonmatching_phase9_text2code_${k}p${k} # [nonmatching]
-    COMMAND ${CMAKE_COMMAND} -E env "EXASIM_ROOT=${EXASIM_DIR}" "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}" # [nonmatching]
-            bash "${EXASIM_DIR}/tests/nonmatching/run-phase9-matlab.sh" text2code ${k}) # [nonmatching]
-  set_tests_properties(nonmatching_phase9_text2code_${k}p${k} PROPERTIES # [nonmatching]
-    TIMEOUT 2400 SKIP_RETURN_CODE 77 RESOURCE_LOCK exasim_text2code_install) # [nonmatching]
-endforeach() # [nonmatching]
-add_test(NAME nonmatching_phase10_matlab_ci # [nonmatching]
-  COMMAND ${CMAKE_COMMAND} -E env "EXASIM_ROOT=${EXASIM_DIR}" "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}" # [nonmatching]
-          bash "${EXASIM_DIR}/tests/nonmatching/run-phase9-matlab.sh" phase10-ci) # [nonmatching]
-set_tests_properties(nonmatching_phase10_matlab_ci PROPERTIES TIMEOUT 3600 SKIP_RETURN_CODE 77) # [nonmatching]
-add_test(NAME nonmatching_phase10_partition # [nonmatching]
-  COMMAND ${CMAKE_COMMAND} -E env "EXASIM_ROOT=${EXASIM_DIR}" "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}" # [nonmatching]
-          bash "${EXASIM_DIR}/tests/nonmatching/run-phase9-matlab.sh" phase10-partition) # [nonmatching]
-set_tests_properties(nonmatching_phase10_partition PROPERTIES TIMEOUT 3600 SKIP_RETURN_CODE 77) # [nonmatching]
-foreach(k 1 2) # [nonmatching]
-  add_test(NAME nonmatching_phase10_text2code_${k}p${k} # [nonmatching]
-    COMMAND ${CMAKE_COMMAND} -E env "EXASIM_ROOT=${EXASIM_DIR}" "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}" # [nonmatching]
-            bash "${EXASIM_DIR}/tests/nonmatching/run-phase9-matlab.sh" phase10-text2code ${k}) # [nonmatching]
-  set_tests_properties(nonmatching_phase10_text2code_${k}p${k} PROPERTIES # [nonmatching]
-    TIMEOUT 3600 SKIP_RETURN_CODE 77 RESOURCE_LOCK exasim_text2code_install) # [nonmatching]
-endforeach() # [nonmatching]
+add_executable(text2code_initializedmd_test ${CMAKE_CURRENT_SOURCE_DIR}/text2code/initializedmd_test.cpp)
+target_include_directories(text2code_initializedmd_test PRIVATE ${EXASIM_DIR}/text2code/text2code)
+target_compile_features(text2code_initializedmd_test PRIVATE cxx_std_17) # tinyexpr needs C++17
+target_link_libraries(text2code_initializedmd_test PRIVATE ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES})
+add_test(NAME text2code_initializedmd COMMAND text2code_initializedmd_test)
+set_tests_properties(text2code_initializedmd PROPERTIES TIMEOUT 120)
+add_test(NAME text2code_initializedmd_cli
+  COMMAND ${CMAKE_COMMAND} -E env "EXASIM_ROOT=${EXASIM_DIR}" "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}"
+          bash "${EXASIM_DIR}/tests/text2code/initializedmd-cli-test.sh")
+set_tests_properties(text2code_initializedmd_cli PROPERTIES
+  TIMEOUT 600 SKIP_RETURN_CODE 77 RESOURCE_LOCK exasim_text2code_install)
 
 # Cheap extra Poisson app-regression cases through the Python frontend -- bring app
 # numerical coverage into CI beyond the default 2D HDG case. CASE=<name> selects
@@ -671,421 +618,18 @@ endif()
 add_test(NAME unit_struct_defaults COMMAND unit_struct_defaults)
 set_tests_properties(unit_struct_defaults PROPERTIES TIMEOUT 120)
 
-# [nonmatching] Phase 0: the frozen non-matching interface header compiles and defaults to 0 / nullptr.
-add_executable(unit_nonmatchinginterface_header ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatchinginterface_header.cpp) # [nonmatching]
-target_link_libraries(unit_nonmatchinginterface_header PRIVATE Kokkos::kokkos) # [nonmatching]
-target_include_directories(unit_nonmatchinginterface_header PRIVATE ${EXASIM_DIR}) # [nonmatching]
-if(EXASIM_MPI) # [nonmatching]
-  target_link_libraries(unit_nonmatchinginterface_header PRIVATE MPI::MPI_CXX) # [nonmatching]
-  target_compile_definitions(unit_nonmatchinginterface_header PRIVATE HAVE_MPI) # [nonmatching]
-endif() # [nonmatching]
-add_test(NAME unit_nonmatchinginterface_header COMMAND unit_nonmatchinginterface_header) # [nonmatching]
-set_tests_properties(unit_nonmatchinginterface_header PROPERTIES TIMEOUT 120) # [nonmatching]
 
-# Generalized multiphysics Phase 1 targets.  They remain unregistered until
-# the reviewer measures each below the plan's 30-second CTest threshold.
-add_executable(unit_nonmatching_interaction_table
-  ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_interaction_table.cpp)
-target_include_directories(unit_nonmatching_interaction_table PRIVATE ${EXASIM_DIR})
-if(TARGET cpuEXASIM_static)
-  target_compile_definitions(unit_nonmatching_interaction_table PRIVATE EXASIM_APP_ROUNDTRIP)
-  target_link_libraries(unit_nonmatching_interaction_table PRIVATE
-    cpuEXASIM_static Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
-endif()
-add_executable(unit_nonmatching_text2code_conditions
-  ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_text2code_conditions.cpp)
-target_include_directories(unit_nonmatching_text2code_conditions PRIVATE ${EXASIM_DIR})
-
-# Generalized multiphysics Phase 2 targets. They remain unregistered until
-# the reviewer measures each below the plan's 30-second CTest threshold.
-add_executable(unit_nonmatching_domain_layout
-  ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_domain_layout.cpp)
-target_include_directories(unit_nonmatching_domain_layout PRIVATE ${EXASIM_DIR})
-target_link_libraries(unit_nonmatching_domain_layout PRIVATE Kokkos::kokkos)
-if(EXASIM_MPI AND TARGET cpumpiEXASIM_static)   # a GPU-only configure builds no CPU solver library
-  target_link_libraries(unit_nonmatching_domain_layout PRIVATE
-    cpumpiEXASIM_static MPI::MPI_CXX ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
-  target_compile_definitions(unit_nonmatching_domain_layout PRIVATE
-    PHASE2_SOLVER_PARSE_TEST)
-endif()
-add_executable(unit_nonmatching_selector_union
-  ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_selector_union.cpp)
-target_include_directories(unit_nonmatching_selector_union PRIVATE ${EXASIM_DIR})
-target_compile_features(unit_nonmatching_selector_union PRIVATE cxx_std_17)
-
-# Reviewer-only Phase 2 graph launcher. The model library must come from a
-# disposable prefix because RunText2CodeApp regenerates it while preparing
-# graph inputs.
-set(EXASIM_PHASE2_MODEL_LIBRARY "" CACHE FILEPATH
-  "Disposable Text2Code model library for phase2_text2code_graph_app")
-if(EXASIM_MPI AND TARGET cpumpiEXASIM_static AND EXASIM_PHASE2_MODEL_LIBRARY)
-  if(NOT EXISTS "${EXASIM_PHASE2_MODEL_LIBRARY}")
-    message(FATAL_ERROR
-      "EXASIM_PHASE2_MODEL_LIBRARY does not exist: ${EXASIM_PHASE2_MODEL_LIBRARY}")
-  endif()
-  add_executable(phase2_text2code_graph_app
-    ${CMAKE_CURRENT_SOURCE_DIR}/nonmatching/phase2_text2code_graph_app.cpp)
-  target_include_directories(phase2_text2code_graph_app PRIVATE
-    ${EXASIM_DIR} ${EXASIM_DIR}/include ${EXASIM_DIR}/apps/sharedlibrary)
-  target_compile_definitions(phase2_text2code_graph_app PRIVATE _MPI _SHAREDLIBRARY)
-  target_link_libraries(phase2_text2code_graph_app PRIVATE
-    cpumpiEXASIM_static ${EXASIM_PHASE2_MODEL_LIBRARY})
-  get_filename_component(_phase2_model_dir "${EXASIM_PHASE2_MODEL_LIBRARY}" DIRECTORY)
-  set_target_properties(phase2_text2code_graph_app PROPERTIES
-    BUILD_RPATH "${_phase2_model_dir}"
-    INSTALL_RPATH "${_phase2_model_dir}"
-    BUILD_WITH_INSTALL_RPATH TRUE)
-endif()
-
-# [nonmatching] Phase 11 Task 0 amendment: compact/per-face conformal permutations.
-add_executable(unit_conformal_faceperm ${CMAKE_CURRENT_SOURCE_DIR}/unit/conformal_faceperm.cpp) # [nonmatching]
-target_link_libraries(unit_conformal_faceperm PRIVATE Kokkos::kokkos) # [nonmatching]
-target_include_directories(unit_conformal_faceperm PRIVATE ${EXASIM_DIR}) # [nonmatching]
-if(EXASIM_MPI) # [nonmatching]
-  target_link_libraries(unit_conformal_faceperm PRIVATE MPI::MPI_CXX) # [nonmatching]
-  target_compile_definitions(unit_conformal_faceperm PRIVATE HAVE_MPI) # [nonmatching]
-endif() # [nonmatching]
-add_test(NAME unit_conformal_faceperm COMMAND unit_conformal_faceperm) # [nonmatching]
-set_tests_properties(unit_conformal_faceperm PROPERTIES TIMEOUT 120) # [nonmatching]
-
-# [nonmatching] Phase 11: tet type-0/type-1 stage diagnostic (master tables vs type-1 basis).
-add_executable(unit_nonmatching_3d ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_3d.cpp) # [nonmatching]
-target_link_libraries(unit_nonmatching_3d PRIVATE Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
-target_include_directories(unit_nonmatching_3d PRIVATE ${EXASIM_DIR}) # [nonmatching]
-if(EXASIM_MPI) # [nonmatching]
-  target_link_libraries(unit_nonmatching_3d PRIVATE MPI::MPI_CXX) # [nonmatching]
-  target_compile_definitions(unit_nonmatching_3d PRIVATE HAVE_MPI) # [nonmatching]
-endif() # [nonmatching]
-add_test(NAME unit_nonmatching_3d COMMAND unit_nonmatching_3d) # [nonmatching]
-set_tests_properties(unit_nonmatching_3d PROPERTIES TIMEOUT 120) # [nonmatching]
-
-# [nonmatching] Phase 13 T0/T1: compile-only baseline emitter and focused scaffold.
-add_executable(unit_nonmatching_fingerprint ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_fingerprint.cpp) # [nonmatching]
-target_link_libraries(unit_nonmatching_fingerprint PRIVATE Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
-target_include_directories(unit_nonmatching_fingerprint PRIVATE ${EXASIM_DIR}) # [nonmatching]
+# Matching-coupling compact/per-face orientation permutations.
+add_executable(unit_conformal_faceperm ${CMAKE_CURRENT_SOURCE_DIR}/unit/conformal_faceperm.cpp)
+target_link_libraries(unit_conformal_faceperm PRIVATE Kokkos::kokkos)
+target_include_directories(unit_conformal_faceperm PRIVATE ${EXASIM_DIR})
 if(EXASIM_MPI)
-# These fixtures require MPI-only setup/operator helpers or communication state
-# even at compile time. Their CTest registrations below also require MPI.
-add_executable(unit_nonmatching_hextet ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_hextet.cpp) # [nonmatching]
-target_link_libraries(unit_nonmatching_hextet PRIVATE Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
-target_include_directories(unit_nonmatching_hextet PRIVATE ${EXASIM_DIR}) # [nonmatching]
-# [nonmatching] Phase 14 T0: test-only byte-exact CPU baseline emitter.
-add_executable(unit_nonmatching_phase14_baseline ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_phase14_baseline.cpp) # [nonmatching]
-target_link_libraries(unit_nonmatching_phase14_baseline PRIVATE Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
-target_include_directories(unit_nonmatching_phase14_baseline PRIVATE ${EXASIM_DIR}) # [nonmatching]
-# [nonmatching] Phase 14 T1: executable layout, ownership and MPI contracts.
-add_executable(unit_nonmatching_phase14_contracts ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_phase14_contracts.cpp) # [nonmatching]
-target_link_libraries(unit_nonmatching_phase14_contracts PRIVATE Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
-target_include_directories(unit_nonmatching_phase14_contracts PRIVATE ${EXASIM_DIR}) # [nonmatching]
-target_compile_definitions(unit_nonmatching_phase14_contracts PRIVATE EXASIM_PHASE14_SOURCE_DIR="${EXASIM_DIR}") # [nonmatching]
-# [multiphysics Phase 3] Ownership, move, transaction and exact-capacity checks.
-# Intentionally not registered until the reviewer measures it below 30 seconds.
-add_executable(unit_nonmatching_interaction_lifecycle
-  ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_interaction_lifecycle.cpp)
-target_link_libraries(unit_nonmatching_interaction_lifecycle PRIVATE
-  Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
-target_include_directories(unit_nonmatching_interaction_lifecycle PRIVATE ${EXASIM_DIR})
-# [multiphysics Phase 4] Real multi-object graph setup/runtime fixture.
-# Deliberately manual until the reviewer measures each mode/split below 30 s.
-add_executable(unit_nonmatching_interactions
-  ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_interactions.cpp)
-target_link_libraries(unit_nonmatching_interactions PRIVATE
-  Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
-target_include_directories(unit_nonmatching_interactions PRIVATE ${EXASIM_DIR})
+  target_link_libraries(unit_conformal_faceperm PRIVATE MPI::MPI_CXX)
+  target_compile_definitions(unit_conformal_faceperm PRIVATE HAVE_MPI)
 endif()
-if(EXASIM_MPI) # [nonmatching]
-  target_link_libraries(unit_nonmatching_fingerprint PRIVATE MPI::MPI_CXX) # [nonmatching]
-  target_compile_definitions(unit_nonmatching_fingerprint PRIVATE HAVE_MPI) # [nonmatching]
-  target_link_libraries(unit_nonmatching_hextet PRIVATE MPI::MPI_CXX) # [nonmatching]
-  target_compile_definitions(unit_nonmatching_hextet PRIVATE HAVE_MPI) # [nonmatching]
-  target_link_libraries(unit_nonmatching_phase14_baseline PRIVATE MPI::MPI_CXX) # [nonmatching]
-  target_compile_definitions(unit_nonmatching_phase14_baseline PRIVATE HAVE_MPI) # [nonmatching]
-  target_link_libraries(unit_nonmatching_phase14_contracts PRIVATE MPI::MPI_CXX) # [nonmatching]
-  target_compile_definitions(unit_nonmatching_phase14_contracts PRIVATE HAVE_MPI) # [nonmatching]
-  target_link_libraries(unit_nonmatching_interaction_lifecycle PRIVATE MPI::MPI_CXX)
-  target_compile_definitions(unit_nonmatching_interaction_lifecycle PRIVATE HAVE_MPI)
-  target_link_libraries(unit_nonmatching_interactions PRIVATE MPI::MPI_CXX)
-  target_compile_definitions(unit_nonmatching_interactions PRIVATE HAVE_MPI)
-endif() # [nonmatching]
-if(EXASIM_MPI) # [nonmatching] Phase 11 focused 3D matrix
-  # [nonmatching] Phase 13 focused registrations. Expected under 15 s;
-  # reviewer measures each registration and removes any slower mode.
-  foreach(np 2 4 8)
-    if(np EQUAL 2)
-      set(phase13_setup_split 1)
-    else()
-      set(phase13_setup_split 1)
-    endif()
-    add_test(NAME unit_nonmatching_hextet_setup_np${np}
-      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS}
-              $<TARGET_FILE:unit_nonmatching_hextet> ${MPIEXEC_POSTFLAGS}
-              --split ${phase13_setup_split} --setup)
-    set_tests_properties(unit_nonmatching_hextet_setup_np${np} PROPERTIES TIMEOUT 30)
-  endforeach()
-  foreach(np 2 4)
-    math(EXPR phase13_operator_split "${np} / 2")
-    add_test(NAME unit_nonmatching_hextet_operators_np${np}
-      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS}
-              $<TARGET_FILE:unit_nonmatching_hextet> ${MPIEXEC_POSTFLAGS}
-              --split ${phase13_operator_split} --operators)
-    set_tests_properties(unit_nonmatching_hextet_operators_np${np} PROPERTIES TIMEOUT 30)
-  endforeach()
-  foreach(np 4 8)
-    if(np EQUAL 4)
-      set(phase13_mpi_split 1)
-    else()
-      set(phase13_mpi_split 4)
-    endif()
-    add_test(NAME unit_nonmatching_hextet_mpi_np${np}
-      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS}
-              $<TARGET_FILE:unit_nonmatching_hextet> ${MPIEXEC_POSTFLAGS}
-              --split ${phase13_mpi_split} --mpi)
-    set_tests_properties(unit_nonmatching_hextet_mpi_np${np} PROPERTIES TIMEOUT 30)
-  endforeach()
-  add_test(NAME unit_nonmatching_hextet_conservation_np2
-    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_PREFLAGS}
-            $<TARGET_FILE:unit_nonmatching_hextet> ${MPIEXEC_POSTFLAGS}
-            --split 1 --conservation)
-  set_tests_properties(unit_nonmatching_hextet_conservation_np2 PROPERTIES TIMEOUT 30)
+add_test(NAME unit_conformal_faceperm COMMAND unit_conformal_faceperm)
+set_tests_properties(unit_conformal_faceperm PROPERTIES TIMEOUT 120)
 
-  foreach(np 2 4)
-    if(np EQUAL 2)
-      set(phase14_contract_splits 1)
-    else()
-      set(phase14_contract_splits 1 3)
-    endif()
-    foreach(split IN LISTS phase14_contract_splits)
-      add_test(NAME unit_nonmatching_phase14_contracts_np${np}_split${split}
-        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS}
-                $<TARGET_FILE:unit_nonmatching_phase14_contracts> ${MPIEXEC_POSTFLAGS}
-                --split ${split} --contracts)
-      set_tests_properties(unit_nonmatching_phase14_contracts_np${np}_split${split}
-        PROPERTIES TIMEOUT 30)
-    endforeach()
-  endforeach()
-
-  set(phase13_reject_modes porder pgauss-unequal pgauss-unsupported weight node
-      measure family ncu12 slotcount slotface extent host)
-  foreach(np 2 4)
-    set(phase13_reject_split 1)
-    foreach(mode IN LISTS phase13_reject_modes)
-      if(mode STREQUAL "porder")
-        set(phase13_reject_regex "mixed tet/hex pair requires equal porder")
-      elseif(mode STREQUAL "pgauss-unequal")
-        set(phase13_reject_regex "mixed tet/hex pair requires equal pgauss")
-      elseif(mode STREQUAL "pgauss-unsupported")
-        set(phase13_reject_regex "mixed tet/hex pair requires pgauss = 2\\*porder; unsupported pgauss = 3")
-      elseif(mode STREQUAL "weight")
-        set(phase13_reject_regex "mixed tet/hex face rule has a nonpositive weight")
-      elseif(mode STREQUAL "node")
-        set(phase13_reject_regex "mixed tet/hex face rule has a node outside the reference face")
-      elseif(mode STREQUAL "measure")
-        set(phase13_reject_regex "mixed tet/hex face rule fails the reference measure")
-      elseif(mode STREQUAL "family")
-        set(phase13_reject_regex "unsupported element family")
-      elseif(mode STREQUAL "ncu12")
-        set(phase13_reject_regex "mixed tet/hex pair requires equal ncu12")
-      elseif(mode STREQUAL "slotcount")
-        set(phase13_reject_regex "donor sendcount does not match owner recvcount")
-      elseif(mode STREQUAL "slotface")
-        set(phase13_reject_regex "donor slotface list does not match owner recvface order")
-      elseif(mode STREQUAL "extent")
-        set(phase13_reject_regex "donor block extent does not match owner block extent")
-      elseif(mode STREQUAL "host")
-        set(phase13_reject_regex "rectangular tet/hex coupling requires the NonmatchingRuntime path")
-      endif()
-      add_test(NAME unit_nonmatching_hextet_reject_${mode}_np${np}
-        COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/unit/run_expected_failure.sh ${np} "${phase13_reject_regex}"
-                ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS}
-                $<TARGET_FILE:unit_nonmatching_hextet> ${MPIEXEC_POSTFLAGS}
-                --split ${phase13_reject_split} --reject-${mode})
-      set_tests_properties(unit_nonmatching_hextet_reject_${mode}_np${np} PROPERTIES TIMEOUT 30)
-    endforeach()
-  endforeach()
-  add_test(NAME unit_nonmatching_hextet_reject_inconsistent_np4
-    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/unit/run_expected_failure.sh 4 "inconsistent face master within model 1"
-            ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS}
-            $<TARGET_FILE:unit_nonmatching_hextet> ${MPIEXEC_POSTFLAGS}
-            --split 1 --reject-inconsistent)
-  set_tests_properties(unit_nonmatching_hextet_reject_inconsistent_np4 PROPERTIES TIMEOUT 30)
-
-  foreach(np 2 4 8) # [nonmatching]
-    foreach(mode cost multi operators orientations rebuild search setup) # [nonmatching]
-      # The wall-clock setup gate depends on the machine; CTest checks only the
-      # work counts of the cost mode.
-      set(nonmatching_3d_mode_args --${mode}) # [nonmatching]
-      if(mode STREQUAL "cost") # [nonmatching]
-        list(APPEND nonmatching_3d_mode_args --no-timing-gate) # [nonmatching]
-      endif() # [nonmatching]
-      add_test(NAME unit_nonmatching_3d_${mode}_np${np} # [nonmatching]
-        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS} # [nonmatching]
-                $<TARGET_FILE:unit_nonmatching_3d> ${MPIEXEC_POSTFLAGS} ${nonmatching_3d_mode_args}) # [nonmatching]
-      set_tests_properties(unit_nonmatching_3d_${mode}_np${np} PROPERTIES TIMEOUT 600) # [nonmatching]
-    endforeach() # [nonmatching]
-    # Expected failures (review N2): the wrapper requires a nonzero exit, a
-    # single uniform diagnostic on every rank, and exactly ${np} copies of it.
-    math(EXPR nonmatching_3d_last_rank "${np} - 1") # [nonmatching]
-    foreach(mode porder quadrature patch rank-config volume-basis singular-map projection) # [nonmatching]
-      if(mode STREQUAL "patch") # [nonmatching] uniform local patch-preparation failure
-        set(nonmatching_3d_reject_regex "surface patch preparation failed on rank 0, direction 0 .*global face 0") # [nonmatching]
-      elseif(mode STREQUAL "rank-config") # [nonmatching]
-        set(nonmatching_3d_reject_regex "coupling selection is inconsistent across coupled ranks") # [nonmatching]
-      elseif(mode STREQUAL "volume-basis") # [nonmatching] review B1: one rank's D6 volume basis fails
-        set(nonmatching_3d_reject_regex "volume nodal basis initialization failed on rank ${nonmatching_3d_last_rank} \\(direction 0") # [nonmatching]
-      elseif(mode STREQUAL "singular-map") # [nonmatching] review B1: one rank's donor map is singular
-        math(EXPR nonmatching_3d_first_donor_rank "${np} / 2") # [nonmatching]
-        set(nonmatching_3d_reject_regex "singular donor element map at closest point on rank ${nonmatching_3d_first_donor_rank} \\(direction 0.*donor element 0") # [nonmatching]
-      elseif(mode STREQUAL "projection") # [nonmatching] Phase 12 R1: D3/D4 transaction failure
-        set(nonmatching_3d_reject_regex "non-matching preprocessing: donor face projection failed for owner rank") # [nonmatching]
-      else() # [nonmatching]
-        set(nonmatching_3d_reject_regex "non-matching interface: incompatible face spaces") # [nonmatching]
-      endif() # [nonmatching]
-      add_test(NAME unit_nonmatching_3d_reject_${mode}_np${np} # [nonmatching] expected failure
-        COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/unit/run_expected_failure.sh ${np} "${nonmatching_3d_reject_regex}" # [nonmatching]
-                ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS} # [nonmatching]
-                $<TARGET_FILE:unit_nonmatching_3d> ${MPIEXEC_POSTFLAGS} --reject-${mode}) # [nonmatching]
-      if(mode STREQUAL "projection") # [nonmatching] one p=2 face/rank, expected below 1 s
-        set_tests_properties(unit_nonmatching_3d_reject_${mode}_np${np} PROPERTIES TIMEOUT 30) # [nonmatching]
-      else() # [nonmatching]
-        set_tests_properties(unit_nonmatching_3d_reject_${mode}_np${np} PROPERTIES TIMEOUT 180) # [nonmatching]
-      endif() # [nonmatching]
-    endforeach() # [nonmatching]
-    add_test(NAME unit_nonmatching_3d_reject_tet-hex-nosidecar_np${np} # [nonmatching]
-      COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/unit/run_expected_failure.sh ${np} "mixed element families require the owner-test sidecar" # [nonmatching]
-              ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS} # [nonmatching]
-              $<TARGET_FILE:unit_nonmatching_3d> ${MPIEXEC_POSTFLAGS} --reject-tet-hex) # [nonmatching]
-    set_tests_properties(unit_nonmatching_3d_reject_tet-hex-nosidecar_np${np} PROPERTIES TIMEOUT 30) # [nonmatching]
-    # Production arithmetic (-ffast-math) 3D search, review N1 (each run < 10 s).
-    add_test(NAME unit_nonmatching_3d_fastmath_search_np${np} # [nonmatching]
-      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS} # [nonmatching]
-              $<TARGET_FILE:unit_nonmatching_3d_fastmath> ${MPIEXEC_POSTFLAGS} --search) # [nonmatching]
-    set_tests_properties(unit_nonmatching_3d_fastmath_search_np${np} PROPERTIES TIMEOUT 120) # [nonmatching]
-  endforeach() # [nonmatching]
-endif() # [nonmatching]
-
-add_executable(unit_nonmatching_3d_fastmath ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_3d.cpp) # [nonmatching]
-target_link_libraries(unit_nonmatching_3d_fastmath PRIVATE Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
-target_include_directories(unit_nonmatching_3d_fastmath PRIVATE ${EXASIM_DIR}) # [nonmatching]
-target_compile_options(unit_nonmatching_3d_fastmath PRIVATE -ffast-math) # [nonmatching]
-if(EXASIM_MPI) # [nonmatching]
-  target_link_libraries(unit_nonmatching_3d_fastmath PRIVATE MPI::MPI_CXX) # [nonmatching]
-  target_compile_definitions(unit_nonmatching_3d_fastmath PRIVATE HAVE_MPI) # [nonmatching]
-endif() # [nonmatching]
-
-# [nonmatching] Phase 1: host geometry kernels for non-matching interface setup.
-add_executable(unit_nonmatching_geometry ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_geometry.cpp) # [nonmatching]
-target_link_libraries(unit_nonmatching_geometry PRIVATE Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
-target_include_directories(unit_nonmatching_geometry PRIVATE ${EXASIM_DIR}) # [nonmatching]
-if(EXASIM_MPI) # [nonmatching]
-  target_link_libraries(unit_nonmatching_geometry PRIVATE MPI::MPI_CXX) # [nonmatching]
-  target_compile_definitions(unit_nonmatching_geometry PRIVATE HAVE_MPI) # [nonmatching]
-endif() # [nonmatching]
-add_test(NAME unit_nonmatching_geometry COMMAND unit_nonmatching_geometry) # [nonmatching]
-set_tests_properties(unit_nonmatching_geometry PROPERTIES TIMEOUT 120) # [nonmatching]
-
-# [nonmatching] Phase 12: consolidated rank-local preprocessing geometry.
-add_executable(unit_nonmatching_preprocess ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_preprocess.cpp) # [nonmatching]
-target_link_libraries(unit_nonmatching_preprocess PRIVATE Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
-target_include_directories(unit_nonmatching_preprocess PRIVATE ${EXASIM_DIR}) # [nonmatching]
-if(EXASIM_MPI) # [nonmatching]
-  target_link_libraries(unit_nonmatching_preprocess PRIVATE MPI::MPI_CXX) # [nonmatching]
-  target_compile_definitions(unit_nonmatching_preprocess PRIVATE HAVE_MPI) # [nonmatching]
-endif() # [nonmatching]
-add_test(NAME unit_nonmatching_preprocess COMMAND unit_nonmatching_preprocess) # [nonmatching]
-set_tests_properties(unit_nonmatching_preprocess PROPERTIES TIMEOUT 120) # [nonmatching]
-if(EXASIM_MPI) # [nonmatching]
-  foreach(np 2 4 8) # [nonmatching]
-    add_test(NAME unit_nonmatching_preprocess_np${np} # [nonmatching]
-      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS} # [nonmatching]
-              $<TARGET_FILE:unit_nonmatching_preprocess> ${MPIEXEC_POSTFLAGS}) # [nonmatching]
-    set_tests_properties(unit_nonmatching_preprocess_np${np} PROPERTIES TIMEOUT 180) # [nonmatching]
-  endforeach() # [nonmatching]
-endif() # [nonmatching]
-
-# [nonmatching] Distributed setup and stored point data (MPI only).
-if(EXASIM_MPI) # [nonmatching]
-  # [nonmatching] Phase 3: D6-D7 setup distribution, stored point data, and communication lists.
-  add_executable(unit_nonmatching_setup ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_setup.cpp) # [nonmatching]
-  target_link_libraries(unit_nonmatching_setup PRIVATE Kokkos::kokkos MPI::MPI_CXX ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
-  target_include_directories(unit_nonmatching_setup PRIVATE ${EXASIM_DIR}) # [nonmatching]
-  target_compile_definitions(unit_nonmatching_setup PRIVATE HAVE_MPI) # [nonmatching]
-  foreach(np 2 4 8) # [nonmatching]
-    add_test(NAME unit_nonmatching_setup_np${np} # [nonmatching]
-      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS} # [nonmatching]
-              $<TARGET_FILE:unit_nonmatching_setup> ${MPIEXEC_POSTFLAGS}) # [nonmatching]
-    set_tests_properties(unit_nonmatching_setup_np${np} PROPERTIES TIMEOUT 300) # [nonmatching]
-  endforeach() # [nonmatching]
-
-  # [nonmatching] Phase 10: mixed triangle/quadrilateral face masters.
-  add_executable(unit_nonmatching_mixed_meshes ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_mixed_meshes.cpp) # [nonmatching]
-  target_link_libraries(unit_nonmatching_mixed_meshes PRIVATE Kokkos::kokkos MPI::MPI_CXX ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
-  target_include_directories(unit_nonmatching_mixed_meshes PRIVATE ${EXASIM_DIR}) # [nonmatching]
-  target_compile_definitions(unit_nonmatching_mixed_meshes PRIVATE HAVE_MPI) # [nonmatching]
-  foreach(np 2 4 8) # [nonmatching]
-    add_test(NAME unit_nonmatching_mixed_meshes_np${np} # [nonmatching]
-      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS} # [nonmatching]
-              $<TARGET_FILE:unit_nonmatching_mixed_meshes> ${MPIEXEC_POSTFLAGS}) # [nonmatching]
-    set_tests_properties(unit_nonmatching_mixed_meshes_np${np} PROPERTIES TIMEOUT 600) # [nonmatching]
-  endforeach() # [nonmatching]
-  foreach(mode porder pgauss npf ngf quadrature) # [nonmatching]
-    add_test(NAME unit_nonmatching_mixed_incompatible_${mode} # [nonmatching] expected failure
-      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_PREFLAGS} # [nonmatching]
-              $<TARGET_FILE:unit_nonmatching_mixed_meshes> ${MPIEXEC_POSTFLAGS} --incompatible ${mode}) # [nonmatching]
-    set_tests_properties(unit_nonmatching_mixed_incompatible_${mode} PROPERTIES TIMEOUT 120 # [nonmatching]
-      PASS_REGULAR_EXPRESSION "non-matching interface: incompatible face spaces") # [nonmatching]
-  endforeach() # [nonmatching]
-  add_test(NAME unit_nonmatching_mixed_incompatible_quadrature_local # [nonmatching] expected failure
-    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS} # [nonmatching]
-            $<TARGET_FILE:unit_nonmatching_mixed_meshes> ${MPIEXEC_POSTFLAGS} --incompatible quadrature_local) # [nonmatching]
-  set_tests_properties(unit_nonmatching_mixed_incompatible_quadrature_local PROPERTIES TIMEOUT 120 # [nonmatching]
-    PASS_REGULAR_EXPRESSION "non-matching interface: incompatible face spaces") # [nonmatching]
-  add_test(NAME unit_nonmatching_mixed_missing_sidecar # [nonmatching] expected failure
-    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_PREFLAGS} # [nonmatching]
-            $<TARGET_FILE:unit_nonmatching_mixed_meshes> ${MPIEXEC_POSTFLAGS} --incompatible sidecar) # [nonmatching]
-  set_tests_properties(unit_nonmatching_mixed_missing_sidecar PROPERTIES TIMEOUT 120 # [nonmatching]
-    PASS_REGULAR_EXPRESSION "mixed element families require the owner-test sidecar") # [nonmatching]
-
-  # [nonmatching] Phase 4: residual/matrix quadrature and compact owner-donor exchange.
-  add_executable(unit_nonmatching_coupling ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_coupling.cpp) # [nonmatching]
-  target_link_libraries(unit_nonmatching_coupling PRIVATE Kokkos::kokkos MPI::MPI_CXX ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
-  target_include_directories(unit_nonmatching_coupling PRIVATE ${EXASIM_DIR}) # [nonmatching]
-  target_compile_definitions(unit_nonmatching_coupling PRIVATE HAVE_MPI) # [nonmatching]
-  foreach(np 2 4 8) # [nonmatching]
-    add_test(NAME unit_nonmatching_coupling_np${np} # [nonmatching]
-      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS} # [nonmatching]
-              $<TARGET_FILE:unit_nonmatching_coupling> ${MPIEXEC_POSTFLAGS}) # [nonmatching]
-    set_tests_properties(unit_nonmatching_coupling_np${np} PROPERTIES TIMEOUT 300) # [nonmatching]
-  endforeach() # [nonmatching]
-
-  # [nonmatching] Phase 5: non-matching coupling in hdgMatVec (FD, conformal equivalence, GMRES counts).
-  add_executable(unit_nonmatching_matvec ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_matvec.cpp) # [nonmatching]
-  target_link_libraries(unit_nonmatching_matvec PRIVATE Kokkos::kokkos MPI::MPI_CXX ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
-  target_include_directories(unit_nonmatching_matvec PRIVATE ${EXASIM_DIR}) # [nonmatching]
-  target_compile_definitions(unit_nonmatching_matvec PRIVATE HAVE_MPI) # [nonmatching]
-  foreach(np 2 4 8) # [nonmatching]
-    add_test(NAME unit_nonmatching_matvec_np${np} # [nonmatching]
-      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS} # [nonmatching]
-              $<TARGET_FILE:unit_nonmatching_matvec> ${MPIEXEC_POSTFLAGS}) # [nonmatching]
-    set_tests_properties(unit_nonmatching_matvec_np${np} PROPERTIES TIMEOUT 300) # [nonmatching]
-  endforeach() # [nonmatching]
-  # [nonmatching] Phase 9 B1: transfer consistency of u, q, uhat and the uncondensed residual
-  # (p = 1..4, mesh pairs A/S/R, both directions; polynomial case exact). Two ranks.
-  add_test(NAME unit_nonmatching_b1_transfer # [nonmatching]
-    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_PREFLAGS} # [nonmatching]
-            $<TARGET_FILE:unit_nonmatching_matvec> ${MPIEXEC_POSTFLAGS} --b1-transfer) # [nonmatching]
-  set_tests_properties(unit_nonmatching_b1_transfer PROPERTIES TIMEOUT 300) # [nonmatching]
-  # [nonmatching] Phase 8: persistent backend runtime/workspace lifecycle.
-  add_executable(unit_nonmatching_runtime ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_runtime.cpp) # [nonmatching]
-  target_link_libraries(unit_nonmatching_runtime PRIVATE Kokkos::kokkos MPI::MPI_CXX ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
-  target_include_directories(unit_nonmatching_runtime PRIVATE ${EXASIM_DIR}) # [nonmatching]
-  target_compile_definitions(unit_nonmatching_runtime PRIVATE HAVE_MPI) # [nonmatching]
-  foreach(np 2 4 8) # [nonmatching]
-    add_test(NAME unit_nonmatching_runtime_np${np} # [nonmatching]
-      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS} # [nonmatching]
-              $<TARGET_FILE:unit_nonmatching_runtime> ${MPIEXEC_POSTFLAGS}) # [nonmatching]
-    set_tests_properties(unit_nonmatching_runtime_np${np} PROPERTIES TIMEOUT 300) # [nonmatching]
-  endforeach() # [nonmatching]
-endif() # [nonmatching]
 
 # Exact device-resident quantile selection used by mesh adaptivity. The reference
 # intentionally uses std::sort in the test only; production never gathers values.

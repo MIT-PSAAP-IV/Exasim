@@ -83,6 +83,16 @@ inline void PrecondInverseStage(solstruct &sol, resstruct &res, appstruct &app, 
         ResidualStageContext c{sol, res, app, master, mesh, tmp, common, handle, backend};
         t->inverse(c, A, n, batch);
     }
+    else if(common.hdgldgBoundary>0) {
+        // Only the coupled path needs the no-allocation workspace variant.
+        // H is the native LDG inverse-output work, distinct from the K prefix.
+        if(!res.fhAliasesK || !res.K || !res.H || res.H<res.K ||
+           std::size_t(res.H-res.K)>res.kArenaCursor || res.kArenaCursor>res.szK)
+            error("HDG/LDG inverse has invalid native assembly work");
+        InverseWithWorkspace(handle,A,res.H,res.ipiv,n,batch,backend,
+            tmp.tempg,std::size_t(tmp.sztempg)*sizeof(dstype),
+            res.kArenaCursor-std::size_t(res.H-res.K),res.szipiv);
+    }
     else Inverse(handle, A, res.H, res.ipiv, n, batch, backend);
 }
 

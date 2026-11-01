@@ -730,6 +730,10 @@ inline void finalizePDEModelSizes(PDE& pde)
 
 inline PDE initializePDE(InputParams& params, int mpirank=0)
 {
+    if ((params.intParams.count("interfacetype") && params.intParams.at("interfacetype") != 0) ||
+        (params.doubleParams.count("interfacetype") && params.doubleParams.at("interfacetype") != 0) ||
+        (params.stringParams.count("interactionfile") && !params.stringParams.at("interactionfile").empty()))
+        error("Nonmatching interfaces and generalized interactions are not available in this source release.");
     PDE pde;
     
     if (params.stringParams.count("exasimpath")) {

@@ -33,6 +33,18 @@ template <class M, class T, class I> class CAssembler;       // HDG global-syste
 template <class M, class T, class I> class CResidual;        // the discretized PDE residual R(u) (full-split); HDG/LDG linearSolve evaluates R via it
 template <class M, class T, class I> class CPreconditioner;  // referenced by ref in linearSolve/gmres/updateRB
 
+// Optional actions for the same restarted GMRES loop on packed owned H/L
+// entries. The context and borrowed buffers outlive the solve; neither action
+// allocates or retains the supplied Krylov-vector pointers. All ranks call
+// these actions in the same order, with J*x=b on both native rank schemes.
+template <class T = ::dstype>
+struct HdgLdgLinearActionsT {
+    void* context = nullptr;
+    void (*product)(void*, T* out, const T* in) = nullptr;
+    void (*apply)(void*, T* inout) = nullptr;
+};
+using HdgLdgLinearActions = HdgLdgLinearActionsT<::dstype>;
+
 // Templated on the user Model type M (default = AbiAdapter): needs M only to name
 // CResidual<M>/CAssembler<M>/CPreconditioner<M> in its solve-surface signatures.
 template <class M = exasim::detail::AbiAdapter, class T = ::dstype, class I = ::Int>
@@ -63,7 +75,8 @@ public:
 
     // restarted GMRES (operates on this->sys / this->state)
     Int  gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc, CPreconditioner<M, T, I>& prec, Int backend);
-    Int  gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc, CPreconditioner<M, T, I>& prec, Int N, Int spatialScheme, Int backend);
+    Int  gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc, CPreconditioner<M, T, I>& prec, Int N, Int spatialScheme, Int backend,
+               const HdgLdgLinearActionsT<T>* actions = nullptr);
 
     // update the reduced-basis space after a nonlinear step
     void updateRB(CDiscretization& disc, CPreconditioner<M, T, I>& prec, Int backend);

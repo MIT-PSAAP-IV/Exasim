@@ -2,7 +2,8 @@ module Preprocessing
 
 using ..Types, ..Master, SymPy
 
-export createhighordermesh, preprocessing, initializeexasim, findexec, interactiongraph
+export createhighordermesh, preprocessing, initializeexasim, findexec, interactiongraph,
+       hdgldgpreprocessing
 
 include("xiny.jl");
 include("createdgnodes.jl");
@@ -39,6 +40,7 @@ include("mkdge2dgf.jl");
 include("mkelemblocks.jl");
 include("mkfaceblocks.jl");
 include("writesol.jl");
+include("checkconformalinterface.jl");
 include("writeapp.jl");
 include("writemaster.jl");
 include("process_materialdatabase.jl");
@@ -47,8 +49,11 @@ include("initializemesh.jl");
 include("initializeexasim.jl");
 include("findexec.jl");
 include("interactiongraph.jl");
+include("hdgldgpreprocessing.jl");
 
 function preprocessing(app,mesh)
+
+checkconformalinterface(app);
 
 # Match the MATLAB/Python coupled-interface metadata path.
 app.coupledinterface = 0;

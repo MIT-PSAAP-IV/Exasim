@@ -19,7 +19,7 @@ from . import Gencode
 from . import Postprocessing
 
 from .Preprocessing import initializeexasim, preprocessing
-from .Postprocessing import exasim, vis, fetchsolution
+from .Postprocessing import exasim, hdgldgsolve, vis, fetchsolution
 from .Gencode import exportapp, exporttext2code
 
 if not os.environ.get("EXASIM_PREFIX"):

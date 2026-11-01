@@ -1,5 +1,7 @@
 function app = writeapp(app,filename,endian)
 
+checkconformalinterface(app);
+
 appname = 0;
 if isfield(app, 'physicsparamwarmstart') == 0, app.physicsparamwarmstart = 0; end
 if isfield(app, 'builtinmodelID') == 0, app.builtinmodelID = 0; end

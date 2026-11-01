@@ -45,7 +45,6 @@
 
 #include "ismeshcurved.cpp"
 #include "interfacepartition.hpp"
-#include "nonmatchingpreprocess.hpp" // [nonmatching] consolidated CPU preprocessing (phase 12)
 
 template <class T=dstype, class I=Int>
 void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh, 
@@ -290,6 +289,8 @@ void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, masterstr
     common.couplingparams.coupledcondition = app.problem[29]; 
     common.couplingparams.coupledboundarycondition = app.problem[30];
     common.couplingparams.interfacetype = (app.nsize[2] > 34) ? app.problem[34] : 0; // [nonmatching]
+    if (common.couplingparams.interfacetype != 0 || app.szinteractions > 0)
+        error("nonmatching interfaces and generalized interactions are not supported");
     common.physicsparams.AVdistfunction = app.problem[31];
     common.uniformrefinementlevel = (app.nsize[2] > 33) ? app.problem[33] : 0;
 
@@ -1046,8 +1047,7 @@ void cpuInit(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, E
         meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common,
         string filein, string fileout, Int mpiprocs, Int mpirank, Int fileoffset, Int omprank,
         const std::vector<T>* physicsparamOverride = nullptr,
-        ExasimExecutionMode mode = ExasimExecutionMode::Solve,
-        nonmatchingdataT<T,I>* nonmatching = nullptr) // [nonmatching] owned by CDiscretization
+        ExasimExecutionMode mode = ExasimExecutionMode::Solve)
 {
     using dstype=T;
      
@@ -1089,9 +1089,6 @@ void cpuInit(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, E
     // post-read setup (allocate/derive everything from the now-populated structs)
     cpuInitSetup(sol, res, app, master, mesh, tmp, common, filein, fileout,
                  mpiprocs, mpirank, fileoffset, omprank);
-    if (nonmatching) // [nonmatching] atomically build cache and request capacity
-        exasim::nonmatching::rebuild_nonmatching_interface(app, master, mesh, sol, common,
-                mpiprocs, mpirank, fileoffset, *nonmatching); // [nonmatching]
 }
 
 #ifdef HAVE_GPU

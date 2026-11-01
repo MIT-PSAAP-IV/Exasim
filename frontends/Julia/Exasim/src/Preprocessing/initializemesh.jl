@@ -18,6 +18,7 @@ mutable struct MESHStruct
     xpf::Array{FloatP,2};     # nodes on the master face
     telem::Array{IntP,2};     # master element connectivity
     tface::Array{IntP,2};     # master face connectivity
+    hdgldg::Vector{IntP};     # original-element scheme: HDG=1, LDG=0 (empty until solved)
     MESHStruct() = new();
 end
 
@@ -34,5 +35,6 @@ function initializemesh(version)
     mesh.udg = zeros(0,0,0);
     mesh.odg = zeros(0,0,0);
     mesh.wdg = zeros(0,0,0);
+    mesh.hdgldg = IntP[];
     return mesh;
 end

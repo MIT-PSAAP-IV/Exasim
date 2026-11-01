@@ -45,11 +45,6 @@
 #include <vector>
 
 #include "exasim/execution_mode.hpp"
-#include "nonmatchinginterface.hpp" // [nonmatching] frozen data structure (phase 0)
-
-namespace exasim { namespace nonmatching {
-template <class, class> class NonmatchingInteraction;
-} }
 
 namespace exasim { template <class, class> struct PreprocessedT; }  // fwd decl: in-memory ctor input
                                            // (buildstructs.hpp); the ctor bodies live in discretization_inmemory.hpp (consumer-only)
@@ -84,9 +79,6 @@ public:
     ExasimDriverABI driver_abi;
     std::unique_ptr<fieldsplit::Context> composite;
     scratcharenastruct scratch;  // owns the K backing buffer; res.K/views + sys.v are non-owning reserves (S5 step 3)
-    // [multiphysics Phase 3] Zero or one legacy pair. Phase 4 activates graph
-    // construction without changing the pairwise object or numerical kernels.
-    std::vector<exasim::nonmatching::NonmatchingInteraction<T, I>> nonmatchingInteractions;
     Int localDomain = -1;
     std::vector<Int> domainRankOffsets;
     // solstruct hsol;
@@ -136,18 +128,6 @@ public:
 
     // destructor
     ~CDiscretizationT();
-
-    std::vector<exasim::nonmatching::NonmatchingInteraction<T, I>>&
-    getNonmatchingInteractions() noexcept
-    {
-        return nonmatchingInteractions;
-    }
-
-    const std::vector<exasim::nonmatching::NonmatchingInteraction<T, I>>&
-    getNonmatchingInteractions() const noexcept
-    {
-        return nonmatchingInteractions;
-    }
 
     // post-init construction tail (read_uh/vis/geometry/mass-inverse/HDG setup), shared by the
     // file and in-memory constructors. Defined in discretization.cpp (no Preprocessed dependency).

@@ -1,8 +1,9 @@
 module Postprocessing
 
 using ..Gencode, ..Preprocessing
+import ..install_prefix, ..model_builddir
 
-export fetchsolution, getsolution, getsolutions, vis, exasim, producecode, readsurfacequantities
+export fetchsolution, getsolution, getsolutions, vis, exasim, hdgldgsolve, producecode, readsurfacequantities
 
 include("createcgcells.jl");
 include("createcggrid.jl");
@@ -20,6 +21,7 @@ include("vtuwrite.jl");
 include("pvdwrite.jl");
 include("vis.jl");
 include("exasim.jl");
+include("hdgldgsolve.jl");
 include("producecode.jl");
 include("generatecode.jl");
 
