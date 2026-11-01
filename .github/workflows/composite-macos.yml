@@ -3,6 +3,9 @@ name: composite compatibility (macOS)
 on:
   pull_request:
     paths:
+      - 'CMakeLists.txt'
+      - 'install/CMakeLists.txt'
+      - 'tests/CMakeLists.txt'
       - 'include/composite*'
       - 'backend/Discretization/CompositeHDG/**'
       - 'backend/Model/FrontendGenerated/**'
