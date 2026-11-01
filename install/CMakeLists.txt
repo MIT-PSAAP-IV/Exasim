@@ -80,6 +80,14 @@ add_library(Exasim::headers ALIAS ExasimHeaders)
 set_target_properties(ExasimHeaders PROPERTIES EXPORT_NAME headers)
 target_compile_features(ExasimHeaders INTERFACE cxx_std_20)
 
+if(APPLE)
+  # weak_import keeps the null check, but Mach-O also needs permission for this
+  # one optional symbol to be absent. Keep all other undefined-symbol errors.
+  add_link_options("LINKER:-U,_GetExasimCompositeHdgModelV1")
+  target_link_options(ExasimHeaders INTERFACE
+    "LINKER:-U,_GetExasimCompositeHdgModelV1")
+endif()
+
 # CUDA: device code must be allowed to call constexpr host functions. text2code (SymEngine's
 # C printer) emits integer-argument math -- acos(-1) for pi, exp(1) for E, sqrt(2), ... --
 # which resolves to libstdc++'s constexpr __host__ integer overloads. Without this flag nvcc
@@ -791,6 +799,10 @@ macro(register_exasim_export_target target export_name requires_mpi)
   if(TARGET ${target})
     set_target_properties(${target} PROPERTIES EXPORT_NAME ${export_name})
     list(APPEND EXASIM_EXPORT_TARGETS ${target})
+    if(APPLE)
+      target_link_options(${target} INTERFACE
+        "LINKER:-U,_GetExasimCompositeHdgModelV1")
+    endif()
     if(${requires_mpi})
       target_link_libraries(${target} PUBLIC MPI::MPI_CXX)
       set(EXASIM_PACKAGE_HAS_MPI ON)

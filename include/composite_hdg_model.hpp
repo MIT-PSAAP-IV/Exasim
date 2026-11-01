@@ -86,7 +86,8 @@ using Cns5air2dProvider=Cns5airProvider<2>;
 } // namespace exasim::composite
 
 #if defined(__APPLE__)
-// Mach-O requires weak_import for an optional undefined provider symbol.
+// Mach-O requires weak_import and -U,_GetExasimCompositeHdgModelV1 at link time.
+// Exasim's CMake targets propagate that symbol-specific option to consumers.
 extern "C" const exasim::composite::ModelV1*
 GetExasimCompositeHdgModelV1(const ExasimDriverABI*, int modelnumber) __attribute__((weak_import));
 #elif defined(__GNUC__) || defined(__clang__)

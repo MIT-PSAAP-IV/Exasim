@@ -121,6 +121,12 @@ Exactly one model selector is opted in by the generated template; other IDs are
 rejected. For a library with multiple opted-in models, implement one query export
 that dispatches to explicitly constructed Cns5air3dProvider or Cns5air2dProvider objects.
 
+On macOS the optional query uses weak_import together with the symbol-specific
+linker option -Wl,-U,_GetExasimCompositeHdgModelV1. Installed Exasim CMake targets
+propagate this option automatically, including for ordinary applications without
+a composite declaration. A manual link must supply it. Other undefined symbols
+remain link errors; there is no general undefined-symbol suppression.
+
 MATLAB export and target-machine rebuild
 ---------------------------------------
 For the audited CNS5air2D case, keep the physical model functions unchanged.
