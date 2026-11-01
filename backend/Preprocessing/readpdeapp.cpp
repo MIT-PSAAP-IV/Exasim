@@ -59,6 +59,8 @@
 #ifndef __READPDEAPP
 #define __READPDEAPP
 
+#include <composite_config.hpp>
+
 #include <cmath>
 #include "interactionfile.hpp"
 
@@ -262,7 +264,14 @@ inline InputParams parseInputFile(const std::string& filename, int mpirank=0)
         const std::size_t equals = full.find('=');
         const std::string key = trim(full.substr(0, equals));
 
-        if (key == "interactionfile") {
+        if (key == "compositehdg" || key == "compositebatchsize") {
+            const std::string value = full.substr(equals + 1, full.find(';', equals) - equals - 1);
+            params.intParams[key] = exasim::composite::parseInteger(
+                value, key.c_str(), key == "compositehdg" ? 0 : 1,
+                key == "compositehdg" ? 1 : 2147483647);
+            markFound(key);
+        }
+        else if (key == "interactionfile") {
             std::regex quoted("^\\s*interactionfile\\s*=\\s*\"([^\"]*)\"\\s*;\\s*$"); std::smatch match;
             if (!std::regex_match(full,match,quoted)) error("interactionfile must be a quoted path");
             params.stringParams[key]=match[1]; markFound(key);
@@ -905,6 +914,22 @@ inline PDE initializePDE(InputParams& params, int mpirank=0)
     if (params.intParams.count("AVsmoothingIter")) {
         pde.AVsmoothingIter = params.intParams["AVsmoothingIter"];
     }
+    for (auto item : {std::make_pair("compositehdg", &pde.compositehdg),
+                      std::make_pair("compositebatchsize", &pde.compositebatchsize)}) {
+        double value = *item.second;
+        if (params.intParams.count(item.first)) value = params.intParams[item.first];
+        if (params.doubleParams.count(item.first)) value = params.doubleParams[item.first];
+        *item.second = exasim::composite::integer(value, item.first,
+            item.second == &pde.compositehdg ? 0 : 1,
+            item.second == &pde.compositehdg ? 1 : 2147483647);
+    }
+    // The current C++ text path has no nonmatching-interface field in PDE.
+    // Reject it explicitly for composite mode rather than silently dropping it.
+    if (pde.compositehdg &&
+        ((params.intParams.count("interfacetype") && params.intParams["interfacetype"] != 0) ||
+         (params.doubleParams.count("interfacetype") && params.doubleParams["interfacetype"] != 0) ||
+         params.stringParams.count("interfacetype")))
+        throw std::invalid_argument("compositehdg does not support nonmatching interfaces");
     if (params.intParams.count("AVsmoothingMethod")) {
         pde.AVsmoothingMethod = params.intParams["AVsmoothingMethod"];
     }
@@ -1249,6 +1274,8 @@ inline void writepde(const PDE& pde, const std::string& filename)
     ndims[18] = pde.nvqoi;
     ndims[19] = pde.ncm;
     ndims[20] = pde.nsurfq;
+    ndims[23] = exasim::composite::integer(pde.compositehdg, "compositehdg", 0, 1);
+    ndims[24] = exasim::composite::integer(pde.compositebatchsize, "compositebatchsize", 1, 2147483647);
 
     std::vector<double> nsize(30, 0.0);
     nsize[0] = ndims.size();

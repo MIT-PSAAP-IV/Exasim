@@ -64,6 +64,7 @@ template <class T, class I>
 inline CDiscretizationT<T, I>::CDiscretizationT(exasim::PreprocessedT<T, I>&& pre, std::string fileout, std::string exasimpath,
         Int mpiprocs, Int mpirank, Int fileoffset, Int omprank, Int backend, Int builtinmodelID)
 {
+    if(exasim::composite::decode(pre.app).enabled)throw std::runtime_error("compositehdg currently requires the runtime CNS5air provider path");
     driver_abi = ExasimDriverABI{};            // concrete-M build: no runtime ABI (null fn-pointers)
     common.driver_abi = &driver_abi;
     common.backend = backend;

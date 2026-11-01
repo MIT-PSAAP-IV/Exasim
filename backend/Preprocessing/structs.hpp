@@ -147,6 +147,8 @@ struct PDE {
     int elemtype = 1;
     int nodetype = 1;
     int hybrid = 0;
+    int compositehdg = 0;
+    int compositebatchsize = 1024;
     int tdep = 0;
     int wave = 0;
     int linearproblem = 0;

@@ -393,7 +393,7 @@ void GetCollumnAtIndex(Ty* y, const Ty* x, const int* ind, const int m, const in
     Kokkos::parallel_for("GetCollumnAtIndex", N, KOKKOS_LAMBDA(const size_t idx) {
         int i = idx%m;
         int j = idx/m;
-        y[idx] = x[i + m*ind[j]];
+        y[idx] = x[i + size_t(m)*ind[j]];
     });
 }
 
@@ -405,7 +405,7 @@ void PutCollumnAtIndex(Ty* y, const Ty* x, const int* ind, const int m, const in
     Kokkos::parallel_for("GetCollumnAtIndex", N, KOKKOS_LAMBDA(const size_t idx) {
         int i = idx%m;
         int j = idx/m;
-        y[i + m*ind[j]] = x[idx];
+        y[i + size_t(m)*ind[j]] = x[idx];
     });
 }
 
@@ -417,8 +417,8 @@ void PutCollumnAtIndexAtomicAdd(Ty* y, const Ty* x, const int* ind, const int m,
     Kokkos::parallel_for("GetCollumnAtIndex", N, KOKKOS_LAMBDA(const size_t idx) {
         int i = idx%m;
         int j = idx/m;
-        //y[i + m*ind[j]] = x[idx];
-        Kokkos::atomic_add(&y[i + m*ind[j]], x[idx]);   
+        //y[i + size_t(m)*ind[j]] = x[idx];
+        Kokkos::atomic_add(&y[i + size_t(m)*ind[j]], x[idx]);
     });
 }
 
@@ -430,7 +430,7 @@ void GetCollumnAtIndex(Ty* y, const Ty* x, const int* ind, const int i0, const i
     Kokkos::parallel_for("GetCollumnAtIndex", N, KOKKOS_LAMBDA(const size_t idx) {
         int i = idx%m;
         int j = idx/m;
-        y[i0 + i + k*j] = x[i + m*ind[j]];
+        y[i0 + i + size_t(k)*j] = x[i + size_t(m)*ind[j]];
     });
 }
 
@@ -442,7 +442,7 @@ void PutCollumnAtIndex(Ty* y, const Ty* x, const int* ind, const int i0, const i
     Kokkos::parallel_for("GetCollumnAtIndex", N, KOKKOS_LAMBDA(const size_t idx) {
         int i = idx%m;
         int j = idx/m;
-        y[i + m*ind[j]] = x[i0 + i + k*j];
+        y[i + size_t(m)*ind[j]] = x[i0 + i + size_t(k)*j];
     });
 }
 
@@ -1708,9 +1708,9 @@ void ElementalAdditiveSchwarz(Ty* BE, const Ty* AE, const int* f2e, const int* e
           int bn = n/ncu;   // [0, npf)
           int cn = elcon[bn + npf*l2 + npf*nfe*e2] - npf*f;              
           int dn = an + ncu*cn; // [0, ncf)
-          dstype tm = AE[m + ncf*l1 + M*n + P*l1 + Q*e1] + AE[dm + ncf*l2 + M*dn + P*l2 + Q*e2];
-          BE[m + ncf*l1 + M*n + P*l1 + Q*e1] = tm;
-          BE[dm + ncf*l2 + M*dn + P*l2 + Q*e2] = tm;          
+          dstype tm = AE[m + ncf*l1 + M*n + P*l1 + size_t(Q)*e1] + AE[dm + ncf*l2 + M*dn + P*l2 + size_t(Q)*e2];
+          BE[m + ncf*l1 + M*n + P*l1 + size_t(Q)*e1] = tm;
+          BE[dm + ncf*l2 + M*dn + P*l2 + size_t(Q)*e2] = tm;
         }        
     });
 }

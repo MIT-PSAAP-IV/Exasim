@@ -124,6 +124,8 @@ def initializepde(version):
     pde['GMRESrestart'] = 100;
     pde['GMRESortho'] = 0;
     pde['preconditioner'] = 1;
+    pde['compositehdg'] = 0;
+    pde['compositebatchsize'] = 1024;
     pde['precMatrixType'] = 0;
     pde['NLMatrixType'] = 0;
     pde['ppdegree'] = 0;

@@ -138,10 +138,15 @@ typedef Kokkos::View<dstype*> view_1d;
 
 #define MKL_INT int
 
+#include "composite_config.hpp"
+#include "composite_hdg_model.hpp"
+#include "memory_tracking.hpp"
+#include <memory>
+namespace fieldsplit { struct Context; }
 #define CPUFREE(x)                                                           \
 {                                                                         \
     if (x != nullptr) {                                                      \
-        free(x);                                                          \
+        fsmemory::released(x); free(x);                                                          \
         x = nullptr;                                                         \
     }                                                                     \
 }
@@ -483,7 +488,7 @@ template <typename T> static void cudaCopytoHost(T *h_data, T *d_data, Int n)
 #define HIPFREE(x)                                                       \
 {                                                                         \
     if (x != nullptr) {                                                      \
-        hipError_t _hipfree_e = hipFree(x);                              \
+        fsmemory::released(x); hipError_t _hipfree_e = hipFree(x);                              \
         if (_hipfree_e == hipErrorInvalidValue) {                        \
             fprintf(stderr, "warning: %s:%d hipFree invalid value "      \
                     "(benign double-free at teardown), ignoring\n",      \
@@ -526,6 +531,26 @@ template <typename T> static void TemplateMalloc(T **data, Int n, Int backend)
         CHECK( hipMalloc( (void**)data, n * sizeof(T) ) );
     }
 #endif    
+    if (n>0) fsmemory::allocated(*data,size_t(n)*sizeof(T));
+}
+
+// Large persistent matrix allocation; mesh/MPI/vector interfaces remain Int.
+template <typename T> static void TemplateMalloc(T **data, size_t n, Int backend)
+{
+    if (n > size_t(std::numeric_limits<ptrdiff_t>::max()) / sizeof(T))
+        throw std::runtime_error("Matrix allocation byte extent overflows pointer range");
+    if (!n) return;
+    if (backend <= 1) {
+        *data = static_cast<T*>(malloc(n*sizeof(T)));
+        if (!*data) throw std::bad_alloc();
+    }
+#ifdef HAVE_CUDA
+    if (backend == 2) CHECK(cudaMalloc((void**)data, n*sizeof(T)));
+#endif
+#ifdef HAVE_HIP
+    if (backend == 3) CHECK(hipMalloc((void**)data, n*sizeof(T)));
+#endif
+    fsmemory::allocated(*data,n*sizeof(T));
 }
 
 // data taken BY REFERENCE so the CPUFREE/GPUFREE/HIPFREE macros (which set
@@ -763,7 +788,8 @@ struct AppNdims {
         nsurf    = 17, // surface vis/storage/QoI fields
         nvqoi    = 18, // volume quantities of interest
         ncm      = 19, // components of the physical-state monitor
-        nsurfq   = 20  // SurfaceQuantities components (0 on app.bin files that predate it)
+        nsurfq = 20, // SurfaceQuantities (zero in older inputs)
+        compositehdg = 23, compositebatchsize = 24
     };
 };
 
@@ -1630,8 +1656,8 @@ struct resstructT {
     Int *ipiv=nullptr;    
     
     Int szRi=0, szHi=0, szKi=0, szGi=0, szV=0;
-    std::size_t szP=0, szK=0;   // K arena: 64-bit (n^2 x ne1 passes 2^31 on large partitions)
-    Int szipiv=0, szH=0, szG=0, szF=0, szB=0, szD=0, szE=0, szC=0, szMass=0, szMinv=0, szMass2=0, szMinv2=0;
+    std::size_t szP=0, szH=0, szK=0, szF=0; // persistent matrix and arena extents
+    Int szipiv=0, szG=0, szB=0, szD=0, szE=0, szC=0, szMass=0, szMinv=0, szMass2=0, szMinv2=0;
     Int szRq=0, szRu=0, szRh=0, szRuf=0, szRue=0, szRqf=0, szRqe=0;
     // 1 when F and H alias INTO the K block (the LDG block-Jacobi arena, AllocateLDGBlockJacobianMemory).
     // In that layout K is the only owned allocation; freememory must NOT TemplateFree(F)/(H) (they are
@@ -1640,8 +1666,8 @@ struct resstructT {
     Int fhAliasesK = 0;
 
     int sizeofint() {return szipiv;}
-    int sizeoffloat() {
-      std::size_t sz = szH + szK + szG + szF + szB + szD + szE + szC + szMass + szMinv +
+    size_t sizeoffloat() {
+      size_t sz = szH + szK + szG + szF + szB + szD + szE + szC + szMass + szMinv +
                szMass2 + szMinv2 + szRq + szRu + szRh + szRuf + szRue + szRqf + 
                szRqe + szHi + szKi + szGi + szRi;        
       return sz;
@@ -1665,16 +1691,16 @@ struct resstructT {
       printf("size of E: %d\n", szE);
       printf("size of D: %d\n", szD);
       printf("size of B: %d\n", szB);
-      printf("size of F: %d\n", szF);
+      printf("size of F: %zu\n", szF);
       printf("size of G: %d\n", szG);
       printf("size of K: %zu\n", szK);
-      printf("size of H: %d\n", szH);
+      printf("size of H: %zu\n", szH);
       printf("size of Ri: %d\n", szRi);  
       printf("size of Gi: %d\n", szGi);
       printf("size of Ki: %d\n", szKi);
       printf("size of Hi: %d\n", szHi);
       printf("size of int: %d\n", sizeofint());
-      printf("size of float: %d\n", sizeoffloat());
+      printf("size of float: %zu\n", sizeoffloat());
     }
 
     // --- K-block as a scratch arena: callers RESERVE views instead of hard-coding offsets ---
@@ -2343,6 +2369,8 @@ struct commonstructT {
     using qoiparamsstruct       = qoiparamsstructT<T, I>;
     using wallmodelparamsstruct = wallmodelparamsstructT<T, I>;
     meshsizesstruct meshsizes;              // mesh partition element/face/block counts (see above)
+    exasim::composite::Config compositeConfig;
+    fieldsplit::Context* composite = nullptr; // non-owning; CDiscretization owns it
     gridstruct grid;                        // reference-element/discretization sizes (see above)
     componentsstruct components;            // DG-field component counts (see above)
     solutionlayoutstruct layout;            // model-local solution layout: field counts + names (G4)

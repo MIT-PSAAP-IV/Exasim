@@ -87,7 +87,7 @@ inline void GetQ(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &ap
     using dstype=T;
     // A partition may have no interior blocks before its halo completes.
     // There is no element work, and nbe2-1 is not a valid block index.
-    if (nbe1==nbe2) return;
+    if (nbe2 <= nbe1) return;
     Int nc = common.components.nc; // number of compoments of (u, q, p)
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int ncq = common.components.ncq;// number of compoments of (q)

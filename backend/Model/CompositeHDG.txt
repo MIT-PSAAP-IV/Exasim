@@ -1,0 +1,194 @@
+Composite HDG configuration and model capability
+================================================
+
+User controls
+-------------
+For a supported, explicitly registered model, set
+
+    pde.compositehdg = 1;
+    pde.compositebatchsize = 1024;
+
+The defaults are 0 and 1024. Mode 0 uses standard HDG. The size is an element
+assembly-workspace cap per rank, not a scheduler setting or a mesh size. Positive
+integer sizes need not be powers of two; unsafe temporary counts are rejected.
+Legacy app.bin files whose reserved size slot is zero retain the default 1024.
+Changing this cap trades temporary memory against dense-kernel throughput; it
+does not reduce the number of elements or the chemistry equations.
+
+Support is double-state CNS5air with elemental additive Schwarz: two-dimensional
+P2 quadrilaterals (8 conserved fields) or three-dimensional P2 hexahedra
+(9 conserved fields). The 2D extension has serial CPU and two-rank MPI validation
+with the actual CNS5air model on nine P2 quadrilaterals, three DIRK steps and
+batch caps 1/2. Its GPU execution and large-case performance have not been tested.
+The earlier 3D CPU/HIP results do not establish 2D GPU performance.
+CUDA, float-state, coupled/nonmatching
+interfaces, Helmholtz AV smoothing (AVsmoothingMethod=1), mesh adaptation and the
+in-memory concrete-model constructor are not supported in composite mode.
+Use AVsmoothingMethod=0 with mesh adaptation disabled; these are the settings
+validated in the current reacting-flow study. The auxiliary-model combinations
+are rejected from host app metadata before primary mesh/workspace allocation.
+Feature-off runs retain their existing auxiliary-model options. Explicit model registration is required as described below.
+
+Method and memory
+-----------------
+The physical state retains all eight (2D) or nine (3D) conserved components,
+temperature, gradient variables and the full finite-rate chemistry residual. At each linearization a
+local basis separates a four-variable (2D) or five-variable (3D) flow/thermal block from four independent
+composition directions (N2 is dependent). The correction operator drops the
+cross-field couplings, condenses the two fields separately, and retains the
+four diagonal composition subblocks for trace products and interior recovery.
+It is an approximate nonlinear correction operator, not lossless compression
+of the full physical Schur complement. The unchanged full nonlinear
+residual determines acceptance. Reduced basis, time integration and convergence
+settings remain under their existing controls.
+
+For each P2 hex there are 27 volume nodes and 54 element-local trace nodes.
+Persistent matrix entry counts are:
+
+                         Standard HDG             Composite HDG
+    trace H              486 x 486 = 236196       270 x 270 + 4 x 54 x 54 = 84564
+    recovery F           243 x 486 = 118098       135 x 270 + 4 x 27 x 54 = 42282
+    elemental ASM        236196 FP64 entries      84564 FP32 entries
+
+For each P2 quadrilateral there are 9 volume nodes and 12 element-local trace
+nodes. H uses 48 x 48 + 4 x 12 x 12 = 2880 entries (native 96 x 96);
+F uses 36 x 48 + 4 x 9 x 12 = 2160 entries (native 72 x 96).
+The elemental ASM stores 2880 FP32 entries (native 9216 FP64 entries).
+
+H and F remain FP64. The FP32 ASM inverse is used only as a preconditioner;
+state, residual, Krylov and reduced-basis vectors remain FP64. Full local
+assembly matrices still exist temporarily for at most the configured element
+block size. Sequential field workspaces, basis vectors, geometry, communication,
+solver vectors, model data and runtime allocations remain additional costs.
+Consequently these entry counts do not by themselves predict total GPU memory
+or a production mesh capacity. Measure total device usage at the intended
+element load and workspace cap, including overlap/ghost elements.
+
+Validation scope
+----------------
+Configuration, block/count, transformation, condensation/recovery, provider and
+feature-off regressions are in tests/composite-hdg and the existing solver
+tests. EXASIM_COMPOSITE_VALIDATE enables additional local condensation and LU
+diagnostics; it is not a replacement for matched solution/convergence tests.
+Numerical equivalence means agreement of the fully converged physical solution;
+iteration histories and bit patterns can differ. Report stopping tolerances,
+per-component errors and unchanged-binary repeatability alongside aggregate
+norms. For the cylindrical CNS5air model, coordinates are (z,r,theta), so physical
+volume quadrature includes radius: r*J*w. Unweighted J*w measures coordinate
+volume. Trace arrays can contain overlap copies and are not volume integrals.
+
+Model capability
+----------------
+
+The runtime controls compositehdg=1 and compositebatchsize=1024 enable the
+solver feature only for a model that explicitly declares the supported
+dimension-matched CNS5air contract. The backend never infers species semantics from a number
+of equations, a model ID, or an enabled solver flag. Built-in CNS5air model 4 is not automatically registered; its semantics and
+other-data layout still require an explicit capability declaration.
+
+A model author must establish all of the following:
+* Conserved ordering N,O,NO,N2,O2,mx,my,E in 2D, or
+  N,O,NO,N2,O2,mx,my,mz,E in 3D.
+* w[0] is temperature; HdgSourcew is its local thermodynamic residual and
+  provides derivatives with respect to all eight/nine conserved components.
+* These derivatives remain valid at zero coordinates, gradients and other-data
+  inputs, as required by the established composite thermal-basis calculation.
+* N2 is the dependent species in the transformed basis.
+
+This capability does not replace the independent runtime checks on P2 quads/hexes,
+component/other-data counts, backend, precision, solver and interface options.
+It changes no chemistry residual, EOS, Jacobian, boundary or time discretization.
+
+Generated model workflow
+------------------------
+Place a model-owned file named composite_hdg_contract.hpp beside the generated
+kernel files, containing (for an explicitly audited model whose inner selector
+is 100):
+
+    #pragma once
+    #define EXASIM_COMPOSITE_CNS5AIR3D_MODEL_NUMBER 100
+
+For the audited 2D CNS5air model use EXASIM_COMPOSITE_CNS5AIR2D_MODEL_NUMBER
+instead. Declare exactly one dimension; a mismatched provider is rejected.
+
+Use the actual inner model selector passed to the kernels, not automatically
+the external library/built-in provider ID. The frontend provider and external
+model provider templates include this file when present. Existing exportapp
+copies the entire kernel directory, including this contract. The declaration
+is compiled in the same translation unit as the strongly referenced ABI getter,
+so it works for static model libraries without whole-archive linker flags.
+Exactly one model selector is opted in by the generated template; other IDs are
+rejected. For a library with multiple opted-in models, implement one query export
+that dispatches to explicitly constructed Cns5air3dProvider or Cns5air2dProvider objects.
+
+On macOS the optional query uses weak_import together with the symbol-specific
+linker option -Wl,-U,_GetExasimCompositeHdgModelV1. Installed Exasim CMake targets
+propagate this option automatically, including for ordinary applications without
+a composite declaration. A manual link must supply it. Other undefined symbols
+remain link errors; there is no general undefined-symbol suppression.
+
+MATLAB export and target-machine rebuild
+---------------------------------------
+For the audited CNS5air2D case, keep the physical model functions unchanged.
+The case's register_composite_cns5air2d(pde) helper checks its layout and writes
+the declaration above with resolve_modelid(pde). Run it after every kernel
+regeneration and before export:
+
+    pde.compositehdg = 1;
+    pde.compositebatchsize = 1024;
+    [pde,mesh,master,dmd] = preprocessing(pde,mesh);
+    kkgencode(pde);
+    register_composite_cns5air2d(pde);
+    exportapp(pde, "caltech2d-composite", false);
+
+The helper belongs to the audited case; it is not a declaration that arbitrary
+eight-component models are compatible. No pde.builddir override is needed:
+initializeexasim defaults to <working-directory>/.exasim. The false argument
+packages the app without building or starting its solver locally. Its kernels/
+directory carries composite_hdg_contract.hpp to the target machine.
+
+Update the complete matching Exasim source revision on the target machine,
+including backend/, include/, cmake/, install/ and frontends/. Updating backend/
+alone is insufficient. Reconfigure/build with the target's compiler, MPI and
+HIP stack, then install into the target prefix. Do not transfer local build
+caches or compiled libraries between architectures. Finally, rebuild the
+exported app against that updated installed Exasim package; select gpumpi for
+MPI/GPU execution. An app exported with platform="cpu" can be retargeted with
+EXASIM_VARIANT=gpumpi at its CMake configure step. Use the site's scheduler and
+launcher to run the resulting executable. The 2D GPU smoke check remains
+outstanding; CPU/MPI validation is not a GPU execution result.
+
+Prebuilt/external model workflow
+-------------------------------
+Keep the chemistry archive untouched. Compile a direct source adapter into the
+final executable (target_sources in CMake), for example:
+
+    #include <composite_hdg_model.hpp>
+    extern "C" ExasimDriverABI hybrid_abi();
+    EXASIM_DEFINE_COMPOSITE_CNS5AIR3D_PROVIDER(100, hybrid_abi())
+
+Use EXASIM_DEFINE_COMPOSITE_CNS5AIR2D_PROVIDER for the 2D contract.
+
+The adapter binds model 100 to this library's actual callback addresses. Queries
+for another model or a differently composed physics table are rejected. Compile
+the adapter against the same DriverABI version/scalar type as the model archive.
+Do not rely on an adapter alone in a static archive: ELF leaves that member
+unextracted, whereas the macOS linker can extract it for a weak import.
+For portable behavior, put it alongside the
+strong ABI getter or link the adapter directly as a source/object.
+
+This opt-in asserts semantics; callback identity and dimensional checks cannot
+prove the author supplied the correct equations. Numerical equivalence and the
+sandbox-versus-backend executable tests remain required validation. The separate
+ModelV1 interface leaves the existing DriverABI layout unchanged. Optional weak
+query discovery currently requires GCC/Clang-compatible host linking.
+
+Initialization and output
+-------------------------
+Supply the same physical UDG/WDG/UH arrays as regular HDG. No transformed
+composite coordinates appear in saved output. The 2D state contains eight U
+components and sixteen q components; saveSolOpt=1 retains all 24. The 3D state
+contains nine U and twenty-seven q components. Temperature remains WDG. Existing
+preprocessing, executable arguments, MPI launch and readers remain applicable.
+Rebuild generated-model providers and the executable against the updated install;
+an old executable does not acquire support just by changing app.bin.

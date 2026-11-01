@@ -64,6 +64,12 @@ ndims(18) = app.nbqoi;
 ndims(19) = app.nvqoi;
 ndims(20) = app.ncm;
 ndims(21) = app.nsurfq; % SurfaceQuantities components
+if ~isfield(app,'compositehdg'), app.compositehdg = 0; end
+if ~isfield(app,'compositebatchsize'), app.compositebatchsize = 1024; end
+assert((isnumeric(app.compositehdg) || islogical(app.compositehdg)) && isreal(app.compositehdg) && isscalar(app.compositehdg) && any(app.compositehdg == [0 1]), 'pde.compositehdg must be 0 or 1');
+assert(isnumeric(app.compositebatchsize) && isreal(app.compositebatchsize) && isscalar(app.compositebatchsize) && isfinite(app.compositebatchsize) && app.compositebatchsize >= 1 && app.compositebatchsize <= 2147483647 && fix(app.compositebatchsize) == app.compositebatchsize, 'pde.compositebatchsize must be a positive integer within int32 range');
+ndims(24) = app.compositehdg;
+ndims(25) = app.compositebatchsize;
 
 % if app.nco ~= size(app.vindx,1)
 %     error("app.nco mus be equal to size(app.vindx,1)");

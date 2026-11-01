@@ -45,6 +45,8 @@
 #ifndef __UEQUATION
 #define __UEQUATION
 
+#include "CompositeHDG/field_split.hpp"
+
 template <class M, class T=dstype, class I=Int>
 inline void uEquationElemBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
         meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int jth, Int backend)
@@ -233,6 +235,7 @@ inline void uEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, a
     Int e1 = common.eblks[3*jth]-1;
     Int e2 = common.eblks[3*jth+1];            
     Int ne = e2-e1;
+    if(common.composite) fieldsplit::clearBatch(*common.composite,ne);
     Int nf = nfe*ne;
     Int nn =  npf*nf; 
     Int nga = ngf*nf;   
@@ -355,7 +358,7 @@ inline void uEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, a
     // npf*npf*nfe*ne*ncu*ncu
     Gauss2Node(handle, Ftmp, fh_uh, master.shapfgwdotshapfg, ngf, npf*npf, nf*ncu*ncu, backend);            
     // npf*npf*nfe*ne*ncu*ncu -> npe*npf*nfe*ne*ncu*ncu
-    assembleMatrixF(&res.F[npe*npf*nfe*ncu*ncu*e1], Ftmp, mesh.perm, npe, npf, nfe, ne*ncu*ncu);
+    assembleMatrixF(fieldsplit::F(common.composite,res.F,size_t(e1)*npe*npf*nfe*ncu*ncu), Ftmp, mesh.perm, npe, npf, nfe, ne*ncu*ncu);
 
     // impose boundary conditions
     for (int ibc=0; ibc<common.meshsizes.maxnbc; ibc++)
@@ -482,7 +485,7 @@ inline void uEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, a
     }
 
     // npf*npf*nfe*ne*ncu*ncu -> npf*nfe*npf*nfe*ne*ncu*ncu
-    assembleMatrixH(&res.H[npf*nfe*npf*nfe*ncu*ncu*e1], Ftmp, mesh.perm, npe, npf, nfe, ne*ncu*ncu);
+    assembleMatrixH(fieldsplit::H(common.composite,res.H,size_t(e1)*npf*nfe*npf*nfe*ncu*ncu), Ftmp, mesh.perm, npe, npf, nfe, ne*ncu*ncu);
 
     // impose interface conditions
     for (int ibc=0; ibc<common.meshsizes.maxnbc; ibc++)
@@ -586,11 +589,11 @@ inline void uEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, a
     writearray2file(filename + "uEquationElemFace_Ru.bin", &res.Ru[npe*ncu*e1], npe*ne*ncu, backend);
     writearray2file(filename + "uEquationElemFace_D.bin", res.D, npe*npe*ncu*ncu*ne, backend);
     writearray2file(filename + "uEquationElemFace_B.bin", res.B, npe*npe*ncu*ncq*ne, backend);
-    writearray2file(filename + "uEquationElemFace_F.bin", &res.F[npe*npf*nfe*ncu*ncu*e1], npe*npf*nfe*ncu*ncu*ne, backend);
+    writearray2file(filename + "uEquationElemFace_F.bin", fieldsplit::F(common.composite,res.F,size_t(e1)*npe*npf*nfe*ncu*ncu), npe*npf*nfe*ncu*ncu*ne, backend);
     writearray2file(filename + "uEquationElemFace_Rh.bin", &res.Rh[npf*nfe*ncu*e1], npf*nfe*ne*ncu, backend);
     writearray2file(filename + "uEquationElemFace_K.bin", res.K, npf*nfe*npe*ne*ncu*ncu, backend);  
     writearray2file(filename + "uEquationElemFace_G.bin", res.G, npf*nfe*npe*ne*ncu*ncq, backend);  
-    writearray2file(filename + "uEquationElemFace_H.bin", &res.H[npf*nfe*npf*nfe*ncu*ncu*e1], npf*nfe*npf*nfe*ne*ncu*ncu, backend);      
+    writearray2file(filename + "uEquationElemFace_H.bin", fieldsplit::H(common.composite,res.H,size_t(e1)*npf*nfe*npf*nfe*ncu*ncu), npf*nfe*npf*nfe*ne*ncu*ncu, backend);
   }
 }
 
@@ -612,9 +615,9 @@ inline void uEquationSchurBlock(solstructT<T,I> &sol, resstructT<T,I> &res, apps
 
     Int n = npe*ncu; 
     Int m = npf*nfe*ncu;
-    dstype *DinvF = &res.F[n*m*e1];    
+    dstype *DinvF = fieldsplit::F(common.composite,res.F,size_t(e1)*n*m);
     dstype *Ru = &res.Ru[n*e1];
-    dstype *DinvH = &res.H[m*m*e1];
+    dstype *DinvH = fieldsplit::H(common.composite,res.H,size_t(e1)*m*m);
     dstype *Rh = &res.Rh[m*e1];
 
 //     dstype *D = tmp.tempn;
@@ -625,16 +628,16 @@ inline void uEquationSchurBlock(solstructT<T,I> &sol, resstructT<T,I> &res, apps
 //     // npe * npe * ne * ncu * ncu -> npe * ncu * npe * ncu * ne
 //     schurMatrixD(D, res.D, npe, ncu, ne);
 //     // npe * npf * nfe * ne * ncu * ncu -> npe * ncu * ncu * npf * nfe * ne
-//     schurMatrixF(F, &res.F[n*m*e1], npe, ncu, npf, nfe, ne);
+//     schurMatrixF(F, fieldsplit::F(common.composite,res.F,size_t(e1)*n*m), npe, ncu, npf, nfe, ne);
 //     // npf * nfe * npe * ne * ncu * ncu -> ncu * npf * nfe * npe * ncu * ne
 //     schurMatrixK(K, res.K, npe, ncu, ncu, npf, nfe, ne);    
 //     // npf * nfe * npf * nfe * ne * ncu * ncu -> ncu * npf * nfe * ncu * npf * nfe * ne
-//     schurMatrixH(H, &res.H[m*m*e1], ncu, ncu, npf, nfe, ne);
+//     schurMatrixH(H, fieldsplit::H(common.composite,res.H,size_t(e1)*m*m), ncu, ncu, npf, nfe, ne);
 
     dstype *D = res.D;
     dstype *K = res.K;
-    dstype *F = &res.F[n*m*e1];
-    dstype *H = &res.H[m*m*e1];
+    dstype *F = fieldsplit::F(common.composite,res.F,size_t(e1)*n*m);
+    dstype *H = fieldsplit::H(common.composite,res.H,size_t(e1)*m*m);
 
     // npe * npe * ne * ncu * ncu -> npe * ncu * npe * ncu * ne
     schurMatrixD(tmp.tempn, res.D, npe, ncu, ne);
@@ -645,11 +648,11 @@ inline void uEquationSchurBlock(solstructT<T,I> &sol, resstructT<T,I> &res, apps
     ArrayCopy(K, tmp.tempn, n * m * ne);
     
     // npf * nfe * npf * nfe * ne * ncu * ncu -> ncu * npf * nfe * ncu * npf * nfe * ne
-    schurMatrixH(tmp.tempn, &res.H[m*m*e1], ncu, ncu, npf, nfe, ne);
+    schurMatrixH(tmp.tempn, fieldsplit::H(common.composite,res.H,size_t(e1)*m*m), ncu, ncu, npf, nfe, ne);
     ArrayCopy(H, tmp.tempn, m * m * ne);
     
     // npe * npf * nfe * ne * ncu * ncu -> npe * ncu * ncu * npf * nfe * ne
-    schurMatrixF(tmp.tempn, &res.F[n*m*e1], npe, ncu, npf, nfe, ne);
+    schurMatrixF(tmp.tempn, fieldsplit::F(common.composite,res.F,size_t(e1)*n*m), npe, ncu, npf, nfe, ne);
     ArrayCopy(F, tmp.tempn, n * m * ne);
         
     dstype scalar = 1.0;
@@ -733,6 +736,11 @@ inline void uEquationSchurBlock(solstructT<T,I> &sol, resstructT<T,I> &res, apps
       writearray2file(filename + "uEquationElemSchur_H.bin", H, npf*npf*nfe*nfe*ne*ncu*ncu, backend);      
     } 
 
+    if constexpr (std::is_same_v<T,double> && std::is_same_v<I,::Int>) if (common.compositeConfig.enabled) {
+      fieldsplit::condense(*common.composite,D,F,K,H,Ru,Rh,res,mesh,tmp,common,e1,ne,backend);
+      return;
+    }
+
     // compute the inverse of D 
     if(common.hdgldgBoundary>0)
       InverseWithWorkspace(handle,D,tmp.tempn,res.ipiv,n,ne,backend,
@@ -747,6 +755,7 @@ inline void uEquationSchurBlock(solstructT<T,I> &sol, resstructT<T,I> &res, apps
     // Ru = Dinv * Ru    
     schurVectorRu(tmp.tempn, Ru, npe, ncu, ne); // permute Ru from npe*ne*ncu to npe*ncu*ne
     PGEMNMStridedBached(handle, n, 1, n, one, D, n, tmp.tempn, n, zero, Ru, n, ne, backend);    
+
 
     // H = H + K * DinvF
     //ArrayCopy(DinvH, H, m*m*ne);

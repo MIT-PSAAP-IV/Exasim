@@ -263,7 +263,7 @@ function _t2c_write_pdeapp(pde, mesh, files, path, modelfile="pdemodel.txt")
         "AVcontinuationLogScale", "AVcoeffStart", "AVcoeffEnd", "frozenAVflag", "nonlinearsolver",
         "linearsolver", "NewtonIter", "NewtonTol",
         "GMRESiter", "GMRESrestart", "GMREStol", "GMRESortho", "ppdegree", "RBdim",
-        "matvecorder", "matvectol", "precMatrixType", "preconditioner", "time",
+        "matvecorder", "matvectol", "precMatrixType", "preconditioner", "compositehdg", "compositebatchsize", "time",
         "NLparam", "tau", "dt", "dae_alpha", "dae_beta", "dae_gamma", "dae_epsilon",
         "dae_steps", "dae_dt", "physicsparam", "physicsparamcases", "externalparam",
         "vindx", "avparam1", "avparam2", "stgNmode", "stgchem", "stgib", "stgdata", "stgparam",

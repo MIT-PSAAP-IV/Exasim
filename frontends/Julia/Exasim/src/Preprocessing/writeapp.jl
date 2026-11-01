@@ -62,6 +62,10 @@ ndims[18] = app.nbqoi;
 ndims[19] = app.nvqoi;
 ndims[20] = app.ncm;
 ndims[21] = app.nsurfq;  # SurfaceQuantities components
+app.compositehdg in (0, 1) || error("compositehdg must be 0 or 1")
+1 <= app.compositebatchsize <= 2147483647 || error("compositebatchsize must be a positive Int32")
+ndims[24] = app.compositehdg;
+ndims[25] = app.compositebatchsize;
 
 # Preserve explicitly supplied schedules, matching MATLAB. This also permits
 # bitwise-identical schedules across math-library implementations.

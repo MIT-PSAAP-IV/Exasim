@@ -77,6 +77,7 @@ public:
     tempstruct tmp;
     commonstruct common;
     ExasimDriverABI driver_abi;
+    std::unique_ptr<fieldsplit::Context> composite;
     scratcharenastruct scratch;  // owns the K backing buffer; res.K/views + sys.v are non-owning reserves (S5 step 3)
     Int localDomain = -1;
     std::vector<Int> domainRankOffsets;

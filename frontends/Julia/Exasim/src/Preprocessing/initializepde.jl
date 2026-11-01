@@ -87,6 +87,8 @@ mutable struct PDEStruct
     GMRESrestart::IntP; # number of GMRES restarts
     GMRESortho::IntP; # GMRES orthogonalization method
     preconditioner::IntP; # flag for preconditioner method
+    compositehdg::IntP;
+    compositebatchsize::IntP;
     precMatrixType::IntP; # flag for type of preconditioner matrix
     ppdegree::IntP; # polynomial preconditioner
     coupledinterface::IntP;        # app.bin problem[28] (M1: match Matlab layout)
@@ -309,6 +311,8 @@ function initializepde(version)
     pde.GMRESrestart = 100;
     pde.GMRESortho = 0;
     pde.preconditioner = 1;
+    pde.compositehdg = 0;
+    pde.compositebatchsize = 1024;
     pde.precMatrixType = 0;
     pde.ppdegree = 0;
     pde.coupledinterface = 0;

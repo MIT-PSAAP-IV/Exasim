@@ -78,6 +78,18 @@ def writeapp(app,filename):
     ndims[19-1] = app['nvqoi'];
     ndims[20-1] = app.get('ncm', 0);
     ndims[21-1] = app.get('nsurfq', 0);  # number of surfacequantities outputs
+    mode = app.get('compositehdg', 0)
+    cap = app.get('compositebatchsize', 1024)
+    if not isscalar(mode) or not isreal(mode) or mode not in (0, 1):
+        raise ValueError('pde.compositehdg must be 0 or 1')
+    try:
+        valid_cap = isscalar(cap) and isreal(cap) and isfinite(cap) and 1 <= cap <= 2147483647 and floor(cap) == cap
+    except TypeError:
+        valid_cap = False
+    if not valid_cap:
+        raise ValueError('pde.compositebatchsize must be a positive integer within int32 range')
+    ndims[23] = mode
+    ndims[24] = cap
 
     #if app['nco'] != app['vindx'].shape[0]:  #size(app.vindx,1):
     #    error("app.nco mus be equal to size(app.vindx,1)");
