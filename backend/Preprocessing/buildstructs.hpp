@@ -23,6 +23,8 @@
 
 #pragma once
 
+#include <composite_config.hpp>
+
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -139,6 +141,8 @@ inline appstructT<T,I> buildAppStruct(const PDE& pde)
     app.ndims[AppNdims::nvqoi] = pde.nvqoi;
     app.ndims[AppNdims::ncm] = pde.ncm;
     app.ndims[AppNdims::nsurfq] = pde.nsurfq;
+    app.ndims[AppNdims::compositehdg] = exasim::composite::integer(pde.compositehdg, "compositehdg", 0, 1);
+    app.ndims[AppNdims::compositebatchsize] = exasim::composite::integer(pde.compositebatchsize, "compositebatchsize", 1, 2147483647);
 
     // ---- nsize (30 entries, sub-array sizes) ----
     constexpr Int kNSize = 30;

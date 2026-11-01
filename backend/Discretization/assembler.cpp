@@ -20,10 +20,15 @@ void CAssembler<M, T, I>::hdgAssembleLinearSystem(dstype *b, Int backend)
     int m = common.grid.npf*common.meshsizes.nfe*common.components.ncu;
     int ne = common.meshsizes.ne1;
 
-    ArraySetValue(res.H, zero, m*m*ne);
+    if constexpr (std::is_same_v<T,double> && std::is_same_v<I,::Int>) {
+      if (common.composite) fieldsplit::freeze(*common.composite,sol,app,common);
+    }
+    const size_t hs=common.composite?exasim::composite::dimensions(common.grid.nd).HS:size_t(m)*m;
+    const size_t fs=common.composite?exasim::composite::dimensions(common.grid.nd).FS:size_t(n)*m;
+    fieldsplit::setStorage(res.H,T(0),hs*ne);
+    fieldsplit::setStorage(res.F,T(0),fs*ne);
     ArraySetValue(res.Rh, zero, m*ne);
     ArraySetValue(res.Ru, zero, n*ne);
-    ArraySetValue(res.F, zero, n*m*ne);
 
 #ifdef HAVE_MPI
     hdgAssembleLinearSystemMPI<M>(b, sol, res, app, master, mesh, tmp, common,

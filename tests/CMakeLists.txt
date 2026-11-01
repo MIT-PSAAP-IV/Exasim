@@ -763,6 +763,9 @@ set_tests_properties(unit_nonmatching_3d PROPERTIES TIMEOUT 120) # [nonmatching]
 add_executable(unit_nonmatching_fingerprint ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_fingerprint.cpp) # [nonmatching]
 target_link_libraries(unit_nonmatching_fingerprint PRIVATE Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
 target_include_directories(unit_nonmatching_fingerprint PRIVATE ${EXASIM_DIR}) # [nonmatching]
+if(EXASIM_MPI)
+# These fixtures require MPI-only setup/operator helpers or communication state
+# even at compile time. Their CTest registrations below also require MPI.
 add_executable(unit_nonmatching_hextet ${CMAKE_CURRENT_SOURCE_DIR}/unit/nonmatching_hextet.cpp) # [nonmatching]
 target_link_libraries(unit_nonmatching_hextet PRIVATE Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES}) # [nonmatching]
 target_include_directories(unit_nonmatching_hextet PRIVATE ${EXASIM_DIR}) # [nonmatching]
@@ -789,6 +792,7 @@ add_executable(unit_nonmatching_interactions
 target_link_libraries(unit_nonmatching_interactions PRIVATE
   Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
 target_include_directories(unit_nonmatching_interactions PRIVATE ${EXASIM_DIR})
+endif()
 if(EXASIM_MPI) # [nonmatching]
   target_link_libraries(unit_nonmatching_fingerprint PRIVATE MPI::MPI_CXX) # [nonmatching]
   target_compile_definitions(unit_nonmatching_fingerprint PRIVATE HAVE_MPI) # [nonmatching]

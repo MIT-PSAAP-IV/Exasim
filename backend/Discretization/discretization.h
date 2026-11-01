@@ -82,6 +82,7 @@ public:
     tempstruct tmp;
     commonstruct common;
     ExasimDriverABI driver_abi;
+    std::unique_ptr<fieldsplit::Context> composite;
     scratcharenastruct scratch;  // owns the K backing buffer; res.K/views + sys.v are non-owning reserves (S5 step 3)
     // [multiphysics Phase 3] Zero or one legacy pair. Phase 4 activates graph
     // construction without changing the pairwise object or numerical kernels.

@@ -64,6 +64,7 @@
 #include "interfacesampler.h"   // CInterfaceSampler decl, needed early by the wall-model sampling
 #include "wallmodelbuild.h"     // CWallModel decl, used by the constructor
 #include "ioutilities.cpp"
+#include "CompositeHDG/field_split.hpp"
 #include "../PointLocator/pointlocator.h"
 
 // #ifdef HAVE_TEXT2CODE
@@ -819,20 +820,47 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
       }
 
       if (!postprocessOnly) {
-        res.szH = npf*nfe*ncu*npf*nfe*ncu*common.meshsizes.ne; // HDG elemental matrices
-        res.szK = (npe*ncu*npe*ncu + npe*ncu*npe*ncq + npf*nfe*ncu*npe*ncq + npf*nfe*ncu*npe*ncu)*neb;
-        if (common.solverparams.preconditioner==0)      // Block Jacobition preconditioner
-          res.szP = ncu*npf*ncu*npf*nf;
-        else if (common.solverparams.preconditioner==1) // Elemental additive Schwarz preconditioner
-          res.szP = npf*nfe*ncu*npf*nfe*ncu*common.meshsizes.ne;
-        else if (common.solverparams.preconditioner==2) // Superelement additive Schwarz preconditioner
-          res.szP = npf*ncu*npf*ncu*common.nse*common.nnz;
-        // Match setsysstruct's shared Krylov/RB reservation, including RB > restart.
-        res.szV = ncu*npf*nf*max(common.solverparams.gmresRestart+1, common.solverparams.RBdim);
-        res.szK = max(res.szK, res.szP + res.szV);
-        res.szF = npe*ncu*npf*nfe*ncu*common.meshsizes.ne;
+        const uint64_t nv=uint64_t(npe)*ncu, nt=uint64_t(npf)*nfe*ncu;
+        const uint64_t nq=uint64_t(npe)*ncq, elements=common.meshsizes.ne;
+        const uint64_t hs=common.compositeConfig.enabled?uint64_t(exasim::composite::dimensions(common.grid.nd).HS):nt*nt;
+        const uint64_t fs=common.compositeConfig.enabled?uint64_t(exasim::composite::dimensions(common.grid.nd).FS):nv*nt;
+        const uint64_t ps=common.compositeConfig.enabled?uint64_t(exasim::composite::dimensions(common.grid.nd).HS/2):nt*nt;
+        res.szH=fieldsplit::checkedStorage(hs*elements,"H");
+        res.szF=fieldsplit::checkedStorage(fs*elements,"F");
+        uint64_t pcount=ps*elements;
+        if(!common.compositeConfig.enabled && common.solverparams.preconditioner==0) pcount=uint64_t(ncu)*npf*ncu*npf*nf;
+        if(!common.compositeConfig.enabled && common.solverparams.preconditioner==2) pcount=uint64_t(npf)*ncu*npf*ncu*common.nse*common.nnz;
+        res.szP=fieldsplit::checkedStorage(pcount,"preconditioner prefix");
+        res.szV=fieldsplit::checkedCount(uint64_t(ncu)*npf*nf*max(common.solverparams.gmresRestart+1,common.solverparams.RBdim),"Krylov/RB");
+        res.szK=fieldsplit::checkedStorage(std::max<uint64_t>((nv*nv+nv*nq+nt*nq+nt*nv)*neb,uint64_t(res.szP)+res.szV),"K arena");
         res.szipiv = max(max(npf*nfe,npe)*ncu*neb, ncu*npf*common.meshsizes.nfb);
 
+        if(common.compositeConfig.enabled) {
+          const size_t contextBytes=fieldsplit::Context::plannedBytes(common);
+          const size_t requiredBytes=8*(res.szH+res.szF+res.szK)+sizeof(Int)*size_t(res.szipiv)+contextBytes;
+#ifdef HAVE_HIP
+          if(backend==3){size_t freeBytes=0,totalBytes=0;CHECK(hipMemGetInfo(&freeBytes,&totalBytes));
+            printf("COMPOSITE_MEMORY_PLAN rank=%d additional_bytes=%zu context_bytes=%zu free_device_bytes=%zu excludes_private_library_peaks=1\n",common.mpiRank,requiredBytes,contextBytes,freeBytes);
+            if(requiredBytes>freeBytes)throw std::runtime_error("compositehdg planned allocations exceed available device memory; reduce compositebatchsize or local element load");}
+#endif
+        }
+        if (common.compositeConfig.enabled) {
+          if constexpr (!std::is_same_v<T,double> || !std::is_same_v<I,::Int>)
+            throw std::runtime_error("compositehdg requires double-state/default-index build");
+          else {
+            composite=std::make_unique<fieldsplit::Context>();
+            composite->init(common); common.composite=composite.get();
+          }
+        }
+        if (common.compositeConfig.enabled)
+          printf("COMPOSITE_HDG rank=%d enabled=%d requested_cap=%d effective_cap=%d H_stride=%zu F_stride=%zu ASM_storage=%s RBdim=%d\n",
+               common.mpiRank,int(common.compositeConfig.enabled),common.compositeConfig.batch,neb,
+               common.composite?size_t(exasim::composite::dimensions(common.grid.nd).HS):size_t(npf)*nfe*ncu*npf*nfe*ncu,
+               common.composite?size_t(exasim::composite::dimensions(common.grid.nd).FS):size_t(npe)*ncu*npf*nfe*ncu,
+               common.composite?"FP32":"native",common.solverparams.RBdim);
+
+        if(common.composite && common.composite->bytes()!=fieldsplit::Context::plannedBytes(common))
+          throw std::runtime_error("composite context allocation ledger mismatch");
         TemplateMalloc(&res.H, res.szH, backend);
         res.K = scratch.allocate(res.szK, backend);  // K owned by the arena (S5 step 3)
         TemplateMalloc(&res.F, res.szF, backend);

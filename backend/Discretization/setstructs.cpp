@@ -182,6 +182,7 @@ void setcommonstruct(commonstructT<T,I> &common, appstructT<T,I> &app, masterstr
     common.solverparams.matvecOrder = app.flag[4];        
     common.solverparams.gmresOrthogMethod = app.flag[5];            
     common.solverparams.preconditioner = app.flag[6];
+    common.compositeConfig = exasim::composite::decode(app);
     common.solverparams.precMatrixType = app.flag[7];
     common.solverparams.ptcMatrixType = app.flag[8];
     common.runmode = app.flag[9];
@@ -605,6 +606,10 @@ void settempstruct(tempstructT<T,I> &tmp, appstructT<T,I> &app, masterstructT<T,
     //Int nf = mesh.ndims[2]; // number of faces in this subdomain 
     Int ndofucg = mesh.nsize[12]-1;; //total DOFs for CG field
     Int spatialScheme = app.problem[0];   /* 0: LDG; 1: HDG */
+    const auto compositeConfig=exasim::composite::decode(app);
+    exasim::composite::validateShape<T>(compositeConfig,app,master);
+    if(compositeConfig.enabled)exasim::composite::checkTemporaryCounts(neb,ne,nfb,ndofucg,nge,ngf);
+
 
     Int n0 = max(npe*max(nc+ncw,ncx)*neb, npf*(ncu+2*nc+2*ncw)*nfb);                        
     n0 = 2*max(n0, nco*ne*npe);
@@ -697,6 +702,7 @@ void settempstruct(tempstructT<T,I> &tmp, appstructT<T,I> &app, masterstructT<T,
     Int rb = max(0, app.problem[16]);
     n0 = max(n0, 2*rb);
     n3 = max(n3, 2*rb*rb);
+    exasim::composite::count(uint64_t(n0)+uint64_t(n3),"combined temporary workspace");
     TemplateMalloc(&tmp.tempn, n0+n3, backend); 
     tmp.tempg = &tmp.tempn[n0];
     TemplateMalloc(&tmp.tempi, tmp.sztempi, backend);
@@ -713,10 +719,12 @@ void settempstruct(tempstructT<T,I> &tmp, appstructT<T,I> &app, masterstructT<T,
     else if (spatialScheme == 1) {
       int m = ncu*npf*nfe; 
       int n = max(nc,nco)*npe; // fix bug here
-      TemplateMalloc(&tmp.buffsend, max(m*m + m, n)*mesh.nsize[5], backend);
-      TemplateMalloc(&tmp.buffrecv, max(m*m + m, n)*mesh.nsize[6], backend);
-      tmp.szbuffsend = max(m*m + m, n)*mesh.nsize[5];
-      tmp.szbuffrecv = max(m*m + m, n)*mesh.nsize[6];
+      const Int stride=compositeConfig.enabled ? max(exasim::composite::dimensions(nd).HS+m,npe*max(max(nc,nco),app.problem[11])) : max(m*m+m,n);
+      exasim::composite::count(uint64_t(stride)*mesh.nsize[5],"HDG halo send");
+      exasim::composite::count(uint64_t(stride)*mesh.nsize[6],"HDG halo receive");
+      TemplateMalloc(&tmp.buffsend,stride*mesh.nsize[5],backend);
+      TemplateMalloc(&tmp.buffrecv,stride*mesh.nsize[6],backend);
+      tmp.szbuffsend=stride*mesh.nsize[5];tmp.szbuffrecv=stride*mesh.nsize[6];
       
       TemplateMalloc(&tmp.bufffacesend, app.nsize[14]*npf*mesh.szfacesend, backend);
       TemplateMalloc(&tmp.bufffacerecv, app.nsize[14]*npf*mesh.szfacerecv, backend);
@@ -1224,6 +1232,7 @@ void devsolstruct(solstructT<T,I> &dsol, solstructT<T,I> &sol, commonstructT<T,I
     TemplateMalloc(&dsol.wdg, sol.nsize[4], common.backend);
     // Host-side extent is also needed by trial snapshots; nsize on the device
     // cannot be dereferenced there. Preserve the entire allocation (incl. halos).
+    dsol.szudg = sol.nsize[2];
     dsol.szwdg = sol.nsize[4];
 
     #ifdef HAVE_ENZYME
