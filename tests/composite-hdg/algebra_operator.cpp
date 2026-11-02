@@ -21,9 +21,9 @@ int main(int argc,char** argv){
  Kokkos::initialize(argc,argv);int code=0;
  try{
   InputParams parameters;parameters.stringParams["exasimpath"]=".";
-  parameters.intParams["compositehdg"]=1;parameters.doubleParams["compositebatchsize"]=2048.;
+  parameters.compositebc={1001,5,5};parameters.intParams["compositehdg"]=1;parameters.doubleParams["compositebatchsize"]=2048.;
   auto pde=initializePDE(parameters,1);assert(pde.compositehdg==1&&pde.compositebatchsize==2048);
-  auto wire=exasim::buildAppStruct(pde);assert(exasim::composite::decode(wire).batch==2048);wire.freememory(0);
+  auto wire=exasim::buildAppStruct(pde);assert(exasim::composite::decode(wire).batch==2048);assert(exasim::composite::decode(wire).boundaryCodes==std::vector<int>({5,1001}));wire.freememory(0);
   parameters.doubleParams["compositebatchsize"]=1024.5;bool rejected=false;try{initializePDE(parameters,1);}catch(const std::exception&){rejected=true;}assert(rejected);
   printf("CPP_TEXT_AND_INMEMORY_CONFIG_PASS\n");
   commonstruct c{};c.grid.nd=ND;c.grid.npe=P;c.grid.npf=PF;c.meshsizes.nfe=2*ND;c.meshsizes.ne=2;c.meshsizes.ne1=2;c.meshsizes.neb=1;c.meshsizes.nf=NF;

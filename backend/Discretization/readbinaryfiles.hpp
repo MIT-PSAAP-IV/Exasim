@@ -106,6 +106,7 @@ inline void readappstruct(std::string filename, appstruct &app)
     // Keep the reserved extension slot so existing matching input layouts are unchanged.
     if (app.lsize[0] > 24 && app.nsize[24] != 0)
         error("generalized nonmatching interactions are not supported");
+    exasim::composite::validateBoundaryHeader(in, app.nsize[0]);
     app.ndims = readiarrayfromdouble(in, app.nsize[0]);
     app.flag = readiarrayfromdouble(in, app.nsize[1]);
     app.problem = readiarrayfromdouble(in, app.nsize[2]);

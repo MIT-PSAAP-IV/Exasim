@@ -89,6 +89,7 @@ mutable struct PDEStruct
     preconditioner::IntP; # flag for preconditioner method
     compositehdg::IntP;
     compositebatchsize::IntP;
+    compositebc::Union{Real,AbstractVector{<:Real}};
     precMatrixType::IntP; # flag for type of preconditioner matrix
     ppdegree::IntP; # polynomial preconditioner
     coupledinterface::IntP;        # app.bin problem[28] (M1: match Matlab layout)
@@ -313,6 +314,7 @@ function initializepde(version)
     pde.preconditioner = 1;
     pde.compositehdg = 0;
     pde.compositebatchsize = 1024;
+    pde.compositebc = IntP[];
     pde.precMatrixType = 0;
     pde.ppdegree = 0;
     pde.coupledinterface = 0;

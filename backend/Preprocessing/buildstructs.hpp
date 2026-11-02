@@ -100,7 +100,7 @@ inline T* mallocDoubleArrayN(const T* src, Int n)
 //   ndims[13]  = pde.ncw           ndims[14]  = pde.nsca
 //   ndims[15]  = pde.nvec          ndims[16]  = pde.nten
 //   ndims[17]  = pde.nsurf         ndims[18]  = pde.nvqoi
-//   nsize[0]   = ndims.size() (=40)
+//   nsize[0]   = ndims.size() (40 + selected boundary-code count)
 //   nsize[k]   = .size() of k-th vector below
 //   payload    = flag, problem, externalparam, dt, factor,
 //                physicsparam, solversparam, tau, stgdata, stgparam,
@@ -120,8 +120,9 @@ inline appstructT<T,I> buildAppStruct(const PDE& pde)
 
     appstruct app{};
 
-    // ---- ndims (40 entries, dimensions) ----
-    constexpr Int kNDims = 40;
+    // Fixed dimensions followed by the optional composite boundary-code list.
+    const auto compositebc = exasim::composite::boundaryCodes(pde.compositebc);
+    const Int kNDims = 40 + static_cast<Int>(compositebc.size());
     app.ndims = (Int*)std::calloc(kNDims, sizeof(Int));
     app.ndims[AppNdims::mpiprocs]  = pde.mpiprocs;
     app.ndims[AppNdims::nd]  = pde.nd;
@@ -143,6 +144,8 @@ inline appstructT<T,I> buildAppStruct(const PDE& pde)
     app.ndims[AppNdims::nsurfq] = pde.nsurfq;
     app.ndims[AppNdims::compositehdg] = exasim::composite::integer(pde.compositehdg, "compositehdg", 0, 1);
     app.ndims[AppNdims::compositebatchsize] = exasim::composite::integer(pde.compositebatchsize, "compositebatchsize", 1, 2147483647);
+    app.ndims[AppNdims::compositebc_count] = static_cast<Int>(compositebc.size());
+    std::copy(compositebc.begin(), compositebc.end(), app.ndims+40);
 
     // ---- nsize (30 entries, sub-array sizes) ----
     constexpr Int kNSize = 30;

@@ -822,7 +822,7 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
             throw std::runtime_error("compositehdg requires double-state/default-index build");
           else {
             composite=std::make_unique<fieldsplit::Context>();
-            composite->init(common); common.composite=composite.get();
+            composite->init(common); composite->initBoundary(common,mesh); common.composite=composite.get();
           }
         }
         if (common.compositeConfig.enabled)
