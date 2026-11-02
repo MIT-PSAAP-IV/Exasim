@@ -201,6 +201,7 @@ inline void hdgBlockILU0(T *BE, T *AE, resstructT<T,I> &res, meshstructT<T,I> &m
 template <class T=dstype, class I=Int>
 inline void hdgElementalAdditiveSchwarz(T *BE, T *AE, resstructT<T,I> &res, meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
 {
+    EXASIM_PROFILE_SCOPE("hdg.schwarz_setup");
     using dstype=T;
     if constexpr (std::is_same_v<T,double> && std::is_same_v<I,::Int>) if (common.compositeConfig.enabled) { fieldsplit::schwarz(*common.composite,BE,AE,res,mesh,tmp,common,backend); return; }
     Int nf = common.meshsizes.nf; // number of faces in this subdomain
@@ -258,6 +259,7 @@ template <class T=dstype, class I=Int>
 inline void hdgGetDUDG(T *w, T *F, T *duh, T *ve, meshstructT<T,I> &mesh, 
         commonstructT<T,I> &common,  Int backend)
 {
+    EXASIM_PROFILE_SCOPE("hdg.recovery");
     using dstype=T;   
     Int ne = common.meshsizes.ne1; // number of elements in this subdomain 
     Int ncu = common.components.ncu;// number of compoments of (u)
@@ -282,6 +284,7 @@ template <class T=dstype, class I=Int>
 inline void hdgMatVec(T *w, T *AE, T *v, T *ve, T *we, resstructT<T,I> &res, appstructT<T,I> &app, 
         meshstructT<T,I> &mesh, commonstructT<T,I> &common, tempstructT<T,I> &tmp, cublasHandle_t handle, Int backend)
 {
+    EXASIM_PROFILE_SCOPE("hdg.distributed_matvec");
     using dstype=T;   
     Int ne1 = common.meshsizes.ne1; // number of elements in this subdomain 
     Int nf = common.meshsizes.nf; // number of faces in this subdomain
@@ -396,7 +399,8 @@ inline void hdgMatVec(T *w, T *AE, T *v, T *ve, T *we, resstructT<T,I> &res, app
     else PGEMNMStridedBached(handle, m, 1, m, one, AE, m, ve, m, zero, we, m, ne0, backend);
 
     // copy buffrecv to we
-    MPI_Waitall(request_counter, common.requests, common.statuses);    
+    { EXASIM_PROFILE_SCOPE("mpi.hdg_wait");
+      MPI_Waitall(request_counter, common.requests, common.statuses); }
 //     for (int n=0; n<common.nelemrecv; n++) {        
 //       ArrayCopy(&we[bsz*common.elemrecv[n]], &tmp.buffrecv[bsz*n], bsz);       
 //     }
@@ -568,7 +572,8 @@ inline void hdgAssembleLinearSystemMPI(T *b, solstructT<T,I> &sol, resstructT<T,
     }                        
 
     // copy buffrecv to H and Rh 
-    MPI_Waitall(request_counter, common.requests, common.statuses);    
+    { EXASIM_PROFILE_SCOPE("mpi.hdg_wait");
+      MPI_Waitall(request_counter, common.requests, common.statuses); }
 //     for (int n=0; n<common.nelemrecv; n++) {        
 //       ArrayCopy(&res.H[szH*common.elemrecv[n]], &tmp.buffrecv[bsz*n], szH); 
 //       ArrayCopy(&res.Rh[szR*common.elemrecv[n]], &tmp.buffrecv[bsz*n + szH], szR);            
@@ -717,7 +722,8 @@ inline void hdgAssembleResidualMPI(T *b, solstructT<T,I> &sol, resstructT<T,I> &
     }                        
 
     // copy buffrecv to Rh 
-    MPI_Waitall(request_counter, common.requests, common.statuses);    
+    { EXASIM_PROFILE_SCOPE("mpi.hdg_wait");
+      MPI_Waitall(request_counter, common.requests, common.statuses); }
 //     for (int n=0; n<common.nelemrecv; n++) {        
 //       ArrayCopy(&res.Rh[szR*common.elemrecv[n]], &tmp.buffrecv[bsz*n], szR);            
 //     }

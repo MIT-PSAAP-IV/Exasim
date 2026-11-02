@@ -391,6 +391,7 @@ inline void qEquation(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I
 template <class T=dstype, class I=Int>
 inline void hdgGetQ(T *udg, T *uhat, solstructT<T,I> &sol, resstructT<T,I> &res, meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, Int backend)
 {
+    EXASIM_PROFILE_SCOPE("hdg.gradient");
     using dstype=T;
     Int nc = common.components.nc;// number of compoments of (udg)        
     Int ncu = common.components.ncu; // number of compoments of (u)

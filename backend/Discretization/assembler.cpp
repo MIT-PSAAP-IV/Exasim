@@ -12,6 +12,7 @@
 template <class M, class T, class I>
 void CAssembler<M, T, I>::hdgAssembleLinearSystem(dstype *b, Int backend)
 {
+    EXASIM_PROFILE_SCOPE("hdg.assembly");
     auto& sol = disc.sol; auto& res = disc.res; auto& app = disc.app;
     auto& master = disc.master; auto& mesh = disc.mesh; auto& tmp = disc.tmp;
     auto& common = disc.common;
@@ -44,6 +45,7 @@ void CAssembler<M, T, I>::hdgAssembleLinearSystem(dstype *b, Int backend)
 template <class M, class T, class I>
 void CAssembler<M, T, I>::hdgAssembleResidual(dstype *b, Int backend)
 {
+    EXASIM_PROFILE_SCOPE("hdg.residual");
     auto& sol = disc.sol; auto& res = disc.res; auto& app = disc.app;
     auto& master = disc.master; auto& mesh = disc.mesh; auto& tmp = disc.tmp;
     auto& common = disc.common;

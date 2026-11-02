@@ -164,6 +164,24 @@ set(EXASIM_MAIN_DIR ${EXASIM_DIR}/backend/Main)
 file(GLOB MAIN_SOURCES ${EXASIM_MAIN_DIR}/main.cpp)
 set(T2C_MAIN_SOURCES ${EXASIM_MAIN_DIR}/maint2c.cpp)
 set(KOKKOSKERNEL_MAIN_SOURCES ${EXASIM_MAIN_DIR}/mainkernel.cpp)
+set(EXASIM_COMPOSITE_HDG_OVERRIDE_HEADER "" CACHE FILEPATH
+    "Optional application header specializing whole composite HDG operations")
+if(EXASIM_COMPOSITE_HDG_OVERRIDE_HEADER)
+  if(NOT EXISTS "${EXASIM_COMPOSITE_HDG_OVERRIDE_HEADER}")
+    message(FATAL_ERROR "Composite HDG override header does not exist")
+  endif()
+  add_compile_definitions(EXASIM_COMPOSITE_HDG_OVERRIDE_HEADER="${EXASIM_COMPOSITE_HDG_OVERRIDE_HEADER}")
+endif()
+
+set(EXASIM_HDG_SCHUR_OVERRIDE_HEADER "" CACHE FILEPATH
+    "Optional application header specializing the whole HDG Schur block function")
+if(EXASIM_HDG_SCHUR_OVERRIDE_HEADER)
+  if(NOT EXISTS "${EXASIM_HDG_SCHUR_OVERRIDE_HEADER}")
+    message(FATAL_ERROR "HDG Schur override header does not exist")
+  endif()
+  add_compile_definitions(EXASIM_HDG_SCHUR_OVERRIDE_HEADER="${EXASIM_HDG_SCHUR_OVERRIDE_HEADER}")
+endif()
+
 set(EXASIM_SOLVER_SOURCES ${EXASIM_MAIN_DIR}/ExasimSolver.cpp ${EXASIM_MAIN_DIR}/text2codeapp.cpp)
 
 function(add_exasim_static_library target output_name)
