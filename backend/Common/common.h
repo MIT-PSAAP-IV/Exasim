@@ -789,7 +789,7 @@ struct AppNdims {
         nvqoi    = 18, // volume quantities of interest
         ncm      = 19, // components of the physical-state monitor
         nsurfq = 20, // SurfaceQuantities (zero in older inputs)
-        compositehdg = 23, compositebatchsize = 24
+        compositehdg = 23, compositebatchsize = 24, compositebc_count = 25
     };
 };
 

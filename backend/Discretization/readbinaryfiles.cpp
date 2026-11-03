@@ -128,6 +128,7 @@ void readappstruct(string filename, appstruct &app)
             0, slot == AppNdims::compositehdg ? 1 : std::numeric_limits<int>::max());
     }
     in.seekg(ndimsStart);
+    exasim::composite::validateBoundaryHeader(in, app.nsize[0]);
     app.ndims = readiarrayfromdouble(in, app.nsize[0]);
     app.flag = readiarrayfromdouble(in, app.nsize[1]);
     app.problem = readiarrayfromdouble(in, app.nsize[2]);

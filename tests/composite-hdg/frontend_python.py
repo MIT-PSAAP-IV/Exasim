@@ -60,6 +60,18 @@ def main():
                 dims, problem = contents(binary)
                 assert tuple(dims[23:25]) == (1, cap)
                 assert problem[33] == 2
+        for codes, expected in [(5, [5]), ([1001, 5, 5], [5, 1001]), ([], [])]:
+            app = copy.deepcopy(base)
+            app.update(compositehdg=1, compositebc=codes, interfacetype=0,
+                       physicsparam=np.array([1.]), tau=np.array([1.]))
+            writeapp(copy.deepcopy(app), str(binary))
+            dims, _ = contents(binary)
+            assert dims[25] == len(expected) and list(dims[40:]) == expected
+            write_text(app, mesh, {"meshfile": "mesh.bin"}, str(text))
+            if args.converter:
+                subprocess.run([str(args.converter.resolve()), "--convert", str(text), str(binary)], check=True)
+                dims, _ = contents(binary)
+                assert dims[25] == len(expected) and list(dims[40:]) == expected
         unsupported = copy.deepcopy(base)
         unsupported.update(compositehdg=1, interfacetype=1)
         try:
@@ -69,6 +81,7 @@ def main():
         else:
             raise AssertionError("nonmatching input accepted")
         invalid = {
+            "compositebc": (0, -1, 5.5, np.nan, np.inf, 2147483648, 5j, "5", [5, np.nan], [[5]], True),
             "compositehdg": (-1, 2, 0.5, np.nan, np.inf, 1j, [1]),
             "compositebatchsize": (0, -1, 1024.5, np.nan, np.inf, -np.inf,
                                    2147483648, 1024j, [1024], "1024"),
@@ -84,7 +97,7 @@ def main():
                 else:
                     raise AssertionError(f"accepted {key}={value!r}")
         app = copy.deepcopy(base)
-        del app["compositehdg"], app["compositebatchsize"]
+        del app["compositehdg"], app["compositebatchsize"], app["compositebc"]
         writeapp(app, str(temp / "legacy.bin"))
         dims, _ = contents(temp / "legacy.bin")
         assert tuple(dims[23:25]) == (0, 1024)

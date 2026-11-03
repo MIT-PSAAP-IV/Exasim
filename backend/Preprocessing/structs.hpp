@@ -71,6 +71,7 @@ struct InputParams {
     std::vector<int> interfaceConditions;
     std::vector<int> interfaceFluxmap;
     std::vector<int> boundaryConditions;
+    std::vector<int> compositebc;
     std::vector<int> curvedBoundaries;
     std::vector<int> periodicBoundaries1;
     std::vector<int> periodicBoundaries2;
@@ -149,6 +150,7 @@ struct PDE {
     int hybrid = 0;
     int compositehdg = 0;
     int compositebatchsize = 1024;
+    std::vector<int> compositebc;
     int tdep = 0;
     int wave = 0;
     int linearproblem = 0;

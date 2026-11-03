@@ -1,0 +1,49 @@
+Selected boundary coupling: validation and scope
+
+boundary_operator.cpp exercises the actual public 2D/3D condensation and trace
+product paths on three manufactured P2 elements. Independent host algebra forms
+the physical expected selected rows from the original C/H/RHS and persisted
+compact volume recovery. The variable basis is constructed independently and
+inverted with LAPACK; the oracle does not call the backend basis helpers.
+
+Coverage: capacities 1/2/3, forward/reverse batches with nonzero offsets, multiple
+selected faces on one element, BC5 alone, codes [2,5,1001], duplicate codes,
+empty selection and absent local codes. Partial owned matvec ranges model the
+split range contract used by MPI, without claiming actual MPI assembly. Compact
+H/F and volume RHS stay bit-identical; unselected rows, input matrices/bases,
+trace input, storage accounting and the unmodified ASM product are checked.
+Invalid prefixes, truncated face maps, duplicate faces and bad batches reject.
+The numerical check is abs(actual-expected)/(1+abs(expected)) <= 2e-11.
+The test's historical output key "relative" denotes this scaled absolute error.
+
+Configuration tests cover binary-header extensions, default compatibility,
+scalar/list/deduplicated selections, all three C++ text parsers, and invalid
+nonfinite/fractional/negative/out-of-range values before integer conversion.
+Python, Julia and MATLAB checks exercise app and text export. The in-memory
+buildAppStruct path has a separate round-trip check in algebra_operator.cpp.
+
+CPU configuration: enable EXASIM_BUILD_TESTS and run ctest -R composite_hdg.
+Julia/MATLAB checks additionally require EXASIM_COMPOSITE_LANGUAGE_TESTS=ON
+and usable interpreters/licenses. For HIP, boundary_2d and boundary_3d are
+registered with the gpu label; run them inside an allocated GPU job. Building
+a test does not establish GPU execution. CUDA remains outside supported scope.
+
+Recorded implementation validation (2026-11-02):
+- Focused CPU tests, including config/provider/operator regressions, passed.
+  Python/Julia/MATLAB exports passed; CPU and MPI libraries built and installed.
+- Installed native Poisson HDG, serial and two MPI ranks, had bit-identical saved
+  outputs for compositehdg=0 with [] versus [1,5,1001] boundary selections.
+- Tuolumne job f3hcTQgWXvz3 executed both public operator tests on one active GPU.
+  Both exits and the allocation/suite exits were zero; both source integrity
+  markers passed. HIP compile/runtime/driver 60443484, gfx942, ROCm 6.4.3.
+  Nine cases per dimension passed. Worst scaled errors were 2.0212e-15 (2D)
+  and 5.0553e-15 (3D). The Kokkos MI300X-on-MI300A warning was retained.
+
+The manufactured operator test uses a mock model contract. It does not test
+physical CNS5air callbacks, nonlinear solves, global face assembly, MPI halo
+exchange, time integration or full production performance. The earlier BC5
+sandbox physics studies motivated this feature, but used a separate executable.
+Do not infer benefit for arbitrary boundary codes or resolved production
+convergence from the unit tests. Physical residuals and output variables stay
+in the original physical coordinates; the full-volume native Schur complement
+is not restored by this boundary-row option.

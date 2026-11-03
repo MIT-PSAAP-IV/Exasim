@@ -35,14 +35,14 @@ jobs:
             -DCMAKE_INSTALL_PREFIX="$PWD/build/install"
           cmake --build build --parallel 3
           cmake --install build
-      - name: Optional imports, real text parser, and native applications without a contract
+      - name: Composite boundary operators, optional imports, and native applications
         env:
           JOBS: "3"
           OPENBLAS_NUM_THREADS: "1"
           OMP_NUM_THREADS: "1"
         run: |
           ctest --test-dir build/exasim_build-prefix/src/exasim_build-build \
-            -R '^(composite_hdg_provider_.*|composite_hdg_config_text2code|consumer_builtin_cpu)$' \
+            -R '^(composite_hdg_provider_.*|composite_hdg_config.*|composite_hdg_operator.*|composite_hdg_boundary.*|consumer_builtin_cpu)$' \
             --output-on-failure --output-junit "$RUNNER_TEMP/composite-macos.xml"
       - uses: actions/upload-artifact@v4
         if: always()

@@ -90,6 +90,14 @@ def writeapp(app,filename):
         raise ValueError('pde.compositebatchsize must be a positive integer within int32 range')
     ndims[23] = mode
     ndims[24] = cap
+    bc = numpy.asarray(app.get('compositebc', []))
+    if (bc.ndim > 1 or not numpy.issubdtype(bc.dtype, numpy.number) or
+            numpy.iscomplexobj(bc) or not numpy.all(numpy.isfinite(bc)) or
+            not numpy.all((bc >= 1) & (bc <= 2147483647) & (numpy.floor(bc) == bc))):
+        raise ValueError('pde.compositebc must be a positive int32 code or vector; use [] for none')
+    bc = numpy.unique(bc.reshape(-1)).astype(float)
+    ndims[25] = bc.size
+    ndims = numpy.concatenate((ndims, bc.reshape(-1, 1)), axis=0)
 
     #if app['nco'] != app['vindx'].shape[0]:  #size(app.vindx,1):
     #    error("app.nco mus be equal to size(app.vindx,1)");

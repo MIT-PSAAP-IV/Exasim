@@ -37,6 +37,7 @@ template<class T> inline void copyStorage(T* dst,const T* src,size_t n){
  for(size_t off=0;off<n;off+=chunk)ArrayCopy(dst+off,src+off,int(std::min(chunk,n-off)));
 }
 #ifndef USE_FLOAT
+#include "boundary_storage.hpp"
 struct Context {
  exasim::composite::ModelV1 model{};
  bool validate=false,validated=false;
@@ -44,6 +45,7 @@ struct Context {
  int dimension=3;
  int species_matrices=4,n=N,m=M,ne=0,owned=0,batch=0;
  View hf,ff,work,vy,ty,vecin,vecout,thermal;
+ BoundaryRows boundary;
  Kokkos::View<int*> asm_status,pivots,info;
  Kokkos::View<uintptr_t*> aPointers,cPointers;
  template<class C> static size_t plannedBytes(const C& c){
@@ -55,7 +57,7 @@ struct Context {
 #ifdef HAVE_HIP
   bytes+=sizeof(int)*(size_t(BF)*batch+4*batch)+sizeof(uintptr_t)*8*batch;
 #endif
-  return bytes;
+  return bytes+BoundaryRows::plannedBytes(c);
  }
  void init(const commonstruct& c){
   enabled=c.compositeConfig.enabled;asm_fp32=enabled;
@@ -85,8 +87,9 @@ struct Context {
   aPointers=Kokkos::View<uintptr_t*>("FS LU inputs",4*batch);cPointers=Kokkos::View<uintptr_t*>("FS LU outputs",4*batch);
 #endif
  }
- void clear(){hf=View();ff=View();work=View();vy=View();ty=View();vecin=View();vecout=View();thermal=View();asm_status={};pivots={};info={};aPointers={};cPointers={};}
- size_t bytes()const{return 8*(hf.extent(0)+ff.extent(0)+work.extent(0)+vy.extent(0)+ty.extent(0)+vecin.extent(0)+vecout.extent(0)+thermal.extent(0))+sizeof(int)*(asm_status.extent(0)+pivots.extent(0)+info.extent(0))+sizeof(uintptr_t)*(aPointers.extent(0)+cPointers.extent(0));}
+ void initBoundary(const commonstruct& c,const meshstruct& mesh){boundary.init(c,mesh);}
+ void clear(){boundary.clear();hf=View();ff=View();work=View();vy=View();ty=View();vecin=View();vecout=View();thermal=View();asm_status={};pivots={};info={};aPointers={};cPointers={};}
+ size_t bytes()const{return boundary.bytes()+8*(hf.extent(0)+ff.extent(0)+work.extent(0)+vy.extent(0)+ty.extent(0)+vecin.extent(0)+vecout.extent(0)+thermal.extent(0))+sizeof(int)*(asm_status.extent(0)+pivots.extent(0)+info.extent(0))+sizeof(uintptr_t)*(aPointers.extent(0)+cPointers.extent(0));}
 };
 
 #include "cached_inverse.hpp"
@@ -143,6 +146,7 @@ struct Context {
  bool enabled=false;
  template<class C> static size_t plannedBytes(const C&){return 0;}
  template<class C> void init(const C&){throw std::runtime_error("compositehdg requires double-state build");}
+ template<class C,class M> void initBoundary(const C&,const M&){throw std::runtime_error("unsupported composite scalar");}
  void clear(){} size_t bytes()const{return 0;}
 };
 inline int Hstride(Context&){return HS;}

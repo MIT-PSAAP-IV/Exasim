@@ -70,6 +70,12 @@ assert((isnumeric(app.compositehdg) || islogical(app.compositehdg)) && isreal(ap
 assert(isnumeric(app.compositebatchsize) && isreal(app.compositebatchsize) && isscalar(app.compositebatchsize) && isfinite(app.compositebatchsize) && app.compositebatchsize >= 1 && app.compositebatchsize <= 2147483647 && fix(app.compositebatchsize) == app.compositebatchsize, 'pde.compositebatchsize must be a positive integer within int32 range');
 ndims(24) = app.compositehdg;
 ndims(25) = app.compositebatchsize;
+if ~isfield(app,'compositebc'), app.compositebc = []; end
+bc = app.compositebc;
+assert(isnumeric(bc) && isreal(bc) && (isempty(bc) || isvector(bc)) && all(isfinite(bc(:))) && all(bc(:) >= 1 & bc(:) <= 2147483647 & fix(bc(:)) == bc(:)), 'pde.compositebc must be a positive int32 code or vector; use [] for none');
+bc = unique(double(bc(:)));
+ndims(26) = numel(bc);
+ndims = [ndims; bc];
 
 % if app.nco ~= size(app.vindx,1)
 %     error("app.nco mus be equal to size(app.vindx,1)");

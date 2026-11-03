@@ -259,7 +259,12 @@ inline InputParams parseInputFile(const std::string& filename, int mpirank=0)
         const std::size_t equals = full.find('=');
         const std::string key = trim(full.substr(0, equals));
 
-        if (key == "compositehdg" || key == "compositebatchsize") {
+        if (key == "compositebc") {
+            params.compositebc = exasim::composite::parseBoundaryCodes(
+                full.substr(equals + 1, full.find(';', equals) - equals - 1));
+            markFound(key);
+        }
+        else if (key == "compositehdg" || key == "compositebatchsize") {
             const std::string value = full.substr(equals + 1, full.find(';', equals) - equals - 1);
             params.intParams[key] = exasim::composite::parseInteger(
                 value, key.c_str(), key == "compositehdg" ? 0 : 1,
@@ -909,6 +914,7 @@ inline PDE initializePDE(InputParams& params, int mpirank=0)
     if (params.intParams.count("AVsmoothingIter")) {
         pde.AVsmoothingIter = params.intParams["AVsmoothingIter"];
     }
+    pde.compositebc = exasim::composite::boundaryCodes(params.compositebc);
     for (auto item : {std::make_pair("compositehdg", &pde.compositehdg),
                       std::make_pair("compositebatchsize", &pde.compositebatchsize)}) {
         double value = *item.second;
@@ -1271,6 +1277,7 @@ inline void writepde(const PDE& pde, const std::string& filename)
     ndims[20] = pde.nsurfq;
     ndims[23] = exasim::composite::integer(pde.compositehdg, "compositehdg", 0, 1);
     ndims[24] = exasim::composite::integer(pde.compositebatchsize, "compositebatchsize", 1, 2147483647);
+    exasim::composite::encodeBoundaryCodes(ndims,pde.compositebc);
 
     std::vector<double> nsize(30, 0.0);
     nsize[0] = ndims.size();

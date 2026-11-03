@@ -126,6 +126,7 @@ def initializepde(version):
     pde['preconditioner'] = 1;
     pde['compositehdg'] = 0;
     pde['compositebatchsize'] = 1024;
+    pde['compositebc'] = [];  # full composite trace coupling on selected BC codes
     pde['precMatrixType'] = 0;
     pde['NLMatrixType'] = 0;
     pde['ppdegree'] = 0;

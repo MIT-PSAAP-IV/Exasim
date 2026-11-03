@@ -66,10 +66,12 @@ static void compress(double* out,const double* in,bool recovery,int field,int co
  else Kokkos::parallel_for("COMPOSITE persist species diagonals",4*pa*Q*count,KOKKOS_LAMBDA(int k){int r=k%pa,col=(k/pa)%Q,s=(k/(pa*Q))%4,e=k/(4*pa*Q);int ri=recovery?r+P*s:4*r+s;out[size_t(e)*stride+a*b+s*pa*Q+r+pa*col]=in[size_t(e)*sa*sb+ri+sa*(4*col+s)];});
 }
 #include "local_reference.hpp"
+#include "boundary_kernels.hpp"
 
 static void condense(Context& ctx,double* D,double* B,double* C,double* Hfull,double* Ru,double* Rh,resstruct& res,meshstruct& mesh,tempstruct& tmp,commonstruct& common,int e1,int count,int backend){ const bool check=ctx.validate&&!ctx.validated&&common.mpiRank==0;auto pv=ctx.vecin.data(),ph=ctx.vecout.data();
  schurVectorRu(tmp.tempn,Ru,P,NC,count);packResidual(ctx,pv,tmp.tempn,false,e1,count,mesh);
  schurVectorRh(tmp.tempn,Rh,Q,NC,count);packResidual(ctx,ph,tmp.tempn,true,e1,count,mesh);
+ boundaryPrepare(ctx,C,Hfull,Rh,mesh,common,e1,count);
  for(int field=0;field<2;field++){
   const int a=field?AS:AF,b=field?BS:BF,vo=field?AF:0,ho=field?BF:0;
   auto A=ctx.work.data(),E=A+size_t(a)*a*count,G=E+size_t(a)*b*count,S=G+size_t(b)*a*count,rv=S+size_t(b)*b*count,rh=rv+a*count,zv=rh+b*count,Fout=zv+a*count;
@@ -87,6 +89,7 @@ static void condense(Context& ctx,double* D,double* B,double* C,double* Hfull,do
   Kokkos::parallel_for("COMPOSITE scatter volume RHS",a*count,KOKKOS_LAMBDA(int k){pv[(k/a)*N+vo+k%a]=zv[k];});
   Kokkos::parallel_for("COMPOSITE scatter trace RHS",b*count,KOKKOS_LAMBDA(int k){ph[(k/b)*M+ho+k%b]=rh[k];});
  }
+ boundaryFinish(ctx,res.F+size_t(e1)*FS,res.H+size_t(e1)*HS,pv,ph,common,e1,count);
  unpack(ctx,Ru,pv,false,e1,count,mesh);unpack(ctx,Rh,ph,true,e1,count,mesh);ctx.validated=true;
 }
 template<class Scalar>static void product(double* out,const Scalar* matrix,const double* in,bool recovery,int count){
@@ -97,7 +100,9 @@ template<class Scalar>static void product(double* out,const Scalar* matrix,const
 }
 static void multiply(Context& ctx,double* out,double* matrix,const double* in,int e1,int count,meshstruct& mesh,commonstruct& c,int backend,bool isASM=false){
  if(!count)return;auto x=ctx.vecin.data(),y=ctx.vecout.data();packResidual(ctx,x,in,true,e1,count,mesh);
- if(isASM&&ctx.asm_fp32)product(y,reinterpret_cast<const float*>(matrix),x,false,count);else product(y,matrix,x,false,count);unpack(ctx,out,y,true,e1,count,mesh);
+ if(isASM&&ctx.asm_fp32)product(y,reinterpret_cast<const float*>(matrix),x,false,count);else product(y,matrix,x,false,count);
+ if(!isASM)boundaryProduct(ctx,y,x,e1,count);
+ unpack(ctx,out,y,true,e1,count,mesh);
 }
 static void recover(Context& ctx,double* w,double* f,const double* ve,meshstruct& mesh,commonstruct& c,int backend){
  int count=c.meshsizes.ne1;auto x=ctx.vecin.data(),y=ctx.vecout.data();packResidual(ctx,x,ve,true,0,count,mesh);product(y,f,x,true,count);unpack(ctx,x,y,false,0,count,mesh);ArrayAXPBY(w,w,x,1.,1.,N*count);

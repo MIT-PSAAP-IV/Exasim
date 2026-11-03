@@ -21,6 +21,21 @@ for cap = [1,127,128,256,512,1024,2048,4096]
     assert(contains(content,'compositehdg = 1;'));
     assert(contains(content,sprintf('compositebatchsize = %d;',cap)));
 end
+for codes = {5, [1001 5 5], [], [5;1001]}
+    app = base; app.compositebc = codes{1};
+    app = writeapp(app,fullfile(temp,'boundary.bin'),'native');
+    expected = unique(double(codes{1}(:)));
+    assert(app.ndims(26) == numel(expected));
+    assert(isequal(app.ndims(41:end),expected));
+    app.meshfile = 'unused.bin';
+    writeinputfile(fullfile(temp,'boundary.txt'),app,mesh);
+    if ~isempty(expected), assert(contains(fileread(fullfile(temp,'boundary.txt')),'compositebc =')); end
+end
+for bad = {0,-1,5.5,NaN,Inf,2147483648,1i,'5',true,[1 2;3 4]}
+    app = base; app.compositebc = bad{1}; rejected = false;
+    try, writeapp(app,fullfile(temp,'invalidbc.bin'),'native'); catch, rejected = true; end
+    assert(rejected);
+end
 app = base; app.compositehdg = 1; app.interfacetype = 1; rejected = false;
 try
     writeapp(app,fullfile(temp,'nonmatching.bin'),'native');
@@ -38,7 +53,7 @@ for bad = {-1,2,0.5,NaN,Inf,1i,[0 1],'1'}
     try, writeapp(app,fullfile(temp,'invalid.bin'),'native'); catch, rejected = true; end
     assert(rejected);
 end
-app = rmfield(base,{'compositehdg','compositebatchsize'});
+app = rmfield(base,{'compositehdg','compositebatchsize','compositebc'});
 app = writeapp(app,fullfile(temp,'legacy.bin'),'native');
 assert(app.ndims(24) == 0 && app.ndims(25) == 1024);
 disp('COMPOSITE_MATLAB_FRONTEND_PASS');
