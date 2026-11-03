@@ -36,6 +36,27 @@ template<class T> inline void copyStorage(T* dst,const T* src,size_t n){
  constexpr size_t chunk=size_t(1)<<28;
  for(size_t off=0;off<n;off+=chunk)ArrayCopy(dst+off,src+off,int(std::min(chunk,n-off)));
 }
+// Batch allocation policy: applications may reduce storage only together with
+// a matching whole-function implementation. Counts are doubles per element.
+struct BatchStorage {size_t h,f,work,k,d,b,g;bool work_in_arena=false;};
+template<class C> inline BatchStorage nativeBatchStorage(const C& c) {
+ const auto d=exasim::composite::dimensions(c.grid.nd);
+ const size_t nv=size_t(c.grid.npe)*c.components.ncu;
+ const size_t nt=size_t(c.grid.npf)*c.meshsizes.nfe*c.components.ncu;
+ const size_t nq=size_t(c.grid.npe)*c.components.ncq;
+ return {size_t(d.M)*d.M,size_t(d.N)*d.M,
+         size_t(d.AF)*d.AF+3*size_t(d.AF)*d.BF+size_t(d.BF)*d.BF+2*d.AF+d.BF,
+         nt*nv,nv*nv,nv*nq,nt*nq};
+}
+template<class ExecutionSpace> struct HDGStoragePolicy {
+ template<class C> static BatchStorage plan(const C& c){return nativeBatchStorage(c);}
+};
+#ifdef EXASIM_HDG_STORAGE_OVERRIDE_HEADER
+#include EXASIM_HDG_STORAGE_OVERRIDE_HEADER
+#endif
+template<class C> inline BatchStorage batchStorage(const C& c) {
+ return HDGStoragePolicy<Kokkos::DefaultExecutionSpace>::plan(c);
+}
 #ifndef USE_FLOAT
 #include "boundary_storage.hpp"
 struct Context {
@@ -44,7 +65,12 @@ struct Context {
  bool enabled=false,shared=true,cached_inverse=false,species_batch=true,asm_fp32=false,species_kron=false;
  int dimension=3;
  int species_matrices=4,n=N,m=M,ne=0,owned=0,batch=0;
- View hf,ff,work,vy,ty,vecin,vecout,thermal;
+ View hf,ff,ownedWork,vy,ty,vecin,vecout,thermal;
+ Kokkos::View<double*,Kokkos::MemoryTraits<Kokkos::Unmanaged>> work;
+ void borrowWork(double* ptr,size_t count){
+  if(ownedWork.extent(0))throw std::runtime_error("cannot borrow over owned field workspace");
+  work=decltype(work)(ptr,count);
+ }
  BoundaryRows boundary;
  Kokkos::View<int*> asm_status,pivots,info;
  Kokkos::View<uintptr_t*> aPointers,cPointers;
@@ -53,7 +79,8 @@ struct Context {
   const int P=d.P,PF=d.PF,N=d.N,M=d.M,AF=d.AF,BF=d.BF,HS=d.HS,FS=d.FS;
 
   const size_t batch=c.meshsizes.neb,owned=c.meshsizes.ne1,nf=c.meshsizes.nf;
-  size_t bytes=8*(size_t(M)*M*batch+size_t(N)*M*batch+batch*(AF*AF+3*AF*BF+BF*BF+2*AF+BF)+owned*P*9+nf*PF*9+2*size_t(M)*owned+batch*P*d.thermal)+sizeof(int);
+  const auto storage=batchStorage(c);
+  size_t bytes=8*(batch*(storage.h+storage.f+(storage.work_in_arena?0:storage.work))+owned*P*9+nf*PF*9+2*size_t(M)*owned+batch*P*d.thermal)+sizeof(int);
 #ifdef HAVE_HIP
   bytes+=sizeof(int)*(size_t(BF)*batch+4*batch)+sizeof(uintptr_t)*8*batch;
 #endif
@@ -72,10 +99,11 @@ struct Context {
   validate=std::getenv("EXASIM_COMPOSITE_VALIDATE")!=nullptr;
   ne=c.meshsizes.ne;owned=c.meshsizes.ne1;batch=c.meshsizes.neb;
   checkedCount(uint64_t(HS)*ne,"compact H");checkedCount(uint64_t(FS)*ne,"compact F");
-  hf=View("FS batch full H",size_t(M)*M*batch);ff=View("FS batch full F",size_t(N)*M*batch);
+  const auto storage=batchStorage(c);
+  hf=View("FS batch H",storage.h*batch);ff=View("FS batch F",storage.f*batch);
   // Sequential field work: A,E,G,S,rv,rh,zv,F. Neither full assembly input
   // is overwritten until both fields have been extracted and condensed.
-  work=View("FS sequential field workspace",size_t(batch)*(AF*AF+3*AF*BF+BF*BF+2*AF+BF));
+  if(!storage.work_in_arena){ownedWork=View("FS field workspace",size_t(batch)*storage.work);work=ownedWork;}
   vy=View("FS volume basis",size_t(owned)*P*9);ty=View("FS trace basis",size_t(c.meshsizes.nf)*PF*9);
   vecin=View("FS packed volume or trace input",size_t(M)*owned);vecout=View("FS packed output",size_t(M)*owned);
   thermal=View("FS thermal basis workspace",size_t(batch)*P*d.thermal);
@@ -88,8 +116,8 @@ struct Context {
 #endif
  }
  void initBoundary(const commonstruct& c,const meshstruct& mesh){boundary.init(c,mesh);}
- void clear(){boundary.clear();hf=View();ff=View();work=View();vy=View();ty=View();vecin=View();vecout=View();thermal=View();asm_status={};pivots={};info={};aPointers={};cPointers={};}
- size_t bytes()const{return boundary.bytes()+8*(hf.extent(0)+ff.extent(0)+work.extent(0)+vy.extent(0)+ty.extent(0)+vecin.extent(0)+vecout.extent(0)+thermal.extent(0))+sizeof(int)*(asm_status.extent(0)+pivots.extent(0)+info.extent(0))+sizeof(uintptr_t)*(aPointers.extent(0)+cPointers.extent(0));}
+ void clear(){boundary.clear();hf=View();ff=View();work={};ownedWork=View();vy=View();ty=View();vecin=View();vecout=View();thermal=View();asm_status={};pivots={};info={};aPointers={};cPointers={};}
+ size_t bytes()const{return boundary.bytes()+8*(hf.extent(0)+ff.extent(0)+ownedWork.extent(0)+vy.extent(0)+ty.extent(0)+vecin.extent(0)+vecout.extent(0)+thermal.extent(0))+sizeof(int)*(asm_status.extent(0)+pivots.extent(0)+info.extent(0))+sizeof(uintptr_t)*(aPointers.extent(0)+cPointers.extent(0));}
 };
 
 #include "cached_inverse.hpp"
@@ -148,6 +176,7 @@ template<class S,class I> inline void multiply(Context&,S*,S*,const S*,int,int,m
 // validateShape before allocation. Keep the opt-in feature out of its kernels.
 struct Context {
  bool enabled=false;
+ void borrowWork(double*,size_t){throw std::runtime_error("compositehdg requires double-state build");}
  template<class C> static size_t plannedBytes(const C&){return 0;}
  template<class C> void init(const C&){throw std::runtime_error("compositehdg requires double-state build");}
  template<class C,class M> void initBoundary(const C&,const M&){throw std::runtime_error("unsupported composite scalar");}

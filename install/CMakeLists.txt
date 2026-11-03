@@ -182,6 +182,24 @@ if(EXASIM_HDG_SCHUR_OVERRIDE_HEADER)
   add_compile_definitions(EXASIM_HDG_SCHUR_OVERRIDE_HEADER="${EXASIM_HDG_SCHUR_OVERRIDE_HEADER}")
 endif()
 
+set(EXASIM_HDG_ASSEMBLY_OVERRIDE_HEADER "" CACHE FILEPATH
+    "Optional application header specializing whole HDG assembly functions")
+if(EXASIM_HDG_ASSEMBLY_OVERRIDE_HEADER)
+  if(NOT EXISTS "${EXASIM_HDG_ASSEMBLY_OVERRIDE_HEADER}")
+    message(FATAL_ERROR "HDG assembly override header does not exist")
+  endif()
+  add_compile_definitions(EXASIM_HDG_ASSEMBLY_OVERRIDE_HEADER="${EXASIM_HDG_ASSEMBLY_OVERRIDE_HEADER}")
+endif()
+
+set(EXASIM_HDG_STORAGE_OVERRIDE_HEADER "" CACHE FILEPATH
+    "Optional application header specializing HDG batch allocation policy")
+if(EXASIM_HDG_STORAGE_OVERRIDE_HEADER)
+  if(NOT EXISTS "${EXASIM_HDG_STORAGE_OVERRIDE_HEADER}")
+    message(FATAL_ERROR "HDG storage override header does not exist")
+  endif()
+  add_compile_definitions(EXASIM_HDG_STORAGE_OVERRIDE_HEADER="${EXASIM_HDG_STORAGE_OVERRIDE_HEADER}")
+endif()
+
 set(EXASIM_SOLVER_SOURCES ${EXASIM_MAIN_DIR}/ExasimSolver.cpp ${EXASIM_MAIN_DIR}/text2codeapp.cpp)
 
 function(add_exasim_static_library target output_name)

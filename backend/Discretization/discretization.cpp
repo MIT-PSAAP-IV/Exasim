@@ -805,7 +805,9 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
         if(!common.compositeConfig.enabled && common.solverparams.preconditioner==2) pcount=uint64_t(npf)*ncu*npf*ncu*common.nse*common.nnz;
         res.szP=fieldsplit::checkedStorage(pcount,"preconditioner prefix");
         res.szV=fieldsplit::checkedCount(uint64_t(ncu)*npf*nf*max(common.solverparams.gmresRestart+1,common.solverparams.RBdim),"Krylov/RB");
-        res.szK=fieldsplit::checkedStorage(std::max<uint64_t>((nv*nv+nv*nq+nt*nq+nt*nv)*neb,uint64_t(res.szP)+res.szV),"K arena");
+        const auto batchStorage=common.compositeConfig.enabled?fieldsplit::batchStorage(common):
+          fieldsplit::BatchStorage{0,0,0,size_t(nt*nv),size_t(nv*nv),size_t(nv*nq),size_t(nt*nq)};
+        res.szK=fieldsplit::checkedStorage(std::max<uint64_t>((batchStorage.k+batchStorage.d+batchStorage.b+batchStorage.g+(batchStorage.work_in_arena?batchStorage.work:0))*uint64_t(neb),uint64_t(res.szP)+res.szV),"K arena");
         res.szipiv = max(max(npf*nfe,npe)*ncu*neb, ncu*npf*common.meshsizes.nfb);
 
         if(common.compositeConfig.enabled) {
@@ -843,10 +845,14 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
         // B, D, G share the K block (and it also holds the preconditioner matrix + sys.v
         // Krylov vectors -- see resstruct). Assembly views reserved sequentially after the
         // leading npf*nfe*ncu*npe*ncu*neb block; replaces the inline &K[off + ...] math.
-        res.resetKArena(npf*nfe*ncu*npe*ncu*neb);
-        res.D = res.reserveView(npe*ncu*npe*ncu*neb);
-        res.B = res.reserveView(npe*ncu*npe*ncq*neb);
-        res.G = res.reserveView(npf*nfe*ncu*npe*ncq*neb);
+        res.resetKArena(batchStorage.k*neb);
+        res.D = res.reserveView(batchStorage.d*neb);
+        res.B = res.reserveView(batchStorage.b*neb);
+        res.G = res.reserveView(batchStorage.g*neb);
+        if constexpr(std::is_same_v<T,double>) {
+          if(common.composite && batchStorage.work_in_arena)
+            common.composite->borrowWork(res.reserveView(batchStorage.work*neb),batchStorage.work*neb);
+        }
 
         if (common.couplingparams.coupledinterface>0) {
           res.szRi = npf*ncu12*common.couplingparams.ncie;

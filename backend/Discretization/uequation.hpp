@@ -48,7 +48,7 @@
 #include "CompositeHDG/field_split.hpp"
 
 template <class M, class T=dstype, class I=Int>
-inline void uEquationElemBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+inline void uEquationElemBlockDefault(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master,
         meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int jth, Int backend)
 {
     EXASIM_PROFILE_SCOPE("hdg.assembly.volume");
@@ -216,7 +216,7 @@ inline void uEquationElemBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appst
 }
 
 template <class M, class T=dstype, class I=Int>
-inline void uEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, 
+inline void uEquationElemFaceBlockDefault(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master,
         meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int jth, Int backend,
         Int interfacetype = 0)
 {
@@ -850,6 +850,36 @@ inline void uEquationSchurBlock(solstructT<T,I>& sol,resstructT<T,I>& res,appstr
         commonstructT<T,I>& common,cublasHandle_t handle,Int jth,Int backend,Int interfacetype=0) {
     EXASIM_PROFILE_SCOPE("hdg.condensation");
     HDGSchurBlockPolicy<M,T,I>::run(sol,res,app,master,mesh,tmp,common,handle,jth,backend,interfacetype);
+}
+
+// Application-owned whole assembly functions; the generic path is unchanged.
+template<class M,class T,class I> struct HDGAssemblyPolicy {
+    static void volume(solstructT<T,I>& sol,resstructT<T,I>& res,appstructT<T,I>& app,
+            masterstructT<T,I>& master,meshstructT<T,I>& mesh,tempstructT<T,I>& tmp,
+            commonstructT<T,I>& common,cublasHandle_t handle,Int jth,Int backend) {
+        uEquationElemBlockDefault<M>(sol,res,app,master,mesh,tmp,common,handle,jth,backend);
+    }
+    static void faces(solstructT<T,I>& sol,resstructT<T,I>& res,appstructT<T,I>& app,
+            masterstructT<T,I>& master,meshstructT<T,I>& mesh,tempstructT<T,I>& tmp,
+            commonstructT<T,I>& common,cublasHandle_t handle,Int jth,Int backend,Int interfacetype) {
+        uEquationElemFaceBlockDefault<M>(sol,res,app,master,mesh,tmp,common,handle,jth,backend,interfacetype);
+    }
+};
+#ifdef EXASIM_HDG_ASSEMBLY_OVERRIDE_HEADER
+#include EXASIM_HDG_ASSEMBLY_OVERRIDE_HEADER
+#endif
+
+template<class M,class T=dstype,class I=Int>
+inline void uEquationElemBlock(solstructT<T,I>& sol,resstructT<T,I>& res,appstructT<T,I>& app,
+        masterstructT<T,I>& master,meshstructT<T,I>& mesh,tempstructT<T,I>& tmp,
+        commonstructT<T,I>& common,cublasHandle_t handle,Int jth,Int backend) {
+    HDGAssemblyPolicy<M,T,I>::volume(sol,res,app,master,mesh,tmp,common,handle,jth,backend);
+}
+template<class M,class T=dstype,class I=Int>
+inline void uEquationElemFaceBlock(solstructT<T,I>& sol,resstructT<T,I>& res,appstructT<T,I>& app,
+        masterstructT<T,I>& master,meshstructT<T,I>& mesh,tempstructT<T,I>& tmp,
+        commonstructT<T,I>& common,cublasHandle_t handle,Int jth,Int backend,Int interfacetype=0) {
+    HDGAssemblyPolicy<M,T,I>::faces(sol,res,app,master,mesh,tmp,common,handle,jth,backend,interfacetype);
 }
 
 template <class M, class T=dstype, class I=Int>
