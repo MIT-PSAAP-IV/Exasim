@@ -22,11 +22,9 @@ static void HdgTdfuncTemplate(dstype* f, dstype* f_udg, dstype* f_wdg,
         Model::tdfunc_jac_uq(m_uq,x,uq,v,w,param,uinf,time);
         for(int k=0;k<ncu;++k) f[k*ng+i]=m[k];
         for(int k=0;k<ncu*nc;++k) f_udg[k*ng+i]=m_uq[k];
-        if constexpr(ncw>0) {
-            dstype m_w[ncu*ncw];
-            Model::tdfunc_jac_w(m_w,x,uq,v,w,param,uinf,time);
-            for(int k=0;k<ncu*ncw;++k) f_wdg[k*ng+i]=m_w[k];
-        }
+        dstype m_w[(ncu*ncw>0) ? ncu*ncw : 1];
+        Model::tdfunc_jac_w(m_w,x,uq,v,w,param,uinf,time);
+        for(int k=0;k<ncu*ncw;++k) f_wdg[k*ng+i]=m_w[k];
     });
 }
 
