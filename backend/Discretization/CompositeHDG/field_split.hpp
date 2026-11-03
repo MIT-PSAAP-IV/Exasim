@@ -45,7 +45,6 @@ struct Context {
  int dimension=3;
  int species_matrices=4,n=N,m=M,ne=0,owned=0,batch=0;
  View hf,ff,work,vy,ty,vecin,vecout,thermal;
- View schurOverrideWorkspace;
  BoundaryRows boundary;
  Kokkos::View<int*> asm_status,pivots,info;
  Kokkos::View<uintptr_t*> aPointers,cPointers;
@@ -57,9 +56,6 @@ struct Context {
   size_t bytes=8*(size_t(M)*M*batch+size_t(N)*M*batch+batch*(AF*AF+3*AF*BF+BF*BF+2*AF+BF)+owned*P*9+nf*PF*9+2*size_t(M)*owned+batch*P*d.thermal)+sizeof(int);
 #ifdef HAVE_HIP
   bytes+=sizeof(int)*(size_t(BF)*batch+4*batch)+sizeof(uintptr_t)*8*batch;
-#endif
-#if defined(HAVE_HIP) && defined(EXASIM_HDG_SCHUR_OVERRIDE_HEADER)
-  if(c.backend==3 && c.grid.nd==3) bytes+=8*batch*size_t(N+M)*(N+M);
 #endif
   return bytes+BoundaryRows::plannedBytes(c);
  }
@@ -83,10 +79,6 @@ struct Context {
   vy=View("FS volume basis",size_t(owned)*P*9);ty=View("FS trace basis",size_t(c.meshsizes.nf)*PF*9);
   vecin=View("FS packed volume or trace input",size_t(M)*owned);vecout=View("FS packed output",size_t(M)*owned);
   thermal=View("FS thermal basis workspace",size_t(batch)*P*d.thermal);
-#if defined(HAVE_HIP) && defined(EXASIM_HDG_SCHUR_OVERRIDE_HEADER)
-  if(c.backend==3 && c.grid.nd==3)
-    schurOverrideWorkspace=View("HDG Schur override batch workspace",size_t(batch)*(N+M)*(N+M));
-#endif
   asm_status=Kokkos::View<int*>("FS ASM validity",1);
 #ifdef HAVE_HIP
   cached_inverse=c.backend==3;
@@ -96,8 +88,8 @@ struct Context {
 #endif
  }
  void initBoundary(const commonstruct& c,const meshstruct& mesh){boundary.init(c,mesh);}
- void clear(){schurOverrideWorkspace=View();boundary.clear();hf=View();ff=View();work=View();vy=View();ty=View();vecin=View();vecout=View();thermal=View();asm_status={};pivots={};info={};aPointers={};cPointers={};}
- size_t bytes()const{return boundary.bytes()+8*(schurOverrideWorkspace.extent(0)+hf.extent(0)+ff.extent(0)+work.extent(0)+vy.extent(0)+ty.extent(0)+vecin.extent(0)+vecout.extent(0)+thermal.extent(0))+sizeof(int)*(asm_status.extent(0)+pivots.extent(0)+info.extent(0))+sizeof(uintptr_t)*(aPointers.extent(0)+cPointers.extent(0));}
+ void clear(){boundary.clear();hf=View();ff=View();work=View();vy=View();ty=View();vecin=View();vecout=View();thermal=View();asm_status={};pivots={};info={};aPointers={};cPointers={};}
+ size_t bytes()const{return boundary.bytes()+8*(hf.extent(0)+ff.extent(0)+work.extent(0)+vy.extent(0)+ty.extent(0)+vecin.extent(0)+vecout.extent(0)+thermal.extent(0))+sizeof(int)*(asm_status.extent(0)+pivots.extent(0)+info.extent(0))+sizeof(uintptr_t)*(aPointers.extent(0)+cPointers.extent(0));}
 };
 
 #include "cached_inverse.hpp"
