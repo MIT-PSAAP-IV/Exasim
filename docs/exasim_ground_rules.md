@@ -12,12 +12,6 @@ The central principle is:
 > New functionality must extend Exasim's existing infrastructure, not create a
 > parallel implementation hidden behind the same user-facing API.
 
-This document consolidates the reusable engineering principles in:
-
-- [Nonmatching master prompt](nonmatching/MASTER_PROMPT.md).
-- [Multiphysics master prompt](multiphysics/master_prompt.md).
-- [Mixed HDG/LDG master prompt](hdgldg/master_prompt.md).
-
 It does not grant implementation approval, replace repository or directory
 `AGENTS.md` instructions, or change project-specific authorization. Branch names,
 protected files, numerical gates, review responsibilities and phase schedules
