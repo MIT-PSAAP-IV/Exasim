@@ -1,0 +1,30 @@
+scalars t
+vectors x(2), uq(6), v(0), w(1), uhat(2), n(2), tau(1), mu(1), eta(0)
+// Deliberately omit the optional Jacobian list: mass partials are mandatory.
+batch x, uq, v, w, uhat, n
+outputs Flux, Source, Tdfunc, Ubou, Fbou, FbouHdg, Initu
+
+function Flux(x, uq, v, w, eta, mu, t)
+  output_size(f) = 4;
+end
+function Source(x, uq, v, w, eta, mu, t)
+  output_size(s) = 2;
+end
+function Tdfunc(x, uq, v, w, eta, mu, t)
+  output_size(m) = 2;
+  m[0] = 1 + uq[0]*uq[0] + uq[1]*uq[2] + w[0]*w[0];
+  m[1] = 2 + uq[3]*w[0];
+end
+function Ubou(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(f) = 2;
+end
+function Fbou(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(f) = 2;
+end
+function FbouHdg(x, uq, v, w, uhat, n, tau, eta, mu, t)
+  output_size(f) = 2;
+end
+function Initu(x, eta, mu)
+  output_size(f) = 2;
+end
+

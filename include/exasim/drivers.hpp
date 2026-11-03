@@ -195,6 +195,18 @@ inline void TdfuncDriver(T* f, const T* xg, const T* udg,
 }
 
 template <class M, class T=dstype, class I=Int>
+inline void TdfuncDriver(T* f, T* f_udg, T* f_wdg,
+                         const T* xg, const T* udg, const T* odg, const T* wdg,
+                         meshstructT<T,I>&, masterstructT<T,I>&,
+                         appstructT<T,I>& app, solstructT<T,I>&, tempstructT<T,I>&,
+                         commonstructT<T,I>& common, Int nge, Int e1, Int e2, Int)
+{
+    auto s=detail::compute_shape(common,nge,e1,e2);
+    hdg_tdfunc_kernel<M,T>(f,f_udg,f_wdg,xg,udg,odg,wdg,app.uinf,app.physicsparam,
+        s.time,s.modelnumber,s.numPoints,s.nc,s.ncu,s.nd,s.ncx,s.nco,s.ncw);
+}
+
+template <class M, class T=dstype, class I=Int>
 inline void AvfieldDriver(T* f, const T* xg, const T* udg,
                           const T* odg, const T* wdg,
                           meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,

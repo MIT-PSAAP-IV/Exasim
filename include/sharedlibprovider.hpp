@@ -46,6 +46,7 @@ bool IsValidSharedLibraryABI(const ExasimDriverABI& abi)
            abi.init.cpuInitodg &&
            abi.hdgjac.HdgFlux &&
            abi.hdgjac.HdgSource &&
+           abi.hdgjac.HdgTdfunc &&
            abi.hdgjac.HdgMaterialstate &&
            abi.hdgjac.HdgSourcew &&
            abi.hdgjac.HdgSourcewonly &&

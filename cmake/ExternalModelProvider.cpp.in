@@ -548,6 +548,20 @@ void extHdgSource(
             ng, nc, ncu, nd, ncx, nco, ncw);
 }
 
+void extHdgTdfunc(
+    dstype* f, dstype* f_udg, dstype* f_wdg,
+    const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg,
+    const dstype* uinf, const dstype* param, const dstype time,
+    const int modelnumber, const int ng, const int nc, const int ncu, const int nd,
+    const int ncx, const int nco, const int ncw)
+{
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosTdfunc(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
+    EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
+#undef EXASIM_EXT_DISPATCH
+    ::builtinHdgTdfunc(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time,
+            modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
+}
+
 void extHdgMaterialstate(
     dstype* f, dstype* f_udg, dstype* f_wdg,
     const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg,
@@ -744,7 +758,7 @@ bool IsValidExternalModelABI(const ExasimDriverABI& abi)
            abi.init.KokkosInitu && abi.init.KokkosInitq && abi.init.KokkosInitudg &&
            abi.init.KokkosInitwdg && abi.init.KokkosInitodg &&
            abi.init.cpuInitu && abi.init.cpuInitq && abi.init.cpuInitudg && abi.init.cpuInitwdg && abi.init.cpuInitodg &&
-           abi.hdgjac.HdgFlux && abi.hdgjac.HdgSource && abi.hdgjac.HdgMaterialstate && abi.hdgjac.HdgSourcew && abi.hdgjac.HdgSourcewonly && abi.hdgjac.HdgEoS &&
+           abi.hdgjac.HdgFlux && abi.hdgjac.HdgSource && abi.hdgjac.HdgTdfunc && abi.hdgjac.HdgMaterialstate && abi.hdgjac.HdgSourcew && abi.hdgjac.HdgSourcewonly && abi.hdgjac.HdgEoS &&
            abi.hdgjac.HdgFbou && abi.hdgjac.HdgFbouonly && abi.hdgjac.HdgFint && abi.hdgjac.HdgFintonly &&
            abi.hdgjac.HdgFext && abi.hdgjac.HdgFextonly;
 }
@@ -793,6 +807,7 @@ const ExasimDriverABI& getBuiltInLibraryExasimDriverABI()
         value.init.cpuInitodg        = &extcpuInitodg;
         value.hdgjac.HdgFlux           = &extHdgFlux;
         value.hdgjac.HdgSource         = &extHdgSource;
+        value.hdgjac.HdgTdfunc         = &extHdgTdfunc;
         value.hdgjac.HdgMaterialstate  = &extHdgMaterialstate;
         value.hdgjac.HdgSourcew        = &extHdgSourcew;
         value.hdgjac.HdgSourcewonly    = &extHdgSourcewonly;

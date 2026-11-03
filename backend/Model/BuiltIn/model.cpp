@@ -41,6 +41,7 @@ namespace exasim_model_1 {
 #include "HdgFext.cpp"
 #include "HdgFextonly.cpp"
 #include "HdgSource.cpp"
+#include "HdgTdfunc.cpp"
 #include "HdgMaterialstate.cpp"
 #include "HdgSourcew.cpp"
 #include "HdgSourcewonly.cpp"

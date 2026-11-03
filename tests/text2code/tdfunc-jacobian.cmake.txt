@@ -1,0 +1,13 @@
+cmake_minimum_required(VERSION 3.20)
+project(tdfunc_jacobian_probe LANGUAGES CXX)
+find_package(Exasim REQUIRED CONFIG COMPONENTS cpu)
+add_executable(tdfunc_jacobian "${EXASIM_ROOT}/tests/text2code/tdfunc-jacobian.cpp")
+option(EXASIM_TEST_MASS_PROVIDER "Also exercise the complete provider ABI" OFF)
+if(EXASIM_TEST_MASS_PROVIDER)
+  target_compile_definitions(tdfunc_jacobian PRIVATE EXASIM_TEST_MASS_PROVIDER)
+endif()
+target_compile_features(tdfunc_jacobian PRIVATE cxx_std_20)
+target_include_directories(tdfunc_jacobian BEFORE PRIVATE
+  "${EXASIM_ROOT}/include" "${EXASIM_ROOT}" "${CMAKE_CURRENT_SOURCE_DIR}/generated")
+target_link_libraries(tdfunc_jacobian PRIVATE Kokkos::kokkos)
+

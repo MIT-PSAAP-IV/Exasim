@@ -136,24 +136,21 @@ inline void uEquationElemBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appst
     EXASIM_DRIVER_CALL(SourceDriver, sg, sg_uq, sg_w, xg, uqg, og, wg, mesh, master, app, sol, tmp, common, nge, e1, e2, backend);                 
     
     if (common.timeparams.tdep) { // for time-dependent problem                
-        // calculate sdg - udg*dtfactor
-        ArrayAXPBY(fg, &sol.sdgg[nge*ncs*e1], uqg, one, -common.timestate.dtfactor, nga*ncu);                    
-      
         if (common.timeparams.tdfunc==1) {
-            // calculate the time derivative function Tdfunc(xdg, udg, odg)
-            EXASIM_DRIVER_CALL(TdfuncDriver, fg_uq, xg, uqg, og, wg, mesh, master, app, sol, tmp, common, nge, e1, e2, backend);            
+            // Flux scratch is dead until FluxDriver below; no new workspace.
+            EXASIM_DRIVER_CALL(TdfuncDriver, fg, fg_uq, fg_w, xg, uqg, og, wg,
+                mesh, master, app, sol, tmp, common, nge, e1, e2, backend);
+            ApplyMassTime(sg, sg_uq, sg_w, fg, fg_uq, fg_w,
+                &sol.sdgg[nge*ncs*e1], uqg, common.timestate.dtfactor,
+                nga, ncu, nc, common.timeparams.wave==0 ? ncw : 0);
         }
-        else
-            ArraySetValue(fg_uq, one, nga*ncu);;
-                      
-        // calculate (sdg-udg*dtfactor)*Tdfunc(xdg, udg, odg) 
-        ArrayAXY(fg, fg, fg_uq, one, nga*ncu);                        
-        
-        // calculate sg = source + (sdgg - udg*dtfactor)*Tdfunc(xdg, udg, odg) 
-        ArrayAXPBY(sg, sg, fg, one, one, nga*ncu);     
-        
-        // calculate sg_u = source_u  - dtfactor*Tdfunc(xdg, udg, odg) 
-        ApplyDtcoef(sg_uq, fg_uq, -common.timestate.dtfactor, nga, ncu);                
+        else {
+            ArrayAXPBY(fg, &sol.sdgg[nge*ncs*e1], uqg, one, -common.timestate.dtfactor, nga*ncu);
+            ArraySetValue(fg_uq, one, nga*ncu);
+            ArrayAXY(fg, fg, fg_uq, one, nga*ncu);
+            ArrayAXPBY(sg, sg, fg, one, one, nga*ncu);
+            ApplyDtcoef(sg_uq, fg_uq, -common.timestate.dtfactor, nga, ncu);
+        }
         
 //         // calculate sg = source + (sdgg - udg*dtfactor)*Tdfunc(xdg, udg, odg) 
 //         ArrayAdd3Vectors(sg, sg, &sol.sdgg[nge*ncs*e1], uqg, one, one, -common.timestate.dtfactor, nga*ncu);        

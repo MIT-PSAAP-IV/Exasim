@@ -39,6 +39,13 @@ end
 %   hdgnocodeface("Fbou" + strn, kkdir);
 %   hdgnocodeface2("Fbouonly" + strn, kkdir);
 % else
+  % Preserve the value-only kernel and generate its HDG derivative overload.
+  if isfield(pde, 'mass')
+      f = pde.mass(u, q, wdg, odg, xdg, time, param, uinf);
+  else
+      f = sym(zeros(ncu,1));
+  end
+  hdggencodeelem("Tdfunc" + strn, f, xdg, udg, odg, wdg, uinf, param, time, kkdir, "KokkosTdfunc" + strn);
   if isfield(pde, 'flux')    
       f = pde.flux(u, q, wdg, odg, xdg, time, param, uinf);    
       hdggencodeelem("Flux" + strn, f, xdg, udg, odg, wdg, uinf, param, time, kkdir);       

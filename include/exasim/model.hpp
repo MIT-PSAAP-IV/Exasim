@@ -129,7 +129,7 @@
 // only if they forget):
 //
 //   flux_jac_uq, flux_jac_w,
-//   source_jac_uq, source_jac_w,
+//   source_jac_uq, source_jac_w, tdfunc_jac_uq, tdfunc_jac_w,
 //   fbou_jac_uq, fbou_jac_uh, fbou_jac_w,
 //   fhat_jac_uq, fhat_jac_uh, fhat_jac_w,
 //   stab_jac_uq, stab_jac_uh,
@@ -276,6 +276,18 @@ struct VolumeDefaults : ModelConstants<Self, T> {
                 const T /*uinf*/[], T /*t*/) {
         // Identity mass weighting by default.
         for (int k = 0; k < Self::ncu; ++k) m[k] = 1.0;
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void tdfunc_jac_uq(T m_uq[], const T[], const T[], const T[],
+                       const T[], const T[], const T[], T) {
+        detail::zero_fill<Self::ncu * Self::ncu * (1 + Self::nd)>(m_uq);
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void tdfunc_jac_w(T m_w[], const T[], const T[], const T[],
+                      const T[], const T[], const T[], T) {
+        if constexpr (Self::ncw > 0) detail::zero_fill<Self::ncu * Self::ncw>(m_w);
     }
 
     KOKKOS_INLINE_FUNCTION static

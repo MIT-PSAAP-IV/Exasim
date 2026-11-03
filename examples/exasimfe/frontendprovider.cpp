@@ -50,6 +50,7 @@ namespace frontend_generated_source {
 
 #include "kernels/HdgFlux.cpp"
 #include "kernels/HdgSource.cpp"
+#include "kernels/HdgTdfunc.cpp"
 #include "kernels/HdgSourcew.cpp"
 #include "kernels/HdgSourcewonly.cpp"
 #include "kernels/HdgFbou.cpp"
@@ -105,6 +106,7 @@ const ExasimDriverABI& getFrontendGeneratedExasimDriverABI()
 
         value.hdgjac.HdgFlux = &frontend_generated_source::HdgFlux;
         value.hdgjac.HdgSource = &frontend_generated_source::HdgSource;
+        value.hdgjac.HdgTdfunc = &frontend_generated_source::KokkosTdfunc;
         value.hdgjac.HdgSourcew = &frontend_generated_source::HdgSourcew;
         value.hdgjac.HdgSourcewonly = &frontend_generated_source::HdgSourcewonly;
         value.hdgjac.HdgEoS = &frontend_generated_source::HdgEoS;

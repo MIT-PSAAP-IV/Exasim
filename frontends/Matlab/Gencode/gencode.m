@@ -92,11 +92,13 @@ if isfield(pde, 'mass')
     %f = pde.mass(xdg, udg, odg, wdg, uinf, param, time, codedir);
     f = pde.mass(u, q, wdg, odg, xdg, time, param, uinf);
     gencodeelem("Tdfunc"  + strn, f, xdg, udg, odg, wdg, uinf, param, time, codedir);
+    hdggencodeelem("Tdfunc" + strn, f, xdg, udg, odg, wdg, uinf, param, time, codedir, "KokkosTdfunc" + strn);
 else    
     if app.model=="ModelW" || app.model == "modelW" || app.tdep==1
         error("pde.mass is not defined");
     else        
         nocodeelem("Tdfunc" + strn, codedir);
+        hdggencodeelem("Tdfunc" + strn, sym(zeros(ncu,1)), xdg, udg, odg, wdg, uinf, param, time, codedir, "KokkosTdfunc" + strn);
     end                
 end
 if isfield(pde, 'avfield')

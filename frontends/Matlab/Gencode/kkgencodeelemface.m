@@ -177,6 +177,10 @@ elseif ncase==13
     tmp = tmp + "}\n\n";
 end
 
+% Keep filenames, but dispatch the derivative overload under KokkosTdfunc.
+if filename == "HdgTdfunc"
+    tmp = regexprep(tmp, 'HdgTdfunc([0-9]*)\(', 'KokkosTdfunc$1(');
+end
 stropu = tmp;
 fid = fopen(foldername + "/" + filename + ".cpp", 'w');
 fprintf(fid, char(stropu));

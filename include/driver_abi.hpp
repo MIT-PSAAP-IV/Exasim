@@ -21,7 +21,8 @@ using dstype = float;
 using dstype = double;
 #endif
 
-inline constexpr std::uint32_t kExasimDriverABIVersion = 5;  // v5: add optional SurfaceQuantities boundary kernel + nsurfq
+inline constexpr std::uint32_t kExasimDriverABIVersion = 6;  // v6: add mass value/derivative kernel (rebuild providers)
+                                                              // v5: add optional SurfaceQuantities boundary kernel + nsurfq
                                                               // v4: add optional HdgMaterialstate jacobian kernel
 
 // Model dimension constants carried by the model (PR #33): lets preprocessing obtain
@@ -219,6 +220,7 @@ struct ExasimDriverABI {
     struct HdgJacDriverABI {        // HDG pointwise jacobians
         HdgElementJacFn            HdgFlux        = nullptr;
         HdgElementJacFn            HdgSource      = nullptr;
+        HdgElementJacFn            HdgTdfunc      = nullptr;
         HdgMaterialstateFn         HdgMaterialstate = nullptr;
         HdgElementJacFn            HdgSourcew     = nullptr;
         HdgSourcewOnlyFn           HdgSourcewonly = nullptr;

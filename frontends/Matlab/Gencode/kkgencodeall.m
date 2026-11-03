@@ -42,6 +42,7 @@ kkgencodeelemface("cpuInitodg", npm, 5, foldername);
 
 kkgencodeelemface("HdgFlux", npm, 6, foldername);
 kkgencodeelemface("HdgSource", npm, 6, foldername);
+kkgencodeelemface("HdgTdfunc", npm, 6, foldername);
 kkgencodeelemface("HdgMaterialstate", npm, 13, foldername);
 kkgencodeelemface("HdgEoS", npm, 6, foldername);
 kkgencodeelemface("HdgSourcew", npm, 6, foldername);

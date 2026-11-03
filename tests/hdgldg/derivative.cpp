@@ -42,6 +42,7 @@ struct TestABI {
     static ExasimDriverABI make(){ExasimDriverABI abi;
         abi.hdgjac.HdgFlux=&exasim::hdg_flux_kernel<M>;
         abi.hdgjac.HdgSource=&exasim::hdg_source_kernel<M>;
+        abi.hdgjac.HdgTdfunc=&exasim::hdg_tdfunc_kernel<M>;
         abi.volume.KokkosFlux=&exasim::flux_kernel<M>;
         abi.volume.KokkosSource=&exasim::source_kernel<M>;
         abi.volume.KokkosTdfunc=&exasim::tdfunc_kernel<M>;

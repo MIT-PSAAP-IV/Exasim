@@ -55,6 +55,7 @@ using ::PdeModel;
 #include "kernels/KokkosEoSdw.hpp"
 #include "kernels/KokkosAvfield.hpp"
 #include "kernels/KokkosTdfunc.hpp"
+#include "kernels/HdgTdfunc.hpp"
 
 #include "kernels/cpuInitu.hpp"
 #include "kernels/cpuInitq.hpp"
@@ -141,6 +142,7 @@ inline const ExasimDriverABI& getKokkosKernelExasimDriverABI()
 
         value.hdgjac.HdgFlux = &kokkos_kernel_source::HdgFlux;
         value.hdgjac.HdgSource = &kokkos_kernel_source::HdgSource;
+        value.hdgjac.HdgTdfunc = &kokkos_kernel_source::KokkosTdfunc;
         value.hdgjac.HdgMaterialstate = &kokkos_kernel_source::HdgMaterialstate;
         value.hdgjac.HdgSourcew = &kokkos_kernel_source::HdgSourcew;
         value.hdgjac.HdgSourcewonly = &kokkos_kernel_source::HdgSourcewonly;

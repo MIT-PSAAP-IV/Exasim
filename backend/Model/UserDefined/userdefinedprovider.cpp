@@ -51,6 +51,7 @@ using ::PdeModel;
 
 #include "HdgFlux.cpp"
 #include "HdgSource.cpp"
+#include "HdgTdfunc.cpp"
 #include "HdgMaterialstate.cpp"
 #include "HdgSourcew.cpp"
 #include "HdgSourcewonly.cpp"
@@ -111,6 +112,7 @@ const ExasimDriverABI& getUserDefinedExasimDriverABI()
 
         value.hdgjac.HdgFlux = &user_defined_source::HdgFlux;
         value.hdgjac.HdgSource = &user_defined_source::HdgSource;
+        value.hdgjac.HdgTdfunc = &user_defined_source::KokkosTdfunc;
         value.hdgjac.HdgMaterialstate = &user_defined_source::HdgMaterialstate;
         value.hdgjac.HdgSourcew = &user_defined_source::HdgSourcew;
         value.hdgjac.HdgSourcewonly = &user_defined_source::HdgSourcewonly;

@@ -9,6 +9,22 @@
 
 
 
+// Mass values and partials share the generated KokkosTdfunc overload.
+extern "C"
+void builtinHdgTdfunc(dstype* f, dstype* f_udg, dstype* f_wdg,
+    const dstype* xdg, const dstype* udg, const dstype* odg,
+    const dstype* wdg, const dstype* uinf, const dstype* param,
+    dstype time, int builtinmodelID, int ng, int nc, int ncu, int nd,
+    int ncx, int nco, int ncw)
+{
+    switch (builtinmodelID) {
+      #define EXASIM_DISPATCH_CASE(N) case N: exasim_model_##N::KokkosTdfunc(f, f_udg, f_wdg, xdg, udg, odg, wdg, uinf, param, time, builtinmodelID, ng, nc, ncu, nd, ncx, nco, ncw); return;
+      EXASIM_BUILTIN_MODELS(EXASIM_DISPATCH_CASE)
+      #undef EXASIM_DISPATCH_CASE
+      default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in HdgTdfunc\n", builtinmodelID); std::abort();
+    }
+}
+
 // ----------------------------- Kokkos -----------------------------
 
 extern "C"

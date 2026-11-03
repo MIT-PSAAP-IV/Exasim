@@ -515,3 +515,4 @@ examples/NavierStokes/equilibrium5air_cylindermach8/pdeapp0.m
 /examples/Poisson/multipleequations
 /docs/multiphysics
 /docs/hdgldg
+/docs/thermoviscoplasticity

@@ -130,6 +130,16 @@ if(TARGET Kokkos::kokkos)
     COMMAND material_properties_nonuniform_test)
   set_tests_properties(material_properties_nonuniform PROPERTIES TIMEOUT 60)
 
+  add_executable(mass_jacobian_test
+    "${EXASIM_DIR}/tests/unit/mass_jacobian.cpp")
+  target_include_directories(mass_jacobian_test PRIVATE
+    "${EXASIM_INCLUDE_DIR}" "${EXASIM_DIR}")
+  target_link_libraries(mass_jacobian_test PRIVATE
+    Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+  target_compile_features(mass_jacobian_test PRIVATE cxx_std_17)
+  add_test(NAME mass_jacobian COMMAND mass_jacobian_test)
+  set_tests_properties(mass_jacobian PROPERTIES TIMEOUT 60)
+
   add_executable(wequation_material_split_test
     "${EXASIM_DIR}/tests/materials/wequation_material_split_test.cpp")
   target_include_directories(wequation_material_split_test PRIVATE
@@ -192,6 +202,10 @@ set_tests_properties(consumer_mms_reactdiff PROPERTIES TIMEOUT 1200 SKIP_RETURN_
 # (e.g. julia/matlab on CI runners), so registration is unconditional.
 find_package(Python3 COMPONENTS Interpreter QUIET)
 if(Python3_Interpreter_FOUND)
+  add_test(NAME frontend_python_mass_derivatives
+    COMMAND ${Python3_EXECUTABLE}
+      "${EXASIM_DIR}/tests/frontends/python/test_mass_derivatives.py")
+  set_tests_properties(frontend_python_mass_derivatives PROPERTIES TIMEOUT 60)
   add_test(NAME frontend_conformal_only_inputs
     COMMAND ${Python3_EXECUTABLE} "${EXASIM_DIR}/tests/frontends/test_conformal_only_inputs.py")
   set_tests_properties(frontend_conformal_only_inputs PROPERTIES TIMEOUT 150 SKIP_RETURN_CODE 77)
@@ -373,6 +387,15 @@ set_tests_properties(frontend_matlab_exporttext2code PROPERTIES
 # hand-written pdeapp cannot regress this CLI contract while frontend_python_exporttext2code (which
 # only reaches --out-dir via the Python export) stays green. Shares the install-prefix write lock
 # with that test (both build libt2cmodel*.{so,dylib} into the install).
+add_test(NAME text2code_tdfunc_jacobian
+  COMMAND ${CMAKE_COMMAND} -E env
+    "EXASIM_ROOT=${EXASIM_DIR}"
+    "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}"
+    "EXASIM_TEXT2CODE=${EXASIM_TEXT2CODE}"
+    bash "${EXASIM_DIR}/tests/text2code/tdfunc-jacobian-test.sh")
+set_tests_properties(text2code_tdfunc_jacobian PROPERTIES
+  TIMEOUT 1200 SKIP_RETURN_CODE 77)
+
 add_test(NAME text2code_cli_out_dir
   COMMAND ${CMAKE_COMMAND} -E env
     "EXASIM_ROOT=${EXASIM_DIR}"

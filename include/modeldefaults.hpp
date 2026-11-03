@@ -134,7 +134,7 @@
 // only if they forget):
 //
 //   flux_jac_uq, flux_jac_w,
-//   source_jac_uq, source_jac_w,
+//   source_jac_uq, source_jac_w, tdfunc_jac_uq, tdfunc_jac_w,
 //   materialstate_jac_uq, materialstate_jac_w,
 //   fbou_jac_uq, fbou_jac_uh, fbou_jac_w,
 //   ubou_jac_uq, ubou_jac_uh, ubou_jac_w,
@@ -223,6 +223,18 @@ struct ModelDefaults {
                 const dstype /*uinf*/[], dstype /*t*/) {
         // Identity mass weighting by default.
         for (int k = 0; k < Self::ncu; ++k) m[k] = 1.0;
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void tdfunc_jac_uq(dstype m_uq[], const dstype[], const dstype[], const dstype[],
+                       const dstype[], const dstype[], const dstype[], dstype) {
+        zero_fill_<Self::ncu * Self::ncu * (1 + Self::nd)>(m_uq);
+    }
+
+    KOKKOS_INLINE_FUNCTION static
+    void tdfunc_jac_w(dstype m_w[], const dstype[], const dstype[], const dstype[],
+                      const dstype[], const dstype[], const dstype[], dstype) {
+        if constexpr (Self::ncw > 0) zero_fill_<Self::ncu * Self::ncw>(m_w);
     }
 
     KOKKOS_INLINE_FUNCTION static

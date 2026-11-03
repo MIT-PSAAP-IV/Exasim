@@ -24,6 +24,10 @@ flowchart TD
 
 Both paths must agree on runtime file formats and provider semantics.
 
+For nonlinear time coefficients, both paths generate the mass values and their
+`uq/w` partials; see [state-dependent mass](state-dependent-mass.md) for the
+product rule, provider rebuild requirement and focused verification.
+
 ## Frontend-Driven Generation
 
 The frontends construct `pde`, `mesh`, `master`, and `dmd` structures, then
