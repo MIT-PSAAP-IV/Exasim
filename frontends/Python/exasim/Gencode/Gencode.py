@@ -208,11 +208,16 @@ def gencode(app):
         #f = pde.mass(xdg, udg, odg, wdg, uinf, param, time);
         f = pde.mass(u, q, wdg, odg, xdg, time, param, uinf);
         gencodeelem("Tdfunc" + strn, f, xdg, udg, odg, wdg, uinf, param, time, foldername);
+        hdggencodeelem("Tdfunc" + strn, f, xdg, udg, odg, wdg, uinf, param, time, foldername,
+                       "KokkosTdfunc" + strn)
     else:
         if app['model']=="ModelW" or app['model']=="modelW" or app['tdep']==1:
             error("pde.inituq is not defined");
         else:
             nocodeelem("Tdfunc" + strn, foldername);
+            hdggencodeelem("Tdfunc" + strn, numpy.zeros(app['ncu'], dtype=object),
+                           xdg, udg, odg, wdg, uinf, param, time, foldername,
+                           "KokkosTdfunc" + strn)
     if hasattr(pde, 'avfield'):
         #f = pde.avfield(xdg, udg, odg, wdg, uinf, param, time);
         f = pde.avfield(u, q, wdg, odg, xdg, time, param, uinf);

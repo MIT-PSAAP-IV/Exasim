@@ -49,6 +49,7 @@ bool IsValidBuiltInLibraryABI(const ExasimDriverABI& abi)
            abi.init.cpuInitodg &&
            abi.hdgjac.HdgFlux &&
            abi.hdgjac.HdgSource &&
+           abi.hdgjac.HdgTdfunc &&
            abi.hdgjac.HdgMaterialstate &&
            abi.hdgjac.HdgSourcew &&
            abi.hdgjac.HdgSourcewonly &&
@@ -108,6 +109,7 @@ const ExasimDriverABI& getBuiltInLibraryExasimDriverABI()
 
         value.hdgjac.HdgFlux = &::builtinHdgFlux;
         value.hdgjac.HdgSource = &::builtinHdgSource;
+        value.hdgjac.HdgTdfunc = &::builtinHdgTdfunc;
         value.hdgjac.HdgMaterialstate = &::builtinHdgMaterialstate;
         value.hdgjac.HdgSourcew = &::builtinHdgSourcew;
         value.hdgjac.HdgSourcewonly = &::builtinHdgSourcewonly;

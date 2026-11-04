@@ -129,6 +129,10 @@ void CodeGenerator::generateCode2Cpp(const std::string& filename) const {
     os << "            ssv.funcjacsel2cppfiles(f, ssv.modelpath + \"HdgSourcewonly\", \"HdgSourcewonly\", i, 1, false);\n";
     os << "          }\n";
     os << "        }\n";
+    os << "        else if (funcname == \"Tdfunc\") {\n";
+    os << "          ssv.func2cppfiles(f, ssv.modelpath + fname, fname, i, false);\n";
+    os << "          ssv.funcjac2cppfiles(f, ssv.modelpath + \"HdgTdfunc\", \"KokkosTdfunc\", i, false);\n";
+    os << "        }\n";
     os << "        else if (funcname == \"QoIboundary\") { \n";
     os << "            ssv.func2cppfiles(f, ssv.modelpath + fname, fname + std::to_string(1), i, false);\n";
     os << "            ssv.appendUbouFbou(ssv.modelpath + fname, fname, 1);\n";
@@ -986,12 +990,17 @@ void emitSymbolicScalarsVectors(std::ostream& os, const ParsedSpec& spec) {
         const auto& func = spec.functions[fi];
         os << "        {";
 
-        // Collect vector arguments that are in the Jacobian list
+        // Time coefficients require both partial blocks for the product rule,
+        // independently of the optional user-requested Jacobian list.
         std::vector<std::string> jacvecs;
-        for (const auto& arg : func.args) {
-            if (std::find(spec.scalars.begin(), spec.scalars.end(), arg) == spec.scalars.end() &&
-                std::find(spec.jacobian.begin(), spec.jacobian.end(), arg) != spec.jacobian.end()) {
-                jacvecs.push_back(arg);
+        if (spec.exasim && func.name == "Tdfunc") {
+            jacvecs = {"uq", "w"};
+        } else {
+            for (const auto& arg : func.args) {
+                if (std::find(spec.scalars.begin(), spec.scalars.end(), arg) == spec.scalars.end() &&
+                    std::find(spec.jacobian.begin(), spec.jacobian.end(), arg) != spec.jacobian.end()) {
+                    jacvecs.push_back(arg);
+                }
             }
         }
 
@@ -2449,6 +2458,7 @@ void emitGenerateModelHeader(std::ostream& os, const ParsedSpec& spec) {
     os << "        volume_jac_methods = {\n";
     os << "        {\"Flux\",   \"flux\",   {\"flux_jac_uq\",   \"flux_jac_w\"}},\n";
     os << "        {\"Source\", \"source\", {\"source_jac_uq\", \"source_jac_w\"}},\n";
+    os << "        {\"Tdfunc\", \"tdfunc\", {\"tdfunc_jac_uq\", \"tdfunc_jac_w\"}},\n";
     os << "    };\n";
     os << "    const std::string volume_sig =\n";
     os << "        \"dstype f[], const dstype x[], const dstype uq[], const dstype v[], const dstype w[],\"\n";
@@ -3041,6 +3051,7 @@ void CodeGenerator::generateLibPDEModelHpp(std::string modelpath) const {
     os << "void KokkosSourcew(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw, const int nce, const int npe, const int ne);\n";
     os << "void KokkosStab(dstype* f, const dstype* xdg, const dstype* udg1, const dstype* udg2,  const dstype* odg1, const dstype* odg2,  const dstype* wdg1, const dstype* wdg2,  const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";
     os << "void KokkosTdfunc(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";
+    os << "void KokkosTdfunc(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";
     os << "void KokkosUbou(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";
     os << "void KokkosUbouJac(dstype* f, dstype* f_udg, dstype* f_wdg, dstype* f_uhg, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ib, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";
     os << "void KokkosUhat(dstype* f, const dstype* xdg, const dstype* udg1, const dstype* udg2,  const dstype* odg1, const dstype* odg2,  const dstype* wdg1, const dstype* wdg2,  const dstype* uhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);\n";
@@ -3128,6 +3139,7 @@ void CodeGenerator::generateLibPDEModelCpp(std::string modelpath) const {
     os << "#include \"HdgFext.cpp\"\n";
     os << "#include \"HdgFextonly.cpp\"\n";  
     os << "#include \"HdgSource.cpp\"\n";
+    os << "#include \"HdgTdfunc.cpp\"\n";
     os << "#include \"HdgMaterialstate.cpp\"\n";
     os << "#include \"HdgSourcew.cpp\"\n";
     os << "#include \"HdgSourcewonly.cpp\"\n";

@@ -268,11 +268,15 @@ if isdefined(pdemodel, Symbol("mass"))
     end
     f = f[:];
     gencodeelem("Tdfunc" * strn, f, xdg, udg, odg, wdg, uinf, param, time, foldername);
+    hdggencodeelem("Tdfunc" * strn, f, xdg, udg, odg, wdg, uinf, param, time, foldername,
+                  "KokkosTdfunc" * strn);
 else
     if app.model=="ModelW" || app.model == "modelW" || app.tdep==1
         error("pde.mass is not defined");
     else
         nocodeelem("Tdfunc" * strn, foldername);
+        hdggencodeelem("Tdfunc" * strn, zeros(Sym, app.ncu), xdg, udg, odg, wdg,
+                      uinf, param, time, foldername, "KokkosTdfunc" * strn);
     end
 end
 if isdefined(pdemodel, Symbol("avfield"))

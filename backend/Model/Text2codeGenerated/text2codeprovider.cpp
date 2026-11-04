@@ -63,6 +63,7 @@ using namespace std;
 #include "HdgFext.cpp"
 #include "HdgFextonly.cpp"
 #include "HdgSource.cpp"
+#include "HdgTdfunc.cpp"
 #include "HdgMaterialstate.cpp"
 #include "HdgSourcew.cpp"
 #include "HdgSourcewonly.cpp"
@@ -121,6 +122,7 @@ const ExasimDriverABI& getText2codeGeneratedExasimDriverABI()
 
         value.hdgjac.HdgFlux = &text2code_generated_source::HdgFlux;
         value.hdgjac.HdgSource = &text2code_generated_source::HdgSource;
+        value.hdgjac.HdgTdfunc = &text2code_generated_source::KokkosTdfunc;
         value.hdgjac.HdgMaterialstate = &text2code_generated_source::HdgMaterialstate;
         value.hdgjac.HdgSourcew = &text2code_generated_source::HdgSourcew;
         value.hdgjac.HdgSourcewonly = &text2code_generated_source::HdgSourcewonly;

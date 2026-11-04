@@ -1,9 +1,12 @@
-function strkk = hdggencodeelem(filename, f, xdg, udg, odg, wdg, uinf, param, time, foldername)
+function strkk = hdggencodeelem(filename, f, xdg, udg, odg, wdg, uinf, param, time, foldername, kernelname)
 
 cpufile = "Hdg" + filename;
+if nargin < 11
+    kernelname = cpufile;
+end
 tmp = "(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw)\n";
 str = "\tKokkos::parallel_for(" + '"' + filename  + '"' + ", ng, KOKKOS_LAMBDA(const size_t i) {\n";
-strkk = "void " + cpufile;
+strkk = "void " + kernelname;
 strkk = strkk + tmp + "{\n";
 strkk = strkk + str;
 
@@ -22,6 +25,3 @@ strkk = strrep(strkk, "T ", "dstype ");
 fid = fopen(foldername + "/" + cpufile + ".cpp", 'w');
 fprintf(fid, char(strkk));
 fclose(fid);
-
-
-    

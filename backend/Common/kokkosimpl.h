@@ -3026,6 +3026,33 @@ void ApplyDtcoef(Ty* sg_u, Ty* fg, noDeduce_t<Ty> dtcoeff, const int nga, const 
     });
 }
 
+// Add m*(S-a*u) and its complete partials before local w elimination.
+// Mass arrays borrow flux scratch, which is overwritten after this call.
+template <class Ty = dstype>
+void ApplyMassTime(Ty* sg, Ty* sg_uq, Ty* sg_w, const Ty* mass,
+        const Ty* mass_uq, const Ty* mass_w, const Ty* source, const Ty* uq,
+        noDeduce_t<Ty> dtfactor, const int nga, const int ncu,
+        const int nc, const int ncw)
+{
+    Kokkos::parallel_for("ApplyMassTime", nga*ncu, KOKKOS_LAMBDA(const size_t idx) {
+        const int i=idx%nga, m=idx/nga;
+        const Ty rate=source[idx]-dtfactor*uq[idx];
+        sg[idx] += rate*mass[idx];
+        // Apply the old diagonal term first, preserving constant-mass arithmetic.
+        sg_uq[idx+nga*ncu*m] += -dtfactor*mass[idx];
+        for(int j=0;j<nc;++j) {
+            const int k=i+nga*(m+ncu*j);
+            const Ty partial=mass_uq[k];
+            if(partial!=Ty(0)) sg_uq[k] += rate*partial;
+        }
+        for(int j=0;j<ncw;++j) {
+            const int k=i+nga*(m+ncu*j);
+            const Ty partial=mass_w[k];
+            if(partial!=Ty(0)) sg_w[k] += rate*partial;
+        }
+    });
+}
+
 template <class Ty = dstype>
 void ApplyJac(Ty* R, const Ty* jac, const int M, const int N)
 {

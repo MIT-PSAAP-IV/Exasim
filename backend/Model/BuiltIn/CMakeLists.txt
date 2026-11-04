@@ -123,6 +123,27 @@ function(exasim_add_builtin_model ID)
     endif()
   endif()
 
+  # These checked-in legacy models predate the mass-Jacobian overload. Their
+  # audited coefficients depend only on x/time/parameters (model 5) or are
+  # constant (the others). Adapt only this known set; custom models must supply
+  # their real partials, normally by regenerating with current Text2Code.
+  if(NOT BM_SOURCE AND _modeldir STREQUAL "${EXASIM_BUILTIN_DIR}/model${ID}"
+     AND ID GREATER_EQUAL 1 AND ID LESS_EQUAL 15)
+    set(_legacydir "${EXASIM_BUILTIN_GENROOT}/legacy_model${ID}")
+    file(MAKE_DIRECTORY "${_legacydir}")
+    file(WRITE "${_legacydir}/model.hpp"
+      "#include <Kokkos_Core.hpp>\n"
+      "#include \"${_modeldir}/model.hpp\"\n"
+      "namespace exasim_model_${ID} {\n"
+      "#include \"${EXASIM_BUILTIN_DIR}/legacy_mass_partials.hpp\"\n}\n")
+    file(WRITE "${_legacydir}/model.cpp"
+      "#include \"${_modeldir}/model.cpp\"\n")
+    if(_has_sizes)
+      configure_file("${_modeldir}/model_sizes.hpp" "${_legacydir}/model_sizes.hpp" COPYONLY)
+    endif()
+    set(_modeldir "${_legacydir}")
+  endif()
+
   set_property(GLOBAL APPEND PROPERTY EXASIM_BM_IDS  "${ID}")
   set_property(GLOBAL APPEND PROPERTY EXASIM_BM_DIRS "${_modeldir}")
   set_property(GLOBAL APPEND PROPERTY EXASIM_BM_HAS_SIZES "${_has_sizes}")

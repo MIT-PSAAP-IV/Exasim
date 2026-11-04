@@ -605,6 +605,22 @@ void SourceDriver(dstype* f, dstype* f_udg, dstype* f_wdg,
                   ncu, nd, ncx, nco, ncw);
 }
 
+void TdfuncDriver(dstype* f, dstype* f_udg, dstype* f_wdg,
+                  const dstype* xg, const dstype* udg, const dstype* odg,
+                  const dstype* wdg, ExasimDriverABI& abi, meshstruct& mesh,
+                  masterstruct& master, appstruct& app, solstruct& sol,
+                  tempstruct& temp, commonstruct& common, Int nge, Int e1,
+                  Int e2, Int backend)
+{
+    if (!abi.hdgjac.HdgTdfunc)
+        error("Missing mass Jacobian kernel: regenerate the model and rebuild its provider");
+    abi.hdgjac.HdgTdfunc(f, f_udg, f_wdg, xg, udg, odg, wdg, app.uinf,
+        app.physicsparam, common.timestate.time, common.modelnumber,
+        nge*(e2-e1), common.components.nc, common.components.ncu,
+        common.grid.nd, common.components.ncx, common.components.nco,
+        common.components.ncw);
+}
+
 void MaterialstateDriver(dstype* f, dstype* f_udg, dstype* f_wdg,
                   const dstype* xg, const dstype* udg, const dstype* odg,
                   const dstype* wdg, ExasimDriverABI& abi, meshstruct& mesh,
@@ -1081,6 +1097,16 @@ inline void EosdwDriver(dstype* f, const dstype* xg, const dstype* udg, const ds
 inline void TdfuncDriver(dstype* f, const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& temp, commonstruct& common, Int nge, Int e1, Int e2, Int backend)
 {
     TdfuncDriver(f, xg, udg, odg, wdg, require_driver_abi(common), mesh, master, app, sol, temp, common, nge, e1, e2, backend);
+}
+
+inline void TdfuncDriver(dstype* f, dstype* f_udg, dstype* f_wdg,
+    const dstype* xg, const dstype* udg, const dstype* odg, const dstype* wdg,
+    meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol,
+    tempstruct& temp, commonstruct& common, Int nge, Int e1, Int e2, Int backend)
+{
+    TdfuncDriver(f, f_udg, f_wdg, xg, udg, odg, wdg,
+        require_driver_abi(common), mesh, master, app, sol, temp, common,
+        nge, e1, e2, backend);
 }
 
 inline void FhatDriver(dstype* fg, const dstype* xg, const dstype* ug1, const dstype* ug2, const dstype* og1, const dstype* og2, const dstype* wg1, const dstype* wg2, const dstype* uh, const dstype* nl, meshstruct& mesh, masterstruct& master, appstruct& app, solstruct& sol, tempstruct& tmp, commonstruct& common, Int ngf, Int f1, Int f2, Int backend)

@@ -52,6 +52,7 @@ using ::PdeModel;
 #include "HdgFext.cpp"
 #include "HdgFextonly.cpp"
 #include "HdgSource.cpp"
+#include "HdgTdfunc.cpp"
 #include "HdgMaterialstate.cpp"
 #include "HdgSourcew.cpp"
 #include "HdgSourcewonly.cpp"
@@ -110,6 +111,7 @@ extern "C" const ExasimDriverABI* GetText2CodeExasimDriverABI()
 
         value.hdgjac.HdgFlux = &text2code_shared_lib::HdgFlux;
         value.hdgjac.HdgSource = &text2code_shared_lib::HdgSource;
+        value.hdgjac.HdgTdfunc = &text2code_shared_lib::KokkosTdfunc;
         value.hdgjac.HdgMaterialstate = &text2code_shared_lib::HdgMaterialstate;
         value.hdgjac.HdgSourcew = &text2code_shared_lib::HdgSourcew;
         value.hdgjac.HdgSourcewonly = &text2code_shared_lib::HdgSourcewonly;
