@@ -65,6 +65,7 @@ struct Context {
  bool enabled=false,shared=true,cached_inverse=false,species_batch=true,asm_fp32=false,species_kron=false;
  int dimension=3;
  int species_matrices=4,n=N,m=M,ne=0,owned=0,batch=0;
+ std::shared_ptr<void> extension; // Optional case-owned policy state; released before Kokkos teardown.
  View hf,ff,ownedWork,vy,ty,vecin,vecout,thermal;
  Kokkos::View<double*,Kokkos::MemoryTraits<Kokkos::Unmanaged>> work;
  void borrowWork(double* ptr,size_t count){
@@ -116,7 +117,7 @@ struct Context {
 #endif
  }
  void initBoundary(const commonstruct& c,const meshstruct& mesh){boundary.init(c,mesh);}
- void clear(){boundary.clear();hf=View();ff=View();work={};ownedWork=View();vy=View();ty=View();vecin=View();vecout=View();thermal=View();asm_status={};pivots={};info={};aPointers={};cPointers={};}
+ void clear(){extension.reset();boundary.clear();hf=View();ff=View();work={};ownedWork=View();vy=View();ty=View();vecin=View();vecout=View();thermal=View();asm_status={};pivots={};info={};aPointers={};cPointers={};}
  size_t bytes()const{return boundary.bytes()+8*(hf.extent(0)+ff.extent(0)+ownedWork.extent(0)+vy.extent(0)+ty.extent(0)+vecin.extent(0)+vecout.extent(0)+thermal.extent(0))+sizeof(int)*(asm_status.extent(0)+pivots.extent(0)+info.extent(0))+sizeof(uintptr_t)*(aPointers.extent(0)+cPointers.extent(0));}
 };
 
@@ -163,6 +164,10 @@ template<class... Args> inline void schwarz(Context& ctx, Args&&... args){
  if(ctx.dimension==2)CoreHDG<2>::schwarz(ctx,std::forward<Args>(args)...);
  else CoreHDG<3>::schwarz(ctx,std::forward<Args>(args)...);
 }
+template<class... Args> inline void afterSolve(Context& ctx, Args&&... args){
+ if(ctx.dimension==2)CoreHDG<2>::afterSolve(ctx,std::forward<Args>(args)...);
+ else CoreHDG<3>::afterSolve(ctx,std::forward<Args>(args)...);
+}
 // Dimension-specific implementation helpers stay on Kernels<ND>; only the
 // context-dispatched operations above are exposed at namespace scope.
 
@@ -193,6 +198,7 @@ template<class... Args> void condense(Args&&...){throw std::runtime_error("unsup
 template<class... Args> void recover(Args&&...){throw std::runtime_error("unsupported composite scalar");}
 template<class... Args> void multiply(Args&&...){throw std::runtime_error("unsupported composite scalar");}
 template<class... Args> void schwarz(Args&&...){throw std::runtime_error("unsupported composite scalar");}
+template<class... Args> void afterSolve(Args&&...){}
 #endif
 
 }
