@@ -64,6 +64,46 @@ Consequently these entry counts do not by themselves predict total GPU memory
 or a production mesh capacity. Measure total device usage at the intended
 element load and workspace cap, including overlap/ghost elements.
 
+Selected boundary coupling
+--------------------------
+To retain cross-field coupling in selected boundary trace rows, add
+
+    pde.compositebc = 5;          % MATLAB: one actual boundary-condition code
+    % pde.compositebc = [5 1001]; % or several codes
+
+Python accepts a scalar or list, Julia a scalar or vector, and pdeapp.txt accepts
+`compositebc = 5;` or `compositebc = [5, 1001];`. The default is empty ([]).
+Codes are positive int32 integers; duplicates are removed. These are values of
+mesh.boundarycondition, not indices into mesh.boundaryexpr. For example, selecting
+1001 targets all faces carrying code1001, even if it is the first mesh boundary.
+A rank with no matching owned faces allocates no row storage. The setting has
+no effect when compositehdg=0. Changing it does not change a boundary callback,
+forcing, physical residual, initialization, time integration or output format.
+
+The basis stays frozen for each linear solve. Let Cb,Hb,Rb be the full transformed
+selected boundary rows, and let F,z denote the existing compact volume recovery.
+The corrected trace rows are Hb+Cb*F, with right-hand side Rb-Cb*z. The operator
+stores the difference from the compact H rows and adds it during trace products.
+The volume elimination/recovery and compact FP32 ASM remain unchanged. Therefore
+this is still an approximate correction operator, not the native Schur complement.
+Selecting other codes is supported by the same mechanism; improved convergence
+for an arbitrary code/model/loading is not guaranteed. Check full physical
+convergence and cost per simulated time with the intended case.
+
+Persistent extra device memory per selected owned boundary face is
+npf*ncu*(npe*ncu + npf*nfe*ncu + 1)*8 + 2*sizeof(int): 32,456 bytes in2D and
+473,048 bytes in3D with32-bit indices. It stores full C rows, trace correction,
+RHS and two map entries. Selecting many faces can substantially reduce the
+memory advantage. COMPOSITE_BOUNDARY_ROWS logs actual local face count/bytes;
+COMPOSITE_MEMORY_PLAN includes these allocations before the HIP memory check.
+The CPU and HIP paths share dimension-specialized Kokkos kernels.
+
+The binary dimensions header uses zero-based slot25 for the selected-code count
+and appends codes starting at slot40; nsize[0] includes the extension. Empty
+selection preserves the previous40-entry header. New readers accept legacy
+headers. Rebuild both Exasim and the application when using this new option;
+an old executable can ignore the extension and will not provide this correction.
+
 Validation scope
 ----------------
 Configuration, block/count, transformation, condensation/recovery, provider and

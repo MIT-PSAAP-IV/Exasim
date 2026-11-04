@@ -1,4 +1,8 @@
 #pragma once
+#include <algorithm>
+#include <cctype>
+#include <sstream>
+#include <vector>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -8,7 +12,7 @@
 #include <type_traits>
 
 namespace exasim::composite {
-struct Config { bool enabled=false; int batch=1024; };
+struct Config { bool enabled=false; int batch=1024; std::vector<int> boundaryCodes; };
 template<int D> struct Shape {
     static_assert(D == 2 || D == 3);
     static constexpr int nd=D, P=D==2?9:27, PF=D==2?3:9, faces=2*D;
@@ -65,6 +69,79 @@ inline int count(uint64_t value,const char* name) {
         throw std::overflow_error(std::string(name)+" exceeds a signed 32-bit kernel interface");
     return static_cast<int>(value);
 }
+// Actual boundary-condition codes, not boundary-expression indices. Sorting and
+// deduplication make selection order immaterial, including repeated user codes.
+template<class T> std::vector<int> boundaryCodes(const std::vector<T>& values) {
+    std::vector<int> result;
+    for(auto value:values) result.push_back(integer(value,"compositebc",1,2147483647));
+    std::sort(result.begin(),result.end());
+    result.erase(std::unique(result.begin(),result.end()),result.end());
+    count(uint64_t(result.size())+40,"compositebc header extent");
+    return result;
+}
+inline std::vector<int> parseBoundaryCodes(std::string text) {
+    auto first=text.find_first_not_of(" \t\r\n"),last=text.find_last_not_of(" \t\r\n");
+    if(first==std::string::npos)throw std::invalid_argument("compositebc requires a scalar or list; use [] for none");
+    text=text.substr(first,last-first+1);
+    const bool list=text.front()=='[';
+    if(list) {
+        if(text.back()!=']')throw std::invalid_argument("unterminated compositebc list");
+        text=text.substr(1,text.size()-2);
+    }
+    // Accept whitespace or commas between list entries, but not empty comma entries.
+    if(!list)return {parseInteger(text,"compositebc",1,2147483647)};
+    std::vector<int> result;
+    std::string token;
+    std::istringstream stream(text);
+    bool afterComma=false,haveValue=false;
+    while(stream >> std::ws && stream.peek()!=std::char_traits<char>::eof()) {
+        if(stream.peek()==',') {
+            if(!haveValue || afterComma)throw std::invalid_argument("empty compositebc entry");
+            stream.get();afterComma=true;continue;
+        }
+        token.clear();
+        while(stream && stream.peek()!=',' && stream.peek()!=std::char_traits<char>::eof() &&
+              !std::isspace(static_cast<unsigned char>(stream.peek())))token+=char(stream.get());
+        result.push_back(parseInteger(token,"compositebc",1,2147483647));
+        haveValue=true;afterComma=false;
+    }
+    if(afterComma)throw std::invalid_argument("empty compositebc entry");
+    return boundaryCodes(result);
+}
+// The legacy 40-entry header is byte-for-byte unchanged for an empty selection.
+// Slot25 stores the extension length; codes start at40. nsize[0] covers both.
+template<class T> void encodeBoundaryCodes(std::vector<T>& header,const std::vector<int>& values) {
+    auto codes=boundaryCodes(values);
+    header.resize(40+codes.size(),T{});
+    header[25]=static_cast<T>(codes.size());
+    std::copy(codes.begin(),codes.end(),header.begin()+40);
+}
+template<class T> std::vector<int> decodeBoundaryCodes(const T* header,size_t length) {
+    if(length<=25)return {};
+    int n=integer(header[25],"compositebc list length",0,2147483647);
+    if(!n)return {};
+    if(length<40 || size_t(n)>length-40)
+        throw std::invalid_argument("truncated compositebc header extension");
+    return boundaryCodes(std::vector<T>(header+40,header+40+n));
+}
+// Validate before the legacy app reader rounds double metadata into Int.
+inline void validateBoundaryHeader(std::istream& in,int length) {
+    if(length<=25)return;
+    const auto start=in.tellg();
+    in.seekg(start+std::streamoff(25*sizeof(double)));
+    double raw=0.;in.read(reinterpret_cast<char*>(&raw),sizeof(double));
+    if(!in)throw std::invalid_argument("unable to read compositebc list length");
+    int n=integer(raw,"compositebc list length",0,2147483647);
+    if(n && (length<40 || n>length-40))
+        throw std::invalid_argument("truncated compositebc header extension");
+    if(n)in.seekg(start+std::streamoff(40*sizeof(double)));
+    for(int j=0;j<n;++j) {
+        in.read(reinterpret_cast<char*>(&raw),sizeof(double));
+        if(!in)throw std::invalid_argument("unable to read compositebc code");
+        integer(raw,"compositebc",1,2147483647);
+    }
+    in.seekg(start);
+}
 inline Config decodeValues(double mode,double cap) {
     Config config;
     config.enabled=integer(mode,"compositehdg",0,1)!=0;
@@ -79,8 +156,10 @@ inline Config decodeValues(double mode,double cap) {
 template<class App> Config decode(const App& app) {
     // Lightweight native callers may not populate the optional app.bin header.
     if(!app.nsize || !app.ndims)return {};
-    return decodeValues(app.nsize[0]>23?app.ndims[23]:0,
-                        app.nsize[0]>24?app.ndims[24]:0);
+    auto config=decodeValues(app.nsize[0]>23?app.ndims[23]:0,
+                             app.nsize[0]>24?app.ndims[24]:0);
+    config.boundaryCodes=decodeBoundaryCodes(app.ndims,app.nsize[0]);
+    return config;
 }
 // Call only on host-resident app metadata (before GPU staging/allocation).
 // Auxiliary scalar/elasticity models reread the same app.bin, so this initial

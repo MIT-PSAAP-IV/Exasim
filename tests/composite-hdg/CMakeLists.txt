@@ -1,4 +1,5 @@
-# Focused composite-HDG contract, configuration, and algebra tests. No GPU jobs.
+# Focused composite-HDG contract, configuration, and CPU/HIP algebra tests.
+# These tests do not submit scheduler jobs.
 function(composite_hdg_unit name source)
   add_executable(${name} "${CMAKE_CURRENT_SOURCE_DIR}/${source}")
   target_include_directories(${name} PRIVATE "${EXASIM_DIR}" "${EXASIM_DIR}/include")
@@ -95,6 +96,23 @@ if(TARGET Kokkos::kokkos AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_sources(composite_hdg_provider_direct PRIVATE provider/adapter.cpp)
   target_compile_definitions(composite_hdg_provider_direct PRIVATE EXPECT_REGISTERED=1)
   target_link_libraries(composite_hdg_provider_direct PRIVATE Kokkos::kokkos)
+endif()
+
+if(TARGET Kokkos::kokkos AND NOT EXASIM_CUDA AND NOT EXASIM_FLOAT)
+  foreach(dim 2 3)
+    composite_hdg_unit(composite_hdg_boundary_${dim}d boundary_operator.cpp)
+    target_compile_definitions(composite_hdg_boundary_${dim}d PRIVATE COMPOSITE_TEST_DIM=${dim})
+    target_compile_features(composite_hdg_boundary_${dim}d PRIVATE cxx_std_20)
+    target_link_libraries(composite_hdg_boundary_${dim}d PRIVATE Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+    if(EXASIM_HIP)
+      target_compile_definitions(composite_hdg_boundary_${dim}d PRIVATE _HIP)
+      target_link_libraries(composite_hdg_boundary_${dim}d PRIVATE hipblas rocblas ${HIP_LIBRARIES})
+      set_tests_properties(composite_hdg_boundary_${dim}d PROPERTIES LABELS "gpu;composite")
+    endif()
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+      target_compile_options(composite_hdg_boundary_${dim}d PRIVATE -O1 -fno-fast-math)
+    endif()
+  endforeach()
 endif()
 
 if(TARGET Kokkos::kokkos AND NOT EXASIM_CUDA AND NOT EXASIM_HIP AND NOT EXASIM_FLOAT)

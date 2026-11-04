@@ -45,7 +45,8 @@ static vector<double> dimensions(const filesystem::path& input) {
     require(count == 30., "unexpected binary header");
     vector<double> sizes(30), result(40);
     file.read(reinterpret_cast<char*>(sizes.data()), sizes.size()*sizeof(double));
-    require(sizes[0] == 40., "unexpected ndims length");
+    require(sizes[0] >= 40., "unexpected ndims length");
+    result.resize(static_cast<size_t>(sizes[0]));
     file.read(reinterpret_cast<char*>(result.data()), result.size()*sizeof(double));
     require(bool(file), "incomplete app.bin");
     return result;
@@ -77,6 +78,19 @@ int main(int argc, char** argv) {
     write("compositehdg = 1;\ncompositebatchsize = 127;\n");
     pde = convert(input, output); dims = dimensions(output);
     require(dims[23] == 1 && dims[24] == 127, "explicit composite cap lost in app.bin");
+    for (const string& value : {"5", "[1001, 5, 5]", "[5 1001]", "[]"}) {
+        write("compositehdg = 1;\ncompositebc = " + value + ";\n");
+        pde = convert(input,output); dims = dimensions(output);
+        auto expected = exasim::composite::parseBoundaryCodes(value);
+        require(pde.compositebc == expected,"boundary text mismatch");
+        require(exasim::composite::decodeBoundaryCodes(dims.data(),dims.size()) == expected,"boundary binary mismatch");
+    }
+    for (const string& value : {"0", "-1", "[5.5]", "[NaN]", "[Inf]", "[2147483648]", "[5,,2]", "[5,]", "[5;2]", "[5]junk"}) {
+        write("compositebc = " + value + ";\n");
+        bool rejected = false;
+        try { convert(input,output); } catch (const exception&) { rejected = true; }
+        require(rejected,"accepted invalid compositebc: " + value);
+    }
     write("compositehdg = 1;\ninterfacetype = 1;\n");
     // This release rejects nonmatching input with error()/exit, not an exception.
     // Isolate that production guard and require its specific diagnostic as well

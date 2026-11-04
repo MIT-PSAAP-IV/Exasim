@@ -66,6 +66,12 @@ app.compositehdg in (0, 1) || error("compositehdg must be 0 or 1")
 1 <= app.compositebatchsize <= 2147483647 || error("compositebatchsize must be a positive Int32")
 ndims[24] = app.compositehdg;
 ndims[25] = app.compositebatchsize;
+bc = app.compositebc isa Real ? [app.compositebc] : app.compositebc
+all(x -> !(x isa Bool) && isfinite(x) && 1 <= x <= 2147483647 && isinteger(x), bc) ||
+    error("compositebc must be a positive Int32 code or vector; use [] for none")
+bc = sort(unique(Float64.(bc)))
+ndims[26] = length(bc)
+ndims = vcat(ndims, bc)
 
 # Preserve explicitly supplied schedules, matching MATLAB. This also permits
 # bitwise-identical schedules across math-library implementations.

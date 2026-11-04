@@ -131,5 +131,19 @@ int main() {
                              "2147483648", "1e1000", "1024oops", "[1024]", "\"1024\"", ""})
         rejects([&] { parseInteger(text, "compositebatchsize", 1, 2147483647); });
     require(parseInteger(" 1.024e3 ", "compositebatchsize", 1, 2147483647) == 1024);
+    std::vector<double> header(40,0.);
+    encodeBoundaryCodes(header,{1001,5,5});
+    require(header.size()==42 && header[25]==2 && header[40]==5 && header[41]==1001);
+    require(decodeBoundaryCodes(header.data(),header.size())==std::vector<int>({5,1001}));
+    for(double bad : {0.,-1.,5.5,double(NAN),double(INFINITY),2147483648.}) {
+        header[40]=bad;
+        rejects([&]{decodeBoundaryCodes(header.data(),header.size());});
+        std::stringstream input(std::string(reinterpret_cast<const char*>(header.data()),header.size()*sizeof(double)));
+        rejects([&]{validateBoundaryHeader(input,header.size());});
+    }
+    header[40]=5;
+    rejects([&]{decodeBoundaryCodes(header.data(),41);});
+    encodeBoundaryCodes(header,{});
+    require(header.size()==40 && header[25]==0 && decodeBoundaryCodes(header.data(),40).empty());
     std::cout << "COMPOSITE_CONFIG_PASS\n";
 }
