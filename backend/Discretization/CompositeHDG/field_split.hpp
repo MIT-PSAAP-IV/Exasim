@@ -160,8 +160,8 @@ inline void recover(Context& ctx,double* w,double* f,const double* ve,meshstruct
  else CoreHDG<3>::recover(ctx,w,f,ve,mesh,c,backend);
 }
 template<class... Args> inline void schwarz(Context& ctx, Args&&... args){
- if(ctx.dimension==2)Kernels<2>::schwarz(ctx,std::forward<Args>(args)...);
- else Kernels<3>::schwarz(ctx,std::forward<Args>(args)...);
+ if(ctx.dimension==2)CoreHDG<2>::schwarz(ctx,std::forward<Args>(args)...);
+ else CoreHDG<3>::schwarz(ctx,std::forward<Args>(args)...);
 }
 // Dimension-specific implementation helpers stay on Kernels<ND>; only the
 // context-dispatched operations above are exposed at namespace scope.
