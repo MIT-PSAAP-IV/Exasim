@@ -12,6 +12,10 @@
 #include <vector>
 #include <limits>
 #include "composite_finite.hpp"
+#include "../../Common/storage_index.hpp"
+#ifdef HAVE_HIP
+#include "../../Common/hip_storage.hpp"
+#endif
 namespace fieldsplit {
 using View=Kokkos::View<double*>;
 constexpr int P=27,Q=54,NC=9,N=243,M=486,AF=135,BF=270,AS=108,BS=216;
@@ -21,17 +25,26 @@ inline int checkedCount(uint64_t count,const char* name){
  return int(count);
 }
 inline size_t checkedStorage(uint64_t count,const char* name){
- if(count>uint64_t(std::numeric_limits<ptrdiff_t>::max())/sizeof(double))
-  throw std::runtime_error(std::string("3D HDG storage byte extent overflows pointer range: ")+name);
- return size_t(count);
+ return exasim::index::storageCount<double>(count,name);
 }
-// Preserve the original kernel for ordinary counts; chunk only oversized arrays.
+// Use the same execution stream as the previous Kokkos operation, preserving
+// assembly/communication ordering. CPU/CUDA retain their existing chunk path.
 template<class T> inline void setStorage(T* p,T value,size_t n){
+ exasim::index::storageCount<T>(n,"setStorage");
+#ifdef HAVE_HIP
+ CHECK(exasim::index::forEachHip(n,Kokkos::DefaultExecutionSpace().hip_stream(),
+       [=] __device__ (auto i){p[i]=value;}));return;
+#endif
  if(n<=size_t(std::numeric_limits<int>::max())){ArraySetValue(p,value,int(n));return;}
  constexpr size_t chunk=size_t(1)<<28;
  for(size_t off=0;off<n;off+=chunk)ArraySetValue(p+off,value,int(std::min(chunk,n-off)));
 }
 template<class T> inline void copyStorage(T* dst,const T* src,size_t n){
+ exasim::index::storageCount<T>(n,"copyStorage");
+#ifdef HAVE_HIP
+ CHECK(exasim::index::forEachHip(n,Kokkos::DefaultExecutionSpace().hip_stream(),
+       [=] __device__ (auto i){dst[i]=src[i];}));return;
+#endif
  if(n<=size_t(std::numeric_limits<int>::max())){ArrayCopy(dst,src,int(n));return;}
  constexpr size_t chunk=size_t(1)<<28;
  for(size_t off=0;off<n;off+=chunk)ArrayCopy(dst+off,src+off,int(std::min(chunk,n-off)));
@@ -99,7 +112,8 @@ struct Context {
   model=exasim::composite::requireModel(*c.driver_abi,c.modelnumber,c.grid.nd);
   validate=std::getenv("EXASIM_COMPOSITE_VALIDATE")!=nullptr;
   ne=c.meshsizes.ne;owned=c.meshsizes.ne1;batch=c.meshsizes.neb;
-  checkedCount(uint64_t(HS)*ne,"compact H");checkedCount(uint64_t(FS)*ne,"compact F");
+  exasim::index::storageProduct<double>(HS,ne,"compact H");
+  exasim::index::storageProduct<double>(FS,ne,"compact F");
   const auto storage=batchStorage(c);
   hf=View("FS batch H",storage.h*batch);ff=View("FS batch F",storage.f*batch);
   // Sequential field work: A,E,G,S,rv,rh,zv,F. Neither full assembly input

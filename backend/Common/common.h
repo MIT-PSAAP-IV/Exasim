@@ -1656,8 +1656,8 @@ struct resstructT {
     
     Int *ipiv=nullptr;    
     
-    Int szRi=0, szHi=0, szKi=0, szGi=0, szV=0;
-    std::size_t szP=0, szH=0, szK=0, szF=0; // persistent matrix and arena extents
+    Int szRi=0, szHi=0, szKi=0, szGi=0;
+    std::size_t szP=0, szH=0, szK=0, szF=0, szV=0; // persistent matrix and arena extents
     Int szipiv=0, szG=0, szB=0, szD=0, szE=0, szC=0, szMass=0, szMinv=0, szMass2=0, szMinv2=0;
     Int szRq=0, szRu=0, szRh=0, szRuf=0, szRue=0, szRqf=0, szRqe=0;
     // 1 when F and H alias INTO the K block (the LDG block-Jacobi arena, AllocateLDGBlockJacobianMemory).

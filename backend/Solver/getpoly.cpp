@@ -33,15 +33,15 @@
 void MGS(cublasHandle_t handle, dstype *V, dstype *H, Int N, Int m, Int backend)
 {
     for (Int k = 0; k < m; k++) {
-        PDOT(handle, N, &V[m*N], inc1, &V[k*N], inc1, &H[k], backend);
-        ArrayAXPY(handle, &V[m*N], &V[k*N], -H[k], N, backend);
+        PDOT(handle, N, &V[std::size_t(m)*N], inc1, &V[std::size_t(k)*N], inc1, &H[k], backend);
+        ArrayAXPY(handle, &V[std::size_t(m)*N], &V[std::size_t(k)*N], -H[k], N, backend);
     }
-    PDOT(handle, N, &V[m*N], inc1, &V[m*N], inc1, &H[m], backend);
+    PDOT(handle, N, &V[std::size_t(m)*N], inc1, &V[std::size_t(m)*N], inc1, &H[m], backend);
     H[m] = sqrt(H[m]);    
     // An invariant Krylov subspace is a normal (happy) breakdown. Leave its
     // zero next vector untouched; GMRES decides whether the solve converged.
     if (is_finite_bitwise(H[m]) && H[m] > 0)
-        ArrayMultiplyScalar(handle, &V[m*N], one/H[m], N, backend);
+        ArrayMultiplyScalar(handle, &V[std::size_t(m)*N], one/H[m], N, backend);
 }
 
 void MGS(cublasHandle_t handle, dstype *V, dstype *H, Int N, Int m, Int L, Int backend)
@@ -54,17 +54,17 @@ void MGS(cublasHandle_t handle, dstype *V, dstype *H, Int N, Int m, Int L, Int b
     dstype h1=0.0, h2=0.0;
     Int M = N-L;
     for (Int k = 0; k < m; k++) {
-        PDOT(handle, L, &V[m*N], inc1, &V[k*N], inc1, &h1, backend);
-        PDOT(handle, M, &V[m*N+L], inc1, &V[k*N+L], inc1, &h2, backend);
+        PDOT(handle, L, &V[std::size_t(m)*N], inc1, &V[std::size_t(k)*N], inc1, &h1, backend);
+        PDOT(handle, M, &V[std::size_t(m)*N+L], inc1, &V[std::size_t(k)*N+L], inc1, &h2, backend);
         H[k] = h2 + 0.5*h1;
-        ArrayAXPY(handle, &V[m*N], &V[k*N], -H[k], N, backend);
+        ArrayAXPY(handle, &V[std::size_t(m)*N], &V[std::size_t(k)*N], -H[k], N, backend);
     }
-    PDOT(handle, L, &V[m*N], inc1, &V[m*N], inc1, &h1, backend);
-    PDOT(handle, M, &V[m*N+L], inc1, &V[m*N+L], inc1, &h2, backend);
+    PDOT(handle, L, &V[std::size_t(m)*N], inc1, &V[std::size_t(m)*N], inc1, &h1, backend);
+    PDOT(handle, M, &V[std::size_t(m)*N+L], inc1, &V[std::size_t(m)*N+L], inc1, &h2, backend);
     H[m] = h2 + 0.5*h1;
     H[m] = sqrt(H[m]);    
     if (is_finite_bitwise(H[m]) && H[m] > 0)
-        ArrayMultiplyScalar(handle, &V[m*N], one/H[m], N, backend);
+        ArrayMultiplyScalar(handle, &V[std::size_t(m)*N], one/H[m], N, backend);
 }
 
 template <class M>
@@ -80,8 +80,8 @@ bool makeH(CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& 
           
     ArrayAX(disc.common.cublasHandle, sys.v, r, 1.0/normr, N, backend);    
     for (int j=0; j<m; j++) {                    
-        assembler.evalMatVecWithNorm(&sys.v[(j+1)*N], &sys.v[j*N], sys.u, sys.b, one, backend);
-        prec.ApplyPreconditioner(&sys.v[(j+1)*N], sys, disc, backend);            
+        assembler.evalMatVecWithNorm(&sys.v[std::size_t(j+1)*N], &sys.v[std::size_t(j)*N], sys.u, sys.b, one, backend);
+        prec.ApplyPreconditioner(&sys.v[std::size_t(j+1)*N], sys, disc, backend);
         MGS(disc.common.cublasHandle, sys.v, &H[m1*j], N, j+1, backend);
         dstype scale = zero;
         for (int k=0; k<=j+1; ++k) {
@@ -244,8 +244,8 @@ bool makeH(CAssembler<M>& assembler, CDiscretization &disc, CPreconditioner<M>& 
     if (!is_finite_bitwise(normr) || normr == zero) return false;
     ArrayAX(disc.common.cublasHandle, sys.v, r, 1.0/normr, N, backend);    
     for (int j=0; j<m; j++) {                    
-        assembler.evalMatVec(&sys.v[(j+1)*N], &sys.v[j*N], sys.u, sys.b, spatialScheme, backend);      
-        prec.ApplyPreconditioner(&sys.v[(j+1)*N], sys, disc, spatialScheme, backend);            
+        assembler.evalMatVec(&sys.v[std::size_t(j+1)*N], &sys.v[std::size_t(j)*N], sys.u, sys.b, spatialScheme, backend);
+        prec.ApplyPreconditioner(&sys.v[std::size_t(j+1)*N], sys, disc, spatialScheme, backend);
         MGS(disc.common.cublasHandle, sys.v, &H[m1*j], N, j+1, disc.common.couplingparams.ndofuhatinterface, backend);
         //MGS(disc.common.cublasHandle, sys.v, &H[m1*j], N, j+1, backend);
         dstype scale = zero;
