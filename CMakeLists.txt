@@ -50,6 +50,8 @@ option(EXASIM_FLOAT       "Single-precision dstype (float); default double"  OFF
 option(EXASIM_INT64       "64-bit Int index type (long); default int"        OFF)
 option(EXASIM_BOUNDS_CHECK "Rank-aware bounds checks on partition-derived indices (debug/CI)" OFF)
 option(EXASIM_ASAN "Build with AddressSanitizer (debug/CI; needs the WHOLE binary instrumented)" OFF)
+option(EXASIM_ENZYME "Enable HAVE_ENZYME and load the ClangEnzyme compiler plugin" OFF)
+set(ENZYME_ROOT "" CACHE PATH "Enzyme build directory or installation prefix")
 
 # AddressSanitizer. Applied as CMAKE_*_FLAGS rather than to one target because a
 # partially-instrumented binary reports little: ASan must see the allocation AND the
@@ -267,6 +269,9 @@ if(EXASIM_CUDA)
     set(_kk_arch_arg "KOKKOS_CUDA_ARCH=${_exasim_kokkos_cuda_arch}")
   else()
     set(_kk_arch_arg "")
+  endif()
+  if(EXASIM_ENZYME)
+    list(APPEND _kk_arch_arg "KOKKOS_CUDA_COMPILER=${CMAKE_CXX_COMPILER}")
   endif()
 elseif(EXASIM_HIP)
   set(_kk_target hip)
@@ -662,9 +667,12 @@ endif()
 # locates whatever the steps above produced. Depends on everything.
 #
 # Unlike deps/symengine (host-only), the solver compiles Kokkos device code,
-# so under CUDA/HIP it must build with the Kokkos compiler wrapper as CXX.
+# so CUDA/HIP normally use a Kokkos compiler wrapper. ClangEnzyme instead
+# requires the selected Clang to compile device code as well as host code.
 # ----------------------------------------------------------------------------
-if(EXASIM_CUDA)
+if(EXASIM_ENZYME)
+  set(_exasim_cxx "${CMAKE_CXX_COMPILER}")
+elseif(EXASIM_CUDA)
   set(_exasim_cxx "${EXASIM_ROOT}/deps/kokkos/bin/nvcc_wrapper")
 elseif(EXASIM_HIP)
   set(_exasim_cxx "hipcc")
@@ -672,6 +680,12 @@ else()
   set(_exasim_cxx "${CMAKE_CXX_COMPILER}")
 endif()
 set(_exasim_fwd -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DCMAKE_CXX_COMPILER=${_exasim_cxx})
+if(EXASIM_ENZYME AND DEFINED CMAKE_CUDA_COMPILER)
+  list(APPEND _exasim_fwd "-DCMAKE_CUDA_COMPILER=${CMAKE_CUDA_COMPILER}")
+endif()
+if(DEFINED CMAKE_CUDA_ARCHITECTURES)
+  list(APPEND _exasim_fwd "-DCMAKE_CUDA_ARCHITECTURES=${CMAKE_CUDA_ARCHITECTURES}")
+endif()
 if(CMAKE_BUILD_TYPE)
   list(APPEND _exasim_fwd -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE})
 endif()
@@ -711,6 +725,8 @@ ExternalProject_Add(exasim_build
     -DEXASIM_FLOAT=${EXASIM_FLOAT} -DEXASIM_INT64=${EXASIM_INT64}
     -DEXASIM_BOUNDS_CHECK=${EXASIM_BOUNDS_CHECK}
     -DEXASIM_ASAN=${EXASIM_ASAN}
+    -DEXASIM_ENZYME:BOOL=${EXASIM_ENZYME}
+    -DENZYME_ROOT=${ENZYME_ROOT}
     -DWITH_TEXT2CODE=${WITH_TEXT2CODE} -DWITH_BUILTINMODEL=${WITH_BUILTINMODEL}
     -DEXASIM_BUILD_TESTS=${EXASIM_BUILD_TESTS}
     -DEXASIM_TEXT2CODE=${EXASIM_TEXT2CODE}

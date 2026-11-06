@@ -23,6 +23,9 @@ HIP_DIR    ?= buildhip
 # the visible GPU (only works when a GPU is present at configure time).
 KOKKOS_CUDA_ARCH ?= VOLTA70
 
+# ClangEnzyme builds override this with the matching clang++.
+KOKKOS_CUDA_COMPILER ?= $(CURDIR)/bin/nvcc_wrapper
+
 # AMD GPU architecture for HIP build.
 # Frontier MI250X: gfx90a
 # Tuolumne MI300A: gfx942
@@ -41,7 +44,7 @@ serial:
 cuda:
 	mkdir -p $(CUDA_DIR)
 	cmake -S . -B $(CUDA_DIR) \
-	  -DCMAKE_CXX_COMPILER=$(CURDIR)/bin/nvcc_wrapper \
+	  -DCMAKE_CXX_COMPILER="$(KOKKOS_CUDA_COMPILER)" \
 	  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
       -DKokkos_ENABLE_SERIAL=ON \
 	  -DKokkos_ENABLE_CUDA=ON \

@@ -12,6 +12,8 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <stdexcept>
+#include <string>
 #include "driver_abi.h"
 
 void FluxDriver(dstype* f, const dstype* xg, const dstype* udg,
@@ -1009,6 +1011,184 @@ void SurfaceQuantitiesDriver(dstype* fb, const dstype* xg, const dstype* udg,
                                     numPoints, nc, ncu, nd, ncx, nco, ncw);
 }
 
+#ifdef HAVE_ENZYME
+// Directional derivatives used by the matrix-free AD residual, distinct from
+// the full-Jacobian HDG overloads. Physics providers supply the Kokkos JVPs.
+template <typename Fn>
+static Fn require_jvp(Fn fn, const char* name)
+{
+    if (!fn)
+        throw std::runtime_error(std::string("[exasim] Missing model JVP callback: ") + name);
+    return fn;
+}
+
+void FluxDriver(dstype* f, dstype* df, const dstype* xg,
+                const dstype* udg, const dstype* dudg, const dstype* odg,
+                const dstype* dodg, const dstype* wdg, const dstype* dwdg,
+                ExasimDriverABI& abi, meshstruct& mesh, masterstruct& master,
+                appstruct& app, solstruct& sol, tempstruct& temp,
+                commonstruct& common, Int nge, Int e1, Int e2, Int backend)
+{
+    const Int numPoints = nge * (e2 - e1);
+    if (numPoints == 0) return;
+    require_jvp(abi.volume.KokkosFluxJvp, "KokkosFluxJvp")(
+        f, df, xg, udg, dudg, odg, dodg, wdg, dwdg, app.uinf, app.physicsparam,
+        common.timestate.time, common.modelnumber, numPoints,
+        common.components.nc, common.components.ncu, common.grid.nd,
+        common.components.ncx, common.components.nco, common.components.ncw);
+}
+
+void TdfuncDriver(dstype* f, dstype* df, const dstype* xg,
+                const dstype* udg, const dstype* dudg, const dstype* odg,
+                const dstype* dodg, const dstype* wdg, const dstype* dwdg,
+                ExasimDriverABI& abi, meshstruct& mesh, masterstruct& master,
+                appstruct& app, solstruct& sol, tempstruct& temp,
+                commonstruct& common, Int nge, Int e1, Int e2, Int backend)
+{
+    const Int numPoints = nge * (e2 - e1);
+    if (numPoints == 0) return;
+    require_jvp(abi.volume.KokkosTdfuncJvp, "KokkosTdfuncJvp")(
+        f, df, xg, udg, dudg, odg, dodg, wdg, dwdg, app.uinf, app.physicsparam,
+        common.timestate.time, common.modelnumber, numPoints,
+        common.components.nc, common.components.ncu, common.grid.nd,
+        common.components.ncx, common.components.nco, common.components.ncw);
+}
+
+void SourceDriver(dstype* f, dstype* df, const dstype* xg,
+                  const dstype* udg, const dstype* dudg, const dstype* odg, const dstype* dodg,
+                  const dstype* wdg, const dstype* dwdg,
+                ExasimDriverABI& abi, meshstruct& mesh, masterstruct& master,
+                appstruct& app, solstruct& sol, tempstruct& temp,
+                commonstruct& common, Int nge, Int e1, Int e2, Int backend)
+{
+    const Int numPoints = nge * (e2 - e1);
+    if (numPoints == 0) return;
+    require_jvp(abi.volume.KokkosSourceJvp, "KokkosSourceJvp")(
+        f, df, xg, udg, dudg, odg, dodg, wdg, dwdg, app.uinf, app.physicsparam,
+        common.timestate.time, common.modelnumber, numPoints,
+        common.components.nc, common.components.ncu, common.grid.nd,
+        common.components.ncx, common.components.nco, common.components.ncw);
+}
+
+void AvfieldDriver(dstype* f, dstype* df, const dstype* xg,
+                   const dstype* udg, const dstype* dudg, const dstype* odg,
+                   const dstype* wdg, const dstype* dwdg,
+                ExasimDriverABI& abi, meshstruct& mesh, masterstruct& master,
+                appstruct& app, solstruct& sol, tempstruct& temp,
+                commonstruct& common, Int backend)
+{
+    const Int numPoints = common.grid.npe * common.meshsizes.ne;
+    if (numPoints == 0) return;
+    require_jvp(abi.volume.KokkosAvfieldJvp, "KokkosAvfieldJvp")(
+        f, df, xg, udg, dudg, odg, wdg, dwdg, app.uinf, app.physicsparam,
+        common.timestate.time, common.modelnumber, numPoints,
+        common.components.nc, common.components.ncu, common.grid.nd,
+        common.components.ncx, common.components.nco, common.components.ncw,
+        common.physicsparams.ncAV, common.grid.npe, common.meshsizes.ne);
+}
+
+void FbouDriver(dstype* f, dstype* df, const dstype* xg,
+                const dstype* udg, const dstype* dudg, const dstype* odg,
+                const dstype* dodg, const dstype* wdg, const dstype* dwdg,
+                const dstype* uhg, const dstype* duhg, const dstype* nl,
+                ExasimDriverABI& abi, meshstruct& mesh, masterstruct& master,
+                appstruct& app, solstruct& sol, tempstruct& temp,
+                commonstruct& common, Int ngf, Int f1, Int f2, Int ib, Int backend)
+{
+    const Int numPoints = ngf * (f2 - f1);
+    if (numPoints == 0) return;
+    require_jvp(abi.boundary.KokkosFbouJvp, "KokkosFbouJvp")(
+        f, df, xg, udg, dudg, odg, dodg, wdg, dwdg,
+        uhg, duhg, nl, app.tau, app.uinf, app.physicsparam,
+        common.timestate.time, common.modelnumber, ib, numPoints,
+        common.components.nc, common.components.ncu, common.grid.nd,
+        common.components.ncx, common.components.nco, common.components.ncw);
+}
+
+void UbouDriver(dstype* f, dstype* df, const dstype* xg,
+                const dstype* udg, const dstype* dudg, const dstype* odg,
+                const dstype* wdg, const dstype* dwdg, const dstype* uhg,
+                const dstype* duhg, const dstype* nl,
+                ExasimDriverABI& abi, meshstruct& mesh, masterstruct& master,
+                appstruct& app, solstruct& sol, tempstruct& temp,
+                commonstruct& common, Int ngf, Int f1, Int f2, Int ib, Int backend)
+{
+    const Int numPoints = ngf * (f2 - f1);
+    if (numPoints == 0) return;
+    require_jvp(abi.boundary.KokkosUbouJvp, "KokkosUbouJvp")(
+        f, df, xg, udg, dudg, odg, wdg, dwdg, uhg, duhg, nl, app.tau, app.uinf, app.physicsparam,
+        common.timestate.time, common.modelnumber, ib, numPoints,
+        common.components.nc, common.components.ncu, common.grid.nd,
+        common.components.ncx, common.components.nco, common.components.ncw);
+}
+
+void FhatDriver(dstype* fg, dstype* dfg, const dstype* xg,
+                const dstype* ug1, const dstype* dug1,
+                const dstype* ug2, const dstype* dug2,
+                const dstype* og1, const dstype* dog1,
+                const dstype* og2, const dstype* dog2,
+                const dstype* wg1, const dstype* dwg1,
+                const dstype* wg2, const dstype* dwg2,
+                const dstype* uh, const dstype* duh, const dstype* nl,
+                ExasimDriverABI& abi, meshstruct& mesh, masterstruct& master,
+                appstruct& app, solstruct& sol, tempstruct& temp,
+                commonstruct& common, Int ngf, Int f1, Int f2, Int backend)
+{
+    const Int numPoints = ngf * (f2 - f1);
+    if (numPoints == 0) return;
+    const Int ncu = common.components.ncu;
+    const Int nd = common.grid.nd;
+    const Int M = numPoints * ncu;
+    const Int N = M * nd;
+    const Int ntau = common.components.ntau;
+
+    if (common.couplingparams.extFhat == 1) {
+        require_jvp(abi.iface.KokkosFhatJvp, "KokkosFhatJvp")(
+            fg, dfg, xg, ug1, dug1, ug2, dug2, og1, dog1, og2, dog2,
+            wg1, dwg1, wg2, dwg2, uh, duh, nl, app.tau, app.uinf,
+            app.physicsparam, common.timestate.time, common.modelnumber,
+            numPoints, common.components.nc, ncu, nd,
+            common.components.ncx, common.components.nco, common.components.ncw);
+        return;
+    }
+
+    // As in the primal Fhat driver, each output buffer provides 2*N entries
+    // of scratch space. Only the first M entries hold the final normal flux.
+    FluxDriver(fg, dfg, xg, ug1, dug1, og1, dog1, wg1, dwg1,
+               abi, mesh, master, app, sol, temp, common, ngf, f1, f2, backend);
+    FluxDriver(fg + N, dfg + N, xg, ug2, dug2, og2, dog2, wg2, dwg2,
+               abi, mesh, master, app, sol, temp, common, ngf, f1, f2, backend);
+    AverageFlux(fg, N);
+    AverageFlux(dfg, N);
+    AverageFluxDotNormal(fg, nl, N, M, numPoints, nd);
+    AverageFluxDotNormal(dfg, nl, N, M, numPoints, nd);
+
+    if (common.couplingparams.extStab >= 1) {
+        require_jvp(abi.iface.KokkosStabJvp, "KokkosStabJvp")(
+            fg, dfg, xg, ug1, dug1, ug2, dug2, og1, dog1, og2, dog2,
+            wg1, dwg1, wg2, dwg2, uh, duh, nl, app.tau, app.uinf,
+            app.physicsparam, common.timestate.time, common.modelnumber,
+            numPoints, common.components.nc, ncu, nd,
+            common.components.ncx, common.components.nco, common.components.ncw);
+    }
+    else if (ntau == 0 || ntau == 1) {
+        AddStabilization1(fg, ug1, ug2, app.tau, M);
+        AddStabilization1(dfg, dug1, dug2, app.tau, M);
+    }
+    else if (ntau == ncu) {
+        AddStabilization2(fg, ug1, ug2, app.tau, M, numPoints);
+        AddStabilization2(dfg, dug1, dug2, app.tau, M, numPoints);
+    }
+    else if (ntau == ncu * ncu) {
+        AddStabilization3(fg, ug1, ug2, app.tau, M, numPoints, ncu);
+        AddStabilization3(dfg, dug1, dug2, app.tau, M, numPoints, ncu);
+    }
+    else {
+        throw std::runtime_error("[exasim] Stabilization option is not implemented");
+    }
+}
+#endif
+
 // Recover the runtime ABI from common.driver_abi for the no-driver (AbiAdapter) overloads
 // below. Fails loudly instead of null-dereferencing deep in kernel dispatch if an AbiAdapter
 // path reached here without initializing common.driver_abi.
@@ -1020,6 +1200,95 @@ static inline ExasimDriverABI& require_driver_abi(const commonstruct& common) {
     }
     return *common.driver_abi;
 }
+
+#ifdef HAVE_ENZYME
+inline void FluxDriver(dstype* f, dstype* df, const dstype* xg,
+                const dstype* udg, const dstype* dudg, const dstype* odg,
+                const dstype* dodg, const dstype* wdg, const dstype* dwdg,
+                meshstruct& mesh, masterstruct& master,
+                appstruct& app, solstruct& sol, tempstruct& temp,
+                commonstruct& common, Int nge, Int e1, Int e2, Int backend)
+{
+    FluxDriver(f, df, xg, udg, dudg, odg, dodg, wdg, dwdg, require_driver_abi(common),
+        mesh, master, app, sol, temp, common, nge, e1, e2, backend);
+}
+
+inline void TdfuncDriver(dstype* f, dstype* df, const dstype* xg,
+                const dstype* udg, const dstype* dudg, const dstype* odg,
+                const dstype* dodg, const dstype* wdg, const dstype* dwdg,
+                meshstruct& mesh, masterstruct& master,
+                appstruct& app, solstruct& sol, tempstruct& temp,
+                commonstruct& common, Int nge, Int e1, Int e2, Int backend)
+{
+    TdfuncDriver(f, df, xg, udg, dudg, odg, dodg, wdg, dwdg, require_driver_abi(common),
+        mesh, master, app, sol, temp, common, nge, e1, e2, backend);
+}
+
+inline void SourceDriver(dstype* f, dstype* df, const dstype* xg,
+                  const dstype* udg, const dstype* dudg, const dstype* odg, const dstype* dodg,
+                  const dstype* wdg, const dstype* dwdg,
+                meshstruct& mesh, masterstruct& master,
+                appstruct& app, solstruct& sol, tempstruct& temp,
+                commonstruct& common, Int nge, Int e1, Int e2, Int backend)
+{
+    SourceDriver(f, df, xg, udg, dudg, odg, dodg, wdg, dwdg, require_driver_abi(common),
+        mesh, master, app, sol, temp, common, nge, e1, e2, backend);
+}
+
+inline void AvfieldDriver(dstype* f, dstype* df, const dstype* xg,
+                   const dstype* udg, const dstype* dudg, const dstype* odg,
+                   const dstype* wdg, const dstype* dwdg,
+                meshstruct& mesh, masterstruct& master,
+                appstruct& app, solstruct& sol, tempstruct& temp,
+                commonstruct& common, Int backend)
+{
+    AvfieldDriver(f, df, xg, udg, dudg, odg, wdg, dwdg, require_driver_abi(common),
+        mesh, master, app, sol, temp, common, backend);
+}
+
+inline void FbouDriver(dstype* f, dstype* df, const dstype* xg,
+                const dstype* udg, const dstype* dudg, const dstype* odg,
+                const dstype* dodg, const dstype* wdg, const dstype* dwdg,
+                const dstype* uhg, const dstype* duhg, const dstype* nl,
+                meshstruct& mesh, masterstruct& master,
+                appstruct& app, solstruct& sol, tempstruct& temp,
+                commonstruct& common, Int ngf, Int f1, Int f2, Int ib, Int backend)
+{
+    FbouDriver(f, df, xg, udg, dudg, odg, dodg, wdg, dwdg,
+        uhg, duhg, nl, require_driver_abi(common),
+        mesh, master, app, sol, temp, common, ngf, f1, f2, ib, backend);
+}
+
+inline void UbouDriver(dstype* f, dstype* df, const dstype* xg,
+                const dstype* udg, const dstype* dudg, const dstype* odg,
+                const dstype* wdg, const dstype* dwdg, const dstype* uhg,
+                const dstype* duhg, const dstype* nl,
+                meshstruct& mesh, masterstruct& master,
+                appstruct& app, solstruct& sol, tempstruct& temp,
+                commonstruct& common, Int ngf, Int f1, Int f2, Int ib, Int backend)
+{
+    UbouDriver(f, df, xg, udg, dudg, odg, wdg, dwdg, uhg, duhg, nl, require_driver_abi(common),
+        mesh, master, app, sol, temp, common, ngf, f1, f2, ib, backend);
+}
+
+inline void FhatDriver(dstype* fg, dstype* dfg, const dstype* xg,
+                const dstype* ug1, const dstype* dug1,
+                const dstype* ug2, const dstype* dug2,
+                const dstype* og1, const dstype* dog1,
+                const dstype* og2, const dstype* dog2,
+                const dstype* wg1, const dstype* dwg1,
+                const dstype* wg2, const dstype* dwg2,
+                const dstype* uh, const dstype* duh, const dstype* nl,
+                meshstruct& mesh, masterstruct& master,
+                appstruct& app, solstruct& sol, tempstruct& temp,
+                commonstruct& common, Int ngf, Int f1, Int f2, Int backend)
+{
+    FhatDriver(fg, dfg, xg, ug1, dug1, ug2, dug2, og1, dog1, og2, dog2,
+        wg1, dwg1, wg2, dwg2, uh, duh, nl, require_driver_abi(common),
+        mesh, master, app, sol, temp, common, ngf, f1, f2, backend);
+}
+
+#endif
 
 // --- No-driver_abi overloads (auto-generated) --------------------------------------------
 // The unified templated FEM code invokes kernel drivers via EXASIM_DRIVER_CALL without

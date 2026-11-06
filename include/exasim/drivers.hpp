@@ -40,6 +40,9 @@
 #include "kernels/visualization.hpp"
 #include "kernels/qoi.hpp"
 #include "kernels/output.hpp"
+#ifdef HAVE_ENZYME
+#include "enzyme_jvp.hpp"
+#endif
 
 namespace exasim {
 
@@ -71,6 +74,182 @@ inline DriverShape compute_shape(commonstructT<T,I>& common, Int nge, Int e1, In
 }
 
 } // namespace detail
+
+#ifdef HAVE_ENZYME
+// Enzyme directional derivatives for the matrix-free LDG residual.
+template <class M, class T=dstype, class I=Int>
+inline void FluxDriver(T* f, T* df, const T* xg,
+                const T* udg, const T* dudg, const T* odg,
+                const T* dodg, const T* wdg, const T* dwdg,
+                meshstructT<T,I>& mesh, masterstructT<T,I>& master,
+                appstructT<T,I>& app, solstructT<T,I>& sol, tempstructT<T,I>& temp,
+                commonstructT<T,I>& common, Int nge, Int e1, Int e2, Int backend)
+{
+    const Int numPoints = nge * (e2 - e1);
+    if (numPoints == 0) return;
+    enzyme::flux_jvp<M,T>(
+        f, df, xg, udg, dudg, odg, dodg, wdg, dwdg, app.uinf, app.physicsparam,
+        common.timestate.time, common.modelnumber, numPoints,
+        common.components.nc, common.components.ncu, common.grid.nd,
+        common.components.ncx, common.components.nco, common.components.ncw);
+}
+
+template <class M, class T=dstype, class I=Int>
+inline void TdfuncDriver(T* f, T* df, const T* xg,
+                const T* udg, const T* dudg, const T* odg,
+                const T* dodg, const T* wdg, const T* dwdg,
+                meshstructT<T,I>& mesh, masterstructT<T,I>& master,
+                appstructT<T,I>& app, solstructT<T,I>& sol, tempstructT<T,I>& temp,
+                commonstructT<T,I>& common, Int nge, Int e1, Int e2, Int backend)
+{
+    const Int numPoints = nge * (e2 - e1);
+    if (numPoints == 0) return;
+    enzyme::tdfunc_jvp<M,T>(
+        f, df, xg, udg, dudg, odg, dodg, wdg, dwdg, app.uinf, app.physicsparam,
+        common.timestate.time, common.modelnumber, numPoints,
+        common.components.nc, common.components.ncu, common.grid.nd,
+        common.components.ncx, common.components.nco, common.components.ncw);
+}
+
+template <class M, class T=dstype, class I=Int>
+inline void SourceDriver(T* f, T* df, const T* xg,
+                  const T* udg, const T* dudg, const T* odg, const T* dodg,
+                  const T* wdg, const T* dwdg,
+                meshstructT<T,I>& mesh, masterstructT<T,I>& master,
+                appstructT<T,I>& app, solstructT<T,I>& sol, tempstructT<T,I>& temp,
+                commonstructT<T,I>& common, Int nge, Int e1, Int e2, Int backend)
+{
+    const Int numPoints = nge * (e2 - e1);
+    if (numPoints == 0) return;
+    enzyme::source_jvp<M,T>(
+        f, df, xg, udg, dudg, odg, dodg, wdg, dwdg, app.uinf, app.physicsparam,
+        common.timestate.time, common.modelnumber, numPoints,
+        common.components.nc, common.components.ncu, common.grid.nd,
+        common.components.ncx, common.components.nco, common.components.ncw);
+}
+
+template <class M, class T=dstype, class I=Int>
+inline void AvfieldDriver(T* f, T* df, const T* xg,
+                   const T* udg, const T* dudg, const T* odg,
+                   const T* wdg, const T* dwdg,
+                meshstructT<T,I>& mesh, masterstructT<T,I>& master,
+                appstructT<T,I>& app, solstructT<T,I>& sol, tempstructT<T,I>& temp,
+                commonstructT<T,I>& common, Int backend)
+{
+    const Int numPoints = common.grid.npe * common.meshsizes.ne;
+    if (numPoints == 0) return;
+    enzyme::avfield_jvp<M,T>(
+        f, df, xg, udg, dudg, odg, wdg, dwdg, app.uinf, app.physicsparam,
+        common.timestate.time, common.modelnumber, numPoints,
+        common.components.nc, common.components.ncu, common.grid.nd,
+        common.components.ncx, common.components.nco, common.components.ncw,
+        common.physicsparams.ncAV, common.grid.npe, common.meshsizes.ne);
+}
+
+template <class M, class T=dstype, class I=Int>
+inline void FbouDriver(T* f, T* df, const T* xg,
+                const T* udg, const T* dudg, const T* odg,
+                const T* dodg, const T* wdg, const T* dwdg,
+                const T* uhg, const T* duhg, const T* nl,
+                meshstructT<T,I>& mesh, masterstructT<T,I>& master,
+                appstructT<T,I>& app, solstructT<T,I>& sol, tempstructT<T,I>& temp,
+                commonstructT<T,I>& common, Int ngf, Int f1, Int f2, Int ib, Int backend)
+{
+    const Int numPoints = ngf * (f2 - f1);
+    if (numPoints == 0) return;
+    enzyme::fbou_jvp<M,T>(
+        f, df, xg, udg, dudg, odg, dodg, wdg, dwdg,
+        uhg, duhg, nl, app.tau, app.uinf, app.physicsparam,
+        common.timestate.time, common.modelnumber, ib, numPoints,
+        common.components.nc, common.components.ncu, common.grid.nd,
+        common.components.ncx, common.components.nco, common.components.ncw);
+}
+
+template <class M, class T=dstype, class I=Int>
+inline void UbouDriver(T* f, T* df, const T* xg,
+                const T* udg, const T* dudg, const T* odg,
+                const T* wdg, const T* dwdg, const T* uhg,
+                const T* duhg, const T* nl,
+                meshstructT<T,I>& mesh, masterstructT<T,I>& master,
+                appstructT<T,I>& app, solstructT<T,I>& sol, tempstructT<T,I>& temp,
+                commonstructT<T,I>& common, Int ngf, Int f1, Int f2, Int ib, Int backend)
+{
+    const Int numPoints = ngf * (f2 - f1);
+    if (numPoints == 0) return;
+    enzyme::ubou_jvp<M,T>(
+        f, df, xg, udg, dudg, odg, wdg, dwdg, uhg, duhg, nl, app.tau, app.uinf, app.physicsparam,
+        common.timestate.time, common.modelnumber, ib, numPoints,
+        common.components.nc, common.components.ncu, common.grid.nd,
+        common.components.ncx, common.components.nco, common.components.ncw);
+}
+
+template <class M, class T=dstype, class I=Int>
+inline void FhatDriver(T* fg, T* dfg, const T* xg,
+                const T* ug1, const T* dug1,
+                const T* ug2, const T* dug2,
+                const T* og1, const T* dog1,
+                const T* og2, const T* dog2,
+                const T* wg1, const T* dwg1,
+                const T* wg2, const T* dwg2,
+                const T* uh, const T* duh, const T* nl,
+                meshstructT<T,I>& mesh, masterstructT<T,I>& master,
+                appstructT<T,I>& app, solstructT<T,I>& sol, tempstructT<T,I>& temp,
+                commonstructT<T,I>& common, Int ngf, Int f1, Int f2, Int backend)
+{
+    const Int numPoints = ngf * (f2 - f1);
+    if (numPoints == 0) return;
+    const Int ncu = common.components.ncu;
+    const Int nd = common.grid.nd;
+    const Int nflux = numPoints * ncu;
+    const Int N = nflux * nd;
+    const Int ntau = common.components.ntau;
+
+    if (common.couplingparams.extFhat == 1) {
+        enzyme::fhat_jvp<M,T>(
+            fg, dfg, xg, ug1, dug1, ug2, dug2, og1, dog1, og2, dog2,
+            wg1, dwg1, wg2, dwg2, uh, duh, nl, app.tau, app.uinf,
+            app.physicsparam, common.timestate.time, common.modelnumber,
+            numPoints, common.components.nc, ncu, nd,
+            common.components.ncx, common.components.nco, common.components.ncw);
+        return;
+    }
+
+    // Each output buffer has 2*N scratch entries, as in the primal Fhat driver.
+    // The first nflux entries contain the final normal flux.
+    FluxDriver<M>(fg, dfg, xg, ug1, dug1, og1, dog1, wg1, dwg1,
+               mesh, master, app, sol, temp, common, ngf, f1, f2, backend);
+    FluxDriver<M>(fg + N, dfg + N, xg, ug2, dug2, og2, dog2, wg2, dwg2,
+               mesh, master, app, sol, temp, common, ngf, f1, f2, backend);
+    AverageFlux(fg, N);
+    AverageFlux(dfg, N);
+    AverageFluxDotNormal(fg, nl, N, nflux, numPoints, nd);
+    AverageFluxDotNormal(dfg, nl, N, nflux, numPoints, nd);
+
+    if (common.couplingparams.extStab >= 1) {
+        enzyme::stab_jvp<M,T>(
+            fg, dfg, xg, ug1, dug1, ug2, dug2, og1, dog1, og2, dog2,
+            wg1, dwg1, wg2, dwg2, uh, duh, nl, app.tau, app.uinf,
+            app.physicsparam, common.timestate.time, common.modelnumber,
+            numPoints, common.components.nc, ncu, nd,
+            common.components.ncx, common.components.nco, common.components.ncw);
+    }
+    else if (ntau == 0 || ntau == 1) {
+        AddStabilization1(fg, ug1, ug2, app.tau, nflux);
+        AddStabilization1(dfg, dug1, dug2, app.tau, nflux);
+    }
+    else if (ntau == ncu) {
+        AddStabilization2(fg, ug1, ug2, app.tau, nflux, numPoints);
+        AddStabilization2(dfg, dug1, dug2, app.tau, nflux, numPoints);
+    }
+    else if (ntau == ncu * ncu) {
+        AddStabilization3(fg, ug1, ug2, app.tau, nflux, numPoints, ncu);
+        AddStabilization3(dfg, dug1, dug2, app.tau, nflux, numPoints, ncu);
+    }
+    else {
+        throw std::runtime_error("[exasim] Stabilization option is not implemented");
+    }
+}
+#endif
 
 // ===== Volume drivers =====
 
@@ -206,7 +385,7 @@ inline void AvfieldDriver(T* f, const T* xg, const T* udg,
     avfield_kernel<M, T>(f, xg, udg, odg, wdg, app.uinf, app.physicsparam,
                       common.timestate.time, common.modelnumber, numPoints,
                       common.components.nc, common.components.ncu, common.grid.nd, common.components.ncx,
-                      common.components.nco, common.components.ncw, common.components.nce, common.grid.npe, common.meshsizes.ne);
+                      common.components.nco, common.components.ncw, common.physicsparams.ncAV, common.grid.npe, common.meshsizes.ne);
 }
 
 template <class M, class T=dstype, class I=Int>
@@ -462,17 +641,60 @@ inline void FhatDriver(T* fg, const T* xg,
                        const T* og1, const T* og2,
                        const T* wg1, const T* wg2,
                        const T* uh, const T* nl,
-                       meshstructT<T,I>& /*mesh*/, masterstructT<T,I>& /*master*/,
-                       appstructT<T,I>& app, solstructT<T,I>& /*sol*/, tempstructT<T,I>& /*temp*/,
-                       commonstructT<T,I>& common, Int ngf, Int f1, Int f2, Int /*backend*/)
+                       meshstructT<T,I>& mesh, masterstructT<T,I>& master,
+                       appstructT<T,I>& app, solstructT<T,I>& sol, tempstructT<T,I>& tmp,
+                       commonstructT<T,I>& common, Int ngf, Int f1, Int f2, Int backend)
 {
-    using dstype=T;
-    Int ng = ngf * (f2 - f1);
-    fhat_kernel<M, T>(fg, xg, ug1, ug2, og1, og2, wg1, wg2,
-                   uh, nl, app.tau, app.uinf, app.physicsparam,
-                   common.timestate.time, common.modelnumber, ng,
-                   common.components.nc, common.components.ncu, common.grid.nd, common.components.ncx,
-                   common.components.nco, common.components.ncw);
+    Int nc = common.components.nc;
+    Int ncu = common.components.ncu;
+    Int ncw = common.components.ncw;
+    Int nco = common.components.nco;
+    Int ncx = common.components.ncx;
+    Int nd = common.grid.nd;
+    Int numPoints = ngf * (f2 - f1);
+    Int nflux = numPoints * ncu;
+    Int N = numPoints * ncu * nd;
+    Int ntau = common.components.ntau;
+    T time = common.timestate.time;
+
+    if (common.couplingparams.extFhat == 1) {
+        fhat_kernel<M,T>(fg, xg, ug1, ug2, og1, og2, wg1, wg2, uh, nl, app.tau,
+                       app.uinf, app.physicsparam, time, common.modelnumber,
+                       numPoints, nc, ncu, nd, ncx, nco, ncw);
+    }
+    else {
+        FluxDriver<M>(fg, xg, ug1, og1, wg1, mesh, master, app, sol, tmp,
+                   common, ngf, f1, f2, backend);
+        T* fg2 = &fg[N];
+        FluxDriver<M>(fg2, xg, ug2, og2, wg2, mesh, master, app, sol, tmp,
+                   common, ngf, f1, f2, backend);
+
+        AverageFlux(fg, N);
+        AverageFluxDotNormal(fg, nl, N, nflux, numPoints, nd);
+
+        if (common.couplingparams.extStab >= 1) {
+            stab_kernel<M,T>(fg, xg, ug1, ug2, og1, og2, wg1, wg2, uh, nl,
+                           app.tau, app.uinf, app.physicsparam, time,
+                           common.modelnumber, numPoints, nc, ncu, nd, ncx,
+                           nco, ncw);
+        }
+        else if (ntau == 0) {
+            AddStabilization1(fg, ug1, ug2, app.tau, nflux);
+        }
+        else if (ntau == 1) {
+            AddStabilization1(fg, ug1, ug2, app.tau, nflux);
+        }
+        else if (ntau == ncu) {
+            AddStabilization2(fg, ug1, ug2, app.tau, nflux, numPoints);
+        }
+        else if (ntau == ncu * ncu) {
+            AddStabilization3(fg, ug1, ug2, app.tau, nflux, numPoints, ncu);
+        }
+        else {
+            printf("Stabilization option is not implemented");
+            exit(-1);
+        }
+    }
 }
 
 // FhatDriver — single-block form (HDG path): `nga, backend`.

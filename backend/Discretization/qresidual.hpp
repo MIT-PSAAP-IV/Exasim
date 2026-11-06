@@ -189,11 +189,11 @@ inline void dRqElemBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<
     Int n2 = nge*e1*(ncx+nd*nd+1) + nga*ncx;
         
     // udg = tmp.tempg[n0] at gauss points on elements
-    GetArrayAtIndex(tmp.tempn, sol.dudg, &mesh.eindudg1[npe*nc*e1], nn*nc, backend);
+    GetArrayAtIndex(tmp.tempn, sol.dudg, &mesh.eindudg1[npe*nc*e1], nn*nc);
     Node2Gauss(handle, &tmp.tempg[n0], tmp.tempn, master.shapegt, nge, npe, ne*ncu, backend);    
     
     // udg * Xx  at gauss points on elements: nge*nd*ncu*nd*ne   
-    ApplyXx3(&tmp.tempg[n1], &tmp.tempg[n0], &sol.elemg[n2], nge, nd, ncu, ne, backend);   
+    ApplyXx3(&tmp.tempg[n1], &tmp.tempg[n0], &sol.elemg[n2], nge, nd, ncu, ne);
     
     // (u, nabla_i dot v)_K = (u, dv/dx_i)_K = (jac u, dv/dxi_j dxi_j/dx_i)_T = sum_j dv/dxi_j * udg * Xx(:,i,j)
     Gauss2Node(handle, &res.dRqe[npe*ncq*e1], &tmp.tempg[n1], &master.shapegw[npe*nge], 
@@ -245,12 +245,12 @@ inline void dRqFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<
     Int n4 = nga*ncu;                           // fhg
 
     // uhg = tmp.tempg[n3] at gauss points on face
-    GetElemNodes(tmp.tempn, sol.duh, npf, ncu, 0, ncu, f1, f2, backend);      
+    GetElemNodes(tmp.tempn, sol.duh, npf, ncu, 0, ncu, f1, f2);
     Node2Gauss(handle, &tmp.tempg[n3], tmp.tempn, master.shapfgt, ngf, npf, nf*ncu, backend);
     
     // evaluate uhg * jac * nlg at gauss points on face
     ApplyJacNormal(&tmp.tempg[n4], &tmp.tempg[n3], &sol.faceg[ngf*f1*(ncx+nd+1)+n1], 
-                &sol.faceg[ngf*f1*(ncx+nd+1)+n2], nga, ncu, nd, ngf, backend);    
+                &sol.faceg[ngf*f1*(ncx+nd+1)+n2], nga, ncu, nd, ngf);
     
     // <uhat, v dot n>_F = <jac uhat, v dot n>_T = v * (uhg * jac * nlg)            
     Gauss2Node(handle, &res.dRh[npf*ncq*f1], &tmp.tempg[n4], master.shapfgw, ngf, npf, nf*ncq, backend);            

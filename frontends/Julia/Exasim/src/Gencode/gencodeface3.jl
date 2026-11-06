@@ -30,7 +30,7 @@ for i in 1:length(f[:])
 end
 
 strkk = strkk * str * "\t});\n" * "}\n\n"
-strkk = replace(strkk, "T ", "dstype ")
+strkk = replace(strkk, "T " => "dstype ")
 
 open(foldername * "/" * cpufile * ".cpp", "w") do fid
     write(fid, strkk)

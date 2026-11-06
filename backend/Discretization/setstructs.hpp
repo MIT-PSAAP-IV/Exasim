@@ -515,6 +515,19 @@ inline void settempstruct(tempstructT<T,I> &tmp, appstructT<T,I> &app, masterstr
       n3 = std::max(n3, k2);
     }
 
+    // UhatBlock gathers boundary values into tempg with or without Enzyme.
+    n3 = std::max(n3, npf*nfb*(ncx + nd + 1 + ncu + nc + nco + ncw));
+
+#ifdef HAVE_ENZYME
+    // Allocate space for primal values, JVP values, and local w sensitivities.
+    n0 = std::max(n0, npe*neb*(ncx + 2*nc + nco + 3*ncw + ncw*nc));
+    n0 = std::max(n0, 2*npf*nfb*(ncu + 2*nc + 2*ncw));
+    n3 = std::max(n3, 2*nge*neb*(ncu*(nd+1) + nc + ncw));
+    n3 = std::max(n3, 2*ngf*nfb*(ncu + 2*nc + 2*ncw + 2*ncu*nd));
+    n3 = std::max(n3, npf*nfb*(ncx + nd + 1 + 2*ncu + 2*nc + nco + 2*ncw));
+    n3 = std::max(n3, npe*neb*(ncw + ncw*ncw));
+#endif
+
     if (nmaterialdb_prop > 0) {
       Int ncwa = ncw - nmaterialdb_prop;
       if (ncwa < 0)
@@ -767,9 +780,22 @@ inline void cpuInitTail(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T
         sol.bouuhavg = (dstype*) malloc (sizeof (dstype)*(common.sizes.ndofbou*common.components.ncu+1));
     }
 
+#ifdef HAVE_ENZYME
+    // File-backed and in-memory construction share this host setup path.
+    const Int adNodes = common.grid.npe*common.meshsizes.ne;
+    if (!sol.dudg) sol.dudg = (dstype*) malloc(sizeof(dstype)*adNodes*common.components.nc);
+    if (!sol.dodg && common.components.nco>0)
+        sol.dodg = (dstype*) malloc(sizeof(dstype)*adNodes*common.components.nco);
+    if (!sol.dwdg && common.components.ncw>0)
+        sol.dwdg = (dstype*) malloc(sizeof(dstype)*adNodes*common.components.ncw);
+    cpuArraySetValue(sol.dudg, zero, adNodes*common.components.nc);
+    cpuArraySetValue(sol.dodg, zero, adNodes*common.components.nco);
+    cpuArraySetValue(sol.dwdg, zero, adNodes*common.components.ncw);
+#endif
+
     // allocate memory for uh
     if (!app.read_uh) {
-    sol.uh = (dstype*) malloc (sizeof (dstype)*common.grid.npf*common.components.ncu*common.meshsizes.nf);
+    sol.uh = (dstype*) calloc (common.grid.npf*common.components.ncu*common.meshsizes.nf, sizeof(dstype));
     }
     sol.szuh = common.grid.npf*common.components.ncu*common.meshsizes.nf;
 
@@ -788,11 +814,11 @@ inline void cpuInitTail(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T
 
         #ifdef HAVE_ENZYME
             sol.dodgg = (dstype*) malloc (sizeof (dstype)*common.grid.nge*common.components.nco*common.meshsizes.ne);
-            ArraySetValue(sol.dodgg, zero, common.grid.nge*common.components.nco*common.meshsizes.ne, 0);
+            cpuArraySetValue(sol.dodgg, zero, common.grid.nge*common.components.nco*common.meshsizes.ne);
             sol.dog1 = (dstype*) malloc (sizeof (dstype)*common.grid.ngf*common.components.nco*common.meshsizes.nf);
-            ArraySetValue(sol.dog1, zero, common.grid.ngf*common.components.nco*common.meshsizes.nf, 0);
+            cpuArraySetValue(sol.dog1, zero, common.grid.ngf*common.components.nco*common.meshsizes.nf);
             sol.dog2 = (dstype*) malloc (sizeof (dstype)*common.grid.ngf*common.components.nco*common.meshsizes.nf);
-            ArraySetValue(sol.dog2, zero, common.grid.ngf*common.components.nco*common.meshsizes.nf, 0);
+            cpuArraySetValue(sol.dog2, zero, common.grid.ngf*common.components.nco*common.meshsizes.nf);
         #endif
     }
 
@@ -1421,6 +1447,8 @@ inline void gpuInit(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> 
     TemplateMalloc(&sol.uh, common.grid.npf*common.components.ncu*common.meshsizes.nf, common.backend);
     if (common.read_uh) {
         TemplateCopytoDevice(sol.uh, hsol.uh, common.grid.npf*common.components.ncu*common.meshsizes.nf, common.backend);
+    } else {
+        ArraySetValue(sol.uh, zero, common.grid.npf*common.components.ncu*common.meshsizes.nf);
     }
 
     #ifdef HAVE_ENZYME

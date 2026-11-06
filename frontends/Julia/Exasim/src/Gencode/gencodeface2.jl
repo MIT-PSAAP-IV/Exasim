@@ -24,7 +24,7 @@ str = varsassign(str, "nlg", length(nlg), 1, fstr)
 str = sympyassign(str, f)
 
 strkk = strkk * str * "\t});\n" * "}\n\n"
-strkk = replace(strkk, "T ", "dstype ")
+strkk = replace(strkk, "T " => "dstype ")
 
 open(foldername * "/" * cpufile * ".cpp", "w") do fid
     write(fid, strkk)

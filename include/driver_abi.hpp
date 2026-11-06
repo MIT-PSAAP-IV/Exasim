@@ -21,7 +21,8 @@ using dstype = float;
 using dstype = double;
 #endif
 
-inline constexpr std::uint32_t kExasimDriverABIVersion = 5;  // v5: add optional SurfaceQuantities boundary kernel + nsurfq
+inline constexpr std::uint32_t kExasimDriverABIVersion = 6;  // v6: optional Kokkos JVP callbacks for the AD residual
+                                                              // v5: optional SurfaceQuantities boundary kernel + nsurfq
                                                               // v4: add optional HdgMaterialstate jacobian kernel
 
 // Model dimension constants carried by the model (PR #33): lets preprocessing obtain
@@ -82,6 +83,62 @@ struct ExasimDriverABI {
                  const dstype* nlg, const dstype* tau, const dstype* uinf,
                  const dstype* param, dstype time, int modelnumber, int ng,
                  int nc, int ncu, int nd, int ncx, int nco, int ncw);
+
+    // JVP callbacks calculate f and df = Df[state] * dstate.
+    // Use the primal kernel's layout and execution space.
+    // The caller owns each buffer. Each tangent has its primal's extent.
+    // Keep geometry, normals, tau, parameters, and time fixed.
+    // Avfield and Ubou also keep odg fixed.
+    // Keep these slots in the ABI when HAVE_ENZYME is off.
+    // Providers must register these callbacks before an AD residual call.
+    using KokkosElementJvpFn =
+        void (*)(dstype* f, dstype* df, const dstype* xdg,
+                 const dstype* udg, const dstype* dudg,
+                 const dstype* odg, const dstype* dodg,
+                 const dstype* wdg, const dstype* dwdg, const dstype* uinf,
+                 const dstype* param, dstype time, int modelnumber, int ng,
+                 int nc, int ncu, int nd, int ncx, int nco, int ncw);
+
+    using KokkosSourceJvpFn = KokkosElementJvpFn;
+
+    using KokkosGlobalElementJvpFn =
+        void (*)(dstype* f, dstype* df, const dstype* xdg,
+                 const dstype* udg, const dstype* dudg, const dstype* odg,
+                 const dstype* wdg, const dstype* dwdg, const dstype* uinf,
+                 const dstype* param, dstype time, int modelnumber, int ng,
+                 int nc, int ncu, int nd, int ncx, int nco, int ncw, int nce,
+                 int npe, int ne);
+
+    using KokkosBoundaryJvpFn =
+        void (*)(dstype* f, dstype* df, const dstype* xdg,
+                 const dstype* udg, const dstype* dudg,
+                 const dstype* odg, const dstype* dodg,
+                 const dstype* wdg, const dstype* dwdg,
+                 const dstype* uhg, const dstype* duhg, const dstype* nlg,
+                 const dstype* tau, const dstype* uinf, const dstype* param,
+                 dstype time, int modelnumber, int ib, int ng, int nc,
+                 int ncu, int nd, int ncx, int nco, int ncw);
+
+    using KokkosBoundaryStateJvpFn =
+        void (*)(dstype* f, dstype* df, const dstype* xdg,
+                 const dstype* udg, const dstype* dudg, const dstype* odg,
+                 const dstype* wdg, const dstype* dwdg, const dstype* uhg,
+                 const dstype* duhg, const dstype* nlg, const dstype* tau, const dstype* uinf,
+                 const dstype* param, dstype time, int modelnumber, int ib,
+                 int ng, int nc, int ncu, int nd, int ncx, int nco, int ncw);
+
+    using KokkosFaceCoupledJvpFn =
+        void (*)(dstype* f, dstype* df, const dstype* xdg,
+                 const dstype* udg1, const dstype* dudg1,
+                 const dstype* udg2, const dstype* dudg2,
+                 const dstype* odg1, const dstype* dodg1,
+                 const dstype* odg2, const dstype* dodg2,
+                 const dstype* wdg1, const dstype* dwdg1,
+                 const dstype* wdg2, const dstype* dwdg2,
+                 const dstype* uhg, const dstype* duhg, const dstype* nlg,
+                 const dstype* tau, const dstype* uinf, const dstype* param,
+                 dstype time, int modelnumber, int ng, int nc, int ncu,
+                 int nd, int ncx, int nco, int ncw);
 
     using KokkosInitFn =
         void (*)(dstype* f, const dstype* xdg, const dstype* uinf,
@@ -173,6 +230,10 @@ struct ExasimDriverABI {
         KokkosElementFn       KokkosTdfunc  = nullptr;
         KokkosGlobalElementFn KokkosAvfield = nullptr;
         KokkosMaterialstateFn KokkosMaterialstate = nullptr;
+        KokkosElementJvpFn       KokkosFluxJvp = nullptr;
+        KokkosSourceJvpFn        KokkosSourceJvp = nullptr;
+        KokkosElementJvpFn       KokkosTdfuncJvp = nullptr;
+        KokkosGlobalElementJvpFn KokkosAvfieldJvp = nullptr;
     } volume;
     struct EoSDriverABI {           // equation of state
         KokkosGlobalElementFn KokkosEoS   = nullptr;
@@ -184,11 +245,17 @@ struct ExasimDriverABI {
         KokkosBoundaryFn    KokkosUbou    = nullptr;
         KokkosBoundaryJacFn KokkosFbouJac = nullptr;
         KokkosBoundaryJacFn KokkosUbouJac = nullptr;
+        KokkosBoundaryJvpFn      KokkosFbouJvp = nullptr;
+        KokkosBoundaryStateJvpFn KokkosUbouJvp = nullptr;
     } boundary;
     struct InterfaceDriverABI {     // fhat/uhat/stab
         KokkosFaceCoupledFn KokkosFhat = nullptr;
         KokkosFaceCoupledFn KokkosUhat = nullptr;
         KokkosFaceCoupledFn KokkosStab = nullptr;
+        KokkosFaceCoupledJvpFn KokkosFhatJvp = nullptr;
+        // Receives the averaged normal flux and its tangent in f/df; must
+        // mirror KokkosStab's update of f (including overwrite vs accumulation).
+        KokkosFaceCoupledJvpFn KokkosStabJvp = nullptr;
     } iface;
     struct OutputDriverABI {        // output/monitor + visualization
         KokkosGlobalElementFn KokkosOutput     = nullptr;

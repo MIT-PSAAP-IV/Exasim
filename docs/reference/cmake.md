@@ -39,6 +39,8 @@ Defined in the root `CMakeLists.txt`:
 | `EXASIM_INT64` | `OFF` | `ON/OFF` | Use 64-bit `Int` indices; default is `int`. Experimental and not verified end to end; do not enable for a default installation. |
 | `EXASIM_BOUNDS_CHECK` | `OFF` | `ON/OFF` | Enable rank-aware bounds checks for partition-derived indices. Intended for debug and CI builds. |
 | `EXASIM_ASAN` | `OFF` | `ON/OFF` | Instrument Exasim targets with AddressSanitizer and frame pointers. Intended for debug and CI builds. |
+| `EXASIM_ENZYME` | `OFF` | `ON/OFF` | Load the separately built ClangEnzyme plugin and define `HAVE_ENZYME`. Requires Clang and the plugin under `ENZYME_ROOT`. |
+| `ENZYME_ROOT` | empty | directory path | Enzyme build directory or installation prefix. Used only when `EXASIM_ENZYME=ON`. |
 | `EXASIM_BUILD_SHARED_APP` | `OFF` | `ON/OFF` | Build and install the shared-library `exasimapp` executable. |
 | `EXASIM_BUILD_TESTS` | `OFF` | `ON/OFF` | Register CTest tests. |
 | `EXASIM_FRONTENDS` | `ON` | `ON/OFF` | Install MATLAB/Python/Julia frontends and app templates. |
@@ -59,6 +61,8 @@ Defined in `install/CMakeLists.txt`:
 | `PARMETIS_ROOT` | source-tree default | Override ParMETIS root. |
 | `METIS_ROOT` | source-tree default | Override METIS root. |
 | `GKLIB_ROOT` | source-tree default | Override GKlib root. |
+| `EXASIM_ENZYME` | `OFF` | Load ClangEnzyme and define `HAVE_ENZYME`; also accepted when configuring `install/` directly. |
+| `ENZYME_ROOT` | empty | Enzyme build directory or installation prefix; required when `EXASIM_ENZYME=ON`. |
 | `EXASIM_TUOLUMNE` | unset | HIP/Kokkos layout selector used by Tuolumne-style builds. |
 | `EXASIM_FRONTENDS` | `ON` | Install language frontends and app templates. |
 | `EXASIM_PIP_INSTALL` | `OFF` | Mutate Python environment with pip install. |
@@ -142,6 +146,39 @@ cmake -S Exasim -B Exasim-build-hip \
 cmake --build Exasim-build-hip -j8
 cmake --install Exasim-build-hip
 ```
+
+## Enzyme Compiler Plugin
+
+Build ClangEnzyme separately. Set `ENZYME_ROOT` to its build directory or
+installation prefix. Select the matching Clang compiler:
+
+```bash
+cmake -S Exasim -B Exasim-build-enzyme \
+  -DCMAKE_INSTALL_PREFIX=/path/to/prefix \
+  -DCMAKE_C_COMPILER=/path/to/llvm/bin/clang \
+  -DCMAKE_CXX_COMPILER=/path/to/llvm/bin/clang++ \
+  -DEXASIM_ENZYME=ON \
+  -DENZYME_ROOT=/path/to/Enzyme/enzyme/build
+```
+
+The superbuild forwards both settings to the solver build. When enabled, the
+solver configuration checks that the compiler is Clang and finds
+`ClangEnzyme-<Clang-major>` (or an unversioned plugin) under `ENZYME_ROOT`,
+`Enzyme/`, `lib/`, or `lib64/`. It then adds `-fplugin=<path>` and `HAVE_ENZYME`
+through `Exasim::headers`. Models and installed-package consumers inherit both
+to keep header layouts consistent.
+
+`EXASIM_ENZYME=OFF` skips these checks and adds neither the macro nor the flag,
+even if `ENZYME_ROOT` is set. Use `-DEXASIM_ENZYME=OFF` to disable a previously
+enabled build. Consumers must use a package built with the desired setting.
+CUDA builds also need a compatible CUDA toolkit and Kokkos; the superbuild
+preserves Clang for the solver and vendored CUDA Kokkos when Enzyme is enabled.
+For Clang 24, the Enzyme targets also use `-fno-cxx-modules`. This avoids an
+interaction with the plugin that can omit implicit CUDA headers. C++20 language
+features remain enabled.
+
+See the [Enzyme JVP guide](enzyme.md) for model support,
+test commands, and current limitations.
 
 ## External Built-In Models
 

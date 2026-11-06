@@ -68,7 +68,85 @@ inline void KokkosSurfaceQuantities(dstype*, const dstype*, const dstype*, const
 EXASIM_EXT_MODEL_IDS(EXASIM_EXT_SQ_FALLBACK)
 #undef EXASIM_EXT_SQ_FALLBACK
 
+#ifdef HAVE_ENZYME
+// Hand-written SOURCES providers may supply their own JVP entry points.
+// Diagnose a missing one at use, while generated kernel providers define all.
+namespace exasim_missing_jvp {
+inline void KokkosFluxJvp(dstype* f, dstype* df, const dstype* xdg, const dstype* udg, const dstype* dudg, const dstype* odg, const dstype* dodg, const dstype* wdg, const dstype* dwdg, const dstype* uinf, const dstype* param, dstype time, int modelnumber, int ng, int nc, int ncu, int nd, int ncx, int nco, int ncw) { throw std::runtime_error("Model provider has no KokkosFluxJvp"); }
+inline void KokkosSourceJvp(dstype* f, dstype* df, const dstype* xdg, const dstype* udg, const dstype* dudg, const dstype* odg, const dstype* dodg, const dstype* wdg, const dstype* dwdg, const dstype* uinf, const dstype* param, dstype time, int modelnumber, int ng, int nc, int ncu, int nd, int ncx, int nco, int ncw) { throw std::runtime_error("Model provider has no KokkosSourceJvp"); }
+inline void KokkosTdfuncJvp(dstype* f, dstype* df, const dstype* xdg, const dstype* udg, const dstype* dudg, const dstype* odg, const dstype* dodg, const dstype* wdg, const dstype* dwdg, const dstype* uinf, const dstype* param, dstype time, int modelnumber, int ng, int nc, int ncu, int nd, int ncx, int nco, int ncw) { throw std::runtime_error("Model provider has no KokkosTdfuncJvp"); }
+inline void KokkosAvfieldJvp(dstype* f, dstype* df, const dstype* xdg, const dstype* udg, const dstype* dudg, const dstype* odg, const dstype* wdg, const dstype* dwdg, const dstype* uinf, const dstype* param, dstype time, int modelnumber, int ng, int nc, int ncu, int nd, int ncx, int nco, int ncw, int nce, int npe, int ne) { throw std::runtime_error("Model provider has no KokkosAvfieldJvp"); }
+inline void KokkosFbouJvp(dstype* f, dstype* df, const dstype* xdg, const dstype* udg, const dstype* dudg, const dstype* odg, const dstype* dodg, const dstype* wdg, const dstype* dwdg, const dstype* uhg, const dstype* duhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, dstype time, int modelnumber, int ib, int ng, int nc, int ncu, int nd, int ncx, int nco, int ncw) { throw std::runtime_error("Model provider has no KokkosFbouJvp"); }
+inline void KokkosUbouJvp(dstype* f, dstype* df, const dstype* xdg, const dstype* udg, const dstype* dudg, const dstype* odg, const dstype* wdg, const dstype* dwdg, const dstype* uhg, const dstype* duhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, dstype time, int modelnumber, int ib, int ng, int nc, int ncu, int nd, int ncx, int nco, int ncw) { throw std::runtime_error("Model provider has no KokkosUbouJvp"); }
+inline void KokkosFhatJvp(dstype* f, dstype* df, const dstype* xdg, const dstype* udg1, const dstype* dudg1, const dstype* udg2, const dstype* dudg2, const dstype* odg1, const dstype* dodg1, const dstype* odg2, const dstype* dodg2, const dstype* wdg1, const dstype* dwdg1, const dstype* wdg2, const dstype* dwdg2, const dstype* uhg, const dstype* duhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, dstype time, int modelnumber, int ng, int nc, int ncu, int nd, int ncx, int nco, int ncw) { throw std::runtime_error("Model provider has no KokkosFhatJvp"); }
+inline void KokkosStabJvp(dstype* f, dstype* df, const dstype* xdg, const dstype* udg1, const dstype* dudg1, const dstype* udg2, const dstype* dudg2, const dstype* odg1, const dstype* dodg1, const dstype* odg2, const dstype* dodg2, const dstype* wdg1, const dstype* dwdg1, const dstype* wdg2, const dstype* dwdg2, const dstype* uhg, const dstype* duhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, dstype time, int modelnumber, int ng, int nc, int ncu, int nd, int ncx, int nco, int ncw) { throw std::runtime_error("Model provider has no KokkosStabJvp"); }
+}
+#define EXASIM_EXT_JVP_FALLBACK(ID) namespace exasim_model_##ID { using namespace ::exasim_missing_jvp; }
+EXASIM_EXT_MODEL_IDS(EXASIM_EXT_JVP_FALLBACK)
+#undef EXASIM_EXT_JVP_FALLBACK
+#endif
+
 namespace {
+
+
+#ifdef HAVE_ENZYME
+void extKokkosFluxJvp(dstype* f, dstype* df, const dstype* xdg, const dstype* udg, const dstype* dudg, const dstype* odg, const dstype* dodg, const dstype* wdg, const dstype* dwdg, const dstype* uinf, const dstype* param, dstype time, int modelnumber, int ng, int nc, int ncu, int nd, int ncx, int nco, int ncw)
+{
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosFluxJvp(f, df, xdg, udg, dudg, odg, dodg, wdg, dwdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
+    EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
+#undef EXASIM_EXT_DISPATCH
+    ::builtinKokkosFluxJvp(f, df, xdg, udg, dudg, odg, dodg, wdg, dwdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
+}
+void extKokkosSourceJvp(dstype* f, dstype* df, const dstype* xdg, const dstype* udg, const dstype* dudg, const dstype* odg, const dstype* dodg, const dstype* wdg, const dstype* dwdg, const dstype* uinf, const dstype* param, dstype time, int modelnumber, int ng, int nc, int ncu, int nd, int ncx, int nco, int ncw)
+{
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosSourceJvp(f, df, xdg, udg, dudg, odg, dodg, wdg, dwdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
+    EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
+#undef EXASIM_EXT_DISPATCH
+    ::builtinKokkosSourceJvp(f, df, xdg, udg, dudg, odg, dodg, wdg, dwdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
+}
+void extKokkosTdfuncJvp(dstype* f, dstype* df, const dstype* xdg, const dstype* udg, const dstype* dudg, const dstype* odg, const dstype* dodg, const dstype* wdg, const dstype* dwdg, const dstype* uinf, const dstype* param, dstype time, int modelnumber, int ng, int nc, int ncu, int nd, int ncx, int nco, int ncw)
+{
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosTdfuncJvp(f, df, xdg, udg, dudg, odg, dodg, wdg, dwdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
+    EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
+#undef EXASIM_EXT_DISPATCH
+    ::builtinKokkosTdfuncJvp(f, df, xdg, udg, dudg, odg, dodg, wdg, dwdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
+}
+void extKokkosAvfieldJvp(dstype* f, dstype* df, const dstype* xdg, const dstype* udg, const dstype* dudg, const dstype* odg, const dstype* wdg, const dstype* dwdg, const dstype* uinf, const dstype* param, dstype time, int modelnumber, int ng, int nc, int ncu, int nd, int ncx, int nco, int ncw, int nce, int npe, int ne)
+{
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosAvfieldJvp(f, df, xdg, udg, dudg, odg, wdg, dwdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne);
+    EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
+#undef EXASIM_EXT_DISPATCH
+    ::builtinKokkosAvfieldJvp(f, df, xdg, udg, dudg, odg, wdg, dwdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne);
+}
+void extKokkosFbouJvp(dstype* f, dstype* df, const dstype* xdg, const dstype* udg, const dstype* dudg, const dstype* odg, const dstype* dodg, const dstype* wdg, const dstype* dwdg, const dstype* uhg, const dstype* duhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, dstype time, int modelnumber, int ib, int ng, int nc, int ncu, int nd, int ncx, int nco, int ncw)
+{
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosFbouJvp(f, df, xdg, udg, dudg, odg, dodg, wdg, dwdg, uhg, duhg, nlg, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
+    EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
+#undef EXASIM_EXT_DISPATCH
+    ::builtinKokkosFbouJvp(f, df, xdg, udg, dudg, odg, dodg, wdg, dwdg, uhg, duhg, nlg, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
+}
+void extKokkosUbouJvp(dstype* f, dstype* df, const dstype* xdg, const dstype* udg, const dstype* dudg, const dstype* odg, const dstype* wdg, const dstype* dwdg, const dstype* uhg, const dstype* duhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, dstype time, int modelnumber, int ib, int ng, int nc, int ncu, int nd, int ncx, int nco, int ncw)
+{
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosUbouJvp(f, df, xdg, udg, dudg, odg, wdg, dwdg, uhg, duhg, nlg, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
+    EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
+#undef EXASIM_EXT_DISPATCH
+    ::builtinKokkosUbouJvp(f, df, xdg, udg, dudg, odg, wdg, dwdg, uhg, duhg, nlg, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw);
+}
+void extKokkosFhatJvp(dstype* f, dstype* df, const dstype* xdg, const dstype* udg1, const dstype* dudg1, const dstype* udg2, const dstype* dudg2, const dstype* odg1, const dstype* dodg1, const dstype* odg2, const dstype* dodg2, const dstype* wdg1, const dstype* dwdg1, const dstype* wdg2, const dstype* dwdg2, const dstype* uhg, const dstype* duhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, dstype time, int modelnumber, int ng, int nc, int ncu, int nd, int ncx, int nco, int ncw)
+{
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosFhatJvp(f, df, xdg, udg1, dudg1, udg2, dudg2, odg1, dodg1, odg2, dodg2, wdg1, dwdg1, wdg2, dwdg2, uhg, duhg, nlg, tau, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
+    EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
+#undef EXASIM_EXT_DISPATCH
+    ::builtinKokkosFhatJvp(f, df, xdg, udg1, dudg1, udg2, dudg2, odg1, dodg1, odg2, dodg2, wdg1, dwdg1, wdg2, dwdg2, uhg, duhg, nlg, tau, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
+}
+void extKokkosStabJvp(dstype* f, dstype* df, const dstype* xdg, const dstype* udg1, const dstype* dudg1, const dstype* udg2, const dstype* dudg2, const dstype* odg1, const dstype* dodg1, const dstype* odg2, const dstype* dodg2, const dstype* wdg1, const dstype* dwdg1, const dstype* wdg2, const dstype* dwdg2, const dstype* uhg, const dstype* duhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, dstype time, int modelnumber, int ng, int nc, int ncu, int nd, int ncx, int nco, int ncw)
+{
+#define EXASIM_EXT_DISPATCH(ID) if (EXASIM_EXT_MATCH(ID, modelnumber)) return exasim_model_##ID::KokkosStabJvp(f, df, xdg, udg1, dudg1, udg2, dudg2, odg1, dodg1, odg2, dodg2, wdg1, dwdg1, wdg2, dwdg2, uhg, duhg, nlg, tau, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
+    EXASIM_EXT_MODEL_IDS(EXASIM_EXT_DISPATCH)
+#undef EXASIM_EXT_DISPATCH
+    ::builtinKokkosStabJvp(f, df, xdg, udg1, dudg1, udg2, dudg2, odg1, dodg1, odg2, dodg2, wdg1, dwdg1, wdg2, dwdg2, uhg, duhg, nlg, tau, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw);
+}
+#endif
 
 // --- Kokkos element kernels ---
 
@@ -757,6 +835,16 @@ const ExasimDriverABI& getBuiltInLibraryExasimDriverABI()
         ExasimDriverABI value;
         value.abi_version = kExasimDriverABIVersion;
         value.struct_size = sizeof(ExasimDriverABI);
+#ifdef HAVE_ENZYME
+        value.volume.KokkosFluxJvp = &extKokkosFluxJvp;
+        value.volume.KokkosSourceJvp = &extKokkosSourceJvp;
+        value.volume.KokkosTdfuncJvp = &extKokkosTdfuncJvp;
+        value.volume.KokkosAvfieldJvp = &extKokkosAvfieldJvp;
+        value.boundary.KokkosFbouJvp = &extKokkosFbouJvp;
+        value.boundary.KokkosUbouJvp = &extKokkosUbouJvp;
+        value.iface.KokkosFhatJvp = &extKokkosFhatJvp;
+        value.iface.KokkosStabJvp = &extKokkosStabJvp;
+#endif
         value.volume.KokkosFlux        = &extKokkosFlux;
         value.volume.KokkosSource      = &extKokkosSource;
         value.volume.KokkosSourcew     = &extKokkosSourcew;

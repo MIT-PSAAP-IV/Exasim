@@ -11,6 +11,7 @@
 
 #include "../common.h"
 #include "../model.hpp"
+#include "../enzyme_jvp.hpp"
 
 namespace exasim {
 
@@ -56,10 +57,15 @@ template <class M, class T=dstype, class I=Int>
 void hdg_sourcew_kernel(T* sw, T* sw_udg, T* sw_wdg,
                         const T* xdg, const T* udg, const T* odg,
                         const T* wdg, const T* uinf, const T* param,
-                        T t, int /*modelnumber*/, int ng,
-                        int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/,
-                        int /*ncw_runtime*/)
+                        T t, int modelnumber, int ng,
+                        int nc, int ncu_runtime, int nd_runtime, int ncx, int nco_runtime,
+                        int ncw_runtime)
 {
+#ifdef HAVE_ENZYME
+    enzyme::sourcew_jac<M,T>(sw, sw_udg, sw_wdg, xdg, udg, odg, wdg,
+        uinf, param, t, modelnumber, ng, nc, ncu_runtime, nd_runtime,
+        ncx, nco_runtime, ncw_runtime);
+#else
     using dstype=T;
     static_assert(is_sourcew_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
@@ -94,6 +100,7 @@ void hdg_sourcew_kernel(T* sw, T* sw_udg, T* sw_wdg,
         (void)sw; (void)sw_udg; (void)sw_wdg;
         (void)xdg; (void)udg; (void)odg; (void)wdg; (void)param; (void)t; (void)ng;
     }
+#endif
 }
 
 // HDG w-source, diagonal w-block only: value + ∂sw/∂w (no ∂sw/∂udg). Mirrors
@@ -103,10 +110,15 @@ template <class M, class T=dstype, class I=Int>
 void hdg_sourcewonly_kernel(T* sw, T* sw_wdg,
                             const T* xdg, const T* udg, const T* odg,
                             const T* wdg, const T* uinf, const T* param,
-                            T t, int /*modelnumber*/, int ng,
-                            int /*nc*/, int /*ncu*/, int /*nd*/, int /*ncx*/, int /*nco*/,
-                            int /*ncw_runtime*/)
+                            T t, int modelnumber, int ng,
+                            int nc, int ncu_runtime, int nd_runtime, int ncx, int nco_runtime,
+                            int ncw_runtime)
 {
+#ifdef HAVE_ENZYME
+    enzyme::sourcew_jac_only<M,T>(sw, sw_wdg, xdg, udg, odg, wdg,
+        uinf, param, t, modelnumber, ng, nc, ncu_runtime, nd_runtime,
+        ncx, nco_runtime, ncw_runtime);
+#else
     using dstype=T;
     static_assert(is_sourcew_model_v<M>);
     constexpr int nd = M::nd, ncu = M::ncu, ncw = M::ncw, nco = M::nco;
@@ -136,6 +148,7 @@ void hdg_sourcewonly_kernel(T* sw, T* sw_wdg,
         (void)sw; (void)sw_wdg;
         (void)xdg; (void)udg; (void)odg; (void)wdg; (void)param; (void)t; (void)ng;
     }
+#endif
 }
 
 // ---- ABI-signature forwarders (routed by EXASIM_LEGACY_W_CALL) ----

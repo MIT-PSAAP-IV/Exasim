@@ -1,3 +1,4 @@
+import os
 from .varsassign import varsassign
 from .sympyassign import sympyassign
 from .kokkosrange import parallel_for_open

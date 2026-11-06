@@ -18,6 +18,9 @@ endif()
 set(EXASIM_BUILTIN_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 set(EXASIM_BUILTIN_GENROOT "${CMAKE_CURRENT_BINARY_DIR}/generated")
 set(EXASIM_BUILTIN_INCDIR  "${EXASIM_BUILTIN_GENROOT}/include")
+if(EXASIM_ENZYME)
+  include("${EXASIM_DIR}/cmake/ExasimEnzymeKernels.cmake")
+endif()
 file(MAKE_DIRECTORY "${EXASIM_BUILTIN_INCDIR}")
 # Published for tests that compare regenerated kernels against checked-in ones
 # (see tests/builtin-models/).
@@ -149,6 +152,15 @@ function(exasim_finalize_builtin_models)
     list(GET _dirs ${_i} _dir)
     string(APPEND _hdr_inc  "#include \"${_dir}/model.hpp\"\n")
     string(APPEND _impl_inc "#include \"${_dir}/model.cpp\"\n")
+    if(EXASIM_ENZYME)
+      set(_jvp "${EXASIM_BUILTIN_GENROOT}/enzyme/model${_id}.hpp")
+      exasim_generate_enzyme_kernels(
+        OUTPUT "${_jvp}" KERNELS "${_dir}"
+        ABI "${EXASIM_DIR}/include/driver_abi.hpp"
+        NAMESPACE "exasim_model_${_id}" DEPENDS ${_gen})
+      list(APPEND _enzyme_headers "${_jvp}")
+      string(APPEND _impl_inc "#include \"${_jvp}\"\n")
+    endif()
     string(APPEND _macro " X(${_id})")
   endforeach()
   set(EXASIM_BM_HEADER_INCLUDES "${_hdr_inc}")
@@ -204,7 +216,7 @@ function(exasim_finalize_builtin_models)
     "}\n")
 
   # force regeneration of kernels before compiling the dispatcher
-  add_custom_target(exasim_builtin_model_codegen DEPENDS ${_gen})
+  add_custom_target(exasim_builtin_model_codegen DEPENDS ${_gen} ${_enzyme_headers})
 
   # --- define the library variant matching the active backend ---
   # The inner build uses a single CXX compiler (g++ for CPU, nvcc_wrapper for
@@ -257,7 +269,10 @@ function(exasim_finalize_builtin_models)
   target_include_directories(${_bm_name} PRIVATE
     "${EXASIM_BUILTIN_INCDIR}" "${EXASIM_BUILTIN_DIR}" "${EXASIM_DIR}/include")
   target_link_libraries(${_bm_name} PRIVATE Kokkos::kokkos)
-  if(EXASIM_CUDA)
+  if(TARGET ExasimHeaders)
+    target_link_libraries(${_bm_name} PUBLIC ExasimHeaders)
+  endif()
+  if(EXASIM_CUDA AND NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     # Generated kernels call acos(-1), exp(1), ...: see ExasimHeaders in install/CMakeLists.txt.
     target_compile_options(${_bm_name} PRIVATE --expt-relaxed-constexpr)
   endif()

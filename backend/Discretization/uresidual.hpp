@@ -204,18 +204,24 @@ inline void dRuElemBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<
         
         if (common.timeparams.tdfunc==1) {
             // calculate the time derivative function Tdfunc(xdg, udg, odg)
-            EXASIM_DRIVER_CALL(TdfuncDriver, &tmp.tempg[n5], &sol.elemg[nm], &tmp.tempg[n3], &sol.odgg[nge*nco*e1], 
-                &tmp.tempg[n6], mesh, master, app, sol, tmp, common, nge, e1, e2, backend);
+            EXASIM_DRIVER_CALL(TdfuncDriver, &tmp.tempg[n5], &tmp.tempg[n7],
+                &sol.elemg[nm], &tmp.tempg[n3], &tmp.tempg[n9],
+                &sol.odgg[nge*nco*e1], &sol.dodgg[nge*nco*e1],
+                &tmp.tempg[n6], &tmp.tempg[n0], mesh, master, app, sol, tmp,
+                common, nge, e1, e2, backend);
 
-            // calculate (sdg-udg*dtfactor)*Tdfunc(xdg, udg, odg) 
-            ArrayAXY(&tmp.tempg[n4], &tmp.tempg[n4], &tmp.tempg[n5], one, nga*ncu);                
-            // calculate dsdg*Tdfunc(xdg, udg, odg) 
-            ArrayAXY(&tmp.tempg[n8], &tmp.tempg[n8], &tmp.tempg[n5], one, nga*ncu);                
+            // Product rule for (sdg - dtfactor*u) * mass(u,q,o,w).
+            auto sg = &tmp.tempg[n4]; auto dsg = &tmp.tempg[n8];
+            auto mass = &tmp.tempg[n5]; auto dmass = &tmp.tempg[n7];
+            Kokkos::parallel_for("EnzymeMassProduct", nga*ncu, KOKKOS_LAMBDA(int i) {
+                dsg[i] = dsg[i]*mass[i] + sg[i]*dmass[i];
+                sg[i] *= mass[i];
+            });
         }
         
         if (common.physicsparams.source==1) {            
             // calculate the source term Source(xdg, udg, odg, wdg) and dSource
-            EXASIM_DRIVER_CALL(SourceDriver, &tmp.tempg[n5], &tmp.tempg[n7], &sol.elemg[nm], &tmp.tempg[n3], &tmp.tempg[n9], &sol.odgg[nge*nco*e1], 
+            EXASIM_DRIVER_CALL(SourceDriver, &tmp.tempg[n5], &tmp.tempg[n7], &sol.elemg[nm], &tmp.tempg[n3], &tmp.tempg[n9], &sol.odgg[nge*nco*e1], &sol.dodgg[nge*nco*e1],
                 &tmp.tempg[n6], &tmp.tempg[n0], mesh, master, app, sol, tmp, common, nge, e1, e2, backend);
             
             // calculate Source(xdg, udg, odg) + (sdg-udg*dtfactor)*Tdfunc(xdg, udg, odg) 
@@ -226,7 +232,7 @@ inline void dRuElemBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<
     }
     else {        
         // calculate the source term Source(xdg, udg, odg, wdg)
-        EXASIM_DRIVER_CALL(SourceDriver, &tmp.tempg[n4], &tmp.tempg[n8], &sol.elemg[nm], &tmp.tempg[n3], &tmp.tempg[n9], &sol.odgg[nge*nco*e1],  
+        EXASIM_DRIVER_CALL(SourceDriver, &tmp.tempg[n4], &tmp.tempg[n8], &sol.elemg[nm], &tmp.tempg[n3], &tmp.tempg[n9], &sol.odgg[nge*nco*e1], &sol.dodgg[nge*nco*e1],
             &tmp.tempg[n6], &tmp.tempg[n0], mesh, master, app, sol, tmp, common, nge, e1, e2, backend);             
     }    
 
@@ -408,44 +414,40 @@ inline void dRuFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<
 
     ////// First, u, uL, uR on faces are loaded 
     // uhg = tmp.tempg[n3] at gauss points on face
-    GetElemNodes(tmp.tempn, sol.uh, npf, ncu, 0, ncu, f1, f2, backend);
+    GetElemNodes(tmp.tempn, sol.uh, npf, ncu, 0, ncu, f1, f2);
 
     // ug1 = tmp.tempg[n4] at gauss points on face
-    GetArrayAtIndex(&tmp.tempn[nn*ncu], sol.udg, &mesh.findudg1[npf*nc*f1], nn*nc, backend);    
+    GetArrayAtIndex(&tmp.tempn[nn*ncu], sol.udg, &mesh.findudg1[npf*nc*f1], nn*nc);
     if (ncw>0)
-        GetFaceNodes(&tmp.tempn[nn*(ncu+nc)], sol.wdg, mesh.facecon, npf, ncw, npe, ncw, f1, f2, 1, backend);      
+        GetFaceNodes(&tmp.tempn[nn*(ncu+nc)], sol.wdg, mesh.facecon, npf, ncw, npe, ncw, f1, f2, 1);
     
     if (ib==0) {
         // ug2 = tmp.tempg[n6] at gauss points on face
-        GetArrayAtIndex(&tmp.tempn[nn*(ncu+nc+ncw)], sol.udg, &mesh.findudg2[npf*nc*f1], nn*nc, backend);
+        GetArrayAtIndex(&tmp.tempn[nn*(ncu+nc+ncw)], sol.udg, &mesh.findudg2[npf*nc*f1], nn*nc);
         if (ncw>0)
-            GetFaceNodes(&tmp.tempn[nn*(ncu+nc+ncw+nc)], sol.wdg, mesh.facecon, npf, ncw, npe, ncw, f1, f2, 2, backend);        
+            GetFaceNodes(&tmp.tempn[nn*(ncu+nc+ncw+nc)], sol.wdg, mesh.facecon, npf, ncw, npe, ncw, f1, f2, 2);
         Node2Gauss(handle, &tmp.tempg[n3], tmp.tempn, master.shapfgt, ngf, npf, nf*(ncu+2*nc+2*ncw), backend);
     }
     else
         Node2Gauss(handle, &tmp.tempg[n3], tmp.tempn, master.shapfgt, ngf, npf, nf*(ncu+nc+ncw), backend);
 
-    ///// Repeat above steps to get du, duL, duR; indices for face information should be the same
-    // TODO: tmp.tmpn was used to store node information above. Should I overwrite parts of tmp.tmpn
-    //       or should I append new information on to the end of it?
-    //
-    //       For example, should the next line of code be tmp.tempn or tmp.tempn[nn*(ncu+2*nc+2*ncw)]  
+    // Store the input directions after the primal face values.
 
     // duh = tmp.tempg[n9] at gauss points on face
-    GetElemNodes(&tmp.tempn[nnd], sol.duh, npf, ncu, 0, ncu, f1, f2, backend);
+    GetElemNodes(&tmp.tempn[nnd], sol.duh, npf, ncu, 0, ncu, f1, f2);
 
     // dug1 = tmp.tempg[n10] at gauss points on face
     //GetFaceNodes(tmp.tempn, sol.udg, mesh.facecon, npf, nc, npe, nc, f1, f2, 1, backend);      
-    GetArrayAtIndex(&tmp.tempn[nnd+nn*ncu], sol.dudg, &mesh.findudg1[npf*nc*f1], nn*nc, backend);    
+    GetArrayAtIndex(&tmp.tempn[nnd+nn*ncu], sol.dudg, &mesh.findudg1[npf*nc*f1], nn*nc);
     if (ncw>0)
-        GetFaceNodes(&tmp.tempn[nnd+nn*(ncu+nc)], sol.dwdg, mesh.facecon, npf, ncw, npe, ncw, f1, f2, 1, backend);      
+        GetFaceNodes(&tmp.tempn[nnd+nn*(ncu+nc)], sol.dwdg, mesh.facecon, npf, ncw, npe, ncw, f1, f2, 1);
     
     if (ib==0) {
         // dug2 = tmp.tempg[n12] at gauss points on face
         //GetFaceNodes(tmp.tempn, sol.udg, mesh.facecon, npf, nc, npe, nc, f1, f2, 2, backend);     
-        GetArrayAtIndex(&tmp.tempn[nnd+nn*(ncu+nc+ncw)], sol.dudg, &mesh.findudg2[npf*nc*f1], nn*nc, backend);
+        GetArrayAtIndex(&tmp.tempn[nnd+nn*(ncu+nc+ncw)], sol.dudg, &mesh.findudg2[npf*nc*f1], nn*nc);
         if (ncw>0)
-            GetFaceNodes(&tmp.tempn[nnd+nn*(ncu+nc+ncw+nc)], sol.dwdg, mesh.facecon, npf, ncw, npe, ncw, f1, f2, 2, backend);        
+            GetFaceNodes(&tmp.tempn[nnd+nn*(ncu+nc+ncw+nc)], sol.dwdg, mesh.facecon, npf, ncw, npe, ncw, f1, f2, 2);
         Node2Gauss(handle, &tmp.tempg[n9], &tmp.tempn[nnd], master.shapfgt, ngf, npf, nf*(ncu+2*nc+2*ncw), backend);
     }
     else
@@ -458,13 +460,32 @@ inline void dRuFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<
         &sol.og1[ngf*nco*f1], &sol.dog1[ngf*nco*f1], &sol.og2[ngf*nco*f1], &sol.dog2[ngf*nco*f1], &tmp.tempg[n5], &tmp.tempg[n11], &tmp.tempg[n7], &tmp.tempg[n13],
         &tmp.tempg[n3], &tmp.tempg[n9], &sol.faceg[nm+n1], mesh, master, app, sol, tmp, common, ngf, f1, f2, backend);      
     }
-    else { // boundary faces      
+    else if (ib == common.hdgldgBoundary) {
+        // The neighboring HDG trace is fixed during the LDG interior solve.
+        // Native HDG flux is F(uh,q).n + tau*(u-uh), matching RuFaceBlock.
+        ArrayCopy(&tmp.tempg[n6], &tmp.tempg[n4], nga*ncu);
+        ArrayCopy(&tmp.tempg[n12], &tmp.tempg[n10], nga*ncu);
+        ArrayCopy(&tmp.tempg[n4], &tmp.tempg[n3], nga*ncu);
+        ArrayCopy(&tmp.tempg[n10], &tmp.tempg[n9], nga*ncu);
+        EXASIM_DRIVER_CALL(FluxDriver, &tmp.tempg[n8], &tmp.tempg[n14],
+            &sol.faceg[nm+n0], &tmp.tempg[n4], &tmp.tempg[n10],
+            &sol.og1[ngf*nco*f1], &sol.dog1[ngf*nco*f1],
+            &tmp.tempg[n5], &tmp.tempg[n11], mesh, master, app, sol, tmp,
+            common, ngf, f1, f2, backend);
+        ArrayCopy(&tmp.tempg[n4], &tmp.tempg[n6], nga*ncu);
+        ArrayCopy(&tmp.tempg[n10], &tmp.tempg[n12], nga*ncu);
+        FluxDotNormal(&tmp.tempg[n8], &tmp.tempg[n8], &sol.faceg[nm+n1], nga*ncu, nga, nd);
+        FluxDotNormal(&tmp.tempg[n14], &tmp.tempg[n14], &sol.faceg[nm+n1], nga*ncu, nga, nd);
+        AddStabilization1(&tmp.tempg[n8], &tmp.tempg[n4], &tmp.tempg[n3], app.tau, nga*ncu);
+        AddStabilization1(&tmp.tempg[n14], &tmp.tempg[n10], &tmp.tempg[n9], app.tau, nga*ncu);
+    }
+    else { // boundary faces
         EXASIM_DRIVER_CALL(FbouDriver, &tmp.tempg[n8], &tmp.tempg[n14], &sol.faceg[nm+n0], &tmp.tempg[n4], &tmp.tempg[n10], &sol.og1[ngf*nco*f1], 
                 &sol.dog1[ngf*nco*f1], &tmp.tempg[n5], &tmp.tempg[n11], &tmp.tempg[n3], &tmp.tempg[n9], &sol.faceg[nm+n1], mesh, master, app, 
                 sol, tmp, common, ngf, f1, f2, ib, backend);        
     } 
     // evaluate dfhg * jac
-    ApplyJac(&tmp.tempg[n9], &tmp.tempg[n14], &sol.faceg[nm+n2], nga, ncu, ngf, backend);
+    ApplyJacFhat(&tmp.tempg[n9], &tmp.tempg[n14], &sol.faceg[nm+n2], nga, ncu, ngf);
     Gauss2Node(handle, &res.dRh[npf*ncu*f1], &tmp.tempg[n9], master.shapfgw, ngf, npf, nf*ncu, backend);   
 #ifdef EXADEBUG                           
     writearray2file(common.fileout + NumberToString(ib) + "RuFace_uhgf.bin", &tmp.tempg[n3], ngf*ncu*nf, backend);  

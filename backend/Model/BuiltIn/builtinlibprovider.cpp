@@ -69,6 +69,16 @@ const ExasimDriverABI& getBuiltInLibraryExasimDriverABI()
         value.abi_version = kExasimDriverABIVersion;
         value.struct_size = sizeof(ExasimDriverABI);
 
+#ifdef HAVE_ENZYME
+        value.volume.KokkosFluxJvp = &::builtinKokkosFluxJvp;
+        value.volume.KokkosSourceJvp = &::builtinKokkosSourceJvp;
+        value.volume.KokkosTdfuncJvp = &::builtinKokkosTdfuncJvp;
+        value.volume.KokkosAvfieldJvp = &::builtinKokkosAvfieldJvp;
+        value.boundary.KokkosFbouJvp = &::builtinKokkosFbouJvp;
+        value.boundary.KokkosUbouJvp = &::builtinKokkosUbouJvp;
+        value.iface.KokkosFhatJvp = &::builtinKokkosFhatJvp;
+        value.iface.KokkosStabJvp = &::builtinKokkosStabJvp;
+#endif
         value.volume.KokkosFlux = &::builtinKokkosFlux;
         value.volume.KokkosSource = &::builtinKokkosSource;
         value.volume.KokkosSourcew = &::builtinKokkosSourcew;

@@ -73,12 +73,27 @@ namespace frontend_generated_source {
 
 } // namespace frontend_generated_source
 
+#ifdef HAVE_ENZYME
+#include "EnzymeJvp.hpp"
+#endif
+
 const ExasimDriverABI& getFrontendGeneratedExasimDriverABI()
 {
     static const ExasimDriverABI abi = [] {
         ExasimDriverABI value;
         value.abi_version = kExasimDriverABIVersion;
         value.struct_size = sizeof(ExasimDriverABI);
+
+#ifdef HAVE_ENZYME
+        value.volume.KokkosFluxJvp = &frontend_generated_source::KokkosFluxJvp;
+        value.volume.KokkosSourceJvp = &frontend_generated_source::KokkosSourceJvp;
+        value.volume.KokkosTdfuncJvp = &frontend_generated_source::KokkosTdfuncJvp;
+        value.volume.KokkosAvfieldJvp = &frontend_generated_source::KokkosAvfieldJvp;
+        value.boundary.KokkosFbouJvp = &frontend_generated_source::KokkosFbouJvp;
+        value.boundary.KokkosUbouJvp = &frontend_generated_source::KokkosUbouJvp;
+        value.iface.KokkosFhatJvp = &frontend_generated_source::KokkosFhatJvp;
+        value.iface.KokkosStabJvp = &frontend_generated_source::KokkosStabJvp;
+#endif
 
         value.volume.KokkosFlux = &frontend_generated_source::KokkosFlux;
         value.volume.KokkosSource = &frontend_generated_source::KokkosSource;

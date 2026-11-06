@@ -108,15 +108,15 @@ inline void GetQ(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &ap
     // elements in the range [e1, e2)
     Int e1 = common.eblks[3*nbe1]-1;    
     Int e2 = common.eblks[3*(nbe2-1)+1];
-    Int f1 = common.fblks[3*nbf1]-1;
-    Int f2 = common.fblks[3*(nbf2-1)+1];    
+    Int f1 = nbf2 > nbf1 ? common.fblks[3*nbf1]-1 : 0;
+    Int f2 = nbf2 > nbf1 ? common.fblks[3*(nbf2-1)+1] : 0;
 
     //std::cout<<res.Rh[common.meshsizes.nf*common.grid.npf*ncq-1]<<std::endl;
     //print3darray(res.Rh, common.grid.npf, ncq, 5);
     // assemble face residual vector into element residual vector
     // PutFaceNodes(res.Rq, res.Rh, mesh.rowe2f1, mesh.cole2f1, mesh.ent2ind1, mesh.rowe2f2, mesh.cole2f2, 
     //         mesh.ent2ind2, npf, npe, ncq, e1, e2, 0);    
-    PutFaceNodes(res.Rq, &res.Rh[common.grid.npf*common.components.ncq*f1],  mesh.facecon, npf, ncq, npe, ncq, f1, f2);
+    if (f2 > f1) PutFaceNodes(res.Rq, &res.Rh[common.grid.npf*common.components.ncq*f1],  mesh.facecon, npf, ncq, npe, ncq, f1, f2);
   
     if (common.timeparams.wave==1)
         // get the source term due to the time derivative (for wave problem)  
@@ -270,9 +270,11 @@ inline void GetAv(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &a
         tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
 {
     using dstype=T;
-    EXASIM_DRIVER_CALL(AvfieldDriver, sol.odg, sol.xdg, sol.udg, sol.odg, sol.wdg, mesh, master, app, sol, tmp, common, backend); 
-    // note that the args imply avfield can depend on odg...not sure this is true.
-    // This is true actually; but we need to be careful with autodiff. Might need a seperate avfield...
+    const Int npe = common.grid.npe, ne = common.meshsizes.ne;
+    const Int nco = common.components.nco, ncAV = common.physicsparams.ncAV;
+    EXASIM_DRIVER_CALL(AvfieldDriver, tmp.tempn, sol.xdg, sol.udg, sol.odg,
+        sol.wdg, mesh, master, app, sol, tmp, common, backend);
+    ArrayInsert(sol.odg, tmp.tempn, npe, nco, ne, 0, npe, 0, ncAV, 0, ne);
     for (Int iav = 0; iav<common.physicsparams.AVsmoothingIter; iav++){
         DG2CGAVField(sol, res, app, master, mesh, tmp, common, sol.odg, sol.odg, backend);
     }
@@ -488,7 +490,8 @@ inline void GetdQ(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &a
         tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, 
         Int nbe1, Int nbe2, Int nbf1, Int nbf2, Int backend)
 {
-    using dstype=T;    
+    using dstype=T;
+    if (nbe2 <= nbe1) return;
     Int nc = common.components.nc; // number of compoments of (u, q, p)
     Int ncu = common.components.ncu;// number of compoments of (u)
     Int ncq = common.components.ncq;// number of compoments of (q)
@@ -507,18 +510,13 @@ inline void GetdQ(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &a
     Int e1 = common.eblks[3*nbe1]-1;    
     Int e2 = common.eblks[3*(nbe2-1)+1];
        
-    PutFaceNodes(res.dRq, res.dRh, mesh.rowe2f1, mesh.cole2f1, mesh.ent2ind1, mesh.rowe2f2, mesh.cole2f2, 
-            mesh.ent2ind2, npf, npe, ncq, e1, e2, 0, backend);
-    
-    if (common.timeparams.wave==1)
-    { //TODO: not checked yet
-        // get the source term due to the time derivative (for wave problem)  
-        ArrayExtract(&res.dRq[N], sol.sdg, npe, nc, ne, 0, npe, ncu, ncu+ncq, e1, e2);  
-    }
-    else
-    {   // set it to zero
-        ArraySetValue(&res.dRq[N], zero, npe*ncq*(e2-e1));
-     }
+    const Int f1 = nbf2 > nbf1 ? common.fblks[3*nbf1]-1 : 0;
+    const Int f2 = nbf2 > nbf1 ? common.fblks[3*(nbf2-1)+1] : 0;
+    if (f2 > f1) PutFaceNodes(res.dRq, &res.dRh[npf*ncq*f1], mesh.facecon,
+                 npf, ncq, npe, ncq, f1, f2);
+
+    // The time-history source is fixed when differentiating the current state.
+    ArraySetValue(&res.dRq[N], T(0), npe*ncq*(e2-e1));
     dstype scalar = one;
     if (common.timeparams.wave==1)
         scalar = one/common.timestate.dtfactor;
@@ -533,12 +531,41 @@ inline void GetdAv(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &
         tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
 {
     using dstype=T;
-    EXASIM_DRIVER_CALL(AvfieldDriver, sol.odg, sol.dodg, sol.xdg, sol.udg, sol.dudg, sol.odg, sol.wdg, sol.dwdg, mesh, master, app, sol, tmp, common, backend); 
-
+    const Int npe = common.grid.npe, ne = common.meshsizes.ne;
+    const Int nco = common.components.nco, ncAV = common.physicsparams.ncAV;
+    const Int count = npe*ncAV*ne;
+    EXASIM_DRIVER_CALL(AvfieldDriver, tmp.tempn, tmp.tempn + count, sol.xdg,
+        sol.udg, sol.dudg, sol.odg, sol.wdg, sol.dwdg,
+        mesh, master, app, sol, tmp, common, backend);
+    ArrayInsert(sol.odg, tmp.tempn, npe, nco, ne, 0, npe, 0, ncAV, 0, ne);
+    ArrayInsert(sol.dodg, tmp.tempn + count, npe, nco, ne, 0, npe, 0, ncAV, 0, ne);
     for (Int iav = 0; iav<common.physicsparams.AVsmoothingIter; iav++){
+        DG2CGAVField(sol, res, app, master, mesh, tmp, common, sol.odg, sol.odg, backend);
         DG2CGAVField(sol, res, app, master, mesh, tmp, common, sol.dodg, sol.dodg, backend);
     }
 
+    for (Int j=0; j<common.meshsizes.nbe; j++) {
+        Int e1 = common.eblks[3*j]-1;
+        Int e2 = common.eblks[3*j+1];
+        GetElemNodes(tmp.tempn, sol.odg, common.grid.npe, common.components.nco,
+                0, common.components.nco, e1, e2);
+        Node2Gauss(common.cublasHandle, &sol.odgg[common.grid.nge*common.components.nco*e1],
+            tmp.tempn, master.shapegt, common.grid.nge, common.grid.npe, (e2-e1)*common.components.nco, backend);
+    }
+    for (Int j=0; j<common.meshsizes.nbf; j++) {
+        Int f1 = common.fblks[3*j]-1;
+        Int f2 = common.fblks[3*j+1];
+
+        GetFaceNodes(tmp.tempn, sol.odg, mesh.facecon, common.grid.npf, common.components.nco,
+                common.grid.npe, common.components.nco, f1, f2, 1);
+        Node2Gauss(common.cublasHandle, &sol.og1[common.grid.ngf*common.components.nco*f1],
+            tmp.tempn, master.shapfgt, common.grid.ngf, common.grid.npf, (f2-f1)*common.components.nco, backend);
+
+        GetFaceNodes(tmp.tempn, sol.odg, mesh.facecon, common.grid.npf, common.components.nco,
+                common.grid.npe, common.components.nco, f1, f2, 2);
+        Node2Gauss(common.cublasHandle, &sol.og2[common.grid.ngf*common.components.nco*f1],
+            tmp.tempn, master.shapfgt, common.grid.ngf, common.grid.npf, (f2-f1)*common.components.nco, backend);
+    }
     for (Int j=0; j<common.meshsizes.nbe; j++) {
         Int e1 = common.eblks[3*j]-1;
         Int e2 = common.eblks[3*j+1];                
@@ -564,6 +591,47 @@ inline void GetdAv(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &
 }
 
 
+// Differentiate the local auxiliary equation at its converged state.
+// Keep histories and incoming odg fixed. Get sourcew Jacobians from Enzyme.
+template <class M, class T=dstype, class I=Int>
+inline void GetdW(solstructT<T,I>& sol, resstructT<T,I>& res, appstructT<T,I>& app,
+    masterstructT<T,I>& master, meshstructT<T,I>& mesh, tempstructT<T,I>& tmp,
+    commonstructT<T,I>& common, cublasHandle_t handle, Int nbe1, Int nbe2, Int backend)
+{
+    if (common.timeparams.subproblem != 0) return;
+    const Int nc = common.components.nc, ncw = common.components.ncw;
+    const Int nco = common.components.nco, ncx = common.components.ncx;
+    const Int npe = common.grid.npe;
+    for (Int j=nbe1; j<nbe2; ++j) {
+        const Int e1 = common.eblks[3*j]-1, e2 = common.eblks[3*j+1];
+        const Int ng = npe*(e2-e1);
+        T* w = tmp.tempn;
+        T* x = w + ng*ncw;
+        T* u = x + ng*ncx;
+        T* o = u + ng*nc;
+        T* history = o + ng*nco;
+        T* du = history + ng*ncw;
+        T* dw = du + ng*nc;
+        T* jac = dw + ng*ncw;
+        GetElemNodes(w, sol.wdg, npe, ncw, 0, ncw, e1, e2);
+        GetElemNodes(x, sol.xdg, npe, ncx, 0, ncx, e1, e2);
+        GetElemNodes(u, sol.udg, npe, nc, 0, nc, e1, e2);
+        GetElemNodes(o, sol.odg, npe, nco, 0, nco, e1, e2);
+        GetElemNodes(history, sol.wsrc, npe, ncw, 0, ncw, e1, e2);
+        GetElemNodes(du, sol.dudg, npe, nc, 0, nc, e1, e2);
+        wEquation<M>(w, jac, x, u, o, history, tmp.tempg, app, common, ng, backend, tmp.tempi);
+        Kokkos::parallel_for("EnzymeAuxiliaryDirection", ng*ncw, KOKKOS_LAMBDA(int k) {
+            const Int i = k%ng, row = k/ng;
+            T value = 0;
+            for (Int col=0; col<nc; ++col)
+                value += jac[i + ng*(row + ncw*col)]*du[i + ng*col];
+            dw[k] = value;
+        });
+        PutElemNodes(sol.wdg, w, npe, ncw, 0, ncw, e1, e2);
+        PutElemNodes(sol.dwdg, dw, npe, ncw, 0, ncw, e1, e2);
+    }
+}
+
 template <class M, class T=dstype, class I=Int>
 inline void dRuResidual(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh, 
    tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, 
@@ -577,16 +645,15 @@ inline void dRuResidual(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T
     // compute dq
     if (common.components.ncq>0)
     { 
-        // GetQ(sol, res, app, master, mesh, tmp, common, handle, nbe1q, nbe2q, nbf1, nbf2, backend);
+        GetQ(sol, res, app, master, mesh, tmp, common, handle, nbe1q, nbe2q, nbf1, nbf2, backend);
         GetdQ(sol, res, app, master, mesh, tmp, common, handle, nbe1q, nbe2q, nbf1, nbf2, backend);
     }               
 
+    if (common.components.ncw>0)
+        GetdW<M>(sol, res, app, master, mesh, tmp, common, handle, nbe1q, nbe2q, backend);
+
     if (common.physicsparams.ncAV>0 && common.physicsparams.frozenAVflag == 0)
-    /// FROM MEETING: MUST MOVE THE VOLUME RESIDUAL AND EVALUATE 0 to common.npe2 if unfrozen for mpi
         GetdAv<M>(sol, res, app, master, mesh, tmp, common, handle, backend);
-
-
-    //TODO: DAE functionality not implemented yet
 
     // Element integrals
     dRuElem<M>(sol, res, app, master, mesh, tmp, common, handle, nbe1u, nbe2u, backend);    
@@ -594,12 +661,13 @@ inline void dRuResidual(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T
     // Face integrals
     dRuFace<M>(sol, res, app, master, mesh, tmp, common, handle, nbf1, nbf2, backend);
 
-    Int e1 = common.eblks[3*nbe1u]-1;    
-    Int e2 = common.eblks[3*(nbe2u-1)+1];    
-    
-    // insert face nodes into (dRu/du)v
-    PutFaceNodes(res.dRu, res.dRh, mesh.rowe2f1, mesh.cole2f1, mesh.ent2ind1, mesh.rowe2f2, mesh.cole2f2, 
-            mesh.ent2ind2, common.grid.npf, common.grid.npe, common.components.ncu, e1, e2, 0, backend);
+    if (nbf2 > nbf1) {
+        const Int f1 = common.fblks[3*nbf1]-1;
+        const Int f2 = common.fblks[3*(nbf2-1)+1];
+        PutFaceNodes(res.dRu, &res.dRh[common.grid.npf*common.components.ncu*f1],
+            mesh.facecon, common.grid.npf, common.components.ncu, common.grid.npe,
+            common.components.ncu, f1, f2);
+    }
 }
 
 #ifdef  HAVE_MPI
@@ -608,55 +676,51 @@ template <class M, class T=dstype, class I=Int>
 inline void dRuResidualMPI(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master, meshstructT<T,I> &mesh, 
    tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int backend)
 {
-    using dstype=T;      
-    // non-blocking send and receive solutions on exterior and outer elements to neighbors    
-    Int bsz = common.grid.npe*common.components.ncu;
-    Int nudg = common.grid.npe*common.components.nc;
-    Int n;
-   
-    // copy some portion of du to buffsend
-    GetArrayAtIndex(tmp.buffsend, sol.dudg, mesh.elemsendind, bsz*common.nelemsend, backend);
-
-#ifdef HAVE_CUDA
-    cudaDeviceSynchronize();
-#endif
-
-#ifdef HAVE_HIP
-    hipDeviceSynchronize();
-#endif
-    
-    /* non-blocking send */
-    Int neighbor, nsend, psend = 0, request_counter = 0;
-    for (n=0; n<common.nnbsd; n++) {
-        neighbor = common.nbsd[n];
-        nsend = common.elemsendpts[n]*bsz;
-        if (nsend>0) {
-            MPI_Isend(&tmp.buffsend[psend], nsend, mpi_type<dstype>(), neighbor, 0,
-                   EXASIM_COMM_LOCAL, &common.requests[request_counter]);
-            psend += nsend;
-            request_counter += 1;
+    using dstype=T;
+    const Int bsz = common.grid.npe*common.components.ncu;
+    const Int receiveCount = bsz*common.nelemrecv;
+    Int request_counter = 0;
+    auto startExchange = [&](const T* field) {
+        GetArrayAtIndex(tmp.buffsend, field, mesh.elemsendind, bsz*common.nelemsend);
+        Kokkos::fence();
+        request_counter = 0;
+        Int psend = 0, precv = 0;
+        for (Int n=0; n<common.nnbsd; ++n) {
+            const Int count = common.elemsendpts[n]*bsz;
+            if (count>0) {
+                MPI_Isend(tmp.buffsend + psend, count, mpi_type<T>(), common.nbsd[n], 0,
+                    EXASIM_COMM_LOCAL, &common.requests[request_counter++]);
+                psend += count;
+            }
         }
-    }
-
-    // non-blocking receive 
-    Int nrecv, precv = 0;
-    for (n=0; n<common.nnbsd; n++) {
-        neighbor = common.nbsd[n];
-        nrecv = common.elemrecvpts[n]*bsz;
-        if (nrecv>0) {
-            MPI_Irecv(&tmp.buffrecv[precv], nrecv, mpi_type<dstype>(), neighbor, 0,
-                   EXASIM_COMM_LOCAL, &common.requests[request_counter]);
-            precv += nrecv;
-            request_counter += 1;
+        for (Int n=0; n<common.nnbsd; ++n) {
+            const Int count = common.elemrecvpts[n]*bsz;
+            if (count>0) {
+                MPI_Irecv(tmp.buffrecv + precv, count, mpi_type<T>(), common.nbsd[n], 0,
+                    EXASIM_COMM_LOCAL, &common.requests[request_counter++]);
+                precv += count;
+            }
         }
-    }
+    };
+    // Match the primal residual's two-stage order.
+    // Keep the original halo fixed until the first stage finishes.
+    startExchange(sol.udg);
+    MPI_Waitall(request_counter, common.requests, common.statuses);
+    if (tmp.enzymePrimalHalo.extent(0) < static_cast<size_t>(receiveCount))
+        tmp.enzymePrimalHalo = Kokkos::View<T*>(Kokkos::view_alloc(
+            Kokkos::WithoutInitializing, "enzyme_primal_halo"), receiveCount);
+    ArrayCopy(tmp.enzymePrimalHalo.data(), tmp.buffrecv, receiveCount);
+    startExchange(sol.dudg);
     // compute uhat for all faces
     GetdUhat<M>(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbf, backend);            
     
     // calculate q for interior elements
-    if (common.components.ncq>0)         
+    if (common.components.ncq>0) {
+        GetQ(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbe0, 0, common.meshsizes.nbf, backend);
         GetdQ(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbe0, 0, common.meshsizes.nbf, backend);        
-    // TODO: DAE AD matvec
+    }
+    if (common.components.ncw>0)
+        GetdW<M>(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbe0, backend);
 
     // calculate Ru for interior elements
     if (common.physicsparams.frozenAVflag == 1)
@@ -667,19 +731,22 @@ inline void dRuResidualMPI(solstructT<T,I> &sol, resstructT<T,I> &res, appstruct
     // wait until all send and receive operations are completely done
     MPI_Waitall(request_counter, common.requests, common.statuses);
 
-    // copy buffrecv to udg
-    PutArrayAtIndex(sol.dudg, tmp.buffrecv, mesh.elemrecvind, bsz*common.nelemrecv, backend);
+    // Update the primal halo and its tangent before the second stage.
+    PutArrayAtIndex(sol.udg, tmp.enzymePrimalHalo.data(), mesh.elemrecvind, receiveCount);
+    PutArrayAtIndex(sol.dudg, tmp.buffrecv, mesh.elemrecvind, receiveCount);
 
     // compute uhat for all faces
     GetdUhat<M>(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbf, backend);
 
     // calculate q for interface and exterior elements
-    if (common.components.ncq>0)         
+    if (common.components.ncq>0) {
+        GetQ(sol, res, app, master, mesh, tmp, common, handle, common.meshsizes.nbe0, common.meshsizes.nbe2, 0, common.meshsizes.nbf, backend);
         GetdQ(sol, res, app, master, mesh, tmp, common, handle, common.meshsizes.nbe0, common.meshsizes.nbe2, 0, common.meshsizes.nbf, backend);        
-    // TODO: DAE AD Matvec    
+    }
+    if (common.components.ncw>0)
+        GetdW<M>(sol, res, app, master, mesh, tmp, common, handle, common.meshsizes.nbe0, common.meshsizes.nbe2, backend);
 
     if (common.physicsparams.ncAV>0 && common.physicsparams.frozenAVflag == 0)
-    /// FROM MEETING: MUST MOVE THE VOLUME RESIDUAL AND EVALUATE 0 to common.npe2 if unfrozen for mpi
         GetdAv<M>(sol, res, app, master, mesh, tmp, common, handle, backend);
     
     if (common.physicsparams.frozenAVflag == 1)
@@ -694,14 +761,10 @@ inline void dRuResidualMPI(solstructT<T,I> &sol, resstructT<T,I> &res, appstruct
     // calculate Ru for all faces
     dRuFace<M>(sol, res, app, master, mesh, tmp, common, handle, 0, common.meshsizes.nbf, backend);
         
-    // assemble face residual vector into element residual vector
-    // Same for element blocks.
-    if (common.hasInteriorElemBlocks()) {
-    Int e1 = common.firstElem();
-    Int e2 = common.lastInteriorElem();
-    PutFaceNodes(res.dRu, res.dRh, mesh.rowe2f1, mesh.cole2f1, mesh.ent2ind1, mesh.rowe2f2, mesh.cole2f2, 
-            mesh.ent2ind2, common.grid.npf, common.grid.npe, common.components.ncu, e1, e2, 0, backend);
-    }
+    if (common.hasFaceBlocks())
+        PutFaceNodes(res.dRu, res.dRh, mesh.facecon, common.grid.npf,
+            common.components.ncu, common.grid.npe, common.components.ncu,
+            common.firstFace(), common.lastFace());
 }
 
 
@@ -723,10 +786,10 @@ inline void dResidual(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I
                 0, common.meshsizes.nbe, 0, common.meshsizes.nbe, 0, common.meshsizes.nbf, backend);
     } 
     // change sign for matrix-vector product
-    ArrayMultiplyScalar(res.dRu, minusone, common.sizes.ndof1, backend);     
+    ArrayMultiplyScalar(res.dRu, minusone, common.sizes.ndof1);
     if (common.timeparams.tdep==1)
     { 
-        ArrayMultiplyScalar(res.dRu, one/common.timestate.dtfactor, common.sizes.ndof1, backend); 
+        ArrayMultiplyScalar(res.dRu, one/common.timestate.dtfactor, common.sizes.ndof1);
     }
     if (common.outputparams.debugMode==1) {
         writearray2file(common.fileout + "enz_uh.bin", sol.uh, common.grid.npf*common.components.ncu*common.meshsizes.nf, backend);

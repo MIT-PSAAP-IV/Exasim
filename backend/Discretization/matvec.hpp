@@ -54,10 +54,35 @@ inline void MatVec(T *w, solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<
     Int order = common.solverparams.matvecOrder;
     dstype epsilon = common.solverparams.matvecTol;
 #ifdef HAVE_ENZYME
-//TODO: there might be a cleaner way to do this...matvecAD v. matvecFD functions? 
-    ArrayInsert(sol.dudg, v, npe, nc, ne, 0, npe, 0, ncu, 0, ne); //insert v into dudgs
+    const auto stages = ResidualStagesOf(common);
+    if (stages && (stages->uhat || stages->q || stages->w || stages->elem || stages->face || stages->tail))
+        error("Enzyme MatVec requires the production residual stages; custom stage callbacks need matching JVPs.");
+    const Int allNodes = npe*common.meshsizes.ne;
+    const Int allFaces = common.grid.npf*common.meshsizes.nf;
+    const Int elemGauss = common.grid.nge*common.meshsizes.ne;
+    const Int faceGauss = common.grid.ngf*common.meshsizes.nf;
+    auto& backup = tmp.enzymeMatvecBackup;
+    AuxiliaryStateSnapshot<T> state(sol.udg, allNodes*nc, &backup[0]);
+    AuxiliaryStateSnapshot<T> auxiliary(sol.wdg, allNodes*common.components.ncw, &backup[1]);
+    AuxiliaryStateSnapshot<T> other(sol.odg, allNodes*common.components.nco, &backup[2]);
+    AuxiliaryStateSnapshot<T> trace(sol.uh, allFaces*ncu, &backup[3]);
+    AuxiliaryStateSnapshot<T> otherGauss(sol.odgg, elemGauss*common.components.nco, &backup[4]);
+    AuxiliaryStateSnapshot<T> otherLeft(sol.og1, faceGauss*common.components.nco, &backup[5]);
+    AuxiliaryStateSnapshot<T> otherRight(sol.og2, faceGauss*common.components.nco, &backup[6]);
+    // Evaluate the derivative at u. Recalculate q, w, and unfrozen AV in dResidual.
+    // Keep histories and incoming auxiliary, AV, and trace values fixed.
+    // Restore the input state after each matrix-vector product.
+    ArrayInsert(sol.udg, u, npe, nc, ne, 0, npe, 0, ncu, 0, ne);
+    ArraySetValue(sol.dudg, T(0), allNodes*nc);
+    ArraySetValue(sol.dwdg, T(0), allNodes*common.components.ncw);
+    ArraySetValue(sol.dodg, T(0), allNodes*common.components.nco);
+    ArraySetValue(sol.dodgg, T(0), common.grid.nge*common.meshsizes.ne*common.components.nco);
+    ArraySetValue(sol.dog1, T(0), common.grid.ngf*common.meshsizes.nf*common.components.nco);
+    ArraySetValue(sol.dog2, T(0), common.grid.ngf*common.meshsizes.nf*common.components.nco);
+    ArraySetValue(sol.duh, T(0), common.grid.npf*common.meshsizes.nf*ncu);
+    ArrayInsert(sol.dudg, v, npe, nc, ne, 0, npe, 0, ncu, 0, ne);
     dResidual<M>(sol, res, app, master, mesh, tmp, common, handle, backend);
-    ArrayAXPBY(w, u, res.dRu, 0.0, 1, N);
+    ArrayCopy(w, res.dRu, N);
 #else
     // Probe a unit direction. Raw RB/Newton updates can be so small that a
     // fixed epsilon*v rounds away completely. Arnoldi/RB callers supply their

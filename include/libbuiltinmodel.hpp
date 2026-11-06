@@ -1,6 +1,18 @@
 #pragma once
+#include <driver_abi.hpp>
 
-extern "C" { 
+extern "C" {
+#ifdef HAVE_ENZYME
+    extern std::remove_pointer_t<ExasimDriverABI::KokkosElementJvpFn> builtinKokkosFluxJvp;
+    extern std::remove_pointer_t<ExasimDriverABI::KokkosElementJvpFn> builtinKokkosSourceJvp;
+    extern std::remove_pointer_t<ExasimDriverABI::KokkosElementJvpFn> builtinKokkosTdfuncJvp;
+    extern std::remove_pointer_t<ExasimDriverABI::KokkosGlobalElementJvpFn> builtinKokkosAvfieldJvp;
+    extern std::remove_pointer_t<ExasimDriverABI::KokkosBoundaryJvpFn> builtinKokkosFbouJvp;
+    extern std::remove_pointer_t<ExasimDriverABI::KokkosBoundaryStateJvpFn> builtinKokkosUbouJvp;
+    extern std::remove_pointer_t<ExasimDriverABI::KokkosFaceCoupledJvpFn> builtinKokkosFhatJvp;
+    extern std::remove_pointer_t<ExasimDriverABI::KokkosFaceCoupledJvpFn> builtinKokkosStabJvp;
+#endif
+
     void builtinKokkosFlux(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw);
     void builtinKokkosAvfield(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw, const int nce, const int npe, const int ne);
     void builtinKokkosEoS(dstype* f, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg, const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc, const int ncu, const int nd, const int ncx, const int nco, const int ncw, const int nce, const int npe, const int ne);
