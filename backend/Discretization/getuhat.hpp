@@ -81,7 +81,7 @@ inline void UhatBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I
     Int n3 = nga*(ncx+nd+1);                    // Jg, uhg
     Int n4 = nga*(ncx+nd+1+ncu);                // ug
     Int n5 = nga*(ncx+nd+1+ncu+nc);             // og
-    Int n6 = nga*(ncx+nd+1+ncu+nc+ncw);         // wg
+    Int n6 = nga*(ncx+nd+1+ncu+nc+nco);         // wg
     
     if (ib==0) {        
         GetFaceNodes(tmp.tempn, sol.udg, mesh.facecon, npf, ncu, npe, nc, f1, f2, 0);
@@ -135,6 +135,9 @@ inline void UhatBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I
         if (nco>0) {
             GetFaceNodes(&tmp.tempg[n5], sol.odg, mesh.facecon, npf, nco, npe, nco, f1, f2, 1);       
         }
+        if (ncw>0)
+            GetFaceNodes(&tmp.tempg[n6], sol.wdg, mesh.facecon, npf, ncw, npe, ncw, f1, f2, 1);
+        GetElemNodes(&tmp.tempg[n3], sol.uh, npf, ncu, 0, ncu, f1, f2);
                 
         EXASIM_DRIVER_CALL(UbouDriver, tmp.tempn, &tmp.tempg[n0], &tmp.tempg[n4], &tmp.tempg[n5], &tmp.tempg[n6], &tmp.tempg[n3], 
                  &tmp.tempg[n1], mesh, master, app, sol, tmp, common, npf, f1, f2, ib, backend);
@@ -175,6 +178,10 @@ inline void dUhatBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,
         Int nd, Int npe, Int npf, Int nc, Int ncu, Int ncx, Int nco, Int f1, Int f2, Int ib, Int backend)
 {
     using dstype=T;        
+    if (ib>0 && ib==common.hdgldgBoundary) {
+        ArraySetValue(sol.duh + npf*ncu*f1, T(0), npf*ncu*(f2-f1));
+        return;
+    }
     Int ncw = common.components.ncw;
     //Int ncq = ncu*nd;
     Int nf = f2-f1;
@@ -186,10 +193,10 @@ inline void dUhatBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,
     Int n3 = nga*(ncx+nd+1);                    // Jg, uhg
     Int n4 = nga*(ncx+nd+1+ncu);                // ug
     Int n5 = nga*(ncx+nd+1+ncu+nc);             // og
-    Int n6 = nga*(ncx+nd+1+ncu+nc+ncw);         // wg
-    Int n7 = nga*(ncx+nd+1+ncu+nc+ncw+ncw);     // duhg
-    Int n8 = nga*(ncx+nd+1+ncu+nc+ncw+ncw+ncu); // dug
-    Int n9 = nga*(ncx+nd+1+ncu+nc+ncw+ncw+ncu+nc); // dwg
+    Int n6 = nga*(ncx+nd+1+ncu+nc+nco);         // wg
+    Int n7 = nga*(ncx+nd+1+ncu+nc+nco+ncw);     // duhg
+    Int n8 = nga*(ncx+nd+1+ncu+nc+nco+ncw+ncu); // dug
+    Int n9 = nga*(ncx+nd+1+ncu+nc+nco+ncw+ncu+nc); // dwg
 
     if (ib==0) { 
         GetFaceNodes(tmp.tempn, sol.udg, mesh.facecon, npf, ncu, npe, nc, f1, f2, 0);
@@ -247,15 +254,24 @@ inline void dUhatBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,
         // v = dudg = tmp.tmpg[n8]
         GetArrayAtIndex(&tmp.tempg[n8], sol.dudg, &mesh.findudg1[npf*nc*f1], nn*nc);
 
-        // TODO: need to decide whether to set to 0 out here or inside drivers
+        if (nco>0)
+            GetFaceNodes(&tmp.tempg[n5], sol.odg, mesh.facecon, npf, nco, npe, nco, f1, f2, 1);
+        if (ncw>0) {
+            GetFaceNodes(&tmp.tempg[n6], sol.wdg, mesh.facecon, npf, ncw, npe, ncw, f1, f2, 1);
+            GetFaceNodes(&tmp.tempg[n9], sol.dwdg, mesh.facecon, npf, ncw, npe, ncw, f1, f2, 1);
+        }
+        // Include the trace derivative from an earlier MPI stage.
+        GetElemNodes(&tmp.tempg[n3], sol.uh, npf, ncu, 0, ncu, f1, f2);
+        GetElemNodes(&tmp.tempg[n7], sol.duh, npf, ncu, 0, ncu, f1, f2);
         ArraySetValue(tmp.tempn, zero, 2*nn*ncu);
 
         // uhat = tempn[0], duhat = tempn[nn*ncu]
         EXASIM_DRIVER_CALL(UbouDriver, &tmp.tempn[0], &tmp.tempn[nn*ncu], &tmp.tempg[n0], &tmp.tempg[n4], &tmp.tempg[n8],
-                &tmp.tempg[n5], &tmp.tempg[n6], &tmp.tempg[n9], &tmp.tempg[n3], 
+                &tmp.tempg[n5], &tmp.tempg[n6], &tmp.tempg[n9], &tmp.tempg[n3], &tmp.tempg[n7],
                 &tmp.tempg[n1], mesh, master, app, sol, tmp, common, npf, f1, f2, ib, backend);
 
-        //Update sol.duh = (duhat/du) v   
+        PutElemNodes(sol.uh, tmp.tempn, npf, ncu, 0, ncu, f1, f2);
+        //Update sol.duh = (duhat/du) v
         PutElemNodes(sol.duh, &tmp.tempn[nn*ncu], npf, ncu, 0, ncu, f1, f2);
     }
 }

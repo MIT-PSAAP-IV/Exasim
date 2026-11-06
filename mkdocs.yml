@@ -161,6 +161,7 @@ nav:
       - Postprocessing: reference/postprocessing.md
       - Text2Code: reference/text2code.md
       - CMake targets & options: reference/cmake.md
+      - Enzyme JVPs: reference/enzyme.md
       - Glossary: reference/glossary.md
   - Driving the solver (C++ API): driving-the-solver.md
   - Internals:

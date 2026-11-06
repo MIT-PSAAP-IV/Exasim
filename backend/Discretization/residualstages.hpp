@@ -54,7 +54,7 @@ struct ProductionResidualStages {
                 PutFaceNodes(c.res.Ru, c.res.Rh, c.mesh.facecon, common.grid.npf, common.components.ncu, common.grid.npe,
                              common.components.ncu, common.firstFace(), common.lastFace());
         }
-        else {                                       // one rank
+        else if (common.hasFaceBlocks()) {            // one rank
             Int f1 = common.fblks[0]-1;
             Int f2 = common.fblks[3*(common.meshsizes.nbf-1)+1];
             PutFaceNodes(c.res.Ru, &c.res.Rh[common.grid.npf*common.components.ncu*f1], c.mesh.facecon, common.grid.npf,

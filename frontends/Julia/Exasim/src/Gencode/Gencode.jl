@@ -29,6 +29,7 @@ include("gencodeelem3.jl");
 include("gencodeelem4.jl");
 include("gencodeface.jl");
 include("gencodeface2.jl");
+include("gencodeface3.jl");
 include("nocodeelem.jl");
 include("hdgnocodeelem.jl");
 include("hdgnocodeelem2.jl");
@@ -340,6 +341,8 @@ if app.hybrid==1
 else
   hdgnocodeface("Fbou" * strn, foldername);
   hdgnocodeface2("Fbouonly" * strn, foldername);
+  hdgnocodeface("Fint" * strn, foldername);
+  hdgnocodeface2("Fintonly" * strn, foldername);
 end
 if isdefined(pdemodel, Symbol("fbou"))
     #f = pdemodel.fbou(xdg, udg, odg, wdg, uhg, nlg, tau, uinf, param, time);
@@ -389,7 +392,7 @@ if isdefined(pdemodel, Symbol("surfacequantities"))
 else
     nocodeface("SurfaceQuantities" * strn, foldername);
 end
-if isdefined(pdemodel, Symbol("Fhat"))
+if isdefined(pdemodel, Symbol("fhat"))
     #f = pdemodel.fhat(xdg, udg1, udg2, odg1, odg2, wdg1, wdg2, uhg, nlg, tau, uinf, param, time);
     f = pdemodel.fhat(u1, q1, wdg1, odg1, xdg, time, param, uinf, uhg, nlg, tau, u2, q2, wdg2, odg2);
     if length(f)==1

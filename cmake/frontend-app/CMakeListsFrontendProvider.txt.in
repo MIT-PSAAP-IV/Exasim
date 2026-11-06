@@ -52,6 +52,18 @@ message(STATUS "Exasim_DIR = ${Exasim_DIR}")
 add_executable(exasimapp exasimfeapp.cpp)
 target_include_directories(exasimapp PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}/kernels")
+if(Exasim_ENZYME)
+  include("${Exasim_CMAKE_DIR}/ExasimEnzymeKernels.cmake")
+  exasim_generate_enzyme_kernels(
+    OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/EnzymeJvp.hpp"
+    KERNELS "${CMAKE_CURRENT_SOURCE_DIR}/kernels"
+    ABI "${Exasim_TEXT2CODE_ROOT}/driver_abi.hpp"
+    NAMESPACE frontend_generated_source)
+  add_custom_target(exasim_frontend_enzyme
+    DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/EnzymeJvp.hpp")
+  add_dependencies(exasimapp exasim_frontend_enzyme)
+  target_include_directories(exasimapp PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+endif()
 if(EXASIM_MPI)
   target_compile_definitions(exasimapp PRIVATE _MPI)
 endif()

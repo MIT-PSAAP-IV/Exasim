@@ -26,7 +26,113 @@ add_test(NAME appstruct_materialdatabase
 set_tests_properties(appstruct_materialdatabase PROPERTIES TIMEOUT 60)
 
 if(TARGET Kokkos::kokkos)
+  add_executable(avfield_bounds_test "${EXASIM_DIR}/tests/unit/avfield_bounds.cpp")
+  target_include_directories(avfield_bounds_test PRIVATE "${EXASIM_DIR}" "${EXASIM_DIR}/include")
+  target_link_libraries(avfield_bounds_test PRIVATE Kokkos::kokkos)
+  target_compile_features(avfield_bounds_test PRIVATE cxx_std_17)
+  add_test(NAME avfield_bounds COMMAND avfield_bounds_test)
+  add_test(NAME avfield_bounds_reject_nc
+    COMMAND "${CMAKE_COMMAND}" "-DEXECUTABLE=$<TARGET_FILE:avfield_bounds_test>"
+      -DMODE=bad-nc "-DEXPECTED=Avfield input count exceeds model capacity."
+      -P "${EXASIM_DIR}/tests/unit/expect_failure.cmake")
+  set_tests_properties(avfield_bounds avfield_bounds_reject_nc PROPERTIES TIMEOUT 60)
+
+  if(EXASIM_ENZYME)
+    get_property(_enzyme_builtin_ids GLOBAL PROPERTY EXASIM_BM_IDS)
+    foreach(name enzyme_jvp enzyme_pointwise_edges)
+      add_executable(${name}_test "${EXASIM_DIR}/tests/unit/${name}.cpp")
+      target_link_libraries(${name}_test PRIVATE ExasimHeaders Kokkos::kokkos)
+      add_test(NAME ${name} COMMAND ${name}_test)
+      set_tests_properties(${name} PROPERTIES TIMEOUT 60)
+    endforeach()
+    add_test(NAME enzyme_avfield_reject_nc
+      COMMAND "${CMAKE_COMMAND}" "-DEXECUTABLE=$<TARGET_FILE:enzyme_pointwise_edges_test>"
+        -DMODE=bad-av-nc "-DEXPECTED=Avfield input count exceeds model capacity."
+        -P "${EXASIM_DIR}/tests/unit/expect_failure.cmake")
+    set_tests_properties(enzyme_avfield_reject_nc PROPERTIES TIMEOUT 60)
+
+    if("1" IN_LIST _enzyme_builtin_ids AND "4" IN_LIST _enzyme_builtin_ids)
+      set(_enzyme_builtin_target builtinmodelserial)
+      if(EXASIM_CUDA)
+        set(_enzyme_builtin_target builtinmodelcuda)
+      elseif(EXASIM_HIP)
+        set(_enzyme_builtin_target builtinmodelhip)
+      endif()
+      add_executable(enzyme_generated_test "${EXASIM_DIR}/tests/unit/enzyme_generated.cpp")
+      target_link_libraries(enzyme_generated_test PRIVATE ExasimHeaders ${_enzyme_builtin_target} Kokkos::kokkos)
+      add_test(NAME enzyme_generated COMMAND enzyme_generated_test)
+      set_tests_properties(enzyme_generated PROPERTIES TIMEOUT 60)
+    endif()
+
+    if(NOT EXASIM_CUDA AND NOT EXASIM_HIP)
+      add_executable(enzyme_residual_test "${EXASIM_DIR}/tests/unit/enzyme_residual.cpp")
+      target_link_libraries(enzyme_residual_test PRIVATE ExasimHeaders Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+      add_test(NAME enzyme_residual COMMAND enzyme_residual_test)
+      set_tests_properties(enzyme_residual PROPERTIES TIMEOUT 60)
+
+      # Use MPI only for this test. Keep the solver build options unchanged.
+      find_package(MPI QUIET COMPONENTS CXX)
+      if(TARGET MPI::MPI_CXX AND MPIEXEC_EXECUTABLE)
+        add_executable(enzyme_residual_mpi_test "${EXASIM_DIR}/tests/unit/enzyme_residual_mpi.cpp")
+        target_compile_definitions(enzyme_residual_mpi_test PRIVATE HAVE_MPI)
+        target_link_libraries(enzyme_residual_mpi_test PRIVATE
+          ExasimHeaders Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} MPI::MPI_CXX)
+        add_test(NAME enzyme_residual_mpi COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2
+          ${MPIEXEC_PREFLAGS} $<TARGET_FILE:enzyme_residual_mpi_test> ${MPIEXEC_POSTFLAGS})
+        set_tests_properties(enzyme_residual_mpi PROPERTIES TIMEOUT 60 PROCESSORS 2)
+      endif()
+    endif()
+
+    if(TARGET cpupreEXASIM_static)
+      find_package(Python3 REQUIRED COMPONENTS Interpreter)
+      set(_enzyme_poisson_providers cpp)
+      if("1" IN_LIST _enzyme_builtin_ids AND TARGET "${BM_CPU_LIB}")
+        list(APPEND _enzyme_poisson_providers builtin)
+      endif()
+      foreach(provider IN LISTS _enzyme_poisson_providers)
+        add_executable(enzyme_poisson_${provider}_test "${EXASIM_DIR}/tests/unit/enzyme_poisson.cpp")
+        target_link_libraries(enzyme_poisson_${provider}_test PRIVATE ExasimHeaders cpupreEXASIM_static)
+        if(provider STREQUAL "builtin")
+          target_compile_definitions(enzyme_poisson_${provider}_test PRIVATE ENZYME_TEST_BUILTIN _BUILTINLIBRARY)
+          target_link_libraries(enzyme_poisson_${provider}_test PRIVATE ${BM_CPU_LIB})
+        endif()
+        set(_case_dir "${CMAKE_CURRENT_BINARY_DIR}/enzyme_poisson_${provider}")
+        file(MAKE_DIRECTORY "${_case_dir}")
+        configure_file("${EXASIM_DIR}/apps/poisson/poisson2d/grid.bin" "${_case_dir}/grid.bin" COPYONLY)
+        configure_file("${EXASIM_DIR}/apps/poisson/poisson2d/pdemodel.txt" "${_case_dir}/pdemodel.txt" COPYONLY)
+        file(READ "${EXASIM_DIR}/apps/poisson/poisson2d/pdeapp.txt" _case)
+        string(REPLACE "mpiprocs = 2;" "mpiprocs = 1;" _case "${_case}")
+        if(provider STREQUAL "builtin")
+          string(REPLACE "builtinmodelID = 0;" "builtinmodelID = 1;" _case "${_case}")
+        endif()
+        file(WRITE "${_case_dir}/pdeapp.txt" "${_case}")
+        add_test(NAME enzyme_poisson_${provider}
+          COMMAND "${Python3_EXECUTABLE}" "${EXASIM_DIR}/tests/unit/run_enzyme_poisson.py"
+            $<TARGET_FILE:enzyme_poisson_${provider}_test> "${_case_dir}")
+        set_tests_properties(enzyme_poisson_${provider} PROPERTIES TIMEOUT 120
+          ENVIRONMENT "EXASIM_ROOT=${EXASIM_DIR};EXASIM_DATA_DIR=${EXASIM_DIR}/backend/Preprocessing")
+      endforeach()
+    endif()
+  endif()
+
   if(NOT EXASIM_CUDA AND NOT EXASIM_HIP)
+    # Exercise the boundary workspace with Enzyme disabled.
+    add_executable(boundary_workspace_test "${EXASIM_DIR}/tests/unit/boundary_workspace.cpp")
+    target_include_directories(boundary_workspace_test PRIVATE "${EXASIM_DIR}" "${EXASIM_DIR}/include")
+    target_link_libraries(boundary_workspace_test PRIVATE Kokkos::kokkos ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+    target_compile_features(boundary_workspace_test PRIVATE cxx_std_17)
+    add_test(NAME boundary_workspace COMMAND boundary_workspace_test)
+    set_tests_properties(boundary_workspace PROPERTIES TIMEOUT 60)
+
+    # Analytic callbacks exercise the AD driver contract without a plugin.
+    add_executable(enzyme_driver_abi_test "${EXASIM_DIR}/tests/unit/enzyme_driver_abi.cpp")
+    target_include_directories(enzyme_driver_abi_test PRIVATE "${EXASIM_DIR}" "${EXASIM_DIR}/include")
+    target_link_libraries(enzyme_driver_abi_test PRIVATE Kokkos::kokkos)
+    target_compile_features(enzyme_driver_abi_test PRIVATE cxx_std_17)
+    target_compile_definitions(enzyme_driver_abi_test PRIVATE HAVE_ENZYME)
+    add_test(NAME enzyme_driver_abi COMMAND enzyme_driver_abi_test)
+    set_tests_properties(enzyme_driver_abi PROPERTIES TIMEOUT 60)
+
     # Exercise both device-setup implementations with host allocations, including
     # on CPU-only CI where the GPU constructor would otherwise be compiled out.
     foreach(variant templated legacy)

@@ -62,6 +62,10 @@ function(exasim_add_external_builtin_model)
   cmake_parse_arguments(EXT "SHARED" "TARGET;ID;KERNELS"
     "IDS;KERNELS_DIRS;PDEMODEL;SOURCES" ${ARGN})
 
+  if(Exasim_ENZYME)
+    include("${Exasim_CMAKE_DIR}/ExasimEnzymeKernels.cmake")
+  endif()
+
   if(NOT EXT_TARGET)
     message(FATAL_ERROR "exasim_add_external_builtin_model: TARGET is required")
   endif()
@@ -102,6 +106,9 @@ function(exasim_add_external_builtin_model)
   foreach(_id IN LISTS EXT_IDS)
     string(APPEND _includes
       "#include \"model${_id}/model.hpp\"\n#include \"model${_id}/model.cpp\"\n")
+    if(Exasim_ENZYME AND NOT EXT_SOURCES)
+      string(APPEND _includes "#include \"model${_id}/EnzymeJvp.hpp\"\n")
+    endif()
     string(APPEND _idmacro " X(${_id})")
     if(EXT_PDEMODEL)
       # Generate a per-model translation unit that includes its own
@@ -241,6 +248,14 @@ extern \"C\" ModelSizes extGetModelSizes_${_id}() {
         COMMENT "text2code: generating model ${_id} kernels for target ${_tgt}"
         VERBATIM)
       list(APPEND _stamps "${_stamp}")
+      if(Exasim_ENZYME)
+        set(_jvp "${_modeldir}/EnzymeJvp.hpp")
+        exasim_generate_enzyme_kernels(
+          OUTPUT "${_jvp}" KERNELS "${_modeldir}"
+          ABI "${Exasim_TEXT2CODE_ROOT}/driver_abi.hpp"
+          NAMESPACE "exasim_model_${_id}" DEPENDS "${_stamp}")
+        list(APPEND _stamps "${_jvp}")
+      endif()
     endforeach()
     add_custom_target(_exasim_ext_codegen_${_tgt} DEPENDS ${_stamps})
 
@@ -291,8 +306,16 @@ extern \"C\" ModelSizes extGetModelSizes_${_id}() {
           endif()
         endforeach()
       endif()
+      if(Exasim_ENZYME)
+        set(_jvp "${_modeldir}/EnzymeJvp.hpp")
+        exasim_generate_enzyme_kernels(
+          OUTPUT "${_jvp}" KERNELS "${_kdir}"
+          ABI "${Exasim_TEXT2CODE_ROOT}/driver_abi.hpp"
+          NAMESPACE "exasim_model_${_id}")
+        list(APPEND _jvp_headers "${_jvp}")
+      endif()
     endforeach()
-    add_custom_target(_exasim_ext_codegen_${_tgt})
+    add_custom_target(_exasim_ext_codegen_${_tgt} DEPENDS ${_jvp_headers})
 
   else()
     # ---- hand-written (SOURCES) path — single model only ------------------

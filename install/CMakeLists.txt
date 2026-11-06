@@ -80,6 +80,38 @@ add_library(Exasim::headers ALIAS ExasimHeaders)
 set_target_properties(ExasimHeaders PROPERTIES EXPORT_NAME headers)
 target_compile_features(ExasimHeaders INTERFACE cxx_std_20)
 
+# Enzyme is built separately. Export the macro and compiler flag together so
+# the solver, models, and consumers agree on the HAVE_ENZYME header layout.
+option(EXASIM_ENZYME "Enable HAVE_ENZYME and load the ClangEnzyme compiler plugin" OFF)
+set(ENZYME_ROOT "" CACHE PATH "Enzyme build directory or installation prefix")
+if(EXASIM_ENZYME)
+  if(NOT CMAKE_CXX_COMPILER_ID MATCHES "^(Apple)?Clang$")
+    message(FATAL_ERROR "EXASIM_ENZYME=ON requires Clang as CMAKE_CXX_COMPILER.")
+  endif()
+  string(REGEX MATCH "^[0-9]+" _clang_major "${CMAKE_CXX_COMPILER_VERSION}")
+  unset(_exasim_clang_enzyme CACHE)
+  find_file(_exasim_clang_enzyme
+    NAMES "ClangEnzyme-${_clang_major}${CMAKE_SHARED_MODULE_SUFFIX}"
+          "ClangEnzyme-${_clang_major}${CMAKE_SHARED_LIBRARY_SUFFIX}"
+          "ClangEnzyme${CMAKE_SHARED_MODULE_SUFFIX}"
+          "ClangEnzyme${CMAKE_SHARED_LIBRARY_SUFFIX}"
+    PATHS "${ENZYME_ROOT}" PATH_SUFFIXES Enzyme lib lib64
+    NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)
+  if(NOT ENZYME_ROOT OR NOT _exasim_clang_enzyme)
+    message(FATAL_ERROR "ClangEnzyme for Clang ${_clang_major} was not found under ENZYME_ROOT='${ENZYME_ROOT}'.
+            Build Enzyme separately and set ENZYME_ROOT to its build directory or installation prefix.")
+  endif()
+  target_compile_definitions(ExasimHeaders INTERFACE HAVE_ENZYME)
+  target_compile_options(ExasimHeaders INTERFACE
+    "$<$<COMPILE_LANGUAGE:CXX,CUDA>:-fplugin=${_exasim_clang_enzyme}>")
+  if(_clang_major EQUAL 24)
+    # Clang 24 can omit implicit CUDA headers when Enzyme sets predefines.
+    # Disable module handling; retain the C++20 language features.
+    target_compile_options(ExasimHeaders INTERFACE
+      "$<$<COMPILE_LANGUAGE:CXX,CUDA>:-fno-cxx-modules>")
+  endif()
+endif()
+
 if(APPLE)
   # weak_import keeps the null check, but Mach-O also needs permission for this
   # one optional symbol to be absent. Keep all other undefined-symbol errors.
@@ -97,7 +129,9 @@ endif()
 # installs may lack. INTERFACE: the Exasim libraries, the model libraries and every consumer
 # (frontend-generated / external kernels) compile with it. Repeating the flag is harmless.
 if(EXASIM_CUDA)
-  target_compile_options(ExasimHeaders INTERFACE $<$<COMPILE_LANGUAGE:CXX>:--expt-relaxed-constexpr>)
+  # Clang does not accept this nvcc option, including in installed consumers.
+  target_compile_options(ExasimHeaders INTERFACE
+    "$<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CXX_COMPILER_ID:Clang,AppleClang>>>:--expt-relaxed-constexpr>")
 endif()
 target_include_directories(ExasimHeaders INTERFACE
   $<BUILD_INTERFACE:${EXASIM_INCLUDE_DIR}>
@@ -510,7 +544,13 @@ if(EXASIM_CUDA)
   endif()
   find_package(Kokkos REQUIRED)
 
+  if(EXASIM_ENZYME AND NOT CMAKE_CUDA_COMPILER)
+    set(CMAKE_CUDA_COMPILER "${CMAKE_CXX_COMPILER}" CACHE FILEPATH "CUDA compiler")
+  endif()
   enable_language(CUDA)
+  if(EXASIM_ENZYME AND NOT CMAKE_CUDA_COMPILER_ID STREQUAL "Clang")
+    message(FATAL_ERROR "EXASIM_ENZYME=ON requires a matching Clang CMAKE_CUDA_COMPILER.")
+  endif()
   find_package(CUDA REQUIRED)
 
   include_directories(${CUDA_INCLUDE_DIRS})
@@ -1040,6 +1080,8 @@ install(FILES
 install(FILES
   ${EXASIM_DIR}/cmake/ExasimExternalModel.cmake
   ${EXASIM_DIR}/cmake/ExternalModelProvider.cpp.in
+  ${EXASIM_DIR}/cmake/ExasimEnzymeKernels.cmake
+  ${EXASIM_DIR}/cmake/generate_enzyme_kernels.py
   DESTINATION ${EXASIM_CMAKE_INSTALL_DIR})
 
 # model.hpp is installed by the backend DIRECTORY rule (*.hpp pattern), but

@@ -649,3 +649,79 @@ void builtinHdgSourcewonly(dstype* f, dstype* f_wdg, const dstype* xdg, const ds
       default: std::fprintf(stderr, "ERROR: Unknown builtinmodelID=%d in HdgSourcewonly\n", builtinmodelID); std::abort();
     }
 }
+
+#ifdef HAVE_ENZYME
+// JVP dispatch preserves the same model selector as the primal kernels.
+extern "C" void builtinKokkosFluxJvp(dstype* f, dstype* df, const dstype* xdg, const dstype* udg, const dstype* dudg, const dstype* odg, const dstype* dodg, const dstype* wdg, const dstype* dwdg, const dstype* uinf, const dstype* param, dstype time, int modelnumber, int ng, int nc, int ncu, int nd, int ncx, int nco, int ncw)
+{
+    switch (modelnumber) {
+#define EXASIM_DISPATCH_CASE(N) case N: exasim_model_##N::KokkosFluxJvp(f, df, xdg, udg, dudg, odg, dodg, wdg, dwdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw); return;
+        EXASIM_BUILTIN_MODELS(EXASIM_DISPATCH_CASE)
+#undef EXASIM_DISPATCH_CASE
+        default: std::fprintf(stderr, "Unknown builtin model %d in KokkosFluxJvp\n", modelnumber); std::abort();
+    }
+}
+extern "C" void builtinKokkosSourceJvp(dstype* f, dstype* df, const dstype* xdg, const dstype* udg, const dstype* dudg, const dstype* odg, const dstype* dodg, const dstype* wdg, const dstype* dwdg, const dstype* uinf, const dstype* param, dstype time, int modelnumber, int ng, int nc, int ncu, int nd, int ncx, int nco, int ncw)
+{
+    switch (modelnumber) {
+#define EXASIM_DISPATCH_CASE(N) case N: exasim_model_##N::KokkosSourceJvp(f, df, xdg, udg, dudg, odg, dodg, wdg, dwdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw); return;
+        EXASIM_BUILTIN_MODELS(EXASIM_DISPATCH_CASE)
+#undef EXASIM_DISPATCH_CASE
+        default: std::fprintf(stderr, "Unknown builtin model %d in KokkosSourceJvp\n", modelnumber); std::abort();
+    }
+}
+extern "C" void builtinKokkosTdfuncJvp(dstype* f, dstype* df, const dstype* xdg, const dstype* udg, const dstype* dudg, const dstype* odg, const dstype* dodg, const dstype* wdg, const dstype* dwdg, const dstype* uinf, const dstype* param, dstype time, int modelnumber, int ng, int nc, int ncu, int nd, int ncx, int nco, int ncw)
+{
+    switch (modelnumber) {
+#define EXASIM_DISPATCH_CASE(N) case N: exasim_model_##N::KokkosTdfuncJvp(f, df, xdg, udg, dudg, odg, dodg, wdg, dwdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw); return;
+        EXASIM_BUILTIN_MODELS(EXASIM_DISPATCH_CASE)
+#undef EXASIM_DISPATCH_CASE
+        default: std::fprintf(stderr, "Unknown builtin model %d in KokkosTdfuncJvp\n", modelnumber); std::abort();
+    }
+}
+extern "C" void builtinKokkosAvfieldJvp(dstype* f, dstype* df, const dstype* xdg, const dstype* udg, const dstype* dudg, const dstype* odg, const dstype* wdg, const dstype* dwdg, const dstype* uinf, const dstype* param, dstype time, int modelnumber, int ng, int nc, int ncu, int nd, int ncx, int nco, int ncw, int nce, int npe, int ne)
+{
+    switch (modelnumber) {
+#define EXASIM_DISPATCH_CASE(N) case N: exasim_model_##N::KokkosAvfieldJvp(f, df, xdg, udg, dudg, odg, wdg, dwdg, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw, nce, npe, ne); return;
+        EXASIM_BUILTIN_MODELS(EXASIM_DISPATCH_CASE)
+#undef EXASIM_DISPATCH_CASE
+        default: std::fprintf(stderr, "Unknown builtin model %d in KokkosAvfieldJvp\n", modelnumber); std::abort();
+    }
+}
+extern "C" void builtinKokkosFbouJvp(dstype* f, dstype* df, const dstype* xdg, const dstype* udg, const dstype* dudg, const dstype* odg, const dstype* dodg, const dstype* wdg, const dstype* dwdg, const dstype* uhg, const dstype* duhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, dstype time, int modelnumber, int ib, int ng, int nc, int ncu, int nd, int ncx, int nco, int ncw)
+{
+    switch (modelnumber) {
+#define EXASIM_DISPATCH_CASE(N) case N: exasim_model_##N::KokkosFbouJvp(f, df, xdg, udg, dudg, odg, dodg, wdg, dwdg, uhg, duhg, nlg, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+        EXASIM_BUILTIN_MODELS(EXASIM_DISPATCH_CASE)
+#undef EXASIM_DISPATCH_CASE
+        default: std::fprintf(stderr, "Unknown builtin model %d in KokkosFbouJvp\n", modelnumber); std::abort();
+    }
+}
+extern "C" void builtinKokkosUbouJvp(dstype* f, dstype* df, const dstype* xdg, const dstype* udg, const dstype* dudg, const dstype* odg, const dstype* wdg, const dstype* dwdg, const dstype* uhg, const dstype* duhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, dstype time, int modelnumber, int ib, int ng, int nc, int ncu, int nd, int ncx, int nco, int ncw)
+{
+    switch (modelnumber) {
+#define EXASIM_DISPATCH_CASE(N) case N: exasim_model_##N::KokkosUbouJvp(f, df, xdg, udg, dudg, odg, wdg, dwdg, uhg, duhg, nlg, tau, uinf, param, time, modelnumber, ib, ng, nc, ncu, nd, ncx, nco, ncw); return;
+        EXASIM_BUILTIN_MODELS(EXASIM_DISPATCH_CASE)
+#undef EXASIM_DISPATCH_CASE
+        default: std::fprintf(stderr, "Unknown builtin model %d in KokkosUbouJvp\n", modelnumber); std::abort();
+    }
+}
+extern "C" void builtinKokkosFhatJvp(dstype* f, dstype* df, const dstype* xdg, const dstype* udg1, const dstype* dudg1, const dstype* udg2, const dstype* dudg2, const dstype* odg1, const dstype* dodg1, const dstype* odg2, const dstype* dodg2, const dstype* wdg1, const dstype* dwdg1, const dstype* wdg2, const dstype* dwdg2, const dstype* uhg, const dstype* duhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, dstype time, int modelnumber, int ng, int nc, int ncu, int nd, int ncx, int nco, int ncw)
+{
+    switch (modelnumber) {
+#define EXASIM_DISPATCH_CASE(N) case N: exasim_model_##N::KokkosFhatJvp(f, df, xdg, udg1, dudg1, udg2, dudg2, odg1, dodg1, odg2, dodg2, wdg1, dwdg1, wdg2, dwdg2, uhg, duhg, nlg, tau, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw); return;
+        EXASIM_BUILTIN_MODELS(EXASIM_DISPATCH_CASE)
+#undef EXASIM_DISPATCH_CASE
+        default: std::fprintf(stderr, "Unknown builtin model %d in KokkosFhatJvp\n", modelnumber); std::abort();
+    }
+}
+extern "C" void builtinKokkosStabJvp(dstype* f, dstype* df, const dstype* xdg, const dstype* udg1, const dstype* dudg1, const dstype* udg2, const dstype* dudg2, const dstype* odg1, const dstype* dodg1, const dstype* odg2, const dstype* dodg2, const dstype* wdg1, const dstype* dwdg1, const dstype* wdg2, const dstype* dwdg2, const dstype* uhg, const dstype* duhg, const dstype* nlg, const dstype* tau, const dstype* uinf, const dstype* param, dstype time, int modelnumber, int ng, int nc, int ncu, int nd, int ncx, int nco, int ncw)
+{
+    switch (modelnumber) {
+#define EXASIM_DISPATCH_CASE(N) case N: exasim_model_##N::KokkosStabJvp(f, df, xdg, udg1, dudg1, udg2, dudg2, odg1, dodg1, odg2, dodg2, wdg1, dwdg1, wdg2, dwdg2, uhg, duhg, nlg, tau, uinf, param, time, modelnumber, ng, nc, ncu, nd, ncx, nco, ncw); return;
+        EXASIM_BUILTIN_MODELS(EXASIM_DISPATCH_CASE)
+#undef EXASIM_DISPATCH_CASE
+        default: std::fprintf(stderr, "Unknown builtin model %d in KokkosStabJvp\n", modelnumber); std::abort();
+    }
+}
+#endif

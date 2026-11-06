@@ -51,6 +51,7 @@
 #include <iomanip>
 #include <ostream>
 #include <cstdint>
+#include <array>
 #include <cstring>
 #include <type_traits>
 
@@ -146,7 +147,7 @@ namespace fieldsplit { struct Context; }
 #define CPUFREE(x)                                                           \
 {                                                                         \
     if (x != nullptr) {                                                      \
-        fsmemory::released(x); free(x);                                                          \
+        fsmemory::released(x); ::free(x);                                                        \
         x = nullptr;                                                         \
     }                                                                     \
 }
@@ -1774,6 +1775,12 @@ struct tempstructT {
     // Dedicated LDG finite-difference backup, separate from residual scratch
     // and enclosing Newton/RB snapshots. Allocated lazily; includes w halos.
     Kokkos::View<T*> auxiliaryMatvecBackup;
+#ifdef HAVE_ENZYME
+    // Preserve the input state during each JVP evaluation.
+    std::array<Kokkos::View<T*>, 7> enzymeMatvecBackup;
+    // Keep received primal values until the second MPI residual stage.
+    Kokkos::View<T*> enzymePrimalHalo;
+#endif
     dstype *tempn=nullptr;
     dstype *tempg=nullptr;
     dstype *buffrecv=nullptr;
@@ -1811,6 +1818,10 @@ struct tempstructT {
     {
         // Snapshot scopes fence before returning; release before Kokkos finalizes.
         auxiliaryMatvecBackup = Kokkos::View<T*>();
+#ifdef HAVE_ENZYME
+        for (auto& backup : enzymeMatvecBackup) backup = Kokkos::View<T*>();
+        enzymePrimalHalo = Kokkos::View<T*>();
+#endif
         TemplateFree(tempn, backend); 
         //TemplateFree(tempg, backend); 
         TemplateFree(buffrecv, backend); 

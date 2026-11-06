@@ -1,0 +1,194 @@
+#!/usr/bin/env python3
+"""Generate Enzyme JVPs from generated Kokkos physics kernels.
+
+MATLAB, Julia, Python and Text2Code use the same kernel structure.
+Each kernel contains pointwise arithmetic in parallel_for.
+Extract that arithmetic before differentiation. Keep the primal files.
+Enzyme differentiates the pointwise code. It does not differentiate Kokkos.
+Reject launch structures that this parser does not support.
+"""
+import argparse
+from pathlib import Path
+import re
+
+
+CALLBACKS = {
+    "Flux": "KokkosElementJvpFn",
+    "Source": "KokkosElementJvpFn",
+    "Tdfunc": "KokkosElementJvpFn",
+    "Avfield": "KokkosGlobalElementJvpFn",
+    "Fbou": "KokkosBoundaryJvpFn",
+    "Ubou": "KokkosBoundaryStateJvpFn",
+    "Fhat": "KokkosFaceCoupledJvpFn",
+    "Stab": "KokkosFaceCoupledJvpFn",
+}
+
+
+def masked(text):
+    """Hide strings and comments without changing offsets."""
+    pattern = r'//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\''
+    return re.sub(pattern, lambda m: re.sub(r"[^\n]", " ", m[0]), text, flags=re.S)
+
+
+def closing(text, start, left="(", right=")"):
+    depth = 0
+    for i in range(start, len(text)):
+        if text[i] == left:
+            depth += 1
+        elif text[i] == right:
+            depth -= 1
+            if depth == 0:
+                return i
+    raise ValueError("Unbalanced generated C++ delimiters")
+
+
+def read_kernel(path, seen=None):
+    """Expand only local generated kernel includes (aggregate model dispatch)."""
+    seen = set() if seen is None else seen
+    path = path.resolve()
+    if path in seen:
+        return ""
+    seen.add(path)
+    text = path.read_text()
+    return re.sub(r'^\s*#include\s+"(Kokkos\w+\.cpp)"\s*$',
+                  lambda m: read_kernel(path.parent / m[1], seen), text, flags=re.M)
+
+
+def functions(text, kind):
+    clean = masked(text)
+    pattern = rf"\bvoid\s+(Kokkos{kind}\d*)\s*\("
+    found = []
+    for match in re.finditer(pattern, clean):
+        begin = clean.index("(", match.start())
+        end = closing(clean, begin)
+        body = clean.index("{", end)
+        if clean[end + 1:body].strip():
+            raise ValueError(f"Unsupported definition of {match[1]}")
+        finish = closing(clean, body, "{", "}")
+        found.append((match[1], text[begin + 1:end], text[body + 1:finish]))
+    if not any(name == "Kokkos" + kind for name, _, _ in found):
+        raise ValueError(f"Missing Kokkos{kind} definition")
+    return found
+
+
+def pointwise_body(body, names):
+    clean = masked(body)
+    edits = []
+    for match in re.finditer(r"\bKokkos::parallel_for\s*\(", clean):
+        begin = clean.index("(", match.start())
+        # Find the lambda after the policy. The policy can contain #if/#else.
+        lam = re.search(r"KOKKOS_LAMBDA\s*\(\s*(?:const\s+)?(?:size_t|int)\s+i\s*\)\s*\{", clean[begin:])
+        if not lam:
+            raise ValueError("Expected generated pointwise KOKKOS_LAMBDA(i)")
+        brace = begin + lam.end() - 1
+        end = closing(clean, brace, "{", "}")
+        tail = re.match(r"\s*\)\s*;", clean[end + 1:])
+        if not tail:
+            raise ValueError("Unsupported generated parallel_for closure")
+        edits.append((match.start(), end + 1 + tail.end(), body[brace:end + 1]))
+    for begin, end, replacement in reversed(edits):
+        body = body[:begin] + replacement + body[end:]
+    if re.search(r"\b(?:Kokkos::|KOKKOS_LAMBDA|parallel_for|parallel_reduce|parallel_scan)", masked(body)):
+        # Permit mathematical functions. Reject Kokkos scheduling operations.
+        remaining = re.sub(r"Kokkos::(?:sin|cos|tan|asin|acos|atan|atan2|sinh|cosh|tanh|exp|log|log10|sqrt|pow|abs|fabs|fmin|fmax|erf|floor|ceil)\b", "", masked(body))
+        if re.search(r"\b(?:Kokkos::|KOKKOS_LAMBDA|parallel_for|parallel_reduce|parallel_scan)", remaining):
+            raise ValueError("Unsupported Kokkos operation in pointwise physics")
+    # Convert dispatch helpers to pointwise device functions.
+    clean = masked(body)
+    edits = []
+    for name in names:
+        for match in re.finditer(rf"\b{re.escape(name)}\s*\(", clean):
+            begin = clean.index("(", match.start())
+            end = closing(clean, begin)
+            edits.append((end, end, ", i"))
+            edits.append((match.start(), match.start() + len(name), "enzymePoint" + name))
+    for begin, end, replacement in sorted(edits, reverse=True):
+        body = body[:begin] + replacement + body[end:]
+    return body
+
+
+def parameters(signature):
+    return [(part.strip(), re.search(r"(\w+)\s*$", part)[1])
+            for part in signature.split(",")]
+
+
+def abi_signature(abi, typedef):
+    pattern = rf"using\s+{typedef}\s*=\s*void\s*\(\*\)\s*\((.*?)\);"
+    match = re.search(pattern, abi, re.S)
+    if not match:
+        raise ValueError(f"Cannot find ABI callback type {typedef}")
+    return re.sub(r"\s+", " ", match[1]).strip()
+
+
+def generate(directory, abi_path, namespace):
+    abi = abi_path.read_text()
+    out = ["// Generated by generate_enzyme_kernels.py; do not edit.\n",
+           "#pragma once\n#include <exasim/enzyme_intrinsics.hpp>\n",
+           "#ifdef HAVE_ENZYME\n", f"namespace {namespace} {{\n"]
+    for kind, typedef in CALLBACKS.items():
+        source = read_kernel(directory / ("Kokkos" + kind + ".cpp"))
+        funcs = functions(source, kind)
+        names = [f[0] for f in funcs]
+        for name, signature, body in funcs:
+            out.append(f"KOKKOS_FUNCTION static void enzymePoint{name}({signature}, const size_t i);\n")
+        for name, signature, body in funcs:
+            out.append(f"KOKKOS_FUNCTION static void enzymePoint{name}({signature}, const size_t i)\n{{\n")
+            out.append(pointwise_body(body, names))
+            out.append("\n}\n")
+        signature = abi_signature(abi, typedef)
+        callback_params = parameters(signature)
+        tangent_names = {name for _, name in callback_params}
+        primal = next(args for name, args, _ in funcs if name == "Kokkos" + kind)
+        shadows = {"df", "dudg", "dodg", "dwdg", "duhg",
+                   "dudg1", "dudg2", "dodg1", "dodg2", "dwdg1", "dwdg2"}
+        canonical = [(decl, name) for decl, name in callback_params if name not in shadows]
+        if len(parameters(primal)) != len(canonical):
+            raise ValueError(f"Kokkos{kind} does not match the primal ABI argument count")
+        ad_args = []
+        # Text2Code and language frontends use different argument names.
+        # The ABI specifies the argument order.
+        for (decl, _), (canonical_decl, name) in zip(parameters(primal), canonical):
+            if ("*" in decl) != ("*" in canonical_decl):
+                raise ValueError(f"Kokkos{kind} argument {name} has an incompatible type")
+            tangent = "d" + name
+            if "*" in decl and tangent in tangent_names:
+                ad_args.append(f"enzyme_dup, {name}, {tangent}")
+            else:
+                ad_args.append(f"enzyme_const, {name}")
+        ad_args.append("enzyme_const, i")
+        # Physics kernels overwrite their outputs. Clear the output tangent
+        # for empty optional kernels. Stabilization uses df as an input too.
+        # Keep the incoming df for stabilization.
+        reset = ""
+        if kind == "Avfield":
+            reset = "        for (int c = 0; c < nce; ++c) df[i % npe + npe*c + npe*nce*(i/npe)] = 0;\n"
+        elif kind != "Stab":
+            count = "ncu*nd" if kind == "Flux" else "ncu"
+            reset = f"        for (int c = 0; c < {count}; ++c) df[c*ng+i] = 0;\n"
+        out.extend([f"void Kokkos{kind}Jvp({signature})\n{{\n",
+                    f'    Kokkos::parallel_for("{kind}EnzymeJvp", ng, KOKKOS_LAMBDA(const size_t i) {{\n',
+                    reset,
+                    f"        __enzyme_fwddiff((void*)enzymePointKokkos{kind},\n            ",
+                    ",\n            ".join(ad_args), ");\n    });\n}\n"])
+    out.extend([f"}} // namespace {namespace}\n", "#endif\n"])
+    return "".join(out)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--kernels", type=Path, required=True)
+    parser.add_argument("--abi", type=Path, required=True)
+    parser.add_argument("--namespace", required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+    try:
+        output = generate(args.kernels, args.abi, args.namespace)
+    except (OSError, ValueError) as error:
+        parser.error(str(error))
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    if not args.output.exists() or args.output.read_text() != output:
+        args.output.write_text(output)
+
+
+if __name__ == "__main__":
+    main()

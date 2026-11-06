@@ -7,11 +7,12 @@
 // kernels in <exasim/kernels/*.hpp> call inside `Kokkos::parallel_for`
 // to evaluate volume / surface integrals at quadrature points.
 //
-// There is no autodiff and no DSL. Users write `flux(f, x, uq, w, mu, t)`
-// in plain C++ and, where the discretization needs derivatives, write
-// `flux_jac_uq(f_uq, …)` themselves. exasim::ModelDefaults<Self> (CRTP
-// base) supplies zero-fill no-op implementations of every optional
-// method so users override only what their PDE actually has.
+// Write pointwise physics functions in C++.
+// Set EXASIM_ENZYME to ON to differentiate these functions in the matrix-free DG solver.
+// Enzyme computes the derivatives inside Kokkos kernels.
+// HDG flux and boundary assembly use explicit Jacobians, such as `flux_jac_uq`.
+// exasim::ModelDefaults<Self> supplies default methods for optional physics.
+// Override the methods that your PDE needs.
 //
 // Boundary identification is NOT part of the Model contract
 // ---------------------------------------------------------

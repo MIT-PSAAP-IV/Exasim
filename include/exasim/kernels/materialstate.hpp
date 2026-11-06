@@ -13,6 +13,7 @@
 
 #include "../common.h"
 #include "../model.hpp"
+#include "../enzyme_jvp.hpp"
 
 namespace exasim {
 
@@ -88,16 +89,21 @@ void hdg_materialstate_kernel(T*       state,
                               const T* uinf,
                               const T* param,
                               T        t,
-                              int      /*modelnumber*/,
+                              int      modelnumber,
                               int      ng,
-                              int      /*nc*/,
+                              int      nc,
                               int      ncu_runtime,
                               int      nd_runtime,
-                              int      /*ncx*/,
-                              int      /*nco*/,
+                              int      ncx,
+                              int      nco_runtime,
                               int      ncw_runtime,
                               int      nmaterialstate_runtime)
 {
+#ifdef HAVE_ENZYME
+    enzyme::materialstate_jac<M,T>(state, state_udg, state_wdg,
+        xdg, udg, odg, wdg, uinf, param, t, modelnumber, ng, nc,
+        ncu_runtime, nd_runtime, ncx, nco_runtime, ncw_runtime, nmaterialstate_runtime);
+#else
     using dstype=T;
     static_assert(is_materialstate_model_v<M>,
                   "hdg_materialstate_kernel<M>: M must satisfy the Model contract.");
@@ -147,6 +153,7 @@ void hdg_materialstate_kernel(T*       state,
                 for (int k = 0; k < nms * ncw; ++k) state_wdg[k * ng + i] = state_w[k];
             }
         });
+#endif
 }
 
 } // namespace exasim

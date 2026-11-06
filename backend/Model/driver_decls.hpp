@@ -166,6 +166,65 @@ void FhatDriver(dstype* f, dstype* u, const dstype* xg, dstype* udg, const dstyp
         commonstruct &common, Int nga, Int backend)
 ;
 
+#ifdef HAVE_ENZYME
+// JVP overloads for the runtime ABI path of the matrix-free AD residual.
+void FluxDriver(dstype* f, dstype* df, const dstype* xg,
+                const dstype* udg, const dstype* dudg, const dstype* odg,
+                const dstype* dodg, const dstype* wdg, const dstype* dwdg,
+                meshstruct& mesh, masterstruct& master,
+                appstruct& app, solstruct& sol, tempstruct& temp,
+                commonstruct& common, Int nge, Int e1, Int e2, Int backend);
+
+void TdfuncDriver(dstype* f, dstype* df, const dstype* xg,
+                const dstype* udg, const dstype* dudg, const dstype* odg,
+                const dstype* dodg, const dstype* wdg, const dstype* dwdg,
+                meshstruct& mesh, masterstruct& master,
+                appstruct& app, solstruct& sol, tempstruct& temp,
+                commonstruct& common, Int nge, Int e1, Int e2, Int backend);
+
+void SourceDriver(dstype* f, dstype* df, const dstype* xg,
+                  const dstype* udg, const dstype* dudg, const dstype* odg, const dstype* dodg,
+                  const dstype* wdg, const dstype* dwdg,
+                meshstruct& mesh, masterstruct& master,
+                appstruct& app, solstruct& sol, tempstruct& temp,
+                commonstruct& common, Int nge, Int e1, Int e2, Int backend);
+
+void AvfieldDriver(dstype* f, dstype* df, const dstype* xg,
+                   const dstype* udg, const dstype* dudg, const dstype* odg,
+                   const dstype* wdg, const dstype* dwdg,
+                meshstruct& mesh, masterstruct& master,
+                appstruct& app, solstruct& sol, tempstruct& temp,
+                commonstruct& common, Int backend);
+
+void FbouDriver(dstype* f, dstype* df, const dstype* xg,
+                const dstype* udg, const dstype* dudg, const dstype* odg,
+                const dstype* dodg, const dstype* wdg, const dstype* dwdg,
+                const dstype* uhg, const dstype* duhg, const dstype* nl,
+                meshstruct& mesh, masterstruct& master,
+                appstruct& app, solstruct& sol, tempstruct& temp,
+                commonstruct& common, Int ngf, Int f1, Int f2, Int ib, Int backend);
+
+void UbouDriver(dstype* f, dstype* df, const dstype* xg,
+                const dstype* udg, const dstype* dudg, const dstype* odg,
+                const dstype* wdg, const dstype* dwdg, const dstype* uhg,
+                const dstype* duhg, const dstype* nl,
+                meshstruct& mesh, masterstruct& master,
+                appstruct& app, solstruct& sol, tempstruct& temp,
+                commonstruct& common, Int ngf, Int f1, Int f2, Int ib, Int backend);
+
+void FhatDriver(dstype* fg, dstype* dfg, const dstype* xg,
+                const dstype* ug1, const dstype* dug1,
+                const dstype* ug2, const dstype* dug2,
+                const dstype* og1, const dstype* dog1,
+                const dstype* og2, const dstype* dog2,
+                const dstype* wg1, const dstype* dwg1,
+                const dstype* wg2, const dstype* dwg2,
+                const dstype* uh, const dstype* duh, const dstype* nl,
+                meshstruct& mesh, masterstruct& master,
+                appstruct& app, solstruct& sol, tempstruct& temp,
+                commonstruct& common, Int ngf, Int f1, Int f2, Int backend);
+#endif
+
 // HDG w-equation source kernels, called directly by wequation.hpp.
 void HdgSourcew(dstype* f, dstype* f_udg, dstype* f_wdg, const dstype* xdg, const dstype* udg, const dstype* odg, const dstype* wdg,
                  const dstype* uinf, const dstype* param, const dstype time, const int modelnumber, const int ng, const int nc,

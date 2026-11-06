@@ -15,6 +15,7 @@
 #include <cstdlib>
 #include "driver_abi.hpp"
 #include "modeldefaults.hpp"
+#include "exasim/enzyme_jvp.hpp"
 
 #ifndef EXASIM_KOKKOSKERNELS_HEADER
 #define EXASIM_KOKKOSKERNELS_HEADER "kokkoskernels.hpp"
@@ -151,6 +152,20 @@ inline const ExasimDriverABI& getKokkosKernelExasimDriverABI()
         value.hdgjac.HdgFintonly = &kokkos_kernel_source::HdgFintonly;
         value.hdgjac.HdgFext = &kokkos_kernel_source::HdgFext;
         value.hdgjac.HdgFextonly = &kokkos_kernel_source::HdgFextonly;
+
+#ifdef HAVE_ENZYME
+        value.volume.KokkosFluxJvp = &exasim::enzyme::flux_jvp<PdeModel>;
+        value.volume.KokkosSourceJvp = &exasim::enzyme::source_jvp<PdeModel>;
+        value.volume.KokkosTdfuncJvp = &exasim::enzyme::tdfunc_jvp<PdeModel>;
+        value.volume.KokkosAvfieldJvp = &exasim::enzyme::avfield_jvp<PdeModel>;
+        value.boundary.KokkosFbouJvp = &exasim::enzyme::fbou_jvp<PdeModel>;
+        value.boundary.KokkosUbouJvp = &exasim::enzyme::ubou_jvp<PdeModel>;
+        value.iface.KokkosFhatJvp = &exasim::enzyme::fhat_jvp<PdeModel>;
+        value.iface.KokkosStabJvp = &exasim::enzyme::stab_jvp<PdeModel>;
+        value.hdgjac.HdgSourcew = &exasim::enzyme::sourcew_jac<PdeModel>;
+        value.hdgjac.HdgSourcewonly = &exasim::enzyme::sourcew_jac_only<PdeModel>;
+        value.hdgjac.HdgMaterialstate = &exasim::enzyme::materialstate_jac<PdeModel>;
+#endif
 
         return value;
     }();
