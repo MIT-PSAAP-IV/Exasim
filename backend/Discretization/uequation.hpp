@@ -877,6 +877,17 @@ template<class M,class T,class I> struct HDGVolumeResidualPolicy {
         RuEquationElemBlockDefault<M>(sol,res,app,master,mesh,tmp,common,handle,jth,backend);
     }
 };
+template<class M,class T,class I>
+inline void RuEquationElemFaceBlockDefault(solstructT<T,I>&,resstructT<T,I>&,appstructT<T,I>&,
+    masterstructT<T,I>&,meshstructT<T,I>&,tempstructT<T,I>&,commonstructT<T,I>&,
+    cublasHandle_t,Int,Int,Int);
+template<class M,class T,class I> struct HDGFaceResidualPolicy {
+    static void run(solstructT<T,I>& sol,resstructT<T,I>& res,appstructT<T,I>& app,
+            masterstructT<T,I>& master,meshstructT<T,I>& mesh,tempstructT<T,I>& tmp,
+            commonstructT<T,I>& common,cublasHandle_t handle,Int jth,Int backend,Int interfacetype) {
+        RuEquationElemFaceBlockDefault<M>(sol,res,app,master,mesh,tmp,common,handle,jth,backend,interfacetype);
+    }
+};
 #ifdef EXASIM_HDG_ASSEMBLY_OVERRIDE_HEADER
 #include EXASIM_HDG_ASSEMBLY_OVERRIDE_HEADER
 #endif
@@ -1015,9 +1026,9 @@ inline void RuEquationElemBlock(solstructT<T,I>& sol,resstructT<T,I>& res,appstr
 }
 
 template <class M, class T=dstype, class I=Int>
-inline void RuEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master,
+inline void RuEquationElemFaceBlockDefault(solstructT<T,I> &sol, resstructT<T,I> &res, appstructT<T,I> &app, masterstructT<T,I> &master,
         meshstructT<T,I> &mesh, tempstructT<T,I> &tmp, commonstructT<T,I> &common, cublasHandle_t handle, Int jth, Int backend,
-        Int interfacetype = 0)
+        Int interfacetype)
 {
     EXASIM_PROFILE_SCOPE("hdg.residual.faces");
     using dstype=T;            
@@ -1225,6 +1236,14 @@ inline void RuEquationElemFaceBlock(solstructT<T,I> &sol, resstructT<T,I> &res, 
         ArrayCopy(res.Ri, tmp.tempn, npf*ncu12*nfaces);        
       }
     }            
+}
+
+template<class M,class T=dstype,class I=Int>
+inline void RuEquationElemFaceBlock(solstructT<T,I>& sol,resstructT<T,I>& res,
+        appstructT<T,I>& app,masterstructT<T,I>& master,meshstructT<T,I>& mesh,
+        tempstructT<T,I>& tmp,commonstructT<T,I>& common,cublasHandle_t handle,
+        Int jth,Int backend,Int interfacetype=0) {
+    HDGFaceResidualPolicy<M,T,I>::run(sol,res,app,master,mesh,tmp,common,handle,jth,backend,interfacetype);
 }
 
 template <class M, class T=dstype, class I=Int>
