@@ -597,14 +597,26 @@ I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc,
             // The previous residual sys.r is dead after copying it to v[0].
             // A coupled action may borrow its native-capacity storage here;
             // the current input/output basis columns must remain distinct.
-            product(&sys.v[std::size_t(m)*N], &sys.v[std::size_t(i)*N]);
+            bool combined = false;
+            if constexpr (std::is_same_v<T,double> && std::is_same_v<I,::Int>) {
+                if (!actions && !usePolynomial && state.RBcurrentdim>=0 && spatialScheme==1 && disc.common.composite) {
+                    auto reference = [&](dstype* out) {
+                        product(out, &sys.v[std::size_t(i)*N]);
+                        apply(out);
+                    };
+                    combined = fieldsplit::preconditionedMultiply(*disc.common.composite,
+                        &sys.v[std::size_t(m)*N], &sys.v[std::size_t(i)*N], N,
+                        disc.res, disc.mesh, disc.tmp, disc.common, backend, reference);
+                }
+            }
+            if (!combined) product(&sys.v[std::size_t(m)*N], &sys.v[std::size_t(i)*N]);
             
 #ifdef HAVE_CUDA
     cudaDeviceSynchronize();
 #endif
     
 #ifdef HAVE_HIP
-    hipDeviceSynchronize();
+    if (!combined) hipDeviceSynchronize();
 #endif
             
             end = chrono::high_resolution_clock::now();   
@@ -617,7 +629,7 @@ I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc,
                 prec.ApplyPreconditioner(&sys.v[std::size_t(m)*N], sys, disc, spatialScheme, backend);
                 ApplyPoly(&sys.v[std::size_t(m)*N], assembler, disc, prec, sys, sys.q, sys.p, N, spatialScheme, backend);
             }
-            else if (actions || state.RBcurrentdim>=0) {
+            else if (!combined && (actions || state.RBcurrentdim>=0)) {
                 apply(&sys.v[std::size_t(m)*N]);
             }
             
@@ -626,7 +638,7 @@ I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc,
 #endif
     
 #ifdef HAVE_HIP
-    hipDeviceSynchronize();
+    if (!combined) hipDeviceSynchronize();
 #endif
             
             end = chrono::high_resolution_clock::now();   

@@ -182,6 +182,10 @@ template<class... Args> inline void afterSolve(Context& ctx, Args&&... args){
  if(ctx.dimension==2)CoreHDG<2>::afterSolve(ctx,std::forward<Args>(args)...);
  else CoreHDG<3>::afterSolve(ctx,std::forward<Args>(args)...);
 }
+template<class... Args> inline bool preconditionedMultiply(Context& ctx,Args&&... args){
+ if(ctx.dimension==2)return CoreHDG<2>::preconditionedMultiply(ctx,std::forward<Args>(args)...);
+ return CoreHDG<3>::preconditionedMultiply(ctx,std::forward<Args>(args)...);
+}
 // Dimension-specific implementation helpers stay on Kernels<ND>; only the
 // context-dispatched operations above are exposed at namespace scope.
 
@@ -213,6 +217,7 @@ template<class... Args> void recover(Args&&...){throw std::runtime_error("unsupp
 template<class... Args> void multiply(Args&&...){throw std::runtime_error("unsupported composite scalar");}
 template<class... Args> void schwarz(Args&&...){throw std::runtime_error("unsupported composite scalar");}
 template<class... Args> void afterSolve(Args&&...){}
+template<class... Args> bool preconditionedMultiply(Args&&...){return false;}
 #endif
 
 }
