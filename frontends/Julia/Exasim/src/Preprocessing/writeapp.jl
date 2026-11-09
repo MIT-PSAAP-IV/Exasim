@@ -17,7 +17,13 @@ appname = 0;
 if !isdefined(app, :frontendgenerated)
     app.frontendgenerated = 1;
 end
-app.flag = [app.tdep app.wave app.linearproblem app.debugmode app.matvecorder app.GMRESortho app.preconditioner app.precMatrixType app.NLMatrixType app.runmode app.tdfunc app.source app.modelnumber app.extFhat app.extUhat app.extStab app.subproblem app.saveParaview app.physicsparamwarmstart app.builtinmodelID app.frontendgenerated app.flag];
+# app.bin flag[12] is the solver's app.modelnumber. The external-model provider
+# dispatches each per-model (unsuffixed) kernel set by its registered model ID,
+# so a nonzero slot is written as its resolved model ID (100 + slot, or an
+# explicit modelid). Slot 0 stays 0 (the solver replaces it by the executable's
+# model ID). app.modelnumber itself is unchanged (it names per-slot directories).
+appbinmodelnumber = app.modelnumber > 0 ? resolve_modelid(app) : app.modelnumber;
+app.flag = [app.tdep app.wave app.linearproblem app.debugmode app.matvecorder app.GMRESortho app.preconditioner app.precMatrixType app.NLMatrixType app.runmode app.tdfunc app.source appbinmodelnumber app.extFhat app.extUhat app.extStab app.subproblem app.saveParaview app.physicsparamwarmstart app.builtinmodelID app.frontendgenerated app.flag];
 # problem[0..27], coupling slots problem[28..31], STG chemistry at problem[32],
 # then uniform refinement at problem[33] and interfacetype at problem[34].
 # Keep these fixed slots aligned with the Matlab/Python and C++ preprocessors.

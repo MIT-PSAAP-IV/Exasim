@@ -1,6 +1,7 @@
 module Preprocessing
 
 using ..Types, ..Master, SymPy
+import ..resolve_modelid
 
 export createhighordermesh, preprocessing, initializeexasim, findexec, interactiongraph,
        hdgldgpreprocessing

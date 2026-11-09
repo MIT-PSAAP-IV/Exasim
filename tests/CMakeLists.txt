@@ -320,6 +320,21 @@ add_test(NAME frontend_combined_multimodel
 set_tests_properties(frontend_combined_multimodel PROPERTIES
   TIMEOUT 2400 SKIP_RETURN_CODE 77)
 
+# Combined multi-PDE slot -> model-ID regression: slot 1's PDE differs from
+# built-in model 1 (source scaled by mu, mu = 2), so its QoI is only correct
+# if slot 1 dispatches to its own generated model 101 rather than falling
+# through to built-in model 1. Python only; SKIPs (77) without numpy/scipy/sympy.
+add_test(NAME frontend_combined_distinct
+  COMMAND ${CMAKE_COMMAND} -E env
+    "EXASIM_ROOT=${EXASIM_DIR}"
+    "EXASIM_INSTALL=${CMAKE_INSTALL_PREFIX}"
+    "FRONTEND=python"
+    "CASE=combined_distinct"
+    "PYTHON3=${Python3_EXECUTABLE}"
+    bash "${EXASIM_DIR}/tests/frontends/run-frontend-test.sh")
+set_tests_properties(frontend_combined_distinct PROPERTIES
+  TIMEOUT 2400 SKIP_RETURN_CODE 77)
+
 # Combined multi-PDE export: the combined run also packages a relocatable
 # data-transfer bundle (per-model datain<n>/kernels<n>, id list, N-pair run.sh)
 # which must be pristine and build+run on its own elsewhere. Python only.

@@ -28,9 +28,20 @@ ibslist = ibslist(ibslist > 0);
 if isempty(ibslist), ibs1 = 0; else, ibs1 = ibslist(1); end
 bououtparam = [app.saveSolBouLoc; ibslist];
 %app.stgNmode = size(app.stgdata,1);
+% app.bin flag[12] is the solver's app.modelnumber. On the external-model
+% path (combinedmodel) each slot has its own unsuffixed kernel set that the
+% provider dispatches by registered model ID, so a nonzero slot is written as
+% its resolved model ID (100 + slot, or an explicit modelid). Slot 0 stays 0
+% (the solver replaces it by the executable's model ID), and the legacy
+% suffixed-kernel path keeps the slot, which its kernels switch on.
+% app.modelnumber itself is unchanged (it names the per-slot directories).
+appbinmodelnumber = app.modelnumber;
+if isfield(app, 'combinedmodel') && app.combinedmodel && app.modelnumber > 0
+    appbinmodelnumber = resolve_modelid(app);
+end
 app.flag   = [app.tdep app.wave app.linearproblem app.debugmode app.matvecorder app.GMRESortho...  
               app.preconditioner app.precMatrixType app.NLMatrixType app.runmode app.tdfunc app.sourcefunc ...
-              app.modelnumber app.extFhat app.extUhat app.extStab app.subproblem app.saveParaview ...
+              appbinmodelnumber app.extFhat app.extUhat app.extStab app.subproblem app.saveParaview ...
               app.physicsparamwarmstart app.builtinmodelID app.frontendgenerated app.flag];
 app.problem  = [app.hybrid appname app.temporalscheme app.torder app.nstage app.convStabMethod...
                app.diffStabMethod app.rotatingFrame app.viscosityModel app.SGSmodel app.ALE app.AV...

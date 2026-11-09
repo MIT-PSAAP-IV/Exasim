@@ -323,8 +323,12 @@ fi
 # The final QoI gate below checks model 0; here we check the combined exe and
 # model 1's output.
 if [ "${COMBINED_TEST:-0}" = "1" ]; then
-  [ -x "$(pwd)/.exasim/combined/build/exasimapp" ] \
-    || { echo "FAIL: no combined exasimapp"; exit 1; }
+  # The frontend builds into build/<variant>/ (older layouts used build/).
+  combined_exe=""
+  for e in "$(pwd)"/.exasim/combined/build/exasimapp "$(pwd)"/.exasim/combined/build/*/exasimapp; do
+    if [ -x "$e" ]; then combined_exe="$e"; break; fi
+  done
+  [ -n "$combined_exe" ] || { echo "FAIL: no combined exasimapp"; exit 1; }
   q1="$(pwd)/dataout/1/outqoi.txt"
   [ -f "$q1" ] || { echo "FAIL: slot 1 produced no $q1"; exit 1; }
   qoi1="$(tail -1 "$q1" | awk '{print $2}')"

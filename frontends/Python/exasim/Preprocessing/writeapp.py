@@ -2,6 +2,22 @@ from numpy import *
 import numpy
 from .checkconformalinterface import checkconformalinterface
 
+
+def appbin_modelnumber(app):
+    """Value written to app.bin flag[12] (the solver's app.modelnumber).
+
+    The external-model provider dispatches each per-model (unsuffixed) kernel
+    set by its registered model ID, so a nonzero slot is written as the
+    resolved model ID (100 + slot, or an explicit modelid). Slot 0 is written
+    as 0, which the solver already replaces by the executable's model ID.
+    pde['modelnumber'] itself is unchanged; it still names the per-slot
+    kernel/build/datain/dataout directories."""
+    m = int(app.get('modelnumber', 0))
+    if m <= 0:
+        return m
+    from ..config import resolve_modelid
+    return resolve_modelid(app)
+
 def writeapp(app,filename):
     checkconformalinterface(app)
     def flat(key):
@@ -38,7 +54,7 @@ def writeapp(app,filename):
     interfacetype = int(interfacetype.item());
 
     appname = 0;
-    tmp = array([app['tdep'], app['wave'], app['linearproblem'], app['debugmode'], app['matvecorder'], app['GMRESortho'], app['preconditioner'], app['precMatrixType'], app['NLMatrixType'], app['runmode'], app['tdfunc'], app['source'], app['modelnumber'], app['extFhat'], app['extUhat'], app['extStab'], app['subproblem'], app['saveParaview'], app['physicsparamwarmstart'], app['builtinmodelID'], app['frontendgenerated']]);
+    tmp = array([app['tdep'], app['wave'], app['linearproblem'], app['debugmode'], app['matvecorder'], app['GMRESortho'], app['preconditioner'], app['precMatrixType'], app['NLMatrixType'], app['runmode'], app['tdfunc'], app['source'], appbin_modelnumber(app), app['extFhat'], app['extUhat'], app['extStab'], app['subproblem'], app['saveParaview'], app['physicsparamwarmstart'], app['builtinmodelID'], app['frontendgenerated']]);
     app['flag'] =  concatenate([tmp,app['flag']]);
     # problem[0..27], coupling slots problem[28..31], STG chemistry at problem[32],
     # then uniform refinement at problem[33] and interfacetype at problem[34].
