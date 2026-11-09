@@ -24,13 +24,16 @@ endif()
 # Combined multi-PDE: the frontend gencode step wrote one kernel .cpp set per
 # model into the directories in KERNELS_DIRS; one provider library dispatches
 # all the model IDs in IDS (each model in its own exasim_model_<ID> namespace)
-# and falls through to the installed built-in dispatchers for all other IDs.
+# and dispatches only those IDs. NO_BUILTIN_FALLBACK: there is no fall-through
+# to the built-in dispatchers, so the built-in model library is not linked into
+# libfrontend_model and any other ID throws.
 # SHARED: the models live in libfrontend_model, so model changes relink only
 # the provider — exasimapp itself never relinks.
 exasim_add_external_builtin_model(TARGET frontend_model
   IDS @MODEL_ID_LIST@
   KERNELS_DIRS @KERNEL_DIRS@
-  SHARED)
+  SHARED
+  NO_BUILTIN_FALLBACK)
 
 add_executable(exasimapp main.cpp)
 target_compile_definitions(exasimapp PRIVATE _BUILTINLIBRARY)

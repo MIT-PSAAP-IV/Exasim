@@ -57,9 +57,17 @@
 # and links to the installed Exasim::builtinmodel{serial,cuda,hip} for fallthrough
 # to all other model IDs. Do NOT also link Exasim::builtinmodel in the consumer;
 # it will be pulled in transitively through this target.
+#
+# Option NO_BUILTIN_FALLBACK: compile the provider with
+# EXASIM_EXT_BUILTIN_FALLBACK=0 so it references no builtin* dispatcher, and do
+# not link Exasim::builtinmodel*. Any model ID not registered with this call
+# then throws std::runtime_error at dispatch time. The frontend templates use
+# this so libfrontend_model contains only the generated model(s). For SHARED,
+# the provider's Kokkos symbols stay undefined and resolve against the
+# executable at load time (the executable must link Kokkos and export it).
 
 function(exasim_add_external_builtin_model)
-  cmake_parse_arguments(EXT "SHARED" "TARGET;ID;KERNELS"
+  cmake_parse_arguments(EXT "SHARED;NO_BUILTIN_FALLBACK" "TARGET;ID;KERNELS"
     "IDS;KERNELS_DIRS;PDEMODEL;SOURCES" ${ARGN})
 
   if(NOT EXT_TARGET)
@@ -319,10 +327,17 @@ extern \"C\" ModelSizes extGetModelSizes_${_id}() {
     set(_bm_lib Exasim::builtinmodelhip)
   elseif(TARGET Exasim::builtinmodelserial)
     set(_bm_lib Exasim::builtinmodelserial)
+  elseif(EXT_NO_BUILTIN_FALLBACK)
+    set(_bm_lib "")
   else()
     message(FATAL_ERROR
       "exasim_add_external_builtin_model: no Exasim builtinmodel library found.\n"
       "Use find_package(Exasim REQUIRED COMPONENTS cpu) before calling this function.")
+  endif()
+
+  # NO_BUILTIN_FALLBACK: no fall-through, so nothing from the builtin library is linked.
+  if(EXT_NO_BUILTIN_FALLBACK)
+    set(_bm_lib "")
   endif()
 
   # Build the provider library. getBuiltInLibraryExasimDriverABI() is defined in
@@ -339,13 +354,21 @@ extern \"C\" ModelSizes extGetModelSizes_${_id}() {
     target_compile_definitions(${_tgt} PRIVATE KOKKOS_DEPENDENCE)
     target_compile_options(${_tgt} PRIVATE
       $<TARGET_PROPERTY:Kokkos::kokkos,INTERFACE_COMPILE_OPTIONS>)
-    target_link_libraries(${_tgt} PRIVATE "${_bm_lib}")
+    if(_bm_lib)
+      target_link_libraries(${_tgt} PRIVATE "${_bm_lib}")
+    endif()
     if(APPLE)
       target_link_options(${_tgt} PRIVATE -undefined dynamic_lookup)
     endif()
   else()
     add_library(${_tgt} STATIC "${_gendir}/ExternalModelProvider.cpp")
-    target_link_libraries(${_tgt} PRIVATE "${_bm_lib}" Kokkos::kokkos)
+    if(_bm_lib)
+      target_link_libraries(${_tgt} PRIVATE "${_bm_lib}")
+    endif()
+    target_link_libraries(${_tgt} PRIVATE Kokkos::kokkos)
+  endif()
+  if(EXT_NO_BUILTIN_FALLBACK)
+    target_compile_definitions(${_tgt} PRIVATE EXASIM_EXT_BUILTIN_FALLBACK=0)
   endif()
   target_sources(${_tgt} PRIVATE ${_ext_size_sources})
   add_dependencies(${_tgt} _exasim_ext_codegen_${_tgt})
