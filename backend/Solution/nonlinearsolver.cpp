@@ -8,7 +8,32 @@
 #define __NONLINEARSOLVER
 
 #include "nonlinearsolver.h"
+#include <algorithm>
 #include <cmath>
+#include <cstdlib>
+#include <stdexcept>
+#include <string>
+#include <utility>
+
+// HDG Newton reduced-basis (RB) update policy, EXASIM_RB_POLICY:
+//   all       (default) add every accepted Newton correction alpha*x.
+//   converged add a correction only when its linear solve met its tolerance,
+//             so truncated (iteration-capped) solves never enter the basis.
+//   stage     add one vector per converged stage solve: the sum of that
+//             stage's accepted corrections (u_final - u_initial on the trace).
+// The RB only supplies the GMRES initial guess; Newton updates, residuals and
+// tolerances are unchanged by every policy.
+enum class HdgRBPolicy {All, Converged, Stage};
+inline HdgRBPolicy hdg_rb_policy() {
+    static const HdgRBPolicy value=[] {
+        const char* p=std::getenv("EXASIM_RB_POLICY");
+        if(!p || !*p || std::string(p)=="all")return HdgRBPolicy::All;
+        if(std::string(p)=="converged")return HdgRBPolicy::Converged;
+        if(std::string(p)=="stage")return HdgRBPolicy::Stage;
+        throw std::runtime_error("EXASIM_RB_POLICY must be all, converged, or stage");
+    }();
+    return value;
+}
 
 template <class M>
 SolveStatus CNonlinearSolver<M>::PTCsolver(ofstream &out, Int backend)
@@ -270,11 +295,30 @@ SolveStatus CNonlinearSolver<M>::NewtonSolver(ofstream &out, Int N, Int spatialS
       }
     }
 
+    // Accumulated stage correction for EXASIM_RB_POLICY=stage (device, length N).
+    const HdgRBPolicy rbPolicy = hdg_rb_policy();
+    const bool rbStage = rbPolicy==HdgRBPolicy::Stage && spatialScheme==1 &&
+                         disc.common.solverparams.RBdim > 0;
+    static dstype* rbStageSum = nullptr;
+    static Int rbStageSize = 0;
+    if (rbStage) {
+        if (rbStageSize != N) {
+            if (rbStageSum != nullptr) TemplateFree(rbStageSum, backend);
+            TemplateMalloc(&rbStageSum, N, backend);
+            rbStageSize = N;
+        }
+        ArraySetValue(rbStageSum, zero, N);
+    }
+
     // use PTC to solve the system: R(u) = 0
     for (it=0; it<maxit; it++) {
 
         // solve the linear system:  J(u) x = -R(u)
         solv.linearSolve(residual, assembler, disc, prec, out, N, spatialScheme, it, backend);
+        // Captured before the line search; GMRES alone sets these.
+        const bool linearConverged = is_finite_bitwise(solv.state.linearSolverRelError) &&
+            solv.state.linearSolverRelError <= std::min(0.1,
+                disc.common.solverparams.linearSolverTol*solv.state.linearSolverTolFactor);
 
         // int npf = disc.common.grid.npf;
         // int nfe = disc.common.meshsizes.nfe;
@@ -366,13 +410,33 @@ SolveStatus CNonlinearSolver<M>::NewtonSolver(ofstream &out, Int N, Int spatialS
         // update the reduced basis space
         ArrayMultiplyScalar(disc.common.cublasHandle, solv.sys.x, solv.sys.alpha, N, backend);
 
-        if (disc.common.solverparams.RBdim > 0) solv.updateRB(disc, prec, N, backend);
+        if (disc.common.solverparams.RBdim > 0) {
+          if (rbStage) {
+            ArrayAXPY(disc.common.cublasHandle, rbStageSum, solv.sys.x, one, N, backend);
+          }
+          else if (rbPolicy != HdgRBPolicy::Converged || linearConverged) {
+            solv.updateRB(disc, prec, N, backend);
+          }
+          else if (disc.common.mpiRank==0) {
+            printf("RB update skipped: linear solve stopped above tolerance\n");
+          }
+        }
 
         if (disc.common.mpiRank==0)
           printf("Newton Iteration: %d, Alpha: %g, Original Norm: %g,  Updated Norm: %g\n", it+1, solv.sys.alpha, nrm0, nrmr);
 
         // check convergence
-        if (nrmr < tol) return {true, true, it+1};
+        if (nrmr < tol) {
+          if (rbStage) {
+            // updateRB stores sys.x; present the stage sum through it.
+            std::swap(solv.sys.x, rbStageSum);
+            solv.updateRB(disc, prec, N, backend);
+            std::swap(solv.sys.x, rbStageSum);
+            if (disc.common.mpiRank==0)
+              printf("RB stage update: %d Newton corrections combined\n", it+1);
+          }
+          return {true, true, it+1};
+        }
     }
 
     return {false, is_finite_bitwise(nrmr), it};
