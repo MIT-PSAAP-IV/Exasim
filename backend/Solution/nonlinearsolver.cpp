@@ -8,7 +8,32 @@
 #define __NONLINEARSOLVER
 
 #include "nonlinearsolver.h"
+#include <algorithm>
 #include <cmath>
+#include <cstdlib>
+#include <stdexcept>
+#include <string>
+#include <utility>
+
+// HDG Newton reduced-basis (RB) update policy, EXASIM_RB_POLICY:
+//   all       (default) add every accepted Newton correction alpha*x.
+//   converged add a correction only when its linear solve met its tolerance,
+//             so truncated (iteration-capped) solves never enter the basis.
+//   stage     add one vector per converged stage solve: the sum of that
+//             stage's accepted corrections (u_final - u_initial on the trace).
+// The RB only supplies the GMRES initial guess; Newton updates, residuals and
+// tolerances are unchanged by every policy.
+enum class HdgRBPolicy {All, Converged, Stage};
+inline HdgRBPolicy hdg_rb_policy() {
+    static const HdgRBPolicy value=[] {
+        const char* p=std::getenv("EXASIM_RB_POLICY");
+        if(!p || !*p || std::string(p)=="all")return HdgRBPolicy::All;
+        if(std::string(p)=="converged")return HdgRBPolicy::Converged;
+        if(std::string(p)=="stage")return HdgRBPolicy::Stage;
+        throw std::runtime_error("EXASIM_RB_POLICY must be all, converged, or stage");
+    }();
+    return value;
+}
 
 template <class M>
 SolveStatus CNonlinearSolver<M>::PTCsolver(ofstream &out, Int backend)
@@ -270,11 +295,36 @@ SolveStatus CNonlinearSolver<M>::NewtonSolver(ofstream &out, Int N, Int spatialS
       }
     }
 
+    static const bool backtrackNonfinite = [] {
+        const char* p = std::getenv("EXASIM_NEWTON_BACKTRACK_NONFINITE");
+        return p != nullptr && std::string(p) == "1";
+    }();
+    static dstype* wdgSave = nullptr;
+    static Int wdgSaveSize = 0;
+    // Accumulated stage correction for EXASIM_RB_POLICY=stage (device, length N).
+    const HdgRBPolicy rbPolicy = hdg_rb_policy();
+    const bool rbStage = rbPolicy==HdgRBPolicy::Stage && spatialScheme==1 &&
+                         disc.common.solverparams.RBdim > 0;
+    static dstype* rbStageSum = nullptr;
+    static Int rbStageSize = 0;
+    if (rbStage) {
+        if (rbStageSize != N) {
+            if (rbStageSum != nullptr) TemplateFree(rbStageSum, backend);
+            TemplateMalloc(&rbStageSum, N, backend);
+            rbStageSize = N;
+        }
+        ArraySetValue(rbStageSum, zero, N);
+    }
+
     // use PTC to solve the system: R(u) = 0
     for (it=0; it<maxit; it++) {
 
         // solve the linear system:  J(u) x = -R(u)
         solv.linearSolve(residual, assembler, disc, prec, out, N, spatialScheme, it, backend);
+        // Captured before the line search; GMRES alone sets these.
+        const bool linearConverged = is_finite_bitwise(solv.state.linearSolverRelError) &&
+            solv.state.linearSolverRelError <= std::min(0.1,
+                disc.common.solverparams.linearSolverTol*solv.state.linearSolverTolFactor);
 
         // int npf = disc.common.grid.npf;
         // int nfe = disc.common.meshsizes.nfe;
@@ -285,6 +335,17 @@ SolveStatus CNonlinearSolver<M>::NewtonSolver(ofstream &out, Int N, Int spatialS
         // printf("%d %d\n", disc.common.mpiRank, disc.common.meshsizes.ne0);
 
         solv.sys.alpha = 1.0;
+        // Opt-in (EXASIM_NEWTON_BACKTRACK_NONFINITE=1): keep the pre-step w so a
+        // rejected step can restore GetW's starting state before re-evaluating.
+        const Int nwdg = disc.common.grid.npe*disc.common.components.ncw*disc.common.meshsizes.ne1;
+        if (backtrackNonfinite && spatialScheme == 1 && nwdg > 0) {
+          if (wdgSaveSize != nwdg) {
+            if (wdgSave != nullptr) TemplateFree(wdgSave, backend);
+            TemplateMalloc(&wdgSave, nwdg, backend);
+            wdgSaveSize = nwdg;
+          }
+          ArrayCopy(wdgSave, disc.sol.wdg, nwdg);
+        }
         // update the solution: u = u + alpha*x
         ArrayAXPY(disc.common.cublasHandle, solv.sys.u, solv.sys.x, solv.sys.alpha, N, backend);
 
@@ -325,32 +386,8 @@ SolveStatus CNonlinearSolver<M>::NewtonSolver(ofstream &out, Int N, Int spatialS
           assembler.hdgAssembleResidual(solv.sys.b, backend);
           nrmr = PNORM(disc.common.cublasHandle, N, disc.common.couplingparams.ndofuhatinterface, solv.sys.b, backend); 
           nrmr += PNORM(disc.common.cublasHandle, disc.common.grid.npe*disc.common.components.ncu*disc.common.meshsizes.ne1, disc.res.Ru, backend);
-          if ((nrmr > 1.0e6) || !is_finite_bitwise(nrmr)) {
-            string filename = disc.common.fileout + "_np" + NumberToString(disc.common.mpiRank) + ".bin";
-            writearray2file(filename, disc.sol.udg, disc.common.sizes.ndofudg1, backend);
-            if (disc.common.components.ncw > 0) {
-              string filename1 = disc.common.fileout + "_w_np" + NumberToString(disc.common.mpiRank) + ".bin";
-              writearray2file(filename1, disc.sol.wdg, disc.common.grid.npe*disc.common.components.ncw*disc.common.meshsizes.ne1, backend);
-            }
-            writer.crashDump(backend);
-            error("Residual norm exceeds 1e6 or is non-finite. Save and exit.");
-          }
-
-          // damped Newton loop to determine alpha
-          while (nrmr>nrm0 && solv.sys.alpha > 0.1)
-          {
-            if (disc.common.mpiRank==0)
-              printf("Newton Iteration: %d, Alpha: %g, Original Norm: %g,  Updated Norm: %g\n", it+1, solv.sys.alpha, nrm0, nrmr);
-            solv.sys.alpha = solv.sys.alpha/2.0;
-            ArrayAXPY(disc.common.cublasHandle, solv.sys.u, solv.sys.x, -solv.sys.alpha, N, backend);
-            ArrayCopy(disc.sol.uh, solv.sys.u, N);
-            UpdateUDG(disc.sol.udg, solv.sys.v, -solv.sys.alpha, disc.common.grid.npe, disc.common.components.nc, disc.common.meshsizes.ne1, 0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.meshsizes.ne1);             
-            if (disc.common.components.ncq > 0) hdgGetQ(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common, backend);
-            if (disc.common.components.ncw > 0) GetW<M>(disc.sol.wdg, disc.sol, disc.tmp, disc.app, disc.common, backend);
-            assembler.hdgAssembleResidual(solv.sys.b, backend);
-            nrmr = PNORM(disc.common.cublasHandle, N, disc.common.couplingparams.ndofuhatinterface, solv.sys.b, backend);
-            nrmr += PNORM(disc.common.cublasHandle, disc.common.grid.npe*disc.common.components.ncu*disc.common.meshsizes.ne1, disc.res.Ru, backend);
-            if ((nrmr > 1.0e6) || !is_finite_bitwise(nrmr)) {
+          auto badNorm = [](dstype r) { return (r > 1.0e6) || !is_finite_bitwise(r); };
+          auto crash = [&]() {
               string filename = disc.common.fileout + "_np" + NumberToString(disc.common.mpiRank) + ".bin";
               writearray2file(filename, disc.sol.udg, disc.common.sizes.ndofudg1, backend);
               if (disc.common.components.ncw > 0) {
@@ -359,20 +396,65 @@ SolveStatus CNonlinearSolver<M>::NewtonSolver(ofstream &out, Int N, Int spatialS
               }
               writer.crashDump(backend);
               error("Residual norm exceeds 1e6 or is non-finite. Save and exit.");
-            }
+          };
+          if (badNorm(nrmr) && !backtrackNonfinite) crash();
+
+          // damped Newton loop to determine alpha. Default: halve while the norm
+          // grew, down to alpha 0.1. Opt-in: also halve (down to 1/64) when the
+          // updated residual is non-finite or exceeds 1e6, instead of aborting.
+          auto needsDamping = [&]() {
+            if (backtrackNonfinite && badNorm(nrmr)) return solv.sys.alpha > 1.0/64.0;
+            return nrmr>nrm0 && solv.sys.alpha > 0.1;
+          };
+          while (needsDamping())
+          {
+            if (disc.common.mpiRank==0)
+              printf("Newton Iteration: %d, Alpha: %g, Original Norm: %g,  Updated Norm: %g\n", it+1, solv.sys.alpha, nrm0, nrmr);
+            solv.sys.alpha = solv.sys.alpha/2.0;
+            ArrayAXPY(disc.common.cublasHandle, solv.sys.u, solv.sys.x, -solv.sys.alpha, N, backend);
+            ArrayCopy(disc.sol.uh, solv.sys.u, N);
+            UpdateUDG(disc.sol.udg, solv.sys.v, -solv.sys.alpha, disc.common.grid.npe, disc.common.components.nc, disc.common.meshsizes.ne1, 0, disc.common.grid.npe, 0, disc.common.components.ncu, 0, disc.common.meshsizes.ne1);             
+            if (backtrackNonfinite && wdgSave != nullptr) ArrayCopy(disc.sol.wdg, wdgSave, nwdg);
+            if (disc.common.components.ncq > 0) hdgGetQ(disc.sol.udg, disc.sol.uh, disc.sol, disc.res, disc.mesh, disc.tmp, disc.common, backend);
+            if (disc.common.components.ncw > 0) GetW<M>(disc.sol.wdg, disc.sol, disc.tmp, disc.app, disc.common, backend);
+            assembler.hdgAssembleResidual(solv.sys.b, backend);
+            nrmr = PNORM(disc.common.cublasHandle, N, disc.common.couplingparams.ndofuhatinterface, solv.sys.b, backend);
+            nrmr += PNORM(disc.common.cublasHandle, disc.common.grid.npe*disc.common.components.ncu*disc.common.meshsizes.ne1, disc.res.Ru, backend);
+            if (badNorm(nrmr) && !backtrackNonfinite) crash();
           }
+          if (badNorm(nrmr)) crash();
         }
 
         // update the reduced basis space
         ArrayMultiplyScalar(disc.common.cublasHandle, solv.sys.x, solv.sys.alpha, N, backend);
 
-        if (disc.common.solverparams.RBdim > 0) solv.updateRB(disc, prec, N, backend);
+        if (disc.common.solverparams.RBdim > 0) {
+          if (rbStage) {
+            ArrayAXPY(disc.common.cublasHandle, rbStageSum, solv.sys.x, one, N, backend);
+          }
+          else if (rbPolicy != HdgRBPolicy::Converged || linearConverged) {
+            solv.updateRB(disc, prec, N, backend);
+          }
+          else if (disc.common.mpiRank==0) {
+            printf("RB update skipped: linear solve stopped above tolerance\n");
+          }
+        }
 
         if (disc.common.mpiRank==0)
           printf("Newton Iteration: %d, Alpha: %g, Original Norm: %g,  Updated Norm: %g\n", it+1, solv.sys.alpha, nrm0, nrmr);
 
         // check convergence
-        if (nrmr < tol) return {true, true, it+1};
+        if (nrmr < tol) {
+          if (rbStage) {
+            // updateRB stores sys.x; present the stage sum through it.
+            std::swap(solv.sys.x, rbStageSum);
+            solv.updateRB(disc, prec, N, backend);
+            std::swap(solv.sys.x, rbStageSum);
+            if (disc.common.mpiRank==0)
+              printf("RB stage update: %d Newton corrections combined\n", it+1);
+          }
+          return {true, true, it+1};
+        }
     }
 
     return {false, is_finite_bitwise(nrmr), it};
