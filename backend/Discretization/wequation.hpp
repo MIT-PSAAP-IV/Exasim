@@ -356,7 +356,7 @@ inline void EvaluateMaterialPropertiesDerivative(T *wdg, T *wdg_udg,
 }
 
 template <class M, class T=dstype, class I=Int>
-inline void wEquation(T *wdg, T *xdg, T *udg, T *odg, T *wsrc, 
+inline void wEquationDefault(T *wdg, T *xdg, T *udg, T *odg, T *wsrc,
       T *tempg, appstructT<T,I> &app, commonstructT<T,I> &common, Int ng, Int backend, Int *tempi)
 {
     using dstype=T;        
@@ -492,7 +492,7 @@ inline void wEquation(T *wdg, T *xdg, T *udg, T *odg, T *wsrc,
 }
 
 template <class M, class T=dstype, class I=Int>
-inline void wEquation(T *wdg, T *wdg_udg, T *xdg, T *udg, T *odg, T *wsrc, 
+inline void wEquationDefault(T *wdg, T *wdg_udg, T *xdg, T *udg, T *odg, T *wsrc,
        T *tempg, appstructT<T,I> &app, commonstructT<T,I> &common, Int ng, Int backend, Int *tempi)
 {
     using dstype=T;        
@@ -664,6 +664,30 @@ inline void wEquation(T *wdg, T *wdg_udg, T *xdg, T *udg, T *odg, T *wsrc,
         materialScratch = &aux_udg[ng*ncwa*nc];
     EvaluateMaterialPropertiesDerivative<M,T,I>(wdg, wdg_udg, xdg, udg, odg,
         materialScratch, tempi, app, common, ng, ncwa, aux_udg, backend);
+}
+
+// Whole-function policy: defaults preserve both existing auxiliary solve paths.
+// A case may specialize this boundary without changing generic solver numerics.
+template<class M,class T,class I> struct WEquationPolicy {
+    static void run(T* w,T* derivative,T* x,T* u,T* o,T* source,T* scratch,
+        appstructT<T,I>& app,commonstructT<T,I>& common,Int ng,Int backend,Int* tempi) {
+        if(derivative)wEquationDefault<M,T,I>(w,derivative,x,u,o,source,scratch,app,common,ng,backend,tempi);
+        else wEquationDefault<M,T,I>(w,x,u,o,source,scratch,app,common,ng,backend,tempi);
+    }
+};
+#ifdef EXASIM_W_EQUATION_OVERRIDE_HEADER
+#include EXASIM_W_EQUATION_OVERRIDE_HEADER
+#endif
+
+template<class M,class T=dstype,class I=Int>
+inline void wEquation(T* w,T* x,T* u,T* o,T* source,T* scratch,
+    appstructT<T,I>& app,commonstructT<T,I>& common,Int ng,Int backend,Int* tempi) {
+    WEquationPolicy<M,T,I>::run(w,nullptr,x,u,o,source,scratch,app,common,ng,backend,tempi);
+}
+template<class M,class T=dstype,class I=Int>
+inline void wEquation(T* w,T* derivative,T* x,T* u,T* o,T* source,T* scratch,
+    appstructT<T,I>& app,commonstructT<T,I>& common,Int ng,Int backend,Int* tempi) {
+    WEquationPolicy<M,T,I>::run(w,derivative,x,u,o,source,scratch,app,common,ng,backend,tempi);
 }
 
 template <class M, class T=dstype, class I=Int>

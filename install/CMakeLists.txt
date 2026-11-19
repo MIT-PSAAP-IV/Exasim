@@ -191,6 +191,15 @@ if(EXASIM_HDG_ASSEMBLY_OVERRIDE_HEADER)
   add_compile_definitions(EXASIM_HDG_ASSEMBLY_OVERRIDE_HEADER="${EXASIM_HDG_ASSEMBLY_OVERRIDE_HEADER}")
 endif()
 
+set(EXASIM_W_EQUATION_OVERRIDE_HEADER "" CACHE FILEPATH
+    "Optional application header specializing the whole auxiliary equation solve")
+if(EXASIM_W_EQUATION_OVERRIDE_HEADER)
+  if(NOT EXISTS "${EXASIM_W_EQUATION_OVERRIDE_HEADER}")
+    message(FATAL_ERROR "Auxiliary equation override header does not exist")
+  endif()
+  add_compile_definitions(EXASIM_W_EQUATION_OVERRIDE_HEADER="${EXASIM_W_EQUATION_OVERRIDE_HEADER}")
+endif()
+
 set(EXASIM_HDG_STORAGE_OVERRIDE_HEADER "" CACHE FILEPATH
     "Optional application header specializing HDG batch allocation policy")
 if(EXASIM_HDG_STORAGE_OVERRIDE_HEADER)
