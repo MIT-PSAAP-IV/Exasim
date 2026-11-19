@@ -2,6 +2,7 @@
 // and inverse as native Inverse, with per-rank reusable pointer/pivot buffers.
 // Sequential assembly owns these views; the next call uses the same stream.
 inline void inverse(Context& ctx,cublasHandle_t handle,double* a,double* c,int* ipiv,int n,int batch,int backend){
+ EXASIM_PROFILE_SCOPE("hdg.local_lu_inverse");
 #ifdef HAVE_HIP
  if(ctx.cached_inverse && backend==3){
   static_assert(sizeof(uintptr_t)==sizeof(double*));

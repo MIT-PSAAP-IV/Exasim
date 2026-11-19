@@ -40,6 +40,7 @@
  */
 #ifndef __COMMON_H__
 #define __COMMON_H__
+#include "algorithm_profile.hpp"
 
 // Standard headers used directly below (filesystem path/dir helpers, string,
 // containers). Included here so common.h is self-contained for consumers that

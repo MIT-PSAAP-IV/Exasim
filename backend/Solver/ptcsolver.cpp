@@ -262,6 +262,10 @@ void CSolver<M, T, I>::linearSolve(CResidual<M, T, I>& residual, CAssembler<M, T
     auto begin = chrono::high_resolution_clock::now();   
         
     state.linearSolverIter = gmres(assembler, disc, prec, N, spatialScheme, backend);  
+    if constexpr (std::is_same_v<T,double> && std::is_same_v<I,::Int>) {
+      if(spatialScheme==1 && disc.common.composite)
+        fieldsplit::afterSolve(*disc.common.composite,assembler,disc,sys,state,N,backend);
+    }
 
     auto end = chrono::high_resolution_clock::now();
     double t1 = chrono::duration_cast<chrono::nanoseconds>(end-begin).count()/1e6;        

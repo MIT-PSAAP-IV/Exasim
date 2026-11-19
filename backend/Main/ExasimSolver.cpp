@@ -1692,6 +1692,10 @@ int ExasimSolver::RunTimeDependent(const int modelnumber)
 
 int ExasimSolver::RunTimeDependent(Int start, Int steps)
 {
+    // Initialization is a separate observation window.
+    exasim::profile::report(models_[0]->disc.common.mpiRank,-1);
+    {
+    EXASIM_PROFILE_SCOPE("time.advance");
     dstype time = models_[0]->disc.common.timestate.time;
     for (Int istep = start; istep < start+steps; istep++) {
         for (int i = 0; i < nummodels_; i++) {
@@ -1749,6 +1753,8 @@ int ExasimSolver::RunTimeDependent(Int start, Int steps)
         time = time + models_[0]->disc.common.dt[istep];
     }
 
+    }
+    exasim::profile::report(models_[0]->disc.common.mpiRank,start);
     return 0;
 }
 

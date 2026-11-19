@@ -4,7 +4,7 @@ struct BoundaryRows {
  struct Range { int e1,end,first,count; };
  struct Selection { std::vector<Range> ranges; int faces=0; };
  View C,delta,rhs;
- Kokkos::View<int*> elements,faces;
+ Kokkos::View<int*> elements,faces,faceToRow;
  std::vector<Range> ranges;
  bool active=false;
 
@@ -44,7 +44,7 @@ struct BoundaryRows {
   const uint64_t perFace=uint64_t(d.PF)*d.NC*(d.N+d.M+1)*sizeof(double)+2*sizeof(int);
   if(uint64_t(s.faces)>uint64_t(std::numeric_limits<ptrdiff_t>::max())/perFace)
    throw std::overflow_error("compositebc: boundary storage exceeds pointer range");
-  return size_t(s.faces)*perFace;
+  return size_t(s.faces)*perFace + size_t(c.meshsizes.ne1)*(2*d.nd)*sizeof(int);
  }
  void init(const commonstruct& c,const meshstruct& mesh) {
   if(!c.compositeConfig.enabled || c.compositeConfig.boundaryCodes.empty())return;
@@ -79,6 +79,10 @@ struct BoundaryRows {
    C=View("COMPOSITE boundary C rows",rows*d.N);
    delta=View("COMPOSITE boundary Schur correction",rows*d.M);
    rhs=View("COMPOSITE boundary uncondensed RHS",rows);
+   std::vector<int> lookup(size_t(c.meshsizes.ne1)*(2*d.nd),-1);
+   for(int p=0;p<plan.faces;++p)lookup[size_t(es[p])*(2*d.nd)+fs[p]]=p;
+   faceToRow=Kokkos::View<int*>("COMPOSITE boundary face row lookup",lookup.size());
+   TemplateCopytoDevice(faceToRow.data(),lookup.data(),int(lookup.size()),c.backend);
    elements=Kokkos::View<int*>("COMPOSITE boundary elements",plan.faces);
    faces=Kokkos::View<int*>("COMPOSITE boundary faces",plan.faces);
    TemplateCopytoDevice(elements.data(),es.data(),plan.faces,c.backend);
@@ -96,7 +100,7 @@ struct BoundaryRows {
  }
  size_t bytes()const {
   return sizeof(double)*(C.extent(0)+delta.extent(0)+rhs.extent(0))+
-         sizeof(int)*(elements.extent(0)+faces.extent(0));
+         sizeof(int)*(elements.extent(0)+faces.extent(0)+faceToRow.extent(0));
  }
- void clear(){C={};delta={};rhs={};elements={};faces={};ranges.clear();active=false;}
+ void clear(){C={};delta={};rhs={};elements={};faces={};faceToRow={};ranges.clear();active=false;}
 };

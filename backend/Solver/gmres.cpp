@@ -83,6 +83,7 @@ via the 'common' member of CDiscretization.
 void CGS(cublasHandle_t handle, dstype *V, dstype *H, dstype *temp, Int N, Int m, Int backend,
          const PrecondStageTable* stages = nullptr)
 {
+    EXASIM_PROFILE_SCOPE("krylov.orthogonalization");
     // a registered replacement is only offered by LDG discretizations (see the call sites)
     if (const PrecondStageTable* t = stages; t != nullptr && t->cgs != nullptr) {
         t->cgs(handle, V, H, temp, N, m, backend);
@@ -152,6 +153,7 @@ void UpdateSolution(cublasHandle_t handle, dstype *x, dstype *y, dstype *H, dsty
 template <class M, class T, class I>
 I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc, CPreconditioner<M, T, I>& prec, Int backend)
 {
+    EXASIM_PROFILE_SCOPE("krylov.gmres");
     INIT_TIMING;    
     
     Int maxit, nrest, orthogMethod, n1, i, k, j = 0;
@@ -443,6 +445,7 @@ template <class M, class T, class I>
 I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc, CPreconditioner<M, T, I>& prec, Int N, Int spatialScheme, Int backend,
                         const HdgLdgLinearActionsT<T>* actions)
 {
+    EXASIM_PROFILE_SCOPE("krylov.gmres");
     // NOTE: this variant does its own manual timing via the local begin/end +
     // tm[] below; it does not use the START/END_TIMING macros. A stray
     // INIT_TIMING here declared begin/end under -DTIMING and collided with the

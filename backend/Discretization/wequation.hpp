@@ -669,6 +669,7 @@ inline void wEquation(T *wdg, T *wdg_udg, T *xdg, T *udg, T *odg, T *wsrc,
 template <class M, class T=dstype, class I=Int>
 inline void GetW(T *w, solstructT<T,I> &sol, tempstructT<T,I> &tmp, appstructT<T,I> &app, commonstructT<T,I> &common, Int backend)
 {
+    EXASIM_PROFILE_SCOPE("physics.eos");
     using dstype=T;
   for (Int j=0; j<common.meshsizes.nbe; j++) {         
       Int e1 = common.eblks[3*j]-1;

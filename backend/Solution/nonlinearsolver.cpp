@@ -204,6 +204,7 @@ SolveStatus CNonlinearSolver<M>::PTCsolver(ofstream &out, Int backend)
 template <class M>
 SolveStatus CNonlinearSolver<M>::NewtonSolver(ofstream &out, Int N, Int spatialScheme, Int backend)
 {
+    EXASIM_PROFILE_SCOPE("nonlinear.newton");
     Int it = 0, maxit = disc.common.solverparams.nonlinearSolverMaxIter;
     dstype nrmr, nrm0, tol;
     tol = disc.common.solverparams.nonlinearSolverTol; // tolerance for the residual

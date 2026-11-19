@@ -165,7 +165,8 @@ CPreconditioner<M, T, I>::~CPreconditioner()
 
 template <class M, class T, class I>
 void CPreconditioner<M, T, I>::ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler<M, T, I>& assembler, CDiscretization& disc, Int backend)
-{       
+{
+    EXASIM_PROFILE_SCOPE("krylov.reduced_basis");
     // RB supplies a warm start, not a modification of ApplyPreconditioner.
     // Older J*W columns are deliberately recycled as an approximate predictor.
     // linearSolve checks its current nonlinear residual before GMRES uses it.
@@ -203,7 +204,8 @@ void CPreconditioner<M, T, I>::ComputeInitialGuessAndPreconditioner(sysstruct& s
 
 template <class M, class T, class I>
 void CPreconditioner<M, T, I>::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretization& disc, Int backend)
-{        
+{
+    EXASIM_PROFILE_SCOPE("krylov.preconditioner_apply");
     Int N = disc.common.sizes.ndof1;        
 
     if ((disc.common.spatialScheme == 0) && (disc.common.solverparams.preconditioner == 1) && (disc.res.K != nullptr)) {
@@ -230,7 +232,8 @@ void CPreconditioner<M, T, I>::ApplyPreconditioner(dstype* x, sysstruct& sys, CD
 
 template <class M, class T, class I>
 void CPreconditioner<M, T, I>::ComputeInitialGuessAndPreconditioner(sysstruct& sys, solverstatestruct& state, CAssembler<M, T, I>& assembler, CDiscretization& disc, Int N, Int spatialScheme, Int backend)
-{     
+{
+    EXASIM_PROFILE_SCOPE("krylov.reduced_basis");
     if (spatialScheme == 0) {
         ComputeInitialGuessAndPreconditioner(sys, state, assembler, disc, backend);
         return;
@@ -356,7 +359,8 @@ void ApplyBlockILU0(double* x, double* A, double* b, double *B, double *C, commo
 
 template <class M, class T, class I>
 void CPreconditioner<M, T, I>::ApplyPreconditioner(dstype* x, sysstruct& sys, CDiscretization& disc, Int spatialScheme, Int backend)
-{                
+{
+    EXASIM_PROFILE_SCOPE("krylov.preconditioner_apply");
     if (spatialScheme==0) {
       Int N = disc.common.sizes.ndof1;        
       ArrayCopy(disc.common.cublasHandle, disc.res.Ru, x, N, backend);
@@ -472,6 +476,7 @@ void CPreconditioner<M, T, I>::ComputeLDGPreconditioner(CDiscretization& disc, d
 template <class M, class T, class I>
 void CPreconditioner<M, T, I>::ComputeHDGPreconditioner(CDiscretization& disc, Int backend)
 {
+    EXASIM_PROFILE_SCOPE("hdg.preconditioner_setup");
     auto& res = disc.res; auto& mesh = disc.mesh; auto& tmp = disc.tmp; auto& common = disc.common;
 
     if (common.solverparams.preconditioner==0) {
