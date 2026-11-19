@@ -804,7 +804,7 @@ void CDiscretizationT<T, I>::finalizeConstruction(Int backend, ExasimExecutionMo
         if(!common.compositeConfig.enabled && common.solverparams.preconditioner==0) pcount=uint64_t(ncu)*npf*ncu*npf*nf;
         if(!common.compositeConfig.enabled && common.solverparams.preconditioner==2) pcount=uint64_t(npf)*ncu*npf*ncu*common.nse*common.nnz;
         res.szP=fieldsplit::checkedStorage(pcount,"preconditioner prefix");
-        res.szV=fieldsplit::checkedCount(uint64_t(ncu)*npf*nf*max(common.solverparams.gmresRestart+1,common.solverparams.RBdim),"Krylov/RB");
+        res.szV=exasim::index::storageProduct<T>(uint64_t(ncu)*npf*nf,uint64_t(max(common.solverparams.gmresRestart+1,common.solverparams.RBdim)),"Krylov/RB");
         const auto batchStorage=common.compositeConfig.enabled?fieldsplit::batchStorage(common):
           fieldsplit::BatchStorage{0,0,0,size_t(nt*nv),size_t(nv*nv),size_t(nv*nq),size_t(nt*nq)};
         res.szK=fieldsplit::checkedStorage(std::max<uint64_t>((batchStorage.k+batchStorage.d+batchStorage.b+batchStorage.g+(batchStorage.work_in_arena?batchStorage.work:0))*uint64_t(neb),uint64_t(res.szP)+res.szV),"K arena");

@@ -91,13 +91,13 @@ void CGS(cublasHandle_t handle, dstype *V, dstype *H, dstype *temp, Int N, Int m
     }
     // Zero-owned-entry ranks still join PGEMTV's global coefficient reduction.
     // BLAS requires lda>=1 even when its local row count is zero.
-    PGEMTV(handle, N, m, &one, V, max(Int(1),N), &V[m*N], inc1, &zero, H, inc1, temp, backend);
+    PGEMTV(handle, N, m, &one, V, max(Int(1),N), &V[std::size_t(m)*N], inc1, &zero, H, inc1, temp, backend);
     if (N > 0)
-        PGEMNV(handle, N, m, &minusone, V, N, H, inc1, &one, &V[m*N], inc1, backend);
-    PDOT(handle, N, &V[m*N], inc1, &V[m*N], inc1, &H[m], backend);
+        PGEMNV(handle, N, m, &minusone, V, N, H, inc1, &one, &V[std::size_t(m)*N], inc1, backend);
+    PDOT(handle, N, &V[std::size_t(m)*N], inc1, &V[std::size_t(m)*N], inc1, &H[m], backend);
     H[m] = sqrt(H[m]);
     if (is_finite_bitwise(H[m]) && H[m] > 0)
-        ArrayMultiplyScalar(&V[m*N], one/H[m], N);
+        ArrayMultiplyScalar(&V[std::size_t(m)*N], one/H[m], N);
 }
 
 template <class M>
@@ -290,19 +290,19 @@ I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc,
                         
             // compute v[m] = A*v[i]
             START_TIMING;                        
-            assembler.evalMatVecWithNorm(&sys.v[m*N], &sys.v[i*N], sys.u, sys.b, one, backend);
+            assembler.evalMatVecWithNorm(&sys.v[std::size_t(m)*N], &sys.v[std::size_t(i)*N], sys.u, sys.b, one, backend);
             END_TIMING_DISC(0);    
                                                             
             START_TIMING;                                    
             // compute v[m] = P*v[m]
             if (usePolynomial) {
-                prec.ApplyPreconditioner(&sys.v[m*N], sys, disc, backend);   
-                //ApplyComponentNorm(disc, sys.normcu, &sys.v[m*N], disc.res.Ru, ncu, ncu, npe, ne, backend);
-                ApplyPoly(&sys.v[m*N], assembler, disc, prec, sys, sys.q, sys.p, N, backend);
+                prec.ApplyPreconditioner(&sys.v[std::size_t(m)*N], sys, disc, backend);
+                //ApplyComponentNorm(disc, sys.normcu, &sys.v[std::size_t(m)*N], disc.res.Ru, ncu, ncu, npe, ne, backend);
+                ApplyPoly(&sys.v[std::size_t(m)*N], assembler, disc, prec, sys, sys.q, sys.p, N, backend);
             }
             else if (state.RBcurrentdim>=0) {
-                prec.ApplyPreconditioner(&sys.v[m*N], sys, disc, backend);   
-                //ApplyComponentNorm(disc, sys.normcu, &sys.v[m*N], disc.res.Ru, ncu, ncu, npe, ne, backend);
+                prec.ApplyPreconditioner(&sys.v[std::size_t(m)*N], sys, disc, backend);
+                //ApplyComponentNorm(disc, sys.normcu, &sys.v[std::size_t(m)*N], disc.res.Ru, ncu, ncu, npe, ne, backend);
             }
             END_TIMING_DISC(1);    
                                     
@@ -597,7 +597,7 @@ I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc,
             // The previous residual sys.r is dead after copying it to v[0].
             // A coupled action may borrow its native-capacity storage here;
             // the current input/output basis columns must remain distinct.
-            product(&sys.v[m*N], &sys.v[i*N]);
+            product(&sys.v[std::size_t(m)*N], &sys.v[std::size_t(i)*N]);
             
 #ifdef HAVE_CUDA
     cudaDeviceSynchronize();
@@ -614,11 +614,11 @@ I CSolver<M, T, I>::gmres(CAssembler<M, T, I>& assembler, CDiscretization &disc,
             
             // compute v[m] = P*v[m]
             if (usePolynomial) {
-                prec.ApplyPreconditioner(&sys.v[m*N], sys, disc, spatialScheme, backend);   
-                ApplyPoly(&sys.v[m*N], assembler, disc, prec, sys, sys.q, sys.p, N, spatialScheme, backend);
+                prec.ApplyPreconditioner(&sys.v[std::size_t(m)*N], sys, disc, spatialScheme, backend);
+                ApplyPoly(&sys.v[std::size_t(m)*N], assembler, disc, prec, sys, sys.q, sys.p, N, spatialScheme, backend);
             }
             else if (actions || state.RBcurrentdim>=0) {
-                apply(&sys.v[m*N]);
+                apply(&sys.v[std::size_t(m)*N]);
             }
             
 #ifdef HAVE_CUDA

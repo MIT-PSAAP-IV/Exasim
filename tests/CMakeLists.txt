@@ -11,6 +11,11 @@
 # EXASIM_BUILD_TESTS=ON, builds, runs ctest).
 cmake_minimum_required(VERSION 3.16)
 
+add_executable(storage_index_test "${EXASIM_DIR}/tests/test_storage_index.cpp")
+target_compile_features(storage_index_test PRIVATE cxx_std_17)
+add_test(NAME storage_index COMMAND storage_index_test)
+set_tests_properties(storage_index PROPERTIES TIMEOUT 60)
+
 
 # Backend material-database appstruct conversion.  This is intentionally scoped
 # to the appstruct-based reader used by the backend initialization path; PSAAP
